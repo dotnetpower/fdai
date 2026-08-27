@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import math
 from datetime import datetime
 from enum import StrEnum
@@ -249,6 +250,17 @@ class SemanticBoundContext(QueryContract):
                 self.screen_id is not None
                 or self.resource_group_id is not None
                 or self.resource_ids
+                or any(
+                    value is not None
+                    for value in (
+                        self.principal_id,
+                        self.principal_scope_digest,
+                        self.ontology_release_digest,
+                        self.source_generation,
+                        self.selection_digest,
+                        self.complete,
+                    )
+                )
             ):
                 raise ValueError("incident bound context MUST NOT carry resource scope")
             return self
@@ -264,8 +276,12 @@ class SemanticBoundContext(QueryContract):
                 or self.complete is not True
             ):
                 raise ValueError("screen bound context requires a complete server-issued identity")
-            if self.incident_id is not None or self.correlation_id is not None:
-                raise ValueError("screen bound context MUST NOT carry incident identity")
+            if (
+                self.incident_id is not None
+                or self.correlation_id is not None
+                or self.resource_group_id is not None
+            ):
+                raise ValueError("screen bound context MUST NOT carry mixed identity")
         elif (
             self.resource_group_id is None
             or not self.resource_ids
@@ -279,6 +295,12 @@ class SemanticBoundContext(QueryContract):
             raise ValueError(
                 "resource-group bound context requires a complete server-issued identity"
             )
+        elif (
+            self.screen_id is not None
+            or self.incident_id is not None
+            or self.correlation_id is not None
+        ):
+            raise ValueError("resource-group bound context MUST NOT carry mixed identity")
         if self.resource_ids != tuple(dict.fromkeys(self.resource_ids)):
             raise ValueError("bound resource ids MUST be unique")
         return self
@@ -308,7 +330,14 @@ def context_selection_digest(
         "resource_group_id": resource_group_id,
         "resource_ids": sorted(resource_ids),
     }
-    return f"sha256:{hashlib.sha256(canonical_json(body).encode()).hexdigest()}"
+    encoded = json.dumps(
+        body,
+        allow_nan=False,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
 class SemanticInvestigationContinuation(QueryContract):

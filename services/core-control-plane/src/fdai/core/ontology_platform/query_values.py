@@ -9,7 +9,7 @@ from typing import Any
 
 from fdai.shared.providers.ontology_instance import normalize_json_value
 
-_MAX_ROWS = 1_000
+_MAX_ROWS = 10_000
 _MAX_ROW_BYTES = 65_536
 _MAX_TABLE_BYTES = 8_388_608
 

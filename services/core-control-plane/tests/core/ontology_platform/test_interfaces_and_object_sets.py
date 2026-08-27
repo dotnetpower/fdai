@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
+from typing import Any
 
 import pytest
 from fdai.core.ontology_platform import (
@@ -55,6 +57,22 @@ def _interfaces() -> tuple[OntologyInterfaceType, OntologyInterfaceType]:
         supported_actions=("ops.restart-service",),
     )
     return ownable, operable
+
+
+class _TrackingStore(InMemoryOntologyInstanceStore):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.active = 0
+        self.max_active = 0
+
+    async def query_objects(self, **kwargs: Any):  # type: ignore[no-untyped-def]
+        self.active += 1
+        self.max_active = max(self.max_active, self.active)
+        try:
+            await asyncio.sleep(0)
+            return await super().query_objects(**kwargs)
+        finally:
+            self.active -= 1
 
 
 def test_interface_compilation_expands_inheritance() -> None:
@@ -260,7 +278,7 @@ async def test_exact_id_membership_reads_beyond_store_candidate_limit() -> None:
             }
         }
     )
-    store = InMemoryOntologyInstanceStore(object_types=(resource_type,), link_types=())
+    store = _TrackingStore(object_types=(resource_type,), link_types=())
     identifiers = tuple(f"resource-{index}" for index in range(1001))
     for identifier in identifiers:
         await store.upsert_object(
@@ -296,6 +314,7 @@ async def test_exact_id_membership_reads_beyond_store_candidate_limit() -> None:
 
     assert [item.id for item in result.graph.objects] == ["resource-1000"]
     assert result.truncated is False
+    assert store.max_active <= 16
 
 
 def test_object_set_rejects_unbounded_or_naive_traversal() -> None:
