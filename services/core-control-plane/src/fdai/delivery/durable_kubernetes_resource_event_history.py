@@ -17,7 +17,7 @@ from fdai.delivery.persistence.postgres_kubernetes_lifecycle import (
 )
 
 _MAX_EVENTS = 256
-_FRESHNESS_SECONDS = 120
+_MAX_COVERAGE_TAIL_GAP_SECONDS = 5
 _KIND_TO_TYPE = {
     "CronJob": "kubernetes.cron-job",
     "DaemonSet": "kubernetes.daemon-set",
@@ -131,7 +131,7 @@ class DurableKubernetesResourceEventHistoryReader:
             else "source_retention_incomplete"
             if max(cursor.coverage_started_at, cursor.retention_floor_at) > since
             else "source_retention_stale"
-            if cursor.coverage_through_at < now - timedelta(seconds=_FRESHNESS_SECONDS)
+            if cursor.coverage_through_at < now - timedelta(seconds=_MAX_COVERAGE_TAIL_GAP_SECONDS)
             else None
         )
         return _result(resource_ids, now, events, limitation)

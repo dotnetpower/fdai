@@ -14,6 +14,9 @@ from fdai.delivery.durable_kubernetes_resource_event_history import (
     MergedKubernetesResourceEventHistoryReader,
 )
 from fdai.delivery.kubernetes_api_inventory import kubernetes_resource_id
+from fdai.delivery.persistence.postgres_kubernetes_lifecycle import (
+    _psycopg_dsn,
+)
 
 NOW = datetime(2026, 8, 27, 8, 0, tzinfo=UTC)
 CLUSTER = "scope-example/resource-group/example/providers/containerservice/example"
@@ -119,6 +122,34 @@ async def test_recent_cursor_cannot_claim_historical_absence() -> None:
 
     assert result.complete is False
     assert result.limitation == "source_retention_incomplete"
+
+
+async def test_stale_cursor_tail_cannot_claim_short_window_absence() -> None:
+    store = _Store(coverage_started_at=NOW - timedelta(hours=2))
+    store.cursor = replace(
+        store.cursor,
+        coverage_through_at=NOW - timedelta(seconds=6),
+    )
+    reader = DurableKubernetesResourceEventHistoryReader(
+        store=store,  # type: ignore[arg-type]
+        cluster_ref=CLUSTER,
+        now=lambda: NOW,
+    )
+
+    result = await reader.read_history(
+        resource_ids=(CLUSTER,),
+        event_families=("resource_event.kubernetes",),
+        lookback_seconds=60,
+    )
+
+    assert result.complete is False
+    assert result.limitation == "source_retention_stale"
+
+
+def test_postgres_store_accepts_standard_sqlalchemy_psycopg_dsn() -> None:
+    assert _psycopg_dsn("postgresql+psycopg://user:password@example.invalid/database") == (
+        "postgresql://user:password@example.invalid/database"
+    )
 
 
 async def test_merge_deduplicates_overlapping_live_and_durable_rows() -> None:

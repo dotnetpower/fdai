@@ -207,8 +207,9 @@ class PostgresKubernetesLifecycleStore:
         return tuple(_observation(row) for row in rows)
 
     async def _connect(self) -> psycopg.AsyncConnection[dict[str, Any]]:
+        dsn = _psycopg_dsn(self._config.dsn)
         return await psycopg.AsyncConnection.connect(
-            self._config.dsn,
+            dsn,
             row_factory=dict_row,
             connect_timeout=self._config.connect_timeout_s,
         )
@@ -218,6 +219,10 @@ class PostgresKubernetesLifecycleStore:
             "SELECT set_config('statement_timeout', %s, true)",
             (str(self._config.statement_timeout_ms),),
         )
+
+
+def _psycopg_dsn(value: str) -> str:
+    return value.replace("postgresql+psycopg://", "postgresql://", 1)
 
 
 def _cursor(row: dict[str, Any]) -> KubernetesLifecycleCursor:

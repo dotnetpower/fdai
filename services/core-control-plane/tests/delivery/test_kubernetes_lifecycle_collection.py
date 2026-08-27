@@ -6,6 +6,7 @@ import json
 from datetime import UTC, datetime, timedelta
 
 import httpx
+import pytest
 from fdai.core.ontology_platform.kubernetes_lifecycle import KubernetesLifecycleCursor
 from fdai.delivery.kubernetes_lifecycle_collection import KubernetesLifecycleCollector
 
@@ -181,3 +182,53 @@ async def test_item_limit_commits_the_processed_prefix_checkpoint() -> None:
     assert len(result.observations) == 256
     assert result.next_resume_token == "opaque-255"
     assert result.limitation == "result_limit"
+
+
+@pytest.mark.parametrize(
+    ("reason", "action", "expected"),
+    (
+        ("Killing", "MODIFIED", "terminating"),
+        ("Failed", "MODIFIED", "failed"),
+        ("BackOff", "MODIFIED", "backoff"),
+        ("Unhealthy", "MODIFIED", "unhealthy"),
+        ("SuccessfulCreate", "ADDED", "created"),
+        ("Scheduled", "ADDED", "scheduled"),
+        ("Started", "ADDED", "started"),
+        ("SuccessfulDelete", "DELETED", "deleted"),
+    ),
+)
+async def test_reviewed_lifecycle_reasons_are_normalized_without_message_text(
+    reason: str,
+    action: str,
+    expected: str,
+) -> None:
+    payload = {
+        "type": action,
+        "object": {
+            "metadata": {
+                "uid": "event-a",
+                "resourceVersion": "opaque-10",
+                "creationTimestamp": "2026-08-27T08:00:00Z",
+            },
+            "involvedObject": {"uid": "object-a", "kind": "Pod"},
+            "reason": reason,
+            "type": "Normal",
+            "message": "provider-controlled text is ignored",
+        },
+    }
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(200, content=json.dumps(payload).encode())
+        )
+    ) as client:
+        result = await KubernetesLifecycleCollector(
+            api_server="https://cluster.example.com",
+            cluster_ref=CLUSTER,
+            auth=_Auth(),
+            http_client=client,
+            now=lambda: NOW + timedelta(seconds=20),
+        ).collect(_cursor(token="opaque-seed", limitation=None))
+
+    assert len(result.observations) == 1
+    assert result.observations[0].lifecycle_kind == expected
+    assert "provider-controlled" not in repr(result.observations[0])
