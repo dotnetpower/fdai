@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 ARB 에이전트 루프
 translation_of: ontology-agent-loop.md
-translation_source_sha: 9565f7e7167fbd09823554d5a379faf579ce6217
+translation_source_sha: 811b71e864c84db71d4532cd8a1a19b6fde7807c
 translation_revised: 2026-08-27
 ---
 # 온톨로지 기반 ARB 에이전트 루프
@@ -93,6 +93,13 @@ ARB 읽기 모델은 에이전트가 소유한 레코드에서 파생됩니다. 
 관찰 전용 `DecisionCase` 및 `ImpactEnvelope` 계보를 `object.verdict`에 게시합니다. Change
 멱등성 키로 중복 전달을 억제하며, 기한, 역압, 오래됨, 충돌 또는 사용할 수 없는 근거는 보류
 판정을 만듭니다. 어떤 ARB 결과도 승인, 변경, 실행 또는 승격 권한을 가지지 않습니다.
+
+검토는 `planned` 의도만 수락합니다. 전체 Change 식별자를 해시하고 하나의 절대 기한을
+사용하며, 동일한 멱등성 키만 직렬화하므로 서로 다른 검토는 병렬로 진행할 수 있습니다.
+컨텍스트와 근거는 동일한 온톨로지 및 카탈로그 릴리스를 명시해야 합니다. 근거를 일시적으로
+다시 읽을 수 없을 때 기존 점검을 제거하지 않으며, 근거 아티팩트 식별자는 묶음과 항목
+콘텐츠에 결속됩니다. 생성되는 `Change`, `DecisionCase`, `ImpactEnvelope`, `ReviewCase`
+레코드는 형식화된 계보 연결을 유지하고 명시적으로 관찰 전용 상태를 유지합니다.
 
 ## 자율 검토 수준
 

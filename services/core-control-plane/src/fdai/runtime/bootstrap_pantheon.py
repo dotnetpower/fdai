@@ -12,6 +12,7 @@ from typing import Any, cast
 
 import httpx
 import psycopg
+import yaml
 
 from fdai.agents import (
     Norns,
@@ -23,6 +24,7 @@ from fdai.agents import (
 )
 from fdai.agents.vidar import RollbackExecutor
 from fdai.composition import Container
+from fdai.core.architecture_review import ArchitectureReviewProjector
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.control_loop import ControlLoop
 from fdai.core.executor import MutationDependencyReadiness
@@ -107,6 +109,8 @@ class PantheonInitialization:
     runtime_positive_integer: Callable[[dict[str, object], str], int]
     build_mutation_dependency_readiness: Callable[..., MutationDependencyReadiness]
     semantic_router_config_from_env: Callable[[], SemanticRouterConfig]
+    architecture_review_loop: Any | None = None
+    architecture_review_sink: Any | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -348,6 +352,17 @@ async def initialize_pantheon(
                 verifier=observation_verifier,
             ),
         ).handle
+    architecture_review_sink = config.architecture_review_sink
+    if architecture_review_sink is None and config.control_loop.ontology_instance_store is not None:
+        manifest_path = Path(__file__).resolve().parents[5] / "config" / "architecture-review.yaml"
+        if manifest_path.is_file():
+            with manifest_path.open("r", encoding="utf-8") as handle:
+                manifest = yaml.safe_load(handle)
+            if isinstance(manifest, dict):
+                architecture_review_sink = ArchitectureReviewProjector(
+                    config.control_loop.ontology_instance_store,
+                    manifest,
+                )
     pantheon_runtime = PantheonRuntime.build(
         provider=config.bus,
         raw_event_topic=config.container.config.kafka.topic_events,
@@ -417,6 +432,8 @@ async def initialize_pantheon(
         operational_context_materializer=operational_context_materializer,
         operational_planner=operational_planner,
         change_assessor=_change_assessment_service(config),
+        architecture_review_loop=config.architecture_review_loop,
+        architecture_review_sink=architecture_review_sink,
         case_history_retention=(
             case_history_runtime.retention if case_history_runtime is not None else None
         ),

@@ -215,6 +215,7 @@ class Forseti(Agent, ForsetiJudgmentMixin):
                 idempotency_key=str(payload.get("idempotency_key") or "unknown"),
                 correlation_id=str(payload.get("correlation_id") or "unknown"),
                 target_ref=str(payload.get("target_ref") or "unknown"),
+                change_digest="unknown",
                 reason=f"observation_review_failed:{type(exc).__name__}",
             )
         if observation.replayed:

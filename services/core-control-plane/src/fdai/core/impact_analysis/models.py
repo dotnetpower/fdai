@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from fdai.shared.providers.ontology_instance import OntologyObjectRecord
 
@@ -108,6 +108,7 @@ class ImpactEnvelopeRecord:
     telemetry_requirements: TelemetryRequirements
     uncertainty: float
     expires_at: datetime
+    observation_only: Literal[True] = True
 
     def __post_init__(self) -> None:
         for name, value in (
@@ -133,6 +134,8 @@ class ImpactEnvelopeRecord:
             raise ValueError("uncertainty MUST be finite and in [0, 1]")
         if self.expires_at.tzinfo is None:
             raise ValueError("expires_at MUST be timezone-aware")
+        if self.observation_only is not True:
+            raise ValueError("impact envelope authority MUST remain observation-only")
         if set(self.required_signals) & set(self.forbidden_signals):
             raise ValueError("a signal cannot be both required and forbidden")
 

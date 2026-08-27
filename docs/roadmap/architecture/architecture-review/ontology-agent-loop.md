@@ -93,6 +93,13 @@ Duplicate deliveries are suppressed by the Change idempotency key; deadline, bac
 conflicting, or unavailable evidence produces a held verdict. No ARB result carries approval,
 mutation, execution, or promotion authority.
 
+The review accepts only `planned` intent. It hashes the complete Change identity, uses one absolute
+deadline, and serializes only identical idempotency keys, so unrelated reviews can continue in
+parallel. Context and evidence must name the same ontology and catalog releases. An unavailable
+re-read preserves existing checks instead of removing them, and evidence artifact identities bind
+the bundle and item content. The resulting `Change`, `DecisionCase`, `ImpactEnvelope`, and
+`ReviewCase` records retain typed lineage links and remain explicitly observation-only.
+
 ## Autonomous review levels
 
 Autonomy applies to review work before it applies to changes. A machine-ready result is not the
