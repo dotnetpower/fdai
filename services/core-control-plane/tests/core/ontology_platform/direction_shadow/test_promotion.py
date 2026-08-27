@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
@@ -152,3 +153,26 @@ def test_equivalent_review_times_have_one_replay_identity() -> None:
     )
 
     assert first.assessment_digest == second.assessment_digest
+
+
+def test_authority_literal_fields_fail_closed_at_runtime() -> None:
+    pointer = RebuildPointer(
+        authoritative_generation_ref="inventory-generation:aligned",
+        rebuild_procedure_ref="runbook:ontology-current-state-rebuild:v1",
+    )
+    with pytest.raises(ValueError, match="mutation authority"):
+        replace(pointer, mutation_authority=True)
+
+    with pytest.raises(ValueError, match="mutation authority"):
+        replace(_receipt(), graph_mutation_authority=True)
+
+    assessment = assess_direction_mapping_promotion(
+        _receipt(),
+        regression_receipt_digests=(_REGRESSION,),
+        requested_by="requester",
+        reviewed_by="reviewer",
+        reviewed_at=_NOW,
+        decision=DirectionPromotionDecision.APPROVE_PROPOSAL,
+    )
+    with pytest.raises(ValueError, match="mutation authority"):
+        replace(assessment, migration_execution_authority=True)

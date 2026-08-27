@@ -33,7 +33,12 @@ ARG_SCHEMA_DIGEST = "sha256:86b6fc0038f0492047c287e9bfc3c694ea9192658848ebdabee8
 MANIFEST_DIGEST = "sha256:" + "b" * 64
 
 
-def _schema(*, version: str = "2026-01-01", revision: str = "c" * 40) -> ProviderSchemaSnapshot:
+def _schema(
+    *,
+    version: str = "2026-01-01",
+    preview: tuple[str, ...] = (),
+    revision: str = "c" * 40,
+) -> ProviderSchemaSnapshot:
     return ProviderSchemaSnapshot.build(
         provider="azure",
         source_revision=revision,
@@ -41,14 +46,14 @@ def _schema(*, version: str = "2026-01-01", revision: str = "c" * 40) -> Provide
             ProviderSchemaType(
                 resource_type="Microsoft.Web/serverFarms",
                 stable_api_versions=(version,),
-                preview_api_versions=(),
+                preview_api_versions=preview,
                 preferred_api_version=version,
                 source_document="generated/web/types.md",
             ),
             ProviderSchemaType(
                 resource_type="Microsoft.Web/sites",
                 stable_api_versions=(version,),
-                preview_api_versions=(),
+                preview_api_versions=preview,
                 preferred_api_version=version,
                 source_document="generated/web/types.md",
             ),
@@ -144,6 +149,69 @@ def test_materialization_binds_direction_cardinality_and_manifest() -> None:
     assert candidate.source_provider_versions == ("2026-01-01",)
     assert candidate.target_provider_versions == ("2026-01-01",)
     assert generation.complete is True
+
+
+def test_candidate_versions_are_a_globally_sorted_unique_union() -> None:
+    generation = _generation(
+        _schema(preview=("2025-12-01-preview",)),
+        metadata={"azure.function-depends-on-app-service-plan": _metadata()},
+    )
+
+    candidate = generation.candidates[0]
+    assert candidate.source_provider_versions == ("2025-12-01-preview", "2026-01-01")
+    assert candidate.target_provider_versions == ("2025-12-01-preview", "2026-01-01")
+
+
+def test_unresolved_and_sourceless_references_make_generation_incomplete() -> None:
+    schema = _schema()
+    evidence = AzureProviderRelationshipSchemaSnapshot.build(
+        source_revision="d" * 40,
+        provider_schema_digest=schema.schema_digest,
+        extension_document_count=1,
+        arm_id_references=(
+            AzureArmIdReference(
+                source_document="specification/web/resource-manager/web.json",
+                json_pointer="/definitions/Site/properties/serverFarmId",
+                allowed_resource_types=(),
+                unresolved_allowed_resources=("unknown",),
+                operation_paths=(),
+                source_resource_types=("microsoft.web/sites",),
+            ),
+            AzureArmIdReference(
+                source_document="specification/web/resource-manager/web.json",
+                json_pointer="/definitions/Reference/properties/id",
+                allowed_resource_types=("microsoft.web/serverfarms",),
+                unresolved_allowed_resources=(),
+                operation_paths=(),
+                source_resource_types=(),
+            ),
+        ),
+        resource_definitions=(),
+    )
+    catalog = load_provider_relationship_mapping_catalog(
+        ROOT / "rule-catalog/vocabulary/provider-relationship-mappings"
+    )
+    review = ProviderSchemaRelationshipReview.build(
+        relationship_snapshot=evidence,
+        modeled_provider_types=frozenset({"microsoft.web/sites", "microsoft.web/serverfarms"}),
+        mapping_catalog=catalog,
+    )
+
+    generation = generate_provider_schema_relationship_generation(
+        provider_schema=schema,
+        relationship_snapshot=evidence,
+        review=review,
+        mapping_catalog=catalog,
+        link_metadata={},
+        generation_ref="provider-schema-generation:one",
+        projection_manifest_digest=MANIFEST_DIGEST,
+    )
+
+    assert generation.complete is False
+    assert generation.drops == (
+        RelationshipGenerationDropReason.SOURCELESS_REFERENCE,
+        RelationshipGenerationDropReason.UNRESOLVED_REFERENCE,
+    )
 
 
 def test_semantic_mapping_fields_are_verified_against_the_reviewed_catalog() -> None:

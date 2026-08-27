@@ -39,6 +39,12 @@ class DirectionPromotionAssessment:
     assessment_digest: str = field(init=False)
 
     def __post_init__(self) -> None:
+        if (
+            self.catalog_pr_required is not True
+            or self.graph_mutation_authority is not False
+            or self.migration_execution_authority is not False
+        ):
+            raise ValueError("direction promotion assessment cannot grant mutation authority")
         for name, value in (
             ("comparison_receipt_digest", self.comparison_receipt_digest),
             ("prior_generation_digest", self.prior_generation_digest),
