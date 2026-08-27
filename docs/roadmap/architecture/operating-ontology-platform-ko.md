@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: fa382714446010a8697a00a1a6fa69545cf0c4b2
+translation_source_sha: 39add12a7acf9f4cb6ae2b4e7380003a95c499c9
 translation_revised: 2026-08-28
 ---
 # FDAI 온톨로지 안전 인프라
@@ -145,6 +145,7 @@ Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-27 | implemented | 근거 bundle을 만들기 전에 직렬화된 Context 응답 envelope 공간을 예약했습니다. Byte 예산을 모두 쓰는 읽기는 이제 Context 메타데이터를 붙인 뒤 실패하지 않고 명시적인 hold 사유와 함께 범위가 제한된 근거를 제거합니다. | `current change`, evidence read 및 bundle 검사(`37 passed`), Ruff 및 strict mypy | 인증된 런타임 응답은 별도로 보존합니다. 외부 근거를 생성하지 않았습니다. |
 | 2026-08-27 | implemented | 보안이 적용된 증적 인증을 principal scope, caller role, 기준 시점, 출처 완전성과 세대, 개수, 잘림, 민감정보 제거 요약을 포함한 발급 증적 전체에 결속했습니다. Digest가 적용된 graph 상태에서 완전성을 다시 계산하므로, 발급된 digest의 label을 바꿔 불완전한 근거를 완전하게 만들 수 없습니다. | `current change`, secured query, Context 변환 결과 및 network 증적 검사(`43 passed`), Ruff 및 strict mypy | 인증된 런타임 근거는 별도로 보존합니다. 외부 읽기는 수행하지 않았습니다. |
 | 2026-08-27 | implemented | 남은 review gap을 닫아 unresolved 및 source-less ARM reference를 incomplete generation으로 전달하고, candidate version union을 globally sort하며, proposal-only authority literal을 runtime에서 강제했습니다. | `current change`, generation, direction-shadow, promotion 및 집중 adversarial 검사(`38 passed`), Ruff, formatter 및 strict mypy | Complete release-bound 실제 generation 근거와 governed human review를 확보해야 합니다. Live 또는 remote generation은 만들지 않았습니다. |
 | 2026-08-27 | implemented | 양의 Forecast episode와 균형 잡힌 Pattern 후보를 위한 순수 권한 없는 변환 결과를 추가해 정확한 원본 신원과 mutation 및 execution 권한 없음을 보존했습니다. | `current change`, `core/ontology_platform/detection_projection.py`, 집중 producer 검사(`11 passed`) | 정확한 objective 및 outcome endpoint 생산자가 생길 때까지 관계 복원은 계속 보류합니다. |
