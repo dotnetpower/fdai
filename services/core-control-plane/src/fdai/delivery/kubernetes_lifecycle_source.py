@@ -432,7 +432,7 @@ class KubernetesLifecycleWatchSource:
                                 return lines, True
                             lines.append(decoded_line)
                             if len(lines) >= _MAX_EVENTS:
-                                return lines, False
+                                return lines, True
                     if buffer:
                         if len(buffer) > _MAX_WATCH_LINE_BYTES:
                             return lines, True
