@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 24241161afad763446283111197e0dda9b471172
+translation_source_sha: 6232c41fe581db9a5bb158980623b3ef1b3b09c5
 translation_revised: 2026-08-28
 ---
 # 프로젝트 구조
@@ -32,6 +32,14 @@ translation_revised: 2026-08-28
   발화에서 정확한 런타임 식별자 하나를 검증한 경우에만 제거합니다. 식별자가 없거나 여러 개이면
   명확화를 유지하고 다른 모든 미해결 개념도 타입이 지정된 명확화로 남깁니다. 이 검증은
   프로바이더 입출력, 의사 결정, 승인, 변경 또는 실행 권한을 추가하지 않습니다.
+- **자격 검증 축약에는 권한이 없음**:
+  `core/conversation_assurance/quality_qualification.py`는 미리 측정하고 정규화한 관측값만
+  받아 설치된 품질 계약에 따라 축약합니다. 원시 근거 상태에서 하드 상한을 계산하며 모델 호출,
+  프로바이더 읽기, 정책 승격, 요청 승인 또는 작업 실행을 할 수 없습니다. JSON 구문 분석과
+  산출물 쓰기는 리포지토리가 소유하는
+  `scripts/evaluation/chatops-quality-qualification.py` 경계에 남습니다. 완료된 턴 관측 adapter는
+  내용이 없는 별도 계약을 사용하고 런타임 및 근거 참조를 해시하며, 지원하지 않는 모든 차원을
+  점수를 만들지 않고 `unavailable`로 유지합니다.
 - **정책과 규칙은 코드 경로가 아닌 데이터**: T0가 런타임에 `rule-catalog/` 엔트리와 `policies/`
   를 로드하므로 규칙/정책 추가에 엔진 변경이 필요 없습니다. 규칙은 의도와 교정을
   기술하고, 정책은 검증기가 재검사하는 실행 가능한 OPA/Rego입니다. 소스가 이 YAML로 수집·

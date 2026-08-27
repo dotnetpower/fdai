@@ -164,6 +164,65 @@ promotion state. They do not establish a baseline or qualification by themselves
 version-pinned corpus runner and scorecard artifact must supply those records without changing the
 contract or holdout labels in the same promotion change.
 
+The repository runner, `scripts/evaluation/chatops-quality-qualification.py`, accepts complete
+50-item observations for each run and derives hard caps from raw evidence state. It records the
+source revision, contract and corpus digests, evaluator and runtime identifiers, run configuration,
+and run time windows in a content-addressed scorecard. The `--require-qualified` option returns a
+nonzero result unless the corpus floors, three-run floor, and worst-run 9.8 threshold all pass.
+Every generated artifact sets `qualification_authority: false`; a scorecard records evidence but
+cannot promote a policy or grant execution authority.
+
+Run the reducer from the repository root after a measurement harness has produced the input batch:
+
+```bash
+uv run python scripts/evaluation/chatops-quality-qualification.py \
+  --input <measured-batch.json> \
+  --output <scorecard.json> \
+  --require-qualified
+```
+
+The hidden corpus publishes only a content-free manifest to repository tooling. The manifest binds
+opaque content and label commitments to a pinned contract, freeze revision, review protocol, and
+case-to-rubric coverage matrix. Its validator requires at least 500 turns, equal English and Korean
+partitions, the declared adversarial, multi-turn, SRE, and action/channel/attachment floors, real
+consecutive multi-turn groups, all 50 rubric observation floors, three runs, two independent prose
+raters, agreement of at least 0.80, and a predeclared confidence method. It never reads or prints
+hidden prompts or labels.
+
+Validate a repository-safe manifest from the repository root:
+
+```bash
+uv run python scripts/evaluation/chatops_quality_corpus_manifest.py \
+  --manifest <hidden-corpus-manifest.json>
+```
+
+A passing manifest proves only metadata shape, commitments, and coverage. Qualification still
+requires the restricted artifact, independent review records, complete measured runs, and the
+production-like evidence declared by the scorecard.
+
+### Qualification observation envelope
+
+The completed-turn adapter emits one content-free envelope with all 50 rubric items and all six
+dimension slots in the contract order. It hashes turn, conversation, principal scope, route,
+assessment, and evidence references; only existing question, answer, and evidence-manifest digests
+pass through. Stable serialization adds its own content digest and
+`qualification_authority: false`. A dimension without authoritative evidence remains `unavailable`
+with a reason code, and an item cannot become a score input until all six dimensions are measured.
+
+The initial adapter intentionally measures only facts already owned by Conversation Assurance:
+
+- Independently reviewed clarity, intent resolution, calibration, and factual correctness populate
+  their corresponding semantic dimensions for items 6, 9, 10, and 11.
+- Verified deterministic grounding and completed atomic-claim checks populate items 11 and 13.
+- Exact turn-to-assessment digest linkage populates the observability and replay dimension for item
+  42.
+- Locale parity remains unavailable for a single turn because it requires an English/Korean cohort
+  comparison.
+
+This envelope does not infer planning, SRE reasoning, action safety, agent orchestration, channel,
+latency, or production evidence from an answer assessment. Those owners must add their measured
+dimensions before the qualification reducer can score an item.
+
 Items 41-45 use a dedicated deterministic adapter that accepts only bounded observation envelopes:
 machine-readable case and scope identities, one source revision, ordered provenance and correlation
 references, and optional semantic-review ownership. Locale parity measures English and Korean
