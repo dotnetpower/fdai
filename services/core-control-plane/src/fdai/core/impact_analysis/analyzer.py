@@ -50,6 +50,7 @@ class ImpactAnalyzer:
         bounds: ImpactTraversalBounds | None = None,
         graph_fresh: bool = True,
         unresolved_conflicts: tuple[str, ...] = (),
+        expected_source_generation: str | None = None,
     ) -> AffectedSet:
         if not direct_target_ids or any(not item.strip() for item in direct_target_ids):
             raise ValueError("direct_target_ids MUST be non-empty")
@@ -95,12 +96,24 @@ class ImpactAnalyzer:
         reasons = list(unresolved_conflicts)
         if not graph_fresh:
             reasons.append("graph_stale")
+        if not graph.source_complete:
+            reasons.append("graph_source_incomplete")
+        if (
+            expected_source_generation is not None
+            and graph.source_generation != expected_source_generation
+        ):
+            reasons.append("graph_generation_mismatch")
         if not direct_set <= {item.id for item in graph.objects}:
             reasons.append("direct_target_missing")
         object_rows = sorted((item.id, item.object_type, item.revision) for item in graph.objects)
         link_rows = sorted((item.link_type, item.from_id, item.to_id) for item in graph.links)
         encoded = json.dumps(
-            {"objects": object_rows, "links": link_rows},
+            {
+                "objects": object_rows,
+                "links": link_rows,
+                "source_complete": graph.source_complete,
+                "source_generation": graph.source_generation,
+            },
             separators=(",", ":"),
         ).encode()
         edge_overflow = len(graph.links) > active.max_edges

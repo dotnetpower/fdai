@@ -98,17 +98,13 @@ async def test_muninn_preserves_distinct_change_revisions() -> None:
 class _ChangeAssessor:
     def __init__(self, *, review_required: bool) -> None:
         self.review_required = review_required
-        self.graph_fresh_values: list[bool] = []
+        self.assessed_change_ids: list[str] = []
 
     async def assess(
         self,
         change: dict[str, object],
-        *,
-        graph_fresh: bool,
-        unresolved_conflicts: tuple[str, ...] = (),
     ) -> ChangeAssessment:
-        del unresolved_conflicts
-        self.graph_fresh_values.append(graph_fresh)
+        self.assessed_change_ids.append(str(change["id"]))
         reasons = ("graph_stale",) if self.review_required else ()
         return ChangeAssessment(
             change_id=str(change["id"]),
@@ -123,6 +119,7 @@ class _ChangeAssessor:
                 control_dependencies=(),
                 graph_revision="revision-1",
             ),
+            graph_freshness_receipt=None,
             review_required=self.review_required,
             reasons=reasons,
             evidence_digest="digest-1",
@@ -158,7 +155,7 @@ async def test_forseti_lowers_planned_change_to_human_review() -> None:
     assert verdict["risk_verdict"] == "hil"
     assert verdict["change_assessment_status"] == "review"
     assert verdict["change_assessment"]["review_required"] is True
-    assert assessor.graph_fresh_values == [False]
+    assert assessor.assessed_change_ids == ["change-1"]
 
 
 async def test_forseti_holds_planned_change_without_assessor() -> None:

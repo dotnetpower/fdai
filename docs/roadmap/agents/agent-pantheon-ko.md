@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: e8b9bd5f40a1c682ab64faee43ba132e7611a8c8
-translation_revised: 2026-08-25
+translation_source_sha: a83b721ff905c59479f4006e22f37ebd080b14d3
+translation_revised: 2026-08-27
 ---
 
 # 에이전트 판테온
@@ -40,6 +40,7 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-21 | implemented | 프레임워크 줄 상한을 복구하기 위해서만 내용 주소 기반 Bragi Turn 및 인계 페이로드 구성을 비공개 발행 helper로 분리하고 의미 기능 변환을 기존 라우팅 helper로 옮겼습니다. Bragi는 같은 `object.turn` 및 `object.handoff-escalation` topic을 계속 발행하며 AgentSpec, 소유권, LLM 정책, 타입이 지정된 제안 진입점 및 작업 권한은 바뀌지 않았습니다. | `current change`; 집중 Bragi 및 프레임워크 검사 95개 통과; 변경 파일 Ruff, format, mypy 통과; 저장소 LOC gate hard failure 0건으로 통과. | 이 설계에서 이미 요구한 동일한 통제된 운영자 경로, KPI 및 승격 근거를 보존합니다. |
+| 2026-08-27 | implemented | Forseti의 고정된 계획 변경 최신성 부울 값을 주입된 활성 인벤토리 증적 출처로 대체했습니다. AgentSpec, 토픽, 소유권, 승인, 판단, 실행 경계는 바뀌지 않습니다. 완전하고 최신이며 정확한 릴리스에 결합된 읽기만 적격성을 유지하고, 사용 불가하거나 잘못된 증적은 모두 검토를 요구합니다. | `current change`; 집중 영향, 영속성 디코더, 변경 체인, 계보, 프레임워크 레이아웃 검사 64개 통과; Ruff와 strict mypy 통과. | 남은 KPI 및 승격 게이트를 바꾸지 않고 배포된 정확한 릴리스 증적 하나를 보존합니다. |
 | 2026-08-13 | in-progress | 이전 제공 이력을 재구성하지 않고 근거 범위를 명시한 구현 원장을 도입했습니다. | 현재 변경 | 검증 완료 또는 enforce 사용을 주장하기 전에 실제 운영 근거를 수집하고 독립적으로 검토된 승격을 완료합니다. |
 | 2026-08-19 | implemented | Heimdall의 AgentSpec, topic, 소유 객체, 결정론적 hot path 또는 권한을 바꾸지 않고 남은 production 보안 상관관계 threshold를 bounded startup setting에 연결했습니다. Framework 줄 상한을 유지하기 위해 raw Huginn ingress handler 구성을 private subscription wiring 모듈로 옮겼을 뿐이며 정규화 및 drop 의미는 바뀌지 않았습니다. | [이슈 #219](https://github.com/dotnetpower/fdai/issues/219). Focused setting, Heimdall 주입, framework layout, raw ingress 및 threshold source 검사 134개가 통과했습니다. | Runtime exit gate 근거와 독립 promotion outcome은 바뀌지 않았습니다. |
 | 2026-08-19 | implemented | AgentSpec, 토픽, 소유권, LLM 정책 또는 권한을 바꾸지 않고 Norns의 비활성 후보 게시를 기본적으로 닫힌 발견 활성화 결정에 연결했습니다. 닫힌 게이트는 이후 평가를 위해 범위가 제한된 대기 큐를 보존합니다. | `current change`; 집중 발견 활성화, Norns, 시작 연결, 수집기 및 인프라 검사. | 운영 검증을 주장하기 전에 통제된 수집기 및 활성화 전이 증적을 보존합니다. |
@@ -201,12 +202,11 @@ Huginn은 실시간 리소스 발견과 정규화된 `Change` 기록의 논리�
 포함하므로 Forseti는 cross-topic 도착 순서에 의존하지 않습니다. Forseti는 ordinary 룰 judgment
 전에 planned 변경을 범위가 제한된 영향 analysis로 평가하고 평가를 Verdict와 DecisionCase
 근거에 보존합니다. 평가가 없거나 stale, 실패한, review-required이면 사람 승인을
-요구합니다. 관찰된 변경은 맥락로만 유지되며 현재 런타임에는 planned 변경을 auto-clear할 graph-freshness 권한이 없습니다. Operational-context 최신성 항목에는 명시적인 문자열 출처,
+요구합니다. 관찰된 변경은 맥락으로만 유지됩니다. 계획된 변경 평가는 승격 잠금 아래의 활성 PostgreSQL 인벤토리 세대에서 내용 기반 주소와 정확한 릴리스를 가진 증적을 읽습니다.
+대상, 출처, 관계, 식별자, 오버레이, 후속 세대, 잘림, 시간 미비점이 있으면 모두 변경을 검토 상태로 유지합니다. Operational-context 최신성 항목에는 명시적인 문자열 출처,
 시각, 정수 최대 age가 필요합니다. Boolean age를 포함한 malformed 값은 실패 시 차단되어 판정을 사람 승인으로 낮춥니다. Ordinary 판정과 중재 DecisionCase는 같은 타입이 지정된 최신성
 근거에서 materialize되므로 cross-domain 중재는 맥락 상한이 제거한 권한을 복구할 수 없습니다. 이 변환 결과는 액션 권한을 제공하지 않습니다. Azure 전용 파싱,
-지점 enrichment, 영속 인벤토리 변환 결과는 주입된 전달 책임으로 유지합니다. Huginn은 Azure SDK를 가져오기하거나 인벤토리 데이터베이스를 직접 쓰지 않습니다. Scheduled
-인벤토리 sync 작업은 누락된 신호를 완전한 ARG/ARM 스냅샷으로 복구하는 주기적
-조정 backstop입니다. Stale/degraded 인벤토리는 사용 불가이며 Heimdall은 발견 사항만
+지점 enrichment, 영속 인벤토리 변환 결과는 주입된 전달 책임으로 유지합니다. Huginn은 Azure SDK를 가져오거나 인벤토리 데이터베이스를 직접 쓰지 않습니다. Scheduled 인벤토리 sync 작업은 누락된 신호를 완전한 ARG/ARM 스냅샷으로 복구하는 주기적 조정 backstop입니다. Stale/degraded 인벤토리는 사용 불가이며 Heimdall은 발견 사항만
 publish하고 리소스를 acquire하거나 조정을 시작하지 않습니다.
 
 15개 에이전트는 조합을 통해 SRE, ARB (변경 안전성), FinOps 워크플로우를

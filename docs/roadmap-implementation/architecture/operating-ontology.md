@@ -19,21 +19,23 @@ scope, append-only transitions, and resumable work.
 > Verified links require an independent verifier, a trusted verification method, and an immutable
 > verification receipt. Required source freshness, trusted UTC clock identity, recorded time, and
 > skew-bounded future checks also contribute to context safety and replay identity.
-> Wave 2 provides an unwired, content-addressed `OperationalEvidenceBundle` foundation that keeps
+> Wave 2 provides a content-addressed `OperationalEvidenceBundle` runtime read path that keeps
 > secured ontology paths, authoritative state facts, catalog references, and governed document
 > excerpts in separate authority lanes. Admission requires content-addressed source receipts that
 > pin the ontology release, catalog and document revisions, authenticated source, purpose, scope,
 > redaction summary, and typed temporal scope. Deterministic claim and citation validation, exact
 > typed-claim contradiction detection, and final-body byte and item budgets emit hold evidence and
-> can only preserve or lower the bundle's autonomy ceiling. No runtime or composition path consumes
-> this bundle yet, so it is not part of the production autonomy path and has no action authority.
+> can only preserve or lower the bundle's autonomy ceiling. The optional source is dependency
+> injected into semantic runtime composition. Every result remains `SHADOW_ONLY` with no mutation
+> or execution authority.
 > Change management adds planned-change evidence to `Change`, a reviewed `ChangeWindow`, and typed
 > links from target and decision through impact, process, outcome, and recovery. These declarations
 > are semantic evidence only and grant no approval or execution authority. Huginn now carries the
 > same normalized Change on its causal Event and owner topic. Forseti computes a bounded
 > `ChangeAssessment`, preserves it on Verdict and DecisionCase evidence, and requires human review
-> for stale, incomplete, failed, or review-required assessment. The runtime currently supplies no
-> graph-freshness authority, so planned changes cannot auto-clear this gate.
+> for stale, incomplete, failed, or review-required assessment. The runtime reads exact-release
+> active-inventory freshness receipts under the PostgreSQL promotion lock and clears this gate only
+> for a fresh, complete, exact-target observed generation.
 > M5 adds the catalog-declared `routes_to` and `peered_with` Resource links to inventory projection
 > and read-only deterministic network and Pod telemetry functions. A composition-owned bounded
 > issuer records secured ObjectSet results, and exact Function handlers resolve only the issued
@@ -106,13 +108,15 @@ scope, append-only transitions, and resumable work.
 | 2026-08-18 | implemented | Made the lane and authority separation exhaustively executable. Every lane and authority pair is now asserted, an `execution_ledger` fact is rejected in the `observed`, `derived`, and `desired` lanes, and a lane with no matrix row fails closed with the documented rejection instead of a latent `KeyError`. | `current change`; `test_state_evidence.py` 39 focused cases passed. | Bind the same separation at every projection write site so a future writer cannot persist a state fact without constructing `StateFactMetadata`. |
 | 2026-08-24 | implemented | Reconciled the ActionOption effect property with the one-to-many `expects` and `resulted_in` links. New lineage writes require all expected-effect ids in deterministic order and one independent outcome per effect. Singular-only stored records read as one effect, dual-field ambiguity fails closed, and cross-type object-id collisions are rejected before storage. | `current change`; `hypothesis_lineage.py`; `ActionOption.yaml`; focused lineage and competency checks passed 15 cases. | Supply the remaining real producer properties and construct the projector only after the complete episode is available. |
 | 2026-08-24 | in-progress | Added the first real decision-lineage producer segment. A one-effect closure joins only an exact runtime Action and independently observed scorable ResponseOutcome to pre-existing prospective records, appends the complete episode, and replays idempotently. The ControlLoop captures execution timestamps at the executor boundary and invokes an optional sink only after the outcome audit succeeds. | `current change`; `hypothesis_lineage.py`; `core/control_loop/{orchestrator,_execution}.py`; focused lineage checks passed 14 cases and MSCP shadow call-site checks passed 15 cases. | Produce the Forseti prospective records, multi-effect outcome set, and telemetry completeness evidence, then bind composition only when one complete runtime episode exists. |
+| 2026-08-27 | implemented | Replaced the planned-change freshness boolean with a content-addressed receipt over the active PostgreSQL inventory generation and exact ontology release. Missing, stale, future, mixed-release, target-mismatched, truncated, pending-overlay, failed-successor, incomplete-provider, incomplete-link, and unavailable-source states all lower the assessment to review. | `current change`; `change_assessment.py`; `postgres_graph_freshness.py`; focused impact, persistence-decoder, change-chain, lineage, and pantheon-layout checks (`64 passed`); Ruff and strict mypy. | Retain one deployed exact-release receipt separately before raising this path from implemented to validated. |
 
 ### Remaining work
 
-- [ ] Compose `OperationalEvidenceBundle` into a bounded runtime read path and retain admission,
+- [x] Compose `OperationalEvidenceBundle` into a bounded runtime read path and retain admission,
   contradiction, citation, and final-budget receipts without granting action authority.
-- [ ] Supply and verify graph-freshness authority for planned-change assessment before allowing any
-  automated clearance, including stale, incomplete, and conflicting negative cases.
+- [x] Supply and verify graph-freshness authority for planned-change assessment before allowing any
+  automated clearance, including stale, incomplete, conflicting, mixed-release, target-mismatched,
+  future, truncated, pending-overlay, and unavailable negative cases.
 - [ ] Complete production bindings and replay evidence for the remaining context, outcome-closure,
   and governed-learning paths on one pinned ontology release.
 - [ ] Produce `OperationalProspectiveLineage` from Forseti-owned values with explicit

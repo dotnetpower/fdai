@@ -4,6 +4,9 @@ from fdai.core.impact_analysis.analyzer import ImpactAnalyzer, ImpactTraversalBo
 from fdai.core.impact_analysis.change_assessment import (
     ChangeAssessment,
     ChangeAssessmentService,
+    GraphFreshnessReceipt,
+    GraphFreshnessReceiptSource,
+    build_graph_freshness_receipt,
 )
 from fdai.core.impact_analysis.compiler import compile_impact_envelope
 from fdai.core.impact_analysis.models import (
@@ -16,6 +19,7 @@ from fdai.core.impact_analysis.projection import ImpactEnvelopeProjector
 
 __all__ = [
     "AffectedSet",
+    "build_graph_freshness_receipt",
     "ChangeAssessment",
     "ChangeAssessmentService",
     "compile_impact_envelope",
@@ -23,6 +27,8 @@ __all__ = [
     "ImpactEnvelopeRecord",
     "ImpactEnvelopeProjector",
     "ImpactTraversalBounds",
+    "GraphFreshnessReceipt",
+    "GraphFreshnessReceiptSource",
     "ObjectiveBound",
     "TelemetryRequirements",
 ]
