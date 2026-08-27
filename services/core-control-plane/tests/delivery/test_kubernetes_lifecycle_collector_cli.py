@@ -104,7 +104,7 @@ def test_incomplete_collection_reports_the_gap_and_a_nonzero_exit_code(monkeypat
     assert printed["limitation"] == "source_unavailable"
 
 
-def test_positional_cluster_ref_argument_overrides_the_environment(monkeypatch, capsys) -> None:  # type: ignore[no-untyped-def]
+def test_positional_argument_is_rejected_never_overrides_env(monkeypatch, capsys) -> None:  # type: ignore[no-untyped-def]
     monkeypatch.setenv("FDAI_DATABASE_URL", "postgresql://example/db")
     monkeypatch.setenv("FDAI_KUBERNETES_CLUSTER_REF", "cluster-env")
     monkeypatch.setattr(cli, "build_kubernetes_lifecycle_source", lambda **_: object())
@@ -117,10 +117,17 @@ def test_positional_cluster_ref_argument_overrides_the_environment(monkeypatch, 
 
     monkeypatch.setattr(cli, "collect_kubernetes_lifecycle_once", _fake_collect)
 
+    # The real source always binds its own `cluster_ref` from
+    # `FDAI_KUBERNETES_CLUSTER_REF`; a positional override could never be honored
+    # by it (it would either be a silent no-op or a guaranteed `poll()` crash), so
+    # the CLI MUST fail fast instead of accepting or silently ignoring it.
     exit_code = cli.main(["cluster-argument"])
 
-    assert exit_code == 0
-    assert seen == ["cluster-argument"]
+    assert exit_code == 2
+    assert seen == []
+    printed = json.loads(capsys.readouterr().out)
+    assert printed["status"] == "failed"
+    assert "FDAI_KUBERNETES_CLUSTER_REF" in printed["reason"]
 
 
 async def test_identity_stays_none_outside_workload_identity_auth_mode(monkeypatch) -> None:  # type: ignore[no-untyped-def]

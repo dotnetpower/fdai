@@ -23,10 +23,22 @@ from fdai.delivery.kubernetes_api_inventory import KubernetesApiAuth
 _MAX_EVENTS: Final = 256
 _MAX_RESPONSE_BYTES: Final = 262_144
 _MAX_WATCH_LINE_BYTES: Final = 65_536
+# A LIST snapshot MUST NOT advance the durable cursor past pages it never fetched.
+# Rather than persist a provider-controlled, unbounded-length `continue` token as
+# the durable cursor, one `poll()` bounded-drains up to this many pages internally;
+# if the list still has not fully drained by then, the whole attempt reports an
+# explicit `result_limit` gap and leaves the cursor untouched so the next attempt
+# safely restarts the list (idempotent: observations are content-addressed).
+_MAX_LIST_PAGES: Final = 8
+_MAX_LIST_DRAIN_EVENTS: Final = _MAX_EVENTS * _MAX_LIST_PAGES
 
 
 class KubernetesLifecycleSourceError(RuntimeError):
     """Report a bounded Kubernetes lifecycle read failure without provider content."""
+
+
+class _KubernetesLifecycleAuthorizationError(Exception):
+    """Signal a 401/403 provider response distinctly from a generic outage."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,7 +96,7 @@ class KubernetesLifecyclePoll:
     def __post_init__(self) -> None:
         if not self.cluster_ref.strip() or len(self.cluster_ref) > 512:
             raise ValueError("Kubernetes lifecycle poll cluster_ref MUST be bounded non-empty")
-        if len(self.observations) > _MAX_EVENTS:
+        if len(self.observations) > _MAX_LIST_DRAIN_EVENTS:
             raise ValueError("Kubernetes lifecycle poll exceeds its event bound")
         if any(item.cluster_ref != self.cluster_ref for item in self.observations):
             raise ValueError("Kubernetes lifecycle poll widened the requested cluster scope")
@@ -162,53 +174,77 @@ class KubernetesLifecycleWatchSource:
         headers: dict[str, str],
         recorded_time: datetime,
     ) -> KubernetesLifecyclePoll:
-        body = await self._get(
-            params={"limit": str(self._config.list_limit + 1)},
-            headers=headers,
-        )
-        if body is None:
-            return self._gap(cluster_ref, limitation="source_unavailable")
-        try:
-            payload = json.loads(body)
-        except (UnicodeDecodeError, ValueError):
-            return self._gap(cluster_ref, limitation="lifecycle_response_invalid")
-        if not isinstance(payload, Mapping):
-            return self._gap(cluster_ref, limitation="lifecycle_response_invalid")
-        items = payload.get("items")
-        metadata = payload.get("metadata")
-        if (
-            not isinstance(items, Sequence)
-            or isinstance(items, (str, bytes))
-            or not isinstance(metadata, Mapping)
-        ):
-            return self._gap(cluster_ref, limitation="lifecycle_response_invalid")
-        resource_version = _text(metadata.get("resourceVersion"), maximum=128)
-        if resource_version is None:
-            return self._gap(cluster_ref, limitation="lifecycle_response_invalid")
-        continuation = metadata.get("continue")
-        if continuation is not None and not isinstance(continuation, str):
-            return self._gap(cluster_ref, limitation="lifecycle_response_invalid")
-        malformed = False
+        """Bounded-drain up to `_MAX_LIST_PAGES` continuation pages of one snapshot.
+
+        The durable cursor only ever advances to the snapshot `resourceVersion` once
+        every page has been fetched (no `continue` token remains); an incomplete
+        drain reports an explicit `result_limit` gap and leaves the cursor untouched
+        so the next attempt safely restarts the whole list rather than silently
+        skipping the pages it never reached.
+        """
+
         observations: list[KubernetesLifecycleObservation] = []
-        for item in items[: self._config.list_limit]:
-            if not isinstance(item, Mapping):
+        malformed = False
+        continue_token: str | None = None
+        for _ in range(_MAX_LIST_PAGES):
+            params = {"limit": str(self._config.list_limit + 1)}
+            if continue_token is not None:
+                params["continue"] = continue_token
+            try:
+                body = await self._get(params=params, headers=headers)
+            except _KubernetesLifecycleAuthorizationError:
+                return self._gap(cluster_ref, limitation="authorization_failed")
+            if body is None:
+                return self._gap(cluster_ref, limitation="source_unavailable")
+            try:
+                payload = json.loads(body)
+            except (UnicodeDecodeError, ValueError):
+                return self._gap(cluster_ref, limitation="lifecycle_response_invalid")
+            if not isinstance(payload, Mapping):
+                return self._gap(cluster_ref, limitation="lifecycle_response_invalid")
+            items = payload.get("items")
+            metadata = payload.get("metadata")
+            if (
+                not isinstance(items, Sequence)
+                or isinstance(items, (str, bytes))
+                or not isinstance(metadata, Mapping)
+            ):
+                return self._gap(cluster_ref, limitation="lifecycle_response_invalid")
+            resource_version = _text(metadata.get("resourceVersion"), maximum=128)
+            if resource_version is None:
+                return self._gap(cluster_ref, limitation="lifecycle_response_invalid")
+            continuation = metadata.get("continue")
+            if continuation is not None and not isinstance(continuation, str):
+                return self._gap(cluster_ref, limitation="lifecycle_response_invalid")
+            if len(items) > self._config.list_limit and not continuation:
                 malformed = True
-                continue
-            observation = _observation(item, cluster_ref=cluster_ref, recorded_time=recorded_time)
-            if observation is None:
-                malformed = True
-                continue
-            observations.append(observation)
+            for item in items[: self._config.list_limit]:
+                if not isinstance(item, Mapping):
+                    malformed = True
+                    continue
+                observation = _observation(
+                    item, cluster_ref=cluster_ref, recorded_time=recorded_time
+                )
+                if observation is None:
+                    malformed = True
+                    continue
+                observations.append(observation)
+            if not continuation:
+                observations.sort(key=lambda item: (item.event_time, item.evidence_ref))
+                limitation = "lifecycle_response_invalid" if malformed else None
+                return self._result(
+                    cluster_ref,
+                    observations=tuple(observations),
+                    next_cursor=resource_version,
+                    limitation=limitation,
+                )
+            continue_token = continuation
         observations.sort(key=lambda item: (item.event_time, item.evidence_ref))
-        truncated = len(items) > self._config.list_limit or bool(continuation)
-        limitation = (
-            "lifecycle_response_invalid" if malformed else "result_limit" if truncated else None
-        )
         return self._result(
             cluster_ref,
             observations=tuple(observations),
-            next_cursor=resource_version,
-            limitation=limitation,
+            next_cursor=None,
+            limitation="result_limit",
         )
 
     async def _watch(
@@ -219,11 +255,17 @@ class KubernetesLifecycleWatchSource:
         headers: dict[str, str],
         recorded_time: datetime,
     ) -> KubernetesLifecyclePoll:
-        lines = await self._get_watch_lines(cursor=cursor, headers=headers)
-        if lines is None:
+        try:
+            watch_result = await self._get_watch_lines(cursor=cursor, headers=headers)
+        except _KubernetesLifecycleAuthorizationError:
+            # Preserve the caller's cursor: a transient auth blip MUST NOT discard an
+            # already-durable checkpoint, only `cursor_expired` resets it.
+            return self._gap(cluster_ref, limitation="authorization_failed", next_cursor=cursor)
+        if watch_result is None:
             # Preserve the durable cursor on a transient outage: only an explicit
             # `cursor_expired` gap (HTTP 410 Gone) resets it to `None`.
             return self._gap(cluster_ref, limitation="source_unavailable", next_cursor=cursor)
+        lines, truncated = watch_result
         observations: list[KubernetesLifecycleObservation] = []
         next_cursor = cursor
         malformed = False
@@ -287,7 +329,13 @@ class KubernetesLifecycleWatchSource:
         if gone:
             return self._gap(cluster_ref, limitation="cursor_expired", next_cursor=None)
         observations.sort(key=lambda item: (item.event_time, item.evidence_ref))
-        limitation = "lifecycle_response_invalid" if malformed else None
+        # A discarded envelope (byte/line/UTF-8 bound) MUST NOT silently report success:
+        # `next_cursor` here only ever reflects the lines actually decoded before the
+        # bound was hit, so advancing to it never skips past unseen content, but the
+        # gap itself MUST still be surfaced rather than reported as `complete`.
+        limitation = (
+            "lifecycle_response_invalid" if malformed else "result_limit" if truncated else None
+        )
         return self._result(
             cluster_ref,
             observations=tuple(observations),
@@ -310,6 +358,8 @@ class KubernetesLifecycleWatchSource:
                     headers=headers,
                     timeout=self._config.connect_timeout_seconds,
                 ) as response:
+                    if response.status_code in (401, 403):
+                        raise _KubernetesLifecycleAuthorizationError(str(response.status_code))
                     response.raise_for_status()
                     content_encoding = response.headers.get("content-encoding", "identity")
                     if content_encoding.casefold() != "identity":
@@ -328,7 +378,15 @@ class KubernetesLifecycleWatchSource:
         *,
         cursor: str,
         headers: Mapping[str, str],
-    ) -> list[str] | None:
+    ) -> tuple[list[str], bool] | None:
+        """Return decoded watch lines plus whether a bound cut the stream short.
+
+        `truncated=True` means a byte, line-length, or UTF-8 bound was hit before
+        the stream's natural end; the returned `lines` never include the discarded
+        envelope itself or anything after it, so a caller advancing its cursor from
+        `lines` alone can never skip past content it never actually received.
+        """
+
         params = {
             "watch": "true",
             "resourceVersion": cursor,
@@ -348,7 +406,9 @@ class KubernetesLifecycleWatchSource:
                     ),
                 ) as response:
                     if response.status_code == 410:
-                        return [json.dumps({"type": "ERROR", "object": {"code": 410}})]
+                        return [json.dumps({"type": "ERROR", "object": {"code": 410}})], False
+                    if response.status_code in (401, 403):
+                        raise _KubernetesLifecycleAuthorizationError(str(response.status_code))
                     response.raise_for_status()
                     content_encoding = response.headers.get("content-encoding", "identity")
                     if content_encoding.casefold() != "identity":
@@ -359,25 +419,28 @@ class KubernetesLifecycleWatchSource:
                     async for chunk in response.aiter_raw():
                         total += len(chunk)
                         if total > self._config.max_response_bytes:
-                            break
+                            return lines, True
                         buffer.extend(chunk)
                         while b"\n" in buffer:
                             raw_line, _, remainder = buffer.partition(b"\n")
                             buffer = bytearray(remainder)
                             if len(raw_line) > _MAX_WATCH_LINE_BYTES:
-                                continue
+                                return lines, True
                             try:
-                                lines.append(raw_line.decode("utf-8"))
+                                decoded_line = raw_line.decode("utf-8")
                             except UnicodeDecodeError:
-                                continue
+                                return lines, True
+                            lines.append(decoded_line)
                             if len(lines) >= _MAX_EVENTS:
-                                return lines
-                    if buffer and len(buffer) <= _MAX_WATCH_LINE_BYTES:
+                                return lines, False
+                    if buffer:
+                        if len(buffer) > _MAX_WATCH_LINE_BYTES:
+                            return lines, True
                         try:
                             lines.append(bytes(buffer).decode("utf-8"))
                         except UnicodeDecodeError:
-                            pass
-                    return lines
+                            return lines, True
+                    return lines, False
         except (KubernetesLifecycleSourceError, httpx.HTTPError, OSError, ssl.SSLError):
             return None
 
