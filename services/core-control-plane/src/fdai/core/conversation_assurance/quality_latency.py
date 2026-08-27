@@ -132,6 +132,40 @@ class LatencySample:
 
 
 @dataclass(frozen=True, slots=True)
+class LatencyStageReceipt:
+    """Authoritative stage-owner timing before conversion to benchmark evidence."""
+
+    stage: LatencyStage
+    environment: LatencyEnvironment
+    observed_at: str
+    started_monotonic_ns: int
+    completed_monotonic_ns: int
+    timestamp_authority: str
+    trace_digest: str
+    provenance_digest: str
+    outcome: LatencySampleOutcome
+
+    def __post_init__(self) -> None:
+        if any(
+            type(value) is not int or value < 0
+            for value in (self.started_monotonic_ns, self.completed_monotonic_ns)
+        ):
+            raise ValueError("stage receipt monotonic values MUST be non-negative integers")
+        if self.completed_monotonic_ns < self.started_monotonic_ns:
+            raise ValueError("stage receipt completion MUST NOT precede its start")
+        LatencySample(
+            stage=self.stage,
+            environment=self.environment,
+            observed_at=self.observed_at,
+            duration_ms=0.0,
+            timestamp_authority=self.timestamp_authority,
+            trace_digest=self.trace_digest,
+            provenance_digest=self.provenance_digest,
+            outcome=self.outcome,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class LatencyBenchmarkBatch:
     run_id: str
     source_revision: str
@@ -303,6 +337,29 @@ def reduce_latency_benchmark(
     )
 
 
+def latency_sample_from_stage_receipt(
+    receipt: LatencyStageReceipt,
+    *,
+    contract: ChatOpsLatencyContract | None = None,
+) -> LatencySample:
+    """Derive duration only from the stage owner's monotonic receipt."""
+
+    effective_contract = contract or CHATOPS_LATENCY_CONTRACT_V1
+    slo = effective_contract.stages[tuple(LatencyStage).index(receipt.stage)]
+    if receipt.environment is not slo.environment:
+        raise ValueError("stage receipt environment does not match the installed contract")
+    return LatencySample(
+        stage=receipt.stage,
+        environment=receipt.environment,
+        observed_at=receipt.observed_at,
+        duration_ms=(receipt.completed_monotonic_ns - receipt.started_monotonic_ns) / 1_000_000,
+        timestamp_authority=receipt.timestamp_authority,
+        trace_digest=receipt.trace_digest,
+        provenance_digest=receipt.provenance_digest,
+        outcome=receipt.outcome,
+    )
+
+
 def _percentile(samples: tuple[float, ...], quantile: float) -> float | None:
     if not samples:
         return None
@@ -425,8 +482,10 @@ __all__ = [
     "LatencyEnvironment",
     "LatencySample",
     "LatencySampleOutcome",
+    "LatencyStageReceipt",
     "LatencyStage",
     "LatencyStageEvidence",
     "LatencyStageSlo",
+    "latency_sample_from_stage_receipt",
     "reduce_latency_benchmark",
 ]

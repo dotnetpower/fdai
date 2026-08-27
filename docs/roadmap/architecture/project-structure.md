@@ -44,6 +44,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   duplicate dimensions, and overwrite of existing measurements. The sibling
   `quality_latency.py` module owns only the five-stage SLO contract and pure percentile reduction;
   Operator, channel, verification, and delivery owners retain timestamp and measurement authority.
+  Stage owners provide monotonic start and completion values through a typed receipt; Core derives
+  duration only after the receipt environment matches the installed stage contract.
   The repository CLI parses content-free samples and never converts a trace commitment into a
   complete-trace claim. The adjacent `quality_trace.py` reducer accepts only record commitments and
   proves completeness from the exact ordered session-to-audit chain; it performs no provider read

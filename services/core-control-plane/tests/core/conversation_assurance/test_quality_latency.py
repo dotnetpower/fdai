@@ -10,6 +10,8 @@ from fdai.core.conversation_assurance.quality_latency import (
     LatencySample,
     LatencySampleOutcome,
     LatencyStage,
+    LatencyStageReceipt,
+    latency_sample_from_stage_receipt,
     reduce_latency_benchmark,
 )
 from fdai.core.conversation_assurance.quality_qualification import (
@@ -163,6 +165,30 @@ def test_samples_require_typed_enums_and_benchmark_window() -> None:
             _batch(),
             samples=(replace(sample, observed_at="2026-08-28T00:11:00Z"),),
         )
+
+
+def test_stage_owner_receipt_derives_duration_and_enforces_environment() -> None:
+    receipt = LatencyStageReceipt(
+        stage=LatencyStage.DETERMINISTIC_VERIFICATION,
+        environment=LatencyEnvironment.PR_REGRESSION,
+        observed_at="2026-08-28T00:00:00Z",
+        started_monotonic_ns=1_000_000_000,
+        completed_monotonic_ns=1_125_500_000,
+        timestamp_authority="verification-owner-clock",
+        trace_digest="a" * 64,
+        provenance_digest="b" * 64,
+        outcome=LatencySampleOutcome.COMPLETED,
+    )
+
+    sample = latency_sample_from_stage_receipt(receipt)
+
+    assert sample.duration_ms == 125.5
+    with pytest.raises(ValueError, match="environment"):
+        latency_sample_from_stage_receipt(
+            replace(receipt, environment=LatencyEnvironment.LIVE_CANARY)
+        )
+    with pytest.raises(ValueError, match="MUST NOT precede"):
+        replace(receipt, completed_monotonic_ns=receipt.started_monotonic_ns - 1)
 
 
 def test_missing_slo_or_complete_trace_applies_existing_hard_cap() -> None:

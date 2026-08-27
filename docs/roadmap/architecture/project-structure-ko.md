@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 14173bb4ab5d02a80766587c5977e38770608717
+translation_source_sha: cc47e02222031eb57c28ee940794fba5c1248fec
 translation_revised: 2026-08-28
 ---
 # 프로젝트 구조
@@ -42,7 +42,9 @@ translation_revised: 2026-08-28
   점수를 만들지 않고 `unavailable`로 유지합니다. 근거 소유자는 계약에 연결된 기여를 통해
   측정값을 추가합니다. 결합기는 다른 사례의 입력, 중복 차원 및 기존 측정값 덮어쓰기를 차단합니다.
   인접한 `quality_latency.py` 모듈은 5단계 SLO 계약과 순수 백분위수 축약만 소유합니다. Operator,
-  채널, 검증 및 전달 소유자는 타임스탬프와 측정 권한을 유지합니다. 저장소 CLI는 콘텐츠가 없는
+  채널, 검증 및 전달 소유자는 타임스탬프와 측정 권한을 유지합니다.
+  단계 소유자는 타입이 지정된 증적을 통해 monotonic 시작 및 완료 값을 제공합니다. Core는 증적
+  환경이 설치된 단계 계약과 일치한 후에만 기간을 파생합니다. 저장소 CLI는 콘텐츠가 없는
   표본을 구문 분석하며 추적 약속값을 완전한 추적 주장으로 변환하지 않습니다. 인접한
   `quality_trace.py` 축약기는 레코드 약속값만 받고 순서가 정확한 세션부터 감사까지의 연결에서
   완전성을 증명합니다. 프로바이더를 읽지 않으며 qualification 권한을 부여하지 않습니다.

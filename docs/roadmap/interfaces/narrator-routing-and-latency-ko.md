@@ -1,7 +1,7 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: 67c708ee6438e5f46a6b5730448d503921526f89
+translation_source_sha: 8e06754ddd952e7d8d7240a457601d4f612e4074
 translation_revised: 2026-08-28
 ---
 # 서술기 라우팅과 지연 시간
@@ -151,6 +151,9 @@ Settings > Models는 Owner에게 배포 전체의 웹 검색 활성화와 정확
 약속값을 제공합니다. 순수 Core 축약기는 완료, 수정, 판단 보류, 미지원, 대체 경로, 잘림, 시간
 초과 표본의 백분위수와 결과 수를 계산합니다. 시간 초과, 부족한 표본 수 또는 상한을 넘는 백분위수는 해당 단계를
 실패로 처리합니다.
+`LatencyStageReceipt`는 호출자가 기간을 직접 제출하지 못하게 합니다. 단계 소유자가 monotonic
+시작 및 완료 값을 제공하면 adapter는 증적 환경이 설치된 단계 계약과 일치한 후에만 밀리초를
+파생합니다.
 
 콘텐츠가 없는 표본을 수집한 후 저장소 벤치마크 어댑터를 실행합니다.
 
@@ -196,6 +199,7 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 | 환경 T1/T2 바인딩 초안 및 보호된 계획 | implemented | 공통 `ModelBindingPolicy`; Operator IAM 경로 및 PostgreSQL 어댑터; Console 모델 편집기; 보호된 해석기 및 배포 워크플로; 집중 테스트 | Owner 전용 초안은 리비전 및 멱등성 제한과 함께 영속화됩니다. 평가 및 계획 요청에는 권한이 없고 활성 산출물 다이제스트를 결합하며 보호된 배포 워크플로를 통해서만 활성화에 도달합니다. 공급자 및 롤백 증적은 남아 있습니다. |
 | 공개 웹 후보 라우팅 | in-progress | `services/operator-service/src/fdai_operator_service/application/conversation/capabilities/web_search/`; `services/operator-service/src/fdai_operator_service/adapters/conversation/web_search/`; focused Operator 테스트 | 프로바이더 중립 및 Azure 구성 경로가 있습니다. 로컬 및 배포 프로파일의 관리되는 이동 지연 시간 및 장애 조치 근거가 남아 있습니다. |
 | 5단계 qualification 지연 시간 계약 | implemented | [`quality_latency.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_latency.py), [`chatops_quality_latency.py`](../../../scripts/evaluation/chatops_quality_latency.py), 집중 검사 | 버전이 지정된 계약은 PR 회귀, 라이브 카나리, 릴리스 단계를 분리하고 표본 하한과 p50/p95/p99 상한을 적용하며 콘텐츠가 없는 근거를 생성합니다. 라이브 또는 릴리스 벤치마크 증적을 주장하지 않습니다. |
+| 단계 소유자 timing 증적 adapter | implemented | [`quality_latency.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_latency.py), 집중 Core 검사 | Adapter는 monotonic 단계 소유자 값에서 기간을 파생하고 설치된 계약과 다른 환경을 차단합니다. Runtime 연결은 미완료 상태입니다. |
 | 8단계 상관관계 추적 계약 | implemented | [`quality_trace.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_trace.py), [`chatops_quality_trace.py`](../../../scripts/evaluation/chatops_quality_trace.py), 집중 검사 | 축약기는 하나의 correlation digest, 이전 레코드 연결, 권위 있는 타임스탬프, 출처 이력 약속값을 갖는 세션부터 감사까지의 순서가 지정된 연결을 요구합니다. 라이브 완전 추적 증적을 주장하지 않습니다. |
 | Timing 근거 연결 | implemented | [`quality_timing.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_timing.py), 집중 검사 | 완전한 집합에는 고유 추적 500개 이상이 있어야 하며 latency 산출물의 설치된 계약, 출처 리비전, 추적 수 및 추적 집합 약속값과 정확히 일치해야 합니다. |
 | 선택적 report-format parity | implemented | `fdai_operator_service.reporting.optional_pdf_report_encoder`; `IncidentRcaReportingProjectionReader`; Operator composition 및 경로 테스트 | 로컬 및 배포 Operator composition은 같은 service-local loader와 authoritative audit-backed Incident report reader를 사용합니다. Venue, 환경 및 identity는 report 권한을 바꾸지 않습니다. |
@@ -204,6 +208,7 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-28 | implemented | Benchmark 기간을 호출자가 작성하지 못하게 하고 PR/카나리/릴리스 환경 불일치를 차단하는 단계 소유자 증적 adapter를 추가했습니다. | `current change`; 집중 Core latency 검사(`8 passed`); Ruff 및 strict mypy. | 권위 있는 단계 소유자에 증적을 연결하고 통제 근거를 보존해야 합니다. |
 | 2026-08-28 | implemented | Qualification timing 상태를 파생하기 전에 latency 산출물과 완전 추적 집합을 연결했습니다. | `current change`; 집중 연결 검사(`4 passed`); 결합 latency/trace/timing 검사(`23 passed`). | Runtime 생산자를 연결하고 일치하는 통제 근거 집합 하나를 보존해야 합니다. |
 | 2026-08-28 | implemented | 8단계 콘텐츠 없는 상관관계 추적 축약기와 `--require-complete` CLI를 추가했습니다. | `current change`; 집중 Core 및 CLI 검사(`8 passed`); Ruff 및 strict mypy. | 권위 있는 레코드 생산자를 연결하고 완전한 PR/카나리/릴리스 추적 증적 하나를 보존해야 합니다. |
 | 2026-08-28 | implemented | 5단계 `chatops-latency-v1` SLO 계약, 결정론 백분위수 축약기 및 콘텐츠가 없는 벤치마크 CLI를 추가했습니다. | `current change`; 집중 Core 및 CLI 검사(`11 passed`); Ruff 및 strict mypy. | 지연 시간 qualification을 주장하기 전에 권위 있는 단계 생산자를 연결하고 PR/카나리/릴리스 증적을 보존하며 완전한 상관관계 추적을 검증해야 합니다. |
