@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: f249afe7d8e1822e4f9a09548bfab2cadc780e85
+translation_source_sha: dca1784247f64ec242781fe818354df5fc79be60
 translation_revised: 2026-08-30
 ---
 # 지속형 운영 인스턴스 그래프
@@ -230,6 +230,7 @@ binding을
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-27 | implemented | 인벤토리 매니페스트 다시 읽기와 PostgreSQL 토폴로지 재생을 변환 게시자의 정규 링크 순서에 맞췄습니다. 여러 LinkType이 있는 세대도 멱등적으로 재생되며, 저장된 1.2.0 매니페스트는 자체 링크 키를 차단하지 않고 1.3.0으로 다시 만들 수 있습니다. | `current change`; 집중 인벤토리 온톨로지 및 PostgreSQL 토폴로지 이력 검사 23개 통과; Ruff 및 strict mypy. | 배포 환경의 재시작 및 재생 근거는 별도로 보존합니다. 외부 출처는 조회하지 않았습니다. |
 | 2026-08-29 | implemented | 불변 Pod 교체 및 복구 근거를 강화했습니다. 이제 축약기는 독립적으로 검증된 Pod-소유자 및 소유자-루트 컨트롤러 링크를 요구한 다음 최신 observed Pod, 종료 및 Deployment 상태를 일치하는 클러스터, 네임스페이스, 워크로드 개정 및 루트 컨트롤러 UID에 연결합니다. 양의 정수 replica와 컨테이너 상태를 요구하고, 종료 시각을 상관 창과 출처 개정에 연결하며, Pod 생성 전 관찰 또는 종료 후 생성을 차단합니다. 같은 UID의 재시작 분류에는 일치하는 생성 신원과 증가한 재시작 횟수가 필요합니다. 롤아웃 분류에는 변경된 워크로드 개정이 필요합니다. 비정상 교체에는 종료부터 교체까지 scale 변경이 없는 완전하고 시각순인 desired-replica 이력도 필요합니다. 모호한 후보 신원과 참조는 재생을 위해 결과에 유지되고, 누락된 모든 복구 필드는 명시적 공백이 됩니다. | `current change`; 검증된 소유권 링크, 범위, 개정, 출처, 수명 주기 순서, 권위 lane, 컨트롤러, replica 이력, 재시작, 모호성 및 상관 창 회귀를 포함한 집중 Pod 교체 축약기 테스트. | 축약기를 보존된 lifecycle 쿼리 조립에 연결하고 이슈 #291에서 인증된 실제 교체 및 복구 증적을 보존합니다. |
 | 2026-08-27 | validated | Kubernetes topology 및 lifecycle migration head를 조정하고 격리 validation database를 canonical legacy schema에서 다시 생성한 뒤 병합된 Core service head를 적용했습니다. 인증된 seed/watch cycle 5개가 lease를 다시 획득하고 불투명 cursor를 sequence 0에서 5까지 limitation 없이 전진시켰으며 영속 reader는 이후 완전한 60초 zero-row 결과를 반환했습니다. | `current change`, Core migration head 1개, migration 계약 60개 통과, PostgreSQL lease, duplicate 및 reorder 통합 검사 1개 통과, 인증된 cluster `Running/Succeeded`, Event API HTTP 200, 정확한 UID 실제 읽기 17개 행 | 배포 보존과 실제 Pod 교체 및 복구 결합은 각각 이슈 #292와 #291의 별도 운영 근거로 남아 있습니다. |
 | 2026-08-27 | in-progress | Lease 기반의 타입 지정 재개 가능 Kubernetes lifecycle 수집과 indexed 영속 Event 읽기를 추가했습니다. Collector는 현재 시각에서 coverage를 시작하고 bookmark와 함께 watch하며 `resourceVersion`을 불투명 값으로 취급합니다. 관측과 cursor 진행을 원자적으로 commit하고 authorization, expiry, source 및 result-limit gap을 기록합니다. | `current change`, lifecycle 및 기존 Event 검사 76개 통과, service-migration 계약 60개 통과, Ruff, formatter 및 strict mypy 통과, 인증된 실제 Event API HTTP 200 및 정확한 UID 읽기 17개 행 | Validation schema fingerprint와 경쟁하는 untracked migration head를 해결하고 service migration을 적용한 뒤 연속 seed/watch 두 cycle과 완전한 lookback 구간을 보존해야 행 0개가 과거 부재를 증명할 수 있습니다. |
