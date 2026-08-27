@@ -36,6 +36,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   retries failed read-model projections from their persisted status.
   Scenario identifiers are ASCII-safe and bounded so UUID-shaped changes remain valid ontology
   branch keys.
+  Timeout persistence is bounded or handed to a durable outbox, and normalized Change provenance
+  keeps the canonical `process_ref` for Process lineage.
   Pantheon members remain flat under `agents/`; private behavior-extraction mixins belong under
   `agents/_framework/` and cannot change the member's AgentSpec, topics, ownership, model policy,
   or authority.
