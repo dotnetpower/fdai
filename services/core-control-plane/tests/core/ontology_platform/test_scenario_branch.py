@@ -7,6 +7,8 @@ from fdai.core.ontology_platform import (
     OntologyScenarioBranch,
     OntologyScenarioChangeSet,
 )
+from fdai.core.ontology_platform.functions import FunctionInvocationContext
+from fdai.core.ontology_platform.query_receipt_authority import SecuredQueryReceiptAuthority
 from fdai.core.operational_context import (
     AuthenticatedPrincipalContext,
     OperationalEvidenceMaterial,
@@ -45,6 +47,7 @@ class _EvidenceSource:
 
 
 async def _bundle():
+    authority = SecuredQueryReceiptAuthority()
     result = await OperationalEvidenceReadService(
         source=_EvidenceSource(),
         clock=lambda: NOW,
@@ -60,6 +63,13 @@ async def _bundle():
             principal_ref=PRINCIPAL,
             principal_scope_digest=PRINCIPAL_SCOPE,
             purpose="scenario-review",
+            receipt_authority=authority,
+            invocation_context=FunctionInvocationContext(
+                caller_agent="Bragi",
+                caller_role="reader",
+                purposes=("scenario-review",),
+            ),
+            verification_context=authority.verification_context,
         ),
     )
     return result.bundle

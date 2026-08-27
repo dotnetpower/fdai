@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 07031c80d0405fe08e157a2483066e196e3e1d0a
+translation_source_sha: 8296fff50261b60633f0853e8e377197c45de9be
 translation_revised: 2026-08-28
 ---
 # 코드 맵
@@ -117,6 +117,8 @@ truncation과 독립적으로 보존합니다.
 호출을 orientation conflict로 처리하지 않습니다.
 Principal 범위 운영 근거 읽기는 기존 범위 제한 응답을 통해 receipt로 검증된 컨텍스트
 메타데이터를 결속하며 mutation 또는 execution 권한을 추가하지 않습니다.
+Context 변환 결과는 증적 발급을 인증하고, 출처 세대와 검증 계보를 포함한 전체 링크 관측
+메타데이터를 비교하며, 번들과 메타데이터를 하나의 바이트 예산으로 제한합니다.
 Detection 변환 결과도 원본에서 파생된 Forecast 및 Pattern 객체만 노출하며, 보류된 관계는
 카탈로그를 복원하기 전에 정확한 endpoint 신원을 요구합니다.
 교차 출처 상태 판정은 결정론적 읽기 전용입니다. 서로 다른 provider와 변환 상태 shadow 쌍은

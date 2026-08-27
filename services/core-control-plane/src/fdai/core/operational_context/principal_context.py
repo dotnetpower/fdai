@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from fdai.core.ontology_platform.functions import FunctionInvocationContext
+from fdai.core.ontology_platform.query_receipt_authority import SecuredQueryReceiptAuthority
+
 
 @dataclass(frozen=True, slots=True)
 class AuthenticatedPrincipalContext:
@@ -12,6 +15,9 @@ class AuthenticatedPrincipalContext:
     principal_ref: str
     principal_scope_digest: str
     purpose: str
+    receipt_authority: SecuredQueryReceiptAuthority
+    invocation_context: FunctionInvocationContext
+    verification_context: object
 
     def __post_init__(self) -> None:
         if not self.principal_ref.strip():

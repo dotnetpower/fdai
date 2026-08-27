@@ -4,6 +4,7 @@ from dataclasses import replace
 from datetime import UTC, datetime
 
 import pytest
+from fdai.core.ontology_platform.functions import FunctionInvocationContext
 from fdai.core.ontology_platform.models import (
     ObjectSelector,
     ObjectSelectorKind,
@@ -17,6 +18,7 @@ from fdai.core.ontology_platform.query_gateway import (
     SecuredObjectSetQueryResult,
     _projected_result_digest,
 )
+from fdai.core.ontology_platform.query_receipt_authority import SecuredQueryReceiptAuthority
 from fdai.core.operational_context import AuthenticatedPrincipalContext
 from fdai.core.operational_context.console_projection import project_context_snapshot
 from fdai.core.operational_context.models import (
@@ -30,6 +32,13 @@ from fdai.shared.providers.ontology_instance import (
     OntologyGraphSnapshot,
     OntologyLinkRecord,
     OntologyObjectRecord,
+)
+from fdai.shared.providers.state_evidence import (
+    LINK_OBSERVATION_METADATA_PROPERTY,
+    LinkObservationMetadata,
+    StateFactAuthority,
+    StateFactLane,
+    StateFactMetadata,
 )
 
 CUTOFF = datetime(2026, 8, 14, 0, 0, tzinfo=UTC)
@@ -161,16 +170,61 @@ def _secured_result(
     )
 
 
+def _authenticated_context(
+    result: SecuredObjectSetQueryResult,
+) -> AuthenticatedPrincipalContext:
+    authority = SecuredQueryReceiptAuthority()
+    authority.issue(result)
+    invocation = FunctionInvocationContext(
+        caller_agent="Bragi",
+        caller_role="reader",
+        purposes=("operator_context",),
+        evidence_refs=(result.receipt.projected_result_digest,),
+    )
+    return AuthenticatedPrincipalContext(
+        principal_ref=PRINCIPAL,
+        principal_scope_digest=PRINCIPAL_SCOPE,
+        purpose="operator_context",
+        receipt_authority=authority,
+        invocation_context=invocation,
+        verification_context=authority.verification_context,
+    )
+
+
+def _link_metadata(*, source_revision: str) -> LinkObservationMetadata:
+    return LinkObservationMetadata(
+        state_fact=StateFactMetadata(
+            lane=StateFactLane.OBSERVED,
+            authority=StateFactAuthority.PROVIDER,
+            source_identity="inventory-provider",
+            source_revision=source_revision,
+            effective_at=CUTOFF,
+            recorded_at=CUTOFF,
+            evidence_cutoff=CUTOFF,
+            freshness_ceiling_seconds=300,
+            completeness=1.0,
+            synthetic=False,
+            evidence_refs=("inventory-observation",),
+        ),
+        verification_method="provider-readback",
+        verified=True,
+        verifier_identity="inventory-verifier",
+        verifier_revision="verifier-r1",
+        verification_receipt_ref="verification-receipt-r1",
+        inventory_generation="inventory-generation-r1",
+        mapping_id="mapping-r1",
+        mapping_revision="mapping-revision-r1",
+        source_schema_version="2026-08-27",
+        source_schema_digest="sha256:" + "e" * 64,
+    )
+
+
 def test_projects_bounded_context_from_matching_secured_receipt() -> None:
     secured_result = _secured_result()
     projection = project_context_snapshot(
         snapshot=_snapshot(),
         secured_result=secured_result,
-        authenticated_context=AuthenticatedPrincipalContext(
-            principal_ref=PRINCIPAL,
-            principal_scope_digest=PRINCIPAL_SCOPE,
-            purpose="operator_context",
-        ),
+        authenticated_context=_authenticated_context(secured_result),
     )
 
     assert projection["ontology_release_digest"] == DIGEST
@@ -199,27 +253,22 @@ def test_rejects_receipt_or_coverage_mismatch(secured_result: object, message: s
     with pytest.raises(ValueError, match=message):
         project_context_snapshot(
             snapshot=_snapshot(),
-            secured_result=secured_result,
-            authenticated_context=AuthenticatedPrincipalContext(
-                principal_ref=PRINCIPAL,
-                principal_scope_digest=PRINCIPAL_SCOPE,
-                purpose="operator_context",
+            secured_result=secured_result,  # type: ignore[arg-type]
+            authenticated_context=_authenticated_context(
+                secured_result  # type: ignore[arg-type]
             ),
         )
 
 
 def test_rejects_stale_snapshot_context() -> None:
     stale = replace(_snapshot(), stale_sources=("inventory",))
+    secured = _secured_result()
 
     with pytest.raises(ValueError, match="unavailable"):
         project_context_snapshot(
             snapshot=stale,
-            secured_result=_secured_result(),
-            authenticated_context=AuthenticatedPrincipalContext(
-                principal_ref=PRINCIPAL,
-                principal_scope_digest=PRINCIPAL_SCOPE,
-                purpose="operator_context",
-            ),
+            secured_result=secured,
+            authenticated_context=_authenticated_context(secured),
         )
 
 
@@ -239,11 +288,7 @@ def test_rejects_object_type_revision_and_temporal_path_forgery() -> None:
             ),
         }
     )
-    context = AuthenticatedPrincipalContext(
-        principal_ref=PRINCIPAL,
-        principal_scope_digest=PRINCIPAL_SCOPE,
-        purpose="operator_context",
-    )
+    context = _authenticated_context(forged)
     with pytest.raises(ValueError, match="object type or revision"):
         project_context_snapshot(
             snapshot=_snapshot(),
@@ -265,7 +310,7 @@ def test_rejects_object_type_revision_and_temporal_path_forgery() -> None:
         project_context_snapshot(
             snapshot=temporal_snapshot,
             secured_result=secured,
-            authenticated_context=context,
+            authenticated_context=_authenticated_context(secured),
         )
 
 
@@ -278,13 +323,47 @@ def test_rejects_forged_receipt_digest() -> None:
             )
         }
     )
-    with pytest.raises(ValueError, match="receipt digest"):
+    with pytest.raises(ValueError, match="not issued"):
         project_context_snapshot(
             snapshot=_snapshot(),
             secured_result=forged,
-            authenticated_context=AuthenticatedPrincipalContext(
-                principal_ref=PRINCIPAL,
-                principal_scope_digest=PRINCIPAL_SCOPE,
-                purpose="operator_context",
+            authenticated_context=_authenticated_context(secured),
+        )
+
+
+def test_rejects_link_observation_metadata_drift() -> None:
+    secured = _secured_result()
+    secured_metadata = _link_metadata(source_revision="source-r1")
+    secured_link = replace(
+        secured.materialization.graph.links[0],
+        properties={LINK_OBSERVATION_METADATA_PROPERTY: secured_metadata.to_mapping()},
+    )
+    secured_graph = replace(secured.materialization.graph, links=(secured_link,))
+    secured_materialization = secured.materialization.model_copy(update={"graph": secured_graph})
+    secured = secured.model_copy(
+        update={
+            "materialization": secured_materialization,
+            "receipt": secured.receipt.model_copy(
+                update={
+                    "projected_result_digest": _projected_result_digest(secured_materialization)
+                }
             ),
+        }
+    )
+    snapshot_metadata = _link_metadata(source_revision="source-r2")
+    snapshot_link = replace(_snapshot().evidence_links[0], observation_metadata=snapshot_metadata)
+    snapshot = replace(
+        _snapshot(),
+        evidence_links=(snapshot_link,),
+        evidence_paths=(
+            _snapshot().evidence_paths[0],
+            replace(_snapshot().evidence_paths[1], links=(snapshot_link,)),
+        ),
+    )
+
+    with pytest.raises(ValueError, match="link observation metadata"):
+        project_context_snapshot(
+            snapshot=snapshot,
+            secured_result=secured,
+            authenticated_context=_authenticated_context(secured),
         )
