@@ -57,6 +57,7 @@ class _Store:
                 updated_at=NOW,
                 complete=self.complete,
                 limitation=self.limitation,
+                coverage_started_at=NOW - timedelta(days=1),
             )
         )
 
@@ -230,6 +231,32 @@ async def test_stale_cursor_and_capped_rows_remain_incomplete() -> None:
     )
     assert gap_result.complete is False
     assert gap_result.limitation == "lifecycle_cursor_lifecycle_response_invalid"
+
+
+async def test_reader_requires_continuous_coverage_for_the_full_lookback() -> None:
+    class _RecentCoverageStore(_Store):
+        async def read_cursor_state(
+            self, cluster_ref: str
+        ) -> KubernetesLifecycleCursorState | None:
+            state = await super().read_cursor_state(cluster_ref)
+            assert state is not None
+            return replace(state, coverage_started_at=NOW - timedelta(minutes=5))
+
+    reader = DurableKubernetesResourceEventHistoryReader(
+        store=_RecentCoverageStore(),
+        cluster_ref="cluster-a",
+        now=lambda: NOW,
+    )
+
+    result = await reader.read_history_with_identity(
+        resource_ids=("pod-a",),
+        resource_identity={"pod-a": {"cluster_ref": "cluster-a", "uid": "pod-uid-a"}},
+        event_families=("resource_event.kubernetes",),
+        lookback_seconds=900,
+    )
+
+    assert result.complete is False
+    assert result.limitation == "lifecycle_lookback_not_covered"
 
 
 async def test_reader_rejects_missing_or_foreign_uid_before_store_read() -> None:

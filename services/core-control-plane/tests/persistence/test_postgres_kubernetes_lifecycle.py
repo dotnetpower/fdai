@@ -189,6 +189,57 @@ async def test_cursor_and_observations_persist_across_a_restart(tmp_path: Path) 
         config=PostgresKubernetesLifecycleStoreConfig(dsn=dsn)
     )
     assert await restarted.read_cursor(cluster_ref) == "150"
+    state = await restarted.read_cursor_state(cluster_ref)
+    assert state is not None
+    assert state.coverage_started_at is not None
+
+
+@pytest.mark.integration
+async def test_private_list_progress_persists_and_establishes_coverage_on_completion(
+    tmp_path: Path,
+) -> None:
+    dsn = _requires_live_db()
+    _upgrade_head(tmp_path)
+    cluster_ref = f"cluster-{uuid.uuid4().hex[:8]}"
+    store = PostgresKubernetesLifecycleStore(
+        config=PostgresKubernetesLifecycleStoreConfig(dsn=dsn),
+        now=lambda: _NOW,
+    )
+
+    await store.append(
+        cluster_ref=cluster_ref,
+        previous_cursor=None,
+        previous_list_continue_token=None,
+        next_cursor=None,
+        next_list_continue_token="page-8",
+        observations=(),
+        complete=False,
+        limitation="list_in_progress",
+    )
+
+    restarted = PostgresKubernetesLifecycleStore(
+        config=PostgresKubernetesLifecycleStoreConfig(dsn=dsn),
+        now=lambda: _NOW + timedelta(seconds=1),
+    )
+    partial = await restarted.read_cursor_state(cluster_ref)
+    assert partial is not None
+    assert partial.resource_version is None
+    assert partial.list_continue_token == "page-8"
+    assert partial.coverage_started_at is None
+
+    await restarted.append(
+        cluster_ref=cluster_ref,
+        previous_cursor=None,
+        previous_list_continue_token="page-8",
+        next_cursor="150",
+        next_list_continue_token=None,
+        observations=(),
+    )
+    complete = await restarted.read_cursor_state(cluster_ref)
+    assert complete is not None
+    assert complete.resource_version == "150"
+    assert complete.list_continue_token is None
+    assert complete.coverage_started_at == _NOW + timedelta(seconds=1)
 
 
 @pytest.mark.integration

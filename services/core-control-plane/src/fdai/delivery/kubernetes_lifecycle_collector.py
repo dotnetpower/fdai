@@ -41,6 +41,24 @@ class KubernetesLifecycleCursorState:
     updated_at: datetime
     complete: bool = True
     limitation: str | None = None
+    list_continue_token: str | None = None
+    coverage_started_at: datetime | None = None
+
+    def __post_init__(self) -> None:
+        if self.resource_version is not None and self.list_continue_token is not None:
+            raise ValueError("Kubernetes lifecycle state MUST NOT mix watch and LIST cursors")
+        if self.list_continue_token is not None and not (
+            0 < len(self.list_continue_token) <= 2_048
+        ):
+            raise ValueError("Kubernetes lifecycle LIST cursor MUST be bounded non-empty")
+        if self.updated_at.tzinfo is None or self.updated_at.utcoffset() is None:
+            raise ValueError("Kubernetes lifecycle state update time MUST be timezone-aware")
+        if self.coverage_started_at is not None and (
+            self.coverage_started_at.tzinfo is None
+            or self.coverage_started_at.utcoffset() is None
+            or self.coverage_started_at > self.updated_at
+        ):
+            raise ValueError("Kubernetes lifecycle coverage boundary is invalid")
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,7 +92,9 @@ class KubernetesLifecycleStore(Protocol):
         *,
         cluster_ref: str,
         previous_cursor: str | None,
+        previous_list_continue_token: str | None,
         next_cursor: str | None,
+        next_list_continue_token: str | None,
         observations: tuple[KubernetesLifecycleObservation, ...],
         complete: bool = True,
         limitation: str | None = None,
@@ -150,21 +170,29 @@ async def collect_kubernetes_lifecycle_once(
     `None` (a real, explicit coverage gap) rather than silently continuing.
     """
 
-    previous_cursor = await store.read_cursor(cluster_ref)
+    previous_state = await store.read_cursor_state(cluster_ref)
+    previous_cursor = None if previous_state is None else previous_state.resource_version
+    previous_list_continue_token = (
+        None if previous_state is None else previous_state.list_continue_token
+    )
     poll: KubernetesLifecyclePoll = await source.poll(
-        cluster_ref=cluster_ref, cursor=previous_cursor
+        cluster_ref=cluster_ref,
+        cursor=previous_cursor,
+        list_continue_token=previous_list_continue_token,
     )
     if poll.cluster_ref != cluster_ref:
         raise ValueError("Kubernetes lifecycle source responded with a foreign cluster_ref")
-    next_cursor = (
-        poll.next_cursor
-        if poll.complete or poll.cursor_safe or poll.limitation == "cursor_expired"
-        else previous_cursor
+    may_advance = poll.complete or poll.cursor_safe or poll.limitation == "cursor_expired"
+    next_cursor = poll.next_cursor if may_advance else previous_cursor
+    next_list_continue_token = (
+        poll.next_list_continue_token if may_advance else previous_list_continue_token
     )
     receipt = await store.append(
         cluster_ref=cluster_ref,
         previous_cursor=previous_cursor,
+        previous_list_continue_token=previous_list_continue_token,
         next_cursor=next_cursor,
+        next_list_continue_token=next_list_continue_token,
         observations=poll.observations,
         complete=poll.complete,
         limitation=poll.limitation,

@@ -73,6 +73,7 @@ async def test_cohort_preserves_historical_uid_and_inventory_owner() -> None:
                 state=KubernetesLifecycleCursorState(
                     resource_version="100",
                     updated_at=NOW,
+                    coverage_started_at=NOW - timedelta(hours=1),
                 ),
                 identities=(old_identity, current_identity),
                 observations=(_event("pod-old"),),
@@ -105,6 +106,7 @@ async def test_cohort_requires_retained_current_identity() -> None:
                 state=KubernetesLifecycleCursorState(
                     resource_version="100",
                     updated_at=NOW,
+                    coverage_started_at=NOW - timedelta(hours=1),
                 ),
                 identities=(_identity("pod/orders-old", "pod-old"),),
                 observations=(_event("pod-old"),),

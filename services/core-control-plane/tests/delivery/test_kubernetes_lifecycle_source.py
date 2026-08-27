@@ -311,7 +311,7 @@ async def test_authorization_failure_is_an_explicit_gap_before_any_request() -> 
     assert poll.limitation == "authorization_failed"
 
 
-async def test_list_truncation_reports_result_limit_and_stays_bounded() -> None:
+async def test_large_list_returns_private_resumable_progress_and_stays_bounded() -> None:
     call_count = 0
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -330,14 +330,69 @@ async def test_list_truncation_reports_result_limit_and_stays_bounded() -> None:
     poll = await source.poll(cluster_ref=CLUSTER_REF, cursor=None)
 
     assert poll.complete is False
-    assert poll.limitation == "result_limit"
-    # An incomplete drain MUST NOT advance the cursor to the snapshot's
-    # `resourceVersion`: doing so would silently skip every unconsumed
-    # continuation page forever.
+    assert poll.limitation == "list_in_progress"
     assert poll.next_cursor is None
+    assert poll.next_list_continue_token == "next-page-token"
+    assert poll.cursor_safe is True
     # The internal page budget bounds provider I/O even under an infinite
     # continuation loop.
     assert call_count == 8
+
+
+async def test_large_list_resumes_after_restart_and_eventually_establishes_watch_cursor() -> None:
+    pages_seen: list[str | None] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        current = request.url.params.get("continue")
+        pages_seen.append(current)
+        page = 0 if current is None else int(current.removeprefix("page-"))
+        continuation = f"page-{page + 1}" if page < 8 else None
+        metadata = {"resourceVersion": "9000"}
+        if continuation is not None:
+            metadata["continue"] = continuation
+        return _json_response(
+            {
+                "metadata": metadata,
+                "items": [
+                    _event_object(
+                        event_uid=f"event-{page}",
+                        resource_version=str(8000 + page),
+                    )
+                ],
+            }
+        )
+
+    source = _source(httpx.MockTransport(handler))
+    first = await source.poll(cluster_ref=CLUSTER_REF, cursor=None)
+    assert first.next_list_continue_token == "page-8"
+    assert first.complete is False
+
+    resumed = await source.poll(
+        cluster_ref=CLUSTER_REF,
+        cursor=None,
+        list_continue_token=first.next_list_continue_token,
+    )
+
+    assert resumed.complete is True
+    assert resumed.next_cursor == "9000"
+    assert resumed.next_list_continue_token is None
+    assert tuple(item.source_revision for item in resumed.observations) == ("8008",)
+    assert pages_seen == [None, *(f"page-{index}" for index in range(1, 9))]
+
+
+async def test_expired_list_continuation_resets_private_progress() -> None:
+    source = _source(httpx.MockTransport(lambda request: _response(b"", status_code=410)))
+
+    poll = await source.poll(
+        cluster_ref=CLUSTER_REF,
+        cursor=None,
+        list_continue_token="expired-page",
+    )
+
+    assert poll.complete is False
+    assert poll.limitation == "cursor_expired"
+    assert poll.next_cursor is None
+    assert poll.next_list_continue_token is None
 
 
 async def test_list_pagination_drains_within_budget_and_advances_the_cursor() -> None:

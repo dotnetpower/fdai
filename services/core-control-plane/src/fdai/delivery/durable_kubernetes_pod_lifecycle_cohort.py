@@ -83,6 +83,10 @@ class DurableKubernetesPodLifecycleCohortReader:
                 limitation = "lifecycle_cursor_future"
             elif age.total_seconds() > self._freshness_ceiling_seconds:
                 limitation = "lifecycle_cursor_stale"
+            elif state.coverage_started_at is None:
+                limitation = "lifecycle_coverage_unavailable"
+            elif state.coverage_started_at > window_start:
+                limitation = "lifecycle_lookback_not_covered"
         identities = snapshot.identities
         observations = snapshot.observations
         if limitation is None and len(identities) > _MAX_IDENTITIES:

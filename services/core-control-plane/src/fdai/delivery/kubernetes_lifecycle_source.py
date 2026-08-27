@@ -23,12 +23,9 @@ from fdai.delivery.kubernetes_api_inventory import KubernetesApiAuth
 _MAX_EVENTS: Final = 256
 _MAX_RESPONSE_BYTES: Final = 262_144
 _MAX_WATCH_LINE_BYTES: Final = 65_536
-# A LIST snapshot MUST NOT advance the durable cursor past pages it never fetched.
-# Rather than persist a provider-controlled, unbounded-length `continue` token as
-# the durable cursor, one `poll()` bounded-drains up to this many pages internally;
-# if the list still has not fully drained by then, the whole attempt reports an
-# explicit `result_limit` gap and leaves the cursor untouched so the next attempt
-# safely restarts the list (idempotent: observations are content-addressed).
+_MAX_CONTINUE_TOKEN_LENGTH: Final = 2_048
+# One pass remains bounded, while the collector persists the opaque LIST token in
+# a private field distinct from the public resource-version cursor.
 _MAX_LIST_PAGES: Final = 8
 MAX_KUBERNETES_LIFECYCLE_POLL_OBSERVATIONS: Final = _MAX_EVENTS * _MAX_LIST_PAGES
 
@@ -39,6 +36,10 @@ class KubernetesLifecycleSourceError(RuntimeError):
 
 class _KubernetesLifecycleAuthorizationError(Exception):
     """Signal a 401/403 provider response distinctly from a generic outage."""
+
+
+class _KubernetesLifecycleCursorExpiredError(Exception):
+    """Signal that a LIST continuation snapshot has expired."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,6 +94,7 @@ class KubernetesLifecyclePoll:
     limitation: str | None
     attempt_ref: str
     cursor_safe: bool = False
+    next_list_continue_token: str | None = None
 
     def __post_init__(self) -> None:
         if not self.cluster_ref.strip() or len(self.cluster_ref) > 512:
@@ -103,12 +105,20 @@ class KubernetesLifecyclePoll:
             raise ValueError("Kubernetes lifecycle poll widened the requested cluster scope")
         if self.complete == (self.limitation is not None):
             raise ValueError("Kubernetes lifecycle poll completeness and limitation disagree")
-        if self.complete and self.next_cursor is None:
+        if self.next_cursor is not None and self.next_list_continue_token is not None:
+            raise ValueError("lifecycle poll MUST NOT mix watch and LIST cursors")
+        if self.complete and (
+            self.next_cursor is None or self.next_list_continue_token is not None
+        ):
             raise ValueError("Kubernetes lifecycle poll MUST carry a cursor when complete")
         if not self.attempt_ref.strip() or len(self.attempt_ref) > 256:
             raise ValueError("Kubernetes lifecycle poll attempt_ref MUST be bounded non-empty")
-        if self.cursor_safe and self.next_cursor is None:
-            raise ValueError("cursor-safe lifecycle poll MUST carry a cursor")
+        if self.cursor_safe and self.next_cursor is None and self.next_list_continue_token is None:
+            raise ValueError("cursor-safe lifecycle poll MUST carry durable progress")
+        if self.next_list_continue_token is not None and not (
+            0 < len(self.next_list_continue_token) <= _MAX_CONTINUE_TOKEN_LENGTH
+        ):
+            raise ValueError("Kubernetes lifecycle LIST cursor MUST be bounded non-empty")
 
 
 class KubernetesLifecycleSource(Protocol):
@@ -119,6 +129,7 @@ class KubernetesLifecycleSource(Protocol):
         *,
         cluster_ref: str,
         cursor: str | None,
+        list_continue_token: str | None = None,
     ) -> KubernetesLifecyclePoll: ...
 
 
@@ -143,11 +154,18 @@ class KubernetesLifecycleWatchSource:
         *,
         cluster_ref: str,
         cursor: str | None,
+        list_continue_token: str | None = None,
     ) -> KubernetesLifecyclePoll:
         """Return the next bounded slice, resuming from `cursor` when present."""
 
         if cluster_ref != self._config.cluster_ref:
             raise ValueError("Kubernetes lifecycle source received a foreign cluster_ref")
+        if cursor is not None and list_continue_token is not None:
+            raise ValueError("Kubernetes lifecycle source received conflicting resume state")
+        if list_continue_token is not None and not (
+            0 < len(list_continue_token) <= _MAX_CONTINUE_TOKEN_LENGTH
+        ):
+            raise ValueError("Kubernetes lifecycle LIST cursor MUST be bounded non-empty")
         recorded_time = self._now()
         if recorded_time.tzinfo is None:
             raise ValueError("Kubernetes lifecycle source clock MUST be timezone-aware")
@@ -156,12 +174,20 @@ class KubernetesLifecycleWatchSource:
         except Exception:  # noqa: BLE001 - auth failures never leak provider content
             # Preserve the caller's cursor: a transient auth blip MUST NOT discard an
             # already-durable checkpoint, only `cursor_expired` resets it.
-            return self._gap(cluster_ref, limitation="authorization_failed", next_cursor=cursor)
+            return self._gap(
+                cluster_ref,
+                limitation="authorization_failed",
+                next_cursor=cursor,
+                next_list_continue_token=list_continue_token,
+            )
         request_headers = dict(headers)
         request_headers["Accept-Encoding"] = "identity"
         if cursor is None:
             return await self._list(
-                cluster_ref, headers=request_headers, recorded_time=recorded_time
+                cluster_ref,
+                headers=request_headers,
+                recorded_time=recorded_time,
+                continue_token=list_continue_token,
             )
         return await self._watch(
             cluster_ref,
@@ -176,19 +202,17 @@ class KubernetesLifecycleWatchSource:
         *,
         headers: dict[str, str],
         recorded_time: datetime,
+        continue_token: str | None,
     ) -> KubernetesLifecyclePoll:
         """Bounded-drain up to `_MAX_LIST_PAGES` continuation pages of one snapshot.
 
-        The durable cursor only ever advances to the snapshot `resourceVersion` once
-        every page has been fetched (no `continue` token remains); an incomplete
-        drain reports an explicit `result_limit` gap and leaves the cursor untouched
-        so the next attempt safely restarts the whole list rather than silently
-        skipping the pages it never reached.
+        The resource-version cursor advances only after every page has been fetched.
+        A larger snapshot returns bounded observations plus the next opaque LIST
+        continuation token, which the collector persists separately and resumes.
         """
 
         observations: list[KubernetesLifecycleObservation] = []
         malformed = False
-        continue_token: str | None = None
         for _ in range(_MAX_LIST_PAGES):
             params = {"limit": str(self._config.list_limit)}
             if continue_token is not None:
@@ -196,9 +220,19 @@ class KubernetesLifecycleWatchSource:
             try:
                 body = await self._get(params=params, headers=headers)
             except _KubernetesLifecycleAuthorizationError:
-                return self._gap(cluster_ref, limitation="authorization_failed")
+                return self._gap(
+                    cluster_ref,
+                    limitation="authorization_failed",
+                    next_list_continue_token=continue_token,
+                )
+            except _KubernetesLifecycleCursorExpiredError:
+                return self._gap(cluster_ref, limitation="cursor_expired")
             if body is None:
-                return self._gap(cluster_ref, limitation="source_unavailable")
+                return self._gap(
+                    cluster_ref,
+                    limitation="source_unavailable",
+                    next_list_continue_token=continue_token,
+                )
             try:
                 payload = json.loads(body)
             except (UnicodeDecodeError, ValueError):
@@ -216,9 +250,19 @@ class KubernetesLifecycleWatchSource:
             resource_version = _text(metadata.get("resourceVersion"), maximum=128)
             if resource_version is None:
                 return self._gap(cluster_ref, limitation="lifecycle_response_invalid")
-            continuation = metadata.get("continue")
-            if continuation is not None and not isinstance(continuation, str):
-                return self._gap(cluster_ref, limitation="lifecycle_response_invalid")
+            raw_continuation = metadata.get("continue")
+            continuation = None
+            if raw_continuation not in (None, ""):
+                continuation = _text(
+                    raw_continuation,
+                    maximum=_MAX_CONTINUE_TOKEN_LENGTH,
+                )
+                if continuation is None:
+                    return self._gap(
+                        cluster_ref,
+                        limitation="lifecycle_response_invalid",
+                        next_list_continue_token=continue_token,
+                    )
             if len(items) > self._config.list_limit:
                 return self._gap(cluster_ref, limitation="lifecycle_response_invalid")
             for item in items:
@@ -247,7 +291,9 @@ class KubernetesLifecycleWatchSource:
             cluster_ref,
             observations=tuple(observations),
             next_cursor=None,
-            limitation="result_limit",
+            next_list_continue_token=continue_token,
+            limitation="list_in_progress",
+            cursor_safe=True,
         )
 
     async def _watch(
@@ -364,6 +410,8 @@ class KubernetesLifecycleWatchSource:
                 ) as response:
                     if response.status_code in (401, 403):
                         raise _KubernetesLifecycleAuthorizationError(str(response.status_code))
+                    if response.status_code == 410:
+                        raise _KubernetesLifecycleCursorExpiredError
                     response.raise_for_status()
                     content_encoding = response.headers.get("content-encoding", "identity")
                     if content_encoding.casefold() != "identity":
@@ -469,11 +517,13 @@ class KubernetesLifecycleWatchSource:
         *,
         limitation: str,
         next_cursor: str | None = None,
+        next_list_continue_token: str | None = None,
     ) -> KubernetesLifecyclePoll:
         return self._result(
             cluster_ref,
             observations=(),
             next_cursor=next_cursor,
+            next_list_continue_token=next_list_continue_token,
             limitation=limitation,
         )
 
@@ -485,12 +535,18 @@ class KubernetesLifecycleWatchSource:
         next_cursor: str | None,
         limitation: str | None,
         cursor_safe: bool = False,
+        next_list_continue_token: str | None = None,
     ) -> KubernetesLifecyclePoll:
         material = "|".join(
             (
                 cluster_ref,
                 *(item.evidence_ref for item in observations),
                 next_cursor or "none",
+                (
+                    hashlib.sha256(next_list_continue_token.encode()).hexdigest()
+                    if next_list_continue_token is not None
+                    else "no-list-cursor"
+                ),
                 limitation or "complete",
             )
         )
@@ -502,6 +558,7 @@ class KubernetesLifecycleWatchSource:
             limitation=limitation,
             attempt_ref=f"kubernetes-lifecycle:{hashlib.sha256(material.encode()).hexdigest()}",
             cursor_safe=cursor_safe,
+            next_list_continue_token=next_list_continue_token,
         )
 
 

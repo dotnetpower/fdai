@@ -49,6 +49,7 @@ class _FakeStore:
     """In-memory store enforcing the same single-writer cursor-conflict contract."""
 
     cursor: str | None = None
+    list_continue_token: str | None = None
     observations: dict[str, KubernetesLifecycleObservation] = field(default_factory=dict)
     mutation_attempts: int = 0
     last_complete: bool | None = None
@@ -62,8 +63,12 @@ class _FakeStore:
         assert cluster_ref == CLUSTER_REF
         return (
             None
-            if self.cursor is None
-            else KubernetesLifecycleCursorState(resource_version=self.cursor, updated_at=NOW)
+            if self.cursor is None and self.list_continue_token is None
+            else KubernetesLifecycleCursorState(
+                resource_version=self.cursor,
+                list_continue_token=self.list_continue_token,
+                updated_at=NOW,
+            )
         )
 
     async def append(
@@ -73,12 +78,17 @@ class _FakeStore:
         previous_cursor: str | None,
         next_cursor: str | None,
         observations: tuple[KubernetesLifecycleObservation, ...],
+        previous_list_continue_token: str | None = None,
+        next_list_continue_token: str | None = None,
         complete: bool = True,
         limitation: str | None = None,
     ) -> KubernetesLifecycleAppendReceipt:
         assert cluster_ref == CLUSTER_REF
         self.mutation_attempts += 1
-        if previous_cursor != self.cursor:
+        if (
+            previous_cursor != self.cursor
+            or previous_list_continue_token != self.list_continue_token
+        ):
             raise KubernetesLifecycleCursorConflictError("cursor moved concurrently")
         inserted = 0
         duplicate = 0
@@ -89,6 +99,7 @@ class _FakeStore:
             self.observations[observation.evidence_ref] = observation
             inserted += 1
         self.cursor = next_cursor
+        self.list_continue_token = next_list_continue_token
         self.last_complete = complete
         self.last_limitation = limitation
         return KubernetesLifecycleAppendReceipt(
@@ -103,10 +114,18 @@ class _FakeSource:
     def __init__(self, polls: list[KubernetesLifecyclePoll]) -> None:
         self._polls = list(polls)
         self.calls: list[str | None] = []
+        self.list_continue_tokens: list[str | None] = []
 
-    async def poll(self, *, cluster_ref: str, cursor: str | None) -> KubernetesLifecyclePoll:
+    async def poll(
+        self,
+        *,
+        cluster_ref: str,
+        cursor: str | None,
+        list_continue_token: str | None = None,
+    ) -> KubernetesLifecyclePoll:
         assert cluster_ref == CLUSTER_REF
         self.calls.append(cursor)
+        self.list_continue_tokens.append(list_continue_token)
         return self._polls.pop(0)
 
 
@@ -117,6 +136,7 @@ def _poll(
     complete: bool = True,
     limitation: str | None = None,
     cursor_safe: bool = False,
+    next_list_continue_token: str | None = None,
 ) -> KubernetesLifecyclePoll:
     return KubernetesLifecyclePoll(
         cluster_ref=CLUSTER_REF,
@@ -126,6 +146,7 @@ def _poll(
         limitation=limitation,
         attempt_ref=f"kubernetes-lifecycle:test-{next_cursor}-{limitation}",
         cursor_safe=cursor_safe,
+        next_list_continue_token=next_list_continue_token,
     )
 
 
@@ -312,6 +333,41 @@ async def test_count_cap_advances_safe_partial_cursor_while_retaining_gap() -> N
     assert store.last_limitation == "result_limit"
 
 
+async def test_list_progress_resumes_from_private_durable_token_after_restart() -> None:
+    store = _FakeStore()
+    first_source = _FakeSource(
+        [
+            _poll(
+                observations=(_observation(source_revision="1001"),),
+                next_cursor=None,
+                complete=False,
+                limitation="list_in_progress",
+                cursor_safe=True,
+                next_list_continue_token="page-8",
+            )
+        ]
+    )
+
+    first = await collect_kubernetes_lifecycle_once(
+        source=first_source,
+        store=store,
+        cluster_ref=CLUSTER_REF,
+    )
+
+    assert first.cursor is None
+    assert store.list_continue_token == "page-8"
+    resumed_source = _FakeSource([_poll(next_cursor="2000")])
+    resumed = await collect_kubernetes_lifecycle_once(
+        source=resumed_source,
+        store=store,
+        cluster_ref=CLUSTER_REF,
+    )
+    assert resumed_source.calls == [None]
+    assert resumed_source.list_continue_tokens == ["page-8"]
+    assert resumed.cursor == "2000"
+    assert store.list_continue_token is None
+
+
 async def test_malformed_count_cap_retains_previous_cursor() -> None:
     store = _FakeStore(cursor="1000")
     source = _FakeSource(
@@ -378,7 +434,13 @@ async def test_foreign_cluster_ref_from_the_source_is_rejected() -> None:
     )
 
     class _MismatchedSource:
-        async def poll(self, *, cluster_ref: str, cursor: str | None) -> KubernetesLifecyclePoll:
+        async def poll(
+            self,
+            *,
+            cluster_ref: str,
+            cursor: str | None,
+            list_continue_token: str | None = None,
+        ) -> KubernetesLifecyclePoll:
             return mismatched_poll
 
     with pytest.raises(ValueError, match="foreign cluster_ref"):

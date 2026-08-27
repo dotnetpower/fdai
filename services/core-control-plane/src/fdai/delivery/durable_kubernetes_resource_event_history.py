@@ -138,10 +138,11 @@ class DurableKubernetesResourceEventHistoryReader:
                 limitation="pod_uid_unavailable",
             )
         observed_at = self._now()
+        window_start = observed_at - timedelta(seconds=lookback_seconds)
         snapshot = await self._store.read_snapshot(
             cluster_ref=self._cluster_ref,
             object_uids=(uid,),
-            start=observed_at - timedelta(seconds=lookback_seconds),
+            start=window_start,
             end=observed_at,
             limit=_MAX_READ,
         )
@@ -182,6 +183,22 @@ class DurableKubernetesResourceEventHistoryReader:
                 events=(),
                 complete=False,
                 limitation="lifecycle_cursor_stale",
+            )
+        if cursor_state.coverage_started_at is None:
+            return _result(
+                resource_ids,
+                observed_at=observed_at,
+                events=(),
+                complete=False,
+                limitation="lifecycle_coverage_unavailable",
+            )
+        if cursor_state.coverage_started_at > window_start:
+            return _result(
+                resource_ids,
+                observed_at=observed_at,
+                events=(),
+                complete=False,
+                limitation="lifecycle_lookback_not_covered",
             )
         observations = tuple(item for item in snapshot.observations if item.object_uid == uid)
         truncated = len(observations) > _MAX_EVENTS

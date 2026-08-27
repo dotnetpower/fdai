@@ -79,7 +79,8 @@ class PostgresKubernetesLifecycleStore:
             await self._set_timeout(connection)
             await self._lock_cluster(connection, cluster_ref)
             cursor = await connection.execute(
-                "SELECT resource_version, updated_at, complete, limitation "
+                "SELECT resource_version, list_continue_token, coverage_started_at, "
+                "updated_at, complete, limitation "
                 "FROM kubernetes_lifecycle_cursor "
                 "WHERE cluster_ref = %s",
                 (cluster_ref,),
@@ -94,6 +95,10 @@ class PostgresKubernetesLifecycleStore:
             updated_at=row["updated_at"],
             complete=bool(row["complete"]),
             limitation=None if row["limitation"] is None else str(row["limitation"]),
+            list_continue_token=(
+                None if row["list_continue_token"] is None else str(row["list_continue_token"])
+            ),
+            coverage_started_at=row["coverage_started_at"],
         )
 
     async def append(
@@ -103,6 +108,8 @@ class PostgresKubernetesLifecycleStore:
         previous_cursor: str | None,
         next_cursor: str | None,
         observations: tuple[KubernetesLifecycleObservation, ...],
+        previous_list_continue_token: str | None = None,
+        next_list_continue_token: str | None = None,
         complete: bool = True,
         limitation: str | None = None,
     ) -> KubernetesLifecycleAppendReceipt:
@@ -117,11 +124,21 @@ class PostgresKubernetesLifecycleStore:
             raise ValueError("Kubernetes lifecycle append exceeds its observation bound")
         if any(item.cluster_ref != cluster_ref for item in observations):
             raise ValueError("Kubernetes lifecycle append widened the requested cluster scope")
+        if next_cursor is not None and next_list_continue_token is not None:
+            raise ValueError("Kubernetes lifecycle append mixed watch and LIST cursors")
+        if next_list_continue_token is not None and not (
+            0 < len(next_list_continue_token) <= 2_048
+        ):
+            raise ValueError("Kubernetes lifecycle LIST cursor MUST be bounded non-empty")
+        updated_at = self._now()
+        if updated_at.tzinfo is None or updated_at.utcoffset() is None:
+            raise ValueError("Kubernetes lifecycle store clock MUST be timezone-aware")
         async with await self._connect() as connection, connection.transaction():
             await self._set_timeout(connection)
             await self._lock_cluster(connection, cluster_ref)
             locked = await connection.execute(
-                "SELECT resource_version FROM kubernetes_lifecycle_cursor "
+                "SELECT resource_version, list_continue_token, coverage_started_at "
+                "FROM kubernetes_lifecycle_cursor "
                 "WHERE cluster_ref = %s FOR UPDATE",
                 (cluster_ref,),
             )
@@ -131,10 +148,28 @@ class PostgresKubernetesLifecycleStore:
                 if row is None or row["resource_version"] is None
                 else str(row["resource_version"])
             )
-            if current_cursor != previous_cursor:
+            current_list_continue_token = (
+                None
+                if row is None or row["list_continue_token"] is None
+                else str(row["list_continue_token"])
+            )
+            if (
+                current_cursor != previous_cursor
+                or current_list_continue_token != previous_list_continue_token
+            ):
                 raise KubernetesLifecycleCursorConflictError(
                     "Kubernetes lifecycle cursor moved concurrently under another writer"
                 )
+            current_coverage_started_at = None if row is None else row["coverage_started_at"]
+            coverage_started_at = (
+                None
+                if next_cursor is None
+                else current_coverage_started_at
+                if current_coverage_started_at is not None
+                else updated_at
+                if complete and limitation is None
+                else None
+            )
             inserted = 0
             duplicate = 0
             for observation in observations:
@@ -165,13 +200,24 @@ class PostgresKubernetesLifecycleStore:
                     duplicate += 1
             await connection.execute(
                 "INSERT INTO kubernetes_lifecycle_cursor "
-                "(cluster_ref, resource_version, updated_at, complete, limitation) "
-                "VALUES (%s, %s, %s, %s, %s) "
+                "(cluster_ref, resource_version, list_continue_token, coverage_started_at, "
+                "updated_at, complete, limitation) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s) "
                 "ON CONFLICT (cluster_ref) DO UPDATE SET "
                 "resource_version = excluded.resource_version, "
+                "list_continue_token = excluded.list_continue_token, "
+                "coverage_started_at = excluded.coverage_started_at, "
                 "updated_at = excluded.updated_at, "
                 "complete = excluded.complete, limitation = excluded.limitation",
-                (cluster_ref, next_cursor, self._now(), complete, limitation),
+                (
+                    cluster_ref,
+                    next_cursor,
+                    next_list_continue_token,
+                    coverage_started_at,
+                    updated_at,
+                    complete,
+                    limitation,
+                ),
             )
         return KubernetesLifecycleAppendReceipt(
             cluster_ref=cluster_ref,
@@ -246,7 +292,8 @@ class PostgresKubernetesLifecycleStore:
             await self._set_timeout(connection)
             await self._lock_cluster(connection, cluster_ref)
             state_cursor = await connection.execute(
-                "SELECT resource_version, updated_at, complete, limitation "
+                "SELECT resource_version, list_continue_token, coverage_started_at, "
+                "updated_at, complete, limitation "
                 "FROM kubernetes_lifecycle_cursor WHERE cluster_ref = %s",
                 (cluster_ref,),
             )
@@ -282,6 +329,12 @@ class PostgresKubernetesLifecycleStore:
                 limitation=(
                     None if state_row["limitation"] is None else str(state_row["limitation"])
                 ),
+                list_continue_token=(
+                    None
+                    if state_row["list_continue_token"] is None
+                    else str(state_row["list_continue_token"])
+                ),
+                coverage_started_at=state_row["coverage_started_at"],
             )
         )
         return KubernetesLifecycleReadSnapshot(
@@ -378,7 +431,8 @@ class PostgresKubernetesLifecycleStore:
             await self._set_timeout(connection)
             await self._lock_cluster(connection, cluster_ref)
             state_cursor = await connection.execute(
-                "SELECT resource_version, updated_at, complete, limitation "
+                "SELECT resource_version, list_continue_token, coverage_started_at, "
+                "updated_at, complete, limitation "
                 "FROM kubernetes_lifecycle_cursor WHERE cluster_ref = %s",
                 (cluster_ref,),
             )
@@ -505,6 +559,10 @@ def _cursor_state(row: dict[str, Any] | None) -> KubernetesLifecycleCursorState 
         updated_at=row["updated_at"],
         complete=bool(row["complete"]),
         limitation=None if row["limitation"] is None else str(row["limitation"]),
+        list_continue_token=(
+            None if row["list_continue_token"] is None else str(row["list_continue_token"])
+        ),
+        coverage_started_at=row["coverage_started_at"],
     )
 
 
