@@ -34,6 +34,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   transient holds without deleting prior checks.
   It validates complete graph source generation before publishing a conformant envelope and
   retries failed read-model projections from their persisted status.
+  Scenario identifiers are ASCII-safe and bounded so UUID-shaped changes remain valid ontology
+  branch keys.
   Pantheon members remain flat under `agents/`; private behavior-extraction mixins belong under
   `agents/_framework/` and cannot change the member's AgentSpec, topics, ownership, model policy,
   or authority.

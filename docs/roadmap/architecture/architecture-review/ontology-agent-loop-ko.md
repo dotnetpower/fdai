@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 ARB 에이전트 루프
 translation_of: ontology-agent-loop.md
-translation_source_sha: 42535acdf8d713ed78e8ae1255b9df8187f800e2
+translation_source_sha: ab644863d357face9f40a57bb6dba87820b64daa
 translation_revised: 2026-08-27
 ---
 # 온톨로지 기반 ARB 에이전트 루프
@@ -104,6 +104,8 @@ ARB 읽기 모델은 에이전트가 소유한 레코드에서 파생됩니다. 
 컨텍스트와 일치해야 합니다. 관찰과 함께 projection 상태를 기록하므로 저장된 결과는 근거를
 다시 수집하지 않고 실패했거나 사용할 수 없는 운영 projection을 재시도합니다. 기존 Huginn
 `Change` 레코드는 보존되며, 정확한 정규화 필드가 있을 때만 새 Change를 변환합니다.
+시나리오 branch 식별자는 UUID 형태이거나 긴 Change 식별자에도 ASCII 안전한 제한 prefix와
+콘텐츠 다이제스트를 사용합니다.
 
 ## 자율 검토 수준
 

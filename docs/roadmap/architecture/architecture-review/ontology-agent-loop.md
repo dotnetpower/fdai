@@ -104,6 +104,8 @@ before an envelope can be conformant. Projection status is recorded with the obs
 stored result retries a failed or unavailable production projection without re-running evidence
 collection. Existing Huginn `Change` records are preserved; a new Change is projected only when
 the exact normalized fields are present.
+Scenario branch identifiers use an ASCII-safe bounded prefix plus a content digest, including for
+UUID-shaped or otherwise long Change identifiers.
 
 ## Autonomous review levels
 
