@@ -21,6 +21,8 @@ bounded object sets, semantic action effects, typed functions, authority-aware w
 > PostgreSQL also stores each exact object/link release manifest in `ontology_release`. Startup
 > persists the active manifest and loads every registered manifest before decoding prior rows.
 > Missing releases, manifest/digest mismatches, and declaration/version mismatches fail closed.
+> Persisted 1.2.0 inventory manifests take a bounded rebuild path on the next exact projection and
+> become 1.3.0; they are not silently treated as current evidence.
 > The existing Reader-gated `GET /ontology/graph` projection exposes the release digest,
 > proposal-only write surface, and `mutation_authority: false`; it adds no mutation route.
 > Pre-migration rows remain explicitly unpinned because their original release digest cannot be
@@ -33,7 +35,8 @@ bounded object sets, semantic action effects, typed functions, authority-aware w
 > Composition compiles the polymorphic catalog into the exact release.
 > Bitemporal topology foundations retain provider-generation identity, event and record time,
 > complete snapshots, deltas, and tombstones. Pure `graph_at` and `topology_diff` functions preserve
-> pinned `known_at` replay when late evidence arrives, and incomplete history cannot prove absence.
+> pinned `known_at` replay when late evidence arrives. Every replay batch must carry one consistent
+> ontology release binding, and dangling links or missing or mixed releases lower completeness.
 > Typed query handlers and verifier schemas expose these functions without provider text. A
 > Core-owned migration creates append-only history tables with insert/read-only runtime grants.
 > PostgreSQL reader/writer composition and inventory-promotion publishing remain.

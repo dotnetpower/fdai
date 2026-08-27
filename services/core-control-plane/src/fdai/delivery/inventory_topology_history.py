@@ -58,7 +58,7 @@ class InventoryTopologyHistoryPublisher:
             observation_complete=observation.complete,
             relationship_drops=observation.relationship_drops,
         )
-        if not projection.complete:
+        if not projection.complete or not projection.relationship_complete:
             return None
 
         evidence_ref = f"inventory-generation:{observation.generation}"

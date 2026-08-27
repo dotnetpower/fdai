@@ -272,7 +272,19 @@ def graph_at(
         item.evidence_ref for item in sorted(links.values(), key=lambda item: item.key)
     )
     refs = tuple(dict.fromkeys(evidence_refs))
-    complete = baseline_index is not None and not dangling_links
+    release_digests = tuple(
+        dict.fromkeys(
+            item.ontology_release_digest
+            for item in selected
+            if item.ontology_release_digest is not None
+        )
+    )
+    release_complete = (
+        bool(selected)
+        and len(release_digests) == 1
+        and all(item.ontology_release_digest is not None for item in selected)
+    )
+    complete = baseline_index is not None and not dangling_links and release_complete
     body = {
         "as_of": as_of.astimezone(UTC).isoformat(),
         "known_at": known_at.astimezone(UTC).isoformat(),
@@ -298,11 +310,7 @@ def graph_at(
         "revision_ids": [item.revision_id for item in selected],
         "provider_generation_refs": [item.provider_generation_ref for item in selected],
         "evidence_refs": refs,
-        "ontology_release_digests": [
-            item.ontology_release_digest
-            for item in selected
-            if item.ontology_release_digest is not None
-        ],
+        "ontology_release_digests": release_digests,
         "source_receipt_digests": [
             item.source_receipt_digest
             for item in selected
@@ -318,13 +326,7 @@ def graph_at(
         provider_generation_refs=tuple(item.provider_generation_ref for item in selected),
         evidence_refs=refs,
         digest=_digest(body),
-        ontology_release_digests=tuple(
-            dict.fromkeys(
-                item.ontology_release_digest
-                for item in selected
-                if item.ontology_release_digest is not None
-            )
-        ),
+        ontology_release_digests=release_digests,
         source_receipt_digests=tuple(
             dict.fromkeys(
                 item.source_receipt_digest

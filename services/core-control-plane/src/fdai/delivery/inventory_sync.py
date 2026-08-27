@@ -6,8 +6,8 @@ import asyncio
 import logging
 import socket
 from collections import Counter
-from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
-from dataclasses import dataclass
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Protocol, cast
@@ -82,6 +82,7 @@ class InventoryProjectionSourceState:
     status: InventoryProjectionSourceStatus
     observed_at: datetime | None
     reason: str | None
+    coverage: Mapping[str, int] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not self.source.strip() or len(self.source) > 128:
@@ -93,16 +94,24 @@ class InventoryProjectionSourceState:
                 raise ValueError("available inventory projection source MUST have only observed_at")
         elif self.observed_at is not None or not self.reason or len(self.reason) > 128:
             raise ValueError("unavailable inventory projection source MUST have only a reason")
+        if any(
+            not isinstance(key, str) or not isinstance(value, int) or value < 0
+            for key, value in self.coverage.items()
+        ):
+            raise ValueError("inventory projection source coverage MUST contain counts")
 
-    def to_metadata(self) -> dict[str, str | None]:
+    def to_metadata(self) -> dict[str, object]:
         """Return a sanitized generation metadata record."""
 
-        return {
+        metadata: dict[str, object] = {
             "source": self.source,
             "status": self.status.value,
             "observed_at": self.observed_at.isoformat() if self.observed_at is not None else None,
             "reason": self.reason,
         }
+        if self.coverage:
+            metadata["coverage"] = dict(sorted(self.coverage.items()))
+        return metadata
 
 
 #: Receives one promoted observation after the active pointer moves. The sink
