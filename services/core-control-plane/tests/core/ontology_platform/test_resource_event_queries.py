@@ -11,6 +11,8 @@ from fdai.core.ontology_platform.functions import (
     OntologyFunctionRegistry,
 )
 from fdai.core.ontology_platform.models import (
+    ObjectPredicate,
+    ObjectPredicateOperator,
     ObjectSelector,
     ObjectSelectorKind,
     ObjectSetDefinition,
@@ -71,6 +73,7 @@ def _query_result(
     objects: tuple[OntologyObjectRecord, ...],
     *,
     complete: bool = True,
+    exact_target: str | None = None,
 ) -> SecuredObjectSetQueryResult:
     declaration = resource_event_function_type()
     release = build_ontology_release(function_types=(declaration,))
@@ -78,7 +81,18 @@ def _query_result(
         selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
         as_of=NOW,
         purpose="operations-review",
-        limit=1000,
+        predicates=(
+            (
+                ObjectPredicate(
+                    property="name",
+                    operator=ObjectPredicateOperator.EQUALS,
+                    equals=exact_target,
+                ),
+            )
+            if exact_target is not None
+            else ()
+        ),
+        limit=2 if exact_target is not None else 1000,
     )
     reason = None if complete else ObjectSetTruncationReason.RESULT_LIMIT
     materialization = ObjectSetMaterialization(
@@ -279,6 +293,19 @@ async def test_event_function_distinguishes_verified_zero_from_unavailable() -> 
         "rows": [],
         "truncation_reason": "source_unavailable",
     }
+
+
+async def test_event_function_rejects_an_unresolved_exact_target() -> None:
+    reader = _Reader(_collection(("unused-resource",)))
+
+    result = await _invoke(reader, _query_result((), exact_target="missing-resource"))
+
+    assert result == {
+        "complete": False,
+        "rows": [],
+        "truncation_reason": "target_resolution_not_exact",
+    }
+    assert reader.calls == []
 
 
 async def test_event_function_does_not_read_an_incomplete_secured_scope() -> None:

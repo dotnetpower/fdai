@@ -15,6 +15,7 @@ from fdai.core.ontology_platform.functions import (
     ContextualOntologyFunction,
     FunctionInvocationContext,
 )
+from fdai.core.ontology_platform.models import ObjectPredicateOperator
 from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryResult
 from fdai.core.ontology_platform.query_values import QueryRow, QueryTable
 from fdai.shared.contracts.models import (
@@ -197,6 +198,8 @@ def resource_event_history_function(
         if secured.receipt.truncated or not secured.receipt.complete:
             return _table((), complete=False, reason="resource_scope_incomplete")
         objects = tuple(sorted(secured.materialization.graph.objects, key=lambda item: item.id))
+        if _requires_exact_target(secured) and len(objects) != 1:
+            return _table((), complete=False, reason="target_resolution_not_exact")
         if not objects:
             return _table((), complete=True, reason=None)
         if len(objects) > _MAX_RESOURCES:
@@ -245,6 +248,14 @@ def resource_event_history_function(
         )
 
     return evaluate
+
+
+def _requires_exact_target(secured: SecuredObjectSetQueryResult) -> bool:
+    return any(
+        predicate.property in {"id", "name", "display_name"}
+        and predicate.operator is ObjectPredicateOperator.EQUALS
+        for predicate in secured.materialization.definition.predicates
+    )
 
 
 def _text(value: object) -> str | None:
