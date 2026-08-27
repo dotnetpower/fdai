@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import io
+import json
+import os
 import time
+from multiprocessing.connection import Connection
 
 import pytest
 from fdai_document_worker_service.adapters import pdf_isolation as pdf_isolation_module
@@ -21,6 +24,23 @@ from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
 def _sleeping_worker(*_args: object) -> None:
     time.sleep(1)
+
+
+def _partial_frame_worker(connection: Connection, _policy: PdfIsolationPolicy) -> None:
+    connection.recv_bytes()
+    os.write(connection.fileno(), b"\x00\x00")
+    time.sleep(1)
+
+
+def _over_budget_worker(connection: Connection, _policy: PdfIsolationPolicy) -> None:
+    connection.recv_bytes()
+    connection.send_bytes(
+        json.dumps(
+            {"status": "ok", "pages": ["first", "second"]},
+            separators=(",", ":"),
+        ).encode()
+    )
+    connection.close()
 
 
 def _pdf(text: str = "Native text", *, pages: int = 1) -> bytes:
@@ -97,6 +117,36 @@ def test_wall_timeout_terminates_the_parser_process(monkeypatch: pytest.MonkeyPa
         extract_pdf_pages_isolated(
             _pdf(),
             policy=PdfIsolationPolicy(timeout_seconds=0.1),
+        )
+
+    assert unavailable.value.reason is ExtractionUnavailableReason.UNSAFE_PACKAGE
+
+
+def test_wall_timeout_includes_input_transfer_and_partial_frame_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(pdf_isolation_module, "_pdf_worker", _partial_frame_worker)
+    started = time.monotonic()
+
+    with pytest.raises(DocumentExtractionUnavailableError) as unavailable:
+        extract_pdf_pages_isolated(
+            b"x" * (25 * 1024 * 1024),
+            policy=PdfIsolationPolicy(timeout_seconds=0.1),
+        )
+
+    assert time.monotonic() - started < 0.75
+    assert unavailable.value.reason is ExtractionUnavailableReason.UNSAFE_PACKAGE
+
+
+def test_parent_rejects_valid_json_that_exceeds_page_budget(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(pdf_isolation_module, "_pdf_worker", _over_budget_worker)
+
+    with pytest.raises(DocumentExtractionUnavailableError) as unavailable:
+        extract_pdf_pages_isolated(
+            _pdf(),
+            policy=PdfIsolationPolicy(max_pages=1),
         )
 
     assert unavailable.value.reason is ExtractionUnavailableReason.UNSAFE_PACKAGE

@@ -232,6 +232,8 @@ semantic bridge, ingestion publisher, document worker consumer, and isolated Exe
 same logical topics, idempotency, readiness, and receipt boundaries as deployed adapters.
 The document worker parses native PDFs in a spawned resource-limited process so untrusted
 decompression cannot terminate its long-lived service.
+Duplex IPC runs through a bounded daemon thread under one monotonic deadline, and the parent
+revalidates returned page and character bounds before accepting text.
 
 ## Shared contract SDK
 

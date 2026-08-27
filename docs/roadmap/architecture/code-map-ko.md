@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: ec22105171c96857eba967f38e62f5f1ae9e3434
+translation_source_sha: 1f92237a720b85f23bfce19506f0736a5ef91907
 translation_revised: 2026-08-30
 ---
 # 코드 맵
@@ -232,6 +232,8 @@ shadow 테스트가 두 경계를 고정합니다.
 topic, 멱등성, 준비 상태 및 증적 경계를 보존합니다.
 문서 워커는 신뢰할 수 없는 압축 해제가 장기 실행 서비스를 종료하지 못하도록 native PDF를
 리소스 상한이 있는 별도 프로세스에서 구문 분석합니다.
+양방향 IPC는 하나의 단조 기한 아래 범위가 제한된 데몬 스레드에서 실행되며 상위 프로세스는
+텍스트를 수락하기 전에 반환된 페이지 및 문자 상한을 다시 검증합니다.
 
 ## Shared 계약 SDK
 
