@@ -87,7 +87,12 @@ def extract_pdf_pages_isolated(
         name="fdai-pdf-parser-ipc",
         daemon=True,
     )
-    exchange.start()
+    try:
+        _start_exchange_thread(exchange)
+    except RuntimeError:
+        parent.close()
+        _stop(process)
+        raise _unavailable() from None
     try:
         exchange.join(timeout=max(0.0, deadline - time.monotonic()))
         if exchange.is_alive():
@@ -168,6 +173,10 @@ def _exchange_payload(
         result.put(connection.recv_bytes(maxlength=max_output_bytes))
     except (EOFError, OSError):
         result.put(None)
+
+
+def _start_exchange_thread(exchange: threading.Thread) -> None:
+    exchange.start()
 
 
 def _apply_resource_limits(policy: PdfIsolationPolicy) -> None:
