@@ -150,6 +150,7 @@ class PantheonRuntime:
         kinetic_proposal_source: factory.KineticProposalSource | None = None,
         change_assessor: ChangeAssessmentService | None = None,
         architecture_review_loop: OntologyArchitectureReviewLoop | None = None,
+        architecture_review_sink: Any | None = None,
         catalog_review: CatalogReviewBindings | None = None,
         case_history_retention: CaseHistoryRetentionService | None = None,
         forecast_evaluator: ForecastEpisodeEvaluator | None = None,
@@ -289,6 +290,8 @@ class PantheonRuntime:
             change_assessor=change_assessor,
             architecture_review_loop=architecture_review_loop,
         )
+        if architecture_review_loop is not None:
+            architecture_review_loop.bind_observation_sink(architecture_review_sink)
         if forseti is not None:
             instantiated["Forseti"] = forseti
         if (forecast_evaluator is None) != (forecast_closer is None) or (

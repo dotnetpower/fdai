@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -103,6 +105,32 @@ class ArchitectureReviewProjector:
             await _link(self.store, "scoped_to", review_id, observation.target_ref)
 
         current_checks: set[str] = set()
+        evidence_available = observation.evidence is not None
+        await self.store.upsert_object(
+            OntologyObjectRecord(
+                id=observation.change_id,
+                object_type="Change",
+                properties={
+                    "id": observation.change_id,
+                    "change_kind": "planned",
+                    "source_kind": "architecture_review",
+                    "intent_kind": "planned",
+                    "target_ref": observation.target_ref,
+                    "actor_ref": "unknown",
+                    "status": observation.recommendation,
+                    "occurred_at": recorded_at,
+                    "evidence_ref": f"change:{observation.change_digest}",
+                },
+            )
+        )
+        target = await self.store.get_object(observation.target_ref)
+        if target is not None and target.object_type == "Resource":
+            await _link(
+                self.store,
+                "change_targets_resource",
+                observation.change_id,
+                observation.target_ref,
+            )
         if observation.context is not None and observation.evidence is not None:
             bundle = observation.evidence.bundle
             for entry in bundle.citation_manifest:
@@ -120,7 +148,7 @@ class ArchitectureReviewProjector:
                     status=status,
                     updated_at=recorded_at,
                 )
-                artifact_id = f"evidence:{entry.evidence_ref}"
+                artifact_id = _observation_artifact_id(observation, entry)
                 await self.store.upsert_object(
                     OntologyObjectRecord(
                         id=artifact_id,
@@ -158,6 +186,12 @@ class ArchitectureReviewProjector:
                             "created_at": case.created_at,
                         },
                     )
+                )
+                await _link(
+                    self.store,
+                    "case_evaluates_change",
+                    case.case_id,
+                    observation.change_id,
                 )
                 decision_id = f"{review_id}:decision:{case.case_id[:32]}"
                 await self.store.upsert_object(
@@ -204,25 +238,32 @@ class ArchitectureReviewProjector:
                         },
                     )
                 )
-
-        existing = await self.store.query_objects(object_types=("ReviewCheck",), limit=1000)
-        for check in existing.objects:
-            if (
-                check.id.startswith(f"{review_id}:check:evidence:")
-                and check.id not in current_checks
-            ):
-                await self.store.upsert_object(
-                    OntologyObjectRecord(
-                        id=check.id,
-                        object_type="ReviewCheck",
-                        properties={
-                            **dict(check.properties),
-                            "status": "removed",
-                            "updated_at": recorded_at,
-                        },
-                        revision=check.revision,
-                    )
+                await _link(
+                    self.store,
+                    "change_bounded_by_envelope",
+                    observation.change_id,
+                    envelope.envelope_id,
                 )
+
+        if evidence_available:
+            existing = await self.store.query_objects(object_types=("ReviewCheck",), limit=1000)
+            for check in existing.objects:
+                if (
+                    check.id.startswith(f"{review_id}:check:evidence:")
+                    and check.id not in current_checks
+                ):
+                    await self.store.upsert_object(
+                        OntologyObjectRecord(
+                            id=check.id,
+                            object_type="ReviewCheck",
+                            properties={
+                                **dict(check.properties),
+                                "status": "removed",
+                                "updated_at": recorded_at,
+                            },
+                            revision=check.revision,
+                        )
+                    )
 
     async def _upsert_lineage_check(
         self,
@@ -498,6 +539,24 @@ def _sequence(value: Any, label: str) -> Sequence[Any]:
 
 def _check_id(review_id: str, category: str, key: str) -> str:
     return f"{review_id}:check:{category}:{key}"
+
+
+def _observation_artifact_id(
+    observation: ArchitectureReviewObservation,
+    entry: Any,
+) -> str:
+    """Return an evidence identity bound to both bundle and item content."""
+
+    material = json.dumps(
+        {
+            "bundle": observation.evidence.bundle.digest if observation.evidence else "",
+            "evidence_ref": entry.evidence_ref,
+            "item_digest": entry.item_digest,
+        },
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    return f"evidence:sha256:{hashlib.sha256(material).hexdigest()}"
 
 
 def _case_status(snapshot: ProcessSnapshot, design: str, production: str) -> str:
