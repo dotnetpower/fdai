@@ -590,9 +590,11 @@ jobs:
 
           import psycopg
 
-          source = urlsplit(os.environ["FDAI_DATABASE_URL"])
+          source_url = os.environ["FDAI_DATABASE_URL"]
+          source = urlsplit(source_url)
           service_url = urlunsplit(source._replace(path="/fdai_services"))
-          with psycopg.connect(os.environ["FDAI_DATABASE_URL"], autocommit=True) as connection:
+          connection_url = source_url.replace("postgresql+psycopg://", "postgresql://", 1)
+          with psycopg.connect(connection_url, autocommit=True) as connection:
               connection.execute("CREATE DATABASE fdai_services")
           print(f"::add-mask::{service_url}")
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as stream:
