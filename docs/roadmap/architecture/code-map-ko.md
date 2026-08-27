@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 86a366bcd9331c694c46596f8ad0d048632a0262
+translation_source_sha: d9e78a1ea4cee642074ee6b3938dde18ee496b58
 translation_revised: 2026-08-28
 ---
 # 코드 맵
@@ -241,12 +241,14 @@ Semantic-turn 요청은 정확한 resource id와 함께 타입이 지정된 화�
 Operator instance projection은 인증된 principal과 활성 generation에서 검증된 선택 필드를
 발급하며, 잘린 projection은 신원을 완전히 생략합니다.
 공유 범위 digest는 소문자 일반 역할(`reader`, `contributor`, `approver`, `owner`)만 사용하고
-`BreakGlass`는 거부합니다. context에 1,000개가 넘는 리소스가 있으면 정확한 id 조건식은
-범위가 제한된 개별 id 읽기를 사용합니다.
-Wire 계약은 범위가 제한된 10,000개 id context envelope를 허용하지만 Core의 정확한 id
-저장은 기존의 안전한 결과 상한에서 표 materialization을 제한합니다.
+`BreakGlass`는 거부합니다. Wire 계약은 보수적인 512개 id context envelope를 허용하고
+일반 ObjectSet과 store 상한은 1,000개로 유지합니다.
+정확한 선택 읽기는 기존 byte 상한 안에서 처리되며 일반 output의 행 및 byte 상한을
+제거하지 않습니다.
 Context 계약은 incident, screen 및 resource-group 신원을 혼합하는 입력을 거부하며, 정확한
 선택 읽기는 고정 concurrency로 batch 처리하고 source-generation receipt를 보존합니다.
+보수적인 context identity 상한은 512개 resource id로 두어 서명된 선택을 공유 wire 예산
+안에 유지하며, 일반 ObjectSet 상한은 1,000개로 유지합니다.
 범위가 제한된 semantic query JSON envelope는 10,000개 id 선택에 맞게 크기를 확보하면서도
 일반 output의 기존 행 및 byte 상한은 제거하지 않습니다.
 

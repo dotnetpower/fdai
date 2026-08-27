@@ -26,10 +26,10 @@ from fdai.shared.providers.ontology_instance import (
     normalize_json_value,
 )
 
-_MAX_PREDICATE_OPERAND_BYTES = 1_048_576
+_MAX_PREDICATE_OPERAND_BYTES = 65_536
 _MAX_PREDICATES = 32
-_MAX_IN_VALUES = 10_000
-_MAX_ROOT_IDS = 10_000
+_MAX_IN_VALUES = 1_000
+_MAX_ROOT_IDS = 1_000
 _MAX_LINK_TYPES = 64
 
 
@@ -178,7 +178,7 @@ class ObjectSetDefinition(ContractBase):
     ] = ()
     as_of: datetime
     purpose: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_-]{0,63}$")]
-    limit: int = Field(default=100, ge=1, le=10_000)
+    limit: int = Field(default=100, ge=1, le=1000)
     freshness_seconds: int | None = Field(default=None, ge=1, le=86_400)
 
     @model_validator(mode="after")
