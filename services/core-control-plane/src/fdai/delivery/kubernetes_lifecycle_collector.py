@@ -10,9 +10,12 @@ from fdai.core.ontology_platform.kubernetes_lifecycle_observation import (
     KubernetesLifecycleObservation,
 )
 from fdai.delivery.kubernetes_lifecycle_source import (
+    _MAX_LIST_DRAIN_EVENTS,
     KubernetesLifecyclePoll,
     KubernetesLifecycleSource,
 )
+
+_MAX_OBSERVATIONS_PER_APPEND = _MAX_LIST_DRAIN_EVENTS
 
 
 class KubernetesLifecycleCursorConflictError(RuntimeError):
@@ -75,6 +78,8 @@ class KubernetesLifecycleStore(Protocol):
         start: datetime,
         end: datetime,
         limit: int,
+        namespace: str | None = None,
+        owner_uid: str | None = None,
     ) -> tuple[KubernetesLifecycleObservation, ...]: ...
 
     async def read_snapshot(
@@ -85,6 +90,8 @@ class KubernetesLifecycleStore(Protocol):
         start: datetime,
         end: datetime,
         limit: int,
+        namespace: str | None = None,
+        owner_uid: str | None = None,
     ) -> KubernetesLifecycleReadSnapshot: ...
 
 

@@ -123,6 +123,46 @@ resource "azurerm_container_app_job" "analyzer_tick" {
         }
       }
 
+      dynamic "env" {
+        for_each = var.inventory_kubernetes_api_server == "" ? toset([]) : toset(["1"])
+        content {
+          name  = "FDAI_KUBERNETES_API_SERVER"
+          value = var.inventory_kubernetes_api_server
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.inventory_kubernetes_api_server == "" ? toset([]) : toset(["1"])
+        content {
+          name  = "FDAI_KUBERNETES_CLUSTER_REF"
+          value = var.inventory_kubernetes_cluster_ref
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.inventory_kubernetes_api_server == "" ? toset([]) : toset(["1"])
+        content {
+          name  = "FDAI_KUBERNETES_AUTH_MODE"
+          value = "workload-identity"
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.inventory_kubernetes_api_server == "" ? toset([]) : toset(["1"])
+        content {
+          name  = "FDAI_KUBERNETES_CA_PEM"
+          value = var.inventory_kubernetes_ca_pem
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.inventory_kubernetes_api_server == "" ? toset([]) : toset(["1"])
+        content {
+          name  = "FDAI_KUBERNETES_AUDIENCE"
+          value = var.inventory_kubernetes_audience
+        }
+      }
+
       // Analyzer window / budget (both optional; positive-number
       // validation lives in the CLI itself).
       dynamic "env" {

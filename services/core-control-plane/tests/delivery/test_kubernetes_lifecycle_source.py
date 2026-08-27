@@ -376,6 +376,39 @@ async def test_list_pagination_drains_within_budget_and_advances_the_cursor() ->
     assert pages_seen == [None, "page-2-token"]
 
 
+async def test_list_drains_more_than_one_output_page_before_advancing_cursor() -> None:
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return _json_response(
+                {
+                    "metadata": {"resourceVersion": "3000", "continue": "page-2"},
+                    "items": [
+                        _event_object(
+                            event_uid=f"event-a-{index}",
+                            resource_version=str(5000 + index),
+                        )
+                        for index in range(256)
+                    ],
+                }
+            )
+        return _json_response(
+            {
+                "metadata": {"resourceVersion": "3001"},
+                "items": [_event_object(event_uid="event-b", resource_version="6000")],
+            }
+        )
+
+    poll = await _source(httpx.MockTransport(handler)).poll(cluster_ref=CLUSTER_REF, cursor=None)
+
+    assert poll.complete is True
+    assert poll.next_cursor == "3001"
+    assert len(poll.observations) == 257
+
+
 async def test_malformed_response_never_raises_and_reports_response_invalid() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return _response(b"not-json")

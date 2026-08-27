@@ -36,6 +36,8 @@ retired top-level application tree.
 > WATCH count-cap progress is resumable only when no malformed envelope preceded the safe boundary.
 > Historical Pod reduction uses durable lifecycle UIDs with the exact current Pod; it does not issue
 > an incompatible historical `as_of` query through the current-state gateway.
+> Owner-scoped durable lifecycle reads retain historical old UIDs, while the analyzer Job receives
+> the same reviewed Kubernetes bindings as the inventory Job for local/deployed parity.
 
 ## Physical service ownership
 

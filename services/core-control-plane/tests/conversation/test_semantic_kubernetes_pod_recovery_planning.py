@@ -217,6 +217,7 @@ def test_exact_pod_restart_investigation_uses_server_owned_plan() -> None:
         QueryNodeKind.METRIC_SCOPE_SERIES,
         QueryNodeKind.RELATIONSHIP_TRAVERSAL,
         QueryNodeKind.RELATIONSHIP_TRAVERSAL,
+        QueryNodeKind.OBJECT_SET,
         QueryNodeKind.FUNCTION,
         QueryNodeKind.FUNCTION,
     )
@@ -225,5 +226,6 @@ def test_exact_pod_restart_investigation_uses_server_owned_plan() -> None:
     )
     assert outcome.plan.nodes[-2].arguments["function_name"] == "query.resource_event_history"
     assert "pod-lifecycle-events" in outcome.plan.nodes[-1].depends_on
+    assert "pod-replacement-candidates" in outcome.plan.nodes[-1].depends_on
     assert model.plan_calls == 0
     assert outcome.execution_authority is False

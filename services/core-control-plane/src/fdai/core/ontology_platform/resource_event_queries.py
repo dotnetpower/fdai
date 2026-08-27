@@ -288,7 +288,7 @@ def _resource_identity(
             continue
         fields = {
             name: value.strip()
-            for name in ("cluster_ref", "uid")
+            for name in ("cluster_ref", "uid", "namespace", "owner_uid")
             if isinstance((value := provider_properties.get(name)), str) and value.strip()
         }
         if fields:

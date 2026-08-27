@@ -100,6 +100,8 @@ class DurableKubernetesResourceEventHistoryReader:
         identity = resource_identity.get(resource_ids[0], {})
         uid = identity.get("uid")
         cluster = identity.get("cluster_ref", self._cluster_ref)
+        namespace = identity.get("namespace")
+        owner_uid = identity.get("owner_uid")
         if not uid or cluster != self._cluster_ref:
             return _result(
                 resource_ids,
@@ -115,6 +117,8 @@ class DurableKubernetesResourceEventHistoryReader:
             start=observed_at - timedelta(seconds=lookback_seconds),
             end=observed_at,
             limit=_MAX_READ,
+            namespace=namespace,
+            owner_uid=owner_uid,
         )
         cursor_state = snapshot.state
         if cursor_state is None:

@@ -183,6 +183,15 @@ def compile_kubernetes_pod_recovery_plan(
     recovery_node = nodes.pop()
     lifecycle_dependency: str | None = None
     if _has_function(manifest.descriptors, RESOURCE_EVENT_FUNCTION_NAME):
+        candidate_dependency = "pod-replacement-candidates"
+        nodes.append(
+            _replacement_candidate_node(
+                identity_property=identity_property,
+                identity_value=targets[0].span.text,
+                evaluation_time=evaluation_time,
+                purpose=purpose,
+            )
+        )
         lifecycle_dependency = "pod-lifecycle-events"
         nodes.extend(
             (
@@ -209,10 +218,14 @@ def compile_kubernetes_pod_recovery_plan(
     if lifecycle_dependency is not None:
         recovery_arguments = dict(json.loads(recovery_node.arguments_json))
         recovery_arguments["dependency_arguments"][lifecycle_dependency] = "lifecycle_events"
+        recovery_arguments["dependency_arguments"][candidate_dependency] = (
+            "replacement_candidates_query_result"
+        )
         recovery_node = recovery_node.model_copy(
             update={
                 "depends_on": (
                     *recovery_node.depends_on,
+                    candidate_dependency,
                     lifecycle_dependency,
                 ),
                 "arguments_json": canonical_json(recovery_arguments),
@@ -262,6 +275,36 @@ def _has_function(
     return any(
         descriptor.get("kind") == "function" and descriptor.get("name") == name
         for descriptor in descriptors
+    )
+
+
+def _replacement_candidate_node(
+    *,
+    identity_property: str,
+    identity_value: str,
+    evaluation_time: datetime,
+    purpose: str,
+) -> OntologyQueryNode:
+    """Build a bounded current Pod candidate query without historical gateway time travel."""
+
+    definition = ObjectSetDefinition(
+        selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
+        predicates=(
+            ObjectPredicate(
+                property=identity_property,
+                operator=ObjectPredicateOperator.EQUALS,
+                equals=identity_value,
+            ),
+        ),
+        as_of=evaluation_time.astimezone(UTC),
+        purpose=purpose,
+        limit=32,
+    )
+    return OntologyQueryNode(
+        node_id="pod-replacement-candidates",
+        kind=QueryNodeKind.OBJECT_SET,
+        arguments_json=canonical_json({"definition": definition.model_dump(mode="json")}),
+        output_kind="query.table",
     )
 
 

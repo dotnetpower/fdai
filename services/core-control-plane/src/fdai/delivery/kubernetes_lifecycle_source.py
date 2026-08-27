@@ -232,14 +232,6 @@ class KubernetesLifecycleWatchSource:
                     malformed = True
                     continue
                 observations.append(observation)
-                if len(observations) >= _MAX_EVENTS:
-                    observations.sort(key=lambda item: (item.event_time, item.evidence_ref))
-                    return self._result(
-                        cluster_ref,
-                        observations=tuple(observations),
-                        next_cursor=None,
-                        limitation="result_limit",
-                    )
             if not continuation:
                 observations.sort(key=lambda item: (item.event_time, item.evidence_ref))
                 limitation = "lifecycle_response_invalid" if malformed else None

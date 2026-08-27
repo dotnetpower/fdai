@@ -82,10 +82,15 @@ class _Store:
         start: datetime,
         end: datetime,
         limit: int,
+        namespace: str | None = None,
+        owner_uid: str | None = None,
     ) -> KubernetesLifecycleReadSnapshot:
         assert cluster_ref == "cluster-a"
         assert object_uids == ("pod-uid-a",)
         assert start < end and limit == 257
+        if namespace is not None:
+            assert namespace == "default"
+            assert owner_uid == "rs-uid-a"
         return KubernetesLifecycleReadSnapshot(
             state=await self.read_cursor_state(cluster_ref),
             observations=self.observations,
