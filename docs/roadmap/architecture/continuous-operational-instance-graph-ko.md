@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 4dcb5dd150ca69e5a39d105d5205a8cee2078e7b
+translation_source_sha: 1cdc83b042c2402b85cb1b7b3c43617c66abdb58
 translation_revised: 2026-08-27
 ---
 # 지속형 운영 인스턴스 그래프
@@ -123,7 +123,8 @@ process-local lock과 PostgreSQL session advisory lock을 유지합니다. Reade
 status, manifest generation과 content digest가 일치해야 한다고 요구합니다. 따라서 crash 또는
 stale replica는 safe-to-retry migration 또는 commit이 상태를 닫을 때까지 incomplete evidence를
 반환하며 혼합 세대를 complete로 노출하지 않습니다. Legacy 1.2.0 manifest는 다음 exact
-projection에서 다시 만들고 1.3.0으로 기록합니다.
+projection에서 다시 만들고 1.3.0으로 기록합니다. Manifest 다시 읽기와 topology-history
+재생은 projection publisher와 같은 canonical `(link_type, from_id, to_id)` 순서를 사용합니다.
 
 ## 보존, rollup, archive
 
@@ -240,6 +241,7 @@ binding을
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-27 | implemented | 인벤토리 manifest 다시 읽기와 PostgreSQL topology 재생을 projection publisher의 canonical 링크 순서에 맞췄습니다. 여러 LinkType이 있는 세대도 멱등적으로 재생되며, 저장된 1.2.0 manifest는 자체 링크 키를 거부하지 않고 1.3.0으로 다시 만들 수 있습니다. | `current change`, 집중 inventory ontology 및 PostgreSQL topology-history 검사(`23 passed`), Ruff 및 strict mypy | 배포 환경의 재시작 및 재생 근거는 별도로 보존합니다. 외부 출처는 조회하지 않았습니다. |
 | 2026-08-28 | implemented | 이슈 #292가 요구하는 영속 재개 가능 Kubernetes 수명 주기 collector를 추가했습니다: `reason`만 사용하는 정규화 vocabulary를 갖춘 타입 observation 모델, cursor expiry/outage/authorization/truncation을 명시적으로 gap 처리하는 bounded list-then-watch HTTP source, 새 Core migration 뒤에 있는 atomic Postgres cursor-plus-append-only-evidence store, collector orchestrator, 기존 `FDAI_KUBERNETES_*` credential을 재사용하는 runtime binding seam, 주입 가능한 one-shot CLI. | `current change`, `services/core-control-plane/src/fdai/core/ontology_platform/kubernetes_lifecycle_observation.py`, `services/core-control-plane/src/fdai/delivery/kubernetes_lifecycle_source.py`, `services/core-control-plane/src/fdai/delivery/kubernetes_lifecycle_collector.py`, `services/core-control-plane/src/fdai/delivery/persistence/postgres_kubernetes_lifecycle.py`, `service-migrations/branches/core-control-plane/versions/20260828_core_kubernetes_lifecycle.py`, `services/core-control-plane/src/fdai/runtime/resource_event_providers.py`, `services/core-control-plane/src/fdai/delivery/kubernetes_lifecycle_collector_cli.py`, restart 연속성·delete/recreate·중복 delivery·reorder·cursor expiry·provider outage를 다루는 집중 테스트(`68 passed`), migration-inventory ownership 테스트(`58 passed`), Ruff·`ruff format --check`·strict mypy가 변경된 모든 파일에서 통과 | 보존된 관측을 교체 축약기와 조회 구성에 연결하고, CLI seam을 위한 Container Apps Job/Terraform schedule을 추가하며, Event `reason` 기반 신호를 넘어서는 deletion 범위를 확장해야 합니다. |
 | 2026-08-28 | implemented | `f45c75af7`에 대한 코드 리뷰를 반영하여 이슈 #292 collector를 hardening했습니다: bounded LIST pagination은 이제 최대 8 page까지 완전히 소진하며(snapshot resourceVersion으로 cursor를 앞당기거나 소비되지 않은 `continue` page를 버리지 않음) 예산이 소진된 경우에만 명시적 `result_limit` gap을 보고합니다. 클러스터별 `pg_advisory_xact_lock`이 `read_cursor`와 `append`의 cursor 읽기/생성을 직렬화하여, cursor가 없는 상태(최초 수집 또는 410 이후 초기화)를 두 writer가 동시에 관측하고 둘 다 유일한 writer로 진행할 수 없도록 합니다. WATCH byte/line/UTF-8 경계는 이제 폐기되거나 디코드할 수 없는 첫 envelope에서 멈추고 조용히 지나치는 대신 `result_limit`을 보고합니다. Kubernetes API `401`/`403` 응답은 LIST와 WATCH 모두에서 이제 (cursor를 보존하는) 명시적 `authorization_failed` gap으로 분류되며, 더 넓은 범위의 `source_unavailable` gap으로는 더 이상 분류되지 않습니다. collector CLI의 positional argument는 이미 바인딩된 source가 확인한 cluster identity를 안전하게 override할 수 없었는데, 이제 조용히 아무 일도 하지 않는 대신 즉시 실패합니다. | `current change`, `services/core-control-plane/src/fdai/delivery/kubernetes_lifecycle_source.py`, `services/core-control-plane/src/fdai/delivery/persistence/postgres_kubernetes_lifecycle.py`, `services/core-control-plane/src/fdai/delivery/kubernetes_lifecycle_collector_cli.py`, bounded pagination 소진·새 authorization-failure gap 2건·새 WATCH truncation/decode-bound gap 4건·CLI fail-fast 거부를 다루는 집중 단위 테스트(live database 없이 `45 passed`, `5 skipped`), absent-row race를 재현하고 lock을 제거하면 cursor가 손상되고 observation이 중복 admit됨을 확인한 뒤 lock이 이를 직렬화함을 확인하는 새 live-Postgres adversarial 동시성 테스트(`test_concurrent_first_appends_serialize_on_an_absent_cursor_row`, ephemeral하고 제거된 로컬 Postgres 인스턴스 대상 `5 passed`), migration-inventory ownership 테스트(`58 passed`, 변경 없음), Ruff·`ruff format --check`·strict mypy가 변경된 모든 파일에서 통과 | advisory lock에 대한 live cluster 및 durable하게 보존된 live Postgres 근거는 아직 없습니다. ephemeral하고 보존하지 않는 로컬 exercise만 이를 검증했습니다. 보존된 관측을 교체 축약기/조회 구성에 연결하고 CLI seam을 위한 Container Apps Job/Terraform schedule을 추가하는 작업은 이전 행에서 계속 열려 있습니다. |
 | 2026-08-27 | implemented | 답변 변환에서 가장 최근의 범위가 제한된 Event 행을 보존하고 표시 개수, 전체 개수 및 `display_truncated` 상태를 공개했습니다. 가장 오래된 8개를 조용히 유지하지 않고 최신 8개 Event를 시간순으로 표시합니다. | `current change`, 집중 이중 언어 Resource Event 답변 회귀 검사 | 실제 Kubernetes Event API 접근을 복구하고 Event 행이 있는 인증된 답변 하나를 보존해야 합니다. 행 0개가 과거 부재를 증명하려면 영속 보존이 계속 필요합니다. |

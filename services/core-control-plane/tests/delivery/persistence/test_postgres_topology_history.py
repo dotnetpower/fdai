@@ -7,6 +7,7 @@ from types import MethodType
 from typing import Any
 
 from fdai.core.ontology_platform.topology_history import (
+    TopologyLinkRevision,
     TopologyObjectRevision,
     TopologyRevisionBatch,
 )
@@ -25,9 +26,12 @@ class _Cursor:
         self,
         rows: list[dict[str, Any]],
         many: list[tuple[str, list[tuple[object, ...]]]] | None = None,
+        *,
+        rowcount: int = 1,
     ) -> None:
         self._rows = rows
         self._many = many
+        self.rowcount = rowcount
 
     async def __aenter__(self) -> _Cursor:
         return self
@@ -53,11 +57,17 @@ class _Context:
 
 
 class _Connection:
-    def __init__(self, result_sets: list[list[dict[str, Any]]] | None = None) -> None:
+    def __init__(
+        self,
+        result_sets: list[list[dict[str, Any]]] | None = None,
+        *,
+        replay: bool = False,
+    ) -> None:
         self.result_sets = list(result_sets or [])
         self.executions: list[tuple[str, object]] = []
         self.many: list[tuple[str, list[tuple[object, ...]]]] = []
         self.transaction_count = 0
+        self.replay = replay
 
     async def __aenter__(self) -> _Connection:
         return self
@@ -79,7 +89,12 @@ class _Connection:
             if query.startswith(("SELECT", "WITH")) and "set_config" not in query
             else []
         )
-        return _Cursor(rows)
+        return _Cursor(
+            rows,
+            rowcount=(
+                0 if self.replay and query.startswith("INSERT INTO topology_revision_batch") else 1
+            ),
+        )
 
 
 def _batch() -> TopologyRevisionBatch:
@@ -98,6 +113,42 @@ def _batch() -> TopologyRevisionBatch:
                 recorded_at=RECORDED_AT,
                 deleted=False,
                 evidence_ref="inventory-generation:snapshot-1",
+            ),
+        ),
+    )
+
+
+def _multi_link_batch() -> TopologyRevisionBatch:
+    return TopologyRevisionBatch(
+        revision_id="revision-multi-link",
+        provider_generation_ref="snapshot-multi-link",
+        effective_at=EFFECTIVE_AT,
+        recorded_at=RECORDED_AT,
+        complete_snapshot=True,
+        link_revisions=(
+            TopologyLinkRevision(
+                from_id="resource-b",
+                from_type="Resource",
+                link_type="attached_to",
+                to_id="resource-c",
+                to_type="Resource",
+                properties_json="{}",
+                effective_at=EFFECTIVE_AT,
+                recorded_at=RECORDED_AT,
+                deleted=False,
+                evidence_ref="inventory-generation:snapshot-multi-link",
+            ),
+            TopologyLinkRevision(
+                from_id="resource-a",
+                from_type="Resource",
+                link_type="routes_to",
+                to_id="resource-b",
+                to_type="Resource",
+                properties_json="{}",
+                effective_at=EFFECTIVE_AT,
+                recorded_at=RECORDED_AT,
+                deleted=False,
+                evidence_ref="inventory-generation:snapshot-multi-link",
             ),
         ),
     )
@@ -197,3 +248,48 @@ async def test_read_preserves_release_and_source_receipt_bindings() -> None:
 
     assert batches[0].ontology_release_digest == DIGEST
     assert batches[0].source_receipt_digest == DIGEST
+
+
+async def test_identical_multi_link_replay_uses_publisher_order() -> None:
+    batch = _multi_link_batch()
+    connection = _Connection(
+        [
+            [
+                {
+                    "revision_id": batch.revision_id,
+                    "provider_generation_ref": batch.provider_generation_ref,
+                    "ontology_release_digest": DIGEST,
+                    "source_receipt_digest": DIGEST,
+                    "effective_at": EFFECTIVE_AT,
+                    "recorded_at": RECORDED_AT,
+                    "complete_snapshot": True,
+                }
+            ],
+            [],
+            [
+                {
+                    "revision_id": batch.revision_id,
+                    "from_id": item.from_id,
+                    "from_type": item.from_type,
+                    "link_type": item.link_type,
+                    "to_id": item.to_id,
+                    "to_type": item.to_type,
+                    "properties": {},
+                    "effective_at": item.effective_at,
+                    "recorded_at": item.recorded_at,
+                    "deleted": item.deleted,
+                    "evidence_ref": item.evidence_ref,
+                }
+                for item in batch.link_revisions
+            ],
+        ],
+        replay=True,
+    )
+
+    await _store(connection).append(
+        batch,
+        ontology_release_digest=DIGEST,
+        source_receipt_digest=DIGEST,
+    )
+
+    assert "ORDER BY link_type, from_id, to_id" in connection.executions[-1][0]
