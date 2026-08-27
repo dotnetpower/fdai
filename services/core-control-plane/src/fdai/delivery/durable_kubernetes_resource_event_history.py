@@ -163,10 +163,25 @@ class MergedKubernetesResourceEventHistoryReader:
     ) -> ResourceEventCollection:
         if live.resource_ids != durable.resource_ids:
             raise ValueError("Kubernetes event sources changed the secured scope")
-        by_identity = {_event_identity(item): item for item in live.events}
-        by_identity.update({_event_identity(item): item for item in durable.events})
+        by_evidence = {item.evidence_ref: item for item in live.events}
+        live_events = tuple(by_evidence.values())
+        live_identities = {_event_identity(item) for item in live_events}
+        for item in durable.events:
+            if item.evidence_ref in by_evidence or _event_identity(item) in live_identities:
+                continue
+            refined = (
+                candidate
+                for candidate in live_events
+                if item.event_kind == "failed"
+                and candidate.event_kind in {"errimagepull", "imagepullbackoff"}
+                and _event_base_identity(candidate) == _event_base_identity(item)
+            )
+            first = next(refined, None)
+            if first is not None and next(refined, None) is None:
+                continue
+            by_evidence[item.evidence_ref] = item
         ordered = sorted(
-            by_identity.values(), key=lambda item: (item.occurred_at, item.evidence_ref)
+            by_evidence.values(), key=lambda item: (item.occurred_at, item.evidence_ref)
         )
         truncated = len(ordered) > _MAX_EVENTS
         events = tuple(ordered[-_MAX_EVENTS:])
@@ -219,16 +234,11 @@ def _namespace_from_id(resource_id: str) -> str | None:
 
 
 def _event_identity(item: ResourceEventObservation) -> tuple[str, datetime, str, str, str]:
-    identity_kind = (
-        "failed" if item.event_kind in {"errimagepull", "imagepullbackoff"} else item.event_kind
-    )
-    return (
-        item.resource_id,
-        item.occurred_at,
-        item.status,
-        item.classification,
-        identity_kind,
-    )
+    return (*_event_base_identity(item), item.event_kind)
+
+
+def _event_base_identity(item: ResourceEventObservation) -> tuple[str, datetime, str, str]:
+    return (item.resource_id, item.occurred_at, item.status, item.classification)
 
 
 def _machine_token(value: str) -> str:

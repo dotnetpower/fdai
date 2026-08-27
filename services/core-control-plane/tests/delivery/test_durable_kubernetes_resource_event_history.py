@@ -245,4 +245,56 @@ async def test_merge_deduplicates_message_refined_image_pull_failure() -> None:
     )
 
     assert len(result.events) == 1
-    assert result.events[0].event_kind == "failed"
+    assert result.events[0].event_kind == "imagepullbackoff"
+
+
+async def test_merge_preserves_same_source_image_failure_sequence() -> None:
+    durable_store = _Store(
+        coverage_started_at=NOW - timedelta(hours=2),
+        reason="Unrelated",
+    )
+    durable = DurableKubernetesResourceEventHistoryReader(
+        store=durable_store,  # type: ignore[arg-type]
+        cluster_ref=CLUSTER,
+        now=lambda: NOW,
+    )
+    base = (
+        await durable.read_history_with_identity(
+            resource_ids=(RESOURCE_ID,),
+            resource_identity={RESOURCE_ID: {"cluster_ref": CLUSTER, "uid": UID}},
+            event_families=("resource_event.kubernetes",),
+            lookback_seconds=3600,
+        )
+    ).events[0]
+
+    class _Live:
+        async def read_history_with_identity(self, **kwargs):  # type: ignore[no-untyped-def]
+            del kwargs
+            return type(
+                "Collection",
+                (),
+                {
+                    "resource_ids": (RESOURCE_ID,),
+                    "events": tuple(
+                        replace(base, event_kind=kind, evidence_ref=f"live:{kind}")
+                        for kind in ("failed", "errimagepull", "imagepullbackoff")
+                    ),
+                    "observed_at": NOW,
+                    "complete": False,
+                    "limitation": "source_retention_unverified",
+                },
+            )()
+
+    result = await MergedKubernetesResourceEventHistoryReader(
+        live=_Live(),
+        durable=durable,
+    ).read_history_with_identity(
+        resource_ids=(RESOURCE_ID,),
+        resource_identity={RESOURCE_ID: {"cluster_ref": CLUSTER, "uid": UID}},
+        event_families=("resource_event.kubernetes",),
+        lookback_seconds=3600,
+    )
+
+    assert {"failed", "errimagepull", "imagepullbackoff"} <= {
+        item.event_kind for item in result.events
+    }
