@@ -241,6 +241,26 @@ class PostgresWorkflowAdapters:
                 )
                 projection_key = "operator-projection:workflow:rule.list"
                 payload = _rule_catalog_payload(stored, request)
+            elif request.operation in {
+                WorkflowOperation.BEST_PRACTICE_LIST,
+                WorkflowOperation.BEST_PRACTICE_DETAIL,
+            }:
+                stored = await self.store.read_projection(
+                    family="workflow",
+                    operation=WorkflowOperation.BEST_PRACTICE_LIST.value,
+                )
+                projection_key = "operator-projection:workflow:best-practice.list"
+                payload = _best_practice_catalog_payload(stored, request)
+            elif request.operation in {
+                WorkflowOperation.MCSB_LIST,
+                WorkflowOperation.MCSB_DETAIL,
+            }:
+                stored = await self.store.read_projection(
+                    family="workflow",
+                    operation=WorkflowOperation.MCSB_LIST.value,
+                )
+                projection_key = "operator-projection:workflow:mcsb.list"
+                payload = _mcsb_catalog_payload(stored, request)
             else:
                 stored = await self.store.read_projection(
                     family="workflow",
@@ -367,6 +387,156 @@ def _rule_catalog_payload(
 def _rule_counts(rules: list[dict[str, object]], field: str) -> dict[str, int]:
     counts = Counter(str(item[field]) for item in rules if isinstance(item.get(field), str))
     return dict(sorted(counts.items(), key=lambda item: (-item[1], item[0])))
+
+
+def _best_practice_catalog_payload(
+    stored: Mapping[str, object],
+    request: WorkflowReadRequest,
+) -> dict[str, object]:
+    controls_value = stored.get("controls")
+    evaluation_source = stored.get("evaluation_source")
+    if not isinstance(controls_value, list) or not isinstance(evaluation_source, str):
+        raise HTTPException(
+            status_code=503,
+            detail="authoritative best-practice catalog is malformed",
+        )
+    controls = [item for item in controls_value if isinstance(item, dict)]
+    if len(controls) != len(controls_value):
+        raise HTTPException(
+            status_code=503,
+            detail="authoritative best-practice catalog is malformed",
+        )
+
+    if request.operation is WorkflowOperation.BEST_PRACTICE_DETAIL:
+        selected_id = request.path_parameters.get("best_practice_id", "")
+        selected = next((item for item in controls if item.get("id") == selected_id), None)
+        if selected is None:
+            raise HTTPException(status_code=404, detail=f"unknown best-practice id {selected_id!r}")
+        return dict(selected)
+
+    pillar = request.query.get("pillar", "").strip().lower()
+    status = request.query.get("status", "").strip().lower()
+    needle = request.query.get("q", "").strip().lower()
+    matched = [
+        item
+        for item in controls
+        if (not pillar or str(item.get("pillar", "")).lower() == pillar)
+        and (not status or str(item.get("status", "")).lower() == status)
+        and (
+            not needle
+            or needle
+            in "\n".join(
+                str(item.get(field, "")) for field in ("id", "control_id", "title", "rationale")
+            ).lower()
+        )
+    ]
+    offset = request.offset or 0
+    limit = request.limit or 100
+    return {
+        "total": len(controls),
+        "filtered_total": len(matched),
+        "offset": offset,
+        "limit": limit,
+        "facets": {
+            "by_pillar": _rule_counts(controls, "pillar"),
+            "by_status": _rule_counts(controls, "status"),
+            "by_severity": _rule_counts(controls, "severity"),
+        },
+        "controls": [
+            {key: value for key, value in item.items() if key not in {"requirements", "provenance"}}
+            for item in matched[offset : offset + limit]
+        ],
+        "evaluation_source": evaluation_source,
+    }
+
+
+def _mcsb_catalog_payload(
+    stored: Mapping[str, object],
+    request: WorkflowReadRequest,
+) -> dict[str, object]:
+    catalogs_value = stored.get("catalogs")
+    evaluation_source = stored.get("evaluation_source")
+    if not isinstance(catalogs_value, list) or not isinstance(evaluation_source, str):
+        raise HTTPException(status_code=503, detail="authoritative MCSB catalog is malformed")
+    catalogs = [item for item in catalogs_value if isinstance(item, dict)]
+    if len(catalogs) != len(catalogs_value):
+        raise HTTPException(status_code=503, detail="authoritative MCSB catalog is malformed")
+
+    version = (
+        request.path_parameters.get("benchmark_version")
+        if request.operation is WorkflowOperation.MCSB_DETAIL
+        else request.query.get("version", "v1")
+    )
+    selected_catalog = next(
+        (
+            item
+            for item in catalogs
+            if isinstance(item.get("benchmark"), dict)
+            and item["benchmark"].get("benchmark_version") == version
+        ),
+        None,
+    )
+    if selected_catalog is None:
+        raise HTTPException(status_code=404, detail=f"unknown MCSB version {version!r}")
+    controls_value = selected_catalog.get("controls")
+    if not isinstance(controls_value, list) or not all(
+        isinstance(item, dict) for item in controls_value
+    ):
+        raise HTTPException(status_code=503, detail="authoritative MCSB catalog is malformed")
+    controls = cast(list[dict[str, object]], controls_value)
+
+    if request.operation is WorkflowOperation.MCSB_DETAIL:
+        control_id = request.path_parameters.get("control_id", "")
+        selected = next((item for item in controls if item.get("control_id") == control_id), None)
+        if selected is None:
+            raise HTTPException(status_code=404, detail=f"unknown MCSB control {control_id!r}")
+        return dict(selected)
+
+    domain = request.query.get("domain", "").strip().lower()
+    coverage = request.query.get("coverage", "").strip().lower()
+    needle = request.query.get("q", "").strip().lower()
+    matched = [
+        item
+        for item in controls
+        if (not domain or str(item.get("domain", "")).lower() == domain)
+        and (not coverage or str(item.get("coverage", "")).lower() == coverage)
+        and (
+            not needle or needle in f"{item.get('control_id', '')}\n{item.get('title', '')}".lower()
+        )
+    ]
+    offset = request.offset or 0
+    limit = request.limit or 100
+    return {
+        "benchmark": selected_catalog["benchmark"],
+        "versions": [
+            item["benchmark"] for item in catalogs if isinstance(item.get("benchmark"), dict)
+        ],
+        "total": len(controls),
+        "filtered_total": len(matched),
+        "offset": offset,
+        "limit": limit,
+        "facets": {
+            "by_domain": _rule_counts(controls, "domain"),
+            "by_coverage": _rule_counts(controls, "coverage"),
+        },
+        "controls": [
+            {
+                key: value
+                for key, value in item.items()
+                if key
+                not in {
+                    "benchmark_version",
+                    "rule_ids",
+                    "runtime_observation_ids",
+                    "manual_evidence_refs",
+                    "source",
+                    "evaluation_source",
+                }
+            }
+            for item in matched[offset : offset + limit]
+        ],
+        "evaluation_source": evaluation_source,
+    }
 
 
 class UnavailableWorkflowAdapters:

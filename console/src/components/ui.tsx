@@ -283,6 +283,10 @@ export function dataTableHeaderClass<Row>(column: Column<Row>): string | undefin
   return classes.size > 0 ? [...classes].join(" ") : undefined;
 }
 
+export function dataTableMinWidth(columnCount: number): string {
+  return `${Math.max(1, columnCount) * 120}px`;
+}
+
 export function DataTable<Row>({
   columns,
   rows,
@@ -305,7 +309,10 @@ export function DataTable<Row>({
   const explicitAction = clickable && rowActionLabel !== undefined;
   return (
     <div class="data-table-wrap">
-      <table class={`data-table${clickable ? " data-table-clickable" : ""}`}>
+      <table
+        class={`data-table${clickable ? " data-table-clickable" : ""}`}
+        style={`--data-table-min-width: ${dataTableMinWidth(columns.length)}`}
+      >
         {caption ? <caption>{caption}</caption> : null}
         <thead>
           <tr>

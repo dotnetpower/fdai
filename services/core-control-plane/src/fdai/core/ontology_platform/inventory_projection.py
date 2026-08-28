@@ -54,6 +54,12 @@ TOPOLOGY_LINK_TYPES: tuple[str, ...] = (
     "depends_on",
     "routes_to",
     "peered_with",
+    "kubernetes_scheduled_on",
+    "kubernetes_backed_by",
+    "kubernetes_owned_by",
+    "kubernetes_selects",
+    "kubernetes_exposes_endpoints",
+    "kubernetes_exposes_endpoint_slice",
 )
 
 _RESOURCE_OBJECT_TYPE = "Resource"

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -35,7 +36,7 @@ from fdai.core.ontology_platform.incident_queries import (
 from fdai.rule_catalog.schema.inventory_query_language import InventoryQueryLanguageRegistry
 
 from .intent_graph import build_intent_graph
-from .semantic_judgment import SemanticJudgmentBoundary
+from .semantic_judgment import SemanticJudgmentBoundary, SemanticJudgmentObservation
 from .semantic_planning_cascade import (
     BOUNDED_T2_ESCALATION_POLICY,
     ProposalRejectedError,
@@ -245,6 +246,13 @@ class SemanticPlanningService:
         stage = "manifest"
         manifest_digest: str | None = None
         accepted_frame: SemanticProblemFrame | None = None
+        model_observations: tuple[SemanticJudgmentObservation, ...] = ()
+
+        def finish(outcome: SemanticPlanningOutcome) -> SemanticPlanningOutcome:
+            if not model_observations or outcome.model_observations == model_observations:
+                return outcome
+            return replace(outcome, model_observations=model_observations)
+
         try:
             manifest = self._manifests.manifest_for(principal=principal, purpose=purpose)
             manifest_digest = manifest.manifest_digest
@@ -278,6 +286,7 @@ class SemanticPlanningService:
                     allow_escalation=False,
                     bound_subject_types=bound_subject_types,
                 )
+                model_observations = judgment_result.observations
                 judgment_posture = (
                     judgment_result.proposal.action_posture
                     if judgment_result.proposal is not None
@@ -352,12 +361,13 @@ class SemanticPlanningService:
                 else None
             )
             if direct_response_intent is not None:
-                return _outcome(
-                    SemanticPlanningDisposition.DIRECT_RESPONSE,
-                    "semantic_direct_response",
-                    manifest_digest=manifest.manifest_digest,
-                    direct_response_intent=direct_response_intent,
-                    model_observations=judgment_result.observations,
+                return finish(
+                    _outcome(
+                        SemanticPlanningDisposition.DIRECT_RESPONSE,
+                        "semantic_direct_response",
+                        manifest_digest=manifest.manifest_digest,
+                        direct_response_intent=direct_response_intent,
+                    )
                 )
             pre_frame_outcome = deterministic_pre_frame_outcome(
                 judgment=judgment_proposal,
@@ -368,7 +378,7 @@ class SemanticPlanningService:
                 bound_incident=bound_incident is not None,
             )
             if pre_frame_outcome is not None:
-                return pre_frame_outcome
+                return finish(pre_frame_outcome)
             stage = "frame_proposal"
             frame_result = self._cascade.propose_frame(
                 utterance=utterance,
@@ -382,10 +392,12 @@ class SemanticPlanningService:
                 escalation_policy=escalation_policy,
             )
             if frame_result is None:
-                return _outcome(
-                    SemanticPlanningDisposition.UNAVAILABLE,
-                    "semantic_frame_unavailable",
-                    manifest_digest=manifest.manifest_digest,
+                return finish(
+                    _outcome(
+                        SemanticPlanningDisposition.UNAVAILABLE,
+                        "semantic_frame_unavailable",
+                        manifest_digest=manifest.manifest_digest,
+                    )
                 )
             proposal, frame, investigation_intent = frame_result
             _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
@@ -427,9 +439,54 @@ class SemanticPlanningService:
                 inventory_query_language=self._inventory_query_language,
             )
             if isinstance(normalized_frame, SemanticPlanningOutcome):
-                return normalized_frame
+                return finish(normalized_frame)
             proposal, frame, investigation_intent = normalized_frame
             accepted_frame = frame
+            lookback_seconds = frame.temporal_scope.get("lookback_seconds")
+            normalized_measures = ",".join(sorted(frame.measure_concepts))
+            temporal_keys = ",".join(sorted(frame.temporal_scope))
+            temporal_kind = frame.temporal_scope.get("kind")
+            lookback_value = frame.temporal_scope.get("lookback")
+            window_value = frame.temporal_scope.get("window")
+            bounded_lookback_seconds = (
+                lookback_seconds
+                if isinstance(lookback_seconds, int) and not isinstance(lookback_seconds, bool)
+                else None
+            )
+            _LOGGER.info(
+                "semantic_planning_frame_normalized output_shape=%s measure_concepts=%s "
+                "temporal_keys=%s temporal_kind=%s lookback_seconds=%s "
+                "lookback_type=%s lookback_keys=%s window_type=%s window_keys=%s "
+                "clarification_count=%d",
+                frame.output_shape,
+                normalized_measures,
+                temporal_keys,
+                temporal_kind,
+                bounded_lookback_seconds,
+                type(lookback_value).__name__ if lookback_value is not None else None,
+                (
+                    ",".join(sorted(lookback_value))
+                    if isinstance(lookback_value, dict)
+                    and all(isinstance(key, str) for key in lookback_value)
+                    else ""
+                ),
+                type(window_value).__name__ if window_value is not None else None,
+                (
+                    ",".join(sorted(window_value))
+                    if isinstance(window_value, dict)
+                    and all(isinstance(key, str) for key in window_value)
+                    else ""
+                ),
+                len(proposal.clarification_requirements),
+                extra={
+                    "output_shape": frame.output_shape,
+                    "measure_concepts": normalized_measures,
+                    "temporal_keys": temporal_keys,
+                    "temporal_kind": temporal_kind,
+                    "lookback_seconds": bounded_lookback_seconds,
+                    "clarification_count": len(proposal.clarification_requirements),
+                },
+            )
             stage = "plan_proposal"
             dispatched = dispatch_semantic_plan(
                 utterance=utterance,
@@ -455,7 +512,7 @@ class SemanticPlanningService:
                 stated_value_filter_plan_builder=self._stated_value_filter_plan,
             )
             if isinstance(dispatched, SemanticPlanningOutcome):
-                return dispatched
+                return finish(dispatched)
             dispatch_result: PlanDispatchResult = dispatched
             proposal = dispatch_result.proposal
             frame = dispatch_result.frame
@@ -477,17 +534,24 @@ class SemanticPlanningService:
                 plan=plan,
                 confidence=proposal.confidence,
             )
-            return _outcome(
-                SemanticPlanningDisposition.PLANNED,
-                "semantic_plan_verified",
-                manifest_digest=manifest.manifest_digest,
-                frame=frame,
-                plan=plan,
-                intent_graph=graph,
-                investigation_intent=investigation_intent,
+            return finish(
+                _outcome(
+                    SemanticPlanningDisposition.PLANNED,
+                    "semantic_plan_verified",
+                    manifest_digest=manifest.manifest_digest,
+                    frame=frame,
+                    plan=plan,
+                    intent_graph=graph,
+                    investigation_intent=investigation_intent,
+                )
             )
         except PermissionError:
-            return _outcome(SemanticPlanningDisposition.UNSUPPORTED, "semantic_scope_denied")
+            return finish(
+                _outcome(
+                    SemanticPlanningDisposition.UNSUPPORTED,
+                    "semantic_scope_denied",
+                )
+            )
         except ProposalRejectedError as exc:
             _LOGGER.warning(
                 "semantic_plan_rejected",
@@ -503,11 +567,13 @@ class SemanticPlanningService:
                 if disposition is SemanticPlanningDisposition.UNAVAILABLE
                 else "semantic_plan_invalid"
             )
-            return _outcome(
-                disposition,
-                reason,
-                manifest_digest=manifest_digest,
-                frame=accepted_frame,
+            return finish(
+                _outcome(
+                    disposition,
+                    reason,
+                    manifest_digest=manifest_digest,
+                    frame=accepted_frame,
+                )
             )
         except (ValidationError, TypeError, ValueError) as exc:
             _LOGGER.warning(
@@ -528,18 +594,25 @@ class SemanticPlanningService:
                 if disposition is SemanticPlanningDisposition.UNAVAILABLE
                 else "semantic_plan_invalid"
             )
-            return _outcome(
-                disposition,
-                reason,
-                manifest_digest=manifest_digest,
-                frame=accepted_frame,
+            return finish(
+                _outcome(
+                    disposition,
+                    reason,
+                    manifest_digest=manifest_digest,
+                    frame=accepted_frame,
+                )
             )
         except Exception:  # noqa: BLE001 - model/provider details never cross the boundary
             _LOGGER.exception(
                 "semantic_planning_failed",
                 extra={"principal_role": principal.role.value, "purpose": purpose},
             )
-            return _outcome(SemanticPlanningDisposition.UNAVAILABLE, "semantic_planning_failed")
+            return finish(
+                _outcome(
+                    SemanticPlanningDisposition.UNAVAILABLE,
+                    "semantic_planning_failed",
+                )
+            )
 
     def _anchored_incident_plan(
         self,

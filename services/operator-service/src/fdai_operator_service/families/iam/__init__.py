@@ -40,6 +40,8 @@ from fdai_operator_service.families.iam.contracts import (
     KillSwitchOutbox,
     ModelSettingsOutbox,
     RuntimeSettingsOutbox,
+    SlackWebhookTester,
+    TeamsWorkflowTester,
 )
 from fdai_operator_service.families.iam.governance import (
     make_configuration_review_routes,
@@ -75,6 +77,8 @@ class IamFamilyBindings:
     handover_goals: HandoverGoalOutbox | None = None
     model_settings: ModelSettingsOutbox | None = None
     runtime_settings: RuntimeSettingsOutbox | None = None
+    teams_workflow_tester: TeamsWorkflowTester | None = None
+    slack_webhook_tester: SlackWebhookTester | None = None
     kill_switch: KillSwitchOutbox | None = None
     break_glass: BreakGlassActivationOutbox | None = None
     configuration_review: ConfigurationReviewOutbox | None = None
@@ -117,6 +121,8 @@ def make_iam_family_routes(bindings: IamFamilyBindings) -> tuple[Route, ...]:
         *make_runtime_settings_routes(
             outbox=bindings.runtime_settings,
             authorize=bindings.authorize,
+            teams_workflow_tester=bindings.teams_workflow_tester,
+            slack_webhook_tester=bindings.slack_webhook_tester,
         ),
         make_kill_switch_route(
             outbox=bindings.kill_switch,

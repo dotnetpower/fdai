@@ -13,6 +13,8 @@ from fdai.core.conversation.semantic_activity_planning import normalize_activity
 from fdai.core.conversation.semantic_judgment import (
     SemanticJudgmentBinding,
     SemanticJudgmentBoundary,
+    SemanticJudgmentModelResponse,
+    SemanticJudgmentObservation,
 )
 from fdai.core.conversation.semantic_planning import SemanticPlanningService
 from fdai.core.conversation.semantic_planning_cascade import (
@@ -220,6 +222,18 @@ class _GreetingJudgmentModel:
             "action_subject": "none",
             "execution_authority": False,
         }
+
+
+class _ObservedJudgmentModel(_GreetingJudgmentModel):
+    def __init__(self, observation: SemanticJudgmentObservation) -> None:
+        super().__init__("object_set")
+        self._observation = observation
+
+    def judge(self, **kwargs: Any) -> SemanticJudgmentModelResponse:
+        return SemanticJudgmentModelResponse(
+            proposal=super().judge(**kwargs),
+            observation=self._observation,
+        )
 
 
 class _ActionTypeOnlyDraftJudgmentModel(_DraftJudgmentModel):
@@ -729,6 +743,39 @@ def test_noncanonical_social_intent_does_not_select_direct_response(
     assert manifests.calls == 1
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+def test_planned_outcome_retains_authority_free_model_observation() -> None:
+    manifest, definition = _fixture()
+    observation = SemanticJudgmentObservation(
+        model="semantic-test",
+        usage={"prompt_tokens": 12, "completion_tokens": 3, "total_tokens": 15},
+        trace_call={"duration_ms": 25},
+    )
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=_ObservedJudgmentModel(observation),
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    service = SemanticPlanningService(
+        model=_Model(frame=_frame(), plan=_plan(definition)),
+        escalation_model=None,
+        semantic_judgment=judgment,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.model_observations == (observation,)
+    assert outcome.execution_authority is False
 
 
 def test_greeting_prefixed_operational_judgment_keeps_query_planning() -> None:

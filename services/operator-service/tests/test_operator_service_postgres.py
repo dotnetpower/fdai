@@ -717,6 +717,17 @@ async def test_operator_readiness_verifies_exact_projection_and_conversation_pri
         "inventory_active",
         "inventory_realtime_resource",
         "inventory_realtime_link",
+        "process_runtime",
+        "process_event",
+        "automation_blueprint_candidate",
+        "conversation_assurance_assessment",
+        "conversation_assurance_dispute",
+        "forecast_episode",
+        "forecast_publication_outbox",
+        "operator_memory",
+        "memory_compaction_candidate",
+        "skill_source",
+        "skill_source_refresh_state",
     ):
         for privilege in ("INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"):
             assert f"NOT has_table_privilege(current_user, '{table}', '{privilege}')" in statement

@@ -31,6 +31,12 @@ def test_binding_parser_preserves_named_enablement_and_secret_references() -> No
                     "enabled": False,
                     "trust_tiers": ["a2_operational_alert", "a4_digest"],
                 },
+                "slack-ops": {
+                    "kind": "slack_webhook",
+                    "enabled": True,
+                    "trust_tiers": ["a2_operational_alert"],
+                    "endpoint_env": "FDAI_SLACK_OPS_WEBHOOK_URL",
+                },
             }
         )
     )
@@ -39,6 +45,7 @@ def test_binding_parser_preserves_named_enablement_and_secret_references() -> No
     assert specs[0].auth_mode is TeamsWorkflowAuthMode.WORKLOAD_IDENTITY
     assert specs[0].endpoint_env == "FDAI_TEAMS_OPS_ENDPOINT"
     assert specs[1].enabled is False
+    assert specs[2].kind is NotificationBindingKind.SLACK_WEBHOOK
 
 
 def test_enabled_binding_with_incomplete_configuration_is_rejected() -> None:
@@ -74,18 +81,28 @@ def test_runtime_binds_two_named_channels(monkeypatch: pytest.MonkeyPatch) -> No
             "sender_address_env": "FDAI_EMAIL_OPS_SENDER",
             "recipient_addresses_env": "FDAI_EMAIL_OPS_RECIPIENTS",
         },
+        "slack-ops": {
+            "kind": "slack_webhook",
+            "enabled": True,
+            "trust_tiers": ["a2_operational_alert"],
+            "endpoint_env": "FDAI_SLACK_OPS_WEBHOOK_URL",
+        },
     }
     monkeypatch.setenv("FDAI_NOTIFICATION_BINDINGS_JSON", json.dumps(bindings))
     monkeypatch.setenv("FDAI_TEAMS_OPS_ENDPOINT", "https://flow.example.com/trigger")
     monkeypatch.setenv("FDAI_EMAIL_OPS_ENDPOINT", "https://acs.example.com")
     monkeypatch.setenv("FDAI_EMAIL_OPS_SENDER", "no-reply@example.com")
     monkeypatch.setenv("FDAI_EMAIL_OPS_RECIPIENTS", '["oncall@example.com"]')
+    monkeypatch.setenv(
+        "FDAI_SLACK_OPS_WEBHOOK_URL",
+        "https://hooks.slack.com/services/T000/B000/abcdefghijklmnopqrstuvwxyz",
+    )
     monkeypatch.setenv("FDAI_NOTIFICATION_MI_CLIENT_ID", "00000000-0000-0000-0000-000000000001")
     monkeypatch.setenv("IDENTITY_ENDPOINT", "http://localhost/metadata/identity/oauth2/token")
     monkeypatch.setenv("IDENTITY_HEADER", "identity-header")
 
     registry = _build_notification_registry(httpx.AsyncClient())
 
-    assert set(registry.channels) == {"teams-ops", "email-oncall"}
+    assert set(registry.channels) == {"teams-ops", "email-oncall", "slack-ops"}
     assert all(binding.enabled and binding.configured for binding in registry.bindings.values())
     assert registry.bindings["teams-ops"].trust_tiers == frozenset({TrustTier.A2_OPERATIONAL_ALERT})

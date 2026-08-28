@@ -648,6 +648,8 @@ def _build_named_notification_registry(
         AzureCommunicationEmailChannel,
         AzureCommunicationEmailConfig,
         NotificationBindingKind,
+        SlackWebhookChannel,
+        SlackWebhookConfig,
         TeamsWebhookChannel,
         TeamsWebhookConfig,
         TeamsWorkflowAuthMode,
@@ -712,6 +714,18 @@ def _build_named_notification_registry(
                     ),
                     http_client=http_client,
                     token_provider=token_provider,
+                ),
+            )
+        elif spec.kind is NotificationBindingKind.SLACK_WEBHOOK:
+            channel = cast(
+                NotificationChannel,
+                SlackWebhookChannel(
+                    config=SlackWebhookConfig(
+                        channel_id=spec.channel_id,
+                        webhook_url=endpoint,
+                        trust_tiers=spec.trust_tiers,
+                    ),
+                    http_client=http_client,
                 ),
             )
         else:

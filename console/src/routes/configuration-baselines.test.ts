@@ -16,4 +16,10 @@ describe("configuration baselines decoder", () => {
   it("rejects an incomplete projection", () => {
     expect(() => decodeConfigurationBaselines({ baseline: {}, drift: {}, knowledge: {}, safety: {}, performance: {}, review: {} })).toThrow();
   });
+
+  it("keeps unpublished baseline timestamps explicitly unavailable", () => {
+    const value = decodeConfigurationBaselines({ baseline: { version: "not-published", scope: "none", created_at: null, document_name: "No published configuration baseline", lifecycle: "not-published", resource_count: 0, topology_count: 0, unknown_count: 0 }, versions: [], drift: { verdict: "not-evaluated", observed_at: null, finding_count: 0 }, knowledge: { status: "not-indexed", citation_count: 0, citations: [] }, safety: { mutation_count: 0, approval_request_count: 0, mitigation_execution_count: 0, unsupported_claim_count: 0 }, performance: { total_ms: 0, observation_ms: 0, knowledge_ms: 0 }, review: { configured: false, state: "not-configured", completed_runs: 0, required_runs: 0, failed_attempts: 0 } });
+    expect(value.baseline.createdAt).toBeNull();
+    expect(value.drift.observedAt).toBeNull();
+  });
 });

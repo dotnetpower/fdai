@@ -299,8 +299,6 @@ class SemanticPlanningOutcome:
         direct_response = self.disposition is SemanticPlanningDisposition.DIRECT_RESPONSE
         if direct_response != (self.direct_response_intent is not None):
             raise ValueError("direct response disposition requires exactly one answer intent")
-        if self.model_observations and not direct_response:
-            raise ValueError("model observations are retained only for direct responses")
 
 
 __all__ = [

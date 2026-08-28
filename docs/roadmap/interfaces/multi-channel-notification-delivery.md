@@ -212,6 +212,12 @@ stale or oversized requests, and records either `delivered` or `retryable_failed
 completed observation audit phases bracket that state change. The callback secret is
 deployment-owned.
 
+Settings > Integrations provides a separate one-time public-cloud diagnostic for setup. An Owner
+can paste a signed URL to send one fixed synthetic card. The Console clears the value immediately,
+the API never returns or persists it, and the durable diagnostic record contains only the URL
+digest and prepared/completed metadata. A successful diagnostic validates the pasted URL only; it
+does not update or prove the deployment-managed production binding.
+
 ## 6. Boundaries this design does not cross
 
 - A1 approvals keep the authenticated Teams path. A workflow webhook cannot verify an approver, so

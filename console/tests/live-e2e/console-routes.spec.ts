@@ -23,6 +23,7 @@ const ROUTES = [
   "/processes",
   "/workflow-apps",
   "/scheduler-runs",
+  "/background-tasks",
   "/automation-blueprints",
   "/scheduled-continuations",
   "/conversation-delivery",

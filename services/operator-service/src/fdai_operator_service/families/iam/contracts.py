@@ -361,6 +361,57 @@ class RuntimeSettingsOutbox(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
+class TeamsWorkflowTestCommand:
+    """One Owner-scoped synthetic notification test with a transient URL."""
+
+    actor_id: str
+    request_id: str
+    webhook_url: str
+
+
+@dataclass(frozen=True, slots=True)
+class TeamsWorkflowTestResult:
+    """Secret-free result returned after one bounded provider request."""
+
+    request_id: str
+    accepted: bool
+    provider_status: int
+    workflow_run_id: str | None
+    tested_at: datetime
+
+
+class TeamsWorkflowTester(Protocol):
+    """Send and durably audit one synthetic Teams Workflows notification."""
+
+    async def test(self, command: TeamsWorkflowTestCommand) -> TeamsWorkflowTestResult: ...
+
+
+@dataclass(frozen=True, slots=True)
+class SlackWebhookTestCommand:
+    """One Owner-scoped synthetic Slack notification test with a transient URL."""
+
+    actor_id: str
+    request_id: str
+    webhook_url: str
+
+
+@dataclass(frozen=True, slots=True)
+class SlackWebhookTestResult:
+    """Secret-free result returned after one bounded Slack request."""
+
+    request_id: str
+    accepted: bool
+    provider_status: int
+    tested_at: datetime
+
+
+class SlackWebhookTester(Protocol):
+    """Send and durably audit one synthetic Slack incoming-webhook notification."""
+
+    async def test(self, command: SlackWebhookTestCommand) -> SlackWebhookTestResult: ...
+
+
+@dataclass(frozen=True, slots=True)
 class KillSwitchCommand:
     """Idempotent emergency-stop state request persisted with atomic audit."""
 

@@ -370,6 +370,126 @@ async def test_postgres_rule_catalog_projects_filters_pagination_and_detail() ->
     assert detail.provenance.revision == "catalog-sha256"
 
 
+async def test_postgres_control_catalogs_project_lists_filters_and_details() -> None:
+    best_practice = {
+        "id": "azure-waf.reliability.re-01",
+        "version": "1.0.0",
+        "framework": "azure-waf",
+        "control_id": "RE:01",
+        "title": "Focus workload design on simplicity",
+        "rationale": "Simple designs reduce failure modes.",
+        "severity": "medium",
+        "category": "reliability",
+        "pillar": "reliability",
+        "requirement_mode": "all",
+        "requirement_count": 1,
+        "owner": None,
+        "status": "unknown",
+        "satisfied_requirement_count": 0,
+        "evaluation_source": "not_connected",
+        "requirements": [
+            {
+                "kind": "artifact",
+                "ref": "target-architecture",
+                "freshness_days": None,
+                "status": "unknown",
+                "evidence_refs": [],
+            }
+        ],
+        "provenance": {"resolved_ref": "catalog-revision"},
+    }
+    benchmark = {
+        "benchmark_version": "v1",
+        "title": "Microsoft Cloud Security Benchmark v1",
+        "status": "stable",
+        "control_import_status": "complete",
+        "control_count": 1,
+        "coverage_counts": {"partial": 1},
+        "policy_profiles": [{"profile_id": "mcsb-v1", "policy_ref_count": 1}],
+    }
+    mcsb_control = {
+        "control_id": "NS-1",
+        "title": "Establish segmentation",
+        "domain": "NS",
+        "coverage": "partial",
+        "rule_count": 1,
+        "runtime_observation_count": 0,
+        "manual_evidence_count": 0,
+        "benchmark_version": "v1",
+        "rule_ids": ["network.rule"],
+        "runtime_observation_ids": [],
+        "manual_evidence_refs": [],
+        "source": {"resolved_ref": "catalog-revision"},
+        "evaluation_source": "catalog-crosswalk",
+    }
+    projections = {
+        "best-practice.list": {
+            "_revision": "best-practice-revision",
+            "controls": [best_practice],
+            "evaluation_source": "repository-catalog",
+        },
+        "mcsb.list": {
+            "_revision": "mcsb-revision",
+            "catalogs": [{"benchmark": benchmark, "controls": [mcsb_control]}],
+            "evaluation_source": "catalog-crosswalk",
+        },
+    }
+
+    class CatalogStore:
+        async def read_projection(self, *, family: str, operation: str) -> dict[str, object]:
+            assert family == "workflow"
+            return projections[operation]
+
+    adapter = PostgresWorkflowAdapters(cast(Any, CatalogStore()))
+    best_list = await adapter.read(
+        WorkflowReadRequest(
+            operation=WorkflowOperation.BEST_PRACTICE_LIST,
+            principal_id="operator-a",
+            query={"pillar": "reliability", "q": "simplicity"},
+            path_parameters={},
+            limit=100,
+            offset=0,
+        )
+    )
+    best_detail = await adapter.read(
+        WorkflowReadRequest(
+            operation=WorkflowOperation.BEST_PRACTICE_DETAIL,
+            principal_id="operator-a",
+            query={},
+            path_parameters={"best_practice_id": best_practice["id"]},
+        )
+    )
+    mcsb_list = await adapter.read(
+        WorkflowReadRequest(
+            operation=WorkflowOperation.MCSB_LIST,
+            principal_id="operator-a",
+            query={"version": "v1", "coverage": "partial"},
+            path_parameters={},
+            limit=100,
+            offset=0,
+        )
+    )
+    mcsb_detail = await adapter.read(
+        WorkflowReadRequest(
+            operation=WorkflowOperation.MCSB_DETAIL,
+            principal_id="operator-a",
+            query={},
+            path_parameters={"benchmark_version": "v1", "control_id": "NS-1"},
+        )
+    )
+
+    assert best_list.payload["total"] == 1
+    assert best_list.payload["controls"][0]["control_id"] == "RE:01"
+    assert "requirements" not in best_list.payload["controls"][0]
+    assert best_detail.payload == best_practice
+    assert best_detail.provenance.revision == "best-practice-revision"
+    assert mcsb_list.payload["benchmark"] == benchmark
+    assert mcsb_list.payload["controls"][0]["control_id"] == "NS-1"
+    assert "rule_ids" not in mcsb_list.payload["controls"][0]
+    assert mcsb_detail.payload == mcsb_control
+    assert mcsb_detail.provenance.revision == "mcsb-revision"
+
+
 async def test_postgres_workflow_adapter_submits_inert_proposal() -> None:
     class ProposalStore:
         def __init__(self) -> None:

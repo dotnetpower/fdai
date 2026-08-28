@@ -53,6 +53,7 @@ matrix:
       delivery_mode: fanout
       channels:
         - teams-ops-prd
+        - slack-ops-prd
         - pagerduty-primary
         - email-oncall
         - webhook-observability

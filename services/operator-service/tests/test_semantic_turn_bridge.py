@@ -1534,6 +1534,34 @@ def test_direct_greeting_done_omits_query_verification_and_artifacts() -> None:
     assert receipt["direct_response_intent"] == "greeting"
 
 
+def test_answered_done_exposes_model_transparency_without_changing_verification() -> None:
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    projection = _projection(envelope, disposition="answered", answered_evidence=True)
+    projection["payload"] = {
+        "model": "semantic-test",
+        "latency_ms": 25,
+        "usage": {"prompt_tokens": 12, "completion_tokens": 3, "total_tokens": 15},
+        "model_trace": {
+            "schema_version": 1,
+            "redacted": True,
+            "calls": [],
+            "omitted_calls": 0,
+        },
+    }
+
+    done = semantic_turn_runtime_module._done_event_data(projection)
+
+    assert done["status"] == "answered"
+    assert done["model"] == "semantic-test"
+    assert done["latency_ms"] == 25
+    assert done["usage"]["total_tokens"] == 15
+    assert done["model_trace"] == projection["payload"]["model_trace"]
+    assert done["verification"]["status"] == "verified"
+    assert done["semantic_receipt"]["execution_authority"] is False
+
+
 def test_self_introduction_done_uses_identity_answer_plan() -> None:
     envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
         _proposal(body={"prompt": "너에 대해서 소개해봐", "locale": "ko"})

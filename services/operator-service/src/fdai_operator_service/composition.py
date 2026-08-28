@@ -27,6 +27,10 @@ from fdai_operator_service.adapters.narrator_periodic_scheduler import (
 )
 from fdai_operator_service.auth import EntraJwtVerifier, OperatorAuthenticator
 from fdai_operator_service.contracts import ApplicationLifecycle, ReadinessProbe
+from fdai_operator_service.conversation_assurance_reader import (
+    ConversationAssuranceReader,
+    ConversationAssuranceReaderConfig,
+)
 from fdai_operator_service.environment import OperatorEnvironment
 from fdai_operator_service.families.conversation import ConversationFamilyDependencies
 from fdai_operator_service.families.conversation.semantic_turn_runtime import (
@@ -38,6 +42,7 @@ from fdai_operator_service.families.conversation.semantic_turn_runtime import (
     SemanticTurnResultSource,
 )
 from fdai_operator_service.families.iam import HilCallbackConfig, IamFamilyBindings
+from fdai_operator_service.families.operations import PanelRoute
 from fdai_operator_service.families.operations.contracts import ProjectionReader
 from fdai_operator_service.family_adapters import (
     PostgresConversationAdapters,
@@ -77,10 +82,34 @@ from fdai_operator_service.reporting.incident_rca_projection import (
 )
 from fdai_operator_service.routes import OperatorRouteFamilies
 from fdai_operator_service.runtime import OperatorRuntime
+from fdai_operator_service.runtime_projection_reader import (
+    RuntimeProjectionReader,
+    RuntimeProjectionReaderConfig,
+)
+from fdai_operator_service.slack_webhook_diagnostics import SlackWebhookDiagnosticTester
 from fdai_operator_service.streaming import LiveStreamEvent, LiveStreamHub
+from fdai_operator_service.teams_workflow_diagnostics import TeamsWorkflowDiagnosticTester
 
 HIL_SIGNING_SECRET_ENV = "FDAI_CHATOPS_WEBHOOK_SECRET"  # noqa: S105
 WEBHOOK_SIGNING_SECRET_ENV = "FDAI_OPERATOR_WEBHOOK_SECRET"  # noqa: S105
+REFERENCE_PANEL_ROUTES = (
+    PanelRoute("/kpi/autonomy", "autonomy", "autonomy"),
+    PanelRoute("/capabilities", "capabilities", "capabilities"),
+    PanelRoute(
+        "/configuration-baselines",
+        "configuration-baselines",
+        "configuration-baselines",
+    ),
+    PanelRoute(
+        "/conversation-delivery",
+        "conversation-delivery",
+        "conversation-delivery",
+    ),
+    PanelRoute("/forecast-learning", "forecast-learning", "forecast-learning"),
+    PanelRoute("/onboarding", "onboarding", "onboarding"),
+    PanelRoute("/operator-memory", "operator-memory", "operator-memory"),
+    PanelRoute("/skills", "skills", "skills"),
+)
 
 
 def _agent_state_key(event: LiveStreamEvent) -> str | None:
@@ -278,13 +307,21 @@ def _build_route_families(
             operations_replay_reader=unavailable_operations,
             operations_webhook_verifier=unavailable_operations,
             report_pdf_encoder=report_pdf_encoder,
+            operation_panels=REFERENCE_PANEL_ROUTES,
         )
         return routes, None
 
     database_url = environment.database_url
     if database_url is None:  # pragma: no cover - store construction requires the same URL
         raise RuntimeError("validated Operator database URL is missing")
-    postgres_conversation = PostgresConversationAdapters(store)
+    postgres_conversation = ConversationAssuranceReader(
+        ConversationAssuranceReaderConfig(
+            dsn=database_url,
+            statement_timeout_ms=environment.database_statement_timeout_ms,
+            connect_timeout_s=environment.database_connect_timeout_s,
+        ),
+        fallback=PostgresConversationAdapters(store),
+    )
     local_narrator = (
         LocalAzureNarratorAdapters.from_environment(
             environment.values,
@@ -319,6 +356,14 @@ def _build_route_families(
         if read_model is not None
         else postgres_operations
     )
+    operations_reader = RuntimeProjectionReader(
+        RuntimeProjectionReaderConfig(
+            dsn=database_url,
+            statement_timeout_ms=environment.database_statement_timeout_ms,
+            connect_timeout_s=environment.database_connect_timeout_s,
+        ),
+        fallback=operations_reader,
+    )
     hil_secret = environment.values.get(HIL_SIGNING_SECRET_ENV, "").strip() or None
     routes = OperatorRouteFamilies(
         conversation=ConversationFamilyDependencies(
@@ -337,6 +382,8 @@ def _build_route_families(
             handover_goals=iam,
             model_settings=iam,
             runtime_settings=iam,
+            teams_workflow_tester=TeamsWorkflowDiagnosticTester(store),
+            slack_webhook_tester=SlackWebhookDiagnosticTester(store),
             kill_switch=iam,
             configuration_review=iam,
             hil_registry=iam if hil_secret is not None else None,
@@ -352,6 +399,7 @@ def _build_route_families(
         operations_replay_reader=postgres_operations,
         operations_webhook_verifier=postgres_operations,
         report_pdf_encoder=report_pdf_encoder,
+        operation_panels=REFERENCE_PANEL_ROUTES,
     )
     return routes, local_narrator
 
@@ -567,7 +615,7 @@ def _build_data_sources(*, configured: bool) -> tuple[ReadDataSource, ...]:
         ReadDataSource(
             key="overview-measurement",
             source="not-implemented",
-            routes=("/finops", "/kpi/autonomy"),
+            routes=("/finops",),
             availability="unavailable",
             configured=False,
             reachable=None,
@@ -579,116 +627,125 @@ def _build_data_sources(*, configured: bool) -> tuple[ReadDataSource, ...]:
             ),
         ),
         ReadDataSource(
-            key="promotion-gate-evidence",
-            source="not-implemented",
-            routes=("/kpi/promotion-gates",),
-            availability="unavailable",
-            configured=False,
+            key="autonomy-measurement",
+            source="service-local-audit" if configured else "not-configured",
+            routes=("/kpi/autonomy",),
+            availability="unknown" if configured else "unavailable",
+            configured=configured,
             reachable=None,
-            authoritative=False,
-            durable=None,
-            reason=(
-                "No component writes the promotion-gate projection in this distribution, "
-                "so no gate verdict is claimed."
-            ),
+            authoritative=configured,
+            durable=True if configured else None,
+            reason=reason,
+        ),
+        ReadDataSource(
+            key="promotion-gate-evidence",
+            source="repository-catalog-projection" if configured else "not-configured",
+            routes=("/kpi/promotion-gates",),
+            availability="unknown" if configured else "unavailable",
+            configured=configured,
+            reachable=None,
+            authoritative=configured,
+            durable=True if configured else None,
+            reason=reason,
         ),
         ReadDataSource(
             key="onboarding-probe",
-            source="not-implemented",
+            source="repository-catalog-projection" if configured else "not-configured",
             routes=("/onboarding",),
-            availability="unavailable",
-            configured=False,
+            availability="unknown" if configured else "unavailable",
+            configured=configured,
             reachable=None,
-            authoritative=False,
-            durable=None,
-            reason=(
-                "The Azure onboarding probe is not served by this distribution, so no "
-                "observed tenant resource or role assignment is claimed."
-            ),
+            authoritative=configured,
+            durable=True if configured else None,
+            reason=reason,
+        ),
+        ReadDataSource(
+            key="detection-readiness",
+            source="service-local-projection" if configured else "not-configured",
+            routes=("/detection-readiness",),
+            availability="unknown" if configured else "unavailable",
+            configured=configured,
+            reachable=None,
+            authoritative=configured,
+            durable=True if configured else None,
+            reason=reason,
+        ),
+        ReadDataSource(
+            key="workflow-app-catalog",
+            source="repository-catalog-projection" if configured else "not-configured",
+            routes=("/views/workflow-apps",),
+            availability="unknown" if configured else "unavailable",
+            configured=configured,
+            reachable=None,
+            authoritative=configured,
+            durable=True if configured else None,
+            reason=reason,
         ),
         ReadDataSource(
             key="configuration-baseline",
-            source="not-implemented",
+            source="service-local-projection" if configured else "not-configured",
             routes=("/configuration-baselines",),
-            availability="unavailable",
-            configured=False,
+            availability="unknown" if configured else "unavailable",
+            configured=configured,
             reachable=None,
-            authoritative=False,
-            durable=None,
-            reason=(
-                "Configuration baseline evidence is not served by this distribution, so "
-                "no baseline integrity or drift state is claimed."
-            ),
+            authoritative=configured,
+            durable=True if configured else None,
+            reason=reason,
         ),
         ReadDataSource(
             key="conversation-delivery",
-            source="not-implemented",
+            source="operator-delivery-ledger" if configured else "not-configured",
             routes=("/conversation-delivery",),
-            availability="unavailable",
-            configured=False,
+            availability="unknown" if configured else "unavailable",
+            configured=configured,
             reachable=None,
-            authoritative=False,
-            durable=None,
-            reason=(
-                "Conversation delivery evidence is not served by this distribution, so "
-                "no latency, retry, or adapter health measurement is claimed."
-            ),
+            authoritative=configured,
+            durable=True if configured else None,
+            reason=reason,
         ),
         ReadDataSource(
             key="capability-contract",
-            source="not-implemented",
+            source="repository-catalog-projection" if configured else "not-configured",
             routes=("/capabilities",),
-            availability="unavailable",
-            configured=False,
+            availability="unknown" if configured else "unavailable",
+            configured=configured,
             reachable=None,
-            authoritative=False,
-            durable=None,
-            reason=(
-                "Declared capability contracts are not served by this distribution, so "
-                "no side-effect class, role, or default mode is claimed."
-            ),
+            authoritative=configured,
+            durable=True if configured else None,
+            reason=reason,
         ),
         ReadDataSource(
             key="runtime-skill",
-            source="not-implemented",
+            source="service-local-projection" if configured else "not-configured",
             routes=("/skills",),
-            availability="unavailable",
-            configured=False,
+            availability="unknown" if configured else "unavailable",
+            configured=configured,
             reachable=None,
-            authoritative=False,
-            durable=None,
-            reason=(
-                "Runtime skill metadata is not served by this distribution, so no "
-                "installed skill, dependency, or load diagnostic is claimed."
-            ),
+            authoritative=configured,
+            durable=True if configured else None,
+            reason=reason,
         ),
         ReadDataSource(
             key="forecast-learning",
-            source="not-implemented",
+            source="service-local-projection" if configured else "not-configured",
             routes=("/forecast-learning",),
-            availability="unavailable",
-            configured=False,
+            availability="unknown" if configured else "unavailable",
+            configured=configured,
             reachable=None,
-            authoritative=False,
-            durable=None,
-            reason=(
-                "Forecast learning evidence is not served by this distribution, so no "
-                "prediction closure or pipeline health is claimed."
-            ),
+            authoritative=configured,
+            durable=True if configured else None,
+            reason=reason,
         ),
         ReadDataSource(
             key="operator-memory",
-            source="not-implemented",
+            source="service-local-projection" if configured else "not-configured",
             routes=("/operator-memory",),
-            availability="unavailable",
-            configured=False,
+            availability="unknown" if configured else "unavailable",
+            configured=configured,
             reachable=None,
-            authoritative=False,
-            durable=None,
-            reason=(
-                "No durable operator-memory provider is registered for this "
-                "distribution, so no stored memory is claimed."
-            ),
+            authoritative=configured,
+            durable=True if configured else None,
+            reason=reason,
         ),
         ReadDataSource(
             key="notification-template",

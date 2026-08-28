@@ -114,22 +114,16 @@ def semantic_done_event_data(
             "status": disposition,
             "answer": answer,
             "source": "semantic-direct-response" if direct_response else "ontology-query",
+            **({"model": model} if isinstance(model, str) and model else {}),
             **(
-                {
-                    **({"model": model} if isinstance(model, str) and model else {}),
-                    **(
-                        {"latency_ms": latency_ms}
-                        if isinstance(latency_ms, int)
-                        and not isinstance(latency_ms, bool)
-                        and latency_ms >= 0
-                        else {}
-                    ),
-                    **({"usage": usage} if isinstance(usage, Mapping) else {}),
-                    **({"model_trace": model_trace} if isinstance(model_trace, Mapping) else {}),
-                }
-                if direct_response
+                {"latency_ms": latency_ms}
+                if isinstance(latency_ms, int)
+                and not isinstance(latency_ms, bool)
+                and latency_ms >= 0
                 else {}
             ),
+            **({"usage": usage} if isinstance(usage, Mapping) else {}),
+            **({"model_trace": model_trace} if isinstance(model_trace, Mapping) else {}),
             **(
                 {}
                 if direct_response

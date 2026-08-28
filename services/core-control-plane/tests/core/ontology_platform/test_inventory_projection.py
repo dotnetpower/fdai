@@ -246,6 +246,30 @@ def test_unregistered_link_type_is_dropped_and_reported() -> None:
     assert "unregistered_link_type" in projection.dropped_reasons
 
 
+@pytest.mark.parametrize(
+    "link_type",
+    (
+        "kubernetes_scheduled_on",
+        "kubernetes_backed_by",
+        "kubernetes_owned_by",
+        "kubernetes_selects",
+        "kubernetes_exposes_endpoints",
+        "kubernetes_exposes_endpoint_slice",
+    ),
+)
+def test_catalog_declared_kubernetes_links_are_projected(link_type: str) -> None:
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(_resource("resource-1"), _resource("resource-2")),
+        links=(_link("resource-1", link_type, "resource-2"),),
+    )
+
+    assert [item.link_type for item in projection.links] == [link_type]
+    assert projection.complete is True
+    assert projection.relationship_complete is True
+    assert projection.dropped_reasons == ()
+
+
 def test_catalog_declared_network_links_are_projected_as_directed_records() -> None:
     projection = build_inventory_ontology_projection(
         generation="snapshot-1",

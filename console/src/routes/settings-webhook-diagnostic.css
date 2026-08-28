@@ -1,0 +1,60 @@
+.settings-webhook-diagnostic {
+  display: grid;
+  gap: 16px;
+  padding: 18px 0 22px;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-webhook-diagnostic-copy {
+  display: grid;
+  gap: 5px;
+  max-width: 72ch;
+}
+
+.settings-webhook-diagnostic-copy strong {
+  font-size: 0.92rem;
+}
+
+.settings-webhook-diagnostic-copy p {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.settings-webhook-diagnostic-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.settings-webhook-diagnostic-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.settings-webhook-diagnostic-field span {
+  color: var(--fg-muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.settings-webhook-diagnostic-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+@container (max-width: 620px) {
+  .settings-webhook-diagnostic-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-webhook-diagnostic-form .btn {
+    width: 100%;
+    min-height: 44px;
+  }
+}

@@ -18,6 +18,7 @@ _ENV_NAME = re.compile(r"^[A-Z][A-Z0-9_]*$")
 
 class NotificationBindingKind(StrEnum):
     TEAMS_WORKFLOW = "teams_workflow"
+    SLACK_WEBHOOK = "slack_webhook"
     ACS_EMAIL = "acs_email"
 
 
@@ -92,6 +93,28 @@ def _parse_binding(channel_id: object, raw: object) -> NotificationBindingSpec:
             endpoint_env=endpoint_env,
             auth_mode=auth_mode,
             identity_client_id_env=identity_env,
+        )
+
+    if kind is NotificationBindingKind.SLACK_WEBHOOK:
+        _reject_fields(
+            channel_id,
+            raw,
+            {
+                "auth_mode",
+                "sender_address_env",
+                "recipient_addresses_env",
+                "identity_client_id_env",
+            },
+        )
+        endpoint_env = _optional_env_name(raw.get("endpoint_env"), channel_id, "endpoint_env")
+        if enabled and endpoint_env is None:
+            raise ValueError(f"enabled notification binding {channel_id!r} requires 'endpoint_env'")
+        return NotificationBindingSpec(
+            channel_id=channel_id,
+            kind=kind,
+            enabled=enabled,
+            trust_tiers=trust_tiers,
+            endpoint_env=endpoint_env,
         )
 
     _reject_fields(channel_id, raw, {"auth_mode"})

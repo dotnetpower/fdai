@@ -42,6 +42,10 @@ from fdai_operator_service.families.iam.contracts import (
     ModelBindingRequestCommand,
     ModelPreferenceCommand,
     RuntimeSettingsCommand,
+    SlackWebhookTestCommand,
+    SlackWebhookTestResult,
+    TeamsWorkflowTestCommand,
+    TeamsWorkflowTestResult,
     WebSearchSettingsCommand,
 )
 from fdai_operator_service.families.iam.hil_callback import compute_hmac
@@ -293,6 +297,35 @@ class RecordingRuntimeSettings:
         self.command = command
 
 
+class RecordingTeamsWorkflowTester:
+    def __init__(self) -> None:
+        self.command: TeamsWorkflowTestCommand | None = None
+
+    async def test(self, command: TeamsWorkflowTestCommand) -> TeamsWorkflowTestResult:
+        self.command = command
+        return TeamsWorkflowTestResult(
+            request_id=command.request_id,
+            accepted=True,
+            provider_status=202,
+            workflow_run_id="run-1",
+            tested_at=NOW,
+        )
+
+
+class RecordingSlackWebhookTester:
+    def __init__(self) -> None:
+        self.command: SlackWebhookTestCommand | None = None
+
+    async def test(self, command: SlackWebhookTestCommand) -> SlackWebhookTestResult:
+        self.command = command
+        return SlackWebhookTestResult(
+            request_id=command.request_id,
+            accepted=True,
+            provider_status=200,
+            tested_at=NOW,
+        )
+
+
 class RecordingKillSwitch:
     def __init__(self) -> None:
         self.command: KillSwitchCommand | None = None
@@ -368,14 +401,14 @@ def _client(**overrides: object) -> TestClient:
     return TestClient(Starlette(routes=make_iam_family_routes(_bindings(**overrides))))
 
 
-def test_family_owns_exact_31_route_manifest_without_fdai_implementation_imports() -> None:
+def test_family_owns_exact_33_route_manifest_without_fdai_implementation_imports() -> None:
     routes = make_iam_family_routes(_bindings())
     snapshot = tuple(
         (next(iter((route.methods or set()) - {"HEAD"})), route.path, route.name)
         for route in routes
     )
     assert snapshot == tuple((item.method, item.path, item.name) for item in IAM_FAMILY_MANIFEST)
-    assert len(snapshot) == 31
+    assert len(snapshot) == 33
 
     for path in FAMILY_SOURCE.rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -576,6 +609,87 @@ def test_settings_kill_switch_and_review_preserve_revision_and_idempotency() -> 
     assert runtime.command is not None and runtime.command.expected_revision == 2
     assert kill.command is not None and kill.command.request_id == "stop-1"
     assert review.command is not None and review.command.run_id == "review-1"
+
+
+def test_owner_can_send_one_secret_free_teams_workflow_diagnostic() -> None:
+    tester = RecordingTeamsWorkflowTester()
+    webhook_url = (
+        "https://example.e4.environment.api.powerplatform.com:443/"
+        "powerautomate/automations/direct/workflows/"
+        "d74f3e0ee1314a4191c650cfda483a70/triggers/manual/paths/invoke"
+        "?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0"
+        "&sig=abcdefghijklmnopqrstuvwxyz012345"
+    )
+    response = _client(teams_workflow_tester=tester).post(
+        "/runtime/integrations/teams-workflow/test",
+        headers={"x-test-role": "Owner", "x-test-oid": "owner-1"},
+        json={"request_id": "teams-test-1", "webhook_url": webhook_url},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "request_id": "teams-test-1",
+        "accepted": True,
+        "provider_status": 202,
+        "workflow_run_id": "run-1",
+        "tested_at": NOW.isoformat(),
+    }
+    assert webhook_url not in response.text
+    assert tester.command is not None and tester.command.actor_id == "owner-1"
+
+
+def test_teams_workflow_diagnostic_requires_owner_and_injected_audit_store() -> None:
+    request = {"request_id": "teams-test-1", "webhook_url": "https://example.invalid"}
+    reader = _client(teams_workflow_tester=RecordingTeamsWorkflowTester()).post(
+        "/runtime/integrations/teams-workflow/test",
+        headers={"x-test-role": "Reader"},
+        json=request,
+    )
+    unavailable = _client().post(
+        "/runtime/integrations/teams-workflow/test",
+        headers={"x-test-role": "Owner"},
+        json=request,
+    )
+
+    assert reader.status_code == 403
+    assert unavailable.status_code == 503
+
+
+def test_owner_can_send_one_secret_free_slack_webhook_diagnostic() -> None:
+    tester = RecordingSlackWebhookTester()
+    webhook_url = "https://hooks.slack.com/services/T00000000/B00000000/abcdefghijklmnopqrstuvwxyz"
+    response = _client(slack_webhook_tester=tester).post(
+        "/runtime/integrations/slack-webhook/test",
+        headers={"x-test-role": "Owner", "x-test-oid": "owner-1"},
+        json={"request_id": "slack-test-1", "webhook_url": webhook_url},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "request_id": "slack-test-1",
+        "accepted": True,
+        "provider_status": 200,
+        "tested_at": NOW.isoformat(),
+    }
+    assert webhook_url not in response.text
+    assert tester.command is not None and tester.command.actor_id == "owner-1"
+
+
+def test_slack_webhook_diagnostic_requires_owner_and_injected_audit_store() -> None:
+    request = {"request_id": "slack-test-1", "webhook_url": "https://example.invalid"}
+    reader = _client(slack_webhook_tester=RecordingSlackWebhookTester()).post(
+        "/runtime/integrations/slack-webhook/test",
+        headers={"x-test-role": "Reader"},
+        json=request,
+    )
+    unavailable = _client().post(
+        "/runtime/integrations/slack-webhook/test",
+        headers={"x-test-role": "Owner"},
+        json=request,
+    )
+
+    assert reader.status_code == 403
+    assert unavailable.status_code == 503
 
 
 def test_owner_can_submit_binding_draft_assessment_and_plan_without_authority() -> None:

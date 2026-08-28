@@ -2,6 +2,7 @@ import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import { useEffect, useRef, useState } from "preact/hooks";
 import "./settings-email-template.css";
+import "./settings-webhook-diagnostic.css";
 import {
   AsyncBoundary,
   type AsyncState,
@@ -22,6 +23,16 @@ import {
   type RuntimeIntegrationView,
   type RuntimeSettingsView,
 } from "./settings-runtime.model";
+import { testSlackWebhook } from "./settings-slack-webhook.command";
+import {
+  newSlackWebhookTestRequestId,
+  type SlackWebhookTestResult,
+} from "./settings-slack-webhook.model";
+import { testTeamsWorkflowWebhook } from "./settings-teams-workflow.command";
+import {
+  newTeamsWorkflowTestRequestId,
+  type TeamsWorkflowTestResult,
+} from "./settings-teams-workflow.model";
 
 interface Props {
   readonly client: OperatorApiClient;
@@ -82,6 +93,16 @@ export function SettingsIntegrationsRoute({ client, auth }: Props) {
               {runtime.integrations.map((integration) => (
                 <IntegrationRow key={integration.key} integration={integration} />
               ))}
+              <TeamsWorkflowTestPanel
+                auth={auth}
+                operatorApiBaseUrl={client.operatorApiBaseUrl}
+                canManage={runtime.canManage}
+              />
+              <SlackWebhookTestPanel
+                auth={auth}
+                operatorApiBaseUrl={client.operatorApiBaseUrl}
+                canManage={runtime.canManage}
+              />
             </div>
           )}
         </AsyncBoundary>
@@ -266,6 +287,190 @@ function useIncidentEmailTemplate(client: OperatorApiClient): AsyncState<EmailTe
     };
   }, [client]);
   return state;
+}
+
+function TeamsWorkflowTestPanel({
+  auth,
+  operatorApiBaseUrl,
+  canManage,
+}: {
+  readonly auth: AuthContext;
+  readonly operatorApiBaseUrl: string;
+  readonly canManage: boolean;
+}) {
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [testing, setTesting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<TeamsWorkflowTestResult | null>(null);
+
+  const submit = async (event: SubmitEvent) => {
+    event.preventDefault();
+    if (!canManage || testing || !webhookUrl.trim()) return;
+    const transientUrl = webhookUrl.trim();
+    setWebhookUrl("");
+    setTesting(true);
+    setError(null);
+    setResult(null);
+    try {
+      setResult(
+        await testTeamsWorkflowWebhook(
+          auth,
+          operatorApiBaseUrl,
+          transientUrl,
+          newTeamsWorkflowTestRequestId(),
+        ),
+      );
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <div class="settings-webhook-diagnostic">
+      <div class="settings-webhook-diagnostic-copy">
+        <strong>{t("settings.teamsWorkflowTest.heading")}</strong>
+        <p>{t("settings.teamsWorkflowTest.description")}</p>
+        <p>{t("settings.teamsWorkflowTest.boundary")}</p>
+      </div>
+      <form class="settings-webhook-diagnostic-form" onSubmit={(event) => { void submit(event); }}>
+        <label class="settings-webhook-diagnostic-field">
+          <span>{t("settings.teamsWorkflowTest.urlLabel")}</span>
+          <input
+            class="form-input"
+            type="password"
+            inputMode="url"
+            autocomplete="off"
+            data-1p-ignore
+            data-bwignore
+            data-lpignore="true"
+            spellcheck={false}
+            maxlength={4096}
+            value={webhookUrl}
+            disabled={!canManage || testing}
+            placeholder={t("settings.teamsWorkflowTest.urlPlaceholder")}
+            onInput={(event) => setWebhookUrl(event.currentTarget.value)}
+          />
+        </label>
+        <button
+          type="submit"
+          class="btn primary"
+          disabled={!canManage || testing || !webhookUrl.trim()}
+        >
+          {testing
+            ? t("settings.teamsWorkflowTest.testing")
+            : t("settings.teamsWorkflowTest.test")}
+        </button>
+      </form>
+      {!canManage ? (
+        <div class="state-block" role="note">{t("settings.teamsWorkflowTest.ownerRequired")}</div>
+      ) : null}
+      {error ? <div class="error" role="alert">{error}</div> : null}
+      {result ? (
+        <div class="settings-webhook-diagnostic-result" role="status">
+          <StatusPill kind="success" label={t("settings.teamsWorkflowTest.accepted")} />
+          <small class="muted">
+            {t("settings.teamsWorkflowTest.acceptedDetail", {
+              status: result.providerStatus,
+              time: new Date(result.testedAt).toLocaleString(),
+            })}
+          </small>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function SlackWebhookTestPanel({
+  auth,
+  operatorApiBaseUrl,
+  canManage,
+}: {
+  readonly auth: AuthContext;
+  readonly operatorApiBaseUrl: string;
+  readonly canManage: boolean;
+}) {
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [testing, setTesting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<SlackWebhookTestResult | null>(null);
+
+  const submit = async (event: SubmitEvent) => {
+    event.preventDefault();
+    if (!canManage || testing || !webhookUrl.trim()) return;
+    const transientUrl = webhookUrl.trim();
+    setWebhookUrl("");
+    setTesting(true);
+    setError(null);
+    setResult(null);
+    try {
+      setResult(
+        await testSlackWebhook(
+          auth,
+          operatorApiBaseUrl,
+          transientUrl,
+          newSlackWebhookTestRequestId(),
+        ),
+      );
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <div class="settings-webhook-diagnostic">
+      <div class="settings-webhook-diagnostic-copy">
+        <strong>{t("settings.slackWebhookTest.heading")}</strong>
+        <p>{t("settings.slackWebhookTest.description")}</p>
+        <p>{t("settings.slackWebhookTest.boundary")}</p>
+      </div>
+      <form class="settings-webhook-diagnostic-form" onSubmit={(event) => { void submit(event); }}>
+        <label class="settings-webhook-diagnostic-field">
+          <span>{t("settings.slackWebhookTest.urlLabel")}</span>
+          <input
+            class="form-input"
+            type="password"
+            inputMode="url"
+            autocomplete="off"
+            data-1p-ignore
+            data-bwignore
+            data-lpignore="true"
+            spellcheck={false}
+            maxlength={2048}
+            value={webhookUrl}
+            disabled={!canManage || testing}
+            placeholder={t("settings.slackWebhookTest.urlPlaceholder")}
+            onInput={(event) => setWebhookUrl(event.currentTarget.value)}
+          />
+        </label>
+        <button
+          type="submit"
+          class="btn primary"
+          disabled={!canManage || testing || !webhookUrl.trim()}
+        >
+          {testing ? t("settings.slackWebhookTest.testing") : t("settings.slackWebhookTest.test")}
+        </button>
+      </form>
+      {!canManage ? (
+        <div class="state-block" role="note">{t("settings.slackWebhookTest.ownerRequired")}</div>
+      ) : null}
+      {error ? <div class="error" role="alert">{error}</div> : null}
+      {result ? (
+        <div class="settings-webhook-diagnostic-result" role="status">
+          <StatusPill kind="success" label={t("settings.slackWebhookTest.accepted")} />
+          <small class="muted">
+            {t("settings.slackWebhookTest.acceptedDetail", {
+              status: result.providerStatus,
+              time: new Date(result.testedAt).toLocaleString(),
+            })}
+          </small>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function EmailTemplatePreviewPanel({ template }: { readonly template: EmailTemplatePreview }) {

@@ -7,7 +7,7 @@ from collections.abc import Mapping
 from typing import Any, cast
 
 from fdai_operator_service.application import create_app
-from fdai_operator_service.composition import ProductionOperatorComposition
+from fdai_operator_service.composition import REFERENCE_PANEL_ROUTES, ProductionOperatorComposition
 from fdai_operator_service.environment import (
     AUDIENCE_ENV,
     DATABASE_ROLE_ENV,
@@ -55,22 +55,23 @@ def _registered_identities(app: Starlette) -> set[tuple[str, str]]:
 
 
 def test_aggregate_manifest_and_registered_routes_have_exact_unique_ownership() -> None:
-    manifest = aggregate_route_manifest()
+    manifest = aggregate_route_manifest(REFERENCE_PANEL_ROUTES)
     identities = {(item.method, item.path) for item in manifest}
     owner_counts = Counter(item.owner for item in manifest)
 
-    assert len(manifest) == len(identities) == 160
+    assert len(manifest) == len(identities) == 170
     assert owner_counts == {
         "minimal": 16,
         "conversation": 38,
-        "iam": 31,
+        "iam": 33,
         "workflow": 39,
         "operations": 36,
+        "operations-panel": 8,
     }
     assert tuple(manifest[:16]) == MINIMAL_ROUTE_MANIFEST
     app = cast(Starlette, _client().app)
     assert _registered_identities(app) == identities
-    assert len(app.router.routes) == 160
+    assert len(app.router.routes) == 170
 
 
 def test_unavailable_families_enforce_authentication_and_rbac_before_503() -> None:

@@ -1782,6 +1782,54 @@ async def test_direct_greeting_projects_measured_usage_and_opt_in_trace(
     assert semantic["checks_total"] == 0
 
 
+@pytest.mark.parametrize("include_model_trace", [False, True])
+async def test_answered_turn_projects_measured_usage_and_opt_in_trace(
+    include_model_trace: bool,
+) -> None:
+    trace_call: dict[str, object] = {
+        "call_id": "adapter-call",
+        "kind": "semantic-judgment",
+        "model": "semantic-test",
+        "status": "completed",
+        "started_at": "2026-08-11T12:00:00+00:00",
+        "completed_at": "2026-08-11T12:00:00.025000+00:00",
+        "duration_ms": 25,
+        "request": {"messages": [], "sha256": "a" * 64},
+        "response": {"role": "assistant", "content": "{}", "sha256": "b" * 64},
+        "usage": {"prompt_tokens": 12, "completion_tokens": 3, "total_tokens": 15},
+        "redactions": [],
+    }
+    runtime_result = _runtime_result(
+        "answered",
+        model_observations=(
+            SemanticJudgmentObservation(
+                model="semantic-test",
+                usage={"prompt_tokens": 12, "completion_tokens": 3, "total_tokens": 15},
+                trace_call=trace_call,
+            ),
+        ),
+    )
+
+    projection = _projection(
+        await _processor(_Runtime(runtime_result)).process(
+            _request(include_model_trace=include_model_trace)
+        )
+    )
+
+    assert projection["status"] == "answered"
+    assert projection["payload"]["model"] == "semantic-test"
+    assert projection["payload"]["latency_ms"] == 25
+    assert projection["payload"]["usage"]["total_tokens"] == 15
+    if include_model_trace:
+        assert projection["payload"]["model_trace"]["calls"][0]["call_id"] == (
+            "semantic-judgment-1"
+        )
+    else:
+        assert "model_trace" not in projection["payload"]
+    assert projection["semantic_result"]["checks_completed"] == 1
+    assert projection["semantic_result"]["execution_authority"] is False
+
+
 @pytest.mark.parametrize(
     ("locale", "expected"),
     [

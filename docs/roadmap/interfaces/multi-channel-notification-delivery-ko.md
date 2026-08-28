@@ -1,7 +1,7 @@
 ---
 title: 다중 채널 알림 전달
 translation_of: multi-channel-notification-delivery.md
-translation_source_sha: 05bf3980735ebb15c283622c267c168e4aa0b9b9
+translation_source_sha: 26482511efac9f31ce27e7617a2883a593729018
 translation_revised: 2026-08-27
 ---
 # 다중 채널 알림 전달
@@ -210,6 +210,12 @@ dispatch:<audit_id>            targets = [teams-ops-primary, slack-ops, email-on
 받습니다. `X-FDAI-Timestamp`와 HMAC-SHA256 `X-FDAI-Signature`를 검증하고, 오래되거나 크기
 제한을 넘은 요청을 차단하며, 결과를 `delivered` 또는 `retryable_failed`로 기록합니다. 준비 및
 완료 관찰 감사 단계가 이 상태 변경을 둘러쌉니다. 콜백 시크릿은 배포 환경에서 관리합니다.
+
+Settings > Integrations는 설정을 위한 별도의 일회성 상용 클라우드 진단을 제공합니다. Owner는
+서명된 URL을 붙여 넣어 고정된 합성 카드 한 건을 전송할 수 있습니다. Console은 값을 즉시 지우고
+API는 URL을 응답하거나 저장하지 않으며, 영속 진단 기록에는 URL 다이제스트와 준비 및 완료
+메타데이터만 남깁니다. 진단 성공은 붙여 넣은 URL만 검증하며 배포 환경에서 관리하는 운영 바인딩을
+업데이트하거나 증명하지 않습니다.
 
 ## 6. 이 설계가 넘지 않는 경계
 

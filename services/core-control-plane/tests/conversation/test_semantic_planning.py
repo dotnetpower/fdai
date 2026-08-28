@@ -32,6 +32,7 @@ from fdai.core.ontology_platform import (
     build_query_manifest,
 )
 from fdai.core.ontology_platform.property_values import PropertyValueDomain, PropertyValueGroup
+from fdai.core.ontology_platform.query_execution import QueryNodeProgress
 from fdai.core.ontology_platform.resource_event_queries import (
     RESOURCE_EVENT_FUNCTION_NAME,
     resource_event_function_type,
@@ -1626,6 +1627,39 @@ def test_resource_health_history_uses_exact_event_function() -> None:
     assert outcome.execution_authority is False
 
 
+def test_kubernetes_history_uses_exact_event_function() -> None:
+    manifest, _definition = _typed_fixture(
+        groups=(_VM_GROUP,),
+        include_resource_event=True,
+    )
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Resource", "kubernetes-cluster"],
+            measure_concepts=["resource_event.kubernetes"],
+            temporal_scope={"lookback_seconds": 3600},
+            output_shape="resource_event_history",
+        ),
+        plan=None,
+    )
+
+    outcome = _service(model, manifest).plan(
+        utterance="Show Kubernetes events for this cluster from the last hour.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[1].arguments["function_name"] == RESOURCE_EVENT_FUNCTION_NAME
+    assert outcome.plan.nodes[1].arguments["arguments"] == {
+        "event_families": ["resource_event.kubernetes"],
+        "lookback_seconds": 3600,
+    }
+    assert model.plan_calls == 0
+    assert outcome.execution_authority is False
+
+
 def test_kubernetes_history_preserves_one_source_grounded_target() -> None:
     manifest, _definition = _typed_fixture(
         groups=(_VM_GROUP,),
@@ -2451,11 +2485,15 @@ def test_catalog_manifest_provider_filters_role_and_rejects_break_glass() -> Non
 async def test_semantic_runtime_executes_verified_plan_and_projects_terminal_graph() -> None:
     manifest, definition = _fixture()
     planner = _service(_Model(frame=_frame(), plan=_plan(definition)), manifest)
+    observed: list[QueryNodeProgress] = []
 
     async def object_set_handler(node, dependencies):  # type: ignore[no-untyped-def]
         assert node.kind is QueryNodeKind.OBJECT_SET
         assert dependencies == {}
         return QueryNodeResult(value={"rows": ["resource-a"]}, evidence_refs=("inventory:1",))
+
+    async def observe(progress: QueryNodeProgress) -> None:
+        observed.append(progress)
 
     runtime = SemanticConversationRuntime(
         planner=planner,
@@ -2469,8 +2507,10 @@ async def test_semantic_runtime_executes_verified_plan_and_projects_terminal_gra
         utterance="현재 운영 객체를 보여줘",
         prior_turns=(),
         principal=Principal(id="operator", role=Role.READER),
+        progress_observer=observe,
     )
 
+    assert [item.status for item in observed] == ["running", TaskStatus.COMPLETED]
     assert result.disposition == "answered"
     assert result.execution_authority is False
     assert result.intent_graph is not None

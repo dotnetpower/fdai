@@ -473,7 +473,7 @@ def test_unserved_measurement_routes_declare_an_explicit_unavailable_source() ->
     )
 
     declared = {route for source in runtime.data_sources for route in source.routes}
-    assert {"/finops", "/kpi/autonomy"} <= declared
+    assert "/finops" in declared
 
     source = next(item for item in runtime.data_sources if item.key == "overview-measurement")
     assert source.availability == "unavailable"
@@ -483,11 +483,55 @@ def test_unserved_measurement_routes_declare_an_explicit_unavailable_source() ->
     assert source.reason
 
 
-def test_unserved_operations_routes_declare_an_explicit_unavailable_source() -> None:
-    """Operations panels must receive a declared reason instead of a blind 404.
+def test_autonomy_measurement_declares_an_authoritative_audit_source() -> None:
+    composition = ProductionOperatorComposition(verifier_factory=lambda environment: _verify)
+    runtime = composition.build_runtime(
+        {
+            **BASE_ENV,
+            DATABASE_URL_ENV: "postgresql://example.invalid/fdai",
+            DATABASE_ROLE_ENV: "fdai_operator",
+        }
+    )
 
-    Each surface owns its own source so the panel renders a reason about itself.
-    """
+    source = next(item for item in runtime.data_sources if item.key == "autonomy-measurement")
+    assert source.routes == ("/kpi/autonomy",)
+    assert source.source == "service-local-audit"
+    assert source.availability == "unknown"
+    assert source.configured is True
+    assert source.authoritative is True
+    assert source.durable is True
+    assert source.reason is None
+
+
+def test_durable_console_evidence_routes_declare_authoritative_sources() -> None:
+    composition = ProductionOperatorComposition(verifier_factory=lambda environment: _verify)
+    runtime = composition.build_runtime(
+        {
+            **BASE_ENV,
+            DATABASE_URL_ENV: "postgresql://example.invalid/fdai",
+            DATABASE_ROLE_ENV: "fdai_operator",
+        }
+    )
+
+    expected = {
+        "configuration-baseline": "/configuration-baselines",
+        "conversation-delivery": "/conversation-delivery",
+        "detection-readiness": "/detection-readiness",
+        "runtime-skill": "/skills",
+        "forecast-learning": "/forecast-learning",
+        "operator-memory": "/operator-memory",
+    }
+    for key, route in expected.items():
+        source = next(item for item in runtime.data_sources if item.key == key)
+        assert source.routes == (route,)
+        assert source.availability == "unknown"
+        assert source.configured is True
+        assert source.authoritative is True
+        assert source.durable is True
+        assert source.reason is None
+
+
+def test_repository_catalog_routes_declare_authoritative_durable_sources() -> None:
     composition = ProductionOperatorComposition(verifier_factory=lambda environment: _verify)
     runtime = composition.build_runtime(
         {
@@ -499,24 +543,19 @@ def test_unserved_operations_routes_declare_an_explicit_unavailable_source() -> 
 
     expected = {
         "onboarding-probe": "/onboarding",
-        "configuration-baseline": "/configuration-baselines",
-        "conversation-delivery": "/conversation-delivery",
         "capability-contract": "/capabilities",
-        "runtime-skill": "/skills",
-        "forecast-learning": "/forecast-learning",
-        "operator-memory": "/operator-memory",
-        # No component writes the promotion-gate projection, so the route must
-        # declare that rather than answer 503 on every Overview page load.
         "promotion-gate-evidence": "/kpi/promotion-gates",
+        "workflow-app-catalog": "/views/workflow-apps",
     }
     for key, route in expected.items():
         source = next(item for item in runtime.data_sources if item.key == key)
         assert source.routes == (route,)
-        assert source.availability == "unavailable"
-        assert source.configured is False
-        assert source.authoritative is False
-        assert source.reachable is not True
-        assert source.reason
+        assert source.source == "repository-catalog-projection"
+        assert source.availability == "unknown"
+        assert source.configured is True
+        assert source.authoritative is True
+        assert source.durable is True
+        assert source.reason is None
 
 
 def test_local_narrator_binds_periodic_scheduler_lifecycle(tmp_path: Path) -> None:

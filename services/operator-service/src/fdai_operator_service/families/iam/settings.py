@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from datetime import UTC
 from typing import Final
 
 from fdai_operator_service.families.iam.capabilities import IamCapability, has_capability
@@ -14,6 +15,10 @@ from fdai_operator_service.families.iam.contracts import (
     ModelSettingsOutbox,
     RuntimeSettingsCommand,
     RuntimeSettingsOutbox,
+    SlackWebhookTestCommand,
+    SlackWebhookTester,
+    TeamsWorkflowTestCommand,
+    TeamsWorkflowTester,
     WebSearchSettingsCommand,
 )
 from fdai_operator_service.families.iam.errors import IamFamilyError
@@ -22,6 +27,15 @@ from fdai_operator_service.families.iam.http import (
     family_error,
     read_json_object,
     require_revision,
+    require_string,
+)
+from fdai_operator_service.slack_webhook_diagnostics import (
+    SlackWebhookTestConflictError,
+    SlackWebhookTestProviderError,
+)
+from fdai_operator_service.teams_workflow_diagnostics import (
+    TeamsWorkflowTestConflictError,
+    TeamsWorkflowTestProviderError,
 )
 from fdai_service_contracts import ModelBindingPolicy
 from pydantic import ValidationError
@@ -268,7 +282,11 @@ def _validation_message(exc: ValidationError) -> str:
 
 
 def make_runtime_settings_routes(
-    *, outbox: RuntimeSettingsOutbox | None, authorize: AuthorizePrincipal
+    *,
+    outbox: RuntimeSettingsOutbox | None,
+    authorize: AuthorizePrincipal,
+    teams_workflow_tester: TeamsWorkflowTester | None = None,
+    slack_webhook_tester: SlackWebhookTester | None = None,
 ) -> tuple[Route, ...]:
     """Build runtime policy routes that stop at audited durable overrides."""
 
@@ -307,9 +325,90 @@ def make_runtime_settings_routes(
             return family_error(exc)
         return JSONResponse(dict(projection))
 
+    async def test_teams_workflow(request: Request) -> Response:
+        principal = await authorize(request)
+        if not has_capability(principal.roles, IamCapability.MANAGE_RUNTIME_SETTINGS):
+            return error_response(403, "Owner role is required")
+        if teams_workflow_tester is None:
+            return error_response(
+                503,
+                "Teams Workflow diagnostics require the authoritative Operator store",
+            )
+        body = await read_json_object(request, maximum=8 * 1024)
+        _require_exact_fields(body, {"request_id", "webhook_url"})
+        try:
+            result = await teams_workflow_tester.test(
+                TeamsWorkflowTestCommand(
+                    actor_id=principal.oid,
+                    request_id=require_string(body, "request_id"),
+                    webhook_url=require_string(body, "webhook_url"),
+                )
+            )
+        except ValueError as exc:
+            return error_response(400, str(exc), kind="invalid_webhook_url")
+        except TeamsWorkflowTestConflictError as exc:
+            return error_response(409, str(exc), kind="request_conflict")
+        except TeamsWorkflowTestProviderError as exc:
+            return error_response(502, str(exc), kind="provider_error")
+        return JSONResponse(
+            {
+                "request_id": result.request_id,
+                "accepted": result.accepted,
+                "provider_status": result.provider_status,
+                "workflow_run_id": result.workflow_run_id,
+                "tested_at": result.tested_at.astimezone(UTC).isoformat(),
+            }
+        )
+
+    async def test_slack_webhook(request: Request) -> Response:
+        principal = await authorize(request)
+        if not has_capability(principal.roles, IamCapability.MANAGE_RUNTIME_SETTINGS):
+            return error_response(403, "Owner role is required")
+        if slack_webhook_tester is None:
+            return error_response(
+                503,
+                "Slack webhook diagnostics require the authoritative Operator store",
+            )
+        body = await read_json_object(request, maximum=8 * 1024)
+        _require_exact_fields(body, {"request_id", "webhook_url"})
+        try:
+            result = await slack_webhook_tester.test(
+                SlackWebhookTestCommand(
+                    actor_id=principal.oid,
+                    request_id=require_string(body, "request_id"),
+                    webhook_url=require_string(body, "webhook_url"),
+                )
+            )
+        except ValueError as exc:
+            return error_response(400, str(exc), kind="invalid_webhook_url")
+        except SlackWebhookTestConflictError as exc:
+            return error_response(409, str(exc), kind="request_conflict")
+        except SlackWebhookTestProviderError as exc:
+            return error_response(502, str(exc), kind="provider_error")
+        return JSONResponse(
+            {
+                "request_id": result.request_id,
+                "accepted": result.accepted,
+                "provider_status": result.provider_status,
+                "tested_at": result.tested_at.astimezone(UTC).isoformat(),
+            }
+        )
+
     return (
         Route("/runtime/settings", get_settings, methods=["GET"]),
         Route("/runtime/settings", put_settings, methods=["PUT"]),
+        Route(
+            "/runtime/integrations/teams-workflow/test",
+            test_teams_workflow,
+            methods=["POST"],
+            name="test_teams_workflow",
+        ),
+        Route(
+            "/runtime/integrations/slack-webhook/test",
+            test_slack_webhook,
+            methods=["POST"],
+            name="test_slack_webhook",
+        ),
     )
 
 

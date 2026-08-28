@@ -687,6 +687,7 @@ def _project_runtime_result(
     request: SemanticTurnRequest,
     result: RuntimeSemanticTurnResult,
 ) -> tuple[ContractSemanticTurnResult, _SemanticProjectionExtensions | None]:
+    model_extensions = _semantic_model_extensions(request, result)
     if result.disposition == "direct_response":
         intent = result.planning.direct_response_intent
         if not isinstance(intent, SemanticDirectResponseIntent):
@@ -694,7 +695,7 @@ def _project_runtime_result(
                 request,
                 "held",
                 "semantic_runtime_failed",
-            ), None
+            ), model_extensions
         return (
             ContractSemanticTurnResult(
                 disposition=SemanticTurnDisposition.DIRECT_RESPONSE,
@@ -706,7 +707,7 @@ def _project_runtime_result(
                 answer=_direct_response_answer(request.locale, intent),
                 direct_response_intent=intent,
             ),
-            _direct_response_model_extensions(request, result),
+            model_extensions,
         )
     if result.disposition != "answered":
         execution_hold = _project_execution_hold(request, result)
@@ -720,13 +721,14 @@ def _project_runtime_result(
                 if result.execution is not None
                 else None
             )
-            return (
-                execution_hold,
-                (
-                    _SemanticProjectionExtensions(investigation_continuation=continuation)
-                    if continuation is not None
-                    else None
-                ),
+            operational_extensions = (
+                _SemanticProjectionExtensions(investigation_continuation=continuation)
+                if continuation is not None
+                else None
+            )
+            return execution_hold, _merge_projection_extensions(
+                model_extensions,
+                operational_extensions,
             )
         reason_codes = {
             "clarification": "semantic_clarification_required",
@@ -760,13 +762,14 @@ def _project_runtime_result(
                 result,
                 execution_receipt_digest=_execution_receipt_digest(result.execution),
             )
-        return (
-            terminal,
-            (
-                _SemanticProjectionExtensions(investigation_continuation=continuation)
-                if continuation is not None
-                else None
-            ),
+        operational_extensions = (
+            _SemanticProjectionExtensions(investigation_continuation=continuation)
+            if continuation is not None
+            else None
+        )
+        return terminal, _merge_projection_extensions(
+            model_extensions,
+            operational_extensions,
         )
 
     planning = result.planning
@@ -779,16 +782,20 @@ def _project_runtime_result(
             request,
             verified_plan_failure or "plan_missing",
             result=result,
-        ), None
+        ), model_extensions
     evidence_refs = tuple(
         dict.fromkeys(
             evidence_ref for receipt in execution.receipts for evidence_ref in receipt.evidence_refs
         )
     )
     if not evidence_refs:
-        return _evidence_incomplete(request, "no_evidence_refs", result=result), None
+        return _evidence_incomplete(request, "no_evidence_refs", result=result), model_extensions
     if len(evidence_refs) > MAX_SEMANTIC_EVIDENCE_REFS:
-        return _evidence_incomplete(request, "too_many_evidence_refs", result=result), None
+        return _evidence_incomplete(
+            request,
+            "too_many_evidence_refs",
+            result=result,
+        ), model_extensions
     execution_receipt_digest = _execution_receipt_digest(execution)
     investigation_continuation = _project_investigation_continuation(
         request,
@@ -802,7 +809,7 @@ def _project_runtime_result(
             request,
             "rule_search_projection_rejected",
             result=result,
-        ), None
+        ), model_extensions
     incident_found, incident_evidence, incident_node_id = _project_incident_evidence(
         result,
         execution,
@@ -812,7 +819,7 @@ def _project_runtime_result(
             request,
             "incident_evidence_projection_rejected",
             result=result,
-        ), None
+        ), model_extensions
     unsatisfied_binding = _unsatisfied_incident_binding(request, incident_evidence)
     if unsatisfied_binding is not None:
         return _terminal_result(
@@ -820,7 +827,7 @@ def _project_runtime_result(
             "held",
             unsatisfied_binding,
             answer=_incident_binding_hold_answer(request.locale),
-        ), None
+        ), model_extensions
     relationships_found, relationships, relationships_node_id = project_ontology_relationships(
         result,
         execution,
@@ -830,7 +837,7 @@ def _project_runtime_result(
             request,
             "relationship_projection_rejected",
             result=result,
-        ), None
+        ), model_extensions
     answer, technical_details = _render_query_answer(
         request,
         execution,
@@ -844,7 +851,11 @@ def _project_runtime_result(
         ontology_relationships_node_id=relationships_node_id,
     )
     if answer is None or technical_details is None:
-        return _evidence_incomplete(request, "answer_rendering_rejected", result=result), None
+        return _evidence_incomplete(
+            request,
+            "answer_rendering_rejected",
+            result=result,
+        ), model_extensions
     return ContractSemanticTurnResult(
         disposition=SemanticTurnDisposition.ANSWERED,
         reason_code="semantic_answer_verified",
@@ -866,10 +877,13 @@ def _project_runtime_result(
             result,
             disposition="answered",
         ),
-    ), _SemanticProjectionExtensions(
-        rule_search=rule_search,
-        technical_details=technical_details,
-        investigation_continuation=investigation_continuation,
+    ), _merge_projection_extensions(
+        model_extensions,
+        _SemanticProjectionExtensions(
+            rule_search=rule_search,
+            technical_details=technical_details,
+            investigation_continuation=investigation_continuation,
+        ),
     )
 
 
@@ -959,7 +973,7 @@ def _argument_datetime(arguments: Mapping[str, object], field: str) -> datetime:
     return _aware_utc(parsed, field=f"investigation continuation {field}")
 
 
-def _direct_response_model_extensions(
+def _semantic_model_extensions(
     request: SemanticTurnRequest,
     result: RuntimeSemanticTurnResult,
 ) -> _SemanticProjectionExtensions | None:
@@ -1000,6 +1014,33 @@ def _direct_response_model_extensions(
             }
             if request.include_model_trace
             else None
+        ),
+    )
+
+
+def _merge_projection_extensions(
+    first: _SemanticProjectionExtensions | None,
+    second: _SemanticProjectionExtensions | None,
+) -> _SemanticProjectionExtensions | None:
+    if first is None:
+        return second
+    if second is None:
+        return first
+    return _SemanticProjectionExtensions(
+        rule_search=first.rule_search if first.rule_search is not None else second.rule_search,
+        technical_details=(
+            first.technical_details
+            if first.technical_details is not None
+            else second.technical_details
+        ),
+        model=first.model if first.model is not None else second.model,
+        latency_ms=first.latency_ms if first.latency_ms is not None else second.latency_ms,
+        usage=first.usage if first.usage is not None else second.usage,
+        model_trace=first.model_trace if first.model_trace is not None else second.model_trace,
+        investigation_continuation=(
+            first.investigation_continuation
+            if first.investigation_continuation is not None
+            else second.investigation_continuation
         ),
     )
 

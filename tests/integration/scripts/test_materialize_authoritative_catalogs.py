@@ -59,6 +59,50 @@ def test_catalog_snapshots_are_deterministic_complete_reference_projections() ->
     assert set(detail["explanation"]) == {"title", "description", "source", "details"}
     assert detail["explanation"]["source"] in {None, "rego_metadata"}
 
+    best_practices = first[module.BEST_PRACTICE_LIST_KEY]
+    assert best_practices["_revision"].startswith("sha256:")
+    assert len(best_practices["controls"]) == 21
+    assert all(control["status"] == "unknown" for control in best_practices["controls"])
+    assert all(
+        requirement["status"] == "unknown"
+        for control in best_practices["controls"]
+        for requirement in control["requirements"]
+    )
+    assert (
+        sum(control["pillar"] == "operational_excellence" for control in best_practices["controls"])
+        == 11
+    )
+    assert best_practices["evaluation_source"] == "repository-catalog"
+
+    mcsb = first[module.MCSB_LIST_KEY]
+    assert mcsb["_revision"].startswith("sha256:")
+    assert [catalog["benchmark"]["benchmark_version"] for catalog in mcsb["catalogs"]] == [
+        "v1",
+        "v2-preview",
+    ]
+    assert [catalog["benchmark"]["control_count"] for catalog in mcsb["catalogs"]] == [86, 81]
+    assert all(
+        control["evaluation_source"] == "catalog-crosswalk"
+        for catalog in mcsb["catalogs"]
+        for control in catalog["controls"]
+    )
+
+    capabilities = first[module.CAPABILITY_LIST_KEY]
+    assert capabilities["_revision"].startswith("sha256:")
+    assert capabilities["count"] == len(capabilities["capabilities"]) > 0
+    assert capabilities["execution_eligibility"] is False
+
+    onboarding = first[module.ONBOARDING_KEY]
+    assert onboarding["probe_mode"] == "not-configured"
+    assert onboarding["ready"] is onboarding["blocked"] is False
+    assert onboarding["missing_resources"]
+    assert onboarding["missing_role_assignments"]
+
+    workflow_apps = first[module.WORKFLOW_APPS_KEY]
+    assert workflow_apps["_revision"].startswith("sha256:")
+    assert workflow_apps["count"] == len(workflow_apps["items"]) > 0
+    assert all(item["lifecycle"] == "published" for item in workflow_apps["items"])
+
     ontology = first[module.ONTOLOGY_GRAPH_KEY]
     assert ontology["_revision"].startswith("sha256:")
     assert ontology["schema_version"] == "2.0.0"
@@ -119,6 +163,13 @@ def test_catalog_snapshots_are_deterministic_complete_reference_projections() ->
     assert all(
         edge["source"] in node_ids and edge["target"] in node_ids for edge in topology["edges"]
     )
+
+    promotion = first[module.PROMOTION_GATE_LIST_KEY]
+    assert promotion["_revision"].startswith("sha256:")
+    assert promotion["ready_count"] == 0
+    assert promotion["blocked_count"] == ontology["action_type_count"]
+    assert len(promotion["rows"]) == ontology["action_type_count"]
+    assert all(row["gaps"] for row in promotion["rows"])
 
     for role, key in module.ONTOLOGY_DECLARATION_KEYS.items():
         bundle = first[key]
@@ -238,3 +289,34 @@ def test_workflow_catalog_carries_reviewed_steps_and_source() -> None:
                 assert step["action_type_ref"] in palette_names
             else:
                 assert step.get("branches") or step.get("kind")
+
+
+def test_scope_snapshot_keeps_observation_separate_from_execution() -> None:
+    module = _module()
+
+    snapshot = module._scope_snapshot(
+        "00000000-0000-0000-0000-000000000000,"
+        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+        "resourceGroups/example-rg"
+    )
+
+    assert snapshot["monitoring"]["entries"] == [
+        {
+            "address": "00000000-0000-0000-0000-000000000000",
+            "level": "subscription",
+            "subscription": "00000000-0000-0000-0000-000000000000",
+            "resource_group": None,
+            "state": "included",
+        },
+        {
+            "address": (
+                "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/example-rg"
+            ),
+            "level": "resource_group",
+            "subscription": "00000000-0000-0000-0000-000000000000",
+            "resource_group": "example-rg",
+            "state": "included",
+        },
+    ]
+    assert snapshot["action"]["entries"] == []
+    assert snapshot["executor_boundary"]["resource_groups"] == []

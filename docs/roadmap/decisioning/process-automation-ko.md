@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: bd5f8acd51e75756c1e7de39b55db744b3e4a211
-translation_revised: 2026-08-27
+translation_source_sha: e984fde20b7b106d954b2ba37fd2090dbd2afbad
+translation_revised: 2026-08-28
 ---
 # 프로세스 자동화(프로세스 자동화)
 
@@ -40,6 +40,7 @@ translation_revised: 2026-08-27
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-28 | implemented | 알림 fan-out을 권한이 없는 전달 경로로 유지하면서 Slack 수신 웹후크를 이름이 지정된 런타임 알림 바인딩으로 추가했습니다. | `current change`; `services/core-control-plane/src/fdai/runtime/delivery.py`; 알림 바인딩 테스트. | 워크플로 스텝 선택, 진행, 승인 또는 실행 권한은 변경되지 않았습니다. |
 | 2026-08-27 | implemented | A2/A4 알림 fan-out은 권한이 없는 런타임 조립이며 워크플로 스텝을 선택하거나 진행하거나 승인하거나 실행할 수 없음을 명확히 했습니다. | `current change`; [다중 채널 알림 전달](../interfaces/multi-channel-notification-delivery-ko.md); 알림 집중 검사 162개 통과. | 워크플로 자동화 동작은 변경하지 않았으며 기존 승격 및 트리거 작업은 아래와 같이 유지합니다. |
 | 2026-08-21 | implemented | 이전 Console chat 및 stream 테스트를 서버 소유의 의미 workflow 판정과 일치시켰습니다. Text-only turn은 맥락을 유지하지만 명시적 ActionType 및 trigger 선택을 요구하며, 요청이 일치하지 않거나 불완전한 v1 frame은 거부된 payload를 노출하지 않고 공유 unavailable 상태를 렌더합니다. | `current change`; `workflow-builder.chat.test.ts`, `backend-stream-v1-contract.test.ts`; 집중 Console 테스트 31개 통과. | 이 계약 테스트 정정에 남은 작업은 없습니다. |
 | 2026-08-17 | implemented | 이 리포에 존재하지 않는 구성 심볼로 워크플로 작성 경로를 활성화하라고 안내하던 운영자 대상 문구를 제거했습니다. | `current change`; `workflow-builder.chat.ts`, `workflow/validate.ts`, `workflow.{en,ko}.json`; 집중 콘솔 검사 9개 파일 71개 테스트 통과, 카탈로그 키 패리티 유지. | 이 문구 집합에 남은 작업은 없습니다. 워크플로 작성 경로 자체의 배선은 별도 작업입니다. |

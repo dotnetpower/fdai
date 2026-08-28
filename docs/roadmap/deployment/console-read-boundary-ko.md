@@ -1,8 +1,8 @@
 ---
 title: Console 읽기 경계
 translation_of: console-read-boundary.md
-translation_source_sha: 04038f22ff9699f97590fd5332aefd564183266d
-translation_revised: 2026-08-18
+translation_source_sha: 95bcd98ff3740d2a7668d07754ac4caa9977ab1a
+translation_revised: 2026-08-27
 ---
 # Console 읽기 경계
 
@@ -16,25 +16,23 @@ translation_revised: 2026-08-18
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 읽기 데이터 소스 선언 완전성 | validated | `fdai_operator_service/composition.py`, `console/src/routes/dashboard.loading.ts`, 각 집중 테스트(`49 passed`, `3 passed`), 그리고 Overview 6개 화면 인증 실행에서 오류 알림 0건과 실패만 가능한 요청 0건 | 콘솔이 조회하는 모든 읽기 route는 이 배포판이 제공하지 않는 route까지 포함해 `/system/data-sources`에 선언됩니다. 생산자가 없는 측정 화면은 값을 합성하지 않고 unavailable로 선언합니다. |
-| 카탈로그 기반 참조 projection | validated | `test_materialize_authoritative_catalogs.py`, 인증된 Workflow builder 및 Agent oversight 로드 | 검토된 ActionType, Workflow 및 담당 체계 선언이 런타임 또는 액션 근거를 만들지 않고 읽기 projection에 도달합니다. |
+| 읽기 데이터 소스 선언 완전성 | validated | `fdai_operator_service/composition.py`, 집중 Operator 테스트 및 인증된 Console 53개 경로 전수 검사 | Console이 조회하는 모든 읽기 경로는 선언된 카탈로그, 감사 또는 영속 테이블 출처로 해석됩니다. 레코드가 없는 출처는 합성 성공 값 대신 명시적인 빈 근거 상태를 반환합니다. |
+| 카탈로그 기반 참조 변환 결과 | validated | `test_materialize_authoritative_catalogs.py`, 인증된 컨트롤, 기능, 승급, 워크플로 앱 및 담당 체계 로드 | 검토된 ActionType, Workflow, 컨트롤, 기능, 온보딩, 범위 및 담당 체계 선언이 런타임 또는 액션 근거를 만들지 않고 리비전이 있는 읽기 변환 결과에 도달합니다. |
 | 사용 불가 화면 표현 | validated | 집중 Operator 및 Console 검사와 영향받는 패널의 인증 통과 | 제공되지 않는 route는 서버가 소유한 사유를 유지하며 패널은 날것 전송 상태나 존재하지 않는 구성 심볼을 노출하지 않습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-08-27 | implemented | 카탈로그, 감사, Process, 전달, 예측, 메모리, 스킬 출처, 보증, 준비도 및 구성 기준선 상태 변환 결과를 독립 Operator 서비스에 연결했습니다. Operator 역할에는 해당 변환 결과에 필요한 테이블 읽기 권한만 부여합니다. | `current change`, 집중 Operator 테스트, strict mypy, Ruff, 독립 서비스 검사, materializer 검사 및 인증된 53개 경로 브라우저 전수 검사. | 프로비저닝 진행 상황과 라이브 온보딩에는 외부 관찰 relay가 계속 필요합니다. Python 작업 작성에는 통제된 프로바이더가 계속 필요합니다. |
 | 2026-08-18 | implemented | `/kpi/promotion-gates`를 명시적으로 사용할 수 없는 읽기 소스로 선언했습니다. workflow 계열은 `promotion-gate.list` 투영을 읽지만 이를 쓰는 구성요소가 없어 모든 Overview와 Control assurance 로드에서 이 경로가 `503`을 반환했고 콘솔은 계속 요청했습니다. 부재를 선언하면 클라이언트가 단락하고 패널은 자신에 대한 사유를 제시합니다. 어느 방향으로도 gate 값을 합성하지 않습니다. | `current change`, operator 스위트 `406 passed, 1 skipped`, Ruff check와 format 통과. 측정: 로컬 저장소에는 `operator-projection:workflow:` 아래에 `rule.list`, `workflow.action-type-list`, `workflow.catalog`만 있고 `promotion-gate` 일치 행은 0개이며, 트리 전체에 해당 키의 writer가 없습니다. 선언된 경로를 비우는 변이 검증에서 두 개의 unavailable-source 테스트가 실패합니다. | promotion-gate 생산자가 도입되면 이 선언을 제거합니다. |
 | 2026-08-18 | validated | 이 focused owner가 Console 읽기 경계를 소유하도록 채택하고 현재 범위, 잔여 작업 및 규범적 읽기 계약을 초대형 동등성 문서에서 옮겼습니다. | `current change`; 이전 구현 전환 6개는 `dev-and-deploy-parity-ko.md`에 변경 없이 남아 있으며 focused 문서, 번역, route 및 크기 게이트가 통과합니다. | Operator API 권한을 넓히지 않고 아래의 관측 가능한 항목을 완료합니다. |
 
 ### 잔여 작업
 
-- [ ] onboarding 프로브, configuration baseline 및 conversation delivery 기능을 서비스 경계
-  안에서 재구축할지 결정합니다. 분리 이전 route는 Core provider를 직접 import했으며 독립 서비스
-  경계가 이를 더 이상 허용하지 않습니다.
-- [ ] `operator-projection:workflow:promotion-gate.list` projection을 구현하거나 폐기합니다.
-  workflow family가 이를 읽어 `/kpi/promotion-gates`가 `503`을 반환하지만 이 배포판의 어떤
-  구성 요소도 이 projection을 기록하지 않습니다.
+- [ ] 프로비저닝 진행 상황과 라이브 온보딩 관찰 relay를 연결한 뒤, 관찰된 활동 없음과 relay 사용
+  불가를 구분하는 인증된 브라우저 증적을 보존합니다.
+- [ ] 통제된 Python 작업 작성 프로바이더를 연결하고 실행 권한 없음 기능 증적을 보존합니다.
 
 ## 설계 개요
 

@@ -56,6 +56,7 @@ from fdai_operator_service.families.operations import (
     DurableReplayReader,
     EventProposal,
     EventProposalWriter,
+    PanelRoute,
     ProjectionReader,
     ProposalConflictError,
     ReportPdfEncoder,
@@ -110,6 +111,7 @@ class OperatorRouteFamilies:
     operations_replay_reader: DurableReplayReader
     operations_webhook_verifier: WebhookVerifier
     report_pdf_encoder: ReportPdfEncoder | None = None
+    operation_panels: tuple[PanelRoute, ...] = ()
 
 
 MINIMAL_ROUTE_MANIFEST: Final = (
@@ -168,7 +170,7 @@ def build_operator_app(
 ) -> Starlette:
     """Build the complete Operator API without executor or FDAI imports."""
     _validate_data_sources(data_sources)
-    ownership = aggregate_route_manifest()
+    ownership = aggregate_route_manifest(route_families.operation_panels)
 
     def authorize(request: Request) -> OperatorPrincipal:
         return authenticator.require_any(request.headers.get("authorization"), READER_ROLES)
@@ -418,6 +420,7 @@ def build_operator_app(
             replay_reader=route_families.operations_replay_reader,
             webhook_verifier=route_families.operations_webhook_verifier,
             report_pdf_encoder=route_families.report_pdf_encoder,
+            panels=route_families.operation_panels,
         ),
     ]
     routes = [*minimal_routes, *family_routes]
@@ -665,7 +668,9 @@ def _validate_data_sources(sources: Sequence[ReadDataSource]) -> None:
         raise ValueError("read data source routes MUST have unique owners")
 
 
-def aggregate_route_manifest() -> tuple[RouteOwnership, ...]:
+def aggregate_route_manifest(
+    operation_panels: Sequence[PanelRoute] = (),
+) -> tuple[RouteOwnership, ...]:
     """Return the exact aggregate ownership manifest and reject duplicates."""
     ownership = (
         *MINIMAL_ROUTE_MANIFEST,
@@ -682,6 +687,7 @@ def aggregate_route_manifest() -> tuple[RouteOwnership, ...]:
             RouteOwnership(item.method, item.path, "operations")
             for item in OPERATIONS_ROUTE_MANIFEST
         ),
+        *(RouteOwnership("GET", panel.path, "operations-panel") for panel in operation_panels),
     )
     identities = [(item.method, item.path) for item in ownership]
     if len(set(identities)) != len(identities):

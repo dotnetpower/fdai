@@ -1732,8 +1732,8 @@
       "noCandidates": "No narrator candidates are available.",
       "noCapabilities": "No resolved model capabilities are available."
     },
-    "integrationsSubtitle": "Read-only status for identity, delivery, and operator-channel integrations.",
-    "integrationsPurpose": "Inspect identity and delivery integration status without changing runtime configuration.",
+    "integrationsSubtitle": "Status and bounded diagnostics for identity, delivery, and operator-channel integrations.",
+    "integrationsPurpose": "Inspect integration status and run bounded diagnostics without exposing saved credentials.",
     "authenticationHeadline": "Authentication mode: {mode}.",
     "diagnosticsSubtitle": "Runtime and authentication details for this console session.",
     "diagnosticsPurpose": "Verify console liveness and authenticated read-path availability.",
@@ -1755,6 +1755,30 @@
     "statusNotConfigured": "Not configured",
     "integrationProbeUnavailable": "No delivery status adapter is registered on this deployment. This page does not infer health from configuration alone.",
     "integrationStatusResource": "integration readiness",
+    "teamsWorkflowTest": {
+      "heading": "Test a Teams Workflows notification",
+      "description": "Paste a public-cloud Power Automate webhook URL to send one fixed synthetic Adaptive Card. The URL is cleared after submission and is never returned or stored.",
+      "boundary": "This tests only the pasted URL. Production configuration still uses a deployment-managed Key Vault or environment binding.",
+      "urlLabel": "One-time webhook URL",
+      "urlPlaceholder": "https://...environment.api.powerplatform.com/...",
+      "test": "Send test card",
+      "testing": "Sending...",
+      "ownerRequired": "Owner permission is required to send an external test notification.",
+      "accepted": "Accepted",
+      "acceptedDetail": "Power Automate accepted the request with HTTP {status} at {time}."
+    },
+    "slackWebhookTest": {
+      "heading": "Test a Slack notification",
+      "description": "Paste a Slack or GovSlack incoming-webhook URL to send one fixed synthetic Block Kit message. The URL is cleared after submission and is never returned or stored.",
+      "boundary": "This tests only the pasted URL. Production configuration still uses a deployment-managed Key Vault or environment binding.",
+      "urlLabel": "One-time Slack webhook URL",
+      "urlPlaceholder": "https://hooks.slack.com/services/...",
+      "test": "Send Slack test",
+      "testing": "Sending...",
+      "ownerRequired": "Owner permission is required to send an external test notification.",
+      "accepted": "Accepted",
+      "acceptedDetail": "Slack accepted the request with HTTP {status} at {time}."
+    },
     "emailTemplateHeading": "Incident email template",
     "emailTemplateResource": "incident email template preview",
     "emailTemplateSubject": "Email subject",
@@ -1775,6 +1799,10 @@
       "email": {
         "label": "Email notifications",
         "hint": "Managed-identity email delivery, sender, and recipient configuration status."
+      },
+      "notification-bindings": {
+        "label": "Notification delivery bindings",
+        "hint": "Named Teams and email binding readiness. Endpoint values remain deployment-managed secrets."
       },
       "gitops": {
         "label": "GitOps change delivery",

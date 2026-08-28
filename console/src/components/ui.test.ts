@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   dataTableHeaderClass,
+  dataTableMinWidth,
   kpiEvidenceLabel,
   kpiContentUpdateKey,
   mobileColumnLabel,
@@ -54,6 +55,12 @@ describe("responsive data-table labels", () => {
     })).toBe("compact num");
     expect(dataTableHeaderClass({ key: "name", header: "Name", render: () => null, cellClass: "mono" }))
       .toBeUndefined();
+  });
+
+  test("reserves readable constrained width for every visible column", () => {
+    expect(dataTableMinWidth(1)).toBe("120px");
+    expect(dataTableMinWidth(5)).toBe("600px");
+    expect(dataTableMinWidth(8)).toBe("960px");
   });
 });
 
