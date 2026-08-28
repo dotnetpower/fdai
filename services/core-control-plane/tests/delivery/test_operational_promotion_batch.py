@@ -110,3 +110,87 @@ async def test_producer_rejects_non_live_cohorts(tmp_path) -> None:
             fdai_revision="a" * 40,
             scenario_set_version="scenario-v1",
         )
+
+
+@pytest.mark.asyncio
+async def test_retry_reuses_pinned_sealed_at_and_completes_a_partial_publish(tmp_path) -> None:
+    """A retry with a real, advancing clock MUST NOT be treated as a conflict.
+
+    This reproduces a crash between the batch write and the manifest write:
+    the batch is already durable but the manifest never landed. A retry
+    (whose clock ticks forward) must reuse the batch's already-sealed
+    timestamp so the batch content is untouched, and must complete the
+    missing manifest instead of raising a false content-mismatch conflict.
+    """
+    record = _record(PromotionEvidenceCohort.LIVE_SHADOW)
+    benchmark = _record(
+        PromotionEvidenceCohort.FROZEN_BENCHMARK,
+        sample_id="sample-2",
+        unit_id="unit-2",
+        hypothesis_id="hypothesis-2",
+    )
+    clock_ticks = iter([datetime(2026, 8, 23, tzinfo=UTC), datetime(2026, 8, 24, tzinfo=UTC)])
+    producer = GovernedLiveBatchProducer(
+        source=_Records(record),
+        output_dir=tmp_path,
+        benchmark_records=(benchmark,),
+        clock=lambda: next(clock_ticks),
+    )
+    kwargs = {
+        "action_type_name": "ops.scale-out",
+        "action_type_version": "1.0.0",
+        "action_type_digest": "b" * 64,
+        "fdai_revision": "a" * 40,
+        "scenario_set_version": "scenario-v1",
+    }
+
+    first = await producer.produce(**kwargs)
+    first.manifest_path.unlink()
+    batch_bytes_before_retry = first.batch_path.read_bytes()
+
+    second = await producer.produce(**kwargs)
+
+    assert second.batch.sealed_at == first.batch.sealed_at
+    assert second.batch.content_digest == first.batch.content_digest
+    assert first.batch_path.read_bytes() == batch_bytes_before_retry
+    assert second.manifest_path.exists()
+    stem = "ops.scale-out"
+    leftover = {path.name for path in tmp_path.iterdir()} - {
+        f"{stem}.batch.json",
+        f"{stem}.manifest.json",
+        f".{stem}.lock",
+    }
+    assert not leftover, f"atomic publish left stray artifacts: {leftover}"
+
+
+@pytest.mark.asyncio
+async def test_conflicting_prior_batch_content_fails_closed(tmp_path) -> None:
+    """A genuinely different pre-existing batch MUST still fail closed."""
+    stem = "ops.scale-out"
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    (tmp_path / f"{stem}.batch.json").write_text(
+        '{"sealed_at": "2026-09-01T00:00:00+00:00", "unexpected": true}',
+        encoding="utf-8",
+    )
+    record = _record(PromotionEvidenceCohort.LIVE_SHADOW)
+    benchmark = _record(
+        PromotionEvidenceCohort.FROZEN_BENCHMARK,
+        sample_id="sample-2",
+        unit_id="unit-2",
+        hypothesis_id="hypothesis-2",
+    )
+    producer = GovernedLiveBatchProducer(
+        source=_Records(record),
+        output_dir=tmp_path,
+        benchmark_records=(benchmark,),
+        clock=lambda: datetime(2026, 8, 23, tzinfo=UTC),
+    )
+
+    with pytest.raises(ValueError, match="already exists with different content"):
+        await producer.produce(
+            action_type_name=stem,
+            action_type_version="1.0.0",
+            action_type_digest="b" * 64,
+            fdai_revision="a" * 40,
+            scenario_set_version="scenario-v1",
+        )
