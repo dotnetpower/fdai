@@ -243,15 +243,15 @@ class CostAnalyzerService:
         snapshot = await self._enabled()
         if snapshot is None:
             return self._result("disabled")
+        cursor = await self._store.read_cost_cursor(self._config.package_id, scope_id)
+        if cursor is None:
+            return self._result("cursor_missing")
         observations = await self._store.read_cost_observations(
             package_id=self._config.package_id,
             scope_id=scope_id,
             since=since,
             limit=limit,
         )
-        cursor = await self._store.read_cost_cursor(self._config.package_id, scope_id)
-        if cursor is None:
-            return self._result("cursor_missing")
         analysis_revision = cursor.analysis_revision
         last_published = (
             (cursor.last_published_at, cursor.last_published_observation_id)

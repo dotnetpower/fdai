@@ -269,6 +269,25 @@ def test_inactive_jobs_make_zero_provider_store_or_publish_calls(
     assert publisher.items == []
 
 
+def test_analyzer_missing_cursor_does_not_read_retained_costs() -> None:
+    store = Store((_observation(),))
+    publisher = Publisher()
+
+    result = asyncio.run(
+        CostAnalyzerService(
+            config=_config(),
+            activation=Activation([_activation()]),
+            store=store,
+            publisher=publisher,
+            clock=lambda: _NOW,
+        ).analyze(scope_id=_SCOPE, since=_NOW - timedelta(days=1))
+    )
+
+    assert result.status == "cursor_missing"
+    assert store.reads == 0
+    assert publisher.items == []
+
+
 def test_disable_between_read_and_append_leaves_store_unchanged() -> None:
     activation = Activation([_activation(), _activation(), _activation(enabled=False, revision=2)])
     provider = Provider(_page(_observation()))
