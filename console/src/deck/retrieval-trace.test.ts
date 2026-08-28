@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { RetrievalSourcePreview } from "./backend";
 import type { ViewSnapshot } from "./context";
-import { sourceCards } from "./retrieval-trace";
+import { buildStages, sourceCards } from "./retrieval-trace";
 
 const snapshot: ViewSnapshot = {
   routeId: "dashboard",
@@ -21,6 +21,27 @@ describe("sourceCards", () => {
     expect(sourceCards(snapshot, [])).toEqual([
       { kind: "evidence", label: "source_gap", detail: "-" },
     ]);
+  });
+
+  describe("buildStages", () => {
+    test("keeps stage identity stable when streamed labels change", () => {
+      const first = buildStages(null, null, {
+        phase: "verifying",
+        label: "Checking evidence",
+        completed: 1,
+        total: 2,
+      });
+      const second = buildStages(null, null, {
+        phase: "generating",
+        label: "Writing answer",
+        completed: 2,
+        total: 2,
+      });
+
+      expect(first.map((stage) => stage.id)).toEqual(["backend"]);
+      expect(second.map((stage) => stage.id)).toEqual(["backend"]);
+      expect(first[0]?.label).not.toBe(second[0]?.label);
+    });
   });
 
   test("omits unavailable server previews without changing available evidence", () => {

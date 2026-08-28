@@ -34,6 +34,7 @@ const VISIBLE = 3;
 const FACT_INTERVAL_MS = 95;
 
 interface Stage {
+  readonly id: "screen" | "route" | "backend";
   readonly glyph: string;
   readonly label: string;
   readonly detail: string;
@@ -67,7 +68,7 @@ function isUnavailableDetail(detail: string): boolean {
   return ["n/a", "unavailable"].includes(detail.trim().toLowerCase());
 }
 
-function buildStages(
+export function buildStages(
   snapshot: ViewSnapshot | null,
   health: BackendHealth | null,
   progress: VerificationProgress | null,
@@ -75,6 +76,7 @@ function buildStages(
   const stages: Stage[] = [];
   if (snapshot) {
     stages.push({
+      id: "screen",
       glyph: "S",
       label: t("deck.retrieval.readScreen"),
       detail: t("deck.retrieval.screenDetail", {
@@ -88,6 +90,7 @@ function buildStages(
   }
   if (health?.router) {
     stages.push({
+      id: "route",
       glyph: "R",
       label: t("deck.retrieval.routeChosen", { deployment: health.router.chose }),
       detail: health.router.reason,
@@ -96,6 +99,7 @@ function buildStages(
     });
   } else if (health?.model) {
     stages.push({
+      id: "route",
       glyph: "R",
       label: t("deck.retrieval.route"),
       detail: health.model,
@@ -104,6 +108,7 @@ function buildStages(
     });
   }
   stages.push({
+    id: "backend",
     glyph: progress?.phase === "generating" ? "G" : "B",
     label: progress?.label ?? t("deck.retrieval.consultBackend"),
     detail:
@@ -206,9 +211,9 @@ export function RetrievalTrace({
         </header>
 
         <ol class="deck-rt-stages">
-        {stages.map((stage, index) => (
+        {stages.map((stage) => (
           <li
-            key={`${stage.label}-${index}`}
+            key={stage.id}
             class={`deck-rt-stage cs-grounding-stage ${stage.done ? "is-done" : "is-active"}`}
           >
             <span class="deck-rt-ico" aria-hidden="true">{stage.glyph}</span>
