@@ -161,6 +161,8 @@ def cosine_similarity(a: Sequence[float], b: Sequence[float]) -> float:
     dot = sum(x * y for x, y in zip(a, b, strict=True))
     na = math.sqrt(sum(x * x for x in a))
     nb = math.sqrt(sum(y * y for y in b))
+    if not math.isfinite(dot) or not math.isfinite(na) or not math.isfinite(nb):
+        return 0.0
     if na == 0.0 or nb == 0.0:
         return 0.0
     return dot / (na * nb)

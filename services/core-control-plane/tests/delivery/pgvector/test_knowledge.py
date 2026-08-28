@@ -116,6 +116,12 @@ def test_encode_vector_rejects_wrong_dimension() -> None:
         _encode_vector([0.1, 0.2, 0.3], dim=_DIM)
 
 
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_encode_vector_rejects_nonfinite_values(value: float) -> None:
+    with pytest.raises(ValueError, match="finite"):
+        _encode_vector([value] * _DIM, dim=_DIM)
+
+
 def test_coerce_metadata_variants() -> None:
     assert _coerce_metadata(None) == {}
     assert _coerce_metadata({"a": 1}) == {"a": "1"}

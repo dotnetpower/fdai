@@ -50,6 +50,8 @@ def test_cosine_similarity_edges() -> None:
     assert cosine_similarity([], []) == 0.0
     assert cosine_similarity([0.0, 0.0], [1.0, 1.0]) == 0.0
     assert cosine_similarity([1.0, 0.0], [1.0, 0.0]) == pytest.approx(1.0)
+    assert cosine_similarity([float("nan"), 1.0], [1.0, 0.0]) == 0.0
+    assert cosine_similarity([float("inf"), 1.0], [1.0, 0.0]) == 0.0
 
 
 @pytest.mark.asyncio

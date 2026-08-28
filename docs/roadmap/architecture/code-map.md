@@ -165,6 +165,8 @@ Operational coverage receipts normalize evidence, evaluation, and freshness time
 before digesting so equivalent instants retain one replay identity across service locales.
 Azure Monitor alert normalization applies the same UTC rule before deriving Event and idempotency
 identity, preventing offset-only provider retries from becoming duplicate incident signals.
+Knowledge retrieval rejects non-finite embeddings at the pgvector boundary and assigns zero
+similarity in the in-memory reference, preserving deterministic ranking under invalid model output.
 Runtime bootstrap delegates semantic readiness and vertical workload-identity construction to its
 existing lifecycle and binding helpers, keeping the primary composition root below the reviewed
 fanout ceiling. A thin bootstrap wrapper preserves the injected identity-builder test and fork seam.

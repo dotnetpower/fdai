@@ -1158,7 +1158,7 @@
     "services/core-control-plane/src/fdai/shared/providers/incident_platform.py": "048ccf4b187dc02aa7309a82c9d0465791696c0089b55233009379c0b6ae1920",
     "services/core-control-plane/src/fdai/shared/providers/inventory.py": "1e9d8f46ffc0db408a71663c345a0e3e5e929a8491250483e3b7135699e9fec5",
     "services/core-control-plane/src/fdai/shared/providers/inventory_snapshot.py": "d076bfc6c9d1492d80aa7880e5d4694cfabea80c26f62dfef978624457c23df0",
-    "services/core-control-plane/src/fdai/shared/providers/knowledge.py": "acfef5bc50aa3a62ff41d7e3ba1592728d55595e66b4c2d677106e864db45244",
+    "services/core-control-plane/src/fdai/shared/providers/knowledge.py": "a8660bd5b361eb6c8e3370332d97f1d6f8a33cd2993f0a80ecdd5da17ce32c02",
     "services/core-control-plane/src/fdai/shared/providers/local/__init__.py": "3ee90db23ead7a100cd433cbb0f402f986bda3e780d7e9fd7a009b109350a9cc",
     "services/core-control-plane/src/fdai/shared/providers/local/document_ingestion.py": "cee7af1e8e303558556c306738799e93a5afaf91b0690721b6b01e53c4fac0d2",
     "services/core-control-plane/src/fdai/shared/providers/local/document_limits.py": "a3f42088cae9351171c0030759c88cfb6f04cdf5706b16fe0a99ca8dcb4a9f24",
