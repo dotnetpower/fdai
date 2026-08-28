@@ -73,6 +73,9 @@ jobs:
       - name: Reference-only source snapshot guard
         run: uv run python scripts/quality/repository/check-reference-only-sources.py
 
+      - name: Independent service boundaries
+        run: uv run python scripts/quality/architecture/check-independent-services.py
+
       - name: Build code-assurance extension
         run: uv build --package fdai-code-assurance
 

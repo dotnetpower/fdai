@@ -212,6 +212,25 @@ def test_frozen_scenario_gate_targets_the_service_owned_directory() -> None:
     assert 'git cat-file -e "$base_sha:$version_dir"' in workflow
 
 
+def test_required_lint_job_enforces_independent_service_boundaries() -> None:
+    workflow = yaml.safe_load((_REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8"))
+
+    lint_job = workflow["jobs"]["lint"]
+    assert "if" not in lint_job
+    boundary_step = next(
+        (
+            step
+            for step in lint_job["steps"]
+            if step.get("run")
+            == "uv run python scripts/quality/architecture/check-independent-services.py"
+        ),
+        None,
+    )
+    assert boundary_step is not None
+    assert boundary_step.get("continue-on-error") not in {True, "true"}
+    assert "lint" in workflow["jobs"]["required"]["needs"]
+
+
 def test_devbox_smoke_is_manual_protected_and_label_indirected() -> None:
     workflow = (_REPO_ROOT / ".github/workflows/devbox-smoke.yml").read_text(encoding="utf-8")
 
