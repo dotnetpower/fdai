@@ -636,6 +636,23 @@ def test_low_confidence_retains_schema_valid_candidate_without_accepting_it() ->
     assert result.receipt.execution_authority is False
 
 
+def test_malformed_t2_does_not_restore_low_confidence_t1_candidate() -> None:
+    t1 = _Model(_proposal(confidence=0.5))
+    t2 = _Model({"primary_intent": "broken"})
+
+    result = _boundary(t1, t2).judge(
+        utterance="Show api-example budget status",
+        context=(),
+        capabilities=(),
+    )
+
+    assert result.accepted is False
+    assert result.proposal is None
+    assert result.receipt.disposition is SemanticJudgmentDisposition.MALFORMED
+    assert result.receipt.tier is None
+    assert (t1.calls, t2.calls) == (1, 3)
+
+
 def test_human_readable_machine_tokens_are_canonicalized_before_validation() -> None:
     model = _Model(
         _proposal(
