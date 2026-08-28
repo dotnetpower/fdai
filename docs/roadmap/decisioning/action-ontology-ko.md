@@ -1,7 +1,7 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: a0490fc2d4773c5deeef0dc74c061b442e24ca6c
+translation_source_sha: c2fec3082e1b6d188331e5ed528bf432810f5751
 translation_revised: 2026-08-28
 ---
 
@@ -806,6 +806,8 @@ verbatim 기록되므로 과거 감사 항목 를 절대 break 하지 않음.
 | 2026-08-27 | implemented | 완전한 direct-request fingerprint와 영속 one-time promotion nonce를 실제 HIL/direct 경로에 연결했습니다. Retirement rule은 quality 및 HIL rule map에서 제외되고 PR 조회는 merged 또는 closed record를 재사용합니다. | `current change`; HIL, replay, concurrency 및 runtime dispatch 집중 테스트 통과. | 배포 소유 attestation 발급과 실제 PR 증적은 외부 게이트입니다. |
 | 2026-08-27 | implemented | HIL resume에서 serialized parked-rule fallback을 거부하고 frozen measurement index 전에 retirement projection을 적용했으며 GitOps repository path segment와 query value를 모두 percent-encode했습니다. | `current change`; HIL, scenario-replay 및 GitOps adversarial 집중 테스트 통과. | 배포 소유 runtime과 원격 증적은 외부 게이트입니다. |
 | 2026-08-28 | implemented | 이전 restore 기반 복구가 남겨둔 두 가지 취약점을 닫았습니다. `OperationalPromotionDirectApiExecutor`는 이제 record, promote, persist, restore 구간 전체에 걸쳐 ActionType 단위 `ResourceLockManager` 락(direct-API 리소스 락이 이미 쓰는 것과 같은 in-process 패턴)을 유지하므로, 같은 ActionType에 대한 두 개의 동시 실패 promotion이 서로 끼어들어 영속화되지 않은 enforce record를 노출할 수 없습니다. `StateStorePromotionAttestationStore`는 `pending -> consumed` 보상 write 모델을 리스 기반 `pending -> reserved -> consumed` 상태 기계로 대체했습니다: `consume`은 유한한 리스로 예약하고 만료된 예약을 스스로 회수하며, `finalize`만이 `consumed`로 가는 유일한 경로이고, 실패한 `restore`는 이제 best-effort로 처리되어 원래의 dispatch 실패를 절대 가리지 않습니다. 따라서 attestation은 영속 적용을 실패시킨 것과 동일한 store outage로 인해 영구히 좌초될 수 없습니다. | `current change`; `delivery/promotion.py`; `core/executor/lock.py`(재사용, 무변경); `tests/delivery/test_promotion_executor.py`; `tests/delivery/test_governance_dispatch.py`; 대상 `pytest tests/delivery`(2093 passed); 작업 범위 Ruff, format 및 strict mypy | 이 집중 스위트 밖에서 실제 동시 promotion 경합과 실제 동일 store outage가 모두 깔끔하게 복구됨을 증명하는 통제된 런타임 증적을 보존합니다. |
+| 2026-08-28 | implemented | 위 리스 기반 예약 모델이 남긴 리뷰 지적 두 건을 수정했습니다. 첫째, `consume`은 이제 자신의 예약 쓰기가 만들어낸 정확한 개정인 `fencing_token`을 담은 `PromotionReservation`을 반환하며, `restore`/`finalize`는 이 토큰을 요구하고 레코드의 현재 개정이 그 토큰과 여전히 일치할 때만 동작합니다. 이 방어가 없으면 리스가 이미 만료되어 새로운 `consume` 호출이 회수한 예약의 지연된 보유자가 자신이 다시 읽은 개정으로 `restore`나 `finalize`를 호출해 회수자의 진행 중인 예약을 되돌리거나 확정할 수 있었습니다. 둘째, `GovernancePromotionDispatcher.execute`는 이제 `finalize` 실패를 `restore`와 같은 최선 노력 방식으로 처리합니다. `finalize`는 보호된 실행기가 승격을 이미 영속 적용한 뒤에만 예약 부기를 소진하므로, 그 시점의 부기 쓰기 실패는 적용 실패를 가리는 예외가 아니라 복구 가능한 멱등 성공이며 멈춘 `reserved` 레코드는 같은 유한 리스로 복구됩니다. | `current change`; `delivery/promotion.py`; `tests/delivery/test_governance_dispatch.py`(`test_stale_fencing_token_cannot_touch_a_reclaimed_reservation`, `test_finalize_failure_after_durable_apply_is_a_recoverable_success`); 집중 승격 검사(`17 passed`); 작업 범위 Ruff, format 및 strict mypy | 이 집중 스위트 밖에서 실제 회수된 리스 경합과 실제 적용 이후 확정 중단이 모두 복구됨을 증명하는 통제된 런타임 증적을 보존합니다. |
+| 2026-08-28 | implemented | 적용 이후 복구 경로를 안전하게 재시도할 수 있도록 했습니다. 디스패처는 범위가 제한된 정확한 요청 지문 증적 캐시를 유지하므로 `finalize` 실패 뒤 같은 프로세스에서 재시도하면 실행기를 다시 호출하지 않고 확정된 결과를 반환합니다. 프로세스가 다시 시작된 뒤에는 운영 승격 실행기가 정확히 일치하는 이미 영속된 ActionType 증적을 인식하고 레지스트리에 다시 쓰지 않은 채 멱등 성공을 반환합니다. 다른 요청 내용으로 멱등 키를 재사용하는 경우는 계속 차단합니다. | `current change`; `delivery/promotion.py`; `tests/delivery/test_governance_dispatch.py`; `tests/delivery/test_promotion_executor.py`; 집중 승격 검사(`17 passed`); Ruff, format 및 strict mypy | 프로세스 재시작과 적용 이후 확정 중단을 함께 다루는 통제된 런타임 증적을 보존합니다. 외부 시스템은 호출하지 않았습니다. |
 
 ### 남은 작업
 
