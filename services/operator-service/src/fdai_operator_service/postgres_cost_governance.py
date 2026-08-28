@@ -47,7 +47,6 @@ class PostgresCostGovernanceReader:
         scope: str,
         now: datetime,
     ) -> CostAccessDecision:
-        del scope
         rows = await self._fetch(
             """
             SELECT grant.grant_id, grant.principal_id, grant.revision, grant.purpose,
@@ -66,10 +65,11 @@ class PostgresCostGovernanceReader:
             ) AS ceiling ON TRUE
             WHERE grant.principal_id = %(principal_id)s
               AND grant.purpose = %(purpose)s
+              AND %(scope)s = ANY(grant.scopes)
             ORDER BY grant.revision DESC
             LIMIT 1
             """,
-            {"principal_id": principal_id, "purpose": purpose, "now": now},
+            {"principal_id": principal_id, "purpose": purpose, "scope": scope, "now": now},
         )
         if not rows:
             return CostAccessDecision(

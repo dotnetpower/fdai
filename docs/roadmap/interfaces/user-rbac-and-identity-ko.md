@@ -1,7 +1,7 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 4d58aa58c7440ec37bee1319ae9610e03688e76e
+translation_source_sha: b09477972a327b7d40e6170b8d43d898ab2d25e3
 translation_revised: 2026-08-28
 ---
 
@@ -36,7 +36,7 @@ Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.
 | Break-Glass 활성화 요청 경계 | 구현됨 | `services/operator-service/src/fdai_operator_service/families/iam/break_glass.py`; `capabilities.py`; `services/operator-service/tests/test_operator_break_glass_activation.py` | `POST /system/break-glass/activation`은 BreakGlass 전용 `activate-break-glass` 기능과 비어 있지 않은 인시던트 id 및 사유, 한도 안의 미래 오프셋 인식 만료 시각을 요구합니다. 감사 전용 projection만 기록하며 HIL 승인이나 executor identity를 부여하지 않습니다. 영속 활성화 저장소, TTL 적용, 사인인 알림은 배포 작업으로 남습니다. |
 | 로컬 Browser Entra 세션 복원력 | 구현됨 | `console/src/auth-session.ts`; `console/src/auth.ts`; focused Console 인증 테스트(`10 passed`)와 typecheck | MSAL Browser v4는 loopback origin에서만 암호화된 `localStorage`를 사용하고 배포 origin에서는 `sessionStorage`를 유지합니다. 시작 시, 30분마다, focus, visibility 또는 network 복구 뒤에 하나로 병합된 refresh를 실행합니다. Entra는 여전히 대화형 인증을 요구할 수 있습니다. |
 | Owner 범위 알림 통합 진단 | 구현됨 | `services/operator-service/src/fdai_operator_service/families/iam/settings.py`; `services/operator-service/src/fdai_operator_service/families/iam/manifest.py`; `services/operator-service/src/fdai_operator_service/{teams_workflow,slack_webhook}_diagnostics.py`; 집중 진단 및 IAM 기능군 테스트 | `POST` 경로는 일회성 Teams Workflows 또는 Slack 웹후크 URL을 받아 고정된 합성 알림 하나를 보내고, 다이제스트와 상태 메타데이터만 영속화하며, 비밀 없는 결과를 반환합니다. 팩터리 순서는 고정된 IAM 경로 매니페스트와 일치하므로 공개 화면 차이가 생기면 시작을 차단합니다. |
-| 사용자별 비용 거버넌스 접근 | 구현됨 | `CostAccessGrant`, `CostDisclosureCeiling`, 비용 거버넌스 Operator 경로 및 집중 테스트 | 개정되고 만료되는 principal 권한이 각 비용 읽기에서 배포 공개 상한과 교차합니다. 서버는 직렬화 전에 `hidden`, `aggregate`, `masked` 또는 `detailed` 공개 정책을 적용하며, 권한은 패키지를 활성화하거나 액션을 승격할 수 없습니다. |
+| 사용자별 비용 거버넌스 접근 | 구현됨 | `CostAccessGrant`, `CostDisclosureCeiling`, 비용 거버넌스 Operator 경로 및 집중 테스트 | Reader는 시간 검사와 배포 공개 상한을 적용하기 전에 principal, 목적, scope가 일치하는 최신 grant를 선택합니다. 서버는 직렬화 전에 `hidden`, `aggregate`, `masked` 또는 `detailed` 공개 정책을 적용하며, 권한은 패키지를 활성화하거나 액션을 승격할 수 없습니다. |
 
 ### 구현 이력
 
