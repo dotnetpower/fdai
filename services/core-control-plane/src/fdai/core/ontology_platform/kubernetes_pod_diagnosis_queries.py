@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping, Sequence
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Protocol, cast
 
@@ -24,6 +24,10 @@ from fdai.shared.contracts.models import (
     OntologyRelease,
 )
 from fdai.shared.providers.ontology_instance import OntologyObjectRecord
+from fdai.shared.providers.state_evidence import (
+    STATE_FACT_METADATA_PROPERTY,
+    StateFactMetadata,
+)
 
 from .kubernetes_pod_diagnosis_evidence import (
     ContainerTerminationEvidence,
@@ -138,6 +142,9 @@ def kubernetes_pod_diagnosis_function(
         properties = _resource_properties(pod)
         pod_uid = _required_text(properties, "uid")
         cutoff = secured.receipt.observation_cutoff
+        state_fact_gaps = _pod_state_fact_gaps(properties, cutoff=cutoff)
+        if state_fact_gaps:
+            return _table((), complete=False, reason="+".join(state_fact_gaps))
         lookback_seconds = int(arguments["lookback_seconds"])
         start = cutoff - timedelta(seconds=lookback_seconds)
         lifecycle_events = _query_table(arguments["lifecycle_events"])
@@ -145,7 +152,10 @@ def kubernetes_pod_diagnosis_function(
             properties=properties,
             lifecycle_events=lifecycle_events,
             container_name=arguments.get("container_name"),
+            pod_uid=pod_uid,
             pod_evidence_ref=secured.receipt.projected_result_digest,
+            start=start,
+            cutoff=cutoff,
         )
         logs = await log_reader.collect(pod_uid=pod_uid, start=start, end=cutoff)
         result = assess_kubernetes_pod_diagnosis(
@@ -184,7 +194,10 @@ def _termination_evidence(
     properties: Mapping[str, Any],
     lifecycle_events: QueryTable,
     container_name: object,
+    pod_uid: str,
     pod_evidence_ref: str,
+    start: datetime,
+    cutoff: datetime,
 ) -> ContainerTerminationEvidence | None:
     requested_container = (
         container_name.strip()
@@ -204,6 +217,11 @@ def _termination_evidence(
         finished_at = _optional_time(item, "finished_at")
         if finished_at is None:
             continue
+        # Only a termination inside the exact requested lookback window can answer
+        # this diagnosis; an older or future-dated record belongs to a different
+        # investigation window and MUST NOT be reported as this window's evidence.
+        if finished_at < start or finished_at > cutoff:
+            continue
         candidates.append((finished_at, item))
     if not candidates:
         return None
@@ -212,10 +230,16 @@ def _termination_evidence(
     if len(selected) != 1:
         raise ValueError("Pod container termination selection is ambiguous")
     item = selected[0]
+    # Lifecycle events are a shared cohort read that MAY include other Pods (for
+    # example replacement candidates); only rows grounded to this exact pod_uid
+    # may contribute to this Pod's termination classification or evidence.
+    own_events = tuple(
+        row for row in lifecycle_events.rows if row.values.get("object_uid") == pod_uid
+    )
     lifecycle_reasons = tuple(
         dict.fromkeys(
             str(row.values["event_kind"])
-            for row in lifecycle_events.rows
+            for row in own_events
             if isinstance(row.values.get("event_kind"), str)
         )
     )
@@ -225,14 +249,14 @@ def _termination_evidence(
                 pod_evidence_ref,
                 *(
                     str(row.values["evidence_ref"])
-                    for row in lifecycle_events.rows
+                    for row in own_events
                     if isinstance(row.values.get("evidence_ref"), str)
                 ),
             )
         )
     )
     return ContainerTerminationEvidence(
-        pod_uid=_required_text(properties, "uid"),
+        pod_uid=pod_uid,
         container_name=_required_text(item, "container_name"),
         reason=_optional_text(item, "reason"),
         exit_code=_required_int(item, "exit_code"),
@@ -241,6 +265,33 @@ def _termination_evidence(
         lifecycle_reasons=lifecycle_reasons,
         evidence_refs=evidence_refs,
     )
+
+
+def _pod_state_fact_gaps(properties: Mapping[str, Any], *, cutoff: datetime) -> tuple[str, ...]:
+    """Validate Pod state-fact freshness, completeness, conflicts, and provenance.
+
+    This MUST run before any provider I/O (log evidence collection): a diagnosis
+    built on a stale, incomplete, conflicting, synthetic, or unprovenanced Pod
+    state fact would spend a network read on a target we cannot trust yet.
+    """
+    raw = properties.get(STATE_FACT_METADATA_PROPERTY)
+    if not isinstance(raw, Mapping):
+        return ("pod_state_evidence_unavailable",)
+    metadata = StateFactMetadata.from_mapping(raw)
+    gaps = [f"pod_state_evidence_conflict:{item}" for item in metadata.conflicts]
+    normalized_cutoff = cutoff.astimezone(UTC)
+    evidence_cutoff = metadata.evidence_cutoff.astimezone(UTC)
+    if evidence_cutoff > normalized_cutoff:
+        gaps.append("pod_state_evidence_after_cutoff")
+    elif (normalized_cutoff - evidence_cutoff).total_seconds() > metadata.freshness_ceiling_seconds:
+        gaps.append("pod_state_evidence_stale")
+    if metadata.completeness < 1.0:
+        gaps.append("pod_state_evidence_incomplete")
+    if metadata.synthetic:
+        gaps.append("pod_state_evidence_synthetic")
+    if not metadata.evidence_refs:
+        gaps.append("pod_state_evidence_provenance_unavailable")
+    return tuple(gaps)
 
 
 def _resource_type(record: OntologyObjectRecord) -> str | None:
