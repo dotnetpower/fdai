@@ -31,6 +31,13 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   duplicate asset ids and package-relative paths. Installation validates complete Rule and Workflow
   contracts before a disabled package can enter the lifecycle. Cost effect observations and
   completeness receipts carry the exact expected-effect source digest across this boundary.
+- **decision-critical evidence is contract-bound**: the shared service-contract SDK exposes
+  `DecisionCriticalEvidenceReceipt` and its registered Draft 2020-12 schema. The canonical model
+  binds evidence and authentication proof, authority, source, scope, purpose, exact producer and
+  method versions, source revision, time, policy-derived freshness, completeness and conflict
+  proofs, provenance, synthetic status, and an explicit no-authority flag. The schema validator
+  also runs semantic time, ordering, and digest checks. Claim preflight may reject a record or pass
+  it to a separately trusted verifier, but it cannot declare live readiness or grant authority.
 - **semantic target resolution is deterministic**: a model-authored resource-identity
   clarification is removed only when Core verifies one exact runtime identifier from the same
   utterance. Zero or multiple identifiers and every other unresolved concept remain a typed

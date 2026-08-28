@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: eec46b8e6a844a96cde6f0e6f0cfe9ec7ef45ceb
+translation_source_sha: 7094bc2cb78ce78385d7f3ac553a2a6f7dcc35ac
 translation_revised: 2026-08-29
 ---
 # 프로젝트 구조
@@ -32,6 +32,13 @@ translation_revised: 2026-08-29
   Workflow 로딩 전에 중복 자산 id와 패키지 상대 경로를 차단합니다. 설치는 비활성 패키지가
   수명 주기에 들어가기 전에 전체 Rule 및 Workflow 계약을 검증합니다. 비용 효과 관찰과
   completeness 증적은 이 경계에서 exact expected-effect 출처 digest를 전달합니다.
+- **의사 결정 핵심 근거는 계약에 연결됨**: 공유 서비스 계약 SDK는
+  `DecisionCriticalEvidenceReceipt`와 등록된 Draft 2020-12 스키마를 제공합니다. 정식 모델은
+  근거와 인증 증명, 권위, 출처, 범위, 목적, 정확한 생성기와 방법 버전, 출처 개정, 시간, 정책에서
+  파생된 최신성, 완전성과 충돌 증명, 출처 계보, 합성 상태 및 명시적인 권한 없음 플래그를
+  연결합니다. 스키마 검증기는 의미 시각, 정렬 및 다이제스트 검사도 실행합니다. 주장 사전 검사는
+  레코드를 차단하거나 별도로 신뢰하는 검증기로 전달할 수 있지만 실제 운영 준비 상태를 선언하거나
+  권한을 부여할 수 없습니다.
 - **의미 대상 해석은 결정론적으로 유지**: 모델이 작성한 리소스 신원 명확화는 Core가 같은
   발화에서 정확한 런타임 식별자 하나를 검증한 경우에만 제거합니다. 식별자가 없거나 여러 개이면
   명확화를 유지하고 다른 모든 미해결 개념도 타입이 지정된 명확화로 남깁니다. 이 검증은

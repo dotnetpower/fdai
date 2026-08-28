@@ -10,6 +10,9 @@ from typing import Any, Protocol, runtime_checkable
 
 from jsonschema import Draft202012Validator, FormatChecker
 from jsonschema.exceptions import ValidationError as JsonSchemaValidationError
+from pydantic import ValidationError as PydanticValidationError
+
+from fdai_service_contracts.decision_evidence import DecisionCriticalEvidenceReceipt
 
 
 @runtime_checkable
@@ -46,6 +49,10 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
         "1.0.0",
     ): "schemas/cost-governance-disclosure-policy/1.0.0.json",
     ("cost-governance-projection", "1.0.0"): "schemas/cost-governance-projection/1.0.0.json",
+    (
+        "decision-critical-evidence",
+        "1.0.0",
+    ): "schemas/decision-critical-evidence/1.0.0.json",
     ("document-ingestion-activity", "1.0.0"): "schemas/document-ingestion-activity/1.0.0.json",
     ("document-ingestion-activity", "1.1.0"): "schemas/document-ingestion-activity/1.1.0.json",
     ("document-worker-audit", "1.0.0"): "schemas/document-worker-audit/1.0.0.json",
@@ -155,6 +162,22 @@ class JsonSchemaContractValidator:
         errors = sorted(validator.iter_errors(dict(instance)), key=lambda error: list(error.path))
         if errors:
             raise ContractValidationError(schema_name, [_issue(error) for error in errors])
+        if schema_name == "decision-critical-evidence":
+            try:
+                DecisionCriticalEvidenceReceipt.model_validate(instance)
+            except PydanticValidationError as exc:
+                issues = [
+                    ValidationIssue(
+                        path="/" + "/".join(str(part) for part in error["loc"]),
+                        message=str(error["msg"]),
+                    )
+                    for error in exc.errors(
+                        include_url=False,
+                        include_context=False,
+                        include_input=False,
+                    )
+                ]
+                raise ContractValidationError(schema_name, issues) from exc
 
 
 def _issue(error: JsonSchemaValidationError) -> ValidationIssue:

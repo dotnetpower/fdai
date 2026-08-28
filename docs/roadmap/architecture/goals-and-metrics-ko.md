@@ -1,7 +1,7 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: 2df8dbdfd98c817dd7752ee6e8f730fc7bfb3ff8
+translation_source_sha: 4aaa7ca648182d1713660c99cba450fe6373cac4
 translation_revised: 2026-08-29
 ---
 
@@ -28,6 +28,7 @@ translation_revised: 2026-08-29
 | 결정론적 KPI와 가드 메트릭 집계 | implemented | `core/measurement/mttr.py`; `dora.py`; `regression.py`; `tests/core/measurement/` 아래의 집중 테스트 | MTTR, 변경, 회귀, 지연 시간, 모델 및 pattern 메트릭에 실행 가능한 reducer와 실패 시 차단 검사가 있습니다. |
 | 승격 및 운영 근거 평가 | implemented | `core/measurement/promotion_gate.py`; `operational_promotion.py`; 집중 승격 테스트 | 승격 평가는 개정 번호, 시나리오, 표본, 신뢰 구간, 가드 및 결과 근거를 연결합니다. 그 자체로 실제 운영 집단의 존재를 입증하지는 않습니다. |
 | 관리되는 운영 커버리지 주장 계약 | implemented | `packages/service-contracts/src/fdai_service_contracts/operational_coverage.py`; `packages/service-contracts/tests/test_operational_coverage.py` | 변경할 수 없는 분모, 최종 처리 결과, 최신성, 정확한 베이시스 포인트, 무관용 조건 및 다이제스트 검사를 통해 불완전한 전체 집합이 99% 주장으로 바뀌지 않도록 합니다. 증적은 실행 권한을 부여하지 않습니다. |
+| 정식 의사 결정 핵심 근거 봉투 | implemented | `packages/service-contracts/src/fdai_service_contracts/decision_evidence.py`; `schemas/decision-critical-evidence/1.0.0.json`; 집중 계약 테스트 | 이 봉투는 근거와 해당 인증 증명, 권위, 범위, 목적, 정확한 생성기와 방법, 시간, 정책에서 파생된 최신성, 완전성 증명, 충돌 판정, 출처 계보 및 합성 상태를 연결합니다. 주장 사전 검사는 입력을 차단하거나 별도의 권위 있는 검증으로 전달할 수만 있으며 실제 운영 준비 상태를 주장하지 않습니다. 기존 의사 결정 경계는 아직 마이그레이션해야 합니다. |
 | 고정된 시나리오 집합 계산 | in-progress | `tests/scenarios/manifests/v2026.07.json`; `test_frozen.py`; `test_v2026_07_replay.py` | 이제 SRE 묶음에는 실행 가능한 차원 4개가 있습니다. 성공적인 전체 루프와 목표 간 충돌 근거는 아직 열려 있으며 나머지 4개 묶음도 불완전합니다. |
 | 실제 운영 KPI 기준선, 처리 및 대시보드 종결 | in-progress | [데이터 수집과 원격측정](#데이터-수집과-원격측정); `config/constitution-traceability.json`의 `FDAI-CONST-002` 요구 사항 | 런타임 기록과 작업은 있지만 하나의 고정된 개정에서 모든 성공 및 임계값 0 가드 메트릭을 입증하는 완전한 실제 운영 기준선 및 처리 집단은 보존되지 않았습니다. |
 
@@ -35,6 +36,7 @@ translation_revised: 2026-08-29
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-29 | implemented | FDAI-CONST-002에 필요한 공급자 중립 `DecisionCriticalEvidenceReceipt` 기반을 추가했습니다. 정식 다이제스트는 근거 페이로드, 인증 증명, 권위 클래스, 출처, 범위, 목적, 생성기와 방법 버전, 출처 개정, 이벤트와 기록 시각, 정책에서 파생된 최신성, 완전성과 충돌 증명, 출처 계보, 합성 상태 및 권한 없음 플래그를 연결합니다. 검토에서 자체 진술 필드로 실제 운영 자격을 부여하는 결과를 차단했으므로, 계약은 이제 잘못된 주장을 차단하거나 별도의 권위 있는 검증기로 전달하기만 합니다. 등록된 스키마 경계도 JSON Schema로 표현할 수 없는 의미 모델 검사를 실행합니다. | `current change`; 서비스 계약 모델, Draft 2020-12 스키마와 의미 검증, 패키지 레지스트리와 내보내기, 추적성 기록 및 집중 계약 테스트. | FDAI-CONST-002를 `partial`에서 변경하기 전에 신뢰할 수 있는 인증, 근거, 완전성, 충돌 및 정책 검증기를 구현하면서 준비 상태, 쿼리, 상태, 승격 및 자격 판정 경계를 마이그레이션합니다. |
 | 2026-08-29 | in-progress | `sre.slo-signal-source-unmapped.002`에 대해 사실에 맞는 A3-E 비해당 근거를 추가했습니다. 이제 재생 검사는 라우팅 종결 시 발견 항목이나 T2 작업이 생성되지 않고, 실행 권한 평가에 진입하지 않으며, 실행 결과나 PR을 만들지 않고, 판단 보류를 기록함을 입증합니다. 검토에서 제안된 주장 두 가지를 기각했습니다. 게시자 자체의 메모리 내 기록은 독립적인 SRE 효과 검증이 아니라 전달 근거이며, 직접 작성한 후보를 `PrecedenceResolver`에 전달하는 방식은 런타임 중재를 입증하지 않습니다. 해당 테스트와 매니페스트 주장은 커밋 전에 제거했습니다. | `current change`; `services/core-control-plane/tests/scenarios/test_v2026_07_replay.py`; `manifests/v2026.07.json`; 집중 시나리오, 매니페스트, Ruff 및 strict mypy 검사. | `successful_full_loop`에는 독립적이고 권위 있는 복구 및 재발 종결 근거가 여전히 필요합니다. `cross_objective_conflict`에는 시나리오 런타임과 프로덕션 중재 경로에서 생성되고 감사되는 경쟁 작업이 여전히 필요합니다. 비합성 기준선과 처리 결과도 열려 있습니다. |
 | 2026-08-29 | implemented | 강화 라운드 1에서 커버리지 계약 관점 22개를 검토하고 다이제스트 계산 전에 모든 증적 시각을 UTC로 정규화했습니다. 따라서 표준 시간대 오프셋이 달라도 같은 절대 시각은 하나의 재생 신원을 공유합니다. | `current change`; 집중 운영 커버리지 테스트. | 권위 있는 생성기를 연결하고 관리되는 증적을 보존합니다. |
 | 2026-08-28 | implemented | 자산 인벤토리, 거버넌스 평가, 운영 범위, 인시던트 진단, 수정 효과 및 지식 근거 확인을 위한 하나의 공급자 중립 운영 커버리지 증적을 추가했습니다. 정책 결과와 평가 가능 여부를 분리하고, 커버되지 않은 모든 항목을 분모에 유지하며, 완전한 계산, 최신성, 정확한 베이시스 포인트 임계값 및 무관용 처리 결과를 사용해 주장 자격을 결정적으로 계산합니다. | `current change`; `operational_coverage.py`; 집중 계약 테스트 13건 통과; Ruff 및 strict mypy 통과. | 99% 운영 주장을 하기 전에 각 생성기를 권위 있는 분모에 연결하고 관리되는 증적을 보존합니다. |
@@ -49,6 +51,7 @@ translation_revised: 2026-08-29
 - [ ] ARB / 변경 안전성, FinOps / 비용 거버넌스, DR 및 Chaos Engineering 묶음에 실행 가능한 헌법상 6개 차원을 모두 갖춥니다.
 - [ ] 동일한 고정 시나리오 집합에서 표본 크기, 신뢰 구간, 절대값 및 지원되지 않는 배수 주장이 없는 하나의 참조 기준선과 FDAI 처리를 보존합니다.
 - [ ] 실제 운영 인시던트, 변경, 비용, 사람 터치포인트 및 독립적으로 검증된 결과 기록을 KPI 변환 결과에 연결한 다음 모든 임계값 0 가드가 0을 유지함을 입증합니다.
+- [ ] 모든 준비 상태, 쿼리, 상태, 승격 및 자격 판정 의사 결정 경계에서 `DecisionCriticalEvidenceReceipt`를 사용한 다음 합성 또는 불완전 근거가 실제 운영 주장을 충족하지 못함을 입증합니다.
 - [x] 공급자 중립 `OperationalCoverageReceipt`를 정의하고 집중 테스트를 통해 분모,
   처리 결과, 최신성, 임계값, 무관용 조건 및 다이제스트 불변 조건을 입증합니다.
 

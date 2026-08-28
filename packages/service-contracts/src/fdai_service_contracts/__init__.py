@@ -45,6 +45,15 @@ from fdai_service_contracts.cost_governance import (
     CostTrendProjection,
     disclose_cost_records,
 )
+from fdai_service_contracts.decision_evidence import (
+    DecisionCriticalEvidenceReceipt,
+    EvidenceConflictStatus,
+    LiveEvidenceClaimAssessment,
+    LiveEvidenceClaimRejectionReason,
+    LiveEvidenceClaimRequirement,
+    assess_live_evidence_claim,
+    decision_critical_evidence_receipt_digest,
+)
 from fdai_service_contracts.descriptor import ServiceDescriptor, ServiceKind
 from fdai_service_contracts.discovery import (
     DiscoveryBackend,
@@ -372,6 +381,8 @@ __all__ = [
     "ContractValidationError",
     "ContractValidator",
     "ConsumerCodec",
+    "DecisionCriticalEvidenceReceipt",
+    "EvidenceConflictStatus",
     "CostAccessGrant",
     "CostAmountPrecision",
     "CostDisclosureCeiling",
@@ -486,6 +497,9 @@ __all__ = [
     "ImageOcrProvider",
     "IngestionCapabilities",
     "KnowledgeChunk",
+    "LiveEvidenceClaimAssessment",
+    "LiveEvidenceClaimRejectionReason",
+    "LiveEvidenceClaimRequirement",
     "MalwareScanner",
     "MalwareVerdict",
     "Mode",
@@ -616,6 +630,7 @@ __all__ = [
     "WorkerDocumentObjectStore",
     "WorkloadIdentity",
     "assert_additive_schema",
+    "assess_live_evidence_claim",
     "canonical_digest",
     "canonical_query_json",
     "canonical_audit_entry",
@@ -633,6 +648,7 @@ __all__ = [
     "merged_discovery_result_digest",
     "provider_execution_receipt_digest",
     "delivery_checks",
+    "decision_critical_evidence_receipt_digest",
     "disclose_cost_records",
     "ensure_supported_version",
     "executor_action_payload_digest",

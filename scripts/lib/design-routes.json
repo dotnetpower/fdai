@@ -1819,8 +1819,6 @@
         "services/operator-service/src/fdai_operator_service/postgres_cost_governance.py",
         "services/operator-service/tests/test_cost_governance_family.py",
         "packages/service-contracts/src/fdai_service_contracts/cost_governance.py",
-        "packages/service-contracts/src/fdai_service_contracts/__init__.py",
-        "packages/service-contracts/src/fdai_service_contracts/schema.py",
         "packages/service-contracts/src/fdai_service_contracts/schemas/cost-governance-*/**",
         "packages/service-contracts/tests/test_cost_governance.py",
         "service-migrations/branches/operator-service/versions/*cost*",

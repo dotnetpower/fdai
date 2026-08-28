@@ -15,11 +15,11 @@
       "id": "FDAI-CONST-002",
       "status": "partial",
       "owner_docs": [".github/copilot-instructions.md", "docs/roadmap/architecture/goals-and-metrics.md", "docs/roadmap/architecture/outcome-assurance.md"],
-      "implementation": ["services/core-control-plane/src/fdai/core/risk_gate", "services/core-control-plane/src/fdai/core/measurement"],
-      "schemas": ["services/core-control-plane/src/fdai/shared/contracts/action/schema.json", "services/core-control-plane/src/fdai/shared/contracts/response-outcome/schema.json"],
-      "tests": ["services/core-control-plane/tests/core/risk_gate", "services/core-control-plane/tests/core/measurement"],
+      "implementation": ["packages/service-contracts/src/fdai_service_contracts/decision_evidence.py", "services/core-control-plane/src/fdai/core/risk_gate", "services/core-control-plane/src/fdai/core/measurement"],
+      "schemas": ["packages/service-contracts/src/fdai_service_contracts/schemas/decision-critical-evidence/1.0.0.json", "services/core-control-plane/src/fdai/shared/contracts/action/schema.json", "services/core-control-plane/src/fdai/shared/contracts/response-outcome/schema.json"],
+      "tests": ["packages/service-contracts/tests/test_decision_evidence.py", "services/core-control-plane/tests/core/risk_gate", "services/core-control-plane/tests/core/measurement"],
       "runtime_evidence": ["services/core-control-plane/src/fdai/core/audit", "services/core-control-plane/src/fdai/core/measurement"],
-      "gap": "One shared decision-critical evidence receipt contract is not yet enforced at every decision boundary."
+      "gap": "The shared DecisionCriticalEvidenceReceipt foundation binds evidence, authentication proof, authority, scope, purpose, method version, time, freshness, completeness proof, conflicts, provenance, and synthetic status. Existing decision boundaries have not yet adopted it consistently."
     },
     {
       "id": "FDAI-CONST-003",
