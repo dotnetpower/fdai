@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 5dd971a69baaacc8362b8d7b216cd874e0aeb438
+translation_source_sha: 0c9f943b99a01dcf1aedd07eb02e1514c29a93b2
 translation_revised: 2026-08-28
 ---
 # 에이전트 판테온
@@ -37,6 +37,7 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-28 | 구현됨 | 범위가 제한된 Njord 범위 목록 계약이 의도적으로 동작하지 않는 패키지 부재 경로 대신 패키지 기반으로 수락된 표본을 실행하도록 했습니다. | `current change`; 집중 대화 포트 및 비용 거버넌스 Njord 테스트. | 승격 전에는 실제 권위가 있는 근거가 계속 필요합니다. |
 | 2026-08-28 | 구현됨 | 선택적 패키지 주입 뒤 Njord의 선언된 읽기 도구 사실 범위를 복원하면서 비활성 수집은 계속 동작하지 않게 했고, 기존 이상 징후 테스트는 명시적으로 활성화한 패키지 프로바이더를 사용하도록 옮겼습니다. | `current change`; 집중 중재, 역할, 대화 도구 및 비용 거버넌스 Njord 테스트. | 승격 검토 전에 실제 권위가 있는 Njord 근거를 보존합니다. |
 | 2026-08-29 | implemented | 고정 명단, AgentSpec, topic 소유권 또는 권한 역할을 바꾸지 않고 선택적 비용 거버넌스 자문 주입을 추가했습니다. | `current change`; 집중 Njord, 판테온 배치, 소유권, 비활성화 및 drain 테스트. | enforce 승격 전에 live-authoritative 비용 거버넌스 cohort를 보존합니다. |
 | 2026-08-21 | implemented | 프레임워크 줄 상한을 복구하기 위해서만 내용 주소 기반 Bragi Turn 및 인계 페이로드 구성을 비공개 발행 helper로 분리하고 의미 기능 변환을 기존 라우팅 helper로 옮겼습니다. Bragi는 같은 `object.turn` 및 `object.handoff-escalation` topic을 계속 발행하며 AgentSpec, 소유권, LLM 정책, 타입이 지정된 제안 진입점 및 작업 권한은 바뀌지 않았습니다. | `current change`; 집중 Bragi 및 프레임워크 검사 95개 통과; 변경 파일 Ruff, format, mypy 통과; 저장소 LOC gate hard failure 0건으로 통과. | 이 설계에서 이미 요구한 동일한 통제된 운영자 경로, KPI 및 승격 근거를 보존합니다. |
@@ -57,7 +58,6 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 | 2026-08-21 | implemented | 문구 기반 라우팅을 복원하지 않고 의미 판단 이행의 회귀 문제를 마무리했습니다. Bragi는 운영자 라우팅, 읽기 조사 소유권, 작업 태세, 읽기 전용 숙의에 공유 판단 경계를 사용하며, 의미를 사용할 수 없거나 판단이 거부되면 실패 시 차단합니다. AgentSpec, 토픽, 소유권, 모델 정책, 작업 권한은 바뀌지 않았습니다. | `current change`; 집중 에이전트, 숙의, 읽기 조사, 의미 도구 검사 304개 통과; 변경 범위 테스트 3176개 통과 및 환경 제한 skip 7개. | 통제된 운영자 경로 근거와 기존 실제 KPI 및 승격 근거를 보존합니다. 권한이나 승격 상태는 바뀌지 않았습니다. |
 | 2026-08-23 | implemented | Heimdall의 read-only 최종 `object.action-run` 구독을 추가했습니다. Handler는 exact correlation-indexed pre-dispatch artifact를 복원하고 collection을 Thor의 terminal timestamp에 결속하며 주입된 independent collector를 호출하고 verifier가 수락한 post-terminal observation만 기록합니다. Heimdall ownership, publication, deterministic hot path, LLM policy, action authority는 바뀌지 않습니다. | `current change`; Pantheon parity, runtime topic, handler, artifact, Azure collector, composition 검사 | 배포 소유 signed-context issuer를 연결하고 관리되는 live closure 증적을 보존합니다. |
 | 2026-08-24 | implemented | Strict provider-schema review package를 Heimdall의 기존 `Drift` ownership에 binding했습니다. Scheduled composition은 production Pantheon bridge를 사용하고 transport 전에 추가 필드 또는 권한을 부여하는 필드를 거부하며 digest-only shadow signal을 내보냅니다. Catalog는 변경하지 않습니다. | `current change`; 집중 provider-schema review, Heimdall ownership, framework-layout, durable-ledger 및 infrastructure 검사 | 운영 검증을 주장하기 전에 deployed revision의 Saga-audited drift 근거를 보존합니다. |
-
 ### 남은 작업
 - [ ] 하나의 고정된 리비전에서 에이전트별 및 시스템 KPI, 표본 수, 신뢰 구간, 보호 메트릭과 권위 있는 결과 증적을 측정한 실제 shadow 코호트를 보존합니다.
 - [ ] 에이전트 권한을 넓히지 않고 주입된 장애만이 아닌 운영 의존성에 대해 선언된 성능 저하 동작을 입증합니다.

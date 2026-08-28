@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 0621def2bb52056ac59b9142c1db8dc0fb48d61f
+translation_source_sha: e248c6d8d25890bb03806c6af044f8218725b8ba
 translation_revised: 2026-08-28
 ---
 # FDAI Console 대화
@@ -39,6 +39,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-28 | 구현됨 | 정적 시안의 Visualization 그룹을 복원하고 왼쪽 가장자리 선택 강조를 Console 시각 경계가 요구하는 완전하고 차분한 윤곽선으로 교체했습니다. | `current change`; 집중 시안 시각 경계 테스트 5개와 Console 타입 검사가 통과했습니다. | 정적 시안에서 통제된 런타임 또는 운영 Console 근거를 주장하지 않습니다. |
 | 2026-08-28 | 구현됨 | 사용할 수 없는 비용 거버넌스 자리 표시자를 답변 준비 중 검색 추적에서 제외하고, 별도 소유 Overview 측정 경로를 사용 불가로 선언했으며, 의미 브리지 뒤에서 원시 PostgreSQL 스트림 대체 경로를 보존했습니다. | `current change`; 집중 검색 추적, Operator 구성, 의미 브리지, 서비스 테스트 소유권 검사 및 Console 타입 검사. | 인증된 실제 변환 결과 근거를 별도로 보존합니다. 이 로컬 검사는 런타임 가용성을 입증하지 않습니다. |
 | 2026-08-28 | 구현됨 | 비용 거버넌스 탐색 통합을 현재 탐색기 셸에 rebase한 뒤 설정 중복 제거 과정에서 타입이 지정된 탐색 그룹을 보존했습니다. | `current change`; `console/src/navigation-preferences.ts`; 집중 탐색 및 비용 거버넌스 경로 테스트 8개와 Console 타입 검사가 통과했습니다. | 이 타입 전용 통합 수정에 남은 작업은 없습니다. 비용 거버넌스 운영 검증은 해당 전달 원장에서 계속 추적합니다. |
 | 2026-08-26 | implemented | 비어 있는 Command Deck의 pill 빠른 시작을 상황형 카드 계층으로 교체했습니다. 2 x 2 prompt grid와 현재 화면 Checklist 대표 카드 1개를 사용합니다. 이 변경은 표현 전용이며 기존 prompt 선택, 작성기 입력, 제출, 대화 이력 및 첫 턴 이후 배치 동작을 보존합니다. | `current change`, `console/src/deck/command-deck-presenters.tsx`, `console/src/deck/command-deck-workspace-visual.test.ts`, `console/src/styles.css`, 집중 presenter 검사 11개 및 빈 상태 시각 검사 2개 통과, 정확한 `HEAD`와 staged snapshot의 Console 타입 검사 및 운영 빌드 통과. 인증된 데스크톱, constrained-desktop 및 390 px 모바일 Browser 검사에서 문서와 카드의 가로 overflow 0 및 모바일 target 44 px를 측정했습니다. | 이 표현 범위에 남은 구현 작업은 없습니다. Browser 관찰은 로컬 표현 근거이며 통제된 runtime receipt가 아닙니다. |
@@ -83,7 +84,6 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 2026-08-20 | implemented | 인증된 screenshot에서 최종 답변 앞에 일시적인 시작 카드와 펼칠 수 있는 수명 주기 행이 남아 답변을 밀어내는 문제가 확인되어 앞선 동등성 결론을 바로잡았습니다. 완료된 흐름은 일시적인 화면을 정적인 관찰 작업 요약 하나로 바꾸고, 정확한 쿼리 및 출력 근거는 접힌 Run record 안에만 유지하며, 의미 근거 보류를 `Unsupported claim`이 아니라 `Source unavailable`로 표시합니다. 모바일 최종 요약과 답변 동작은 간결한 의미 단위 grid를 사용합니다. | `current change`, 다시 연 [이슈 #246](https://github.com/dotnetpower/fdai/issues/246), 집중 수명 주기 및 시각 검사, 시안 정렬 실행 Playwright, 가로 overflow가 없는 인증된 1440 x 900, 993 x 641, 390 x 844 배치 측정 | 최종 답변 계층에는 Medium 이상의 문제가 남아 있지 않습니다. 정확한 실행 근거는 Run record에서 계속 확인할 수 있고 권한은 바뀌지 않았습니다. |
 | 2026-08-25 | implemented | 모든 요약, 대응 단계, 책임 에이전트 기여를 기존 Incident 및 감사 변환 결과에 근거한 채 운영 Incident 작업 영역을 승인된 시안에 맞췄습니다. 결과 근거는 접근 가능한 접힌 disclosure에서 계속 확인할 수 있으며 Console에는 실행 권한이 추가되지 않습니다. | `current change`; [이슈 #272](https://github.com/dotnetpower/fdai/issues/272); 집중 Incident Vitest `55 passed`; 데스크톱/모바일 Playwright `6 passed`; 운영 build 및 entry-bundle gate 통과; 1440 x 900, 993 x 641, 390 x 844의 인증된 브라우저 검사에서 문서와 주요 영역의 horizontal overflow가 모두 0이었습니다. | 범위가 제한된 Incident 시안 정렬 구획에 남은 구현 작업은 없습니다. |
 ### 남은 작업
-
 - [ ] Snapshot-first `GET /agents/activity` hydration과 더 새로운 실제 운영 프레임이 Console 행을 중복 생성하지 않고 같은 현재 상태 activity id로 수렴함을 보여 주는 통제된 cross-service 증적을 기록합니다.
 - [ ] 감사 기반이 아닌 운영 상관관계에 추적 링크가 없고 감사 근거가 없는 수동 조회가 중립적인 사용 불가 상태로 표시됨을 보여 주는 통제된 Browser Entra 산출물을 보존합니다.
 - [ ] 새로 기록된 RCA 인시던트에서 근본 원인, 영향 근거 및 근거 인용을 보여 주는 통제된 Browser Entra 산출물을 보존합니다. 영향 행이 없는 과거 인시던트는 명시적으로 불완전한 상태를 유지해야 합니다.

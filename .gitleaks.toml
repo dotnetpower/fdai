@@ -26,10 +26,13 @@ Integrity artifacts that are high-entropy by design and carry no secrets:
   - security/integrity/manifest.json.sig - detached Ed25519 signature.
   - security/integrity/*.pub - Ed25519 PUBLIC verification key (safe to
     commit; the private signing key stays in secrets/, gitignored, untracked).
+  - tests/integration/fixtures/cost_governance_w0_outcomes/unverified-effect.json
+    - frozen synthetic action fixture whose idempotency field is not a credential.
 Scope stays narrow so real secrets anywhere else still fire.
 """
 paths = [
   '''security/integrity/manifest\.json''',
   '''security/integrity/manifest\.json\.sig''',
   '''security/integrity/.*\.pub''',
+  '''tests/integration/fixtures/cost_governance_w0_outcomes/unverified-effect\.json''',
 ]

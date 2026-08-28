@@ -941,11 +941,33 @@ def test_introspect_a2a_does_not_mutate_responder_dict() -> None:
 def test_introspect_facts_lists_are_capped() -> None:
     # An agent listing owned identifiers bounds the list and reports the true
     # count separately (H5).
+    from datetime import UTC, datetime, timedelta
+    from decimal import Decimal
+
     from fdai.agents.njord import Njord
 
-    njord = Njord()
+    from fdai_cost_governance import RollingCostAdvisoryProvider
+
+    now = datetime(2028, 1, 2, tzinfo=UTC)
+    release = "sha256:" + "3" * 64
+    njord = Njord(
+        advisory_provider=RollingCostAdvisoryProvider(
+            ontology_release_digest=release,
+            anomaly_ratio=Decimal("1.5"),
+            clock=lambda: now,
+        ),
+        package_enabled=True,
+    )
     for i in range(30):
-        asyncio.run(njord.ingest_cost_sample(scope=f"scope-{i:02d}", amount_usd=1.0))
+        asyncio.run(
+            njord.ingest_cost_sample(
+                scope=f"scope-{i:02d}",
+                amount_usd=1.0,
+                observed_at=(now - timedelta(minutes=30 - i)).isoformat(),
+                source_authority="test-cost-source",
+                ontology_release_digest=release,
+            )
+        )
     result = asyncio.run(njord.on_conversation_turn("cost overview", {}))
     assert len(result["facts"]["tracked_scopes"]) == 20
     assert result["facts"]["tracked_scopes_count"] == 30
