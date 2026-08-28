@@ -17,9 +17,11 @@ domain code and assets. It does not create another control plane or move authori
 > Subscription analysis, service-family sizing profiles, and the Cost Governance workspace belong
 > to [FinOps Resource Efficiency and SKU Decisions](finops-resource-efficiency.md).
 >
-> **Current status:** FDAI has tested FinOps guardrails, cost-category rules, a shadow workflow,
-> Njord cost-anomaly behavior, and a live `CostEstimator` control-loop seam. It does not yet have an
-> independent Cost Governance wheel or an atomic vertical-package activation contract.
+> **Current status:** FDAI now has an independent `fdai-cost-governance` wheel, source
+> distribution, image profile, exact ontology profile, atomic disabled-first package lifecycle,
+> package-owned catalog assets, gated Operator and Console projections, and local W0-W7 validation
+> mechanics. Live-authoritative lifecycle, observation cohort, and independent promotion evidence
+> remain open, so the package and its actions are not operationally validated or promoted.
 
 ## Design at a glance
 

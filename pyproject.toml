@@ -106,6 +106,7 @@ package = false
 fdai-evaluation-sdk = { workspace = true }
 fdai-benchmark-cybergym = { workspace = true }
 fdai-benchmark-sregym = { workspace = true }
+fdai-cost-governance = { workspace = true }
 fdai-service-contracts = { workspace = true }
 fdai-core-control-plane = { workspace = true }
 fdai-operator-service = { workspace = true }
@@ -119,6 +120,7 @@ members = [
     "benchmarks/sregym",
     "benchmarks/cybergym",
     "extensions/code-assurance",
+    "extensions/cost-governance",
     "packages/service-contracts",
     "services/core-control-plane",
     "services/operator-service",
@@ -135,7 +137,13 @@ members = [
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-src = ["services", "packages", "tests", "extensions/code-assurance/src"]
+src = [
+    "services",
+    "packages",
+    "tests",
+    "extensions/code-assurance/src",
+    "extensions/cost-governance/src",
+]
 # Mock/design assets and design experiments are not part of the shipped
 # monorepo; they live outside the lint gate on purpose.
 extend-exclude = ["mocks", "examples"]
@@ -183,6 +191,7 @@ files = [
     "services/isolated-executor/src",
     "packages/service-contracts/src",
     "extensions/code-assurance/src/fdai_code_assurance",
+    "extensions/cost-governance/src/fdai_cost_governance",
 ]
 mypy_path = [
     "packages/service-contracts/src",
@@ -191,6 +200,7 @@ mypy_path = [
     "services/document-ingestion-api/src",
     "services/document-processing-worker/src",
     "services/isolated-executor/src",
+    "extensions/cost-governance/src",
 ]
 
 # aiokafka and the async Azure identity surface ship without complete typing.
@@ -208,11 +218,18 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 minversion = "8.0"
-testpaths = ["tests", "services", "packages", "extensions/code-assurance/tests"]
+testpaths = [
+    "tests",
+    "services",
+    "packages",
+    "extensions/code-assurance/tests",
+    "extensions/cost-governance/tests",
+]
 addopts = ["-ra", "--strict-markers", "--strict-config", "--import-mode=importlib"]
 pythonpath = [
     ".",
     "extensions/code-assurance/src",
+    "extensions/cost-governance/src",
     "packages/service-contracts/src",
     "services/core-control-plane",
     "services/core-control-plane/src",

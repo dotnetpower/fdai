@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0.0",
+  "id": "cost-governance.w0.rollback.001",
+  "outcome": "rollback",
+  "driver": "thor-vidar",
+  "input": {
+    "correlation_id": "cost-rollback-001",
+    "action_type": "remediate.right-size",
+    "risk_verdict": "auto",
+    "resource_id": "resource-example-rollback",
+    "idempotency_key": "cost-rollback-key-001",
+    "rollback_contract": "state_forward_only"
+  },
+  "expected": {
+    "state": "rolled_back",
+    "rollback_state": "succeeded",
+    "rollback_ref": "rollback:cost-rollback-001"
+  }
+}

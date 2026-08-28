@@ -360,7 +360,7 @@ async def test_real_active_and_discovery_corpora_have_isolated_lifecycles() -> N
     )
     index = InMemoryCatalogSemanticIndex()
 
-    assert await index.stage_generation(active_metadata, active_documents) == 62
+    assert await index.stage_generation(active_metadata, active_documents) == 50
     assert await index.stage_generation(discovery_first, discovery_documents) == 8_487
     assert await index.active_generation("active") is None
     assert await index.active_generation("discovery") is None
@@ -474,7 +474,7 @@ async def test_real_active_rule_corpus_uses_validated_exact_generation() -> None
         k=1,
     )
 
-    assert len(build.documents) == 62
+    assert len(build.documents) == 50
     assert build.metadata.generation_digest == expected.generation_digest
     assert receipt.validator_artifact_digest == validator_artifact_digest
     assert active.validation_receipt_digest == receipt.receipt_digest
@@ -742,7 +742,7 @@ async def test_korean_surface_candidate_passes_exact_inactive_generation_review(
 async def test_active_catalog_ignores_non_discriminating_lexical_overlap() -> None:
     documents, metadata = _load_active_corpus()
     index = InMemoryCatalogSemanticIndex()
-    assert await index.stage_generation(metadata, documents) == 62
+    assert await index.stage_generation(metadata, documents) == 50
     await index.activate_generation(
         metadata.generation_id,
         expected_generation_digest=metadata.generation_digest,
@@ -773,7 +773,7 @@ async def test_shipped_active_catalog_emits_truthful_promotion_hold() -> None:
     documents, metadata = _load_active_corpus()
     target_rule_id = "kubernetes-node-pool.multi-zone"
     index = InMemoryCatalogSemanticIndex()
-    assert await index.stage_generation(metadata, documents) == 62
+    assert await index.stage_generation(metadata, documents) == 50
     await index.activate_generation(
         metadata.generation_id,
         expected_generation_digest=metadata.generation_digest,
@@ -899,7 +899,7 @@ async def test_shipped_active_catalog_stale_generation_holds_without_no_match_cr
     documents, metadata = _load_active_corpus()
     target_rule_id = "kubernetes-node-pool.multi-zone"
     index = InMemoryCatalogSemanticIndex()
-    assert await index.stage_generation(metadata, documents) == 62
+    assert await index.stage_generation(metadata, documents) == 50
     await index.activate_generation(
         metadata.generation_id,
         expected_generation_digest=metadata.generation_digest,

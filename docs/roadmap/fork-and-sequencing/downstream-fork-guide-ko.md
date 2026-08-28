@@ -1,7 +1,7 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: 31995a7769f8e4c62ef229b936ba397b61c30013
+translation_source_sha: bb01a5609a5b939bb529021d36b847e59013744d
 translation_revised: 2026-08-28
 ---
 
@@ -227,9 +227,9 @@ focused owner 문서를 사용하세요.
 | [5.16](downstream-fork-seam-recipes-ko.md#516-매뉴얼-증류-manualsource--manualclassifier--distiller) | 매뉴얼 증류 (`ManualSource` / `ManualClassifier` / `Distiller`) |
 | [5.17](downstream-fork-seam-recipes-ko.md#517-capability-bundle-등록) | `CapabilityBundle` 등록과 시작 시 cross-validation |
 
-**독립 업스트림 vertical 패키지**는 포크 overlay나 새 seam recipe가 아닙니다. 계획된 비용
-거버넌스 패키지 같은 검토된 배포판은 테넌트 값, 배포 상태 또는 자율성을 선택하지 않고 하나의
-exact 온톨로지 프로필과 기존 고정 pantheon을 연결합니다. 해당 업스트림 수명 주기는 [FinOps
+**독립 업스트림 vertical 패키지**는 포크 overlay나 새 seam recipe가 아닙니다. 검토된
+`fdai-cost-governance` 배포판은 테넌트 값, 배포 상태, 사용자 접근 또는 자율성을 선택하지 않고
+하나의 exact 온톨로지 프로필과 기존 고정 pantheon을 연결합니다. 해당 업스트림 수명 주기는 [FinOps
 패키지 전달 계획](finops-package-delivery-plan-ko.md)을 참조하세요.
 이 계획의 정적 다이어그램 사양과 생성된 자산은 업스트림 문서 산출물입니다. 포크는 이를 변경
 없이 동기화하며, 이 산출물은 편집 가능한 경계를 추가하거나 포크 경계를 넓히지 않습니다.

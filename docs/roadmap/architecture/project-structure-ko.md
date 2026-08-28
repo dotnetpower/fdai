@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 274aa9f62f77308a9b19860535e59e769437c7e0
+translation_source_sha: 76e756725080cd323c1d49fd2bbef72c99d0ac39
 translation_revised: 2026-08-28
 ---
 # 프로젝트 구조
@@ -432,6 +432,10 @@ grounding 권한을 우회할 수 없습니다. HIL 승인 id와 실행기 멱�
 - 리포 루트에 **하나의 lockfile** (`uv.lock` 또는 동등물)을 두고 루트 `pyproject.toml`은
   `package = false`인 virtual workspace입니다. 런타임 서비스와 shared 계약 SDK는 각각
   분포 매니페스트를 소유하지만 의존성 해석은 workspace 전체에서 수행합니다.
+- `fdai-cost-governance` 같은 선택적 버티컬 배포판은 `extensions/` 아래에 둡니다. Core는
+  불변 매니페스트, 수명 주기, 프로바이더 및 권한 없는 계약을 소유하고, 검토된 이미지
+  composition이 패키지 코드와 리소스를 제공합니다. Core는 선택적 패키지를 import하지 않으며
+  패키지 활성화는 사용자 접근 및 액션 승격과 독립적으로 유지됩니다.
 - 서비스 wire 계약은 `packages/service-contracts/src/fdai_service_contracts/`에 있습니다.
   `schemas/<contract-id>/<version>.json` 아래의 버전별 JSON 스키마는 불변이므로 새 필드는
   새 추가적 버전으로 배포되며 이전 소비자는 그것을 계속 무시합니다. `operator-core-request`는

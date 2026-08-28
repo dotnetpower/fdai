@@ -489,6 +489,48 @@ variable "forecast_tick_cron_expression" {
   default     = ""
 }
 
+variable "cost_governance_image" {
+  description = "Optional fdai-cost-governance image reference. Empty keeps package jobs absent."
+  type        = string
+  default     = ""
+}
+
+variable "cost_governance_collector_cron_expression" {
+  description = "UTC cron for the optional activation-gated cost collector."
+  type        = string
+  default     = ""
+}
+
+variable "cost_governance_analyzer_cron_expression" {
+  description = "UTC cron for the optional activation-gated cost analyzer."
+  type        = string
+  default     = ""
+}
+
+variable "cost_governance_scope_id" {
+  description = "Deployment-owned Azure Cost Management scope. Empty while package jobs are absent."
+  type        = string
+  default     = ""
+}
+
+variable "cost_governance_known_service_ids_json" {
+  description = "Deployment-owned JSON list of ontology-grounded service ids."
+  type        = string
+  default     = ""
+}
+
+variable "cost_governance_ontology_release_id" {
+  description = "Exact ontology release id bound to optional cost jobs."
+  type        = string
+  default     = ""
+}
+
+variable "cost_governance_ontology_release_digest" {
+  description = "Exact SHA-256 ontology release digest bound to optional cost jobs."
+  type        = string
+  default     = ""
+}
+
 variable "forecast_targets_json" {
   description = "JSON array of governed forecast target specifications."
   type        = string

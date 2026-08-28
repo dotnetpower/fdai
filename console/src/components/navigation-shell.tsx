@@ -1,10 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
+import type { OperatorApiClient } from "../api";
 import {
   DECK_STATE_EVENT,
   isDeckOpen,
   requestDeckToggle,
 } from "../deck/open-deck";
 import { t } from "../i18n";
+import { isCostGovernanceNavigationVisible } from "../routes/cost-governance.model";
 import {
   DEFAULT_NAVIGATION_PREFERENCES,
   navigationPreferenceKey,
@@ -28,6 +30,7 @@ import { Tooltip } from "./tooltip";
 
 interface Props {
   readonly activePanelId: string;
+  readonly client: OperatorApiClient;
   readonly principalId?: string | null;
   readonly devMode: boolean;
   readonly explorerOpen: boolean;
@@ -55,6 +58,7 @@ export function visibleNavigationGroups(devMode: boolean): readonly (typeof PANE
 
 export function NavigationShell({
   activePanelId,
+  client,
   principalId,
   devMode,
   explorerOpen,
@@ -76,6 +80,7 @@ export function NavigationShell({
   const activityBarMenuRef = useRef<HTMLDivElement | null>(null);
   const activityBarMenuButtonRef = useRef<HTMLButtonElement | null>(null);
   const activityBarMenuItemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const [costGovernanceVisible, setCostGovernanceVisible] = useState(false);
   const groupRefs = useRef(new Map<PanelGroup, HTMLButtonElement | null>());
   const menuRef = useRef<HTMLDivElement | null>(null);
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -89,6 +94,18 @@ export function NavigationShell({
     [preferences.hiddenGroupIds, visibleGroups],
   );
   const explorerPinned = preferences.explorerPinned && !mobile;
+
+  useEffect(() => {
+    let cancelled = false;
+    client.costGovernanceAvailability().then((availability) => {
+      if (!cancelled) {
+        setCostGovernanceVisible(isCostGovernanceNavigationVisible(availability));
+      }
+    }).catch(() => {
+      if (!cancelled) setCostGovernanceVisible(false);
+    });
+    return () => { cancelled = true; };
+  }, [client, principalId]);
 
   useEffect(() => {
     if (activeGroup !== null) setSelectedGroup(activeGroup);
@@ -194,7 +211,10 @@ export function NavigationShell({
   }, [activityBarMenu]);
 
   const selectedMeta = PANEL_GROUPS.find((group) => group.id === selectedGroup)!;
-  const orderedPanels = orderPanels(panelsInGroup(selectedGroup), preferences.groupOrder[selectedGroup]);
+  const eligiblePanels = panelsInGroup(selectedGroup).filter(
+    (panel) => panel.id !== "cost-governance" || costGovernanceVisible,
+  );
+  const orderedPanels = orderPanels(eligiblePanels, preferences.groupOrder[selectedGroup]);
   const visiblePanels = orderedPanels.filter(
     (panel) => panel.id === activePanelId || !preferences.hiddenPanelIds.includes(panel.id),
   );

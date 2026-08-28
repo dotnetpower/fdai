@@ -32,7 +32,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-import yaml
 from fdai.core.control_loop import (
     ControlLoop,
     ControlLoopOutcome,
@@ -50,11 +49,6 @@ from fdai.core.tiers.t0_deterministic import (
     T0Engine,
 )
 from fdai.core.trust_router import TrustRouter
-from fdai.rule_catalog.schema.action_type import load_action_type_catalog
-from fdai.rule_catalog.schema.resource_type import (
-    load_resource_type_registry_from_mapping,
-)
-from fdai.rule_catalog.schema.rule import load_rule_catalog
 from fdai.shared.contracts.models import Mode
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.contracts.validation import (
@@ -71,14 +65,13 @@ from fdai.shared.providers.testing import (
     InMemoryStateStore,
     RecordingRemediationPrPublisher,
 )
+from fdai_core_test_support.cost_governance_catalog import (
+    CostGovernanceCatalogComposition,
+    compose_cost_governance_catalog,
+)
 from fdai_core_test_support.verified_shadow_executor import VerifiedShadowExecutor
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
-ACTION_TYPES_ROOT = REPO_ROOT / "rule-catalog" / "action-types"
-CATALOG_ROOT = REPO_ROOT / "rule-catalog" / "catalog"
-POLICIES_ROOT = REPO_ROOT / "policies"
-REMEDIATION_ROOT = REPO_ROOT / "rule-catalog" / "remediation"
-VOCABULARY_FILE = REPO_ROOT / "rule-catalog" / "vocabulary" / "resource-types.yaml"
 
 _OPA_PRESENT = shutil.which("opa") is not None
 requires_opa = pytest.mark.skipif(
@@ -88,36 +81,36 @@ requires_opa = pytest.mark.skipif(
 
 
 @pytest.fixture(scope="module")
-def shipped_catalog() -> tuple[Any, Any]:
-    registry = PackageResourceSchemaRegistry()
-    action_types = load_action_type_catalog(ACTION_TYPES_ROOT, schema_registry=registry)
-    with VOCABULARY_FILE.open("r", encoding="utf-8") as fh:
-        resource_types = load_resource_type_registry_from_mapping(yaml.safe_load(fh))
-    rules = load_rule_catalog(
-        CATALOG_ROOT,
-        schema_registry=registry,
-        action_types=action_types,
-        resource_types=resource_types,
-        policies_root=POLICIES_ROOT,
-        remediation_root=REMEDIATION_ROOT,
+def enabled_catalog(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> CostGovernanceCatalogComposition:
+    return compose_cost_governance_catalog(
+        REPO_ROOT,
+        enabled=True,
+        scratch_root=tmp_path_factory.mktemp("enabled-cost-governance-catalog"),
     )
-    return rules, action_types
+
+
+@pytest.fixture(scope="module")
+def disabled_catalog() -> CostGovernanceCatalogComposition:
+    return compose_cost_governance_catalog(REPO_ROOT, enabled=False)
 
 
 def _make_loop(
-    shipped_catalog: tuple[Any, Any],
+    catalog: CostGovernanceCatalogComposition,
     *,
     execution_authorization_evaluator: Any = None,
 ) -> tuple[ControlLoop, RecordingRemediationPrPublisher, InMemoryStateStore]:
-    rules, action_types = shipped_catalog
+    rules = catalog.rules
+    action_types = catalog.action_types
     index = RuleIndex.build(rules)
-    evaluator = OpaRegoEvaluator(policies_root=POLICIES_ROOT)
+    evaluator = OpaRegoEvaluator(policies_root=catalog.policies_root)
     publisher = RecordingRemediationPrPublisher()
     audit = InMemoryStateStore()
     executor = VerifiedShadowExecutor(
         publisher=publisher,
         audit_store=audit,
-        renderer=TemplateRenderer(remediation_root=REMEDIATION_ROOT),
+        renderer=TemplateRenderer(remediation_root=catalog.remediation_root),
         resource_lock=ResourceLockManager(),
     )
     action_builder = ActionBuilder(action_types_by_name={a.name: a for a in action_types})
@@ -291,11 +284,11 @@ _VERTICAL_TRIGGERS: dict[str, dict[str, Any]] = {
 
 @requires_opa
 async def test_prohibited_authorization_never_reaches_executor(
-    shipped_catalog: tuple[Any, Any],
+    enabled_catalog: CostGovernanceCatalogComposition,
 ) -> None:
     evaluator = _AuthorizationEvaluator(ExecutionAuthorizationStatus.PROHIBITED)
     loop, publisher, audit = _make_loop(
-        shipped_catalog,
+        enabled_catalog,
         execution_authorization_evaluator=evaluator,
     )
     spec = dict(_VERTICAL_TRIGGERS["change"])
@@ -315,10 +308,10 @@ async def test_prohibited_authorization_never_reaches_executor(
 
 @requires_opa
 async def test_authorization_evaluator_failure_holds_without_execution(
-    shipped_catalog: tuple[Any, Any],
+    enabled_catalog: CostGovernanceCatalogComposition,
 ) -> None:
     loop, publisher, audit = _make_loop(
-        shipped_catalog,
+        enabled_catalog,
         execution_authorization_evaluator=_RaisingAuthorizationEvaluator(),
     )
     spec = dict(_VERTICAL_TRIGGERS["change"])
@@ -338,13 +331,12 @@ async def test_authorization_evaluator_failure_holds_without_execution(
 
 @requires_opa
 async def test_grant_required_submits_separate_request_without_execution(
-    shipped_catalog: tuple[Any, Any],
+    enabled_catalog: CostGovernanceCatalogComposition,
 ) -> None:
     evaluator = _AuthorizationEvaluator(ExecutionAuthorizationStatus.GRANT_REQUIRED)
     sink = _GrantSink()
-    rules, action_types = shipped_catalog
     loop, publisher, audit = _make_loop(
-        (rules, action_types),
+        enabled_catalog,
         execution_authorization_evaluator=evaluator,
     )
     loop._execution_access_grant_sink = sink
@@ -375,7 +367,7 @@ async def test_grant_required_submits_separate_request_without_execution(
 @requires_opa
 @pytest.mark.asyncio
 async def test_single_loop_handles_all_three_verticals(
-    shipped_catalog: tuple[Any, Any],
+    enabled_catalog: CostGovernanceCatalogComposition,
 ) -> None:
     """One :class:`ControlLoop` instance routes all three verticals.
 
@@ -383,7 +375,10 @@ async def test_single_loop_handles_all_three_verticals(
     the loop is domain-agnostic; verticals are configuration, not code
     branches inside the loop.
     """
-    loop, publisher, audit = _make_loop(shipped_catalog)
+    assert enabled_catalog.package_enabled
+    assert "network.public-ip.orphan" in enabled_catalog.package_rule_ids
+    assert "network.public-ip.orphan" not in enabled_catalog.base_rule_ids
+    loop, publisher, audit = _make_loop(enabled_catalog)
     domain_outcomes: dict[str, ControlLoopResult] = {}
 
     for domain, spec in _VERTICAL_TRIGGERS.items():
@@ -421,16 +416,42 @@ async def test_single_loop_handles_all_three_verticals(
 
 @requires_opa
 @pytest.mark.asyncio
+async def test_disabled_cost_package_abstains_without_degrading_base_verticals(
+    disabled_catalog: CostGovernanceCatalogComposition,
+) -> None:
+    """A disabled package contributes no FinOps rule while base verticals stay healthy."""
+
+    assert not disabled_catalog.package_enabled
+    assert not disabled_catalog.package_rule_ids
+    assert "network.public-ip.orphan" not in disabled_catalog.base_rule_ids
+    loop, publisher, _audit = _make_loop(disabled_catalog)
+    outcomes: dict[str, ControlLoopResult] = {}
+
+    for domain, spec in _VERTICAL_TRIGGERS.items():
+        payload = dict(spec)
+        payload.pop("expected_rule_family", None)
+        payload["idempotency_key"] = f"disabled-package-{domain}"
+        outcomes[domain] = await loop.process(_event(**payload))
+
+    assert outcomes["change"].outcome is ControlLoopOutcome.EXECUTED
+    assert outcomes["resilience"].outcome is ControlLoopOutcome.EXECUTED
+    assert outcomes["finops"].outcome is ControlLoopOutcome.ABSTAINED_ROUTING
+    assert not outcomes["finops"].citing_rule_ids
+    assert publisher.records
+
+
+@requires_opa
+@pytest.mark.asyncio
 async def test_vertical_isolation_no_cross_family_matches(
-    shipped_catalog: tuple[Any, Any],
+    enabled_catalog: CostGovernanceCatalogComposition,
 ) -> None:
     """A vertical's event MUST cite only rules that target its resource_type.
 
     Guarantees resource_type is the correct isolation boundary: a Change
     Safety event never accidentally fires a FinOps rule, and so on.
     """
-    loop, _publisher, _audit = _make_loop(shipped_catalog)
-    rules, _action_types = shipped_catalog
+    loop, _publisher, _audit = _make_loop(enabled_catalog)
+    rules = enabled_catalog.rules
     rules_by_id = {r.id: r for r in rules}
 
     for domain, spec in _VERTICAL_TRIGGERS.items():
@@ -455,14 +476,14 @@ async def test_vertical_isolation_no_cross_family_matches(
 @requires_opa
 @pytest.mark.asyncio
 async def test_idempotent_replay_across_verticals(
-    shipped_catalog: tuple[Any, Any],
+    enabled_catalog: CostGovernanceCatalogComposition,
 ) -> None:
     """Re-delivering the same event batch produces zero new PRs.
 
     A single instance of the loop MUST dedupe by ``idempotency_key``
     regardless of which vertical the event belongs to.
     """
-    loop, publisher, _audit = _make_loop(shipped_catalog)
+    loop, publisher, _audit = _make_loop(enabled_catalog)
 
     def _events() -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []

@@ -9,6 +9,7 @@ from dataclasses import asdict, dataclass
 
 @dataclass(frozen=True)
 class ImageTarget:
+    target: str
     service: str
     dockerfile: str
     image: str
@@ -16,26 +17,37 @@ class ImageTarget:
 
 IMAGE_TARGETS = (
     ImageTarget(
+        target="core-control-plane",
         service="core-control-plane",
         dockerfile="services/core-control-plane/docker/Dockerfile",
         image="fdai-core-control-plane",
     ),
     ImageTarget(
+        target="cost-governance",
+        service="core-control-plane",
+        dockerfile="extensions/cost-governance/docker/Dockerfile",
+        image="fdai-cost-governance",
+    ),
+    ImageTarget(
+        target="operator-service",
         service="operator-service",
         dockerfile="services/operator-service/docker/Dockerfile",
         image="fdai-operator-service",
     ),
     ImageTarget(
+        target="document-ingestion-api",
         service="document-ingestion-api",
         dockerfile="services/document-ingestion-api/docker/Dockerfile",
         image="fdai-document-ingestion-api",
     ),
     ImageTarget(
+        target="document-processing-worker",
         service="document-processing-worker",
         dockerfile="services/document-processing-worker/docker/Dockerfile",
         image="fdai-document-processing-worker",
     ),
     ImageTarget(
+        target="isolated-executor",
         service="isolated-executor",
         dockerfile="services/isolated-executor/docker/Dockerfile",
         image="fdai-isolated-executor",
@@ -62,6 +74,7 @@ _ALL_TARGET_METADATA_PATHS = {
     "benchmarks/cybergym/pyproject.toml",
     "benchmarks/sregym/pyproject.toml",
     "extensions/code-assurance/pyproject.toml",
+    "extensions/cost-governance/pyproject.toml",
     *(f"services/{target.service}/pyproject.toml" for target in IMAGE_TARGETS),
 }
 _CORE_EXACT_PATHS = {
@@ -76,6 +89,7 @@ _CORE_PREFIXES = (
     "services/assets/",
     "tests/scenarios/",
 )
+_COST_GOVERNANCE_PREFIX = "extensions/cost-governance/"
 
 
 def select_image_targets(changed_paths: Iterable[str]) -> tuple[ImageTarget, ...]:
@@ -91,15 +105,18 @@ def select_image_targets(changed_paths: Iterable[str]) -> tuple[ImageTarget, ...
 
     selected: set[str] = set()
     for path in paths:
+        if path.startswith(_COST_GOVERNANCE_PREFIX):
+            selected.add("cost-governance")
+            continue
         if path in _CORE_EXACT_PATHS or path.startswith(_CORE_PREFIXES):
-            selected.add("core-control-plane")
+            selected.update({"core-control-plane", "cost-governance"})
         if path == "config/agent-stewardship.yaml":
             selected.add("document-ingestion-api")
         if not path.startswith("services/") or path.startswith("services/assets/"):
             continue
 
         matching_services = {
-            target.service
+            target.target
             for target in IMAGE_TARGETS
             if path.startswith(f"services/{target.service}/")
         }
@@ -107,7 +124,7 @@ def select_image_targets(changed_paths: Iterable[str]) -> tuple[ImageTarget, ...
             return IMAGE_TARGETS
         selected.update(matching_services)
 
-    return tuple(target for target in IMAGE_TARGETS if target.service in selected)
+    return tuple(target for target in IMAGE_TARGETS if target.target in selected)
 
 
 def matrix_json(targets: Iterable[ImageTarget]) -> str:

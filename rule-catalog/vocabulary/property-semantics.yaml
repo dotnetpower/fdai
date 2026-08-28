@@ -48,7 +48,9 @@ semantics:
       - provider: azure
         resource_type: postgresql-server
         path: backup_retention_days
-  # policies/log_workspace/retention_excessive.rego compares this value against
+  # Package policy:
+  # extensions/cost-governance/src/fdai_cost_governance/resources/policies/log_workspace/retention_excessive.rego
+  # This policy compares this value against
   # `max_retention_days` (default 90). Log retention is a different meaning from backup
   # retention, so the two never share one semantic_id.
   - semantic_id: retention.log.days
@@ -123,7 +125,9 @@ semantics:
       - provider: azure
         resource_type: object-storage
         path: min_tls_version
-  # policies/cache/tier_overprovisioned.rego compares this value against `min_hit_rate`
+  # Package policy:
+  # extensions/cost-governance/src/fdai_cost_governance/resources/policies/cache/tier_overprovisioned.rego
+  # This policy compares this value against `min_hit_rate`
   # (default 0.99), so the canonical form is a 0-1 ratio and never a percentage.
   - semantic_id: utilization.cache.hit_rate
     value_type: number
@@ -142,7 +146,9 @@ semantics:
       - provider: azure
         resource_type: cache
         path: hit_rate
-  # policies/cache/tier_overprovisioned.rego compares this value against
+  # Package policy:
+  # extensions/cost-governance/src/fdai_cost_governance/resources/policies/cache/tier_overprovisioned.rego
+  # This policy compares this value against
   # `server_load_p95_threshold` (default 30) as a percentage.
   - semantic_id: utilization.cache.server_load.p95
     value_type: number
@@ -161,9 +167,11 @@ semantics:
       - provider: azure
         resource_type: cache
         path: server_load_p95_percent
-  # policies/compute/vm_low_utilization.rego, policies/compute/vm_idle_detected.rego, and
-  # policies/kubernetes/node_pool_oversized.rego all compare this value against a percentage
-  # CPU threshold on their own resource type.
+  # Package policies:
+  # extensions/cost-governance/src/fdai_cost_governance/resources/policies/compute/vm_low_utilization.rego
+  # extensions/cost-governance/src/fdai_cost_governance/resources/policies/compute/vm_idle_detected.rego
+  # extensions/cost-governance/src/fdai_cost_governance/resources/policies/kubernetes/node_pool_oversized.rego
+  # These policies compare this value against a percentage CPU threshold on their own resource type.
   - semantic_id: utilization.cpu.p95
     value_type: number
     canonical_unit: percent
@@ -190,7 +198,9 @@ semantics:
       - provider: azure
         resource_type: postgresql-server
         path: cpu_p95_percent
-  # policies/compute/vm_low_utilization.rego compares this value against
+  # Package policy:
+  # extensions/cost-governance/src/fdai_cost_governance/resources/policies/compute/vm_low_utilization.rego
+  # This policy compares this value against
   # `memory_p95_threshold` (default 30) as a percentage, never as bytes.
   - semantic_id: utilization.memory.p95
     value_type: number

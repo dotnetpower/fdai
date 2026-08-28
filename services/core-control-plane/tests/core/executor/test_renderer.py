@@ -97,16 +97,15 @@ def test_tag_owner_template_uses_action_params_over_rule_defaults() -> None:
 
 
 def test_missing_placeholder_raises_render_error() -> None:
-    """`vmss_right_size.tftpl` requires `target_capacity` - omit it."""
     r = _rule(
-        rule_id="compute.vm-scale-set.over-provisioned",
-        resource_type="compute.vm-scale-set",
-        remediates="remediate.right-size",
-        template_ref="remediation/compute/vmss_right_size.tftpl",
+        rule_id="object-storage.owner-tag.required",
+        resource_type="object-storage",
+        remediates="remediate.tag-add",
+        template_ref="remediation/object_storage/tag_owner.tftpl",
     )
-    with pytest.raises(RenderError, match="target_capacity"):
+    with pytest.raises(RenderError, match="tag_name"):
         TemplateRenderer(remediation_root=REMEDIATION_ROOT).render(
-            RenderRequest(rule=r, resource_id="vmss1", params={})
+            RenderRequest(rule=r, resource_id="stg1", params={})
         )
 
 
@@ -146,19 +145,19 @@ def test_bool_placeholder_serializes_to_terraform_literal() -> None:
 
 def test_int_and_float_placeholders_are_stringified() -> None:
     r = _rule(
-        rule_id="compute.vm-scale-set.over-provisioned",
-        resource_type="compute.vm-scale-set",
-        remediates="remediate.right-size",
-        template_ref="remediation/compute/vmss_right_size.tftpl",
+        rule_id="object-storage.owner-tag.required",
+        resource_type="object-storage",
+        remediates="remediate.tag-add",
+        template_ref="remediation/object_storage/tag_owner.tftpl",
     )
     text = TemplateRenderer(remediation_root=REMEDIATION_ROOT).render(
         RenderRequest(
             rule=r,
-            resource_id="vmss1",
-            params={"target_capacity": 3, "previous_capacity": 10.0},
+            resource_id="stg1",
+            params={"tag_name": "owner", "tag_value": 3},
         )
     )
-    assert "instances = 3" in text
+    assert '"owner" = "3"' in text
 
 
 def test_absolute_template_ref_is_rejected() -> None:
@@ -232,17 +231,17 @@ def test_oversize_template_is_rejected(tmp_path: Path) -> None:
 
 def test_action_params_override_rule_parameters_on_conflict() -> None:
     r = _rule(
-        rule_id="compute.vm-scale-set.over-provisioned",
-        resource_type="compute.vm-scale-set",
-        remediates="remediate.right-size",
-        template_ref="remediation/compute/vmss_right_size.tftpl",
-        parameters={"target_capacity": 100, "previous_capacity": 200},
+        rule_id="object-storage.owner-tag.required",
+        resource_type="object-storage",
+        remediates="remediate.tag-add",
+        template_ref="remediation/object_storage/tag_owner.tftpl",
+        parameters={"tag_name": "owner", "tag_value": 100},
     )
     text = TemplateRenderer(remediation_root=REMEDIATION_ROOT).render(
         RenderRequest(
             rule=r,
-            resource_id="vmss1",
-            params={"target_capacity": 5},  # wins
+            resource_id="stg1",
+            params={"tag_value": 5},  # wins
         )
     )
-    assert "instances = 5" in text
+    assert '"owner" = "5"' in text

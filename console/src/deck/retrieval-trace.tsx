@@ -47,7 +47,7 @@ interface SourceCard {
   readonly detail: string;
 }
 
-function sourceCards(
+export function sourceCards(
   snapshot: ViewSnapshot | null,
   previews: readonly RetrievalSourcePreview[],
 ): readonly SourceCard[] {

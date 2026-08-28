@@ -628,6 +628,48 @@ variable "forecast_targets_json" {
   default     = ""
 }
 
+variable "cost_governance_image" {
+  description = "Optional Cost Governance distribution image. Empty provisions no package jobs."
+  type        = string
+  default     = ""
+}
+
+variable "cost_governance_collector_cron_expression" {
+  description = "Cron for the activation-gated cost collector. Empty disables the Job."
+  type        = string
+  default     = ""
+}
+
+variable "cost_governance_analyzer_cron_expression" {
+  description = "Cron for the activation-gated cost analyzer. Empty disables the Job."
+  type        = string
+  default     = ""
+}
+
+variable "cost_governance_scope_id" {
+  description = "Exact Azure Cost Management scope for the optional collector."
+  type        = string
+  default     = ""
+}
+
+variable "cost_governance_known_service_ids_json" {
+  description = "JSON list of ontology-grounded service ids accepted by the cost jobs."
+  type        = string
+  default     = ""
+}
+
+variable "cost_governance_ontology_release_id" {
+  description = "Exact ontology release id required by the installed Cost Governance package."
+  type        = string
+  default     = ""
+}
+
+variable "cost_governance_ontology_release_digest" {
+  description = "Exact SHA-256 ontology release digest required by the package."
+  type        = string
+  default     = ""
+}
+
 variable "prometheus_endpoint" {
   description = <<-EOT
     Base URL of a Prometheus-compatible query API (AKS Managed Prometheus,

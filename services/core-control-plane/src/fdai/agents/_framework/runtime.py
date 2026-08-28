@@ -167,16 +167,15 @@ class PantheonRuntime:
         conversation_t2_model_key: str = "",
         semantic_router_config: SemanticRouterConfig | None = None,
         conversation_tool_timeout_seconds: float = 5.0,
+        cost_runtime: factory.CostRuntimeBindings = factory.DEFAULT_COST_RUNTIME_BINDINGS,
     ) -> PantheonRuntime:
         """Instantiate + wire the pantheon against ``provider``.
 
         ``raw_event_topic`` is Huginn's P1 ingress topic. ``enforce`` defaults
         to ``False`` and changes only after separately reviewed promotion.
-
         ``saga`` injects a durable auditor (a fork wires an append-only
         StateStore-backed ``Saga``); the default is the in-memory audit
         chain, adequate for shadow but lost on restart.
-
         ``disabled_agents`` lets a fork run a partial pantheon
         (agent-pantheon.md 10). Unknown names and the hard-dependency
         agents (Saga / Vidar) are rejected - disabling audit or rollback
@@ -288,6 +287,7 @@ class PantheonRuntime:
         )
         if forseti is not None:
             instantiated["Forseti"] = forseti
+        instantiated["Njord"] = factory.configured_njord(cost_runtime)
         if (forecast_evaluator is None) != (forecast_closer is None) or (
             forecast_evaluator is None
         ) != (forecast_store is None):

@@ -1,0 +1,16 @@
+schema_version: "1.0.0"
+name: sizing_recommendation_based_on
+version: "1.0.0"
+from_type: SizingRecommendation
+to_type: CapacityForecast
+cardinality: many_to_one
+forward_role: based_on_capacity_forecast
+reverse_role: supports_sizing_recommendation
+semantic_traits: [evidence]
+description: CapacityForecast that supports one advisory SizingRecommendation.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:sizing_recommendation_based_on@1.0.0
+  content_hash: sha256:187b8ebb7483edec0ddf47380fe93f95324e7bd3632cc8d67cb5a7380f7d4925
+  license: MIT
+  retrieved_at: "2026-08-28T00:00:00Z"

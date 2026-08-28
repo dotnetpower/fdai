@@ -17,6 +17,13 @@ import {
 import type { ConsoleConfig } from "./config";
 import type { AgentOperationalActivityPage } from "./agent-operational-activity";
 import {
+  decodeCostGovernanceAvailability,
+  decodeCostGovernanceProjection,
+  type CostGovernanceAvailability,
+  type CostGovernanceProjection,
+  type CostGovernanceSurface,
+} from "./api-cost-governance";
+import {
   isOptionalOperatorApiUnavailable,
   OperatorApiError,
   OperatorApiTransport,
@@ -151,6 +158,22 @@ export class OperatorApiClient {
   async finops(): Promise<FinOpsPayload> {
     await this.#requireAuthoritativeSource("/finops");
     return this.#insights.finops();
+  }
+
+  async costGovernanceAvailability(): Promise<CostGovernanceAvailability> {
+    await this.#requireAuthoritativeSource("/cost-governance/availability");
+    return decodeCostGovernanceAvailability(
+      await this.#insights.panel<unknown>("/cost-governance/availability"),
+    );
+  }
+
+  async costGovernance(
+    surface: CostGovernanceSurface,
+  ): Promise<CostGovernanceProjection> {
+    await this.#requireAuthoritativeSource(`/cost-governance/${surface}`);
+    return decodeCostGovernanceProjection(
+      await this.#insights.panel<unknown>(`/cost-governance/${surface}`),
+    );
   }
 
   /**

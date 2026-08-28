@@ -138,6 +138,16 @@ matrix:
         - teams-hil-prd
       on_all_fail: hil_escalate
 
+    # Optional package-owned Cost Governance digest. The package producer
+    # checks activation and destination disclosure before this route is used.
+    cost_governance:
+      trust_tier: a4_digest
+      delivery_mode: fanout
+      channels:
+        - email-governance
+        - teams-hil-prd
+      on_all_fail: hil_escalate
+
     digest_break_glass_usage_summary:
       trust_tier: a4_digest
       delivery_mode: fanout

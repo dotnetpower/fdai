@@ -8,6 +8,17 @@
   "migration_dependencies": [
     {
       "consumer_service": "operator-service",
+      "consumer_revision": "operator_cost_governance_20260828",
+      "provider_service": "core-control-plane",
+      "provider_revision": "core_cost_governance_runtime_20260828",
+      "schema_prerequisites": [
+        "vertical_package_activation",
+        "cost_observation"
+      ],
+      "provider_rollback": "blocked-until-operator-cost-read-grant-rollback"
+    },
+    {
+      "consumer_service": "operator-service",
       "consumer_revision": "operator_interactive_read_investigation_20260826",
       "provider_service": "core-control-plane",
       "provider_revision": "core_interactive_read_investigation_20260826",
@@ -98,6 +109,19 @@
       "catalog_search_document",
       "catalog_search_generation",
       "catalog_search_generation_document",
+      "cost_collection_cursor",
+      "cost_governance_campaign_episode",
+      "cost_governance_effect_settlement",
+      "cost_governance_episode",
+      "cost_governance_evidence",
+      "cost_governance_lifecycle_receipt",
+      "cost_governance_recovery",
+      "cost_governance_retention",
+      "cost_governance_retention_event",
+      "cost_governance_settlement",
+      "cost_governance_validation_retention",
+      "cost_governance_validation_retention_event",
+      "cost_observation",
       "forecast_episode",
       "forecast_publication_outbox",
       "inventory_active",
@@ -149,7 +173,8 @@
       "topology_object_revision",
       "topology_revision_batch",
       "t2_cache",
-      "t2_cache_default"
+      "t2_cache_default",
+      "vertical_package_activation"
     ],
     "operator-service": [
       "automation_blueprint_candidate",
@@ -188,6 +213,8 @@
       "operator_memory",
       "operator_memory_proposal",
       "operator_read_investigation_completion",
+      "cost_access_grant",
+      "cost_disclosure_ceiling",
       "post_turn_proposal_claim",
       "post_turn_review",
       "principal_conversation_binding",
@@ -240,6 +267,19 @@
       "catalog_search_document",
       "catalog_search_generation",
       "catalog_search_generation_document",
+      "cost_collection_cursor",
+      "cost_governance_campaign_episode",
+      "cost_governance_effect_settlement",
+      "cost_governance_episode",
+      "cost_governance_evidence",
+      "cost_governance_lifecycle_receipt",
+      "cost_governance_recovery",
+      "cost_governance_retention",
+      "cost_governance_retention_event",
+      "cost_governance_settlement",
+      "cost_governance_validation_retention",
+      "cost_governance_validation_retention_event",
+      "cost_observation",
       "forecast_episode",
       "forecast_publication_outbox",
       "inventory_active",
@@ -289,7 +329,8 @@
       "topology_object_revision",
       "topology_revision_batch",
       "t2_cache",
-      "t2_cache_default"
+      "t2_cache_default",
+      "vertical_package_activation"
     ],
     "operator-service": [
       "automation_blueprint_candidate",
@@ -328,6 +369,8 @@
       "operator_memory",
       "operator_memory_proposal",
       "operator_read_investigation_completion",
+      "cost_access_grant",
+      "cost_disclosure_ceiling",
       "post_turn_proposal_claim",
       "post_turn_review",
       "principal_conversation_binding",

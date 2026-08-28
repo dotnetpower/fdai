@@ -13,6 +13,10 @@ def _services(paths: list[str]) -> list[str]:
     return [target.service for target in select_image_targets(paths)]
 
 
+def _targets(paths: list[str]) -> list[str]:
+    return [target.target for target in select_image_targets(paths)]
+
+
 def test_service_source_change_selects_only_its_owned_image() -> None:
     assert _services(["services/operator-service/src/fdai_operator_service/main.py"]) == [
         "operator-service"
@@ -28,10 +32,24 @@ def test_shared_inputs_and_service_metadata_select_all_images() -> None:
 
 
 def test_runtime_assets_select_only_their_consumers() -> None:
-    assert _services(["policies/risk.rego"]) == ["core-control-plane"]
-    assert _services(["config/agent-stewardship.yaml"]) == [
+    assert _targets(["policies/risk.rego"]) == [
         "core-control-plane",
+        "cost-governance",
+    ]
+    assert _targets(["config/agent-stewardship.yaml"]) == [
+        "core-control-plane",
+        "cost-governance",
         "document-ingestion-api",
+    ]
+
+
+def test_cost_governance_sources_select_the_distribution_profile_only() -> None:
+    assert _targets(["extensions/cost-governance/src/fdai_cost_governance/__init__.py"]) == [
+        "cost-governance"
+    ]
+    assert _targets(["extensions/cost-governance/docker/Dockerfile"]) == ["cost-governance"]
+    assert _targets(["extensions/cost-governance/pyproject.toml"]) == [
+        target.target for target in IMAGE_TARGETS
     ]
 
 
@@ -51,6 +69,7 @@ def test_matrix_json_contains_complete_target_records() -> None:
     assert payload == {
         "include": [
             {
+                "target": "isolated-executor",
                 "service": "isolated-executor",
                 "dockerfile": "services/isolated-executor/docker/Dockerfile",
                 "image": "fdai-isolated-executor",

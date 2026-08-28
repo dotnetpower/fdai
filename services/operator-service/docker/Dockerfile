@@ -19,6 +19,7 @@ COPY evaluation-sdk/pyproject.toml ./evaluation-sdk/pyproject.toml
 COPY benchmarks/sregym/pyproject.toml ./benchmarks/sregym/pyproject.toml
 COPY benchmarks/cybergym/pyproject.toml ./benchmarks/cybergym/pyproject.toml
 COPY extensions/code-assurance/pyproject.toml ./extensions/code-assurance/pyproject.toml
+COPY extensions/cost-governance/pyproject.toml ./extensions/cost-governance/pyproject.toml
 COPY services/core-control-plane/pyproject.toml ./services/core-control-plane/pyproject.toml
 COPY services/document-ingestion-api/pyproject.toml ./services/document-ingestion-api/pyproject.toml
 COPY services/document-processing-worker/pyproject.toml ./services/document-processing-worker/pyproject.toml

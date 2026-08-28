@@ -44,10 +44,32 @@ describe("panel source availability", () => {
 
   test("classifies every registered console panel by source ownership", () => {
     const panels = resolvePanels();
-    expect(panels).toHaveLength(51);
+    expect(panels).toHaveLength(52);
     expect(panels.filter((panel) => panelSourceClassification(panel.id) === null))
       .toEqual([]);
     expect(panelSourceClassification("documents")).toBe("separate-client");
     expect(panelSourceClassification("settings-diagnostics")).toBe("operator-api");
+  });
+
+  test("keeps Cost Governance and LLM cost on independent sources", () => {
+    const independent: ReadDataSourcesPayload = {
+      surface: "read-data-sources",
+      sources: [
+        {
+          key: "cost-governance", source: "retained-cost-observation",
+          routes: ["/cost-governance/availability"], availability: "unavailable",
+          configured: true, reachable: true, authoritative: true, durable: true,
+          synthetic: false, reason: "package disabled", last_observed_at: null,
+        },
+        {
+          key: "llm", source: "metering", routes: ["/kpi/llm-cost"],
+          availability: "available", configured: true, reachable: true,
+          authoritative: true, durable: true, synthetic: false, reason: null,
+          last_observed_at: null,
+        },
+      ],
+    };
+    expect(panelSourceAvailability("cost-governance", independent)).toBe("unavailable");
+    expect(panelSourceAvailability("llm-cost", independent)).toBe("available");
   });
 });

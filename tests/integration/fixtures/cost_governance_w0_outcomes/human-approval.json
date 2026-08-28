@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0.0",
+  "id": "cost-governance.w0.human-approval.001",
+  "outcome": "human-approval",
+  "driver": "thor-dispatch",
+  "input": {
+    "correlation_id": "cost-human-approval-001",
+    "action_type": "remediate.remove-orphan-resource",
+    "risk_verdict": "hil",
+    "resource_id": "resource-example-approval",
+    "idempotency_key": "cost-human-approval-key-001",
+    "quorum_required": 1
+  },
+  "expected": {
+    "state": "hil_pending",
+    "executor_calls": 0,
+    "quorum_required": 1
+  }
+}

@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: a1d7087bfe1b35d009faba6002827b61d4b2f2d8
-translation_revised: 2026-08-26
+translation_source_sha: a5b3a9e260d791465f2d3289627cbd6330f17721
+translation_revised: 2026-08-28
 ---
 # FDAI 운영 온톨로지
 
@@ -555,8 +555,8 @@ ObjectType 선언이 없는 버스 계약이고, `DecisionCase`는 버스 토픽
 | Mimir | `ArchitectureConstraint`, `ChangeWindow` |
 | Muninn | `BusinessCapability`, `BusinessService`, `Environment`, `Ownership`, `RecoveryObjective`, `ServiceObjective`, `Workload` |
 | Norns | `Pattern` |
-| Njord | `CostObjective` |
-| Freyr | 선언 없음 |
+| Njord | `Budget`, `CostAnomaly`, `CostObjective`, `CostObservation` |
+| Freyr | `CapacityForecast`, `SizingRecommendation` |
 | Loki | `Experiment` |
 
 이 표에서 특히 중요하고 틀리기 쉬운 결론이 세 가지 있습니다.

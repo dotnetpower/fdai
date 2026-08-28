@@ -28,6 +28,11 @@ def test_shipped_catalog_coverage_is_measured_and_documented() -> None:
     assert coverage.reviewed_count >= module.REVIEWED_REFERENCE_FLOOR
     assert coverage.reviewed_count == coverage.evaluated_count
     assert coverage.gaps == ()
+    assert {
+        "property.cache.hit_rate",
+        "property.compute.vm-scale-set.cpu_p95_percent",
+        "property.network.public-ip.associated_resource_id",
+    } <= {item.reference for item in coverage.evaluated}
     assert module._check_documents(REPO_ROOT, coverage, update=False) == ()
 
 

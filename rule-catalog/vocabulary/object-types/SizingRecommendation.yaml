@@ -1,0 +1,33 @@
+schema_version: "1.0.0"
+name: SizingRecommendation
+version: "1.0.0"
+key: id
+description: Advisory size change grounded in one capacity forecast and one exact target revision.
+properties:
+  id: {type: string, required: true}
+  target_ref: {type: string, required: true}
+  target_revision: {type: string, required: true}
+  capacity_forecast_ref: {type: string, required: true}
+  action_type_ref: {type: string, required: true}
+  current_size: {type: string, required: true}
+  proposed_size: {type: string, required: true}
+  estimated_cost_delta: {type: number, required: true}
+  currency: {type: string, required: true}
+  reversible: {type: boolean, required: true}
+  created_at: {type: datetime, required: true}
+  evidence_ref: {type: string, required: true}
+  source_authority_ref: {type: string, required: true}
+lifecycle:
+  owner: Freyr
+  creation:
+    - code: forecast_grounded_sizing_advice
+      when: A bounded capacity forecast supports a reversible size alternative for an exact target.
+      result: Create advisory sizing evidence that still requires ordinary judgment and safety gates.
+      source_refs: [docs/roadmap/architecture/finops-autonomous-operations.md]
+  authority_refs: [docs/roadmap/architecture/finops-autonomous-operations.md]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:SizingRecommendation@1.0.0
+  content_hash: sha256:b7cbe026f333c77a2cad5ce0a43b68db37627ca56df6708211e6e5f539b464c0
+  license: MIT
+  retrieved_at: "2026-08-28T00:00:00Z"

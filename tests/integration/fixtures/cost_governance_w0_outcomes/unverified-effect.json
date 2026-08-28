@@ -1,0 +1,49 @@
+{
+  "schema_version": "1.0.0",
+  "id": "cost-governance.w0.unverified-effect.001",
+  "outcome": "unverified-effect",
+  "driver": "response-outcome",
+  "input": {
+    "action": {
+      "schema_version": "1.0.0",
+      "action_id": "00000000-0000-0000-0000-000000000101",
+      "idempotency_key": "cost-unverified-effect-key-001",
+      "event_id": "00000000-0000-0000-0000-000000000102",
+      "action_type": "remediate.right-size",
+      "target_resource_ref": "resource:example/cost-unverified-effect",
+      "operation": "update",
+      "params": {
+        "target_capacity": 2
+      },
+      "stop_condition": "provider_api_error_streak",
+      "stop_conditions": [
+        {
+          "kind": "provider_api_error_streak",
+          "count": 3
+        }
+      ],
+      "rollback_ref": {
+        "kind": "state_forward_only"
+      },
+      "blast_radius": {
+        "scope": "resource",
+        "count": 1
+      },
+      "mode": "shadow",
+      "citing_rules": [
+        "compute.vm.low-utilization"
+      ],
+      "created_at": "2026-08-28T06:00:00Z"
+    },
+    "execution_outcome": "dispatched",
+    "verification_status": "hold",
+    "verification_reason": "observation_unavailable",
+    "recorded_at": "2026-08-28T06:05:00Z"
+  },
+  "expected": {
+    "label": "unscorable",
+    "verification_status": "hold",
+    "verification_passed": false,
+    "scorable": false
+  }
+}

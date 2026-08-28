@@ -32,6 +32,8 @@ scripts/
 !/rule-catalog/README.md
 !/policies/README.md
 !/README.md
+!/extensions/cost-governance/README.md
+!/extensions/cost-governance/README-ko.md
 .terraform/
 *.tfstate*
 *.tfvars
@@ -41,5 +43,6 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+**/dist/
 .coverage
 htmlcov/

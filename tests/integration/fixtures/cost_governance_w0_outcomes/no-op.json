@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0.0",
+  "id": "cost-governance.w0.no-op.001",
+  "outcome": "no-op",
+  "driver": "thor-duplicate",
+  "input": {
+    "correlation_id": "cost-no-op-001",
+    "action_type": "remediate.right-size",
+    "risk_verdict": "auto",
+    "resource_id": "resource-example-no-op",
+    "idempotency_key": "cost-no-op-key-001"
+  },
+  "expected": {
+    "state": "succeeded",
+    "executor_calls": 1,
+    "duplicate_returns_existing_run": true
+  }
+}

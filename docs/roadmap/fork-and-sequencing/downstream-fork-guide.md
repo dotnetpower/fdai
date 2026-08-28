@@ -227,9 +227,9 @@ focused owner documents linked by each recipe.
 | [5.16](downstream-fork-seam-recipes.md#516-manual-distillation-manualsource--manualclassifier--distiller) | Manual distillation (`ManualSource` / `ManualClassifier` / `Distiller`) |
 | [5.17](downstream-fork-seam-recipes.md#517-capability-bundle-registration) | `CapabilityBundle` registration and startup cross-validation |
 
-**Independent upstream vertical packages** are not fork overlays or new seam recipes. A reviewed
-distribution such as the planned Cost Governance package binds one exact ontology profile and the
-existing fixed pantheon without selecting tenant values, deployment state, or autonomy. See the
+**Independent upstream vertical packages** are not fork overlays or new seam recipes. The reviewed
+`fdai-cost-governance` distribution binds one exact ontology profile and the existing fixed
+pantheon without selecting tenant values, deployment state, user access, or autonomy. See the
 [FinOps Package Delivery Plan](finops-package-delivery-plan.md) for that upstream lifecycle.
 Its static diagram specification and generated assets are upstream documentation artifacts. A fork
 syncs them unchanged; they do not add an editable seam or widen the fork boundary.

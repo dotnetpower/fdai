@@ -1,0 +1,15 @@
+schema_version: "1.0.0"
+name: sizing_recommendation_targets_resource
+version: "1.0.0"
+from_type: SizingRecommendation
+to_type: Resource
+cardinality: many_to_one
+forward_role: recommends_size_for
+reverse_role: has_sizing_recommendation
+description: Exact Resource revision addressed by one advisory SizingRecommendation.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:sizing_recommendation_targets_resource@1.0.0
+  content_hash: sha256:ce9f6b86c44cfc5107b2e3fea137169f2401e5ced1a7575498e99a90e25290c0
+  license: MIT
+  retrieved_at: "2026-08-28T00:00:00Z"

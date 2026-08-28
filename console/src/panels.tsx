@@ -56,6 +56,7 @@ const PromotionGatesRoute = lazy(async () => ({ default: (await import("./routes
 const ContextSelectionComparisonsRoute = lazy(async () => ({ default: (await import("./routes/context-selection-comparisons")).ContextSelectionComparisonsRoute }));
 const ScopeRoute = lazy(async () => ({ default: (await import("./routes/scope")).ScopeRoute }));
 const LlmCostRoute = lazy(async () => ({ default: (await import("./routes/llm-cost")).LlmCostRoute }));
+const CostGovernanceRoute = lazy(async () => ({ default: (await import("./routes/cost-governance")).CostGovernanceRoute }));
 const CapabilitiesRoute = lazy(async () => ({ default: (await import("./routes/capabilities")).CapabilitiesRoute }));
 const SkillsRoute = lazy(async () => ({ default: (await import("./routes/skills")).SkillsRoute }));
 const OnboardingRoute = lazy(async () => ({ default: (await import("./routes/onboarding")).OnboardingRoute }));
@@ -456,6 +457,13 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     subtitle: t("nav.panelSub.llmCost"),
     group: "overview",
     component: LlmCostRoute,
+  },
+  {
+    id: "cost-governance",
+    label: t("nav.panel.costGovernance"),
+    subtitle: t("nav.panelSub.costGovernance"),
+    group: "overview",
+    component: CostGovernanceRoute,
   },
   {
     id: "labs",

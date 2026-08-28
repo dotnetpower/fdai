@@ -1,0 +1,325 @@
+{
+  "assets": [
+    {
+      "id": "policy:cache.tier-overprovisioned",
+      "kind": "policy",
+      "path": "policies/cache/tier_overprovisioned.rego",
+      "references": [],
+      "sha256": "e33ab9b5f059c161b2a3e301279fb97f051a89d1a85d0690b5c39f107ee5e3af"
+    },
+    {
+      "id": "policy:compute.vm-scale-set.over-provisioned",
+      "kind": "policy",
+      "path": "policies/compute/vmss_over_provisioned.rego",
+      "references": [],
+      "sha256": "b2ab56a7e3906b1145cb68a2971a6c4107f36da9ad6aba62f2065a3594d9e68a"
+    },
+    {
+      "id": "policy:compute.vm.idle-detected",
+      "kind": "policy",
+      "path": "policies/compute/vm_idle_detected.rego",
+      "references": [],
+      "sha256": "21741d07450adb5e12fc1732d972374cbf6be4a7a93482fbca6b15012b884492"
+    },
+    {
+      "id": "policy:compute.vm.low-utilization",
+      "kind": "policy",
+      "path": "policies/compute/vm_low_utilization.rego",
+      "references": [],
+      "sha256": "ff1277a315bedb61f9cfe0072b44ba9bb80223d6e052f8a1e6e88387c86dc4a2"
+    },
+    {
+      "id": "policy:disk.unattached",
+      "kind": "policy",
+      "path": "policies/disk/unattached.rego",
+      "references": [],
+      "sha256": "458688b1795458c0a1dd10ae3f804b4a290e2826cf40fc726e8dfcf19cb3cec8"
+    },
+    {
+      "id": "policy:kubernetes-node-pool.oversized",
+      "kind": "policy",
+      "path": "policies/kubernetes/node_pool_oversized.rego",
+      "references": [],
+      "sha256": "9435c5ca1a29c2dfcd28a459d77ea9a7be4e932aa7aa6e82779b8892263ae277"
+    },
+    {
+      "id": "policy:log-workspace.retention-excessive",
+      "kind": "policy",
+      "path": "policies/log_workspace/retention_excessive.rego",
+      "references": [],
+      "sha256": "b33c9fedcd32b7cb608d218cde7a005ddf32720ded97aa55ed1b7995d6680c67"
+    },
+    {
+      "id": "policy:network.load-balancer.unused-backend",
+      "kind": "policy",
+      "path": "policies/network/lb_unused_backend.rego",
+      "references": [],
+      "sha256": "3a1c8cc78d53e5ca8b344659da3b13fdd172665012a2502eb02c4607cb1228ea"
+    },
+    {
+      "id": "policy:network.public-ip.orphan",
+      "kind": "policy",
+      "path": "policies/network/public_ip_orphan.rego",
+      "references": [],
+      "sha256": "3c806393cb580f979133c295fa3e2e731d190874e0bd8074c15cf4f998ccf517"
+    },
+    {
+      "id": "policy:network.public-ip.unassociated",
+      "kind": "policy",
+      "path": "policies/network/public_ip_unassociated.rego",
+      "references": [],
+      "sha256": "8a281aa82ddb6da55e7f71729343a3dad87c93d9abd68651141c4ce1772eb80b"
+    },
+    {
+      "id": "policy:postgresql-server.tier-overprovisioned",
+      "kind": "policy",
+      "path": "policies/postgresql/tier_overprovisioned.rego",
+      "references": [],
+      "sha256": "dd2310ba7f9854dae9802ad14ca147f3371d0e58bef81fa2bc5a24782ec2636e"
+    },
+    {
+      "id": "policy:sql-database.tier-overprovisioned",
+      "kind": "policy",
+      "path": "policies/sql_database/tier_overprovisioned.rego",
+      "references": [],
+      "sha256": "9a8ad7f4139827c7c3a8013161fb87633db1bc795b6b61af9607a4919ac1a3e6"
+    },
+    {
+      "id": "remediation:cache.tier-overprovisioned",
+      "kind": "remediation",
+      "path": "remediation/cache/right_size_tier.tftpl",
+      "references": [],
+      "sha256": "4ba747642e253558c2916b9c2c8945dd82e5b969d7fe4ed46d856c89f2732a51"
+    },
+    {
+      "id": "remediation:compute.vm-scale-set.over-provisioned",
+      "kind": "remediation",
+      "path": "remediation/compute/vmss_right_size.tftpl",
+      "references": [],
+      "sha256": "c5f9204f01105c7a66686e1d6dadda179c68986f0cb70f6d85fdb65c93be31bb"
+    },
+    {
+      "id": "remediation:compute.vm.idle-detected",
+      "kind": "remediation",
+      "path": "remediation/compute/vm_remove_orphan.tftpl",
+      "references": [],
+      "sha256": "6437e31622a31c0d3f230f66e68b51a578b19ffa3a79b77c2197f8e7ef387c16"
+    },
+    {
+      "id": "remediation:compute.vm.low-utilization",
+      "kind": "remediation",
+      "path": "remediation/compute/vm_right_size.tftpl",
+      "references": [],
+      "sha256": "6f8f64944e4bc9770759a84036e1d99416a2290e2f9fea7ae4d89eff2dab5bdc"
+    },
+    {
+      "id": "remediation:disk.unattached",
+      "kind": "remediation",
+      "path": "remediation/disk/remove_orphan_disk.tftpl",
+      "references": [],
+      "sha256": "8211101f068bec4addcdf43fff822002304578602a8ca1a2581b80df8704aa6e"
+    },
+    {
+      "id": "remediation:kubernetes-node-pool.oversized",
+      "kind": "remediation",
+      "path": "remediation/kubernetes/node_pool_right_size.tftpl",
+      "references": [],
+      "sha256": "9b6550db58f95aa3a886bcd13c8c94a78915876f2c1206624802385b0518f7ad"
+    },
+    {
+      "id": "remediation:log-workspace.retention-excessive",
+      "kind": "remediation",
+      "path": "remediation/log_workspace/cap_retention.tftpl",
+      "references": [],
+      "sha256": "c0d723f66668c02c3ae535082f2263bf35f7ff03e6e70f4d0511966b7ec78895"
+    },
+    {
+      "id": "remediation:network.load-balancer.unused-backend",
+      "kind": "remediation",
+      "path": "remediation/network/lb_remove_orphan.tftpl",
+      "references": [],
+      "sha256": "539acb99fcfb6ab8e4d2266664dbfac8c783f9e062fba37ad4d43e7e09162e50"
+    },
+    {
+      "id": "remediation:network.public-ip.orphan",
+      "kind": "remediation",
+      "path": "remediation/network/public_ip_remove_orphan.tftpl",
+      "references": [],
+      "sha256": "aa09ad27646530d5b26f62b3759f2de33b5bbd129794e7882a4a4ef42a1796fe"
+    },
+    {
+      "id": "remediation:network.public-ip.unassociated",
+      "kind": "remediation",
+      "path": "remediation/network/public_ip_remove_unassociated.tftpl",
+      "references": [],
+      "sha256": "40a7fa10b969617450d04038f1112acf52e3f0993e34c3fffffe824b9754dcac"
+    },
+    {
+      "id": "remediation:postgresql-server.tier-overprovisioned",
+      "kind": "remediation",
+      "path": "remediation/postgresql/right_size_tier.tftpl",
+      "references": [],
+      "sha256": "03978123d532ca883f596ab9052752951f666f0f59cedebfde44722827933513"
+    },
+    {
+      "id": "remediation:sql-database.tier-overprovisioned",
+      "kind": "remediation",
+      "path": "remediation/sql_database/right_size_tier.tftpl",
+      "references": [],
+      "sha256": "4150cf0c965e58a970887a9bacf7cda7f9f7180eba70d7fc8f021a3bb019a7a7"
+    },
+    {
+      "id": "rule:cache.tier-overprovisioned",
+      "kind": "rule",
+      "path": "rules/cache.tier-overprovisioned.yaml",
+      "references": [
+        "action:remediate.right-size",
+        "policy:cache.tier-overprovisioned",
+        "remediation:cache.tier-overprovisioned"
+      ],
+      "sha256": "213663784dbe98ad2d16c15b4a713fac084ffc570872ab72286100cbf832e1db"
+    },
+    {
+      "id": "rule:compute.vm-scale-set.over-provisioned",
+      "kind": "rule",
+      "path": "rules/compute.vm-scale-set.over-provisioned.yaml",
+      "references": [
+        "action:remediate.right-size",
+        "policy:compute.vm-scale-set.over-provisioned",
+        "remediation:compute.vm-scale-set.over-provisioned"
+      ],
+      "sha256": "96a1d6eb817577eadb1e8f3e9a400b469567978147677f231badcc1562cb5b3f"
+    },
+    {
+      "id": "rule:compute.vm.idle-detected",
+      "kind": "rule",
+      "path": "rules/compute.vm.idle-detected.yaml",
+      "references": [
+        "action:remediate.remove-orphan-resource",
+        "policy:compute.vm.idle-detected",
+        "remediation:compute.vm.idle-detected"
+      ],
+      "sha256": "8e4eecf997aa79895092ff42823f7bc0e9816c869f0f4d8e01645181a4b2c0bd"
+    },
+    {
+      "id": "rule:compute.vm.low-utilization",
+      "kind": "rule",
+      "path": "rules/compute.vm.low-utilization.yaml",
+      "references": [
+        "action:remediate.right-size",
+        "policy:compute.vm.low-utilization",
+        "remediation:compute.vm.low-utilization"
+      ],
+      "sha256": "22f776e425d80dc362feb74daefba8a840ae31960868b62a2d33d417e2ee384a"
+    },
+    {
+      "id": "rule:disk.unattached",
+      "kind": "rule",
+      "path": "rules/disk.unattached.yaml",
+      "references": [
+        "action:remediate.remove-orphan-resource",
+        "policy:disk.unattached",
+        "remediation:disk.unattached"
+      ],
+      "sha256": "19a0441d0c13b559cd06e4b72ef3a95d53c2e0ef2825337d0e8306ab22e827d5"
+    },
+    {
+      "id": "rule:kubernetes-node-pool.oversized",
+      "kind": "rule",
+      "path": "rules/kubernetes-node-pool.oversized.yaml",
+      "references": [
+        "action:remediate.right-size",
+        "policy:kubernetes-node-pool.oversized",
+        "remediation:kubernetes-node-pool.oversized"
+      ],
+      "sha256": "5787542d61073335ab31f4469627c9e66fff372382a2daa74816119542c354a7"
+    },
+    {
+      "id": "rule:log-workspace.retention-excessive",
+      "kind": "rule",
+      "path": "rules/log-workspace.retention-excessive.yaml",
+      "references": [
+        "action:remediate.set-retention-policy",
+        "policy:log-workspace.retention-excessive",
+        "remediation:log-workspace.retention-excessive"
+      ],
+      "sha256": "ebca497e3fb077105ea420ff5e69227aa5bc594738654a321059d723968a3958"
+    },
+    {
+      "id": "rule:network.load-balancer.unused-backend",
+      "kind": "rule",
+      "path": "rules/network.load-balancer.unused-backend.yaml",
+      "references": [
+        "action:remediate.remove-orphan-resource",
+        "policy:network.load-balancer.unused-backend",
+        "remediation:network.load-balancer.unused-backend"
+      ],
+      "sha256": "492d58fbd188b1797e590cfffd3f125ff59e2c80c48cf5cd053b8ade971565d8"
+    },
+    {
+      "id": "rule:network.public-ip.orphan",
+      "kind": "rule",
+      "path": "rules/network.public-ip.orphan.yaml",
+      "references": [
+        "action:remediate.remove-orphan-resource",
+        "policy:network.public-ip.orphan",
+        "remediation:network.public-ip.orphan"
+      ],
+      "sha256": "879ab9b868ecf0f3d305332063411498bbb6002563f026796554cf7c0ae108ce"
+    },
+    {
+      "id": "rule:network.public-ip.unassociated",
+      "kind": "rule",
+      "path": "rules/network.public-ip.unassociated.yaml",
+      "references": [
+        "action:remediate.remove-orphan-resource",
+        "policy:network.public-ip.unassociated",
+        "remediation:network.public-ip.unassociated"
+      ],
+      "sha256": "a45656aa623f02d1a61d58b32ecfd98ca40efb8f5248accf909b57a374bfc8d1"
+    },
+    {
+      "id": "rule:postgresql-server.tier-overprovisioned",
+      "kind": "rule",
+      "path": "rules/postgresql-server.tier-overprovisioned.yaml",
+      "references": [
+        "action:remediate.right-size",
+        "policy:postgresql-server.tier-overprovisioned",
+        "remediation:postgresql-server.tier-overprovisioned"
+      ],
+      "sha256": "285d7894cb89bfe8d53ecbd3ed15c5a10998a73ddfd16619a89f75c58b5b096f"
+    },
+    {
+      "id": "rule:sql-database.tier-overprovisioned",
+      "kind": "rule",
+      "path": "rules/sql-database.tier-overprovisioned.yaml",
+      "references": [
+        "action:remediate.right-size",
+        "policy:sql-database.tier-overprovisioned",
+        "remediation:sql-database.tier-overprovisioned"
+      ],
+      "sha256": "ae512f3e370d20f36775eb6862fde7e4d649aa3e9e5fbffa98d1b232990d5807"
+    },
+    {
+      "id": "semantic-profile:cost-governance",
+      "kind": "semantic_profile",
+      "path": "semantic-profile.json",
+      "references": [],
+      "sha256": "3edd63e424113c35267e2b3adfe1343c68666fcba36d102aedee54caa6161b16"
+    },
+    {
+      "id": "workflow:cost-aware-remediation",
+      "kind": "workflow",
+      "path": "workflows/cost-aware-remediation.yaml",
+      "references": [
+        "action:remediate.right-size",
+        "action:remediate.tag-add"
+      ],
+      "sha256": "0b58adb2a4d1e0aba47206b3854f34db7ba8102ed520a46aea57d299d51154cc"
+    }
+  ],
+  "candidate_state": "inert",
+  "package_id": "cost-governance",
+  "package_version": "0.1.1",
+  "schema_version": "1.0.0"
+}

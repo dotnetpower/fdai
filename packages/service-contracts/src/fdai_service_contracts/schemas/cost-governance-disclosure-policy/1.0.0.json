@@ -1,0 +1,78 @@
+{
+  "$defs": {
+    "CostAmountPrecision": {
+      "description": "Increasing monetary precision.",
+      "enum": [
+        "none",
+        "band",
+        "rounded",
+        "exact"
+      ],
+      "title": "CostAmountPrecision",
+      "type": "string"
+    },
+    "CostGranularity": {
+      "description": "Increasingly detailed row granularity.",
+      "enum": [
+        "none",
+        "summary",
+        "group",
+        "resource"
+      ],
+      "title": "CostGranularity",
+      "type": "string"
+    },
+    "CostIdentityVisibility": {
+      "description": "Increasing identity disclosure.",
+      "enum": [
+        "none",
+        "pseudonymous",
+        "exact"
+      ],
+      "title": "CostIdentityVisibility",
+      "type": "string"
+    }
+  },
+  "$id": "https://fdai.example/schemas/cost-governance-disclosure-policy/1.0.0.json",
+  "additionalProperties": false,
+  "description": "Server-enforced component-wise Cost Governance disclosure ceiling.",
+  "properties": {
+    "amount_precision": {
+      "$ref": "#/$defs/CostAmountPrecision"
+    },
+    "granularity": {
+      "$ref": "#/$defs/CostGranularity"
+    },
+    "identity_visibility": {
+      "$ref": "#/$defs/CostIdentityVisibility"
+    },
+    "rounding_increment": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+          "type": "string"
+        }
+      ],
+      "default": "100",
+      "title": "Rounding Increment"
+    },
+    "small_cell_minimum": {
+      "default": 3,
+      "maximum": 100,
+      "minimum": 1,
+      "title": "Small Cell Minimum",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "granularity",
+    "identity_visibility",
+    "amount_precision"
+  ],
+  "title": "CostDisclosurePolicy",
+  "type": "object"
+}

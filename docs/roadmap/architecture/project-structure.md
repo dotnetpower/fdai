@@ -443,6 +443,10 @@ per-resource locking serializes competing applies before any delivery adapter ca
 - **One lockfile** at the repo root (`uv.lock` or equivalent); the root `pyproject.toml` is a
   virtual workspace with `package = false`. Each runtime service and the shared contract SDK has
   its own distribution manifest while dependency resolution remains workspace-wide.
+- Optional vertical distributions such as `fdai-cost-governance` live under `extensions/`. Core
+  owns their immutable manifest, lifecycle, provider, and authority-neutral contracts, while the
+  reviewed image composition supplies package code and resources. Core never imports an optional
+  package, and package activation remains independent from user access and action promotion.
 - Service wire contracts live in `packages/service-contracts/src/fdai_service_contracts/`.
   Each versioned JSON Schema under `schemas/<contract-id>/<version>.json` is immutable, so a new
   field ships as a new additive version that older consumers keep ignoring. `operator-core-request`

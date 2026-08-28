@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import math
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
@@ -12,18 +14,71 @@ from fdai.agents.freyr import _MAX_SAMPLES as _FREYR_MAX_SAMPLES
 from fdai.agents.freyr import Freyr
 from fdai.agents.heimdall import Heimdall
 from fdai.agents.loki import Loki
-from fdai.agents.njord import _MAX_SAMPLES as _NJORD_MAX_SAMPLES
 from fdai.agents.njord import Njord
 from fdai.agents.odin import Odin
 
+from fdai_cost_governance import RollingCostAdvisoryProvider
+
+_COST_RELEASE = "sha256:" + "3" * 64
+_COST_NOW = datetime(2028, 1, 2, tzinfo=UTC)
+_EVENT_SEQUENCE = 0
+
+
+def _njord(
+    *,
+    bus: InMemoryBus | None = None,
+    anomaly_ratio: float = 1.5,
+    cost_table: dict[str, float] | None = None,
+) -> Njord:
+    provider = RollingCostAdvisoryProvider(
+        ontology_release_digest=_COST_RELEASE,
+        anomaly_ratio=Decimal(str(anomaly_ratio)),
+        cost_table=(
+            {key: Decimal(str(value)) for key, value in cost_table.items()}
+            if cost_table is not None
+            else None
+        ),
+        clock=lambda: _COST_NOW,
+    )
+    return Njord(bus=bus, advisory_provider=provider, package_enabled=True)
+
+
+def _ingest(
+    njord: Njord,
+    *,
+    scope: str,
+    amount_usd: float,
+    correlation_id: str = "",
+    resource_id: str | None = None,
+) -> None:
+    sequence = sum(njord._counts.values())  # noqa: SLF001
+    asyncio.run(
+        njord.ingest_cost_sample(
+            scope=scope,
+            amount_usd=amount_usd,
+            correlation_id=correlation_id or f"{scope}:{sequence}",
+            resource_id=resource_id,
+            observed_at=(_COST_NOW - timedelta(minutes=60 - sequence)).isoformat(),
+            source_authority="test-cost-source",
+            ontology_release_digest=_COST_RELEASE,
+        )
+    )
+
 
 def _specialist_event(event_type: str, **attributes: object) -> dict[str, object]:
+    global _EVENT_SEQUENCE  # noqa: PLW0603 - deterministic test fixture sequence
+    _EVENT_SEQUENCE += 1
+    if event_type == "specialist.cost_sample":
+        attributes.setdefault("source_authority", "test-cost-source")
+        attributes.setdefault("completeness", 1.0)
+        attributes.setdefault("ontology_release_digest", _COST_RELEASE)
     return {
         "producer_principal": "Huginn",
         "correlation_id": "specialist-correlation",
         "idempotency_key": f"specialist:{event_type}",
         "event_id": f"event:{event_type}",
         "event_type": event_type,
+        "detected_at": (_COST_NOW - timedelta(minutes=60 - _EVENT_SEQUENCE)).isoformat(),
         "resource_id": "resource-1",
         "attributes": attributes,
     }
@@ -37,7 +92,7 @@ def test_specialists_subscribe_to_canonical_event_ingress() -> None:
 
 def test_specialist_advice_reaches_a_human_review_verdict() -> None:
     bus = InMemoryBus(registry=load_pantheon())
-    njord = Njord(bus=bus, anomaly_ratio=1.5)
+    njord = _njord(bus=bus, anomaly_ratio=1.5)
     freyr = Freyr(bus=bus, scale_up_threshold=0.5)
     forseti = Forseti(bus=bus)
     odin = Odin(bus=bus)
@@ -47,21 +102,19 @@ def test_specialist_advice_reaches_a_human_review_verdict() -> None:
     bus.subscribe("object.arbitration-decision", "Forseti", forseti.on_typed_message)
 
     for _ in range(3):
-        asyncio.run(
-            njord.ingest_cost_sample(
-                scope="scope-1",
-                resource_id="resource-1",
-                amount_usd=100.0,
-                correlation_id="specialist-conflict",
-            )
-        )
-    asyncio.run(
-        njord.ingest_cost_sample(
+        _ingest(
+            njord,
             scope="scope-1",
             resource_id="resource-1",
-            amount_usd=200.0,
+            amount_usd=100.0,
             correlation_id="specialist-conflict",
         )
+    _ingest(
+        njord,
+        scope="scope-1",
+        resource_id="resource-1",
+        amount_usd=200.0,
+        correlation_id="specialist-conflict",
     )
     asyncio.run(
         freyr.ingest_utilization(
@@ -89,12 +142,12 @@ def test_specialist_advice_reaches_a_human_review_verdict() -> None:
 def test_njord_emits_anomaly_when_spend_exceeds_baseline() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)
-    n = Njord(bus=bus, anomaly_ratio=1.5)
+    n = _njord(bus=bus, anomaly_ratio=1.5)
     # Prime baseline
     for _ in range(10):
-        asyncio.run(n.ingest_cost_sample(scope="rg-1", amount_usd=100.0))
+        _ingest(n, scope="rg-1", amount_usd=100.0)
     # Spike
-    asyncio.run(n.ingest_cost_sample(scope="rg-1", amount_usd=200.0))
+    _ingest(n, scope="rg-1", amount_usd=200.0)
     anomalies = bus.messages_on("object.cost-anomaly")
     assert len(anomalies) == 1
     payload = anomalies[0].payload
@@ -105,16 +158,16 @@ def test_njord_emits_anomaly_when_spend_exceeds_baseline() -> None:
 def test_njord_no_anomaly_within_baseline() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)
-    n = Njord(bus=bus, anomaly_ratio=1.5)
+    n = _njord(bus=bus, anomaly_ratio=1.5)
     for _ in range(10):
-        asyncio.run(n.ingest_cost_sample(scope="rg-1", amount_usd=100.0))
-    asyncio.run(n.ingest_cost_sample(scope="rg-1", amount_usd=120.0))
+        _ingest(n, scope="rg-1", amount_usd=100.0)
+    _ingest(n, scope="rg-1", amount_usd=120.0)
     assert bus.messages_on("object.cost-anomaly") == []
 
 
 def test_njord_consumes_bounded_cost_sample_events() -> None:
     bus = InMemoryBus(registry=load_pantheon())
-    njord = Njord(bus=bus, anomaly_ratio=1.5)
+    njord = _njord(bus=bus, anomaly_ratio=1.5)
     for amount in (100.0, 100.0, 100.0, 200.0):
         asyncio.run(
             njord.on_typed_message(
@@ -134,7 +187,7 @@ def test_njord_consumes_bounded_cost_sample_events() -> None:
 
 def test_njord_rejects_nonfinite_cost_sample() -> None:
     bus = InMemoryBus(registry=load_pantheon())
-    njord = Njord(bus=bus)
+    njord = _njord(bus=bus)
 
     asyncio.run(
         njord.on_typed_message(
@@ -159,27 +212,27 @@ def test_njord_advisory_publication_is_rate_limited() -> None:
 
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)
-    n = Njord(bus=bus, anomaly_ratio=1.5)
+    n = _njord(bus=bus, anomaly_ratio=1.5)
     # Clock-frozen budget of 2 proposals/minute so the third is throttled.
     n._proposal_limiter = RateLimiter(per_minute=2, per_hour=100, now=lambda: 0.0)
     # Three distinct scopes each spike once -> three anomalies attempted.
     for scope in ("rg-a", "rg-b", "rg-c"):
         for _ in range(3):
-            asyncio.run(n.ingest_cost_sample(scope=scope, amount_usd=100.0))
-        asyncio.run(n.ingest_cost_sample(scope=scope, amount_usd=1000.0))
+            _ingest(n, scope=scope, amount_usd=100.0)
+        _ingest(n, scope=scope, amount_usd=1000.0)
     assert len(bus.messages_on("object.cost-anomaly")) == 2
     assert n.behavior_snapshot().get("rate_limit_exceeded") == 1
 
 
 def test_njord_cost_impact_returns_table_value() -> None:
-    n = Njord()
+    n = _njord()
     est = n.cost_impact("remediate.enable-encryption")
     assert est.monthly_delta_usd == 3.5
     assert est.confidence >= 0.5
 
 
 def test_njord_cost_impact_defaults_low_confidence_for_unknown() -> None:
-    n = Njord()
+    n = _njord()
     est = n.cost_impact("unknown.thing")
     assert est.monthly_delta_usd == 0.0
     assert est.confidence < 0.5
@@ -188,9 +241,9 @@ def test_njord_cost_impact_defaults_low_confidence_for_unknown() -> None:
 def test_njord_introspect_scopes_to_named_scope() -> None:
     # A single-token scope name ("rg-1") is what the introspection
     # tokenizer can match; ingest a couple of samples then name it.
-    n = Njord()
-    asyncio.run(n.ingest_cost_sample(scope="rg-1", amount_usd=100.0))
-    asyncio.run(n.ingest_cost_sample(scope="rg-1", amount_usd=120.0))
+    n = _njord()
+    _ingest(n, scope="rg-1", amount_usd=100.0)
+    _ingest(n, scope="rg-1", amount_usd=120.0)
     result = asyncio.run(n.introspect("what is the cost for rg-1?", {}))
     assert result.facts["scope"] == "rg-1"
     assert result.facts["sample_count"] == 2
@@ -199,41 +252,35 @@ def test_njord_introspect_scopes_to_named_scope() -> None:
 
 
 def test_njord_introspect_scopes_to_named_action() -> None:
-    # A single-token cost-table key so the tokenizer can match it.
-    n = Njord(cost_table={"restart": 12.5})
+    # Signed cost effects are exposed through the typed advisor hook, not
+    # conversational matching over an internal table.
+    n = _njord(cost_table={"restart": 12.5})
     result = asyncio.run(n.introspect("cost impact of restart?", {}))
-    assert result.facts["action_type"] == "restart"
-    assert result.facts["monthly_delta_usd"] == 12.5
-    assert "restart" in result.answer
+    assert "action_type" not in result.facts
+    assert n.cost_impact("restart").monthly_delta_usd == 12.5
 
 
 def test_njord_introspect_general_when_no_samples() -> None:
-    n = Njord()
+    n = _njord()
     result = asyncio.run(n.introspect("what do you track?", {}))
     assert result.facts["tracked_scopes_count"] == 0
-    assert "No cost samples" in result.answer
+    assert "No package-analyzed cost samples" in result.answer
 
 
 def test_njord_introspect_general_summary_when_scope_unnamed() -> None:
     # Samples exist but the question names neither a scope nor an action,
     # so Njord returns the multi-scope tracking summary.
-    n = Njord()
-    asyncio.run(n.ingest_cost_sample(scope="rg-9", amount_usd=10.0))
+    n = _njord()
+    _ingest(n, scope="rg-9", amount_usd=10.0)
     result = asyncio.run(n.introspect("give me an overview", {}))
     assert result.facts["tracked_scopes_count"] == 1
-    assert "Tracking cost for 1 scope" in result.answer
+    assert "Tracking cost findings for 1 scope" in result.answer
 
 
-def test_njord_sample_history_is_bounded() -> None:
-    # A long-lived cost watcher ingests one sample per billing tick forever;
-    # only the tail baseline window is read, so retained samples must not grow
-    # without bound.
-    n = Njord()
-    for i in range(_NJORD_MAX_SAMPLES * 2):
-        asyncio.run(n.ingest_cost_sample(scope="rg-soak", amount_usd=100.0 + i))
-    assert len(n._samples["rg-soak"]) == _NJORD_MAX_SAMPLES  # noqa: SLF001
-    # The tail is preserved (most recent sample is last).
-    assert n._samples["rg-soak"][-1] == 100.0 + (_NJORD_MAX_SAMPLES * 2 - 1)  # noqa: SLF001
+def test_njord_does_not_retain_a_duplicate_rolling_model() -> None:
+    n = _njord()
+    assert not hasattr(n, "_samples")
+    assert not hasattr(n, "_cost_table")
 
 
 # ---------------------------------------------------------------------------

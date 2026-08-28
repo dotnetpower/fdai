@@ -132,6 +132,7 @@ export function Shell({ activePanelId, auth, client, children, onExitLocalSessio
         >
           <NavigationShell
             activePanelId={activePanelId}
+            client={client}
             principalId={auth.account?.homeAccountId ?? null}
             devMode={auth.devMode}
             explorerOpen={navigationExplorerOpen}

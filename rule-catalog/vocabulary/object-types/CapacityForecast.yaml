@@ -1,0 +1,34 @@
+schema_version: "1.0.0"
+name: CapacityForecast
+version: "1.0.0"
+key: id
+description: Versioned capacity projection with exact target, feature cutoff, horizon, uncertainty, and evidence.
+properties:
+  id: {type: string, required: true}
+  target_ref: {type: string, required: true}
+  detector_id: {type: string, required: true}
+  detector_version: {type: string, required: true}
+  metric: {type: string, required: true}
+  feature_cutoff: {type: datetime, required: true}
+  horizon_seconds: {type: integer, required: true}
+  projected_value: {type: number, required: true}
+  interval_lower: {type: number, required: true}
+  interval_upper: {type: number, required: true}
+  unit: {type: string, required: true}
+  issued_at: {type: datetime, required: true}
+  evidence_ref: {type: string, required: true}
+  source_authority_ref: {type: string, required: true}
+lifecycle:
+  owner: Freyr
+  creation:
+    - code: bounded_capacity_projection
+      when: A versioned deterministic detector projects capacity demand inside its configured horizon.
+      result: Create an immutable forecast without selecting a size or action.
+      source_refs: [docs/roadmap/architecture/finops-autonomous-operations.md]
+  authority_refs: [docs/roadmap/architecture/finops-autonomous-operations.md]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:CapacityForecast@1.0.0
+  content_hash: sha256:34efe00ed4f57bef2e1a8bd72ef583bb8a188f2a354e25c3d3b18071d84cef33
+  license: MIT
+  retrieved_at: "2026-08-28T00:00:00Z"

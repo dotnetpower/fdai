@@ -33,12 +33,12 @@ one manifest, ontology release, asset inventory, and stable identifier set.
 
 | Area | Evidence today | Delivery gap |
 |------|----------------|--------------|
-| FinOps guard | `core/verticals/cost_governance/finops.py`; 11 focused tests | Pure logic is not an independent distribution or live orchestrator. |
-| Cost advice | Njord cost sample and anomaly behavior; `CostEstimator` Protocol and control-loop resolution | Duplicate cost representations and package binding need one reviewed contract. |
-| Ontology | Cost, service, recovery, architecture, topology, option, effect, and outcome declarations exist | Package semantic profile and end-to-end intent instances are not pinned together. |
-| Agent runtime | Fixed pantheon, owned topics, concurrency, judgment, execution, audit, and recovery foundations exist | No retained FinOps trace proves the complete 15-agent responsibility model. |
-| Assets | Cost rules, policies, ActionTypes, scenarios, and `cost-aware-remediation` workflow exist | Ownership, duplicate prevention, package-resource loading, and parity need an inventory. |
-| Extension lifecycle | Digest-bound disabled install and atomic capability activation exist | No vertical bundle atomically validates ontology profiles, assets, and provider requirements. |
+| FinOps package | `extensions/cost-governance/`; package build, resource, image, and lifecycle tests | Local build and lifecycle mechanics pass; governed image and lifecycle receipts remain W7 evidence. |
+| Cost advice | Injected Njord advisory provider, activation-gated collection, and separate signed effect estimates | A live-authoritative provider cohort remains unrecorded. |
+| Ontology | Exact semantic profile, additive declarations, and F1-F8 positive and negative fixtures | The profile is locally implemented; live evidence still must bind the same release. |
+| Agent runtime | Fixed pantheon, owned topics, all-responsibility replay, recovery, settlement, and learning tests | Source and synthetic evidence do not prove operational autonomy. |
+| Assets | Package-owned 12 rules, 12 policies, 12 fix templates, and one workflow with stable ids | The deprecated Core facade remains only for parity until governed rollback evidence permits removal. |
+| Extension lifecycle | Atomic availability, enablement, upgrade, disable, and N-1 rollback mechanics | Live-authoritative receipts and independent promotion decisions remain open. |
 
 ## Delivery rules
 

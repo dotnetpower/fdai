@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0.0",
+  "id": "cost-governance.w0.execute.001",
+  "outcome": "execute",
+  "driver": "thor-dispatch",
+  "input": {
+    "correlation_id": "cost-execute-001",
+    "action_type": "remediate.right-size",
+    "risk_verdict": "auto",
+    "resource_id": "resource-example-execute",
+    "idempotency_key": "cost-execute-key-001"
+  },
+  "expected": {
+    "state": "succeeded",
+    "executor_calls": 1,
+    "shadow_mode": false
+  }
+}

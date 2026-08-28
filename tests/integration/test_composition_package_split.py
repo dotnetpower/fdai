@@ -48,6 +48,9 @@ _EXPECTED_FILES = frozenset(
         # Binds the bounded context-selection shadow runner and its durable
         # comparison store; candidates never reach the active prompt path.
         "wire_context_selection.py",
+        # Adapts immutable Cost Governance package availability into the
+        # package-neutral activation store without importing package code.
+        "cost_governance_activation.py",
         # Application-level ORR wiring: composes assurance + preflight through
         # injected providers, audits the verdict, then publishes a read model.
         "readiness.py",

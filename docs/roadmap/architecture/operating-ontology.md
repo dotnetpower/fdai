@@ -566,8 +566,8 @@ name so it can be checked rather than interpreted.
 | Mimir | `ArchitectureConstraint`, `ChangeWindow` |
 | Muninn | `BusinessCapability`, `BusinessService`, `Environment`, `Ownership`, `RecoveryObjective`, `ServiceObjective`, `Workload` |
 | Norns | `Pattern` |
-| Njord | `CostObjective` |
-| Freyr | none declared |
+| Njord | `Budget`, `CostAnomaly`, `CostObjective`, `CostObservation` |
+| Freyr | `CapacityForecast`, `SizingRecommendation` |
 | Loki | `Experiment` |
 
 Three consequences of that table are load-bearing and easy to get wrong.

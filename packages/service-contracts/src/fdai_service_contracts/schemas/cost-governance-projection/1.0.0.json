@@ -1,0 +1,835 @@
+{
+  "$defs": {
+    "CostAmountPrecision": {
+      "description": "Increasing monetary precision.",
+      "enum": [
+        "none",
+        "band",
+        "rounded",
+        "exact"
+      ],
+      "title": "CostAmountPrecision",
+      "type": "string"
+    },
+    "CostDisclosurePolicy": {
+      "additionalProperties": false,
+      "description": "Server-enforced component-wise Cost Governance disclosure ceiling.",
+      "properties": {
+        "amount_precision": {
+          "$ref": "#/$defs/CostAmountPrecision"
+        },
+        "granularity": {
+          "$ref": "#/$defs/CostGranularity"
+        },
+        "identity_visibility": {
+          "$ref": "#/$defs/CostIdentityVisibility"
+        },
+        "rounding_increment": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "default": "100",
+          "title": "Rounding Increment"
+        },
+        "small_cell_minimum": {
+          "default": 3,
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Small Cell Minimum",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "granularity",
+        "identity_visibility",
+        "amount_precision"
+      ],
+      "title": "CostDisclosurePolicy",
+      "type": "object"
+    },
+    "CostGranularity": {
+      "description": "Increasingly detailed row granularity.",
+      "enum": [
+        "none",
+        "summary",
+        "group",
+        "resource"
+      ],
+      "title": "CostGranularity",
+      "type": "string"
+    },
+    "CostIdentityVisibility": {
+      "description": "Increasing identity disclosure.",
+      "enum": [
+        "none",
+        "pseudonymous",
+        "exact"
+      ],
+      "title": "CostIdentityVisibility",
+      "type": "string"
+    },
+    "CostOptimizationCaseProjection": {
+      "additionalProperties": false,
+      "description": "Read-only optimization case projection without execution authority.",
+      "properties": {
+        "amount_band": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Amount Band"
+        },
+        "amount_exact": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Amount Exact"
+        },
+        "amount_rounded": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Amount Rounded"
+        },
+        "completeness": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Completeness"
+        },
+        "currency": {
+          "title": "Currency",
+          "type": "string"
+        },
+        "kind": {
+          "const": "optimization_case",
+          "default": "optimization_case",
+          "title": "Kind",
+          "type": "string"
+        },
+        "observed_at": {
+          "format": "date-time",
+          "title": "Observed At",
+          "type": "string"
+        },
+        "provenance_digest": {
+          "title": "Provenance Digest",
+          "type": "string"
+        },
+        "record_id": {
+          "title": "Record Id",
+          "type": "string"
+        },
+        "relative_change": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Relative Change"
+        },
+        "resource": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Resource"
+        },
+        "service_id": {
+          "title": "Service Id",
+          "type": "string"
+        },
+        "source_authority": {
+          "title": "Source Authority",
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Status"
+        }
+      },
+      "required": [
+        "record_id",
+        "resource",
+        "service_id",
+        "currency",
+        "observed_at",
+        "completeness",
+        "source_authority",
+        "provenance_digest"
+      ],
+      "title": "CostOptimizationCaseProjection",
+      "type": "object"
+    },
+    "CostOutcomeProjection": {
+      "additionalProperties": false,
+      "description": "Read-only outcome projection without verification or promotion authority.",
+      "properties": {
+        "amount_band": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Amount Band"
+        },
+        "amount_exact": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Amount Exact"
+        },
+        "amount_rounded": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Amount Rounded"
+        },
+        "completeness": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Completeness"
+        },
+        "currency": {
+          "title": "Currency",
+          "type": "string"
+        },
+        "kind": {
+          "const": "outcome",
+          "default": "outcome",
+          "title": "Kind",
+          "type": "string"
+        },
+        "observed_at": {
+          "format": "date-time",
+          "title": "Observed At",
+          "type": "string"
+        },
+        "provenance_digest": {
+          "title": "Provenance Digest",
+          "type": "string"
+        },
+        "record_id": {
+          "title": "Record Id",
+          "type": "string"
+        },
+        "relative_change": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Relative Change"
+        },
+        "resource": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Resource"
+        },
+        "service_id": {
+          "title": "Service Id",
+          "type": "string"
+        },
+        "source_authority": {
+          "title": "Source Authority",
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Status"
+        }
+      },
+      "required": [
+        "record_id",
+        "resource",
+        "service_id",
+        "currency",
+        "observed_at",
+        "completeness",
+        "source_authority",
+        "provenance_digest"
+      ],
+      "title": "CostOutcomeProjection",
+      "type": "object"
+    },
+    "CostResourceEfficiencyProjection": {
+      "additionalProperties": false,
+      "description": "Resource-level efficiency projection after server disclosure.",
+      "properties": {
+        "amount_band": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Amount Band"
+        },
+        "amount_exact": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Amount Exact"
+        },
+        "amount_rounded": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Amount Rounded"
+        },
+        "completeness": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Completeness"
+        },
+        "currency": {
+          "title": "Currency",
+          "type": "string"
+        },
+        "kind": {
+          "const": "resource",
+          "default": "resource",
+          "title": "Kind",
+          "type": "string"
+        },
+        "observed_at": {
+          "format": "date-time",
+          "title": "Observed At",
+          "type": "string"
+        },
+        "provenance_digest": {
+          "title": "Provenance Digest",
+          "type": "string"
+        },
+        "record_id": {
+          "title": "Record Id",
+          "type": "string"
+        },
+        "relative_change": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Relative Change"
+        },
+        "resource": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Resource"
+        },
+        "service_id": {
+          "title": "Service Id",
+          "type": "string"
+        },
+        "source_authority": {
+          "title": "Source Authority",
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Status"
+        }
+      },
+      "required": [
+        "record_id",
+        "resource",
+        "service_id",
+        "currency",
+        "observed_at",
+        "completeness",
+        "source_authority",
+        "provenance_digest"
+      ],
+      "title": "CostResourceEfficiencyProjection",
+      "type": "object"
+    },
+    "CostSummaryProjection": {
+      "additionalProperties": false,
+      "description": "Disclosure-safe grouped or all-scope spend summary.",
+      "properties": {
+        "amount_band": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Amount Band"
+        },
+        "amount_exact": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Amount Exact"
+        },
+        "amount_rounded": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Amount Rounded"
+        },
+        "currency": {
+          "title": "Currency",
+          "type": "string"
+        },
+        "group_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Group Id"
+        },
+        "kind": {
+          "const": "summary",
+          "default": "summary",
+          "title": "Kind",
+          "type": "string"
+        },
+        "record_count": {
+          "minimum": 0,
+          "title": "Record Count",
+          "type": "integer"
+        },
+        "suppressed": {
+          "default": false,
+          "title": "Suppressed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "currency",
+        "record_count"
+      ],
+      "title": "CostSummaryProjection",
+      "type": "object"
+    },
+    "CostTrendProjection": {
+      "additionalProperties": false,
+      "description": "Time-bound trend point derived from one immutable observation.",
+      "properties": {
+        "amount_band": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Amount Band"
+        },
+        "amount_exact": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Amount Exact"
+        },
+        "amount_rounded": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Amount Rounded"
+        },
+        "completeness": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Completeness"
+        },
+        "currency": {
+          "title": "Currency",
+          "type": "string"
+        },
+        "kind": {
+          "const": "trend",
+          "default": "trend",
+          "title": "Kind",
+          "type": "string"
+        },
+        "observed_at": {
+          "format": "date-time",
+          "title": "Observed At",
+          "type": "string"
+        },
+        "provenance_digest": {
+          "title": "Provenance Digest",
+          "type": "string"
+        },
+        "record_id": {
+          "title": "Record Id",
+          "type": "string"
+        },
+        "relative_change": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Relative Change"
+        },
+        "resource": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Resource"
+        },
+        "service_id": {
+          "title": "Service Id",
+          "type": "string"
+        },
+        "source_authority": {
+          "title": "Source Authority",
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Status"
+        }
+      },
+      "required": [
+        "record_id",
+        "resource",
+        "service_id",
+        "currency",
+        "observed_at",
+        "completeness",
+        "source_authority",
+        "provenance_digest"
+      ],
+      "title": "CostTrendProjection",
+      "type": "object"
+    }
+  },
+  "$id": "https://fdai.example/schemas/cost-governance-projection/1.0.0.json",
+  "additionalProperties": false,
+  "description": "Versioned server-redacted projection for one Cost Governance workspace tab.",
+  "properties": {
+    "complete": {
+      "title": "Complete",
+      "type": "boolean"
+    },
+    "disclosure": {
+      "$ref": "#/$defs/CostDisclosurePolicy"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "items": {
+      "default": [],
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "optimization_case": "#/$defs/CostOptimizationCaseProjection",
+            "outcome": "#/$defs/CostOutcomeProjection",
+            "resource": "#/$defs/CostResourceEfficiencyProjection",
+            "summary": "#/$defs/CostSummaryProjection",
+            "trend": "#/$defs/CostTrendProjection"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/CostSummaryProjection"
+          },
+          {
+            "$ref": "#/$defs/CostTrendProjection"
+          },
+          {
+            "$ref": "#/$defs/CostResourceEfficiencyProjection"
+          },
+          {
+            "$ref": "#/$defs/CostOptimizationCaseProjection"
+          },
+          {
+            "$ref": "#/$defs/CostOutcomeProjection"
+          }
+        ]
+      },
+      "title": "Items",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source_authority": {
+      "title": "Source Authority",
+      "type": "string"
+    },
+    "suppressed_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Suppressed Count",
+      "type": "integer"
+    },
+    "surface": {
+      "enum": [
+        "overview",
+        "resource-efficiency",
+        "optimization-cases",
+        "outcomes"
+      ],
+      "title": "Surface",
+      "type": "string"
+    },
+    "type": {
+      "const": "cost-governance.projection",
+      "default": "cost-governance.projection",
+      "title": "Type",
+      "type": "string"
+    }
+  },
+  "required": [
+    "surface",
+    "disclosure",
+    "generated_at",
+    "source_authority",
+    "complete"
+  ],
+  "title": "CostGovernanceProjection",
+  "type": "object"
+}

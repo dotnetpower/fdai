@@ -15,6 +15,7 @@ members = [
     "fdai-benchmark-sregym",
     "fdai-code-assurance",
     "fdai-core-control-plane",
+    "fdai-cost-governance",
     "fdai-document-ingestion-api",
     "fdai-document-processing-worker",
     "fdai-evaluation-sdk",
@@ -907,6 +908,16 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0,<7" },
     { name = "sqlalchemy", specifier = ">=2.0,<3" },
 ]
+
+[[package]]
+name = "fdai-cost-governance"
+source = { editable = "extensions/cost-governance" }
+dependencies = [
+    { name = "fdai-core-control-plane" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "fdai-core-control-plane", editable = "services/core-control-plane" }]
 
 [[package]]
 name = "fdai-document-ingestion-api"

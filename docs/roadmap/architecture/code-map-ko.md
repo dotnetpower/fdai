@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 9b3a0949f83a5295315d865e04776d38cb913526
+translation_source_sha: b4917ad5cd9344f61009d56e7b86c92801eba264
 translation_revised: 2026-08-28
 ---
 # 코드 맵
@@ -37,6 +37,7 @@ translation_revised: 2026-08-28
 | 문서 처리 워커 | [fdai_document_worker_service](../../../services/document-processing-worker/src/fdai_document_worker_service/) | [워커 테스트](../../../services/document-processing-worker/tests/) | `fdai-document-processing-worker` |
 | Isolated 실행기 | [fdai_executor_service](../../../services/isolated-executor/src/fdai_executor_service/) | [실행기 테스트](../../../services/isolated-executor/tests/) | `fdai-isolated-executor-service` |
 | 서비스 계약 | [fdai_service_contracts](../../../packages/service-contracts/src/fdai_service_contracts/) | [계약 테스트](../../../packages/service-contracts/tests/) | `fdai-service-contracts` |
+| 선택적 비용 거버넌스 패키지 | [fdai_cost_governance](../../../extensions/cost-governance/src/fdai_cost_governance/) | [패키지 테스트](../../../extensions/cost-governance/tests/) | `fdai-cost-governance` |
 | 서비스 간 통합 | 해당 없음 | [루트 통합 테스트](../../../tests/integration/) | 가상 루트 only |
 
 ## Core 컨트롤 플레인 지도

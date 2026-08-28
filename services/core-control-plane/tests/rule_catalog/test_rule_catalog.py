@@ -92,6 +92,12 @@ def test_shipped_catalog_loads_and_covers_every_action_type() -> None:
     )
     assert len(rules) >= 5
     remediated = {r.remediates for r in rules}
+    # These generic ActionTypes are bound only when the Cost Governance package is active.
+    package_owned = {
+        "remediate.remove-orphan-resource",
+        "remediate.right-size",
+        "remediate.set-retention-policy",
+    }
     # P1 W-2: every shipped rule-violation-trigger ActionType MUST be referenced
     # by at least one rule. ActionTypes with trigger_kind={operator_request,both}
     # are operator-driven and are allowed to ship without a rule (see
@@ -99,7 +105,7 @@ def test_shipped_catalog_loads_and_covers_every_action_type() -> None:
     # is legal.
     for at in action_types:
         tk = at.trigger_kind.kind.value if at.trigger_kind else "rule_violation"
-        if tk == "rule_violation":
+        if tk == "rule_violation" and at.name not in package_owned:
             assert at.name in remediated, (
                 f"ActionType {at.name!r} has no rule; W-2 requires >=1 for rule_violation trigger"
             )
