@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 
 from fdai_operator_service.context_selection import ContextSelectionRegistry
 from fdai_operator_service.families.operations.contracts import (
+    UNSELECTABLE_INSTANCE_DIRECTORY_TYPES,
     InventoryImpactContext,
     InventoryInstanceActivity,
     InventoryInstanceReader,
@@ -87,7 +88,7 @@ async def project_inventory_instances(
             query=query,
             release_digest=release_digest,
             source_generation=context.snapshot_id,
-            resource_ids=tuple(resource.resource_id for resource in page.resources),
+            resource_ids=_selectable_resource_ids(page.resources),
             complete=not page.truncated,
             selection_registry=selection_registry,
         ),
@@ -266,7 +267,7 @@ async def project_inventory_instance(
             query=query,
             release_digest=release_digest,
             source_generation=context.snapshot_id,
-            resource_ids=tuple(resource.resource_id for resource in neighborhood.resources),
+            resource_ids=_selectable_resource_ids(neighborhood.resources),
             complete=not truncation_reasons and not context.relationship_drop_reasons,
             selection_registry=selection_registry,
         ),
@@ -453,6 +454,16 @@ def _context_identity(
         "selection_digest": selection_digest,
         "context_capability": {"selection_token": selection_token},
     }
+
+
+def _selectable_resource_ids(
+    resources: tuple[InventoryInstanceResource, ...],
+) -> tuple[str, ...]:
+    return tuple(
+        resource.resource_id
+        for resource in resources
+        if resource.resource_type not in UNSELECTABLE_INSTANCE_DIRECTORY_TYPES
+    )
 
 
 def _resource_projection(

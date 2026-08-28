@@ -118,6 +118,9 @@ class InventoryImpactReader(Protocol):
         ...
 
 
+UNSELECTABLE_INSTANCE_DIRECTORY_TYPES = frozenset({"authorization.role-assignment"})
+
+
 @dataclass(frozen=True, slots=True)
 class InventoryInstanceResource:
     """One active-snapshot Resource row for bounded instance exploration."""

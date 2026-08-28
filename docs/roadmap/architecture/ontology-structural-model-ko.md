@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 1eb33c6257a60b64d96cacbc669e75d09f46a687
+translation_source_sha: 431ac2e3c7574a36dd6c70868da6513ba5ecb971
 translation_revised: 2026-08-28
 ---
 # 온톨로지 구조 모델
@@ -338,6 +338,7 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-28 | implemented | 이 문서가 이미 요구하는 conversational screen context용 `authorization.role-assignment` 생략 규칙의 공백을 닫았습니다. `ontology-instances.tsx`의 exact-screen selection identity는 가져온 모든 Resource에서 `resourceIds`를 만들었으며, 같은 화면이 이미 그래프, 범례, Inspector에서 제외하는 숨겨진 role assignment도 포함했습니다. identity 빌더는 `ontology-instances.model.ts`로 옮겨져 `ontologyInstanceContextIdentity`가 되었고, 이제 id를 매핑하기 전에 기존 `isOntologyInstancePresentationResource` 가드로 필터링하므로 숨겨진 role assignment만 있는 directory가 더는 bound된 non-empty selection처럼 보이지 않습니다. | `current change`; `console/src/routes/ontology-instances.model.test.ts`(`30개 통과`); Console 타입 검사 통과 | 이 presentation 구획에는 범위가 제한된 구현 작업이 남아 있지 않습니다. |
+| 2026-08-28 | implemented | 권위 있는 Operator 선택 발급자에도 같은 생략 규칙을 적용했습니다. 서버는 선택할 수 있는 Resource 유형만으로 다이제스트와 토큰을 계산하므로, 토큰을 해소해도 Console에서 생략한 역할 할당 ID를 복원할 수 없습니다. | `current change`; 집중 Operator 인스턴스 변환 결과 검사(`8 passed`); Ruff 및 strict mypy | 인증된 화면 간 근거를 보존합니다. 실제 서비스는 조회하지 않았습니다. |
 | 2026-08-27 | implemented | 완전한 빈 instance directory를 유효한 읽기 결과로 유지했습니다. 빈 capability 발급을 시도해 HTTP 400을 반환하지 않고 contextual selection identity를 생략합니다. | `current change`, 집중 Operator instance-projection 검사(`7 passed`), Ruff 및 strict mypy | 인증된 Console 빈 검색 근거는 별도로 보존합니다. 런타임 근거를 생성하지 않았습니다. |
 | 2026-08-26 | implemented | 정확한 Node `providerID`와 VMSS VM 아이덴티티 연결, Ingress 및 EndpointSlice 런타임 분류 체계, 명시적인 Kubernetes 출처 가용성, 런타임을 구분하는 Operator 및 Console LinkType 프로젝션, 근거만 사용하는 AKS 첫 화면 커버리지 대역을 추가했습니다. | `current change`, 집중 카탈로그 및 인벤토리 통합 검사 111개, 집중 Operator 검사 30개, 집중 Console 검사 60개가 통과했습니다. 권위 있는 로컬 새로 고침은 Resource 897개와 인벤토리 링크 1,640개를 보존했습니다. Snapshot과 ontology 아이덴티티 집합이 정확히 일치했고 dangling, duplicate, multiple-parent, endpoint-type 및 generation 불일치는 모두 0이었습니다. 선택한 중지된 AKS 분기는 managed Resource Group 1개, 직접 AgentPool 1개, VMSS Resource 4개를 보존했습니다. 정확한 VMSS VM 또는 VMSS NIC child edge는 0개였습니다. Kubernetes 런타임은 명시적으로 `unavailable`이었으므로 Node, Pod, Service, Endpoint 및 연결 개수도 0으로 유지됐습니다. | 런타임 검증을 주장하기 전에 하나의 완전하고 정확한 클러스터 Kubernetes API 세대를 보존합니다. 외부 gateway 또는 load balancer와 Kubernetes 아이덴티티 사이의 관계는 권위 있는 출처가 두 엔드포인트를 입증할 때까지 알 수 없음으로 유지합니다. |
 | 2026-08-25 | implemented | VMSS VM 및 NIC child의 bounded ARM collection과 role assignment를 숨기고 선택한 root의 immediate Resource Group context만 유지하는 기본 presentation 규칙을 추가했습니다. | 집중 Python 검사 43개와 Console 검사 59개, Ruff, strict mypy, typecheck 및 build가 통과했습니다. Local refresh는 Resource 901개와 ontology link 2,550개를 정확한 generation agreement 및 structural invariant violation 0으로 승격했습니다. 인증된 VNet 및 AKS view는 VNet direct owner group 하나를 유지하고 VMSS, VM, NIC hierarchy node를 표시했습니다. | 범위가 제한된 구현 작업은 남아 있지 않습니다. 배포 근거는 별도입니다. |
