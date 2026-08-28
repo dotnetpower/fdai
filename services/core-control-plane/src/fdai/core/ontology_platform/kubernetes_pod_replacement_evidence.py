@@ -231,50 +231,59 @@ def evaluate_kubernetes_pod_replacement(
 
     new_pod = admitted[0]
     current_gaps, current_conflicts = _current_metadata_findings(new_pod.metadata, cutoff=cutoff)
-    gaps = [*historical_gaps, *current_gaps]
-    conflicts = [*historical_conflicts, *current_conflicts]
-    for field_name, value in (
-        ("old_owner_uid", old_pod.owner_uid),
-        ("new_owner_uid", new_pod.owner_uid),
-        ("root_controller_uid", old_pod.root_controller_uid),
-        ("root_controller_kind", old_pod.root_controller_kind),
-        ("new_pod_created_at", new_pod.created_at),
-    ):
-        if value is None:
-            gaps.append(f"{field_name}_unavailable")
-    if old_pod.root_controller_kind != new_pod.root_controller_kind:
-        conflicts.append("root_controller_kind_conflict")
-    if old_pod.workload_revision is None and new_pod.workload_revision is not None:
-        gaps.append("old_workload_revision_unavailable")
-    if old_pod.workload_revision is not None and new_pod.workload_revision is None:
-        gaps.append("new_workload_revision_unavailable")
-    if (
-        old_pod.workload_revision is not None
-        and new_pod.workload_revision is not None
-        and old_pod.workload_revision != new_pod.workload_revision
-        and old_pod.owner_uid == new_pod.owner_uid
-    ):
-        conflicts.append("workload_revision_conflict")
-
     if old_pod.pod_uid == new_pod.pod_uid:
+        # Same UID already proves identity beyond doubt: the old/new correlation
+        # checks below (owner, root controller, workload revision) exist only to
+        # justify treating two *different* Pod UIDs as one replacement lineage.
+        # Gating a same-UID restart on them - or on the historical Pod's own
+        # evidence freshness, since the current observation supersedes it -
+        # would make a fully evidenced restart look incomplete for no reason.
         status = KubernetesPodReplacementStatus.CONTAINER_RESTART
         replacement_supported = False
-    elif old_pod.owner_uid != new_pod.owner_uid:
-        status = KubernetesPodReplacementStatus.ROLLOUT_REPLACEMENT
-        replacement_supported = not gaps and not conflicts
+        gaps = list(current_gaps)
+        conflicts = list(current_conflicts)
     else:
-        status = KubernetesPodReplacementStatus.POD_REPLACEMENT
-        replacement_supported = not gaps and not conflicts
-        _append_termination_findings(
-            gaps,
-            conflicts,
-            old_pod=old_pod,
-            new_pod=new_pod,
-            termination=termination,
-            cutoff=cutoff,
-            ordering_margin=ordering_margin,
-        )
-        replacement_supported = not gaps and not conflicts
+        gaps = [*historical_gaps, *current_gaps]
+        conflicts = [*historical_conflicts, *current_conflicts]
+        for field_name, value in (
+            ("old_owner_uid", old_pod.owner_uid),
+            ("new_owner_uid", new_pod.owner_uid),
+            ("root_controller_uid", old_pod.root_controller_uid),
+            ("root_controller_kind", old_pod.root_controller_kind),
+            ("new_pod_created_at", new_pod.created_at),
+        ):
+            if value is None:
+                gaps.append(f"{field_name}_unavailable")
+        if old_pod.root_controller_kind != new_pod.root_controller_kind:
+            conflicts.append("root_controller_kind_conflict")
+        if old_pod.workload_revision is None and new_pod.workload_revision is not None:
+            gaps.append("old_workload_revision_unavailable")
+        if old_pod.workload_revision is not None and new_pod.workload_revision is None:
+            gaps.append("new_workload_revision_unavailable")
+        if (
+            old_pod.workload_revision is not None
+            and new_pod.workload_revision is not None
+            and old_pod.workload_revision != new_pod.workload_revision
+            and old_pod.owner_uid == new_pod.owner_uid
+        ):
+            conflicts.append("workload_revision_conflict")
+
+        if old_pod.owner_uid != new_pod.owner_uid:
+            status = KubernetesPodReplacementStatus.ROLLOUT_REPLACEMENT
+            replacement_supported = not gaps and not conflicts
+        else:
+            status = KubernetesPodReplacementStatus.POD_REPLACEMENT
+            replacement_supported = not gaps and not conflicts
+            _append_termination_findings(
+                gaps,
+                conflicts,
+                old_pod=old_pod,
+                new_pod=new_pod,
+                termination=termination,
+                cutoff=cutoff,
+                ordering_margin=ordering_margin,
+            )
+            replacement_supported = not gaps and not conflicts
 
     recovery_verified = _recovery_verified(
         new_pod,

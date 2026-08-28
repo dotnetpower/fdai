@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 427aa3f9d175e937eda0ddf5d6cb23c449bfb2be
+translation_source_sha: c10469e1081f2e2eecbfb51ab3568842e4683a81
 translation_revised: 2026-08-28
 ---
 # 지속형 운영 인스턴스 그래프
@@ -242,6 +242,7 @@ binding을
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-28 | implemented | 로그 공급자 I/O 전에 정확한 Pod 진단을 강화했습니다. 종료 근거는 요청한 조회 기간 안에 있어야 하고 수명 주기 행은 정확한 Pod UID가 일치할 때만 기여할 수 있습니다. 변환된 Pod 상태에는 출처 계보를 갖춘 완전하고 최신이며 충돌이 없고 합성이 아닌 공급자 메타데이터가 필요합니다. 같은 UID 교체 축약은 불변 UID가 이미 대체한 과거 소유권 근거를 더 이상 요구하지 않습니다. | `current change`; 집중 Pod 진단 및 교체 검사(`27 passed`); Ruff 및 strict mypy | 인증된 정확한 대상 진단 근거는 별도로 보존합니다. 실제 공급자는 조회하지 않았습니다. |
 | 2026-08-27 | implemented | Kubernetes LIST pagination과 atomic persistence 상한을 맞췄습니다. 반환된 각 page 항목을 모두 소비하므로 continuation 뒤의 숨은 sentinel 행을 건너뛸 수 없고, 완전히 소진한 8개 page poll 하나가 cursor fence를 적용한 append 하나에 들어갑니다. | `current change`, lifecycle source, collector 및 PostgreSQL store 검사(`40 passed`, `FDAI_DATABASE_URL` 미설정으로 `5 skipped`), Ruff 및 strict mypy | Live cluster 및 durable PostgreSQL 증적은 별도로 보존합니다. 외부 근거를 생성하지 않았습니다. |
 | 2026-08-27 | implemented | 양방향 `runtime_calls` 관측을 directional edge 두 개로 보존했습니다. 서비스 간 상호 호출은 더 이상 orientation conflict로 전체 topology baseline을 억제하지 않습니다. | `current change`, 집중 inventory projection 및 topology-history 검사(`29 passed`), Ruff 및 strict mypy | 인증된 runtime-call 근거는 별도로 보존합니다. 출처 관측을 만들지 않았습니다. |
 | 2026-08-27 | implemented | 인벤토리 manifest 다시 읽기와 PostgreSQL topology 재생을 projection publisher의 canonical 링크 순서에 맞췄습니다. 여러 LinkType이 있는 세대도 멱등적으로 재생되며, 저장된 1.2.0 manifest는 자체 링크 키를 거부하지 않고 1.3.0으로 다시 만들 수 있습니다. | `current change`, 집중 inventory ontology 및 PostgreSQL topology-history 검사(`23 passed`), Ruff 및 strict mypy | 배포 환경의 재시작 및 재생 근거는 별도로 보존합니다. 외부 출처는 조회하지 않았습니다. |
