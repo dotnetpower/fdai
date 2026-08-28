@@ -8,8 +8,10 @@ from __future__ import annotations
 
 import json
 import re
+from ipaddress import ip_address
 from pathlib import Path
 from typing import Any, cast
+from urllib.parse import urlsplit
 
 import pytest
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
@@ -30,6 +32,30 @@ _NONZERO_GUID = re.compile(
     r"\b(?!00000000-0000-0000-0000-[0-9a-fA-F]{12}\b)"
     r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b"
 )
+_AZURE_RESOURCE_ID = re.compile(r"(?i)/subscriptions/([^/\s]+)/")
+_EMAIL = re.compile(r"(?i)(?<![A-Z0-9._%+-])[A-Z0-9._%+-]+@([^@\s,;<>()[\]]+)")
+_URI = re.compile(r"(?i)[a-z][a-z0-9+.-]*://[^\s<>()]+")
+_IP_ADDRESS = re.compile(r"(?<![0-9])(?:[0-9]{1,3}\.){3}[0-9]{1,3}(?![0-9])")
+_IPV6_CANDIDATE = re.compile(r"(?i)(?<![0-9a-f:])(?:[0-9a-f]{0,4}:){2,}[0-9a-f:]{0,4}")
+_SENSITIVE_KEYS = frozenset(
+    {
+        "accesskey",
+        "accesstoken",
+        "apikey",
+        "clientsecret",
+        "connectionstring",
+        "credential",
+        "password",
+        "privatekey",
+        "refreshtoken",
+        "sas",
+        "sastoken",
+        "secret",
+        "token",
+    }
+)
+_SYNTHETIC_GUID = "00000000-0000-0000-0000-000000000000"
+_ALLOWED_HOSTS = frozenset({"example.com", "localhost"})
 _MACHINE_FIELD = re.compile(r"(?:^|_)(?:id|ids|ref|refs|path|paths|type|version|key)$")
 _MACHINE_FIELDS = frozenset(
     {
@@ -48,13 +74,32 @@ def _load_scenario_schema() -> dict[str, Any]:
     return cast(dict[str, Any], json.loads(SCHEMA_PATH.read_text(encoding="utf-8")))
 
 
+def _nonzero_test_guid(digit: str) -> str:
+    return f"{digit * 8}-{digit * 4}-{digit * 4}-{digit * 4}-{digit * 12}"
+
+
 def _load_scenarios() -> list[tuple[Path, dict[str, Any]]]:
     files = sorted(path for path in SCENARIO_DIR.glob("*.json") if path.name != "manifest.json")
-    return [(p, cast(dict[str, Any], json.loads(p.read_text(encoding="utf-8")))) for p in files]
+    return [
+        (p, cast(dict[str, Any], _load_json_without_duplicates(p.read_text(encoding="utf-8"))))
+        for p in files
+    ]
 
 
 def _load_manifest() -> dict[str, Any]:
     return cast(dict[str, Any], json.loads(MANIFEST_PATH.read_text(encoding="utf-8")))
+
+
+def _load_json_without_duplicates(text: str) -> object:
+    def unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+        result: dict[str, object] = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("scenario JSON contains a duplicate key")
+            result[key] = value
+        return result
+
+    return json.loads(text, object_pairs_hook=unique_object)
 
 
 def _test_ref_exists(test_ref: str) -> bool:
@@ -102,6 +147,145 @@ def _non_ascii_machine_fields(
     elif machine_context and isinstance(value, str) and not value.isascii():
         invalid.append(".".join(path))
     return tuple(dict.fromkeys(invalid))
+
+
+def _customer_data_findings(
+    value: object,
+    *,
+    path: tuple[str, ...] = (),
+) -> tuple[str, ...]:
+    findings: list[str] = []
+    if isinstance(value, dict):
+        for key, item in value.items():
+            key_path = (*path, str(key))
+            findings.extend(_string_customer_findings(str(key), ".".join(key_path), field=None))
+            if _is_sensitive_key(str(key)) and item not in (None, False, "", "<redacted>"):
+                findings.append(f"{'.'.join(key_path)}:sensitive_value")
+            findings.extend(_customer_data_findings(item, path=key_path))
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            findings.extend(_customer_data_findings(item, path=(*path, str(index))))
+    elif isinstance(value, str):
+        location = ".".join(path)
+        findings.extend(
+            _string_customer_findings(
+                value,
+                location,
+                field=path[-1] if path else None,
+            )
+        )
+    return tuple(dict.fromkeys(findings))
+
+
+def _string_customer_findings(
+    value: str,
+    location: str,
+    *,
+    field: str | None,
+) -> tuple[str, ...]:
+    findings: list[str] = []
+    normalized_field = re.sub(r"[^a-z0-9]", "", (field or "").casefold())
+    for subscription in _AZURE_RESOURCE_ID.findall(value):
+        if subscription.casefold() != _SYNTHETIC_GUID:
+            findings.append(f"{location}:azure_subscription")
+    findings.extend(_azure_resource_name_findings(value, location))
+    for domain in _EMAIL.findall(value):
+        if domain.casefold().rstrip(".!?") != "example.com":
+            findings.append(f"{location}:email")
+
+    parsed_uris = tuple(urlsplit(match.rstrip(".,;!?")) for match in _URI.findall(value))
+    network_field = normalized_field.endswith(("endpoint", "host", "hostname", "url", "uri"))
+    candidates = parsed_uris or ((urlsplit(f"//{value}"),) if network_field else ())
+    for candidate in candidates:
+        host = candidate.hostname
+        if host is None or not _allowed_host(host):
+            findings.append(f"{location}:url")
+
+    ip_candidates = {
+        *(_IP_ADDRESS.findall(value)),
+        *(_IPV6_CANDIDATE.findall(value)),
+        *(candidate.hostname for candidate in candidates if candidate.hostname is not None),
+    }
+    for candidate in ip_candidates:
+        try:
+            address = ip_address(candidate.strip("[]"))
+        except ValueError:
+            continue
+        if not address.is_loopback:
+            findings.append(f"{location}:ip_address")
+
+    if normalized_field in {"tenantid", "subscriptionid"} and value != _SYNTHETIC_GUID:
+        findings.append(f"{location}:cloud_account_id")
+    if normalized_field in {"resourcegroup", "resourcegroupname", "resourcename"} and (
+        not _synthetic_resource_name(value)
+    ):
+        findings.append(f"{location}:azure_resource_name")
+    return tuple(dict.fromkeys(findings))
+
+
+def _allowed_host(host: str) -> bool:
+    normalized = host.casefold().rstrip(".")
+    if normalized in _ALLOWED_HOSTS or normalized.endswith(".example.local"):
+        return True
+    try:
+        return ip_address(normalized).is_loopback
+    except ValueError:
+        return False
+
+
+def _is_sensitive_key(key: str) -> bool:
+    separated = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", key)
+    parts = tuple(part for part in re.split(r"[^a-z0-9]+", separated.casefold()) if part)
+    normalized = "".join(parts)
+    if normalized in _SENSITIVE_KEYS:
+        return True
+    if "password" in parts or "credential" in parts:
+        return True
+    if "secret" in parts and not {"store", "name", "ref", "id", "type", "count"} & set(parts):
+        return True
+    pairs = set(zip(parts, parts[1:], strict=False))
+    return bool(
+        pairs
+        & {
+            ("access", "key"),
+            ("access", "token"),
+            ("api", "key"),
+            ("client", "secret"),
+            ("connection", "string"),
+            ("private", "key"),
+            ("refresh", "token"),
+            ("sas", "token"),
+        }
+    )
+
+
+def _azure_resource_name_findings(value: str, location: str) -> tuple[str, ...]:
+    if "/subscriptions/" not in value.casefold():
+        return ()
+    segments = tuple(segment for segment in value.split("/") if segment)
+    lowered = tuple(segment.casefold() for segment in segments)
+    findings: list[str] = []
+    if "resourcegroups" in lowered:
+        index = lowered.index("resourcegroups")
+        if index + 1 >= len(segments) or not _synthetic_resource_name(segments[index + 1]):
+            findings.append(f"{location}:azure_resource_name")
+    for index, segment in enumerate(lowered):
+        if segment != "providers" or index + 3 >= len(segments):
+            continue
+        for name_index in range(index + 3, len(segments), 2):
+            if not _synthetic_resource_name(segments[name_index]):
+                findings.append(f"{location}:azure_resource_name")
+                break
+    return tuple(dict.fromkeys(findings))
+
+
+def _synthetic_resource_name(value: str) -> bool:
+    normalized = value.casefold()
+    return (
+        "example" in normalized
+        or "acme" in normalized
+        or (normalized.startswith("<") and normalized.endswith(">"))
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -210,6 +394,12 @@ def test_scenario_carries_no_non_zero_guid(path: Path, raw: dict[str, Any]) -> N
 
 
 @pytest.mark.parametrize(("path", "raw"), _load_scenarios())
+def test_scenario_carries_no_customer_data(path: Path, raw: dict[str, Any]) -> None:
+    findings = _customer_data_findings(raw)
+    assert not findings, f"{path.name} contains customer data: {findings}"
+
+
+@pytest.mark.parametrize(("path", "raw"), _load_scenarios())
 def test_scenario_machine_fields_are_ascii(path: Path, raw: dict[str, Any]) -> None:
     invalid = _non_ascii_machine_fields(raw)
     assert not invalid, f"{path.name} contains non-ASCII machine fields: {invalid}"
@@ -248,6 +438,86 @@ def test_scenario_schema_allows_korean_values_but_not_identifiers() -> None:
     nested_candidate["id"] = _load_scenarios()[0][1]["id"]
     nested_candidate["event"]["payload"]["resource_ref"] = {"value": "리소스:예제"}
     assert "event.payload.resource_ref.value" in _non_ascii_machine_fields(nested_candidate)
+
+
+def test_customer_data_scrubber_rejects_each_prohibited_class() -> None:
+    prohibited = (
+        ({"tenant_id": _nonzero_test_guid("1")}, "cloud_account_id"),
+        ({"subscription_id": _nonzero_test_guid("2")}, "cloud_account_id"),
+        (
+            {"resource_ref": (f"/subscriptions/{_nonzero_test_guid('3')}/resourceGroups/x")},
+            "azure_subscription",
+        ),
+        ({"endpoint": "https://private.contoso.invalid/resource"}, "url"),
+        ({"endpoint": "amqps://private.contoso.invalid/resource"}, "url"),
+        ({"endpoint": "https://example.com@private.contoso.invalid/resource"}, "url"),
+        ({"owner_email": "operator@contoso.invalid"}, "email"),
+        ({"owner_email": "operator@corp"}, "email"),
+        ({"address": "10.1.2.3"}, "ip_address"),
+        ({"address": "2001:4860:4860::8888"}, "ip_address"),
+        ({"client_secret": "not-a-real-secret"}, "sensitive_value"),
+        ({"clientSecret": "not-a-real-secret"}, "sensitive_value"),
+        ({"client-secret": "not-a-real-secret"}, "sensitive_value"),
+        ({"secret": "not-a-real-secret"}, "sensitive_value"),
+        ({"api_key": "not-a-real-secret"}, "sensitive_value"),
+        ({"database_password": "not-a-real-secret"}, "sensitive_value"),
+        ({"azure_client_secret_value": "not-a-real-secret"}, "sensitive_value"),
+        ({"operator@contoso.invalid": True}, "email"),
+        ({"10.1.2.3": "healthy"}, "ip_address"),
+        ({"resource_group": "customer-prod"}, "azure_resource_name"),
+        ({"resource_name": "customer-vm"}, "azure_resource_name"),
+        (
+            {
+                "resource_ref": (
+                    f"/subscriptions/{_SYNTHETIC_GUID}/resourceGroups/customer-prod/"
+                    "providers/Microsoft.Compute/virtualMachines/customer-vm"
+                )
+            },
+            "azure_resource_name",
+        ),
+    )
+
+    for value, expected in prohibited:
+        assert any(finding.endswith(f":{expected}") for finding in _customer_data_findings(value))
+
+
+def test_customer_data_scrubber_allows_documented_synthetic_values() -> None:
+    synthetic = {
+        "tenant_id": _SYNTHETIC_GUID,
+        "subscription_id": _SYNTHETIC_GUID,
+        "resource_ref": f"/subscriptions/{_SYNTHETIC_GUID}/resourceGroups/rg-example",
+        "documentation": "https://example.com/reference",
+        "documentation_sentence": "See https://example.com/reference for details.",
+        "local_endpoint": "https://service.example.local/status",
+        "ipv4_endpoint": "http://127.0.0.1:8080/status",
+        "ipv6_endpoint": "http://[::1]:8080/status",
+        "owner_email": "user@example.com",
+        "email_sentence": "Contact user@example.com; then continue.",
+        "loopback": "127.0.0.1",
+        "client_secret": "<redacted>",
+    }
+
+    assert _customer_data_findings(synthetic) == ()
+
+
+def test_customer_data_scrubber_checks_every_uri_and_email() -> None:
+    value = {
+        "documentation": (
+            "https://example.com/reference then https://private.contoso.invalid/secret"
+        ),
+        "owners": "user@example.com,operator@corp",
+    }
+
+    findings = _customer_data_findings(value)
+    assert "documentation:url" in findings
+    assert "owners:email" in findings
+
+
+def test_scenario_json_loader_rejects_duplicate_keys() -> None:
+    with pytest.raises(ValueError, match="duplicate key"):
+        _load_json_without_duplicates(
+            '{"owner_email":"operator@corp","owner_email":"user@example.com"}'
+        )
 
 
 # ---------------------------------------------------------------------------
