@@ -43,7 +43,10 @@ async def close_runtime_resources(
         except Exception:  # noqa: BLE001
             _LOGGER.warning("pantheon_stop_failed", exc_info=True)
     if runtime_state_publisher is not None:
-        await runtime_state_publisher.stop()
+        try:
+            await runtime_state_publisher.stop()
+        except Exception:  # noqa: BLE001
+            _LOGGER.warning("runtime_state_publisher_stop_failed", exc_info=True)
     await _close_bus(diagnostic_bus, warning="diagnostic_bus_close_failed")
     await _close_bus(auxiliary_bus, warning="auxiliary_bus_close_failed")
     await _close_bus(bus, warning="bus_close_failed")

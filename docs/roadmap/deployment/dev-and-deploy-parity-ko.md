@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: d3c0d1835d6c1cb8fd1f091027f55ab0a2278a36
+translation_source_sha: 36b77b167c7482983ec39ac0bd11efcda6c10fb5
 translation_revised: 2026-08-29
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -43,6 +43,7 @@ translation_revised: 2026-08-29
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-08-29 | implemented | 강화 라운드 7에서 부트스트랩 및 메시징 관점 26개를 검토하고 런타임 상태 게시기 종료 실패를 격리했습니다. 게시기 실패가 진단, 보조, 기본 bus 또는 HTTP 정리를 막을 수 없습니다. | `current change`; 집중 부트스트랩 종료 테스트. | 진단 전송 실패 중 배포 종료 근거를 보존합니다. |
 | 2026-08-29 | implemented | 로컬 및 배포 조립에 동일한 실패 시 차단 Azure Monitor push 계약을 추가했습니다. Operator Service는 Common Alert Schema Event를 검증해 영속적으로 게시하며, Core는 별도로 구성된 진단 Event Hub 소비자를 소유합니다. 어느 경로도 실행 권한을 부여하지 않습니다. | `current change`; 공유 계약, Operator 경로 및 outbox, Core 진단 브리지, 독립 서비스 Terraform 연결 및 집중 테스트. | 런타임 검증을 주장하기 전에 정확한 개정의 실제 전달 및 지연 근거를 보존합니다. |
 | 2026-08-27 | implemented | 두 instance를 허용하는 태스크 4개의 지원되지 않는 VS Code `instancePolicy: "concurrency"` 값을 스키마에 맞는 `silent` 정책으로 교체했습니다. Instance 2개 상한은 교체 launcher 하나를 계속 허용하고 세 번째 요청은 대화형 prompt로 전환하지 않고 무시합니다. | `current change`, 설치된 VS Code 1.135 parser 및 스키마 검토, 집중 workspace 태스크 계약 | 태스크 정책 유효성에 남은 구현 작업은 없습니다. Runtime Event 출처 접근은 별도의 외부 근거 문제입니다. |
 | 2026-08-27 | implemented | 인증된 Event 답변 검증 중 두 번 재시작을 요청한 뒤에도 활성 Core source digest가 오래된 상태로 유지되는 것을 확인하고 Core 및 Operator 재시작 태스크의 동시 실행을 수정했습니다. 재시작 태스크가 장기 실행 supervisor를 직접 소유하므로 `instanceLimit: 1`과 조용한 중복 처리는 교체 launcher 실행을 막았습니다. 이제 재시작 태스크는 동시 교체 invocation 하나를 허용하고 일반 시작 태스크는 singleton을 유지합니다. | `current change`, 두 번의 재시작 태스크 요청 뒤에도 process id가 바뀌지 않고 활성 Core digest가 현재 digest와 다른 상태를 재현, 집중 workspace 태스크 계약 4개 통과, 수정한 태스크가 오래된 Core를 active input digest와 현재 source가 정확히 일치하는 새 managed child로 교체한 뒤 서비스 준비 상태 통과 | 오래된 Core 또는 Operator 재시작 태스크 교체에 남은 구현 작업은 없습니다. 성공적인 Kubernetes Event 출처 접근은 재시작 태스크 공백이 아니라 근거 프로바이더 문제로 남습니다. |
