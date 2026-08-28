@@ -144,7 +144,78 @@ async def test_governance_publisher_rejects_path_traversal_and_identifier_mismat
 
 
 @pytest.mark.asyncio
-async def test_promotion_dispatch_requires_approved_distinct_approver_transition() -> None:
+async def test_distinct_correlation_ids_do_not_collapse_into_one_receipt() -> None:
+    """Two independent source events that happen to render the same
+    document MUST get their own auditable receipt; the idempotency key
+    binds to the correlation/source event, not content alone."""
+
+    publisher = _Publisher()
+    service = GovernedGovernancePrPublisher(
+        publisher=publisher,
+        lifecycle_store=StateStoreGovernancePrLifecycleStore(InMemoryStateStore()),
+        clock=lambda: NOW,
+    )
+
+    first = await service.publish(_document(), correlation_id="governance-a")
+    second = await service.publish(_document(), correlation_id="governance-b")
+
+    assert first.document_digest == second.document_digest
+    assert first.correlation_id == "governance-a"
+    assert second.correlation_id == "governance-b"
+    assert first.idempotency_key != second.idempotency_key
+
+
+@pytest.mark.asyncio
+async def test_mutating_the_source_document_after_publish_starts_does_not_change_the_patch() -> (
+    None
+):
+    """The digest and the rendered PR patch MUST come from the same
+    snapshot. A store whose `load` mutates the caller's still-referenced
+    document mapping (simulating a concurrent actor racing the awaited
+    lookup) must not be able to change what gets rendered or recorded."""
+    import hashlib
+    import json
+
+    from fdai.delivery.gitops_pr.governance import GovernancePrLifecycleReceipt
+
+    document = _document()
+    mutable_view = document.document  # a plain, still-mutable caller-owned dict
+
+    class _MutatingStore:
+        async def load(self, idempotency_key: str) -> GovernancePrLifecycleReceipt | None:
+            # Simulate another actor mutating the shared mapping while this
+            # lookup is awaited, before the patch is rendered.
+            mutable_view["justification"] = "TAMPERED after the digest was computed."
+            return None
+
+        async def save(self, receipt: GovernancePrLifecycleReceipt) -> None:
+            self.saved = receipt
+
+    publisher = _Publisher()
+    store = _MutatingStore()
+    service = GovernedGovernancePrPublisher(
+        publisher=publisher, lifecycle_store=store, clock=lambda: NOW
+    )
+
+    receipt = await service.publish(document, correlation_id="governance-race")
+
+    original_payload = json.dumps(
+        {
+            "schema_version": "1.0.0",
+            "rule_id": "azure-builtin.storage.secure-transfer",
+            "mode": "shadow_only",
+            "justification": "The upstream control is superseded by a narrower authored rule.",
+            "requested_by": OID_A,
+            "approved_by": OID_B,
+            "decided_at": "2026-08-15T12:00:00Z",
+        },
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    assert receipt.document_digest == hashlib.sha256(original_payload).hexdigest()
+    assert "TAMPERED" not in publisher.pr.patch
+    assert "superseded by a narrower authored rule" in publisher.pr.patch
+
     from fdai.core.rbac.roles import Role
     from fdai.delivery.promotion import (
         GovernancePromotionAttestation,
