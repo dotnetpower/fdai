@@ -142,6 +142,12 @@ class KubernetesPodRecoveryEvidenceResult(ContractBase):
     evidence_refs: tuple[str, ...]
     cause_claim_supported: Literal[False] = False
     execution_authority: Literal[False] = False
+    # A distinct lane for a conclusively verified distinct-UID replacement.
+    # ``status``/``complete``/``recovery_verified`` answer only whether THIS
+    # Pod's own restart was observed and recovered; they MUST NOT be
+    # repurposed to mean "a different Pod replaced it". This field carries
+    # that separate replacement narrative without touching restart status.
+    replacement_recovery_verified: bool = False
 
 
 def evaluate_kubernetes_pod_recovery(

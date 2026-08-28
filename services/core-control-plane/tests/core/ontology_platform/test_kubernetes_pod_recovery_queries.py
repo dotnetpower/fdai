@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from fdai.core.ontology_platform.functions import (
@@ -21,6 +23,7 @@ from fdai.core.ontology_platform.kubernetes_pod_recovery_evidence import (
 from fdai.core.ontology_platform.kubernetes_pod_recovery_queries import (
     KUBERNETES_POD_RECOVERY_FUNCTION_NAME,
     KUBERNETES_POD_RESTART_HISTORY_CONCEPT,
+    _default_replacement_context,
     evaluate_kubernetes_pod_recovery_graph,
     kubernetes_pod_recovery_function,
     kubernetes_pod_recovery_function_type,
@@ -442,7 +445,7 @@ async def test_pod_recovery_function_accepts_only_issued_receipt() -> None:
                     {
                         "row_id": "lifecycle-1",
                         "values": {
-                            "pod_id": "pod-old",
+                            "pod_id": _POD_ID,
                             "pod_uid": "pod-uid-old",
                             "cluster_ref": "cluster-a",
                             "namespace": "default",
@@ -501,10 +504,17 @@ async def test_pod_recovery_function_accepts_only_issued_receipt() -> None:
 async def test_confirmed_distinct_uid_replacement_recovers_new_pod_without_own_restart() -> None:
     """A genuinely new replacement Pod has never itself restarted.
 
+    ``status``/``complete``/``recovery_verified`` answer only whether THIS
+    Pod's own restart was observed and recovered; a genuinely new
+    replacement Pod has never itself restarted, so
     ``restart_not_observed_in_current_pod``/``restart_not_observed_in_window``
-    are spurious in that case once an independent distinct-UID replacement is
-    conclusively verified, and MUST NOT hold the composite result at
-    ``INSUFFICIENT_EVIDENCE`` despite the confirmed replacement evidence.
+    legitimately remain on the base result. A conclusively verified
+    distinct-UID replacement (a different Pod recovered the workload) MUST
+    surface only through the dedicated ``replacement_recovery_verified``
+    lane, never by promoting ``status`` to ``RECOVERED`` or by clearing
+    those restart-identity gaps -- doing so would conflate "a different Pod
+    replaced this one" with "this Pod's own restart was observed and
+    recovered".
     """
     resource = _resource_type()
     declaration = kubernetes_pod_recovery_function_type()
@@ -577,12 +587,18 @@ async def test_confirmed_distinct_uid_replacement_recovers_new_pod_without_own_r
                     {
                         "row_id": "old-failure",
                         "values": {
-                            "pod_id": "pod-old",
+                            "pod_id": _POD_ID,
                             "pod_uid": "pod-uid-old",
                             "cluster_ref": "cluster-a",
                             "namespace": "default",
                             "object_uid": "pod-uid-old",
-                            "owner_uid": "rs-uid",
+                            # Distinct from new_pod's "rs-uid" owner: this
+                            # is a legitimate ROLLOUT_REPLACEMENT (old and
+                            # new Pods are owned by different ReplicaSets
+                            # under the same Deployment), which does not
+                            # depend on any "desired_replicas_before"
+                            # equality to be conclusively verified.
+                            "owner_uid": "rs-uid-old",
                             "root_controller_uid": "deployment-uid",
                             "root_controller_kind": "Deployment",
                             "identity_observed_at": (_CUTOFF - timedelta(minutes=7)).isoformat(),
@@ -607,10 +623,16 @@ async def test_confirmed_distinct_uid_replacement_recovers_new_pod_without_own_r
     )
 
     assert isinstance(result, KubernetesPodRecoveryEvidenceResult)
-    assert result.status is KubernetesPodRecoveryStatus.RECOVERED
-    assert result.recovery_verified is True
-    assert result.complete is True
-    assert not result.evidence_gaps
+    # The base restart-status claim stays honest: this Pod's own restart was
+    # never observed, so it MUST NOT be reported as RECOVERED/verified/complete.
+    assert result.status is KubernetesPodRecoveryStatus.INSUFFICIENT_EVIDENCE
+    assert result.recovery_verified is False
+    assert result.complete is False
+    assert "restart_not_observed_in_current_pod" in result.evidence_gaps
+    assert "restart_not_observed_in_window" in result.evidence_gaps
+    # The conclusively verified distinct-UID replacement is exposed only
+    # through the dedicated lane, alongside the merged replacement evidence.
+    assert result.replacement_recovery_verified is True
     assert "old-failure" in result.evidence_refs
 
 
@@ -834,3 +856,193 @@ async def test_pod_lifecycle_cohort_query_uses_secured_controller_lineage() -> N
     )
 
     assert result["root_controller_uid"] == "deployment-uid"  # type: ignore[index]
+
+
+async def test_sibling_pod_is_not_bound_as_this_pods_predecessor() -> None:
+    """A sibling Pod under the same controller MUST NOT be treated as this
+    exact Pod's predecessor.
+
+    The durable lifecycle cohort spans every Pod identity under the same
+    root controller, so a row sharing ``owner_uid``/``root_controller_uid``
+    with the current target can still describe a wholly unrelated sibling
+    replica rather than this exact Pod's predecessor. Binding it anyway
+    would misattribute a sibling's history as this Pod's own replacement
+    evidence. Only a row that also carries this exact Pod's own ``pod_id``
+    qualifies as its predecessor.
+    """
+    resource = _resource_type()
+    declaration = kubernetes_pod_recovery_function_type()
+    release = build_ontology_release(
+        object_types=(resource,),
+        function_types=(declaration,),
+    )
+    secured = _secured(release=release)
+    controller_result, deployment_result = _owner_results(release=release)
+    authority = SecuredQueryReceiptAuthority()
+    for query_result in (secured, controller_result, deployment_result):
+        authority.issue(query_result)
+    registry = OntologyFunctionRegistry(release=release)
+    registry.register_contextual(
+        declaration,
+        kubernetes_pod_recovery_function(
+            release,
+            receipt_verifier=authority,
+            verification_context=authority.verification_context,
+        ),
+    )
+    context = FunctionInvocationContext(
+        caller_agent="Heimdall",
+        caller_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        evidence_refs=tuple(
+            sorted(
+                result.receipt.projected_result_digest
+                for result in (secured, controller_result, deployment_result)
+            )
+        ),
+    )
+
+    result = await registry.invoke(
+        KUBERNETES_POD_RECOVERY_FUNCTION_NAME,
+        {
+            "pod_query_result": secured.model_dump(mode="json"),
+            "controller_query_result": controller_result.model_dump(mode="json"),
+            "deployment_query_result": deployment_result.model_dump(mode="json"),
+            "restart_history": _restart_history(),
+            "lifecycle_cohort": {
+                "rows": [
+                    {
+                        "row_id": "sibling-failure",
+                        "values": {
+                            # A DIFFERENT ontology-level Pod identity slot
+                            # ("pod-sibling", not this Pod's own _POD_ID)
+                            # sharing the same owner/root controller: a
+                            # sibling replica, not this Pod's predecessor.
+                            "pod_id": "pod-sibling",
+                            "pod_uid": "pod-uid-sibling",
+                            "cluster_ref": "cluster-a",
+                            "namespace": "default",
+                            "object_uid": "pod-uid-sibling",
+                            "owner_uid": "rs-uid",
+                            "root_controller_uid": "deployment-uid",
+                            "root_controller_kind": "Deployment",
+                            "identity_observed_at": (_CUTOFF - timedelta(minutes=7)).isoformat(),
+                            "identity_source_revision": "sha256:" + "a" * 64,
+                            "identity_evidence_ref": "kubernetes-pod-lifecycle:" + "c" * 64,
+                            "reason": "Failed",
+                            "category": "failed",
+                            "event_type": "Warning",
+                            "event_time": (_CUTOFF - timedelta(minutes=6)).isoformat(),
+                            "recorded_time": (_CUTOFF - timedelta(minutes=5)).isoformat(),
+                            "source_revision": "100",
+                            "evidence_ref": "sibling-failure",
+                        },
+                    }
+                ],
+                "complete": True,
+                "truncation_reason": None,
+                "window_start": (_CUTOFF - timedelta(minutes=30)).isoformat(),
+            },
+        },
+        context=context,
+    )
+
+    assert isinstance(result, KubernetesPodRecoveryEvidenceResult)
+    # The sibling row MUST be rejected outright: an empty retained cohort
+    # (from this exact Pod's perspective) legitimately means a same-UID
+    # restart, so the base restart-status result stands unchanged.
+    assert result.status is KubernetesPodRecoveryStatus.RECOVERED
+    assert result.recovery_verified is True
+    assert result.complete is True
+    assert not any(gap.startswith("replacement_evidence_") for gap in result.evidence_gaps)
+    assert result.replacement_recovery_verified is False
+    assert "sibling-failure" not in result.evidence_refs
+
+
+def test_historical_replacement_context_excludes_current_pod_evidence() -> None:
+    """The historical predecessor's evidence_refs MUST only carry historical
+    identity/lifecycle evidence, never the current Pod's own evidence.
+
+    The old (historical) Pod record and the current Pod record describe two
+    distinct Pod objects; misattributing the current Pod's own state
+    evidence as historical predecessor evidence would let the current Pod
+    vouch for its own predecessor's identity.
+    """
+    resource = _resource_type()
+    release = build_ontology_release(
+        object_types=(resource,),
+        function_types=(kubernetes_pod_recovery_function_type(),),
+    )
+    pod_result = _secured(release=release)
+    _, deployment_result = _owner_results(release=release)
+    lifecycle_cohort = {
+        "rows": [
+            {
+                "row_id": "old-failure",
+                "values": {
+                    "pod_id": _POD_ID,
+                    "pod_uid": "pod-uid-old",
+                    "cluster_ref": "cluster-a",
+                    "namespace": "default",
+                    "object_uid": "pod-uid-old",
+                    "owner_uid": "rs-uid-old",
+                    "root_controller_uid": "deployment-uid",
+                    "root_controller_kind": "Deployment",
+                    "identity_observed_at": (_CUTOFF - timedelta(minutes=7)).isoformat(),
+                    "identity_source_revision": "sha256:" + "a" * 64,
+                    "identity_evidence_ref": "kubernetes-pod-lifecycle:" + "b" * 64,
+                    "reason": "Failed",
+                    "category": "failed",
+                    "event_type": "Warning",
+                    "event_time": (_CUTOFF - timedelta(minutes=6)).isoformat(),
+                    "recorded_time": (_CUTOFF - timedelta(minutes=5)).isoformat(),
+                    "source_revision": "100",
+                    "evidence_ref": "old-failure",
+                },
+            }
+        ],
+        "complete": True,
+        "truncation_reason": None,
+        "window_start": (_CUTOFF - timedelta(minutes=30)).isoformat(),
+    }
+
+    context = _default_replacement_context(
+        pod_result,
+        deployment_result=deployment_result,
+        lifecycle_cohort=lifecycle_cohort,
+    )
+
+    assert context is not None
+    old_pod = context["old_pod"]
+    old_metadata = old_pod["metadata"]
+    # "kubernetes:pod:example" is the CURRENT Pod's own evidence ref (see
+    # ``_metadata()``); it MUST NOT leak into the historical predecessor's
+    # top-level or metadata evidence_refs.
+    assert "kubernetes:pod:example" not in old_pod["evidence_refs"]
+    assert "kubernetes:pod:example" not in old_metadata["evidence_refs"]
+    assert "kubernetes-pod-lifecycle:" + "b" * 64 in old_pod["evidence_refs"]
+    assert "old-failure" in old_pod["evidence_refs"]
+    # No historical "before" Deployment snapshot was actually observed:
+    # only the current (post-replacement) snapshot is available, and it
+    # MUST NOT be fabricated into an equality with "after".
+    assert context["deployment"]["desired_replicas_before"] is None
+
+
+def test_function_artifact_digest_hashes_the_replacement_reducer_too() -> None:
+    """The declared artifact_digest MUST also cover the replacement reducer.
+
+    ``_apply_confirmed_replacement``/``_default_replacement_context`` invoke
+    the exact-target replacement reducer directly, so this function's
+    observable behavior depends on that module too; the digest MUST change
+    if either module's source changes.
+    """
+    import fdai.core.ontology_platform.kubernetes_pod_recovery_evidence as recovery_reducer_module
+    import fdai.core.ontology_platform.kubernetes_pod_recovery_queries as recovery_module
+    import fdai.core.ontology_platform.kubernetes_pod_replacement_evidence as replacement_module
+
+    source = Path(recovery_module.__file__).read_bytes()
+    reducer = Path(recovery_reducer_module.__file__).read_bytes()
+    replacement_reducer = Path(replacement_module.__file__).read_bytes()
+
+    digest = hashlib.sha256(source + b"\0" + reducer + b"\0" + replacement_reducer)
+    assert kubernetes_pod_recovery_function_type().artifact_digest == f"sha256:{digest.hexdigest()}"

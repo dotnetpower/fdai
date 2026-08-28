@@ -51,18 +51,19 @@ KUBERNETES_POD_RECOVERY_PURPOSE = "operations-review"
 KUBERNETES_POD_RESTART_SYMPTOM_CONCEPT = "pod.restart"
 KUBERNETES_POD_RESTART_HISTORY_CONCEPT = "pod.restart.history"
 
-# Gaps that ``evaluate_kubernetes_pod_recovery`` raises solely because a Pod
-# has never itself restarted. They are spurious for a brand-new replacement
-# Pod once an independent distinct-UID replacement is conclusively verified.
-_RESTART_IDENTITY_GAPS = frozenset(
-    {"restart_not_observed_in_current_pod", "restart_not_observed_in_window"}
-)
-
 
 def _source_artifact_digest() -> str:
     source = Path(__file__).read_bytes()
     reducer = Path(__file__).with_name("kubernetes_pod_recovery_evidence.py").read_bytes()
-    return f"sha256:{hashlib.sha256(source + b'\0' + reducer).hexdigest()}"
+    # ``_apply_confirmed_replacement`` and ``_default_replacement_context``
+    # invoke the exact-target replacement reducer directly, so its behavior
+    # is part of this function's declared artifact and MUST be included in
+    # the digest alongside the restart-recovery reducer above.
+    replacement_reducer = (
+        Path(__file__).with_name("kubernetes_pod_replacement_evidence.py").read_bytes()
+    )
+    digest = hashlib.sha256(source + b"\0" + reducer + b"\0" + replacement_reducer)
+    return f"sha256:{digest.hexdigest()}"
 
 
 def kubernetes_pod_recovery_function_type() -> OntologyFunctionType:
@@ -70,7 +71,7 @@ def kubernetes_pod_recovery_function_type() -> OntologyFunctionType:
 
     return OntologyFunctionType(
         name=KUBERNETES_POD_RECOVERY_FUNCTION_NAME,
-        version="1.3.0",
+        version="1.4.0",
         kind=OntologyFunctionKind.QUERY,
         artifact_digest=_source_artifact_digest(),
         publisher="fdai",
@@ -144,6 +145,7 @@ def kubernetes_pod_recovery_function_type() -> OntologyFunctionType:
                 "evidence_refs",
                 "cause_claim_supported",
                 "execution_authority",
+                "replacement_recovery_verified",
             ],
             "properties": {
                 "pod_id": {"type": "string"},
@@ -179,6 +181,7 @@ def kubernetes_pod_recovery_function_type() -> OntologyFunctionType:
                 "evidence_refs": {"type": "array", "maxItems": 128},
                 "cause_claim_supported": {"const": False},
                 "execution_authority": {"const": False},
+                "replacement_recovery_verified": {"type": "boolean"},
             },
         },
         read_sets=["Resource", "kubernetes_owned_by"],
@@ -524,17 +527,27 @@ def _historical_replacement_rows(
     pod_result: SecuredObjectSetQueryResult,
     lifecycle_cohort: Mapping[str, Any],
 ) -> tuple[Mapping[str, Any], ...]:
-    """Return retained cohort rows recording a Pod UID distinct from the current Pod.
+    """Return retained cohort rows recording this exact Pod's predecessor.
 
     An empty result legitimately means the retained cohort observed only the
     current Pod's own identity: a same-UID restart, not a replacement. That
     absence MUST NOT be conflated with missing replacement evidence.
+
+    The durable cohort spans every Pod identity under the same root
+    controller, so a sibling Pod under the same Deployment/ReplicaSet can
+    share ``owner_uid``/``root_controller_uid`` with the current target
+    while being a wholly unrelated replica. Timing and shared ownership
+    alone MUST NOT correlate a row to this exact Pod's predecessor: a row is
+    only accepted when it also carries the current target's own ``pod_id``,
+    binding it to this exact Pod's identity slot rather than an arbitrary
+    sibling.
     """
 
     pod_objects = pod_result.materialization.graph.objects
     if len(pod_objects) != 1:
         return ()
-    properties = _resource_properties(pod_objects[0])
+    pod = pod_objects[0]
+    properties = _resource_properties(pod)
     current_uid = properties.get("uid")
     if not isinstance(current_uid, str) or not current_uid.strip():
         return ()
@@ -549,7 +562,9 @@ def _historical_replacement_rows(
     return tuple(
         row
         for row in typed_rows
-        if isinstance(row.get("object_uid"), str) and row["object_uid"] != current_uid
+        if isinstance(row.get("object_uid"), str)
+        and row["object_uid"] != current_uid
+        and row.get("pod_id") == pod.id
     )
 
 
@@ -557,15 +572,21 @@ def _apply_confirmed_replacement(
     result: KubernetesPodRecoveryEvidenceResult,
     replacement: KubernetesPodReplacementEvidenceResult,
 ) -> KubernetesPodRecoveryEvidenceResult:
-    """Fold a conclusively verified distinct-UID replacement into the composite result.
+    """Expose a conclusively verified distinct-UID replacement as its own lane.
 
-    A same-UID container restart proves recovery through its own restart
-    count; ``_RESTART_IDENTITY_GAPS`` exist only because a brand-new
-    replacement Pod has, by definition, never itself "restarted". Once an
-    independent distinct-UID replacement is conclusively verified
-    (``replacement.recovery_verified``), those two gaps are spurious for this
-    Pod and MUST be cleared instead of holding the result at
-    ``INSUFFICIENT_EVIDENCE`` despite conclusive evidence of recovery.
+    ``status``/``complete``/``recovery_verified`` answer one narrow question:
+    was THIS Pod's own restart observed and did it recover? A same-UID
+    container restart answers that question directly through its own
+    restart count. A distinct-UID replacement is a completely different
+    narrative -- a different Pod object replaced the failed one -- and MUST
+    NOT be folded into those restart-status fields: doing so would represent
+    "a different Pod recovered" as "this Pod's restart was observed and
+    recovered", conflating two distinct claims. Once an independent
+    distinct-UID replacement is conclusively verified
+    (``replacement.recovery_verified``), it is instead surfaced through the
+    dedicated ``replacement_recovery_verified`` field. The restart-status
+    fields, including any ``restart_not_observed_in_*`` gaps, are left
+    exactly as computed by ``evaluate_kubernetes_pod_recovery``.
     """
 
     if replacement.status not in (
@@ -573,9 +594,8 @@ def _apply_confirmed_replacement(
         KubernetesPodReplacementStatus.ROLLOUT_REPLACEMENT,
     ):
         return result
-    if result.status is not KubernetesPodRecoveryStatus.INSUFFICIENT_EVIDENCE:
+    if not replacement.recovery_verified:
         return result
-    remaining_gaps = tuple(gap for gap in result.evidence_gaps if gap not in _RESTART_IDENTITY_GAPS)
     merged_refs = tuple(
         dict.fromkeys(
             (
@@ -585,16 +605,9 @@ def _apply_confirmed_replacement(
             )
         )
     )
-    if remaining_gaps:
-        return result.model_copy(
-            update={"evidence_gaps": remaining_gaps, "evidence_refs": merged_refs}
-        )
     return result.model_copy(
         update={
-            "complete": True,
-            "recovery_verified": True,
-            "status": KubernetesPodRecoveryStatus.RECOVERED,
-            "evidence_gaps": (),
+            "replacement_recovery_verified": True,
             "evidence_refs": merged_refs,
         }
     )
@@ -688,7 +701,6 @@ def _default_replacement_context(
                     for row in old_rows
                     if isinstance(row.get("evidence_ref"), str)
                 ),
-                *cast(tuple[str, ...], current_metadata["evidence_refs"]),
             )
         )
     )
@@ -727,6 +739,12 @@ def _default_replacement_context(
     old["ready"] = None
     old["ready_container_count"] = None
     old["metadata"] = old_metadata
+    # ``old`` starts as a copy of ``current`` (the CURRENT Pod's own
+    # record), so its top-level "evidence_refs" still holds the current
+    # Pod's own refs at this point. This is the historical predecessor's
+    # record: it MUST carry only historical identity/lifecycle evidence,
+    # never the current Pod's own evidence.
+    old["evidence_refs"] = list(cast(tuple[str, ...], old_metadata["evidence_refs"]))
     return {
         "old_pod": old,
         "candidates": [
@@ -735,9 +753,12 @@ def _default_replacement_context(
         ],
         "deployment": {
             "deployment_id": deployment.id,
-            "desired_replicas_before": _optional_replacement_int(
-                deployment_properties, "desired_replicas"
-            ),
+            # Only the CURRENT (post-replacement) Deployment snapshot is
+            # observed here; no historical "before" snapshot exists. Copying
+            # the current value into "before" would fabricate agreement
+            # with "after" and let the reducer treat that manufactured
+            # equality as proof no scaling occurred. Leave it unavailable.
+            "desired_replicas_before": None,
             "desired_replicas_after": _optional_replacement_int(
                 deployment_properties, "desired_replicas"
             ),
@@ -816,9 +837,12 @@ def _replacement_context_from_query_results(
         ],
         "deployment": {
             "deployment_id": deployment.id,
-            "desired_replicas_before": _optional_replacement_int(
-                deployment_properties, "desired_replicas"
-            ),
+            # Only the CURRENT (post-replacement) Deployment snapshot is
+            # observed here; no historical "before" snapshot exists. Copying
+            # the current value into "before" would fabricate agreement
+            # with "after" and let the reducer treat that manufactured
+            # equality as proof no scaling occurred. Leave it unavailable.
+            "desired_replicas_before": None,
             "desired_replicas_after": _optional_replacement_int(
                 deployment_properties, "desired_replicas"
             ),
