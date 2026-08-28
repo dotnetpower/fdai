@@ -16,8 +16,7 @@ from fdai_service_contracts.azure_monitor import (
 )
 
 from fdai.delivery.azure.arg_projection import to_neutral_id
-from fdai.shared.contracts.models.enums import IncidentCorrelation, Mode
-from fdai.shared.contracts.models.event import Event
+from fdai.shared.contracts.models import Event, IncidentCorrelation, Mode
 
 _EVENT_NAMESPACE = UUID("00000000-0000-0000-0000-000000000000")
 _MAX_DIAGNOSTIC_RECORDS = 1_000

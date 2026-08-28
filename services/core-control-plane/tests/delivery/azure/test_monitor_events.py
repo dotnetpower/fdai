@@ -12,7 +12,7 @@ from fdai.delivery.azure.monitor_events import (
     normalize_common_alert_schema,
     normalize_diagnostic_records,
 )
-from fdai.shared.contracts.models.event import Event
+from fdai.shared.contracts.models import Event
 
 _NOW = datetime(2026, 8, 28, 12, tzinfo=UTC)
 _TARGET = (
