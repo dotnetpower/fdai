@@ -44,6 +44,7 @@ from fdai.shared.providers.direct_api import (
     DirectApiOutcome,
     DirectApiPreconditionError,
     DirectApiPromotionError,
+    DirectApiRetryableError,
 )
 from fdai.shared.providers.testing import (
     InMemoryStateStore,
@@ -463,6 +464,20 @@ class TestAdapterOutcomes:
         assert result.outcome is DirectApiExecutionOutcome.FAILED
         assert result.rollback_succeeded is False
         assert "uncontrolled adapter error" in (result.reason or "")
+
+    @pytest.mark.asyncio
+    async def test_retryable_adapter_error_is_audited_but_not_cached(self) -> None:
+        exec_, adapter, _audit = _executor()
+        adapter.next_error(DirectApiRetryableError("temporary promotion persistence failure"))
+        action = _action()
+
+        failed = await exec_.execute(action=action)
+        retried = await exec_.execute(action=action)
+
+        assert failed.outcome is DirectApiExecutionOutcome.FAILED
+        assert "retryable adapter error" in (failed.reason or "")
+        assert retried.outcome is DirectApiExecutionOutcome.DISPATCHED
+        assert len(adapter.records) == 1
 
     @pytest.mark.asyncio
     async def test_generic_direct_api_error_maps_to_failed(self) -> None:

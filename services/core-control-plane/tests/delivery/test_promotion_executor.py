@@ -226,7 +226,7 @@ async def test_missing_exact_receipt_fails_closed() -> None:
 class _PersistFailureStateStore(InMemoryStateStore):
     """Simulate a durable-write outage after the in-memory record is staged."""
 
-    async def compare_and_set_state_with_audit(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+    async def write_state_with_audit_if_absent(self, *args, **kwargs):  # type: ignore[no-untyped-def]
         raise RuntimeError("simulated durable write failure")
 
 
@@ -263,19 +263,18 @@ class _ControlledWriteStateStore(InMemoryStateStore):
         self.release_write = asyncio.Event()
         self.calls = 0
 
-    async def compare_and_set_state_with_audit(  # type: ignore[no-untyped-def]
-        self, key, value, *, expected_revision, audit_entry
+    async def write_state_with_audit_if_absent(  # type: ignore[no-untyped-def]
+        self, key, value, audit_entry
     ):
         self.calls += 1
         if self.calls == 1:
             self.write_started.set()
             await self.release_write.wait()
             raise RuntimeError("simulated durable write failure")
-        return await super().compare_and_set_state_with_audit(
+        return await super().write_state_with_audit_if_absent(
             key,
             value,
-            expected_revision=expected_revision,
-            audit_entry=audit_entry,
+            audit_entry,
         )
 
 
@@ -285,18 +284,17 @@ class _ConcurrentCasStateStore(InMemoryStateStore):
         self._arrived = 0
         self._both_arrived = asyncio.Event()
 
-    async def compare_and_set_state_with_audit(  # type: ignore[no-untyped-def]
-        self, key, value, *, expected_revision, audit_entry
+    async def write_state_with_audit_if_absent(  # type: ignore[no-untyped-def]
+        self, key, value, audit_entry
     ):
         self._arrived += 1
         if self._arrived == 2:
             self._both_arrived.set()
         await self._both_arrived.wait()
-        return await super().compare_and_set_state_with_audit(
+        return await super().write_state_with_audit_if_absent(
             key,
             value,
-            expected_revision=expected_revision,
-            audit_entry=audit_entry,
+            audit_entry,
         )
 
 

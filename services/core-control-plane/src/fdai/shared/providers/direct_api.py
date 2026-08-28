@@ -115,6 +115,13 @@ class DirectApiPreconditionError(DirectApiError):
         super().__init__(kind="precondition", message=message)
 
 
+class DirectApiRetryableError(DirectApiError):
+    """Raised when no mutation completed and an exact retry may proceed."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(kind="retryable", message=message)
+
+
 class DirectApiAuthenticationError(DirectApiError):
     def __init__(self, message: str) -> None:
         super().__init__(kind="authentication_failed", message=message)
@@ -245,6 +252,7 @@ __all__ = [
     "DirectApiOutcome",
     "DirectApiPreconditionError",
     "DirectApiPromotionError",
+    "DirectApiRetryableError",
     "DirectApiReceipt",
     "DirectApiRequest",
 ]

@@ -29,6 +29,7 @@ from fdai.shared.providers.direct_api import (
     DirectApiPromotionError,
     DirectApiReceipt,
     DirectApiRequest,
+    DirectApiRetryableError,
 )
 from fdai.shared.providers.state_store import StateStore
 
@@ -163,6 +164,10 @@ class PromotionAttestationStore(Protocol):
         self, idempotency_key: str, request_fingerprint: str
     ) -> PromotionReservation | None: ...
 
+    async def load_replay(
+        self, idempotency_key: str, request_fingerprint: str
+    ) -> DirectApiReceipt | None: ...
+
     async def restore(
         self,
         idempotency_key: str,
@@ -175,6 +180,7 @@ class PromotionAttestationStore(Protocol):
         idempotency_key: str,
         attestation: GovernancePromotionAttestation,
         fencing_token: int,
+        receipt: DirectApiReceipt,
     ) -> None: ...
 
 
@@ -302,6 +308,25 @@ class StateStorePromotionAttestationStore:
             return None
         return PromotionReservation(attestation=attestation, fencing_token=new_revision)
 
+    async def load_replay(
+        self,
+        idempotency_key: str,
+        request_fingerprint: str,
+    ) -> DirectApiReceipt | None:
+        raw = await self._store.read_state(f"governance-promotion-attestation:{idempotency_key}")
+        if raw is None or raw.get("state") != "consumed":
+            return None
+        value = raw.get("attestation")
+        receipt = raw.get("receipt")
+        if not isinstance(value, Mapping) or not isinstance(receipt, Mapping):
+            return None
+        attestation = _attestation_from_json(value)
+        if attestation.request_fingerprint != request_fingerprint:
+            raise DirectApiPreconditionError(
+                "promotion idempotency key was already used for another request"
+            )
+        return _direct_api_receipt_from_json(receipt)
+
     async def restore(
         self,
         idempotency_key: str,
@@ -361,6 +386,7 @@ class StateStorePromotionAttestationStore:
         idempotency_key: str,
         attestation: GovernancePromotionAttestation,
         fencing_token: int,
+        receipt: DirectApiReceipt,
     ) -> None:
         """Spend the reservation permanently after a confirmed durable apply.
 
@@ -395,6 +421,7 @@ class StateStorePromotionAttestationStore:
                 "state": "consumed",
                 "revision": revision + 1,
                 "attestation": attestation.as_json(),
+                "receipt": _direct_api_receipt_json(receipt),
             },
             expected_revision=revision,
             audit_entry={
@@ -569,6 +596,12 @@ class GovernancePromotionDispatcher:
                 )
             self._confirmed.move_to_end(idempotency_key)
             return confirmed[1]
+        replay = await self._attestation_store.load_replay(
+            idempotency_key,
+            request_fingerprint,
+        )
+        if replay is not None:
+            return replay
         reservation = await self._attestation_store.consume(
             idempotency_key,
             request_fingerprint,
@@ -601,7 +634,7 @@ class GovernancePromotionDispatcher:
                 await self._attestation_store.restore(idempotency_key, attestation, fencing_token)
             except BaseException:  # noqa: BLE001, S110 - best-effort, original failure wins
                 pass
-            raise exc
+            raise DirectApiRetryableError(str(exc)) from exc
         self._confirmed[idempotency_key] = (request_fingerprint, receipt)
         self._confirmed.move_to_end(idempotency_key)
         if len(self._confirmed) > 1024:
@@ -617,7 +650,12 @@ class GovernancePromotionDispatcher:
         # stuck `reserved` record self-heals via the bounded reservation
         # lease exactly like an unrestored failure does.
         try:
-            await self._attestation_store.finalize(idempotency_key, attestation, fencing_token)
+            await self._attestation_store.finalize(
+                idempotency_key,
+                attestation,
+                fencing_token,
+                receipt,
+            )
         except BaseException:  # noqa: BLE001, S110 - best-effort, the durable apply already won
             pass
         return receipt
@@ -720,6 +758,31 @@ def _attestation_from_json(raw: Mapping[str, Any]) -> GovernancePromotionAttesta
         idempotency_key=_text(raw, "idempotency_key"),
         nonce=_text(raw, "nonce"),
         request_fingerprint=_text(raw, "request_fingerprint"),
+    )
+
+
+def _direct_api_receipt_json(receipt: DirectApiReceipt) -> dict[str, object]:
+    return {
+        "outcome": receipt.outcome.value,
+        "receipt_ref": receipt.receipt_ref,
+        "already_existed": receipt.already_existed,
+        "rollback_succeeded": receipt.rollback_succeeded,
+        "detail": receipt.detail,
+    }
+
+
+def _direct_api_receipt_from_json(raw: Mapping[str, Any]) -> DirectApiReceipt:
+    receipt_ref = raw.get("receipt_ref")
+    if not isinstance(receipt_ref, str) or not receipt_ref:
+        raise DirectApiPreconditionError("promotion replay receipt is malformed")
+    return DirectApiReceipt(
+        outcome=DirectApiOutcome(_text(raw, "outcome")),
+        receipt_ref=receipt_ref,
+        already_existed=_bool(raw, "already_existed"),
+        rollback_succeeded=(
+            _bool(raw, "rollback_succeeded") if raw.get("rollback_succeeded") is not None else None
+        ),
+        detail=_text(raw, "detail") if raw.get("detail") is not None else None,
     )
 
 

@@ -1,7 +1,7 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: 4c2d72675d985fb5536fc43d721c95fa60f57d46
+translation_source_sha: e280821f18f8342d9c7ff959320a1ee9d91f799f
 translation_revised: 2026-08-28
 ---
 
@@ -810,6 +810,7 @@ verbatim 기록되므로 과거 감사 항목 를 절대 break 하지 않음.
 | 2026-08-28 | implemented | 적용 이후 복구 경로를 안전하게 재시도할 수 있도록 했습니다. 디스패처는 범위가 제한된 정확한 요청 지문 증적 캐시를 유지하므로 `finalize` 실패 뒤 같은 프로세스에서 재시도하면 실행기를 다시 호출하지 않고 확정된 결과를 반환합니다. 프로세스가 다시 시작된 뒤에는 운영 승격 실행기가 정확히 일치하는 이미 영속된 ActionType 증적을 인식하고 레지스트리에 다시 쓰지 않은 채 멱등 성공을 반환합니다. 다른 요청 내용으로 멱등 키를 재사용하는 경우는 계속 차단합니다. | `current change`; `delivery/promotion.py`; `tests/delivery/test_governance_dispatch.py`; `tests/delivery/test_promotion_executor.py`; 집중 승격 검사(`17 passed`); Ruff, format 및 strict mypy | 프로세스 재시작과 적용 이후 확정 중단을 함께 다루는 통제된 런타임 증적을 보존합니다. 외부 시스템은 호출하지 않았습니다. |
 | 2026-08-28 | implemented | 재시작 재생이 영속 승격 권한을 단조롭게 유지하도록 했습니다. 실행기는 ActionType별 잠금 안에서 재생을 비교하기 전에 영속 레코드를 새로 읽습니다. 정확히 같은 증적은 멱등 성공을 반환하고, 더 오래됐거나 다른 증적은 최신 ENFORCE 귀속을 덮어쓸 수 없습니다. | `current change`; `delivery/promotion.py`; `tests/delivery/test_promotion_executor.py`; 집중 승격 검사(`18 passed`); Ruff 및 strict mypy | 더 최신인 영속 승격에 대한 재시작 재생을 증명하는 통제된 런타임 증적을 보존합니다. 외부 시스템은 호출하지 않았습니다. |
 | 2026-08-28 | implemented | 승격 차단을 여러 복제본과 권한 저장소 실패까지 확장했습니다. 작성자 새로 읽기는 사용할 수 없거나 잘못된 영속 권한을 지우지 않고 오류를 전달하며, 모든 승격 영속화는 단조 증가 개정과 원자적 비교 후 설정을 사용합니다. 같은 이전 개정을 관측한 두 복제본이 모두 귀속을 바꿀 수 없고 하나만 성공하며 다른 하나는 충돌을 보고합니다. | `current change`; `delivery/promotion.py`; `delivery/persistence/state_store_action_promotion.py`; 집중 승격 및 영속화 검사(`28 passed`); Ruff 및 strict mypy | 통제된 여러 복제본 런타임 증적을 보존합니다. 외부 시스템은 호출하지 않았습니다. |
+| 2026-08-28 | implemented | 승격 전달에 남아 있던 재시도 구간을 닫았습니다. 최초 권한 생성은 감사와 함께 원자적 없을 때 생성을 사용하고 후속 쓰기는 개정 비교 후 설정을 사용합니다. 소진된 증적은 재시작 재생을 위해 정확한 성공 증적을 보존하며, 복원된 적용 실패는 감사되지만 프로세스 내 및 영속 실패 결과 중복 제거에서는 제외되는 타입 지정 재시도 가능 직접 API 오류를 발생시킵니다. | `current change`; 승격, 영속화, 거버넌스 전달 및 직접 API 실행기 검사(`62 passed`); Ruff 및 strict mypy | 배포된 여러 복제본 런타임의 거버넌스 재시작 및 재시도 증적을 보존합니다. 외부 시스템은 호출하지 않았습니다. |
 
 ### 남은 작업
 

@@ -122,6 +122,8 @@ receipt rather than trusting a relabelled digest.
 Context evidence reads reserve response-envelope bytes before building the bounded evidence bundle.
 Direction-shadow promotion remains proposal-only unless the comparison pinned exact release identity
 on both sides.
+Direct API promotion adapters can report a retryable no-mutation failure; the executor records a
+failed terminal attempt without consuming the stable retry opportunity.
 The inventory ontology projector serializes graph replacement with its generation commit marker.
 Resource ObjectSet receipts preserve source generation and completeness independently from query
 truncation, including zero-result reads.
