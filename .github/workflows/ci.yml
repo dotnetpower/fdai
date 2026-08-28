@@ -528,10 +528,20 @@ jobs:
           set -euo pipefail
           base_sha=$(git rev-parse origin/${{ github.base_ref }})
           # Only *.json files under versioned scenario folders count as frozen.
-          # Adding a new version directory (or new files in the current unfrozen
-          # tip) is allowed; edits and deletes are not.
-          changed=$(git diff --name-only --diff-filter=MDR "$base_sha...HEAD" \
-                    -- 'tests/scenarios/v*/*.json' || true)
+          # A new version directory is allowed. Existing version directories
+          # reject additions, edits, deletes, renames, and type changes.
+          changed=$(git diff --name-only --diff-filter=MDRT "$base_sha...HEAD" \
+                    -- 'services/core-control-plane/tests/scenarios/v*/*.json' || true)
+          added_to_frozen=""
+          while IFS= read -r file; do
+            [[ -z "$file" ]] && continue
+            version_dir=${file%/*}
+            if git cat-file -e "$base_sha:$version_dir" 2>/dev/null; then
+              added_to_frozen+="${file}"$'\n'
+            fi
+          done < <(git diff --name-only --diff-filter=A "$base_sha...HEAD" \
+                    -- 'services/core-control-plane/tests/scenarios/v*/*.json')
+          changed=$(printf '%s\n%s' "$changed" "$added_to_frozen" | sed '/^$/d')
           if [[ -n "$changed" ]]; then
             echo "Frozen scenario files modified or deleted:"
             printf '  - %s\n' $changed

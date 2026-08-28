@@ -1,2 +1,1 @@
-# This test guards the complete Hangul and CJK scenario-file exclusion ranges.
-services/core-control-plane/tests/scenarios/test_frozen.py	[\uac00-\ud7a3\u1100-\u11ff\u4e00-\u9fff]
+# No encoded Hangul exceptions are currently required.

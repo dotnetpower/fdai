@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://fdai.dev/schemas/scenario/1.0.0",
   "title": "Scenario",
-  "description": "One frozen input+expected pair replayable by any tier under the same conditions. Kept synthetic and English-only per generic-scope.instructions.md.",
+  "description": "One frozen input+expected pair replayable by any tier under the same conditions. Kept synthetic with ASCII machine identifiers; natural-language values may be English or Korean.",
   "type": "object",
   "additionalProperties": false,
   "required": [

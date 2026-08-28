@@ -1,7 +1,7 @@
 """Frozen scenario-set integrity + balance + validity tests.
 
-W2.4 exit criterion: no customer values, English-only, every scenario carries
-both success and guard expectations, balance across domains.
+W2.4 exit criterion: no customer values, ASCII machine identifiers and paths,
+English or Korean natural-language values, complete expectations, and domain balance.
 """
 
 from __future__ import annotations
@@ -30,6 +30,18 @@ _NONZERO_GUID = re.compile(
     r"\b(?!00000000-0000-0000-0000-[0-9a-fA-F]{12}\b)"
     r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b"
 )
+_MACHINE_FIELD = re.compile(r"(?:^|_)(?:id|ids|ref|refs|path|paths|type|version|key)$")
+_MACHINE_FIELDS = frozenset(
+    {
+        "capability",
+        "citing_rule_ids",
+        "decision",
+        "domain",
+        "source",
+        "tags",
+        "tier",
+    }
+)
 
 
 def _load_scenario_schema() -> dict[str, Any]:
@@ -54,6 +66,42 @@ def _test_ref_exists(test_ref: str) -> bool:
         return False
     pattern = re.compile(rf"^(?:async )?def {re.escape(test_name)}\(", re.MULTILINE)
     return pattern.search(path.read_text(encoding="utf-8")) is not None
+
+
+def _non_ascii_machine_fields(
+    value: object,
+    *,
+    path: tuple[str, ...] = (),
+    machine_context: bool = False,
+) -> tuple[str, ...]:
+    invalid: list[str] = []
+    if isinstance(value, dict):
+        for key, item in value.items():
+            key_path = (*path, str(key))
+            if not str(key).isascii():
+                invalid.append(".".join(key_path))
+            machine_field = machine_context or bool(
+                str(key) in _MACHINE_FIELDS or _MACHINE_FIELD.search(str(key))
+            )
+            invalid.extend(
+                _non_ascii_machine_fields(
+                    item,
+                    path=key_path,
+                    machine_context=machine_field,
+                )
+            )
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            invalid.extend(
+                _non_ascii_machine_fields(
+                    item,
+                    path=(*path, str(index)),
+                    machine_context=machine_context,
+                )
+            )
+    elif machine_context and isinstance(value, str) and not value.isascii():
+        invalid.append(".".join(path))
+    return tuple(dict.fromkeys(invalid))
 
 
 # ---------------------------------------------------------------------------
@@ -162,12 +210,44 @@ def test_scenario_carries_no_non_zero_guid(path: Path, raw: dict[str, Any]) -> N
 
 
 @pytest.mark.parametrize(("path", "raw"), _load_scenarios())
-def test_scenario_has_english_only_prose(path: Path, raw: dict[str, Any]) -> None:
-    """Hangul + CJK in a scenario file is a bug."""
-    body = path.read_text(encoding="utf-8")
-    korean_or_cjk = re.compile(r"[\uac00-\ud7a3\u1100-\u11ff\u4e00-\u9fff]")
-    hits = korean_or_cjk.findall(body)
-    assert not hits, f"{path.name} contains non-ASCII natural-language text"
+def test_scenario_machine_fields_are_ascii(path: Path, raw: dict[str, Any]) -> None:
+    invalid = _non_ascii_machine_fields(raw)
+    assert not invalid, f"{path.name} contains non-ASCII machine fields: {invalid}"
+
+
+def test_scenario_schema_allows_korean_values_but_not_identifiers() -> None:
+    schema = _load_scenario_schema()
+    scenario = dict(_load_scenarios()[0][1])
+    event = dict(scenario["event"])
+    event["payload"] = {"summary": "복구 상태를 확인합니다"}
+    scenario["event"] = event
+
+    assert not list(Draft202012Validator(schema).iter_errors(scenario))
+    JsonSchemaContractValidator(PackageResourceSchemaRegistry()).validate("event", event)
+    assert _non_ascii_machine_fields(scenario) == ()
+
+    scenario["id"] = "복구.시나리오"
+    errors = list(Draft202012Validator(schema).iter_errors(scenario))
+    assert any(tuple(error.path) == ("id",) for error in errors)
+
+    for machine_path, mutation in (
+        ("event.source", ("event", "source", "관찰기")),
+        ("event.payload.resource_ref", ("payload", "resource_ref", "리소스:예제")),
+        ("expected.citing_rule_ids.0", ("expected", "citing_rule_ids", ["규칙.예제"])),
+    ):
+        candidate = json.loads(json.dumps(scenario))
+        candidate["id"] = _load_scenarios()[0][1]["id"]
+        section, key, mutated_value = mutation
+        if section == "payload":
+            candidate["event"]["payload"][key] = mutated_value
+        else:
+            candidate[section][key] = mutated_value
+        assert machine_path in _non_ascii_machine_fields(candidate)
+
+    nested_candidate = json.loads(json.dumps(scenario))
+    nested_candidate["id"] = _load_scenarios()[0][1]["id"]
+    nested_candidate["event"]["payload"]["resource_ref"] = {"value": "리소스:예제"}
+    assert "event.payload.resource_ref.value" in _non_ascii_machine_fields(nested_candidate)
 
 
 # ---------------------------------------------------------------------------

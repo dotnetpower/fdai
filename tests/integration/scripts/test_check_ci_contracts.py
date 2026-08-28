@@ -202,6 +202,16 @@ def test_issue_lifecycle_ignores_events_created_by_its_own_token() -> None:
     assert "github.actor != 'github-actions[bot]'" in workflow
 
 
+def test_frozen_scenario_gate_targets_the_service_owned_directory() -> None:
+    workflow = (_REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+    assert "'services/core-control-plane/tests/scenarios/v*/*.json'" in workflow
+    assert "-- 'tests/scenarios/v*/*.json'" not in workflow
+    assert "--diff-filter=MDRT" in workflow
+    assert '--diff-filter=A "$base_sha...HEAD"' in workflow
+    assert 'git cat-file -e "$base_sha:$version_dir"' in workflow
+
+
 def test_devbox_smoke_is_manual_protected_and_label_indirected() -> None:
     workflow = (_REPO_ROOT / ".github/workflows/devbox-smoke.yml").read_text(encoding="utf-8")
 
