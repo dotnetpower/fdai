@@ -50,7 +50,7 @@ from __future__ import annotations
 import json
 import shutil
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from fdai.core.control_loop import (
@@ -127,7 +127,7 @@ def _load_enrichment(scenario_id: str) -> dict[str, Any] | None:
     path = ENRICHMENT_DIR / _scenario_id_to_filename(scenario_id)
     if not path.exists():
         return None
-    return json.loads(path.read_text(encoding="utf-8"))
+    return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
 
 
 # ---------------------------------------------------------------------------
@@ -323,6 +323,64 @@ def test_every_frozen_scenario_has_an_xfail_reason_or_an_overlay() -> None:
             f"scenario {scenario_id!r} has no overlay under enrichment/v2026.07/ "
             f"and no reason documented in _XFAIL_REASONS"
         )
+
+
+@requires_opa
+@pytest.mark.asyncio
+async def test_sre_unknown_terminates_before_a3e_authority_is_applicable(
+    shipped_catalog: CostGovernanceCatalogComposition,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Prove A3-E is inapplicable because the SRE unknown produces no Action."""
+
+    scenario_id = "sre.slo-signal-source-unmapped.002"
+    scenario = json.loads(
+        (SCENARIO_DIR / _scenario_id_to_filename(scenario_id)).read_text(encoding="utf-8")
+    )
+    overlay = _load_enrichment(scenario_id)
+    assert overlay is not None, f"{scenario_id} lost its enrichment overlay"
+    publisher = RecordingRemediationPrPublisher()
+    audit = InMemoryStateStore()
+    loop, _, _, _ = _make_loop(
+        shipped_catalog,
+        publisher=publisher,
+        audit=audit,
+        wire_t2=True,
+    )
+    action_builds: list[str] = []
+    authority_evaluations: list[Any] = []
+
+    def fail_if_finding_builds_action(self: Any, **kwargs: Any) -> Any:
+        del self, kwargs
+        action_builds.append("finding")
+        raise AssertionError("the routing terminal must not build an Action from a finding")
+
+    def fail_if_candidate_builds_action(self: Any, **kwargs: Any) -> Any:
+        del self, kwargs
+        action_builds.append("candidate")
+        raise AssertionError("the routing terminal must not build an Action from a T2 candidate")
+
+    async def fail_if_authority_is_evaluated(*, event: Any, action: Any) -> Any:
+        del event
+        authority_evaluations.append(action)
+        raise AssertionError("standing authority is not applicable without an actionable candidate")
+
+    monkeypatch.setattr(ActionBuilder, "build_from_finding", fail_if_finding_builds_action)
+    monkeypatch.setattr(ActionBuilder, "build_from_candidate", fail_if_candidate_builds_action)
+    monkeypatch.setattr(loop, "_evaluate_execution_authorization", fail_if_authority_is_evaluated)
+
+    result = await loop.process(_merge_enrichment(scenario["event"], overlay))
+
+    assert result.outcome is ControlLoopOutcome.ABSTAINED_ROUTING
+    assert result.decision == "abstain"
+    assert result.citing_rule_ids == ()
+    assert result.execution_results == ()
+    assert action_builds == []
+    assert authority_evaluations == []
+    assert publisher.records == ()
+    entries = tuple(_unwrap_audit(record) for record in audit.audit_entries)
+    assert any(entry.get("action_kind") == "control_loop.abstain" for entry in entries)
+    assert all(not str(entry.get("action_kind", "")).startswith("executor.") for entry in entries)
 
 
 class _FailOncePublisher(RemediationPrPublisher):

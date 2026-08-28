@@ -1,7 +1,7 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: d1438c3af1532b386154efd2ea0d11704db31a72
+translation_source_sha: 2df8dbdfd98c817dd7752ee6e8f730fc7bfb3ff8
 translation_revised: 2026-08-29
 ---
 
@@ -28,13 +28,14 @@ translation_revised: 2026-08-29
 | 결정론적 KPI와 가드 메트릭 집계 | implemented | `core/measurement/mttr.py`; `dora.py`; `regression.py`; `tests/core/measurement/` 아래의 집중 테스트 | MTTR, 변경, 회귀, 지연 시간, 모델 및 pattern 메트릭에 실행 가능한 reducer와 실패 시 차단 검사가 있습니다. |
 | 승격 및 운영 근거 평가 | implemented | `core/measurement/promotion_gate.py`; `operational_promotion.py`; 집중 승격 테스트 | 승격 평가는 개정 번호, 시나리오, 표본, 신뢰 구간, 가드 및 결과 근거를 연결합니다. 그 자체로 실제 운영 집단의 존재를 입증하지는 않습니다. |
 | 관리되는 운영 커버리지 주장 계약 | implemented | `packages/service-contracts/src/fdai_service_contracts/operational_coverage.py`; `packages/service-contracts/tests/test_operational_coverage.py` | 변경할 수 없는 분모, 최종 처리 결과, 최신성, 정확한 베이시스 포인트, 무관용 조건 및 다이제스트 검사를 통해 불완전한 전체 집합이 99% 주장으로 바뀌지 않도록 합니다. 증적은 실행 권한을 부여하지 않습니다. |
-| 고정된 시나리오 집합 계산 | in-progress | `tests/scenarios/manifests/v2026.07.json`; `test_frozen.py`; `test_v2026_07_replay.py` | 매니페스트와 실행 가능한 커버리지 검사가 있지만 아래에 설명한 대로 SRE 및 다른 필수 헌법 차원은 아직 불완전합니다. |
+| 고정된 시나리오 집합 계산 | in-progress | `tests/scenarios/manifests/v2026.07.json`; `test_frozen.py`; `test_v2026_07_replay.py` | 이제 SRE 묶음에는 실행 가능한 차원 4개가 있습니다. 성공적인 전체 루프와 목표 간 충돌 근거는 아직 열려 있으며 나머지 4개 묶음도 불완전합니다. |
 | 실제 운영 KPI 기준선, 처리 및 대시보드 종결 | in-progress | [데이터 수집과 원격측정](#데이터-수집과-원격측정); `config/constitution-traceability.json`의 `FDAI-CONST-002` 요구 사항 | 런타임 기록과 작업은 있지만 하나의 고정된 개정에서 모든 성공 및 임계값 0 가드 메트릭을 입증하는 완전한 실제 운영 기준선 및 처리 집단은 보존되지 않았습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-29 | in-progress | `sre.slo-signal-source-unmapped.002`에 대해 사실에 맞는 A3-E 비해당 근거를 추가했습니다. 이제 재생 검사는 라우팅 종결 시 발견 항목이나 T2 작업이 생성되지 않고, 실행 권한 평가에 진입하지 않으며, 실행 결과나 PR을 만들지 않고, 판단 보류를 기록함을 입증합니다. 검토에서 제안된 주장 두 가지를 기각했습니다. 게시자 자체의 메모리 내 기록은 독립적인 SRE 효과 검증이 아니라 전달 근거이며, 직접 작성한 후보를 `PrecedenceResolver`에 전달하는 방식은 런타임 중재를 입증하지 않습니다. 해당 테스트와 매니페스트 주장은 커밋 전에 제거했습니다. | `current change`; `services/core-control-plane/tests/scenarios/test_v2026_07_replay.py`; `manifests/v2026.07.json`; 집중 시나리오, 매니페스트, Ruff 및 strict mypy 검사. | `successful_full_loop`에는 독립적이고 권위 있는 복구 및 재발 종결 근거가 여전히 필요합니다. `cross_objective_conflict`에는 시나리오 런타임과 프로덕션 중재 경로에서 생성되고 감사되는 경쟁 작업이 여전히 필요합니다. 비합성 기준선과 처리 결과도 열려 있습니다. |
 | 2026-08-29 | implemented | 강화 라운드 1에서 커버리지 계약 관점 22개를 검토하고 다이제스트 계산 전에 모든 증적 시각을 UTC로 정규화했습니다. 따라서 표준 시간대 오프셋이 달라도 같은 절대 시각은 하나의 재생 신원을 공유합니다. | `current change`; 집중 운영 커버리지 테스트. | 권위 있는 생성기를 연결하고 관리되는 증적을 보존합니다. |
 | 2026-08-28 | implemented | 자산 인벤토리, 거버넌스 평가, 운영 범위, 인시던트 진단, 수정 효과 및 지식 근거 확인을 위한 하나의 공급자 중립 운영 커버리지 증적을 추가했습니다. 정책 결과와 평가 가능 여부를 분리하고, 커버되지 않은 모든 항목을 분모에 유지하며, 완전한 계산, 최신성, 정확한 베이시스 포인트 임계값 및 무관용 처리 결과를 사용해 주장 자격을 결정적으로 계산합니다. | `current change`; `operational_coverage.py`; 집중 계약 테스트 13건 통과; Ruff 및 strict mypy 통과. | 99% 운영 주장을 하기 전에 각 생성기를 권위 있는 분모에 연결하고 관리되는 증적을 보존합니다. |
 | 2026-08-19 | implemented | 커밋된 기준선을 다시 생성했습니다. `sre.*` 시나리오 3건이 추가되어 고정 세트가 12개가 된 뒤에도 기준선은 여전히 9개 세트를 기술하고 있었습니다. 발행된 모든 지표와 표본 크기, 신뢰구간이 더 이상 존재하지 않는 세트를 설명하고 있었고, `routed_correctly_rate`는 0.111에서 0.083이 되었습니다. 기준선 테스트는 이제 `9`와 "t2 시나리오가 정확히 하나"를 고정하는 대신 세트에서 시나리오 개수와 t2 경제성을 도출하므로, 다음 추가는 숫자 속에서 조용히 어긋나는 대신 산출물에서 크게 실패합니다. | `current change`, `tools.baseline_run`이 `docs/baselines/v2026.07.{json,md}`와 한국어 쌍을 재생성, core와 공유 패키지 suite가 11913건 통과(스킵 131건)하며 이전에 실패하던 `test_baseline_runner`와 `test_models_facade_only` 포함 | 기준선은 여전히 `synthetic-harness` 근거이며 주장 자격이 없습니다. 실측 기준선과 처리군 코호트는 아래의 열린 항목으로 남아 있습니다. |
@@ -44,7 +45,8 @@ translation_revised: 2026-08-29
 
 ### 남은 작업
 
-- [ ] 성공, 거부 또는 알 수 없음, 충돌, 부분 실패 복구, A3-E 또는 해당 없음, 결정론적 재현 사례를 포함해 헌법상 5개 시나리오 묶음을 모두 완료합니다.
+- [ ] 독립적이고 권위 있는 복구 및 재발 종결 근거로 SRE `successful_full_loop`를 완료하고, 시나리오가 생성한 경쟁 작업을 프로덕션 중재 경로에서 감사해 `cross_objective_conflict`를 완료합니다.
+- [ ] ARB / 변경 안전성, FinOps / 비용 거버넌스, DR 및 Chaos Engineering 묶음에 실행 가능한 헌법상 6개 차원을 모두 갖춥니다.
 - [ ] 동일한 고정 시나리오 집합에서 표본 크기, 신뢰 구간, 절대값 및 지원되지 않는 배수 주장이 없는 하나의 참조 기준선과 FDAI 처리를 보존합니다.
 - [ ] 실제 운영 인시던트, 변경, 비용, 사람 터치포인트 및 독립적으로 검증된 결과 기록을 KPI 변환 결과에 연결한 다음 모든 임계값 0 가드가 0을 유지함을 입증합니다.
 - [x] 공급자 중립 `OperationalCoverageReceipt`를 정의하고 집중 테스트를 통해 분모,
@@ -113,7 +115,8 @@ acquisition, alternate 권위 있는 출처, 결정론적 reevaluation, 검증�
 > **현재 커버리지 공백:** `services/core-control-plane/tests/scenarios/manifests/v2026.07.json`은 모든 고정본을 SRE, ARB /
 > 변경 안전성, FinOps, DR 또는 Chaos에 할당합니다. 커버리지 dimension은 해당 묶음이 소유한
 > 시나리오와 실제 실행 가능한 테스트를 함께 인용할 때만 계산됩니다. 집합은 `incomplete`입니다.
-> SRE 시나리오가 없고 모든 기존 묶음이 하나 이상의 필수 사례를 누락합니다. 다섯 묶음이 모두
+> SRE에는 실행 가능한 차원 4개가 있지만 성공적인 전체 루프와 목표 간 충돌 근거가 아직 없고,
+> 나머지 4개 묶음도 하나 이상의 필수 사례를 누락합니다. 다섯 묶음이 모두
 > 완전한일 때까지 완전한 도메인 커버리지를 주장하면 안 됩니다.
 - **참조 에이전트**: 단계 0에서 측정된 고정 비교 시스템(문서화됨, 단일 모델, 티어링 없음).
   버전은 베이스라인 실행마다 고정됩니다.
