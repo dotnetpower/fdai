@@ -168,6 +168,37 @@ async def test_missing_exact_receipt_fails_closed() -> None:
         await executor.execute(_request(target.name, mode=Mode.ENFORCE))
 
 
+class _PersistFailureStateStore(InMemoryStateStore):
+    """Simulate a durable-write outage after the in-memory record is staged."""
+
+    async def write_state(self, key, value):  # type: ignore[no-untyped-def]
+        raise RuntimeError("simulated durable write failure")
+
+
+async def test_persist_failure_does_not_leave_an_unpersisted_enforce_record() -> None:
+    action_types = _action_types()
+    target = action_types["remediate.tag-add"]
+    registry = StateStoreActionPromotionRegistry(
+        store=_PersistFailureStateStore(),
+        receipt_verifier=_ReceiptVerifier(),
+    )
+    executor = OperationalPromotionDirectApiExecutor(
+        action_types=action_types,
+        receipts=_ReceiptReader(_receipt(target)),
+        registry=registry,
+    )
+
+    with pytest.raises(RuntimeError, match="simulated durable write failure"):
+        await executor.execute(_request(target.name, mode=Mode.ENFORCE))
+
+    # `consider_promotion` optimistically staged an ENFORCE record before the
+    # durable write failed; the executor MUST roll that back so a caller
+    # reading the registry never observes a promotion that was never
+    # actually persisted.
+    assert registry.mode_of(target.name) is Mode.SHADOW
+    assert registry.record(target.name) is None
+
+
 async def test_mismatched_receipt_identity_fails_closed() -> None:
     action_types = _action_types()
     target = action_types["remediate.tag-add"]

@@ -118,6 +118,10 @@ class PersistedActionPromotionRegistry(Protocol):
         receipt: OperationalPromotionReceipt | None = None,
     ) -> ActionModeRecord: ...
 
+    def record(self, action_type: str) -> ActionModeRecord | None: ...
+
+    def restore(self, action_type: str, record: ActionModeRecord | None) -> None: ...
+
     async def persist(self, action_type: str) -> None: ...
 
 
@@ -129,6 +133,10 @@ class PromotionAttestationStore(Protocol):
     async def consume(
         self, idempotency_key: str, request_fingerprint: str
     ) -> GovernancePromotionAttestation | None: ...
+
+    async def restore(
+        self, idempotency_key: str, attestation: GovernancePromotionAttestation
+    ) -> None: ...
 
 
 class StateStorePromotionAttestationStore:
@@ -195,6 +203,45 @@ class StateStorePromotionAttestationStore:
         )
         return attestation if applied else None
 
+    async def restore(
+        self, idempotency_key: str, attestation: GovernancePromotionAttestation
+    ) -> None:
+        """Return a consumed attestation to pending after a failed durable apply.
+
+        ``consume`` marks the nonce used before its promotion effect is known
+        to be durable. When the guarded executor then fails to persist the
+        promotion, the human approval MUST NOT be spent for nothing: this
+        reverts the state back to ``pending`` (bumping the revision) so the
+        exact same governance approval can be retried without demanding a
+        brand-new distinct-approver review. A concurrent state change (the
+        nonce was consumed again or moved on by another caller) makes this a
+        best-effort no-op rather than a hard failure.
+        """
+        key = f"governance-promotion-attestation:{idempotency_key}"
+        raw = await self._store.read_state(key)
+        if raw is None or raw.get("state") != "consumed":
+            return
+        revision = raw.get("revision")
+        if isinstance(revision, bool) or not isinstance(revision, int):
+            return
+        await self._store.compare_and_set_state_with_audit(
+            key,
+            {
+                "schema_version": "1.0.0",
+                "state": "pending",
+                "revision": revision + 1,
+                "attestation": attestation.as_json(),
+            },
+            expected_revision=revision,
+            audit_entry={
+                "actor": "fdai.delivery.promotion",
+                "action_kind": "promotion_attestation.restored",
+                "idempotency_key": idempotency_key,
+                "nonce": attestation.nonce,
+                "mode": Mode.SHADOW.value,
+            },
+        )
+
 
 class OperationalPromotionDirectApiExecutor(DirectApiExecutor):
     """Apply one exact, measured receipt after the ordinary HIL gate."""
@@ -257,6 +304,7 @@ class OperationalPromotionDirectApiExecutor(DirectApiExecutor):
             accuracy=receipt.accuracy,
             policy_escapes=receipt.policy_escapes,
         )
+        prior_record = self._registry.record(target.name)
         record = self._registry.consider_promotion(
             action_type=target,
             metrics=metrics,
@@ -264,7 +312,15 @@ class OperationalPromotionDirectApiExecutor(DirectApiExecutor):
         )
         if record.mode is not Mode.ENFORCE:
             raise DirectApiPreconditionError("operational promotion receipt was rejected")
-        await self._registry.persist(target.name)
+        try:
+            await self._registry.persist(target.name)
+        except BaseException:
+            # `consider_promotion` mutates the in-memory cache optimistically
+            # so its verdict can be inspected before persisting. A failed
+            # durable write MUST NOT leave that unpersisted ENFORCE visible
+            # to `mode_of`, so put the exact prior record back on failure.
+            self._registry.restore(target.name, prior_record)
+            raise
         return DirectApiReceipt(
             outcome=DirectApiOutcome.SUCCEEDED,
             receipt_ref=f"promotion:{target.name}:{receipt.evidence_digest}",
@@ -295,15 +351,25 @@ class GovernancePromotionDispatcher:
             raise DirectApiPreconditionError(
                 "promotion direct routing is inert until a governance review is supplied"
             )
+        idempotency_key = request.idempotency_key
         attestation = await self._attestation_store.consume(
-            request.idempotency_key,
+            idempotency_key,
             promotion_request_fingerprint(request),
         )
         if attestation is None:
             raise DirectApiPreconditionError(
                 "promotion direct routing requires an unused governance attestation"
             )
-        return await self.dispatch(request, attestation=attestation)
+        try:
+            return await self.dispatch(request, attestation=attestation)
+        except BaseException:
+            # The attestation is consumed before the wrapped executor's
+            # durable persist is known to succeed. A failed apply MUST NOT
+            # permanently spend the human approval, so restore it to pending
+            # on any failure - the same distinct-approver review can then
+            # back a retry instead of demanding a brand-new one.
+            await self._attestation_store.restore(idempotency_key, attestation)
+            raise
 
     async def dispatch(
         self,

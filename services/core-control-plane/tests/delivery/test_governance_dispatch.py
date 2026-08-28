@@ -231,6 +231,104 @@ async def test_promotion_dispatch_requires_approved_distinct_approver_transition
 
 
 @pytest.mark.asyncio
+async def test_promotion_attestation_survives_a_failed_durable_apply() -> None:
+    """A transient executor failure MUST NOT permanently spend the approval."""
+    from fdai.core.rbac.roles import Role
+    from fdai.delivery.promotion import (
+        GovernancePromotionAttestation,
+        GovernancePromotionDispatcher,
+        StateStorePromotionAttestationStore,
+        promotion_request_fingerprint,
+    )
+    from fdai.rule_catalog.schema.governance_review_authority import (
+        GovernanceApproval,
+        GovernanceChangeClass,
+        GovernancePrincipal,
+        GovernanceReviewRequest,
+    )
+    from fdai.shared.contracts.models import Mode
+    from fdai.shared.providers.direct_api import DirectApiRequest
+
+    class _FlakyExecutor:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def execute(self, request):  # type: ignore[no-untyped-def]
+            self.calls += 1
+            if self.calls == 1:
+                raise RuntimeError("simulated durable write failure")
+            return DirectApiReceipt(outcome=DirectApiOutcome.SUCCEEDED, receipt_ref="promotion:1")
+
+    request = DirectApiRequest(
+        action_id=UUID("00000000-0000-0000-0000-000000000013"),
+        idempotency_key="promotion-4",
+        action_type_name="governance.promote-action-type",
+        rule_ids=("operator.promotion",),
+        resource_ref="action-type:remediate.tag-add",
+        arguments={
+            "action_type_id": "remediate.tag-add",
+            "target_mode": "enforce",
+            "fdai_revision": "a" * 40,
+            "scenario_set_version": "scenario-v1",
+            "evidence_digest": "b" * 64,
+            "justification": "Measured evidence passed every promotion guard.",
+        },
+        labels=("enforce",),
+        mode=Mode.ENFORCE,
+    )
+    review = GovernanceReviewRequest(
+        change_class=GovernanceChangeClass.ENFORCE_PROMOTION,
+        author=GovernancePrincipal(oid=OID_A, roles=frozenset({Role.APPROVER})),
+        head_revision="a" * 40,
+        head_committed_at=NOW,
+        approvals=(
+            GovernanceApproval(
+                approver=GovernancePrincipal(oid=OID_B, roles=frozenset({Role.APPROVER})),
+                reviewed_revision="a" * 40,
+                approved_at=NOW,
+                phishing_resistant=True,
+            ),
+            GovernanceApproval(
+                approver=GovernancePrincipal(
+                    oid="00000000-0000-0000-0000-000000000004",
+                    roles=frozenset({Role.APPROVER}),
+                ),
+                reviewed_revision="a" * 40,
+                approved_at=NOW,
+                phishing_resistant=True,
+            ),
+        ),
+    )
+    attestation = GovernancePromotionAttestation(
+        review=review,
+        action_type_id="remediate.tag-add",
+        fdai_revision="a" * 40,
+        scenario_set_version="scenario-v1",
+        evidence_digest="b" * 64,
+        idempotency_key="promotion-4",
+        nonce="nonce-4",
+        request_fingerprint=promotion_request_fingerprint(request),
+    )
+    store = StateStorePromotionAttestationStore(InMemoryStateStore())
+    await store.save(attestation)
+    executor = _FlakyExecutor()
+    routed = GovernancePromotionDispatcher(executor, attestation_store=store)  # type: ignore[arg-type]
+
+    with pytest.raises(RuntimeError, match="simulated durable write failure"):
+        await routed.execute(request)
+    assert executor.calls == 1
+
+    # The same governance approval - not a fresh one - backs the retry.
+    result = await routed.execute(request)
+    assert result.receipt_ref == "promotion:1"
+    assert executor.calls == 2
+
+    # Only now that the apply durably succeeded is the approval truly spent.
+    with pytest.raises(DirectApiPreconditionError, match="unused"):
+        await routed.execute(request)
+
+
+@pytest.mark.asyncio
 async def test_promotion_rejects_forged_bare_decision_and_mismatched_attestation() -> None:
     from fdai.core.rbac.roles import Role
     from fdai.delivery.promotion import (
