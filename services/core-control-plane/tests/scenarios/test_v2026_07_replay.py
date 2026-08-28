@@ -83,9 +83,11 @@ from fdai.shared.providers.remediation_pr import (
     RemediationPr,
     RemediationPrPublisher,
 )
+from fdai.shared.providers.stage_publisher import StageName, StagePhase
 from fdai.shared.providers.testing import (
     InMemoryStateStore,
     RecordingRemediationPrPublisher,
+    RecordingStagePublisher,
 )
 from fdai_core_test_support.cost_governance_catalog import (
     CostGovernanceCatalogComposition,
@@ -154,6 +156,7 @@ def _make_loop(
     publisher: Any | None = None,
     audit: InMemoryStateStore | None = None,
     executor: Any | None = None,
+    stage_publisher: Any | None = None,
 ) -> tuple[ControlLoop, Any, InMemoryStateStore, Any]:
     rules = shipped_catalog.rules
     action_types = shipped_catalog.action_types
@@ -206,6 +209,7 @@ def _make_loop(
         audit_store=audit,
         rules_by_id={r.id: r for r in rules},
         t2_engine=t2_engine,
+        stage_publisher=stage_publisher,
         **risk_kwargs,
     )
     return loop, publisher, audit, executor
@@ -323,6 +327,50 @@ def test_every_frozen_scenario_has_an_xfail_reason_or_an_overlay() -> None:
             f"scenario {scenario_id!r} has no overlay under enrichment/v2026.07/ "
             f"and no reason documented in _XFAIL_REASONS"
         )
+
+
+@requires_opa
+@pytest.mark.asyncio
+async def test_phase0_correlation_spans_ingest_route_gate_and_audit(
+    shipped_catalog: CostGovernanceCatalogComposition,
+) -> None:
+    scenario_id = "change.nsg-allow-any-inbound.002"
+    scenario = json.loads(
+        (SCENARIO_DIR / _scenario_id_to_filename(scenario_id)).read_text(encoding="utf-8")
+    )
+    overlay = _load_enrichment(scenario_id)
+    assert overlay is not None and overlay["wire_risk_gate"] is True
+    correlation_id = "phase0-correlation-proof"
+    event = _merge_enrichment(scenario["event"], overlay)
+    event["correlation_id"] = correlation_id
+    audit = InMemoryStateStore()
+    stages = RecordingStagePublisher()
+    loop, _, _, _ = _make_loop(
+        shipped_catalog,
+        wire_risk_gate=True,
+        audit=audit,
+        stage_publisher=stages,
+    )
+
+    result = await loop.process(event)
+
+    assert result.outcome is ControlLoopOutcome.HIL
+    assert result.decision == "hil"
+    assert tuple((item.stage, item.phase) for item in stages.events) == (
+        (StageName.INGEST, StagePhase.DONE),
+        (StageName.ROUTE, StagePhase.DONE),
+        (StageName.VERIFY, StagePhase.DONE),
+        (StageName.GATE, StagePhase.DONE),
+        (StageName.AUDIT, StagePhase.DONE),
+    )
+    gate = stages.by_stage(StageName.GATE)
+    assert len(gate) == 1
+    assert gate[0].detail["gate_decision"] == "hil"
+    assert {item.correlation_id for item in stages.events} == {correlation_id}
+    audit_entries = tuple(_unwrap_audit(item) for item in audit.audit_entries)
+    assert audit_entries
+    assert {item.get("correlation_id") for item in audit_entries} == {correlation_id}
+    assert any(item.get("action_kind") == "risk_gate.unified" for item in audit_entries)
 
 
 @requires_opa
