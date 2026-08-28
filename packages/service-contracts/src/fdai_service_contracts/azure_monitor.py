@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Mapping, Sequence
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
 from uuid import UUID, uuid5
 
@@ -67,7 +67,7 @@ def normalize_common_alert_schema(
     detected_at = _timestamp(
         essentials,
         "firedDateTime" if normalized_condition == "fired" else "resolvedDateTime",
-    )
+    ).astimezone(UTC)
     if ingested_at.tzinfo is None or ingested_at.utcoffset() is None:
         raise AzureMonitorNormalizationError("ingested_at MUST be timezone-aware")
     if detected_at > ingested_at:

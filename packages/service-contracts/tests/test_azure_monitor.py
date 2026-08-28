@@ -1,6 +1,6 @@
 """Azure Monitor Common Alert Schema contract tests."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 from fdai_service_contracts.azure_monitor import (
@@ -74,3 +74,20 @@ def test_common_alert_event_cannot_raise_authority() -> None:
 
     with pytest.raises(ValidationError):
         AzureMonitorEvent.model_validate({**event.model_dump(), "mode": "enforce"})
+
+
+def test_equivalent_timestamp_offsets_share_one_event_identity() -> None:
+    utc_payload = _payload()
+    offset_payload = _payload()
+    offset = timezone(timedelta(hours=2))
+    essentials = offset_payload["data"]["essentials"]  # type: ignore[index]
+    essentials["firedDateTime"] = (  # type: ignore[index]
+        (_NOW - timedelta(seconds=30)).astimezone(offset).isoformat()
+    )
+
+    utc_event = normalize_common_alert_schema(utc_payload, ingested_at=_NOW)[0]
+    offset_event = normalize_common_alert_schema(offset_payload, ingested_at=_NOW)[0]
+
+    assert offset_event.detected_at.tzinfo is UTC
+    assert offset_event.event_id == utc_event.event_id
+    assert offset_event.idempotency_key == utc_event.idempotency_key
