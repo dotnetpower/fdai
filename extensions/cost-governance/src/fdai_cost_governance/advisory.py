@@ -36,13 +36,14 @@ class RollingCostAdvisoryProvider(CostAdvisoryProvider):
         anomaly_ratio: Decimal = Decimal("1.5"),
         baseline_window: int = 30,
         max_samples: int = 512,
+        max_scopes: int = 512,
         max_sample_age: timedelta = timedelta(days=2),
         cost_table: Mapping[str, Decimal] | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         if not ontology_release_digest or anomaly_ratio <= 1:
             raise ValueError("advisory release and anomaly ratio MUST be valid")
-        if baseline_window < 3 or max_samples < baseline_window:
+        if baseline_window < 3 or max_samples < baseline_window or max_scopes < 1:
             raise ValueError("advisory sample bounds MUST preserve a baseline")
         self._release = ontology_release_digest
         self._ratio = anomaly_ratio
@@ -51,9 +52,12 @@ class RollingCostAdvisoryProvider(CostAdvisoryProvider):
         self._table = dict(cost_table or _DEFAULT_COST_TABLE)
         self._clock = clock or (lambda: datetime.now(UTC))
         self._samples: dict[str, deque[Decimal]] = {}
-        self._seen: set[tuple[str, datetime]] = set()
+        self._seen: set[tuple[str, str, datetime]] = set()
+        self._seen_order: deque[tuple[str, str, datetime]] = deque()
         self._last_observed: dict[str, datetime] = {}
         self._max_samples = max_samples
+        self._max_scopes = max_scopes
+        self._max_seen = max_samples * max_scopes
         self.diagnostics: dict[str, int] = {}
 
     async def analyze_cost_sample(
@@ -64,7 +68,7 @@ class RollingCostAdvisoryProvider(CostAdvisoryProvider):
         if reason is not None:
             self._record(reason)
             return None
-        sample_key = (sample.correlation_id, sample.observed_at)
+        sample_key = (sample.scope_id, sample.correlation_id, sample.observed_at)
         if sample_key in self._seen:
             self._record("duplicate")
             return None
@@ -72,10 +76,11 @@ class RollingCostAdvisoryProvider(CostAdvisoryProvider):
         if last is not None and sample.observed_at <= last:
             self._record("reordered")
             return None
-        history = self._samples.setdefault(
-            sample.scope_id,
-            deque(maxlen=self._max_samples),
-        )
+        if sample.scope_id not in self._samples and len(self._samples) >= self._max_scopes:
+            evicted_scope = next(iter(self._samples))
+            self._samples.pop(evicted_scope)
+            self._last_observed.pop(evicted_scope, None)
+        history = self._samples.setdefault(sample.scope_id, deque(maxlen=self._max_samples))
         advisory: CostAnomalyAdvisory | None = None
         if len(history) >= 3:
             baseline = Decimal(str(mean(history))) if history else Decimal("0")
@@ -94,6 +99,9 @@ class RollingCostAdvisoryProvider(CostAdvisoryProvider):
                     observed_at=sample.observed_at,
                 )
         history.append(sample.amount_usd)
+        if len(self._seen_order) >= self._max_seen:
+            self._seen.discard(self._seen_order.popleft())
+        self._seen_order.append(sample_key)
         self._seen.add(sample_key)
         self._last_observed[sample.scope_id] = sample.observed_at
         self._record("accepted")

@@ -420,6 +420,34 @@ def test_rolling_advisory_rejects_duplicate_reordered_and_invalid_facts() -> Non
     }
 
 
+def test_rolling_advisory_bounds_scope_and_duplicate_bookkeeping() -> None:
+    provider = RollingCostAdvisoryProvider(
+        ontology_release_digest=_RELEASE,
+        baseline_window=3,
+        max_samples=3,
+        max_scopes=2,
+        clock=lambda: _NOW,
+    )
+
+    for index in range(9):
+        sample = CostAnalysisSample(
+            scope_id=f"scope-{index % 3}",
+            resource_id=f"resource-{index}",
+            amount_usd=Decimal("100"),
+            correlation_id=f"correlation-{index}",
+            observed_at=_NOW - timedelta(minutes=9 - index),
+            source_authority="azure-cost-management-focus",
+            completeness=Decimal("1"),
+            ontology_release_digest=_RELEASE,
+        )
+        asyncio.run(provider.analyze_cost_sample(sample))
+
+    assert len(provider._samples) == 2  # noqa: SLF001
+    assert len(provider._last_observed) == 2  # noqa: SLF001
+    assert len(provider._seen) == 6  # noqa: SLF001
+    assert len(provider._seen_order) == 6  # noqa: SLF001
+
+
 def test_signed_estimates_are_advisory_and_do_not_change_spend_risk_contract() -> None:
     provider = RollingCostAdvisoryProvider(
         ontology_release_digest=_RELEASE,
