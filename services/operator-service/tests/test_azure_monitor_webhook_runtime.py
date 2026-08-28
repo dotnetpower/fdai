@@ -187,3 +187,52 @@ async def test_store_claim_filters_only_azure_monitor_webhooks(
     assert "value ->> 'family' = 'operations'" in statements[0]
     assert "value ->> 'operation' = 'webhook.azure_monitor'" in statements[0]
     assert "FOR UPDATE SKIP LOCKED" in statements[0]
+
+
+async def test_partial_batch_failure_retries_with_stable_event_identity() -> None:
+    event_a = _event()
+    event_b = {
+        **_event(),
+        "event_id": "00000000-0000-0000-0000-000000000001",
+        "idempotency_key": "azure-monitor:" + "b" * 64,
+        "resource_ref": "scope-example/resource-group/rg/providers/example/widgets/b",
+    }
+
+    @dataclass
+    class PartialPublisher:
+        calls: int = 0
+        events: list[dict[str, object]] = field(default_factory=list)
+
+        async def publish(
+            self,
+            topic: str,
+            key: str,
+            payload: dict[str, object],
+        ) -> object:
+            del topic, key
+            self.calls += 1
+            if self.calls == 2:
+                raise RuntimeError("transient broker failure")
+            self.events.append(payload)
+            return object()
+
+    payload = {"schema_version": "1.0.0", "events": [event_a, event_b]}
+    store = _Store(_claim(payload))
+    publisher = PartialPublisher()
+    drainer = AzureMonitorWebhookOutboxDrainer(
+        store=cast(PostgresFamilyStore, store),
+        publisher=cast(AzureMonitorEventPublisher, publisher),
+        topic="fdai.events",
+    )
+
+    assert await drainer.run_once() is False
+    store.claim = _claim(payload)
+    assert await drainer.run_once() is True
+
+    first_deliveries = [
+        event
+        for event in publisher.events
+        if event["idempotency_key"] == event_a["idempotency_key"]
+    ]
+    assert len(first_deliveries) == 2
+    assert first_deliveries[0]["event_id"] == first_deliveries[1]["event_id"]
