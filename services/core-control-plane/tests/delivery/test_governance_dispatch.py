@@ -38,6 +38,16 @@ class _ReconcilingPublisher(_Publisher):
         return "merged"
 
 
+class _ExistingPublisher(_Publisher):
+    async def publish(self, pr: RemediationPr) -> PublishReceipt:
+        self.pr = pr
+        return PublishReceipt(
+            pr_ref="example/repo#1",
+            url="https://example.com/pr/1",
+            already_existed=True,
+        )
+
+
 class _PromotionExecutor:
     async def execute(self, request):  # type: ignore[no-untyped-def]
         return DirectApiReceipt(outcome=DirectApiOutcome.SUCCEEDED, receipt_ref="promotion:1")
@@ -246,6 +256,24 @@ async def test_legacy_lifecycle_key_blocks_duplicate_publication() -> None:
             document,
             correlation_id="governance-legacy",
             source_event_id="event-legacy",
+        )
+
+
+@pytest.mark.asyncio
+async def test_existing_pr_without_lifecycle_receipt_fails_closed() -> None:
+    from fdai.delivery.gitops_pr import GovernancePrError
+
+    service = GovernedGovernancePrPublisher(
+        publisher=_ExistingPublisher(),
+        lifecycle_store=StateStoreGovernancePrLifecycleStore(InMemoryStateStore()),
+        clock=lambda: NOW,
+    )
+
+    with pytest.raises(GovernancePrError, match="lifecycle evidence"):
+        await service.publish(
+            _document(),
+            correlation_id="governance-existing",
+            source_event_id="event-existing",
         )
 
 
