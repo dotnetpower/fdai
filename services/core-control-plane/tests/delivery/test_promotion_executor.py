@@ -18,6 +18,7 @@ from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.direct_api import (
     DirectApiOutcome,
     DirectApiPreconditionError,
+    DirectApiReceipt,
     DirectApiRequest,
 )
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
@@ -223,7 +224,7 @@ async def test_missing_exact_receipt_fails_closed() -> None:
 class _PersistFailureStateStore(InMemoryStateStore):
     """Simulate a durable-write outage after the in-memory record is staged."""
 
-    async def write_state(self, key, value):  # type: ignore[no-untyped-def]
+    async def compare_and_set_state_with_audit(self, *args, **kwargs):  # type: ignore[no-untyped-def]
         raise RuntimeError("simulated durable write failure")
 
 
@@ -252,7 +253,7 @@ async def test_persist_failure_does_not_leave_an_unpersisted_enforce_record() ->
 
 
 class _ControlledWriteStateStore(InMemoryStateStore):
-    """First ``write_state`` blocks until released, then fails; the rest succeed."""
+    """First CAS blocks until released, then fails; the rest succeed."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -260,13 +261,92 @@ class _ControlledWriteStateStore(InMemoryStateStore):
         self.release_write = asyncio.Event()
         self.calls = 0
 
-    async def write_state(self, key, value):  # type: ignore[no-untyped-def]
+    async def compare_and_set_state_with_audit(  # type: ignore[no-untyped-def]
+        self, key, value, *, expected_revision, audit_entry
+    ):
         self.calls += 1
         if self.calls == 1:
             self.write_started.set()
             await self.release_write.wait()
             raise RuntimeError("simulated durable write failure")
-        await super().write_state(key, value)
+        return await super().compare_and_set_state_with_audit(
+            key,
+            value,
+            expected_revision=expected_revision,
+            audit_entry=audit_entry,
+        )
+
+
+class _ConcurrentCasStateStore(InMemoryStateStore):
+    def __init__(self) -> None:
+        super().__init__()
+        self._arrived = 0
+        self._both_arrived = asyncio.Event()
+
+    async def compare_and_set_state_with_audit(  # type: ignore[no-untyped-def]
+        self, key, value, *, expected_revision, audit_entry
+    ):
+        self._arrived += 1
+        if self._arrived == 2:
+            self._both_arrived.set()
+        await self._both_arrived.wait()
+        return await super().compare_and_set_state_with_audit(
+            key,
+            value,
+            expected_revision=expected_revision,
+            audit_entry=audit_entry,
+        )
+
+
+async def test_cross_replica_promotions_use_durable_revision_fence() -> None:
+    action_types = _action_types()
+    target = action_types["remediate.tag-add"]
+    store = _ConcurrentCasStateStore()
+    receipt_a = _receipt(target)
+    receipt_b = replace(receipt_a, evidence_digest="c" * 64)
+    executor_a = OperationalPromotionDirectApiExecutor(
+        action_types=action_types,
+        receipts=_ReceiptReader(receipt_a),
+        registry=StateStoreActionPromotionRegistry(
+            store=store,
+            receipt_verifier=_ReceiptVerifier(),
+        ),
+    )
+    executor_b = OperationalPromotionDirectApiExecutor(
+        action_types=action_types,
+        receipts=_ReceiptReader(receipt_b),
+        registry=StateStoreActionPromotionRegistry(
+            store=store,
+            receipt_verifier=_ReceiptVerifier(),
+        ),
+    )
+    request_a = _request(target.name, mode=Mode.ENFORCE)
+    request_b = replace(
+        request_a,
+        arguments={**request_a.arguments, "evidence_digest": receipt_b.evidence_digest},
+    )
+
+    results = await asyncio.gather(
+        executor_a.execute(request_a),
+        executor_b.execute(request_b),
+        return_exceptions=True,
+    )
+
+    assert sum(isinstance(result, DirectApiReceipt) for result in results) == 1
+    assert (
+        sum(
+            isinstance(result, RuntimeError) and "authority changed" in str(result)
+            for result in results
+        )
+        == 1
+    )
+    persisted = await store.read_state(f"action_promotion:{target.name}")
+    assert persisted is not None
+    assert persisted["revision"] == 1
+    assert persisted["promotion_evidence_digest"] in {
+        receipt_a.evidence_digest,
+        receipt_b.evidence_digest,
+    }
 
 
 async def test_concurrent_failed_promotion_cannot_expose_unpersisted_enforce() -> None:

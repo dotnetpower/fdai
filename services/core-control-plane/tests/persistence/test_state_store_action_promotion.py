@@ -29,6 +29,7 @@ async def test_legacy_metrics_only_enforce_clamps_to_shadow_after_restart() -> N
     store = InMemoryStateStore()
     first = StateStoreActionPromotionRegistry(store=store, allow_legacy_metrics=True)
     action_type = _action_type()
+    await first.refresh_for_update(action_type.name)
     first.consider_promotion(
         action_type=action_type,
         metrics=PromotionMetrics(
@@ -194,6 +195,7 @@ async def test_demotion_is_visible_after_restart() -> None:
     store = InMemoryStateStore()
     first = StateStoreActionPromotionRegistry(store=store, allow_legacy_metrics=True)
     action_type = _action_type()
+    await first.refresh_for_update(action_type.name)
     first.demote(action_type.name)
     await first.persist(action_type.name)
 
