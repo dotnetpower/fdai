@@ -1,7 +1,7 @@
 ---
 title: FinOps 자율 운영
 translation_of: finops-autonomous-operations.md
-translation_source_sha: 355f93ae9b896d0a3aacc38a031dd19ffbc01776
+translation_source_sha: 0d2b12ade294fdb0363290089cdf7c5c033510a1
 translation_revised: 2026-08-28
 ---
 
@@ -24,7 +24,7 @@ translation_revised: 2026-08-28
 > **현재 상태:** 정확한 FinOps 의미 프로파일, 고정된 15개 책임 trace, 범위가 제한된 복구
 > 조정기, 독립 다중 효과 정산, replay, 보존 및 통제된 학습 입력은 로컬 근거와 함께 구현되어
 > 있습니다. Live-authoritative 정산 cohort와 독립 패키지 및 액션별 승격 검토는 아직 없습니다.
-> 하드닝 라운드 1-8은 설치 전에 전체 Rule 및 Workflow 계약도 검증하며 런타임 권한은 바뀌지 않습니다.
+> 하드닝 라운드 1-9는 legal-hold 재시도도 replay-safe하게 만들며 런타임 권한은 바뀌지 않습니다.
 
 ## 설계 개요
 

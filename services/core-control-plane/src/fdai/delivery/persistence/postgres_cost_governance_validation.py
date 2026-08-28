@@ -243,6 +243,25 @@ class PostgresCostGovernanceValidationStore:
         async with await self._connect() as conn:
             async with conn.transaction():
                 await self._timeout(conn)
+                replay_cursor = await conn.execute(
+                    """
+                    SELECT event_kind, legal_hold_ref
+                      FROM cost_governance_validation_retention_event
+                     WHERE evidence_kind = %s
+                       AND evidence_id = %s
+                       AND idempotency_key = %s
+                    """,
+                    (evidence_kind, evidence_id, idempotency_key),
+                )
+                replay = await replay_cursor.fetchone()
+                expected_event = "hold-applied" if legal_hold_ref is not None else "hold-released"
+                if replay is not None:
+                    if (
+                        cast(str, replay["event_kind"]) == expected_event
+                        and cast(str | None, replay["legal_hold_ref"]) == legal_hold_ref
+                    ):
+                        return True
+                    raise ValueError("legal-hold idempotency key conflicts with prior transition")
                 updated = await conn.execute(
                     """
                     UPDATE cost_governance_validation_retention
@@ -278,7 +297,7 @@ class PostgresCostGovernanceValidationStore:
                         evidence_kind,
                         evidence_id,
                         expected_revision + 1,
-                        "hold-applied" if legal_hold_ref is not None else "hold-released",
+                        expected_event,
                         legal_hold_ref,
                         recorded_at,
                         idempotency_key,
