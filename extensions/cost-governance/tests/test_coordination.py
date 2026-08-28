@@ -299,6 +299,19 @@ def test_no_op_counts_only_with_terminal_audit() -> None:
     assert terminal.terminal is True
 
 
+def test_recovery_cannot_change_an_already_selected_option() -> None:
+    attempts = list(_attempts(through=CostRecoveryStep.BOUNDED_HOLD))
+    hold = attempts[-1]
+    assert hold.output_frame is not None
+    attempts[-1] = replace(
+        hold,
+        output_frame=replace(hold.output_frame, selected_option_id="option-no-action"),
+    )
+
+    with pytest.raises(CostCoordinationError, match="preserve the selected option"):
+        DeterministicCostCoordinator().coordinate(_request(attempts=tuple(attempts)))
+
+
 def test_policy_and_approval_denials_are_distinct_terminal_records() -> None:
     denied_frame = replace(_frame(), policy_denied=True)
     policy = DeterministicCostCoordinator().coordinate(

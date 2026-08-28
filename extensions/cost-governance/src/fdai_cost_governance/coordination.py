@@ -290,6 +290,11 @@ class DeterministicCostCoordinator:
             candidate.selected_option is None or not candidate.selected_option.safe
         ):
             raise CostCoordinationError("safe-option selection MUST select a safe option")
+        if (
+            previous.selected_option_id is not None
+            and candidate.selected_option_id != previous.selected_option_id
+        ):
+            raise CostCoordinationError("recovery MUST preserve the selected option")
 
     def _hold_or_approval(
         self,
