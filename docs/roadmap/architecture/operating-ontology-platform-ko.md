@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 3da21cb191d794433a15591e2e7e0074959dc99d
+translation_source_sha: bfb694f162ee33239169c8f229a6a2c6fe457e5d
 translation_revised: 2026-08-28
 ---
 # FDAI 온톨로지 안전 인프라
@@ -145,6 +145,7 @@ Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-28 | implemented | Direction-shadow generation 검토가 proposal-ready 상태가 되려면 exact-release 비교를 거치도록 요구했습니다. `assess_direction_mapping_promotion`은 이제 `require_exact_releases=True` 없이 생성된 receipt에 대해 `exact_release_mode_required` 사유를 추가하고 `proposal_ready`를 거부합니다. 이는 완전한 disposition을 가진 loose 또는 fuzzy 비교가 여전히 approve-proposal 결정에 도달할 수 있었던 공백을 닫습니다. | `current change`, `core/ontology_platform/direction_shadow/promotion.py`, 집중 direction-shadow promotion 검사(`9 passed`), Ruff, formatter 및 strict mypy | promotion 검토에 입력되는 모든 상위 comparator 호출 지점이 `require_exact_releases=True`를 요청하도록 연결합니다. Direction-shadow 권한은 부여하지 않았습니다. |
 | 2026-08-28 | implemented | 계획된 변경의 재검증이 각 증적의 감사 읽기 시각을 보존하면서도 안정된 그래프 상태를 비교하도록 변경했습니다. Catalog lifecycle 통합 검사는 현재 branch head의 관련 없는 직전 revision이 아니라 정확한 catalog revision을 downgrade하고 upgrade하도록 바로잡았습니다. | `current change`, 집중 평가 및 증적 검사(`28 passed`), 로컬 Docker PostgreSQL catalog migration lifecycle(`1 passed`), Ruff 및 strict mypy | 배포 migration rollback 및 계획된 변경 증적은 별도로 보존합니다. 원격 database는 조회하지 않았습니다. |
 | 2026-08-28 | implemented | 범위가 제한된 Kubernetes LIST 이어받기 상태를 watch resource version과 분리해 영속화하고 lifecycle 조회 기간을 위한 연속 coverage 경계를 추가했습니다. 대규모 snapshot은 collector 재시작 후에도 수렴하고, 만료된 이어받기는 명시적으로 초기화되며, 영속 reader는 요청한 전체 기간이 수집된 뒤에만 완전성을 반환합니다. | `current change`, 집중 출처, collector, 영속 reader, migration 및 로컬 Docker PostgreSQL 검사(`58 passed`), migration inventory(`58 passed`), Ruff 및 strict mypy | 배포 Kubernetes 및 PostgreSQL 증적은 별도로 보존합니다. 실제 클러스터 또는 원격 database는 조회하지 않았습니다. |
 | 2026-08-27 | implemented | Caller가 주장하는 provider verification boolean을 주입된 identity 검증기로 교체하고, 범위가 제한된 비어 있지 않은 target 및 generation identity를 요구했습니다. 서로 다른 provider의 판정은 모든 provider가 해당 exact target generation에 대해 검증된 뒤에만 시작합니다. | `current change`, provider 판정 및 projected-state shadow 검사(`42 passed`), Ruff 및 strict mypy | 이 선택적 primitive를 조립하기 전에 운영 검증기를 연결합니다. 외부 provider는 조회하지 않았습니다. |
