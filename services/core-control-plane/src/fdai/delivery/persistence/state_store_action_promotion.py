@@ -38,49 +38,82 @@ class StateStoreActionPromotionRegistry(ActionPromotionRegistry):
         )
         self._store = store
         self._persisted_authority_verifier = persisted_authority_verifier
+        self._observed_revisions: dict[str, int] = {}
 
     async def refresh(self, action_type: str) -> None:
         try:
-            raw = await self._store.read_state(_key(action_type))
-            if raw is None:
-                self._records.pop(action_type, None)
-                return
-            record = _deserialize(raw)
-            if record.action_type != action_type:
-                raise ValueError("persisted action_type does not match key")
-            if record.mode is Mode.ENFORCE:
-                _validate_enforce_attribution(record)
-                verifier = self._persisted_authority_verifier
-                attribution = (
-                    record.action_type_version,
-                    record.action_type_digest,
-                    record.promotion_evidence_digest,
-                    record.fdai_revision,
-                    record.scenario_set_version,
-                )
-                if verifier is None or any(value is None for value in attribution):
-                    raise ValueError("persisted ENFORCE lacks verified O7 attribution")
-                accepted = await verifier.verify(
-                    action_type=record.action_type,
-                    action_type_version=record.action_type_version or "",
-                    action_type_digest=record.action_type_digest or "",
-                    evidence_digest=record.promotion_evidence_digest or "",
-                    fdai_revision=record.fdai_revision or "",
-                    scenario_set_version=record.scenario_set_version or "",
-                )
-                if not accepted:
-                    raise ValueError("persisted ENFORCE O7 attribution was rejected")
-            self._records[action_type] = record
+            await self._refresh(action_type)
         except Exception:
             # A stale cached ENFORCE is unsafe when the authority store is
             # unavailable or corrupt. Clear it so mode_of() returns SHADOW.
             self._records.pop(action_type, None)
 
+    async def refresh_for_update(self, action_type: str) -> None:
+        """Load durable authority for a writer without suppressing failures."""
+
+        await self._refresh(action_type)
+
+    async def _refresh(self, action_type: str) -> None:
+        raw = await self._store.read_state(_key(action_type))
+        if raw is None:
+            self._records.pop(action_type, None)
+            self._observed_revisions[action_type] = 0
+            return
+        revision = raw.get("revision", 0)
+        if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
+            raise ValueError("persisted promotion revision is malformed")
+        record = _deserialize(raw)
+        if record.action_type != action_type:
+            raise ValueError("persisted action_type does not match key")
+        if record.mode is Mode.ENFORCE:
+            _validate_enforce_attribution(record)
+            verifier = self._persisted_authority_verifier
+            attribution = (
+                record.action_type_version,
+                record.action_type_digest,
+                record.promotion_evidence_digest,
+                record.fdai_revision,
+                record.scenario_set_version,
+            )
+            if verifier is None or any(value is None for value in attribution):
+                raise ValueError("persisted ENFORCE lacks verified O7 attribution")
+            accepted = await verifier.verify(
+                action_type=record.action_type,
+                action_type_version=record.action_type_version or "",
+                action_type_digest=record.action_type_digest or "",
+                evidence_digest=record.promotion_evidence_digest or "",
+                fdai_revision=record.fdai_revision or "",
+                scenario_set_version=record.scenario_set_version or "",
+            )
+            if not accepted:
+                raise ValueError("persisted ENFORCE O7 attribution was rejected")
+        self._records[action_type] = record
+        self._observed_revisions[action_type] = revision
+
     async def persist(self, action_type: str) -> None:
         record = self.record(action_type)
         if record is None:
             record = self.demote(action_type)
-        await self._store.write_state(_key(action_type), _serialize(record))
+        expected_revision = self._observed_revisions.get(action_type)
+        if expected_revision is None:
+            raise RuntimeError("promotion persistence requires a writer refresh")
+        next_revision = expected_revision + 1
+        value = {**_serialize(record), "revision": next_revision}
+        applied = await self._store.compare_and_set_state_with_audit(
+            _key(action_type),
+            value,
+            expected_revision=expected_revision,
+            audit_entry={
+                "actor": "fdai.delivery.promotion",
+                "action_kind": "action_promotion.persisted",
+                "action_type": action_type,
+                "mode": record.mode.value,
+                "revision": next_revision,
+            },
+        )
+        if not applied:
+            raise RuntimeError("promotion authority changed during persistence")
+        self._observed_revisions[action_type] = next_revision
 
 
 def _key(action_type: str) -> str:

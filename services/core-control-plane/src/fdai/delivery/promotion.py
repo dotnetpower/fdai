@@ -149,7 +149,7 @@ class PersistedActionPromotionRegistry(Protocol):
 
     def restore(self, action_type: str, record: ActionModeRecord | None) -> None: ...
 
-    async def refresh(self, action_type: str) -> None: ...
+    async def refresh_for_update(self, action_type: str) -> None: ...
 
     async def persist(self, action_type: str) -> None: ...
 
@@ -492,7 +492,7 @@ class OperationalPromotionDirectApiExecutor(DirectApiExecutor):
         # mutation as its own "prior" record, or a failed restore here
         # could clobber a concurrent call's already-durable persist.
         async with self._locks.acquire(target.name):
-            await self._registry.refresh(target.name)
+            await self._registry.refresh_for_update(target.name)
             prior_record = self._registry.record(target.name)
             if (
                 prior_record is not None
