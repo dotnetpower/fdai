@@ -329,6 +329,149 @@ async def test_promotion_attestation_survives_a_failed_durable_apply() -> None:
 
 
 @pytest.mark.asyncio
+async def test_promotion_attestation_recovers_when_restore_itself_fails() -> None:
+    """A restore write can fail for the exact same reason the apply did -
+    both hit the same durable store. The reservation MUST still recover
+    once its bounded lease expires, not remain permanently spent."""
+    from fdai.core.rbac.roles import Role
+    from fdai.delivery.promotion import (
+        GovernancePromotionAttestation,
+        GovernancePromotionDispatcher,
+        StateStorePromotionAttestationStore,
+        promotion_request_fingerprint,
+    )
+    from fdai.rule_catalog.schema.governance_review_authority import (
+        GovernanceApproval,
+        GovernanceChangeClass,
+        GovernancePrincipal,
+        GovernanceReviewRequest,
+    )
+    from fdai.shared.contracts.models import Mode
+    from fdai.shared.providers.direct_api import DirectApiRequest
+
+    class _AlwaysFailingExecutor:
+        async def execute(self, request):  # type: ignore[no-untyped-def]
+            raise RuntimeError("simulated durable write failure")
+
+    class _NthCasFailsStore(InMemoryStateStore):
+        """Fail exactly the ``fail_on_call``-th compare-and-set - the
+        restore attempt right after the first failed apply - as if the
+        same durable-store outage that broke the apply also broke the
+        compensating restore write."""
+
+        def __init__(self, *, fail_on_call: int) -> None:
+            super().__init__()
+            self._fail_on_call = fail_on_call
+            self.cas_calls = 0
+
+        async def compare_and_set_state_with_audit(  # type: ignore[no-untyped-def]
+            self, key, value, *, expected_revision, audit_entry
+        ):
+            self.cas_calls += 1
+            if self.cas_calls == self._fail_on_call:
+                raise RuntimeError("simulated store outage")
+            return await super().compare_and_set_state_with_audit(
+                key, value, expected_revision=expected_revision, audit_entry=audit_entry
+            )
+
+    request = DirectApiRequest(
+        action_id=UUID("00000000-0000-0000-0000-000000000014"),
+        idempotency_key="promotion-5",
+        action_type_name="governance.promote-action-type",
+        rule_ids=("operator.promotion",),
+        resource_ref="action-type:remediate.tag-add",
+        arguments={
+            "action_type_id": "remediate.tag-add",
+            "target_mode": "enforce",
+            "fdai_revision": "a" * 40,
+            "scenario_set_version": "scenario-v1",
+            "evidence_digest": "b" * 64,
+            "justification": "Measured evidence passed every promotion guard.",
+        },
+        labels=("enforce",),
+        mode=Mode.ENFORCE,
+    )
+    review = GovernanceReviewRequest(
+        change_class=GovernanceChangeClass.ENFORCE_PROMOTION,
+        author=GovernancePrincipal(oid=OID_A, roles=frozenset({Role.APPROVER})),
+        head_revision="a" * 40,
+        head_committed_at=NOW,
+        approvals=(
+            GovernanceApproval(
+                approver=GovernancePrincipal(oid=OID_B, roles=frozenset({Role.APPROVER})),
+                reviewed_revision="a" * 40,
+                approved_at=NOW,
+                phishing_resistant=True,
+            ),
+            GovernanceApproval(
+                approver=GovernancePrincipal(
+                    oid="00000000-0000-0000-0000-000000000004",
+                    roles=frozenset({Role.APPROVER}),
+                ),
+                reviewed_revision="a" * 40,
+                approved_at=NOW,
+                phishing_resistant=True,
+            ),
+        ),
+    )
+    attestation = GovernancePromotionAttestation(
+        review=review,
+        action_type_id="remediate.tag-add",
+        fdai_revision="a" * 40,
+        scenario_set_version="scenario-v1",
+        evidence_digest="b" * 64,
+        idempotency_key="promotion-5",
+        nonce="nonce-5",
+        request_fingerprint=promotion_request_fingerprint(request),
+    )
+
+    clock_now = NOW
+
+    def _clock() -> datetime:
+        return clock_now
+
+    # The 2nd compare-and-set across this test is the `restore` write that
+    # follows the first failed apply (the 1st is `consume`'s own reserve).
+    outage_store = _NthCasFailsStore(fail_on_call=2)
+    store = StateStorePromotionAttestationStore(
+        outage_store,
+        reservation_lease_seconds=60,
+        clock=_clock,
+    )
+    await store.save(attestation)
+    routed = GovernancePromotionDispatcher(
+        _AlwaysFailingExecutor(),  # type: ignore[arg-type]
+        attestation_store=store,
+    )
+
+    with pytest.raises(RuntimeError, match="simulated durable write failure"):
+        await routed.execute(request)
+
+    # The compensating `restore` write itself failed (same outage), so the
+    # nonce is still `reserved`, not `pending` - an immediate retry MUST NOT
+    # silently mint a second concurrent claim on the same approval.
+    with pytest.raises(DirectApiPreconditionError, match="unused"):
+        await routed.execute(request)
+
+    # Once the bounded reservation lease elapses, the same governance
+    # approval recovers on its own - no successful `restore` write required.
+    clock_now = NOW + timedelta(seconds=61)
+    with pytest.raises(RuntimeError, match="simulated durable write failure"):
+        await routed.execute(request)
+
+    # The approval was never permanently lost: a working executor retry
+    # (again after the lease elapses) can still apply it.
+    clock_now = NOW + timedelta(seconds=122)
+    working = GovernancePromotionDispatcher(_PromotionExecutor(), attestation_store=store)
+    result = await working.execute(request)
+    assert result.receipt_ref == "promotion:1"
+
+    # Only now, after a confirmed durable success, is it truly spent.
+    with pytest.raises(DirectApiPreconditionError, match="unused"):
+        await working.execute(request)
+
+
+@pytest.mark.asyncio
 async def test_promotion_rejects_forged_bare_decision_and_mismatched_attestation() -> None:
     from fdai.core.rbac.roles import Role
     from fdai.delivery.promotion import (

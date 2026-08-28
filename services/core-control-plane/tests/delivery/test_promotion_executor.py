@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import replace
 from pathlib import Path
 from uuid import UUID
@@ -197,6 +198,74 @@ async def test_persist_failure_does_not_leave_an_unpersisted_enforce_record() ->
     # actually persisted.
     assert registry.mode_of(target.name) is Mode.SHADOW
     assert registry.record(target.name) is None
+
+
+class _ControlledWriteStateStore(InMemoryStateStore):
+    """First ``write_state`` blocks until released, then fails; the rest succeed."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.write_started = asyncio.Event()
+        self.release_write = asyncio.Event()
+        self.calls = 0
+
+    async def write_state(self, key, value):  # type: ignore[no-untyped-def]
+        self.calls += 1
+        if self.calls == 1:
+            self.write_started.set()
+            await self.release_write.wait()
+            raise RuntimeError("simulated durable write failure")
+        await super().write_state(key, value)
+
+
+async def test_concurrent_failed_promotion_cannot_expose_unpersisted_enforce() -> None:
+    """A concurrent attempt for the same ActionType MUST wait for the whole
+    read-mutate-persist(-restore) sequence to finish rather than racing it.
+
+    Without the internal per-ActionType lock, a second concurrent call could
+    capture the first call's unpersisted ENFORCE mutation as its own "prior"
+    state (or clobber the first call's eventual restore), leaving the
+    registry in a state that was never actually durable.
+    """
+    action_types = _action_types()
+    target = action_types["remediate.tag-add"]
+    store = _ControlledWriteStateStore()
+    registry = StateStoreActionPromotionRegistry(
+        store=store,
+        receipt_verifier=_ReceiptVerifier(),
+    )
+    executor = OperationalPromotionDirectApiExecutor(
+        action_types=action_types,
+        receipts=_ReceiptReader(_receipt(target)),
+        registry=registry,
+    )
+    request = _request(target.name, mode=Mode.ENFORCE)
+
+    task_a = asyncio.create_task(executor.execute(request))
+    await store.write_started.wait()
+
+    # A is now inside its critical section, blocked in `persist`. A second
+    # concurrent attempt for the same ActionType MUST be unable to start its
+    # own `record`/`consider_promotion`/`persist` sequence until A's finishes.
+    task_b = asyncio.create_task(executor.execute(request))
+    await asyncio.sleep(0)
+    assert not task_b.done()
+    assert executor._locks.snapshot().get(target.name) is True
+
+    store.release_write.set()
+    with pytest.raises(RuntimeError, match="simulated durable write failure"):
+        await task_a
+
+    # Only after A's failure was fully rolled back does B get to run; its
+    # own attempt observes the correctly-restored prior state and durably
+    # persists its own ENFORCE promotion.
+    result_b = await task_b
+    assert result_b.outcome is DirectApiOutcome.SUCCEEDED
+    assert registry.mode_of(target.name) is Mode.ENFORCE
+    persisted = await store.read_state(f"action_promotion:{target.name}")
+    assert persisted is not None
+    assert persisted["mode"] == "enforce"
+    assert store.calls == 2
 
 
 async def test_mismatched_receipt_identity_fails_closed() -> None:

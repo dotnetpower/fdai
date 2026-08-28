@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 
+from fdai.core.executor.lock import ResourceLockManager
 from fdai.core.measurement import OperationalPromotionReceipt
 from fdai.core.rbac.roles import Role
 from fdai.core.risk_gate import ActionModeRecord, PromotionMetrics
@@ -31,6 +32,12 @@ from fdai.shared.providers.direct_api import (
 from fdai.shared.providers.state_store import StateStore
 
 PROMOTION_ACTION_TYPE = "governance.promote-action-type"
+
+# How long a claimed-but-not-yet-finalized attestation stays exclusively
+# reserved before another `consume` may reclaim it. Bounds recovery when
+# the same durable-store outage that failed the guarded apply also fails
+# the compensating `restore` write - see `StateStorePromotionAttestationStore`.
+_DEFAULT_RESERVATION_LEASE_SECONDS = 300
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,12 +145,45 @@ class PromotionAttestationStore(Protocol):
         self, idempotency_key: str, attestation: GovernancePromotionAttestation
     ) -> None: ...
 
+    async def finalize(
+        self, idempotency_key: str, attestation: GovernancePromotionAttestation
+    ) -> None: ...
+
 
 class StateStorePromotionAttestationStore:
-    """Persist and atomically consume one promotion review nonce."""
+    """Persist and atomically consume one promotion review nonce.
 
-    def __init__(self, store: StateStore) -> None:
+    The nonce moves ``pending -> reserved -> consumed``. ``consume``
+    claims it (``reserved``) *before* the guarded executor's durable
+    apply is known to succeed, so a caller MUST NOT treat ``reserved`` as
+    a spent approval. Only ``finalize`` (called after a confirmed durable
+    success) reaches the terminal ``consumed`` state; ``restore`` reverts
+    a failed attempt back to ``pending`` so the same approval backs a
+    retry.
+
+    ``reserved`` carries a bounded ``reserved_until`` lease. The fast path
+    is an explicit ``restore`` after a failure, but that write can fail
+    for the exact same reason the guarded apply did - a durable-store
+    outage affects both calls identically, since they share one store.
+    Without the lease, that would spend the human approval forever with
+    no way back. Instead, ``consume`` also reclaims any ``reserved``
+    record whose lease has already expired, so the approval recovers on
+    its own, bounded by ``reservation_lease_seconds``, once the store is
+    reachable again - no successful ``restore`` write is required.
+    """
+
+    def __init__(
+        self,
+        store: StateStore,
+        *,
+        reservation_lease_seconds: int = _DEFAULT_RESERVATION_LEASE_SECONDS,
+        clock: Callable[[], datetime] | None = None,
+    ) -> None:
+        if reservation_lease_seconds < 1:
+            raise ValueError("reservation_lease_seconds MUST be >= 1")
         self._store = store
+        self._reservation_lease = timedelta(seconds=reservation_lease_seconds)
+        self._clock = clock or (lambda: datetime.now(UTC))
 
     async def save(self, attestation: GovernancePromotionAttestation) -> None:
         key = f"governance-promotion-attestation:{attestation.idempotency_key}"
@@ -171,7 +211,22 @@ class StateStorePromotionAttestationStore:
     ) -> GovernancePromotionAttestation | None:
         key = f"governance-promotion-attestation:{idempotency_key}"
         raw = await self._store.read_state(key)
-        if raw is None or raw.get("state") != "pending":
+        if raw is None:
+            return None
+        state = raw.get("state")
+        if state == "consumed":
+            return None
+        if state == "reserved":
+            reserved_until = _optional_timestamp(raw.get("reserved_until"))
+            if reserved_until is None or reserved_until > self._clock():
+                # Still legitimately claimed by an in-flight attempt (or a
+                # record this store never reserved); do not double-claim.
+                return None
+            # The lease expired: the prior holder's `restore` could not
+            # durably run (for example the same store outage that failed
+            # its apply). Bounded recovery reclaims the nonce here so the
+            # same governance approval can back a fresh attempt.
+        elif state != "pending":
             return None
         revision = raw.get("revision")
         value = raw.get("attestation")
@@ -184,18 +239,20 @@ class StateStorePromotionAttestationStore:
         attestation = _attestation_from_json(value)
         if attestation.request_fingerprint != request_fingerprint:
             return None
+        reserved_until = self._clock() + self._reservation_lease
         applied = await self._store.compare_and_set_state_with_audit(
             key,
             {
                 "schema_version": "1.0.0",
-                "state": "consumed",
+                "state": "reserved",
                 "revision": revision + 1,
                 "attestation": attestation.as_json(),
+                "reserved_until": reserved_until.isoformat(),
             },
             expected_revision=revision,
             audit_entry={
                 "actor": "fdai.delivery.promotion",
-                "action_kind": "promotion_attestation.consumed",
+                "action_kind": "promotion_attestation.reserved",
                 "idempotency_key": attestation.idempotency_key,
                 "nonce": attestation.nonce,
                 "mode": Mode.ENFORCE.value,
@@ -206,20 +263,23 @@ class StateStorePromotionAttestationStore:
     async def restore(
         self, idempotency_key: str, attestation: GovernancePromotionAttestation
     ) -> None:
-        """Return a consumed attestation to pending after a failed durable apply.
+        """Return a reserved attestation to pending after a failed durable apply.
 
-        ``consume`` marks the nonce used before its promotion effect is known
+        ``consume`` reserves the nonce before its promotion effect is known
         to be durable. When the guarded executor then fails to persist the
         promotion, the human approval MUST NOT be spent for nothing: this
         reverts the state back to ``pending`` (bumping the revision) so the
         exact same governance approval can be retried without demanding a
         brand-new distinct-approver review. A concurrent state change (the
-        nonce was consumed again or moved on by another caller) makes this a
-        best-effort no-op rather than a hard failure.
+        nonce was reserved again, finalized, or moved on by another caller)
+        makes this a best-effort no-op rather than a hard failure - as does
+        this write itself failing, since a later ``consume`` call recovers
+        the same reservation once its lease expires (see the class
+        docstring).
         """
         key = f"governance-promotion-attestation:{idempotency_key}"
         raw = await self._store.read_state(key)
-        if raw is None or raw.get("state") != "consumed":
+        if raw is None or raw.get("state") != "reserved":
             return
         revision = raw.get("revision")
         if isinstance(revision, bool) or not isinstance(revision, int):
@@ -242,9 +302,64 @@ class StateStorePromotionAttestationStore:
             },
         )
 
+    async def finalize(
+        self, idempotency_key: str, attestation: GovernancePromotionAttestation
+    ) -> None:
+        """Spend the reservation permanently after a confirmed durable apply.
+
+        Only a caller that already observed the guarded executor's success
+        may call this - it is the sole path to the terminal ``consumed``
+        state. A concurrent state change (the reservation lease already
+        expired and was reclaimed, or the store is unreachable) makes this
+        a best-effort no-op: the promotion itself already durably applied,
+        so a stuck ``reserved`` record here is a bookkeeping gap, not a lost
+        approval, and self-heals the same way an unrestored failure does.
+        """
+        key = f"governance-promotion-attestation:{idempotency_key}"
+        raw = await self._store.read_state(key)
+        if raw is None or raw.get("state") != "reserved":
+            return
+        revision = raw.get("revision")
+        if isinstance(revision, bool) or not isinstance(revision, int):
+            return
+        await self._store.compare_and_set_state_with_audit(
+            key,
+            {
+                "schema_version": "1.0.0",
+                "state": "consumed",
+                "revision": revision + 1,
+                "attestation": attestation.as_json(),
+            },
+            expected_revision=revision,
+            audit_entry={
+                "actor": "fdai.delivery.promotion",
+                "action_kind": "promotion_attestation.consumed",
+                "idempotency_key": idempotency_key,
+                "nonce": attestation.nonce,
+                "mode": Mode.ENFORCE.value,
+            },
+        )
+
 
 class OperationalPromotionDirectApiExecutor(DirectApiExecutor):
-    """Apply one exact, measured receipt after the ordinary HIL gate."""
+    """Apply one exact, measured receipt after the ordinary HIL gate.
+
+    A caller (``DirectApiShadowExecutor``) already serializes actions on
+    the same ``resource_ref`` before reaching this executor, but that
+    protection is external and easy to bypass (a direct unit test, a
+    future caller, a second registry-mutating route). The registry itself
+    is a plain in-process cache - ``consider_promotion`` mutates it
+    optimistically so its verdict can be inspected before ``persist``, and
+    a failed ``persist`` rolls that mutation back with ``restore``. Two
+    concurrent promotion attempts for the *same* ActionType without an
+    internal lock could interleave those steps: the second call's
+    ``record()`` could capture the first call's unpersisted ENFORCE
+    mutation as its own "prior" state, and a failed first call could then
+    restore over the second call's already-durably-persisted result (or
+    vice versa). A per-ActionType lock around the whole
+    read-mutate-persist-restore sequence makes this executor safe on its
+    own, independent of any external caller's locking.
+    """
 
     def __init__(
         self,
@@ -256,6 +371,7 @@ class OperationalPromotionDirectApiExecutor(DirectApiExecutor):
         self._action_types = dict(action_types)
         self._receipts = receipts
         self._registry = registry
+        self._locks = ResourceLockManager()
 
     async def execute(self, request: DirectApiRequest) -> DirectApiReceipt:
         if request.action_type_name != PROMOTION_ACTION_TYPE:
@@ -304,23 +420,29 @@ class OperationalPromotionDirectApiExecutor(DirectApiExecutor):
             accuracy=receipt.accuracy,
             policy_escapes=receipt.policy_escapes,
         )
-        prior_record = self._registry.record(target.name)
-        record = self._registry.consider_promotion(
-            action_type=target,
-            metrics=metrics,
-            receipt=receipt,
-        )
-        if record.mode is not Mode.ENFORCE:
-            raise DirectApiPreconditionError("operational promotion receipt was rejected")
-        try:
-            await self._registry.persist(target.name)
-        except BaseException:
-            # `consider_promotion` mutates the in-memory cache optimistically
-            # so its verdict can be inspected before persisting. A failed
-            # durable write MUST NOT leave that unpersisted ENFORCE visible
-            # to `mode_of`, so put the exact prior record back on failure.
-            self._registry.restore(target.name, prior_record)
-            raise
+        # Serialize the whole read-mutate-persist(-restore) sequence per
+        # ActionType. Without this, a concurrent attempt for the same
+        # ActionType could capture this call's unpersisted optimistic
+        # mutation as its own "prior" record, or a failed restore here
+        # could clobber a concurrent call's already-durable persist.
+        async with self._locks.acquire(target.name):
+            prior_record = self._registry.record(target.name)
+            record = self._registry.consider_promotion(
+                action_type=target,
+                metrics=metrics,
+                receipt=receipt,
+            )
+            if record.mode is not Mode.ENFORCE:
+                raise DirectApiPreconditionError("operational promotion receipt was rejected")
+            try:
+                await self._registry.persist(target.name)
+            except BaseException:
+                # `consider_promotion` mutates the in-memory cache optimistically
+                # so its verdict can be inspected before persisting. A failed
+                # durable write MUST NOT leave that unpersisted ENFORCE visible
+                # to `mode_of`, so put the exact prior record back on failure.
+                self._registry.restore(target.name, prior_record)
+                raise
         return DirectApiReceipt(
             outcome=DirectApiOutcome.SUCCEEDED,
             receipt_ref=f"promotion:{target.name}:{receipt.evidence_digest}",
@@ -361,15 +483,30 @@ class GovernancePromotionDispatcher:
                 "promotion direct routing requires an unused governance attestation"
             )
         try:
-            return await self.dispatch(request, attestation=attestation)
-        except BaseException:
-            # The attestation is consumed before the wrapped executor's
-            # durable persist is known to succeed. A failed apply MUST NOT
-            # permanently spend the human approval, so restore it to pending
-            # on any failure - the same distinct-approver review can then
-            # back a retry instead of demanding a brand-new one.
-            await self._attestation_store.restore(idempotency_key, attestation)
-            raise
+            receipt = await self.dispatch(request, attestation=attestation)
+        except BaseException as exc:
+            # `consume` only reserves the attestation before the wrapped
+            # executor's durable persist is known to succeed. A failed
+            # apply MUST NOT permanently spend the human approval, so
+            # restore it to pending on any failure - the same
+            # distinct-approver review can then back a retry instead of
+            # demanding a brand-new one. This compensating write is
+            # best-effort: it can fail for the exact same reason (a
+            # durable-store outage) the apply did. The caller still needs
+            # the *original* failure, not a masking restore error, and the
+            # reservation's bounded lease (see the store's docstring)
+            # recovers the approval on its own even when this write never
+            # lands.
+            try:
+                await self._attestation_store.restore(idempotency_key, attestation)
+            except BaseException:  # noqa: BLE001, S110 - best-effort, original failure wins
+                pass
+            raise exc
+        # Only a confirmed durable success may permanently spend the
+        # reservation - `finalize` is the sole path to the terminal
+        # `consumed` state.
+        await self._attestation_store.finalize(idempotency_key, attestation)
+        return receipt
 
     async def dispatch(
         self,
@@ -500,6 +637,26 @@ def _timestamp(raw: Mapping[str, Any], name: str) -> datetime:
         raise DirectApiPreconditionError(f"promotion attestation {name} is malformed") from exc
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise DirectApiPreconditionError(f"promotion attestation {name} is not timezone-aware")
+    return parsed
+
+
+def _optional_timestamp(value: object) -> datetime | None:
+    """Parse a stored lease deadline, treating anything malformed as absent.
+
+    An absent or unparsable ``reserved_until`` MUST NOT be treated as an
+    expired lease - :meth:`StateStorePromotionAttestationStore.consume`
+    only reclaims a ``reserved`` record once its deadline has genuinely
+    passed, so a missing/corrupt field fails closed (not reclaimable)
+    rather than accidentally granting an early reclaim.
+    """
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return None
     return parsed
 
 
