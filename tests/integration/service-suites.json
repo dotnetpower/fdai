@@ -68,8 +68,10 @@
       "test_groups": {
         "unit": [
           "services/operator-service/tests/test_azure_cli_token.py",
+          "services/operator-service/tests/test_azure_monitor_webhook_runtime.py",
           "services/operator-service/tests/test_background_task_projection.py",
           "services/operator-service/tests/test_browser_evidence_projection.py",
+          "services/operator-service/tests/test_conversation_assurance_reader.py",
           "services/operator-service/tests/test_inventory_instance_projection.py",
           "services/operator-service/tests/test_inventory_impact_projection.py",
           "services/operator-service/tests/test_investigation_presentation.py",
@@ -81,7 +83,10 @@
           "services/operator-service/tests/test_presentation_artifact_v2.py",
           "services/operator-service/tests/test_presentation_planner.py",
           "services/operator-service/tests/test_resolved_models_key_vault.py",
-          "services/operator-service/tests/test_stream_shutdown.py"
+          "services/operator-service/tests/test_runtime_projection_reader.py",
+          "services/operator-service/tests/test_slack_webhook_diagnostics.py",
+          "services/operator-service/tests/test_stream_shutdown.py",
+          "services/operator-service/tests/test_teams_workflow_diagnostics.py"
         ],
         "contract": [
           "services/operator-service/tests/test_conversation_contracts.py",
