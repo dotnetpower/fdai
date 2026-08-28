@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 7094bc2cb78ce78385d7f3ac553a2a6f7dcc35ac
+translation_source_sha: bb1745b1faa78aab4bff47b9b086158dc599871d
 translation_revised: 2026-08-29
 ---
 # 프로젝트 구조
@@ -422,6 +422,11 @@ grounding 권한을 우회할 수 없습니다. HIL 승인 id와 실행기 멱�
   설정 파일). 소스에는 어떤 고객·테넌트·환경 값도 없습니다.
 - 설정은 시작 시 `shared/config/` 스키마로 검증되며, 잘못되거나 누락된 필수 설정에 대해 **fail
   fast** - degraded 상태로 시작하지 않습니다.
+- 기본 환경 공급자와 선택적이고 범위가 제한된 `YamlFileConfigProvider`는 동일한 JSON Schema 및
+  Pydantic 경계로 진입합니다. YAML 공급자는 UTF-8 매핑 하나를 읽고 중복 키와 1MiB를 넘는 파일을
+  차단합니다. 또한 symlink, regular file이 아닌 대상 및 지원하지 않거나 지나치게 중첩된 YAML을
+  구성이 반환되기 전에 차단하고 검증된 시작 스냅샷을 캐시합니다. 구문 분석 오류에는 파일 내용이나
+  경로가 남지 않습니다. 환경 값을 병합하거나 파일에서 비밀을 읽지 않습니다.
 - 시크릿은 주입된 프로바이더를 통해 읽으며, 가져오기 시점 전역 읽기 절대 금지, 로그·감사·에러
   메시지에 절대 쓰지 않습니다.
 - A2/A4 아웃바운드 알림 조립은 `FDAI_NOTIFICATION_BINDINGS_JSON`에서 이름이 있는 바인딩을

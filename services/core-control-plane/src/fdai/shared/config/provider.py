@@ -23,9 +23,15 @@ prohibited by ``coding-conventions.instructions.md``.
 from __future__ import annotations
 
 import os
+import stat
 from collections.abc import Mapping
 from math import isfinite
+from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
+
+import yaml
+from yaml.constructor import ConstructorError
+from yaml.nodes import MappingNode
 
 from .errors import ConfigError, ConfigIssue
 from .loader import load_from_mapping
@@ -90,6 +96,36 @@ _FLOAT_ENV_VARS = frozenset(
     }
 )
 _INT_ENV_VARS = frozenset({"QUALITY_GATE_QUORUM", "SELF_CONSISTENCY_SAMPLES"})
+_MAX_CONFIG_FILE_BYTES = 1_048_576
+
+
+class _UniqueKeySafeLoader(yaml.SafeLoader):
+    """Safe YAML loader that rejects duplicate mapping keys."""
+
+
+def _construct_unique_mapping(
+    loader: _UniqueKeySafeLoader,
+    node: MappingNode,
+    deep: bool = False,
+) -> dict[object, object]:
+    mapping: dict[object, object] = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if key in mapping:
+            raise ConstructorError(
+                None,
+                None,
+                "configuration YAML contains a duplicate key",
+                key_node.start_mark,
+            )
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+    return mapping
+
+
+_UniqueKeySafeLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+    _construct_unique_mapping,
+)
 
 
 class EnvVarConfigProvider:
@@ -132,6 +168,62 @@ class EnvVarConfigProvider:
         return load_from_mapping(raw)
 
 
+class YamlFileConfigProvider:
+    """Load one bounded UTF-8 YAML document through the shared config validators."""
+
+    def __init__(self, path: str | Path) -> None:
+        self._path = Path(path)
+        self._cached: AppConfig | None = None
+
+    def get(self) -> AppConfig:
+        if self._cached is not None:
+            return self._cached
+        try:
+            descriptor = os.open(
+                self._path,
+                os.O_RDONLY
+                | getattr(os, "O_CLOEXEC", 0)
+                | getattr(os, "O_NOFOLLOW", 0)
+                | getattr(os, "O_NONBLOCK", 0),
+            )
+        except OSError:
+            raise _file_error("configuration file is unavailable") from None
+        try:
+            if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+                raise _file_error("configuration file MUST be a regular file")
+            with os.fdopen(descriptor, "rb", closefd=False) as handle:
+                payload = handle.read(_MAX_CONFIG_FILE_BYTES + 1)
+        except OSError:
+            raise _file_error("configuration file is unavailable") from None
+        finally:
+            os.close(descriptor)
+        if len(payload) > _MAX_CONFIG_FILE_BYTES:
+            raise _file_error("configuration file exceeds the 1 MiB limit")
+        try:
+            text = payload.decode("utf-8")
+        except UnicodeDecodeError:
+            raise _file_error("configuration file MUST be UTF-8") from None
+        loader: _UniqueKeySafeLoader | None = None
+        try:
+            loader = _UniqueKeySafeLoader(text)
+            loaded = loader.get_single_data()
+        except (RecursionError, TypeError, ValueError, yaml.YAMLError):
+            raise _file_error("configuration file is not valid YAML") from None
+        finally:
+            if loader is not None:
+                loader.dispose()  # type: ignore[no-untyped-call]
+        if not isinstance(loaded, Mapping):
+            raise _file_error("configuration file root MUST be a mapping")
+        if any(not isinstance(key, str) for key in loaded):
+            raise _file_error("configuration file keys MUST be strings")
+        self._cached = load_from_mapping(loaded)
+        return self._cached
+
+
+def _file_error(message: str) -> ConfigError:
+    return ConfigError([ConfigIssue(key="CONFIG_FILE", message=message)])
+
+
 def _parse_env_value(env_var: str, value: str) -> object:
     if env_var in _FLOAT_ENV_VARS:
         try:
@@ -157,4 +249,4 @@ def _assign(target: dict[str, Any], path: tuple[str, ...], value: object) -> Non
     cursor[path[-1]] = value
 
 
-__all__ = ["ConfigProvider", "EnvVarConfigProvider"]
+__all__ = ["ConfigProvider", "EnvVarConfigProvider", "YamlFileConfigProvider"]

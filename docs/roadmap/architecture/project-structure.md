@@ -433,6 +433,12 @@ per-resource locking serializes competing applies before any delivery adapter ca
   secret store references, config files). No customer, tenant, or environment values in source.
 - Config is validated against the `shared/config/` schema at startup; the process **fails fast**
   on invalid or missing required config rather than starting in a degraded state.
+- The default environment provider and the optional bounded `YamlFileConfigProvider` both enter the
+  same JSON Schema and Pydantic boundary. The YAML provider reads one UTF-8 mapping, rejects
+  symlinks, non-regular files, duplicate keys, unsupported or excessively nested YAML, and files
+  over 1 MiB before returning config, and caches the validated startup snapshot. Parse errors do not
+  retain file content or paths. The provider does not merge environment values or read secrets from
+  the file.
 - Secrets are read through an injected provider, never a global import-time read, and never
   written to logs, audit entries, or error messages.
 - Outbound A2/A4 notification composition resolves named bindings from
