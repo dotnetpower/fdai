@@ -14,11 +14,11 @@ Faster push paths remain opt-in through Terraform and composition seams.
 
 > **Current delivery boundary**: Routed metric providers, the analyzer job entry point, and both
 > Terraform primitives are implemented, and one focused test drives a tick through a
-> `RoutedMetricProvider` to a published Event. The Operator Service
-> preserves the Azure Monitor route in its compatibility manifest, but no request handler or push
-> normalizer exists in the current source tree. The push paths therefore remain design and
-> infrastructure primitives rather than runnable end-to-end paths, and no path yet carries governed
-> live latency evidence.
+> `RoutedMetricProvider` to a published Event. The Operator Service verifies, normalizes, durably
+> queues, and publishes Common Alert Schema records. Core independently consumes a configured
+> diagnostic Event Hub, normalizes whitelisted `AllMetrics` records, and publishes them to the
+> ordinary ingest topic. Both paths remain `implemented`, not `validated`, until governed live
+> latency and delivery evidence is retained.
 
 ## Latency envelope at a glance
 
@@ -50,13 +50,13 @@ static.
 
 **Seams**
 
-- [Normalizer](../../../services/core-control-plane/src/fdai/delivery/azure/) -
-  Common Alert Schema v2 -> `Event`. Pure function, unit tested
+- [Normalizer](../../../packages/service-contracts/src/fdai_service_contracts/azure_monitor.py) -
+  Common Alert Schema -> `Event`. Shared cross-service contract, unit tested
   against fired / resolved / malformed payloads.
 - [Webhook route](../../../services/operator-service/src/fdai_operator_service/) -
-  Starlette POST /webhook/azure-monitor. Bearer-token auth
-  (constant-time compare), 256 KiB body cap, publishes to the
-  ingest topic keyed by lowercased ARM id.
+  Starlette `POST /webhook/azure-monitor`. HMAC-SHA256 verification
+  (constant-time compare), 256 KiB body cap, durable proposal outbox, and
+  direct ingest-topic publication keyed by the normalized Resource id.
 - [Terraform module](../../../infra/modules/observability/metric-alert-rules/main.tf) -
   reusable metric alert rule; a fork instantiates one per
   (resource, metric) pair.
@@ -106,13 +106,12 @@ picks which ones actually turn into events.
 - [Terraform module](../../../infra/modules/observability/diagnostic-eventhub-route/main.tf) -
   attaches a Diagnostic Setting to a target resource and routes to
   the fork's Event Hub. Metric / log categories are opt-in.
-- The **Kafka consumer wiring** that reads the Event Hub Kafka
-  endpoint and calls `normalize_diagnostic_records` is a fork task -
-  the standard `AIOKafkaConsumer` in
-  [`delivery/azure/event_bus.py`](../../../services/core-control-plane/src/fdai/delivery/azure/event_bus.py)
-  already reads from a topic; the fork's composition root points
-  a second consumer instance at the diagnostic hub and pipes each
-  batch through the normalizer.
+- [Runtime bridge](../../../services/core-control-plane/src/fdai/delivery/azure/diagnostic_event_ingest.py)
+  creates a dedicated earliest-offset Kafka transport when
+  `FDAI_DIAGNOSTIC_KAFKA_BOOTSTRAP_SERVERS`, `FDAI_DIAGNOSTIC_TOPIC`, and
+  `FDAI_DIAGNOSTIC_METRIC_WHITELIST_JSON` are supplied together. Malformed matching records go to
+  the source DLQ; non-whitelisted metrics are ignored; valid records publish to the ordinary ingest
+  topic with no action authority.
 
 ## Pull baseline - analyzer job + `RoutedMetricProvider`
 
@@ -204,36 +203,35 @@ composition binding, and path #1 also requires an authentication bridge.
 | Routed pull providers | implemented | `services/core-control-plane/src/fdai/composition/wire_metric_provider.py`; `services/core-control-plane/tests/providers/test_routed_metric.py` | Prometheus, Metrics API, and Logs providers resolve through a deterministic route order. |
 | Scheduled analyzer job | implemented | `infra/modules/compute/container-apps/analyzer_tick_job.tf`; `services/core-control-plane/src/fdai/delivery/analyzer_tick_cli.py`; `services/core-control-plane/tests/delivery/test_analyzer_tick_routed.py` | Terraform declares the one-minute job and its `fdai.delivery.analyzer_tick_cli` entry point ships. One focused tick reaches each routed backend and publishes its breach as a shadow-mode Event; governed live latency evidence remains open. |
 | AKS detection-readiness reduction | implemented | `services/core-control-plane/tests/agents/test_huginn_detection_readiness.py`; `tests/integration/infra/test_detection_readiness.py` | Focused tests cover the agent-owned readiness observations and the infrastructure contract. This is implementation evidence, not live latency evidence. |
-| Metric Alert webhook path | in-progress | `infra/modules/observability/metric-alert-rules/main.tf`; `services/operator-service/src/fdai_operator_service/families/operations/manifest.py`; `services/operator-service/tests/test_operator_operations_family.py` | The Terraform primitive and compatibility route declaration exist. A handler, normalizer, and authenticated Action Group bridge don't. |
-| Diagnostic Event Hub path | in-progress | `infra/modules/observability/diagnostic-eventhub-route/main.tf`; `services/core-control-plane/src/fdai/delivery/azure/event_bus.py` | The routing module and Kafka adapter exist. Diagnostic-record normalization and composition wiring don't. |
+| Metric Alert webhook path | implemented | `fdai_service_contracts/azure_monitor.py`; Operator operations route, durable webhook outbox bridge, semantic Kafka event route; focused contract, route, bridge, and Kafka tests | Verified Common Alert payloads become sanitized shadow Events and publish from a lease-fenced durable proposal. Governed live Action Group delivery and latency evidence remain open. |
+| Diagnostic Event Hub path | implemented | `delivery/azure/monitor_events.py`; `diagnostic_event_ingest.py`; runtime bootstrap and Core service Terraform binding; focused normalizer, bridge, bootstrap, shutdown, and infrastructure tests | A dedicated Kafka consumer normalizes only configured metrics, dead-letters malformed matching records, and feeds the ordinary ingest topic. Governed live delivery and latency evidence remain open. |
 | Managed alert-rule authoring | not-started | [What is NOT yet shipped](#what-is-not-yet-shipped) | No catalog-driven generator materializes alert rules from governed Rule entries. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-28 | implemented | Completed both push-path implementations. The HMAC-verified Operator webhook now converts Common Alert Schema bodies into shared sanitized Events before durable acceptance, and a lease-fenced outbox publishes them directly to the Core event topic. Core now owns a separately configured diagnostic Kafka transport, normalizes bounded whitelisted `AllMetrics` records, dead-letters malformed matching input, and supervises the bridge with startup readiness and ordered shutdown. Both capabilities remain shadow and grant no action authority. | `current change`; shared alert contract; Operator route, outbox, Kafka, composition, and focused tests; Core normalizer, bridge, bootstrap, shutdown, Terraform contract, and focused tests. | Retain governed live Action Group and diagnostic Event Hub delivery and latency evidence. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and corrected end-to-end delivery claims to match the current source tree. | `current change`; paths and focused checks listed in the scope table. | Restore a runnable pull entry point and complete both authenticated push paths. |
 | 2026-08-16 | implemented | Corrected the stale claim that `fdai.delivery.analyzer_tick_cli` is absent; the module ships. Added a focused integration test that drives one tick through a `RoutedMetricProvider`, proving each metric reaches the backend its routing table selects, that a breach publishes one shadow-mode Event, that a healthy pass publishes nothing, and that an unrouted metric marks the pass partial instead of healthy. | `current change`; `services/core-control-plane/tests/delivery/test_analyzer_tick_routed.py`; `pytest services/core-control-plane/tests/delivery/test_analyzer_tick_routed.py` (4 passed). | Complete both authenticated push paths and record governed live latency evidence per path. |
 
 ### Remaining work
 
 - [x] `fdai.delivery.analyzer_tick_cli` ships as the entry point the scheduled job invokes, and one focused integration test drives a tick through the `RoutedMetricProvider` to a published shadow-mode Event, proven by `services/core-control-plane/tests/delivery/test_analyzer_tick_routed.py`.
-- [ ] Add a tested Azure Monitor request handler, payload normalizer, and authenticated Action Group bridge for path #1.
-- [ ] Add a tested diagnostic-record normalizer and composition binding that feeds path #2 records into the ingest topic.
+- [x] Add a tested Azure Monitor request handler, shared payload normalizer, HMAC verifier, durable
+  outbox, and event-topic publisher for path #1.
+- [x] Add a tested diagnostic-record normalizer and runtime binding that feeds path #2 records into
+  the ingest topic and dead-letters malformed matching records.
 - [ ] Record governed latency evidence for each path before changing any path from `implemented` to `validated`.
 
 ## What is NOT yet shipped
 
-- **Authenticated Action Group bridge for path #1.** The route and alert-rule module exist, but
+- **External Action Group receiver for path #1.** The FDAI-side HMAC bridge is implemented, but
   the shipped Action Group webhook does not add the Bearer header. A fork must supply a trusted
   token-injecting proxy or an Entra-authenticated secure-webhook binding.
-- **Kafka-consumer glue** for path #2 (see the "fork task" note
-  above). The consumer library and the normalizer both exist; only
-  the composition-root wiring that reads the diagnostic hub and
-  pipes records through the normalizer is not written upstream.
 - **Managed alert-rule authoring pipeline.** Path #1's Terraform
   module is the primitive; a rule-catalog-driven generator that
   materializes rules from the shipped rule catalog is a separate
   scope.
 
-All three are ready to be added once a fork picks the shape.
+The managed authoring pipeline remains separate from the implemented push transports.

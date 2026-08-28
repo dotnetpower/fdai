@@ -56,6 +56,7 @@ class RuntimeTaskConfiguration:
     environment: Mapping[str, str]
     read_investigation_binding: Any = None
     operational_readiness_handler: OperationalReadinessEventHandler | None = None
+    diagnostic_event_ingest_bridge: Any = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -199,6 +200,15 @@ async def run_runtime_tasks(
                 ),
             ),
             name="operational-readiness-consumer",
+        )
+    diagnostic_event_ingest_task: asyncio.Task[None] | None = None
+    if config.diagnostic_event_ingest_bridge is not None:
+        diagnostic_event_ingest_task = asyncio.create_task(
+            config.readiness.run_when_ready(
+                config.stop,
+                config.diagnostic_event_ingest_bridge.run,
+            ),
+            name="azure-diagnostic-event-ingest",
         )
     incident_notification_replay_task: asyncio.Task[None] | None = None
     incident_notification_replay_worker = config.incident_notification_replay_worker
@@ -391,6 +401,7 @@ async def run_runtime_tasks(
             semantic_turn_task,
             read_investigation_task,
             operational_readiness_task,
+            diagnostic_event_ingest_task,
             effect_reconciliation_request_task,
             discovery_activation_task,
             continuous_operating_model_task,

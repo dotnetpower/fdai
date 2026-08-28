@@ -36,6 +36,7 @@ class MessagingRuntime:
     auxiliary_bus: EventBus | None
     operational_bus: EventBus
     stage_publisher: EventBusStagePublisher
+    diagnostic_bus: EventBus | None = None
 
 
 def build_messaging_runtime(
@@ -73,12 +74,24 @@ def build_messaging_runtime(
                 security_protocol=bus_security_protocol(plan.venue),
             ),
         )
+    diagnostic_bus: EventBus | None = None
+    if plan.diagnostic_kafka_bootstrap_servers:
+        diagnostic_bus = bus_factory(
+            identity=identity,
+            config=EventHubsKafkaBusConfig(
+                bootstrap_servers=plan.diagnostic_kafka_bootstrap_servers,
+                dlq_suffix=kafka.topic_dlq_suffix,
+                security_protocol=bus_security_protocol(plan.venue),
+                auto_offset_reset="earliest",
+            ),
+        )
 
     return MessagingRuntime(
         bus=bus,
         auxiliary_bus=auxiliary_bus,
         operational_bus=operational_event_bus(bus, auxiliary_bus),
         stage_publisher=EventBusStagePublisher(bus, topic=plan.stage_topic),
+        diagnostic_bus=diagnostic_bus,
     )
 
 

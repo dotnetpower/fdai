@@ -7,6 +7,8 @@ import type {
   EvidenceBranchStatus,
   InvestigationActivity,
   InvestigationExecutionEvidence,
+  ModelUsage,
+  TurnTiming,
 } from "./backend";
 import { formatJsonValue } from "./json-code-block";
 import { inventoryExecutionDisplay } from "./inventory-execution-display";
@@ -103,6 +105,10 @@ function terminalDuration(
     ...branches.map((branch) => branch.durationMs ?? 0),
     ...activities.map((activity) => activity.execution?.durationMs ?? 0),
   );
+}
+
+function formatTokenCount(tokens: number): string {
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(tokens);
 }
 
 export function investigationTone(
@@ -588,14 +594,23 @@ export function InvestigationTimeline({
   running,
   showStartNote,
   answerSettled,
+  turnDurationMs,
+  modelLatencyMs,
+  modelUsage,
+  turnTiming,
 }: {
   readonly activities: readonly InvestigationActivity[];
   readonly branches: readonly EvidenceBranch[];
   readonly running: boolean;
   readonly showStartNote: boolean;
   readonly answerSettled: boolean;
+  readonly turnDurationMs?: number;
+  readonly modelLatencyMs?: number;
+  readonly modelUsage?: ModelUsage;
+  readonly turnTiming?: TurnTiming;
 }) {
-  const finalDurationMs = terminalDuration(branches, activities);
+  const observedExecutionMs = terminalDuration(branches, activities);
+  const finalDurationMs = turnTiming?.duration_ms ?? turnDurationMs ?? observedExecutionMs;
   const elapsedMs = useInvestigationElapsed(running, finalDurationMs);
   const tone = investigationTone(activities, branches);
   const visibleBranches = unrepresentedEvidenceBranches(branches, activities);
@@ -630,6 +645,26 @@ export function InvestigationTimeline({
       ? "deck.investigation.sourceSummaryOne"
       : "deck.investigation.sourceSummaryMany", { count: branches.length })
     : t("deck.investigation.executionDetails", { count: activities.length });
+  const phaseDurationMs = turnTiming?.phases.reduce(
+    (total, phase) => total + phase.duration_ms,
+    0,
+  );
+  const telemetrySummary = [
+    ...(turnTiming
+      ? [t("deck.investigation.phaseTiming", {
+          count: turnTiming.phases.length,
+          duration: formatDuration(phaseDurationMs ?? turnTiming.duration_ms),
+        })]
+      : []),
+    ...(modelLatencyMs !== undefined
+      ? [t("deck.investigation.modelDuration", { duration: formatDuration(modelLatencyMs) })]
+      : []),
+    ...(modelUsage
+      ? [t("deck.investigation.tokenUsage", {
+          tokens: formatTokenCount(modelUsage.total_tokens),
+        })]
+      : []),
+  ].join(" · ") || summary;
   const body = (
     <div class="deck-investigation-body">
       {visibleBranches.length > 0 ? (
@@ -752,11 +787,15 @@ export function InvestigationTimeline({
       )}
       <span class="deck-investigation-session-copy cs-work-summary-copy">
         <strong class="cs-work-summary-title">{phaseTitle}</strong>
-        <small class="cs-work-summary-meta">{eventSummary} · {formatDuration(running ? elapsedMs : finalDurationMs)}</small>
+        <small class="cs-work-summary-meta">
+          {eventSummary} · {t("deck.investigation.totalDuration", {
+            duration: formatDuration(running ? elapsedMs : finalDurationMs),
+          })}
+        </small>
       </span>
-      {!answerSettled ? (
-        <span class="deck-investigation-session-summary muted">{summary}</span>
-      ) : null}
+      <span class="deck-investigation-session-summary muted">
+        {answerSettled ? telemetrySummary : summary}
+      </span>
       <span class="deck-investigation-readonly cs-work-summary-safety">
         {t("deck.investigation.readOnly")}
       </span>

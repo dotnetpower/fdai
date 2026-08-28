@@ -28,6 +28,9 @@ _EXPECTED_FILES = frozenset(
         "wire_llm.py",
         "wire_distiller.py",
         "wire_azure.py",
+        # Keeps Azure metric and observation attachment out of the primary
+        # Azure composition file while preserving their required order.
+        "wire_azure_observability.py",
         # Binds strict promoted-inventory, current safety, temporal metric,
         # Dynamic branch, and effect-model providers without adding authority.
         "wire_azure_operational_evidence.py",
@@ -263,6 +266,9 @@ def test_wire_files_do_not_import_each_other() -> None:
         ("wire_azure.py", "wire_distiller.py"),
         ("wire_azure.py", "wire_metric_provider.py"),
         ("wire_azure.py", "wire_observation_providers.py"),
+        ("wire_azure.py", "wire_azure_observability.py"),
+        ("wire_azure_observability.py", "wire_metric_provider.py"),
+        ("wire_azure_observability.py", "wire_observation_providers.py"),
         ("wire_llm.py", "wire_semantic_judgment.py"),
     }
     offenders: list[tuple[str, str, str]] = []

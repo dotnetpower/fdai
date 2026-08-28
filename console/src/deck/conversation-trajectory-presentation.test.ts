@@ -180,6 +180,21 @@ describe("buildTrajectoryPresentation", () => {
     expect(result.modelCallCountIsLowerBound).toBe(false);
   });
 
+  it("surfaces measured model duration and token usage without prompt capture", () => {
+    const result = buildTrajectoryPresentation(trajectory({
+      source: "ontology-query",
+      modelLatencyMs: 8450,
+      modelUsage: {
+        prompt_tokens: 1600,
+        completion_tokens: 142,
+        total_tokens: 1742,
+      },
+    }));
+
+    expect(result.modelLatencyMs).toBe(8450);
+    expect(result.totalTokens).toBe(1742);
+  });
+
   it("distinguishes corrected verification and degraded planning", () => {
     const input = trajectory({
       answerPlanning: {

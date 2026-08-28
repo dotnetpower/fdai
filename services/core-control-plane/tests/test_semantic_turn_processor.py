@@ -12,6 +12,7 @@ from types import MappingProxyType, SimpleNamespace
 from typing import Any, cast
 
 import pytest
+from fdai.core.conversation.conversation_preflight import SocialAct
 from fdai.core.conversation.semantic_investigation import InvestigationEntityRole
 from fdai.core.conversation.semantic_judgment import SemanticJudgmentObservation
 from fdai.core.conversation.semantic_planning_cascade import (
@@ -61,6 +62,7 @@ from fdai_core_service.semantic_turn_processor import (
     _project_investigation_continuation,
     _render_general_query_answer,
     _render_query_answer,
+    _semantic_turn_timing,
     _typed_extension_answer_output,
     incident_next_step_actions,
     incident_profile_facts,
@@ -753,6 +755,7 @@ class _Runtime:
         utterance: str,
         prior_turns: tuple[Turn, ...],
         principal: Principal,
+        locale: str = "en",
         cancelled: asyncio.Event | None = None,
         bound_incident: BoundIncident | None = None,
         bound_investigation_continuation: BoundInvestigationContinuation | None = None,
@@ -786,6 +789,7 @@ class _ContendedRuntime(_Runtime):
         utterance: str,
         prior_turns: tuple[Turn, ...],
         principal: Principal,
+        locale: str = "en",
         cancelled: asyncio.Event | None = None,
         bound_incident: BoundIncident | None = None,
         bound_investigation_continuation: BoundInvestigationContinuation | None = None,
@@ -923,11 +927,46 @@ def _projection(encoded: bytes) -> dict[str, Any]:
     return cast(dict[str, Any], loaded)
 
 
+def test_semantic_turn_timing_partitions_end_to_end_duration_without_gaps() -> None:
+    timing = _semantic_turn_timing(
+        envelope={"requested_at": NOW.isoformat()},
+        result=cast(
+            Any,
+            SimpleNamespace(
+                answer="Verified answer",
+                intent_graph_evidence={
+                    "goals": [
+                        {
+                            "status": "completed",
+                            "started_at": (NOW + timedelta(seconds=8)).isoformat(),
+                            "completed_at": (
+                                NOW + timedelta(seconds=8, milliseconds=272)
+                            ).isoformat(),
+                        }
+                    ]
+                },
+            ),
+        ),
+        completed_at=NOW + timedelta(seconds=10),
+    )
+
+    assert timing["duration_ms"] == 10_000
+    phases = cast(list[dict[str, object]], timing["phases"])
+    assert [phase["phase"] for phase in phases] == [
+        "semantic_plan",
+        "evidence",
+        "generation",
+    ]
+    assert [phase["duration_ms"] for phase in phases] == [8_000, 272, 1_728]
+    assert sum(cast(int, phase["duration_ms"]) for phase in phases) == timing["duration_ms"]
+
+
 def _runtime_result(
     disposition: str,
     *,
     reason: str = "provider detail must not escape",
     direct_response_intent: SemanticDirectResponseIntent = SemanticDirectResponseIntent.GREETING,
+    direct_response_answer: str = "This answer came from the semantic judgment model.",
     model_observations: tuple[SemanticJudgmentObservation, ...] = (),
 ) -> RuntimeSemanticTurnResult:
     plan = SimpleNamespace(
@@ -944,6 +983,9 @@ def _runtime_result(
         manifest_digest=MANIFEST_DIGEST,
         direct_response_intent=(
             direct_response_intent if disposition == "direct_response" else None
+        ),
+        direct_response_answer=(
+            direct_response_answer if disposition == "direct_response" else None
         ),
         model_observations=model_observations,
     )
@@ -1692,21 +1734,19 @@ async def test_clarification_projection_preserves_specific_question() -> None:
     assert projection["semantic_result"]["reason_code"] == ("semantic_clarification_required")
 
 
-@pytest.mark.parametrize(
-    ("locale", "expected"),
-    [
-        ("en", "Hello. What would you like to inspect on this screen or in current operations?"),
-        ("ko", "안녕하세요. 현재 화면이나 운영 상태에 대해 무엇을 확인할까요?"),
-    ],
-)
+@pytest.mark.parametrize("locale", ["en", "ko"])
 async def test_direct_greeting_projection_has_no_query_or_evidence_claims(
     locale: str,
-    expected: str,
 ) -> None:
+    expected = (
+        "반갑습니다. 어떤 운영 정보를 함께 살펴볼까요?"
+        if locale == "ko"
+        else "Good to meet you. Which operational detail should we inspect?"
+    )
     projection = _projection(
-        await _processor(_Runtime(_runtime_result("direct_response"))).process(
-            _request(locale=locale)
-        )
+        await _processor(
+            _Runtime(_runtime_result("direct_response", direct_response_answer=expected))
+        ).process(_request(locale=locale))
     )
 
     semantic = projection["semantic_result"]
@@ -1782,6 +1822,33 @@ async def test_direct_greeting_projects_measured_usage_and_opt_in_trace(
     assert semantic["checks_total"] == 0
 
 
+async def test_direct_response_without_model_authored_answer_fails_closed() -> None:
+    runtime_result = _runtime_result("direct_response")
+    runtime_result.planning.direct_response_answer = None
+
+    projection = _projection(await _processor(_Runtime(runtime_result)).process(_request()))
+
+    assert projection["status"] == "held"
+    assert projection["semantic_result"]["reason_code"] == "semantic_runtime_failed"
+    assert projection["semantic_result"]["execution_authority"] is False
+
+
+async def test_direct_response_projects_exact_social_act_metadata() -> None:
+    runtime_result = _runtime_result(
+        "direct_response",
+        direct_response_answer="감사합니다. 다음에도 도와드리겠습니다.",
+    )
+    runtime_result.planning.social_act = SocialAct.THANKS
+
+    projection = _projection(
+        await _processor(_Runtime(runtime_result)).process(_request(locale="ko"))
+    )
+
+    assert projection["status"] == "direct_response"
+    assert projection["payload"]["social_act"] == "thanks"
+    assert projection["semantic_result"]["direct_response_intent"] == "greeting"
+
+
 @pytest.mark.parametrize("include_model_trace", [False, True])
 async def test_answered_turn_projects_measured_usage_and_opt_in_trace(
     include_model_trace: bool,
@@ -1820,6 +1887,13 @@ async def test_answered_turn_projects_measured_usage_and_opt_in_trace(
     assert projection["payload"]["model"] == "semantic-test"
     assert projection["payload"]["latency_ms"] == 25
     assert projection["payload"]["usage"]["total_tokens"] == 15
+    timing = projection["payload"]["turn_timing"]
+    assert timing["duration_ms"] == sum(phase["duration_ms"] for phase in timing["phases"])
+    assert [phase["phase"] for phase in timing["phases"]] == [
+        "semantic_plan",
+        "evidence",
+        "generation",
+    ]
     if include_model_trace:
         assert projection["payload"]["model_trace"]["calls"][0]["call_id"] == (
             "semantic-judgment-1"
@@ -1830,33 +1904,22 @@ async def test_answered_turn_projects_measured_usage_and_opt_in_trace(
     assert projection["semantic_result"]["execution_authority"] is False
 
 
-@pytest.mark.parametrize(
-    ("locale", "expected"),
-    [
-        (
-            "en",
-            "I am Bragi, the FDAI Console conversation interface. I explain questions about the "
-            "current screen and operational state from verified evidence. I do not execute changes "
-            "directly; requested work follows FDAI approval and safety paths.",
-        ),
-        (
-            "ko",
-            "저는 FDAI Console의 대화 인터페이스 Bragi입니다. 화면과 운영 상태에 관한 질문을 "
-            "검증된 근거에 맞춰 설명합니다. 직접 변경을 실행하지 않으며, 필요한 작업은 FDAI의 "
-            "승인 및 안전 경로로 전달합니다.",
-        ),
-    ],
-)
+@pytest.mark.parametrize("locale", ["en", "ko"])
 async def test_self_introduction_projection_has_no_query_or_evidence_claims(
     locale: str,
-    expected: str,
 ) -> None:
+    expected = (
+        "Bragi입니다. 검증된 운영 정보를 설명하지만 변경을 직접 실행하지는 않습니다."
+        if locale == "ko"
+        else "I am Bragi. I explain verified operational information without executing changes."
+    )
     projection = _projection(
         await _processor(
             _Runtime(
                 _runtime_result(
                     "direct_response",
                     direct_response_intent=SemanticDirectResponseIntent.SELF_INTRODUCTION,
+                    direct_response_answer=expected,
                 )
             )
         ).process(_request(locale=locale))

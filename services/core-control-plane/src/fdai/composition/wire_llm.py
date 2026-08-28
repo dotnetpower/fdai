@@ -17,7 +17,7 @@ package facade.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import replace
 from typing import Any
 
@@ -63,6 +63,8 @@ def bind_azure_llm_bindings(
     rca_system_prompt: str | None = None,
     proposer_system_prompt: str | None = None,
     semantic_judgment_system_prompt: str | None = None,
+    conversation_preflight_system_prompt: str | None = None,
+    conversation_social_narrator_system_prompts: Mapping[str, str] | None = None,
     metering_sink: MeteringSink | None = None,
     pricing: PricingTable | None = None,
     model_health_sink: Any | None = None,
@@ -185,6 +187,8 @@ def bind_azure_llm_bindings(
         endpoint=endpoint,
         endpoint_resolver=endpoint_resolver,
         system_prompt=semantic_judgment_system_prompt,
+        preflight_system_prompt=conversation_preflight_system_prompt,
+        social_narrator_system_prompts=conversation_social_narrator_system_prompts,
     )
     supported_binding_capabilities = {
         "t1.embedding",

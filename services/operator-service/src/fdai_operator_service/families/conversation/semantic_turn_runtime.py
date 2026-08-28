@@ -59,6 +59,7 @@ _IDENTITY_NAMESPACE = UUID("00000000-0000-0000-0000-000000000000")
 _MAX_PROJECTION_CONFLICT_ATTEMPTS = 5
 _MAX_TRACKED_PROJECTION_CONFLICTS = 256
 _MAX_EXECUTION_OUTPUT_CHARS = 64 * 1024
+_MAX_ANSWER_CHUNK_CHARS = 64
 _MAX_TRACKED_PROGRESS_REQUESTS = 256
 _MAX_PROGRESS_UPDATES_PER_REQUEST = MAX_INTENT_GRAPH_GOALS * 2
 _LOGGER = logging.getLogger(__name__)
@@ -477,10 +478,29 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
         # projection exists. Settling it here keeps the timeline from holding a
         # step that already ended, whatever the disposition turned out to be.
         self._settle_pending_activities(result.sequence)
+        done = _done_event_data(result.data, locale=self._request.locale)
+        if disposition == "answered" and not _cursor_includes(
+            self._cursor, result.sequence, "answer"
+        ):
+            for delta in _verified_answer_chunks(done.get("answer")):
+                self._stream_sequence += 1
+                self._events.append(
+                    StreamEvent(
+                        event="token",
+                        event_id=f"{result.sequence}:answer",
+                        data=cast(
+                            JsonObject,
+                            {
+                                "seq": self._stream_sequence,
+                                "revision": 0,
+                                "delta": delta,
+                            },
+                        ),
+                    )
+                )
         if _cursor_includes(self._cursor, result.sequence, "done"):
             return
         self._stream_sequence += 1
-        done = _done_event_data(result.data, locale=self._request.locale)
         done["seq"] = self._stream_sequence
         self._events.append(
             StreamEvent(
@@ -1072,7 +1092,7 @@ def _verified_query_activities(
             cast(
                 JsonObject,
                 {
-                    "activity_id": f"semantic:goal:{goal_id}",
+                    "activity_id": f"semantic:goal:{node_id}",
                     "status": _activity_status(status),
                     "label": _query_goal_label(node_id, intent=intent, korean=korean),
                     "detail": _query_goal_detail(
@@ -1288,12 +1308,24 @@ def _verified_output_counts(projection: Mapping[str, object]) -> str | None:
     return json.dumps(counted, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
 
 
+def _verified_answer_chunks(answer: object) -> tuple[str, ...]:
+    """Split a terminal verified answer without changing its content."""
+
+    if not isinstance(answer, str) or not answer:
+        return ()
+    return tuple(
+        answer[index : index + _MAX_ANSWER_CHUNK_CHARS]
+        for index in range(0, len(answer), _MAX_ANSWER_CHUNK_CHARS)
+    )
+
+
 _SEMANTIC_PHASES = (
     "accepted",
     "planning",
     "evidence",
     "verification",
     "presentation",
+    "answer",
     "done",
 )
 

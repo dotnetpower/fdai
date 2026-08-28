@@ -45,6 +45,35 @@ class _SequenceModel(_Model):
         return self.results.pop(0)
 
 
+class _DirectResponseModel(_Model):
+    def __init__(
+        self,
+        *,
+        answer: str,
+        locale: str | None = None,
+        digest: str | None = None,
+    ) -> None:
+        super().__init__(None)
+        self.answer = answer
+        self.locale = locale
+        self.digest = digest
+
+    def judge(self, **kwargs: object) -> object:
+        self.calls += 1
+        self.schema_repairs.append(kwargs["schema_repair"])
+        return _proposal(
+            primary_intent="greeting",
+            targets=[],
+            requested_facets=[],
+            direct_response={
+                "locale": self.locale or kwargs["locale"],
+                "answer": self.answer,
+                "profile_digest": self.digest or kwargs["direct_response_profile_digest"],
+                "execution_authority": False,
+            },
+        )
+
+
 def _proposal(**overrides: object) -> dict[str, object]:
     return {
         "primary_intent": "cost_breakdown",
@@ -109,6 +138,44 @@ def test_accepts_grounded_t1_proposal_with_content_free_receipt() -> None:
     assert result.receipt.input_digest == content_digest({"utterance": utterance})
     assert utterance not in result.receipt.model_dump_json()
     assert result.receipt.execution_authority is False
+
+
+def test_accepts_locale_bound_model_authored_direct_response() -> None:
+    model = _DirectResponseModel(answer="반갑습니다. 어떤 내용을 함께 살펴볼까요?")
+
+    result = _boundary(model).judge(
+        utterance="반가워",
+        context=(),
+        capabilities=(),
+        locale="ko",
+        direct_response_profile={"identity": "Bragi"},
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert result.proposal.direct_response is not None
+    assert result.proposal.direct_response.answer == "반갑습니다. 어떤 내용을 함께 살펴볼까요?"
+    assert result.proposal.direct_response.locale == "ko"
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        _DirectResponseModel(answer="Hello.", locale="en"),
+        _DirectResponseModel(answer="Hello.", digest=DIGEST),
+    ],
+)
+def test_rejects_direct_response_with_unbound_locale_or_profile(model: _Model) -> None:
+    result = _boundary(model).judge(
+        utterance="반가워",
+        context=(),
+        capabilities=(),
+        locale="ko",
+        direct_response_profile={"identity": "Bragi"},
+    )
+
+    assert result.accepted is False
+    assert result.receipt.disposition is SemanticJudgmentDisposition.MALFORMED
 
 
 def test_normalizes_kubernetes_event_history_to_the_bound_function() -> None:

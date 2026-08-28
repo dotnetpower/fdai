@@ -56,6 +56,20 @@ module "container_app" {
     { name = "FDAI_MODEL_ENDPOINTS_JSON", value = jsonencode(var.llm.model_endpoints) },
     ], var.llm.resolved_models_digest == "" ? [] : [
     { name = "LLM_RESOLVED_MODELS_SHA256", value = var.llm.resolved_models_digest },
+    ], !var.configuration_drift.enabled ? [] : [
+    { name = "FDAI_CONFIGURATION_DRIFT_ENABLED", value = "1" },
+    { name = "FDAI_CONFIGURATION_BASELINE_PATH", value = var.configuration_drift.baseline_path },
+    { name = "FDAI_CONFIGURATION_BASELINE_VERSION", value = var.configuration_drift.baseline_version },
+    { name = "FDAI_CONFIGURATION_BASELINE_SHA256", value = var.configuration_drift.baseline_sha256 },
+    { name = "FDAI_CONFIGURATION_SCOPE", value = var.configuration_drift.scope },
+    { name = "FDAI_CONFIGURATION_SUBSCRIPTIONS_JSON", value = jsonencode(var.configuration_drift.subscription_scopes) },
+    { name = "FDAI_CONFIGURATION_ATTRIBUTE_PATHS_JSON", value = jsonencode(var.configuration_drift.attribute_paths) },
+    { name = "FDAI_CONFIGURATION_ARG_ENDPOINT", value = var.configuration_drift.arg_endpoint },
+    ], !var.diagnostic_ingest.enabled ? [] : [
+    { name = "FDAI_DIAGNOSTIC_KAFKA_BOOTSTRAP_SERVERS", value = var.diagnostic_ingest.bootstrap_servers },
+    { name = "FDAI_DIAGNOSTIC_TOPIC", value = var.diagnostic_ingest.topic },
+    { name = "FDAI_DIAGNOSTIC_METRIC_WHITELIST_JSON", value = jsonencode(var.diagnostic_ingest.metric_whitelist) },
+    { name = "FDAI_DIAGNOSTIC_CONSUMER_GROUP_ID", value = var.diagnostic_ingest.consumer_group_id },
   ])
   health            = var.health
   scaling           = var.scaling

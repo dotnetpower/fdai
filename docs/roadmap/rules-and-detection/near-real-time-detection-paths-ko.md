@@ -1,8 +1,8 @@
 ---
 title: Near-real-time detection paths
 translation_of: near-real-time-detection-paths.md
-translation_source_sha: 91d87b9637ec380fdedb3f7ada18516c72fd6674
-translation_revised: 2026-08-22
+translation_source_sha: 6731ffe1b41ae57401cebbc37bca6fe67571fdaa
+translation_revised: 2026-08-28
 ---
 
 # 근실시간 감지 경로
@@ -16,10 +16,10 @@ translation_revised: 2026-08-22
 
 > **현재 제공 범위**: 라우팅된 메트릭 프로바이더, 분석 작업 진입점, 두 Terraform 기본 요소가
 > 구현되어 있으며, 집중 테스트 하나가 `RoutedMetricProvider`를 거쳐 Event 발행까지 한 번의 틱을
-> 구동합니다. Operator Service는
-> 호환성 매니페스트에 Azure Monitor 경로를 유지하지만, 현재 소스 트리에는 요청 처리기나 push
-> 정규화기가 없습니다. 따라서 push 경로는 실행 가능한 종단 간 경로가 아니라 설계 및 인프라
-> 기본 요소로 남아 있으며, 아직 어떤 경로도 관리되는 실제 지연 근거를 갖고 있지 않습니다.
+> 구동합니다. Operator Service는 Common Alert Schema 기록을 검증하고 정규화한 뒤 영속 큐에
+> 저장하고 게시합니다. Core는 별도로 구성한 진단 Event Hub를 소비하고 허용 목록의 `AllMetrics`
+> 기록을 정규화해 일반 유입 토픽에 게시합니다. 두 경로는 관리되는 실제 지연 및 전달 근거를
+> 보존하기 전까지 `validated`가 아닌 `implemented`로 유지됩니다.
 
 ## 지연 요약
 
@@ -50,12 +50,12 @@ translation_revised: 2026-08-22
 
 **Seams**
 
-- [정규화기](../../../services/core-control-plane/src/fdai/delivery/azure/) -
-  Common 경보 스키마 v2 -> `Event`. Pure 함수, fired /
+- [정규화기](../../../packages/service-contracts/src/fdai_service_contracts/azure_monitor.py) -
+  Common Alert Schema -> `Event`. 서비스 간 공유 계약이며 fired /
   resolved / malformed 페이로드에 대한 단위 테스트.
 - [웹훅 경로](../../../services/operator-service/src/fdai_operator_service/) -
-  Starlette 게시 `/webhook/azure-monitor`. Bearer-token 인증 (constant-time
-  비교), 256 KiB 본문 상한, 소문자화된 ARM id를 키로 ingest 토픽에 publish.
+  Starlette `POST /webhook/azure-monitor`. HMAC-SHA256 검증, 256 KiB 본문 상한,
+  영속 제안 outbox 및 정규화된 Resource id를 키로 사용하는 유입 토픽 직접 게시를 제공합니다.
 - [Terraform 모듈](../../../infra/modules/observability/metric-alert-rules/main.tf) -
   재사용 가능한 메트릭 경보 룰; 포크가 (리소스, 메트릭) 페어마다 하나씩 인스턴스화.
 
@@ -104,12 +104,11 @@ per-alert-rule Terraform 반복 작업을 피하고 싶을 때. 리소스당 진
 - [Terraform 모듈](../../../infra/modules/observability/diagnostic-eventhub-route/main.tf) -
   대상 리소스에 Diagnostic Setting을 첨부하고 포크의 Event 허브로
   경로. 메트릭 / 로그 category는 명시적 선택.
-- **Kafka 소비자 배선**이 Event 허브의 Kafka 엔드포인트를 읽고
-  `normalize_diagnostic_records`를 호출하는 것은 포크 작업 -
-  [`delivery/azure/event_bus.py`](../../../services/core-control-plane/src/fdai/delivery/azure/event_bus.py)의
-  표준 `AIOKafkaConsumer`가 이미 토픽을 읽으니, 포크의 조립
-  루트가 두 번째 소비자 인스턴스를 진단 허브에 붙이고 각 배치를
-  정규화기로 흘려주면 됨.
+- [런타임 브리지](../../../services/core-control-plane/src/fdai/delivery/azure/diagnostic_event_ingest.py)는
+  `FDAI_DIAGNOSTIC_KAFKA_BOOTSTRAP_SERVERS`, `FDAI_DIAGNOSTIC_TOPIC`,
+  `FDAI_DIAGNOSTIC_METRIC_WHITELIST_JSON`을 함께 제공하면 earliest offset 전용 Kafka 전송을
+  만듭니다. 형식이 잘못된 일치 기록은 원본 DLQ로 보내고, 허용 목록 밖의 메트릭은 무시하며,
+  유효한 기록은 작업 권한 없이 일반 유입 토픽에 게시합니다.
 
 ## Pull 기준선 - 분석 작업 + `RoutedMetricProvider`
 
@@ -197,35 +196,35 @@ delta 또는 완전한 reconciliation 시도를 결정합니다. 현재 고정 �
 | 라우팅된 pull 프로바이더 | implemented | `services/core-control-plane/src/fdai/composition/wire_metric_provider.py`; `services/core-control-plane/tests/providers/test_routed_metric.py` | Prometheus, Metrics API, Logs 프로바이더를 결정론적 경로 순서로 선택합니다. |
 | 예약된 분석 작업 | implemented | `infra/modules/compute/container-apps/analyzer_tick_job.tf`; `services/core-control-plane/src/fdai/delivery/analyzer_tick_cli.py`; `services/core-control-plane/tests/delivery/test_analyzer_tick_routed.py` | Terraform이 1분 간격 작업을 선언하고 `fdai.delivery.analyzer_tick_cli` 진입점도 제공됩니다. 집중 테스트 하나가 라우팅된 각 백엔드에 도달해 임계 위반을 shadow 모드 Event로 발행합니다. 관리되는 실제 지연 근거는 남아 있습니다. |
 | AKS 감지 준비도 축약 | implemented | `services/core-control-plane/tests/agents/test_huginn_detection_readiness.py`; `tests/integration/infra/test_detection_readiness.py` | 집중 테스트가 에이전트 소유 준비도 관측과 인프라 계약을 검증합니다. 이는 구현 근거이며 실제 지연 근거는 아닙니다. |
-| 메트릭 경보 웹훅 경로 | in-progress | `infra/modules/observability/metric-alert-rules/main.tf`; `services/operator-service/src/fdai_operator_service/families/operations/manifest.py`; `services/operator-service/tests/test_operator_operations_family.py` | Terraform 기본 요소와 호환성 경로 선언이 있습니다. 처리기, 정규화기, 인증된 액션 그룹 브리지는 없습니다. |
-| Diagnostic Event Hub 경로 | in-progress | `infra/modules/observability/diagnostic-eventhub-route/main.tf`; `services/core-control-plane/src/fdai/delivery/azure/event_bus.py` | 라우팅 모듈과 Kafka 어댑터가 있습니다. 진단 기록 정규화와 조립 연결은 없습니다. |
+| 메트릭 경보 웹훅 경로 | implemented | `fdai_service_contracts/azure_monitor.py`; Operator operations 경로, 영속 웹훅 outbox 브리지, semantic Kafka Event 경로; 집중 계약, 경로, 브리지 및 Kafka 테스트 | 검증된 Common Alert payload를 정리된 shadow Event로 바꾸고 lease fence가 있는 영속 제안에서 게시합니다. 관리되는 실제 액션 그룹 전달 및 지연 근거는 아직 남아 있습니다. |
+| Diagnostic Event Hub 경로 | implemented | `delivery/azure/monitor_events.py`; `diagnostic_event_ingest.py`; 런타임 부트스트랩 및 Core 서비스 Terraform 연결; 집중 정규화기, 브리지, 부트스트랩, 종료 및 인프라 테스트 | 전용 Kafka 소비자가 구성된 메트릭만 정규화하고 형식이 잘못된 일치 기록을 DLQ로 보내며 일반 유입 토픽에 전달합니다. 관리되는 실제 전달 및 지연 근거는 아직 남아 있습니다. |
 | 관리형 경보 규칙 작성 | not-started | [아직 제공되지 않은 항목](#아직-배송-안-됨) | 관리되는 Rule 항목에서 경보 규칙을 구체화하는 카탈로그 기반 생성기가 없습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-28 | implemented | 두 push 경로의 구현을 완료했습니다. HMAC으로 검증된 Operator 웹훅은 영속 수락 전에 Common Alert Schema 본문을 공유되고 정리된 Event로 바꾸며, lease fence가 있는 outbox가 Core Event 토픽에 직접 게시합니다. Core는 별도로 구성된 진단 Kafka 전송을 소유하고, 범위가 제한된 허용 목록 `AllMetrics` 기록을 정규화하며, 형식이 잘못된 일치 입력을 DLQ로 보내고, 시작 준비도 및 순서가 있는 종료 절차로 브리지를 감독합니다. 두 기능은 shadow를 유지하고 작업 권한을 부여하지 않습니다. | `current change`; 공유 경보 계약; Operator 경로, outbox, Kafka, 조립 및 집중 테스트; Core 정규화기, 브리지, 부트스트랩, 종료, Terraform 계약 및 집중 테스트. | 관리되는 실제 액션 그룹 및 진단 Event Hub 전달과 지연 근거를 보존합니다. |
 | 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했으며, 현재 소스 트리에 맞게 종단 간 제공 주장을 바로잡았습니다. | `current change`; 구현 범위 표의 경로와 집중 검증. | 실행 가능한 pull 진입점을 복원하고 인증된 두 push 경로를 완성합니다. |
 | 2026-08-16 | implemented | `fdai.delivery.analyzer_tick_cli`가 없다는 낡은 주장을 바로잡았습니다. 이 모듈은 제공됩니다. `RoutedMetricProvider`를 거쳐 한 번의 틱을 구동하는 집중 통합 테스트를 추가해, 각 메트릭이 라우팅 표가 선택한 백엔드에 도달하고, 임계 위반이 shadow 모드 Event 하나를 발행하며, 정상 통과는 아무것도 발행하지 않고, 라우팅되지 않은 메트릭은 정상 판정 대신 부분 통과로 남는다는 것을 증명했습니다. | `current change`; `services/core-control-plane/tests/delivery/test_analyzer_tick_routed.py`; `pytest services/core-control-plane/tests/delivery/test_analyzer_tick_routed.py` (4 passed). | 인증된 두 push 경로를 완성하고 경로별 관리되는 실제 지연 근거를 기록합니다. |
 
 ### 남은 작업
 
 - [x] `fdai.delivery.analyzer_tick_cli`가 예약 작업이 호출하는 진입점으로 제공되며, 집중 통합 테스트 하나가 `RoutedMetricProvider`를 거쳐 shadow 모드 Event 발행까지 한 번의 틱을 구동합니다. 근거는 `services/core-control-plane/tests/delivery/test_analyzer_tick_routed.py`입니다.
-- [ ] 경로 #1에 테스트된 Azure Monitor 요청 처리기, 페이로드 정규화기, 인증된 액션 그룹 브리지를 추가합니다.
-- [ ] 경로 #2의 기록을 유입 토픽으로 전달하는 테스트된 진단 기록 정규화기와 조립 연결을 추가합니다.
+- [x] 경로 #1에 테스트된 Azure Monitor 요청 처리기, 공유 payload 정규화기, HMAC 검증기,
+  영속 outbox 및 Event 토픽 게시기를 추가합니다.
+- [x] 경로 #2의 기록을 유입 토픽으로 전달하고 형식이 잘못된 일치 기록을 DLQ로 보내는 테스트된
+  진단 기록 정규화기와 런타임 연결을 추가합니다.
 - [ ] 경로 상태를 `implemented`에서 `validated`로 변경하기 전에 각 경로의 관리되는 지연 근거를 기록합니다.
 
 ## 아직 배송 안 됨
 
-- **경로 #1 인증된 액션 그룹 브리지.** 경로와 alert-rule 모듈은 존재하지만 shipped
+- **경로 #1 외부 액션 그룹 수신기.** FDAI 쪽 HMAC 브리지는 구현되어 있지만 shipped
   액션 그룹 웹훅은 Bearer 헤더를 추가하지 않습니다. 포크는 토큰을 주입하는 trusted
   proxy 또는 Entra-authenticated secure 웹훅 연결을 제공해야 합니다.
 
-- **경로 #2의 Kafka-consumer glue** (위 "포크 작업" 노트 참조). 소비자
-  라이브러리와 정규화기 둘 다 존재; 진단 허브를 읽고 기록을
-  정규화기로 흘리는 composition-root 배선만 업스트림에 안 씀.
 - **관리형 alert-rule authoring 파이프라인**. 경로 #1의 Terraform
   모듈은 기본 요소; shipped 룰 카탈로그에서 룰을 materialize하는
   rule-catalog-driven generator는 별개 스코프.
 
-세 항목 모두 포크가 형태를 정한 뒤 추가할 수 있는 준비 상태입니다.
+관리형 작성 파이프라인은 구현된 push 전송과 별도 범위로 남아 있습니다.

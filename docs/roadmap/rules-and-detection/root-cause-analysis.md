@@ -16,7 +16,7 @@ existing trust tiers. RCA explains an incident; it never grants approval or exec
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | T0, T1, and T2 hypothesis contracts and grounding | implemented | `services/core-control-plane/src/fdai/core/rca/`; focused RCA tests | T0 rule causes, stale-safe T1 reuse, deterministic causal chains, and grounded T2 parsing are implemented. |
-| Knowledge evidence and provider binding | implemented | `core/rca/knowledge_evidence.py`; `delivery/azure/llm/rca_model.py`; composition LLM bindings | Missing knowledge or model bindings leave optional paths unavailable and never fabricate evidence. |
+| Knowledge evidence and provider binding | implemented | `core/rca/knowledge_evidence.py`; `shared/providers/knowledge.py`; `delivery/pgvector/knowledge.py`; `delivery/azure/llm/rca_model.py`; `runtime/bootstrap.py`; focused provider, adapter, and runtime tests | The runtime attaches the configured pgvector source after Azure LLM finalization as well as in telemetry-only mode. Re-ingestion atomically replaces a document's chunks and an empty replacement deletes them, so stale revisions do not remain searchable. Missing bindings never fabricate evidence. |
 | Read-only operator projection | implemented | `services/operator-service/src/fdai_operator_service/rca_projection.py`; focused projection tests | Audit hypotheses, citations, structured causal chains, and linked response plans are projected without action authority. |
 | Governed operational RCA accuracy | in-progress | [Observability and Detection](observability-and-detection.md#implementation-status) | No retained exact-revision cohort proves live cause accuracy, abstention, and downstream outcome closure across the tier mix. |
 
@@ -24,6 +24,7 @@ existing trust tiers. RCA explains an incident; it never grants approval or exec
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-28 | implemented | Moved durable KnowledgeSource attachment after model finalization so Azure LLM mode no longer leaves RCA on the default empty source when a knowledge DSN is configured. The same guarded call preserves telemetry-only and local model behavior. Both in-memory and pgvector sources now treat re-ingestion as complete replacement, preserve the prior revision when embedding fails, remove obsolete chunks, and accept an empty replacement as deletion under a per-document transaction lock. | `current change`; `runtime/bootstrap.py`; `shared/providers/knowledge.py`; `delivery/pgvector/knowledge.py`; focused bootstrap and runtime configuration checks passed 42 cases; focused KnowledgeSource and SQL lifecycle checks passed 21 cases with one live-database parity case environment-gated; Ruff and strict mypy passed. | Retain a governed RCA cohort over deployment-owned indexed documents and bind source connectors to the replacement contract. |
 | 2026-08-21 | in-progress | Moved the existing RCA tier, grounding, causal-chain, knowledge, and projection contracts into a focused owner document without changing runtime behavior or authority. | `current change`; document-size, translation, route, and link checks. | Retain a governed operational cohort with authoritative cause and outcome review. |
 
 ### Remaining work
@@ -63,6 +64,9 @@ The Azure binding is `delivery/azure/llm/rca_model.py` (`AzureOpenAIRcaModel`). 
 OpenAI with a managed-identity token and returns raw JSON for the upstream parser. The composition
 root binds it from the `t2.rca` capability in `resolved-models.json`. A missing capability or prompt
 leaves `LlmBindings.rca_reasoner = None`, so T2 RCA stays unavailable and T0 continues.
+After model finalization, runtime bootstrap attaches the configured pgvector KnowledgeSource when
+`FDAI_KNOWLEDGE_DSN` or `FDAI_STATE_STORE_DSN` is available. This ordering applies in Azure LLM,
+telemetry-only, and local model modes and preserves the empty-source fallback when no DSN exists.
 
 `RcaCoordinator` orchestrates T0, stale-safe T1 correlation reuse, and citation-bounded T2. The
 `ControlLoop` appends a deterministic T0 `rca.hypothesis` audit entry per finding, carrying the
@@ -78,6 +82,11 @@ as a `CitationKind.KNOWLEDGE` candidate. An unbound source, empty index, or prov
 contributes nothing and the gate can abstain. Citation references use opaque
 `knowledge:<source_ref>#<chunk_id>` handles rather than chunk bodies. The reasoner cannot cite a
 chunk outside this vouched-for set.
+
+Knowledge ingestion uses complete replacement semantics per `doc_id`. A newer revision removes
+obsolete chunks in the same transaction, and an empty replacement deletes every chunk for that
+document. The in-memory and pgvector implementations share this behavior so connector deletion and
+revision propagation do not leave stale text searchable.
 
 ## Deterministic T1 causal chain
 

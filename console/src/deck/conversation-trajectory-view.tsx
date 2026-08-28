@@ -81,6 +81,12 @@ export function ConversationTrajectoryView({
             successful: presentation.evidenceCompletedCount,
             attempted: presentation.evidenceAttemptCount,
             verification: phaseStateLabel(presentation.phaseStates.verification),
+            modelDuration: presentation.modelLatencyMs === undefined
+              ? t("deck.trajectory.notRecorded")
+              : formatDuration(presentation.modelLatencyMs),
+            tokens: presentation.totalTokens === undefined
+              ? t("deck.trajectory.notRecorded")
+              : new Intl.NumberFormat().format(presentation.totalTokens),
           })}
         </span>
         <span class="deck-trajectory-duration cs-run-record-duration">

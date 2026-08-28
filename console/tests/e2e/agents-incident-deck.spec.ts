@@ -376,6 +376,99 @@ const timeSeriesPresentation = {
   ],
 };
 
+test("keeps English workspace starter cards inside their bounds", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addInitScript(() => {
+    localStorage.setItem("fdai.deck.layout.v1", "workspace");
+  });
+  await installOperatorApiFixture(page);
+
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 993, height: 641 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto(`/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`);
+    await page.getByRole("button", { name: "Open command deck" }).click();
+    const workspace = page.getByRole("dialog", { name: "Command deck" });
+    const introCardOverflow = await workspace.locator(".deck-intro-card").evaluateAll((cards) =>
+      cards.map((card) => ({
+        horizontal: card.scrollWidth - card.clientWidth,
+        vertical: card.scrollHeight - card.clientHeight,
+      }))
+    );
+
+    expect(introCardOverflow).toHaveLength(5);
+    expect(introCardOverflow).toEqual(
+      introCardOverflow.map(() => ({ horizontal: 0, vertical: 0 })),
+    );
+  }
+});
+
+test("anchors the latest-message action above the composer", async ({ page }, testInfo) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addInitScript(() => {
+    localStorage.setItem("fdai.deck.layout.v1", "workspace");
+  });
+  await installOperatorApiFixture(page, {
+    answer: "The verified request count changed from one to three and then two.",
+    presentationArtifact: timeSeriesPresentation,
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`);
+  await page.getByRole("button", { name: "Open command deck" }).click();
+
+  const workspace = page.getByRole("dialog", { name: "Command deck" });
+  await workspace.getByPlaceholder(/Ask anything/i).fill("Show request trend");
+  await workspace.getByRole("button", { name: "Send" }).click();
+  await expect(workspace.locator('.deck-presentation-block[data-kind="time_series"]')).toBeVisible();
+  const jump = workspace.getByRole("button", { name: "Jump to latest message" });
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 993, height: 641 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await workspace.locator(".deck-transcript").evaluate((element) => {
+      element.scrollTop = 0;
+      element.dispatchEvent(new Event("scroll"));
+    });
+
+    await expect(jump).toBeVisible();
+    const geometry = await workspace.evaluate((element) => {
+      const jumpBox = element.querySelector(".deck-jump")!.getBoundingClientRect();
+      const transcriptBox = element.querySelector(".deck-transcript-column")!.getBoundingClientRect();
+      const composerBox = element.querySelector(".deck-input-row")!.getBoundingClientRect();
+      return {
+        centerDelta: Math.abs(
+          jumpBox.left + jumpBox.width / 2 - (transcriptBox.left + transcriptBox.width / 2),
+        ),
+        composerGap: composerBox.top - jumpBox.bottom,
+        documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      };
+    });
+    expect(geometry.centerDelta).toBeLessThanOrEqual(1);
+    expect(geometry.composerGap).toBe(12);
+    expect(geometry.documentOverflow).toBe(0);
+  }
+
+  await page.setViewportSize({ width: 993, height: 641 });
+  await workspace.locator(".deck-transcript").evaluate((element) => {
+    element.scrollTop = 0;
+    element.dispatchEvent(new Event("scroll"));
+  });
+  await page.evaluate(() => {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  });
+  await page.mouse.move(10, 10);
+  await page.waitForTimeout(250);
+  await page.screenshot({ path: testInfo.outputPath("latest-message-action.png") });
+
+  await jump.click();
+  await expect(jump).toBeHidden();
+});
+
 test("renders accessible v2 presentation at desktop constrained and mobile viewports", async ({
   page,
 }, testInfo) => {

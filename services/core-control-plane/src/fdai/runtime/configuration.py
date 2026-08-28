@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -321,6 +321,108 @@ def _attach_runtime_knowledge_source(container: Container) -> Container:
         config=PgvectorKnowledgeConfig(dsn_secret=secret_name),
         secrets=EnvSecretProvider(),
     )
+
+
+def _attach_runtime_configuration_drift(
+    container: Container,
+    *,
+    http_client: httpx.AsyncClient,
+    identity: WorkloadIdentity,
+    environment: Mapping[str, str],
+) -> Container:
+    """Bind one scope-pinned Azure configuration drift capability."""
+
+    enabled = environment.get("FDAI_CONFIGURATION_DRIFT_ENABLED", "").strip().lower()
+    if enabled not in {"1", "true"}:
+        return container
+
+    from fdai.composition import bind_configuration_drift
+    from fdai.delivery.azure.configuration_drift import (
+        AzureArgConfigurationObservationSource,
+        AzureConfigurationObservationConfig,
+    )
+    from fdai.delivery.configuration_drift import JsonFileConfigurationBaselineSource
+
+    baseline_path = Path(_required_environment(environment, "FDAI_CONFIGURATION_BASELINE_PATH"))
+    if not baseline_path.is_file():
+        raise FileNotFoundError("FDAI_CONFIGURATION_BASELINE_PATH MUST identify a file")
+    scope = _required_environment(environment, "FDAI_CONFIGURATION_SCOPE")
+    subscriptions = _json_string_tuple(
+        environment,
+        "FDAI_CONFIGURATION_SUBSCRIPTIONS_JSON",
+        maximum=256,
+    )
+    attribute_paths = _json_string_tuple(
+        environment,
+        "FDAI_CONFIGURATION_ATTRIBUTE_PATHS_JSON",
+        maximum=64,
+    )
+    observation_source = AzureArgConfigurationObservationSource(
+        identity=identity,
+        http_client=http_client,
+        config=AzureConfigurationObservationConfig(
+            allowed_scope=scope,
+            subscription_scopes=subscriptions,
+            attribute_paths=attribute_paths,
+            arg_endpoint=environment.get(
+                "FDAI_CONFIGURATION_ARG_ENDPOINT",
+                "https://management.azure.com",
+            ).strip(),
+        ),
+    )
+    _LOGGER.info(
+        "configuration_drift_backend",
+        extra={
+            "backend": "azure_resource_graph",
+            "attribute_count": len(attribute_paths),
+            "subscription_count": len(subscriptions),
+        },
+    )
+    return bind_configuration_drift(
+        container,
+        baseline_source=JsonFileConfigurationBaselineSource(baseline_path),
+        observation_source=observation_source,
+        expected_version=_required_environment(
+            environment,
+            "FDAI_CONFIGURATION_BASELINE_VERSION",
+        ),
+        expected_sha256=_required_environment(
+            environment,
+            "FDAI_CONFIGURATION_BASELINE_SHA256",
+        ),
+        expected_scope=scope,
+        knowledge_source=container.knowledge_source,
+    )
+
+
+def _required_environment(environment: Mapping[str, str], key: str) -> str:
+    value = environment.get(key, "").strip()
+    if not value:
+        raise ValueError(f"{key} MUST be configured when Azure configuration drift is enabled")
+    return value
+
+
+def _json_string_tuple(
+    environment: Mapping[str, str],
+    key: str,
+    *,
+    maximum: int,
+) -> tuple[str, ...]:
+    raw = _required_environment(environment, key)
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{key} MUST be a JSON array of strings") from exc
+    if (
+        not isinstance(value, list)
+        or not 1 <= len(value) <= maximum
+        or any(not isinstance(item, str) or not item.strip() for item in value)
+    ):
+        raise ValueError(f"{key} MUST contain 1-{maximum} non-empty strings")
+    normalized = tuple(item.strip() for item in value)
+    if normalized != tuple(sorted(normalized)) or len(normalized) != len(set(normalized)):
+        raise ValueError(f"{key} MUST contain unique ordered strings")
+    return normalized
 
 
 def _attach_runtime_github_change_feed(

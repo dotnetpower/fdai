@@ -109,6 +109,7 @@ class _SemanticProjectionExtensions:
     latency_ms: int | None = None
     usage: dict[str, int] | None = None
     model_trace: dict[str, object] | None = None
+    social_act: str | None = None
     investigation_continuation: SemanticInvestigationContinuation | None = None
 
 
@@ -125,6 +126,7 @@ class SemanticTurnRuntime(Protocol):
         utterance: str,
         prior_turns: tuple[Turn, ...],
         principal: Principal,
+        locale: str = "en",
         cancelled: asyncio.Event | None = None,
         bound_incident: BoundIncident | None = None,
         bound_investigation_continuation: BoundInvestigationContinuation | None = None,
@@ -428,6 +430,7 @@ class SemanticTurnProcessor:
                 utterance=request.utterance,
                 prior_turns=_prior_turns(request, requested_at=requested_at),
                 principal=principal,
+                locale=request.locale,
                 cancelled=runtime_cancelled,
                 bound_incident=_bound_incident(request),
                 bound_investigation_continuation=_bound_investigation_continuation(request),
@@ -488,6 +491,10 @@ class SemanticTurnProcessor:
     ) -> bytes:
         semantic_result = result.model_dump(mode="json", exclude_none=True)
         evidence_digest = content_digest(semantic_result)
+        projection_time = _aware_utc(self._now(), field="semantic processor clock")
+        recorded_at = projection_time.replace(
+            microsecond=(projection_time.microsecond // 1000) * 1000,
+        )
         projection_id = str(
             uuid5(
                 _PROJECTION_NAMESPACE,
@@ -497,6 +504,11 @@ class SemanticTurnProcessor:
         payload: dict[str, object] = {
             "request_kind": "semantic_query",
             "request_digest": request_digest,
+            "turn_timing": _semantic_turn_timing(
+                envelope=envelope,
+                result=result,
+                completed_at=recorded_at,
+            ),
         }
         if extensions is not None:
             if extensions.rule_search is not None:
@@ -511,6 +523,8 @@ class SemanticTurnProcessor:
                 payload["usage"] = extensions.usage
             if extensions.model_trace is not None:
                 payload["model_trace"] = extensions.model_trace
+            if extensions.social_act is not None:
+                payload["social_act"] = extensions.social_act
             if extensions.investigation_continuation is not None:
                 payload["investigation_continuation"] = (
                     extensions.investigation_continuation.model_dump(mode="json")
@@ -522,7 +536,7 @@ class SemanticTurnProcessor:
             "correlation_id": envelope["correlation_id"],
             "idempotency_key": envelope["idempotency_key"],
             "status": result.disposition.value,
-            "recorded_at": _aware_utc(self._now(), field="semantic processor clock").isoformat(),
+            "recorded_at": recorded_at.isoformat(timespec="milliseconds"),
             "payload": payload,
             "evidence_digest": evidence_digest,
             "semantic_result": semantic_result,
@@ -690,7 +704,8 @@ def _project_runtime_result(
     model_extensions = _semantic_model_extensions(request, result)
     if result.disposition == "direct_response":
         intent = result.planning.direct_response_intent
-        if not isinstance(intent, SemanticDirectResponseIntent):
+        answer = result.planning.direct_response_answer
+        if not isinstance(intent, SemanticDirectResponseIntent) or not isinstance(answer, str):
             return _terminal_result(
                 request,
                 "held",
@@ -704,7 +719,7 @@ def _project_runtime_result(
                 session_id=request.session_id,
                 turn_id=request.turn_id,
                 turn_sequence=request.turn_sequence,
-                answer=_direct_response_answer(request.locale, intent),
+                answer=answer,
                 direct_response_intent=intent,
             ),
             model_extensions,
@@ -973,13 +988,145 @@ def _argument_datetime(arguments: Mapping[str, object], field: str) -> datetime:
     return _aware_utc(parsed, field=f"investigation continuation {field}")
 
 
+def _semantic_turn_timing(
+    *,
+    envelope: Mapping[str, object],
+    result: ContractSemanticTurnResult,
+    completed_at: datetime,
+) -> dict[str, object]:
+    """Partition the request-to-projection interval into contiguous observed phases."""
+
+    requested_at_raw = envelope.get("requested_at")
+    if not isinstance(requested_at_raw, str):
+        raise ValueError("semantic request timestamp is unavailable")
+    requested_at = _aware_utc(
+        datetime.fromisoformat(requested_at_raw.replace("Z", "+00:00")),
+        field="semantic requested_at",
+    )
+    requested_at = requested_at.replace(
+        microsecond=(requested_at.microsecond // 1000) * 1000,
+    )
+    if completed_at < requested_at:
+        requested_at = completed_at
+
+    evidence_bounds = _semantic_evidence_bounds(result.intent_graph_evidence)
+    phases: list[dict[str, object]] = []
+    if evidence_bounds is None:
+        phases.append(
+            _semantic_timing_phase(
+                "semantic_plan",
+                requested_at,
+                completed_at,
+                status="completed",
+            )
+        )
+    else:
+        evidence_start, evidence_end, evidence_completed = evidence_bounds
+        evidence_start = min(max(evidence_start, requested_at), completed_at)
+        evidence_end = min(max(evidence_end, evidence_start), completed_at)
+        phases.extend(
+            (
+                _semantic_timing_phase(
+                    "semantic_plan",
+                    requested_at,
+                    evidence_start,
+                    status="completed",
+                ),
+                _semantic_timing_phase(
+                    "evidence",
+                    evidence_start,
+                    evidence_end,
+                    status="completed" if evidence_completed else "degraded",
+                ),
+                _semantic_timing_phase(
+                    "generation",
+                    evidence_end,
+                    completed_at,
+                    status="completed" if result.answer else "degraded",
+                ),
+            )
+        )
+    return {
+        "schema_version": 1,
+        "started_at": requested_at.isoformat(timespec="milliseconds"),
+        "completed_at": completed_at.isoformat(timespec="milliseconds"),
+        "duration_ms": _elapsed_milliseconds(requested_at, completed_at),
+        "phases": phases,
+    }
+
+
+def _semantic_evidence_bounds(
+    evidence: Mapping[str, object] | None,
+) -> tuple[datetime, datetime, bool] | None:
+    if not isinstance(evidence, Mapping):
+        return None
+    goals = evidence.get("goals")
+    if not isinstance(goals, list) or not goals:
+        return None
+    intervals: list[tuple[datetime, datetime]] = []
+    completed = True
+    for goal in goals:
+        if not isinstance(goal, Mapping):
+            return None
+        started_at = goal.get("started_at")
+        completed_at = goal.get("completed_at")
+        if not isinstance(started_at, str) or not isinstance(completed_at, str):
+            return None
+        start = _aware_utc(
+            datetime.fromisoformat(started_at.replace("Z", "+00:00")),
+            field="semantic evidence started_at",
+        )
+        end = _aware_utc(
+            datetime.fromisoformat(completed_at.replace("Z", "+00:00")),
+            field="semantic evidence completed_at",
+        )
+        if end < start:
+            return None
+        intervals.append(
+            (
+                start.replace(microsecond=(start.microsecond // 1000) * 1000),
+                end.replace(microsecond=(end.microsecond // 1000) * 1000),
+            )
+        )
+        completed = completed and goal.get("status") == "completed"
+    return (
+        min(start for start, _end in intervals),
+        max(end for _start, end in intervals),
+        completed,
+    )
+
+
+def _semantic_timing_phase(
+    phase: str,
+    started_at: datetime,
+    completed_at: datetime,
+    *,
+    status: str,
+) -> dict[str, object]:
+    return {
+        "phase": phase,
+        "status": status,
+        "started_at": started_at.isoformat(timespec="milliseconds"),
+        "completed_at": completed_at.isoformat(timespec="milliseconds"),
+        "duration_ms": _elapsed_milliseconds(started_at, completed_at),
+    }
+
+
+def _elapsed_milliseconds(started_at: datetime, completed_at: datetime) -> int:
+    return max(0, int((completed_at - started_at).total_seconds() * 1000))
+
+
 def _semantic_model_extensions(
     request: SemanticTurnRequest,
     result: RuntimeSemanticTurnResult,
 ) -> _SemanticProjectionExtensions | None:
     observations = getattr(result.planning, "model_observations", ())
-    if not observations:
+    social_act = getattr(result.planning, "social_act", None)
+    social_act_value = getattr(social_act, "value", None)
+    if not observations and not isinstance(social_act_value, str):
         return None
+    if not observations:
+        return _SemanticProjectionExtensions(social_act=social_act_value)
     usage_keys = ("prompt_tokens", "completion_tokens", "total_tokens")
     usage = {
         key: sum(
@@ -1015,6 +1162,7 @@ def _semantic_model_extensions(
             if request.include_model_trace
             else None
         ),
+        social_act=social_act_value if isinstance(social_act_value, str) else None,
     )
 
 
@@ -1037,6 +1185,7 @@ def _merge_projection_extensions(
         latency_ms=first.latency_ms if first.latency_ms is not None else second.latency_ms,
         usage=first.usage if first.usage is not None else second.usage,
         model_trace=first.model_trace if first.model_trace is not None else second.model_trace,
+        social_act=first.social_act if first.social_act is not None else second.social_act,
         investigation_continuation=(
             first.investigation_continuation
             if first.investigation_continuation is not None
@@ -3521,28 +3670,6 @@ def _answer_json(outputs: list[dict[str, object]]) -> str:
         indent=2,
         sort_keys=True,
     )
-
-
-def _direct_response_answer(locale: str, intent: SemanticDirectResponseIntent) -> str:
-    """Render a bounded localized response without evidence or execution claims."""
-
-    if intent is SemanticDirectResponseIntent.GREETING:
-        return (
-            "안녕하세요. 현재 화면이나 운영 상태에 대해 무엇을 확인할까요?"
-            if locale.casefold().startswith("ko")
-            else "Hello. What would you like to inspect on this screen or in current operations?"
-        )
-    if intent is SemanticDirectResponseIntent.SELF_INTRODUCTION:
-        return (
-            "저는 FDAI Console의 대화 인터페이스 Bragi입니다. 화면과 운영 상태에 관한 질문을 "
-            "검증된 근거에 맞춰 설명합니다. 직접 변경을 실행하지 않으며, 필요한 작업은 FDAI의 "
-            "승인 및 안전 경로로 전달합니다."
-            if locale.casefold().startswith("ko")
-            else "I am Bragi, the FDAI Console conversation interface. I explain questions about "
-            "the current screen and operational state from verified evidence. I do not execute "
-            "changes directly; requested work follows FDAI approval and safety paths."
-        )
-    raise ValueError("semantic direct response intent is unsupported")
 
 
 def _terminal_answer(locale: str, disposition: str, reason_code: str) -> str:

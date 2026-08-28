@@ -1,8 +1,8 @@
 ---
 title: 진화하는 시스템 프롬프트
 translation_of: prompt-composition.md
-translation_source_sha: 37004ce115d9686b02e63f3d2d36da1078ab1c09
-translation_revised: 2026-08-19
+translation_source_sha: 5f07a98e0343e28765995c2bc0c43321ff1fac47
+translation_revised: 2026-08-28
 ---
 
 # 진화하는 시스템 프롬프트
@@ -28,6 +28,7 @@ trust 라우팅을 확장합니다.
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 카탈로그 레지스트리, 작성기, 도구 및 런타임 스킬 | implemented | [`test_composer.py`](../../../services/core-control-plane/tests/core/prompts/test_composer.py) | 카탈로그 로드, 결정론적 레이어 조립, 도구 매니페스트, 스킬, canary 및 시작 대체 경로에 집중 테스트가 있습니다. |
+| 경로별 대화 prompt | implemented | `conversation-preflight.v1.yaml`, `semantic-judgment.v5.yaml`, 집중 composer 및 Azure adapter 검사 | 시작 시 compact T1 preflight와 전체 운영 의미 판단을 별도로 조립합니다. 조건에 맞는 순수 social 턴은 compact prompt와 schema만 사용합니다. 혼합, 맥락 의존, 모호함 및 운영 턴은 기능을 인식하는 전체 prompt로 계속 진행됩니다. |
 | 승인된 외부 skill-source fetch | implemented | [`skill_source.py`](../../../services/core-control-plane/src/fdai/delivery/github/skill_source.py); [`test_skill_source.py`](../../../services/core-control-plane/tests/delivery/github/test_skill_source.py) | GitHub delivery 어댑터는 불변 commit을 해석하고 범위가 제한된 exact 파일만 반환합니다. Fetch는 prompt eligibility를 부여하지 않으며 격리, publisher 검증, 승인, disabled-first installation이 계속 권위 있는 경계입니다. |
 | 운영자 기억, 토론 및 QualityGate 통합 | implemented | [`test_prompt_deliberation.py`](../../../services/core-control-plane/tests/agents/test_prompt_deliberation.py), [`test_gate.py`](../../../services/core-control-plane/tests/core/quality_gate/test_gate.py) | 제한된 기억과 1회 비평자/Judge 토론은 권한을 부여하지 않고 결정론적 검증기에 근거를 제공합니다. |
 | 검토된 웹 검색 및 코어 T2 프롬프트 통합 | in-progress | [`test_web_search.py`](../../../services/core-control-plane/tests/core/web_search/test_web_search.py), [Wave 5 alpha](#wave-5-alpha---무엇이-배포되었나) | 안전한 프로바이더 경계와 검토된 어댑터가 있지만 스니펫은 코어 T2 도구 매니페스트에 연결되지 않았습니다. |
@@ -37,6 +38,7 @@ trust 라우팅을 확장합니다.
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-28 | implemented | Temperature 0인 social 분류, temperature 0.3인 페르소나 narration 및 전체 운영 의미 판단을 별도의 조립 prompt 기능으로 분리했습니다. Social narration은 공통 base와 greeting, thanks, farewell 또는 self-introduction용 타입 기반 enforce pack 하나를 조합합니다. 분류기와 narrator는 온톨로지 기능 카탈로그를 받지 않고 narrator는 운영 맥락도 받지 않으며, social 문장은 narrator schema만 전달할 수 있습니다. | `current change`, 집중 prompt, adapter, routing 및 processor 검사 608개 통과, 인증된 자기소개 변형은 이전 전체 social 입력 5,819토큰과 비교해 두 호출에서 전체 약 1.7K-1.9K토큰을 사용했습니다. 조립 검사는 act pack이 서로 섞이지 않음을 입증합니다. | 인증된 pack별 waterfall 근거를 보존하고 더 큰 이중 언어 corpus에서 충돌률, 적절성 및 지연을 측정합니다. |
 | 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입하고 기존의 T2 완전 실제 운영 주장을 바로잡았습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트입니다. | 코어 T2 웹 근거 확인, 두 번째 승인 및 통제된 런타임 근거를 완료해야 합니다. |
 | 2026-08-14 | implemented | 격리, 승인, runtime prompt eligibility를 변경하지 않고 범위가 제한된 GitHub skill-source delivery 어댑터를 추가했습니다. | `current change`; 구현 범위 표의 구체 어댑터와 focused 거부 경로 테스트입니다. | Scheduled source owner를 조립하고 governed refresh, 승인, 철회 근거를 보존합니다. |
 | 2026-08-14 | implemented | 격리 및 disabled-first prompt eligibility를 유지하면서 strict ETag 검증과 정제된 credential-provider 실패로 외부 source delivery를 강화했습니다. | `current change`; focused skill-source adapter 테스트 `28 passed`. | Scheduled 조립과 governed lifecycle 근거는 남아 있습니다. |
@@ -63,6 +65,12 @@ Azure OpenAI 어댑터에 넘깁니다. 런타임 레이어(rule-catalog 인용,
 `trusted="false"` XML 태그로 감싸져 모델이 이를 데이터로 취급하도록 합니다.
 **결정론적 검증기가 유일한 실행 권한**로 남습니다 - 추가된 역할, 툴,
 레이어는 모두 그 검증기를 위한 재료를 생산할 뿐, 우회로가 아닙니다.
+
+대화 routing은 두 개의 별도 prompt 기능을 조립합니다. Compact
+`conversation.preflight` prompt는 기능 매니페스트를 로드하기 전에 순수 social, 혼합, 운영 및
+맥락 의존 턴을 구분합니다. 조건에 맞는 새 social 턴만 이 단계에서 종료할 수 있습니다. 그 밖의
+모든 결과는 전체 `semantic.judgment` prompt를 호출하므로 prompt 축소가 운영 근거 확인을
+우회하지 않습니다.
 
 ## 역할 x 계층 매트릭스
 

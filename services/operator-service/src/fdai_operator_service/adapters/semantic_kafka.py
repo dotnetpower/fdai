@@ -48,6 +48,7 @@ class OperatorSemanticKafkaConfig:
     progress_topic: str = "core.semantic-turn.progress"
     read_investigation_topic: str | None = None
     read_investigation_completion_topic: str | None = None
+    event_topic: str | None = None
     client_id: str = "fdai-operator-service"
     auto_offset_reset: str = "earliest"
     dlq_suffix: str = ".dlq"
@@ -82,6 +83,18 @@ class OperatorSemanticKafkaConfig:
             }
         ):
             raise ValueError("read investigation completion topic MUST be distinct and valid")
+        if self.event_topic is not None and (
+            _TOPIC_PATTERN.fullmatch(self.event_topic) is None
+            or self.event_topic
+            in {
+                self.request_topic,
+                self.projection_topic,
+                self.progress_topic,
+                self.read_investigation_topic,
+                self.read_investigation_completion_topic,
+            }
+        ):
+            raise ValueError("event topic MUST be distinct and valid")
         if self.auto_offset_reset not in {"earliest", "latest"}:
             raise ValueError("auto_offset_reset MUST be earliest or latest")
         if not self.dlq_suffix:
@@ -156,6 +169,8 @@ class OperatorSemanticKafkaBus:
             allowed.add(
                 f"{self._config.read_investigation_completion_topic}{self._config.dlq_suffix}"
             )
+        if self._config.event_topic is not None:
+            allowed.add(self._config.event_topic)
         if topic not in allowed:
             raise ValueError("semantic Kafka publish topic is not configured")
         producer = await self._get_producer()
@@ -165,7 +180,7 @@ class OperatorSemanticKafkaBus:
             else _encode(payload, maximum=self._config.maximum_message_bytes)
         )
         physical_topic = topic
-        if self._config.physical_topic is not None:
+        if self._config.physical_topic is not None and topic != self._config.event_topic:
             logical_topic = topic.removesuffix(self._config.dlq_suffix)
             enriched = json.loads(encoded)
             enriched[LOGICAL_TOPIC_FIELD] = logical_topic

@@ -149,6 +149,12 @@ describe("serializeTurns", () => {
         at: "10:00:01",
         recordedAt: "2026-07-31T01:00:01Z",
         source: "llm:x",
+        modelLatencyMs: 8450,
+        modelUsage: {
+          prompt_tokens: 1600,
+          completion_tokens: 142,
+          total_tokens: 1742,
+        },
         modelTrace: {
           schema_version: 1 as const,
           redacted: true as const,
@@ -347,6 +353,8 @@ describe("serializeTurns", () => {
     expect(parsed[0]!.text).toBe("what is the tier mix?");
     expect(parsed[1]!.source).toBe("llm:x");
     expect(parsed[1]!.modelTrace?.calls[0]?.response?.content).toBe("answer");
+    expect(parsed[1]!.modelLatencyMs).toBe(8450);
+    expect(parsed[1]!.modelUsage?.total_tokens).toBe(1742);
     expect(parsed[1]!.turnTiming?.phases[0]?.phase).toBe("generation");
     expect(parsed[1]!.trajectoryDetail?.activities[0]?.execution?.output).toBe('{"count":2}');
     expect(parsed[1]!.citations).toEqual([{ label: "tier", value: "T0" }]);

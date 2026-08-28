@@ -41,6 +41,17 @@ export function conversationTrajectoriesByAnswer(
   return trajectories;
 }
 
+export function conversationTrajectoriesByTurn(
+  turns: readonly Turn[],
+): ReadonlyMap<string, ConversationTrajectory> {
+  const trajectories = new Map<string, ConversationTrajectory>();
+  for (const trajectory of conversationTrajectoriesByAnswer(turns).values()) {
+    trajectories.set(trajectory.answer.id, trajectory);
+    for (const observed of trajectory.observedTurns) trajectories.set(observed.id, trajectory);
+  }
+  return trajectories;
+}
+
 function isTerminalAnswer(turn: Turn): boolean {
   return turn.role === "deck" &&
     turn.terminal === true &&

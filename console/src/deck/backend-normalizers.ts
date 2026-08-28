@@ -16,6 +16,7 @@ import type {
   InvestigationActivityStatus,
   InvestigationExecutionTarget,
   InvestigationMilestone,
+  ModelUsage,
   RetrievalSourcePreview,
   RouterCandidate,
   RouterSnapshot,
@@ -1132,6 +1133,24 @@ function totalTokensOf(raw: unknown): number | null {
     return Math.round(prompt + completion);
   }
   return null;
+}
+
+export function parseModelUsage(raw: unknown): ModelUsage | undefined {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
+  const usage = raw as Record<string, unknown>;
+  const total = totalTokensOf(raw);
+  if (total === null) return undefined;
+  const prompt = usage.prompt_tokens;
+  const completion = usage.completion_tokens;
+  return {
+    total_tokens: total,
+    ...(typeof prompt === "number" && Number.isSafeInteger(prompt) && prompt >= 0
+      ? { prompt_tokens: prompt }
+      : {}),
+    ...(typeof completion === "number" && Number.isSafeInteger(completion) && completion >= 0
+      ? { completion_tokens: completion }
+      : {}),
+  };
 }
 
 export function tokenSuffix(usage: unknown): string {

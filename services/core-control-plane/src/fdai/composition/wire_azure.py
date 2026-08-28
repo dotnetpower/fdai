@@ -20,9 +20,9 @@ if TYPE_CHECKING:
     from ..delivery.azure.metric_logs import MetricKqlTemplate
 
 from ._helpers import Container
+from .wire_azure_observability import attach_azure_observability
 from .wire_distiller import bind_azure_ontology_distiller_from_catalog as _bind_distiller
 from .wire_llm import bind_azure_llm_bindings
-from .wire_metric_provider import attach_metric_provider
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,12 +31,8 @@ _LOGGER = logging.getLogger(__name__)
 class AzureWireOverrides:
     """Declarative fork overrides for :func:`wire_azure_container`.
 
-    A fork's composition root constructs one of these once with its
-    concrete adapters and passes it in. This is the **structured
-    replacement** for the previous pattern of reproducing
-    ``__main__._finalize_llm_bindings`` (a private helper) - a fork
-    now writes a few lines of :class:`AzureWireOverrides` and calls
-    :func:`wire_azure_container` instead of ~200 lines of glue.
+    A fork's composition root constructs one with its concrete adapters and
+    passes it to :func:`wire_azure_container`.
 
     Fields
     ------
@@ -246,6 +242,15 @@ async def wire_azure_container(
     composed = await composer.compose(capability_id="t2.reasoner.primary")
     proposer_composed = await composer.compose(capability_id="t2.proposer")
     semantic_prompt = (await composer.compose(capability_id="semantic.judgment")).system_text
+    conversation_preflight_prompt = (
+        await composer.compose(capability_id="conversation.preflight")
+    ).system_text
+    from ..core.conversation.conversation_preflight import SOCIAL_NARRATOR_CAPABILITY_IDS
+
+    conversation_social_narrator_prompts = {
+        act.value: (await composer.compose(capability_id=capability_id)).system_text
+        for act, capability_id in SOCIAL_NARRATOR_CAPABILITY_IDS.items()
+    }
 
     file_tool_registry = FileSystemToolRegistry(overrides.catalog_root)
     tool_registry: ToolRegistry = file_tool_registry
@@ -369,6 +374,8 @@ async def wire_azure_container(
         judge_system_prompt=judge_system_prompt,
         rca_system_prompt=rca_system_prompt,
         semantic_judgment_system_prompt=semantic_prompt,
+        conversation_preflight_system_prompt=conversation_preflight_prompt,
+        conversation_social_narrator_system_prompts=conversation_social_narrator_prompts,
         endpoint_resolver=overrides.model_endpoint_resolver,
         metering_sink=overrides.metering_sink,
         pricing=pricing,
@@ -378,22 +385,14 @@ async def wire_azure_container(
         container_with_llm, identity, http_client, composer, overrides, pricing
     )
 
-    container_with_metrics = attach_metric_provider(
+    return attach_azure_observability(
         container_with_distiller,
         identity=identity,
         http_client=http_client,
-        monitor_workspace_id=overrides.monitor_workspace_id,
+        workspace_id=overrides.monitor_workspace_id,
         monitor_queries=overrides.monitor_queries,
         metrics_api_queries=overrides.metrics_api_queries,
         prometheus_base_url=overrides.prometheus_base_url,
         prometheus_queries=overrides.prometheus_queries,
         prometheus_audience=overrides.prometheus_audience,
-    )
-    from .wire_observation_providers import attach_observation_providers
-
-    return attach_observation_providers(
-        container_with_metrics,
-        workspace_id=overrides.monitor_workspace_id,
-        identity=identity,
-        http_client=http_client,
     )

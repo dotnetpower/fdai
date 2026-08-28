@@ -106,3 +106,31 @@ def test_messaging_runtime_requires_consumer_venue() -> None:
         assert str(exc) == "enabled consumer requires an execution venue"
     else:
         raise AssertionError("missing consumer venue did not fail")
+
+
+def test_messaging_runtime_builds_dedicated_diagnostic_transport() -> None:
+    plan = build_bootstrap_plan(
+        llm_mode=LlmMode.LOCAL_FAKE,
+        environment={
+            "FDAI_START_CONSUMER": "1",
+            "FDAI_EXECUTION_VENUE": "deployed",
+            "FDAI_DIAGNOSTIC_KAFKA_BOOTSTRAP_SERVERS": "diagnostics:9093",
+            "FDAI_DIAGNOSTIC_TOPIC": "azure.diagnostics",
+            "FDAI_DIAGNOSTIC_METRIC_WHITELIST_JSON": '["node_cpu_percent"]',
+        },
+    )
+    factory = _RecordingBusFactory()
+
+    runtime = build_messaging_runtime(
+        plan=plan,
+        kafka=_kafka_config(),
+        identity=None,
+        bus_factory=factory,
+    )
+
+    assert [config.bootstrap_servers for config in factory.configs] == [
+        "primary:9093",
+        "diagnostics:9093",
+    ]
+    assert factory.configs[1].auto_offset_reset == "earliest"
+    assert runtime.diagnostic_bus is factory.buses[1]

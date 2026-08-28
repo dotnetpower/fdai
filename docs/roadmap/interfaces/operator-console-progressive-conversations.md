@@ -127,9 +127,11 @@ The composer keeps only attachments, question entry, and send or stop.
 ## Semantic terminal presentation plan
 
 A typed `direct_response` is separate from a verified query answer. It carries one closed answer
-intent, localized canonical text, and `execution_authority=false`, but no query plan, evidence
+intent, bounded locale-bound text authored by the semantic judgment model, and
+`execution_authority=false`, but no query plan, evidence
 reference, verification badge, presentation artifact, or execution trajectory. Web, Teams, and
-Slack preserve that same claim-free terminal response.
+Slack preserve that same validated claim-free terminal response. Core does not replace a successful
+direct response with a fixed greeting or self-introduction template.
 
 The current semantic path proves query execution and verification but stops before operator-facing
 presentation. Core serializes the verified output into fenced JSON, Operator replays one `done`

@@ -24,6 +24,7 @@ the trust routing in
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Catalog registry, composer, tools, and runtime skills | implemented | [`test_composer.py`](../../../services/core-control-plane/tests/core/prompts/test_composer.py) | Catalog loading, deterministic layer assembly, tool manifests, skills, canaries, and startup fallback have focused coverage. |
+| Route-specific conversation prompts | implemented | `conversation-preflight.v1.yaml`; `semantic-judgment.v5.yaml`; focused composer and Azure adapter checks | Startup composes a compact T1 preflight separately from full operational semantic judgment. Pure eligible social turns use only the compact prompt and schema. Mixed, contextual, ambiguous, and operational turns continue to the full capability-aware prompt. |
 | Approved external skill-source fetch | implemented | [`skill_source.py`](../../../services/core-control-plane/src/fdai/delivery/github/skill_source.py); [`test_skill_source.py`](../../../services/core-control-plane/tests/delivery/github/test_skill_source.py) | The GitHub delivery adapter resolves immutable commits and returns only bounded exact files. Fetch never grants prompt eligibility; quarantine, publisher verification, approval, and disabled-first installation remain authoritative. |
 | Operator memory, debate, and QualityGate integration | implemented | [`test_prompt_deliberation.py`](../../../services/core-control-plane/tests/agents/test_prompt_deliberation.py), [`test_gate.py`](../../../services/core-control-plane/tests/core/quality_gate/test_gate.py) | Bounded memory and one-round Critic/Judge debate feed the deterministic verifier without granting authority. |
 | Reviewed web search and core T2 prompt integration | in-progress | [`test_web_search.py`](../../../services/core-control-plane/tests/core/web_search/test_web_search.py), [Wave 5 alpha](#wave-5-alpha---what-shipped) | The safe provider seam and reviewed adapter exist, but snippets are not threaded into the core T2 tool manifest. |
@@ -33,6 +34,7 @@ the trust routing in
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-28 | implemented | Split temperature-zero social classification, temperature-0.3 persona narration, and full operational semantic judgment into separate composed prompt capabilities. Social narration now combines one common base with exactly one typed enforce pack for greeting, thanks, farewell, or self-introduction. The classifier and narrator receive no ontology capability catalog, the narrator receives no operational context, and only its schema can carry social prose. | `current change`; focused prompt, adapter, routing, and processor checks passed 608 cases; authenticated self-introduction variants used roughly 1.7K-1.9K total tokens across two calls versus the earlier 5,819-token full social input. Composition checks prove act packs remain mutually exclusive. | Retain authenticated per-pack waterfall evidence and measure collision, appropriateness, and latency on a larger bilingual corpus. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and corrected the former fully-live T2 claim. | `current change`; current source and focused tests listed in the scope table. | Complete core T2 web grounding, second approval, and governed runtime evidence. |
 | 2026-08-14 | implemented | Added the bounded GitHub skill-source delivery adapter without changing quarantine, approval, or runtime prompt eligibility. | `current change`; concrete adapter and focused rejection-path tests listed in the scope table. | Compose the scheduled source owner and retain governed refresh, approval, and revocation evidence. |
 | 2026-08-14 | implemented | Hardened external source delivery with strict ETag validation and redacted credential-provider failures while preserving quarantine and disabled-first prompt eligibility. | `current change`; focused skill-source adapter tests `28 passed`. | Scheduled composition and governed lifecycle evidence remain open. |
@@ -60,6 +62,12 @@ transcripts) are wrapped in `trusted="false"` XML tags so the model treats
 them as data. The **deterministic verifier remains the sole execution
 authority** - every added role, tool, and layer produces material for that
 verifier, never a shortcut around it.
+
+Conversation routing composes two separate prompt capabilities. The compact
+`conversation.preflight` prompt identifies pure social, mixed, operational, and
+context-dependent turns before the capability manifest is loaded. Only an eligible fresh social
+turn can terminate there. Every other result invokes the full `semantic.judgment` prompt, so
+prompt reduction never bypasses operational grounding.
 
 ## Role x layer matrix
 

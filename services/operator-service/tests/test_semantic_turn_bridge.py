@@ -1543,6 +1543,35 @@ def test_answered_done_exposes_model_transparency_without_changing_verification(
         "model": "semantic-test",
         "latency_ms": 25,
         "usage": {"prompt_tokens": 12, "completion_tokens": 3, "total_tokens": 15},
+        "turn_timing": {
+            "schema_version": 1,
+            "started_at": "2026-08-11T00:00:00.000+00:00",
+            "completed_at": "2026-08-11T00:00:10.000+00:00",
+            "duration_ms": 10_000,
+            "phases": [
+                {
+                    "phase": "semantic_plan",
+                    "status": "completed",
+                    "started_at": "2026-08-11T00:00:00.000+00:00",
+                    "completed_at": "2026-08-11T00:00:09.000+00:00",
+                    "duration_ms": 9_000,
+                },
+                {
+                    "phase": "evidence",
+                    "status": "completed",
+                    "started_at": "2026-08-11T00:00:09.000+00:00",
+                    "completed_at": "2026-08-11T00:00:09.272+00:00",
+                    "duration_ms": 272,
+                },
+                {
+                    "phase": "generation",
+                    "status": "completed",
+                    "started_at": "2026-08-11T00:00:09.272+00:00",
+                    "completed_at": "2026-08-11T00:00:10.000+00:00",
+                    "duration_ms": 728,
+                },
+            ],
+        },
         "model_trace": {
             "schema_version": 1,
             "redacted": True,
@@ -1557,6 +1586,8 @@ def test_answered_done_exposes_model_transparency_without_changing_verification(
     assert done["model"] == "semantic-test"
     assert done["latency_ms"] == 25
     assert done["usage"]["total_tokens"] == 15
+    assert done["turn_timing"]["duration_ms"] == 10_000
+    assert sum(phase["duration_ms"] for phase in done["turn_timing"]["phases"]) == 10_000
     assert done["model_trace"] == projection["payload"]["model_trace"]
     assert done["verification"]["status"] == "verified"
     assert done["semantic_receipt"]["execution_authority"] is False
@@ -1901,10 +1932,11 @@ async def test_answered_replay_emits_observed_lifecycle_before_readable_terminal
         "activity",
         "status",
         "activity",
+        "token",
         "done",
     ]
-    progress = [event for event in events if event.event != "activity"]
-    assert [event.data["phase"] for event in progress[:-1]] == [
+    progress = [event for event in events if event.event in {"status", "verification"}]
+    assert [event.data["phase"] for event in progress] == [
         "accepted",
         "planning",
         "evidence",
@@ -1922,13 +1954,17 @@ async def test_answered_replay_emits_observed_lifecycle_before_readable_terminal
         "completed",
         "completed",
     ]
-    assert [event.event_id for event in progress[:-1]] == [
+    assert [event.event_id for event in progress] == [
         "0:accepted",
         "0:planning",
         "1:evidence",
         "1:verification",
         "1:presentation",
     ]
+    assert (
+        "".join(cast(str, event.data["delta"]) for event in events if event.event == "token")
+        == "## Verified incident evidence\n\nReadable answer."
+    )
     done = events[-1]
     assert done.event_id == "1"
     assert done.data["answer"] == "## Verified incident evidence\n\nReadable answer."
@@ -2550,6 +2586,7 @@ async def test_semantic_bridge_waits_for_delayed_terminal_projection() -> None:
         "status",
         "verification",
         "status",
+        "token",
         "done",
     ]
     assert [event.data["phase"] for event in events if event.event == "status"] == [
@@ -2592,8 +2629,20 @@ async def test_semantic_replay_cursor_resumes_after_observed_phase() -> None:
     assert [event.event_id for event in events if event.event != "activity"] == [
         "1:verification",
         "1:presentation",
+        "1:answer",
         "1",
     ]
+
+    terminal_only = await bridge.open(
+        ConversationStreamRequest(
+            operation="chat.stream",
+            scope=PrincipalScope("operator-1", frozenset({"Reader"})),
+            proposal_id=receipt.proposal_id,
+            after_event_id="1:answer",
+        )
+    )
+    terminal_events = [event async for event in terminal_only]
+    assert [event.event for event in terminal_events] == ["done"]
 
 
 async def test_semantic_replay_cursor_resumes_after_initial_progress() -> None:
@@ -2625,6 +2674,7 @@ async def test_semantic_replay_cursor_resumes_after_initial_progress() -> None:
         "1:evidence",
         "1:verification",
         "1:presentation",
+        "1:answer",
         "1",
     ]
 
@@ -3154,9 +3204,9 @@ def test_production_composition_activates_semantic_bridge_only_with_transport(
     assert isinstance(semantic_conversation.projections, SemanticTurnConversationAdapters)
     assert semantic_conversation.projections is semantic_conversation.outbox
     assert semantic_conversation.projections is semantic_conversation.streams
-    assert semantic_conversation.projections.fallback_streams.__class__.__name__ == (
-        "PostgresConversationAdapters"
-    )
+    fallback_streams = semantic_conversation.projections.fallback_streams
+    assert fallback_streams.__class__.__name__ == "ConversationAssuranceReader"
+    assert fallback_streams.fallback.__class__.__name__ == "PostgresConversationAdapters"
 
 
 async def test_production_composition_auto_binds_one_kafka_bus_and_owns_lifecycle(

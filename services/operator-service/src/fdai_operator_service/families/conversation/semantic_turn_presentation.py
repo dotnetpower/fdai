@@ -84,6 +84,7 @@ def semantic_done_event_data(
     latency_ms = payload.get("latency_ms") if isinstance(payload, Mapping) else None
     usage = payload.get("usage") if isinstance(payload, Mapping) else None
     model_trace = payload.get("model_trace") if isinstance(payload, Mapping) else None
+    turn_timing = payload.get("turn_timing") if isinstance(payload, Mapping) else None
     presentation_artifact = semantic_presentation_artifact(
         semantic=semantic,
         technical_details=technical_details,
@@ -124,6 +125,7 @@ def semantic_done_event_data(
             ),
             **({"usage": usage} if isinstance(usage, Mapping) else {}),
             **({"model_trace": model_trace} if isinstance(model_trace, Mapping) else {}),
+            **({"turn_timing": turn_timing} if isinstance(turn_timing, Mapping) else {}),
             **(
                 {}
                 if direct_response

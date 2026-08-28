@@ -4,6 +4,7 @@ import {
   newRequestId,
   parseAnswerVerification,
   parseDelegation,
+  parseModelUsage,
   parseSemanticProjectionReceipt,
   queueNextRequestId,
   semanticDirectResponseSource,
@@ -234,6 +235,19 @@ function verification(overrides: Record<string, unknown> = {}) {
 }
 
 describe("tokenSuffix", () => {
+  it("retains bounded telemetry for the observed-work summary", () => {
+    expect(parseModelUsage({
+      prompt_tokens: 1600,
+      completion_tokens: 142,
+      total_tokens: 1742,
+    })).toEqual({
+      prompt_tokens: 1600,
+      completion_tokens: 142,
+      total_tokens: 1742,
+    });
+    expect(parseModelUsage({ total_tokens: -1 })).toBeUndefined();
+  });
+
   it("formats nonnegative total and component token usage", () => {
     expect(tokenSuffix({ total_tokens: 0 })).toBe(" · 0 tok");
     expect(tokenSuffix({ prompt_tokens: 800, completion_tokens: 250 })).toBe(" · 1.1k tok");

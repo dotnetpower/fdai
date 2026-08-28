@@ -27,6 +27,8 @@ export interface TrajectoryPresentation {
   readonly phaseStates: Readonly<Record<TrajectoryPhase, TrajectoryPhaseState>>;
   readonly modelCallCount: number;
   readonly modelCallCountIsLowerBound: boolean;
+  readonly modelLatencyMs?: number;
+  readonly totalTokens?: number;
   readonly evidenceAttemptCount: number;
   readonly evidenceCompletedCount: number;
   readonly evidenceReferenceCount: number;
@@ -57,6 +59,14 @@ export function buildTrajectoryPresentation(
     },
     modelCallCount: Math.max(recordedModelCalls, modelBacked ? 1 : 0),
     modelCallCountIsLowerBound: modelBacked && recordedModelCalls === 0,
+    ...(
+      trajectory.answer.modelLatencyMs !== undefined
+        ? { modelLatencyMs: trajectory.answer.modelLatencyMs }
+        : {}
+    ),
+    ...(trajectory.answer.modelUsage
+      ? { totalTokens: trajectory.answer.modelUsage.total_tokens }
+      : {}),
     evidenceAttemptCount: evidenceStatuses.length,
     evidenceCompletedCount: evidenceStatuses.filter((status) => status === "completed").length,
     evidenceReferenceCount: evidenceReferences.size,

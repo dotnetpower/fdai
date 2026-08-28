@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 254cd2e3e2298cf50713f9d243e1f3f02b2dc516
-translation_revised: 2026-08-19
+translation_source_sha: ac58d5021a30d04b2f8c696981fea0a56b445426
+translation_revised: 2026-08-29
 ---
 # 설치형 배포 CLI
 
@@ -116,8 +116,8 @@ Installer는 system 도구를 변경하지 않습니다. `fdaictl doctor`가 누
 | `fdaictl doctor` | Python, Azure CLI, Terraform, GitHub CLI, 인증, 로컬 구성 검사 | 없음 |
 | `fdaictl provision inspect` | Online/offline, signed-kit trust, 기존/managed 호스트, 전송 계층, 접근, workload-identity 준비 상태 검사 | 없음 |
 | `fdaictl provision plan` | 검증된 offline 키트 의 pinned Terraform 바이너리와 프로바이더 mirror 로 앱 계층 를 계획 | 없음 |
-| `fdaictl onboard init` | 스키마로 검증한, untracked 환경 구성 생성 | 없음 |
-| `fdaictl onboard guided` | Doctor, 비공개 구성 생성, 실제 운영 preflight, plan-only 실행기 제출, 정제된 상태 post-check를 순서대로 실행 | 없음 |
+| `fdaictl provision init` | 스키마로 검증한, untracked 환경 구성 생성 | 없음 |
+| `fdaictl onboard guided` / `status` / `resume-verification` | 하위 exact-plan 명령으로 하나의 영속 구독 초기 구성 실행을 조정 | 명시적인 보호 승인 후에만 있음 |
 | `fdaictl security audit` | 런타임 플래그 조합, 로컬 구성 hygiene, 요청된 샌드박스 가용성 검사 | 없음, `--fix-permissions`를 명시한 경우 제외 |
 | `fdaictl bundle verify` | 번들 서명, 호환성, 파일 집합, 다이제스트, SBOM, 크기 검사 | 없음 |
 | `fdaictl backup create` | 검증된 구성, 참조, 감사 메타데이터, user 맥락으로 비공개 portable 보관 생성 | 없음 |
@@ -132,7 +132,7 @@ Installer는 system 도구를 변경하지 않습니다. `fdaictl doctor`가 누
 | `fdaictl trajectory validate` | 통제된 trajectory 데이터셋 체크섬/스키마/순서/출처 대응 검사 | 없음 |
 | `fdaictl license inspect` | 기능 license 토큰을 packaged 공개 키로 검증하고 권한 상태 보고 | 없음 |
 
-C1 명령은 자동화를 위해 안정적인 JSON 스키마를 사용합니다. `onboard init`은 활성 구독
+C1 명령은 자동화를 위해 안정적인 JSON 스키마를 사용합니다. `provision init`은 활성 구독
 및 테넌트 식별자, 환경, 지역, remote-runner 경계, shadow-mode 기본값만 gitignored
 mode-`0600` 파일에 기록합니다. 사람용 출력에는 계정 식별자가 표시되지 않습니다.
 
@@ -208,9 +208,9 @@ overwrite도 차단합니다. 시크릿 프로바이더 또는 Terraform 상태 
 
 ## Guided 배포 onboarding
 
-기존의 안전한 배포 단계를 하나의 실패 시 차단 순서로 실행하려면 `fdaictl onboard
-guided`를 사용하세요. 이 명령은 plan-only wizard입니다. 적용 옵션을 노출하지 않으며 로컬에서
-Terraform을 실행하지 않습니다.
+안전한 구독 초기 구성 단계를 하나의 영속적인 실패 시 차단 순서로 실행하려면 `fdaictl onboard guided`를 사용하세요. 이 명령은 보호된 승인 지점마다 일시 중지하고 하위 `deploy plan`, `deploy apply`, `deploy status` 계약을 구성합니다.
+Azure 실행 호스트가 아직 없으므로 봉인된 기반 단계만 로컬에서 Terraform을 실행할 수 있으며, 비공개 데이터 플레인에는 쓰지 않습니다. 전체 수명 주기는 [구독 초기 프로비저닝](subscription-genesis-provisioning-ko.md)에 정의되어 있습니다.
+안전, 취소, 비밀 전송, 동시성, 비용, 최종 준비도 게이트는 [구독 초기 구성 보증](subscription-genesis-assurance-ko.md)에 정의되어 있습니다.
 
 순서는 다음 순서로 고정됩니다.
 
@@ -223,10 +223,10 @@ Terraform을 실행하지 않습니다.
 4. **실제 운영 preflight:** Static 및 구성된 읽기 전용 Azure 탐색을 실행합니다. 선택적
   `--terraform-plan` 파일은 리소스 타입을 얻기 위해 parse하지만 wizard가 `terraform plan`을
   실행하지 않습니다.
-5. **Plan-only 제출:** 기존 opaque 맥락 계약을 통해 `apply=false`로 approved 실행기
-  작업 흐름을 전달합니다.
-6. **Post-check:** 일시적으로 누락된 계획 메타데이터만 최대 60초 동안 poll합니다. 정제된 상태가
-  `planning` 또는 `ready`일 때만 계속하고 다른 모든 상태는 실패 시 차단 처리합니다.
+5. **영속 조정:** 실행 매니페스트를 만들고 정확한 계획을 제출하며 상태 또는 비밀을 로컬
+  컴퓨터로 옮기지 않고 각 보호 승인 지점에서 일시 중지합니다.
+6. **사후 확인:** 데이터베이스, 의미, 모델, 런타임, 인벤토리, 준비도 종결까지 정제된 실행
+  진행률을 따릅니다. 적용 점유 복구는 기존 재시도 금지 규칙을 따릅니다.
 
 예시:
 

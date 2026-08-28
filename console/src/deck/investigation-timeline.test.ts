@@ -211,7 +211,7 @@ describe("upsertEvidenceBranch", () => {
     expect(component).toMatch(/key="answer-settled"[\s\S]*?open=\{eventCount > 1\}/);
     expect(component).toContain('<summary class="deck-investigation-head cs-work-summary">{head}</summary>');
     expect(component).toContain("{body}");
-    expect(component).toContain("!answerSettled ? (");
+    expect(component).toContain("{answerSettled ? telemetrySummary : summary}");
     expect(styles).toContain(".deck-investigation > summary.deck-investigation-head { cursor: pointer; }");
     expect(styles).toContain(".deck-investigation.is-answer-settled .deck-investigation-head");
     expect(component).not.toContain("deck-investigation-activity-disclosure");
@@ -222,6 +222,7 @@ describe("upsertEvidenceBranch", () => {
     expect(component).toContain('open={activity.status === "running" ||');
     expect(presenter).toContain("showStartNote={investigationFlowStart}");
     expect(presenter).toContain("answerSettled={investigationAnswerSettled}");
+    expect(presenter).toContain("trajectory && !turn.streaming && !isActivity && !isProgressMessage");
     expect(view).toContain("investigationFlowHasTerminalAnswer(");
     expect(component).toContain("showStartNote && !answerSettled && startCopy");
     expect(presenter).toContain("const isInvestigationFinalAnswer = isDeck && investigationFlowEnd");

@@ -35,6 +35,12 @@ from fdai.core.ontology_platform.incident_queries import (
 )
 from fdai.rule_catalog.schema.inventory_query_language import InventoryQueryLanguageRegistry
 
+from .conversation_preflight import (
+    DIRECT_SOCIAL_ACTS,
+    ContextDependency,
+    OperationalSignal,
+    SocialAct,
+)
 from .intent_graph import build_intent_graph
 from .semantic_judgment import SemanticJudgmentBoundary, SemanticJudgmentObservation
 from .semantic_planning_cascade import (
@@ -120,11 +126,33 @@ _DIRECT_RESPONSE_FACETS = {
         {"identity", "role", "capabilities", "authority", "authority_boundary"}
     ),
 }
+_DIRECT_RESPONSE_PROFILE = {
+    "schema_version": "1.0.0",
+    "identity": "Bragi",
+    "product": "FDAI Console",
+    "role": "read-only conversation interface",
+    "voice": ("calm", "precise", "respectful", "evidence-first"),
+    "interaction_style": (
+        "acknowledge conversation continuity",
+        "offer a concise operationally relevant next step",
+        "avoid repeating a full self-introduction",
+    ),
+    "capabilities": (
+        "explain current-screen and operational information from verified evidence",
+        "prepare bounded requests for FDAI governed paths",
+    ),
+    "authority_boundaries": (
+        "does not execute managed-resource changes",
+        "does not approve its own requests",
+        "does not claim verification without evidence",
+    ),
+}
+_PREFLIGHT_DIRECT_CONFIDENCE = 0.9
 
 
-def _direct_response_intent(
+def _direct_response(
     proposal: SemanticJudgmentProposal | None,
-) -> SemanticDirectResponseIntent | None:
+) -> tuple[SemanticDirectResponseIntent, str] | None:
     """Validate one canonical direct-answer intent selected by semantic judgment."""
 
     if (
@@ -132,6 +160,7 @@ def _direct_response_intent(
         or proposal.discourse_mode is not SemanticDiscourseMode.DIRECT
         or proposal.secondary_intents
         or proposal.targets
+        or proposal.direct_response is None
     ):
         return None
     try:
@@ -140,7 +169,7 @@ def _direct_response_intent(
         return None
     if not set(proposal.requested_facets).issubset(_DIRECT_RESPONSE_FACETS[intent]):
         return None
-    return intent
+    return intent, proposal.direct_response.answer
 
 
 def _safe_validation_reason(exc: ValidationError | TypeError | ValueError) -> str:
@@ -235,6 +264,7 @@ class SemanticPlanningService:
         prior_turns: Sequence[Turn],
         principal: Principal,
         purpose: str,
+        locale: str = "en",
         bound_incident: BoundIncident | None = None,
         bound_investigation_continuation: BoundInvestigationContinuation | None = None,
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
@@ -247,13 +277,82 @@ class SemanticPlanningService:
         manifest_digest: str | None = None
         accepted_frame: SemanticProblemFrame | None = None
         model_observations: tuple[SemanticJudgmentObservation, ...] = ()
+        preflight_social_act = SocialAct.NONE
+        preflight_vetoes_direct = False
+        unbound_conversation = bound_incident is None and bound_investigation_continuation is None
 
         def finish(outcome: SemanticPlanningOutcome) -> SemanticPlanningOutcome:
-            if not model_observations or outcome.model_observations == model_observations:
-                return outcome
-            return replace(outcome, model_observations=model_observations)
+            updated = outcome
+            if model_observations and outcome.model_observations != model_observations:
+                updated = replace(updated, model_observations=model_observations)
+            if updated.social_act is not preflight_social_act:
+                updated = replace(updated, social_act=preflight_social_act)
+            return updated
 
         try:
+            context = _bounded_context(prior_turns)
+            if self._semantic_judgment is not None:
+                preflight = self._semantic_judgment.preflight(
+                    utterance=utterance,
+                    context=context,
+                    locale=locale,
+                    direct_response_profile=_DIRECT_RESPONSE_PROFILE,
+                )
+                model_observations = preflight.observations
+                preflight_vetoes_direct = preflight.failure_kind == "malformed"
+                preflight_proposal = preflight.proposal
+                if preflight_proposal is not None:
+                    preflight_vetoes_direct = (
+                        preflight_proposal.social_act is SocialAct.ACKNOWLEDGEMENT
+                        or preflight_proposal.operational_signal is not OperationalSignal.NONE
+                        or preflight_proposal.context_dependency
+                        not in {ContextDependency.NONE, ContextDependency.SOCIAL_CONTINUITY}
+                    )
+                    preflight_social_act = preflight_proposal.social_act
+                    preflight_intent = (
+                        SemanticDirectResponseIntent.SELF_INTRODUCTION
+                        if preflight_proposal.social_act is SocialAct.SELF_INTRODUCTION
+                        else SemanticDirectResponseIntent.GREETING
+                        if preflight_proposal.social_act in DIRECT_SOCIAL_ACTS
+                        else None
+                    )
+                    if (
+                        preflight_intent is not None
+                        and preflight_proposal.confidence >= _PREFLIGHT_DIRECT_CONFIDENCE
+                        and preflight_proposal.operational_signal is OperationalSignal.NONE
+                        and preflight_proposal.context_dependency
+                        in {ContextDependency.NONE, ContextDependency.SOCIAL_CONTINUITY}
+                        and unbound_conversation
+                    ):
+                        narrated = self._semantic_judgment.narrate_social(
+                            utterance=utterance,
+                            locale=locale,
+                            social_act=preflight_proposal.social_act,
+                            continued=(
+                                preflight_proposal.context_dependency
+                                is ContextDependency.SOCIAL_CONTINUITY
+                            ),
+                            direct_response_profile=_DIRECT_RESPONSE_PROFILE,
+                        )
+                        model_observations += narrated.observations
+                        response = narrated.draft
+                        if response is None:
+                            return finish(
+                                _outcome(
+                                    SemanticPlanningDisposition.UNAVAILABLE,
+                                    "social_response_narrator_unavailable",
+                                    social_act=preflight_proposal.social_act,
+                                )
+                            )
+                        return finish(
+                            _outcome(
+                                SemanticPlanningDisposition.DIRECT_RESPONSE,
+                                "conversation_preflight_direct_response",
+                                direct_response_intent=preflight_intent,
+                                direct_response_answer=response.answer,
+                                social_act=preflight_proposal.social_act,
+                            )
+                        )
             manifest = self._manifests.manifest_for(principal=principal, purpose=purpose)
             manifest_digest = manifest.manifest_digest
             scope_mismatch = manifest.principal_role.value != principal.role.value
@@ -265,7 +364,6 @@ class SemanticPlanningService:
                 limit=_MAX_DESCRIPTORS,
             )
             descriptors = _validated_descriptors(selected, manifest=manifest)
-            context = _bounded_context(prior_turns)
             semantic_judgment = None
             if self._semantic_judgment is not None:
                 judgment_capabilities = _semantic_judgment_capabilities(descriptors)
@@ -285,8 +383,10 @@ class SemanticPlanningService:
                     capabilities=judgment_capabilities,
                     allow_escalation=False,
                     bound_subject_types=bound_subject_types,
+                    locale=locale,
+                    direct_response_profile=_DIRECT_RESPONSE_PROFILE,
                 )
-                model_observations = judgment_result.observations
+                model_observations += judgment_result.observations
                 judgment_posture = (
                     judgment_result.proposal.action_posture
                     if judgment_result.proposal is not None
@@ -353,22 +453,27 @@ class SemanticPlanningService:
             judgment_proposal = (
                 judgment_result.proposal if self._semantic_judgment is not None else None
             )
-            direct_response_intent = _direct_response_intent(
+            direct_response = _direct_response(
                 judgment_result.proposal
                 if self._semantic_judgment is not None
                 and judgment_result.accepted
                 and judgment_result.proposal is not None
                 else None
             )
-            if direct_response_intent is not None:
+            if direct_response is not None and not preflight_vetoes_direct:
                 return finish(
                     _outcome(
-                        SemanticPlanningDisposition.DIRECT_RESPONSE,
-                        "semantic_direct_response",
-                        manifest_digest=manifest.manifest_digest,
-                        direct_response_intent=direct_response_intent,
+                        SemanticPlanningDisposition.UNAVAILABLE,
+                        "social_response_narrator_unavailable",
                     )
                 )
+            if direct_response is not None:
+                _LOGGER.info(
+                    "semantic_direct_response_blocked_by_preflight",
+                    extra={"social_act": preflight_social_act.value},
+                )
+                semantic_judgment = None
+                judgment_proposal = None
             pre_frame_outcome = deterministic_pre_frame_outcome(
                 judgment=judgment_proposal,
                 utterance=utterance,

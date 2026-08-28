@@ -365,6 +365,12 @@ export interface ModelTrace {
   readonly omitted_calls: number;
 }
 
+export interface ModelUsage {
+  readonly prompt_tokens?: number;
+  readonly completion_tokens?: number;
+  readonly total_tokens: number;
+}
+
 export type TurnTimingPhaseName =
   | "semantic_plan"
   | "evidence"
@@ -628,6 +634,8 @@ export type ProgressiveAnswer = Answer & {
   readonly resourceContext?: ResourceContext;
   readonly evidenceFreshnessContext?: EvidenceFreshnessContext;
   readonly modelTrace?: ModelTrace;
+  readonly modelLatencyMs?: number;
+  readonly modelUsage?: ModelUsage;
   readonly turnTiming?: TurnTiming;
   readonly trajectoryDetail?: TrajectoryDetail;
   readonly intentGraph?: IntentGraphMetadata;

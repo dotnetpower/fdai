@@ -59,7 +59,7 @@ fdaictl provision inspect --output json
 
 Inspection checks the local Azure CLI, Terraform, GitHub CLI, bounded online artifact access,
 an offline-kit candidate, and the Azure workload identity endpoint. It returns a stable JSON
-contract with `mutation_performed=false`, one required human approver, and the selected profile.
+contract with `mutation_performed=false`, the required approval policy and quorum, and the selected profile.
 It never installs a tool, writes configuration, creates a resource, registers a runner, or applies
 Terraform.
 

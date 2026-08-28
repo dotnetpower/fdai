@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 7236a804b4811bb435ae8a3fd81abcdd09bb6781
-translation_revised: 2026-08-26
+translation_source_sha: 3b43090775facc951d36de5ba15289f3de0d9bdb
+translation_revised: 2026-08-29
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 진실 원본입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -586,10 +586,11 @@ Onboarding 콘솔은 모든 Azure 탐색 입력이 있을 때만 `probe_mode=con
 [경보 라우팅 계약](../operations/operating-and-verification-ko.md#경보-라우팅)이 커버해야 함.
 
 Azure forwarding 방식은 shared 시크릿이 없는 경계를 유지하는 것이 좋습니다. 진단
-Settings 내보내기를 위해 Event Hubs 로컬 authentication만 다시 활성화하지 않습니다. 선택한 Azure
-신호 출처가 managed 신원으로 publish할 수 없다면 승인된 push 전송 계층이 준비될 때까지 범위가 제한된
-Activity Log 복구 읽기 담당을 사용합니다. 6시간 인벤토리 sync 작업은 모든 배포에서 완전성
-backstop으로 계속 필요합니다.
+Settings 내보내기를 위해 Event Hubs 로컬 인증만 다시 활성화하지 않습니다. 선택한 Azure
+신호 출처가 Managed Identity로 게시할 수 없다면 승인된 push 전송 계층이 준비될 때까지 범위가
+제한된 Activity Log 복구 읽기 담당을 사용합니다. 적응형 인벤토리 Job은 완전성 대체 수단으로
+모든 배포에서 계속 필요합니다. 현재 정책은 정상 상태에서 6시간 조정 간격을 목표로 하고
+1분 스케줄러가 델타와 실행 시점을 확인합니다.
 
 ## 프로비저닝 후 검증
 
@@ -643,6 +644,6 @@ backstop으로 계속 필요합니다.
   Vault, delegated-subnet 비공개 PostgreSQL**. 개발은 공개 PostgreSQL 경로를
   유지할 수 있으며 ACR/Event Hubs 비공개 엔드포인트는 테넌트 정책에 따라 추가합니다.
 - [ ] 완전한 런타임 구성 키 리스트 (값 매트릭스 확장).
-- [ ] 첫날 시드 규칙 세트(어떤 소스, 어떤 규칙 id) - 단계 1과 교차 링크.
+- [x] 초기 의미 기준선 - 서명된 정확한 리비전 번들의 스키마 유효 범용 카탈로그 항목 전체이며 [구독 초기 구성 매니페스트](subscription-genesis-provisioning-ko.md#데이터베이스-및-의미-초기-구성)에서 열거합니다.
 - [x] Core -> Isolated 실행기 **목표 경계** - 5개 서비스 프로그램에 필수이며 권한
   전환은 모든 binary 게이트와 롤백 증적을 기다립니다.

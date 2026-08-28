@@ -135,8 +135,14 @@ class PgvectorKnowledgeSource:
         self._secrets: Final[SecretProvider] = secrets
 
     async def ingest(self, documents: Sequence[KnowledgeDocument]) -> int:
-        rows: list[tuple[str, str, str, str, str, str]] = []
+        if not documents:
+            return 0
+        doc_ids = [document.doc_id for document in documents]
+        if len(doc_ids) != len(set(doc_ids)):
+            raise ValueError("knowledge ingest document ids MUST be unique")
+        rows_by_doc: dict[str, list[tuple[str, str, str, str, str, str]]] = {}
         for doc in documents:
+            rows: list[tuple[str, str, str, str, str, str]] = []
             pieces = chunk_text(
                 doc.text, max_chars=self._config.max_chars, overlap=self._config.overlap
             )
@@ -153,8 +159,7 @@ class PgvectorKnowledgeSource:
                         json.dumps(dict(doc.metadata), default=str),
                     )
                 )
-        if not rows:
-            return 0
+            rows_by_doc[doc.doc_id] = rows
 
         dsn = await self._secrets.get(self._config.dsn_secret)
         table = self._config.table
@@ -163,22 +168,43 @@ class PgvectorKnowledgeSource:
         ) as conn:
             async with conn.transaction():
                 await self._set_session_knobs(conn)
-                for chunk_id, doc_id, text, source_ref, literal, metadata in rows:
+                for doc_id in sorted(rows_by_doc):
                     await conn.execute(
-                        f"""
-                        INSERT INTO {table}
-                            (chunk_id, doc_id, text, source_ref, embedding, metadata)
-                        VALUES (%s, %s, %s, %s, %s::vector, %s::jsonb)
-                        ON CONFLICT (chunk_id) DO UPDATE SET
-                            doc_id     = EXCLUDED.doc_id,
-                            text       = EXCLUDED.text,
-                            source_ref = EXCLUDED.source_ref,
-                            embedding  = EXCLUDED.embedding,
-                            metadata   = EXCLUDED.metadata
-                        """,  # noqa: S608 - table is a validated identifier, values are parametrized
-                        (chunk_id, doc_id, text, source_ref, literal, metadata),
+                        "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+                        (doc_id,),
                     )
-        return len(rows)
+                    rows = rows_by_doc[doc_id]
+                    for chunk_id, _, text, source_ref, literal, metadata in rows:
+                        await conn.execute(
+                            f"""
+                            INSERT INTO {table}
+                                (chunk_id, doc_id, text, source_ref, embedding, metadata)
+                            VALUES (%s, %s, %s, %s, %s::vector, %s::jsonb)
+                            ON CONFLICT (chunk_id) DO UPDATE SET
+                                doc_id     = EXCLUDED.doc_id,
+                                text       = EXCLUDED.text,
+                                source_ref = EXCLUDED.source_ref,
+                                embedding  = EXCLUDED.embedding,
+                                metadata   = EXCLUDED.metadata
+                            """,  # noqa: S608 - table is validated; values are parametrized
+                            (chunk_id, doc_id, text, source_ref, literal, metadata),
+                        )
+                    chunk_ids = [row[0] for row in rows]
+                    if chunk_ids:
+                        await conn.execute(
+                            f"""
+                            DELETE FROM {table}
+                             WHERE doc_id = %s
+                               AND NOT (chunk_id = ANY(%s))
+                            """,  # noqa: S608 - table is a validated identifier
+                            (doc_id, chunk_ids),
+                        )
+                    else:
+                        await conn.execute(
+                            f"DELETE FROM {table} WHERE doc_id = %s",  # noqa: S608
+                            (doc_id,),
+                        )
+        return sum(len(rows) for rows in rows_by_doc.values())
 
     async def search(self, query: str, *, k: int = 5) -> Sequence[KnowledgeChunk]:
         if k < 1:

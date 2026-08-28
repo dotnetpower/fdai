@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import re
 from enum import StrEnum
 from typing import Annotated, Literal
 
@@ -13,6 +14,9 @@ from fdai_service_contracts.ontology_query import QueryContract, content_digest
 Digest = Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
 MachineToken = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_.-]{0,79}$")]
 CanonicalIdentity = Annotated[str, Field(pattern=r"^[A-Za-z][A-Za-z0-9_.-]{0,255}$")]
+_LINK_LIKE_TEXT = re.compile(r"\b[a-z0-9](?:[a-z0-9-]{0,62})\.[a-z]{2,63}\b", re.IGNORECASE)
+_KOREAN_POLITE_ENDINGS = ("요", "니다", "세요", "까요", "십시오", "죠")
+_KOREAN_POLITE_STANDALONES = frozenset({"네", "예"})
 
 
 class SemanticDiscourseMode(StrEnum):
@@ -57,6 +61,43 @@ class SemanticTarget(QueryContract):
         return self
 
 
+class SemanticDirectResponseDraft(QueryContract):
+    """One bounded model-authored social response without operational authority."""
+
+    locale: Literal["en", "ko"]
+    answer: Annotated[str, Field(min_length=1, max_length=768)]
+    profile_digest: Digest
+    execution_authority: Literal[False] = False
+
+    @model_validator(mode="after")
+    def _answer_is_bounded_plain_text(self) -> SemanticDirectResponseDraft:
+        if self.answer != self.answer.strip():
+            raise ValueError("semantic direct response answer MUST be trimmed")
+        if "\r" in self.answer or "\n" in self.answer:
+            raise ValueError("semantic direct response answer MUST be one paragraph")
+        if (
+            "://" in self.answer
+            or _LINK_LIKE_TEXT.search(self.answer) is not None
+            or any(char in self.answer for char in r"<>\[\]`*_#~|{}")
+        ):
+            raise ValueError("semantic direct response answer MUST NOT contain links or markup")
+        if self.locale == "ko":
+            sentences = tuple(
+                sentence.strip().rstrip("\"')]} ")
+                for sentence in re.split(r"[.!?。！？]+", self.answer)
+                if sentence.strip()
+            )
+            if not sentences or any(
+                sentence not in _KOREAN_POLITE_STANDALONES
+                and not sentence.endswith(_KOREAN_POLITE_ENDINGS)
+                for sentence in sentences
+            ):
+                raise ValueError(
+                    "Korean semantic direct response MUST use polite honorific endings"
+                )
+        return self
+
+
 class SemanticJudgmentProposal(QueryContract):
     """Untrusted structured meaning proposed without policy or action authority."""
 
@@ -73,6 +114,7 @@ class SemanticJudgmentProposal(QueryContract):
         Field(max_length=8),
     ] = ()
     clarification: Annotated[str, Field(min_length=1, max_length=512)] | None = None
+    direct_response: SemanticDirectResponseDraft | None = None
     discourse_mode: SemanticDiscourseMode = SemanticDiscourseMode.DIRECT
     action_posture: Literal["advise_only", "draft_only"] = "advise_only"
     action_subject: Literal["none", "ActionType", "Change", "Incident", "RecoveryPlan", "Rule"]
@@ -105,6 +147,15 @@ class SemanticJudgmentProposal(QueryContract):
             raise ValueError("semantic judgment clarification MUST be one question")
         if (self.action_posture == "draft_only") != (self.action_subject != "none"):
             raise ValueError("semantic judgment action subject MUST match draft posture")
+        direct_intent = self.primary_intent in {"greeting", "self_introduction"}
+        if direct_intent != (self.direct_response is not None):
+            raise ValueError(
+                "semantic direct response intent MUST carry exactly one model-authored answer"
+            )
+        if self.direct_response is not None and (
+            self.ambiguous or self.action_posture != "advise_only" or self.action_subject != "none"
+        ):
+            raise ValueError("semantic direct response answer MUST remain unambiguous and advisory")
         return self
 
     @property
@@ -166,6 +217,7 @@ class SemanticJudgmentReceipt(QueryContract):
 
 
 __all__ = [
+    "SemanticDirectResponseDraft",
     "SemanticDiscourseMode",
     "SemanticJudgmentDisposition",
     "SemanticJudgmentProposal",

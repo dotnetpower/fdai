@@ -28,6 +28,7 @@ import {
   type InvestigationActivity,
   type IncidentCandidate,
   type ModelTrace,
+  type ModelUsage,
   type PresentationArtifact,
   type TurnTiming,
   type TrajectoryDetail,
@@ -37,6 +38,7 @@ import {
 import {
   parseAnswerVerification,
   parseDelegation,
+  parseModelUsage,
   parseResourceContext,
   parseSemanticProjectionReceipt,
 } from "./backend-normalizers";
@@ -112,6 +114,8 @@ export interface PersistedTurn {
   readonly incidentCandidates?: readonly IncidentCandidate[];
   readonly presentationArtifact?: PresentationArtifact;
   readonly modelTrace?: ModelTrace;
+  readonly modelLatencyMs?: number;
+  readonly modelUsage?: ModelUsage;
   readonly turnTiming?: TurnTiming;
   readonly trajectoryDetail?: TrajectoryDetail;
   readonly resourceContext?: ResourceContext;
@@ -169,6 +173,7 @@ export function serializeTurns(
         })) ?? [],
       });
       const modelTrace = parseModelTrace(t.modelTrace);
+      const modelUsage = parseModelUsage(t.modelUsage);
       const turnTiming = parseTurnTiming(t.turnTiming);
       const trajectoryDetail = parseTrajectoryDetail(t.trajectoryDetail);
       const resourceContext = parseResourceContext(t.resourceContext);
@@ -207,6 +212,10 @@ export function serializeTurns(
         ...(incidentCandidates.length > 0 ? { incidentCandidates } : {}),
         ...(presentationArtifact ? { presentationArtifact } : {}),
         ...(modelTrace ? { modelTrace } : {}),
+        ...(nonnegativeSafeInteger(t.modelLatencyMs)
+          ? { modelLatencyMs: t.modelLatencyMs }
+          : {}),
+        ...(modelUsage ? { modelUsage } : {}),
         ...(turnTiming ? { turnTiming } : {}),
         ...(trajectoryDetail ? { trajectoryDetail } : {}),
         ...(resourceContext ? { resourceContext } : {}),
@@ -271,6 +280,7 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
         : [],
     });
     const modelTrace = parseModelTrace(rec.modelTrace);
+    const modelUsage = parseModelUsage(rec.modelUsage);
     const turnTiming = parseTurnTiming(rec.turnTiming);
     const trajectoryDetail = parseTrajectoryDetail(rec.trajectoryDetail);
     const verification = parseAnswerVerification(rec.verification);
@@ -294,6 +304,10 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
         : {}),
       ...(attachments.length > 0 ? { attachments } : {}),
       ...(boundedString(rec.source, MAX_TURN_SOURCE_CHARS) ? { source: rec.source } : {}),
+      ...(nonnegativeSafeInteger(rec.modelLatencyMs)
+        ? { modelLatencyMs: rec.modelLatencyMs }
+        : {}),
+      ...(modelUsage ? { modelUsage } : {}),
       ...(rec.kind === "message" || rec.kind === "activity" ? { kind: rec.kind } : {}),
       ...(validActivities(rec.activities) ? { activities: rec.activities } : {}),
       ...(validBranches(rec.branches) ? { branches: rec.branches } : {}),

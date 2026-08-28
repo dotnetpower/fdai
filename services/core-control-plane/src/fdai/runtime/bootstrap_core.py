@@ -15,6 +15,8 @@ from fdai.composition.readiness import (
 )
 from fdai.core.chaos.symptom_index import build_from_promoted
 from fdai.core.control_loop import ControlLoop
+from fdai.delivery.azure.diagnostic_event_ingest import DiagnosticEventIngestBridge
+from fdai.delivery.azure.monitor_events import DiagnosticNormalizerOptions
 from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.delivery.startup_probe import OpaCompileStartupProbe
 from fdai.runtime.bootstrap_bindings import (
@@ -110,6 +112,7 @@ class CoreRuntime:
     continuous_operating_model_worker: Any
     incident_notification_replay_worker: IncidentNotificationReplayWorker
     environment: Mapping[str, str]
+    diagnostic_event_ingest_bridge: DiagnosticEventIngestBridge | None = None
 
     def task_configuration(self, stop: asyncio.Event) -> RuntimeTaskConfiguration:
         """Project assembled bindings into the task-supervision contract."""
@@ -141,6 +144,7 @@ class CoreRuntime:
             read_investigation_binding=self.semantic.read_investigation_binding,
             operational_readiness_handler=self.operational_readiness_handler,
             incident_notification_replay_worker=self.incident_notification_replay_worker,
+            diagnostic_event_ingest_bridge=self.diagnostic_event_ingest_bridge,
         )
 
 
@@ -160,6 +164,23 @@ async def build_core_runtime(
         identity=identity,
     )
     messaging = resources.messaging
+    diagnostic_event_ingest_bridge: DiagnosticEventIngestBridge | None = None
+    if messaging.diagnostic_bus is not None:
+        if plan.diagnostic_topic is None or not plan.diagnostic_metric_whitelist:
+            raise RuntimeError("diagnostic messaging prerequisites are incomplete")
+        diagnostic_event_ingest_bridge = DiagnosticEventIngestBridge(
+            source_bus=messaging.diagnostic_bus,
+            target_bus=messaging.bus,
+            source_topic=plan.diagnostic_topic,
+            target_topic=container.config.kafka.topic_events,
+            consumer_group=environment.get(
+                "FDAI_DIAGNOSTIC_CONSUMER_GROUP_ID",
+                "fdai-diagnostic-normalizer",
+            ).strip(),
+            options=DiagnosticNormalizerOptions(
+                metric_whitelist=plan.diagnostic_metric_whitelist,
+            ),
+        )
     if plan.requires_channel_http_client and resources.http_client is None:
         resources.http_client = _new_http_client()
     if plan.github_change_feed_enabled and resources.http_client is not None:
@@ -436,6 +457,7 @@ async def build_core_runtime(
         continuous_operating_model_worker=continuous_operating_model_worker,
         incident_notification_replay_worker=incident_runtime.notification_replay_worker,
         environment=environment,
+        diagnostic_event_ingest_bridge=diagnostic_event_ingest_bridge,
     )
 
 

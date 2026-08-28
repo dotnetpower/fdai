@@ -6,6 +6,11 @@ from fdai_service_contracts.audit import (
     canonical_audit_entry,
     next_audit_hash,
 )
+from fdai_service_contracts.azure_monitor import (
+    AzureMonitorEvent,
+    AzureMonitorNormalizationError,
+    normalize_common_alert_schema,
+)
 from fdai_service_contracts.codec import ConsumerCodec, ProducerCodec
 from fdai_service_contracts.compatibility import (
     CompatibilityError,
@@ -207,6 +212,13 @@ from fdai_service_contracts.ontology_query import (
     project_intent_graph,
     project_intent_graph_evidence,
 )
+from fdai_service_contracts.operational_coverage import (
+    OperationalCoverageCount,
+    OperationalCoverageDisposition,
+    OperationalCoverageDomain,
+    OperationalCoverageReceipt,
+    operational_coverage_receipt_digest,
+)
 from fdai_service_contracts.ontology_query import (
     canonical_json as canonical_query_json,
 )
@@ -344,6 +356,8 @@ __all__ = [
     "EXECUTOR_CONSUMER_GROUP",
     "EXECUTOR_RECEIPT_TOPIC",
     "AuditQuery",
+    "AzureMonitorEvent",
+    "AzureMonitorNormalizationError",
     "BrowserEvidenceQuery",
     "CompatibilityError",
     "CompatibilitySummary",
@@ -482,6 +496,10 @@ __all__ = [
     "OperatorReadModel",
     "OperatorRole",
     "OperatorTokenVerifier",
+    "OperationalCoverageCount",
+    "OperationalCoverageDisposition",
+    "OperationalCoverageDomain",
+    "OperationalCoverageReceipt",
     "OntologyQueryNode",
     "OntologyQueryPlan",
     "PageProjection",
@@ -587,8 +605,10 @@ __all__ = [
     "live_unavailable_readiness",
     "matrix_digest",
     "next_audit_hash",
+    "normalize_common_alert_schema",
     "project_additive_fields",
     "query_content_digest",
+    "operational_coverage_receipt_digest",
     "read_investigation_request_digest",
     "project_intent_graph",
     "project_intent_graph_evidence",

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import type { Turn } from "./command-deck-presenters";
-import { conversationTrajectoriesByAnswer } from "./conversation-trajectory";
+import {
+  conversationTrajectoriesByAnswer,
+  conversationTrajectoriesByTurn,
+} from "./conversation-trajectory";
 
 function turn(input: Partial<Turn> & Pick<Turn, "id" | "role" | "text">): Turn {
   return { at: "10:00:00", ...input };
@@ -113,6 +116,9 @@ describe("conversationTrajectoriesByAnswer", () => {
     });
     expect(trajectory?.activities.map((item) => item.activityId)).toEqual(["inventory"]);
     expect(trajectory?.branches.map((item) => item.branchId)).toEqual(["branch-1"]);
+    const byTurn = conversationTrajectoriesByTurn([question, activity, milestone, answer]);
+    expect(byTurn.get(activity.id)).toBe(byTurn.get(answer.id));
+    expect(byTurn.get(milestone.id)).toBe(byTurn.get(answer.id));
   });
 
   it("keeps first-seen order while retaining the latest observation per id", () => {

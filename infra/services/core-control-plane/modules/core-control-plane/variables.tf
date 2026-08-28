@@ -87,6 +87,72 @@ variable "llm" {
     resolved_models_digest     = optional(string, "")
   })
 }
+
+variable "configuration_drift" {
+  description = "Optional scope-pinned read-only Azure Resource Graph configuration drift binding."
+  type = object({
+    enabled             = optional(bool, false)
+    baseline_path       = optional(string, "")
+    baseline_version    = optional(string, "")
+    baseline_sha256     = optional(string, "")
+    scope               = optional(string, "")
+    subscription_scopes = optional(list(string), [])
+    attribute_paths     = optional(list(string), [])
+    arg_endpoint        = optional(string, "https://management.azure.com")
+  })
+  default = {}
+
+  validation {
+    condition = !var.configuration_drift.enabled || (
+      trimspace(var.configuration_drift.baseline_path) != "" &&
+      trimspace(var.configuration_drift.baseline_version) != "" &&
+      can(regex("^[0-9a-f]{64}$", var.configuration_drift.baseline_sha256)) &&
+      trimspace(var.configuration_drift.scope) != "" &&
+      length(var.configuration_drift.subscription_scopes) >= 1 &&
+      length(var.configuration_drift.subscription_scopes) <= 256 &&
+      var.configuration_drift.subscription_scopes == sort(distinct(var.configuration_drift.subscription_scopes)) &&
+      length(var.configuration_drift.attribute_paths) >= 1 &&
+      length(var.configuration_drift.attribute_paths) <= 64 &&
+      var.configuration_drift.attribute_paths == sort(distinct(var.configuration_drift.attribute_paths)) &&
+      alltrue([
+        for path in var.configuration_drift.attribute_paths :
+        can(regex("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)*$", path))
+      ]) &&
+      contains([
+        "https://management.azure.com",
+        "https://management.azure.us",
+        "https://management.chinacloudapi.cn",
+        "https://management.microsoftazure.de",
+      ], trimsuffix(trimspace(var.configuration_drift.arg_endpoint), "/"))
+    )
+    error_message = "Enabled configuration_drift requires a baseline identity, 1-256 ordered unique subscriptions, 1-64 ordered unique scalar attribute paths, and an approved Azure management origin."
+  }
+}
+
+variable "diagnostic_ingest" {
+  description = "Optional Azure diagnostic Event Hub Kafka ingestion binding."
+  type = object({
+    enabled           = optional(bool, false)
+    bootstrap_servers = optional(string, "")
+    topic             = optional(string, "")
+    metric_whitelist  = optional(list(string), [])
+    consumer_group_id = optional(string, "fdai-diagnostic-normalizer")
+  })
+  default = {}
+
+  validation {
+    condition = !var.diagnostic_ingest.enabled || (
+      trimspace(var.diagnostic_ingest.bootstrap_servers) != "" &&
+      trimspace(var.diagnostic_ingest.topic) != "" &&
+      length(var.diagnostic_ingest.metric_whitelist) >= 1 &&
+      length(var.diagnostic_ingest.metric_whitelist) <= 256 &&
+      var.diagnostic_ingest.metric_whitelist == sort(distinct(var.diagnostic_ingest.metric_whitelist)) &&
+      trimspace(var.diagnostic_ingest.consumer_group_id) != ""
+    )
+    error_message = "Enabled diagnostic_ingest requires Kafka bootstrap servers, a topic, 1-256 ordered unique metric names, and a consumer group."
+  }
+}
+
 variable "scaling" {
   type = object({
     min_replicas = number

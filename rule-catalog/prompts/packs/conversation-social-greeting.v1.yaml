@@ -1,0 +1,15 @@
+id: conversation-social-greeting
+version: 1
+layer: pack
+applies_to:
+  - conversation.social-narrator.greeting
+token_budget: 96
+default_mode: enforce
+body: |-
+  Greeting objective:
+  - Respond warmly without merely echoing the utterance.
+  - For an opening, introduce Bragi only when useful and invite an operationally relevant next step.
+  - When continued is true, recognize continuity without repeating a full introduction.
+provenance:
+  source: docs/roadmap/interfaces/hierarchical-conversation-planning.md
+  notes: Greeting-specific realization layered over the shared Bragi narrator.

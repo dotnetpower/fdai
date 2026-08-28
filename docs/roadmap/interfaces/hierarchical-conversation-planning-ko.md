@@ -1,8 +1,8 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 06f8e9c41602c6cf16bd9d8f02badd6211c1be0c
-translation_revised: 2026-08-26
+translation_source_sha: 76c481efd9b01ab45c587636f3ed9b84b407b11d
+translation_revised: 2026-08-28
 ---
 
 # 계층형 대화 계획
@@ -29,10 +29,18 @@ T1 모델 또는 프로바이더를 사용할 수 없고 활성화된 타입 기
 `golden_campaign_no_t2` 프로필을 선택하므로 프로바이더를 사용할 수 없어도 캠페인 fallback을
 호출하지 않습니다.
 
-모델 기반 의미 판단 경계는 범위가 제한된 전체 턴을 해석하고 `greeting` 또는 `self_introduction` 같은 정본 사회적 의도를 제안할 수 있습니다. Core는 정확한 타입 기반 의도를 검증하고 질의나 근거 읽기
-없이 직접 응답을 반환합니다. Runtime 코드는 키워드, 문구 표, 정규식, 토큰 비교 또는 하드코딩된 발화에서 의도를 추론하지 않습니다. 사회적 표현과 결합된 운영 요청은
-모델이 해당 의미를 보존하면 운영 의도로 유지됩니다. 유효하지 않거나 사용할 수 없고, 모호하거나
-신뢰도가 낮은 판단은 lexical fallback 없이 안전하게 종료되며 어떤 경로도 실행 권한을 얻지 않습니다.
+Compact T1 conversation preflight는 매니페스트 로드와 전체 의미 판단 전에 실행됩니다. 이 모델은
+발화, 언어, 범위가 제한된 최근 맥락 및 신뢰할 수 있는 Bragi 프로필만 보고 온톨로지 기능 카탈로그는
+보지 않습니다. 스키마는 `social_act`, 운영 신호 및 맥락 의존성을 독립 축으로 유지합니다.
+인시던트나 연속 조사 바인딩이 없는 대화에서는 이전 턴이 있더라도 맥락에 의존하지 않는 인사 또는
+자기소개를 높은 확신도로 판정하면 모델 작성 응답을 직접 반환할 수 있습니다.
+혼합, 맥락 의존, 모호함, 낮은 확신도 또는 preflight 실패는 부분 응답 텍스트를 사용하지 않고 기존
+전체 의미 판단으로 계속 진행됩니다.
+
+전체 모델 기반 의미 판단 경계는 운영 의미의 권위 있는 소유자로 유지됩니다. 사회적 표현과 운영 요청이
+결합되면 전체 경로를 사용하고 `social_act`는 권한 없는 계획 메타데이터로만 보존합니다. Runtime 코드는
+고정된 성공 답변으로 대체하거나 키워드, 문구 표, 정규식, 토큰 비교 또는 하드코딩된 발화에서 의도를
+추론하지 않습니다. 어떤 경로도 실행 권한을 얻지 않습니다.
 
 ## 구현 상태
 
@@ -40,8 +48,9 @@ T1 모델 또는 프로바이더를 사용할 수 없고 활성화된 타입 기
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| Compact conversation preflight 및 social narrator | implemented | `conversation-preflight.v1.yaml`, `conversation-social-narrator.v1.yaml`, act별 enforce pack, [`conversation_preflight.py`](../../../services/core-control-plane/src/fdai/core/conversation/conversation_preflight.py), [`semantic_judgment.py`](../../../services/core-control-plane/src/fdai/delivery/azure/llm/semantic_judgment.py), 집중 routing, 조립, transport 및 prompt 테스트 | Temperature 0인 분류기가 매니페스트 로드 전에 인사, 자기소개, 명시적 감사, 작별, 일반 동의, 운영, 혼합, 운영 맥락 및 사회적 연속성 턴을 분리합니다. 이 schema는 사용자 대상 문장을 전달할 수 없습니다. 조건에 맞는 social route는 공통 temperature 0.3 페르소나 base와 타입 기반 act pack 하나만 조립하며 기능 카탈로그나 운영 맥락을 받지 않습니다. 분류기는 catalog 추정 토큰 531개와 schema 포함 system 문자 3,599자이고, act별 narrator 조립은 추정 토큰 283-314개와 1,721-1,847자입니다. |
 | Semantic frame, 검증된 계획 및 intent graph | implemented | [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py), [`semantic_planning_cascade.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning_cascade.py), [`semantic_runtime.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py), 의미 계획 집중 테스트 | 전체 턴 제안은 범위와 release가 제한되고 검증되며 실행 권한 없이 projection됩니다. T1을 항상 먼저 시도합니다. 기본 타입 기반 정책은 T1을 사용할 수 없을 때만 같은 단계의 T2 재시도를 한 번 허용하고, 유효하지 않은 frame, 스키마, 구성, 결정론적 plan 불일치는 안전하게 종료합니다. |
-| 모델 기반 사회적 직접 응답 | implemented | `semantic-judgment.v3.yaml`, [`semantic_judgment.py`](../../../services/core-control-plane/src/fdai/delivery/azure/llm/semantic_judgment.py), [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py), [`semantic_turn.py`](../../../packages/service-contracts/src/fdai_service_contracts/semantic_turn.py), [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), 집중 모델 라우팅, 사용량, 정제 및 스트림 테스트 | 스키마로 검증된 의미 판단 모델이 전체 턴에서 정본 의도를 선택합니다. Core는 enum만 검증하고 타입이 지정된 응답을 전달합니다. 직접 응답은 측정된 모델 사용량과 신원을 유지하고 정제된 요청/응답 trace는 요청이 명시적으로 활성화한 경우에만 보존합니다. Operator는 운영자 텍스트를 검사하지 않고 `done`만 보냅니다. 모델 실패에는 lexical fallback이 없습니다. |
+| 모델 기반 사회적 직접 응답 | implemented | `conversation-preflight.v1.yaml`, `semantic-judgment.v5.yaml`, [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py), [`semantic_turn.py`](../../../packages/service-contracts/src/fdai_service_contracts/semantic_turn.py), [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), 집중 모델 routing, 사용량, 정제 및 stream 테스트 | Compact preflight가 조건에 맞고 맥락에 의존하지 않는 social 턴의 직접 텍스트를 작성합니다. Core는 확신도, 바인딩, 맥락 의존성, 응답 언어, 신뢰할 수 있는 프로필 digest 및 범위가 제한된 텍스트를 검증한 뒤 보존합니다. 혼합, 맥락 의존, 결정 대기, 모호함, 바인딩 및 preflight 실패에는 전체 의미 판단을 사용합니다. 직접 응답은 고정 성공 템플릿 또는 lexical fallback 없이 측정된 모델 사용량과 신원을 유지합니다. |
 | 구조화된 인과 조사 | implemented | `semantic_investigation.py`, `semantic_investigation_planning.py`, 조사 query-node 및 표현 테스트, 집중 조사 검사 | 대상 결속 인과 diagnosis는 정확한 source span, 타입이 지정된 entity 역할, 증상 방향, 시간 단서, 순서가 있는 LinkType side, 경쟁 가설, 근거 기준, 답변 형태를 전달합니다. Core는 이 요소를 검증하고 모델이 작성한 plan 없이 entity 해석, multi-hop 확장, 정렬된 window, topology diff, 증상 비교, 지지/반증 wave를 컴파일합니다. 일반 선언 범위 causal evidence는 기존의 범위가 제한된 plan을 유지합니다. 가설 결과가 두 개 미만으로 표현 계층에 도달하면 거짓 완전 진단을 만들지 않고 대상과 증상 비교를 명시적인 근거 한계와 함께 유지합니다. |
 | 운영 Core semantic runtime 조립 | implemented | [`wire_semantic_query.py`](../../../services/core-control-plane/src/fdai/composition/wire_semantic_query.py), [`semantic_query_model_targets.py`](../../../services/core-control-plane/src/fdai/composition/semantic_query_model_targets.py), [`bootstrap.py`](../../../services/core-control-plane/src/fdai/runtime/bootstrap.py), 의미 질의 조립 집중 테스트 | Azure T1 및 T2 계획 어댑터를 별도로 연결합니다. 전제 조건을 갖추면 principal 범위 매니페스트, 보안 ObjectSet, 읽기 함수 및 범위가 제한된 DAG 실행이 조립됩니다. |
 | 버전이 지정된 서비스 간 semantic-turn 계약 | implemented | [`semantic_turn.py`](../../../packages/service-contracts/src/fdai_service_contracts/semantic_turn.py), [`operator-core-request/1.4.0.json`](../../../packages/service-contracts/src/fdai_service_contracts/schemas/operator-core-request/1.4.0.json), [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), [`test_semantic_turn_processor.py`](../../../services/core-control-plane/tests/test_semantic_turn_processor.py) | 요청 1.4는 N-1 해석 호환성을 유지하면서 범위가 제한된 `include_model_trace` 활성화 설정을 추가합니다. Projection은 실행 권한을 부여하지 않으면서 신원, 목적, 기한, digest, 처리 결과, 근거 및 관측 모델 메타데이터를 결합합니다. |
@@ -56,6 +65,9 @@ T1 모델 또는 프로바이더를 사용할 수 없고 활성화된 타입 기
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-28 | implemented | 결정론적 social 분류와 페르소나 표현 생성을 분리한 뒤 social 표현을 공통 base와 타입 기반 greeting, thanks, farewell 및 self-introduction pack으로 나눴습니다. 분류기 schema는 사용자 대상 문장을 작성할 수 없습니다. Narrator는 타입 기반 social act, 연속성 flag, 언어, 발화 및 신뢰할 수 있는 Bragi 프로필만 받고 social 전용 temperature를 사용하며 정본 신원 문자열을 보존합니다. Narrator 실패는 안전한 unavailable 결과를 만들며 전체 의미 판단도 fallback social 문장을 게시할 수 없습니다. | `current change`, 집중 계약, prompt, transport, routing 및 processor 검사 608개 통과, Ruff 및 strict mypy 통과, 인증된 한국어 자기소개 변형 3개가 같은 검증된 프로필 사실과 query 없음 계약을 유지하면서 서로 다른 문장 구조를 만들었고 이름이 없는 구어체 요청은 전체 1.7K토큰을 사용했습니다. 집중 조립 검사는 각 social act에 검토된 pack 하나만 적용됨을 입증합니다. | 더 큰 응답 충돌률 corpus와 인증된 pack별 waterfall 근거를 보존합니다. Social 턴은 두 호출에서 전체 약 1.7K-1.9K토큰을 사용하며, 안전한 routing과 자연스러운 표현을 위해 일부 지연을 사용합니다. |
+| 2026-08-28 | implemented | 한국어와 영어 첫 인사, 반복 인사, 자기소개, 직접 호칭, 감사, 작별, 혼합 및 순수 운영 요청, 인용된 사회적 표현, 액션성 동의 및 모호한 후속 질문을 포함한 인증된 13라운드 강화 캠페인을 완료했습니다. 캠페인에서 페르소나 연속성, 명시적 social act, 일반 동의 veto, 결정 대기 명확화, malformed 시도 veto, 범위가 제한된 schema 교정, Unicode 존댓말 검증 및 정확한 `social_act` 변환 결과 메타데이터를 추가했습니다. | `current change`, 집중 계약, preflight, 의미 routing, processor, 조립 및 prompt 검사 605개 통과, Ruff 및 strict mypy 통과, 선언한 모든 캠페인 경로에서 승인되지 않은 실행이 없었습니다. 순수 social 사례는 preflight 호출 1건을 사용했고, 혼합 및 운영 사례는 social로 종료되지 않았으며, 일반 동의를 승인으로 해석하지 않았습니다. | 액션성 동의는 안전하지만 모델 호출 3건과 10.5초가 걸리는 성능 저하가 남아 있습니다. 인용된 social 표현 설명은 현재 일반 명확화를 반환합니다. Routing을 약화하지 않고 두 잔여 항목을 최적화하고 캠페인을 통제된 artifact로 보존합니다. |
+| 2026-08-28 | implemented | 고정된 지역화 인사 및 자기소개 렌더러를 제거했습니다. 이제 의미 판단 prompt v5는 신뢰할 수 있는 Bragi 프로필에서 해당 턴에 맞는 새로운 응답을 작성하고, Core는 응답 언어, 프로필 digest, 범위가 제한된 일반 텍스트 및 실행 권한 없음을 검증한 뒤 해당 응답을 의미 projection 전체에 보존합니다. | `current change`, 공유 계약, 의미 판단, tier routing, Core processor, 조립 및 prompt 검사 584개 통과, 집중 Ruff 및 strict mypy 통과, 인증된 로컬 Console 관찰에서 서로 다른 한국어 자기소개 및 인사 응답을 확인했으며 각 응답은 `semantic-judgment` 모델 호출 1건을 근거로 했습니다. | 이 구현 근거를 validated로 승격하기 전에 통제된 브라우저 artifact를 보존합니다. |
 | 2026-08-25 | implemented | 실제 의미 판단 배포, 프로바이더가 측정한 토큰 사용량, 호출 시간, 요청이 명시적으로 활성화한 정제된 모델 trace를 직접 인사 및 자기소개 projection으로 전달했습니다. Trace는 범위가 제한되고 자격 증명 및 고객 식별자 패턴을 제거하며 숨겨진 추론을 보존하지 않습니다. 또한 질의, 근거, 검증 또는 실행 권한을 만들지 않습니다. | `current change`, 요청 1.4 호환성 검사 128개 통과, 집중 판단, 정제, 직접 projection, Operator 최종 처리, Console 배지 검사 통과, 엄격한 Python 및 TypeScript 검사 통과 | 정확한 소스의 로컬 스택을 다시 시작하고 토큰 사용량과 모델 trace를 활성화한 인증된 인사 하나를 보존합니다. 그런 다음 trace를 비활성화한 상태로 반복해 영속 trace가 생성되지 않음을 입증합니다. |
 | 2026-08-25 | implemented | 다양한 인증 Command Deck 캠페인에서 발견한 문제를 바탕으로 모델 기반 사회적 의도와 액션 처리 방식을 보강했습니다. 이제 자기소개는 닫힌 정본 facet을 사용하고, 고유한 신원 및 권한 facet은 근거 읽기가 없는 직접 응답으로 이동할 수 있으며, 승인된 `advise_only` 판단은 frame 단계에서 액션 초안으로 바뀔 수 없습니다. 대상, 비교 기준 또는 기간에 필요한 정보가 없으면 lexical 추론 대신 명확화를 요청합니다. Core 로컬 입력 digest에는 prompt catalog도 포함되므로 오래된 의미 지침을 읽은 정상 프로세스가 source readiness를 통과할 수 없습니다. | `current change`, 한국어, 영어, 혼합 언어, 구어체, 오타, 사회적 표현과 운영 요청의 결합, 모호성, 직접 액션 및 2턴 후속 질문을 포함한 서로 다른 브라우저 질문 32개와 durable 최종 시도 44개. 직접 응답은 검사 0/0, 근거 참조 0개, 조사 수명 주기 미노출을 유지했습니다. 집중 prompt, routing, posture 및 launcher 검사 통과 | 선택된 화면 Resource와 검증된 view fact를 타입이 지정된 의미 요청으로 전달해 화면 기준 상태, 관계, 요약 및 후속 질문이 명확화 또는 지원되지 않음으로 저하되지 않도록 합니다. 별도의 Ontology instance graph 표현 방향 오류를 해결한 뒤 캠페인을 통제된 근거로 보존합니다. |
 | 2026-08-25 | implemented | 문구 목록과 정규식으로 의도를 추론하던 전체 발화 인사 및 자기소개 분류기를 철회했습니다. 의미 판단 prompt v3는 예시 발화 없이 두 사회적 의미를 정의하고, Core는 스키마로 검증된 정본 모델 의도만 사용해 분기합니다. Operator는 더 이상 운영자 텍스트를 읽거나 추측성 수락 및 계획 프레임을 보내지 않습니다. | `current change`, 공유 계약 검사 19개, 집중 모델 라우팅 검사 6개, 최종 변환 결과 기반 Operator 수명 주기 검사 5개, 활성 prompt 계약 통과 | 현재 source 스택을 다시 시작하고 lexical fallback 없이 인증된 인사, 자기소개, 복합 운영 및 모델 사용 불가 결과를 보존합니다. |

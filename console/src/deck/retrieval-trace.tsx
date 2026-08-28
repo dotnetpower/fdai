@@ -32,6 +32,7 @@ import type { ViewSnapshot } from "./context";
 const VISIBLE = 3;
 /** Cadence of the source cascade. */
 const FACT_INTERVAL_MS = 95;
+const UNAVAILABLE_SOURCE_DETAILS = new Set(["n/a", "unavailable"]);
 
 interface Stage {
   readonly glyph: string;
@@ -47,16 +48,20 @@ interface SourceCard {
   readonly detail: string;
 }
 
-function sourceCards(
+export function sourceCards(
   snapshot: ViewSnapshot | null,
   previews: readonly RetrievalSourcePreview[],
 ): readonly SourceCard[] {
-  if (previews.length > 0) return previews;
-  return (snapshot?.facts ?? []).map((fact) => ({
-    kind: fact.group ?? "fact",
-    label: fact.key,
-    detail: fact.value === null ? "-" : String(fact.value),
-  }));
+  const cards = previews.length > 0
+    ? previews
+    : (snapshot?.facts ?? []).map((fact) => ({
+        kind: fact.group ?? "fact",
+        label: fact.key,
+        detail: fact.value === null ? "-" : String(fact.value),
+      }));
+  return cards.filter(
+    (card) => !UNAVAILABLE_SOURCE_DETAILS.has(card.detail.trim().toLocaleLowerCase()),
+  );
 }
 
 function buildStages(

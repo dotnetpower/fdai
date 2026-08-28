@@ -10,11 +10,13 @@ module "core_control_plane" {
   database     = var.database
   # The runtime opens its health port before startup readiness runs, so liveness
   # answers immediately and no startup probe is needed to cover a slow boot.
-  health            = var.health
-  rollback          = var.rollback
-  runtime_env       = var.runtime_env
-  startup_readiness = var.startup_readiness
-  llm               = var.llm
-  scaling           = var.scaling
-  tags              = var.tags
+  health              = var.health
+  rollback            = var.rollback
+  runtime_env         = var.runtime_env
+  startup_readiness   = var.startup_readiness
+  llm                 = var.llm
+  configuration_drift = var.configuration_drift
+  diagnostic_ingest   = var.diagnostic_ingest
+  scaling             = var.scaling
+  tags                = var.tags
 }

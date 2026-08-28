@@ -589,8 +589,8 @@ before enforce is enabled anywhere.
 The Azure forwarding mechanism must preserve the no-shared-secret boundary. Do not enable Event
 Hubs local authentication only to satisfy a Diagnostic Settings export. When the selected Azure
 signal source cannot publish with managed identity, use the bounded Activity Log recovery reader
-until an approved push transport is available. The six-hour Inventory sync job remains required
-in every deployment as the completeness backstop.
+until an approved push transport is available. The adaptive Inventory Job remains the completeness
+backstop; its policy targets a six-hour healthy interval while the minute scheduler checks deltas.
 
 ## Verification After Provisioning
 
@@ -646,6 +646,6 @@ results from these principles is in [cost-model.md](../interfaces/cost-model.md)
   Vault, and delegated-subnet private PostgreSQL**. Development may retain the public
   PostgreSQL path; ACR/Event Hubs private endpoints remain tenant-policy-driven additions.
 - [ ] Full runtime config key list (values matrix expanded).
-- [ ] Day-zero seed rule set (which sources, which rule ids) - cross-linked to Phase 1.
+- [x] Day-zero semantic baseline - every schema-valid generic catalog entry in the signed exact-revision bundle, enumerated by the [subscription genesis manifest](subscription-genesis-provisioning.md#database-and-semantic-bootstrap).
 - [x] Core -> Isolated Executor **target boundary** - required for the five-service program;
   authority cutover waits for every binary gate and rollback receipt.
