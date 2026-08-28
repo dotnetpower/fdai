@@ -156,6 +156,13 @@
       "issue": 252
     },
     {
+      "path": "packages/service-contracts/src/fdai_service_contracts/semantic_judgment.py",
+      "disposition": "retain",
+      "owner": "semantic-judgment-contract",
+      "reason": "Retains exact machine-token, source-span, and candidate-only semantic judgment validation without inferring intent from prose.",
+      "issue": 252
+    },
+    {
       "path": "services/core-control-plane/src/fdai/agents/_framework/runtime.py",
       "disposition": "retain",
       "owner": "pantheon-runtime",
@@ -356,6 +363,13 @@
       "disposition": "retain",
       "owner": "semantic-conversation",
       "reason": "Retains exact target identifier syntax validation shared by structured planners.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/core/notifications/matrix.py",
+      "disposition": "retain",
+      "owner": "notification-matrix",
+      "reason": "Retains exact machine notification channel and severity routing over structured records, not operator utterances.",
       "issue": 252
     },
     {
