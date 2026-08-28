@@ -1,8 +1,8 @@
 ---
 title: 규칙 거버넌스(Rule Governance)
 translation_of: rule-governance.md
-translation_source_sha: 11c925036a0bda47183d9facf5bb4c3ecbb08203
-translation_revised: 2026-08-24
+translation_source_sha: f380960da808ca82fac5d3268717a275b0e49b8f
+translation_revised: 2026-08-28
 ---
 
 # 규칙 거버넌스(Rule 거버넌스)
@@ -328,6 +328,7 @@ CI로 강제, 고위험 승인(`audit → deny / remediate`, exemption, 재정�
 | Enforce-promotion 승인자 | `aw-approvers` (quorum-2) | `audit`→`deny`/`remediate` 승격 승인 | 승격을 제안한 운영자 |
 | Exemption 승인자 | `aw-approvers` (quorum-2) | Time-boxed exemption 승인 | 영구 exemption 부여, 자신의 요청 승인 |
 | 재정의 승인자 | `aw-approvers` (quorum-2) | Resource-group-스코프 재정의 승인 (permanent 가능) | resource-group-equivalent 밖 재정의 승인, 자신의 요청 승인 |
+| 룰 retirement 승인자 | `aw-approvers` (quorum-2, Owner-tier) | 룰을 enforce 집합에서 제거하는 승인 (전역, 카탈로그 전체) | 정족수에 Owner-tier 리뷰어가 없는 retirement 승인, 자신의 요청 승인 |
 
 해당 표의 결정론적 결정 코어는 `fdai.rule_catalog.schema.governance_review_authority` 입니다.
 공유 롤/역량 행렬을 읽고, 비어 있지 않은 운영자 객체 id를 기록하고, 정확한 pull request head
@@ -483,6 +484,7 @@ provenance:
 | 2026-08-23 | in-progress | GitHub 리뷰 상태, exact commit, 시각을 배포에서 검증한 Entra OID, FDAI 역할, phishing-resistant assurance와 결합하는 엄격한 전달 경계를 추가했습니다. 최신 decisive review 상태를 사용하고 오래된 revision은 순수 권한 결정에 그대로 전달하며 누락되거나 이른 attestation은 실패 시 닫힙니다. | `current change`; `delivery/gitops_pr/governance_review.py`; 집중 메타데이터 및 권한 테스트 23개 통과 | 배포 소유 identity/assurance provider와 실제 pull request 메타데이터 collector를 CI에 연결한 뒤 차단 후 해소된 근거 record를 보존합니다. |
 | 2026-08-23 | implemented | 권한 결정을 GitHub의 exact-head PR, commit, review, Check Run 메타데이터에 연결했습니다. 구성된 verifier App이 성공한 exact-head Check Run에 범위가 제한된 Entra principal bundle을 게시해야 합니다. App id 부재, 누락되거나 실패한 check, 오래된 revision, 검증되지 않은 역할, 약한 assurance, 자기 승인, 정족수 부족은 CI를 차단합니다. Assignment 변경은 transition intent가 독립적으로 입증될 때까지 더 엄격한 enforce-promotion 등급을 사용합니다. | `current change`; `scripts/governance/check-governance-review-authority.py`; `.github/workflows/ci.yml`; 집중 governance CLI, bridge, 권한 및 workflow 테스트 69개 통과 | Trusted Entra verifier GitHub App을 배포하고 차단 후 해소된 관리 PR 근거 record 하나를 보존합니다. |
 | 2026-08-23 | in-progress | 불변 T0 배정 소비를 완료하고 strict exemption 아티팩트를 시작 거버넌스 카탈로그와 안전성 검토에 통합했습니다. JSON 중복 키 탐지, UTC 및 terminal 상태 검증, 알 수 없는 룰과 중복 활성 범위 차단, exact 리소스 identity, 정규 ARM 범위 parsing, 구독 격리, 결정론적 fallback 및 두 registry의 terminal revocation을 하드닝했습니다. | `current change`; 집중 거버넌스 로더, exemption 모델/CLI, catalog/fallback registry, 런타임 조립, 안전성 검토 및 T0 파이프라인 검사가 통과했습니다. 12개 적대적 하드닝 라운드 후 이 구현 범위에 Medium 이상 finding이 남지 않았습니다. | 최대 exemption 기간과 알림 lead time을 구성한 뒤 예약 만료, 알림 및 라이프사이클 감사 전달을 연결합니다. 재정의 전달과 trusted-verifier 배포는 별도입니다. |
+| 2026-08-28 | implemented | Action governance에 대한 검토 권한 및 idempotency 공백 세 건을 닫았습니다. 룰 retirement 변경은 이제 자신의 `GovernanceChangeClass.RULE_RETIREMENT` (quorum-2, phishing-resistant, Owner-tier 리뷰)를 선언하므로, `rule-catalog/retirements/*.yaml` 만 바꾸는 PR이 더 이상 검토 권한 CI 게이트를 우회할 수 없습니다. `governance.retire-rule`의 `blast_radius.static_bucket`은 `resource`에서 `subscription`으로 옮겼습니다 - retirement는 하나의 리소스가 아니라 카탈로그 전체에서 룰을 비활성화하기 때문이며, `provenance.content_hash`도 이에 맞춰 재계산했습니다. `GovernedGovernancePrPublisher.publish`는 이제 다이제스트 계산 전에 호출자의 문서를 한 번 스냅샷하고, 이후의 모든 읽기(경로 검증, 서로 다른 승인 확인, 다이제스트, 렌더링된 patch)를 같은 스냅샷에서 수행합니다 - 다이제스트와 렌더링 사이의 외부 변경이 감사된 해시와 실제 patch를 어긋나게 만들 수 있던 창을 닫습니다. Idempotency 키와 영속화된 `GovernancePrLifecycleReceipt`(스키마를 `1.1.0`으로 올림)는 이제 문서 다이제스트와 함께 `correlation_id`를 함께 바인딩하므로, 서로 다른 소스 이벤트가 하나의 receipt나 PR 브랜치로 합쳐지지 않습니다. | `current change`; `services/core-control-plane/src/fdai/rule_catalog/schema/governance_review_authority.py`; `scripts/governance/check-governance-review-authority.py`; `rule-catalog/action-types/governance.retire-rule.yaml`; `services/core-control-plane/src/fdai/delivery/gitops_pr/governance.py`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/rule_catalog/schema/test_governance_review_authority.py tests/integration/scripts/test_check_governance_review_authority.py services/core-control-plane/tests/rule_catalog/test_action_type_catalog.py services/core-control-plane/tests/delivery/test_governance_dispatch.py services/core-control-plane/tests/delivery/test_governance_writers.py services/core-control-plane/tests/delivery/test_governance_review_metadata.py` 가 113개 테스트를 통과했습니다. | Trusted Entra verifier GitHub App을 배포하고 자기 승인 또는 정족수 미달 변경이 차단되고 수정된 변경이 통과한 근거 기록 하나를 보존합니다. 재정의 전달은 별도입니다. |
 
 ### 남은 작업
 
@@ -491,6 +493,7 @@ provenance:
 - [ ] 리소스 그룹 이하 범위 검사와 함께 범위가 제한된 재정의 스키마, 로더, 우선순위 해석기, 런타임 소비를 구현합니다.
 - [x] 결정론적 pull request 검토 권한 결정이 운영자 신원, 변경 클래스별 필수 역량, 서로 다른 승인자 정족수, 고위험 phishing-resistant 승인, 리비전에 바인딩된 승인 신선도, 작성자·공동 작성자·커미터 자기 승인 방지를 적용하며, `services/core-control-plane/tests/rule_catalog/schema/test_governance_review_authority.py` 로 증명됩니다.
 - [x] 결정을 exact-head pull request, commit, review, trusted verifier Check Run 메타데이터에 연결했습니다. Trusted attestation이 없으면 실패 시 닫히며 집중 CLI 및 workflow 테스트가 수락, 정족수 미달, 자기 승인, 신뢰하지 않는 App 사례를 검증합니다.
+- [x] 룰 retirement 변경에 자신의 검토 권한 클래스(quorum-2, phishing-resistant, Owner-tier)를 부여하여 retirement 전용 PR이 CI 게이트를 우회할 수 없도록 했습니다. `test_check_governance_review_authority.py` 와 `test_governance_review_authority.py` 로 증명됩니다.
 - [ ] Trusted Entra verifier GitHub App을 배포하고 `FDAI_GOVERNANCE_IDENTITY_APP_ID`를 구성한 뒤 자기 승인 또는 정족수 미달 변경이 차단되고 수정된 변경이 통과한 근거 기록 하나를 보존합니다.
 
 ## 열림 Decisions

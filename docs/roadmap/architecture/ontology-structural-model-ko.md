@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 6b6ee9fdb5141960f7d1c22caf70a7d240ae8eb8
+translation_source_sha: 1f429426bac307186a0639fe168a2154a8495d6a
 translation_revised: 2026-08-28
 ---
 # 온톨로지 구조 모델
@@ -350,6 +350,7 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 | 2026-08-27 | implemented | 검증된 rule-retirement artifact loader와 runtime projection을 추가해 병합된 `retired` 레코드만 active rule index에서 제외되도록 했습니다. | `current change`; `rule_catalog/schema/retirement.py`, `governance_catalog.py`, `runtime/control_loop.py` 및 governance-catalog 집중 검사 통과. | Retirement 레코드에서 ontology query 또는 action authority가 이어지지 않습니다. |
 | 2026-08-27 | implemented | Retired rule projection을 quality-gate grounding 및 HIL parked-action map에도 전달해 retired rule을 재개하거나 downstream에서 평가할 수 없게 했습니다. | `current change`; runtime dispatch 및 governance-catalog 집중 검사 통과. | Retirement 레코드에서 ontology query 또는 action authority가 이어지지 않습니다. |
 | 2026-08-27 | implemented | 동일한 retirement projection을 frozen measurement replay가 index와 rule map을 만들기 전에 적용해 runtime과 learning 경로가 같은 active-rule view를 유지하도록 했습니다. | `current change`; scenario-replay 및 governance-catalog 집중 검사 통과. | Retirement 레코드에서 ontology query 또는 action authority가 이어지지 않습니다. |
+| 2026-08-28 | implemented | `rule-catalog/retirements/*.yaml` 만 바꾸는 변경이 어떤 `GovernanceChangeClass`로도 분류되지 않아 CI 검토 게이트를 우회할 수 있던 공백을 닫았습니다. Retirement는 이제 `RULE_RETIREMENT`(quorum-2, phishing-resistant, Owner-tier)를 선언하며, 이는 이 문서가 이미 기록한 아티팩트 분리와 일치합니다 - 어떤 retirement 레코드도 query, 승인, 실행 권한을 부여하지 않고, 이제는 이 아티팩트가 요구하는 제한된 검토 없이 병합될 수도 없습니다. | `current change`; `rule_catalog/schema/governance_review_authority.py`; `scripts/governance/check-governance-review-authority.py`; 집중 권한 및 CI 게이트 검사 113건 통과. | Retirement 레코드에서 ontology query 또는 action authority가 이어지지 않습니다. |
 | 2026-08-24 | implemented | 인증된 타입 지정 runtime-call 관찰을 인벤토리 single writer를 통해 연결하고 PostgreSQL 역할 근거는 Resource 관계가 아닌 별도의 principal-safe 변환 결과로 유지했습니다. | `current change`; `runtime_call_telemetry.py`, `runtime_call_inventory.py`, `postgres_role_evidence.py`, 집중 producer, 변환 결과, 인벤토리, principal 가림 검사입니다. | 권위 있는 source가 정확한 endpoint Resource id를 제공한 뒤에만 인증된 런타임 근거를 보존합니다. |
 | 2026-08-24 | implemented | 온톨로지 쿼리 또는 변경 권한을 바꾸지 않고 그래프 우선 인스턴스 작업 영역, 간결한 컨트롤, 선택된 리소스와 범례 오버레이, Inspector 소유 접기 동작을 복원했습니다. | `current change`; 집중 Console 경로 테스트, 타입 검사, 프로덕션 빌드입니다. | 이 표현 범위에는 남은 구조 모델 작업이 없습니다. |
 | 2026-08-24 | implemented | 중복된 선택 리소스 요약을 제거하고, 관계 범례를 포커스를 받을 수 있는 가로 표면으로 고정하며, 접힌 Inspector 복원 영역을 유지하고, Inspector가 닫혔을 때 전체 화면 도구 위치를 조정해 그래프 우선 인스턴스 컨트롤을 정렬했습니다. | `c5cd7919ab32518d91c71075642f93d554c6fe2c`; 집중 인스턴스 보기 회귀 검사입니다. | 쿼리, 그래프 권한 또는 변경 동작은 바뀌지 않았습니다. |

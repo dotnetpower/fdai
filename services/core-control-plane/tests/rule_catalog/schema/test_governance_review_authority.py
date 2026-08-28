@@ -312,6 +312,33 @@ def test_naive_head_commit_time_fails_closed_without_comparing_times() -> None:
     assert {"head_time_not_absolute", "approval_freshness_unverifiable"} <= _codes(decision)
 
 
+def test_rule_retirement_requires_owner_tier_quorum_of_two() -> None:
+    sub_quorum = validate_governance_review(
+        _request(GovernanceChangeClass.RULE_RETIREMENT, _approval(_APPROVER_ONE))
+    )
+    no_owner = validate_governance_review(
+        _request(
+            GovernanceChangeClass.RULE_RETIREMENT,
+            _approval(_APPROVER_ONE),
+            _approval(_APPROVER_TWO),
+        )
+    )
+    cleared = validate_governance_review(
+        _request(
+            GovernanceChangeClass.RULE_RETIREMENT,
+            _approval(_APPROVER_ONE),
+            _approval(_OWNER),
+        )
+    )
+
+    assert sub_quorum.allowed is False
+    assert "quorum_not_met" in _codes(sub_quorum)
+    assert no_owner.allowed is False
+    assert "owner_review_missing" in _codes(no_owner)
+    assert cleared.allowed is True
+    assert cleared.required_quorum == 2
+
+
 def test_every_change_class_declares_its_bounded_requirement() -> None:
     expected = {
         GovernanceChangeClass.RULE_AUTHORING: (1, False, False),
@@ -320,6 +347,7 @@ def test_every_change_class_declares_its_bounded_requirement() -> None:
         GovernanceChangeClass.EXEMPTION: (2, True, False),
         GovernanceChangeClass.OVERRIDE: (2, True, False),
         GovernanceChangeClass.RISK_CLASSIFICATION_LOOSENING: (2, True, True),
+        GovernanceChangeClass.RULE_RETIREMENT: (2, True, True),
     }
 
     assert set(expected) == set(GovernanceChangeClass)

@@ -182,3 +182,39 @@ def test_author_self_approval_is_rejected(gate: ModuleType, tmp_path: Path) -> N
     )
 
     assert gate.main(argv) == 1
+
+
+def test_rule_retirement_change_requires_two_phishing_resistant_owner_approvers(
+    gate: ModuleType,
+    tmp_path: Path,
+) -> None:
+    """A retirement's blast radius is global, not resource-scoped: it MUST NOT be
+    able to merge under the single-approver rule-authoring bar, and it MUST clear
+    only with an Owner-tier approval among its quorum of two."""
+
+    under_quorum = _write_inputs(
+        tmp_path,
+        changed_path="rule-catalog/retirements/example.yaml",
+        reviewers=(("reviewer", "oid-reviewer", "Approver"),),
+    )
+    assert gate.main(under_quorum) == 1
+
+    no_owner = _write_inputs(
+        tmp_path,
+        changed_path="rule-catalog/retirements/example.yaml",
+        reviewers=(
+            ("reviewer-one", "oid-reviewer-1", "Approver"),
+            ("reviewer-two", "oid-reviewer-2", "Approver"),
+        ),
+    )
+    assert gate.main(no_owner) == 1
+
+    cleared = _write_inputs(
+        tmp_path,
+        changed_path="rule-catalog/retirements/example.yaml",
+        reviewers=(
+            ("reviewer-one", "oid-reviewer-1", "Approver"),
+            ("owner-one", "oid-owner-1", "Owner"),
+        ),
+    )
+    assert gate.main(cleared) == 0
