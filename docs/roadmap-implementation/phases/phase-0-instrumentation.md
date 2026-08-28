@@ -46,11 +46,11 @@ and resumable work while the roadmap owner remains focused on normative design.
 - [x] Add `check-independent-services.py` to required CI and pin the lint-job wiring with a focused CI-contract regression.
 - [x] Add a bounded file-backed config provider and prove missing, symlinked, non-regular, malformed, duplicate-key, oversized, non-UTF-8, non-mapping, and schema-invalid files fail fast without retaining payload-bearing parser errors.
 - [x] Prove one frozen shipped scenario retains the same explicit correlation id across ingest, route, verify, gate, audit stage events, and durable audit rows.
-- [ ] Record passing contract schema and compatibility tests, cache rotation and latency tests, and `test_dashboard_descriptor.py` with no deferred required panels.
+- [ ] Complete generated contract and semver compatibility decisions in [issue #332](https://github.com/dotnetpower/fdai/issues/332), T2 cache lifecycle and latency evidence in [issue #333](https://github.com/dotnetpower/fdai/issues/333), and the non-deferred KPI panel contract in [issue #334](https://github.com/dotnetpower/fdai/issues/334).
 - [x] Correct the frozen-scenario immutability path, including type changes, and prove `test_frozen.py` accepts English and Korean natural-language values while rejecting non-ASCII machine identifiers and paths.
 - [x] Add tenant, subscription, Azure resource, endpoint, email, IP, and sensitive-value scrub cases to `test_frozen.py` while preserving documented synthetic placeholders.
 - [ ] Complete all six dimensions in every capability pack tracked by [issue #76](https://github.com/dotnetpower/fdai/issues/76).
-- [ ] Retain one non-synthetic reference baseline and FDAI treatment on the identical frozen scenario set with complete metrics, minimum sample size, confidence intervals, and `claim_eligible=true`.
-- [ ] Implement deny-by-default Azure Policy and its least-privilege probe; complete the approval-bot, group, Conditional Access, and recertification configuration; then retain governed tenant evidence.
-- [ ] Replace the exemption expiry stub with a scheduled, audited assignment re-apply path and add the 14-day digest plus exact requester-versus-approver identity checks.
-- [ ] Register PostgreSQL and Redpanda in the shared provider contract matrix and record passing pgvector-extension, Kafka round-trip, health, and no-cloud-call checks against the local Compose preset.
+- [ ] Retain one non-synthetic reference baseline and FDAI treatment on the identical frozen scenario set with complete metrics, minimum sample size, confidence intervals, and `claim_eligible=true` under [issue #76](https://github.com/dotnetpower/fdai/issues/76).
+- [ ] Complete the approved identity and policy validation profile, least-privilege probe, and governed tenant evidence under [issue #335](https://github.com/dotnetpower/fdai/issues/335).
+- [ ] Replace the exemption expiry stub with the approved scheduled, audited assignment re-apply and digest path under [issue #336](https://github.com/dotnetpower/fdai/issues/336).
+- [ ] Register PostgreSQL and Redpanda in the shared provider contract matrix and retain local-stack evidence under [issue #337](https://github.com/dotnetpower/fdai/issues/337).
