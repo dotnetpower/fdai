@@ -45,7 +45,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 - [x] Replace the migrated placeholder scope row with bounded rows and rerun the six focused local validation slices.
 - [ ] Reconcile the historical base-catalog seed list with optional Cost Governance ownership under [issue #338](https://github.com/dotnetpower/fdai/issues/338).
 - [ ] Decide and implement or defer collector snapshot promotion into the runtime catalog under [issue #340](https://github.com/dotnetpower/fdai/issues/340).
-- [ ] Bind what-if and configuration-drift evidence into one audited Phase 1 T0 path, or narrow the Phase 1 integration claim with focused no-authority evidence.
+- [ ] Bind what-if and configuration-drift evidence into one audited Phase 1 T0 path, or narrow the integration claim, under [issue #342](https://github.com/dotnetpower/fdai/issues/342).
 - [ ] Resolve the supported Change Safety signal set and inventory-before-verdict boundary under [issue #339](https://github.com/dotnetpower/fdai/issues/339).
 - [ ] Complete constitutional capability-pack coverage under [issue #76](https://github.com/dotnetpower/fdai/issues/76).
 - [ ] Retain exact-revision live Azure inventory and shadow GitOps evidence under [issue #341](https://github.com/dotnetpower/fdai/issues/341).
