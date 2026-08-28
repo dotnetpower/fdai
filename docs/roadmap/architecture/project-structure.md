@@ -452,8 +452,11 @@ per-resource locking serializes competing applies before any delivery adapter ca
   core: they hold a >= 90% coverage gate and include property-based tests asserting "high-risk
   never auto-executes", "shadow-mode never mutates", "re-applying an action is a no-op", and "an
   `ActionPromotionRegistry` mutation from `consider_promotion` never survives a failed durable
-  persist" (the registry's `restore` rolls it back). Every action path also has a shadow-mode test
-  and a rollback test.
+  persist" (the registry's `restore` rolls it back). `OperationalPromotionDirectApiExecutor` holds
+  a per-ActionType `ResourceLockManager` lock (`fdai/core/executor/lock.py`) around record, promote,
+  persist, and restore, so two concurrent failed promotions for the same ActionType cannot
+  interleave and leave an unpersisted enforce record visible to a reader. Every action path also
+  has a shadow-mode test and a rollback test.
 - Rule and policy changes ship with a regression test; the
   `services/core-control-plane/src/fdai/rule_catalog/pipeline/` promotion gate blocks on a failing regression
   suite or any policy-violation escape.

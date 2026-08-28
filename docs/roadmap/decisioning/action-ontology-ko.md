@@ -1,7 +1,7 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: 2b72a6c643d58bb6c5b9ec77b5660085a329e5cf
+translation_source_sha: a0490fc2d4773c5deeef0dc74c061b442e24ca6c
 translation_revised: 2026-08-28
 ---
 
@@ -805,6 +805,7 @@ verbatim 기록되므로 과거 감사 항목 를 절대 break 하지 않음.
 | 2026-08-28 | implemented | `delivery/promotion.py`를 강화해 promotion이 더 이상 희망만으로 영속화되지 않도록 했습니다. Direct-API executor는 이제 이전 in-memory promotion record를 스냅샷으로 남기고, 영속 저장이 실패하면 새로 추가된 `ActionPromotionRegistry.restore` primitive를 통해 이를 롤백합니다. Governance dispatcher는 뒤이은 영속 적용이 실패하면 소비된 attestation을 `pending`으로 복원합니다. 따라서 일시적인 영속 저장 실패가 더 이상 영속화되지 않은 enforce record를 남기거나 그에 연결된 human approval을 소진시킬 수 없습니다. | `current change`; `core/risk_gate/gate.py`; `delivery/promotion.py`; `tests/delivery/test_promotion_executor.py`(`5 passed`); `tests/delivery/test_governance_dispatch.py`(`8 passed`); Ruff, formatter 및 strict mypy | 이 집중 스위트 밖에서 실제 영속 저장 실패가 깔끔하게 복구됨을 증명하는 통제된 런타임 증적을 보존합니다. |
 | 2026-08-27 | implemented | 완전한 direct-request fingerprint와 영속 one-time promotion nonce를 실제 HIL/direct 경로에 연결했습니다. Retirement rule은 quality 및 HIL rule map에서 제외되고 PR 조회는 merged 또는 closed record를 재사용합니다. | `current change`; HIL, replay, concurrency 및 runtime dispatch 집중 테스트 통과. | 배포 소유 attestation 발급과 실제 PR 증적은 외부 게이트입니다. |
 | 2026-08-27 | implemented | HIL resume에서 serialized parked-rule fallback을 거부하고 frozen measurement index 전에 retirement projection을 적용했으며 GitOps repository path segment와 query value를 모두 percent-encode했습니다. | `current change`; HIL, scenario-replay 및 GitOps adversarial 집중 테스트 통과. | 배포 소유 runtime과 원격 증적은 외부 게이트입니다. |
+| 2026-08-28 | implemented | 이전 restore 기반 복구가 남겨둔 두 가지 취약점을 닫았습니다. `OperationalPromotionDirectApiExecutor`는 이제 record, promote, persist, restore 구간 전체에 걸쳐 ActionType 단위 `ResourceLockManager` 락(direct-API 리소스 락이 이미 쓰는 것과 같은 in-process 패턴)을 유지하므로, 같은 ActionType에 대한 두 개의 동시 실패 promotion이 서로 끼어들어 영속화되지 않은 enforce record를 노출할 수 없습니다. `StateStorePromotionAttestationStore`는 `pending -> consumed` 보상 write 모델을 리스 기반 `pending -> reserved -> consumed` 상태 기계로 대체했습니다: `consume`은 유한한 리스로 예약하고 만료된 예약을 스스로 회수하며, `finalize`만이 `consumed`로 가는 유일한 경로이고, 실패한 `restore`는 이제 best-effort로 처리되어 원래의 dispatch 실패를 절대 가리지 않습니다. 따라서 attestation은 영속 적용을 실패시킨 것과 동일한 store outage로 인해 영구히 좌초될 수 없습니다. | `current change`; `delivery/promotion.py`; `core/executor/lock.py`(재사용, 무변경); `tests/delivery/test_promotion_executor.py`; `tests/delivery/test_governance_dispatch.py`; 대상 `pytest tests/delivery`(2093 passed); 작업 범위 Ruff, format 및 strict mypy | 이 집중 스위트 밖에서 실제 동시 promotion 경합과 실제 동일 store outage가 모두 깔끔하게 복구됨을 증명하는 통제된 런타임 증적을 보존합니다. |
 
 ### 남은 작업
 
