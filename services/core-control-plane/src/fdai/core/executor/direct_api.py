@@ -61,6 +61,7 @@ from fdai.shared.providers.direct_api import (
     DirectApiPromotionError,
     DirectApiReceipt,
     DirectApiRequest,
+    DirectApiRetryableError,
 )
 from fdai.shared.providers.idempotency import IdempotencyStore
 from fdai.shared.providers.resource_lock import ResourceLock
@@ -374,6 +375,15 @@ class DirectApiShadowExecutor:
                     action=action,
                     outcome=DirectApiExecutionOutcome.NETWORK_DENIED,
                     reason=str(exc),
+                    dry_run_receipt=safeguards.dry_run_receipt,
+                )
+            except DirectApiRetryableError as exc:
+                return await self._finish(
+                    action=action,
+                    outcome=DirectApiExecutionOutcome.FAILED,
+                    reason=f"retryable adapter error: {exc}",
+                    rollback_succeeded=False,
+                    remember=False,
                     dry_run_receipt=safeguards.dry_run_receipt,
                 )
             except DirectApiError as exc:

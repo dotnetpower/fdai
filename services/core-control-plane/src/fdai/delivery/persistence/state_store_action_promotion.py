@@ -39,6 +39,7 @@ class StateStoreActionPromotionRegistry(ActionPromotionRegistry):
         self._store = store
         self._persisted_authority_verifier = persisted_authority_verifier
         self._observed_revisions: dict[str, int] = {}
+        self._observed_absent: set[str] = set()
 
     async def refresh(self, action_type: str) -> None:
         try:
@@ -58,6 +59,7 @@ class StateStoreActionPromotionRegistry(ActionPromotionRegistry):
         if raw is None:
             self._records.pop(action_type, None)
             self._observed_revisions[action_type] = 0
+            self._observed_absent.add(action_type)
             return
         revision = raw.get("revision", 0)
         if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
@@ -89,6 +91,7 @@ class StateStoreActionPromotionRegistry(ActionPromotionRegistry):
                 raise ValueError("persisted ENFORCE O7 attribution was rejected")
         self._records[action_type] = record
         self._observed_revisions[action_type] = revision
+        self._observed_absent.discard(action_type)
 
     async def persist(self, action_type: str) -> None:
         record = self.record(action_type)
@@ -99,21 +102,30 @@ class StateStoreActionPromotionRegistry(ActionPromotionRegistry):
             raise RuntimeError("promotion persistence requires a writer refresh")
         next_revision = expected_revision + 1
         value = {**_serialize(record), "revision": next_revision}
-        applied = await self._store.compare_and_set_state_with_audit(
-            _key(action_type),
-            value,
-            expected_revision=expected_revision,
-            audit_entry={
-                "actor": "fdai.delivery.promotion",
-                "action_kind": "action_promotion.persisted",
-                "action_type": action_type,
-                "mode": record.mode.value,
-                "revision": next_revision,
-            },
-        )
+        audit_entry = {
+            "actor": "fdai.delivery.promotion",
+            "action_kind": "action_promotion.persisted",
+            "action_type": action_type,
+            "mode": record.mode.value,
+            "revision": next_revision,
+        }
+        if action_type in self._observed_absent:
+            applied = await self._store.write_state_with_audit_if_absent(
+                _key(action_type),
+                value,
+                audit_entry,
+            )
+        else:
+            applied = await self._store.compare_and_set_state_with_audit(
+                _key(action_type),
+                value,
+                expected_revision=expected_revision,
+                audit_entry=audit_entry,
+            )
         if not applied:
             raise RuntimeError("promotion authority changed during persistence")
         self._observed_revisions[action_type] = next_revision
+        self._observed_absent.discard(action_type)
 
 
 def _key(action_type: str) -> str:

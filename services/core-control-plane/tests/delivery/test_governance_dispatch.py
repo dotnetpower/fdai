@@ -228,6 +228,16 @@ async def test_promotion_dispatch_requires_approved_distinct_approver_transition
     assert (await routed.execute(request)).receipt_ref == "promotion:1"
     assert (await routed.execute(request)).receipt_ref == "promotion:1"
 
+    class _MustNotExecute:
+        async def execute(self, request):  # type: ignore[no-untyped-def]
+            raise AssertionError(f"replay reached executor: {request.idempotency_key}")
+
+    restarted = GovernancePromotionDispatcher(
+        _MustNotExecute(),  # type: ignore[arg-type]
+        attestation_store=store,
+    )
+    assert (await restarted.execute(request)).receipt_ref == "promotion:1"
+
 
 @pytest.mark.asyncio
 async def test_promotion_attestation_survives_a_failed_durable_apply() -> None:
@@ -659,7 +669,16 @@ async def test_stale_fencing_token_cannot_touch_a_reclaimed_reservation() -> Non
     # is still its own reservation. Both calls MUST be no-ops: the fresh
     # holder's active claim is untouched.
     await store.restore("promotion-7", stale.attestation, stale.fencing_token)
-    await store.finalize("promotion-7", stale.attestation, stale.fencing_token)
+    replay_receipt = DirectApiReceipt(
+        outcome=DirectApiOutcome.SUCCEEDED,
+        receipt_ref="promotion:1",
+    )
+    await store.finalize(
+        "promotion-7",
+        stale.attestation,
+        stale.fencing_token,
+        replay_receipt,
+    )
 
     key = "governance-promotion-attestation:promotion-7"
     raw = await store._store.read_state(key)  # noqa: SLF001 - assert internal durable state
@@ -668,7 +687,12 @@ async def test_stale_fencing_token_cannot_touch_a_reclaimed_reservation() -> Non
     assert raw["revision"] == fresh.fencing_token
 
     # The fresh holder's own token, however, still works.
-    await store.finalize("promotion-7", fresh.attestation, fresh.fencing_token)
+    await store.finalize(
+        "promotion-7",
+        fresh.attestation,
+        fresh.fencing_token,
+        replay_receipt,
+    )
     raw = await store._store.read_state(key)  # noqa: SLF001 - assert internal durable state
     assert raw is not None
     assert raw["state"] == "consumed"
