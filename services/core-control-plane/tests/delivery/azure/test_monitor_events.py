@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 from fdai.delivery.azure.arg_projection import to_neutral_id
@@ -149,3 +149,28 @@ def test_diagnostic_options_require_unique_ordered_metrics_and_bounds() -> None:
         DiagnosticNormalizerOptions(metric_whitelist=("z", "a"))
     with pytest.raises(ValueError, match="max_records"):
         DiagnosticNormalizerOptions(metric_whitelist=("a",), max_records=0)
+
+
+def test_diagnostic_identity_is_stable_across_timestamp_offsets() -> None:
+    options = DiagnosticNormalizerOptions(metric_whitelist=("node_cpu_percent",))
+    utc_record = _diagnostic_record()
+    offset_record = _diagnostic_record(
+        time=(_NOW - timedelta(seconds=15))
+        .astimezone(timezone(timedelta(hours=5, minutes=30)))
+        .isoformat()
+    )
+
+    utc_event = normalize_diagnostic_records(
+        {"records": [utc_record]},
+        options=options,
+        ingested_at=_NOW,
+    )[0]
+    offset_event = normalize_diagnostic_records(
+        {"records": [offset_record]},
+        options=options,
+        ingested_at=_NOW,
+    )[0]
+
+    assert offset_event.detected_at.tzinfo is UTC
+    assert offset_event.event_id == utc_event.event_id
+    assert offset_event.idempotency_key == utc_event.idempotency_key
