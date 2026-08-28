@@ -120,6 +120,8 @@ use atomic persistence and authenticated producer attestations.
 Secured query receipt verification re-derives completeness from the full digest-covered issued
 receipt rather than trusting a relabelled digest.
 Context evidence reads reserve response-envelope bytes before building the bounded evidence bundle.
+Direction-shadow promotion remains proposal-only unless the comparison pinned exact release identity
+on both sides.
 The inventory ontology projector serializes graph replacement with its generation commit marker.
 Resource ObjectSet receipts preserve source generation and completeness independently from query
 truncation, including zero-result reads.

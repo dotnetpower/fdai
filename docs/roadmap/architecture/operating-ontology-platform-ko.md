@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 413936f799eb4c30315829bda9ee152e6fb2b95f
+translation_source_sha: 66d3bd242fe976a4ffcdcee18e056693e113a217
 translation_revised: 2026-08-30
 ---
 # FDAI 온톨로지 안전 인프라
@@ -164,6 +164,7 @@ Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습�
 | 2026-08-27 | implemented | 온톨로지 변환 결과 신원에 대한 PostgreSQL 기반 atomic-create 동시성 회귀 검사를 추가했습니다. | `current change`, `tests/persistence/test_postgres_ontology_instance.py` 및 집중 store 검사 | 성공한 로컬 PostgreSQL receipt를 별도로 보존합니다. |
 | 2026-08-27 | implemented | 남아 있던 Context 응답 경계 미비점을 닫았습니다. 표시 변환은 이제 증적 발급을 인증하고, endpoint triple만 비교하는 대신 각 경로 링크의 전체 관측 및 검증 메타데이터를 일치시키며, 구성된 바이트 상한을 번들과 Context 메타데이터 전체에 적용합니다. | `current change`, `console_projection.py`, `evidence_read.py`, 운영 컨텍스트 및 시나리오 집중 검사(`17 passed`) | 인증된 런타임 응답 하나를 별도로 보존합니다. Live 또는 배포 근거는 생성하지 않았습니다. |
 | 2026-08-27 | implemented | Bounded versioned provider 관계 materialization과 exact-release direction-shadow 검사를 추가했습니다. 기존 Kubernetes API inventory는 authoritative topology adapter로 충분하며 lifecycle observation은 별도 Event 출처로 유지하고 topology로 재사용하지 않습니다. | `current change`, `delivery/provider_schema_relationship_generation.py`, 집중 generation 및 direction-shadow 검사(`22 passed`), Ruff, formatter 및 strict mypy | Complete release-bound 실제 generation 근거와 governed review를 확보해야 합니다. Live 또는 remote generation은 만들지 않았습니다. |
+| 2026-08-27 | implemented | 검토된 direction-shadow 결과가 제안 준비 상태가 되기 전에 exact-release 비교 모드를 요구했습니다. | `current change`; `direction_shadow/promotion.py`; 집중 승격 검사. | 카탈로그 변경 전에 통제된 검토와 완전한 release 결속 런타임 근거를 보존합니다. |
 | 2026-08-27 | implemented | Independent review 후 provider 관계 materialization을 보강하여 모든 reviewed semantic field, review digest 및 candidate endpoint를 다시 검증하고 type@version 신원과 exact-release replay mode를 보존했으며, 고유 staging 파일을 사용한 ledger record/rollback 직렬화를 추가했습니다. | `current change`, generation, review, ledger 및 direction-shadow 모듈, 집중 adversarial 검사(`35 passed`), Ruff, formatter 및 strict mypy | Complete release-bound 실제 generation 근거와 governed human review를 확보해야 합니다. Live 또는 remote generation은 만들지 않았습니다. |
 | 2026-08-27 | implemented | 개별 id별 ontology store 읽기를 범위가 제한된 exact-id batch query와 이른 result-limit 종결로 교체했습니다. Context id 512개 선택은 이제 새 database connection 수백 개 대신 indexed store query 최대 4개를 사용합니다. | `current change`, ObjectSet, 조건식 및 PostgreSQL instance-store 검사(`31 passed`, `FDAI_DATABASE_URL` 미설정으로 `4 skipped`), Ruff 및 strict mypy | 배포 database 지연 시간 및 connection pressure 근거는 별도로 보존합니다. Remote database는 조회하지 않았습니다. |
 | 2026-08-27 | implemented | 정확한 id batch를 객체 전용으로 유지해 관계 완전성을 상속하지 않게 했습니다. 또한 불투명한 선택 token을 스칼라 Function 입력으로 전달해 객체 값인 결과를 의존성 전용으로 유지했습니다. | `current change`, contextual Function, ObjectSet, 의존성 입력 및 semantic planning 검사 123개 통과, Ruff 및 strict mypy 통과. PostgreSQL 런타임 근거는 환경 제약으로 아직 확인하지 못했습니다. | 배포 database 지연 시간 및 connection pressure 근거는 별도로 보존합니다. Remote database는 조회하지 않았습니다. |

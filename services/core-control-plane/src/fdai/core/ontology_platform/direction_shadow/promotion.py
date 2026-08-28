@@ -115,11 +115,20 @@ def assess_direction_mapping_promotion(
     reviewed_at: datetime,
     decision: DirectionPromotionDecision,
 ) -> DirectionPromotionAssessment:
-    """Create a review-bound PR proposal while withholding every migration authority."""
+    """Create a review-bound PR proposal while withholding every migration authority.
+
+    A comparison that did not pin provider-schema release identity on both
+    sides (``receipt.exact_release_mode`` is ``False``) can never become
+    ``proposal_ready``, even when its disposition is otherwise complete and
+    the reviewer approves: a non-exact comparison cannot prove the aligned
+    generation matches the same release the legacy generation was pinned to.
+    """
 
     reasons: set[str] = set()
     if receipt.disposition is not ComparisonDisposition.COMPLETE:
         reasons.add("comparison_requires_review")
+    if not receipt.exact_release_mode:
+        reasons.add("exact_release_mode_required")
     if decision is DirectionPromotionDecision.REJECT:
         reasons.add("reviewer_rejected")
     if len(regression_receipt_digests) != len(set(regression_receipt_digests)):

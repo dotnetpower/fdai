@@ -19,16 +19,22 @@ from fdai.core.ontology_platform.direction_shadow import (
 _PRIOR_RELEASE = "sha256:" + ("a" * 64)
 _ALIGNED_RELEASE = "sha256:" + ("b" * 64)
 _REGRESSION = "sha256:" + ("c" * 64)
+_PROVIDER_SCHEMA = "sha256:" + ("d" * 64)
+_MAPPING_REVISION = "mapping-rev-1"
 _NOW = datetime(2026, 8, 27, tzinfo=UTC)
 
 
-def _receipt(*, complete: bool = True) -> DirectionShadowReceipt:
+def _receipt(*, complete: bool = True, exact_release_mode: bool = True) -> DirectionShadowReceipt:
+    provider_schema_digest = _PROVIDER_SCHEMA if exact_release_mode else None
+    mapping_revision = _MAPPING_REVISION if exact_release_mode else None
     legacy = DirectionGraphGeneration.create(
         generation_ref="legacy",
         ontology_release_digest=_PRIOR_RELEASE,
         object_ids=("resource-a",),
         links=(),
         complete=complete,
+        provider_schema_digest=provider_schema_digest,
+        mapping_revision=mapping_revision,
     )
     aligned = DirectionGraphGeneration.create(
         generation_ref="aligned",
@@ -36,6 +42,8 @@ def _receipt(*, complete: bool = True) -> DirectionShadowReceipt:
         object_ids=("resource-a",),
         links=(),
         complete=True,
+        provider_schema_digest=provider_schema_digest,
+        mapping_revision=mapping_revision,
     )
     return compare_graph_generations(
         legacy,
@@ -45,6 +53,7 @@ def _receipt(*, complete: bool = True) -> DirectionShadowReceipt:
             authoritative_generation_ref="inventory-generation:aligned",
             rebuild_procedure_ref="runbook:ontology-current-state-rebuild:v1",
         ),
+        require_exact_releases=exact_release_mode,
     )
 
 
@@ -81,6 +90,23 @@ def test_incomplete_comparison_cannot_be_approved() -> None:
 
     assert result.proposal_ready is False
     assert result.reason_codes == ("comparison_requires_review",)
+
+
+def test_non_exact_comparison_cannot_become_proposal_ready() -> None:
+    receipt = _receipt(exact_release_mode=False)
+    assert receipt.disposition is ComparisonDisposition.COMPLETE
+
+    result = assess_direction_mapping_promotion(
+        receipt,
+        regression_receipt_digests=(_REGRESSION,),
+        requested_by="requester",
+        reviewed_by="reviewer",
+        reviewed_at=_NOW,
+        decision=DirectionPromotionDecision.APPROVE_PROPOSAL,
+    )
+
+    assert result.proposal_ready is False
+    assert result.reason_codes == ("exact_release_mode_required",)
 
 
 def test_reviewer_rejection_preserves_the_rollback_pointer() -> None:

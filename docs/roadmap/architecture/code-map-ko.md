@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 28d5026a421bd13098853235ada49d0c19357cea
+translation_source_sha: ab6755420c1e0851598b6bdbc3a878dd96b52cdf
 translation_revised: 2026-08-30
 ---
 # 코드 맵
@@ -124,6 +124,8 @@ Context 읽기는 인증된 principal 범위 증적을 연결하고 Forecast 및
 보안 쿼리 증적 검증은 표지만 바꾼 다이제스트를 신뢰하지 않고 다이제스트에 포함된 전체 발급
 증적에서 완전성을 다시 파생합니다.
 Context 근거 읽기는 범위가 제한된 근거 묶음을 만들기 전에 응답 묶음 바이트를 예약합니다.
+Direction-shadow 승격은 비교 양쪽이 정확한 release 신원을 고정하지 않으면 제안 전용 상태를
+벗어날 수 없습니다.
 같은 변환은 독립적으로 검증된 `runtime_calls` edge를 양방향으로 보존하며 서비스 간 상호 호출을
 방향 충돌로 취급하지 않습니다.
 Context 변환 결과는 증적 발급을 인증하고, 출처 세대와 검증 계보를 포함한 전체 링크 관측

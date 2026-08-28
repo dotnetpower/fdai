@@ -576,7 +576,7 @@
     "services/core-control-plane/src/fdai/core/ontology_platform/direction_shadow/comparator.py": "534b0242e26560b0b23abe1eb5c6674bc122e65dfca3b5ed64c4e82f0f90c0cc",
     "services/core-control-plane/src/fdai/core/ontology_platform/direction_shadow/identity.py": "21b1e7e06a0fba0a984a345aba581cadf4b516dd62820d623e36826170772aae",
     "services/core-control-plane/src/fdai/core/ontology_platform/direction_shadow/models.py": "2f4bfccef32d5099830072a2c0fe1a35d859b55c1ff1164efa9d2fe46977b65b",
-    "services/core-control-plane/src/fdai/core/ontology_platform/direction_shadow/promotion.py": "16194c538fe3d36c4ee7ffd05c57a1c8621d5dacc5202faa2fff1c3e7a3ea71b",
+    "services/core-control-plane/src/fdai/core/ontology_platform/direction_shadow/promotion.py": "44a52a137ea752963139e3b460b7a45345fb8d232a2976fed8c8534c041c96ac",
     "services/core-control-plane/src/fdai/core/ontology_platform/evidence_health_queries.py": "ec35cc6e4301bb7c4f35b70fefd7b015f3815af8e0979936ec6d8fdef2f4690c",
     "services/core-control-plane/src/fdai/core/ontology_platform/functions.py": "86a84d88100524de15d75d53fd924281cbdc86a1df1cb968251e1c40a98f3244",
     "services/core-control-plane/src/fdai/core/ontology_platform/graph_evidence_refresh.py": "dcecff60565507dc35ab21fecfa73746dcd7bc6c424bebc0137ce13cabf941c0",
