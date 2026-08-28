@@ -149,6 +149,8 @@ remain explicit startup-readiness failures rather than an implicit `runtime=None
 Continuous coverage receipts separate deterministic fixture structural validation from production
 readiness. Only externally produced `cross_service_e2e` or `live_assurance` question receipts can
 set `production_ready`; a committed `deterministic_fixture` keeps it false.
+Operational coverage receipts normalize evidence, evaluation, and freshness timestamps to UTC
+before digesting so equivalent instants retain one replay identity across service locales.
 Runtime bootstrap delegates semantic readiness and vertical workload-identity construction to its
 existing lifecycle and binding helpers, keeping the primary composition root below the reviewed
 fanout ceiling. A thin bootstrap wrapper preserves the injected identity-builder test and fork seam.

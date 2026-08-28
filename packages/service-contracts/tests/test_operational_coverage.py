@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
+from pydantic import ValidationError
+
 from fdai_service_contracts.operational_coverage import (
     OperationalCoverageCount,
     OperationalCoverageDisposition,
@@ -12,7 +14,6 @@ from fdai_service_contracts.operational_coverage import (
     OperationalCoverageReceipt,
     operational_coverage_receipt_digest,
 )
-from pydantic import ValidationError
 
 DIGEST_A = "sha256:" + "a" * 64
 DIGEST_B = "sha256:" + "b" * 64
@@ -181,3 +182,16 @@ def test_digest_helper_canonicalizes_json_values_and_ignores_stored_digest() -> 
 
     assert operational_coverage_receipt_digest(**body) == receipt.receipt_digest
     assert OperationalCoverageReceipt.model_validate(body) == receipt
+
+
+def test_equivalent_timezone_instants_share_one_canonical_digest() -> None:
+    receipt = _receipt()
+    kst = timezone(timedelta(hours=9))
+    shifted = _receipt(
+        evidence_cutoff=receipt.evidence_cutoff.astimezone(kst),
+        evaluated_at=receipt.evaluated_at.astimezone(kst),
+        fresh_until=receipt.fresh_until.astimezone(kst),
+    )
+
+    assert shifted.receipt_digest == receipt.receipt_digest
+    assert shifted.evidence_cutoff.tzinfo is UTC

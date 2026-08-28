@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Annotated, Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from fdai_service_contracts.executor_models import ContractBase, Digest
 from fdai_service_contracts.ontology_query import content_digest
@@ -71,6 +71,11 @@ class _OperationalCoverageReceiptBody(ContractBase):
     accounting_complete: bool
     target_met: bool
     execution_authority: Literal[False] = False
+
+    @field_validator("evidence_cutoff", "evaluated_at", "fresh_until")
+    @classmethod
+    def _normalize_timestamp(cls, value: datetime) -> datetime:
+        return value if value.tzinfo is None else value.astimezone(UTC)
 
 
 class OperationalCoverageReceipt(_OperationalCoverageReceiptBody):

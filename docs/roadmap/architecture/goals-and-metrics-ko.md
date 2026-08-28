@@ -1,8 +1,8 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: ee94313be42fe9fb7128c3b42d66e005c71abd47
-translation_revised: 2026-08-28
+translation_source_sha: d1438c3af1532b386154efd2ea0d11704db31a72
+translation_revised: 2026-08-29
 ---
 
 # 목표와 메트릭
@@ -35,6 +35,7 @@ translation_revised: 2026-08-28
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-29 | implemented | 강화 라운드 1에서 커버리지 계약 관점 22개를 검토하고 다이제스트 계산 전에 모든 증적 시각을 UTC로 정규화했습니다. 따라서 표준 시간대 오프셋이 달라도 같은 절대 시각은 하나의 재생 신원을 공유합니다. | `current change`; 집중 운영 커버리지 테스트. | 권위 있는 생성기를 연결하고 관리되는 증적을 보존합니다. |
 | 2026-08-28 | implemented | 자산 인벤토리, 거버넌스 평가, 운영 범위, 인시던트 진단, 수정 효과 및 지식 근거 확인을 위한 하나의 공급자 중립 운영 커버리지 증적을 추가했습니다. 정책 결과와 평가 가능 여부를 분리하고, 커버되지 않은 모든 항목을 분모에 유지하며, 완전한 계산, 최신성, 정확한 베이시스 포인트 임계값 및 무관용 처리 결과를 사용해 주장 자격을 결정적으로 계산합니다. | `current change`; `operational_coverage.py`; 집중 계약 테스트 13건 통과; Ruff 및 strict mypy 통과. | 99% 운영 주장을 하기 전에 각 생성기를 권위 있는 분모에 연결하고 관리되는 증적을 보존합니다. |
 | 2026-08-19 | implemented | 커밋된 기준선을 다시 생성했습니다. `sre.*` 시나리오 3건이 추가되어 고정 세트가 12개가 된 뒤에도 기준선은 여전히 9개 세트를 기술하고 있었습니다. 발행된 모든 지표와 표본 크기, 신뢰구간이 더 이상 존재하지 않는 세트를 설명하고 있었고, `routed_correctly_rate`는 0.111에서 0.083이 되었습니다. 기준선 테스트는 이제 `9`와 "t2 시나리오가 정확히 하나"를 고정하는 대신 세트에서 시나리오 개수와 t2 경제성을 도출하므로, 다음 추가는 숫자 속에서 조용히 어긋나는 대신 산출물에서 크게 실패합니다. | `current change`, `tools.baseline_run`이 `docs/baselines/v2026.07.{json,md}`와 한국어 쌍을 재생성, core와 공유 패키지 suite가 11913건 통과(스킵 131건)하며 이전에 실패하던 `test_baseline_runner`와 `test_models_facade_only` 포함 | 기준선은 여전히 `synthetic-harness` 근거이며 주장 자격이 없습니다. 실측 기준선과 처리군 코호트는 아래의 열린 항목으로 남아 있습니다. |
 | 2026-08-19 | in-progress | `sre` 팩에 세 번째 커버리지 차원을 manifest 항목이 아니라 실제로 단언되는 근거로 추가했습니다. 전용 테스트가 첫 요청을 떨어뜨리는 publisher를 상대로 `sre.cluster-diagnostics-missing.001`을 재생해 효과 결과가 진짜 알 수 없는 상태로 만들고, 오류가 빠져나가기 전에 종단 `publish_outcome_unknown` audit 항목이 닫히며 PR이 기록되지 않고 캐시도 남지 않는다는 점, 그리고 같은 executor로 재시도하면 shadow PR이 정확히 하나만 발행된다는 점을 입증합니다. 어느 팩에서도 처음 확보한 `partial_failure_recovery` 근거입니다. | `current change`, `tests/scenarios`와 `test_shadow_eval.py`가 focused 116건 통과, 신규 테스트는 변이 검증 완료 - `_close_unknown_publish`를 no-op으로 바꾸면 `assert 0 == 1`로 실패합니다. | `sre`의 `successful_full_loop`, `cross_objective_conflict`, `a3e_or_non_applicability`는 여전히 근거가 없습니다. full-loop 주장은 shadow 실행이 제공하지 않는 독립 효과 검증이 필요하고, A3-E 주장은 아직 연결되지 않은 standing-authority 평가기가 필요합니다. manifest 검사는 인용된 테스트의 존재만 확인할 뿐 그 차원을 단언하는지는 확인하지 않습니다. |
