@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 44ae98769a17af6c2be2945b97b78561854a6e88
+translation_source_sha: 0f0c6bc6efa094c9635b012b8e22e5f3f304c968
 translation_revised: 2026-08-28
 ---
 # 프로젝트 구조
@@ -444,7 +444,9 @@ grounding 권한을 우회할 수 없습니다. HIL 승인 id와 실행기 멱�
 - `services/core-control-plane/src/fdai/core/tiers/t0_deterministic` (deterministic-engine)과
   `services/core-control-plane/src/fdai/core/risk_gate`의 테스트는 안전 코어입니다. >= 90% 커버리지 게이트를
   유지하고 "high-risk는 절대 auto-execute 하지 않는다", "shadow-mode는 절대 변형하지 않는다",
-  "액션 재적용은 no-op이다"를 단언하는 property-based 테스트를 포함합니다. 모든 액션
+  "액션 재적용은 no-op이다", "`consider_promotion`이 만든 `ActionPromotionRegistry`의 변형은
+  실패한 영속 저장에서 절대 살아남지 않는다"(registry의 `restore`가 이를 롤백합니다)를
+  단언하는 property-based 테스트를 포함합니다. 모든 액션
   경로는 shadow-mode 테스트와 롤백 테스트를 갖습니다.
 - 규칙과 정책 변경은 회귀 테스트와 함께 나갑니다. `services/core-control-plane/src/fdai/rule_catalog/pipeline/`
   승격 게이트는 실패한 회귀 스위트나 정책 위반 escape가 있으면 블록됩니다.

@@ -163,6 +163,21 @@ class ActionPromotionRegistry:
     def record(self, action_type: str) -> ActionModeRecord | None:
         return self._records.get(action_type)
 
+    def restore(self, action_type: str, record: ActionModeRecord | None) -> None:
+        """Reset the in-memory record after a failed durable persist.
+
+        ``consider_promotion`` mutates the cache optimistically so a caller
+        can inspect its verdict before persisting it. When persistence then
+        fails, that optimistic mutation MUST NOT remain visible - a caller
+        uses this to put the exact prior record back (or clear the entry
+        when there was none), so ``mode_of`` can never report an ENFORCE
+        promotion that was never durably recorded.
+        """
+        if record is None:
+            self._records.pop(action_type, None)
+        else:
+            self._records[action_type] = record
+
     def consider_promotion(
         self,
         *,
