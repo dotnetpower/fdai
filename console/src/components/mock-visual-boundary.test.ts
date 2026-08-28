@@ -41,6 +41,54 @@ describe("mock console visual boundary", () => {
     expect(landing).toContain("frame.src = previewUrl");
   });
 
+  test("keeps the navigation redesign mock aligned with the production shell", () => {
+    const navigation = readFileSync(`${MOCK_ROOT}/nav-redesign-v3.html`, "utf8");
+    const finops = readFileSync(`${MOCK_ROOT}/finops-resource-efficiency.html`, "utf8");
+    const finopsScript = readFileSync(
+      `${MOCK_ROOT}/assets/finops-resource-efficiency.js`,
+      "utf8",
+    );
+    const finopsStyles = readFileSync(
+      `${MOCK_ROOT}/assets/finops-resource-efficiency.css`,
+      "utf8",
+    );
+
+    expect(navigation).toContain("--rail: 56px;");
+    expect(navigation).toContain("--explorer: 244px;");
+    expect(navigation).toContain(".navigation-shell.open .explorer");
+    expect(navigation).toContain('role="menuitemcheckbox"');
+    expect(navigation).toContain("대메뉴 기본값 복원");
+    expect(navigation).toContain(
+      '["cost-governance", "비용 거버넌스", "finops-resource-efficiency.html"]',
+    );
+    expect(navigation).toContain('["architecture", "아키텍처", "architecture.html"]');
+    expect(navigation).toContain('["conversation-delivery", "대화 전송", "conversation-delivery.html"]');
+    expect(navigation).toContain('["settings-diagnostics", "진단", "settings-diagnostics.html"]');
+    expect(finops).toContain('data-workspace-view="overview"');
+    expect(finops).toContain('class="fr-composite-chart"');
+    expect(finops).toContain('class="fr-metric-rail"');
+    expect(finops).toContain('class="fr-direct-label is-current"');
+    expect(finops).toContain('id="cost-chart-tooltip"');
+    expect(finops).toContain('class="fr-sankey"');
+    expect(finops).toContain("운영 구독");
+    expect(finops).not.toContain("프로덕션 구독");
+    expect(finops).toContain("상세 리소스 Top 5");
+    expect(finops).toContain("기타 123개 리소스");
+    expect(finops).toContain('class="fr-scatter"');
+    expect(finops).toContain('class="fr-size-legend"');
+    expect(finops).toContain('class="fr-funnel"');
+    expect(finops).toContain('class="fr-waterfall"');
+    expect(finops).toContain("예상 절감");
+    expect(finops).toContain("검증 완료");
+    expect(finopsScript).toContain("activateWorkspace");
+    expect(finopsStyles).toContain(".fr-chart-tooltip[hidden] { display: none; }");
+    expect(finopsStyles).toContain("--fr-blue: #3b82f6;");
+    expect(finopsStyles).toContain("--fr-violet: #8b5cf6;");
+    expect(finopsStyles).toContain("--fr-emerald: #10b981;");
+    expect(finopsStyles).toContain("--fr-amber: #f59e0b;");
+    expect(finopsStyles).toContain("--fr-red: #ef4444;");
+  });
+
   test("keeps the Command Deck mock aligned with responsive production panels", () => {
     const deck = readFileSync(`${MOCK_ROOT}/deck.html`, "utf8");
     const readme = readFileSync(`${MOCK_ROOT}/README.md`, "utf8");

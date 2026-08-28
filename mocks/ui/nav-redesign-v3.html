@@ -5,86 +5,954 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>FDAI Console - Full Mock Navigation</title>
 <style>
-:root{color-scheme:light;--bg:#f7f7f8;--elev:#fff;--fg:#1c1e24;--muted:#575d69;--accent:#2b7fe0;--accent2:#1a63b8;--border:#dcdfe6;--rail:56px;--side:244px;--head:49px;font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}*{box-sizing:border-box}html,body{height:100%;margin:0;background:var(--bg);color:var(--fg)}button{font:inherit}.demo{height:100%;display:grid;grid-template-rows:auto 1fr}.demo-note{display:flex;align-items:center;gap:12px;padding:8px 16px;border-bottom:1px solid #c8d9ec;background:#edf5fd;color:#315c86;font-size:12px}.demo-note b{color:#214b74}.demo-note .try{margin-left:auto}.shell{display:grid;grid-template-rows:var(--head) 1fr;min-height:0}.topbar{display:flex;align-items:center;padding:0 16px;border-bottom:1px solid var(--border);background:var(--elev);z-index:10}.topbar h1{font-size:14px;margin:0}.principal{margin-left:auto;display:flex;align-items:center;gap:12px;color:var(--muted);font-size:12px}.body{display:grid;grid-template-columns:var(--rail) var(--side) minmax(0,1fr);min-height:0;transition:grid-template-columns .16s ease}.body.side-closed{grid-template-columns:var(--rail) 0 minmax(0,1fr)}
-.brand-lockup{display:inline-flex;align-items:center;gap:8px;min-width:0;color:var(--fg);text-decoration:none}.brand-lockup:hover{color:var(--fg)}.brand-logo{display:block;width:26px;height:26px;object-fit:contain;flex:0 0 auto}.brand-wordmark{font-size:13px;font-weight:760;letter-spacing:.055em}.brand-separator{width:1px;height:16px;margin-left:2px;background:var(--border)}.brand-product{color:var(--muted);font-size:12px;font-weight:560}
-/* existing activity rail */
-.rail{min-height:0;display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--elev);z-index:4}.rail-list{list-style:none;margin:0;padding:12px 0;display:flex;flex-direction:column;gap:4px}.rail-bottom{margin-top:auto;border-top:1px solid var(--border);padding-top:8px}.rail-item{position:relative;padding:0 8px}.rail-btn{position:relative;width:100%;min-height:60px;padding:8px 4px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--muted);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer}.rail-btn:hover{background:var(--bg);color:var(--fg)}.rail-btn.active{background:var(--bg);border-color:var(--border);color:var(--accent2)}.rail-btn.active:before{content:"";position:absolute;left:-7px;top:13px;bottom:13px;width:3px;border-radius:2px;background:var(--accent)}.rail-btn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.rail-btn span{font-size:10.5px;font-weight:600;letter-spacing:.03em;text-transform:uppercase}.rail-btn .badge{position:absolute;right:5px;top:5px;min-width:16px;height:16px;border-radius:8px;background:#c66a45;color:#fff;font-size:9px;display:grid;place-items:center}
-.rail-item{padding:0 6px}.rail-btn{min-height:44px;padding:6px}.rail-btn span{display:none}.rail-btn.active:before{left:-5px;top:8px;bottom:8px}.rail-btn .badge{right:1px;top:1px}
-.rail-bottom{border-top:0;padding-bottom:8px}
-/* explorer sidebar */
-.explorer{min-width:0;overflow:hidden;border-right:1px solid var(--border);background:#fbfbfc;display:flex;flex-direction:column}.explorer-inner{width:var(--side);height:100%;display:flex;flex-direction:column}.ex-head{position:relative;height:62px;display:flex;align-items:center;gap:8px;padding:0 10px 0 14px;border-bottom:1px solid var(--border)}.ex-title{min-width:0;flex:1}.ex-title strong{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.04em}.ex-title small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:10px;margin-top:2px}.icon-btn{width:28px;height:28px;border:0;border-radius:5px;background:transparent;color:var(--muted);display:grid;place-items:center;cursor:pointer}.icon-btn:hover{background:#eceef1;color:var(--fg)}.icon-btn.active{color:var(--accent2);background:#e6f0fb}.more-menu{position:absolute;right:10px;top:45px;z-index:10;width:176px;padding:4px;border:1px solid var(--border);border-radius:7px;background:#fff;box-shadow:0 10px 26px rgba(25,35,48,.18)}.more-menu[hidden]{display:none}.more-menu button{width:100%;border:0;border-radius:4px;background:transparent;padding:7px 9px;color:#343d48;text-align:left;font-size:11px;cursor:pointer}.more-menu button:hover{background:#eef0f3}.more-menu button+button{border-top:1px solid #eceef1}.ex-scroll{overflow:auto;padding:6px 0 12px}.section{border-bottom:1px solid #e8eaee}.section:last-child{border:0}.section-head{width:100%;height:31px;border:0;background:transparent;display:flex;align-items:center;gap:6px;padding:0 12px;color:#4f5864;text-align:left;font-size:10px;font-weight:750;text-transform:uppercase;letter-spacing:.04em}.section-head .chev{font-size:9px}.section-head .section-action{margin-left:auto;color:#7d8792;font-size:9px;text-transform:none;font-weight:600}.menu{list-style:none;margin:0;padding:0 6px 7px}.menu-row{display:grid;grid-template-columns:22px minmax(0,1fr) auto;align-items:center;min-height:34px;border-radius:5px;color:#353d47;cursor:pointer;padding:0 5px}.menu-row:hover{background:#eef0f3}.menu-row.active{background:#e6f0fb;color:#174f89}.menu-row .mi{color:#717c88;text-align:center;font-size:13px}.menu-row .label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}.menu-row.active .label{font-weight:650}.row-actions{display:flex;align-items:center}.row-actions button{width:23px;height:23px;border:0;background:transparent;color:#7a8490;border-radius:4px;cursor:pointer;padding:0}.row-actions button:hover{background:#dfe3e8;color:#303943}.row-actions button.pinned{color:#b27724}.hidden-row{opacity:.55}.hidden-row .mi{color:#9aa2ab}.custom-hint{margin:7px 10px 4px;padding:8px 9px;border:1px solid #cad9e9;border-radius:6px;background:#f0f6fc;color:#46657f;font-size:10px}.edit-only{display:none}.explorer.editing .edit-only{display:block}.favorite-section.empty{display:none}.explorer.editing .favorite-section.empty{display:block}.explorer.editing .ex-head{background:#f5f8fb}.custom-tools{display:none;padding:7px 10px;border-top:1px solid var(--border);background:#f6f7f9;gap:6px}.custom-tools.on{display:flex}.small-btn{border:1px solid var(--border);border-radius:5px;background:#fff;color:#485361;padding:5px 8px;font-size:10px;cursor:pointer}.small-btn:hover{border-color:#aeb6c0}.small-btn.primary{margin-left:auto;background:var(--accent);border-color:var(--accent);color:#fff}
-/* Quiet rows by default; editing adds only the controls needed to customize. */
-.menu-row{position:relative;grid-template-columns:minmax(0,1fr) auto;padding:0 8px 0 12px}
-.explorer.editing .menu-row{grid-template-columns:20px minmax(0,1fr) auto;padding-left:4px}
-.drag-handle{width:20px;height:26px;border:0;border-radius:4px;background:transparent;color:#8a949f;cursor:grab;padding:0;font-size:13px;line-height:1;touch-action:none}
-.drag-handle:hover,.drag-handle:focus-visible{background:#e7eaee;color:#4c5865;outline:none}
-.drag-handle:active{cursor:grabbing}
-.menu-row.dragging{opacity:.42;background:#eaf2fb}
-.menu-row.drop-before:before,.menu-row.drop-after:after{content:"";position:absolute;left:5px;right:5px;height:2px;border-radius:2px;background:var(--accent);z-index:2}
-.menu-row.drop-before:before{top:-1px}.menu-row.drop-after:after{bottom:-1px}
-.row-actions button:disabled{cursor:not-allowed;opacity:.25;background:transparent}
-.hidden-row{opacity:.58}.hidden-row .label{text-decoration:none}
-.custom-hint{margin:0 12px 5px;padding:0;border:0;background:transparent;color:#7b8590;font-size:9px}
-/* content, close to current console */
-.main{min-width:0;overflow:auto;padding:24px}.page-head{display:flex;align-items:end;justify-content:space-between;gap:12px;border-bottom:1px solid var(--border);padding-bottom:10px;margin-bottom:12px}.page-head h2{margin:0 0 2px;font-size:20px}.page-head p{margin:0;color:var(--muted);font-size:12px}.view-tools{display:flex;gap:6px}.view-tools button{border:1px solid var(--border);border-radius:6px;background:#fff;padding:6px 9px;color:var(--muted);font-size:10px}.view-tools #reopen{display:none}.posture{margin:12px 0 42px;padding:22px 24px;border:1px solid var(--border);border-radius:12px;background:#fff;box-shadow:0 8px 24px rgba(30,40,55,.04)}.eyebrow{font-size:10px;font-weight:750;text-transform:uppercase;color:var(--muted)}.posture h3{margin:8px 0 5px;font-size:20px}.posture .signal{margin-left:8px;padding:3px 8px;border-radius:12px;background:#f8e9e2;color:#a35f43;font-size:10px}.posture a{color:var(--accent2)}.meta{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;font-size:11px;color:var(--muted)}.section-title{display:flex;align-items:center;gap:12px;margin:0 0 18px}.section-title .num{width:34px;height:34px;border-radius:7px;background:#435569;color:#fff;display:grid;place-items:center;font-size:16px}.section-title h3{margin:0;font-size:18px}.section-title p{margin:2px 0 0;color:var(--muted);font-size:11px}.cards{display:grid;grid-template-columns:repeat(3,minmax(190px,1fr));gap:18px}.card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:22px;min-height:152px;box-shadow:0 4px 14px rgba(30,40,55,.04)}.card small{color:var(--muted)}.card b{display:block;font-size:30px;font-weight:500;margin:5px 0}.card .source{font-size:10px;text-transform:uppercase;color:var(--muted)}.card .base{margin-top:8px;font-size:10px;color:var(--muted)}.card .gain{color:#4c7d55;font-weight:700;margin-left:5px}
-.main.preview-main{padding:0;overflow:hidden;background:#fbfaf9}.mock-frame{display:block;width:100%;height:100%;border:0;background:#fbfaf9}
-/* compact */
-@media(max-width:480px){.brand-separator,.brand-product{display:none}}
-@media(max-width:800px){:root{--rail:52px;--side:220px}.demo-note .try{display:none}.body{grid-template-columns:var(--rail) 0 minmax(0,1fr)}.body:not(.side-closed){grid-template-columns:var(--rail) minmax(0,1fr)}.body:not(.side-closed) .main{display:none}.rail-item{padding-inline:5px}.rail-btn{min-height:44px}.rail-btn span{display:none}.cards{grid-template-columns:1fr}.main{padding:16px}.view-tools #reopen{display:inline-flex}}
+:root {
+  color-scheme: light;
+  --bg: #f8f8f7;
+  --elevated: #fff;
+  --fg: #27313b;
+  --muted: #68727d;
+  --accent: #48657f;
+  --border: #dedfdf;
+  --rail: 56px;
+  --explorer: 244px;
+  --header: 49px;
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+* { box-sizing: border-box; }
+html,
+body { height: 100%; margin: 0; overflow: hidden; background: var(--bg); color: var(--fg); }
+button { font: inherit; }
+.demo { height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.demo-note {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 16px;
+  border-bottom: 1px solid #c8d9ec;
+  background: #edf5fd;
+  color: #315c86;
+  font-size: 12px;
+}
+.demo-note b { color: #214b74; }
+.demo-note .try { margin-left: auto; }
+.shell { min-height: 0; display: grid; grid-template-rows: var(--header) minmax(0, 1fr); }
+.topbar {
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--elevated);
+  z-index: 100;
+}
+.brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--fg);
+  text-decoration: none;
+}
+.brand-logo { display: block; width: 32px; height: 26px; object-fit: contain; }
+.brand-wordmark { font-size: 13px; font-weight: 760; letter-spacing: .055em; }
+.brand-separator { width: 1px; height: 16px; margin-left: 2px; background: var(--border); }
+.brand-product { color: var(--muted); font-size: 12px; font-weight: 560; }
+.principal { margin-left: auto; display: flex; gap: 12px; color: var(--muted); font-size: 12px; }
+.body {
+  position: relative;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+.navigation-shell {
+  position: relative;
+  width: var(--rail);
+  min-height: 0;
+  display: grid;
+  grid-template-columns: var(--rail);
+  background: var(--elevated);
+  z-index: 25;
+  transition: width .16s ease, grid-template-columns .16s ease;
+}
+.navigation-shell.open,
+.navigation-shell.context-open { z-index: 90; }
+.navigation-shell.pinned {
+  width: calc(var(--rail) + var(--explorer));
+  grid-template-columns: var(--rail) var(--explorer);
+}
+.activity-bar {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  background: var(--elevated);
+}
+.rail-list {
+  list-style: none;
+  margin: 0;
+  padding: 10px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rail-bottom { margin-top: auto; padding-bottom: 8px; }
+.rail-button {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.rail-button:hover,
+.rail-button:focus-visible { background: var(--bg); color: var(--fg); }
+.rail-button:focus-visible,
+.icon-button:focus-visible,
+.menu-row a:focus-visible,
+.context-menu button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.rail-button.active { color: var(--fg); }
+.rail-button.active::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--muted);
+}
+.rail-button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.explorer {
+  position: absolute;
+  inset: 0 auto 0 var(--rail);
+  width: var(--explorer);
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  background: color-mix(in oklab, var(--elevated) 76%, var(--bg));
+  box-shadow: 10px 0 24px rgba(15, 23, 30, .12);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateX(-8px);
+  transition: opacity .14s ease, transform .14s ease, visibility 0s linear .14s;
+}
+.navigation-shell.open .explorer {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateX(0);
+  transition-delay: 0s;
+}
+.navigation-shell.pinned .explorer {
+  position: relative;
+  inset: auto;
+  grid-column: 2;
+  width: auto;
+  box-shadow: none;
+}
+.explorer-head {
+  position: relative;
+  min-height: 62px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px 0 14px;
+  border-bottom: 1px solid var(--border);
+}
+.explorer-title { min-width: 0; flex: 1; }
+.explorer-title strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.explorer-title small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.icon-button {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.icon-button:hover,
+.icon-button[aria-expanded="true"],
+.icon-button[aria-pressed="true"] { background: var(--bg); color: var(--fg); }
+.icon-button svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.more-wrap { position: relative; }
+.more-menu {
+  position: absolute;
+  top: 31px;
+  right: 0;
+  z-index: 50;
+  width: 190px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--elevated);
+  box-shadow: 0 10px 26px rgba(25, 35, 48, .18);
+}
+.more-menu[hidden] { display: none; }
+.more-menu button {
+  width: 100%;
+  min-height: 31px;
+  padding: 6px 9px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+  font-size: 11px;
+  cursor: pointer;
+}
+.more-menu button:hover { background: var(--bg); }
+.more-menu button + button { border-top: 1px solid var(--border); }
+.explorer-scroll { min-height: 0; overflow: auto; padding: 6px 0 12px; }
+.section { border-bottom: 1px solid var(--border); }
+.section-head {
+  min-height: 31px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.section-head small { font-size: 9px; font-weight: 600; text-transform: none; }
+.menu-list { list-style: none; margin: 0; padding: 0 6px 7px; }
+.menu-row {
+  position: relative;
+  min-height: 34px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  padding: 0 8px 0 12px;
+  border-radius: 5px;
+}
+.menu-row:hover { background: var(--bg); }
+.menu-row a {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: inherit;
+  font-size: 12px;
+  text-decoration: none;
+}
+.menu-row.active a { font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.explorer.editing .menu-row { grid-template-columns: 20px minmax(0, 1fr) auto; padding-left: 4px; }
+.drag-handle,
+.row-action {
+  width: 23px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.drag-handle { width: 20px; cursor: grab; }
+.drag-handle:hover,
+.row-action:hover:not(:disabled) { background: var(--bg); color: var(--fg); }
+.row-action:disabled { opacity: .25; cursor: not-allowed; }
+.hidden-row { opacity: .58; }
+.empty-row { padding: 8px 12px 12px; color: var(--muted); font-size: 10px; }
+.editor-footer {
+  margin-top: auto;
+  display: none;
+  gap: 6px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+}
+.explorer.editing .editor-footer { display: flex; }
+.editor-footer button {
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--elevated);
+  color: var(--muted);
+  font-size: 10px;
+  cursor: pointer;
+}
+.editor-footer .primary { margin-left: auto; border-color: var(--accent); background: var(--accent); color: #fff; }
+.context-menu {
+  position: fixed;
+  z-index: 110;
+  width: 224px;
+  max-height: calc(100dvh - 16px);
+  overflow-y: auto;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--elevated);
+  box-shadow: 0 12px 30px rgba(15, 23, 30, .2);
+}
+.context-menu[hidden] { display: none; }
+.context-menu button {
+  width: 100%;
+  min-height: 34px;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.context-menu button:hover:not(:disabled),
+.context-menu button:focus-visible { background: var(--bg); }
+.context-menu button:disabled { color: var(--muted); cursor: default; }
+.context-menu small { color: var(--muted); font-size: 10px; }
+.context-check { width: 18px; text-align: center; }
+.context-check svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; }
+.context-separator { height: 1px; margin: 4px 7px; background: var(--border); }
+.main { min-width: 0; min-height: 0; overflow: hidden; background: #fbfaf9; }
+.mock-frame { display: block; width: 100%; height: 100%; border: 0; background: #fbfaf9; }
+@media (max-width: 720px) {
+  :root { --rail: 52px; }
+  .demo-note .try { display: none; }
+  .brand-separator,
+  .brand-product { display: none; }
+  .navigation-shell,
+  .navigation-shell.pinned { width: var(--rail); grid-template-columns: var(--rail); transition: none; }
+  .navigation-shell.open { width: 100vw; grid-template-columns: var(--rail) minmax(0, 1fr); }
+  .navigation-shell.open .explorer,
+  .navigation-shell.pinned .explorer {
+    position: relative;
+    inset: auto;
+    grid-column: 2;
+    width: auto;
+    box-shadow: none;
+  }
+  .navigation-shell.open + .main { display: none; }
+  .pin-button { display: none; }
+  .rail-list { padding-inline: 4px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .navigation-shell,
+  .explorer { transition: none !important; }
+}
 </style>
 </head>
 <body>
 <div class="demo">
-  <div class="demo-note"><b>v3 · 26개 기존 화면 보존</b><span>전체 현황 / 운영 / 에이전트 / 거버넌스 / 감사·증적으로 재구성. Labs는 dev 영역으로 분리.</span><span class="try">거버넌스 → ••• → 메뉴 편집을 눌러봐</span></div>
+  <div class="demo-note">
+    <b>v3 · 26개 기존 화면 보존</b>
+    <span>전체 현황 / 운영 / 에이전트 / 거버넌스 / 감사·증적으로 재구성. FinOps는 전체 현황의 비용 거버넌스 작업 영역으로 배치.</span>
+    <span class="try">전체 현황 → 비용 거버넌스를 열어봐</span>
+  </div>
   <div class="shell">
-    <header class="topbar"><a class="brand-lockup" href="#dashboard.html" aria-label="FDAI Console home"><img class="brand-logo" src="assets/fdai-cloud-aperture.svg" alt="" /><span class="brand-wordmark">FDAI</span><span class="brand-separator" aria-hidden="true"></span><span class="brand-product">Console</span></a><div class="principal"><span>dev mode</span><span>◐</span></div></header>
-    <div class="body" id="body">
-      <nav class="rail" aria-label="Primary navigation">
-        <ul class="rail-list" id="rail"></ul>
-        <ul class="rail-list rail-bottom" id="railBottom"></ul>
-      </nav>
-      <aside class="explorer" aria-label="Navigation explorer"><div class="explorer-inner">
-        <header class="ex-head"><div class="ex-title"><strong id="groupTitle">전체 현황</strong><small id="groupHint">핵심 지표와 전체 요약</small></div><button class="icon-btn" id="more" title="더 보기" aria-label="더 보기">•••</button><div class="more-menu" id="moreMenu" hidden><button id="startCustomize">메뉴 편집</button><button id="hideNavigation">탐색 숨기기 <span style="float:right;color:#89929d">Ctrl+B</span></button><button id="resetMenu">메뉴 초기화</button></div></header>
-        <div class="ex-scroll"><section class="section"><button class="section-head"><span class="chev">⌄</span><span id="sectionName">전체 현황</span><span class="section-action" id="groupMode">메뉴</span></button><div class="custom-hint edit-only">핸들을 드래그해 순서를 변경해. 숨긴 메뉴도 검색으로 접근할 수 있어.</div><ul class="menu" id="groupMenu"></ul></section><section class="section edit-only" id="hiddenSection"><button class="section-head"><span class="chev">⌄</span>숨김 <span class="section-action" id="hiddenCount"></span></button><ul class="menu" id="hiddenMenu"></ul></section></div>
-        <div class="custom-tools" id="customTools"><button class="small-btn" id="reset">초기화</button><button class="small-btn primary" id="done">완료</button></div>
-      </div></aside>
-      <main class="main preview-main"><iframe class="mock-frame" id="previewFrame" src="dashboard.html" title="FDAI UI mock preview"></iframe></main>
+    <header class="topbar">
+      <a class="brand-lockup" href="#dashboard.html" aria-label="FDAI Console home">
+        <img class="brand-logo" src="../../console/public/brand/fdai-logo.png" alt="" />
+        <span class="brand-wordmark">FDAI</span>
+        <span class="brand-separator" aria-hidden="true"></span>
+        <span class="brand-product">Console</span>
+      </a>
+      <div class="principal"><span>dev mode</span><span>시안 화면</span></div>
+    </header>
+    <div class="body">
+      <div class="navigation-shell" id="navigationShell">
+        <nav class="activity-bar" id="activityBar" aria-label="기본 탐색">
+          <ul class="rail-list" id="rail"></ul>
+          <ul class="rail-list rail-bottom" id="railBottom"></ul>
+        </nav>
+        <div class="context-menu" id="activityMenu" role="menu" aria-label="대메뉴 표시 설정" hidden></div>
+        <aside class="explorer" id="explorer" aria-label="메뉴 탐색기" aria-hidden="true" inert>
+          <header class="explorer-head">
+            <div class="explorer-title">
+              <strong id="groupTitle">전체 현황</strong>
+              <small id="groupHint">KPI 및 전체 요약</small>
+            </div>
+            <button class="icon-button pin-button" id="pin" type="button" aria-label="탐색 메뉴 고정" aria-pressed="false"></button>
+            <div class="more-wrap">
+              <button class="icon-button" id="more" type="button" aria-label="더 보기" aria-haspopup="menu" aria-expanded="false">...</button>
+              <div class="more-menu" id="moreMenu" role="menu" aria-label="더 보기" hidden>
+                <button id="startCustomize" type="button" role="menuitem">메뉴 편집</button>
+                <button id="hideNavigation" type="button" role="menuitem">탐색 숨기기</button>
+                <button id="resetMenu" type="button" role="menuitem">메뉴 초기화</button>
+              </div>
+            </div>
+          </header>
+          <div class="explorer-scroll">
+            <section class="section">
+              <header class="section-head"><span id="sectionName">전체 현황</span><small id="groupMode">메뉴</small></header>
+              <ul class="menu-list" id="groupMenu"></ul>
+            </section>
+            <section class="section" id="hiddenSection" hidden>
+              <header class="section-head"><span>숨김</span><small id="hiddenCount">0</small></header>
+              <ul class="menu-list" id="hiddenMenu"></ul>
+            </section>
+          </div>
+          <footer class="editor-footer">
+            <button id="reset" type="button">초기화</button>
+            <button class="primary" id="done" type="button">완료</button>
+          </footer>
+        </aside>
+      </div>
+      <main class="main">
+        <iframe class="mock-frame" id="previewFrame" src="dashboard.html" title="FDAI UI mock preview"></iframe>
+      </main>
     </div>
   </div>
 </div>
 <script>
-const groups=[
- {id:'overview',label:'전체 현황',hint:'핵심 지표와 전체 요약',icon:'chart',items:[['dashboard','대시보드','dashboard.html','컨트롤 플레인 상태와 핵심 지표'],['operating-outcomes','운영 성과','operating-outcomes.html','측정 결과와 기준선'],['control-assurance','통제 보증','control-assurance.html','안전 통제와 승격 준비 상태'],['verticals','버티컬 성과','verticals.html','회복탄력성, 변경 안전, 비용 거버넌스'],['trust-routing','신뢰 라우팅','trust-routing.html','T0-T2 경로와 선행 지표'],['llm-cost','LLM 비용','llm-cost.html','모델 사용량과 비용']]},
- {id:'operations',label:'운영',hint:'실시간 운영과 오퍼레이터 대응',icon:'bolt',badge:'3',items:[['live','실시간','live.html','현재 컨트롤 플레인 상태'],['incidents','인시던트','incidents.html','활성 및 최근 인시던트'],['hil','승인','hil.html','승인 대기 항목'],['provision','프로비저닝','provision.html','환경 준비 상태'],['deck','Command deck','deck.html','대화형 오퍼레이터 화면']]},
- {id:'agents',label:'에이전트',hint:'에이전트 조직과 실행 상태',icon:'agents',items:[['agents','Fleet','agents.html','런타임 상태, 역할과 경계'],['agents-constellation','Org','agents-constellation.html','에이전트 보고 구조'],['agent-activity','에이전트 활동','agent-activity.html','에이전트 판단과 handoff']]},
- {id:'governance',label:'거버넌스',hint:'판단 기준과 안전 통제',icon:'shield',items:[['promotion','승격','promotion.html','Shadow에서 enforce로의 준비 상태'],['blast-radius','Blast radius','blast-radius.html','영향 및 의존성 범위'],['rules','규칙','rules.html','규칙 카탈로그와 출처'],['actions','액션 온톨로지','actions.html','ActionType 레지스트리'],['ontology','온톨로지','ontology.html','객체, 링크, 액션'],['workflow-builder','워크플로 빌더','workflow-builder.html','워크플로 구성']]},
- {id:'evidence',label:'감사·증적',hint:'감사, 분석, 근거와 보고서',icon:'history',items:[['audit','감사 로그','audit.html','Append-only 액션 이력'],['rca','RCA','rca.html','근본 원인 분석'],['rule-trace','규칙 추적','rule-trace.html','규칙 평가 provenance'],['report','주간 보고서','report.html','정기 운영 보고서'],['rca-report','RCA 보고서','rca-report.html','인시던트 증적 보고서'],['deck-sources','Deck 출처','deck-sources.html','Grounding 및 retrieval 출처']]},
- {id:'labs',label:'Labs',hint:'개발 전용 UI 실험',icon:'labs',placement:'bottom',items:[['components','컴포넌트','components.html','Calm Slate 컴포넌트 갤러리'],['agent-icons','에이전트 아이콘','agent-icons.html','에이전트 아이콘 초안'],['hcard-variants','HIL 카드 변형','hcard-variants.html','승인 카드 디자인 실험']]}
+const groups = [
+  {
+    id: "overview",
+    label: "전체 현황",
+    hint: "KPI 및 전체 요약",
+    icon: "chart",
+    items: [
+      ["dashboard", "대시보드", "dashboard.html"],
+      ["operating-outcomes", "운영 성과", "operating-outcomes.html"],
+      ["control-assurance", "통제 보증", "control-assurance.html"],
+      ["verticals", "영역별 성과", "verticals.html"],
+      ["cost-governance", "비용 거버넌스", "finops-resource-efficiency.html"],
+      ["trust-routing", "신뢰 라우팅", "trust-routing.html"],
+      ["llm-cost", "LLM 비용", "llm-cost.html"]
+    ]
+  },
+  {
+    id: "operations",
+    label: "운영",
+    hint: "실시간 운영과 오퍼레이터 대응",
+    icon: "bolt",
+    items: [
+      ["live", "실시간", "live.html"],
+      ["incidents", "인시던트", "incidents.html"],
+      ["approvals", "승인", "hil.html"],
+      ["provisioning", "프로비저닝", "provision.html"],
+      ["onboarding", "온보딩", "onboarding.html"],
+      ["detection-readiness", "감지 준비도", "detection-readiness.html"],
+      ["configuration-baselines", "구성 기준선", "configuration-baselines.html"],
+      ["processes", "프로세스", "processes.html"],
+      ["workflow-apps", "워크플로우 앱", "workflow-apps.html"],
+      ["scheduler-runs", "스케줄러 실행", "scheduler-runs.html"],
+      ["background-tasks", "백그라운드 작업", "background-tasks.html"],
+      ["automation-blueprints", "자동화 블루프린트", "automation-blueprints.html"],
+      ["scheduled-continuations", "예약 결과 이어가기", "scheduled-continuations.html"],
+      ["conversation-delivery", "대화 전송", "conversation-delivery.html"]
+    ]
+  },
+  {
+    id: "agents",
+    label: "에이전트",
+    hint: "에이전트 조직과 실행 상태",
+    icon: "agents",
+    items: [
+      ["agents", "Fleet", "agents.html"],
+      ["pantheon", "조직", "agents-constellation.html"],
+      ["agent-activity", "에이전트 활동", "agent-activity.html"]
+    ]
+  },
+  {
+    id: "governance",
+    label: "거버넌스",
+    hint: "규칙, 범위 및 안전 통제",
+    icon: "shield",
+    items: [
+      ["architecture", "아키텍처", "architecture.html"],
+      ["ontology", "온톨로지", "ontology.html"],
+      ["agent-oversight", "에이전트 감독", "handover.html"],
+      ["rules", "규칙", "rules.html"],
+      ["workflow-builder", "워크플로우 빌더", "workflow-builder.html"],
+      ["capabilities", "기능", "capabilities.html"],
+      ["skills", "스킬", "skills.html"],
+      ["blast-radius", "영향 범위", "blast-radius.html"],
+      ["promotion-gates", "승급 게이트", "promotion.html"],
+      ["context-selection-comparisons", "컨텍스트 정책 비교", "context-selection-comparisons.html"],
+      ["scope", "범위", "scope.html"]
+    ]
+  },
+  {
+    id: "evidence",
+    label: "감사·증적",
+    hint: "감사, 분석, 출처 및 보고서",
+    icon: "history",
+    items: [
+      ["audit", "감사 로그", "audit.html"],
+      ["browser-evidence", "브라우저 근거", "browser-evidence.html"],
+      ["forecast-learning", "예측 학습", "forecast-learning.html"],
+      ["conversation-search", "대화 검색", "conversation-search.html"],
+      ["conversation-assurance", "대화 품질 보증", "conversation-assurance.html"],
+      ["reports", "리포트", "reports.html"],
+      ["trace", "추적", "rule-trace.html"],
+      ["root-cause-analysis", "RCA", "rca.html"],
+      ["documents", "문서", "documents.html"]
+    ]
+  },
+  {
+    id: "labs",
+    label: "Labs",
+    hint: "개발 전용 UI 실험",
+    icon: "labs",
+    placement: "bottom",
+    items: [["labs", "Labs", "labs.html"]]
+  },
+  {
+    id: "settings",
+    label: "설정",
+    hint: "콘솔, ID, 통합 및 런타임 환경 설정",
+    icon: "settings",
+    placement: "bottom",
+    items: [
+      ["settings-general", "일반", "settings.html"],
+      ["settings-models", "모델", "settings-models.html"],
+      ["settings-runtime", "런타임 정책", "settings-runtime.html"],
+      ["settings-memory", "오퍼레이터 메모리", "settings-memory.html"],
+      ["settings-iam", "ID 및 액세스", "settings-iam.html"],
+      ["settings-integrations", "통합", "settings-integrations.html"],
+      ["settings-diagnostics", "진단", "settings-diagnostics.html"]
+    ]
+  }
 ];
-const defaults={hidden:[],orders:{}};
-let prefs=loadPrefs(),activeGroup='overview',activePage='dashboard',custom=false;
-function loadPrefs(){try{const stored=JSON.parse(localStorage.getItem('fdai:nav-demo')||'{}');return {hidden:Array.isArray(stored.hidden)?stored.hidden:[],orders:stored.orders&&typeof stored.orders==='object'?stored.orders:{}}}catch{return structuredClone(defaults)}}
-function save(){localStorage.setItem('fdai:nav-demo',JSON.stringify(prefs))}
-function svg(kind){const p={chart:'<path d="M4 21V3M4 21h17M7 12h3v7H7zm5-4h3v11h-3zm5 6h3v5h-3z"/>',bolt:'<path d="M13 2L3 14h8v8l10-12h-8z"/>',agents:'<circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2"/><path d="M3 20c0-4 3-7 6-7s6 3 6 7M14 15c3 0 5 2 5 5"/>',history:'<path d="M12 4a8 8 0 11-7.4 11.5M4 4v5h5M12 8v4l3 2"/>',shield:'<path d="M12 3L4 6v6c0 5 4 8.5 8 9.5 4-1 8-4.5 8-9.5V6zM9 12l2 2 4-4"/>',labs:'<path d="M9 3h6M10 3v6l-5 9a2 2 0 002 3h10a2 2 0 002-3l-5-9V3M8 15h8"/>'};return `<svg viewBox="0 0 24 24">${p[kind]}</svg>`}
-function allItems(){return groups.flatMap(g=>g.items.map(i=>({...{id:i[0],label:i[1],page:i[2],sub:i[3]},group:g.id})))}
-function itemById(id){return allItems().find(i=>i.id===id)}
-function ordered(group){const base=[...group.items];const order=prefs.orders?.[group.id]||[];return base.sort((a,b)=>{const ai=order.indexOf(a[0]),bi=order.indexOf(b[0]);return (ai<0?999:ai)-(bi<0?999:bi)})}
-function railButton(g){const closed=document.getElementById('body').classList.contains('side-closed'),active=g.id===activeGroup,hint=active&&!closed?`${g.label} · 탐색 숨기기`:g.label;return `<li class="rail-item"><button class="rail-btn ${active?'active':''}" data-group="${g.id}" title="${hint}" aria-label="${hint}">${svg(g.icon)}<span>${g.label}</span>${g.badge?`<i class="badge" aria-hidden="true">${g.badge}</i>`:''}</button></li>`}
-function renderRail(){document.getElementById('rail').innerHTML=groups.filter(g=>g.placement!=='bottom').map(railButton).join('');document.getElementById('railBottom').innerHTML=groups.filter(g=>g.placement==='bottom').map(railButton).join('')+`<li class="rail-item"><button class="rail-btn" title="설정" aria-label="설정"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 15l2 1-2 4-2-1a8 8 0 01-3 2v2h-4v-2a8 8 0 01-3-2l-2 1-2-4 2-1a8 8 0 010-4L3 10l2-4 2 1a8 8 0 013-2V3h4v2a8 8 0 013 2l2-1 2 4-2 1a8 8 0 010 4z"/></svg><span>설정</span></button></li>`;document.querySelectorAll('[data-group]').forEach(b=>b.onclick=()=>{if(activeGroup===b.dataset.group&&!document.getElementById('body').classList.contains('side-closed')){toggleSide();renderRail()}else{activeGroup=b.dataset.group;document.getElementById('body').classList.remove('side-closed');render()}})}
-function dragHandle(item){return `<button type="button" class="drag-handle" data-drag-id="${item.id}" aria-label="${item.label} 순서 변경" title="드래그해 순서 변경 · Alt+↑/↓">⠿</button>`}
-function row(item){const canHide=item.id!==activePage;return `<li class="menu-row ${item.id===activePage?'active':''}" data-page="${item.id}" data-drop-id="${item.id}">${custom?dragHandle(item):''}<span class="label">${item.label}</span>${custom?`<span class="row-actions"><button data-hide="${item.id}" aria-label="${item.label} 숨기기" title="${canHide?'메뉴 숨기기':'이 메뉴를 숨기려면 다른 메뉴를 먼저 열어야 해'}" ${canHide?'':'disabled'}>⊘</button></span>`:''}</li>`}
-function hiddenRow(item){return `<li class="menu-row hidden-row"><span></span><span class="label">${item.label}</span><span class="row-actions"><button data-restore="${item.id}" aria-label="${item.label} 표시" title="메뉴 표시">↶</button></span></li>`}
-function render(){const g=groups.find(x=>x.id===activeGroup);document.getElementById('groupTitle').textContent=custom?`${g.label} 메뉴 편집`:g.label;document.getElementById('groupHint').textContent=custom?'드래그로 순서 변경 · 사용하지 않는 메뉴 숨김':g.hint;document.getElementById('sectionName').textContent=g.label;document.getElementById('groupMode').textContent=custom?'표시':'메뉴';const hidden=prefs.hidden.map(itemById).filter(i=>i&&i.group===g.id);document.getElementById('groupMenu').innerHTML=ordered(g).filter(i=>!prefs.hidden.includes(i[0])).map(i=>row({id:i[0],label:i[1],page:i[2],sub:i[3],group:g.id})).join('');document.getElementById('hiddenMenu').innerHTML=hidden.map(hiddenRow).join('')||'<li style="padding:8px 12px;color:#7b8490;font-size:10px">숨긴 메뉴 없음</li>';document.getElementById('hiddenCount').textContent=hidden.length;document.querySelector('.explorer').classList.toggle('editing',custom);document.getElementById('customTools').classList.toggle('on',custom);wireRows();renderRail()}
-function openItem(item,updateHash=true){if(!item)return;activePage=item.id;activeGroup=item.group;const frame=document.getElementById('previewFrame');if(frame.getAttribute('src')!==item.page)frame.src=item.page;if(updateHash)history.replaceState(null,'',`#${item.page}`);if(matchMedia('(max-width:800px)').matches)document.getElementById('body').classList.add('side-closed');render()}
-function wireRows(){document.querySelectorAll('[data-page]').forEach(r=>r.onclick=e=>{if(e.target.closest('button'))return;openItem(itemById(r.dataset.page))});document.querySelectorAll('[data-hide]').forEach(b=>b.onclick=e=>{e.stopPropagation();const id=b.dataset.hide;prefs.hidden=prefs.hidden.includes(id)?prefs.hidden:[...prefs.hidden,id];save();render()});document.querySelectorAll('[data-restore]').forEach(b=>b.onclick=e=>{e.stopPropagation();prefs.hidden=prefs.hidden.filter(id=>id!==b.dataset.restore);save();render()});wireDragRows()}
-function listIds(){const g=groups.find(x=>x.id===activeGroup);return ordered(g).map(i=>i[0]).filter(id=>!prefs.hidden.includes(id))}
-function saveList(ids){const hidden=ordered(groups.find(x=>x.id===activeGroup)).map(i=>i[0]).filter(id=>prefs.hidden.includes(id));prefs.orders={...(prefs.orders||{}),[activeGroup]:[...ids,...hidden]};save();render()}
-function moveBy(id,delta){const ids=listIds(),from=ids.indexOf(id),to=Math.max(0,Math.min(ids.length-1,from+delta));if(from<0||from===to)return;ids.splice(from,1);ids.splice(to,0,id);saveList(ids)}
-function reorder(dragId,targetId,after){const ids=listIds(),from=ids.indexOf(dragId);if(from<0||dragId===targetId)return;ids.splice(from,1);let to=ids.indexOf(targetId);if(after)to+=1;ids.splice(to,0,dragId);saveList(ids)}
-function clearDragMarkers(){document.querySelectorAll('.dragging,.drop-before,.drop-after').forEach(el=>el.classList.remove('dragging','drop-before','drop-after'))}
-function wireDragRows(){document.querySelectorAll('.drag-handle').forEach(handle=>{handle.onpointerdown=e=>{if(e.button!==0)return;e.preventDefault();const dragId=handle.dataset.dragId;handle.setPointerCapture(e.pointerId);handle.closest('.menu-row').classList.add('dragging');handle.onpointermove=moveEvent=>{const target=document.elementFromPoint(moveEvent.clientX,moveEvent.clientY)?.closest('.menu-row[data-drop-id]');document.querySelectorAll('.drop-before,.drop-after').forEach(el=>el.classList.remove('drop-before','drop-after'));if(!target||target.dataset.dropId===dragId)return;const after=moveEvent.clientY>target.getBoundingClientRect().top+target.getBoundingClientRect().height/2;target.classList.add(after?'drop-after':'drop-before')};handle.onpointerup=()=>{const target=document.querySelector('.menu-row.drop-before,.menu-row.drop-after');const after=target?.classList.contains('drop-after')??false;if(target)reorder(dragId,target.dataset.dropId,after);handle.onpointermove=null;handle.onpointerup=null;clearDragMarkers()}};handle.onkeydown=e=>{if(e.altKey&&(e.key==='ArrowUp'||e.key==='ArrowDown')){e.preventDefault();moveBy(handle.dataset.dragId,e.key==='ArrowUp'?-1:1)}}})}
-function toggleSide(){document.getElementById('body').classList.toggle('side-closed')}
-const moreMenu=document.getElementById('moreMenu'),previewFrame=document.getElementById('previewFrame');document.getElementById('more').onclick=e=>{e.stopPropagation();moreMenu.hidden=!moreMenu.hidden};document.getElementById('startCustomize').onclick=()=>{custom=true;moreMenu.hidden=true;render()};document.getElementById('hideNavigation').onclick=()=>{custom=false;moreMenu.hidden=true;document.getElementById('body').classList.add('side-closed');render()};document.getElementById('resetMenu').onclick=()=>{prefs=structuredClone(defaults);save();moreMenu.hidden=true;render()};document.getElementById('done').onclick=()=>{custom=false;render()};document.getElementById('reset').onclick=()=>{prefs=structuredClone(defaults);save();render()};document.addEventListener('click',e=>{if(!e.target.closest('.more-menu')&&!e.target.closest('#more'))moreMenu.hidden=true});document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='b'){e.preventDefault();toggleSide();renderRail()}});previewFrame.addEventListener('load',()=>{const page=previewFrame.contentWindow?.location.pathname.split('/').pop(),item=allItems().find(candidate=>candidate.page===page);if(item&&(item.id!==activePage||item.group!==activeGroup)){activePage=item.id;activeGroup=item.group;history.replaceState(null,'',`#${item.page}`);render()}});window.addEventListener('hashchange',()=>{const page=decodeURIComponent(location.hash.slice(1)),item=allItems().find(candidate=>candidate.page===page);if(item)openItem(item,false)});const hashPage=decodeURIComponent(location.hash.slice(1)),initial=allItems().find(item=>item.page===hashPage);if(initial){activePage=initial.id;activeGroup=initial.group;previewFrame.src=initial.page}if(matchMedia('(max-width:800px)').matches)document.getElementById('body').classList.add('side-closed');render();
+const fixedGroups = new Set(["overview", "settings"]);
+const defaults = { pinned: false, hiddenGroups: [], hiddenPanels: [], orders: {} };
+const storageKey = "fdai:nav-demo:v4";
+const navigationShell = document.getElementById("navigationShell");
+const activityBar = document.getElementById("activityBar");
+const activityMenu = document.getElementById("activityMenu");
+const explorer = document.getElementById("explorer");
+const moreMenu = document.getElementById("moreMenu");
+const previewFrame = document.getElementById("previewFrame");
+let prefs = loadPreferences();
+let activePage = "dashboard";
+let activeGroup = "overview";
+let selectedGroup = "overview";
+let explorerOpen = prefs.pinned && !isMobile();
+let editing = false;
+
+function loadPreferences() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(storageKey) || "{}");
+    return {
+      pinned: stored.pinned === true,
+      hiddenGroups: Array.isArray(stored.hiddenGroups)
+        ? stored.hiddenGroups.filter((id) => !fixedGroups.has(id) && groups.some((group) => group.id === id))
+        : [],
+      hiddenPanels: Array.isArray(stored.hiddenPanels) ? stored.hiddenPanels : [],
+      orders: stored.orders && typeof stored.orders === "object" ? stored.orders : {}
+    };
+  } catch {
+    return structuredClone(defaults);
+  }
+}
+
+function savePreferences() {
+  localStorage.setItem(storageKey, JSON.stringify(prefs));
+}
+
+function isMobile() {
+  return matchMedia("(max-width: 720px)").matches;
+}
+
+function allItems() {
+  return groups.flatMap((group) =>
+    group.items.map((item) => ({ id: item[0], label: item[1], page: item[2], group: group.id })));
+}
+
+function itemByPage(page) {
+  return allItems().find((item) => item.page === page);
+}
+
+function itemById(id) {
+  return allItems().find((item) => item.id === id);
+}
+
+function groupById(id) {
+  return groups.find((group) => group.id === id);
+}
+
+function orderedItems(group) {
+  const positions = new Map((prefs.orders[group.id] || []).map((id, index) => [id, index]));
+  return group.items
+    .map((item) => ({ id: item[0], label: item[1], page: item[2], group: group.id }))
+    .sort((left, right) =>
+      (positions.get(left.id) ?? Number.MAX_SAFE_INTEGER) -
+      (positions.get(right.id) ?? Number.MAX_SAFE_INTEGER));
+}
+
+function icon(name) {
+  const paths = {
+    chart: '<path d="M4 21V3M4 21h17M7 12h3v7H7zm5-4h3v11h-3zm5 6h3v5h-3z"/>',
+    bolt: '<path d="M13 2 3 14h8v8l10-12h-8z"/>',
+    agents: '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2"/><path d="M3 20c0-4 3-7 6-7s6 3 6 7M14 15c3 0 5 2 5 5"/>',
+    shield: '<path d="M12 3 4 6v6c0 5 4 8.5 8 9.5 4-1 8-4.5 8-9.5V6zM9 12l2 2 4-4"/>',
+    history: '<path d="M12 4a8 8 0 1 1-7.4 11.5M4 4v5h5M12 8v4l3 2"/>',
+    labs: '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3M8 15h8"/>',
+    settings: '<circle cx="12" cy="12" r="3"/><path d="M19 15l2 1-2 4-2-1a8 8 0 0 1-3 2v2h-4v-2a8 8 0 0 1-3-2l-2 1-2-4 2-1a8 8 0 0 1 0-4L3 10l2-4 2 1a8 8 0 0 1 3-2V3h4v2a8 8 0 0 1 3 2l2-1 2 4-2 1a8 8 0 0 1 0 4z"/>',
+    chat: '<path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/>',
+    more: '<circle cx="6" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="18" cy="12" r="1" fill="currentColor" stroke="none"/>',
+    pin: '<path d="M8 3h8M9 3v6l-3 4h12l-3-4V3M12 13v8"/>'
+  };
+  return `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[name]}</svg>`;
+}
+
+function checkIcon() {
+  return '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3 8 3 3 7-7"/></svg>';
+}
+
+function displayedGroups() {
+  return groups.filter((group) => fixedGroups.has(group.id) || !prefs.hiddenGroups.includes(group.id));
+}
+
+function groupButton(group) {
+  const expanded = explorerOpen && selectedGroup === group.id;
+  return `<li><button type="button" class="rail-button ${expanded ? "active" : ""}" data-group="${group.id}" aria-label="${group.label}" aria-expanded="${expanded}" aria-controls="explorer">${icon(group.icon)}</button></li>`;
+}
+
+function renderRail() {
+  const displayed = displayedGroups();
+  document.getElementById("rail").innerHTML = displayed
+    .filter((group) => group.placement !== "bottom")
+    .map(groupButton)
+    .join("");
+  document.getElementById("railBottom").innerHTML = [
+    `<li><button type="button" class="rail-button" id="activityMenuButton" aria-label="대메뉴 표시 설정" aria-haspopup="menu" aria-expanded="${!activityMenu.hidden}">${icon("more")}</button></li>`,
+    `<li><button type="button" class="rail-button" id="chatButton" aria-label="이 화면에 대해 질문하기">${icon("chat")}</button></li>`,
+    ...displayed.filter((group) => group.placement === "bottom").map(groupButton)
+  ].join("");
+  document.querySelectorAll("[data-group]").forEach((button) => {
+    button.addEventListener("click", () => selectGroup(button.dataset.group));
+  });
+  document.getElementById("activityMenuButton").addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (!activityMenu.hidden) {
+      closeActivityMenu();
+      return;
+    }
+    const bounds = event.currentTarget.getBoundingClientRect();
+    openActivityMenu(bounds.right + 6, bounds.bottom);
+  });
+  document.getElementById("chatButton").addEventListener("click", () => {
+    setExplorerOpen(false);
+    previewFrame.src = "deck.html";
+    history.replaceState(null, "", "#deck.html");
+  });
+}
+
+function selectGroup(groupId) {
+  closeActivityMenu();
+  moreMenu.hidden = true;
+  if (selectedGroup === groupId && explorerOpen && !prefs.pinned) {
+    setExplorerOpen(false);
+    return;
+  }
+  selectedGroup = groupId;
+  setExplorerOpen(true);
+}
+
+function setExplorerOpen(open) {
+  explorerOpen = open;
+  if (!open) editing = false;
+  render();
+}
+
+function renderExplorer() {
+  const group = groupById(selectedGroup);
+  const items = orderedItems(group);
+  const visibleItems = items.filter((item) => !prefs.hiddenPanels.includes(item.id));
+  const hiddenItems = items.filter((item) => prefs.hiddenPanels.includes(item.id));
+  document.getElementById("groupTitle").textContent = group.label;
+  document.getElementById("groupHint").textContent = group.hint;
+  document.getElementById("sectionName").textContent = group.label;
+  document.getElementById("groupMode").textContent = editing ? "표시" : "메뉴";
+  document.getElementById("hiddenSection").hidden = !editing;
+  document.getElementById("hiddenCount").textContent = String(hiddenItems.length);
+  explorer.classList.toggle("editing", editing);
+  document.getElementById("groupMenu").innerHTML = visibleItems.map((item) => {
+    const hideDisabled = item.id === activePage;
+    return `<li class="menu-row ${item.id === activePage ? "active" : ""}" draggable="${editing}" data-row="${item.id}">
+      ${editing ? `<button type="button" class="drag-handle" data-drag="${item.id}" aria-label="${item.label} 순서 변경">::</button>` : ""}
+      <a href="#${item.page}" data-page="${item.id}" aria-current="${item.id === activePage ? "page" : "false"}">${item.label}</a>
+      ${editing ? `<button type="button" class="row-action" data-hide="${item.id}" aria-label="${item.label} 숨기기" ${hideDisabled ? "disabled" : ""}>x</button>` : ""}
+    </li>`;
+  }).join("");
+  document.getElementById("hiddenMenu").innerHTML = hiddenItems.length === 0
+    ? '<li class="empty-row">숨긴 메뉴 없음</li>'
+    : hiddenItems.map((item) =>
+      `<li class="menu-row hidden-row"><span>${item.label}</span><button type="button" class="row-action" data-restore="${item.id}" aria-label="${item.label} 표시">+</button></li>`).join("");
+  document.getElementById("pin").innerHTML = icon("pin");
+  document.getElementById("pin").setAttribute("aria-pressed", String(prefs.pinned && !isMobile()));
+  document.getElementById("pin").setAttribute("aria-label", prefs.pinned ? "탐색 메뉴를 오버레이로 전환" : "탐색 메뉴 고정");
+  wireExplorer();
+}
+
+function wireExplorer() {
+  document.querySelectorAll("[data-page]").forEach((link) => {
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      openItem(itemById(link.dataset.page));
+    });
+  });
+  document.querySelectorAll("[data-hide]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (button.disabled) return;
+      prefs.hiddenPanels = [...new Set([...prefs.hiddenPanels, button.dataset.hide])];
+      savePreferences();
+      renderExplorer();
+    });
+  });
+  document.querySelectorAll("[data-restore]").forEach((button) => {
+    button.addEventListener("click", () => {
+      prefs.hiddenPanels = prefs.hiddenPanels.filter((id) => id !== button.dataset.restore);
+      savePreferences();
+      renderExplorer();
+    });
+  });
+  document.querySelectorAll("[data-drag]").forEach((button) => {
+    button.addEventListener("keydown", (event) => {
+      if (!event.altKey || !["ArrowUp", "ArrowDown"].includes(event.key)) return;
+      event.preventDefault();
+      movePanel(button.dataset.drag, event.key === "ArrowUp" ? -1 : 1);
+    });
+  });
+}
+
+function movePanel(panelId, delta) {
+  const group = groupById(selectedGroup);
+  const ids = orderedItems(group).map((item) => item.id);
+  const from = ids.indexOf(panelId);
+  const to = Math.max(0, Math.min(ids.length - 1, from + delta));
+  if (from < 0 || from === to) return;
+  ids.splice(from, 1);
+  ids.splice(to, 0, panelId);
+  prefs.orders = { ...prefs.orders, [selectedGroup]: ids };
+  savePreferences();
+  renderExplorer();
+}
+
+function openItem(item, updateHash = true) {
+  if (!item) return;
+  activePage = item.id;
+  activeGroup = item.group;
+  selectedGroup = item.group;
+  if (previewFrame.getAttribute("src") !== item.page) previewFrame.src = item.page;
+  if (updateHash) history.replaceState(null, "", `#${item.page}`);
+  if (!prefs.pinned || isMobile()) explorerOpen = false;
+  editing = false;
+  render();
+}
+
+function canToggleGroup(group) {
+  const checked = !prefs.hiddenGroups.includes(group.id);
+  return !fixedGroups.has(group.id) && (activeGroup !== group.id || !checked);
+}
+
+function renderActivityMenu() {
+  activityMenu.innerHTML = [
+    ...groups.map((group) => {
+      const checked = !prefs.hiddenGroups.includes(group.id);
+      const fixed = fixedGroups.has(group.id);
+      const current = activeGroup === group.id && checked;
+      const status = fixed ? "항상 표시" : current ? "현재" : "";
+      return `<button type="button" role="menuitemcheckbox" aria-checked="${checked}" data-toggle-group="${group.id}" ${canToggleGroup(group) ? "" : "disabled"}>
+        <span class="context-check">${checked ? checkIcon() : ""}</span>
+        <span>${group.label}</span>
+        ${status ? `<small>${status}</small>` : ""}
+      </button>`;
+    }),
+    '<div class="context-separator" role="separator"></div>',
+    '<button type="button" role="menuitem" id="restoreActivityBar"><span class="context-check"></span><span>대메뉴 기본값 복원</span></button>'
+  ].join("");
+  activityMenu.querySelectorAll("[data-toggle-group]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const groupId = button.dataset.toggleGroup;
+      const group = groupById(groupId);
+      if (!canToggleGroup(group)) return;
+      prefs.hiddenGroups = prefs.hiddenGroups.includes(groupId)
+        ? prefs.hiddenGroups.filter((id) => id !== groupId)
+        : [...prefs.hiddenGroups, groupId];
+      savePreferences();
+      closeActivityMenu();
+      if (selectedGroup === groupId && prefs.hiddenGroups.includes(groupId)) {
+        selectedGroup = activeGroup;
+        explorerOpen = false;
+      }
+      render();
+    });
+  });
+  document.getElementById("restoreActivityBar").addEventListener("click", () => {
+    prefs.hiddenGroups = [];
+    savePreferences();
+    closeActivityMenu();
+    render();
+  });
+}
+
+function openActivityMenu(left, top) {
+  renderActivityMenu();
+  const width = 224;
+  const height = Math.min(groups.length * 34 + 48, innerHeight - 16);
+  activityMenu.style.left = `${Math.max(8, Math.min(left, innerWidth - width - 8))}px`;
+  activityMenu.style.top = `${Math.max(8, Math.min(top, innerHeight - height - 8))}px`;
+  activityMenu.hidden = false;
+  navigationShell.classList.add("context-open");
+  renderRail();
+  requestAnimationFrame(() => activityMenu.querySelector("button:not(:disabled)")?.focus());
+}
+
+function closeActivityMenu() {
+  activityMenu.hidden = true;
+  navigationShell.classList.remove("context-open");
+  renderRail();
+}
+
+function render() {
+  const pinned = prefs.pinned && !isMobile();
+  navigationShell.classList.toggle("open", explorerOpen);
+  navigationShell.classList.toggle("pinned", pinned);
+  explorer.setAttribute("aria-hidden", String(!explorerOpen));
+  explorer.inert = !explorerOpen;
+  renderRail();
+  renderExplorer();
+}
+
+activityBar.addEventListener("contextmenu", (event) => {
+  event.preventDefault();
+  openActivityMenu(event.clientX, event.clientY);
+});
+document.getElementById("pin").addEventListener("click", () => {
+  prefs.pinned = !prefs.pinned;
+  explorerOpen = true;
+  savePreferences();
+  render();
+});
+document.getElementById("more").addEventListener("click", (event) => {
+  event.stopPropagation();
+  moreMenu.hidden = !moreMenu.hidden;
+  document.getElementById("more").setAttribute("aria-expanded", String(!moreMenu.hidden));
+});
+document.getElementById("startCustomize").addEventListener("click", () => {
+  editing = true;
+  moreMenu.hidden = true;
+  renderExplorer();
+});
+document.getElementById("hideNavigation").addEventListener("click", () => {
+  moreMenu.hidden = true;
+  setExplorerOpen(false);
+});
+document.getElementById("resetMenu").addEventListener("click", () => {
+  prefs.hiddenPanels = [];
+  prefs.orders = {};
+  savePreferences();
+  moreMenu.hidden = true;
+  renderExplorer();
+});
+document.getElementById("done").addEventListener("click", () => {
+  editing = false;
+  renderExplorer();
+});
+document.getElementById("reset").addEventListener("click", () => {
+  prefs.hiddenPanels = [];
+  prefs.orders = {};
+  savePreferences();
+  renderExplorer();
+});
+document.addEventListener("pointerdown", (event) => {
+  if (!activityMenu.hidden && !activityMenu.contains(event.target) && !event.target.closest("#activityMenuButton")) {
+    closeActivityMenu();
+  }
+  if (!moreMenu.hidden && !moreMenu.contains(event.target) && !event.target.closest("#more")) {
+    moreMenu.hidden = true;
+    document.getElementById("more").setAttribute("aria-expanded", "false");
+  }
+  if (
+    explorerOpen &&
+    !prefs.pinned &&
+    !navigationShell.contains(event.target) &&
+    !event.target.closest(".demo-note")
+  ) {
+    setExplorerOpen(false);
+  }
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  if (!activityMenu.hidden) {
+    closeActivityMenu();
+    document.getElementById("activityMenuButton")?.focus();
+    return;
+  }
+  if (!moreMenu.hidden) {
+    moreMenu.hidden = true;
+    document.getElementById("more").setAttribute("aria-expanded", "false");
+    document.getElementById("more").focus();
+    return;
+  }
+  if (explorerOpen && !prefs.pinned) setExplorerOpen(false);
+});
+previewFrame.addEventListener("load", () => {
+  previewFrame.contentDocument?.addEventListener("pointerdown", () => {
+    if (explorerOpen && !prefs.pinned) setExplorerOpen(false);
+  });
+  const page = previewFrame.contentWindow?.location.pathname.split("/").pop();
+  const item = itemByPage(page);
+  if (item && (item.id !== activePage || item.group !== activeGroup)) {
+    activePage = item.id;
+    activeGroup = item.group;
+    selectedGroup = item.group;
+    history.replaceState(null, "", `#${item.page}`);
+    render();
+  }
+});
+window.addEventListener("hashchange", () => {
+  const page = decodeURIComponent(location.hash.slice(1));
+  const item = itemByPage(page);
+  if (item) openItem(item, false);
+});
+matchMedia("(max-width: 720px)").addEventListener("change", (event) => {
+  if (event.matches) explorerOpen = false;
+  else if (prefs.pinned) explorerOpen = true;
+  render();
+});
+const initialPage = decodeURIComponent(location.hash.slice(1));
+const initialItem = itemByPage(initialPage);
+if (initialItem) {
+  activePage = initialItem.id;
+  activeGroup = initialItem.group;
+  selectedGroup = initialItem.group;
+  previewFrame.src = initialItem.page;
+}
+render();
 </script>
 </body>
 </html>

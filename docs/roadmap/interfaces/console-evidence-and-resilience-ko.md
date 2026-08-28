@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 398c230d6683b1d8971d32632372dcf98e2e3d40
-translation_revised: 2026-08-27
+translation_source_sha: 940938cc7f244813765d3ad7127b698b41fd4748
+translation_revised: 2026-08-28
 ---
 # 콘솔 근거 및 복원력
 이 문서는 운영자 콘솔의 근거 출처 이력, localization, 스트림 복구, 영속 재생 및 아키텍처 지도 복원력 계약을 소유합니다. 대화형 도구 및 RBAC 계약은 [operator-console-ko.md](operator-console-ko.md)에 유지됩니다.
@@ -22,7 +22,7 @@ translation_revised: 2026-08-27
 | Command Deck JSON 가독성 | implemented | `json-code-block.tsx`, `model-trace-waterfall.tsx`, focused Vitest 16개, focused Playwright 1개, Console 타입 검사 및 운영 빌드 통과 | 모델 요청과 응답 JSON은 구조화된 들여쓰기와 복사 컨트롤을 갖춘 공유 구문 강조 표면을 사용합니다. 그룹화된 요청의 각 레이어를 독립적으로 분류하고 중첩된 객체 또는 배열 JSON 문자열은 고정된 범위 안에서 펼치며, 인접한 설명과 잘못된 텍스트는 원문 표현을 유지합니다. 브라우저 fixture는 synthetic 표현 근거이며 통제된 런타임 근거가 아닙니다. |
 | Web 표현 모듈 레지스트리 | 구현됨 | `console/src/deck/presentation-modules/`, `presentation-artifact.ts`, `structured-reply.tsx`, 집중 Console 검사 115개, 타입 검사, 운영 빌드 및 synthetic 세 화면 크기 Playwright 통과 | 얇은 shell이 수락된 모든 블록을 닫힌 레지스트리 항목 하나에 위임합니다. V2 차트는 설명과 exact 표를 요구하며 키보드 focus 및 reduced-motion 규칙을 고정합니다. Synthetic fixture는 1440 x 900, 993 x 641, 390 x 844에서 문서, workspace, chart overflow 없이 통과했으며 통제된 런타임 증적을 주장하지 않습니다. |
 | Console 및 시안 공유 타이포그래피 | implemented | `ui/calm-slate-tokens.css`, `ui/calm-slate-primitives.css`, `console/src/shared-style-tokens.test.ts`, [이슈 #212](https://github.com/dotnetpower/fdai/issues/212) | 의미 기반 페이지 제목, 페이지 부제목, 리드, 구역 제목, 패널 제목, 본문, 간결한 본문, 레이블 및 캡션 역할이 하나의 크기와 행간 계약을 공유합니다. 대표 Console 및 시안 선택자는 같은 토큰을 사용하며, 특수한 경로 텍스트는 해당 경로가 계속 소유합니다. |
-| 정적 시안 상호 작용 보증 | implemented | `index.html`, `mocks/ui/components.html`, `mocks/ui/assets/calm-slate.{css,js}`, focused 시안 및 Console 시각 계약, [이슈 #215](https://github.com/dotnetpower/fdai/issues/215) | 마스터 및 내부 셸이 정확한 컴포넌트 구역 링크를 보존합니다. 갤러리는 런타임 근거를 주장하지 않으면서 검색, synthetic 표기, 밝고 어두운 미리 보기, 키보드, reduced-motion, 표, 모바일 터치 대상 및 읽을 수 있는 텍스트 참조 상태를 제공합니다. |
+| 정적 시안 상호 작용 보증 | implemented | `index.html`, `mocks/ui/components.html`, `mocks/ui/nav-redesign-v3.html`, `mocks/ui/finops-resource-efficiency.html`, 집중 시안 및 Console 시각 계약, [이슈 #215](https://github.com/dotnetpower/fdai/issues/215) | 마스터 및 내부 셸이 정확한 컴포넌트 구역 링크를 보존합니다. 내비게이션 시안은 간결한 Activity Bar, 오버레이 Explorer, 표시 설정 및 비용 거버넌스 진입점을 재현하고, FinOps 시안은 네 가지 읽기 전용 시각화 화면과 synthetic 근거 경계를 고정합니다. |
 | 탭 간 SSE 및 인시던트 복원력 | validated | 탭 간 stream hook, `incidents.milestones.ts`, incident projection, `docs/baselines/console-cross-tab-sse-assurance-2026-08-14.json`, `docs/baselines/incident-rca-report-assurance-2026-08-15.json`, focused Console/Operator 테스트 | 탭 간 leadership와 failover가 통과했고 인증된 Incident 상세가 notification delivery를 주장하지 않으면서 milestone 8개, 같은 스냅샷 분석 및 사용 불가 source와 plan context를 보존했습니다. |
 | 선택적 report PDF 컨트롤 | validated | `console/src/routes/reports.tsx`; service-local Operator PDF 어댑터; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; focused Console 및 Operator 테스트 | Catalog와 runtime registry가 함께 `pdf`를 표시했고 인증된 Browser Entra가 no-RCA 사용 불가 동작을 보존하면서 범위가 제한된 38809-byte PDF를 검증했습니다. |
 | 대화 검색 요청 복원력 | implemented | `console/src/routes/conversation-search.tsx`, `console/src/routes/conversation-search.test.tsx`, focused Console 테스트 (`22 passed`) 및 타입 검사 | 검색 generation은 오래된 결과 및 맥락 쓰기를 거부합니다. Generation 범위 in-flight key는 rerender 전 중복 맥락 요청을 억제하고 검색 간 결과를 섞지 않습니다. |
@@ -32,6 +32,7 @@ translation_revised: 2026-08-27
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-08-28 | implemented | 정적 내비게이션 시안을 운영 Console 셸과 맞추고 개요, 리소스 효율, 최적화 사례 및 정산된 성과 화면을 갖춘 대화형 비용 거버넌스 시안을 추가했습니다. | `current change`, `mocks/ui/nav-redesign-v3.html`, `mocks/ui/finops-resource-efficiency.html`, `console/src/components/mock-visual-boundary.test.ts`, 집중 시안 동등성 테스트 통과 | 통제된 런타임 검증은 이러한 synthetic 표현 시안과 별도로 유지합니다. |
 | 2026-08-26 | implemented | 하나의 그룹화된 역할 아래에서 설명과 인접한 JSON을 포함해 유효한 모든 모델 요청 JSON 레이어를 공유 구문 강조 JSON 블록으로 전달하도록 수정했습니다. 요청의 key, 문자열, 숫자 및 literal은 서로 다른 구문 색상, 구조화된 들여쓰기, JSON 레이블 및 복사 컨트롤을 사용하며, 인접한 설명과 JSON이 아닌 텍스트는 원문 대체 표시를 유지합니다. | `current change`, `model-trace-waterfall.tsx`, `styles.css`, `agents-incident-deck.spec.ts`, 집중 Vitest 16개 통과, mixed group, JSON token, 복사 컨트롤, 중첩 값, 대체 표시 및 overflow 0을 검증한 집중 데스크톱 Playwright 1개 통과, synthetic 요소 캡처 검토 | 범위가 제한된 요청 JSON 표현 작업은 남아 있지 않습니다. 통제된 런타임 검증은 synthetic 브라우저 fixture와 별도로 유지합니다. |
 | 2026-08-26 | implemented | 모델 공급자 워터폴이 실행 기록 안과 독립적인 직접 응답 위치 모두에서 간결한 실행 기록 타이포그래피 크기를 직접 사용하도록 수정했습니다. 좁은 Command Deck 컨테이너에서는 6열 호출 행을 3열로 재배치해 넘침을 방지합니다. | `current change`, `styles.css`, `model-trace-waterfall.test.ts`, `agents-incident-deck.spec.ts`, 집중 Vitest 7개 통과, 계산된 제목 `13px`, 안내 및 모델 텍스트 `12px`, 패널 overflow 0을 확인한 집중 데스크톱 Playwright 1개 통과, Console Vite 운영 빌드 통과 | 범위가 제한된 모델 trace 작업은 남아 있지 않습니다. 전체 Console 타입 검사는 `retrieval-trace.test.ts`의 기존 비공개 `sourceCards` import로 인해 별도로 차단된 상태입니다. |
 | 2026-08-26 | implemented | 캡처된 모델 요청 및 응답 페이로드가 다른 JSON 문자열 안에 직렬화된 객체 또는 배열 JSON을 포함할 때 읽기 쉽게 표시하도록 수정했습니다. Formatter는 고정된 깊이와 노드 수 안에서 유효한 구조 값만 펼치고 일반 문자열 또는 잘못된 문자열을 보존하며 trace hash와 저장된 페이로드를 변경하지 않습니다. | `current change`, `json-code-block.tsx`, `model-trace-waterfall.tsx`, focused Vitest 15개 통과, escaped quote sequence와 document, request, response overflow가 모두 0인 focused desktop Playwright 통과, Console 타입 검사 및 운영 빌드 통과 | 통제된 런타임 검증을 주장하기 전에 인증된 캡처 모델 trace를 별도로 보존합니다. |
