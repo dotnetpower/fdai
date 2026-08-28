@@ -12,15 +12,15 @@ from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.rule_catalog.schema.rego_semantics import load_rego_semantics
 from fdai.rule_catalog.schema.resource_class import load_resource_class_registry_from_mapping
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
-from fdai.rule_catalog.schema.rule import load_rule_catalog
 from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_mapping
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.testing import InMemoryOntologyInstanceStore
+from fdai_core_test_support.cost_governance_catalog import compose_cost_governance_catalog
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 
 
-def _projection():  # type: ignore[no-untyped-def]
+def _projection(tmp_path: Path):  # type: ignore[no-untyped-def]
     catalog_root = REPO_ROOT / "rule-catalog"
     registry = PackageResourceSchemaRegistry()
     ontology = load_ontology_catalog(
@@ -42,16 +42,16 @@ def _projection():  # type: ignore[no-untyped-def]
     signal_types = load_signal_type_registry_from_mapping(
         yaml.safe_load((catalog_root / "vocabulary/signal-types.yaml").read_text(encoding="utf-8"))
     )
-    rules = load_rule_catalog(
-        catalog_root / "catalog",
-        schema_registry=registry,
-        action_types=ontology.action_types,
-        resource_types=resource_types,
-        signal_types=signal_types,
-        policies_root=REPO_ROOT / "policies",
+    package_catalog = compose_cost_governance_catalog(
+        REPO_ROOT,
+        enabled=True,
+        scratch_root=tmp_path,
     )
+    rules = package_catalog.rules
     semantics = {
-        rule.check_logic.reference: load_rego_semantics(REPO_ROOT / rule.check_logic.reference)
+        rule.check_logic.reference: load_rego_semantics(
+            package_catalog.policies_root / rule.check_logic.reference.removeprefix("policies/")
+        )
         for rule in rules
     }
     projection = build_catalog_ontology_projection(
@@ -66,8 +66,8 @@ def _projection():  # type: ignore[no-untyped-def]
     return ontology, rules, resource_classes, projection
 
 
-async def test_shipped_catalog_projects_as_one_atomic_typed_subgraph() -> None:
-    ontology, rules, resource_classes, projection = _projection()
+async def test_shipped_catalog_projects_as_one_atomic_typed_subgraph(tmp_path: Path) -> None:
+    ontology, rules, resource_classes, projection = _projection(tmp_path)
     store = InMemoryOntologyInstanceStore(
         object_types=ontology.object_types,
         link_types=ontology.link_types,
@@ -112,8 +112,10 @@ async def test_shipped_catalog_projects_as_one_atomic_typed_subgraph() -> None:
     )
 
 
-async def test_catalog_projection_removes_a_stale_resource_class_and_memberships() -> None:
-    ontology, _rules, _resource_classes, projection = _projection()
+async def test_catalog_projection_removes_a_stale_resource_class_and_memberships(
+    tmp_path: Path,
+) -> None:
+    ontology, _rules, _resource_classes, projection = _projection(tmp_path)
     store = InMemoryOntologyInstanceStore(
         object_types=ontology.object_types,
         link_types=ontology.link_types,
@@ -140,8 +142,10 @@ async def test_catalog_projection_removes_a_stale_resource_class_and_memberships
     assert all(removed_id not in {item.from_id, item.to_id} for item in graph.links)
 
 
-def test_property_semantics_project_deterministically_for_reviewed_properties() -> None:
-    ontology, rules, _resource_classes, projection = _projection()
+def test_property_semantics_project_deterministically_for_reviewed_properties(
+    tmp_path: Path,
+) -> None:
+    ontology, rules, _resource_classes, projection = _projection(tmp_path)
     catalog_root = REPO_ROOT / "rule-catalog"
     resource_types = load_resource_type_registry_from_mapping(
         yaml.safe_load(
@@ -158,7 +162,11 @@ def test_property_semantics_project_deterministically_for_reviewed_properties() 
         yaml.safe_load((catalog_root / "vocabulary/signal-types.yaml").read_text(encoding="utf-8"))
     )
     semantics = {
-        rule.check_logic.reference: load_rego_semantics(REPO_ROOT / rule.check_logic.reference)
+        rule.check_logic.reference: load_rego_semantics(
+            tmp_path
+            / "cost-governance-catalog/policies"
+            / rule.check_logic.reference.removeprefix("policies/")
+        )
         for rule in rules
     }
 

@@ -83,7 +83,8 @@ An optional vertical package is also independent from the fork boundary. For exa
 reviewed upstream or downstream image, then enabled or disabled for each deployment. Package
 availability, deployment enablement, principal access, and per-action shadow or enforce mode remain
 separate decisions. Do not create a customer fork only to hide Cost Governance, and do not use fork
-detection to select its data collection, Console navigation, or execution posture.
+detection to select its data collection, Console navigation, or execution posture. Base-only
+profiles exclude package assets; compatibility or package tests explicitly compose an enabled package.
 
 ## 2. Day-1 checklist
 

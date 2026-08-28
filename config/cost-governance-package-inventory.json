@@ -722,7 +722,7 @@
       {
         "id": "cost-governance.w0.unverified-effect.001",
         "path": "tests/integration/fixtures/cost_governance_w0_outcomes/unverified-effect.json",
-        "sha256": "b2861dca0dae678e21d0fe3031f801b8bd9ff29cf7e75cf9cb238fe38410dd0f",
+        "sha256": "0bc9efde3191642511517f4353efa1a418875cfe43342a4f16f1ae26148ec626",
         "outcome": "unverified-effect",
         "driver": "response-outcome",
         "coverage": ["executable-replay", "unverified-effect"]

@@ -1,12 +1,10 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 1a923c362e3c406fe9698d2c777d431bdb284c03
+translation_source_sha: 5dd971a69baaacc8362b8d7b216cd874e0aeb438
 translation_revised: 2026-08-28
 ---
-
 # 에이전트 판테온
-
 FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임을 소유합니다. 에이전트는 schema-checked 이벤트로 관측, 판단, 계획, 승인, 실행, 검증, 복구, 감사, 학습합니다. 운영 온톨로지는 타입이 지정된 meaning과 범위가 제한된 맥락을 제공하며 행위자, 권한 또는 실행기가 아닙니다. 판테온은 업스트림에서 정의되고 포크는 에이전트를 추가하거나 이름을 바꾸지 않습니다.
 
 > **범위:** 판테온은 고객-무관이다. 아래에 언급된 모든 에이전트 이름, 객체 타입, 액션 은 범용 이다. 고객별 바인딩은 포크 에서 관리 ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
@@ -36,10 +34,10 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 | Provider-schema drift 인계 | implemented | `provider_schema_review.py`, `heimdall.py`, `test_provider_schema_drift.py` | Heimdall은 digest에 결속되고 권한이 없는 provider-schema review package 하나를 검증한 뒤 범위가 제한된 shadow `object.drift` signal만 발행합니다. Fetch, parsing, baseline 저장, policy, 판단, 승인 및 catalog 변경은 agent 밖에 유지합니다. AgentSpec은 바뀌지 않습니다. |
 | 비용 거버넌스 전문가 바인딩 | implemented | `njord.py`, `_framework/factory.py`, `test_njord_cost_governance.py` | Composition은 패키지 중립 비용 자문 및 활성화 reader를 Njord에 주입합니다. Njord는 계속 `CostAnomaly`와 `Budget`의 단일 게시자이고 Freyr는 용량 전문가이며, 비활성 패키지는 새 비용 자문을 게시하지 않습니다. AgentSpec과 topic 소유권은 바뀌지 않습니다. |
 | 실제 운영 KPI 검증 및 enforce 승격 | not-started | [목표와 메트릭](../architecture/goals-and-metrics-ko.md) | 보존된 실제 shadow 코호트, 운영 KPI 증적 집합, 독립적인 승격 검토 또는 실제 판테온 enforce 승격 근거가 아직 없습니다. |
-
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-28 | 구현됨 | 선택적 패키지 주입 뒤 Njord의 선언된 읽기 도구 사실 범위를 복원하면서 비활성 수집은 계속 동작하지 않게 했고, 기존 이상 징후 테스트는 명시적으로 활성화한 패키지 프로바이더를 사용하도록 옮겼습니다. | `current change`; 집중 중재, 역할, 대화 도구 및 비용 거버넌스 Njord 테스트. | 승격 검토 전에 실제 권위가 있는 Njord 근거를 보존합니다. |
 | 2026-08-29 | implemented | 고정 명단, AgentSpec, topic 소유권 또는 권한 역할을 바꾸지 않고 선택적 비용 거버넌스 자문 주입을 추가했습니다. | `current change`; 집중 Njord, 판테온 배치, 소유권, 비활성화 및 drain 테스트. | enforce 승격 전에 live-authoritative 비용 거버넌스 cohort를 보존합니다. |
 | 2026-08-21 | implemented | 프레임워크 줄 상한을 복구하기 위해서만 내용 주소 기반 Bragi Turn 및 인계 페이로드 구성을 비공개 발행 helper로 분리하고 의미 기능 변환을 기존 라우팅 helper로 옮겼습니다. Bragi는 같은 `object.turn` 및 `object.handoff-escalation` topic을 계속 발행하며 AgentSpec, 소유권, LLM 정책, 타입이 지정된 제안 진입점 및 작업 권한은 바뀌지 않았습니다. | `current change`; 집중 Bragi 및 프레임워크 검사 95개 통과; 변경 파일 Ruff, format, mypy 통과; 저장소 LOC gate hard failure 0건으로 통과. | 이 설계에서 이미 요구한 동일한 통제된 운영자 경로, KPI 및 승격 근거를 보존합니다. |
 | 2026-08-13 | in-progress | 이전 제공 이력을 재구성하지 않고 근거 범위를 명시한 구현 원장을 도입했습니다. | 현재 변경 | 검증 완료 또는 enforce 사용을 주장하기 전에 실제 운영 근거를 수집하고 독립적으로 검토된 승격을 완료합니다. |

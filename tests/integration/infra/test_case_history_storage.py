@@ -52,7 +52,8 @@ def test_forecast_tick_is_mechanical_and_opt_in() -> None:
         encoding="utf-8"
     )
     root = (ROOT / "infra/main.tf").read_text(encoding="utf-8")
+    normalized_root = " ".join(root.split())
     assert 'count = var.forecast_tick_cron_expression == "" ? 0 : 1' in job
     assert '"fdai.delivery.forecast_tick_cli"' in job
-    assert "forecast_tick_cron_expression = var.forecast_tick_cron_expression" in root
+    assert "forecast_tick_cron_expression = var.forecast_tick_cron_expression" in normalized_root
     assert 'variable "forecast_targets_json"' in module_variables

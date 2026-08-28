@@ -1,0 +1,4 @@
+# Pre-existing main-branch inventory orchestration debt; growth remains blocked until tracker #14 extraction.
+841 services/core-control-plane/src/fdai/delivery/inventory_sync_cli.py
+# Pre-existing main-branch delivery-composition debt; growth remains blocked until tracker #14 extraction.
+885 services/core-control-plane/src/fdai/runtime/delivery.py

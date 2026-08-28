@@ -216,6 +216,8 @@ class Njord(Agent):
             **capability_facts(self.spec),
             "tracked_scopes": capped_list(sorted(self._latest)),
             "tracked_scopes_count": len(self._latest),
+            "anomaly_ratio": None,
+            "known_action_costs": {},
             "package_enabled": self._package_enabled,
             "advisory_provider_bound": self._advisory_provider is not None,
             "budget_data_available": False,

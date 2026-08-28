@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: dd8ac2f9be7b46fc45aaa1c07f17215892754d57
+translation_source_sha: 0621def2bb52056ac59b9142c1db8dc0fb48d61f
 translation_revised: 2026-08-28
 ---
 # FDAI Console 대화
@@ -17,9 +17,7 @@ Console shell은 헤더에 간결한 FDAI 브랜드 락업을 유지하고, 외�
 Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관찰할 때 localized 읽기 전용 조사 턴을 한 번 제출합니다. Browser-local 인시던트 원장은 reload 뒤 재생을 억제하며, 인시던트 배지를 누르면 명시적으로 다시 조사할 수 있습니다. 인시던트 질문이 여러 기록과 같은 정도로 일치하면 최종 답변은 plain-text 안내 대신 범위가 제한된 후보 버튼을 포함합니다. 버튼은 해당 후보의 exact 인시던트 대화를 열고 localized 읽기 전용 조사 턴을 즉시 제출합니다. 버튼 click은 운영자의 명시적인 요청입니다. 자동 active-incident 스트림 열림은 managed-resource 액션을 제출하지 않습니다.
 
 이 문서는 **pull 방향**, 즉 오퍼레이터가 묻고 시뮬레이션하고 승인하는 경로를 다룹니다. Push와 pull은 같은 채널 자격 증명과 감사 계약을 공유하지만 서로 다른 통합 표면입니다.
-
 > 고객-무관: 아래의 모든 채널 id, LLM 배포 이름, 리소스 id, 그룹 이름은 자리 표시자. 포크는 구성으로 실제 값을 공급합니다 ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
-
 ## 구현 상태
 ### 구현 범위
 | 영역 | 상태 | 근거 | 참고 |
@@ -38,10 +36,10 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 관찰된 활동 출처 이력 | implemented | `semantic_turn_runtime.py`, `conversation_activity.py`, `conversation_channel.py`, `backend-normalizers.ts`, `investigation-timeline.tsx`, 집중 Core, Operator 및 Console 검사, 인증된 세 viewport Browser 검토 | 수명 주기 전용 이벤트는 기록된 사람용 설명을 먼저 표시하고 외부 명령 또는 프로바이더 요청이 실행되지 않았음을 밝힙니다. 조회 실행 기록은 서비스 간 전송과 실제 실행 인터페이스를 구분합니다. 온톨로지 읽기는 CLI 명령, 공개 엔드포인트 또는 프로바이더 구현을 만들지 않고 Core의 타입이 지정된 조회 실행기, 작업 및 프로바이더 중립 출처를 식별합니다. 추가된 출처 이력 필드가 없는 과거 기록은 추론하지 않고 명시적으로 표시합니다. |
 | 대상 결속 인과 표현 | implemented | `semantic_turn_presentation.py`, `test_semantic_turn_bridge.py`, 집중 이중 언어 및 causal matrix 검사 31개 통과 | 여러 output으로 구성된 causal 결과는 exact 대상, 증상 concept, 정렬된 baseline 및 current window, 측정된 변화, 경쟁 가설 2개 이상을 표시합니다. 각 가설은 `supported`, `refuted`, `unresolved` 중 하나와 범위가 제한된 근거 상세 및 limitation을 유지합니다. 불완전하거나 오래되거나 충돌하는 근거는 limitation으로 남고 인과 claim으로 승격되지 않습니다. 이 projection은 승인, 변경 또는 실행 권한을 부여하지 않습니다. 인증된 post-commit 검증은 Issue #244에 열린 상태로 남아 있습니다. |
 | 온톨로지 보증 cohort release oracle | implemented | `console/tests/live-e2e/ontology-query-assurance.{ts,spec.ts,test.ts}`, 집중 보증 테스트 101개 통과 | 전체 cohort operation coverage는 고정 개수를 복제하지 않고 결과 histogram을 결정론적으로 생성된 cohort와 비교합니다. 누락 또는 대체 operation은 실패하고 extension operation은 작성된 범위 제한 분포를 유지합니다. |
-
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-28 | 구현됨 | 사용할 수 없는 비용 거버넌스 자리 표시자를 답변 준비 중 검색 추적에서 제외하고, 별도 소유 Overview 측정 경로를 사용 불가로 선언했으며, 의미 브리지 뒤에서 원시 PostgreSQL 스트림 대체 경로를 보존했습니다. | `current change`; 집중 검색 추적, Operator 구성, 의미 브리지, 서비스 테스트 소유권 검사 및 Console 타입 검사. | 인증된 실제 변환 결과 근거를 별도로 보존합니다. 이 로컬 검사는 런타임 가용성을 입증하지 않습니다. |
 | 2026-08-28 | 구현됨 | 비용 거버넌스 탐색 통합을 현재 탐색기 셸에 rebase한 뒤 설정 중복 제거 과정에서 타입이 지정된 탐색 그룹을 보존했습니다. | `current change`; `console/src/navigation-preferences.ts`; 집중 탐색 및 비용 거버넌스 경로 테스트 8개와 Console 타입 검사가 통과했습니다. | 이 타입 전용 통합 수정에 남은 작업은 없습니다. 비용 거버넌스 운영 검증은 해당 전달 원장에서 계속 추적합니다. |
 | 2026-08-26 | implemented | 비어 있는 Command Deck의 pill 빠른 시작을 상황형 카드 계층으로 교체했습니다. 2 x 2 prompt grid와 현재 화면 Checklist 대표 카드 1개를 사용합니다. 이 변경은 표현 전용이며 기존 prompt 선택, 작성기 입력, 제출, 대화 이력 및 첫 턴 이후 배치 동작을 보존합니다. | `current change`, `console/src/deck/command-deck-presenters.tsx`, `console/src/deck/command-deck-workspace-visual.test.ts`, `console/src/styles.css`, 집중 presenter 검사 11개 및 빈 상태 시각 검사 2개 통과, 정확한 `HEAD`와 staged snapshot의 Console 타입 검사 및 운영 빌드 통과. 인증된 데스크톱, constrained-desktop 및 390 px 모바일 Browser 검사에서 문서와 카드의 가로 overflow 0 및 모바일 target 44 px를 측정했습니다. | 이 표현 범위에 남은 구현 작업은 없습니다. Browser 관찰은 로컬 표현 근거이며 통제된 runtime receipt가 아닙니다. |
 | 2026-08-25 | implemented | 비어 있는 Command Deck의 최종 표현 개선을 완료했습니다. 레이아웃과 닫기 동작을 viewport 오른쪽 12 px에 고정된 창 제어 그룹으로 묶고, 텍스트 닫기 표시를 일관된 아이콘과 제한된 위험 상태 hover로 바꿨습니다. 반복되던 화면 배지를 제거하고 작성기를 넓혀 중앙 정렬했으며, 보내기를 아이콘 동작으로 바꾸고 빠른 시작과 추천 질문을 중앙 정렬했으며, 맥락 기반 시작 질문을 영어와 한국어로 지역화했습니다. | `current change`, 집중 Command Deck 검사 46개, Console 소스 및 테스트 타입 검사, 카탈로그 일치, 읽기 쉬운 한글, 문장부호, 운영 빌드와 진입 번들 게이트 통과. 인증된 영어 데스크톱과 한국어 데스크톱/모바일 Browser 검사에서 닫기 여백 12 px, 모바일 동작 44 px, 지역화된 질문, 컨트롤 겹침 없음 및 가로 overflow 0을 측정했습니다. | 범위가 제한된 구현 작업은 남아 있지 않습니다. Browser 관측은 로컬 표현 근거이며 통제된 런타임 증적이 아닙니다. |

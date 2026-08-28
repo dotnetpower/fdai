@@ -33,7 +33,7 @@ one manifest, ontology release, asset inventory, and stable identifier set.
 
 | Area | Evidence today | Delivery gap |
 |------|----------------|--------------|
-| FinOps package | `extensions/cost-governance/`; package build, resource, image, and lifecycle tests | Local build and lifecycle mechanics pass; governed image and lifecycle receipts remain W7 evidence. |
+| FinOps package | `extensions/cost-governance/`; package build, resource, image, and lifecycle tests | Local build and lifecycle mechanics pass. Base-only profiles omit package assets, while compatibility replay explicitly composes one enabled package; governed image and lifecycle receipts remain W7 evidence. |
 | Cost advice | Injected Njord advisory provider, activation-gated collection, and separate signed effect estimates | A live-authoritative provider cohort remains unrecorded. |
 | Ontology | Exact semantic profile, additive declarations, and F1-F8 positive and negative fixtures | The profile is locally implemented; live evidence still must bind the same release. |
 | Agent runtime | Fixed pantheon, owned topics, all-responsibility replay, recovery, settlement, and learning tests | Source and synthetic evidence do not prove operational autonomy. |

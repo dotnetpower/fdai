@@ -1,9 +1,7 @@
 ---
 title: Agent Pantheon
 ---
-
 # Agent Pantheon
-
 FDAI's fixed organization of 15 named agents owns the cloud-operations runtime. Agents observe, judge, plan, approve, execute, verify, recover, audit, and learn through schema-checked events. The operating ontology supports them with typed meaning and bounded context; it is not the runtime actor, decision authority, or executor. The pantheon is defined once upstream - forks configure it but never add or rename agents.
 
 > **Scope:** the pantheon is customer-agnostic. Every agent name, object type, and action referenced below is generic. Per-customer bindings live in a fork ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
@@ -34,10 +32,10 @@ Consumers of this document:
 | Provider-schema drift handoff | implemented | `provider_schema_review.py`; `heimdall.py`; `test_provider_schema_drift.py` | Heimdall validates one digest-bound, no-authority provider-schema review package and publishes only a bounded shadow `object.drift` signal. Fetching, parsing, baseline storage, policy, judgment, approval, and catalog mutation remain outside the agent. AgentSpec is unchanged. |
 | Cost Governance specialist binding | implemented | `njord.py`; `_framework/factory.py`; `test_njord_cost_governance.py` | Composition injects package-neutral cost advisory and activation readers into Njord. Njord remains the sole `CostAnomaly` and `Budget` publisher, Freyr remains the capacity specialist, and disabled packages produce no new cost advisory publication. AgentSpec and topic ownership are unchanged. |
 | Live operational KPI validation and enforce promotion | not-started | [Goals and Metrics](../architecture/goals-and-metrics.md) | No retained live-shadow cohort, operational KPI receipt set, independent promotion review, or actual pantheon enforce promotion is evidenced here. |
-
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-28 | implemented | Restored Njord's declared read-tool fact scopes after optional package injection while keeping disabled ingestion inert and moving legacy anomaly tests to an explicitly enabled package provider. | `current change`; focused arbitration, charter, conversation-tool, and Cost Governance Njord tests. | Retain live-authoritative Njord evidence before any promotion review. |
 | 2026-08-29 | implemented | Added optional Cost Governance advisory injection without changing the fixed roster, AgentSpec, topic ownership, or authority roles. | `current change`; focused Njord, pantheon layout, ownership, disablement, and drain tests. | Retain a live-authoritative Cost Governance cohort before any enforce promotion. |
 | 2026-08-21 | implemented | Extracted content-addressed Bragi Turn and handoff payload construction into a private publication helper and moved semantic capability projection into the existing routing helper solely to restore the framework line ceiling. Bragi still publishes the same `object.turn` and `object.handoff-escalation` topics; AgentSpec, ownership, LLM policy, typed proposal entry, and action authority are unchanged. | `current change`; focused Bragi and framework checks passed 95 cases; changed-file Ruff, format, and mypy passed; the repository LOC gate passed with zero hard failures. | Retain the same governed operator-path, KPI, and promotion evidence already required by this design. |
 | 2026-08-13 | in-progress | Adopted an evidence-bounded implementation ledger without reconstructing earlier delivery history. | current change | Collect live operational evidence and complete an independently reviewed promotion before claiming validation or enforce use. |

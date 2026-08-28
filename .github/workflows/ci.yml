@@ -645,9 +645,11 @@ jobs:
       - name: Run service-owned database tests
         env:
           FDAI_SERVICE_MIGRATIONS_READY: "1"
+          FDAI_DATABASE_URL: ${{ env.FDAI_SERVICE_DATABASE_URL }}
         run: >-
           uv run pytest -q --no-cov
           services/operator-service/tests/test_read_investigation_completion_store.py::test_postgres_allocates_attempt_turns_and_reuses_duplicate_slot
+          services/core-control-plane/tests/persistence/test_postgres_kubernetes_lifecycle.py::test_lease_reacquire_duplicate_and_reorder_are_safe
 
   terraform-validate:
     name: Terraform fmt + validate + config tests

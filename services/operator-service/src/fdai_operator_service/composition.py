@@ -328,19 +328,20 @@ def _build_route_families(
     database_url = environment.database_url
     if database_url is None:  # pragma: no cover - store construction requires the same URL
         raise RuntimeError("validated Operator database URL is missing")
+    postgres_adapters = PostgresConversationAdapters(store)
     postgres_conversation = ConversationAssuranceReader(
         ConversationAssuranceReaderConfig(
             dsn=database_url,
             statement_timeout_ms=environment.database_statement_timeout_ms,
             connect_timeout_s=environment.database_connect_timeout_s,
         ),
-        fallback=PostgresConversationAdapters(store),
+        fallback=postgres_adapters,
     )
     local_narrator = (
         LocalAzureNarratorAdapters.from_environment(
             environment.values,
             fallback_projections=postgres_conversation,
-            fallback_streams=postgres_conversation,
+            fallback_streams=postgres_adapters,
         )
         if environment.local_azure_narrator
         else None
@@ -351,7 +352,7 @@ def _build_route_families(
             bridge=semantic_bridge,
             fallback_projections=conversation,
             fallback_outbox=postgres_conversation,
-            fallback_streams=postgres_conversation,
+            fallback_streams=postgres_adapters,
         )
         if semantic_bridge is not None
         else None
@@ -657,6 +658,17 @@ def _build_data_sources(*, configured: bool) -> tuple[ReadDataSource, ...]:
             authoritative=configured,
             durable=True if configured else None,
             reason=reason,
+        ),
+        ReadDataSource(
+            key="overview-measurement",
+            source="not-served-by-operator-service",
+            routes=("/overview/measurement",),
+            availability="unavailable",
+            configured=False,
+            reachable=False,
+            authoritative=False,
+            durable=None,
+            reason="Overview measurement is owned by a separate projection service.",
         ),
         ReadDataSource(
             key="autonomy-measurement",

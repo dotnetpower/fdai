@@ -1,7 +1,7 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: bb01a5609a5b939bb529021d36b847e59013744d
+translation_source_sha: cb777fb0227ea6d303ddcec84badf6ae81a310e4
 translation_revised: 2026-08-28
 ---
 
@@ -88,7 +88,8 @@ repository-integrity 검사만 활성화하며 런타임 코드는 이 값을 �
 또는 다운스트림 이미지에 포함한 뒤 각 배포에서 활성화하거나 비활성화할 수 있습니다. 패키지
 사용 가능 상태, 배포 활성화, principal 접근 권한, 작업별 shadow 또는 enforce 모드는 서로
 독립적인 결정으로 유지합니다. 비용 거버넌스를 숨기기 위한 목적으로 고객 포크를 만들지 말고,
-포크 감지를 데이터 수집, Console 탐색 또는 실행 자세를 선택하는 데 사용하지 않습니다.
+포크 감지를 데이터 수집, Console 탐색 또는 실행 자세를 선택하는 데 사용하지 않습니다. 기본
+전용 프로필은 패키지 자산을 제외하고 호환성 또는 패키지 테스트는 활성화된 패키지를 명시적으로 구성합니다.
 
 ## 2. Day-1 체크리스트
 

@@ -1,11 +1,10 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: ebafaea145e55a754df542f830166857e8d44dcb
+translation_source_sha: a6d643a3b0fbfdfef08afb2128370a70092b60ad
 translation_revised: 2026-08-28
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
-
 **목표**: 자동화 테스트는 결정론적이고 secret-free 상태를 유지하며, interactive 로컬 Console은 운영자의 실제 Azure 개발 환경만 표시합니다. Azure 배포에서는 계속 **배포자의 Azure 권한과 리전 카탈로그가 어떤 LLM과 기타 리소스를 프로비저닝할지 결정**합니다. 세 명제가 동시에 참입니다:
 - **자동화 테스트 truth**: pytest와 committed mock은 결정론적 가짜를 사용할 수 있습니다. 명시적 test-fixture 빌더를 사용하며 Azure 관측 상태로 표현하지 않습니다.
 - **Full-stack 로컬 truth**: `Console Web: Full Stack`은 배포와 같은 App 역할 검사를 적용하는 브라우저 Entra sign-in을 사용합니다. 서버의 Azure CLI 세션은 Azure 개발 데이터 평면 프로바이더 자격 증명만 제공합니다. 인벤토리, 모델 가용성, 에이전트 활동, 프로세스 상태, 승격 근거, 감사 데이터는 권위 있는 프로바이더에서만 표시합니다. 출처가 없으면 사용 불가 또는 명시적 빈으로 표시하며 생성 예제로 대체하지 않습니다.
@@ -43,6 +42,7 @@ translation_revised: 2026-08-28
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-08-28 | 구현됨 | Kubernetes 수명 주기 영속성 검사를 기존 이행 전용 통합 데이터베이스가 아니라 서비스 소유 이행 데이터베이스로 라우팅했습니다. | `current change`; CI 서비스 이행 단계와 집중 이행 게이트 테스트. | 배포 검증을 주장하기 전에 정확한 리비전의 보호된 이행 및 수명 주기 증적을 보존합니다. |
 | 2026-08-29 | implemented | 로컬 및 배포 composition에 같은 선택적 비용 거버넌스 패키지, 활성화, 수집, 변환 결과 및 Console 출처 계약을 추가했습니다. | `current change`; 패키지, Operator, Console, 이행, 이미지 및 Terraform 검사. | 런타임 검증을 주장하기 전에 쌍으로 된 live-authoritative 로컬 및 배포 캠페인 증적을 보존합니다. |
 | 2026-08-27 | implemented | 두 instance를 허용하는 태스크 4개의 지원되지 않는 VS Code `instancePolicy: "concurrency"` 값을 스키마에 맞는 `silent` 정책으로 교체했습니다. Instance 2개 상한은 교체 launcher 하나를 계속 허용하고 세 번째 요청은 대화형 prompt로 전환하지 않고 무시합니다. | `current change`, 설치된 VS Code 1.135 parser 및 스키마 검토, 집중 workspace 태스크 계약 | 태스크 정책 유효성에 남은 구현 작업은 없습니다. Runtime Event 출처 접근은 별도의 외부 근거 문제입니다. |
 | 2026-08-27 | implemented | 인증된 Event 답변 검증 중 두 번 재시작을 요청한 뒤에도 활성 Core source digest가 오래된 상태로 유지되는 것을 확인하고 Core 및 Operator 재시작 태스크의 동시 실행을 수정했습니다. 재시작 태스크가 장기 실행 supervisor를 직접 소유하므로 `instanceLimit: 1`과 조용한 중복 처리는 교체 launcher 실행을 막았습니다. 이제 재시작 태스크는 동시 교체 invocation 하나를 허용하고 일반 시작 태스크는 singleton을 유지합니다. | `current change`, 두 번의 재시작 태스크 요청 뒤에도 process id가 바뀌지 않고 활성 Core digest가 현재 digest와 다른 상태를 재현, 집중 workspace 태스크 계약 4개 통과, 수정한 태스크가 오래된 Core를 active input digest와 현재 source가 정확히 일치하는 새 managed child로 교체한 뒤 서비스 준비 상태 통과 | 오래된 Core 또는 Operator 재시작 태스크 교체에 남은 구현 작업은 없습니다. 성공적인 Kubernetes Event 출처 접근은 재시작 태스크 공백이 아니라 근거 프로바이더 문제로 남습니다. |
@@ -116,7 +116,6 @@ translation_revised: 2026-08-28
 | 2026-08-20 | implemented | PTY host와 셸 시작은 정상인데 VS Code 기본 설정이 사용자가 입력한 통합 터미널의 0이 아닌 종료를 알림으로 표시한다는 진단에 따라 FDAI workspace에서 터미널 종료 알림을 비활성화했습니다. 중복 토스트만 억제하며 터미널 출력, 작업 상태 및 프로세스 종료 코드는 계속 확인할 수 있습니다. | `current change`, `.vscode/settings.json`, `tests/integration/scripts/test_vscode_workspace_performance.py`, 집중 workspace 계약 및 VS Code JSON 진단 | 터미널 종료 토스트에 남은 구현 작업은 없습니다. |
 | 2026-08-20 | implemented | VS Code가 태스크 인스턴스 메타데이터를 잃은 뒤에도 이 체크아웃의 서비스 로그 잠금을 계속 소유한 프로세스를 자동 백엔드 시작에서 재사용하도록 했습니다. 재사용 경로는 터미널 표식을 내보내고 다른 자식 프로세스를 시작하지 않습니다. 마지막 15초 게이트는 Core 소유권과 Console, Operator API, Document Ingestion API, Document Processing Worker 및 격리 Executor 검사를 요구합니다. 다른 체크아웃이 소유한 포트와 런타임 잠금은 계속 시작 실패로 처리합니다. | `current change`, `scripts/automation/run-local-service.sh`, `developer-workflow.py`, `.vscode/tasks.json`, 집중 런처, 준비 상태 및 workspace 태스크 검사 | 같은 체크아웃의 백엔드 태스크 재연결과 시작 후 준비 상태 검사에 남은 구현 작업은 없습니다. |
 | 2026-08-20 | implemented | 검토 후 재사용 판정을 강화했습니다. 각 runner는 서비스 소유 source, 생성된 환경, 의존성 선언, 감독 코드 및 정확한 실행 명령의 SHA-256 fingerprint와 owner 및 child PID를 private 0600 metadata에 기록합니다. 오래된 같은 체크아웃 runner는 cwd, 서비스 ID, owner PID 및 child process group을 검증한 뒤 자동 교체하며 다른 체크아웃 또는 unmanaged 프로세스는 받아들이지 않습니다. Child shim은 기록된 PID를 실제 session leader로 만들고 wrapper가 사라지면 `SIGTERM`을 받습니다. Core는 2초 간격 Pantheon heartbeat를 내보내고 준비 상태 검사는 10초보다 오래되지 않은 heartbeat를 요구합니다. 정상 종료가 10초를 넘으면 서비스를 강제로 종료해 singleton 잠금을 무기한 보유하지 못하게 합니다. | `current change`, 집중 launcher, digest, heartbeat, orphan 복구 및 workspace 검사. 통제된 로컬 재시작은 한 번의 검사에서 6/6 ready에 도달했고 metadata 7개가 모두 live owner와 정확한 child process group에 일치했으며 측정된 Core heartbeat는 5.4초 이내를 유지했습니다. Port `8010`-`8013` 및 `5273`은 모두 `200`을 반환했습니다. | 오래된 입력 재사용, Core liveness, parent 소실 정리 및 범위가 제한된 로컬 종료에 남은 구현 작업은 없습니다. |
-
 ### 잔여 작업
 - [ ] FDAI 전용 Remote WSL server data root 또는 WSL 배포판을 마련한 뒤 제외 대상 workspace를 변경하지 않고 재시작한 Pylance process command에 `--max-old-space-size=2048`이 포함됨을 기록합니다.
 - [ ] 등록된 Console 경로 50개 전체의 통과 근거를 기록한 뒤 최소 10회 보증 라운드와 10회 비평/하드닝 라운드를 완료하여 해결되지 않은 finding의 심각도가 모두 Low 이하임을 입증합니다.
@@ -175,7 +174,6 @@ Console 패널을 방문하고, 패널 경계가 안정될 때까지 기다리�
 | 파괴적 migration 검증 | 별도 `pgvector/pgvector:pg16` cluster on `:5433` | 격리된 CI 검증 데이터베이스 |
 | Event 버스 (통합 테스트) | Redpanda on `:19092` (Kafka wire) | Event Hubs Kafka on `:9093` |
 ### 고정 workspace 포트
-
 커밋된 VS 코드 설정은 각 로컬 web 표면이 항상 같은 포트를 사용하게 합니다. 정적 design mock
 site는 인증된 Console full stack과 분리되어 있습니다.
 

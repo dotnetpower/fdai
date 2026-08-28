@@ -191,6 +191,38 @@ def test_runtime_injects_optional_provider_without_removing_any_agent() -> None:
     assert runtime.agents["Freyr"].spec.name == "Freyr"
 
 
+def test_accepted_sample_changes_conversation_evidence_identity() -> None:
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic="fdai.events",
+        cost_runtime=CostRuntimeBindings(
+            advisory_provider=Advisory(),
+            activation_reader=Activation(_snapshot(enabled=True)),
+            package_enabled=True,
+        ),
+    )
+    njord = runtime.agents["Njord"]
+    assert isinstance(njord, Njord)
+    before = asyncio.run(
+        runtime.invoke_conversation_tool(
+            agent_name="Njord",
+            tool_id="read_cost_samples",
+            question="cost samples",
+        )
+    )
+
+    asyncio.run(njord.on_typed_message("object.event", _event(_NOW)))
+    after = asyncio.run(
+        runtime.invoke_conversation_tool(
+            agent_name="Njord",
+            tool_id="read_cost_samples",
+            question="cost samples",
+        )
+    )
+
+    assert before.evidence_refs != after.evidence_refs
+
+
 def test_package_has_no_direct_agent_call_or_authority_field() -> None:
     root = Path(__file__).resolve().parents[4]
     package = root / "extensions/cost-governance/src/fdai_cost_governance"

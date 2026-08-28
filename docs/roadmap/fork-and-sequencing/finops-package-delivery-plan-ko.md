@@ -1,7 +1,7 @@
 ---
 title: FinOps 패키지 전달 계획
 translation_of: finops-package-delivery-plan.md
-translation_source_sha: b6e8e1d76920f109787f450cc6a70dcfe3aa158a
+translation_source_sha: 9f5e29b6aeaec3d1b4cf18d84d22b97416123dd3
 translation_revised: 2026-08-28
 ---
 
@@ -36,7 +36,7 @@ release, 자산 inventory 및 안정적인 식별자 집합으로 수렴한 뒤�
 
 | 영역 | 현재 근거 | 전달 미비점 |
 |------|-----------|-------------|
-| FinOps 패키지 | `extensions/cost-governance/`, 패키지 빌드, 리소스, 이미지 및 수명 주기 테스트 | 로컬 빌드와 수명 주기 메커니즘은 통과했으며 통제된 이미지와 수명 주기 증적은 W7에 남아 있습니다. |
+| FinOps 패키지 | `extensions/cost-governance/`, 패키지 빌드, 리소스, 이미지 및 수명 주기 테스트 | 로컬 빌드와 수명 주기 메커니즘은 통과했습니다. 기본 전용 프로필은 패키지 자산을 제외하고 호환성 재생은 활성화된 패키지 하나를 명시적으로 구성합니다. 통제된 이미지 및 수명 주기 증적은 W7 근거로 남습니다. |
 | 비용 자문 | 주입된 Njord 자문 프로바이더, 활성화 gate가 적용된 수집 및 분리된 signed 효과 추정 | Live-authoritative 프로바이더 cohort는 아직 기록되지 않았습니다. |
 | 온톨로지 | 정확한 의미 프로파일, 추가 선언 및 F1-F8 긍정과 부정 고정본 | 프로파일은 로컬에서 구현되었으며 실제 근거는 같은 release에 연결되어야 합니다. |
 | 에이전트 런타임 | 고정 판테온, 소유 topic, 전체 책임 replay, 복구, 정산 및 학습 테스트 | 출처와 합성 근거는 운영 자율성을 입증하지 않습니다. |

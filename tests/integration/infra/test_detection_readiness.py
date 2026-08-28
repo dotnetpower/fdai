@@ -40,13 +40,14 @@ def test_analyzer_job_binds_deployment_supplied_trace_topologies() -> None:
         encoding="utf-8"
     )
     main = _MAIN.read_text(encoding="utf-8")
+    normalized_main = " ".join(main.split())
     workflow = _DEPLOY_WORKFLOW.read_text(encoding="utf-8")
 
     assert 'TRACE_TOPOLOGIES_ENV = "FDAI_TRACE_TOPOLOGIES_JSON"' in cli
     assert 'name  = "FDAI_TRACE_TOPOLOGIES_JSON"' in source
     assert 'variable "trace_topologies_json"' in root_variables
     assert 'variable "trace_topologies_json"' in module_variables
-    assert "trace_topologies_json         = var.trace_topologies_json" in main
+    assert "trace_topologies_json = var.trace_topologies_json" in normalized_main
     assert "TF_VAR_trace_topologies_json: ${{ vars.TRACE_TOPOLOGIES_JSON }}" in workflow
     assert "-target=module.compute.azurerm_container_app_job.analyzer_tick[0]" in workflow
 
