@@ -242,6 +242,34 @@ async def test_multiplexed_producer_preserves_key_and_marks_logical_topic(monkey
     await bus.aclose()
 
 
+async def test_event_topic_bypasses_semantic_physical_multiplexing(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setattr(kafka_module, "AIOKafkaProducer", Producer)
+    credential = Credential()
+    bus = OperatorSemanticKafkaBus(
+        config=OperatorSemanticKafkaConfig(
+            bootstrap_servers="example.servicebus.windows.net:9093",
+            physical_topic="fdai.pantheon.objects",
+            event_topic="fdai.events",
+        ),
+        credential=credential,  # type: ignore[arg-type]
+    )
+
+    await bus.publish(
+        "fdai.events",
+        "resource-1",
+        {"schema_version": "1.0.0", "mode": "shadow"},
+    )
+
+    producer = Producer.latest
+    assert producer is not None
+    assert producer.sent[0][0] == "fdai.events"
+    assert json.loads(producer.sent[0][2]) == {
+        "mode": "shadow",
+        "schema_version": "1.0.0",
+    }
+    await bus.aclose()
+
+
 async def test_readiness_is_credential_free_and_live_probe_fails_closed(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     bus, credential = _bus(monkeypatch)
     monkeypatch.setattr(kafka_module, "AIOKafkaProducer", FailingProducer)

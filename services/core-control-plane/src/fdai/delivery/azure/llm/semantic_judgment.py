@@ -6,13 +6,17 @@ import asyncio
 import json
 import logging
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
 from fdai_service_contracts.ontology_query import content_digest
-from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
+from fdai_service_contracts.semantic_judgment import (
+    SemanticDirectResponseDraft,
+    SemanticJudgmentProposal,
+)
 
+from fdai.core.conversation.conversation_preflight import ConversationPreflightProposal
 from fdai.core.conversation.semantic_judgment import (
     SemanticJudgmentModelResponse,
     SemanticJudgmentObservation,
@@ -39,7 +43,10 @@ class AzureOpenAISemanticJudgmentModelConfig:
 
     candidates: tuple[ModelRequestTarget, ...]
     system_prompt: str
+    preflight_system_prompt: str | None = None
+    social_narrator_system_prompts: Mapping[str, str] = field(default_factory=dict)
     timeout_seconds: float = 30.0
+    social_narrator_timeout_seconds: float = 10.0
     max_tokens: int = 2_048
 
     def __post_init__(self) -> None:
@@ -53,8 +60,20 @@ class AzureOpenAISemanticJudgmentModelConfig:
             raise ValueError("semantic judgment candidates MUST be unique")
         if not self.system_prompt or len(self.system_prompt) > _MAX_PROMPT_CHARS:
             raise ValueError("semantic judgment system prompt MUST be non-empty and bounded")
+        if self.preflight_system_prompt is not None and (
+            not self.preflight_system_prompt
+            or len(self.preflight_system_prompt) > _MAX_PROMPT_CHARS
+        ):
+            raise ValueError("conversation preflight system prompt MUST be non-empty and bounded")
+        if any(
+            not prompt or len(prompt) > _MAX_PROMPT_CHARS
+            for prompt in self.social_narrator_system_prompts.values()
+        ):
+            raise ValueError("social narrator system prompt MUST be non-empty and bounded")
         if not 0 < self.timeout_seconds <= 120:
             raise ValueError("semantic judgment timeout_seconds MUST be in (0, 120]")
+        if not 0 < self.social_narrator_timeout_seconds <= 30:
+            raise ValueError("social narrator timeout_seconds MUST be in (0, 30]")
         if not 1 <= self.max_tokens <= 4_096:
             raise ValueError("semantic judgment max_tokens MUST be in [1, 4096]")
 
@@ -89,6 +108,9 @@ class AzureOpenAISemanticJudgmentModel:
         utterance: str,
         context: tuple[str, ...],
         capabilities: tuple[dict[str, Any], ...],
+        locale: str,
+        direct_response_profile: Mapping[str, Any],
+        direct_response_profile_digest: str,
         profile_id: str,
         profile_version: str,
         schema_repair: tuple[dict[str, str], ...],
@@ -107,6 +129,9 @@ class AzureOpenAISemanticJudgmentModel:
             "utterance": utterance,
             "context": context,
             "capabilities": capabilities,
+            "locale": locale,
+            "direct_response_profile": direct_response_profile,
+            "direct_response_profile_digest": direct_response_profile_digest,
             "profile_id": profile_id,
             "profile_version": profile_version,
             "schema_repair": schema_repair,
@@ -124,7 +149,16 @@ class AzureOpenAISemanticJudgmentModel:
         if len(encoded.encode()) > _MAX_REQUEST_BYTES:
             return {"invalid_semantic_judgment_input": True}
         future = asyncio.run_coroutine_threadsafe(
-            self._complete(encoded, input_digest=input_digest),
+            self._complete(
+                encoded,
+                input_digest=input_digest,
+                proposal_schema=SemanticJudgmentProposal.model_json_schema(),
+                system_prompt=self._config.system_prompt,
+                call_kind="semantic-judgment",
+                max_tokens=self._config.max_tokens,
+                temperature=0.0,
+                timeout_seconds=self._config.timeout_seconds,
+            ),
             self._owner_loop,
         )
         try:
@@ -137,21 +171,144 @@ class AzureOpenAISemanticJudgmentModel:
             )
             return None
 
+    def preflight(
+        self,
+        *,
+        utterance: str,
+        context: tuple[str, ...],
+        locale: str,
+        direct_response_profile: Mapping[str, Any],
+        direct_response_profile_digest: str,
+        schema_repair: tuple[dict[str, str], ...],
+    ) -> Mapping[str, Any] | SemanticJudgmentModelResponse | None:
+        """Return one compact social/operational route proposal."""
+
+        if self._config.preflight_system_prompt is None:
+            return None
+        payload = {
+            "utterance": utterance,
+            "context": context,
+            "locale": locale,
+            "direct_response_profile": direct_response_profile,
+            "direct_response_profile_digest": direct_response_profile_digest,
+            "schema_repair": schema_repair,
+        }
+        try:
+            encoded = json.dumps(
+                {"untrusted_input": payload},
+                allow_nan=False,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+        except (TypeError, ValueError):
+            return None
+        if len(encoded.encode()) > _MAX_REQUEST_BYTES:
+            return None
+        input_digest = content_digest({"utterance": utterance, "locale": locale})
+        future = asyncio.run_coroutine_threadsafe(
+            self._complete(
+                encoded,
+                input_digest=input_digest,
+                proposal_schema=ConversationPreflightProposal.model_json_schema(),
+                system_prompt=self._config.preflight_system_prompt,
+                call_kind="conversation-preflight",
+                max_tokens=min(self._config.max_tokens, 512),
+                temperature=0.0,
+                timeout_seconds=self._config.timeout_seconds,
+            ),
+            self._owner_loop,
+        )
+        try:
+            return future.result(timeout=self._config.timeout_seconds + 1)
+        except Exception as exc:  # noqa: BLE001 - adapter contains provider details
+            future.cancel()
+            _LOGGER.warning(
+                "conversation_preflight_model_unavailable",
+                extra={"failure_type": type(exc).__name__, "input_digest": input_digest},
+            )
+            return None
+
+    def narrate_social(
+        self,
+        *,
+        utterance: str,
+        locale: str,
+        social_act: str,
+        continued: bool,
+        direct_response_profile: Mapping[str, Any],
+        direct_response_profile_digest: str,
+    ) -> Mapping[str, Any] | SemanticJudgmentModelResponse | None:
+        """Generate one bounded social response after routing has completed."""
+
+        system_prompt = self._config.social_narrator_system_prompts.get(social_act)
+        if system_prompt is None:
+            return None
+        payload = {
+            "utterance": utterance,
+            "locale": locale,
+            "social_act": social_act,
+            "continued": continued,
+            "direct_response_profile": direct_response_profile,
+            "direct_response_profile_digest": direct_response_profile_digest,
+        }
+        try:
+            encoded = json.dumps(
+                {"untrusted_input": payload},
+                allow_nan=False,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+        except (TypeError, ValueError):
+            return None
+        input_digest = content_digest(
+            {"utterance": utterance, "locale": locale, "social_act": social_act}
+        )
+        future = asyncio.run_coroutine_threadsafe(
+            self._complete(
+                encoded,
+                input_digest=input_digest,
+                proposal_schema=SemanticDirectResponseDraft.model_json_schema(),
+                system_prompt=system_prompt,
+                call_kind="conversation-social-narrator",
+                max_tokens=256,
+                temperature=0.3,
+                timeout_seconds=self._config.social_narrator_timeout_seconds,
+            ),
+            self._owner_loop,
+        )
+        try:
+            return future.result(timeout=self._config.social_narrator_timeout_seconds + 1)
+        except Exception as exc:  # noqa: BLE001 - adapter contains provider details
+            future.cancel()
+            _LOGGER.warning(
+                "social_response_narrator_unavailable",
+                extra={"failure_type": type(exc).__name__, "input_digest": input_digest},
+            )
+            return None
+
     async def _complete(
         self,
         user_content: str,
         *,
         input_digest: str,
+        proposal_schema: Mapping[str, Any],
+        system_prompt: str,
+        call_kind: str,
+        max_tokens: int,
+        temperature: float,
+        timeout_seconds: float,
     ) -> SemanticJudgmentModelResponse | None:
         schema = json.dumps(
-            SemanticJudgmentProposal.model_json_schema(),
+            proposal_schema,
             allow_nan=False,
             ensure_ascii=True,
             separators=(",", ":"),
             sort_keys=True,
         )
-        system_content = f"{self._config.system_prompt}\nRequired JSON Schema:\n{schema}"
-        candidate_timeout = self._config.timeout_seconds / len(self._config.candidates)
+        system_content = f"{system_prompt}\nRequired JSON Schema:\n{schema}"
+        candidate_timeout = timeout_seconds / len(self._config.candidates)
         for index, target in enumerate(self._config.candidates):
             try:
                 async with asyncio.timeout(candidate_timeout):
@@ -165,8 +322,8 @@ class AzureOpenAISemanticJudgmentModel:
                         "response_format": {"type": "json_object"},
                         **completion_body_params(
                             target.deployment,
-                            temperature=0.0,
-                            max_tokens=self._config.max_tokens,
+                            temperature=temperature,
+                            max_tokens=max_tokens,
                         ),
                     }
                     if request.model_body_field is not None:
@@ -189,8 +346,8 @@ class AzureOpenAISemanticJudgmentModel:
                     proposal, response_content, usage = _response_mapping(response)
                     trace_call = complete_model_trace(
                         trace_start,
-                        call_id=f"semantic-judgment-{index + 1}",
-                        kind="semantic-judgment",
+                        call_id=f"{call_kind}-{index + 1}",
+                        kind=call_kind,
                         model=target.deployment,
                         response_content=response_content,
                         usage=usage,
@@ -211,7 +368,7 @@ class AzureOpenAISemanticJudgmentModel:
                 }
                 if isinstance(exc, httpx.HTTPStatusError):
                     failure["status_code"] = exc.response.status_code
-                _LOGGER.warning("semantic_judgment_candidate_failed", extra=failure)
+                _LOGGER.warning(f"{call_kind.replace('-', '_')}_candidate_failed", extra=failure)
         return None
 
 

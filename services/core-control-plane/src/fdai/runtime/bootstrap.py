@@ -39,6 +39,7 @@ from fdai.runtime.bootstrap_tasks import (
 )
 from fdai.runtime.bootstrap_topics import RUNTIME_LOGICAL_TOPICS as _RUNTIME_LOGICAL_TOPICS
 from fdai.runtime.configuration import (
+    _attach_runtime_configuration_drift,
     _attach_runtime_knowledge_source,
     _attach_runtime_metric_provider,
     _finalize_llm_bindings,
@@ -97,7 +98,21 @@ async def _run() -> int:
                 http_client=resources.http_client,
                 identity=identity,
             )
+
+        if container.llm_bindings is not None:
             container = _attach_runtime_knowledge_source(container)
+
+        if identity_requests.configuration_drift:
+            if resources.http_client is None or identity is None:
+                raise RuntimeError(
+                    "Azure configuration drift requires HTTP and workload identity bindings"
+                )
+            container = _attach_runtime_configuration_drift(
+                container,
+                http_client=resources.http_client,
+                identity=identity,
+                environment=os.environ,
+            )
 
         core_runtime: CoreRuntime | None = None
         if plan.start_consumer:

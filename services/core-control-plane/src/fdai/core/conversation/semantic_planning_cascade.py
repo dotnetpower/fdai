@@ -64,6 +64,7 @@ from .semantic_resource_state_planning import normalize_resource_state_proposal
 from .semantic_target_candidate_planning import (
     build_non_resource_target_clarification,
     build_resource_target_candidates_fallback,
+    normalize_resource_list_temporal_scope,
     resolve_stated_resource_identity,
     resource_target_candidates_apply_to_proposal,
 )
@@ -309,6 +310,11 @@ class SemanticPlanningCascade:
                     proposal,
                     utterance=utterance,
                     descriptors=descriptors,
+                    inventory_query_language=self._inventory_query_language,
+                )
+                proposal = normalize_resource_list_temporal_scope(
+                    proposal,
+                    utterance=utterance,
                     inventory_query_language=self._inventory_query_language,
                 )
                 proposal = resolve_stated_resource_identity(

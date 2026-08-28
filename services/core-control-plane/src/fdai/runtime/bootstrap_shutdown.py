@@ -25,6 +25,7 @@ async def close_runtime_resources(
     health_server: _AsyncCloseable | None,
     pantheon_runtime: _AsyncStoppable | None,
     runtime_state_publisher: _AsyncStoppable | None,
+    diagnostic_bus: object | None,
     auxiliary_bus: object | None,
     bus: object | None,
     http_client: _AsyncAcloseable | None,
@@ -43,6 +44,7 @@ async def close_runtime_resources(
             _LOGGER.warning("pantheon_stop_failed", exc_info=True)
     if runtime_state_publisher is not None:
         await runtime_state_publisher.stop()
+    await _close_bus(diagnostic_bus, warning="diagnostic_bus_close_failed")
     await _close_bus(auxiliary_bus, warning="auxiliary_bus_close_failed")
     await _close_bus(bus, warning="bus_close_failed")
     if http_client is not None:

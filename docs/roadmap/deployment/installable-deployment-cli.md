@@ -113,8 +113,8 @@ lead to a mutation makes the remote execution boundary visible.
 | `fdaictl doctor` | Check Python, Azure CLI, Terraform, GitHub CLI, authentication, and local config | No |
 | `fdaictl provision inspect` | Inspect online/offline, signed-kit trust, existing/managed host, transport, access, and workload-identity readiness | No |
 | `fdaictl provision plan` | Plan the app layer from a verified offline kit using its pinned Terraform binary and provider mirror | No |
-| `fdaictl onboard init` | Create a schema-validated, untracked environment configuration | No |
-| `fdaictl onboard guided` | Run doctor, private config creation, live preflight, plan-only runner submission, and a sanitized status post-check in order | No |
+| `fdaictl provision init` | Create a schema-validated, untracked environment configuration | No |
+| `fdaictl onboard guided` / `status` / `resume-verification` | Orchestrate one durable subscription-genesis run over the low-level exact-plan commands | Only after an explicit protected approval |
 | `fdaictl security audit` | Check runtime flag combinations, local config hygiene, and requested sandbox availability | No, unless `--fix-permissions` is explicit |
 | `fdaictl bundle verify` | Verify bundle signature, compatibility, file set, digests, SBOM, and size | No |
 | `fdaictl backup create` | Create a private portable archive from validated configuration, references, audit metadata, and user context | No |
@@ -129,7 +129,7 @@ lead to a mutation makes the remote execution boundary visible.
 | `fdaictl trajectory validate` | Check governed dataset checksums, schema, order, and source mapping | No |
 | `fdaictl license inspect` | Verify a capability license token against the packaged public key and report entitlement status | No |
 
-The C1 commands use stable JSON schemas for automation. `onboard init` captures only the active
+The C1 commands use stable JSON schemas for automation. `provision init` captures only the active
 subscription and tenant identifiers, environment, region, remote-runner boundary, and shadow-mode
 default in a gitignored mode-`0600` file. Human output never prints the account identifiers.
 
@@ -204,9 +204,9 @@ partial restored state. Both commands are local-only and make no Azure or Terraf
 
 ## Guided deployment onboarding
 
-Use `fdaictl onboard guided` to run the existing safe deployment stages as one fail-closed
-sequence. The command is a plan-only wizard; it doesn't expose an apply option and it never invokes
-Terraform locally.
+Use `fdaictl onboard guided` to run the safe subscription-genesis stages as one durable, fail-closed sequence. It pauses at protected approval checkpoints and composes the low-level `deploy plan`, `deploy apply`, and `deploy status` contracts.
+Only the sealed foundation phase can run Terraform locally because the Azure execution host does not exist yet; it performs no private data-plane write. [Subscription Genesis Provisioning](subscription-genesis-provisioning.md) defines the full lifecycle.
+The [Subscription Genesis Assurance](subscription-genesis-assurance.md) contract defines safety, cancellation, secret transfer, concurrency, cost, and final readiness.
 
 The sequence is fixed:
 
@@ -218,10 +218,10 @@ The sequence is fixed:
   mismatch before any runner call.
 4. **Live preflight:** Run static and configured read-only Azure probes. An optional
   `--terraform-plan` file is parsed for resource types; the wizard doesn't run `terraform plan`.
-5. **Plan-only submission:** Dispatch the approved runner workflow with `apply=false` through the
-  existing opaque context contract.
-6. **Post-check:** Poll only for temporarily missing plan metadata for up to 60 seconds. Continue
-  only when sanitized status is `planning` or `ready`; every other state fails closed.
+5. **Durable orchestration:** Create the run manifest, submit exact plans, and pause at each
+  protected approval without transferring state or secrets to the local machine.
+6. **Post-check:** Follow sanitized run progress through database, semantic, model, runtime,
+  inventory, and readiness closure. Apply-claim recovery follows the existing no-retry rule.
 
 Example:
 

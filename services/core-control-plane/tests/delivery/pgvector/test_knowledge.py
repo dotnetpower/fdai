@@ -23,6 +23,7 @@ from pathlib import Path
 
 import psycopg
 import pytest
+from fdai.delivery.pgvector import knowledge as knowledge_module
 from fdai.delivery.pgvector.knowledge import (
     PgvectorKnowledgeConfig,
     PgvectorKnowledgeSource,
@@ -133,6 +134,61 @@ async def test_search_zero_k_returns_empty_without_db() -> None:
         secrets=_StaticSecrets({"db/dsn": "postgresql://placeholder"}),
     )
     assert await source.search("anything", k=0) == ()
+
+
+@pytest.mark.asyncio
+async def test_ingest_replaces_stale_chunks_and_empty_document_deletes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    statements: list[tuple[str, object]] = []
+
+    class Connection:
+        async def __aenter__(self) -> Connection:
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            return None
+
+        def transaction(self) -> Connection:
+            return self
+
+        async def execute(self, statement: str, parameters: object = None) -> None:
+            statements.append((statement, parameters))
+
+    class AsyncConnection:
+        @staticmethod
+        async def connect(*args: object, **kwargs: object) -> Connection:
+            del args, kwargs
+            return Connection()
+
+    monkeypatch.setattr(knowledge_module.psycopg, "AsyncConnection", AsyncConnection)
+    source = PgvectorKnowledgeSource(
+        config=PgvectorKnowledgeConfig(
+            dsn_secret="db/dsn",
+            max_chars=12,
+            overlap=0,
+        ),
+        embedder=_Hash384Embedder(),
+        secrets=_StaticSecrets({"db/dsn": "postgresql://placeholder"}),
+    )
+
+    assert (
+        await source.ingest(
+            [KnowledgeDocument(doc_id="doc-1", source_ref="wiki/one", text="disk full cpu")]
+        )
+        > 0
+    )
+    assert any("pg_advisory_xact_lock" in statement for statement, _ in statements)
+    assert any("NOT (chunk_id = ANY" in statement for statement, _ in statements)
+
+    statements.clear()
+    assert (
+        await source.ingest([KnowledgeDocument(doc_id="doc-1", source_ref="wiki/one", text="")])
+        == 0
+    )
+    assert any(
+        "DELETE FROM knowledge_chunk WHERE doc_id = %s" in statement for statement, _ in statements
+    )
 
 
 # ---------------------------------------------------------------------------

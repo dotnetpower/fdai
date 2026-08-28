@@ -694,24 +694,63 @@ def test_read_investigation_rejects_untyped_body_before_durable_acceptance() -> 
     assert dependencies.proposals == []
 
 
+def _azure_monitor_alert() -> dict[str, object]:
+    return {
+        "schemaId": "azureMonitorCommonAlertSchema",
+        "data": {
+            "essentials": {
+                "alertId": "alert-instance-1",
+                "alertRule": "example-cpu-alert",
+                "severity": "Sev2",
+                "signalType": "Metric",
+                "monitorCondition": "Fired",
+                "monitoringService": "Platform",
+                "alertTargetIDs": [
+                    "/subscriptions/00000000-0000-0000-0000-000000000001/"
+                    "resourceGroups/rg-example/providers/Example/widgets/a"
+                ],
+                "firedDateTime": "2020-01-01T00:00:00+00:00",
+            }
+        },
+    }
+
+
 def test_webhook_verifies_before_proposing_and_never_mutates_provider() -> None:
     dependencies = RecordingDependencies()
     client = _client(dependencies)
     denied = client.post(
         "/webhook/azure-monitor",
         headers={"Idempotency-Key": "alert-1"},
-        json={"data": "signal"},
+        json=_azure_monitor_alert(),
     )
     accepted = client.post(
         "/webhook/azure-monitor",
         headers={"Idempotency-Key": "alert-1", "X-Webhook-Signature": "valid"},
-        json={"data": "signal"},
+        json=_azure_monitor_alert(),
     )
 
     assert denied.status_code == 401
     assert accepted.status_code == 202
     assert len(dependencies.proposals) == 1
     assert dependencies.proposals[0].operation == "webhook.azure_monitor"
+    assert dependencies.proposals[0].correlation_id is not None
+    events = dependencies.proposals[0].payload["events"]
+    assert isinstance(events, list)
+    assert events[0]["event_type"] == "metric_alert_fired"
+    assert "alertTargetIDs" not in str(dependencies.proposals[0].payload)
+
+
+def test_azure_monitor_webhook_rejects_authenticated_malformed_body() -> None:
+    dependencies = RecordingDependencies()
+
+    response = _client(dependencies).post(
+        "/webhook/azure-monitor",
+        headers={"Idempotency-Key": "alert-1", "X-Webhook-Signature": "valid"},
+        json={"data": "signal"},
+    )
+
+    assert response.status_code == 400
+    assert dependencies.proposals == []
 
 
 def test_provision_stream_replays_from_durable_last_event_id_and_redacts() -> None:

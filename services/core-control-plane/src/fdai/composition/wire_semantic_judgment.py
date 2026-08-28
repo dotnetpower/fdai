@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 
 import httpx
 from fdai_service_contracts.ontology_query import content_digest
 from fdai_service_contracts.semantic_judgment import SemanticJudgmentTier
 
+from fdai.core.conversation.conversation_preflight import (
+    ConversationPreflightBinding,
+    ConversationPreflightBoundary,
+    SocialResponseNarratorBinding,
+)
 from fdai.core.conversation.semantic_judgment import (
     SemanticJudgmentBinding,
     SemanticJudgmentBoundary,
@@ -36,6 +41,8 @@ def build_azure_semantic_judgment_factory(
     endpoint: str | None,
     endpoint_resolver: Callable[[str], str] | None,
     system_prompt: str | None,
+    preflight_system_prompt: str | None = None,
+    social_narrator_system_prompts: Mapping[str, str] | None = None,
 ) -> SemanticJudgmentFactory | None:
     """Return a loop-bound T1/T2 factory or ``None`` when unavailable."""
 
@@ -67,6 +74,15 @@ def build_azure_semantic_judgment_factory(
         extra={"available_tiers": available_tiers},
     )
     prompt_digest = content_digest({"prompt": system_prompt})
+    preflight_prompt_digest = (
+        content_digest({"prompt": preflight_system_prompt})
+        if preflight_system_prompt is not None
+        else None
+    )
+    narrator_prompts = dict(social_narrator_system_prompts or {})
+    social_narrator_prompt_digest = (
+        content_digest({"prompts": narrator_prompts}) if narrator_prompts else None
+    )
     t1_config_digest = content_digest(
         {"targets": [_target_record(target) for target in t1_targets]}
     )
@@ -81,6 +97,8 @@ def build_azure_semantic_judgment_factory(
             config=AzureOpenAISemanticJudgmentModelConfig(
                 candidates=t1_targets,
                 system_prompt=system_prompt,
+                preflight_system_prompt=preflight_system_prompt,
+                social_narrator_system_prompts=narrator_prompts,
             ),
             owner_loop=owner_loop,
         )
@@ -114,6 +132,26 @@ def build_azure_semantic_judgment_factory(
                     prompt_digest=prompt_digest,
                 )
                 if escalation is not None
+                else None
+            ),
+            preflight=(
+                ConversationPreflightBoundary(
+                    binding=ConversationPreflightBinding(
+                        model=primary,
+                        model_config_digest=t1_config_digest,
+                        prompt_digest=preflight_prompt_digest,
+                    ),
+                    narrator=(
+                        SocialResponseNarratorBinding(
+                            model=primary,
+                            model_config_digest=t1_config_digest,
+                            prompt_digest=social_narrator_prompt_digest,
+                        )
+                        if social_narrator_prompt_digest is not None
+                        else None
+                    ),
+                )
+                if preflight_prompt_digest is not None
                 else None
             ),
         )

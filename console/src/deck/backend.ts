@@ -28,6 +28,7 @@ import {
   parseDelegation,
   parseEvidenceFreshnessContext,
   isSemanticDirectResponseSource,
+  parseModelUsage,
   parseRouter,
   parseResourceContext,
   semanticDirectResponseSource,
@@ -230,6 +231,7 @@ export async function askBackend(
   const usage = typeof payload === "object" && payload !== null
     ? (payload as Record<string, unknown>).usage
     : undefined;
+  const modelUsage = parseModelUsage(usage);
   const directResponse = isSemanticDirectResponseSource(explicitSource);
   const source = directResponse
     ? semanticDirectResponseSource(chosen, latencyMs, usage)
@@ -261,6 +263,8 @@ export async function askBackend(
     ...(resourceContext ? { resourceContext } : {}),
     ...(evidenceFreshnessContext ? { evidenceFreshnessContext } : {}),
     ...(modelTrace ? { modelTrace } : {}),
+    ...(latencyMs !== null && latencyMs >= 0 ? { modelLatencyMs: latencyMs } : {}),
+    ...(modelUsage ? { modelUsage } : {}),
     ...(turnTiming ? { turnTiming } : {}),
     ...(trajectoryDetail ? { trajectoryDetail } : {}),
     ...(intentGraph ? { intentGraph } : {}),

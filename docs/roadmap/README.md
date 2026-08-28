@@ -72,6 +72,8 @@ cap, narrow its owner set or split a multi-responsibility owner instead of addin
 | 7d | [mscp-operational-profile.md](architecture/mscp-operational-profile.md) | selective MSCP-derived effect, cycle, and runtime-integrity policies without a full conformance claim |
 | 7e | [service-graduation-and-ownership.md](architecture/service-graduation-and-ownership.md) | measured service-split gates, single-writer data ownership, contracts, identities, rollback, and boundary docstrings |
 | 7f | [service-decomposition-execution-plan.md](architecture/service-decomposition-execution-plan.md) | five-service target, dependency-ordered work packages, parallel lanes, progress, blockers, and evidence receipts |
+| 7g | [subscription-genesis-provisioning.md](deployment/subscription-genesis-provisioning.md) | resumable zero-to-ready Azure subscription provisioning, database and semantic bootstrap, model capacity, and initial inventory progress |
+| 7h | [subscription-genesis-assurance.md](deployment/subscription-genesis-assurance.md) | adversarial safety, completeness, recovery, cost, and operator-progress gates for subscription genesis |
 
 ### Rules, detection, and operations
 

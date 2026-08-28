@@ -24,6 +24,14 @@ from fdai_service_contracts.semantic_judgment import (
 )
 from pydantic import ValidationError
 
+from .conversation_preflight import (
+    ConversationPreflightBoundary,
+    ConversationPreflightResult,
+    SocialAct,
+    SocialResponseNarratorResult,
+)
+from .model_observation import ConversationModelObservation, ConversationModelResponse
+
 _MAX_UTTERANCE_CHARS = 32_000
 _MAX_CONTEXT_ITEMS = 8
 _MAX_CONTEXT_CHARS = 12_000
@@ -43,6 +51,12 @@ _SAFE_REJECTION_REASONS = frozenset(
         "semantic judgment ambiguity MUST match its unresolved meaning",
         "semantic judgment clarification MUST be one question",
         "semantic judgment confidence MUST be finite",
+        "semantic direct response answer MUST be one paragraph",
+        "semantic direct response answer MUST be trimmed",
+        "semantic direct response answer MUST remain unambiguous and advisory",
+        "semantic direct response intent MUST carry exactly one model-authored answer",
+        "semantic direct response locale does not match the request",
+        "semantic direct response profile digest does not match",
         "semantic judgment requested_facets MUST be unique",
         "semantic judgment secondary_intents MUST be unique",
         "semantic target source span exceeds the utterance",
@@ -61,27 +75,17 @@ class SemanticJudgmentModel(Protocol):
         utterance: str,
         context: tuple[str, ...],
         capabilities: tuple[dict[str, Any], ...],
+        locale: str,
+        direct_response_profile: Mapping[str, Any],
+        direct_response_profile_digest: str,
         profile_id: str,
         profile_version: str,
         schema_repair: tuple[dict[str, str], ...],
     ) -> Mapping[str, Any] | SemanticJudgmentModelResponse | None: ...
 
 
-@dataclass(frozen=True, slots=True)
-class SemanticJudgmentObservation:
-    """Measured provider metadata for one authority-free judgment attempt."""
-
-    model: str
-    usage: Mapping[str, int] | None
-    trace_call: Mapping[str, object]
-
-
-@dataclass(frozen=True, slots=True)
-class SemanticJudgmentModelResponse:
-    """One raw proposal paired with its already-issued provider observation."""
-
-    proposal: Mapping[str, Any]
-    observation: SemanticJudgmentObservation
+SemanticJudgmentObservation = ConversationModelObservation
+SemanticJudgmentModelResponse = ConversationModelResponse
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,6 +121,7 @@ class SemanticJudgmentBoundary:
         profile_version: str,
         primary: SemanticJudgmentBinding | None,
         escalation: SemanticJudgmentBinding | None = None,
+        preflight: ConversationPreflightBoundary | None = None,
         confidence_threshold: float = 0.75,
     ) -> None:
         if primary is not None and primary.tier is not SemanticJudgmentTier.T1:
@@ -128,7 +133,48 @@ class SemanticJudgmentBoundary:
         self.profile_id = profile_id
         self.profile_version = profile_version
         self._bindings = tuple(item for item in (primary, escalation) if item is not None)
+        self._preflight = preflight
         self._confidence_threshold = confidence_threshold
+
+    def preflight(
+        self,
+        *,
+        utterance: str,
+        context: Sequence[str],
+        locale: str,
+        direct_response_profile: Mapping[str, Any],
+    ) -> ConversationPreflightResult:
+        """Run the compact social/operational preflight when it is configured."""
+
+        if self._preflight is None:
+            return ConversationPreflightResult(proposal=None)
+        return self._preflight.classify(
+            utterance=utterance,
+            context=context,
+            locale=locale,
+            direct_response_profile=direct_response_profile,
+        )
+
+    def narrate_social(
+        self,
+        *,
+        utterance: str,
+        locale: str,
+        social_act: SocialAct,
+        continued: bool,
+        direct_response_profile: Mapping[str, Any],
+    ) -> SocialResponseNarratorResult:
+        """Use the separately bound social narrator after routing is validated."""
+
+        if self._preflight is None:
+            return SocialResponseNarratorResult(draft=None)
+        return self._preflight.narrate_social(
+            utterance=utterance,
+            locale=locale,
+            social_act=social_act,
+            continued=continued,
+            direct_response_profile=direct_response_profile,
+        )
 
     def judge(
         self,
@@ -138,18 +184,29 @@ class SemanticJudgmentBoundary:
         capabilities: Sequence[Mapping[str, Any]],
         allow_escalation: bool = True,
         bound_subject_types: Sequence[str] = (),
+        locale: str = "en",
+        direct_response_profile: Mapping[str, Any] | None = None,
     ) -> SemanticJudgmentResult:
         """Return one bounded judgment, optionally restricting evaluation to T1."""
 
         started = time.monotonic()
         bounded_context = _bounded_context(context)
         bounded_capabilities = _bounded_capabilities(capabilities)
+        response_locale = "ko" if locale.casefold().startswith("ko") else "en"
+        bounded_response_profile = _bounded_direct_response_profile(direct_response_profile)
+        response_profile_digest = content_digest(bounded_response_profile)
         bounded_subject_types = _bounded_subject_types(
             bound_subject_types,
             capabilities=bounded_capabilities,
         )
         input_digest = content_digest({"utterance": utterance})
-        context_digest = content_digest({"context": list(bounded_context)})
+        context_digest = content_digest(
+            {
+                "context": list(bounded_context),
+                "direct_response_profile": bounded_response_profile,
+                "locale": response_locale,
+            }
+        )
         capability_digest = content_digest({"capabilities": list(bounded_capabilities)})
         if not utterance.strip() or len(utterance) > _MAX_UTTERANCE_CHARS:
             return self._result(
@@ -183,6 +240,9 @@ class SemanticJudgmentBoundary:
                     utterance=utterance,
                     context=bounded_context,
                     capabilities=bounded_capabilities,
+                    locale=response_locale,
+                    direct_response_profile=bounded_response_profile,
+                    direct_response_profile_digest=response_profile_digest,
                     profile_id=self.profile_id,
                     profile_version=self.profile_version,
                     schema_repair=schema_repair,
@@ -206,6 +266,11 @@ class SemanticJudgmentBoundary:
                     proposal = _normalize_primary_intent_capability(
                         proposal,
                         capabilities=bounded_capabilities,
+                    )
+                    _validate_direct_response(
+                        proposal,
+                        locale=response_locale,
+                        profile_digest=response_profile_digest,
                     )
                     _validate_source_spans(proposal, utterance=utterance)
                 except (TypeError, ValueError, ValidationError) as exc:
@@ -378,6 +443,31 @@ def _bounded_capabilities(
     if len(canonical_json(list(selected)).encode()) > _MAX_CAPABILITY_BYTES:
         raise ValueError("semantic judgment capabilities exceed their byte bound")
     return selected
+
+
+def _bounded_direct_response_profile(
+    profile: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    selected = dict(profile or {})
+    encoded = canonical_json(selected).encode()
+    if len(encoded) > 16_384:
+        raise ValueError("semantic direct response profile exceeds its byte bound")
+    return selected
+
+
+def _validate_direct_response(
+    proposal: SemanticJudgmentProposal,
+    *,
+    locale: str,
+    profile_digest: str,
+) -> None:
+    draft = proposal.direct_response
+    if draft is None:
+        return
+    if draft.locale != locale:
+        raise ValueError("semantic direct response locale does not match the request")
+    if draft.profile_digest != profile_digest:
+        raise ValueError("semantic direct response profile digest does not match")
 
 
 def _bounded_subject_types(

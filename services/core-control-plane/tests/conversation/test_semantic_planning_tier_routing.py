@@ -9,6 +9,11 @@ from typing import Any
 
 import pytest
 from fdai.composition.semantic_query_model_targets import t1_model_targets, t2_model_targets
+from fdai.core.conversation.conversation_preflight import (
+    ConversationPreflightBinding,
+    ConversationPreflightBoundary,
+    SocialResponseNarratorBinding,
+)
 from fdai.core.conversation.semantic_activity_planning import normalize_activity_proposal
 from fdai.core.conversation.semantic_judgment import (
     SemanticJudgmentBinding,
@@ -68,7 +73,7 @@ from fdai.core.conversation.semantic_target_candidate_planning import (
     normalize_operating_relationship_temporal_scope,
     resource_target_candidates_apply_to_proposal,
 )
-from fdai.core.conversation.session import Principal, Role
+from fdai.core.conversation.session import Principal, Role, Turn
 from fdai.core.ontology_platform import (
     METRIC_ARGUMENT_SCHEMAS,
     ObjectPredicate,
@@ -207,12 +212,16 @@ class _GreetingJudgmentModel:
         primary_intent: str = "greeting",
         *,
         requested_facets: tuple[str, ...] = (),
+        answer: str = "A model-authored response for this exact turn.",
     ) -> None:
         self._primary_intent = primary_intent
         self._requested_facets = requested_facets
+        self._answer = answer
+        self.calls = 0
 
-    def judge(self, **_kwargs: Any) -> dict[str, object]:
-        return {
+    def judge(self, **kwargs: Any) -> dict[str, object]:
+        self.calls += 1
+        result: dict[str, object] = {
             "primary_intent": self._primary_intent,
             "targets": [],
             "requested_facets": self._requested_facets,
@@ -222,6 +231,100 @@ class _GreetingJudgmentModel:
             "action_subject": "none",
             "execution_authority": False,
         }
+        if self._primary_intent in {"greeting", "self_introduction"}:
+            answer = (
+                "안녕하세요. 무엇을 도와드릴까요?"
+                if kwargs["locale"] == "ko"
+                and self._answer == "A model-authored response for this exact turn."
+                else self._answer
+            )
+            result["direct_response"] = {
+                "locale": kwargs["locale"],
+                "answer": answer,
+                "profile_digest": kwargs["direct_response_profile_digest"],
+                "execution_authority": False,
+            }
+        return result
+
+
+class _PreflightModel:
+    def __init__(
+        self,
+        *,
+        social_act: str,
+        operational_signal: str,
+        context_dependency: str = "none",
+        answer: str | None = None,
+        continued_answer: str | None = None,
+        confidence: float = 0.97,
+    ) -> None:
+        self.social_act = social_act
+        self.operational_signal = operational_signal
+        self.context_dependency = context_dependency
+        self.answer = answer
+        self.continued_answer = continued_answer
+        self.confidence = confidence
+        self.calls = 0
+
+    def preflight(self, **_kwargs: Any) -> dict[str, object]:
+        self.calls += 1
+        return {
+            "social_act": self.social_act,
+            "operational_signal": self.operational_signal,
+            "context_dependency": self.context_dependency,
+            "confidence": self.confidence,
+            "execution_authority": False,
+        }
+
+    def narrate_social(self, **kwargs: Any) -> dict[str, object] | None:
+        if self.answer is None:
+            return None
+        return {
+            "locale": kwargs["locale"],
+            "answer": (
+                self.continued_answer
+                if kwargs["continued"] and self.continued_answer is not None
+                else self.answer
+            ),
+            "profile_digest": kwargs["direct_response_profile_digest"],
+            "execution_authority": False,
+        }
+
+
+class _UnavailablePreflightModel:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def preflight(self, **_kwargs: Any) -> None:
+        self.calls += 1
+        return None
+
+
+def _preflight_boundary(model: _PreflightModel) -> ConversationPreflightBoundary:
+    return ConversationPreflightBoundary(
+        binding=ConversationPreflightBinding(
+            model=model,
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+        narrator=SocialResponseNarratorBinding(
+            model=model,
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+
+
+def _unavailable_preflight_boundary(
+    model: _UnavailablePreflightModel,
+) -> ConversationPreflightBoundary:
+    return ConversationPreflightBoundary(
+        binding=ConversationPreflightBinding(
+            model=model,
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        )
+    )
 
 
 class _ObservedJudgmentModel(_GreetingJudgmentModel):
@@ -629,12 +732,18 @@ def _service(
     )
 
 
-def _run(service: SemanticPlanningService, *, utterance: str = "Show matching resources"):  # type: ignore[no-untyped-def]
+def _run(
+    service: SemanticPlanningService,
+    *,
+    utterance: str = "Show matching resources",
+    locale: str = "en",
+):  # type: ignore[no-untyped-def]
     return service.plan(
         utterance=utterance,
         prior_turns=(),
         principal=Principal(id="operator", role=Role.READER),
         purpose="operations-review",
+        locale=locale,
     )
 
 
@@ -651,7 +760,7 @@ def test_valid_t1_plan_never_invokes_t2() -> None:
 
 
 @pytest.mark.parametrize(
-    ("primary_intent", "requested_facets", "expected_intent"),
+    ("primary_intent", "requested_facets", "_expected_intent"),
     [
         ("greeting", (), SemanticDirectResponseIntent.GREETING),
         ("self_introduction", (), SemanticDirectResponseIntent.SELF_INTRODUCTION),
@@ -662,10 +771,10 @@ def test_valid_t1_plan_never_invokes_t2() -> None:
         ),
     ],
 )
-def test_model_selected_social_intent_bypasses_query_planning(
+def test_full_judgment_social_intent_requires_bound_social_narrator(
     primary_intent: str,
     requested_facets: tuple[str, ...],
-    expected_intent: SemanticDirectResponseIntent,
+    _expected_intent: SemanticDirectResponseIntent,
 ) -> None:
     manifest, definition = _fixture()
     manifests = _ManifestProvider(manifest)
@@ -695,13 +804,477 @@ def test_model_selected_social_intent_bypasses_query_planning(
 
     outcome = _run(service, utterance="The model interprets this complete turn")
 
-    assert outcome.disposition is SemanticPlanningDisposition.DIRECT_RESPONSE
-    assert outcome.direct_response_intent is expected_intent
-    assert outcome.manifest_digest == manifest.manifest_digest
+    assert outcome.disposition is SemanticPlanningDisposition.UNAVAILABLE
+    assert outcome.reason == "social_response_narrator_unavailable"
+    assert outcome.direct_response_intent is None
+    assert outcome.direct_response_answer is None
     assert outcome.plan is None
     assert manifests.calls == 1
     assert (t1.frame_calls, t1.plan_calls) == (0, 0)
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+def test_preflight_direct_social_bypasses_manifest_and_full_judgment() -> None:
+    manifest, definition = _fixture()
+    manifests = _ManifestProvider(manifest)
+    full_model = _GreetingJudgmentModel("greeting")
+    preflight_model = _PreflightModel(
+        social_act="greeting",
+        operational_signal="none",
+        answer="반가워요. 무엇을 함께 살펴볼까요?",
+    )
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=full_model,
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+        preflight=_preflight_boundary(preflight_model),
+    )
+    t1 = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=None,
+        semantic_judgment=judgment,
+        manifests=manifests,
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="안녕", locale="ko")
+
+    assert outcome.disposition is SemanticPlanningDisposition.DIRECT_RESPONSE
+    assert outcome.direct_response_answer == "반가워요. 무엇을 함께 살펴볼까요?"
+    assert outcome.social_act.value == "greeting"
+    assert manifests.calls == 0
+    assert full_model.calls == 0
+    assert (t1.frame_calls, t1.plan_calls) == (0, 0)
+
+
+def test_preflight_mixed_social_turn_continues_full_operational_planning() -> None:
+    manifest, definition = _fixture()
+    manifests = _ManifestProvider(manifest)
+    full_model = _GreetingJudgmentModel("greeting")
+    preflight_model = _PreflightModel(
+        social_act="greeting",
+        operational_signal="mixed",
+    )
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=full_model,
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+        preflight=_preflight_boundary(preflight_model),
+    )
+    t1 = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=None,
+        semantic_judgment=judgment,
+        manifests=manifests,
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="안녕, 현재 상태를 알려줘", locale="ko")
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.social_act.value == "greeting"
+    assert manifests.calls == 1
+    assert full_model.calls == 1
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+
+
+def test_preflight_context_independent_greeting_with_prior_turn_stays_direct() -> None:
+    manifest, definition = _fixture()
+    manifests = _ManifestProvider(manifest)
+    full_model = _GreetingJudgmentModel("status")
+    preflight_model = _PreflightModel(
+        social_act="greeting",
+        operational_signal="none",
+        context_dependency="social_continuity",
+        answer="안녕하세요. FDAI Console의 Bragi입니다.",
+        continued_answer=(
+            "다시 인사해 주셔서 반갑습니다. 이어서 살펴볼 운영 내용을 말씀해 주세요."
+        ),
+    )
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=full_model,
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+        preflight=_preflight_boundary(preflight_model),
+    )
+    t1 = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=None,
+        semantic_judgment=judgment,
+        manifests=manifests,
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = service.plan(
+        utterance="좋아",
+        prior_turns=(Turn(turn_id="prior", direction="outbound", content="Proceed?"),),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        locale="ko",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.DIRECT_RESPONSE
+    assert outcome.direct_response_answer == (
+        "다시 인사해 주셔서 반갑습니다. 이어서 살펴볼 운영 내용을 말씀해 주세요."
+    )
+    assert manifests.calls == 0
+    assert full_model.calls == 0
+
+
+@pytest.mark.parametrize(
+    ("social_act", "answer"),
+    [
+        ("thanks", "감사합니다. 이어서 필요하신 내용을 말씀해 주세요."),
+        ("farewell", "함께해 주셔서 감사합니다. 다음에 다시 뵙겠습니다."),
+    ],
+)
+def test_preflight_additional_social_act_stays_direct(
+    social_act: str,
+    answer: str,
+) -> None:
+    manifest, definition = _fixture()
+    manifests = _ManifestProvider(manifest)
+    full_model = _GreetingJudgmentModel("status")
+    preflight_model = _PreflightModel(
+        social_act=social_act,
+        operational_signal="none",
+        context_dependency="social_continuity",
+        answer=answer,
+    )
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=full_model,
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+        preflight=_preflight_boundary(preflight_model),
+    )
+    service = SemanticPlanningService(
+        model=_Model(frame=_frame(), plan=_plan(definition)),
+        escalation_model=None,
+        semantic_judgment=judgment,
+        manifests=manifests,
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = service.plan(
+        utterance="social turn",
+        prior_turns=(Turn(turn_id="prior", direction="outbound", content="Prior answer"),),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        locale="ko",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.DIRECT_RESPONSE
+    assert outcome.direct_response_intent is SemanticDirectResponseIntent.GREETING
+    assert outcome.direct_response_answer == answer
+    assert manifests.calls == 0
+    assert full_model.calls == 0
+
+
+def test_preflight_pending_decision_with_prior_turn_uses_full_planning() -> None:
+    manifest, definition = _fixture()
+    manifests = _ManifestProvider(manifest)
+    full_model = _GreetingJudgmentModel("status")
+    preflight_model = _PreflightModel(
+        social_act="acknowledgement",
+        operational_signal="contextual",
+        context_dependency="pending_decision",
+    )
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=full_model,
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+        preflight=_preflight_boundary(preflight_model),
+    )
+    t1 = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=None,
+        semantic_judgment=judgment,
+        manifests=manifests,
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = service.plan(
+        utterance="좋아",
+        prior_turns=(Turn(turn_id="prior", direction="outbound", content="Proceed?"),),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        locale="ko",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert manifests.calls == 1
+    assert full_model.calls == 1
+
+
+def test_preflight_acknowledgement_vetoes_contradictory_full_direct_response() -> None:
+    manifest, definition = _fixture()
+    manifests = _ManifestProvider(manifest)
+    full_model = _GreetingJudgmentModel("greeting")
+    preflight_model = _PreflightModel(
+        social_act="acknowledgement",
+        operational_signal="none",
+        context_dependency="none",
+    )
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=full_model,
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+        preflight=_preflight_boundary(preflight_model),
+    )
+    t1 = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=None,
+        semantic_judgment=judgment,
+        manifests=manifests,
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="좋아, 진행해 주세요", locale="ko")
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert manifests.calls == 1
+    assert full_model.calls == 1
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+
+
+def test_malformed_preflight_vetoes_contradictory_full_direct_response() -> None:
+    manifest, definition = _fixture()
+    manifests = _ManifestProvider(manifest)
+    full_model = _GreetingJudgmentModel("greeting")
+    malformed_preflight = _PreflightModel(
+        social_act="acknowledgement",
+        operational_signal="explicit",
+        context_dependency="pending_decision",
+    )
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=full_model,
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+        preflight=_preflight_boundary(malformed_preflight),
+    )
+    t1 = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=None,
+        semantic_judgment=judgment,
+        manifests=manifests,
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="좋아, 진행해 주세요", locale="ko")
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert manifests.calls == 1
+    assert full_model.calls == 1
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+
+
+def test_full_judgment_direct_response_without_narrator_holds_prior_thread() -> None:
+    manifest, definition = _fixture()
+    manifests = _ManifestProvider(manifest)
+    full_model = _GreetingJudgmentModel("greeting")
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=full_model,
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    t1 = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=None,
+        semantic_judgment=judgment,
+        manifests=manifests,
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = service.plan(
+        utterance="좋아",
+        prior_turns=(Turn(turn_id="prior", direction="outbound", content="Proceed?"),),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        locale="ko",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNAVAILABLE
+    assert outcome.reason == "social_response_narrator_unavailable"
+    assert full_model.calls == 1
+    assert (t1.frame_calls, t1.plan_calls) == (0, 0)
+
+
+@pytest.mark.parametrize(
+    "preflight_model",
+    [
+        _PreflightModel(
+            social_act="greeting",
+            operational_signal="none",
+            answer="Hello.",
+            confidence=0.89,
+        ),
+    ],
+)
+def test_preflight_noneligible_candidate_uses_full_planning(
+    preflight_model: _PreflightModel,
+) -> None:
+    manifest, definition = _fixture()
+    manifests = _ManifestProvider(manifest)
+    full_model = _GreetingJudgmentModel("status")
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=full_model,
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+        preflight=_preflight_boundary(preflight_model),
+    )
+    t1 = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=None,
+        semantic_judgment=judgment,
+        manifests=manifests,
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert manifests.calls == 1
+    assert full_model.calls == 1
+    assert preflight_model.calls == 1
+
+
+def test_low_confidence_social_preflight_never_uses_full_judgment_prose() -> None:
+    manifest, definition = _fixture()
+    manifests = _ManifestProvider(manifest)
+    full_model = _GreetingJudgmentModel(
+        "greeting",
+        answer="The full semantic judgment authored this response.",
+    )
+    preflight_model = _PreflightModel(
+        social_act="greeting",
+        operational_signal="none",
+        answer="Low-confidence draft.",
+        confidence=0.89,
+    )
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=full_model,
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+        preflight=_preflight_boundary(preflight_model),
+    )
+    service = SemanticPlanningService(
+        model=_Model(frame=_frame(), plan=_plan(definition)),
+        escalation_model=None,
+        semantic_judgment=judgment,
+        manifests=manifests,
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="Hello")
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNAVAILABLE
+    assert outcome.reason == "social_response_narrator_unavailable"
+    assert manifests.calls == 1
+    assert full_model.calls == 1
+
+
+def test_unavailable_preflight_never_uses_full_judgment_prose() -> None:
+    manifest, definition = _fixture()
+    manifests = _ManifestProvider(manifest)
+    full_model = _GreetingJudgmentModel(
+        "greeting",
+        answer="The full semantic judgment authored this response.",
+    )
+    preflight_model = _UnavailablePreflightModel()
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=full_model,
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+        preflight=_unavailable_preflight_boundary(preflight_model),
+    )
+    service = SemanticPlanningService(
+        model=_Model(frame=_frame(), plan=_plan(definition)),
+        escalation_model=None,
+        semantic_judgment=judgment,
+        manifests=manifests,
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="Hello")
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNAVAILABLE
+    assert outcome.reason == "social_response_narrator_unavailable"
+    assert preflight_model.calls == 1
+    assert full_model.calls == 1
 
 
 @pytest.mark.parametrize(

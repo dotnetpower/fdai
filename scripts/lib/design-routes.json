@@ -1918,6 +1918,42 @@
       ]
     },
     {
+      "id": "subscription-genesis-provisioning",
+      "paths": [
+        "infra/bootstrap/**",
+        "scripts/deployment/azure/genesis-up.sh",
+        "scripts/deployment/azure/bootstrap-service-migrations.sh",
+        "services/core-control-plane/src/fdai/delivery/inventory_sync*.py",
+        "services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver*.py",
+        "docs/roadmap/deployment/subscription-genesis-*.md",
+        "docs/roadmap-implementation/deployment/subscription-genesis-*.md"
+      ],
+      "must_read": [
+        ".github/instructions/app-shape.instructions.md",
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        "docs/roadmap/deployment/subscription-genesis-provisioning.md",
+        "docs/roadmap/deployment/subscription-genesis-assurance.md",
+        "docs/roadmap/deployment/deploy-and-onboard.md",
+        "docs/roadmap/deployment/installable-deployment-cli.md",
+        "docs/roadmap/deployment/provisioning-execution-profiles.md",
+        "docs/roadmap/architecture/security-and-identity.md",
+        "docs/roadmap/architecture/llm-strategy.md",
+        "docs/roadmap/architecture/continuous-operational-instance-graph.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/deployment/subscription-genesis-provisioning.md",
+        "docs/roadmap/deployment/subscription-genesis-assurance.md",
+        "docs/roadmap/deployment/deploy-and-onboard.md",
+        "docs/roadmap/deployment/installable-deployment-cli.md",
+        "docs/roadmap/deployment/provisioning-execution-profiles.md"
+      ],
+      "validate": [
+        "python3 scripts/quality/architecture/check-design-routes.py",
+        "python3 scripts/quality/architecture/check-roadmap-implementation-tracking.py"
+      ]
+    },
+    {
       "id": "deployment-cli",
       "paths": [
         "scripts/deployment/release/**",

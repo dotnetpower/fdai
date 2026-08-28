@@ -558,6 +558,25 @@ export function useCommandDeckSubmit({
         cancelAnimationFrame(paintFrame);
         paintFrame = null;
       }
+      if (receivedToken && paintQueue.length > 0 && isCurrent()) {
+        ensureTurn();
+        while (paintQueue.length > 0 && isCurrent()) {
+          await waitForVisualRevealFrame();
+          visibleAcc += shouldFlushStreamPaintSynchronously(
+            document.visibilityState,
+            document.hasFocus(),
+          )
+            ? flushStreamPaint(paintQueue)
+            : drainStreamPaint(paintQueue);
+          setTurns((current) => {
+            const next = current.map((turn) => turn.id === deckId
+              ? { ...turn, text: visibleAcc }
+              : turn);
+            turnsRef.current = next;
+            return next;
+          });
+        }
+      }
       paintQueue.length = 0;
       ensureTurn();
       if (!receivedToken && reply.text.length > 0 && isCurrent()) {
@@ -636,6 +655,10 @@ export function useCommandDeckSubmit({
                     : {}),
                   ...(reply.actionDraft ? { actionDraft: reply.actionDraft } : {}),
                   ...(reply.modelTrace ? { modelTrace: reply.modelTrace } : {}),
+                  ...(reply.modelLatencyMs !== undefined
+                    ? { modelLatencyMs: reply.modelLatencyMs }
+                    : {}),
+                  ...(reply.modelUsage ? { modelUsage: reply.modelUsage } : {}),
                   ...(reply.turnTiming ? { turnTiming: reply.turnTiming } : {}),
                   ...(reply.trajectoryDetail ? { trajectoryDetail: reply.trajectoryDetail } : {}),
                   ...(reply.resourceContext ? { resourceContext: reply.resourceContext } : {}),

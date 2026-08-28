@@ -1,8 +1,8 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 9f4dda7711986339fce6a1e4a6ce8a3232a99cab
-translation_revised: 2026-08-14
+translation_source_sha: 9c648f2be23cbf637e48b3d5f542f88e74674c00
+translation_revised: 2026-08-29
 ---
 # 프로비저닝 실행 프로파일
 
@@ -62,7 +62,7 @@ fdaictl provision inspect --output json
 
 점검은 로컬 Azure CLI, Terraform, GitHub CLI, 제한된 online 산출물 접근,
 offline-kit 후보, Azure 워크로드 신원 엔드포인트를 검사합니다. `mutation_performed=false`,
-필수 사람 승인자 한 명, 선택된 프로파일이 포함된 안정적인 JSON 계약을 반환합니다. 도구를
+필수 승인 정책과 정족수, 선택된 프로파일이 포함된 안정적인 JSON 계약을 반환합니다. 도구를
 설치하거나 구성을 기록하거나 리소스를 생성하거나 실행기를 등록하거나 Terraform을
 적용하지 않습니다.
 

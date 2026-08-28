@@ -80,6 +80,8 @@ export interface Turn {
   readonly presentationArtifact?: import("./backend-types").PresentationArtifact;
   readonly actionDraft?: ActionDraft;
   readonly modelTrace?: ModelTrace;
+  readonly modelLatencyMs?: number;
+  readonly modelUsage?: import("./backend-types").ModelUsage;
   readonly turnTiming?: TurnTiming;
   readonly trajectoryDetail?: TrajectoryDetail;
   readonly resourceContext?: ResourceContext;
@@ -627,7 +629,7 @@ export function TurnBubble({
             {replyAgentLabel(turn.agent ?? DEFAULT_NARRATOR, turn.delegation)}
           </span>
           {isInvestigationFlow && !isInvestigationFinalAnswer ? (
-            <span class="deck-turn-source cs-deck-agent-source">{t("deck.investigation.title")}</span>
+            <span class="deck-turn-source cs-deck-agent-source">{t("deck.investigation.workLabel")}</span>
           ) : showReplySource ? (
             <Tooltip content={routerTooltip(turn.router) ?? t("deck.tooltip.replySource")}>
               <span class="deck-turn-source cs-deck-agent-source">{turn.source}</span>
@@ -642,6 +644,18 @@ export function TurnBubble({
           running={turn.streaming === true}
           showStartNote={investigationFlowStart}
           answerSettled={investigationAnswerSettled}
+          {...(trajectory?.durationMs !== undefined
+            ? { turnDurationMs: trajectory.durationMs }
+            : {})}
+          {...(trajectory?.answer.modelLatencyMs !== undefined
+            ? { modelLatencyMs: trajectory.answer.modelLatencyMs }
+            : {})}
+          {...(trajectory?.answer.modelUsage
+            ? { modelUsage: trajectory.answer.modelUsage }
+            : {})}
+          {...(trajectory?.answer.turnTiming
+            ? { turnTiming: trajectory.answer.turnTiming }
+            : {})}
         />
       ) : isProgressMessage ? (
         <div class="deck-progress-note" role="status">
@@ -703,7 +717,7 @@ export function TurnBubble({
           ))}
         </ul>
       ) : null}
-      {trajectory && !turn.streaming ? (
+      {trajectory && !turn.streaming && !isActivity && !isProgressMessage ? (
         <ConversationTrajectoryView
           trajectory={trajectory}
           showModelTrace={showModelTrace}

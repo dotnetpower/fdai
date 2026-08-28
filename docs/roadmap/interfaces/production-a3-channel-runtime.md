@@ -23,8 +23,9 @@ The edge accepts only provider-authenticated requests, replaces vendor identity 
 FDAI principal, and claims the provider message in the Operator-owned inbound ledger. It submits a
 typed semantic request through `SemanticTurnBridge.append()`, waits for the principal-scoped
 terminal projection through `SemanticTurnBridge.open()`, and compiles one presentation artifact.
-A `direct_response` projection compiles canonical text without evidence, verification, or artifact
-claims, so Slack and Teams preserve the same authority-free greeting as the Console.
+A `direct_response` projection compiles validated model-authored text without evidence,
+verification, or artifact claims, so Slack and Teams preserve the same authority-free response as
+the Console instead of substituting a channel template.
 Operator-owned durable delivery persists that artifact before a pure provider publisher sends it.
 Startup resolves every required dependency and reconciles uncertain sends before Starlette accepts
 traffic.

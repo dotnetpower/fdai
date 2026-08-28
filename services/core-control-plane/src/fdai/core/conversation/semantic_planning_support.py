@@ -21,6 +21,7 @@ from fdai_service_contracts.ontology_query import (
 
 from fdai.core.ontology_platform import QueryManifest
 
+from .conversation_preflight import SocialAct
 from .semantic_investigation import VerifiedInvestigationIntent
 from .semantic_investigation_planning import InvestigationTimeWindows
 from .semantic_judgment import SemanticJudgmentObservation
@@ -331,6 +332,8 @@ def _outcome(
     investigation_intent: VerifiedInvestigationIntent | None = None,
     clarification: str | None = None,
     direct_response_intent: SemanticDirectResponseIntent | None = None,
+    direct_response_answer: str | None = None,
+    social_act: SocialAct = SocialAct.NONE,
     model_observations: tuple[SemanticJudgmentObservation, ...] = (),
 ) -> SemanticPlanningOutcome:
     return SemanticPlanningOutcome(
@@ -343,6 +346,8 @@ def _outcome(
         investigation_intent=investigation_intent,
         clarification=clarification,
         direct_response_intent=direct_response_intent,
+        direct_response_answer=direct_response_answer,
+        social_act=social_act,
         model_observations=model_observations,
     )
 

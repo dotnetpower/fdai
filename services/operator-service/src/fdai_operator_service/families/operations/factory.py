@@ -7,6 +7,7 @@ import json
 import re
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Final, cast
 
 from fdai_operator_service.auth import (
@@ -35,6 +36,10 @@ from fdai_operator_service.families.operations.manifest import (
 )
 from fdai_operator_service.redaction import redact_projection
 from fdai_service_contracts import OperatorPrincipal, OperatorRole
+from fdai_service_contracts.azure_monitor import (
+    AzureMonitorNormalizationError,
+    normalize_common_alert_schema,
+)
 from fdai_service_contracts.read_investigation import (
     ReadInvestigationProposalBody,
     read_investigation_task_id,
@@ -312,6 +317,17 @@ async def _webhook(
     correlation_id = request.headers.get("x-correlation-id")
     if correlation_id is not None and len(correlation_id) > 256:
         return _error(400, "X-Correlation-ID MUST be at most 256 characters")
+    if entry.operation == "webhook.azure_monitor":
+        try:
+            events = normalize_common_alert_schema(payload, ingested_at=datetime.now(UTC))
+        except AzureMonitorNormalizationError:
+            return _error(400, "invalid Azure Monitor Common Alert Schema body")
+        payload = {
+            "schema_version": "1.0.0",
+            "events": [event.model_dump(mode="json") for event in events],
+        }
+        if correlation_id is None:
+            correlation_id = events[0].correlation_id
     try:
         receipt = await writer.propose(
             EventProposal(

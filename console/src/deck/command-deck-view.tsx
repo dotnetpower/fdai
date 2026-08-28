@@ -28,7 +28,7 @@ import {
 import type { DeckSlashCommand } from "./command-deck-slash";
 import type { ConversationSummary } from "./conversation-sessions";
 import type { ConversationHydrationState } from "./use-command-deck-sessions";
-import { conversationTrajectoriesByAnswer } from "./conversation-trajectory";
+import { conversationTrajectoriesByTurn } from "./conversation-trajectory";
 import {
   clampConversationWidth,
   initialConversationWidth,
@@ -158,7 +158,7 @@ export function CommandDeckView({
   onInputKeyDown,
   onStopStream,
 }: CommandDeckViewProps) {
-  const trajectories = conversationTrajectoriesByAnswer(turns);
+  const trajectories = conversationTrajectoriesByTurn(turns);
   const [showModelTrace, setShowModelTrace] = useState(
     () => readConsolePreferences().showModelTrace,
   );
@@ -205,7 +205,7 @@ export function CommandDeckView({
     -1,
   );
   const conversationCount = conversationCountLabel(conversations.length, conversationHasMore);
-  const showTranscriptTools = !stuck && turns.length > 0;
+  const showJumpToLatest = !stuck && turns.length > 0;
   const startConversationResize = (event: MouseEvent) => {
     if (layoutMode !== "workspace" || event.button !== 0) return;
     event.preventDefault();
@@ -347,9 +347,9 @@ export function CommandDeckView({
                 />
               </>
             ) : null}
-            <div class={`deck-transcript-column cs-deck-transcript-column${showTranscriptTools ? " has-tools" : ""}`}>
-              {showTranscriptTools ? (
-                <div class="deck-transcript-tools cs-deck-workspace-toolbar" role="toolbar" aria-label={t("deck.workspaceTools")}>
+            <div class="deck-transcript-column cs-deck-transcript-column">
+              {showJumpToLatest ? (
+                <div class="deck-jump-slot">
                   <button
                     type="button"
                     class="deck-jump"

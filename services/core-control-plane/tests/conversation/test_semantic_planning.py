@@ -14,6 +14,7 @@ from fdai.core.conversation.semantic_manifest import CatalogQueryManifestProvide
 from fdai.core.conversation.semantic_planning import SemanticPlanningService, _plan_node_summary
 from fdai.core.conversation.semantic_planning_models import (
     SemanticFrameProposal,
+    SemanticOutputShape,
     SemanticPlanningDisposition,
 )
 from fdai.core.conversation.semantic_runtime import SemanticConversationRuntime
@@ -288,6 +289,32 @@ def test_unresolved_meaning_returns_one_clarification_without_plan() -> None:
     assert outcome.clarification == "Do you mean HTTP requests or support requests?"
     assert outcome.plan is None
     assert model.plan_calls == 0
+
+
+def test_resource_list_clears_a_contradictory_resource_identity_clarification() -> None:
+    manifest, definition = _fixture()
+    model = _Model(
+        frame=_frame(
+            temporal_scope={"kind": "historical"},
+            unresolved_terms=["resource_identity"],
+            clarification_requirements=["resource_identity"],
+            clarification="Please clarify these unresolved concepts: resource_identity?",
+        ),
+        plan=_plan(definition),
+    )
+
+    outcome = _service(model, manifest).plan(
+        utterance="이 구독의 리소스를 모두 보여줘",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == SemanticOutputShape.RESOURCE_LIST
+    assert outcome.frame.unresolved_terms == ()
+    assert outcome.plan is not None
 
 
 @pytest.mark.parametrize(

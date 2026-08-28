@@ -93,3 +93,65 @@ async def test_search_respects_k_and_zero_k() -> None:
     )
     assert len(await src.search("disk", k=3)) == 3
     assert await src.search("disk", k=0) == ()
+
+
+@pytest.mark.asyncio
+async def test_reingest_replaces_obsolete_chunks_and_empty_document_deletes() -> None:
+    src = EmbeddingKnowledgeSource(embedder=_KeywordEmbedder(), max_chars=12, overlap=0)
+    original = KnowledgeDocument(
+        doc_id="d1",
+        source_ref="wiki/runbook",
+        text="disk full. cpu throttle.",
+    )
+    replacement = KnowledgeDocument(
+        doc_id="d1",
+        source_ref="wiki/runbook-v2",
+        text="network latency",
+        metadata={"revision": "2"},
+    )
+
+    assert await src.ingest([original]) > 1
+    assert await src.ingest([replacement]) > 0
+    results = await src.search("disk full", k=10)
+    assert {chunk.source_ref for chunk in results} == {"wiki/runbook-v2"}
+    assert {chunk.metadata.get("revision") for chunk in results} == {"2"}
+
+    assert (
+        await src.ingest([KnowledgeDocument(doc_id="d1", source_ref="wiki/runbook-v2", text="")])
+        == 0
+    )
+    assert await src.search("network", k=10) == ()
+
+
+@pytest.mark.asyncio
+async def test_ingest_rejects_duplicate_document_ids_in_one_batch() -> None:
+    src = EmbeddingKnowledgeSource(embedder=_KeywordEmbedder())
+
+    with pytest.raises(ValueError, match="unique"):
+        await src.ingest(
+            [
+                KnowledgeDocument(doc_id="d1", source_ref="one", text="disk"),
+                KnowledgeDocument(doc_id="d1", source_ref="two", text="network"),
+            ]
+        )
+
+
+@pytest.mark.asyncio
+async def test_failed_replacement_preserves_the_previous_document() -> None:
+    class FailingEmbedder:
+        async def embed(self, text: str) -> list[float]:
+            if "fail" in text:
+                raise RuntimeError("embedding unavailable")
+            return [1.0, 0.0]
+
+    src = EmbeddingKnowledgeSource(embedder=FailingEmbedder())
+    await src.ingest([KnowledgeDocument(doc_id="d1", source_ref="wiki/v1", text="stable runbook")])
+
+    with pytest.raises(RuntimeError, match="embedding unavailable"):
+        await src.ingest(
+            [KnowledgeDocument(doc_id="d1", source_ref="wiki/v2", text="fail replacement")]
+        )
+
+    results = await src.search("stable", k=5)
+    assert len(results) == 1
+    assert results[0].source_ref == "wiki/v1"

@@ -20,6 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from fdai.core.ontology_platform import QueryManifest
 
+from .conversation_preflight import SocialAct
 from .semantic_investigation import (
     InvestigationIntentProposal,
     VerifiedInvestigationIntent,
@@ -279,6 +280,8 @@ class SemanticPlanningOutcome:
     investigation_intent: VerifiedInvestigationIntent | None = None
     clarification: str | None = None
     direct_response_intent: SemanticDirectResponseIntent | None = None
+    direct_response_answer: str | None = None
+    social_act: SocialAct = SocialAct.NONE
     model_observations: tuple[SemanticJudgmentObservation, ...] = ()
     execution_authority: Literal[False] = False
 
@@ -297,8 +300,14 @@ class SemanticPlanningOutcome:
         if clarification != (self.clarification is not None):
             raise ValueError("clarification disposition requires exactly one question")
         direct_response = self.disposition is SemanticPlanningDisposition.DIRECT_RESPONSE
-        if direct_response != (self.direct_response_intent is not None):
-            raise ValueError("direct response disposition requires exactly one answer intent")
+        if direct_response != (
+            self.direct_response_intent is not None and self.direct_response_answer is not None
+        ):
+            raise ValueError(
+                "direct response disposition requires exactly one model-authored answer"
+            )
+        if not direct_response and self.direct_response_answer is not None:
+            raise ValueError("non-direct semantic outcome MUST NOT carry a direct response answer")
 
 
 __all__ = [

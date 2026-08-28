@@ -30,6 +30,7 @@ embedding-backed store (in-memory here; a pgvector adapter under
 
 from __future__ import annotations
 
+import asyncio
 import math
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -80,10 +81,14 @@ class Embedder(Protocol):
 
 @runtime_checkable
 class KnowledgeSource(Protocol):
-    """Ingest documents and retrieve grounding chunks by semantic search."""
+    """Replace documents and retrieve grounding chunks by semantic search."""
 
     async def ingest(self, documents: Sequence[KnowledgeDocument]) -> int:
-        """Index ``documents``; return the number of chunks added."""
+        """Replace each supplied doc id and return its new chunk count.
+
+        Re-ingestion is a complete replacement, so obsolete chunks are removed.
+        Supplying an empty document deletes every indexed chunk for that doc id.
+        """
         ...
 
     async def search(self, query: str, *, k: int = 5) -> Sequence[KnowledgeChunk]:
@@ -184,10 +189,19 @@ class EmbeddingKnowledgeSource:
         self._overlap = overlap
         # (chunk, vector) pairs.
         self._index: list[tuple[KnowledgeChunk, tuple[float, ...]]] = []
+        self._ingest_lock = asyncio.Lock()
 
     async def ingest(self, documents: Sequence[KnowledgeDocument]) -> int:
+        doc_ids = [document.doc_id for document in documents]
+        if len(doc_ids) != len(set(doc_ids)):
+            raise ValueError("knowledge ingest document ids MUST be unique")
+        replacements: dict[
+            str,
+            list[tuple[KnowledgeChunk, tuple[float, ...]]],
+        ] = {}
         added = 0
         for doc in documents:
+            replacement: list[tuple[KnowledgeChunk, tuple[float, ...]]] = []
             pieces = chunk_text(doc.text, max_chars=self._max_chars, overlap=self._overlap)
             for i, piece in enumerate(pieces):
                 vector = tuple(await self._embedder.embed(piece))
@@ -198,8 +212,17 @@ class EmbeddingKnowledgeSource:
                     source_ref=doc.source_ref,
                     metadata=doc.metadata,
                 )
-                self._index.append((chunk, vector))
+                replacement.append((chunk, vector))
                 added += 1
+            replacements[doc.doc_id] = replacement
+        async with self._ingest_lock:
+            replaced_ids = frozenset(replacements)
+            retained = [
+                (chunk, vector) for chunk, vector in self._index if chunk.doc_id not in replaced_ids
+            ]
+            self._index = retained + [
+                indexed for doc_id in doc_ids for indexed in replacements[doc_id]
+            ]
         return added
 
     async def search(self, query: str, *, k: int = 5) -> Sequence[KnowledgeChunk]:

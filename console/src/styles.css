@@ -6870,6 +6870,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-body.has-digest { grid-template-columns: minmax(0, 1fr) 280px; }
 .deck-body.has-conversations.has-digest { grid-template-columns: 210px minmax(0, 1fr) 280px; }
 .deck-transcript-column {
+  position: relative;
   min-width: 0;
   min-height: 0;
   display: grid;
@@ -6877,7 +6878,6 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   container-name: deck-transcript;
   container-type: inline-size;
 }
-.deck-transcript-column.has-tools { grid-template-rows: auto minmax(0, 1fr); }
 .deck-transcript-tools { min-height: 44px; display: flex; align-items: center; gap: 6px; padding: 6px 20px; border-bottom: 1px solid var(--border); background: var(--bg-elevated); }
 .deck-overlay-mode-workspace .deck-transcript-tools {
   width: min(100%, 900px);
@@ -7805,15 +7805,30 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-resume-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: min(100%, 780px); box-sizing: border-box; padding: 6px 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--fg-muted); font-size: 12px; }
 .deck-resume-banner button { min-height: 32px; padding: 3px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-elevated); color: var(--fg); font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; }
-.deck-jump {
-  margin-left: auto;
-  border-color: var(--border) !important;
-  background: var(--bg) !important;
-  color: var(--fg) !important;
-  font-weight: 650 !important;
-  white-space: nowrap;
+.deck-jump-slot {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  z-index: 3;
+  transform: translateX(-50%);
+  pointer-events: none;
 }
-.deck-jump:hover { border-color: var(--fg-muted); }
+.deck-jump {
+  min-height: 36px;
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  color: var(--fg);
+  box-shadow: 0 8px 24px color-mix(in oklab, var(--fg) 12%, transparent);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+  pointer-events: auto;
+}
+.deck-jump:hover { border-color: var(--accent); }
 .deck-jump:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .deck-digest {
   border-left: 1px solid var(--border);
@@ -8008,7 +8023,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-overlay-mode-workspace .deck-intro-card-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(230px, 1.35fr);
-  grid-template-rows: repeat(2, 132px);
+  grid-template-rows: repeat(2, minmax(132px, auto));
   width: min(100%, 760px);
   gap: 14px;
   margin-top: 24px;
@@ -8529,9 +8544,14 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-investigation-session-copy > strong { font-size: 12.5px; font-weight: 700; }
 .deck-investigation-session-copy > small,
-.deck-investigation-session-summary { font-size: 11px; }
+.deck-investigation-session-summary { font-size: 12px; }
 .deck-investigation-session-copy > small { color: var(--fg-muted); white-space: nowrap; }
-.deck-investigation-session-summary { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deck-investigation-session-summary {
+  min-width: 12rem;
+  flex: 1 1 auto;
+  line-height: 1.4;
+  white-space: normal;
+}
 .deck-investigation-head > span {
   font-size: 11px;
 }

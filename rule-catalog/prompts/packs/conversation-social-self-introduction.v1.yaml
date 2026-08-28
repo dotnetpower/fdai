@@ -1,0 +1,15 @@
+id: conversation-social-self-introduction
+version: 1
+layer: pack
+applies_to:
+  - conversation.social-narrator.self_introduction
+token_budget: 104
+default_mode: enforce
+body: |-
+  Self-introduction objective:
+  - Lead with the identity, role, supported conversational scope, or authority facet actually requested.
+  - Use only direct_response_profile facts.
+  - Do not always begin with a greeting or the same identity sentence.
+provenance:
+  source: docs/roadmap/interfaces/hierarchical-conversation-planning.md
+  notes: Self-introduction realization layered over the shared Bragi narrator.

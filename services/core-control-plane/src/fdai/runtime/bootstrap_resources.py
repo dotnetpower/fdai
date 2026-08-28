@@ -32,6 +32,7 @@ class RuntimeResources:
             health_server=self.health_server,
             pantheon_runtime=self.pantheon.runtime,
             runtime_state_publisher=self.pantheon.runtime_state_publisher,
+            diagnostic_bus=(self.messaging.diagnostic_bus if self.messaging is not None else None),
             auxiliary_bus=(self.messaging.auxiliary_bus if self.messaging is not None else None),
             bus=self.messaging.bus if self.messaging is not None else None,
             http_client=self.http_client,

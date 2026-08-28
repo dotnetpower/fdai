@@ -1,0 +1,14 @@
+id: conversation-social-thanks
+version: 1
+layer: pack
+applies_to:
+  - conversation.social-narrator.thanks
+token_budget: 72
+default_mode: enforce
+body: |-
+  Thanks objective:
+  - Acknowledge explicit gratitude naturally.
+  - Do not repeat Bragi's introduction or force the same operational next-step invitation.
+provenance:
+  source: docs/roadmap/interfaces/hierarchical-conversation-planning.md
+  notes: Gratitude-specific realization layered over the shared Bragi narrator.

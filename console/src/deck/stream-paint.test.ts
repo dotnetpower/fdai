@@ -92,4 +92,20 @@ describe("stream paint batching", () => {
     expect(submitSource).toContain("await waitForVisualRevealFrame()");
     expect(submitSource).toContain("flushStreamPaint(terminalQueue)");
   });
+
+  it("drains received server tokens before replacing the turn with terminal content", () => {
+    const receivedIndex = submitSource.indexOf(
+      "if (receivedToken && paintQueue.length > 0 && isCurrent())",
+    );
+    const ensureIndex = submitSource.indexOf("ensureTurn();", receivedIndex);
+    const drainIndex = submitSource.indexOf("while (paintQueue.length > 0", receivedIndex);
+    const clearIndex = submitSource.indexOf("paintQueue.length = 0;", receivedIndex);
+    const terminalIndex = submitSource.indexOf("ensureTurn();", clearIndex);
+
+    expect(receivedIndex).toBeGreaterThan(0);
+    expect(ensureIndex).toBeGreaterThan(receivedIndex);
+    expect(drainIndex).toBeGreaterThan(ensureIndex);
+    expect(clearIndex).toBeGreaterThan(drainIndex);
+    expect(terminalIndex).toBeGreaterThan(clearIndex);
+  });
 });

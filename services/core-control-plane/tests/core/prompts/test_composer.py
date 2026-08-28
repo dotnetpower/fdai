@@ -13,6 +13,10 @@ from pathlib import Path
 from textwrap import dedent
 
 import pytest
+from fdai.core.conversation.conversation_preflight import (
+    DIRECT_SOCIAL_ACTS,
+    SOCIAL_NARRATOR_CAPABILITY_IDS,
+)
 from fdai.core.prompts import (
     ComposedPrompt,
     DefaultPromptComposer,
@@ -242,6 +246,89 @@ async def test_compose_against_shipped_catalog_matches_base_body() -> None:
 
     assert out.system_text == base_body
     assert len(out.layer_manifest) == 1
+
+
+@pytest.mark.asyncio
+async def test_semantic_judgment_uses_model_authored_direct_response_prompt() -> None:
+    repo_root = Path(__file__).resolve().parents[5]
+    registry = FileSystemPromptRegistry(repo_root / "rule-catalog")
+    composer = DefaultPromptComposer(registry=registry)
+
+    base = registry.get_base("semantic.judgment")
+    out = await composer.compose(capability_id="semantic.judgment")
+
+    assert base.version == 5
+    assert out.system_text == base.body
+    assert "author a fresh, concise direct_response.answer" in out.system_text
+    assert "Do not reuse canned wording" in out.system_text
+
+
+@pytest.mark.asyncio
+async def test_conversation_preflight_prompt_stays_compact_and_authority_free() -> None:
+    repo_root = Path(__file__).resolve().parents[5]
+    registry = FileSystemPromptRegistry(repo_root / "rule-catalog")
+    composer = DefaultPromptComposer(registry=registry)
+
+    base = registry.get_base("conversation.preflight")
+    out = await composer.compose(capability_id="conversation.preflight")
+
+    assert base.version == 1
+    assert out.system_text == base.body
+    assert out.token_estimate <= 576
+    assert "no approval or execution authority" in out.system_text
+    assert "This stage classifies only" in out.system_text
+    assert "context_dependency to social_continuity" in out.system_text
+    assert "thanks only for explicit gratitude" in out.system_text
+    assert "Acknowledgement is never direct" in out.system_text
+    assert "Bragi's identity, role, conversational support" in out.system_text
+    assert "Informal, colloquial, or imperative wording" in out.system_text
+    assert "even when Bragi is unnamed" in out.system_text
+    assert "When schema_repair is nonempty" in out.system_text
+
+
+@pytest.mark.asyncio
+async def test_social_narrator_prompt_owns_persona_without_operational_context() -> None:
+    repo_root = Path(__file__).resolve().parents[5]
+    registry = FileSystemPromptRegistry(repo_root / "rule-catalog")
+    composer = DefaultPromptComposer(registry=registry)
+
+    base = registry.get_base("conversation.social-narrator")
+    out = await composer.compose(capability_id="conversation.social-narrator")
+
+    assert base.version == 1
+    assert out.system_text == base.body
+    assert out.token_estimate <= 352
+    assert "calm, precise, respectful, evidence-first" in out.system_text
+    assert "without repeating one fixed sentence pattern" in out.system_text
+    assert "Preserve canonical product and identity strings exactly" in out.system_text
+    assert "never mirror casual wording" in out.system_text
+    assert "operational conclusions" in out.system_text
+
+
+@pytest.mark.asyncio
+async def test_social_narrator_composes_only_the_typed_act_pack() -> None:
+    repo_root = Path(__file__).resolve().parents[5]
+    composer = DefaultPromptComposer(registry=FileSystemPromptRegistry(repo_root / "rule-catalog"))
+    expected = {
+        "greeting": ("conversation-social-greeting", "Greeting objective:"),
+        "thanks": ("conversation-social-thanks", "Thanks objective:"),
+        "farewell": ("conversation-social-farewell", "Farewell objective:"),
+        "self_introduction": (
+            "conversation-social-self-introduction",
+            "Self-introduction objective:",
+        ),
+    }
+    assert frozenset(SOCIAL_NARRATOR_CAPABILITY_IDS) == DIRECT_SOCIAL_ACTS
+
+    for social_act, (pack_id, marker) in expected.items():
+        out = await composer.compose(capability_id=f"conversation.social-narrator.{social_act}")
+        assert [layer.id for layer in out.layer_manifest] == [
+            "conversation-social-narrator",
+            pack_id,
+        ]
+        assert marker in out.system_text
+        for other_marker in {item[1] for item in expected.values()} - {marker}:
+            assert other_marker not in out.system_text
 
 
 @pytest.mark.asyncio

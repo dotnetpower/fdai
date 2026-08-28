@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from fdai_service_contracts.ontology_query import content_digest
 from fdai_service_contracts.semantic_judgment import (
+    SemanticDirectResponseDraft,
     SemanticDiscourseMode,
     SemanticJudgmentProposal,
     SemanticJudgmentReceipt,
@@ -147,6 +148,60 @@ def test_contract_rejects_unknown_fields_and_execution_authority() -> None:
             ambiguous=False,
             action_subject="none",
             lexical_fallback="health",
+        )
+
+
+def test_direct_response_requires_one_bounded_model_authored_answer() -> None:
+    draft = SemanticDirectResponseDraft(
+        locale="ko",
+        answer="반갑습니다. 무엇을 함께 살펴볼까요?",
+        profile_digest=_DIGEST,
+    )
+    proposal = SemanticJudgmentProposal(
+        primary_intent="greeting",
+        confidence=0.98,
+        ambiguous=False,
+        action_subject="none",
+        direct_response=draft,
+    )
+
+    assert proposal.direct_response is draft
+    with pytest.raises(ValidationError, match="model-authored answer"):
+        SemanticJudgmentProposal(
+            primary_intent="greeting",
+            confidence=0.98,
+            ambiguous=False,
+            action_subject="none",
+        )
+    with pytest.raises(ValidationError, match="one paragraph"):
+        SemanticDirectResponseDraft(
+            locale="en",
+            answer="Hello.\nHow can I help?",
+            profile_digest=_DIGEST,
+        )
+    with pytest.raises(ValidationError, match="links or markup"):
+        SemanticDirectResponseDraft(
+            locale="en",
+            answer="Open [this](https://example.com).",
+            profile_digest=_DIGEST,
+        )
+    with pytest.raises(ValidationError, match="links or markup"):
+        SemanticDirectResponseDraft(
+            locale="en",
+            answer="Visit www.example.com or read **important** text.",
+            profile_digest=_DIGEST,
+        )
+    with pytest.raises(ValidationError, match="polite honorific endings"):
+        SemanticDirectResponseDraft(
+            locale="ko",
+            answer="안녕 반가워",
+            profile_digest=_DIGEST,
+        )
+    with pytest.raises(ValidationError, match="polite honorific endings"):
+        SemanticDirectResponseDraft(
+            locale="ko",
+            answer="안녕, 난 Bragi야！ 무엇을 도와드릴까요?",
+            profile_digest=_DIGEST,
         )
 
 

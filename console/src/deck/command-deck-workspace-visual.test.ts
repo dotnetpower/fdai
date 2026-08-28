@@ -56,7 +56,6 @@ describe("Command Deck workspace hierarchy", () => {
       "cs-deck-conversation-panel",
       "cs-deck-conversation-scrim",
       "cs-deck-transcript-column",
-      "cs-deck-workspace-toolbar",
     ]) {
       expect(sharedStyles).toContain(`.${role}`);
       expect(`${source}\n${header}\n${presenters}`).toContain(role);
@@ -115,15 +114,14 @@ describe("Command Deck workspace hierarchy", () => {
     expect(presenters).toContain('onClick={() => onPick(card.prompt)}');
     expect(presenters).toContain('onClick={() => onPick(screenPrompt)}');
     expect(styles).toMatch(/\.deck-overlay-mode-workspace \.deck-transcript-inner\.is-empty-conversation \{[^}]*justify-content: center;/s);
-    expect(styles).toMatch(/\.deck-overlay-mode-workspace \.deck-intro-card-grid \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\) minmax\(230px, 1\.35fr\);[^}]*grid-template-rows: repeat\(2, 132px\);/s);
+    expect(styles).toMatch(/\.deck-overlay-mode-workspace \.deck-intro-card-grid \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\) minmax\(230px, 1\.35fr\);[^}]*grid-template-rows: repeat\(2, minmax\(132px, auto\)\);/s);
     expect(styles).toMatch(/\.deck-overlay-mode-workspace \.deck-intro-card\.is-feature \{[^}]*grid-column: 3;[^}]*grid-row: 1 \/ 3;[^}]*min-height: 278px;/s);
     expect(styles).toMatch(/\.deck-input-row\.is-centered \{[^}]*border-top: 0;[^}]*background: transparent;/s);
     expect(styles).toMatch(/\.deck-overlay-mode-workspace \.deck-input-row\.is-centered \.deck-composer-inner \{[^}]*width: min\(100%, 820px\);[^}]*border-radius: 14px;/s);
     expect(styles).toMatch(/\.deck-input-row\.is-centered \.deck-input \{[^}]*height: 48px;[^}]*padding-block: 13px;[^}]*line-height: 22px;/s);
     expect(source).toContain('class="deck-send-icon"');
     expect(styles).toContain(".deck-input-row.is-centered .deck-send-label { display: none; }");
-    expect(source).toContain('showTranscriptTools ? " has-tools" : ""');
-    expect(styles).toContain(".deck-transcript-column.has-tools { grid-template-rows: auto minmax(0, 1fr); }");
+    expect(source).toContain("const showJumpToLatest = !stuck && turns.length > 0;");
   });
 
   test("shows compact pending feedback before observed progress", () => {
@@ -203,15 +201,16 @@ describe("Command Deck workspace hierarchy", () => {
     expect(source).toContain('aria-label={t("deck.inputPlaceholderContext", { route: routeLabel })}');
   });
 
-  test("keeps the latest-message action in the toolbar instead of over transcript content", () => {
-    const toolbar = source.slice(
-      source.indexOf('class="deck-transcript-tools cs-deck-workspace-toolbar"'),
+  test("anchors the latest-message action above the composer", () => {
+    const transcriptColumn = source.slice(
+      source.indexOf('class="deck-transcript-column cs-deck-transcript-column"'),
       source.indexOf('class="deck-transcript"'),
     );
-    expect(toolbar).toContain('class="deck-jump"');
-    expect(styles).toContain(".deck-jump {");
-    expect(styles).toContain("margin-left: auto;");
-    expect(styles).not.toMatch(/\.deck-jump\s*\{[^}]*position:\s*sticky/s);
+    expect(transcriptColumn).toContain('class="deck-jump-slot"');
+    expect(transcriptColumn).toContain('class="deck-jump"');
+    expect(styles).toMatch(/\.deck-transcript-column \{[^}]*position: relative;/s);
+    expect(styles).toMatch(/\.deck-jump-slot \{[^}]*position: absolute;[^}]*left: 50%;[^}]*bottom: 12px;[^}]*transform: translateX\(-50%\);/s);
+    expect(styles).toMatch(/\.deck-jump \{[^}]*border-radius: 999px;[^}]*pointer-events: auto;/s);
   });
 
   test("keeps readable metadata at 12px and keyboard focus visible", () => {

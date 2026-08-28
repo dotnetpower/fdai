@@ -15,6 +15,7 @@ import {
   parseEvidenceFreshnessContext,
   parseInvestigationActivity,
   parseInvestigationMilestone,
+  parseModelUsage,
   parseRetrievalSourcePreviews,
   parseResourceContext,
   parseRouter,
@@ -471,6 +472,7 @@ export async function askBackendStream(
     done.evidence_freshness_context,
   );
   const modelTrace = parseModelTrace(done.model_trace);
+  const modelUsage = parseModelUsage(done.usage);
   const turnTiming = parseTurnTiming(done.turn_timing);
   const trajectoryDetail = parseTrajectoryDetail(done.trajectory_detail);
   const intentGraph = parseIntentGraph(done.intent_graph);
@@ -507,6 +509,8 @@ export async function askBackendStream(
     ...(resourceContext ? { resourceContext } : {}),
     ...(evidenceFreshnessContext ? { evidenceFreshnessContext } : {}),
     ...(modelTrace ? { modelTrace } : {}),
+    ...(latencyMs !== null && latencyMs >= 0 ? { modelLatencyMs: latencyMs } : {}),
+    ...(modelUsage ? { modelUsage } : {}),
     ...(turnTiming ? { turnTiming } : {}),
     ...(trajectoryDetail ? { trajectoryDetail } : {}),
     ...(intentGraph ? { intentGraph } : {}),

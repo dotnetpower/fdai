@@ -26,6 +26,7 @@ from fdai_operator_service.adapters.narrator_periodic_scheduler import (
     PeriodicNarratorRefreshScheduler,
 )
 from fdai_operator_service.auth import EntraJwtVerifier, OperatorAuthenticator
+from fdai_operator_service.azure_monitor_webhook_runtime import AzureMonitorWebhookBridge
 from fdai_operator_service.contracts import ApplicationLifecycle, ReadinessProbe
 from fdai_operator_service.conversation_assurance_reader import (
     ConversationAssuranceReader,
@@ -210,6 +211,16 @@ class ProductionOperatorComposition:
             and environment.read_investigation_completion_consumer_group_id is not None
             else None
         )
+        event_topic = environment.values.get("KAFKA_TOPIC_EVENTS", "").strip() or None
+        azure_monitor_webhook_bridge = (
+            AzureMonitorWebhookBridge(
+                store=family_store,
+                publisher=semantic_bus,
+                topic=event_topic,
+            )
+            if family_store is not None and semantic_bus is not None and event_topic is not None
+            else None
+        )
         authenticator = OperatorAuthenticator(
             verifier=self.verifier_factory(environment),
             group_ids=environment.group_ids,
@@ -220,6 +231,7 @@ class ProductionOperatorComposition:
             store=family_store,
             semantic_bridge=semantic_bridge,
             read_model=configured_read_model,
+            webhook_enabled=azure_monitor_webhook_bridge is not None,
         )
         narrator_scheduler = (
             PeriodicNarratorRefreshScheduler(
@@ -242,6 +254,7 @@ class ProductionOperatorComposition:
                 semantic_bridge,
                 read_investigation_bridge,
                 read_investigation_completion_bridge,
+                azure_monitor_webhook_bridge,
                 live_stage_relay,
             ),
             live_stream_hub=live_stream_hub,
@@ -250,6 +263,7 @@ class ProductionOperatorComposition:
                 semantic_bridge,
                 read_investigation_bridge,
                 read_investigation_completion_bridge,
+                azure_monitor_webhook_bridge,
                 semantic_bus,
                 live_stage_relay,
                 narrator_scheduler,
@@ -276,6 +290,7 @@ def _build_route_families(
     store: PostgresFamilyStore | None,
     semantic_bridge: SemanticTurnBridge | None,
     read_model: OperatorReadModel | None,
+    webhook_enabled: bool,
 ) -> tuple[OperatorRouteFamilies, LocalAzureNarratorAdapters | None]:
     authorizer = OperatorFamilyAuthorizer(authenticator)
     report_pdf_encoder = optional_pdf_report_encoder()
@@ -419,7 +434,9 @@ def _build_route_families(
         operations_projection_reader=operations_reader,
         operations_proposal_writer=postgres_operations,
         operations_replay_reader=postgres_operations,
-        operations_webhook_verifier=postgres_operations,
+        operations_webhook_verifier=(
+            postgres_operations if webhook_enabled else UnavailableOperationsAdapters()
+        ),
         report_pdf_encoder=report_pdf_encoder,
         operation_panels=REFERENCE_PANEL_ROUTES,
         cost_governance=CostGovernanceFamilyDependencies(
@@ -495,6 +512,7 @@ def _build_semantic_bus(environment: OperatorEnvironment) -> OperatorSemanticKaf
             or "core.semantic-turn.projections",
             read_investigation_topic=environment.read_investigation_request_topic,
             read_investigation_completion_topic=(environment.read_investigation_completion_topic),
+            event_topic=environment.values.get("KAFKA_TOPIC_EVENTS", "").strip() or None,
             physical_topic=environment.semantic_physical_topic,
             client_id=environment.semantic_kafka_client_id,
         ),
@@ -565,6 +583,7 @@ def _application_lifecycle(
     bridge: SemanticTurnBridge | None,
     read_investigation_bridge: ReadInvestigationBridge | None,
     read_investigation_completion_bridge: ReadInvestigationCompletionBridge | None,
+    azure_monitor_webhook_bridge: AzureMonitorWebhookBridge | None,
     bus: OperatorSemanticKafkaBus | None,
     live_stage_relay: LiveStageKafkaRelay | None,
     narrator_scheduler: PeriodicNarratorRefreshScheduler | None,
@@ -576,6 +595,7 @@ def _application_lifecycle(
             bridge,
             read_investigation_bridge,
             read_investigation_completion_bridge,
+            azure_monitor_webhook_bridge,
             live_stage_relay,
             narrator_scheduler,
         )
@@ -594,6 +614,7 @@ def _readiness_probe(
     bridge: SemanticTurnBridge | None,
     read_investigation_bridge: ReadInvestigationBridge | None,
     read_investigation_completion_bridge: ReadInvestigationCompletionBridge | None,
+    azure_monitor_webhook_bridge: AzureMonitorWebhookBridge | None,
     live_stage_relay: LiveStageKafkaRelay | None,
 ) -> ReadinessProbe:
     if store is None:
@@ -610,6 +631,9 @@ def _readiness_probe(
             and (
                 read_investigation_completion_bridge is None
                 or read_investigation_completion_bridge.workers_ready()
+            )
+            and (
+                azure_monitor_webhook_bridge is None or azure_monitor_webhook_bridge.workers_ready()
             )
             and (live_stage_relay is None or live_stage_relay.readiness())
         )

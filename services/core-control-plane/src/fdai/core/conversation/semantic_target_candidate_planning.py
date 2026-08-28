@@ -20,6 +20,7 @@ from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
 from fdai.rule_catalog.schema.inventory_query_language import (
     InventoryQueryLanguageRegistry,
     QueryTargetCardinality,
+    query_signal_matches,
     query_target_cardinality,
 )
 
@@ -485,6 +486,17 @@ def resolve_stated_resource_identity(
     if _has_non_resource_object_subject(proposal.subject_constraints, descriptors):
         return proposal
     if (
+        proposal.operation is SemanticOperation.SELECT
+        and proposal.output_shape is SemanticOutputShape.RESOURCE_LIST
+    ):
+        return proposal.model_copy(
+            update={
+                "unresolved_terms": (),
+                "clarification_requirements": (),
+                "clarification": None,
+            }
+        )
+    if (
         exact_target_from_constraints(
             proposal.subject_constraints,
             utterance=utterance,
@@ -500,6 +512,24 @@ def resolve_stated_resource_identity(
             "clarification": None,
         }
     )
+
+
+def normalize_resource_list_temporal_scope(
+    proposal: SemanticFrameProposal,
+    *,
+    utterance: str,
+    inventory_query_language: InventoryQueryLanguageRegistry | None,
+) -> SemanticFrameProposal:
+    """Remove a model-invented history axis from a current resource listing."""
+
+    if (
+        proposal.operation is not SemanticOperation.SELECT
+        or proposal.output_shape is not SemanticOutputShape.RESOURCE_LIST
+        or not proposal.temporal_scope
+        or query_signal_matches(utterance, inventory_query_language, "temporal")
+    ):
+        return proposal
+    return proposal.model_copy(update={"temporal_scope": {}})
 
 
 def _has_non_resource_object_subject(
@@ -582,6 +612,7 @@ __all__ = [
     "is_exact_schema_relationship",
     "normalize_decision_outcome_relationship",
     "normalize_operating_relationship_temporal_scope",
+    "normalize_resource_list_temporal_scope",
     "resource_target_candidates_apply_to_proposal",
     "resource_target_candidates_apply_to_utterance",
     "resolve_resource_target_candidates",

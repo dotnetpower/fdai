@@ -223,6 +223,33 @@ variable "llm" {
   }
 }
 
+variable "configuration_drift" {
+  description = "Optional scope-pinned read-only Azure Resource Graph configuration drift binding."
+  type = object({
+    enabled             = optional(bool, false)
+    baseline_path       = optional(string, "")
+    baseline_version    = optional(string, "")
+    baseline_sha256     = optional(string, "")
+    scope               = optional(string, "")
+    subscription_scopes = optional(list(string), [])
+    attribute_paths     = optional(list(string), [])
+    arg_endpoint        = optional(string, "https://management.azure.com")
+  })
+  default = {}
+}
+
+variable "diagnostic_ingest" {
+  description = "Optional Azure diagnostic Event Hub Kafka ingestion binding."
+  type = object({
+    enabled           = optional(bool, false)
+    bootstrap_servers = optional(string, "")
+    topic             = optional(string, "")
+    metric_whitelist  = optional(list(string), [])
+    consumer_group_id = optional(string, "fdai-diagnostic-normalizer")
+  })
+  default = {}
+}
+
 variable "scaling" {
   description = "Replica and resource limits for the Core service."
   type = object({

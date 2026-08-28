@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 0b5e09ea23da6da5bfa23cab76e458080106da7d
-translation_revised: 2026-08-28
+translation_source_sha: eec46b8e6a844a96cde6f0e6f0cfe9ec7ef45ceb
+translation_revised: 2026-08-29
 ---
 # 프로젝트 구조
 
@@ -446,8 +446,9 @@ grounding 권한을 우회할 수 없습니다. HIL 승인 id와 실행기 멱�
   `1.4.0`입니다. Version 1.3은 서버 소유 `semantic_turn.bound_context`를 추가했고, version 1.4는
   실행 권한을 부여하지 않는 범위가 제한된 `semantic_turn.include_model_trace` 활성화 설정을
   추가합니다.
-  `core-operator-projection` 1.4는 조회 digest, 근거 참조, 검증 주장 또는 권한 없이 닫힌 인사
-  의도를 전달하는 타입 지정 `direct_response` 최종 처리 결과를 추가합니다.
+  `core-operator-projection` 1.4는 닫힌 사회적 의도를 전달하는 타입 지정 `direct_response`
+  최종 처리 결과를 추가합니다. 범위가 제한된 텍스트는 스키마로 검증된 의미 판단 모델에서 오며
+  조회 digest, 근거 참조, 검증 주장 또는 권한을 포함하지 않습니다.
   바인딩된 인시던트 읽기 경로는 canonical `incident_id`와 감사 `correlation_id`를 서로 다른
   `query.incident_evidence` 인자로 전달하고 두 신원을 권한 없는 결과에 모두 보존합니다.
   리소스 검색도 불변 `DiscoveryIntent`, `DiscoveryQueryPlan`, 프로바이더 관찰, 실행 증적,

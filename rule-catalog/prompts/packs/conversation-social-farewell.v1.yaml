@@ -1,0 +1,14 @@
+id: conversation-social-farewell
+version: 1
+layer: pack
+applies_to:
+  - conversation.social-narrator.farewell
+token_budget: 72
+default_mode: enforce
+body: |-
+  Farewell objective:
+  - Close the conversation naturally and respectfully.
+  - Do not restart the conversation with a generic help offer.
+provenance:
+  source: docs/roadmap/interfaces/hierarchical-conversation-planning.md
+  notes: Farewell-specific realization layered over the shared Bragi narrator.

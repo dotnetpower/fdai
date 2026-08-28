@@ -10,7 +10,12 @@ from fdai.core.conversation.semantic_planning_models import (
     SemanticOutputShape,
 )
 from fdai.core.conversation.semantic_target_candidate_planning import (
+    normalize_resource_list_temporal_scope,
     resolve_stated_resource_identity,
+)
+from fdai.rule_catalog.schema.inventory_query_language import (
+    InventoryQueryLanguageRegistry,
+    QueryTerms,
 )
 from fdai_service_contracts.ontology_query import SemanticOperation
 
@@ -61,6 +66,64 @@ def test_unnamed_target_keeps_the_hold() -> None:
     )
 
     assert resolved == proposal
+
+
+def test_resource_list_never_requires_one_exact_resource_identity() -> None:
+    resolved = resolve_stated_resource_identity(
+        _proposal(
+            measure_concepts=(),
+            temporal_scope={},
+            output_shape=SemanticOutputShape.RESOURCE_LIST,
+        ),
+        utterance="이 구독의 리소스를 모두 보여줘",
+        descriptors=_DESCRIPTORS,
+    )
+
+    assert resolved.unresolved_terms == ()
+    assert resolved.clarification_requirements == ()
+    assert resolved.clarification is None
+
+
+def test_resource_list_drops_model_invented_history_without_a_temporal_signal() -> None:
+    registry = InventoryQueryLanguageRegistry(
+        schema_version="1.1.0",
+        version="1.1.0",
+        default_scope="subscription",
+        default_activity_lookback_seconds=604800,
+        current_requires_fresh=True,
+        suffixes=(),
+        signals={
+            "temporal": QueryTerms(
+                terms=("recent", "최근"),
+            )
+        },
+        query_kinds={},
+        groupings={},
+        projections={},
+        scopes={},
+        states={},
+        operations={},
+        time_units={},
+    )
+    proposal = _proposal(
+        measure_concepts=(),
+        temporal_scope={"kind": "historical"},
+        output_shape=SemanticOutputShape.RESOURCE_LIST,
+    )
+
+    normalized = normalize_resource_list_temporal_scope(
+        proposal,
+        utterance="이 구독의 리소스를 모두 보여줘",
+        inventory_query_language=registry,
+    )
+    historical = normalize_resource_list_temporal_scope(
+        proposal,
+        utterance="최근 리소스를 모두 보여줘",
+        inventory_query_language=registry,
+    )
+
+    assert normalized.temporal_scope == {}
+    assert historical.temporal_scope == {"kind": "historical"}
 
 
 def test_two_stated_targets_keep_the_hold() -> None:

@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 78d270472529d6f0853d0489b227b0a09d962053
-translation_revised: 2026-08-28
+translation_source_sha: 2665a7967b21eefd29c40005870f2674e0840de4
+translation_revised: 2026-08-29
 ---
 # FDAI 로드맵
 
@@ -69,6 +69,8 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 7d | [mscp-operational-profile-ko.md](architecture/mscp-operational-profile-ko.md) | 전체 conformance 주장 없이 선택적으로 차용한 MSCP 효과, cycle 및 runtime-integrity 정책 |
 | 7e | [service-graduation-and-ownership-ko.md](architecture/service-graduation-and-ownership-ko.md) | 측정된 서비스 분리 게이트, single-writer 데이터 소유권, 계약, 신원, 롤백, 경계 docstring |
 | 7f | [service-decomposition-execution-plan-ko.md](architecture/service-decomposition-execution-plan-ko.md) | 5개 서비스 목표, 의존성 순서 작업 패키지, 병렬 레인, 진행 상태, 차단 요인, 근거 증적 |
+| 7g | [subscription-genesis-provisioning-ko.md](deployment/subscription-genesis-provisioning-ko.md) | 재개 가능한 Azure 구독 전체 프로비저닝, 데이터베이스 및 의미 초기 구성, 모델 용량, 최초 인벤토리 진행률 |
+| 7h | [subscription-genesis-assurance-ko.md](deployment/subscription-genesis-assurance-ko.md) | 구독 초기 구성을 위한 적대적 안전, 완전성, 복구, 비용, 운영자 진행률 게이트 |
 
 ### 규칙, 탐지, 운영
 

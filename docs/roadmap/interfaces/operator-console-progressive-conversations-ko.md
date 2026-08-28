@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: a91724034a6cccc84aa400a7815beaff57b029ba
-translation_revised: 2026-08-27
+translation_source_sha: cf6da0d5761cfbbdd48ba4858418b0214bc890fb
+translation_revised: 2026-08-28
 ---
 # 오퍼레이터 콘솔 점진적 대화
 
@@ -126,9 +126,10 @@ Full-workspace 웹 채팅은 대화 기록 중심으로 열립니다. 새 빈 �
 ## 의미 최종 표현 계획
 
 타입이 지정된 `direct_response`는 검증된 조회 답변과 구분합니다. 하나의 닫힌 답변 의도,
-지역화된 정본 텍스트, `execution_authority=false`를 전달하지만 조회 계획, 근거 참조, 검증 배지,
+의미 판단 모델이 작성하고 범위와 언어가 제한된 텍스트, `execution_authority=false`를 전달하지만 조회 계획, 근거 참조, 검증 배지,
 표현 산출물 또는 실행 궤적은 포함하지 않습니다. Web, Teams 및 Slack은 운영 주장이 없는 동일한
-최종 응답을 보존합니다.
+검증된 최종 응답을 보존합니다. Core는 성공한 직접 응답을 고정 인사 또는 자기소개 템플릿으로
+대체하지 않습니다.
 
 현재 의미 경로는 조회 실행과 검증을 입증하지만 운영자 대상 표현 전에 멈춥니다. Core는 검증된
 출력을 fenced JSON으로 직렬화하고, Operator는 `done` 이벤트 하나를 재생하며, 최종 payload에

@@ -55,6 +55,7 @@ def test_bootstrap_plan_rejects_invalid_venue_only_for_enabled_consumer() -> Non
     [
         ({"FDAI_MONITOR_WORKSPACE_ID": "workspace"}, "telemetry"),
         ({"FDAI_PROMETHEUS_ENDPOINT": "https://example.com"}, "telemetry"),
+        ({"FDAI_CONFIGURATION_DRIFT_ENABLED": "1"}, "configuration_drift"),
         ({"FDAI_DEV_OPERATIONS_GATEWAY_URL": "https://example.com"}, "gateway"),
         ({"FDAI_CASE_HISTORY_CONTAINER_URL": "https://example.com"}, "case_history"),
         (
@@ -81,6 +82,55 @@ def test_bootstrap_plan_requires_initial_identity_for_azure_llm() -> None:
     plan = build_bootstrap_plan(llm_mode=LlmMode.AZURE, environment={})
 
     assert plan.requires_initial_identity is True
+
+
+def test_bootstrap_plan_binds_complete_diagnostic_stream() -> None:
+    plan = build_bootstrap_plan(
+        llm_mode=LlmMode.LOCAL_FAKE,
+        environment={
+            "FDAI_START_CONSUMER": "1",
+            "FDAI_EXECUTION_VENUE": "deployed",
+            "FDAI_DIAGNOSTIC_KAFKA_BOOTSTRAP_SERVERS": "diagnostics.example.com:9093",
+            "FDAI_DIAGNOSTIC_TOPIC": "azure.diagnostics",
+            "FDAI_DIAGNOSTIC_METRIC_WHITELIST_JSON": '["http_429_rate","node_cpu_percent"]',
+        },
+    )
+
+    assert plan.requires_initial_identity is True
+    assert plan.diagnostic_topic == "azure.diagnostics"
+    assert plan.diagnostic_metric_whitelist == ("http_429_rate", "node_cpu_percent")
+
+
+@pytest.mark.parametrize(
+    "environment",
+    (
+        {"FDAI_DIAGNOSTIC_TOPIC": "azure.diagnostics"},
+        {
+            "FDAI_START_CONSUMER": "1",
+            "FDAI_EXECUTION_VENUE": "deployed",
+            "FDAI_DIAGNOSTIC_KAFKA_BOOTSTRAP_SERVERS": "diagnostics.example.com:9093",
+            "FDAI_DIAGNOSTIC_TOPIC": "azure.diagnostics",
+            "FDAI_DIAGNOSTIC_METRIC_WHITELIST_JSON": '["z","a"]',
+        },
+    ),
+)
+def test_bootstrap_plan_rejects_partial_or_unordered_diagnostic_stream(
+    environment: dict[str, str],
+) -> None:
+    with pytest.raises(ValueError, match="diagnostic|DIAGNOSTIC"):
+        build_bootstrap_plan(llm_mode=LlmMode.LOCAL_FAKE, environment=environment)
+
+
+def test_bootstrap_plan_rejects_diagnostic_stream_without_consumer() -> None:
+    with pytest.raises(ValueError, match="START_CONSUMER"):
+        build_bootstrap_plan(
+            llm_mode=LlmMode.LOCAL_FAKE,
+            environment={
+                "FDAI_DIAGNOSTIC_KAFKA_BOOTSTRAP_SERVERS": "diagnostics.example.com:9093",
+                "FDAI_DIAGNOSTIC_TOPIC": "azure.diagnostics",
+                "FDAI_DIAGNOSTIC_METRIC_WHITELIST_JSON": '["node_cpu_percent"]',
+            },
+        )
 
 
 @pytest.mark.parametrize(

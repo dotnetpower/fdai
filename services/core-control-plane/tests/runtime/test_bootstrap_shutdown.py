@@ -34,12 +34,21 @@ async def test_close_runtime_resources_preserves_order_after_bounded_failures() 
         health_server=_Resource("health", calls, fail=True),
         pantheon_runtime=_Resource("pantheon", calls, fail=True),
         runtime_state_publisher=_Resource("publisher", calls),
+        diagnostic_bus=_Resource("diagnostic", calls, fail=True),
         auxiliary_bus=_Resource("auxiliary", calls, fail=True),
         bus=_Resource("bus", calls, fail=True),
         http_client=_Resource("http", calls, fail=True),
     )
 
-    assert calls == ["health", "pantheon", "publisher", "auxiliary", "bus", "http"]
+    assert calls == [
+        "health",
+        "pantheon",
+        "publisher",
+        "diagnostic",
+        "auxiliary",
+        "bus",
+        "http",
+    ]
 
 
 async def test_runtime_resources_stops_isolated_executor_before_shared_resources() -> None:
@@ -49,6 +58,7 @@ async def test_runtime_resources_stops_isolated_executor_before_shared_resources
         auxiliary_bus=_Resource("auxiliary", calls),  # type: ignore[arg-type]
         operational_bus=_Resource("operational", calls),  # type: ignore[arg-type]
         stage_publisher=_Resource("stage", calls),  # type: ignore[arg-type]
+        diagnostic_bus=_Resource("diagnostic", calls),  # type: ignore[arg-type]
     )
     resources = RuntimeResources(
         health_server=_Resource("health", calls),  # type: ignore[arg-type]
@@ -68,6 +78,7 @@ async def test_runtime_resources_stops_isolated_executor_before_shared_resources
         "health",
         "pantheon",
         "publisher",
+        "diagnostic",
         "auxiliary",
         "bus",
         "http",
