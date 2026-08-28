@@ -8,7 +8,14 @@ from decimal import Decimal
 import pytest
 from fdai.shared.providers.cost_governance import CostPackageActivation
 from fdai.shared.providers.notifications import NotificationMessage
-from fdai_service_contracts import DISCLOSURE_PRESETS, CostProjectionRecord
+from fdai_service_contracts import (
+    DISCLOSURE_PRESETS,
+    CostAmountPrecision,
+    CostDisclosurePolicy,
+    CostGranularity,
+    CostIdentityVisibility,
+    CostProjectionRecord,
+)
 
 from fdai_cost_governance.notifications import CostGovernanceNotificationProducer
 
@@ -149,3 +156,28 @@ async def test_masked_notification_uses_server_transformer_and_distinct_category
     assert message.metadata["producer"] == "fdai-cost-governance"
     assert "private-resource" not in message.body_markdown
     assert "amount_exact" not in message.body_markdown
+
+
+@pytest.mark.asyncio
+async def test_amount_hidden_policy_preserves_allowed_exact_identity() -> None:
+    dependencies = Dependencies()
+    dependencies.policy = CostDisclosurePolicy(
+        granularity=CostGranularity.RESOURCE,
+        identity_visibility=CostIdentityVisibility.EXACT,
+        amount_precision=CostAmountPrecision.NONE,
+    )
+    producer = CostGovernanceNotificationProducer(
+        activation=dependencies,
+        disclosure=dependencies,
+        dispatcher=dependencies,
+    )
+
+    assert await producer.dispatch(
+        destination_scope="governance",
+        correlation_id="cost-identity-only",
+        records=(_record(),),
+        now=NOW,
+    )
+    message = dependencies.messages[0]
+    assert "private-resource" in message.body_markdown
+    assert '"amount_' not in message.body_markdown

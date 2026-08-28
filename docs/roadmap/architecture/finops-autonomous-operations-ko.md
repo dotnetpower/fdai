@@ -1,7 +1,7 @@
 ---
 title: FinOps 자율 운영
 translation_of: finops-autonomous-operations.md
-translation_source_sha: 9f9c68ec248b9bbd248dbcf0ffcb9951f08ebc03
+translation_source_sha: 4070a2a22f5e759ce4201f4a0e8377552b084237
 translation_revised: 2026-08-28
 ---
 
@@ -24,7 +24,7 @@ translation_revised: 2026-08-28
 > **현재 상태:** 정확한 FinOps 의미 프로파일, 고정된 15개 책임 trace, 범위가 제한된 복구
 > 조정기, 독립 다중 효과 정산, replay, 보존 및 통제된 학습 입력은 로컬 근거와 함께 구현되어
 > 있습니다. Live-authoritative 정산 cohort와 독립 패키지 및 액션별 승격 검토는 아직 없습니다.
-> 하드닝 라운드 1-4는 campaign 혼합과 option 대체를 차단하고 Azure 인증을 확인하며 advisory 메모리를 제한합니다. 런타임 권한은 바뀌지 않습니다.
+> 하드닝 라운드 1-5는 campaign 혼합과 option 대체를 차단하고 Azure 인증, 메모리 상한, 구성 요소별 공개를 보존합니다. 런타임 권한은 바뀌지 않습니다.
 
 ## 설계 개요
 

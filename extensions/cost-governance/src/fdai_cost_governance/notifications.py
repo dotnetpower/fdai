@@ -14,7 +14,6 @@ from fdai.shared.providers.notifications import (
     TrustTier,
 )
 from fdai_service_contracts import (
-    CostAmountPrecision,
     CostDisclosurePolicy,
     CostProjectionRecord,
     disclose_cost_records,
@@ -75,7 +74,7 @@ class CostGovernanceNotificationProducer:
             destination_scope,
             now=now,
         )
-        if policy is None or policy.amount_precision is CostAmountPrecision.NONE:
+        if policy is None:
             return False
         try:
             items = disclose_cost_records(
@@ -84,6 +83,8 @@ class CostGovernanceNotificationProducer:
                 pseudonym_key=self._pseudonym_key,
             )
         except ValueError:
+            return False
+        if not items:
             return False
         body = json.dumps(
             {"items": items},
