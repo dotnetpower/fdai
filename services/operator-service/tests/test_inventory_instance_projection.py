@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import replace
 from datetime import UTC, datetime
 
 import pytest
@@ -266,6 +267,66 @@ async def test_empty_instance_directory_omits_context_selection_identity() -> No
     assert result["complete"] is True
     assert "context_capability" not in result
     assert "selection_digest" not in result
+
+
+async def test_instance_selection_token_excludes_hidden_role_assignments() -> None:
+    class _CompleteReader(_Reader):
+        async def read_inventory_impact_context(self) -> InventoryImpactContext:
+            context = await super().read_inventory_impact_context()
+            return replace(
+                context,
+                relationship_drop_reasons=(),
+                relationship_drop_classifications=(),
+            )
+
+        async def read_inventory_instance_neighborhood(
+            self,
+            **kwargs: object,
+        ) -> InventoryInstanceNeighborhood:
+            neighborhood = await super().read_inventory_instance_neighborhood(**kwargs)  # type: ignore[arg-type]
+            return replace(
+                neighborhood,
+                resources=(
+                    *neighborhood.resources,
+                    InventoryInstanceResource(
+                        resource_id="role-assignment-1",
+                        resource_type="authorization.role-assignment",
+                        properties={"name": "hidden-role"},
+                        last_seen=None,
+                    ),
+                ),
+            )
+
+    registry = ContextSelectionRegistry()
+    result = await project_inventory_instance(
+        query=ProjectionQuery(
+            operation="ontology.instance.explore",
+            principal_id="reader",
+            path={},
+            params={"root": ("container-app-1",), "activity_limit": ("10",)},
+            limit=25,
+            cursor=None,
+            roles=frozenset({OperatorRole.READER}),
+        ),
+        reader=_CompleteReader(),
+        ontology_projection={
+            "ontology_release_digest": f"sha256:{'a' * 64}",
+            "link_types": ["contains", "attached_to", "depends_on"],
+        },
+        selection_registry=registry,
+        now=lambda: datetime(2026, 8, 22, 2, 0, tzinfo=UTC),
+    )
+
+    token = result["context_capability"]["selection_token"]  # type: ignore[index]
+    selection = registry.resolve(
+        token,  # type: ignore[arg-type]
+        principal_id="reader",
+        role="reader",
+        purpose="operations-review",
+    )
+    assert selection is not None
+    assert selection["resource_ids"] == ["container-app-1", "environment-1"]
+    assert "role-assignment-1" not in selection["resource_ids"]
 
 
 async def test_instance_projection_combines_snapshot_neighborhood_and_activity() -> None:

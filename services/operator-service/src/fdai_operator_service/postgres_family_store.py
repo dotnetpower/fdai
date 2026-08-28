@@ -26,6 +26,7 @@ from fdai_operator_service.families.conversation.background_tasks import (
 )
 from fdai_operator_service.families.conversation.contracts import JsonObject
 from fdai_operator_service.families.operations.contracts import (
+    UNSELECTABLE_INSTANCE_DIRECTORY_TYPES,
     InventoryImpactContext,
     InventoryImpactEdge,
     InventoryImpactLinkPage,
@@ -55,8 +56,6 @@ _CONTEXT_SELECTION_PREFIX: Final = "context-selection:evaluation:"
 _LOGGER = logging.getLogger(__name__)
 _MAX_INSTANCE_NEIGHBORHOOD_DEPTH: Final = 8
 _MAX_INSTANCE_NEIGHBORHOOD_LINKS: Final = 1_600
-# Bounding before this exclusion spends the directory page on Resources the console hides.
-UNSELECTABLE_INSTANCE_DIRECTORY_TYPES: Final = ("authorization.role-assignment",)
 # A realtime event reports fresher state, not a whole Resource, so it enriches the snapshot
 # record rather than replacing it. Replacing it dropped the name, location, and resource group.
 _EFFECTIVE_RESOURCES_CTE: Final = (

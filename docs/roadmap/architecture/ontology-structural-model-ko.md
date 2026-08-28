@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 0d56cc353b7ae7b687fa75cd383e236d08a2ebf9
+translation_source_sha: 081742da97c3a447bd26b6d88bca4c88c3342916
 translation_revised: 2026-08-30
 ---
 # 온톨로지 구조 모델
@@ -346,6 +346,7 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-28 | implemented | 대화 화면 컨텍스트에서 제외해야 하는 `authorization.role-assignment`가 정확한 화면 선택 신원에 포함되던 문제를 닫았습니다. `ontologyInstanceContextIdentity`는 기존 표시 리소스 가드로 숨겨진 역할 배정을 제거한 뒤 `resourceIds`를 구성하므로 숨겨진 역할 배정만 있는 디렉터리가 비어 있지 않은 선택처럼 보이지 않습니다. | `current change`; `console/src/routes/ontology-instances.model.test.ts` 30개 및 Console typecheck 통과. | 이 표시 범위에 남은 제한된 구현 작업은 없습니다. |
+| 2026-08-28 | implemented | 권위 있는 Operator 선택 발급자에도 같은 제외 규칙을 적용했습니다. 서버가 선택 가능한 리소스 유형만으로 다이제스트와 토큰을 계산하므로 토큰 해석이 Console에서 제외한 역할 배정 ID를 복원하지 않습니다. | `current change`; 집중 Operator 인스턴스 projection 검사 8개, Ruff 및 strict mypy 통과. | 인증된 화면 간 근거를 보존합니다. 실제 서비스는 조회하지 않았습니다. |
 | 2026-08-28 | implemented | `rule-catalog/retirements/*.yaml`만 바뀐 변경이 CI 검토 게이트를 우회하지 않도록 `RULE_RETIREMENT` 거버넌스 변경 클래스를 추가했습니다. 룰 retirement는 quorum-2, 피싱 방지 인증 및 Owner 수준 검토를 요구하며 조회, 승인 또는 실행 권한을 부여하지 않습니다. | `current change`; `rule_catalog/schema/governance_review_authority.py`; `scripts/governance/check-governance-review-authority.py`; 집중 권한 및 CI 게이트 검사 113개 통과. | 룰 retirement 레코드로부터 온톨로지 조회 또는 액션 권한이 생기지 않습니다. |
 | 2026-08-27 | implemented | 완전한 빈 instance directory를 유효한 읽기 결과로 유지했습니다. 빈 capability 발급을 시도해 HTTP 400을 반환하지 않고 contextual selection identity를 생략합니다. | `current change`, 집중 Operator instance-projection 검사(`7 passed`), Ruff 및 strict mypy | 인증된 Console 빈 검색 근거는 별도로 보존합니다. 런타임 근거를 생성하지 않았습니다. |
 | 2026-08-26 | implemented | 정확한 Node `providerID`와 VMSS VM 아이덴티티 연결, Ingress 및 EndpointSlice 런타임 분류 체계, 명시적인 Kubernetes 출처 가용성, 런타임을 구분하는 Operator 및 Console LinkType 프로젝션, 근거만 사용하는 AKS 첫 화면 커버리지 대역을 추가했습니다. | `current change`, 집중 카탈로그 및 인벤토리 통합 검사 111개, 집중 Operator 검사 30개, 집중 Console 검사 60개가 통과했습니다. 권위 있는 로컬 새로 고침은 Resource 897개와 인벤토리 링크 1,640개를 보존했습니다. Snapshot과 ontology 아이덴티티 집합이 정확히 일치했고 dangling, duplicate, multiple-parent, endpoint-type 및 generation 불일치는 모두 0이었습니다. 선택한 중지된 AKS 분기는 managed Resource Group 1개, 직접 AgentPool 1개, VMSS Resource 4개를 보존했습니다. 정확한 VMSS VM 또는 VMSS NIC child edge는 0개였습니다. Kubernetes 런타임은 명시적으로 `unavailable`이었으므로 Node, Pod, Service, Endpoint 및 연결 개수도 0으로 유지됐습니다. | 런타임 검증을 주장하기 전에 하나의 완전하고 정확한 클러스터 Kubernetes API 세대를 보존합니다. 외부 gateway 또는 load balancer와 Kubernetes 아이덴티티 사이의 관계는 권위 있는 출처가 두 엔드포인트를 입증할 때까지 알 수 없음으로 유지합니다. |
