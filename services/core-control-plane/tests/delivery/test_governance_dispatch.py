@@ -78,8 +78,12 @@ async def test_governance_writer_is_bound_to_replayable_open_to_merge_receipt() 
         clock=lambda: NOW,
     )
 
-    first = await service.publish(_document(), correlation_id="governance-1")
-    second = await service.publish(_document(), correlation_id="governance-1")
+    first = await service.publish(
+        _document(), correlation_id="governance-1", source_event_id="event-1"
+    )
+    second = await service.publish(
+        _document(), correlation_id="governance-1", source_event_id="event-1"
+    )
 
     assert first == second
     assert first.state == "open"
@@ -97,8 +101,12 @@ async def test_replay_reconciles_a_merged_pr_terminal_state() -> None:
         lifecycle_store=store,
         clock=lambda: NOW,
     )
-    await service.publish(_document(), correlation_id="governance-merged")
-    merged = await service.publish(_document(), correlation_id="governance-merged")
+    await service.publish(
+        _document(), correlation_id="governance-merged", source_event_id="event-merged"
+    )
+    merged = await service.publish(
+        _document(), correlation_id="governance-merged", source_event_id="event-merged"
+    )
 
     assert merged.state == "merged"
     assert merged.applied is True
@@ -113,7 +121,9 @@ async def test_exemption_writer_uses_the_same_governed_pr_binding() -> None:
         lifecycle_store=StateStoreGovernancePrLifecycleStore(InMemoryStateStore()),
         clock=lambda: NOW,
     )
-    receipt = await service.publish(_exemption_document(), correlation_id="governance-2")
+    receipt = await service.publish(
+        _exemption_document(), correlation_id="governance-2", source_event_id="event-2"
+    )
     assert receipt.action_type_name == "governance.grant-exemption"
     assert receipt.applied is False
     assert publisher.pr.patch_path.endswith(".json")
@@ -140,14 +150,15 @@ async def test_governance_publisher_rejects_path_traversal_and_identifier_mismat
             await service.publish(
                 GovernanceDocument(path=path, document=document.document),
                 correlation_id="governance-path",
+                source_event_id="event-path",
             )
 
 
 @pytest.mark.asyncio
-async def test_distinct_correlation_ids_do_not_collapse_into_one_receipt() -> None:
+async def test_distinct_source_events_in_one_correlation_do_not_collapse() -> None:
     """Two independent source events that happen to render the same
     document MUST get their own auditable receipt; the idempotency key
-    binds to the correlation/source event, not content alone."""
+    binds to the source event, not the correlation group or content alone."""
 
     publisher = _Publisher()
     service = GovernedGovernancePrPublisher(
@@ -156,13 +167,86 @@ async def test_distinct_correlation_ids_do_not_collapse_into_one_receipt() -> No
         clock=lambda: NOW,
     )
 
-    first = await service.publish(_document(), correlation_id="governance-a")
-    second = await service.publish(_document(), correlation_id="governance-b")
+    first = await service.publish(
+        _document(), correlation_id="governance-shared", source_event_id="event-a"
+    )
+    second = await service.publish(
+        _document(), correlation_id="governance-shared", source_event_id="event-b"
+    )
 
     assert first.document_digest == second.document_digest
-    assert first.correlation_id == "governance-a"
-    assert second.correlation_id == "governance-b"
+    assert first.correlation_id == second.correlation_id == "governance-shared"
     assert first.idempotency_key != second.idempotency_key
+
+
+@pytest.mark.asyncio
+async def test_same_source_event_rejects_document_drift() -> None:
+    from fdai.delivery.gitops_pr import GovernancePrError
+
+    service = GovernedGovernancePrPublisher(
+        publisher=_Publisher(),
+        lifecycle_store=StateStoreGovernancePrLifecycleStore(InMemoryStateStore()),
+        clock=lambda: NOW,
+    )
+    await service.publish(
+        _document(),
+        correlation_id="governance-drift",
+        source_event_id="event-drift",
+    )
+    changed = render_rule_retirement(
+        rule_id="azure-builtin.storage.secure-transfer",
+        mode=RetirementMode.RETIRED,
+        justification="The reviewed source event now contains different retirement content.",
+        requested_by=OID_A,
+        approved_by=OID_B,
+        decided_at=NOW,
+    )
+
+    with pytest.raises(GovernancePrError, match="content drift"):
+        await service.publish(
+            changed,
+            correlation_id="governance-drift",
+            source_event_id="event-drift",
+        )
+
+
+@pytest.mark.asyncio
+async def test_legacy_lifecycle_key_blocks_duplicate_publication() -> None:
+    import hashlib
+    import json
+
+    from fdai.delivery.gitops_pr import GovernancePrError
+
+    document = _document()
+    digest = hashlib.sha256(
+        json.dumps(
+            document.document,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode()
+    ).hexdigest()
+    state = InMemoryStateStore()
+    legacy_key = f"governance.retire-rule:{digest}"
+    await state.write_state(
+        f"governance-pr-lifecycle:{legacy_key}:open",
+        {
+            "schema_version": "1.0.0",
+            "idempotency_key": legacy_key,
+        },
+    )
+    service = GovernedGovernancePrPublisher(
+        publisher=_Publisher(),
+        lifecycle_store=StateStoreGovernancePrLifecycleStore(state),
+        clock=lambda: NOW,
+    )
+
+    with pytest.raises(GovernancePrError, match="unsupported"):
+        await service.publish(
+            document,
+            correlation_id="governance-legacy",
+            source_event_id="event-legacy",
+        )
 
 
 @pytest.mark.asyncio
@@ -197,7 +281,9 @@ async def test_mutating_the_source_document_after_publish_starts_does_not_change
         publisher=publisher, lifecycle_store=store, clock=lambda: NOW
     )
 
-    receipt = await service.publish(document, correlation_id="governance-race")
+    receipt = await service.publish(
+        document, correlation_id="governance-race", source_event_id="event-race"
+    )
 
     original_payload = json.dumps(
         {

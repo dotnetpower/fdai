@@ -184,6 +184,7 @@ class GitOpsPrAdapter(RemediationPrPublisher):
         *,
         lifecycle_store: Any,
         correlation_id: str,
+        source_event_id: str,
     ) -> Any:
         """Publish a pure governance document with lifecycle evidence.
 
@@ -195,7 +196,11 @@ class GitOpsPrAdapter(RemediationPrPublisher):
         return await GovernedGovernancePrPublisher(
             publisher=self,
             lifecycle_store=lifecycle_store,
-        ).publish(document, correlation_id=correlation_id)
+        ).publish(
+            document,
+            correlation_id=correlation_id,
+            source_event_id=source_event_id,
+        )
 
     async def reconcile(self, pr_ref: str) -> str:
         """Return the remote PR lifecycle state for replay reconciliation."""
