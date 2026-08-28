@@ -16,6 +16,7 @@ from fdai.core.ontology_platform import (
     graph_at,
     topology_diff,
 )
+from fdai.core.ontology_platform.topology_history import _digest
 from fdai.shared.providers.ontology_instance import OntologyObjectRecord
 from fdai_service_contracts.ontology_query import OntologyQueryNode, QueryNodeKind, canonical_json
 
@@ -211,6 +212,69 @@ def test_missing_or_mixed_release_bindings_lower_replay_completeness() -> None:
 
     assert graph_at((missing,), as_of=T0, known_at=T0).complete is False
     assert graph_at((baseline, mixed), as_of=T1, known_at=T1).complete is False
+
+
+def test_missing_source_receipt_lowers_replay_completeness() -> None:
+    baseline = TopologyRevisionBatch(
+        revision_id="revision-source-receipt",
+        provider_generation_ref="provider-generation-source-receipt",
+        effective_at=T0,
+        recorded_at=T0,
+        complete_snapshot=True,
+        ontology_release_digest=RELEASE_DIGEST,
+        source_receipt_digest=RELEASE_DIGEST,
+        object_revisions=(_object("vnet-a", effective_at=T0, recorded_at=T0),),
+    )
+    missing = replace(baseline, revision_id="revision-source-missing", source_receipt_digest=None)
+
+    assert graph_at((missing,), as_of=T0, known_at=T0).complete is False
+    assert graph_at((baseline,), as_of=T0, known_at=T0).complete is True
+
+
+def test_graph_digest_binds_to_canonical_source_receipt_field() -> None:
+    baseline = TopologyRevisionBatch(
+        revision_id="revision-digest-a",
+        provider_generation_ref="provider-generation-digest-a",
+        effective_at=T0,
+        recorded_at=T0,
+        complete_snapshot=True,
+        ontology_release_digest=RELEASE_DIGEST,
+        source_receipt_digest=RELEASE_DIGEST,
+        object_revisions=(_object("vnet-a", effective_at=T0, recorded_at=T0),),
+    )
+    duplicate_receipt = replace(
+        baseline,
+        revision_id="revision-digest-b",
+        complete_snapshot=False,
+        effective_at=T1,
+        recorded_at=T1,
+        object_revisions=(_object("vnet-b", effective_at=T1, recorded_at=T1),),
+    )
+
+    result = graph_at((baseline, duplicate_receipt), as_of=T1, known_at=T1)
+
+    assert result.source_receipt_digests == (RELEASE_DIGEST,)
+    recomputed_body = {
+        "as_of": T1.astimezone(UTC).isoformat(),
+        "known_at": T1.astimezone(UTC).isoformat(),
+        "objects": [
+            {
+                "id": item.id,
+                "object_type": item.object_type,
+                "properties": item.properties,
+                "revision": item.revision,
+            }
+            for item in result.graph.objects
+        ],
+        "links": [],
+        "complete": result.complete,
+        "revision_ids": list(result.revision_ids),
+        "provider_generation_refs": list(result.provider_generation_refs),
+        "evidence_refs": result.evidence_refs,
+        "ontology_release_digests": result.ontology_release_digests,
+        "source_receipt_digests": result.source_receipt_digests,
+    }
+    assert _digest(recomputed_body) == result.digest
 
 
 async def test_topology_query_handlers_materialize_and_diff_retained_views() -> None:

@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: a7976bbea185e4db1e9703f1425abf73c3c63c65
+translation_source_sha: 5ae0c1ba9f625ac2c30785257b98930858063bcc
 translation_revised: 2026-08-30
 ---
 # 코드 맵
@@ -128,6 +128,8 @@ Direction-shadow 승격은 비교 양쪽이 정확한 release 신원을 고정�
 벗어날 수 없습니다.
 Direct API 승격 어댑터는 변경이 발생하지 않은 재시도 가능 실패를 보고할 수 있습니다. 실행기는
 안정적인 재시도 기회를 소비하지 않고 실패한 최종 시도를 기록합니다.
+운영 Context 응답은 정확한 읽기 요청에 다시 연결되며 토폴로지 재생은 완전한 근거를 보고하기
+전에 정규 출처 증적 다이제스트를 요구합니다.
 같은 변환은 독립적으로 검증된 `runtime_calls` edge를 양방향으로 보존하며 서비스 간 상호 호출을
 방향 충돌로 취급하지 않습니다.
 Context 변환 결과는 증적 발급을 인증하고, 출처 세대와 검증 계보를 포함한 전체 링크 관측
