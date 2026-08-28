@@ -20,6 +20,7 @@ from .models import (
     OperationalContextEvidenceLink,
     OperationalContextEvidencePath,
     OperationalContextSnapshot,
+    provenance_refs_from_properties,
 )
 from .principal_context import AuthenticatedPrincipalContext
 
@@ -142,6 +143,10 @@ def project_context_snapshot(
                 raise ValueError("secured Context result temporal identity does not match its path")
             if expected is not None and actual != _timestamp(expected):
                 raise ValueError("secured Context result temporal identity does not match its path")
+        if path.provenance_refs != provenance_refs_from_properties(object_record.properties):
+            raise ValueError(
+                "secured Context result provenance refs are not bound to its secured properties"
+            )
     graph_links = {
         (item.from_id, item.link_type, item.to_id): _graph_link_metadata(item)
         for item in graph.links
@@ -198,6 +203,10 @@ def project_context_snapshot(
 
 
 def _path_projection(path: OperationalContextEvidencePath) -> dict[str, object]:
+    # provenance_refs is emitted only after project_context_snapshot has already
+    # verified it equals provenance_refs_from_properties(object_record.properties)
+    # for the same receipt/digest-verified secured object, so it is never an
+    # unbound claim by the time it reaches this projection.
     return {
         "object_id": path.object_id,
         "object_type": path.object_type,

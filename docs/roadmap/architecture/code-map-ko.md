@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 7475686944d10b3bee8e2999134031d53920b5e1
+translation_source_sha: 1ea3c3f3dd81639b8a3dfe9bc5bbe7fd225c5514
 translation_revised: 2026-08-30
 ---
 # 코드 맵
@@ -132,6 +132,8 @@ Direct API 승격 어댑터는 변경이 발생하지 않은 재시도 가능 �
 전에 정규 출처 증적 다이제스트를 요구합니다.
 Context 스냅샷은 요청의 카탈로그 리비전과도 일치해야 하며 응답 바이트 예산은 반환되는 묶음
 신원 필드를 포함합니다.
+각 근거 경로의 출처 참조는 동일한 보안 객체의 속성에서 독립적으로 다시 계산한 값과 정확히
+일치해야 하므로 연결되지 않았거나 위조된 출처 참조는 projection 전에 차단됩니다.
 같은 변환은 독립적으로 검증된 `runtime_calls` edge를 양방향으로 보존하며 서비스 간 상호 호출을
 방향 충돌로 취급하지 않습니다.
 Context 변환 결과는 증적 발급을 인증하고, 출처 세대와 검증 계보를 포함한 전체 링크 관측

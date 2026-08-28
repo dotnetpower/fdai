@@ -106,6 +106,9 @@ principal-scoped operational evidence reads bind receipt-verified Context metada
 existing bounded response without adding mutation or execution authority.
 The Context projection authenticates receipt issuance, compares complete link observation metadata
 including source generation and verification lineage, and budgets the bundle and metadata together.
+Each evidence path's provenance refs are independently recomputed from, and must equal, the same
+secured object's own properties before projection, so an unbound or forged provenance ref is
+rejected rather than trusted.
 Detection projections similarly expose only source-derived Forecast and Pattern objects; deferred
 relationships require exact endpoint identities before catalog restoration.
 Their persistence methods are idempotent over the existing ontology instance-store seam.
