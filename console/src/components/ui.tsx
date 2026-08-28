@@ -15,7 +15,7 @@ import {
 } from "../hooks/use-content-update-pulse";
 import { useTransientFlag } from "../hooks/use-transient-flag";
 import { t } from "../i18n";
-import { useNavigationDomain } from "./navigation-title";
+import { useNavigationDomain, useNavigationExplorer } from "./navigation-title";
 import { Tooltip } from "./tooltip";
 
 // ---------------------------------------------------------------------------
@@ -30,17 +30,31 @@ export interface PageHeaderProps {
 
 export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
   const domain = useNavigationDomain();
+  const { explorerOpen, openExplorer } = useNavigationExplorer();
+  const explorerTrigger = (label: string, className: string) => (
+    <button
+      type="button"
+      class={className}
+      aria-expanded={explorerOpen}
+      aria-controls="navigation-explorer"
+      onClick={openExplorer ?? undefined}
+    >
+      <span>{label}</span>
+    </button>
+  );
   return (
     <header class="page-header">
       <div class="page-header-text">
         <h2 class="page-header-title">
           {domain ? (
             <>
-              <span class="page-header-domain">{domain}</span>
+              {explorerTrigger(domain, "page-header-domain page-header-domain-trigger")}
               <span class="page-header-separator" aria-hidden="true">/</span>
             </>
           ) : null}
-          <span>{title}</span>
+          {domain === null && openExplorer !== null
+            ? explorerTrigger(title, "page-header-current page-header-domain-trigger")
+            : <span>{title}</span>}
         </h2>
         {subtitle ? <p class="page-header-subtitle muted">{subtitle}</p> : null}
       </div>

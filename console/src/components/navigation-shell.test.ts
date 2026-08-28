@@ -1,13 +1,12 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { describe, expect, test, vi } from "vitest";
-import { DEFAULT_NAVIGATION_PREFERENCES } from "../navigation-preferences";
+import { describe, expect, test } from "vitest";
 import {
-  firstVisiblePanelInGroup,
+  canHideNavigationGroup,
+  displayedNavigationGroups,
   navigationGroupSelectionAction,
   nextMenuItemIndex,
   visibleNavigationGroups,
-  workspaceGroupNavigationPath,
 } from "./navigation-shell";
 import { TOOLTIP_DELAY_MS, TOOLTIP_EXIT_MS } from "./tooltip";
 
@@ -22,6 +21,18 @@ describe("navigation shell groups", () => {
     expect(visibleNavigationGroups(true).map((group) => group.id)).toEqual([
       "overview", "operations", "agents", "governance", "evidence", "labs", "settings",
     ]);
+  });
+
+  test("hides optional groups while keeping Overview and Settings fixed", () => {
+    const groups = visibleNavigationGroups(true);
+    expect(displayedNavigationGroups(groups, ["operations", "overview", "settings"]).map(
+      (group) => group.id,
+    )).toEqual(["overview", "agents", "governance", "evidence", "labs", "settings"]);
+    expect(canHideNavigationGroup("operations", "operations", [])).toBe(false);
+    expect(canHideNavigationGroup("operations", "overview", [])).toBe(true);
+    expect(canHideNavigationGroup("operations", "operations", ["operations"])).toBe(true);
+    expect(canHideNavigationGroup("overview", "operations", [])).toBe(false);
+    expect(canHideNavigationGroup("settings", "operations", [])).toBe(false);
   });
 
   test("keeps the mobile command deck launcher clear of the activity rail", () => {
@@ -54,58 +65,31 @@ describe("navigation shell groups", () => {
     expect(TOOLTIP_EXIT_MS).toBe(50);
   });
 
-  test("resolves the first visible child page using the operator's group order", () => {
-    expect(firstVisiblePanelInGroup("operations", DEFAULT_NAVIGATION_PREFERENCES)?.id)
-      .toBe("live");
-    expect(firstVisiblePanelInGroup("operations", {
-      ...DEFAULT_NAVIGATION_PREFERENCES,
-      groupOrder: {
-        ...DEFAULT_NAVIGATION_PREFERENCES.groupOrder,
-        operations: ["incidents", "live"],
-      },
-      hiddenPanelIds: ["incidents"],
-    })?.id).toBe("live");
-  });
-
-  test("navigates to the first child whether or not a workspace Deck closes", () => {
-    const accepted = vi.fn(() => true);
-    const ignored = vi.fn(() => false);
-
-    expect(workspaceGroupNavigationPath(
-      "operations",
-      DEFAULT_NAVIGATION_PREFERENCES,
-      accepted,
-    )).toBe("/live");
-    expect(workspaceGroupNavigationPath(
-      "operations",
-      DEFAULT_NAVIGATION_PREFERENCES,
-      ignored,
-    )).toBe("/live");
-    expect(accepted).toHaveBeenCalledOnce();
-    expect(ignored).toHaveBeenCalledOnce();
-  });
-
-  test("toggles the selected group without navigating and opens a different group", () => {
+  test("toggles the selected group and opens a different group without navigation", () => {
     expect(navigationGroupSelectionAction("governance", "governance", true)).toEqual({
       explorerOpen: false,
-      navigate: false,
     });
     expect(navigationGroupSelectionAction("governance", "governance", false)).toEqual({
       explorerOpen: true,
-      navigate: false,
     });
     expect(navigationGroupSelectionAction("governance", "operations", false)).toEqual({
       explorerOpen: true,
-      navigate: true,
     });
+    expect(navigationGroupSelectionAction("governance", "governance", true, true)).toEqual({
+      explorerOpen: true,
+    });
+    expect(source).not.toContain("navigate(workspacePath)");
   });
 
   test("exposes Explorer disclosure state on Activity Bar group buttons", () => {
     expect(source).toContain('aria-expanded={expanded}');
     expect(source).toContain('aria-controls="navigation-explorer"');
     expect(source).toContain('id="navigation-explorer"');
-    expect(source).toContain('aria-hidden={!preferences.explorerOpen}');
-    expect(source).toContain('inert={!preferences.explorerOpen}');
+    expect(source).toContain('aria-hidden={!explorerOpen}');
+    expect(source).toContain('inert={!explorerOpen}');
+    expect(styles).toContain(
+      ".navigation-shell-open,\n.navigation-shell-context-open { z-index: 90; }",
+    );
     expect(source).not.toContain("aria-pressed={selected && preferences.explorerOpen}");
   });
 
@@ -116,5 +100,15 @@ describe("navigation shell groups", () => {
     expect(nextMenuItemIndex(1, "Home", 3)).toBe(0);
     expect(nextMenuItemIndex(1, "End", 3)).toBe(2);
     expect(nextMenuItemIndex(1, "Enter", 3)).toBe(1);
+  });
+
+  test("exposes the activity bar menu by pointer and keyboard-accessible controls", () => {
+    expect(source).toContain("onContextMenu={(event) =>");
+    expect(source).toContain('aria-haspopup="menu"');
+    expect(source).toContain('role="menuitemcheckbox"');
+    expect(source).toContain('aria-checked={checked}');
+    expect(source).toContain('"navigation-shell-context-open"');
+    expect(source).toContain("updatePreferences({ ...preferences, hiddenGroupIds });\n    setActivityBarMenu(null);");
+    expect(source).toContain("restoreActivityBar");
   });
 });

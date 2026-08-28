@@ -29,6 +29,7 @@ interface ShellProps {
 
 export function Shell({ activePanelId, auth, client, children, onExitLocalSession }: ShellProps) {
   const [preferences, setPreferences] = useState<ConsolePreferences>(readConsolePreferences);
+  const [navigationExplorerOpen, setNavigationExplorerOpen] = useState(false);
 
   useEffect(() => {
     applyConsolePreferences(preferences);
@@ -124,16 +125,22 @@ export function Shell({ activePanelId, auth, client, children, onExitLocalSessio
         </div>
       </header>
       <div class="shell-body">
-        <NavigationShell
+        <NavigationTitleProvider
           activePanelId={activePanelId}
-          principalId={auth.account?.homeAccountId ?? null}
-          devMode={auth.devMode}
-        />
-        <main>
-          <NavigationTitleProvider activePanelId={activePanelId}>
+          explorerOpen={navigationExplorerOpen}
+          onOpenExplorer={() => setNavigationExplorerOpen(true)}
+        >
+          <NavigationShell
+            activePanelId={activePanelId}
+            principalId={auth.account?.homeAccountId ?? null}
+            devMode={auth.devMode}
+            explorerOpen={navigationExplorerOpen}
+            onExplorerOpenChange={setNavigationExplorerOpen}
+          />
+          <main>
             {children}
-          </NavigationTitleProvider>
-        </main>
+          </main>
+        </NavigationTitleProvider>
       </div>
     </div>
   );

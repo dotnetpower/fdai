@@ -2,11 +2,23 @@ import { createContext, type ComponentChildren } from "preact";
 import { useContext } from "preact/hooks";
 import { PANEL_GROUPS, panelForId } from "../panels";
 
-const NavigationDomainContext = createContext<string | null>(null);
+interface NavigationTitleContextValue {
+  readonly domain: string | null;
+  readonly explorerOpen: boolean;
+  readonly openExplorer: (() => void) | null;
+}
+
+const NavigationTitleContext = createContext<NavigationTitleContextValue>({
+  domain: null,
+  explorerOpen: false,
+  openExplorer: null,
+});
 const DUPLICATE_TITLE_ROOT_PANEL_IDS = new Set(["agents", "labs"]);
 
 interface ProviderProps {
   readonly activePanelId: string;
+  readonly explorerOpen: boolean;
+  readonly onOpenExplorer: () => void;
   readonly children: ComponentChildren;
 }
 
@@ -18,14 +30,31 @@ export function navigationDomainForPanel(activePanelId: string): string | null {
   return group.label;
 }
 
-export function NavigationTitleProvider({ activePanelId, children }: ProviderProps) {
+export function NavigationTitleProvider({
+  activePanelId,
+  explorerOpen,
+  onOpenExplorer,
+  children,
+}: ProviderProps) {
+  const panel = panelForId(activePanelId);
   return (
-    <NavigationDomainContext.Provider value={navigationDomainForPanel(activePanelId)}>
+    <NavigationTitleContext.Provider
+      value={{
+        domain: navigationDomainForPanel(activePanelId),
+        explorerOpen,
+        openExplorer: panel.placement === "bottom" ? null : onOpenExplorer,
+      }}
+    >
       {children}
-    </NavigationDomainContext.Provider>
+    </NavigationTitleContext.Provider>
   );
 }
 
 export function useNavigationDomain(): string | null {
-  return useContext(NavigationDomainContext);
+  return useContext(NavigationTitleContext).domain;
+}
+
+export function useNavigationExplorer() {
+  const { explorerOpen, openExplorer } = useContext(NavigationTitleContext);
+  return { explorerOpen, openExplorer };
 }

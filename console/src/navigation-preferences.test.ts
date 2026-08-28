@@ -32,6 +32,8 @@ describe("navigation preferences", () => {
     const store = storage({
       [key]: JSON.stringify({
         explorerOpen: false,
+        explorerPinned: true,
+        hiddenGroupIds: ["operations", "removed", "operations", "overview", "settings"],
         hiddenPanelIds: ["audit", "removed", "audit"],
         groupOrder: {
           evidence: ["audit", "removed", "audit", "rca"],
@@ -42,7 +44,8 @@ describe("navigation preferences", () => {
     });
 
     expect(readNavigationPreferences(["audit", "rca", "labs"], "account-a", store)).toEqual({
-      explorerOpen: false,
+      explorerPinned: true,
+      hiddenGroupIds: ["operations"],
       hiddenPanelIds: ["audit"],
       groupOrder: { evidence: ["audit", "rca"], labs: ["labs"] },
     });
@@ -51,7 +54,8 @@ describe("navigation preferences", () => {
   test("writes and resets the scoped preference", () => {
     const store = storage();
     const preferences = {
-      explorerOpen: true,
+      explorerPinned: true,
+      hiddenGroupIds: ["evidence"],
       hiddenPanelIds: ["audit"],
       groupOrder: { evidence: ["rca", "audit"] },
     } as const;

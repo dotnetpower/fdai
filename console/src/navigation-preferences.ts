@@ -1,7 +1,8 @@
 import type { PanelGroup } from "./panels";
 
 export interface NavigationPreferences {
-  readonly explorerOpen: boolean;
+  readonly explorerPinned: boolean;
+  readonly hiddenGroupIds: readonly PanelGroup[];
   readonly hiddenPanelIds: readonly string[];
   readonly groupOrder: Readonly<Partial<Record<PanelGroup, readonly string[]>>>;
 }
@@ -12,7 +13,8 @@ type StorageWriter = Pick<Storage, "setItem" | "removeItem">;
 const STORAGE_PREFIX = "fdai:console:navigation:v1";
 
 export const DEFAULT_NAVIGATION_PREFERENCES: NavigationPreferences = {
-  explorerOpen: true,
+  explorerPinned: false,
+  hiddenGroupIds: [],
   hiddenPanelIds: [],
   groupOrder: {},
 };
@@ -28,9 +30,21 @@ export function readNavigationPreferences(
   storage: StorageReader | null = browserStorage(),
 ): NavigationPreferences {
   const validIds = new Set(panelIds);
+  const validGroupIds = new Set<PanelGroup>([
+    "overview",
+    "operations",
+    "agents",
+    "governance",
+    "evidence",
+    "labs",
+    "settings",
+  ]);
   const parsed = parseStored(storage, navigationPreferenceKey(principalId));
   if (parsed === null) return DEFAULT_NAVIGATION_PREFERENCES;
 
+  const hiddenGroupIds = stringArray(parsed.hiddenGroupIds)
+    .filter((id): id is PanelGroup => validGroupIds.has(id as PanelGroup))
+    .filter((id) => id !== "overview" && id !== "settings");
   const hiddenPanelIds = stringArray(parsed.hiddenPanelIds).filter((id) => validIds.has(id));
   const groupOrder: Partial<Record<PanelGroup, readonly string[]>> = {};
   if (isRecord(parsed.groupOrder)) {
@@ -41,9 +55,10 @@ export function readNavigationPreferences(
   }
 
   return {
-    explorerOpen: typeof parsed.explorerOpen === "boolean"
-      ? parsed.explorerOpen
-      : DEFAULT_NAVIGATION_PREFERENCES.explorerOpen,
+    explorerPinned: typeof parsed.explorerPinned === "boolean"
+      ? parsed.explorerPinned
+      : DEFAULT_NAVIGATION_PREFERENCES.explorerPinned,
+    hiddenGroupIds: unique(hiddenGroupIds),
     hiddenPanelIds: unique(hiddenPanelIds),
     groupOrder,
   };

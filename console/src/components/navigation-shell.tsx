@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import {
   DECK_STATE_EVENT,
   isDeckOpen,
   requestDeckToggle,
-  requestWorkspaceDeckCloseForNavigation,
 } from "../deck/open-deck";
 import { t } from "../i18n";
 import {
@@ -23,39 +22,60 @@ import {
   type ConsolePanel,
   type PanelGroup,
 } from "../panels";
-import { navigate, panelPath } from "../router";
-import { chatIcon, groupIcon, settingsIcon } from "./rail-icons";
+import { panelPath } from "../router";
+import { chatIcon, groupIcon, moreIcon, pinIcon, settingsIcon } from "./rail-icons";
 import { Tooltip } from "./tooltip";
 
 interface Props {
   readonly activePanelId: string;
   readonly principalId?: string | null;
   readonly devMode: boolean;
+  readonly explorerOpen: boolean;
+  readonly onExplorerOpenChange: (open: boolean) => void;
 }
 
 interface GroupSelectionAction {
   readonly explorerOpen: boolean;
-  readonly navigate: boolean;
+}
+
+interface ActivityBarMenuPosition {
+  readonly left: number;
+  readonly top: number;
 }
 
 const MOBILE_QUERY = "(max-width: 720px)";
+const FIXED_GROUP_IDS = new Set<PanelGroup>(["overview", "settings"]);
+const ACTIVITY_BAR_MENU_WIDTH = 224;
+const ACTIVITY_BAR_MENU_MARGIN = 8;
+const ACTIVITY_BAR_MENU_ITEM_HEIGHT = 34;
 
 export function visibleNavigationGroups(devMode: boolean): readonly (typeof PANEL_GROUPS)[number][] {
   return PANEL_GROUPS.filter((group) => !group.devOnly || devMode);
 }
 
-export function NavigationShell({ activePanelId, principalId, devMode }: Props) {
+export function NavigationShell({
+  activePanelId,
+  principalId,
+  devMode,
+  explorerOpen,
+  onExplorerOpenChange,
+}: Props) {
   const panelIds = useMemo(() => resolvePanels().map((panel) => panel.id), []);
   const activePanel = panelForId(activePanelId);
   const activeGroup = activePanel.placement === "bottom" ? null : activePanel.group;
   const [selectedGroup, setSelectedGroup] = useState<PanelGroup>(activeGroup ?? "overview");
-  const [preferences, setPreferences] = useState<NavigationPreferences>(() => {
-    const stored = readNavigationPreferences(panelIds, principalId);
-    return isMobile() ? { ...stored, explorerOpen: false } : stored;
-  });
+  const [preferences, setPreferences] = useState<NavigationPreferences>(
+    () => readNavigationPreferences(panelIds, principalId),
+  );
+  const [mobile, setMobile] = useState(isMobile);
   const [editing, setEditing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [activityBarMenu, setActivityBarMenu] = useState<ActivityBarMenuPosition | null>(null);
   const [deckOpen, setDeckOpen] = useState(isDeckOpen);
+  const shellRef = useRef<HTMLDivElement | null>(null);
+  const activityBarMenuRef = useRef<HTMLDivElement | null>(null);
+  const activityBarMenuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const activityBarMenuItemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const groupRefs = useRef(new Map<PanelGroup, HTMLButtonElement | null>());
   const menuRef = useRef<HTMLDivElement | null>(null);
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -64,6 +84,11 @@ export function NavigationShell({ activePanelId, principalId, devMode }: Props) 
     () => visibleNavigationGroups(devMode),
     [devMode],
   );
+  const displayedGroups = useMemo(
+    () => displayedNavigationGroups(visibleGroups, preferences.hiddenGroupIds),
+    [preferences.hiddenGroupIds, visibleGroups],
+  );
+  const explorerPinned = preferences.explorerPinned && !mobile;
 
   useEffect(() => {
     if (activeGroup !== null) setSelectedGroup(activeGroup);
@@ -71,22 +96,27 @@ export function NavigationShell({ activePanelId, principalId, devMode }: Props) 
 
   useEffect(() => {
     const stored = readNavigationPreferences(panelIds, principalId);
-    setPreferences(isMobile() ? { ...stored, explorerOpen: false } : stored);
+    setPreferences(stored);
+    onExplorerOpenChange(stored.explorerPinned && !isMobile());
     setEditing(false);
     setMenuOpen(false);
-  }, [panelIds, principalId]);
+    setActivityBarMenu(null);
+  }, [onExplorerOpenChange, panelIds, principalId]);
 
   useEffect(() => {
     const media = window.matchMedia(MOBILE_QUERY);
     const onChange = (event: MediaQueryListEvent) => {
-      if (!event.matches) return;
-      setPreferences((current) => ({ ...current, explorerOpen: false }));
-      setEditing(false);
-      setMenuOpen(false);
+      setMobile(event.matches);
+      if (event.matches) {
+        onExplorerOpenChange(false);
+        setEditing(false);
+        setMenuOpen(false);
+        setActivityBarMenu(null);
+      }
     };
     media.addEventListener("change", onChange);
     return () => media.removeEventListener("change", onChange);
-  }, []);
+  }, [onExplorerOpenChange]);
 
   useEffect(() => {
     const onDeckState = (event: Event) => {
@@ -99,20 +129,40 @@ export function NavigationShell({ activePanelId, principalId, devMode }: Props) 
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
       if (event.key !== navigationPreferenceKey(principalId)) return;
-      setPreferences(readNavigationPreferences(panelIds, principalId));
+      const stored = readNavigationPreferences(panelIds, principalId);
+      setPreferences(stored);
+      if (stored.explorerPinned && !mobile) onExplorerOpenChange(true);
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
-  }, [panelIds, principalId]);
+  }, [mobile, onExplorerOpenChange, panelIds, principalId]);
 
   useEffect(() => {
     const onPointerDown = (event: PointerEvent) => {
-      if (menuRef.current?.contains(event.target as Node)) return;
+      const target = event.target as Node;
+      if (
+        menuRef.current?.contains(target) ||
+        activityBarMenuRef.current?.contains(target) ||
+        activityBarMenuButtonRef.current?.contains(target)
+      ) return;
       setMenuOpen(false);
+      setActivityBarMenu(null);
+      if (!explorerPinned && explorerOpen && !shellRef.current?.contains(target)) {
+        onExplorerOpenChange(false);
+        setEditing(false);
+      }
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        if (menuOpen) window.requestAnimationFrame(() => menuButtonRef.current?.focus());
+        if (activityBarMenu !== null) {
+          window.requestAnimationFrame(() => activityBarMenuButtonRef.current?.focus());
+          setActivityBarMenu(null);
+        } else if (menuOpen) {
+          window.requestAnimationFrame(() => menuButtonRef.current?.focus());
+        } else if (!explorerPinned && explorerOpen) {
+          window.requestAnimationFrame(() => groupRefs.current.get(selectedGroup)?.focus());
+          onExplorerOpenChange(false);
+        }
         setMenuOpen(false);
         setEditing(false);
       }
@@ -123,11 +173,25 @@ export function NavigationShell({ activePanelId, principalId, devMode }: Props) 
       window.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [menuOpen]);
+  }, [
+    activityBarMenu,
+    explorerOpen,
+    explorerPinned,
+    menuOpen,
+    onExplorerOpenChange,
+    selectedGroup,
+  ]);
 
   useEffect(() => {
     if (menuOpen) window.requestAnimationFrame(() => menuItemRefs.current[0]?.focus());
   }, [menuOpen]);
+
+  useLayoutEffect(() => {
+    if (activityBarMenu === null) return;
+    activityBarMenuRef.current
+      ?.querySelector<HTMLButtonElement>("button:not(:disabled)")
+      ?.focus();
+  }, [activityBarMenu]);
 
   const selectedMeta = PANEL_GROUPS.find((group) => group.id === selectedGroup)!;
   const orderedPanels = orderPanels(panelsInGroup(selectedGroup), preferences.groupOrder[selectedGroup]);
@@ -137,15 +201,17 @@ export function NavigationShell({ activePanelId, principalId, devMode }: Props) 
   const hiddenPanels = orderedPanels.filter(
     (panel) => panel.id !== activePanelId && preferences.hiddenPanelIds.includes(panel.id),
   );
+  const firstActivityBarMenuIndex = visibleGroups.findIndex((group) =>
+    canHideNavigationGroup(group.id, activeGroup, preferences.hiddenGroupIds));
 
   function updatePreferences(next: NavigationPreferences): void {
     setPreferences(next);
     writeNavigationPreferences(next, principalId);
   }
 
-  function setExplorerOpen(explorerOpen: boolean): void {
-    updatePreferences({ ...preferences, explorerOpen });
-    if (!explorerOpen) {
+  function setExplorerOpen(open: boolean): void {
+    onExplorerOpenChange(open);
+    if (!open) {
       setEditing(false);
       setMenuOpen(false);
     }
@@ -155,7 +221,8 @@ export function NavigationShell({ activePanelId, principalId, devMode }: Props) 
     const action = navigationGroupSelectionAction(
       selectedGroup,
       group,
-      preferences.explorerOpen,
+      explorerOpen,
+      explorerPinned,
     );
     if (!action.explorerOpen) {
       setExplorerOpen(false);
@@ -163,15 +230,11 @@ export function NavigationShell({ activePanelId, principalId, devMode }: Props) 
     }
     setSelectedGroup(group);
     setExplorerOpen(true);
-    if (action.navigate) {
-      const workspacePath = workspaceGroupNavigationPath(group, preferences);
-      if (workspacePath) navigate(workspacePath);
-    }
   }
 
   function focusGroup(from: PanelGroup, delta: number): void {
-    const index = visibleGroups.findIndex((group) => group.id === from);
-    const next = visibleGroups[(index + delta + visibleGroups.length) % visibleGroups.length];
+    const index = displayedGroups.findIndex((group) => group.id === from);
+    const next = displayedGroups[(index + delta + displayedGroups.length) % displayedGroups.length];
     if (next === undefined) return;
     groupRefs.current.get(next.id)?.focus();
   }
@@ -182,6 +245,56 @@ export function NavigationShell({ activePanelId, principalId, devMode }: Props) 
       ...preferences,
       hiddenPanelIds: [...new Set([...preferences.hiddenPanelIds, panelId])],
     });
+  }
+
+  function toggleExplorerPinned(): void {
+    updatePreferences({ ...preferences, explorerPinned: !preferences.explorerPinned });
+    setExplorerOpen(true);
+  }
+
+  function openActivityBarMenu(left: number, top: number): void {
+    const estimatedHeight = visibleGroups.length * ACTIVITY_BAR_MENU_ITEM_HEIGHT + 48;
+    const boundedHeight = Math.min(estimatedHeight, window.innerHeight - 2 * ACTIVITY_BAR_MENU_MARGIN);
+    setActivityBarMenu({
+      left: Math.max(
+        ACTIVITY_BAR_MENU_MARGIN,
+        Math.min(left, window.innerWidth - ACTIVITY_BAR_MENU_WIDTH - ACTIVITY_BAR_MENU_MARGIN),
+      ),
+      top: Math.max(
+        ACTIVITY_BAR_MENU_MARGIN,
+        Math.min(top, window.innerHeight - boundedHeight - ACTIVITY_BAR_MENU_MARGIN),
+      ),
+    });
+    setMenuOpen(false);
+  }
+
+  function openActivityBarMenuFromButton(): void {
+    if (activityBarMenu !== null) {
+      setActivityBarMenu(null);
+      return;
+    }
+    const bounds = activityBarMenuButtonRef.current?.getBoundingClientRect();
+    if (bounds === undefined) return;
+    openActivityBarMenu(bounds.right + 6, bounds.bottom);
+  }
+
+  function toggleGroupVisibility(group: PanelGroup): void {
+    if (!canHideNavigationGroup(group, activeGroup, preferences.hiddenGroupIds)) return;
+    const hidden = preferences.hiddenGroupIds.includes(group);
+    const hiddenGroupIds = hidden
+      ? preferences.hiddenGroupIds.filter((id) => id !== group)
+      : [...preferences.hiddenGroupIds, group];
+    updatePreferences({ ...preferences, hiddenGroupIds });
+    setActivityBarMenu(null);
+    if (!hidden && selectedGroup === group) {
+      setSelectedGroup(activeGroup ?? "overview");
+      setExplorerOpen(false);
+    }
+  }
+
+  function restoreActivityBar(): void {
+    updatePreferences({ ...preferences, hiddenGroupIds: [] });
+    setActivityBarMenu(null);
   }
 
   function showPanel(panelId: string): void {
@@ -265,12 +378,13 @@ export function NavigationShell({ activePanelId, principalId, devMode }: Props) 
   function resetMenu(): void {
     resetNavigationPreferences(principalId);
     setPreferences(DEFAULT_NAVIGATION_PREFERENCES);
+    setExplorerOpen(false);
     setEditing(false);
     setMenuOpen(false);
   }
 
   const renderGroupButton = (group: (typeof PANEL_GROUPS)[number]) => {
-    const expanded = group.id === selectedGroup && preferences.explorerOpen;
+    const expanded = group.id === selectedGroup && explorerOpen;
     return (
       <li key={group.id}>
         <Tooltip content={group.label} placement="right">
@@ -300,12 +414,42 @@ export function NavigationShell({ activePanelId, principalId, devMode }: Props) 
   };
 
   return (
-    <div class={`navigation-shell ${preferences.explorerOpen ? "" : "navigation-shell-closed"}`}>
-      <nav class="activity-bar" aria-label={t("nav.primaryLabel")}>
+    <div
+      ref={shellRef}
+      class={[
+        "navigation-shell",
+        explorerOpen ? "navigation-shell-open" : "",
+        explorerPinned ? "navigation-shell-pinned" : "",
+        activityBarMenu !== null ? "navigation-shell-context-open" : "",
+      ].filter(Boolean).join(" ")}
+    >
+      <nav
+        class="activity-bar"
+        aria-label={t("nav.primaryLabel")}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          openActivityBarMenu(event.clientX, event.clientY);
+        }}
+      >
         <ul class="activity-bar-list">
-          {visibleGroups.filter((group) => group.placement !== "bottom").map(renderGroupButton)}
+          {displayedGroups.filter((group) => group.placement !== "bottom").map(renderGroupButton)}
         </ul>
         <ul class="activity-bar-list activity-bar-bottom">
+          <li>
+            <Tooltip content={t("nav.customizeActivityBar")} placement="right">
+              <button
+                ref={activityBarMenuButtonRef}
+                type="button"
+                class="activity-bar-button"
+                aria-label={t("nav.customizeActivityBar")}
+                aria-haspopup="menu"
+                aria-expanded={activityBarMenu !== null}
+                onClick={openActivityBarMenuFromButton}
+              >
+                <span aria-hidden="true">{moreIcon()}</span>
+              </button>
+            </Tooltip>
+          </li>
           <li>
             <Tooltip content={deckOpen ? t("deck.close") : t("deck.invoke")} placement="right">
               <button
@@ -319,7 +463,7 @@ export function NavigationShell({ activePanelId, principalId, devMode }: Props) 
               </button>
             </Tooltip>
           </li>
-          {visibleGroups.filter((group) => group.placement === "bottom").map(renderGroupButton)}
+          {displayedGroups.filter((group) => group.placement === "bottom").map(renderGroupButton)}
           {bottomRailPanels().map((panel) => (
             <li key={panel.id}>
               <Tooltip content={panel.label} placement="right">
@@ -337,19 +481,86 @@ export function NavigationShell({ activePanelId, principalId, devMode }: Props) 
           ))}
         </ul>
       </nav>
+      {activityBarMenu !== null ? (
+        <div
+          ref={activityBarMenuRef}
+          class="activity-bar-context-menu"
+          role="menu"
+          aria-label={t("nav.activityBarMenu")}
+          style={{ left: activityBarMenu.left, top: activityBarMenu.top }}
+        >
+          {visibleGroups.map((group, index) => {
+            const checked = !preferences.hiddenGroupIds.includes(group.id);
+            const fixed = FIXED_GROUP_IDS.has(group.id);
+            const current = activeGroup === group.id && checked;
+            return (
+              <button
+                key={group.id}
+                ref={(element) => { activityBarMenuItemRefs.current[index] = element; }}
+                type="button"
+                role="menuitemcheckbox"
+                aria-checked={checked}
+                disabled={fixed || current}
+                autoFocus={index === firstActivityBarMenuIndex}
+                onKeyDown={(event) =>
+                  focusMenuItem(event, index, activityBarMenuItemRefs.current)}
+                onClick={() => toggleGroupVisibility(group.id)}
+              >
+                <span class="activity-bar-menu-check" aria-hidden="true">
+                  {checked ? "✓" : ""}
+                </span>
+                <span>{group.label}</span>
+                {fixed
+                  ? <small>{t("nav.alwaysShown")}</small>
+                  : current
+                    ? <small>{t("nav.currentGroup")}</small>
+                    : null}
+              </button>
+            );
+          })}
+          <div class="activity-bar-menu-separator" role="separator" />
+          <button
+            ref={(element) => {
+              activityBarMenuItemRefs.current[visibleGroups.length] = element;
+            }}
+            type="button"
+            role="menuitem"
+            onKeyDown={(event) =>
+              focusMenuItem(event, visibleGroups.length, activityBarMenuItemRefs.current)}
+            onClick={restoreActivityBar}
+          >
+            <span class="activity-bar-menu-check" aria-hidden="true" />
+            <span>{t("nav.restoreActivityBar")}</span>
+          </button>
+        </div>
+      ) : null}
 
       <aside
         id="navigation-explorer"
         class={`navigation-explorer ${editing ? "editing" : ""}`}
         aria-label={t("nav.explorerLabel")}
-        aria-hidden={!preferences.explorerOpen}
-        inert={!preferences.explorerOpen}
+        aria-hidden={!explorerOpen}
+        inert={!explorerOpen}
       >
         <header class="navigation-explorer-head">
           <div>
             <strong>{selectedMeta.label}</strong>
             <small>{selectedMeta.hint}</small>
           </div>
+          <Tooltip
+            content={explorerPinned ? t("nav.unpinNavigation") : t("nav.pinNavigation")}
+            placement="bottom"
+          >
+            <button
+              type="button"
+              class="navigation-icon-button navigation-pin-button"
+              aria-label={explorerPinned ? t("nav.unpinNavigation") : t("nav.pinNavigation")}
+              aria-pressed={explorerPinned}
+              onClick={toggleExplorerPinned}
+            >
+              <span aria-hidden="true">{pinIcon(explorerPinned)}</span>
+            </button>
+          </Tooltip>
           <div ref={menuRef} class="navigation-more-wrap">
             <Tooltip content={t("nav.moreActions")} placement="bottom">
               <button
@@ -434,7 +645,9 @@ export function NavigationShell({ activePanelId, principalId, devMode }: Props) 
                     <a
                       href={panelPath(panel.id)}
                       aria-current={panel.id === activePanelId ? "page" : undefined}
-                      onClick={() => { if (isMobile()) setExplorerOpen(false); }}
+                      onClick={() => {
+                        if (mobile || !explorerPinned) setExplorerOpen(false);
+                      }}
                     >
                       {panel.label}
                     </a>
@@ -511,34 +724,33 @@ function orderPanels(
   );
 }
 
-export function firstVisiblePanelInGroup(
-  group: PanelGroup,
-  preferences: NavigationPreferences,
-): ConsolePanel | undefined {
-  return orderPanels(panelsInGroup(group), preferences.groupOrder[group])
-    .find((panel) => !preferences.hiddenPanelIds.includes(panel.id));
-}
-
-export function workspaceGroupNavigationPath(
-  group: PanelGroup,
-  preferences: NavigationPreferences,
-  closeWorkspaceDeck: () => boolean = requestWorkspaceDeckCloseForNavigation,
-): string | null {
-  const firstPanel = firstVisiblePanelInGroup(group, preferences);
-  if (firstPanel === undefined) return null;
-  closeWorkspaceDeck();
-  return panelPath(firstPanel.id);
-}
-
 export function navigationGroupSelectionAction(
   selectedGroup: PanelGroup,
   requestedGroup: PanelGroup,
   explorerOpen: boolean,
+  explorerPinned = false,
 ): GroupSelectionAction {
   if (selectedGroup === requestedGroup) {
-    return { explorerOpen: !explorerOpen, navigate: false };
+    return { explorerOpen: explorerPinned || !explorerOpen };
   }
-  return { explorerOpen: true, navigate: true };
+  return { explorerOpen: true };
+}
+
+export function displayedNavigationGroups(
+  groups: readonly (typeof PANEL_GROUPS)[number][],
+  hiddenGroupIds: readonly PanelGroup[],
+): readonly (typeof PANEL_GROUPS)[number][] {
+  const hidden = new Set(hiddenGroupIds);
+  return groups.filter((group) => FIXED_GROUP_IDS.has(group.id) || !hidden.has(group.id));
+}
+
+export function canHideNavigationGroup(
+  group: PanelGroup,
+  activeGroup: PanelGroup | null,
+  hiddenGroupIds: readonly PanelGroup[],
+): boolean {
+  return !FIXED_GROUP_IDS.has(group) &&
+    (activeGroup !== group || hiddenGroupIds.includes(group));
 }
 
 function isMobile(): boolean {
@@ -565,8 +777,16 @@ function focusMenuItem(
   index: number,
   items: readonly (HTMLButtonElement | null)[],
 ): void {
-  const next = nextMenuItemIndex(index, event.key, items.length);
-  if (next === index && !["Home", "End"].includes(event.key)) return;
+  if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
   event.preventDefault();
-  items[next]?.focus();
+  const direction = event.key === "ArrowUp" || event.key === "End" ? -1 : 1;
+  let next = nextMenuItemIndex(index, event.key, items.length);
+  for (let attempt = 0; attempt < items.length; attempt += 1) {
+    const item = items[next];
+    if (item !== null && item !== undefined && !item.disabled) {
+      item.focus();
+      return;
+    }
+    next = (next + direction + items.length) % items.length;
+  }
 }

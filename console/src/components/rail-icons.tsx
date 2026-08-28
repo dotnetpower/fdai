@@ -105,6 +105,27 @@ export function chatIcon(): JSX.Element {
   );
 }
 
+export function pinIcon(pinned: boolean): JSX.Element {
+  return (
+    <svg {...iconProps}>
+      <path d="M8 3 H16" />
+      <path d="M9 3 V9 L6 13 H18 L15 9 V3" />
+      <path d="M12 13 V21" />
+      {pinned ? null : <path d="M5 5 L19 19" />}
+    </svg>
+  );
+}
+
+export function moreIcon(): JSX.Element {
+  return (
+    <svg {...iconProps}>
+      <circle cx="6" cy="12" r="1" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
+      <circle cx="18" cy="12" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 export function groupIcon(group: PanelGroup): JSX.Element {
   switch (group) {
     case "overview":
