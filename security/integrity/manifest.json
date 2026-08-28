@@ -244,7 +244,7 @@
     "services/core-control-plane/src/fdai/core/conversation/channel_gateway.py": "fd4c9c33bbbc2e5b27997efe38192c4457b25e9855b7234ffa21e45b31f30e30",
     "services/core-control-plane/src/fdai/core/conversation/context_bridge.py": "934a22748fc9b755778bd5fefa1c391348bc4f9ef9e0a4a154b4d7dc96d4fe69",
     "services/core-control-plane/src/fdai/core/conversation/contextual_translation.py": "70e7029bdd8983efefac50f260366195612722ddb52f483ca20d4d522275e321",
-    "services/core-control-plane/src/fdai/core/conversation/conversation_preflight.py": "77dcb6048beee17afad44ffefabe74b607c27465762c8623a570c1bd3c32101f",
+    "services/core-control-plane/src/fdai/core/conversation/conversation_preflight.py": "ec3c4e92040496746cba610a8207f8f7ff52968f59176681ceaee6843a8780eb",
     "services/core-control-plane/src/fdai/core/conversation/coordinator.py": "8f76a762548901a3087fa10112798aeab39c8f5b77c44f7c812246f04615ba58",
     "services/core-control-plane/src/fdai/core/conversation/coverage_gate.py": "19f2cb578bf771c0a58e88f3a820d32757a2d7d9d27f8a71964e79a13b9ebe3c",
     "services/core-control-plane/src/fdai/core/conversation/creation.py": "f220a81dc7636a6ac0ff57cc9981345119ee10152bd478ebbe5c01cc93c3410e",

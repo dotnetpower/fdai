@@ -144,6 +144,30 @@ def test_social_narrator_uses_only_typed_continuity_and_profile() -> None:
     assert "context" not in model.narrator_calls[0]
 
 
+def test_social_narrator_holds_oversized_profile_before_model_call() -> None:
+    model = _DirectModel()
+    boundary = ConversationPreflightBoundary(
+        binding=None,
+        narrator=SocialResponseNarratorBinding(
+            model=model,
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+
+    result = boundary.narrate_social(
+        utterance="안녕",
+        locale="ko",
+        social_act=SocialAct.GREETING,
+        continued=False,
+        direct_response_profile={"context": "x" * 20_000},
+    )
+
+    assert result.draft is None
+    assert result.attempted is False
+    assert model.narrator_calls == []
+
+
 def test_accepts_mixed_route_without_generating_text() -> None:
     result = _boundary(
         _DirectModel(

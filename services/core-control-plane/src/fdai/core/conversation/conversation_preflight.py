@@ -259,7 +259,10 @@ class ConversationPreflightBoundary:
         if self._narrator is None:
             return SocialResponseNarratorResult(draft=None)
         response_locale = "ko" if locale.casefold().startswith("ko") else "en"
-        bounded_profile = _bounded_profile(direct_response_profile)
+        try:
+            bounded_profile = _bounded_profile(direct_response_profile)
+        except (TypeError, ValueError):
+            return SocialResponseNarratorResult(draft=None)
         profile_digest = content_digest(bounded_profile)
         try:
             response = self._narrator.model.narrate_social(

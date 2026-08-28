@@ -167,6 +167,8 @@ Azure Monitor alert normalization applies the same UTC rule before deriving Even
 identity, preventing offset-only provider retries from becoming duplicate incident signals.
 Knowledge retrieval rejects non-finite embeddings at the pgvector boundary and assigns zero
 similarity in the in-memory reference, preserving deterministic ranking under invalid model output.
+Conversation preflight bounds the direct-response profile before social narration and holds
+oversized input without exposing operational context or invoking the model.
 Runtime bootstrap delegates semantic readiness and vertical workload-identity construction to its
 existing lifecycle and binding helpers, keeping the primary composition root below the reviewed
 fanout ceiling. A thin bootstrap wrapper preserves the injected identity-builder test and fork seam.
