@@ -3,10 +3,7 @@ title: Process Automation
 ---
 # Process Automation
 
-Process automation turns a multi-step business process into a first-class, ontology-linked, governed artifact. A process is not a script that reaches
-around the control plane; it is a declarative sequence of ontology
-`ActionType` invocations that the same trust-routing control loop dispatches,
-one step at a time, under the same safety invariants as a single remediation.
+Process automation turns a multi-step business process into a first-class, ontology-linked, governed artifact. A process is not a script that reaches around the control plane; it is a declarative sequence of ontology `ActionType` invocations that the same trust-routing control loop dispatches, one step at a time, under the same safety invariants as a single remediation.
 
 This document is the machine-readable counterpart to
 [agent-workflows.md](../agents/agent-workflows.md). Where that document describes the
@@ -237,11 +234,7 @@ LinkTypes cover only the runtime graph edges between first-class object types.
 The focused [Workflow Control-Loop Integration](workflow-control-loop-integration.md) document owns
 orchestration, catalog-root, adapter routing, journals, commands, and sandbox execution details.
 
-Workflow action delivery and outbound human notification delivery remain separate runtime
-compositions. Process steps continue to re-enter the typed action pipeline, while A2/A4 notices use
-the provider-neutral notification router with named bindings and durable per-channel fan-out. A
-notification binding cannot select, advance, approve, or execute a workflow step.
-
+Workflow action delivery and outbound human notification delivery remain separate runtime compositions. Process steps continue to re-enter the typed action pipeline, while A2/A4 notices use the provider-neutral notification router with named bindings and durable per-channel fan-out. A notification binding cannot select, advance, approve, or execute a workflow step.
 ## 5. Saga compensation
 
 A multi-step process that fails partway MUST be able to undo the steps that

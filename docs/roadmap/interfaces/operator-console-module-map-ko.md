@@ -1,22 +1,18 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: d983364069b74df5872493be5e17e03b7cb63aa6
-translation_revised: 2026-08-27
+translation_source_sha: 51c72c90845f44e6d1d8a1b95aa5efc6f7e02a62
+translation_revised: 2026-08-28
 ---
 # Operator Console 모듈 지도 and Boundaries
 
-이 문서는 Operator Console 대화 모듈, 경로, 채널 및 프로바이더 경계를 매핑합니다.
-Main 콘솔 계약을 확장하지 않고 출처 소유권을 찾을 수 있게 유지합니다.
+이 문서는 Operator Console 대화 모듈, 경로, 채널 및 프로바이더 경계를 매핑합니다. Main 콘솔 계약을 확장하지 않고 출처 소유권을 찾을 수 있게 유지합니다.
 
 ## 실행 가능한 기준선
 
 [`operator-console-module-inventory.json`](operator-console-module-inventory.json)은 현재 Operator API 패키지 책임, 경로 계열 분류, 후보 대상 및 가져오기 표면 상태를 기록합니다. 이 인벤토리는 file-count 목표가 아닌 설명 기준이지만, executable 완전성 게이트는 현재 모든 모듈 디렉터리와 경로 모듈을 분류된 상태로 유지하도록 요구합니다. 후보 대상은 패키지 힌트입니다. 새 프로세스, 신원, 전송 계층 또는 데이터 소유자의 게이트는 [서비스 승격과 데이터 소유권](../architecture/service-graduation-and-ownership-ko.md)입니다.
 [`test_operator_api_layout.py`](../../../services/operator-service/tests/)는 현재 모든 패키지와 경로 모듈이 분류된 상태인지 확인하고, exact 기본 메서드, 경로, route-name 집합 및 대표 HTTP 묶음을 고정합니다. 의도적인 기본 경로 추가는 같은 변경에서 검토된 기준선을 갱신합니다.
-저장소 카탈로그는 리비전이 있는 Operator 변환 결과로 구체화합니다.
-`runtime_projection_reader.py`와 `conversation_assurance_reader.py`는 Operator 역할에 부여된
-영속 테이블만 읽습니다. 이 읽기 구성요소는 측정된 레코드 또는 명시적인 빈 근거 상태를 반환하며
-실행 적격성을 추론하지 않습니다.
+저장소 카탈로그는 리비전이 있는 Operator 변환 결과로 구체화합니다. `runtime_projection_reader.py`와 `conversation_assurance_reader.py`는 Operator 역할에 부여된 영속 테이블만 읽습니다. 이 읽기 구성요소는 측정된 레코드 또는 명시적인 빈 근거 상태를 반환하며 실행 적격성을 추론하지 않습니다.
 
 ## 구현 상태
 
