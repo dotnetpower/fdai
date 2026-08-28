@@ -91,6 +91,11 @@ class _ReceiptVerifier:
         return receipt.action_type_name == action_type.name
 
 
+class _PersistedAuthorityVerifier:
+    async def verify(self, **_kwargs: object) -> bool:
+        return True
+
+
 def _request(target: str, *, mode: Mode) -> DirectApiRequest:
     return DirectApiRequest(
         action_id=UUID("00000000-0000-0000-0000-000000000010"),
@@ -118,6 +123,7 @@ async def test_enforce_applies_exact_verified_receipt_and_persists_mode() -> Non
     registry = StateStoreActionPromotionRegistry(
         store=state,
         receipt_verifier=_ReceiptVerifier(),
+        persisted_authority_verifier=_PersistedAuthorityVerifier(),
     )
     executor = OperationalPromotionDirectApiExecutor(
         action_types=action_types,
@@ -137,6 +143,48 @@ async def test_enforce_applies_exact_verified_receipt_and_persists_mode() -> Non
 
     assert replay.outcome is DirectApiOutcome.SUCCEEDED
     assert replay.detail == "verified operational promotion receipt already applied"
+
+
+async def test_restart_replay_cannot_overwrite_newer_persisted_attribution() -> None:
+    action_types = _action_types()
+    target = action_types["remediate.tag-add"]
+    state = InMemoryStateStore()
+    newer_receipt = replace(_receipt(target), evidence_digest="c" * 64)
+    newer = OperationalPromotionDirectApiExecutor(
+        action_types=action_types,
+        receipts=_ReceiptReader(newer_receipt),
+        registry=StateStoreActionPromotionRegistry(
+            store=state,
+            receipt_verifier=_ReceiptVerifier(),
+            persisted_authority_verifier=_PersistedAuthorityVerifier(),
+        ),
+    )
+    newer_request = replace(
+        _request(target.name, mode=Mode.ENFORCE),
+        arguments={
+            **_request(target.name, mode=Mode.ENFORCE).arguments,
+            "evidence_digest": newer_receipt.evidence_digest,
+        },
+    )
+    await newer.execute(newer_request)
+
+    stale_registry = StateStoreActionPromotionRegistry(
+        store=state,
+        receipt_verifier=_ReceiptVerifier(),
+        persisted_authority_verifier=_PersistedAuthorityVerifier(),
+    )
+    stale = OperationalPromotionDirectApiExecutor(
+        action_types=action_types,
+        receipts=_ReceiptReader(_receipt(target)),
+        registry=stale_registry,
+    )
+
+    with pytest.raises(DirectApiPreconditionError, match="differs"):
+        await stale.execute(_request(target.name, mode=Mode.ENFORCE))
+
+    persisted = await state.read_state(f"action_promotion:{target.name}")
+    assert persisted is not None
+    assert persisted["promotion_evidence_digest"] == newer_receipt.evidence_digest
 
 
 async def test_shadow_validates_but_never_changes_promotion_state() -> None:
