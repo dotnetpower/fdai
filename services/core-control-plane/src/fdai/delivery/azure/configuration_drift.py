@@ -155,7 +155,7 @@ def _resource(
     provider_id = _required_row_text(row, "id", max_chars=_MAX_ID_CHARS)
     name = _required_row_text(row, "name", max_chars=_MAX_TEXT_CHARS)
     resource_type = _required_row_text(row, "type", max_chars=_MAX_TEXT_CHARS)
-    location = _required_row_text(row, "location", max_chars=_MAX_TEXT_CHARS)
+    location = _location(row)
     attributes: dict[str, object] = {}
     unknown: set[str] = set()
     for index, path in enumerate(attribute_paths):
@@ -204,6 +204,20 @@ def _required_row_text(
             f"ARG configuration row field {field!r} exceeds {max_chars} characters"
         )
     return normalized
+
+
+def _location(row: Mapping[str, Any]) -> str:
+    value = row.get("location")
+    if not isinstance(value, str):
+        raise AzureConfigurationObservationError(
+            "ARG configuration row is missing required field 'location'"
+        )
+    normalized = value.strip()
+    if len(normalized) > _MAX_TEXT_CHARS:
+        raise AzureConfigurationObservationError(
+            f"ARG configuration row field 'location' exceeds {_MAX_TEXT_CHARS} characters"
+        )
+    return normalized or "global"
 
 
 __all__ = [
