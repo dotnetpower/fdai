@@ -133,6 +133,11 @@ async def test_enforce_applies_exact_verified_receipt_and_persists_mode() -> Non
     assert persisted is not None
     assert persisted["mode"] == "enforce"
 
+    replay = await executor.execute(_request(target.name, mode=Mode.ENFORCE))
+
+    assert replay.outcome is DirectApiOutcome.SUCCEEDED
+    assert replay.detail == "verified operational promotion receipt already applied"
+
 
 async def test_shadow_validates_but_never_changes_promotion_state() -> None:
     action_types = _action_types()

@@ -226,8 +226,7 @@ async def test_promotion_dispatch_requires_approved_distinct_approver_transition
         attestation_store=store,
     )
     assert (await routed.execute(request)).receipt_ref == "promotion:1"
-    with pytest.raises(DirectApiPreconditionError, match="unused"):
-        await routed.execute(request)
+    assert (await routed.execute(request)).receipt_ref == "promotion:1"
 
 
 @pytest.mark.asyncio
@@ -324,8 +323,10 @@ async def test_promotion_attestation_survives_a_failed_durable_apply() -> None:
     assert executor.calls == 2
 
     # Only now that the apply durably succeeded is the approval truly spent.
-    with pytest.raises(DirectApiPreconditionError, match="unused"):
-        await routed.execute(request)
+    # Exact retries replay the confirmed receipt without calling the executor.
+    replay = await routed.execute(request)
+    assert replay == result
+    assert executor.calls == 2
 
 
 @pytest.mark.asyncio
@@ -466,9 +467,9 @@ async def test_promotion_attestation_recovers_when_restore_itself_fails() -> Non
     result = await working.execute(request)
     assert result.receipt_ref == "promotion:1"
 
-    # Only now, after a confirmed durable success, is it truly spent.
-    with pytest.raises(DirectApiPreconditionError, match="unused"):
-        await working.execute(request)
+    # Only now, after a confirmed durable success, is it truly spent. Exact
+    # retries replay the confirmed receipt without reapplying the promotion.
+    assert (await working.execute(request)) == result
 
 
 @pytest.mark.asyncio
@@ -550,3 +551,252 @@ async def test_promotion_direct_route_is_inert_without_review() -> None:
     )
     with pytest.raises(DirectApiPreconditionError, match="inert"):
         await GovernancePromotionDispatcher(_PromotionExecutor()).execute(request)  # type: ignore[arg-type]
+
+
+@pytest.mark.asyncio
+async def test_stale_fencing_token_cannot_touch_a_reclaimed_reservation() -> None:
+    """A holder whose lease already expired MUST NOT restore or finalize
+    the *reclaimer's* still-active reservation.
+
+    `consume` claims the nonce before the guarded apply is known to
+    succeed, bounded by a lease. If that lease expires, a fresh `consume`
+    call reclaims the same nonce and bumps its revision. The original
+    (now stale) holder may still be mid-flight - for example a slow
+    network call that outlived its own lease - and eventually call
+    `restore` or `finalize` with the token it captured back when it first
+    reserved. Both MUST be safe no-ops against the reclaimer's revision,
+    not just against `consumed`/`pending` states.
+    """
+    from fdai.core.rbac.roles import Role
+    from fdai.delivery.promotion import (
+        GovernancePromotionAttestation,
+        StateStorePromotionAttestationStore,
+        promotion_request_fingerprint,
+    )
+    from fdai.rule_catalog.schema.governance_review_authority import (
+        GovernanceApproval,
+        GovernanceChangeClass,
+        GovernancePrincipal,
+        GovernanceReviewRequest,
+    )
+    from fdai.shared.contracts.models import Mode
+    from fdai.shared.providers.direct_api import DirectApiRequest
+
+    request = DirectApiRequest(
+        action_id=UUID("00000000-0000-0000-0000-000000000016"),
+        idempotency_key="promotion-7",
+        action_type_name="governance.promote-action-type",
+        rule_ids=("operator.promotion",),
+        resource_ref="action-type:remediate.tag-add",
+        arguments={
+            "action_type_id": "remediate.tag-add",
+            "target_mode": "enforce",
+            "fdai_revision": "a" * 40,
+            "scenario_set_version": "scenario-v1",
+            "evidence_digest": "b" * 64,
+            "justification": "Measured evidence passed every promotion guard.",
+        },
+        labels=("enforce",),
+        mode=Mode.ENFORCE,
+    )
+    review = GovernanceReviewRequest(
+        change_class=GovernanceChangeClass.ENFORCE_PROMOTION,
+        author=GovernancePrincipal(oid=OID_A, roles=frozenset({Role.APPROVER})),
+        head_revision="a" * 40,
+        head_committed_at=NOW,
+        approvals=(
+            GovernanceApproval(
+                approver=GovernancePrincipal(oid=OID_B, roles=frozenset({Role.APPROVER})),
+                reviewed_revision="a" * 40,
+                approved_at=NOW,
+                phishing_resistant=True,
+            ),
+            GovernanceApproval(
+                approver=GovernancePrincipal(
+                    oid="00000000-0000-0000-0000-000000000004",
+                    roles=frozenset({Role.APPROVER}),
+                ),
+                reviewed_revision="a" * 40,
+                approved_at=NOW,
+                phishing_resistant=True,
+            ),
+        ),
+    )
+    attestation = GovernancePromotionAttestation(
+        review=review,
+        action_type_id="remediate.tag-add",
+        fdai_revision="a" * 40,
+        scenario_set_version="scenario-v1",
+        evidence_digest="b" * 64,
+        idempotency_key="promotion-7",
+        nonce="nonce-7",
+        request_fingerprint=promotion_request_fingerprint(request),
+    )
+
+    clock_now = NOW
+
+    def _clock() -> datetime:
+        return clock_now
+
+    store = StateStorePromotionAttestationStore(
+        InMemoryStateStore(),
+        reservation_lease_seconds=60,
+        clock=_clock,
+    )
+    await store.save(attestation)
+
+    stale = await store.consume("promotion-7", attestation.request_fingerprint)
+    assert stale is not None
+
+    # The stale holder's lease elapses without it ever calling restore or
+    # finalize (for example it is still blocked on a slow network call).
+    clock_now = NOW + timedelta(seconds=61)
+    fresh = await store.consume("promotion-7", attestation.request_fingerprint)
+    assert fresh is not None
+    assert fresh.fencing_token != stale.fencing_token
+
+    # The stale holder now wakes up and tries to unwind what it believes
+    # is still its own reservation. Both calls MUST be no-ops: the fresh
+    # holder's active claim is untouched.
+    await store.restore("promotion-7", stale.attestation, stale.fencing_token)
+    await store.finalize("promotion-7", stale.attestation, stale.fencing_token)
+
+    key = "governance-promotion-attestation:promotion-7"
+    raw = await store._store.read_state(key)  # noqa: SLF001 - assert internal durable state
+    assert raw is not None
+    assert raw["state"] == "reserved"
+    assert raw["revision"] == fresh.fencing_token
+
+    # The fresh holder's own token, however, still works.
+    await store.finalize("promotion-7", fresh.attestation, fresh.fencing_token)
+    raw = await store._store.read_state(key)  # noqa: SLF001 - assert internal durable state
+    assert raw is not None
+    assert raw["state"] == "consumed"
+
+
+@pytest.mark.asyncio
+async def test_finalize_failure_after_durable_apply_is_a_recoverable_success() -> None:
+    """A `finalize` bookkeeping failure MUST NOT mask an already-durable apply.
+
+    By the time `finalize` runs, the wrapped executor already durably
+    applied the promotion - `finalize` only spends the reservation
+    bookkeeping. If that write itself fails (the same class of
+    durable-store outage that can afflict `restore`), the caller MUST
+    still see the confirmed success receipt, not an exception that could
+    make it believe the action never happened and reapply it. The
+    dangling `reserved` record instead self-heals via the bounded
+    reservation lease, exactly like an unrestored failure does."""
+    from fdai.core.rbac.roles import Role
+    from fdai.delivery.promotion import (
+        GovernancePromotionAttestation,
+        GovernancePromotionDispatcher,
+        StateStorePromotionAttestationStore,
+        promotion_request_fingerprint,
+    )
+    from fdai.rule_catalog.schema.governance_review_authority import (
+        GovernanceApproval,
+        GovernanceChangeClass,
+        GovernancePrincipal,
+        GovernanceReviewRequest,
+    )
+    from fdai.shared.contracts.models import Mode
+    from fdai.shared.providers.direct_api import DirectApiRequest
+
+    class _CountingExecutor:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def execute(self, request):  # type: ignore[no-untyped-def]
+            self.calls += 1
+            return DirectApiReceipt(outcome=DirectApiOutcome.SUCCEEDED, receipt_ref="promotion:1")
+
+    class _NthCasFailsStore(InMemoryStateStore):
+        """Fail exactly the ``fail_on_call``-th compare-and-set - the
+        `finalize` write that follows a successful apply - as if the
+        durable store became unreachable right after the guarded apply
+        already durably persisted."""
+
+        def __init__(self, *, fail_on_call: int) -> None:
+            super().__init__()
+            self._fail_on_call = fail_on_call
+            self.cas_calls = 0
+
+        async def compare_and_set_state_with_audit(  # type: ignore[no-untyped-def]
+            self, key, value, *, expected_revision, audit_entry
+        ):
+            self.cas_calls += 1
+            if self.cas_calls == self._fail_on_call:
+                raise RuntimeError("simulated store outage")
+            return await super().compare_and_set_state_with_audit(
+                key, value, expected_revision=expected_revision, audit_entry=audit_entry
+            )
+
+    request = DirectApiRequest(
+        action_id=UUID("00000000-0000-0000-0000-000000000017"),
+        idempotency_key="promotion-8",
+        action_type_name="governance.promote-action-type",
+        rule_ids=("operator.promotion",),
+        resource_ref="action-type:remediate.tag-add",
+        arguments={
+            "action_type_id": "remediate.tag-add",
+            "target_mode": "enforce",
+            "fdai_revision": "a" * 40,
+            "scenario_set_version": "scenario-v1",
+            "evidence_digest": "b" * 64,
+            "justification": "Measured evidence passed every promotion guard.",
+        },
+        labels=("enforce",),
+        mode=Mode.ENFORCE,
+    )
+    review = GovernanceReviewRequest(
+        change_class=GovernanceChangeClass.ENFORCE_PROMOTION,
+        author=GovernancePrincipal(oid=OID_A, roles=frozenset({Role.APPROVER})),
+        head_revision="a" * 40,
+        head_committed_at=NOW,
+        approvals=(
+            GovernanceApproval(
+                approver=GovernancePrincipal(oid=OID_B, roles=frozenset({Role.APPROVER})),
+                reviewed_revision="a" * 40,
+                approved_at=NOW,
+                phishing_resistant=True,
+            ),
+            GovernanceApproval(
+                approver=GovernancePrincipal(
+                    oid="00000000-0000-0000-0000-000000000004",
+                    roles=frozenset({Role.APPROVER}),
+                ),
+                reviewed_revision="a" * 40,
+                approved_at=NOW,
+                phishing_resistant=True,
+            ),
+        ),
+    )
+    attestation = GovernancePromotionAttestation(
+        review=review,
+        action_type_id="remediate.tag-add",
+        fdai_revision="a" * 40,
+        scenario_set_version="scenario-v1",
+        evidence_digest="b" * 64,
+        idempotency_key="promotion-8",
+        nonce="nonce-8",
+        request_fingerprint=promotion_request_fingerprint(request),
+    )
+
+    # The 1st compare-and-set is `consume`'s own reserve; the 2nd is the
+    # `finalize` write that follows the (successful) apply.
+    outage_store = _NthCasFailsStore(fail_on_call=2)
+    store = StateStorePromotionAttestationStore(outage_store, reservation_lease_seconds=60)
+    await store.save(attestation)
+    executor = _CountingExecutor()
+    routed = GovernancePromotionDispatcher(executor, attestation_store=store)  # type: ignore[arg-type]
+
+    result = await routed.execute(request)
+    assert result.receipt_ref == "promotion:1"
+    assert executor.calls == 1
+
+    # The bookkeeping `finalize` write failed, but this process retains the
+    # exact confirmed receipt. A retry returns that receipt and MUST NOT
+    # reapply the already-durable promotion.
+    replay = await routed.execute(request)
+    assert replay == result
+    assert executor.calls == 1

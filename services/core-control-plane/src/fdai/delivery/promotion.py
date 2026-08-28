@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections import OrderedDict
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -105,6 +106,25 @@ class GovernancePromotionAttestation:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class PromotionReservation:
+    """One consumed attestation paired with the revision that claimed it.
+
+    ``fencing_token`` is the state-store revision
+    :meth:`PromotionAttestationStore.consume` wrote when it reserved the
+    nonce. A caller MUST present it back unchanged to ``restore``/
+    ``finalize``. If the bounded reservation lease later expires and a
+    different caller reclaims the same nonce (see
+    ``StateStorePromotionAttestationStore``), the record's revision moves
+    past this token - so a stale holder's ``restore``/``finalize`` call,
+    arriving after it already lost the reservation, becomes a safe no-op
+    instead of unwinding or finalizing a reclaimer's still-active attempt.
+    """
+
+    attestation: GovernancePromotionAttestation
+    fencing_token: int
+
+
 class OperationalPromotionReceiptReader(Protocol):
     async def load(
         self,
@@ -139,14 +159,20 @@ class PromotionAttestationStore(Protocol):
 
     async def consume(
         self, idempotency_key: str, request_fingerprint: str
-    ) -> GovernancePromotionAttestation | None: ...
+    ) -> PromotionReservation | None: ...
 
     async def restore(
-        self, idempotency_key: str, attestation: GovernancePromotionAttestation
+        self,
+        idempotency_key: str,
+        attestation: GovernancePromotionAttestation,
+        fencing_token: int,
     ) -> None: ...
 
     async def finalize(
-        self, idempotency_key: str, attestation: GovernancePromotionAttestation
+        self,
+        idempotency_key: str,
+        attestation: GovernancePromotionAttestation,
+        fencing_token: int,
     ) -> None: ...
 
 
@@ -170,6 +196,17 @@ class StateStorePromotionAttestationStore:
     record whose lease has already expired, so the approval recovers on
     its own, bounded by ``reservation_lease_seconds``, once the store is
     reachable again - no successful ``restore`` write is required.
+
+    ``consume`` returns the claim as a :class:`PromotionReservation`
+    carrying a ``fencing_token`` - the exact revision this call's reserve
+    write produced. ``restore`` and ``finalize`` MUST be given that same
+    token back, and only act while the record's current revision still
+    matches it. Without this check, a holder whose lease already expired
+    and was reclaimed by a fresh ``consume`` call (which bumps the
+    revision) could otherwise still ``restore`` or ``finalize`` using
+    whatever revision it re-reads from the store - unwinding or
+    finalizing the *reclaimer's* still-active reservation instead of its
+    own expired one.
     """
 
     def __init__(
@@ -208,7 +245,7 @@ class StateStorePromotionAttestationStore:
 
     async def consume(
         self, idempotency_key: str, request_fingerprint: str
-    ) -> GovernancePromotionAttestation | None:
+    ) -> PromotionReservation | None:
         key = f"governance-promotion-attestation:{idempotency_key}"
         raw = await self._store.read_state(key)
         if raw is None:
@@ -240,12 +277,13 @@ class StateStorePromotionAttestationStore:
         if attestation.request_fingerprint != request_fingerprint:
             return None
         reserved_until = self._clock() + self._reservation_lease
+        new_revision = revision + 1
         applied = await self._store.compare_and_set_state_with_audit(
             key,
             {
                 "schema_version": "1.0.0",
                 "state": "reserved",
-                "revision": revision + 1,
+                "revision": new_revision,
                 "attestation": attestation.as_json(),
                 "reserved_until": reserved_until.isoformat(),
             },
@@ -258,10 +296,15 @@ class StateStorePromotionAttestationStore:
                 "mode": Mode.ENFORCE.value,
             },
         )
-        return attestation if applied else None
+        if not applied:
+            return None
+        return PromotionReservation(attestation=attestation, fencing_token=new_revision)
 
     async def restore(
-        self, idempotency_key: str, attestation: GovernancePromotionAttestation
+        self,
+        idempotency_key: str,
+        attestation: GovernancePromotionAttestation,
+        fencing_token: int,
     ) -> None:
         """Return a reserved attestation to pending after a failed durable apply.
 
@@ -276,6 +319,13 @@ class StateStorePromotionAttestationStore:
         this write itself failing, since a later ``consume`` call recovers
         the same reservation once its lease expires (see the class
         docstring).
+
+        ``fencing_token`` MUST be the exact value :meth:`consume` returned
+        for this reservation. If the record's current revision no longer
+        matches it, this reservation was already reclaimed by a later
+        ``consume`` call (the caller's lease expired first) - restoring it
+        here would unwind that reclaimer's still-active attempt instead of
+        this caller's own expired one, so this is a no-op in that case too.
         """
         key = f"governance-promotion-attestation:{idempotency_key}"
         raw = await self._store.read_state(key)
@@ -283,6 +333,8 @@ class StateStorePromotionAttestationStore:
             return
         revision = raw.get("revision")
         if isinstance(revision, bool) or not isinstance(revision, int):
+            return
+        if revision != fencing_token:
             return
         await self._store.compare_and_set_state_with_audit(
             key,
@@ -303,7 +355,10 @@ class StateStorePromotionAttestationStore:
         )
 
     async def finalize(
-        self, idempotency_key: str, attestation: GovernancePromotionAttestation
+        self,
+        idempotency_key: str,
+        attestation: GovernancePromotionAttestation,
+        fencing_token: int,
     ) -> None:
         """Spend the reservation permanently after a confirmed durable apply.
 
@@ -314,6 +369,13 @@ class StateStorePromotionAttestationStore:
         a best-effort no-op: the promotion itself already durably applied,
         so a stuck ``reserved`` record here is a bookkeeping gap, not a lost
         approval, and self-heals the same way an unrestored failure does.
+
+        ``fencing_token`` MUST be the exact value :meth:`consume` returned
+        for this reservation. If the record's current revision has since
+        moved past it, this reservation was already reclaimed by a later
+        ``consume`` call - finalizing it here would spend a reclaimer's
+        still-active attempt instead of this caller's own expired one, so
+        this is a no-op in that case too.
         """
         key = f"governance-promotion-attestation:{idempotency_key}"
         raw = await self._store.read_state(key)
@@ -321,6 +383,8 @@ class StateStorePromotionAttestationStore:
             return
         revision = raw.get("revision")
         if isinstance(revision, bool) or not isinstance(revision, int):
+            return
+        if revision != fencing_token:
             return
         await self._store.compare_and_set_state_with_audit(
             key,
@@ -427,6 +491,20 @@ class OperationalPromotionDirectApiExecutor(DirectApiExecutor):
         # could clobber a concurrent call's already-durable persist.
         async with self._locks.acquire(target.name):
             prior_record = self._registry.record(target.name)
+            if (
+                prior_record is not None
+                and prior_record.mode is Mode.ENFORCE
+                and prior_record.promotion_evidence_digest == receipt.evidence_digest
+                and prior_record.fdai_revision == receipt.fdai_revision
+                and prior_record.scenario_set_version == receipt.scenario_set_version
+                and prior_record.action_type_version == receipt.action_type_version
+                and prior_record.action_type_digest == receipt.action_type_digest
+            ):
+                return DirectApiReceipt(
+                    outcome=DirectApiOutcome.SUCCEEDED,
+                    receipt_ref=f"promotion:{target.name}:{receipt.evidence_digest}",
+                    detail="verified operational promotion receipt already applied",
+                )
             record = self._registry.consider_promotion(
                 action_type=target,
                 metrics=metrics,
@@ -466,6 +544,7 @@ class GovernancePromotionDispatcher:
     ) -> None:
         self._executor = executor
         self._attestation_store = attestation_store
+        self._confirmed: OrderedDict[str, tuple[str, DirectApiReceipt]] = OrderedDict()
 
     async def execute(self, request: DirectApiRequest) -> DirectApiReceipt:
         """Reject ungoverned direct routing; use :meth:`dispatch` after review."""
@@ -474,14 +553,25 @@ class GovernancePromotionDispatcher:
                 "promotion direct routing is inert until a governance review is supplied"
             )
         idempotency_key = request.idempotency_key
-        attestation = await self._attestation_store.consume(
+        request_fingerprint = promotion_request_fingerprint(request)
+        confirmed = self._confirmed.get(idempotency_key)
+        if confirmed is not None:
+            if confirmed[0] != request_fingerprint:
+                raise DirectApiPreconditionError(
+                    "promotion idempotency key was already used for another request"
+                )
+            self._confirmed.move_to_end(idempotency_key)
+            return confirmed[1]
+        reservation = await self._attestation_store.consume(
             idempotency_key,
-            promotion_request_fingerprint(request),
+            request_fingerprint,
         )
-        if attestation is None:
+        if reservation is None:
             raise DirectApiPreconditionError(
                 "promotion direct routing requires an unused governance attestation"
             )
+        attestation = reservation.attestation
+        fencing_token = reservation.fencing_token
         try:
             receipt = await self.dispatch(request, attestation=attestation)
         except BaseException as exc:
@@ -496,16 +586,33 @@ class GovernancePromotionDispatcher:
             # the *original* failure, not a masking restore error, and the
             # reservation's bounded lease (see the store's docstring)
             # recovers the approval on its own even when this write never
-            # lands.
+            # lands. `fencing_token` scopes this restore to *this* call's
+            # own reservation, so a stale attempt whose lease already
+            # expired and was reclaimed cannot unwind a fresh claimant's
+            # in-flight attempt.
             try:
-                await self._attestation_store.restore(idempotency_key, attestation)
+                await self._attestation_store.restore(idempotency_key, attestation, fencing_token)
             except BaseException:  # noqa: BLE001, S110 - best-effort, original failure wins
                 pass
             raise exc
+        self._confirmed[idempotency_key] = (request_fingerprint, receipt)
+        self._confirmed.move_to_end(idempotency_key)
+        if len(self._confirmed) > 1024:
+            self._confirmed.popitem(last=False)
         # Only a confirmed durable success may permanently spend the
         # reservation - `finalize` is the sole path to the terminal
-        # `consumed` state.
-        await self._attestation_store.finalize(idempotency_key, attestation)
+        # `consumed` state. The durable promotion already happened by this
+        # point (`receipt` reflects it), so `finalize` failing here is a
+        # bookkeeping gap, not a lost or unapplied action: it MUST NOT be
+        # reported to the caller as an apply failure (that could make a
+        # caller believe the promotion never happened and reapply it), and
+        # it MUST NOT stop the confirmed receipt from being returned. The
+        # stuck `reserved` record self-heals via the bounded reservation
+        # lease exactly like an unrestored failure does.
+        try:
+            await self._attestation_store.finalize(idempotency_key, attestation, fencing_token)
+        except BaseException:  # noqa: BLE001, S110 - best-effort, the durable apply already won
+            pass
         return receipt
 
     async def dispatch(
@@ -694,6 +801,7 @@ __all__ = [
     "GovernancePromotionDispatcher",
     "GovernancePromotionAttestation",
     "PromotionAttestationStore",
+    "PromotionReservation",
     "StateStorePromotionAttestationStore",
     "promotion_request_fingerprint",
     "OperationalPromotionReceiptReader",
