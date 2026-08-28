@@ -12,6 +12,15 @@ import pytest
 
 _ROOT = Path(__file__).parents[3]
 _SCRIPT = _ROOT / "scripts/governance/check-governance-review-authority.py"
+_CI_WORKFLOW = _ROOT / ".github/workflows/ci.yml"
+
+
+def test_ci_prefilter_routes_retirement_changes_to_authority_check() -> None:
+    workflow = _CI_WORKFLOW.read_text(encoding="utf-8")
+
+    assert "rule-sets|retirements|governance/" in workflow
+
+
 _HEAD = "a" * 40
 _APP_ID = 42
 _COMMITTED = datetime(2026, 8, 23, tzinfo=UTC)

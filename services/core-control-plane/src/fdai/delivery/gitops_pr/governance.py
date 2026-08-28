@@ -22,11 +22,9 @@ _SUPPORTED = {
     "exemption": ("governance.grant-exemption", _EXEMPTION_PREFIX, ".json"),
 }
 _MAX_DOCUMENT_BYTES = 256 * 1024
-# Bumped from 1.0.0 because the receipt now records `correlation_id`; a
-# receipt persisted under the prior schema never named the source event
-# that requested it, so it MUST NOT be silently reinterpreted as one that
-# does. Loading a 1.0.0 record now fails closed instead of guessing.
-_SCHEMA_VERSION = "1.1.0"
+# Bumped because the receipt now binds a stable source-event identity rather
+# than treating a correlation group as one event.
+_SCHEMA_VERSION = "1.2.0"
 
 
 class GovernancePrError(RuntimeError):
@@ -40,6 +38,7 @@ class GovernancePrLifecycleReceipt:
     action_type_name: str
     idempotency_key: str
     correlation_id: str
+    source_event_id: str
     document_digest: str
     document_path: str
     pr_ref: str
@@ -63,6 +62,7 @@ class GovernancePrLifecycleReceipt:
             not self.pr_ref
             or not self.idempotency_key
             or not self.correlation_id.strip()
+            or not self.source_event_id.strip()
             or len(self.document_digest) != 64
             or any(char not in "0123456789abcdef" for char in self.document_digest)
             or not self.recorded_at
@@ -76,6 +76,7 @@ class GovernancePrLifecycleReceipt:
             "action_type_name": self.action_type_name,
             "idempotency_key": self.idempotency_key,
             "correlation_id": self.correlation_id,
+            "source_event_id": self.source_event_id,
             "document_digest": self.document_digest,
             "document_path": self.document_path,
             "pr_ref": self.pr_ref,
@@ -162,6 +163,7 @@ class GovernedGovernancePrPublisher:
         document: GovernanceDocument,
         *,
         correlation_id: str,
+        source_event_id: str,
     ) -> GovernancePrLifecycleReceipt:
         kind = (
             "rule-retirement"
@@ -177,6 +179,8 @@ class GovernedGovernancePrPublisher:
             raise GovernancePrError("governance document is not an unapplied supported PR artifact")
         if not correlation_id.strip():
             raise GovernancePrError("correlation_id MUST be non-empty")
+        if not source_event_id.strip():
+            raise GovernancePrError("source_event_id MUST be non-empty")
         action_type, prefix, extension = supported
         # Freeze the document once, before any read. `document.document` is a
         # plain caller-owned mapping; reading it again at render time without
@@ -193,13 +197,26 @@ class GovernedGovernancePrPublisher:
         _require_distinct_approval(frozen_document)
         payload = _canonical_document(frozen_document)
         digest = hashlib.sha256(payload).hexdigest()
-        # The key binds the reviewed content to the correlation/source event
-        # that requested it, not the content alone: two independent triggers
-        # that happen to render byte-identical documents MUST NOT collapse
-        # into one receipt and silently misattribute the audit trail.
-        key = f"{action_type}:{correlation_id}:{digest}"
+        # The stable source event owns idempotency. The digest remains evidence
+        # and drift for the same event fails closed instead of opening another PR.
+        key = f"{action_type}:{source_event_id}"
+        for legacy_key in (
+            f"{action_type}:{digest}",
+            f"{action_type}:{correlation_id}:{digest}",
+        ):
+            if await self._lifecycle_store.load(legacy_key) is not None:
+                raise GovernancePrError(
+                    "legacy governance PR lifecycle receipt requires reconciliation"
+                )
         prior = await self._lifecycle_store.load(key)
         if prior is not None:
+            if (
+                prior.document_digest != digest
+                or prior.document_path != document.path
+                or prior.correlation_id != correlation_id
+                or prior.source_event_id != source_event_id
+            ):
+                raise GovernancePrError("governance source event content drift")
             reconcile = getattr(self._publisher, "reconcile", None)
             if callable(reconcile) and prior.state == "open":
                 state = await reconcile(prior.pr_ref)
@@ -212,6 +229,7 @@ class GovernedGovernancePrPublisher:
                         action_type_name=prior.action_type_name,
                         idempotency_key=prior.idempotency_key,
                         correlation_id=prior.correlation_id,
+                        source_event_id=prior.source_event_id,
                         document_digest=prior.document_digest,
                         document_path=prior.document_path,
                         pr_ref=prior.pr_ref,
@@ -252,6 +270,7 @@ class GovernedGovernancePrPublisher:
             action_type_name=action_type,
             idempotency_key=key,
             correlation_id=correlation_id,
+            source_event_id=source_event_id,
             document_digest=digest,
             document_path=document.path,
             pr_ref=receipt.pr_ref,
@@ -300,6 +319,7 @@ def _decode_receipt(raw: Mapping[str, Any]) -> GovernancePrLifecycleReceipt:
     action_type_name = _required_text(raw, "action_type_name")
     idempotency_key = _required_text(raw, "idempotency_key")
     correlation_id = _required_text(raw, "correlation_id")
+    source_event_id = _required_text(raw, "source_event_id")
     document_digest = _required_text(raw, "document_digest")
     if len(document_digest) != 64 or any(
         char not in "0123456789abcdef" for char in document_digest
@@ -322,6 +342,7 @@ def _decode_receipt(raw: Mapping[str, Any]) -> GovernancePrLifecycleReceipt:
         action_type_name=action_type_name,
         idempotency_key=idempotency_key,
         correlation_id=correlation_id,
+        source_event_id=source_event_id,
         document_digest=document_digest,
         document_path=document_path,
         pr_ref=pr_ref,
