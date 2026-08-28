@@ -1,8 +1,8 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: 2306d4e8ba65d38c34f879db890c241958ad25c7
-translation_revised: 2026-08-27
+translation_source_sha: 0d97df199af93e7ecafc81557750107d6c8a53a5
+translation_revised: 2026-08-28
 ---
 # 운영 학습 온톨로지
 
@@ -403,6 +403,7 @@ Terraform은 `operational_promotion_measurement_enabled=true`일 때만 Containe
 | 2026-08-27 | implemented | 기존 O7 exact-digest source가 소비할 수 있는 canonical batch와 manifest를 생성하는 governed live-shadow batch producer를 추가했으며 promotion state는 변경하지 않습니다. | `current change`; `delivery/measurement/operational_promotion_batch.py` 및 producer/consumer 집중 검사 통과. | 배포 소유 작업 증적을 공급하고 완전한 live 일수, 재발, 신뢰도 및 인증된 검토 증적을 보존합니다. |
 | 2026-08-27 | implemented | live batch producer가 frozen-benchmark 코호트를 불변으로 구성하면서 live-shadow 분류와 exact-digest consumer 계약을 유지하도록 했습니다. | `current change`; 집중 O7 producer/consumer 검사 통과. | 배포 소유 작업 증적을 공급하고 완전한 live 일수, 재발, 신뢰도 및 인증된 검토 증적을 보존합니다. |
 | 2026-08-27 | implemented | Producer가 benchmark 근거를 요구하고 불변으로 유지하며 live-shadow 근거로 재분류하지 않도록 강화했습니다. | `current change`; 집중 O7 producer/consumer adversarial 검사 통과. | 배포 소유 작업 증적을 공급하고 완전한 live 일수, 재발, 신뢰도 및 인증된 검토 증적을 보존합니다. |
+| 2026-08-28 | implemented | 실제 시각을 사용하는 advancing clock에서의 재시도가 더 이상 충돌하는 게시로 오인되지 않도록 O7 live-batch producer를 강화했습니다. 이제 매번 새로운 시각을 발급하는 대신 이미 sealed된 batch의 `sealed_at`을 재사용하며, 충돌 시 손상된 파일을 남길 수 있던 raw exclusive write 대신 atomic temp-file rename으로 batch와 manifest를 게시하고, 하나의 ActionType에 대한 게시 순서를 exclusive per-stem 잠금으로 직렬화합니다. | `current change`; `delivery/measurement/operational_promotion_batch.py`; 집중 O7 batch 재시도, atomic-게시, 충돌 검사(`4 passed`); Ruff, formatter 및 strict mypy | 배포 소유 작업 증적을 공급하고 완전한 live 일수, 재발, 신뢰도 및 인증된 검토 증적을 보존합니다. |
 
 ### 남은 작업
 
