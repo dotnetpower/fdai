@@ -18,6 +18,7 @@ from fdai.core.vertical_packages import (
     VerticalPackageValidationError,
     VerticalProviderDeclaration,
 )
+from fdai.core.vertical_packages.catalog import _asset_map, _content_by_path
 from fdai.core.verticals import VerticalDescriptor
 from fdai.shared.contracts.models import Category
 
@@ -163,6 +164,19 @@ def _manager(
         },
         base_runtime=base_runtime,
     )
+
+
+def test_catalog_maps_reject_duplicate_asset_and_resource_path_ownership() -> None:
+    asset = _bundle().assets[0]
+    with pytest.raises(VerticalPackageValidationError, match="duplicate asset ids"):
+        _asset_map((asset, asset))
+
+    duplicate_path = replace(
+        asset,
+        declaration=replace(asset.declaration, asset_id="rule:test.other-rule"),
+    )
+    with pytest.raises(VerticalPackageValidationError, match="duplicate rule resource path"):
+        _content_by_path((asset, duplicate_path), VerticalAssetKind.RULE)
 
 
 def test_install_is_disabled_then_enable_and_disable_rebuild_atomically() -> None:

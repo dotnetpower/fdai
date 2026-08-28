@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 76e756725080cd323c1d49fd2bbef72c99d0ac39
+translation_source_sha: ca1edd6dcb08feb8775266195bbd6f5c75b03cc7
 translation_revised: 2026-08-28
 ---
 # 프로젝트 구조
@@ -28,6 +28,8 @@ translation_revised: 2026-08-28
   Pantheon member는 `agents/` 바로 아래의 flat layout을 유지합니다. Private behavior-extraction
   mixin은 `agents/_framework/`에 두며 member의 AgentSpec, topic, ownership, model policy 또는
   authority를 바꿀 수 없습니다.
+- **버티컬 패키지 구체화는 충돌을 허용하지 않음**: 일반 Core 구체화기는 표준 Rule 또는
+  Workflow 로딩 전에 중복 자산 id와 패키지 상대 경로를 차단합니다.
 - **의미 대상 해석은 결정론적으로 유지**: 모델이 작성한 리소스 신원 명확화는 Core가 같은
   발화에서 정확한 런타임 식별자 하나를 검증한 경우에만 제거합니다. 식별자가 없거나 여러 개이면
   명확화를 유지하고 다른 모든 미해결 개념도 타입이 지정된 명확화로 남깁니다. 이 검증은

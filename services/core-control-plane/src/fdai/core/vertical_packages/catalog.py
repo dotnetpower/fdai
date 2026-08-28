@@ -53,8 +53,8 @@ def materialize_vertical_package_catalog(
     bundle = runtime.packages.get(vertical_id)
     if bundle is None:
         raise VerticalPackageValidationError(f"vertical package {vertical_id!r} is not active")
-    assets = {
-        asset.declaration.asset_id: asset
+    assets = _asset_map(
+        asset
         for asset in bundle.assets
         if asset.declaration.kind
         in {
@@ -63,7 +63,7 @@ def materialize_vertical_package_catalog(
             VerticalAssetKind.RULE,
             VerticalAssetKind.WORKFLOW,
         }
-    }
+    )
     action_type_names = {action_type.name for action_type in action_types}
     rules = tuple(
         load_rule_from_mapping(
@@ -131,10 +131,25 @@ def _content_by_path(
     assets: Iterable[VerticalPackageAsset],
     kind: VerticalAssetKind,
 ) -> Mapping[str, bytes]:
-    return {
-        asset.declaration.resource_path: bytes(asset.content)
-        for asset in _assets_of_kind(assets, kind)
-    }
+    selected = _assets_of_kind(assets, kind)
+    _require_unique(
+        (asset.declaration.resource_path for asset in selected),
+        f"{kind.value} resource path",
+    )
+    return {asset.declaration.resource_path: bytes(asset.content) for asset in selected}
+
+
+def _asset_map(assets: Iterable[VerticalPackageAsset]) -> Mapping[str, VerticalPackageAsset]:
+    selected = tuple(assets)
+    _require_unique(
+        (asset.declaration.asset_id for asset in selected),
+        "asset",
+    )
+    _require_unique(
+        (asset.declaration.resource_path for asset in selected),
+        "asset resource path",
+    )
+    return {asset.declaration.asset_id: asset for asset in selected}
 
 
 def _require_unique(values: Iterable[str], label: str) -> None:

@@ -23,7 +23,7 @@ bounded evidence. Agents remain the active control plane and own every state tra
 > recovery coordinator, independent multi-effect settlement, replay, retention, and governed
 > learning inputs are implemented with local evidence. A live-authoritative settled cohort and
 > independent package and per-action promotion reviews do not yet exist.
-> Hardening rounds 1-6 reject mixed campaigns and option substitution, verify Azure auth, bound memory, preserve disclosure, and avoid cursorless cost reads; no runtime authority changes.
+> Hardening rounds 1-7 reject mixed campaigns, option substitution, duplicate asset ownership, and cursorless reads while preserving auth, memory, and disclosure boundaries; no runtime authority changes.
 
 ## Design at a glance
 
