@@ -66,7 +66,7 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   outcomes and verified digests only; they do not add a lexical intent path. Answer-quality shape
   observations reuse the deterministic AnswerPlan and do not inspect answer prose. Grounding
   observations reuse terminal evidence and assessment references; injection resistance requires an
-  explicit security-owner result rather than text inspection. The sibling
+  explicit security-owner result rather than text inspection. Both paths remain authority-free. The sibling
   `quality_latency.py` module owns only the five-stage SLO contract and pure percentile reduction;
   Operator, channel, verification, and delivery owners retain timestamp and measurement authority.
   Stage owners provide monotonic start and completion values through a typed receipt; Core derives
