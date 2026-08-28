@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 418dcd4c00aeaf7f82f61c09be876b7c5749a1dd
+translation_source_sha: c21cd1f9173603a2d9189578d18d9c0bf2809fae
 translation_revised: 2026-08-30
 ---
 # FDAI 온톨로지 안전 인프라
@@ -164,6 +164,7 @@ Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습�
 | 2026-08-27 | implemented | 온톨로지 변환 결과 신원에 대한 PostgreSQL 기반 atomic-create 동시성 회귀 검사를 추가했습니다. | `current change`, `tests/persistence/test_postgres_ontology_instance.py` 및 집중 store 검사 | 성공한 로컬 PostgreSQL receipt를 별도로 보존합니다. |
 | 2026-08-27 | implemented | 남아 있던 Context 응답 경계 미비점을 닫았습니다. 표시 변환은 이제 증적 발급을 인증하고, endpoint triple만 비교하는 대신 각 경로 링크의 전체 관측 및 검증 메타데이터를 일치시키며, 구성된 바이트 상한을 번들과 Context 메타데이터 전체에 적용합니다. | `current change`, `console_projection.py`, `evidence_read.py`, 운영 컨텍스트 및 시나리오 집중 검사(`17 passed`) | 인증된 런타임 응답 하나를 별도로 보존합니다. Live 또는 배포 근거는 생성하지 않았습니다. |
 | 2026-08-28 | implemented | `evidence_read.py`가 반환된 Context 스냅샷과 보안 증적을 요청의 release 다이제스트, 관측 기준 시점 및 범위와 독립적으로 다시 검증하도록 보강했습니다. 조합 응답의 `max_bytes` 계산에는 `principal_ref`와 기존 권한 필드도 포함됩니다. | `current change`; 집중 근거 읽기 검사 11개 및 운영 컨텍스트 검사 74개 통과. | 인증된 런타임 응답 하나를 별도로 보존합니다. 실제 또는 배포 근거는 만들지 않았습니다. |
+| 2026-08-28 | implemented | 같은 응답에 대한 후속 검토 두 건을 해소했습니다. 바이트 예산은 묶음 자체의 `bundle_id`와 `digest`를 예약하고 실제 값으로 계산하며, Context 스냅샷의 `catalog_versions['catalog']` 값이 요청의 `catalog_revision`과 일치하지 않으면 차단합니다. 보안 증적 계약에는 카탈로그 리비전 필드가 없으므로 증적 측 검사는 적용하지 않습니다. | `current change`; `evidence_read.py`; 집중 근거 읽기 검사 15개 및 운영 컨텍스트 검사 84개 통과. | 인증된 런타임 응답 하나를 별도로 보존합니다. 실제 또는 배포 근거는 만들지 않았습니다. |
 | 2026-08-28 | implemented | `topology_history.py` 재생 완전성과 다이제스트 무결성을 강화했습니다. 모든 선택 리비전 묶음에 출처 증적 다이제스트가 있어야 하며 재생 다이제스트는 응답과 동일한 정규화 및 중복 제거 튜플을 해시합니다. | `current change`; 이전 다이제스트와 필드 불일치를 재현한 회귀를 포함한 집중 토폴로지 이력 검사 8개 통과. | 배포 재생 근거는 별도로 보존합니다. |
 | 2026-08-27 | implemented | Bounded versioned provider 관계 materialization과 exact-release direction-shadow 검사를 추가했습니다. 기존 Kubernetes API inventory는 authoritative topology adapter로 충분하며 lifecycle observation은 별도 Event 출처로 유지하고 topology로 재사용하지 않습니다. | `current change`, `delivery/provider_schema_relationship_generation.py`, 집중 generation 및 direction-shadow 검사(`22 passed`), Ruff, formatter 및 strict mypy | Complete release-bound 실제 generation 근거와 governed review를 확보해야 합니다. Live 또는 remote generation은 만들지 않았습니다. |
 | 2026-08-27 | implemented | 검토된 direction-shadow 결과가 제안 준비 상태가 되기 전에 exact-release 비교 모드를 요구했습니다. | `current change`; `direction_shadow/promotion.py`; 집중 승격 검사. | 카탈로그 변경 전에 통제된 검토와 완전한 release 결속 런타임 근거를 보존합니다. |

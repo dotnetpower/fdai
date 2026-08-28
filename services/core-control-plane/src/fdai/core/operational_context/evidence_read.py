@@ -233,12 +233,21 @@ def _serialized_response_size(
             used_bytes=bundle.used_bytes,
             autonomy_ceiling=bundle.autonomy_ceiling,
         ),
+        "bundle_id": bundle.bundle_id,
+        "digest": bundle.digest,
         "context_metadata": context_metadata,
         "principal_ref": principal_ref,
         "execution_authority": execution_authority,
         "mutation_authority": mutation_authority,
     }
     return len(canonical_json(body).encode("utf-8"))
+
+
+# SHA-256 digests and the bundle_id derived from them ("operational-evidence-bundle:" + digest)
+# are always this exact length, regardless of bundle content, so a fixed placeholder reserves the
+# true byte cost before the real bundle_id/digest exist.
+_PLACEHOLDER_DIGEST = "sha256:" + "0" * 64
+_PLACEHOLDER_BUNDLE_ID = f"operational-evidence-bundle:{_PLACEHOLDER_DIGEST}"
 
 
 def _response_overhead(
@@ -250,6 +259,8 @@ def _response_overhead(
     response = canonical_json(
         {
             "bundle": {},
+            "bundle_id": _PLACEHOLDER_BUNDLE_ID,
+            "digest": _PLACEHOLDER_DIGEST,
             "context_metadata": context_metadata,
             "principal_ref": principal_ref,
             "execution_authority": False,
@@ -267,10 +278,15 @@ def _bind_context_to_read_request(
 ) -> None:
     """Fail closed unless the Context snapshot and receipt match this exact read."""
 
-    context_release_digest = dict(context_snapshot.catalog_versions).get("ontology")
+    context_versions = dict(context_snapshot.catalog_versions)
+    context_release_digest = context_versions.get("ontology")
     if context_release_digest != request.ontology_release_digest:
         raise ValueError(
             "operational context snapshot release does not match the evidence read request"
+        )
+    if context_versions.get("catalog") != request.catalog_revision:
+        raise ValueError(
+            "operational context snapshot catalog revision does not match the evidence read request"
         )
     if _utc(context_snapshot.cutoff) != _utc(request.cutoff):
         raise ValueError(
@@ -280,6 +296,8 @@ def _bind_context_to_read_request(
         raise ValueError(
             "operational context snapshot target does not match the evidence read request scope"
         )
+    # The secured Context receipt (SecuredObjectSetQueryReceipt) carries no catalog-revision
+    # field, so catalog binding is enforced only on the snapshot side above.
     receipt = secured_context_result.receipt
     if receipt.ontology_release.digest != request.ontology_release_digest:
         raise ValueError("secured Context receipt release does not match the evidence read request")

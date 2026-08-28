@@ -126,6 +126,8 @@ Direct API promotion adapters can report a retryable no-mutation failure; the ex
 failed terminal attempt without consuming the stable retry opportunity.
 Operational Context responses are rebound to the exact read request, and topology replay requires
 canonical source-receipt digests before it can report complete evidence.
+Context snapshots must also match the request's catalog revision, and response byte budgets include
+the bundle identity fields they return.
 The inventory ontology projector serializes graph replacement with its generation commit marker.
 Resource ObjectSet receipts preserve source generation and completeness independently from query
 truncation, including zero-result reads.
