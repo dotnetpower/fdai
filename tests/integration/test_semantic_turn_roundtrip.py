@@ -63,19 +63,12 @@ def test_direct_response_intent_has_no_lexical_runtime_owner() -> None:
         for node in ast.walk(contract_tree)
     )
 
-    planning_tree = ast.parse(
-        (
-            REPO_ROOT
-            / "services/core-control-plane/src/fdai/core/conversation/semantic_planning.py"
-        ).read_text(encoding="utf-8")
+    conversation_root = REPO_ROOT / "services/core-control-plane/src/fdai/core/conversation"
+    assert all(
+        not (isinstance(node, ast.FunctionDef) and "direct_response_intent" in node.name)
+        for path in conversation_root.glob("*.py")
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
     )
-    direct_response_validator = next(
-        node
-        for node in ast.walk(planning_tree)
-        if isinstance(node, ast.FunctionDef) and node.name == "_direct_response"
-    )
-    assert [argument.arg for argument in direct_response_validator.args.args] == ["proposal"]
-
     operator_tree = ast.parse(
         (
             REPO_ROOT
@@ -278,8 +271,15 @@ class _AnsweredRuntime:
         cancelled: Any = None,
         bound_incident: Any = None,
         bound_investigation_continuation: Any = None,
+        escalation_policy: Any = None,
     ) -> RuntimeSemanticTurnResult:
-        del prior_turns, cancelled, bound_incident, bound_investigation_continuation
+        del (
+            prior_turns,
+            cancelled,
+            bound_incident,
+            bound_investigation_continuation,
+            escalation_policy,
+        )
         assert utterance == "Show current operations evidence."
         assert principal.id == "operator-1"
         assert locale == "en"
@@ -427,7 +427,8 @@ async def test_semantic_turn_round_trip_preserves_verified_evidence_and_principa
     assert backbone[0] == "status"
     assert backbone[-1] == "done"
     assert backbone.count("verification") == 1
-    assert set(backbone) == {"status", "verification", "done"}
+    assert set(backbone) == {"status", "verification", "token", "done"}
+    assert backbone.count("token") >= 1
     assert any(event.event == "activity" for event in events)
     assert any(event.event == "token" for event in events)
     terminal = events[-1]

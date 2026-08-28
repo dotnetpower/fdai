@@ -159,7 +159,7 @@
       "path": "packages/service-contracts/src/fdai_service_contracts/semantic_judgment.py",
       "disposition": "retain",
       "owner": "semantic-contracts",
-      "reason": "Retains exact validation of model-proposed canonical intent tokens, bounded plain-text response fields, links, markup, and Korean honorifics without inferring intent from operator prose.",
+      "reason": "Retains exact machine-token, source-span, candidate-only semantic judgment, bounded plain-text response, link, markup, and Korean honorific validation without inferring intent from prose.",
       "issue": 252
     },
     {
@@ -369,7 +369,7 @@
       "path": "services/core-control-plane/src/fdai/core/notifications/matrix.py",
       "disposition": "retain",
       "owner": "notification-routing",
-      "reason": "Retains exact lookup of a typed notification category in a validated routing matrix, not natural-language judgment.",
+      "reason": "Retains exact machine notification category, channel, and severity routing over validated structured records, not operator utterances.",
       "issue": 252
     },
     {
