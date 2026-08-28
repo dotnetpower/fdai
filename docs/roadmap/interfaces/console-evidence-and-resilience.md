@@ -632,8 +632,7 @@ map or hold Git credentials. Draft PR creation and signed merge processing remai
 ingestion/GitOps boundary, and the returned draft includes the persisted idempotent PR receipt.
 The browser renders a receipt URL as a link only when it is an absolute HTTPS URL without embedded
 credentials; otherwise it displays the PR reference as non-clickable text.
-Content upload keeps the API bearer token only for same-origin ingestion proxy targets. A
-cross-origin direct-upload target receives the content headers but never the Operator API credential.
+Content upload keeps the API bearer token only for same-origin ingestion proxy targets. A cross-origin direct-upload target receives the content headers but never the Operator API credential.
 
 ## Progressive parallel conversations
 

@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 940938cc7f244813765d3ad7127b698b41fd4748
+translation_source_sha: 4e490d82fc009332873165078cafa0dc17685510
 translation_revised: 2026-08-28
 ---
 # 콘솔 근거 및 복원력
@@ -628,8 +628,7 @@ person 또는 그룹 배정을 별도 인제스트 경계에 제출할 수 있�
 브라우저는 증적 URL이 embedded 자격 증명 없는 absolute HTTPS URL일 때만 링크로 렌더링하며,
 그 외에는 PR 참조를 클릭할 수 없는 텍스트로 표시합니다.
 내용 업로드는 same-origin 인제스트 proxy 대상에만 API bearer 토큰을 유지합니다.
-Cross-origin direct-upload 대상에는 내용 헤더를 보내지만 Operator API 자격 증명은 전달하지
-않습니다.
+Cross-origin direct-upload 대상에는 내용 헤더를 보내지만 Operator API 자격 증명은 전달하지 않습니다.
 
 ## 점진적 병렬 대화
 
