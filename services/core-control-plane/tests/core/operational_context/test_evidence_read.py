@@ -25,8 +25,16 @@ from fdai.core.operational_context import (
     OperationalEvidenceReadRequest,
     OperationalEvidenceReadService,
 )
-from fdai.core.operational_context.evidence_bundle_identity import bind_evidence_item_source
-from fdai.core.operational_context.evidence_bundle_models import CatalogEvidenceItem
+from fdai.core.operational_context.evidence_bundle import build_operational_evidence_bundle
+from fdai.core.operational_context.evidence_bundle_identity import (
+    bind_evidence_item_source,
+    bundle_body,
+)
+from fdai.core.operational_context.evidence_bundle_models import (
+    CatalogEvidenceItem,
+    OperationalEvidenceBundle,
+    canonical_json,
+)
 from fdai.core.operational_context.evidence_bundle_sources import (
     EvidenceTemporalScope,
     VerifiedEvidenceSourceReceipt,
@@ -84,7 +92,7 @@ def _context_snapshot() -> OperationalContextSnapshot:
         target_resource_id="resource-example",
         cutoff=NOW,
         recorded_at=NOW,
-        catalog_versions=(("ontology", RELEASE),),
+        catalog_versions=(("ontology", RELEASE), ("catalog", "catalog-r1")),
         service_ids=(),
         workload_ids=(),
         objective_ids=(),
@@ -271,7 +279,7 @@ async def test_runtime_evidence_read_rejects_context_snapshot_release_drift() ->
     request = _request()
     drifted_snapshot = replace(
         _context_snapshot(),
-        catalog_versions=(("ontology", "sha256:" + "9" * 64),),
+        catalog_versions=(("ontology", "sha256:" + "9" * 64), ("catalog", "catalog-r1")),
     )
     source = _Source(
         replace(
@@ -282,6 +290,48 @@ async def test_runtime_evidence_read_rejects_context_snapshot_release_drift() ->
     )
 
     with pytest.raises(ValueError, match="context snapshot release"):
+        await OperationalEvidenceReadService(source=source, clock=lambda: NOW).read(
+            request,
+            authenticated_context=_authenticated_context(_secured_context()),
+        )
+
+
+async def test_runtime_evidence_read_rejects_context_snapshot_catalog_revision_drift() -> None:
+    request = _request()
+    drifted_snapshot = replace(
+        _context_snapshot(),
+        catalog_versions=(("ontology", RELEASE), ("catalog", "catalog-r2")),
+    )
+    source = _Source(
+        replace(
+            await _Source().collect(request),
+            context_snapshot=drifted_snapshot,
+            secured_context_result=_secured_context(),
+        )
+    )
+
+    with pytest.raises(ValueError, match="context snapshot catalog revision"):
+        await OperationalEvidenceReadService(source=source, clock=lambda: NOW).read(
+            request,
+            authenticated_context=_authenticated_context(_secured_context()),
+        )
+
+
+async def test_runtime_evidence_read_rejects_context_snapshot_missing_catalog_revision() -> None:
+    request = _request()
+    drifted_snapshot = replace(
+        _context_snapshot(),
+        catalog_versions=(("ontology", RELEASE),),
+    )
+    source = _Source(
+        replace(
+            await _Source().collect(request),
+            context_snapshot=drifted_snapshot,
+            secured_context_result=_secured_context(),
+        )
+    )
+
+    with pytest.raises(ValueError, match="context snapshot catalog revision"):
         await OperationalEvidenceReadService(source=source, clock=lambda: NOW).read(
             request,
             authenticated_context=_authenticated_context(_secured_context()),
@@ -364,6 +414,99 @@ def test_response_overhead_reserves_bytes_for_principal_and_authority_fields() -
     assert short_overhead > len('"principal_ref":"p"')
 
 
+def _empty_bundle() -> OperationalEvidenceBundle:
+    return build_operational_evidence_bundle(
+        cutoff=NOW,
+        trusted_recorded_at=NOW,
+        ontology_release_digest=RELEASE,
+        catalog_revision="catalog-r1",
+        purpose="incident-review",
+        scope=("resource-example",),
+        claims=(),
+        max_items=8,
+        max_bytes=16_384,
+        autonomy_ceiling=Autonomy.SHADOW_ONLY,
+    )
+
+
+def _expected_response_body(
+    bundle: OperationalEvidenceBundle, context_metadata: object, principal_ref: str
+) -> dict[str, object]:
+    return {
+        "bundle": bundle_body(
+            cutoff=bundle.cutoff,
+            trusted_recorded_at=bundle.trusted_recorded_at,
+            ontology_release_digest=bundle.ontology_release_digest,
+            catalog_revision=bundle.catalog_revision,
+            purpose=bundle.purpose,
+            scope=bundle.scope,
+            claims=bundle.claims,
+            ontology=bundle.ontology,
+            state=bundle.state,
+            catalog=bundle.catalog,
+            documents=bundle.documents,
+            citation_manifest=bundle.citation_manifest,
+            conflicts=bundle.conflicts,
+            missing_paths=bundle.missing_paths,
+            evidence_issues=bundle.evidence_issues,
+            hold_reasons=bundle.hold_reasons,
+            max_items=bundle.max_items,
+            max_bytes=bundle.max_bytes,
+            used_items=bundle.used_items,
+            used_bytes=bundle.used_bytes,
+            autonomy_ceiling=bundle.autonomy_ceiling,
+        ),
+        "bundle_id": bundle.bundle_id,
+        "digest": bundle.digest,
+        "context_metadata": context_metadata,
+        "principal_ref": principal_ref,
+        "execution_authority": False,
+        "mutation_authority": False,
+    }
+
+
+def test_serialized_response_size_includes_actual_bundle_id_and_digest() -> None:
+    bundle = _empty_bundle()
+
+    expected = len(canonical_json(_expected_response_body(bundle, None, PRINCIPAL)).encode("utf-8"))
+    without_identity = len(
+        canonical_json(
+            {
+                k: v
+                for k, v in _expected_response_body(bundle, None, PRINCIPAL).items()
+                if k not in ("bundle_id", "digest")
+            }
+        ).encode("utf-8")
+    )
+
+    assert _serialized_response_size(bundle, None, principal_ref=PRINCIPAL) == expected
+    # Omitting bundle_id/digest would have silently undercounted every response by their bytes.
+    assert expected > without_identity
+
+
+def test_response_overhead_reserves_exact_bytes_for_bundle_identity_fields() -> None:
+    bundle = _empty_bundle()
+
+    # bundle_id/digest are fixed-length SHA-256 identifiers, so the placeholder-based overhead
+    # reserved before the real bundle exists must equal the overhead computed from real values.
+    placeholder_overhead = _response_overhead(None, principal_ref=PRINCIPAL)
+    real_identity_overhead = len(
+        canonical_json(
+            {
+                "bundle": {},
+                "bundle_id": bundle.bundle_id,
+                "digest": bundle.digest,
+                "context_metadata": None,
+                "principal_ref": PRINCIPAL,
+                "execution_authority": False,
+                "mutation_authority": False,
+            }
+        ).encode("utf-8")
+    ) - len(canonical_json({}).encode("utf-8"))
+
+    assert placeholder_overhead == real_identity_overhead
+
+
 async def test_runtime_evidence_read_bounds_bundle_and_context_response_together() -> None:
     request = _request()
     source = _Source(
@@ -377,14 +520,14 @@ async def test_runtime_evidence_read_bounds_bundle_and_context_response_together
     result = await OperationalEvidenceReadService(
         source=source,
         clock=lambda: NOW,
-        max_bytes=1_536,
+        max_bytes=2_048,
     ).read(request, authenticated_context=_authenticated_context(_secured_context()))
 
     assert (
         _serialized_response_size(
             result.bundle, result.context_metadata, principal_ref=result.principal_ref
         )
-        <= 1_536
+        <= 2_048
     )
 
 
