@@ -1,8 +1,8 @@
 ---
 title: 기술 스택
 translation_of: tech-stack.md
-translation_source_sha: 166c4da1eb3f17d309f8e378d0b8ac22d0dc36f6
-translation_revised: 2026-08-24
+translation_source_sha: 8147120dcfa2170480d7e0bcd183f57834427724
+translation_revised: 2026-08-29
 ---
 
 # 기술 스택
@@ -59,7 +59,7 @@ translation_revised: 2026-08-24
 | CI/CD | GitHub Actions 또는 Azure Pipelines | lint, tests, 커버리지 게이트, 시크릿 검사 (gitleaks), 의존성/SBOM 감사 실행 | GitLab CI |
 | PR 게이트 | **GitHub App** (Checks API) 또는 Azure DevOps 서비스 hooks | 감사/롤백/승인이 이미 git에 존재 | 호스트에 관계없이 교정은 PR로 전달 |
 | HIL 채널 | **Bot Framework / Teams** Adaptive Cards | 운영자가 있는 곳에서 도달 | Slack 어댑터; notifier 인터페이스 뒤의 이메일/웹훅 대체 경로 - [channels-and-notifications-ko.md](../interfaces/channels-and-notifications-ko.md) 참조 |
-| LLM 접근 (T2) | 2개 이상 별개 모델을 감싸는 provider-agnostic 게이트웨이/라우터 | [llm-strategy-ko.md](llm-strategy-ko.md)의 mixed-model 교차 검사; 모델은 capability-preferences 레지스트리에서 해석되며 주간 검토 조정기는 아직 계획 상태 - [llm-strategy-ko.md](llm-strategy-ko.md#model-provisioning-and-lifecycle) | LiteLLM/OpenRouter 스타일 라우터 |
+| LLM 접근 (T2) | 2개 이상 별개 모델을 감싸는 provider-agnostic 게이트웨이/라우터 | [llm-strategy-ko.md](llm-strategy-ko.md)의 mixed-model 교차 검사; 모델은 capability-preferences 레지스트리에서 해석되며 주간 proposal-only 조정기는 활성화 권한 없이 검토용 draft 교체를 엽니다. 만료 보류와 관리되는 실행 근거는 아직 불완전합니다 - [llm-strategy-ko.md](llm-strategy-ko.md#model-provisioning-and-lifecycle) | LiteLLM/OpenRouter 스타일 라우터 |
 | Observability | OpenTelemetry (traces/metrics/logs) → 수집기 → 백엔드 (**Log Analytics** + 여기에 바인딩된 App Insights - 별도 APM 리소스 없음) | measurement-first는 일급 원격측정 필요; 보존은 기본 30일, UI에서 설정 가능 ([deploy-and-onboard-ko.md](../deployment/deploy-and-onboard-ko.md#azure-resource-inventory-minimum-set)) | Prometheus + Grafana + Tempo/Loki (OSS); 벤더 APM |
 
 ## 데이터 저장소 선택 기준
