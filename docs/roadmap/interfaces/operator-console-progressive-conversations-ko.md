@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: cf6da0d5761cfbbdd48ba4858418b0214bc890fb
-translation_revised: 2026-08-28
+translation_source_sha: 2209e6df0bf98e96eb298c60393a5ae0c8411dec
+translation_revised: 2026-08-29
 ---
 # 오퍼레이터 콘솔 점진적 대화
 
@@ -37,6 +37,7 @@ Command Deck은 활성 패널의 경로 범위 `ViewSnapshot`을 받습니다. �
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-29 | implemented | 강화 라운드 10에서 Console 근거 및 스트림 관점 25개를 검토하고 label에서 파생한 검색 단계 key를 고정된 의미 id로 교체했습니다. SSE 진행 label은 활성 행을 다시 마운트하거나 애니메이션 및 포커스 상태를 초기화하지 않고 갱신됩니다. | `current change`; 집중 retrieval-trace 테스트 및 Console typecheck. | 실제 진행 스트림의 관리되는 시각적 근거를 보존합니다. |
 | 2026-08-27 | 구현됨 | 패널에서 파생한 대체 화면 스냅샷과 경로 전환 격리를 추가하여 특화 게시기 실행 전이나 게시기가 없는 경우에도 Command Deck이 등록된 모든 화면을 인식하도록 했습니다. | `current change`, `console/src/app.tsx`, `console/src/deck/context.tsx`, 집중 Console 검사 58개 통과, 예측 학습, 브라우저 근거, 구성 기준선 데스크톱 검사 | 이 범위가 제한된 동작을 `validated`로 승격하기 전에 인증된 배포 근거를 보존합니다. |
 | 2026-08-26 | 구현됨 | 최종 결과의 권위를 바꾸지 않고 실시간 의미 조회 노드 진행 상황을 추가했습니다. Executor는 실제 노드 시작과 receipt 완료를 관측하고, Core는 범위가 제한되고 권한이 없는 별도 record를 발행하며, Operator는 `done` 전에 안정된 조회 activity를 스트리밍합니다. 느리거나 실패한 progress 발행은 범위 안에서 끝나며 조회 실행을 바꿀 수 없습니다. Reconnect 및 최종 완료는 기존 영속 receipt를 계속 권위로 사용합니다. | `current change`, 공유 계약 및 schema, Core executor 및 consumer, Operator relay 및 Kafka adapter, 집중 progress 검사 25개 통과, Ruff, formatting 및 strict mypy 통과 | 인증된 Command Deck 실행에서 정확한 AKS 현재 상태 ObjectSet 및 Function 단계가 검증된 최종 답변 전에 running에서 completed로 바뀌는 것을 보존합니다. |
 | 2026-08-26 | 구현됨 | 실측 의미 판단 투명성을 타입이 지정된 직접 응답에서 일반 답변, 명확화, 보류 및 지원하지 않음 결과까지 확장했습니다. Core는 범위가 제한되고 권한이 없는 관측을 계획 전체에서 보존하고 processor extension은 이를 조회 근거와 병합하며 Operator는 검증을 바꾸지 않고 최종 event에 포함합니다. 요청과 응답 본문은 명시적으로 활성화한 경우에만 포함합니다. | `current change`, 집중 계획, processor 및 Operator 검사 544개와 strict mypy, Ruff 통과, 인증된 일반 Resource 턴에서 모델 호출 1건, 실측 토큰 5,398개, 범위가 제한되고 민감정보가 제거된 요청 및 응답 내용, 변경되지 않은 권한 없는 근거 상태 표시 | 이 범위가 제한된 투명성 결함에 남은 구현 작업은 없습니다. |
