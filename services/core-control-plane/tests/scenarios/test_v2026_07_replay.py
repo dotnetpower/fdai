@@ -53,7 +53,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-import yaml
 from fdai.core.control_loop import (
     ControlLoop,
     ControlLoopOutcome,
@@ -73,11 +72,6 @@ from fdai.core.tiers.t0_deterministic import (
 from fdai.core.tiers.t2_reasoning import T2Tier
 from fdai.core.tiers.t2_reasoning.testing import AbstainingT2Proposer
 from fdai.core.trust_router import TrustRouter
-from fdai.rule_catalog.schema.action_type import load_action_type_catalog
-from fdai.rule_catalog.schema.resource_type import (
-    load_resource_type_registry_from_mapping,
-)
-from fdai.rule_catalog.schema.rule import load_rule_catalog
 from fdai.shared.contracts.models import Mode
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.contracts.validation import (
@@ -93,15 +87,13 @@ from fdai.shared.providers.testing import (
     InMemoryStateStore,
     RecordingRemediationPrPublisher,
 )
+from fdai_core_test_support.cost_governance_catalog import (
+    CostGovernanceCatalogComposition,
+    compose_cost_governance_catalog,
+)
 from fdai_core_test_support.verified_shadow_executor import VerifiedShadowExecutor
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
-ACTION_TYPES_ROOT = REPO_ROOT / "rule-catalog" / "action-types"
-CATALOG_ROOT = REPO_ROOT / "rule-catalog" / "catalog"
-POLICIES_ROOT = REPO_ROOT / "policies"
-REMEDIATION_ROOT = REPO_ROOT / "rule-catalog" / "remediation"
-VOCABULARY_FILE = REPO_ROOT / "rule-catalog" / "vocabulary" / "resource-types.yaml"
-
 SCENARIO_DIR = Path(__file__).resolve().parent / "v2026.07"
 ENRICHMENT_DIR = Path(__file__).resolve().parent / "enrichment" / "v2026.07"
 
@@ -144,24 +136,18 @@ def _load_enrichment(scenario_id: str) -> dict[str, Any] | None:
 
 
 @pytest.fixture(scope="module")
-def shipped_catalog() -> tuple[Any, Any]:
-    registry = PackageResourceSchemaRegistry()
-    action_types = load_action_type_catalog(ACTION_TYPES_ROOT, schema_registry=registry)
-    with VOCABULARY_FILE.open("r", encoding="utf-8") as fh:
-        resource_types = load_resource_type_registry_from_mapping(yaml.safe_load(fh))
-    rules = load_rule_catalog(
-        CATALOG_ROOT,
-        schema_registry=registry,
-        action_types=action_types,
-        resource_types=resource_types,
-        policies_root=POLICIES_ROOT,
-        remediation_root=REMEDIATION_ROOT,
+def shipped_catalog(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> CostGovernanceCatalogComposition:
+    return compose_cost_governance_catalog(
+        REPO_ROOT,
+        enabled=True,
+        scratch_root=tmp_path_factory.mktemp("cost-governance-replay"),
     )
-    return rules, action_types
 
 
 def _make_loop(
-    shipped_catalog: tuple[Any, Any],
+    shipped_catalog: CostGovernanceCatalogComposition,
     *,
     wire_risk_gate: bool = False,
     wire_t2: bool = False,
@@ -169,15 +155,16 @@ def _make_loop(
     audit: InMemoryStateStore | None = None,
     executor: Any | None = None,
 ) -> tuple[ControlLoop, Any, InMemoryStateStore, Any]:
-    rules, action_types = shipped_catalog
+    rules = shipped_catalog.rules
+    action_types = shipped_catalog.action_types
     index = RuleIndex.build(rules)
-    evaluator = OpaRegoEvaluator(policies_root=POLICIES_ROOT)
+    evaluator = OpaRegoEvaluator(policies_root=shipped_catalog.policies_root)
     publisher = publisher if publisher is not None else RecordingRemediationPrPublisher()
     audit = audit if audit is not None else InMemoryStateStore()
     executor = executor or VerifiedShadowExecutor(
         publisher=publisher,
         audit_store=audit,
-        renderer=TemplateRenderer(remediation_root=REMEDIATION_ROOT),
+        renderer=TemplateRenderer(remediation_root=shipped_catalog.remediation_root),
         resource_lock=ResourceLockManager(),
     )
     action_types_by_name = {a.name: a for a in action_types}
@@ -258,7 +245,7 @@ def scenario_index() -> dict[str, dict[str, Any]]:
 )
 async def test_v2026_07_scenario_replays_through_control_loop(
     scenario_path: Path,
-    shipped_catalog: tuple[Any, Any],
+    shipped_catalog: CostGovernanceCatalogComposition,
 ) -> None:
     scenario = json.loads(scenario_path.read_text(encoding="utf-8"))
     scenario_id: str = scenario["id"]
@@ -363,7 +350,7 @@ class _FailOncePublisher(RemediationPrPublisher):
 @requires_opa
 @pytest.mark.asyncio
 async def test_sre_partial_publish_failure_closes_the_audit_and_recovers_on_retry(
-    shipped_catalog: tuple[Any, Any],
+    shipped_catalog: CostGovernanceCatalogComposition,
 ) -> None:
     """SRE `partial_failure_recovery` evidence for `sre.cluster-diagnostics-missing.001`.
 

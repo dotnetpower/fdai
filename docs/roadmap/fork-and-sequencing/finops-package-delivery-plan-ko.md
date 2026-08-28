@@ -1,7 +1,7 @@
 ---
 title: FinOps 패키지 전달 계획
 translation_of: finops-package-delivery-plan.md
-translation_source_sha: e4b3a1e56d5be212fed5ecea2b1d05236078114c
+translation_source_sha: 9f5e29b6aeaec3d1b4cf18d84d22b97416123dd3
 translation_revised: 2026-08-28
 ---
 
@@ -36,12 +36,12 @@ release, 자산 inventory 및 안정적인 식별자 집합으로 수렴한 뒤�
 
 | 영역 | 현재 근거 | 전달 미비점 |
 |------|-----------|-------------|
-| FinOps 가드 | `core/verticals/cost_governance/finops.py`, 11개 집중 테스트 | 순수 로직은 독립 배포판이나 실제 조정기가 아닙니다. |
-| 비용 조언 | Njord 비용 샘플과 이상 동작, `CostEstimator` Protocol과 컨트롤 루프 해석 | 중복 비용 표현과 패키지 연결에는 하나의 검토된 계약이 필요합니다. |
-| 온톨로지 | 비용, 서비스, 복구, 아키텍처, 토폴로지, 대안, 효과 및 결과 선언이 있습니다. | 패키지 의미 프로필과 end-to-end 의도 인스턴스가 함께 고정되어 있지 않습니다. |
-| 에이전트 런타임 | 고정 pantheon, 소유 토픽, 동시성, 판단, 실행, 감사 및 복구 기반이 있습니다. | 완전한 15개 에이전트 책임 모델을 입증하는 보존된 FinOps trace가 없습니다. |
-| 자산 | 비용 Rule, Policy, ActionType, 시나리오 및 `cost-aware-remediation` Workflow가 있습니다. | 소유권, 중복 방지, 패키지 리소스 로드 및 동등성 검사에는 inventory가 필요합니다. |
-| 확장 수명 주기 | 다이제스트에 연결된 비활성 설치와 원자적 기능 활성화가 있습니다. | 온톨로지 프로필, 자산 및 프로바이더 요구 사항을 원자적으로 검증하는 vertical 번들이 없습니다. |
+| FinOps 패키지 | `extensions/cost-governance/`, 패키지 빌드, 리소스, 이미지 및 수명 주기 테스트 | 로컬 빌드와 수명 주기 메커니즘은 통과했습니다. 기본 전용 프로필은 패키지 자산을 제외하고 호환성 재생은 활성화된 패키지 하나를 명시적으로 구성합니다. 통제된 이미지 및 수명 주기 증적은 W7 근거로 남습니다. |
+| 비용 자문 | 주입된 Njord 자문 프로바이더, 활성화 gate가 적용된 수집 및 분리된 signed 효과 추정 | Live-authoritative 프로바이더 cohort는 아직 기록되지 않았습니다. |
+| 온톨로지 | 정확한 의미 프로파일, 추가 선언 및 F1-F8 긍정과 부정 고정본 | 프로파일은 로컬에서 구현되었으며 실제 근거는 같은 release에 연결되어야 합니다. |
+| 에이전트 런타임 | 고정 판테온, 소유 topic, 전체 책임 replay, 복구, 정산 및 학습 테스트 | 출처와 합성 근거는 운영 자율성을 입증하지 않습니다. |
+| 자산 | 안정적인 id를 유지하는 패키지 소유 Rule 12개, Policy 12개, 수정 template 12개 및 Workflow 1개 | 더 이상 사용하지 않는 Core facade는 통제된 롤백 근거가 제거를 허용할 때까지 동등성 검사에만 남습니다. |
+| 확장 수명 주기 | 원자적인 가용성, 활성화, upgrade, 비활성화 및 N-1 롤백 메커니즘 | Live-authoritative 증적과 독립 승격 결정은 열려 있습니다. |
 
 ## 전달 규칙
 

@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0.0",
+  "fixture_id": "f1-positive",
+  "gate": "F1",
+  "case": "positive",
+  "ontology_release_digest": "sha256:3b3bd9dd413d10a13ad9741ebc80eb698cecf193626f3b8bf288ffd7f23adf1c",
+  "semantic_profile_sha256": "sha256:20cfa7b8fcb0adfa992eecbba41bfcc7b0b3ee91f392be081ae575e8be94090b",
+  "cutoff": "2025-01-15T12:05:00Z",
+  "context": {
+    "links": [
+      {"type": "cost_observation_targets_resource", "from_type": "CostObservation", "to_type": "Resource"},
+      {"type": "workload_runs_on", "from_type": "Workload", "to_type": "Resource"},
+      {"type": "implemented_by", "from_type": "BusinessService", "to_type": "Workload"}
+    ],
+    "graph": {"complete": true, "truncated": false}
+  },
+  "expected": {"autonomy_ceiling": "preserve", "reason_codes": []}
+}

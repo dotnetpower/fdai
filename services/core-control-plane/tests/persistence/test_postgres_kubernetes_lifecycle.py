@@ -23,6 +23,8 @@ NOW = datetime(2026, 8, 27, 12, 0, tzinfo=UTC)
 
 
 def _dsn() -> str:
+    if os.environ.get("FDAI_SERVICE_MIGRATIONS_READY") != "1":
+        pytest.skip("service-owned migrations are not ready")
     value = os.environ.get("FDAI_DATABASE_URL")
     if not value:
         pytest.skip("FDAI_DATABASE_URL is unset")

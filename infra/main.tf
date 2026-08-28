@@ -1912,20 +1912,27 @@ module "compute" {
   # read-only inventory identity, never Thor's executor identity. An explicit
   # empty cron disables it. See
   # docs/roadmap/rules-and-detection/observability-and-detection.md.
-  analyzer_tick_cron_expression = var.analyzer_tick_cron_expression
-  analyzer_targets_json         = var.analyzer_targets_json
-  trace_topologies_json         = var.trace_topologies_json
-  analyzer_window_seconds       = var.analyzer_window_seconds
-  trace_window_seconds          = var.trace_window_seconds
-  analyzer_budget_seconds       = var.analyzer_budget_seconds
-  forecast_tick_cron_expression = var.forecast_tick_cron_expression
-  forecast_targets_json         = var.forecast_targets_json
-  prometheus_endpoint           = var.prometheus_endpoint
-  prometheus_audience           = var.prometheus_audience
-  vm_task_enabled               = var.vm_task_enabled
-  vm_task_enforce               = var.vm_task_enforce
-  vm_task_run_as_user           = var.vm_task_run_as_user
-  vm_task_root                  = var.vm_task_root
+  analyzer_tick_cron_expression             = var.analyzer_tick_cron_expression
+  analyzer_targets_json                     = var.analyzer_targets_json
+  trace_topologies_json                     = var.trace_topologies_json
+  analyzer_window_seconds                   = var.analyzer_window_seconds
+  trace_window_seconds                      = var.trace_window_seconds
+  analyzer_budget_seconds                   = var.analyzer_budget_seconds
+  forecast_tick_cron_expression             = var.forecast_tick_cron_expression
+  forecast_targets_json                     = var.forecast_targets_json
+  cost_governance_image                     = var.cost_governance_image
+  cost_governance_collector_cron_expression = var.cost_governance_collector_cron_expression
+  cost_governance_analyzer_cron_expression  = var.cost_governance_analyzer_cron_expression
+  cost_governance_scope_id                  = var.cost_governance_scope_id
+  cost_governance_known_service_ids_json    = var.cost_governance_known_service_ids_json
+  cost_governance_ontology_release_id       = var.cost_governance_ontology_release_id
+  cost_governance_ontology_release_digest   = var.cost_governance_ontology_release_digest
+  prometheus_endpoint                       = var.prometheus_endpoint
+  prometheus_audience                       = var.prometheus_audience
+  vm_task_enabled                           = var.vm_task_enabled
+  vm_task_enforce                           = var.vm_task_enforce
+  vm_task_run_as_user                       = var.vm_task_run_as_user
+  vm_task_root                              = var.vm_task_root
   scheduler_cron_expression = (
     var.vm_task_enabled && var.scheduler_tick_cron_expression == ""
     ? "* * * * *"

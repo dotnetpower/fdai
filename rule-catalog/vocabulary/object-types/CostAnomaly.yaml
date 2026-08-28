@@ -1,0 +1,34 @@
+schema_version: "1.0.0"
+name: CostAnomaly
+version: "1.0.0"
+key: id
+description: Derived cost deviation with exact observation, detector, cutoff, uncertainty, and evidence lineage.
+properties:
+  id: {type: string, required: true}
+  cost_observation_ref: {type: string, required: true}
+  target_ref: {type: string, required: true}
+  detector_id: {type: string, required: true}
+  detector_version: {type: string, required: true}
+  baseline_ref: {type: string, required: true}
+  variance: {type: number, required: true}
+  currency: {type: string, required: true}
+  feature_cutoff: {type: datetime, required: true}
+  confidence: {type: number, required: true}
+  detected_at: {type: datetime, required: true}
+  evidence_ref: {type: string, required: true}
+  source_authority_ref: {type: string, required: true}
+  synthetic: {type: boolean, required: true}
+lifecycle:
+  owner: Njord
+  creation:
+    - code: bounded_cost_anomaly
+      when: A versioned deterministic detector finds a cost deviation over an authoritative observation.
+      result: Create an immutable cost anomaly without selecting an action.
+      source_refs: [docs/roadmap/architecture/finops-autonomous-operations.md]
+  authority_refs: [docs/roadmap/architecture/finops-autonomous-operations.md]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:CostAnomaly@1.0.0
+  content_hash: sha256:85a442484e0cb64c83343fd28db6f428ba7573752057f101b73458aafc78b862
+  license: MIT
+  retrieved_at: "2026-08-28T00:00:00Z"

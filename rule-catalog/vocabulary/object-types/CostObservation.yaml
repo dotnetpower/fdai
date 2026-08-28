@@ -1,0 +1,33 @@
+schema_version: "1.0.0"
+name: CostObservation
+version: "1.0.0"
+key: id
+description: Immutable cost measurement with bounded period, target, provenance, and source authority.
+properties:
+  id: {type: string, required: true}
+  target_ref: {type: string, required: true}
+  metric: {type: string, required: true}
+  value: {type: number, required: true}
+  currency: {type: string, required: true}
+  period_start: {type: datetime, required: true}
+  period_end: {type: datetime, required: true}
+  observed_at: {type: datetime, required: true}
+  evidence_ref: {type: string, required: true}
+  source_revision: {type: string, required: true}
+  source_authority_ref: {type: string, required: true}
+  complete: {type: boolean, required: true}
+  synthetic: {type: boolean, required: true}
+lifecycle:
+  owner: Njord
+  creation:
+    - code: authoritative_cost_measurement
+      when: A configured billing source emits a bounded schema-valid cost measurement.
+      result: Create an immutable cost observation with event-time and source lineage.
+      source_refs: [docs/roadmap/architecture/finops-autonomous-operations.md]
+  authority_refs: [docs/roadmap/architecture/finops-autonomous-operations.md]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:CostObservation@1.0.0
+  content_hash: sha256:b39830a54c69f1d1356e75a1d28c6bd99526505fd715db8ae9c526fdecf4d975
+  license: MIT
+  retrieved_at: "2026-08-28T00:00:00Z"

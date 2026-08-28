@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0.0",
+  "id": "cost-governance.w0.allow.001",
+  "outcome": "allow",
+  "driver": "finops-guard",
+  "input": {
+    "action_id": "cost-allow-001",
+    "kind": "right_size",
+    "resource_id": "resource-example-allow",
+    "environment": "dev",
+    "tags": [],
+    "current_capacity": 3,
+    "dependent_ids": [],
+    "target_capacity": 2
+  },
+  "expected": {
+    "decision": "allowed",
+    "reasons": []
+  }
+}

@@ -35,6 +35,17 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
     ("core-operator-projection", "1.2.0"): "schemas/core-operator-projection/1.2.0.json",
     ("core-operator-projection", "1.3.0"): "schemas/core-operator-projection/1.3.0.json",
     ("core-operator-projection", "1.4.0"): "schemas/core-operator-projection/1.4.0.json",
+    ("cost-governance-access-grant", "1.0.0"): "schemas/cost-governance-access-grant/1.0.0.json",
+    ("cost-governance-availability", "1.0.0"): "schemas/cost-governance-availability/1.0.0.json",
+    (
+        "cost-governance-disclosure-ceiling",
+        "1.0.0",
+    ): "schemas/cost-governance-disclosure-ceiling/1.0.0.json",
+    (
+        "cost-governance-disclosure-policy",
+        "1.0.0",
+    ): "schemas/cost-governance-disclosure-policy/1.0.0.json",
+    ("cost-governance-projection", "1.0.0"): "schemas/cost-governance-projection/1.0.0.json",
     ("document-ingestion-activity", "1.0.0"): "schemas/document-ingestion-activity/1.0.0.json",
     ("document-ingestion-activity", "1.1.0"): "schemas/document-ingestion-activity/1.1.0.json",
     ("document-worker-audit", "1.0.0"): "schemas/document-worker-audit/1.0.0.json",

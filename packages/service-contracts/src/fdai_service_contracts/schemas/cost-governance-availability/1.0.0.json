@@ -1,0 +1,249 @@
+{
+  "$defs": {
+    "CostAmountPrecision": {
+      "description": "Increasing monetary precision.",
+      "enum": [
+        "none",
+        "band",
+        "rounded",
+        "exact"
+      ],
+      "title": "CostAmountPrecision",
+      "type": "string"
+    },
+    "CostDisclosurePolicy": {
+      "additionalProperties": false,
+      "description": "Server-enforced component-wise Cost Governance disclosure ceiling.",
+      "properties": {
+        "amount_precision": {
+          "$ref": "#/$defs/CostAmountPrecision"
+        },
+        "granularity": {
+          "$ref": "#/$defs/CostGranularity"
+        },
+        "identity_visibility": {
+          "$ref": "#/$defs/CostIdentityVisibility"
+        },
+        "rounding_increment": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "default": "100",
+          "title": "Rounding Increment"
+        },
+        "small_cell_minimum": {
+          "default": 3,
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Small Cell Minimum",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "granularity",
+        "identity_visibility",
+        "amount_precision"
+      ],
+      "title": "CostDisclosurePolicy",
+      "type": "object"
+    },
+    "CostGovernanceUnavailableReason": {
+      "description": "Typed reason that a Cost Governance read cannot proceed.",
+      "enum": [
+        "package_absent",
+        "package_disabled",
+        "package_incompatible",
+        "host_incompatible",
+        "ontology_incompatible",
+        "missing_provider",
+        "access_grant_missing",
+        "access_grant_expired",
+        "access_scope_mismatch",
+        "source_unavailable"
+      ],
+      "title": "CostGovernanceUnavailableReason",
+      "type": "string"
+    },
+    "CostGranularity": {
+      "description": "Increasingly detailed row granularity.",
+      "enum": [
+        "none",
+        "summary",
+        "group",
+        "resource"
+      ],
+      "title": "CostGranularity",
+      "type": "string"
+    },
+    "CostIdentityVisibility": {
+      "description": "Increasing identity disclosure.",
+      "enum": [
+        "none",
+        "pseudonymous",
+        "exact"
+      ],
+      "title": "CostIdentityVisibility",
+      "type": "string"
+    }
+  },
+  "$id": "https://fdai.example/schemas/cost-governance-availability/1.0.0.json",
+  "additionalProperties": false,
+  "description": "Authenticated source and feature-access preflight result.",
+  "properties": {
+    "access_allowed": {
+      "title": "Access Allowed",
+      "type": "boolean"
+    },
+    "activation_revision": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Activation Revision"
+    },
+    "asset_manifest_digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Asset Manifest Digest"
+    },
+    "availability_reasons": {
+      "default": [],
+      "items": {
+        "maxLength": 256,
+        "minLength": 1,
+        "pattern": "^(package_absent|host_incompatible|ontology_incompatible|missing_provider:[a-z0-9][a-z0-9._:/-]{1,191})$",
+        "type": "string"
+      },
+      "maxItems": 32,
+      "title": "Availability Reasons",
+      "type": "array"
+    },
+    "available": {
+      "title": "Available",
+      "type": "boolean"
+    },
+    "disclosure": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CostDisclosurePolicy"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "enabled": {
+      "title": "Enabled",
+      "type": "boolean"
+    },
+    "image_digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Image Digest"
+    },
+    "ontology_release_digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ontology Release Digest"
+    },
+    "package_id": {
+      "default": "fdai-cost-governance",
+      "title": "Package Id",
+      "type": "string"
+    },
+    "package_version": {
+      "anyOf": [
+        {
+          "maxLength": 64,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Package Version"
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CostGovernanceUnavailableReason"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "semantic_profile_digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Semantic Profile Digest"
+    },
+    "type": {
+      "const": "cost-governance.availability",
+      "default": "cost-governance.availability",
+      "title": "Type",
+      "type": "string"
+    }
+  },
+  "required": [
+    "available",
+    "enabled",
+    "access_allowed"
+  ],
+  "title": "CostGovernanceAvailability",
+  "type": "object"
+}

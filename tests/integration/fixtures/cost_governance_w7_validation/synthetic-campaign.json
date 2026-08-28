@@ -1,0 +1,70 @@
+{
+  "campaign_id": "campaign-w7-synthetic-001",
+  "evidence_kind": "synthetic",
+  "expected": {
+    "approval": 1,
+    "beneficial_action": 1,
+    "censored_settlement": 1,
+    "deny": 1,
+    "execute": 1,
+    "failed_settlement": 1,
+    "hold_unresolved": 1,
+    "no_op": 1,
+    "operational_readiness": "blocked",
+    "operational_readiness_reason": "missing-live-authoritative-evidence",
+    "rollback": 1,
+    "unscorable_settlement": 1,
+    "verified_settlement": 4
+  },
+  "frozen": true,
+  "outcomes": [
+    {
+      "episode_id": "synthetic-beneficial",
+      "outcome": "beneficial-action",
+      "settlement": "verified"
+    },
+    {
+      "episode_id": "synthetic-no-op",
+      "outcome": "no-op",
+      "settlement": "unscorable"
+    },
+    {
+      "episode_id": "synthetic-deny",
+      "outcome": "deny",
+      "settlement": "verified"
+    },
+    {
+      "episode_id": "synthetic-hold",
+      "outcome": "hold-unresolved",
+      "settlement": "censored"
+    },
+    {
+      "episode_id": "synthetic-approval",
+      "outcome": "approval",
+      "settlement": "verified"
+    },
+    {
+      "episode_id": "synthetic-execute",
+      "outcome": "execute",
+      "settlement": "failed"
+    },
+    {
+      "episode_id": "synthetic-rollback",
+      "outcome": "rollback",
+      "settlement": "verified"
+    }
+  ],
+  "revision_pin": {
+    "activation_revision": 5,
+    "asset_manifest_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+    "image_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "ontology_release_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+    "package_id": "cost-governance",
+    "package_version": "0.1.1",
+    "runtime_config_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+    "semantic_profile_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+    "source_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "wheel_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+  },
+  "schema_version": "1.0.0"
+}

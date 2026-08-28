@@ -1,0 +1,79 @@
+{
+  "schema_version": "1.0.0",
+  "corpus_id": "cost-governance.w6.parity",
+  "frozen": true,
+  "ontology_lineage": {
+    "ontology_release_digest": "sha256:3b3bd9dd413d10a13ad9741ebc80eb698cecf193626f3b8bf288ffd7f23adf1c",
+    "semantic_profile_digest": "sha256:20cfa7b8fcb0adfa992eecbba41bfcc7b0b3ee91f392be081ae575e8be94090b"
+  },
+  "guard_cases": [
+    {
+      "case_id": "guard-allow-dev-right-size",
+      "action_id": "cost-parity-allow",
+      "kind": "right_size",
+      "resource_id": "resource-parity-a",
+      "environment": "dev",
+      "tags": [],
+      "current_capacity": 3,
+      "dependent_ids": [],
+      "target_capacity": 2
+    },
+    {
+      "case_id": "guard-deny-opt-out",
+      "action_id": "cost-parity-opt-out",
+      "kind": "spot_adopt",
+      "resource_id": "resource-parity-b",
+      "environment": "dev",
+      "tags": ["finops:opt-out"],
+      "current_capacity": 2,
+      "dependent_ids": [],
+      "target_capacity": null
+    },
+    {
+      "case_id": "guard-deny-production",
+      "action_id": "cost-parity-production",
+      "kind": "right_size",
+      "resource_id": "resource-parity-c",
+      "environment": "prod",
+      "tags": [],
+      "current_capacity": 4,
+      "dependent_ids": [],
+      "target_capacity": 2
+    },
+    {
+      "case_id": "guard-deny-dependents",
+      "action_id": "cost-parity-dependents",
+      "kind": "shutdown",
+      "resource_id": "resource-parity-d",
+      "environment": "dev",
+      "tags": [],
+      "current_capacity": 1,
+      "dependent_ids": ["resource-parity-child"],
+      "target_capacity": null
+    },
+    {
+      "case_id": "guard-deny-capacity-floor",
+      "action_id": "cost-parity-floor",
+      "kind": "right_size",
+      "resource_id": "resource-parity-e",
+      "environment": "dev",
+      "tags": [],
+      "current_capacity": 2,
+      "dependent_ids": [],
+      "target_capacity": 0
+    }
+  ],
+  "advisory_case": {
+    "case_id": "advisory-rolling-anomaly",
+    "scope_id": "scope-parity",
+    "resource_id": "resource-parity-f",
+    "observed_at": "2026-08-28T08:00:00Z",
+    "amounts_usd": ["100", "100", "100", "200"],
+    "effect_action_types": [
+      "ops.restart-service",
+      "remediate.enable-encryption",
+      "remediate.resize_vm_down",
+      "unknown.action"
+    ]
+  }
+}

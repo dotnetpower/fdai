@@ -65,4 +65,5 @@ def test_shipped_workflows_validate_through_startup_path() -> None:
     )
 
     names = workflow_names(workflows)
-    assert {"cost-aware-remediation", "predictive-scale", "dr-failover-drill"} <= names
+    assert {"predictive-scale", "dr-failover-drill"} <= names
+    assert "cost-aware-remediation" not in names

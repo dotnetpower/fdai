@@ -1,0 +1,15 @@
+schema_version: "1.0.0"
+name: service_has_budget
+version: "1.0.0"
+from_type: BusinessService
+to_type: Budget
+cardinality: one_to_many
+forward_role: has_budget
+reverse_role: governs_service_budget
+description: Effective-time budgets that constrain one BusinessService.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:service_has_budget@1.0.0
+  content_hash: sha256:1f539e8b5aafe249d5ada5df60a28f779b3d1486f3a14a7b40a4decd38ad551b
+  license: MIT
+  retrieved_at: "2026-08-28T00:00:00Z"

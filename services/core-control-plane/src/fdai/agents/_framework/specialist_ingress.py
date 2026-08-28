@@ -7,7 +7,9 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-COST_SAMPLE_EVENT = "specialist.cost_sample"
+from fdai.shared.providers.cost_governance import COST_SAMPLE_EVENT_TYPE
+
+COST_SAMPLE_EVENT = COST_SAMPLE_EVENT_TYPE
 CAPACITY_SAMPLE_EVENT = "specialist.capacity_sample"
 CHAOS_SCHEDULE_EVENT = "specialist.chaos_schedule"
 SPECIALIST_EVENT_PREFIX = "specialist."

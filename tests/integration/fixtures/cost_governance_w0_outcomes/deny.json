@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0.0",
+  "id": "cost-governance.w0.deny.001",
+  "outcome": "deny",
+  "driver": "risk-table",
+  "input": {
+    "policy_violation": true,
+    "cost_impact_monthly": 25.0
+  },
+  "expected": {
+    "decision": "deny",
+    "rule_id": "deny-policy-violation",
+    "quorum": 1
+  }
+}

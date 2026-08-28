@@ -168,7 +168,7 @@ def test_tool_projection_rejects_undeclared_reference_facts() -> None:
     }
 
 
-def test_agent_state_evidence_ref_is_stable_and_changes_with_owned_facts() -> None:
+def test_disabled_cost_ingest_does_not_change_agent_state_evidence_ref() -> None:
     from fdai.agents.njord import Njord
 
     runtime = _runtime()
@@ -199,7 +199,7 @@ def test_agent_state_evidence_ref_is_stable_and_changes_with_owned_facts() -> No
     )
 
     assert first.evidence_refs == replay.evidence_refs
-    assert first.evidence_refs != changed.evidence_refs
+    assert first.evidence_refs == changed.evidence_refs
     assert first.evidence_refs[0].startswith("agent-state:Njord:sha256:")
 
 

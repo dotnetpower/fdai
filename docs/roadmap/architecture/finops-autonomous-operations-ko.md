@@ -1,7 +1,7 @@
 ---
 title: FinOps 자율 운영
 translation_of: finops-autonomous-operations.md
-translation_source_sha: 0f08c31569626f8de3440708578b1830e01a14c6
+translation_source_sha: 5aa49d4df8dbc1469fa7f4455b3cf309e32ed602
 translation_revised: 2026-08-28
 ---
 
@@ -21,8 +21,10 @@ translation_revised: 2026-08-28
 > **권한 경계:** 온톨로지 근거는 자율성을 유지하거나 낮출 수 있습니다. 판단, 승인, 실행,
 > promotion을 수행하거나 의도한 효과가 발생했다고 단정할 수 없습니다.
 >
-> **현재 상태:** 공유 온톨로지와 pantheon 기반은 있습니다. FinOps 의미 프로필, 전체 책임 trace,
-> 범위가 제한된 복구 조립 및 정산된 운영 cohort는 아직 없습니다.
+> **현재 상태:** 정확한 FinOps 의미 프로파일, 고정된 15개 책임 trace, 범위가 제한된 복구
+> 조정기, 독립 다중 효과 정산, replay, 보존 및 통제된 학습 입력은 로컬 근거와 함께 구현되어
+> 있습니다. Live-authoritative 정산 cohort와 독립 패키지 및 액션별 승격 검토는 아직 없습니다.
+> 비평 12회에서 확인된 모든 Medium 이상 결함을 수정했으며 최종 검토에는 Low 수준의 테스트 구성 개선만 남았습니다. 런타임 권한은 바뀌지 않았습니다.
 
 ## 설계 개요
 

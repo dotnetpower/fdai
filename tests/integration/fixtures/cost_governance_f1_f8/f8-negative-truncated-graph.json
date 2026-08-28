@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0.0",
+  "fixture_id": "f8-truncated-graph",
+  "gate": "F8",
+  "case": "negative",
+  "ontology_release_digest": "sha256:3b3bd9dd413d10a13ad9741ebc80eb698cecf193626f3b8bf288ffd7f23adf1c",
+  "semantic_profile_sha256": "sha256:20cfa7b8fcb0adfa992eecbba41bfcc7b0b3ee91f392be081ae575e8be94090b",
+  "cutoff": "2025-01-15T12:05:00Z",
+  "context": {
+    "graph": {
+      "complete": false,
+      "truncated": true,
+      "revision_refs": ["context:001", "decision:001"]
+    },
+    "links": [
+      {"type": "considers", "from_type": "DecisionCase", "to_type": "ActionOption"}
+    ]
+  },
+  "expected": {"autonomy_ceiling": "shadow_only", "reason_codes": ["truncated_graph"]}
+}

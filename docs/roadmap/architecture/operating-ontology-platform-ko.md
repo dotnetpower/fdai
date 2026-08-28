@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: db9cfaaedb4da24535482ce7f031b1d20a2d619f
-translation_revised: 2026-08-27
+translation_source_sha: 7bdad5e14f5ca6441f5a93a3fe564522185efe27
+translation_revised: 2026-08-28
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -38,6 +38,8 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 > `Recoverable`, `ObjectiveBound`, `CostBearing`의 출처 이력, 상속, LinkType 및 ActionType
 > 참조와 보수적인 explicit ObjectType 연결을 검증합니다. 조립은 polymorphic 카탈로그를
 > exact release로 compile합니다.
+> 기본 전용 카탈로그 변환 결과는 선택적 버티컬 자산을 제외합니다. 비용 거버넌스 속성을
+> 검증하는 테스트는 다이제스트에 결속된 패키지 하나를 명시적으로 설치하고 활성화한 뒤 변환 결과를 만듭니다.
 > Bitemporal 토폴로지 기반은 provider-generation 신원, 이벤트/기록 시간, 완전한 스냅샷,
 > delta 및 tombstone을 보존합니다. Pure `graph_at`/`topology_diff` 함수는 late 근거가 도착해도
 > pinned `known_at` 재생을 보존하며 불완전한 이력은 absence를 입증할 수 없습니다. 타입이 지정된 조회

@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: d6d754ae95f0edb854c2c04ac22ce2cbb9e169bf
+translation_source_sha: 3b7d34cf5e4bca81a873635e139ac55c54c9e5e1
 translation_revised: 2026-08-28
 ---
 
@@ -20,9 +20,11 @@ translation_revised: 2026-08-28
 > 구독 분석, 서비스 기능군별 크기 조정 프로필 및 비용 거버넌스 작업 영역은
 > [FinOps 리소스 효율 및 SKU 결정](finops-resource-efficiency-ko.md)에서 다룹니다.
 >
-> **현재 상태:** FDAI에는 테스트된 FinOps 가드레일, 비용 범주 규칙, shadow Workflow,
-> Njord 비용 이상 동작 및 실제 `CostEstimator` 컨트롤 루프 연결부가 있습니다. 아직 독립적인
-> 비용 거버넌스 wheel이나 원자적인 vertical-package 활성화 계약은 없습니다.
+> **현재 상태:** FDAI에는 이제 독립적인 `fdai-cost-governance` wheel, source distribution,
+> 이미지 프로파일, 정확한 온톨로지 프로파일, 원자적인 disabled-first 패키지 수명 주기,
+> 패키지 소유 카탈로그 자산, gate가 적용된 Operator 및 Console 변환 결과와 로컬 W0-W7 검증
+> 메커니즘이 있습니다. Live-authoritative 수명 주기, 관찰 cohort 및 독립 승격 근거는 아직
+> 없으므로 패키지와 액션은 운영 검증 또는 승격 완료 상태가 아닙니다.
 
 ## 설계 개요
 

@@ -7,6 +7,7 @@ to wire concrete handlers into the bus adapter.
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass
 
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.base import Agent
@@ -32,9 +33,25 @@ from fdai.core.operational_planning import (
     KineticActionProposalSource,
     SpecialistPlanningCoordinator,
 )
+from fdai.shared.providers.cost_governance import (
+    CostAdvisoryProvider,
+    CostPackageActivationReader,
+)
 
 PlanningCoordinator = SpecialistPlanningCoordinator
 KineticProposalSource = KineticActionProposalSource
+
+
+@dataclass(frozen=True, slots=True)
+class CostRuntimeBindings:
+    """Optional package-neutral Njord runtime bindings."""
+
+    advisory_provider: CostAdvisoryProvider | None = None
+    activation_reader: CostPackageActivationReader | None = None
+    package_enabled: bool = False
+
+
+DEFAULT_COST_RUNTIME_BINDINGS = CostRuntimeBindings()
 
 # Every pantheon subclass provides a zero-arg constructor that builds
 # its baseline in-memory dependencies. Wave-2+ subclasses accept
@@ -101,9 +118,24 @@ def configured_forseti(
     )
 
 
+def configured_njord(
+    bindings: CostRuntimeBindings,
+) -> Njord:
+    """Build Njord with optional package-neutral Cost Governance bindings."""
+
+    return Njord(
+        advisory_provider=bindings.advisory_provider,
+        activation_reader=bindings.activation_reader,
+        package_enabled=bindings.package_enabled,
+    )
+
+
 __all__ = [
     "KineticProposalSource",
     "PlanningCoordinator",
+    "CostRuntimeBindings",
+    "DEFAULT_COST_RUNTIME_BINDINGS",
     "configured_forseti",
+    "configured_njord",
     "instantiate_pantheon",
 ]

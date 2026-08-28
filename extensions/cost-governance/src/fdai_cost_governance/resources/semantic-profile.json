@@ -1,0 +1,365 @@
+{
+  "schema_version": "1.0.0",
+  "profile_id": "cost-governance.semantic-profile",
+  "profile_version": "1.0.0",
+  "ontology_release_digest": "sha256:3b3bd9dd413d10a13ad9741ebc80eb698cecf193626f3b8bf288ffd7f23adf1c",
+  "declarations": [
+    {
+      "kind": "action",
+      "name": "remediate.remove-orphan-resource",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:ca6cb995e8fdf0b9fd40dc8d39cf93156c4d8bd3d007477bb0a06e980dee9414"
+    },
+    {
+      "kind": "action",
+      "name": "remediate.right-size",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:9be615152cef65098c0ed6182be6fb698b0b83606f7b95a4b44af262214cd221"
+    },
+    {
+      "kind": "link",
+      "name": "budget_implements_cost_objective",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:a74f53a2a5008f498959e239108c9a4cbfe7c7c0567f6c785f03d9359bb32662"
+    },
+    {
+      "kind": "link",
+      "name": "capacity_forecast_targets_resource",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:abd5947ba1686d27aeb73251845a566837af27d519b68ae7c13aae5adbd0e890"
+    },
+    {
+      "kind": "link",
+      "name": "considers",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:d394aebf1e7f33d03af7d5dfee05f2b1b96df35bc83021c25e0ea988655cb94e"
+    },
+    {
+      "kind": "link",
+      "name": "cost_anomaly_derived_from",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:6577c75b3077dc5231eb8b37824ea7e9ee8da0f21514d2b2c667391fa3feef4a"
+    },
+    {
+      "kind": "link",
+      "name": "cost_observation_targets_resource",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:4cbd81ea19f1553216b3c610dd8aa084af39dd1ed16315f76864edb9585dc9cd"
+    },
+    {
+      "kind": "link",
+      "name": "executed_as",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:1db92b0a732a1a5a4fa196970aca055d2200366c93bb29368328457c01e2386f"
+    },
+    {
+      "kind": "link",
+      "name": "expects",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:b8863a9b3d2ce94b5cdd0874ea4ce3f4f2c9963a618c40de291017e9cdd98192"
+    },
+    {
+      "kind": "link",
+      "name": "implemented_by",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:3ed20866eb8ba43145452d4769b0f32a6b7956a6f0eca968cc700a5fe3b69914"
+    },
+    {
+      "kind": "link",
+      "name": "resulted_in",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:b2faf58b6da615e7f37c0a950ec9c2d244203510fc72079e640a6be896661647"
+    },
+    {
+      "kind": "link",
+      "name": "service_has_architecture_constraint",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:2095b27beb152b6d6ea38f3c42376d48e7b30dc198125d4189a706862573c552"
+    },
+    {
+      "kind": "link",
+      "name": "service_has_budget",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:c31a6758d768cb7cbb2decbdf1c950455fee2f647bd18f1d120c166317805750"
+    },
+    {
+      "kind": "link",
+      "name": "service_has_cost_objective",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:499d49007104fac2abc283230c3521df00ae16fcb75310b1cdd43f2cedddea9d"
+    },
+    {
+      "kind": "link",
+      "name": "service_has_recovery_objective",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:1f46567d2926ad45f9d9628d31a54ec09455778851b377dfdb0bc1d7537f0764"
+    },
+    {
+      "kind": "link",
+      "name": "service_has_service_objective",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:0f69c7811c0929352d3865bde0c523118ab748ab3105e4e70af0769da4a4ba42"
+    },
+    {
+      "kind": "link",
+      "name": "service_owned_by",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:67f93a664017eb7cb4875ace4d52a0fa0a8e7b8307301512580afed6f1474e56"
+    },
+    {
+      "kind": "link",
+      "name": "sizing_recommendation_based_on",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:d2762aa89d5a0e9dd354323d19e8597c34206ba97c9aef25861203d99db51aca"
+    },
+    {
+      "kind": "link",
+      "name": "sizing_recommendation_targets_resource",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:98959393b0a4179fc66905b072e8e8b61ceed72b17e11760fe1159c0d90281fa"
+    },
+    {
+      "kind": "link",
+      "name": "workload_owned_by",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:801948fe17ab15dd8d5d53fab44d77f8939ce4ac1d7ac991f436195e16e69bfc"
+    },
+    {
+      "kind": "link",
+      "name": "workload_runs_on",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:4ec57be30162f22ad595936f2d9b71681087aba4abc8c831499f8df0e6721bc3"
+    },
+    {
+      "kind": "object",
+      "name": "ActionOption",
+      "version": "1.1.0",
+      "declaration_digest": "sha256:3ac6ee6aa8a8c784e2677a2506ece476f695360caea0d4b971e66fd63d90ef3a"
+    },
+    {
+      "kind": "object",
+      "name": "ActionRun",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:4eb4929580130d9d289f0881a83c25bd1c1efe6031e8ed90d7df4e13cf0a7c6f"
+    },
+    {
+      "kind": "object",
+      "name": "ArchitectureConstraint",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:f3bb0833259ed76232216051360e9c958f4f2663bc0449c2a516ec0a1c014549"
+    },
+    {
+      "kind": "object",
+      "name": "Budget",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:1fe90ee2dda4415e48483aef130eea45d0c1829389faa30408dd506ce001efe5"
+    },
+    {
+      "kind": "object",
+      "name": "BusinessService",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:b09164b2334ce9c881ce5aded2ba40a26401a3ba621e11a586a43acf7aa5d034"
+    },
+    {
+      "kind": "object",
+      "name": "CapacityForecast",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:ed1ccbaa6f1b3ea0b02fcdc2e9a4ec9b858b77be615b9213456892d5b17b7c4b"
+    },
+    {
+      "kind": "object",
+      "name": "ChangeWindow",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:2321b7075d69f95bd776d4e1088a6404cb7e05a29532fcb12cc2c60cae9774ae"
+    },
+    {
+      "kind": "object",
+      "name": "CostAnomaly",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:0de9423da499aef74bd012ff04aa85f2f00f239c8edf4f0c5afdc754ba63d8bf"
+    },
+    {
+      "kind": "object",
+      "name": "CostObjective",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:6f5aba1058c4a2f2f7f097318958b5796861c29958713042c74d05b07c571cf4"
+    },
+    {
+      "kind": "object",
+      "name": "CostObservation",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:ca2bbd39dbae5acaf8a120b69faac94bb5c77f2576a15b96ffe8aa2a9092ef1b"
+    },
+    {
+      "kind": "object",
+      "name": "DecisionCase",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:e616e069905bfc374faad7762b2129f0625a8280a13e0b77434b25cd43f67317"
+    },
+    {
+      "kind": "object",
+      "name": "Environment",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:0bca2b299c3cd74c3ab429c13f4cdb4b9e3d8976fefdf09bcbf5890592863eae"
+    },
+    {
+      "kind": "object",
+      "name": "ExpectedEffect",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:8594c132847bfbd1a69ab528b31cdb4fbf96ecb4b8942f6c18f1c4bdf49079f8"
+    },
+    {
+      "kind": "object",
+      "name": "ObservedOutcome",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:45e99cf52bd4cc40de2f76687a1678a7fc0f292a94972b4393be4e6d16ac55db"
+    },
+    {
+      "kind": "object",
+      "name": "Ownership",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:9c30e4ef14a4210605c87371b5acf7c62e77d5f466b0d4e828c3c6340cb90eba"
+    },
+    {
+      "kind": "object",
+      "name": "RecoveryObjective",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:92c9cba7a0d9d4f8ebae3537289867dd3f396cfea229d13470510ccb91b5fd43"
+    },
+    {
+      "kind": "object",
+      "name": "Resource",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:f12de072c3e17ad42b213a0b9b3b91dc8cb9f3d611616b0cb2b861a0968f7132"
+    },
+    {
+      "kind": "object",
+      "name": "ServiceObjective",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:4b93e3b942c7882f23f7e02a13a85d468a7dc8c5a6ec1b6f22582e26760c202d"
+    },
+    {
+      "kind": "object",
+      "name": "SizingRecommendation",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:247aa94f4a17f367ea03909eb2e05d83700bc8a1566dd12e6f664ba0b6be384a"
+    },
+    {
+      "kind": "object",
+      "name": "Workload",
+      "version": "1.0.0",
+      "declaration_digest": "sha256:1f0028eff6cea4a220eaef86d0766471c20129873ae4f23485457d2e6be4a6c8"
+    }
+  ],
+  "object_sets": [
+    {
+      "id": "cost-governance.budget",
+      "root_type": "BusinessService",
+      "object_types": ["BusinessService", "Budget", "CostObjective", "CostObservation", "Resource", "Workload"],
+      "link_types": ["budget_implements_cost_objective", "cost_observation_targets_resource", "implemented_by", "service_has_budget", "service_has_cost_objective", "workload_runs_on"],
+      "evidence_function": "cost-governance.evidence.budget",
+      "bounds": {"max_depth": 4, "max_edges": 256, "max_objects": 128}
+    },
+    {
+      "id": "cost-governance.cleanup",
+      "root_type": "Resource",
+      "object_types": ["ActionOption", "BusinessService", "CostObservation", "DecisionCase", "Resource", "Workload"],
+      "link_types": ["considers", "cost_observation_targets_resource", "implemented_by", "workload_runs_on"],
+      "evidence_function": "cost-governance.evidence.cleanup",
+      "bounds": {"max_depth": 4, "max_edges": 256, "max_objects": 128}
+    },
+    {
+      "id": "cost-governance.cost-anomaly",
+      "root_type": "CostAnomaly",
+      "object_types": ["BusinessService", "CostAnomaly", "CostObservation", "Resource", "Workload"],
+      "link_types": ["cost_anomaly_derived_from", "cost_observation_targets_resource", "implemented_by", "workload_runs_on"],
+      "evidence_function": "cost-governance.evidence.cost-anomaly",
+      "bounds": {"max_depth": 4, "max_edges": 256, "max_objects": 128}
+    },
+    {
+      "id": "cost-governance.right-sizing",
+      "root_type": "SizingRecommendation",
+      "object_types": ["ActionOption", "CapacityForecast", "DecisionCase", "ExpectedEffect", "Resource", "SizingRecommendation"],
+      "link_types": ["capacity_forecast_targets_resource", "considers", "expects", "sizing_recommendation_based_on", "sizing_recommendation_targets_resource"],
+      "evidence_function": "cost-governance.evidence.right-sizing",
+      "bounds": {"max_depth": 4, "max_edges": 256, "max_objects": 128}
+    },
+    {
+      "id": "cost-governance.settlement",
+      "root_type": "DecisionCase",
+      "object_types": ["ActionOption", "ActionRun", "DecisionCase", "ExpectedEffect", "ObservedOutcome"],
+      "link_types": ["considers", "executed_as", "expects", "resulted_in"],
+      "evidence_function": "cost-governance.evidence.settlement",
+      "bounds": {"max_depth": 4, "max_edges": 256, "max_objects": 128}
+    }
+  ],
+  "evidence_functions": [
+    {
+      "id": "cost-governance.evidence.budget",
+      "operation": "validate",
+      "input_types": ["Budget", "CostObjective", "CostObservation"],
+      "output": "budget_evidence",
+      "source_authority_required": true,
+      "independent_source_required": true,
+      "autonomy_effect": "preserve_or_lower",
+      "max_records": 128
+    },
+    {
+      "id": "cost-governance.evidence.cleanup",
+      "operation": "validate",
+      "input_types": ["BusinessService", "CostObservation", "Resource", "Workload"],
+      "output": "cleanup_evidence",
+      "source_authority_required": true,
+      "independent_source_required": true,
+      "autonomy_effect": "preserve_or_lower",
+      "max_records": 128
+    },
+    {
+      "id": "cost-governance.evidence.cost-anomaly",
+      "operation": "derive",
+      "input_types": ["CostAnomaly", "CostObservation"],
+      "output": "cost_anomaly_evidence",
+      "source_authority_required": true,
+      "independent_source_required": false,
+      "autonomy_effect": "preserve_or_lower",
+      "max_records": 128
+    },
+    {
+      "id": "cost-governance.evidence.right-sizing",
+      "operation": "validate",
+      "input_types": ["CapacityForecast", "Resource", "SizingRecommendation"],
+      "output": "sizing_evidence",
+      "source_authority_required": true,
+      "independent_source_required": true,
+      "autonomy_effect": "preserve_or_lower",
+      "max_records": 128
+    },
+    {
+      "id": "cost-governance.evidence.settlement",
+      "operation": "validate",
+      "input_types": ["ActionRun", "ExpectedEffect", "ObservedOutcome"],
+      "output": "settlement_evidence",
+      "source_authority_required": true,
+      "independent_source_required": true,
+      "autonomy_effect": "preserve_or_lower",
+      "max_records": 128
+    }
+  ],
+  "competency_gates": [
+    {"id": "F1", "object_set": "cost-governance.cost-anomaly", "question": "Resolve exact resource, workload, and service scope with direction and completeness."},
+    {"id": "F2", "object_set": "cost-governance.budget", "question": "Resolve effective cost, service, recovery, architecture, ownership, and change-window intent at the cutoff."},
+    {"id": "F3", "object_set": "cost-governance.cost-anomaly", "question": "Classify evidence freshness, completeness, source authority, conflicts, synthetic status, and availability."},
+    {"id": "F4", "object_set": "cost-governance.right-sizing", "question": "Compare no-action and bounded change options after hard-constraint filtering."},
+    {"id": "F5", "object_set": "cost-governance.right-sizing", "question": "Preserve cost and non-cost expected effects, uncertainty, windows, and falsifiers."},
+    {"id": "F6", "object_set": "cost-governance.right-sizing", "question": "Expose exact governance references without deciding approval or execution eligibility."},
+    {"id": "F7", "object_set": "cost-governance.settlement", "question": "Require independent observations for every expected effect."},
+    {"id": "F8", "object_set": "cost-governance.settlement", "question": "Replay exact context, decision, action, and outcome revisions before learning."}
+  ],
+  "safety": {
+    "autonomy_effect": "preserve_or_lower",
+    "approval_authority": false,
+    "execution_authority": false,
+    "promotion_authority": false
+  },
+  "canonical_sha256": "sha256:20cfa7b8fcb0adfa992eecbba41bfcc7b0b3ee91f392be081ae575e8be94090b"
+}

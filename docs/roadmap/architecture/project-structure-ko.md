@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 274aa9f62f77308a9b19860535e59e769437c7e0
+translation_source_sha: 0b5e09ea23da6da5bfa23cab76e458080106da7d
 translation_revised: 2026-08-28
 ---
 # 프로젝트 구조
@@ -28,6 +28,10 @@ translation_revised: 2026-08-28
   Pantheon member는 `agents/` 바로 아래의 flat layout을 유지합니다. Private behavior-extraction
   mixin은 `agents/_framework/`에 두며 member의 AgentSpec, topic, ownership, model policy 또는
   authority를 바꿀 수 없습니다.
+- **버티컬 패키지 구체화는 충돌을 허용하지 않음**: 일반 Core 구체화기는 표준 Rule 또는
+  Workflow 로딩 전에 중복 자산 id와 패키지 상대 경로를 차단합니다. 설치는 비활성 패키지가
+  수명 주기에 들어가기 전에 전체 Rule 및 Workflow 계약을 검증합니다. 비용 효과 관찰과
+  completeness 증적은 이 경계에서 exact expected-effect 출처 digest를 전달합니다.
 - **의미 대상 해석은 결정론적으로 유지**: 모델이 작성한 리소스 신원 명확화는 Core가 같은
   발화에서 정확한 런타임 식별자 하나를 검증한 경우에만 제거합니다. 식별자가 없거나 여러 개이면
   명확화를 유지하고 다른 모든 미해결 개념도 타입이 지정된 명확화로 남깁니다. 이 검증은
@@ -432,6 +436,10 @@ grounding 권한을 우회할 수 없습니다. HIL 승인 id와 실행기 멱�
 - 리포 루트에 **하나의 lockfile** (`uv.lock` 또는 동등물)을 두고 루트 `pyproject.toml`은
   `package = false`인 virtual workspace입니다. 런타임 서비스와 shared 계약 SDK는 각각
   분포 매니페스트를 소유하지만 의존성 해석은 workspace 전체에서 수행합니다.
+- `fdai-cost-governance` 같은 선택적 버티컬 배포판은 `extensions/` 아래에 둡니다. Core는
+  불변 매니페스트, 수명 주기, 프로바이더 및 권한 없는 계약을 소유하고, 검토된 이미지
+  composition이 패키지 코드와 리소스를 제공합니다. Core는 선택적 패키지를 import하지 않으며
+  패키지 활성화는 사용자 접근 및 액션 승격과 독립적으로 유지됩니다.
 - 서비스 wire 계약은 `packages/service-contracts/src/fdai_service_contracts/`에 있습니다.
   `schemas/<contract-id>/<version>.json` 아래의 버전별 JSON 스키마는 불변이므로 새 필드는
   새 추가적 버전으로 배포되며 이전 소비자는 그것을 계속 무시합니다. `operator-core-request`는

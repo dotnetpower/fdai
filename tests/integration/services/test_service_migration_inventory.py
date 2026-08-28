@@ -66,6 +66,21 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
         "document_worker_outbox",
         "executor_receipt_outbox",
         "conversation_channel_message_claim",
+        "cost_collection_cursor",
+        "cost_governance_campaign_episode",
+        "cost_governance_effect_settlement",
+        "cost_governance_episode",
+        "cost_governance_evidence",
+        "cost_governance_lifecycle_receipt",
+        "cost_governance_recovery",
+        "cost_governance_retention",
+        "cost_governance_retention_event",
+        "cost_governance_settlement",
+        "cost_governance_validation_retention",
+        "cost_governance_validation_retention_event",
+        "cost_observation",
+        "cost_access_grant",
+        "cost_disclosure_ceiling",
         "operator_read_investigation_completion",
         "operator_incident_projection",
         "kubernetes_lifecycle_cursor",
@@ -83,6 +98,7 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
         "topology_link_revision",
         "topology_object_revision",
         "topology_revision_batch",
+        "vertical_package_activation",
         "question_campaign_novelty",
         "question_failure_review",
         "question_failure_review_decision",
@@ -1374,6 +1390,25 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
     kubernetes_lifecycle_migration = inventory_module.load_revision_metadata(
         kubernetes_lifecycle_path
     )
+    cost_governance_path = (
+        MIGRATION_ROOT
+        / "branches/core-control-plane/versions/20260828_core_cost_governance_runtime.py"
+    )
+    cost_governance_migration = inventory_module.load_revision_metadata(cost_governance_path)
+    cost_governance_decision_path = (
+        MIGRATION_ROOT
+        / "branches/core-control-plane/versions/20260828_core_cost_governance_decision.py"
+    )
+    cost_governance_decision_migration = inventory_module.load_revision_metadata(
+        cost_governance_decision_path
+    )
+    cost_governance_validation_path = (
+        MIGRATION_ROOT
+        / "branches/core-control-plane/versions/20260829_core_cost_governance_validation.py"
+    )
+    cost_governance_validation_migration = inventory_module.load_revision_metadata(
+        cost_governance_validation_path
+    )
 
     expected_tables = {
         table for table, owner in ownership.table_migrators.items() if owner == "core-control-plane"
@@ -1389,6 +1424,9 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         | set(metering_writer_migration.owned_tables)
         | set(interactive_migration.owned_tables)
         | set(kubernetes_lifecycle_migration.owned_tables)
+        | set(cost_governance_migration.owned_tables)
+        | set(cost_governance_decision_migration.owned_tables)
+        | set(cost_governance_validation_migration.owned_tables)
     )
     assert granted_tables == expected_tables
     source = role_path.read_text(encoding="utf-8")

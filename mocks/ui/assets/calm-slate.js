@@ -68,6 +68,12 @@
     ["Labs", [
       ["labs.html", "Labs", "is-steel"]
     ]],
+    ["Visualization", [
+      ["service-map.html", "Service map", "is-steel"],
+      ["ontology-instances-2d.html", "Ontology instances 2D", "is-steel"],
+      ["ontology-map.html", "Ontology map", "is-plum"],
+      ["ontology-knowledge-graph.html", "Full knowledge graph", "is-plum"]
+    ]],
     ["Design studies", [
       ["components.html", "Components", ""],
       ["typography.html", "Typography", "is-steel"],
@@ -81,10 +87,6 @@
       ["agent-icons.html", "Agent icons", "is-plum"],
       ["agent-icons-v2.html", "Agent icons v2", "is-sage"],
       ["nav-redesign-v3.html", "Navigation redesign", "is-steel"],
-      ["service-map.html", "Service map", "is-steel"],
-      ["ontology-instances-2d.html", "Ontology instances 2D", "is-steel"],
-      ["ontology-map.html", "Ontology map", "is-plum"],
-      ["ontology-knowledge-graph.html", "Full knowledge graph", "is-plum"],
       ["actions.html", "Action ontology", "is-plum"],
       ["report.html", "Weekly report layout", "is-terracotta"],
       ["rca-report.html", "RCA report layout", "is-teal"],

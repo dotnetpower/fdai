@@ -1,0 +1,22 @@
+{
+  "title": "Cost Governance",
+  "subtitle": "Server-filtered cost observations, optimization cases, and verified outcomes",
+  "loading": "Cost Governance",
+  "unavailable": "Cost Governance is not enabled or compatible for this deployment.",
+  "accessRequired": "A current Cost Governance access grant is required.",
+  "empty": "No retained observations are available for this view.",
+  "incomplete": "The source reports incomplete evidence. Treat these values as provisional.",
+  "tabs": {
+    "overview": "Overview",
+    "resourceEfficiency": "Resource efficiency",
+    "optimizationCases": "Optimization cases",
+    "outcomes": "Outcomes"
+  },
+  "columns": {
+    "identity": "Resource or group",
+    "service": "Service",
+    "amount": "Approved amount",
+    "status": "Status",
+    "observed": "Observed"
+  }
+}

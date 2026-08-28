@@ -33,7 +33,8 @@ def _load() -> tuple[Path, dict, tuple]:
         probes_root=probes if probes.is_dir() else None,
     )
     workflows = load_workflow_catalog(
-        root / "workflows",
+        Path(__file__).resolve().parents[5]
+        / "extensions/cost-governance/src/fdai_cost_governance/resources/workflows",
         schema_registry=registry,
         action_type_names={a.name for a in action_types},
     )

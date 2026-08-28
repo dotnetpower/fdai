@@ -28,6 +28,11 @@ from fdai.core.verticals.cost_governance.finops import (
     FinOpsGuardOutcome,
     ResourceContext,
 )
+from fdai.core.verticals.cost_governance.legacy_advisory import (
+    COMPATIBILITY_STATUS,
+    REMOVAL_REVIEW_GATE,
+    LegacyRollingCostAdvisoryProvider,
+)
 
 __all__ = [
     "FinOpsActionKind",
@@ -37,5 +42,8 @@ __all__ = [
     "FinOpsGuardConfig",
     "FinOpsGuardDecision",
     "FinOpsGuardOutcome",
+    "LegacyRollingCostAdvisoryProvider",
+    "COMPATIBILITY_STATUS",
+    "REMOVAL_REVIEW_GATE",
     "ResourceContext",
 ]

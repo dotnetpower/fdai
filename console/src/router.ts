@@ -37,6 +37,7 @@ export const PANEL_PATHS: Readonly<Record<string, string>> = {
   "promotion-gates": "/promotion-gates",
   scope: "/scope",
   "llm-cost": "/llm-cost",
+  "cost-governance": "/cost-governance",
   "settings-general": "/settings/general",
   "settings-models": "/settings/models",
   "settings-runtime": "/settings/runtime-policies",
@@ -133,7 +134,9 @@ export function parseConsoleRoute(pathname: string, search = ""): ConsoleRoute {
       search: new URLSearchParams(search.startsWith("?") ? search.slice(1) : search),
     };
   }
-  const preservesExactSegments = panelId === "processes" || panelId === "ontology";
+  const preservesExactSegments = panelId === "processes"
+    || panelId === "ontology"
+    || panelId === "cost-governance";
   const canonicalPathname = preservesExactSegments && detailSegments.length > 0
     ? `${panelPath(panelId)}/${detailSegments.map(encodeURIComponent).join("/")}`
     : routeHref(panelId, { segments: detailSegments });

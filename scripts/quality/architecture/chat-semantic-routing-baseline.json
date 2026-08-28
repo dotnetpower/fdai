@@ -359,6 +359,13 @@
       "issue": 252
     },
     {
+      "path": "services/core-control-plane/src/fdai/core/notifications/matrix.py",
+      "disposition": "retain",
+      "owner": "notification-routing",
+      "reason": "Retains exact lookup of a typed notification category in a validated routing matrix, not natural-language judgment.",
+      "issue": 252
+    },
+    {
       "path": "services/core-control-plane/src/fdai/core/ontology_platform/semantic_plans.py",
       "disposition": "retain",
       "owner": "ontology-platform",

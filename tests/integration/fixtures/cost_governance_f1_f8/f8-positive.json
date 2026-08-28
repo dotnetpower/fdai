@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0.0",
+  "fixture_id": "f8-positive",
+  "gate": "F8",
+  "case": "positive",
+  "ontology_release_digest": "sha256:3b3bd9dd413d10a13ad9741ebc80eb698cecf193626f3b8bf288ffd7f23adf1c",
+  "semantic_profile_sha256": "sha256:20cfa7b8fcb0adfa992eecbba41bfcc7b0b3ee91f392be081ae575e8be94090b",
+  "cutoff": "2025-01-15T12:05:00Z",
+  "context": {
+    "graph": {
+      "complete": true,
+      "truncated": false,
+      "revision_refs": ["context:001", "decision:001", "action:001", "outcome:001"]
+    },
+    "links": [
+      {"type": "considers", "from_type": "DecisionCase", "to_type": "ActionOption"},
+      {"type": "executed_as", "from_type": "ActionOption", "to_type": "ActionRun"},
+      {"type": "resulted_in", "from_type": "ActionRun", "to_type": "ObservedOutcome"}
+    ]
+  },
+  "expected": {"autonomy_ceiling": "preserve", "reason_codes": []}
+}

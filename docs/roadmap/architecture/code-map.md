@@ -34,6 +34,7 @@ retired top-level application tree.
 | Document Processing Worker | [fdai_document_worker_service](../../../services/document-processing-worker/src/fdai_document_worker_service/) | [Worker tests](../../../services/document-processing-worker/tests/) | `fdai-document-processing-worker` |
 | Isolated Executor | [fdai_executor_service](../../../services/isolated-executor/src/fdai_executor_service/) | [Executor tests](../../../services/isolated-executor/tests/) | `fdai-isolated-executor-service` |
 | Service contracts | [fdai_service_contracts](../../../packages/service-contracts/src/fdai_service_contracts/) | [Contract tests](../../../packages/service-contracts/tests/) | `fdai-service-contracts` |
+| Optional Cost Governance package | [fdai_cost_governance](../../../extensions/cost-governance/src/fdai_cost_governance/) | [Package tests](../../../extensions/cost-governance/tests/) | `fdai-cost-governance` |
 | Cross-service integration | Not applicable | [Root integration tests](../../../tests/integration/) | Virtual root only |
 
 ## Core Control Plane map

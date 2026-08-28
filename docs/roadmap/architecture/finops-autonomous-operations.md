@@ -19,8 +19,11 @@ bounded evidence. Agents remain the active control plane and own every state tra
 > **Authority boundary:** Ontology evidence can preserve or lower autonomy. It cannot judge,
 > approve, execute, promote, or assert that an intended effect occurred.
 >
-> **Current status:** Shared ontology and pantheon foundations exist. The FinOps semantic profile,
-> all-responsibility trace, bounded recovery composition, and settled operational cohort do not.
+> **Current status:** The exact FinOps semantic profile, fixed-15 responsibility trace, bounded
+> recovery coordinator, independent multi-effect settlement, replay, retention, and governed
+> learning inputs are implemented with local evidence. A live-authoritative settled cohort and
+> independent package and per-action promotion reviews do not yet exist.
+> Twelve critique rounds fixed every identified Medium-or-higher defect; the final review found only Low test-organization opportunities. No runtime authority changed.
 
 ## Design at a glance
 

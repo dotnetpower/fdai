@@ -46,6 +46,11 @@ from fdai_operator_service.families.conversation import (
     ConversationFamilyDependencies,
     build_conversation_routes,
 )
+from fdai_operator_service.families.cost_governance import (
+    COST_GOVERNANCE_ROUTE_MANIFEST,
+    CostGovernanceFamilyDependencies,
+    build_cost_governance_routes,
+)
 from fdai_operator_service.families.iam import (
     IAM_FAMILY_MANIFEST,
     IamFamilyBindings,
@@ -99,7 +104,7 @@ class RouteOwnership:
 
 @dataclass(frozen=True, slots=True)
 class OperatorRouteFamilies:
-    """Hold the four independently extracted family dependency sets."""
+    """Hold independently extracted family dependency sets."""
 
     conversation: ConversationFamilyDependencies
     iam: IamFamilyBindings
@@ -112,6 +117,7 @@ class OperatorRouteFamilies:
     operations_webhook_verifier: WebhookVerifier
     report_pdf_encoder: ReportPdfEncoder | None = None
     operation_panels: tuple[PanelRoute, ...] = ()
+    cost_governance: CostGovernanceFamilyDependencies | None = None
 
 
 MINIMAL_ROUTE_MANIFEST: Final = (
@@ -170,7 +176,10 @@ def build_operator_app(
 ) -> Starlette:
     """Build the complete Operator API without executor or FDAI imports."""
     _validate_data_sources(data_sources)
-    ownership = aggregate_route_manifest(route_families.operation_panels)
+    ownership = aggregate_route_manifest(
+        route_families.operation_panels,
+        include_cost_governance=route_families.cost_governance is not None,
+    )
 
     def authorize(request: Request) -> OperatorPrincipal:
         return authenticator.require_any(request.headers.get("authorization"), READER_ROLES)
@@ -422,6 +431,11 @@ def build_operator_app(
             report_pdf_encoder=route_families.report_pdf_encoder,
             panels=route_families.operation_panels,
         ),
+        *(
+            build_cost_governance_routes(route_families.cost_governance)
+            if route_families.cost_governance is not None
+            else ()
+        ),
     ]
     routes = [*minimal_routes, *family_routes]
     _validate_registered_routes(routes, ownership)
@@ -670,6 +684,8 @@ def _validate_data_sources(sources: Sequence[ReadDataSource]) -> None:
 
 def aggregate_route_manifest(
     operation_panels: Sequence[PanelRoute] = (),
+    *,
+    include_cost_governance: bool = False,
 ) -> tuple[RouteOwnership, ...]:
     """Return the exact aggregate ownership manifest and reject duplicates."""
     ownership = (
@@ -688,6 +704,14 @@ def aggregate_route_manifest(
             for item in OPERATIONS_ROUTE_MANIFEST
         ),
         *(RouteOwnership("GET", panel.path, "operations-panel") for panel in operation_panels),
+        *(
+            (
+                RouteOwnership("GET", item.path, "cost-governance")
+                for item in COST_GOVERNANCE_ROUTE_MANIFEST
+            )
+            if include_cost_governance
+            else ()
+        ),
     )
     identities = [(item.method, item.path) for item in ownership]
     if len(set(identities)) != len(identities):

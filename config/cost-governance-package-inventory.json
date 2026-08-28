@@ -1,0 +1,824 @@
+{
+  "schema_version": "1.0.0",
+  "tracking_issue": 320,
+  "asset_inventory_sha256": "697c658a6fa9cf05bf415e61572254410b0518c1fac4f1cedfc91b3c05174d5d",
+  "design_owners": [
+    "docs/roadmap/architecture/finops-package-architecture.md",
+    "docs/roadmap/architecture/finops-autonomous-operations.md",
+    "docs/roadmap/fork-and-sequencing/finops-package-delivery-plan.md"
+  ],
+  "package_identity": {
+    "distribution": "fdai-cost-governance",
+    "namespace": "fdai_cost_governance",
+    "workspace_path": "extensions/cost-governance",
+    "vertical_id": "cost-governance",
+    "image": "fdai-cost-governance"
+  },
+  "w6_cutover": {
+    "tracking_issue": 326,
+    "state": "implemented",
+    "active_owner": "package-owned",
+    "package_version": "0.1.1",
+    "package_manifest_path": "extensions/cost-governance/src/fdai_cost_governance/resources/manifest.json",
+    "package_manifest_sha256": "25774339cc80bdfe3be43564added606820032e45ba1cf7f3296d5853f12ad32",
+    "active_asset_counts": {
+      "rules": 12,
+      "policies": 12,
+      "remediations": 12,
+      "workflows": 1
+    },
+    "legacy_source_disposition": "removed-from-active-base-catalog-after-package-digest-convergence",
+    "base_activation": {
+      "package_absent": "no-package-assets",
+      "package_disabled": "no-package-assets",
+      "generic_action_types": "retained",
+      "base_ontology": "retained"
+    },
+    "compatibility_facade": {
+      "module": "fdai.core.verticals.cost_governance",
+      "status": "deprecated-inert-parity-only",
+      "removal_review_gate": "w7-operational-validation-complete"
+    },
+    "parity_corpus": {
+      "path": "tests/integration/fixtures/cost_governance_w6_parity/parity-corpus.json",
+      "sha256": "2460a42060ae77787f9bfe536253d256b124a5f9b31e926ab5e4085fdbe82846",
+      "difference_mechanism_version": "1.0.0",
+      "publication_policy": "dual-read-single-publish"
+    }
+  },
+  "axis_contract": {
+    "available": {
+      "authority": "runtime-composition",
+      "initial": "derived",
+      "does_not_grant": ["enabled", "access", "mode", "cost_disclosure"]
+    },
+    "enabled": {
+      "authority": "vertical-package-activation-store",
+      "initial": false,
+      "does_not_grant": ["available", "access", "mode", "cost_disclosure"]
+    },
+    "access": {
+      "authority": "operator-api-rbac",
+      "initial": "deny",
+      "does_not_grant": ["available", "enabled", "mode", "cost_disclosure"]
+    },
+    "mode": {
+      "authority": "promotion-registry",
+      "initial": "shadow",
+      "does_not_grant": ["available", "enabled", "access", "cost_disclosure"]
+    },
+    "cost_disclosure": {
+      "authority": "deployment-ceiling-and-principal-grant-meet",
+      "initial": "hidden",
+      "does_not_grant": ["available", "enabled", "access", "mode"]
+    }
+  },
+  "cost_disclosure": {
+    "dimensions": {
+      "granularity": ["none", "summary", "group", "resource"],
+      "identity_visibility": ["none", "pseudonymous", "exact"],
+      "amount_precision": ["none", "band", "rounded", "exact"]
+    },
+    "presets": {
+      "hidden": {
+        "granularity": "none",
+        "identity_visibility": "none",
+        "amount_precision": "none"
+      },
+      "aggregate": {
+        "granularity": "group",
+        "identity_visibility": "none",
+        "amount_precision": "rounded"
+      },
+      "masked": {
+        "granularity": "resource",
+        "identity_visibility": "pseudonymous",
+        "amount_precision": "band"
+      },
+      "detailed": {
+        "granularity": "resource",
+        "identity_visibility": "exact",
+        "amount_precision": "exact"
+      }
+    },
+    "effective_policy": "component-wise-meet"
+  },
+  "cost_rule_bindings": [
+    {
+      "rule_id": "cache.tier-overprovisioned",
+      "rule_path": "rule-catalog/catalog/cache.tier-overprovisioned.yaml",
+      "policy_path": "policies/cache/tier_overprovisioned.rego",
+      "remediation_path": "rule-catalog/remediation/cache/right_size_tier.tftpl",
+      "action_type_id": "remediate.right-size",
+      "action_type_path": "rule-catalog/action-types/remediate.right-size.yaml"
+    },
+    {
+      "rule_id": "compute.vm-scale-set.over-provisioned",
+      "rule_path": "rule-catalog/catalog/compute.vm-scale-set.over-provisioned.yaml",
+      "policy_path": "policies/compute/vmss_over_provisioned.rego",
+      "remediation_path": "rule-catalog/remediation/compute/vmss_right_size.tftpl",
+      "action_type_id": "remediate.right-size",
+      "action_type_path": "rule-catalog/action-types/remediate.right-size.yaml"
+    },
+    {
+      "rule_id": "compute.vm.idle-detected",
+      "rule_path": "rule-catalog/catalog/compute.vm.idle-detected.yaml",
+      "policy_path": "policies/compute/vm_idle_detected.rego",
+      "remediation_path": "rule-catalog/remediation/compute/vm_remove_orphan.tftpl",
+      "action_type_id": "remediate.remove-orphan-resource",
+      "action_type_path": "rule-catalog/action-types/remediate.remove-orphan-resource.yaml"
+    },
+    {
+      "rule_id": "compute.vm.low-utilization",
+      "rule_path": "rule-catalog/catalog/compute.vm.low-utilization.yaml",
+      "policy_path": "policies/compute/vm_low_utilization.rego",
+      "remediation_path": "rule-catalog/remediation/compute/vm_right_size.tftpl",
+      "action_type_id": "remediate.right-size",
+      "action_type_path": "rule-catalog/action-types/remediate.right-size.yaml"
+    },
+    {
+      "rule_id": "disk.unattached",
+      "rule_path": "rule-catalog/catalog/disk.unattached.yaml",
+      "policy_path": "policies/disk/unattached.rego",
+      "remediation_path": "rule-catalog/remediation/disk/remove_orphan_disk.tftpl",
+      "action_type_id": "remediate.remove-orphan-resource",
+      "action_type_path": "rule-catalog/action-types/remediate.remove-orphan-resource.yaml"
+    },
+    {
+      "rule_id": "kubernetes-node-pool.oversized",
+      "rule_path": "rule-catalog/catalog/kubernetes-node-pool.oversized.yaml",
+      "policy_path": "policies/kubernetes/node_pool_oversized.rego",
+      "remediation_path": "rule-catalog/remediation/kubernetes/node_pool_right_size.tftpl",
+      "action_type_id": "remediate.right-size",
+      "action_type_path": "rule-catalog/action-types/remediate.right-size.yaml"
+    },
+    {
+      "rule_id": "log-workspace.retention-excessive",
+      "rule_path": "rule-catalog/catalog/log-workspace.retention-excessive.yaml",
+      "policy_path": "policies/log_workspace/retention_excessive.rego",
+      "remediation_path": "rule-catalog/remediation/log_workspace/cap_retention.tftpl",
+      "action_type_id": "remediate.set-retention-policy",
+      "action_type_path": "rule-catalog/action-types/remediate.set-retention-policy.yaml"
+    },
+    {
+      "rule_id": "network.load-balancer.unused-backend",
+      "rule_path": "rule-catalog/catalog/network.load-balancer.unused-backend.yaml",
+      "policy_path": "policies/network/lb_unused_backend.rego",
+      "remediation_path": "rule-catalog/remediation/network/lb_remove_orphan.tftpl",
+      "action_type_id": "remediate.remove-orphan-resource",
+      "action_type_path": "rule-catalog/action-types/remediate.remove-orphan-resource.yaml"
+    },
+    {
+      "rule_id": "network.public-ip.orphan",
+      "rule_path": "rule-catalog/catalog/network.public-ip.orphan.yaml",
+      "policy_path": "policies/network/public_ip_orphan.rego",
+      "remediation_path": "rule-catalog/remediation/network/public_ip_remove_orphan.tftpl",
+      "action_type_id": "remediate.remove-orphan-resource",
+      "action_type_path": "rule-catalog/action-types/remediate.remove-orphan-resource.yaml"
+    },
+    {
+      "rule_id": "network.public-ip.unassociated",
+      "rule_path": "rule-catalog/catalog/network.public-ip.unassociated.yaml",
+      "policy_path": "policies/network/public_ip_unassociated.rego",
+      "remediation_path": "rule-catalog/remediation/network/public_ip_remove_unassociated.tftpl",
+      "action_type_id": "remediate.remove-orphan-resource",
+      "action_type_path": "rule-catalog/action-types/remediate.remove-orphan-resource.yaml"
+    },
+    {
+      "rule_id": "postgresql-server.tier-overprovisioned",
+      "rule_path": "rule-catalog/catalog/postgresql-server.tier-overprovisioned.yaml",
+      "policy_path": "policies/postgresql/tier_overprovisioned.rego",
+      "remediation_path": "rule-catalog/remediation/postgresql/right_size_tier.tftpl",
+      "action_type_id": "remediate.right-size",
+      "action_type_path": "rule-catalog/action-types/remediate.right-size.yaml"
+    },
+    {
+      "rule_id": "sql-database.tier-overprovisioned",
+      "rule_path": "rule-catalog/catalog/sql-database.tier-overprovisioned.yaml",
+      "policy_path": "policies/sql_database/tier_overprovisioned.rego",
+      "remediation_path": "rule-catalog/remediation/sql_database/right_size_tier.tftpl",
+      "action_type_id": "remediate.right-size",
+      "action_type_path": "rule-catalog/action-types/remediate.right-size.yaml"
+    }
+  ],
+  "assets": [
+    {
+      "id": "finops-domain-exports",
+      "kind": "domain-code",
+      "path": "services/core-control-plane/src/fdai/core/verticals/cost_governance/__init__.py",
+      "current_owner": "core-control-plane",
+      "future_owner": "package-owned",
+      "disposition": "move-with-core-compatibility-facade"
+    },
+    {
+      "id": "finops-guard",
+      "kind": "domain-code",
+      "path": "services/core-control-plane/src/fdai/core/verticals/cost_governance/finops.py",
+      "current_owner": "core-control-plane",
+      "future_owner": "package-owned",
+      "disposition": "move-with-core-compatibility-facade"
+    },
+    {
+      "id": "finops-guard-tests",
+      "kind": "test",
+      "path": "services/core-control-plane/tests/core/verticals/test_finops.py",
+      "current_owner": "core-control-plane",
+      "future_owner": "package-owned",
+      "disposition": "move-after-parity"
+    },
+    {
+      "id": "njord-agent",
+      "kind": "agent",
+      "path": "services/core-control-plane/src/fdai/agents/njord.py",
+      "current_owner": "core-control-plane",
+      "future_owner": "core-kernel",
+      "disposition": "retain-agent-and-inject-package-advisory"
+    },
+    {
+      "id": "freyr-agent",
+      "kind": "agent",
+      "path": "services/core-control-plane/src/fdai/agents/freyr.py",
+      "current_owner": "core-control-plane",
+      "future_owner": "core-kernel",
+      "disposition": "retain-generic-capacity-advisory"
+    },
+    {
+      "id": "specialist-ingress",
+      "kind": "agent-framework",
+      "path": "services/core-control-plane/src/fdai/agents/_framework/specialist_ingress.py",
+      "current_owner": "core-control-plane",
+      "future_owner": "core-kernel",
+      "disposition": "retain-typed-ingress"
+    },
+    {
+      "id": "specialist-tests",
+      "kind": "test",
+      "path": "services/core-control-plane/tests/agents/test_wave5_specialists.py",
+      "current_owner": "core-control-plane",
+      "future_owner": "core-kernel",
+      "disposition": "retain-role-and-topic-regression"
+    },
+    {
+      "id": "pantheon-registry",
+      "kind": "agent-contract",
+      "path": "services/core-control-plane/src/fdai/agents/_framework/pantheon.py",
+      "current_owner": "core-control-plane",
+      "future_owner": "core-kernel",
+      "disposition": "retain-byte-compatible-role-boundary"
+    },
+    {
+      "id": "cost-estimator-protocol",
+      "kind": "provider-protocol",
+      "path": "services/core-control-plane/src/fdai/shared/providers/cost_estimator.py",
+      "current_owner": "core-control-plane",
+      "future_owner": "core-kernel",
+      "disposition": "retain-nonnegative-spend-risk-contract"
+    },
+    {
+      "id": "cost-estimator-tests",
+      "kind": "test",
+      "path": "services/core-control-plane/tests/providers/test_cost_estimator.py",
+      "current_owner": "core-control-plane",
+      "future_owner": "core-kernel",
+      "disposition": "retain-provider-contract-tests"
+    },
+    {
+      "id": "control-loop-cost-integration",
+      "kind": "control-loop",
+      "path": "services/core-control-plane/src/fdai/core/control_loop/_execution.py",
+      "current_owner": "core-control-plane",
+      "future_owner": "core-kernel",
+      "disposition": "retain-authority-input-seam"
+    },
+    {
+      "id": "control-loop-cost-tests",
+      "kind": "test",
+      "path": "services/core-control-plane/tests/core/test_control_loop_cost_estimator.py",
+      "current_owner": "core-control-plane",
+      "future_owner": "core-kernel",
+      "disposition": "retain-authority-regression"
+    },
+    {
+      "id": "vertical-registry",
+      "kind": "vertical-contract",
+      "path": "services/core-control-plane/src/fdai/core/verticals/registry.py",
+      "current_owner": "core-control-plane",
+      "future_owner": "core-kernel",
+      "disposition": "extend-with-separate-atomic-package-contract"
+    },
+    {
+      "id": "capability-runtime",
+      "kind": "capability-contract",
+      "path": "services/core-control-plane/src/fdai/core/capability_catalog/runtime.py",
+      "current_owner": "core-control-plane",
+      "future_owner": "core-kernel",
+      "disposition": "retain-narrow-capability-contract"
+    },
+    {
+      "id": "extension-lifecycle",
+      "kind": "supply-chain",
+      "path": "services/core-control-plane/src/fdai/core/capability_catalog/extensions.py",
+      "current_owner": "core-control-plane",
+      "future_owner": "core-kernel",
+      "disposition": "reuse-disabled-first-trust-lifecycle"
+    },
+    {
+      "id": "trusted-artifact-store",
+      "kind": "persistence",
+      "path": "services/core-control-plane/src/fdai/delivery/persistence/postgres_trusted_artifact.py",
+      "current_owner": "core-control-plane",
+      "future_owner": "core-kernel",
+      "disposition": "reuse-extension-artifact-kind"
+    },
+    {
+      "id": "cost-aware-remediation",
+      "kind": "workflow",
+      "path": "rule-catalog/workflows/cost-aware-remediation.yaml",
+      "stable_identifier": "cost-aware-remediation",
+      "current_owner": "rule-catalog",
+      "future_owner": "package-owned",
+      "disposition": "move-with-stable-id"
+    },
+    {
+      "id": "cost-rule-policy-remediation-graphs",
+      "kind": "catalog-graphs",
+      "paths": [
+        "rule-catalog/catalog/cache.tier-overprovisioned.yaml",
+        "policies/cache/tier_overprovisioned.rego",
+        "rule-catalog/remediation/cache/right_size_tier.tftpl",
+        "rule-catalog/catalog/compute.vm-scale-set.over-provisioned.yaml",
+        "policies/compute/vmss_over_provisioned.rego",
+        "rule-catalog/remediation/compute/vmss_right_size.tftpl",
+        "rule-catalog/catalog/compute.vm.idle-detected.yaml",
+        "policies/compute/vm_idle_detected.rego",
+        "rule-catalog/remediation/compute/vm_remove_orphan.tftpl",
+        "rule-catalog/catalog/compute.vm.low-utilization.yaml",
+        "policies/compute/vm_low_utilization.rego",
+        "rule-catalog/remediation/compute/vm_right_size.tftpl",
+        "rule-catalog/catalog/disk.unattached.yaml",
+        "policies/disk/unattached.rego",
+        "rule-catalog/remediation/disk/remove_orphan_disk.tftpl",
+        "rule-catalog/catalog/kubernetes-node-pool.oversized.yaml",
+        "policies/kubernetes/node_pool_oversized.rego",
+        "rule-catalog/remediation/kubernetes/node_pool_right_size.tftpl",
+        "rule-catalog/catalog/log-workspace.retention-excessive.yaml",
+        "policies/log_workspace/retention_excessive.rego",
+        "rule-catalog/remediation/log_workspace/cap_retention.tftpl",
+        "rule-catalog/catalog/network.load-balancer.unused-backend.yaml",
+        "policies/network/lb_unused_backend.rego",
+        "rule-catalog/remediation/network/lb_remove_orphan.tftpl",
+        "rule-catalog/catalog/network.public-ip.orphan.yaml",
+        "policies/network/public_ip_orphan.rego",
+        "rule-catalog/remediation/network/public_ip_remove_orphan.tftpl",
+        "rule-catalog/catalog/network.public-ip.unassociated.yaml",
+        "policies/network/public_ip_unassociated.rego",
+        "rule-catalog/remediation/network/public_ip_remove_unassociated.tftpl",
+        "rule-catalog/catalog/postgresql-server.tier-overprovisioned.yaml",
+        "policies/postgresql/tier_overprovisioned.rego",
+        "rule-catalog/remediation/postgresql/right_size_tier.tftpl",
+        "rule-catalog/catalog/sql-database.tier-overprovisioned.yaml",
+        "policies/sql_database/tier_overprovisioned.rego",
+        "rule-catalog/remediation/sql_database/right_size_tier.tftpl"
+      ],
+      "current_owner": "rule-catalog-and-policy-library",
+      "future_owner": "package-owned",
+      "disposition": "move-as-atomic-validated-graphs"
+    },
+    {
+      "id": "shared-cost-action-types",
+      "kind": "action-type-contracts",
+      "paths": [
+        "rule-catalog/action-types/remediate.right-size.yaml",
+        "rule-catalog/action-types/remediate.remove-orphan-resource.yaml",
+        "rule-catalog/action-types/remediate.set-retention-policy.yaml"
+      ],
+      "current_owner": "rule-catalog",
+      "future_owner": "core-kernel",
+      "disposition": "retain-shared-action-contracts"
+    },
+    {
+      "id": "cost-objective",
+      "kind": "ontology-object-type",
+      "path": "rule-catalog/vocabulary/object-types/CostObjective.yaml",
+      "stable_identifier": "CostObjective",
+      "current_owner": "rule-catalog",
+      "future_owner": "core-kernel",
+      "disposition": "retain-base-ontology"
+    },
+    {
+      "id": "service-cost-objective-link",
+      "kind": "ontology-link-type",
+      "path": "rule-catalog/vocabulary/link-types/service_has_cost_objective.yaml",
+      "stable_identifier": "service_has_cost_objective",
+      "current_owner": "rule-catalog",
+      "future_owner": "core-kernel",
+      "disposition": "retain-base-ontology"
+    },
+    {
+      "id": "cost-bearing-interface",
+      "kind": "ontology-interface-type",
+      "path": "rule-catalog/vocabulary/interface-types/CostBearing.yaml",
+      "stable_identifier": "CostBearing",
+      "current_owner": "rule-catalog",
+      "future_owner": "core-kernel",
+      "disposition": "retain-base-ontology"
+    },
+    {
+      "id": "cost-bearing-interface-implementation",
+      "kind": "ontology-interface-implementation",
+      "path": "rule-catalog/vocabulary/interface-implementations/CostBearing.yaml",
+      "stable_identifier": "CostBearing",
+      "current_owner": "rule-catalog",
+      "future_owner": "core-kernel",
+      "disposition": "retain-base-ontology"
+    },
+    {
+      "id": "finops-scenario-manifest",
+      "kind": "scenario-manifest",
+      "path": "services/core-control-plane/tests/scenarios/manifests/v2026.07.json",
+      "current_owner": "core-control-plane",
+      "future_owner": "core-kernel",
+      "disposition": "retain-cross-vertical-release-accounting"
+    },
+    {
+      "id": "finops-scenarios",
+      "kind": "scenario-corpus",
+      "paths": [
+        "services/core-control-plane/tests/scenarios/v2026.07/finops-unattached-public-ip-001.json",
+        "services/core-control-plane/tests/scenarios/v2026.07/finops-right-size-vm-high-monthly-002.json",
+        "services/core-control-plane/tests/scenarios/v2026.07/finops-stop-idle-dev-vm-off-hours-003.json",
+        "services/core-control-plane/tests/scenarios/enrichment/v2026.07/finops-unattached-public-ip-001.json",
+        "services/core-control-plane/tests/scenarios/enrichment/v2026.07/finops-right-size-vm-high-monthly-002.json",
+        "services/core-control-plane/tests/scenarios/enrichment/v2026.07/finops-stop-idle-dev-vm-off-hours-003.json"
+      ],
+      "current_owner": "core-control-plane",
+      "future_owner": "package-owned",
+      "disposition": "move-after-host-parity-with-release-manifest-retained"
+    },
+    {
+      "id": "operator-api-cost-surfaces",
+      "kind": "api-and-projection",
+      "paths": [
+        "services/operator-service/src/fdai_operator_service/routes.py",
+        "services/operator-service/src/fdai_operator_service/incident_projection.py",
+        "services/operator-service/src/fdai_operator_service/composition.py"
+      ],
+      "current_owner": "operator-service",
+      "future_owner": "core-kernel",
+      "disposition": "replace-with-versioned-package-contract-and-retain-generic-projection"
+    },
+    {
+      "id": "operator-api-finops-placeholder",
+      "kind": "api-contract",
+      "path": "console/src/types.ts",
+      "current_owner": "console",
+      "future_owner": "core-kernel",
+      "disposition": "replace-with-versioned-service-contract"
+    },
+    {
+      "id": "console-finops-reference",
+      "kind": "console",
+      "path": "console/src/routes/example-finops.tsx",
+      "current_owner": "console",
+      "future_owner": "package-owned",
+      "disposition": "replace-with-capability-driven-workspace"
+    },
+    {
+      "id": "console-panel-registry",
+      "kind": "console-contract",
+      "path": "console/src/panels.tsx",
+      "current_owner": "console",
+      "future_owner": "core-kernel",
+      "disposition": "retain-generic-effective-capability-filter"
+    },
+    {
+      "id": "console-route-registry",
+      "kind": "console-contract",
+      "path": "console/src/router.ts",
+      "current_owner": "console",
+      "future_owner": "core-kernel",
+      "disposition": "retain-generic-route-and-deep-link-boundary"
+    },
+    {
+      "id": "console-cost-surfaces",
+      "kind": "console-projection-and-tests",
+      "paths": [
+        "console/src/panel-sources.ts",
+        "console/src/panel-sources.test.ts",
+        "console/src/api-insights-client.ts",
+        "console/src/api.ts",
+        "console/src/routes/dashboard.model.ts",
+        "console/src/routes/dashboard.loading.ts",
+        "console/src/routes/dashboard.signals.tsx",
+        "console/src/routes/vertical-outcomes.tsx",
+        "console/src/routes/analytics-hubs.test.ts",
+        "console/src/routes/incidents.tsx",
+        "console/src/routes/incidents.test.ts",
+        "console/src/routes/dashboard.loading.test.ts",
+        "console/src/routes/dashboard.tsx",
+        "console/src/routes/operating-outcomes.tsx"
+      ],
+      "current_owner": "console",
+      "future_owner": "core-kernel",
+      "disposition": "retain-generic-projections-and-move-package-specific-view"
+    },
+    {
+      "id": "notification-matrix",
+      "kind": "notification-contract",
+      "path": "config/notifications-matrix.yaml",
+      "current_owner": "core-control-plane",
+      "future_owner": "core-kernel",
+      "disposition": "split-global-and-package-owned-producers"
+    },
+    {
+      "id": "finops-event-topic",
+      "kind": "infrastructure",
+      "path": "infra/main.tf",
+      "stable_identifier": "fdai.finops.events",
+      "current_owner": "deployment",
+      "future_owner": "deployment-owned",
+      "disposition": "retain-topic-with-enabled-consumer-gating"
+    },
+    {
+      "id": "finops-deployment-surfaces",
+      "kind": "infrastructure",
+      "paths": [
+        "infra/outputs.tf",
+        "infra/variables.tf",
+        "infra/modules/compute/container-apps/variables.tf",
+        "infra/modules/compute/container-apps/outputs.tf",
+        "infra/modules/isolated-executor/container-app/variables.tf",
+        "infra/modules/isolated-executor/container-app/main.tf",
+        "infra/services/isolated-executor/variables.tf",
+        "infra/services/isolated-executor/modules/isolated-executor/variables.tf",
+        "infra/services/isolated-executor/modules/isolated-executor/main.tf"
+      ],
+      "current_owner": "deployment",
+      "future_owner": "deployment-owned",
+      "disposition": "retain-host-inputs-and-gate-package-resources-by-enabled"
+    },
+    {
+      "id": "finops-executor-identity",
+      "kind": "infrastructure",
+      "path": "services/isolated-executor/src/fdai_executor_service/adapters/gateway_direct_api.py",
+      "stable_identifier": "identity/finops",
+      "current_owner": "isolated-executor",
+      "future_owner": "core-kernel",
+      "disposition": "retain-executor-only-identity"
+    },
+    {
+      "id": "code-assurance-package-precedent",
+      "kind": "packaging-precedent",
+      "path": "extensions/code-assurance/pyproject.toml",
+      "current_owner": "code-assurance-package",
+      "future_owner": "core-kernel",
+      "disposition": "reference-only"
+    },
+    {
+      "id": "w0-outcome-corpus",
+      "kind": "contract-corpus",
+      "paths": [
+        "tests/integration/fixtures/cost_governance_w0_outcomes/allow.json",
+        "tests/integration/fixtures/cost_governance_w0_outcomes/hold.json",
+        "tests/integration/fixtures/cost_governance_w0_outcomes/deny.json",
+        "tests/integration/fixtures/cost_governance_w0_outcomes/no-op.json",
+        "tests/integration/fixtures/cost_governance_w0_outcomes/human-approval.json",
+        "tests/integration/fixtures/cost_governance_w0_outcomes/execute.json",
+        "tests/integration/fixtures/cost_governance_w0_outcomes/rollback.json",
+        "tests/integration/fixtures/cost_governance_w0_outcomes/unverified-effect.json"
+      ],
+      "current_owner": "cost-governance-w0",
+      "future_owner": "package-owned",
+      "disposition": "retain-as-frozen-package-compatibility-corpus"
+    }
+  ],
+  "compatibility": [
+    {
+      "kind": "python-import",
+      "legacy": "fdai.core.verticals.cost_governance",
+      "target": "fdai_cost_governance",
+      "policy": "retain-facade-through-w6"
+    },
+    {
+      "kind": "operator-api-route",
+      "legacy": "/finops",
+      "target": "/cost-governance/overview",
+      "policy": "n-1-alias-after-versioned-contract"
+    },
+    {
+      "kind": "catalog-identifiers",
+      "legacy": "current-stable-identifiers",
+      "target": "unchanged",
+      "policy": "breaking-change-requires-versioned-contract"
+    }
+  ],
+  "contract_freeze": {
+    "package_host": {
+      "package_version": "0.1.x",
+      "host_range": ">=0.1.303,<0.2.0",
+      "ontology_schema": "1.0.0",
+      "rollback_support": "n-1-package-version",
+      "activation_default": "disabled"
+    },
+    "cost_models": {
+      "njord_cost_estimate": "signed-advisory-delta-with-confidence",
+      "shared_cost_estimator": "nonnegative-monthly-authority-input-or-abstain",
+      "cost_effect_estimate": "separate-signed-expected-effect-contract",
+      "overlap_policy": "no-field-substitution-or-implicit-authority"
+    },
+    "disclosure": {
+      "enforced_at": ["operator-api", "export", "notification", "audit-projection"],
+      "fail_closed": "hidden",
+      "amounts_are_not_authority": true
+    }
+  },
+  "baseline_corpus": {
+    "state": "frozen",
+    "required_outcomes": [
+      "allow",
+      "hold",
+      "deny",
+      "no-op",
+      "human-approval",
+      "execute",
+      "rollback",
+      "unverified-effect"
+    ],
+    "cases": [
+      {
+        "id": "finops.unattached-public-ip.001",
+        "path": "services/core-control-plane/tests/scenarios/v2026.07/finops-unattached-public-ip-001.json",
+        "sha256": "63830f7f324e4e241c27df218b4c3e1f9adc83f818e39518d751c6797f1ece27",
+        "coverage": ["deterministic-replay"]
+      },
+      {
+        "id": "finops.right-size-vm-high-monthly.002",
+        "path": "services/core-control-plane/tests/scenarios/enrichment/v2026.07/finops-right-size-vm-high-monthly-002.json",
+        "sha256": "b33dc4a54ee93490b3c6959c0ca436bcf4e458fefa55e11f8a7547bcaad02f24",
+        "coverage": ["deterministic-replay", "human-approval"]
+      },
+      {
+        "id": "finops.stop-idle-dev-vm-off-hours.003",
+        "path": "services/core-control-plane/tests/scenarios/v2026.07/finops-stop-idle-dev-vm-off-hours-003.json",
+        "sha256": "89792ed0af6a145dceb7f1b80fd71e93e5664d3839f8f71b456e99a9ba2706d8",
+        "coverage": ["deterministic-replay"]
+      },
+      {
+        "id": "cost-governance.w0.allow.001",
+        "path": "tests/integration/fixtures/cost_governance_w0_outcomes/allow.json",
+        "sha256": "7e07c1d7963e748837fe3cec05fff2e5d69e0d671de756e2d6484cc878d3454b",
+        "outcome": "allow",
+        "driver": "finops-guard",
+        "coverage": ["executable-replay", "allow"]
+      },
+      {
+        "id": "cost-governance.w0.hold.001",
+        "path": "tests/integration/fixtures/cost_governance_w0_outcomes/hold.json",
+        "sha256": "fd1440ce0fb961e7d35f564edc17d261c01bec97c787245665ec5d8612cefa32",
+        "outcome": "hold",
+        "driver": "risk-table",
+        "coverage": ["executable-replay", "hold"]
+      },
+      {
+        "id": "cost-governance.w0.deny.001",
+        "path": "tests/integration/fixtures/cost_governance_w0_outcomes/deny.json",
+        "sha256": "9690d12feb8cd5d5d41f8b8a8bc9f38ac6c37a139120c9ff85c688d0848b63a1",
+        "outcome": "deny",
+        "driver": "risk-table",
+        "coverage": ["executable-replay", "deny"]
+      },
+      {
+        "id": "cost-governance.w0.no-op.001",
+        "path": "tests/integration/fixtures/cost_governance_w0_outcomes/no-op.json",
+        "sha256": "bc33edc312aef8e955b89dbdf71434b53c0fa4af03628b04d7b53db70c80db3c",
+        "outcome": "no-op",
+        "driver": "thor-duplicate",
+        "coverage": ["executable-replay", "no-op"]
+      },
+      {
+        "id": "cost-governance.w0.human-approval.001",
+        "path": "tests/integration/fixtures/cost_governance_w0_outcomes/human-approval.json",
+        "sha256": "a199b53762e3315dc9caee6420517429d33e88e4b65b7bba5943df862fb71d32",
+        "outcome": "human-approval",
+        "driver": "thor-dispatch",
+        "coverage": ["executable-replay", "human-approval"]
+      },
+      {
+        "id": "cost-governance.w0.execute.001",
+        "path": "tests/integration/fixtures/cost_governance_w0_outcomes/execute.json",
+        "sha256": "e22de3bc3a1407d8bbb70ed77128fc730a18ae37e5143bd1408cfb9d14513eac",
+        "outcome": "execute",
+        "driver": "thor-dispatch",
+        "coverage": ["executable-replay", "execute"]
+      },
+      {
+        "id": "cost-governance.w0.rollback.001",
+        "path": "tests/integration/fixtures/cost_governance_w0_outcomes/rollback.json",
+        "sha256": "8e83e12c7713bddce6c34efae92ed8a4dbc600264c453814b901ee5941230acf",
+        "outcome": "rollback",
+        "driver": "thor-vidar",
+        "coverage": ["executable-replay", "rollback"]
+      },
+      {
+        "id": "cost-governance.w0.unverified-effect.001",
+        "path": "tests/integration/fixtures/cost_governance_w0_outcomes/unverified-effect.json",
+        "sha256": "0bc9efde3191642511517f4353efa1a418875cfe43342a4f16f1ae26148ec626",
+        "outcome": "unverified-effect",
+        "driver": "response-outcome",
+        "coverage": ["executable-replay", "unverified-effect"]
+      }
+    ]
+  },
+  "future_contracts": [
+    {
+      "id": "vertical-package-manifest",
+      "future_owner": "core-kernel",
+      "contract_version": "1.0.0",
+      "definition_state": "frozen",
+      "implementation_state": "not-started",
+      "required_fields": ["schema_version", "package_id", "package_version", "host_range", "ontology_schema", "image", "capabilities", "content_digest"],
+      "invariants": ["disabled-by-default", "digest-bound", "no-authority-grant"]
+    },
+    {
+      "id": "vertical-package-bundle",
+      "future_owner": "core-kernel",
+      "contract_version": "1.0.0",
+      "definition_state": "frozen",
+      "implementation_state": "not-started",
+      "required_fields": ["manifest", "rules", "policies", "remediations", "action_type_refs", "ontology_profile", "console_descriptor"],
+      "invariants": ["atomic-validation", "stable-identifiers", "no-partial-activation"]
+    },
+    {
+      "id": "vertical-package-activation-store",
+      "future_owner": "core-kernel",
+      "contract_version": "1.0.0",
+      "definition_state": "frozen",
+      "implementation_state": "not-started",
+      "required_fields": ["package_id", "package_version", "available", "enabled", "effective_at", "recorded_at", "actor_ref"],
+      "invariants": ["single-writer", "append-only-snapshot", "enabled-grants-no-other-axis"]
+    },
+    {
+      "id": "cost-observation-provider",
+      "future_owner": "core-kernel",
+      "contract_version": "1.0.0",
+      "definition_state": "frozen",
+      "implementation_state": "not-started",
+      "required_fields": ["scope_ref", "window_start", "window_end", "currency", "amount", "freshness", "completeness", "provenance"],
+      "invariants": ["provider-neutral", "time-bounded", "abstain-on-unknown"]
+    },
+    {
+      "id": "azure-cost-observation-adapter",
+      "future_owner": "package-owned",
+      "contract_version": "1.0.0",
+      "definition_state": "frozen",
+      "implementation_state": "not-started",
+      "required_fields": ["observation_contract", "provider_receipt", "source_timestamp"],
+      "invariants": ["implements-cost-observation-provider", "no-provider-import-in-core"]
+    },
+    {
+      "id": "cost-advisory-provider",
+      "future_owner": "core-kernel",
+      "contract_version": "1.0.0",
+      "definition_state": "frozen",
+      "implementation_state": "not-started",
+      "required_fields": ["target_ref", "signed_monthly_delta", "confidence", "evidence_refs"],
+      "invariants": ["advisory-only", "no-execution-authority", "njord-owned"]
+    },
+    {
+      "id": "cost-effect-estimate",
+      "future_owner": "core-kernel",
+      "contract_version": "1.0.0",
+      "definition_state": "frozen",
+      "implementation_state": "not-started",
+      "required_fields": ["prediction_id", "target_ref", "metric", "signed_expected_delta", "predicted_at", "observation_deadline"],
+      "invariants": ["separate-from-risk-input", "effect-verification-required"]
+    },
+    {
+      "id": "cost-governance-operator-api-family",
+      "future_owner": "core-kernel",
+      "contract_version": "1.0.0",
+      "definition_state": "frozen",
+      "implementation_state": "not-started",
+      "required_fields": ["package_status", "findings", "recommendations", "actions", "outcomes", "effective_disclosure"],
+      "invariants": ["rbac-before-projection", "component-wise-disclosure-meet", "finops-n-1-alias"]
+    },
+    {
+      "id": "cost-governance-console-workspace",
+      "future_owner": "package-owned",
+      "contract_version": "1.0.0",
+      "definition_state": "frozen",
+      "implementation_state": "not-started",
+      "required_fields": ["package_id", "route", "panels", "required_capabilities", "api_contract_version"],
+      "invariants": ["capability-driven", "no-client-side-disclosure-escalation"]
+    },
+    {
+      "id": "cost-governance-collection-job",
+      "future_owner": "deployment-owned",
+      "contract_version": "1.0.0",
+      "definition_state": "frozen",
+      "implementation_state": "not-started",
+      "required_fields": ["package_id", "schedule", "scope", "identity_ref", "observation_contract_version"],
+      "invariants": ["disabled-when-package-disabled", "least-privilege", "bounded-deadline"]
+    }
+  ]
+}

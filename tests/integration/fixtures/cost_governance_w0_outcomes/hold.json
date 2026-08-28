@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0.0",
+  "id": "cost-governance.w0.hold.001",
+  "outcome": "hold",
+  "driver": "risk-table",
+  "input": {
+    "cost_impact_monthly": null
+  },
+  "expected": {
+    "decision": "hil",
+    "rule_id": "default-hil",
+    "quorum": 1
+  }
+}

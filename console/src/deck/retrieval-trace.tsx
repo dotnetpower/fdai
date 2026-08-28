@@ -47,16 +47,24 @@ interface SourceCard {
   readonly detail: string;
 }
 
-function sourceCards(
+export function sourceCards(
   snapshot: ViewSnapshot | null,
   previews: readonly RetrievalSourcePreview[],
 ): readonly SourceCard[] {
-  if (previews.length > 0) return previews;
-  return (snapshot?.facts ?? []).map((fact) => ({
-    kind: fact.group ?? "fact",
-    label: fact.key,
-    detail: fact.value === null ? "-" : String(fact.value),
-  }));
+  if (previews.length > 0) {
+    return previews.filter((preview) => !isUnavailableDetail(preview.detail));
+  }
+  return (snapshot?.facts ?? [])
+    .map((fact) => ({
+      kind: fact.group ?? "fact",
+      label: fact.key,
+      detail: fact.value === null ? "-" : String(fact.value),
+    }))
+    .filter((fact) => !isUnavailableDetail(fact.detail));
+}
+
+function isUnavailableDetail(detail: string): boolean {
+  return ["n/a", "unavailable"].includes(detail.trim().toLowerCase());
 }
 
 function buildStages(

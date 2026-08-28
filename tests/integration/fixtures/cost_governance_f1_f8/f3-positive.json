@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0.0",
+  "fixture_id": "f3-positive",
+  "gate": "F3",
+  "case": "positive",
+  "ontology_release_digest": "sha256:3b3bd9dd413d10a13ad9741ebc80eb698cecf193626f3b8bf288ffd7f23adf1c",
+  "semantic_profile_sha256": "sha256:20cfa7b8fcb0adfa992eecbba41bfcc7b0b3ee91f392be081ae575e8be94090b",
+  "cutoff": "2025-01-15T12:05:00Z",
+  "context": {
+    "facts": [
+      {"type": "CostObservation", "value": 84.25, "source_authority_ref": "provider-billing-export"}
+    ],
+    "links": [
+      {"type": "cost_anomaly_derived_from", "from_type": "CostAnomaly", "to_type": "CostObservation"}
+    ]
+  },
+  "expected": {"autonomy_ceiling": "preserve", "reason_codes": []}
+}

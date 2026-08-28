@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Sequence
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 import pytest
 from fdai.agents._framework.bus import InMemoryBus
@@ -14,9 +16,46 @@ from fdai.agents.freyr import Freyr
 from fdai.agents.njord import Njord
 from fdai.agents.odin import Odin
 
+from fdai_cost_governance import RollingCostAdvisoryProvider
+
+_COST_RELEASE = "sha256:" + "3" * 64
+_COST_NOW = datetime(2028, 1, 2, tzinfo=UTC)
+
 
 def _bus() -> InMemoryBus:
     return InMemoryBus(registry=load_pantheon())
+
+
+def _njord(bus: InMemoryBus) -> Njord:
+    return Njord(
+        bus=bus,
+        advisory_provider=RollingCostAdvisoryProvider(
+            ontology_release_digest=_COST_RELEASE,
+            anomaly_ratio=Decimal("1.5"),
+            clock=lambda: _COST_NOW,
+        ),
+        package_enabled=True,
+    )
+
+
+def _ingest_cost(
+    njord: Njord,
+    *,
+    scope: str,
+    amount_usd: float,
+    resource_id: str | None = None,
+) -> dict[str, object] | None:
+    sequence = sum(njord._counts.values())  # noqa: SLF001
+    return asyncio.run(
+        njord.ingest_cost_sample(
+            scope=scope,
+            amount_usd=amount_usd,
+            resource_id=resource_id,
+            observed_at=(_COST_NOW - timedelta(minutes=60 - sequence)).isoformat(),
+            source_authority="test-cost-source",
+            ontology_release_digest=_COST_RELEASE,
+        )
+    )
 
 
 def test_forseti_requests_arbitration_on_conflicting_advice() -> None:
@@ -240,12 +279,10 @@ def test_forseti_no_conflict_when_capacity_holds() -> None:
 
 def test_njord_cost_anomaly_carries_recommendation() -> None:
     bus = _bus()
-    njord = Njord(bus=bus, anomaly_ratio=1.5)
+    njord = _njord(bus)
     for _ in range(3):
-        asyncio.run(njord.ingest_cost_sample(scope="rg", amount_usd=100.0))
-    payload = asyncio.run(
-        njord.ingest_cost_sample(scope="rg", amount_usd=1000.0, resource_id="vm-9")
-    )
+        _ingest_cost(njord, scope="rg", amount_usd=100.0)
+    payload = _ingest_cost(njord, scope="rg", amount_usd=1000.0, resource_id="vm-9")
     assert payload is not None
     assert payload["recommendation"] == "scale_down"
     assert payload["resource_id"] == "vm-9"
@@ -261,7 +298,7 @@ def test_freyr_capacity_forecast_carries_recommendation() -> None:
 
 def test_domain_signals_drive_arbitration_end_to_end() -> None:
     bus = _bus()
-    njord = Njord(bus=bus, anomaly_ratio=1.5)
+    njord = _njord(bus)
     freyr = Freyr(bus=bus, scale_up_threshold=0.75)
     forseti = Forseti(bus=bus)
     odin = Odin(bus=bus)
@@ -272,8 +309,8 @@ def test_domain_signals_drive_arbitration_end_to_end() -> None:
 
     # Njord: cost anomaly on vm-1 (recommends scale_down).
     for _ in range(3):
-        asyncio.run(njord.ingest_cost_sample(scope="s", amount_usd=100.0, resource_id="vm-1"))
-    asyncio.run(njord.ingest_cost_sample(scope="s", amount_usd=1000.0, resource_id="vm-1"))
+        _ingest_cost(njord, scope="s", amount_usd=100.0, resource_id="vm-1")
+    _ingest_cost(njord, scope="s", amount_usd=1000.0, resource_id="vm-1")
     # Freyr: high utilization on vm-1 (recommends scale_up) -> conflict.
     asyncio.run(freyr.ingest_utilization(resource_id="vm-1", utilization=0.95))
 
@@ -410,12 +447,10 @@ def test_forseti_forwards_impacts_from_signals() -> None:
 def test_njord_publishes_normalized_impact_on_anomaly() -> None:
     """Njord owns cost normalization: attaches impact = clamp(ratio - 1, 0, 1)."""
     bus = _bus()
-    njord = Njord(bus=bus, anomaly_ratio=1.5)
+    njord = _njord(bus)
     for _ in range(3):
-        asyncio.run(njord.ingest_cost_sample(scope="rg", amount_usd=100.0))
-    payload = asyncio.run(
-        njord.ingest_cost_sample(scope="rg", amount_usd=200.0, resource_id="vm-9")
-    )
+        _ingest_cost(njord, scope="rg", amount_usd=100.0)
+    payload = _ingest_cost(njord, scope="rg", amount_usd=200.0, resource_id="vm-9")
     assert payload is not None
     # ratio = 200 / 100 = 2.0 -> impact = 1.0 (full severity).
     assert payload["ratio"] == 2.0
@@ -429,12 +464,10 @@ def test_njord_impact_scales_with_moderate_overspend() -> None:
     import pytest
 
     bus = _bus()
-    njord = Njord(bus=bus, anomaly_ratio=1.5)
+    njord = _njord(bus)
     for _ in range(3):
-        asyncio.run(njord.ingest_cost_sample(scope="rg", amount_usd=100.0))
-    payload = asyncio.run(
-        njord.ingest_cost_sample(scope="rg", amount_usd=160.0, resource_id="vm-9")
-    )
+        _ingest_cost(njord, scope="rg", amount_usd=100.0)
+    payload = _ingest_cost(njord, scope="rg", amount_usd=160.0, resource_id="vm-9")
     assert payload is not None
     assert payload["impact"] == pytest.approx(0.6)
 

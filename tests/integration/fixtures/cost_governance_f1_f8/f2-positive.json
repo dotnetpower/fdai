@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0.0",
+  "fixture_id": "f2-positive",
+  "gate": "F2",
+  "case": "positive",
+  "ontology_release_digest": "sha256:3b3bd9dd413d10a13ad9741ebc80eb698cecf193626f3b8bf288ffd7f23adf1c",
+  "semantic_profile_sha256": "sha256:20cfa7b8fcb0adfa992eecbba41bfcc7b0b3ee91f392be081ae575e8be94090b",
+  "cutoff": "2025-01-15T12:05:00Z",
+  "context": {
+    "intent": [
+      {"type": "Budget", "effective_from": "2025-01-01T00:00:00Z", "effective_to": "2025-02-01T00:00:00Z"}
+    ],
+    "links": [
+      {"type": "service_has_budget", "from_type": "BusinessService", "to_type": "Budget"},
+      {"type": "budget_implements_cost_objective", "from_type": "Budget", "to_type": "CostObjective"}
+    ]
+  },
+  "expected": {"autonomy_ceiling": "preserve", "reason_codes": []}
+}

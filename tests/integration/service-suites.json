@@ -85,14 +85,19 @@
         ],
         "contract": [
           "services/operator-service/tests/test_conversation_contracts.py",
+          "services/operator-service/tests/test_conversation_assurance_reader.py",
           "services/operator-service/tests/test_conversation_document_refs.py",
+          "services/operator-service/tests/test_cost_governance_family.py",
           "services/operator-service/tests/test_operator_break_glass_activation.py",
           "services/operator-service/tests/test_operator_conversation_family.py",
           "services/operator-service/tests/test_operator_iam_family.py",
           "services/operator-service/tests/test_operator_operations_family.py",
           "services/operator-service/tests/test_operator_workload_auth.py",
           "services/operator-service/tests/test_operator_workflow_family.py",
-          "services/operator-service/tests/test_presentation_console_contract.py"
+          "services/operator-service/tests/test_postgres_cost_governance.py",
+          "services/operator-service/tests/test_presentation_console_contract.py",
+          "services/operator-service/tests/test_slack_webhook_diagnostics.py",
+          "services/operator-service/tests/test_teams_workflow_diagnostics.py"
         ],
         "integration": [
           "services/operator-service/tests/test_action_confirmation_runtime.py",
@@ -124,6 +129,7 @@
           "services/operator-service/tests/test_operator_service_full_composition.py",
           "services/operator-service/tests/test_operator_service_postgres.py",
           "services/operator-service/tests/test_operator_signal_shutdown.py",
+          "services/operator-service/tests/test_runtime_projection_reader.py",
           "services/operator-service/tests/test_postgres_background_task_projection.py",
           "services/operator-service/tests/test_postgres_family_store_cancellation.py",
           "services/operator-service/tests/test_read_investigation_completion_composition.py",

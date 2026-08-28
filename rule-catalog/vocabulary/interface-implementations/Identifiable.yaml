@@ -17,8 +17,10 @@ object_types:
   - BenchmarkValidation
   - BriefingRun
   - BriefingSubscription
+  - Budget
   - BusinessCapability
   - BusinessService
+  - CapacityForecast
   - CausalHypothesis
   - Change
   - ChangeSummary
@@ -30,7 +32,9 @@ object_types:
   - ControlObjective
   - Conversation
   - ConversationPolicy
+  - CostAnomaly
   - CostObjective
+  - CostObservation
   - Decision
   - DecisionCase
   - DiagnosticEvidence
@@ -73,6 +77,7 @@ object_types:
   - ServiceObjective
   - Signal
   - SignalType
+  - SizingRecommendation
   - Turn
   - UserMemoryFact
   - UserPreference

@@ -41,6 +41,7 @@ from fdai_operator_service.families.conversation.semantic_turn_runtime import (
     SemanticTurnEventPublisher,
     SemanticTurnResultSource,
 )
+from fdai_operator_service.families.cost_governance import CostGovernanceFamilyDependencies
 from fdai_operator_service.families.iam import HilCallbackConfig, IamFamilyBindings
 from fdai_operator_service.families.operations import PanelRoute
 from fdai_operator_service.families.operations.contracts import ProjectionReader
@@ -56,6 +57,11 @@ from fdai_operator_service.family_authorization import OperatorFamilyAuthorizer
 from fdai_operator_service.postgres import (
     PostgresOperatorReadModel,
     PostgresOperatorReadModelConfig,
+)
+from fdai_operator_service.postgres_cost_governance import (
+    PostgresCostGovernanceConfig,
+    PostgresCostGovernanceReader,
+    UnavailableCostGovernanceReader,
 )
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
@@ -92,6 +98,7 @@ from fdai_operator_service.teams_workflow_diagnostics import TeamsWorkflowDiagno
 
 HIL_SIGNING_SECRET_ENV = "FDAI_CHATOPS_WEBHOOK_SECRET"  # noqa: S105
 WEBHOOK_SIGNING_SECRET_ENV = "FDAI_OPERATOR_WEBHOOK_SECRET"  # noqa: S105
+COST_PSEUDONYM_KEY_ENV = "FDAI_COST_PSEUDONYM_KEY"  # noqa: S105
 REFERENCE_PANEL_ROUTES = (
     PanelRoute("/kpi/autonomy", "autonomy", "autonomy"),
     PanelRoute("/capabilities", "capabilities", "capabilities"),
@@ -278,6 +285,7 @@ def _build_route_families(
         unavailable_workflow = UnavailableWorkflowAdapters()
         unavailable_operations = UnavailableOperationsAdapters()
         unavailable_iam = PostgresIamAdapters(UnavailablePostgresFamilyStore())
+        unavailable_cost = UnavailableCostGovernanceReader()
         routes = OperatorRouteFamilies(
             conversation=ConversationFamilyDependencies(
                 authorizer=authorizer,
@@ -308,25 +316,32 @@ def _build_route_families(
             operations_webhook_verifier=unavailable_operations,
             report_pdf_encoder=report_pdf_encoder,
             operation_panels=REFERENCE_PANEL_ROUTES,
+            cost_governance=CostGovernanceFamilyDependencies(
+                authenticator=authenticator,
+                access=unavailable_cost,
+                activation=unavailable_cost,
+                projections=unavailable_cost,
+            ),
         )
         return routes, None
 
     database_url = environment.database_url
     if database_url is None:  # pragma: no cover - store construction requires the same URL
         raise RuntimeError("validated Operator database URL is missing")
+    postgres_adapters = PostgresConversationAdapters(store)
     postgres_conversation = ConversationAssuranceReader(
         ConversationAssuranceReaderConfig(
             dsn=database_url,
             statement_timeout_ms=environment.database_statement_timeout_ms,
             connect_timeout_s=environment.database_connect_timeout_s,
         ),
-        fallback=PostgresConversationAdapters(store),
+        fallback=postgres_adapters,
     )
     local_narrator = (
         LocalAzureNarratorAdapters.from_environment(
             environment.values,
             fallback_projections=postgres_conversation,
-            fallback_streams=postgres_conversation,
+            fallback_streams=postgres_adapters,
         )
         if environment.local_azure_narrator
         else None
@@ -337,7 +352,7 @@ def _build_route_families(
             bridge=semantic_bridge,
             fallback_projections=conversation,
             fallback_outbox=postgres_conversation,
-            fallback_streams=postgres_conversation,
+            fallback_streams=postgres_adapters,
         )
         if semantic_bridge is not None
         else None
@@ -350,6 +365,13 @@ def _build_route_families(
         read_investigation_replay=PostgresReadInvestigationReplayStore(
             config=PostgresReadInvestigationReplayConfig(dsn=database_url)
         ),
+    )
+    cost_reader = PostgresCostGovernanceReader(
+        PostgresCostGovernanceConfig(
+            dsn=database_url,
+            statement_timeout_ms=environment.database_statement_timeout_ms,
+            connect_timeout_s=environment.database_connect_timeout_s,
+        )
     )
     operations_reader: ProjectionReader = (
         IncidentRcaReportingProjectionReader(postgres_operations, read_model)
@@ -400,6 +422,13 @@ def _build_route_families(
         operations_webhook_verifier=postgres_operations,
         report_pdf_encoder=report_pdf_encoder,
         operation_panels=REFERENCE_PANEL_ROUTES,
+        cost_governance=CostGovernanceFamilyDependencies(
+            authenticator=authenticator,
+            access=cost_reader,
+            activation=cost_reader,
+            projections=cost_reader,
+            pseudonym_key=(environment.values.get(COST_PSEUDONYM_KEY_ENV, "").encode() or None),
+        ),
     )
     return routes, local_narrator
 
@@ -613,18 +642,33 @@ def _build_data_sources(*, configured: bool) -> tuple[ReadDataSource, ...]:
             reason=reason,
         ),
         ReadDataSource(
+            key="cost-governance",
+            source="retained-cost-observation" if configured else "not-configured",
+            routes=(
+                "/cost-governance/availability",
+                "/cost-governance/overview",
+                "/cost-governance/resource-efficiency",
+                "/cost-governance/optimization-cases",
+                "/cost-governance/outcomes",
+                "/finops",
+            ),
+            availability="unknown" if configured else "unavailable",
+            configured=configured,
+            reachable=None,
+            authoritative=configured,
+            durable=True if configured else None,
+            reason=reason,
+        ),
+        ReadDataSource(
             key="overview-measurement",
-            source="not-implemented",
-            routes=("/finops",),
+            source="not-served-by-operator-service",
+            routes=("/overview/measurement",),
             availability="unavailable",
             configured=False,
-            reachable=None,
+            reachable=False,
             authoritative=False,
             durable=None,
-            reason=(
-                "Cost-action and autonomy measurement surfaces are not served by this "
-                "distribution, so no measured outcome is claimed for them."
-            ),
+            reason="Overview measurement is owned by a separate projection service.",
         ),
         ReadDataSource(
             key="autonomy-measurement",
@@ -766,6 +810,7 @@ async def _unavailable() -> bool:
 
 __all__ = [
     "HIL_SIGNING_SECRET_ENV",
+    "COST_PSEUDONYM_KEY_ENV",
     "OperatorComposition",
     "ProductionOperatorComposition",
     "TokenVerifierFactory",

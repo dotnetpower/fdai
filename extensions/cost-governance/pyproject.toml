@@ -1,0 +1,33 @@
+[project]
+name = "fdai-cost-governance"
+dynamic = ["version"]
+description = "Optional ontology-grounded Cost Governance package for FDAI"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fdai-core-control-plane==0.1.3",
+]
+
+[project.scripts]
+fdai-cost-collector = "fdai_cost_governance.job_cli:collector_main"
+fdai-cost-analyzer = "fdai_cost_governance.job_cli:analyzer_main"
+
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+fdai-core-control-plane = { workspace = true }
+
+[tool.hatch.version]
+path = "src/fdai_cost_governance/__about__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fdai_cost_governance"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/fdai_cost_governance",
+    "README.md",
+    "pyproject.toml",
+]

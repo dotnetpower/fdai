@@ -10,6 +10,17 @@ import {
 } from "./router";
 
 describe("clean console routes", () => {
+  test("keeps all four Cost Governance tabs on production paths", () => {
+    expect(panelPath("cost-governance")).toBe("/cost-governance");
+    expect(routeHref("cost-governance", { segments: ["overview"] }))
+      .toBe("/cost-governance/overview");
+    expect(parseConsoleRoute("/cost-governance/resource-efficiency").segments)
+      .toEqual(["resource-efficiency"]);
+    expect(parseConsoleRoute("/cost-governance/optimization-cases").panelId)
+      .toBe("cost-governance");
+    expect(parseConsoleRoute("/cost-governance/outcomes").canonicalPathname)
+      .toBe("/cost-governance/outcomes");
+  });
   test("maps internal panel ids to user-facing kebab-case paths", () => {
     expect(panelPath("dashboard")).toBe("/overview");
     expect(panelPath("hil-queue")).toBe("/approvals");

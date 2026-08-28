@@ -33,6 +33,7 @@ IMAGE_AFFECTING_PATHS = {
     "docs/internals/sregym-absorption-ledger.json",
     "evaluation-sdk/**",
     "extensions/code-assurance/pyproject.toml",
+    "extensions/cost-governance/**",
     "packages/service-contracts/**",
     "policies/**",
     "pyproject.toml",
@@ -103,6 +104,10 @@ def test_service_targets_install_owned_wheels_and_entrypoints() -> None:
         assert f"uv build --wheel --package {distribution}" in builder
         assert f"uv sync --frozen --package {distribution} --no-dev --no-editable" in builder
         assert "UV_PROJECT_ENVIRONMENT=/app/.venv" in builder
+        assert (
+            "extensions/cost-governance/pyproject.toml "
+            "./extensions/cost-governance/pyproject.toml" in builder
+        )
         assert "--no-install-package fdai-service-contracts" in builder
         assert f"--no-install-package {distribution}" in builder
         assert "/wheels/fdai_service_contracts-*.whl" in builder
@@ -192,10 +197,10 @@ def test_supply_chain_selects_and_attests_service_targets() -> None:
     assert "services/Dockerfile" not in text
     assert "target: ${{ matrix.target }}" not in text
     assert "${{ env.IMAGE_NAME }}/${{ matrix.image }}" in text
-    assert "sbom-${{ matrix.service }}-${TARGET_COMMIT_SHA}.cdx.json" in text
-    assert "sbom-${{ matrix.service }}-${TARGET_COMMIT_SHA}.spdx.json" in text
+    assert "sbom-${{ matrix.target }}-${TARGET_COMMIT_SHA}.cdx.json" in text
+    assert "sbom-${{ matrix.target }}-${TARGET_COMMIT_SHA}.spdx.json" in text
     assert "subject-digest: ${{ steps.push.outputs.digest }}" in text
-    assert "sbom-path: sbom-${{ matrix.service }}-${{ env.TARGET_COMMIT_SHA }}.spdx.json" in text
+    assert "sbom-path: sbom-${{ matrix.target }}-${{ env.TARGET_COMMIT_SHA }}.spdx.json" in text
     assert text.count(f"uses: actions/attest@{ACTION_PINS['actions/attest']}") == 3
 
 
@@ -216,8 +221,8 @@ def test_manual_supply_chain_publication_has_one_exact_source_revision() -> None
     assert '[[ "$INPUT_COMMIT_SHA" == "$GITHUB_SHA" ]]' in text
     assert "ref: ${{ env.TARGET_COMMIT_SHA }}" in text
     assert "org.opencontainers.image.revision=${{ env.TARGET_COMMIT_SHA }}" in text
-    assert "fdai-sbom-${{ matrix.service }}-${{ env.TARGET_COMMIT_SHA }}" in text
-    assert "path: sbom-${{ matrix.service }}-${{ env.TARGET_COMMIT_SHA }}.cdx.json" in text
+    assert "fdai-sbom-${{ matrix.target }}-${{ env.TARGET_COMMIT_SHA }}" in text
+    assert "path: sbom-${{ matrix.target }}-${{ env.TARGET_COMMIT_SHA }}.cdx.json" in text
     source_expression = (
         "${{ github.event_name == 'workflow_dispatch' && inputs.commit_sha || github.sha }}"
     )

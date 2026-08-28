@@ -73,11 +73,11 @@ def test_shipped_workflows_load() -> None:
     )
     names = workflow_names(catalog)
     assert {
-        "cost-aware-remediation",
         "predictive-scale",
         "dr-failover-drill",
         "planned-vm-start-change",
     } <= names
+    assert "cost-aware-remediation" not in names
 
 
 def test_planned_vm_change_pins_window_approval_and_compensation() -> None:

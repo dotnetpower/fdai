@@ -1,0 +1,29 @@
+{
+  "scenario_id": "cost-governance.w3a.pantheon-replay",
+  "mode": "deterministic-replay",
+  "live_operation": false,
+  "package_enabled": true,
+  "responsible_agents": [
+    "Odin",
+    "Thor",
+    "Forseti",
+    "Huginn",
+    "Heimdall",
+    "Vidar",
+    "Var",
+    "Bragi",
+    "Saga",
+    "Mimir",
+    "Muninn",
+    "Norns",
+    "Njord",
+    "Freyr",
+    "Loki"
+  ],
+  "expected": {
+    "fixed_agents_started": 15,
+    "cost_finding_publisher": "Njord",
+    "mutation_principal": "Thor",
+    "provider_calls": "injected-only"
+  }
+}

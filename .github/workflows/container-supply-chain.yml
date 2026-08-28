@@ -16,6 +16,7 @@ on:
       - "benchmarks/sregym/pyproject.toml"
       - "benchmarks/cybergym/pyproject.toml"
       - "extensions/code-assurance/pyproject.toml"
+      - "extensions/cost-governance/**"
       - "src/**"
       - "rule-catalog/**"
       - "policies/**"
@@ -43,6 +44,7 @@ on:
       - "benchmarks/sregym/pyproject.toml"
       - "benchmarks/cybergym/pyproject.toml"
       - "extensions/code-assurance/pyproject.toml"
+      - "extensions/cost-governance/**"
       - "src/**"
       - "rule-catalog/**"
       - "policies/**"
@@ -116,7 +118,7 @@ jobs:
           ref: ${{ env.TARGET_COMMIT_SHA }}
           fetch-depth: 0
 
-      - name: Select affected service images
+      - name: Select affected distribution images
         id: select
         env:
           BASE_COMMIT_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
@@ -295,20 +297,20 @@ jobs:
       - name: Generate CycloneDX SBOM
         run: >-
           trivy image --format cyclonedx
-          --output "sbom-${{ matrix.service }}-${TARGET_COMMIT_SHA}.cdx.json"
+          --output "sbom-${{ matrix.target }}-${TARGET_COMMIT_SHA}.cdx.json"
           "${{ steps.subject.outputs.reference }}"
 
       - name: Generate SPDX SBOM for attestation
         run: >-
           trivy image --format spdx-json
-          --output "sbom-${{ matrix.service }}-${TARGET_COMMIT_SHA}.spdx.json"
+          --output "sbom-${{ matrix.target }}-${TARGET_COMMIT_SHA}.spdx.json"
           "${{ steps.subject.outputs.reference }}"
 
       - name: Upload SBOM evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: fdai-sbom-${{ matrix.service }}-${{ env.TARGET_COMMIT_SHA }}
-          path: sbom-${{ matrix.service }}-${{ env.TARGET_COMMIT_SHA }}.cdx.json
+          name: fdai-sbom-${{ matrix.target }}-${{ env.TARGET_COMMIT_SHA }}
+          path: sbom-${{ matrix.target }}-${{ env.TARGET_COMMIT_SHA }}.cdx.json
           if-no-files-found: error
           retention-days: 90
 
@@ -336,5 +338,5 @@ jobs:
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.image }}
           subject-digest: ${{ steps.push.outputs.digest }}
-          sbom-path: sbom-${{ matrix.service }}-${{ env.TARGET_COMMIT_SHA }}.spdx.json
+          sbom-path: sbom-${{ matrix.target }}-${{ env.TARGET_COMMIT_SHA }}.spdx.json
           push-to-registry: true

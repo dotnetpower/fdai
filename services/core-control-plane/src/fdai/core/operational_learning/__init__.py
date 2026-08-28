@@ -16,6 +16,10 @@ from .catalog import (
     SchemaCheckReceipt,
     ShadowCheckReceipt,
 )
+from .cost_governance import (
+    CostLearningCohortCompiler,
+    build_cost_case_projection,
+)
 from .patterns import (
     OperatingPatternCandidate,
     OperatingPatternCompiler,
@@ -47,6 +51,7 @@ __all__ = [
     "CatalogReviewPublisher",
     "CatalogValidationRequest",
     "CatalogValidator",
+    "CostLearningCohortCompiler",
     "DraftActionTypeInput",
     "DraftCatalogArtifact",
     "ImmutableCaseRef",
@@ -65,5 +70,6 @@ __all__ = [
     "ShadowDwellObservation",
     "ShadowDwellThresholds",
     "evaluate_shadow_dwell",
+    "build_cost_case_projection",
     "pattern_case_from_operational_case",
 ]

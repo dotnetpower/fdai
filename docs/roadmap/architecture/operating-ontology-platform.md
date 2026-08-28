@@ -31,6 +31,8 @@ bounded object sets, semantic action effects, typed functions, authority-aware w
 > `Observable`, `Recoverable`, `ObjectiveBound`, and `CostBearing`, including provenance,
 > inheritance, LinkType and ActionType references, and conservative explicit ObjectType bindings.
 > Composition compiles the polymorphic catalog into the exact release.
+> Base-only catalog projection excludes optional vertical assets. Tests that cover Cost Governance
+> properties explicitly install and enable one digest-bound package before building the projection.
 > Bitemporal topology foundations retain provider-generation identity, event and record time,
 > complete snapshots, deltas, and tombstones. Pure `graph_at` and `topology_diff` functions preserve
 > pinned `known_at` replay when late evidence arrives, and incomplete history cannot prove absence.

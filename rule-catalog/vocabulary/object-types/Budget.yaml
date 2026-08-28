@@ -1,0 +1,32 @@
+schema_version: "1.0.0"
+name: Budget
+version: "1.0.0"
+key: id
+description: Effective-time cost limit for one service and one reviewed cost objective.
+properties:
+  id: {type: string, required: true}
+  service_ref: {type: string, required: true}
+  cost_objective_ref: {type: string, required: true}
+  currency: {type: string, required: true}
+  limit: {type: number, required: true}
+  period_start: {type: datetime, required: true}
+  period_end: {type: datetime, required: true}
+  effective_from: {type: datetime, required: true}
+  effective_to: {type: datetime, required: false}
+  source_ref: {type: string, required: true}
+  source_revision: {type: string, required: true}
+  source_authority_ref: {type: string, required: true}
+lifecycle:
+  owner: Njord
+  creation:
+    - code: reviewed_service_budget
+      when: A governed cost source binds a bounded service budget to a reviewed CostObjective.
+      result: Create an effective-time budget revision.
+      source_refs: [docs/roadmap/architecture/finops-autonomous-operations.md]
+  authority_refs: [docs/roadmap/architecture/finops-autonomous-operations.md]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:Budget@1.0.0
+  content_hash: sha256:2aea2978b93a414c6311d119c086b3984120675c9265857f331072afdbd16cc2
+  license: MIT
+  retrieved_at: "2026-08-28T00:00:00Z"

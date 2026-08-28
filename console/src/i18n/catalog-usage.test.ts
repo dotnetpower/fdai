@@ -6,6 +6,7 @@ import mainCatalog from "./messages.en.json";
 import analyticsCatalog from "../routes/i18n/analytics.en.json";
 import architectureCatalog from "../routes/i18n/architecture.en.json";
 import conversationAssuranceCatalog from "../routes/i18n/conversation-assurance.en.json";
+import costGovernanceCatalog from "../routes/i18n/cost-governance.en.json";
 import detectionReadinessCatalog from "../routes/i18n/detection-readiness.en.json";
 import evidenceCatalog from "../routes/i18n/evidence.en.json";
 import governanceCatalog from "../routes/i18n/governance.en.json";
@@ -87,6 +88,7 @@ describe("console static translation keys", () => {
       ...catalogKeys({ architecture: architectureCatalog }),
     ]);
     const conversationAssuranceKeys = catalogKeys({ assurance: conversationAssuranceCatalog });
+    const costGovernanceKeys = catalogKeys({ costGovernance: costGovernanceCatalog });
     const evidenceKeys = new Set([
       ...catalogKeys(evidenceCatalog),
       ...catalogKeys({ evidence: evidenceCatalog }),
@@ -110,7 +112,9 @@ describe("console static translation keys", () => {
 
     for (const file of sourceFiles(SOURCE_ROOT)) {
       const source = readFileSync(file, "utf8");
-      const routeKeys = source.includes('from "./i18n/live"')
+      const routeKeys = source.includes('from "./i18n/cost-governance"')
+        ? costGovernanceKeys
+        : source.includes('from "./i18n/live"')
         ? liveKeys
         : source.includes('from "./i18n/analytics"')
           ? analyticsKeys

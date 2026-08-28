@@ -75,10 +75,6 @@ rules:
     severity_override: critical
   - id: network.vnet.ddos-plan.required
     mode: shadow
-  - id: network.public-ip.unassociated
-    mode: shadow
-  - id: log-workspace.retention-excessive
-    mode: shadow
   - id: resource-group.environment-tag.required
     mode: shadow
   - id: resource-group.cost-center-tag.required

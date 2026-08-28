@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0.0",
+  "fixture_id": "f5-conflicting-facts",
+  "gate": "F5",
+  "case": "negative",
+  "ontology_release_digest": "sha256:3b3bd9dd413d10a13ad9741ebc80eb698cecf193626f3b8bf288ffd7f23adf1c",
+  "semantic_profile_sha256": "sha256:20cfa7b8fcb0adfa992eecbba41bfcc7b0b3ee91f392be081ae575e8be94090b",
+  "cutoff": "2025-01-15T12:05:00Z",
+  "context": {
+    "facts": [
+      {"metric": "utilization", "value": 0.14, "conflicting": true, "source_authority_ref": "provider-monitor"},
+      {"metric": "utilization", "value": 0.91, "conflicting": true, "source_authority_ref": "provider-monitor"}
+    ],
+    "links": [
+      {"type": "capacity_forecast_targets_resource", "from_type": "CapacityForecast", "to_type": "Resource"}
+    ]
+  },
+  "expected": {"autonomy_ceiling": "shadow_only", "reason_codes": ["conflicting_facts"]}
+}

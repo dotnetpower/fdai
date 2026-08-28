@@ -81,7 +81,7 @@ def _authored_rule_registries() -> tuple[dict[str, str], dict[str, str]]:
         remediation_root=REPO_ROOT / "rule-catalog" / "remediation",
     )
     authored_rules = tuple(rule for rule in rules if rule.check_logic.kind is CheckLogicKind.REGO)
-    assert len(authored_rules) == 62
+    assert len(authored_rules) == 50
 
     rule_digests = {f"{rule.id}@{rule.version}": rule_content_hash(rule) for rule in authored_rules}
     implementation_digests = {
@@ -128,7 +128,7 @@ def test_shipped_catalog_accounts_for_every_authored_rule_without_reviewed_bindi
         if issue.key.startswith("reviewed_coverage:")
     }
     assert missing_rule_refs == set(rule_digests)
-    assert len(raised.value.issues) == len(rule_digests) == 62
+    assert len(raised.value.issues) == len(rule_digests) == 50
 
     candidate_bindings = load_rule_objective_binding_catalog(
         BINDINGS_ROOT,
@@ -143,9 +143,9 @@ def test_shipped_catalog_accounts_for_every_authored_rule_without_reviewed_bindi
         ambiguous_rule_refs=frozenset(rule_digests),
     )
 
-    assert len(report.authored_rule_refs) == 62
+    assert len(report.authored_rule_refs) == 50
     assert report.bound_rule_refs == ()
-    assert len(report.ambiguous_rule_refs) == 62
+    assert len(report.ambiguous_rule_refs) == 50
 
 
 def test_shipped_binding_rejects_stale_rule_pin() -> None:

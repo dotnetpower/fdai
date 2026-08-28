@@ -18,6 +18,7 @@ arbitrary bulk authoring. The ranking uses three observable signals per uncovere
 from __future__ import annotations
 
 import argparse
+import hashlib
 import sys
 import textwrap
 from collections import Counter
@@ -27,8 +28,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "services/core-control-plane/src"))
 sys.path.insert(0, str(ROOT / "packages/service-contracts/src"))
+sys.path.insert(0, str(ROOT / "extensions/cost-governance/src"))
 
 import yaml  # noqa: E402
+from fdai.core.capability_catalog import ExtensionManifest  # noqa: E402
+from fdai.core.vertical_packages import VerticalPackageManager  # noqa: E402
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog  # noqa: E402
 from fdai.rule_catalog.schema.property_semantic import (  # noqa: E402
     PropertySemanticRegistry,
@@ -43,6 +47,11 @@ from fdai.rule_catalog.schema.signal_type import (  # noqa: E402
 )
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry  # noqa: E402
 
+from fdai_cost_governance import (  # noqa: E402
+    build_cost_governance_bundle,
+    materialize_cost_governance_catalog,
+)
+
 BEGIN_MARKER = "<!-- property-semantic-coverage:begin -->"
 END_MARKER = "<!-- property-semantic-coverage:end -->"
 DOCUMENTS = (
@@ -54,6 +63,13 @@ BACKLOG_PREVIEW = 12
 
 # Reviewed references may only grow. Raise this floor in the same change that raises coverage.
 REVIEWED_REFERENCE_FLOOR = 62
+_PACKAGE_ARCHIVE = b"reviewed-fdai-cost-governance-coverage-wheel"
+_PACKAGE_HOST_REFERENCES = {
+    "action:remediate.remove-orphan-resource",
+    "action:remediate.right-size",
+    "action:remediate.set-retention-policy",
+    "action:remediate.tag-add",
+}
 
 # Leaf-path markers that make a value easy to misread without reviewed semantics: a magnitude
 # convention (percent versus ratio), a time or size unit, or a boolean versus enumeration shape.
@@ -82,6 +98,11 @@ class PropertyReference:
     reference: str
     leaf_path: str
     decision_rule_count: int
+
+
+class _TrustExactPackageArchive:
+    def verify(self, manifest: ExtensionManifest, archive: bytes) -> bool:
+        return manifest.archive_sha256 == hashlib.sha256(archive).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,7 +163,7 @@ def _load(root: Path) -> tuple[tuple[PropertyReference, ...], PropertySemanticRe
     signal_types = load_signal_type_registry_from_mapping(
         yaml.safe_load((catalog_root / "vocabulary/signal-types.yaml").read_text(encoding="utf-8"))
     )
-    rules = load_rule_catalog(
+    base_rules = load_rule_catalog(
         catalog_root / "catalog",
         schema_registry=schema_registry,
         action_types=ontology.action_types,
@@ -150,6 +171,31 @@ def _load(root: Path) -> tuple[tuple[PropertyReference, ...], PropertySemanticRe
         signal_types=signal_types,
         policies_root=root / "policies",
     )
+    bundle = build_cost_governance_bundle(
+        archive_sha256=hashlib.sha256(_PACKAGE_ARCHIVE).hexdigest()
+    )
+    manager = VerticalPackageManager(
+        host_version="0.1.3",
+        ontology_release_digest=bundle.manifest.ontology_release_range,
+        provider_bindings={"cost-estimator"},
+        host_reference_ids=_PACKAGE_HOST_REFERENCES,
+    ).install(
+        bundle,
+        archive=_PACKAGE_ARCHIVE,
+        image_digest=f"sha256:{'f' * 64}",
+        verifier=_TrustExactPackageArchive(),
+    )
+    package_catalog = materialize_cost_governance_catalog(
+        manager.enable("cost-governance").runtime(),
+        schema_registry=schema_registry,
+        action_types=ontology.action_types,
+        resource_types=resource_types,
+        signal_types=signal_types,
+    )
+    rules = (*base_rules, *package_catalog.rules)
+    rule_ids = tuple(rule.id for rule in rules)
+    if len(rule_ids) != len(set(rule_ids)):
+        raise ValueError("base and Cost Governance package catalogs duplicate rule ids")
     leaf_paths: dict[str, str] = {}
     usage: Counter[str] = Counter()
     for rule in rules:

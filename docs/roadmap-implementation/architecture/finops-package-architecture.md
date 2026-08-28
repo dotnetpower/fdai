@@ -10,23 +10,24 @@ resumable work while the roadmap owner remains focused on normative design.
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Extractable FinOps guard baseline | implemented | `services/core-control-plane/src/fdai/core/verticals/cost_governance/finops.py`; `services/core-control-plane/tests/core/verticals/test_finops.py`; 11 focused tests | Pure candidate and guard logic exists inside Core. This does not prove package composition. |
-| Independent distribution | not-started | [Owner design](../../roadmap/architecture/finops-package-architecture.md) | No `fdai-cost-governance` wheel, source distribution, namespace, or package-resource manifest exists. |
-| Ontology-bound vertical manifest and bundle | not-started | [Owner design](../../roadmap/architecture/finops-package-architecture.md#target-package-contracts) | `VerticalPackageManifest` and `VerticalPackageBundle` are design contracts only. |
-| Atomic activation and provider binding | not-started | Existing generic `CapabilityBundle` and extension lifecycle | The existing lifecycle does not install a vertical, semantic profile, detector, or rule source. |
+| Independent distribution | implemented | `extensions/cost-governance/`; wheel, source distribution, and package-resource checks | The typed `fdai-cost-governance` package loads 38 digest-bound resources through `importlib.resources`; built-wheel and source-distribution rebuild checks load the same candidates without package source paths. |
+| Ontology-bound vertical manifest and bundle | implemented | `core/vertical_packages/`; package and Core focused tests | Immutable generic contracts reuse `ExtensionManifest` and the trusted `extension` artifact kind, pin the exact ontology and semantic profile, and expose no approval, execution, or promotion authority. |
+| Atomic activation and provider binding | implemented | `VerticalPackageManager`; `services/core-control-plane/tests/core/vertical_packages/test_manager.py` | Install starts disabled. Availability derives from host, ontology, and provider requirements, while digest, duplicate, and cross-reference failures leave the prior immutable runtime unchanged. |
 | Compatibility cutover and rollback | not-started | [Delivery plan](../../roadmap/fork-and-sequencing/finops-package-delivery-plan.md#w6-shadow-parity-ownership-cutover-and-rollback) | No dual-read parity, package cutover, N-1 rollback, or facade retirement evidence exists. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-28 | implemented | Completed W2 with the independent package, inert candidate assets, generic immutable Core contracts, disabled-first atomic activation, and a supply-chain-selected Core distribution image profile. | `current change`; 17 package and Core lifecycle tests passed; 21 image and supply-chain tests passed; Ruff and strict mypy passed; wheel and source distribution built; direct wheel and source-distribution rebuild each loaded 38 verified resources. | Keep compatibility cutover, parity, upgrade, and previous-version rollback in W6; retain governed image and lifecycle receipts in W7. |
 | 2026-08-24 | not-started | Defined the ontology-grounded package boundary and adopted an evidence-bounded ledger without claiming package implementation. | `current change`; owner document, paired translation, route, size, link, and roadmap tracking checks. | Deliver W0-W7 in the linked delivery plan and retain exact-revision lifecycle evidence. |
 
 ### Remaining work
 
-- [ ] Complete the W0 asset and identifier inventory with exactly one future owner per item.
-- [ ] Build reproducible `fdai-cost-governance` wheel and source distributions that load all
-  resources without repository-relative paths.
-- [ ] Implement ontology-bound vertical manifest and bundle validation that leaves the active
-  runtime unchanged on every failure.
-- [ ] Prove disabled install, atomic enable, incompatible hold, disable, upgrade, and previous-
-  version rollback on one exact package and ontology release.
+- [x] Complete the W0 asset and identifier inventory with exactly one future owner per item.
+- [x] Build `fdai-cost-governance` wheel and source distributions that load all 38 resources without
+  repository-relative package reads.
+- [x] Implement ontology-bound vertical manifest and bundle validation that leaves the active
+  runtime unchanged on every tested installation and activation failure.
+- [ ] Prove upgrade and previous-version rollback on one exact package and ontology release during
+  W6, then retain governed lifecycle and image receipts during W7.

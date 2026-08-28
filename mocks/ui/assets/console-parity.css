@@ -399,7 +399,7 @@
 
 .cp-workspace-list li.is-selected {
   background: color-mix(in srgb, var(--cs-steel) 7%, var(--cs-card));
-  box-shadow: inset 2px 0 0 var(--cs-steel);
+  box-shadow: inset 0 0 0 1px var(--cs-steel);
 }
 
 .cp-workspace-list strong,

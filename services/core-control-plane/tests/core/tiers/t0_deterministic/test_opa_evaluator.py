@@ -40,6 +40,9 @@ from fdai.shared.contracts.models import (
     Severity,
 )
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
+from fdai_core_test_support.cost_governance_catalog import (
+    compose_cost_governance_catalog,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[6]
 POLICIES_ROOT = REPO_ROOT / "policies"
@@ -227,14 +230,23 @@ def test_owner_tag_present_not_denied() -> None:
 
 
 @requires_opa
-def test_vmss_over_provisioned_uses_authored_parameter_defaults() -> None:
-    """A rule with `parameters` shipped in YAML must override rego defaults.
+def test_vmss_over_provisioned_uses_authored_parameter_defaults(tmp_path: Path) -> None:
+    """An enabled package rule with authored parameters must override Rego defaults.
 
-    The shipped rule sets `max_cpu_p95_percent: 30` and
+    The package rule sets `max_cpu_p95_percent: 30` and
     `min_headroom_replicas: 1` - a 15% CPU / 5 replicas scenario denies.
     """
-    evaluator = OpaRegoEvaluator(policies_root=POLICIES_ROOT)
-    rule = _rules_by_id(_load_shipped_rules())["compute.vm-scale-set.over-provisioned"]
+    composition = compose_cost_governance_catalog(
+        REPO_ROOT,
+        enabled=True,
+        scratch_root=tmp_path,
+    )
+    rule_id = "compute.vm-scale-set.over-provisioned"
+    assert composition.package_enabled
+    assert rule_id in composition.package_rule_ids
+    assert rule_id not in composition.base_rule_ids
+    evaluator = OpaRegoEvaluator(policies_root=composition.policies_root)
+    rule = _rules_by_id(composition.rules)[rule_id]
     result = evaluator.evaluate(rule, {"cpu_p95_percent": 15, "instance_count": 5})
     assert isinstance(result, PolicyResult)
     assert result.denied is True
