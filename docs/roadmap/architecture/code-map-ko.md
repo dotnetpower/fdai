@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 8365e35063b2b26a3697413ab29eea2978b312a2
+translation_source_sha: b9e7773d9fdc286cc711a2a27fd798936d348f33
 translation_revised: 2026-08-29
 ---
 # 코드 맵
@@ -152,6 +152,8 @@ Continuous 커버리지 증적은 결정론적 고정본 structural 검증과 �
 `production_ready`를 설정할 수 있으며 committed `deterministic_fixture`는 false로 유지합니다.
 운영 커버리지 증적은 다이제스트 계산 전에 근거, 평가 및 최신성 시각을 UTC로 정규화하므로
 서비스 표준 시간대가 달라도 같은 절대 시각은 하나의 재생 신원을 유지합니다.
+Azure Monitor 경보 정규화도 Event 및 멱등성 신원을 만들기 전에 같은 UTC 규칙을 적용하므로
+오프셋 표현만 다른 프로바이더 재시도가 중복 인시던트 신호가 되지 않습니다.
 런타임 초기화는 의미 준비 상태와 버티컬 workload-identity construction을 기존 수명 주기 및
 연결 보조 로직에 위임하여 기본 조립 루트를 검토된 fanout 상한 아래로 유지합니다. Thin
 초기화 래퍼는 injected identity-builder 테스트 및 포크 경계를 보존합니다.

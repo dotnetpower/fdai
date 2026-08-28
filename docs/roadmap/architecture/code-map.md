@@ -151,6 +151,8 @@ readiness. Only externally produced `cross_service_e2e` or `live_assurance` ques
 set `production_ready`; a committed `deterministic_fixture` keeps it false.
 Operational coverage receipts normalize evidence, evaluation, and freshness timestamps to UTC
 before digesting so equivalent instants retain one replay identity across service locales.
+Azure Monitor alert normalization applies the same UTC rule before deriving Event and idempotency
+identity, preventing offset-only provider retries from becoming duplicate incident signals.
 Runtime bootstrap delegates semantic readiness and vertical workload-identity construction to its
 existing lifecycle and binding helpers, keeping the primary composition root below the reviewed
 fanout ceiling. A thin bootstrap wrapper preserves the injected identity-builder test and fork seam.
