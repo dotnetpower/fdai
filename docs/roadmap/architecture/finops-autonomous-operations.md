@@ -12,6 +12,9 @@ bounded evidence. Agents remain the active control plane and own every state tra
 > effect settlement, and learning loop. Distribution and activation contracts belong to
 > [Ontology-Grounded FinOps Package Architecture](finops-package-architecture.md). Delivery waves
 > belong to the [FinOps Package Delivery Plan](../fork-and-sequencing/finops-package-delivery-plan.md).
+> Subscription-wide analysis, resource-level SKU decisions, savings attribution, and the Console
+> workspace belong to
+> [FinOps Resource Efficiency and SKU Decisions](finops-resource-efficiency.md).
 >
 > **Authority boundary:** Ontology evidence can preserve or lower autonomy. It cannot judge,
 > approve, execute, promote, or assert that an intended effect occurred.
@@ -200,6 +203,7 @@ receipts; unit tests prove behavior but not production autonomy.
 
 | To learn about | Read |
 |----------------|------|
+| Subscription analysis, SKU decisions, and Console workspace | [FinOps Resource Efficiency and SKU Decisions](finops-resource-efficiency.md) |
 | Package and activation boundary | [Ontology-Grounded FinOps Package Architecture](finops-package-architecture.md) |
 | Delivery waves and exit gates | [FinOps Package Delivery Plan](../fork-and-sequencing/finops-package-delivery-plan.md) |
 | Implementation state | [FinOps Autonomous Operations implementation ledger](../../roadmap-implementation/architecture/finops-autonomous-operations.md) |

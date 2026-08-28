@@ -457,6 +457,47 @@
       ]
     },
     {
+      "id": "finops-resource-efficiency",
+      "paths": [
+        "docs/roadmap/architecture/finops-resource-efficiency*.md",
+        "docs/roadmap-implementation/architecture/finops-resource-efficiency.md",
+        "services/core-control-plane/src/fdai/core/verticals/cost_governance/**",
+        "services/core-control-plane/src/fdai/agents/njord.py",
+        "services/core-control-plane/src/fdai/agents/freyr.py",
+        "rule-catalog/action-types/remediate.right-size*.yaml",
+        "rule-catalog/catalog/*low-utilization*.yaml",
+        "rule-catalog/catalog/*over-provisioned*.yaml",
+        "policies/**/*low_utilization*.rego",
+        "policies/**/*overprovisioned*.rego",
+        "console/src/routes/*finops*.tsx"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/agent-pantheon.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/architecture/finops-resource-efficiency.md",
+        "docs/roadmap/architecture/finops-autonomous-operations.md",
+        "docs/roadmap/architecture/finops-package-architecture.md",
+        "docs/roadmap/architecture/operating-ontology.md",
+        "docs/roadmap/agents/agent-pantheon.md",
+        "docs/roadmap/decisioning/action-ontology.md",
+        "docs/roadmap/interfaces/operator-console.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/architecture/finops-resource-efficiency.md",
+        "docs/roadmap/architecture/finops-autonomous-operations.md",
+        "docs/roadmap/architecture/finops-package-architecture.md",
+        "docs/roadmap/fork-and-sequencing/finops-package-delivery-plan.md",
+        "docs/roadmap/README.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov services/core-control-plane/tests/core/verticals/test_finops.py services/core-control-plane/tests/agents/test_wave5_specialists.py",
+        "python3 scripts/quality/architecture/check-roadmap-implementation-tracking.py",
+        "python3 scripts/quality/architecture/check-document-size.py",
+        "python3 scripts/quality/architecture/check-design-routes.py"
+      ]
+    },
+    {
       "id": "operating-ontology",
       "paths": [
         "docs/roadmap/architecture/operating-ontology*.md",

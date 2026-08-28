@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 158641381772456ce141e3bc1e657de092e0de86
-translation_revised: 2026-08-24
+translation_source_sha: d6d754ae95f0edb854c2c04ac22ce2cbb9e169bf
+translation_revised: 2026-08-28
 ---
 
 # 온톨로지 기반 FinOps 패키지 아키텍처
@@ -17,6 +17,8 @@ translation_revised: 2026-08-24
 > 계획](../fork-and-sequencing/finops-package-delivery-plan-ko.md)에 있습니다.
 > 자세한 온톨로지 탐색, 15개 에이전트 전체의 책임 및 자율 복구는 [FinOps 자율
 > 운영](finops-autonomous-operations-ko.md)에 있습니다.
+> 구독 분석, 서비스 기능군별 크기 조정 프로필 및 비용 거버넌스 작업 영역은
+> [FinOps 리소스 효율 및 SKU 결정](finops-resource-efficiency-ko.md)에서 다룹니다.
 >
 > **현재 상태:** FDAI에는 테스트된 FinOps 가드레일, 비용 범주 규칙, shadow Workflow,
 > Njord 비용 이상 동작 및 실제 `CostEstimator` 컨트롤 루프 연결부가 있습니다. 아직 독립적인
@@ -267,6 +269,7 @@ Core는 `fdai_cost_governance`를 가져오지 않습니다. 검토된 조립 �
 
 | 자세히 알아볼 내용 | 문서 |
 |--------------------|------|
+| 구독 분석 및 리소스 효율 패키지 동작 | [FinOps 리소스 효율 및 SKU 결정](finops-resource-efficiency-ko.md) |
 | 전달 순서와 종료 근거 | [FinOps 패키지 전달 계획](../fork-and-sequencing/finops-package-delivery-plan-ko.md) |
 | 온톨로지와 15개 에이전트 자율 운영 | [FinOps 자율 운영](finops-autonomous-operations-ko.md) |
 | 이 설계의 구현 상태 | [FinOps Package Architecture implementation ledger](../../roadmap-implementation/architecture/finops-package-architecture.md) |

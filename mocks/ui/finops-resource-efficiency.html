@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>비용 거버넌스 - FDAI Console 시안</title>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
+  <link rel="stylesheet" href="assets/finops-resource-efficiency.css?v=resource-efficiency-v23" />
+</head>
+<body>
+  <main class="cs-container cs-page fr-page">
+    <header class="fr-page-header">
+      <div>
+        <div class="fr-breadcrumb"><span>전체 현황</span><span aria-hidden="true">/</span><span>비용 거버넌스</span><strong>시안 데이터</strong></div>
+        <h1 id="workspace-title">비용 거버넌스</h1>
+        <p id="workspace-subtitle">실제 비용, 월말 예측, 예산, 검증된 절감 효과를 하나의 근거 구간에서 비교합니다.</p>
+      </div>
+      <div class="fr-header-state">
+        <span>분석 기준 시각</span>
+        <strong>2026-08-28 11:30 KST</strong>
+        <small>선택 구독 1개 · 리소스 128개</small>
+      </div>
+    </header>
+
+    <nav class="fr-workspace-tabs" aria-label="비용 거버넌스 작업 영역">
+      <a class="is-active" href="#overview" data-workspace-tab="overview" aria-current="page">개요</a>
+      <a href="#resource-efficiency" data-workspace-tab="resource-efficiency">리소스 효율</a>
+      <a href="#optimization-cases" data-workspace-tab="optimization-cases">최적화 사례 <span>12</span></a>
+      <a href="#outcomes" data-workspace-tab="outcomes">성과</a>
+    </nav>
+
+    <section class="fr-toolbar" aria-label="분석 범위">
+      <div class="fr-scope-controls">
+        <label>
+          <span>관리 그룹</span>
+          <select>
+            <option>플랫폼 운영</option>
+          </select>
+        </label>
+        <label>
+          <span>구독</span>
+          <select>
+            <option>운영 구독 (1)</option>
+          </select>
+        </label>
+        <label>
+          <span>분석 기간</span>
+          <select>
+            <option>최근 30일</option>
+            <option>최근 60일</option>
+            <option>최근 90일</option>
+          </select>
+        </label>
+      </div>
+      <div class="fr-coverage">
+        <span>근거 포괄 범위</span>
+        <strong>92%</strong>
+        <span class="fr-meter" aria-hidden="true"><i style="width:92%"></i></span>
+        <small>10개는 분석 전용</small>
+      </div>
+    </section>
+
+    <section class="fr-view fr-overview" data-workspace-view="overview">
+      <section class="fr-overview-grid">
+        <article class="fr-visual-card fr-cost-trend fr-hero-card">
+          <header class="fr-visual-head">
+            <div>
+              <span class="fr-eyebrow">비용 추세</span>
+              <h2>실제 비용, 예측 및 예산</h2>
+              <p>누적 상각 비용과 이전 기간을 같은 구간에서 비교합니다.</p>
+            </div>
+          </header>
+          <div class="fr-metric-rail" aria-label="비용 상태 요약">
+            <div class="is-primary"><span>현재 비용</span><strong>$21,840</strong><small>8월 28일 현재</small></div>
+            <div><span>월말 예측</span><strong>$24,920</strong><small>예산보다 $3,540 낮음</small></div>
+            <div><span>예산 소진</span><strong>76.7%</strong><small>$28,460 중</small></div>
+            <div class="is-saving"><span>검증된 절감</span><strong>$1,240</strong><small>7건 정산 완료</small></div>
+          </div>
+          <svg class="fr-composite-chart" viewBox="0 0 760 300" role="group" aria-labelledby="cost-trend-title cost-trend-desc">
+            <title id="cost-trend-title">8월 실제 누적 비용과 월말 예측</title>
+            <desc id="cost-trend-desc">8월 28일까지 실제 비용은 21,840달러이며 월말 예측은 24,920달러로 28,460달러 예산 아래입니다.</desc>
+            <defs>
+              <linearGradient id="actual-cost-area" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#3b82f6" stop-opacity=".18" />
+                <stop offset="1" stop-color="#3b82f6" stop-opacity=".012" />
+              </linearGradient>
+              <linearGradient id="forecast-cost-area" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#06b6d4" stop-opacity=".14" />
+                <stop offset="1" stop-color="#06b6d4" stop-opacity=".015" />
+              </linearGradient>
+            </defs>
+            <g class="fr-chart-grid">
+              <path d="M58 34H730M58 94H730M58 154H730M58 214H730M58 274H730" />
+              <text x="8" y="38">$30K</text><text x="8" y="98">$22.5K</text><text x="8" y="158">$15K</text><text x="8" y="218">$7.5K</text><text x="31" y="278">$0</text>
+            </g>
+            <path class="fr-budget-line" d="M58 46H730" />
+            <text class="fr-budget-label" x="614" y="39">예산 $28,460</text>
+            <path class="fr-prior-line" d="M58 274C162 242 241 211 330 178S507 112 654 88S704 78 730 72" />
+            <path class="fr-actual-area" d="M58 274C142 251 217 224 294 198S446 146 534 121S619 102 654 94L654 274Z" fill="url(#actual-cost-area)" />
+            <path class="fr-actual-line" d="M58 274C142 251 217 224 294 198S446 146 534 121S619 102 654 94" />
+            <path class="fr-forecast-band" d="M654 88C684 77 710 65 730 56L730 82C710 88 684 96 654 101Z" />
+            <path class="fr-forecast-area" d="M654 94C684 85 710 76 730 68L730 274H654Z" fill="url(#forecast-cost-area)" />
+            <path class="fr-forecast-line" d="M654 94C684 85 710 76 730 68" />
+            <circle class="fr-current-point" cx="654" cy="94" r="5" />
+            <g class="fr-direct-label is-current"><rect x="564" y="62" width="86" height="28" rx="4" /><text x="574" y="80">$21,840 실제</text></g>
+            <g class="fr-direct-label is-forecast"><rect x="647" y="45" width="82" height="28" rx="4" /><text x="657" y="63">$24,920 예측</text></g>
+            <g class="fr-chart-hit-points">
+              <circle cx="58" cy="274" r="14" data-cost-point data-date="8월 1일" data-actual="$0" data-prior="$0" />
+              <circle cx="217" cy="224" r="14" data-cost-point data-date="8월 8일" data-actual="$6,120" data-prior="$6,740" />
+              <circle cx="371" cy="171" r="14" data-cost-point data-date="8월 15일" data-actual="$12,480" data-prior="$13,210" />
+              <circle cx="534" cy="121" r="14" data-cost-point data-date="8월 22일" data-actual="$18,320" data-prior="$19,080" />
+              <circle cx="654" cy="94" r="16" data-cost-point data-date="8월 28일" data-actual="$21,840" data-prior="$22,670" />
+              <circle cx="730" cy="68" r="16" data-cost-point data-date="8월 31일" data-actual="$24,920 예측" data-prior="$25,930" />
+            </g>
+            <g class="fr-chart-axis"><text x="58" y="296">8월 1일</text><text x="263" y="296">8월 10일</text><text x="476" y="296">8월 20일</text><text x="682" y="296">8월 31일</text></g>
+          </svg>
+          <div class="fr-chart-tooltip" id="cost-chart-tooltip" role="status" hidden>
+            <strong></strong><span data-tooltip-actual></span><small data-tooltip-prior></small>
+          </div>
+          <div class="fr-chart-legend" aria-label="차트 범례">
+            <span><i class="is-actual"></i>실제 누적 비용</span>
+            <span><i class="is-forecast"></i>예측 비용</span>
+            <span><i class="is-prior"></i>이전 기간</span>
+            <span><i class="is-budget"></i>월 예산</span>
+          </div>
+          <div class="fr-savings-contribution">
+            <div><span>검증된 절감 기여</span><strong>$1,240</strong></div>
+            <span class="fr-savings-track" aria-label="예상 절감액 3,820달러 중 1,240달러 검증 완료">
+              <i style="width:32.5%"></i><b style="left:32.5%"></b>
+            </span>
+            <small>예상 $3,820 중 32.5% 정산 · 미실현 및 대기 금액은 성과에서 분리</small>
+          </div>
+          <footer class="fr-visual-foot"><span>Source: FOCUS export · 기준 시각 2026-08-28 11:30 KST</span><strong>포괄 범위 96%</strong></footer>
+        </article>
+
+        <article class="fr-visual-card fr-spend-mix">
+          <header class="fr-visual-head">
+            <div><span class="fr-eyebrow">비용 흐름</span><h2>구독에서 상세 리소스까지</h2><p>상각 비용이 구독, 리소스 타입, 상세 리소스 Top 5로 어떻게 이어지는지 보여줍니다.</p></div>
+            <div class="fr-chart-value"><strong>$21,840</strong><span>8월 상각 비용</span></div>
+          </header>
+          <div class="fr-sankey-scroll">
+            <svg class="fr-sankey" viewBox="0 0 900 390" role="img" aria-labelledby="spend-flow-title spend-flow-desc">
+              <title id="spend-flow-title">구독, 리소스 타입, 상세 리소스별 상각 비용 흐름</title>
+              <desc id="spend-flow-desc">선택한 운영 구독의 총 21,840달러가 컴퓨팅, 데이터베이스, Kubernetes, 네트워크, 기타 타입으로 나뉘고, 상세 리소스 Top 5와 나머지 리소스 집계로 이어집니다.</desc>
+              <g class="fr-sankey-headings">
+                <text x="18" y="22">구독</text>
+                <text x="344" y="22">리소스 타입</text>
+                <text x="720" y="22">상세 리소스 Top 5</text>
+              </g>
+              <g class="fr-sankey-flows is-subscription">
+                <path class="is-compute" d="M34 98C164 98 228 96 356 96" stroke-width="93" />
+                <path class="is-database" d="M34 185C164 185 228 196 356 197" stroke-width="63" />
+                <path class="is-kubernetes" d="M34 244C164 244 228 268 356 269" stroke-width="43" />
+                <path class="is-network" d="M34 280C164 280 228 316 356 317" stroke-width="20" />
+                <path class="is-other" d="M34 306C164 306 228 350 356 351" stroke-width="21" />
+              </g>
+              <g class="fr-sankey-flows is-resource">
+                <path class="is-compute" d="M370 83C512 83 584 108 720 108" stroke-width="16" />
+                <path class="is-compute" d="M370 111C512 111 584 182 720 182" stroke-width="4" />
+                <path class="is-compute" d="M370 131C512 131 584 276 720 281" stroke-width="72" />
+                <path class="is-database" d="M370 178C512 178 584 67 720 67" stroke-width="32" />
+                <path class="is-database" d="M370 203C512 203 584 139 720 139" stroke-width="11" />
+                <path class="is-database" d="M370 221C512 221 584 315 720 315" stroke-width="20" />
+                <path class="is-kubernetes" d="M370 262C512 262 584 164 720 164" stroke-width="7" />
+                <path class="is-kubernetes" d="M370 281C512 281 584 337 720 337" stroke-width="36" />
+                <path class="is-network" d="M370 310C512 310 584 354 720 354" stroke-width="20" />
+                <path class="is-other" d="M370 345C512 345 584 365 720 365" stroke-width="21" />
+              </g>
+              <g class="fr-sankey-nodes is-subscription">
+                <rect x="20" y="54" width="14" height="276" rx="3" />
+                <g class="fr-sankey-label" transform="translate(44 174)"><text>운영 구독</text><text class="fr-sankey-value" y="14">$21,840 · 100%</text></g>
+              </g>
+              <g class="fr-sankey-nodes is-type">
+                <rect class="is-compute" x="356" y="42" width="14" height="108" rx="3" />
+                <rect class="is-database" x="356" y="160" width="14" height="74" rx="3" />
+                <rect class="is-kubernetes" x="356" y="244" width="14" height="51" rx="3" />
+                <rect class="is-network" x="356" y="305" width="14" height="24" rx="3" />
+                <rect class="is-other" x="356" y="339" width="14" height="25" rx="3" />
+                <g class="fr-sankey-label" transform="translate(380 67)"><text>컴퓨팅</text><text class="fr-sankey-value" y="14">$8,420 · 38.6%</text></g>
+                <g class="fr-sankey-label" transform="translate(380 182)"><text>데이터베이스</text><text class="fr-sankey-value" y="14">$5,760 · 26.4%</text></g>
+                <g class="fr-sankey-label" transform="translate(380 261)"><text>Kubernetes</text><text class="fr-sankey-value" y="14">$3,940 · 18.0%</text></g>
+                <g class="fr-sankey-label" transform="translate(380 315)"><text>네트워크</text><text class="fr-sankey-value" y="14">$1,820 · 8.3%</text></g>
+                <g class="fr-sankey-label" transform="translate(380 348)"><text>기타 타입</text><text class="fr-sankey-value" y="14">$1,900 · 8.7%</text></g>
+              </g>
+              <g class="fr-sankey-nodes is-resource">
+                <rect class="is-database" x="720" y="48" width="14" height="38" rx="3" />
+                <rect class="is-compute" x="720" y="98" width="14" height="20" rx="3" />
+                <rect class="is-database" x="720" y="130" width="14" height="16" rx="3" />
+                <rect class="is-kubernetes" x="720" y="157" width="14" height="14" rx="3" />
+                <rect class="is-compute" x="720" y="177" width="14" height="12" rx="3" />
+                <rect x="720" y="201" width="14" height="169" rx="3" class="is-other" />
+                <g class="fr-sankey-label" transform="translate(744 59)"><text>orders-db</text><text class="fr-sankey-value" y="14">$2,916</text></g>
+                <g class="fr-sankey-label" transform="translate(744 104)"><text>api-compute-01</text><text class="fr-sankey-value" y="14">$1,482</text></g>
+                <g class="fr-sankey-label" transform="translate(744 134)"><text>shared-cache</text><text class="fr-sankey-value" y="14">$1,037</text></g>
+                <g class="fr-sankey-label" transform="translate(744 159)"><text>dev-aks-pool</text><text class="fr-sankey-value" y="14">$624</text></g>
+                <g class="fr-sankey-label" transform="translate(744 179)"><text>gateway-app-plan</text><text class="fr-sankey-value" y="14">$318</text></g>
+                <g class="fr-sankey-label is-other" transform="translate(744 245)"><text>기타 123개 리소스</text><text class="fr-sankey-value" y="14">$15,463 · 70.8%</text></g>
+              </g>
+            </svg>
+          </div>
+          <div class="fr-sankey-summary" aria-label="비용 흐름 요약">
+            <span><strong>Top 5</strong>$6,377 · 29.2%</span>
+            <span><strong>나머지</strong>$15,463 · 70.8%</span>
+            <span><strong>근거</strong>FOCUS export · 96%</span>
+          </div>
+          <button class="fr-text-action" type="button" data-go-view="resource-efficiency">리소스 효율에서 자세히 보기 <span aria-hidden="true">→</span></button>
+        </article>
+      </section>
+
+      <section class="fr-overview-grid is-lower">
+        <article class="fr-visual-card">
+          <header class="fr-visual-head"><div><span class="fr-eyebrow">주요 비용 변화</span><h2>비용 증가 요인</h2><p>이전 30일의 같은 구간 대비 변화입니다.</p></div></header>
+          <ol class="fr-driver-list">
+            <li><span><strong>PostgreSQL 처리량 확대</strong><small>orders-db · SLO 보호</small></span><i style="--driver:82%"></i><b>+$806</b></li>
+            <li><span><strong>로그 보존 기간 증가</strong><small>Log Analytics · 정책 변경</small></span><i style="--driver:43%"></i><b>+$421</b></li>
+            <li><span><strong>API 컴퓨팅 축소</strong><small>api-compute-01 · 검증 완료</small></span><i class="is-saving" style="--driver:53%"></i><b class="is-saving">-$524</b></li>
+            <li><span><strong>개발 AKS 자동 확장</strong><small>dev-aks-pool · 관찰 모드</small></span><i class="is-saving" style="--driver:29%"></i><b class="is-saving">-$286</b></li>
+          </ol>
+        </article>
+        <article class="fr-visual-card">
+          <header class="fr-visual-head"><div><span class="fr-eyebrow">근거 및 상태</span><h2>지금 확인할 항목</h2><p>금액보다 먼저 근거와 운영 위험을 검토합니다.</p></div></header>
+          <div class="fr-attention-list">
+            <button type="button" data-go-view="optimization-cases"><span class="is-warn">12</span><strong>최적화 사례</strong><small>사람 승인 대기 3건</small></button>
+            <button type="button" data-go-view="resource-efficiency"><span class="is-risk">4</span><strong>용량 위험</strong><small>확대 검토 3개</small></button>
+            <button type="button" data-go-view="outcomes"><span class="is-neutral">2</span><strong>정산 미완료</strong><small>청구 구간 대기</small></button>
+          </div>
+        </article>
+      </section>
+    </section>
+
+    <section class="fr-view" data-workspace-view="resource-efficiency" hidden>
+      <section class="fr-kpis fr-compact-metrics" aria-label="리소스 효율 요약">
+      <article class="fr-kpi">
+        <span>현재 월 실행 요율</span>
+        <strong>$28,460</strong>
+        <small>상각 약정 반영 · 선택 구독</small>
+      </article>
+      <article class="fr-kpi">
+        <span>예상 절감 기회</span>
+        <strong>$3,820</strong>
+        <small>18개 대안 · 실현 절감액 아님</small>
+      </article>
+      <article class="fr-kpi">
+        <span>용량 위험</span>
+        <strong>4</strong>
+        <small>확대 3개 · 검토 필요 1개</small>
+      </article>
+      <article class="fr-kpi">
+        <span>검증된 절감액</span>
+        <strong>$1,240</strong>
+        <small>정산 완료 7건 · 최근 30일</small>
+      </article>
+      </section>
+
+      <article class="fr-visual-card fr-efficiency-map">
+        <header class="fr-visual-head">
+          <div><span class="fr-eyebrow">비용-사용률 지도</span><h2>고비용 저활용 리소스 우선순위</h2><p>원 크기는 예상 절감액, 색은 현재 판단을 나타냅니다.</p></div>
+          <div class="fr-chart-value"><strong>128</strong><span>분석된 리소스</span></div>
+        </header>
+        <div class="fr-scatter-layout">
+          <div class="fr-y-axis"><span>$3K</span><span>$2K</span><span>$1K</span><span>$0</span></div>
+          <div class="fr-scatter" role="group" aria-label="월 비용과 사용률에 따른 리소스 분포">
+            <span class="fr-quadrant-bg is-priority"></span>
+            <span class="fr-quadrant-bg is-risk"></span>
+            <span class="fr-quadrant is-priority">고비용·저활용</span>
+            <span class="fr-quadrant is-risk">고비용·용량 위험</span>
+            <span class="fr-scatter-median is-x"><span>사용률 중앙값 47%</span></span>
+            <span class="fr-scatter-median is-y"><span>월 비용 중앙값 $820</span></span>
+            <button class="fr-point is-downsize" style="--x:34%;--y:49%;--size:30px" type="button" data-scatter-resource="api-compute" aria-label="api-compute-01, 사용률 34%, 월 비용 1,482달러, 축소 판단"></button>
+            <span class="fr-point-label" style="--x:34%;--y:49%;--dx:-82px;--dy:-17px">api-compute-01<small>-$524</small></span>
+            <button class="fr-point is-upsize" style="--x:87%;--y:3%;--size:34px" type="button" data-scatter-resource="orders-db" aria-label="orders-db, 사용률 87%, 월 비용 2,916달러, 확대 판단"></button>
+            <span class="fr-point-label is-right" style="--x:87%;--y:3%;--dx:-102px;--dy:17px">orders-db<small>용량 위험</small></span>
+            <button class="fr-point is-schedule" style="--x:19%;--y:79%;--size:25px" type="button" data-scatter-resource="dev-aks" aria-label="dev-aks-pool, 사용률 19%, 월 비용 624달러, 자동 확장 판단"></button>
+            <span class="fr-point-label" style="--x:19%;--y:79%;--dx:15px;--dy:-12px">dev-aks-pool<small>-$286</small></span>
+            <button class="fr-point is-review" style="--x:21%;--y:65%;--size:27px" type="button" data-scatter-resource="shared-cache" aria-label="shared-cache, 사용률 21%, 월 비용 1,037달러, 검토 필요"></button>
+            <span class="fr-point-label" style="--x:21%;--y:65%;--dx:-96px;--dy:-13px">shared-cache<small>근거 불완전</small></span>
+            <button class="fr-point is-retire" style="--x:2%;--y:94%;--size:22px" type="button" data-scatter-resource="orphan-disk" aria-label="build-disk-legacy, 사용률 0%, 월 비용 122달러, 폐기 검토"></button>
+            <button class="fr-point is-keep" style="--x:61%;--y:89%;--size:20px" type="button" data-scatter-resource="gateway-app" aria-label="gateway-app-plan, 사용률 61%, 월 비용 318달러, 유지"></button>
+            <span class="fr-point-label" style="--x:61%;--y:89%;--dx:13px;--dy:-12px">gateway-app<small>유지</small></span>
+          </div>
+          <div class="fr-x-axis"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100% 사용률</span></div>
+        </div>
+        <div class="fr-scatter-footer">
+          <div class="fr-chart-legend"><span><i class="is-downsize"></i>축소</span><span><i class="is-upsize"></i>확대</span><span><i class="is-schedule"></i>확장·일정</span><span><i class="is-review"></i>검토 필요</span><span><i class="is-keep"></i>유지</span></div>
+          <div class="fr-size-legend" aria-label="원 크기는 예상 절감액"><span>예상 절감</span><i class="is-small"></i><i class="is-medium"></i><i class="is-large"></i><strong>$100-$800</strong></div>
+        </div>
+      </article>
+
+    <section class="fr-decision-strip" aria-label="결정 분류">
+      <button class="is-active" type="button" data-filter="all"><span>전체</span><strong>128</strong></button>
+      <button type="button" data-filter="downsize"><span>축소</span><strong>11</strong></button>
+      <button type="button" data-filter="keep"><span>유지</span><strong>96</strong></button>
+      <button type="button" data-filter="upsize"><span>확대</span><strong>3</strong></button>
+      <button type="button" data-filter="schedule"><span>확장·일정</span><strong>5</strong></button>
+      <button type="button" data-filter="retire"><span>중지·폐기</span><strong>3</strong></button>
+      <button type="button" data-filter="review"><span>검토 필요</span><strong>10</strong></button>
+      </section>
+
+    <section class="fr-workspace">
+      <div class="fr-resource-region">
+        <header class="fr-section-head">
+          <div>
+            <h2>리소스별 판단</h2>
+            <p>절감액보다 먼저 서비스 목표와 근거 완전성을 검토합니다.</p>
+          </div>
+          <label class="fr-search">
+            <span class="cs-sr-only">리소스 검색</span>
+            <input id="resource-search" type="search" placeholder="리소스 또는 SKU 검색" />
+          </label>
+        </header>
+
+        <div class="fr-table-wrap">
+          <table class="fr-table">
+            <thead>
+              <tr>
+                <th>리소스</th>
+                <th>현재 SKU</th>
+                <th>30일 사용률</th>
+                <th>판단</th>
+                <th class="num">월 비용</th>
+                <th class="num">예상 변화</th>
+                <th>근거</th>
+              </tr>
+            </thead>
+            <tbody id="resource-body">
+              <tr class="is-selected" data-kind="downsize" data-resource="api-compute" data-search="api compute standard d8s v5 standard d4s v5">
+                <td><button type="button" class="fr-resource" data-select="api-compute"><strong>api-compute-01</strong><small>컴퓨팅 · 프로덕션</small></button></td>
+                <td><strong>Standard_D8s_v5</strong><small>제안 D4s_v5</small></td>
+                <td><span class="fr-util"><i style="width:34%"></i></span><strong>34%</strong><small>CPU P95 · 메모리 P99 46%</small></td>
+                <td><span class="fr-status is-downsize">축소</span></td>
+                <td class="num">$1,482</td>
+                <td class="num is-saving">-$524</td>
+                <td><span class="fr-evidence is-ready">완전</span></td>
+              </tr>
+              <tr data-kind="upsize" data-resource="orders-db" data-search="orders database business critical 8 vcore 12 vcore">
+                <td><button type="button" class="fr-resource" data-select="orders-db"><strong>orders-db</strong><small>PostgreSQL · 프로덕션</small></button></td>
+                <td><strong>Business Critical 8</strong><small>제안 12 vCore</small></td>
+                <td><span class="fr-util is-high"><i style="width:87%"></i></span><strong>87%</strong><small>CPU P95 · IO 포화 3회</small></td>
+                <td><span class="fr-status is-upsize">확대</span></td>
+                <td class="num">$2,916</td>
+                <td class="num is-cost">+$806</td>
+                <td><span class="fr-evidence is-ready">완전</span></td>
+              </tr>
+              <tr data-kind="schedule" data-resource="dev-aks" data-search="dev aks nodepool standard d4s v5">
+                <td><button type="button" class="fr-resource" data-select="dev-aks"><strong>dev-aks-pool</strong><small>AKS 노드 풀 · 개발</small></button></td>
+                <td><strong>3 × Standard_D4s_v5</strong><small>제안 1-3 자동 확장</small></td>
+                <td><span class="fr-util"><i style="width:19%"></i></span><strong>19%</strong><small>요청 CPU · 야간 4%</small></td>
+                <td><span class="fr-status is-schedule">확장·일정</span></td>
+                <td class="num">$624</td>
+                <td class="num is-saving">-$286</td>
+                <td><span class="fr-evidence is-ready">완전</span></td>
+              </tr>
+              <tr data-kind="review" data-resource="shared-cache" data-search="shared cache premium p2 p1 unknown service">
+                <td><button type="button" class="fr-resource" data-select="shared-cache"><strong>shared-cache</strong><small>Azure Cache · 소유자 미확인</small></button></td>
+                <td><strong>Premium P2</strong><small>제안 없음</small></td>
+                <td><span class="fr-util"><i style="width:21%"></i></span><strong>21%</strong><small>메모리 P95 · 연결 정보 불완전</small></td>
+                <td><span class="fr-status is-review">검토 필요</span></td>
+                <td class="num">$1,037</td>
+                <td class="num">판단 보류</td>
+                <td><span class="fr-evidence is-limited">불완전</span></td>
+              </tr>
+              <tr data-kind="retire" data-resource="orphan-disk" data-search="orphan disk premium ssd p30 unattached">
+                <td><button type="button" class="fr-resource" data-select="orphan-disk"><strong>build-disk-legacy</strong><small>Managed Disk · 테스트</small></button></td>
+                <td><strong>Premium SSD P30</strong><small>연결 없음 · 47일</small></td>
+                <td><span class="fr-util"><i style="width:0%"></i></span><strong>0%</strong><small>읽기·쓰기 없음</small></td>
+                <td><span class="fr-status is-retire">중지·폐기</span></td>
+                <td class="num">$122</td>
+                <td class="num is-saving">-$122</td>
+                <td><span class="fr-evidence is-ready">완전</span></td>
+              </tr>
+              <tr data-kind="keep" data-resource="gateway-app" data-search="gateway app premium v3 p1v3">
+                <td><button type="button" class="fr-resource" data-select="gateway-app"><strong>gateway-app-plan</strong><small>App Service · 프로덕션</small></button></td>
+                <td><strong>Premium v3 P1v3</strong><small>현재 구성 유지</small></td>
+                <td><span class="fr-util"><i style="width:61%"></i></span><strong>61%</strong><small>CPU P95 · 응답 P99 284ms</small></td>
+                <td><span class="fr-status is-keep">유지</span></td>
+                <td class="num">$318</td>
+                <td class="num">$0</td>
+                <td><span class="fr-evidence is-ready">완전</span></td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="fr-empty" id="resource-empty" hidden>조건에 맞는 리소스가 없습니다.</div>
+        </div>
+        <footer class="fr-table-foot">
+          <span id="visible-count">대표 리소스 6개 표시 · 전체 128개</span>
+          <button type="button">전체 목록 열기</button>
+        </footer>
+      </div>
+
+      <aside class="fr-inspector" aria-live="polite" aria-label="선택한 리소스 근거">
+        <header>
+          <div>
+            <span class="fr-inspector-kicker">선택한 결정 사례</span>
+            <h2 id="detail-name">api-compute-01</h2>
+            <p id="detail-meta">컴퓨팅 · 프로덕션 · 축소 검토</p>
+          </div>
+          <span class="fr-case-mode">관찰 모드</span>
+        </header>
+
+        <section class="fr-recommendation">
+          <span>권장 대안</span>
+          <div class="fr-sku-change"><strong id="detail-current">D8s_v5</strong><span aria-hidden="true">→</span><strong id="detail-target">D4s_v5</strong></div>
+          <p id="detail-summary">P95 CPU와 P99 메모리가 목표 여유 용량 안에 있으며 SKU 기능 호환성이 확인되었습니다.</p>
+        </section>
+
+        <section class="fr-agent-evidence">
+          <h3>에이전트 근거</h3>
+          <div><span>Njord</span><p id="detail-njord">상각 약정 반영 후 월 $524 절감 예상</p><strong>비용</strong></div>
+          <div><span>Freyr</span><p id="detail-freyr">제안 SKU에서 예측 CPU P95 68%</p><strong>용량</strong></div>
+          <div><span>Forseti</span><p id="detail-forseti">상위 제약을 위반하지 않는 대안 1개</p><strong>판단</strong></div>
+        </section>
+
+        <section class="fr-gates">
+          <h3>적격성 확인</h3>
+          <ul id="detail-gates">
+            <li><span>서비스·워크로드 매핑</span><strong>확인</strong></li>
+            <li><span>SLO 및 오류 예산</span><strong>정상</strong></li>
+            <li><span>의존성 포괄 범위</span><strong>완전</strong></li>
+            <li><span>롤백 계약</span><strong>준비</strong></li>
+          </ul>
+        </section>
+
+        <footer>
+          <a href="#case-detail">결정 사례 상세 보기</a>
+          <span>변경은 적용되지 않습니다.</span>
+        </footer>
+      </aside>
+    </section>
+    </section>
+
+    <section class="fr-view" data-workspace-view="optimization-cases" hidden>
+      <section class="fr-kpis fr-compact-metrics" aria-label="최적화 사례 요약">
+        <article class="fr-kpi"><span>열린 사례</span><strong>12</strong><small>근거 완전 9건</small></article>
+        <article class="fr-kpi"><span>예상 절감 기회</span><strong>$3,820</strong><small>실현 절감액 아님</small></article>
+        <article class="fr-kpi"><span>승인 대기</span><strong>3</strong><small>최장 대기 8시간</small></article>
+        <article class="fr-kpi"><span>용량 보호 사례</span><strong>4</strong><small>비용 증가 포함</small></article>
+      </section>
+      <section class="fr-case-grid">
+        <article class="fr-visual-card">
+          <header class="fr-visual-head"><div><span class="fr-eyebrow">기회 구성</span><h2>유형별 예상 효과</h2><p>절감과 비용 증가를 같은 축에서 분리합니다.</p></div></header>
+          <div class="fr-opportunity-bars">
+            <div><span>SKU 축소</span><i><b style="width:86%"></b></i><strong>$2,140</strong></div>
+            <div><span>일정·자동 확장</span><i><b style="width:54%"></b></i><strong>$1,340</strong></div>
+            <div><span>중지·폐기</span><i><b style="width:28%"></b></i><strong>$690</strong></div>
+            <div><span>용량 확대</span><i class="is-cost"><b style="width:32%"></b></i><strong>+$806</strong></div>
+          </div>
+          <footer class="fr-visual-foot"><span>중복 절감 제거 후 계산</span><strong>예상 순효과 -$3,364</strong></footer>
+        </article>
+        <article class="fr-visual-card">
+          <header class="fr-visual-head"><div><span class="fr-eyebrow">결정 흐름</span><h2>발견에서 검증까지</h2><p>각 단계는 독립된 소유 기록으로 집계됩니다.</p></div></header>
+          <ol class="fr-funnel">
+            <li style="--width:100%;--tone:12%"><span>발견</span><strong>18</strong><small>근거 수집</small></li>
+            <li style="--width:84%;--tone:16%"><span>판단</span><strong>15</strong><small>3건 보류</small></li>
+            <li style="--width:62%;--tone:20%"><span>승인</span><strong>11</strong><small>3건 대기</small></li>
+            <li style="--width:45%;--tone:24%"><span>적용</span><strong>8</strong><small>shadow 제외</small></li>
+            <li style="--width:39%;--tone:28%"><span>검증</span><strong>7</strong><small>1건 정산 중</small></li>
+          </ol>
+        </article>
+      </section>
+      <article class="fr-visual-card fr-case-list">
+        <header class="fr-visual-head"><div><span class="fr-eyebrow">결정 사례</span><h2>근거와 위험을 함께 정렬</h2><p>예상 금액이 커도 운영 제약을 통과하지 못하면 적용할 수 없습니다.</p></div></header>
+        <div class="fr-case-row"><span class="fr-status is-downsize">축소</span><strong>api-compute-01</strong><span>D8s_v5 → D4s_v5</span><b>-$524/월</b><small>승인 대기 · 근거 완전</small></div>
+        <div class="fr-case-row"><span class="fr-status is-upsize">확대</span><strong>orders-db</strong><span>8 → 12 vCore</span><b class="is-cost">+$806/월</b><small>SLO 위험 · 승인 대기</small></div>
+        <div class="fr-case-row"><span class="fr-status is-schedule">확장·일정</span><strong>dev-aks-pool</strong><span>고정 3 → 자동 1-3</span><b>-$286/월</b><small>관찰 모드 · 근거 완전</small></div>
+        <div class="fr-case-row"><span class="fr-status is-review">검토 필요</span><strong>shared-cache</strong><span>대안 없음</span><b>-</b><small>서비스 매핑 불완전</small></div>
+      </article>
+    </section>
+
+    <section class="fr-view" data-workspace-view="outcomes" hidden>
+      <section class="fr-kpis fr-compact-metrics" aria-label="성과 요약">
+        <article class="fr-kpi"><span>검증된 절감액</span><strong>$1,240</strong><small>최근 30일 · 7건</small></article>
+        <article class="fr-kpi"><span>예상 대비 실현율</span><strong>78%</strong><small>정산 가능한 6건</small></article>
+        <article class="fr-kpi"><span>SLO 회귀</span><strong>0</strong><small class="fr-delta is-good">정책 이탈 없음</small></article>
+        <article class="fr-kpi"><span>정산 미완료</span><strong>$408</strong><small>청구 구간 대기 2건</small></article>
+      </section>
+      <section class="fr-outcome-grid">
+        <article class="fr-visual-card">
+          <header class="fr-visual-head"><div><span class="fr-eyebrow">절감 정산</span><h2>예상에서 검증된 절감까지</h2><p>중복, 비용 증가, 관측 미완료를 차감합니다.</p></div></header>
+          <div class="fr-waterfall" role="img" aria-label="예상 절감 3,820달러에서 중복 612달러, 용량 보호 비용 806달러, 정산 대기 408달러, 미실현 754달러를 차감하여 검증된 절감 1,240달러">
+            <div class="is-total" style="--value:100%;--offset:0%"><strong>$3,820</strong><i></i><span>예상 절감</span></div>
+            <div class="is-loss" style="--value:16%;--offset:84%"><strong>-$612</strong><i></i><span>중복 제거</span></div>
+            <div class="is-cost" style="--value:21%;--offset:63%"><strong>-$806</strong><i></i><span>용량 보호</span></div>
+            <div class="is-pending" style="--value:11%;--offset:52%"><strong>-$408</strong><i></i><span>정산 대기</span></div>
+            <div class="is-loss" style="--value:20%;--offset:32%"><strong>-$754</strong><i></i><span>미실현</span></div>
+            <div class="is-result" style="--value:32%;--offset:0%"><strong>$1,240</strong><i></i><span>검증 완료</span></div>
+          </div>
+        </article>
+        <article class="fr-visual-card">
+          <header class="fr-visual-head"><div><span class="fr-eyebrow">단위 경제성</span><h2>요청 1천 건당 비용</h2><p>트래픽 변화와 분리한 서비스 단위 비용입니다.</p></div><div class="fr-chart-value"><strong>$1.82</strong><span>기준선 대비 -14%</span></div></header>
+          <svg class="fr-unit-chart" viewBox="0 0 540 220" role="img" aria-label="요청 1천 건당 비용이 2.14달러에서 1.82달러로 감소">
+            <g class="fr-chart-grid"><path d="M48 24H520M48 74H520M48 124H520M48 174H520"/><text x="5" y="28">$2.4</text><text x="5" y="78">$2.1</text><text x="5" y="128">$1.8</text><text x="5" y="178">$1.5</text></g>
+            <path class="fr-unit-area" d="M48 68L142 82L236 91L330 118L424 126L520 134L520 174H48Z" />
+            <path class="fr-unit-line" d="M48 68L142 82L236 91L330 118L424 126L520 134" />
+            <path class="fr-unit-baseline" d="M48 74H520" />
+            <g class="fr-chart-axis"><text x="48" y="204">3월</text><text x="142" y="204">4월</text><text x="236" y="204">5월</text><text x="330" y="204">6월</text><text x="424" y="204">7월</text><text x="500" y="204">8월</text></g>
+          </svg>
+          <div class="fr-chart-legend"><span><i class="is-unit"></i>실측 단위 비용</span><span><i class="is-prior"></i>기준선</span></div>
+        </article>
+      </section>
+      <article class="fr-visual-card">
+        <header class="fr-visual-head"><div><span class="fr-eyebrow">효과 검증</span><h2>운영 제약과 절감 효과</h2><p>비용 효과만 성공하고 운영 효과가 실패하면 사례를 종결하지 않습니다.</p></div></header>
+        <div class="fr-settlement-grid">
+          <div><span class="is-good">검증됨</span><strong>api-compute-01</strong><small>비용 -$498 · P99 지연 변화 없음</small></div>
+          <div><span class="is-good">검증됨</span><strong>dev-aks-pool</strong><small>비용 -$274 · Pod 가용성 정상</small></div>
+          <div><span class="is-pending">정산 중</span><strong>archive-storage</strong><small>용량 효과 확인 · 청구 구간 대기</small></div>
+          <div><span class="is-neutral">롤백됨</span><strong>batch-worker-02</strong><small>오류율 상승 감지 · 비용 절감 제외</small></div>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <script src="assets/finops-resource-efficiency.js?v=resource-efficiency-v23"></script>
+</body>
+</html>

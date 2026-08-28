@@ -13,6 +13,9 @@ only then cuts over package ownership.
 > [Ontology-Grounded FinOps Package Architecture](../architecture/finops-package-architecture.md).
 > The decision frame and 15-agent choreography are owned by
 > [FinOps Autonomous Operations](../architecture/finops-autonomous-operations.md).
+> Subscription analysis, resource-level SKU decisions, savings attribution, and the Console
+> workspace are owned by
+> [FinOps Resource Efficiency and SKU Decisions](../architecture/finops-resource-efficiency.md).
 >
 > **Status rule:** This is a delivery plan, not evidence that a wave is complete. Current delivery
 > state is recorded in the [implementation ledger](../../roadmap-implementation/fork-and-sequencing/finops-package-delivery-plan.md).
@@ -81,6 +84,9 @@ Deliverables:
   ActionType, expected-effect, run, and outcome declarations;
 - bounded ObjectSet and evidence-function profiles for cost anomaly, right-sizing, cleanup, budget,
   and settlement questions;
+- subscription-scope coverage and resource-level decision profiles with exact coupled-set identity;
+- versioned service-family sizing profiles for VM, database, Kubernetes, application platform, and
+  storage resources;
 - effective-time `CostObjective`, `ServiceObjective`, `RecoveryObjective`,
   `ArchitectureConstraint`, `Ownership`, and `ChangeWindow` fixtures;
 - F1-F8 competency fixtures from FinOps Autonomous Operations;

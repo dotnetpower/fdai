@@ -1,8 +1,8 @@
 ---
 title: FinOps 패키지 전달 계획
 translation_of: finops-package-delivery-plan.md
-translation_source_sha: 56e525bf31fbb563641fc6eb66d6df3479a53fd4
-translation_revised: 2026-08-24
+translation_source_sha: e4b3a1e56d5be212fed5ecea2b1d05236078114c
+translation_revised: 2026-08-28
 ---
 
 # FinOps 패키지 전달 계획
@@ -15,6 +15,9 @@ translation_revised: 2026-08-24
 > 아키텍처](../architecture/finops-package-architecture-ko.md)에 있습니다. 결정 프레임과 15개
 > 에이전트 choreography는 [FinOps 자율
 > 운영](../architecture/finops-autonomous-operations-ko.md)에서 소유합니다.
+> 구독 분석, 리소스 수준 SKU 결정, 절감액 귀속 및 Console 작업 영역은
+> [FinOps 리소스 효율 및 SKU 결정](../architecture/finops-resource-efficiency-ko.md)에서
+> 소유합니다.
 >
 > **상태 규칙:** 이 문서는 전달 계획이며 wave가 완료되었다는 근거가 아닙니다. 현재 전달 상태는
 > [구현 ledger](../../roadmap-implementation/fork-and-sequencing/finops-package-delivery-plan.md)에
@@ -84,6 +87,9 @@ release, 자산 inventory 및 안정적인 식별자 집합으로 수렴한 뒤�
   Expected-effect, Run 및 Outcome 선언의 exact 참조
 - 비용 이상, right-sizing, cleanup, budget 및 settlement 질문에 사용하는 범위가 제한된 ObjectSet과
   근거 함수 프로필
+- 정확한 결합 집합 식별자를 사용하는 구독 범위 포괄 범위 및 리소스 수준 결정 프로필
+- VM, 데이터베이스, Kubernetes, 애플리케이션 플랫폼 및 Storage 리소스를 위한 버전 관리
+  서비스 기능군별 크기 조정 프로필
 - 유효 시간이 있는 `CostObjective`, `ServiceObjective`, `RecoveryObjective`,
   `ArchitectureConstraint`, `Ownership` 및 `ChangeWindow` fixture
 - FinOps 자율 운영의 F1-F8 역량 fixture

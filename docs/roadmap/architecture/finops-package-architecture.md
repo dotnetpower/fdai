@@ -14,6 +14,8 @@ domain code and assets. It does not create another control plane or move authori
 > to the [FinOps Package Delivery Plan](../fork-and-sequencing/finops-package-delivery-plan.md).
 > Detailed ontology traversal, all 15 agent responsibilities, and autonomous recovery belong to
 > [FinOps Autonomous Operations](finops-autonomous-operations.md).
+> Subscription analysis, service-family sizing profiles, and the Cost Governance workspace belong
+> to [FinOps Resource Efficiency and SKU Decisions](finops-resource-efficiency.md).
 >
 > **Current status:** FDAI has tested FinOps guardrails, cost-category rules, a shadow workflow,
 > Njord cost-anomaly behavior, and a live `CostEstimator` control-loop seam. It does not yet have an
@@ -275,6 +277,7 @@ be restored without changing audit or event contracts.
 
 | To learn about | Read |
 |----------------|------|
+| Subscription analysis and resource-efficiency package behavior | [FinOps Resource Efficiency and SKU Decisions](finops-resource-efficiency.md) |
 | Delivery sequence and exit evidence | [FinOps Package Delivery Plan](../fork-and-sequencing/finops-package-delivery-plan.md) |
 | Ontology and 15-agent autonomous operation | [FinOps Autonomous Operations](finops-autonomous-operations.md) |
 | Implementation state for this design | [FinOps Package Architecture implementation ledger](../../roadmap-implementation/architecture/finops-package-architecture.md) |

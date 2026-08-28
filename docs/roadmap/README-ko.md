@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: da4ebec346a6804b814dc5a382b59b8e893dd1f5
-translation_revised: 2026-08-26
+translation_source_sha: 78d270472529d6f0853d0489b227b0a09d962053
+translation_revised: 2026-08-28
 ---
 # FDAI 로드맵
 
@@ -107,6 +107,10 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | # | 문서 | 다루는 내용 |
 |---|------|-------------|
 | 14 | [cost-model-ko.md](interfaces/cost-model-ko.md) | 최소 인벤토리의 월간 비용 봉투, T2 LLM 비용 분할, 트래픽 트리거 |
+| 14a | [finops-autonomous-operations-ko.md](architecture/finops-autonomous-operations-ko.md) | 온톨로지 기반 FinOps 결정 프레임, 고정 에이전트 흐름, 복구, 정산 및 학습 |
+| 14b | [finops-resource-efficiency-ko.md](architecture/finops-resource-efficiency-ko.md) | 구독 분석, 리소스 수준 SKU 결정, 서비스 기능군 프로필, 절감액 귀속 및 Console 작업 영역 |
+| 14c | [finops-package-architecture-ko.md](architecture/finops-package-architecture-ko.md) | 독립 비용 거버넌스 패키지, 온톨로지 프로필, 원자적 활성화, 호환성 및 롤백 |
+| 14d | [finops-package-delivery-plan-ko.md](fork-and-sequencing/finops-package-delivery-plan-ko.md) | 자산 인벤토리와 온톨로지 역량부터 운영 검증까지 의존성 순서로 구성된 전달 |
 | 15 | [user-rbac-and-identity-ko.md](interfaces/user-rbac-and-identity-ko.md) | 사람 역할(읽기 담당 / 기여자 / Approver / Owner + Break-Glass), Entra ID 아티팩트, console-to-PR 신원 흐름 |
 | 15b | [agent-stewardship-and-handover-ko.md](interfaces/agent-stewardship-and-handover-ko.md) | 사람 <-> 15-에이전트 인수인계 맵: 담당자(accountable / informed), 관리자(최소 1, 권장 2), 에스컬레이션 체인, 커버리지 + bus-factor |
 | 15c | [agent-stewardship-operations-ko.md](interfaces/agent-stewardship-operations-ko.md) | 운영 연결, stale 신원 상태, 인계 초안 PR, signed 병합 알림/감사, 복구 및 검증 |

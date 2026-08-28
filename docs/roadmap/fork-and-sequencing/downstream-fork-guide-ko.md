@@ -1,8 +1,8 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: 198cddf935698db6b2c7fb8c0fd28a6fa878a165
-translation_revised: 2026-08-27
+translation_source_sha: 31995a7769f8e4c62ef229b936ba397b61c30013
+translation_revised: 2026-08-28
 ---
 
 # 다운스트림 포크 가이드
@@ -73,6 +73,7 @@ customization 프로파일을 패키지하며 배포, 테넌트, 환경, 운영 
 | 축 | 예 | 포크가 선택하나요? |
 |----|----|---------------------|
 | 분포 | 업스트림, 다운스트림 포크 | 예, 출처/패키지 경계만 선택 |
+| 선택적 버티컬 패키지 | 배포별 사용 가능 또는 사용 불가, 활성 또는 비활성 | 아니요 |
 | 배포 환경 | dev, staging, 운영 | 아니요 |
 | 근거 프로파일 | 권위 있는, 고정본 | 아니요 |
 | 자율성 | 기능별 shadow, 강제 적용 | 아니요 |
@@ -81,6 +82,13 @@ customization 프로파일을 패키지하며 배포, 테넌트, 환경, 운영 
 하나의 포크는 배포가 없거나 서로 다른 환경에 여러 배포가 있을 수 있습니다.
 업스트림도 직접 deploy할 수 있습니다. `.fdai-fork`, `FDAI_FORK`, `git config fdai.fork true`는
 repository-integrity 검사만 활성화하며 런타임 코드는 이 값을 기준으로 분기하면 안 됩니다.
+
+선택적 버티컬 패키지도 포크 경계와 독립적입니다. 예를 들어
+[`fdai-cost-governance`](../architecture/finops-package-architecture-ko.md)는 검토된 업스트림
+또는 다운스트림 이미지에 포함한 뒤 각 배포에서 활성화하거나 비활성화할 수 있습니다. 패키지
+사용 가능 상태, 배포 활성화, principal 접근 권한, 작업별 shadow 또는 enforce 모드는 서로
+독립적인 결정으로 유지합니다. 비용 거버넌스를 숨기기 위한 목적으로 고객 포크를 만들지 말고,
+포크 감지를 데이터 수집, Console 탐색 또는 실행 자세를 선택하는 데 사용하지 않습니다.
 
 ## 2. Day-1 체크리스트
 

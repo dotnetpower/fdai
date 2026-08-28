@@ -1,8 +1,8 @@
 ---
 title: FinOps 자율 운영
 translation_of: finops-autonomous-operations.md
-translation_source_sha: 7238a28ec43a9b753af30ac437b8db00ab0bd59b
-translation_revised: 2026-08-24
+translation_source_sha: 0f08c31569626f8de3440708578b1830e01a14c6
+translation_revised: 2026-08-28
 ---
 
 # FinOps 자율 운영
@@ -15,6 +15,8 @@ translation_revised: 2026-08-24
 > 루프를 소유합니다. 배포판과 활성화 계약은 [온톨로지 기반 FinOps 패키지
 > 아키텍처](finops-package-architecture-ko.md)에 있습니다. 전달 wave는 [FinOps 패키지 전달
 > 계획](../fork-and-sequencing/finops-package-delivery-plan-ko.md)에 있습니다.
+> 구독 전체 분석, 리소스 수준 SKU 결정, 절감액 귀속 및 Console 작업 영역은
+> [FinOps 리소스 효율 및 SKU 결정](finops-resource-efficiency-ko.md)에서 다룹니다.
 >
 > **권한 경계:** 온톨로지 근거는 자율성을 유지하거나 낮출 수 있습니다. 판단, 승인, 실행,
 > promotion을 수행하거나 의도한 효과가 발생했다고 단정할 수 없습니다.
@@ -200,6 +202,7 @@ promotion에는 고정된 시나리오 집합에 대해 설정된 최소 cohort�
 
 | 자세히 알아볼 내용 | 문서 |
 |--------------------|------|
+| 구독 분석, SKU 결정 및 Console 작업 영역 | [FinOps 리소스 효율 및 SKU 결정](finops-resource-efficiency-ko.md) |
 | 패키지와 활성화 경계 | [온톨로지 기반 FinOps 패키지 아키텍처](finops-package-architecture-ko.md) |
 | 전달 wave와 종료 게이트 | [FinOps 패키지 전달 계획](../fork-and-sequencing/finops-package-delivery-plan-ko.md) |
 | 구현 상태 | [FinOps Autonomous Operations implementation ledger](../../roadmap-implementation/architecture/finops-autonomous-operations.md) |

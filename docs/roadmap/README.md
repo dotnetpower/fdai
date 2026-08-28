@@ -110,6 +110,10 @@ cap, narrow its owner set or split a multi-responsibility owner instead of addin
 | # | Document | What it covers |
 |---|----------|----------------|
 | 14 | [cost-model.md](interfaces/cost-model.md) | monthly cost envelope for the minimum resource inventory, T2 LLM cost split, traffic triggers |
+| 14a | [finops-autonomous-operations.md](architecture/finops-autonomous-operations.md) | ontology-grounded FinOps decision frame, fixed-agent choreography, recovery, settlement, and learning |
+| 14b | [finops-resource-efficiency.md](architecture/finops-resource-efficiency.md) | subscription analysis, resource-level SKU decisions, service-family profiles, savings attribution, and Console workspace |
+| 14c | [finops-package-architecture.md](architecture/finops-package-architecture.md) | independent Cost Governance package, ontology profile, atomic activation, compatibility, and rollback |
+| 14d | [finops-package-delivery-plan.md](fork-and-sequencing/finops-package-delivery-plan.md) | dependency-ordered delivery from asset inventory and ontology competency through operational validation |
 | 15 | [user-rbac-and-identity.md](interfaces/user-rbac-and-identity.md) | human roles (Reader / Contributor / Approver / Owner + Break-Glass), Entra ID artifacts, console-to-PR identity flow |
 | 15b | [agent-stewardship-and-handover.md](interfaces/agent-stewardship-and-handover.md) | human <-> 15-agent handover map: stewards (accountable / informed), maintainers (min 1, rec 2), escalation chain, coverage + bus-factor |
 | 15c | [agent-stewardship-operations.md](interfaces/agent-stewardship-operations.md) | production binding, stale-identity health, handover draft PR, signed merge notification/audit, recovery and verification |

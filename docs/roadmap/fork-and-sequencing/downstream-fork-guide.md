@@ -68,6 +68,7 @@ The axes remain independent:
 | Axis | Examples | Does a fork select it? |
 |------|----------|------------------------|
 | Distribution | upstream, downstream fork | yes - source/package boundary only |
+| Optional vertical package | available or unavailable, enabled or disabled per deployment | no |
 | Deployment environment | dev, staging, production | no |
 | Evidence profile | authoritative, fixture | no |
 | Autonomy | shadow, enforce per capability | no |
@@ -76,6 +77,13 @@ The axes remain independent:
 One fork can have no deployments or several deployments in different environments. Upstream can
 also be deployed directly. `.fdai-fork`, `FDAI_FORK`, and `git config fdai.fork true` enable
 repository-integrity checks only; runtime code must not branch on them.
+
+An optional vertical package is also independent from the fork boundary. For example,
+[`fdai-cost-governance`](../architecture/finops-package-architecture.md) can be included in a
+reviewed upstream or downstream image, then enabled or disabled for each deployment. Package
+availability, deployment enablement, principal access, and per-action shadow or enforce mode remain
+separate decisions. Do not create a customer fork only to hide Cost Governance, and do not use fork
+detection to select its data collection, Console navigation, or execution posture.
 
 ## 2. Day-1 checklist
 
