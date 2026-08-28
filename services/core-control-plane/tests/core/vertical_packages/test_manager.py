@@ -71,18 +71,64 @@ def _bundle(
     provider_required: bool = True,
     version: str = "1.0.0",
 ) -> VerticalPackageBundle:
-    rule_content = b"schema_version: 2.0.0\nid: test.cost-rule\ndefault_mode: shadow\n"
+    rule_content = b"""\
+schema_version: 2.0.0
+id: test.cost-rule
+version: 1.0.0
+source: azure_advisor
+severity: medium
+category: cost
+resource_type: compute.vm
+check_logic:
+  kind: rego
+  reference: policies/test.cost-rule.rego
+remediation:
+  template_ref: remediation/test.cost-rule.tftpl
+  cost_impact_monthly_usd: 0
+remediates: remediate.right-size
+provenance:
+  source_url: https://example.com/test-rule
+  resolved_ref: "0000000000000000000000000000000000000000"
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  license: LicenseRef-reference-only
+  redistribution: reference-only
+  retrieved_at: "2026-08-28T00:00:00Z"
+"""
+    policy_content = b"package fdai.test_cost_rule\n\ndefault allow := false\n"
+    remediation_content = b'resource "example" "test" {}\n'
     default_asset = VerticalPackageAsset(
         declaration=VerticalAssetDeclaration(
             asset_id="rule:test.cost-rule",
             kind=VerticalAssetKind.RULE,
             resource_path="rules/test.cost-rule.yaml",
             sha256=hashlib.sha256(rule_content).hexdigest(),
-            references=asset_references,
+            references=(
+                *asset_references,
+                "policy:test.cost-rule",
+                "remediation:test.cost-rule",
+            ),
         ),
         content=rule_content,
     )
-    selected_assets = assets or (default_asset,)
+    default_policy = VerticalPackageAsset(
+        declaration=VerticalAssetDeclaration(
+            asset_id="policy:test.cost-rule",
+            kind=VerticalAssetKind.POLICY,
+            resource_path="policies/test.cost-rule.rego",
+            sha256=hashlib.sha256(policy_content).hexdigest(),
+        ),
+        content=policy_content,
+    )
+    default_remediation = VerticalPackageAsset(
+        declaration=VerticalAssetDeclaration(
+            asset_id="remediation:test.cost-rule",
+            kind=VerticalAssetKind.REMEDIATION,
+            resource_path="remediation/test.cost-rule.tftpl",
+            sha256=hashlib.sha256(remediation_content).hexdigest(),
+        ),
+        content=remediation_content,
+    )
+    selected_assets = assets or (default_asset, default_policy, default_remediation)
     resource_manifest = {
         "schema_version": "1.0.0",
         "package_id": package_id,
@@ -179,6 +225,28 @@ def test_catalog_maps_reject_duplicate_asset_and_resource_path_ownership() -> No
         _content_by_path((asset, duplicate_path), VerticalAssetKind.RULE)
 
 
+def test_install_rejects_rule_that_violates_catalog_contract() -> None:
+    bundle = _bundle()
+    rule = bundle.assets[0]
+    malformed_content = b"schema_version: 2.0.0\nid: test.cost-rule\n"
+    malformed_rule = replace(
+        rule,
+        declaration=replace(
+            rule.declaration,
+            sha256=hashlib.sha256(malformed_content).hexdigest(),
+        ),
+        content=malformed_content,
+    )
+
+    with pytest.raises(VerticalPackageValidationError, match="catalog contract"):
+        _manager().install(
+            _bundle(assets=(malformed_rule, *bundle.assets[1:])),
+            archive=ARCHIVE,
+            image_digest=IMAGE_DIGEST,
+            verifier=_TrustAll(),
+        )
+
+
 def test_install_is_disabled_then_enable_and_disable_rebuild_atomically() -> None:
     base = _manager()
     installed = base.install(
@@ -205,7 +273,11 @@ def test_install_is_disabled_then_enable_and_disable_rebuild_atomically() -> Non
     enabled = installed.enable("test-vertical")
     assert installed.runtime().package_ids() == ()
     assert enabled.runtime().package_ids() == ("test-vertical",)
-    assert enabled.runtime().asset_ids() == ("rule:test.cost-rule",)
+    assert enabled.runtime().asset_ids() == (
+        "policy:test.cost-rule",
+        "remediation:test.cost-rule",
+        "rule:test.cost-rule",
+    )
     assert enabled.activation_metadata("test-vertical").available is True
     assert enabled.activation_metadata("test-vertical").enabled is True
 
@@ -240,7 +312,11 @@ def test_enabled_n_minus_one_upgrade_and_rollback_are_atomic_without_replay() ->
     assert original.activation_metadata("test-vertical").package_version == "1.0.0"
     assert upgraded.activation_metadata("test-vertical").package_version == "1.0.1"
     assert upgraded.activation_metadata("test-vertical").enabled is True
-    assert upgraded.runtime().asset_ids() == ("rule:test.cost-rule",)
+    assert upgraded.runtime().asset_ids() == (
+        "policy:test.cost-rule",
+        "remediation:test.cost-rule",
+        "rule:test.cost-rule",
+    )
     assert audit_records == ["audit-before-upgrade"]
     assert action_records == ["action-before-upgrade"]
 
@@ -251,7 +327,11 @@ def test_enabled_n_minus_one_upgrade_and_rollback_are_atomic_without_replay() ->
 
     assert rolled_back.activation_metadata("test-vertical").package_version == "1.0.0"
     assert rolled_back.activation_metadata("test-vertical").enabled is True
-    assert rolled_back.runtime().asset_ids() == ("rule:test.cost-rule",)
+    assert rolled_back.runtime().asset_ids() == (
+        "policy:test.cost-rule",
+        "remediation:test.cost-rule",
+        "rule:test.cost-rule",
+    )
     assert audit_records == ["audit-before-upgrade"]
     assert action_records == ["action-before-upgrade"]
 
@@ -275,7 +355,11 @@ def test_disabled_upgrade_stays_disabled_and_disable_rebuild_has_no_assets() -> 
     assert upgraded.activation_metadata("test-vertical").enabled is False
     assert upgraded.runtime().asset_ids() == ()
     enabled = upgraded.enable("test-vertical")
-    assert enabled.runtime().asset_ids() == ("rule:test.cost-rule",)
+    assert enabled.runtime().asset_ids() == (
+        "policy:test.cost-rule",
+        "remediation:test.cost-rule",
+        "rule:test.cost-rule",
+    )
     assert enabled.disable("test-vertical").runtime().asset_ids() == ()
 
 
@@ -364,7 +448,7 @@ def test_archive_and_asset_digest_failures_leave_prior_manager_unchanged() -> No
     manager = _manager()
     bundle = _bundle()
     damaged_asset = replace(bundle.assets[0], content=b"changed")
-    damaged_bundle = replace(bundle, assets=(damaged_asset,))
+    damaged_bundle = _bundle(assets=(damaged_asset, *bundle.assets[1:]))
 
     with pytest.raises(VerticalPackageValidationError, match="archive digest"):
         manager.install(

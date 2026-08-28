@@ -10,6 +10,7 @@ from types import MappingProxyType
 from typing import Any
 
 import yaml
+from pydantic import ValidationError
 
 from fdai.core.capability_catalog import ExtensionState, ExtensionTrustVerifier
 from fdai.core.vertical_packages.models import (
@@ -24,7 +25,7 @@ from fdai.core.vertical_packages.models import (
     VerticalPackageRuntime,
     VerticalPackageValidationError,
 )
-from fdai.shared.contracts.models import Mode
+from fdai.shared.contracts.models import Mode, Rule, Workflow
 
 _FORBIDDEN_AUTHORITY_FIELDS = {
     "approval_authority",
@@ -497,6 +498,15 @@ def _validate_asset_content(
         raise VerticalPackageValidationError(
             f"vertical asset {declaration.asset_id!r} must contain a YAML object"
         )
+    try:
+        if declaration.kind is VerticalAssetKind.RULE:
+            Rule.model_validate(payload)
+        else:
+            Workflow.model_validate(payload)
+    except ValidationError as exc:
+        raise VerticalPackageValidationError(
+            f"vertical asset {declaration.asset_id!r} violates its catalog contract"
+        ) from exc
     expected_id = declaration.asset_id.split(":", 1)[1]
     identity_field = "id" if declaration.kind is VerticalAssetKind.RULE else "name"
     if payload.get(identity_field) != expected_id:

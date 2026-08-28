@@ -28,7 +28,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   `agents/_framework/` and cannot change the member's AgentSpec, topics, ownership, model policy,
   or authority.
 - **vertical package materialization is collision-free**: the generic Core materializer rejects
-  duplicate asset ids and package-relative paths before ordinary rule or workflow loading.
+  duplicate asset ids and package-relative paths. Installation validates complete Rule and Workflow
+  contracts before a disabled package can enter the lifecycle.
 - **semantic target resolution is deterministic**: a model-authored resource-identity
   clarification is removed only when Core verifies one exact runtime identifier from the same
   utterance. Zero or multiple identifiers and every other unresolved concept remain a typed
