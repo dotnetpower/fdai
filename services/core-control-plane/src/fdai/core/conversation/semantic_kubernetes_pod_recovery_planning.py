@@ -25,6 +25,9 @@ from fdai.core.ontology_platform import (
     OntologyQueryPlanVerifier,
     QueryManifest,
 )
+from fdai.core.ontology_platform.kubernetes_pod_diagnosis_queries import (
+    KUBERNETES_POD_DIAGNOSIS_FUNCTION_NAME,
+)
 from fdai.core.ontology_platform.kubernetes_pod_lifecycle_cohort_queries import (
     KUBERNETES_POD_LIFECYCLE_COHORT_FUNCTION_NAME,
 )
@@ -236,6 +239,43 @@ def compile_kubernetes_pod_recovery_plan(
                     lifecycle_dependency,
                 ),
                 "arguments_json": canonical_json(recovery_arguments),
+            }
+        )
+    diagnosis_dependency: str | None = None
+    if lifecycle_dependency is not None and _has_function(
+        manifest.descriptors,
+        KUBERNETES_POD_DIAGNOSIS_FUNCTION_NAME,
+    ):
+        diagnosis_dependency = "pod-diagnosis-evidence"
+        nodes.append(
+            OntologyQueryNode(
+                node_id=diagnosis_dependency,
+                kind=QueryNodeKind.FUNCTION,
+                depends_on=(
+                    "pod-recovery-target",
+                    lifecycle_dependency,
+                ),
+                arguments_json=canonical_json(
+                    {
+                        "function_name": KUBERNETES_POD_DIAGNOSIS_FUNCTION_NAME,
+                        "arguments": {
+                            "lookback_seconds": int(_RESTART_HISTORY_WINDOW.total_seconds()),
+                        },
+                        "dependency_arguments": {
+                            "pod-recovery-target": "pod_query_result",
+                            lifecycle_dependency: "lifecycle_events",
+                        },
+                    }
+                ),
+                output_kind="query.table",
+            )
+        )
+        diagnosis_arguments = dict(json.loads(recovery_node.arguments_json))
+        diagnosis_arguments["dependency_arguments"][diagnosis_dependency] = "diagnosis_result"
+        recovery_node = recovery_node.model_copy(
+            update={
+                "depends_on": (*recovery_node.depends_on, diagnosis_dependency),
+                "arguments_json": canonical_json(diagnosis_arguments),
             }
         )
     nodes.append(recovery_node)

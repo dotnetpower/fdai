@@ -498,6 +498,276 @@ async def test_pod_recovery_function_accepts_only_issued_receipt() -> None:
         )
 
 
+async def test_confirmed_distinct_uid_replacement_recovers_new_pod_without_own_restart() -> None:
+    """A genuinely new replacement Pod has never itself restarted.
+
+    ``restart_not_observed_in_current_pod``/``restart_not_observed_in_window``
+    are spurious in that case once an independent distinct-UID replacement is
+    conclusively verified, and MUST NOT hold the composite result at
+    ``INSUFFICIENT_EVIDENCE`` despite the confirmed replacement evidence.
+    """
+    resource = _resource_type()
+    declaration = kubernetes_pod_recovery_function_type()
+    release = build_ontology_release(
+        object_types=(resource,),
+        function_types=(declaration,),
+    )
+    new_pod = _resource(
+        _POD_ID,
+        "kubernetes.pod",
+        phase="Running",
+        uid="pod-uid-new",
+        cluster_ref="cluster-a",
+        namespace="default",
+        owner_uid="rs-uid",
+        root_controller_uid="deployment-uid",
+        root_controller_kind="Deployment",
+        created_at=(_CUTOFF - timedelta(minutes=4)).isoformat(),
+        ready=True,
+        container_count=1,
+        ready_container_count=1,
+        restart_count=0,
+    )
+    secured = _secured_result(objects=(new_pod,), release=release)
+    controller_result, deployment_result = _owner_results(release=release)
+    authority = SecuredQueryReceiptAuthority()
+    for query_result in (secured, controller_result, deployment_result):
+        authority.issue(query_result)
+    registry = OntologyFunctionRegistry(release=release)
+    registry.register_contextual(
+        declaration,
+        kubernetes_pod_recovery_function(
+            release,
+            receipt_verifier=authority,
+            verification_context=authority.verification_context,
+        ),
+    )
+    context = FunctionInvocationContext(
+        caller_agent="Heimdall",
+        caller_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        evidence_refs=tuple(
+            sorted(
+                result.receipt.projected_result_digest
+                for result in (secured, controller_result, deployment_result)
+            )
+        ),
+    )
+    never_restarted_history = {
+        "concept_id": KUBERNETES_POD_RESTART_HISTORY_CONCEPT,
+        "resource_id": _POD_ID,
+        "unit": "count",
+        "start": (_CUTOFF - timedelta(minutes=30)).isoformat(),
+        "end": _CUTOFF.isoformat(),
+        "samples": [{"timestamp": _CUTOFF.isoformat(), "value": 0.0}],
+        "complete": True,
+        "evidence_refs": ["metric:pod-restart:example"],
+        "missing_reason": None,
+    }
+
+    result = await registry.invoke(
+        KUBERNETES_POD_RECOVERY_FUNCTION_NAME,
+        {
+            "pod_query_result": secured.model_dump(mode="json"),
+            "controller_query_result": controller_result.model_dump(mode="json"),
+            "deployment_query_result": deployment_result.model_dump(mode="json"),
+            "restart_history": never_restarted_history,
+            "lifecycle_cohort": {
+                "rows": [
+                    {
+                        "row_id": "old-failure",
+                        "values": {
+                            "pod_id": "pod-old",
+                            "pod_uid": "pod-uid-old",
+                            "cluster_ref": "cluster-a",
+                            "namespace": "default",
+                            "object_uid": "pod-uid-old",
+                            "owner_uid": "rs-uid",
+                            "root_controller_uid": "deployment-uid",
+                            "root_controller_kind": "Deployment",
+                            "identity_observed_at": (_CUTOFF - timedelta(minutes=7)).isoformat(),
+                            "identity_source_revision": "sha256:" + "a" * 64,
+                            "identity_evidence_ref": "kubernetes-pod-lifecycle:" + "b" * 64,
+                            "reason": "Failed",
+                            "category": "failed",
+                            "event_type": "Warning",
+                            "event_time": (_CUTOFF - timedelta(minutes=6)).isoformat(),
+                            "recorded_time": (_CUTOFF - timedelta(minutes=5)).isoformat(),
+                            "source_revision": "100",
+                            "evidence_ref": "old-failure",
+                        },
+                    }
+                ],
+                "complete": True,
+                "truncation_reason": None,
+                "window_start": (_CUTOFF - timedelta(minutes=30)).isoformat(),
+            },
+        },
+        context=context,
+    )
+
+    assert isinstance(result, KubernetesPodRecoveryEvidenceResult)
+    assert result.status is KubernetesPodRecoveryStatus.RECOVERED
+    assert result.recovery_verified is True
+    assert result.complete is True
+    assert not result.evidence_gaps
+    assert "old-failure" in result.evidence_refs
+
+
+async def test_same_uid_restart_without_historical_identity_is_not_penalized() -> None:
+    """A same-UID restart legitimately has no distinct historical predecessor.
+
+    A retained lifecycle cohort that observed only the current Pod's own
+    identity MUST NOT be treated as missing replacement evidence: the Pod's
+    own restart-count and deployment evidence already fully determine
+    recovery on their own.
+    """
+    resource = _resource_type()
+    declaration = kubernetes_pod_recovery_function_type()
+    release = build_ontology_release(
+        object_types=(resource,),
+        function_types=(declaration,),
+    )
+    secured = _secured(release=release)
+    controller_result, deployment_result = _owner_results(release=release)
+    authority = SecuredQueryReceiptAuthority()
+    for query_result in (secured, controller_result, deployment_result):
+        authority.issue(query_result)
+    registry = OntologyFunctionRegistry(release=release)
+    registry.register_contextual(
+        declaration,
+        kubernetes_pod_recovery_function(
+            release,
+            receipt_verifier=authority,
+            verification_context=authority.verification_context,
+        ),
+    )
+    context = FunctionInvocationContext(
+        caller_agent="Heimdall",
+        caller_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        evidence_refs=tuple(
+            sorted(
+                result.receipt.projected_result_digest
+                for result in (secured, controller_result, deployment_result)
+            )
+        ),
+    )
+
+    result = await registry.invoke(
+        KUBERNETES_POD_RECOVERY_FUNCTION_NAME,
+        {
+            "pod_query_result": secured.model_dump(mode="json"),
+            "controller_query_result": controller_result.model_dump(mode="json"),
+            "deployment_query_result": deployment_result.model_dump(mode="json"),
+            "restart_history": _restart_history(),
+            "lifecycle_cohort": {
+                "rows": [],
+                "complete": True,
+                "truncation_reason": None,
+                "window_start": (_CUTOFF - timedelta(minutes=30)).isoformat(),
+            },
+        },
+        context=context,
+    )
+
+    assert isinstance(result, KubernetesPodRecoveryEvidenceResult)
+    assert result.status is KubernetesPodRecoveryStatus.RECOVERED
+    assert result.recovery_verified is True
+    assert result.complete is True
+    assert not any(gap.startswith("replacement_evidence_") for gap in result.evidence_gaps)
+
+
+async def test_incomplete_pod_diagnosis_holds_the_composite_recovery_result() -> None:
+    """An incomplete safety-critical Pod diagnosis MUST hold the composite result.
+
+    The semantic runtime answers Pod recovery investigations from this
+    composite ``KubernetesPodRecoveryEvidenceResult``. If the exact diagnosis
+    QueryTable it is fused with is incomplete, that incompleteness MUST be
+    reflected here rather than silently treated as a fully answered,
+    trustworthy recovery evidence result.
+    """
+    resource = _resource_type()
+    declaration = kubernetes_pod_recovery_function_type()
+    release = build_ontology_release(
+        object_types=(resource,),
+        function_types=(declaration,),
+    )
+    secured = _secured(release=release)
+    controller_result, deployment_result = _owner_results(release=release)
+    authority = SecuredQueryReceiptAuthority()
+    for query_result in (secured, controller_result, deployment_result):
+        authority.issue(query_result)
+    registry = OntologyFunctionRegistry(release=release)
+    registry.register_contextual(
+        declaration,
+        kubernetes_pod_recovery_function(
+            release,
+            receipt_verifier=authority,
+            verification_context=authority.verification_context,
+        ),
+    )
+    context = FunctionInvocationContext(
+        caller_agent="Heimdall",
+        caller_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        evidence_refs=tuple(
+            sorted(
+                result.receipt.projected_result_digest
+                for result in (secured, controller_result, deployment_result)
+            )
+        ),
+    )
+
+    held = await registry.invoke(
+        KUBERNETES_POD_RECOVERY_FUNCTION_NAME,
+        {
+            "pod_query_result": secured.model_dump(mode="json"),
+            "controller_query_result": controller_result.model_dump(mode="json"),
+            "deployment_query_result": deployment_result.model_dump(mode="json"),
+            "restart_history": _restart_history(),
+            "diagnosis_result": {
+                "rows": [],
+                "complete": False,
+                "truncation_reason": "log_window_unavailable",
+            },
+        },
+        context=context,
+    )
+
+    assert isinstance(held, KubernetesPodRecoveryEvidenceResult)
+    assert held.status is KubernetesPodRecoveryStatus.INSUFFICIENT_EVIDENCE
+    assert held.complete is False
+    assert held.recovery_verified is False
+    assert "pod_diagnosis_log_window_unavailable" in held.evidence_gaps
+
+    answered = await registry.invoke(
+        KUBERNETES_POD_RECOVERY_FUNCTION_NAME,
+        {
+            "pod_query_result": secured.model_dump(mode="json"),
+            "controller_query_result": controller_result.model_dump(mode="json"),
+            "deployment_query_result": deployment_result.model_dump(mode="json"),
+            "restart_history": _restart_history(),
+            "diagnosis_result": {
+                "rows": [
+                    {
+                        "row_id": "kubernetes-pod-diagnosis",
+                        "values": {"evidence_refs": ["kubernetes-pod-diagnosis:example"]},
+                    }
+                ],
+                "complete": True,
+                "truncation_reason": None,
+            },
+        },
+        context=context,
+    )
+
+    assert isinstance(answered, KubernetesPodRecoveryEvidenceResult)
+    assert answered.status is KubernetesPodRecoveryStatus.RECOVERED
+    assert answered.recovery_verified is True
+    assert "kubernetes-pod-diagnosis:example" in answered.evidence_refs
+
+
 async def test_pod_lifecycle_cohort_query_uses_secured_controller_lineage() -> None:
     resource = _resource_type()
     declaration = kubernetes_pod_lifecycle_cohort_function_type()

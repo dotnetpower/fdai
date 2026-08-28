@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: c10469e1081f2e2eecbfb51ab3568842e4683a81
+translation_source_sha: cdb6fae64c91a94c2165ceecc39b160a1533f55d
 translation_revised: 2026-08-28
 ---
 # 지속형 운영 인스턴스 그래프
@@ -242,6 +242,7 @@ binding을
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-28 | implemented | 이전 exact 진단 하드닝이 남겨둔 네 가지 Pod 복구/진단 공백을 닫았습니다. 확인된 distinct-UID 교체 서사는 이제 조용히 무시되지 않고 복합 복구 결과를 승격합니다. Durable lifecycle cohort reader와 recovery evaluator 자체의 중복 gate는 정상적인 same-UID 재시작에 대해 조작된 과거 신원을 더 이상 요구하지 않으며, 오직 distinct한 과거 UID가 존재하지만 교체 서사를 만들 수 없을 때만 공백으로 취급합니다. Server-owned 복구 계획은 이제 manifest가 exact-Pod 진단 함수를 노출할 때마다 이를 복합 복구 노드의 dependency로 컴파일된 계획에 연결하며, recovery evaluator는 exact 진단이 미완성인 채로 안전-critical Pod 질의에 답하는 대신 복합 결과를 강등하거나 진단 근거를 병합합니다. | `current change`; `kubernetes_pod_recovery_queries.py`; `durable_kubernetes_pod_lifecycle_cohort.py`; `semantic_kubernetes_pod_recovery_planning.py`; 집중 Pod 복구, 교체, 진단, durable cohort, semantic planning, tier-routing, composition 검사(`432 passed`); 변경한 모든 파일에서 Ruff, `ruff format --check`, strict mypy 통과 | 인증된 정확한 대상 진단 및 교체 증적은 별도로 보존합니다. 실제 공급자는 조회하지 않았습니다. |
 | 2026-08-28 | implemented | 로그 공급자 I/O 전에 정확한 Pod 진단을 강화했습니다. 종료 근거는 요청한 조회 기간 안에 있어야 하고 수명 주기 행은 정확한 Pod UID가 일치할 때만 기여할 수 있습니다. 변환된 Pod 상태에는 출처 계보를 갖춘 완전하고 최신이며 충돌이 없고 합성이 아닌 공급자 메타데이터가 필요합니다. 같은 UID 교체 축약은 불변 UID가 이미 대체한 과거 소유권 근거를 더 이상 요구하지 않습니다. | `current change`; 집중 Pod 진단 및 교체 검사(`27 passed`); Ruff 및 strict mypy | 인증된 정확한 대상 진단 근거는 별도로 보존합니다. 실제 공급자는 조회하지 않았습니다. |
 | 2026-08-27 | implemented | Kubernetes LIST pagination과 atomic persistence 상한을 맞췄습니다. 반환된 각 page 항목을 모두 소비하므로 continuation 뒤의 숨은 sentinel 행을 건너뛸 수 없고, 완전히 소진한 8개 page poll 하나가 cursor fence를 적용한 append 하나에 들어갑니다. | `current change`, lifecycle source, collector 및 PostgreSQL store 검사(`40 passed`, `FDAI_DATABASE_URL` 미설정으로 `5 skipped`), Ruff 및 strict mypy | Live cluster 및 durable PostgreSQL 증적은 별도로 보존합니다. 외부 근거를 생성하지 않았습니다. |
 | 2026-08-27 | implemented | 양방향 `runtime_calls` 관측을 directional edge 두 개로 보존했습니다. 서비스 간 상호 호출은 더 이상 orientation conflict로 전체 topology baseline을 억제하지 않습니다. | `current change`, 집중 inventory projection 및 topology-history 검사(`29 passed`), Ruff 및 strict mypy | 인증된 runtime-call 근거는 별도로 보존합니다. 출처 관측을 만들지 않았습니다. |

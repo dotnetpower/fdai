@@ -9,6 +9,10 @@ from fdai.core.conversation.semantic_planning import SemanticPlanningService
 from fdai.core.conversation.semantic_planning_models import SemanticPlanningDisposition
 from fdai.core.conversation.session import Principal, Role
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, build_query_manifest
+from fdai.core.ontology_platform.kubernetes_pod_diagnosis_queries import (
+    KUBERNETES_POD_DIAGNOSIS_FUNCTION_NAME,
+    kubernetes_pod_diagnosis_function_type,
+)
 from fdai.core.ontology_platform.kubernetes_pod_lifecycle_cohort_queries import (
     KUBERNETES_POD_LIFECYCLE_COHORT_FUNCTION_NAME,
     kubernetes_pod_lifecycle_cohort_function_type,
@@ -58,7 +62,7 @@ class _Model:
         return None
 
 
-def _manifest():  # type: ignore[no-untyped-def]
+def _manifest(*, with_diagnosis: bool = False):  # type: ignore[no-untyped-def]
     resource = OntologyObjectType(
         schema_version="1.0.0",
         name="Resource",
@@ -72,6 +76,12 @@ def _manifest():  # type: ignore[no-untyped-def]
     )
     function = kubernetes_pod_recovery_function_type()
     cohort_function = kubernetes_pod_lifecycle_cohort_function_type()
+    functions = (function, cohort_function)
+    bound_function_names = (function.name, cohort_function.name)
+    if with_diagnosis:
+        diagnosis_function = kubernetes_pod_diagnosis_function_type()
+        functions = (*functions, diagnosis_function)
+        bound_function_names = (*bound_function_names, diagnosis_function.name)
     dependency = OntologyLinkType(
         schema_version="1.0.0",
         name="depends_on",
@@ -91,7 +101,7 @@ def _manifest():  # type: ignore[no-untyped-def]
     release = build_ontology_release(
         object_types=(resource,),
         link_types=(dependency, ownership),
-        function_types=(function, cohort_function),
+        function_types=functions,
     )
     return build_query_manifest(
         release=release,
@@ -100,8 +110,8 @@ def _manifest():  # type: ignore[no-untyped-def]
         principal_scope_digest=DIGEST,
         object_types=(resource,),
         link_types=(dependency, ownership),
-        functions=(function, cohort_function),
-        bound_function_names=(function.name, cohort_function.name),
+        functions=functions,
+        bound_function_names=bound_function_names,
     )
 
 
@@ -233,5 +243,77 @@ def test_exact_pod_restart_investigation_uses_server_owned_plan() -> None:
     )
     assert "pod-lifecycle-events" in outcome.plan.nodes[-1].depends_on
     assert "pod-replacement-candidates" in outcome.plan.nodes[-1].depends_on
+    assert model.plan_calls == 0
+    assert outcome.execution_authority is False
+
+
+def test_exact_pod_restart_investigation_wires_in_exact_diagnosis() -> None:
+    """The server-owned recovery plan MUST invoke the exact Pod diagnosis function.
+
+    When the diagnosis function is available, the plan MUST NOT omit it: it
+    MUST appear as a wired dependency of the composite recovery evidence node
+    so that the semantic runtime's answer is always fused with the exact
+    diagnosis, not silently missing it.
+    """
+    utterance = "order-api-0 Pod가 갑자기 재시작된 원인과 현재 회복 여부를 조사해줘."
+    model = _Model(_frame(utterance))
+    verifier = OntologyQueryPlanVerifier(
+        available_kinds=(
+            QueryNodeKind.OBJECT_SET,
+            QueryNodeKind.METRIC_SCOPE_SERIES,
+            QueryNodeKind.RELATIONSHIP_TRAVERSAL,
+            QueryNodeKind.FUNCTION,
+        ),
+        extension_argument_schemas={
+            QueryNodeKind.METRIC_SCOPE_SERIES: METRIC_ARGUMENT_SCHEMAS[
+                QueryNodeKind.METRIC_SCOPE_SERIES
+            ]
+        },
+        reviewed_metric_concepts=(KUBERNETES_POD_RESTART_HISTORY_CONCEPT,),
+    )
+    service = SemanticPlanningService(
+        model=model,
+        manifests=_ManifestProvider(_manifest(with_diagnosis=True)),
+        verifier=verifier,
+        metric_concepts=(
+            "deployment.change",
+            KUBERNETES_POD_RESTART_SYMPTOM_CONCEPT,
+            KUBERNETES_POD_RESTART_HISTORY_CONCEPT,
+            "resource.saturation",
+        ),
+        now=lambda: NOW,
+    )
+
+    outcome = service.plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED, outcome.reason
+    assert outcome.plan is not None
+    assert tuple(node.kind for node in outcome.plan.nodes) == (
+        QueryNodeKind.OBJECT_SET,
+        QueryNodeKind.METRIC_SCOPE_SERIES,
+        QueryNodeKind.RELATIONSHIP_TRAVERSAL,
+        QueryNodeKind.RELATIONSHIP_TRAVERSAL,
+        QueryNodeKind.OBJECT_SET,
+        QueryNodeKind.FUNCTION,
+        QueryNodeKind.FUNCTION,
+        QueryNodeKind.FUNCTION,
+    )
+    recovery_node = outcome.plan.nodes[-1]
+    diagnosis_node = outcome.plan.nodes[-2]
+    assert recovery_node.arguments["function_name"] == KUBERNETES_POD_RECOVERY_FUNCTION_NAME
+    assert diagnosis_node.arguments["function_name"] == KUBERNETES_POD_DIAGNOSIS_FUNCTION_NAME
+    assert "pod-diagnosis-evidence" in recovery_node.depends_on
+    assert recovery_node.arguments["dependency_arguments"]["pod-diagnosis-evidence"] == (
+        "diagnosis_result"
+    )
+    assert "pod-lifecycle-events" in diagnosis_node.depends_on
+    assert diagnosis_node.arguments["dependency_arguments"]["pod-lifecycle-events"] == (
+        "lifecycle_events"
+    )
     assert model.plan_calls == 0
     assert outcome.execution_authority is False

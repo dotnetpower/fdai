@@ -51,6 +51,13 @@ KUBERNETES_POD_RECOVERY_PURPOSE = "operations-review"
 KUBERNETES_POD_RESTART_SYMPTOM_CONCEPT = "pod.restart"
 KUBERNETES_POD_RESTART_HISTORY_CONCEPT = "pod.restart.history"
 
+# Gaps that ``evaluate_kubernetes_pod_recovery`` raises solely because a Pod
+# has never itself restarted. They are spurious for a brand-new replacement
+# Pod once an independent distinct-UID replacement is conclusively verified.
+_RESTART_IDENTITY_GAPS = frozenset(
+    {"restart_not_observed_in_current_pod", "restart_not_observed_in_window"}
+)
+
 
 def _source_artifact_digest() -> str:
     source = Path(__file__).read_bytes()
@@ -63,7 +70,7 @@ def kubernetes_pod_recovery_function_type() -> OntologyFunctionType:
 
     return OntologyFunctionType(
         name=KUBERNETES_POD_RECOVERY_FUNCTION_NAME,
-        version="1.2.0",
+        version="1.3.0",
         kind=OntologyFunctionKind.QUERY,
         artifact_digest=_source_artifact_digest(),
         publisher="fdai",
@@ -106,6 +113,10 @@ def kubernetes_pod_recovery_function_type() -> OntologyFunctionType:
                     "x-fdai-dependency-only": True,
                 },
                 "replacement_candidates_query_result": {
+                    "type": "object",
+                    "x-fdai-dependency-only": True,
+                },
+                "diagnosis_result": {
                     "type": "object",
                     "x-fdai-dependency-only": True,
                 },
@@ -273,6 +284,7 @@ def kubernetes_pod_recovery_function(
             )
         elif isinstance(lifecycle_cohort, Mapping) and lifecycle_cohort.get("complete") is True:
             replacement_context = arguments.get("replacement_context")
+            explicit_replacement_context = replacement_context is not None
             if (
                 replacement_context is None
                 and replacement_old_result is not None
@@ -291,19 +303,28 @@ def kubernetes_pod_recovery_function(
                     lifecycle_cohort=lifecycle_cohort,
                     candidate_result=replacement_candidates_result,
                 )
+            historical_identity_present = explicit_replacement_context or bool(
+                _historical_replacement_rows(pod_result, lifecycle_cohort)
+            )
             if replacement_context is None:
-                result = result.model_copy(
-                    update={
-                        "complete": False,
-                        "recovery_verified": False,
-                        "status": KubernetesPodRecoveryStatus.INSUFFICIENT_EVIDENCE,
-                        "evidence_gaps": tuple(
-                            dict.fromkeys(
-                                (*result.evidence_gaps, "replacement_evidence_unavailable")
-                            )
-                        ),
-                    }
-                )
+                if historical_identity_present:
+                    # A distinct predecessor UID is on record but a replacement
+                    # narrative could not be derived from it: a genuine gap.
+                    result = result.model_copy(
+                        update={
+                            "complete": False,
+                            "recovery_verified": False,
+                            "status": KubernetesPodRecoveryStatus.INSUFFICIENT_EVIDENCE,
+                            "evidence_gaps": tuple(
+                                dict.fromkeys(
+                                    (*result.evidence_gaps, "replacement_evidence_unavailable")
+                                )
+                            ),
+                        }
+                    )
+                # else: the retained cohort holds only the current Pod's own
+                # identity. That is a legitimate same-UID restart, not missing
+                # replacement evidence, so the base result stands unchanged.
             elif isinstance(replacement_context, Mapping):
                 replacement = _replacement_from_context(
                     replacement_context,
@@ -333,6 +354,38 @@ def kubernetes_pod_recovery_function(
                             ),
                         }
                     )
+                elif replacement is not None and replacement.recovery_verified:
+                    result = _apply_confirmed_replacement(result, replacement)
+        diagnosis_result = arguments.get("diagnosis_result")
+        if isinstance(diagnosis_result, Mapping) and diagnosis_result.get("complete") is False:
+            reason = diagnosis_result.get("truncation_reason")
+            gap = (
+                f"pod_diagnosis_{reason}"
+                if isinstance(reason, str) and reason
+                else "pod_diagnosis_incomplete"
+            )
+            result = result.model_copy(
+                update={
+                    "complete": False,
+                    "recovery_verified": False,
+                    "status": (
+                        result.status
+                        if result.status is KubernetesPodRecoveryStatus.CONFLICTING_EVIDENCE
+                        else KubernetesPodRecoveryStatus.INSUFFICIENT_EVIDENCE
+                    ),
+                    "evidence_gaps": tuple(dict.fromkeys((*result.evidence_gaps, gap))),
+                }
+            )
+        elif isinstance(diagnosis_result, Mapping) and diagnosis_result.get("complete") is True:
+            diagnosis_refs = _diagnosis_evidence_refs(diagnosis_result)
+            if diagnosis_refs:
+                result = result.model_copy(
+                    update={
+                        "evidence_refs": tuple(
+                            dict.fromkeys((*result.evidence_refs, *diagnosis_refs))
+                        ),
+                    }
+                )
         return result
 
     return evaluate
@@ -467,6 +520,106 @@ def _replacement_from_context(
     )
 
 
+def _historical_replacement_rows(
+    pod_result: SecuredObjectSetQueryResult,
+    lifecycle_cohort: Mapping[str, Any],
+) -> tuple[Mapping[str, Any], ...]:
+    """Return retained cohort rows recording a Pod UID distinct from the current Pod.
+
+    An empty result legitimately means the retained cohort observed only the
+    current Pod's own identity: a same-UID restart, not a replacement. That
+    absence MUST NOT be conflated with missing replacement evidence.
+    """
+
+    pod_objects = pod_result.materialization.graph.objects
+    if len(pod_objects) != 1:
+        return ()
+    properties = _resource_properties(pod_objects[0])
+    current_uid = properties.get("uid")
+    if not isinstance(current_uid, str) or not current_uid.strip():
+        return ()
+    raw_rows = lifecycle_cohort.get("rows")
+    if not isinstance(raw_rows, Sequence) or isinstance(raw_rows, (str, bytes)):
+        return ()
+    typed_rows: tuple[Mapping[str, Any], ...] = tuple(
+        cast(Mapping[str, Any], row["values"])
+        for row in raw_rows
+        if isinstance(row, Mapping) and isinstance(row.get("values"), Mapping)
+    )
+    return tuple(
+        row
+        for row in typed_rows
+        if isinstance(row.get("object_uid"), str) and row["object_uid"] != current_uid
+    )
+
+
+def _apply_confirmed_replacement(
+    result: KubernetesPodRecoveryEvidenceResult,
+    replacement: KubernetesPodReplacementEvidenceResult,
+) -> KubernetesPodRecoveryEvidenceResult:
+    """Fold a conclusively verified distinct-UID replacement into the composite result.
+
+    A same-UID container restart proves recovery through its own restart
+    count; ``_RESTART_IDENTITY_GAPS`` exist only because a brand-new
+    replacement Pod has, by definition, never itself "restarted". Once an
+    independent distinct-UID replacement is conclusively verified
+    (``replacement.recovery_verified``), those two gaps are spurious for this
+    Pod and MUST be cleared instead of holding the result at
+    ``INSUFFICIENT_EVIDENCE`` despite conclusive evidence of recovery.
+    """
+
+    if replacement.status not in (
+        KubernetesPodReplacementStatus.POD_REPLACEMENT,
+        KubernetesPodReplacementStatus.ROLLOUT_REPLACEMENT,
+    ):
+        return result
+    if result.status is not KubernetesPodRecoveryStatus.INSUFFICIENT_EVIDENCE:
+        return result
+    remaining_gaps = tuple(gap for gap in result.evidence_gaps if gap not in _RESTART_IDENTITY_GAPS)
+    merged_refs = tuple(
+        dict.fromkeys(
+            (
+                *result.evidence_refs,
+                *replacement.historical_evidence_refs,
+                *replacement.current_evidence_refs,
+            )
+        )
+    )
+    if remaining_gaps:
+        return result.model_copy(
+            update={"evidence_gaps": remaining_gaps, "evidence_refs": merged_refs}
+        )
+    return result.model_copy(
+        update={
+            "complete": True,
+            "recovery_verified": True,
+            "status": KubernetesPodRecoveryStatus.RECOVERED,
+            "evidence_gaps": (),
+            "evidence_refs": merged_refs,
+        }
+    )
+
+
+def _diagnosis_evidence_refs(diagnosis_result: Mapping[str, Any]) -> tuple[str, ...]:
+    """Extract evidence references recorded on a complete Pod diagnosis QueryTable."""
+
+    rows = diagnosis_result.get("rows")
+    if not isinstance(rows, Sequence) or isinstance(rows, (str, bytes)):
+        return ()
+    refs: list[str] = []
+    for row in rows:
+        if not isinstance(row, Mapping):
+            continue
+        values = row.get("values")
+        if not isinstance(values, Mapping):
+            continue
+        row_refs = values.get("evidence_refs")
+        if not isinstance(row_refs, Sequence) or isinstance(row_refs, (str, bytes)):
+            continue
+        refs.extend(ref for ref in row_refs if isinstance(ref, str))
+    return tuple(dict.fromkeys(refs))
+
+
 def _default_replacement_context(
     pod_result: SecuredObjectSetQueryResult,
     *,
@@ -481,22 +634,7 @@ def _default_replacement_context(
         return None
     pod = pod_objects[0]
     properties = _resource_properties(pod)
-    current_uid = properties.get("uid")
-    if not isinstance(current_uid, str) or not current_uid.strip():
-        return None
-    raw_rows = lifecycle_cohort.get("rows")
-    if not isinstance(raw_rows, Sequence) or isinstance(raw_rows, (str, bytes)):
-        return None
-    typed_rows: tuple[Mapping[str, Any], ...] = tuple(
-        cast(Mapping[str, Any], row["values"])
-        for row in raw_rows
-        if isinstance(row, Mapping) and isinstance(row.get("values"), Mapping)
-    )
-    old_rows = tuple(
-        row
-        for row in typed_rows
-        if isinstance(row.get("object_uid"), str) and row["object_uid"] != current_uid
-    )
+    old_rows = _historical_replacement_rows(pod_result, lifecycle_cohort)
     if not old_rows:
         return None
     old_uids = tuple(sorted({str(row["object_uid"]) for row in old_rows}))

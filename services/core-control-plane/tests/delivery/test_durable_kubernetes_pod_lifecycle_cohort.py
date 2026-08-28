@@ -126,3 +126,42 @@ async def test_cohort_requires_retained_current_identity() -> None:
 
     assert result["complete"] is False
     assert result["truncation_reason"] == "current_pod_identity_unavailable"
+
+
+async def test_cohort_is_complete_for_same_uid_restart_without_historical_identity() -> None:
+    """A same-UID restart never replaces the Pod, so no distinct historical UID exists.
+
+    The retained cohort correctly holds only the current Pod's own identity in
+    that case. That legitimate absence MUST NOT be treated as missing
+    replacement evidence and MUST NOT hold the cohort incomplete.
+    """
+
+    current_identity = _identity("pod/orders-current", "pod-current")
+    reader = DurableKubernetesPodLifecycleCohortReader(
+        store=_Store(
+            KubernetesPodLifecycleCohortSnapshot(
+                state=KubernetesLifecycleCursorState(
+                    resource_version="100",
+                    updated_at=NOW,
+                    coverage_started_at=NOW - timedelta(hours=1),
+                ),
+                identities=(current_identity,),
+                observations=(_event("pod-current"),),
+            )
+        ),
+        cluster_ref="cluster-a",
+    )
+
+    result = await reader.read_pod_lifecycle_cohort(
+        current_pod_id="pod/orders-current",
+        current_pod_uid="pod-current",
+        namespace="default",
+        root_controller_uid="deployment-uid",
+        lookback_seconds=1800,
+        observed_at=NOW,
+    )
+
+    assert result["complete"] is True
+    assert result["truncation_reason"] is None
+    values = result["rows"][0]["values"]  # type: ignore[index]
+    assert values["object_uid"] == "pod-current"  # type: ignore[index]

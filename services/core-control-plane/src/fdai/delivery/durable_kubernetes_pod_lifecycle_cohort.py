@@ -102,9 +102,10 @@ class DurableKubernetesPodLifecycleCohortReader:
             or current.root_controller_uid != root_controller_uid
         ):
             limitation = "current_pod_identity_unavailable"
-        historical_uids = set(identity_by_uid).difference({current_pod_uid})
-        if limitation is None and not historical_uids:
-            limitation = "historical_pod_identity_unavailable"
+        # A same-UID restart never replaces the Pod, so the retained cohort
+        # legitimately holds no identity distinct from `current_pod_uid`. That
+        # absence is a valid outcome, not missing evidence, so it MUST NOT
+        # mark the cohort incomplete.
         rows = []
         for observation in observations[:_MAX_EVENTS]:
             identity = identity_by_uid.get(observation.object_uid)
