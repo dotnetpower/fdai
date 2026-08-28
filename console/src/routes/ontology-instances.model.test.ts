@@ -8,6 +8,7 @@ import {
   isMatchableOntologyInstanceQuery,
   ontologyInstanceAutocompleteSuggestions,
   ontologyInstanceAksLanes,
+  ontologyInstanceContextIdentity,
   ontologyInstanceNetworkPaths,
   ontologyInstancePresentationLinks,
   ontologyInstanceResourceAutocompleteOptions,
@@ -529,6 +530,34 @@ describe("Resource instance autocomplete", () => {
       ...data,
       resources: [{ ...root, resource_type: "authorization.role-assignment" }],
     })).toBe(false);
+  });
+
+  it("excludes hidden role assignments from the exact screen selection identity", () => {
+    const value = payload();
+    value.principal_id = "operator-1";
+    value.principal_scope_digest = `sha256:${"b".repeat(64)}`;
+    value.selection_digest = `sha256:${"c".repeat(64)}`;
+    value.context_capability = { selection_token: "context-selection:" + "a".repeat(32) };
+    const data = decodeOntologyInstanceExploration(value);
+    const role = {
+      ...data.resources[1]!,
+      id: "role-assignment",
+      resource_type: "authorization.role-assignment",
+    };
+
+    const identity = ontologyInstanceContextIdentity({
+      ...data,
+      resources: [...data.resources, role],
+    });
+
+    expect(identity?.resourceIds).toEqual(["root", "environment"]);
+    expect(identity?.resourceIds).not.toContain("role-assignment");
+  });
+
+  it("withholds the selection identity when context identity fields are absent", () => {
+    const data = decodeOntologyInstanceExploration(payload());
+
+    expect(ontologyInstanceContextIdentity(data)).toBeUndefined();
   });
 
   it("resolves one exact display label", () => {

@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: c7bffab2903209095539c49639a971cc0722fda2
-translation_revised: 2026-08-27
+translation_source_sha: db1b222600abcbfae5847a6386e6b3ca6bcbf239
+translation_revised: 2026-08-28
 ---
 # FDAI Console 대화
 사람 오퍼레이터가 CLI, Teams, Slack, 웹 챗을 통해 FDAI에 **역으로 말할 수 있는** 방식입니다. 별도 제품이 아닌 FDAI Console의 **대화형 표면**로서 계층 아키텍처, 도구 카탈로그, LLM tier, 세션 지속성, 도구별 RBAC, 안전 invariant, 롤아웃 상태를 정의합니다.
@@ -83,6 +83,8 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 2026-08-20 | implemented | Command Deck과 adaptive-response 시안을 기준으로 독립적인 답변 상태 동등성 검토 12회를 완료했습니다. 연결된 조사는 에이전트 머리글 하나를 유지하고, 기본 답변과 복사는 일치하는 최종 기계 사유 접미사만 제외하며, 출처 및 컨텍스트 보류는 주의 색상을 사용하고, 검증되지 않은 참조는 근거 있음 표시를 사용하지 않습니다. 표는 평면 리포트 계층을 사용하고, 시계열은 순서가 있는 단일 축을 유지하며, 부호가 있는 비교는 방향을 보존하고, 모바일 overlay grid는 Send를 viewport 안에 유지합니다. | `current change`, [이슈 #246](https://github.com/dotnetpower/fdai/issues/246), 집중 답변 UI 검사 164개, Console 타입 검사, 운영 빌드, entry bundle 및 1440 x 900, 993 x 641, 390 x 844 합성 Playwright 통과 | 이 범위에는 Medium 이상의 표현 문제가 남아 있지 않습니다. 통제된 인증 답변 근거와 기존 Low 수준의 범위 제한 모바일 출처 strip 가로 스크롤은 별도로 추적합니다. |
 | 2026-08-20 | implemented | 인증된 screenshot에서 최종 답변 앞에 일시적인 시작 카드와 펼칠 수 있는 수명 주기 행이 남아 답변을 밀어내는 문제가 확인되어 앞선 동등성 결론을 바로잡았습니다. 완료된 흐름은 일시적인 화면을 정적인 관찰 작업 요약 하나로 바꾸고, 정확한 쿼리 및 출력 근거는 접힌 Run record 안에만 유지하며, 의미 근거 보류를 `Unsupported claim`이 아니라 `Source unavailable`로 표시합니다. 모바일 최종 요약과 답변 동작은 간결한 의미 단위 grid를 사용합니다. | `current change`, 다시 연 [이슈 #246](https://github.com/dotnetpower/fdai/issues/246), 집중 수명 주기 및 시각 검사, 시안 정렬 실행 Playwright, 가로 overflow가 없는 인증된 1440 x 900, 993 x 641, 390 x 844 배치 측정 | 최종 답변 계층에는 Medium 이상의 문제가 남아 있지 않습니다. 정확한 실행 근거는 Run record에서 계속 확인할 수 있고 권한은 바뀌지 않았습니다. |
 | 2026-08-25 | implemented | 모든 요약, 대응 단계, 책임 에이전트 기여를 기존 Incident 및 감사 변환 결과에 근거한 채 운영 Incident 작업 영역을 승인된 시안에 맞췄습니다. 결과 근거는 접근 가능한 접힌 disclosure에서 계속 확인할 수 있으며 Console에는 실행 권한이 추가되지 않습니다. | `current change`; [이슈 #272](https://github.com/dotnetpower/fdai/issues/272); 집중 Incident Vitest `55 passed`; 데스크톱/모바일 Playwright `6 passed`; 운영 build 및 entry-bundle gate 통과; 1440 x 900, 993 x 641, 390 x 844의 인증된 브라우저 검사에서 문서와 주요 영역의 horizontal overflow가 모두 0이었습니다. | 범위가 제한된 Incident 시안 정렬 구획에 남은 구현 작업은 없습니다. |
+| 2026-08-28 | implemented | 위 exact contextual Resource selection 행에 있던 공백 두 건을 닫았습니다. `backend-context.ts`는 `contextIdentity`의 principal, scope digest, release digest 능력 메타데이터를 포함한 전체 `ViewSnapshot`을, `context_capability`가 이미 허용 목록에 올린 불투명한 `selectionToken`만이 아니라 narrator용 `view_context`로 스프레드했습니다. 이제는 `contextIdentity`를 먼저 제거하는 `narratorViewFields` 헬퍼를 통해 `view_context`를 만듭니다. 별도로 `ontology-instances.tsx`의 exact-screen selection identity는 같은 화면이 이미 렌더링된 그래프와 범례에서 제외하는 숨겨진 `authorization.role-assignment` 리소스도 `resourceIds`에 포함했습니다. identity 빌더는 `ontology-instances.model.ts`로 옮겨져 `ontologyInstanceContextIdentity`가 되었고, 이제 기존 presentation-resource 가드로 먼저 필터링합니다. | `current change`; `console/src/deck/backend-context.test.ts`(`22개 통과`) 및 `console/src/routes/ontology-instances.model.test.ts`(`30개 통과`); Console 타입 검사 통과 | 수정된 selection identity에 대한 통제된 인증 근거를 보존해야 합니다. capability, 권한, wire-contract 형태는 변경하지 않았습니다. |
+
 ### 남은 작업
 
 - [ ] Snapshot-first `GET /agents/activity` hydration과 더 새로운 실제 운영 프레임이 Console 행을 중복 생성하지 않고 같은 현재 상태 activity id로 수렴함을 보여 주는 통제된 cross-service 증적을 기록합니다.

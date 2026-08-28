@@ -1,8 +1,8 @@
 ---
 title: Operator Console - View Snapshot Contract
 translation_of: operator-console-view-snapshot.md
-translation_source_sha: 68e9c7a7c8db6eea0f8f0b363a05d92d285a5a07
-translation_revised: 2026-08-27
+translation_source_sha: 1108fccdd6b4a286a597a83c43ee13e9695bfdb0
+translation_revised: 2026-08-28
 ---
 
 # Operator Console - 화면 스냅샷 계약
@@ -414,6 +414,7 @@ policy-violation escape는 측정 기간, 기준선, 표본 수와 함께 통제
 | 2026-08-14 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 ViewSnapshot, planning, Live 및 focused 테스트 근거입니다. | 승격 전에 관리되는 화면 간 및 shadow qualification 근거를 보존해야 합니다. |
 | 2026-08-14 | implemented | 외부에서 측정한 sealed bilingual planning batch 하나를 검증하고 byte-stable하며 권한이 없는 qualification 증적을 내보내는 결정론적 CLI를 추가했습니다. | `current change`; `answer-planning-qualification.py`; 집중 CLI 테스트 5개가 통과했습니다. | 선택적 activation 전에 실제 EN/KO 100-case batch를 제공하고 별도 검토 결과를 보존해야 합니다. |
 | 2026-08-16 | in-progress | 보존되는 Phase E conflict 사례와 권한 없는 shadow 레코드 키 계약을 추가했습니다. | `pytest services/core-control-plane/tests/core/conversation/`가 보존된 근거 집합, 확신도 기반 승자 없음, 변하지 않는 기본 agent, 권한 없는 레코드 키, 도메인 간 conflict, 계획 범위 내 section을 다루는 신규 conflict 사례 6개를 포함해 집중 테스트 111개를 통과했습니다. | Phase D 선택적 activation 검토를 마치고 관리되는 화면 간 증적을 보존해야 합니다. |
+| 2026-08-28 | implemented | 13.4절의 `ViewSnapshot` 경계에 대한 Console 측 공백 두 건을 닫았습니다. `backend-context.ts`는 `contextIdentity`의 principal, scope digest, release digest 필드를 포함한 전체 `ViewSnapshot`을 narrator `view_context`로 스프레드했습니다. 이제는 `narratorViewFields` 헬퍼를 통해 오직 불투명한 `selectionToken`과 다른 비-identity view 필드만 전달합니다. 별도로 `ontology-instances.tsx`의 exact-screen selection identity는 가져온 모든 리소스에서 `resourceIds`를 만들었으며, 같은 화면이 이미 렌더링에서 제외하는 숨겨진 `authorization.role-assignment` 리소스도 포함했습니다. identity 빌더는 `ontology-instances.model.ts`로 옮겨져 `ontologyInstanceContextIdentity`가 되었고, 이제 id를 매핑하기 전에 기존 `isOntologyInstancePresentationResource` 가드로 필터링합니다. | `current change`; `console/src/deck/backend-context.test.ts`(`22개 통과`) 및 `console/src/routes/ontology-instances.model.test.ts`(`30개 통과`); `npm run typecheck` 정상 | 승격 전에 관리되는 화면 간 및 shadow qualification 근거를 보존해야 합니다. 권한이나 계약 형태는 변경하지 않습니다. |
 
 ### 남은 작업
 
