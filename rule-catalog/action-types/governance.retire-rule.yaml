@@ -22,7 +22,7 @@ stop_conditions:
   seconds: 300
 blast_radius:
   computation: static_enum
-  static_bucket: resource
+  static_bucket: subscription
 description: Move a rule out of the enforce set. Retirement is a reviewed catalog-as-code
   diff, not an override.
 category: governance
@@ -63,6 +63,6 @@ argument_schema:
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: action-type:governance.retire-rule@1.0.0
-  content_hash: sha256:4ffa541db3cc34a58a9f258cb77bdfe16aaf0e1c3a45255474d8ae9a9e8101ba
+  content_hash: sha256:addb0eb8d5fe2f7df75bd265d750c64e26126b10495b53c2db16f2fc3c9e4986
   license: MIT
   retrieved_at: "2026-07-29T00:00:00Z"
