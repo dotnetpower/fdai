@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: b9248cefecc836621358626adc5d842458ca8857
+translation_source_sha: b558ae07b5e067bea3cc73d79826e32de711f8e2
 translation_revised: 2026-08-29
 ---
 # 코드 맵
@@ -156,6 +156,8 @@ Azure Monitor 경보 정규화도 Event 및 멱등성 신원을 만들기 전에
 오프셋 표현만 다른 프로바이더 재시도가 중복 인시던트 신호가 되지 않습니다.
 Knowledge 검색은 pgvector 경계에서 유한하지 않은 임베딩을 차단하고 메모리 참조 구현에서는
 유한하지 않은 유사도를 0으로 처리하여 잘못된 모델 출력에서도 결정적 순위를 유지합니다.
+대화 사전 검사는 social narration 전에 직접 응답 profile의 범위를 확인하며, 너무 큰 입력은
+운영 맥락을 노출하거나 모델을 호출하지 않고 보류합니다.
 런타임 초기화는 의미 준비 상태와 버티컬 workload-identity construction을 기존 수명 주기 및
 연결 보조 로직에 위임하여 기본 조립 루트를 검토된 fanout 상한 아래로 유지합니다. Thin
 초기화 래퍼는 injected identity-builder 테스트 및 포크 경계를 보존합니다.
