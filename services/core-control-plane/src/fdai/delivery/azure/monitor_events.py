@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 from uuid import UUID, uuid5
@@ -69,7 +69,7 @@ def normalize_diagnostic_records(
         metric_name = _text(record, "metricName")
         if metric_name not in allowed:
             continue
-        detected_at = _timestamp(record, "time")
+        detected_at = _timestamp(record, "time").astimezone(UTC)
         if detected_at > ingested_at:
             raise AzureMonitorNormalizationError("diagnostic record time MUST NOT be in the future")
         provider_ref = _text(record, "resourceId")
