@@ -263,6 +263,8 @@ class GovernedGovernancePrPublisher:
                 metadata={"correlation_id": correlation_id, "document_digest": digest},
             )
         )
+        if receipt.already_existed:
+            raise GovernancePrError("existing governance PR lacks matching lifecycle evidence")
         state = receipt.state
         if state not in {"open", "merged", "closed"}:
             raise GovernancePrError("governance PR publisher returned an invalid lifecycle state")
