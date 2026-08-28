@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
+from pydantic import ValidationError
+
 from fdai_service_contracts.operational_coverage import (
     OperationalCoverageCount,
     OperationalCoverageDisposition,
@@ -12,7 +14,6 @@ from fdai_service_contracts.operational_coverage import (
     OperationalCoverageReceipt,
     operational_coverage_receipt_digest,
 )
-from pydantic import ValidationError
 
 DIGEST_A = "sha256:" + "a" * 64
 DIGEST_B = "sha256:" + "b" * 64
