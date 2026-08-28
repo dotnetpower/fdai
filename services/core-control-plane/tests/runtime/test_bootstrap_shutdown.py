@@ -33,7 +33,7 @@ async def test_close_runtime_resources_preserves_order_after_bounded_failures() 
     await close_runtime_resources(
         health_server=_Resource("health", calls, fail=True),
         pantheon_runtime=_Resource("pantheon", calls, fail=True),
-        runtime_state_publisher=_Resource("publisher", calls),
+        runtime_state_publisher=_Resource("publisher", calls, fail=True),
         diagnostic_bus=_Resource("diagnostic", calls, fail=True),
         auxiliary_bus=_Resource("auxiliary", calls, fail=True),
         bus=_Resource("bus", calls, fail=True),
