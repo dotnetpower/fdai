@@ -23,7 +23,7 @@ bounded evidence. Agents remain the active control plane and own every state tra
 > recovery coordinator, independent multi-effect settlement, replay, retention, and governed
 > learning inputs are implemented with local evidence. A live-authoritative settled cohort and
 > independent package and per-action promotion reviews do not yet exist.
-> Hardening rounds 1-11 also bind settlement revisions and scope-match access grants; no runtime authority changes.
+> Twelve critique rounds fixed every identified Medium-or-higher defect; the final review found only Low test-organization opportunities. No runtime authority changed.
 
 ## Design at a glance
 
