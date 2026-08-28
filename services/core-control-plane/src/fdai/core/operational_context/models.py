@@ -2,11 +2,34 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 
 from fdai.shared.contracts.models import Autonomy
 from fdai.shared.providers.state_evidence import LinkObservationMetadata
+
+# Object properties that MAY carry a provenance reference. Kept as a single
+# source of truth so a path's `provenance_refs` can be independently
+# recomputed from - and structurally bound to - the same secured/redacted
+# object properties a receipt already covers, instead of being trusted as an
+# unbound claim (see console_projection.project_context_snapshot).
+PROVENANCE_REF_PROPERTIES: tuple[str, ...] = (
+    "source_ref",
+    "measurement_source_ref",
+    "expression_ref",
+)
+
+
+def provenance_refs_from_properties(properties: Mapping[str, object]) -> tuple[str, ...]:
+    """Return the canonical, sorted provenance refs implied by object properties."""
+
+    values = {
+        value
+        for name in PROVENANCE_REF_PROPERTIES
+        if isinstance((value := properties.get(name)), str) and value.strip()
+    }
+    return tuple(sorted(values))
 
 
 @dataclass(frozen=True, slots=True)

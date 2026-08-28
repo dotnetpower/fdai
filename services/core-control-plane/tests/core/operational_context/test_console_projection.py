@@ -46,6 +46,14 @@ DIGEST = "sha256:" + "a" * 64
 PRINCIPAL = "principal-example"
 PRINCIPAL_SCOPE = "sha256:" + "c" * 64
 
+# The secured object's own `source_ref` property that a bound path's
+# `provenance_refs` MUST equal (see project_context_snapshot's provenance
+# binding check). Keyed by the same fixture ids used across this module.
+_PROVENANCE_REF_BY_OBJECT_ID: dict[str, str] = {
+    "resource-example": "inventory-generation:example",
+    "workload-example": "service-catalog:example",
+}
+
 
 def _snapshot() -> OperationalContextSnapshot:
     link = OperationalContextEvidenceLink(
@@ -119,7 +127,10 @@ def _secured_result(
         OntologyObjectRecord(
             id=item,
             object_type="Workload" if item == "workload-example" else "Resource",
-            properties={"id": item},
+            properties={
+                "id": item,
+                "source_ref": _PROVENANCE_REF_BY_OBJECT_ID.get(item, ""),
+            },
             revision=2 if item == "resource-example" else 1,
         )
         for item in object_ids
@@ -239,6 +250,8 @@ def test_projects_bounded_context_from_matching_secured_receipt() -> None:
     assert projection["link_count"] == 1
     assert projection["evidence_paths"][1]["revision"] == 1
     assert "properties" not in projection["evidence_paths"][1]
+    assert projection["evidence_paths"][0]["provenance_refs"] == ["inventory-generation:example"]
+    assert projection["evidence_paths"][1]["provenance_refs"] == ["service-catalog:example"]
 
 
 @pytest.mark.parametrize(
@@ -312,6 +325,41 @@ def test_rejects_object_type_revision_and_temporal_path_forgery() -> None:
     with pytest.raises(ValueError, match="temporal identity"):
         project_context_snapshot(
             snapshot=temporal_snapshot,
+            secured_result=secured,
+            authenticated_context=_authenticated_context(secured),
+        )
+
+
+def test_rejects_provenance_refs_unbound_from_secured_properties() -> None:
+    secured = _secured_result()
+
+    forged_snapshot = replace(
+        _snapshot(),
+        evidence_paths=(
+            replace(
+                _snapshot().evidence_paths[0],
+                provenance_refs=("forged-provenance:unbound",),
+            ),
+            _snapshot().evidence_paths[1],
+        ),
+    )
+    with pytest.raises(ValueError, match="provenance refs"):
+        project_context_snapshot(
+            snapshot=forged_snapshot,
+            secured_result=secured,
+            authenticated_context=_authenticated_context(secured),
+        )
+
+    omitted_snapshot = replace(
+        _snapshot(),
+        evidence_paths=(
+            replace(_snapshot().evidence_paths[0], provenance_refs=()),
+            _snapshot().evidence_paths[1],
+        ),
+    )
+    with pytest.raises(ValueError, match="provenance refs"):
+        project_context_snapshot(
+            snapshot=omitted_snapshot,
             secured_result=secured,
             authenticated_context=_authenticated_context(secured),
         )

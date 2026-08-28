@@ -24,6 +24,7 @@ from .models import (
     OperationalContextEvidencePath,
     OperationalContextSnapshot,
     SourceFreshness,
+    provenance_refs_from_properties,
 )
 
 _CONTEXT_LINKS = (
@@ -384,7 +385,7 @@ def _evidence_paths(
             revision=item.revision,
             effective_from=_datetime_property(item, "effective_from"),
             effective_to=_datetime_property(item, "effective_to"),
-            provenance_refs=_provenance_refs(item),
+            provenance_refs=provenance_refs_from_properties(item.properties),
             links=paths[item.id],
         )
         for item in sorted(objects, key=lambda value: value.id)
@@ -405,15 +406,6 @@ def _datetime_property(record: OntologyObjectRecord, name: str) -> datetime | No
     if parsed.tzinfo is None:
         raise ValueError(f"{record.object_type}.{name} MUST be timezone-aware")
     return parsed.astimezone(UTC)
-
-
-def _provenance_refs(record: OntologyObjectRecord) -> tuple[str, ...]:
-    values = {
-        value
-        for name in ("source_ref", "measurement_source_ref", "expression_ref")
-        if isinstance((value := record.properties.get(name)), str) and value.strip()
-    }
-    return tuple(sorted(values))
 
 
 def _is_effective_at(path: OperationalContextEvidencePath, *, cutoff: datetime) -> bool:
