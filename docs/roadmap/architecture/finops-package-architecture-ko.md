@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 3b7d34cf5e4bca81a873635e139ac55c54c9e5e1
+translation_source_sha: 19dac0188f868cff3889dcaf84535ecb37ca70c5
 translation_revised: 2026-08-28
 ---
 
@@ -24,7 +24,8 @@ translation_revised: 2026-08-28
 > 이미지 프로파일, 정확한 온톨로지 프로파일, 원자적인 disabled-first 패키지 수명 주기,
 > 패키지 소유 카탈로그 자산, gate가 적용된 Operator 및 Console 변환 결과와 로컬 W0-W7 검증
 > 메커니즘이 있습니다. Live-authoritative 수명 주기, 관찰 cohort 및 독립 승격 근거는 아직
-> 없으므로 패키지와 액션은 운영 검증 또는 승격 완료 상태가 아닙니다.
+> 없습니다. 첫 protected exact-revision plan은 Azure context를 검증했지만 Terraform 전에
+> model capability quorum이 실패했으므로 패키지와 액션은 운영 검증 또는 승격 완료 상태가 아닙니다.
 
 ## 설계 개요
 

@@ -13,12 +13,13 @@ resumable work while the roadmap owner remains focused on normative design.
 | Independent distribution | implemented | `extensions/cost-governance/`; wheel, source distribution, and package-resource checks | The typed `fdai-cost-governance` package loads 38 digest-bound resources through `importlib.resources`; built-wheel and source-distribution rebuild checks load the same candidates without package source paths. |
 | Ontology-bound vertical manifest and bundle | implemented | `core/vertical_packages/`; package and Core focused tests | Immutable generic contracts reuse `ExtensionManifest` and the trusted `extension` artifact kind, pin the exact ontology and semantic profile, and expose no approval, execution, or promotion authority. |
 | Atomic activation and provider binding | implemented | `VerticalPackageManager`; `services/core-control-plane/tests/core/vertical_packages/test_manager.py` | Install starts disabled. Availability derives from host, ontology, and provider requirements, while digest, duplicate, and cross-reference failures leave the prior immutable runtime unchanged. |
-| Compatibility cutover and rollback | not-started | [Delivery plan](../../roadmap/fork-and-sequencing/finops-package-delivery-plan.md#w6-shadow-parity-ownership-cutover-and-rollback) | No dual-read parity, package cutover, N-1 rollback, or facade retirement evidence exists. |
+| Compatibility cutover and rollback | implemented | `fdai_cost_governance.parity`; `VerticalPackageManager`; frozen parity and N-1 lifecycle tests | Dual-read single-publish parity, package-owned catalog cutover, disable, failed-upgrade preservation, and local previous-version rollback are implemented. The deprecated Core facade remains inert because governed production cutover and live previous-version rollback evidence do not exist. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-28 | in-progress | Corrected the stale W6 scope row and recorded the first protected W7 deployment attempt. The hardened implementation merged to `main`, exact main CI and the image publication passed, but protected model capability quorum failed before Terraform planning. | PR #328; merge `6b638db7c6fb928372cd31b4ad8371e3f9ea683a`; main CI `33175385098`; container publication `33175384996`; protected run `33175771735`. | Restore protected model capability quorum under a new hypothesis, then retain live lifecycle, production cutover, and previous-version rollback receipts before facade removal. |
 | 2026-08-28 | implemented | Completed W2 with the independent package, inert candidate assets, generic immutable Core contracts, disabled-first atomic activation, and a supply-chain-selected Core distribution image profile. | `current change`; 17 package and Core lifecycle tests passed; 21 image and supply-chain tests passed; Ruff and strict mypy passed; wheel and source distribution built; direct wheel and source-distribution rebuild each loaded 38 verified resources. | Keep compatibility cutover, parity, upgrade, and previous-version rollback in W6; retain governed image and lifecycle receipts in W7. |
 | 2026-08-24 | not-started | Defined the ontology-grounded package boundary and adopted an evidence-bounded ledger without claiming package implementation. | `current change`; owner document, paired translation, route, size, link, and roadmap tracking checks. | Deliver W0-W7 in the linked delivery plan and retain exact-revision lifecycle evidence. |
 
@@ -29,5 +30,7 @@ resumable work while the roadmap owner remains focused on normative design.
   repository-relative package reads.
 - [x] Implement ontology-bound vertical manifest and bundle validation that leaves the active
   runtime unchanged on every tested installation and activation failure.
-- [ ] Prove upgrade and previous-version rollback on one exact package and ontology release during
-  W6, then retain governed lifecycle and image receipts during W7.
+- [x] Prove local atomic upgrade and previous-version rollback on one exact package and ontology
+  release during W6.
+- [ ] Retain governed live lifecycle, production cutover, and previous-version rollback receipts
+  during W7 before removing the compatibility facade.

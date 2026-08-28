@@ -21,7 +21,8 @@ domain code and assets. It does not create another control plane or move authori
 > distribution, image profile, exact ontology profile, atomic disabled-first package lifecycle,
 > package-owned catalog assets, gated Operator and Console projections, and local W0-W7 validation
 > mechanics. Live-authoritative lifecycle, observation cohort, and independent promotion evidence
-> remain open, so the package and its actions are not operationally validated or promoted.
+> remain open. The first protected exact-revision plan verified Azure context but model capability
+> quorum failed before Terraform, so the package and its actions remain unvalidated and unpromoted.
 
 ## Design at a glance
 
