@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 19dac0188f868cff3889dcaf84535ecb37ca70c5
-translation_revised: 2026-08-28
+translation_source_sha: 51dedc274274c1025cae7303e5f94c56919187b2
+translation_revised: 2026-08-29
 ---
 
 # 온톨로지 기반 FinOps 패키지 아키텍처
@@ -174,6 +174,11 @@ shadow-first 모드입니다. 실패하면 기존의 변경할 수 없는 런타
 Core는 `fdai_cost_governance`를 가져오지 않습니다. 검토된 조립 루트가 패키지를 가져와 변경할 수
 없는 번들과 타입이 지정된 프로바이더 구현을 Core에 전달합니다. 이 방향은 선택적 패키지가 없어도
 기본 FDAI 이미지를 사용할 수 있게 합니다.
+
+공유 서비스 계약 export, Operator 조립 루트 및 Console 메시지 카탈로그는 여러 기능이 사용하는
+호스트 연결부로 유지됩니다. 이 연결부에 Azure Monitor 수집 같은 독립 기능을 추가해도 비용
+거버넌스 동작으로 등록되지는 않습니다. 비용 거버넌스는 검토된 패키지 매니페스트, 정확한 번들,
+프로바이더 요구 사항 및 배포 gate를 통해서만 활성화됩니다.
 
 ## 대상 패키지 계약
 

@@ -176,6 +176,11 @@ Core never imports `fdai_cost_governance`. The reviewed composition root imports
 passes its immutable bundle and typed provider implementations into Core. This direction keeps the
 base FDAI image usable when the optional package is absent.
 
+The shared service-contract export, Operator composition root, and Console message catalogs remain
+multi-capability host seams. Adding an independent capability such as Azure Monitor ingestion to
+those seams does not register it as Cost Governance behavior. Cost Governance activates only from
+its reviewed package manifest, exact bundle, provider requirements, and deployment gate.
+
 ## Target package contracts
 
 The contracts below are accepted design targets and do not exist in source yet. W2 in the delivery
