@@ -31,7 +31,10 @@ from fdai.core.operational_context.evidence_bundle_sources import (
     EvidenceTemporalScope,
     VerifiedEvidenceSourceReceipt,
 )
-from fdai.core.operational_context.evidence_read import _serialized_response_size
+from fdai.core.operational_context.evidence_read import (
+    _response_overhead,
+    _serialized_response_size,
+)
 from fdai.shared.contracts.models import Autonomy, OntologyReleaseRef
 from fdai.shared.providers.ontology_instance import OntologyGraphSnapshot, OntologyObjectRecord
 
@@ -215,7 +218,12 @@ async def test_runtime_evidence_read_is_bounded_and_has_no_authority() -> None:
     assert result.bundle.ontology_release_digest == RELEASE
     assert result.bundle.max_items == 8
     assert result.bundle.max_bytes < 16_384
-    assert _serialized_response_size(result.bundle, result.context_metadata) <= 16_384
+    assert (
+        _serialized_response_size(
+            result.bundle, result.context_metadata, principal_ref=result.principal_ref
+        )
+        <= 16_384
+    )
 
 
 async def test_runtime_evidence_read_binds_receipt_verified_context_metadata() -> None:
@@ -241,6 +249,121 @@ async def test_runtime_evidence_read_binds_receipt_verified_context_metadata() -
     assert result.context_metadata["complete"] is True
 
 
+async def test_runtime_evidence_read_rejects_context_snapshot_cutoff_drift() -> None:
+    request = _request()
+    drifted_snapshot = replace(_context_snapshot(), cutoff=NOW.replace(hour=2))
+    source = _Source(
+        replace(
+            await _Source().collect(request),
+            context_snapshot=drifted_snapshot,
+            secured_context_result=_secured_context(),
+        )
+    )
+
+    with pytest.raises(ValueError, match="context snapshot cutoff"):
+        await OperationalEvidenceReadService(source=source, clock=lambda: NOW).read(
+            request,
+            authenticated_context=_authenticated_context(_secured_context()),
+        )
+
+
+async def test_runtime_evidence_read_rejects_context_snapshot_release_drift() -> None:
+    request = _request()
+    drifted_snapshot = replace(
+        _context_snapshot(),
+        catalog_versions=(("ontology", "sha256:" + "9" * 64),),
+    )
+    source = _Source(
+        replace(
+            await _Source().collect(request),
+            context_snapshot=drifted_snapshot,
+            secured_context_result=_secured_context(),
+        )
+    )
+
+    with pytest.raises(ValueError, match="context snapshot release"):
+        await OperationalEvidenceReadService(source=source, clock=lambda: NOW).read(
+            request,
+            authenticated_context=_authenticated_context(_secured_context()),
+        )
+
+
+async def test_runtime_evidence_read_rejects_context_snapshot_target_outside_scope() -> None:
+    request = _request()
+    drifted_snapshot = replace(_context_snapshot(), target_resource_id="other-resource")
+    source = _Source(
+        replace(
+            await _Source().collect(request),
+            context_snapshot=drifted_snapshot,
+            secured_context_result=_secured_context(),
+        )
+    )
+
+    with pytest.raises(ValueError, match="context snapshot target"):
+        await OperationalEvidenceReadService(source=source, clock=lambda: NOW).read(
+            request,
+            authenticated_context=_authenticated_context(_secured_context()),
+        )
+
+
+async def test_runtime_evidence_read_rejects_secured_receipt_release_drift() -> None:
+    request = _request()
+    secured = _secured_context()
+    drifted_secured = secured.model_copy(
+        update={
+            "receipt": secured.receipt.model_copy(
+                update={"ontology_release": OntologyReleaseRef(digest="sha256:" + "9" * 64)}
+            )
+        }
+    )
+    source = _Source(
+        replace(
+            await _Source().collect(request),
+            context_snapshot=_context_snapshot(),
+            secured_context_result=drifted_secured,
+        )
+    )
+
+    with pytest.raises(ValueError, match="secured Context receipt release"):
+        await OperationalEvidenceReadService(source=source, clock=lambda: NOW).read(
+            request,
+            authenticated_context=_authenticated_context(secured),
+        )
+
+
+async def test_runtime_evidence_read_rejects_secured_receipt_cutoff_drift() -> None:
+    request = _request()
+    secured = _secured_context()
+    drifted_secured = secured.model_copy(
+        update={
+            "receipt": secured.receipt.model_copy(
+                update={"observation_cutoff": NOW.replace(hour=2)}
+            )
+        }
+    )
+    source = _Source(
+        replace(
+            await _Source().collect(request),
+            context_snapshot=_context_snapshot(),
+            secured_context_result=drifted_secured,
+        )
+    )
+
+    with pytest.raises(ValueError, match="secured Context receipt cutoff"):
+        await OperationalEvidenceReadService(source=source, clock=lambda: NOW).read(
+            request,
+            authenticated_context=_authenticated_context(secured),
+        )
+
+
+def test_response_overhead_reserves_bytes_for_principal_and_authority_fields() -> None:
+    short_overhead = _response_overhead(None, principal_ref="p")
+    long_overhead = _response_overhead(None, principal_ref="p" * 11)
+
+    assert long_overhead - short_overhead == 10
+    assert short_overhead > len('"principal_ref":"p"')
+
+
 async def test_runtime_evidence_read_bounds_bundle_and_context_response_together() -> None:
     request = _request()
     source = _Source(
@@ -254,10 +377,15 @@ async def test_runtime_evidence_read_bounds_bundle_and_context_response_together
     result = await OperationalEvidenceReadService(
         source=source,
         clock=lambda: NOW,
-        max_bytes=1_280,
+        max_bytes=1_536,
     ).read(request, authenticated_context=_authenticated_context(_secured_context()))
 
-    assert _serialized_response_size(result.bundle, result.context_metadata) <= 1_280
+    assert (
+        _serialized_response_size(
+            result.bundle, result.context_metadata, principal_ref=result.principal_ref
+        )
+        <= 1_536
+    )
 
 
 async def test_runtime_evidence_read_reserves_context_bytes_before_bundle_truncation() -> None:
@@ -281,7 +409,12 @@ async def test_runtime_evidence_read_reserves_context_bytes_before_bundle_trunca
     assert result.bundle.max_bytes < 16_384
     assert result.bundle.used_items < 128
     assert "context_budget_truncated" in result.bundle.hold_reasons
-    assert _serialized_response_size(result.bundle, result.context_metadata) <= 16_384
+    assert (
+        _serialized_response_size(
+            result.bundle, result.context_metadata, principal_ref=result.principal_ref
+        )
+        <= 16_384
+    )
 
 
 async def test_runtime_evidence_read_rejects_source_identity_drift() -> None:

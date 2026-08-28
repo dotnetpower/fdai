@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: e71c84144973c99bd9d0557d3aa7fd7b445dbfd8
-translation_revised: 2026-08-27
+translation_source_sha: 53f3a67b8623d109116ec5e05182079d5ca7ae82
+translation_revised: 2026-08-28
 ---
 # FDAI 운영 온톨로지
 
@@ -140,6 +140,8 @@ translation_revised: 2026-08-27
 | 2026-08-27 | implemented | 기존 `OntologyInstanceStore` 위에 멱등적인 `DetectionOntologyProjector` sink를 추가했습니다. Forecast 또는 Pattern을 반복 전달하면 동일하게 저장된 객체를 반환하고 내용 충돌은 fail closed 합니다. | `current change`; `detection_projection.py`; 집중 projection 검사 4개 통과 | 배포 런타임 근거를 주장하기 전에 sink를 운영 조립 지점에 연결합니다. |
 | 2026-08-27 | implemented | Context, detection projection 및 교차 출처 근거 경계를 독립 검토 결과에 맞게 강화했습니다. Principal 신원은 인증된 서버 컨텍스트에서 오며, Context는 실제 secured ObjectSet receipt와 principal-scope binding, digest, 정확한 객체 type/revision/temporal/path 검사를 요구합니다. Detection은 atomic create, canonical 정규화 비교, open episode, 균형 잡힌 sealed cohort 및 인증된 Heimdall/Norns 증적을 사용하며 provider 판정은 동일 target과 generation에 대한 검증된 canonical 신원을 요구합니다. | `current change`; Context, gateway, detection, store, adjudication 및 shadow 집중 검사 | 인증된 배포 receipt를 별도로 보존하고 detection sink를 운영 조립에 연결합니다. 권한은 높이지 않습니다. |
 | 2026-08-27 | implemented | Detection 소유 온톨로지 신원의 실제 PostgreSQL atomic-create 동시성 회귀 검사를 추가했습니다. | `current change`; `tests/persistence/test_postgres_ontology_instance.py` (로컬 PostgreSQL gate에서 실행하며 `FDAI_DATABASE_URL`이 없을 때만 skip) | 런타임 검증을 주장하기 전에 service-owned 로컬 데이터베이스에서 실제 store receipt를 실행합니다. |
+| 2026-08-27 | implemented | 기존 principal-scoped 운영 근거 응답에 receipt로 검증된 Context 메타데이터를 결합했습니다. 응답은 이제 서버에서 확인한 principal을 포함하며, Context projection은 메타데이터를 반환하기 전에 잘못된 principal, purpose, release, 오래됨, 불완전, 잘림 근거를 거부합니다. | `current change`; `core/operational_context/test_console_projection.py` 및 `test_evidence_read.py` (검사 14개 통과) | 인증된 Console 근거를 별도로 보존합니다. 권한이나 런타임 승격은 변경하지 않습니다. |
+| 2026-08-28 | implemented | Context snapshot과 secured receipt를 서로에게만이 아니라 실제 처리 중인 `OperationalEvidenceReadRequest`에 직접 결합했습니다. `evidence_read.py`는 이제 ontology release digest, observation cutoff, 대상 리소스가 요청된 release, cutoff, scope를 벗어나는 context snapshot이나 receipt를 독립적으로 거부합니다. 응답의 byte-budget 계산은 이제 `principal_ref`와 execution·mutation authority 필드를 예약하고 포함시켜, 보장된 `max_bytes` 상한이 조용히 초과될 수 있던 공백을 막습니다. | `current change`; `core/operational_context/evidence_read.py`; 집중 evidence-read 검사(`11개 통과`, 기존 5개에서 증가); 더 넓은 operational-context 검사(`74개 통과`) | 인증된 배포 근거를 별도로 보존합니다. 권한이나 런타임 승격은 변경하지 않습니다. |
 
 ### 남은 작업
 

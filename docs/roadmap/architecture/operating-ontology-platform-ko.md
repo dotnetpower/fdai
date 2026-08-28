@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: bfb694f162ee33239169c8f229a6a2c6fe457e5d
+translation_source_sha: f091cfa1467d1f6d5dfe0094c172161fd1b59f58
 translation_revised: 2026-08-28
 ---
 # FDAI 온톨로지 안전 인프라
@@ -232,6 +232,8 @@ Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습�
 | 2026-08-17 | implemented | Bitemporal `topology_at` cutoff 순서 불변식을 deterministic query plan 검증으로 이동했습니다. Event cutoff가 knowledge cutoff보다 늦은 후보는 범위가 제한된 plan 단계만 다시 시도할 수 있으며 PostgreSQL history reader나 실행 handler에 도달하지 못합니다. 유효하지만 비어 있거나 불완전한 보존 history는 계속 `complete=false`로 구체화됩니다. | `current change`, focused query verifier 및 의미 tier 라우팅 검사 41개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 보증 상태를 변경하기 전에 완전한 authoritative 근거가 있는 엄격한 이중 언어 temporal-comparison 답변을 보존합니다. |
 | 2026-08-18 | 구현됨 | 운영자에게 노출되는 답변에서 질의 엔진 어휘를 제거했습니다. 제목, disposition 요약, 보류된 transport 대체 메시지는 온톨로지 질의를 지칭하는 대신 결과가 무엇인지를 알리며, 개요는 각 출력을 plan node id가 아니라 담고 있는 내용으로 표시하고, 선언 다이제스트와 권한 플래그는 행에 다른 필드가 없는 경우를 제외하고 기술 상세에만 남습니다. | `current change`, `semantic_turn_processor.py`, `semantic_turn_presentation.py`, `semantic_turn_runtime.py`, `test_semantic_turn_bridge.py`, `test_semantic_turn_roundtrip.py`, operator-service 394건과 processor 62건 통과, 작업 범위 Ruff, format 및 strict mypy 통과 | 근거 영수증과 정확한 행은 내부 식별자를 그대로 유지하며 감사자는 그곳에서 확인합니다. |
 | 2026-08-18 | 철회됨 | `Resource.status`와 `Resource.location` 선언을 구현했다가 철회했습니다. 선언을 고치면 온톨로지 릴리스 다이제스트가 이동하고, 그것이 승격된 surface의 `manifest_digest`를 움직이며, 다시 저장된 held-out 검색 영수증이 발급된 대상인 `validation_subject_digest`까지 움직입니다. manifest 다이제스트 재계산은 결정론적이지만 영수증 재발급은 그렇지 않습니다. 영수증의 cohort 지표는 새 generation에 대한 평가 실행에서 나오기 때문입니다. | 철회된 리비전의 전체 수트: `test_discovery_catalog_search.py`와 `test_rule_generation_documents.py`에서 `validation receipt subject mismatch`로 5건 실패. 부모 커밋에서는 동일 수트 1490건이 통과했습니다. | 선언 변경은 카탈로그를 고친 뒤가 아니라 고치기 전에 surface 재검증 실행을 계획하는 설계 패스가 필요합니다. |
+| 2026-08-28 | implemented | Context 응답 경계의 남은 공백을 하나 더 닫았습니다. `evidence_read.py`는 이제 반환된 context snapshot과 secured receipt가 서로 내부적으로만 일치하는지가 아니라, 요청한 `OperationalEvidenceReadRequest`의 release digest, observation cutoff, scope와 실제로 일치하는지를 projection 전에 독립적으로 검증합니다. 구성된 응답의 `max_bytes` 계산은 이제 이미 담고 있던 `principal_ref`와 authority 필드를 포함시켜, 응답이 약속하는 크기 보장을 강화합니다. | `current change`; `evidence_read.py`; 집중 evidence-read 검사(`11개 통과`) 및 더 넓은 operational-context 검사(`74개 통과`) | 인증된 런타임 응답 하나를 별도로 보존합니다. Live 또는 배포 근거는 아직 없습니다. |
+| 2026-08-28 | implemented | `topology_history.py`의 replay completeness와 digest 무결성을 강화했습니다. Completeness는 이제 선택된 모든 revision batch가 null이 아닌 source receipt digest를 가지고 있을 것도 요구하며, replay digest는 응답이 반환하는 것과 동일한 canonical하고 중복 제거된 source receipt digest tuple을 해시하고 그것과 어긋날 수 있던 별도의 raw list는 더 이상 사용하지 않습니다. | `current change`; `core/ontology_platform/topology_history.py`; 집중 topology-history 검사(`8개 통과`), 이전 digest/필드 불일치를 재현한 fix-되돌리기 회귀 실행 포함 | 배포된 replay 근거는 별도로 보존합니다. 현재 모든 실제 운영 writer는 이미 각 batch에 source receipt digest를 설정합니다. |
 
 ### 남은 작업
 

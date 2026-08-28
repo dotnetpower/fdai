@@ -284,7 +284,22 @@ def graph_at(
         and len(release_digests) == 1
         and all(item.ontology_release_digest is not None for item in selected)
     )
-    complete = baseline_index is not None and not dangling_links and release_complete
+    source_receipt_digests = tuple(
+        dict.fromkeys(
+            item.source_receipt_digest
+            for item in selected
+            if item.source_receipt_digest is not None
+        )
+    )
+    source_receipt_complete = bool(selected) and all(
+        item.source_receipt_digest is not None for item in selected
+    )
+    complete = (
+        baseline_index is not None
+        and not dangling_links
+        and release_complete
+        and source_receipt_complete
+    )
     body = {
         "as_of": as_of.astimezone(UTC).isoformat(),
         "known_at": known_at.astimezone(UTC).isoformat(),
@@ -311,11 +326,7 @@ def graph_at(
         "provider_generation_refs": [item.provider_generation_ref for item in selected],
         "evidence_refs": refs,
         "ontology_release_digests": release_digests,
-        "source_receipt_digests": [
-            item.source_receipt_digest
-            for item in selected
-            if item.source_receipt_digest is not None
-        ],
+        "source_receipt_digests": source_receipt_digests,
     }
     return TopologyGraphAt(
         as_of=as_of,
@@ -327,13 +338,7 @@ def graph_at(
         evidence_refs=refs,
         digest=_digest(body),
         ontology_release_digests=release_digests,
-        source_receipt_digests=tuple(
-            dict.fromkeys(
-                item.source_receipt_digest
-                for item in selected
-                if item.source_receipt_digest is not None
-            )
-        ),
+        source_receipt_digests=source_receipt_digests,
     )
 
 
