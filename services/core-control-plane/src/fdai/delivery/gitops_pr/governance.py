@@ -22,6 +22,11 @@ _SUPPORTED = {
     "exemption": ("governance.grant-exemption", _EXEMPTION_PREFIX, ".json"),
 }
 _MAX_DOCUMENT_BYTES = 256 * 1024
+# Bumped from 1.0.0 because the receipt now records `correlation_id`; a
+# receipt persisted under the prior schema never named the source event
+# that requested it, so it MUST NOT be silently reinterpreted as one that
+# does. Loading a 1.0.0 record now fails closed instead of guessing.
+_SCHEMA_VERSION = "1.1.0"
 
 
 class GovernancePrError(RuntimeError):
@@ -34,6 +39,7 @@ class GovernancePrLifecycleReceipt:
 
     action_type_name: str
     idempotency_key: str
+    correlation_id: str
     document_digest: str
     document_path: str
     pr_ref: str
@@ -56,6 +62,7 @@ class GovernancePrLifecycleReceipt:
         if (
             not self.pr_ref
             or not self.idempotency_key
+            or not self.correlation_id.strip()
             or len(self.document_digest) != 64
             or any(char not in "0123456789abcdef" for char in self.document_digest)
             or not self.recorded_at
@@ -65,9 +72,10 @@ class GovernancePrLifecycleReceipt:
     def as_json(self) -> dict[str, object]:
         """Return stable machine evidence suitable for replay."""
         return {
-            "schema_version": "1.0.0",
+            "schema_version": _SCHEMA_VERSION,
             "action_type_name": self.action_type_name,
             "idempotency_key": self.idempotency_key,
+            "correlation_id": self.correlation_id,
             "document_digest": self.document_digest,
             "document_path": self.document_path,
             "pr_ref": self.pr_ref,
@@ -105,6 +113,7 @@ class StateStoreGovernancePrLifecycleStore:
                 "action_kind": "governance_pr.open_to_merge",
                 "mode": Mode.SHADOW.value,
                 "idempotency_key": receipt.idempotency_key,
+                "correlation_id": receipt.correlation_id,
                 "action_type_name": receipt.action_type_name,
                 "document_digest": receipt.document_digest,
                 "pr_ref": receipt.pr_ref,
@@ -124,7 +133,7 @@ class StateStoreGovernancePrLifecycleStore:
         for state in ("merged", "closed", "open"):
             raw = await self._store.read_state(f"governance-pr-lifecycle:{idempotency_key}:{state}")
             if raw is not None:
-                if raw.get("schema_version") != "1.0.0":
+                if raw.get("schema_version") != _SCHEMA_VERSION:
                     raise GovernancePrError("unsupported governance PR lifecycle state")
                 return _decode_receipt(raw)
         return None
@@ -166,18 +175,29 @@ class GovernedGovernancePrPublisher:
         supported = _SUPPORTED.get(kind)
         if supported is None or document.execution_path != "pr_native" or document.applied:
             raise GovernancePrError("governance document is not an unapplied supported PR artifact")
+        if not correlation_id.strip():
+            raise GovernancePrError("correlation_id MUST be non-empty")
         action_type, prefix, extension = supported
+        # Freeze the document once, before any read. `document.document` is a
+        # plain caller-owned mapping; reading it again at render time without
+        # this snapshot would let a caller mutate it between the digest below
+        # and `_document_text` so the merged patch would silently diverge
+        # from what was hashed, reviewed, and recorded as evidence.
+        frozen_document = _snapshot(document.document)
         _validate_document_path(
-            document=document,
+            path=document.path,
+            frozen_document=frozen_document,
             prefix=prefix,
             extension=extension,
         )
-        _require_distinct_approval(document.document)
-        if not correlation_id.strip():
-            raise GovernancePrError("correlation_id MUST be non-empty")
-        payload = _canonical_document(document.document)
+        _require_distinct_approval(frozen_document)
+        payload = _canonical_document(frozen_document)
         digest = hashlib.sha256(payload).hexdigest()
-        key = f"{action_type}:{digest}"
+        # The key binds the reviewed content to the correlation/source event
+        # that requested it, not the content alone: two independent triggers
+        # that happen to render byte-identical documents MUST NOT collapse
+        # into one receipt and silently misattribute the audit trail.
+        key = f"{action_type}:{correlation_id}:{digest}"
         prior = await self._lifecycle_store.load(key)
         if prior is not None:
             reconcile = getattr(self._publisher, "reconcile", None)
@@ -191,6 +211,7 @@ class GovernedGovernancePrPublisher:
                     prior = GovernancePrLifecycleReceipt(
                         action_type_name=prior.action_type_name,
                         idempotency_key=prior.idempotency_key,
+                        correlation_id=prior.correlation_id,
                         document_digest=prior.document_digest,
                         document_path=prior.document_path,
                         pr_ref=prior.pr_ref,
@@ -203,7 +224,7 @@ class GovernedGovernancePrPublisher:
                     )
                     await self._lifecycle_store.save(prior)
             return prior
-        patch = _document_text(document.document, action_type)
+        patch = _document_text(frozen_document, action_type)
         if len(patch.encode("utf-8")) > _MAX_DOCUMENT_BYTES:
             raise GovernancePrError("governance document exceeds its byte limit")
         receipt = await self._publisher.publish(
@@ -230,6 +251,7 @@ class GovernedGovernancePrPublisher:
         lifecycle = GovernancePrLifecycleReceipt(
             action_type_name=action_type,
             idempotency_key=key,
+            correlation_id=correlation_id,
             document_digest=digest,
             document_path=document.path,
             pr_ref=receipt.pr_ref,
@@ -244,6 +266,24 @@ class GovernedGovernancePrPublisher:
         return lifecycle
 
 
+def _snapshot(value: Any) -> Any:
+    """Return a deep, independent copy of a caller-owned JSON-shaped value.
+
+    Called once per publish before the document is digested. Every later
+    read in this module (path/identifier validation, canonicalization, and
+    patch rendering) reads this same snapshot, so a caller that still holds
+    and mutates the original mapping after this call cannot make the
+    rendered PR patch diverge from what was hashed and recorded as evidence.
+    A plain deep copy (not a frozen/proxy view) keeps the result natively
+    serializable by both ``json`` and ``yaml``.
+    """
+    if isinstance(value, Mapping):
+        return {key: _snapshot(item) for key, item in value.items()}
+    if isinstance(value, list | tuple):
+        return [_snapshot(item) for item in value]
+    return value
+
+
 def _canonical_document(document: Mapping[str, Any]) -> bytes:
     return json.dumps(document, separators=(",", ":"), sort_keys=True).encode("utf-8")
 
@@ -255,10 +295,11 @@ def _yaml_document(document: Mapping[str, Any]) -> str:
 
 
 def _decode_receipt(raw: Mapping[str, Any]) -> GovernancePrLifecycleReceipt:
-    if raw.get("schema_version") != "1.0.0":
+    if raw.get("schema_version") != _SCHEMA_VERSION:
         raise GovernancePrError("unsupported governance PR lifecycle state")
     action_type_name = _required_text(raw, "action_type_name")
     idempotency_key = _required_text(raw, "idempotency_key")
+    correlation_id = _required_text(raw, "correlation_id")
     document_digest = _required_text(raw, "document_digest")
     if len(document_digest) != 64 or any(
         char not in "0123456789abcdef" for char in document_digest
@@ -280,6 +321,7 @@ def _decode_receipt(raw: Mapping[str, Any]) -> GovernancePrLifecycleReceipt:
     return GovernancePrLifecycleReceipt(
         action_type_name=action_type_name,
         idempotency_key=idempotency_key,
+        correlation_id=correlation_id,
         document_digest=document_digest,
         document_path=document_path,
         pr_ref=pr_ref,
@@ -314,18 +356,18 @@ def _require_distinct_approval(document: Mapping[str, Any]) -> None:
 
 def _validate_document_path(
     *,
-    document: GovernanceDocument,
+    path: str,
+    frozen_document: Mapping[str, Any],
     prefix: str,
     extension: str,
 ) -> None:
-    path = document.path
     if not path.startswith(prefix) or not path.endswith(extension):
         raise GovernancePrError("governance document path is outside its canonical directory")
     filename = path[len(prefix) : -len(extension)]
     if not filename or "/" in filename or "\\" in filename:
         raise GovernancePrError("governance document path filename is invalid")
     identifier_key = "rule_id" if prefix == _RETIREMENT_PREFIX else "id"
-    identifier = document.document.get(identifier_key)
+    identifier = frozen_document.get(identifier_key)
     if not isinstance(identifier, str) or identifier != filename:
         raise GovernancePrError("governance document path does not match its identifier")
 
