@@ -1,7 +1,7 @@
 ---
 title: Outcome Assurance
 translation_of: outcome-assurance.md
-translation_source_sha: 95d4504feba827ffb11a585817898e29baf617a6
+translation_source_sha: 15baa85404da9a12bcfdf213605484f5337a32e4
 translation_revised: 2026-08-28
 ---
 # 결과 Assurance
@@ -38,7 +38,7 @@ FDAI는 서비스가 보호해야 할 목표, 검토한 액션, 실제 실행, �
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 재사용하는 온톨로지, 준비 상태, 감사 및 측정 출처 | in-progress | `core/decision_case/`; `core/readiness/`; `core/measurement/`; `core/audit/`; 각 소유 문서의 현재 구현 원장 | 출처 기능은 서로 다른 근거 수준으로 존재하지만 하나의 결과 Assurance 변환 결과로 결합되지 않았습니다. |
-| 비용 거버넌스 효과 정산 출처 | implemented | `core/measurement/cost_effect_settlement.py`; `core/measurement/cost_retention.py`; 집중 비용 거버넌스 정산 테스트 | 비용, 용량, 서비스 및 복구 효과를 분리하고 독립 관찰에서만 종결합니다. 이 출처만으로 더 넓은 `OutcomeAssuranceProjection`이 완료되지는 않습니다. |
+| 비용 거버넌스 효과 정산 출처 | implemented | `core/measurement/cost_effect_settlement.py`; `core/measurement/cost_retention.py`; 집중 비용 거버넌스 정산 테스트 | 비용, 용량, 서비스 및 복구 효과를 분리하고 exact expected-effect 출처 revision에 결속된 독립 관찰에서만 종결합니다. 이 출처만으로 더 넓은 `OutcomeAssuranceProjection`이 완료되지는 않습니다. |
 | `OutcomeAssuranceProjection` 타입이 지정된 읽기 모델 | not-started | [변환 결과 계약](#변환-결과-계약); `services/` 아래에 일치하는 구현 없음 | 설계는 범위가 제한된 그룹과 근거 상태를 정의합니다. 정본 계약, decoder 또는 재현 구현은 없습니다. |
 | 목표 귀속과 집계 평가 | not-started | [목표 귀속](#목표-귀속) | 완전한 이벤트에서 목표와 결과까지의 체인을 종결하거나 귀속되지 않은 이벤트를 이 변환 결과의 분모에 보존하는 집계기는 없습니다. |
 | 인증된 Operator API와 Console 경험 | not-started | [Operator API와 console](#operator-api와-console); `services/operator-service/` 또는 `console/` 아래에 일치하는 경로나 Console 모듈 없음 | 제안된 읽기 전용 endpoint, 요약, 근거 상세 경로 및 사용 불가 상태는 구현되지 않았습니다. |

@@ -155,6 +155,7 @@ class CostEffectSettlementService:
             )
         if (
             completeness.effect_id != effect.effect_id
+            or completeness.effect_source_digest != effect.source_digest
             or completeness.lane is not CostObservationLane.INDEPENDENT
             or not completeness.complete
             or completeness.coverage_through_at < effect.horizon_ends_at
@@ -180,6 +181,7 @@ class CostEffectSettlementService:
             )
         valid_observation = (
             observation.effect_id == effect.effect_id
+            and observation.effect_source_digest == effect.source_digest
             and observation.target_ref == effect.target_ref
             and observation.metric == effect.metric
             and observation.lane is CostObservationLane.INDEPENDENT

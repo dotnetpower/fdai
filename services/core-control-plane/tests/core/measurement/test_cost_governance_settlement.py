@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
@@ -58,6 +59,7 @@ def _observation(
     return CostEffectObservation(
         observation_id=f"observation-{suffix}",
         effect_id=effect.effect_id,
+        effect_source_digest=effect.source_digest,
         target_ref=effect.target_ref,
         metric=effect.metric,
         value=Decimal(value),
@@ -81,6 +83,7 @@ def _completeness(
 ) -> CostCompletenessReceipt:
     return CostCompletenessReceipt(
         effect_id=effect.effect_id,
+        effect_source_digest=effect.source_digest,
         receipt_digest={
             "t": DIGEST_B,
             "y": DIGEST_C,
@@ -144,6 +147,23 @@ def test_execution_output_cannot_satisfy_observation_or_completeness() -> None:
         (effect,),
         observations=(_observation(effect, lane=CostObservationLane.EXECUTION),),
         completeness=(_completeness(effect, lane=CostObservationLane.EXECUTION),),
+        evaluated_at=effect.deadline_at,
+    )
+
+    assert settlement.effects[0].status is CostSettlementStatus.UNSCORABLE
+    assert settlement.effects[0].reason == "telemetry_incomplete"
+    assert settlement.realized_savings == 0
+
+
+def test_prior_effect_revision_evidence_cannot_settle_current_effect() -> None:
+    effect = _effect("effect-cost", CostEffectKind.COST)
+    stale_observation = replace(_observation(effect), effect_source_digest=DIGEST_D)
+    stale_completeness = replace(_completeness(effect), effect_source_digest=DIGEST_D)
+
+    settlement = _settle(
+        (effect,),
+        observations=(stale_observation,),
+        completeness=(stale_completeness,),
         evaluated_at=effect.deadline_at,
     )
 

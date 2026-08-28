@@ -436,6 +436,7 @@ class CostExpectedEffect:
 @dataclass(frozen=True, slots=True)
 class CostCompletenessReceipt:
     effect_id: str
+    effect_source_digest: str
     receipt_digest: str
     complete: bool
     coverage_through_at: datetime
@@ -444,6 +445,7 @@ class CostCompletenessReceipt:
 
     def __post_init__(self) -> None:
         _identifier("effect_id", self.effect_id)
+        _digest("effect_source_digest", self.effect_source_digest)
         _digest("receipt_digest", self.receipt_digest)
         _aware("coverage_through_at", self.coverage_through_at)
         _text("source_authority", self.source_authority)
@@ -455,6 +457,7 @@ class CostEffectObservation:
 
     observation_id: str
     effect_id: str
+    effect_source_digest: str
     target_ref: str
     metric: str
     value: Decimal
@@ -466,6 +469,7 @@ class CostEffectObservation:
     def __post_init__(self) -> None:
         _identifier("observation_id", self.observation_id)
         _identifier("effect_id", self.effect_id)
+        _digest("effect_source_digest", self.effect_source_digest)
         _text("target_ref", self.target_ref)
         _identifier("metric", self.metric)
         _aware("observed_at", self.observed_at)
