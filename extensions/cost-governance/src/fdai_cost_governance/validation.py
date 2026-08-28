@@ -189,6 +189,8 @@ class CostObservationCampaignReducer:
             raise ValueError("campaign MUST contain at least one selected episode")
         if any(episode.revision_pin_digest != revision_pin.digest for episode in selected):
             raise ValueError("campaign contains mixed or mismatched revision evidence")
+        if len({episode.campaign_id for episode in selected}) != 1:
+            raise ValueError("campaign contains mixed campaign evidence")
         identities = {(episode.episode_id, episode.revision) for episode in selected}
         keys = {episode.idempotency_key for episode in selected}
         if len(identities) != len(selected) or len(keys) != len(selected):

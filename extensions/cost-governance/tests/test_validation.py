@@ -296,6 +296,17 @@ def test_reducer_rejects_revision_duplicates_and_bounds() -> None:
         )
 
 
+def test_reducer_rejects_mixed_campaign_identity() -> None:
+    first = _episode("one", outcome=CostCampaignOutcome.NO_OP)
+    second = replace(
+        _episode("two", outcome=CostCampaignOutcome.DENY),
+        campaign_id="campaign-002",
+    )
+
+    with pytest.raises(ValueError, match="mixed campaign"):
+        CostObservationCampaignReducer().reduce(_pin(), (first, second))
+
+
 def test_reducer_is_reorder_and_restart_deterministic() -> None:
     episodes = (
         _episode(

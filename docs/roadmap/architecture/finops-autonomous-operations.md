@@ -23,6 +23,7 @@ bounded evidence. Agents remain the active control plane and own every state tra
 > recovery coordinator, independent multi-effect settlement, replay, retention, and governed
 > learning inputs are implemented with local evidence. A live-authoritative settled cohort and
 > independent package and per-action promotion reviews do not yet exist.
+> Hardening round 1 rejects mixed campaign identities under one revision pin; no runtime authority changes.
 
 ## Design at a glance
 

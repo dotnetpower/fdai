@@ -1,7 +1,7 @@
 ---
 title: FinOps 자율 운영
 translation_of: finops-autonomous-operations.md
-translation_source_sha: 64c22c2bd1e8e0de339d167597a6d6a597e6c3da
+translation_source_sha: db0ad3be771b12e574130be951b8c91466eda9f8
 translation_revised: 2026-08-28
 ---
 
@@ -24,6 +24,7 @@ translation_revised: 2026-08-28
 > **현재 상태:** 정확한 FinOps 의미 프로파일, 고정된 15개 책임 trace, 범위가 제한된 복구
 > 조정기, 독립 다중 효과 정산, replay, 보존 및 통제된 학습 입력은 로컬 근거와 함께 구현되어
 > 있습니다. Live-authoritative 정산 cohort와 독립 패키지 및 액션별 승격 검토는 아직 없습니다.
+> 하드닝 라운드 1은 하나의 revision pin 아래에서 campaign identity가 섞이는 것을 차단하며 런타임 권한은 바뀌지 않습니다.
 
 ## 설계 개요
 
