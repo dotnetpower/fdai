@@ -1,8 +1,8 @@
 ---
 title: Phase 4 - 스케일 (Azure); 멀티 클라우드 (TBD)
 translation_of: phase-4-scale.md
-translation_source_sha: 9246e1fc2e32f1158554522a8dc6c78f0ad641aa
-translation_revised: 2026-08-24
+translation_source_sha: 21a2327558b54958efa1fa892403d6090b251cb2
+translation_revised: 2026-08-29
 ---
 
 # 단계 4 - 스케일 (Azure); 멀티 클라우드 (TBD)
@@ -44,9 +44,12 @@ CSP-중립 원칙을 **설계 불변식**(어댑터 표면, 정규화 스키마)
 - 두 라이브러리-전용 측정 컴포넌트를 Container Apps Jobs로 배선하는 스케줄 러너 -
   automated-baseline 회귀 러너(P0 시나리오 세트를 매일 리플레이, 회귀 시 자동 강등)와
   pattern-growth 인테이크 러너(감사 스트림 드레인, 허용된 패턴을 shadow 로만 인제스트,
-  자동 승격 금지).
+  자동 승격 금지). 선택적 세 번째 `operational-promotion` 러너는 검토된 정확한 증적을 저장하지만
+  승격 상태를 변경하지 않습니다.
   모듈:
   [core/measurement/runners.py](../../../services/core-control-plane/src/fdai/core/measurement/runners.py).
+  선택적 승격 모듈:
+  [core/measurement/operational_promotion_runner.py](../../../services/core-control-plane/src/fdai/core/measurement/operational_promotion_runner.py).
   Infra:
   [infra/modules/measurement-runners/](../../../infra/modules/measurement-runners).
   작업 은 library-only 코어 모듈 이 아니라 `fdai.delivery.measurement_runner_cli`을

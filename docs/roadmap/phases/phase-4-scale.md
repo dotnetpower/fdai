@@ -44,9 +44,12 @@ customer-agnostic and Azure-only in intent (multi-cloud deliverables below stay 
 - Scheduled runners that wire the two library-only measurement components into Container
   Apps Jobs - an automated-baseline regression runner (daily replay of the P0 scenario set,
   auto-demotes on regression) and a pattern-growth intake runner (drains the audit stream,
-  ingests accepted patterns in shadow only, never auto-promotes).
+  ingests accepted patterns in shadow only, never auto-promotes). An optional third
+  operational-promotion runner stores exact reviewed receipts but never changes promotion state.
   Module:
   [core/measurement/runners.py](../../../services/core-control-plane/src/fdai/core/measurement/runners.py).
+  Optional promotion module:
+  [core/measurement/operational_promotion_runner.py](../../../services/core-control-plane/src/fdai/core/measurement/operational_promotion_runner.py).
   Infra:
   [infra/modules/measurement-runners/](../../../infra/modules/measurement-runners).
   The jobs call `fdai.delivery.measurement_runner_cli`, not the library-only
