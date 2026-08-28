@@ -148,6 +148,7 @@ class KubernetesPodRecoveryEvidenceResult(ContractBase):
     # repurposed to mean "a different Pod replaced it". This field carries
     # that separate replacement narrative without touching restart status.
     replacement_recovery_verified: bool = False
+    replacement_evidence_gaps: tuple[str, ...] = ()
 
 
 def evaluate_kubernetes_pod_recovery(

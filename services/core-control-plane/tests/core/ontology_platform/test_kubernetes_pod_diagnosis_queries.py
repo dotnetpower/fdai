@@ -180,7 +180,7 @@ def _events(
             {
                 "row_id": "event-1",
                 "values": {
-                    "event_kind": event_kind,
+                    "reason": event_kind,
                     "evidence_ref": "kubernetes-event:event-1",
                     **({"object_uid": object_uid} if object_uid is not None else {}),
                 },

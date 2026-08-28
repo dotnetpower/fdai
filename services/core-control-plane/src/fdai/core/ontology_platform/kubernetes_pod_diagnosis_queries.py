@@ -148,6 +148,12 @@ def kubernetes_pod_diagnosis_function(
         lookback_seconds = int(arguments["lookback_seconds"])
         start = cutoff - timedelta(seconds=lookback_seconds)
         lifecycle_events = _query_table(arguments["lifecycle_events"])
+        if not _lifecycle_events_within_bounds(
+            lifecycle_events,
+            pod_uid=pod_uid,
+            pod_evidence_ref=secured.receipt.projected_result_digest,
+        ):
+            return _table((), complete=False, reason="lifecycle_event_evidence_limit")
         termination = _termination_evidence(
             properties=properties,
             lifecycle_events=lifecycle_events,
@@ -238,9 +244,9 @@ def _termination_evidence(
     )
     lifecycle_reasons = tuple(
         dict.fromkeys(
-            str(row.values["event_kind"])
+            str(row.values["reason"])
             for row in own_events
-            if isinstance(row.values.get("event_kind"), str)
+            if isinstance(row.values.get("reason"), str)
         )
     )
     evidence_refs = tuple(
@@ -265,6 +271,29 @@ def _termination_evidence(
         lifecycle_reasons=lifecycle_reasons,
         evidence_refs=evidence_refs,
     )
+
+
+def _lifecycle_events_within_bounds(
+    events: QueryTable,
+    *,
+    pod_uid: str,
+    pod_evidence_ref: str,
+) -> bool:
+    own_reasons: set[str] = set()
+    own_refs = {pod_evidence_ref}
+    for row in events.rows:
+        object_uid = row.values.get("object_uid")
+        if not isinstance(object_uid, str) or not object_uid:
+            return False
+        if object_uid != pod_uid:
+            continue
+        reason = row.values.get("reason")
+        evidence_ref = row.values.get("evidence_ref")
+        if isinstance(reason, str) and reason:
+            own_reasons.add(reason)
+        if isinstance(evidence_ref, str) and evidence_ref:
+            own_refs.add(evidence_ref)
+    return len(own_reasons) <= 32 and len(own_refs) <= 256
 
 
 def _pod_state_fact_gaps(properties: Mapping[str, Any], *, cutoff: datetime) -> tuple[str, ...]:

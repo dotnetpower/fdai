@@ -334,8 +334,9 @@ async def test_pod_recovery_function_accepts_only_issued_receipt() -> None:
         context=context,
     )
     assert isinstance(held, KubernetesPodRecoveryEvidenceResult)
-    assert held.status is KubernetesPodRecoveryStatus.INSUFFICIENT_EVIDENCE
-    assert held.recovery_verified is False
+    assert held.status is KubernetesPodRecoveryStatus.RECOVERED
+    assert held.recovery_verified is True
+    assert held.replacement_evidence_gaps == ("lifecycle_cohort_lifecycle_cursor_stale",)
 
     supported = await registry.invoke(
         KUBERNETES_POD_RECOVERY_FUNCTION_NAME,
@@ -475,8 +476,9 @@ async def test_pod_recovery_function_accepts_only_issued_receipt() -> None:
         context=context,
     )
     assert isinstance(held_replacement, KubernetesPodRecoveryEvidenceResult)
-    assert held_replacement.status is KubernetesPodRecoveryStatus.INSUFFICIENT_EVIDENCE
-    assert any(gap.startswith("replacement_evidence_") for gap in held_replacement.evidence_gaps)
+    assert held_replacement.status is KubernetesPodRecoveryStatus.RECOVERED
+    assert held_replacement.recovery_verified is True
+    assert held_replacement.replacement_evidence_gaps == ("replacement_evidence_unavailable",)
 
     unissued = SecuredQueryReceiptAuthority()
     rejecting = OntologyFunctionRegistry(release=release)
@@ -630,10 +632,10 @@ async def test_confirmed_distinct_uid_replacement_recovers_new_pod_without_own_r
     assert result.complete is False
     assert "restart_not_observed_in_current_pod" in result.evidence_gaps
     assert "restart_not_observed_in_window" in result.evidence_gaps
-    # The conclusively verified distinct-UID replacement is exposed only
-    # through the dedicated lane, alongside the merged replacement evidence.
-    assert result.replacement_recovery_verified is True
-    assert "old-failure" in result.evidence_refs
+    # Controller-cohort evidence lacks an independently bound predecessor, so
+    # replacement remains explicitly unverified without contaminating restart.
+    assert result.replacement_recovery_verified is False
+    assert result.replacement_evidence_gaps == ("replacement_evidence_unavailable",)
 
 
 async def test_same_uid_restart_without_historical_identity_is_not_penalized() -> None:
@@ -1012,20 +1014,7 @@ def test_historical_replacement_context_excludes_current_pod_evidence() -> None:
         lifecycle_cohort=lifecycle_cohort,
     )
 
-    assert context is not None
-    old_pod = context["old_pod"]
-    old_metadata = old_pod["metadata"]
-    # "kubernetes:pod:example" is the CURRENT Pod's own evidence ref (see
-    # ``_metadata()``); it MUST NOT leak into the historical predecessor's
-    # top-level or metadata evidence_refs.
-    assert "kubernetes:pod:example" not in old_pod["evidence_refs"]
-    assert "kubernetes:pod:example" not in old_metadata["evidence_refs"]
-    assert "kubernetes-pod-lifecycle:" + "b" * 64 in old_pod["evidence_refs"]
-    assert "old-failure" in old_pod["evidence_refs"]
-    # No historical "before" Deployment snapshot was actually observed:
-    # only the current (post-replacement) snapshot is available, and it
-    # MUST NOT be fabricated into an equality with "after".
-    assert context["deployment"]["desired_replicas_before"] is None
+    assert context is None
 
 
 def test_function_artifact_digest_hashes_the_replacement_reducer_too() -> None:

@@ -146,6 +146,7 @@ def kubernetes_pod_recovery_function_type() -> OntologyFunctionType:
                 "cause_claim_supported",
                 "execution_authority",
                 "replacement_recovery_verified",
+                "replacement_evidence_gaps",
             ],
             "properties": {
                 "pod_id": {"type": "string"},
@@ -182,6 +183,7 @@ def kubernetes_pod_recovery_function_type() -> OntologyFunctionType:
                 "cause_claim_supported": {"const": False},
                 "execution_authority": {"const": False},
                 "replacement_recovery_verified": {"type": "boolean"},
+                "replacement_evidence_gaps": {"type": "array", "maxItems": 64},
             },
         },
         read_sets=["Resource", "kubernetes_owned_by"],
@@ -275,14 +277,9 @@ def kubernetes_pod_recovery_function(
             )
             result = result.model_copy(
                 update={
-                    "complete": False,
-                    "recovery_verified": False,
-                    "status": (
-                        result.status
-                        if result.status is KubernetesPodRecoveryStatus.CONFLICTING_EVIDENCE
-                        else KubernetesPodRecoveryStatus.INSUFFICIENT_EVIDENCE
+                    "replacement_evidence_gaps": tuple(
+                        dict.fromkeys((*result.replacement_evidence_gaps, gap))
                     ),
-                    "evidence_gaps": tuple(dict.fromkeys((*result.evidence_gaps, gap))),
                 }
             )
         elif isinstance(lifecycle_cohort, Mapping) and lifecycle_cohort.get("complete") is True:
@@ -315,12 +312,12 @@ def kubernetes_pod_recovery_function(
                     # narrative could not be derived from it: a genuine gap.
                     result = result.model_copy(
                         update={
-                            "complete": False,
-                            "recovery_verified": False,
-                            "status": KubernetesPodRecoveryStatus.INSUFFICIENT_EVIDENCE,
-                            "evidence_gaps": tuple(
+                            "replacement_evidence_gaps": tuple(
                                 dict.fromkeys(
-                                    (*result.evidence_gaps, "replacement_evidence_unavailable")
+                                    (
+                                        *result.replacement_evidence_gaps,
+                                        "replacement_evidence_unavailable",
+                                    )
                                 )
                             ),
                         }
@@ -337,19 +334,10 @@ def kubernetes_pod_recovery_function(
                 if replacement is not None and replacement.evidence_gaps:
                     result = result.model_copy(
                         update={
-                            "complete": False,
-                            "recovery_verified": False,
-                            "status": (
-                                KubernetesPodRecoveryStatus.CONFLICTING_EVIDENCE
-                                if replacement.status
-                                is KubernetesPodReplacementStatus.CONFLICTING_EVIDENCE
-                                or result.status is KubernetesPodRecoveryStatus.CONFLICTING_EVIDENCE
-                                else KubernetesPodRecoveryStatus.INSUFFICIENT_EVIDENCE
-                            ),
-                            "evidence_gaps": tuple(
+                            "replacement_evidence_gaps": tuple(
                                 dict.fromkeys(
                                     (
-                                        *result.evidence_gaps,
+                                        *result.replacement_evidence_gaps,
                                         "replacement_evidence_"
                                         + "+".join(replacement.evidence_gaps),
                                     )
@@ -641,6 +629,12 @@ def _default_replacement_context(
     candidate_result: SecuredObjectSetQueryResult | None = None,
 ) -> Mapping[str, Any] | None:
     """Translate complete lifecycle rows into a conservative exact replacement bundle."""
+
+    # The durable controller cohort does not provide an independently evidenced
+    # predecessor-to-target binding. Automatic attribution would confuse a sibling
+    # replica with this exact Pod, so only explicit exact dependencies may verify
+    # replacement.
+    return None
 
     pod_objects = pod_result.materialization.graph.objects
     if len(pod_objects) != 1:
