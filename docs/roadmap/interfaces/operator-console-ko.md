@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: d3cf3b09598408085885845f60fa1299ca1d6cdd
+translation_source_sha: 95220932d594d70c2dc77a5310182c31dd036e8f
 translation_revised: 2026-08-30
 ---
 # FDAI Console 대화
@@ -39,6 +39,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-28 | implemented | 정확한 Contextual Resource 선택의 두 경계를 닫았습니다. narrator의 `view_context`는 전체 `ViewSnapshot`을 펼치지 않고 허용된 불투명 `selectionToken`만 전달하며, 온톨로지 인스턴스 선택 신원은 화면에 표시되지 않는 `authorization.role-assignment` 리소스를 세지 않습니다. | `current change`; Command Deck backend-context 검사 22개, 온톨로지 인스턴스 모델 검사 30개 및 Console typecheck 통과. | 수정된 선택 신원의 인증된 거버넌스 근거를 별도로 보존합니다. capability, authority 또는 wire-contract shape은 바뀌지 않았습니다. |
 | 2026-08-29 | 진행 중 | Command Deck 계획 피드백을 권한이 없고 동작 설정을 따르는 표현으로 유지하면서 선택적 전체 현황 데이터 처리와 반응형 표현을 강화했습니다. | `현재 변경`, `console/src/routes/dashboard.executive.tsx`, `console/src/routes/dashboard.loading.ts`, `console/src/deck/structured-reply.css`, `console/src/styles.css`, 집중 테스트 파일 | 구현 범위 상태를 높이기 전에 집중 Console 테스트와 타입 검사 결과를 기록합니다. |
 | 2026-08-28 | 구현됨 | 정적 시안의 Visualization 그룹을 복원하고 왼쪽 가장자리 선택 강조를 Console 시각 경계가 요구하는 완전하고 차분한 윤곽선으로 교체했습니다. | `current change`; 집중 시안 시각 경계 테스트 5개와 Console 타입 검사가 통과했습니다. | 정적 시안에서 통제된 런타임 또는 운영 Console 근거를 주장하지 않습니다. |
 | 2026-08-28 | 구현됨 | 사용할 수 없는 비용 거버넌스 자리 표시자를 답변 준비 중 검색 추적에서 제외하고, 별도 소유 Overview 측정 경로를 사용 불가로 선언했으며, 의미 브리지 뒤에서 원시 PostgreSQL 스트림 대체 경로를 보존했습니다. | `current change`; 집중 검색 추적, Operator 구성, 의미 브리지, 서비스 테스트 소유권 검사 및 Console 타입 검사. | 인증된 실제 변환 결과 근거를 별도로 보존합니다. 이 로컬 검사는 런타임 가용성을 입증하지 않습니다. |

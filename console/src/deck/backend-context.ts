@@ -13,11 +13,23 @@ function responseLocale(prompt: string): "en" | "ko" {
   return HANGUL.test(prompt) ? "ko" : "en";
 }
 
+/**
+ * Strips `contextIdentity`: the server-verifiable selection identity carries
+ * principal, scope, and release digest capability metadata that MUST reach
+ * Operator only as the opaque `selection_token` forwarded via
+ * `contextBinding()`/`conversation_context` (see contextBinding below). It
+ * MUST NOT also be replicated into the narrator-facing `view_context`.
+ */
+function narratorViewFields(snapshot: ViewSnapshot): Record<string, unknown> {
+  const { contextIdentity: _contextIdentity, ...rest } = snapshot;
+  return { ...rest };
+}
+
 function viewContextWithUser(
   snapshot: ViewSnapshot | null,
   locale: "en" | "ko",
 ): Record<string, unknown> {
-  const base: Record<string, unknown> = snapshot ? { ...snapshot } : {};
+  const base: Record<string, unknown> = snapshot ? narratorViewFields(snapshot) : {};
   if (typeof window !== "undefined") base._screen_path = window.location.pathname;
   const user = getDeckUser();
   if (user) base._user = user;

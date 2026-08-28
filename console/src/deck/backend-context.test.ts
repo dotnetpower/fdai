@@ -120,6 +120,29 @@ describe("viewContextWithUser wiring", () => {
     });
   });
 
+  test("never spreads contextIdentity or its capability metadata into the narrator view_context", async () => {
+    const parsed = await callAskAndCaptureBody({
+      ...liveSnap(),
+      contextIdentity: {
+        kind: "screen",
+        screenId: "ontology-instances",
+        resourceIds: ["resource-a", "resource-b"],
+        selectionToken: "context-selection:opaque",
+        principalId: "operator-1",
+        principalScopeDigest: "sha256:" + "a".repeat(64),
+        ontologyReleaseDigest: "sha256:" + "b".repeat(64),
+        sourceGeneration: "generation-1",
+        selectionDigest: "sha256:" + "c".repeat(64),
+        complete: true,
+      },
+    });
+    const ctx = parsed?.view_context ?? {};
+    expect(ctx).not.toHaveProperty("contextIdentity");
+    expect(JSON.stringify(ctx)).not.toContain("operator-1");
+    expect(JSON.stringify(ctx)).not.toContain("principalScopeDigest");
+    expect(JSON.stringify(ctx)).not.toContain("selectionDigest");
+  });
+
   test("keeps the current screen path when the panel snapshot is unavailable", async () => {
     vi.stubGlobal("window", { location: { pathname: "/workflow-builder" } });
     const parsed = await callAskAndCaptureBody(null);

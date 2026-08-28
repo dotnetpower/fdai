@@ -1,3 +1,5 @@
+import type { ViewContextIdentity } from "../deck/context";
+
 export interface OntologyInstanceResource {
   readonly id: string;
   readonly object_type: "Resource";
@@ -221,6 +223,43 @@ export interface OntologyInstanceExploration {
   )[];
   readonly execution_authority: false;
   readonly mutation_authority: false;
+}
+
+/**
+ * Server-verifiable selection identity for a resolved exploration, scoped to
+ * exactly the Resources the operator sees rendered on this screen.
+ *
+ * Hidden directory-only endpoints (e.g. `authorization.role-assignment`)
+ * never reach the graph, legend, or inspector, so they MUST NOT count toward
+ * the exact screen selection either - counting them would let an invisible
+ * Resource make an otherwise-empty selection look bound.
+ */
+export function ontologyInstanceContextIdentity(
+  data: OntologyInstanceExploration,
+): ViewContextIdentity | undefined {
+  if (
+    !data.complete ||
+    !data.principal_id ||
+    !data.principal_scope_digest ||
+    !data.selection_digest ||
+    !data.selection_token
+  ) {
+    return undefined;
+  }
+  return {
+    kind: "screen",
+    screenId: "ontology-instances",
+    resourceIds: data.resources
+      .filter(isOntologyInstancePresentationResource)
+      .map((resource) => resource.id),
+    selectionToken: data.selection_token,
+    principalId: data.principal_id,
+    principalScopeDigest: data.principal_scope_digest,
+    ontologyReleaseDigest: data.ontology_release_digest,
+    sourceGeneration: data.source_generation,
+    selectionDigest: data.selection_digest,
+    complete: true,
+  };
 }
 
 export interface OntologyInstanceDirectory {

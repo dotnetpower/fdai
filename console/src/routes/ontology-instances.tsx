@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import { AsyncBoundary, UnavailableState, type AsyncState } from "../components/ui";
-import { usePublishViewContext, type ViewSnapshot } from "../deck/context";
+import { usePublishViewContext } from "../deck/context";
 import { composeGlossary, TERMS } from "../deck/glossary";
 import { Tooltip } from "../components/tooltip";
 import { currentRoute, replaceRouteState, routeHref } from "../router";
@@ -15,6 +15,7 @@ import {
   isMatchableOntologyInstanceQuery,
   ontologyInstanceAksLanes,
   ontologyInstanceAutocompleteSuggestions,
+  ontologyInstanceContextIdentity,
   ontologyInstanceResourceAutocompleteOptions,
   ontologyInstancePresentationLinks,
   ontologyInstanceTrafficDirection,
@@ -331,7 +332,7 @@ function OntologyInstanceWorkspace({
   ];
   usePublishViewContext(
     () => {
-      const contextIdentity = contextIdentityForExploration(data);
+      const contextIdentity = ontologyInstanceContextIdentity(data);
       return {
         routeId: "ontology-instances",
       routeLabel: t("ontology.instances.title"),
@@ -448,32 +449,6 @@ function OntologyInstanceWorkspace({
       />
     </div>
   );
-}
-
-function contextIdentityForExploration(
-  data: OntologyInstanceExploration,
-): ViewSnapshot["contextIdentity"] {
-  if (
-    !data.complete ||
-    !data.principal_id ||
-    !data.principal_scope_digest ||
-    !data.selection_digest ||
-    !data.selection_token
-  ) {
-    return undefined;
-  }
-  return {
-    kind: "screen",
-    screenId: "ontology-instances",
-    resourceIds: data.resources.map((resource) => resource.id),
-    selectionToken: data.selection_token,
-    principalId: data.principal_id,
-    principalScopeDigest: data.principal_scope_digest,
-    ontologyReleaseDigest: data.ontology_release_digest,
-    sourceGeneration: data.source_generation,
-    selectionDigest: data.selection_digest,
-    complete: true,
-  };
 }
 
 function truncationReasonLabel(reason: OntologyInstanceExploration["truncation_reasons"][number]): string {
