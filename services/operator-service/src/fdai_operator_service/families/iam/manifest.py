@@ -26,11 +26,6 @@ IAM_FAMILY_MANIFEST = (
     IamRouteManifestEntry(
         "POST", "/iam/access-requests/{request_id:str}/decision", "review_access_request"
     ),
-    IamRouteManifestEntry(
-        "POST",
-        "/runtime/integrations/slack-webhook/test",
-        "test_slack_webhook",
-    ),
     IamRouteManifestEntry("POST", "/iam/access-requests/self", "submit_self_access_request"),
     IamRouteManifestEntry("GET", "/iam/assignments", "list_assignments"),
     IamRouteManifestEntry("GET", "/iam/assignment-cases", "list_cases"),
@@ -52,6 +47,11 @@ IAM_FAMILY_MANIFEST = (
         "POST",
         "/runtime/integrations/teams-workflow/test",
         "test_teams_workflow",
+    ),
+    IamRouteManifestEntry(
+        "POST",
+        "/runtime/integrations/slack-webhook/test",
+        "test_slack_webhook",
     ),
     IamRouteManifestEntry("POST", "/system/kill-switch", "handler"),
     IamRouteManifestEntry("POST", "/system/break-glass/activation", "handler"),
