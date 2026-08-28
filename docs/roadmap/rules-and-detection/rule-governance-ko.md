@@ -1,8 +1,8 @@
 ---
 title: 규칙 거버넌스(Rule Governance)
 translation_of: rule-governance.md
-translation_source_sha: 255dd04200310c415c4f2476e40b9582ee880a2a
-translation_revised: 2026-08-29
+translation_source_sha: 9a3f76e09218a9f78223fd70db47d66d4ea5437a
+translation_revised: 2026-08-30
 ---
 
 # 규칙 거버넌스(Rule 거버넌스)
@@ -368,6 +368,7 @@ CI로 강제, 고위험 승인(`audit → deny / remediate`, exemption, 재정�
 | Enforce-promotion 승인자 | `aw-approvers` (quorum-2) | `audit`→`deny`/`remediate` 승격 승인 | 승격을 제안한 운영자 |
 | Exemption 승인자 | `aw-approvers` (quorum-2) | Time-boxed exemption 승인 | 영구 exemption 부여, 자신의 요청 승인 |
 | 재정의 승인자 | `aw-approvers` (quorum-2) | Resource-group-스코프 재정의 승인 (permanent 가능) | resource-group-equivalent 밖 재정의 승인, 자신의 요청 승인 |
+| 룰 retirement 승인자 | `aw-approvers` (quorum-2, Owner 수준) | 전역 enforce 집합에서 룰을 제외하는 변경 승인 | 정족수에 Owner 수준 검토자가 없는 retirement 또는 자신의 요청 승인 |
 
 해당 표의 결정론적 결정 코어는 `fdai.rule_catalog.schema.governance_review_authority` 입니다.
 공유 롤/역량 행렬을 읽고, 비어 있지 않은 운영자 객체 id를 기록하고, 정확한 pull request head

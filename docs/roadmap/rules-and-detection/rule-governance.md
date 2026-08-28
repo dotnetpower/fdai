@@ -372,6 +372,7 @@ require a **quorum of two approvers** from `aw-approvers`.
 | Enforce-promotion approver | `aw-approvers` (quorum-2) | approve `audit`→`deny`/`remediate` promotions | be the operator who proposed the promotion |
 | Exemption approver | `aw-approvers` (quorum-2) | approve time-boxed exemptions | grant a permanent exemption, or approve their own request |
 | Override approver | `aw-approvers` (quorum-2) | approve resource-group-scoped overrides (may be permanent) | approve an override outside the resource-group-equivalent scope, or approve their own request |
+| Rule retirement approver | `aw-approvers` (quorum-2, Owner-tier) | approve moving a rule out of the enforce set globally | approve a retirement without an Owner-tier reviewer among the quorum, or approve their own request |
 
 The deterministic decision core for that table is
 `fdai.rule_catalog.schema.governance_review_authority`. It reads the shared role/capability

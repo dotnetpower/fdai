@@ -47,6 +47,7 @@ class GovernanceChangeClass(StrEnum):
     EXEMPTION = "exemption"
     OVERRIDE = "override"
     RISK_CLASSIFICATION_LOOSENING = "risk-classification-loosening"
+    RULE_RETIREMENT = "rule-retirement"
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +93,17 @@ _REQUIREMENTS: Final = MappingProxyType(
             owner_review=False,
         ),
         GovernanceChangeClass.RISK_CLASSIFICATION_LOOSENING: ChangeClassRequirement(
+            capability=Capability.APPROVE_QUORUM_PROMOTION,
+            quorum=2,
+            phishing_resistant=True,
+            owner_review=True,
+        ),
+        # A retirement disables a rule everywhere it would otherwise apply -
+        # its blast radius is global, not the resource-group-equivalent
+        # scope an override is bounded to. It therefore requires at least
+        # the override's quorum-2/phishing-resistant bar plus the same
+        # Owner-tier review the risk-classification-loosening class needs.
+        GovernanceChangeClass.RULE_RETIREMENT: ChangeClassRequirement(
             capability=Capability.APPROVE_QUORUM_PROMOTION,
             quorum=2,
             phishing_resistant=True,

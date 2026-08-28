@@ -202,6 +202,8 @@ def _change_classes(paths: Sequence[str]) -> tuple[GovernanceChangeClass, ...]:
             classes.add(GovernanceChangeClass.EXEMPTION)
         elif "/overrides/" in f"/{normalized}":
             classes.add(GovernanceChangeClass.OVERRIDE)
+        elif "/retirements/" in f"/{normalized}":
+            classes.add(GovernanceChangeClass.RULE_RETIREMENT)
         elif "/assignments/" in f"/{normalized}":
             classes.add(GovernanceChangeClass.ENFORCE_PROMOTION)
         elif normalized.startswith("policies/risk") or "risk-classification" in normalized:
