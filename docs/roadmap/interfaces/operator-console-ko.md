@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: e1fe71d6926c83f7018413945232d64b2657bfa5
+translation_source_sha: dd8ac2f9be7b46fc45aaa1c07f17215892754d57
 translation_revised: 2026-08-28
 ---
 # FDAI Console 대화
@@ -26,6 +26,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 |------|------|------|------|
 | 영속/실시간 현재 상태 활동 identity | 구현됨 | `read_investigation_latency.py`, `fdai_operator_service/activity_projection.py`, focused 영속성 및 projection 테스트 (`6 passed`) | Snapshot 재생과 실제 운영 프레임은 운영자 질문, 리소스 identity 또는 실행 권한을 저장하지 않고 하나의 hash-correlation activity id로 수렴합니다. |
 | 선택적 Console 변환 결과 가용성 | 구현됨 | `console/src/routes`, focused 경로 테스트 (`64 passed`), `npm --prefix console run typecheck` | 타입이 지정된 선택적 출처 부재는 사용 불가로 표시하고 인증, 예기치 않은 서버 및 디코더 실패는 오류로 유지합니다. |
+| 탐색 설정 타입 안전성 | 구현됨 | `console/src/navigation-preferences.ts`, 집중 탐색 및 비용 거버넌스 경로 테스트(`8 passed`), Console 타입 검사 | 설정 중복 제거는 `PanelGroup` 타입을 보존하고 비용 거버넌스 탐색은 서버 가용성에서 계속 파생됩니다. 설정 저장소는 패키지를 활성화하거나 접근 권한을 부여할 수 없습니다. |
 | 에이전트 활동 영속 변환 복원력 | 구현됨 | `fdai_operator_service/postgres_sql.py`, `fdai_operator_service/activity_projection.py`, focused Operator 변환 테스트 (`25 passed`), Console 출처 및 지역화 테스트 (`8 passed`), 타입 검사, 카탈로그 일치 검사 | PostgreSQL 쿼리는 리터럴 와일드카드를 이스케이프합니다. 계약 범위를 벗어난 선택적 기간은 유효한 활동을 중단하지 않고 `duration_out_of_range`와 함께 `null`이 됩니다. 통제된 브라우저 산출물을 보존하지 않았으므로 이 행은 런타임 검증을 주장하지 않습니다. |
 | 감사 추적 탐색 적격성 | 구현됨 | `agent-activity-log-model.ts`, `agent-live-activity.tsx`, `rule-trace.tsx`, focused Console 테스트 (`26 passed`) 및 타입 검사 | 감사 기반 행만 추적 화면으로 연결합니다. 예상된 `404`, `501` 및 source-gate `503` 응답은 사용 불가로 표시하고 예기치 않은 실패는 오류로 유지합니다. Browser Entra 동작은 관찰했지만 통제된 산출물은 보존하지 않았습니다. |
 | 인벤토리 프로바이더 실행 경계 | implemented | `discovery_receipts.py`, `inventory-execution-display.ts`, 집중 Azure delivery 테스트 (`18 passed`), 파서 테스트 (`11 passed`) 및 Console typecheck | 새 서버 증적은 등록된 계획에서 자리 표시자 전용 명령을 파생합니다. Console은 shell 제어, redirect, 환경 할당, 실행 가능한 shell 단어, 실제 GUID, raw ARM id, 자격 증명, 연속 토큰 및 프로바이더 오류를 독립적으로 거부합니다. |
@@ -41,6 +42,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-28 | 구현됨 | 비용 거버넌스 탐색 통합을 현재 탐색기 셸에 rebase한 뒤 설정 중복 제거 과정에서 타입이 지정된 탐색 그룹을 보존했습니다. | `current change`; `console/src/navigation-preferences.ts`; 집중 탐색 및 비용 거버넌스 경로 테스트 8개와 Console 타입 검사가 통과했습니다. | 이 타입 전용 통합 수정에 남은 작업은 없습니다. 비용 거버넌스 운영 검증은 해당 전달 원장에서 계속 추적합니다. |
 | 2026-08-26 | implemented | 비어 있는 Command Deck의 pill 빠른 시작을 상황형 카드 계층으로 교체했습니다. 2 x 2 prompt grid와 현재 화면 Checklist 대표 카드 1개를 사용합니다. 이 변경은 표현 전용이며 기존 prompt 선택, 작성기 입력, 제출, 대화 이력 및 첫 턴 이후 배치 동작을 보존합니다. | `current change`, `console/src/deck/command-deck-presenters.tsx`, `console/src/deck/command-deck-workspace-visual.test.ts`, `console/src/styles.css`, 집중 presenter 검사 11개 및 빈 상태 시각 검사 2개 통과, 정확한 `HEAD`와 staged snapshot의 Console 타입 검사 및 운영 빌드 통과. 인증된 데스크톱, constrained-desktop 및 390 px 모바일 Browser 검사에서 문서와 카드의 가로 overflow 0 및 모바일 target 44 px를 측정했습니다. | 이 표현 범위에 남은 구현 작업은 없습니다. Browser 관찰은 로컬 표현 근거이며 통제된 runtime receipt가 아닙니다. |
 | 2026-08-25 | implemented | 비어 있는 Command Deck의 최종 표현 개선을 완료했습니다. 레이아웃과 닫기 동작을 viewport 오른쪽 12 px에 고정된 창 제어 그룹으로 묶고, 텍스트 닫기 표시를 일관된 아이콘과 제한된 위험 상태 hover로 바꿨습니다. 반복되던 화면 배지를 제거하고 작성기를 넓혀 중앙 정렬했으며, 보내기를 아이콘 동작으로 바꾸고 빠른 시작과 추천 질문을 중앙 정렬했으며, 맥락 기반 시작 질문을 영어와 한국어로 지역화했습니다. | `current change`, 집중 Command Deck 검사 46개, Console 소스 및 테스트 타입 검사, 카탈로그 일치, 읽기 쉬운 한글, 문장부호, 운영 빌드와 진입 번들 게이트 통과. 인증된 영어 데스크톱과 한국어 데스크톱/모바일 Browser 검사에서 닫기 여백 12 px, 모바일 동작 44 px, 지역화된 질문, 컨트롤 겹침 없음 및 가로 overflow 0을 측정했습니다. | 범위가 제한된 구현 작업은 남아 있지 않습니다. Browser 관측은 로컬 표현 근거이며 통제된 런타임 증적이 아닙니다. |
 | 2026-08-25 | implemented | 직접 검토한 뒤 개선된 Command Deck을 한 번 더 단순화했습니다. 답변 근거에 사용하는 내부 화면 스냅샷은 유지하면서 사용자에게 보이던 현재 화면 정보 컨트롤, 개수, 상태 및 오른쪽 패널을 제거했습니다. 새 대화와 이력은 간결한 헤더 아이콘 동작으로 옮기고, 빈 상태의 도구 행을 제거했으며, 대화 기록이 회수된 높이를 사용하도록 했습니다. | `current change`, 집중 Command Deck 검사 39개, Console 소스 및 테스트 타입 검사, 운영 빌드와 진입 번들 게이트 통과. 인증된 데스크톱 및 모바일 Browser 검사에서 현재 화면 컨트롤과 패널이 없고, 모바일 헤더 동작이 44 px이며, 중앙 및 하단 작성기 상태가 올바르고, 가로 overflow가 0임을 측정했습니다. | 범위가 제한된 구현 작업은 남아 있지 않습니다. Browser 관측은 로컬 표현 근거이며 통제된 런타임 증적이 아닙니다. |

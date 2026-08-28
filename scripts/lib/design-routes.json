@@ -465,10 +465,10 @@
         "services/core-control-plane/src/fdai/agents/njord.py",
         "services/core-control-plane/src/fdai/agents/freyr.py",
         "rule-catalog/action-types/remediate.right-size*.yaml",
-        "rule-catalog/catalog/*low-utilization*.yaml",
-        "rule-catalog/catalog/*over-provisioned*.yaml",
-        "policies/**/*low_utilization*.rego",
-        "policies/**/*overprovisioned*.rego",
+        "extensions/cost-governance/src/fdai_cost_governance/resources/rules/*low-utilization*.yaml",
+        "extensions/cost-governance/src/fdai_cost_governance/resources/rules/*over-provisioned*.yaml",
+        "extensions/cost-governance/src/fdai_cost_governance/resources/policies/**/*low_utilization*.rego",
+        "extensions/cost-governance/src/fdai_cost_governance/resources/policies/**/*overprovisioned*.rego",
         "console/src/routes/*finops*.tsx"
       ],
       "must_read": [
@@ -1793,7 +1793,7 @@
         "services/core-control-plane/tests/core/measurement/test_cost*",
         "services/core-control-plane/tests/core/operational_learning/test_cost*",
         "rule-catalog/catalog/*",
-        "rule-catalog/workflows/cost-aware-remediation.yaml",
+        "extensions/cost-governance/src/fdai_cost_governance/resources/workflows/cost-aware-remediation.yaml",
         "rule-catalog/vocabulary/**/*Cost*",
         "rule-catalog/vocabulary/object-types/Budget.yaml",
         "rule-catalog/vocabulary/object-types/CapacityForecast.yaml",

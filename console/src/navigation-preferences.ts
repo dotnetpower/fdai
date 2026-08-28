@@ -107,7 +107,7 @@ function stringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
-function unique(values: readonly string[]): string[] {
+function unique<T>(values: readonly T[]): T[] {
   return [...new Set(values)];
 }
 
