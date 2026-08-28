@@ -1,7 +1,7 @@
 ---
 title: 근본원인 분석
 translation_of: root-cause-analysis.md
-translation_source_sha: 58f727a193d66d5d986795ac491aeb343c41d787
+translation_source_sha: 0006996057e81eb75ee050121d229dceffb42660
 translation_revised: 2026-08-29
 ---
 # 근본원인 분석
@@ -27,6 +27,7 @@ translation_revised: 2026-08-29
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-29 | implemented | 강화 라운드 6에서 KnowledgeSource 관점 26개를 검토하고 pgvector 직렬화 전에 유한하지 않은 임베딩 값을 차단했으며, 참조 인덱스에서는 유한하지 않은 유사도를 0으로 처리했습니다. 잘못된 벡터가 비결정적 검색 순서를 만들 수 없습니다. | `current change`; 집중 KnowledgeSource 및 pgvector 테스트. | 배포가 소유하는 색인 문서를 대상으로 관리되는 RCA cohort를 보존합니다. |
 | 2026-08-28 | implemented | 모델 초기화 이후에 영속 KnowledgeSource를 연결하도록 순서를 바꿨습니다. 이제 Knowledge DSN이 구성된 Azure LLM 모드에서 RCA가 기본 빈 소스에 남지 않습니다. 동일한 조건부 호출은 원격 측정 전용 모드와 로컬 모델 동작을 유지합니다. 메모리 및 pgvector 소스는 다시 수집을 완전한 교체로 처리하고, 임베딩에 실패하면 이전 개정을 보존하며, 오래된 조각을 제거하고, 문서별 트랜잭션 잠금 아래에서 빈 교체를 삭제로 처리합니다. | `current change`; `runtime/bootstrap.py`; `shared/providers/knowledge.py`; `delivery/pgvector/knowledge.py`; 집중 부트스트랩 및 런타임 구성 검사 42건 통과; 집중 KnowledgeSource 및 SQL 수명 주기 검사 21건 통과, 실시간 데이터베이스 동등성 검사 1건은 환경 조건으로 제외; Ruff 및 strict mypy 통과. | 배포가 소유하는 색인 문서를 대상으로 관리되는 RCA cohort를 보존하고 소스 연결기를 교체 계약에 연결합니다. |
 | 2026-08-21 | in-progress | 런타임 동작이나 권한을 변경하지 않고 기존 RCA 티어, grounding, 인과사슬, knowledge 및 프로젝션 계약을 집중 소유 문서로 옮겼습니다. | `current change`; 문서 크기, 번역, 경로 및 링크 검사입니다. | 권위 있는 원인 및 결과 검토가 있는 통제된 운영 cohort를 보존합니다. |
 

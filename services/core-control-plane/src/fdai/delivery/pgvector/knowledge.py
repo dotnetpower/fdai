@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -70,7 +71,10 @@ def _encode_vector(values: Sequence[float], *, dim: int) -> str:
     """Serialize a float sequence into pgvector's text literal format."""
     if len(values) != dim:
         raise ValueError(f"embedding dim MUST be {dim}; got {len(values)}")
-    return "[" + ",".join(f"{float(v):.9g}" for v in values) + "]"
+    normalized = tuple(float(value) for value in values)
+    if any(not math.isfinite(value) for value in normalized):
+        raise ValueError("embedding values MUST be finite")
+    return "[" + ",".join(f"{value:.9g}" for value in normalized) + "]"
 
 
 @dataclass(frozen=True, slots=True)
