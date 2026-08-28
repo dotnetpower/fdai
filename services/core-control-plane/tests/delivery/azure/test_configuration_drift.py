@@ -112,6 +112,36 @@ async def test_scope_escape_is_rejected_before_provider_io() -> None:
     assert called is False
 
 
+async def test_global_resource_normalizes_empty_location() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    {
+                        "id": "/subscriptions/example/providers/Example/widgets/a",
+                        "type": "Example/widgets",
+                        "name": "widget-a",
+                        "location": "",
+                        "attribute_0_present": True,
+                        "attribute_0": "Disabled",
+                    }
+                ]
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        source = AzureArgConfigurationObservationSource(
+            identity=_identity(),
+            http_client=client,
+            config=_config(attribute_paths=("properties.publicNetworkAccess",)),
+            clock=lambda: _NOW,
+        )
+        observation = await source.observe(scope="scope:example-platform")
+
+    assert observation.resources[0].region == "global"
+
+
 async def test_truncated_result_fails_without_partial_observation() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(

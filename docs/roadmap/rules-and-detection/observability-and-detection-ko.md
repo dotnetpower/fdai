@@ -1,8 +1,8 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: f83d2c926adb59fbb757942a9f348382dcfe49ee
-translation_revised: 2026-08-28
+translation_source_sha: baaf43cb2eeccb8ceda886c57ed277b541d7c027
+translation_revised: 2026-08-29
 ---
 
 # 관측성과 감지(Observability and Detection)
@@ -528,6 +528,7 @@ stale snapshot, cursor lag, 대체 경로 spike, 범위 loss, 공급자 압력�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-29 | implemented | 강화 라운드 3에서 Azure 표류 어댑터 관점 26개를 검토하고 유효한 빈 ARG 위치와 누락 필드를 구분했습니다. 이제 전역 범위 리소스는 전체 관측을 실패시키지 않고 안정적인 `global` 리전 토큰을 사용합니다. | `current change`; 집중 Azure 구성 표류 테스트. | 관리되는 현재 상태 표류 증적을 보존합니다. |
 | 2026-08-28 | in-progress | 범위가 고정된 Azure Resource Graph 구성 관측 소스를 추가하고 런타임에 연결했습니다. 정렬된 스칼라 속성 경로만 허용하고, 임의의 속성 묶음을 변환하지 않으며, 원시 프로바이더 ID를 안정적인 다이제스트 접미사로 바꾸고, 누락된 속성을 알 수 없음으로 표시합니다. 불완전한 구성, 범위 이탈, 잘림, 페이지 처리, 크기, HTTP 또는 행 형식 오류가 있으면 관측 결과를 만들지 않고 차단합니다. 시작 과정은 기능이 명시적으로 사용 설정된 경우 워크로드 신원을 요청하고 모든 전제 조건이 유효한 뒤에만 읽기 전용 도구를 설치합니다. Terraform은 전체 입력 집합을 명시적으로 사용 설정하는 계약으로 노출하고 기본적으로 표류 환경을 내보내지 않습니다. | `current change`; `delivery/azure/configuration_drift.py`; `runtime/{bootstrap,bootstrap_plan,configuration}.py`; `infra/services/core-control-plane/`; 집중 Azure 어댑터, 런타임 연결, 표류 서비스 및 인프라 검사 69건 통과; Ruff 및 strict mypy 통과; Core 서비스 Terraform 검증 성공. | 검토된 배포 기준선 내용을 적재하고 관리되는 현재 상태 표류 증적을 보존합니다. |
 | 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했으며, 현재 트리에 맞게 분석기 전달 주장을 바로잡았습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트. | 분석기 전달을 복원하고 관리되는 정확도 근거를 보존합니다. |
 | 2026-08-15 | implemented | Terraform 작업이 구성하는 `fdai.delivery.analyzer_tick_cli` 진입점과 분석기 tick 실행기를 추가해, 발견 건마다 창 키를 가진 정본 Event를 게시하고 게시 실패를 보고합니다. | `current change`; `services/core-control-plane/src/fdai/delivery/analyzer_tick.py`; `pytest services/core-control-plane/tests/delivery/test_analyzer_tick.py` (10 passed). | 배포 정확도 근거를 보존합니다. 대상 해석은 아직 구성된 목록만 사용합니다. |
