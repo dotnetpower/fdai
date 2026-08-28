@@ -350,7 +350,7 @@ jobs:
         run: |
           set -euo pipefail
           changed="$RUNNER_TEMP/governance-changed-files.txt"
-          git diff --name-only "$PR_BASE_SHA...$PR_HEAD_SHA" > "$changed"
+          git diff --no-renames --name-only "$PR_BASE_SHA...$PR_HEAD_SHA" > "$changed"
           if ! grep -Eq '^(rule-catalog/(rules|rule-sets|retirements|governance/(assignments|exemptions|overrides))/|policies/risk|.*risk-classification)' "$changed"; then
             echo "No governed catalog changes require identity review."
             exit 0

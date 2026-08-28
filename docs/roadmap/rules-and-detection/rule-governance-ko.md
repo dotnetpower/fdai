@@ -1,7 +1,7 @@
 ---
 title: 규칙 거버넌스(Rule Governance)
 translation_of: rule-governance.md
-translation_source_sha: 02f459db095f31bfcf6f556b15b95e0fee65ff70
+translation_source_sha: 994ac60f080605f67781cced806032d0ca04fb0a
 translation_revised: 2026-08-28
 ---
 
@@ -487,6 +487,7 @@ provenance:
 | 2026-08-28 | implemented | Action governance에 대한 검토 권한 및 idempotency 공백 세 건을 닫았습니다. 룰 retirement 변경은 이제 자신의 `GovernanceChangeClass.RULE_RETIREMENT` (quorum-2, phishing-resistant, Owner-tier 리뷰)를 선언하므로, `rule-catalog/retirements/*.yaml` 만 바꾸는 PR이 더 이상 검토 권한 CI 게이트를 우회할 수 없습니다. `governance.retire-rule`의 `blast_radius.static_bucket`은 `resource`에서 `subscription`으로 옮겼습니다 - retirement는 하나의 리소스가 아니라 카탈로그 전체에서 룰을 비활성화하기 때문이며, `provenance.content_hash`도 이에 맞춰 재계산했습니다. `GovernedGovernancePrPublisher.publish`는 이제 다이제스트 계산 전에 호출자의 문서를 한 번 스냅샷하고, 이후의 모든 읽기(경로 검증, 서로 다른 승인 확인, 다이제스트, 렌더링된 patch)를 같은 스냅샷에서 수행합니다 - 다이제스트와 렌더링 사이의 외부 변경이 감사된 해시와 실제 patch를 어긋나게 만들 수 있던 창을 닫습니다. Idempotency 키와 영속화된 `GovernancePrLifecycleReceipt`(스키마를 `1.1.0`으로 올림)는 이제 문서 다이제스트와 함께 `correlation_id`를 함께 바인딩하므로, 서로 다른 소스 이벤트가 하나의 receipt나 PR 브랜치로 합쳐지지 않습니다. | `current change`; `services/core-control-plane/src/fdai/rule_catalog/schema/governance_review_authority.py`; `scripts/governance/check-governance-review-authority.py`; `rule-catalog/action-types/governance.retire-rule.yaml`; `services/core-control-plane/src/fdai/delivery/gitops_pr/governance.py`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/rule_catalog/schema/test_governance_review_authority.py tests/integration/scripts/test_check_governance_review_authority.py services/core-control-plane/tests/rule_catalog/test_action_type_catalog.py services/core-control-plane/tests/delivery/test_governance_dispatch.py services/core-control-plane/tests/delivery/test_governance_writers.py services/core-control-plane/tests/delivery/test_governance_review_metadata.py` 가 113개 테스트를 통과했습니다. | Trusted Entra verifier GitHub App을 배포하고 자기 승인 또는 정족수 미달 변경이 차단되고 수정된 변경이 통과한 근거 기록 하나를 보존합니다. 재정의 전달은 별도입니다. |
 | 2026-08-28 | implemented | 이전 멱등성과 CI 경계 설명을 바로잡았습니다. 거버넌스 PR 식별은 이제 안정적인 `source_event_id`를 사용하고 상관관계는 감사 그룹으로만 유지합니다. 같은 이벤트의 내용 변경을 차단하고 게시 전에 기존 다이제스트 전용 키와 상관관계 및 다이제스트 키를 모두 확인하므로, 기존의 열린 PR을 찾지 못해 중복 게시할 수 없습니다. CI 사전 필터에도 `rule-catalog/retirements/`를 추가하여 retirement만 변경한 경우에도 인증된 검토 분류를 실행합니다. | `current change`; 집중 거버넌스 게시자 및 검토 권한 경계 검사(`21 passed`); Ruff 및 strict mypy | 신뢰할 수 있는 검증기를 배포하고 인증된 retirement 전용 PR 검사 증적을 보존합니다. 원격 PR은 만들지 않았습니다. |
 | 2026-08-28 | implemented | PR 어댑터가 기존 거버넌스 PR을 보고하지만 일치하는 수명 주기 증적이 없으면 안전하게 차단하도록 했습니다. 이제 이 복구 사례는 재시도의 다이제스트와 출처 이벤트 식별 정보를 검증되지 않은 기존 패치에 연결하지 않고 명시적인 조정을 요구합니다. | `current change`; 집중 거버넌스 게시자 검사(`15 passed`); Ruff 및 strict mypy | 이 복구를 자동화하기 전에 내용을 검증하는 원격 조정 어댑터를 추가해야 합니다. 원격 PR은 조회하지 않았습니다. |
+| 2026-08-28 | implemented | CI 거버넌스 사전 필터가 변경 경로를 열거할 때 이름 변경 감지를 사용하지 않도록 했습니다. 이제 `rule-catalog/retirements/`에서 비거버넌스 경로로 파일을 옮기면 거버넌스 삭제와 새 경로 추가로 표시되므로, 파일 이동으로 인증된 검토 검사를 우회할 수 없습니다. | `current change`; 집중 거버넌스 검토 권한 검사(`7 passed`) | 거버넌스 경로 이름 변경에 대한 인증된 CI 증적을 보존합니다. 원격 워크플로는 실행하지 않았습니다. |
 
 ### 남은 작업
 
