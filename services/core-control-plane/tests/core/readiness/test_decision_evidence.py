@@ -167,6 +167,12 @@ async def test_matching_independent_proofs_make_evidence_eligible_only() -> None
     assert result.eligible is True
     assert result.reason is DecisionEvidenceReadinessReason.VERIFIED
     assert result.verification_bundle_digest == _bundle(receipt).bundle_digest
+    assert result.admission is not None
+    assert result.admission.receipt_digest == receipt.receipt_digest
+    assert result.admission.evidence_digest == receipt.evidence_digest
+    assert result.admission.scope_digest == receipt.scope_digest
+    assert result.admission.purpose_id == receipt.purpose_id
+    assert result.admission.source_revision == receipt.source_revision
     assert result.execution_authority is result.promotion_authority is False
 
 
@@ -217,8 +223,11 @@ async def test_missing_untrusted_or_self_verifier_fails_closed() -> None:
     )
 
     assert unavailable.reason is DecisionEvidenceReadinessReason.VERIFIER_UNAVAILABLE
+    assert unavailable.admission is None
     assert self_verification.reason is DecisionEvidenceReadinessReason.SELF_VERIFICATION
+    assert self_verification.admission is None
     assert revoked.reason is DecisionEvidenceReadinessReason.UNTRUSTED_VERIFIER
+    assert revoked.admission is None
 
 
 async def test_forged_subject_and_expired_proof_fail_closed() -> None:

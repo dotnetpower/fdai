@@ -20,6 +20,7 @@ from fdai_service_contracts.decision_evidence_verification import (
 from pydantic import ValidationError as PydanticValidationError
 
 from fdai.shared.providers.decision_evidence_verifier import (
+    DecisionEvidenceAdmission,
     DecisionEvidenceVerifierBinding,
     DecisionEvidenceVerifierRegistry,
 )
@@ -47,6 +48,7 @@ class DecisionEvidenceReadinessResult:
     reason: DecisionEvidenceReadinessReason
     receipt_digest: str
     verification_bundle_digest: str | None = None
+    admission: DecisionEvidenceAdmission | None = None
     rejection_details: tuple[str, ...] = ()
     execution_authority: Literal[False] = False
     promotion_authority: Literal[False] = False
@@ -56,6 +58,13 @@ class DecisionEvidenceReadinessResult:
             raise ValueError("decision evidence readiness MUST NOT grant authority")
         if self.eligible != (self.reason is DecisionEvidenceReadinessReason.VERIFIED):
             raise ValueError("decision evidence readiness eligibility mismatched its reason")
+        if self.eligible != (self.admission is not None):
+            raise ValueError("decision evidence readiness admission mismatched eligibility")
+        if self.admission is not None and (
+            self.admission.receipt_digest != self.receipt_digest
+            or self.admission.verification_bundle_digest != self.verification_bundle_digest
+        ):
+            raise ValueError("decision evidence readiness admission mismatched result digests")
 
 
 class DecisionEvidenceReadinessGate:
@@ -157,6 +166,16 @@ def _evaluate_bundle(
         reason=DecisionEvidenceReadinessReason.VERIFIED,
         receipt_digest=receipt.receipt_digest,
         verification_bundle_digest=bundle.bundle_digest,
+        admission=DecisionEvidenceAdmission(
+            receipt_digest=receipt.receipt_digest,
+            verification_bundle_digest=bundle.bundle_digest,
+            evidence_digest=receipt.evidence_digest,
+            scope_digest=receipt.scope_digest,
+            purpose_id=receipt.purpose_id,
+            source_revision=receipt.source_revision,
+            verified_at=bundle.verified_at,
+            valid_until=bundle.valid_until,
+        ),
     )
 
 

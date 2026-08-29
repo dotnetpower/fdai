@@ -3,15 +3,20 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fdai.core.conversation_assurance.quality_qualification import (
+    CHATOPS_QUALIFICATION_EVIDENCE_PURPOSE,
     ChatOpsQualificationBatch,
+    ChatOpsQualificationScorecard,
     QualificationCorpus,
     QualificationEvidence,
     QualificationItemObservation,
     QualificationProvenance,
     QualificationRun,
+    chatops_qualification_evidence_digest,
+    chatops_qualification_scope_digest,
     evaluate_chatops_qualification,
 )
 from fdai.core.conversation_assurance.quality_scorecard import (
@@ -19,9 +24,11 @@ from fdai.core.conversation_assurance.quality_scorecard import (
     QualityDimension,
     QualityHardCap,
 )
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 
 _DIGEST = "a" * 64
 _REVISION = "b" * 40
+_EVALUATED_AT = datetime(2026, 8, 23, 0, 20, tzinfo=UTC)
 
 
 def _components(value: float = 0.98) -> tuple[tuple[QualityDimension, float], ...]:
@@ -97,12 +104,38 @@ def _batch(
     )
 
 
+def _admission(
+    batch: ChatOpsQualificationBatch,
+    **changes: object,
+) -> DecisionEvidenceAdmission:
+    values: dict[str, object] = {
+        "receipt_digest": "sha256:" + "d" * 64,
+        "verification_bundle_digest": "sha256:" + "e" * 64,
+        "evidence_digest": chatops_qualification_evidence_digest(batch),
+        "scope_digest": chatops_qualification_scope_digest(batch),
+        "purpose_id": CHATOPS_QUALIFICATION_EVIDENCE_PURPOSE,
+        "source_revision": batch.provenance.source_revision,
+        "verified_at": _EVALUATED_AT - timedelta(minutes=1),
+        "valid_until": _EVALUATED_AT + timedelta(minutes=1),
+    }
+    values.update(changes)
+    return DecisionEvidenceAdmission(**values)  # type: ignore[arg-type]
+
+
+def _evaluate(batch: ChatOpsQualificationBatch) -> ChatOpsQualificationScorecard:
+    return evaluate_chatops_qualification(
+        batch,
+        decision_evidence=_admission(batch),
+        evaluated_at=_EVALUATED_AT,
+    )
+
+
 def test_qualifies_only_when_every_item_passes_the_worst_of_three_runs() -> None:
     weaker = list(_items())
     weaker[0] = replace(weaker[0], components=_components(0.97))
     batch = _batch(runs=(_run(1), _run(2, items=tuple(weaker)), _run(3)))
 
-    scorecard = evaluate_chatops_qualification(batch)
+    scorecard = _evaluate(batch)
 
     assert scorecard.qualified is False
     assert scorecard.items[0].worst_score == 9.7
@@ -117,9 +150,8 @@ def test_derives_all_hard_caps_from_evidence_and_uses_the_lowest_cap() -> None:
         latency_slo=False,
         critical_safety_escape=True,
     )
-    scorecard = evaluate_chatops_qualification(
-        _batch(runs=(_run(1, items=_items(value=1.0, evidence=evidence)), _run(2), _run(3)))
-    )
+    batch = _batch(runs=(_run(1, items=_items(value=1.0, evidence=evidence)), _run(2), _run(3)))
+    scorecard = _evaluate(batch)
 
     score = scorecard.items[0].run_scores[0]
     assert score.final_score == 8.0
@@ -131,18 +163,17 @@ def test_derives_all_hard_caps_from_evidence_and_uses_the_lowest_cap() -> None:
 
 
 def test_corpus_floor_overrides_an_unsubstantiated_blind_evidence_claim() -> None:
-    scorecard = evaluate_chatops_qualification(
-        _batch(
-            corpus=QualificationCorpus(
-                corpus_id="chatops-hidden",
-                corpus_version="v1",
-                content_digest=_DIGEST,
-                turn_count=100,
-                english_turns=50,
-                korean_turns=50,
-            )
+    batch = _batch(
+        corpus=QualificationCorpus(
+            corpus_id="chatops-hidden",
+            corpus_version="v1",
+            content_digest=_DIGEST,
+            turn_count=100,
+            english_turns=50,
+            korean_turns=50,
         )
     )
+    scorecard = _evaluate(batch)
 
     assert scorecard.qualified is False
     assert scorecard.items[0].worst_score == 9.5
@@ -155,7 +186,7 @@ def test_corpus_floor_overrides_an_unsubstantiated_blind_evidence_claim() -> Non
 
 
 def test_requires_three_complete_unique_runs() -> None:
-    scorecard = evaluate_chatops_qualification(_batch(runs=(_run(1), _run(2))))
+    scorecard = _evaluate(_batch(runs=(_run(1), _run(2))))
     assert scorecard.qualified is False
     assert scorecard.gaps == ("run_count=2<minimum_runs=3",)
 
@@ -176,7 +207,7 @@ def test_rejects_contract_or_provenance_mismatch() -> None:
 
 
 def test_scorecard_serialization_is_stable_content_addressed_and_no_authority() -> None:
-    scorecard = evaluate_chatops_qualification(_batch())
+    scorecard = _evaluate(_batch())
 
     first = scorecard.to_dict()
     second = scorecard.to_dict()
@@ -184,6 +215,8 @@ def test_scorecard_serialization_is_stable_content_addressed_and_no_authority() 
     assert first == second
     assert first["qualified"] is True
     assert first["qualification_authority"] is False
+    assert first["decision_evidence_receipt_digest"] == "sha256:" + "d" * 64
+    assert first["decision_evidence_verification_bundle_digest"] == "sha256:" + "e" * 64
     assert len(first["items"]) == 50  # type: ignore[arg-type]
     assert len(first["content_digest"]) == 64  # type: ignore[arg-type]
     assert first["runs"] == [
@@ -203,3 +236,58 @@ def test_scorecard_serialization_is_stable_content_addressed_and_no_authority() 
             "completed_at": "2026-08-23T00:10:00Z",
         },
     ]
+
+
+def test_missing_decision_evidence_fails_closed() -> None:
+    batch = _batch()
+
+    missing = evaluate_chatops_qualification(batch)
+
+    assert missing.qualified is False
+    assert missing.gaps == ("decision_evidence_admission_missing",)
+    assert missing.decision_evidence_receipt_digest is None
+    assert missing.decision_evidence_verification_bundle_digest is None
+
+
+@pytest.mark.parametrize(
+    ("changes", "expected_gap"),
+    [
+        ({"evidence_digest": "sha256:" + "f" * 64}, "decision_evidence_evidence_mismatch"),
+        ({"purpose_id": "another-purpose"}, "decision_evidence_purpose_mismatch"),
+        ({"scope_digest": "sha256:" + "f" * 64}, "decision_evidence_scope_mismatch"),
+        ({"source_revision": "c" * 40}, "decision_evidence_source_revision_mismatch"),
+        (
+            {
+                "verified_at": _EVALUATED_AT - timedelta(minutes=2),
+                "valid_until": _EVALUATED_AT - timedelta(minutes=1),
+            },
+            "decision_evidence_not_current",
+        ),
+    ],
+)
+def test_mismatched_or_expired_decision_evidence_fails_closed(
+    changes: dict[str, object],
+    expected_gap: str,
+) -> None:
+    batch = _batch()
+
+    scorecard = evaluate_chatops_qualification(
+        batch,
+        decision_evidence=_admission(batch, **changes),
+        evaluated_at=_EVALUATED_AT,
+    )
+
+    assert scorecard.qualified is False
+    assert scorecard.gaps == (expected_gap,)
+
+
+def test_admission_without_explicit_evaluation_time_fails_closed() -> None:
+    batch = _batch()
+
+    scorecard = evaluate_chatops_qualification(
+        batch,
+        decision_evidence=_admission(batch),
+    )
+
+    assert scorecard.qualified is False
+    assert scorecard.gaps == ("decision_evidence_evaluation_time_missing",)

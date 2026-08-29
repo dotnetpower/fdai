@@ -8,6 +8,8 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 
+from fdai_service_contracts.ontology_query import content_digest
+
 from fdai.core.conversation_assurance.quality_scorecard import (
     CHATOPS_QUALITY_CONTRACT_V1,
     ChatOpsQualityContract,
@@ -16,10 +18,15 @@ from fdai.core.conversation_assurance.quality_scorecard import (
     QualityItemMeasurement,
     score_quality_item,
 )
+from fdai.shared.providers.decision_evidence_verifier import (
+    DecisionEvidenceAdmission,
+    assess_decision_evidence_admission,
+)
 
 _TOKEN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 _REVISION = re.compile(r"^[0-9a-f]{40}$")
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
+CHATOPS_QUALIFICATION_EVIDENCE_PURPOSE = "chatops-quality-qualification"
 
 
 @dataclass(frozen=True, slots=True)
@@ -186,6 +193,8 @@ class ChatOpsQualificationScorecard:
     minimum_runs: int
     minimum_turns: int
     minimum_turns_per_locale: int
+    decision_evidence_receipt_digest: str | None
+    decision_evidence_verification_bundle_digest: str | None
     qualified: bool
     gaps: tuple[str, ...]
 
@@ -233,6 +242,10 @@ class ChatOpsQualificationScorecard:
                 for run in self.runs
             ],
             "run_count": self.run_count,
+            "decision_evidence_receipt_digest": self.decision_evidence_receipt_digest,
+            "decision_evidence_verification_bundle_digest": (
+                self.decision_evidence_verification_bundle_digest
+            ),
             "requirements": {
                 "minimum_runs": self.minimum_runs,
                 "minimum_turns": self.minimum_turns,
@@ -268,8 +281,10 @@ def evaluate_chatops_qualification(
     batch: ChatOpsQualificationBatch,
     *,
     contract: ChatOpsQualityContract = CHATOPS_QUALITY_CONTRACT_V1,
+    decision_evidence: DecisionEvidenceAdmission | None = None,
+    evaluated_at: datetime | None = None,
 ) -> ChatOpsQualificationScorecard:
-    """Reduce complete measured runs and require the worst score for every item."""
+    """Reduce measured runs and qualify only independently admitted evidence."""
 
     if batch.provenance.contract_version != contract.version:
         raise ValueError("qualification contract_version does not match the installed contract")
@@ -337,6 +352,20 @@ def evaluate_chatops_qualification(
     failed_items = [str(item.item_id) for item in results if not item.passed]
     if failed_items:
         gaps.append(f"items_below_threshold={','.join(failed_items)}")
+    if decision_evidence is None:
+        gaps.append("decision_evidence_admission_missing")
+    elif evaluated_at is None:
+        gaps.append("decision_evidence_evaluation_time_missing")
+    else:
+        reasons = assess_decision_evidence_admission(
+            decision_evidence,
+            expected_evidence_digest=chatops_qualification_evidence_digest(batch),
+            expected_scope_digest=chatops_qualification_scope_digest(batch),
+            expected_purpose_id=CHATOPS_QUALIFICATION_EVIDENCE_PURPOSE,
+            expected_source_revision=batch.provenance.source_revision,
+            evaluated_at=evaluated_at,
+        )
+        gaps.extend(f"decision_evidence_{reason.value}" for reason in reasons)
 
     return ChatOpsQualificationScorecard(
         qualification_id=batch.qualification_id,
@@ -348,8 +377,80 @@ def evaluate_chatops_qualification(
         minimum_runs=contract.minimum_runs,
         minimum_turns=contract.minimum_turns,
         minimum_turns_per_locale=contract.minimum_turns_per_locale,
+        decision_evidence_receipt_digest=(
+            decision_evidence.receipt_digest if decision_evidence is not None else None
+        ),
+        decision_evidence_verification_bundle_digest=(
+            decision_evidence.verification_bundle_digest if decision_evidence is not None else None
+        ),
         qualified=not gaps,
         gaps=tuple(gaps),
+    )
+
+
+def chatops_qualification_evidence_digest(batch: ChatOpsQualificationBatch) -> str:
+    """Return the canonical digest of every qualification observation and input."""
+
+    return content_digest(
+        {
+            "corpus": {
+                "content_digest": batch.corpus.content_digest,
+                "corpus_id": batch.corpus.corpus_id,
+                "corpus_version": batch.corpus.corpus_version,
+                "english_turns": batch.corpus.english_turns,
+                "korean_turns": batch.corpus.korean_turns,
+                "turn_count": batch.corpus.turn_count,
+            },
+            "provenance": {
+                "contract_digest": batch.provenance.contract_digest,
+                "contract_version": batch.provenance.contract_version,
+                "deployment_identifiers": batch.provenance.deployment_identifiers,
+                "evaluator_versions": batch.provenance.evaluator_versions,
+                "model_identifiers": batch.provenance.model_identifiers,
+                "run_configuration_digest": batch.provenance.run_configuration_digest,
+                "runner_version": batch.provenance.runner_version,
+                "source_revision": batch.provenance.source_revision,
+            },
+            "qualification_id": batch.qualification_id,
+            "runs": [
+                {
+                    "completed_at": run.completed_at,
+                    "items": [
+                        {
+                            "components": [
+                                (dimension.value, value) for dimension, value in item.components
+                            ],
+                            "evidence": {
+                                "complete_trace": item.evidence.complete_trace,
+                                "critical_safety_escape": item.evidence.critical_safety_escape,
+                                "frozen_blind_corpus": item.evidence.frozen_blind_corpus,
+                                "latency_slo": item.evidence.latency_slo,
+                                "production_e2e": item.evidence.production_e2e,
+                            },
+                            "item_id": item.item_id,
+                        }
+                        for item in run.items
+                    ],
+                    "run_id": run.run_id,
+                    "started_at": run.started_at,
+                }
+                for run in batch.runs
+            ],
+        }
+    )
+
+
+def chatops_qualification_scope_digest(batch: ChatOpsQualificationBatch) -> str:
+    """Return the decision scope bound to one corpus and qualification contract."""
+
+    return content_digest(
+        {
+            "contract_version": batch.provenance.contract_version,
+            "corpus_content_digest": batch.corpus.content_digest,
+            "corpus_id": batch.corpus.corpus_id,
+            "corpus_version": batch.corpus.corpus_version,
+            "qualification_id": batch.qualification_id,
+        }
     )
 
 
@@ -383,6 +484,7 @@ def _timestamp(value: str, field: str) -> datetime:
 
 
 __all__ = [
+    "CHATOPS_QUALIFICATION_EVIDENCE_PURPOSE",
     "ChatOpsQualificationBatch",
     "ChatOpsQualificationScorecard",
     "QualificationCorpus",
@@ -392,5 +494,7 @@ __all__ = [
     "QualificationProvenance",
     "QualificationRun",
     "QualificationRunScore",
+    "chatops_qualification_evidence_digest",
+    "chatops_qualification_scope_digest",
     "evaluate_chatops_qualification",
 ]

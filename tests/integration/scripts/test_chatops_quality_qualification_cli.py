@@ -85,7 +85,7 @@ def _write(path: Path, payload: object) -> None:
     path.write_text(json.dumps(payload), encoding="utf-8")
 
 
-def test_emits_stable_qualified_scorecard(
+def test_emits_stable_scorecard_but_fails_closed_without_verified_admission(
     module: ModuleType,
     tmp_path: Path,
 ) -> None:
@@ -94,13 +94,16 @@ def test_emits_stable_qualified_scorecard(
     second = tmp_path / "second.json"
     _write(source, _payload())
 
-    assert module.main(["--input", str(source), "--output", str(first), "--require-qualified"]) == 0
+    assert module.main(["--input", str(source), "--output", str(first), "--require-qualified"]) == 3
     assert module.main(["--input", str(source), "--output", str(second)]) == 0
 
     scorecard = json.loads(first.read_text())
     assert first.read_bytes() == second.read_bytes()
-    assert scorecard["qualified"] is True
+    assert scorecard["qualified"] is False
+    assert scorecard["gaps"] == ["decision_evidence_admission_missing"]
     assert scorecard["qualification_authority"] is False
+    assert scorecard["decision_evidence_receipt_digest"] is None
+    assert scorecard["decision_evidence_verification_bundle_digest"] is None
     assert len(scorecard["items"]) == 50
     assert len(scorecard["content_digest"]) == 64
 
@@ -116,7 +119,10 @@ def test_incomplete_batch_is_retained_but_fails_require_qualified(
     assert (
         module.main(["--input", str(source), "--output", str(output), "--require-qualified"]) == 3
     )
-    assert json.loads(output.read_text())["gaps"] == ["run_count=2<minimum_runs=3"]
+    assert json.loads(output.read_text())["gaps"] == [
+        "run_count=2<minimum_runs=3",
+        "decision_evidence_admission_missing",
+    ]
 
 
 @pytest.mark.parametrize(

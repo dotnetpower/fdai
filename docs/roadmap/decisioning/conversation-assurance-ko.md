@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 58dd8fb21e478398e5e8988ff2855a757f1c059f
-translation_revised: 2026-08-28
+translation_source_sha: 749c5e17acc12c4cc7770b5e0c38cba1f061963b
+translation_revised: 2026-08-29
 ---
 # 대화 품질 보증
 
@@ -22,6 +22,7 @@ translation_revised: 2026-08-28
 | 평가 계약 및 독립 축약 | implemented | [`test_assessment.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_assessment.py), [`test_attribution.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_attribution.py) | 결정론적 검사, 독립 평가자 축약, 귀속 및 판단 보류 동작에 집중 테스트가 있습니다. |
 | 비용 인식 런타임 정책 및 수명 주기 | implemented | [`test_runtime_policy.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_runtime_policy.py), [`test_lifecycle.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_lifecycle.py) | 단계적 평가, 후보 수명 주기, 실패 시 차단되는 승격 검사 및 롤백 동작이 구현되어 있습니다. 이는 운영 승격을 증명하지 않습니다. |
 | Qualification 점수표 및 캠페인 원장 | in-progress | [`test_quality_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_scorecard.py), [`conversation-assurance-ledger.py`](../../../scripts/quality/conversation-assurance-ledger.py) | 점수표와 범위가 제한된 결과 형식은 구현되어 있지만 전체 이중 언어 qualification 집합은 통제된 근거로 보존되지 않았습니다. |
+| Qualification 의사 결정 근거 승인 | implemented | [`quality_qualification.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_qualification.py), [`test_quality_qualification.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_qualification.py) | 축약기는 모든 관측과 입력을 정식 다이제스트에 연결하고 독립적인 `DecisionCriticalEvidenceReceipt` 묶음 검증 후 생성된 현재 유효한 승인 결과가 있을 때만 `qualified=true`를 보고합니다. 독립 실행형 CLI에는 검증기 결속이 없으므로 점수는 보존하지만 자격 없음으로 차단합니다. |
 | 5단계 지연 시간 qualification 근거 | implemented | [`quality_latency.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_latency.py), [`test_quality_latency.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_latency.py) | 고정 SLO 계약과 축약기는 콘텐츠가 없는 p50/p95/p99 근거를 생성하며 완전한 추적 범위를 추론하지 않습니다. 통제된 벤치마크 증적은 보존되지 않았습니다. |
 | 단계 소유자 latency 증적 adapter | implemented | [`quality_latency.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_latency.py), 집중 Core 검사 | 기간은 monotonic 소유자 값에서 파생하며 일치하지 않는 PR/카나리/릴리스 환경을 차단합니다. Runtime 증적을 주장하지 않습니다. |
 | 결정론 검증 timing 생산자 | implemented | [`service.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/service.py), [`test_assessment.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_assessment.py) | 조정기는 명시적 benchmark 환경과 sink를 주입한 경우에만 콘텐츠가 없는 증적을 생성합니다. 기본 runtime 동작은 계측하지 않습니다. |
@@ -39,6 +40,7 @@ translation_revised: 2026-08-28
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-29 | implemented | ChatOps qualification 의사 결정 경계를 공유 의사 결정 핵심 근거 계약으로 마이그레이션했습니다. 축약기는 전체 묶음에서 예상 근거와 범위 다이제스트를 파생하고 고정 목적, 출처 리비전 및 승인 유효 구간을 다시 검사하며, 누락되거나 일치하지 않거나 만료된 근거를 명시적으로 자격 없음으로 유지합니다. | `current change`; qualification 축약기, 공유 승인 결과, 집중 준비 상태 및 qualification 테스트, CLI 실패 시 차단 검사, Ruff 및 strict mypy. | 독립적으로 검증된 프로덕션 qualification 증적과 묶음을 보존해야 합니다. 다른 FDAI-CONST-002 의사 결정 경계는 별도 작업으로 남아 있습니다. |
 | 2026-08-28 | implemented | 과거 맥락/로케일 모듈 및 테스트 경로를 통합 기여 API의 호환 연결로 복원했습니다. | `current change`; 집중 호환 검사; 저장소 링크 검증. | 과거 링크 복구에 남은 작업은 없습니다. |
 | 2026-08-28 | validated | 고객과 무관한 hidden corpus v1을 동결하고 독립적으로 검토했습니다. 서로 다른 두 기본 모델 계열이 500개 사례 전체를 검토했고 세 번째 계열이 불일치 62개를 모두 해결하여 label 500개가 수락되고 차단된 label은 0개가 됐습니다. | `current change`; 공개 매니페스트 다이제스트 `207683882d269a7cfec2c8a7a737f0a4fa156d7d4e5886bc7814814a91ca5182`; 검토 증적 다이제스트 `cc47f3dd7287e71372b60f6b82fa6e1df8815153b4e3b61cccaa1bdf077e5272`; 매니페스트 및 검토 축약기 통과. | 완전한 blind qualification 실행 3회를 수행해야 합니다. 이 변경에는 정책 승격이 포함되지 않습니다. |
 | 2026-08-28 | implemented | 정확한 기본 검토 범위, 계열 분리, 합의율 임계값 및 완전한 tie-break 적용을 갖춘 콘텐츠 없는 독립 검토 축약기를 추가했습니다. | `current change`; 집중 검토 검사(`6 passed`); Ruff 및 strict mypy. | 실행 중인 세 번째 계열 검토를 완료하고 검토된 산출물을 동결한 뒤 공개 증적을 보존해야 합니다. |
@@ -54,8 +56,9 @@ translation_revised: 2026-08-28
 
 ### 남은 작업
 
-- [ ] 하나의 고정된 리비전에서 전체 50개 항목 이중 언어 qualification 점수표를 실행하고
-	모든 하드 검사와 의미 루브릭 임계값을 증명하는 항목별 결과를 보존합니다.
+- [ ] 하나의 고정된 리비전에서 전체 50개 항목 이중 언어 qualification 점수표를 실행하고,
+  모든 하드 검사와 의미 루브릭 임계값을 증명하는 항목별 결과를 보존하며, 묶음을 현재 유효하고
+  독립적으로 검증된 `DecisionCriticalEvidenceReceipt` 묶음에 연결합니다.
 - [ ] 승격된 정책을 보고하기 전에 통계적으로 뒷받침되는 개선, 하드 안전성 이탈 0건 및 로케일
 	회귀 없음을 보여 주는 블라인드 홀드아웃 재실행 근거를 보존합니다.
 - [ ] 측정된 회귀 후 통제된 자동 롤백을 한 번 실행하고 정책 전환, 복원된 불변 버전 및 감사
