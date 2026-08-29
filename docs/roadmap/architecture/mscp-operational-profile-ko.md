@@ -1,8 +1,8 @@
 ---
 title: MSCP Operational Profile
 translation_of: mscp-operational-profile.md
-translation_source_sha: a2d452b4f82429dd06b97899c78240a6197943b3
-translation_revised: 2026-08-23
+translation_source_sha: c5921d4aa8ce13d9d1b8b967dd506cbc32dc9658
+translation_revised: 2026-08-29
 ---
 # MSCP Operational 프로파일
 
@@ -143,6 +143,12 @@ mismatch는 `hold` 또는 `mismatch` shadow 근거를 생성합니다. 실행기
 진입할 수 없습니다. 이후 Huginn과 Muninn이 통제된 operating-pattern 집단 경로에 공급합니다.
 싱크 실패는 로그에 남지만 실행기 결과를 변경할 수 없습니다. 이 중계는 shadow 결과를
 reusable로 만들지 않으며 집단 projector는 검증된 강제 적용 결과만 긍정 근거로 수락합니다.
+
+예상 효과는 관측 전에 영속 StateStore 기반 대기 효과 원장에 들어갈 수 있습니다. 원장은 프로세스가
+다시 시작되어도 후보 ActionType, 환경, 관측기 버전, 정확한 기한 및 변경할 수 없는 효과 다이제스트를
+보존합니다. Compare-and-set claim은 개정 번호와 소유자 세대를 포함합니다. 활성 중복 소유자, 오래된
+개정 번호, 만료된 소유자의 완료 또는 충돌하는 예측 신원은 안전하게 차단됩니다. 기한순 읽기는 소유자가
+없거나 claim이 만료된 항목을 포함하므로 별도 worker가 실행 권한을 변경하지 않고 복구할 수 있습니다.
 
 shadow 관측에서 gating으로 전환하는 작업은 별도의 향후 통제된 변경입니다. Measured
 근거 구간, 롤백 대상 및 프로파일이 기존 권한 결정을 유지하거나 낮출 수만 있다는

@@ -141,6 +141,13 @@ cannot enter learning. Huginn and Muninn then feed the governed operating-patter
 failure is logged and cannot alter the executor result. The relay does not make a shadow outcome
 reusable: the cohort projector accepts only verified enforce outcomes as positive evidence.
 
+Expected effects can now enter a durable StateStore-backed pending-effect ledger before observation.
+The ledger preserves the candidate ActionType, environment, observer version, exact deadline, and
+immutable effect digest across process restart. Compare-and-set claims carry a revision and owner
+generation. An active duplicate owner, stale revision, expired owner completion, or conflicting
+prediction identity fails closed. Deadline-ordered reads include unowned and expired claims so a
+separate worker can recover them without changing execution authority.
+
 Moving from shadow observation to gating is a separate, future governed change. It requires a
 measured evidence window, a rollback target, and a proof that the profile can only preserve or lower
 the existing authority decision.

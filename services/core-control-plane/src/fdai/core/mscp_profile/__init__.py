@@ -28,6 +28,14 @@ from fdai.core.mscp_profile.effect_verification import (
     ObservedEffect,
     verify_effect,
 )
+from fdai.core.mscp_profile.pending_effect_store import (
+    PendingEffectConflictError,
+    PendingEffectOwnershipError,
+    PendingEffectRecord,
+    PendingEffectStaleRevisionError,
+    PendingEffectStatus,
+    StateStorePendingEffectStore,
+)
 from fdai.core.mscp_profile.profile import DEFAULT_PROFILE, OperationalProfile
 from fdai.core.mscp_profile.response_outcome import (
     build_response_outcome,
@@ -66,10 +74,16 @@ __all__ = [
     "ObservedEffect",
     "OperationalProfile",
     "OscillationPolicy",
+    "PendingEffectConflictError",
+    "PendingEffectOwnershipError",
+    "PendingEffectRecord",
+    "PendingEffectStaleRevisionError",
+    "PendingEffectStatus",
     "RuntimeComponent",
     "RuntimeIntegrityResult",
     "RuntimeIntegrityStatus",
     "RuntimeSafetyManifest",
+    "StateStorePendingEffectStore",
     "default_runtime_manifest",
     "build_shadow_effect_audit",
     "build_response_outcome",
