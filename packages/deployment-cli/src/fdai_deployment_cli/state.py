@@ -144,14 +144,16 @@ class ProvisionEvent:
 def append_event(path: Path, event: ProvisionEvent) -> None:
     """Append and fsync one event after checking sequence and hash continuity."""
 
-    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    if stat.S_IMODE(path.parent.stat().st_mode) != 0o700:
-        raise PermissionError("provision journal directory MUST have mode 0700")
-    descriptor = os.open(
-        path,
-        os.O_RDWR | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW,
-        0o600,
-    )
+    directory = _open_journal_directory(path, create=True)
+    try:
+        descriptor = os.open(
+            path.name,
+            os.O_RDWR | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW,
+            0o600,
+            dir_fd=directory,
+        )
+    finally:
+        os.close(directory)
     with os.fdopen(descriptor, "a+b") as stream:
         fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
         details = os.fstat(stream.fileno())
@@ -188,7 +190,15 @@ def append_event(path: Path, event: ProvisionEvent) -> None:
 def read_journal(path: Path) -> tuple[ProvisionEvent, ...]:
     """Read and verify a complete local journal."""
 
-    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    directory = _open_journal_directory(path, create=False)
+    try:
+        descriptor = os.open(
+            path.name,
+            os.O_RDONLY | os.O_NOFOLLOW,
+            dir_fd=directory,
+        )
+    finally:
+        os.close(directory)
     with os.fdopen(descriptor, "rb") as stream:
         details = os.fstat(stream.fileno())
         if not stat.S_ISREG(details.st_mode) or stat.S_IMODE(details.st_mode) != 0o600:
@@ -196,6 +206,22 @@ def read_journal(path: Path) -> tuple[ProvisionEvent, ...]:
         if details.st_size > _MAX_JOURNAL_BYTES:
             raise ValueError("provision journal exceeds its size limit")
         return _read_stream(stream)
+
+
+def _open_journal_directory(path: Path, *, create: bool) -> int:
+    if path.name in {"", ".", ".."}:
+        raise ValueError("provision journal filename is invalid")
+    if create:
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    descriptor = os.open(
+        path.parent,
+        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+    )
+    details = os.fstat(descriptor)
+    if details.st_uid != os.geteuid() or stat.S_IMODE(details.st_mode) != 0o700:
+        os.close(descriptor)
+        raise PermissionError("provision journal directory MUST be current-UID mode 0700")
+    return descriptor
 
 
 def resume_action(*, claim: str, receipt: str, failed: bool) -> ResumeAction:
