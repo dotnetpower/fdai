@@ -23,6 +23,7 @@ resumable work while the roadmap owner remains focused on the normative zero-to-
 | 2026-08-28 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and defined the dependency-ordered subscription genesis plan. | `current change`; owner document, current source paths, and focused documentation checks | Deliver P0-P7 and retain one governed new-subscription receipt. |
 | 2026-08-29 | in-progress | Revised the plan after a separate 40-item adversarial assurance review and split cross-stage gates into a focused owner. | `current change`; subscription genesis provisioning and assurance owners plus their implementation ledgers | Implement G01-G40 and retain the governed acceptance receipts. |
 | 2026-08-29 | implemented | Added the independent deployment CLI distribution and deterministic pre-login contracts for profiles, manifests, journals, model capacity, progress, inventory closure, signed artifacts, licenses, and full-stage rehearsal. | `current change`; `packages/deployment-cli`; focused package and productization tests passed 28 cases; Ruff and strict mypy passed | Complete protected Azure adapters, remote evidence, and user-facing progress integration. |
+| 2026-08-29 | implemented | Completed the pre-login implementation and 75-round hardening campaign, including target-bound planning, concrete resource manifests, required/optional model capacity, signed artifact snapshots, and shipped-wheel offline execution. | Campaign commits from `dd28b64d9`; final Medium-or-higher review found none; successful network-isolated air-gap drill | Log in to the new subscription, run read-only target inspection, then collect protected plan/apply and live inventory/model evidence. |
 
 ### Remaining work
 
@@ -39,5 +40,5 @@ resumable work while the roadmap owner remains focused on the normative zero-to-
   top of the implemented run totals and full-subscription closure contract.
 - [ ] Complete P7 and retain an exact-revision protected new-subscription receipt plus a second-run
   no-change receipt before marking the lifecycle validated.
-- [ ] Implement the cross-stage G01-G40 controls tracked by the
-  [assurance ledger](subscription-genesis-assurance.md) before claiming zero-to-ready validation.
+- [ ] Collect Azure-backed evidence for the controls that require a real subscription, private
+  endpoints, managed identities, quota, database readback, and complete inventory observation.

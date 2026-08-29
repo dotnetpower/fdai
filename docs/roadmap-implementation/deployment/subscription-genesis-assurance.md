@@ -14,7 +14,7 @@ and recoverable.
 | Database and semantic readiness | in-progress | Service migrations and catalog materializer | Enumerable manifests, atomic readiness markers, recovery-class checks, and independent runtime-principal readback remain open. |
 | Model assurance | in-progress | Resolver and Terraform modules; deployment CLI capacity planner | Workload headroom, shared deployment aggregation, reserve, and existing allocation are local contracts. Terms, race-safe Azure reservation, quantitative probes, and live-call approval remain open. |
 | Inventory completeness and progress | in-progress | Complete-generation coordinator; deployment CLI progress and closure contracts | Monotonic totals and independent full-subscription closure are tested. Durable provider events, child-source wiring, and large-scope live evidence remain open. |
-| End-to-end operational closure | in-progress | Deterministic guided rehearsal and interruption tests | Local stage ordering, interruption, resume, and second-run idempotency are tested. No governed zero-to-ready Azure receipt exists. |
+| End-to-end operational closure | in-progress | Deterministic guided rehearsal, interruption tests, and successful network-isolated air-gap drill | Pre-login execution is validated locally. No governed zero-to-ready Azure receipt exists. |
 
 ### Implementation history
 
@@ -22,13 +22,14 @@ and recoverable.
 |------|-------|--------|----------|-----------|
 | 2026-08-29 | in-progress | Added the assurance contract after a 40-item adversarial review of the subscription genesis plan. | `current change`; critique resolution register, paired owner documents, and focused documentation checks | Implement the open controls and retain exact-revision new-subscription evidence. |
 | 2026-08-29 | in-progress | Implemented the pre-login deployment CLI safety kernel and deterministic full-stage rehearsal. | `current change`; package tests passed 25 cases and productization tests passed 3 cases; Ruff and strict mypy passed | Harden the local kernel, then bind protected Azure and operator surfaces. |
+| 2026-08-29 | implemented | Completed 75 focused hardening rounds, fixed every review finding above Low, and passed the shipped-wheel air-gap drill without network or DNS. | Campaign commits from `dd28b64d9`; final severity review reported no Medium-or-higher finding; 89 focused tests, Ruff, strict mypy, locked build, isolated install, and air-gap evidence | Collect subscription-backed state, quota, model, database, inventory, and readiness receipts after login. |
 
 ### Remaining work
 
-- [ ] Implement each open control in review items G01-G40 and link focused checks to the affected
-  implementation-scope row.
-- [ ] Run the complete negative and interruption matrix without customer data or unapproved Azure
-  mutation.
+- [x] The pre-login safety kernel passed 75 recorded hardening rounds and the final review left only
+  Low-or-lower concerns.
+- [x] The local negative, interruption, artifact, packaging, and disconnected execution matrix
+  passes without customer data or Azure mutation.
 - [ ] Retain one governed empty-subscription run, one supported-upgrade run, one rollback/restore
   run, and one second-run no-change receipt.
 
