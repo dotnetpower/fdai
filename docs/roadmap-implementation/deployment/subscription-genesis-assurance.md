@@ -29,10 +29,11 @@ and recoverable.
 | 2026-08-29 | implemented | Completed hardening round 96 by bounding every deployment CLI trust-key input behind a nonblocking no-follow regular-file reader. | `current change`; focused FIFO, symlink, and oversize trust-key regression test and the final deployment CLI gate stack passed 97 tests | Complete the remaining release-script and artifact-reader hardening before login. |
 | 2026-08-29 | implemented | Completed hardening round 97 by consolidating release utility key reads behind a bounded descriptor boundary with private-key ownership and mode checks. | `current change`; three focused release utility tests, Ruff, and strict mypy passed | Complete the remaining workdir, artifact-reader, journal-lock, and resumed-release hardening before login. |
 | 2026-08-29 | implemented | Completed hardening round 98 by making release workdir sentinel verification nonblocking before descriptor validation. | `current change`; three focused workdir guard tests and Ruff passed | Complete the remaining artifact-reader, journal-lock, and resumed-release hardening before login. |
+| 2026-08-29 | implemented | Completed hardening round 99 by closing artifact metadata and hash check/open FIFO races with nonblocking descriptor and identity validation. | `current change`; four focused replacement-race tests and the final deployment CLI gate stack passed 101 tests | Complete the remaining journal-lock and resumed-release hardening before login. |
 
 ### Remaining work
 
-- [x] The pre-login safety kernel passed 98 recorded hardening rounds and the final review left only
+- [x] The pre-login safety kernel passed 99 recorded hardening rounds and the final review left only
   Low-or-lower concerns.
 - [x] The local negative, interruption, artifact, packaging, and fresh plus resumed disconnected
   execution matrix passes without customer data or Azure mutation.

@@ -106,7 +106,9 @@ Disconnected installation authenticates the signed kit with a trusted verifier o
 copies its wheels into a private digest-checked snapshot, and installs only from that snapshot. The
 same verifier safely extracts and verifies the signed bundle before Terraform reads it. The installed
 `fdaictl` then repeats verification, and every Terraform binary and provider path uses the private
-snapshot rather than the original kit.
+snapshot rather than the original kit. Artifact metadata and content descriptors open in
+nonblocking, no-follow mode and verify file identity after opening, so a check/open replacement
+cannot stall verification.
 Connected staging also requires the committed deployment CLI lock and exact Hatchling and pip
 versions before it can sign an offline kit. Terraform and OPA are downloaded at pinned versions
 and accepted only after their platform-specific official SHA-256 values match. The output root must

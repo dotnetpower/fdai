@@ -279,15 +279,19 @@ def _read_regular(path: Path, maximum: int) -> bytes:
     details = path.lstat()
     if not stat.S_ISREG(details.st_mode) or details.st_size > maximum:
         raise BundleVerificationError("deployment bundle metadata is invalid")
-    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     with os.fdopen(descriptor, "rb") as stream:
-        return stream.read(maximum + 1)
+        opened = os.fstat(stream.fileno())
+        _require_same_file(details, opened)
+        payload = stream.read(maximum + 1)
+        _require_same_file(opened, os.fstat(stream.fileno()))
+        return payload
 
 
 def _sha256(path: Path, *, expected: os.stat_result) -> str:
     if not stat.S_ISREG(expected.st_mode):
         raise BundleVerificationError("deployment bundle MUST contain regular files")
-    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     digest = hashlib.sha256()
     copied = 0
     with os.fdopen(descriptor, "rb") as stream:

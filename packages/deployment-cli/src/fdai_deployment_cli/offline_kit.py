@@ -341,7 +341,7 @@ def _copy_verified_file(
         raise OfflineKitVerificationError("verified offline artifact size changed")
     if expected_size > _MAX_FILE_BYTES:
         raise OfflineKitVerificationError("verified offline artifact exceeds its size limit")
-    descriptor = os.open(source, os.O_RDONLY | os.O_NOFOLLOW)
+    descriptor = os.open(source, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     output_descriptor = os.open(
         target,
         os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
@@ -377,7 +377,7 @@ def _copy_verified_file(
 
 
 def _sha256_nofollow(path: Path, *, expected: os.stat_result) -> str:
-    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     digest = hashlib.sha256()
     copied = 0
     with os.fdopen(descriptor, "rb") as stream:
@@ -412,9 +412,13 @@ def _read_regular(path: Path, maximum: int) -> bytes:
         raise OfflineKitVerificationError("offline kit metadata is unavailable") from exc
     if not stat.S_ISREG(details.st_mode) or details.st_size > maximum:
         raise OfflineKitVerificationError("offline kit metadata is invalid")
-    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     with os.fdopen(descriptor, "rb") as stream:
-        return stream.read(maximum + 1)
+        opened = os.fstat(stream.fileno())
+        _require_same_file(details, opened)
+        payload = stream.read(maximum + 1)
+        _require_same_file(opened, os.fstat(stream.fileno()))
+        return payload
 
 
 def _verify_signature(public_pem: bytes, document: bytes, signature: bytes) -> None:

@@ -6,6 +6,7 @@ import json
 import os
 import tarfile
 from argparse import Namespace
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -15,6 +16,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from fdai_deployment_cli.bundle import (
     BundleVerificationError,
+    _read_regular as _read_bundle_regular,
     _sha256,
     extract_bundle_archive,
     verify_bundle,
@@ -41,6 +43,7 @@ from fdai_deployment_cli.offline_kit import (
     MANIFEST_NAME,
     SIGNATURE_NAME,
     OfflineKitVerificationError,
+    _read_regular as _read_offline_regular,
     _sha256_nofollow,
     build_offline_kit_manifest,
     materialize_verified_artifacts,
@@ -212,6 +215,63 @@ def test_offline_hash_rejects_replaced_file_identity(tmp_path: Path) -> None:
 
     with pytest.raises(OfflineKitVerificationError, match="changed during verification"):
         _sha256_nofollow(observed, expected=expected.stat())
+
+
+@pytest.mark.parametrize(
+    ("reader", "error_type"),
+    [
+        (_read_bundle_regular, BundleVerificationError),
+        (_read_offline_regular, OfflineKitVerificationError),
+    ],
+)
+def test_metadata_reader_rejects_fifo_replacement_without_blocking(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    reader: Callable[..., object],
+    error_type: type[Exception],
+) -> None:
+    metadata = tmp_path / "manifest"
+    metadata.write_bytes(b"metadata")
+    real_open = os.open
+
+    def replace_before_open(path: os.PathLike[str], flags: int) -> int:
+        assert flags & os.O_NONBLOCK
+        metadata.unlink()
+        os.mkfifo(metadata)
+        return real_open(path, flags)
+
+    monkeypatch.setattr(os, "open", replace_before_open)
+    with pytest.raises(error_type, match="changed during verification"):
+        reader(metadata, 128)
+
+
+@pytest.mark.parametrize(
+    ("reader", "error_type"),
+    [
+        (_sha256, BundleVerificationError),
+        (_sha256_nofollow, OfflineKitVerificationError),
+    ],
+)
+def test_hash_reader_rejects_fifo_replacement_without_blocking(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    reader: Callable[..., object],
+    error_type: type[Exception],
+) -> None:
+    payload = tmp_path / "payload"
+    payload.write_bytes(b"payload")
+    expected = payload.stat()
+    real_open = os.open
+
+    def replace_before_open(path: os.PathLike[str], flags: int) -> int:
+        assert flags & os.O_NONBLOCK
+        payload.unlink()
+        os.mkfifo(payload)
+        return real_open(path, flags)
+
+    monkeypatch.setattr(os, "open", replace_before_open)
+    with pytest.raises(error_type, match="changed during verification"):
+        reader(payload, expected=expected)
 
 
 def test_materialization_rejects_artifact_replaced_after_verification(tmp_path: Path) -> None:
