@@ -344,9 +344,18 @@ async def test_capability_probe_requires_every_bounded_sample_to_pass() -> None:
 async def test_cross_check_probe_collects_two_structured_output_samples() -> None:
     model = _CrossCheck()
     probe = CrossCheckModelStartupProbe(probe_id="model.cross-check", model=model)
+    request = _request()
+    observed_at = (
+        datetime(2026, 8, 29, 1, 0, tzinfo=UTC),
+        datetime(2026, 8, 29, 1, 5, tzinfo=UTC),
+        datetime(2026, 8, 29, 1, 10, tzinfo=UTC),
+    )
 
-    result = await probe.run(_request())
-    refreshed = await probe.run(_request())
+    with patch("fdai.delivery.startup_model_probe.datetime") as clock:
+        clock.now.side_effect = observed_at
+        result = await probe.run(request)
+        refreshed = await probe.run(request)
+        refreshed_again = await probe.run(request)
 
     assert model.calls == 2
     assert model.correlations == [
@@ -358,8 +367,19 @@ async def test_cross_check_probe_collects_two_structured_output_samples() -> Non
     assert result.model_evidence.sample_count == 2
     assert result.model_evidence.structured_output_proven is True
     assert result.evidence == {"sampled": True, "previously_proven": False}
-    assert refreshed.model_evidence == result.model_evidence
-    assert refreshed.evidence == {"sampled": False, "previously_proven": True}
+    assert refreshed.model_evidence == refreshed_again.model_evidence == result.model_evidence
+    assert (
+        refreshed.evidence
+        == refreshed_again.evidence
+        == {
+            "sampled": False,
+            "previously_proven": True,
+        }
+    )
+    assert (result.observed_at, refreshed.observed_at, refreshed_again.observed_at) == observed_at
+    assert (result.expires_at, refreshed.expires_at, refreshed_again.expires_at) == tuple(
+        instant + timedelta(seconds=request.evidence_ttl_seconds) for instant in observed_at
+    )
 
 
 async def test_cross_check_probe_retries_after_sampling_failure() -> None:
