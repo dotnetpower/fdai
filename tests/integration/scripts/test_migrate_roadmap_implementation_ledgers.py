@@ -223,6 +223,58 @@ def test_reconcile_existing_rejects_history_loss(tmp_path: Path) -> None:
         raise AssertionError("reconciliation must reject append-only history loss")
 
 
+def test_merge_existing_preserves_disjoint_ledger_records(tmp_path: Path) -> None:
+    module = _load_module()
+    owner = _write_pair(tmp_path)
+    initial = module.plan_migrations(tmp_path, [owner])
+    ledger_path = Path("docs/roadmap-implementation/architecture/example.md")
+    ledger = tmp_path / ledger_path
+    ledger.parent.mkdir(parents=True)
+    existing = initial.writes[ledger_path]
+    existing = (
+        existing.replace(
+            "### Implementation scope",
+            "### Migrated implementation notes\n\n"
+            "> Prior delegated note.\n\n"
+            "### Implementation scope",
+        )
+        .replace(
+            "### Implementation history",
+            "| Prior delegated area | implemented | prior.py | Preserved. |\n\n"
+            "### Implementation history",
+        )
+        .replace(
+            "### Remaining work",
+            "| 2026-08-23 | implemented | Prior delegated change. | prior evidence | None. |\n\n"
+            "### Remaining work",
+        )
+        .replace(
+            "- [x] Complete.",
+            "- [x] Complete.\n- [ ] Retain prior runtime evidence.",
+        )
+    )
+    ledger.write_text(existing, encoding="utf-8")
+    owner_path = tmp_path / owner
+    owner_path.write_text(
+        owner_path.read_text(encoding="utf-8").replace(
+            "### Remaining work",
+            "| 2026-08-25 | implemented | Added follow-up. | current change | None. |\n\n"
+            "### Remaining work",
+        ),
+        encoding="utf-8",
+    )
+
+    plan = module.plan_migrations(tmp_path, [owner], merge_existing=True)
+
+    replacement = plan.writes[ledger_path]
+    assert "> Prior delegated note." in replacement
+    assert "| Prior delegated area | implemented | prior.py | Preserved. |" in replacement
+    assert "| 2026-08-23 | implemented | Prior delegated change." in replacement
+    assert "| 2026-08-25 | implemented | Added follow-up." in replacement
+    assert "- [ ] Retain prior runtime evidence." in replacement
+    assert "## Implementation status" not in plan.writes[Path(owner)]
+
+
 def test_plan_normalizes_legacy_unstructured_status(tmp_path: Path) -> None:
     module = _load_module()
     owner = _write_pair(tmp_path, korean_status=False)

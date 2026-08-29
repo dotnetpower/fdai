@@ -17,44 +17,6 @@ workflow ship as catalog-as-code and run in shadow mode.
 > [`rule-catalog/action-types/`](../../../rule-catalog/action-types); it never
 > declares a new mutation primitive. A process that needs a new capability is
 > a signal to open an upstream `ActionType` doc PR first.
-
-## Implementation status
-### Implementation scope
-| Area | State | Evidence | Notes |
-|------|-------|----------|-------|
-| Workflow catalog, schema, and ontology contract | implemented | [`test_workflow_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_workflow_catalog.py), [`Process.yaml`](../../../rule-catalog/vocabulary/object-types/Process.yaml) | Loader, cross-reference, shadow-default, and Process vocabulary checks are implemented. |
-| Runtime journal, projection, approval, and commands | implemented | [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`test_projection.py`](../../../services/core-control-plane/tests/core/workflow/test_projection.py), [`test_workflow_approval.py`](../../../services/core-control-plane/tests/delivery/persistence/test_workflow_approval.py) | Durable snapshots, append-only events, approval, retry, resume, and cancellation mechanics have focused coverage. |
-| Compensation and durable automation hold | implemented | [`test_automation_hold.py`](../../../services/core-control-plane/tests/core/workflow/test_automation_hold.py), [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`test_control_loop_authority.py`](../../../services/core-control-plane/tests/core/test_control_loop_authority.py), [`test_gate.py`](../../../services/core-control-plane/tests/core/risk_gate/test_gate.py) | Every incomplete compensation path issues a durable target hold. Restart and duplicate delivery preserve it, ordinary forward dispatch is denied, and only matching verified recovery can release it. |
-| Authoring and read-only Process surfaces | implemented | [`workflow-builder.chat.ts`](../../../console/src/routes/workflow-builder.chat.ts), [Authoring surface](#8-authoring-surface-console-workflow-builder) | The console can create and validate private drafts and inspect Process projections without execution authority. |
-| Failure-only `on_failure` branching | implemented | [`runner.py`](../../../services/core-control-plane/src/fdai/core/runbook/runner.py), [`models.py`](../../../services/core-control-plane/src/fdai/core/runbook/models.py), [`test_runbook_runner.py`](../../../services/core-control-plane/tests/core/runbook/test_runbook_runner.py) | A declared fallback step is skipped on the success path as `fallback_not_triggered`, runs only when its own triggering step fails, is not triggered by an unrelated step's failure, and stays reachable through an explicit resume. `Runbook` now rejects a self-referential or backward fallback for the same reason the `Workflow` contract does. |
-| Governed direct-action route | implemented | [`delivery.py`](../../../services/core-control-plane/src/fdai/runtime/delivery.py), [`promotion.py`](../../../services/core-control-plane/src/fdai/delivery/promotion.py), [`test_governance_dispatch.py`](../../../services/core-control-plane/tests/delivery/test_governance_dispatch.py) | The declared promotion route is inert until an exact, one-time, approved distinct-approver attestation is consumed; governance catalog changes remain review-only PR artifacts. |
-| Typed `SignalType` trigger reference | not-started | [Known limitations](#21-known-limitations-p1), [`signal_type.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/signal_type.py), [`signal-types.yaml`](../../../rule-catalog/vocabulary/signal-types.yaml) | The registry declares observation semantics only, while shipped workflow triggers name request and command events. A strict load-time cross-check requires an ontology promotion first, because widening the registry also changes T0 rule dispatch resolution. |
-### Implementation history
-| Date | State | Change | Evidence | Remaining |
-|------|-------|--------|----------|-----------|
-| 2026-08-28 | implemented | Added Slack incoming webhooks as a named runtime notification binding while preserving notification fan-out as an authority-free delivery path. | `current change`; `services/core-control-plane/src/fdai/runtime/delivery.py`; notification binding tests. | No workflow step selection, advancement, approval, or execution authority changed. |
-| 2026-08-27 | implemented | Clarified that A2/A4 notification fan-out is an authority-free runtime composition and cannot select, advance, approve, or execute a workflow step. | `current change`; [Multi-channel notification delivery](../interfaces/multi-channel-notification-delivery.md); focused notification checks passed 162 cases. | No workflow automation behavior changed; retain the existing promotion and trigger work below. |
-| 2026-08-21 | implemented | Aligned legacy Console chat and stream tests with server-owned semantic workflow judgment. Text-only turns now retain context but require explicit ActionType and trigger choices, while mismatched or incomplete v1 frames render the shared unavailable state without exposing rejected payloads. | `current change`; `workflow-builder.chat.test.ts`, `backend-stream-v1-contract.test.ts`; 31 focused Console tests passed. | None for this contract-test correction. |
-| 2026-08-17 | implemented | Removed operator-facing guidance that told the operator to enable the workflow authoring routes through a configuration symbol that does not exist in this repository. | `current change`; `workflow-builder.chat.ts`, `workflow/validate.ts`, `workflow.{en,ko}.json`; focused console checks passed 71 tests across 9 files and catalog key parity held. | None for this message set. Wiring the workflow authoring routes themselves remains separate work. |
-| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and exposed the remaining constitutional compensation gap. | `current change`; current source, focused tests, and traceability listed in the scope table. | Close the compensation-hold and promotion exits below. |
-| 2026-08-14 | implemented | Verified durable automation holds across compensation failure, ledger restart, duplicate delivery, forward-dispatch denial, and matching recovery release; recorded FDAI-CONST-009 as implemented. | `current change`; `test_automation_hold.py`, `test_orchestrator.py`, `test_control_loop_authority.py`, and `test_gate.py`; focused checks passed 10 tests. | Retain the independent workflow promotion evidence and the unrelated trigger and branching work below. |
-| 2026-08-14 | implemented | Made `on_failure` branching failure-only so a declared fallback no longer executes as an ordinary forward step on the success path. | `current change`; [`runner.py`](../../../services/core-control-plane/src/fdai/core/runbook/runner.py), [`test_runbook_runner.py`](../../../services/core-control-plane/tests/core/runbook/test_runbook_runner.py); focused runbook and workflow checks passed 114 cases. | Promote a `SignalType` vocabulary that covers request and command triggers before adding the load-time cross-check, and retain the independent workflow promotion evidence. |
-| 2026-08-27 | implemented | Routed the declared governance promotion ActionType through an inert direct-action dispatcher that requires a separately approved distinct-approver transition. | `current change`; `runtime/delivery.py`, `delivery/promotion.py`, and focused governance dispatch tests passed. | Deployment review and merge evidence remain external and no local route grants authority. |
-| 2026-08-27 | implemented | Kept current active-rule projections consistent through runtime, HIL resume, and frozen measurement replay; serialized GitOps path segments and query values before remote access. | `current change`; focused HIL, scenario-replay, and GitOps tests passed. | Deployment evidence remains external. |
-### Remaining work
-- [x] Durable target holds now cover missing, failed, and unscorable compensation, survive restart
-  and duplicate delivery, deny later forward dispatch, and release only through matching verified
-  recovery, as proven by the focused hold, orchestrator, control-loop, and risk-gate tests.
-- [ ] Add a typed `SignalType` trigger reference and cross-check it at load. This is blocked on
-  promoting a `SignalType` vocabulary that covers request and command triggers; the shipped
-  registry declares observation semantics only, and widening it also changes T0 rule dispatch
-  resolution.
-- [x] Failure-only `on_failure` branching is implemented, with runtime tests proving the success
-  path skips an untriggered fallback, an unrelated failure does not trigger it, and an explicit
-  resume can still re-enter at it.
-- [ ] Retain a promoted workflow scenario with independent effect and recovery closure on one
-  pinned Workflow and ActionType catalog revision.
-
 ## 1. Four distinct concepts
 
 Process automation composes four concepts that MUST NOT be conflated. Each has
@@ -668,3 +630,9 @@ in the same PR.
 - **Partial state on failure with no compensation.** A non-reversible step
   without `compensated_by` MUST route failure to HIL, never leave the target
   half-changed.
+
+## Related docs
+
+| To learn about | Read |
+|----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/decisioning/process-automation.md) |

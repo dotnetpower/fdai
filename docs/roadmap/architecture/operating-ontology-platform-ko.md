@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: c21cd1f9173603a2d9189578d18d9c0bf2809fae
+translation_source_sha: 24bb1548df8e64f9128e1c6f883daf7b940a7f08
 translation_revised: 2026-08-30
 ---
 # FDAI 온톨로지 안전 인프라
@@ -18,88 +18,6 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 > **안전 경계:** 함수는 계획, 조회, derive 또는 validate만 수행합니다. Thor만 승인된
 > `MutationPlan`을 실행하며 모든 외부 효과는 독립 조정으로 종료합니다.
 >
-> **구현 상태(2026-08-08):** 정본 release, ActionBuilder 출력, in-memory 온톨로지 쓰기에
-> K0 계약 신원을 구현했습니다. K1 의미 인터페이스 compilation과 범위가 제한된 ObjectSet
-> 조회도 구현했습니다. K2-K5 코어 기본 요소는 변경 계획, stale 개정 번호 검사, 타입이 지정된
-> 함수, 변환 결과 연결, 조정, scoped SDK 세대, 읽기 전용 매니페스트를
-> 포함합니다. PostgreSQL 객체/링크 쓰기는 exact 타입 버전과 release 다이제스트를 보존하며,
-> 운영 ActionBuilder 조립은 전체 loaded release를 사용합니다.
-> PostgreSQL은 각 exact 객체/링크 release 매니페스트도 `ontology_release`에 저장합니다.
-> 시작 시 활성 매니페스트를 저장하고 이전 행을 디코딩하기 전에 등록된 모든 매니페스트를
-> 로드합니다. 누락된 release, 매니페스트/다이제스트 불일치 및 선언/버전 불일치는 안전하게
-> 차단됩니다. 기존 Reader-gated
-> 저장된 1.2.0 inventory manifest는 다음 exact projection에서 제한적으로 다시 빌드하여
-> 1.3.0으로 올리며, 현재 증적으로 조용히 취급하지 않습니다.
-> `GET /ontology/graph` 변환 결과는 release 다이제스트, proposal-only 쓰기 표면,
-> `mutation_authority: false`를 노출하며 변경 경로를 추가하지 않습니다.
-> Pre-migration 행은 original release 다이제스트를 정직하게 복원할 수 없으므로 명시적으로 unpinned
-> 상태를 유지합니다. 다음 successful 쓰기는 완전히 다시 검증한 current-state 개정 번호를 새로
-> 만들고 그 새 개정 번호를 해당 시점의 활성 release로 pin합니다.
-> 의미 Interface 선언은 이제 shared 계약을 사용하며 정본 런타임 release에
-> 포함됩니다. 운영 카탈로그 로딩은 `Identifiable`, `Ownable`, `Operable`, `Observable`,
-> `Recoverable`, `ObjectiveBound`, `CostBearing`의 출처 이력, 상속, LinkType 및 ActionType
-> 참조와 보수적인 explicit ObjectType 연결을 검증합니다. 조립은 polymorphic 카탈로그를
-> exact release로 compile합니다.
-> 기본 전용 카탈로그 변환 결과는 선택적 버티컬 자산을 제외합니다. 비용 거버넌스 속성을
-> 검증하는 테스트는 다이제스트에 결속된 패키지 하나를 명시적으로 설치하고 활성화한 뒤 변환 결과를 만듭니다.
-> Bitemporal 토폴로지 기반은 provider-generation 신원, 이벤트/기록 시간, 완전한 스냅샷,
-> delta 및 tombstone을 보존합니다. Pure `graph_at`/`topology_diff` 함수는 late 근거가 도착해도
-> pinned `known_at` 재생을 보존합니다. 모든 replay batch는 일관된 ontology release binding을
-> 가져야 하며 dangling link 또는 누락되거나 혼합된 release는 completeness를 낮춥니다. 타입이 지정된 조회
-> 검토된 `runtime_calls` LinkType은 inventory topology projection contract에 포함되므로 인증된
-> caller-to-target edge가 current 및 historical view에서 exact Resource endpoint를 유지합니다.
-> 핸들러와 검증기 스키마는 프로바이더 텍스트 없이 이 함수를 노출합니다. Core-owned 이행은
-> 삽입/읽기 전용 런타임 권한 부여를 가진 추가 전용 이력 표를 만듭니다. PostgreSQL 읽기 담당/쓰기 담당
-> 조립과 inventory-promotion 발행은 남아 있습니다.
-> 메트릭 의미는 문구 별칭 없이 exact 검토된 개념 id를 프로바이더 메트릭, 단위 및 집계로
-> 해석합니다. Equal-duration 구간은 관찰된 zero와 누락된 데이터를 구분합니다. 범위가 제한된 causal 결합은
-> 완전한 메트릭/토폴로지 근거를 요구하고 leakage-safe temporal analyzer를 재사용하며 falsifier와
-> competing explanation을 보존하고 실행 권한을 부여하지 않습니다. 운영 프로바이더
-> 연결과 카탈로그 항목은 남아 있습니다.
-> 정본 release는 이제 타입이 지정된 함수 선언을 포함합니다. 함수 레지스트리는 호출자
-> 에이전트, 역할, 용도를 검사하고, 선언된 stochastic 함수를 위해 replay-stable 시드를 파생하며,
-> 정확한 release에 고정된 내용 기반 주소를 가진 호출 증적을 발행합니다.
-> M5는 결정론적 `query.network_path_segments`, `query.pod_telemetry_path` FunctionType과
-> `routes_to` 및 reciprocal `peered_with` 선언을 추가합니다. 범위가 제한된 composition-owned
-> 발급자는 secured ObjectSet 결과를 기록하고 함수 핸들러는 호출 전에 exact dependency
-> 다이제스트를 해석합니다. Contextual 콜백은 호출자 역할, singleton 용도, 온톨로지 release 및
-> projected 결과 다이제스트를 `FunctionInvocationContext`에 연결하며, 발급되지 않았거나
-> self-minted인 증적은 차단됩니다. Evaluation 시간은 증적의 trusted
-> 관측 기준 시점과 정확히 같아야 합니다. 링크의 effective, 근거 및 기록된 시간은 이
-> 기준 시점을 넘을 수 없고 최신성은 시각 연산 전에 1년으로 제한됩니다. Reciprocal
-> 피어링에는 방향별로 구분된 관측 및 검증 증적 계보가 필요하며 두 방향에
-> 같은 계보를 재사용하면 구간은 검증되지 않은으로 남습니다. 인벤토리 변환 결과는 링크
-> 엔드포인트 타입이 관찰된 `ResourceRecord.type`과 충돌하면 차단합니다. 불완전한 그래프는
-> `query_incomplete`를 반환하고 관련 네트워크 링크만 구간 한계를 소비합니다. FunctionType
-> 산출물 다이제스트는 모듈 출처에서 파생되므로 행동 변경은 새 선언 신원을
-> 만듭니다. 함수에는 네트워크, 자격 증명, 프로바이더, 변경 또는 실행 경로가 없습니다.
-> 조정에는 in-memory 참조 원장과 함께 영속
-> `StateStoreReconciliationLedger`가 구현되어 있습니다. 모든 시도를 하나의 조정
-> 집계에 저장하고 atomic 생성 또는 개정 번호 compare-and-set을 사용하여 최종 결과와
-> proposal-only 발신함 권고를 함께 커밋합니다. Strict 재생 검증은 malformed
-> 또는 inconsistent 영속 상태를 차단합니다. Focused 테스트는 재시작 재생, 동시
-> 전달, 충돌 detection, unscorable 시도에서 최종로의 전이를 검증합니다.
-> 각 조정은 최대 8개 시도를 저장하며 마지막 자리는 최종 종결을 위해
-> 예약합니다. 16 MiB 정본 집계 상한은 상태 또는 감사 쓰기 전에 oversized 영속
-> 상태를 차단합니다. 운영 조립은 worker를 연결하고 독립적인 최종 reconciliation 뒤에만
-> 변경 불가능한 다중 효과 계보를 구체화합니다.
-> 교차 출처 상태 판정은 프로바이더 변환 결과 하나를 독립 텔레메트리와 비교하면서 각 출처의
-> 범위, 기준 시점, 최신성, 완전성 및 출처 이력을 보존합니다. 일치, 텔레메트리 누락, 오래된
-> 변환 결과, 오래된 텔레메트리, 충돌 및 검열을 서로 다른 결과로 반환합니다. 경합 중인 값은
-> 평균을 내지 않고 제외하며 모든 결과의 변경 및 실행 권한은 false로 고정됩니다.
-> K6-K8은 변경할 수 없는 operational 상태 trajectory, 의존성 범위 효과 propagation,
-> time-bounded 불변식, 독립 관측 trajectory 결과를 포함하는 graph-wide Dynamic 근거를
-> 목표로 합니다. 기존 액션/메트릭 Dynamic 시뮬레이션은 구현되어 있으며 graph-wide propagation과
-> failure-attribution 배선은 종료 기준을 통과할 때까지 전달 작업으로 남습니다.
->
-> **하드닝 상태(2026-08-01):** release 신원, 영속성, 인터페이스 호환성, ObjectSet
-> 종결, 변경 안전성, 함수 권한, 변환 결과, 조정, 생성된 SDK 구문,
-> 매니페스트 공개를 대상으로 10회 adversarial 라운드를 수행했습니다. 검증된 Medium 이상 코어
-> 발견 사항을 수정했습니다. PostgreSQL 및 런타임 통합 발견 사항도 수정했으며 잔여 발견 사항은
-> Low입니다. 라운드 12에서는 이전 방식 읽기에 현재 release를 소급 할당하는 동작을 제거했습니다.
-> 라운드 13에서는 successful 갱신이 새로 검증한 current-state 개정 번호를 생성하고 pin하는 것을
-> 확인했습니다.
-
 ## 선언 워크벤치 제품 경계
 
 워크벤치는 객체 중심 검사로 정확한 선언을 속성, 방향이 있는 관계, 액션, 종속 항목, 근거 상태,
@@ -121,159 +39,6 @@ Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습�
 | C5 - 근거 상태 | 런타임 근거가 사용 가능하고 최신이며 완전합니까? 충돌하거나 합성된 상태입니까? | 정제된 원본 별칭, 세대, 기준 시점, 최신성, 충돌, 제외 사유 및 사용 불가 시 nullable count입니다. |
 | C6 - 거버넌스 적용 액션 | 어떤 액션이 이 선언에 의미적으로 연결되어 있습니까? | 정확한 ObjectType 또는 InterfaceType 대상 근거와 전체 ActionType 안전성 계약이며 execute control은 없습니다. |
 | C7 - 변경 안전성 | 보존된 두 release 사이에서 무엇이 바뀌었습니까? | 정확한 release 다이제스트, 선언 참조 추가/변경/제거, 호환성 판정, 이행 필요 여부 및 결정론적 diff 다이제스트입니다. |
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| K0 exact release 신원 및 영속성 | implemented | [`release.py`](../../../services/core-control-plane/src/fdai/shared/ontology/release.py), [`postgres_ontology.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_ontology.py), [`inventory_ontology.py`](../../../services/core-control-plane/src/fdai/runtime/inventory_ontology.py), [`20260813_0081_ontology_release_registry.py`](../../../alembic/versions/20260813_0081_ontology_release_registry.py), [`20260817_0085_historical_ontology_release.py`](../../../alembic/versions/20260817_0085_historical_ontology_release.py), focused 영속성/런타임 테스트 | Exact 신원, release에 고정된 쓰기, 재시작에 안전한 매니페스트 로딩, release에 결속된 인벤토리 변환 근거, 정확한 과거 객체/링크 release backfill이 존재합니다. 등록되지 않은 release는 계속 안전하게 차단됩니다. 이행 전 행과 과거 인벤토리 매니페스트는 정직하게 고정하지 않은 상태로 유지합니다. 운영 Live 근거는 아직 남아 있습니다. |
-| 인벤토리 상태 사실 최신성과 분류 동등성 | implemented | `inventory_projection.py`, `inventory_ontology.py`, 예약 및 로컬 인벤토리 조립, 집중 변환 및 연결 검사 | 관측 상태 사실은 더 짧은 고정 유효 기간 대신 구성된 정상 조정 보장 시간을 선언합니다. 예약 및 로컬 변환기는 모두 검토된 ResourceType mapping digest를 받습니다. Exact revision 런타임 근거는 아직 남아 있습니다. |
-| OI-12 집계 인증 증적 | implemented | `operational_instance_certification*.py`, 집중 인증 검사(`24 passed`), 비공개 로컬 증적 `sha256:cc0581c6b0e139b2eaab5847e508fde6b9c4736d27bbd23a7e55fb248c906ead` | Exact-release PostgreSQL collector가 7축을 모두 측정했고, 범위가 제한된 로컬 exercise가 실제 mode-0600 rollup artifact 하나를 append-only archive 근거로 영속화하고 복원했습니다. `complete`는 통과 판정이 아니라 측정 범위를 보고하며 모든 권한 필드를 false로 고정합니다. 보호된 배포 측정과 인증은 열린 상태입니다. |
-| Exact-release 선언 워크벤치 변환 결과 | implemented | `delivery/ontology_{declaration,dependents,evidence_health,release_diff}_projection.py`; 로컬 권한 카탈로그 materializer; Operator operations family; focused 변환 및 route 검사 | ObjectType, LinkType, ActionType 상세는 정확한 release 신원을 보존합니다. 종속 항목은 카탈로그 토폴로지만 사용하고, 근거 상태는 0을 만들어 내지 않으며, 보존 release 비교는 변경 권한 없이 선언 참조 수준을 유지합니다. InterfaceType 및 FunctionType 전용 보기는 측정된 P2 진입 조건에 따라 deferred 상태입니다. |
-| Versioned provider 관계 materialization | implemented | `delivery/provider_schema_relationship_generation.py`, `delivery/provider_schema_relationship_review.py`, `delivery/provider_schema_relationship_ledger.py`, `core/ontology_platform/direction_shadow`, 집중 generation 및 direction-shadow 검사 | Provider-schema 및 REST evidence, 다시 계산한 review digest, 모든 semantic mapping field, provider type@version 신원, mapping revision, projection manifest, 명시적 direction/cardinality/link metadata, 변경 subset 무효화, 직렬화된 rollback, replay 및 exact-release 비교는 bounded content-addressed 상태입니다. Candidate promotion은 proposal-only이며 graph와 migration 권한은 false입니다. |
-| K1-K5 범위가 제한된 의미 조회 및 함수 인프라 | in-progress | [`semantic_planning_frame.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning_frame.py), [`operational_functions.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/operational_functions.py), [`incident_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/incident_queries.py), [`kubernetes_api_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/kubernetes_api_inventory.py), [`kubernetes_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/kubernetes_inventory.py), [`test_inventory_sync.py`](../../../services/core-control-plane/tests/delivery/test_inventory_sync.py), [`test_wire_pod_telemetry.py`](../../../services/core-control-plane/tests/composition/test_wire_pod_telemetry.py) | Core 기본 요소, 범위가 제한된 인시던트 근거, UID에 근거한 Kubernetes API 수집, 원자적 런타임 enrichment 및 발급된 Pod 조립 검사가 존재합니다. 인시던트 조회는 근거가 있는 기록에서만 근본 원인을 노출할 수 있습니다. Kubernetes 링크는 독립적으로 검증되며 실행 권한을 부여하지 않습니다. 인증된 인시던트 및 Kubernetes 실제 운영 근거는 아직 남아 있습니다. |
-| Kubernetes 워크로드 근거 조회 | validated | Rollout, Pod 복구, Resource 이벤트 이력 FunctionType, 실제 및 영속 reader, lease 기반 lifecycle collector, PostgreSQL cursor 및 observation store, 집중 및 인증 증적 | 정확한 대상에는 여전히 보안이 적용된 Resource 하나와 일치하는 불변 UID 및 cluster가 필요합니다. 영속 source는 이제 Event message나 ontology 쓰기 없이 불투명 resume 진행, 타입 지정 관측, 명시적 gap 및 범위가 제한된 query coverage를 보존합니다. 로컬 병합 migration head, sequence 5 실제 cursor, 완전한 60초 영속 읽기, HTTP 200 Event source 및 정확한 UID 실제 행이 구현 경로를 검증합니다. 배포 보존과 원인 및 복구 결합은 별도의 근거 작업으로 남아 있습니다. |
-| 정확한 대상 상태 근거 FunctionType | validated | `semantic_health_planning.py`, `resource_health_assessment_queries.py`, `query_source_handlers.py`, 운영 의미 조립, 집중 검사 및 인증된 Console 증적 | 소스에서 파생한 결정론적 FunctionType은 정확한 현재 상태, 범위가 제한된 활동, 검토된 메트릭 구간을 결합합니다. 파생 상태는 근거 충분성, 수명 주기, 확인되지 않은 준비 상태 및 애플리케이션 상태, 안정성, 리소스 압력, 최신성, 공백만 보고할 수 있습니다. 외부 사실을 단정하거나 불완전한 근거를 숨기거나 실행 권한을 부여할 수 없습니다. 재시작 후 같은 질문 실행은 노드 7개를 모두 완료하고 사용할 수 없는 모든 소스를 공백으로 보존했습니다. |
-| 정확한 대상 오류/활동 상관 FunctionType | validated | `semantic_error_activity_planning.py`, `resource_error_activity_correlation_queries.py`, 운영 의미 조립, 집중 검사 및 인증된 Console 증적 | 소스에서 파생한 결정론적 FunctionType은 이어지는 동일 길이의 요청 오류 구간 두 개와 정확한 대상의 Activity Log 근거를 결합합니다. 파생 상태는 증가, 감소, 변화 없음, 사용 불가를 구분하고 검증된 활동 0건도 사용할 수 없는 활동과 구분합니다. 같은 구간의 동시 관측은 인과관계가 되지 않으며 불완전한 근거는 상관관계를 확인되지 않은 상태로 유지하고 모든 행은 `execution_authority=false`를 고정합니다. |
-| 정확한 대상 메트릭 시계열 FunctionType | validated | `resource_metric_queries.py`, `semantic_resource_metric_planning.py`, `wire_semantic_query.py`, 집중 검사, 인증된 표준 포트 Console 증적 | `query.resource_metric_series`는 보안이 적용된 정확한 Resource 하나, 검토된 메트릭 개념 하나, 범위가 제한된 구간 하나를 받았습니다. Source 표본 1085개에서 정렬된 양 끝점 및 구간별 최솟값/최댓값 관찰값 20/20개를 완전한 근거와 `display_truncated=false`로 반환했습니다. FunctionType은 네트워크나 자격 증명을 사용하지 않고 `execution_authority=false`를 고정했으며 검증된 기존 집계 FunctionType과 분리된 상태를 유지했습니다. |
-| Dependency-wave 조사 query node | 구현됨 | `query_source_handlers.py`, `query_metric_handlers.py`, `query_verification.py`, 집중 조사 query-node 테스트 | 정확한 secured ObjectSet 결과가 endpoint를 검사하는 multi-hop traversal 하나의 root를 제공할 수 있습니다. 동일 길이 metric comparison은 누락 근거와 0을 구분하고, 조사 evidence join은 요청한 증상 방향을 관측하지 않으면 가설을 지지할 수 없습니다. 모호하거나 불완전한 root는 provider 또는 graph I/O 전에 중단됩니다. |
-| Exact-release principal 매니페스트 함수 | implemented | [`manifest_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/manifest_queries.py), [`query_source_handlers.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/query_source_handlers.py), focused 매니페스트 및 조립 검사(`42 passed`) | `query.manifest`는 role, purpose 및 요청한 kind별로 읽을 수 있는 범위 제한 선언 요약을 나열합니다. 바인딩되지 않은 선언은 완전성을 낮추고 호출 증적은 exact-release 근거로 유지되며 모든 행은 `execution_authority=false`를 고정합니다. |
-| 지속형 질문 공간 기능 연결 | implemented | [지속형 질문 공간](../interfaces/continuous-question-space-ko.md), `declaration_queries.py`, `release_diff_queries.py`, `evidence_health_queries.py`, `inventory_impact_queries.py`, 집중 기능 및 조립 검사 | 소스에서 파생한 FunctionType 네 개가 정확한 release에 들어갑니다. 정확히 보존된 공급자 또는 서버 소유 대상이 있는 처리기만 플래너에 보이며, 사용할 수 없는 함수는 타입이 지정된 집계로 남고 어떤 권한도 부여하지 않습니다. |
-| 카탈로그 변환 결과와 exact-generation Rule 검색 | implemented | [`catalog_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/catalog_queries.py), [`test_catalog_queries.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_catalog_queries.py), 커밋 `e4d9483a5` | `catalog.search_rules`는 exact 세대 증적과 함께 범위가 제한된 순위 후보를 반환하며 판단 또는 액션 권한을 부여하지 않습니다. 시작 변환 결과는 아직 control-objective 인스턴스를 구체화하지 않습니다. |
-| 과거 토폴로지, 메트릭 의미 규칙 및 조정 | in-progress | [`topology_history.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/topology_history.py), [`metric_semantics.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/metric_semantics.py), [`reconciliation_state_store.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_state_store.py) | 계약과 순수 또는 영속 기반은 존재하지만 운영 조립과 발행자는 아직 완성되지 않았습니다. |
-| 기능 Interface와 scoped SDK 산출물 | implemented | `interface-types/`, `interface-implementations/`, `sdk_codegen.py`, `ontology_sdk_artifact.py`, 집중 catalog, ObjectSet, SDK 및 artifact 검사 | 기능 Interface 6개는 exact 보수적 연결을 사용합니다. SDK 산출물은 내용 기반 주소를 가지며 scope metadata를 명시하고 proposal-only 쓰기를 유지하며 breaking 제거에는 migration reference가 필요합니다. |
-| Evidence-bound scenario branch | implemented | `scenario_branch.py`, `evidence_read.py`, 집중 evidence 및 scenario 검사 | Copy-on-write overlay는 exact base와 evidence-bundle digest 하나에 대해 memory에서 검증됩니다. 결과는 production write, mutation, execution authority를 false로 고정하고 이 API 밖의 통제된 promotion을 요구합니다. |
-| K6-K8 그래프 전체 Dynamic 근거 | in-progress | [Dynamic 모델 성숙도](#dynamic-모델-성숙도) | 액션 및 메트릭 시뮬레이션은 존재하지만 그래프 전파, trajectory 종결 및 실패 귀속은 남아 있습니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-08-27 | validated | 다시 생성한 격리 validation database에 병합된 Kubernetes lifecycle schema를 적용하고 연속된 인증 seed/watch checkpoint 5개를 보존했습니다. PostgreSQL 통합 검사는 lease 재사용, duplicate observation 멱등성 및 오래된 sequence 차단도 증명합니다. | `current change`, migration 계약 60개 통과, lifecycle PostgreSQL 통합 검사 1개 통과, 실제 cursor sequence 5 및 완전한 60초 영속 읽기 | Production 검증을 주장하기 전에 배포된 보존 구간을 보존하고 이슈 #291에서 교체 및 복구 근거를 결합합니다. |
-| 2026-08-27 | in-progress | 타입 지정 Kubernetes lifecycle 관측, lease 기반 불투명 cursor, 범위가 제한된 bookmark watch, 원자적 PostgreSQL append와 cursor 진행 및 정확한 범위의 영속 Resource Event reader를 추가했습니다. Provider message text는 저장하지 않으며 collector에는 ontology 쓰기 경로가 없습니다. | `current change`, lifecycle/Event 검사 76개 통과, service-migration 계약 60개 통과, Ruff, formatter 및 strict mypy 통과, 인증된 Event API와 정확한 UID 읽기 성공 | Validation schema fingerprint와 경쟁하는 untracked migration head를 해결한 뒤 migration을 적용하고 과거 부재를 검증할 만큼 중단 없는 coverage를 축적합니다. |
-| 2026-08-27 | implemented | Resource Event 답변 변환이 가장 최근의 범위가 제한된 행을 보존하고 표시 잘림을 공개하도록 변경했습니다. 이중 언어 답변은 원본 전체에서 표시한 행 8개를 보고하고 최신 행을 시간순으로 유지합니다. | `current change`, 집중 Resource Event 답변 검사 3개 통과, Ruff 및 formatter 통과 | 런타임 출처 접근을 복구한 뒤 Event 행이 있는 인증된 답변 하나를 보존해야 합니다. 영속 Event 이력은 계속 열린 상태입니다. |
-| 2026-08-27 | implemented | 남은 review gap을 닫아 unresolved 및 source-less ARM reference를 incomplete generation으로 전달하고, candidate version union을 globally sort하며, proposal-only authority literal을 runtime에서 강제했습니다. | `current change`, generation, direction-shadow, promotion 및 집중 adversarial 검사(`38 passed`), Ruff, formatter 및 strict mypy | Complete release-bound 실제 generation 근거와 governed human review를 확보해야 합니다. Live 또는 remote generation은 만들지 않았습니다. |
-| 2026-08-27 | implemented | 양의 Forecast episode와 균형 잡힌 Pattern 후보를 위한 순수 권한 없는 변환 결과를 추가해 정확한 원본 신원과 mutation 및 execution 권한 없음을 보존했습니다. | `current change`, `core/ontology_platform/detection_projection.py`, 집중 producer 검사(`11 passed`) | 정확한 objective 및 outcome endpoint 생산자가 생길 때까지 관계 복원은 계속 보류합니다. |
-| 2026-08-27 | implemented | 기존 변환 상태 대 텔레메트리 shadow reducer와 함께 서로 다른 provider 판정 helper를 추가했습니다. 두 경로 모두 이견 값을 제외하고 명시적 충돌 근거를 보존하며 권한을 높이지 않습니다. | `current change`, `observation_adjudication.py`, 집중 adjudication 및 shadow 검사(`37 passed`) | 읽기 경로 밖의 충돌 전달은 별도 권한 설계 뒤로 유지합니다. |
-| 2026-08-27 | implemented | 기존 instance-store seam 위에 원본에서 파생된 Forecast 및 Pattern 온톨로지 객체의 멱등 저장 메서드를 추가했습니다. | `current change`, `detection_projection.py`, 집중 projection 검사(`4 passed`) | 배포 근거를 주장하기 전에 운영 조립에 연결합니다. |
-| 2026-08-27 | implemented | 서로 다른 provider 판정을 강화해 비교 전에 누락되거나 공백인 provider 신원을 거부합니다. | `current change`, provider 신원 회귀 검사(`38 passed`) | 읽기 경로 밖의 충돌 전달은 계속 보류합니다. |
-| 2026-08-27 | implemented | Principal 범위 운영 근거 읽기를 receipt로 검증된 컨텍스트 메타데이터에 연결했습니다. 기존 범위 제한 읽기 응답은 이제 요청 principal을 보존하고, 권한 또는 실행 권한 없이 불일치하거나 불완전한 컨텍스트 근거를 거부합니다. | `current change`, 운영 컨텍스트 및 scenario-branch 집중 검사(`14 passed`) | 인증된 런타임 근거는 별도로 보존합니다. |
-| 2026-08-27 | implemented | 같은 읽기 경로를 인증된 principal-scope receipt 결속, digest 검증, 정확한 객체 type/revision/temporal/path 검사 및 canonical JSON 검증으로 강화했습니다. Detection 변환 결과에는 atomic create, producer 증적, 활성 episode 및 sealed cohort 검증을 추가했습니다. | `current change`, Context, gateway, detection 및 store 집중 검사 | 인증된 배포 receipt와 운영 조립 근거를 별도로 보존합니다. |
-| 2026-08-27 | implemented | 온톨로지 변환 결과 신원에 대한 PostgreSQL 기반 atomic-create 동시성 회귀 검사를 추가했습니다. | `current change`, `tests/persistence/test_postgres_ontology_instance.py` 및 집중 store 검사 | 성공한 로컬 PostgreSQL receipt를 별도로 보존합니다. |
-| 2026-08-27 | implemented | 남아 있던 Context 응답 경계 미비점을 닫았습니다. 표시 변환은 이제 증적 발급을 인증하고, endpoint triple만 비교하는 대신 각 경로 링크의 전체 관측 및 검증 메타데이터를 일치시키며, 구성된 바이트 상한을 번들과 Context 메타데이터 전체에 적용합니다. | `current change`, `console_projection.py`, `evidence_read.py`, 운영 컨텍스트 및 시나리오 집중 검사(`17 passed`) | 인증된 런타임 응답 하나를 별도로 보존합니다. Live 또는 배포 근거는 생성하지 않았습니다. |
-| 2026-08-28 | implemented | `evidence_read.py`가 반환된 Context 스냅샷과 보안 증적을 요청의 release 다이제스트, 관측 기준 시점 및 범위와 독립적으로 다시 검증하도록 보강했습니다. 조합 응답의 `max_bytes` 계산에는 `principal_ref`와 기존 권한 필드도 포함됩니다. | `current change`; 집중 근거 읽기 검사 11개 및 운영 컨텍스트 검사 74개 통과. | 인증된 런타임 응답 하나를 별도로 보존합니다. 실제 또는 배포 근거는 만들지 않았습니다. |
-| 2026-08-28 | implemented | 같은 응답에 대한 후속 검토 두 건을 해소했습니다. 바이트 예산은 묶음 자체의 `bundle_id`와 `digest`를 예약하고 실제 값으로 계산하며, Context 스냅샷의 `catalog_versions['catalog']` 값이 요청의 `catalog_revision`과 일치하지 않으면 차단합니다. 보안 증적 계약에는 카탈로그 리비전 필드가 없으므로 증적 측 검사는 적용하지 않습니다. | `current change`; `evidence_read.py`; 집중 근거 읽기 검사 15개 및 운영 컨텍스트 검사 84개 통과. | 인증된 런타임 응답 하나를 별도로 보존합니다. 실제 또는 배포 근거는 만들지 않았습니다. |
-| 2026-08-28 | implemented | `topology_history.py` 재생 완전성과 다이제스트 무결성을 강화했습니다. 모든 선택 리비전 묶음에 출처 증적 다이제스트가 있어야 하며 재생 다이제스트는 응답과 동일한 정규화 및 중복 제거 튜플을 해시합니다. | `current change`; 이전 다이제스트와 필드 불일치를 재현한 회귀를 포함한 집중 토폴로지 이력 검사 8개 통과. | 배포 재생 근거는 별도로 보존합니다. |
-| 2026-08-27 | implemented | Bounded versioned provider 관계 materialization과 exact-release direction-shadow 검사를 추가했습니다. 기존 Kubernetes API inventory는 authoritative topology adapter로 충분하며 lifecycle observation은 별도 Event 출처로 유지하고 topology로 재사용하지 않습니다. | `current change`, `delivery/provider_schema_relationship_generation.py`, 집중 generation 및 direction-shadow 검사(`22 passed`), Ruff, formatter 및 strict mypy | Complete release-bound 실제 generation 근거와 governed review를 확보해야 합니다. Live 또는 remote generation은 만들지 않았습니다. |
-| 2026-08-27 | implemented | 검토된 direction-shadow 결과가 제안 준비 상태가 되기 전에 exact-release 비교 모드를 요구했습니다. | `current change`; `direction_shadow/promotion.py`; 집중 승격 검사. | 카탈로그 변경 전에 통제된 검토와 완전한 release 결속 런타임 근거를 보존합니다. |
-| 2026-08-27 | implemented | Independent review 후 provider 관계 materialization을 보강하여 모든 reviewed semantic field, review digest 및 candidate endpoint를 다시 검증하고 type@version 신원과 exact-release replay mode를 보존했으며, 고유 staging 파일을 사용한 ledger record/rollback 직렬화를 추가했습니다. | `current change`, generation, review, ledger 및 direction-shadow 모듈, 집중 adversarial 검사(`35 passed`), Ruff, formatter 및 strict mypy | Complete release-bound 실제 generation 근거와 governed human review를 확보해야 합니다. Live 또는 remote generation은 만들지 않았습니다. |
-| 2026-08-27 | implemented | 개별 id별 ontology store 읽기를 범위가 제한된 exact-id batch query와 이른 result-limit 종결로 교체했습니다. Context id 512개 선택은 이제 새 database connection 수백 개 대신 indexed store query 최대 4개를 사용합니다. | `current change`, ObjectSet, 조건식 및 PostgreSQL instance-store 검사(`31 passed`, `FDAI_DATABASE_URL` 미설정으로 `4 skipped`), Ruff 및 strict mypy | 배포 database 지연 시간 및 connection pressure 근거는 별도로 보존합니다. Remote database는 조회하지 않았습니다. |
-| 2026-08-27 | implemented | 정확한 id batch를 객체 전용으로 유지해 관계 완전성을 상속하지 않게 했습니다. 또한 불투명한 선택 token을 스칼라 Function 입력으로 전달해 객체 값인 결과를 의존성 전용으로 유지했습니다. | `current change`, contextual Function, ObjectSet, 의존성 입력 및 semantic planning 검사 123개 통과, Ruff 및 strict mypy 통과. PostgreSQL 런타임 근거는 환경 제약으로 아직 확인하지 못했습니다. | 배포 database 지연 시간 및 connection pressure 근거는 별도로 보존합니다. Remote database는 조회하지 않았습니다. |
-| 2026-08-27 | implemented | 불완전한 결과 hold를 contextual resource plan에만 적용해 일반 bounded query가 명시적인 잘림 결과를 계속 반환하게 했습니다. | `current change`, contextual 및 non-contextual semantic runtime 검사 108개 통과, Ruff 및 strict mypy 통과 | 인증된 runtime 표시 근거는 별도로 보존합니다. |
-| 2026-08-27 | implemented | Operator 경계에서 서버가 해석한 화면 또는 리소스 그룹 선택 다이제스트를 semantic 요청 생성 전에 다시 계산합니다. 등록된 선택 신원이 일치하지 않으면 이제 서비스 간 전송 전에 실패합니다. | `current change`, 정확한 화면, 변조된 다이제스트 및 512개 id Operator 묶음 검사 3개 통과, Ruff 및 strict mypy 통과 | 인증된 runtime 전송 근거는 별도로 보존합니다. |
-| 2026-08-27 | implemented | 호출자가 주장하는 프로바이더 검증 boolean을 주입된 신원 검증기로 교체하고 범위가 제한된 비어 있지 않은 대상 및 세대 신원을 요구했습니다. 모든 프로바이더가 해당 대상 세대에 대해 검증된 뒤에만 독립 프로바이더 판정을 시작합니다. | `current change`; 프로바이더 판정 및 변환 상태 shadow 검사 42개 통과; Ruff 및 strict mypy. | 이 선택적 기본 요소를 조립하기 전에 프로덕션 검증기를 연결합니다. 외부 프로바이더는 조회하지 않았습니다. |
-| 2026-08-27 | implemented | 근거 묶음을 만들기 전에 직렬화된 Context 응답 묶음 공간을 예약했습니다. 바이트 예산이 가득 찬 읽기는 Context 메타데이터를 붙인 뒤 실패하지 않고 명시적인 보류 이유와 함께 범위가 제한된 근거를 제거합니다. | `current change`; 근거 읽기 및 묶음 검사 37개 통과; Ruff 및 strict mypy. | 인증된 런타임 응답은 별도로 보존합니다. 외부 근거는 만들지 않았습니다. |
-| 2026-08-27 | implemented | 보안 증적 인증을 principal 범위, 호출자 역할, 기준 시점, 출처 완전성 및 세대, 개수, 잘림 및 정제 요약을 포함한 전체 발급 증적에 연결했습니다. 다이제스트에 포함된 그래프 상태에서 완전성을 다시 파생하므로 발급 다이제스트의 표지만 바꿔 불완전한 근거를 완전하게 만들 수 없습니다. | `current change`; 보안 쿼리, Context 변환 및 네트워크 증적 검사 43개 통과; Ruff 및 strict mypy. | 인증된 런타임 근거는 별도로 보존합니다. 외부 읽기는 수행하지 않았습니다. |
-| 2026-08-27 | implemented | Principal 범위 운영 근거 읽기를 증적으로 검증된 Context 메타데이터에 연결했습니다. 기존의 범위가 제한된 읽기 응답은 요청 principal을 보존하며 Context 근거가 일치하지 않거나 불완전하면 변경 또는 실행 권한 없이 차단합니다. | `current change`; 집중 운영 컨텍스트 및 시나리오 분기 검사 14개 통과. | 인증된 런타임 근거는 별도로 보존합니다. |
-| 2026-08-27 | implemented | 동일한 읽기 경로에 인증된 principal 범위 증적 결속, 다이제스트 검증, 정확한 객체 유형, 리비전, 시간, 경로 검사 및 정규 JSON 검증을 추가했습니다. 탐지 변환에는 원자적 생성, 생산자 증명, 활성 에피소드 및 봉인 집단 검증을 추가했습니다. | `current change`; 집중 Context, 게이트웨이, 탐지 및 저장소 검사. | 인증된 배포 증적과 프로덕션 조립 근거를 보존합니다. |
-| 2026-08-27 | implemented | 온톨로지 변환 신원의 PostgreSQL 기반 원자적 생성 동시성 회귀 검사를 추가했습니다. | `current change`; `tests/persistence/test_postgres_ontology_instance.py` 및 집중 저장소 검사. | 성공한 로컬 PostgreSQL 증적을 보존합니다. |
-| 2026-08-27 | implemented | 양의 Forecast 에피소드와 균형 잡힌 Pattern 후보를 위한 순수 권한 없는 변환 결과를 추가해 정확한 출처 신원과 변경 및 실행 권한 없음을 보존했습니다. | `current change`; `core/ontology_platform/detection_projection.py`; 집중 생산자 검사 11개 통과. | 정확한 목표 및 결과 엔드포인트 생산자가 생길 때까지 관계 복원은 계속 보류합니다. |
-| 2026-08-27 | implemented | 서로 다른 프로바이더 관측을 하나의 중립 리소스 신원에서 판정하는 경로를 추가했습니다. 일치하는 속성만 보존하고 경합 필드를 기록하며 승리 값을 선택하거나 권한을 높이지 않습니다. | `current change`; `observation_adjudication.py`; 집중 교차 프로바이더 검사. | 통제된 두 번째 프로바이더 런타임 근거는 별도로 보존합니다. |
-| 2026-08-27 | implemented | 출처에서 파생된 Forecast 및 Pattern 온톨로지 객체를 기존 인스턴스 저장소 경계에 멱등적으로 영속화하는 메서드를 추가했습니다. | `current change`; `detection_projection.py`; 집중 변환 검사 4개 통과. | 배포 근거를 주장하기 전에 프로덕션 조립에 연결합니다. |
-| 2026-08-27 | implemented | 정확한 identity 조건식이 Resource 0개 또는 여러 개로 해소되면 Event Function이 이를 차단하도록 수정했습니다. Provider에는 요청하지 않고 결과는 `target_resolution_not_exact`로 불완전하게 유지합니다. 완전한 넓은 범위의 기존 빈 결과 의미는 유지합니다. | `current change`, 집중 Resource Event FunctionType 회귀 검사 | 런타임 Kubernetes Event 출처를 복구하고 인증된 정확한 대상 프로바이더 증적 하나를 보존해야 합니다. 행 0개가 과거 부재를 증명하려면 영속 이력이 계속 필요합니다. |
-| 2026-08-27 | implemented | 출처에 근거한 정확한 대상 하나를 Event 계획에 결속하고 전용 이중 언어 읽기 전용 답변으로 Event 행과 제한 사항을 변환했습니다. 이름이 같은 Resource가 모호하면 검토된 유형 범위가 함께 좁히기 전까지 incomplete로 유지합니다. 이름은 권한을 만들거나 secured ObjectSet을 우회하지 않습니다. | `current change`, 집중 Event 수직 경로 검사 287개 통과, Ruff, formatter 및 strict mypy 통과. 인증된 후보 선택과 정확한 대상 후속 실행은 노드 2개 Function 계획과 근거 검사 8/8을 완료하고 `source_unavailable`, 출처 불완전성 및 실행 권한 없음을 렌더링했습니다. | 런타임 Kubernetes Event 출처를 복구하고 identity-aware 프로바이더 증적 1개를 보존한 뒤 provider TTL을 보존 커버리지로 취급하기 전에 영속 이력을 추가합니다. |
-| 2026-08-27 | implemented | Additive identity-aware reader capability을 통해 정확한 child Kubernetes Event 읽기를 좁혔습니다. Function은 secured projection에서 `cluster_ref`와 `uid`만 파생하고 두 map level을 모두 freeze하며 legacy DI reader를 보존합니다. Kubernetes adapter는 불변 UID가 정확한 Resource id를 재현할 때만 child selector를 허용합니다. | `current change`, 집중 FunctionType, legacy reader, 복합 selector 전달, 위조 identity, Azure 및 Kubernetes 검사 27개 통과, Ruff, formatter, strict mypy 통과 | 인증된 정확한 child Console 근거를 보존하고 provider TTL을 보존 커버리지로 취급하기 전에 영속 이력을 추가합니다. |
-| 2026-08-26 | implemented | 기존 exact-release Resource 이벤트 이력 FunctionType을 통해 `resource_event.kubernetes`를 연결했습니다. 기능군 라우터 하나가 Azure와 Kubernetes 읽기를 독립적으로 유지하며, Kubernetes 어댑터는 정확한 endpoint, CA, 인증, 클러스터, UID, 조회 구간, raw byte, 항목 수, 연속 토큰 및 타임스탬프 상한을 적용합니다. 삭제된 객체 이벤트는 정확히 선택한 클러스터를 통해서만 계속 조회할 수 있습니다. | `current change`, Resource 이벤트 FunctionType, Kubernetes 및 복합 읽기 경로, 런타임 조립, 공유 UID 신원 helper, 집중 어댑터, 라우터, 의미 계획, 조립 및 런타임 검사, exact typed duration 정렬, 혼합 범위 보존, 인코딩 응답 거부, raw 256 KiB 상한을 검사했습니다. 인증된 정확한 클러스터 Console 실행에서 `server_resource_event_history`를 선택하고 6.8초에 ObjectSet 및 Function 노드와 근거 검사 8/8을 실행 권한 없이 완료했습니다. 반환된 0건은 과거 부재를 증명하지 않으며, 강화한 어댑터는 `source_retention_unverified`를 보고합니다. | 프로바이더 TTL을 보존된 커버리지로 취급하기 전에 영속 이력을 추가하고, Pod 원인 또는 복구를 주장하기 전에 교체 및 영향 근거를 결합합니다. |
-| 2026-08-26 | implemented | 정확한 대상 현재 상태의 일반 검증 행 개수를 이중 언어 근거 기반 답변으로 교체했습니다. 투영은 이제 정규화된 프로비저닝 및 런타임 상태, 정본 상태 사실 시각, 결정론적 정확한 대상 lifecycle 판정, 명시적인 `exact_target_only` 범위를 내보냅니다. 답변은 지정한 대상과 연관 노드·워크로드·리소스를 분리합니다. 지정한 대상에서는 비정상 프로바이더 lifecycle 상태가 관측되지 않았다고 보고할 수 있지만, 조회하지 않은 연관 리소스를 비정상 0건이라는 거짓 주장으로 바꾸지 않습니다. | `current change`, 정확한 현재 상태 어댑터 및 최종 렌더러, 집중 어댑터 및 프로세서 검사 97개 통과, 더 넓은 프로세서·보증·Azure 딜리버리 검사 944개 통과, Ruff, formatter, strict mypy 통과, 인증된 Console이 7.0초 안에 `Succeeded`, `Running`, 주장 4/4 지지, 근거 검사 8/8, 펼친 5개 이벤트 조사 타임라인, 명시적인 연관 리소스 제한을 반환 | 비정상 노드 및 워크로드의 상태나 부재를 주장하기 전에 클러스터 범위 런타임 토폴로지 역량을 추가합니다. 현재 로컬 런타임 인벤토리는 `aks-fdai-chaos`가 아니라 `aks-fdai-sre-lab-krc`를 수집합니다. |
-| 2026-08-26 | implemented | 정확한 현재 상태 계열에만 적용되던 "발화가 지목한 정확한 Resource 신원 해소"를 모든 출력 계열로 확장했습니다. 근거가 되는 런타임 식별자를 하나만 지목한 frame이 event-history와 health-list 계열에서는 여전히 `resource_identity`를 미해소로 보고해서, 발화가 이미 지목한 대상을 되묻고 아무리 반복해도 해소되지 않는 턴이 됐습니다. 해소는 서버 소유이며 fail closed입니다. `resource_identity`가 유일한 clarification 요구이자 유일한 미해소 항목이고, 주체가 Resource 전용이며, 근거가 되는 식별자가 정확히 하나일 때만 적용합니다. | `current change`, `semantic_target_candidate_planning.py`, 해소와 4가지 보류 조건(대상 미지목, 대상 2개 지목, 추가 미해소 항목, 더 넓은 요구, 비-Resource 주체)을 고정하는 집중 검사 6개, 대화 코호트 1100개 통과, Ruff, formatter, strict mypy 통과, 라이브 event-history 및 health-list 턴이 이미 지목된 클러스터를 더는 되묻지 않음 | 두 계열 모두 이제 정직한 `semantic_request_unsupported`에 도달합니다. Kubernetes 노드 및 워크로드 준비 상태나 Resource Health와 Pod 재시작 이력을 결합한 읽기를 제공하는 검증된 역량이 없기 때문입니다. 두 질문이 답변되려면 해당 역량을 먼저 추가해야 합니다. |
-| 2026-08-26 | implemented | 객체 값을 받는 모든 FunctionType 입력에 `x-fdai-dependency-only`를 표시했습니다. 이 입력은 게이트웨이가 보호한 ObjectSet 결과와 파생 근거 묶음을 전달하지만 `query.vm_process_cpu_evidence`만 마커를 선언하고 있었습니다. 그래서 계획 검증기가 보호된 근거 대신 모델이 작성한 리터럴을 공급하는 제안 계획을 통과시켰습니다. 리소스 이벤트 이력 턴이 이를 불투명한 `capability_failed` 증적으로 재현했고, 이제는 계획 검증 단계에서 fail closed 됩니다. | `current change`, 모든 운영 FunctionType을 검사하는 신규 `test_function_dependency_inputs.py` 계약 가드, 집중 온톨로지 플랫폼 및 영속 검사 12개 통과, Ruff, formatter, strict mypy 통과, 라이브 이벤트 이력 턴이 `capability_failed`에서 정직한 clarification으로 전환됨 | 발화가 이미 지목한 대상을 되묻지 않고 답하도록 리소스 이벤트 이력에 서버 소유 결정론 계획을 바인딩합니다. |
-| 2026-08-26 | implemented | 인벤토리 투영 상태를 보안 ObjectSet 증적으로 축약할 때 관계 커버리지와 객체 커버리지를 분리했습니다. Resource 스냅샷이 세대 전체의 관계 커버리지를 물려받고 있었기 때문에, 다른 곳의 분류된 non-edge가 정확한 단일 리소스 현재 상태 답변을 전부 `authoritative_evidence_unavailable`로 보류시켰습니다. 이제 관계 커버리지는 객체 집합이 집합 내부 edge를 만들 수 있는 스냅샷만 게이팅하며, 객체 커버리지는 여전히 모든 스냅샷을 게이팅하고 순회는 기존의 엄격한 규칙을 유지합니다. | `current change`, `postgres_ontology.py`, 객체 공백과 관계 공백 뮤테이션을 포함한 집중 커버리지 축약기 4개 사례, 인증된 Console이 정확한 클러스터 현재 상태 질문을 11.7초에 `Verified`(주장 3/3 지지, 근거 6/6)로 답변 | 렌더된 답변이 일반 검증 행 수 대신 반환된 현재 상태 필드를 보고하도록 합니다. |
-| 2026-08-25 | implemented | `query.kubernetes_pod_recovery_evidence`가 발급된 정확한 Pod, ReplicaSet 소유자, Deployment 소유자 증적과 검토된 30분 `pod.restart.history` 구간을 결합하도록 확장했습니다. 서버 소유 5-node 계획은 모든 종속 신원과 소유권 link 근거를 검증하며, 복구에는 범위가 제한된 양수 변화량과 ready 및 available 상태인 소유자 replica 전체가 필요합니다. Dependency-only 입력은 모델이 작성한 정적 인자를 거부합니다. | `current change`, 집중 메트릭, 검증기, 축약기, 증적 인증, 의미 플래너, 운영 조립 검사 49개 통과, 의미 라우팅 회귀 검사 370개 통과, Ruff, formatter, strict mypy 통과 | 보존된 Kubernetes 이벤트, 변경, 교체 UID, 영향 범위, 새 기준 시점 근거를 추가한 뒤 인증된 Console에서 복구 턴을 검증합니다. |
-| 2026-08-25 | implemented | 원본이 불완전하고 잘리지 않은 ObjectSet 결과에 안정된 보안 조회 제한을 추가했습니다. 따라서 행이 0개인 대상 후보 조회를 실행하고 근거를 연결할 수 있으며 불완전한 그래프 범위를 부재로 바꾸지 않습니다. | `current change`, `query_source_handlers.py`, 집중 rollout 및 불완전 원본 검사 19개 통과, 인증된 대상 없는 Console 턴이 `source_incomplete`와 실행 권한 없이 검증 완료 | 완전한 Kubernetes 세대에서 정확한 대상 rollout 근거와 독립적인 복구 근거를 보존합니다. |
-| 2026-08-25 | implemented | `query.kubernetes_rollout_evidence`와 서버 소유 정확한 대상 계획을 통해 rollout 축약기를 연결했습니다. Core는 전이적이지 않은 `kubernetes_owned_by` 단계를 명시적으로 두 번 탐색하고, 발급된 secured 결과 3개를 모두 인증하며, 증적 계보에서 현재 의존성 신원을 보존합니다. 모델이 작성한 계획이나 프로바이더 API는 호출하지 않습니다. | `current change`, 집중 축약기, 증적 권한, 탐색, 플래너, 운영 조립 검사 15개 통과, 작업 범위 Ruff 및 strict mypy 통과 | Core를 재시작하고 대상 없는 후보 선택과 정확한 대상 rollout 근거를 인증된 경로로 보존합니다. 복구 효과 검증은 별도의 열린 작업입니다. |
-| 2026-08-25 | implemented | OI-12 범위 상태를 허용되지 않는 `로컬 검증됨`에서 `implemented`로 수정했습니다. 집중 검사와 비공개 로컬 exercise는 구현을 입증하지만 열려 있는 보호된 배포 측정을 대체하지 않습니다. | 범위 행에 인용한 기존 OI-12 소스, 집중 검사 24개, 비공개 로컬 증적 | 해당 범위를 `validated`로 높이기 전에 보호된 배포 측정을 보존합니다. |
-| 2026-08-25 | implemented | 타입이 지정된 관측 상태 메타데이터를 사용하는 순수 Kubernetes Deployment rollout 근거 축약기를 추가했습니다. Replica 수와 Pod 차단 신호를 보존하고, 대상이 다른 Pod를 거부하며, 오래되거나 충돌하는 근거를 낮추고, 원인 및 실행 권한을 모두 false로 고정합니다. | `current change`, `kubernetes_rollout_evidence.py`, 집중 축약기 검사 5개 통과 | 발급된 exact-release FunctionType과 구조화된 조사 계획을 통해 축약기를 결속한 뒤 인증된 질문 및 복구 근거를 보존합니다. |
-| 2026-08-22 | validated | 남은 비인과 T1 frame 변형을 정규화한 뒤 인증된 의미 경로로 source-derived 정확한 대상 메트릭 시계열 FunctionType을 검증했습니다. | `current change`, 집계/시계열 격리 집중 검사 4개와 Ruff 및 strict mypy 통과, 인증된 Console이 노드 2/2개와 근거 검사 8/8개를 완료하고 반환/전체 행 20/20개와 `sampling_strategy=min_max_envelope_v1`, `source_sample_count=1085`, `display_truncated=false`를 보존 | 이 정확한 대상 FunctionType 검증 밖의 더 넓은 운영 메트릭 프로바이더 보증은 열린 상태입니다. |
-| 2026-08-22 | implemented | Source-derived 정확한 대상 메트릭 시계열 FunctionType을 추가하고 기존 메트릭 레지스트리 및 프로바이더와 원자적으로 binding했습니다. 범위가 제한된 표는 표현 입력일 뿐이며 source 구간 또는 대상 신원이 불완전하면 프로바이더 사실을 주장할 수 없습니다. | `current change`, 집중 메트릭, 의미 계획, 조립, prompt, 표현 검사 43개 통과 | 표준 로컬 서비스를 재시작한 뒤 인증된 Console 근거를 보존합니다. 더 넓은 운영 메트릭 프로바이더 근거는 열린 상태입니다. |
-| 2026-08-21 | validated | 범위가 제한된 운영 비교가 일반 근거 사용 불가 상태에서 멈추지 않고 기존 Azure 메트릭 및 Activity Log 프로바이더에 도달하도록 정확한 대상 오류/활동 상관 조회 프로필과 FunctionType을 추가했습니다. 5-node plan은 서버가 소유하며 모델 plan은 다른 output으로 대체할 수 없고 reducer는 동시 관측을 원인으로 승격하지 않습니다. | `current change`, 집중 테스트 218개, 정적 gate stack, 인증된 같은 질문 Console 증적이 5.8초에 노드 5/5, 근거 검사 11/11, source 6개, `execution_authority=false`로 완료 | Container Apps에 대한 권한 있는 `request.errors` 프로바이더 경로를 추가합니다. 현재 direct Metrics catalog는 `http.server.request.error.count`를 매핑하지 않으므로 런타임은 검증된 Activity Log 0건을 보존하면서 메트릭을 사용할 수 없다고 보고합니다. |
-| 2026-08-21 | validated | 요청한 상태 판정 대신 broad ObjectSet 답변이 대체된 뒤 정확한 대상 상태 근거 FunctionType과 서버 소유 조회 프로필을 추가했습니다. Reducer는 관측된 수명 주기를 별도로 보존하고 자체 근거가 없으면 준비 상태와 애플리케이션 상태를 확인되지 않음으로 표시하며 요청 0건과 CPU 표본을 정상 판정이 아니라 범위가 제한된 사실로 취급합니다. | `current change`, 집중 함수 스키마, dataclass 의존성 정규화, 7-node plan 검증, fail-closed 축약, 표현 검사, 인증된 같은 질문 Console 증적이 6.7초에 노드 7/7과 근거 검사 13/13 완료 | 프로세스 재시작, 런타임 로그, 메모리, 의존성, 성공한 작업 소스는 authoritative reader가 결속될 때까지 명시적인 공백으로 유지합니다. |
-| 2026-08-20 | implemented | 관측 상태 최신성을 구성된 정상 인벤토리 주기에 연결하고 로컬 authoritative 새로 고침에 ResourceType mapping digest를 복원했습니다. 느리지만 진행 중인 스캔은 근거를 주장하지 않는 샤드 heartbeat를 내보내며, 최종 fence만 완전성을 주장합니다. | [이슈 #139](https://github.com/dotnetpower/fdai/issues/139); 현재 변환, 런타임, 어댑터, 로컬 새로 고침 및 집중 회귀 검사입니다. | 프로바이더 변경 뒤 현재 최신성 메타데이터와 분류 링크를 보여 주는 exact revision 실제 운영 변환 결과 하나를 보존합니다. |
-| 2026-08-20 | 구현됨 | 닫힌 query algebra에 dependency-bound relationship traversal, 검토된 metric comparison, 안정적인 branch hold, 증상 변화에 결속된 causal join을 추가했습니다. 운영 조립은 secured ObjectSet gateway, 검토된 metric registry, topology history, 기존 bounded executor를 재사용합니다. | `current change`, 집중 조사 gate 97개, Ruff, formatting, strict mypy 통과 | 이 행을 `validated`로 변경하기 전에 authoritative service topology 및 metric provider를 사용한 인증 근거를 보존합니다. |
-| 2026-08-19 | implemented | 읽기 전용 질문 공간 FunctionType 계약 네 개를 추가하고 정확한 조립이 생길 때까지 공급자 또는 앵커가 필요한 처리기를 플래너에서 사용할 수 없게 유지했습니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233), [지속형 질문 공간](../interfaces/continuous-question-space-ko.md), 집중 온톨로지 플랫폼 및 조립 검사 | 기능의 unavailable 상태를 bound로 바꾸기 전에 정확한 소스 라이브 근거를 보존합니다. |
-| 2026-08-19 | implemented | 검토된 mapping 밖의 프로바이더 native 행을 위해 카탈로그 소유 `unclassified-resource` 대상과 exact 신원 완전성 증적을 추가했습니다. 분류는 계속 검토된 Resource-ResourceType 간선이며, 지원되지 않는 native 타입 텍스트는 비활성 근거로 남아 의미 또는 실행 권한을 부여하지 않습니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). 프로바이더, Azure, 온톨로지, 카탈로그 및 조회 도메인 focused 검사 259개와 Ruff 및 strict mypy가 통과했습니다. | 인벤토리를 새로 고치고 release에 연결된 매니페스트와 parity 근거를 보존합니다. |
-| 2026-08-19 | implemented | 역할과 목적에 따라 필터링한 선언 상세, 토폴로지 기반 종속 항목, 정제된 ObjectType 근거 상태, 선언 참조 release 호환성을 서로 다른 권한 없는 변환 결과로 추가했습니다. 로컬 인증 Console은 원시 프로바이더 payload나 resource id를 노출하지 않고 사용할 수 없는 `Decision` 근거와 사용할 수 있는 `Resource` 집계 근거를 모두 렌더링했습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223); `current change`; focused Core delivery, materializer, Operator 및 Console 검사와 Console production build가 통과했습니다. | 관리되는 Browser 산출물과 principal 범위 Context 증적을 보존합니다. P2 진입 조건을 측정하기 전에는 InterfaceType 또는 FunctionType 전용 보기를 추가하지 않습니다. |
-| 2026-08-19 | implemented | 온톨로지 enhancement plan의 제품 경계, C1-C7 역량 게이트, 전달 의존성 및 중단 조건을 기존 platform, wire contract 및 code map owner에 통합했습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, 문서 pair, route contract 및 roadmap tracking gate입니다. | 관리되는 Browser 보존과 principal 범위 Context receipt는 별도 검증 근거로 유지합니다. |
-| 2026-08-13 | in-progress | 이전 provenance를 재구성하지 않고 구현 원장을 도입했습니다. | 범위 표에 나열된 현재 소스와 테스트입니다. | 아래의 관찰 가능한 종료 조건을 완료합니다. |
-| 2026-08-13 | implemented | 범위가 제한된 순위와 내용 기반 주소를 가진 증적을 제공하는 exact-generation 읽기 전용 `catalog.search_rules` 후보 검색을 추가했습니다. | 커밋 `e4d9483a5`; 집중 `test_catalog_queries.py`에서 2개 테스트를 통과했습니다. | 평가 또는 실행 권한을 부여하지 않으면서 objective-aware 검색을 조립하고 검증합니다. |
-| 2026-08-13 | implemented | 중앙 graph 검증에서 누락을 발견한 뒤 세 objective vocabulary 타입을 `Identifiable` 구현으로 등록했습니다. | 집중 `test_shipped_ontology_catalog_loads_as_one_graph`에서 1개 테스트를 통과했습니다. | 새 object type을 추가할 때마다 interface 구현 범위를 동기화합니다. |
-| 2026-08-24 | implemented | Competency 기반 기능 Interface 6개, 결정론적 scoped SDK publication, evidence-bound copy-on-write scenario 및 최종 reconciliation 계보를 추가했습니다. | `current change`, 집중 interface, SDK, evidence, scenario, reconciliation 및 runtime 검사, 10개 이상 adversarial hardening lens 결과 Medium 이상 미해결 발견 없음 | 배포 근거는 별도로 보존하며 이 batch는 direct graph merge 또는 executor 표면을 추가하지 않습니다. |
-| 2026-08-24 | implemented | 현재 runtime에 동일한 adversarial lens 12개를 반복 적용하고 Medium 무결성 공백 3개를 수정했습니다. 효과별 metric이 없으면 lineage를 score하지 않고, projection-before-claim 중단은 그래프를 다시 쓰지 않고 replay하며, fresh Resource 하나가 다른 반환 Resource의 누락된 최신성 metadata를 숨길 수 없습니다. | `current change`; 집중 lineage(`2 passed`), continuous worker(`8 passed`), graph refresh(`5 passed`) 검사. | 최종 Python 3.12, Ruff, strict typecheck, SDK compile, 문서, 번역, audit, diff, diagnostics gate를 실행합니다. |
-| 2026-08-24 | implemented | 최종 로컬 온톨로지 gate stack을 완료하고 13개 adversarial lens를 반복 적용해 미해결 Critical, High 또는 Medium 발견이 없음을 확인했습니다. | `current change`; Python 3.12 집중 온톨로지 검사(`260 passed`, `FDAI_DATABASE_URL` 미설정으로만 `23 skipped`), Operator 검사(`87 passed`), Console model 검사(`17 passed`), TypeScript SDK compile, Ruff(`29 files`), strict mypy(`15 source files`), 번역, design-impact, machine audit, 범위가 지정된 roadmap, diff, editor diagnostics 0건. | 외부 telemetry, 인증된 Browser, PostgreSQL 통합, 배포, Azure 인증은 별도 근거로 보존합니다. 저장소 전체 roadmap checker는 관련 없는 추적되지 않은 FinOps owner ledger 때문에만 차단됩니다. |
-| 2026-08-24 | implemented | 보존한 타입 지정 관찰 메타데이터가 제거된 것으로 보고되지 않도록 ObjectSet 링크 가림 집계를 수정했습니다. 이제 증적은 정확한 원본 속성과 변환 결과 속성의 차이로 링크 집계값을 계산합니다. | `current change`; `query_gateway.py`, 집중 쿼리 게이트웨이 검사, 온톨로지, 카탈로그, facade, 서비스 계약 검사 111개와 Ruff 및 strict mypy가 통과했습니다. | 인증된 런타임 및 프로바이더 근거는 별도 검증 작업으로 유지합니다. 수정된 증적은 계속 읽기 전용 근거입니다. |
-| 2026-08-13 | implemented | 영속 exact-release 매니페스트 registry를 추가하고 PostgreSQL 행 디코딩 전에 등록된 release를 로드하도록 했습니다. | 현재 변경; 집중 `test_postgres_ontology_catalog.py`에서 2개 테스트, `test_ontology_release_registry_migration.py`에서 1개 테스트를 통과했습니다. | 이행과 Core 재시작 뒤 인증된 Live 근거를 기록합니다. |
-| 2026-08-13 | in-progress | 검토된 Kubernetes Service 관계 매핑과 독립 세대 검증을 위한 후보 링크를 만드는 범위 제한 변환기를 추가했습니다. | `current change`; focused `test_kubernetes_relationships.py`에서 6개 테스트, 프로바이더 매핑 계약에서 6개 테스트를 통과했습니다. | 변환기를 production 인벤토리 출처에 연결하고 exact-release 조립 근거를 보존해야 합니다. |
-| 2026-08-13 | in-progress | Resource와 Observation 근거를 포함하는 release 고정 Interface를 사용하여 production 의미 조회 조립을 통해 발급된 Pod 텔레메트리 함수를 입증했습니다. | `current change`; focused `test_wire_pod_telemetry.py`에서 verified 및 synthetic-unverified 경로 2개 테스트를 통과했습니다. | 보존된 production 인벤토리에서 같은 조립을 실행하고 인증된 보증 증적을 보존해야 합니다. |
-| 2026-08-14 | implemented | 인벤토리 온톨로지 변환기가 결과, 영속 매니페스트, 가용성 상태에 하나의 exact release 다이제스트를 보존하도록 요구했습니다. 인벤토리 작업은 이제 토폴로지 이력 발행과 같은 카탈로그 다이제스트를 공유합니다. | `current change`; focused `test_inventory_ontology.py`에서 9개 테스트를 통과했습니다. | Production 인벤토리를 새로 고치고 release에 결속된 변환 근거를 보존해야 합니다. 과거의 결속되지 않은 매니페스트는 변경하지 않습니다. |
-| 2026-08-14 | in-progress | 과거 release가 알려지지 않은 상태를 명시적으로 유지하고 이행 권한을 부여하지 않은 채 `review_required`로 처리하도록 direction-shadow 비교를 확장했습니다. | `current change`; focused direction-shadow 모음에서 8개 테스트를 통과했습니다. 보존된 증적 `sha256:ad64c267b6f0c6ac5a1a037067f926aa5613f1fe5a84702877eb607e368736f6`은 동일하게 재생됩니다. | 측정된 차이를 검토하고 이행 전에 완전하고 검증된 정렬 후 세대 근거를 보존해야 합니다. |
-| 2026-08-14 | implemented | 검토된 Kubernetes 관계 변환기를 promoted inventory 관찰에 조립하고 scheduled/local 인벤토리 작업 모두에 shipped mapping 카탈로그를 주입했습니다. | `current change`; focused 인벤토리 조립과 caller 검사에서 3개 테스트를 통과했습니다. | Bounded Kubernetes API inventory가 authoritative topology adapter입니다. 완전한 live-generation Pod 근거를 보존해야 합니다. |
-| 2026-08-24 | implemented | 자격 증명을 URL에 포함하지 않고 TLS로 검증하는 Kubernetes API source를 순차 pre-promotion enrichment로 binding했습니다. 이 source는 하나의 정확한 cluster identity, 변경할 수 없는 UID ownership, namespace 범위, scheduling 및 범위가 제한된 pagination을 유지하며 single writer는 추가 리소스와 검증된 링크를 원자적으로 stage합니다. | `current change`; 집중 Azure, Kubernetes, 인벤토리, 카탈로그 및 조립 검사 260개 통과, Ruff 통과, source 파일 10개의 strict mypy 통과 | 이 경로를 `validated`로 변경하기 전에 완전한 실제 운영 Kubernetes 세대와 exact-release Pod 텔레메트리 증적을 보존합니다. |
-| 2026-08-14 | implemented | Exact-release 인시던트 ObjectSet 및 감사 근거 조회와 결정론적 답변 projection을 추가했습니다. 원인 필드가 있는 결과를 거부하고 근거 공백과 후보 전용 액션 초안 다음 단계만 노출합니다. | 커밋 `285341732`, `43fa6ab13` 및 `current change`, focused 인시던트/조립 검사 62개와 processor 스위트 34개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 로컬 스택을 재시작하고 visible 인시던트 대화의 인증된 Console 근거를 보존합니다. |
-| 2026-08-14 | 진행 중 | 인시던트 FunctionType 신원 계약을 수정해 canonical `incident_id`와 감사 `correlation_id`가 검증된 계획 실행 및 근거 변환 전체에서 서로 다르게 유지되도록 했습니다. | `current change`, end-to-end distinct-identity 회귀를 포함한 focused 인시던트 및 조립 검사 63개 통과 | 기능 상태를 변경하기 전에 로컬 스택을 재시작하고 화면에 표시된 인증된 인시던트 대화를 검증합니다. |
-| 2026-08-14 | 진행 중 | 의미 prompt v2를 FunctionType 신원 계약에 맞춰 바인딩된 인시던트 계획이 canonical 신원과 감사 상관관계 신원을 혼합하지 않고 모두 전달하도록 했습니다. | `current change`, focused prompt registry 계약 5개 사례 통과 | 기능 상태를 변경하기 전에 로컬 스택을 재시작하고 화면에 표시된 인증된 인시던트 대화를 검증합니다. |
-| 2026-08-14 | implemented | 인증된 Browser 근거에서 모델이 인시던트 답변 필드를 계속 unresolved로 처리하고 plan prompt가 function node를 누락한 사실을 확인한 뒤 semantic frame/plan prompt를 v2로 versioning했습니다. v2 prompt는 exact bound Incident 함수를 선택하고 no-cause limitation을 보존하며 검토된 function-node envelope만 허용합니다. | `current change`, focused prompt registry 검사 5개 통과 | Core를 prompt v2로 재시작하고 인증된 인시던트 대화를 다시 실행합니다. |
-| 2026-08-14 | implemented | 다음 인증된 Browser 실행에서 구분된 감사 correlation identity가 plan envelope에 누락된 사실을 확인한 뒤 semantic frame/plan prompt를 v3로 versioning했습니다. v3 prompt는 canonical `incident_id`와 감사 `correlation_id`를 분리해 보존하며 v2의 no-cause 및 후보 전용 권한 제한을 유지합니다. | `current change`, focused distinct-identity processor 및 prompt 검사 7개 통과 | Core를 prompt v3로 재시작하고 인증된 인시던트 대화를 다시 실행합니다. |
-| 2026-08-14 | implemented | prompt v3에 대한 인증된 Browser 재실행을 완료했습니다. 화면에 표시된 답변은 Incident와 감사 correlation identity를 분리해 보존하고, causal analysis를 사용할 수 없다고 보고하며, 제한된 evidence gap과 실행 권한이 없는 후보 `action_draft`만 반환했습니다. | 로컬 Console `/agent-activity` 02:28:52 KST, evidence reference 1건에 대한 verification 완료, Core에서 plan rejection 없이 semantic planning 5단계 기록 | A1-A3를 shadow mode로 유지하고 캡처한 turn을 로컬 근거로 사용합니다. causal analysis는 별도 후속 작업으로 남습니다. |
-| 2026-08-14 | in-progress | 현재 prompt 및 assurance 변경이 보존된 v3 runtime claim을 대체해 incident semantic evidence path를 다시 열었습니다. | `current change`, focused prompt, Console assurance 및 ontology-query 검사 | Validation을 복원하기 전에 인증된 incident path를 다시 실행하고 새 governed artifact를 보존합니다. |
-| 2026-08-15 | implemented | 의미 frame prompt를 v4로 versioning하고 타입이 지정된 명확화 requirement를 추가했습니다. Principal 범위와 용도는 trusted server-bound 입력이므로 둘 중 하나를 요청하는 T1 제안은 범위가 제한된 T2 frame 재시도 한 번 전에 결정론적으로 거부됩니다. 정당하게 누락된 사용자 맥락은 T2 호출 없이 T1 명확화로 유지됩니다. | `current change`, focused tier-routing, planner, prompt 및 Azure adapter 검사 31개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 중앙 검증 뒤 Core를 재시작하고 대체 인증 보증 근거를 보존합니다. |
-| 2026-08-15 | implemented | 의미 frame prompt를 v5로, plan prompt를 v4로 versioning했습니다. Frame은 visible/current 객체를 principal-scoped collection으로 취급하고 instance operation에서 schema relationship 함수가 과도하게 선택되지 않도록 하며 명시적 comparison baseline을 보존합니다. Plan은 collection, filter, aggregate, topology, metric 및 causal operation을 닫힌 검증 node grammar에 연결하고 현재 cutoff에 server-bound evaluation time을 사용합니다. | `current change`, focused prompt registry 및 Azure adapter 검사 10개 통과 | 중앙 검증 뒤 Core를 재시작하고 strict 이중 언어 답변 coverage probe를 다시 실행합니다. 지원되지 않는 exact identity는 명확화 또는 보류로 유지합니다. |
-| 2026-08-15 | implemented | `query.manifest`를 결정론적 exact-release FunctionType으로 추가하고 스키마 인벤토리 답변에 일반 함수 증적과 `QueryTable` projection을 재사용했습니다. | `current change`, focused 매니페스트, 핸들러, 조립, 관계, 의미 조립 및 prompt 검사 42개와 작업 범위 Ruff 및 strict mypy 통과 | 운영 보증을 변경하기 전에 clean 이중 언어 14-cell 및 seed 기반 100-case Browser 근거를 보존합니다. |
-| 2026-08-15 | implemented | 유효하지 않은 T1 후보가 I/O 전에 plan 단계만 다시 시도할 수 있도록 직접 ObjectSet 집계 필드 거부를 결정론적 plan 검증으로 옮겼습니다. | `current change`, focused 검증기 및 tier 라우팅 검사 16개와 작업 범위 Ruff 및 strict mypy 통과 | Clean 14-cell 및 seed 기반 100-case Browser gate 전에 보류된 한국어 집계 cell을 다시 실행합니다. |
-| 2026-08-15 | implemented | 집계 필드 검증을 Project, Order 및 집합 연산 출력까지 확장하고 flat 점 표기 projection 필드를 downstream table 핸들러에서 읽을 수 있게 유지했습니다. | `current change`, focused 검증기, 핸들러 및 tier 라우팅 검사 24개와 작업 범위 Ruff 및 strict mypy 통과 | Clean 14-cell 및 seed 기반 100-case Browser gate 전에 보류된 한국어 집계 cell을 다시 실행합니다. |
-| 2026-08-15 | implemented | 검증된 plan이 선택한 역량을 `plan_verify` 단계 기록에 남기고, 로컬 평문 로그 컨텍스트 허용 목록에 `stage`, `plan_nodes`, `failure_type`을 추가했습니다. 이전에는 로컬 실행 기록만으로 한 turn이 어떤 함수를 계획했는지 판별할 수 없었습니다. | `current change`, focused 계획기 검사 14개와 로컬 서비스 로그 실행기 검사 11개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 이 필드로 인시던트에 바인딩된 turn이 실제로 어떤 역량을 계획하는지 확인합니다. |
-| 2026-08-15 | implemented | 검증된 조회 출력 자체를 일반 표현 산출물에 투영했습니다. 산출물은 출력 노드 개수만이 아니라 노드별 결과와 경계가 있는 행 테이블을 담으며, 온톨로지 필드 이름은 Console 열 키로 유효하지 않으므로 셀은 경계가 있는 출력 가능 텍스트와 위치 기반 열 키로 렌더링합니다. | `current change`, focused Operator 의미 bridge 검사 48개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 인증된 로컬 Console에서 렌더링 결과를 확인합니다. |
-| 2026-08-15 | implemented | 인시던트에 묶인 turn이 해당 인시던트의 감사 근거를 읽지 않았을 때 fail closed 하도록 했습니다. 로컬 `plan_nodes` 근거에서 인시던트 바인딩 turn이 `query.manifest`를 계획한 사례가 확인되었고, 그 답변은 일반 응답이지만 해당 인시던트에 대한 답변처럼 읽혔습니다. 이제 `incident_evidence_not_planned` 또는 `incident_evidence_mismatched_binding`으로 보류합니다. | `current change`, 바인딩됐으나 계획되지 않은 보류, 교차 인시던트 보류, 바인딩 없는 응답 대조군을 포함한 focused 처리기 검사 46개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 바인딩된 인시던트 goal을 결정론적으로 시드해 계획기가 선택하거나 식별자를 복사하지 않아도 되게 합니다. |
-| 2026-08-15 | implemented | 앞 행의 보류를 교차 인시던트 사례로만 좁혔습니다. Console은 인시던트 대화의 모든 turn에 바인딩을 실어 보내며 여기에는 인시던트와 무관한 질문도 포함되므로, `incident_evidence_not_planned`가 정당한 무관 질문까지 보류했습니다. 바인딩된 인시던트가 아닌 다른 인시던트의 근거를 읽는 경우는 계속 보류합니다. | `current change`, 바인딩된 turn이 인시던트 근거 없이도 응답하고 교차 인시던트 읽기는 보류함을 단언하는 focused 처리기 검사 46개 통과, 작업 범위 Ruff 및 strict mypy 통과 | "바인딩된 인시던트를 항상 읽는다"는 보장은 결정론적 goal 시드가 있어야 성립하며, 그 뒤에야 인시던트 읽기 부재를 결함으로 취급할 수 있습니다. |
-| 2026-08-15 | implemented | 인시던트 답변이 빈 상관관계를 성공적인 읽기처럼 보고하지 않게 하고, 원문 gap 키가 운영자 문장에 노출되지 않게 했습니다. 상관 기록이 없으면 없다고 말하고, 프로파일이 없으면 상태를 `unknown`으로 보고하는 대신 없다고 밝히며, 매핑되지 않은 gap 키는 사람이 읽을 수 있게 바꿉니다. Markdown이 밑줄을 강조로 해석하기 때문입니다. | `current change`, 빈 상관관계 답변을 포함한 focused 처리기 검사 47개와 Operator bridge 검사 48개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 함수가 이미 반환하는 상관 근거 타임라인을 렌더링합니다. |
-| 2026-08-17 | implemented | 인시던트 타임라인이 전달된 일부가 아니라 전체 기록 수를 밝히도록 했습니다. `correlated_evidence`는 상위에서 20건으로 잘리고 `verified_records`가 실제 총계를 가지므로, 34건짜리 인시던트가 개요에는 `감사 기록 34`를, 같은 카드의 타임라인에는 `최근 10/20건`을 표시해 바로 앞 블록에서 세었던 근거를 스스로 야불려 보고했습니다. 이제 타임라인 제목은 검증된 총계를 기준으로 합니다. | `current change`, Operator 검사 353개 통과 1개 건너뜀, Core 인시던트 및 처리기 검사 400개 통과 1개 건너뜀, 기준을 되돌리자 기대값 `latest 10 of 34` 대신 `latest 10 of 20`이 재현된 뒤 소스 복원함, 작업 범위 Ruff 및 strict mypy 통과 | 인증된 로컬 콘솔에서 렌더링된 타임라인을 확인합니다. |
-| 2026-08-17 | validated | 인증된 로컬 Console에서 인시던트 답변이 프로필, 행위자와 감사 참조를 포함한 기록된 활동 표, 명시된 한계, 읽기 전용 다음 단계를 렌더링하여 단순 검증 출력 개수를 대체함을 확인했습니다. 관측된 인시던트가 6건을 보유하고 블록이 6건을 모두 표시했기 때문에 타임라인 제목에는 절단 접미사가 없었고, 따라서 이번 라이브 세션은 절단되지 않은 경로만 검증했습니다. | `current change`; 커밋 `61e826092`의 로컬 Core와 Operator를 대상으로 한 `/incidents`의 인증된 Browser Entra 세션; 카드는 `Audit records 6`, 활동 6행, 한계 3건, 읽기 전용 단계 2건을 보고했습니다. | 로컬 인시던트가 20건을 넘으면 절단된 타임라인을 관측합니다. 그때까지 절단된 제목은 mutation 검증된 focused 테스트로 보증됩니다. |
-| 2026-08-17 | implemented | 인증된 인시던트 표현 게이트가 기록된 활동 타임라인을 인식하도록 했습니다. 이 게이트는 타임라인이 생기기 전에 제공되던 블록 3개를 그대로 고정하고 있어서, 제품이 더 이상 만들지 않는 표현을 단언했고 타임라인을 제거해야만 통과했을 것입니다. 이제 동일한 종료 응답이 담고 있는 상관 근거에서 기대 블록을 도출합니다. | `current change`; `console/tests/live-e2e/semantic-answer-presentation.spec.ts`; 오늘 관측한 라이브 Console 답변은 `overview`, `records`, `limitations`, `findings`를 렌더링합니다. Console typecheck가 통과했습니다. | 인증된 외부 스택에서 게이트를 실행해 수정된 기대치를 새 증적으로 전환합니다. |
-| 2026-08-17 | implemented | 한국어 인시던트 표현을 단위 수준에서 고정했습니다. 영어는 이미 네 블록 순서를 고정하고 있었지만 한국어 순서와 제목은 외부 스택 없이 건너뛰는 인증된 게이트에만 의존해서, 한국어에서만 발생하는 회귀가 관측되지 않은 채 배포될 수 있었습니다. | `current change`; `test_incident_presentation_keeps_the_same_blocks_in_korean`; Operator `362 passed, 1 skipped`; 지역화된 타임라인 제목을 교체하면 한국어 테스트만 실패합니다. | 이중 언어 인시던트 표현 커버리지에 남은 작업은 없습니다. |
-| 2026-08-17 | implemented | 인시던트 의미 조회의 원인 비노출 설계 경계를 기록된 RCA 경계로 교체했습니다. 이제 T0는 기준선이나 임계값을 지어내지 않고 범위가 제한된 발견 사항 심각도 영향 행을 기록합니다. 조회는 일치하는 인용이 포함된 기록된 grounded 가설에서만 근본 원인 평가를 반환하고, 기록된 영향 및 인용 행을 전달하며, 세 항목을 이중 언어 답변과 Console 산출물에 렌더링합니다. 근거가 없거나 불완전하면 명시적인 제한 사항으로 유지하고 읽기 경로는 `execution_authority=false`를 지킵니다. | `current change`; focused Core 조회 3개, 의미 처리기 61개, Operator 표현 64개, Console 파서 9개, T0 생산자 1개 테스트 통과, Ruff, strict mypy 및 Console typecheck 통과 | 기록된 RCA 결과와 정직한 사용 불가 결과 모두에 대해 인증된 Browser 근거를 보존합니다. |
-| 2026-08-17 | implemented | 닫힌 알림 최종 실패 `route_unresolved`, `trust_mismatch`, `escalated_to_hil`의 결정론적 RCA 변환을 추가했습니다. 변환 결과는 정확한 `notification.route` 감사 행을 인용하고 감사 이력을 추가하거나 다시 쓰지 않은 채 경로 결과 영향 행 하나를 파생합니다. 성공한 전달과 알 수 없는 결과는 원인이 되지 않습니다. | `current change`; focused 인시던트, 의미 처리기 및 Operator 표현 검사 133개 통과, Ruff 및 strict mypy 통과 | Core를 재시작하고 기존 route-unresolved 인시던트의 인증된 Browser 근거를 보존합니다. |
-| 2026-08-17 | implemented | 이전 PostgreSQL 행이 이미 고정한 정확한 과거 객체/링크 release를 backfill했습니다. 이행은 내용이 검증된 이전 레지스트리 매니페스트와 과거 선언 참조 2개만 사용해 release를 도출하고, 삽입 전에 재구성된 다이제스트를 검증합니다. 누락되거나 변조되었거나 관련 없는 release는 현재 release로 재해석하지 않고 계속 시작을 차단합니다. | `current change`; [`20260817_0085_historical_ontology_release.py`](../../../alembic/versions/20260817_0085_historical_ontology_release.py), `service-migrations/**`; focused 레지스트리, 이행 체인, 서비스 인벤토리 테스트 각각 2개, 179개, 46개 통과; 작업 범위 Ruff 및 format 검사 통과 | 이행을 적용하고 Core를 재시작한 뒤, K0 상태를 `validated`로 변경하기 전에 인증된 정상 시작 근거를 보존합니다. |
-| 2026-08-17 | implemented | Bitemporal `topology_at` cutoff 순서 불변식을 deterministic query plan 검증으로 이동했습니다. Event cutoff가 knowledge cutoff보다 늦은 후보는 범위가 제한된 plan 단계만 다시 시도할 수 있으며 PostgreSQL history reader나 실행 handler에 도달하지 못합니다. 유효하지만 비어 있거나 불완전한 보존 history는 계속 `complete=false`로 구체화됩니다. | `current change`, focused query verifier 및 의미 tier 라우팅 검사 41개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 보증 상태를 변경하기 전에 완전한 authoritative 근거가 있는 엄격한 이중 언어 temporal-comparison 답변을 보존합니다. |
-| 2026-08-18 | 구현됨 | 운영자에게 노출되는 답변에서 질의 엔진 어휘를 제거했습니다. 제목, disposition 요약, 보류된 transport 대체 메시지는 온톨로지 질의를 지칭하는 대신 결과가 무엇인지를 알리며, 개요는 각 출력을 plan node id가 아니라 담고 있는 내용으로 표시하고, 선언 다이제스트와 권한 플래그는 행에 다른 필드가 없는 경우를 제외하고 기술 상세에만 남습니다. | `current change`, `semantic_turn_processor.py`, `semantic_turn_presentation.py`, `semantic_turn_runtime.py`, `test_semantic_turn_bridge.py`, `test_semantic_turn_roundtrip.py`, operator-service 394건과 processor 62건 통과, 작업 범위 Ruff, format 및 strict mypy 통과 | 근거 영수증과 정확한 행은 내부 식별자를 그대로 유지하며 감사자는 그곳에서 확인합니다. |
-| 2026-08-18 | 철회됨 | `Resource.status`와 `Resource.location` 선언을 구현했다가 철회했습니다. 선언을 고치면 온톨로지 릴리스 다이제스트가 이동하고, 그것이 승격된 surface의 `manifest_digest`를 움직이며, 다시 저장된 held-out 검색 영수증이 발급된 대상인 `validation_subject_digest`까지 움직입니다. manifest 다이제스트 재계산은 결정론적이지만 영수증 재발급은 그렇지 않습니다. 영수증의 cohort 지표는 새 generation에 대한 평가 실행에서 나오기 때문입니다. | 철회된 리비전의 전체 수트: `test_discovery_catalog_search.py`와 `test_rule_generation_documents.py`에서 `validation receipt subject mismatch`로 5건 실패. 부모 커밋에서는 동일 수트 1490건이 통과했습니다. | 선언 변경은 카탈로그를 고친 뒤가 아니라 고치기 전에 surface 재검증 실행을 계획하는 설계 패스가 필요합니다. |
-
-### 남은 작업
-
-- [x] 읽기 전용 Operator 및 Console 워크벤치에서 exact-release 선언 상세, 토폴로지 기반 종속
-  항목, 정직한 근거 상태 가용성, 선언 참조 release 비교를 제공합니다.
-  [이슈 #223](https://github.com/dotnetpower/fdai/issues/223)의 focused 검사가 통과했습니다.
-- [ ] 워크벤치 상태를 `implemented`에서 `validated`로 높이기 전에 관리되는 Browser 산출물과
-  인증된 principal 범위 Context 증적 하나를 보존합니다.
-- [ ] 검토된 control-objective 및 binding vocabulary를 범위가 제한된 시작 변환 결과에
-  구체화하고 집중 테스트에서 exact release 신원과 권한 필드가 없음을 입증합니다.
-- [ ] PostgreSQL 과거 토폴로지, 운영 메트릭 프로바이더 및 inventory-promotion 발행을
-  연결하고 집중 통합 점검의 재생 및 완전성 증적을 보존합니다.
-- [ ] Release 결속 변경 뒤 인벤토리를 새로 고치고 새 변환 매니페스트와 상태를 exact-release
-  근거로 보존합니다. 과거 매니페스트에 release를 소급 할당하지 않습니다.
-- [x] 검토된 Kubernetes 관계 변환기를 production/local 인벤토리 조립에 연결하고 Kubernetes
-  기록이 공급될 때 독립적으로 검증된 링크가 생성되는지 확인했습니다.
-- [x] 범위가 제한된 권한 있는 Kubernetes API 인벤토리 source를 추가하고 기존 single-writer
-  승격 경로를 통해 binding합니다.
-- [x] 발급된 exact-release FunctionType과 서버 소유 구조화 조사 계획을 통해 Kubernetes
-  rollout 축약기를 연결합니다. 집중 검사로 오래되거나 충돌하거나 불완전하거나 대상이 다른
-  근거에서 원인 또는 복구 성공 주장이 나오지 않음을 입증했습니다.
-- [ ] Console에서 인증된 대상 없는 후보 선택과 정확한 대상 rollout 및 Pod 복구 근거를 보존합니다. Pod 복구에는 새 기준 시점의 독립적인 이벤트, 변경, replica, 교체 UID 근거도 필요합니다.
-- [ ] Pod 텔레메트리 조립을 위한 완전한 실제 운영 세대 변환 증적을 보존합니다.
-- [ ] 조정기를 조립하고 proposal-only 발신함 권고를 이벤트 버스로 발행하며 재시작,
-  중복 전달 및 최종 종결 근거를 남깁니다.
-- [ ] 하나의 고정된 release에서 결정론적 그래프 전파, 시간 범위 trajectory 불변식,
-  독립 결과 종결 및 실패 귀속 테스트가 모두 통과한 뒤에만 K6-K8을 종료합니다.
-
 ## Catalog-owned 인스턴스 변환 결과
 
 Core 런타임 시작은 이제 Rule, PolicyArtifact, ResourceClass, ResourceType, SignalType,
@@ -670,6 +435,7 @@ payload, 변경/executor 자격 증명 또는 browser 계산 권한/호환성이
 
 | 알아볼 내용 | 문서 |
 |-------------|------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/architecture/operating-ontology-platform.md) |
 | 선언 종류 및 런타임 상태/맥락 경계 | [운영 온톨로지 메타모델](operating-ontology-metamodel-ko.md) |
 | 기존 의미 및 권한 모델 | [FDAI 운영 온톨로지](operating-ontology-ko.md) |
 | 기존 ActionType 안전성 계약 | [액션 온톨로지](../decisioning/action-ontology-ko.md) |

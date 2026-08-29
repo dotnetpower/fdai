@@ -744,9 +744,4 @@ The prohibited shortcuts are maintained in
 | ChatOps channel routing referenced by §9.3 | [channels-and-notifications.md](../interfaces/channels-and-notifications.md) |
 | How rules and policies feed Forseti | [rule-catalog-collection.md](../rules-and-detection/rule-catalog-collection.md), [rule-governance.md](../rules-and-detection/rule-governance.md) |
 | Fork boundaries and DI seams | [downstream-fork-guide.md](../fork-and-sequencing/downstream-fork-guide.md) |
-
-## Related docs
-
-| To learn about | Read |
-|----------------|------|
 | Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/agents/agent-pantheon.md) |

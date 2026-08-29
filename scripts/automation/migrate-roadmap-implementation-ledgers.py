@@ -306,6 +306,123 @@ def _verify_reconciled_ledger(existing: str, replacement: str, *, relative: str)
         )
 
 
+def _section_range(lines: list[str], heading: str) -> tuple[int, int]:
+    try:
+        start = lines.index(heading)
+    except ValueError as error:
+        raise ValueError(f"ledger is missing '{heading}'") from error
+    end = next(
+        (index for index in range(start + 1, len(lines)) if lines[index].startswith("### ")),
+        len(lines),
+    )
+    return start, end
+
+
+def _table_data_rows(lines: list[str]) -> list[str]:
+    rows: list[str] = []
+    for line in lines:
+        if not line.startswith("|"):
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if not cells or cells[0] in {"Area", "Date"}:
+            continue
+        if all(cell and set(cell) <= {"-", ":"} for cell in cells):
+            continue
+        rows.append(line)
+    return rows
+
+
+def _task_blocks(lines: list[str]) -> list[tuple[str, ...]]:
+    blocks: list[tuple[str, ...]] = []
+    current: list[str] = []
+    for line in lines:
+        if line.startswith("- ["):
+            if current:
+                blocks.append(tuple(current))
+            current = [line]
+        elif current and (line.startswith("  ") or not line.strip()):
+            current.append(line)
+        elif current:
+            blocks.append(tuple(current))
+            current = []
+    if current:
+        blocks.append(tuple(current))
+    return blocks
+
+
+def _merge_existing_ledger(existing: str, replacement: str) -> str:
+    """Preserve disjoint delegated records while cutting over to the owner snapshot."""
+
+    existing_lines = existing.splitlines()
+    merged = replacement.splitlines()
+
+    existing_scope_start, existing_scope_end = _section_range(
+        existing_lines, "### Implementation scope"
+    )
+    merged_scope_start, merged_scope_end = _section_range(merged, "### Implementation scope")
+    merged_scope_rows = _table_data_rows(merged[merged_scope_start:merged_scope_end])
+    merged_scope_keys = {
+        row.strip().strip("|").split("|", 1)[0].strip() for row in merged_scope_rows
+    }
+    preserved_scope = [
+        row
+        for row in _table_data_rows(existing_lines[existing_scope_start:existing_scope_end])
+        if row.strip().strip("|").split("|", 1)[0].strip() not in merged_scope_keys
+    ]
+    if preserved_scope:
+        insertion = merged_scope_end
+        while insertion > merged_scope_start and not merged[insertion - 1].strip():
+            insertion -= 1
+        merged[insertion:insertion] = preserved_scope
+
+    merged_history = {line for line in merged if HISTORY_ROW.match(line)}
+    preserved_history = [
+        line for line in existing_lines if HISTORY_ROW.match(line) and line not in merged_history
+    ]
+    if preserved_history:
+        remaining_start, _ = _section_range(merged, "### Remaining work")
+        insertion = remaining_start
+        while insertion > 0 and not merged[insertion - 1].strip():
+            insertion -= 1
+        merged[insertion:insertion] = [*preserved_history, ""]
+
+    merged_notes = {line for line in merged if line.startswith(">")}
+    preserved_notes = [
+        line for line in existing_lines if line.startswith(">") and line not in merged_notes
+    ]
+    if preserved_notes:
+        scope_start, _ = _section_range(merged, "### Implementation scope")
+        merged[scope_start:scope_start] = [
+            "### Preserved prior implementation notes",
+            "",
+            *preserved_notes,
+            "",
+        ]
+
+    existing_remaining_start, existing_remaining_end = _section_range(
+        existing_lines, "### Remaining work"
+    )
+    merged_remaining_start, merged_remaining_end = _section_range(merged, "### Remaining work")
+    merged_tasks = set(_task_blocks(merged[merged_remaining_start:merged_remaining_end]))
+    preserved_tasks = [
+        block
+        for block in _task_blocks(existing_lines[existing_remaining_start:existing_remaining_end])
+        if block not in merged_tasks
+    ]
+    if preserved_tasks:
+        insertion = merged_remaining_end
+        while insertion > merged_remaining_start and not merged[insertion - 1].strip():
+            insertion -= 1
+        task_lines: list[str] = []
+        for block in preserved_tasks:
+            if task_lines and task_lines[-1].strip():
+                task_lines.append("")
+            task_lines.extend(block)
+        merged[insertion:insertion] = task_lines
+
+    return "\n".join(merged).rstrip() + "\n"
+
+
 def _normalize_status_lines(status_lines: list[str], *, owner_relative: str) -> list[str]:
     required = (
         "### Implementation scope",
@@ -383,6 +500,7 @@ def _plan_owner(
     *,
     allow_missing: bool = False,
     reconcile_existing: bool = False,
+    merge_existing: bool = False,
 ) -> tuple[OwnerMigration, dict[Path, str]] | None:
     owner_path = repo_root / owner_relative
     if not owner_path.is_file():
@@ -399,7 +517,7 @@ def _plan_owner(
             return None
         if not allow_missing:
             raise ValueError(f"{owner_relative}: owner is neither inline nor delegated")
-    if ledger_path.exists() and not reconcile_existing:
+    if ledger_path.exists() and not (reconcile_existing or merge_existing):
         raise ValueError(f"{owner_relative}: ledger already exists: {ledger_relative}")
 
     original_owner_lines = owner_text.splitlines()
@@ -463,8 +581,11 @@ def _plan_owner(
         repo_root=repo_root,
     )
     if ledger_path.exists():
+        existing_ledger = ledger_path.read_text(encoding="utf-8")
+        if merge_existing:
+            ledger = _merge_existing_ledger(existing_ledger, ledger)
         _verify_reconciled_ledger(
-            ledger_path.read_text(encoding="utf-8"),
+            existing_ledger,
             ledger,
             relative=ledger_relative,
         )
@@ -487,6 +608,7 @@ def plan_migrations(
     *,
     allow_missing: bool = False,
     reconcile_existing: bool = False,
+    merge_existing: bool = False,
 ) -> MigrationPlan:
     migrations: list[OwnerMigration] = []
     writes: dict[Path, str] = {}
@@ -496,6 +618,7 @@ def plan_migrations(
             owner,
             allow_missing=allow_missing,
             reconcile_existing=reconcile_existing,
+            merge_existing=merge_existing,
         )
         if planned is None:
             continue
@@ -687,6 +810,11 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Replace a stale mirrored ledger only when owner history is a strict superset",
     )
+    parser.add_argument(
+        "--merge-existing",
+        action="store_true",
+        help="Merge disjoint existing ledger records before cutting over the owner",
+    )
     return parser
 
 
@@ -699,6 +827,7 @@ def main() -> int:
             or args.limit is not None
             or args.adopt_missing
             or args.reconcile_existing
+            or args.merge_existing
         ):
             raise SystemExit("--repair-owner-structure cannot be combined with owner selection")
         writes = plan_owner_structure_repairs(REPO_ROOT)
@@ -718,6 +847,7 @@ def main() -> int:
             or args.adopt_missing
             or args.repair_owner_structure
             or args.reconcile_existing
+            or args.merge_existing
         ):
             raise SystemExit("--repair-links cannot be combined with owner selection")
         writes = plan_status_link_repairs(REPO_ROOT)
@@ -735,6 +865,10 @@ def main() -> int:
         raise SystemExit("--adopt-missing requires explicit owner paths")
     if args.reconcile_existing and args.all:
         raise SystemExit("--reconcile-existing requires explicit owner paths")
+    if args.merge_existing and args.all:
+        raise SystemExit("--merge-existing requires explicit owner paths")
+    if args.reconcile_existing and args.merge_existing:
+        raise SystemExit("choose at most one of --reconcile-existing or --merge-existing")
     owners = discover_inline_owners(REPO_ROOT) if args.all else args.owners
     if args.limit is not None:
         if not args.all or args.limit < 1:
@@ -746,6 +880,7 @@ def main() -> int:
             owners,
             allow_missing=args.adopt_missing,
             reconcile_existing=args.reconcile_existing,
+            merge_existing=args.merge_existing,
         )
     except ValueError as error:
         print(f"roadmap-ledger-migration: ERROR: {error}")

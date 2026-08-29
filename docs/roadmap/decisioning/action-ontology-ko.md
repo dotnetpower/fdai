@@ -1,8 +1,8 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: e280821f18f8342d9c7ff959320a1ee9d91f799f
-translation_revised: 2026-08-28
+translation_source_sha: c195850f9d0c0e4ff6f984eddf3252af05322502
+translation_revised: 2026-08-30
 ---
 
 # 액션 온톨로지
@@ -773,60 +773,6 @@ ActionType 을 조용히 shadow 할 수 없다 (shadowing 은 7.1 오버레이 �
 [execution-model.md § 8](execution-model-ko.md#8-resolved_ceiling-audit-블록)
 에서 권위적. 향후 오버레이 변경은 전달 시점에 in 효과 였던 상한 이
 verbatim 기록되므로 과거 감사 항목 를 절대 break 하지 않음.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| ActionType 스키마 및 카탈로그 로딩 | implemented | [`action_type.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/action_type.py), [`ontology_action.py`](../../../services/core-control-plane/src/fdai/shared/contracts/models/ontology_action.py), [`test_action_type_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_action_type_catalog.py) | Category, trigger, 인자, 상한, 실행 경로, probe 참조 및 fail-closed 카탈로그 제약이 실행 가능합니다. |
-| 계층, 역할 및 운영 downgrade 상한 | implemented | [`ceiling.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/ceiling.py), [`test_ceiling.py`](../../../services/core-control-plane/tests/core/risk_gate/test_ceiling.py), [`test_approval.py`](../../../services/core-control-plane/tests/core/workflow/test_approval.py) | `prod_downgrade`와 환경 범위가 결정론적 상한 및 사람 승인 요구사항에 영향을 줍니다. |
-| 의미 ActionType, `MutationPlan` V2 및 kinetic artifact binding | implemented | [`action_plans.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/action_plans.py), `core/operational_planning/kinetic_safety.py`, `delivery/kinetic_safety.py`, `delivery/reconciliation_artifacts.py`, `runtime/control_loop.py`, 집중 kinetic 검사(`119 passed`) | 컴파일은 exact 선언과 safeguard를 고정합니다. Runtime-bound writer는 영속 OperationalPlan과 proposal lineage를 다시 검증하고 모든 Thor 실행기 전에 기존 exact V2 plan만 저장하며 raw Action argument를 제외하고 missing-proposal legacy 동작을 유지하며 conflicting, orphaned, late, corrupt 또는 substituted body를 차단합니다. Verified independent observation source는 열린 작업입니다. |
-| Live blast probe 실행 | in-progress | [`live_probe.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/live_probe.py), [`delivery/live_blast_probe.py`](../../../services/core-control-plane/src/fdai/delivery/live_blast_probe.py), [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py) 및 집중 probe 테스트 | 운영 probe 어댑터와 영속 실패 연속 횟수 계약은 배포가 제공하는 중립 소스 위에서 fail-closed로 동작합니다. 배포 연결과 통제된 live 증적은 외부 게이트입니다. |
-| 거버넌스 및 도구 실행 커버리지 | implemented | [`promotion.py`](../../../services/core-control-plane/src/fdai/delivery/promotion.py), [`gitops_pr/governance.py`](../../../services/core-control-plane/src/fdai/delivery/gitops_pr/governance.py), [`retirement.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/retirement.py), [`graph_model_promotion.py`](../../../services/core-control-plane/src/fdai/delivery/graph_model_promotion.py), [`override_writer.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/override_writer.py) | 승격은 인증된 exact 서로 다른 승인자 attestation을 요구합니다. retire와 exemption writer는 replay 가능한 lifecycle 증적이 있는 canonical shadow 검토 PR만 게시하며, 병합된 retire는 active rule index에서 projection됩니다. |
-| 운영자 요청 trigger 종료 | in-progress | 위 스키마/로더 근거와 [액션 온톨로지 라이프사이클](action-ontology-lifecycle-ko.md) | 카탈로그 유효성만으로는 인증된 운영자 요청이 하나의 보존된 운영 증적에서 판단, RiskGate, 실행, 복구, 감사를 통과했음을 입증하지 않습니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-08-19 | implemented | PR executor에 자신을 선택한 경로를 전달하도록 했습니다. `pr_manual`과 `pr_native`는 병합 정책만 다르기 때문에 `ShadowExecutor`를 공유하며, 그래서 모든 수동 병합 safeguard 영수증과 audit 항목이 `pr_native`를 기록했습니다. 이제 `execute()`가 선택된 `ExecutionPath`를 받고, 제공하지 않는 경로는 잘못 표기하는 대신 거부하며, intent와 종단 audit 항목 모두가 이를 담아 `direct_api`·`tool_call`이 이미 기록하던 방식과 같아집니다. 출하되는 ActionType 중 `pr_manual`을 선택하는 것은 없으므로 이 변경은 그렇게 하는 fork에 적용됩니다. | `current change`, `tests/core`·`tests/pipeline`·`tests/scenarios`·`tests/providers`·`tests/runtime`·`tests/delivery`가 focused 7294건 통과(스킵 4건), 작업 범위 Ruff·format·mypy와 core import 게이트 통과 | 어떤 경로든 shadow를 벗어나기 전에 통제된 enforce 모드 승격 근거를 보존해야 합니다. |
-| 2026-08-18 | implemented | `direct_api`와 `tool_call`의 종단 audit 항목에 dry-run 영수증을 전달해서, 종료 기록만으로도 intent 행과 결합하지 않고 safeguard 4를 입증할 수 있게 했습니다. 영수증은 PR 경로와 똑같이 `ExecutionResult.audit_context`로 전달되며, dry run이 존재하기 전에 거부된 액션에서는 값이 없는 상태로 남습니다. | `current change`, `tests/core/executor`가 경로별 신규 2단계 영수증 테스트 3건을 포함해 focused 259건 통과, 작업 범위 Ruff·format·mypy 통과 | 어떤 경로든 shadow를 벗어나기 전에 통제된 enforce 모드 승격 근거를 보존해야 합니다. |
-| 2026-08-13 | in-progress | 구현 원장을 도입하고 구현된 스키마, 상한, 컴파일러 동작을 완료되지 않은 probe 및 소비자 종료와 구분했습니다. 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 소스 및 focused 검사 | Live probe를 연결하고 남은 거버넌스 writer를 완료하며 운영자 요청 런타임 근거를 보존해야 합니다. |
-| 2026-08-14 | implemented | Legacy Action schema를 바꾸거나 raw Action argument를 저장하지 않고 실행 후 reconciliation이 pre-dispatch exact V2 plan만 resolve하도록 별도의 영속 kinetic safety receipt를 추가했습니다. | `current change`, `delivery/reconciliation_artifacts.py`, 집중 adversarial 테스트 15개 통과, strict mypy 및 작업 범위 Ruff 통과 | Producer를 operational로 만들기 전에 실제 pre-dispatch writer와 verified independent observation source를 연결합니다. |
-| 2026-08-14 | implemented | 모든 Core Thor 실행기 전에 exact kinetic safety receipt writer를 연결했습니다. 기존 correlation-indexed proposal만 해석하고 missing-proposal legacy 동작을 유지하며 provider dispatch 전에 invalid evidence를 차단합니다. | `current change`, `core/operational_planning/kinetic_safety.py`, `delivery/kinetic_safety.py`, `delivery/kinetic_proposal.py`, `runtime/control_loop.py` 및 집중 kinetic 검사 115개 통과 | Verified independent observation source를 연결하고 통제된 end-to-end 종결 근거를 보존합니다. |
-| 2026-08-14 | implemented | 내부적으로 valid한 proposal이 OperationalPlan, Process, selected option, correlation, target, selected ActionType 또는 plan lineage를 바꾸지 못하도록 dispatch-time cross-record 검증을 추가했습니다. | `current change`, `delivery/kinetic_proposal.py`, adversarial substitution 테스트 및 집중 kinetic 검사 119개 통과 | Verified independent observation source를 연결하고 통제된 end-to-end 종결 근거를 보존합니다. |
-| 2026-08-14 | in-progress | `live_probe_ref`를 통합 권한 파이프라인의 순수 Axis-E 입력으로 통합하고 해석 사유를 resolved ceiling에 기록했습니다. | `current change`, [`live_probe.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/live_probe.py), [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`ceiling.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/ceiling.py), [`test_live_probe.py`](../../../services/core-control-plane/tests/core/risk_gate/test_live_probe.py); 집중 risk-gate 및 control-loop 권한 검사 252개 통과 | 운영 probe 어댑터와 실패 연속 횟수 출처를 연결한 뒤 실제 관측값을 담은 통제된 런타임 증적을 보존합니다. |
-| 2026-08-18 | implemented | `core/executor/safeguards.py`를 단일 사전 디스패치 안전장치 계약으로 추가했습니다. 이 모듈이 invariant 검사, 실행 지문, dry-run 영수증, 잠금 키 두 개를 소유하며 `REQUIRED_SAFEGUARDS`가 제공되는 모든 `ExecutionPath`에 대해 7개 전부를 선언합니다. `direct_api`와 `tool_call`은 이제 조립된 요청에서 dry-run 영수증을 계산하고, enforce에서만 또는 아예 쓰지 않던 것을 모든 모드에서 사전 효과 audit intent로 남깁니다. `tool_call`은 리소스 잠금에 더해 idempotency 잠금도 보유합니다. `tool_call` 종단 항목에 `audit_phase`를 추가해 재생 시 intent와 종결을 구분할 수 있습니다. | `current change`, 신규 `test_safeguard_contract.py`를 포함해 `tests/core/executor` focused 테스트 251건 통과, `tests/core` 4961건 통과, risk-gate·HIL-resume·agent·runtime·delivery 수트 3174건 통과, 작업 범위 Ruff·format·strict mypy 통과 | `direct_api`와 `tool_call`의 종단 audit 항목까지 dry-run 영수증을 전달하고, 어떤 경로든 shadow를 벗어나기 전에 통제된 enforce 승격 증적을 보존해야 합니다. |
-| 2026-08-27 | implemented | 거버넌스 승격 dispatcher, replay 가능한 governance PR lifecycle publisher, 배포 제공 live probe 계약을 추가했습니다. | `current change`; 승격, governance PR lifecycle, live probe 실패 연속, O7 batch 생산 focused delivery 테스트 통과. | 배포 provider를 연결하고 인증된 live 증적을 보존해야 하며, 로컬 변경은 승격 또는 병합 권한을 부여하지 않습니다. |
-| 2026-08-27 | implemented | 위조된 review decision, 임의 document path, 동시 PR 재시도, 오래된 open 증적 및 형식 불일치를 차단하고 검증된 retirement loader와 active rule projection을 추가했습니다. | `current change`; governance, GitOps 및 governance-catalog 집중 테스트 통과. | 인증된 배포 검토와 병합된 카탈로그 증적을 보존해야 하며, 로컬 테스트는 운영 상태를 주장하지 않습니다. |
-| 2026-08-27 | implemented | Promotion에 exact target, revision 및 evidence attestation을 요구하고 non-finite probe deadline을 거부하며 governance artifact를 runtime loader와 정렬했습니다. | `current change`; promotion, probe 및 catalog 집중 adversarial 테스트 통과. | 인증된 배포 검토와 병합된 카탈로그 증적을 보존하며 로컬 테스트는 운영 상태를 주장하지 않습니다. |
-| 2026-08-28 | implemented | `delivery/promotion.py`를 강화해 promotion이 더 이상 희망만으로 영속화되지 않도록 했습니다. Direct-API executor는 이제 이전 in-memory promotion record를 스냅샷으로 남기고, 영속 저장이 실패하면 새로 추가된 `ActionPromotionRegistry.restore` primitive를 통해 이를 롤백합니다. Governance dispatcher는 뒤이은 영속 적용이 실패하면 소비된 attestation을 `pending`으로 복원합니다. 따라서 일시적인 영속 저장 실패가 더 이상 영속화되지 않은 enforce record를 남기거나 그에 연결된 human approval을 소진시킬 수 없습니다. | `current change`; `core/risk_gate/gate.py`; `delivery/promotion.py`; `tests/delivery/test_promotion_executor.py`(`5 passed`); `tests/delivery/test_governance_dispatch.py`(`8 passed`); Ruff, formatter 및 strict mypy | 이 집중 스위트 밖에서 실제 영속 저장 실패가 깔끔하게 복구됨을 증명하는 통제된 런타임 증적을 보존합니다. |
-| 2026-08-27 | implemented | 완전한 direct-request fingerprint와 영속 one-time promotion nonce를 실제 HIL/direct 경로에 연결했습니다. Retirement rule은 quality 및 HIL rule map에서 제외되고 PR 조회는 merged 또는 closed record를 재사용합니다. | `current change`; HIL, replay, concurrency 및 runtime dispatch 집중 테스트 통과. | 배포 소유 attestation 발급과 실제 PR 증적은 외부 게이트입니다. |
-| 2026-08-27 | implemented | HIL resume에서 serialized parked-rule fallback을 거부하고 frozen measurement index 전에 retirement projection을 적용했으며 GitOps repository path segment와 query value를 모두 percent-encode했습니다. | `current change`; HIL, scenario-replay 및 GitOps adversarial 집중 테스트 통과. | 배포 소유 runtime과 원격 증적은 외부 게이트입니다. |
-| 2026-08-28 | implemented | 이전 restore 기반 복구가 남겨둔 두 가지 취약점을 닫았습니다. `OperationalPromotionDirectApiExecutor`는 이제 record, promote, persist, restore 구간 전체에 걸쳐 ActionType 단위 `ResourceLockManager` 락(direct-API 리소스 락이 이미 쓰는 것과 같은 in-process 패턴)을 유지하므로, 같은 ActionType에 대한 두 개의 동시 실패 promotion이 서로 끼어들어 영속화되지 않은 enforce record를 노출할 수 없습니다. `StateStorePromotionAttestationStore`는 `pending -> consumed` 보상 write 모델을 리스 기반 `pending -> reserved -> consumed` 상태 기계로 대체했습니다: `consume`은 유한한 리스로 예약하고 만료된 예약을 스스로 회수하며, `finalize`만이 `consumed`로 가는 유일한 경로이고, 실패한 `restore`는 이제 best-effort로 처리되어 원래의 dispatch 실패를 절대 가리지 않습니다. 따라서 attestation은 영속 적용을 실패시킨 것과 동일한 store outage로 인해 영구히 좌초될 수 없습니다. | `current change`; `delivery/promotion.py`; `core/executor/lock.py`(재사용, 무변경); `tests/delivery/test_promotion_executor.py`; `tests/delivery/test_governance_dispatch.py`; 대상 `pytest tests/delivery`(2093 passed); 작업 범위 Ruff, format 및 strict mypy | 이 집중 스위트 밖에서 실제 동시 promotion 경합과 실제 동일 store outage가 모두 깔끔하게 복구됨을 증명하는 통제된 런타임 증적을 보존합니다. |
-| 2026-08-28 | implemented | 위 리스 기반 예약 모델이 남긴 리뷰 지적 두 건을 수정했습니다. 첫째, `consume`은 이제 자신의 예약 쓰기가 만들어낸 정확한 개정인 `fencing_token`을 담은 `PromotionReservation`을 반환하며, `restore`/`finalize`는 이 토큰을 요구하고 레코드의 현재 개정이 그 토큰과 여전히 일치할 때만 동작합니다. 이 방어가 없으면 리스가 이미 만료되어 새로운 `consume` 호출이 회수한 예약의 지연된 보유자가 자신이 다시 읽은 개정으로 `restore`나 `finalize`를 호출해 회수자의 진행 중인 예약을 되돌리거나 확정할 수 있었습니다. 둘째, `GovernancePromotionDispatcher.execute`는 이제 `finalize` 실패를 `restore`와 같은 최선 노력 방식으로 처리합니다. `finalize`는 보호된 실행기가 승격을 이미 영속 적용한 뒤에만 예약 부기를 소진하므로, 그 시점의 부기 쓰기 실패는 적용 실패를 가리는 예외가 아니라 복구 가능한 멱등 성공이며 멈춘 `reserved` 레코드는 같은 유한 리스로 복구됩니다. | `current change`; `delivery/promotion.py`; `tests/delivery/test_governance_dispatch.py`(`test_stale_fencing_token_cannot_touch_a_reclaimed_reservation`, `test_finalize_failure_after_durable_apply_is_a_recoverable_success`); 집중 승격 검사(`17 passed`); 작업 범위 Ruff, format 및 strict mypy | 이 집중 스위트 밖에서 실제 회수된 리스 경합과 실제 적용 이후 확정 중단이 모두 복구됨을 증명하는 통제된 런타임 증적을 보존합니다. |
-| 2026-08-28 | implemented | 적용 이후 복구 경로를 안전하게 재시도할 수 있도록 했습니다. 디스패처는 범위가 제한된 정확한 요청 지문 증적 캐시를 유지하므로 `finalize` 실패 뒤 같은 프로세스에서 재시도하면 실행기를 다시 호출하지 않고 확정된 결과를 반환합니다. 프로세스가 다시 시작된 뒤에는 운영 승격 실행기가 정확히 일치하는 이미 영속된 ActionType 증적을 인식하고 레지스트리에 다시 쓰지 않은 채 멱등 성공을 반환합니다. 다른 요청 내용으로 멱등 키를 재사용하는 경우는 계속 차단합니다. | `current change`; `delivery/promotion.py`; `tests/delivery/test_governance_dispatch.py`; `tests/delivery/test_promotion_executor.py`; 집중 승격 검사(`17 passed`); Ruff, format 및 strict mypy | 프로세스 재시작과 적용 이후 확정 중단을 함께 다루는 통제된 런타임 증적을 보존합니다. 외부 시스템은 호출하지 않았습니다. |
-| 2026-08-28 | implemented | 재시작 재생이 영속 승격 권한을 단조롭게 유지하도록 했습니다. 실행기는 ActionType별 잠금 안에서 재생을 비교하기 전에 영속 레코드를 새로 읽습니다. 정확히 같은 증적은 멱등 성공을 반환하고, 더 오래됐거나 다른 증적은 최신 ENFORCE 귀속을 덮어쓸 수 없습니다. | `current change`; `delivery/promotion.py`; `tests/delivery/test_promotion_executor.py`; 집중 승격 검사(`18 passed`); Ruff 및 strict mypy | 더 최신인 영속 승격에 대한 재시작 재생을 증명하는 통제된 런타임 증적을 보존합니다. 외부 시스템은 호출하지 않았습니다. |
-| 2026-08-28 | implemented | 승격 차단을 여러 복제본과 권한 저장소 실패까지 확장했습니다. 작성자 새로 읽기는 사용할 수 없거나 잘못된 영속 권한을 지우지 않고 오류를 전달하며, 모든 승격 영속화는 단조 증가 개정과 원자적 비교 후 설정을 사용합니다. 같은 이전 개정을 관측한 두 복제본이 모두 귀속을 바꿀 수 없고 하나만 성공하며 다른 하나는 충돌을 보고합니다. | `current change`; `delivery/promotion.py`; `delivery/persistence/state_store_action_promotion.py`; 집중 승격 및 영속화 검사(`28 passed`); Ruff 및 strict mypy | 통제된 여러 복제본 런타임 증적을 보존합니다. 외부 시스템은 호출하지 않았습니다. |
-| 2026-08-28 | implemented | 승격 전달에 남아 있던 재시도 구간을 닫았습니다. 최초 권한 생성은 감사와 함께 원자적 없을 때 생성을 사용하고 후속 쓰기는 개정 비교 후 설정을 사용합니다. 소진된 증적은 재시작 재생을 위해 정확한 성공 증적을 보존하며, 복원된 적용 실패는 감사되지만 프로세스 내 및 영속 실패 결과 중복 제거에서는 제외되는 타입 지정 재시도 가능 직접 API 오류를 발생시킵니다. | `current change`; 승격, 영속화, 거버넌스 전달 및 직접 API 실행기 검사(`62 passed`); Ruff 및 strict mypy | 배포된 여러 복제본 런타임의 거버넌스 재시작 및 재시도 증적을 보존합니다. 외부 시스템은 호출하지 않았습니다. |
-
-### 남은 작업
-
-- [x] Kinetic safety receipt를 통해 exact V2 plan을 저장하고 resolve했으며 conflict, corruption,
-  replay, legacy-missing, argument redaction 및 substituted-body 집중 테스트 15개를 통과했습니다.
-- [x] 모든 Core Thor 실행기 전에 receipt writer를 연결하고 missing proposal은 legacy 동작을
-  유지하며 invalid 또는 substituted evidence는 provider dispatch를 차단함을 입증합니다.
-- [ ] Verified independent observation source를 추가하고 exact observation evidence를 사용할 수
-  없으면 일반 producer가 held 상태를 유지함을 입증합니다.
-- [x] `live_probe_ref`를 RiskGate 평가에 통합했으며, `quiet`, `active`, `overloaded`, 요청하지 않은
-  관측, unavailable, 대체된 관측, 의견 없음, degraded, stale, 지속적 blind 결과가 자율성을
-  유지하거나 낮출 수만 있음을 집중 검사로 입증합니다.
-- [ ] `LiveBlastProbeAdapter`를 배포 제공 signal 및 실패 연속 횟수 provider에 연결한 뒤,
-  resolved ceiling에 실제 probe 관측값이 담긴 통제된 런타임 증적을 보존합니다.
-- [ ] Trigger 종료를 `validated`로 표시하기 전에 exact ActionType 및 인자를 판단, RiskGate, 실행 또는 타입이 지정된 보류, 복구 자세, 감사까지 바인딩하는 인증된 운영자 요청 증적을 보존합니다.
-
 ## 10. 설계 경계와 라이프사이클
 
 설계 경계, 라이프사이클 규칙, 소비자 구현 상태는
@@ -844,3 +790,9 @@ verbatim 기록되므로 과거 감사 항목 를 절대 break 하지 않음.
   원본 ActionType 도입과 룰 → ActionType 전달.
 - [security-and-identity.md](../architecture/security-and-identity-ko.md) - 모든 액션이
   상속하는 안전성 불변식 와 신원 계약.
+
+## 관련 문서
+
+| 알아볼 내용 | 읽을 문서 |
+|-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/decisioning/action-ontology.md) |

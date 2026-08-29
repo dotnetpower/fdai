@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 64920764f4b7e96a7761f799f132183adf310947
+translation_source_sha: 429eb2234a58efa0e6126b1ae8e9b3d9071aba88
 translation_revised: 2026-08-30
 ---
 # FDAI 운영 온톨로지
@@ -18,156 +18,6 @@ translation_revised: 2026-08-30
 > **안전 경계:** 온톨로지 맥락은 자율성을 유지하거나 낮출 수만 있습니다. 누락되거나 오래되거나 충돌하거나 입증되지 않은 맥락은 알 수 없음으로 남고 범위가 제한된 근거 복구,
 > 더 작은 safe 계획, no-op 또는 검토를 유발합니다. 실행 권한을 제공하지 않습니다.
 >
-> **구현 상태(2026-08-08):** O1-O4는 의미 선언, 변경할 수 없는 맥락, Forseti 상한 배선, decision-case 선택, 응답 종결, Muninn/Norns learning intake를 구현합니다.
-> `OperatingModelProvider`는 범위가 제한된 배포 인스턴스를 project하고 선택적 EventBus
-> provider는 durable cursor 뒤의 완전한 monotonic snapshot을 지속 적용합니다. 두 경로는 같은
-> distributed lock을 공유하며 cursor가 전진한 뒤에는 bootstrap이 변환 결과를 쓰지 않습니다. 맥락 스냅샷은
-> 타입이 지정된 근거 경로, 개정 번호, effective 시간, 출처 이력, 완전한 최신성 증적을 보존합니다.
-> M3는 관찰된, derived, desired, 실행 레인에 변경할 수 없는 `StateFactMetadata`를 추가합니다.
-> 선택적인 인벤토리 링크 관측 메타데이터는 온톨로지 변환 결과와 operational-context
-> 구체화를 거쳐 보존되고 스냅샷 신원에 반영됩니다. 근거가 stale, 불완전한,
-> conflicting, synthetic, future-cutoff 또는 검증되지 않은이면 스냅샷 상한을 낮춥니다.
-> 검증된 링크는 독립적인 검증기, 신뢰된 검증 메서드 및 변경할 수 없는 검증
-> 증적을 요구합니다. 필수 출처 최신성, 신뢰된 UTC 시계 신원, 기록된 시간 및
-> skew 범위의 future 검사도 맥락 안전성과 재생 신원에 반영됩니다.
-> Wave 2는 secured 온톨로지 경로, 권위 있는 상태 사실, 카탈로그 참조 및 통제된 문서
-> excerpt를 분리된 권한 레인으로 유지하는 내용 기반 주소를 가진
-> `OperationalEvidenceBundle` 런타임 읽기 경로를 제공합니다. Admission에는 온톨로지 release, 카탈로그 및
-> 문서 개정 번호, 인증된 출처, 용도, 범위, 민감정보 제거 요약, 타입이 지정된 temporal 범위를
-> 고정하는 내용 기반 주소를 가진 출처 증적이 필요합니다. 결정론적 점유 및 인용
-> 검증, exact typed-claim contradiction detection, final-body 바이트 및 항목 예산은 보류
-> 근거를 출력하고 번들의 자율성 상한을 유지하거나 낮출 수만 있습니다. 선택적 source는
-> 의미 런타임에 dependency injection되며 모든 결과는 `SHADOW_ONLY`와 변경 및 실행 권한
-> 없음으로 고정됩니다.
-> 변경관리는 `Change`에 planned-change 근거를 추가하고, 검토된 `ChangeWindow`와 대상 및
-> 결정에서 영향, 프로세스, 결과, 복구까지 이어지는 타입이 지정된 링크를 제공합니다. 이러한
-> 선언은 의미 근거일 뿐 승인 또는 실행 권한을 제공하지 않습니다. Huginn은 같은
-> 정규화된 변경을 causal Event와 소유자 토픽에 포함합니다. Forseti는 범위가 제한된
-> `ChangeAssessment`를 계산해 Verdict와 DecisionCase 근거에 보존하고, stale, 불완전한,
-> 실패한 또는 review-required 평가에는 사람 검토를 요구합니다. 현재 런타임에는
-> graph-freshness 권한이 없으므로 planned 변경은 이 게이트를 auto-clear할 수 없습니다.
-> M5는 카탈로그에 선언된 `routes_to` 및 `peered_with` Resource 링크를 인벤토리 변환 결과에
-> 추가하고 읽기 전용 결정론적 네트워크 및 Pod 텔레메트리 함수를 제공합니다.
-> Composition-owned 범위가 제한된 발급자는 secured ObjectSet 결과를 기록하고 exact 함수
-> 핸들러는 발급된 dependency 다이제스트만 해석합니다. 검증기는 contextual 호출 및 opaque trust
-> 맥락에 대해 역할, 용도, exact release 및 projected-result 다이제스트를 인증합니다. 발급되지
-> 않았거나 self-minted인 증적은 차단됩니다. Evaluation 시간은 trusted 증적 기준 시점과
-> 같으며, future effective, 근거 또는 기록된 시간과 unbounded 최신성은 검증되지 않은으로
-> 남습니다. Stored 간선 direction을 보존하고 symmetric 피어링 구간 하나에 방향별로 구분된
-> 관측 및 검증 증적 계보를 가진 directed 기록 두 개를 요구합니다. 누락된
-> 엔드포인트, 불완전한 조회 또는 없는 경로는 트래픽이 흐르지 않는다는 결론이 아니라 알 수 없음으로
-> 유지됩니다. 인벤토리 변환 결과는 관찰된 리소스와 엔드포인트 타입이 충돌하면 차단합니다.
-> 함수는 source-derived 산출물 다이제스트를 사용하고 exact-release 호출 증적을 발행하며
-> 프로바이더 I/O 또는 실행 권한이 없습니다.
-> 현재 Azure 변환 결과는 프로바이더가 exact ARM 리소스 next-hop id를 제공할 때만 directed
-> `routes_to`를 발행합니다. IP 주소, 접두사, DNS 이름 및 경로 absence는 Resource 신원 또는
-> 도달 가능성 점유가 되지 않습니다. 스냅샷과 real-time 인벤토리 변환 결과는 검토된
-> 피어링/라우팅 링크 vocabulary를 모두 보존합니다.
-> 인벤토리 온톨로지 변환기는 이제 관찰된 각 Resource에서 검토된 ResourceType 하나로 향하는
-> 카탈로그 선언 `resource_classified_as` 관계를 지원합니다. 분류는 완전한 인벤토리 세대와
-> ResourceType 레지스트리 항목의 재생 가능한 다이제스트를 고정합니다. 미매핑 형식이 하나라도
-> 있으면 분류 범위가 불완전해지고 대체 그래프를 활성화하지 않습니다. 검토된 매핑의 ResourceType
-> 인스턴스가 아직 시드되지 않았으면 `unseeded_resource_type`을 기록하고 해당 분류 간선만
-> 생략한 채 완전한 인벤토리 세대의 나머지를 기록합니다. 다른 관계 및 엔드포인트 검증 실패는
-> 계속 차단합니다. 이 관계가 실제 변환
-> 결과에 나타나도록 운영 인벤토리 작업이 이미 로드한 레지스트리 다이제스트 맵을 주입하며,
-> 승격된 완전 세대는 실제 변환 결과에 이 관계를 저장합니다.
-> 프로바이더 토폴로지는 검토된 명시적 ARM 구조와 범위가 제한된 Kubernetes API source를 통해서만
-> 들어옵니다. [온톨로지 구조 모델](ontology-structural-model-ko.md#프로바이더가-관찰한-토폴로지)은
-> SQL, Communication, DNS resolver, AKS AgentPool, File Share 및 UID 기반 Kubernetes
-> containment를 소유합니다. Exact mapping은 동일 child의 리소스 그룹 fallback만 shadow하며,
-> single writer는 검증된 endpoint와 link만 승격합니다. Binding이 없으면 토폴로지를 만들지 않습니다.
-> 한 세대 안에서 같은 리소스 신원을 반복 관측한 경우 이제 변환 전체를 실패시키는 대신
-> 결정적으로 판정합니다. 일치하면 하나의 객체로 합치고 가장 이른 관측 시각을 유지하며,
-> 불일치하면 경합 중인 값을 제외한 채 명시적 상태 사실 충돌로 남겨 기존 소비자를 모두
-> 강등시킵니다. 서로 독립된 출처 사이의 교차 권위 판정은 구현되어 있지 않습니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| O1 의미 체계와 카탈로그 무결성 | implemented | [`test_ontology_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_catalog.py), [`test_ontology_provenance.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_provenance.py) | 통합 카탈로그가 운영 의미 체계, 출처 이력, 참조 및 cardinality를 검증합니다. |
-| O2 범위 제한 맥락과 현재 상태 변환 결과 | in-progress | [`ontology_instance.py`](../../../services/core-control-plane/src/fdai/shared/providers/ontology_instance.py), [`console_projection.py`](../../../services/core-control-plane/src/fdai/core/operational_context/console_projection.py), focused 인스턴스 및 컨텍스트 변환 결과 테스트 | 타입이 지정된 현재 상태 객체와 링크가 있습니다. 이제 보안 receipt의 목적, 릴리스, 기준 시각 및 그래프 범위가 모두 일치할 때만 범위가 제한되고 권한이 없는 컨텍스트 메타데이터를 만들 수 있습니다. Principal 범위 전송과 인증된 런타임 근거는 남아 있습니다. |
-| 운영 상태 의사 결정 근거 승인 | implemented | [`evidence_bundle.py`](../../../services/core-control-plane/src/fdai/core/operational_context/evidence_bundle.py), [`materializer.py`](../../../services/core-control-plane/src/fdai/core/operational_context/materializer.py), 집중 묶음 및 materializer 테스트 | 의사 결정에 연결된 각 상태 항목과 런타임 운영 컨텍스트 스냅샷은 공유 증적 및 검증 묶음 승인 결과를 보존합니다. 정확한 상태, 그래프, 범위, 목적, 출처 및 시간 연결은 승인 결과가 없거나 일치하지 않거나 만료되면 명시적 보류와 함께 `SHADOW_ONLY`로 낮춥니다. 프로덕션 런타임은 이 승인 결과를 요구하며 기본 긍정 프로바이더가 없습니다. |
-| O3-O5 결정, 결과 및 통제된 learning 루프 | in-progress | [제공 계획](#제공-계획), [`test_ontology_alignment.py`](../../../services/core-control-plane/tests/agents/test_ontology_alignment.py) | 핵심 구획은 있지만 모든 운영 경로에서 효과 종결과 통제된 learning이 완료되지는 않았습니다. |
-| 결정과 학습 writer | in-progress | [`hypothesis_lineage.py`](../../../services/core-control-plane/src/fdai/core/operational_planning/hypothesis_lineage.py), [`_execution.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_execution.py), 집중 계보 및 독립 결과 검사 | `OperationalOutcomeLineageProducer`는 Forseti가 소유한 prospective record가 이미 존재할 때만 단일 효과 에피소드 하나를 종결합니다. 실제 ControlLoop 호출 지점은 런타임 `Action`, 정확한 ActionType 버전, 실행기 시작·종료 시각, terminal 상태와 receipt, `IndependentEffectObserver` 뒤에서 생성된 scorable `ResponseOutcome`을 제공합니다. Prospective record가 없으면 아무것도 쓰지 않으며, 응답 계약에 완전성 receipt가 없으므로 producer는 `telemetry_complete=false`를 기록합니다. 어느 조립 루트도 source, sink 또는 projector를 연결하지 않습니다. 남은 prospective 필드, 다중 효과 독립 결과 및 명시적 telemetry completeness에는 composition 전에 이름이 지정된 권위 있는 생산자가 필요합니다. |
-| 최종 결정 계보 writer | implemented | [`operational_lineage.py`](../../../services/core-control-plane/src/fdai/delivery/operational_lineage.py), [`hypothesis_lineage.py`](../../../services/core-control-plane/src/fdai/core/operational_planning/hypothesis_lineage.py), 집중 계보 및 reconciliation 검사 | 독립 관측된 최종 reconciliation이 exact 영속 plan, proposal, safety receipt, observation 및 context 신원을 해석한 뒤 `DecisionCase -> ActionOption -> ExpectedEffect -> ActionRun -> ObservedOutcome`을 적재합니다. 독립적인 대상 관측에 해당 예상 효과의 정확한 metric이 있을 때만 outcome을 scorable로 기록합니다. Raw action argument는 변환하지 않습니다. Pattern learning은 별도입니다. |
-| 다중 효과 운영 계보 계약 | implemented | [`hypothesis_lineage.py`](../../../services/core-control-plane/src/fdai/core/operational_planning/hypothesis_lineage.py), [`ActionOption.yaml`](../../../rule-catalog/vocabulary/object-types/ActionOption.yaml), 집중 계보 및 competency 검사 | 새로운 계보 쓰기는 순서가 고정된 완전한 예상 효과 집합을 보존하고 효과마다 하나의 독립 결과를 요구합니다. 단일 속성만 있는 저장 레코드는 하나의 효과로 읽고, 두 필드가 동시에 있으면 안전하게 차단합니다. |
-| Wave 2 근거, 변경, Property 및 토폴로지 기반 | in-progress | [구현 상태 설명](#fdai-운영-온톨로지), [운영 온톨로지 플랫폼](operating-ontology-platform-ko.md), [`check-property-semantic-coverage.py`](../../../scripts/quality/architecture/check-property-semantic-coverage.py) | 룰이 평가하는 모든 Property에 검토된 의미가 있고 exact-target 현재 상태 읽기는 범위가 제한된 그래프 refresh를 한 번 수행할 수 있으며 evidence bundle은 선택적 런타임 읽기 조립을 가집니다. 계획 변경 판정과 더 넓은 플랫폼 제공은 남아 있습니다. |
-| Console 의미 band 선언 완전성 | implemented | [`Forecast.yaml`](../../../rule-catalog/vocabulary/object-types/Forecast.yaml), [`Pattern.yaml`](../../../rule-catalog/vocabulary/object-types/Pattern.yaml), [`test_ontology_console_projection.py`](../../../services/core-control-plane/tests/delivery/test_ontology_console_projection.py) | Console band가 지정하는 모든 객체 타입을 제공 릴리스가 선언하므로 band 구성원이 조용히 제외되지 않습니다. 두 선언은 의미 선언일 뿐이며 인스턴스 경로를 추가하지 않습니다. |
-| 운영 범위 `unknown_service` 커버리지 | validated | [`operating_scope.py`](../../../services/core-control-plane/src/fdai/core/operational_context/operating_scope.py), [`postgres_inventory_snapshot.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_inventory_snapshot.py), focused consumer 검사 4개 통과 | 인증된 인벤토리 그래프 변환 결과가 범위가 제한된 응답의 모든 Resource에 검토된 서비스 하나 또는 `unknown_service`를 표시하고, 집계 완전성을 반환하며, 대응되지 않거나 잘린 범위는 성능 저하로 표시합니다. |
-| 프로바이더 native 미분류 신원 | validated | [`inventory.py`](../../../services/core-control-plane/src/fdai/shared/providers/inventory.py), [`arg_query.py`](../../../services/core-control-plane/src/fdai/delivery/azure/arg_query.py), focused 검사 259개 통과 및 [이슈 #217](https://github.com/dotnetpower/fdai/issues/217) | 검토된 예약 ResourceType이 타입별 의미를 지어내지 않고 지원되지 않는 프로바이더 신원을 계속 표시합니다. 승격된 로컬 스냅샷과 온톨로지는 realtime overlay 잔여 없이 exact provider identity coverage를 유지합니다. |
-| 운영 의도 런타임 인스턴스 | in-progress | 의도 6종의 카탈로그 선언, [`ontology_console_projection.py`](../../../services/core-control-plane/src/fdai/delivery/ontology_console_projection.py) | `ServiceObjective`, `RecoveryObjective`, `CostObjective`, `ArchitectureConstraint`, `Ownership`, `ChangeWindow`는 선언되고 band에 포함되며 `OperatingModelProjector`가 배포 제공 인스턴스를 보존할 수 있습니다. 이를 도출하는 변환 결과와 end-to-end로 고정하는 집중 테스트는 없습니다. |
-
-### 구현 이력
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-08-27 | implemented | 기존의 배포 제공 운영 모델 경로를 통해 운영 의도 ObjectType 6개를 모두 고정했습니다. 고정본은 테넌트 값을 제공하지 않으며 각 정확한 유형이 일반 스냅샷에서 사라지지 않고 검증 및 저장되는지 확인합니다. | `current change`; `test_operating_model.py` 검사 7개 통과; Ruff 통과. | 배포별 목표, 담당 체계, 제약 조건, 변경 구간 인스턴스는 운영 근거로 별도 보존합니다. |
-| 2026-08-27 | implemented | `lifecycle`이 없는 모든 출하 ObjectType을 검토하고 추측성 에이전트 작성자를 도입하지 않은 채 기존 카탈로그, 이벤트 버스, 프로바이더, 서비스 또는 principal 범위 권한을 기록했습니다. | `current change`; `rule-catalog/vocabulary/object-types/` 목록 및 소유 문서 권한 표. | 기존 권한이 바뀌거나 유형에 객관적으로 필요한 수명 주기가 생길 때만 다시 검토합니다. |
-| 2026-08-27 | implemented | Context, 탐지 변환 및 교차 출처 근거 경계를 강화했습니다. Principal 신원은 인증된 서버 컨텍스트에서만 가져오고 Context는 principal 범위, 다이제스트, 정확한 객체 유형, 리비전, 시간 및 경로 검사가 있는 보안 ObjectSet 증적을 요구합니다. 탐지는 원자적 생성, 정규 비교, 활성 에피소드, 균형 잡힌 봉인 집단 및 인증된 생산자 증명을 사용합니다. | `current change`; 집중 Context, 게이트웨이, 탐지, 저장소, 판정 및 shadow 검사. | 인증된 배포 증적을 보존하고 탐지 sink를 프로덕션 조립에 연결합니다. 권한은 높아지지 않습니다. |
-| 2026-08-27 | implemented | 남은 Context 응답 경계 미비점을 닫았습니다. 변환은 증적 발급을 인증하고 출처 세대를 포함한 전체 링크 관측 및 검증 메타데이터를 비교하며 묶음과 Context 메타데이터 전체에 하나의 바이트 예산을 적용합니다. | `current change`; `console_projection.py`; `evidence_read.py`; 집중 운영 컨텍스트 및 시나리오 검사 17개 통과. | 인증된 런타임 응답 하나를 보존합니다. 실제 또는 배포 근거는 만들지 않았습니다. |
-| 2026-08-28 | implemented | Context 스냅샷과 보안 증적을 서로만 비교하지 않고 제공 중인 정확한 `OperationalEvidenceReadRequest`에 연결했습니다. 요청 release, 기준 시점 또는 범위를 벗어난 스냅샷과 증적을 차단하며 응답 바이트 예산에 `principal_ref`와 실행 및 변경 권한 필드를 포함합니다. | `current change`; `core/operational_context/evidence_read.py`; 집중 근거 읽기 검사 11개 및 운영 컨텍스트 검사 74개 통과. | 인증된 배포 근거는 별도로 보존합니다. 권한 또는 런타임 승격은 바뀌지 않습니다. |
-| 2026-08-28 | implemented | 동일한 읽기 경로의 후속 검토 두 건을 해소했습니다. 응답 바이트 예산은 고정 길이 SHA-256 자리표시자로 묶음 생성 전 공간을 예약하고 실제 `bundle_id`와 `digest`를 계산합니다. 또한 Context 스냅샷의 카탈로그 리비전이 요청과 다르면 차단합니다. | `current change`; `core/operational_context/evidence_read.py`; 집중 근거 읽기 검사 15개 및 운영 컨텍스트 검사 84개 통과. | 인증된 배포 근거는 별도로 보존합니다. 권한 또는 런타임 승격은 바뀌지 않습니다. |
-| 2026-08-28 | implemented | `console_projection.py`의 출처 연결 미비점을 닫았습니다. 각 Context 근거 경로의 `provenance_refs`는 보안 객체의 `source_ref`, `measurement_source_ref`, `expression_ref` 속성에서 공유 helper로 다시 계산되며 정확히 일치하지 않는 스냅샷은 차단됩니다. | `current change`; 위조 및 누락 출처 사례를 포함한 Console projection 검사 14개, 운영 컨텍스트 검사 85개, Ruff 및 strict mypy 통과. | 인증된 배포 근거는 별도로 보존합니다. 권한 또는 런타임 승격은 바뀌지 않습니다. |
-| 2026-08-30 | validated | 운영 Context fixture를 `SecuredQueryReceiptAuthority`가 요구하는 공유 의사 결정 근거 승인에 맞췄습니다. 테스트는 증적 인증을 우회하지 않고 현재 시각과 범위에 연결된 승인을 발급합니다. | `current change`; 집중 온톨로지 및 운영 Context 검사 101개와 Ruff 통과. | 인증된 배포 근거는 별도로 보존합니다. |
-| 2026-08-27 | implemented | 탐지가 소유한 온톨로지 신원에 실제 PostgreSQL 원자적 생성 동시성 회귀 검사를 추가했습니다. | `current change`; `tests/persistence/test_postgres_ontology_instance.py`는 로컬 PostgreSQL 게이트에서 실행되며 `FDAI_DATABASE_URL`이 없을 때만 건너뜁니다. | 런타임 검증을 주장하기 전에 서비스 소유 로컬 데이터베이스에서 실제 저장소 증적을 실행합니다. |
-| 2026-08-27 | implemented | 양의 `Forecast` 에피소드와 균형 잡힌 `Pattern` 후보를 위한 권한 없는 런타임 변환 결과를 추가했습니다. 탐지기, 대상, 구간, 사례 및 근거 신원을 보존하며 지원되지 않는 관계는 복원하지 않습니다. | `current change`; `core/ontology_platform/detection_projection.py`; 집중 탐지, 예측 에피소드 및 운영 학습 검사 11개 통과. | 생산자가 정확한 목표 또는 결과 엔드포인트 신원을 제공할 때만 `predicts_breach_of` 또는 `learned_as`를 복원합니다. |
-| 2026-08-27 | implemented | 객체 및 배열 Property 값을 위한 범위가 제한된 정규 JSON 의미를 완료했습니다. 정규화는 유한성, 깊이 및 바이트 상한과 안정적인 키 순서를 강제하며 수집 커버리지 게이트는 규칙이 평가하는 모든 참조를 검토 완료로 기록합니다. | `current change`; `property_semantic.py`; `test_property_semantic.py`; `check-property-semantic-coverage.py`가 검토된 참조 62/62를 보고합니다. | 검토된 레지스트리를 보존하고 새 수집 Property 참조가 생기면 하한을 높입니다. |
-| 2026-08-27 | implemented | 하나의 리소스 신원에 대한 서로 다른 프로바이더 관측 두 개 이상을 판정하는 프로바이더 중립 경로를 추가했습니다. 일치하는 속성만 보존하고 경합 필드를 기록하며 승리 프로바이더를 선택하거나 권한을 높이지 않습니다. | `current change`; `observation_adjudication.py`; 집중 반복 프로바이더, 교차 프로바이더 및 변환 상태와 텔레메트리 판정 검사. | 프로바이더 간 런타임 범위의 지연 상태를 바꾸기 전에 통제된 두 번째 프로바이더 집단을 보존합니다. |
-| 2026-08-27 | implemented | 호출자가 주장하는 프로바이더 검증 값을 주입된 신원 검증기와 범위가 제한된 정확한 대상 및 세대 신원으로 교체했습니다. | `current change`; 프로바이더 판정 및 변환 상태 shadow 검사 42개 통과; Ruff 및 strict mypy. | 이 선택적 기본 요소를 조립하기 전에 프로덕션 검증기를 연결합니다. 외부 프로바이더는 조회하지 않았습니다. |
-| 2026-08-27 | implemented | 출처에서 파생된 Forecast 및 Pattern 온톨로지 객체를 기존 인스턴스 저장소 경계에 멱등적으로 영속화하는 메서드를 추가했습니다. | `current change`; `detection_projection.py`; 집중 변환 검사 4개 통과. | 배포 근거를 주장하기 전에 프로덕션 조립에 연결합니다. |
-| 2026-08-29 | implemented | 의사 결정 사례와 운영 계획이 사용하는 기본 운영 컨텍스트 스냅샷을 마이그레이션했습니다. 런타임 조립은 의사 결정 근거를 요구하며, materializer는 승인 전 스냅샷 다이제스트, 대상과 기준 시점 범위, 카탈로그 및 시계 리비전, 승인 결과를 최종 재생 신원에 연결합니다. 승인 결과가 없거나 수락되지 않으면 충돌을 기록하고 자율성 상한을 `SHADOW_ONLY`로 고정합니다. | `current change`; 컨텍스트 스냅샷 모델, materializer, 런타임 pantheon 조립, 집중 컨텍스트, 에이전트 및 부트스트랩 테스트, Ruff 및 strict mypy. | 프로덕션 승인 프로바이더를 연결하고 통제된 컨텍스트 스냅샷 묶음을 보존합니다. |
-| 2026-08-29 | implemented | 운영 컨텍스트 상태 근거 경계를 공유 의사 결정 근거 승인 결과로 마이그레이션했습니다. 묶음 신원은 승인 결과를 보존하지만 순환 약속값을 피하기 위해 의사 결정 다이제스트에서는 제외합니다. 승인 결과가 없거나 일치하지 않거나 만료되면 범위가 제한된 근거 문제로 기록하고 `SHADOW_ONLY` 자율성의 `decision_evidence_unverified` 보류를 강제합니다. | `current change`; 운영 근거 모델, 신원, 빌더, 공유 승인 결과 매핑, 집중 묶음 및 materializer 테스트, Ruff 및 strict mypy. | 권위 있는 상태 승인 결과 생성기를 연결하고 운영 근거 묶음을 우회하는 직접 상태 소비자를 마이그레이션합니다. |
-| 2026-08-26 | implemented | UID에 근거한 Ingress, IngressClass, EndpointSlice Resource와 정확한 Node `providerID` -> VMSS VM 아이덴티티 연결로 프로바이더에서 관찰한 Kubernetes 의미를 확장했습니다. Service 선택자는 네임스페이스 범위를 유지하고, 불완전한 Ingress 백엔드 집합은 일부 경로를 내보내지 않으며, 이름이나 식별자 접두사는 연결을 만들지 않습니다. | `current change`, 집중 Kubernetes, 프로바이더 매핑, ResourceType, ResourceClass, 인벤토리 승격 및 카탈로그 검사 111개가 통과했습니다. | 런타임 검증을 주장하기 전에 하나의 완전하고 정확한 클러스터 Kubernetes 세대를 보존합니다. |
-| 2026-08-19 | validated | Service-owned 인벤토리 entry point의 composition parity를 맞춘 뒤 identity-complete provider graph를 승격하고 측정했습니다. Provider fence는 native 객체 533개를 보고합니다. 검토된 mapping 476개와 예약 미분류 신원 57개가 provider type 68종에 걸쳐 있고 `provider_identity_complete=true`입니다. 스냅샷과 온톨로지는 각각 Resource 573개를 유지하며 두 identity 집합의 차이는 0이고 realtime overlay에는 Resource와 link가 모두 0개입니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217), coverage schema `1.1.0`, 최종 로컬 observation은 aggregate graph record 1,215개의 fresh inventory를 보고합니다. | 배포가 검토한 service mapping으로 `unknown_service`를 줄일 수 있습니다. Provider identity, projection parity 또는 realtime overlay 잔여는 없습니다. |
-| 2026-08-19 | validated | `project_operating_scope`를 PostgreSQL 기반 인증 인벤토리 그래프 응답에 연결했습니다. 범위가 제한된 역방향 링크 조회 두 개가 응답 Resource에서 끝나는 서비스 경로만 해석합니다. 모든 Resource는 `service_ref`를 포함하고, 불완전한 입력 또는 대응되지 않은 범위는 정상적인 부재 주장이 아니라 명시적 coverage gap이 됩니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Focused consumer 검사 4개와 strict mypy가 통과했습니다. 읽기 전용 loopback 측정에서 응답 Resource 213/213개가 표시됐고 `input_complete=true`, `complete=false`, `operating_scope_unmapped`를 반환했습니다. | 검토된 BusinessService와 Workload mapping을 제공해 측정된 `unknown_service` 집합을 줄입니다. Consumer 연결 작업은 남지 않았습니다. |
-| 2026-08-19 | implemented | 검토된 `unclassified-resource` ResourceType과 exact 프로바이더 신원 조정을 추가했습니다. 선언되지 않은 native 타입은 더 이상 완전한 세대에서 사라지지 않지만 query terms, 타입별 Rule 또는 작업 eligibility를 얻지 않습니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). 인벤토리, 온톨로지, 카탈로그 및 의미 값 도메인 focused 검사가 259개 묶음 안에서 통과했고 Ruff와 strict mypy도 통과했습니다. | 새 세대를 승격한 뒤 운영 범위 coverage를 읽기 전용 운영자 consumer 하나에 연결합니다. |
-| 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했습니다. | 구현 범위 표의 현재 소스, 테스트 및 제공 계획입니다. | 아래의 관찰 가능한 종료 조건을 완료해야 합니다. |
-| 2026-08-14 | implemented | 일치하지 않는 보안 receipt를 거부하고 raw 객체 속성을 제외하는 범위 제한 컨텍스트 표현 projector를 추가했습니다. | `current change`, `test_console_projection.py` focused 테스트 5개 통과 | Principal 범위 근거 응답을 통해서만 projector를 연결하고 인증된 Console 근거를 보존해야 합니다. |
-| 2026-08-15 | implemented | 선언되지 않은 `predicts_breach_of`와 `learned_as` 행을 관계 계약에서 제거하고 이를 막고 있는 ObjectType을 기록했으며, 표를 제공되는 LinkType 카탈로그와 저장된 링크 방향에 고정했습니다. | `current change`, `test_ontology_catalog.py` 및 `test_ontology_instance.py` focused 테스트 | 두 관계는 엔드포인트 ObjectType과 이를 필요로 하는 competency 질문이 함께 준비될 때만 복원합니다. |
-| 2026-08-15 | implemented | Compiler와 발행 경로를 근거로 `Pattern`과 `PatternObservation`을 하나의 층위로 판정하고, 검토 주장을 바로잡았으며, 선언되지 않은 ObjectType 두 개를 제자리에 표시하고, 결정과 학습 계보 projector에 운영 호출자가 없음을 기록했습니다. | `current change`, `test_ontology_catalog.py` 문서 일관성 테스트 | 조립 루트에서 `OperationalHypothesisLineageProjector`를 구성해 통제된 에피소드가 `considers`, `expects`, `executed_as`, `resulted_in`을 기록하고 재생할 수 있게 한 뒤, Norns가 살아 있는 소비자와 함께 `PatternObservation`을 발행하거나 해당 ObjectType, 토픽, `PANTHEON_SPECS` 및 판테온 문서 행을 한 번에 폐기해야 합니다. |
-| 2026-08-15 | implemented | 에이전트 소유권 절을 바로잡아 두 개의 독립된 소유권 레지스트리를 명시하고, 산문으로 된 소유권 서술을 정확한 `lifecycle.owner` 타입 목록으로 교체했으며, 근거 없던 "권한 등급, 최신성 정책, 보존, allowed 용도" 서술을 스키마가 실제로 선언하는 필드로 바꿨습니다. | `current change`, `test_object_type_catalog.py::test_documented_semantic_write_owners_match_the_catalog` | `lifecycle` 블록이 없는 ObjectType별로 선언된 소유자가 필요한지 판단합니다. 빈칸을 유추하려는 목적으로 추가하지 않습니다. |
-| 2026-08-15 | implemented | 같은 리소스 신원을 반복 관측한 권위 있는 관측에 대한 결정적 판정을 추가해 `StateFactMetadata.conflicts`가 테스트 픽스처가 아니라 프로덕션 생산자를 갖게 했습니다. 무해한 반복 관측이 더 이상 세대 전체를 실패시키지 않습니다. | `current change`, `test_observation_adjudication.py` focused 테스트 15개와 `test_inventory_projection.py` 충돌 강등 테스트 통과, 온톨로지·인벤토리·런타임 focused 테스트 354개 통과 | 서로 독립된 권위끼리 판정해야 하며, 인벤토리 변환 결과와 실시간 디스커버리가 다음 쌍입니다. |
-| 2026-08-15 | implemented | 서로 독립된 첫 쌍을 판정했습니다. 실시간 프로바이더 읽기와 인벤토리로 변환된 그래프 상태입니다. 상태나 신원이 어긋나면 `derived` 교차 출처 충돌이 되어 영수증 다이제스트에 보존되고 hook이 상태 단정을 보류하며 활동을 강등합니다. 관측 시각 차이만 있는 경우는 명시적으로 충돌이 아닙니다. | `current change`, `test_resource_state_shadow.py` 판정 테스트 6개와 일치 대조군이 있는 `test_wire_read_investigation.py::test_cross_source_state_conflict_lowers_the_answer_and_activity` | 서로 독립된 두 프로바이더끼리, 그리고 변환된 상태와 텔레메트리를 판정해야 합니다. |
-| 2026-08-15 | implemented | 측정되는 Property 의미 커버리지 게이트를 추가하고 커버리지와 그 결과를 양자 문서쌍에 공개했으며, 제공 Rego 비교에 맞춰 `public_access` 값 종류를 교정하고 근거가 있는 의미 6개를 추가했습니다. | `current change`, `check-property-semantic-coverage.py`가 검토된 참조 14/62를 보고, `test_property_semantic.py`, `test_ontology_catalog.py`, `test_catalog_projection.py`, `test_property_semantic_coverage.py` focused 테스트 | 컬렉션 값 참조는 범위가 제한된 정본 JSON Property 의미가 생길 때까지 검토되지 않은 상태로 남습니다. |
-| 2026-08-16 | implemented | 구현 이력은 append-only이므로 2026-08-15 `Pattern` 및 `PatternObservation` 행을 기록 당시 문구로 되돌리고, 이후 병합이 그 앞에 끼워 넣은 행들보다 앞으로 위치를 되돌렸으며, 그 행을 덮어쓰던 작업을 여기에 별도로 기록합니다. 해당 작업은 제공되는 `Forecast`와 `Pattern` 선언을 채택하고, 소유 학습 객체 이름을 `Pattern`으로 통일해 스펙, 토픽, 모든 표가 한 이름을 쓰게 했으며, `unknown_service` 범위 커버리지 표시자를 추가하고, 보류된 관계 두 개가 어느 엔드포인트 쌍도 생산할 수 없어 막혀 있음을 기록했습니다. | `current change`, `rule-catalog/vocabulary/object-types/{Forecast,Pattern}.yaml`, `operating_scope.py`, `test_ontology_catalog.py` 문서 일관성 테스트, `test_shipped_catalog_accepts_and_traverses_one_lineage` 및 `test_shipped_catalog_rejects_a_lineage_missing_a_required_property`. 이전 fake-store 테스트가 잡지 못하던 `resulted_in` 방향 역전이 이제 실패합니다. 집중 카탈로그, 맥락, 변환 결과, 정합성, 인스턴스, explorer, release 집중 테스트가 통과했습니다. | 누락된 `DecisionCase`, `ActionOption`, `ExpectedEffect`, `ActionRun` 속성을 실제 생산자에서 공급한 뒤 조립 루트에서 `OperationalHypothesisLineageProjector`를 구성하고, 보류된 관계를 복원하기 전에 생산자를 마련하며, Norns가 살아 있는 소비자와 함께 `Pattern`을 발행하거나 해당 토픽을 폐기하고, 범위 커버리지를 소비자 하나에 연결하며 운영 의도 인스턴스를 고정해야 합니다. |
-| 2026-08-18 | implemented | 레인과 권한 분리를 전수 검증 가능하게 만들었습니다. 모든 레인·권한 쌍을 단언하고, `execution_ledger` 사실은 `observed`, `derived`, `desired` 레인에서 거부되며, 행이 없는 레인은 잠재적 `KeyError` 대신 문서화된 거부로 fail closed 합니다. | `current change`, `test_state_evidence.py` focused 테스트 39개 통과 | 모든 변환 쓰기 지점에서 같은 분리를 강제해 향후 작성자가 `StateFactMetadata` 생성 없이 상태 사실을 저장하지 못하게 해야 합니다. |
-| 2026-08-24 | implemented | ActionOption 효과 속성을 일대다 `expects` 및 `resulted_in` 링크와 조정했습니다. 새로운 계보 쓰기는 결정적 순서의 모든 예상 효과 ID와 효과마다 하나의 독립 결과를 요구합니다. 단일 속성만 있는 저장 레코드는 하나의 효과로 읽고, 두 필드가 동시에 있으면 안전하게 차단하며, 타입 간 객체 ID 충돌은 저장 전에 거부합니다. | `current change`; `hypothesis_lineage.py`; `ActionOption.yaml`; 집중 계보 및 competency 검사 15개 통과. | 완전한 에피소드를 사용할 수 있을 때만 남은 실제 생산자 속성을 제공하고 projector를 구성합니다. |
-| 2026-08-24 | in-progress | 첫 실제 decision-lineage producer 구획을 추가했습니다. 단일 효과 종결은 정확한 런타임 Action 및 독립적으로 관찰된 scorable ResponseOutcome만 기존 prospective record에 결합하고, 완전한 에피소드를 추가한 뒤 idempotent하게 재생합니다. ControlLoop는 실행기 경계에서 실행 시각을 포착하고 결과 감사가 성공한 뒤에만 선택적 sink를 호출합니다. | `current change`; `hypothesis_lineage.py`; `core/control_loop/{orchestrator,_execution}.py`; 집중 계보 검사 14개와 MSCP shadow 호출 지점 검사 15개 통과. | Forseti prospective record, 다중 효과 결과 집합 및 telemetry completeness 근거를 생산한 뒤 완전한 런타임 에피소드 하나가 존재할 때만 composition을 연결합니다. |
-| 2026-08-24 | implemented | 독립 관측된 최종 reconciliation을 변경 불가능한 다중 효과 계보에 연결하고, 범위 제한 evidence-bundle 읽기 서비스, one-shot graph-first refresh, 지속형 순서 운영 모델 snapshot, 룰 평가 Property 전체 의미, scoped SDK 산출물 및 evidence-bound copy-on-write scenario를 추가했습니다. | `current change`, 집중 계보, graph refresh, Property, interface, runtime, SDK, evidence 및 scenario 검사, 하드닝 결과 Medium 이상 미해결 발견 없음 | 배포 근거는 별도로 보존하고 계획 변경 판정과 통제된 scenario promotion은 기존 권한 경로에 유지합니다. |
-| 2026-08-24 | implemented | 배포 resource lock으로 replica 간 지속형 운영 모델 변환을 fence하고 startup에도 같은 fence를 재사용했습니다. Durable continuous cursor가 전진한 뒤에는 새 replica가 정적 bootstrap snapshot을 건너뜁니다. | `current change`, 겹치는 worker와 stale replica bootstrap 회귀 검사(`5 passed`), runtime 운영 모델 검사 및 Ruff | Broker 지연과 lock pressure 측정은 배포 근거로 별도 보존합니다. |
-| 2026-08-24 | implemented | 모든 지속형 source revision을 durable canonical snapshot digest에 결속했습니다. 다른 내용으로 비연속 revision을 재사용하면 거부하고, 변환 뒤 cursor 쓰기가 중단된 경우 정확한 replay는 그래프를 다시 변환하지 않고 cursor만 닫습니다. | `current change`, 지속형 운영 모델 replay 및 failure-injection 검사(`7 passed`), Ruff | 배포별 replay 기간을 정의한 뒤에만 revision claim 보존 기간을 제한합니다. |
-| 2026-08-24 | implemented | 변환 결과와 revision claim 사이까지 중단 복구 경계를 확장했습니다. Projected manifest가 canonical snapshot digest를 고정하므로 claim 저장이 실패한 뒤 exact retry는 그래프를 다시 대체하거나 객체 revision을 증가시키지 않고 claim과 cursor만 닫습니다. | `current change`; `runtime/{operating_model,continuous_operating_model}.py`; projection-before-claim failure injection과 전체 focused worker 파일(`8 passed`). | Replica 간 lock pressure와 process-kill 측정은 배포 근거로 별도 보존합니다. |
-| 2026-08-24 | implemented | Plan-level 최종 reconciliation이 해당 효과의 metric을 독립 대상 관측에서 제공하지 않았는데도 효과를 scorable로 만들 수 없도록 다중 효과 계보 scoring을 수정했습니다. 계보는 완전한 형태로 남지만 해당 효과를 명시적으로 unscorable로 기록합니다. | `current change`; `delivery/operational_lineage.py`; 집중 계보 검사(`2 passed`). | 통제된 learning 근거에 계보를 사용하기 전에 예상 효과마다 독립 관측값이 하나씩 있는 운영 episode를 보존합니다. |
-
-### 남은 작업
-
-- [ ] 계획 변경을 자동 통과시키기 전에 그래프 최신성 권한을 제공하고 검증하며 stale,
-  불완전한 및 conflicting 부정 사례를 포함합니다.
-- [ ] 하나의 고정된 온톨로지 release에서 남은 맥락, 결과 종결 및 통제된 learning 경로의 운영 바인딩과 재생 근거를 완료합니다.
-- [ ] Forseti 소유 uncertainty, 옵션, precondition, 효과 방향 및 predictor 버전 값에서 `OperationalProspectiveLineage`를 생산하고, 권위 있는 telemetry-completeness receipt가 있는 완전한 다중 효과 집합까지 독립 종결을 확장한 뒤, 완전한 런타임 에피소드 하나가 존재할 때만 source와 projector를 연결합니다.
-- [ ] Receipt로 검증된 컨텍스트 메타데이터를 기존 principal 범위 근거 응답에 연결하고 잘못된 principal, 목적, 릴리스, stale 및 truncated 사례가 사용 불가로 유지됨을 입증합니다.
-- [ ] 토폴로지, 시간, reconciliation 및 graph-wide Dynamic 제공이 집중 종료 조건에 도달할
-  때 운영 온톨로지와 플랫폼 원장을 동기화합니다.
-- [x] `project_operating_scope`를 인증된 읽기 전용 인벤토리 그래프 응답에 연결해
-  `unknown_service`가 운영자 화면에 도달하게 했으며 focused consumer 검사 4개가 통과했습니다.
-- [x] 권한 없는 `Forecast` 및 `Pattern` 엔드포인트 객체 생산자를 마련했습니다. 집중 생산자 및
-  출처 검사가 통과했습니다. 정확한 목표 및 결과 엔드포인트 신원이 아직 없으므로
-  `predicts_breach_of`와 `learned_as`는 계속 보류합니다.
-- [x] 운영 의도 6종을 배포가 제공하는 출처에서 변환하고, 의도 타입이 인스턴스를 만들지
-  못하면 실패하는 집중 테스트로 고정했습니다 (`7 passed`).
-- [x] `lifecycle` 블록이 없는 출하 ObjectType을 검토해, 타입별로 에이전트 단일 작성자가 필요한지
-  아니면 catalog-as-code, 변환 결과, 이벤트 버스 레지스트리 중 무엇이 올바른 권한인지
-  기록했습니다. 전체 권한 표는 소유 문서에 있습니다.
-- [ ] 서로 독립된 두 클라우드 프로바이더를 맞대어 판정하고, 변환된 상태와 텔레메트리도
-  판정해야 합니다. 현재는 한 세대 안의 반복 관측과 실시간 읽기 대 인벤토리 변환 결과 쌍만
-  판정합니다.
-- [ ] 판정된 교차 출처 충돌이 읽기 경로 밖의 자율성 상한에도 도달해야 하는지, 그리고 변환된
-  서브그래프의 단일 작성자 소유권을 깨지 않고 어느 작성자가 이를 실어 나를 수 있는지 정해야
-  합니다.
-
 ## 카탈로그 의미 변환 결과
 
 규칙 카탈로그는 이제 작성된 Rego를 1급 `PolicyArtifact`로 모델링합니다. 제공되는 모든 Rule은
@@ -825,6 +675,7 @@ O0 이후 첫 코드 구획은 semantic-spine 선언, 링크 제약, 조회 고�
 
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/architecture/operating-ontology.md) |
 | 선언 종류, operational 관점, 상태 및 맥락 경계 | [운영 온톨로지 메타모델](operating-ontology-metamodel-ko.md) |
 | 현재 리소스, 룰, 신호, 발견 사항 기반 | [LLM strategy](llm-strategy-ko.md#ontology-foundation) |
 | 런타임 온톨로지 저장소 | [Rule 조회 온톨로지 저장소](rule-lookup-ontology-storage-ko.md) |

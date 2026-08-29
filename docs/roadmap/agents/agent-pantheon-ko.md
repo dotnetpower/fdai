@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 5386986fd57a8d4924856bb83d40dbd4c55d29a6
+translation_source_sha: 424163363267906070760904460765bc896838a8
 translation_revised: 2026-08-30
 ---
 # 에이전트 판테온
@@ -736,9 +736,4 @@ LLM과 `owns_code_paths` RAG로 표현할 수 있지만 타입이 지정된 결�
 | §9.3 이 참조하는 ChatOps 채널 라우팅 | [channels-and-notifications.md](../interfaces/channels-and-notifications-ko.md) |
 | Rule 과 정책 가 Forseti 를 피드 하는 방식 | [rule-catalog-collection.md](../rules-and-detection/rule-catalog-collection-ko.md), [rule-governance.md](../rules-and-detection/rule-governance-ko.md) |
 | 포크 경계와 DI 경계 | [downstream-fork-guide.md](../fork-and-sequencing/downstream-fork-guide-ko.md) |
-
-## 관련 문서
-
-| 알아볼 내용 | 읽을 문서 |
-|-------------|-----------|
 | 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/agents/agent-pantheon.md) |

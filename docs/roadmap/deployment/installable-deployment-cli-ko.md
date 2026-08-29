@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: b4a914ae77efa9e5a663c82d7e12f6082e63e8ab
+translation_source_sha: e67e4d54bd461d14942ca3c3d739c53a37813ba5
 translation_revised: 2026-08-30
 ---
 # 설치형 배포 CLI
@@ -31,24 +31,7 @@ translation_revised: 2026-08-30
 | 패키지 내용 | Python CLI 휠과 서명된 배포 번들 |
 | 머신 출력 | 안정적인 JSON 스키마와 문서화된 exit 코드 |
 | 제품 언어 | 로케일 대체 경로가 있는 영어 출처 카탈로그 |
-
-## 프로비저닝 실행 프로파일
-
-프로비저닝은 connectivity, 실행 호스트, 전송 계층, 접근을 독립적으로 선택합니다.
-[프로비저닝 실행 프로파일](provisioning-execution-profiles-ko.md) 문서가 읽기 전용 점검
-계약, existing-host 및 managed-VM 룰, online 및 offline 전달, 접근 선호 설정,
-one-person 승인, 별도 workload-identity 경계를 정의합니다.
-
-## 별도 명령을 사용하는 이유
-
-FDAI에는 서로 다른 세 개의 명령 표면이 있습니다.
-
-- `python -m fdai`는 headless control-plane 프로세스를 시작합니다.
-- `cli/` 패키지는 읽기 전용 운영자 콘솔입니다.
-- `fdaictl`은 배포를 관리합니다.
-
-이 표면을 분리하면 운영자 콘솔이 배포 자격 증명을 획득하거나 실행
-표면이 되는 것을 방지할 수 있습니다.
+| 명령 경계 | `fdaictl`은 control-plane 프로세스 및 읽기 전용 운영자 콘솔과 분리됩니다 |
 
 ## 목표 운영자 경험
 
@@ -648,34 +631,12 @@ plan-only 전송 계층은 현재 전달 실행 상세를 반환하고 실행기
 한국어 translation은 일치하는 로케일 카탈로그에 보관하며 누락된 translation은 영어로
 대체 경로합니다. 로그, JSON 필드, 판정, 근거는 영어 전용 머신 표면으로 유지됩니다.
 
-## 제공 순서
-
-원격 적용을 노출하기 전에 읽기 전용 경계를 검증할 수 있도록 CLI를 작은 increment로
-제공합니다.
-
-| Increment | 상태 | 범위 | 종료 기준 |
-|-----------|------|------|-----------|
-| C1: 패키지, doctor 및 로컬 security | 시작하지 않음 | 콘솔 진입점, 버전 출력, toolchain 및 인증 진단, 로컬 onboarding 구성, 로컬 security 감사 | 소스 설치가 결정론적 텍스트와 JSON을 생성하고 대상 불일치와 치명적 로컬 상태가 식별자 또는 값을 노출하지 않고 실패 시 차단됨 |
-| C2: 읽기 전용 preflight | 부분 구현 | 정적 및 Terraform 계획 분석, 실제 Policy/할당량/신원/시크릿 탐색, hash-only 근거를 사용하는 범위가 제한된 실행기 TLS egress | 코어와 독립 실행형 실행기 검사는 통과하며 전용 CLI 파사드가 남아 있음 |
-| C3: 계획 작업 흐름 | 부분 구현 | Opaque 맥락 다이제스트, doctor/대상 가드, GitHub 전달, exact-commit 가드, 비공개 변경 불가 계획 업로드, metadata-only 상태, 논리적 만료 및 정리 | 실행기 작업 흐름은 있으며 로컬 CLI 전달 및 상태 클라이언트가 남아 있음 |
-| C4: 적용 작업 흐름 | 부분 구현 | Exact 복원/검증기, 실행기 근거, 승인, at-most-once 점유, 증적, 수렴, 마이그레이션 및 상태 검사 | 실행기 작업 흐름은 있으며 로컬 exact-plan 클라이언트와 종단 간 CLI 근거가 남아 있음 |
-| C5: release 강화 | 부분 구현 | 재현 가능한 번들 빌드, signed 채널, SBOM, GitHub Release 및 OIDC PyPI 작업 흐름 | 전용 패키지에 검증을 복원한 뒤 첫 게시와 폐쇄망 전달을 완료해야 함 |
-| C6: Guided onboarding | 시작하지 않음 | 순서가 고정된 doctor, 비공개 구성, 대상 가드, 실제 프리플라이트, 계획 전용 전달 및 범위가 제한된 정제 상태 후속 검사 | 전용 CLI 단계 감시 테스트가 실패 시 중단 순서와 로컬 적용 경로 부재를 입증함 |
-
-## 미결 질문 및 결정
-
-- [x] 공개 패키지 인덱스 - Trusted 발행을 사용하는 PyPI이며 version-matched signed 번들은 GitHub Releases를 사용합니다.
-- [x] 서명/증명 - detached Ed25519 매니페스트 서명 + 결정론적 CycloneDX
-  파일 SBOM + GitHub 빌드 출처 이력/SBOM 증명.
-- [x] Saved-plan 보존 - 1시간 logical 만료, 24시간 뒤 범위가 제한된 physical 정리 대상.
-- `fdaictl deploy teardown`을 첫 적용 release에 포함할까요? 아니면 정리 훈련이 측정될
-  때까지 별도의 guarded 스크립트로 유지할까요?
-
 ## 관련 문서
 
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
 | 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/deployment/installable-deployment-cli.md) |
+| 프로비저닝 호스트, 연결, 전송, 접근 선택 | [프로비저닝 실행 프로파일](provisioning-execution-profiles-ko.md) |
 | 구체적인 Azure 인벤토리 및 onboarding | [deploy-and-onboard-ko.md](deploy-and-onboard-ko.md) |
 | 배포 수명 주기 및 롤백 | [deployment-ko.md](deployment-ko.md) |
 | 준비 상태 발견 사항 및 탐색 계약 | [deployment-preflight-ko.md](deployment-preflight-ko.md) |

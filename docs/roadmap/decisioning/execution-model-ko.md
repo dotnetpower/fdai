@@ -1,8 +1,8 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: f55620ab8ca40e71067186a2673940cf1ee792cd
-translation_revised: 2026-08-29
+translation_source_sha: 6404bfecaeed3110d5d334107750e331678ba5a2
+translation_revised: 2026-08-30
 ---
 
 # 실행 모델
@@ -31,36 +31,6 @@ FDAI 이 액션 실행 **여부** 와 **방법** 을 결정하는 방식. 이 �
 > 는 자리 표시자. 포크 는
 > [action-ontology.md § 7](action-ontology-ko.md#7-fork-override-seam)
 > 에 문서화된 재정의 경계 으로 tune.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| Risk 표 및 권한을 높이지 않는 상한 | implemented | [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py), [`test_ceiling.py`](../../../services/core-control-plane/tests/core/risk_gate/test_ceiling.py) | 기준선, 6개 맥락 축, 성능 저하 및 비상 정지는 권한을 높이지 않고 결합됩니다. |
-| 승격, HIL 재개 및 실행기 선택 | implemented | [`test_gate.py`](../../../services/core-control-plane/tests/core/risk_gate/test_gate.py), [`test_coordinator.py`](../../../services/core-control-plane/tests/core/hil_resume/test_coordinator.py) | Shadow 우선 승격, 승인 재개 및 타입이 지정된 경로 선택에 집중 테스트가 있습니다. |
-| 모든 실행 경로의 7개 안전장치 | in-progress | [`constitution-traceability.json`](../../../config/constitution-traceability.json), [7개 안전장치](#6-7개-안전조건과-하나의-재생-확장) | 개별 동작은 있지만 하나의 공유 계약이 모든 경로의 동등한 보장을 아직 증명하지 않습니다. |
-| 실제 영향 탐색 Azure 런타임 연결 | implemented | [`blast_probe.py`](../../../services/core-control-plane/src/fdai/delivery/azure/blast_probe.py), [`wire_azure_observability.py`](../../../services/core-control-plane/src/fdai/composition/wire_azure_observability.py), [`test_control_loop_authority.py`](../../../services/core-control-plane/tests/core/test_control_loop_authority.py) | Azure 구성은 검토된 탐색 매니페스트를 컴파일하고 권한 평가 전에 대상을 측정하며, 범위가 제한된 정확한 판독값을 기록합니다. 통제된 운영 shadow 증적은 아직 없습니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입하고 테스트된 동작과 배포 근거를 분리했습니다. | `current change`; 구현 범위 표의 현재 소스, 집중 테스트 및 헌법 추적성입니다. | 공유 안전장치와 실제 탐색 근거 공백을 완료해야 합니다. |
-| 2026-08-29 | implemented | Azure Monitor 실제 영향 탐색을 Azure 구성과 컨트롤 루프에 연결했습니다. 누락, 시간 초과, 실패, 활성 또는 과부하 근거는 권한을 낮출 수만 있으며, 감사 행은 재생할 수 있도록 측정된 결정과 스칼라 메트릭을 보존합니다. | `current change`; Azure 탐색 어댑터 및 컨트롤 루프 권한 테스트 `30 passed`, 작업 범위 Ruff 통과, 독립 어댑터 strict mypy 통과입니다. | 이 영역을 `validated`로 높이기 전에 변경 없는 통제된 shadow 증적을 보존합니다. |
-
-### 남은 작업
-
-- [ ] PR-native, direct API, PR-manual 및 tool-call 실행 전체에서 7개 안전장치와 독립 효과
-  종결을 하나의 공유 계약으로 표현하고 경로 동등성 테스트를 보존합니다.
-- [x] Azure 구성을 통해 `AzureMonitorBlastProbe`를 연결하고 `quiet`, `active`, `overloaded`,
-  사용 불가 및 실패 결과를 집중 테스트로 증명합니다.
-- [ ] 실제 근거가 `winning_axis=live_blast`로 권한을 낮추며 변경하지 않는 통제된 shadow
-  증적을 보존합니다.
-- [ ] 운영 검증을 주장하기 전에 하나의 고정된 ActionType 및 risk 카탈로그 리비전에서 각
-  실행기 경로의 통제된 종단 간 증적을 보존합니다.
-
 ## 1. 여기서 "execute" 의 의미
 
 이 문서 이전까지, FDAI 이 하는 모든 것은 **shadow** 였음 - 판정자
@@ -814,3 +784,9 @@ Chat-특화 불변식 ([operator-console.md § 7.2](../interfaces/operator-conso
   신원 계약.
 - [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) -
   trust 라우팅, 검증기 권한.
+
+## 관련 문서
+
+| 알아볼 내용 | 읽을 문서 |
+|-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/decisioning/execution-model.md) |

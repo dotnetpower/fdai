@@ -30,24 +30,7 @@ environment before an approved execution host applies the exact Terraform plan.
 | Package contents | Python CLI in a wheel plus a signed deployment bundle |
 | Machine output | Stable JSON schema and documented exit codes |
 | Product language | English source catalog with locale fallback |
-
-## Provisioning execution profiles
-
-Provisioning selects connectivity, execution host, transport, and access independently. The
-[Provisioning Execution Profiles](provisioning-execution-profiles.md) document owns the read-only
-inspection contract, existing-host and managed-VM rules, online and offline delivery, access
-preference, one-person approval, and distinct workload-identity boundary.
-
-## Why use a separate command
-
-FDAI has three distinct command surfaces:
-
-- `python -m fdai` starts the headless control-plane process.
-- The `cli/` package is the read-only operator console.
-- `fdaictl` administers deployment.
-
-Keeping these surfaces separate prevents the operator console from acquiring deployment
-credentials or becoming an execution surface.
+| Command boundary | `fdaictl` remains separate from the control-plane process and read-only operator console |
 
 ## Target operator experience
 
@@ -649,35 +632,12 @@ User-visible CLI text is an L2 product surface. English source messages live in 
 Korean translations live in the matching locale catalog, and missing translations fall back to
 English. Logs, JSON fields, verdicts, and evidence remain English-only machine surfaces.
 
-## Delivery sequence
-
-Deliver the CLI in small increments so the read-only boundary can be verified before remote apply
-is exposed.
-
-| Increment | Status | Scope | Exit criteria |
-|-----------|--------|-------|---------------|
-| C1: Package, doctor, and local security | Not started | Console entry point, version output, toolchain and auth diagnostics, local onboarding config, local security audit | Source install produces deterministic text and JSON; target mismatch and critical local posture fail closed without exposing identifiers or values |
-| C2: Read-only preflight | Partial | Static and Terraform-plan analysis, live Policy/quota/identity/secret probes, and bounded runner TLS egress with hash-only evidence | Core and standalone runner checks pass; the dedicated CLI facade remains |
-| C3: Plan workflow | Partial | Opaque context digest, doctor/target guard, GitHub dispatch, exact-commit guard, private immutable plan upload, metadata-only status, logical expiry, and cleanup | Runner workflow exists; local CLI dispatch and status clients remain |
-| C4: Apply workflow | Partial | Exact restore/verifier, runner evidence, approval, at-most-once claim, receipt, convergence, migrations, and health checks | Runner workflow exists; local exact-plan client and end-to-end CLI evidence remain |
-| C5: Release hardening | Partial | Reproducible bundle build, signed channels, SBOM, GitHub Release, and OIDC PyPI workflow | Restore verification in the dedicated package, then complete the first publication and disconnected delivery |
-| C6: Guided onboarding | Not started | Ordered doctor, private config, target guard, live preflight, plan-only dispatch, and bounded status post-check | Dedicated CLI stage-spy tests prove fail-stop ordering and no local apply path |
-
-## Open questions and decisions
-
-- [x] Public package index - PyPI through Trusted Publishing; the version-matched signed bundle uses GitHub Releases.
-- [x] Signature/attestation - detached Ed25519 manifest signature, deterministic CycloneDX file
-  SBOM, and GitHub build-provenance/SBOM attestations.
-- [x] Saved-plan retention - one-hour logical expiry and bounded physical cleanup eligibility
-  after 24 hours.
-- Should `fdaictl deploy teardown` ship with the first apply release or remain a separate guarded
-  script until teardown drills are measured?
-
 ## Related docs
 
 | To learn about | Read |
 |----------------|------|
 | Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/deployment/installable-deployment-cli.md) |
+| Provisioning host, connectivity, transport, and access selection | [Provisioning execution profiles](provisioning-execution-profiles.md) |
 | Concrete Azure inventory and onboarding | [deploy-and-onboard.md](deploy-and-onboard.md) |
 | Deployment lifecycle and rollback | [deployment.md](deployment.md) |
 | Readiness findings and probe contracts | [deployment-preflight.md](deployment-preflight.md) |

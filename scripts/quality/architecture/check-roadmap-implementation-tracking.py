@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import posixpath
 import re
 import subprocess
 import sys
@@ -35,6 +36,7 @@ HISTORY_ALLOWED_STATES = ALLOWED_STATES | {"withdrawn"}
 DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 TASK_PATTERN = re.compile(r"^\s*-\s+\[[ xX]\]\s+\S")
 SEPARATOR_PATTERN = re.compile(r"^:?-{3,}:?$")
+LINK_PATTERN = re.compile(r"(\[[^\]]*\]\()([^)\s]+)([^)]*\))")
 
 
 def _run_git(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -205,12 +207,32 @@ def _ledger_parts(
     return lines, scope, history, remaining
 
 
-def _history_rows(content: str) -> list[tuple[str, ...]]:
+def _canonicalize_links(value: str, *, relative: str | None) -> str:
+    if relative is None:
+        return value
+
+    def replace(match: re.Match[str]) -> str:
+        target = match.group(2)
+        if target.startswith(("http://", "https://", "mailto:", "//", "#")):
+            return match.group(0)
+        path, marker, fragment = target.partition("#")
+        if not path or ":" in path.split("/", 1)[0]:
+            return match.group(0)
+        resolved = posixpath.normpath(str(PurePosixPath(relative).parent / PurePosixPath(path)))
+        suffix = f"#{fragment}" if marker else ""
+        return f"{match.group(1)}{resolved}{suffix}{match.group(3)}"
+
+    return LINK_PATTERN.sub(replace, value)
+
+
+def _history_rows(content: str, *, relative: str | None = None) -> list[tuple[str, ...]]:
     parts = _ledger_parts(content)
     if parts is None:
         return []
     rows, error = _table_rows(parts[2], HISTORY_HEADER)
-    return rows if error is None else []
+    if error is not None:
+        return []
+    return [tuple(_canonicalize_links(cell, relative=relative) for cell in row) for row in rows]
 
 
 def _lost_history_rows(
@@ -242,7 +264,13 @@ def _lost_history_rows(
     return errors
 
 
-def ledger_violations(content: str, previous: str | None = None) -> list[str]:
+def ledger_violations(
+    content: str,
+    previous: str | None = None,
+    *,
+    relative: str | None = None,
+    previous_relative: str | None = None,
+) -> list[str]:
     """Return deterministic ledger contract violations for one owner doc."""
     errors: list[str] = []
     lines = content.splitlines()
@@ -284,7 +312,16 @@ def ledger_violations(content: str, previous: str | None = None) -> list[str]:
         errors.append("remaining work task-list items must not use TBD")
 
     if previous is not None:
-        errors.extend(_lost_history_rows(_history_rows(previous), history_rows))
+        current_history = [
+            tuple(_canonicalize_links(cell, relative=relative) for cell in row)
+            for row in history_rows
+        ]
+        errors.extend(
+            _lost_history_rows(
+                _history_rows(previous, relative=previous_relative),
+                current_history,
+            )
+        )
     return errors
 
 
@@ -299,7 +336,12 @@ def tracking_violations(
     """Validate the one authoritative ledger for a roadmap owner."""
     owner_section_count = len(_heading_indexes(owner_content.splitlines(), SECTION_HEADING))
     if owner_section_count == 1:
-        return ledger_violations(owner_content, previous_owner)
+        return ledger_violations(
+            owner_content,
+            previous_owner,
+            relative=owner_relative,
+            previous_relative=owner_relative,
+        )
     if owner_section_count > 1:
         return [f"expected at most one '{SECTION_HEADING}' section; found {owner_section_count}"]
 
@@ -313,11 +355,20 @@ def tracking_violations(
         return errors
 
     previous_source = previous_ledger
+    previous_relative = ledger_relative
     if previous_owner is not None:
         previous_owner_count = len(_heading_indexes(previous_owner.splitlines(), SECTION_HEADING))
         if previous_owner_count == 1:
             previous_source = previous_owner
-    errors.extend(ledger_violations(ledger_content, previous_source))
+            previous_relative = owner_relative
+    errors.extend(
+        ledger_violations(
+            ledger_content,
+            previous_source,
+            relative=ledger_relative,
+            previous_relative=previous_relative,
+        )
+    )
     return errors
 
 

@@ -106,6 +106,27 @@ def test_migration_preserves_inline_history_in_the_delegated_ledger() -> None:
     assert any("history is append-only" in error for error in errors)
 
 
+def test_migration_accepts_history_links_rebased_to_the_delegated_ledger() -> None:
+    module = _load_module()
+    previous = _ledger().replace(
+        "current change; focused tests pass.",
+        "[Other](other.md); focused tests pass.",
+    )
+    delegated = _ledger().replace(
+        "current change; focused tests pass.",
+        "[Other](../../roadmap/architecture/other.md); focused tests pass.",
+    )
+
+    errors = module.tracking_violations(
+        _delegated_owner(),
+        delegated,
+        owner_relative="docs/roadmap/architecture/owner.md",
+        previous_owner=previous,
+    )
+
+    assert not any("history is append-only" in error for error in errors)
+
+
 def test_missing_required_subsection_is_rejected() -> None:
     module = _load_module()
     content = _ledger().replace("### Remaining work", "### Follow-up")
