@@ -230,6 +230,7 @@ pythonpath = [
     ".",
     "extensions/code-assurance/src",
     "extensions/cost-governance/src",
+    "packages/deployment-cli/src",
     "packages/service-contracts/src",
     "services/core-control-plane",
     "services/core-control-plane/src",

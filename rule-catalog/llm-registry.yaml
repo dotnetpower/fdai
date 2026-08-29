@@ -36,7 +36,7 @@ models:
       - {publisher: OpenAI, family: gpt-5-mini}
       - {publisher: OpenAI, family: gpt-4.1-mini}
       - {publisher: OpenAI, family: gpt-4o-mini}
-    sku: Standard
+    sku: GlobalStandard
     capacity_tpm: 200000
 
   t1.vision:
@@ -89,7 +89,7 @@ models:
       - {publisher: OpenAI, family: gpt-5}
       - {publisher: OpenAI, family: gpt-4.1}
       - {publisher: OpenAI, family: gpt-4-turbo}
-    sku: Standard
+    sku: GlobalStandard
     capacity_tpm: 100000
     # The Proposer's non-web tool manifest requires function calling. Public
     # web retrieval is independently owned by t1.web_search.

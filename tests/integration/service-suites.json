@@ -103,6 +103,7 @@
           "services/operator-service/tests/test_action_confirmation_runtime.py",
           "services/operator-service/tests/test_activity_projection.py",
           "services/operator-service/tests/test_agent_stream.py",
+          "services/operator-service/tests/test_azure_monitor_webhook_runtime.py",
           "services/operator-service/tests/test_canonical_incident_roster.py",
           "services/operator-service/tests/test_channel_binding_postgres.py",
           "services/operator-service/tests/test_channel_delivery_postgres.py",

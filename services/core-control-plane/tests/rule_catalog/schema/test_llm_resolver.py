@@ -369,9 +369,9 @@ def test_resolve_maps_ontology_council_slots_without_weakening_reasoner_invarian
     quota = _SkuDictQuota(
         {
             ("OpenAI", "text-embedding-3-small", "Standard"): 200_000,
-            ("OpenAI", "gpt-5.4-mini", "Standard"): 200_000,
+            ("OpenAI", "gpt-5.4-mini", "GlobalStandard"): 200_000,
             ("OpenAI", "gpt-4.1-nano", "GlobalStandard"): 100_000,
-            ("OpenAI", "gpt-4o", "Standard"): 100_000,
+            ("OpenAI", "gpt-4o", "GlobalStandard"): 100_000,
             ("Anthropic", "claude-opus-4", "Standard"): 100_000,
             ("OpenAI", "gpt-5.6-sol", "GlobalStandard"): 50_000,
             ("OpenAI", "gpt-5.5", "GlobalStandard"): 50_000,

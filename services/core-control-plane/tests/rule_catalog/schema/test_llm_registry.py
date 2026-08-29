@@ -50,6 +50,7 @@ def test_upstream_registry_file_loads_clean() -> None:
     assert "t2.reasoner.primary" in registry.models
     assert "t2.reasoner.secondary" in registry.models
     assert registry.models["t1.embedding"].sku is Sku.STANDARD
+    assert registry.models["t1.judge"].sku is Sku.GLOBAL_STANDARD
     assert {
         preference.family for preference in registry.models["t2.reasoner.primary"].preferences
     } >= {
@@ -59,6 +60,7 @@ def test_upstream_registry_file_loads_clean() -> None:
     }
     assert registry.models["t1.web_search"].preferences[0].family == "gpt-4.1-nano"
     assert registry.models["t1.web_search"].sku is Sku.GLOBAL_STANDARD
+    assert registry.models["t2.reasoner.primary"].sku is Sku.GLOBAL_STANDARD
     secondary = registry.models["t2.reasoner.secondary"]
     assert secondary.preferences[-1].publisher == "MistralAI"
     assert secondary.preferences[-1].family == "Mistral-Large-3"
