@@ -25,6 +25,7 @@ from fdai_deployment_cli.cli import (
     _runtime_platform_tag,
     _safe_plan_error,
     _terraform_environment,
+    _validate_plan_target,
     _write_private_text,
     main,
 )
@@ -781,6 +782,20 @@ def test_terraform_environment_accepts_target_bound_managed_identity(tmp_path: P
 
     assert environment["ARM_USE_MSI"] == "true"
     assert environment["ARM_CLIENT_ID"] == "00000000-0000-0000-0000-000000000003"
+
+
+def test_managed_identity_plan_ignores_unrelated_cli_account() -> None:
+    _validate_plan_target(
+        profile_binding="a" * 64,
+        active_binding="b" * 64,
+        use_managed_identity=True,
+    )
+    with pytest.raises(ValueError, match="active Azure target"):
+        _validate_plan_target(
+            profile_binding="a" * 64,
+            active_binding="b" * 64,
+            use_managed_identity=False,
+        )
 
 
 def test_terraform_environment_rejects_linked_azure_config(tmp_path: Path) -> None:

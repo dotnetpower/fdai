@@ -223,9 +223,11 @@ def _provision_inspect(args: argparse.Namespace) -> int:
 def _provision_plan(args: argparse.Namespace) -> int:
     work_dir = _absolute_work_dir(args.work_dir)
     profile = load_profile(args.profile)
-    active_target = azure_active_target_binding()
-    if active_target is not None and active_target != profile.target_binding:
-        raise ValueError("active Azure target does not match the provision profile")
+    _validate_plan_target(
+        profile_binding=profile.target_binding,
+        active_binding=azure_active_target_binding(),
+        use_managed_identity=os.environ.get("ARM_USE_MSI", "").casefold() == "true",
+    )
     profile = load_profile(args.profile)
     active_target = azure_active_target_binding()
     if active_target is not None and active_target != profile.target_binding:
@@ -339,6 +341,18 @@ def _safe_plan_error(output: str) -> str:
 def _require_bundle_version(*, kit_version: str, bundle_version: str) -> None:
     if kit_version != bundle_version:
         raise ValueError("offline kit and deployment bundle versions do not match")
+
+
+def _validate_plan_target(
+    *,
+    profile_binding: str,
+    active_binding: str | None,
+    use_managed_identity: bool,
+) -> None:
+    if use_managed_identity:
+        return
+    if active_binding is not None and active_binding != profile_binding:
+        raise ValueError("active Azure target does not match the provision profile")
 
 
 def _terraform_environment(
