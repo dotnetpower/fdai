@@ -1,12 +1,7 @@
-"""Unit tests for the Azure Policy initiative parser.
+"""Unit tests for the offline Azure Policy initiative intent helper.
 
-The parser is exercised end-to-end against the real
-``/tmp/azure-policy-clone`` snapshot in
-``services/core-control-plane/tests/rule_catalog/pipeline/test_collect.py``. These focused tests
-lock down the *shape* of each :class:`ParsedRule.raw` so a future
-refactor cannot silently drop a field the collector CLI depends on
-when it joins initiatives with the imported ``azure-builtin`` GUID
-map.
+These tests lock down its intermediate shape without claiming collector wiring
+or GUID-to-Rule compilation.
 
 The unit tests are intentionally decoupled from any on-disk snapshot:
 each test synthesises a minimal ``policySetDefinition`` JSON tree in
