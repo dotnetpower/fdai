@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: a56d3969f02093dc280bd14a6375560577c13428
+translation_source_sha: 0682a31033eaabb4f0eec452e0196a1665cd1e7a
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -280,6 +280,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H53 | `provision plan`에 Terraform의 필수 입력 5개를 전달할 경로가 없었습니다. 이제 비공개 JSON 입력을 스냅샷하고 실제 또는 추가 비밀을 거부하며 계획 전용 암호를 주입하고 계획 후 스냅샷을 제거합니다. | `test_plan_input_is_private_canonical_and_non_secret` |
 | H54 | 키 이름 기반 비밀 탐지가 민감한 webhook 변수를 놓쳤습니다. 이제 계획 입력은 Terraform 값 5개와 대상 다이제스트 하나만 허용하고 선택적 값을 거부합니다. | `test_plan_input_rejects_real_password_and_extra_secret` |
 | H55 | 오프라인 계획이 점검한 테넌트 및 구독 의도에 연결되지 않았습니다. 이제 검토된 프로필을 요구하고 대상 다이제스트를 계획 입력과 일치시키며 활성 Azure 계정이 있으면 다시 확인합니다. | `test_plan_input_must_match_profile_target_binding` |
+| H56 | 선택적 모델 수요가 차단용 필수 TPM에 포함되어 유효한 필수 용량도 실패했습니다. 이제 필수 및 선택 수요가 별도 충분성 결과를 가집니다. | `test_optional_shortfall_does_not_block_required_capacity` |
 
 ## 관련 문서
 

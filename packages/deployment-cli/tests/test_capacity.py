@@ -41,10 +41,32 @@ def test_shared_deployment_aggregates_demand_and_reserve() -> None:
         available_tpm_by_deployment={"mini": 20_000},
         existing_tpm_by_deployment={"mini": 1_000},
     )
-    assert plan[0].required_tpm == 6_000
+    assert plan[0].required_tpm == 3_000
+    assert plan[0].optional_tpm == 3_000
     assert plan[0].reserve_tpm == 4_000
     assert plan[0].sufficient
     assert plan[0].required_capabilities == ("t1.judge",)
+
+
+def test_optional_shortfall_does_not_block_required_capacity() -> None:
+    demands = (
+        CapabilityDemand(
+            capability="required",
+            deployment_key="shared",
+            required=True,
+            envelope=WorkloadEnvelope(10, 100, 100, 1),
+        ),
+        CapabilityDemand(
+            capability="optional",
+            deployment_key="shared",
+            required=False,
+            envelope=WorkloadEnvelope(10, 100, 100, 1),
+        ),
+    )
+    result = plan_capacity(demands, available_tpm_by_deployment={"shared": 6_000})[0]
+
+    assert result.sufficient
+    assert not result.optional_sufficient
 
 
 def test_capacity_requires_required_capability_and_quota_evidence() -> None:

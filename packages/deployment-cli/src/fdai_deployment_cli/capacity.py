@@ -71,6 +71,7 @@ class DeploymentCapacity:
 
     deployment_key: str
     required_tpm: int
+    optional_tpm: int
     available_tpm: int
     existing_allocated_tpm: int
     reserve_tpm: int
@@ -82,6 +83,13 @@ class DeploymentCapacity:
 
         free = self.available_tpm - self.existing_allocated_tpm - self.reserve_tpm
         return free >= self.required_tpm
+
+    @property
+    def optional_sufficient(self) -> bool:
+        """Return whether quota also covers every optional capability."""
+
+        free = self.available_tpm - self.existing_allocated_tpm - self.reserve_tpm
+        return free >= self.required_tpm + self.optional_tpm
 
 
 def plan_capacity(
@@ -105,7 +113,8 @@ def plan_capacity(
         if key not in available_tpm_by_deployment:
             raise ValueError(f"quota evidence is missing for deployment {key!r}")
         group = grouped[key]
-        required_tpm = sum(item.envelope.minimum_tpm for item in group)
+        required_tpm = sum(item.envelope.minimum_tpm for item in group if item.required)
+        optional_tpm = sum(item.envelope.minimum_tpm for item in group if not item.required)
         reserve_ratio = max(item.envelope.quota_reserve for item in group)
         available = available_tpm_by_deployment[key]
         if available < 0 or existing.get(key, 0) < 0:
@@ -115,6 +124,7 @@ def plan_capacity(
             DeploymentCapacity(
                 deployment_key=key,
                 required_tpm=required_tpm,
+                optional_tpm=optional_tpm,
                 available_tpm=available,
                 existing_allocated_tpm=existing.get(key, 0),
                 reserve_tpm=reserve,
