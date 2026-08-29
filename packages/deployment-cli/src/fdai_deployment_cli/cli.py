@@ -178,7 +178,10 @@ def _provision_init(args: argparse.Namespace) -> int:
 
 def _provision_inspect(args: argparse.Namespace) -> int:
     profile = load_profile(args.profile)
-    checks = inspect_tools()
+    required_tools = (
+        ("az", "terraform", "gh") if profile.transport == "github-actions" else ("az", "terraform")
+    )
+    checks = inspect_tools(required_tools)
     active_target = azure_active_target_binding()
     authenticated = active_target is not None
     target_matches = active_target == profile.target_binding

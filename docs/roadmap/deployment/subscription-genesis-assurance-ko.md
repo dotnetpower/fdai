@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: e07d6e0ba09ca396c57fc6ab074a1681164fe62d
+translation_source_sha: 479205889fdd0a1258f0c888201feab8580e54c7
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -267,6 +267,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H40 | Terraform이 `TF_CLI_ARGS_plan=-destroy` 같은 주변 제어 변수를 상속했습니다. 이제 계획은 Terraform 제어를 거부하고 비공개 데이터 디렉터리를 포함한 최소 허용 환경을 구성합니다. | `test_terraform_environment_rejects_ambient_plan_controls` |
 | H41 | 상대 작업 경로가 이후 Terraform 작업 디렉터리 아래에서 다시 해석되었습니다. 이제 계획은 적대적 링크를 해석하지 않고 절대 경로로 변환합니다. | `test_relative_plan_work_directory_becomes_absolute` |
 | H42 | 오프라인 키트 검증이 임의의 서명 SBOM 페이로드를 허용했습니다. 이제 고유한 SHA-256 구성 요소가 다른 모든 키트 파일을 정확히 포함하는 CycloneDX 1.5를 요구합니다. | `test_offline_kit_rejects_incomplete_sbom` |
+| H43 | 점검이 수동 전송 프로필에도 GitHub CLI를 요구했습니다. 이제 도구 선행 조건이 선택한 전송 방식을 따릅니다. | `test_manual_profile_does_not_require_github_cli` |
 
 ## 관련 문서
 

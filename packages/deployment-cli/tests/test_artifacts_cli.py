@@ -563,7 +563,7 @@ def test_local_inspection_cannot_claim_execution_host_readiness(
     capsys.readouterr()
     monkeypatch.setattr(  # type: ignore[attr-defined]
         "fdai_deployment_cli.cli.inspect_tools",
-        lambda: (
+        lambda _names: (
             ToolCheck(name="az", available=True, version="test"),
             ToolCheck(name="terraform", available=True, version="test"),
             ToolCheck(name="gh", available=True, version="test"),
@@ -578,6 +578,54 @@ def test_local_inspection_cannot_claim_execution_host_readiness(
     result = json.loads(capsys.readouterr().out)
     assert result["state"] == "review"
     assert result["reason_codes"] == ["execution_host_identity_unverified"]
+
+
+def test_manual_profile_does_not_require_github_cli(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: object,
+) -> None:
+    profile = tmp_path / "private" / "profile.json"
+    assert (
+        main(
+            [
+                "provision",
+                "init",
+                "--profile",
+                str(profile),
+                "--environment",
+                "dev",
+                "--region",
+                "koreacentral",
+                "--target-binding",
+                "a" * 64,
+                "--connectivity",
+                "online",
+                "--host",
+                "existing-host",
+                "--transport",
+                "manual",
+                "--access-method",
+                "internal_ssh",
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+    inspected: list[tuple[str, ...]] = []
+
+    def checks(names: tuple[str, ...]) -> tuple[ToolCheck, ...]:
+        inspected.append(names)
+        return tuple(ToolCheck(name=name, available=True, version="test") for name in names)
+
+    monkeypatch.setattr("fdai_deployment_cli.cli.inspect_tools", checks)  # type: ignore[attr-defined]
+    monkeypatch.setattr(  # type: ignore[attr-defined]
+        "fdai_deployment_cli.cli.azure_active_target_binding",
+        lambda: "a" * 64,
+    )
+
+    assert main(["provision", "inspect", "--profile", str(profile)]) == 2
+    assert inspected == [("az", "terraform")]
 
 
 def test_terraform_failure_is_redacted_to_stable_reason() -> None:
