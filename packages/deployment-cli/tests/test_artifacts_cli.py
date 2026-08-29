@@ -684,6 +684,12 @@ def test_terraform_failure_is_redacted_to_stable_reason() -> None:
     assert "No value for required variable" in _safe_plan_error(
         "Error: No value for required variable\nvariable subscription"
     )
+    assert _safe_plan_error("Error building ARM Config: please run 'az login'") == (
+        "terraform_provider_authentication_unavailable"
+    )
+    assert _safe_plan_error("Error: Invalid function argument") != (
+        "terraform_provider_authentication_unavailable"
+    )
 
 
 def test_runtime_platform_is_not_caller_controlled(monkeypatch: object) -> None:

@@ -56,6 +56,7 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     assert '--profile "$WORKDIR/offline-profile.json"' in drill
     assert "FDAI-PLAN-ONLY-NOT-A-SECRET" in drill
     assert "No value for required variable" not in drill
+    assert "terraform_provider_authentication_unavailable" in drill
     assert 'mkdir -m 700 "$WORKDIR/empty-azure"' in drill
     assert 'export AZURE_CONFIG_DIR="$WORKDIR/empty-azure"' in drill
     assert "fdai_deployment_cli.offline_kit" in signer

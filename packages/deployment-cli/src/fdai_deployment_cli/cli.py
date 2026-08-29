@@ -331,6 +331,16 @@ def _safe_plan_error(output: str) -> str:
 
     if "No value for required variable" in output:
         return "terraform plan requires deployment input: No value for required variable"
+    authentication_markers = (
+        "please run 'az login'",
+        "could not configure azurecli authorizer",
+        "managedidentitycredential authentication failed",
+        "error building arm config",
+        "unable to build authorizer",
+    )
+    normalized = output.casefold()
+    if any(marker in normalized for marker in authentication_markers):
+        return "terraform_provider_authentication_unavailable"
     return "terraform plan failed after offline provider initialization"
 
 

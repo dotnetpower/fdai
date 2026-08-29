@@ -288,8 +288,8 @@ plan_output="$("$CLI" provision plan \
   --output json 2>&1)"
 set -e
 case "$plan_output" in
-  *"terraform plan failed after offline provider initialization"*) ;;
-  *) fail "provision plan did not reach offline provider execution: $plan_output" ;;
+  *"terraform_provider_authentication_unavailable"*) ;;
+  *) fail "provision plan did not reach provider authentication: $plan_output" ;;
 esac
 case "$plan_output" in
   *registry.terraform.io*|*"Failed to install provider"*|*"could not query provider"*)
