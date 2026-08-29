@@ -55,6 +55,29 @@ done
 
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
+SENTINEL=".fdai-airgap-workdir"
+if [[ "$WORKDIR" != /* || "$WORKDIR" == "/" || "$WORKDIR" == "$HOME" || "$WORKDIR" == "$repo_root" ]]; then
+  echo "airgap-drill: workdir must be a safe absolute path outside the repository and home." >&2
+  exit 2
+fi
+if [[ -L "$WORKDIR" ]]; then
+  echo "airgap-drill: workdir must not be a symbolic link." >&2
+  exit 2
+fi
+if [[ "$SKIP_STAGE" -eq 0 ]]; then
+  if [[ -e "$WORKDIR" ]]; then
+    echo "airgap-drill: a fresh workdir is required." >&2
+    exit 2
+  fi
+  mkdir -m 700 "$WORKDIR"
+  printf 'fdai-airgap-drill-v1\n' > "$WORKDIR/$SENTINEL"
+  chmod 600 "$WORKDIR/$SENTINEL"
+else
+  if [[ ! -d "$WORKDIR" ]] || [[ "$(<"$WORKDIR/$SENTINEL" 2>/dev/null || true)" != "fdai-airgap-drill-v1" ]]; then
+    echo "airgap-drill: --skip-stage requires an owned drill workdir." >&2
+    exit 2
+  fi
+fi
 
 for tool in az curl git openssl unshare uv; do
   command -v "$tool" >/dev/null 2>&1 || {
@@ -76,9 +99,6 @@ BUNDLE_IN_KIT="deployment/fdai-deployment-bundle-${BUNDLE_VERSION}.tar.gz"
 
 stage() {
   echo "== stage (network allowed) =="
-  rm -rf "$WORKDIR"
-  mkdir -p "$WORKDIR"
-
   openssl genpkey -algorithm ed25519 -out "$WORKDIR/bundle-key.pem" 2>/dev/null
   openssl genpkey -algorithm ed25519 -out "$WORKDIR/release-key.pem" 2>/dev/null
   chmod 600 "$WORKDIR"/*.pem
