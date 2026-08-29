@@ -139,6 +139,8 @@ source cannot shadow a shipped wheel. Manifest, trust-key, and SBOM reads use bo
 regular-file readers in both source and installed-wheel verification.
 The shipped-wheel install disables the `uv` cache, so a previously cached wheel with the same
 version and filename cannot replace the authenticated kit artifact during a hardening drill.
+A pre-login hardening campaign closes only after the complete focused gate stack, fresh and resumed
+air-gap drills, and a final severity audit leave no finding above Low.
 The connected stage issues its synthetic license through the current Core and service-contract
 package roots rather than the retired monolithic source path, and verifies the issued Ed25519
 signature without a removed delivery adapter. License output is a new private file; issuance never

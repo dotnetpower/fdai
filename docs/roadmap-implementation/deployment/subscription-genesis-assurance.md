@@ -36,10 +36,12 @@ and recoverable.
 | 2026-08-29 | implemented | Completed hardening round 103 by rejecting release workdirs whose ancestor ownership and sticky-bit posture permits another UID to swap the validated path. | `current change`; four focused workdir guard tests and fresh plus `--skip-stage` air-gap drills | Repeat the final severity audit and close any remaining finding above Low before login. |
 | 2026-08-29 | implemented | Completed hardening round 104 by applying the nonreplaceable ancestor policy and descriptor-mode initialization to CLI plan workdirs. | `current change`; focused replaceable and linked-parent regression test and the final deployment CLI gate stack passed 103 tests | Repeat the final severity audit and close any remaining finding above Low before login. |
 | 2026-08-29 | implemented | Completed hardening round 105 by disabling the package cache for shipped-wheel air-gap installation after a same-version cached wheel reproduced stale code. | `current change`; productization contract plus fresh and `--skip-stage` air-gap drills installed the authenticated current wheel | Repeat the final severity audit and close any remaining finding above Low before login. |
+| 2026-08-29 | implemented | Closed the pre-login campaign after 105 recorded hardening rounds; the post-H105 severity audit found no Medium-or-higher issue. | `current change`; 103 deployment CLI tests, 11 release boundary tests, Ruff, strict mypy over 365 productization sources, locked source and wheel builds, complete productization, H94-H105 changed tests, and fresh plus `--skip-stage` air-gap drills passed | Collect subscription-backed state, quota, model, database, inventory, rollback, no-change, and readiness receipts after login. |
 
 ### Remaining work
 
-- [ ] Repeat the post-H101 severity audit and record that only Low-or-lower concerns remain.
+- [x] The pre-login safety kernel passed 105 recorded hardening rounds, and the post-H105 severity
+  audit left only Low-or-lower concerns.
 - [x] The local negative, interruption, artifact, packaging, and fresh plus resumed disconnected
   execution matrix passes without customer data or Azure mutation.
 - [ ] Retain one governed empty-subscription run, one supported-upgrade run, one rollback/restore

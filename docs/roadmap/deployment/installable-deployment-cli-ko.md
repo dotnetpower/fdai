@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 9050224128380733fa62d0b3db54bce11a8cb074
+translation_source_sha: ce3a36ba2c9dfdd4e3fc1b99de90f295ae552f2f
 translation_revised: 2026-08-29
 ---
 # 설치형 배포 CLI
@@ -141,6 +141,8 @@ wheel을 가리지 못하게 합니다. 매니페스트, 신뢰 키, SBOM 읽기
 모두에서 크기가 제한된 비차단 일반 파일 reader를 사용합니다.
 제공 wheel 설치는 `uv` 캐시를 비활성화하므로 버전과 파일명이 같은 이전 캐시 wheel이 하드닝
 훈련 중 인증된 키트 아티팩트를 대체할 수 없습니다.
+로그인 전 하드닝 캠페인은 전체 집중 게이트, 새 air-gap 훈련과 재개 훈련, 최종 심각도 감사에서
+Low보다 높은 발견 문제가 없을 때만 종료합니다.
 연결된 준비 단계는 폐기된 단일 소스 경로가 아니라 현재 Core 및 서비스 계약 패키지 루트에서
 합성 라이선스를 발급하고 제거된 전달 어댑터 없이 발급한 Ed25519 서명을 검증합니다. 라이선스
 출력은 새 비공개 파일이며 기존 경로를 자르거나 교체하지 않습니다. release 유틸리티는 하나의
