@@ -95,7 +95,7 @@ def test_gateway_targeted_plan_resolves_models_without_blocking_on_completeness(
     target_expression = _DEPLOY.split("TF_CLI_ARGS_plan:", maxsplit=1)[1].splitlines()[0]
     assert "module.llm_azure_openai[0].azurerm_cognitive_account.primary" in target_expression
     assert target_expression.count("azurerm_cognitive_deployment.capability") == 2
-    assert "CORE_MODEL_QUORUM_ONLY == 'true'" in target_expression
+    assert "startsWith(inputs.request_id, 'plan-quorum-')" in target_expression
 
 
 def test_model_binding_plan_is_exactly_scoped_and_allows_held_quorum() -> None:
