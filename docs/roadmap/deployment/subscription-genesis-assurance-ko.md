@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: af44f6f0d1898da90de11344bafa93d9fe00155d
+translation_source_sha: 6006ffa51c85522ccbebafbada91a8a6f1736d1c
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -226,6 +226,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | 라운드 | 발견 사항 및 조치 | 집중 근거 |
 |--------|-------------------|-----------|
 | H01 | Terraform 실패 출력이 상태에서 파생된 값을 노출할 수 있었습니다. CLI가 이를 범위가 제한된 안정 사유 코드로 변환합니다. | `test_terraform_failure_is_redacted_to_stable_reason` |
+| H02 | 원장 읽기가 경로를 확인한 뒤 다시 열어 교체된 링크를 따를 수 있었습니다. 이제 하나의 no-follow 서술자를 열고 그 서술자를 검증합니다. | `test_journal_reader_never_follows_symlink` |
 
 ## 관련 문서
 

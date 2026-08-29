@@ -62,6 +62,17 @@ def test_journal_rejects_sequence_gap_and_tamper(tmp_path: Path) -> None:
         read_journal(path)
 
 
+def test_journal_reader_never_follows_symlink(tmp_path: Path) -> None:
+    target = tmp_path / "target.jsonl"
+    target.write_text("", encoding="utf-8")
+    target.chmod(0o600)
+    link = tmp_path / "run.jsonl"
+    link.symlink_to(target)
+
+    with pytest.raises(OSError):
+        read_journal(link)
+
+
 @pytest.mark.parametrize(
     ("claim", "receipt", "failed", "expected"),
     (

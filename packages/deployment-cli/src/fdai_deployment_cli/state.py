@@ -176,12 +176,13 @@ def append_event(path: Path, event: ProvisionEvent) -> None:
 def read_journal(path: Path) -> tuple[ProvisionEvent, ...]:
     """Read and verify a complete local journal."""
 
-    details = path.lstat()
-    if not stat.S_ISREG(details.st_mode) or stat.S_IMODE(details.st_mode) != 0o600:
-        raise PermissionError("provision journal MUST be a mode-0600 regular file")
-    if details.st_size > _MAX_JOURNAL_BYTES:
-        raise ValueError("provision journal exceeds its size limit")
-    with path.open("rb") as stream:
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(descriptor, "rb") as stream:
+        details = os.fstat(stream.fileno())
+        if not stat.S_ISREG(details.st_mode) or stat.S_IMODE(details.st_mode) != 0o600:
+            raise PermissionError("provision journal MUST be a mode-0600 regular file")
+        if details.st_size > _MAX_JOURNAL_BYTES:
+            raise ValueError("provision journal exceeds its size limit")
         return _read_stream(stream)
 
 
