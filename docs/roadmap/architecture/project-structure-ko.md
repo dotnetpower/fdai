@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 477cfcd12f98e0fc95d34e27e47f187e7f1da6b6
+translation_source_sha: d7b5e509f3df90c969f0e87d608fb90027b3c63a
 translation_revised: 2026-08-29
 ---
 # 프로젝트 구조
@@ -106,6 +106,10 @@ translation_revised: 2026-08-29
   전송 계층이 활성화되면 하나의 semantic-aware 어댑터가 변환 결과, 제안, 스트림 포트를 연결합니다.
   이 어댑터의 발신함은 데이터베이스 `NOW()` 기한을 사용하고, 트랜잭션 단위 결과 재사용은 요청,
   principal, terminal-result 다이제스트를 검증합니다.
+  여기에 더해 버전이 지정된 `background-task-projection` topic은 Core 소유 detached-task
+  snapshot 및 progress의 트랜잭션형 outbox를 배출해 Operator 소유 변환 결과 테이블로
+  전달합니다. Operator는 이 테이블만 읽고, 결정론적인 변환 결과 신원으로 중복과 오래된
+  reorder를 제거하며, Core `background_task_*` 테이블을 직접 읽지 않습니다.
   검증된 의미 조회 노드 전이는 Core에서 Operator로 향하는 별도의 범위가 제한된 best-effort
   topic을 사용합니다. Operator는 활성 SSE 스트림에서만 이 진행 상황을 일시적으로 유지합니다.
   영속 최종 변환 결과와 근거 증적은 재연결 및 완료의 권위로 유지되며, 진행 상황 발행 실패는

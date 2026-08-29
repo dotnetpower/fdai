@@ -104,6 +104,10 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   Command surfaces may submit authenticated records or typed proposals, but neither they nor the dev narrator can call an executor; risk, approval, audit, and execution remain server-side
   ([security-and-identity.md](security-and-identity.md)). With transport active, one semantic-aware adapter binds projection, proposal, and stream ports.
   Its outbox uses database `NOW()` deadlines, while transactional result reuse validates the request, principal, and terminal-result digest.
+  A sibling versioned `background-task-projection` topic drains a Core-owned transactional outbox of
+  detached-task snapshots and progress into Operator-owned projection tables. Operator reads those
+  tables only, deduplicates duplicate and older reordered records by deterministic projection
+  identity, and never reads Core `background_task_*` tables directly.
   Verified semantic query-node transitions use a separate bounded best-effort topic from Core to
   Operator. Operator keeps that progress transient for the active SSE stream; durable terminal
   projections and evidence receipts remain the reconnect and completion authority. Progress

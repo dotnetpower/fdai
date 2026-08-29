@@ -2,8 +2,8 @@
 title: 영구 Background Task Session
 translation_of: background-task-sessions.md
 translation_source: docs/roadmap/interfaces/background-task-sessions.md
-translation_source_sha: ff4ea28aa4191564d31e2713f39ae6ecc8fe6b96
-translation_revised: 2026-08-27
+translation_source_sha: 1d1d5fa5ef85349b8723bad7c108ea9e212cc0bf
+translation_revised: 2026-08-29
 ---
 
 # 영구 Background 작업 세션
@@ -84,21 +84,29 @@ backdate 또는 future-date하여 다른 할당량 일을 선택할 수 없습�
 
 ## 진행 상황 및 backpressure
 
-진행 상황은 kind, 제한된 message, 시각, 사용량으로 구성됩니다. 보고기는 구성된 간격마다 최대
-한 이벤트를 기록하고 간격 안의 최신 갱신을 coalesce합니다. 저장소는 작업별 event 상한과 단조 증가
-순서를 적용합니다. 임의 명령 로그를 대화 기록에 저장하지 않습니다.
+진행 상황은 kind, 제한된 message, 시각, 사용량 및 영속적인 append-order 키로 구성됩니다.
+보고기는 구성된 간격마다 최대 한 이벤트를 기록하고 간격 안의 최신 갱신을 coalesce합니다. 저장소는
+작업별 event 상한, 작업별 단조 증가 sequence 및 전역 단조 증가 append order를 적용합니다.
+별도의 트랜잭션형 projection outbox는 재생 cursor를 전진시키는 대신 미게시 snapshot 및
+progress 행을 lease로 점유하므로, 동시 트랜잭션의 commit 순서가 뒤바뀌어도 작업이 누락되지
+않습니다. 임의 명령 로그를 대화 기록에 저장하지 않습니다.
 
 목표 Operator API에서는 인증된 운영자가 GET 또는 server-sent events (SSE) 스트림으로 진행
-상황을 읽을 수 있습니다. 스트림은 저장된 진행 상황, running 중의 제한된 하트비트, 최종 event
-하나를 전송하고 종료합니다. 다른 소유자의 작업은 없는 작업과 같은 404 응답을 사용합니다.
+상황을 읽을 수 있습니다. 최종 snapshot은 명시적인 progress watermark를 함께 전달하므로 스트림은
+저장된 진행 상황, running 중이거나 선행 progress를 기다리는 동안의 제한된 하트비트, 그리고
+projected progress watermark가 충족된 뒤의 최종 event 하나만 전송하고 종료합니다. 다른
+소유자의 작업은 없는 작업과 같은 404 응답을 사용합니다.
 
 ## Command 및 권한 확인
 
 독립 Operator Service는 고정된 conversation-family 매니페스트에서 다음 경로를 항상 구성합니다.
 각 경로는 호출자 권한을 확인하고 주입된 변환 결과 판독기, 제안 발신함 또는 이벤트 스트림으로
-위임합니다. 의존성이 없으면 `503`으로 닫힙니다. 현재 PostgreSQL 대화 어댑터는 이러한 작업을
-일반 shadow 제안, 변환 결과 읽기 및 감사 재생으로 처리합니다. 아직 `BackgroundTask` 레코드나
-소유자 범위 작업 보기를 구체화하지 않습니다.
+위임합니다. 의존성이 없으면 `503`으로 닫힙니다. 버전이 지정된
+`background-task-projection` `1.0.0` 전송 계약은 task, progress, completion 쓰기와
+같은 트랜잭션 안에서 채워지는 영속 projection outbox에서 Core 소유 snapshot 및 progress
+레코드를 점유한 뒤 Operator 소유 `operator_background_task_projection` 및
+`operator_background_task_progress` 테이블로 반영합니다. Operator 경로는 이제 이
+테이블만 읽고 Core `background_task_*` 테이블을 직접 조회하지 않습니다.
 
 목표 background-task 구체화 로직은 다음 작업별 계약을 적용합니다.
 
@@ -137,9 +145,12 @@ backdate 또는 future-date하여 다른 할당량 일을 선택할 수 없습�
 ## 완료 순서 및 재생
 
 완료 감사, 이력 턴 및 outbound-enqueue 감사 순서는 안전하게 재생할 수 있도록 설계됩니다.
-목표 싱크는
-`background-task.completed` 및 `background-task.delivery-enqueued` 감사 이벤트를 영속 상태 표시를
-통해 기록하며, 표시와 감사 항목은 원자적으로 커밋됩니다. 시도 및 액션별 결정론적
+최종 projection 전송은 completion 시점의 progress watermark를 가변 task snapshot과 분리해
+저장하며, 점유 쿼리는 해당 watermark 이하의 미게시 progress 행이 모두 확인되기 전에는 최종
+snapshot을 넘기지 않습니다. 따라서 재생은 snapshot을 backlog에 묶어 두지 않으면서도 선행
+progress가 보이기 전에 클라이언트가 종료되지 않게 합니다. 목표 싱크는
+`background-task.completed` 및 `background-task.delivery-enqueued` 감사 이벤트를 영속 상태
+표시를 통해 기록하며, 표시와 감사 항목은 원자적으로 커밋됩니다. 시도 및 액션별 결정론적
 표시가 싱크 재시도 중에도 해당 감사 이벤트를 한 번만 작성하게 합니다.
 
 대화 턴은 결정론적 턴 및 멱등성 ID, `[Background task result: ...]` 라벨,
@@ -151,10 +162,12 @@ backdate 또는 future-date하여 다른 할당량 일을 선택할 수 없습�
 
 목록 및 상세 변환 결과는 상태, 예산, 임차 기간 만료, 사용량, 진행 상황, 소요 시간 입력, 최종 사유를
 표시합니다. 응답 계약은 최대 500자의 요청 요약, 최대 2,000자의 결과 요약, 최대 16개의 근거 참조,
-잘림 표시, null이 가능한 책임 에이전트 귀속 및 별도의 실행 워커 라벨도 지원합니다. 현재 PostgreSQL
-판독기는 아직 이러한 설명 및 귀속 필드를 채우지 않으므로 Console은 값을 추론하지 않고 사용할 수
-없음으로 표시합니다. 변환 결과는 넓은 맥락을 제외하고 다른 principal의 작업 개수를 노출하지
-않습니다. 보존 정리는
+잘림 표시, null이 가능한 책임 에이전트 귀속 및 별도의 실행 워커 라벨도 지원합니다. 버전이 지정된
+전송 계약은 이제 이러한 범위 제한 필드를 `operator_background_task_projection`에 채우고,
+`operator_background_task_progress`는 작업별로 범위가 제한된 진행 이력을 유지합니다.
+Operator는 자기 소유 변환 결과 테이블만 읽고 넓은 맥락이나 다른 principal의 작업 개수를
+노출하지 않습니다. Operator 보존 워커는 계약 기한이 지나면 만료된 변환 결과 행과 고아가 된 진행
+레코드를 삭제합니다. 보존 정리는
 작업 시도가 최종이고 작업 보존 기한이 지났으며 완료가 `delivered` 또는
 `abandoned`인 경우에만 행을 선택합니다. 시도를 삭제하면 진행 상황 및 완료 발신함 행이
 cascade됩니다. 따라서 pending, sending 또는 retryable 실패한 완료가 있으면 복구를 위해 작업
@@ -181,8 +194,9 @@ claim할 수 있게 만들지 않습니다. 재전달은 같은 표식을 재사
 Operator 제품군 테스트는 고정 경로, 권한 확인 묶음, 본문 한계, 취소 제안 분류,
 background-task 목록, 상세, 진행 상황, 유한 SSE 재생, 다른 소유자에 대한 404 동등성 및
 닫힘 실패 `503` 동작을 검증합니다. 집중 교차 프로세스 테스트는 이제 요청 및 취소 publish,
-Core의 wake 전 영속화, 타입이 지정된 detached 실행 및 취소를 입증합니다. 관리되는 재시작 및
-deployed 전달 근거는 아래 프로덕션 검증 작업에 남아 있습니다.
+Core의 wake 전 영속화, 타입이 지정된 detached 실행 및 취소, 버전이 지정된 작업 snapshot 및
+progress 게시, Operator 소유 변환 결과 upsert, 중복 및 reorder 안전성, 다른 소유자 격리를
+입증합니다. 관리되는 재시작 및 deployed 전달 근거는 아래 프로덕션 검증 작업에 남아 있습니다.
 
 ## 구현 상태
 
@@ -191,10 +205,11 @@ deployed 전달 근거는 아래 프로덕션 검증 작업에 남아 있습니�
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 핵심 레코드, 할당량, 저장소 및 조정기 로직 | implemented | `services/core-control-plane/src/fdai/core/background_task/`; `services/core-control-plane/tests/core/background_task/` | 범위가 제한된 레코드, 상태 전이, 할당량 결정, 메모리 내 저장소, 임차 기간 조정기, 재시도 예약, 취소 및 종료 동작에 focused 단위 테스트가 있습니다. 새 작업은 Heimdall 책임 귀속을 영속화하며 기존 레코드는 null 귀속을 유지할 수 있습니다. |
-| PostgreSQL 작업 및 완료 영속성 | implemented | `alembic/versions/20260720_0040_background_task.py`; `alembic/versions/20260722_0051_background_task_completion.py`; `service-migrations/branches/core-control-plane/versions/20260826_core_background_task_runtime_grants.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_background_task.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_background_task_completion.py`; 집중 live PostgreSQL 테스트(`12 passed`, skip 없음) | 격리된 지원 로컬 데이터베이스에서 원자적 점유, 임차 기간, 할당량, 진행 상황, 완료 발신함, 조정, 재시도, 재시작 읽기 및 보존 정리 동작을 입증했습니다. Core migration은 runtime 역할에 조정기 소유 테이블별로 필요한 작업만 부여합니다. 관리되는 runtime 근거는 별도입니다. |
-| 프로덕션 실행기 및 조정기 구성 | implemented | `services/core-control-plane/src/fdai/core/background_task/read_investigation_executor.py`; `services/core-control-plane/src/fdai/runtime/read_investigation_runtime.py`; 집중 실행기, consumer, runtime, coordinator 및 PostgreSQL 테스트 | 선택적 Core binding은 타입이 지정된 실행기, 영속 저장소, 감독되는 coordinator, 요청 consumer, 조정 loop, 할당량, 취소 및 범위가 제한된 종료를 생성하며 다른 서비스를 만들거나 실행 권한을 부여하지 않습니다. |
-| 완료 싱크 및 영속 대화 인계 | in-progress | Core EventBus 완료 싱크, `read-investigation-completion` `1.0.0`, Operator 완료 저장소, consumer, 대화 writer 및 migration grant, 집중 완료 및 권한 검사 | Core는 기존 임차 발신함에서 변경할 수 없는 최종 결과 하나를 publish합니다. Operator 운영 조립은 exact 제안에 결속된 inbox 레코드와 멱등적인 Web assistant turn 하나를 원자적으로 수락합니다. 채널 outbound enqueue, 보존 정리 및 통제된 재시작 근거는 열린 상태입니다. |
-| Operator API 경로, 변환 결과 및 진행 상황 스트림 | implemented | `services/operator-service/src/fdai_operator_service/families/conversation/background_tasks.py`; `services/operator-service/src/fdai_operator_service/postgres_family_store.py`; `service-migrations/branches/operator-service/versions/20260823_operator_background_task_read.py`; 집중 변환 결과, PostgreSQL 및 제품군 테스트 | 소유자 조건을 적용한 SQL이 범위가 제한된 목록, 상세, 진행 상황 및 유한 SSE 재생을 구체화하고 다른 소유자에 대해 같은 404를 반환합니다. 최대 500자의 요청 요약, 최대 2,000자의 결과 요약, 최대 16개의 근거 참조, 잘림 표시 및 null이 가능한 Heimdall 책임 귀속을 채웁니다. Operator 역할에는 `SELECT`만 부여됩니다. |
+| PostgreSQL 작업 및 완료 영속성 | implemented | `alembic/versions/20260720_0040_background_task.py`; `alembic/versions/20260722_0051_background_task_completion.py`; `alembic/versions/20260829_0088_background_task_completion_updated_at.py`; `service-migrations/branches/core-control-plane/versions/20260826_core_background_task_runtime_grants.py`; `service-migrations/branches/core-control-plane/versions/20260829_core_background_task_progress_order.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_background_task.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_background_task_completion.py`; 집중 live PostgreSQL 테스트(`19 passed`, skip 없음) | 격리된 지원 로컬 데이터베이스에서 원자적 점유, 임차 기간, 할당량, 진행 상황, 완료 발신함, 조정, 재시도, 재시작 읽기, 보존 정리, lease 만료 후 projection outbox 재생, progress-before-terminal 점유 순서, 그리고 동시 commit reorder 안전성을 입증했습니다. 추가된 completion `updated_at`, 최종 progress watermark 및 트랜잭션형 projection outbox가 wall-clock 또는 append-order cursor 없이도 전달 상태 재생을 결정론적으로 유지합니다. 관리되는 runtime 근거는 별도입니다. |
+| 프로덕션 실행기 및 조정기 구성 | implemented | `services/core-control-plane/src/fdai/core/background_task/read_investigation_executor.py`; `services/core-control-plane/src/fdai/runtime/read_investigation_runtime.py`; 집중 실행기, consumer, runtime, coordinator 및 PostgreSQL 테스트 | 선택적 Core binding은 타입이 지정된 실행기, 영속 저장소, 감독되는 coordinator, 요청 consumer, 조정 loop, 할당량, 취소, 범위가 제한된 종료 및 background-task projection 게시자를 생성하며 다른 서비스를 만들거나 실행 권한을 부여하지 않습니다. |
+| Core-to-Operator 작업 변환 결과 전송 계약 | implemented | `packages/service-contracts/src/fdai_service_contracts/background_task_projection.py`; `services/core-control-plane/src/fdai_core_service/background_task_projection.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_background_task_projection_feed.py`; `services/operator-service/src/fdai_operator_service/background_task_projection_runtime.py`; `services/operator-service/src/fdai_operator_service/postgres_background_task_projection.py`; `service-migrations/branches/operator-service/versions/20260829_operator_background_task_projection_transport.py`; 집중 계약, producer, consumer, 경로, migration 및 소유권 테스트 | Core는 source 쓰기 트랜잭션 안에서 채워지는 영속 claim/lease outbox에서 버전이 지정된 snapshot 및 progress 레코드를 게시합니다. Progress는 watermark 계약을 위해 append-order identity를 유지하고, 최종 snapshot은 그 watermark로 미게시 progress를 기다리며, Operator는 이를 `operator_background_task_projection` 및 `operator_background_task_progress`에 반영하고, 중복 및 오래된 reorder를 제거하며, purge된 projection을 되살리지 않도록 만료된 source 행을 무시하고, Core `background_task_*` 테이블 권한을 더 이상 받지 않습니다. |
+| 완료 싱크 및 영속 대화 인계 | in-progress | Core EventBus 완료 싱크, `read-investigation-completion` `1.0.0`, Operator 완료 저장소, consumer, 대화 writer 및 migration grant, 집중 완료 및 권한 검사 | Core는 기존 임차 발신함에서 변경할 수 없는 최종 결과 하나를 publish합니다. Operator 운영 조립은 exact 제안에 결속된 inbox 레코드와 멱등적인 Web assistant turn 하나를 원자적으로 수락합니다. 채널 outbound enqueue, completion inbox 보존 및 통제된 재시작 근거는 열린 상태입니다. |
+| Operator API 경로, 변환 결과 및 진행 상황 스트림 | implemented | `services/operator-service/src/fdai_operator_service/families/conversation/background_tasks.py`; `services/operator-service/src/fdai_operator_service/postgres_family_store.py`; `services/operator-service/src/fdai_operator_service/postgres_background_task_projection.py`; `service-migrations/branches/operator-service/versions/20260829_operator_background_task_projection_transport.py`; 집중 변환 결과, PostgreSQL 및 제품군 테스트 | 소유자 조건을 적용한 SQL이 Operator 소유 변환 결과 테이블만 사용해 범위가 제한된 목록, 상세, 진행 상황 및 유한 SSE 재생을 구체화하고 다른 소유자에 대해 같은 404를 반환합니다. 최대 500자의 요청 요약, 최대 2,000자의 결과 요약, 최대 16개의 근거 참조, 잘림 표시 및 null이 가능한 Heimdall 책임 귀속을 채웁니다. Operator 런타임은 자기 변환 결과 테이블만 쓰며 Core background-task 읽기 권한은 갖지 않습니다. |
 | FDAI Console 작업 컨트롤 | in-progress | `console/src/routes/background-tasks.tsx`; `console/src/routes/background-tasks.css`; `console/src/routes/background-tasks.model.ts`; `console/src/routes/background-tasks.model.test.ts` | 이중 언어 읽기 전용 경로는 요청한 작업, 에이전트 책임, 결과와 근거 및 활동 타임라인을 우선 표시합니다. 기술 사용량은 별도로 펼쳐서 볼 수 있습니다. 기존 레코드는 명시적인 사용할 수 없음 및 귀속 미기록 상태로 표시합니다. 해당 API consumer가 없으므로 생성, 취소, 재시도 또는 실행 컨트롤은 의도적으로 제공하지 않습니다. |
 | 감사, 원격 분석 및 운영 근거 | in-progress | `services/core-control-plane/src/fdai/core/background_task/service.py`; `services/core-control-plane/src/fdai/delivery/persistence/background_task_lifecycle_audit.py`; `services/core-control-plane/src/fdai/delivery/persistence/background_task_completion_audit.py` | 운영 생성 및 취소는 멱등적인 StateStore lifecycle 표식을 사용합니다. 생성은 표식이 commit될 때까지 영속 claim fence 뒤에 유지됩니다. 완료 표식 영속성도 구현되고 검증됐지만 운영 완료 싱크, 런타임 원격 분석, 재시작 증적 또는 관리되는 전달 근거는 없습니다. |
 
@@ -214,6 +229,7 @@ deployed 전달 근거는 아래 프로덕션 검증 작업에 남아 있습니�
 | 2026-08-23 | implemented | 멱등적인 StateStore lifecycle 감사 writer와 생성 감사 claim fence를 추가했습니다. 감사 또는 표식 실패는 영속 요청을 claim 불가 상태로 유지하고, 재전달은 감사 표식 하나를 재사용하며 표식이 영속된 뒤에만 fence를 해제합니다. Detached 전용 binding에서 사용하지 않는 direct/streamed 정책 및 실행 저장소 생성을 제거했습니다. | `current change`; 집중 메모리 및 runtime 검사 42개, lifecycle 및 전체 PostgreSQL 영속성 검사 20개가 skip 없이 통과했고 Ruff와 strict mypy가 통과했습니다. | 최종 완료 전달을 정의하고 연결한 뒤 관리되는 재시작 및 전달 근거를 보존합니다. |
 | 2026-08-26 | implemented | 보호된 복구 중 detached 조정기가 `background_task_attempt`를 조정할 때 `permission denied`가 발생해 명시적 Core migration grant를 추가했습니다. 이제 runtime 역할은 attempt에 CRUD, progress에 읽기와 추가, completion에 읽기, 추가 및 갱신 권한만 받으며 `PUBLIC` 권한은 계속 해제됩니다. | `current change`; `20260826_core_background_task_runtime_grants.py`; 집중 migration grant 회귀 검사 통과. | 정확히 증명된 Core 이미지를 build 및 배포하고 보호된 서비스 workflow로 migration을 적용한 뒤, 배포된 검증을 주장하기 전에 crash-free 재시작 증적을 보존합니다. |
 | 2026-08-26 | 진행 중 | Operator 완료 inbox와 Web 대화 writer를 추가했습니다. Service migration은 `conversation_record` 읽기, 삽입 및 갱신과 append-only `conversation_turn`을 부여하고, readiness는 해당 exact 쓰기와 inbox sequence 권한이 없으면 실패 시 닫힙니다. 하나의 writable CTE가 조사를 다시 실행하지 않고 제안, turn 및 inbox를 dedupe합니다. | `current change`; 집중 Operator readiness, 완료 저장소 및 migration 권한 검사가 통과했습니다. | 채널 outbound enqueue, 보존 정리 및 통제된 process-loss 근거를 추가합니다. |
+| 2026-08-29 | implemented | Operator Service의 Core `background_task_*` 직접 읽기를 버전이 지정된 Core-to-Operator 변환 결과 전송 계약으로 교체했습니다. Core는 자기 영속 작업 테이블에서 결정론적인 snapshot 및 progress 레코드를 게시하고, Operator는 이를 소유자 범위 변환 결과 테이블에 반영하며 중복과 오래된 reorder를 억제하고 기한 기반 정리를 수행합니다. 새 Operator migration은 기존 Core 테이블 읽기 권한도 함께 철회합니다. | `current change`; `packages/service-contracts/tests/test_background_task_projection.py`(`5 passed`); `services/core-control-plane/tests/core/background_task/test_projection_transport.py`와 `services/core-control-plane/tests/runtime/test_read_investigation_runtime.py`(합계 `18 passed`); `services/operator-service/tests/test_background_task_projection.py`, `test_postgres_background_task_projection.py`, `test_background_task_projection_transport.py`, `test_operator_conversation_family.py`, `test_read_investigation_completion_composition.py`, `test_operator_service_postgres.py`, `test_semantic_kafka_adapter.py`(합계 `130 passed`); `tests/integration/services/test_service_migration_inventory.py`와 `tests/integration/scripts/test_service_test_suites.py`(합계 `87 passed`). | completion 전달을 위한 channel binding resolution 및 durable outbound enqueue를 추가하고, 그다음 `validated`를 주장하기 전에 governed 재시작 및 runtime telemetry 근거를 남겨야 합니다. |
 
 ### 남은 작업
 
@@ -222,8 +238,9 @@ deployed 전달 근거는 아래 프로덕션 검증 작업에 남아 있습니�
 - [x] 조사를 다시 실행하지 않고 결정론적 대화 턴을 추가하고 영속 전달 원장을 통해 변경할 수 없는 회신을 제출하도록 완료 싱크를 구현합니다.
 - [x] `background-task.completed`와 `background-task.delivery-enqueued`를 원자적 단일 기록 StateStore 표시로 작성하고 동시 재생 및 충돌 테스트를 추가합니다.
 - [x] 버전이 지정된 최종 완료 계약, Core publisher, Operator inbox 및 멱등적인 Web assistant-turn writer를 Core에 Operator 대화 쓰기 권한을 주지 않고 정의하고 연결합니다.
+- [x] Core `background_task_*` 직접 읽기를 버전이 지정된 `background-task-projection` 전송 계약으로 교체하고, Core snapshot 및 progress 게시, Operator 소유 변환 결과 테이블, 중복 및 reorder 처리, 닫힘 실패 보존 및 readiness를 함께 구현합니다.
 - [ ] 채널 binding 해석과 영속 outbound enqueue를 추가하고 계약 기한에 inbox 행을 정리하며 통제된 재시도 및 재시작 근거를 보존합니다.
-- [x] 다른 소유자에 대한 404 동등성과 최소 권한 PostgreSQL 읽기를 포함하여 Operator API 경로 뒤에 소유자 범위 목록, 상세, 진행 상황 및 유한 SSE 재생을 구체화합니다.
+- [x] 다른 소유자에 대한 404 동등성과 최소 권한 Operator 변환 결과 읽기를 포함하여 Operator API 경로 뒤에 소유자 범위 목록, 상세, 진행 상황 및 유한 SSE 재생을 구체화합니다.
 - [x] 소유자 범위 PostgreSQL 작업 조회 두 곳에서 최대 500자의 요청 요약, 최대 2,000자의 결과 요약, 최대 16개의 근거 참조, 잘림 표시 및 null이 가능한 Heimdall 귀속을 채우고 집중 변환 결과 및 잘못된 귀속 거부 테스트를 통과합니다.
 - [x] 소유자 범위, digest 검증, wake 전 영속화 및 명시적 poison-record 처리를 보존하며 버전이 지정된 프로덕션 전송을 통해 생성 및 취소 제안을 소비합니다.
 - [x] 집중 decoder 테스트와 함께 이중 언어 FDAI Console 작업 목록, 상세, 진행 상황 및 명시적 새로 고침 화면을 추가하고 변경 컨트롤은 제공하지 않습니다.

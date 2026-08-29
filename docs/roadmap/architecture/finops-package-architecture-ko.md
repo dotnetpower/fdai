@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: d2400be453cc207ff0998bdb2a08bb1de4eb1e5b
+translation_source_sha: e8a290b4229ed87dde0ef454d3fb191a031601f6
 translation_revised: 2026-08-29
 ---
 
@@ -183,8 +183,8 @@ Core는 `fdai_cost_governance`를 가져오지 않습니다. 검토된 조립 �
 기본 FDAI 이미지를 사용할 수 있게 합니다.
 
 공유 서비스 계약 export, Operator 조립 루트 및 Console 메시지 카탈로그는 여러 기능이 사용하는
-호스트 연결부로 유지됩니다. 이 연결부에 Azure Monitor 수집 같은 독립 기능을 추가해도 비용
-거버넌스 동작으로 등록되지는 않습니다. 비용 거버넌스는 검토된 패키지 매니페스트, 정확한 번들,
+호스트 연결부로 유지됩니다. 이 연결부에 Azure Monitor 수집이나 백그라운드 작업 변환 결과 같은
+독립 기능을 추가해도 비용 거버넌스 동작으로 등록되지는 않습니다. 비용 거버넌스는 검토된 패키지 매니페스트, 정확한 번들,
 프로바이더 요구 사항 및 배포 gate를 통해서만 활성화됩니다.
 
 ## 대상 패키지 계약

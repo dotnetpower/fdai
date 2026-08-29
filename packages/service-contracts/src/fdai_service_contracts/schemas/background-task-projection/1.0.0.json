@@ -1,0 +1,513 @@
+{
+  "$defs": {
+    "BackgroundTaskProjectionBudget": {
+      "additionalProperties": false,
+      "description": "Carry the bounded detached-task budget used for Operator reads.",
+      "properties": {
+        "max_wall_seconds": {
+          "maximum": 3600,
+          "minimum": 1,
+          "title": "Max Wall Seconds",
+          "type": "integer"
+        },
+        "max_tokens": {
+          "maximum": 32768,
+          "minimum": 1,
+          "title": "Max Tokens",
+          "type": "integer"
+        },
+        "max_cost_microusd": {
+          "maximum": 10000000,
+          "minimum": 0,
+          "title": "Max Cost Microusd",
+          "type": "integer"
+        },
+        "max_tool_calls": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Max Tool Calls",
+          "type": "integer"
+        },
+        "max_progress_events": {
+          "maximum": 256,
+          "minimum": 1,
+          "title": "Max Progress Events",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max_wall_seconds",
+        "max_tokens",
+        "max_cost_microusd",
+        "max_tool_calls",
+        "max_progress_events"
+      ],
+      "title": "BackgroundTaskProjectionBudget",
+      "type": "object"
+    },
+    "BackgroundTaskProjectionUsage": {
+      "additionalProperties": false,
+      "description": "Carry bounded usage without provider billing authority.",
+      "properties": {
+        "tokens": {
+          "default": 0,
+          "maximum": 10000000,
+          "minimum": 0,
+          "title": "Tokens",
+          "type": "integer"
+        },
+        "cost_microusd": {
+          "default": 0,
+          "maximum": 10000000,
+          "minimum": 0,
+          "title": "Cost Microusd",
+          "type": "integer"
+        },
+        "tool_calls": {
+          "default": 0,
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Tool Calls",
+          "type": "integer"
+        }
+      },
+      "title": "BackgroundTaskProjectionUsage",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Transfer one idempotent background-task snapshot or progress record.",
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "projection_id": {
+      "pattern": "^background-task-(snapshot|progress)-[a-f0-9]{32}$",
+      "title": "Projection Id",
+      "type": "string"
+    },
+    "record_kind": {
+      "enum": [
+        "snapshot",
+        "progress"
+      ],
+      "title": "Record Kind",
+      "type": "string"
+    },
+    "task_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Task Id",
+      "type": "string"
+    },
+    "owner_principal_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Owner Principal Id",
+      "type": "string"
+    },
+    "attempt_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Attempt Id",
+      "type": "string"
+    },
+    "recorded_at": {
+      "format": "date-time",
+      "title": "Recorded At",
+      "type": "string"
+    },
+    "retention_until": {
+      "format": "date-time",
+      "title": "Retention Until",
+      "type": "string"
+    },
+    "usage": {
+      "$ref": "#/$defs/BackgroundTaskProjectionUsage"
+    },
+    "projection_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Projection Digest",
+      "type": "string"
+    },
+    "execution_authority": {
+      "const": false,
+      "default": false,
+      "title": "Execution Authority",
+      "type": "boolean"
+    },
+    "task_kind": {
+      "anyOf": [
+        {
+          "const": "read_only_investigation",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Task Kind"
+    },
+    "status": {
+      "anyOf": [
+        {
+          "enum": [
+            "queued",
+            "claimed",
+            "running",
+            "succeeded",
+            "failed",
+            "cancelled",
+            "timed_out",
+            "unknown"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Status"
+    },
+    "revision": {
+      "anyOf": [
+        {
+          "maximum": 2147483647,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Revision"
+    },
+    "projection_sequence": {
+      "anyOf": [
+        {
+          "maximum": 2147483647,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Projection Sequence"
+    },
+    "created_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Created At"
+    },
+    "updated_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Updated At"
+    },
+    "lease_expires_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Lease Expires At"
+    },
+    "budget": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/BackgroundTaskProjectionBudget"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "request_summary": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Request Summary"
+    },
+    "request_truncated": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Request Truncated"
+    },
+    "accountable_agent": {
+      "anyOf": [
+        {
+          "const": "Heimdall",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Accountable Agent"
+    },
+    "result_summary": {
+      "anyOf": [
+        {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Result Summary"
+    },
+    "result_truncated": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Result Truncated"
+    },
+    "evidence_refs": {
+      "default": [],
+      "items": {
+        "maxLength": 256,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 16,
+      "title": "Evidence Refs",
+      "type": "array"
+    },
+    "evidence_truncated": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Evidence Truncated"
+    },
+    "terminal_reason": {
+      "anyOf": [
+        {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Terminal Reason"
+    },
+    "started_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Started At"
+    },
+    "finished_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Finished At"
+    },
+    "completion_state": {
+      "anyOf": [
+        {
+          "enum": [
+            "pending",
+            "sending",
+            "failed",
+            "delivered",
+            "abandoned"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Completion State"
+    },
+    "completion_attempt_count": {
+      "anyOf": [
+        {
+          "maximum": 8,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Completion Attempt Count"
+    },
+    "progress_watermark": {
+      "anyOf": [
+        {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Progress Watermark"
+    },
+    "progress_sequence": {
+      "anyOf": [
+        {
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Progress Sequence"
+    },
+    "progress_order": {
+      "anyOf": [
+        {
+          "maximum": 9223372036854775807,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Progress Order"
+    },
+    "progress_kind": {
+      "anyOf": [
+        {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Progress Kind"
+    },
+    "progress_message": {
+      "anyOf": [
+        {
+          "maxLength": 1000,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Progress Message"
+    },
+    "progress_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Progress At"
+    }
+  },
+  "required": [
+    "projection_id",
+    "record_kind",
+    "task_id",
+    "owner_principal_id",
+    "attempt_id",
+    "recorded_at",
+    "retention_until",
+    "usage",
+    "projection_digest"
+  ],
+  "title": "BackgroundTaskProjectionEnvelope",
+  "type": "object"
+}

@@ -1,7 +1,7 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: 6d9c63b88d33a61afd7f310fb6548891a54436c3
-translation_revised: 2026-08-26
+translation_source_sha: 030ac5ca5a3e3a620ed32fbe0bacdfaceaf9d1bd
+translation_revised: 2026-08-29
 ---
 # 서비스 승격과 데이터 소유권
 
@@ -140,7 +140,7 @@ Logical 기록 또는 수명 주기 전이 하나에는 쓰기 담당 하나만 
 | `conversation_record`, `conversation_turn`, `conversation_policy` ([이행 0019](../../../alembic/versions/20260716_0019_user_context_automation.py)) | Owning principal의 user-context/대화 애플리케이션 서비스 | Operator API 대화/이력 변환 결과 | Alembic 이행 작업 |
 | `conversation_image` | principal 범위로 한정된 Operator API 이미지 저장소 | 인증된 owning-principal 이력 경로 | Alembic 이행 작업 |
 | `conversation_outbound_delivery*`, `conversation_adapter_breaker`, `conversation_channel_message_claim` | Operator 영속 conversation-delivery 조정기 | Operator API 전달 상태와 claimed 작업의 Operator edge adapter | Operator service migration branch |
-| `background_task_attempt`, `background_task_progress`, `background_task_completion` ([이행 0040/0051](../../../alembic/versions/20260720_0040_background_task.py)) | Background-task 조정기/저장소 | Owner-scoped Operator API 변환 결과와 완료 전달 | Alembic 이행 작업 |
+| `background_task_attempt`, `background_task_progress`, `background_task_completion`, `background_task_projection_outbox` ([이행 0040/0051/0088](../../../alembic/versions/20260720_0040_background_task.py)) | Background-task 조정기/저장소 | Owner-scoped Operator API 변환 결과와 완료 전달 | Alembic 이행 작업 |
 | `read_investigation_run`, `read_investigation_run_progress`, `read_investigation_run_completion` | Core 대화형 읽기 조사 조정기/저장소 | 소유자 범위 Operator API 재생 및 완료 전달 | Core 서비스 migration, Operator 서비스 읽기 권한 |
 | `scheduled_task`, `schedule_dispatch_run`, `scheduled_conversation_anchor` | 정의와 CAS-claimed 전달 실행의 스케줄러 서비스/저장소 | Operator API 스케줄러/실행 변환 결과와 이어가기 전달 | Alembic 이행 작업 |
 | `inventory_snapshot*`, `inventory_active` | Full-snapshot 승격의 인벤토리 synchronization 작업 | Core 인벤토리 프로바이더와 authorized Operator API 인벤토리 변환 결과 | Alembic 이행 작업 |

@@ -32,6 +32,10 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
     ("action", "1.0.0"): "schemas/action/1.0.0.json",
     ("agent-operational-activity", "1.0.0"): "schemas/agent-operational-activity/1.0.0.json",
     ("agent-operational-activity", "1.1.0"): "schemas/agent-operational-activity/1.1.0.json",
+    (
+        "background-task-projection",
+        "1.0.0",
+    ): "schemas/background-task-projection/1.0.0.json",
     ("document-deletion-request", "1.0.0"): "schemas/document-deletion-request/1.0.0.json",
     ("core-operator-projection", "1.0.0"): "schemas/core-operator-projection/1.0.0.json",
     ("core-operator-projection", "1.1.0"): "schemas/core-operator-projection/1.1.0.json",

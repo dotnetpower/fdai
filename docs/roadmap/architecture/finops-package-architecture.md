@@ -184,8 +184,8 @@ passes its immutable bundle and typed provider implementations into Core. This d
 base FDAI image usable when the optional package is absent.
 
 The shared service-contract export, Operator composition root, and Console message catalogs remain
-multi-capability host seams. Adding an independent capability such as Azure Monitor ingestion to
-those seams does not register it as Cost Governance behavior. Cost Governance activates only from
+multi-capability host seams. Adding an independent capability such as Azure Monitor ingestion or
+background-task projection does not register Cost Governance behavior. Cost Governance activates only from
 its reviewed package manifest, exact bundle, provider requirements, and deployment gate.
 
 ## Target package contracts

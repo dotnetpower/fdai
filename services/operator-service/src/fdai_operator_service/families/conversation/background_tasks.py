@@ -36,6 +36,8 @@ class BackgroundTaskProjection:
     retention_until: datetime
     budget: JsonObject
     usage: JsonObject
+    progress_watermark: int | None = None
+    latest_progress_order: int = 0
     lease_expires_at: datetime | None = None
     terminal_reason: str | None = None
     started_at: datetime | None = None
@@ -59,6 +61,7 @@ class BackgroundTaskProgressProjection:
     message: str
     at: datetime
     usage: JsonObject
+    order: int = 0
 
 
 class BackgroundTaskProjectionStore(Protocol):
@@ -119,7 +122,7 @@ async def materialize_background_task(
         limit=limit + 1 if limit < 256 else limit,
     )
     progress = progress_rows[:limit]
-    has_more = len(progress_rows) > limit
+    has_more = len(progress_rows) > limit or _terminal_progress_pending(task, progress)
     return ConversationResponse(
         body={
             "task_id": task_id,
@@ -165,6 +168,7 @@ async def open_background_task_stream(
     )
     progress = progress_rows[:100]
     has_more = len(progress_rows) > 100
+    progress_pending = _terminal_progress_pending(task, progress)
     events = [
         StreamEvent(
             event="progress",
@@ -173,7 +177,7 @@ async def open_background_task_stream(
         )
         for item in progress
     ]
-    if task.status in _TERMINAL_STATUSES and not has_more:
+    if task.status in _TERMINAL_STATUSES and not has_more and not progress_pending:
         events.append(
             StreamEvent(
                 event="terminal",
@@ -283,6 +287,21 @@ def _progress_json(progress: BackgroundTaskProgressProjection) -> JsonObject:
         "at": progress.at.isoformat(),
         "usage": progress.usage,
     }
+
+
+def _terminal_progress_pending(
+    task: BackgroundTaskProjection,
+    progress: tuple[BackgroundTaskProgressProjection, ...],
+) -> bool:
+    if task.status not in _TERMINAL_STATUSES:
+        return False
+    watermark = task.progress_watermark
+    if watermark is None:
+        return True
+    latest = task.latest_progress_order
+    for item in progress:
+        latest = max(latest, item.order)
+    return latest < watermark
 
 
 def _task_id(path_params: JsonObject) -> str:

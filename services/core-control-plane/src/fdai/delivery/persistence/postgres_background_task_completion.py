@@ -18,6 +18,9 @@ from fdai.core.background_task import (
     BackgroundTaskCompletionState,
     BackgroundTaskConflictError,
 )
+from fdai.delivery.persistence.postgres_background_task_projection_feed import (
+    enqueue_background_task_snapshot,
+)
 from fdai.delivery.persistence.postgres_background_task_serialization import (
     ATTEMPT_COLUMNS,
     COMPLETION_COLUMNS,
@@ -55,9 +58,11 @@ class PostgresBackgroundTaskCompletionDelivery:
                 ") UPDATE background_task_completion AS completion SET "
                 "state = %s, attempt_count = completion.attempt_count + 1, "
                 "lease_owner = %s, lease_token = %s, lease_expires_at = %s, "
+                "updated_at = %s, "
                 "last_error_code = NULL FROM candidate "
                 "WHERE completion.attempt_id = candidate.attempt_id "
-                f"RETURNING {qualified_completion_columns('completion')}",
+                f"RETURNING {qualified_completion_columns('completion')}, "
+                "completion.updated_at, completion.progress_watermark",
                 (
                     [
                         BackgroundTaskCompletionState.PENDING.value,
@@ -69,6 +74,7 @@ class PostgresBackgroundTaskCompletionDelivery:
                     coordinator,
                     lease_token,
                     now + timedelta(seconds=lease_seconds),
+                    now,
                 ),
             )
             completion_row = await cursor.fetchone()
@@ -81,7 +87,13 @@ class PostgresBackgroundTaskCompletionDelivery:
             attempt_row = await attempt_cursor.fetchone()
             if attempt_row is None:  # pragma: no cover - foreign key keeps it present
                 raise RuntimeError("background completion references a missing attempt")
-            return completion_from_row(completion_row), attempt_from_row(attempt_row)
+            attempt = attempt_from_row(attempt_row)
+            await enqueue_background_task_snapshot(
+                connection,
+                attempt,
+                completion=completion_row,
+            )
+            return completion_from_row(completion_row), attempt
 
     async def finish(
         self,
@@ -107,11 +119,13 @@ class PostgresBackgroundTaskCompletionDelivery:
                 cursor = await connection.execute(
                     "UPDATE background_task_completion SET "
                     "state = %s, lease_owner = NULL, lease_token = NULL, "
-                    "lease_expires_at = NULL, last_error_code = NULL, terminal_at = %s "
+                    "lease_expires_at = NULL, updated_at = %s, "
+                    "last_error_code = NULL, terminal_at = %s "
                     "WHERE attempt_id = %s RETURNING "
-                    f"{COMPLETION_COLUMNS}",
+                    f"{COMPLETION_COLUMNS}, updated_at, progress_watermark",
                     (
                         BackgroundTaskCompletionState.DELIVERED.value,
+                        now,
                         now,
                         attempt_id,
                     ),
@@ -128,9 +142,10 @@ class PostgresBackgroundTaskCompletionDelivery:
                 cursor = await connection.execute(
                     "UPDATE background_task_completion SET "
                     "state = %s, due_at = %s, lease_owner = NULL, lease_token = NULL, "
-                    "lease_expires_at = NULL, last_error_code = %s, terminal_at = %s "
+                    "lease_expires_at = NULL, updated_at = %s, "
+                    "last_error_code = %s, terminal_at = %s "
                     "WHERE attempt_id = %s RETURNING "
-                    f"{COMPLETION_COLUMNS}",
+                    f"{COMPLETION_COLUMNS}, updated_at, progress_watermark",
                     (
                         (
                             BackgroundTaskCompletionState.ABANDONED.value
@@ -138,6 +153,7 @@ class PostgresBackgroundTaskCompletionDelivery:
                             else BackgroundTaskCompletionState.FAILED.value
                         ),
                         min(retry_at, current.retention_until),
+                        now,
                         error_code,
                         now if abandon else None,
                         attempt_id,
@@ -146,6 +162,8 @@ class PostgresBackgroundTaskCompletionDelivery:
             row = await cursor.fetchone()
             if row is None:  # pragma: no cover - UPDATE RETURNING yields one row
                 raise RuntimeError("background completion update returned no row")
+            attempt = await self._attempt(connection, attempt_id)
+            await enqueue_background_task_snapshot(connection, attempt, completion=row)
             return completion_from_row(row)
 
     async def reconcile_expired(
@@ -187,9 +205,10 @@ class PostgresBackgroundTaskCompletionDelivery:
                     "state = %s, due_at = %s, "
                     "attempt_count = CASE WHEN %s THEN GREATEST(attempt_count, 1) "
                     "ELSE attempt_count END, lease_owner = NULL, lease_token = NULL, "
-                    "lease_expires_at = NULL, last_error_code = %s, terminal_at = %s "
+                    "lease_expires_at = NULL, updated_at = %s, "
+                    "last_error_code = %s, terminal_at = %s "
                     "WHERE attempt_id = %s RETURNING "
-                    f"{COMPLETION_COLUMNS}",
+                    f"{COMPLETION_COLUMNS}, updated_at, progress_watermark",
                     (
                         (
                             BackgroundTaskCompletionState.ABANDONED.value
@@ -198,6 +217,7 @@ class PostgresBackgroundTaskCompletionDelivery:
                         ),
                         min(now, current.retention_until),
                         abandon,
+                        now,
                         ("retention_expired" if now >= current.retention_until else "process_lost"),
                         now if abandon else None,
                         current.attempt_id,
@@ -206,6 +226,12 @@ class PostgresBackgroundTaskCompletionDelivery:
                 updated_row = await updated.fetchone()
                 if updated_row is None:  # pragma: no cover - row lock keeps it present
                     continue
+                attempt = await self._attempt(connection, current.attempt_id)
+                await enqueue_background_task_snapshot(
+                    connection,
+                    attempt,
+                    completion=updated_row,
+                )
                 reconciled.append(completion_from_row(updated_row))
         return tuple(reconciled)
 
@@ -259,8 +285,13 @@ class PostgresBackgroundTaskCompletionDelivery:
             raise ValueError("completion outbox requires a terminal attempt")
         await connection.execute(
             "INSERT INTO background_task_completion ("
-            f"{COMPLETION_COLUMNS}) VALUES ("
-            "%s, %s, %s, %s, GREATEST(%s, %s), %s, %s, %s, %s, %s, %s) "
+            "attempt_id, state, created_at, due_at, retention_until, updated_at, "
+            "attempt_count, lease_owner, lease_token, lease_expires_at, "
+            "last_error_code, terminal_at, progress_watermark"
+            ") VALUES ("
+            "%s, %s, %s, %s, GREATEST(%s, %s), %s, %s, %s, %s, %s, %s, %s, "
+            "COALESCE((SELECT MAX(append_order) FROM background_task_progress "
+            "WHERE attempt_id = %s), 0)) "
             "ON CONFLICT (attempt_id) DO NOTHING",
             (
                 attempt.attempt_id,
@@ -269,12 +300,14 @@ class PostgresBackgroundTaskCompletionDelivery:
                 now,
                 attempt.task.retention_until,
                 now,
+                now,
                 0,
                 None,
                 None,
                 None,
                 None,
                 None,
+                attempt.attempt_id,
             ),
         )
 
@@ -303,6 +336,20 @@ class PostgresBackgroundTaskCompletionDelivery:
         ):
             raise BackgroundTaskConflictError("background completion lease conflict")
         return current
+
+    async def _attempt(
+        self,
+        connection: Connection,
+        attempt_id: str,
+    ) -> BackgroundTaskAttempt:
+        cursor = await connection.execute(
+            f"SELECT {ATTEMPT_COLUMNS} FROM background_task_attempt WHERE attempt_id = %s",
+            (attempt_id,),
+        )
+        row = await cursor.fetchone()
+        if row is None:  # pragma: no cover - foreign key keeps it present
+            raise RuntimeError("background completion references a missing attempt")
+        return attempt_from_row(row)
 
 
 def _lease_input(coordinator: str, lease_token: str, now: datetime, lease_seconds: int) -> None:

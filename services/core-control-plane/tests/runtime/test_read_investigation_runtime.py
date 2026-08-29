@@ -88,6 +88,9 @@ def test_complete_binding_constructs_detached_and_interactive_coordinators() -> 
         type(binding.interactive_completion_store).__name__
         == "PostgresReadInvestigationCompletionStore"
     )
+    assert type(binding.background_task_projection_publisher).__name__ == (
+        "BackgroundTaskProjectionPublisher"
+    )
     assert type(binding.interactive_completion_publisher).__name__ == (
         "InteractiveReadInvestigationCompletionPublisher"
     )

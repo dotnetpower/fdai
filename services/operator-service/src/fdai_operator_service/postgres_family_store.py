@@ -104,6 +104,9 @@ _EFFECTIVE_LINKS_CTE: Final = (
 _BACKGROUND_TASK_STATUSES: Final = frozenset(
     {"queued", "claimed", "running", "succeeded", "failed", "cancelled", "timed_out", "unknown"}
 )
+_TERMINAL_BACKGROUND_TASK_STATUSES: Final = frozenset(
+    {"succeeded", "failed", "cancelled", "timed_out", "unknown"}
+)
 _BACKGROUND_COMPLETION_STATES: Final = frozenset(
     {"pending", "sending", "failed", "delivered", "abandoned"}
 )
@@ -200,39 +203,56 @@ SELECT (
     AND NOT has_table_privilege(current_user, 'conversation_turn', 'TRUNCATE')
     AND NOT has_table_privilege(current_user, 'conversation_turn', 'REFERENCES')
     AND NOT has_table_privilege(current_user, 'conversation_turn', 'TRIGGER')
-    AND has_table_privilege(current_user, 'background_task_attempt', 'SELECT')
+    AND NOT has_table_privilege(current_user, 'background_task_attempt', 'SELECT')
     AND NOT has_table_privilege(current_user, 'background_task_attempt', 'INSERT')
     AND NOT has_table_privilege(current_user, 'background_task_attempt', 'UPDATE')
     AND NOT has_table_privilege(current_user, 'background_task_attempt', 'DELETE')
     AND NOT has_table_privilege(current_user, 'background_task_attempt', 'TRUNCATE')
     AND NOT has_table_privilege(current_user, 'background_task_attempt', 'REFERENCES')
     AND NOT has_table_privilege(current_user, 'background_task_attempt', 'TRIGGER')
-    AND has_table_privilege(current_user, 'background_task_progress', 'SELECT')
+    AND NOT has_table_privilege(current_user, 'background_task_progress', 'SELECT')
     AND NOT has_table_privilege(current_user, 'background_task_progress', 'INSERT')
     AND NOT has_table_privilege(current_user, 'background_task_progress', 'UPDATE')
     AND NOT has_table_privilege(current_user, 'background_task_progress', 'DELETE')
     AND NOT has_table_privilege(current_user, 'background_task_progress', 'TRUNCATE')
     AND NOT has_table_privilege(current_user, 'background_task_progress', 'REFERENCES')
     AND NOT has_table_privilege(current_user, 'background_task_progress', 'TRIGGER')
-    AND has_table_privilege(current_user, 'background_task_completion', 'SELECT')
+    AND NOT has_table_privilege(current_user, 'background_task_completion', 'SELECT')
     AND NOT has_table_privilege(current_user, 'background_task_completion', 'INSERT')
     AND NOT has_table_privilege(current_user, 'background_task_completion', 'UPDATE')
     AND NOT has_table_privilege(current_user, 'background_task_completion', 'DELETE')
     AND NOT has_table_privilege(current_user, 'background_task_completion', 'TRUNCATE')
     AND NOT has_table_privilege(current_user, 'background_task_completion', 'REFERENCES')
     AND NOT has_table_privilege(current_user, 'background_task_completion', 'TRIGGER')
+    AND has_table_privilege(current_user, 'operator_background_task_projection', 'SELECT')
+    AND has_table_privilege(current_user, 'operator_background_task_projection', 'INSERT')
+    AND has_table_privilege(current_user, 'operator_background_task_projection', 'UPDATE')
+    AND has_table_privilege(current_user, 'operator_background_task_projection', 'DELETE')
+    AND NOT has_table_privilege(current_user, 'operator_background_task_projection', 'TRUNCATE')
+    AND NOT has_table_privilege(current_user, 'operator_background_task_projection', 'REFERENCES')
+    AND NOT has_table_privilege(current_user, 'operator_background_task_projection', 'TRIGGER')
+    AND has_table_privilege(current_user, 'operator_background_task_progress', 'SELECT')
+    AND has_table_privilege(current_user, 'operator_background_task_progress', 'INSERT')
+    AND NOT has_table_privilege(current_user, 'operator_background_task_progress', 'UPDATE')
+    AND has_table_privilege(current_user, 'operator_background_task_progress', 'DELETE')
+    AND NOT has_table_privilege(current_user, 'operator_background_task_progress', 'TRUNCATE')
+    AND NOT has_table_privilege(current_user, 'operator_background_task_progress', 'REFERENCES')
+    AND NOT has_table_privilege(current_user, 'operator_background_task_progress', 'TRIGGER')
     AND has_table_privilege(
         current_user, 'operator_read_investigation_completion', 'SELECT'
     )
     AND has_table_privilege(
         current_user, 'operator_read_investigation_completion', 'INSERT'
     )
+    AND NOT has_table_privilege(current_user, 'operator_read_investigation_completion', 'UPDATE')
+    AND has_table_privilege(current_user, 'operator_read_investigation_completion', 'DELETE')
     AND NOT has_table_privilege(
-        current_user, 'operator_read_investigation_completion', 'UPDATE'
+        current_user, 'operator_read_investigation_completion', 'TRUNCATE'
     )
     AND NOT has_table_privilege(
-        current_user, 'operator_read_investigation_completion', 'DELETE'
+        current_user, 'operator_read_investigation_completion', 'REFERENCES'
     )
+    AND NOT has_table_privilege(current_user, 'operator_read_investigation_completion', 'TRIGGER')
     AND has_sequence_privilege(
         current_user, 'operator_read_investigation_completion_sequence_seq', 'USAGE'
     )
@@ -553,40 +573,32 @@ class PostgresFamilyStore:
             _bounded_identifier("before_task_id", before_task_id)
         rows = await self._fetch_all(
             """
-            SELECT attempt.task_id, attempt.attempt_id,
-                   attempt.task ->> 'kind' AS task_kind,
-                   attempt.status, attempt.revision,
-                   attempt.created_at, attempt.updated_at, attempt.retention_until,
-                   attempt.lease_expires_at,
-                   attempt.task -> 'budget' AS budget,
-                   attempt.usage,
-                   LEFT(attempt.task ->> 'prompt', 500) AS request_summary,
-                   LENGTH(attempt.task ->> 'prompt') > 500 AS request_truncated,
-                   attempt.task ->> 'accountable_agent' AS accountable_agent,
-                   LEFT(attempt.result ->> 'summary', 2000) AS result_summary,
-                   LENGTH(attempt.result ->> 'summary') > 2000 AS result_truncated,
-                   ARRAY(
-                       SELECT evidence.value
-                         FROM jsonb_array_elements_text(
-                             COALESCE(attempt.result -> 'evidence_refs', '[]'::jsonb)
-                         ) WITH ORDINALITY AS evidence(value, ordinal)
-                        ORDER BY evidence.ordinal
-                        LIMIT 16
-                   ) AS evidence_refs,
-                   COALESCE(jsonb_array_length(attempt.result -> 'evidence_refs'), 0) > 16
-                       AS evidence_truncated,
-                   attempt.result ->> 'terminal_reason' AS terminal_reason,
-                   (attempt.result ->> 'started_at')::timestamptz AS started_at,
-                   (attempt.result ->> 'finished_at')::timestamptz AS finished_at,
-                   completion.state AS completion_state
-              FROM background_task_attempt AS attempt
-              LEFT JOIN background_task_completion AS completion
-                ON completion.attempt_id = attempt.attempt_id
-             WHERE attempt.owner_principal_id = %(owner_principal_id)s
+            SELECT task.task_id, task.attempt_id,
+                  task.task_kind,
+                  task.status, task.revision,
+                  task.created_at, task.updated_at, task.retention_until,
+                  task.lease_expires_at,
+                  task.budget,
+                  task.usage,
+                  task.request_summary,
+                  task.request_truncated,
+                  task.accountable_agent,
+                  task.result_summary,
+                  task.result_truncated,
+                  task.evidence_refs,
+                  task.evidence_truncated,
+                  task.terminal_reason,
+                  task.started_at,
+                  task.finished_at,
+                  task.completion_state,
+                  task.progress_watermark
+              FROM operator_background_task_projection AS task
+             WHERE task.principal_id = %(owner_principal_id)s
+               AND task.retention_until > CURRENT_TIMESTAMP
                AND (%(before_updated_at)s::timestamptz IS NULL
-                    OR (attempt.updated_at, attempt.task_id)
+                    OR (task.updated_at, task.task_id)
                        < (%(before_updated_at)s::timestamptz, %(before_task_id)s))
-             ORDER BY attempt.updated_at DESC, attempt.task_id DESC
+             ORDER BY task.updated_at DESC, task.task_id DESC
              LIMIT %(limit)s
             """,
             {
@@ -610,37 +622,39 @@ class PostgresFamilyStore:
         _bounded_identifier("task_id", task_id)
         rows = await self._fetch_all(
             """
-            SELECT attempt.task_id, attempt.attempt_id,
-                   attempt.task ->> 'kind' AS task_kind,
-                   attempt.status, attempt.revision,
-                   attempt.created_at, attempt.updated_at, attempt.retention_until,
-                   attempt.lease_expires_at,
-                   attempt.task -> 'budget' AS budget,
-                   attempt.usage,
-                   LEFT(attempt.task ->> 'prompt', 500) AS request_summary,
-                   LENGTH(attempt.task ->> 'prompt') > 500 AS request_truncated,
-                   attempt.task ->> 'accountable_agent' AS accountable_agent,
-                   LEFT(attempt.result ->> 'summary', 2000) AS result_summary,
-                   LENGTH(attempt.result ->> 'summary') > 2000 AS result_truncated,
-                   ARRAY(
-                       SELECT evidence.value
-                         FROM jsonb_array_elements_text(
-                             COALESCE(attempt.result -> 'evidence_refs', '[]'::jsonb)
-                         ) WITH ORDINALITY AS evidence(value, ordinal)
-                        ORDER BY evidence.ordinal
-                        LIMIT 16
-                   ) AS evidence_refs,
-                   COALESCE(jsonb_array_length(attempt.result -> 'evidence_refs'), 0) > 16
-                       AS evidence_truncated,
-                   attempt.result ->> 'terminal_reason' AS terminal_reason,
-                   (attempt.result ->> 'started_at')::timestamptz AS started_at,
-                   (attempt.result ->> 'finished_at')::timestamptz AS finished_at,
-                   completion.state AS completion_state
-              FROM background_task_attempt AS attempt
-              LEFT JOIN background_task_completion AS completion
-                ON completion.attempt_id = attempt.attempt_id
-             WHERE attempt.owner_principal_id = %(owner_principal_id)s
-               AND attempt.task_id = %(task_id)s
+            SELECT task.task_id, task.attempt_id,
+                   task.task_kind,
+                   task.status, task.revision,
+                   task.created_at, task.updated_at, task.retention_until,
+                   task.lease_expires_at,
+                   task.budget,
+                   task.usage,
+                   task.request_summary,
+                   task.request_truncated,
+                   task.accountable_agent,
+                   task.result_summary,
+                   task.result_truncated,
+                   task.evidence_refs,
+                   task.evidence_truncated,
+                   task.terminal_reason,
+                   task.started_at,
+                   task.finished_at,
+                   task.completion_state,
+                   task.progress_watermark,
+                   COALESCE(
+                       (
+                           SELECT MAX(progress.progress_order)
+                             FROM operator_background_task_progress AS progress
+                            WHERE progress.principal_id = %(owner_principal_id)s
+                              AND progress.task_id = task.task_id
+                              AND progress.retention_until > CURRENT_TIMESTAMP
+                       ),
+                       0
+                   ) AS latest_progress_order
+              FROM operator_background_task_projection AS task
+             WHERE task.principal_id = %(owner_principal_id)s
+               AND task.task_id = %(task_id)s
+               AND task.retention_until > CURRENT_TIMESTAMP
              LIMIT 1
             """,
             {"owner_principal_id": owner_principal_id, "task_id": task_id},
@@ -665,15 +679,18 @@ class PostgresFamilyStore:
             raise ValueError("background task progress limit MUST be in [1, 256]")
         rows = await self._fetch_all(
             """
-            SELECT progress.sequence, progress.kind, progress.message,
-                   progress.at, progress.usage
-              FROM background_task_progress AS progress
-              JOIN background_task_attempt AS attempt
-                ON attempt.attempt_id = progress.attempt_id
-               AND attempt.owner_principal_id = %(owner_principal_id)s
-               AND attempt.task_id = %(task_id)s
-             WHERE progress.sequence > %(after_sequence)s
-             ORDER BY progress.sequence ASC
+            SELECT progress.progress_sequence AS sequence,
+                   progress.progress_order AS progress_order,
+                   progress.progress_kind AS kind,
+                   progress.progress_message AS message,
+                   progress.progress_at AS at,
+                   progress.usage
+              FROM operator_background_task_progress AS progress
+             WHERE progress.principal_id = %(owner_principal_id)s
+               AND progress.task_id = %(task_id)s
+               AND progress.retention_until > CURRENT_TIMESTAMP
+               AND progress.progress_sequence > %(after_sequence)s
+             ORDER BY progress.progress_sequence ASC
              LIMIT %(limit)s
             """,
             {
@@ -2515,6 +2532,11 @@ def _background_task_projection(row: Mapping[str, object]) -> BackgroundTaskProj
     completion_state = _optional_row_text(row, "completion_state")
     if completion_state is not None and completion_state not in _BACKGROUND_COMPLETION_STATES:
         raise PostgresFamilyStoreUnavailable("background task completion_state is malformed")
+    progress_watermark = _optional_row_integer(row, "progress_watermark", minimum=0)
+    if task_status in _TERMINAL_BACKGROUND_TASK_STATUSES and progress_watermark is None:
+        raise PostgresFamilyStoreUnavailable("background task progress_watermark is malformed")
+    if task_status not in _TERMINAL_BACKGROUND_TASK_STATUSES and progress_watermark is not None:
+        raise PostgresFamilyStoreUnavailable("background task progress_watermark is malformed")
     accountable_agent = _optional_row_text(row, "accountable_agent")
     if accountable_agent is not None and accountable_agent != "Heimdall":
         raise PostgresFamilyStoreUnavailable("background task accountable_agent is malformed")
@@ -2529,6 +2551,13 @@ def _background_task_projection(row: Mapping[str, object]) -> BackgroundTaskProj
         updated_at=_stored_timestamp(row.get("updated_at"), label="background task update"),
         retention_until=_stored_timestamp(
             row.get("retention_until"), label="background task retention"
+        ),
+        progress_watermark=progress_watermark,
+        latest_progress_order=_row_integer_or_default(
+            row,
+            "latest_progress_order",
+            default=0,
+            minimum=0,
         ),
         lease_expires_at=_optional_timestamp(row.get("lease_expires_at")),
         budget=cast(JsonObject, _json_object(row.get("budget"), label="background task budget")),
@@ -2563,6 +2592,7 @@ def _background_task_progress(
 ) -> BackgroundTaskProgressProjection:
     return BackgroundTaskProgressProjection(
         sequence=_required_row_integer(row, "sequence", minimum=0),
+        order=_row_integer_or_default(row, "progress_order", default=0, minimum=0),
         kind=_required_row_text(row, "kind"),
         message=_required_row_text(row, "message", maximum=1_000),
         at=_stored_timestamp(row.get("at"), label="background task progress"),
@@ -2611,6 +2641,35 @@ def _required_row_integer(
     minimum: int = 1,
 ) -> int:
     value = row.get(field)
+    if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+        raise PostgresFamilyStoreUnavailable(f"background task {field} is malformed")
+    return value
+
+
+def _optional_row_integer(
+    row: Mapping[str, object],
+    field: str,
+    *,
+    minimum: int = 0,
+) -> int | None:
+    value = row.get(field)
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+        raise PostgresFamilyStoreUnavailable(f"background task {field} is malformed")
+    return value
+
+
+def _row_integer_or_default(
+    row: Mapping[str, object],
+    field: str,
+    *,
+    default: int,
+    minimum: int = 0,
+) -> int:
+    value = row.get(field)
+    if value is None:
+        return default
     if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
         raise PostgresFamilyStoreUnavailable(f"background task {field} is malformed")
     return value

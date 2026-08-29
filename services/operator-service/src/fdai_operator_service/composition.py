@@ -28,6 +28,9 @@ from fdai_operator_service.adapters.narrator_periodic_scheduler import (
 )
 from fdai_operator_service.auth import EntraJwtVerifier, OperatorAuthenticator
 from fdai_operator_service.azure_monitor_webhook_runtime import AzureMonitorWebhookBridge
+from fdai_operator_service.background_task_projection_runtime import (
+    BackgroundTaskProjectionBridge,
+)
 from fdai_operator_service.contracts import ApplicationLifecycle, ReadinessProbe
 from fdai_operator_service.conversation_assurance_reader import (
     ConversationAssuranceReader,
@@ -59,6 +62,10 @@ from fdai_operator_service.family_authorization import OperatorFamilyAuthorizer
 from fdai_operator_service.postgres import (
     PostgresOperatorReadModel,
     PostgresOperatorReadModelConfig,
+)
+from fdai_operator_service.postgres_background_task_projection import (
+    PostgresBackgroundTaskProjectionConfig,
+    PostgresBackgroundTaskProjectionRepository,
 )
 from fdai_operator_service.postgres_cost_governance import (
     PostgresCostGovernanceConfig,
@@ -192,6 +199,26 @@ class ProductionOperatorComposition:
             and environment.read_investigation_request_topic is not None
             else None
         )
+        background_task_projection_bridge = (
+            BackgroundTaskProjectionBridge(
+                store=PostgresBackgroundTaskProjectionRepository(
+                    config=PostgresBackgroundTaskProjectionConfig(
+                        dsn=environment.database_url,
+                        statement_timeout_ms=environment.database_statement_timeout_ms,
+                        connect_timeout_s=environment.database_connect_timeout_s,
+                    )
+                ),
+                source=semantic_bus,
+                publisher=semantic_bus,
+                topic=environment.background_task_projection_topic,
+                group_id=environment.background_task_projection_consumer_group_id,
+            )
+            if environment.database_url is not None
+            and semantic_bus is not None
+            and environment.background_task_projection_topic is not None
+            and environment.background_task_projection_consumer_group_id is not None
+            else None
+        )
         read_investigation_completion_bridge = (
             ReadInvestigationCompletionBridge(
                 store=PostgresReadInvestigationCompletionRepository(
@@ -263,6 +290,7 @@ class ProductionOperatorComposition:
                 semantic_bus,
                 semantic_bridge,
                 read_investigation_bridge,
+                background_task_projection_bridge,
                 read_investigation_completion_bridge,
                 action_confirmation_bridge,
                 azure_monitor_webhook_bridge,
@@ -273,6 +301,7 @@ class ProductionOperatorComposition:
             lifecycle=_application_lifecycle(
                 semantic_bridge,
                 read_investigation_bridge,
+                background_task_projection_bridge,
                 read_investigation_completion_bridge,
                 action_confirmation_bridge,
                 azure_monitor_webhook_bridge,
@@ -524,6 +553,7 @@ def _build_semantic_bus(environment: OperatorEnvironment) -> OperatorSemanticKaf
             or "core.semantic-turn.projections",
             read_investigation_topic=environment.read_investigation_request_topic,
             read_investigation_completion_topic=(environment.read_investigation_completion_topic),
+            background_task_projection_topic=environment.background_task_projection_topic,
             event_topic=environment.values.get("KAFKA_TOPIC_EVENTS", "").strip() or None,
             physical_topic=environment.semantic_physical_topic,
             client_id=environment.semantic_kafka_client_id,
@@ -594,6 +624,7 @@ class _CompositeLifecycle:
 def _application_lifecycle(
     bridge: SemanticTurnBridge | None,
     read_investigation_bridge: ReadInvestigationBridge | None,
+    background_task_projection_bridge: BackgroundTaskProjectionBridge | None,
     read_investigation_completion_bridge: ReadInvestigationCompletionBridge | None,
     action_confirmation_bridge: ActionConfirmationBridge | None,
     azure_monitor_webhook_bridge: AzureMonitorWebhookBridge | None,
@@ -607,6 +638,7 @@ def _application_lifecycle(
             bus,
             bridge,
             read_investigation_bridge,
+            background_task_projection_bridge,
             read_investigation_completion_bridge,
             action_confirmation_bridge,
             azure_monitor_webhook_bridge,
@@ -627,6 +659,7 @@ def _readiness_probe(
     bus: OperatorSemanticKafkaBus | None,
     bridge: SemanticTurnBridge | None,
     read_investigation_bridge: ReadInvestigationBridge | None,
+    background_task_projection_bridge: BackgroundTaskProjectionBridge | None,
     read_investigation_completion_bridge: ReadInvestigationCompletionBridge | None,
     action_confirmation_bridge: ActionConfirmationBridge | None,
     azure_monitor_webhook_bridge: AzureMonitorWebhookBridge | None,
@@ -643,6 +676,10 @@ def _readiness_probe(
             and await bus.probe_readiness()
             and (bridge is None or bridge.workers_ready())
             and (read_investigation_bridge is None or read_investigation_bridge.workers_ready())
+            and (
+                background_task_projection_bridge is None
+                or background_task_projection_bridge.workers_ready()
+            )
             and (
                 read_investigation_completion_bridge is None
                 or read_investigation_completion_bridge.workers_ready()

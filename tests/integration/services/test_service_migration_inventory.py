@@ -38,10 +38,11 @@ SERVICE_IDS = (
 def test_legacy_migration_inventory_is_linear_and_complete() -> None:
     inventory = inventory_module.load_legacy_inventory(REPO_ROOT / "alembic" / "versions")
 
-    assert len(inventory.down_revisions) == 89
-    assert inventory.heads == ("20260826_0087",)
-    assert len(inventory.table_sources) == 103
+    assert len(inventory.down_revisions) == 90
+    assert inventory.heads == ("20260829_0088",)
+    assert len(inventory.table_sources) == 104
     assert "IF" not in inventory.table_sources
+    assert inventory.table_sources["background_task_projection_outbox"] == ("20260829_0088",)
     assert inventory.table_sources["document_worker_claim"] == ("20260806_0075",)
     assert inventory.table_sources["case_history_migration_state"] == (
         "20260723_0054",
@@ -81,6 +82,8 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
         "cost_observation",
         "cost_access_grant",
         "cost_disclosure_ceiling",
+        "operator_background_task_progress",
+        "operator_background_task_projection",
         "operator_read_investigation_completion",
         "operator_incident_projection",
         "kubernetes_lifecycle_cursor",

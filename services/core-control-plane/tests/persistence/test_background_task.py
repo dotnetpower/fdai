@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import subprocess
 import sys
@@ -27,9 +28,19 @@ from fdai.core.background_task import (
     BackgroundTaskUsage,
 )
 from fdai.delivery.persistence import (
+    PostgresBackgroundTaskProjectionFeed,
+    PostgresBackgroundTaskProjectionFeedConfig,
     PostgresBackgroundTaskStore,
     PostgresBackgroundTaskStoreConfig,
 )
+from fdai_service_contracts.background_task_projection import (
+    BackgroundTaskProjectionBudget,
+    BackgroundTaskProjectionEnvelope,
+    BackgroundTaskProjectionUsage,
+    build_background_task_progress,
+    build_background_task_snapshot,
+)
+from psycopg.rows import dict_row
 
 _ROOT = Path(__file__).resolve().parents[4]
 _NOW = datetime(2026, 7, 20, 12, tzinfo=UTC)
@@ -73,6 +84,46 @@ def _store(dsn: str) -> BackgroundTaskStore:
     )
     protocol_store: BackgroundTaskStore = store
     return protocol_store
+
+
+def _projection_outbox(dsn: str) -> PostgresBackgroundTaskProjectionFeed:
+    return PostgresBackgroundTaskProjectionFeed(
+        config=PostgresBackgroundTaskProjectionFeedConfig(dsn=dsn),
+    )
+
+
+async def _insert_projection_outbox_row(
+    connection: psycopg.AsyncConnection[dict[str, object]],
+    record: BackgroundTaskProjectionEnvelope,
+) -> None:
+    await connection.execute(
+        """
+        INSERT INTO background_task_projection_outbox (
+            projection_id,
+            task_id,
+            attempt_id,
+            record_kind,
+            projection_sequence,
+            progress_sequence,
+            progress_order,
+            progress_watermark,
+            retention_until,
+            payload
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)
+        """,
+        (
+            record.projection_id,
+            record.task_id,
+            record.attempt_id,
+            record.record_kind,
+            record.projection_sequence,
+            record.progress_sequence,
+            record.progress_order,
+            record.progress_watermark,
+            record.retention_until,
+            json.dumps(record.model_dump(mode="json"), separators=(",", ":")),
+        ),
+    )
 
 
 def _task(
@@ -214,9 +265,11 @@ async def test_postgres_creation_audit_fences_claim_until_marked(
         config=PostgresBackgroundTaskStoreConfig(dsn=database_url),
         clock=lambda: _NOW,
     )
-    await store.create(task, requires_creation_audit=True)
+    created, was_created = await store.create(task, requires_creation_audit=True)
 
     assert await store.creation_audited(task.task_id) is False
+    assert was_created is True
+    assert created.revision == 1
     assert (
         await store.claim_next(
             coordinator="coordinator:audit-fence",
@@ -227,16 +280,21 @@ async def test_postgres_creation_audit_fences_claim_until_marked(
         is None
     )
 
-    await store.mark_creation_audited(task.task_id, now=_NOW)
+    audited = await store.mark_creation_audited(task.task_id, now=_NOW + timedelta(seconds=1))
+    repeat = await store.mark_creation_audited(task.task_id, now=_NOW + timedelta(seconds=2))
+    assert audited.revision == 2
+    assert audited.updated_at == _NOW + timedelta(seconds=1)
+    assert repeat == audited
     claimed = await store.claim_next(
         coordinator="coordinator:audit-fence",
         lease_token="lease:audit-fence:allowed",
-        now=_NOW,
+        now=_NOW + timedelta(seconds=3),
         lease_seconds=30,
     )
 
     assert claimed is not None
     assert claimed.task.task_id == task.task_id
+    assert claimed.revision == audited.revision + 1
 
 
 @pytest.mark.integration
@@ -439,6 +497,411 @@ async def test_progress_sequence_budget_and_owner_scope(database_url: str) -> No
                 usage=second.usage,
             )
         )
+
+
+@pytest.mark.integration
+async def test_progress_append_order_and_terminal_watermark_are_persisted(
+    database_url: str,
+) -> None:
+    task = _task(f"background-progress-watermark-{uuid.uuid4().hex}")
+    store = _store(database_url)
+    await store.create(task)
+    claimed = await store.claim_next(
+        coordinator="coordinator:progress-watermark",
+        lease_token="lease:progress-watermark",
+        now=_NOW,
+        lease_seconds=30,
+    )
+    assert claimed is not None
+    running = await store.start(
+        claimed.attempt_id,
+        expected_revision=claimed.revision,
+        lease_token="lease:progress-watermark",
+        now=_NOW + timedelta(seconds=1),
+    )
+    first = BackgroundTaskProgress(
+        attempt_id=running.attempt_id,
+        sequence=0,
+        kind="investigation.started",
+        message="Started bounded evidence collection.",
+        at=_NOW + timedelta(seconds=2),
+        usage=BackgroundTaskUsage(),
+    )
+    second = BackgroundTaskProgress(
+        attempt_id=running.attempt_id,
+        sequence=1,
+        kind="investigation.progress",
+        message="Captured the terminal dependency evidence.",
+        at=_NOW + timedelta(seconds=3),
+        usage=BackgroundTaskUsage(tool_calls=1),
+    )
+
+    await store.append_progress(first)
+    await store.append_progress(second)
+    result = _result(
+        started_at=running.updated_at,
+        finished_at=_NOW + timedelta(seconds=4),
+    )
+    await store.complete(
+        running.attempt_id,
+        expected_revision=running.revision,
+        lease_token="lease:progress-watermark",
+        status=BackgroundTaskStatus.SUCCEEDED,
+        result=result,
+        now=result.finished_at,
+    )
+
+    async with await psycopg.AsyncConnection.connect(
+        database_url,
+        row_factory=dict_row,
+    ) as connection:
+        progress_cursor = await connection.execute(
+            "SELECT sequence, append_order FROM background_task_progress "
+            "WHERE attempt_id = %s ORDER BY sequence ASC",
+            (running.attempt_id,),
+        )
+        progress_rows = list(await progress_cursor.fetchall())
+        completion_cursor = await connection.execute(
+            "SELECT progress_watermark FROM background_task_completion WHERE attempt_id = %s",
+            (running.attempt_id,),
+        )
+        completion_row = await completion_cursor.fetchone()
+        outbox_cursor = await connection.execute(
+            "SELECT record_kind, projection_sequence, progress_sequence, progress_order, "
+            "progress_watermark, payload "
+            "FROM background_task_projection_outbox WHERE attempt_id = %s "
+            "ORDER BY outbox_sequence ASC",
+            (running.attempt_id,),
+        )
+        outbox_rows = list(await outbox_cursor.fetchall())
+
+    assert [row["sequence"] for row in progress_rows] == [0, 1]
+    assert [row["append_order"] for row in progress_rows] == sorted(
+        row["append_order"] for row in progress_rows
+    )
+    assert completion_row is not None
+    assert completion_row["progress_watermark"] == progress_rows[-1]["append_order"]
+    assert [row["record_kind"] for row in outbox_rows] == [
+        "snapshot",
+        "snapshot",
+        "snapshot",
+        "progress",
+        "progress",
+        "snapshot",
+    ]
+    assert [
+        row["projection_sequence"] for row in outbox_rows if row["record_kind"] == "snapshot"
+    ] == [100, 200, 300, 401]
+    assert [
+        row["progress_sequence"] for row in outbox_rows if row["record_kind"] == "progress"
+    ] == [0, 1]
+    assert [row["progress_order"] for row in outbox_rows if row["record_kind"] == "progress"] == [
+        progress_rows[0]["append_order"],
+        progress_rows[1]["append_order"],
+    ]
+    terminal_payload = BackgroundTaskProjectionEnvelope.model_validate(outbox_rows[-1]["payload"])
+    assert terminal_payload.record_kind == "snapshot"
+    assert terminal_payload.progress_watermark == progress_rows[-1]["append_order"]
+
+
+@pytest.mark.integration
+async def test_projection_outbox_replays_unacked_rows_and_skips_expired_data(
+    database_url: str,
+) -> None:
+    active_task = _task(f"background-projection-replay-active-{uuid.uuid4().hex}")
+    expired_task = replace(
+        _task(f"background-projection-replay-expired-{uuid.uuid4().hex}"),
+        created_at=_NOW - timedelta(days=2),
+        retention_until=_NOW - timedelta(days=1),
+    )
+    active_attempt, _ = await _store(database_url).create(active_task)
+    await _store(database_url).create(expired_task)
+    outbox = _projection_outbox(database_url)
+
+    claimed = await outbox.claim_batch(
+        worker_id="projection-worker",
+        lease_token="projection-lease-1",
+        now=_NOW,
+        lease_seconds=1,
+        limit=10,
+    )
+    assert [item.task_id for item in claimed] == [active_task.task_id]
+    assert claimed[0].projection_id.startswith("background-task-snapshot-")
+    assert claimed[0].attempt_id == active_attempt.attempt_id
+
+    assert (
+        await outbox.claim_batch(
+            worker_id="projection-worker",
+            lease_token="projection-lease-2",
+            now=_NOW,
+            lease_seconds=1,
+            limit=10,
+        )
+        == ()
+    )
+
+    replayed = await outbox.claim_batch(
+        worker_id="projection-worker",
+        lease_token="projection-lease-3",
+        now=_NOW + timedelta(seconds=2),
+        lease_seconds=1,
+        limit=10,
+    )
+    assert [item.projection_id for item in replayed] == [claimed[0].projection_id]
+
+
+@pytest.mark.integration
+async def test_projection_outbox_blocks_terminal_snapshot_until_progress_is_published(
+    database_url: str,
+) -> None:
+    task = _task(f"background-projection-order-{uuid.uuid4().hex}")
+    attempt, _ = await _store(database_url).create(task)
+    progress = build_background_task_progress(
+        task_id=task.task_id,
+        owner_principal_id=task.owner_principal_id,
+        attempt_id=attempt.attempt_id,
+        progress_sequence=0,
+        progress_order=7,
+        progress_kind="investigation.progress",
+        progress_message="Collected the final bounded evidence.",
+        progress_at=_NOW + timedelta(seconds=1),
+        retention_until=task.retention_until,
+        usage=BackgroundTaskProjectionUsage(tokens=1),
+    )
+    terminal = build_background_task_snapshot(
+        task_id=task.task_id,
+        owner_principal_id=task.owner_principal_id,
+        attempt_id=attempt.attempt_id,
+        task_kind="read_only_investigation",
+        status="succeeded",
+        revision=4,
+        created_at=task.created_at,
+        updated_at=_NOW + timedelta(seconds=2),
+        retention_until=task.retention_until,
+        recorded_at=_NOW + timedelta(seconds=2),
+        budget=BackgroundTaskProjectionBudget(
+            max_wall_seconds=task.budget.max_wall_seconds,
+            max_tokens=task.budget.max_tokens,
+            max_cost_microusd=task.budget.max_cost_microusd,
+            max_tool_calls=task.budget.max_tool_calls,
+            max_progress_events=task.budget.max_progress_events,
+        ),
+        usage=BackgroundTaskProjectionUsage(tokens=1),
+        request_summary=task.prompt,
+        request_truncated=False,
+        result_summary="Investigation completed.",
+        result_truncated=False,
+        evidence_refs=(),
+        evidence_truncated=False,
+        terminal_reason="completed",
+        started_at=_NOW,
+        finished_at=_NOW + timedelta(seconds=2),
+        completion_state="pending",
+        completion_attempt_count=0,
+        progress_watermark=7,
+    )
+
+    async with (
+        await psycopg.AsyncConnection.connect(
+            database_url,
+            row_factory=dict_row,
+        ) as connection,
+        connection.transaction(),
+    ):
+        await connection.execute(
+            "DELETE FROM background_task_projection_outbox WHERE attempt_id = %s",
+            (attempt.attempt_id,),
+        )
+        await _insert_projection_outbox_row(connection, terminal)
+        await _insert_projection_outbox_row(connection, progress)
+
+    outbox = _projection_outbox(database_url)
+    first_claim = await outbox.claim_batch(
+        worker_id="projection-worker",
+        lease_token="projection-order-1",
+        now=_NOW + timedelta(seconds=3),
+        lease_seconds=30,
+        limit=10,
+    )
+    assert [item.projection_id for item in first_claim] == [progress.projection_id]
+    assert first_claim[0].outbox_sequence > 0
+    assert await outbox.acknowledge(
+        progress.projection_id,
+        lease_token="projection-order-1",
+        published_at=_NOW + timedelta(seconds=3),
+    )
+
+    second_claim = await outbox.claim_batch(
+        worker_id="projection-worker",
+        lease_token="projection-order-2",
+        now=_NOW + timedelta(seconds=4),
+        lease_seconds=30,
+        limit=10,
+    )
+    assert [item.projection_id for item in second_claim] == [terminal.projection_id]
+
+
+@pytest.mark.integration
+async def test_projection_outbox_never_skips_late_commit_with_smaller_sequence(
+    database_url: str,
+) -> None:
+    first_task = _task(f"background-projection-reorder-a-{uuid.uuid4().hex}")
+    second_task = _task(f"background-projection-reorder-b-{uuid.uuid4().hex}")
+    first_attempt, _ = await _store(database_url).create(first_task)
+    second_attempt, _ = await _store(database_url).create(second_task)
+    first_record = build_background_task_progress(
+        task_id=first_task.task_id,
+        owner_principal_id=first_task.owner_principal_id,
+        attempt_id=first_attempt.attempt_id,
+        progress_sequence=0,
+        progress_order=10,
+        progress_kind="investigation.progress",
+        progress_message="First transaction inserted earlier but committed later.",
+        progress_at=_NOW + timedelta(seconds=1),
+        retention_until=first_task.retention_until,
+        usage=BackgroundTaskProjectionUsage(tokens=1),
+    )
+    second_record = build_background_task_progress(
+        task_id=second_task.task_id,
+        owner_principal_id=second_task.owner_principal_id,
+        attempt_id=second_attempt.attempt_id,
+        progress_sequence=0,
+        progress_order=11,
+        progress_kind="investigation.progress",
+        progress_message="Second transaction committed before the smaller queue key.",
+        progress_at=_NOW + timedelta(seconds=2),
+        retention_until=second_task.retention_until,
+        usage=BackgroundTaskProjectionUsage(tokens=2),
+    )
+
+    async with await psycopg.AsyncConnection.connect(
+        database_url,
+        row_factory=dict_row,
+    ) as cleanup:
+        await cleanup.execute(
+            "DELETE FROM background_task_projection_outbox WHERE attempt_id = ANY(%s)",
+            ([first_attempt.attempt_id, second_attempt.attempt_id],),
+        )
+
+    first_connection = await psycopg.AsyncConnection.connect(
+        database_url,
+        row_factory=dict_row,
+    )
+    second_connection = await psycopg.AsyncConnection.connect(
+        database_url,
+        row_factory=dict_row,
+    )
+    try:
+        await first_connection.execute("BEGIN")
+        await second_connection.execute("BEGIN")
+        await _insert_projection_outbox_row(first_connection, first_record)
+        await _insert_projection_outbox_row(second_connection, second_record)
+        await second_connection.commit()
+
+        outbox = _projection_outbox(database_url)
+        first_claim = await outbox.claim_batch(
+            worker_id="projection-worker",
+            lease_token="projection-reorder-1",
+            now=_NOW + timedelta(seconds=3),
+            lease_seconds=30,
+            limit=10,
+        )
+        assert [item.projection_id for item in first_claim] == [second_record.projection_id]
+        assert await outbox.acknowledge(
+            second_record.projection_id,
+            lease_token="projection-reorder-1",
+            published_at=_NOW + timedelta(seconds=3),
+        )
+
+        await first_connection.commit()
+
+        second_claim = await outbox.claim_batch(
+            worker_id="projection-worker",
+            lease_token="projection-reorder-2",
+            now=_NOW + timedelta(seconds=4),
+            lease_seconds=30,
+            limit=10,
+        )
+        assert [item.projection_id for item in second_claim] == [first_record.projection_id]
+    finally:
+        await second_connection.close()
+        await first_connection.close()
+
+
+@pytest.mark.integration
+async def test_postgres_rejects_progress_after_terminal_completion(
+    database_url: str,
+) -> None:
+    task = _task(f"background-post-terminal-progress-{uuid.uuid4().hex}")
+    store = _store(database_url)
+    await store.create(task)
+    claimed = await store.claim_next(
+        coordinator="coordinator:post-terminal-progress",
+        lease_token="lease:post-terminal-progress",
+        now=_NOW,
+        lease_seconds=30,
+    )
+    assert claimed is not None
+    running = await store.start(
+        claimed.attempt_id,
+        expected_revision=claimed.revision,
+        lease_token="lease:post-terminal-progress",
+        now=_NOW + timedelta(seconds=1),
+    )
+    first = BackgroundTaskProgress(
+        attempt_id=running.attempt_id,
+        sequence=0,
+        kind="investigation.started",
+        message="Started bounded evidence collection.",
+        at=_NOW + timedelta(seconds=2),
+        usage=BackgroundTaskUsage(),
+    )
+    assert await store.append_progress(first) == first
+    result = _result(
+        started_at=running.updated_at,
+        finished_at=_NOW + timedelta(seconds=3),
+    )
+    await store.complete(
+        running.attempt_id,
+        expected_revision=running.revision,
+        lease_token="lease:post-terminal-progress",
+        status=BackgroundTaskStatus.SUCCEEDED,
+        result=result,
+        now=result.finished_at,
+    )
+
+    with pytest.raises(BackgroundTaskConflictError, match="terminal state"):
+        await store.append_progress(
+            BackgroundTaskProgress(
+                attempt_id=running.attempt_id,
+                sequence=1,
+                kind="investigation.completed",
+                message="Tried to append after completion.",
+                at=_NOW + timedelta(seconds=4),
+                usage=BackgroundTaskUsage(tokens=1),
+            )
+        )
+
+    async with await psycopg.AsyncConnection.connect(
+        database_url,
+        row_factory=dict_row,
+    ) as connection:
+        progress_cursor = await connection.execute(
+            "SELECT COUNT(*) AS event_count, MAX(append_order) AS max_append_order "
+            "FROM background_task_progress WHERE attempt_id = %s",
+            (running.attempt_id,),
+        )
+        progress_row = await progress_cursor.fetchone()
+        completion_cursor = await connection.execute(
+            "SELECT progress_watermark FROM background_task_completion WHERE attempt_id = %s",
+            (running.attempt_id,),
+        )
+        completion_row = await completion_cursor.fetchone()
+
+    assert progress_row is not None
+    assert progress_row["event_count"] == 1
+    assert completion_row is not None
+    assert completion_row["progress_watermark"] == progress_row["max_append_order"]
 
 
 @pytest.mark.integration

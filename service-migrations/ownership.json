@@ -94,9 +94,9 @@
     }
   ],
   "legacy_inventory": {
-    "head": "20260826_0087",
-    "revision_count": 89,
-    "table_count": 103
+    "head": "20260829_0088",
+    "revision_count": 90,
+    "table_count": 104
   },
   "table_migrations": {
     "core-control-plane": [
@@ -181,6 +181,7 @@
       "background_task_attempt",
       "background_task_completion",
       "background_task_progress",
+      "background_task_projection_outbox",
       "briefing_run",
       "briefing_subscription",
       "browser_evidence_artifact",
@@ -212,6 +213,8 @@
       "model_health_transition",
       "operator_memory",
       "operator_memory_proposal",
+      "operator_background_task_projection",
+      "operator_background_task_progress",
       "operator_read_investigation_completion",
       "cost_access_grant",
       "cost_disclosure_ceiling",
@@ -337,6 +340,7 @@
       "background_task_attempt",
       "background_task_completion",
       "background_task_progress",
+      "background_task_projection_outbox",
       "briefing_run",
       "briefing_subscription",
       "browser_evidence_artifact",
@@ -368,6 +372,8 @@
       "model_health_transition",
       "operator_memory",
       "operator_memory_proposal",
+      "operator_background_task_projection",
+      "operator_background_task_progress",
       "operator_read_investigation_completion",
       "cost_access_grant",
       "cost_disclosure_ceiling",

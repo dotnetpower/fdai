@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import cast
 
@@ -16,6 +17,7 @@ from fdai_operator_service.families.conversation.contracts import (
     ConversationBoundaryError,
     ConversationQuery,
     ConversationStreamRequest,
+    JsonObject,
     PrincipalScope,
 )
 from fdai_operator_service.family_adapters import PostgresConversationAdapters
@@ -28,7 +30,12 @@ from fdai_operator_service.postgres_family_store import (
 NOW = datetime(2026, 8, 23, 5, 0, tzinfo=UTC)
 
 
-def _task(task_id: str, *, owner: str = "principal-a", terminal: bool = False):
+def _task(
+    task_id: str,
+    *,
+    owner: str = "principal-a",
+    terminal: bool = False,
+) -> BackgroundTaskProjection:
     del owner
     return BackgroundTaskProjection(
         task_id=task_id,
@@ -41,6 +48,8 @@ def _task(task_id: str, *, owner: str = "principal-a", terminal: bool = False):
         retention_until=NOW + timedelta(days=30),
         budget={"max_wall_seconds": 300},
         usage={"tokens": 10, "cost_microusd": 20, "tool_calls": 1},
+        progress_watermark=2 if terminal else None,
+        latest_progress_order=2 if terminal else 0,
         request_summary="Investigate the latency regression after the rollout.",
         accountable_agent="Heimdall",
         result_summary="The rollout correlates with elevated dependency latency."
@@ -56,27 +65,34 @@ def _task(task_id: str, *, owner: str = "principal-a", terminal: bool = False):
 
 class _Store:
     def __init__(self) -> None:
-        self.tasks = {
+        self.tasks: dict[tuple[str, str], BackgroundTaskProjection] = {
             ("principal-a", "task-a"): _task("task-a"),
             ("principal-a", "task-done"): _task("task-done", terminal=True),
             ("principal-b", "task-private"): _task("task-private"),
         }
 
-    async def list_background_tasks(self, **kwargs: object):
+    async def list_background_tasks(
+        self,
+        **kwargs: object,
+    ) -> tuple[BackgroundTaskProjection, ...]:
         owner = str(kwargs["owner_principal_id"])
-        limit = int(kwargs["limit"])
+        limit = cast(int, kwargs["limit"])
         return tuple(task for (principal, _), task in self.tasks.items() if principal == owner)[
             :limit
         ]
 
-    async def read_background_task(self, **kwargs: object):
+    async def read_background_task(self, **kwargs: object) -> BackgroundTaskProjection | None:
         return self.tasks.get((str(kwargs["owner_principal_id"]), str(kwargs["task_id"])))
 
-    async def read_background_task_progress(self, **kwargs: object):
-        after = int(kwargs["after_sequence"])
+    async def read_background_task_progress(
+        self,
+        **kwargs: object,
+    ) -> tuple[BackgroundTaskProgressProjection, ...]:
+        after = cast(int, kwargs["after_sequence"])
         events = (
             BackgroundTaskProgressProjection(
                 sequence=0,
+                order=1,
                 kind="investigation.started",
                 message="Investigation started.",
                 at=NOW - timedelta(seconds=4),
@@ -84,6 +100,7 @@ class _Store:
             ),
             BackgroundTaskProgressProjection(
                 sequence=1,
+                order=2,
                 kind="investigation.completed",
                 message="Investigation completed.",
                 at=NOW,
@@ -93,12 +110,17 @@ class _Store:
         return tuple(event for event in events if event.sequence > after)
 
 
-def _query(operation: str, *, task_id: str | None = None, query=None):
-    path_params = {} if task_id is None else {"task_id": task_id}
+def _query(
+    operation: str,
+    *,
+    task_id: str | None = None,
+    query: JsonObject | None = None,
+) -> ConversationQuery:
+    path_params: JsonObject = {} if task_id is None else {"task_id": task_id}
     return ConversationQuery(
         operation=operation,
         scope=PrincipalScope(subject_id="principal-a"),
-        query=query or {},
+        query={} if query is None else query,
         path_params=path_params,
     )
 
@@ -112,9 +134,11 @@ async def test_list_and_detail_expose_only_bounded_projection() -> None:
     )
 
     assert listed is not None and listed.body is not None
-    assert len(listed.body["tasks"]) == 2
+    listed_body = cast(JsonObject, listed.body)
+    assert len(cast(list[JsonObject], listed_body["tasks"])) == 2
     assert detail is not None and detail.body is not None
-    task = detail.body["task"]
+    detail_body = cast(JsonObject, detail.body)
+    task = cast(JsonObject, detail_body["task"])
     assert task["duration_seconds"] == 5.0
     assert task["request_summary"] == "Investigate the latency regression after the rollout."
     assert task["accountable_agent"] == "Heimdall"
@@ -141,7 +165,8 @@ async def test_legacy_task_keeps_agent_attribution_unknown() -> None:
     )
 
     assert detail is not None and detail.body is not None
-    projected = detail.body["task"]
+    detail_body = cast(JsonObject, detail.body)
+    projected = cast(JsonObject, detail_body["task"])
     assert projected["request_summary"] is None
     assert projected["accountable_agent"] is None
 
@@ -163,6 +188,7 @@ def test_postgres_projection_retains_bounds_and_rejects_wrong_attribution() -> N
         "started_at": NOW,
         "finished_at": NOW,
         "completion_state": "pending",
+        "progress_watermark": 2,
         "request_summary": "Inspect one resource",
         "request_truncated": False,
         "accountable_agent": "Heimdall",
@@ -214,8 +240,9 @@ async def test_progress_cursor_and_terminal_stream_are_monotonic() -> None:
     )
 
     assert progress is not None and progress.body is not None
-    assert [item["sequence"] for item in progress.body["events"]] == [1]
-    assert progress.body["has_more"] is False
+    progress_body = cast(JsonObject, progress.body)
+    assert [item["sequence"] for item in cast(list[JsonObject], progress_body["events"])] == [1]
+    assert progress_body["has_more"] is False
     assert stream is not None
     events = [event async for event in stream]
     assert [event.event for event in events] == ["progress", "terminal"]
@@ -236,12 +263,16 @@ async def test_progress_cursor_and_terminal_stream_are_monotonic() -> None:
 
 async def test_terminal_stream_pages_all_progress_before_terminal() -> None:
     class _LargeProgressStore(_Store):
-        async def read_background_task_progress(self, **kwargs: object):
-            after = int(kwargs["after_sequence"])
-            limit = int(kwargs["limit"])
+        async def read_background_task_progress(
+            self,
+            **kwargs: object,
+        ) -> tuple[BackgroundTaskProgressProjection, ...]:
+            after = cast(int, kwargs["after_sequence"])
+            limit = cast(int, kwargs["limit"])
             return tuple(
                 BackgroundTaskProgressProjection(
                     sequence=sequence,
+                    order=sequence + 1,
                     kind="investigation.progress",
                     message=f"Progress {sequence}",
                     at=NOW,
@@ -301,6 +332,97 @@ async def test_running_stream_emits_bounded_heartbeat_when_idle() -> None:
     assert events[0].retry_ms == 1_000
 
 
+async def test_terminal_progress_waits_for_watermark_before_reporting_completion() -> None:
+    class _PendingTerminalStore(_Store):
+        def __init__(self) -> None:
+            super().__init__()
+            self.tasks[("principal-a", "task-done")] = replace(
+                self.tasks[("principal-a", "task-done")],
+                progress_watermark=3,
+                latest_progress_order=2,
+            )
+
+        async def read_background_task_progress(
+            self,
+            **_kwargs: object,
+        ) -> tuple[BackgroundTaskProgressProjection, ...]:
+            return ()
+
+    store = _PendingTerminalStore()
+    progress = await materialize_background_task(
+        _query("background.progress", task_id="task-done", query={"after": "1"}),
+        store=store,
+    )
+    stream = await open_background_task_stream(
+        ConversationStreamRequest(
+            operation="background.progress_stream",
+            scope=PrincipalScope(subject_id="principal-a"),
+            path_params={"task_id": "task-done"},
+            after_event_id="1",
+        ),
+        store=store,
+    )
+
+    assert progress is not None and progress.body is not None
+    progress_body = cast(JsonObject, progress.body)
+    assert progress_body["events"] == []
+    assert progress_body["has_more"] is True
+    assert stream is not None
+    events = [event async for event in stream]
+    assert [event.event for event in events] == ["heartbeat"]
+
+
+async def test_terminal_stream_closes_once_progress_page_reaches_watermark() -> None:
+    class _WatermarkCatchupStore(_Store):
+        def __init__(self) -> None:
+            super().__init__()
+            self.tasks[("principal-a", "task-done")] = replace(
+                self.tasks[("principal-a", "task-done")],
+                progress_watermark=4,
+                latest_progress_order=2,
+            )
+
+        async def read_background_task_progress(
+            self,
+            **kwargs: object,
+        ) -> tuple[BackgroundTaskProgressProjection, ...]:
+            after = cast(int, kwargs["after_sequence"])
+            if after >= 2:
+                return ()
+            return (
+                BackgroundTaskProgressProjection(
+                    sequence=1,
+                    order=3,
+                    kind="investigation.progress",
+                    message="Collected the remaining evidence.",
+                    at=NOW - timedelta(seconds=1),
+                    usage={"tokens": 5, "cost_microusd": 0, "tool_calls": 0},
+                ),
+                BackgroundTaskProgressProjection(
+                    sequence=2,
+                    order=4,
+                    kind="investigation.completed",
+                    message="Finished the final bounded read.",
+                    at=NOW,
+                    usage={"tokens": 10, "cost_microusd": 0, "tool_calls": 0},
+                ),
+            )
+
+    stream = await open_background_task_stream(
+        ConversationStreamRequest(
+            operation="background.progress_stream",
+            scope=PrincipalScope(subject_id="principal-a"),
+            path_params={"task_id": "task-done"},
+            after_event_id="0",
+        ),
+        store=_WatermarkCatchupStore(),
+    )
+
+    assert stream is not None
+    events = [event async for event in stream]
+    assert [event.event for event in events] == ["progress", "progress", "terminal"]
+
+
 async def test_invalid_cursor_fails_before_store_read() -> None:
     with pytest.raises(ConversationBoundaryError, match="cursor MUST be complete"):
         await materialize_background_task(
@@ -322,5 +444,8 @@ async def test_postgres_conversation_adapter_uses_task_materializers() -> None:
         )
     )
 
-    assert detail.body is not None and detail.body["task"]["task_id"] == "task-done"
+    assert detail.body is not None
+    detail_body = cast(JsonObject, detail.body)
+    task = cast(JsonObject, detail_body["task"])
+    assert task["task_id"] == "task-done"
     assert [event.event async for event in stream] == ["progress", "terminal"]

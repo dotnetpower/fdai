@@ -133,6 +133,7 @@
           "services/operator-service/tests/test_operator_signal_shutdown.py",
           "services/operator-service/tests/test_runtime_projection_reader.py",
           "services/operator-service/tests/test_postgres_background_task_projection.py",
+          "services/operator-service/tests/test_background_task_projection_transport.py",
           "services/operator-service/tests/test_postgres_family_store_cancellation.py",
           "services/operator-service/tests/test_read_investigation_completion_composition.py",
           "services/operator-service/tests/test_read_investigation_completion_runtime.py",

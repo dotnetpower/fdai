@@ -1,5 +1,8 @@
 """Assemble the complete logical topic registry for the Core runtime bus."""
 
+from fdai_service_contracts.background_task_projection import (
+    BACKGROUND_TASK_PROJECTION_TOPIC,
+)
 from fdai_service_contracts.read_investigation import (
     READ_INVESTIGATION_COMPLETION_TOPIC,
     READ_INVESTIGATION_REQUEST_TOPIC,
@@ -21,6 +24,7 @@ RUNTIME_LOGICAL_TOPICS = (
     | frozenset(
         {
             _TRANSITION_TOPIC,
+            BACKGROUND_TASK_PROJECTION_TOPIC,
             SEMANTIC_REQUEST_TOPIC,
             SEMANTIC_PROJECTION_TOPIC,
             SEMANTIC_PROGRESS_TOPIC,

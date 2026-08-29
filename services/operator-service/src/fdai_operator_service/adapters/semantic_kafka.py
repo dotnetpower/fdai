@@ -48,6 +48,7 @@ class OperatorSemanticKafkaConfig:
     progress_topic: str = "core.semantic-turn.progress"
     read_investigation_topic: str | None = None
     read_investigation_completion_topic: str | None = None
+    background_task_projection_topic: str | None = None
     event_topic: str | None = None
     client_id: str = "fdai-operator-service"
     auto_offset_reset: str = "earliest"
@@ -83,6 +84,18 @@ class OperatorSemanticKafkaConfig:
             }
         ):
             raise ValueError("read investigation completion topic MUST be distinct and valid")
+        if self.background_task_projection_topic is not None and (
+            _TOPIC_PATTERN.fullmatch(self.background_task_projection_topic) is None
+            or self.background_task_projection_topic
+            in {
+                self.request_topic,
+                self.projection_topic,
+                self.progress_topic,
+                self.read_investigation_topic,
+                self.read_investigation_completion_topic,
+            }
+        ):
+            raise ValueError("background task projection topic MUST be distinct and valid")
         if self.event_topic is not None and (
             _TOPIC_PATTERN.fullmatch(self.event_topic) is None
             or self.event_topic
@@ -92,6 +105,7 @@ class OperatorSemanticKafkaConfig:
                 self.progress_topic,
                 self.read_investigation_topic,
                 self.read_investigation_completion_topic,
+                self.background_task_projection_topic,
             }
         ):
             raise ValueError("event topic MUST be distinct and valid")
@@ -169,6 +183,8 @@ class OperatorSemanticKafkaBus:
             allowed.add(
                 f"{self._config.read_investigation_completion_topic}{self._config.dlq_suffix}"
             )
+        if self._config.background_task_projection_topic is not None:
+            allowed.add(f"{self._config.background_task_projection_topic}{self._config.dlq_suffix}")
         if self._config.event_topic is not None:
             allowed.add(self._config.event_topic)
         if topic not in allowed:
@@ -204,6 +220,7 @@ class OperatorSemanticKafkaBus:
             self._config.projection_topic,
             self._config.progress_topic,
             self._config.read_investigation_completion_topic,
+            self._config.background_task_projection_topic,
         }:
             raise ValueError("semantic Kafka subscription topic is not configured")
         physical_topic = self._config.physical_topic or topic
