@@ -100,6 +100,8 @@ class DiscoveryCycleScheduler:
             existing = await self._store.read_state(key)
             if existing is None:
                 raise RuntimeError("discovery cycle claim disappeared")
+            if existing.get("status") not in {"completed", "failed"}:
+                raise RuntimeError("discovery cycle is already in progress")
             return cycle_report_from_record(existing, replayed=True)
 
         try:

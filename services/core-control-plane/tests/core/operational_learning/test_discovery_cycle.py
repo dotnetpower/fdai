@@ -314,3 +314,35 @@ async def test_cycle_timeout_is_persisted_as_a_failed_attempt() -> None:
 
     replay = await scheduler.run_due(scheduled_for=_START)
     assert replay.failure_kind == "TimeoutError"
+
+
+async def test_concurrent_claim_loser_does_not_report_inflight_cycle_as_replay() -> None:
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    class _BlockingSource(_Source):
+        async def observe(
+            self,
+            *,
+            window_start: datetime,
+            window_end: datetime,
+            limit: int,
+        ) -> DiscoveryObservationBatch:
+            started.set()
+            await release.wait()
+            return await super().observe(
+                window_start=window_start,
+                window_end=window_end,
+                limit=limit,
+            )
+
+    source = _BlockingSource(())
+    scheduler, _, _ = _scheduler(source=source, primary=_Primary(()))
+    winner = asyncio.create_task(scheduler.run_due(scheduled_for=_START))
+    await started.wait()
+
+    with pytest.raises(RuntimeError, match="already in progress"):
+        await scheduler.run_due(scheduled_for=_START)
+
+    release.set()
+    assert (await winner).status == "completed"
