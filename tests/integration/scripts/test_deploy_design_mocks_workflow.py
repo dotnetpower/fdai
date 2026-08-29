@@ -28,10 +28,13 @@ def test_design_mocks_rejects_every_other_deployment_target() -> None:
     assert '"module.design_mocks[0].azurerm_static_web_app.design_mocks"' in _PLAN_SCOPE
     assert "scripts/deployment/azure/enforce_plan_scope.py" in _WORKFLOW
     assert "if: ${{ !inputs.apply && !inputs.deploy_design_mocks }}" in _WORKFLOW
-    assert "if: ${{ inputs.apply && !inputs.deploy_design_mocks }}" in _WORKFLOW
+    assert "inputs.apply && !inputs.deploy_design_mocks" in _WORKFLOW
     health_step = _WORKFLOW[_WORKFLOW.index("- name: Verify deployed health endpoints") :]
     health_step = health_step[: health_step.index("- name: Run canary publisher smoke")]
-    assert "if: ${{ inputs.apply && !inputs.deploy_design_mocks }}" in health_step
+    assert (
+        "if: ${{ inputs.apply && !inputs.deploy_design_mocks "
+        "&& env.CORE_MODEL_QUORUM_ONLY != 'true' }}"
+    ) in health_step
 
 
 def test_ohl_evidence_target_uses_the_protected_gateway_plan() -> None:
