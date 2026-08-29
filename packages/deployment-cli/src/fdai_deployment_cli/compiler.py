@@ -10,18 +10,44 @@ from fdai_deployment_cli.contracts import (
     canonical_digest,
 )
 
-_STAGES: tuple[tuple[str, ApprovalClass, int, int], ...] = (
-    ("inspect-context", ApprovalClass.STANDARD, 300, 60),
-    ("reconcile-current-state", ApprovalClass.STANDARD, 600, 120),
-    ("foundation", ApprovalClass.HIGH_IMPACT, 3600, 300),
-    ("attest-runner", ApprovalClass.STANDARD, 900, 120),
-    ("data-substrate", ApprovalClass.HIGH_IMPACT, 7200, 600),
-    ("database", ApprovalClass.HIGH_IMPACT, 1800, 300),
-    ("semantic-defaults", ApprovalClass.STANDARD, 900, 120),
-    ("models", ApprovalClass.HIGH_IMPACT, 3600, 300),
-    ("runtime-services", ApprovalClass.HIGH_IMPACT, 3600, 300),
-    ("initial-inventory", ApprovalClass.STANDARD, 1800, 300),
-    ("system-readiness", ApprovalClass.STANDARD, 900, 120),
+_ENTRIES: tuple[tuple[str, ApprovalClass], ...] = (
+    ("inspect-context", ApprovalClass.STANDARD),
+    ("reconcile-current-state", ApprovalClass.STANDARD),
+    ("provider-registrations", ApprovalClass.HIGH_IMPACT),
+    ("ops-resource-group", ApprovalClass.HIGH_IMPACT),
+    ("application-resource-group", ApprovalClass.HIGH_IMPACT),
+    ("state-storage", ApprovalClass.HIGH_IMPACT),
+    ("ops-network", ApprovalClass.HIGH_IMPACT),
+    ("deploy-identity", ApprovalClass.HIGH_IMPACT),
+    ("foundation", ApprovalClass.HIGH_IMPACT),
+    ("runner", ApprovalClass.HIGH_IMPACT),
+    ("attest-runner", ApprovalClass.STANDARD),
+    ("application-network", ApprovalClass.HIGH_IMPACT),
+    ("key-vault", ApprovalClass.HIGH_IMPACT),
+    ("postgres", ApprovalClass.HIGH_IMPACT),
+    ("event-hubs-primary", ApprovalClass.HIGH_IMPACT),
+    ("event-hubs-operational", ApprovalClass.HIGH_IMPACT),
+    ("container-registry", ApprovalClass.HIGH_IMPACT),
+    ("log-analytics", ApprovalClass.HIGH_IMPACT),
+    ("application-insights", ApprovalClass.HIGH_IMPACT),
+    ("container-apps-environment", ApprovalClass.HIGH_IMPACT),
+    ("database", ApprovalClass.HIGH_IMPACT),
+    ("semantic-defaults", ApprovalClass.STANDARD),
+    ("model-account-openai", ApprovalClass.HIGH_IMPACT),
+    ("model-account-foundry", ApprovalClass.HIGH_IMPACT),
+    ("model-deployments", ApprovalClass.HIGH_IMPACT),
+    ("runtime-identities", ApprovalClass.HIGH_IMPACT),
+    ("core-control-plane", ApprovalClass.HIGH_IMPACT),
+    ("operator-service", ApprovalClass.HIGH_IMPACT),
+    ("document-ingestion-api", ApprovalClass.HIGH_IMPACT),
+    ("document-processing-worker", ApprovalClass.HIGH_IMPACT),
+    ("isolated-executor", ApprovalClass.HIGH_IMPACT),
+    ("inventory-job", ApprovalClass.STANDARD),
+    ("canary-job", ApprovalClass.STANDARD),
+    ("initial-inventory", ApprovalClass.STANDARD),
+    ("console", ApprovalClass.STANDARD),
+    ("monitoring", ApprovalClass.STANDARD),
+    ("system-readiness", ApprovalClass.STANDARD),
 )
 
 
@@ -35,7 +61,9 @@ def compile_manifest(
     profile_digest = canonical_digest(profile.to_mapping())
     entries: list[ManifestEntry] = []
     previous: str | None = None
-    for stage, approval, timeout, no_progress in _STAGES:
+    for stage, approval in _ENTRIES:
+        timeout = 3_600 if approval is ApprovalClass.HIGH_IMPACT else 900
+        no_progress = 300 if approval is ApprovalClass.HIGH_IMPACT else 120
         entries.append(
             ManifestEntry(
                 entry_id=stage,

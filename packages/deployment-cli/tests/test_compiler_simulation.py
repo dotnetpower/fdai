@@ -27,9 +27,26 @@ def _profile() -> ProvisionProfile:
 def test_compiler_emits_finite_ordered_manifest() -> None:
     manifest = compile_manifest(_profile(), source_commit="a" * 40)
 
-    assert len(manifest.entries) == 11
+    assert len(manifest.entries) == 37
     assert manifest.entries[0].prerequisites == ()
-    assert manifest.entries[-1].prerequisites == ("initial-inventory",)
+    assert manifest.entries[-1].prerequisites == ("monitoring",)
+    assert {
+        "state-storage",
+        "key-vault",
+        "postgres",
+        "event-hubs-primary",
+        "event-hubs-operational",
+        "container-registry",
+        "container-apps-environment",
+        "model-account-openai",
+        "model-account-foundry",
+        "core-control-plane",
+        "operator-service",
+        "document-ingestion-api",
+        "document-processing-worker",
+        "isolated-executor",
+        "inventory-job",
+    } <= {entry.entry_id for entry in manifest.entries}
     assert any(entry.approval_class is ApprovalClass.HIGH_IMPACT for entry in manifest.entries)
     assert len({entry.idempotency_key for entry in manifest.entries}) == len(manifest.entries)
 

@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 5713d0dc47146bb76e4c9ef8d01f3277ecfd79c3
+translation_source_sha: 2782a18093461044ba25de734395f25fff3ba3da
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -242,6 +242,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H15 | 예행 연습이 완료된 단계를 `verifying`으로 표시해 중단 상태가 사실과 달랐습니다. 이제 원장에 명시적 `completed` 상태가 있고 해당 단계만 재개에서 건너뜁니다. | `test_simulation_interrupts_and_resumes_without_duplicate_stage` |
 | H16 | 원장이 첫 이벤트의 `ready`와 종결 실패 후 작업을 허용했습니다. 이제 전이 검사가 완료된 준비도 근거를 요구하고 종결 실행을 닫습니다. | `test_journal_rejects_ready_without_readiness_evidence` |
 | H17 | 오프라인 계획이 검증 후 매니페스트를 다시 열고 구문 분석해 교체 경쟁이 가능했습니다. 이제 검증 결과가 반환한 경로만 사용합니다. | `test_offline_kit_verifies_signature_exact_files_and_compatibility` |
+| H18 | 컴파일된 매니페스트가 넓은 단계만 봉인하고 구체적인 최소 플랫폼 및 서비스 인벤토리를 포함하지 않았습니다. 이제 공급자 등록, 기반, 데이터, 모델, 5개 서비스, Job, Console, 모니터링 항목을 열거합니다. | `test_compiler_emits_finite_ordered_manifest` |
 
 ## 관련 문서
 
