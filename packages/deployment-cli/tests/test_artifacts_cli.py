@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import tarfile
+from argparse import Namespace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -20,6 +21,7 @@ from fdai_deployment_cli.bundle import (
 )
 from fdai_deployment_cli.cli import (
     _create_private_work_dir,
+    _provision_plan,
     _absolute_work_dir,
     _require_bundle_version,
     _runtime_platform_tag,
@@ -30,6 +32,7 @@ from fdai_deployment_cli.cli import (
     main,
 )
 from fdai_deployment_cli.contracts import canonical_bytes
+from fdai_deployment_cli.contracts import ProvisionProfile
 from fdai_deployment_cli.doctor import ToolCheck
 from fdai_deployment_cli.license import LicenseInspectionError, inspect_license
 from fdai_deployment_cli.offline_kit import (
@@ -796,6 +799,51 @@ def test_managed_identity_plan_ignores_unrelated_cli_account() -> None:
             active_binding="b" * 64,
             use_managed_identity=False,
         )
+
+
+def test_complete_plan_handler_reaches_verification_under_msi(
+    monkeypatch: object,
+    tmp_path: Path,
+) -> None:
+    profile = ProvisionProfile(
+        environment="dev",
+        region="koreacentral",
+        target_binding="a" * 64,
+        connectivity="online",
+        host="managed-vm",
+        transport="github-actions",
+        access_method="github_actions",
+        shadow_only=True,
+        approval_quorum=1,
+        monthly_cost_ceiling=500,
+    )
+    monkeypatch.setenv("ARM_USE_MSI", "true")  # type: ignore[attr-defined]
+    monkeypatch.setattr(  # type: ignore[attr-defined]
+        "fdai_deployment_cli.cli.load_profile",
+        lambda _path: profile,
+    )
+    monkeypatch.setattr(  # type: ignore[attr-defined]
+        "fdai_deployment_cli.cli.azure_active_target_binding",
+        lambda: "b" * 64,
+    )
+
+    def reached_verification(*_args: object, **_kwargs: object) -> object:
+        raise RuntimeError("reached-verification")
+
+    monkeypatch.setattr(  # type: ignore[attr-defined]
+        "fdai_deployment_cli.cli.verify_offline_kit",
+        reached_verification,
+    )
+    args = Namespace(
+        work_dir=tmp_path / "work",
+        profile=tmp_path / "profile.json",
+        offline_kit=tmp_path / "kit",
+        release_root=tmp_path / "release.pub",
+    )
+    args.release_root.write_bytes(b"unused")
+
+    with pytest.raises(RuntimeError, match="reached-verification"):
+        _provision_plan(args)
 
 
 def test_terraform_environment_rejects_linked_azure_config(tmp_path: Path) -> None:

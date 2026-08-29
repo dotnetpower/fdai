@@ -228,10 +228,6 @@ def _provision_plan(args: argparse.Namespace) -> int:
         active_binding=azure_active_target_binding(),
         use_managed_identity=os.environ.get("ARM_USE_MSI", "").casefold() == "true",
     )
-    profile = load_profile(args.profile)
-    active_target = azure_active_target_binding()
-    if active_target is not None and active_target != profile.target_binding:
-        raise ValueError("active Azure target does not match the provision profile")
     verification = verify_offline_kit(
         args.offline_kit,
         release_root_pem=args.release_root.read_bytes(),

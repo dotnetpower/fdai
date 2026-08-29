@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: c03cce78e3411e09cbc355a5f005746e8081861d
+translation_source_sha: b301d7876eeed877a69f5e5bc7925a33d85721bb
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -287,6 +287,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H60 | 최소 Terraform 환경이 Azure CLI 검색과 워크로드 신원 설정을 모두 제거했습니다. 이제 제한된 신뢰 CLI 경로 또는 대상에 연결된 비밀 없는 Managed Identity 변수를 제공합니다. | `test_terraform_environment_accepts_target_bound_managed_identity` |
 | H61 | 계획이 대상 점검에 사용한 Azure CLI 구성 디렉터리를 제거했습니다. 이제 절대 경로이며 링크가 아니고 비공개인 디렉터리만 보존합니다. | `test_terraform_environment_rejects_linked_azure_config` |
 | H62 | Managed Identity 계획이 관련 없는 주변 Azure CLI 계정 때문에 거부되었습니다. 이제 CLI 대상 일치는 CLI 인증에만 적용하고 MSI는 대상 연결 변수로 검증합니다. | `test_managed_identity_plan_ignores_unrelated_cli_account` |
+| H63 | 중복 CLI 대상 검사가 Managed Identity 예외를 다시 무효화했습니다. 중복 검사를 제거하고 전체 계획 처리기가 MSI에서 서명 키트 검증까지 도달하는지 증명합니다. | `test_complete_plan_handler_reaches_verification_under_msi` |
 
 ## 관련 문서
 
