@@ -194,7 +194,7 @@ def read_journal(path: Path) -> tuple[ProvisionEvent, ...]:
     try:
         descriptor = os.open(
             path.name,
-            os.O_RDONLY | os.O_NOFOLLOW,
+            os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
             dir_fd=directory,
         )
     finally:

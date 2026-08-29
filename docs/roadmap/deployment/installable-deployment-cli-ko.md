@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: ef85c48c21855ce3570b34b8317535f55ed87611
+translation_source_sha: a38236a5fc516602191f3a240eefa7a6db9db3ae
 translation_revised: 2026-08-29
 ---
 # 설치형 배포 CLI
@@ -132,6 +132,8 @@ wheel을 가리지 못하게 합니다.
 C1 명령은 자동화를 위해 안정적인 JSON 스키마를 사용합니다. `provision init`은 활성 구독
 및 테넌트 식별자, 환경, 지역, remote-runner 경계, shadow-mode 기본값만 gitignored
 mode-`0600` 파일에 기록합니다. 사람용 출력에는 계정 식별자가 표시되지 않습니다.
+프로필, 계획 입력, 저널 읽기 경로는 mode-`0600` 일반 파일인지 검사하기 전에 비차단 모드로
+열기 때문에 이름 있는 파이프가 읽기 전용 명령을 멈추게 할 수 없습니다.
 
 `license inspect`는 번들 및 키트 검증과 같은 의미에서 오프라인입니다. 공개 키가 분포와
 함께 배포되므로 네트워크 호출, 철회 조회, 인증서 체인이 관여하지 않습니다. 상태와 비밀이

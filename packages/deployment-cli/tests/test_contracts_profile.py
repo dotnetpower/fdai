@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -81,6 +82,22 @@ def test_profile_reader_never_follows_symlink(tmp_path: Path) -> None:
 
     with pytest.raises(OSError):
         load_profile(linked)
+
+
+def test_profile_reader_rejects_fifo_without_blocking(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fifo = tmp_path / "profile.json"
+    os.mkfifo(fifo, mode=0o600)
+    real_open = os.open
+
+    def open_nonblocking(path: os.PathLike[str], flags: int) -> int:
+        assert flags & os.O_NONBLOCK
+        return real_open(path, flags)
+
+    monkeypatch.setattr(os, "open", open_nonblocking)
+    with pytest.raises(PermissionError, match="regular file"):
+        load_profile(fifo)
 
 
 def test_profile_publish_never_replaces_concurrent_destination(tmp_path: Path) -> None:

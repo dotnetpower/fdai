@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -85,6 +86,28 @@ def test_plan_input_requires_private_regular_source(tmp_path: Path) -> None:
     _write(source, _values())
     source.chmod(0o644)
     with pytest.raises(PermissionError, match="mode-0600"):
+        snapshot_plan_input(
+            source,
+            tmp_path / "snapshot.json",
+            expected_target_binding=_BINDING,
+            expected_region="koreacentral",
+            expected_environment="dev",
+        )
+
+
+def test_plan_input_rejects_fifo_without_blocking(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "input.json"
+    os.mkfifo(source, mode=0o600)
+    real_open = os.open
+
+    def open_nonblocking(path: os.PathLike[str], flags: int) -> int:
+        assert flags & os.O_NONBLOCK
+        return real_open(path, flags)
+
+    monkeypatch.setattr(os, "open", open_nonblocking)
+    with pytest.raises(PermissionError, match="regular file"):
         snapshot_plan_input(
             source,
             tmp_path / "snapshot.json",

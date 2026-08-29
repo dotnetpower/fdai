@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -72,6 +73,29 @@ def test_journal_reader_never_follows_symlink(tmp_path: Path) -> None:
 
     with pytest.raises(OSError):
         read_journal(link)
+
+
+def test_journal_reader_rejects_fifo_without_blocking(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fifo = tmp_path / "run.jsonl"
+    os.mkfifo(fifo, mode=0o600)
+    real_open = os.open
+
+    def open_nonblocking(
+        path: str | os.PathLike[str],
+        flags: int,
+        mode: int = 0o777,
+        *,
+        dir_fd: int | None = None,
+    ) -> int:
+        if path == fifo.name:
+            assert flags & os.O_NONBLOCK
+        return real_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(os, "open", open_nonblocking)
+    with pytest.raises(PermissionError, match="regular file"):
+        read_journal(fifo)
 
 
 def test_journal_never_follows_parent_directory_symlink(tmp_path: Path) -> None:

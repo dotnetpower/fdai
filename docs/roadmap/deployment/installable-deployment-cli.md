@@ -133,6 +133,8 @@ to Terraform; unrelated environment values remain excluded.
 The C1 commands use stable JSON schemas for automation. `provision init` captures only the active
 subscription and tenant identifiers, environment, region, remote-runner boundary, and shadow-mode
 default in a gitignored mode-`0600` file. Human output never prints the account identifiers.
+Profile, plan-input, and journal readers open paths in nonblocking mode before checking for a
+mode-`0600` regular file, so named pipes cannot stall read-only commands.
 
 `license inspect` is offline in the same sense as bundle and kit verification: the public key ships
 with the distribution, so no network call, revocation lookup, or certificate chain is involved. It

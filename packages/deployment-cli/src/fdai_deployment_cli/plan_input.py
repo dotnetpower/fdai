@@ -44,7 +44,7 @@ def snapshot_plan_input(
 ) -> PlanInputContext:
     """Validate and copy a mode-0600 JSON plan input without real secret values."""
 
-    descriptor = os.open(source, os.O_RDONLY | os.O_NOFOLLOW)
+    descriptor = os.open(source, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     with os.fdopen(descriptor, "rb") as stream:
         details = os.fstat(stream.fileno())
         if not stat.S_ISREG(details.st_mode) or stat.S_IMODE(details.st_mode) != 0o600:

@@ -47,7 +47,7 @@ def _publish_profile(temporary: Path, destination: Path, *, force: bool) -> None
 def load_profile(path: Path) -> ProvisionProfile:
     """Read and validate a private regular-file profile."""
 
-    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     with os.fdopen(descriptor, "rb") as stream:
         details = os.fstat(stream.fileno())
         if not stat.S_ISREG(details.st_mode) or stat.S_IMODE(details.st_mode) != 0o600:
