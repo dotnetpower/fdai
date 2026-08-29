@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 5980740784c18fb756ca44ddfa5bacb45b7f9e55
+translation_source_sha: 1ed5d88cbe65ba7e189c5d0d97976acb334bdc8e
 translation_revised: 2026-08-29
 ---
 # 설치형 배포 CLI
@@ -110,14 +110,16 @@ Installer는 system 도구를 변경하지 않습니다. `fdaictl doctor`가 누
 모든 Terraform 바이너리와 공급자 경로는 원본 키트가 아니라 비공개 스냅샷을 사용합니다.
 연결된 준비도 오프라인 키트를 서명하기 전에 커밋된 배포 CLI lock과 정확한 Hatchling 및 pip
 버전을 요구합니다. Terraform과 OPA는 고정 버전으로 다운로드하고 플랫폼별 공식 SHA-256이
-일치할 때만 사용합니다.
+일치할 때만 사용합니다. 출력 루트는 비공개 준비 sentinel이 소유한 안전한 절대 경로여야
+합니다.
 오프라인 계획은 구체적인 테넌트 및 구독 입력으로 프로필 대상 다이제스트를 재계산하고 프로필
 지역을 일치시키며 검증된 구독을 Terraform에 전달합니다.
 합성 air-gap 훈련은 Azure CLI 구성을 격리해 호스트 로그인이 대상 근거를 바꾸지 못하게 하고
 Azure CLI를 로컬 선행 조건으로 검사하며 구분된 정제 공급자 인증 표시를 요구합니다.
 반복 `--skip-stage` 훈련은 sentinel로 소유권을 확인한 작업 디렉터리 안에서 격리된 Azure
-구성을 다시 만듭니다. 새 훈련은 존재하지 않는 안전한 절대 경로를 요구합니다. 훈련은 인증된
-키트 스냅샷을 사용하므로 주변 Terraform이 필요하지 않습니다.
+구성을 다시 만들고 비공개 sentinel을 명시적으로 다시 읽습니다. 새 훈련은 존재하지 않는
+안전한 절대 경로를 요구합니다. 훈련은 인증된 키트 스냅샷을 사용하므로 주변 Terraform이
+필요하지 않습니다.
 또한 설치된 배포판을 호출하기 전에 Python 가져오기 재정의를 제거해 체크아웃 소스가 제공
 wheel을 가리지 못하게 합니다.
 연결된 준비 단계는 폐기된 단일 소스 경로가 아니라 현재 Core 및 서비스 계약 패키지 루트에서

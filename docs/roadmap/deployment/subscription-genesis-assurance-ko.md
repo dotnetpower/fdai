@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 7966d016a337b9d6477c7b33f803ab48ddd9b631
+translation_source_sha: 4d1a02942421cbe25f2c47e2e028b07d97c119b8
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -307,6 +307,8 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H80 | 번들과 키트 해시가 동시 증가 파일이 검증 크기를 넘은 뒤에도 EOF까지 읽었습니다. 이제 두 경로 모두 서명된 바이트 상한에서 즉시 중단합니다. | 집중 서명 아티팩트 검사 |
 | H81 | 라이선스 발급이 권한을 제한하기 전에 기존 공개 읽기 출력 파일을 잘랐습니다. 이제 새 mode-`0600` 파일을 배타적으로 만들고 교체를 거부합니다. | `test_license_output_never_replaces_existing_file` |
 | H82 | 훈련이 호출자가 선택한 임의 작업 디렉터리를 재귀 삭제했습니다. 이제 새 실행은 존재하지 않는 안전한 절대 경로를 요구하고 재개는 소유권 sentinel을 요구합니다. | `test_release_scripts_use_the_installable_distribution` |
+| H83 | 재개가 빈 값을 만드는 sentinel 치환을 사용해 유효한 작업 디렉터리도 항상 거부했습니다. 이제 소유권 검증 전에 비공개 sentinel을 명시적으로 읽습니다. | `test_release_scripts_use_the_installable_distribution` |
+| H84 | 오프라인 준비가 재귀 정리 전에 임의 상대 또는 기존 출력 루트를 허용했습니다. 이제 안전한 절대 경로와 비공개 준비 또는 air-gap 소유권 sentinel을 요구합니다. | `test_release_scripts_use_the_installable_distribution` |
 
 ## 관련 문서
 

@@ -109,14 +109,16 @@ same verifier safely extracts and verifies the signed bundle before Terraform re
 snapshot rather than the original kit.
 Connected staging also requires the committed deployment CLI lock and exact Hatchling and pip
 versions before it can sign an offline kit. Terraform and OPA are downloaded at pinned versions
-and accepted only after their platform-specific official SHA-256 values match.
+and accepted only after their platform-specific official SHA-256 values match. The output root must
+be a safe absolute path owned by a private staging sentinel.
 Offline planning recomputes the profile target digest from concrete tenant and subscription input,
 matches the profile region, and supplies the verified subscription to Terraform.
 The synthetic air-gap drill isolates Azure CLI configuration so a host login cannot alter its
 target evidence, requires Azure CLI as a local prerequisite, and expects its distinct redacted
 provider-authentication marker. Repeated `--skip-stage` drills recreate their isolated Azure
 configuration only inside a sentinel-owned work directory. Fresh drills require a nonexistent safe
-absolute path. The drill needs no ambient Terraform because it uses the authenticated kit snapshot.
+absolute path, and resume explicitly rereads the private sentinel. The drill needs no ambient
+Terraform because it uses the authenticated kit snapshot.
 It also clears Python import overrides before invoking the installed distribution, so checkout
 source cannot shadow a shipped wheel.
 The connected stage issues its synthetic license through the current Core and service-contract

@@ -36,6 +36,9 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     assert 'PLATFORM="${PLATFORM:-$HOST_PLATFORM}"' in stage
     assert 'PLATFORM_TAG="${PLATFORM_TAG:-$HOST_PLATFORM_TAG}"' in stage
     assert "cross-platform kit staging is not supported" in stage
+    assert 'STAGE_SENTINEL=".fdai-offline-stage"' in stage
+    assert "--out must be a safe absolute path" in stage
+    assert "existing --out is not owned by offline staging" in stage
     assert 'aarch64|arm64) PLATFORM_TAG="linux-aarch64"' in drill
     assert 'TERRAFORM_VERSION="1.9.8"' in stage
     assert 'OPA_VERSION="0.68.0"' in stage
@@ -76,6 +79,8 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     assert 'SENTINEL=".fdai-airgap-workdir"' in drill
     assert "a fresh workdir is required" in drill
     assert "--skip-stage requires an owned drill workdir" in drill
+    assert 'IFS= read -r sentinel_value < "$WORKDIR/$SENTINEL"' in drill
+    assert '$(<"$WORKDIR/$SENTINEL"' not in drill
     assert 'rm -rf "$WORKDIR"' not in drill
     assert "fdai_deployment_cli.offline_kit" in signer
     assert "fdai.deployment_cli" not in stage + drill + signer
