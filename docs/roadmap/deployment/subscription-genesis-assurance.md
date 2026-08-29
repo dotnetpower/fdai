@@ -257,6 +257,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H23 | Bundle verification trusted an arbitrary `sbom_path` and did not prove component coverage. It now requires a declared CycloneDX 1.5 SBOM whose SHA-256 entries exactly cover the payload. | `test_bundle_rejects_incomplete_sbom` |
 | H24 | Offline planning accepted an arbitrary infrastructure directory unrelated to the signed kit. It now safely extracts and verifies the kit-declared deployment bundle and plans only its `infra` root. | `test_bundle_archive_rejects_path_traversal` |
 | H25 | Verified Terraform, provider, and bundle paths could be replaced before execution. Planning now copies them to a private tree while rechecking signed digests, then executes only that snapshot. | `test_materialization_rejects_artifact_replaced_after_verification` |
+| H26 | Release staging could label host binaries and wheels as another target platform. It now rejects cross-platform staging until target-specific artifact resolution exists. | `test_release_scripts_use_the_installable_distribution` |
 
 ## Related docs
 

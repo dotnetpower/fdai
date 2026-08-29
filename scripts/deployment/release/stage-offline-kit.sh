@@ -66,6 +66,24 @@ for tool in terraform openssl uv git opa; do
     exit 2
   }
 done
+case "$(uname -s)-$(uname -m)" in
+  Linux-x86_64)
+    HOST_PLATFORM="linux_amd64"
+    HOST_PLATFORM_TAG="linux-x86_64"
+    ;;
+  Linux-aarch64|Linux-arm64)
+    HOST_PLATFORM="linux_arm64"
+    HOST_PLATFORM_TAG="linux-aarch64"
+    ;;
+  *)
+    echo "stage-offline-kit: unsupported staging host platform." >&2
+    exit 2
+    ;;
+esac
+if [[ "$PLATFORM" != "$HOST_PLATFORM" || "$PLATFORM_TAG" != "$HOST_PLATFORM_TAG" ]]; then
+  echo "stage-offline-kit: cross-platform kit staging is not supported." >&2
+  exit 2
+fi
 PYTHON="$repo_root/.venv/bin/python"
 [[ -x "$PYTHON" ]] || { echo "stage-offline-kit: BLOCKED - .venv is missing." >&2; exit 2; }
 

@@ -27,6 +27,9 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     assert "uv export --project packages/deployment-cli --no-dev --no-emit-project" in stage
     assert "pip download --only-binary=:all: --require-hashes" in stage
     assert 'cp "$OUT/wheels"/*.whl "$KIT/python/"' in stage
+    assert 'PLATFORM" != "$HOST_PLATFORM"' in stage
+    assert 'PLATFORM_TAG" != "$HOST_PLATFORM_TAG"' in stage
+    assert "cross-platform kit staging is not supported" in stage
     assert "fdai_deployment_cli-*-py3-none-any.whl" in stage
     assert "PYTHONPATH=packages/deployment-cli/src" in stage
     assert "PYTHONPATH=packages/deployment-cli/src" in drill
