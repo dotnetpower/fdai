@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 9b7a8d35aea2604135265ac9928c04cb14f4cd44
+translation_source_sha: 70dcd362342ff8a0480aea34252b4bd6666e0794
 translation_revised: 2026-08-29
 ---
 
@@ -24,7 +24,8 @@ translation_revised: 2026-08-29
 > 이미지 프로파일, 정확한 온톨로지 프로파일, 원자적인 disabled-first 패키지 수명 주기,
 > 패키지 소유 카탈로그 자산, gate가 적용된 Operator 및 Console 변환 결과와 로컬 W0-W7 검증
 > 메커니즘이 있습니다. Shared Operator 조립은 관련 없는 이벤트 버스 worker를 감독할 수 있지만
-> Cost Governance 자산을 활성화, 구성 또는 게시할 수 없습니다. Live-authoritative 수명 주기,
+> Cost Governance 자산을 활성화, 구성, 게시하거나 대화 fallback stream을 통해 바꿀 수 없습니다.
+> Live-authoritative 수명 주기,
 > 관찰 cohort 및 독립 승격 근거는 아직
 > 없습니다. 첫 protected exact-revision plan은 Azure context를 검증했지만 Terraform 전에
 > model capability quorum이 실패했으므로 패키지와 액션은 운영 검증 또는 승격 완료 상태가 아닙니다.

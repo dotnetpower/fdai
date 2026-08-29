@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: c77b5b0396f40e86eaa7af79f0be9a531575fc59
+translation_source_sha: fa2ccb8dd8d8c10367839e41be4fc22310cce95d
 translation_revised: 2026-08-29
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -257,7 +257,7 @@ Core 런타임만 Pantheon을 소유하며 로컬 및 deployed interactive 읽�
 시작 탐색으로 응답 및 action worker 준비를 확인한 후 트래픽을 받습니다. 클라이언트는 재시도 중 joining 소비자를 재사용하고 최초 Event Hubs 그룹 결합을 최대 20초 허용합니다.
 `GET /chat/health`는 semantic bridge worker 준비 상태를 직접 읽으며 영속
 `conversation/chat.health` projection row를 요구하지 않습니다. 관련 없는 projection 누락을 접근할 수
-없는 모델로 잘못 표시하지 않도록 `starting` 또는 `event-bridge` mode와 함께 HTTP 200을 반환합니다.
+없는 모델로 잘못 표시하지 않도록 `starting` 또는 `event-bridge` mode와 함께 HTTP 200을 반환합니다. Semantic 및 local narrator fallback stream은 동일한 authoritative `ConversationAssuranceReader`를 사용합니다.
 운영 복제본은 서버 소비자 그룹을 공유하므로 요청마다 복제본 하나만 응답합니다. Singleton 로컬 코어는 process-scoped 서버 그룹을 사용하므로 재시작할 때 이전 프로세스의 관련 없는 Pantheon 트래픽을 재생하지 않고 physical 토픽의 현재 오프셋에서 시작합니다.
 요청은 raw 신원 대신 salted SHA-256 user/세션 참조를 전달하며, 시간 초과 또는 잘못된 응답은 전문가 답변을 꾸미지 않고 명시적인 agent-to-Bragi 인계로 표시합니다. 같은 지연 시간 프로파일은 같은 direct, streamed 또는 detached 모드를 선택하며 측정된 프로바이더 지연 시간과 구성된 근거 가용성만 모드를 바꿀 수 있습니다.
 장기 실행 코어 및 Operator API 작업의 최종 출력은 `.fdai/logs/core-runtime.log`와

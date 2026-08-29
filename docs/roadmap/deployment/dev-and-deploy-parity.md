@@ -252,7 +252,7 @@ The core runtime remains the only Pantheon owner, and local and deployed interac
 A startup probe confirms response and action workers before traffic is accepted. The client reuses a joining consumer across retries and allows a 20-second initial Event Hubs group join.
 `GET /chat/health` reads semantic bridge worker readiness directly and does not require a durable
 `conversation/chat.health` projection row. It returns HTTP 200 with `starting` or `event-bridge`
-mode so a missing unrelated projection cannot be reported as an unreachable model.
+mode so a missing unrelated projection cannot be reported as an unreachable model. Semantic and local narrator fallback streams use the same authoritative `ConversationAssuranceReader`.
 Production replicas share the server consumer group so one replica answers each request. The singleton local core uses a process-scoped server group so a restart begins at the current physical-topic offset instead of replaying unrelated Pantheon traffic from a previous process.
 Requests carry salted SHA-256 user and session references rather than raw identities; timeouts or invalid responses become an explicit agent-to-Bragi handoff instead of a fabricated specialist answer. The same latency profile selects the same direct, streamed, or detached mode; only measured provider latency and configured evidence availability can change it.
 The long-running core and Operator API tasks preserve their terminal output in
