@@ -119,7 +119,7 @@ echo "-- fdai deployment CLI wheel"
 uv build --wheel --project packages/deployment-cli --out-dir "$OUT/wheels" >/dev/null
 uv export --project packages/deployment-cli --no-dev --no-emit-project \
   --format requirements-txt --output-file "$OUT/cli-requirements.txt" >/dev/null
-uvx --from pip pip download --only-binary=:all: --require-hashes \
+uvx --python "$PYTHON" --from pip pip download --only-binary=:all: --require-hashes \
   --dest "$OUT/wheels" --requirement "$OUT/cli-requirements.txt" >/dev/null
 # The kit's CLI version is the version of the wheel it actually carries. Reading
 # it from the installed package instead would silently disagree whenever the

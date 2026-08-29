@@ -265,6 +265,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H31 | Local inspection could report `ready` without execution-host, transport, workload-identity, or offline-kit evidence. It now returns `review` until that external evidence is verified. | `test_local_inspection_cannot_claim_execution_host_readiness` |
 | H32 | License inspection could report signed but runtime-invalid identifiers or unverified image and tenant bindings as active. It now enforces canonical identity and caller-bound digest checks. | `test_license_rejects_invalid_identifiers_and_unverified_bindings` |
 | H33 | The air-gap drill executed checkout source instead of the wheel it shipped. It now installs only from signed kit wheels with `--no-index` inside the isolated network namespace and runs that `fdaictl`. | `test_release_scripts_use_the_installable_distribution` |
+| H34 | Dependency download used the `uvx` interpreter ABI instead of the CLI build interpreter. It now pins wheel resolution to the exact Python used to build and verify the kit. | `test_release_scripts_use_the_installable_distribution` |
 
 ## Related docs
 

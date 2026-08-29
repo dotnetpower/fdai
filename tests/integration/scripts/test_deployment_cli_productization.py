@@ -25,6 +25,7 @@ def test_release_scripts_use_the_installable_distribution() -> None:
 
     assert "uv build --wheel --project packages/deployment-cli" in stage
     assert "uv export --project packages/deployment-cli --no-dev --no-emit-project" in stage
+    assert 'uvx --python "$PYTHON" --from pip pip download' in stage
     assert "pip download --only-binary=:all: --require-hashes" in stage
     assert 'cp "$OUT/wheels"/*.whl "$KIT/python/"' in stage
     assert 'PLATFORM" != "$HOST_PLATFORM"' in stage

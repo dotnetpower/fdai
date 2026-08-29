@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 67c88184c329469544564f1fe6acbb8e72af4917
+translation_source_sha: acdf28f12cee6800d6bc83afc0dd4183816e88d9
 translation_revised: 2026-08-29
 ---
 # 설치형 배포 CLI
@@ -26,7 +26,7 @@ translation_revised: 2026-08-29
 | 코어 배포 프리플라이트 기본 요소 | implemented | `services/core-control-plane/src/fdai/core/deploy_preflight/` 및 프리플라이트 집중 테스트 | 분석기, 리포트, Azure 실제 검사 스크립트, 토글 기본 요소 및 재조립 로직은 배포 CLI 파사드와 독립적으로 존재합니다. |
 | 보호된 실행기 계획 및 exact-apply 작업 흐름 | implemented | `.github/workflows/deploy-dev.yml` 및 집중 배포 작업 흐름 테스트 | 실행기는 보호된 계획 수립, 근거 연결, 점유/증적 가드, 수렴, 마이그레이션 및 상태 검사를 소유합니다. 패키지된 로컬 CLI 클라이언트는 없습니다. |
 | 서명된 배포 번들 release 경로 | not-started | `scripts/deployment/release/build-deployment-bundle.py` 및 이슈 #222 | 번들 구성 기능은 남아 있지만 실행할 수 없는 작업 흐름은 제거했습니다. `fdaictl bundle verify`가 구현되고 깨끗한 체크아웃 테스트를 통과한 뒤에만 release 경로를 복원합니다. |
-| Offline 키트 및 폐쇄망 계획 | in-progress | `fdai_deployment_cli.offline_kit`, 릴리스 스크립트, 서명, 정확한 파일 집합, 호환성, 변조 집중 검사 | 패키징은 호스트 플랫폼을 파생하고 해시 바이너리 wheel을 준비합니다. 훈련은 `fdaictl`을 호출하기 전에 `--no-index`로 해당 wheel만 설치하며 통제된 네트워크 없는 실행은 아직 필요합니다. |
+| Offline 키트 및 폐쇄망 계획 | in-progress | `fdai_deployment_cli.offline_kit`, 릴리스 스크립트, 서명, 정확한 파일 집합, 호환성, 변조 집중 검사 | 패키징은 호스트 플랫폼을 파생하고 정확한 CLI 빌드 Python으로 해시 바이너리 wheel을 해석합니다. 훈련은 `--no-index`로 해당 wheel만 설치하며 통제된 네트워크 없는 실행은 아직 필요합니다. |
 | 공개 설치 및 정리 경험 | not-started | 이 문서의 목표 설치 및 정리 계약 | 첫 공개 CLI 게시, pinned offline 루트 패키지 및 `deploy teardown` 명령이 없습니다. |
 
 ### 구현 이력
