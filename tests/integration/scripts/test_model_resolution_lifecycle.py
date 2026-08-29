@@ -164,6 +164,8 @@ def test_exact_apply_restores_the_plan_sealed_model_manifest() -> None:
         == 2
     )
     assert "verify_model_deployments.py" in _DEPLOY
+    assert "t1.judge,t2.reasoner.primary" in _DEPLOY
+    assert '--capabilities "$MODEL_READBACK_CAPABILITIES"' in _DEPLOY
     assert "model-binding-readback.json" in _DEPLOY
     assert '"readback_receipt_digest"' in _DEPLOY
     assert "Reverify active Core model fence" in _DEPLOY

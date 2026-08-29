@@ -21,6 +21,8 @@ def verify_model_deployments(
     resolved_path: Path,
     provider_path: Path,
     output_path: Path,
+    *,
+    capability_names: frozenset[str] | None = None,
 ) -> dict[str, object]:
     """Compare provider model properties and write a sanitized canonical receipt."""
     resolved = _load_object(resolved_path, "resolved-model artifact")
@@ -31,6 +33,13 @@ def verify_model_deployments(
         raise ModelDeploymentVerificationError("model deployment evidence arrays are invalid")
 
     expected = _expected_capabilities(capabilities)
+    if capability_names:
+        missing = capability_names.difference(expected)
+        if missing:
+            raise ModelDeploymentVerificationError(
+                "selected resolved capability is unavailable: " + ", ".join(sorted(missing))
+            )
+        expected = {name: expected[name] for name in sorted(capability_names)}
     observed = _observed_deployments(deployments)
     verified: list[dict[str, object]] = []
     for name in sorted(expected):
@@ -147,9 +156,16 @@ def main() -> int:
     parser.add_argument("--resolved", type=Path, required=True)
     parser.add_argument("--provider", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--capabilities", default="")
     args = parser.parse_args()
     try:
-        verify_model_deployments(args.resolved, args.provider, args.out)
+        selected = frozenset(filter(None, args.capabilities.split(",")))
+        verify_model_deployments(
+            args.resolved,
+            args.provider,
+            args.out,
+            capability_names=selected or None,
+        )
     except (OSError, ModelDeploymentVerificationError) as exc:
         print(f"model deployment verification failed: {exc}")
         return 1

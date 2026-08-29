@@ -1,7 +1,4 @@
 name: deploy-dev
-# Deploys from the self-hosted runner with private-endpoint access inside the ops VNet.
-# A GitHub-hosted runner or operator laptop cannot run this private-everything deployment.
-#
 # Prerequisites (see infra/bootstrap/README.md):
 #   - `infra/bootstrap` applied: ops VNet + state storage + registered runner
 #     with labels [self-hosted, fdai-deploy] and the stable deploy UAMI holding
@@ -1566,6 +1563,8 @@ jobs:
 
       - name: Verify model deployment readback
         if: ${{ inputs.apply && (env.MODEL_BINDING_ONLY == 'true' || env.CORE_MODEL_QUORUM_ONLY == 'true') }}
+        env:
+          MODEL_READBACK_CAPABILITIES: ${{ env.CORE_MODEL_QUORUM_ONLY == 'true' && 't1.judge,t2.reasoner.primary' || '' }}
         run: |
           set -euo pipefail
           resource_id="$(terraform output -raw llm_resource_id)"
@@ -1580,7 +1579,8 @@ jobs:
             ../scripts/deployment/azure/verify_model_deployments.py \
             --resolved resolved-models.json \
             --provider "$RUNNER_TEMP/model-deployments.json" \
-            --out model-binding-readback.json
+            --out model-binding-readback.json \
+            --capabilities "$MODEL_READBACK_CAPABILITIES"
           readback_digest="$(sha256sum model-binding-readback.json | cut -d' ' -f1)"
           echo "MODEL_BINDING_READBACK_DIGEST=$readback_digest" >> "$GITHUB_ENV"
           if [[ "${{ inputs.resume_verification }}" != "true" ]]; then
