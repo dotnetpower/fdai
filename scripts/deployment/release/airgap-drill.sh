@@ -118,6 +118,7 @@ else
   [[ -d "$KIT" ]] || { echo "airgap-drill: --skip-stage needs an existing kit." >&2; exit 2; }
 fi
 rm -rf "$WORKDIR/work" "$WORKDIR/negative" "$WORKDIR/authenticated-kit" "$WORKDIR/cli-venv"
+mkdir -m 700 "$WORKDIR/empty-azure"
 
 # The kit declares which CLI it was built for; verification binds that exact
 # value, so read it rather than assume the local environment matches.
@@ -157,6 +158,7 @@ REPO_ROOT="$repo_root" WORKDIR="$WORKDIR" KIT="$KIT" PYTHON="$PYTHON" UV="$(comm
   unshare -rn -- bash -euo pipefail -c '
 ip link set lo up 2>/dev/null || true
 export TF_IN_AUTOMATION=1
+export AZURE_CONFIG_DIR="$WORKDIR/empty-azure"
 TFBIN="$WORKDIR/authenticated-kit/terraform/terraform"
 BUNDLE="$WORKDIR/work/fdai-deployment-bundle-${BUNDLE_VERSION}"
 fail() { echo "airgap-drill: FAIL - $*" >&2; exit 1; }

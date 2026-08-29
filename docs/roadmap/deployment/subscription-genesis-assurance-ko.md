@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: a23a9a12b85d306db47d96f78d5b86f7267d2b5e
+translation_source_sha: 300f0992f49498bbc09d52cac524d624b0b64169
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -283,6 +283,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H56 | 선택적 모델 수요가 차단용 필수 TPM에 포함되어 유효한 필수 용량도 실패했습니다. 이제 필수 및 선택 수요가 별도 충분성 결과를 가집니다. | `test_optional_shortfall_does_not_block_required_capacity` |
 | H57 | 호출자가 제공한 대상 다이제스트가 실제 테넌트, 구독, 지역 입력을 제한하지 않았습니다. 이제 계획이 다이제스트를 재계산하고 프로필 지역을 일치시키며 검증된 구독을 Terraform에 주입합니다. | `test_plan_input_region_must_match_profile` |
 | H58 | 선택 기능의 예비 비율이 필수 충분성에 사용하는 할당량을 계속 줄였습니다. 이제 필수 및 결합 예비 용량을 독립적으로 계산합니다. | `test_optional_reserve_does_not_block_required_capacity` |
+| H59 | 합성 air-gap 프로필이 로그인된 호스트의 Azure CLI 맥락을 상속해 대상 연결에 실패했습니다. 이제 훈련은 비공개 빈 Azure 구성 디렉터리를 사용합니다. | `test_release_scripts_use_the_installable_distribution` |
 
 ## 관련 문서
 

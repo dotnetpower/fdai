@@ -109,6 +109,8 @@ Connected staging also requires the committed deployment CLI lock and exact Hatc
 versions before it can sign an offline kit.
 Offline planning recomputes the profile target digest from concrete tenant and subscription input,
 matches the profile region, and supplies the verified subscription to Terraform.
+The synthetic air-gap drill isolates Azure CLI configuration so a host login cannot alter its
+target evidence.
 
 The C1 commands use stable JSON schemas for automation. `provision init` captures only the active
 subscription and tenant identifiers, environment, region, remote-runner boundary, and shadow-mode
