@@ -98,6 +98,14 @@ def test_journal_rejects_event_after_terminal_state(tmp_path: Path) -> None:
         append_event(path, _event(2, first.digest, RunState.PLANNING))
 
 
+def test_journal_rejects_event_after_blocked_state(tmp_path: Path) -> None:
+    path = tmp_path / "runs" / "run.jsonl"
+    first = _event(1, GENESIS_HASH, RunState.BLOCKED)
+    append_event(path, first)
+    with pytest.raises(ValueError, match="terminal"):
+        append_event(path, _event(2, first.digest, RunState.PLANNING))
+
+
 @pytest.mark.parametrize(
     ("claim", "receipt", "failed", "expected"),
     (

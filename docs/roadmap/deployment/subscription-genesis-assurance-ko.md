@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 3afe45291047487c13a61f3908a8be13aeba9082
+translation_source_sha: 8dc5a560cac8b2c20f7d6c9808dbffc882852a69
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -260,6 +260,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H33 | air-gap 훈련이 제공한 wheel 대신 체크아웃 소스를 실행했습니다. 이제 격리된 네트워크 이름 공간에서 `--no-index`로 서명 키트 wheel만 설치하고 해당 `fdaictl`을 실행합니다. | `test_release_scripts_use_the_installable_distribution` |
 | H34 | 의존성 다운로드가 CLI 빌드 인터프리터 대신 `uvx` 인터프리터 ABI를 사용했습니다. 이제 키트를 빌드하고 검증하는 정확한 Python으로 wheel 해석을 고정합니다. | `test_release_scripts_use_the_installable_distribution` |
 | H35 | 원장 재생이 해시는 검증했지만 적법한 전이를 검사하지 않아 조작된 첫 `ready`가 가능했습니다. 이제 재생도 append와 같은 전이 리듀서를 적용합니다. | `test_journal_replay_rejects_ready_without_readiness_evidence` |
+| H36 | 차단된 실행이 비종결 상태여서 새 검토 실행 없이 계속될 수 있었습니다. 이제 `blocked`는 다른 실패 시 차단 종결 상태처럼 원장을 닫습니다. | `test_journal_rejects_event_after_blocked_state` |
 
 ## 관련 문서
 

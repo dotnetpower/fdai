@@ -220,6 +220,7 @@ def _validate_transition(
 ) -> None:
     if previous is not None and previous.state in {
         RunState.READY,
+        RunState.BLOCKED,
         RunState.FAILED,
         RunState.CANCELLED,
         RunState.INCOMPLETE,
