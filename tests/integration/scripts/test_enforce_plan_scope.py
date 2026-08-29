@@ -73,16 +73,26 @@ def test_model_scope_requires_a_change() -> None:
 
 
 def test_core_model_quorum_requires_exact_required_pair() -> None:
+    account = "module.llm_azure_openai[0].azurerm_cognitive_account.primary"
     judge = 'module.llm_azure_openai[0].azurerm_cognitive_deployment.capability["t1.judge"]'
     primary = (
         'module.llm_azure_openai[0].azurerm_cognitive_deployment.capability["t2.reasoner.primary"]'
     )
 
-    assert enforce(_plan(judge, primary), mode="core-model-quorum") == frozenset({judge, primary})
-    with pytest.raises(ValueError, match="exactly the required deployments"):
+    plan = _plan(judge, primary)
+    plan["resource_changes"].append({"address": account, "change": {"actions": ["update"]}})
+    assert enforce(plan, mode="core-model-quorum") == frozenset({account, judge, primary})
+    with pytest.raises(ValueError, match="exactly the required resources"):
         enforce(_plan(judge), mode="core-model-quorum")
-    with pytest.raises(ValueError, match="exactly the required deployments"):
-        enforce(_plan(judge, primary, "module.console[0].site"), mode="core-model-quorum")
+    with pytest.raises(ValueError, match="exactly the required resources"):
+        enforce(_plan(account, judge, primary, "module.console[0].site"), mode="core-model-quorum")
+
+    destructive_account = _plan(judge, primary)
+    destructive_account["resource_changes"].append(
+        {"address": account, "change": {"actions": ["delete", "create"]}}
+    )
+    with pytest.raises(ValueError, match="in-place update"):
+        enforce(destructive_account, mode="core-model-quorum")
 
 
 def test_read_and_noop_actions_are_ignored() -> None:
