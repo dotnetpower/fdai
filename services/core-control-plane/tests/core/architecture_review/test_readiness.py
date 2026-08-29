@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
 import yaml
 from fdai.core.architecture_review import (
     ArchitectureReviewProductionGateEvaluator,
     evaluate_readiness,
+    validate_contract,
 )
 
 _ROOT = Path(__file__).resolve().parents[5]
@@ -18,6 +21,47 @@ _MANIFEST = _ROOT / "config" / "architecture-review.yaml"
 def _manifest() -> dict[str, object]:
     raw = yaml.safe_load(_MANIFEST.read_text(encoding="utf-8"))
     assert isinstance(raw, dict)
+    return raw
+
+
+def _production_ready_manifest() -> dict[str, object]:
+    raw = deepcopy(_manifest())
+    review = raw["architecture_review"]
+    assert isinstance(review, dict)
+    review["design_review_status"] = "approved"
+    review["production_approval_status"] = "ready"
+    for artifact in review["artifacts"]:
+        assert isinstance(artifact, dict)
+        if artifact["required_for"] == "production":
+            artifact["status"] = "ready"
+    review["blockers"] = [
+        {
+            "id": "ARB-READY",
+            "severity": "low",
+            "status": "resolved",
+            "owner_slot": "architecture-owner",
+            "resolution": "Tracked elsewhere.",
+        }
+    ]
+    gate = review["production_gate"]
+    assert isinstance(gate, dict)
+    gate["required_owner_slots"] = ["security-owner"]
+    gate["owner_bindings"] = {
+        "security-owner": {
+            "subject": "group:security-reviewers",
+            "escalation": "security-oncall",
+        }
+    }
+    gate["required_evidence"] = ["network-data-flow-validation"]
+    gate["evidence_bindings"] = {
+        "network-data-flow-validation": {
+            "uri": "evidence://network-data-flow-validation",
+            "sha256": "a" * 64,
+            "approved_by": "group:security-reviewers",
+            "approved_at": "2026-07-13T00:00:00Z",
+            "expires_at": "2099-07-13T00:00:00Z",
+        }
+    }
     return raw
 
 
@@ -40,6 +84,122 @@ def test_malformed_manifest_is_structurally_unhealthy() -> None:
     assert report.structure_valid is False
     assert report.production_ready is False
     assert report.failures == ("design_review_status is invalid",)
+
+
+def test_accepted_critical_blocker_requires_complete_risk_or_exception_contract() -> None:
+    raw = _production_ready_manifest()
+    review = raw["architecture_review"]
+    assert isinstance(review, dict)
+    review["blockers"] = [
+        {
+            "id": "ARB-009",
+            "severity": "critical",
+            "status": "accepted",
+            "owner_slot": "security-owner",
+            "resolution": "Accepted temporarily.",
+        }
+    ]
+
+    report = evaluate_readiness(raw, repo_root=_ROOT)
+
+    assert report.structure_valid is False
+    assert report.production_ready is False
+    assert report.failures == ("blocker ARB-009.acceptance must be a mapping",)
+
+
+def test_accepted_critical_blocker_requires_registered_owner_slot() -> None:
+    raw = _production_ready_manifest()
+    review = raw["architecture_review"]
+    assert isinstance(review, dict)
+    review["blockers"] = [
+        {
+            "id": "ARB-009A",
+            "severity": "critical",
+            "status": "accepted",
+            "owner_slot": "privacy-owner",
+            "resolution": "Accepted temporarily.",
+            "acceptance": {
+                "kind": "risk",
+                "mitigation": "Scope the data path.",
+                "residual_risk": "One unreviewed privacy edge remains.",
+                "reviewed_by": "group:privacy-reviewers",
+                "review_date": "2099-08-01T00:00:00Z",
+                "evidence": ["docs/roadmap/architecture/security-and-identity.md"],
+            },
+        }
+    ]
+
+    report = evaluate_readiness(raw, repo_root=_ROOT)
+
+    assert report.structure_valid is False
+    assert report.production_ready is False
+    assert report.failures == (
+        "blocker ARB-009A accepted critical/high status requires a registered owner slot",
+    )
+
+
+def test_production_ready_requires_current_accepted_risk_review() -> None:
+    raw = _production_ready_manifest()
+    review = raw["architecture_review"]
+    assert isinstance(review, dict)
+    review["blockers"] = [
+        {
+            "id": "ARB-010",
+            "severity": "high",
+            "status": "accepted",
+            "owner_slot": "security-owner",
+            "resolution": "Accepted with review.",
+            "acceptance": {
+                "kind": "risk",
+                "mitigation": "Keep the temporary network rule scoped.",
+                "residual_risk": "Outbound exposure remains possible.",
+                "reviewed_by": "group:security-reviewers",
+                "review_date": "2026-08-01T00:00:00Z",
+                "evidence": ["docs/roadmap/architecture/security-and-identity.md"],
+            },
+        }
+    ]
+
+    with pytest.raises(ValueError, match="accepted risk review is stale"):
+        validate_contract(
+            raw,
+            repo_root=_ROOT,
+            require_production_ready=True,
+            evaluated_at=datetime(2026, 8, 2, tzinfo=UTC),
+        )
+
+
+def test_production_ready_requires_current_accepted_exception_window() -> None:
+    raw = _production_ready_manifest()
+    review = raw["architecture_review"]
+    assert isinstance(review, dict)
+    review["blockers"] = [
+        {
+            "id": "ARB-011",
+            "severity": "critical",
+            "status": "accepted",
+            "owner_slot": "security-owner",
+            "resolution": "Temporary exception.",
+            "acceptance": {
+                "kind": "exception",
+                "scope": "One staging subnet.",
+                "reason": "Allow a bounded migration window.",
+                "compensating_controls": "Alert on every outbound flow.",
+                "approved_by": "group:security-reviewers",
+                "effective_from": "2026-08-01T00:00:00Z",
+                "effective_to": "2026-08-03T00:00:00Z",
+                "audit_ref": "audit:arb-011",
+            },
+        }
+    ]
+
+    with pytest.raises(ValueError, match="accepted exception is not currently effective"):
+        validate_contract(
+            raw,
+            repo_root=_ROOT,
+            require_production_ready=True,
+            evaluated_at=datetime(2026, 8, 4, tzinfo=UTC),
+        )
 
 
 async def test_runtime_gate_fails_closed_for_blocked_or_unknown_gate() -> None:

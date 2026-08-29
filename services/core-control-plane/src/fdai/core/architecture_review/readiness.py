@@ -13,6 +13,7 @@ import yaml
 PRODUCTION_GATE_REF = "architecture-review.production-ready"
 _ALLOWED_ARTIFACT_STATUSES = {"ready", "conditional", "blocked"}
 _ALLOWED_BLOCKER_STATUSES = {"open", "accepted", "resolved"}
+_ALLOWED_ACCEPTANCE_KINDS = {"risk", "exception"}
 _ALLOWED_DESIGN_STATUSES = {"draft", "conditional", "approved"}
 _ALLOWED_PRODUCTION_STATUSES = {"blocked", "conditional", "ready"}
 _ALLOWED_SEVERITIES = {"critical", "high", "medium", "low"}
@@ -121,6 +122,7 @@ def validate_contract(
         _validate_evidence_paths(repo_root, evidence, f"artifact {artifact_id}.evidence")
 
     blocker_ids: set[str] = set()
+    accepted_blockers: list[dict[str, Any]] = []
     blockers = _non_empty_list(review["blockers"], "blockers")
     for index, raw_blocker in enumerate(blockers):
         blocker = _mapping(raw_blocker, f"blockers[{index}]")
@@ -137,6 +139,8 @@ def validate_contract(
         for field in ("owner_slot", "resolution"):
             if not isinstance(blocker.get(field), str) or not blocker[field].strip():
                 raise ValueError(f"blocker {blocker_id}.{field} must be a non-empty string")
+        if blocker["status"] == "accepted" and blocker["severity"] in {"critical", "high"}:
+            accepted_blockers.append(blocker)
 
     gate = _mapping(review["production_gate"], "production_gate")
     required_owners = _non_empty_list(gate.get("required_owner_slots"), "required_owner_slots")
@@ -155,6 +159,19 @@ def validate_contract(
         _validate_owner_binding(slot, binding)
     for item, binding in evidence_bindings.items():
         _validate_evidence_binding(item, binding)
+    evaluation_moment = evaluated_at or datetime.now().astimezone()
+    if evaluation_moment.tzinfo is None:
+        raise ValueError("evaluated_at must be timezone-aware")
+    required_owner_slots = {str(slot) for slot in required_owners}
+    for blocker in accepted_blockers:
+        _validate_accepted_blocker(
+            blocker,
+            repo_root=repo_root,
+            required_owner_slots=required_owner_slots,
+            owner_bindings=owner_bindings,
+            evaluated_at=evaluation_moment,
+            require_registered_owner=require_production_ready,
+        )
 
     if require_production_ready:
         failures: list[str] = []
@@ -177,13 +194,10 @@ def validate_contract(
         ]
         if missing_evidence:
             failures.append(f"missing production evidence: {', '.join(missing_evidence)}")
-        moment = evaluated_at or datetime.now().astimezone()
-        if moment.tzinfo is None:
-            raise ValueError("evaluated_at must be timezone-aware")
         expired_evidence = [
             str(item)
             for item, binding in evidence_bindings.items()
-            if _evidence_expired(binding, item=str(item), evaluated_at=moment)
+            if _evidence_expired(binding, item=str(item), evaluated_at=evaluation_moment)
         ]
         if expired_evidence:
             failures.append(f"expired production evidence: {', '.join(expired_evidence)}")
@@ -242,6 +256,91 @@ def _validate_evidence_binding(item: str, raw: Any) -> None:
         raise ValueError(f"evidence_bindings.{item}.expires_at must be an ISO 8601 timestamp")
     if expires_at <= approved_at:
         raise ValueError(f"evidence_bindings.{item}.expires_at must be after approved_at")
+
+
+def _validate_accepted_blocker(
+    blocker: dict[str, Any],
+    *,
+    repo_root: Path,
+    required_owner_slots: set[str],
+    owner_bindings: dict[str, Any],
+    evaluated_at: datetime,
+    require_registered_owner: bool,
+) -> None:
+    blocker_id = str(blocker["id"])
+    owner_slot = str(blocker["owner_slot"])
+    if owner_slot not in required_owner_slots:
+        raise ValueError(
+            f"blocker {blocker_id} accepted critical/high status requires a registered owner slot"
+        )
+    if require_registered_owner and owner_slot not in owner_bindings:
+        raise ValueError(
+            f"blocker {blocker_id} accepted critical/high status requires an owner binding"
+        )
+    acceptance = _mapping(blocker.get("acceptance"), f"blocker {blocker_id}.acceptance")
+    kind = acceptance.get("kind")
+    if kind not in _ALLOWED_ACCEPTANCE_KINDS:
+        raise ValueError(f"blocker {blocker_id}.acceptance.kind must be risk or exception")
+    if kind == "risk":
+        _validate_accepted_risk(
+            blocker_id,
+            acceptance,
+            repo_root=repo_root,
+            evaluated_at=evaluated_at,
+        )
+        return
+    _validate_accepted_exception(blocker_id, acceptance, evaluated_at=evaluated_at)
+
+
+def _validate_accepted_risk(
+    blocker_id: str,
+    acceptance: dict[str, Any],
+    *,
+    repo_root: Path,
+    evaluated_at: datetime,
+) -> None:
+    for field in ("mitigation", "residual_risk", "reviewed_by"):
+        if not isinstance(acceptance.get(field), str) or not acceptance[field].strip():
+            raise ValueError(f"blocker {blocker_id}.acceptance.{field} must be a non-empty string")
+    review_date = _timestamp(acceptance.get("review_date"))
+    if review_date is None:
+        raise ValueError(
+            f"blocker {blocker_id}.acceptance.review_date must be an ISO 8601 timestamp"
+        )
+    evidence = _non_empty_list(
+        acceptance.get("evidence"),
+        f"blocker {blocker_id}.acceptance.evidence",
+    )
+    _validate_evidence_paths(repo_root, evidence, f"blocker {blocker_id}.acceptance.evidence")
+    if review_date < evaluated_at:
+        raise ValueError(f"blocker {blocker_id} accepted risk review is stale")
+
+
+def _validate_accepted_exception(
+    blocker_id: str,
+    acceptance: dict[str, Any],
+    *,
+    evaluated_at: datetime,
+) -> None:
+    for field in ("scope", "reason", "compensating_controls", "approved_by", "audit_ref"):
+        if not isinstance(acceptance.get(field), str) or not acceptance[field].strip():
+            raise ValueError(f"blocker {blocker_id}.acceptance.{field} must be a non-empty string")
+    effective_from = _timestamp(acceptance.get("effective_from"))
+    if effective_from is None:
+        raise ValueError(
+            f"blocker {blocker_id}.acceptance.effective_from must be an ISO 8601 timestamp"
+        )
+    effective_to = _timestamp(acceptance.get("effective_to"))
+    if effective_to is None:
+        raise ValueError(
+            f"blocker {blocker_id}.acceptance.effective_to must be an ISO 8601 timestamp"
+        )
+    if effective_to <= effective_from:
+        raise ValueError(
+            f"blocker {blocker_id}.acceptance.effective_to must be after effective_from"
+        )
+    if not effective_from <= evaluated_at < effective_to:
+        raise ValueError(f"blocker {blocker_id} accepted exception is not currently effective")
 
 
 def _evidence_expired(raw: Any, *, item: str, evaluated_at: datetime) -> bool:

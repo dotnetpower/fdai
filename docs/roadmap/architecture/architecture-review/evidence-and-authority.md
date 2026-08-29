@@ -117,6 +117,10 @@ An accepted risk is not resolved. A critical or high item can leave `open` only 
 risk or exception record is independently reviewed and remains current. Expiry, evidence removal,
 scope drift, or a violated compensating control reopens the review automatically.
 
+The manifest checker can now enforce the accepted-risk and accepted-exception record shape plus the
+review or effective-time window. Provider-backed evidence-body attestation and live compensating
+control validation remain separate production-gate work.
+
 ## Decision receipt
 
 A final `Decision` is immutable and contains or links to:

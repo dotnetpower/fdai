@@ -1,8 +1,8 @@
 ---
 title: ARB 근거 및 권한
 translation_of: evidence-and-authority.md
-translation_source_sha: 58853dbd0ddef8f9bbec9025bbf9fc68eeb8ed96
-translation_revised: 2026-08-24
+translation_source_sha: 3c31958986f437afb115d10107a5aa54e74c2ca7
+translation_revised: 2026-08-29
 ---
 # ARB 근거 및 권한
 
@@ -118,6 +118,10 @@ evidence_bindings:
 수락된 위험은 해결된 상태가 아닙니다. 심각 또는 높음 항목은 완전한 위험 또는 예외 레코드가
 독립적으로 검토되고 현재 유효한 경우에만 `open` 상태를 벗어날 수 있습니다. 만료, 근거 제거,
 범위 드리프트, 보완 제어 위반은 검토를 자동으로 다시 엽니다.
+
+이제 매니페스트 검사기는 수락된 위험 및 예외 레코드의 형식과 검토 또는 유효 시간 구간을
+검증할 수 있습니다. 공급자 기반 근거 본문 증명과 실제 보완 제어 검증은 별도의 운영 게이트
+작업으로 남아 있습니다.
 
 ## 결정 증적
 
