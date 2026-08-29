@@ -10,7 +10,15 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Protocol, runtime_checkable
 
+from fdai_service_contracts.ontology_query import content_digest
+
 from fdai.shared.contracts.models import Mode
+from fdai.shared.providers.decision_evidence_verifier import (
+    DecisionEvidenceAdmission,
+    assess_decision_evidence_admission,
+)
+
+RUBRIC_PROMOTION_EVIDENCE_PURPOSE = "rubric-promotion"
 
 _GIT_REVISION = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 _IDENTIFIER = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$")
@@ -254,6 +262,7 @@ class RubricPromotionReceipt:
     treatment_policy_escapes: int
     ready: bool
     gaps: tuple[str, ...]
+    decision_evidence: DecisionEvidenceAdmission | None = None
 
     def __post_init__(self) -> None:
         if _GIT_REVISION.fullmatch(self.fdai_revision) is None:
@@ -341,6 +350,9 @@ class RubricPromotionReceipt:
             "false_positive_rate_increase": self.false_positive_rate_increase,
             "fdai_revision": self.fdai_revision,
             "gaps": list(self.gaps),
+            "decision_evidence": (
+                self.decision_evidence.to_mapping() if self.decision_evidence is not None else None
+            ),
             "hallucination_cases": self.hallucination_cases,
             "ready": self.ready,
             "review_digest": self.review_digest,
@@ -594,6 +606,26 @@ class RubricPromotionRegistry(RubricModeResolver):
                 "rubric_receipt_expired",
                 receipt.evidence_digest,
             )
+        if receipt.decision_evidence is None:
+            return RubricModeDecision(
+                Mode.SHADOW,
+                "decision_evidence_admission_missing",
+                receipt.evidence_digest,
+            )
+        admission_reasons = assess_decision_evidence_admission(
+            receipt.decision_evidence,
+            expected_evidence_digest=f"sha256:{receipt.evidence_digest}",
+            expected_scope_digest=rubric_promotion_scope_digest(receipt),
+            expected_purpose_id=RUBRIC_PROMOTION_EVIDENCE_PURPOSE,
+            expected_source_revision=receipt.fdai_revision,
+            evaluated_at=self._now(),
+        )
+        if admission_reasons:
+            return RubricModeDecision(
+                Mode.SHADOW,
+                f"decision_evidence_{admission_reasons[0].value}",
+                receipt.evidence_digest,
+            )
         try:
             authority_identity = (
                 action_record.fdai_revision,
@@ -648,6 +680,20 @@ def _is_digest(value: str) -> bool:
     return len(value) == 64 and all(character in "0123456789abcdef" for character in value)
 
 
+def rubric_promotion_scope_digest(receipt: RubricPromotionReceipt) -> str:
+    """Return the exact ActionType, scenario, and review scope."""
+
+    return content_digest(
+        {
+            "action_type_digest": receipt.action_type_digest,
+            "action_type_name": receipt.action_type_name,
+            "action_type_version": receipt.action_type_version,
+            "review_digest": receipt.review_digest,
+            "scenario_set_version": receipt.scenario_set_version,
+        }
+    )
+
+
 def _digest(value: object) -> str:
     encoded = json.dumps(value, separators=(",", ":"), sort_keys=True).encode()
     return hashlib.sha256(encoded).hexdigest()
@@ -685,6 +731,7 @@ def _wilson_interval(successes: int, samples: int) -> tuple[float, float]:
 
 
 __all__ = [
+    "RUBRIC_PROMOTION_EVIDENCE_PURPOSE",
     "ActionModeSource",
     "ActionModeRecordView",
     "RubricCaseObservation",
@@ -698,4 +745,5 @@ __all__ = [
     "RubricPromotionReceiptSource",
     "RubricPromotionReceiptVerifier",
     "RubricPromotionRegistry",
+    "rubric_promotion_scope_digest",
 ]

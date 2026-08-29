@@ -10,11 +10,13 @@ from pathlib import Path
 from typing import Any
 
 from fdai.core.quality_gate.promotion import RubricPromotionReceipt
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 
 _SCHEMA_VERSION = "1.0.0"
 _MAX_RECEIPTS = 1_000
 _MAX_FILE_BYTES = 4 * 1024 * 1024
 _RECEIPT_FIELDS = frozenset(field.name for field in fields(RubricPromotionReceipt))
+_LEGACY_RECEIPT_FIELDS = _RECEIPT_FIELDS - {"decision_evidence"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,9 +90,29 @@ def _decode_attestation(value: object) -> RubricPromotionReceiptAttestation:
 
 
 def _decode_receipt(value: object) -> RubricPromotionReceipt:
-    if not isinstance(value, Mapping) or set(value) != _RECEIPT_FIELDS:
+    if not isinstance(value, Mapping) or set(value) not in {
+        _RECEIPT_FIELDS,
+        _LEGACY_RECEIPT_FIELDS,
+    }:
         raise ValueError("rubric promotion receipt shape is invalid")
     decoded: dict[str, Any] = dict(value)
+    decision_evidence = decoded.get("decision_evidence")
+    if decision_evidence is not None:
+        if not isinstance(decision_evidence, Mapping):
+            raise ValueError("rubric promotion decision evidence MUST be an object")
+        decoded["decision_evidence"] = DecisionEvidenceAdmission(
+            receipt_digest=_text(decision_evidence, "receipt_digest"),
+            verification_bundle_digest=_text(
+                decision_evidence,
+                "verification_bundle_digest",
+            ),
+            evidence_digest=_text(decision_evidence, "evidence_digest"),
+            scope_digest=_text(decision_evidence, "scope_digest"),
+            purpose_id=_text(decision_evidence, "purpose_id"),
+            source_revision=_text(decision_evidence, "source_revision"),
+            verified_at=_datetime(decision_evidence["verified_at"], field_name="verified_at"),
+            valid_until=_datetime(decision_evidence["valid_until"], field_name="valid_until"),
+        )
     decoded["gaps"] = _string_tuple(decoded["gaps"], field_name="gaps")
     for name in (
         "baseline_catch_ci",
@@ -102,6 +124,13 @@ def _decode_receipt(value: object) -> RubricPromotionReceipt:
     for name in ("sealed_at", "reviewed_at", "expires_at"):
         decoded[name] = _datetime(decoded[name], field_name=name)
     return RubricPromotionReceipt(**decoded)
+
+
+def _text(value: Mapping[str, object], field_name: str) -> str:
+    item = value.get(field_name)
+    if not isinstance(item, str):
+        raise ValueError(f"rubric promotion decision evidence {field_name} MUST be a string")
+    return item
 
 
 def _string_tuple(value: object, *, field_name: str) -> tuple[str, ...]:

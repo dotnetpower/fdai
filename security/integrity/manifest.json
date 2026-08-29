@@ -727,7 +727,7 @@
     "services/core-control-plane/src/fdai/core/quality_gate/escalation_ladder.py": "eedca34be024408e220ee85d69cb5ea8994b8c114210ba4a17d7e0ca0df6ea78",
     "services/core-control-plane/src/fdai/core/quality_gate/gate.py": "a3255314fe7209e6124c7ec027924ec289a0de2c6b95f88566acb91bc8262d9a",
     "services/core-control-plane/src/fdai/core/quality_gate/judge.py": "20f80daa616db1870e13ba8b060bbcebc414926a88c578eb558c7c63a0d9e942",
-    "services/core-control-plane/src/fdai/core/quality_gate/promotion.py": "be3291e619fb6edf31dbbea468febd4ec4d0b004000ff1ec2032caa574191c10",
+    "services/core-control-plane/src/fdai/core/quality_gate/promotion.py": "7b0f33b7dd5ee65688a30f77dfc0bae2dd6442565bb81f4b2adf940c672349c6",
     "services/core-control-plane/src/fdai/core/quality_gate/rag_grounding.py": "278f5538f516e97cb3464360a097ce6070e2f7fc669282842ee37f16b2267c63",
     "services/core-control-plane/src/fdai/core/quality_gate/rubric.py": "b008870fe723f16580ef8766d37f4c2764b6b534c31c0d8eaa68887948c9fe0f",
     "services/core-control-plane/src/fdai/core/quality_gate/rule_based.py": "99d4cc62756b0c3147cff4e6b552c0fbff4854950a0af1f8efc3f408369c9293",

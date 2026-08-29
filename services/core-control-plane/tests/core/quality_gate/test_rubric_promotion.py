@@ -6,14 +6,17 @@ from types import SimpleNamespace
 
 import pytest
 from fdai.core.quality_gate.promotion import (
+    RUBRIC_PROMOTION_EVIDENCE_PURPOSE,
     RubricCaseObservation,
     RubricIndependentReview,
     RubricPromotionBatch,
     RubricPromotionEvaluator,
     RubricPromotionPolicy,
     RubricPromotionRegistry,
+    rubric_promotion_scope_digest,
 )
 from fdai.shared.contracts.models import Mode
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 
 _REVISION = "a" * 40
 _DIGEST = "b" * 64
@@ -108,7 +111,20 @@ def _receipt():
         policy=_policy(),
         as_of_fn=lambda: _NOW + timedelta(days=1),
     )
-    return evaluator.evaluate(batch, _review(batch))
+    receipt = evaluator.evaluate(batch, _review(batch))
+    return replace(
+        receipt,
+        decision_evidence=DecisionEvidenceAdmission(
+            receipt_digest="sha256:" + "e" * 64,
+            verification_bundle_digest="sha256:" + "f" * 64,
+            evidence_digest=f"sha256:{receipt.evidence_digest}",
+            scope_digest=rubric_promotion_scope_digest(receipt),
+            purpose_id=RUBRIC_PROMOTION_EVIDENCE_PURPOSE,
+            source_revision=receipt.fdai_revision,
+            verified_at=_NOW,
+            valid_until=_NOW + timedelta(days=2),
+        ),
+    )
 
 
 def test_evaluator_returns_ready_receipt_for_paired_improvement() -> None:
@@ -260,6 +276,21 @@ def test_registry_requires_action_authority_and_verified_receipt() -> None:
 
     assert decision.mode is Mode.ENFORCE
     assert decision.reason == "rubric_receipt_ready"
+
+
+def test_registry_rejects_missing_shared_decision_evidence() -> None:
+    receipt = replace(_receipt(), decision_evidence=None)
+    registry = RubricPromotionRegistry(
+        action_modes=_ActionModes(Mode.ENFORCE),
+        receipt_verifier=_Verifier(),
+        receipt_source=_ReceiptSource(receipt),
+        now_fn=lambda: _NOW + timedelta(days=1),
+    )
+
+    decision = registry.resolve("ops.restart-service")
+
+    assert decision.mode is Mode.SHADOW
+    assert decision.reason == "decision_evidence_admission_missing"
 
 
 def test_registry_demotes_only_rubric_on_regressed_receipt() -> None:
