@@ -23,13 +23,15 @@ and recoverable.
 | 2026-08-29 | in-progress | Added the assurance contract after a 40-item adversarial review of the subscription genesis plan. | `current change`; critique resolution register, paired owner documents, and focused documentation checks | Implement the open controls and retain exact-revision new-subscription evidence. |
 | 2026-08-29 | in-progress | Implemented the pre-login deployment CLI safety kernel and deterministic full-stage rehearsal. | `current change`; package tests passed 25 cases and productization tests passed 3 cases; Ruff and strict mypy passed | Harden the local kernel, then bind protected Azure and operator surfaces. |
 | 2026-08-29 | implemented | Completed 75 focused hardening rounds, fixed every review finding above Low, and passed the shipped-wheel air-gap drill without network or DNS. | Campaign commits from `dd28b64d9`; final severity review reported no Medium-or-higher finding; 89 focused tests, Ruff, strict mypy, locked build, isolated install, and air-gap evidence | Collect subscription-backed state, quota, model, database, inventory, and readiness receipts after login. |
+| 2026-08-29 | implemented | Extended the campaign through 93 focused hardening rounds and reconfirmed that only Low-or-lower concerns remain before Azure login. | `current change`; final severity review found no Medium-or-higher issue; 92 focused tests, Ruff, strict mypy, lock verification, source and wheel builds, and fresh plus `--skip-stage` air-gap drills passed | Collect subscription-backed state, quota, model, database, inventory, and readiness receipts after login. |
+| 2026-08-29 | implemented | Completed hardening round 94 by making license-token FIFO rejection nonblocking after the stable-HEAD audit found the remaining hang risk. | `current change`; focused FIFO regression test and the final deployment CLI gate stack passed 93 tests | Collect subscription-backed state, quota, model, database, inventory, and readiness receipts after login. |
 
 ### Remaining work
 
-- [x] The pre-login safety kernel passed 75 recorded hardening rounds and the final review left only
+- [x] The pre-login safety kernel passed 94 recorded hardening rounds and the final review left only
   Low-or-lower concerns.
-- [x] The local negative, interruption, artifact, packaging, and disconnected execution matrix
-  passes without customer data or Azure mutation.
+- [x] The local negative, interruption, artifact, packaging, and fresh plus resumed disconnected
+  execution matrix passes without customer data or Azure mutation.
 - [ ] Retain one governed empty-subscription run, one supported-upgrade run, one rollback/restore
   run, and one second-run no-change receipt.
 

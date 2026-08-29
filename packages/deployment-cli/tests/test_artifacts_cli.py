@@ -636,6 +636,22 @@ def test_license_token_reader_is_private_bounded_and_no_follow(tmp_path: Path) -
         _read_private_license_token(linked)
 
 
+def test_license_token_reader_rejects_fifo_without_blocking(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fifo = tmp_path / "license.token"
+    os.mkfifo(fifo, mode=0o600)
+    real_open = os.open
+
+    def open_nonblocking(path: os.PathLike[str], flags: int) -> int:
+        assert flags & os.O_NONBLOCK
+        return real_open(path, flags)
+
+    monkeypatch.setattr(os, "open", open_nonblocking)
+    with pytest.raises(ValueError, match="regular file"):
+        _read_private_license_token(fifo)
+
+
 def test_cli_version_and_private_profile(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

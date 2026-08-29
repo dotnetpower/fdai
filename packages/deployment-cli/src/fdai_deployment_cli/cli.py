@@ -508,7 +508,7 @@ def _license_inspect(args: argparse.Namespace) -> int:
 
 
 def _read_private_license_token(path: Path) -> str:
-    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     with os.fdopen(descriptor, "rb") as stream:
         details = os.fstat(stream.fileno())
         if (

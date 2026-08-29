@@ -137,7 +137,9 @@ default in a gitignored mode-`0600` file. Human output never prints the account 
 `license inspect` is offline in the same sense as bundle and kit verification: the public key ships
 with the distribution, so no network call, revocation lookup, or certificate chain is involved. It
 reports status and non-secret metadata only and never echoes the token, document, or signature. The
-entitlement contract itself lives in
+token input is accepted only as a mode-`0600` regular file no larger than 8192 bytes. The reader does
+not follow symlinks and opens the path in nonblocking mode before checking its type, so named pipes
+and device files are blocked without waiting. The entitlement contract itself lives in
 [capability-licensing.md](../fork-and-sequencing/capability-licensing.md).
 
 ## Local security audit
