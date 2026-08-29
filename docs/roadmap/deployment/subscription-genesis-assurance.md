@@ -319,6 +319,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H85 | A known staging sentinel string was forgeable and did not prove UID ownership or private modes. A descriptor-based guard now verifies current-UID ownership, mode 0700, and a mode-0600 regular sentinel. | `test_workdir_guard_rejects_public_or_linked_roots` |
 | H86 | Air-gap resume trusted the same forgeable public marker before executing retained artifacts. Fresh and resumed drills now use the descriptor-based UID and mode guard. | `test_workdir_guard_creates_and_verifies_private_sentinel` |
 | H87 | Restaging an owned output preserved the prior bundle archive, which the deterministic builder refuses to overwrite. Cleanup now removes every generated single-file build output. | `test_release_scripts_use_the_installable_distribution` |
+| H88 | `fdaictl doctor` reported ready from executable versions without Azure authentication. Readiness now requires a read-only active-account check and emits a stable missing-auth reason. | `test_doctor_readiness_requires_azure_authentication` |
 
 ## Related docs
 
