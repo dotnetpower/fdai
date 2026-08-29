@@ -57,6 +57,7 @@ repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 PYTHON="$repo_root/.venv/bin/python"
 [[ -x "$PYTHON" ]] || { echo "airgap-drill: BLOCKED - .venv is missing." >&2; exit 2; }
+SAFE_WRITER="scripts/deployment/release/secure_work_file.py"
 SENTINEL=".fdai-airgap-workdir"
 if [[ "$WORKDIR" != /* || "$WORKDIR" == "/" || "$WORKDIR" == "$HOME" || "$WORKDIR" == "$repo_root" ]]; then
   echo "airgap-drill: workdir must be a safe absolute path outside the repository and home." >&2
@@ -98,9 +99,10 @@ BUNDLE_IN_KIT="deployment/fdai-deployment-bundle-${BUNDLE_VERSION}.tar.gz"
 
 stage() {
   echo "== stage (network allowed) =="
-  openssl genpkey -algorithm ed25519 -out "$WORKDIR/bundle-key.pem" 2>/dev/null
-  openssl genpkey -algorithm ed25519 -out "$WORKDIR/release-key.pem" 2>/dev/null
-  chmod 600 "$WORKDIR"/*.pem
+  openssl genpkey -algorithm ed25519 2>/dev/null |
+    "$PYTHON" "$SAFE_WRITER" --path "$WORKDIR/bundle-key.pem" --mode 600
+  openssl genpkey -algorithm ed25519 2>/dev/null |
+    "$PYTHON" "$SAFE_WRITER" --path "$WORKDIR/release-key.pem" --mode 600
 
   # The drill runs the real release staging script, so a green drill exercises
   # the release path itself rather than a second copy of it.
@@ -119,7 +121,7 @@ stage() {
     --capability cost.metering --valid-days 30 \
     --output "$WORKDIR/license.token" >/dev/null
 
-  cat > "$WORKDIR/offline.tfrc" <<EOF
+  "$PYTHON" "$SAFE_WRITER" --path "$WORKDIR/offline.tfrc" --mode 600 <<EOF
 provider_installation {
   filesystem_mirror {
     path    = "$WORKDIR/authenticated-kit/terraform/providers"
@@ -143,8 +145,15 @@ mkdir -m 700 "$WORKDIR/empty-azure"
 
 # The kit declares which CLI it was built for; verification binds that exact
 # value, so read it rather than assume the local environment matches.
-CLI_VERSION="$("$PYTHON" -c 'import json,sys; print(json.load(open(sys.argv[1]))["cli_version"])' "$KIT/offline-kit.json")"
-cat > "$WORKDIR/plan-input.tfvars.json" <<'EOF'
+CLI_VERSION="$(PYTHONPATH=packages/deployment-cli/src "$PYTHON" -c '
+import json
+import sys
+from pathlib import Path
+from fdai_deployment_cli.offline_kit import _read_regular
+
+print(json.loads(_read_regular(Path(sys.argv[1]), 4 * 1024 * 1024))["cli_version"])
+' "$KIT/offline-kit.json")"
+"$PYTHON" "$SAFE_WRITER" --path "$WORKDIR/plan-input.tfvars.json" --mode 600 --replace <<'EOF'
 {
   "core_image": "ghcr.io/example/fdai:plan-only",
   "postgres_admin_login": "fdaiadmin",
@@ -155,8 +164,7 @@ cat > "$WORKDIR/plan-input.tfvars.json" <<'EOF'
   "tenant_id": "00000000-0000-0000-0000-000000000000"
 }
 EOF
-chmod 600 "$WORKDIR/plan-input.tfvars.json"
-cat > "$WORKDIR/offline-profile.json" <<'EOF'
+"$PYTHON" "$SAFE_WRITER" --path "$WORKDIR/offline-profile.json" --mode 600 --replace <<'EOF'
 {
   "access_method": "internal_ssh",
   "approval_quorum": 1,
@@ -171,7 +179,6 @@ cat > "$WORKDIR/offline-profile.json" <<'EOF'
   "transport": "manual"
 }
 EOF
-chmod 600 "$WORKDIR/offline-profile.json"
 
 echo "== verify (network namespace, no route, no DNS) =="
 REPO_ROOT="$repo_root" WORKDIR="$WORKDIR" KIT="$KIT" PYTHON="$PYTHON" UV="$(command -v uv)" \
@@ -202,10 +209,11 @@ PYTHONPATH=packages/deployment-cli/src "$PYTHON" -c "
 import sys
 from pathlib import Path
 from fdai_deployment_cli.bundle import extract_bundle_archive, verify_bundle
+from fdai_deployment_cli.cli import _read_public_key
 from fdai_deployment_cli.offline_kit import materialize_verified_artifacts, verify_offline_kit
 result = verify_offline_kit(
     Path(sys.argv[1]),
-    release_root_pem=Path(sys.argv[2]).read_bytes(),
+    release_root_pem=_read_public_key(Path(sys.argv[2])),
     cli_version=sys.argv[3],
     platform_tag=sys.argv[4],
 )
@@ -213,7 +221,7 @@ artifacts = materialize_verified_artifacts(Path(sys.argv[1]), result, Path(sys.a
 bundle_root = extract_bundle_archive(artifacts.deployment_bundle, Path(sys.argv[6]))
 verify_bundle(
     bundle_root,
-    public_key_pem=Path(sys.argv[7]).read_bytes(),
+    public_key_pem=_read_public_key(Path(sys.argv[7])),
     cli_version=sys.argv[3],
 )
 print(f\"   verified {result.file_count} files, {result.total_bytes} bytes\")
@@ -234,10 +242,11 @@ CLI_PYTHON="$WORKDIR/cli-venv/bin/python"
 "$CLI_PYTHON" -c "
 import sys
 from pathlib import Path
+from fdai_deployment_cli.cli import _read_public_key
 from fdai_deployment_cli.offline_kit import verify_offline_kit
 verify_offline_kit(
     Path(sys.argv[1]),
-    release_root_pem=Path(sys.argv[2]).read_bytes(),
+    release_root_pem=_read_public_key(Path(sys.argv[2])),
     cli_version=sys.argv[3],
     platform_tag=sys.argv[4],
 )
@@ -245,14 +254,15 @@ verify_offline_kit(
 # Kit verification proves the SBOM has not been tampered with; it cannot notice
 # that the SBOM describes nothing. An empty components array reads as compliant
 # and gives a recipient no supply-chain visibility, so assert the content too.
-"$PYTHON" - "$KIT" <<'"'"'PY'"'"'
+PYTHONPATH=packages/deployment-cli/src "$PYTHON" - "$KIT" <<'"'"'PY'"'"'
 import json
 import sys
 from pathlib import Path
+from fdai_deployment_cli.offline_kit import _read_regular
 
 root = Path(sys.argv[1])
-manifest = json.loads((root / "offline-kit.json").read_text(encoding="utf-8"))
-sbom = json.loads((root / manifest["sbom_path"]).read_text(encoding="utf-8"))
+manifest = json.loads(_read_regular(root / "offline-kit.json", 4 * 1024 * 1024))
+sbom = json.loads(_read_regular(root / manifest["sbom_path"], 16 * 1024 * 1024))
 described = {component["name"] for component in sbom["components"]}
 missing = sorted(set(manifest["files"]) - described - {manifest["sbom_path"]})
 if missing:

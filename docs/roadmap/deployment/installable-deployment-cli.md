@@ -116,6 +116,9 @@ be a safe absolute path. A descriptor-based guard verifies current-UID ownership
 mode-0600 regular staging sentinel before cleanup. Restaging removes every generated directory and
 single-file output while preserving the ownership sentinel. Sentinel verification opens the final
 component in nonblocking mode before descriptor checks, so a special file cannot stall resume.
+Generated child files use a held-parent, exclusive, no-follow writer. A resumed replacement unlinks
+only the final entry through that descriptor and then recreates it with `O_EXCL`, so an existing
+symlink or FIFO cannot redirect or truncate another file.
 Offline planning recomputes the profile target digest from concrete tenant and subscription input,
 matches the profile region, and supplies the verified subscription to Terraform.
 The synthetic air-gap drill isolates Azure CLI configuration so a host login cannot alter its
@@ -125,7 +128,8 @@ configuration only inside a sentinel-owned work directory. Fresh drills require 
 absolute path, and both fresh and resumed drills use the descriptor-based UID and mode guard. The
 drill needs no ambient Terraform because it uses the authenticated kit snapshot.
 It also clears Python import overrides before invoking the installed distribution, so checkout
-source cannot shadow a shipped wheel.
+source cannot shadow a shipped wheel. Manifest, trust-key, and SBOM reads use bounded nonblocking
+regular-file readers in both source and installed-wheel verification.
 The connected stage issues its synthetic license through the current Core and service-contract
 package roots rather than the retired monolithic source path, and verifies the issued Ed25519
 signature without a removed delivery adapter. License output is a new private file; issuance never

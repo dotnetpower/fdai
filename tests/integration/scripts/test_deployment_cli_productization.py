@@ -23,6 +23,9 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     drill = (ROOT / "scripts/deployment/release/airgap-drill.sh").read_text(encoding="utf-8")
     signer = (ROOT / "scripts/deployment/release/build-offline-kit.py").read_text(encoding="utf-8")
     issuer = (ROOT / "scripts/deployment/release/issue-license.py").read_text(encoding="utf-8")
+    bundle_builder = (ROOT / "scripts/deployment/release/build-deployment-bundle.py").read_text(
+        encoding="utf-8"
+    )
 
     assert "uv lock --check --project packages/deployment-cli" in stage
     assert "uv build --wheel --project packages/deployment-cli" in stage
@@ -38,6 +41,8 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     assert "cross-platform kit staging is not supported" in stage
     assert 'STAGE_SENTINEL=".fdai-offline-stage"' in stage
     assert "workdir-guard.py verify" in stage
+    assert "secure_work_file.py" in stage
+    assert "openssl pkey -in" not in stage
     assert "--out must be a safe absolute path" in stage
     assert "existing --out is not owned by offline staging" in stage
     assert 'rm -f "$OUT/bundle.tar.gz" "$OUT/cli-requirements.txt"' in stage
@@ -83,12 +88,17 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     assert "workdir-guard.py verify" in drill
     assert "a fresh workdir is required" in drill
     assert "--skip-stage requires an owned drill workdir" in drill
+    assert "secure_work_file.py" in drill
+    assert 'cat > "$WORKDIR' not in drill
+    assert ".read_bytes()" not in drill
+    assert ".read_text(" not in drill
     assert "sentinel_value" not in drill
     assert 'rm -rf "$WORKDIR"' not in drill
     assert "fdai_deployment_cli.offline_kit" in signer
     assert "fdai.deployment_cli" not in stage + drill + signer
     assert "fdai.delivery.trust.ed25519" not in issuer
     assert "load_pem_public_key" in issuer
+    assert "write_work_file(" in bundle_builder
 
 
 def test_source_entrypoint_reports_stable_version_json() -> None:

@@ -21,8 +21,10 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 if TYPE_CHECKING:
     from scripts.deployment.release.secure_key_file import read_key_file
+    from scripts.deployment.release.secure_work_file import write_work_file
 else:
     from secure_key_file import read_key_file
+    from secure_work_file import write_work_file
 
 _ROOTS: Final[tuple[str, ...]] = (
     "infra",
@@ -277,7 +279,12 @@ def main(argv: list[str] | None = None) -> int:
             bundle_version=args.bundle_version,
             source_date_epoch=epoch,
         )
-        args.public_key_output.write_bytes(public_key_pem(private_key))
+        write_work_file(
+            args.public_key_output,
+            public_key_pem(private_key),
+            mode=0o644,
+            replace=True,
+        )
         _normalize_file(args.public_key_output, epoch)
     except (OSError, ValueError, BundleBuildError) as exc:
         print(f"bundle build failed: {exc}", file=sys.stderr)

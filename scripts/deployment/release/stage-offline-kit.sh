@@ -61,6 +61,7 @@ repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 PYTHON="$repo_root/.venv/bin/python"
 [[ -x "$PYTHON" ]] || { echo "stage-offline-kit: BLOCKED - .venv is missing." >&2; exit 2; }
+SAFE_WRITER="scripts/deployment/release/secure_work_file.py"
 STAGE_SENTINEL=".fdai-offline-stage"
 if [[ "$OUT" != /* || "$OUT" == "/" || "$OUT" == "$HOME" || "$OUT" == "$repo_root" ]]; then
   echo "stage-offline-kit: --out must be a safe absolute path outside the repository and home." >&2
@@ -83,7 +84,7 @@ else
   fi
 fi
 
-for tool in curl git openssl sha256sum unzip uv; do
+for tool in curl git sha256sum unzip uv; do
   command -v "$tool" >/dev/null 2>&1 || {
     echo "stage-offline-kit: BLOCKED - $tool is required to assemble a kit." >&2
     exit 2
@@ -132,7 +133,25 @@ rm -rf "$KIT" "$OUT/bundle" "$OUT/wheels" "$OUT/mirror" "$OUT/toolchain"
 rm -f "$OUT/bundle.tar.gz" "$OUT/cli-requirements.txt"
 mkdir -p "$OUT/toolchain" "$KIT"/{python,deployment,terraform,bin,sbom}
 
-openssl pkey -in "$RELEASE_KEY" -pubout -out "$OUT/release-root.pub"
+PYTHONPATH=scripts/deployment/release "$PYTHON" -c '
+import sys
+from pathlib import Path
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
+from secure_key_file import read_key_file
+
+key = load_pem_private_key(read_key_file(Path(sys.argv[1]), private=True), password=None)
+if not isinstance(key, Ed25519PrivateKey):
+    raise SystemExit("release signing key MUST be Ed25519")
+sys.stdout.buffer.write(
+    key.public_key().public_bytes(
+        serialization.Encoding.PEM,
+        serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+)
+' "$RELEASE_KEY" |
+  "$PYTHON" "$SAFE_WRITER" --path "$OUT/release-root.pub" --mode 644 --replace
 
 echo "-- pinned release toolchain"
 curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors \

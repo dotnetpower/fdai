@@ -31,11 +31,11 @@ and recoverable.
 | 2026-08-29 | implemented | Completed hardening round 98 by making release workdir sentinel verification nonblocking before descriptor validation. | `current change`; three focused workdir guard tests and Ruff passed | Complete the remaining artifact-reader, journal-lock, and resumed-release hardening before login. |
 | 2026-08-29 | implemented | Completed hardening round 99 by closing artifact metadata and hash check/open FIFO races with nonblocking descriptor and identity validation. | `current change`; four focused replacement-race tests and the final deployment CLI gate stack passed 101 tests | Complete the remaining journal-lock and resumed-release hardening before login. |
 | 2026-08-29 | implemented | Completed hardening round 100 by bounding journal lock acquisition with a five-second monotonic deadline and pre/post-lock descriptor validation. | `current change`; focused lock-contention regression test and the final deployment CLI gate stack passed 102 tests | Complete resumed-release child-path hardening before login. |
+| 2026-08-29 | implemented | Completed hardening round 101 by moving release child-file writes to a held-parent exclusive writer and all resumed drill inputs to bounded nonblocking readers. | `current change`; three focused secure-writer tests, release productization checks, and fresh plus `--skip-stage` air-gap drills | Repeat the final severity audit and close any remaining finding above Low before login. |
 
 ### Remaining work
 
-- [x] The pre-login safety kernel passed 100 recorded hardening rounds and the final review left only
-  Low-or-lower concerns.
+- [ ] Repeat the post-H101 severity audit and record that only Low-or-lower concerns remain.
 - [x] The local negative, interruption, artifact, packaging, and fresh plus resumed disconnected
   execution matrix passes without customer data or Azure mutation.
 - [ ] Retain one governed empty-subscription run, one supported-upgrade run, one rollback/restore
