@@ -40,6 +40,12 @@ from .discovery_contracts import (
     DiscoveryVerificationReceipt,
 )
 from .discovery_cycle import DiscoveryCycleScheduler
+from .override_signals import (
+    OverrideAuditPage,
+    OverrideAuditReader,
+    OverrideDiscoverySignalSource,
+    OverrideSignalThresholds,
+)
 from .patterns import (
     OperatingPatternCandidate,
     OperatingPatternCompiler,
@@ -96,6 +102,10 @@ __all__ = [
     "OperatingPatternCandidate",
     "OperatingPatternCompiler",
     "OperationalPatternRuleCandidate",
+    "OverrideAuditPage",
+    "OverrideAuditReader",
+    "OverrideDiscoverySignalSource",
+    "OverrideSignalThresholds",
     "PatternCase",
     "PolicyCheckReceipt",
     "ReplayCheckReceipt",

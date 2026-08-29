@@ -21,6 +21,7 @@ passes the parsed mapping).
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
@@ -62,6 +63,8 @@ class ParameterBound:
         try:
             numeric = float(value)
         except ValueError:
+            return False
+        if not math.isfinite(numeric):
             return False
         if self.minimum is not None and numeric < self.minimum:
             return False

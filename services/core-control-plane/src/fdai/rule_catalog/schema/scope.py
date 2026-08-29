@@ -51,7 +51,9 @@ class ScopeSelector:
     def matches(self, ctx: ResourceContext) -> bool:
         if self.resource_types and ctx.resource_type not in self.resource_types:
             return False
-        if self.resource_ids and ctx.resource_id not in self.resource_ids:
+        if self.resource_ids and ctx.resource_id.casefold() not in {
+            resource_id.casefold() for resource_id in self.resource_ids
+        }:
             return False
         for key, value in self.tags.items():
             if ctx.tags.get(key) != value:
@@ -104,11 +106,12 @@ class Scope:
         scope (any of its at-or-below hierarchy ids in ``excludes``); and the
         selector, if any, must match.
         """
-        if ctx.id_at(self.level) != self.id:
+        if ctx.id_at(self.level).casefold() != self.id.casefold():
             return False
         if self.excludes:
+            excluded = {value.casefold() for value in self.excludes}
             for level in ScopeLevel:
-                if level >= self.level and ctx.id_at(level) in self.excludes:
+                if level >= self.level and ctx.id_at(level).casefold() in excluded:
                     return False
         if self.selector is not None and not self.selector.matches(ctx):
             return False
@@ -222,7 +225,10 @@ class ScopeRef:
         """True when this address is an ancestor-or-self of the resource - every
         provided segment equals the resource's id at that level (full-chain
         match, stricter than :meth:`Scope.covers`)."""
-        return all(ctx.id_at(ScopeLevel(index)) == seg for index, seg in enumerate(self.segments))
+        return all(
+            ctx.id_at(ScopeLevel(index)).casefold() == segment.casefold()
+            for index, segment in enumerate(self.segments)
+        )
 
     def to_scope(
         self,
@@ -240,7 +246,9 @@ def _ref_dominates(ancestor: ScopeRef, descendant: ScopeRef) -> bool:
     ``descendant`` would include."""
     a = ancestor.segments
     d = descendant.segments
-    return len(a) <= len(d) and d[: len(a)] == a
+    return len(a) <= len(d) and tuple(item.casefold() for item in d[: len(a)]) == tuple(
+        item.casefold() for item in a
+    )
 
 
 @dataclass(frozen=True, slots=True)

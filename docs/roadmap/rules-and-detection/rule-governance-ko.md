@@ -1,7 +1,7 @@
 ---
 title: 규칙 거버넌스(Rule Governance)
 translation_of: rule-governance.md
-translation_source_sha: 2a7289bbc00b46dd9f67a2d8b1ab46001e7682f7
+translation_source_sha: 255dd04200310c415c4f2476e40b9582ee880a2a
 translation_revised: 2026-08-29
 ---
 
@@ -528,6 +528,7 @@ provenance:
 | 2026-08-23 | implemented | 권한 결정을 GitHub의 exact-head PR, commit, review, Check Run 메타데이터에 연결했습니다. 구성된 verifier App이 성공한 exact-head Check Run에 범위가 제한된 Entra principal bundle을 게시해야 합니다. App id 부재, 누락되거나 실패한 check, 오래된 revision, 검증되지 않은 역할, 약한 assurance, 자기 승인, 정족수 부족은 CI를 차단합니다. Assignment 변경은 transition intent가 독립적으로 입증될 때까지 더 엄격한 enforce-promotion 등급을 사용합니다. | `current change`; `scripts/governance/check-governance-review-authority.py`; `.github/workflows/ci.yml`; 집중 governance CLI, bridge, 권한 및 workflow 테스트 69개 통과 | Trusted Entra verifier GitHub App을 배포하고 차단 후 해소된 관리 PR 근거 record 하나를 보존합니다. |
 | 2026-08-23 | in-progress | 불변 T0 배정 소비를 완료하고 strict exemption 아티팩트를 시작 거버넌스 카탈로그와 안전성 검토에 통합했습니다. JSON 중복 키 탐지, UTC 및 terminal 상태 검증, 알 수 없는 룰과 중복 활성 범위 차단, exact 리소스 identity, 정규 ARM 범위 parsing, 구독 격리, 결정론적 fallback 및 두 registry의 terminal revocation을 하드닝했습니다. | `current change`; 집중 거버넌스 로더, exemption 모델/CLI, catalog/fallback registry, 런타임 조립, 안전성 검토 및 T0 파이프라인 검사가 통과했습니다. 12개 적대적 하드닝 라운드 후 이 구현 범위에 Medium 이상 finding이 남지 않았습니다. | 최대 exemption 기간과 알림 lead time을 구성한 뒤 예약 만료, 알림 및 라이프사이클 감사 전달을 연결합니다. 재정의 전달과 trusted-verifier 배포는 별도입니다. |
 | 2026-08-29 | implemented | 최대 exemption 기간과 만료 전 알림 lead time을 상호 검증되는 bounded `AppConfig.rule_governance` 설정으로 구성했습니다; 거버넌스 카탈로그 로더는 이제 기간을 초과하는 exemption을 fail closed 합니다. 순수 `plan_exemption_lifecycle` 판단 코어, 주입 가능한 `ExemptionLifecycleNotifier` 계약(안전한 로그 전용 기본), state store의 원자적 claim-and-audit 기본 연산을 통해 exemption당 최대 한 번만 알림을 전달하고 alert/이미-만료 판단 모두에 라이프사이클 감사 근거를 남기는 `ExemptionLifecycleCoordinator`를 추가했습니다; `exemption-expire.py`는 알림 패스를 오프라인으로 실행합니다. 재정의 아티팩트를 end-to-end로 완성했습니다: `Override` 모델 + `override.schema.json` + `load_override_from_mapping` + `<root>/overrides/` 디렉터리 로더가 카탈로그 로드 경계에서 resource-group-이하 범위, 서로 다른 승인자, 모드별 필드 불변식, no-stacking을 강제합니다; 별도로 리뷰된 `override-parameter-bounds.yaml` allowlist가 `parameter-relaxation`을 게이트하며 목록에 없는 키나 한계 초과 값에 대해 카탈로그 로드를 fail closed 합니다(그 위반에는 런타임 HIL 폴백이 없습니다). `resolve_override`와 `apply_governance_override_to_rule`을 T0에 연결해 배정 해석 위에 재정의가 적용되도록 했고(`disabled`는 강제된 `deny` 아래에서도 `governance_observe`로 라우팅; `severity-downgrade`와 `parameter-relaxation`은 디스패치되는 규칙에 병합됨) 기존 `DiscoverySignalKind.OVERRIDE` discovery-loop 입력 모양에 맞춘 `governance.override_resolved` 감사 엔트리를 추가했습니다. 이 변경이 새로 추가한 `overrides/` 콘텐츠 자체에 대한 검토 권한 게이트를 조용히 건너뛰게 만들었을 존재하지 않는 `rule-catalog/governance/...` 중첩을 기대하던 governance-runtime-contracts CI 경로 정규식을 실제 flat `rule-catalog/{assignments,exemptions,overrides}/` 관례에 맞게 수정했습니다. | `current change`; `services/core-control-plane/tests/config/test_rule_governance_config.py`; `tests/exemption/test_exemption_max_duration.py`; `tests/rule_catalog/schema/test_exemption_lifecycle.py`, `test_override.py`, `test_override_loader.py`, `test_parameter_relaxation_policy.py`, `test_override_parameter_bounds_file.py`, `test_governance_catalog.py`; `tests/providers/test_exemption_lifecycle_notifier.py`; `tests/delivery/test_exemption_lifecycle.py`; `tests/core/test_control_loop_governance_override.py`; `tests/pipeline/test_control_loop_e2e.py`(`test_override_disabled_suppresses_an_enforced_deny_assignment`, `test_override_outside_its_scope_does_not_apply`); `tests/runtime/test_control_loop_parameter_relaxation_policies.py`, `test_thor_execution_port.py`; `tests/integration/scripts/test_exemption_expire.py` 모두 통과했습니다; 작업 범위 Ruff와 mypy가 통과했습니다. | Trusted Entra verifier GitHub App 배포(이 변경과 무관한 기존 외부 항목; 아래 참조). exemption-lifecycle 코디네이터를 실제 예약 트리거와 프로덕션 notifier에 연결하고, `DiscoverySignalKind.OVERRIDE`를 위한 구체적 `DiscoverySignalSource`를 바인딩하는 작업은 이 변경 범위 밖의 배포/composition-root 작업으로 남습니다. |
+| 2026-08-29 | implemented | 하드닝 6-16차에서 중복 만료 감사, 실패한 알림 손실, 배정에 종속된 재정의 적용, 대소문자 별칭, 비유한 완화 값, 범위 일치 불일치를 수정했습니다. 또한 감사된 재정의 사용을 임계값 기반 발견 신호 소스에 연결했습니다. 최종 검토 두 번에서 Medium 이상 구현 문제는 남지 않았습니다. | `current change`; 범위/재정의 64개, 매개 변수 정책/카탈로그 44개, exemption 수명 주기 재시도 테스트를 포함한 집중 검사가 통과했습니다. Ruff와 strict mypy도 통과했습니다. | Trusted Entra verifier 배포와 관리되는 실제 근거는 운영 작업으로 남습니다. |
 
 ### 남은 작업
 
@@ -540,11 +541,14 @@ provenance:
 
 ## 열림 Decisions
 
-- [ ] Implemented `scope://...` 구문을 Azure 리소스 hierarchy로 해석하는 어댑터
-  (비-Azure 해석은 TBD; [Always-On 룰](../../../.github/copilot-instructions.md#always-on-rules-must) 참조).
-- [ ] 저작 UI가 콘솔에 draft-PR only로 P1에 실릴지 P3에 실릴지.
-- [ ] 구체적 파라미터 **타입 어휘** (int/문자열/enum/bool/array + 범위/pattern 제약)
-      - CI가 `parameter_overrides` 를 이에 대해 검증.
+- [x] T0 런타임에서 이벤트의 정규화된 조직, 계정, 리소스 그룹, 리소스 계층을 사용해
+      `scope://...`를 해석합니다. ID 일치는 대소문자를 구분하지 않으며 태그와 정규 리소스
+      타입은 선언된 의미를 유지합니다.
+- [x] 재정의 작성은 catalog-as-code 전용으로 유지합니다. P1 또는 P3에 Console 작성 UI를
+      제공하지 않으며, 추가하려면 별도의 초안 전용 제품 설계가 필요합니다.
+- [x] 재정의 매개 변수 값은 기존 문자열 와이어 계약을 유지합니다. 별도로 검토된 정책은
+      유한 숫자 범위 또는 명시적 문자열 enum을 지원하며, 목록에 없거나 잘못되었거나
+      비유한 값 또는 범위를 벗어난 값은 카탈로그 로드를 차단합니다.
 - [x] 설정된 **최대 exemption 기간** 과 만료 사전 알림 lead 시간:
       `AppConfig.rule_governance.exemption_max_duration_days`(기본 180) 와
       `exemption_alert_lead_days`(기본 14), lead time이 항상 최대 기간보다 짧도록
@@ -563,9 +567,7 @@ provenance:
       스키마(여전히 완화 범위를 선언하지 않음 - 이 결정의 나머지 절반은 열려 있음)
       가 아닙니다. 목록에 없는 키나 한계를 벗어난 값은 카탈로그 로드를 fail closed
       하며, 정책 위반에 대한 런타임 HIL 폴백은 없습니다.
-- [ ] 발견 루프가 "over-overridden" 규칙 플래그에 사용하는 신호 임계값(활성 재정의 있는
-      서로 다른 스코프 수, dwell 시간, shadow-hit 비율) - 개정 번호/retirement 제안 전.
-      증거 원본은 존재하지만(`governance.override_resolved` 감사 엔트리), 이를
-      `DiscoverySignalKind.OVERRIDE` 로 묶는 구체적 `DiscoverySignalSource` 는 아직
-      없습니다 - 다른 모든 discovery 신호 종류가 현재 갖고 있는 것과 같은
-      composition-root 공백입니다.
+- [x] 최초 "과도하게 재정의된" 신호는 서로 다른 범위 3개, 관측 14일, shadow 적중
+      100건을 요구합니다. `OverrideDiscoverySignalSource`는
+      `governance.override_resolved` 감사 레코드에 구성 가능한 양수 임계값을 적용하고
+      비활성 `DiscoverySignalKind.OVERRIDE` 근거만 내보냅니다.

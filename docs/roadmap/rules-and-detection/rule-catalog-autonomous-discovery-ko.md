@@ -1,7 +1,7 @@
 ---
 title: 자율 규칙 발견(Autonomous Rule Discovery)
 translation_of: rule-catalog-autonomous-discovery.md
-translation_source_sha: 5b07a0bcf3ba495b2aa8096492b1b579eabcc515
+translation_source_sha: 6864930aad3d93e168e64909b8f91c07498c9bcf
 translation_revised: 2026-08-29
 ---
 
@@ -174,7 +174,7 @@ shadow 결과는 기존 에이전트 소유권을 통해 검토 미비점을 해
 | 후보 근거 및 오염 방어 | implemented | `services/core-control-plane/src/fdai/agents/_framework/candidate_guard.py`; `services/core-control-plane/tests/agents/test_candidate_guard.py` | Mimir는 근거가 없거나 잘못됐거나 범람하는 후보를 승격 권한 없이 격리합니다. |
 | Norns 합의 | implemented | `services/core-control-plane/src/fdai/agents/_framework/norns_consensus.py`; `services/core-control-plane/tests/agents/test_norns_consensus.py` | Norns가 비활성 후보를 게시하기 전에 세 결정론적 관점이 모두 동의해야 합니다. |
 | 후보 검토 및 카탈로그 컴파일 | implemented | `services/core-control-plane/src/fdai/core/operational_learning/catalog.py`; `review.py`; `services/core-control-plane/tests/agents/test_mimir_catalog_review.py` | 검토 패키지와 범위가 제한된 게시 상태가 구현되어 있습니다. 활성화에는 기존 catalog-as-code 경로가 계속 필요합니다. |
-| 재정의 및 운영 신호 유입 | implemented | `services/core-control-plane/src/fdai/core/operational_learning/discovery_contracts.py`; 집중 주기 및 Norns 재정의 테스트 | 정규화된 재정의 신호가 지원되지 않는 버스 토픽을 만들지 않고 범위가 제한된 소스 구간으로 들어옵니다. |
+| 재정의 및 운영 신호 유입 | implemented | `services/core-control-plane/src/fdai/core/operational_learning/override_signals.py`; `discovery_contracts.py`; 집중 재정의 신호, 주기 및 Norns 학습 테스트 | 감사된 재정의 사용은 구성 가능한 서로 다른 범위, dwell, shadow 적중 임계값을 모두 충족한 뒤에만 정규화된 신호를 내보냅니다. 지원되지 않는 `object.override` 토픽은 만들지 않습니다. |
 | 후보별 shadow 체류 근거 및 임계 게이트 | implemented | `services/core-control-plane/src/fdai/core/operational_learning/shadow_dwell.py`; `services/core-control-plane/tests/agents/test_discovery_shadow_{dwell,review}.py` | Var, Saga, Norns가 안정적인 관측 ID로 별도 사람 검토를 완료합니다. 이 과정은 표본을 중복 계산하거나 정책 위반 탈출 사실을 변경하지 않습니다. |
 | 장기 발견 주기 | implemented | `services/core-control-plane/src/fdai/core/operational_learning/discovery_cycle.py`; 집중 주기 테스트 | 스케줄러는 안정적인 구간 ID, 리비전 차단, 시간 제한, 보존 제한, 종료 상태 재생과 함께 관측, 가설 수립, 검증, 통합 단계를 보존합니다. |
 | 혼합 모델 교차 검증 | implemented | `discovery_contracts.py`; `discovery_cycle.py`; 집중 주기 테스트 | 서로 다른 모델 ID와 계열이 필수입니다. 불일치와 다이제스트 대체는 사람 검토를 위해 보류됩니다. |
@@ -191,6 +191,7 @@ shadow 결과는 기존 에이전트 소유권을 통해 검토 미비점을 해
 | 2026-08-29 | implemented | 하드닝 2차에서 스케줄러 선점에 실패한 복제본이 진행 중인 주기를 완료된 재생으로 보고하지 못하게 했습니다. 이제 동시 선점 실패자는 명시적인 진행 중 오류를 받습니다. | `current change`; `discovery_cycle.py`; `test_discovery_cycle.py`; 집중 테스트 9개, Ruff, strict mypy 통과. | 범위가 제한된 하드닝 캠페인을 계속합니다. 관리되는 배포 근거는 별도 작업입니다. |
 | 2026-08-29 | implemented | 하드닝 3차에서 영속 후보 결정이 재생 중 SHA-256 ID를 다시 검증하도록 했습니다. 손상된 상태는 임의 조회 키를 사용한 검토 보고서로 들어올 수 없습니다. | `current change`; `discovery_persistence.py`; `test_discovery_cycle.py`; 집중 테스트 9개, Ruff, strict mypy 통과. | 범위가 제한된 하드닝 캠페인을 계속합니다. 관리되는 배포 근거는 별도 작업입니다. |
 | 2026-08-29 | implemented | 하드닝 4차에서 대상 수 변동이 유일하게 보존된 정책 위반 탈출 근거를 제거하지 못하게 했습니다. 보존한 모든 대상에서 탈출이 발생했다면 새 대상 유입은 탈출 사실을 잊지 않고 실패 시 닫힙니다. | `current change`; `shadow_dwell.py`; `test_shadow_dwell.py`; 집중 dwell 및 검토 테스트 60개, Ruff, strict mypy 통과. | 범위가 제한된 하드닝 캠페인을 계속합니다. 관리되는 배포 근거는 별도 작업입니다. |
+| 2026-08-29 | implemented | 임계값 기반 재정의 감사 수집을 추가하고 문서 간 하드닝 캠페인을 16차에서 완료했습니다. 기본 소스는 서로 다른 범위 3개, 관측 14일, shadow 적중 100건을 요구하고 불완전한 입력을 보존하며 비활성 재정의 신호만 내보냅니다. 최종 거버넌스 및 수집 검토에서 Low를 넘는 문제는 남지 않았습니다. | `current change`; `override_signals.py`; 집중 발견 및 거버넌스 테스트. | 관리되는 실제 근거는 저장소 구현과 별도로 남습니다. |
 
 ### 남은 작업
 
