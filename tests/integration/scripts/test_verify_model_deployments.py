@@ -120,3 +120,35 @@ def test_rejects_duplicate_resolved_capability(module: ModuleType, tmp_path: Pat
 
     with pytest.raises(module.ModelDeploymentVerificationError, match="duplicated"):
         module.verify_model_deployments(resolved, provider, tmp_path / "receipt.json")
+
+
+def test_selected_capabilities_ignore_unrelated_deployment_drift(
+    module: ModuleType, tmp_path: Path
+) -> None:
+    resolved_payload = _resolved()
+    capabilities = resolved_payload["capabilities"]
+    assert isinstance(capabilities, list)
+    capabilities.insert(
+        0,
+        {
+            "name": "t1.embedding",
+            "status": "resolved",
+            "family": "text-embedding-3-large",
+            "version": "1",
+            "sku": "Standard",
+            "capacity_tpm": 200_000,
+        },
+    )
+    resolved = _write(tmp_path, "resolved.json", resolved_payload)
+    provider = _write(tmp_path, "provider.json", _provider())
+
+    receipt = module.verify_model_deployments(
+        resolved,
+        provider,
+        tmp_path / "receipt.json",
+        capability_names=frozenset({"t2.reasoner.primary"}),
+    )
+
+    assert [item["capability"] for item in receipt["verified_deployments"]] == [
+        "t2.reasoner.primary"
+    ]
