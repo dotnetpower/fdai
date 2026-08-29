@@ -40,6 +40,7 @@ def snapshot_plan_input(
     *,
     expected_target_binding: str,
     expected_region: str,
+    expected_environment: str,
 ) -> PlanInputContext:
     """Validate and copy a mode-0600 JSON plan input without real secret values."""
 
@@ -68,11 +69,14 @@ def snapshot_plan_input(
         raise ValueError("Terraform plan input target binding does not match the profile")
     if values["region"] != expected_region:
         raise ValueError("Terraform plan input region does not match the profile")
+    if expected_environment not in {"dev", "staging", "prod"}:
+        raise ValueError("Terraform plan input environment is unsupported")
     terraform_values = {
         key: value
         for key, value in values.items()
         if key not in {"target_binding", "subscription_id"}
     }
+    terraform_values["env"] = expected_environment
     output = os.open(
         destination,
         os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
