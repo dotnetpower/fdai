@@ -8,9 +8,10 @@ validated against
 `controls` lists control ids, not inline check logic. A baseline records what a
 hardened reference set contains; the executable check stays in the Rule catalog.
 
-Upstream ships this store empty. A fork or a collector run lands documents here
-with grounded `provenance`. Do not commit tenant identifiers, endpoints, or any
-customer-specific value.
+Upstream can ship reviewed generic reference baselines with grounded `provenance`.
+A fork or collector run can add deployment-specific baselines through the same
+schema. Do not commit tenant identifiers, endpoints, or any customer-specific
+value.
 
 This is the collected catalog artifact. The runtime drift snapshot is the
 distinct `FrozenConfigurationBaseline` under

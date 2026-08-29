@@ -1,0 +1,24 @@
+schema_version: 1.0.0
+kind: config-baseline
+id: kubernetes-cluster.hardening.baseline
+version: 1.0.0
+source: aks-baseline
+resource_type: kubernetes-cluster
+title: Kubernetes cluster hardening baseline (AKS reference architecture)
+# Each control id below MUST already exist as a Rule in rule-catalog/catalog/.
+# This baseline curates - it does not redefine - the executable checks; see
+# fdai.rule_catalog.schema.baseline_catalog.evaluate_configuration_baseline_control_set
+# for the deterministic T0 consumer that resolves this list against the
+# loaded Rule catalog.
+controls:
+  - kubernetes-cluster.diagnostic-settings-required
+  - kubernetes-cluster.network-policy
+  - kubernetes-cluster.private-cluster
+  - kubernetes-cluster.rbac-enabled
+provenance:
+  source_url: https://learn.microsoft.com/azure/architecture/reference-architectures/containers/aks/baseline-aks
+  resolved_ref: "0000000000000000000000000000000000000000"
+  content_hash: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  license: LicenseRef-reference-only
+  retrieved_at: "2026-07-06T00:00:00Z"
+  mapped_by: catalog-team

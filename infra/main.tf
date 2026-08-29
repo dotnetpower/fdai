@@ -1183,6 +1183,54 @@ module "case_history_blob_private_endpoint" {
 }
 
 # -----------------------------------------------------------------------
+# Rule-catalog collector snapshot storage - private, versioned Blob mirror
+# of verified watcher source snapshots. Reuses the generic case-history
+# storage module a second time with the rule-watcher's already-existing
+# `inventory_identity` (no new identity is provisioned); see
+# `rule_watcher_job.tf` § durable snapshot location.
+# -----------------------------------------------------------------------
+module "rule_catalog_snapshot_storage" {
+  count  = var.enable_rule_catalog_snapshot_storage ? 1 : 0
+  source = "./modules/storage/case-history"
+
+  name = substr(
+    "st${var.workload}rcs${local.acr_suffix}${local.storage_unique_suffix}", 0, 24
+  )
+  resource_group_name           = module.resource_group.name
+  location                      = var.region
+  deployer_principal_id         = data.azurerm_client_config.current.object_id
+  runtime_principal_id          = module.inventory_identity.principal_id
+  log_analytics_workspace_id    = module.log_analytics.workspace_id
+  container_name                = "rule-catalog-snapshots"
+  replication_type              = var.rule_catalog_snapshot_replication_type
+  public_network_access_enabled = !var.enable_private_networking
+  soft_delete_retention_days    = var.rule_catalog_snapshot_retention_days
+  version_retention_days        = var.rule_catalog_snapshot_version_retention_days
+  private_link_access = var.enable_private_networking ? {
+    defender_storage_data_scanner = {
+      endpoint_resource_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Security/datascanners/StorageDataScanner"
+      endpoint_tenant_id   = var.tenant_id
+    }
+  } : {}
+  tags = merge(local.tags, { "fdai:component" = "rule-catalog-snapshots" })
+}
+
+module "rule_catalog_snapshot_blob_private_endpoint" {
+  count                 = var.enable_rule_catalog_snapshot_storage && var.enable_private_networking ? 1 : 0
+  source                = "./modules/private-endpoint"
+  name                  = "pe-rcs-blob-${var.workload}${local.full_suffix}"
+  location              = var.region
+  resource_group_name   = module.resource_group.name
+  subnet_id             = module.network[0].pe_subnet_id
+  vnet_id               = module.network[0].vnet_id
+  target_resource_id    = module.rule_catalog_snapshot_storage[0].id
+  subresource_name      = "blob"
+  private_dns_zone_name = "privatelink.blob.core.windows.net"
+  extra_vnet_links      = var.runner_vnet_id != "" ? { ops = var.runner_vnet_id } : {}
+  tags                  = local.tags
+}
+
+# -----------------------------------------------------------------------
 # Development-only operations gateway - authenticated FC1 Function App.
 # -----------------------------------------------------------------------
 resource "azurerm_storage_account" "dev_gateway" {
@@ -1860,6 +1908,19 @@ module "compute" {
   case_history_deletion_days  = var.case_history_deletion_days
   case_history_identity_client_id = (
     var.enable_case_history ? module.case_history_identity[0].client_id : ""
+  )
+
+  # Rule-catalog watcher delivery: durable snapshot mirror + review-only PR
+  # publication (see docs/roadmap/rules-and-detection/rule-catalog-collection.md
+  # § Remaining work). Empty values leave the corresponding stage disabled,
+  # matching the rest of this block's opt-in pattern.
+  rule_catalog_snapshot_container_url = (
+    var.enable_rule_catalog_snapshot_storage ? module.rule_catalog_snapshot_storage[0].container_url : ""
+  )
+  gitops_owner = var.gitops_owner
+  gitops_repo  = var.gitops_repo
+  gitops_token_secret_id = (
+    var.enable_stewardship_governance ? azurerm_key_vault_secret.gitops_token[0].id : ""
   )
 
   email_endpoint = (

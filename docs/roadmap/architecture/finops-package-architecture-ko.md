@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: ef8eb35db119d6f24df0ce5d4de85d7fc76af9eb
+translation_source_sha: 35144c96a427b25101cf350580ae2028908afd95
 translation_revised: 2026-08-29
 ---
 
@@ -250,6 +250,10 @@ Core는 `fdai_cost_governance`를 가져오지 않습니다. 검토된 조립 �
 모든 운영 조립이 새 네임스페이스를 사용하고, N-1 호환성 검사가 통과하며, 이전 패키지 버전을
 감사나 이벤트 계약 변경 없이 복원할 수 있다는 롤백 근거가 있어야 Core 호환 facade를 제거할 수
 있습니다.
+
+Rule 카탈로그 스냅샷 저장소와 초안 검토 전달은 공유 Core platform 서비스로 유지합니다. 선택적
+저장소 계정과 rule-watcher 설정은 비용 거버넌스 패키지 매니페스트, 활성화 상태, 프로바이더
+연결 또는 승격 권한에 포함되지 않습니다.
 
 ## 실패 동작
 

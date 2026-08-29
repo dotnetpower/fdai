@@ -1202,6 +1202,49 @@ variable "case_history_version_retention_days" {
 }
 
 # ---------------------------------------------------------------------------
+# Rule-catalog collector snapshot storage - private versioned Blob mirror of
+# verified source snapshots (see rule_watcher_job.tf). Reuses the same
+# generic private-Blob module as case-history storage; distinct account and
+# container - watcher snapshots and prediction case history are unrelated
+# domains that happen to share a secure storage pattern.
+# ---------------------------------------------------------------------------
+variable "enable_rule_catalog_snapshot_storage" {
+  description = "Provision durable private Blob storage for the rule-catalog watcher's collected source snapshots and wire it into the rule-watcher job."
+  type        = bool
+  default     = false
+}
+
+variable "rule_catalog_snapshot_replication_type" {
+  description = "StorageV2 standard replication type for rule-catalog collector snapshots."
+  type        = string
+  default     = "ZRS"
+}
+
+variable "rule_catalog_snapshot_retention_days" {
+  description = "Soft-delete retention for durably mirrored rule-catalog collector snapshots."
+  type        = number
+  default     = 30
+
+  validation {
+    condition     = var.rule_catalog_snapshot_retention_days >= 7
+    error_message = "rule_catalog_snapshot_retention_days MUST be >= 7."
+  }
+}
+
+variable "rule_catalog_snapshot_version_retention_days" {
+  description = "Retention for superseded rule-catalog snapshot Blob versions."
+  type        = number
+  default     = 90
+
+  validation {
+    condition = (
+      var.rule_catalog_snapshot_version_retention_days >= var.rule_catalog_snapshot_retention_days
+    )
+    error_message = "rule_catalog_snapshot_version_retention_days MUST be >= rule_catalog_snapshot_retention_days."
+  }
+}
+
+# ---------------------------------------------------------------------------
 # Governed document ingestion - production gateway + ADLS Gen2 HNS.
 # ---------------------------------------------------------------------------
 variable "enable_document_ingestion" {
