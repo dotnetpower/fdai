@@ -69,7 +69,7 @@ import sys
 payload = {
     "source": {
         "sourceImage": f"{os.environ['SOURCE_REPOSITORY']}@{os.environ['SOURCE_DIGEST']}",
-        "registryUri": "https://ghcr.io",
+        "registryUri": "ghcr.io",
         "credentials": {
             "username": os.environ["GITHUB_ACTOR"],
             "password": os.environ["GHCR_TOKEN"],
