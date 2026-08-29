@@ -279,6 +279,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H45 | The air-gap drill installed and executed the kit before authenticating it. A trusted external verifier now checks the signed manifest and wheel digests before installation. | `test_release_scripts_use_the_installable_distribution` |
 | H46 | Kit compatibility recorded architecture but not Python ABI or libc. The signed manifest now binds the runtime implementation, minor version, and libc identity. | `test_offline_kit_verifies_signature_exact_files_and_compatibility` |
 | H47 | Malformed bundle archives escaped the CLI's stable error boundary as `TarError`. Extraction now maps archive parser failures to a bounded bundle verification error. | `test_bundle_archive_maps_malformed_input_to_stable_error` |
+| H48 | A truncated gzip raised `EOFError` outside the normalized archive error path. It now produces the same bounded verification failure. | `test_bundle_archive_maps_truncated_gzip_to_stable_error` |
 
 ## Related docs
 

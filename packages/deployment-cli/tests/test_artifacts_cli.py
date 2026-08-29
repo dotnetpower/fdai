@@ -319,6 +319,14 @@ def test_bundle_archive_maps_malformed_input_to_stable_error(tmp_path: Path) -> 
         extract_bundle_archive(archive, tmp_path / "out")
 
 
+def test_bundle_archive_maps_truncated_gzip_to_stable_error(tmp_path: Path) -> None:
+    archive = tmp_path / "bundle.tar.gz"
+    archive.write_bytes(b"\x1f\x8b")
+
+    with pytest.raises(BundleVerificationError, match="archive is invalid"):
+        extract_bundle_archive(archive, tmp_path / "out")
+
+
 def test_bundle_rejects_incompatible_cli_version(tmp_path: Path) -> None:
     private, public = _keys()
     payload = tmp_path / "infra/main.tf"
