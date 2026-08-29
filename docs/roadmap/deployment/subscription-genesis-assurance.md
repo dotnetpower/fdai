@@ -263,6 +263,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H29 | A kit could declare one bundle version while carrying another valid signed bundle. Planning now requires both signed version claims to match. | `test_plan_rejects_bundle_version_mismatch` |
 | H30 | ARM64 hosts inherited x86 staging defaults and failed despite being supported. Staging and the drill now derive defaults from the host while still rejecting explicit cross-platform requests. | `test_release_scripts_use_the_installable_distribution` |
 | H31 | Local inspection could report `ready` without execution-host, transport, workload-identity, or offline-kit evidence. It now returns `review` until that external evidence is verified. | `test_local_inspection_cannot_claim_execution_host_readiness` |
+| H32 | License inspection could report signed but runtime-invalid identifiers or unverified image and tenant bindings as active. It now enforces canonical identity and caller-bound digest checks. | `test_license_rejects_invalid_identifiers_and_unverified_bindings` |
 
 ## Related docs
 

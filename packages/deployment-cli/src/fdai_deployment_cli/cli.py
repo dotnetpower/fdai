@@ -104,6 +104,8 @@ def _parser() -> argparse.ArgumentParser:
     license_inspect = license_commands.add_parser("inspect")
     license_inspect.add_argument("--token", type=Path, required=True)
     license_inspect.add_argument("--public-key", type=Path, required=True)
+    license_inspect.add_argument("--image-digest", default=None)
+    license_inspect.add_argument("--tenant-binding", default=None)
     license_inspect.add_argument("--output", choices=("text", "json"), default="text")
     license_inspect.set_defaults(handler=_license_inspect)
 
@@ -353,6 +355,8 @@ def _license_inspect(args: argparse.Namespace) -> int:
         result = inspect_license(
             args.token.read_text(encoding="ascii").strip(),
             public_key_pem=args.public_key.read_bytes(),
+            expected_image_digest=args.image_digest,
+            expected_tenant_binding=args.tenant_binding,
         )
     except LicenseInspectionError:
         raise

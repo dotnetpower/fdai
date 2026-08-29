@@ -16,6 +16,8 @@ from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from fdai_deployment_cli.contracts import canonical_bytes, load_json_object
 
 _B64URL = re.compile(r"^[A-Za-z0-9_-]+$")
+_ID = re.compile(r"^[a-z0-9][a-z0-9._-]{2,127}$")
+_DIGEST = re.compile(r"^[0-9a-f]{64}$")
 
 
 class LicenseInspectionError(ValueError):
@@ -56,6 +58,8 @@ def inspect_license(
     *,
     public_key_pem: bytes,
     now: datetime | None = None,
+    expected_image_digest: str | None = None,
+    expected_tenant_binding: str | None = None,
 ) -> LicenseInspection:
     """Verify one signed canonical token and report active entitlement."""
 
@@ -100,12 +104,28 @@ def inspect_license(
         raise LicenseInspectionError("license capability_ids are invalid")
     if capabilities != sorted(set(capabilities)):
         raise LicenseInspectionError("license capability_ids MUST be unique and sorted")
+    license_id = _text(payload, "license_id")
+    distribution_id = _text(payload, "distribution_id")
+    if _ID.fullmatch(license_id) is None or _ID.fullmatch(distribution_id) is None:
+        raise LicenseInspectionError("license identifiers MUST be lowercase stable identifiers")
+    if any(_ID.fullmatch(item) is None for item in capabilities):
+        raise LicenseInspectionError("license capability_ids MUST be lowercase stable identifiers")
+    _verify_optional_binding(
+        payload,
+        field="image_digest",
+        expected=expected_image_digest,
+    )
+    _verify_optional_binding(
+        payload,
+        field="tenant_binding",
+        expected=expected_tenant_binding,
+    )
     active = not_before <= evaluated <= not_after
     if not active:
         raise LicenseInspectionError("license is not active")
     return LicenseInspection(
-        license_id=_text(payload, "license_id"),
-        distribution_id=_text(payload, "distribution_id"),
+        license_id=license_id,
+        distribution_id=distribution_id,
         capability_ids=tuple(capabilities),
         not_before=not_before.isoformat(),
         not_after=not_after.isoformat(),
@@ -123,6 +143,23 @@ def _decode(value: str, label: str) -> bytes:
     if base64.urlsafe_b64encode(decoded).rstrip(b"=").decode() != value:
         raise LicenseInspectionError(f"license {label} is not canonical base64url")
     return decoded
+
+
+def _verify_optional_binding(
+    payload: dict[str, object],
+    *,
+    field: str,
+    expected: str | None,
+) -> None:
+    value = payload[field]
+    if value is not None and (not isinstance(value, str) or _DIGEST.fullmatch(value) is None):
+        raise LicenseInspectionError(f"license {field} MUST be a lowercase SHA-256 or null")
+    if expected is not None and _DIGEST.fullmatch(expected) is None:
+        raise LicenseInspectionError(f"expected {field} MUST be a lowercase SHA-256")
+    if value is not None and expected is None:
+        raise LicenseInspectionError(f"license {field} requires an expected binding")
+    if expected is not None and value != expected:
+        raise LicenseInspectionError(f"license {field} does not match")
 
 
 def _verify(public_pem: bytes, document: bytes, signature: bytes) -> None:

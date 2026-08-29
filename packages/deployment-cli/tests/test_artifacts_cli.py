@@ -363,6 +363,41 @@ def test_license_rejects_noncanonical_base64_and_duplicate_capabilities() -> Non
         inspect_license(f"{token}=x", public_key_pem=public, now=now)
 
 
+def test_license_rejects_invalid_identifiers_and_unverified_bindings() -> None:
+    private, public = _keys()
+    now = datetime(2026, 8, 29, tzinfo=UTC)
+    payload = {
+        "schema_version": "fdai.license.v1",
+        "license_id": "INVALID",
+        "distribution_id": "example-distribution",
+        "capability_ids": ["cost.metering"],
+        "not_before": (now - timedelta(minutes=1)).isoformat(),
+        "not_after": (now + timedelta(minutes=1)).isoformat(),
+        "image_digest": "a" * 64,
+        "tenant_binding": None,
+    }
+
+    def token_for(value: dict[str, object]) -> str:
+        document = canonical_bytes(value)
+        return ".".join(
+            base64.urlsafe_b64encode(item).rstrip(b"=").decode()
+            for item in (document, private.sign(document))
+        )
+
+    with pytest.raises(LicenseInspectionError, match="identifiers"):
+        inspect_license(token_for(payload), public_key_pem=public, now=now)
+    payload["license_id"] = "lic-test"
+    with pytest.raises(LicenseInspectionError, match="expected binding"):
+        inspect_license(token_for(payload), public_key_pem=public, now=now)
+    with pytest.raises(LicenseInspectionError, match="does not match"):
+        inspect_license(
+            token_for(payload),
+            public_key_pem=public,
+            now=now,
+            expected_image_digest="b" * 64,
+        )
+
+
 def test_cli_version_and_private_profile(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
