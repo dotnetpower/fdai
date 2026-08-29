@@ -152,6 +152,11 @@ At `azd up` (or equivalent) the resolver reads the registry, queries the target 
 virtual `t1.vision` reuses matching narrator deployments. The resolved `{capability → deployment}`
 mapping is written to Key Vault and audited.
 
+The protected `deploy_core_model_quorum` mode is a bounded recovery path for a missing core pair.
+Its plan must change exactly `t1.judge` and `t2.reasoner.primary`; the scope gate rejects missing,
+extra, replacement, or unrelated resource changes. Exact apply consumes only that sealed plan and
+does not promote an ActionType, Workflow, or autonomy mode.
+
 The full **deployer-permission gate table** (what happens when the deployer identity lacks
 `Cognitive Services Contributor`, when a preferred family is missing from the region, when
 `capacity_tpm` quota is short, or when the mixed-model invariant cannot be satisfied) is

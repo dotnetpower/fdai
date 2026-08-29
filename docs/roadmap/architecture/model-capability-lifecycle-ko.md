@@ -1,8 +1,8 @@
 ---
 title: 모델 기능 수명 주기
 translation_of: model-capability-lifecycle.md
-translation_source_sha: caee2d4e51c25a2b6268de3e5199bdf8309872fc
-translation_revised: 2026-08-24
+translation_source_sha: 45a9bfcf69442ded97be09746a1fdc85245f73b0
+translation_revised: 2026-08-29
 ---
 # 모델 기능 수명 주기
 
@@ -151,6 +151,11 @@ models:
 `azd up` (또는 등가) 에서 해석기가 레지스트리를 읽고 대상 리전의 Azure OpenAI / Foundry 카탈로그를 쿼리하여 **구체 기능당 하나의 배포** 를 프로비저닝합니다. 가상 `t1.vision`은
 별도 배포를 만들지 않고 일치하는 서술기 배포를 재사용합니다. Resolved `{기능 →
 배포}` 매핑이 Key Vault에 기록되고 감사됨.
+
+보호된 `deploy_core_model_quorum` 모드는 누락된 코어 쌍을 복구하는 범위가 제한된 경로입니다.
+계획은 `t1.judge`와 `t2.reasoner.primary`만 정확히 변경해야 하며, 범위 검사는 누락, 추가,
+교체 또는 관련 없는 리소스 변경을 차단합니다. 정확한 적용은 봉인된 계획만 소비하며 ActionType,
+Workflow 또는 자율성 모드를 승격하지 않습니다.
 
 배포자가 `Cognitive Services Contributor` 를 갖지 않을 때, 선호 계열이 리전에 없을 때,
 `capacity_tpm` 쿼터가 부족할 때, mixed-model 불변식을 만족할 수 없을 때의 **배포자-권한 게이트

@@ -12,9 +12,13 @@ from collections.abc import Mapping
 _SHA40 = re.compile(r"^[0-9a-f]{40}$")
 _SHA64 = re.compile(r"^[0-9a-f]{64}$")
 _PLAN_REQUEST = re.compile(
-    r"^plan-([0-9a-f]{24}|chatops-[0-9a-f]{24}|model-[0-9a-f]{32}-[0-9a-f]{64})$"
+    r"^plan-([0-9a-f]{24}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
+    r"model-[0-9a-f]{32}-[0-9a-f]{64})$"
 )
-_APPLY_REQUEST = re.compile(r"^apply-([0-9a-f]{24}|chatops-[0-9a-f]{24}|model-[0-9a-f]{64})$")
+_APPLY_REQUEST = re.compile(
+    r"^apply-([0-9a-f]{24}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
+    r"model-[0-9a-f]{64})$"
+)
 _PLAN_ID = re.compile(r"^plan-[1-9][0-9]*-[1-9][0-9]*$")
 _TRUE = "true"
 
@@ -35,6 +39,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
     """Reject mixed, stale, or unbound deployment requests."""
     apply = _enabled(values, "APPLY")
     deploy_gateway = _enabled(values, "DEPLOY_DEV_OPERATIONS_GATEWAY")
+    deploy_core_model_quorum = _enabled(values, "DEPLOY_CORE_MODEL_QUORUM")
     deploy_executor = _enabled(values, "DEPLOY_ISOLATED_EXECUTOR")
     deploy_ohl = _enabled(values, "DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET")
     promote_image = _enabled(values, "PROMOTE_RUNTIME_IMAGE")
@@ -95,6 +100,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
 
     targets = (
         "DEPLOY_CONSOLE",
+        "DEPLOY_CORE_MODEL_QUORUM",
         "DEPLOY_OPERATOR_API",
         "DEPLOY_ISOLATED_EXECUTOR",
         "DEPLOY_DEV_OPERATIONS_GATEWAY",
@@ -102,6 +108,29 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
         "DEPLOY_DOCUMENT_INGESTION",
         "DEPLOY_MONITORING",
     )
+    if deploy_core_model_quorum:
+        if values.get("TARGET_ENVIRONMENT") != "dev":
+            raise ValueError("core model quorum deployment is restricted to dev")
+        if not request_id:
+            raise ValueError("core model quorum deployment requires a protected request")
+        mixed = (
+            "DEPLOY_CONSOLE",
+            "DEPLOY_OPERATOR_API",
+            "DEPLOY_ISOLATED_EXECUTOR",
+            "DEPLOY_DEV_OPERATIONS_GATEWAY",
+            "DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET",
+            "DEPLOY_DOCUMENT_INGESTION",
+            "DEPLOY_MONITORING",
+            "DEPLOY_DESIGN_MOCKS",
+            "CUTOVER_ISOLATED_EXECUTOR_AUTHORITY",
+            "PROMOTE_RUNTIME_IMAGE",
+            "VERIFY_EXECUTOR_EFFECT",
+            "MODEL_BINDING_ONLY",
+        )
+        if any(_enabled(values, key) for key in mixed) or values.get("RUNTIME_IMAGE_REVISION", ""):
+            raise ValueError(
+                "core model quorum deployment cannot be combined with another bounded operation"
+            )
     if design_mocks:
         if values.get("TARGET_ENVIRONMENT") != "dev":
             raise ValueError("design-mocks deployment is restricted to the dev environment")

@@ -10,6 +10,15 @@ from pathlib import Path
 from typing import Any
 
 _DESIGN_MOCKS = frozenset({"module.design_mocks[0].azurerm_static_web_app.design_mocks"})
+_CORE_MODEL_QUORUM = frozenset(
+    {
+        'module.llm_azure_openai[0].azurerm_cognitive_deployment.capability["t1.judge"]',
+        (
+            "module.llm_azure_openai[0].azurerm_cognitive_deployment."
+            'capability["t2.reasoner.primary"]'
+        ),
+    }
+)
 
 
 def changed_addresses(plan: dict[str, Any]) -> frozenset[str]:
@@ -53,6 +62,13 @@ def enforce(
     if mode == "design-mocks":
         allowed = _DESIGN_MOCKS
         label = "Design-mocks-only"
+    elif mode == "core-model-quorum":
+        if changed != _CORE_MODEL_QUORUM:
+            raise ValueError(
+                "Core-model-quorum plan must change exactly the required deployments: "
+                + ", ".join(sorted(_CORE_MODEL_QUORUM))
+            )
+        return changed
     elif mode == "monitoring":
         unexpected = sorted(
             address for address in changed if not address.startswith("module.monitoring[")
@@ -93,7 +109,7 @@ def main() -> int:
     parser.add_argument("--plan", type=Path, required=True)
     parser.add_argument(
         "--mode",
-        choices=("design-mocks", "monitoring", "model-binding"),
+        choices=("core-model-quorum", "design-mocks", "monitoring", "model-binding"),
         required=True,
     )
     parser.add_argument("--resolved-models", type=Path)
