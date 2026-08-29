@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: c7b2df679ee134b4466d52d7ae2fb2978f50931e
+translation_source_sha: 059c8fac4cfe5f9001a1a51eaf9ad31653daf163
 translation_revised: 2026-08-29
 ---
 # 에이전트 판테온
@@ -17,58 +17,6 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 - 오퍼레이터 콘솔 ([operator-console.md](../interfaces/operator-console-ko.md)) 은 §6.3 과 §6.5 를 읽고 자연어 질문을 per-user 맥락 로 기본 에이전트 에 라우팅한다.
 - 룰-카탈로그와 실행기 ([action-ontology.md](../decisioning/action-ontology-ko.md), [execution-model.md](../decisioning/execution-model-ko.md)) 는 §7 을 읽고 각 ActionType 을 initiator / 판정자 / 승인자 / 실행기 / auditor 에 바인딩한다.
 - 포크는 §10 을 읽고 어느 경계 이 열려 있고 (토픽 구독, 구성 재정의) 어느 것이 잠겨 있는지 (에이전트 추가 금지, 이름 변경 금지) 확인한다.
-
-## 구현 상태
-
-### 구현 범위
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 고정 레지스트리, 역할 및 패키지 경계 | implemented | [`pantheon.py`](../../../services/core-control-plane/src/fdai/agents/_framework/pantheon.py), [`test_framework_layout.py`](../../../services/core-control-plane/tests/agents/test_framework_layout.py), [`test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py) | 고정된 15개 이름, 카탈로그 계층, 소유권 및 공개 패키지 경계를 기계적으로 검사합니다. |
-| 타입이 지정된 pub/sub 소유권 및 동시 실행 런타임 | implemented | [`topics.py`](../../../services/core-control-plane/src/fdai/agents/_framework/topics.py), [`runtime.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime.py), [`runtime_subscriptions.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime_subscriptions.py), [`test_topics.py`](../../../services/core-control-plane/tests/agents/test_topics.py), [`test_pantheon_concurrency_proof.py`](../../../services/core-control-plane/tests/agents/test_pantheon_concurrency_proof.py) | 집중 검사는 토픽 소유권, 파티셔닝, 15개 소비자 신원 및 작업을 가로채지 않는 팬아웃을 다룹니다. 런타임 조립은 Norns의 기본적으로 닫힌 후보 게시 상한도 주입합니다. |
-| Mimir Rule 세대 책임 | implemented | [`mimir.py`](../../../services/core-control-plane/src/fdai/agents/mimir.py), [`runtime.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime.py), [`runtime_subscriptions.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime_subscriptions.py), [`test_wave2_governance.py`](../../../services/core-control-plane/tests/agents/test_wave2_governance.py), [`test_runtime.py`](../../../services/core-control-plane/tests/agents/test_runtime.py) | Mimir만 활성화 명령과 최종 결과를 수신합니다. Exact 활성화를 주입된 binder에 위임하고 인덱스, 정책, 승인, 변경 또는 실행 권한 없이 변환 전용 증적을 저장합니다. |
-| Rule 세대 빌드, 검증 및 활성화 체인 | implemented | `mimir.py`; `heimdall.py`; `runtime.py`; `runtime/rule_generation_documents.py`; 집중 worker, 런타임, 활성화 및 bootstrap 검사 | 운영 시작 시 엄격하게 검증한 승격 표면 문서를 고정하고 replay가 동일한 reconciliation 요청을 영속화한 뒤 Mimir와 Heimdall을 통해 전달합니다. Mimir는 정책 또는 실행 권한을 얻지 않고 활성화 명령을 발행하기 전에 정확한 독립 증적을 연결합니다. 통제된 실제 근거는 남아 있습니다. |
-| 판단, 승인, 실행, 감사 및 복구 분리 | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_decision_case_e2e.py`](../../../services/core-control-plane/tests/agents/test_decision_case_e2e.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py) | Forseti는 선택적으로 exact proposal을 기존 Verdict에 해석하고 Thor는 독립 검증 후 이를 보존합니다. 합성 테스트는 역할 경계를 입증하지만 실제 운영 결과를 증명하지는 않습니다. |
-| 대화 및 인계 메커니즘 | implemented | [`test_conversational_port.py`](../../../services/core-control-plane/tests/agents/test_conversational_port.py), [`test_prompt_deliberation.py`](../../../services/core-control-plane/tests/agents/test_prompt_deliberation.py), [`test_wave7_workflows.py`](../../../services/core-control-plane/tests/agents/test_wave7_workflows.py) | 하나의 공유 구조화 판단이 라우팅과 작업 태세를 담당합니다. 범위가 제한된 읽기 전용 숙의 경로는 작업 요청을 타입이 지정된 파이프라인으로 보내고, 선택적 T2 종합 전에 T1 답변 신호를 평가하며, 어휘 기반 대체 경로를 복원하지 않습니다. |
-| KPI 근거 상태, 승격 검사 및 성능 저하 훈련 | implemented | [`test_wave8_kpi_degradation.py`](../../../services/core-control-plane/tests/agents/test_wave8_kpi_degradation.py) | KPI 근거가 없거나 측정되지 않으면 승격을 차단하고, 주입된 장애로 선언된 성능 저하 동작을 실행합니다. |
-| 추적 연속성 근거 인계 | implemented | `huginn.py`; `heimdall.py`; `test_trace_continuity_chain.py` | Huginn은 허용 목록의 범위가 제한된 연속성 필드만 보존하고 Heimdall은 인식된 관측 사유를 anomaly와 인시던트 후보에 전달합니다. AgentSpec, topic, 판단, 승인, 실행 권한은 바뀌지 않습니다. |
-| Provider-schema drift 인계 | implemented | `provider_schema_review.py`, `heimdall.py`, `test_provider_schema_drift.py` | Heimdall은 digest에 결속되고 권한이 없는 provider-schema review package 하나를 검증한 뒤 범위가 제한된 shadow `object.drift` signal만 발행합니다. Fetch, parsing, baseline 저장, policy, 판단, 승인 및 catalog 변경은 agent 밖에 유지합니다. AgentSpec은 바뀌지 않습니다. |
-| 비용 거버넌스 전문가 바인딩 | implemented | `njord.py`, `_framework/factory.py`, `test_njord_cost_governance.py` | Composition은 패키지 중립 비용 자문 및 활성화 reader를 Njord에 주입합니다. Njord는 계속 `CostAnomaly`와 `Budget`의 단일 게시자이고 Freyr는 용량 전문가이며, 비활성 패키지는 새 비용 자문을 게시하지 않습니다. AgentSpec과 topic 소유권은 바뀌지 않습니다. |
-| 실제 운영 KPI 검증 및 enforce 승격 | not-started | [목표와 메트릭](../architecture/goals-and-metrics-ko.md) | 보존된 실제 shadow 코호트, 운영 KPI 증적 집합, 독립적인 승격 검토 또는 실제 판테온 enforce 승격 근거가 아직 없습니다. |
-### 구현 이력
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-08-28 | 구현됨 | 범위가 제한된 Njord 범위 목록 계약이 의도적으로 동작하지 않는 패키지 부재 경로 대신 패키지 기반으로 수락된 표본을 실행하도록 했습니다. | `current change`; 집중 대화 포트 및 비용 거버넌스 Njord 테스트. | 승격 전에는 실제 권위가 있는 근거가 계속 필요합니다. |
-| 2026-08-28 | 구현됨 | 선택적 패키지 주입 뒤 Njord의 선언된 읽기 도구 사실 범위를 복원하면서 비활성 수집은 계속 동작하지 않게 했고, 기존 이상 징후 테스트는 명시적으로 활성화한 패키지 프로바이더를 사용하도록 옮겼습니다. | `current change`; 집중 중재, 역할, 대화 도구 및 비용 거버넌스 Njord 테스트. | 승격 검토 전에 실제 권위가 있는 Njord 근거를 보존합니다. |
-| 2026-08-29 | implemented | 고정 명단, AgentSpec, topic 소유권 또는 권한 역할을 바꾸지 않고 선택적 비용 거버넌스 자문 주입을 추가했습니다. | `current change`; 집중 Njord, 판테온 배치, 소유권, 비활성화 및 drain 테스트. | enforce 승격 전에 live-authoritative 비용 거버넌스 cohort를 보존합니다. |
-| 2026-08-29 | implemented | AgentSpec, topic, 소유권, 모델 정책 또는 작업 권한을 바꾸지 않고 Var, Saga, Norns를 통해 shadow 검토 근거 경로를 완료했습니다. Var는 별도 사람 비교를 기록하고, Saga는 자신이 소유한 감사 항목을 다시 게시하며, Norns는 다른 표본을 세지 않고 안정적인 ID로 기존 dwell 표본의 검토 상태를 갱신합니다. | `current change`; `var.py`; `saga.py`; `norns_learning.py`; 집중 발견 shadow 검토, dwell 및 프레임워크 배치 검사. | 승격 결정을 내리기 전에 관리되는 실환경 검토 코호트를 보존합니다. |
-| 2026-08-21 | implemented | 프레임워크 줄 상한을 복구하기 위해서만 내용 주소 기반 Bragi Turn 및 인계 페이로드 구성을 비공개 발행 helper로 분리하고 의미 기능 변환을 기존 라우팅 helper로 옮겼습니다. Bragi는 같은 `object.turn` 및 `object.handoff-escalation` topic을 계속 발행하며 AgentSpec, 소유권, LLM 정책, 타입이 지정된 제안 진입점 및 작업 권한은 바뀌지 않았습니다. | `current change`; 집중 Bragi 및 프레임워크 검사 95개 통과; 변경 파일 Ruff, format, mypy 통과; 저장소 LOC gate hard failure 0건으로 통과. | 이 설계에서 이미 요구한 동일한 통제된 운영자 경로, KPI 및 승격 근거를 보존합니다. |
-| 2026-08-13 | in-progress | 이전 제공 이력을 재구성하지 않고 근거 범위를 명시한 구현 원장을 도입했습니다. | 현재 변경 | 검증 완료 또는 enforce 사용을 주장하기 전에 실제 운영 근거를 수집하고 독립적으로 검토된 승격을 완료합니다. |
-| 2026-08-19 | implemented | Heimdall의 AgentSpec, topic, 소유 객체, 결정론적 hot path 또는 권한을 바꾸지 않고 남은 production 보안 상관관계 threshold를 bounded startup setting에 연결했습니다. Framework 줄 상한을 유지하기 위해 raw Huginn ingress handler 구성을 private subscription wiring 모듈로 옮겼을 뿐이며 정규화 및 drop 의미는 바뀌지 않았습니다. | [이슈 #219](https://github.com/dotnetpower/fdai/issues/219). Focused setting, Heimdall 주입, framework layout, raw ingress 및 threshold source 검사 134개가 통과했습니다. | Runtime exit gate 근거와 독립 promotion outcome은 바뀌지 않았습니다. |
-| 2026-08-19 | implemented | AgentSpec, 토픽, 소유권, LLM 정책 또는 권한을 바꾸지 않고 Norns의 비활성 후보 게시를 기본적으로 닫힌 발견 활성화 결정에 연결했습니다. 닫힌 게이트는 이후 평가를 위해 범위가 제한된 대기 큐를 보존합니다. | `current change`; 집중 발견 활성화, Norns, 시작 연결, 수집기 및 인프라 검사. | 운영 검증을 주장하기 전에 통제된 수집기 및 활성화 전이 증적을 보존합니다. |
-| 2026-08-13 | implemented | Mimir의 권한을 넓히지 않고 검증된 Rule 세대 명령 유입과 최종 결과 책임을 Mimir에 연결했습니다. | `current change`, 집중 Mimir, 런타임, bootstrap, 활성화 및 발행 검사 32개 통과 | 운영 검증을 주장하기 전에 통제된 실제 활성화 결과 증적을 보존합니다. |
-| 2026-08-13 | implemented | 토픽, 소유권 또는 권한을 변경하지 않고 런타임 모듈의 프레임워크 레이아웃 경계를 복구하도록 비공개 Rule 세대 구독 연결을 추출했습니다. | [`runtime_subscriptions.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime_subscriptions.py), 프레임워크 레이아웃, 런타임 및 판테온 동등성 검사 통과 | 구현 범위에서 요구하는 동일한 통제된 실제 근거를 보존합니다. |
-| 2026-08-13 | in-progress | 활성화 전 빌드 체인을 Mimir에 할당하고 독립 세대 검증을 Heimdall에 할당했으며 두 agent 모두에 활성화 또는 실행 권한을 부여하지 않았습니다. | `current change`; 집중 소유권, handler, 동등성 및 런타임 연결 검사 221개와 exact chain 및 위조/미연결 검사가 통과했습니다. | 운영 카탈로그 reconciliation trigger와 Mimir 소유의 활성화 명령 발행을 추가합니다. |
-| 2026-08-13 | implemented | 권한 있는 임베딩 식별자, 엄격한 시작 문서 스냅샷, replay가 동일한 reconciliation 요청, 정확한 준비 상태 증적 연결 및 Heimdall 검증 뒤의 Mimir 소유 활성화 명령 발행으로 운영 Rule 세대 체인을 완료했습니다. | `current change`; `rule_generation_documents.py`, `mimir.py`, `activation.py`, 의미 인덱스 어댑터 및 집중 worker, 런타임, 활성화, bootstrap 검사 | 운영 검증을 주장하기 전에 통제된 실제 빌드, 검증, 활성화 및 변환 결과 증적을 보존합니다. |
-| 2026-08-14 | implemented | Topic 또는 action authority를 바꾸지 않고 Thor가 optional argument-bound kinetic proposal을 검증하고 durable하게 보존하도록 했습니다. | `current change`, focused contract, Thor, durable replay, layout 및 role 검사 | End-to-end kinetic handoff를 주장하기 전에 Forseti producer와 Core pre-dispatch consumer를 연결합니다. |
-| 2026-08-14 | implemented | Forseti에 선택적 exact proposal source를 주입하고 조정이 해결된 Verdict와 사람 검토 Verdict에 일치하는 proposal을 보존했습니다. Proposal이 없으면 legacy 동작을 유지하고 잘못된 source record는 권한을 deny로 낮춥니다. | `current change`, `forseti.py`, `factory.py`, `runtime.py` 및 집중 producer, Forseti, Thor, factory, framework 검사 | 런타임 검증을 주장하기 전에 운영 조립에서 source를 연결하고 pre-dispatch 증적 및 독립 관측 경로를 완료합니다. |
-| 2026-08-14 | implemented | AgentSpec, topic, 판단, 승인 또는 실행 소유권을 바꾸지 않고 모든 Thor 소유 실행기 전에 Core pre-dispatch kinetic receipt consumer를 연결했습니다. | `current change`, `core/operational_planning/kinetic_safety.py`, `delivery/kinetic_safety.py`, `runtime/control_loop.py` 및 집중 kinetic/HIL/Thor 조립 검사 115개 통과 | 운영 조립에서 Forseti source를 연결하고 독립 observer를 추가한 뒤 통제된 실제 근거를 보존합니다. |
-| 2026-08-14 | implemented | Bragi의 표현 전용 숙의가 선택적 T2 종합을 호출하기 전에 결정론적 T1 답변 평가를 요구하도록 했습니다. | `current change`, 집중 숙의 테스트 36개는 충돌이 없거나 비교할 수 없는 claim에 T2를 호출하지 않고 구조적 충돌에만 범위가 제한된 호출을 유지함을 입증합니다. | AgentSpec, topic 또는 권한을 바꾸지 않고 통제된 운영자 경로 근거를 보존합니다. |
-| 2026-08-15 | implemented | Bridge 소비자가 자기 task 안에서 구독을 닫도록 해서 broker 정리가 인터프리터 종료 처리가 아니라 종료 절차 중에 실행되도록 했습니다. AgentSpec, topic, 소유권, LLM, 안전장치는 바뀌지 않았습니다. | `current change`, [`bus_bridge.py`](../../../services/core-control-plane/src/fdai/agents/_framework/bus_bridge.py)와 [`test_subscription_lifecycle.py`](../../../services/core-control-plane/tests/agents/test_subscription_lifecycle.py), 집중 agent/delivery/runtime/provider 검사 3127건 통과 | 실제 로컬 종료에서 남은 소비자 stop 타임아웃이 없는지 확인합니다. |
-| 2026-08-16 | implemented | Thor가 내구 ActionRun을 복원할 때도 dispatch 시점의 kinetic proposal 결속 검사를 다시 적용하도록 해서, 변조된 레코드가 다른 correlation의 정확한 인자를 복원하지 못하게 했습니다. AgentSpec, topic, 소유권, 권한은 바뀌지 않았습니다. | `current change`, [`thor.py`](../../../services/core-control-plane/src/fdai/agents/thor.py)와 [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py), 집중 kinetic/내구 재생/runtime/factory 검사 140건 통과 | 기존 kinetic 잔여 작업과 함께 복원 경로의 통제된 실사용 증거를 확보합니다. |
-| 2026-08-17 | implemented | Huginn 정규화에서 Heimdall의 반복 Event anomaly와 인시던트 후보까지 범위가 제한된 분산 추적 연속성 근거를 보존했습니다. 알 수 없는 사유 코드와 위조된 작업 필드는 버리고 sensing 경로에 판단 또는 작업 권한을 추가하지 않습니다. | `current change`; `test_trace_continuity_chain.py`; 집중 추적-인시던트 체인 통과. | 이슈 #142에서 통제된 실시간 추적 불연속, 인시던트, 승인, 복구 근거를 보존합니다. |
-| 2026-08-21 | implemented | 문구 기반 라우팅을 복원하지 않고 의미 판단 이행의 회귀 문제를 마무리했습니다. Bragi는 운영자 라우팅, 읽기 조사 소유권, 작업 태세, 읽기 전용 숙의에 공유 판단 경계를 사용하며, 의미를 사용할 수 없거나 판단이 거부되면 실패 시 차단합니다. AgentSpec, 토픽, 소유권, 모델 정책, 작업 권한은 바뀌지 않았습니다. | `current change`; 집중 에이전트, 숙의, 읽기 조사, 의미 도구 검사 304개 통과; 변경 범위 테스트 3176개 통과 및 환경 제한 skip 7개. | 통제된 운영자 경로 근거와 기존 실제 KPI 및 승격 근거를 보존합니다. 권한이나 승격 상태는 바뀌지 않았습니다. |
-| 2026-08-23 | implemented | Heimdall의 read-only 최종 `object.action-run` 구독을 추가했습니다. Handler는 exact correlation-indexed pre-dispatch artifact를 복원하고 collection을 Thor의 terminal timestamp에 결속하며 주입된 independent collector를 호출하고 verifier가 수락한 post-terminal observation만 기록합니다. Heimdall ownership, publication, deterministic hot path, LLM policy, action authority는 바뀌지 않습니다. | `current change`; Pantheon parity, runtime topic, handler, artifact, Azure collector, composition 검사 | 배포 소유 signed-context issuer를 연결하고 관리되는 live closure 증적을 보존합니다. |
-| 2026-08-24 | implemented | Strict provider-schema review package를 Heimdall의 기존 `Drift` ownership에 binding했습니다. Scheduled composition은 production Pantheon bridge를 사용하고 transport 전에 추가 필드 또는 권한을 부여하는 필드를 거부하며 digest-only shadow signal을 내보냅니다. Catalog는 변경하지 않습니다. | `current change`; 집중 provider-schema review, Heimdall ownership, framework-layout, durable-ledger 및 infrastructure 검사 | 운영 검증을 주장하기 전에 deployed revision의 Saga-audited drift 근거를 보존합니다. |
-### 남은 작업
-- [ ] 하나의 고정된 리비전에서 에이전트별 및 시스템 KPI, 표본 수, 신뢰 구간, 보호 메트릭과 권위 있는 결과 증적을 측정한 실제 shadow 코호트를 보존합니다.
-- [ ] 에이전트 권한을 넓히지 않고 주입된 장애만이 아닌 운영 의존성에 대해 선언된 성능 저하 동작을 입증합니다.
-- [x] AgentSpec, 소유권, 구독 또는 발행을 바꾸지 않고 기존 Verdict 경로에 argument-bound kinetic proposal producer와 선택적 Forseti source를 연결합니다.
-- [x] AgentSpec, topic 또는 agent 권한을 바꾸지 않고 모든 Thor 소유 실행기 전에 Core pre-dispatch receipt consumer를 완료합니다.
-- [x] 실행 권한을 바꾸지 않고 existing ActionRun topic을 통해 independent observer를 연결했습니다.
-- [ ] 배포 소유 signed-context issuer와 남은 Forseti lineage 속성을 연결한 뒤 관리되는 live 근거를 보존합니다.
-- [x] 운영 trigger, 정확한 Heimdall 증적 연결 및 Mimir 소유 활성화 발행으로 Rule 세대
-  체인을 완료했으며, 집중 검사는 권한 추가 없이 `activated` 결과에 도달합니다.
-- [ ] 적격 기능마다 독립적인 승격 검토를 완료하고, enforce 운영을 보고하기 전에 권위 있는 승격 증적을 보존합니다.
 ## 1. 설계 원칙
 
 판테온은 기존 FDAI 컨트롤 루프를 명명된 조직 역할로 얇게 재구성한 것이다.
@@ -784,3 +732,9 @@ LLM과 `owns_code_paths` RAG로 표현할 수 있지만 타입이 지정된 결�
 | §9.3 이 참조하는 ChatOps 채널 라우팅 | [channels-and-notifications.md](../interfaces/channels-and-notifications-ko.md) |
 | Rule 과 정책 가 Forseti 를 피드 하는 방식 | [rule-catalog-collection.md](../rules-and-detection/rule-catalog-collection-ko.md), [rule-governance.md](../rules-and-detection/rule-governance-ko.md) |
 | 포크 경계와 DI 경계 | [downstream-fork-guide.md](../fork-and-sequencing/downstream-fork-guide-ko.md) |
+
+## 관련 문서
+
+| 알아볼 내용 | 읽을 문서 |
+|-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/agents/agent-pantheon.md) |

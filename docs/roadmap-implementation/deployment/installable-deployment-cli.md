@@ -9,11 +9,11 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Dedicated `fdaictl` distribution and command entrypoint | not-started | Repository `pyproject.toml` files and the planned wheel section in this document | No current project registers an `fdaictl` script, and the retired `fdai.deployment_cli` runtime package is absent. |
+| Dedicated `fdaictl` distribution and command entrypoint | implemented | `packages/deployment-cli`; focused package and productization tests | The `fdai-deployment-cli` wheel registers `fdaictl` and provides deterministic local commands. Protected Azure dispatch remains incomplete. |
 | Core deployment preflight primitives | implemented | `services/core-control-plane/src/fdai/core/deploy_preflight/` and focused preflight tests | The analyzer, report, Azure live script, toggle primitives, and reassembly logic exist independently of a deployment CLI facade. |
 | Protected runner plan and exact-apply workflow | implemented | `.github/workflows/deploy-dev.yml` and focused deployment workflow tests | The runner owns protected planning, evidence binding, claim/receipt guards, convergence, migrations, and health checks; there is no packaged local CLI client. |
 | Signed deployment bundle release path | not-started | `scripts/deployment/release/build-deployment-bundle.py` and issue #222 | Bundle construction remains available, but the non-runnable workflow was removed. Restore the release path only after `fdaictl bundle verify` exists and clean-checkout tests pass. |
-| Offline kit and disconnected planning | in-progress | `scripts/deployment/release/stage-offline-kit.sh`, `build-offline-kit.py`, and `airgap-drill.sh` | The scripts exist, but `build-offline-kit.py` imports the absent `fdai.deployment_cli.offline_kit` module, so the path is not executable end to end. |
+| Offline kit and disconnected planning | in-progress | `fdai_deployment_cli.offline_kit`; release scripts; focused signature, exact-file-set, compatibility, and tamper tests | Packaging derives the host platform and resolves hashed binary wheels with the exact CLI build Python. The drill installs only those wheels with `--no-index`; a governed network-free run remains open. |
 | Published install and teardown experience | not-started | The target installation and teardown contracts in this document | No first public CLI publication, pinned offline root package, or `deploy teardown` command is available. |
 
 ### Implementation history
@@ -23,6 +23,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Corrected prior claims that the removed deployment CLI package and its commands were currently available. | current change; package metadata, release scripts, protected workflows, and focused workflow checks listed in the scope table | Create the dedicated CLI distribution, restore verification behind that boundary, and prove installation plus disconnected use. |
 | 2026-08-19 | deferred | Removed the manual deployment-bundle workflow because it invoked the unavailable `fdaictl bundle verify` command and had no successful run evidence. | issue #222; current workflow inventory and focused CI contract tests | Add the dedicated CLI verifier first, then restore a protected release workflow with clean-checkout evidence. |
 | 2026-08-19 | deferred | Removed the retired workflow-only test from productization validation so the release check no longer requires a path that the deferred workflow removed. | current change; `scripts/deployment/release/verify-productization.sh`; focused productization and structural-gate tests passed 55 cases | Restore the workflow test only with an executable CLI verifier and protected release workflow. |
+| 2026-08-29 | implemented | Added the independent `fdai-deployment-cli` wheel with the `fdaictl` entry point, secure profile and journal contracts, signed artifact verification, and no-mutation genesis rehearsal. | `current change`; focused package and productization tests passed 28 cases; Ruff and strict mypy passed | Complete protected plan/apply adapters, publish the wheel, and retain the disconnected drill. |
 
 ### Remaining work
 
