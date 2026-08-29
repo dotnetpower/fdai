@@ -28,6 +28,7 @@ class RunState(StrEnum):
     WAITING = "waiting"
     APPLYING = "applying"
     VERIFYING = "verifying"
+    COMPLETED = "completed"
     READY = "ready"
     BLOCKED = "blocked"
     FAILED = "failed"

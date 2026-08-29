@@ -246,6 +246,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H12 | The offline kit staged only the `fdaictl` wheel and omitted its transitive runtime wheels. Release staging now exports hashed production dependencies and downloads binary wheels into the signed kit. | `test_release_scripts_use_the_installable_distribution` |
 | H13 | Bundle verification authenticated content but ignored its declared CLI compatibility window. It now blocks versions outside the signed minimum and maximum. | `test_bundle_rejects_incompatible_cli_version` |
 | H14 | Profiles did not bind the intended tenant and subscription, allowing reuse against another active login. They now require a deployment-local target digest. | `test_profile_init_requires_digest_bound_target` |
+| H15 | Rehearsal marked completed stages as `verifying`, making interruption status dishonest. The journal now has an explicit `completed` state and resumes only those stages. | `test_simulation_interrupts_and_resumes_without_duplicate_stage` |
 
 ## Related docs
 

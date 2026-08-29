@@ -56,7 +56,7 @@ def test_simulation_interrupts_and_resumes_without_duplicate_stage(tmp_path: Pat
         started_at=start,
     )
     assert first[-1].stage == "database"
-    assert first[-1].state is RunState.VERIFYING
+    assert first[-1].state is RunState.COMPLETED
 
     final = rehearse(
         manifest,

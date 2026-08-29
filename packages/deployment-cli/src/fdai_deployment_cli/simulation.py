@@ -35,7 +35,7 @@ def rehearse(
     known_stages = {entry.entry_id for entry in manifest.entries}
     if interrupt_after is not None and interrupt_after not in known_stages:
         raise ValueError("simulation interrupt stage is not in the manifest")
-    completed = {event.stage for event in events if event.state is RunState.VERIFYING}
+    completed = {event.stage for event in events if event.state is RunState.COMPLETED}
     previous_digest = events[-1].digest if events else GENESIS_HASH
     sequence = len(events)
     base = started_at or datetime.now(UTC)
@@ -49,7 +49,7 @@ def rehearse(
             sequence=sequence,
             stage=entry.entry_id,
             attempt=1,
-            state=RunState.VERIFYING,
+            state=RunState.COMPLETED,
             occurred_at=(base + timedelta(microseconds=sequence)).isoformat(),
             previous_digest=previous_digest,
             reason_code="simulation-only",
