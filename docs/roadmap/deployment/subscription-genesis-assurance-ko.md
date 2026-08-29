@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: d3a66c5b9c5a48e6bbeedb8a8ad6667ea30abbf5
+translation_source_sha: 7c703f4b3bbea9e06c70189a6f820e230f347bf7
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -229,6 +229,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H02 | 원장 읽기가 경로를 확인한 뒤 다시 열어 교체된 링크를 따를 수 있었습니다. 이제 하나의 no-follow 서술자를 열고 그 서술자를 검증합니다. | `test_journal_reader_never_follows_symlink` |
 | H03 | 프로필 읽기에도 같은 확인 후 열기 경쟁이 있었습니다. 이제 하나의 no-follow 서술자로 읽고 모드와 크기를 검증합니다. | `test_profile_reader_never_follows_symlink` |
 | H04 | 재개 입력이 종결 증적과 실패를 동시에 주장할 수 있었습니다. 이제 리듀서는 복구 작업을 선택하지 않고 모순된 상태를 거부합니다. | `test_resume_rejects_failed_state_after_terminal_receipt` |
+| H05 | 원장이 매니페스트에 연결되지 않아 변경된 원본 리비전이 이전 진행 상태를 재개할 수 있었습니다. 이제 모든 이벤트가 하나의 변경 불가능한 맥락 다이제스트에 연결됩니다. | `test_simulation_refuses_resume_under_changed_manifest` |
 
 ## 관련 문서
 

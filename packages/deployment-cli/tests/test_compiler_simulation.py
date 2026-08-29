@@ -69,3 +69,23 @@ def test_ready_simulation_is_idempotent(tmp_path: Path) -> None:
     )
 
     assert rehearse(manifest, run_id="run.simulation", journal=journal) == events
+
+
+def test_simulation_refuses_resume_under_changed_manifest(tmp_path: Path) -> None:
+    journal = tmp_path / "runs" / "run.jsonl"
+    manifest = compile_manifest(_profile(), source_commit="a" * 40)
+    rehearse(
+        manifest,
+        run_id="run.simulation",
+        journal=journal,
+        interrupt_after="foundation",
+        started_at=datetime(2026, 8, 29, tzinfo=UTC),
+    )
+    changed = compile_manifest(_profile(), source_commit="b" * 40)
+
+    try:
+        rehearse(changed, run_id="run.simulation", journal=journal)
+    except ValueError as exc:
+        assert "manifest does not match" in str(exc)
+    else:
+        raise AssertionError("changed manifest resumed an existing journal")

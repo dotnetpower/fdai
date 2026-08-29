@@ -27,6 +27,7 @@ from fdai_deployment_cli.state import (
 def _event(sequence: int, previous: str, state: RunState = RunState.PLANNING) -> ProvisionEvent:
     return ProvisionEvent(
         run_id="run.test",
+        context_digest="a" * 64,
         sequence=sequence,
         stage="foundation",
         attempt=1,

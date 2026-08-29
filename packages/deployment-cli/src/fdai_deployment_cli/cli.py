@@ -289,6 +289,7 @@ def _onboard_status(args: argparse.Namespace) -> int:
     result = {
         "schema_version": "fdai.onboard-status.v1",
         "run_id": latest.run_id,
+        "context_digest": latest.context_digest,
         "sequence": latest.sequence,
         "stage": latest.stage,
         "state": latest.state.value,

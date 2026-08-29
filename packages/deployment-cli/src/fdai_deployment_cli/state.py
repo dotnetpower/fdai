@@ -49,6 +49,7 @@ class ProvisionEvent:
     """One append-only, replayable local run event."""
 
     run_id: str
+    context_digest: str
     sequence: int
     stage: str
     attempt: int
@@ -60,6 +61,8 @@ class ProvisionEvent:
     def __post_init__(self) -> None:
         if _ID.fullmatch(self.run_id) is None or _ID.fullmatch(self.stage) is None:
             raise ValueError("run_id and stage MUST be stable identifiers")
+        if re.fullmatch(r"[0-9a-f]{64}", self.context_digest) is None:
+            raise ValueError("event context_digest MUST be a SHA-256")
         if self.sequence < 1 or self.attempt < 1:
             raise ValueError("event sequence and attempt MUST be positive")
         try:
@@ -88,6 +91,7 @@ class ProvisionEvent:
         return {
             "schema_version": "fdai.provision-event.v1",
             "run_id": self.run_id,
+            "context_digest": self.context_digest,
             "sequence": self.sequence,
             "stage": self.stage,
             "attempt": self.attempt,
@@ -104,6 +108,7 @@ class ProvisionEvent:
         expected = {
             "schema_version",
             "run_id",
+            "context_digest",
             "sequence",
             "stage",
             "attempt",
@@ -120,6 +125,7 @@ class ProvisionEvent:
             raise ValueError("event reason_code MUST be a string or null")
         event = cls(
             run_id=_required_text(value, "run_id"),
+            context_digest=_required_text(value, "context_digest"),
             sequence=_required_int(value, "sequence"),
             stage=_required_text(value, "stage"),
             attempt=_required_int(value, "attempt"),
@@ -159,6 +165,8 @@ def append_event(path: Path, event: ProvisionEvent) -> None:
             raise ValueError("provision event does not continue the journal")
         if previous is not None and event.run_id != previous.run_id:
             raise ValueError("provision event run_id does not match the journal")
+        if previous is not None and event.context_digest != previous.context_digest:
+            raise ValueError("provision event context does not match the journal")
         payload = json.dumps(
             event.to_mapping(),
             sort_keys=True,
@@ -209,6 +217,7 @@ def _read_stream(stream: BinaryIO) -> tuple[ProvisionEvent, ...]:
     events: list[ProvisionEvent] = []
     previous_digest = GENESIS_HASH
     run_id: str | None = None
+    context_digest: str | None = None
     for sequence, line in enumerate(stream, start=1):
         if sequence > _MAX_EVENTS:
             raise ValueError("provision journal exceeds its event count limit")
@@ -219,7 +228,10 @@ def _read_stream(stream: BinaryIO) -> tuple[ProvisionEvent, ...]:
             raise ValueError("provision journal hash chain is invalid")
         if run_id is not None and event.run_id != run_id:
             raise ValueError("provision journal contains multiple run ids")
+        if context_digest is not None and event.context_digest != context_digest:
+            raise ValueError("provision journal contains multiple contexts")
         run_id = event.run_id
+        context_digest = event.context_digest
         previous_digest = event.digest
         events.append(event)
     return tuple(events)
