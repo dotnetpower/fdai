@@ -30,5 +30,5 @@ def test_rule_collector_job_is_scheduled_and_records_verified_evidence() -> None
 def test_rule_collector_job_never_receives_the_executor_identity() -> None:
     job = _JOB.read_text(encoding="utf-8")
 
-    assert job.count("var.inventory_identity_id") == 3
+    assert job.count("var.inventory_identity_id") == 4
     assert "var.executor_identity_id" not in job
