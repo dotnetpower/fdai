@@ -483,7 +483,7 @@ class PostgresOntologyInstanceStore:
                 connection,
                 objects,
                 requires_resource_coverage="Resource" in object_types,
-                expresses_relationships=bool(links) or len(objects) > 1,
+                expresses_relationships=bool(links),
             )
         return OntologyGraphSnapshot(
             objects=objects,

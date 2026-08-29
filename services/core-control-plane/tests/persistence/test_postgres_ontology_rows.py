@@ -99,6 +99,14 @@ def test_relationship_gap_does_not_hold_a_snapshot_with_no_expressible_relations
     assert generation == "generation-2"
 
 
+def test_postgres_ontology_store_retains_query_traversal_and_connection_methods() -> None:
+    store_type = postgres_ontology.PostgresOntologyInstanceStore
+
+    assert callable(store_type.query_objects)
+    assert callable(store_type.traverse)
+    assert callable(store_type._connect)  # noqa: SLF001 - persistence layout regression
+
+
 def test_object_gap_still_holds_a_snapshot_with_no_expressible_relationship() -> None:
     complete, _generation = postgres_ontology._resolve_inventory_graph_source_coverage(
         active_generation="generation-2",
