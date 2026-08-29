@@ -10,7 +10,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from fdai_deployment_cli.bundle import BundleVerificationError, verify_bundle
-from fdai_deployment_cli.cli import main
+from fdai_deployment_cli.cli import _safe_plan_error, main
 from fdai_deployment_cli.contracts import canonical_bytes
 from fdai_deployment_cli.license import LicenseInspectionError, inspect_license
 from fdai_deployment_cli.offline_kit import (
@@ -195,3 +195,14 @@ def test_cli_version_and_private_profile(
     )
     result = json.loads(capsys.readouterr().out)
     assert result["mutation_performed"] is False
+
+
+def test_terraform_failure_is_redacted_to_stable_reason() -> None:
+    secret_shaped = "token=super-secret resource=/subscriptions/example"
+    assert _safe_plan_error(secret_shaped) == (
+        "terraform plan failed after offline provider initialization"
+    )
+    assert "super-secret" not in _safe_plan_error(secret_shaped)
+    assert "No value for required variable" in _safe_plan_error(
+        "Error: No value for required variable\nvariable subscription"
+    )

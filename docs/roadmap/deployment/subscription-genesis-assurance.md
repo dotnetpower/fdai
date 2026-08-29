@@ -228,6 +228,12 @@ The end-to-end matrix includes:
 Live validation uses a dedicated approved subscription, exact pushed revision, green required CI,
 cost ceiling, expiry, and teardown plan. It never reuses a customer environment as a test fixture.
 
+## Pre-login hardening evidence
+
+| Round | Finding and resolution | Focused evidence |
+|-------|------------------------|------------------|
+| H01 | Terraform failure output could disclose state-derived values. The CLI now maps it to bounded stable reason codes. | `test_terraform_failure_is_redacted_to_stable_reason` |
+
 ## Related docs
 
 | To learn about | Read |

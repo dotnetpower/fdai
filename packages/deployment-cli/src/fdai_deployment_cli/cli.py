@@ -238,8 +238,7 @@ def _provision_plan(args: argparse.Namespace) -> int:
         timeout=300,
     )
     if completed.returncode != 0:
-        message = (completed.stdout + completed.stderr)[-16_384:]
-        raise ValueError(message.strip())
+        raise ValueError(_safe_plan_error(completed.stdout + completed.stderr))
     result = {
         "schema_version": "fdai.provision-plan.v1",
         "offline_manifest_digest": verification.manifest_digest,
@@ -251,6 +250,14 @@ def _provision_plan(args: argparse.Namespace) -> int:
         else "plan completed"
     )
     return 0
+
+
+def _safe_plan_error(output: str) -> str:
+    """Map Terraform output to bounded stable errors without echoing provider values."""
+
+    if "No value for required variable" in output:
+        return "terraform plan requires deployment input: No value for required variable"
+    return "terraform plan failed after offline provider initialization"
 
 
 def _bundle_verify(args: argparse.Namespace) -> int:
