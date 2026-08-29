@@ -12,6 +12,7 @@ from typing import Any
 _DESIGN_MOCKS = frozenset({"module.design_mocks[0].azurerm_static_web_app.design_mocks"})
 _CORE_MODEL_QUORUM = frozenset(
     {
+        "module.llm_azure_openai[0].azurerm_cognitive_account.primary",
         'module.llm_azure_openai[0].azurerm_cognitive_deployment.capability["t1.judge"]',
         (
             "module.llm_azure_openai[0].azurerm_cognitive_deployment."
@@ -65,9 +66,17 @@ def enforce(
     elif mode == "core-model-quorum":
         if changed != _CORE_MODEL_QUORUM:
             raise ValueError(
-                "Core-model-quorum plan must change exactly the required deployments: "
+                "Core-model-quorum plan must change exactly the required resources: "
                 + ", ".join(sorted(_CORE_MODEL_QUORUM))
             )
+        account = next(
+            change
+            for change in plan["resource_changes"]
+            if change.get("address")
+            == "module.llm_azure_openai[0].azurerm_cognitive_account.primary"
+        )
+        if account.get("change", {}).get("actions") != ["update"]:
+            raise ValueError("Core-model-quorum account prerequisite must be an in-place update")
         return changed
     elif mode == "monitoring":
         unexpected = sorted(
