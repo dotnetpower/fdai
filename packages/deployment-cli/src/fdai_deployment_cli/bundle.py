@@ -200,6 +200,11 @@ def extract_bundle_archive(archive: Path, destination: Path) -> Path:
         if not root.is_dir():
             raise BundleVerificationError("deployment bundle archive root is invalid")
         return root
+    except tarfile.TarError as exc:
+        import shutil
+
+        shutil.rmtree(destination, ignore_errors=True)
+        raise BundleVerificationError("deployment bundle archive is invalid") from exc
     except BaseException:
         import shutil
 
