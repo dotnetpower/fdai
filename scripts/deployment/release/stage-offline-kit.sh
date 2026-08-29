@@ -32,8 +32,8 @@ OUT=""
 RELEASE_KEY=""
 BUNDLE_KEY=""
 BUNDLE_VERSION="0.1.0"
-PLATFORM_TAG="linux-x86_64"
-PLATFORM="linux_amd64"
+PLATFORM_TAG=""
+PLATFORM=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -80,6 +80,8 @@ case "$(uname -s)-$(uname -m)" in
     exit 2
     ;;
 esac
+PLATFORM="${PLATFORM:-$HOST_PLATFORM}"
+PLATFORM_TAG="${PLATFORM_TAG:-$HOST_PLATFORM_TAG}"
 if [[ "$PLATFORM" != "$HOST_PLATFORM" || "$PLATFORM_TAG" != "$HOST_PLATFORM_TAG" ]]; then
   echo "stage-offline-kit: cross-platform kit staging is not supported." >&2
   exit 2

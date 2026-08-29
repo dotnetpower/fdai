@@ -67,7 +67,11 @@ PYTHON="$repo_root/.venv/bin/python"
 
 KIT="$WORKDIR/kit"
 BUNDLE_VERSION="0.1.0"
-PLATFORM_TAG="linux-x86_64"
+case "$(uname -m)" in
+  x86_64) PLATFORM_TAG="linux-x86_64" ;;
+  aarch64|arm64) PLATFORM_TAG="linux-aarch64" ;;
+  *) echo "airgap-drill: BLOCKED - unsupported host architecture." >&2; exit 2 ;;
+esac
 BUNDLE_IN_KIT="deployment/fdai-deployment-bundle-${BUNDLE_VERSION}.tar.gz"
 
 stage() {

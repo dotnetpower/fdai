@@ -29,7 +29,10 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     assert 'cp "$OUT/wheels"/*.whl "$KIT/python/"' in stage
     assert 'PLATFORM" != "$HOST_PLATFORM"' in stage
     assert 'PLATFORM_TAG" != "$HOST_PLATFORM_TAG"' in stage
+    assert 'PLATFORM="${PLATFORM:-$HOST_PLATFORM}"' in stage
+    assert 'PLATFORM_TAG="${PLATFORM_TAG:-$HOST_PLATFORM_TAG}"' in stage
     assert "cross-platform kit staging is not supported" in stage
+    assert 'aarch64|arm64) PLATFORM_TAG="linux-aarch64"' in drill
     assert "fdai_deployment_cli-*-py3-none-any.whl" in stage
     assert "PYTHONPATH=packages/deployment-cli/src" in stage
     assert "PYTHONPATH=packages/deployment-cli/src" in drill
