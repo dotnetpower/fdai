@@ -39,10 +39,13 @@ def write_profile(path: Path, profile: ProvisionProfile, *, force: bool = False)
 def load_profile(path: Path) -> ProvisionProfile:
     """Read and validate a private regular-file profile."""
 
-    _require_regular_private_file(path)
-    return ProvisionProfile.from_mapping(
-        load_json_object(path.read_bytes(), label="provision profile")
-    )
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(descriptor, "rb") as stream:
+        details = os.fstat(stream.fileno())
+        if not stat.S_ISREG(details.st_mode) or stat.S_IMODE(details.st_mode) != 0o600:
+            raise PermissionError("provision profile MUST be a mode-0600 regular file")
+        payload = stream.read(1_048_577)
+    return ProvisionProfile.from_mapping(load_json_object(payload, label="provision profile"))
 
 
 def _require_private_directory(path: Path) -> None:

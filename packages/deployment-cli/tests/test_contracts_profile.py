@@ -71,6 +71,17 @@ def test_profile_refuses_overwrite_and_symlink(tmp_path: Path) -> None:
     assert target.read_text(encoding="utf-8") == "unchanged"
 
 
+def test_profile_reader_never_follows_symlink(tmp_path: Path) -> None:
+    target = tmp_path / "target.json"
+    target.write_text("{}", encoding="utf-8")
+    target.chmod(0o600)
+    linked = tmp_path / "profile.json"
+    linked.symlink_to(target)
+
+    with pytest.raises(OSError):
+        load_profile(linked)
+
+
 def test_profile_rejects_non_shadow_and_transport_mismatch() -> None:
     values = _profile().to_mapping()
     values["shadow_only"] = False
