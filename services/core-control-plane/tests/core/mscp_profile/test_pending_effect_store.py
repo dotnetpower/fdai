@@ -7,7 +7,12 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from fdai.core.mscp_profile.effect_verification import ExpectedEffect
+from fdai.core.mscp_profile.effect_verification import (
+    EffectVerificationReason,
+    EffectVerificationResult,
+    EffectVerificationStatus,
+    ExpectedEffect,
+)
 from fdai.core.mscp_profile.pending_effect_store import (
     PendingEffectConflictError,
     PendingEffectOwnershipError,
@@ -18,6 +23,10 @@ from fdai.core.mscp_profile.pending_effect_store import (
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _NOW = datetime(2026, 8, 29, 2, 0, tzinfo=UTC)
+_VERIFIED = EffectVerificationResult(
+    EffectVerificationStatus.VERIFIED,
+    EffectVerificationReason.WITHIN_ACCEPTABLE_RANGE,
+)
 
 
 def _expected(
@@ -147,6 +156,7 @@ async def test_expired_claim_advances_generation_and_fences_old_owner() -> None:
             owner_generation=first.owner_generation,
             expected_revision=first.revision,
             completed_at=_NOW + timedelta(seconds=30),
+            result=_VERIFIED,
         )
 
 
@@ -169,6 +179,7 @@ async def test_only_current_owner_can_complete_before_lease_expiry() -> None:
             owner_generation=claimed.owner_generation,
             expected_revision=claimed.revision,
             completed_at=_NOW + timedelta(seconds=30),
+            result=_VERIFIED,
         )
     completed = await store.complete(
         registered.expected.prediction_id,
@@ -176,10 +187,13 @@ async def test_only_current_owner_can_complete_before_lease_expiry() -> None:
         owner_generation=claimed.owner_generation,
         expected_revision=claimed.revision,
         completed_at=_NOW + timedelta(seconds=30),
+        result=_VERIFIED,
     )
 
     assert completed.status is PendingEffectStatus.COMPLETED
     assert completed.completed_at == _NOW + timedelta(seconds=30)
+    assert completed.verification_status is EffectVerificationStatus.VERIFIED
+    assert completed.verification_reason is EffectVerificationReason.WITHIN_ACCEPTABLE_RANGE
     assert len(state.audit_entries) == 3
 
 
@@ -218,3 +232,24 @@ async def test_malformed_durable_state_fails_closed() -> None:
 
     with pytest.raises(ValueError, match="unsupported schema"):
         await store.get(registered.expected.prediction_id)
+
+
+async def test_pending_version_one_record_replays_without_inventing_verification() -> None:
+    state = InMemoryStateStore()
+    store = StateStorePendingEffectStore(state)
+    registered = await _register(store)
+    key = (
+        "mscp:pending-effect:"
+        + hashlib.sha256(registered.expected.prediction_id.encode()).hexdigest()
+    )
+    legacy = registered.to_mapping()
+    legacy["schema_version"] = "1.0.0"
+    legacy.pop("verification_status")
+    legacy.pop("verification_reason")
+    await state.write_state(key, legacy)
+
+    replay = await store.get(registered.expected.prediction_id)
+
+    assert replay.status is PendingEffectStatus.PENDING
+    assert replay.verification_status is None
+    assert replay.verification_reason is None

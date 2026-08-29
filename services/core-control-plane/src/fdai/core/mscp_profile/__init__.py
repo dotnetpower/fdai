@@ -28,6 +28,11 @@ from fdai.core.mscp_profile.effect_verification import (
     ObservedEffect,
     verify_effect,
 )
+from fdai.core.mscp_profile.observation_worker import (
+    ObservationWorkerReport,
+    PendingEffectObservationWorker,
+    PendingEffectObserver,
+)
 from fdai.core.mscp_profile.pending_effect_store import (
     PendingEffectConflictError,
     PendingEffectOwnershipError,
@@ -73,8 +78,11 @@ __all__ = [
     "MscpAuthorityReason",
     "ObservedEffect",
     "OperationalProfile",
+    "ObservationWorkerReport",
     "OscillationPolicy",
     "PendingEffectConflictError",
+    "PendingEffectObservationWorker",
+    "PendingEffectObserver",
     "PendingEffectOwnershipError",
     "PendingEffectRecord",
     "PendingEffectStaleRevisionError",

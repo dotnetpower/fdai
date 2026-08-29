@@ -145,8 +145,10 @@ Expected effects can now enter a durable StateStore-backed pending-effect ledger
 The ledger preserves the candidate ActionType, environment, observer version, exact deadline, and
 immutable effect digest across process restart. Compare-and-set claims carry a revision and owner
 generation. An active duplicate owner, stale revision, expired owner completion, or conflicting
-prediction identity fails closed. Deadline-ordered reads include unowned and expired claims so a
-separate worker can recover them without changing execution authority.
+prediction identity fails closed. A separate bounded worker claims deadline-ordered records and
+writes `verified`, `mismatch`, or `hold` plus the deterministic reason. Missing observations and
+provider failures become explicit holds. Completed effects do not run again, and the worker remains
+outside the synchronous executor path with no execution authority.
 
 Moving from shadow observation to gating is a separate, future governed change. It requires a
 measured evidence window, a rollback target, and a proof that the profile can only preserve or lower
@@ -186,6 +188,8 @@ Focused tests under `services/core-control-plane/tests/core/mscp_profile/` cover
 - caller-owned cycle budgets and bounded sign-change detection;
 - order-independent runtime manifest hashing and component drift reporting; and
 - fail-closed validation of non-finite values, malformed digests, and invalid limits.
+- restart-safe pending-effect ownership and deadline-worker verified, mismatch, missing, provider
+  failure, and replay behavior.
 
 The v1 profile is connected only as optional shadow observation. It is not connected to the enforce
 decision path. A future gating change should demonstrate that no profile outcome raises the existing

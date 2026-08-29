@@ -11,11 +11,16 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
-from fdai.core.mscp_profile.effect_verification import ExpectedEffect
+from fdai.core.mscp_profile.effect_verification import (
+    EffectVerificationReason,
+    EffectVerificationResult,
+    EffectVerificationStatus,
+    ExpectedEffect,
+)
 from fdai.shared.providers.state_store import StateStore
 
 _STATE_PREFIX = "mscp:pending-effect:"
-_SCHEMA_VERSION = "1.0.0"
+_SCHEMA_VERSION = "1.1.0"
 _MAX_DUE_READ = 10_000
 _DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 
@@ -55,6 +60,8 @@ class PendingEffectRecord:
     owner_generation: int = 0
     lease_until: datetime | None = None
     completed_at: datetime | None = None
+    verification_status: EffectVerificationStatus | None = None
+    verification_reason: EffectVerificationReason | None = None
 
     def __post_init__(self) -> None:
         for name, value in (
@@ -87,9 +94,13 @@ class PendingEffectRecord:
                 value is not None for value in (self.owner_id, self.lease_until, self.completed_at)
             ):
                 raise ValueError("pending effect MUST NOT carry ownership or completion")
+            if self.verification_status is not None or self.verification_reason is not None:
+                raise ValueError("pending effect MUST NOT carry verification")
         elif self.status is PendingEffectStatus.CLAIMED:
             if self.owner_id is None or self.lease_until is None or self.completed_at is not None:
                 raise ValueError("claimed effect requires one active owner lease")
+            if self.verification_status is not None or self.verification_reason is not None:
+                raise ValueError("claimed effect MUST NOT carry verification")
             _require_owner(self.owner_id)
             _require_aware("lease_until", self.lease_until)
         elif self.status is PendingEffectStatus.COMPLETED:
@@ -100,6 +111,8 @@ class PendingEffectRecord:
             _require_aware("completed_at", self.completed_at)
             if self.completed_at > self.lease_until:
                 raise ValueError("completed effect MUST remain inside its owner lease")
+            if self.verification_status is None or self.verification_reason is None:
+                raise ValueError("completed effect requires one verification result")
 
     def to_mapping(self) -> dict[str, object]:
         """Return a strict state-store representation."""
@@ -123,13 +136,19 @@ class PendingEffectRecord:
             "owner_generation": self.owner_generation,
             "lease_until": _timestamp(self.lease_until),
             "completed_at": _timestamp(self.completed_at),
+            "verification_status": (
+                self.verification_status.value if self.verification_status is not None else None
+            ),
+            "verification_reason": (
+                self.verification_reason.value if self.verification_reason is not None else None
+            ),
         }
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> PendingEffectRecord:
         """Decode one exact durable row and reject partial state."""
 
-        expected_keys = {
+        base_keys = {
             "schema_version",
             "prediction_id",
             "target_ref",
@@ -149,7 +168,19 @@ class PendingEffectRecord:
             "lease_until",
             "completed_at",
         }
-        if set(value) != expected_keys or value.get("schema_version") != _SCHEMA_VERSION:
+        verification_keys = {
+            "verification_status",
+            "verification_reason",
+        }
+        schema_version = value.get("schema_version")
+        expected_keys = (
+            base_keys | verification_keys
+            if schema_version == _SCHEMA_VERSION
+            else base_keys
+            if schema_version == "1.0.0"
+            else set()
+        )
+        if set(value) != expected_keys:
             raise ValueError("pending effect state has an unsupported schema")
         return cls(
             expected=ExpectedEffect(
@@ -171,6 +202,16 @@ class PendingEffectRecord:
             owner_generation=_integer(value, "owner_generation"),
             lease_until=_optional_instant(value, "lease_until"),
             completed_at=_optional_instant(value, "completed_at"),
+            verification_status=(
+                _optional_enum(value, "verification_status", EffectVerificationStatus)
+                if schema_version == _SCHEMA_VERSION
+                else None
+            ),
+            verification_reason=(
+                _optional_enum(value, "verification_reason", EffectVerificationReason)
+                if schema_version == _SCHEMA_VERSION
+                else None
+            ),
         )
 
 
@@ -314,6 +355,7 @@ class StateStorePendingEffectStore:
         owner_generation: int,
         expected_revision: int,
         completed_at: datetime,
+        result: EffectVerificationResult,
     ) -> PendingEffectRecord:
         """Complete only the live owner generation before its lease expires."""
 
@@ -335,6 +377,8 @@ class StateStorePendingEffectStore:
             status=PendingEffectStatus.COMPLETED,
             revision=current.revision + 1,
             completed_at=completed_at,
+            verification_status=result.status,
+            verification_reason=result.reason,
         )
         return await self._compare_and_set(current, updated, event="completed")
 
@@ -452,6 +496,19 @@ def _optional_instant(value: Mapping[str, Any], key: str) -> datetime | None:
     if item is None:
         return None
     return _instant(value, key)
+
+
+def _optional_enum[EnumType: StrEnum](
+    value: Mapping[str, Any],
+    key: str,
+    enum_type: type[EnumType],
+) -> EnumType | None:
+    item = value.get(key)
+    if item is None:
+        return None
+    if not isinstance(item, str):
+        raise ValueError(f"pending effect {key} MUST be text or null")
+    return enum_type(item)
 
 
 __all__ = [
