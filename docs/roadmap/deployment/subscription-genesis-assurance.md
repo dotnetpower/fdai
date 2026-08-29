@@ -260,6 +260,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H26 | Release staging could label host binaries and wheels as another target platform. It now rejects cross-platform staging until target-specific artifact resolution exists. | `test_release_scripts_use_the_installable_distribution` |
 | H27 | Idempotency keys used only a 12-character revision prefix, allowing rare cross-revision collisions. They now bind the complete source commit. | `test_idempotency_keys_change_with_source_revision` |
 | H28 | Planning followed an existing work-directory link and could truncate a linked CLI configuration. It now requires a new private directory and creates configuration with no-follow exclusivity. | `test_plan_work_directory_and_config_reject_existing_links` |
+| H29 | A kit could declare one bundle version while carrying another valid signed bundle. Planning now requires both signed version claims to match. | `test_plan_rejects_bundle_version_mismatch` |
 
 ## Related docs
 

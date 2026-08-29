@@ -20,6 +20,7 @@ from fdai_deployment_cli.bundle import (
 )
 from fdai_deployment_cli.cli import (
     _create_private_work_dir,
+    _require_bundle_version,
     _runtime_platform_tag,
     _safe_plan_error,
     _write_private_text,
@@ -463,3 +464,8 @@ def test_plan_work_directory_and_config_reject_existing_links(tmp_path: Path) ->
     with pytest.raises(FileExistsError):
         _write_private_text(config_link, "replacement")
     assert config_target.read_text(encoding="utf-8") == "unchanged"
+
+
+def test_plan_rejects_bundle_version_mismatch() -> None:
+    with pytest.raises(ValueError, match="versions do not match"):
+        _require_bundle_version(kit_version="0.1.0", bundle_version="0.2.0")

@@ -217,10 +217,14 @@ def _provision_plan(args: argparse.Namespace) -> int:
         artifacts.deployment_bundle,
         args.work_dir / "bundle",
     )
-    verify_bundle(
+    bundle_verification = verify_bundle(
         bundle_root,
         public_key_pem=args.bundle_public_key.read_bytes(),
         cli_version=__version__,
+    )
+    _require_bundle_version(
+        kit_version=verification.bundle_version,
+        bundle_version=bundle_verification.bundle_version,
     )
     infra_dir = bundle_root / "infra"
     if not infra_dir.is_dir():
@@ -278,6 +282,11 @@ def _safe_plan_error(output: str) -> str:
     if "No value for required variable" in output:
         return "terraform plan requires deployment input: No value for required variable"
     return "terraform plan failed after offline provider initialization"
+
+
+def _require_bundle_version(*, kit_version: str, bundle_version: str) -> None:
+    if kit_version != bundle_version:
+        raise ValueError("offline kit and deployment bundle versions do not match")
 
 
 def _create_private_work_dir(path: Path) -> None:
