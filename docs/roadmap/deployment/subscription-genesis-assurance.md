@@ -307,6 +307,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H73 | License issuance still imported a removed delivery verifier after package-path repair. It now performs Ed25519 public-key verification through the pinned cryptography dependency. | network-isolated `airgap-drill.sh` rerun |
 | H74 | AzureRM planning could auto-register resource providers while reporting no mutation. The isolated plan environment now forces resource-provider registration to `none`. | `test_terraform_environment_accepts_target_bound_managed_identity` |
 | H75 | The drill required ambient Terraform even though it exclusively uses the pinned kit snapshot. The stale host prerequisite was removed. | `test_release_scripts_use_the_installable_distribution` |
+| H76 | Offline license inspection accepted timestamp forms and an inclusive expiry that runtime rejects. It now enforces canonical UTC `Z`, the capability-count ceiling, and exclusive `not_after`. | `test_license_rejects_noncanonical_timestamp` |
 
 ## Related docs
 
