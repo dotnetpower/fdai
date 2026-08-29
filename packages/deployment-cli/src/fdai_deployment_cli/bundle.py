@@ -284,12 +284,18 @@ def _sha256(path: Path, *, expected: os.stat_result) -> str:
         raise BundleVerificationError("deployment bundle MUST contain regular files")
     descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
     digest = hashlib.sha256()
+    copied = 0
     with os.fdopen(descriptor, "rb") as stream:
         opened = os.fstat(stream.fileno())
         _require_same_file(expected, opened)
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            copied += len(chunk)
+            if copied > expected.st_size:
+                raise BundleVerificationError("deployment bundle file grew during verification")
             digest.update(chunk)
         _require_same_file(opened, os.fstat(stream.fileno()))
+    if copied != expected.st_size:
+        raise BundleVerificationError("deployment bundle file size changed during verification")
     return digest.hexdigest()
 
 
