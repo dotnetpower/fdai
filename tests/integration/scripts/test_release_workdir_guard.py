@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 from pathlib import Path
 
 import pytest
@@ -34,3 +35,29 @@ def test_workdir_guard_rejects_public_or_linked_roots(tmp_path: Path) -> None:
     linked.symlink_to(private, target_is_directory=True)
     with pytest.raises(OSError):
         MODULE.verify_owned_workdir(linked, sentinel=".owner", value="owned-v1")
+
+
+def test_workdir_guard_rejects_fifo_sentinel_without_blocking(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workdir = tmp_path / "stage"
+    MODULE.create_owned_workdir(workdir, sentinel=".owner", value="owned-v1")
+    sentinel = workdir / ".owner"
+    sentinel.unlink()
+    os.mkfifo(sentinel, mode=0o600)
+    real_open = os.open
+
+    def open_nonblocking(
+        path: str | os.PathLike[str],
+        flags: int,
+        mode: int = 0o777,
+        *,
+        dir_fd: int | None = None,
+    ) -> int:
+        if path == ".owner":
+            assert flags & os.O_NONBLOCK
+        return real_open(path, flags, mode, dir_fd=dir_fd)
+
+    monkeypatch.setattr(os, "open", open_nonblocking)
+    with pytest.raises(MODULE.WorkdirGuardError, match="sentinel is unsafe"):
+        MODULE.verify_owned_workdir(workdir, sentinel=".owner", value="owned-v1")

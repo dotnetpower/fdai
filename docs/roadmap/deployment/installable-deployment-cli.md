@@ -112,7 +112,8 @@ versions before it can sign an offline kit. Terraform and OPA are downloaded at 
 and accepted only after their platform-specific official SHA-256 values match. The output root must
 be a safe absolute path. A descriptor-based guard verifies current-UID ownership, mode 0700, and a
 mode-0600 regular staging sentinel before cleanup. Restaging removes every generated directory and
-single-file output while preserving the ownership sentinel.
+single-file output while preserving the ownership sentinel. Sentinel verification opens the final
+component in nonblocking mode before descriptor checks, so a special file cannot stall resume.
 Offline planning recomputes the profile target digest from concrete tenant and subscription input,
 matches the profile region, and supplies the verified subscription to Terraform.
 The synthetic air-gap drill isolates Azure CLI configuration so a host login cannot alter its

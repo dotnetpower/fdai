@@ -43,7 +43,7 @@ def verify_owned_workdir(path: Path, *, sentinel: str, value: str) -> None:
     try:
         descriptor = os.open(
             sentinel,
-            os.O_RDONLY | os.O_NOFOLLOW,
+            os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
             dir_fd=directory,
         )
         with os.fdopen(descriptor, "rb") as stream:
