@@ -26,11 +26,12 @@ class WorkloadEnvelope:
             "concurrent_requests",
             "provider_unit_tpm",
         ):
-            if getattr(self, field_name) < 1:
+            value = getattr(self, field_name)
+            if isinstance(value, bool) or not isinstance(value, int) or value < 1:
                 raise ValueError(f"{field_name} MUST be positive")
-        if not 0 < self.utilization_ceiling <= 1:
+        if not math.isfinite(self.utilization_ceiling) or not 0 < self.utilization_ceiling <= 1:
             raise ValueError("utilization_ceiling MUST be in (0, 1]")
-        if not 0 <= self.quota_reserve < 1:
+        if not math.isfinite(self.quota_reserve) or not 0 <= self.quota_reserve < 1:
             raise ValueError("quota_reserve MUST be in [0, 1)")
 
     @property

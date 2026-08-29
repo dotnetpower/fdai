@@ -64,3 +64,26 @@ def test_capacity_requires_required_capability_and_quota_evidence() -> None:
     )
     with pytest.raises(ValueError, match="quota evidence"):
         plan_capacity((required,), available_tpm_by_deployment={})
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    (
+        {"requests_per_minute": True},
+        {"utilization_ceiling": float("nan")},
+        {"utilization_ceiling": float("inf")},
+        {"quota_reserve": float("nan")},
+    ),
+)
+def test_capacity_rejects_non_numeric_and_non_finite_inputs(
+    overrides: dict[str, object],
+) -> None:
+    values: dict[str, object] = {
+        "requests_per_minute": 1,
+        "input_tokens_per_request": 1,
+        "output_tokens_per_request": 1,
+        "concurrent_requests": 1,
+    }
+    values.update(overrides)
+    with pytest.raises(ValueError):
+        WorkloadEnvelope(**values)  # type: ignore[arg-type]
