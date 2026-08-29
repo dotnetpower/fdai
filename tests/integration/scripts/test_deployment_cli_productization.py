@@ -22,6 +22,7 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     stage = (ROOT / "scripts/deployment/release/stage-offline-kit.sh").read_text(encoding="utf-8")
     drill = (ROOT / "scripts/deployment/release/airgap-drill.sh").read_text(encoding="utf-8")
     signer = (ROOT / "scripts/deployment/release/build-offline-kit.py").read_text(encoding="utf-8")
+    issuer = (ROOT / "scripts/deployment/release/issue-license.py").read_text(encoding="utf-8")
 
     assert "uv lock --check --project packages/deployment-cli" in stage
     assert "uv build --wheel --project packages/deployment-cli" in stage
@@ -72,6 +73,8 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     assert "for tool in az terraform openssl unshare uv git" in drill
     assert "fdai_deployment_cli.offline_kit" in signer
     assert "fdai.deployment_cli" not in stage + drill + signer
+    assert "fdai.delivery.trust.ed25519" not in issuer
+    assert "load_pem_public_key" in issuer
 
 
 def test_source_entrypoint_reports_stable_version_json() -> None:

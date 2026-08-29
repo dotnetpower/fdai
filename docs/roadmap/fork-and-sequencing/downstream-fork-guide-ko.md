@@ -1,8 +1,8 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: cb777fb0227ea6d303ddcec84badf6ae81a310e4
-translation_revised: 2026-08-28
+translation_source_sha: 07883f4611bc1000538115ab54f3350cb390252e
+translation_revised: 2026-08-29
 ---
 
 # 다운스트림 포크 가이드
@@ -378,7 +378,9 @@ git push origin main
   배포 설정의 서명된 토큰, available 축 전용 권한. License는 읽기 전용
   기능을 회수할 수 없으므로, 포크는 운영자가 무엇을 볼 수 있는지는
   전혀 막지 않으면서 무엇을 할 수 있는지만 통제할 수 있습니다. 토큰은 이미지 다이제스트나
-  배포에 연결하십시오. 연결 없는 토큰은 그것을 읽을 수 있는 누구에게나 동작합니다.
+  배포에 연결하십시오. 연결 없는 토큰은 그것을 읽을 수 있는 누구에게나 동작합니다. 포크는
+  런타임 `LicenseVerifier`를 연결하고 릴리스 발급과 `fdaictl` 점검은 각각 독립 Ed25519 검증
+  경로를 사용합니다.
 - [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md) -
   모든 포크가 준수하는 customer-agnostic 스코프 계약.
 
