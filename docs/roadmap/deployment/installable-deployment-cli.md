@@ -111,7 +111,8 @@ Offline planning recomputes the profile target digest from concrete tenant and s
 matches the profile region, and supplies the verified subscription to Terraform.
 The synthetic air-gap drill isolates Azure CLI configuration so a host login cannot alter its
 target evidence, requires Azure CLI as a local prerequisite, and expects its distinct redacted
-provider-authentication marker.
+provider-authentication marker. Repeated `--skip-stage` drills recreate their isolated Azure
+configuration instead of inheriting prior run state.
 Connected plans expose only a validated Azure CLI path or target-bound Managed Identity variables
 to Terraform; unrelated environment values remain excluded.
 

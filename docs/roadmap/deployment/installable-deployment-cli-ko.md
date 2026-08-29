@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 5cc97e2f6f4e6626c3274642c77ed8557a586ee7
+translation_source_sha: f823d5c99a65157ed1ab9c146abf4e08a0831026
 translation_revised: 2026-08-29
 ---
 # 설치형 배포 CLI
@@ -113,6 +113,7 @@ Installer는 system 도구를 변경하지 않습니다. `fdaictl doctor`가 누
 지역을 일치시키며 검증된 구독을 Terraform에 전달합니다.
 합성 air-gap 훈련은 Azure CLI 구성을 격리해 호스트 로그인이 대상 근거를 바꾸지 못하게 하고
 Azure CLI를 로컬 선행 조건으로 검사하며 구분된 정제 공급자 인증 표시를 요구합니다.
+반복 `--skip-stage` 훈련은 이전 실행 상태를 상속하지 않고 격리된 Azure 구성을 다시 만듭니다.
 연결된 계획은 검증된 Azure CLI 경로 또는 대상에 연결된 Managed Identity 변수만 Terraform에
 제공하고 관련 없는 환경 값은 제외합니다.
 

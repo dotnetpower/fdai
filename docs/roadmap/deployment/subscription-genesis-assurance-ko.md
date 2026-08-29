@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: ac07c490d6fdf074c4a165cf28797802fb3d0581
+translation_source_sha: 3c3faf3482fcb5fa9913b574b6e621bfd917cf86
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -291,6 +291,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H64 | 선택 기능 전용 모델 배포 그룹이 필수 예비 값이 없어 `max()`에서 실패했습니다. 이제 해당 그룹은 필수 예비 0을 사용하고 검토 전용으로 유지됩니다. | `test_optional_only_deployment_group_is_review_only` |
 | H65 | air-gap 훈련이 공급자 인증 전에 발생할 수 있는 일반 계획 실패 하나를 허용했습니다. 이제 CLI가 구분된 정제 인증 표시를 내보내고 훈련이 이를 요구합니다. | `test_terraform_failure_is_redacted_to_stable_reason` |
 | H66 | 훈련이 공급자 인증 근거를 요구하면서 Azure CLI는 요구하지 않고 MSI를 비활성화했습니다. 이제 Azure CLI를 명시적 선행 조건으로 검사합니다. | `test_release_scripts_use_the_installable_distribution` |
+| H67 | `--skip-stage`가 이전 빈 Azure 프로필 디렉터리를 남겨 재생성에 실패했습니다. 이제 재설정이 생성된 모든 검증 디렉터리를 제거한 뒤 비공개로 다시 만듭니다. | `test_release_scripts_use_the_installable_distribution` |
 
 ## 관련 문서
 

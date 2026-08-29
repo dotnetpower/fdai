@@ -117,7 +117,8 @@ if [[ "$SKIP_STAGE" -eq 0 ]]; then
 else
   [[ -d "$KIT" ]] || { echo "airgap-drill: --skip-stage needs an existing kit." >&2; exit 2; }
 fi
-rm -rf "$WORKDIR/work" "$WORKDIR/negative" "$WORKDIR/authenticated-kit" "$WORKDIR/cli-venv"
+rm -rf "$WORKDIR/work" "$WORKDIR/negative" "$WORKDIR/authenticated-kit" \
+  "$WORKDIR/cli-venv" "$WORKDIR/empty-azure"
 mkdir -m 700 "$WORKDIR/empty-azure"
 
 # The kit declares which CLI it was built for; verification binds that exact
