@@ -782,6 +782,7 @@ def test_terraform_environment_rejects_ambient_plan_controls(tmp_path: Path) -> 
     assert environment["TF_IN_AUTOMATION"] == "1"
     assert environment["TF_DATA_DIR"].endswith("terraform-data")
     assert environment["ARM_SUBSCRIPTION_ID"] == "00000000-0000-0000-0000-000000000001"
+    assert environment["ARM_RESOURCE_PROVIDER_REGISTRATIONS"] == "none"
     assert environment["PATH"].split(os.pathsep)[0] == str(azure_cli.parent)
     assert environment["AZURE_CONFIG_DIR"] == str(azure_config)
 
@@ -807,6 +808,7 @@ def test_terraform_environment_accepts_target_bound_managed_identity(tmp_path: P
 
     assert environment["ARM_USE_MSI"] == "true"
     assert environment["ARM_CLIENT_ID"] == "00000000-0000-0000-0000-000000000003"
+    assert environment["ARM_RESOURCE_PROVIDER_REGISTRATIONS"] == "none"
 
 
 def test_managed_identity_plan_ignores_unrelated_cli_account() -> None:

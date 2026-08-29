@@ -305,6 +305,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H71 | Materialization retained digests but not verified sizes, so a replaced growing file could exhaust disk before rejection. It now enforces per-file and cumulative signed size bounds while copying. | `test_materialization_rejects_artifact_growth_after_verification` |
 | H72 | The live air-gap drill stopped at license issuance because it used the retired root `src` path. It now resolves the independently packaged Core and service-contract sources explicitly. | network-isolated `airgap-drill.sh` rerun |
 | H73 | License issuance still imported a removed delivery verifier after package-path repair. It now performs Ed25519 public-key verification through the pinned cryptography dependency. | network-isolated `airgap-drill.sh` rerun |
+| H74 | AzureRM planning could auto-register resource providers while reporting no mutation. The isolated plan environment now forces resource-provider registration to `none`. | `test_terraform_environment_accepts_target_bound_managed_identity` |
 
 ## Related docs
 
