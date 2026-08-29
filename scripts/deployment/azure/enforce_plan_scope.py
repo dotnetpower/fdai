@@ -64,6 +64,8 @@ def enforce(
         allowed = _DESIGN_MOCKS
         label = "Design-mocks-only"
     elif mode == "core-model-quorum":
+        if not changed:
+            return changed
         if changed != _CORE_MODEL_QUORUM:
             raise ValueError(
                 "Core-model-quorum plan must change exactly the required resources: "
@@ -77,6 +79,16 @@ def enforce(
         )
         if account.get("change", {}).get("actions") != ["update"]:
             raise ValueError("Core-model-quorum account prerequisite must be an in-place update")
+        for change in plan["resource_changes"]:
+            if (
+                change.get("address") in _CORE_MODEL_QUORUM
+                and change.get("address")
+                != "module.llm_azure_openai[0].azurerm_cognitive_account.primary"
+                and change.get("change", {}).get("actions") != ["create"]
+            ):
+                raise ValueError(
+                    "Core-model-quorum deployments must be create-only before convergence"
+                )
         return changed
     elif mode == "monitoring":
         unexpected = sorted(
