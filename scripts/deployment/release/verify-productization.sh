@@ -12,6 +12,7 @@ tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
 
 python_paths=(
+  packages/deployment-cli/src
   packages/service-contracts/src
   services/operator-service/src
   services/document-ingestion-api/src
@@ -58,6 +59,7 @@ python_paths=(
 )
 
 test_paths=(
+  packages/deployment-cli/tests
   packages/service-contracts/tests
   services/operator-service/tests
   services/document-ingestion-api/tests
@@ -146,10 +148,12 @@ distribution_packages=(
 for package in "${distribution_packages[@]}"; do
   uv build --wheel --package "$package" --out-dir "$tmp_dir/dist"
 done
+uv build --wheel --project packages/deployment-cli --out-dir "$tmp_dir/dist"
+expected_wheels=$((${#distribution_packages[@]} + 1))
 wheel_count="$(find "$tmp_dir/dist" -maxdepth 1 -type f -name '*.whl' | wc -l | tr -d ' ')"
-if [[ "$wheel_count" != "${#distribution_packages[@]}" ]]; then
+if [[ "$wheel_count" != "$expected_wheels" ]]; then
   printf 'expected %s distribution wheels, found %s\n' \
-    "${#distribution_packages[@]}" "$wheel_count" >&2
+    "$expected_wheels" "$wheel_count" >&2
   exit 1
 fi
 

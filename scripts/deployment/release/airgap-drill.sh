@@ -151,10 +151,10 @@ echo "   no egress, no DNS"
 
 echo "-- 2. offline kit"
 cd "$REPO_ROOT"
-PYTHONPATH=src "$PYTHON" -c "
+PYTHONPATH=packages/deployment-cli/src "$PYTHON" -c "
 import sys
 from pathlib import Path
-from fdai.deployment_cli.offline_kit import verify_offline_kit
+from fdai_deployment_cli.offline_kit import verify_offline_kit
 result = verify_offline_kit(
     Path(sys.argv[1]),
     release_root_pem=Path(sys.argv[2]).read_bytes(),
@@ -182,7 +182,7 @@ print(f"   SBOM describes {len(described)} kit files")
 PY
 
 echo "-- 3. signed deployment bundle"
-PYTHONPATH=src "$PYTHON" -m fdai.deployment_cli bundle verify \
+PYTHONPATH=packages/deployment-cli/src "$PYTHON" -m fdai_deployment_cli bundle verify \
   --bundle "$BUNDLE" --public-key "$WORKDIR/bundle-key.pub" --output json >/dev/null \
   || fail "bundle verification failed"
 echo "   verified"
@@ -211,7 +211,7 @@ echo "   failed as required"
 
 echo "-- 8. license inspection"
 cd "$REPO_ROOT"
-PYTHONPATH=src "$PYTHON" -m fdai.deployment_cli license inspect \
+PYTHONPATH=packages/deployment-cli/src "$PYTHON" -m fdai_deployment_cli license inspect \
   --token "$WORKDIR/license.token" --public-key "$WORKDIR/release-root.pub" --output json \
   || fail "license inspection did not report an active entitlement"
 
@@ -223,7 +223,7 @@ echo "-- 9. fdaictl provision plan (the operator-facing disconnected path)"
 # not be resolved, or any attempt to reach the public registry, fails the drill.
 rm -rf "$WORKDIR/provision"
 set +e
-plan_output="$(PYTHONPATH=src "$PYTHON" -m fdai.deployment_cli provision plan \
+plan_output="$(PYTHONPATH=packages/deployment-cli/src "$PYTHON" -m fdai_deployment_cli provision plan \
   --offline-kit "$KIT" --release-root "$WORKDIR/release-root.pub" \
   --infra-dir "$BUNDLE/infra" --work-dir "$WORKDIR/provision" \
   --cli-version "$CLI_VERSION" --platform-tag "$PLATFORM_TAG" --output json 2>&1)"

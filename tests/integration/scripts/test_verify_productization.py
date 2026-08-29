@@ -42,3 +42,8 @@ def test_productization_builds_every_independent_distribution() -> None:
     }
 
     assert set(_array_values("distribution_packages")) == expected
+
+
+def test_productization_builds_the_installable_deployment_cli() -> None:
+    script = SCRIPT_PATH.read_text(encoding="utf-8")
+    assert "uv build --wheel --project packages/deployment-cli" in script

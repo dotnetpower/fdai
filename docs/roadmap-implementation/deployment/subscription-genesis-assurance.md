@@ -10,17 +10,18 @@ and recoverable.
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Foundation state and external control planes | in-progress | Existing bootstrap Terraform and protected workflows | Mechanisms exist, but secure enrollment, required state postconditions, directory automation, and state-migration receipts remain open. |
-| Authority, concurrency, cancellation, and recovery | in-progress | Exact-plan claims and workflow concurrency | Exact apply is implemented; subscription-wide run leases, cancellation, clock assurance, quorum policy, and stage rollback rehearsal remain open. |
+| Authority, concurrency, cancellation, and recovery | in-progress | Exact-plan claims; `fdai_deployment_cli.state`; focused journal, resume, and simulation tests | Hash-chained private journals and no-retry resume decisions are implemented locally. Subscription-wide leases, cancellation, clock assurance, quorum enforcement, and live rollback rehearsal remain open. |
 | Database and semantic readiness | in-progress | Service migrations and catalog materializer | Enumerable manifests, atomic readiness markers, recovery-class checks, and independent runtime-principal readback remain open. |
-| Model assurance | in-progress | Resolver, assessment, and Terraform model modules | Aggregate quota, terms, content policy, race-safe reservation, quantitative probes, and live-call approval remain open. |
-| Inventory completeness and progress | in-progress | Complete-generation inventory coordinator and provider coverage | Full-subscription child-source closure, scalable progress events, independent observer, and large-scope bounds remain open. |
-| End-to-end operational closure | not-started | Assurance contract and critique register below | No governed zero-to-ready matrix receipt exists. |
+| Model assurance | in-progress | Resolver and Terraform modules; deployment CLI capacity planner | Workload headroom, shared deployment aggregation, reserve, and existing allocation are local contracts. Terms, race-safe Azure reservation, quantitative probes, and live-call approval remain open. |
+| Inventory completeness and progress | in-progress | Complete-generation coordinator; deployment CLI progress and closure contracts | Monotonic totals and independent full-subscription closure are tested. Durable provider events, child-source wiring, and large-scope live evidence remain open. |
+| End-to-end operational closure | in-progress | Deterministic guided rehearsal and interruption tests | Local stage ordering, interruption, resume, and second-run idempotency are tested. No governed zero-to-ready Azure receipt exists. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-29 | in-progress | Added the assurance contract after a 40-item adversarial review of the subscription genesis plan. | `current change`; critique resolution register, paired owner documents, and focused documentation checks | Implement the open controls and retain exact-revision new-subscription evidence. |
+| 2026-08-29 | in-progress | Implemented the pre-login deployment CLI safety kernel and deterministic full-stage rehearsal. | `current change`; package tests passed 25 cases and productization tests passed 3 cases; Ruff and strict mypy passed | Harden the local kernel, then bind protected Azure and operator surfaces. |
 
 ### Remaining work
 

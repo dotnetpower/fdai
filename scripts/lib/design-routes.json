@@ -1918,11 +1918,16 @@
     {
       "id": "subscription-genesis-provisioning",
       "paths": [
+        "packages/deployment-cli/**",
         "infra/bootstrap/**",
         "scripts/deployment/azure/genesis-up.sh",
         "scripts/deployment/azure/bootstrap-service-migrations.sh",
+        "scripts/deployment/release/build-offline-kit.py",
+        "scripts/deployment/release/stage-offline-kit.sh",
+        "scripts/deployment/release/airgap-drill.sh",
         "services/core-control-plane/src/fdai/delivery/inventory_sync*.py",
         "services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver*.py",
+        "tests/integration/scripts/test_deployment_cli_productization.py",
         "docs/roadmap/deployment/subscription-genesis-*.md",
         "docs/roadmap-implementation/deployment/subscription-genesis-*.md"
       ],
@@ -1947,6 +1952,10 @@
         "docs/roadmap/deployment/provisioning-execution-profiles.md"
       ],
       "validate": [
+        "uv run --project packages/deployment-cli python -m pytest -c packages/deployment-cli/pyproject.toml -q packages/deployment-cli/tests tests/integration/scripts/test_deployment_cli_productization.py",
+        "uv run ruff check packages/deployment-cli",
+        "uv run mypy --strict packages/deployment-cli/src",
+        "uv build --project packages/deployment-cli",
         "python3 scripts/quality/architecture/check-design-routes.py",
         "python3 scripts/quality/architecture/check-roadmap-implementation-tracking.py"
       ]

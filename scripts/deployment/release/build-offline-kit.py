@@ -5,7 +5,7 @@ Release engineering stages the kit on a connected host: the `fdai` wheel plus
 every transitive wheel, the signed deployment bundle, the pinned Terraform
 binary and provider mirror, OPA, and the SBOM. This script takes that finished
 directory, mints the canonical manifest with
-:func:`fdai.deployment_cli.offline_kit.build_offline_kit_manifest`, and writes
+:func:`fdai_deployment_cli.offline_kit.build_offline_kit_manifest`, and writes
 the detached Ed25519 signature that `fdaictl provision inspect` verifies on the
 disconnected side.
 
@@ -30,8 +30,7 @@ from pathlib import Path
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
-
-from fdai.deployment_cli.offline_kit import (
+from fdai_deployment_cli.offline_kit import (
     MANIFEST_NAME,
     SIGNATURE_NAME,
     OfflineKitVerificationError,

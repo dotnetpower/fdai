@@ -3,7 +3,7 @@
 # stage-offline-kit.sh - assemble and sign one offline deployment kit.
 #
 # This is the connected-host half of a disconnected handover. It collects the
-# artifacts a closed network cannot fetch for itself - the `fdai` wheel, the
+# artifacts a closed network cannot fetch for itself - the `fdai-deployment-cli` wheel, the
 # signed deployment bundle, a Terraform provider mirror, the pinned Terraform
 # and policy-engine binaries, and a bill of materials - then signs the result
 # with `build-offline-kit.py`.
@@ -95,15 +95,15 @@ cp -r "$OUT/bundle/infra" "$OUT/mirror-src"
 (cd "$OUT/mirror-src" && terraform providers mirror -platform="$PLATFORM" "$OUT/mirror" >/dev/null)
 rm -rf "$OUT/mirror-src"
 
-echo "-- fdai wheel"
-uv build --wheel --out-dir "$OUT/wheels" >/dev/null
+echo "-- fdai deployment CLI wheel"
+uv build --wheel --project packages/deployment-cli --out-dir "$OUT/wheels" >/dev/null
 # The kit's CLI version is the version of the wheel it actually carries. Reading
 # it from the installed package instead would silently disagree whenever the
 # source tree has moved ahead of the environment.
-wheel_path="$(find "$OUT/wheels" -maxdepth 1 -name 'fdai-*-py3-none-any.whl' | head -1)"
+wheel_path="$(find "$OUT/wheels" -maxdepth 1 -name 'fdai_deployment_cli-*-py3-none-any.whl' | head -1)"
 [[ -n "$wheel_path" ]] || { echo "stage-offline-kit: no wheel was built." >&2; exit 1; }
 wheel_name="$(basename "$wheel_path")"
-CLI_VERSION="${wheel_name#fdai-}"
+CLI_VERSION="${wheel_name#fdai_deployment_cli-}"
 CLI_VERSION="${CLI_VERSION%-py3-none-any.whl}"
 WHEEL="python/$wheel_name"
 
@@ -178,7 +178,7 @@ print(f"   {len(components)} components")
 PY
 
 echo "-- sign kit"
-PYTHONPATH=src "$PYTHON" scripts/deployment/release/build-offline-kit.py \
+PYTHONPATH=packages/deployment-cli/src "$PYTHON" scripts/deployment/release/build-offline-kit.py \
   --kit "$KIT" --private-key "$RELEASE_KEY" --release-root "$OUT/release-root.pub" \
   --kit-version "$CLI_VERSION" --cli-version "$CLI_VERSION" \
   --bundle-version "$BUNDLE_VERSION" --platform-tag "$PLATFORM_TAG" \

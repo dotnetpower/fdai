@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: ac58d5021a30d04b2f8c696981fea0a56b445426
+translation_source_sha: d7c143206516d5a1f5a0babf9c240ec65ed770ab
 translation_revised: 2026-08-29
 ---
 # 설치형 배포 CLI
@@ -22,11 +22,11 @@ translation_revised: 2026-08-29
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 전용 `fdaictl` 배포판 및 명령 진입점 | not-started | 저장소의 `pyproject.toml` 파일과 이 문서의 계획된 휠 섹션 | 현재 어떤 프로젝트도 `fdaictl` 스크립트를 등록하지 않으며, 사용 중단된 `fdai.deployment_cli` 런타임 패키지는 없습니다. |
+| 전용 `fdaictl` 배포판 및 명령 진입점 | implemented | `packages/deployment-cli`, 집중 패키지 및 제품화 검사 | `fdai-deployment-cli` wheel이 `fdaictl`을 등록하고 결정론적 로컬 명령을 제공합니다. 보호된 Azure 제출은 아직 미완성입니다. |
 | 코어 배포 프리플라이트 기본 요소 | implemented | `services/core-control-plane/src/fdai/core/deploy_preflight/` 및 프리플라이트 집중 테스트 | 분석기, 리포트, Azure 실제 검사 스크립트, 토글 기본 요소 및 재조립 로직은 배포 CLI 파사드와 독립적으로 존재합니다. |
 | 보호된 실행기 계획 및 exact-apply 작업 흐름 | implemented | `.github/workflows/deploy-dev.yml` 및 집중 배포 작업 흐름 테스트 | 실행기는 보호된 계획 수립, 근거 연결, 점유/증적 가드, 수렴, 마이그레이션 및 상태 검사를 소유합니다. 패키지된 로컬 CLI 클라이언트는 없습니다. |
 | 서명된 배포 번들 release 경로 | not-started | `scripts/deployment/release/build-deployment-bundle.py` 및 이슈 #222 | 번들 구성 기능은 남아 있지만 실행할 수 없는 작업 흐름은 제거했습니다. `fdaictl bundle verify`가 구현되고 깨끗한 체크아웃 테스트를 통과한 뒤에만 release 경로를 복원합니다. |
-| Offline 키트 및 폐쇄망 계획 | in-progress | `scripts/deployment/release/stage-offline-kit.sh`, `build-offline-kit.py` 및 `airgap-drill.sh` | 스크립트는 있지만 `build-offline-kit.py`가 존재하지 않는 `fdai.deployment_cli.offline_kit` 모듈을 가져오므로 경로를 끝까지 실행할 수 없습니다. |
+| Offline 키트 및 폐쇄망 계획 | in-progress | `fdai_deployment_cli.offline_kit`, 릴리스 스크립트, 서명, 정확한 파일 집합, 호환성, 변조 집중 검사 | 검증과 패키징은 실행할 수 있습니다. 네트워크 없는 Terraform air-gap 훈련은 아직 실행해야 합니다. |
 | 공개 설치 및 정리 경험 | not-started | 이 문서의 목표 설치 및 정리 계약 | 첫 공개 CLI 게시, pinned offline 루트 패키지 및 `deploy teardown` 명령이 없습니다. |
 
 ### 구현 이력
@@ -36,6 +36,7 @@ translation_revised: 2026-08-29
 | 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 제거된 배포 CLI 패키지와 그 명령을 현재 사용할 수 있다는 이전 주장을 바로잡았습니다. | 현재 변경과 구현 범위 표에 기재한 패키지 메타데이터, release 스크립트, 보호된 작업 흐름 및 집중 작업 흐름 검사 | 전용 CLI 배포판을 만들고 그 경계 뒤에 검증 기능을 복원한 뒤 설치와 폐쇄망 사용을 입증해야 합니다. |
 | 2026-08-19 | deferred | 사용할 수 없는 `fdaictl bundle verify` 명령을 호출하고 성공 실행 근거도 없던 수동 배포 번들 작업 흐름을 제거했습니다. | 이슈 #222, 현재 작업 흐름 목록 및 집중 CI 계약 테스트 | 먼저 전용 CLI 검증기를 추가한 다음 깨끗한 체크아웃 근거와 함께 보호된 release 작업 흐름을 복원해야 합니다. |
 | 2026-08-19 | deferred | 연기된 작업 흐름과 함께 제거된 경로를 release 검사가 더 이상 요구하지 않도록 productization 검증에서 사용 중단된 작업 흐름 전용 테스트를 제거했습니다. | 현재 변경, `scripts/deployment/release/verify-productization.sh`, 55개의 집중 productization 및 구조 gate 테스트 통과 | 실행 가능한 CLI 검증기와 보호된 release 작업 흐름을 추가할 때만 작업 흐름 테스트를 복원해야 합니다. |
+| 2026-08-29 | implemented | `fdaictl` 진입점을 제공하는 독립 `fdai-deployment-cli` wheel, 안전한 프로필과 원장 계약, 서명 아티팩트 검증, 무변경 초기 구성 예행 연습을 추가했습니다. | 현재 변경, 집중 패키지 및 제품화 검사 28개 통과, Ruff 및 엄격한 mypy 통과 | 보호된 계획 및 적용 어댑터를 완료하고 wheel을 게시하며 폐쇄망 훈련 증적을 보존해야 합니다. |
 
 ### 남은 작업
 
@@ -52,8 +53,8 @@ translation_revised: 2026-08-29
 | 관심사 | 결정 |
 |--------|------|
 | 운영자 명령 | `fdaictl` |
-| 권장 설치 | `uv tool install fdai` |
-| 일회성 및 CI 실행 | `uvx --from fdai fdaictl ...` |
+| 권장 설치 | `uv tool install fdai-deployment-cli` |
+| 일회성 및 CI 실행 | `uvx --from fdai-deployment-cli fdaictl ...` |
 | 인프라 엔진 | `infra/` 아래 Terraform |
 | 기본 동작 | 읽기 전용 preflight 또는 계획 |
 | 적용 위치 | VNet-integrated 자체 호스팅 실행기 |
@@ -84,7 +85,7 @@ FDAI에는 서로 다른 세 개의 명령 표면이 있습니다.
 계획된 영구 설치 방식은 다음과 같습니다.
 
 ```bash
-uv tool install fdai==<version>
+uv tool install fdai-deployment-cli==<version>
 fdaictl version
 fdaictl doctor
 ```
@@ -95,7 +96,7 @@ fdaictl doctor
 일회성 실행 또는 CI 작업에는 임시 환경을 사용합니다.
 
 ```bash
-uvx --from fdai==<version> fdaictl deploy preflight --environment dev
+uvx --from fdai-deployment-cli==<version> fdaictl deploy preflight --environment dev
 ```
 
 `uv`를 사용할 수 없으면 `pipx`를 사용하거나 virtual 환경 안에서 `pip`로 설치합니다.
