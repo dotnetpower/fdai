@@ -213,23 +213,24 @@ def _provision_inspect(args: argparse.Namespace) -> int:
 
 
 def _provision_plan(args: argparse.Namespace) -> int:
+    work_dir = _absolute_work_dir(args.work_dir)
     verification = verify_offline_kit(
         args.offline_kit,
         release_root_pem=args.release_root.read_bytes(),
         cli_version=__version__,
         platform_tag=_runtime_platform_tag(),
     )
-    _create_private_work_dir(args.work_dir)
+    _create_private_work_dir(work_dir)
     artifacts = materialize_verified_artifacts(
         args.offline_kit,
         verification,
-        args.work_dir / "artifacts",
+        work_dir / "artifacts",
     )
     terraform = artifacts.terraform_binary
     mirror = artifacts.provider_mirror
     bundle_root = extract_bundle_archive(
         artifacts.deployment_bundle,
-        args.work_dir / "bundle",
+        work_dir / "bundle",
     )
     bundle_verification = verify_bundle(
         bundle_root,
@@ -243,7 +244,7 @@ def _provision_plan(args: argparse.Namespace) -> int:
     infra_dir = bundle_root / "infra"
     if not infra_dir.is_dir():
         raise ValueError("verified deployment bundle does not contain infra")
-    config = args.work_dir / "offline.tfrc"
+    config = work_dir / "offline.tfrc"
     _write_private_text(
         config,
         "provider_installation {\n"
@@ -257,7 +258,7 @@ def _provision_plan(args: argparse.Namespace) -> int:
         "}\n",
     )
     environment = _terraform_environment(
-        work_dir=args.work_dir,
+        work_dir=work_dir,
         config=config,
         source=os.environ,
     )
@@ -341,6 +342,12 @@ def _create_private_work_dir(path: Path) -> None:
 
     path.mkdir(parents=True, exist_ok=False, mode=0o700)
     path.chmod(0o700)
+
+
+def _absolute_work_dir(path: Path) -> Path:
+    """Make a path absolute without resolving a potentially hostile symlink."""
+
+    return path if path.is_absolute() else Path.cwd() / path
 
 
 def _write_private_text(path: Path, content: str) -> None:

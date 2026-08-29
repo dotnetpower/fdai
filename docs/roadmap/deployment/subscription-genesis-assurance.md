@@ -272,6 +272,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H38 | The root productization pytest process could not import the independent CLI project. Productization now runs CLI tests in that project's environment before the root suite. | `test_productization_builds_the_installable_deployment_cli` |
 | H39 | A two-event journal could mark only `system-readiness` complete and then become ready. Ready now requires every compiled manifest entry completed in exact order. | `test_journal_rejects_ready_with_only_readiness_stage` |
 | H40 | Terraform inherited ambient control variables such as `TF_CLI_ARGS_plan=-destroy`. Planning now rejects Terraform controls and constructs a minimal allowlisted environment with a private data directory. | `test_terraform_environment_rejects_ambient_plan_controls` |
+| H41 | Relative work paths were reinterpreted beneath Terraform's later working directory. Planning now converts them to absolute paths without resolving a hostile link. | `test_relative_plan_work_directory_becomes_absolute` |
 
 ## Related docs
 

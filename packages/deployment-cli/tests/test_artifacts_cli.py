@@ -20,6 +20,7 @@ from fdai_deployment_cli.bundle import (
 )
 from fdai_deployment_cli.cli import (
     _create_private_work_dir,
+    _absolute_work_dir,
     _require_bundle_version,
     _runtime_platform_tag,
     _safe_plan_error,
@@ -554,6 +555,12 @@ def test_plan_work_directory_and_config_reject_existing_links(tmp_path: Path) ->
     with pytest.raises(FileExistsError):
         _write_private_text(config_link, "replacement")
     assert config_target.read_text(encoding="utf-8") == "unchanged"
+
+
+def test_relative_plan_work_directory_becomes_absolute(monkeypatch: object, tmp_path: Path) -> None:
+    monkeypatch.chdir(tmp_path)  # type: ignore[attr-defined]
+    assert _absolute_work_dir(Path("work")) == tmp_path / "work"
+    assert _absolute_work_dir(tmp_path / "absolute") == tmp_path / "absolute"
 
 
 def test_plan_rejects_bundle_version_mismatch() -> None:
