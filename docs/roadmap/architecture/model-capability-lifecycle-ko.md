@@ -1,7 +1,7 @@
 ---
 title: 모델 기능 수명 주기
 translation_of: model-capability-lifecycle.md
-translation_source_sha: af034cccb0b053680a8b02d36e52b86749dc4ea4
+translation_source_sha: 865555dbb875ab225d224be14ddb7d32ea9e8f10
 translation_revised: 2026-08-29
 ---
 # 모델 기능 수명 주기
@@ -155,8 +155,9 @@ models:
 보호된 `deploy_core_model_quorum` 모드는 누락된 코어 쌍을 복구하는 범위가 제한된 경로입니다.
 계획은 상위 계정 신원 1건의 현재 위치 업데이트를 허용하고 `t1.judge`와
 `t2.reasoner.primary`를 정확히 생성해야 합니다. 범위 검사는 누락, 추가, 교체 또는 관련 없는
-리소스 변경을 차단합니다. 정확한 적용은 봉인된 계획만 소비하며 ActionType, Workflow 또는
-자율성 모드를 승격하지 않습니다.
+리소스 변경을 차단합니다. 계획은 Terraform 상태 밖에 이미 존재하는 정확한 이름의 배포를 먼저
+채택하며, 채택 후에는 빈 계획만 수렴 결과로 허용합니다. 정확한 적용은 봉인된 계획만 소비하며
+ActionType, Workflow 또는 자율성 모드를 승격하지 않습니다.
 
 배포자가 `Cognitive Services Contributor` 를 갖지 않을 때, 선호 계열이 리전에 없을 때,
 `capacity_tpm` 쿼터가 부족할 때, mixed-model 불변식을 만족할 수 없을 때의 **배포자-권한 게이트
