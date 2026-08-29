@@ -11,6 +11,7 @@ from typing import Any
 
 from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
+from fdai.agents._framework import architecture_review_runtime as arb_runtime
 from fdai.agents._framework import factory, runtime_health, runtime_subscriptions
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.base import Agent
@@ -52,6 +53,7 @@ from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga
 from fdai.agents.thor import ActionExecutor, ActionRunStore, Thor
 from fdai.agents.vidar import RollbackExecutor, Vidar
+from fdai.core.architecture_review import ArchitectureReviewTraceObserver
 from fdai.core.case_history import (
     CaseHistoryAnalyzer,
     CaseHistoryMaterializer,
@@ -84,13 +86,7 @@ _OBSERVER_PRINCIPAL = "runtime-observer"
 
 @dataclass
 class PantheonRuntime:
-    """Live wiring of the 15 pantheon agents over an ``EventBus`` provider.
-
-    Build with :meth:`build`, then drive the perpetual consumer with
-    :meth:`run` (cancel via :meth:`stop`). ``run`` blocks forever against
-    a real broker - one Kafka consumer task per (topic, agent) pair - so
-    the caller runs it as a background task alongside the P1 control loop.
-    """
+    """Live wiring of the 15 pantheon agents over an ``EventBus`` provider."""
 
     bridge: EventBusBridge
     agents: dict[str, Agent]
@@ -102,6 +98,7 @@ class PantheonRuntime:
     shadow_decisions: Counter[str] = field(default_factory=Counter)
     disabled: frozenset[str] = frozenset()
     divergence: ShadowDivergenceLedger | None = None
+    architecture_review_trace_observer: ArchitectureReviewTraceObserver | None = None
     _bragi: Bragi | None = None
     _conversation_tools: AgentConversationToolRegistry | None = None
     _semantic_tool_planner: SemanticToolPlanner | None = None
@@ -423,16 +420,14 @@ class PantheonRuntime:
             kpi_collector=kpi_collector or KpiCollector(),
             disabled=disabled,
             divergence=divergence,
+            architecture_review_trace_observer=ArchitectureReviewTraceObserver(),
             _bragi=bragi_ref,
             _conversation_tools=conversation_tools,
             _semantic_tool_planner=semantic_tool_planner,
         )
 
-        # Ingress: raw events on the P1 topic -> Huginn.ingest -> normalized
-        # object.event (published via the bound bridge). Huginn's spec
-        # subscribes to nothing (it is fed from external adapters), so the
-        # ingress bridge is wired explicitly here. If Huginn is disabled
-        # there is no ingress - the pantheon idles.
+        # Huginn's spec subscribes to nothing, so wire raw P1 ingress here.
+        # If Huginn is disabled there is no ingress and the pantheon idles.
         if huginn_active:
             bridge.subscribe(
                 raw_event_topic,
@@ -445,13 +440,14 @@ class PantheonRuntime:
         else:
             _LOG.warning("pantheon_ingress_disabled_no_huginn")
 
-        # Shadow observation: a dedicated observer consumer group tallies
-        # what the pantheon *would* decide (verdict risk split + ActionRun
-        # terminal states) so "shadow before enforce" has a measurable
-        # baseline. A distinct group means it never steals records from
-        # the real subscribers (Thor / Saga / Odin / Var).
+        # A distinct observer group tallies shadow verdicts and terminal
+        # ActionRun states without stealing records from real subscribers.
         bridge.subscribe("object.verdict", _OBSERVER_PRINCIPAL, runtime._observe_verdict)
         bridge.subscribe("object.action-run", _OBSERVER_PRINCIPAL, runtime._observe_action_run)
+        arb_runtime.bind_architecture_review_observer(
+            bridge,
+            runtime.architecture_review_trace_observer,
+        )
         bridge.consumer_state_observer = runtime._observe_consumer_state
 
         _LOG.info(
@@ -467,13 +463,7 @@ class PantheonRuntime:
         return runtime
 
     async def run(self, *, heartbeat_interval: float | None = None) -> None:
-        """Start the perpetual consumer (one task per subscription).
-
-        ``heartbeat_interval`` (seconds) optionally starts a companion
-        task that logs :meth:`health` on a fixed cadence - the minimal
-        form of Heimdall's per-minute agent-health probe until the full
-        probe lands. ``None`` disables it.
-        """
+        """Start the perpetual consumer with optional periodic health logging."""
         await self._rehydrate()
         if heartbeat_interval is None or heartbeat_interval <= 0:
             await self.bridge.run()
@@ -753,6 +743,9 @@ class PantheonRuntime:
             "kpi_coverage": self.kpi_collector.coverage(),
             "degradation": degradation.to_mapping(),
             "divergence": self.divergence.report() if self.divergence else None,
+            "architecture_review_observation": arb_runtime.architecture_review_observation_snapshot(
+                self.architecture_review_trace_observer
+            ),
             "conversational_port": self._bragi is not None,
             "conversation_tools": (
                 self._conversation_tools.snapshot()
@@ -763,6 +756,14 @@ class PantheonRuntime:
         }
 
     def _observe_consumer_state(self, agent: str, topic: str, state: str) -> None:
+        if agent not in PANTHEON_NAMES:
+            arb_runtime.handle_architecture_review_consumer_state(
+                self.architecture_review_trace_observer,
+                agent=agent,
+                topic=topic,
+                state=state,
+            )
+            return
         consumer = f"{agent}:{topic}"
         self._continuity_failures[consumer] = state
         if agent not in HARD_DEPENDENCY_AGENTS:

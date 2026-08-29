@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: def9ede2b66ac80c1d4666bc3707b1e53966eb37
+translation_source_sha: 6f345b4615a00f4bf2623cc9ce1433523b440591
 translation_revised: 2026-08-29
 ---
 # 에이전트 판테온
@@ -167,6 +167,8 @@ publish하고 리소스를 acquire하거나 조정을 시작하지 않습니다.
 15개 에이전트는 조합을 통해 SRE, ARB (변경 안전성), FinOps 워크플로우를
 공동으로 커버한다. 토픽 계약은 §6, 처리 불가 요청(인계)이 동일 파이프라인에
 편입되는 방식은 §6.4와 §7.6을 참고한다.
+런타임은 재생 및 상태 근거를 위해 에이전트가 아닌 관찰 소비자를 소유 토픽에 연결할 수 있습니다.
+이 소비자는 판테온에 참여하거나 소유 객체를 발행하거나 판단, 승인 또는 실행하지 않습니다.
 
 ### 4.1 Per-agent 작업 인벤토리
 

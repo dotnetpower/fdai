@@ -266,5 +266,12 @@ def test_replay_scenario_reaches_all_fixed_responsibilities_without_live_claim()
     assert scenario["live_operation"] is False
     assert set(scenario["responsible_agents"]) == PANTHEON_NAMES
     assert set(runtime.agents) == PANTHEON_NAMES
-    assert subscribed_agents - {"runtime-observer"} == PANTHEON_NAMES
+    assert (
+        subscribed_agents
+        - {
+            "runtime-observer",
+            "architecture-review-observer",
+        }
+        == PANTHEON_NAMES
+    )
     assert scenario["expected"]["mutation_principal"] == "Thor"

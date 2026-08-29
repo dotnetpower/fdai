@@ -10,6 +10,7 @@ from .observation_trace import (
     ArchitectureReviewObservationTrace,
     ArchitectureReviewStage,
     ArchitectureReviewTraceEvent,
+    ArchitectureReviewTraceObserver,
     replay_architecture_review_trace,
 )
 from .projection import ArchitectureReviewProjector
@@ -30,6 +31,7 @@ __all__ = [
     "ArchitectureReviewReadiness",
     "ArchitectureReviewObservationTrace",
     "ArchitectureReviewStage",
+    "ArchitectureReviewTraceObserver",
     "ArchitectureReviewTraceEvent",
     "ArchitectureDecisionAuthorityBasis",
     "ArchitectureDecisionOutcome",

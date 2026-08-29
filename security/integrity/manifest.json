@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1240,
+  "file_count": 1241,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "ebca41cd37517c9c564b1351302f9222805b56f186b9a83e9a562e69a51a74a9",
     ".github/instructions/agent-stewardship.instructions.md": "e2e2224db17159323f910252e0f9f6efb44c0f1d7e0d217d5159745c15c9ff46",
@@ -21,6 +21,7 @@
     "services/core-control-plane/src/fdai/agents/_framework/action_semantics.py": "137db18054e56073c7fbe905e0beada26e0bd51215d5a5837d3f28791707ccc6",
     "services/core-control-plane/src/fdai/agents/_framework/adapters.py": "98ce4d28ca6594e8d74b4ecf6c22f795a220dd8900e086727931bb64850071e3",
     "services/core-control-plane/src/fdai/agents/_framework/arbitration.py": "1c7c88606e8aaf4fffa8bbc33daf3f3ad5ff9f3f0ad5a9d7ee5b0a6f0358868b",
+    "services/core-control-plane/src/fdai/agents/_framework/architecture_review_runtime.py": "f33800003db170fc4a6758da56282d41effb09378bce0cd3a2d98ee92773ea20",
     "services/core-control-plane/src/fdai/agents/_framework/base.py": "1ef04e3d5378e72db6ee2f48e8c6ea7bfd52cb19faf0127f8cd587bdcd012f84",
     "services/core-control-plane/src/fdai/agents/_framework/bounded.py": "5753ce93e706044ebd92331c1a48d5b5919d185e505d45028b54fdb5a60459a7",
     "services/core-control-plane/src/fdai/agents/_framework/bragi_contributors.py": "e7ac9dfbc02e4c6815c2c95a058d50bbf3154229761a0245983ebba824d42391",
@@ -57,7 +58,7 @@
     "services/core-control-plane/src/fdai/agents/_framework/provider_adapters.py": "d4d9f3fcca05c70388f5877953097efae2c3a03ecb3f774dfcb5126aaf49a156",
     "services/core-control-plane/src/fdai/agents/_framework/rate_limiter.py": "4d6bdf97c04dd1c46c6cc840b6e83719a821f0fc30f6da49645a12d22e025a1a",
     "services/core-control-plane/src/fdai/agents/_framework/registry.py": "c25d7e1a75e5ffb3072e099b240a182498551e5d09a85cb8a26e525d0f1859f5",
-    "services/core-control-plane/src/fdai/agents/_framework/runtime.py": "9538765c1a7191e679b130516cba4c405fe8df2e8a572b7cafd40bb8ca64dbbe",
+    "services/core-control-plane/src/fdai/agents/_framework/runtime.py": "fabcfa838122adeb9d893602e3bb4e437ecb0711b22ee2cd85c5711f7de940ee",
     "services/core-control-plane/src/fdai/agents/_framework/runtime_health.py": "72a44f9f5e20fd3a43d07950950f24903826261c39bb0648476f75e83885a32b",
     "services/core-control-plane/src/fdai/agents/_framework/runtime_subscriptions.py": "796420c370df42c16c1a20c760ab737ed662b94b60a9192969fbb3e17301f679",
     "services/core-control-plane/src/fdai/agents/_framework/semantic_routing.py": "6718048db4bd459050336189d86ca1068e0844660f326aa4e540103193b90d4a",
@@ -114,9 +115,9 @@
     "services/core-control-plane/src/fdai/composition/wire_trajectory.py": "e4956f27caf996ab368b311105633434ab90a2787083c999c1eea4b99988ed40",
     "services/core-control-plane/src/fdai/core/README.md": "d3832549ad3825cf5f65a830b8d399244c7d7ca10bca00fbdb623c6e45bc0639",
     "services/core-control-plane/src/fdai/core/__init__.py": "2089fdfc47357f4a4a12c6bb4bd9bf0d7aa471492e4957d50af8aa4293b1f9f6",
-    "services/core-control-plane/src/fdai/core/architecture_review/__init__.py": "9c1bd2f4687507ae6ad8302ea02e2495bd812a045fbc7c1b6066c9222ac39d45",
+    "services/core-control-plane/src/fdai/core/architecture_review/__init__.py": "2e2bf60b73436f6ec85b51fe4fae36b052abc1aed042a4d38d4abe105dab95c2",
     "services/core-control-plane/src/fdai/core/architecture_review/decision_receipt.py": "0f9063bd5e8009b9b26cc936082833c467ce7c45262a1d37fcf737cd5271e484",
-    "services/core-control-plane/src/fdai/core/architecture_review/observation_trace.py": "3867115b295a011f1ab7959661f8c218cf35702640e393cf848c941ed77dea45",
+    "services/core-control-plane/src/fdai/core/architecture_review/observation_trace.py": "e7153d1adf3cd93264743c3e69250ee34978c32946cee1fcf6fccba80be15cb3",
     "services/core-control-plane/src/fdai/core/architecture_review/projection.py": "e7068d5c686db7e980f3a4b2cb099b2473d3003a2146c40007913ba5bb83e698",
     "services/core-control-plane/src/fdai/core/architecture_review/readiness.py": "214bddf4ecb9c6309ce797b726e5e88d3493ead978b818ea0043d1b5244848c6",
     "services/core-control-plane/src/fdai/core/assurance_twin/__init__.py": "6327e1acbb416d251e1df2bb753bad256086c1e098f9f0e8b4c1cf83f2b4a5ea",
@@ -1243,7 +1244,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-29T05:37:52Z",
+  "generated_at": "2026-08-29T05:59:36Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",

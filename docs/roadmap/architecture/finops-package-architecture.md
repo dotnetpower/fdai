@@ -22,6 +22,8 @@ domain code and assets. It does not create another control plane or move authori
 > package-owned catalog assets, gated Operator and Console projections, and local W0-W7 validation
 > mechanics. Shared Operator composition may supervise unrelated event-bus workers, but they cannot
 > activate, configure, publish, or change Cost Governance through conversation fallback streams.
+> Non-agent runtime observation consumers likewise record replay and health evidence only; they do
+> not change Njord ownership, package activation, or action authority.
 > Live-authoritative lifecycle, observation
 > cohort, and independent promotion evidence
 > remain open. The first protected exact-revision plan verified Azure context but model capability

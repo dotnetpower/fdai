@@ -166,6 +166,9 @@ Heimdall publishes the finding and never acquires resources or starts reconcilia
 The 15 agents are jointly sufficient to cover SRE, ARB (change safety), and
 FinOps workflows through composition; see §6 for the topic contract and
 §6.4 plus §7.6 for how handoff integrates with the same pipeline.
+The runtime may attach non-agent observation consumers to owned topics for replay and health
+evidence. These consumers do not join the pantheon, publish owned objects, judge, approve, or
+execute.
 
 ### 4.1 Per-agent task inventory
 

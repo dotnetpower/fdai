@@ -89,6 +89,13 @@ or escalate.
 Slow or failed subscribers do not block unrelated work. The owner of the join records an explicit
 missing or late branch instead of interpreting silence as success.
 
+The current runtime binding keeps this boundary observation-only. A dedicated non-agent consumer
+group reads owned `object.change`, `object.state-snapshot`, specialist, `object.verdict`, and
+`object.audit-entry` topics, replays the immutable `ArchitectureReviewObservationTrace`, and
+retains terminal observer `gave_up`/`halted` states as degradation evidence. It does not call
+agents directly, mutate runtime state, or grant execution authority. When an ARB stage has no
+distinct owned record yet, the trace stays on hold instead of synthesizing success.
+
 ## Autonomous review levels
 
 Autonomy applies to review work before it applies to changes. A machine-ready result is not the
@@ -126,7 +133,7 @@ Every displayed state links to the exact `Change`, context digest, evidence bund
 | ARB projection reads manifest status directly | Derive `ReviewCase` and `ReviewCheck` from decision lineage and verified evidence |
 | `OperationalEvidenceBundle` and scenario branches are not composed into ARB | Bind them before Forseti creates the review `DecisionCase` |
 | Operating intent instances are not proven end to end | Project service, recovery, cost, ownership, constraint, and change-window instances with freshness |
-| The ARB trace replay contract is not yet bound to the runtime bus | Feed the validated replay projection from owned runtime topics and retain provider-backed backpressure and degradation evidence |
+| The ARB trace runtime binding currently covers only the emitted owned topics | Extend owned records for context, evidence bundle, impact envelope, recommendation, and the derived `ReviewCase` projection so the observation-only runtime trace can close the full first vertical slice without synthesizing missing stages |
 
 ## Related docs
 
