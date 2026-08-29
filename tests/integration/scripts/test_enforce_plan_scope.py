@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import importlib.util
+import json
+import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -91,3 +94,27 @@ def test_read_and_noop_actions_are_ignored() -> None:
     }
 
     assert enforce(plan, mode="design-mocks") == frozenset()
+
+
+def test_main_renders_plan_from_its_terraform_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan_path = tmp_path / "dev.plan"
+    plan_path.touch()
+    address = "module.design_mocks[0].azurerm_static_web_app.design_mocks"
+    observed: dict[str, object] = {}
+
+    def fake_run(argv: list[str], **kwargs: object) -> SimpleNamespace:
+        observed.update(argv=argv, kwargs=kwargs)
+        return SimpleNamespace(stdout=json.dumps(_plan(address)))
+
+    monkeypatch.setattr(_MODULE.subprocess, "run", fake_run)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["enforce_plan_scope.py", "--plan", str(plan_path), "--mode", "design-mocks"],
+    )
+
+    assert _MODULE.main() == 0
+    assert observed["argv"] == ["terraform", "show", "-json", "dev.plan"]
+    assert observed["kwargs"]["cwd"] == tmp_path
