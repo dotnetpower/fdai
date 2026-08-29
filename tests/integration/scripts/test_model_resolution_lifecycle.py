@@ -159,11 +159,19 @@ def test_exact_apply_restores_the_plan_sealed_model_manifest() -> None:
     assert '--request-kind "$apply_request_kind"' in _DEPLOY
     assert '--environment "$APPLY_ENVIRONMENT"' in _DEPLOY
     assert "Verify model deployment readback" in _DEPLOY
+    assert (
+        _DEPLOY.count("env.MODEL_BINDING_ONLY == 'true' || env.CORE_MODEL_QUORUM_ONLY == 'true'")
+        == 2
+    )
     assert "verify_model_deployments.py" in _DEPLOY
     assert "model-binding-readback.json" in _DEPLOY
     assert '"readback_receipt_digest"' in _DEPLOY
     assert "Reverify active Core model fence" in _DEPLOY
     assert "active Core revision changed after protected model planning" in _DEPLOY
+    health_step = _DEPLOY.split("- name: Verify deployed health endpoints", maxsplit=1)[1].split(
+        "- name:", maxsplit=1
+    )[0]
+    assert "env.CORE_MODEL_QUORUM_ONLY != 'true'" in health_step
 
 
 @pytest.mark.parametrize(
