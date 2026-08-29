@@ -75,11 +75,11 @@
       "id": "FDAI-CONST-008",
       "status": "planned",
       "owner_docs": [".github/copilot-instructions.md", "docs/roadmap/decisioning/escalation-and-standing-authority.md", "docs/roadmap/decisioning/risk-classification.md"],
-      "implementation": ["services/core-control-plane/src/fdai/core/hil_resume", "services/core-control-plane/src/fdai/core/standing_authority"],
+      "implementation": ["services/core-control-plane/src/fdai/core/hil_resume", "services/core-control-plane/src/fdai/core/standing_authority", "services/core-control-plane/src/fdai/shared/providers/standing_authority.py", "services/core-control-plane/src/fdai/delivery/persistence/postgres_standing_authority.py"],
       "schemas": ["services/core-control-plane/src/fdai/shared/contracts/authority/standing-authorization.json"],
-      "tests": ["services/core-control-plane/tests/core/hil_resume", "services/core-control-plane/tests/core/standing_authority"],
+      "tests": ["services/core-control-plane/tests/core/hil_resume", "services/core-control-plane/tests/core/standing_authority", "services/core-control-plane/tests/persistence/test_postgres_standing_authority.py"],
       "runtime_evidence": ["services/core-control-plane/src/fdai/core/hil_resume"],
-      "gap": "The A3-E catalog schema, typed record, and deterministic evaluator now exist, and every reason code the evaluator can return is now proven to have a failing case by an AST scan of its own source rather than a hand-kept list. The evaluator is unwired by design and mode admits only shadow. No promotion path, runtime shadow cohort, or runtime revocation store exists; the offline decision cohort is not runtime shadow evidence."
+      "gap": "The A3-E catalog schema, typed record, deterministic evaluator, immutable lifecycle revisions, hash-chained admit/renew/revoke transitions, PostgreSQL atomic store, rebuildable projection, and exact pre-dispatch fence contract now exist. Every reason code the evaluator can return has a failing case, and lifecycle tests cover redelivery, both renew-vs-revoke race orderings, stale fences, forged proof reuse, long replay, projection loss, reordering, and partial-write rollback. The evaluator, store, and fence remain unwired by design and mode admits only shadow. No effect-spanning authority lease, promotion path, governed runtime shadow cohort, or independent promotion review exists; the offline decision cohort is not runtime shadow evidence."
     },
     {
       "id": "FDAI-CONST-009",

@@ -105,6 +105,11 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
         "question_manual_campaign_review",
         "question_release_assurance",
         "question_review_projection",
+        "standing_authorization_audit",
+        "standing_authorization_family",
+        "standing_authorization_revision",
+        "standing_authorization_snapshot",
+        "standing_authorization_transition",
     }
     assert set(manifest.table_writers) | transition_tables == set(manifest.table_migrators)
     assert not set(manifest.table_writers) & transition_tables
@@ -1409,6 +1414,11 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
     cost_governance_validation_migration = inventory_module.load_revision_metadata(
         cost_governance_validation_path
     )
+    standing_authority_path = (
+        MIGRATION_ROOT
+        / "branches/core-control-plane/versions/20260829_core_standing_authority_lifecycle.py"
+    )
+    standing_authority_migration = inventory_module.load_revision_metadata(standing_authority_path)
 
     expected_tables = {
         table for table, owner in ownership.table_migrators.items() if owner == "core-control-plane"
@@ -1427,6 +1437,7 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         | set(cost_governance_migration.owned_tables)
         | set(cost_governance_decision_migration.owned_tables)
         | set(cost_governance_validation_migration.owned_tables)
+        | set(standing_authority_migration.owned_tables)
     )
     assert granted_tables == expected_tables
     source = role_path.read_text(encoding="utf-8")
