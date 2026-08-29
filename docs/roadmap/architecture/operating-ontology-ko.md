@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: b62ea8616b197d91a91151c07e1b6d16b1fd5fb6
+translation_source_sha: 64920764f4b7e96a7761f799f132183adf310947
 translation_revised: 2026-08-30
 ---
 # FDAI 운영 온톨로지
@@ -111,6 +111,7 @@ translation_revised: 2026-08-30
 | 2026-08-28 | implemented | Context 스냅샷과 보안 증적을 서로만 비교하지 않고 제공 중인 정확한 `OperationalEvidenceReadRequest`에 연결했습니다. 요청 release, 기준 시점 또는 범위를 벗어난 스냅샷과 증적을 차단하며 응답 바이트 예산에 `principal_ref`와 실행 및 변경 권한 필드를 포함합니다. | `current change`; `core/operational_context/evidence_read.py`; 집중 근거 읽기 검사 11개 및 운영 컨텍스트 검사 74개 통과. | 인증된 배포 근거는 별도로 보존합니다. 권한 또는 런타임 승격은 바뀌지 않습니다. |
 | 2026-08-28 | implemented | 동일한 읽기 경로의 후속 검토 두 건을 해소했습니다. 응답 바이트 예산은 고정 길이 SHA-256 자리표시자로 묶음 생성 전 공간을 예약하고 실제 `bundle_id`와 `digest`를 계산합니다. 또한 Context 스냅샷의 카탈로그 리비전이 요청과 다르면 차단합니다. | `current change`; `core/operational_context/evidence_read.py`; 집중 근거 읽기 검사 15개 및 운영 컨텍스트 검사 84개 통과. | 인증된 배포 근거는 별도로 보존합니다. 권한 또는 런타임 승격은 바뀌지 않습니다. |
 | 2026-08-28 | implemented | `console_projection.py`의 출처 연결 미비점을 닫았습니다. 각 Context 근거 경로의 `provenance_refs`는 보안 객체의 `source_ref`, `measurement_source_ref`, `expression_ref` 속성에서 공유 helper로 다시 계산되며 정확히 일치하지 않는 스냅샷은 차단됩니다. | `current change`; 위조 및 누락 출처 사례를 포함한 Console projection 검사 14개, 운영 컨텍스트 검사 85개, Ruff 및 strict mypy 통과. | 인증된 배포 근거는 별도로 보존합니다. 권한 또는 런타임 승격은 바뀌지 않습니다. |
+| 2026-08-30 | validated | 운영 Context fixture를 `SecuredQueryReceiptAuthority`가 요구하는 공유 의사 결정 근거 승인에 맞췄습니다. 테스트는 증적 인증을 우회하지 않고 현재 시각과 범위에 연결된 승인을 발급합니다. | `current change`; 집중 온톨로지 및 운영 Context 검사 101개와 Ruff 통과. | 인증된 배포 근거는 별도로 보존합니다. |
 | 2026-08-27 | implemented | 탐지가 소유한 온톨로지 신원에 실제 PostgreSQL 원자적 생성 동시성 회귀 검사를 추가했습니다. | `current change`; `tests/persistence/test_postgres_ontology_instance.py`는 로컬 PostgreSQL 게이트에서 실행되며 `FDAI_DATABASE_URL`이 없을 때만 건너뜁니다. | 런타임 검증을 주장하기 전에 서비스 소유 로컬 데이터베이스에서 실제 저장소 증적을 실행합니다. |
 | 2026-08-27 | implemented | 양의 `Forecast` 에피소드와 균형 잡힌 `Pattern` 후보를 위한 권한 없는 런타임 변환 결과를 추가했습니다. 탐지기, 대상, 구간, 사례 및 근거 신원을 보존하며 지원되지 않는 관계는 복원하지 않습니다. | `current change`; `core/ontology_platform/detection_projection.py`; 집중 탐지, 예측 에피소드 및 운영 학습 검사 11개 통과. | 생산자가 정확한 목표 또는 결과 엔드포인트 신원을 제공할 때만 `predicts_breach_of` 또는 `learned_as`를 복원합니다. |
 | 2026-08-27 | implemented | 객체 및 배열 Property 값을 위한 범위가 제한된 정규 JSON 의미를 완료했습니다. 정규화는 유한성, 깊이 및 바이트 상한과 안정적인 키 순서를 강제하며 수집 커버리지 게이트는 규칙이 평가하는 모든 참조를 검토 완료로 기록합니다. | `current change`; `property_semantic.py`; `test_property_semantic.py`; `check-property-semantic-coverage.py`가 검토된 참조 62/62를 보고합니다. | 검토된 레지스트리를 보존하고 새 수집 Property 참조가 생기면 하한을 높입니다. |

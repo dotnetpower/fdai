@@ -18,7 +18,7 @@ _CI_WORKFLOW = _ROOT / ".github/workflows/ci.yml"
 def test_ci_prefilter_routes_retirement_changes_to_authority_check() -> None:
     workflow = _CI_WORKFLOW.read_text(encoding="utf-8")
 
-    assert "rule-sets|retirements|governance/" in workflow
+    assert "rule-sets|assignments|exemptions|overrides|retirements" in workflow
     assert "git diff --no-renames --name-only" in workflow
 
 

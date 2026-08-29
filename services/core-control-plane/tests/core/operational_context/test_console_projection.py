@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fdai.core.ontology_platform.functions import FunctionInvocationContext
@@ -18,7 +18,10 @@ from fdai.core.ontology_platform.query_gateway import (
     SecuredObjectSetQueryResult,
     _projected_result_digest,
 )
-from fdai.core.ontology_platform.query_receipt_authority import SecuredQueryReceiptAuthority
+from fdai.core.ontology_platform.query_receipt_authority import (
+    SecuredQueryReceiptAuthority,
+    secured_query_scope_digest,
+)
 from fdai.core.operational_context import AuthenticatedPrincipalContext
 from fdai.core.operational_context.console_projection import project_context_snapshot
 from fdai.core.operational_context.models import (
@@ -28,6 +31,7 @@ from fdai.core.operational_context.models import (
     SourceFreshness,
 )
 from fdai.shared.contracts.models import Autonomy, OntologyReleaseRef
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 from fdai.shared.providers.ontology_instance import (
     OntologyGraphSnapshot,
     OntologyLinkRecord,
@@ -187,8 +191,20 @@ def _secured_result(
 def _authenticated_context(
     result: SecuredObjectSetQueryResult,
 ) -> AuthenticatedPrincipalContext:
-    authority = SecuredQueryReceiptAuthority()
-    authority.issue(result)
+    authority = SecuredQueryReceiptAuthority(now=lambda: CUTOFF)
+    authority.issue(
+        result,
+        DecisionEvidenceAdmission(
+            receipt_digest="sha256:" + "d" * 64,
+            verification_bundle_digest="sha256:" + "e" * 64,
+            evidence_digest=result.receipt.projected_result_digest,
+            scope_digest=secured_query_scope_digest(result.receipt),
+            purpose_id=result.receipt.purpose,
+            source_revision=result.receipt.ontology_release.digest,
+            verified_at=CUTOFF - timedelta(minutes=1),
+            valid_until=CUTOFF + timedelta(minutes=1),
+        ),
+    )
     invocation = FunctionInvocationContext(
         caller_agent="Bragi",
         caller_role="reader",
