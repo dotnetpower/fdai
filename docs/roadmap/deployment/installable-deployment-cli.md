@@ -141,7 +141,8 @@ with the distribution, so no network call, revocation lookup, or certificate cha
 reports status and non-secret metadata only and never echoes the token, document, or signature. The
 token input is accepted only as a mode-`0600` regular file no larger than 8192 bytes. The reader does
 not follow symlinks and opens the path in nonblocking mode before checking its type, so named pipes
-and device files are blocked without waiting. The entitlement contract itself lives in
+and device files are blocked without waiting. Trust-key inputs use the same no-follow, nonblocking
+regular-file boundary with a 65536-byte limit. The entitlement contract itself lives in
 [capability-licensing.md](../fork-and-sequencing/capability-licensing.md).
 
 ## Local security audit

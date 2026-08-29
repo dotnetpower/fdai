@@ -22,6 +22,7 @@ from fdai_deployment_cli.bundle import (
 from fdai_deployment_cli.cli import (
     _create_private_work_dir,
     _provision_plan,
+    _read_public_key,
     _read_private_license_token,
     _absolute_work_dir,
     _require_bundle_version,
@@ -650,6 +651,32 @@ def test_license_token_reader_rejects_fifo_without_blocking(
     monkeypatch.setattr(os, "open", open_nonblocking)
     with pytest.raises(ValueError, match="regular file"):
         _read_private_license_token(fifo)
+
+
+def test_public_key_reader_is_bounded_no_follow_and_nonblocking(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fifo = tmp_path / "public.pem"
+    os.mkfifo(fifo)
+    real_open = os.open
+
+    def open_nonblocking(path: os.PathLike[str], flags: int) -> int:
+        assert flags & os.O_NONBLOCK
+        return real_open(path, flags)
+
+    monkeypatch.setattr(os, "open", open_nonblocking)
+    with pytest.raises(ValueError, match="regular file"):
+        _read_public_key(fifo)
+
+    oversized = tmp_path / "oversized.pem"
+    oversized.write_bytes(b"x" * 65_537)
+    with pytest.raises(ValueError, match="65536"):
+        _read_public_key(oversized)
+
+    linked = tmp_path / "linked.pem"
+    linked.symlink_to(oversized)
+    with pytest.raises(OSError):
+        _read_public_key(linked)
 
 
 def test_cli_version_and_private_profile(

@@ -239,7 +239,7 @@ def _provision_plan(args: argparse.Namespace) -> int:
     )
     verification = verify_offline_kit(
         args.offline_kit,
-        release_root_pem=args.release_root.read_bytes(),
+        release_root_pem=_read_public_key(args.release_root),
         cli_version=__version__,
         platform_tag=_runtime_platform_tag(),
     )
@@ -257,7 +257,7 @@ def _provision_plan(args: argparse.Namespace) -> int:
     )
     bundle_verification = verify_bundle(
         bundle_root,
-        public_key_pem=args.bundle_public_key.read_bytes(),
+        public_key_pem=_read_public_key(args.bundle_public_key),
         cli_version=__version__,
     )
     _require_bundle_version(
@@ -484,7 +484,7 @@ def _bundle_verify(args: argparse.Namespace) -> int:
     try:
         result = verify_bundle(
             args.bundle,
-            public_key_pem=args.public_key.read_bytes(),
+            public_key_pem=_read_public_key(args.public_key),
             cli_version=__version__,
         )
     except BundleVerificationError:
@@ -497,7 +497,7 @@ def _license_inspect(args: argparse.Namespace) -> int:
     try:
         result = inspect_license(
             _read_private_license_token(args.token),
-            public_key_pem=args.public_key.read_bytes(),
+            public_key_pem=_read_public_key(args.public_key),
             expected_image_digest=args.image_digest,
             expected_tenant_binding=args.tenant_binding,
         )
@@ -522,6 +522,15 @@ def _read_private_license_token(path: Path) -> str:
         return payload.decode("ascii").strip()
     except UnicodeDecodeError as exc:
         raise ValueError("license token MUST be ASCII") from exc
+
+
+def _read_public_key(path: Path) -> bytes:
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(descriptor, "rb") as stream:
+        details = os.fstat(stream.fileno())
+        if not stat.S_ISREG(details.st_mode) or details.st_size > 65_536:
+            raise ValueError("public key MUST be a regular file within 65536 bytes")
+        return stream.read(65_537)
 
 
 def _onboard_status(args: argparse.Namespace) -> int:

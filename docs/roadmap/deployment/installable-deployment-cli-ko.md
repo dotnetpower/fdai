@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: a38236a5fc516602191f3a240eefa7a6db9db3ae
+translation_source_sha: ae2d9adb7aa1486e4093d4b18737e3497de4d5e6
 translation_revised: 2026-08-29
 ---
 # 설치형 배포 CLI
@@ -140,7 +140,8 @@ mode-`0600` 파일에 기록합니다. 사람용 출력에는 계정 식별자�
 아닌 메타데이터만 보고하며 토큰, 문서, 서명을 절대 출력하지 않습니다. 토큰 입력은 8192바이트
 이하의 mode-`0600` 일반 파일만 허용됩니다. 읽기 경로는 심볼릭 링크를 따라가지 않으며 파일
 형식을 검사하기 전에 비차단 모드로 열기 때문에 이름 있는 파이프와 장치 파일을 기다리지 않고
-차단합니다. 권한 계약 자체는
+차단합니다. 신뢰 키 입력도 같은 심볼릭 링크 차단 및 비차단 일반 파일 경계를 사용하며 크기를
+65536바이트로 제한합니다. 권한 계약 자체는
 [capability-licensing-ko.md](../fork-and-sequencing/capability-licensing-ko.md)에 있습니다.
 
 ## 로컬 security 감사

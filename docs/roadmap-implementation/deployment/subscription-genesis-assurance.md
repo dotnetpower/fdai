@@ -26,10 +26,11 @@ and recoverable.
 | 2026-08-29 | implemented | Extended the campaign through 93 focused hardening rounds and reconfirmed that only Low-or-lower concerns remain before Azure login. | `current change`; final severity review found no Medium-or-higher issue; 92 focused tests, Ruff, strict mypy, lock verification, source and wheel builds, and fresh plus `--skip-stage` air-gap drills passed | Collect subscription-backed state, quota, model, database, inventory, and readiness receipts after login. |
 | 2026-08-29 | implemented | Completed hardening round 94 by making license-token FIFO rejection nonblocking after the stable-HEAD audit found the remaining hang risk. | `current change`; focused FIFO regression test and the final deployment CLI gate stack passed 93 tests | Collect subscription-backed state, quota, model, database, inventory, and readiness receipts after login. |
 | 2026-08-29 | implemented | Completed hardening round 95 by making profile, plan-input, and journal FIFO rejection nonblocking. | `current change`; three focused FIFO regression tests and the final deployment CLI gate stack passed 96 tests | Collect subscription-backed state, quota, model, database, inventory, and readiness receipts after login. |
+| 2026-08-29 | implemented | Completed hardening round 96 by bounding every deployment CLI trust-key input behind a nonblocking no-follow regular-file reader. | `current change`; focused FIFO, symlink, and oversize trust-key regression test and the final deployment CLI gate stack passed 97 tests | Complete the remaining release-script and artifact-reader hardening before login. |
 
 ### Remaining work
 
-- [x] The pre-login safety kernel passed 95 recorded hardening rounds and the final review left only
+- [x] The pre-login safety kernel passed 96 recorded hardening rounds and the final review left only
   Low-or-lower concerns.
 - [x] The local negative, interruption, artifact, packaging, and fresh plus resumed disconnected
   execution matrix passes without customer data or Azure mutation.
