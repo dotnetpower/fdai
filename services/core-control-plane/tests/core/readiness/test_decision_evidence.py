@@ -257,6 +257,7 @@ async def test_forged_subject_and_expired_proof_fail_closed() -> None:
         DecisionEvidenceVerificationError("provider readback unavailable"),
         RuntimeError("managed identity unavailable"),
         OSError("provider transport unavailable"),
+        LookupError("provider SDK response unavailable"),
     ],
 )
 async def test_expected_verifier_failure_is_a_bounded_rejection(failure: Exception) -> None:

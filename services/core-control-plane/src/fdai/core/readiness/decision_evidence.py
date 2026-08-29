@@ -17,7 +17,6 @@ from fdai_service_contracts.decision_evidence_verification import (
     DecisionEvidenceVerificationBundle,
     expected_verification_subjects,
 )
-from pydantic import ValidationError as PydanticValidationError
 
 from fdai.shared.providers.decision_evidence_verifier import (
     DecisionEvidenceVerifierBinding,
@@ -109,7 +108,9 @@ class DecisionEvidenceReadinessGate:
                     receipt,
                     trust_anchor_id=binding.trust_anchor_id,
                 )
-        except (OSError, TimeoutError, PydanticValidationError, RuntimeError, ValueError):
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 - provider failures are bounded rejection evidence
             return _rejected(receipt, DecisionEvidenceReadinessReason.VERIFIER_FAILED)
         return _evaluate_bundle(
             receipt,
