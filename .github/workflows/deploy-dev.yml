@@ -1,8 +1,6 @@
 name: deploy-dev
-# Deploys the dev environment from a self-hosted runner inside the ops VNet.
-# On a policy-locked ("private-everything") tenant this is the ONLY host with
-# line-of-sight to the app's private endpoints (Key Vault, state storage), so
-# the deploy cannot run on a GitHub-hosted runner or an operator laptop.
+# Deploys from the self-hosted runner with private-endpoint access inside the ops VNet.
+# A GitHub-hosted runner or operator laptop cannot run this private-everything deployment.
 #
 # Prerequisites (see infra/bootstrap/README.md):
 #   - `infra/bootstrap` applied: ops VNet + state storage + registered runner
@@ -736,7 +734,7 @@ jobs:
             mode=model-binding
             extra=(--resolved-models "$FDAI_RESOLVED_MODELS_PATH")
           elif [[ "$CORE_MODEL_QUORUM_ONLY" == "true" ]]; then
-            mode=core-model-quorum; extra=()
+            mode=core-model-quorum; extra=(--resolved-models "$FDAI_RESOLVED_MODELS_PATH")
           elif [[ "${{ inputs.deploy_design_mocks }}" == "true" ]]; then
             mode=design-mocks
             extra=()
@@ -800,6 +798,7 @@ jobs:
               "after_sku": "Standard",
               "after_capacity": 200,
             },
+            "module.llm_azure_openai[0].azurerm_cognitive_deployment.capability[\"t2.reasoner.primary\"]": {"name": "t2.reasoner.primary", "before_family": "gpt-4o", "before_version": "2024-11-20", "before_sku": "GlobalStandard", "before_capacity": 1, "family": "gpt-5.4", "version": "2026-03-05", "after_sku": "GlobalStandard", "after_capacity": 100},
           }
           if os.environ.get("MODEL_BINDING_ONLY") == "true":
             resolved_path = os.environ.get("FDAI_RESOLVED_MODELS_PATH")
@@ -875,6 +874,8 @@ jobs:
               and before_model.get("format") == after_model.get("format") == "OpenAI"
               and nonempty_string(before_model.get("name"))
               and nonempty_string(before_model.get("version"))
+              and ("before_family" not in expected or before_model.get("name") == expected["before_family"])
+              and ("before_version" not in expected or before_model.get("version") == expected["before_version"])
               and after_model.get("name") == expected["family"]
               and (
                 "version" not in expected
