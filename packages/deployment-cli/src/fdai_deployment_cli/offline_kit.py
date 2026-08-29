@@ -9,6 +9,7 @@ import platform
 import re
 import stat
 import sys
+import sysconfig
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Final
@@ -452,7 +453,13 @@ def _payload_text(value: dict[str, object], field: str) -> str:
 
 
 def _runtime_python_tag() -> str:
-    return f"{sys.implementation.name}-{sys.version_info.major}{sys.version_info.minor}"
+    soabi = sysconfig.get_config_var("SOABI")
+    if not isinstance(soabi, str) or re.fullmatch(r"[A-Za-z0-9._-]+", soabi) is None:
+        raise OfflineKitVerificationError("runtime Python ABI identity is unavailable")
+    return (
+        f"{sys.implementation.name}-{sys.version_info.major}{sys.version_info.minor}-"
+        f"{soabi.casefold()}"
+    )
 
 
 def _runtime_libc_tag() -> str:

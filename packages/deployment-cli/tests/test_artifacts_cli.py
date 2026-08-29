@@ -127,7 +127,7 @@ def test_offline_kit_verifies_signature_exact_files_and_compatibility(tmp_path: 
     assert result.terraform_binary == "terraform/terraform"
     assert result.provider_mirror_prefix == "terraform/providers"
     assert result.deployment_bundle == "deployment/bundle.tar.gz"
-    assert result.python_tag
+    assert "cpython-" in result.python_tag
     assert result.libc_tag
 
     (tmp_path / "extra").write_text("extra", encoding="utf-8")

@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 7dffc691045676723d3d0fd8f5aa59cda9a59d90
+translation_source_sha: 023af5edc10768116ede42201e0cddb9b4553cf6
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -294,6 +294,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H67 | `--skip-stage`가 이전 빈 Azure 프로필 디렉터리를 남겨 재생성에 실패했습니다. 이제 재설정이 생성된 모든 검증 디렉터리를 제거한 뒤 비공개로 다시 만듭니다. | `test_release_scripts_use_the_installable_distribution` |
 | H68 | 소스 안내가 주변의 오래된 `fdaictl`을 실행하고 진입점이 없다고 설명했습니다. 이제 독립 프로젝트를 선택하고 현재 구현 원장에 연결합니다. | 문서 명령 및 링크 검사 |
 | H69 | 릴리스 준비가 `PATH`의 주변 Terraform 및 OPA 실행 파일을 서명했습니다. 이제 고정 버전을 다운로드하고 플랫폼별 공식 SHA-256을 검증한 뒤 사용합니다. | `test_release_tooling_is_exactly_pinned` |
+| H70 | Python 호환성 tag가 실제 ABI를 누락해 free-threaded 빌드와 표준 빌드를 같게 처리할 수 있었습니다. 이제 인터프리터의 전체 `SOABI`에 연결합니다. | `test_offline_kit_verifies_signature_exact_files_and_compatibility` |
 
 ## 관련 문서
 
