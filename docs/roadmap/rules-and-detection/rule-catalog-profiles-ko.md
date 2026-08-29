@@ -1,7 +1,7 @@
 ---
 title: Rule-catalog profile 및 collector
 translation_of: rule-catalog-profiles.md
-translation_source_sha: 17326e8cb7cefa132c3cfd7e2371524562c41e77
+translation_source_sha: deef722c960e580777884a0587497dff3ee74ed2
 translation_revised: 2026-08-29
 ---
 # Rule-catalog 프로파일 및 수집기
@@ -46,6 +46,8 @@ Design 계약: [scope-expansion.md § 3](../fork-and-sequencing/scope-expansion-
   EU NIS2, CMMC 및 Microsoft가 정책 집합으로 게시하는 모든 규정 준수 프레임워크).
   각 프로파일은 가져온 Rule을 FDAI id로 참조합니다. 이전 구체화 provenance는 재구성하지
   않았으며, 현재 승인된 소스 매니페스트는 오프라인 initiative-intent helper를 선택하지 않습니다.
+  보존된 `provenance.authored_by`와 `review_cadence_days` 값은 과거 자체 설명이며 현재 예약
+  collector의 근거가 아닙니다. 어떤 런타임 경로도 이 값을 권한으로 취급하지 않습니다.
 - **포크 overrides** 는
   [`rule-catalog/profiles-overrides/`](../../../rule-catalog/profiles-overrides)
   아래 (업스트림 은 빈). 포크 는 `extends: [strict]` 와 자신의
@@ -184,6 +186,7 @@ rules:
 | 2026-08-15 | implemented | 시작 시 `FDAI_PROFILE_ID`를 한 번 해석해 바인딩하고, 선택과 등급 조정을 차단 기본으로 처리하며, 프로파일 id와 다이제스트와 개수만 노출하는 시작 진단을 추가했습니다. | `current change`; `services/core-control-plane/src/fdai/runtime/rule_profile.py`; `services/core-control-plane/src/fdai/runtime/control_loop.py`; `pytest services/core-control-plane/tests/runtime/test_rule_profile.py` (12 passed). | 바인딩된 프로파일의 배포 런타임 근거. 예약 파서는 계속 미구현입니다. |
 | 2026-08-29 | not-applicable | 승인된 모든 제공 소스 매니페스트를 파서 레지스트리와 대조했습니다. 예약 파서를 선택하는 소스가 없으므로 차단 기본 자리표시자가 미완성 구현이 아니라 현재 범위의 완전한 동작입니다. | `current change`; 소스 매니페스트, `parser.py`, 집중 파서 선택 검사. | 향후 승인된 소스 매니페스트와 함께만 예약 파서를 구현합니다. |
 | 2026-08-29 | implemented | 수집된 프로파일 provenance 주장을 바로잡았습니다. 프로파일 265개는 검토된 정적 가져오기 결과이며 initiative-intent helper는 오프라인이고 등록되지 않았습니다. 실행 가능한 매니페스트-파서 선택 검사를 추가했습니다. | `current change`; `azure_policy_initiative.py`; `test_parse.py`; 집중 파서 및 프로파일 검사. | 향후 자동 initiative 새로 고침에는 승인된 소스와 GUID-to-Rule 컴파일러가 필요합니다. |
+| 2026-08-29 | implemented | 하드닝 17-20차에서 프로파일 해석, 런타임 연결, 파서 선택, 과거 provenance를 검증했습니다. 도달할 수 없는 initiative helper 주장을 바로잡은 뒤 최종 검토에서 Low를 넘는 문제는 없었습니다. | `current change`; 집중 프로파일 및 파서 검사 58개 통과. | 배포 런타임 근거는 운영 검증으로 남습니다. |
 
 ### 남은 작업
 

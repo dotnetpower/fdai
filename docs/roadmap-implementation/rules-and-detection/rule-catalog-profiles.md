@@ -23,6 +23,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 2026-08-15 | implemented | Bound `FDAI_PROFILE_ID` at startup with one resolution, fail-closed selection and grading, and startup diagnostics that expose only the profile id, digest, and counts. | `current change`; `services/core-control-plane/src/fdai/runtime/rule_profile.py`; `services/core-control-plane/src/fdai/runtime/control_loop.py`; `pytest services/core-control-plane/tests/runtime/test_rule_profile.py` (12 passed). | Deployed-runtime evidence for a bound profile; reserved parsers stay unimplemented. |
 | 2026-08-29 | not-applicable | Confirmed that no approved shipped source selects a reserved parser, so fail-closed placeholders are the complete current behavior. | `current change`; source manifests, parser registry, and focused selection checks. | Reopen only with a future approved source manifest. |
 | 2026-08-29 | implemented | Corrected the 265 collected profiles to reviewed static imports and made the offline initiative-intent helper's unregistered status explicit. | `current change`; `azure_policy_initiative.py`; executable manifest-to-parser selection and profile checks. | Automated initiative refresh requires a future approved source and compiler. |
+| 2026-08-29 | implemented | Hardening rounds 17-20 ended with no profile implementation finding above Low after correcting provenance and parser reachability claims. | `current change`; 58 focused profile and parser checks. | Deployed runtime evidence remains operational validation. |
 
 ### Remaining work
 

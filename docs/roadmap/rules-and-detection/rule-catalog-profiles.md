@@ -45,6 +45,9 @@ schema: [`shared/contracts/profile/schema.json`](../../../services/core-control-
   publishes as a policy set). Each references imported rules by FDAI id.
   Earlier materialization provenance was not reconstructed; no current
   approved source manifest selects the offline initiative-intent helper.
+  The retained `provenance.authored_by` and `review_cadence_days` values are
+  historical self-description, not evidence of a currently scheduled
+  collector, and no runtime path treats them as authority.
 - **Fork overrides** live under
   [`rule-catalog/profiles-overrides/`](../../../rule-catalog/profiles-overrides)
   (upstream empty). A fork adds a YAML with `extends: [strict]` and
@@ -184,6 +187,7 @@ that evaluates an indexed `Rule` read the same immutable result.
 | 2026-08-15 | implemented | Bound `FDAI_PROFILE_ID` at startup with one resolution, fail-closed selection and grading, and startup diagnostics that expose only the profile id, digest, and counts. | `current change`; `services/core-control-plane/src/fdai/runtime/rule_profile.py`; `services/core-control-plane/src/fdai/runtime/control_loop.py`; `pytest services/core-control-plane/tests/runtime/test_rule_profile.py` (12 passed). | Deployed-runtime evidence for a bound profile; reserved parsers stay unimplemented. |
 | 2026-08-29 | not-applicable | Audited every approved shipped source manifest against the parser registry. None selects a reserved parser, so the fail-closed placeholders are the complete current behavior rather than unfinished implementation. | `current change`; source manifests, `parser.py`, and focused parser-selection checks. | Implement a reserved parser only together with a future approved source manifest. |
 | 2026-08-29 | implemented | Corrected the collected-profile provenance claim: the 265 profiles are reviewed static imports, while the initiative-intent helper is offline and unregistered. Added an executable manifest-to-parser selection check. | `current change`; `azure_policy_initiative.py`; `test_parse.py`; focused parser and profile checks. | A future automated initiative refresh requires an approved source and GUID-to-Rule compiler. |
+| 2026-08-29 | implemented | Hardening rounds 17-20 verified profile resolution, runtime binding, parser selection, and historical provenance. After correcting the unreachable initiative-helper claim, final review found no issue above Low. | `current change`; focused profile and parser checks passed 58 cases. | Deployed runtime evidence remains operational validation. |
 
 ### Remaining work
 
