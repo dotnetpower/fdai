@@ -1,6 +1,1 @@
-vulnerabilities:
-  - id: CVE-2026-50163
-    paths:
-      - usr/local/bin/opa
-    statement: FDAI invokes OPA only as a local eval subprocess and never uses its OCI bundle or tar extraction path; review when oras-go publishes a fix.
-    expired_at: 2026-08-16
+vulnerabilities: []
