@@ -29,9 +29,17 @@ class WorkloadEnvelope:
             value = getattr(self, field_name)
             if isinstance(value, bool) or not isinstance(value, int) or value < 1:
                 raise ValueError(f"{field_name} MUST be positive")
-        if not math.isfinite(self.utilization_ceiling) or not 0 < self.utilization_ceiling <= 1:
+        if (
+            isinstance(self.utilization_ceiling, bool)
+            or not math.isfinite(self.utilization_ceiling)
+            or not 0 < self.utilization_ceiling <= 1
+        ):
             raise ValueError("utilization_ceiling MUST be in (0, 1]")
-        if not math.isfinite(self.quota_reserve) or not 0 <= self.quota_reserve < 1:
+        if (
+            isinstance(self.quota_reserve, bool)
+            or not math.isfinite(self.quota_reserve)
+            or not 0 <= self.quota_reserve < 1
+        ):
             raise ValueError("quota_reserve MUST be in [0, 1)")
 
     @property

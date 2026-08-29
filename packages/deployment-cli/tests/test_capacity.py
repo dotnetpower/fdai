@@ -70,6 +70,8 @@ def test_capacity_requires_required_capability_and_quota_evidence() -> None:
     "overrides",
     (
         {"requests_per_minute": True},
+        {"utilization_ceiling": True},
+        {"quota_reserve": False},
         {"utilization_ceiling": float("nan")},
         {"utilization_ceiling": float("inf")},
         {"quota_reserve": float("nan")},
