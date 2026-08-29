@@ -285,6 +285,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H51 | Manual drill steps still executed Terraform and providers from mutable kit paths. Every Terraform path now points to the authenticated private snapshot. | `test_release_scripts_use_the_installable_distribution` |
 | H52 | Release staging resolved open-ended build and download tooling from the network. Hatchling and pip are now exact pins, and build, export, and download require the committed CLI lock. | `test_release_tooling_is_exactly_pinned` |
 | H53 | `provision plan` had no path for Terraform's five required inputs. It now snapshots a private JSON input, rejects real or extra secrets, injects an explicit plan-only password, and removes the snapshot after planning. | `test_plan_input_is_private_canonical_and_non_secret` |
+| H54 | Key-name secret detection missed sensitive webhook variables. Plan input now accepts exactly the five-field secret-free schema and no optional Terraform values. | `test_plan_input_rejects_real_password_and_extra_secret` |
 
 ## Related docs
 

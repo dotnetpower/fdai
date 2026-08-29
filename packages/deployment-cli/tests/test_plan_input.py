@@ -43,9 +43,9 @@ def test_plan_input_rejects_real_password_and_extra_secret(tmp_path: Path) -> No
         snapshot_plan_input(source, tmp_path / "snapshot.json")
 
     values = _values()
-    values["api_token"] = "value"
+    values["alert_webhook_url"] = "https://example.com/credential"
     _write(source, values)
-    with pytest.raises(ValueError, match="secret-shaped"):
+    with pytest.raises(ValueError, match="secret-free schema"):
         snapshot_plan_input(source, tmp_path / "snapshot.json")
 
 
