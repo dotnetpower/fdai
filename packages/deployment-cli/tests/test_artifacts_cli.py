@@ -51,19 +51,46 @@ def _keys() -> tuple[Ed25519PrivateKey, bytes]:
     return private, public
 
 
-def _kit(root: Path) -> tuple[bytes, bytes]:
+def _kit(root: Path) -> tuple[Ed25519PrivateKey, bytes, bytes]:
     paths = (
         "python/fdai_deployment_cli-0.1.0-py3-none-any.whl",
         "deployment/bundle.tar.gz",
         "terraform/terraform",
         "terraform/providers/registry.terraform.io/hashicorp/azurerm/provider.zip",
         "bin/opa",
-        "sbom/offline-kit.cdx.json",
     )
     for value in paths:
         path = root / value
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(value.encode())
+    sbom_path = root / "sbom/offline-kit.cdx.json"
+    sbom_path.parent.mkdir(parents=True, exist_ok=True)
+    sbom_path.write_text(
+        json.dumps(
+            {
+                "bomFormat": "CycloneDX",
+                "specVersion": "1.5",
+                "version": 1,
+                "components": [
+                    {
+                        "type": "file",
+                        "name": value,
+                        "hashes": [
+                            {
+                                "alg": "SHA-256",
+                                "content": hashlib.sha256((root / value).read_bytes()).hexdigest(),
+                            }
+                        ],
+                    }
+                    for value in paths
+                ],
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     manifest = build_offline_kit_manifest(
         root,
         kit_version="0.1.0",
@@ -75,16 +102,16 @@ def _kit(root: Path) -> tuple[bytes, bytes]:
         terraform_binary=paths[2],
         provider_mirror_prefix="terraform/providers",
         opa_binary=paths[4],
-        sbom_path=paths[5],
+        sbom_path="sbom/offline-kit.cdx.json",
     )
     private, public = _keys()
     (root / MANIFEST_NAME).write_bytes(manifest)
     (root / SIGNATURE_NAME).write_bytes(private.sign(manifest))
-    return public, manifest
+    return private, public, manifest
 
 
 def test_offline_kit_verifies_signature_exact_files_and_compatibility(tmp_path: Path) -> None:
-    public, manifest = _kit(tmp_path)
+    _private, public, manifest = _kit(tmp_path)
     result = verify_offline_kit(
         tmp_path,
         release_root_pem=public,
@@ -148,7 +175,7 @@ def test_offline_hash_rejects_replaced_file_identity(tmp_path: Path) -> None:
 
 
 def test_materialization_rejects_artifact_replaced_after_verification(tmp_path: Path) -> None:
-    public, _manifest = _kit(tmp_path)
+    _private, public, _manifest = _kit(tmp_path)
     verification = verify_offline_kit(
         tmp_path,
         release_root_pem=public,
@@ -159,6 +186,38 @@ def test_materialization_rejects_artifact_replaced_after_verification(tmp_path: 
 
     with pytest.raises(OfflineKitVerificationError, match="digest changed"):
         materialize_verified_artifacts(tmp_path, verification, tmp_path / "private")
+
+
+def test_offline_kit_rejects_incomplete_sbom(tmp_path: Path) -> None:
+    private, public, _manifest = _kit(tmp_path)
+    sbom = tmp_path / "sbom/offline-kit.cdx.json"
+    sbom.write_text(
+        '{"bomFormat":"CycloneDX","specVersion":"1.5","version":1,"components":[]}\n',
+        encoding="utf-8",
+    )
+    manifest = build_offline_kit_manifest(
+        tmp_path,
+        kit_version="0.1.0",
+        cli_version="0.1.0",
+        bundle_version="0.1.0",
+        platform_tag="linux-x86_64",
+        python_wheel="python/fdai_deployment_cli-0.1.0-py3-none-any.whl",
+        deployment_bundle="deployment/bundle.tar.gz",
+        terraform_binary="terraform/terraform",
+        provider_mirror_prefix="terraform/providers",
+        opa_binary="bin/opa",
+        sbom_path="sbom/offline-kit.cdx.json",
+    )
+    (tmp_path / MANIFEST_NAME).write_bytes(manifest)
+    (tmp_path / SIGNATURE_NAME).write_bytes(private.sign(manifest))
+
+    with pytest.raises(OfflineKitVerificationError, match="SBOM coverage"):
+        verify_offline_kit(
+            tmp_path,
+            release_root_pem=public,
+            cli_version="0.1.0",
+            platform_tag="linux-x86_64",
+        )
 
 
 def test_bundle_verification_rejects_tampering(tmp_path: Path) -> None:

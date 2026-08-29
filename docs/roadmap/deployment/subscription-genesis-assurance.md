@@ -273,6 +273,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H39 | A two-event journal could mark only `system-readiness` complete and then become ready. Ready now requires every compiled manifest entry completed in exact order. | `test_journal_rejects_ready_with_only_readiness_stage` |
 | H40 | Terraform inherited ambient control variables such as `TF_CLI_ARGS_plan=-destroy`. Planning now rejects Terraform controls and constructs a minimal allowlisted environment with a private data directory. | `test_terraform_environment_rejects_ambient_plan_controls` |
 | H41 | Relative work paths were reinterpreted beneath Terraform's later working directory. Planning now converts them to absolute paths without resolving a hostile link. | `test_relative_plan_work_directory_becomes_absolute` |
+| H42 | Offline-kit verification accepted an arbitrary signed SBOM payload. It now requires CycloneDX 1.5 with unique SHA-256 components that exactly cover every other kit file. | `test_offline_kit_rejects_incomplete_sbom` |
 
 ## Related docs
 

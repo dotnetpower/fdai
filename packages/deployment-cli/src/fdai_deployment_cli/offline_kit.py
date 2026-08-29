@@ -188,6 +188,7 @@ def verify_offline_kit(
         observed, total = _scan_tree(root)
         if observed != declared:
             raise OfflineKitVerificationError("offline kit exact file set or digest does not match")
+        _verify_sbom(root, payload, declared)
         if canonical_bytes(payload) != manifest:
             raise OfflineKitVerificationError("offline kit manifest is not canonical")
         return OfflineKitVerification(
@@ -362,6 +363,49 @@ def _verify_signature(public_pem: bytes, document: bytes, signature: bytes) -> N
         key.verify(signature, document)
     except InvalidSignature as exc:
         raise OfflineKitVerificationError("offline kit signature is invalid") from exc
+
+
+def _verify_sbom(
+    root: Path,
+    manifest: dict[str, object],
+    declared: dict[str, str],
+) -> None:
+    sbom_value = manifest["sbom_path"]
+    if not isinstance(sbom_value, str):
+        raise OfflineKitVerificationError("offline kit sbom_path is invalid")
+    sbom_path = _relative_path(sbom_value)
+    sbom = load_json_object(
+        _read_regular(root / sbom_path, 16 * 1024 * 1024),
+        label="offline kit SBOM",
+        max_bytes=16 * 1024 * 1024,
+    )
+    if sbom.get("bomFormat") != "CycloneDX" or sbom.get("specVersion") != "1.5":
+        raise OfflineKitVerificationError("offline kit SBOM format is unsupported")
+    components = sbom.get("components")
+    if not isinstance(components, list):
+        raise OfflineKitVerificationError("offline kit SBOM components are invalid")
+    covered: dict[str, str] = {}
+    for component in components:
+        if not isinstance(component, dict):
+            raise OfflineKitVerificationError("offline kit SBOM component is invalid")
+        name = component.get("name")
+        hashes = component.get("hashes")
+        if not isinstance(name, str) or not isinstance(hashes, list):
+            raise OfflineKitVerificationError("offline kit SBOM component is invalid")
+        sha256_values = [
+            item.get("content")
+            for item in hashes
+            if isinstance(item, dict) and item.get("alg") == "SHA-256"
+        ]
+        if len(sha256_values) != 1 or not isinstance(sha256_values[0], str):
+            raise OfflineKitVerificationError("offline kit SBOM SHA-256 is invalid")
+        path = _relative_path(name)
+        if path in covered:
+            raise OfflineKitVerificationError("offline kit SBOM contains duplicate paths")
+        covered[path] = sha256_values[0]
+    expected = {path: digest for path, digest in declared.items() if path != sbom_path}
+    if covered != expected:
+        raise OfflineKitVerificationError("offline kit SBOM coverage does not match")
 
 
 def _relative_path(value: str) -> str:
