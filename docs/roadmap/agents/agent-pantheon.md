@@ -163,12 +163,9 @@ sync job remains the periodic reconciliation backstop that repairs missed
 signals with a complete ARG/ARM snapshot. Stale or degraded inventory remains unavailable;
 Heimdall publishes the finding and never acquires resources or starts reconciliation.
 
-The 15 agents are jointly sufficient to cover SRE, ARB (change safety), and
-FinOps workflows through composition; see §6 for the topic contract and
-§6.4 plus §7.6 for how handoff integrates with the same pipeline.
-The runtime may attach non-agent observation consumers to owned topics for replay and health
-evidence. These consumers do not join the pantheon, publish owned objects, judge, approve, or
-execute.
+The 15 agents jointly cover SRE, ARB, and FinOps workflows through composition. Non-agent
+observation consumers may retain replay and health evidence from owned topics, but they never join
+the pantheon, publish owned objects, judge, approve, or execute; see §6, §6.4, and §7.6.
 
 ### 4.1 Per-agent task inventory
 
