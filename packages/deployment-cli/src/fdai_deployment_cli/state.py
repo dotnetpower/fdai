@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import BinaryIO
 
 from fdai_deployment_cli.contracts import canonical_digest, load_json_object
+from fdai_deployment_cli.compiler import GENESIS_ENTRY_IDS
 
 GENESIS_HASH = "0" * 64
 _MAX_JOURNAL_BYTES = 8 * 1024 * 1024
@@ -168,6 +169,7 @@ def append_event(path: Path, event: ProvisionEvent) -> None:
             raise ValueError("provision event run_id does not match the journal")
         if previous is not None and event.context_digest != previous.context_digest:
             raise ValueError("provision event context does not match the journal")
+        _validate_ready_history(events, event)
         _validate_transition(previous, event)
         payload = json.dumps(
             event.to_mapping(),
@@ -235,6 +237,17 @@ def _validate_transition(
         raise ValueError("ready requires completed system-readiness evidence")
 
 
+def _validate_ready_history(
+    events: tuple[ProvisionEvent, ...] | list[ProvisionEvent],
+    current: ProvisionEvent,
+) -> None:
+    if current.state is not RunState.READY:
+        return
+    completed = tuple(event.stage for event in events if event.state is RunState.COMPLETED)
+    if completed != GENESIS_ENTRY_IDS:
+        raise ValueError("ready requires every manifest entry completed in order")
+
+
 def _read_stream(stream: BinaryIO) -> tuple[ProvisionEvent, ...]:
     stream.seek(0)
     events: list[ProvisionEvent] = []
@@ -254,6 +267,7 @@ def _read_stream(stream: BinaryIO) -> tuple[ProvisionEvent, ...]:
             raise ValueError("provision journal contains multiple run ids")
         if context_digest is not None and event.context_digest != context_digest:
             raise ValueError("provision journal contains multiple contexts")
+        _validate_ready_history(events, event)
         _validate_transition(previous, event)
         run_id = event.run_id
         context_digest = event.context_digest

@@ -90,6 +90,33 @@ def test_journal_replay_rejects_ready_without_readiness_evidence(tmp_path: Path)
         read_journal(path)
 
 
+def test_journal_rejects_ready_with_only_readiness_stage(tmp_path: Path) -> None:
+    path = tmp_path / "runs" / "run.jsonl"
+    completed = ProvisionEvent(
+        run_id="run.test",
+        context_digest="a" * 64,
+        sequence=1,
+        stage="system-readiness",
+        attempt=1,
+        state=RunState.COMPLETED,
+        occurred_at="2026-08-29T00:00:00+00:00",
+        previous_digest=GENESIS_HASH,
+    )
+    append_event(path, completed)
+    ready = ProvisionEvent(
+        run_id="run.test",
+        context_digest="a" * 64,
+        sequence=2,
+        stage="system-readiness",
+        attempt=1,
+        state=RunState.READY,
+        occurred_at="2026-08-29T00:00:01+00:00",
+        previous_digest=completed.digest,
+    )
+    with pytest.raises(ValueError, match="every manifest entry"):
+        append_event(path, ready)
+
+
 def test_journal_rejects_event_after_terminal_state(tmp_path: Path) -> None:
     path = tmp_path / "runs" / "run.jsonl"
     first = _event(1, GENESIS_HASH, RunState.FAILED)
