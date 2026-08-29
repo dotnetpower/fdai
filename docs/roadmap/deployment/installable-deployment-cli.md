@@ -110,7 +110,8 @@ snapshot rather than the original kit.
 Connected staging also requires the committed deployment CLI lock and exact Hatchling and pip
 versions before it can sign an offline kit. Terraform and OPA are downloaded at pinned versions
 and accepted only after their platform-specific official SHA-256 values match. The output root must
-be a safe absolute path owned by a private staging sentinel.
+be a safe absolute path. A descriptor-based guard verifies current-UID ownership, mode 0700, and a
+mode-0600 regular staging sentinel before cleanup.
 Offline planning recomputes the profile target digest from concrete tenant and subscription input,
 matches the profile region, and supplies the verified subscription to Terraform.
 The synthetic air-gap drill isolates Azure CLI configuration so a host login cannot alter its
