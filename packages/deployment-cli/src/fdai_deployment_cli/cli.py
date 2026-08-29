@@ -12,7 +12,7 @@ from pathlib import Path
 from fdai_deployment_cli.__about__ import __version__
 from fdai_deployment_cli.bundle import BundleVerificationError, verify_bundle
 from fdai_deployment_cli.compiler import compile_manifest
-from fdai_deployment_cli.doctor import azure_cli_authenticated, doctor_json, inspect_tools
+from fdai_deployment_cli.doctor import azure_active_target_binding, doctor_json, inspect_tools
 from fdai_deployment_cli.license import LicenseInspectionError, inspect_license
 from fdai_deployment_cli.offline_kit import verify_offline_kit
 from fdai_deployment_cli.contracts import ProvisionProfile, canonical_digest
@@ -172,14 +172,17 @@ def _provision_init(args: argparse.Namespace) -> int:
 def _provision_inspect(args: argparse.Namespace) -> int:
     profile = load_profile(args.profile)
     checks = inspect_tools()
-    authenticated = azure_cli_authenticated()
-    ready = all(check.available for check in checks) and authenticated
+    active_target = azure_active_target_binding()
+    authenticated = active_target is not None
+    target_matches = active_target == profile.target_binding
+    ready = all(check.available for check in checks) and authenticated and target_matches
     result = {
         "schema_version": "fdai.provision-inspect.v1",
         "state": "ready" if ready else "incomplete",
         "profile_digest": canonical_digest(profile.to_mapping()),
         "approval_quorum": profile.approval_quorum,
         "azure_authenticated": authenticated,
+        "target_matches": target_matches,
         "mutation_performed": False,
         "missing_tools": [check.name for check in checks if not check.available],
     }

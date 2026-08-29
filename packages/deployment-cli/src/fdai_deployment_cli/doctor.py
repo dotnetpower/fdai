@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import re
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -84,3 +86,46 @@ def azure_cli_authenticated() -> bool:
     except (OSError, subprocess.SubprocessError):
         return False
     return completed.returncode == 0
+
+
+def azure_active_target_binding() -> str | None:
+    """Return a digest of the active tenant and subscription, never their raw values."""
+
+    executable = shutil.which("az")
+    if executable is None:
+        return None
+    try:
+        completed = subprocess.run(
+            [
+                executable,
+                "account",
+                "show",
+                "--query",
+                "{subscription:id,tenant:tenantId}",
+                "--output",
+                "json",
+                "--only-show-errors",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if completed.returncode != 0:
+            return None
+        value = json.loads(completed.stdout)
+    except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
+        return None
+    if not isinstance(value, dict):
+        return None
+    subscription = value.get("subscription")
+    tenant = value.get("tenant")
+    guid = re.compile(
+        r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    )
+    if not isinstance(subscription, str) or not isinstance(tenant, str):
+        return None
+    if guid.fullmatch(subscription) is None or guid.fullmatch(tenant) is None:
+        return None
+    material = f"{tenant.lower()}:{subscription.lower()}".encode()
+    return hashlib.sha256(material).hexdigest()

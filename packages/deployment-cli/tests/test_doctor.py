@@ -41,3 +41,24 @@ def test_azure_authentication_fails_closed_without_login(monkeypatch: object) ->
     )
 
     assert not doctor.azure_cli_authenticated()
+
+
+def test_active_target_binding_is_stable_and_identifier_free(monkeypatch: object) -> None:
+    subscription = "00000000-0000-0000-0000-000000000001"
+    tenant = "00000000-0000-0000-0000-000000000002"
+    monkeypatch.setattr(doctor.shutil, "which", lambda _name: "/usr/bin/az")  # type: ignore[attr-defined]
+    monkeypatch.setattr(  # type: ignore[attr-defined]
+        doctor.subprocess,
+        "run",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            [],
+            0,
+            stdout=f'{{"subscription":"{subscription}","tenant":"{tenant}"}}',
+        ),
+    )
+
+    binding = doctor.azure_active_target_binding()
+    assert binding is not None
+    assert len(binding) == 64
+    assert subscription not in binding
+    assert tenant not in binding

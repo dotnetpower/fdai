@@ -252,6 +252,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H18 | The compiled manifest sealed broad stages but not the concrete minimum platform and service inventory. It now enumerates provider registration, foundation, data, model, five-service, Job, Console, and monitoring entries. | `test_compiler_emits_finite_ordered_manifest` |
 | H19 | A ready rehearsal returned before validating the requested run and manifest. Ready journals now pass the same context checks as interrupted journals. | `test_ready_simulation_still_validates_run_and_manifest` |
 | H20 | Bundle verification could block while opening a FIFO before type validation. It now rejects every non-regular payload before opening it. | `test_bundle_hash_rejects_fifo_before_open` |
+| H21 | Profile inspection recorded a target digest but did not compare it with the active Azure context. It now derives the active binding without disclosure and requires an exact match. | `test_active_target_binding_is_stable_and_identifier_free` |
 
 ## Related docs
 
