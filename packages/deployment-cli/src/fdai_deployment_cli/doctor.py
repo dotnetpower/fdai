@@ -59,3 +59,28 @@ def doctor_json(checks: tuple[ToolCheck, ...]) -> str:
         sort_keys=True,
         separators=(",", ":"),
     )
+
+
+def azure_cli_authenticated() -> bool:
+    """Return whether Azure CLI has one active account without exposing its identifiers."""
+
+    executable = shutil.which("az")
+    if executable is None:
+        return False
+    try:
+        completed = subprocess.run(
+            [
+                executable,
+                "account",
+                "show",
+                "--output",
+                "none",
+                "--only-show-errors",
+            ],
+            check=False,
+            capture_output=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return completed.returncode == 0

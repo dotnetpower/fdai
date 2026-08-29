@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 39e2a772421c9570aa2c5933df51cb87748a7650
+translation_source_sha: 8d99d7b71fa22b757fb300329ccb0f7b59733be0
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -235,6 +235,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H08 | 라이선스 구문 분석이 느슨한 base64 형식과 중복 기능을 허용했습니다. 이제 정규 base64url과 고유하며 정렬된 기능 집합을 요구합니다. | `test_license_rejects_noncanonical_base64_and_duplicate_capabilities` |
 | H09 | 오프라인 키트 해시가 파일을 열기 전에 수집한 경로 메타데이터를 신뢰했습니다. 이제 서술자 신원을 검증하고 해시 중 변경을 탐지합니다. | `test_offline_hash_rejects_replaced_file_identity` |
 | H10 | 번들 해시에도 같은 교체 경쟁과 집계 크기 상한 부재가 있었습니다. 이제 해시 중 서술자 신원을 확인하고 파일, 개수, 전체 크기 상한을 적용합니다. | `test_bundle_hash_rejects_replaced_file_identity` |
+| H11 | 로컬 점검이 도구 설치만으로 Azure 활성 계정이 없는 상태를 준비 완료로 처리했습니다. 이제 식별자를 노출하지 않는 읽기 전용 인증 검사를 수행하고 실패 시 차단합니다. | `test_azure_authentication_fails_closed_without_login` |
 
 ## 관련 문서
 

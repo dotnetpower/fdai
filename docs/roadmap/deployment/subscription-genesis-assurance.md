@@ -242,6 +242,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H08 | License parsing accepted permissive base64 forms and duplicate capabilities. It now requires canonical base64url and a unique sorted capability set. | `test_license_rejects_noncanonical_base64_and_duplicate_capabilities` |
 | H09 | Offline kit hashing trusted path metadata collected before opening the file. It now verifies descriptor identity and detects mutation during hashing. | `test_offline_hash_rejects_replaced_file_identity` |
 | H10 | Bundle hashing had the same replacement race and no aggregate size bounds. It now checks descriptor identity during hashing and enforces file, count, and total ceilings. | `test_bundle_hash_rejects_replaced_file_identity` |
+| H11 | Local inspection treated installed tools as readiness even when Azure had no active account. It now performs a read-only, identifier-free authentication check and fails closed. | `test_azure_authentication_fails_closed_without_login` |
 
 ## Related docs
 
