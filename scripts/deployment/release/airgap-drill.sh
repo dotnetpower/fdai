@@ -55,6 +55,8 @@ done
 
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
+PYTHON="$repo_root/.venv/bin/python"
+[[ -x "$PYTHON" ]] || { echo "airgap-drill: BLOCKED - .venv is missing." >&2; exit 2; }
 SENTINEL=".fdai-airgap-workdir"
 if [[ "$WORKDIR" != /* || "$WORKDIR" == "/" || "$WORKDIR" == "$HOME" || "$WORKDIR" == "$repo_root" ]]; then
   echo "airgap-drill: workdir must be a safe absolute path outside the repository and home." >&2
@@ -69,15 +71,11 @@ if [[ "$SKIP_STAGE" -eq 0 ]]; then
     echo "airgap-drill: a fresh workdir is required." >&2
     exit 2
   fi
-  mkdir -m 700 "$WORKDIR"
-  printf 'fdai-airgap-drill-v1\n' > "$WORKDIR/$SENTINEL"
-  chmod 600 "$WORKDIR/$SENTINEL"
+  "$PYTHON" scripts/deployment/release/workdir-guard.py create \
+    --path "$WORKDIR" --sentinel "$SENTINEL" --value fdai-airgap-drill-v1
 else
-  sentinel_value=""
-  if [[ -f "$WORKDIR/$SENTINEL" && ! -L "$WORKDIR/$SENTINEL" ]]; then
-    IFS= read -r sentinel_value < "$WORKDIR/$SENTINEL" || true
-  fi
-  if [[ ! -d "$WORKDIR" || "$sentinel_value" != "fdai-airgap-drill-v1" ]]; then
+  if ! "$PYTHON" scripts/deployment/release/workdir-guard.py verify \
+    --path "$WORKDIR" --sentinel "$SENTINEL" --value fdai-airgap-drill-v1; then
     echo "airgap-drill: --skip-stage requires an owned drill workdir." >&2
     exit 2
   fi
@@ -89,9 +87,6 @@ for tool in az curl git openssl unshare uv; do
     exit 2
   }
 done
-PYTHON="$repo_root/.venv/bin/python"
-[[ -x "$PYTHON" ]] || { echo "airgap-drill: BLOCKED - .venv is missing." >&2; exit 2; }
-
 KIT="$WORKDIR/kit"
 BUNDLE_VERSION="0.1.0"
 case "$(uname -m)" in
