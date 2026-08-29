@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1238,
+  "file_count": 1239,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "ebca41cd37517c9c564b1351302f9222805b56f186b9a83e9a562e69a51a74a9",
     ".github/instructions/agent-stewardship.instructions.md": "e2e2224db17159323f910252e0f9f6efb44c0f1d7e0d217d5159745c15c9ff46",
@@ -115,6 +115,7 @@
     "services/core-control-plane/src/fdai/core/README.md": "d3832549ad3825cf5f65a830b8d399244c7d7ca10bca00fbdb623c6e45bc0639",
     "services/core-control-plane/src/fdai/core/__init__.py": "2089fdfc47357f4a4a12c6bb4bd9bf0d7aa471492e4957d50af8aa4293b1f9f6",
     "services/core-control-plane/src/fdai/core/architecture_review/__init__.py": "a806271152d3b8d1d4eb6cd7b9074e768c1cc1af0ac79a79ae7dc9df061997b8",
+    "services/core-control-plane/src/fdai/core/architecture_review/decision_receipt.py": "0f9063bd5e8009b9b26cc936082833c467ce7c45262a1d37fcf737cd5271e484",
     "services/core-control-plane/src/fdai/core/architecture_review/projection.py": "e7068d5c686db7e980f3a4b2cb099b2473d3003a2146c40007913ba5bb83e698",
     "services/core-control-plane/src/fdai/core/architecture_review/readiness.py": "214bddf4ecb9c6309ce797b726e5e88d3493ead978b818ea0043d1b5244848c6",
     "services/core-control-plane/src/fdai/core/assurance_twin/__init__.py": "6327e1acbb416d251e1df2bb753bad256086c1e098f9f0e8b4c1cf83f2b4a5ea",
@@ -1241,7 +1242,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-29T04:26:55Z",
+  "generated_at": "2026-08-29T04:29:03Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",
