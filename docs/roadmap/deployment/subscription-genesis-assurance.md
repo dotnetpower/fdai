@@ -318,6 +318,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H84 | Offline staging accepted an arbitrary relative or existing output root before recursive cleanup. It now requires a safe absolute path and a private staging or air-gap ownership sentinel. | `test_release_scripts_use_the_installable_distribution` |
 | H85 | A known staging sentinel string was forgeable and did not prove UID ownership or private modes. A descriptor-based guard now verifies current-UID ownership, mode 0700, and a mode-0600 regular sentinel. | `test_workdir_guard_rejects_public_or_linked_roots` |
 | H86 | Air-gap resume trusted the same forgeable public marker before executing retained artifacts. Fresh and resumed drills now use the descriptor-based UID and mode guard. | `test_workdir_guard_creates_and_verifies_private_sentinel` |
+| H87 | Restaging an owned output preserved the prior bundle archive, which the deterministic builder refuses to overwrite. Cleanup now removes every generated single-file build output. | `test_release_scripts_use_the_installable_distribution` |
 
 ## Related docs
 
