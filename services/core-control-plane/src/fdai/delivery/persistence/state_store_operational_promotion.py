@@ -14,6 +14,7 @@ from fdai.shared.providers.state_store import StateStore
 _PREFIX = "operational-promotion-receipt:"
 _SAFE_ID = re.compile(r"^[A-Za-z0-9._-]{1,160}$")
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
+_QUALIFIED_DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 _REVISION = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 _TEXT_FIELDS = (
     "fdai_revision",
@@ -50,7 +51,12 @@ _FLOAT_FIELDS = (
     "recurrence_rate",
     "simulation_review_rate",
 )
-_EXPECTED_FIELDS = frozenset((*_TEXT_FIELDS, *_INT_FIELDS, *_FLOAT_FIELDS, "ready", "gaps"))
+_DECISION_EVIDENCE_FIELDS = (
+    "decision_evidence_receipt_digest",
+    "decision_evidence_verification_bundle_digest",
+)
+_V1_FIELDS = frozenset((*_TEXT_FIELDS, *_INT_FIELDS, *_FLOAT_FIELDS, "ready", "gaps"))
+_V1_1_FIELDS = frozenset((*_V1_FIELDS, *_DECISION_EVIDENCE_FIELDS))
 
 
 class StateStoreOperationalPromotionReceiptStore:
@@ -66,7 +72,7 @@ class StateStoreOperationalPromotionReceiptStore:
             scenario_set_version=receipt.scenario_set_version,
             evidence_digest=receipt.evidence_digest,
         )
-        value = {"schema_version": "1.0.0", "receipt": receipt.as_json()}
+        value = {"schema_version": "1.1.0", "receipt": receipt.as_json()}
         created = await self._store.write_state_with_audit_if_absent(
             key,
             value,
@@ -117,12 +123,13 @@ class StateStoreOperationalPromotionReceiptStore:
         )
         if raw is None:
             return None
-        if raw.get("schema_version") != "1.0.0":
+        schema_version = raw.get("schema_version")
+        if schema_version not in {"1.0.0", "1.1.0"}:
             raise ValueError("unsupported operational promotion receipt state")
         receipt = raw.get("receipt")
         if not isinstance(receipt, Mapping):
             raise ValueError("operational promotion receipt state is malformed")
-        return _decode_receipt(receipt)
+        return _decode_receipt(receipt, schema_version=schema_version)
 
 
 def _key(
@@ -143,10 +150,17 @@ def _key(
     return f"{_PREFIX}{action_type_name}:{fdai_revision}:{scenario_set_version}:{evidence_digest}"
 
 
-def _decode_receipt(raw: Mapping[str, Any]) -> OperationalPromotionReceipt:
-    if frozenset(raw) != _EXPECTED_FIELDS:
+def _decode_receipt(
+    raw: Mapping[str, Any],
+    *,
+    schema_version: object,
+) -> OperationalPromotionReceipt:
+    expected_fields = _V1_FIELDS if schema_version == "1.0.0" else _V1_1_FIELDS
+    if frozenset(raw) != expected_fields:
         raise ValueError("operational promotion receipt fields do not match schema")
     values = dict(raw)
+    if schema_version == "1.0.0":
+        values.update(dict.fromkeys(_DECISION_EVIDENCE_FIELDS))
     for field in _TEXT_FIELDS:
         value = values[field]
         if not isinstance(value, str) or not value:
@@ -162,6 +176,12 @@ def _decode_receipt(raw: Mapping[str, Any]) -> OperationalPromotionReceipt:
         values[field] = float(value)
     if not isinstance(values["ready"], bool):
         raise ValueError("operational promotion receipt ready is invalid")
+    for field in _DECISION_EVIDENCE_FIELDS:
+        value = values[field]
+        if value is not None and (
+            not isinstance(value, str) or _QUALIFIED_DIGEST.fullmatch(value) is None
+        ):
+            raise ValueError(f"operational promotion receipt {field} is invalid")
     gaps = values["gaps"]
     if not isinstance(gaps, list) or any(not isinstance(item, str) for item in gaps):
         raise ValueError("operational promotion receipt gaps are invalid")

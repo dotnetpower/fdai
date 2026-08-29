@@ -193,6 +193,8 @@ class ActionPromotionRegistry:
         if receipt is not None and self._receipt_verifier is not None:
             receipt_passes = (
                 receipt.ready
+                and receipt.decision_evidence_receipt_digest is not None
+                and receipt.decision_evidence_verification_bundle_digest is not None
                 and receipt.action_type_name == action_type.name
                 and receipt.action_type_version == action_type.version
                 and action_type.provenance is not None

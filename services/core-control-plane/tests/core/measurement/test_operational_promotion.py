@@ -7,11 +7,14 @@ from pathlib import Path
 
 import pytest
 from fdai.core.measurement.operational_promotion import (
+    OPERATIONAL_PROMOTION_EVIDENCE_PURPOSE,
     CausalPromotionReceipt,
     OperationalPromotionBatch,
     OperationalPromotionEvaluator,
     OperationalPromotionRecord,
     PromotionEvidenceCohort,
+    operational_promotion_evidence_digest,
+    operational_promotion_scope_digest,
 )
 from fdai.core.measurement.operational_promotion_runner import (
     OperationalPromotionMeasurementRunner,
@@ -20,6 +23,7 @@ from fdai.core.risk_gate import ActionPromotionRegistry, PromotionMetrics
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.shared.contracts.models import CausalEvidenceGrade
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
@@ -95,6 +99,22 @@ def _record(
     return OperationalPromotionRecord(**values)  # type: ignore[arg-type]
 
 
+def _with_admission(batch: OperationalPromotionBatch) -> OperationalPromotionBatch:
+    return replace(
+        batch,
+        decision_evidence=DecisionEvidenceAdmission(
+            receipt_digest="sha256:" + "d" * 64,
+            verification_bundle_digest="sha256:" + "e" * 64,
+            evidence_digest=operational_promotion_evidence_digest(batch),
+            scope_digest=operational_promotion_scope_digest(batch),
+            purpose_id=OPERATIONAL_PROMOTION_EVIDENCE_PURPOSE,
+            source_revision=batch.fdai_revision,
+            verified_at=_SEALED - timedelta(minutes=1),
+            valid_until=_SEALED + timedelta(minutes=1),
+        ),
+    )
+
+
 def _passing_batch() -> OperationalPromotionBatch:
     action = _action()
     sample_count = max(action.promotion_gate.min_samples, 400)
@@ -111,14 +131,16 @@ def _passing_batch() -> OperationalPromotionBatch:
         )
         for index in range(sample_count)
     )
-    return OperationalPromotionBatch(
-        fdai_revision=_REVISION,
-        scenario_set_version=_SCENARIO,
-        action_type_name=_ACTION,
-        action_type_version=action.version,
-        action_type_digest=action.provenance.content_hash.removeprefix("sha256:"),
-        sealed_at=_SEALED,
-        records=records,
+    return _with_admission(
+        OperationalPromotionBatch(
+            fdai_revision=_REVISION,
+            scenario_set_version=_SCENARIO,
+            action_type_name=_ACTION,
+            action_type_version=action.version,
+            action_type_digest=action.provenance.content_hash.removeprefix("sha256:"),
+            sealed_at=_SEALED,
+            records=records,
+        )
     )
 
 
@@ -148,6 +170,30 @@ def test_complete_immutable_evidence_batch_is_ready_for_separate_review() -> Non
     assert receipt.recurrence_rate == 0.0
     assert receipt.simulation_review_rate == 0.0
     assert len(receipt.evidence_digest) == 64
+    assert receipt.decision_evidence_receipt_digest == "sha256:" + "d" * 64
+    assert receipt.decision_evidence_verification_bundle_digest == "sha256:" + "e" * 64
+
+
+def test_missing_or_mismatched_decision_evidence_blocks_promotion() -> None:
+    admitted = _passing_batch()
+    missing = replace(admitted, decision_evidence=None)
+    assert admitted.decision_evidence is not None
+    mismatched = replace(
+        admitted,
+        decision_evidence=replace(
+            admitted.decision_evidence,
+            evidence_digest="sha256:" + "f" * 64,
+        ),
+    )
+
+    missing_receipt = _evaluator().evaluate(_action(), missing)
+    mismatched_receipt = _evaluator().evaluate(_action(), mismatched)
+
+    assert missing_receipt.ready is False
+    assert "decision_evidence_admission_missing" in missing_receipt.gaps
+    assert missing_receipt.decision_evidence_receipt_digest is None
+    assert mismatched_receipt.ready is False
+    assert "decision_evidence_evidence_mismatch" in mismatched_receipt.gaps
 
 
 def test_perfect_accuracy_at_minimum_samples_still_needs_confidence() -> None:
@@ -200,7 +246,10 @@ def test_adverse_operational_evidence_blocks_promotion(
     batch = _passing_batch()
     records = tuple(replace(record, **changes) for record in batch.records)
 
-    receipt = _evaluator().evaluate(_action(), replace(batch, records=records))
+    receipt = _evaluator().evaluate(
+        _action(),
+        _with_admission(replace(batch, records=records, decision_evidence=None)),
+    )
 
     assert receipt.ready is False
     assert any(gap in item for item in receipt.gaps)
@@ -321,7 +370,10 @@ def test_successful_benchmark_cannot_hide_failed_live_shadow_cohort() -> None:
         for record in batch.records
     )
 
-    receipt = _evaluator().evaluate(_action(), replace(batch, records=records))
+    receipt = _evaluator().evaluate(
+        _action(),
+        _with_admission(replace(batch, records=records, decision_evidence=None)),
+    )
 
     assert receipt.benchmark_accuracy == 1.0
     assert receipt.live_shadow_accuracy == 0.0
@@ -482,7 +534,10 @@ def test_recurrence_denominator_ignores_nonexecuted_samples() -> None:
         for index, record in enumerate(batch.records)
     )
 
-    receipt = _evaluator().evaluate(_action(), replace(batch, records=records))
+    receipt = _evaluator().evaluate(
+        _action(),
+        _with_admission(replace(batch, records=records, decision_evidence=None)),
+    )
 
     assert receipt.executed_samples == 1
     assert receipt.recurrence_complete_samples == 1
@@ -716,6 +771,18 @@ def test_registry_requires_matching_verified_operational_receipt() -> None:
             return receipt.evidence_digest == _passing_batch().content_digest
 
     verified_registry = ActionPromotionRegistry(receipt_verifier=_ReceiptVerifier())
+    legacy = replace(
+        receipt,
+        decision_evidence_receipt_digest=None,
+        decision_evidence_verification_bundle_digest=None,
+    )
+    legacy_record = verified_registry.consider_promotion(
+        action_type=action,
+        metrics=metrics,
+        receipt=legacy,
+    )
+    assert legacy_record.mode.value == "shadow"
+
     record = verified_registry.consider_promotion(
         action_type=action,
         metrics=metrics,

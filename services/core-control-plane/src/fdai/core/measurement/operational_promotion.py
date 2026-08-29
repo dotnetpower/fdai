@@ -11,7 +11,13 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Protocol
 
+from fdai_service_contracts.ontology_query import content_digest
+
 from fdai.shared.contracts.models import CausalEvidenceGrade, OntologyActionType
+from fdai.shared.providers.decision_evidence_verifier import (
+    DecisionEvidenceAdmission,
+    assess_decision_evidence_admission,
+)
 
 _GIT_REVISION = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 _IDENTIFIER = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$")
@@ -24,6 +30,7 @@ _EVIDENCE_RANK = {
     CausalEvidenceGrade.QUASI_EXPERIMENTAL: 2,
     CausalEvidenceGrade.INTERVENTIONAL: 3,
 }
+OPERATIONAL_PROMOTION_EVIDENCE_PURPOSE = "operational-promotion"
 
 
 class PromotionEvidenceCohort(StrEnum):
@@ -156,6 +163,7 @@ class OperationalPromotionBatch:
     action_type_digest: str
     sealed_at: datetime
     records: tuple[OperationalPromotionRecord, ...]
+    decision_evidence: DecisionEvidenceAdmission | None = None
 
     def __post_init__(self) -> None:
         if _GIT_REVISION.fullmatch(self.fdai_revision) is None:
@@ -313,6 +321,8 @@ class OperationalPromotionReceipt:
     causal_evidence_failures: int
     ready: bool
     gaps: tuple[str, ...]
+    decision_evidence_receipt_digest: str | None = None
+    decision_evidence_verification_bundle_digest: str | None = None
 
     def as_json(self) -> dict[str, object]:
         return {
@@ -347,6 +357,10 @@ class OperationalPromotionReceipt:
             "causal_evidence_failures": self.causal_evidence_failures,
             "ready": self.ready,
             "gaps": list(self.gaps),
+            "decision_evidence_receipt_digest": self.decision_evidence_receipt_digest,
+            "decision_evidence_verification_bundle_digest": (
+                self.decision_evidence_verification_bundle_digest
+            ),
         }
 
 
@@ -379,6 +393,7 @@ class OperationalPromotionEvaluator:
         action_type: OntologyActionType,
         batch: OperationalPromotionBatch,
     ) -> OperationalPromotionReceipt:
+        evaluated_at = self._as_of()
         records = _latest_records(batch.records)
         sample_count = len(records)
         benchmark_samples = sum(
@@ -446,7 +461,7 @@ class OperationalPromotionEvaluator:
             gaps.append("action_type_version_mismatch")
         if batch.action_type_digest != _action_type_digest(action_type):
             gaps.append("action_type_digest_mismatch")
-        if batch.sealed_at > self._as_of():
+        if batch.sealed_at > evaluated_at:
             gaps.append("batch_sealed_in_future")
         if sample_count < gate.min_samples:
             gaps.append(f"sample_count={sample_count}<min_samples={gate.min_samples}")
@@ -512,6 +527,18 @@ class OperationalPromotionEvaluator:
             gaps.append(f"causal_evidence_failures={causal_evidence_failures}")
         if unverified_units:
             gaps.append(f"unverified_measurement_units={unverified_units}")
+        if batch.decision_evidence is None:
+            gaps.append("decision_evidence_admission_missing")
+        else:
+            reasons = assess_decision_evidence_admission(
+                batch.decision_evidence,
+                expected_evidence_digest=operational_promotion_evidence_digest(batch),
+                expected_scope_digest=operational_promotion_scope_digest(batch),
+                expected_purpose_id=OPERATIONAL_PROMOTION_EVIDENCE_PURPOSE,
+                expected_source_revision=batch.fdai_revision,
+                evaluated_at=evaluated_at,
+            )
+            gaps.extend(f"decision_evidence_{reason.value}" for reason in reasons)
 
         return OperationalPromotionReceipt(
             fdai_revision=batch.fdai_revision,
@@ -545,6 +572,16 @@ class OperationalPromotionEvaluator:
             causal_evidence_failures=causal_evidence_failures,
             ready=not gaps,
             gaps=tuple(gaps),
+            decision_evidence_receipt_digest=(
+                batch.decision_evidence.receipt_digest
+                if batch.decision_evidence is not None
+                else None
+            ),
+            decision_evidence_verification_bundle_digest=(
+                batch.decision_evidence.verification_bundle_digest
+                if batch.decision_evidence is not None
+                else None
+            ),
         )
 
     def _as_of(self) -> datetime:
@@ -553,7 +590,27 @@ class OperationalPromotionEvaluator:
         value = self._as_of_fn()  # type: ignore[operator]
         if not isinstance(value, datetime) or value.tzinfo is None:
             raise TypeError("operational promotion as_of_fn MUST return aware datetime")
-        return value
+        return value.astimezone(UTC)
+
+
+def operational_promotion_evidence_digest(batch: OperationalPromotionBatch) -> str:
+    """Return the shared-contract digest for one complete promotion batch."""
+
+    return f"sha256:{batch.content_digest}"
+
+
+def operational_promotion_scope_digest(batch: OperationalPromotionBatch) -> str:
+    """Return the exact revision, scenario, and ActionType promotion scope."""
+
+    return content_digest(
+        {
+            "action_type_digest": batch.action_type_digest,
+            "action_type_name": batch.action_type_name,
+            "action_type_version": batch.action_type_version,
+            "fdai_revision": batch.fdai_revision,
+            "scenario_set_version": batch.scenario_set_version,
+        }
+    )
 
 
 def _is_digest(value: str) -> bool:
@@ -599,6 +656,7 @@ def _wilson_interval(successes: int, samples: int) -> tuple[float, float]:
 __all__ = [
     "CausalPromotionReceipt",
     "CausalPromotionReceiptVerifier",
+    "OPERATIONAL_PROMOTION_EVIDENCE_PURPOSE",
     "OperationalPromotionBatch",
     "OperationalPromotionEvaluator",
     "OperationalPromotionPolicy",
@@ -606,4 +664,6 @@ __all__ = [
     "OperationalPromotionRecord",
     "OperationalPromotionUnitVerifier",
     "PromotionEvidenceCohort",
+    "operational_promotion_evidence_digest",
+    "operational_promotion_scope_digest",
 ]

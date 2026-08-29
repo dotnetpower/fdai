@@ -89,6 +89,13 @@ class OperationalPromotionDirectApiExecutor(DirectApiExecutor):
             raise DirectApiPreconditionError("operational promotion receipt identity mismatched")
         if not receipt.ready:
             raise DirectApiPreconditionError("operational promotion receipt is not ready")
+        if (
+            receipt.decision_evidence_receipt_digest is None
+            or receipt.decision_evidence_verification_bundle_digest is None
+        ):
+            raise DirectApiPreconditionError(
+                "operational promotion receipt lacks independent decision evidence"
+            )
         metrics = PromotionMetrics(
             action_type=target.name,
             shadow_days=receipt.live_observation_days,

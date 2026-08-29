@@ -71,6 +71,8 @@ def _receipt(action_type) -> OperationalPromotionReceipt:  # type: ignore[no-unt
         causal_evidence_failures=0,
         ready=True,
         gaps=(),
+        decision_evidence_receipt_digest="sha256:" + "d" * 64,
+        decision_evidence_verification_bundle_digest="sha256:" + "e" * 64,
     )
 
 
@@ -180,4 +182,25 @@ async def test_mismatched_receipt_identity_fails_closed() -> None:
     )
 
     with pytest.raises(DirectApiPreconditionError, match="identity mismatched"):
+        await executor.execute(_request(target.name, mode=Mode.ENFORCE))
+
+
+async def test_legacy_receipt_without_decision_evidence_fails_closed() -> None:
+    action_types = _action_types()
+    target = action_types["remediate.tag-add"]
+    legacy = replace(
+        _receipt(target),
+        decision_evidence_receipt_digest=None,
+        decision_evidence_verification_bundle_digest=None,
+    )
+    executor = OperationalPromotionDirectApiExecutor(
+        action_types=action_types,
+        receipts=_ReceiptReader(legacy),
+        registry=StateStoreActionPromotionRegistry(
+            store=InMemoryStateStore(),
+            receipt_verifier=_ReceiptVerifier(),
+        ),
+    )
+
+    with pytest.raises(DirectApiPreconditionError, match="lacks independent"):
         await executor.execute(_request(target.name, mode=Mode.ENFORCE))

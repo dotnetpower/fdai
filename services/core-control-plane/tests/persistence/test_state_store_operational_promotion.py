@@ -46,6 +46,8 @@ def _receipt() -> OperationalPromotionReceipt:
         causal_evidence_failures=0,
         ready=True,
         gaps=(),
+        decision_evidence_receipt_digest="sha256:" + "d" * 64,
+        decision_evidence_verification_bundle_digest="sha256:" + "e" * 64,
     )
 
 
@@ -76,7 +78,7 @@ async def test_receipt_store_rejects_tampered_numeric_types() -> None:
     payload["sample_count"] = "100"
     await state.write_state(
         _KEY,
-        {"schema_version": "1.0.0", "receipt": payload},
+        {"schema_version": "1.1.0", "receipt": payload},
     )
 
     with pytest.raises(ValueError, match="sample_count"):
@@ -86,3 +88,26 @@ async def test_receipt_store_rejects_tampered_numeric_types() -> None:
             scenario_set_version=_SCENARIO,
             evidence_digest=_EVIDENCE,
         )
+
+
+async def test_legacy_receipt_loads_without_decision_evidence_authority() -> None:
+    state = InMemoryStateStore()
+    receipts = StateStoreOperationalPromotionReceiptStore(state)
+    payload = _receipt().as_json()
+    payload.pop("decision_evidence_receipt_digest")
+    payload.pop("decision_evidence_verification_bundle_digest")
+    await state.write_state(
+        _KEY,
+        {"schema_version": "1.0.0", "receipt": payload},
+    )
+
+    loaded = await receipts.load(
+        action_type_name=_ACTION,
+        fdai_revision=_REVISION,
+        scenario_set_version=_SCENARIO,
+        evidence_digest=_EVIDENCE,
+    )
+
+    assert loaded is not None
+    assert loaded.decision_evidence_receipt_digest is None
+    assert loaded.decision_evidence_verification_bundle_digest is None
