@@ -153,17 +153,9 @@ if timeout 5 getent hosts registry.terraform.io >/dev/null 2>&1; then
 fi
 echo "   no egress, no DNS"
 
-echo "-- install shipped CLI from kit wheels"
-"$UV" venv --python "$PYTHON" "$WORKDIR/cli-venv" >/dev/null
-"$UV" pip install --python "$WORKDIR/cli-venv/bin/python" \
-  --no-index --find-links "$KIT/python" "fdai-deployment-cli==$CLI_VERSION" >/dev/null
-CLI="$WORKDIR/cli-venv/bin/fdaictl"
-CLI_PYTHON="$WORKDIR/cli-venv/bin/python"
-"$CLI" version --output json >/dev/null
-
-echo "-- 2. offline kit"
+echo "-- 2. externally verify offline kit before executing it"
 cd "$REPO_ROOT"
-"$CLI_PYTHON" -c "
+PYTHONPATH=packages/deployment-cli/src "$PYTHON" -c "
 import sys
 from pathlib import Path
 from fdai_deployment_cli.offline_kit import verify_offline_kit
@@ -174,6 +166,27 @@ result = verify_offline_kit(
     platform_tag=sys.argv[4],
 )
 print(f\"   verified {result.file_count} files, {result.total_bytes} bytes\")
+" "$KIT" "$WORKDIR/release-root.pub" "$CLI_VERSION" "$PLATFORM_TAG"
+
+echo "-- install authenticated shipped CLI from kit wheels"
+"$UV" venv --python "$PYTHON" "$WORKDIR/cli-venv" >/dev/null
+"$UV" pip install --python "$WORKDIR/cli-venv/bin/python" \
+  --no-index --find-links "$KIT/python" "fdai-deployment-cli==$CLI_VERSION" >/dev/null
+CLI="$WORKDIR/cli-venv/bin/fdaictl"
+CLI_PYTHON="$WORKDIR/cli-venv/bin/python"
+"$CLI" version --output json >/dev/null
+
+# Recheck through the installed distribution so the shipped import path is also exercised.
+"$CLI_PYTHON" -c "
+import sys
+from pathlib import Path
+from fdai_deployment_cli.offline_kit import verify_offline_kit
+verify_offline_kit(
+    Path(sys.argv[1]),
+    release_root_pem=Path(sys.argv[2]).read_bytes(),
+    cli_version=sys.argv[3],
+    platform_tag=sys.argv[4],
+)
 " "$KIT" "$WORKDIR/release-root.pub" "$CLI_VERSION" "$PLATFORM_TAG"
 # Kit verification proves the SBOM has not been tampered with; it cannot notice
 # that the SBOM describes nothing. An empty components array reads as compliant

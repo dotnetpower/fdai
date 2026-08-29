@@ -276,6 +276,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H42 | Offline-kit verification accepted an arbitrary signed SBOM payload. It now requires CycloneDX 1.5 with unique SHA-256 components that exactly cover every other kit file. | `test_offline_kit_rejects_incomplete_sbom` |
 | H43 | Inspection required GitHub CLI even for manual transport profiles. Tool prerequisites now follow the selected transport. | `test_manual_profile_does_not_require_github_cli` |
 | H44 | Non-force profile initialization used a replacing rename after its existence check, so concurrent creation could be overwritten. Publication now uses atomic no-replace linking. | `test_profile_publish_never_replaces_concurrent_destination` |
+| H45 | The air-gap drill installed and executed the kit before authenticating it. A trusted external verifier now checks the signed manifest and wheel digests before installation. | `test_release_scripts_use_the_installable_distribution` |
 
 ## Related docs
 

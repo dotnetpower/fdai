@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 5aed19dfe9fbd683f2d4fbe819286e4740bf9464
+translation_source_sha: fd9b86f81097c13c7330c1d95b11cd6424503907
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -269,6 +269,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H42 | 오프라인 키트 검증이 임의의 서명 SBOM 페이로드를 허용했습니다. 이제 고유한 SHA-256 구성 요소가 다른 모든 키트 파일을 정확히 포함하는 CycloneDX 1.5를 요구합니다. | `test_offline_kit_rejects_incomplete_sbom` |
 | H43 | 점검이 수동 전송 프로필에도 GitHub CLI를 요구했습니다. 이제 도구 선행 조건이 선택한 전송 방식을 따릅니다. | `test_manual_profile_does_not_require_github_cli` |
 | H44 | 강제하지 않은 프로필 초기화가 존재 확인 후 교체 rename을 사용해 동시 생성을 덮어쓸 수 있었습니다. 이제 원자적 no-replace 링크로 게시합니다. | `test_profile_publish_never_replaces_concurrent_destination` |
+| H45 | air-gap 훈련이 키트를 인증하기 전에 설치하고 실행했습니다. 이제 신뢰된 외부 검증기가 설치 전에 서명 매니페스트와 wheel 다이제스트를 확인합니다. | `test_release_scripts_use_the_installable_distribution` |
 
 ## 관련 문서
 
