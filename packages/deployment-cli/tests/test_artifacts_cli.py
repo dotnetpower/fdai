@@ -9,7 +9,7 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from fdai_deployment_cli.bundle import BundleVerificationError, verify_bundle
+from fdai_deployment_cli.bundle import BundleVerificationError, _sha256, verify_bundle
 from fdai_deployment_cli.cli import _safe_plan_error, main
 from fdai_deployment_cli.contracts import canonical_bytes
 from fdai_deployment_cli.license import LicenseInspectionError, inspect_license
@@ -148,6 +148,16 @@ def test_bundle_verification_rejects_tampering(tmp_path: Path) -> None:
     payload.write_text("changed", encoding="utf-8")
     with pytest.raises(BundleVerificationError, match="exact file set"):
         verify_bundle(tmp_path, public_key_pem=public)
+
+
+def test_bundle_hash_rejects_replaced_file_identity(tmp_path: Path) -> None:
+    expected = tmp_path / "expected"
+    observed = tmp_path / "observed"
+    expected.write_bytes(b"same")
+    observed.write_bytes(b"same")
+
+    with pytest.raises(BundleVerificationError, match="changed during verification"):
+        _sha256(observed, expected=expected.stat())
 
 
 def test_license_inspection_verifies_signature_and_time() -> None:

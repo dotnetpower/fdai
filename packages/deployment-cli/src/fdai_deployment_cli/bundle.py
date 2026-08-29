@@ -86,6 +86,7 @@ def verify_bundle(root: Path, *, public_key_pem: bytes) -> BundleVerification:
             raise BundleVerificationError("deployment bundle file digest is invalid")
         declared[path] = raw_digest
     observed: dict[str, str] = {}
+    total_bytes = 0
     for directory, directories, names in os.walk(root, followlinks=False):
         base = Path(directory)
         if any((base / name).is_symlink() for name in directories):
@@ -95,7 +96,15 @@ def verify_bundle(root: Path, *, public_key_pem: bytes) -> BundleVerification:
             relative = candidate.relative_to(root).as_posix()
             if relative in {"manifest.json", "manifest.json.sig"}:
                 continue
-            observed[relative] = _sha256(candidate)
+            if len(observed) >= 20_000:
+                raise BundleVerificationError("deployment bundle exceeds its file count limit")
+            details = candidate.lstat()
+            if details.st_size > 512 * 1024 * 1024:
+                raise BundleVerificationError("deployment bundle file exceeds its size limit")
+            total_bytes += details.st_size
+            if total_bytes > 8 * 1024 * 1024 * 1024:
+                raise BundleVerificationError("deployment bundle exceeds its total size limit")
+            observed[relative] = _sha256(candidate, expected=details)
     if dict(sorted(observed.items())) != dict(sorted(declared.items())):
         raise BundleVerificationError("deployment bundle exact file set or digest does not match")
     return BundleVerification(
@@ -128,16 +137,27 @@ def _read_regular(path: Path, maximum: int) -> bytes:
         return stream.read(maximum + 1)
 
 
-def _sha256(path: Path) -> str:
-    details = path.lstat()
-    if not stat.S_ISREG(details.st_mode):
-        raise BundleVerificationError("deployment bundle MUST contain regular files")
+def _sha256(path: Path, *, expected: os.stat_result) -> str:
     descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
     digest = hashlib.sha256()
     with os.fdopen(descriptor, "rb") as stream:
+        opened = os.fstat(stream.fileno())
+        _require_same_file(expected, opened)
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
+        _require_same_file(opened, os.fstat(stream.fileno()))
     return digest.hexdigest()
+
+
+def _require_same_file(expected: os.stat_result, observed: os.stat_result) -> None:
+    if (
+        not stat.S_ISREG(observed.st_mode)
+        or expected.st_dev != observed.st_dev
+        or expected.st_ino != observed.st_ino
+        or expected.st_size != observed.st_size
+        or expected.st_mtime_ns != observed.st_mtime_ns
+    ):
+        raise BundleVerificationError("deployment bundle file changed during verification")
 
 
 def _relative_path(value: str) -> str:
