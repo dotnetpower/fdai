@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1244,
+  "file_count": 1246,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "ebca41cd37517c9c564b1351302f9222805b56f186b9a83e9a562e69a51a74a9",
     ".github/instructions/agent-stewardship.instructions.md": "e2e2224db17159323f910252e0f9f6efb44c0f1d7e0d217d5159745c15c9ff46",
@@ -775,9 +775,10 @@
     "services/core-control-plane/src/fdai/core/read_investigation/routing.py": "5488e55618057b7e2547c382026666d6fd3471f157e0eda5b3e18f68463aabb4",
     "services/core-control-plane/src/fdai/core/read_investigation/service.py": "7dd739dea0db80a25f8668b3f3a1997918597d6be8b72ace7a1803b1c4f6eba5",
     "services/core-control-plane/src/fdai/core/read_investigation/shadow_sink.py": "3bd64e25ec6aa6637723ee327dc29a4bae4364b4b6b31e45187e14b9d73583fd",
-    "services/core-control-plane/src/fdai/core/readiness/__init__.py": "5690184f4235c5966f81d671251a76c859b136519bb727af44715f8b78290b3c",
+    "services/core-control-plane/src/fdai/core/readiness/__init__.py": "0d68d3f1477c0e70d434f1bfd40cbed7256e61696eba66a737f8ed123f86a8d2",
     "services/core-control-plane/src/fdai/core/readiness/checklist.py": "97c9f09e5282c783e765f8d6861667989b8f6bbf2aafe8be0ed878a0b006b462",
     "services/core-control-plane/src/fdai/core/readiness/coordinator.py": "107a0182ce41b8799514ef479912af90ae2664b4fd6f6448c83690636e17ece9",
+    "services/core-control-plane/src/fdai/core/readiness/decision_evidence.py": "321a43e8daf6442a4a3895ba333564a5a056e439bfd2f7dd95fd262ef86ff9ce",
     "services/core-control-plane/src/fdai/core/readiness/detection.py": "dab5c870aadabc4550cc45c33b97b016aec24c256d48ae044057c82361f670d4",
     "services/core-control-plane/src/fdai/core/readiness/discovery_activation.py": "a944701777577d069ed0f9327000cd0d497be4b0a92edf08a052cccd4b559569",
     "services/core-control-plane/src/fdai/core/readiness/models.py": "9b8d24c2a4d1b3e5b5fe859151ed00362cc2d55fbe0b6cc981ab3a117bc098b8",
@@ -1125,6 +1126,7 @@
     "services/core-control-plane/src/fdai/shared/providers/cost_governance_decision.py": "8e42e4ec376720b942fab8fc22665dedc32eceebd676c21ae1acdbc5dd6bc623",
     "services/core-control-plane/src/fdai/shared/providers/cost_governance_lifecycle.py": "1c0148aebc38db8a2e803eefa9b6456d3e9cfef25a74ea79207a5de8ea663b48",
     "services/core-control-plane/src/fdai/shared/providers/db_dr.py": "ce2f1e842eb3f3a12d73fdfa3617ba744071595e69ec8f3b8086a25433e75346",
+    "services/core-control-plane/src/fdai/shared/providers/decision_evidence_verifier.py": "0b1b5aba8ee485a19dd802a5991ddbe037f4f7bcb763ea30ddbba3ec82d648ca",
     "services/core-control-plane/src/fdai/shared/providers/declarative_inventory.py": "f447e8867ac05293acd9c815508b3294494a22a574caf4740cef491dda1a0aa4",
     "services/core-control-plane/src/fdai/shared/providers/direct_api.py": "200bde08ea084dcdcac5c4091c70ca46c534607c3630b39d309e40f8c51ef24a",
     "services/core-control-plane/src/fdai/shared/providers/distiller.py": "d00a9db3c4fed7744c31aa9e7b5f712e5ee28baf92baf9f92e4828b91c4b2dff",

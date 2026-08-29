@@ -32,12 +32,15 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   contracts before a disabled package can enter the lifecycle. Cost effect observations and
   completeness receipts carry the exact expected-effect source digest across this boundary.
 - **decision-critical evidence is contract-bound**: the shared service-contract SDK exposes
-  `DecisionCriticalEvidenceReceipt` and its registered Draft 2020-12 schema. The canonical model
-  binds evidence and authentication proof, authority, source, scope, purpose, exact producer and
-  method versions, source revision, time, policy-derived freshness, completeness and conflict
-  proofs, provenance, synthetic status, and an explicit no-authority flag. The schema validator
-  also runs semantic time, ordering, and digest checks. Claim preflight may reject a record or pass
-  it to a separately trusted verifier, but it cannot declare live readiness or grant authority.
+  `DecisionCriticalEvidenceReceipt`, `DecisionEvidenceVerificationBundle`, and their registered
+  Draft 2020-12 schemas. The receipt binds the claim inputs. Five content-addressed proofs then bind
+  authentication, evidence, completeness, conflict, and freshness-policy verification to the exact
+  receipt, verifier version, trust anchor, and validity window. Core selects a current non-revoked
+  binding through the provider-neutral registry and fails closed on producer self-verification,
+  timeout, mismatch, expiry, revocation, or synthetic evidence. Cloud SDK use remains in delivery:
+  the Azure adapter performs authoritative readback with a short-lived Managed Identity token and
+  does not retain the credential. A successful bundle establishes evidence eligibility only; it
+  cannot declare execution, approval, or promotion authority.
 - **semantic target resolution is deterministic**: a model-authored resource-identity
   clarification is removed only when Core verifies one exact runtime identifier from the same
   utterance. Zero or multiple identifiers and every other unresolved concept remain a typed
