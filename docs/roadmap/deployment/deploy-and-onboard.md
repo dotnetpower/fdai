@@ -20,7 +20,6 @@ Azure focus: this document targets an Azure subscription. Non-Azure providers ar
 | Continuous inventory Job | implemented | `inventory_job.tf`; `inventory_job_config.py`; focused inventory and infrastructure checks | A minute cron drives change drains and due checks. Terraform carries the change floor, progress and absolute deadlines, and shared ARG request budget. Protected apply and live cadence evidence remain open. |
 | Global provider-schema Job | implemented | `provider_schema_job.tf`; `provider_schema_watcher_cli.py`; `provider_schema_state_ledger.py`; focused provider, Pantheon, Terraform, and infrastructure checks | A daily read-only Job resolves immutable upstream revisions, persists its append-only ledger through private PostgreSQL, and routes strict material drift through Heimdall's existing shadow topic. A protected apply and scheduled-run receipt remain open. |
 ### Implementation history
-
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-29 | implemented | Extended the single checksum-pinned GitHub CLI installation step to isolated Executor image binding after protected plan `33235557463` reached that step without `gh` on the runner. | Failed protected plan `33235557463`; `current change`; focused workflow diet test. | Rerun the exact protected target plan, then apply only its sealed non-destructive artifact. |
