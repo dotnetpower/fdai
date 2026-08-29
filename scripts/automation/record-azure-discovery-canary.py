@@ -41,7 +41,7 @@ from fdai_service_contracts.discovery_evidence import (
 )
 from fdai_service_contracts.ontology_query import content_digest
 
-_AZURE_CLI_VERSION = "2.87.0"
+_AZURE_CLI_VERSION = "2.89.1"
 _RESOURCE_GRAPH_EXTENSION_VERSION = "2.1.1"
 _ARG_API_VERSION = "2022-10-01"
 _MAX_PROVIDER_TYPES = 256
