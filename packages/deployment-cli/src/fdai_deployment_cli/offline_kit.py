@@ -5,8 +5,10 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import platform
 import re
 import stat
+import sys
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Final
@@ -38,6 +40,8 @@ class OfflineKitVerification:
     cli_version: str
     bundle_version: str
     platform_tag: str
+    python_tag: str
+    libc_tag: str
     file_count: int
     total_bytes: int
     manifest_digest: str
@@ -56,6 +60,8 @@ class OfflineKitVerification:
                 "cli_version": self.cli_version,
                 "bundle_version": self.bundle_version,
                 "platform_tag": self.platform_tag,
+                "python_tag": self.python_tag,
+                "libc_tag": self.libc_tag,
                 "file_count": self.file_count,
                 "total_bytes": self.total_bytes,
                 "manifest_digest": self.manifest_digest,
@@ -78,6 +84,8 @@ def build_offline_kit_manifest(
     provider_mirror_prefix: str,
     opa_binary: str,
     sbom_path: str,
+    python_tag: str | None = None,
+    libc_tag: str | None = None,
 ) -> bytes:
     """Build canonical manifest bytes from the exact staged tree."""
 
@@ -109,6 +117,8 @@ def build_offline_kit_manifest(
             "cli_version": cli_version,
             "bundle_version": bundle_version,
             "platform_tag": platform_tag,
+            "python_tag": python_tag or _runtime_python_tag(),
+            "libc_tag": libc_tag or _runtime_libc_tag(),
             **required,
             "files": files,
         }
@@ -121,6 +131,8 @@ def verify_offline_kit(
     release_root_pem: bytes,
     cli_version: str,
     platform_tag: str,
+    python_tag: str | None = None,
+    libc_tag: str | None = None,
 ) -> OfflineKitVerification:
     """Verify signature before parsing, then compatibility, exact files, and digests."""
 
@@ -143,6 +155,8 @@ def verify_offline_kit(
             "cli_version",
             "bundle_version",
             "platform_tag",
+            "python_tag",
+            "libc_tag",
             "python_wheel",
             "deployment_bundle",
             "terraform_binary",
@@ -157,6 +171,10 @@ def verify_offline_kit(
             raise OfflineKitVerificationError("offline kit CLI version does not match")
         if payload["platform_tag"] != platform_tag:
             raise OfflineKitVerificationError("offline kit platform does not match")
+        if payload["python_tag"] != (python_tag or _runtime_python_tag()):
+            raise OfflineKitVerificationError("offline kit Python ABI does not match")
+        if payload["libc_tag"] != (libc_tag or _runtime_libc_tag()):
+            raise OfflineKitVerificationError("offline kit libc does not match")
         files_value = payload["files"]
         if not isinstance(files_value, dict) or not files_value:
             raise OfflineKitVerificationError("offline kit files MUST be a non-empty object")
@@ -196,6 +214,8 @@ def verify_offline_kit(
             cli_version=_payload_text(payload, "cli_version"),
             bundle_version=_payload_text(payload, "bundle_version"),
             platform_tag=_payload_text(payload, "platform_tag"),
+            python_tag=_payload_text(payload, "python_tag"),
+            libc_tag=_payload_text(payload, "libc_tag"),
             file_count=len(observed),
             total_bytes=total,
             manifest_digest=hashlib.sha256(manifest).hexdigest(),
@@ -425,3 +445,19 @@ def _payload_text(value: dict[str, object], field: str) -> str:
     if not isinstance(item, str) or not item:
         raise OfflineKitVerificationError(f"offline kit {field} MUST be text")
     return item
+
+
+def _runtime_python_tag() -> str:
+    return f"{sys.implementation.name}-{sys.version_info.major}{sys.version_info.minor}"
+
+
+def _runtime_libc_tag() -> str:
+    name, version = platform.libc_ver()
+    normalized_name = name.casefold().strip()
+    normalized_version = version.casefold().strip()
+    if (
+        re.fullmatch(r"[a-z0-9._-]+", normalized_name) is None
+        or re.fullmatch(r"[a-z0-9._-]+", normalized_version) is None
+    ):
+        raise OfflineKitVerificationError("runtime libc identity is unavailable")
+    return f"{normalized_name}-{normalized_version}"

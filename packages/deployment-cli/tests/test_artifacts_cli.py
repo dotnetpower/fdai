@@ -111,7 +111,7 @@ def _kit(root: Path) -> tuple[Ed25519PrivateKey, bytes, bytes]:
 
 
 def test_offline_kit_verifies_signature_exact_files_and_compatibility(tmp_path: Path) -> None:
-    _private, public, manifest = _kit(tmp_path)
+    private, public, manifest = _kit(tmp_path)
     result = verify_offline_kit(
         tmp_path,
         release_root_pem=public,
@@ -123,6 +123,8 @@ def test_offline_kit_verifies_signature_exact_files_and_compatibility(tmp_path: 
     assert result.terraform_binary == "terraform/terraform"
     assert result.provider_mirror_prefix == "terraform/providers"
     assert result.deployment_bundle == "deployment/bundle.tar.gz"
+    assert result.python_tag
+    assert result.libc_tag
 
     (tmp_path / "extra").write_text("extra", encoding="utf-8")
     with pytest.raises(OfflineKitVerificationError, match="exact file set"):
@@ -142,6 +144,16 @@ def test_offline_kit_verifies_signature_exact_files_and_compatibility(tmp_path: 
             platform_tag="linux-x86_64",
         )
     assert manifest
+
+    (tmp_path / SIGNATURE_NAME).write_bytes(private.sign(manifest))
+    with pytest.raises(OfflineKitVerificationError, match="Python ABI"):
+        verify_offline_kit(
+            tmp_path,
+            release_root_pem=public,
+            cli_version="0.1.0",
+            platform_tag="linux-x86_64",
+            python_tag="cpython-999",
+        )
 
 
 def test_offline_kit_rejects_symlink(tmp_path: Path) -> None:
