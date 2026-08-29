@@ -140,6 +140,9 @@ subscription and tenant identifiers, environment, region, remote-runner boundary
 default in a gitignored mode-`0600` file. Human output never prints the account identifiers.
 Profile, plan-input, and journal readers open paths in nonblocking mode before checking for a
 mode-`0600` regular file, so named pipes cannot stall read-only commands.
+Journal appends also use a nonblocking exclusive lock with a five-second monotonic deadline and
+repeat descriptor validation after acquisition, so contention stops the append instead of hanging
+onboarding.
 
 `license inspect` is offline in the same sense as bundle and kit verification: the public key ships
 with the distribution, so no network call, revocation lookup, or certificate chain is involved. It

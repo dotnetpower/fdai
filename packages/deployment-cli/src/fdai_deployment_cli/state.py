@@ -7,6 +7,7 @@ import json
 import os
 import re
 import stat
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -19,6 +20,8 @@ from fdai_deployment_cli.compiler import GENESIS_ENTRY_IDS
 GENESIS_HASH = "0" * 64
 _MAX_JOURNAL_BYTES = 8 * 1024 * 1024
 _MAX_EVENTS = 10_000
+_LOCK_TIMEOUT_SECONDS = 5.0
+_LOCK_RETRY_SECONDS = 0.05
 _ID = re.compile(r"^[a-z][a-z0-9._-]{0,127}$")
 
 
@@ -155,12 +158,9 @@ def append_event(path: Path, event: ProvisionEvent) -> None:
     finally:
         os.close(directory)
     with os.fdopen(descriptor, "a+b") as stream:
-        fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
-        details = os.fstat(stream.fileno())
-        if not stat.S_ISREG(details.st_mode) or stat.S_IMODE(details.st_mode) != 0o600:
-            raise PermissionError("provision journal MUST be a mode-0600 regular file")
-        if details.st_size > _MAX_JOURNAL_BYTES:
-            raise ValueError("provision journal exceeds its size limit")
+        _validate_journal_descriptor(stream.fileno())
+        _acquire_exclusive_lock(stream.fileno())
+        details = _validate_journal_descriptor(stream.fileno())
         events = _read_stream(stream)
         previous = events[-1] if events else None
         expected_sequence = 1 if previous is None else previous.sequence + 1
@@ -185,6 +185,30 @@ def append_event(path: Path, event: ProvisionEvent) -> None:
         stream.write(payload + b"\n")
         stream.flush()
         os.fsync(stream.fileno())
+
+
+def _acquire_exclusive_lock(
+    descriptor: int, *, timeout_seconds: float = _LOCK_TIMEOUT_SECONDS
+) -> None:
+    deadline = time.monotonic() + timeout_seconds
+    while True:
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return
+        except BlockingIOError as exc:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError("provision journal lock timed out") from exc
+            time.sleep(min(_LOCK_RETRY_SECONDS, remaining))
+
+
+def _validate_journal_descriptor(descriptor: int) -> os.stat_result:
+    details = os.fstat(descriptor)
+    if not stat.S_ISREG(details.st_mode) or stat.S_IMODE(details.st_mode) != 0o600:
+        raise PermissionError("provision journal MUST be a mode-0600 regular file")
+    if details.st_size > _MAX_JOURNAL_BYTES:
+        raise ValueError("provision journal exceeds its size limit")
+    return details
 
 
 def read_journal(path: Path) -> tuple[ProvisionEvent, ...]:

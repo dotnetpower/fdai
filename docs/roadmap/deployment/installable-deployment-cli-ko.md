@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 87daed05b0c2cbbd8d1b6546d92ed50063c07656
+translation_source_sha: 1b19e74850e0e9df1c9baa2ba2a3dbf45482d18f
 translation_revised: 2026-08-29
 ---
 # 설치형 배포 CLI
@@ -140,6 +140,8 @@ C1 명령은 자동화를 위해 안정적인 JSON 스키마를 사용합니다.
 mode-`0600` 파일에 기록합니다. 사람용 출력에는 계정 식별자가 표시되지 않습니다.
 프로필, 계획 입력, 저널 읽기 경로는 mode-`0600` 일반 파일인지 검사하기 전에 비차단 모드로
 열기 때문에 이름 있는 파이프가 읽기 전용 명령을 멈추게 할 수 없습니다.
+저널 추가도 5초 monotonic deadline이 있는 비차단 배타적 잠금을 사용하고 잠금 획득 뒤 서술자를
+다시 검증하므로, 경합이 온보딩을 멈추게 하지 않고 추가 작업을 중단시킵니다.
 
 `license inspect`는 번들 및 키트 검증과 같은 의미에서 오프라인입니다. 공개 키가 분포와
 함께 배포되므로 네트워크 호출, 철회 조회, 인증서 체인이 관여하지 않습니다. 상태와 비밀이

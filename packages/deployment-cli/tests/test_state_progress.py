@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 from dataclasses import replace
@@ -19,6 +20,7 @@ from fdai_deployment_cli.state import (
     ProvisionEvent,
     ResumeAction,
     RunState,
+    _acquire_exclusive_lock,
     append_event,
     read_journal,
     resume_action,
@@ -96,6 +98,22 @@ def test_journal_reader_rejects_fifo_without_blocking(
     monkeypatch.setattr(os, "open", open_nonblocking)
     with pytest.raises(PermissionError, match="regular file"):
         read_journal(fifo)
+
+
+def test_journal_lock_acquisition_has_a_monotonic_deadline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def always_contended(descriptor: int, operation: int) -> None:
+        assert descriptor == 42
+        assert operation & fcntl.LOCK_NB
+        raise BlockingIOError
+
+    times = iter((10.0, 11.0))
+    monkeypatch.setattr("fdai_deployment_cli.state.fcntl.flock", always_contended)
+    monkeypatch.setattr("fdai_deployment_cli.state.time.monotonic", lambda: next(times))
+
+    with pytest.raises(TimeoutError, match="lock timed out"):
+        _acquire_exclusive_lock(42, timeout_seconds=1.0)
 
 
 def test_journal_never_follows_parent_directory_symlink(tmp_path: Path) -> None:
