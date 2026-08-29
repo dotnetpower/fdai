@@ -23,9 +23,11 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     drill = (ROOT / "scripts/deployment/release/airgap-drill.sh").read_text(encoding="utf-8")
     signer = (ROOT / "scripts/deployment/release/build-offline-kit.py").read_text(encoding="utf-8")
 
+    assert "uv lock --check --project packages/deployment-cli" in stage
     assert "uv build --wheel --project packages/deployment-cli" in stage
-    assert "uv export --project packages/deployment-cli --no-dev --no-emit-project" in stage
-    assert 'uvx --python "$PYTHON" --from pip pip download' in stage
+    assert "uv export --project packages/deployment-cli --locked --no-dev" in stage
+    assert "uv run --project packages/deployment-cli --locked --no-dev --group release" in stage
+    assert '--python "$PYTHON" python -m pip download' in stage
     assert "pip download --only-binary=:all: --require-hashes" in stage
     assert 'cp "$OUT/wheels"/*.whl "$KIT/python/"' in stage
     assert 'PLATFORM" != "$HOST_PLATFORM"' in stage
@@ -76,3 +78,9 @@ def test_source_entrypoint_reports_stable_version_json() -> None:
     )
 
     assert completed.stdout == ('{"schema_version":"fdai.version.v1","version":"0.1.0"}\n')
+
+
+def test_release_tooling_is_exactly_pinned() -> None:
+    package = tomllib.loads((PACKAGE / "pyproject.toml").read_text(encoding="utf-8"))
+    assert package["build-system"]["requires"] == ["hatchling==1.31.0"]
+    assert package["dependency-groups"]["release"] == ["pip==26.2.1"]

@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 93e91cb85d7d81de782b59fb1a9adb23f2833a42
+translation_source_sha: dc2e2aa0b81d97a4eaee6d325ac0d0f2887fd69b
 translation_revised: 2026-08-29
 ---
 # 설치형 배포 CLI
@@ -107,6 +107,8 @@ Installer는 system 도구를 변경하지 않습니다. `fdaictl doctor`가 누
 비공개 스냅샷으로 복사한 뒤 해당 스냅샷에서만 설치합니다. 같은 검증기가 Terraform이 읽기
 전에 서명 번들을 안전하게 풀고 검증합니다. 설치된 `fdaictl`이 검증을 다시 수행합니다.
 모든 Terraform 바이너리와 공급자 경로는 원본 키트가 아니라 비공개 스냅샷을 사용합니다.
+연결된 준비도 오프라인 키트를 서명하기 전에 커밋된 배포 CLI lock과 정확한 Hatchling 및 pip
+버전을 요구합니다.
 
 C1 명령은 자동화를 위해 안정적인 JSON 스키마를 사용합니다. `provision init`은 활성 구독
 및 테넌트 식별자, 환경, 지역, remote-runner 경계, shadow-mode 기본값만 gitignored
