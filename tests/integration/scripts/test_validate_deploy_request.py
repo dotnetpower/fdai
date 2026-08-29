@@ -22,6 +22,7 @@ def _request(**overrides: str) -> dict[str, str]:
         "APPLY": "false",
         "TARGET_ENVIRONMENT": "dev",
         "DEPLOY_DEV_OPERATIONS_GATEWAY": "false",
+        "DEPLOY_CORE_MODEL_QUORUM": "false",
         "DEPLOY_ISOLATED_EXECUTOR": "false",
         "DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET": "false",
         "PROMOTE_RUNTIME_IMAGE": "false",
@@ -138,6 +139,33 @@ def test_monitoring_is_exclusive() -> None:
     with pytest.raises(ValueError, match="deploy_monitoring cannot be combined"):
         validate(
             _request(DEPLOY_MONITORING="true", DEPLOY_OPERATOR_API="true"),
+            checkout_commit=_COMMIT,
+        )
+
+
+def test_core_model_quorum_is_dev_only_protected_and_exclusive() -> None:
+    protected = {
+        "DEPLOY_CORE_MODEL_QUORUM": "true",
+        "REQUEST_ID": "plan-quorum-" + "c" * 24,
+        "CONTEXT_DIGEST": _DIGEST,
+        "COMMIT_SHA": _COMMIT,
+        "DEPLOY_PREFLIGHT_INPUT_JSON": "{}",
+    }
+    validate(_request(**protected), checkout_commit=_COMMIT)
+
+    with pytest.raises(ValueError, match="restricted to dev"):
+        validate(
+            _request(**protected, TARGET_ENVIRONMENT="staging"),
+            checkout_commit=_COMMIT,
+        )
+    with pytest.raises(ValueError, match="requires a protected request"):
+        validate(
+            _request(DEPLOY_CORE_MODEL_QUORUM="true"),
+            checkout_commit=_COMMIT,
+        )
+    with pytest.raises(ValueError, match="cannot be combined"):
+        validate(
+            _request(**protected, DEPLOY_OPERATOR_API="true"),
             checkout_commit=_COMMIT,
         )
 

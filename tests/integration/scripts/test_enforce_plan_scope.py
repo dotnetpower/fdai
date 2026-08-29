@@ -69,6 +69,19 @@ def test_model_scope_requires_a_change() -> None:
         )
 
 
+def test_core_model_quorum_requires_exact_required_pair() -> None:
+    judge = 'module.llm_azure_openai[0].azurerm_cognitive_deployment.capability["t1.judge"]'
+    primary = (
+        'module.llm_azure_openai[0].azurerm_cognitive_deployment.capability["t2.reasoner.primary"]'
+    )
+
+    assert enforce(_plan(judge, primary), mode="core-model-quorum") == frozenset({judge, primary})
+    with pytest.raises(ValueError, match="exactly the required deployments"):
+        enforce(_plan(judge), mode="core-model-quorum")
+    with pytest.raises(ValueError, match="exactly the required deployments"):
+        enforce(_plan(judge, primary, "module.console[0].site"), mode="core-model-quorum")
+
+
 def test_read_and_noop_actions_are_ignored() -> None:
     plan = {
         "resource_changes": [
