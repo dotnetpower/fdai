@@ -300,6 +300,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H66 | The drill required provider-authentication evidence but did not require Azure CLI and disabled MSI. Azure CLI is now an explicit prerequisite. | `test_release_scripts_use_the_installable_distribution` |
 | H67 | `--skip-stage` left the prior empty Azure profile directory and failed on recreation. Reset now removes every generated verification directory before rebuilding it privately. | `test_release_scripts_use_the_installable_distribution` |
 | H68 | Source instructions invoked an ambient stale `fdaictl` and claimed no entry point existed. They now select the independent project and link the current implementation ledger. | documentation command and link checks |
+| H69 | Release staging signed ambient Terraform and OPA executables from `PATH`. It now downloads pinned versions and verifies platform-specific official SHA-256 values before use. | `test_release_tooling_is_exactly_pinned` |
 
 ## Related docs
 

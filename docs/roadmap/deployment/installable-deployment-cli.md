@@ -108,7 +108,8 @@ same verifier safely extracts and verifies the signed bundle before Terraform re
 `fdaictl` then repeats verification, and every Terraform binary and provider path uses the private
 snapshot rather than the original kit.
 Connected staging also requires the committed deployment CLI lock and exact Hatchling and pip
-versions before it can sign an offline kit.
+versions before it can sign an offline kit. Terraform and OPA are downloaded at pinned versions
+and accepted only after their platform-specific official SHA-256 values match.
 Offline planning recomputes the profile target digest from concrete tenant and subscription input,
 matches the profile region, and supplies the verified subscription to Terraform.
 The synthetic air-gap drill isolates Azure CLI configuration so a host login cannot alter its

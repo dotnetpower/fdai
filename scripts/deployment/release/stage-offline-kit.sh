@@ -60,7 +60,7 @@ done
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
-for tool in terraform openssl uv git opa; do
+for tool in curl git openssl sha256sum unzip uv; do
   command -v "$tool" >/dev/null 2>&1 || {
     echo "stage-offline-kit: BLOCKED - $tool is required to assemble a kit." >&2
     exit 2
@@ -88,15 +88,44 @@ if [[ "$PLATFORM" != "$HOST_PLATFORM" || "$PLATFORM_TAG" != "$HOST_PLATFORM_TAG"
 fi
 PYTHON="$repo_root/.venv/bin/python"
 [[ -x "$PYTHON" ]] || { echo "stage-offline-kit: BLOCKED - .venv is missing." >&2; exit 2; }
+TERRAFORM_VERSION="1.9.8"
+OPA_VERSION="0.68.0"
+case "$HOST_PLATFORM" in
+  linux_amd64)
+    TERRAFORM_SHA256="186e0145f5e5f2eb97cbd785bc78f21bae4ef15119349f6ad4fa535b83b10df8"
+    OPA_SHA256="dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa"
+    OPA_ASSET="opa_linux_amd64_static"
+    ;;
+  linux_arm64)
+    TERRAFORM_SHA256="f85868798834558239f6148834884008f2722548f84034c9b0f62934b2d73ebb"
+    OPA_SHA256="1a583e593cdf4931c0b0bbedd3c9f585012953449115bcc3e15b3806d0f5ee68"
+    OPA_ASSET="opa_linux_arm64_static"
+    ;;
+esac
 
 CLI_VERSION=""
 KIT="$OUT/kit"
 BUNDLE_IN_KIT="deployment/fdai-deployment-bundle-${BUNDLE_VERSION}.tar.gz"
 
-rm -rf "$KIT" "$OUT/bundle" "$OUT/wheels" "$OUT/mirror"
-mkdir -p "$OUT" "$KIT"/{python,deployment,terraform,bin,sbom}
+rm -rf "$KIT" "$OUT/bundle" "$OUT/wheels" "$OUT/mirror" "$OUT/toolchain"
+mkdir -p "$OUT/toolchain" "$KIT"/{python,deployment,terraform,bin,sbom}
 
 openssl pkey -in "$RELEASE_KEY" -pubout -out "$OUT/release-root.pub"
+
+echo "-- pinned release toolchain"
+curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors \
+  --retry-max-time 120 --connect-timeout 10 --max-time 90 \
+  -o "$OUT/toolchain/terraform.zip" \
+  "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_${HOST_PLATFORM}.zip"
+echo "$TERRAFORM_SHA256  $OUT/toolchain/terraform.zip" | sha256sum -c -
+unzip -q "$OUT/toolchain/terraform.zip" -d "$OUT/toolchain"
+TERRAFORM_BIN="$OUT/toolchain/terraform"
+curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors \
+  --retry-max-time 120 --connect-timeout 10 --max-time 90 \
+  -o "$OUT/toolchain/opa" \
+  "https://github.com/open-policy-agent/opa/releases/download/v${OPA_VERSION}/${OPA_ASSET}"
+echo "$OPA_SHA256  $OUT/toolchain/opa" | sha256sum -c -
+chmod 755 "$TERRAFORM_BIN" "$OUT/toolchain/opa"
 
 echo "-- signed deployment bundle"
 SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-1700000000}" PYTHONPATH=src "$PYTHON" \
@@ -111,8 +140,8 @@ echo "-- terraform provider mirror"
 # the signed bundle directory.
 rm -rf "$OUT/mirror-src"
 cp -r "$OUT/bundle/infra" "$OUT/mirror-src"
-(cd "$OUT/mirror-src" && terraform init -backend=false -input=false >/dev/null)
-(cd "$OUT/mirror-src" && terraform providers mirror -platform="$PLATFORM" "$OUT/mirror" >/dev/null)
+(cd "$OUT/mirror-src" && "$TERRAFORM_BIN" init -backend=false -input=false >/dev/null)
+(cd "$OUT/mirror-src" && "$TERRAFORM_BIN" providers mirror -platform="$PLATFORM" "$OUT/mirror" >/dev/null)
 rm -rf "$OUT/mirror-src"
 
 echo "-- fdai deployment CLI wheel"
@@ -136,9 +165,9 @@ WHEEL="python/$wheel_name"
 echo "-- assemble kit"
 cp "$OUT/wheels"/*.whl "$KIT/python/"
 cp "$OUT/bundle.tar.gz" "$KIT/$BUNDLE_IN_KIT"
-cp "$(command -v terraform)" "$KIT/terraform/terraform"
+cp "$TERRAFORM_BIN" "$KIT/terraform/terraform"
 cp -r "$OUT/mirror" "$KIT/terraform/providers"
-cp "$(command -v opa)" "$KIT/bin/opa"
+cp "$OUT/toolchain/opa" "$KIT/bin/opa"
 
 echo "-- kit SBOM"
 # The deployment bundle already ships a real CycloneDX document listing every

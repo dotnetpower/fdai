@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 2f37ec8ca08cc811188607f802562cf23a076bf8
+translation_source_sha: 744f66fcbdf933773884b0fd93f281a38341b259
 translation_revised: 2026-08-29
 ---
 # 설치형 배포 CLI
@@ -109,7 +109,8 @@ Installer는 system 도구를 변경하지 않습니다. `fdaictl doctor`가 누
 전에 서명 번들을 안전하게 풀고 검증합니다. 설치된 `fdaictl`이 검증을 다시 수행합니다.
 모든 Terraform 바이너리와 공급자 경로는 원본 키트가 아니라 비공개 스냅샷을 사용합니다.
 연결된 준비도 오프라인 키트를 서명하기 전에 커밋된 배포 CLI lock과 정확한 Hatchling 및 pip
-버전을 요구합니다.
+버전을 요구합니다. Terraform과 OPA는 고정 버전으로 다운로드하고 플랫폼별 공식 SHA-256이
+일치할 때만 사용합니다.
 오프라인 계획은 구체적인 테넌트 및 구독 입력으로 프로필 대상 다이제스트를 재계산하고 프로필
 지역을 일치시키며 검증된 구독을 Terraform에 전달합니다.
 합성 air-gap 훈련은 Azure CLI 구성을 격리해 호스트 로그인이 대상 근거를 바꾸지 못하게 하고

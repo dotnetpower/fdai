@@ -36,6 +36,14 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     assert 'PLATFORM_TAG="${PLATFORM_TAG:-$HOST_PLATFORM_TAG}"' in stage
     assert "cross-platform kit staging is not supported" in stage
     assert 'aarch64|arm64) PLATFORM_TAG="linux-aarch64"' in drill
+    assert 'TERRAFORM_VERSION="1.9.8"' in stage
+    assert 'OPA_VERSION="0.68.0"' in stage
+    assert "186e0145f5e5f2eb97cbd785bc78f21bae4ef15119349f6ad4fa535b83b10df8" in stage
+    assert "f85868798834558239f6148834884008f2722548f84034c9b0f62934b2d73ebb" in stage
+    assert "dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa" in stage
+    assert "1a583e593cdf4931c0b0bbedd3c9f585012953449115bcc3e15b3806d0f5ee68" in stage
+    assert 'cp "$(command -v terraform)"' not in stage
+    assert 'cp "$(command -v opa)"' not in stage
     assert "fdai_deployment_cli-*-py3-none-any.whl" in stage
     assert "PYTHONPATH=packages/deployment-cli/src" in stage
     assert '"$UV" pip install --python "$WORKDIR/cli-venv/bin/python"' in drill
