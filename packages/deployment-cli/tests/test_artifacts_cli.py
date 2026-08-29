@@ -74,6 +74,8 @@ def test_offline_kit_verifies_signature_exact_files_and_compatibility(tmp_path: 
     )
     assert result.file_count == 6
     assert result.manifest_digest
+    assert result.terraform_binary == "terraform/terraform"
+    assert result.provider_mirror_prefix == "terraform/providers"
 
     (tmp_path / "extra").write_text("extra", encoding="utf-8")
     with pytest.raises(OfflineKitVerificationError, match="exact file set"):

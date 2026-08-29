@@ -248,6 +248,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H14 | Profiles did not bind the intended tenant and subscription, allowing reuse against another active login. They now require a deployment-local target digest. | `test_profile_init_requires_digest_bound_target` |
 | H15 | Rehearsal marked completed stages as `verifying`, making interruption status dishonest. The journal now has an explicit `completed` state and resumes only those stages. | `test_simulation_interrupts_and_resumes_without_duplicate_stage` |
 | H16 | The journal accepted `ready` as a first event and allowed work after terminal failure. Transition checks now require completed readiness evidence and close terminal runs. | `test_journal_rejects_ready_without_readiness_evidence` |
+| H17 | Offline planning reopened and reparsed the manifest after verification, allowing a replacement race. It now consumes only paths returned by the verified result. | `test_offline_kit_verifies_signature_exact_files_and_compatibility` |
 
 ## Related docs
 

@@ -200,14 +200,8 @@ def _provision_plan(args: argparse.Namespace) -> int:
     )
     args.work_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     args.work_dir.chmod(0o700)
-    terraform_relative = json.loads(
-        (args.offline_kit / "offline-kit.json").read_text(encoding="utf-8")
-    )["terraform_binary"]
-    mirror_relative = json.loads(
-        (args.offline_kit / "offline-kit.json").read_text(encoding="utf-8")
-    )["provider_mirror_prefix"]
-    terraform = args.offline_kit / terraform_relative
-    mirror = args.offline_kit / mirror_relative
+    terraform = args.offline_kit / verification.terraform_binary
+    mirror = args.offline_kit / verification.provider_mirror_prefix
     config = args.work_dir / "offline.tfrc"
     config.write_text(
         "provider_installation {\n"

@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 5f1fc925c057f6c46456da8b58f1b15e9c920218
+translation_source_sha: 5713d0dc47146bb76e4c9ef8d01f3277ecfd79c3
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -241,6 +241,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H14 | 프로필이 의도한 테넌트와 구독에 연결되지 않아 다른 활성 로그인에서 재사용될 수 있었습니다. 이제 배포 로컬 대상 다이제스트를 요구합니다. | `test_profile_init_requires_digest_bound_target` |
 | H15 | 예행 연습이 완료된 단계를 `verifying`으로 표시해 중단 상태가 사실과 달랐습니다. 이제 원장에 명시적 `completed` 상태가 있고 해당 단계만 재개에서 건너뜁니다. | `test_simulation_interrupts_and_resumes_without_duplicate_stage` |
 | H16 | 원장이 첫 이벤트의 `ready`와 종결 실패 후 작업을 허용했습니다. 이제 전이 검사가 완료된 준비도 근거를 요구하고 종결 실행을 닫습니다. | `test_journal_rejects_ready_without_readiness_evidence` |
+| H17 | 오프라인 계획이 검증 후 매니페스트를 다시 열고 구문 분석해 교체 경쟁이 가능했습니다. 이제 검증 결과가 반환한 경로만 사용합니다. | `test_offline_kit_verifies_signature_exact_files_and_compatibility` |
 
 ## 관련 문서
 
