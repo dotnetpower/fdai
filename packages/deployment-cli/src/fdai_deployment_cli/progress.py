@@ -80,6 +80,20 @@ def validate_progression(
         or current.checkpoints_completed < previous.checkpoints_completed
     ):
         raise ValueError("progress counters MUST NOT regress")
+    _validate_optional_progression(
+        previous.resources_observed,
+        previous.resources_expected,
+        current.resources_observed,
+        current.resources_expected,
+        "resources",
+    )
+    _validate_optional_progression(
+        previous.pages_completed,
+        previous.pages_expected,
+        current.pages_completed,
+        current.pages_expected,
+        "pages",
+    )
     if _moment(current.last_progress_at, "last_progress_at") < _moment(
         previous.last_progress_at,
         "last_progress_at",
@@ -142,6 +156,21 @@ def _optional_pair(completed: int | None, total: int | None, label: str) -> None
         raise ValueError(f"{label} progress values MUST be supplied together")
     if completed is not None and total is not None and (completed < 0 or total < 0):
         raise ValueError(f"{label} progress values MUST be non-negative")
+
+
+def _validate_optional_progression(
+    previous_completed: int | None,
+    previous_total: int | None,
+    current_completed: int | None,
+    current_total: int | None,
+    label: str,
+) -> None:
+    if previous_completed is None:
+        return
+    if current_completed is None or current_total is None or previous_total is None:
+        raise ValueError(f"{label} progress MUST NOT disappear")
+    if current_completed < previous_completed or current_total < previous_total:
+        raise ValueError(f"{label} progress MUST NOT regress")
 
 
 def _moment(value: str, field: str) -> datetime:

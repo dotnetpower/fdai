@@ -42,6 +42,39 @@ def test_license_output_never_replaces_existing_file(tmp_path: Path) -> None:
     assert output.stat().st_mode & 0o777 == 0o644
 
 
+def test_license_main_writes_canonical_token_without_newline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    private_key = tmp_path / "private.pem"
+    private_key.write_bytes(b"private")
+    private_key.chmod(0o600)
+    public_key = tmp_path / "public.pem"
+    public_key.write_bytes(b"public")
+    output = tmp_path / "license.token"
+    monkeypatch.setattr(MODULE, "issue_license", lambda **_kwargs: "abc.def")
+
+    assert (
+        MODULE.main(
+            [
+                "--private-key",
+                str(private_key),
+                "--public-key",
+                str(public_key),
+                "--license-id",
+                "lic-test",
+                "--distribution-id",
+                "example-distribution",
+                "--capability",
+                "cost.metering",
+                "--output",
+                str(output),
+            ]
+        )
+        == 0
+    )
+    assert output.read_bytes() == b"abc.def"
+
+
 def test_release_key_reader_is_private_bounded_no_follow_and_nonblocking(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

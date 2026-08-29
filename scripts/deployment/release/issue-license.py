@@ -146,7 +146,7 @@ def main(argv: list[str] | None = None) -> int:
         print(token)
     else:
         try:
-            _write_private_text(args.output, token + "\n")
+            _write_private_text(args.output, token)
         except OSError as exc:
             print(f"license issue failed: {exc}", file=sys.stderr)
             return 1

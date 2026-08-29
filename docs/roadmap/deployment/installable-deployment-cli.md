@@ -157,15 +157,21 @@ Profile, plan-input, and journal readers open paths in nonblocking mode before c
 mode-`0600` regular file, so named pipes cannot stall read-only commands.
 Journal appends also use a nonblocking exclusive lock with a five-second monotonic deadline and
 repeat descriptor validation after acquisition, so contention stops the append instead of hanging
-onboarding.
+onboarding. Journal directory traversal opens every component relative to a held parent descriptor
+and rejects symlinked ancestors. Provision-event v2 records the manifest version used for READY
+validation, while the v1 decoder preserves replay of journals created before that field existed.
+Resource and page counters can appear after discovery starts and can grow, but cannot disappear,
+decrease, or reduce their expected totals in a later progress snapshot.
 
 `license inspect` is offline in the same sense as bundle and kit verification: the public key ships
 with the distribution, so no network call, revocation lookup, or certificate chain is involved. It
 reports status and non-secret metadata only and never echoes the token, document, or signature. The
 token input is accepted only as a mode-`0600` regular file no larger than 8192 bytes. The reader does
 not follow symlinks and opens the path in nonblocking mode before checking its type, so named pipes
-and device files are blocked without waiting. Trust-key inputs use the same no-follow, nonblocking
-regular-file boundary with a 65536-byte limit. The entitlement contract itself lives in
+and device files are blocked without waiting. It preserves the token bytes exactly and rejects
+leading or trailing whitespace; release issuance writes the token without a trailing newline.
+Trust-key inputs use the same no-follow, nonblocking regular-file boundary with a 65536-byte limit.
+The entitlement contract itself lives in
 [capability-licensing.md](../fork-and-sequencing/capability-licensing.md).
 
 ## Local security audit

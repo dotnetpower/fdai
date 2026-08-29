@@ -49,7 +49,9 @@ _ENTRIES: tuple[tuple[str, ApprovalClass], ...] = (
     ("monitoring", ApprovalClass.STANDARD),
     ("system-readiness", ApprovalClass.STANDARD),
 )
+GENESIS_MANIFEST_VERSION = "genesis.v1"
 GENESIS_ENTRY_IDS = tuple(entry_id for entry_id, _approval in _ENTRIES)
+GENESIS_ENTRY_IDS_BY_VERSION = {GENESIS_MANIFEST_VERSION: GENESIS_ENTRY_IDS}
 
 
 def compile_manifest(

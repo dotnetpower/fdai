@@ -66,6 +66,29 @@ def test_journal_rejects_sequence_gap_and_tamper(tmp_path: Path) -> None:
         read_journal(path)
 
 
+def test_journal_replays_legacy_v1_events_with_their_manifest_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "run.jsonl"
+    legacy = replace(_event(1, GENESIS_HASH), schema_version="fdai.provision-event.v1")
+    path.write_text(json.dumps(legacy.to_mapping()) + "\n", encoding="utf-8")
+    path.chmod(0o600)
+    monkeypatch.setattr("fdai_deployment_cli.state.GENESIS_MANIFEST_VERSION", "genesis.v2")
+
+    replayed = read_journal(path)
+
+    assert replayed == (legacy,)
+    assert replayed[0].manifest_version == "genesis.v1"
+    assert "manifest_version" not in legacy.to_mapping()
+
+
+def test_journal_v2_seals_manifest_version() -> None:
+    event = _event(1, GENESIS_HASH)
+
+    assert event.to_mapping()["schema_version"] == "fdai.provision-event.v2"
+    assert event.to_mapping()["manifest_version"] == "genesis.v1"
+
+
 def test_journal_reader_never_follows_symlink(tmp_path: Path) -> None:
     target = tmp_path / "target.jsonl"
     target.write_text("", encoding="utf-8")
@@ -125,6 +148,29 @@ def test_journal_never_follows_parent_directory_symlink(tmp_path: Path) -> None:
     with pytest.raises(OSError):
         append_event(linked / "run.jsonl", _event(1, GENESIS_HASH))
     assert not (target / "run.jsonl").exists()
+
+
+def test_journal_never_follows_earlier_ancestor_symlink(tmp_path: Path) -> None:
+    target = tmp_path / "target"
+    nested = target / "nested"
+    nested.mkdir(parents=True, mode=0o700)
+    target.chmod(0o700)
+    linked = tmp_path / "linked"
+    linked.symlink_to(target, target_is_directory=True)
+
+    with pytest.raises(OSError):
+        append_event(linked / "nested" / "run.jsonl", _event(1, GENESIS_HASH))
+    assert not (nested / "run.jsonl").exists()
+
+
+def test_journal_descriptor_traversal_creates_private_parents(tmp_path: Path) -> None:
+    path = tmp_path / "one" / "two" / "run.jsonl"
+
+    append_event(path, _event(1, GENESIS_HASH))
+
+    assert (tmp_path / "one").stat().st_mode & 0o777 == 0o700
+    assert (tmp_path / "one" / "two").stat().st_mode & 0o777 == 0o700
+    assert read_journal(path) == (_event(1, GENESIS_HASH),)
 
 
 def test_journal_rejects_ready_without_readiness_evidence(tmp_path: Path) -> None:
@@ -254,6 +300,43 @@ def test_progress_rejects_regression_and_changed_totals() -> None:
     )
     with pytest.raises(ValueError, match="totals"):
         validate_progression(first, changed)
+
+
+def test_progress_optional_counters_are_monotonic_once_observed() -> None:
+    started = datetime(2026, 8, 29, tzinfo=UTC)
+
+    def snapshot(
+        sequence: int,
+        *,
+        resources: tuple[int, int] | None,
+        pages: tuple[int, int] | None,
+    ) -> ProgressSnapshot:
+        return ProgressSnapshot(
+            sequence=sequence,
+            state=ProgressState.RUNNING,
+            stages_completed=1,
+            stages_total=10,
+            checkpoints_completed=2,
+            checkpoints_total=20,
+            started_at=started.isoformat(),
+            last_progress_at=(started + timedelta(seconds=sequence)).isoformat(),
+            resources_observed=None if resources is None else resources[0],
+            resources_expected=None if resources is None else resources[1],
+            pages_completed=None if pages is None else pages[0],
+            pages_expected=None if pages is None else pages[1],
+        )
+
+    initial = snapshot(1, resources=None, pages=None)
+    observed = snapshot(2, resources=(4, 10), pages=(2, 5))
+    validate_progression(initial, observed)
+    validate_progression(observed, snapshot(3, resources=(5, 12), pages=(3, 7)))
+
+    with pytest.raises(ValueError, match="resources progress MUST NOT disappear"):
+        validate_progression(observed, snapshot(3, resources=None, pages=(3, 5)))
+    with pytest.raises(ValueError, match="resources progress MUST NOT regress"):
+        validate_progression(observed, snapshot(3, resources=(3, 10), pages=(3, 5)))
+    with pytest.raises(ValueError, match="pages progress MUST NOT regress"):
+        validate_progression(observed, snapshot(3, resources=(5, 10), pages=(2, 4)))
 
 
 def test_inventory_closure_requires_full_independent_readback() -> None:

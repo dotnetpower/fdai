@@ -77,7 +77,9 @@ expired license would, and renewing an entitlement could remove dashboards. The 
 The token is not a secret in the sense the private key is - it cannot be forged - but it **is** a
 bearer credential. A license issued without an `image_digest` or a `tenant_binding` works for anyone
 who can read it. The issuer therefore writes it owner-only and never through a symlink, and a
-distribution that expects tokens to travel should bind them.
+distribution that expects tokens to travel should bind them. File output contains only the canonical
+token bytes, without a trailing newline, because surrounding whitespace is not a valid token
+spelling.
 
 ## Token canonicality
 

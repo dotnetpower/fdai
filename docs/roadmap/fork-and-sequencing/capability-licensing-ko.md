@@ -1,8 +1,8 @@
 ---
 title: Capability 라이선싱
 translation_of: capability-licensing.md
-translation_source_sha: fb4e2641f6c985e827bce809fe3d48de598817ed
-translation_revised: 2026-08-29
+translation_source_sha: 88d324be08afe6ef5284993c70fd816d5c926b4d
+translation_revised: 2026-08-30
 ---
 # 기능 라이선싱
 
@@ -75,7 +75,8 @@ license를 쓰는 운영자가 만료된 license보다 더 적게 보게 되고,
 토큰은 비공개 키 같은 의미의 비밀은 아닙니다. 위조할 수 없기 때문입니다. 하지만 **bearer
 자격 증명**입니다. `image_digest`나 `tenant_binding` 없이 발급된 license는 그것을 읽을 수 있는
 누구에게나 동작합니다. 그래서 발급기는 소유자 전용으로, symlink를 따르지 않고 기록하며, 토큰이
-이동할 것을 전제하는 분포는 연결을 걸어야 합니다.
+이동할 것을 전제하는 분포는 연결을 걸어야 합니다. 앞뒤 공백은 유효한 토큰 표기가 아니므로
+파일 출력에는 끝 줄 바꿈 없이 정본 토큰 바이트만 기록합니다.
 
 ## 토큰 정규성
 

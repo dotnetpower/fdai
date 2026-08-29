@@ -394,7 +394,8 @@ Hard don'ts. Any of these is a merge-blocker:
   their independent Ed25519 verification paths. Issuance writes only to a new
   private output and never replaces an existing token file. Release key inputs
   are bounded nonblocking regular files, and private keys require current-UID
-  ownership with mode `0600`.
+  ownership with mode `0600`. Token files contain the exact canonical token
+  without surrounding whitespace or a trailing newline.
 - [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md) -
   the customer-agnostic scope contract every fork honors.
 

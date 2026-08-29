@@ -544,9 +544,12 @@ def _read_private_license_token(path: Path) -> str:
             raise ValueError("license token MUST be a mode-0600 regular file within 8192 bytes")
         payload = stream.read(8193)
     try:
-        return payload.decode("ascii").strip()
+        token = payload.decode("ascii")
     except UnicodeDecodeError as exc:
         raise ValueError("license token MUST be ASCII") from exc
+    if token != token.strip():
+        raise ValueError("license token MUST NOT contain surrounding whitespace")
+    return token
 
 
 def _read_public_key(path: Path) -> bytes:

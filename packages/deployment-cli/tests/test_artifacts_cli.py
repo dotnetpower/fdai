@@ -683,9 +683,13 @@ def test_license_rejects_noncanonical_timestamp() -> None:
 
 def test_license_token_reader_is_private_bounded_and_no_follow(tmp_path: Path) -> None:
     token = tmp_path / "license.token"
-    token.write_text("abc.def\n", encoding="ascii")
+    token.write_text("abc.def", encoding="ascii")
     token.chmod(0o600)
     assert _read_private_license_token(token) == "abc.def"
+
+    token.write_text("abc.def\n", encoding="ascii")
+    with pytest.raises(ValueError, match="surrounding whitespace"):
+        _read_private_license_token(token)
 
     token.chmod(0o644)
     with pytest.raises(ValueError, match="mode-0600"):
