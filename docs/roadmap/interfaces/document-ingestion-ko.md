@@ -1,8 +1,8 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: 7d9a2b2033a24e559e9db178b333faf113376113
-translation_revised: 2026-08-21
+translation_source_sha: 1b284969802a200f27ba4df2bf25c8b4a6d7913f
+translation_revised: 2026-08-29
 ---
 # 문서 인제스트와 투입 구역
 
@@ -126,10 +126,11 @@ translation_revised: 2026-08-21
 | 삭제 or replace | 정책이 허용하는 업로더 또는 수집 Owner |
 | release a held 문서 | 업로더 단독이 아닌 지정된 security/데이터 검토자 |
 
-Derived 텍스트, thumbnail, 요약, 임베딩, distilled 후보는 출처 `document_id`, 버전,
-분류, 접근 서술자를 상속합니다. 수집은 순위 전에 후보를 필터링하고
-콘텐츠 반환 전에 액세스를 다시 검사합니다. 이미 작성된 모델 답변을 나중에 필터링하는
-방식은 너무 늦으므로 지원하지 않습니다.
+파생 텍스트, 미리 보기 이미지, 요약, 임베딩, 정제 후보는 출처 `document_id`, 버전,
+분류, 접근 서술자를 상속합니다. 검색은 의미 또는 어휘 순위를 계산하기 전에 접근 권한으로
+필터링한 후보 관계 하나를 만들고, 두 순위 계산기 모두 이 관계만 사용합니다. API는 콘텐츠를
+반환하기 전에 접근 권한을 다시 검사합니다. 이미 작성된 모델 답변을 나중에 필터링하는 방식은
+너무 늦으므로 지원하지 않습니다.
 
 ## Rights-managed, labeled, encrypted 문서
 
@@ -396,8 +397,11 @@ Knowledge 인덱싱과 수동 정제는 이 묶음을 소비합니다. 온톨로
 로컬 API와 워커는 같은 결정론적 로컬 embedding 알고리즘과 Docker PostgreSQL pgvector
 인덱스를 사용합니다. pgvector 어댑터는 데이터베이스 트랜잭션을 열기 전에 모든 임베딩을 계산하고, 하나의 문서
 버전을 원자적으로 교체하며 문서/버전 신원으로 삭제합니다. 수집에는 수집과
-명시적으로 허용된 접근 서술자 참조 집합이 모두 필요합니다. 통제된 조각에는 표시를
-추가하며 범위가 지정되지 않은 free-form Knowledge 출처 조회 경로에서는 제외합니다.
+명시적으로 허용된 접근 서술자 참조 집합이 모두 필요합니다. 같은 권한 적용 관계에서 범위가
+제한된 의미 및 어휘 후보 집합의 순위를 계산하고, reciprocal-rank fusion으로 결합하며, 모든
+동점은 안정적인 조각 ID로 결정합니다. 반환되는 `score`는 `0.0`부터 `1.0`까지로 정규화된
+결합 점수이며 원시 코사인 유사도가 아닙니다. 통제된 조각에는 표시를 추가하며 범위가 지정되지
+않은 자유 형식 Knowledge 출처 조회 경로에서는 제외합니다.
 
 ## 보안과 content-safety 파이프라인
 
@@ -492,7 +496,7 @@ abstain하고 결정론적 추출은 계속됩니다.
 | `GET /ingestion/uploads/{upload_id}` | 권한이 적용된 upload-session과 처리 상태 |
 | `GET /ingestion/uploads/{upload_id}/handover-draft` | `handover_bootstrap` 용도의 권한 적용 근거에 기반한 steward-map 초안 |
 | `POST /ingestion/uploads/{upload_id}/cancel` | 권한 부여를 철회하고 부분 데이터 정리 |
-| `GET /documents/search?q=...&collection_id=...` | 인증과 수집 범위가 적용된 인용 포함 의미 수집 |
+| `GET /documents/search?q=...&collection_id=...` | 인증과 수집 범위가 적용된 인용 포함 하이브리드 검색 |
 | `GET /documents/{document_id}/versions` | 권한이 적용된 메타데이터와 상태 이력 |
 | `DELETE /documents/{document_id}/versions/{version_id}` | 통제된 deletion 요청 |
 
@@ -547,7 +551,7 @@ rich format이 필요할 때 의존성 주입으로 프로바이더를 교체할
 | 구획 | 업스트림 상태 |
 |-------|---------------|
 | 계약 and 메타데이터 | 제공됨: `DocumentEnvelope`, 상태 머신, 기능 발견, 접근 프로바이더, 메타데이터/활동 경계, 콘솔 가시성 notice |
-| Safe 텍스트 | 일반 구현 제공됨: 게이트웨이 스트리밍 업로드, 격리 구역 수명 주기, 실패 시 차단 scanner 경계, UTF-8/OOXML 추출, structure-aware overlapping 조각, 로컬 임베딩 수집, 원자적 pgvector 버전 교체/삭제, access-filtered 검색, deletion. 업스트림 scanner는 운영 프로바이더를 연결할 때까지 abstain합니다. |
+| Safe 텍스트 | 일반 구현 제공됨: 게이트웨이 스트리밍 업로드, 격리 구역 수명 주기, 실패 시 차단 scanner 경계, UTF-8/OOXML 추출, 구조를 고려한 중첩 조각, 로컬 하이브리드 검색, 원자적 pgvector 버전 교체/삭제, 접근 권한으로 필터링한 하이브리드 검색, 삭제. 업스트림 scanner는 운영 프로바이더를 연결할 때까지 판단을 보류합니다. |
 | 배치 | 일반 구현 제공됨: DOCX paragraph/heading/표 cell, PPTX slide/형태/표 cell/speaker note 및 strict `pypdf` native PDF 페이지 블록. PDF 파싱은 encryption을 거부하고 바이트, 페이지, 객체, 단위 및 extracted-character 상한을 독립적으로 적용합니다. 파서 실패는 문서 내용 없이 정제된 오류 하나만 노출합니다. Scanned PDF는 OCR 경계가 연결된 경우에만 사용합니다. 미리 보기는 프로바이더 후속 작업입니다. |
 | 채널 근거 | 일반 구현 제공됨: 범위가 제한된 opaque Slack/Teams 메타데이터, credential-fetcher 경계, 바이트/해시 검증, 전체 protected 인제스트, reject-before-tool gating, citation-only `doc:` 참조. PNG/JPEG/GIF/WebP 서명은 metadata-only 묶음을 만들며 OCR 및 벤더 자격 증명 조립은 프로바이더 연결로 남습니다. |
 | Protection | 일부 제공됨: PDF/Office/컨테이너 encryption과 의심스러운 권리 메타데이터를 감지하고 보류합니다. Purview/RMS 어댑터, delegated 권한 확인, 철회 조정은 포크 연결로 남습니다. |

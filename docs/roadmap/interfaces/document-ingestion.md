@@ -125,9 +125,10 @@ Recommended capabilities are:
 | Release a held document | designated security/data reviewer, not the uploader alone |
 
 Derived text, thumbnails, summaries, embeddings, and distilled candidates inherit the source
-`document_id`, version, classification, and access descriptor. Retrieval filters candidates before
-ranking and rechecks access before returning content. Post-filtering an already composed model
-answer is too late and is not supported.
+`document_id`, version, classification, and access descriptor. Retrieval builds one access-filtered
+candidate relation before semantic or lexical ranking, and both rankers consume only that relation.
+The API rechecks access before returning content. Post-filtering an already composed model answer is
+too late and is not supported.
 
 ## Rights-managed, labeled, and encrypted documents
 
@@ -392,8 +393,11 @@ idempotent.
 The local API and worker use the Docker PostgreSQL pgvector index with the same deterministic local
 embedding algorithm. The pgvector adapter computes all embeddings before opening the transaction, atomically
 replaces one document version, and deletes by document/version identity. Retrieval requires both
-the collection and an explicit set of allowed access descriptor references. Governed chunks are
-marked and excluded from the unscoped free-form Knowledge Source query path.
+the collection and an explicit set of allowed access descriptor references. It ranks bounded
+semantic and lexical candidate sets from the same authorized relation, combines them with
+reciprocal-rank fusion, and uses the stable chunk id to break every tie. The returned `score` is the
+normalized fusion score in the range `0.0` through `1.0`; it is not a raw cosine similarity.
+Governed chunks are marked and excluded from the unscoped free-form Knowledge Source query path.
 
 ## Security and content-safety pipeline
 
@@ -487,7 +491,7 @@ extraction continues.
 | `GET /ingestion/uploads/{upload_id}` | authorized upload-session and processing status |
 | `GET /ingestion/uploads/{upload_id}/handover-draft` | authorized grounded steward-map draft for the `handover_bootstrap` purpose |
 | `POST /ingestion/uploads/{upload_id}/cancel` | revoke grant and clean partial data |
-| `GET /documents/search?q=...&collection_id=...` | authenticated collection-scoped semantic retrieval with citations |
+| `GET /documents/search?q=...&collection_id=...` | authenticated collection-scoped hybrid retrieval with citations |
 | `GET /documents/{document_id}/versions` | authorized metadata and state history |
 | `DELETE /documents/{document_id}/versions/{version_id}` | request governed deletion |
 
@@ -550,7 +554,7 @@ providers through dependency injection when they require Purview/RMS, OCR, or ri
 | Slice | Upstream status |
 |-------|-----------------|
 | Contract and metadata | Shipped: `DocumentEnvelope`, state machine, capability discovery, access provider, metadata/activity seams, and console visibility notice. |
-| Safe text | Shipped generically: gateway streaming upload, quarantine lifecycle, fail-closed scanner seam, UTF-8/OOXML extraction, structure-aware overlapping chunks, local embedding retrieval, atomic pgvector version replacement/deletion, access-filtered search, and deletion. The upstream scanner abstains until a production provider is bound. |
+| Safe text | Shipped generically: gateway streaming upload, quarantine lifecycle, fail-closed scanner seam, UTF-8/OOXML extraction, structure-aware overlapping chunks, local hybrid retrieval, atomic pgvector version replacement/deletion, access-filtered hybrid search, and deletion. The upstream scanner abstains until a production provider is bound. |
 | Layout | Shipped generically: DOCX paragraph/heading/table cells, PPTX slide/shape/table cells/speaker notes, and strict `pypdf` native PDF page blocks. PDF parsing rejects encryption and enforces independent byte, page, object, unit, and extracted-character ceilings. Parser failures expose one sanitized error without document content. Scanned PDF uses the existing OCR seam only when bound. Previews remain provider work. |
 | Channel evidence | Shipped generically: bounded opaque Slack/Teams metadata, credential-fetcher seam, byte/hash verification, full protected ingestion, reject-before-tool gating, and citation-only `doc:` refs. PNG/JPEG/GIF/WebP signatures produce metadata-only envelopes; OCR and vendor credential composition remain provider bindings. |
 | Protection | Partial: PDF/Office/container encryption and suspicious rights metadata are detected and held. A Purview/RMS adapter, delegated authorization, and revocation reconciliation remain fork bindings. |
