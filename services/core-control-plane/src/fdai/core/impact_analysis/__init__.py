@@ -6,6 +6,7 @@ from fdai.core.impact_analysis.change_assessment import (
     ChangeAssessmentService,
     ChangeGraphEvidenceReceipt,
     GraphEvidenceReleaseState,
+    change_graph_evidence_from_snapshot,
 )
 from fdai.core.impact_analysis.compiler import compile_impact_envelope
 from fdai.core.impact_analysis.models import (
@@ -21,6 +22,7 @@ __all__ = [
     "ChangeAssessment",
     "ChangeAssessmentService",
     "ChangeGraphEvidenceReceipt",
+    "change_graph_evidence_from_snapshot",
     "compile_impact_envelope",
     "GraphEvidenceReleaseState",
     "ImpactAnalyzer",

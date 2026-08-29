@@ -221,6 +221,31 @@ async def test_fresh_context_preserves_autonomy_and_replays() -> None:
     assert first.review_required is False
 
 
+async def test_materializer_uses_bound_catalog_versions_for_exact_snapshot() -> None:
+    store = _store()
+    await _seed_service_graph(store)
+    materializer = OperationalContextMaterializer(
+        store=store,
+        clock=lambda: CUTOFF,
+        catalog_versions={"ontology": "sha256:ontology-release-1"},
+    )
+
+    snapshot = await materializer.materialize(
+        target_resource_id="resource-example",
+        cutoff=CUTOFF,
+        catalog_versions=None,
+        source_freshness=(
+            SourceFreshness(
+                source="metrics:availability",
+                observed_at=CUTOFF - timedelta(seconds=30),
+                max_age_seconds=300,
+            ),
+        ),
+    )
+
+    assert snapshot.catalog_versions == (("ontology", "sha256:ontology-release-1"),)
+
+
 async def test_missing_required_source_freshness_lowers_snapshot_ceiling() -> None:
     store = _store()
     await _seed_service_graph(store)

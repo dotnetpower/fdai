@@ -236,7 +236,14 @@ async def initialize_pantheon(
         "case_history.deletion_days",
     )
     operational_context_materializer = (
-        OperationalContextMaterializer(store=config.control_loop.ontology_instance_store)
+        OperationalContextMaterializer(
+            store=config.control_loop.ontology_instance_store,
+            catalog_versions=(
+                {"ontology": config.control_loop.ontology_release.digest}
+                if config.control_loop.ontology_release is not None
+                else None
+            ),
+        )
         if config.control_loop.ontology_instance_store is not None
         else None
     )

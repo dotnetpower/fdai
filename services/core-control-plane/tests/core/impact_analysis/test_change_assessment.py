@@ -7,12 +7,24 @@ from fdai.core.impact_analysis import (
     ChangeGraphEvidenceReceipt,
     GraphEvidenceReleaseState,
     ImpactAnalyzer,
+    change_graph_evidence_from_snapshot,
 )
 from fdai.core.ontology_platform.graph_evidence_refresh import GraphEvidenceFreshness
+from fdai.core.operational_context import (
+    OperationalContextEvidenceLink,
+    OperationalContextSnapshot,
+)
+from fdai.shared.contracts.models import Autonomy
 from fdai.shared.providers.ontology_instance import (
     OntologyGraphSnapshot,
     OntologyLinkRecord,
     OntologyObjectRecord,
+)
+from fdai.shared.providers.state_evidence import (
+    LinkObservationMetadata,
+    StateFactAuthority,
+    StateFactLane,
+    StateFactMetadata,
 )
 
 
@@ -58,6 +70,97 @@ def _receipt(**overrides: object) -> ChangeGraphEvidenceReceipt:
     }
     value.update(overrides)
     return ChangeGraphEvidenceReceipt(**value)
+
+
+def _snapshot(
+    *,
+    ontology_release: str = "sha256:release-1",
+    stale_sources: tuple[str, ...] = (),
+    conflicts: tuple[str, ...] = (),
+) -> OperationalContextSnapshot:
+    state_fact = StateFactMetadata(
+        lane=StateFactLane.OBSERVED,
+        authority=StateFactAuthority.PROVIDER,
+        source_identity="inventory-provider",
+        source_revision="inventory-revision-1",
+        effective_at=datetime(2026, 8, 4, tzinfo=UTC),
+        recorded_at=datetime(2026, 8, 4, tzinfo=UTC),
+        evidence_cutoff=datetime(2026, 8, 4, tzinfo=UTC),
+        freshness_ceiling_seconds=300,
+        completeness=1.0,
+        synthetic=False,
+        evidence_refs=("inventory:evidence-1",),
+    )
+    observation = LinkObservationMetadata(
+        state_fact=state_fact,
+        verification_method="provider-readback",
+        verified=True,
+        verifier_identity="inventory-verifier",
+        verifier_revision="verifier-revision-1",
+        verification_receipt_ref="inventory:verification-1",
+    )
+    return OperationalContextSnapshot(
+        snapshot_id="snapshot-1",
+        target_resource_id="resource-a",
+        cutoff=datetime(2026, 8, 4, tzinfo=UTC),
+        recorded_at=datetime(2026, 8, 4, tzinfo=UTC),
+        catalog_versions=(("ontology", ontology_release),),
+        service_ids=("service-a",),
+        workload_ids=("workload-a",),
+        objective_ids=("slo-a",),
+        service_objective_ids=("slo-a",),
+        recovery_objective_ids=(),
+        cost_objective_ids=(),
+        constraint_ids=(),
+        ownership_ids=(),
+        dependency_ids=("workload-a",),
+        source_freshness=(),
+        evidence_links=(
+            OperationalContextEvidenceLink(
+                link_type="workload_runs_on",
+                from_id="workload-a",
+                to_id="resource-a",
+                observation_metadata=observation,
+            ),
+        ),
+        evidence_paths=(),
+        temporal_exclusions=(),
+        stale_sources=stale_sources,
+        conflicts=conflicts,
+        autonomy_ceiling=(
+            Autonomy.SHADOW_ONLY if conflicts or stale_sources else Autonomy.ENFORCE_AUTO
+        ),
+    )
+
+
+def test_graph_receipt_projects_verified_exact_release_snapshot() -> None:
+    receipt = change_graph_evidence_from_snapshot(
+        _snapshot(),
+        expected_ontology_release="sha256:release-1",
+    )
+
+    assert receipt.graph_revision == "snapshot-1"
+    assert receipt.freshness is GraphEvidenceFreshness.CURRENT
+    assert receipt.release_state is GraphEvidenceReleaseState.ALIGNED
+    assert receipt.authenticated is True
+    assert receipt.truncated is False
+    assert receipt.conflict_reasons == ()
+
+
+def test_graph_receipt_preserves_stale_mixed_and_truncated_evidence() -> None:
+    receipt = change_graph_evidence_from_snapshot(
+        _snapshot(
+            ontology_release="sha256:release-2",
+            stale_sources=("inventory",),
+            conflicts=("context_graph_truncated", "ownership_conflict"),
+        ),
+        expected_ontology_release="sha256:release-1",
+    )
+
+    assert receipt.freshness is GraphEvidenceFreshness.STALE
+    assert receipt.release_state is GraphEvidenceReleaseState.MIXED
+    assert receipt.truncated is True
+    assert receipt.conflict_reasons == ("context_graph_truncated", "ownership_conflict")
 
 
 async def test_complete_planned_change_is_eligible_for_later_gates() -> None:

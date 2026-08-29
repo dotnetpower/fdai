@@ -13,6 +13,7 @@ from typing import Any
 from fdai.core.impact_analysis.analyzer import ImpactAnalyzer, ImpactTraversalBounds
 from fdai.core.impact_analysis.models import AffectedSet
 from fdai.core.ontology_platform.graph_evidence_refresh import GraphEvidenceFreshness
+from fdai.core.operational_context.models import OperationalContextSnapshot
 
 
 class GraphEvidenceReleaseState(StrEnum):
@@ -59,6 +60,48 @@ class ChangeGraphEvidenceReceipt:
             "truncated": self.truncated,
             "conflict_reasons": list(self.conflict_reasons),
         }
+
+
+def change_graph_evidence_from_snapshot(
+    snapshot: OperationalContextSnapshot,
+    *,
+    expected_ontology_release: str,
+) -> ChangeGraphEvidenceReceipt:
+    """Project one exact operational context snapshot into graph assessment evidence."""
+
+    if not expected_ontology_release.strip():
+        raise ValueError("expected ontology release MUST be non-empty")
+    catalog_versions = dict(snapshot.catalog_versions)
+    graph_ontology_release = catalog_versions.get("ontology")
+    release_state = GraphEvidenceReleaseState.UNKNOWN
+    if graph_ontology_release is not None:
+        release_state = (
+            GraphEvidenceReleaseState.ALIGNED
+            if graph_ontology_release == expected_ontology_release
+            else GraphEvidenceReleaseState.MIXED
+        )
+    freshness = GraphEvidenceFreshness.CURRENT
+    if "target_resource_missing" in snapshot.conflicts:
+        freshness = GraphEvidenceFreshness.UNAVAILABLE
+    elif snapshot.stale_sources:
+        freshness = GraphEvidenceFreshness.STALE
+    elif any(
+        reason.startswith(("source_freshness_missing:", "source_after_"))
+        for reason in snapshot.conflicts
+    ):
+        freshness = GraphEvidenceFreshness.UNKNOWN
+    authenticated = bool(snapshot.evidence_links) and all(
+        link.observation_metadata is not None and link.observation_metadata.verified
+        for link in snapshot.evidence_links
+    )
+    return ChangeGraphEvidenceReceipt(
+        graph_revision=snapshot.snapshot_id,
+        freshness=freshness,
+        release_state=release_state,
+        authenticated=authenticated,
+        truncated="context_graph_truncated" in snapshot.conflicts,
+        conflict_reasons=snapshot.conflicts,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -231,5 +274,6 @@ __all__ = [
     "ChangeAssessment",
     "ChangeAssessmentService",
     "ChangeGraphEvidenceReceipt",
+    "change_graph_evidence_from_snapshot",
     "GraphEvidenceReleaseState",
 ]

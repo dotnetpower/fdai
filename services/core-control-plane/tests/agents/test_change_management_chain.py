@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import cast
 
 import pytest
 from fdai.agents._framework.bus import InMemoryBus
@@ -15,6 +16,18 @@ from fdai.core.impact_analysis import (
     GraphEvidenceReleaseState,
 )
 from fdai.core.ontology_platform.graph_evidence_refresh import GraphEvidenceFreshness
+from fdai.core.operational_context import (
+    OperationalContextEvidenceLink,
+    OperationalContextMaterializer,
+    OperationalContextSnapshot,
+)
+from fdai.shared.contracts.models import Autonomy
+from fdai.shared.providers.state_evidence import (
+    LinkObservationMetadata,
+    StateFactAuthority,
+    StateFactLane,
+    StateFactMetadata,
+)
 
 
 async def test_huginn_publishes_change_and_muninn_keeps_revision() -> None:
@@ -39,6 +52,7 @@ async def test_huginn_publishes_change_and_muninn_keeps_revision() -> None:
                 "actor_ref": "pipeline-principal",
                 "status": "planned",
                 "desired_state_digest": "sha256:desired",
+                "ontology_release_digest": "sha256:ontology-release-1",
                 "plan_receipt_ref": "plan:1",
             },
         }
@@ -54,6 +68,7 @@ async def test_huginn_publishes_change_and_muninn_keeps_revision() -> None:
     stored = muninn.get_context("changes", "change-1")
     assert stored is not None
     assert stored["change"]["desired_state_digest"] == "sha256:desired"
+    assert stored["change"]["ontology_release_digest"] == "sha256:ontology-release-1"
     assert len(muninn.state_store.data["change_revisions"]) == 1
 
 
@@ -154,8 +169,88 @@ def _planned_event() -> dict[str, object]:
             "intent_kind": "planned",
             "target_ref": "resource-1",
             "occurred_at": occurred_at,
+            "ontology_release_digest": "sha256:ontology-release-1",
         },
     }
+
+
+class _OperationalContext:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, object]] = []
+
+    async def materialize(self, **kwargs: object) -> OperationalContextSnapshot:
+        self.calls.append(dict(kwargs))
+        observed_at = datetime(2026, 8, 4, tzinfo=UTC)
+        observation = LinkObservationMetadata(
+            state_fact=StateFactMetadata(
+                lane=StateFactLane.OBSERVED,
+                authority=StateFactAuthority.PROVIDER,
+                source_identity="inventory-provider",
+                source_revision="inventory-revision-1",
+                effective_at=observed_at,
+                recorded_at=observed_at,
+                evidence_cutoff=observed_at,
+                freshness_ceiling_seconds=300,
+                completeness=1.0,
+                synthetic=False,
+                evidence_refs=("inventory:evidence-1",),
+            ),
+            verification_method="provider-readback",
+            verified=True,
+            verifier_identity="inventory-verifier",
+            verifier_revision="verifier-revision-1",
+            verification_receipt_ref="inventory:verification-1",
+        )
+        return OperationalContextSnapshot(
+            snapshot_id="snapshot-1",
+            target_resource_id="resource-1",
+            cutoff=observed_at,
+            recorded_at=observed_at,
+            catalog_versions=(("ontology", "sha256:ontology-release-1"),),
+            service_ids=("service-1",),
+            workload_ids=("workload-1",),
+            objective_ids=("objective-1",),
+            service_objective_ids=("objective-1",),
+            recovery_objective_ids=(),
+            cost_objective_ids=(),
+            constraint_ids=(),
+            ownership_ids=(),
+            dependency_ids=("workload-1",),
+            source_freshness=(),
+            evidence_links=(
+                OperationalContextEvidenceLink(
+                    link_type="workload_runs_on",
+                    from_id="workload-1",
+                    to_id="resource-1",
+                    observation_metadata=observation,
+                ),
+            ),
+            evidence_paths=(),
+            temporal_exclusions=(),
+            stale_sources=(),
+            conflicts=(),
+            autonomy_ceiling=Autonomy.ENFORCE_AUTO,
+        )
+
+
+async def test_forseti_sources_planned_change_graph_evidence_from_exact_context() -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+    assessor = _ChangeAssessor(review_required=False)
+    operational_context = _OperationalContext()
+    forseti = Forseti(
+        bus=bus,
+        change_assessor=assessor,
+        operational_context=cast(OperationalContextMaterializer, operational_context),
+    )
+
+    await forseti.on_typed_message("object.event", _planned_event())
+
+    receipt = assessor.graph_evidence_receipts[0]
+    assert receipt.graph_revision == "snapshot-1"
+    assert receipt.freshness is GraphEvidenceFreshness.CURRENT
+    assert receipt.release_state is GraphEvidenceReleaseState.ALIGNED
+    assert receipt.authenticated is True
+    assert operational_context.calls[0]["require_verified_links"] is True
 
 
 async def test_forseti_lowers_planned_change_to_human_review() -> None:

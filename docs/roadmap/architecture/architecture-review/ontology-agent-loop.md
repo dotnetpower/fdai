@@ -74,11 +74,15 @@ Agents collaborate through typed publish and subscribe only. The review coordina
 it records deadlines and required evidence keys, but Forseti owns the decision to continue, hold,
 or escalate.
 
-1. Huginn publishes one immutable `Change` and preserves one correlation ID.
-2. Muninn materializes a secured snapshot for the exact graph release and evidence cutoff.
+1. Huginn publishes one immutable `Change` and preserves one correlation ID plus the requested
+   ontology release digest.
+2. Muninn materializes a secured snapshot for the exact graph release and evidence cutoff. The
+   snapshot requires verified links before it can produce authenticated graph evidence.
 3. Relevant specialists publish only their owned object topics with the same case reference.
-4. Forseti joins the policy-required evidence set under a deadline. Missing, stale, conflicting,
-   synthetic, or truncated evidence lowers the authority ceiling.
+4. Forseti converts that exact snapshot into the planned-change graph receipt, compares its ontology
+   release with the requested digest, and joins the policy-required evidence set under a deadline.
+   Missing, stale, unauthenticated, conflicting, synthetic, or truncated evidence lowers the
+   authority ceiling.
 5. Before asking a person, FDAI attempts bounded reacquisition, an alternate authoritative source,
    deterministic reevaluation, or a smaller safe option.
 
