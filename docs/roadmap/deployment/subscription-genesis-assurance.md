@@ -320,6 +320,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H86 | Air-gap resume trusted the same forgeable public marker before executing retained artifacts. Fresh and resumed drills now use the descriptor-based UID and mode guard. | `test_workdir_guard_creates_and_verifies_private_sentinel` |
 | H87 | Restaging an owned output preserved the prior bundle archive, which the deterministic builder refuses to overwrite. Cleanup now removes every generated single-file build output. | `test_release_scripts_use_the_installable_distribution` |
 | H88 | `fdaictl doctor` reported ready from executable versions without Azure authentication. Readiness now requires a read-only active-account check and emits a stable missing-auth reason. | `test_doctor_readiness_requires_azure_authentication` |
+| H89 | License inspection performed an unbounded path read before token limits, allowing FIFO blocking or memory exhaustion. It now reads a mode-0600 regular file through a bounded no-follow descriptor. | `test_license_token_reader_is_private_bounded_and_no_follow` |
 
 ## Related docs
 

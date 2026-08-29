@@ -22,6 +22,7 @@ from fdai_deployment_cli.bundle import (
 from fdai_deployment_cli.cli import (
     _create_private_work_dir,
     _provision_plan,
+    _read_private_license_token,
     _absolute_work_dir,
     _require_bundle_version,
     _runtime_platform_tag,
@@ -599,6 +600,22 @@ def test_license_rejects_noncanonical_timestamp() -> None:
 
     with pytest.raises(LicenseInspectionError, match="timestamps are not canonically"):
         inspect_license(token, public_key_pem=public, now=now)
+
+
+def test_license_token_reader_is_private_bounded_and_no_follow(tmp_path: Path) -> None:
+    token = tmp_path / "license.token"
+    token.write_text("abc.def\n", encoding="ascii")
+    token.chmod(0o600)
+    assert _read_private_license_token(token) == "abc.def"
+
+    token.chmod(0o644)
+    with pytest.raises(ValueError, match="mode-0600"):
+        _read_private_license_token(token)
+
+    linked = tmp_path / "linked.token"
+    linked.symlink_to(token)
+    with pytest.raises(OSError):
+        _read_private_license_token(linked)
 
 
 def test_cli_version_and_private_profile(

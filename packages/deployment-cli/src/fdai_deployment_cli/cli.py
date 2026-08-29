@@ -7,6 +7,7 @@ import json
 import os
 import platform
 import shutil
+import stat
 import subprocess
 import sys
 from collections.abc import Mapping
@@ -495,7 +496,7 @@ def _bundle_verify(args: argparse.Namespace) -> int:
 def _license_inspect(args: argparse.Namespace) -> int:
     try:
         result = inspect_license(
-            args.token.read_text(encoding="ascii").strip(),
+            _read_private_license_token(args.token),
             public_key_pem=args.public_key.read_bytes(),
             expected_image_digest=args.image_digest,
             expected_tenant_binding=args.tenant_binding,
@@ -504,6 +505,23 @@ def _license_inspect(args: argparse.Namespace) -> int:
         raise
     print(result.to_json() if args.output == "json" else "active")
     return 0
+
+
+def _read_private_license_token(path: Path) -> str:
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(descriptor, "rb") as stream:
+        details = os.fstat(stream.fileno())
+        if (
+            not stat.S_ISREG(details.st_mode)
+            or stat.S_IMODE(details.st_mode) != 0o600
+            or details.st_size > 8192
+        ):
+            raise ValueError("license token MUST be a mode-0600 regular file within 8192 bytes")
+        payload = stream.read(8193)
+    try:
+        return payload.decode("ascii").strip()
+    except UnicodeDecodeError as exc:
+        raise ValueError("license token MUST be ASCII") from exc
 
 
 def _onboard_status(args: argparse.Namespace) -> int:
