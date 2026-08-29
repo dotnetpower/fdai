@@ -248,8 +248,8 @@ VS Code marks each background task ready only after the
 Pantheon bridge starts, Uvicorn completes application startup, or Vite publishes its local address,
 respectively, so a spawned process isn't presented as a ready service.
 The standard local Azure profile uses the same lock by default when `FDAI_RUNTIME_LOCK_FILE` is unset, so a direct `python -m fdai` launch cannot bypass the singleton guard. Production runtimes continue to use a process lock only when the deployment configures one explicitly.
-The core runtime remains the only Pantheon owner, and local and deployed interactive reads use the same execution-mode policy and fail startup when intent IDs, Heimdall ownership, or plan bindings drift. Embedded direct Pantheon chat delegation is fixture-only. With `FDAI_OPERATOR_API_EMBED_PANTHEON=0`, the Operator API reaches Bragi's conversational port through bounded request and response logical topics on the
-existing `fdai.pantheon.objects` transport. A startup probe confirms the response consumer before traffic is accepted. The client reuses a joining consumer across retries and allows a 20-second initial Event Hubs group join.
+The core runtime remains the only Pantheon owner, and local and deployed interactive reads use the same execution-mode policy and fail startup when intent IDs, Heimdall ownership, or plan bindings drift. Embedded direct Pantheon chat delegation is fixture-only. The Operator API uses bounded logical topics on `fdai.pantheon.objects` for Bragi and drains confirmed action drafts through its durable `ActionConfirmationBridge` to the configured Core event topic.
+A startup probe confirms response and action workers before traffic is accepted. The client reuses a joining consumer across retries and allows a 20-second initial Event Hubs group join.
 `GET /chat/health` reads semantic bridge worker readiness directly and does not require a durable
 `conversation/chat.health` projection row. It returns HTTP 200 with `starting` or `event-bridge`
 mode so a missing unrelated projection cannot be reported as an unreachable model.

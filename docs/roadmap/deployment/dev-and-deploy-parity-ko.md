@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: eae73291466f62a31ab3b37c68eda5d07cf563d4
+translation_source_sha: c77b5b0396f40e86eaa7af79f0be9a531575fc59
 translation_revised: 2026-08-29
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -253,8 +253,8 @@ VS 코드는 Pantheon 브리지 시작, Uvicorn 애플리케이션 시작 완료
 Vite 로컬 주소 게시를 각각 확인한 뒤에만 background 작업을 준비된으로 표시합니다. 따라서 프로세스가
 생성되기만 한 상태를 준비된 서비스로 표시하지 않습니다.
 표준 로컬 Azure 프로파일은 `FDAI_RUNTIME_LOCK_FILE`이 설정되지 않아도 같은 잠금을 기본값으로 사용하므로, `python -m fdai`를 직접 실행해도 singleton 가드를 우회할 수 없습니다. 운영 런타임은 배포에서 명시적으로 구성한 경우에만 프로세스 잠금을 계속 사용합니다.
-Core 런타임만 Pantheon을 소유하며 로컬 및 deployed interactive 읽기는 같은 execution-mode 정책을 사용하고 의도 ID, Heimdall 소유권 또는 계획 연결 표류 시 시작을 차단합니다. Embedded direct Pantheon 채팅 위임은 fixture-only입니다. `FDAI_OPERATOR_API_EMBED_PANTHEON=0`일 때 Operator API는 기존 `fdai.pantheon.objects` 전송 계층의 범위가 제한된 요청/응답 logical 토픽을 통해 Bragi conversational
-포트에 접근합니다. 시작 탐색으로 응답 소비자 준비를 확인한 후 트래픽을 받습니다. 클라이언트는 재시도 중 joining 소비자를 재사용하고 최초 Event Hubs 그룹 결합을 최대 20초 허용합니다.
+Core 런타임만 Pantheon을 소유하며 로컬 및 deployed interactive 읽기는 같은 execution-mode 정책을 사용하고 의도 ID, Heimdall 소유권 또는 계획 연결 표류 시 시작을 차단합니다. Embedded direct Pantheon 채팅 위임은 fixture-only입니다. Operator API는 `fdai.pantheon.objects`의 범위가 제한된 logical 토픽으로 Bragi에 도달하고 확인된 action draft를 영속 `ActionConfirmationBridge`를 통해 구성된 Core 이벤트 토픽으로 전달합니다.
+시작 탐색으로 응답 및 action worker 준비를 확인한 후 트래픽을 받습니다. 클라이언트는 재시도 중 joining 소비자를 재사용하고 최초 Event Hubs 그룹 결합을 최대 20초 허용합니다.
 `GET /chat/health`는 semantic bridge worker 준비 상태를 직접 읽으며 영속
 `conversation/chat.health` projection row를 요구하지 않습니다. 관련 없는 projection 누락을 접근할 수
 없는 모델로 잘못 표시하지 않도록 `starting` 또는 `event-bridge` mode와 함께 HTTP 200을 반환합니다.
