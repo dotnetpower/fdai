@@ -26,12 +26,12 @@ def rehearse(
     """Rehearse remaining stages and optionally stop after one completed stage."""
 
     events = read_journal(journal) if journal.exists() else ()
-    if events and events[-1].state is RunState.READY:
-        return events
     if events and events[-1].run_id != run_id:
         raise ValueError("simulation run_id does not match the existing journal")
     if events and events[-1].context_digest != manifest.digest:
         raise ValueError("simulation manifest does not match the existing journal")
+    if events and events[-1].state is RunState.READY:
+        return events
     known_stages = {entry.entry_id for entry in manifest.entries}
     if interrupt_after is not None and interrupt_after not in known_stages:
         raise ValueError("simulation interrupt stage is not in the manifest")

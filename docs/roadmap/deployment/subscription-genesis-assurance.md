@@ -250,6 +250,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H16 | The journal accepted `ready` as a first event and allowed work after terminal failure. Transition checks now require completed readiness evidence and close terminal runs. | `test_journal_rejects_ready_without_readiness_evidence` |
 | H17 | Offline planning reopened and reparsed the manifest after verification, allowing a replacement race. It now consumes only paths returned by the verified result. | `test_offline_kit_verifies_signature_exact_files_and_compatibility` |
 | H18 | The compiled manifest sealed broad stages but not the concrete minimum platform and service inventory. It now enumerates provider registration, foundation, data, model, five-service, Job, Console, and monitoring entries. | `test_compiler_emits_finite_ordered_manifest` |
+| H19 | A ready rehearsal returned before validating the requested run and manifest. Ready journals now pass the same context checks as interrupted journals. | `test_ready_simulation_still_validates_run_and_manifest` |
 
 ## Related docs
 
