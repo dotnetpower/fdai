@@ -135,6 +135,42 @@ proven its dwell, and `Mimir.promote()` refuses a rule whose pending discovery-l
 candidate is under threshold. Eligibility is still not promotion - the catalog changes
 only through a merged catalog-as-code pull request.
 
+## Bounded Cycle Runtime (upstream implementation)
+
+`fdai.core.operational_learning.discovery_cycle` runs one interval-bucket cycle at a time. The
+mechanical scheduler claims a stable cycle identity in `StateStore`, persists each stage with
+revision compare-and-set, and replays an existing terminal record without calling a model or
+publisher again.
+
+The cycle keeps the discovery boundary explicit:
+
+- **Observe:** An injected source returns one complete, bounded window containing upstream,
+  operational, override, and catalog signals.
+- **Hypothesize:** One configured off-path T2 model proposes inert candidates.
+- **Verify:** At least one model from a different identity and family re-approves each canonical
+  candidate. A digest mismatch, disagreement, incomplete source window, timeout, or deterministic
+  verifier failure produces a retained hold or rejection.
+- **Integrate:** An injected integrator can publish only an inert, review-required artifact. The
+  cycle record and every metric state `grants_authority: false`; catalog mutation still requires the
+  ordinary merged catalog-as-code pull request.
+
+The scheduler bounds signal count, candidate count, elapsed time, and retained cycle history. It
+publishes an audited state projection for candidates per cycle, gate pass rate, override-trigger
+rate, and retirement rate. The `override` signal kind is the non-bus binding for the existing
+override feedback path; `object.override` remains unsupported.
+
+## Human Shadow Review Closure (upstream implementation)
+
+Shadow outcomes now close their review gap through the existing agent owners. Saga publishes the
+initial `object.audit-entry` with one stable shadow observation id and the policy-escape flag. Var
+queues that exact record for a distinct human reviewer and publishes the resulting
+`object.approval`. Saga then republishes the reviewed audit entry, and Norns upgrades the retained
+observation by id instead of counting a second sample.
+
+The reviewer cannot be the action initiator. Replayed or already reviewed observations do not
+increase sample or reviewed counts, and the review cannot change the policy-escape fact recorded on
+the original shadow outcome.
+
 ## Implementation status
 
 ### Implementation scope
@@ -144,11 +180,11 @@ only through a merged catalog-as-code pull request.
 | Candidate grounding and poisoning guard | implemented | `services/core-control-plane/src/fdai/agents/_framework/candidate_guard.py`; `services/core-control-plane/tests/agents/test_candidate_guard.py` | Mimir quarantines ungrounded, malformed, or flooding candidates without granting promotion authority. |
 | Norns consensus | implemented | `services/core-control-plane/src/fdai/agents/_framework/norns_consensus.py`; `services/core-control-plane/tests/agents/test_norns_consensus.py` | All three deterministic perspectives must agree before Norns publishes an inert candidate. |
 | Candidate review and catalog compilation | implemented | `services/core-control-plane/src/fdai/core/operational_learning/catalog.py`; `review.py`; `services/core-control-plane/tests/agents/test_mimir_catalog_review.py` | Review packages and bounded publication state are implemented; activation still requires the ordinary catalog-as-code path. |
-| Override and operational-signal intake | in-progress | `services/core-control-plane/src/fdai/agents/norns.py`; focused Norns learning tests | Several deterministic signals can produce candidates, but the override-specific governance artifact is not implemented. |
-| Per-candidate shadow-dwell evidence and threshold gate | implemented | `services/core-control-plane/src/fdai/core/operational_learning/shadow_dwell.py`; `services/core-control-plane/tests/core/operational_learning/test_shadow_dwell.py`; `services/core-control-plane/tests/agents/test_discovery_shadow_dwell.py` | Norns retains shadow observations and Mimir refuses promotion without sufficient, self-consistent, target-matched evidence. No producer stamps operator review outcomes on audit entries yet, so live evidence stays review-empty and therefore ineligible. |
-| Long-horizon discovery cycle | not-started | [Loop](#loop); [Safety and trust](#safety-and-trust) | No production scheduler runs or retains a complete observe-to-integrate cycle. |
-| Mixed-model cross-check | not-started | [Loop](#loop) | The required independent model-family cross-check is design-only for this discovery loop. |
-| Loop throughput metrics | not-started | [Safety and trust](#safety-and-trust) | Candidates per cycle, gate pass rate, override-trigger rate, and retirement rate are not measured. |
+| Override and operational-signal intake | implemented | `services/core-control-plane/src/fdai/core/operational_learning/discovery_contracts.py`; `services/core-control-plane/tests/core/operational_learning/test_discovery_cycle.py`; existing Norns override learner tests | A normalized override signal enters the bounded observe window without creating an unsupported `object.override` topic, and candidate metrics retain its exact signal identity. |
+| Per-candidate shadow-dwell evidence and threshold gate | implemented | `services/core-control-plane/src/fdai/core/operational_learning/shadow_dwell.py`; `services/core-control-plane/tests/core/operational_learning/test_shadow_dwell.py`; `services/core-control-plane/tests/agents/test_discovery_shadow_{dwell,review}.py` | Norns retains each shadow observation once, Var records a distinct human review, Saga stamps the reviewed audit entry, and Mimir still refuses insufficient, inconsistent, target-mismatched, or escaped evidence. |
+| Long-horizon discovery cycle | implemented | `services/core-control-plane/src/fdai/core/operational_learning/discovery_cycle.py`; `services/core-control-plane/tests/core/operational_learning/test_discovery_cycle.py` | The interval-bucket scheduler persists observe, hypothesize, verify, and integrate stages with stable identities, timeout and volume bounds, revision fencing, terminal replay, and bounded retention. Deployment-supplied sources and models remain configuration, not embedded provider values. |
+| Mixed-model cross-check | implemented | `services/core-control-plane/src/fdai/core/operational_learning/discovery_contracts.py`; `discovery_cycle.py`; focused cycle tests | Construction requires distinct model identities and families. Every candidate is digest-bound to independent re-approval, and disagreement or digest substitution stays held for human review. |
+| Loop throughput metrics | implemented | `DiscoveryCycleMetrics`; focused cycle persistence tests | Each completed cycle stores an audited no-authority projection for candidates per cycle, gate pass rate, override-trigger rate, and retirement rate. |
 
 ### Implementation history
 
@@ -156,11 +192,12 @@ only through a merged catalog-as-code pull request.
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source and focused tests listed in the scope table. | Complete the scheduled loop, shadow evidence, override intake, and mixed-model gate. |
 | 2026-08-15 | in-progress | Implemented per-candidate shadow-dwell retention and the fail-closed threshold gate, and split the former combined scheduler/dwell row. | `current change`; `services/core-control-plane/src/fdai/core/operational_learning/shadow_dwell.py`; `uv run pytest -q --no-cov services/core-control-plane/tests/core/operational_learning services/core-control-plane/tests/agents` passed (1214 tests). | Scheduler, mixed-model cross-check, loop metrics, and an audit-entry producer for operator review outcomes. |
+| 2026-08-29 | implemented | Added the replayable bounded discovery cycle, independent-family candidate re-approval, override-aware audited throughput metrics, and the Var-Saga-Norns human shadow-review closure without adding catalog or execution authority. | `current change`; discovery cycle, persistence, shadow dwell, Var, and Saga paths; `uv run pytest -q --no-cov services/core-control-plane/tests/core/operational_learning services/core-control-plane/tests/agents/test_discovery_shadow_dwell.py services/core-control-plane/tests/agents/test_discovery_shadow_review.py services/core-control-plane/tests/agents/test_wave2_governance.py services/core-control-plane/tests/agents/test_wave3_pipeline.py services/core-control-plane/tests/agents/test_quorum.py services/core-control-plane/tests/agents/test_framework_layout.py services/core-control-plane/tests/agents/test_pantheon_doc_parity.py` passed 309 tests. | Retain a governed deployed cycle and live review cohort before raising any area to `validated`. |
 
 ### Remaining work
 
-- [ ] Implement a bounded scheduler that persists one complete observe, hypothesize, verify, and integrate cycle with replayable identities.
-- [x] Retain per-candidate shadow duration, sample size, accuracy, and zero-escape evidence and enforce the configured thresholds, proven by `services/core-control-plane/tests/agents/test_discovery_shadow_dwell.py`.
-- [ ] Stamp operator review outcome and policy-escape flags on shadow `object.audit-entry` payloads so retained dwell evidence can reach a non-zero reviewed count; until then every live candidate stays ineligible for lack of reviewed samples.
-- [ ] Bind override events and the independent model-family cross-check, then prove disagreement holds for human review.
-- [ ] Publish governed cycle throughput, gate pass, override-trigger, and retirement metrics.
+- [x] Complete the bounded implementation scope: persist the four-stage cycle with replayable
+  identities, retain one human-reviewed shadow sample without duplication, bind override signals and
+  independent-family disagreement to review, and publish audited throughput metrics. Focused
+  evidence is in `services/core-control-plane/tests/core/operational_learning/test_discovery_cycle.py`
+  and `services/core-control-plane/tests/agents/test_discovery_shadow_review.py`.

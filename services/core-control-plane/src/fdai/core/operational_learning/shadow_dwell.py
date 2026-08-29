@@ -256,6 +256,7 @@ class _RetainedTarget:
     """Bounded observation detail plus counters that eviction cannot erase."""
 
     observations: deque[ShadowDwellObservation]
+    observation_reviews: OrderedDict[str, bool]
     first_observed: datetime
     last_observed: datetime
     sample_size: int = 0
@@ -290,20 +291,34 @@ class ShadowDwellLedger:
         self._max_observations_per_target = max_observations_per_target
         self._targets: OrderedDict[str, _RetainedTarget] = OrderedDict()
 
-    def record(self, observation: ShadowDwellObservation) -> None:
-        """Retain one observation, evicting the least recently used target if needed."""
+    def record(
+        self,
+        observation: ShadowDwellObservation,
+        *,
+        observation_id: str | None = None,
+    ) -> bool:
+        """Retain one observation once and return whether it was accepted."""
 
         if not isinstance(observation, ShadowDwellObservation):
             raise TypeError("shadow dwell ledger accepts ShadowDwellObservation only")
+        if observation_id is not None:
+            _validate_observation_id(observation_id)
         entry = self._targets.get(observation.target)
         if entry is None:
             entry = _RetainedTarget(
                 observations=deque(maxlen=self._max_observations_per_target),
+                observation_reviews=OrderedDict(),
                 first_observed=observation.observed_at,
                 last_observed=observation.observed_at,
             )
             self._targets[observation.target] = entry
+        if observation_id is not None and observation_id in entry.observation_reviews:
+            return False
         entry.observations.append(observation)
+        if observation_id is not None:
+            entry.observation_reviews[observation_id] = observation.reviewed
+            while len(entry.observation_reviews) > self._max_observations_per_target:
+                entry.observation_reviews.popitem(last=False)
         entry.first_observed = min(entry.first_observed, observation.observed_at)
         entry.last_observed = max(entry.last_observed, observation.observed_at)
         if entry.sample_size < _MAX_SAMPLE_SIZE:
@@ -314,6 +329,26 @@ class ShadowDwellLedger:
         self._targets.move_to_end(observation.target)
         while len(self._targets) > self._max_targets:
             self._targets.popitem(last=False)
+        return True
+
+    def apply_review(self, *, target: str, observation_id: str, agreed: bool) -> bool:
+        """Upgrade one retained unreviewed sample without counting it twice."""
+
+        _validate_target(target)
+        _validate_observation_id(observation_id)
+        if not isinstance(agreed, bool):
+            raise ShadowDwellEvidenceError("observation_agreed_invalid")
+        entry = self._targets.get(target)
+        if entry is None or observation_id not in entry.observation_reviews:
+            return False
+        if entry.observation_reviews[observation_id]:
+            return False
+        entry.observation_reviews[observation_id] = True
+        entry.observation_reviews.move_to_end(observation_id)
+        entry.reviewed_count += 1
+        entry.agreed_count += int(agreed)
+        self._targets.move_to_end(target)
+        return True
 
     def evidence_for(self, target: str) -> ShadowDwellEvidence | None:
         """Return counted evidence for ``target``, or ``None`` when unobserved."""
@@ -349,6 +384,17 @@ def _validate_target(target: object) -> None:
         or _IDENTIFIER.fullmatch(target) is None
     ):
         raise ShadowDwellEvidenceError("target_invalid")
+
+
+def _validate_observation_id(value: object) -> None:
+    if (
+        not isinstance(value, str)
+        or not value
+        or len(value) > 256
+        or not value.isascii()
+        or any(ord(character) < 0x21 or ord(character) > 0x7E for character in value)
+    ):
+        raise ShadowDwellEvidenceError("observation_id_invalid")
 
 
 def _validate_instant(value: object, name: str) -> None:

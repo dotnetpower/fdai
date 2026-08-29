@@ -1,8 +1,8 @@
 ---
 title: 자율 규칙 발견(Autonomous Rule Discovery)
 translation_of: rule-catalog-autonomous-discovery.md
-translation_source_sha: 7161f1fd55571153d190443014a93bc3e424084c
-translation_revised: 2026-08-15
+translation_source_sha: 9c20723101534fe7448d9ab77018f61f040891fe
+translation_revised: 2026-08-29
 ---
 
 # 자율 규칙 발견(자율 Rule 발견)
@@ -130,6 +130,41 @@ rollback 비율 학습기에 섞이지 않도록 유지하고, 산출된 근거�
 임계 미달인 규칙의 승격을 거부한다. 적격은 여전히 승격이 아니다. 카탈로그는 머지된
 catalog-as-code PR 로만 바뀐다.
 
+## 범위가 제한된 주기 런타임(상류 구현)
+
+`fdai.core.operational_learning.discovery_cycle` 은 한 번에 하나의 시간 구간 주기를 실행합니다.
+기계적 스케줄러는 `StateStore` 에서 안정적인 주기 ID를 선점하고, 각 단계를 리비전
+비교 후 설정 방식으로 보존합니다. 이미 종료된 레코드를 재생할 때는 모델이나 게시자를 다시
+호출하지 않습니다.
+
+주기는 발견 경계를 다음과 같이 명시적으로 유지합니다.
+
+- **관측:** 주입된 소스가 상류, 운영, 재정의, 카탈로그 신호가 포함된 하나의 완전하고 범위가
+  제한된 구간을 반환합니다.
+- **가설 수립:** 구성된 하나의 경로 외부 T2 모델이 비활성 후보를 제안합니다.
+- **검증:** ID와 계열이 다른 모델을 하나 이상 사용해 각 정규 후보를 다시 승인합니다. 다이제스트
+  불일치, 모델 간 불일치, 불완전한 소스 구간, 시간 초과 또는 결정론적 검증기 실패는 보존된
+  사람 검토 보류나 거부 결과를 만듭니다.
+- **통합:** 주입된 통합기는 검토가 필요한 비활성 아티팩트만 게시할 수 있습니다. 주기 레코드와
+  모든 메트릭은 `grants_authority: false` 를 기록합니다. 카탈로그 변경에는 기존과 같이
+  catalog-as-code PR 병합이 필요합니다.
+
+스케줄러는 신호 수, 후보 수, 경과 시간, 보존할 주기 이력을 제한합니다. 또한 주기당 후보 수,
+게이트 통과율, 재정의 유발률, 폐기율을 감사된 상태 변환 결과로 게시합니다. `override` 신호
+종류는 기존 재정의 피드백 경로를 위한 이벤트 버스 외부 연결입니다. `object.override` 는 계속
+지원되지 않습니다.
+
+## 사람 shadow 검토 완료(상류 구현)
+
+shadow 결과는 기존 에이전트 소유권을 통해 검토 미비점을 해소합니다. Saga는 안정적인 shadow
+관측 ID와 정책 위반 탈출 표시를 포함한 초기 `object.audit-entry` 를 게시합니다. Var는 해당
+레코드를 별도 사람 검토자의 대기열에 넣고 결과를 `object.approval` 로 게시합니다. Saga는
+검토된 감사 항목을 다시 게시하고, Norns는 두 번째 표본을 세는 대신 ID로 기존 관측의 검토
+상태를 갱신합니다.
+
+검토자는 작업 시작자와 달라야 합니다. 재생되었거나 이미 검토한 관측은 표본 수나 검토 건수를
+늘리지 않으며, 검토는 최초 shadow 결과에 기록된 정책 위반 탈출 사실을 변경할 수 없습니다.
+
 ## 구현 상태
 
 ### 구현 범위
@@ -139,11 +174,11 @@ catalog-as-code PR 로만 바뀐다.
 | 후보 근거 및 오염 방어 | implemented | `services/core-control-plane/src/fdai/agents/_framework/candidate_guard.py`; `services/core-control-plane/tests/agents/test_candidate_guard.py` | Mimir는 근거가 없거나 잘못됐거나 범람하는 후보를 승격 권한 없이 격리합니다. |
 | Norns 합의 | implemented | `services/core-control-plane/src/fdai/agents/_framework/norns_consensus.py`; `services/core-control-plane/tests/agents/test_norns_consensus.py` | Norns가 비활성 후보를 게시하기 전에 세 결정론적 관점이 모두 동의해야 합니다. |
 | 후보 검토 및 카탈로그 컴파일 | implemented | `services/core-control-plane/src/fdai/core/operational_learning/catalog.py`; `review.py`; `services/core-control-plane/tests/agents/test_mimir_catalog_review.py` | 검토 패키지와 범위가 제한된 게시 상태가 구현되어 있습니다. 활성화에는 기존 catalog-as-code 경로가 계속 필요합니다. |
-| 재정의 및 운영 신호 유입 | in-progress | `services/core-control-plane/src/fdai/agents/norns.py`; 집중 Norns 학습 테스트 | 여러 결정론적 신호가 후보를 만들 수 있지만 재정의 전용 거버넌스 아티팩트는 구현되지 않았습니다. |
-| 후보별 shadow 체류 근거 및 임계 게이트 | implemented | `services/core-control-plane/src/fdai/core/operational_learning/shadow_dwell.py`; `services/core-control-plane/tests/core/operational_learning/test_shadow_dwell.py`; `services/core-control-plane/tests/agents/test_discovery_shadow_dwell.py` | Norns가 shadow 관측을 보존하고, Mimir는 충분하고 자기 일관적이며 대상이 일치하는 근거 없이는 승격을 거부합니다. 아직 감사 항목에 운영자 검토 결과를 기록하는 생산자가 없으므로 실환경 근거는 검토 건수가 0이며 따라서 부적격입니다. |
-| 장기 발견 주기 | not-started | [루프](#루프); [안전과 신뢰](#안전과-신뢰) | 완전한 관측-가설-검증-통합 주기를 실행하거나 보존하는 운영 스케줄러가 없습니다. |
-| 혼합 모델 교차 검증 | not-started | [루프](#루프) | 이 발견 루프에 필요한 독립 모델 계열 교차 검증은 설계 상태입니다. |
-| 루프 처리량 메트릭 | not-started | [안전과 신뢰](#안전과-신뢰) | 주기당 후보 수, 게이트 통과율, 재정의 유발률, 폐기율을 측정하지 않습니다. |
+| 재정의 및 운영 신호 유입 | implemented | `services/core-control-plane/src/fdai/core/operational_learning/discovery_contracts.py`; 집중 주기 및 Norns 재정의 테스트 | 정규화된 재정의 신호가 지원되지 않는 버스 토픽을 만들지 않고 범위가 제한된 소스 구간으로 들어옵니다. |
+| 후보별 shadow 체류 근거 및 임계 게이트 | implemented | `services/core-control-plane/src/fdai/core/operational_learning/shadow_dwell.py`; `services/core-control-plane/tests/agents/test_discovery_shadow_{dwell,review}.py` | Var, Saga, Norns가 안정적인 관측 ID로 별도 사람 검토를 완료합니다. 이 과정은 표본을 중복 계산하거나 정책 위반 탈출 사실을 변경하지 않습니다. |
+| 장기 발견 주기 | implemented | `services/core-control-plane/src/fdai/core/operational_learning/discovery_cycle.py`; 집중 주기 테스트 | 스케줄러는 안정적인 구간 ID, 리비전 차단, 시간 제한, 보존 제한, 종료 상태 재생과 함께 관측, 가설 수립, 검증, 통합 단계를 보존합니다. |
+| 혼합 모델 교차 검증 | implemented | `discovery_contracts.py`; `discovery_cycle.py`; 집중 주기 테스트 | 서로 다른 모델 ID와 계열이 필수입니다. 불일치와 다이제스트 대체는 사람 검토를 위해 보류됩니다. |
+| 루프 처리량 메트릭 | implemented | `DiscoveryCycleMetrics`; 집중 주기 보존 테스트 | 완료된 각 주기는 주기당 후보 수, 게이트 통과율, 재정의 유발률, 폐기율을 권한 없는 감사 상태 변환 결과로 보존합니다. |
 
 ### 구현 이력
 
@@ -151,11 +186,11 @@ catalog-as-code PR 로만 바뀐다.
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트. | 예약된 루프, shadow 근거, 재정의 유입, 혼합 모델 게이트를 완성합니다. |
 | 2026-08-15 | in-progress | 후보별 shadow 체류 보존과 실패 시 차단하는 임계 게이트를 구현하고, 기존의 스케줄러-체류 통합 행을 분리했습니다. | `current change`; `services/core-control-plane/src/fdai/core/operational_learning/shadow_dwell.py`; `uv run pytest -q --no-cov services/core-control-plane/tests/core/operational_learning services/core-control-plane/tests/agents` 통과(1214건). | 스케줄러, 혼합 모델 교차 검증, 루프 메트릭, 운영자 검토 결과를 기록하는 감사 항목 생산자. |
+| 2026-08-29 | implemented | 재생 가능한 범위 제한 주기, 독립 모델 계열 후보 재승인, 재정의 인식 감사 메트릭, 별도 사람 shadow 검토 완료 경로를 추가했습니다. | `current change`; 발견 주기, 영속 기록, shadow dwell, Var, Saga 경로; `uv run pytest -q --no-cov services/core-control-plane/tests/core/operational_learning services/core-control-plane/tests/agents/test_discovery_shadow_dwell.py services/core-control-plane/tests/agents/test_discovery_shadow_review.py services/core-control-plane/tests/agents/test_wave2_governance.py services/core-control-plane/tests/agents/test_wave3_pipeline.py services/core-control-plane/tests/agents/test_quorum.py services/core-control-plane/tests/agents/test_framework_layout.py services/core-control-plane/tests/agents/test_pantheon_doc_parity.py` 테스트 309개 통과. | `validated` 상태를 주장하기 전에 관리되는 배포 주기와 실환경 검토 코호트를 보존합니다. |
 
 ### 남은 작업
 
-- [ ] 재현 가능한 신원과 함께 하나의 완전한 관측, 가설, 검증, 통합 주기를 보존하는 범위 제한 스케줄러를 구현합니다.
-- [x] 후보별 shadow 기간, 표본 크기, 정확도, 위반 0건 근거를 보존하고 구성된 임계값을 적용합니다. 근거: `services/core-control-plane/tests/agents/test_discovery_shadow_dwell.py`.
-- [ ] shadow `object.audit-entry` 페이로드에 운영자 검토 결과와 정책 위반 탈출 표시를 기록해 보존된 dwell 근거의 검토 건수가 0을 벗어나게 합니다. 그전까지 실환경 후보는 검토 표본 부족으로 계속 부적격입니다.
-- [ ] 재정의 이벤트와 독립 모델 계열 교차 검증을 연결하고 불일치가 사람 검토로 보류됨을 증명합니다.
-- [ ] 관리되는 주기 처리량, 게이트 통과, 재정의 유발, 폐기 메트릭을 게시합니다.
+- [x] 범위가 제한된 구현 범위를 완료했습니다. 재생 가능한 주기 ID, 중복 없는 사람 검토,
+  재정의를 인식하는 혼합 모델 보류, 감사된 처리량 메트릭은
+  `services/core-control-plane/tests/core/operational_learning/test_discovery_cycle.py` 와
+  `services/core-control-plane/tests/agents/test_discovery_shadow_review.py` 로 검증합니다.

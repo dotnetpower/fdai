@@ -126,6 +126,32 @@ def retain_shadow_dwell(
     """Retain one valid, deduplicated judge-and-log-only observation."""
     if not target:
         return
+    correlation_id = str(payload.get("correlation_id", ""))
+    observation_id = str(payload.get("shadow_observation_id") or correlation_id)
+    review_update = payload.get("shadow_review_update", False)
+    if not isinstance(review_update, bool):
+        state.record_behavior("shadow_dwell_observation_invalid")
+        return
+    if review_update:
+        reviewed = payload.get("operator_reviewed")
+        agreed = payload.get("operator_agreed")
+        escape = payload.get("policy_escape")
+        if reviewed is not True or not isinstance(agreed, bool) or not isinstance(escape, bool):
+            state.record_behavior("shadow_dwell_review_invalid")
+            return
+        try:
+            applied = state._shadow_dwell.apply_review(
+                target=target,
+                observation_id=observation_id,
+                agreed=agreed,
+            )
+        except ShadowDwellEvidenceError:
+            state.record_behavior("shadow_dwell_review_invalid")
+            return
+        state.record_behavior(
+            "shadow_dwell_review_applied" if applied else "shadow_dwell_review_unmatched"
+        )
+        return
     instant = _shadow_observed_at(payload)
     if instant is None:
         state.record_behavior("shadow_dwell_observation_untimed")
@@ -136,7 +162,6 @@ def retain_shadow_dwell(
     if not all(isinstance(flag, bool) for flag in (reviewed, agreed, escape)):
         state.record_behavior("shadow_dwell_observation_invalid")
         return
-    correlation_id = str(payload.get("correlation_id", ""))
     if correlation_id:
         dwell_key = f"shadow:{correlation_id}:{target}"
         if dwell_key in state._counted_shadow_outcomes:
@@ -153,7 +178,10 @@ def retain_shadow_dwell(
     except ShadowDwellEvidenceError:
         state.record_behavior("shadow_dwell_observation_invalid")
         return
-    state._shadow_dwell.record(observation)
+    state._shadow_dwell.record(
+        observation,
+        observation_id=observation_id if observation_id else None,
+    )
     state.record_behavior("shadow_dwell_observation_retained")
 
 

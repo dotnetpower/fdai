@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 0c9f943b99a01dcf1aedd07eb02e1514c29a93b2
-translation_revised: 2026-08-28
+translation_source_sha: c7b2df679ee134b4466d52d7ae2fb2978f50931e
+translation_revised: 2026-08-29
 ---
 # 에이전트 판테온
 FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임을 소유합니다. 에이전트는 schema-checked 이벤트로 관측, 판단, 계획, 승인, 실행, 검증, 복구, 감사, 학습합니다. 운영 온톨로지는 타입이 지정된 meaning과 범위가 제한된 맥락을 제공하며 행위자, 권한 또는 실행기가 아닙니다. 판테온은 업스트림에서 정의되고 포크는 에이전트를 추가하거나 이름을 바꾸지 않습니다.
@@ -40,6 +40,7 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 | 2026-08-28 | 구현됨 | 범위가 제한된 Njord 범위 목록 계약이 의도적으로 동작하지 않는 패키지 부재 경로 대신 패키지 기반으로 수락된 표본을 실행하도록 했습니다. | `current change`; 집중 대화 포트 및 비용 거버넌스 Njord 테스트. | 승격 전에는 실제 권위가 있는 근거가 계속 필요합니다. |
 | 2026-08-28 | 구현됨 | 선택적 패키지 주입 뒤 Njord의 선언된 읽기 도구 사실 범위를 복원하면서 비활성 수집은 계속 동작하지 않게 했고, 기존 이상 징후 테스트는 명시적으로 활성화한 패키지 프로바이더를 사용하도록 옮겼습니다. | `current change`; 집중 중재, 역할, 대화 도구 및 비용 거버넌스 Njord 테스트. | 승격 검토 전에 실제 권위가 있는 Njord 근거를 보존합니다. |
 | 2026-08-29 | implemented | 고정 명단, AgentSpec, topic 소유권 또는 권한 역할을 바꾸지 않고 선택적 비용 거버넌스 자문 주입을 추가했습니다. | `current change`; 집중 Njord, 판테온 배치, 소유권, 비활성화 및 drain 테스트. | enforce 승격 전에 live-authoritative 비용 거버넌스 cohort를 보존합니다. |
+| 2026-08-29 | implemented | AgentSpec, topic, 소유권, 모델 정책 또는 작업 권한을 바꾸지 않고 Var, Saga, Norns를 통해 shadow 검토 근거 경로를 완료했습니다. Var는 별도 사람 비교를 기록하고, Saga는 자신이 소유한 감사 항목을 다시 게시하며, Norns는 다른 표본을 세지 않고 안정적인 ID로 기존 dwell 표본의 검토 상태를 갱신합니다. | `current change`; `var.py`; `saga.py`; `norns_learning.py`; 집중 발견 shadow 검토, dwell 및 프레임워크 배치 검사. | 승격 결정을 내리기 전에 관리되는 실환경 검토 코호트를 보존합니다. |
 | 2026-08-21 | implemented | 프레임워크 줄 상한을 복구하기 위해서만 내용 주소 기반 Bragi Turn 및 인계 페이로드 구성을 비공개 발행 helper로 분리하고 의미 기능 변환을 기존 라우팅 helper로 옮겼습니다. Bragi는 같은 `object.turn` 및 `object.handoff-escalation` topic을 계속 발행하며 AgentSpec, 소유권, LLM 정책, 타입이 지정된 제안 진입점 및 작업 권한은 바뀌지 않았습니다. | `current change`; 집중 Bragi 및 프레임워크 검사 95개 통과; 변경 파일 Ruff, format, mypy 통과; 저장소 LOC gate hard failure 0건으로 통과. | 이 설계에서 이미 요구한 동일한 통제된 운영자 경로, KPI 및 승격 근거를 보존합니다. |
 | 2026-08-13 | in-progress | 이전 제공 이력을 재구성하지 않고 근거 범위를 명시한 구현 원장을 도입했습니다. | 현재 변경 | 검증 완료 또는 enforce 사용을 주장하기 전에 실제 운영 근거를 수집하고 독립적으로 검토된 승격을 완료합니다. |
 | 2026-08-19 | implemented | Heimdall의 AgentSpec, topic, 소유 객체, 결정론적 hot path 또는 권한을 바꾸지 않고 남은 production 보안 상관관계 threshold를 bounded startup setting에 연결했습니다. Framework 줄 상한을 유지하기 위해 raw Huginn ingress handler 구성을 private subscription wiring 모듈로 옮겼을 뿐이며 정규화 및 drop 의미는 바뀌지 않았습니다. | [이슈 #219](https://github.com/dotnetpower/fdai/issues/219). Focused setting, Heimdall 주입, framework layout, raw ingress 및 threshold source 검사 134개가 통과했습니다. | Runtime exit gate 근거와 독립 promotion outcome은 바뀌지 않았습니다. |
@@ -135,6 +136,12 @@ Norns는 inert `RuleCandidate` 제안의 sole 쓰기 담당으로 유지됩니�
 [Operational Learning 온톨로지](../rules-and-detection/operational-learning-ontology-ko.md#norns-consensus-및-catalog-boundary)가 소유합니다. 비공개 `norns_deployment_learning.py` 보조 로직은 범위가 제한된 scenario-gap 및 preflight-blocker 집계 상태만 보유합니다. 모든 후보 생성과 publish는 계속 Norns가 합의 및 rate-limit 경계를 통해 수행합니다. Caller-supplied recurring preflight 수동 차단 요인은 scope-deduplicate된 inert `preflight-toggle-gap` 후보가 되며 토글을 만들거나 배포 권한을 변경하지 않습니다. 재현된 Rule 수집 실패는 Huginn-owned 이벤트로 들어옵니다. Heimdall은 exact 실패를 독립적으로 validate하고 `object.retrieval-validation`을 publish하며, Saga는 해당 근거를 감사하고 Muninn은 `object.context-index`로 materialize합니다. Norns는 raw 텍스트, 검증되지 않은 실패, 수집 외 원인 및 exact Rule 버전이 없는 대상을 strict하게 거부합니다. 남은 challenger를 영속하게 기록한 뒤 동일한 합의 및 `object.rule-candidate` 경로를 사용합니다. 영속 싱크가 없으면 이벤트를 폐기하지 않고 backpressure합니다. 운영 런타임은 이 최종 게시 경계에 기본적으로 닫힌 상한도 주입합니다. 닫힌 게이트는 범위가 제한된 대기 큐와 합의 근거를 보존하고, 열린 게이트도 카탈로그, 승격, 승인 또는 실행 권한을 부여하지 않으며 Mimir와 검토된 catalog-as-code pull request를 다음 경계로 유지합니다.
 
 Shadow dwell은 루프의 마지막 비활성 장벽입니다. Norns는 shadow 모드 감사 결과를 대상별 dwell 관측으로 보존하며(shadow 결과는 여전히 실제 rollback 비율 학습기에 섞이지 않습니다) 산출된 자기 검증 근거를 게시하는 후보에 첨부합니다. Mimir는 그 이벤트 근거에서 판정을 다시 유도하고, 근거가 없거나 일관되지 않거나 대상이 다르거나 임계 미달인 후보의 승격을 거부합니다. 정책 위반 탈출 0건 기준은 설정 항목이 아닙니다. 이는 두 에이전트 어느 쪽에도 권한을 부여하지 않으며, 카탈로그는 여전히 머지된 catalog-as-code PR로만 바뀐니다. [자율 규칙 발견](../rules-and-detection/rule-catalog-autonomous-discovery-ko.md#shadow-dwell-근거상류-구현)을 참고하세요.
+
+Saga는 이제 종료된 각 shadow 감사 항목에 안정적인 관측 ID와 정책 위반 탈출 표시를
+기록합니다. Var는 해당 레코드를 별도 사람 검토자의 대기열에 넣고 기존
+`object.approval` 토픽으로 결과를 게시합니다. Saga는 검토된 감사 항목을 다시 게시하고,
+Norns는 ID로 보존된 표본의 검토 상태를 갱신합니다. 재생과 반복 검토는 표본 수를 늘리지
+않으며, 검토 경로는 최초 정책 위반 탈출 사실을 변경할 수 없습니다.
 ## 4. 에이전트 카탈로그
 > **머신 판독용 원본 (single 정본)**: `PANTHEON_SPECS`
 > ([`services/core-control-plane/src/fdai/agents/_framework/pantheon.py`](../../../services/core-control-plane/src/fdai/agents/_framework/pantheon.py)).

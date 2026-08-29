@@ -48,6 +48,17 @@ class PendingHilTicket:
     rejected: bool = False
 
 
+@dataclass(frozen=True, slots=True)
+class PendingShadowReview:
+    """One Saga-authenticated shadow outcome awaiting a human comparison."""
+
+    correlation_id: str
+    action_type: str
+    observed_at: str
+    policy_escape: bool
+    initiator_principal: str | None
+
+
 def _evict_oldest_ticket(mapping: dict[Any, Any], cap: int, *, keep: Any = None) -> None:
     """Bound ``mapping`` to ``cap`` entries, dropping oldest-first (insertion
     order), never evicting ``keep`` (the entry just written)."""
@@ -78,6 +89,7 @@ class Var(Agent):
         self.bus = bus
         self.admin_channel = admin_channel or InMemoryAdminChannel()
         self._pending: dict[str, PendingHilTicket] = {}
+        self._pending_shadow_reviews: dict[str, PendingShadowReview] = {}
         # (initiator, action_type) -> AdminCard for dedup counter update
         self._last_cards: dict[tuple[str, str], AdminCard] = {}
         # (correlation, approver) pairs already counted as a blocked attempt,
@@ -94,6 +106,7 @@ class Var(Agent):
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if topic == "object.audit-entry":
             self._ingest_document_hil(payload)
+            self._ingest_shadow_review(payload)
             return
         if topic != "object.action-run":
             return
@@ -164,6 +177,45 @@ class Var(Agent):
         self.record_behavior("document_ticket_pending")
         _evict_oldest_ticket(self._pending, self._MAX_PENDING, keep=correlation)
 
+    def _ingest_shadow_review(self, payload: dict[str, Any]) -> None:
+        if (
+            payload.get("producer_principal") != "Saga"
+            or payload.get("audited_topic") != "object.action-run"
+            or payload.get("shadow_mode") is not True
+            or payload.get("operator_reviewed") is not False
+        ):
+            return
+        correlation = str(payload.get("shadow_observation_id") or "")
+        action_type = str(payload.get("action_type") or "")
+        observed_at = str(payload.get("observed_at") or "")
+        policy_escape = payload.get("policy_escape")
+        if (
+            not correlation
+            or not action_type
+            or not observed_at
+            or not isinstance(policy_escape, bool)
+            or correlation in self._pending_shadow_reviews
+        ):
+            self.record_behavior("shadow_review_invalid")
+            return
+        initiator = payload.get("initiator_principal")
+        if initiator is not None and not isinstance(initiator, str):
+            self.record_behavior("shadow_review_invalid")
+            return
+        self._pending_shadow_reviews[correlation] = PendingShadowReview(
+            correlation_id=correlation,
+            action_type=action_type,
+            observed_at=observed_at,
+            policy_escape=policy_escape,
+            initiator_principal=initiator.strip() if initiator else None,
+        )
+        _evict_oldest_ticket(
+            self._pending_shadow_reviews,
+            self._MAX_PENDING,
+            keep=correlation,
+        )
+        self.record_behavior("shadow_review_pending")
+
     # ---- HIL decision --------------------------------------------------
 
     async def decide(
@@ -176,6 +228,7 @@ class Var(Agent):
         ticket = self._pending.get(correlation_id)
         if ticket is None:
             return None
+
         if decision == "reject":
             ticket.rejected = True
         elif decision == "approve":
@@ -237,8 +290,59 @@ class Var(Agent):
             return approval
         return None
 
+    async def decide_shadow_review(
+        self,
+        correlation_id: str,
+        *,
+        reviewer: str,
+        agreed: bool,
+    ) -> dict[str, Any] | None:
+        """Publish one real human review without manufacturing another sample."""
+
+        ticket = self._pending_shadow_reviews.get(correlation_id)
+        if ticket is None:
+            return None
+        reviewer_norm = reviewer.strip().casefold()
+        if not reviewer_norm:
+            raise ValueError("shadow outcome reviewer MUST be a non-empty principal")
+        if not isinstance(agreed, bool):
+            raise ValueError("shadow outcome agreement MUST be boolean")
+        initiator_norm = (ticket.initiator_principal or "").strip().casefold()
+        if initiator_norm and reviewer_norm == initiator_norm:
+            self._record_blocked_attempt(
+                "shadow_review_self_approval_blocked",
+                correlation_id,
+                reviewer_norm,
+            )
+            raise ValueError("a shadow outcome initiator cannot review their own action")
+        approval: dict[str, Any] = {
+            "producer_principal": "Var",
+            "kind": "shadow_outcome_review",
+            "correlation_id": ticket.correlation_id,
+            "idempotency_key": f"shadow-review:{ticket.correlation_id}",
+            "action_type": ticket.action_type,
+            "state": "reviewed",
+            "approvers": [reviewer_norm],
+            "shadow_mode": True,
+            "shadow_observation_id": ticket.correlation_id,
+            "observed_at": ticket.observed_at,
+            "operator_reviewed": True,
+            "operator_agreed": agreed,
+            "policy_escape": ticket.policy_escape,
+        }
+        if self.bus is not None:
+            await self.bus.publish("Var", "object.approval", approval)
+        del self._pending_shadow_reviews[correlation_id]
+        self.record_behavior("shadow_review_completed")
+        return approval
+
     def pending_tickets(self) -> tuple[PendingHilTicket, ...]:
         return tuple(self._pending.values())
+
+    def pending_shadow_reviews(self) -> tuple[PendingShadowReview, ...]:
+        """Return bounded shadow outcomes awaiting a distinct human review."""
+
+        return tuple(self._pending_shadow_reviews.values())
 
     def _record_blocked_attempt(self, key: str, correlation_id: str, approver: str) -> None:
         """Count a blocked approval attempt once per (correlation, approver).
@@ -318,4 +422,4 @@ class Var(Agent):
         return IntrospectionResult(answer=answer, facts=facts)
 
 
-__all__ = ["Var", "PendingHilTicket"]
+__all__ = ["PendingHilTicket", "PendingShadowReview", "Var"]

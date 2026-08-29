@@ -93,6 +93,8 @@ class Saga(Agent):
             await self._republish_document_decision(payload, correlation_id)
         if topic == "object.approval" and payload.get("kind") == "document_ingestion":
             await self._republish_document_approval(payload, correlation_id)
+        if topic == "object.approval" and payload.get("kind") == "shadow_outcome_review":
+            await self._republish_shadow_review(payload, correlation_id)
         if topic == "object.action-run":
             await self._republish_outcome(payload, correlation_id)
         if topic == "object.forecast-outcome":
@@ -124,6 +126,42 @@ class Saga(Agent):
                 "reason": str(payload.get("reason") or ""),
                 "review_ref": payload.get("review_ref"),
                 "mode": "shadow",
+            },
+        )
+
+    async def _republish_shadow_review(
+        self,
+        payload: dict[str, Any],
+        correlation_id: str,
+    ) -> None:
+        if self.bus is None or not correlation_id:
+            return
+        if (
+            payload.get("producer_principal") != "Var"
+            or payload.get("operator_reviewed") is not True
+            or not isinstance(payload.get("operator_agreed"), bool)
+            or not isinstance(payload.get("policy_escape"), bool)
+            or not str(payload.get("action_type") or "")
+            or not str(payload.get("shadow_observation_id") or "")
+            or not str(payload.get("observed_at") or "")
+        ):
+            raise ValueError("shadow outcome review approval is malformed")
+        await self.bus.publish(
+            "Saga",
+            "object.audit-entry",
+            {
+                "producer_principal": "Saga",
+                "correlation_id": correlation_id,
+                "idempotency_key": str(payload.get("idempotency_key") or ""),
+                "audited_topic": "object.approval",
+                "action_type": str(payload["action_type"]),
+                "shadow_mode": True,
+                "shadow_observation_id": str(payload["shadow_observation_id"]),
+                "shadow_review_update": True,
+                "observed_at": str(payload["observed_at"]),
+                "operator_reviewed": True,
+                "operator_agreed": bool(payload["operator_agreed"]),
+                "policy_escape": bool(payload["policy_escape"]),
             },
         )
 
@@ -300,6 +338,12 @@ class Saga(Agent):
                 # execution from a judged-and-logged shadow one (a shadow
                 # 'success' is not evidence about the action's real safety).
                 "shadow_mode": bool(payload.get("shadow_mode", False)),
+                "shadow_observation_id": correlation_id,
+                "observed_at": str(payload.get("terminal_at") or ""),
+                "operator_reviewed": False,
+                "operator_agreed": False,
+                "policy_escape": payload.get("policy_escape") is True,
+                "initiator_principal": payload.get("initiator_principal"),
             },
         )
 
