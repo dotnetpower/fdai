@@ -33,6 +33,15 @@ def test_compiler_emits_finite_ordered_manifest() -> None:
     assert len({entry.idempotency_key for entry in manifest.entries}) == len(manifest.entries)
 
 
+def test_idempotency_keys_change_with_source_revision() -> None:
+    first = compile_manifest(_profile(), source_commit="a" * 40)
+    second = compile_manifest(_profile(), source_commit="b" * 40)
+
+    assert {entry.idempotency_key for entry in first.entries}.isdisjoint(
+        entry.idempotency_key for entry in second.entries
+    )
+
+
 def test_simulation_interrupts_and_resumes_without_duplicate_stage(tmp_path: Path) -> None:
     manifest = compile_manifest(_profile(), source_commit="a" * 40)
     journal = tmp_path / "runs" / "run.jsonl"

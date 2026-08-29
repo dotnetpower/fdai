@@ -237,6 +237,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H03 | Profile reads had the same check-then-open race. They now read through one no-follow descriptor with mode and size validation. | `test_profile_reader_never_follows_symlink` |
 | H04 | Resume input could claim both a terminal receipt and failure. The reducer now rejects that contradictory state instead of selecting a recovery action. | `test_resume_rejects_failed_state_after_terminal_receipt` |
 | H05 | A journal did not bind its manifest, so a changed source revision could resume old progress. Every event now binds one immutable context digest. | `test_simulation_refuses_resume_under_changed_manifest` |
+| H06 | Stage idempotency keys bound the profile but not the source revision. They now include both, preventing cross-revision effect reuse. | `test_idempotency_keys_change_with_source_revision` |
 
 ## Related docs
 
