@@ -395,4 +395,5 @@ async def wire_azure_container(
         prometheus_base_url=overrides.prometheus_base_url,
         prometheus_queries=overrides.prometheus_queries,
         prometheus_audience=overrides.prometheus_audience,
+        probe_root=overrides.catalog_root / "probes",
     )

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from fdai.core.control_loop import (
     ControlLoop,
     _extract_environment,
@@ -33,9 +34,31 @@ from fdai.shared.contracts.models import (
     Rule,
     WorkflowActionRef,
 )
+from fdai.shared.providers.blast_probe import (
+    BlastProbeTimeoutError,
+    ProbeQuery,
+    ProbeResult,
+    ProbeVerdict,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 TABLE_PATH = REPO_ROOT / "rule-catalog" / "risk-classification.yaml"
+
+
+class _ResultBlastProbe:
+    def __init__(self, result: ProbeResult) -> None:
+        self._result = result
+        self.queries: list[ProbeQuery] = []
+
+    async def measure(self, query: ProbeQuery) -> ProbeResult:
+        self.queries.append(query)
+        return self._result
+
+
+class _FailingBlastProbe:
+    async def measure(self, query: ProbeQuery) -> ProbeResult:
+        del query
+        raise BlastProbeTimeoutError("timed out")
 
 
 def test_extract_environment_prod_variants() -> None:
@@ -258,6 +281,119 @@ async def test_control_loop_evaluates_event_backed_action_preconditions(
     assert unified is not None
     assert unified.gate.outcome is RiskDecisionOutcome.AUTO
     audit_store.append_audit_entry.assert_awaited_once()
+
+
+@pytest.mark.parametrize(
+    ("verdict", "expected_decision"),
+    [
+        (ProbeVerdict.QUIET, "hil"),
+        (ProbeVerdict.ACTIVE, "hil"),
+        (ProbeVerdict.OVERLOADED, "shadow"),
+    ],
+)
+async def test_control_loop_measures_live_blast_probe_before_authority(
+    verdict: ProbeVerdict,
+    expected_decision: str,
+    valid_event: dict[str, Any],
+    valid_action: dict[str, Any],
+    valid_rule: dict[str, Any],
+    valid_ontology_action_type: dict[str, Any],
+) -> None:
+    action_type = OntologyActionType.model_validate(valid_ontology_action_type).model_copy(
+        update={"live_probe_ref": "vm_traffic_last_5m"}
+    )
+    event = Event.model_validate(valid_event)
+    action = Action.model_validate(valid_action).model_copy(
+        update={"action_type": action_type.name}
+    )
+    rule = Rule.model_validate(valid_rule).model_copy(update={"remediates": action_type.name})
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
+    registry.consider_promotion(
+        action_type=action_type,
+        metrics=PromotionMetrics(
+            action_type=action_type.name,
+            shadow_days=action_type.promotion_gate.min_shadow_days,
+            samples=action_type.promotion_gate.min_samples,
+            accuracy=1.0,
+            policy_escapes=0,
+        ),
+    )
+    probe = _ResultBlastProbe(
+        ProbeResult(
+            verdict=verdict,
+            reason="reviewed Azure Monitor threshold",
+            metrics={"total": 42.0},
+        )
+    )
+    audit_store = MagicMock()
+    audit_store.append_audit_entry = AsyncMock()
+    loop = ControlLoop(
+        event_ingest=MagicMock(),
+        trust_router=MagicMock(),
+        t0_engine=MagicMock(),
+        action_builder=MagicMock(),
+        executor=MagicMock(),
+        audit_store=audit_store,
+        rules_by_id={rule.id: rule},
+        risk_table=load_risk_table(TABLE_PATH),
+        action_types_by_name={action_type.name: action_type},
+        risk_gate=RiskGate(registry=registry),
+        live_blast_probe=probe,
+    )
+
+    unified = await loop._evaluate_and_audit(event=event, action=action, rule=rule)
+
+    assert unified is not None
+    assert unified.decision == expected_decision
+    assert probe.queries[0].target_ref == action.target_resource_ref
+    audit = audit_store.append_audit_entry.await_args.args[0]
+    assert audit["authority"]["ceiling_inputs"]["live_probe"]["verdict"] == verdict.value
+    assert audit["authority"]["ceiling_inputs"]["live_probe"]["metrics"] == {"total": 42.0}
+
+
+@pytest.mark.parametrize("probe", [None, _FailingBlastProbe()])
+async def test_control_loop_unavailable_live_blast_probe_fails_closed(
+    probe: _FailingBlastProbe | None,
+    valid_event: dict[str, Any],
+    valid_action: dict[str, Any],
+    valid_rule: dict[str, Any],
+    valid_ontology_action_type: dict[str, Any],
+) -> None:
+    action_type = OntologyActionType.model_validate(valid_ontology_action_type).model_copy(
+        update={"live_probe_ref": "vm_traffic_last_5m"}
+    )
+    event = Event.model_validate(valid_event)
+    action = Action.model_validate(valid_action).model_copy(
+        update={"action_type": action_type.name}
+    )
+    rule = Rule.model_validate(valid_rule).model_copy(update={"remediates": action_type.name})
+    audit_store = MagicMock()
+    audit_store.append_audit_entry = AsyncMock()
+    loop = ControlLoop(
+        event_ingest=MagicMock(),
+        trust_router=MagicMock(),
+        t0_engine=MagicMock(),
+        action_builder=MagicMock(),
+        executor=MagicMock(),
+        audit_store=audit_store,
+        rules_by_id={rule.id: rule},
+        risk_table=load_risk_table(TABLE_PATH),
+        action_types_by_name={action_type.name: action_type},
+        risk_gate=RiskGate(registry=ActionPromotionRegistry(allow_legacy_metrics=True)),
+        live_blast_probe=probe,
+    )
+
+    unified = await loop._evaluate_and_audit(event=event, action=action, rule=rule)
+
+    assert unified is not None
+    assert unified.decision in {"hil", "shadow", "deny"}
+    audit = audit_store.append_audit_entry.await_args.args[0]
+    reading = audit["authority"]["ceiling_inputs"]["live_probe"]
+    if probe is None:
+        assert reading is None
+    else:
+        assert reading["verdict"] == "active"
+        assert reading["degraded"] is True
 
 
 async def test_control_loop_precondition_evaluator_failure_is_hil(

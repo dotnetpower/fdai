@@ -664,6 +664,7 @@ def _build_control_loop(
         risk_table=risk_table,
         action_types_by_name=action_types_by_name,
         risk_gate=risk_gate,
+        live_blast_probe=container.live_blast_probe,
         t1_engine=t1,
         dynamic_runtime_coordinator=dynamic_runtime_coordinator,
         graph_dynamic_runtime_coordinator=graph_dynamic_runtime_coordinator,

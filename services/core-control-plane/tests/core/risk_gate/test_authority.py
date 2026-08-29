@@ -330,6 +330,8 @@ def test_audit_records_every_ceiling_input_the_feature_vector_omits() -> None:
         "degraded": False,
         "age_seconds": 5.0,
         "max_age_seconds": 60.0,
+        "reason": "",
+        "metrics": None,
     }
     assert inputs["live_probe_failure_streak"] == 1
     assert inputs["graph_affected"] == 3

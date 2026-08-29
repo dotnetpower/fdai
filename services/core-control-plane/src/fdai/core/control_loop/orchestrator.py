@@ -64,6 +64,7 @@ from fdai.shared.contracts.models import (
     ResponseOutcome,
     Rule,
 )
+from fdai.shared.providers.blast_probe import LiveBlastProbe
 from fdai.shared.providers.cost_estimator import CostEstimator
 from fdai.shared.providers.execution_authorization import (
     ExecutionAccessGrantSink,
@@ -100,6 +101,7 @@ class ControlLoop(
         risk_table: RiskTable | None = None,
         action_types_by_name: Mapping[str, OntologyActionType] | None = None,
         risk_gate: RiskGate | None = None,
+        live_blast_probe: LiveBlastProbe | None = None,
         cost_estimator: CostEstimator | None = None,
         direct_api_executor: DirectApiExecutionPort | None = None,
         tool_executor: ToolCallShadowExecutor | None = None,
@@ -186,6 +188,7 @@ class ControlLoop(
             dict(action_types_by_name) if action_types_by_name is not None else {}
         )
         self._risk_gate = risk_gate
+        self._live_blast_probe = live_blast_probe
         self._degradation = degradation
         self._kill_switch = kill_switch
         self._kill_switch_refresher = kill_switch_refresher

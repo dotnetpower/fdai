@@ -15,6 +15,7 @@ ceiling already allows.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from fdai.core.risk_gate.ceiling import ProbeResult
@@ -58,6 +59,8 @@ class LiveProbeObservation:
     degraded: bool = False
     age_seconds: float | None = None
     max_age_seconds: float | None = None
+    reason: str = ""
+    metrics: Mapping[str, float] | None = None
 
     def __post_init__(self) -> None:
         if not self.probe_id.strip():
