@@ -12,7 +12,7 @@ from fdai_deployment_cli.contracts import (
     SubscriptionProvisioningManifest,
     canonical_digest,
 )
-from fdai_deployment_cli.profile import load_profile, write_profile
+from fdai_deployment_cli.profile import _publish_profile, load_profile, write_profile
 
 
 def _profile() -> ProvisionProfile:
@@ -81,6 +81,18 @@ def test_profile_reader_never_follows_symlink(tmp_path: Path) -> None:
 
     with pytest.raises(OSError):
         load_profile(linked)
+
+
+def test_profile_publish_never_replaces_concurrent_destination(tmp_path: Path) -> None:
+    temporary = tmp_path / "temporary"
+    destination = tmp_path / "profile.json"
+    temporary.write_text("new", encoding="utf-8")
+    destination.write_text("concurrent", encoding="utf-8")
+
+    with pytest.raises(FileExistsError):
+        _publish_profile(temporary, destination, force=False)
+    assert destination.read_text(encoding="utf-8") == "concurrent"
+    assert temporary.read_text(encoding="utf-8") == "new"
 
 
 def test_profile_rejects_non_shadow_and_transport_mismatch() -> None:

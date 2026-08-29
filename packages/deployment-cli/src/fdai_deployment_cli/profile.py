@@ -30,10 +30,18 @@ def write_profile(path: Path, profile: ProvisionProfile, *, force: bool = False)
             stream.write(canonical_bytes(profile.to_mapping()) + b"\n")
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, path)
+        _publish_profile(temporary, path, force=force)
         path.chmod(0o600)
     finally:
         temporary.unlink(missing_ok=True)
+
+
+def _publish_profile(temporary: Path, destination: Path, *, force: bool) -> None:
+    if force:
+        os.replace(temporary, destination)
+        return
+    os.link(temporary, destination, follow_symlinks=False)
+    temporary.unlink()
 
 
 def load_profile(path: Path) -> ProvisionProfile:

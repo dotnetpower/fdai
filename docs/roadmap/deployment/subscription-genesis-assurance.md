@@ -275,6 +275,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H41 | Relative work paths were reinterpreted beneath Terraform's later working directory. Planning now converts them to absolute paths without resolving a hostile link. | `test_relative_plan_work_directory_becomes_absolute` |
 | H42 | Offline-kit verification accepted an arbitrary signed SBOM payload. It now requires CycloneDX 1.5 with unique SHA-256 components that exactly cover every other kit file. | `test_offline_kit_rejects_incomplete_sbom` |
 | H43 | Inspection required GitHub CLI even for manual transport profiles. Tool prerequisites now follow the selected transport. | `test_manual_profile_does_not_require_github_cli` |
+| H44 | Non-force profile initialization used a replacing rename after its existence check, so concurrent creation could be overwritten. Publication now uses atomic no-replace linking. | `test_profile_publish_never_replaces_concurrent_destination` |
 
 ## Related docs
 
