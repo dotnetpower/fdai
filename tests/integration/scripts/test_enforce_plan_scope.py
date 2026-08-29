@@ -82,6 +82,7 @@ def test_core_model_quorum_requires_exact_required_pair() -> None:
     plan = _plan(judge, primary)
     plan["resource_changes"].append({"address": account, "change": {"actions": ["update"]}})
     assert enforce(plan, mode="core-model-quorum") == frozenset({account, judge, primary})
+    assert enforce({"resource_changes": []}, mode="core-model-quorum") == frozenset()
     with pytest.raises(ValueError, match="exactly the required resources"):
         enforce(_plan(judge), mode="core-model-quorum")
     with pytest.raises(ValueError, match="exactly the required resources"):
@@ -93,6 +94,14 @@ def test_core_model_quorum_requires_exact_required_pair() -> None:
     )
     with pytest.raises(ValueError, match="in-place update"):
         enforce(destructive_account, mode="core-model-quorum")
+
+    updating_deployment = _plan(judge, primary)
+    updating_deployment["resource_changes"][0]["change"]["actions"] = ["update"]
+    updating_deployment["resource_changes"].append(
+        {"address": account, "change": {"actions": ["update"]}}
+    )
+    with pytest.raises(ValueError, match="create-only"):
+        enforce(updating_deployment, mode="core-model-quorum")
 
 
 def test_read_and_noop_actions_are_ignored() -> None:

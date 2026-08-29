@@ -628,6 +628,7 @@ jobs:
             "$(az containerapp job show --resource-group "$rg" --name "ca-fdai-${TF_VAR_env}-${TF_VAR_region_short}-core-scheduler" --query id -o tsv 2>/dev/null || true)"
           import_if_missing 'module.compute.azurerm_container_app_job.analyzer_tick[0]' \
             "$(az containerapp job show --resource-group "$rg" --name "ca-fdai-${TF_VAR_env}-${TF_VAR_region_short}-core-analyzer" --query id -o tsv 2>/dev/null || true)"
+          [[ "$CORE_MODEL_QUORUM_ONLY" != "true" ]] || bash ../scripts/deployment/azure/adopt-core-model-quorum.sh "$TF_VAR_env" "$TF_VAR_region_short" .
 
           inventory_principal="$(az identity show --resource-group "$rg" --name "id-fdai-${TF_VAR_env}-${TF_VAR_region_short}-inventory" --query principalId -o tsv 2>/dev/null || true)"
           subscription_scope="/subscriptions/${ARM_SUBSCRIPTION_ID}"

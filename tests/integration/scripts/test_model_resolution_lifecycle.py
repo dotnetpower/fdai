@@ -98,6 +98,12 @@ def test_gateway_targeted_plan_resolves_models_without_blocking_on_completeness(
     assert "startsWith(inputs.request_id, 'plan-quorum-')" in target_expression
     assert 'capability[\\"t1.judge\\"]' in target_expression
     assert 'capability[\\"t2.reasoner.primary\\"]' in target_expression
+    assert "adopt-core-model-quorum.sh" in _DEPLOY
+    adopter = (_ROOT / "scripts/deployment/azure/adopt-core-model-quorum.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "az cognitiveservices account deployment show" in adopter
+    assert "for capability in t1.judge t2.reasoner.primary" in adopter
 
 
 def test_model_binding_plan_is_exactly_scoped_and_allows_held_quorum() -> None:
