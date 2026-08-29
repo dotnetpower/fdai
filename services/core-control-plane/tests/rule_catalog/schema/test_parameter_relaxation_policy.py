@@ -27,6 +27,12 @@ def test_numeric_bound_rejects_non_numeric_value() -> None:
     assert not bound.allows("not-a-number")
 
 
+@pytest.mark.parametrize("value", ["nan", "inf", "-inf"])
+def test_numeric_bound_rejects_non_finite_value(value: str) -> None:
+    bound = ParameterBound(key="min_retention_days", minimum=1, maximum=30)
+    assert not bound.allows(value)
+
+
 def test_enumerated_bound_allows_listed_values_only() -> None:
     bound = ParameterBound(key="mode", allowed_values=frozenset({"full", "incremental"}))
     assert bound.allows("full")

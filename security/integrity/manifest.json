@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1251,
+  "file_count": 1252,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "ebca41cd37517c9c564b1351302f9222805b56f186b9a83e9a562e69a51a74a9",
     ".github/instructions/agent-stewardship.instructions.md": "e2e2224db17159323f910252e0f9f6efb44c0f1d7e0d217d5159745c15c9ff46",
@@ -656,12 +656,13 @@
     "services/core-control-plane/src/fdai/core/operational_context/models.py": "30afca17fcd9d0e8c8014118da6a1cc9ac27e0d067cb62950fb629cf3af5f330",
     "services/core-control-plane/src/fdai/core/operational_context/operating_scope.py": "8ddec0759a50023bb9e48e52107fe84e1a28de2fa78d7e863794f96b405ff083",
     "services/core-control-plane/src/fdai/core/operational_context/projector.py": "9ef664341ebf708929f3b893613bcb5ffeeb7bff7cc2988af294a95df8f1a2a7",
-    "services/core-control-plane/src/fdai/core/operational_learning/__init__.py": "d89bf3c3ecfcc6f853df4fe16c9b540eaa2d1856219a896f789abf2b6c402837",
+    "services/core-control-plane/src/fdai/core/operational_learning/__init__.py": "09de22900847ea93f9a7230ad424adfb06d7df53c6a6141886f4888333d2d18a",
     "services/core-control-plane/src/fdai/core/operational_learning/catalog.py": "4f4807b8a9d3be32c37aec9b1f2d01f62480e8d1c3f09493f82c8d284478b0f0",
     "services/core-control-plane/src/fdai/core/operational_learning/cost_governance.py": "7ed3caedce764155ee24d0e9e46df768bb4a3818a4fa8a29062e96c6e5806701",
     "services/core-control-plane/src/fdai/core/operational_learning/discovery_contracts.py": "9044e0b6d7464355ad676ab8ea84a975d567149eaca6a9fe1f7057a96efbad48",
     "services/core-control-plane/src/fdai/core/operational_learning/discovery_cycle.py": "551117abc2e5ee1e86e058ad0261aadd179699de4c4f8f37a09ab559c9e159b5",
     "services/core-control-plane/src/fdai/core/operational_learning/discovery_persistence.py": "7fb154179b0f1f50070885ba706900ac61181f09b2f7d2639e2c1ad482c3ede7",
+    "services/core-control-plane/src/fdai/core/operational_learning/override_signals.py": "79d052aeaeee753bce2487e76b4e89f725da22f874953e45bb110c259b9cfdd0",
     "services/core-control-plane/src/fdai/core/operational_learning/patterns.py": "3f32cea89397bf175cfd31f48886eda8ffbd5d62a6a53284316ae6c7d40cdf74",
     "services/core-control-plane/src/fdai/core/operational_learning/review.py": "e85b35a30c70640efc2fe91638a92ae40f00f9ef4b5300b807afe36dc1fe4e6e",
     "services/core-control-plane/src/fdai/core/operational_learning/shadow_dwell.py": "7f783488aae99bc73bb601d9d79532ca75dbd53345c4a5045c452186299026f0",

@@ -57,6 +57,18 @@ def test_covers_rejects_non_matching_id() -> None:
     assert not Scope(level=ScopeLevel.ACCOUNT, id="sub-other").covers(ctx)
 
 
+def test_scope_hierarchy_and_resource_selectors_match_case_insensitively() -> None:
+    ctx = _ctx(org="ORG-1", account="SUB-1", rg="RG-A", resource="VM-1")
+    scope = Scope(
+        level=ScopeLevel.RESOURCE_GROUP,
+        id="rg-a",
+        selector=ScopeSelector(resource_ids=frozenset({"vm-1"})),
+        excludes=frozenset({"vm-other"}),
+    )
+
+    assert scope.covers(ctx)
+
+
 def test_selector_resource_type() -> None:
     ctx = _ctx(rtype="compute")
     covering = Scope(
@@ -206,6 +218,12 @@ def test_scope_ref_covers_full_chain() -> None:
     assert not ref.covers(_ctx(org="org-1", account="sub-2", rg="rg-a"))
 
 
+def test_scope_ref_covers_case_only_hierarchy_aliases() -> None:
+    ref = ScopeRef(("org-1", "sub-1", "rg-a"))
+
+    assert ref.covers(_ctx(org="ORG-1", account="SUB-1", rg="RG-A"))
+
+
 def test_scope_ref_to_scope_bridges_to_level_id() -> None:
     scope = ScopeRef(("org-1", "sub-1", "rg-a")).to_scope()
     assert scope.level is ScopeLevel.RESOURCE_GROUP
@@ -269,6 +287,14 @@ def test_scope_binding_dead_when_exclude_equals_include() -> None:
         ScopeBinding(
             includes=(ScopeRef(("org-1", "sub-1")),),
             excludes=(ScopeRef(("org-1", "sub-1")),),
+        )
+
+
+def test_scope_binding_rejects_case_only_exclude_of_include() -> None:
+    with pytest.raises(ValueError, match="covers nothing"):
+        ScopeBinding(
+            includes=(ScopeRef(("org-1", "sub-1")),),
+            excludes=(ScopeRef(("ORG-1", "SUB-1")),),
         )
 
 
