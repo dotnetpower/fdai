@@ -292,6 +292,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H58 | Optional capability reserve ratios still reduced quota used for required sufficiency. Required and combined reserve are now calculated independently. | `test_optional_reserve_does_not_block_required_capacity` |
 | H59 | The synthetic air-gap profile inherited a signed-in host's Azure CLI context and failed target binding. The drill now uses a private empty Azure configuration directory. | `test_release_scripts_use_the_installable_distribution` |
 | H60 | The minimal Terraform environment removed both Azure CLI discovery and workload-identity settings. It now supplies a restricted trusted CLI path or target-bound non-secret Managed Identity variables. | `test_terraform_environment_accepts_target_bound_managed_identity` |
+| H61 | Planning discarded the Azure CLI configuration directory used during target inspection. It now preserves only an absolute, non-linked, private directory. | `test_terraform_environment_rejects_linked_azure_config` |
 
 ## Related docs
 

@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: f7ef5f2a981e7553fe7b349e2a383a58bd4c2802
+translation_source_sha: 2a623fdade5e2987acc5f46a6c27b39087babd72
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -285,6 +285,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H58 | 선택 기능의 예비 비율이 필수 충분성에 사용하는 할당량을 계속 줄였습니다. 이제 필수 및 결합 예비 용량을 독립적으로 계산합니다. | `test_optional_reserve_does_not_block_required_capacity` |
 | H59 | 합성 air-gap 프로필이 로그인된 호스트의 Azure CLI 맥락을 상속해 대상 연결에 실패했습니다. 이제 훈련은 비공개 빈 Azure 구성 디렉터리를 사용합니다. | `test_release_scripts_use_the_installable_distribution` |
 | H60 | 최소 Terraform 환경이 Azure CLI 검색과 워크로드 신원 설정을 모두 제거했습니다. 이제 제한된 신뢰 CLI 경로 또는 대상에 연결된 비밀 없는 Managed Identity 변수를 제공합니다. | `test_terraform_environment_accepts_target_bound_managed_identity` |
+| H61 | 계획이 대상 점검에 사용한 Azure CLI 구성 디렉터리를 제거했습니다. 이제 절대 경로이며 링크가 아니고 비공개인 디렉터리만 보존합니다. | `test_terraform_environment_rejects_linked_azure_config` |
 
 ## 관련 문서
 

@@ -362,6 +362,15 @@ def _terraform_environment(
         raise ValueError("ambient Terraform control variables are not accepted")
     allowed = ("HOME", "TMPDIR", "TEMP", "TMP", "SSL_CERT_FILE", "SSL_CERT_DIR")
     environment = {key: source[key] for key in allowed if key in source}
+    azure_config_value = source.get("AZURE_CONFIG_DIR")
+    if azure_config_value is not None:
+        azure_config = Path(azure_config_value)
+        if not azure_config.is_absolute():
+            raise ValueError("AZURE_CONFIG_DIR MUST be absolute")
+        details = azure_config.lstat()
+        if not azure_config.is_dir() or azure_config.is_symlink() or details.st_mode & 0o077:
+            raise ValueError("AZURE_CONFIG_DIR MUST be a private regular directory")
+        environment["AZURE_CONFIG_DIR"] = str(azure_config)
     use_msi = source.get("ARM_USE_MSI", "").casefold()
     if use_msi not in {"", "true"}:
         raise ValueError("ARM_USE_MSI MUST be true when supplied")
