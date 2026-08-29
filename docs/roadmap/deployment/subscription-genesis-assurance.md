@@ -240,6 +240,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H06 | Stage idempotency keys bound the profile but not the source revision. They now include both, preventing cross-revision effect reuse. | `test_idempotency_keys_change_with_source_revision` |
 | H07 | Model capacity accepted booleans and non-finite ratios, which could bypass validation or fail during arithmetic. Boundary validation now rejects them. | `test_capacity_rejects_non_numeric_and_non_finite_inputs` |
 | H08 | License parsing accepted permissive base64 forms and duplicate capabilities. It now requires canonical base64url and a unique sorted capability set. | `test_license_rejects_noncanonical_base64_and_duplicate_capabilities` |
+| H09 | Offline kit hashing trusted path metadata collected before opening the file. It now verifies descriptor identity and detects mutation during hashing. | `test_offline_hash_rejects_replaced_file_identity` |
 
 ## Related docs
 

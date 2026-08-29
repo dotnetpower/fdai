@@ -17,6 +17,7 @@ from fdai_deployment_cli.offline_kit import (
     MANIFEST_NAME,
     SIGNATURE_NAME,
     OfflineKitVerificationError,
+    _sha256_nofollow,
     build_offline_kit_manifest,
     verify_offline_kit,
 )
@@ -112,6 +113,16 @@ def test_offline_kit_rejects_symlink(tmp_path: Path) -> None:
             opa_binary="linked",
             sbom_path="linked",
         )
+
+
+def test_offline_hash_rejects_replaced_file_identity(tmp_path: Path) -> None:
+    expected = tmp_path / "expected"
+    observed = tmp_path / "observed"
+    expected.write_bytes(b"same")
+    observed.write_bytes(b"same")
+
+    with pytest.raises(OfflineKitVerificationError, match="changed during verification"):
+        _sha256_nofollow(observed, expected=expected.stat())
 
 
 def test_bundle_verification_rejects_tampering(tmp_path: Path) -> None:

@@ -229,17 +229,31 @@ def _scan_tree(root: Path) -> tuple[dict[str, str], int]:
             total += details.st_size
             if total > _MAX_TOTAL_BYTES:
                 raise OfflineKitVerificationError("offline kit exceeds its total size limit")
-            files[relative] = _sha256_nofollow(candidate)
+            files[relative] = _sha256_nofollow(candidate, expected=details)
     return dict(sorted(files.items())), total
 
 
-def _sha256_nofollow(path: Path) -> str:
+def _sha256_nofollow(path: Path, *, expected: os.stat_result) -> str:
     descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
     digest = hashlib.sha256()
     with os.fdopen(descriptor, "rb") as stream:
+        opened = os.fstat(stream.fileno())
+        _require_same_file(expected, opened)
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
+        _require_same_file(opened, os.fstat(stream.fileno()))
     return digest.hexdigest()
+
+
+def _require_same_file(expected: os.stat_result, observed: os.stat_result) -> None:
+    if (
+        not stat.S_ISREG(observed.st_mode)
+        or expected.st_dev != observed.st_dev
+        or expected.st_ino != observed.st_ino
+        or expected.st_size != observed.st_size
+        or expected.st_mtime_ns != observed.st_mtime_ns
+    ):
+        raise OfflineKitVerificationError("offline kit file changed during verification")
 
 
 def _read_regular(path: Path, maximum: int) -> bytes:

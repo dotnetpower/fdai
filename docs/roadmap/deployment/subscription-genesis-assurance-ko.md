@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: f02efd0ce852edca61270714b71d724ef2352282
+translation_source_sha: 8173364225dcaebc7a39317af41d9ef4150b2e0e
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -233,6 +233,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H06 | 단계 멱등성 키가 프로필에는 연결되지만 원본 리비전에는 연결되지 않았습니다. 이제 두 값 모두 포함해 리비전 간 효과 재사용을 막습니다. | `test_idempotency_keys_change_with_source_revision` |
 | H07 | 모델 용량이 불리언과 유한하지 않은 비율을 허용해 검증을 우회하거나 계산 중 실패할 수 있었습니다. 이제 경계 검증에서 이를 거부합니다. | `test_capacity_rejects_non_numeric_and_non_finite_inputs` |
 | H08 | 라이선스 구문 분석이 느슨한 base64 형식과 중복 기능을 허용했습니다. 이제 정규 base64url과 고유하며 정렬된 기능 집합을 요구합니다. | `test_license_rejects_noncanonical_base64_and_duplicate_capabilities` |
+| H09 | 오프라인 키트 해시가 파일을 열기 전에 수집한 경로 메타데이터를 신뢰했습니다. 이제 서술자 신원을 검증하고 해시 중 변경을 탐지합니다. | `test_offline_hash_rejects_replaced_file_identity` |
 
 ## 관련 문서
 
