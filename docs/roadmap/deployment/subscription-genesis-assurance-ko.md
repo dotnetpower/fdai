@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 02d86aa96b7e8bf88d78105bfa5c9dde58a01b94
+translation_source_sha: cff63955bc4c4ac3025644ac26afdc166f033e2d
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -252,6 +252,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H25 | 검증된 Terraform, 공급자, 번들 경로가 실행 전에 교체될 수 있었습니다. 이제 계획은 서명 다이제스트를 다시 확인하며 비공개 트리로 복사하고 해당 스냅샷만 실행합니다. | `test_materialization_rejects_artifact_replaced_after_verification` |
 | H26 | 릴리스 준비가 호스트 바이너리와 wheel을 다른 대상 플랫폼으로 표시할 수 있었습니다. 이제 대상별 아티팩트 해석을 구현하기 전까지 교차 플랫폼 준비를 거부합니다. | `test_release_scripts_use_the_installable_distribution` |
 | H27 | 멱등성 키가 12자 리비전 접두사만 사용해 드문 리비전 간 충돌이 가능했습니다. 이제 전체 원본 커밋을 연결합니다. | `test_idempotency_keys_change_with_source_revision` |
+| H28 | 계획이 기존 작업 디렉터리 링크를 따르고 연결된 CLI 구성을 덮어쓸 수 있었습니다. 이제 새 비공개 디렉터리를 요구하고 no-follow 배타 방식으로 구성을 만듭니다. | `test_plan_work_directory_and_config_reject_existing_links` |
 
 ## 관련 문서
 

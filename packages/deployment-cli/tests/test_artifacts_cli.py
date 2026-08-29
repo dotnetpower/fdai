@@ -18,7 +18,13 @@ from fdai_deployment_cli.bundle import (
     extract_bundle_archive,
     verify_bundle,
 )
-from fdai_deployment_cli.cli import _runtime_platform_tag, _safe_plan_error, main
+from fdai_deployment_cli.cli import (
+    _create_private_work_dir,
+    _runtime_platform_tag,
+    _safe_plan_error,
+    _write_private_text,
+    main,
+)
 from fdai_deployment_cli.contracts import canonical_bytes
 from fdai_deployment_cli.license import LicenseInspectionError, inspect_license
 from fdai_deployment_cli.offline_kit import (
@@ -438,3 +444,22 @@ def test_runtime_platform_is_not_caller_controlled(monkeypatch: object) -> None:
     monkeypatch.setattr("fdai_deployment_cli.cli.sys.platform", "linux")  # type: ignore[attr-defined]
     monkeypatch.setattr("fdai_deployment_cli.cli.platform.machine", lambda: "AMD64")  # type: ignore[attr-defined]
     assert _runtime_platform_tag() == "linux-x86_64"
+
+
+def test_plan_work_directory_and_config_reject_existing_links(tmp_path: Path) -> None:
+    target = tmp_path / "target"
+    target.mkdir()
+    linked_work = tmp_path / "work"
+    linked_work.symlink_to(target, target_is_directory=True)
+    with pytest.raises(FileExistsError):
+        _create_private_work_dir(linked_work)
+
+    private = tmp_path / "private"
+    _create_private_work_dir(private)
+    config_target = tmp_path / "unrelated"
+    config_target.write_text("unchanged", encoding="utf-8")
+    config_link = private / "offline.tfrc"
+    config_link.symlink_to(config_target)
+    with pytest.raises(FileExistsError):
+        _write_private_text(config_link, "replacement")
+    assert config_target.read_text(encoding="utf-8") == "unchanged"

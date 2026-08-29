@@ -205,8 +205,7 @@ def _provision_plan(args: argparse.Namespace) -> int:
         cli_version=__version__,
         platform_tag=_runtime_platform_tag(),
     )
-    args.work_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
-    args.work_dir.chmod(0o700)
+    _create_private_work_dir(args.work_dir)
     artifacts = materialize_verified_artifacts(
         args.offline_kit,
         verification,
@@ -227,7 +226,8 @@ def _provision_plan(args: argparse.Namespace) -> int:
     if not infra_dir.is_dir():
         raise ValueError("verified deployment bundle does not contain infra")
     config = args.work_dir / "offline.tfrc"
-    config.write_text(
+    _write_private_text(
+        config,
         "provider_installation {\n"
         "  filesystem_mirror {\n"
         f'    path = "{mirror}"\n'
@@ -237,9 +237,7 @@ def _provision_plan(args: argparse.Namespace) -> int:
         '    exclude = ["*/*"]\n'
         "  }\n"
         "}\n",
-        encoding="utf-8",
     )
-    config.chmod(0o600)
     environment = dict(os.environ)
     environment["TF_CLI_CONFIG_FILE"] = str(config)
     environment["TF_IN_AUTOMATION"] = "1"
@@ -280,6 +278,25 @@ def _safe_plan_error(output: str) -> str:
     if "No value for required variable" in output:
         return "terraform plan requires deployment input: No value for required variable"
     return "terraform plan failed after offline provider initialization"
+
+
+def _create_private_work_dir(path: Path) -> None:
+    """Create a new private work directory and reject every existing destination."""
+
+    path.mkdir(parents=True, exist_ok=False, mode=0o700)
+    path.chmod(0o700)
+
+
+def _write_private_text(path: Path, content: str) -> None:
+    descriptor = os.open(
+        path,
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+        0o600,
+    )
+    with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+        stream.write(content)
+        stream.flush()
+        os.fsync(stream.fileno())
 
 
 def _runtime_platform_tag() -> str:
