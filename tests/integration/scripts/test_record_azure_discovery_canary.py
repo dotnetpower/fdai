@@ -30,7 +30,7 @@ if sys.argv[1:3] == ["account", "show"]:
     }))
 elif sys.argv[1] == "version":
     print(json.dumps({
-        "azure-cli": os.environ.get("FAKE_AZ_CLI_VERSION", "2.87.0"),
+        "azure-cli": os.environ.get("FAKE_AZ_CLI_VERSION", "2.89.1"),
         "extensions": {"resource-graph": "2.1.1"},
     }))
 elif sys.argv[1:3] == ["graph", "query"]:
@@ -65,7 +65,7 @@ else:
 def _run(
     tmp_path: Path,
     *,
-    cli_version: str = "2.87.0",
+    cli_version: str = "2.89.1",
     total_records: int = 2,
 ) -> tuple[subprocess.CompletedProcess[str], Path, str]:
     calls = _fake_az(tmp_path)

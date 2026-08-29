@@ -1,7 +1,7 @@
 ---
 translation_of: azure-resource-discovery-commands.md
-translation_source_sha: 51884384db27213cb6cf7072347713905450e525
-translation_revised: 2026-08-23
+translation_source_sha: ecb5df8cf68d9967e72f888b3996d05c07c7f451
+translation_revised: 2026-08-29
 ---
 
 # Azure 리소스 검색 명령 커버리지
@@ -53,6 +53,7 @@ FDAI는 운영자 질문을 형식화된 검색 의도로 컴파일하고, 해�
 | 2026-08-14 | in-progress | 정규화와 관찰된 ARG, ARM, Azure CLI 및 Resource Graph extension 버전을 추가적 프로파일/계획 리비전 `1.1.0`에 고정하고, 검토된 영어/한국어 시나리오 3쌍이 동일한 typed routing 및 권한 검사를 생성함을 증명했습니다. | `current change`; 집중 검색 테스트 `40 passed`, 작업 범위 Ruff, strict mypy 및 Core import 경계 gate가 통과했습니다. | 주장한 리소스 컨테이너 및 ARM 리소스 universe에 대해 최신 통제된 읽기 전용 canary 증적을 보존합니다. |
 | 2026-08-14 | in-progress | 독립 리뷰 뒤 자리 표시자는 유효하게 유지하면서 redirect, 제어 문자 및 실행 가능한 shell 단어를 서버와 Console 경계 모두에서 거부하도록 명령 근거를 강화했습니다. | `current change`; 집중 검색 테스트 `44 passed`, Console 파서 테스트 `11 passed`, strict mypy, Ruff 및 Console typecheck가 통과했습니다. | 주장한 리소스 컨테이너 및 ARM 리소스 universe에 대해 최신 통제된 읽기 전용 canary 증적을 보존합니다. |
 | 2026-08-14 | validated | 구독 범위 리소스 컨테이너 및 ARM 리소스 주장에 대해 통제된 집계 전용 Azure CLI canary를 기록하고, 개수와 프로바이더 타입 집합 digest만 보존했으며, 실행 권한이나 공백 없이 두 주장을 조정했습니다. | `current change`; [`record-azure-discovery-canary.py`](../../../scripts/automation/record-azure-discovery-canary.py), [`azure-discovery-live-evidence.json`](../../../config/azure-discovery-live-evidence.json), 집중 recorder 테스트 `4 passed`, 오프라인 증적 검증 및 recorder 커밋의 중앙 검증 증적이 통과했습니다. | 선언된 검색 프로파일 주장 2개에는 남은 작업이 없습니다. 더 넓은 universe를 검증하기 전에 별도 주장과 증적을 추가합니다. |
+| 2026-08-29 | validated | 사설 네트워크에서 Azure CLI `2.89.1`로 통제된 집계 전용 Azure 검색 canary를 갱신했습니다. 선언된 두 범위는 리소스 컨테이너 46개, ARM 리소스 554개, ARM 프로바이더 타입 70개로 완전하게 조정되었으며 공백과 실행 권한이 없습니다. | `current change`; [`record-azure-discovery-canary.py`](../../../scripts/automation/record-azure-discovery-canary.py), [`azure-discovery-live-evidence.json`](../../../config/azure-discovery-live-evidence.json), 집중 recorder 테스트 `4 passed`입니다. | 더 넓은 검색 범위를 검증하기 전에 별도로 검토한 주장과 통제된 증적을 추가합니다. |
 | 2026-08-18 | implemented | 고정된 네 개의 명사 쌍 없이 표현된 한국어 상태 요청을 인식하도록 했습니다. `상태` 앞의 리소스 종류 명사 또는 `상태` 뒤의 요청 동사를 현재 상태 읽기로 분류하며, 피어링·상태·이력·귀속 경로의 우선순위는 그대로 유지됩니다. | `current change`, `core/read_investigation/routing.py`, `tests/core/read_investigation/test_routing.py`, focused 읽기 조사 및 에이전트 검사 1269건 통과, 작업 범위 Ruff 및 format 통과 | 결정론적 경로는 여전히 에이전트 선택에만 관여하며 Console 의미 턴은 이를 참조하지 않습니다. |
 | 2026-08-21 | implemented | 앞 행의 언어별 분류기를 공유 후보 전용 의미 판단으로 대체했습니다. 읽기 조사 라우팅은 수락된 판단 뒤에 정확한 식별자만 파싱하며, 결정론적인 등록 의도, 계획 소유권, 근거 예산 및 프로바이더 권한 검사는 그대로 유지됩니다. | 커밋 `8fd040a7`, [`semantic_judgment.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_judgment.py), [`routing.py`](../../../services/core-control-plane/src/fdai/core/read_investigation/routing.py), [`check-chat-semantic-routing.py`](../../../scripts/quality/architecture/check-chat-semantic-routing.py), 집중 읽기 조사 검사 9건 통과, 의미 라우팅 검사에서 이행 경로 0건 확인 | 검색 프로파일 컴파일과 백엔드 선택은 별도의 결정론적 경계로 유지됩니다. |
 
