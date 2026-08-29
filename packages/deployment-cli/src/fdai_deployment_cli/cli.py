@@ -442,8 +442,33 @@ def _terraform_environment(
 def _create_private_work_dir(path: Path) -> None:
     """Create a new private work directory and reject every existing destination."""
 
-    path.mkdir(parents=True, exist_ok=False, mode=0o700)
-    path.chmod(0o700)
+    _require_nonreplaceable_parent_chain(path)
+    os.mkdir(path, 0o700)
+    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        details = os.fstat(descriptor)
+        if details.st_uid != os.geteuid():
+            raise PermissionError("plan work directory MUST be owned by the current UID")
+        os.fchmod(descriptor, 0o700)
+    finally:
+        os.close(descriptor)
+
+
+def _require_nonreplaceable_parent_chain(path: Path) -> None:
+    trusted_owners = {0, os.geteuid(), Path("/").lstat().st_uid}
+    current = path.parent
+    while True:
+        details = current.lstat()
+        if not stat.S_ISDIR(details.st_mode):
+            raise PermissionError("plan work directory parent chain MUST contain only directories")
+        if details.st_uid not in trusted_owners:
+            raise PermissionError("plan work directory parent chain has an unsafe owner")
+        mode = stat.S_IMODE(details.st_mode)
+        if mode & 0o022 and not (details.st_mode & stat.S_ISVTX):
+            raise PermissionError("plan work directory parent chain is replaceable")
+        if current == current.parent:
+            return
+        current = current.parent
 
 
 def _absolute_work_dir(path: Path) -> Path:

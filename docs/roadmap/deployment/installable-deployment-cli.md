@@ -123,6 +123,9 @@ and streamed bundle archive publication use the same boundary.
 Before creating or resuming a release workdir, the guard also requires every ancestor to be owned by
 root or the current UID. A group- or world-writable ancestor must have the sticky bit, which prevents
 another UID from swapping the validated workdir before cleanup.
+The `provision plan` workdir applies the same ancestor policy, requires an existing safe parent, and
+sets mode `0700` through the newly opened directory descriptor before materializing verified
+artifacts.
 Offline planning recomputes the profile target digest from concrete tenant and subscription input,
 matches the profile region, and supplies the verified subscription to Terraform.
 The synthetic air-gap drill isolates Azure CLI configuration so a host login cannot alter its

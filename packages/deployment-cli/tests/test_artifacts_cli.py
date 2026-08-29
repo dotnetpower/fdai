@@ -958,6 +958,27 @@ def test_plan_work_directory_and_config_reject_existing_links(tmp_path: Path) ->
     assert config_target.read_text(encoding="utf-8") == "unchanged"
 
 
+def test_plan_work_directory_rejects_replaceable_or_linked_parent(
+    tmp_path: Path,
+) -> None:
+    shared = tmp_path / "shared"
+    shared.mkdir(mode=0o777)
+    shared.chmod(0o777)
+    with pytest.raises(PermissionError, match="parent chain is replaceable"):
+        _create_private_work_dir(shared / "work")
+
+    shared.chmod(0o1777)
+    _create_private_work_dir(shared / "work")
+    assert (shared / "work").stat().st_mode & 0o777 == 0o700
+
+    actual = tmp_path / "actual"
+    actual.mkdir(mode=0o700)
+    linked = tmp_path / "linked"
+    linked.symlink_to(actual, target_is_directory=True)
+    with pytest.raises(PermissionError, match="only directories"):
+        _create_private_work_dir(linked / "work")
+
+
 def test_relative_plan_work_directory_becomes_absolute(monkeypatch: object, tmp_path: Path) -> None:
     monkeypatch.chdir(tmp_path)  # type: ignore[attr-defined]
     assert _absolute_work_dir(Path("work")) == tmp_path / "work"
