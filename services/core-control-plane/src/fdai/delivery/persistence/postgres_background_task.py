@@ -31,6 +31,11 @@ from fdai.core.background_task import (
 from fdai.delivery.persistence.postgres_background_task_completion import (
     PostgresBackgroundTaskCompletionDelivery,
 )
+from fdai.delivery.persistence.postgres_background_task_projection_feed import (
+    enqueue_background_task_progress,
+    enqueue_background_task_snapshot,
+    load_background_task_projection_completion,
+)
 from fdai.delivery.persistence.postgres_background_task_serialization import (
     ATTEMPT_COLUMNS as _ATTEMPT_COLUMNS,
 )
@@ -194,6 +199,7 @@ class PostgresBackgroundTaskStore:
                     raise BackgroundTaskConflictError(
                         "background task id or idempotency key conflict"
                     )
+                await enqueue_background_task_snapshot(connection, _attempt(inserted_row))
                 row = inserted_row
                 created = True
         attempt = _attempt(row)
@@ -226,12 +232,22 @@ class PostgresBackgroundTaskStore:
             await self._timeout(connection)
             cursor = await connection.execute(
                 "UPDATE background_task_attempt SET "
-                "task = jsonb_set(task, '{_creation_audited}', 'true'::jsonb), "
-                "updated_at = GREATEST(updated_at, %s) WHERE task_id = %s "
+                "task = CASE "
+                "WHEN COALESCE((task ->> '_creation_audited')::boolean, true) THEN task "
+                "ELSE jsonb_set(task, '{_creation_audited}', 'true'::jsonb) "
+                "END, revision = CASE "
+                "WHEN COALESCE((task ->> '_creation_audited')::boolean, true) THEN revision "
+                "ELSE revision + 1 "
+                "END, updated_at = CASE "
+                "WHEN COALESCE((task ->> '_creation_audited')::boolean, true) THEN updated_at "
+                "ELSE GREATEST(updated_at, %s) "
+                "END WHERE task_id = %s "
                 f"RETURNING {_ATTEMPT_COLUMNS}",
                 (now, task_id),
             )
             row = await cursor.fetchone()
+            if row is not None:
+                await enqueue_background_task_snapshot(connection, _attempt(row))
         if row is None:
             raise LookupError("background task not found")
         return _attempt(row)
@@ -307,6 +323,8 @@ class PostgresBackgroundTaskStore:
                 ),
             )
             row = await cursor.fetchone()
+            if row is not None:
+                await enqueue_background_task_snapshot(connection, _attempt(row))
         return _attempt(row) if row is not None else None
 
     async def start(
@@ -332,6 +350,7 @@ class PostgresBackgroundTaskStore:
                 [BackgroundTaskStatus.CLAIMED.value],
             ),
             attempt_id,
+            publish_snapshot=True,
         )
         return _attempt(row)
 
@@ -366,6 +385,7 @@ class PostgresBackgroundTaskStore:
                 ],
             ),
             attempt_id,
+            publish_snapshot=True,
         )
         return _attempt(row)
 
@@ -410,6 +430,17 @@ class PostgresBackgroundTaskStore:
                 await self._raise_attempt_conflict(connection, attempt_id)
             completed = _attempt(row)
             await self._insert_completion(connection, completed, now=now)
+            completion = await load_background_task_projection_completion(
+                connection,
+                completed.attempt_id,
+            )
+            if completion is None:  # pragma: no cover - insert guarantees presence
+                raise RuntimeError("background task completion is unavailable")
+            await enqueue_background_task_snapshot(
+                connection,
+                completed,
+                completion=completion,
+            )
             return completed
 
     async def cancel(
@@ -464,6 +495,17 @@ class PostgresBackgroundTaskStore:
                 raise BackgroundTaskConflictError("background task cancellation conflict")
             completed = _attempt(updated_row)
             await self._insert_completion(connection, completed, now=updated_at)
+            completion = await load_background_task_projection_completion(
+                connection,
+                completed.attempt_id,
+            )
+            if completion is None:  # pragma: no cover - insert guarantees presence
+                raise RuntimeError("background task completion is unavailable")
+            await enqueue_background_task_snapshot(
+                connection,
+                completed,
+                completion=completion,
+            )
             return completed
 
     async def append_progress(
@@ -473,13 +515,19 @@ class PostgresBackgroundTaskStore:
         async with await self._connect() as connection, connection.transaction():
             await self._timeout(connection)
             locked = await connection.execute(
-                "SELECT max_progress_events FROM background_task_attempt "
+                f"SELECT {_ATTEMPT_COLUMNS} FROM background_task_attempt "
                 "WHERE attempt_id = %s FOR UPDATE",
                 (progress.attempt_id,),
             )
             attempt_row = await locked.fetchone()
             if attempt_row is None:
                 raise LookupError(f"background task attempt {progress.attempt_id!r} was not found")
+            attempt = _attempt(attempt_row)
+            status = attempt.status.value
+            if status in {item.value for item in TERMINAL_BACKGROUND_STATUSES}:
+                raise BackgroundTaskConflictError(
+                    "background task progress cannot be appended after terminal state"
+                )
             count_cursor = await connection.execute(
                 "SELECT COUNT(*) AS event_count FROM background_task_progress "
                 "WHERE attempt_id = %s",
@@ -496,7 +544,7 @@ class PostgresBackgroundTaskStore:
             cursor = await connection.execute(
                 "INSERT INTO background_task_progress ("
                 f"{_PROGRESS_COLUMNS}) VALUES (%s, %s, %s, %s, %s, %s::jsonb) "
-                f"RETURNING {_PROGRESS_COLUMNS}",
+                f"RETURNING {_PROGRESS_COLUMNS}, append_order",
                 (
                     progress.attempt_id,
                     progress.sequence,
@@ -507,6 +555,14 @@ class PostgresBackgroundTaskStore:
                 ),
             )
             row = await cursor.fetchone()
+            if row is not None:
+                stored_progress = _progress(row)
+                await enqueue_background_task_progress(
+                    connection,
+                    attempt,
+                    stored_progress,
+                    progress_order=int(row["append_order"]),
+                )
         if row is None:  # pragma: no cover - INSERT RETURNING always returns one row
             raise RuntimeError("background task progress insert returned no row")
         return _progress(row)
@@ -603,6 +659,17 @@ class PostgresBackgroundTaskStore:
                         completed,
                         now=completed.updated_at,
                     )
+                    completion = await load_background_task_projection_completion(
+                        connection,
+                        completed.attempt_id,
+                    )
+                    if completion is None:  # pragma: no cover - insert guarantees presence
+                        raise RuntimeError("background task completion is unavailable")
+                    await enqueue_background_task_snapshot(
+                        connection,
+                        completed,
+                        completion=completion,
+                    )
                     reconciled.append(completed)
         return tuple(reconciled)
 
@@ -683,11 +750,15 @@ class PostgresBackgroundTaskStore:
         query: str,
         params: tuple[object, ...],
         attempt_id: str,
+        *,
+        publish_snapshot: bool = False,
     ) -> dict[str, Any]:
         async with await self._connect() as connection, connection.transaction():
             await self._timeout(connection)
             cursor = await connection.execute(query, params)
             row = await cursor.fetchone()
+            if row is not None and publish_snapshot:
+                await enqueue_background_task_snapshot(connection, _attempt(row))
         if row is not None:
             return row
         if await self._attempt_exists(attempt_id):

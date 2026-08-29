@@ -10,6 +10,8 @@ import pytest
 from fdai_operator_service.composition import ProductionOperatorComposition
 from fdai_operator_service.environment import (
     AUDIENCE_ENV,
+    BACKGROUND_TASK_PROJECTION_CONSUMER_GROUP_ENV,
+    BACKGROUND_TASK_PROJECTION_TOPIC_ENV,
     DATABASE_ROLE_ENV,
     DATABASE_URL_ENV,
     GROUP_ENV,
@@ -50,6 +52,10 @@ def test_completion_environment_uses_canonical_kafka_defaults() -> None:
     assert environment.read_investigation_completion_consumer_group_id == (
         "operator-read-investigation-completion-v1"
     )
+    assert environment.background_task_projection_topic == "core.background-task.projections"
+    assert environment.background_task_projection_consumer_group_id == (
+        "operator-background-task-projection-v1"
+    )
 
 
 def test_completion_environment_preserves_explicit_topic_and_group() -> None:
@@ -81,11 +87,24 @@ def test_completion_topic_must_be_distinct_from_semantic_topics() -> None:
         )
 
 
+def test_background_task_projection_topic_must_be_distinct_from_other_topics() -> None:
+    with pytest.raises(OperatorServiceConfigurationError, match="MUST be distinct"):
+        OperatorEnvironment.parse(
+            {
+                **_BASE_ENV,
+                **_KAFKA_ENV,
+                BACKGROUND_TASK_PROJECTION_TOPIC_ENV: "core.read-investigation.completions",
+            }
+        )
+
+
 @pytest.mark.parametrize(
     "environment_name",
     [
         READ_INVESTIGATION_COMPLETION_TOPIC_ENV,
         READ_INVESTIGATION_COMPLETION_CONSUMER_GROUP_ENV,
+        BACKGROUND_TASK_PROJECTION_TOPIC_ENV,
+        BACKGROUND_TASK_PROJECTION_CONSUMER_GROUP_ENV,
     ],
 )
 def test_explicit_completion_transport_requires_kafka(environment_name: str) -> None:
@@ -142,3 +161,4 @@ def test_production_composition_passes_completion_topic_to_kafka_bus(
     assert captured[0].read_investigation_completion_topic == (
         "core.read-investigation.completions"
     )
+    assert captured[0].background_task_projection_topic == ("core.background-task.projections")

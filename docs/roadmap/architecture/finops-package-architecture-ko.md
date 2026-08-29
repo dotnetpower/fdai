@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 90bba4f3d8679c96fdcf78841a72e69fefaa588c
-translation_revised: 2026-08-29
+translation_source_sha: 075a7a6b551cde756ddbf65e1fb5b3e42bb9ecfa
+translation_revised: 2026-08-30
 ---
 
 # 온톨로지 기반 FinOps 패키지 아키텍처
@@ -23,9 +23,16 @@ translation_revised: 2026-08-29
 > **현재 상태:** FDAI에는 이제 독립적인 `fdai-cost-governance` wheel, source distribution,
 > 이미지 프로파일, 정확한 온톨로지 프로파일, 원자적인 disabled-first 패키지 수명 주기,
 > 패키지 소유 카탈로그 자산, gate가 적용된 Operator 및 Console 변환 결과와 로컬 W0-W7 검증
-> 메커니즘이 있습니다. Live-authoritative 수명 주기, 관찰 cohort 및 독립 승격 근거는 아직
+> 메커니즘이 있습니다. Shared Operator 조립은 관련 없는 이벤트 버스 worker를 감독할 수 있지만
+> Cost Governance 자산을 활성화, 구성, 게시하거나 대화 fallback stream을 통해 바꿀 수 없습니다.
+> 에이전트가 아닌 런타임 관찰 소비자도 재생 및 상태 근거만 기록하며 Njord 소유권, 패키지 활성화
+> 또는 작업 권한을 바꾸지 않습니다.
+> Live-authoritative 수명 주기,
+> 관찰 cohort 및 독립 승격 근거는 아직
 > 없습니다. 첫 protected exact-revision plan은 Azure context를 검증했지만 Terraform 전에
 > model capability quorum이 실패했으므로 패키지와 액션은 운영 검증 또는 승격 완료 상태가 아닙니다.
+> 패키지 semantic profile과 parity corpus는 항상 active ontology release를 고정합니다. 가산
+> kernel 선언이 바뀌면 profile, manifest 및 fixture identity를 함께 갱신합니다.
 
 ## 설계 개요
 
@@ -177,8 +184,8 @@ Core는 `fdai_cost_governance`를 가져오지 않습니다. 검토된 조립 �
 기본 FDAI 이미지를 사용할 수 있게 합니다.
 
 공유 서비스 계약 export, Operator 조립 루트 및 Console 메시지 카탈로그는 여러 기능이 사용하는
-호스트 연결부로 유지됩니다. 이 연결부에 Azure Monitor 수집 같은 독립 기능을 추가해도 비용
-거버넌스 동작으로 등록되지는 않습니다. 비용 거버넌스는 검토된 패키지 매니페스트, 정확한 번들,
+호스트 연결부로 유지됩니다. 이 연결부에 Azure Monitor 수집이나 백그라운드 작업 변환 결과 같은
+독립 기능을 추가해도 비용 거버넌스 동작으로 등록되지는 않습니다. 비용 거버넌스는 검토된 패키지 매니페스트, 정확한 번들,
 프로바이더 요구 사항 및 배포 gate를 통해서만 활성화됩니다.
 Operator 의미 스트림의 대체 경로도 호스트 연결부로 유지됩니다. 원시 PostgreSQL 어댑터 앞에서
 `ConversationAssuranceReader`를 보존하며 비용 거버넌스 가용성, 활성화 또는 패키지 소유권은

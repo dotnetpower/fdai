@@ -172,6 +172,7 @@ def _change_projection(
     }
     for field in (
         "desired_state_digest",
+        "ontology_release_digest",
         "plan_receipt_ref",
         "window_ref",
         "incident_ref",

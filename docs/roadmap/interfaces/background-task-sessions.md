@@ -82,22 +82,29 @@ so a caller cannot select another quota day by backdating or future-dating a tas
 
 ## Progress and backpressure
 
-Progress is structured as kind, bounded message, timestamp, and usage. The reporter emits at most
-one event per configured interval and coalesces newer updates within that interval. The store
-applies a per-task event cap and monotonic sequence. It never stores arbitrary command logs in the
-conversation record.
+Progress is structured as kind, bounded message, timestamp, usage, and a durable append-order key.
+The reporter emits at most one event per configured interval and coalesces newer updates within that
+interval. The store applies a per-task event cap, monotonic per-task sequence, and monotonic global
+append order. A separate transactional projection outbox leases unpublished snapshot and progress
+rows instead of advancing a replay cursor, so commit reordering across concurrent transactions
+cannot skip work. It never stores arbitrary command logs in the conversation record.
 
 The target Operator API lets authenticated operators read progress through GET or a server-sent
-events (SSE) stream. The stream emits stored progress, bounded heartbeats while running, and one
-terminal event before it closes. Cross-owner tasks use the same 404 response as missing tasks.
+events (SSE) stream. Terminal snapshots carry an explicit progress watermark, so the stream emits
+stored progress, bounded heartbeats while running or waiting for prior progress, and one terminal
+event only after the projected progress watermark is satisfied. Cross-owner tasks use the same 404
+response as missing tasks.
 
 ## Commands and authorization
 
 The independent Operator Service always builds these routes from its frozen conversation-family
 manifest. Each route authorizes the caller and delegates to an injected projection reader, proposal
-outbox, or event stream; a missing dependency fails closed with `503`. The current PostgreSQL
-conversation adapter handles these operations as generic shadow proposals, projection reads, and
-audit replay. It does not yet materialize `BackgroundTask` records or owner-scoped task views.
+outbox, or event stream; a missing dependency fails closed with `503`. A versioned
+`background-task-projection` `1.0.0` transport claims Core-owned snapshot and progress records from
+the durable projection outbox populated in the same transactions as task, progress, and completion
+writes, then materializes them into Operator-owned `operator_background_task_projection` and
+`operator_background_task_progress` tables. Operator routes read only those tables and no longer
+query Core `background_task_*` tables directly.
 
 The target background-task materializers enforce these operation-specific contracts:
 
@@ -137,10 +144,14 @@ reconciled row without replaying the investigation.
 ## Completion ordering and replay
 
 The completion audit, history turn, and outbound-enqueue audit sequence is designed to be safe to
-replay. The target sink writes
-`background-task.completed` and `background-task.delivery-enqueued` audit events through durable
-state markers that commit the marker and audit entry atomically. A deterministic marker per
-attempt and action keeps those audit events single-write across sink retries.
+replay. The terminal projection transport stores the completion-time progress watermark separately
+from the mutable task snapshot, and its claim query blocks a terminal snapshot until every
+unpublished progress row up to that watermark is acknowledged. Replay can therefore surface
+terminal state without starving snapshots and without allowing clients to close before prior
+progress is visible. The target sink writes `background-task.completed` and
+`background-task.delivery-enqueued` audit events through durable state markers that commit the
+marker and audit entry atomically. A deterministic marker per attempt and action keeps those audit
+events single-write across sink retries.
 
 The conversation turn keeps deterministic turn and idempotency IDs, a
 `[Background task result: ...]` label, correlation metadata, and `trusted=false`. The outbound
@@ -153,10 +164,12 @@ delivery from external chat providers.
 List and detail projections expose status, budget, lease expiry, usage, progress, duration inputs,
 and terminal reason. The response contract also supports a request summary of up to 500 characters,
 a result summary of up to 2,000 characters, up to 16 evidence references, truncation flags, nullable
-accountable-agent attribution, and the separate execution-worker label. The current PostgreSQL
-reader does not yet populate those narrative and attribution fields, so the Console renders them as
-unavailable rather than inferring values. The projections omit broad context and do not expose
-another principal's task count.
+accountable-agent attribution, and the separate execution-worker label. The versioned transport now
+populates those bounded fields in `operator_background_task_projection`, while
+`operator_background_task_progress` retains bounded per-task progress history. Operator reads only
+its own projection tables, omits broad context, and does not expose another principal's task count.
+The Operator retention worker deletes expired projection rows and expired orphaned progress records
+after the contract deadline.
 Retention purge selects a row only when the task attempt is terminal, the task retention deadline
 has elapsed, and completion is `delivered` or `abandoned`. Deleting the attempt cascades its
 progress and completion outbox rows. A pending, sending, or retryable failed completion therefore
@@ -183,8 +196,10 @@ claims, quotas, restart reads, reconciliation, retry, and purge against a suppor
 Operator-family tests cover the frozen routes, authorization envelopes, bounded bodies, cancellation
 proposal classification, background-task list, detail, progress, finite SSE replay, cross-owner 404
 equivalence, and fail-closed `503` behavior. Focused cross-process tests now prove request and
-cancellation publication, Core persistence-before-wake, typed detached execution, and cancellation.
-Governed restart and deployed delivery evidence remain part of the production verification work.
+cancellation publication, Core persistence-before-wake, typed detached execution, cancellation,
+versioned task snapshot and progress publication, Operator-owned projection upsert, duplicate and
+reorder safety, and cross-owner isolation. Governed restart and deployed delivery evidence remain
+part of the production verification work.
 
 ## Implementation status
 
@@ -193,10 +208,11 @@ Governed restart and deployed delivery evidence remain part of the production ve
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Core records, quota, store, and coordinator logic | implemented | `services/core-control-plane/src/fdai/core/background_task/`; `services/core-control-plane/tests/core/background_task/` | The bounded records, state transitions, quota decisions, in-memory store, lease coordinator, retry scheduling, cancellation, and shutdown behavior have focused unit coverage. New tasks persist Heimdall accountability; legacy records may keep null attribution. |
-| PostgreSQL task and completion persistence | implemented | `alembic/versions/20260720_0040_background_task.py`; `alembic/versions/20260722_0051_background_task_completion.py`; `service-migrations/branches/core-control-plane/versions/20260826_core_background_task_runtime_grants.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_background_task.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_background_task_completion.py`; focused live PostgreSQL tests (`12 passed`, no skips) | An isolated supported local database proves atomic claims, leases, quotas, progress, completion outbox, reconciliation, retries, restart reads, and retention purge behavior. The Core migration grants its runtime role only the operations each coordinator-owned table requires. Governed runtime evidence remains separate. |
-| Production executor and coordinator composition | implemented | `services/core-control-plane/src/fdai/core/background_task/read_investigation_executor.py`; `services/core-control-plane/src/fdai/runtime/read_investigation_runtime.py`; focused executor, consumer, runtime, coordinator, and PostgreSQL tests | The optional Core binding constructs the typed executor, durable store, supervised coordinator, request consumer, reconciliation loop, quotas, cancellation, and bounded shutdown without creating another service or granting effect authority. |
-| Completion sink and durable conversation handoff | in-progress | Core EventBus completion sink; `read-investigation-completion` `1.0.0`; Operator completion repository, consumer, conversation writer, and migration grant; focused completion and privilege checks | Core publishes one immutable terminal result from its existing leased outbox. Operator production composition atomically accepts the exact proposal-bound inbox record and one idempotent Web assistant turn. Channel outbound enqueue, retention purge, and governed restart evidence remain open. |
-| Operator API routes, projections, and progress stream | implemented | `services/operator-service/src/fdai_operator_service/families/conversation/background_tasks.py`; `services/operator-service/src/fdai_operator_service/postgres_family_store.py`; `service-migrations/branches/operator-service/versions/20260823_operator_background_task_read.py`; focused projection, PostgreSQL, and family tests | Owner-filtered SQL materializes bounded list, detail, progress, and finite SSE replay with cross-owner 404 equivalence. It populates bounded request and result summaries, up to 16 evidence references, truncation flags, and nullable Heimdall accountability. The Operator role receives `SELECT` only. |
+| PostgreSQL task and completion persistence | implemented | `alembic/versions/20260720_0040_background_task.py`; `alembic/versions/20260722_0051_background_task_completion.py`; `alembic/versions/20260829_0088_background_task_completion_updated_at.py`; `service-migrations/branches/core-control-plane/versions/20260826_core_background_task_runtime_grants.py`; `service-migrations/branches/core-control-plane/versions/20260829_core_background_task_progress_order.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_background_task.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_background_task_completion.py`; focused live PostgreSQL tests (`19 passed`, no skips) | An isolated supported local database proves atomic claims, leases, quotas, progress, completion outbox, reconciliation, retries, restart reads, retention purge behavior, projection outbox replay after lease expiry, progress-before-terminal claim ordering, and concurrent commit-reorder safety. The added completion `updated_at`, terminal progress watermark, and transactional projection outbox keep delivery-state replay deterministic without a wall-clock or append-order cursor. Governed runtime evidence remains separate. |
+| Production executor and coordinator composition | implemented | `services/core-control-plane/src/fdai/core/background_task/read_investigation_executor.py`; `services/core-control-plane/src/fdai/runtime/read_investigation_runtime.py`; focused executor, consumer, runtime, coordinator, and PostgreSQL tests | The optional Core binding constructs the typed executor, durable store, supervised coordinator, request consumer, reconciliation loop, quotas, cancellation, bounded shutdown, and the background-task projection publisher without creating another service or granting effect authority. |
+| Core-to-Operator task projection transport | implemented | `packages/service-contracts/src/fdai_service_contracts/background_task_projection.py`; `services/core-control-plane/src/fdai_core_service/background_task_projection.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_background_task_projection_feed.py`; `services/operator-service/src/fdai_operator_service/background_task_projection_runtime.py`; `services/operator-service/src/fdai_operator_service/postgres_background_task_projection.py`; `service-migrations/branches/operator-service/versions/20260829_operator_background_task_projection_transport.py`; focused contract, producer, consumer, route, migration, and ownership tests | Core publishes versioned snapshot and progress records from a durable claim/lease outbox populated inside the source write transactions. Progress keeps its append-order identity for the watermark contract, terminal snapshots wait on unpublished progress through that watermark, Operator consumes them into `operator_background_task_projection` and `operator_background_task_progress`, deduplicates duplicates and older reorders, ignores expired source rows instead of resurrecting purged projections, and no longer has any privilege on Core `background_task_*` tables. |
+| Completion sink and durable conversation handoff | in-progress | Core EventBus completion sink; `read-investigation-completion` `1.0.0`; Operator completion repository, consumer, conversation writer, and migration grant; focused completion and privilege checks | Core publishes one immutable terminal result from its existing leased outbox. Operator production composition atomically accepts the exact proposal-bound inbox record and one idempotent Web assistant turn. Channel outbound enqueue, completion inbox retention, and governed restart evidence remain open. |
+| Operator API routes, projections, and progress stream | implemented | `services/operator-service/src/fdai_operator_service/families/conversation/background_tasks.py`; `services/operator-service/src/fdai_operator_service/postgres_family_store.py`; `services/operator-service/src/fdai_operator_service/postgres_background_task_projection.py`; `service-migrations/branches/operator-service/versions/20260829_operator_background_task_projection_transport.py`; focused projection, PostgreSQL, and family tests | Owner-filtered SQL materializes bounded list, detail, progress, and finite SSE replay with cross-owner 404 equivalence from Operator-owned projection tables only. It populates bounded request and result summaries, up to 16 evidence references, truncation flags, and nullable Heimdall accountability. The Operator runtime writes only its own projection tables and holds no Core background-task read grant. |
 | FDAI Console task controls | in-progress | `console/src/routes/background-tasks.tsx`; `console/src/routes/background-tasks.css`; `console/src/routes/background-tasks.model.ts`; `console/src/routes/background-tasks.model.test.ts` | The bilingual read-only route prioritizes requested work, agent accountability, outcome and evidence, and an activity timeline. Technical usage is disclosed separately. Legacy records show explicit unavailable and unattributed states. It deliberately has no create, cancel, retry, or execute control while those API consumers are absent. |
 | Audit, telemetry, and operational evidence | in-progress | `services/core-control-plane/src/fdai/core/background_task/service.py`; `services/core-control-plane/src/fdai/delivery/persistence/background_task_lifecycle_audit.py`; `services/core-control-plane/src/fdai/delivery/persistence/background_task_completion_audit.py` | Production creation and cancellation use idempotent StateStore lifecycle markers. Creation remains behind a durable claim fence until its marker commits. Completion marker persistence is also implemented and tested, but no production completion sink, runtime telemetry, restart receipt, or governed delivery evidence exists. |
 
@@ -216,6 +232,7 @@ Governed restart and deployed delivery evidence remain part of the production ve
 | 2026-08-23 | implemented | Added an idempotent StateStore lifecycle audit writer and a creation-audit claim fence. Audit or marker failure leaves a durable request unclaimable; redelivery reuses one audit marker and only releases the fence after the marker is durable. Removed inert direct/streamed policy and run-store construction from the detached-only binding. | `current change`; focused in-memory and runtime checks passed 42 cases, lifecycle and full PostgreSQL persistence checks passed 20 cases with no skips, and Ruff plus strict mypy passed. | Define and bind terminal completion delivery, then retain governed restart and delivery evidence. |
 | 2026-08-26 | implemented | Added an explicit Core migration grant after a protected recovery exposed `permission denied` while the detached coordinator reconciled `background_task_attempt`. The runtime role receives CRUD on attempts, read and append on progress, and read, append, and update on completions; `PUBLIC` remains revoked. | `current change`; `20260826_core_background_task_runtime_grants.py`; focused migration grant regression passed. | Build and deploy an exact attested Core image, apply the migration through the protected service workflow, and retain a crash-free restart receipt before claiming deployed validation. |
 | 2026-08-26 | in-progress | Added the Operator completion inbox and Web conversation writer. The service migration grants `conversation_record` read, insert, and update plus append-only `conversation_turn`; readiness fails closed unless those exact writes and the inbox sequence privileges exist. One writable CTE deduplicates the proposal, turn, and inbox without rerunning the investigation. | `current change`; focused Operator readiness, completion store, and migration privilege checks passed. | Add channel outbound enqueue, retention purge, and governed process-loss evidence. |
+| 2026-08-29 | implemented | Replaced the Operator Service's direct reads of Core `background_task_*` tables with a versioned Core-to-Operator projection transport. Core now publishes deterministic snapshot and progress records from its durable task tables, and Operator consumes them into owner-scoped projection tables with duplicate and older-reorder suppression plus deadline-based purge. The new Operator migration also revokes the old Core-table read grants. | `current change`; `packages/service-contracts/tests/test_background_task_projection.py` (`5 passed`); `services/core-control-plane/tests/core/background_task/test_projection_transport.py` and `services/core-control-plane/tests/runtime/test_read_investigation_runtime.py` (`18 passed` total); `services/operator-service/tests/test_background_task_projection.py`, `test_postgres_background_task_projection.py`, `test_background_task_projection_transport.py`, `test_operator_conversation_family.py`, `test_read_investigation_completion_composition.py`, `test_operator_service_postgres.py`, and `test_semantic_kafka_adapter.py` (`130 passed` total); `tests/integration/services/test_service_migration_inventory.py` and `tests/integration/scripts/test_service_test_suites.py` (`87 passed` total). | Add channel binding resolution and durable outbound enqueue for completion delivery, then retain governed restart and runtime telemetry evidence before claiming `validated`. |
 
 ### Remaining work
 
@@ -224,8 +241,9 @@ Governed restart and deployed delivery evidence remain part of the production ve
 - [x] Implement the completion sink so it appends the deterministic conversation turn and submits the immutable reply through the durable delivery ledger without rerunning the investigation.
 - [x] Write `background-task.completed` and `background-task.delivery-enqueued` through atomic single-write StateStore markers with concurrent replay and conflict tests.
 - [x] Define and bind the versioned terminal completion contract, Core publisher, Operator inbox, and idempotent Web assistant-turn writer without giving Core an Operator conversation write.
+- [x] Replace direct Operator reads of Core `background_task_*` tables with the versioned `background-task-projection` transport, including Core snapshot and progress publication, Operator-owned projection tables, duplicate and reorder handling, and fail-closed retention and readiness.
 - [ ] Add channel binding resolution and durable outbound enqueue, purge retained inbox rows at their contract deadline, and retain governed retry and restart evidence.
-- [x] Materialize owner-scoped list, detail, progress, and finite SSE replay behind the Operator API routes, including cross-owner 404 equivalence and least-privilege PostgreSQL reads.
+- [x] Materialize owner-scoped list, detail, progress, and finite SSE replay behind the Operator API routes, including cross-owner 404 equivalence and least-privilege Operator projection reads.
 - [x] Populate request summaries up to 500 characters, result summaries up to 2,000 characters, up to 16 evidence references, truncation flags, and nullable Heimdall attribution in both owner-scoped PostgreSQL task queries, with focused projection and malformed-attribution tests.
 - [x] Consume create and cancel proposals through the versioned production transport while preserving owner scope, digest validation, persistence-before-wake, and explicit poison-record handling.
 - [x] Add a bilingual FDAI Console task list, detail, progress, and explicit refresh surface with focused decoder tests and no mutation controls.

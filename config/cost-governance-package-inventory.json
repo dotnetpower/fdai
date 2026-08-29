@@ -20,7 +20,7 @@
     "active_owner": "package-owned",
     "package_version": "0.1.1",
     "package_manifest_path": "extensions/cost-governance/src/fdai_cost_governance/resources/manifest.json",
-    "package_manifest_sha256": "25774339cc80bdfe3be43564added606820032e45ba1cf7f3296d5853f12ad32",
+    "package_manifest_sha256": "1ebfcb79e2f177870c856a9f4de5bc61f4f273ec25f66eff10bf1228ec545240",
     "active_asset_counts": {
       "rules": 12,
       "policies": 12,
@@ -41,7 +41,7 @@
     },
     "parity_corpus": {
       "path": "tests/integration/fixtures/cost_governance_w6_parity/parity-corpus.json",
-      "sha256": "2460a42060ae77787f9bfe536253d256b124a5f9b31e926ab5e4085fdbe82846",
+      "sha256": "d3d504dee983856471b2672cb697af8dbff58f9aaadf7153b086a584fc0609fd",
       "difference_mechanism_version": "1.0.0",
       "publication_policy": "dual-read-single-publish"
     }

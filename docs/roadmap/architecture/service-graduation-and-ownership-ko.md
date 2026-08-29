@@ -1,7 +1,7 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: 4838622e2f815a943cdf039ae04eb3460c0c9d40
-translation_revised: 2026-08-26
+translation_source_sha: 030ac5ca5a3e3a620ed32fbe0bacdfaceaf9d1bd
+translation_revised: 2026-08-29
 ---
 # 서비스 승격과 데이터 소유권
 
@@ -44,7 +44,7 @@ translation_revised: 2026-08-26
 | 경계 docstring 강제 적용 | implemented | `scripts/quality/architecture/check-boundary-docstrings.py`; SD-09 근거 | 검토된 모든 분해 범위에서 구조적 docstring 계약을 강제 적용합니다. 의미 정확성은 계속 집중 아키텍처 테스트에 의존합니다. |
 | Temporal 인시던트 roster projection | implemented | `core_incident_projection_20260819`, `operator_incident_projection_read_20260819`, 집중 migration 및 Operator 검사 | Alembic이 소유하는 trigger가 추가 전용 감사 transaction 안에서 temporal version을 파생합니다. Core와 Executor 역할에는 projection 직접 쓰기 권한을 주지 않고 Operator 역할에는 SELECT만 부여합니다. |
 | 읽기 조사 요청 전송 | 구현됨 | `fdai-service-contracts`의 `read-investigation-request` `1.0.0`, Operator CAS 발신함, Core consumer 및 선택적 coordinator, 집중 교차 프로세스 테스트 | Operator는 영속 제안 수락과 발행을 소유합니다. Core는 요청 소비와 background-task 상태를 소유합니다. 조정기는 여섯 번째 서비스가 아니라 선택적 Core 런타임 구성 요소로 유지합니다. |
-| 읽기 조사 완료 전송 | 진행 중 | `fdai-service-contracts`의 `read-investigation-completion` `1.0.0`, Core 완료 발신함 publisher, Operator inbox, Web 대화 writer 및 `operator_read_investigation_completion_20260826` | 5개 서비스 토폴로지는 바뀌지 않습니다. Core는 Operator 대화 테이블을 쓰지 않습니다. Operator는 inbox와 멱등적인 Web assistant turn을 원자적으로 소유합니다. 채널 outbound enqueue, 보존 정리 및 통제된 배포 근거는 열린 상태입니다. |
+| 읽기 조사 완료 전송 | 진행 중 | `fdai-service-contracts`의 `read-investigation-completion` `1.0.0`, Core 완료 발신함 publisher, Operator inbox, Web 대화 writer, `operator_read_investigation_completion_20260826` 및 `operator_completion_retention_20260829` | 5개 서비스 토폴로지는 바뀌지 않습니다. Core는 Operator 대화 테이블을 쓰지 않습니다. Operator는 inbox와 멱등적인 Web assistant turn을 원자적으로 소유한 뒤 기한이 지난 inbox 행만 제한된 배치로 정리합니다. 채널 outbound enqueue 및 통제된 배포 근거는 열린 상태입니다. |
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
@@ -62,6 +62,7 @@ translation_revised: 2026-08-26
 | 2026-08-23 | 구현됨 | 정확한 `1.0.0` 요청 및 취소 codec, Operator CAS publish, Core wake 전 영속 소비, 중복 및 poison 처리, 선택적 coordinator 조합 및 로컬/deployed 논리 토픽 구성을 5개 서비스 토폴로지를 바꾸지 않고 구현했습니다. | `current change`; 집중 교차 프로세스, background-task, PostgreSQL, Operator, 토픽 및 로컬 환경 게이트 152개가 skip 또는 warning 없이 통과했습니다. | 버전이 지정된 최종 완료 전송을 정의하고 관리되는 재시작, 배포 및 롤백 근거를 보존합니다. |
 | 2026-08-23 | 구현됨 | 서로 독립적이던 시작 및 취소 partition key를 소유자 범위의 정본 background-task 수명 주기 identity로 교체했습니다. 이제 한 작업의 시작 및 취소 기록이 같은 partition을 사용하며 Core는 영속화 또는 취소 전에 같은 identity를 다시 검증합니다. | `current change`; 시작/취소 partition 동등성 검사를 포함한 집중 계약 및 전송 검사 22개가 통과했고 작업 범위 Ruff 및 strict mypy가 통과했습니다. | Core에 Operator 대화 writer를 추가하지 않고 역방향 최종 완료 계약을 정의합니다. |
 | 2026-08-26 | 진행 중 | 역방향 완료 계약을 Core 발신함과 Operator 소유 writer에 연결했습니다. Operator migration은 대화 쓰기와 inbox sequence 사용을 부여하고 하나의 transaction이 서비스 토폴로지 또는 Core 권한을 바꾸지 않으면서 제안, Web assistant turn 및 inbox 행을 dedupe합니다. | `current change`; 집중 Operator readiness, 완료 저장소 및 migration 권한 검사가 통과했습니다. | 채널 outbound enqueue, 보존 정리 및 통제된 배포/rollback 근거를 추가합니다. |
+| 2026-08-29 | 구현됨 | Operator 소유 완료 inbox 보존 worker와 해당 inbox에만 삭제 권한을 부여하는 후속 migration을 추가했습니다. 정리는 계약 기한, 제한된 배치, 기한 순서 및 `SKIP LOCKED`를 사용합니다. 정리에 실패하면 완료 수신은 차단하지 않지만 Operator 준비 상태는 닫힌 상태를 유지합니다. | `current change`, `postgres_read_investigation_completion.py`, `read_investigation_completion_runtime.py`, `operator_completion_retention_20260829`, 집중 완료, 조립, migration 및 서비스 inventory 검사 | 검증된 채널 outbound enqueue를 추가한 뒤 통제된 재시작, 배포 및 rollback 근거를 보존합니다. |
 ### 남은 작업
 
 - [x] 승인된 5개 서비스 토폴로지에 남은 작업이 없습니다. 승격, 쓰기 담당 소유권, 신원 격리, 롤백 및 원격 전이 근거는 분해 프로그램에 보존돼 있습니다.
@@ -70,7 +71,8 @@ translation_revised: 2026-08-26
   보존합니다. Background 읽기 작업 실행기만 독립 전송 계층, 신원, 영속성, 비용 또는 실패
   근거, 배포 smoke 및 롤백을 갖춘 뒤 향후 서비스 후보로 다시 평가합니다.
 - [x] Core publisher, Operator inbox 및 멱등적인 Web 대화 writer를 통해 프로세스 간 계약 매트릭스의 버전 지정 최종 읽기 조사 완료 행을 구현합니다.
-- [ ] [영속 대화 전달](../interfaces/durable-conversation-delivery-ko.md)의 채널 outbound enqueue와 보존 주장을 완료한 뒤 통제된 배포 및 rollback 근거를 보존합니다.
+- [x] Operator 소유의 제한된 보존 worker로 기한이 지난 완료 inbox 행만 정리하고 잘못된 제한, 시간대 없는 시계, migration 소유권 및 정리 실패 시 준비 상태를 검사합니다.
+- [ ] [영속 대화 전달](../interfaces/durable-conversation-delivery-ko.md)의 채널 outbound enqueue 주장을 완료한 뒤 통제된 배포 및 rollback 근거를 보존합니다.
 
 ## 승격 점수표
 
@@ -138,7 +140,7 @@ Logical 기록 또는 수명 주기 전이 하나에는 쓰기 담당 하나만 
 | `conversation_record`, `conversation_turn`, `conversation_policy` ([이행 0019](../../../alembic/versions/20260716_0019_user_context_automation.py)) | Owning principal의 user-context/대화 애플리케이션 서비스 | Operator API 대화/이력 변환 결과 | Alembic 이행 작업 |
 | `conversation_image` | principal 범위로 한정된 Operator API 이미지 저장소 | 인증된 owning-principal 이력 경로 | Alembic 이행 작업 |
 | `conversation_outbound_delivery*`, `conversation_adapter_breaker`, `conversation_channel_message_claim` | Operator 영속 conversation-delivery 조정기 | Operator API 전달 상태와 claimed 작업의 Operator edge adapter | Operator service migration branch |
-| `background_task_attempt`, `background_task_progress`, `background_task_completion` ([이행 0040/0051](../../../alembic/versions/20260720_0040_background_task.py)) | Background-task 조정기/저장소 | Owner-scoped Operator API 변환 결과와 완료 전달 | Alembic 이행 작업 |
+| `background_task_attempt`, `background_task_progress`, `background_task_completion`, `background_task_projection_outbox` ([이행 0040/0051/0088](../../../alembic/versions/20260720_0040_background_task.py)) | Background-task 조정기/저장소 | Owner-scoped Operator API 변환 결과와 완료 전달 | Alembic 이행 작업 |
 | `read_investigation_run`, `read_investigation_run_progress`, `read_investigation_run_completion` | Core 대화형 읽기 조사 조정기/저장소 | 소유자 범위 Operator API 재생 및 완료 전달 | Core 서비스 migration, Operator 서비스 읽기 권한 |
 | `scheduled_task`, `schedule_dispatch_run`, `scheduled_conversation_anchor` | 정의와 CAS-claimed 전달 실행의 스케줄러 서비스/저장소 | Operator API 스케줄러/실행 변환 결과와 이어가기 전달 | Alembic 이행 작업 |
 | `inventory_snapshot*`, `inventory_active` | Full-snapshot 승격의 인벤토리 synchronization 작업 | Core 인벤토리 프로바이더와 authorized Operator API 인벤토리 변환 결과 | Alembic 이행 작업 |

@@ -25,6 +25,7 @@ from fdai.delivery.azure.llm.completion_body import completion_body_params
 from fdai.delivery.azure.llm.model_trace import (
     bounded_usage,
     complete_model_trace,
+    prepare_model_messages,
     start_model_trace,
 )
 from fdai.delivery.azure.llm.request_target import ModelRequestTarget
@@ -328,9 +329,8 @@ class AzureOpenAISemanticJudgmentModel:
                     }
                     if request.model_body_field is not None:
                         body["model"] = request.model_body_field
-                    messages = body["messages"]
-                    if not isinstance(messages, list):  # pragma: no cover - local construction
-                        raise TypeError("semantic judgment messages MUST be a list")
+                    messages = list(prepare_model_messages(body["messages"]).messages)
+                    body["messages"] = messages
                     trace_start = start_model_trace(messages)
                     response = await self._http.post(
                         request.url,

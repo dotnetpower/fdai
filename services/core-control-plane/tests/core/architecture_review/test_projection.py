@@ -7,8 +7,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import pytest
 import yaml
-from fdai.core.architecture_review import ArchitectureReviewProjector
+from fdai.core.architecture_review import (
+    ArchitectureDecisionAuthorityBasis,
+    ArchitectureDecisionOutcome,
+    ArchitectureReviewProjector,
+    build_architecture_review_decision_receipt,
+)
 from fdai.core.workflow.projection import ProcessOntologyProjector
 from fdai.rule_catalog.schema.link_type import load_link_type_catalog
 from fdai.rule_catalog.schema.object_type import load_object_type_catalog
@@ -188,3 +194,175 @@ async def test_approval_and_decision_events_materialize_governance_objects() -> 
     assert decision.properties["outcome"] == "conditional"
     assert any(link.link_type == "has_approval" for link in graph.links)
     assert any(link.link_type == "resolved_by" for link in graph.links)
+
+
+async def test_receipt_bound_decision_projects_exact_authority_record() -> None:
+    manifest = deepcopy(_manifest())
+    review = manifest["architecture_review"]
+    gate = review["production_gate"]
+    gate["evidence_bindings"] = {
+        "production-terraform-plan": {
+            "uri": "evidence://production-terraform-plan",
+            "sha256": "a" * 64,
+            "scope_ref": "scope-1",
+            "revision": "target-revision-1",
+            "approved_by": "principal:approver-a",
+            "approved_at": "2026-07-13T00:00:00Z",
+            "expires_at": "2099-07-13T00:00:00Z",
+            "freshness_seconds": 86400,
+        }
+    }
+    store = _store()
+    projector = ProcessOntologyProjector(
+        store,
+        domain_projectors={"architecture-review": ArchitectureReviewProjector(store, manifest)},
+    )
+    snapshot = _snapshot()
+    await projector.project(snapshot)
+    approval_id = "fdai-target-architecture-v1:approval:board_approval"
+    await projector.project(
+        snapshot,
+        event=ProcessEvent(
+            event_id="approval-recorded",
+            process_id=snapshot.process_id,
+            kind=ProcessEventKind.APPROVAL_RECORDED,
+            idempotency_key="approval-recorded",
+            recorded_at=_NOW,
+            correlation_id=snapshot.correlation_id,
+            step_id="board_approval",
+            payload={
+                "decision": "approved",
+                "required_role": "approver",
+                "quorum": 1,
+                "no_self_approval": True,
+                "approver_id": "principal:approver-a",
+                "approval_receipt_ref": approval_id,
+            },
+        ),
+    )
+    receipt = build_architecture_review_decision_receipt(
+        review_case_id="fdai-target-architecture-v1",
+        change_id="change-1",
+        decision_case_id="decision-case-1",
+        impact_envelope_id="impact-1",
+        target_revision="target-revision-1",
+        context_snapshot_id="context-1",
+        evidence_bundle_id="evidence-bundle-1",
+        graph_revision="graph-1",
+        catalog_release="catalog-1",
+        evidence_refs=("production-terraform-plan",),
+        conditions=("condition-1",),
+        outcome=ArchitectureDecisionOutcome.CONDITIONAL,
+        rationale="The exact evidence supports a bounded conditional decision.",
+        authority_basis=ArchitectureDecisionAuthorityBasis.HUMAN_APPROVAL,
+        authority_ref="authority:approval-policy-1",
+        requester_id="principal:requester",
+        judge_id="agent:Forseti",
+        arbitrator_id=None,
+        approver_ids=("principal:approver-a",),
+        approval_receipt_refs=(approval_id,),
+        quorum=1,
+        audit_intent_ref="audit:intent-1",
+        terminal_audit_ref="audit:terminal-1",
+        recorded_at=_NOW,
+        effective_from=_NOW,
+        effective_until=datetime(2026, 7, 14, tzinfo=UTC),
+        reevaluation_trigger="evidence_or_scope_changes",
+    )
+
+    await projector.project(
+        snapshot,
+        event=ProcessEvent(
+            event_id="decision-recorded",
+            process_id=snapshot.process_id,
+            kind=ProcessEventKind.DECISION_RECORDED,
+            idempotency_key="decision-recorded",
+            recorded_at=_NOW,
+            correlation_id=snapshot.correlation_id,
+            step_id="board_decision",
+            payload={
+                "decision": "conditional",
+                "reason": "evidence accepted",
+                "decision_receipt": receipt.to_mapping(),
+            },
+        ),
+    )
+
+    decision = await store.get_object(receipt.decision_id)
+    assert decision is not None
+    assert decision.properties["receipt_digest"] == receipt.receipt_digest
+    assert decision.properties["decision_case_id"] == "decision-case-1"
+    assert decision.properties["approval_receipt_refs"] == [approval_id]
+    assert decision.properties["execution_authority"] is False
+
+
+async def test_receipt_bound_decision_rejects_unrecorded_approval_before_write() -> None:
+    manifest = deepcopy(_manifest())
+    review = manifest["architecture_review"]
+    review["production_gate"]["evidence_bindings"] = {
+        "production-terraform-plan": {
+            "uri": "evidence://production-terraform-plan",
+            "sha256": "a" * 64,
+            "scope_ref": "scope-1",
+            "revision": "target-revision-1",
+            "approved_by": "principal:approver-a",
+            "approved_at": "2026-07-13T00:00:00Z",
+            "expires_at": "2099-07-13T00:00:00Z",
+            "freshness_seconds": 86400,
+        }
+    }
+    store = _store()
+    projector = ProcessOntologyProjector(
+        store,
+        domain_projectors={"architecture-review": ArchitectureReviewProjector(store, manifest)},
+    )
+    await projector.project(_snapshot())
+    receipt = build_architecture_review_decision_receipt(
+        review_case_id="fdai-target-architecture-v1",
+        change_id="change-1",
+        decision_case_id="decision-case-1",
+        impact_envelope_id="impact-1",
+        target_revision="target-revision-1",
+        context_snapshot_id="context-1",
+        evidence_bundle_id="evidence-bundle-1",
+        graph_revision="graph-1",
+        catalog_release="catalog-1",
+        evidence_refs=("production-terraform-plan",),
+        conditions=(),
+        outcome=ArchitectureDecisionOutcome.CONDITIONAL,
+        rationale="The exact evidence supports a bounded conditional decision.",
+        authority_basis=ArchitectureDecisionAuthorityBasis.HUMAN_APPROVAL,
+        authority_ref="authority:approval-policy-1",
+        requester_id="principal:requester",
+        judge_id="agent:Forseti",
+        arbitrator_id=None,
+        approver_ids=("principal:approver-a",),
+        approval_receipt_refs=("approval:missing",),
+        quorum=1,
+        audit_intent_ref="audit:intent-1",
+        terminal_audit_ref="audit:terminal-1",
+        recorded_at=_NOW,
+        effective_from=_NOW,
+        effective_until=datetime(2026, 7, 14, tzinfo=UTC),
+        reevaluation_trigger="evidence_or_scope_changes",
+    )
+
+    with pytest.raises(ValueError, match="approval is not authoritatively recorded"):
+        await projector.project(
+            _snapshot(),
+            event=ProcessEvent(
+                event_id="decision-recorded",
+                process_id="process-arb-1",
+                kind=ProcessEventKind.DECISION_RECORDED,
+                idempotency_key="decision-recorded",
+                recorded_at=_NOW,
+                correlation_id="corr-arb-1",
+                step_id="board_decision",
+                payload={
+                    "decision": "conditional",
+                    "decision_receipt": receipt.to_mapping(),
+                },
+            ),
+        )
+
+    assert await store.get_object(receipt.decision_id) is None

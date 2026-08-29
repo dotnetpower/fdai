@@ -54,6 +54,8 @@ def _completion() -> ReadInvestigationCompletion:
 class _Store:
     def __init__(self) -> None:
         self.completions: list[ReadInvestigationCompletion] = []
+        self.retention_calls: list[tuple[datetime, int]] = []
+        self.retention_started = asyncio.Event()
 
     async def project_read_investigation_completion(
         self,
@@ -69,6 +71,16 @@ class _Store:
             data=completion.model_dump(mode="json"),
             duplicate=len(self.completions) > 1,
         )
+
+    async def purge_expired_read_investigation_completions(
+        self,
+        *,
+        now: datetime,
+        limit: int,
+    ) -> int:
+        self.retention_calls.append((now, limit))
+        self.retention_started.set()
+        return 0
 
 
 async def test_consumer_validates_then_projects_without_execution_dependency() -> None:
@@ -138,20 +150,87 @@ class _Publisher:
 
 async def test_bridge_supervises_and_joins_one_consumer() -> None:
     source = _Source()
+    store = _Store()
+    now = datetime(2026, 8, 29, tzinfo=UTC)
     bridge = ReadInvestigationCompletionBridge(
-        store=_Store(),
+        store=store,
         source=source,
         publisher=_Publisher(),
+        retention_interval_seconds=30,
+        retention_batch_size=17,
+        clock=lambda: now,
     )
 
     await bridge.start()
     await asyncio.wait_for(source.started.wait(), timeout=1)
+    await asyncio.wait_for(store.retention_started.wait(), timeout=1)
     assert bridge.workers_ready() is True
 
     await bridge.aclose()
 
     assert bridge.workers_ready() is False
     assert source.closed == 1
+    assert store.retention_calls == [(now, 17)]
+
+
+async def test_retention_worker_drains_full_batches_without_delaying_ingress() -> None:
+    class _DrainingStore(_Store):
+        async def purge_expired_read_investigation_completions(
+            self,
+            *,
+            now: datetime,
+            limit: int,
+        ) -> int:
+            await super().purge_expired_read_investigation_completions(now=now, limit=limit)
+            return limit if len(self.retention_calls) == 1 else 0
+
+    source = _Source()
+    store = _DrainingStore()
+    bridge = ReadInvestigationCompletionBridge(
+        store=store,
+        source=source,
+        publisher=_Publisher(),
+        retention_interval_seconds=30,
+        retention_batch_size=2,
+    )
+
+    await bridge.start()
+    await asyncio.wait_for(source.started.wait(), timeout=1)
+    for _ in range(100):
+        if len(store.retention_calls) >= 2:
+            break
+        await asyncio.sleep(0.001)
+    await bridge.aclose()
+
+    assert len(store.retention_calls) == 2
+
+
+async def test_retention_failure_keeps_completion_bridge_unready() -> None:
+    class _FailingRetentionStore(_Store):
+        async def purge_expired_read_investigation_completions(
+            self,
+            *,
+            now: datetime,
+            limit: int,
+        ) -> int:
+            await super().purge_expired_read_investigation_completions(now=now, limit=limit)
+            raise ConnectionError("completion retention unavailable")
+
+    source = _Source()
+    store = _FailingRetentionStore()
+    bridge = ReadInvestigationCompletionBridge(
+        store=store,
+        source=source,
+        publisher=_Publisher(),
+        retention_interval_seconds=30,
+    )
+
+    await bridge.start()
+    await asyncio.wait_for(source.started.wait(), timeout=1)
+    await asyncio.wait_for(store.retention_started.wait(), timeout=1)
+
+    assert bridge.workers_ready() is False
+    await bridge.aclose()
 
 
 class _PayloadSource:

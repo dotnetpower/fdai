@@ -10,8 +10,13 @@ from fdai.core.conversation_assurance.quality_sre_observations import (
     observe_alternative_causes,
     observe_impact_scenario,
 )
-from fdai.core.impact_analysis.change_assessment import ChangeAssessment
+from fdai.core.impact_analysis.change_assessment import (
+    ChangeAssessment,
+    ChangeGraphEvidenceReceipt,
+    GraphEvidenceReleaseState,
+)
 from fdai.core.impact_analysis.models import AffectedSet
+from fdai.core.ontology_platform.graph_evidence_refresh import GraphEvidenceFreshness
 from fdai.core.rca.contract import Citation, CitationKind, RcaTier, RootCauseHypothesis
 
 _EVIDENCE = "a" * 64
@@ -42,6 +47,11 @@ def _impact(*, truncated: bool = False) -> ChangeAssessment:
         target_ref="resource-1",
         occurred_at=datetime(2026, 8, 27, tzinfo=UTC),
         affected_set=affected,
+        graph_evidence=ChangeGraphEvidenceReceipt(
+            graph_revision="graph-1",
+            freshness=GraphEvidenceFreshness.CURRENT,
+            release_state=GraphEvidenceReleaseState.ALIGNED,
+        ),
         review_required=truncated,
         reasons=("impact_truncated",) if truncated else (),
         evidence_digest="b" * 64,

@@ -107,7 +107,7 @@ operations / interface), `3` = governance staff.
 |------|------|-------|-------------------|-----------------------|-------------------|
 | Odin | Master Planner | 3 | ArbitrationDecision | arbitrate_domain_conflict | no |
 | Thor | Responder | 2 | ActionRun, ActionAttempt | (dispatches; owns none directly - see §7.1) | no |
-| Forseti | Judge | 2 | Verdict, RCA, SecurityEvent, ArbitrationRequest | produces verdicts; optional context can only lower autonomy; no executor role | yes (T2 abstain only) |
+| Forseti | Judge | 2 | Verdict, RCA, SecurityEvent, ArbitrationRequest | produces verdicts; optional planned-change graph context comes from one exact verified snapshot and can only lower autonomy; no executor role | yes (T2 abstain only) |
 | Huginn | Event Collector / Real-time Resource Discovery | 2 | Event, Change | ingest_event, normalize_change | no |
 | Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome, RetrievalValidation | detect_anomaly, detect_drift, forecast, close_forecast_outcome, observe_terminal_action_effect, validate_retrieval_failure, validate_rule_generation, notify_admin_privilege_violation | no |
 | Vidar | Recovery | 2 | Rollback | perform_rollback, dr_failover | no |
@@ -163,9 +163,9 @@ sync job remains the periodic reconciliation backstop that repairs missed
 signals with a complete ARG/ARM snapshot. Stale or degraded inventory remains unavailable;
 Heimdall publishes the finding and never acquires resources or starts reconciliation.
 
-The 15 agents are jointly sufficient to cover SRE, ARB (change safety), and
-FinOps workflows through composition; see §6 for the topic contract and
-§6.4 plus §7.6 for how handoff integrates with the same pipeline.
+The 15 agents jointly cover SRE, ARB, and FinOps workflows through composition. Non-agent
+observation consumers may retain replay and health evidence from owned topics, but they never join
+the pantheon, publish owned objects, judge, approve, or execute; see §6, §6.4, and §7.6.
 
 ### 4.1 Per-agent task inventory
 

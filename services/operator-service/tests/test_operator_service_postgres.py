@@ -704,13 +704,27 @@ async def test_operator_readiness_verifies_exact_projection_and_conversation_pri
         "has_table_privilege(current_user, 'conversation_record', 'UPDATE')",
         "has_table_privilege(current_user, 'conversation_turn', 'SELECT')",
         "has_table_privilege(current_user, 'conversation_turn', 'INSERT')",
+        "has_table_privilege(current_user, 'operator_background_task_projection', 'SELECT')",
+        "has_table_privilege(current_user, 'operator_background_task_projection', 'INSERT')",
+        "has_table_privilege(current_user, 'operator_background_task_projection', 'UPDATE')",
+        "has_table_privilege(current_user, 'operator_background_task_projection', 'DELETE')",
+        "has_table_privilege(current_user, 'operator_background_task_progress', 'SELECT')",
+        "has_table_privilege(current_user, 'operator_background_task_progress', 'INSERT')",
+        "has_table_privilege(current_user, 'operator_background_task_progress', 'DELETE')",
+        "NOT has_table_privilege(current_user, 'background_task_attempt', 'SELECT')",
+        "NOT has_table_privilege(current_user, 'background_task_progress', 'SELECT')",
+        "NOT has_table_privilege(current_user, 'background_task_completion', 'SELECT')",
         "current_user, 'operator_read_investigation_completion', 'SELECT'",
         "current_user, 'operator_read_investigation_completion', 'INSERT'",
+        "has_table_privilege(current_user, 'operator_read_investigation_completion', 'DELETE')",
         "current_user, 'operator_read_investigation_completion_sequence_seq', 'USAGE'",
         "NOT has_schema_privilege(current_user, 'public', 'CREATE')",
     ):
         assert fragment in statement
     for table in (
+        "background_task_attempt",
+        "background_task_progress",
+        "background_task_completion",
         "inventory_snapshot",
         "inventory_snapshot_resource",
         "inventory_snapshot_link",
@@ -741,7 +755,21 @@ async def test_operator_readiness_verifies_exact_projection_and_conversation_pri
             f"NOT has_table_privilege(current_user, 'conversation_turn', '{privilege}')"
             in statement
         )
-    for privilege in ("UPDATE", "DELETE"):
+    assert (
+        "NOT has_table_privilege(current_user, 'operator_background_task_progress', 'UPDATE')"
+        in statement
+    )
+    for privilege in ("TRUNCATE", "REFERENCES", "TRIGGER"):
+        assert (
+            "NOT has_table_privilege("
+            f"current_user, 'operator_background_task_projection', '{privilege}'" in statement
+        )
+        assert (
+            "NOT has_table_privilege("
+            f"current_user, 'operator_background_task_progress', '{privilege}'" in statement
+        )
+    for privilege in ("UPDATE", "TRUNCATE", "REFERENCES", "TRIGGER"):
+        assert "NOT has_table_privilege(" in statement
         assert f"current_user, 'operator_read_investigation_completion', '{privilege}'" in statement
     assert "INSERT,UPDATE,DELETE" not in statement
     for mutation in ("INSERT INTO", "UPDATE state_kv", "DELETE FROM"):

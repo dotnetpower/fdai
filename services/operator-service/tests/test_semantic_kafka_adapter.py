@@ -226,6 +226,47 @@ async def test_producer_allows_only_configured_read_investigation_topic(monkeypa
     }
 
 
+async def test_projection_dlq_and_subscription_require_configured_background_task_topic(  # type: ignore[no-untyped-def]
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(kafka_module, "AIOKafkaProducer", Producer)
+    monkeypatch.setattr(kafka_module, "AIOKafkaConsumer", Consumer)
+    Consumer.messages = [
+        SimpleNamespace(
+            topic="core.background-task.projections",
+            key=b"background-task-one",
+            value=b'{"schema_version":"1.0.0","status":"available"}',
+            offset=1,
+        )
+    ]
+    credential = Credential()
+    bus = OperatorSemanticKafkaBus(
+        config=OperatorSemanticKafkaConfig(
+            bootstrap_servers="example.servicebus.windows.net:9093",
+            background_task_projection_topic="core.background-task.projections",
+        ),
+        credential=credential,  # type: ignore[arg-type]
+    )
+
+    await bus.publish(
+        "core.background-task.projections.dlq",
+        "background-task-one",
+        {"reason": "invalid_background_task_projection"},
+    )
+    stream = bus.subscribe(
+        "core.background-task.projections",
+        "operator-background-task-projection-v1",
+    )
+
+    assert await anext(stream) == {"schema_version": "1.0.0", "status": "available"}
+    await stream.aclose()
+    await bus.aclose()
+
+    producer = Producer.latest
+    assert producer is not None
+    assert producer.sent[0][0] == "core.background-task.projections.dlq"
+
+
 async def test_multiplexed_producer_preserves_key_and_marks_logical_topic(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     bus, _ = _multiplexed_bus(monkeypatch)
 

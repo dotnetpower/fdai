@@ -7,9 +7,9 @@ This plan sequences the smallest changes that turn the current manifest-driven r
 ontology-grounded, agent-owned closed loop. Each work package has an executable exit condition and
 keeps authority-bearing changes behind existing FDAI gates.
 
-> **Starting boundary:** The structural checker, generic workflow, Process projection, and
-> read-only Console view exist. They do not yet prove an autonomous 15-agent ARB path or production
-> evidence attestation.
+> **Starting boundary:** The structural checker, generic workflow, Process projection, read-only
+> Console view, exact snapshot graph receipt, and injected production evidence attestation exist.
+> They do not yet prove an autonomous 15-agent ARB path or an immutable decision authority chain.
 >
 > **Rollout boundary:** Complete the observation-mode vertical slice before adding an
 > authority-bearing decision or execution path.
@@ -36,8 +36,9 @@ Deliver the operating facts that every later decision consumes:
 - model review status as evidence, evaluation, authority, execution, and learning axes.
 
 **Exit:** One exact planned change produces a time-consistent context snapshot on a pinned ontology
-release. Missing, stale, mixed-release, unverified, or truncated context lowers authority and has a
-typed reason.
+release. The assessment carries a typed graph evidence receipt, and any accepted critical or high
+blocker keeps a current risk or exception record. Missing, stale, mixed-release, unverified, or
+truncated context still lowers authority and has a typed reason.
 
 ## ARB-2: Compose the 15-agent evidence loop
 
@@ -60,11 +61,11 @@ explicit hold without mutation or silent loss.
 Replace mutable status assertions with a replayable authority chain:
 
 - version the `Decision` contract with case, context, evidence, graph, catalog, and condition
-  digests;
+  digests. The reusable content-addressed receipt and additive Decision `1.1.0` shape are implemented;
 - bind approval receipt identities, approver roles, quorum, no-self-approval, and expiry;
 - require a complete risk or exception contract for every accepted critical or high blocker;
-- verify evidence bodies, digests, scope, revisions, freshness, and approver authorization through
-  an injected provider;
+- reuse the injected provider verification of evidence bodies, digests, scope, revisions, freshness,
+  and approver authorization;
 - derive production readiness and `ReviewCase` projection from the final receipt;
 - represent an accepted constraint or production transition as a separate governance ActionType.
 

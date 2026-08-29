@@ -18,6 +18,11 @@ OPERATOR_REQUEST_CONSUMER_V15 = ConsumerCodec(
     "N",
     ("1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0", "1.5.0"),
 )
+BACKGROUND_TASK_PROJECTION_PRODUCER_V1 = ProducerCodec(
+    "background-task-projection",
+    "N",
+    "1.0.0",
+)
 OPERATOR_PROJECTION_PRODUCER_V1 = ProducerCodec("core-operator-projection", "N-1", "1.0.0")
 OPERATOR_PROJECTION_PRODUCER_V11 = ProducerCodec("core-operator-projection", "N", "1.1.0")
 OPERATOR_PROJECTION_PRODUCER_V12 = ProducerCodec("core-operator-projection", "N", "1.2.0")

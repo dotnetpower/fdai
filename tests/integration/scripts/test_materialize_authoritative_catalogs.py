@@ -181,7 +181,7 @@ def test_catalog_snapshots_are_deterministic_complete_reference_projections() ->
         decision = bundle["details"]["object-types"]["Decision"]
         assert decision["ontology_release_digest"] == ontology["ontology_release_digest"]
         assert decision["declaration"]["key"] == "id"
-        assert len(decision["declaration"]["properties"]) == 5
+        assert len(decision["declaration"]["properties"]) == 31
         assert decision["mutation_authority"] is False
         assert len(bundle["details"]["link-types"]) == ontology["link_type_count"]
         assert len(bundle["details"]["action-types"]) == ontology["action_type_count"]

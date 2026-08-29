@@ -114,6 +114,12 @@ evidence, `DecisionCase`, approval, and outcome records. The
 production evidence profile, owner slots, risk and exception records, immutable decision receipt,
 failure behavior, and production exit procedure.
 
+The current reusable implementation carries exact verified-snapshot planned-change graph evidence,
+rejects accepted critical or high blockers without a complete current risk or exception record, and
+requires provider-backed body attestation before production readiness. Immutable final decision
+receipts now bind exact evidence and independently recorded approvals without execution authority.
+Receipt-derived readiness and the complete observation-mode agent loop remain open.
+
 `ReviewCase` and `ReviewCheck` are read models. They summarize authoritative lineage for the
 Process and Console, but they do not grant judgment, approval, or execution authority.
 

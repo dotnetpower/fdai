@@ -13,6 +13,7 @@ from fdai.core.background_task import (
     BackgroundTaskConflictError,
     BackgroundTaskKind,
     BackgroundTaskOrigin,
+    BackgroundTaskProgress,
     BackgroundTaskResult,
     BackgroundTaskStatus,
     BackgroundTaskUsage,
@@ -105,6 +106,74 @@ async def test_lease_revision_and_terminal_state_are_immutable() -> None:
             status=BackgroundTaskStatus.FAILED,
             result=result,
             now=result.finished_at,
+        )
+
+
+async def test_creation_audit_advances_revision_once() -> None:
+    store = InMemoryBackgroundTaskStore()
+    created, was_created = await store.create(_task(), requires_creation_audit=True)
+
+    first = await store.mark_creation_audited("background-one", now=_NOW + timedelta(seconds=1))
+    second = await store.mark_creation_audited("background-one", now=_NOW + timedelta(seconds=2))
+
+    assert was_created is True
+    assert created.revision == 1
+    assert first.revision == 2
+    assert first.updated_at == _NOW + timedelta(seconds=1)
+    assert second == first
+
+
+async def test_progress_rejects_terminal_append() -> None:
+    store = InMemoryBackgroundTaskStore()
+    created, _ = await store.create(_task("background-progress"))
+    claimed = await store.claim_next(
+        coordinator="coordinator-one",
+        lease_token="lease-one",
+        now=_NOW,
+        lease_seconds=30,
+    )
+    assert claimed is not None
+    running = await store.start(
+        claimed.attempt_id,
+        expected_revision=claimed.revision,
+        lease_token="lease-one",
+        now=_NOW + timedelta(seconds=1),
+    )
+    first = BackgroundTaskProgress(
+        attempt_id=running.attempt_id,
+        sequence=0,
+        kind="investigation.started",
+        message="Started bounded evidence collection.",
+        at=_NOW + timedelta(seconds=2),
+        usage=BackgroundTaskUsage(),
+    )
+    assert await store.append_progress(first) == first
+    await store.complete(
+        running.attempt_id,
+        expected_revision=running.revision,
+        lease_token="lease-one",
+        status=BackgroundTaskStatus.SUCCEEDED,
+        result=BackgroundTaskResult(
+            summary="Completed.",
+            evidence_refs=(),
+            terminal_reason="completed",
+            usage=BackgroundTaskUsage(tokens=10),
+            started_at=_NOW + timedelta(seconds=1),
+            finished_at=_NOW + timedelta(seconds=3),
+        ),
+        now=_NOW + timedelta(seconds=3),
+    )
+
+    with pytest.raises(BackgroundTaskConflictError, match="terminal state"):
+        await store.append_progress(
+            BackgroundTaskProgress(
+                attempt_id=created.attempt_id,
+                sequence=1,
+                kind="investigation.completed",
+                message="Tried to append after completion.",
+                at=_NOW + timedelta(seconds=4),
+                usage=BackgroundTaskUsage(tokens=10),
+            )
         )
 
 

@@ -7,8 +7,9 @@ import hashlib
 import json
 import logging
 import re
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator, Callable, Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Protocol
 
 from fdai_service_contracts.read_investigation import (
@@ -35,6 +36,13 @@ class ReadInvestigationCompletionStore(Protocol):
         self,
         completion: ReadInvestigationCompletion,
     ) -> StoredReadInvestigationCompletion: ...
+
+    async def purge_expired_read_investigation_completions(
+        self,
+        *,
+        now: datetime,
+        limit: int,
+    ) -> int: ...
 
 
 class ReadInvestigationCompletionSource(Protocol):
@@ -86,40 +94,70 @@ class ReadInvestigationCompletionBridge:
         topic: str = READ_INVESTIGATION_COMPLETION_TOPIC,
         group_id: str = READ_INVESTIGATION_COMPLETION_CONSUMER_GROUP,
         retry_seconds: float = 1.0,
+        retention_interval_seconds: float = 60.0,
+        retention_batch_size: int = 200,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         if not topic.strip() or not group_id.strip():
             raise ValueError("completion topic and consumer group MUST be non-empty")
         if retry_seconds <= 0:
             raise ValueError("completion retry_seconds MUST be positive")
+        if retention_interval_seconds <= 0:
+            raise ValueError("completion retention interval MUST be positive")
+        if not 1 <= retention_batch_size <= 500:
+            raise ValueError("completion retention batch size MUST be between 1 and 500")
+        self._store = store
         self._source = source
         self._publisher = publisher
         self._consumer = ReadInvestigationCompletionConsumer(store)
         self._topic = topic
         self._group_id = group_id
         self._retry_seconds = retry_seconds
-        self._task: asyncio.Task[None] | None = None
+        self._retention_interval_seconds = retention_interval_seconds
+        self._retention_batch_size = retention_batch_size
+        self._clock = clock or _utc_now
+        self._consumer_task: asyncio.Task[None] | None = None
+        self._retention_task: asyncio.Task[None] | None = None
+        self._retention_healthy = False
 
     def workers_ready(self) -> bool:
-        """Report whether the configured completion consumer remains active."""
+        """Report whether completion ingress and retention workers remain active."""
 
-        return self._task is not None and not self._task.done()
+        return (
+            self._consumer_task is not None
+            and not self._consumer_task.done()
+            and self._retention_task is not None
+            and not self._retention_task.done()
+            and self._retention_healthy
+        )
 
     async def start(self) -> None:
-        """Start the single completion consumer once."""
+        """Start completion ingress and bounded retention workers once."""
 
-        if self._task is None:
-            self._task = asyncio.create_task(
+        if self._consumer_task is None:
+            self._consumer_task = asyncio.create_task(
                 self._run(),
                 name="operator-read-investigation-completions",
             )
+        if self._retention_task is None:
+            self._retention_task = asyncio.create_task(
+                self._run_retention(),
+                name="operator-read-investigation-completion-retention",
+            )
 
     async def aclose(self) -> None:
-        """Cancel and join the completion consumer."""
+        """Cancel and join completion ingress and retention workers."""
 
-        task, self._task = self._task, None
-        if task is not None:
+        tasks = tuple(
+            task for task in (self._consumer_task, self._retention_task) if task is not None
+        )
+        self._consumer_task = None
+        self._retention_task = None
+        self._retention_healthy = False
+        for task in tasks:
             task.cancel()
-            await asyncio.gather(task, return_exceptions=True)
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _run(self) -> None:
         conflicts: dict[str, int] = {}
@@ -158,6 +196,23 @@ class ReadInvestigationCompletionBridge:
                 _LOGGER.warning("read_investigation_completion_consumer_retrying", exc_info=True)
             await asyncio.sleep(self._retry_seconds)
 
+    async def _run_retention(self) -> None:
+        while True:
+            try:
+                deleted = await self._store.purge_expired_read_investigation_completions(
+                    now=self._clock(),
+                    limit=self._retention_batch_size,
+                )
+            except Exception:  # noqa: BLE001 - a failed purge retries without blocking ingress
+                self._retention_healthy = False
+                _LOGGER.warning("read_investigation_completion_retention_retrying", exc_info=True)
+                deleted = 0
+            else:
+                self._retention_healthy = True
+            await asyncio.sleep(
+                0 if deleted == self._retention_batch_size else self._retention_interval_seconds
+            )
+
     async def _quarantine(self, key: str, reason: str) -> None:
         await self._publisher.publish(
             f"{self._topic}.dlq",
@@ -182,6 +237,10 @@ def _quarantine_key(payload: Mapping[str, object]) -> str:
         sort_keys=True,
     ).encode("utf-8")
     return f"invalid-completion-{hashlib.sha256(encoded).hexdigest()[:32]}"
+
+
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
 
 
 __all__ = [

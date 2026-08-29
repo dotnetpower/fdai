@@ -74,16 +74,27 @@ Agents collaborate through typed publish and subscribe only. The review coordina
 it records deadlines and required evidence keys, but Forseti owns the decision to continue, hold,
 or escalate.
 
-1. Huginn publishes one immutable `Change` and preserves one correlation ID.
-2. Muninn materializes a secured snapshot for the exact graph release and evidence cutoff.
+1. Huginn publishes one immutable `Change` and preserves one correlation ID plus the requested
+   ontology release digest.
+2. Muninn materializes a secured snapshot for the exact graph release and evidence cutoff. The
+   snapshot requires verified links before it can produce authenticated graph evidence.
 3. Relevant specialists publish only their owned object topics with the same case reference.
-4. Forseti joins the policy-required evidence set under a deadline. Missing, stale, conflicting,
-   synthetic, or truncated evidence lowers the authority ceiling.
+4. Forseti converts that exact snapshot into the planned-change graph receipt, compares its ontology
+   release with the requested digest, and joins the policy-required evidence set under a deadline.
+   Missing, stale, unauthenticated, conflicting, synthetic, or truncated evidence lowers the
+   authority ceiling.
 5. Before asking a person, FDAI attempts bounded reacquisition, an alternate authoritative source,
    deterministic reevaluation, or a smaller safe option.
 
 Slow or failed subscribers do not block unrelated work. The owner of the join records an explicit
 missing or late branch instead of interpreting silence as success.
+
+The current runtime binding keeps this boundary observation-only. A dedicated non-agent consumer
+group reads owned `object.change`, `object.state-snapshot`, specialist, `object.verdict`, and
+`object.audit-entry` topics, replays the immutable `ArchitectureReviewObservationTrace`, and
+retains terminal observer `gave_up`/`halted` states as degradation evidence. It does not call
+agents directly, mutate runtime state, or grant execution authority. When an ARB stage has no
+distinct owned record yet, the trace stays on hold instead of synthesizing success.
 
 ## Autonomous review levels
 
@@ -117,12 +128,12 @@ Every displayed state links to the exact `Change`, context digest, evidence bund
 
 | Gap | Required correction |
 |-----|---------------------|
-| Planned-change assessment supplies `graph_fresh=False` | Replace the boolean with an authenticated graph revision and freshness receipt |
+| Planned-change assessment now falls back to `ChangeGraphEvidenceReceipt.unavailable()` | Wire the receipt from the exact `OperationalContextSnapshot` so planned-change review carries an authenticated graph revision, release match, freshness, and truncation state |
 | Workflow parallel branches journal caller-supplied outcomes | Drive branches from agent-owned typed evidence and record explicit deadlines |
 | ARB projection reads manifest status directly | Derive `ReviewCase` and `ReviewCheck` from decision lineage and verified evidence |
 | `OperationalEvidenceBundle` and scenario branches are not composed into ARB | Bind them before Forseti creates the review `DecisionCase` |
 | Operating intent instances are not proven end to end | Project service, recovery, cost, ownership, constraint, and change-window instances with freshness |
-| No ARB pantheon integration test exists | Prove duplicate, reorder, restart, deadline, degradation, and replay behavior across owned topics |
+| The ARB trace runtime binding currently covers only the emitted owned topics | Extend owned records for context, evidence bundle, impact envelope, recommendation, and the derived `ReviewCase` projection so the observation-only runtime trace can close the full first vertical slice without synthesizing missing stages |
 
 ## Related docs
 

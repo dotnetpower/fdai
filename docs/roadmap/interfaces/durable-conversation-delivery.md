@@ -33,6 +33,11 @@ commit follows that transaction. The existing delivery worker owns provider clai
 acknowledgement, ambiguous-send handling, and retry. A delivery failure never asks Core to rerun
 the investigation or rewrite its result.
 
+Operator completion retention runs beside the consumer. It deletes only inbox rows whose
+contract-provided `retention_until` deadline has passed, orders cleanup by deadline and sequence,
+and uses a bounded `SKIP LOCKED` batch. A cleanup failure keeps readiness closed but does not discard
+or replay the accepted completion.
+
 The first codec accepts exact `1.0.0`. An additive successor must keep N and N-1 decoders and may
 not downgrade a newer payload. Malformed records go directly to the sibling DLQ. A completion whose
 matching proposal is not yet visible is retried with a bounded count before quarantine. Inbox,
@@ -66,7 +71,7 @@ grants Core an Operator database writer.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Read-investigation terminal completion ingress | in-progress | `read-investigation-completion` `1.0.0`; Core completion publisher; Operator completion repository and consumer; `operator_read_investigation_completion_20260826`; focused completion and privilege checks | Core publishes one immutable terminal task result. Operator production composition validates the exact proposal and atomically writes one durable inbox row plus one idempotent Web assistant turn. The migration grants the Operator conversation writer and restores read-only access on rollback. Slack and Teams outbound enqueue, retention purge, and governed restart evidence remain open. |
+| Read-investigation terminal completion ingress | in-progress | `read-investigation-completion` `1.0.0`; Core completion publisher; Operator completion repository, consumer, and retention worker; `operator_read_investigation_completion_20260826`; `operator_completion_retention_20260829`; focused completion and privilege checks | Core publishes one immutable terminal task result. Operator production composition validates the exact proposal, atomically writes one durable inbox row plus one idempotent Web assistant turn, and purges only deadline-expired inbox rows in bounded batches. Slack and Teams outbound enqueue and governed restart evidence remain open. |
 
 ### Implementation history
 
@@ -84,6 +89,7 @@ grants Core an Operator database writer.
 | 2026-08-20 | implemented | Unified the readable semantic-row projection used before durable channel reduction. Nested provider properties no longer disappear from v2 or leak as raw display JSON; the response exposes allowlisted name, type, status, and location fields while preserving exact evidence for replay. | `current change`; [Issue #241](https://github.com/dotnetpower/fdai/issues/241); focused Operator presentation checks passed 94 cases; Ruff, formatting, and strict mypy passed. | Retain authenticated Web evidence and the existing governed Slack/Teams runtime receipts before raising channel validation claims. |
 | 2026-08-23 | not-started | Registered the cross-service terminal read-investigation completion ingress as an explicit ownership prerequisite without inventing a transport schema or granting Core access to Operator conversation tables. | `current change`; the three owner documents linked in the scope row agree on the open boundary. | Define and review the versioned contract, then implement Operator-owned durable acceptance, idempotent projection, delivery retry, retention, and rollback tests. |
 | 2026-08-26 | in-progress | Implemented the versioned completion codec, Core publisher, Operator inbox, and Web conversation materializer. The Operator migration grants conversation writes, one writable CTE deduplicates the durable proposal, assistant turn, and inbox row, and rollback removes writes before dropping the inbox. | `current change`; focused Operator readiness, completion store, and migration privilege checks passed. | Add verified channel binding resolution and outbound enqueue, retention purge, and governed restart/process-loss receipts. |
+| 2026-08-29 | implemented | Added bounded completion inbox retention to the supervised Operator lifecycle. The repository deletes only expired rows in deadline order with `SKIP LOCKED`; a follow-on migration grants delete only on the Operator-owned inbox, and repeated cleanup failure keeps readiness closed. | `current change`; Operator completion repository and runtime; `operator_completion_retention_20260829`; focused completion, composition, privilege, and service-migration checks. | Add verified Slack and Teams binding resolution plus outbound enqueue, then retain governed restart and process-loss receipts. |
 
 ### Remaining work
 
@@ -103,8 +109,10 @@ grants Core an Operator database writer.
     delivery store, and share the bounded progressive-conversation collector with it.
 - [x] Define the versioned terminal completion contract and bind the Core publisher, Operator-owned
     durable inbox, poison handling, bounded retry, rollback grant, and idempotent Web assistant turn.
-- [ ] Add verified Slack and Teams binding resolution plus outbound enqueue, implement completion
-    inbox retention purge, and retain governed restart and process-loss receipts.
+- [x] Implement bounded completion inbox retention purge with deadline ordering, `SKIP LOCKED`,
+    Operator-only delete privilege, and fail-closed readiness tests.
+- [ ] Add verified Slack and Teams binding resolution plus outbound enqueue, and retain governed
+    restart and process-loss receipts.
 - [ ] Record governed runtime receipts for persistence across restart, process-loss reconciliation,
     external adapter acknowledgement, breaker control, scheduled delivery, and read-only metrics
     before promoting any row to `validated`.

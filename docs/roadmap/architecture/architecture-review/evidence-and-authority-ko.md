@@ -1,8 +1,8 @@
 ---
 title: ARB 근거 및 권한
 translation_of: evidence-and-authority.md
-translation_source_sha: 58853dbd0ddef8f9bbec9025bbf9fc68eeb8ed96
-translation_revised: 2026-08-24
+translation_source_sha: d54dfb653a865454f26549f4aa15be5eb4ebfee3
+translation_revised: 2026-08-29
 ---
 # ARB 근거 및 권한
 
@@ -92,14 +92,22 @@ owner_bindings:
 거버넌스가 적용된 본문을 가져오고 다이제스트를 다시 계산하며 범위와 개정을 확인하고 승인자를
 검증합니다. 또한 연결 만료와 제어 최신성 중 더 짧은 기간을 적용합니다.
 
+주입된 공급자는 범위가 제한된 본문, 관측 시간, 인증된 승인자 집합 및 인증 참조를 반환합니다.
+런타임 준비 상태는 공급자 누락, 본문 또는 URI 불일치, 범위 또는 개정 불일치, 권한이 없는
+승인자, 오래되거나 미래의 관측, 관측 뒤에 수행된 승인, 합성 근거 및 고정된 byte 상한을 넘는
+본문을 거부합니다. 구조 CLI 검증에서 메타데이터만으로 운영 준비 상태를 만들 수 없습니다.
+
 ```yaml
 evidence_bindings:
   production-terraform-plan:
     uri: evidence://<governed-store-reference>
     sha256: <64-lowercase-hex-digest>
+    scope_ref: <fork-owned-scope-reference>
+    revision: <immutable-source-revision>
     approved_by: group:<fork-owned-approver>
     approved_at: 2026-07-13T00:00:00Z
     expires_at: 2027-01-13T00:00:00Z
+    freshness_seconds: 86400
 ```
 
 구조 검증은 알 수 없는 키, 누락된 필드, 잘못된 다이제스트, 유효하지 않은 시간 범위를 차단합니다.
@@ -119,6 +127,10 @@ evidence_bindings:
 독립적으로 검토되고 현재 유효한 경우에만 `open` 상태를 벗어날 수 있습니다. 만료, 근거 제거,
 범위 드리프트, 보완 제어 위반은 검토를 자동으로 다시 엽니다.
 
+매니페스트 검사기는 수락된 위험 및 예외 레코드의 형식과 검토 또는 유효 시간 구간을
+검증합니다. 런타임 운영 준비 상태는 공급자 기반 근거 본문 증명도 요구합니다. 실제 보완 제어
+검증은 별도의 운영 게이트 작업으로 남아 있습니다.
+
 ## 결정 증적
 
 최종 `Decision`은 변경할 수 없으며 다음 항목을 포함하거나 연결합니다.
@@ -131,6 +143,12 @@ evidence_bindings:
 
 근거 항목, 조건, 승인 집합, 대상 개정, 그래프 개정이 바뀌면 새 결정 식별자를 만듭니다. 워크플로
 컨텍스트 값이나 변경 가능한 매니페스트 필드는 기존 증적을 수정할 수 없습니다.
+
+재사용 가능한 `1.0.0` 증적 계약은 내용 기반 identity를 사용하며 항상
+`execution_authority=false`를 기록합니다. `Decision`과 `Approval` 온톨로지 선언은 `1.1.0`으로
+버전이 올라갑니다. 결정 변환 결과는 review, outcome, recorded time, 근거 key, 승인된 receipt
+객체 및 승인자 identity가 권위 있는 레코드와 일치할 때만 증적을 수락합니다. 증적이 없는 기존
+워크플로 결정은 권한이 없는 변환 결과로 유지됩니다.
 
 ## 실패 동작
 

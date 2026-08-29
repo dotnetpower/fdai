@@ -14,6 +14,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from ..agents import T2ConversationSynthesizer
+from ..core.architecture_review import ProductionEvidenceProvider
 from ..core.assurance_twin import (
     DynamicSimulationRequestProvider,
     EffectModelCausalEvidenceVerifier,
@@ -244,6 +245,7 @@ class Container:
     change_feed: ChangeFeed = field(default_factory=EmptyChangeFeed)
     operational_readiness_posture: PostureAssessmentProvider | None = None
     operational_readiness_report_publisher: ReadinessReportPublisher | None = None
+    architecture_review_evidence_provider: ProductionEvidenceProvider | None = None
     distiller: Distiller = field(default_factory=AbstainingDistiller)
     manual_source: ManualSource = field(default_factory=EmptyManualSource)
     manual_classifier: ManualClassifier = field(default_factory=AbstainingManualClassifier)

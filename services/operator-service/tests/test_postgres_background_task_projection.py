@@ -28,6 +28,8 @@ def _task_row() -> dict[str, object]:
         "lease_expires_at": NOW,
         "budget": {"max_wall_seconds": 300},
         "usage": {"tokens": 1, "cost_microusd": 2, "tool_calls": 1},
+        "progress_watermark": None,
+        "latest_progress_order": 0,
         "terminal_reason": None,
         "started_at": None,
         "finished_at": None,
@@ -51,10 +53,11 @@ async def test_postgres_task_reads_bind_owner_in_every_query(monkeypatch: Any) -
         params: dict[str, object],
     ) -> list[dict[str, object]]:
         calls.append((query, params))
-        if "background_task_progress AS progress" in query:
+        if "SELECT progress.progress_sequence AS sequence" in query:
             return [
                 {
                     "sequence": 0,
+                    "progress_order": 1,
                     "kind": "investigation.started",
                     "message": "Investigation started.",
                     "at": NOW,
@@ -87,12 +90,69 @@ async def test_postgres_task_reads_bind_owner_in_every_query(monkeypatch: Any) -
     assert detail is not None and detail.task_id == "task-one"
     assert progress[0].sequence == 0
     assert all(params["owner_principal_id"] == "principal-a" for _, params in calls)
-    assert "attempt.owner_principal_id = %(owner_principal_id)s" in calls[0][0]
-    assert "attempt.owner_principal_id = %(owner_principal_id)s" in calls[1][0]
-    assert "attempt.owner_principal_id = %(owner_principal_id)s" in calls[2][0]
+    assert "FROM operator_background_task_projection AS task" in calls[0][0]
+    assert "FROM operator_background_task_projection AS task" in calls[1][0]
+    assert "FROM operator_background_task_progress AS progress" in calls[2][0]
+    assert "task.progress_watermark" in calls[0][0]
+    assert "MAX(progress.progress_order)" in calls[1][0]
+    assert "progress.progress_order AS progress_order" in calls[2][0]
+    assert "task.principal_id = %(owner_principal_id)s" in calls[0][0]
+    assert "task.principal_id = %(owner_principal_id)s" in calls[1][0]
+    assert "progress.principal_id = %(owner_principal_id)s" in calls[2][0]
     select_clause = calls[0][0].split("FROM", maxsplit=1)[0]
-    assert "SELECT attempt.task," not in select_clause
-    assert "attempt.task AS" not in select_clause
+    assert "background_task_attempt" not in calls[0][0]
+    assert "background_task_progress" not in calls[2][0].replace(
+        "operator_background_task_progress", ""
+    )
+    assert "task.task_kind" in select_clause
+
+
+async def test_postgres_task_reads_live_filter_expired_rows_when_purge_lags(
+    monkeypatch: Any,
+) -> None:
+    calls: list[tuple[str, dict[str, object]]] = []
+
+    async def fetch_all(
+        _store: PostgresFamilyStore,
+        query: str,
+        params: dict[str, object],
+    ) -> list[dict[str, object]]:
+        calls.append((query, params))
+        return []
+
+    monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
+    store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
+
+    assert (
+        await store.list_background_tasks(
+            owner_principal_id="principal-a",
+            before_updated_at=None,
+            before_task_id=None,
+            limit=2,
+        )
+        == ()
+    )
+    assert (
+        await store.read_background_task(
+            owner_principal_id="principal-a",
+            task_id="task-one",
+        )
+        is None
+    )
+    assert (
+        await store.read_background_task_progress(
+            owner_principal_id="principal-a",
+            task_id="task-one",
+            after_sequence=-1,
+            limit=100,
+        )
+        == ()
+    )
+
+    assert "task.retention_until > CURRENT_TIMESTAMP" in calls[0][0]
+    assert "task.retention_until > CURRENT_TIMESTAMP" in calls[1][0]
+    assert "progress.retention_until > CURRENT_TIMESTAMP" in calls[1][0]
+    assert "progress.retention_until > CURRENT_TIMESTAMP" in calls[2][0]
 
 
 async def test_postgres_task_reads_accept_the_contract_identifier_ceiling(

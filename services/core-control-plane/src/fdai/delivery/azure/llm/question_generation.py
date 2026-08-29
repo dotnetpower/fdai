@@ -23,6 +23,7 @@ from fdai.core.conversation.question_candidates import (
 )
 from fdai.core.conversation.question_universe import GeneratedQuestionCase
 from fdai.delivery.azure.llm.completion_body import completion_body_params
+from fdai.delivery.azure.llm.model_trace import prepare_model_messages
 from fdai.delivery.azure.llm.request_target import ModelRequestTarget
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -251,6 +252,7 @@ async def _complete_json(
             max_tokens=config.max_tokens,
         ),
     }
+    body["messages"] = list(prepare_model_messages(body["messages"]).messages)
     if request.model_body_field is not None:
         body["model"] = request.model_body_field
     failure_kind: str | None = None

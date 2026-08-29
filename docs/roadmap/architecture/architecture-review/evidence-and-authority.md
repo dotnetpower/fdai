@@ -90,14 +90,23 @@ The manifest carries metadata, not the evidence body. Runtime verification retri
 body through an injected provider, recomputes its digest, confirms scope and revision, validates the
 approver, and applies the shorter of binding expiry and control freshness.
 
+The injected provider returns a bounded body, observation time, authenticated approver set, and
+authentication reference. Runtime readiness rejects a missing provider, body or URI mismatch,
+scope or revision mismatch, unauthorized approver, stale or future observation, post-observation
+approval mismatch, synthetic evidence, and bodies outside the fixed byte ceiling. Structural CLI
+validation cannot turn metadata alone into production readiness.
+
 ```yaml
 evidence_bindings:
   production-terraform-plan:
     uri: evidence://<governed-store-reference>
     sha256: <64-lowercase-hex-digest>
+    scope_ref: <fork-owned-scope-reference>
+    revision: <immutable-source-revision>
     approved_by: group:<fork-owned-approver>
     approved_at: 2026-07-13T00:00:00Z
     expires_at: 2027-01-13T00:00:00Z
+    freshness_seconds: 86400
 ```
 
 Structural validation rejects unknown keys, missing fields, malformed digests, and invalid time
@@ -117,6 +126,10 @@ An accepted risk is not resolved. A critical or high item can leave `open` only 
 risk or exception record is independently reviewed and remains current. Expiry, evidence removal,
 scope drift, or a violated compensating control reopens the review automatically.
 
+The manifest checker enforces the accepted-risk and accepted-exception record shape plus the review
+or effective-time window. Runtime production readiness also requires provider-backed evidence-body
+attestation. Live compensating-control validation remains separate production-gate work.
+
 ## Decision receipt
 
 A final `Decision` is immutable and contains or links to:
@@ -130,6 +143,12 @@ A final `Decision` is immutable and contains or links to:
 Changing an evidence item, condition, approval set, target revision, or graph revision produces a
 new decision identity. A workflow context value or mutable manifest field cannot amend an existing
 receipt.
+
+The reusable `1.0.0` receipt contract is content-addressed and always records
+`execution_authority=false`. `Decision` and `Approval` ontology declarations are versioned to
+`1.1.0`: the decision projection accepts a receipt only when its review, outcome, recorded time,
+evidence keys, approved receipt objects, and approver identities match authoritative records.
+Receipt-free legacy workflow decisions remain non-authoritative projections.
 
 ## Failure behavior
 

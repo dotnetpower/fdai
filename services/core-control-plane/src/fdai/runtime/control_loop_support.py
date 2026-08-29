@@ -13,6 +13,7 @@ import yaml
 from fdai.core.architecture_review import (
     ArchitectureReviewProductionGateEvaluator,
     ArchitectureReviewProjector,
+    ProductionEvidenceProvider,
 )
 from fdai.core.hil_resume import (
     ApprovalLoadPolicy,
@@ -60,6 +61,7 @@ def build_workflow_coordinator(
     process_store: Any | None = None,
     ontology_store: Any | None = None,
     outcome_verifier: StateStoreWorkflowOutcomeLedger | None = None,
+    architecture_evidence_provider: ProductionEvidenceProvider | None = None,
 ) -> WorkflowTriggerCoordinator | None:
     """Assemble the default-on shadow workflow coordinator without widening authority."""
     if not workflows:
@@ -107,6 +109,7 @@ def build_workflow_coordinator(
     architecture_guard = ArchitectureReviewProductionGateEvaluator(
         manifest_path=config_dir / "architecture-review.yaml",
         repo_root=catalog_root.parent,
+        evidence_provider=architecture_evidence_provider,
     )
     guard_evaluator = (
         ChangeWindowWorkflowGuardEvaluator(

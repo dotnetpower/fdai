@@ -1,8 +1,8 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: fb5ebfe0e5517f41dfe1e0c5953abed9b7d6a178
-translation_revised: 2026-08-14
+translation_source_sha: b914809f9172c6b55320a8701a92e40704c915df
+translation_revised: 2026-08-29
 ---
 
 # 보안과 아이덴티티
@@ -22,23 +22,24 @@ translation_revised: 2026-08-14
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 워크로드 신원과 승인 및 실행 분리 | validated | `config/independent-service-live-evidence-manifest.json`; `infra/services/`; `shared/providers/workload_identity.py`; SD-08 및 IS-09 근거 | 5개 서비스 배포 근거는 서로 다른 신원을 입증하고 전환 후 Isolated 실행기만 효과를 보유할 수 있게 합니다. |
-| 실행기 안전조건과 독립 효과 종결 | in-progress | `core/executor/`; `core/risk_gate/`; `tests/core/executor/`; `config/constitution-traceability.json`의 `FDAI-CONST-007` 요구 사항 | 잠금, 멱등성, 예행 실행, 효과 이전 및 최종 감사, 롤백, risk 검사를 실행할 수 있습니다. 하나의 공유 계약은 모든 실행 경로에서 동등한 보장을 아직 입증하지 않습니다. |
+| 실행기 안전조건과 독립 효과 종결 | in-progress | `core/executor/`; `core/executor/safeguards.py`; `core/risk_gate/`; `tests/core/executor/`; `config/constitution-traceability.json`의 `FDAI-CONST-007` 요구 사항; 이슈 `#81` | PR-native, direct-API, tool-call 실행은 하나의 사전 디스패치 안전조건 증적 계약을 공유합니다. 작업 흐름과 Isolated 실행기 경로는 이 영역을 계속 `in-progress`로 유지하는 동일한 종단 간 증적과 독립 효과 종결 검증이 아직 필요합니다. |
 | 전역 kill switch와 break-glass 컨트롤 | implemented | `core/rbac/kill_switch_command.py`; `core/control_loop/_execution.py`; `core/conversation/_write_break_glass_tool.py`; 집중 RBAC 및 제어 루프 테스트 | 개정 번호 안전 상태, 실패 시 차단 갱신, 권한 상한, 시간 제한 활성화, 감사 및 호출 경로가 있습니다. 보존된 운영 예행 연습은 아직 필요합니다. |
-| 데이터 보호와 privacy 근거 | in-progress | [데이터 거버넌스 구현 상태](data-governance-ko.md#구현-상태); 해당 문서가 인용한 민감정보 제거 및 보존 경로 | 주요 경계에서 최소화와 민감정보 제거를 구현했지만 공유 사전 모델 증적과 배포 privacy 승인은 불완전합니다. |
+| 데이터 보호와 privacy 근거 | in-progress | [데이터 거버넌스 구현 상태](data-governance-ko.md#구현-상태); 해당 문서가 인용한 민감정보 제거 및 보존 경로; 이슈 `#371` | 주요 경계는 이제 공유 최소화와 민감정보 제거를 구현했지만 배포 privacy 승인과 보존된 운영 근거는 계속 열려 있습니다. |
 | 사전 사람 권한 부여(A3-E) | not-started | `config/constitution-traceability.json`의 `FDAI-CONST-008` 요구 사항; [에스컬레이션과 사전 권한](../decisioning/escalation-and-standing-authority-ko.md) | Shadow 미응답 감독기는 있지만 실행 가능한 A3-E 권한을 부여하는 standing-authorization 카탈로그, 평가기 또는 승격 경로는 없습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-29 | in-progress | 공유 실행기 안전조건 계약, 완료된 모델 경계 최소화 증적, 그리고 남은 운영 예행 연습, privacy, A3-E 근거를 위한 명시적 이슈 인계를 반영하도록 보안 원장을 조정했습니다. | `core/executor/safeguards.py`; `tests/core/executor/test_safeguard_contract.py`; [데이터 거버넌스 구현 상태](data-governance-ko.md#구현-상태); 이슈 `#81`, `#331`, `#371`, `#372` | 작업 흐름과 Isolated 실행기 경로에 동일한 안전조건 및 독립 효과 증적을 확장하고, 이후 통제된 운영 근거를 보존합니다. |
 | 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 보안 주장을 서비스 전환, 안전조건 구현, kill switch, privacy 및 A3-E 근거 경계에 맞췄습니다. | `current change`; 위에 인용한 배포 매니페스트, 소스, 집중 테스트 및 헌법 레지스터입니다. | 공유 안전조건 계약, 운영 예행 연습, privacy 게이트 및 사전 권한 구현을 완료합니다. |
 
 ### 남은 작업
 
-- [ ] 하나의 공유 실행 증적 계약을 정의하고 PR-native, direct-API, tool-call, 작업 흐름 및 Isolated 실행기 경로 모두가 7개 안전조건과 독립 효과 종결을 강제함을 입증합니다.
-- [ ] 하나의 고정된 배포 개정에서 통제된 kill switch, break-glass, 롤백, 신원 재인증 및 감사 앵커 예행 연습 증적을 보존합니다.
-- [ ] Privacy 검증을 주장하기 전에 데이터 거버넌스 운영 게이트와 공유 사전 모델 최소화 증적을 완료합니다.
-- [ ] 승격 전에 정족수, 만료, 취소, 인수인계, 범위, 근거 및 침묵으로 권한을 부여하지 않는 테스트를 포함해 A3-E 사전 권한을 구현하고 shadow 평가합니다.
+- [ ] PR-native, direct-API, tool-call 경로가 이미 사용하는 7개 안전조건과 독립 효과 종결을 작업 흐름과 Isolated 실행기 경로에도 강제하도록 하나의 공유 실행 증적 계약을 확장합니다. 이 작업은 이슈 `#81`에서 추적합니다.
+- [ ] 하나의 고정된 배포 개정에서 통제된 kill switch, break-glass, 롤백, 신원 재인증 및 감사 앵커 예행 연습 증적을 보존합니다. 이 작업은 이슈 `#372`에서 추적합니다.
+- [ ] Privacy 검증을 주장하기 전에 데이터 거버넌스 운영 게이트를 완료합니다. 이 작업은 이슈 `#371`에서 추적합니다.
+- [ ] 승격 전에 정족수, 만료, 취소, 인수인계, 범위, 근거 및 침묵으로 권한을 부여하지 않는 테스트를 포함해 A3-E 사전 권한을 구현하고 shadow 평가합니다. 이 작업은 이슈 `#331`에서 추적합니다.
 
 ## 심각도 어휘
 

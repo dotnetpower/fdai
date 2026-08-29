@@ -27,6 +27,10 @@ from fdai.delivery.persistence.postgres_background_task import (
     PostgresBackgroundTaskStore,
     PostgresBackgroundTaskStoreConfig,
 )
+from fdai.delivery.persistence.postgres_background_task_projection_feed import (
+    PostgresBackgroundTaskProjectionFeed,
+    PostgresBackgroundTaskProjectionFeedConfig,
+)
 from fdai.delivery.persistence.postgres_briefing import (
     PostgresBriefingRunStore,
     PostgresBriefingStoreConfig,
@@ -238,6 +242,8 @@ __all__ = [
     "PostgresAdvisoryResourceLockConfig",
     "PostgresBackgroundTaskStore",
     "PostgresBackgroundTaskStoreConfig",
+    "PostgresBackgroundTaskProjectionFeed",
+    "PostgresBackgroundTaskProjectionFeedConfig",
     "PostgresBrowserEvidenceArtifactStore",
     "PostgresBrowserEvidenceArtifactStoreConfig",
     "ReadLatencyStoreConflictError",

@@ -1,6 +1,6 @@
 ---
 translation_of: durable-conversation-delivery.md
-translation_source_sha: 12fc2acc7c266a68b507f4990f720e58e745237b
+translation_source_sha: 78593959574a56d1ea7099aab9004d53feb1b91a
 translation_revised: 2026-08-26
 ---
 # 영구 대화 전송
@@ -34,6 +34,11 @@ transaction 뒤에 commit합니다. 기존 delivery worker가 provider claim, se
 ambiguous-send 처리 및 retry를 소유합니다. Delivery 실패는 Core에 조사를 다시 실행하거나 결과를
 다시 쓰도록 요청하지 않습니다.
 
+Operator 완료 보존 처리는 consumer와 함께 실행됩니다. 계약이 제공한 `retention_until`
+기한이 지난 inbox 행만 삭제하고, 기한과 sequence 순서로 정렬한 제한된 `SKIP LOCKED`
+배치를 사용합니다. 정리에 실패하면 준비 상태는 닫힌 상태를 유지하지만 수락한 완료를
+버리거나 다시 실행하지 않습니다.
+
 첫 codec은 exact `1.0.0`을 수락합니다. 가산 후속 버전은 N 및 N-1 decoder를 유지해야 하며 새
 payload를 downgrade할 수 없습니다. Malformed 기록은 즉시 sibling DLQ로 이동합니다. 일치하는
 제안이 아직 보이지 않는 완료는 범위가 제한된 횟수만큼 retry한 뒤 quarantine합니다. Inbox,
@@ -66,7 +71,7 @@ writer를 부여하지 않습니다.
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 읽기 조사 최종 완료 수신 | 진행 중 | `read-investigation-completion` `1.0.0`, Core 완료 publisher, Operator 완료 저장소 및 consumer, `operator_read_investigation_completion_20260826`, 집중 완료 및 권한 검사 | Core는 변경할 수 없는 최종 작업 결과 하나를 publish합니다. Operator 운영 조립은 exact 제안을 검증하고 영속 inbox 행 하나와 멱등적인 Web assistant turn 하나를 원자적으로 씁니다. Migration은 Operator 대화 writer 권한을 부여하고 rollback에서 읽기 전용 접근을 복원합니다. Slack 및 Teams outbound enqueue, 보존 정리 및 통제된 재시작 근거는 열린 상태입니다. |
+| 읽기 조사 최종 완료 수신 | 진행 중 | `read-investigation-completion` `1.0.0`, Core 완료 publisher, Operator 완료 저장소, consumer 및 보존 worker, `operator_read_investigation_completion_20260826`, `operator_completion_retention_20260829`, 집중 완료 및 권한 검사 | Core는 변경할 수 없는 최종 작업 결과 하나를 publish합니다. Operator 운영 조립은 exact 제안을 검증하고 영속 inbox 행 하나와 멱등적인 Web assistant turn 하나를 원자적으로 쓴 뒤 기한이 지난 inbox 행만 제한된 배치로 정리합니다. Slack 및 Teams outbound enqueue와 통제된 재시작 근거는 열린 상태입니다. |
 
 ### 구현 이력
 
@@ -84,6 +89,7 @@ writer를 부여하지 않습니다.
 | 2026-08-20 | 구현됨 | 영속 채널 reduction 전에 사용하는 읽기 쉬운 의미 행 projection을 통합했습니다. 중첩 provider property가 v2에서 사라지거나 raw 표시 JSON으로 노출되지 않고, response는 허용된 이름, 타입, 상태, 위치 필드를 보여 주면서 replay를 위한 exact 근거를 보존합니다. | `current change`, [이슈 #241](https://github.com/dotnetpower/fdai/issues/241), focused Operator 표현 검사 94개 통과, Ruff, formatting, strict mypy 통과 | 채널 검증 주장을 높이기 전에 인증된 Web 근거와 기존 통제된 Slack/Teams 런타임 증적을 보존합니다. |
 | 2026-08-23 | 시작 전 | 전송 스키마를 만들거나 Core에 Operator 대화 table 접근 권한을 부여하지 않고 교차 서비스 최종 읽기 조사 완료 수신을 명시적 소유권 선행 작업으로 등록했습니다. | `current change`; 구현 범위 행에 연결된 세 owner 문서가 열린 경계에 동의합니다. | 버전이 지정된 계약을 정의하고 검토한 뒤 Operator 소유 영속 수락, 멱등 projection, 전달 재시도, 보존 및 롤백 테스트를 구현합니다. |
 | 2026-08-26 | 진행 중 | 버전이 지정된 완료 codec, Core publisher, Operator inbox 및 Web 대화 materializer를 구현했습니다. Operator migration은 대화 쓰기를 부여하고 하나의 writable CTE가 영속 제안, assistant turn 및 inbox 행을 dedupe하며 rollback은 inbox를 drop하기 전에 쓰기 권한을 제거합니다. | `current change`; 집중 Operator readiness, 완료 저장소 및 migration 권한 검사가 통과했습니다. | 검증된 채널 binding 해석과 outbound enqueue, 보존 정리 및 통제된 재시작/process-loss 증적을 추가합니다. |
+| 2026-08-29 | 구현됨 | 감독되는 Operator 수명 주기에 제한된 완료 inbox 보존 정리를 추가했습니다. 저장소는 `SKIP LOCKED`를 사용해 기한이 지난 행만 기한 순서대로 삭제합니다. 후속 migration은 Operator 소유 inbox에만 삭제 권한을 부여하고 정리가 반복해서 실패하면 준비 상태를 닫습니다. | `current change`, Operator 완료 저장소 및 런타임, `operator_completion_retention_20260829`, 집중 완료, 조립, 권한 및 서비스 migration 검사 | 검증된 Slack 및 Teams binding 해석과 outbound enqueue를 추가한 뒤 통제된 재시작 및 process-loss 증적을 보존합니다. |
 
 ### 남은 작업
 
@@ -103,8 +109,10 @@ writer를 부여하지 않습니다.
      범위가 제한된 progressive-conversation 수집기를 함께 공유합니다.
 - [x] 버전이 지정된 최종 완료 계약을 정의하고 Core publisher, Operator 소유 영속 inbox,
      poison 처리, 범위가 제한된 재시도, rollback grant 및 멱등적인 Web assistant turn을 연결합니다.
-- [ ] 검증된 Slack 및 Teams binding 해석과 outbound enqueue를 추가하고 완료 inbox 보존 정리를
-     구현하며 통제된 재시작 및 process-loss 증적을 보존합니다.
+- [x] 기한 순서, `SKIP LOCKED`, Operator 전용 삭제 권한 및 실패 시 닫히는 준비 상태 검사를
+     갖춘 제한된 완료 inbox 보존 정리를 구현합니다.
+- [ ] 검증된 Slack 및 Teams binding 해석과 outbound enqueue를 추가하고 통제된 재시작 및
+     process-loss 증적을 보존합니다.
 - [ ] 어떤 행이든 `검증됨`으로 승격하기 전에 재시작 간 영속성, 프로세스 손실 조정,
      외부 어댑터 확인 응답, 차단기 제어, 예약 전달 및 읽기 전용 메트릭에 대한 통제된
      런타임 증적을 기록합니다.

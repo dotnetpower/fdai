@@ -19,6 +19,7 @@ from fdai.core.conversation_assurance import (
 )
 from fdai.core.metering import MeteringEmitter, TokenUsage
 from fdai.core.metering.pricing import PricingTable
+from fdai.delivery.azure.llm.model_trace import prepare_model_messages
 from fdai.delivery.azure.llm.request_target import (
     COGNITIVE_SERVICES_SCOPE,
     ModelRequestTarget,
@@ -121,6 +122,7 @@ class AzureConversationAssuranceEvaluator:
             "max_tokens": self._config.max_tokens,
             "response_format": {"type": "json_object"},
         }
+        body["messages"] = list(prepare_model_messages(body["messages"]).messages)
         if request.model_body_field is not None:
             body["model"] = request.model_body_field
         usage: TokenUsage | None = None

@@ -20,9 +20,16 @@ domain code and assets. It does not create another control plane or move authori
 > **Current status:** FDAI now has an independent `fdai-cost-governance` wheel, source
 > distribution, image profile, exact ontology profile, atomic disabled-first package lifecycle,
 > package-owned catalog assets, gated Operator and Console projections, and local W0-W7 validation
-> mechanics. Live-authoritative lifecycle, observation cohort, and independent promotion evidence
+> mechanics. Shared Operator composition may supervise unrelated event-bus workers, but they cannot
+> activate, configure, publish, or change Cost Governance through conversation fallback streams.
+> Non-agent runtime observation consumers likewise record replay and health evidence only; they do
+> not change Njord ownership, package activation, or action authority.
+> Live-authoritative lifecycle, observation
+> cohort, and independent promotion evidence
 > remain open. The first protected exact-revision plan verified Azure context but model capability
 > quorum failed before Terraform, so the package and its actions remain unvalidated and unpromoted.
+> The packaged semantic profile and parity corpus always pin the active ontology release; an
+> additive kernel declaration refreshes their profile, manifest, and fixture identities together.
 
 ## Design at a glance
 
@@ -178,8 +185,8 @@ passes its immutable bundle and typed provider implementations into Core. This d
 base FDAI image usable when the optional package is absent.
 
 The shared service-contract export, Operator composition root, and Console message catalogs remain
-multi-capability host seams. Adding an independent capability such as Azure Monitor ingestion to
-those seams does not register it as Cost Governance behavior. Cost Governance activates only from
+multi-capability host seams. Adding an independent capability such as Azure Monitor ingestion or
+background-task projection does not register Cost Governance behavior. Cost Governance activates only from
 its reviewed package manifest, exact bundle, provider requirements, and deployment gate.
 The Operator semantic stream fallback also remains a host seam: it preserves
 `ConversationAssuranceReader` before the raw PostgreSQL adapter without changing Cost Governance

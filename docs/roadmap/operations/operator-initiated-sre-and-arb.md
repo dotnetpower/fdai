@@ -32,6 +32,11 @@ investigation creates an Incident and publishes an investigation ActionProposal 
 correlation. The ARB process remains a governance Process: its enforce mode records real approvals
 and decisions, while any resulting resource change re-enters the normal ActionType pipeline.
 
+The independent Operator service publishes confirmed semantic action drafts through its durable
+outbox and `ActionConfirmationBridge` to the configured Core event topic. The process-local
+`OperatorProposalDispatcher` remains a focused coordinator test seam; deployed Console and ChatOps
+surfaces do not call Core in process.
+
 ![Design at a glance. The main stages are Operator request, Problem response?, Correlation ID and optional Process ID, Incident registry, Typed ActionProposal, Trust and risk gates, Judge, journal, and audit, Promoted executor adapter, Approval then resume, Stage stream.](../../diagrams/generated/fdai-roadmap-operations-operator-initiated-sre-and-arb-01.en.svg)
 
 ## Implementation status
@@ -42,7 +47,7 @@ and decisions, while any resulting resource change re-enters the normal ActionTy
 |------|-------|----------|-------|
 | Incident trace identity and correlation opt-out | implemented | `fdai/shared/contracts/models/event.py`; `fdai/core/event_ingest/correlator.py`; routine producers in `fdai/core/scheduler/service.py` and `fdai/delivery/inventory_delta.py`; `tests/core/event_ingest/test_correlator.py` | `correlation_id` remains available when `incident_correlation=none` suppresses Incident creation. |
 | Operator-confirmed Incident lifecycle and investigation primitives | implemented | `fdai/core/incident/workflow.py`; `fdai/core/investigation/coordinator.py`; `tests/core/incident/test_incident_workflow.py`; `tests/core/investigation/test_coordinator.py` | The bounded primitives exist and pass focused checks. |
-| Integrated operator SRE command and progress contract | implemented | `fdai/core/incident/sre_request.py`; `fdai/shared/providers/operator_request.py`; `fdai/core/event_ingest/__init__.py`; `tests/core/incident/test_sre_request.py` | One confirmed request opens or reuses one Incident, publishes one idempotent typed proposal carrying the Incident ID, keeps one correlation across every stage, and returns the four progress links. The proposal dispatcher seam is not yet bound at the runtime composition root. |
+| Integrated operator SRE command and progress contract | implemented | `fdai/core/incident/sre_request.py`; `fdai/shared/providers/operator_request.py`; Operator `action_confirmation_runtime.py` and production composition; focused Core and Operator checks | The process-local coordinator proves Incident and progress behavior. Independent Console and ChatOps surfaces durably accept an exact semantic action draft, and production Operator composition drains it to the Core event topic without direct service calls or executor identity. |
 | ARB readiness, production gate, and declarative review projection | implemented | `fdai/core/architecture_review/readiness.py`; `fdai/core/architecture_review/projection.py`; `fdai/runtime/control_loop.py`; `rule-catalog/workflows/architecture-review.yaml`; `tests/core/architecture_review/` | The operator surfaces are `/workflow-apps/architecture-review` and `/processes/{process_id}`; there is no `/arb/status` endpoint. |
 | Operator workflow submission | implemented | `fdai_operator_service/families/workflow/routes.py`; `services/operator-service/tests/test_operator_workflow_family.py` | `POST /workflows/run` accepts idempotent, revision-bound shadow proposals and rejects `mode=enforce`. |
 | Authority-bearing Workflow enforce and local/deployed operational parity | in-progress | `fdai/core/workflow/workflow_step_executor.py` contains governed enforce action dispatch, while the Operator API remains proposal-only and shadow-first. | No governed runtime receipt proves the documented Owner-gated end-to-end enforce path or local/deployed parity. |
@@ -54,6 +59,7 @@ and decisions, while any resulting resource change re-enters the normal ActionTy
 | 2026-08-13 | in-progress | Adopted the implementation ledger, corrected the ARB surface and Operator workflow authority boundary, and did not reconstruct earlier provenance. | Current change; focused Incident, investigation, ARB, event-correlation, and Operator workflow tests listed in the scope table. | Complete the integrated SRE command/progress path and record governed evidence for authority-bearing Workflow enforce and parity. |
 | 2026-08-16 | in-progress | Added the operator SRE request coordinator, the proposal dispatcher seam, and Incident-ID metadata at operator-request normalization, with an end-to-end test that drives one confirmed request through the control loop to a parked HIL approval. | Current change; `176 passed` from `uv run pytest -q --no-cov services/core-control-plane/tests/core/incident/ services/core-control-plane/tests/core/event_ingest/ services/core-control-plane/tests/core/test_control_loop_operator_request.py`. | Bind the dispatcher at the runtime composition root and record governed evidence for authority-bearing Workflow enforce and parity. |
 | 2026-08-16 | in-progress | Hardened the progress contract: link templates are validated before any Incident write, every interpolated reference is percent-encoded, a blank resource type is rejected instead of silently dropped, and the published proposal is immutable. | Current change; `182 passed` from `uv run pytest -q --no-cov services/core-control-plane/tests/core/incident/ services/core-control-plane/tests/core/event_ingest/ services/core-control-plane/tests/core/test_control_loop_operator_request.py`. | Unchanged from the row above. |
+| 2026-08-29 | implemented | Corrected the stale in-process dispatcher assumption for the independent Operator topology and bound the existing durable `ActionConfirmationBridge` in production composition. Readiness now includes the worker, and lifecycle shutdown stops it before Kafka. | `current change`; Operator production composition and focused action-confirmation, completion-composition, and full-composition checks (`17 passed`); Ruff and strict mypy checks. | Retain governed local and deployed Workflow enforce evidence without changing the proposal-only Operator API. |
 
 ### Remaining work
 
@@ -61,9 +67,9 @@ and decisions, while any resulting resource change re-enters the normal ActionTy
   opens or reuses one Incident, publishes one idempotent typed ActionProposal, preserves one
   correlation across stages, and returns authoritative Incident, Trace, Process, and Approval links
   (`tests/core/incident/test_sre_request.py`).
-- [ ] Bind `OperatorProposalDispatcher` at the runtime composition root so the console and ChatOps
-  command surfaces reach the coordinator instead of composing their own path, and cite the
-  binding test in this ledger.
+- [x] Bind the durable `ActionConfirmationBridge` at the independent Operator production composition
+  root so Console and ChatOps proposals reach Core through the event bus rather than an in-process
+  `OperatorProposalDispatcher` (`17 passed` focused checks).
 - [ ] Record a governed local and deployed runtime receipt proving that an approved,
   allowlisted Workflow can enter enforce through the authority-bearing control path while its
   ActionType remains independently gated; keep `POST /workflows/run` proposal-only.

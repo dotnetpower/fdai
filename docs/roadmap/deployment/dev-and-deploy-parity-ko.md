@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: fdc9f38132884c0703c24328bcc84756b38ea0d3
-translation_revised: 2026-08-29
+translation_source_sha: 70896fd2945fb6dfea36ee18527cc0d4cea8b288
+translation_revised: 2026-08-30
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 **목표**: 자동화 테스트는 결정론적이고 secret-free 상태를 유지하며, interactive 로컬 Console은 운영자의 실제 Azure 개발 환경만 표시합니다. Azure 배포에서는 계속 **배포자의 Azure 권한과 리전 카탈로그가 어떤 LLM과 기타 리소스를 프로비저닝할지 결정**합니다. 세 명제가 동시에 참입니다:
@@ -21,7 +21,7 @@ translation_revised: 2026-08-29
 | Agent 새로 고침 최신 상태 초기화 | validated | focused 스트림 테스트 9개 통과, 인증된 `/agents` 새로 고침이 각각 224ms, 232ms, 228ms 안에 `Watching 2 / Idle 13 / Unobserved 0` 도달 | Agent hub는 agent별로 검증된 최신 `agent.state` 이벤트 하나를 새 구독자에게 초기값으로 제공합니다. 일반 Live는 이후 이벤트만 전달하며 어느 hub도 영속 이력 재생을 제공하지 않습니다. |
 | 인증된 로컬 Live 이벤트 경로 | validated | 통제된 Browser Entra 근거와 현재 `fdai.change.events` 및 `fdai.pipeline.stages` 연결 | 이 경로는 권위 있는 온톨로지를 보존하고 이벤트와 허용된 네 단계를 모두 렌더링합니다. 브라우저 Notifications API 또는 브라우저 종료 상태의 push 전달은 검증하지 않았습니다. |
 | 로컬 컨트롤 루프 변경 이벤트 유입 | validated | `.vscode/tasks.json`, `infra/modules/compute/container-apps/inventory_job.tf`, `tests/integration/infra/test_inventory_repair_wiring.py`, 로컬 실행 1회가 권위 있는 `inventory.resource_changed` 이벤트 5건을 발행했고 인증된 Live 화면이 `Runtime observed`와 `5 routed events`를 보고 | 로컬 inventory reconciliation 태스크가 VNet 통합 배포 job과 똑같이 `FDAI_INVENTORY_RECOVERY_DELTA=1`을 바인딩하므로 Activity Log delta가 두 장소 모두에서 `fdai.change.events`에 도달합니다. 배포 job은 infrastructure subnet이 없으면 여전히 delta를 비활성화합니다. |
-| 로컬 및 배포 composition 동등성 | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, `fdai_operator_service/composition.py`, `postgres_read_investigation_replay.py`, `incident_intervention_runtime.py`, `fdai_service_contracts/azure_monitor.py`, 서비스 통합 테스트 및 focused Operator 검사 | Composition root는 근거 권한을 바꾸지 않고 자격 증명과 어댑터를 선택합니다. 로컬 및 배포 Operator composition은 같은 Reader 범위 `GET /browser-evidence` 경로, 영속 read-investigation completion bridge, 인증된 Incident intervention 경로 및 실패 시 차단 Azure Monitor push 계약을 versioned topic, PostgreSQL store 및 replay-safe outbox로 등록합니다. 의미 브리지 스트림의 대체 경로는 원시 PostgreSQL 어댑터에 도달하기 전에 `ConversationAssuranceReader`를 거치므로 두 경로 모두에서 보증 변환 결과를 사용할 수 있습니다. Incident intervention은 권한 없는 제안을 기록하기 전에 권위 있는 대상과 수명 주기를 다시 확인하며 실행기를 직접 호출하지 않습니다. Kafka, PostgreSQL, 서명 또는 진단 구성이 없으면 해당 경로는 합성 데이터 대신 사용 불가를 반환합니다. |
+| 로컬 및 배포 composition 동등성 | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, `fdai_operator_service/composition.py`, 백그라운드 작업 변환 결과 전송, `postgres_read_investigation_replay.py`, `incident_intervention_runtime.py`, `fdai_service_contracts/azure_monitor.py`, 서비스 통합 테스트 및 focused Operator 검사 | Composition root는 근거 권한을 바꾸지 않고 자격 증명과 어댑터를 선택합니다. 두 환경은 동일한 버전형 Core-to-Operator 백그라운드 작업 변환 결과, Reader 범위 `GET /browser-evidence` 경로, 영속 read-investigation completion bridge, 인증된 Incident intervention 경로 및 실패 시 차단 Azure Monitor push 계약을 버전형 토픽, 서비스 소유 PostgreSQL store 및 replay-safe outbox로 등록합니다. 의미 브리지 스트림의 대체 경로는 원시 PostgreSQL 어댑터에 도달하기 전에 `ConversationAssuranceReader`를 거치므로 두 경로 모두에서 보증 변환 결과를 사용할 수 있습니다. Incident intervention은 권한 없는 제안을 기록하기 전에 권위 있는 대상과 수명 주기를 다시 확인하며 실행기를 직접 호출하지 않습니다. Kafka, PostgreSQL, 서명 또는 진단 구성이 없으면 해당 경로는 합성 데이터 대신 사용 불가를 반환합니다. |
 | 선택적 비용 거버넌스 배포판 동등성 | implemented | `extensions/cost-governance/`, 비용 거버넌스 job, Operator family, Console 출처 gate, 집중 패키지, 서비스 및 인프라 테스트 | 두 venue는 같은 패키지 매니페스트, 정확한 온톨로지 프로파일, 활성화 store, 사용자 접근 계약 및 액션별 승격 레지스트리를 사용합니다. 패키지가 없거나 비활성이면 프로바이더 분석과 비용 변환 결과를 만들지 않으며 어느 venue도 고정본 비용 데이터를 대신 사용하지 않습니다. |
 | 독립 A3 channel-edge 동등성 | 구현됨 | `channel_edge/`, `prepare-channel-edge-env.sh`, `.vscode/tasks.json`, `infra/services/operator-service`, 플랫폼 edge identity/RBAC, 집중 edge 및 로컬 실행 검사 | 두 venue는 port 8014에서 동일한 Operator distribution ASGI factory, PostgreSQL store, 의미 EventBus bridge, 프로바이더 경로 및 readiness 논리를 실행합니다. Local은 private 0600 provider input과 Redpanda를 사용하고 deployed는 Key Vault reference, Event Hubs Kafka 및 전용 non-executor Managed Identity를 사용합니다. Provider 구성이 없으면 선택적 기능은 synthetic 대신 unavailable 상태를 유지합니다. |
 | 재사용 가능한 서비스 Terraform 모듈 호환성 | implemented | `infra/**/versions.tf`, `infra/**/.terraform.lock.hcl`, Terraform 검증 및 TFLint | 모든 재사용 가능한 모듈이 Terraform `>= 1.9`를 선언하고 독립 모듈 검증은 committed provider checksum으로 해석됩니다. 프로바이더 구성과 배포 소유권은 서비스 루트에 유지됩니다. |
@@ -253,11 +253,11 @@ VS 코드는 Pantheon 브리지 시작, Uvicorn 애플리케이션 시작 완료
 Vite 로컬 주소 게시를 각각 확인한 뒤에만 background 작업을 준비된으로 표시합니다. 따라서 프로세스가
 생성되기만 한 상태를 준비된 서비스로 표시하지 않습니다.
 표준 로컬 Azure 프로파일은 `FDAI_RUNTIME_LOCK_FILE`이 설정되지 않아도 같은 잠금을 기본값으로 사용하므로, `python -m fdai`를 직접 실행해도 singleton 가드를 우회할 수 없습니다. 운영 런타임은 배포에서 명시적으로 구성한 경우에만 프로세스 잠금을 계속 사용합니다.
-Core 런타임만 Pantheon을 소유하며 로컬 및 deployed interactive 읽기는 같은 execution-mode 정책을 사용하고 의도 ID, Heimdall 소유권 또는 계획 연결 표류 시 시작을 차단합니다. Embedded direct Pantheon 채팅 위임은 fixture-only입니다. `FDAI_OPERATOR_API_EMBED_PANTHEON=0`일 때 Operator API는 기존 `fdai.pantheon.objects` 전송 계층의 범위가 제한된 요청/응답 logical 토픽을 통해 Bragi conversational
-포트에 접근합니다. 시작 탐색으로 응답 소비자 준비를 확인한 후 트래픽을 받습니다. 클라이언트는 재시도 중 joining 소비자를 재사용하고 최초 Event Hubs 그룹 결합을 최대 20초 허용합니다.
+Core 런타임만 Pantheon을 소유하며 로컬 및 deployed interactive 읽기는 같은 execution-mode 정책을 사용하고 의도 ID, Heimdall 소유권 또는 계획 연결 표류 시 시작을 차단합니다. Embedded direct Pantheon 채팅 위임은 fixture-only입니다. Operator API는 `fdai.pantheon.objects`의 범위가 제한된 logical 토픽으로 Bragi에 도달하고 확인된 action draft를 영속 `ActionConfirmationBridge`를 통해 구성된 Core 이벤트 토픽으로 전달합니다.
+시작 탐색으로 응답 및 action worker 준비를 확인한 후 트래픽을 받습니다. 클라이언트는 재시도 중 joining 소비자를 재사용하고 최초 Event Hubs 그룹 결합을 최대 20초 허용합니다.
 `GET /chat/health`는 semantic bridge worker 준비 상태를 직접 읽으며 영속
 `conversation/chat.health` projection row를 요구하지 않습니다. 관련 없는 projection 누락을 접근할 수
-없는 모델로 잘못 표시하지 않도록 `starting` 또는 `event-bridge` mode와 함께 HTTP 200을 반환합니다.
+없는 모델로 잘못 표시하지 않도록 `starting` 또는 `event-bridge` mode와 함께 HTTP 200을 반환합니다. Semantic 및 local narrator fallback stream은 동일한 authoritative `ConversationAssuranceReader`를 사용합니다.
 운영 복제본은 서버 소비자 그룹을 공유하므로 요청마다 복제본 하나만 응답합니다. Singleton 로컬 코어는 process-scoped 서버 그룹을 사용하므로 재시작할 때 이전 프로세스의 관련 없는 Pantheon 트래픽을 재생하지 않고 physical 토픽의 현재 오프셋에서 시작합니다.
 요청은 raw 신원 대신 salted SHA-256 user/세션 참조를 전달하며, 시간 초과 또는 잘못된 응답은 전문가 답변을 꾸미지 않고 명시적인 agent-to-Bragi 인계로 표시합니다. 같은 지연 시간 프로파일은 같은 direct, streamed 또는 detached 모드를 선택하며 측정된 프로바이더 지연 시간과 구성된 근거 가용성만 모드를 바꿀 수 있습니다.
 장기 실행 코어 및 Operator API 작업의 최종 출력은 `.fdai/logs/core-runtime.log`와

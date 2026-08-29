@@ -20,7 +20,7 @@ import pytest
 from fdai.agents import request_rule_generation
 from fdai.agents._framework.bus_bridge import EventBusBridge
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
-from fdai.agents._framework.pantheon import PANTHEON_SPECS
+from fdai.agents._framework.pantheon import PANTHEON_NAMES, PANTHEON_SPECS
 from fdai.agents._framework.provider_adapters import (
     StateStoreActionRunStore,
     StateStoreAuditChainAdapter,
@@ -211,6 +211,24 @@ def test_detection_readiness_subscriptions_follow_agent_ownership() -> None:
     snapshot_subscribers = {name for name, _ in runtime.bridge._subs["object.state-snapshot"]}
     assert {"Forseti", "Muninn"} <= drift_subscribers
     assert "Saga" in snapshot_subscribers
+
+
+def test_runtime_binds_architecture_review_trace_observer_topics() -> None:
+    runtime, _ = _build()
+
+    assert runtime.architecture_review_trace_observer is not None
+    for topic in (
+        "object.change",
+        "object.state-snapshot",
+        "object.anomaly",
+        "object.cost-anomaly",
+        "object.capacity-forecast",
+        "object.chaos-experiment",
+        "object.verdict",
+        "object.audit-entry",
+    ):
+        subscribers = {name for name, _ in runtime.bridge._subs[topic]}
+        assert "architecture-review-observer" in subscribers
 
 
 def test_runtime_injects_durable_state_store_into_muninn() -> None:
@@ -1162,6 +1180,132 @@ def test_noncritical_consumer_failure_degrades_without_forcing_shadow() -> None:
 
     assert thor.health()["shadow_forced"] is False
     assert runtime.health()["continuity_failures"] == {"Heimdall:object.event": "halted"}
+
+
+def test_runtime_observes_architecture_review_topic_records_without_direct_agent_calls() -> None:
+    provider = InMemoryEventBus()
+    runtime = PantheonRuntime.build(
+        provider=provider,
+        raw_event_topic=_RAW_TOPIC,
+        disabled_agents=frozenset(set(PANTHEON_NAMES) - {"Saga", "Vidar"}),
+    )
+    observed_at = datetime(2026, 8, 29, tzinfo=UTC)
+
+    async def _drive() -> None:
+        await provider.publish(
+            "object.change",
+            "corr-arb-runtime",
+            {
+                "producer_principal": "Huginn",
+                "correlation_id": "corr-arb-runtime",
+                "idempotency_key": "arb-runtime:change",
+                "id": "review-runtime-1",
+                "intent_kind": "planned",
+                "status": "planned",
+                "occurred_at": observed_at.isoformat(),
+                "target_ref": "resource-1",
+            },
+        )
+        await provider.publish(
+            "object.anomaly",
+            "corr-arb-runtime",
+            {
+                "producer_principal": "Heimdall",
+                "correlation_id": "corr-arb-runtime",
+                "idempotency_key": "arb-runtime:reliability",
+                "resource_id": "resource-1",
+                "observed_at": (observed_at + timedelta(seconds=1)).isoformat(),
+            },
+        )
+        await provider.publish(
+            "object.cost-anomaly",
+            "corr-arb-runtime",
+            {
+                "producer_principal": "Njord",
+                "correlation_id": "corr-arb-runtime",
+                "resource_id": "resource-1",
+                "scope": "scope-1",
+                "observed_at": (observed_at + timedelta(seconds=2)).isoformat(),
+            },
+        )
+        await provider.publish(
+            "object.capacity-forecast",
+            "corr-arb-runtime",
+            {
+                "producer_principal": "Freyr",
+                "correlation_id": "corr-arb-runtime",
+                "resource_id": "resource-1",
+                "forecast_util": 0.8,
+                "recommendation": "scale_up",
+                "observed_at": (observed_at + timedelta(seconds=3)).isoformat(),
+            },
+        )
+        await provider.publish(
+            "object.verdict",
+            "corr-arb-runtime",
+            {
+                "producer_principal": "Forseti",
+                "correlation_id": "corr-arb-runtime",
+                "idempotency_key": "arb-runtime:scenario",
+                "resource_id": "resource-1",
+                "change_assessment": {"change_id": "review-runtime-1"},
+                "observed_at": (observed_at + timedelta(seconds=4)).isoformat(),
+            },
+        )
+        await provider.publish(
+            "object.verdict",
+            "corr-arb-runtime",
+            {
+                "producer_principal": "Forseti",
+                "correlation_id": "corr-arb-runtime",
+                "idempotency_key": "arb-runtime:decision-case",
+                "resource_id": "resource-1",
+                "decision_case": {"selected_option_id": "hold", "options": []},
+                "observed_at": (observed_at + timedelta(seconds=5)).isoformat(),
+            },
+        )
+        await provider.publish(
+            "object.audit-entry",
+            "corr-arb-runtime",
+            {
+                "producer_principal": "Saga",
+                "correlation_id": "corr-arb-runtime",
+                "idempotency_key": "arb-runtime:audit",
+                "audited_topic": "object.verdict",
+                "observed_at": (observed_at + timedelta(seconds=6)).isoformat(),
+            },
+        )
+        await runtime.run()
+
+    asyncio.run(_drive())
+    observer = runtime.architecture_review_trace_observer
+    assert observer is not None
+    trace = observer.trace_for("corr-arb-runtime", review_case_id="review-runtime-1")
+
+    assert trace is not None
+    assert trace.outcome == "hold"
+    assert "missing_stage:context" in trace.hold_reasons
+    assert "missing_stage:evidence_bundle" in trace.hold_reasons
+    assert "missing_stage:impact_envelope" in trace.hold_reasons
+    assert "missing_stage:recommendation" in trace.hold_reasons
+    assert trace.mutation_authority is False
+    assert trace.execution_authority is False
+    assert runtime.health()["architecture_review_observation"]["retained_traces"] == 1
+
+
+def test_architecture_review_observer_degradation_stays_out_of_runtime_health_failures() -> None:
+    runtime, _ = _build()
+
+    runtime.bridge._mark_consumer_terminal(
+        "architecture-review-observer:object.audit-entry",
+        "gave_up",
+    )
+
+    health = runtime.health()
+    assert health["continuity_failures"] == {}
+    assert health["architecture_review_observation"]["degraded_topics"] == {
+        "object.audit-entry": "gave_up"
+    }
 
 
 def test_hard_dependency_health_error_forces_sticky_shadow(

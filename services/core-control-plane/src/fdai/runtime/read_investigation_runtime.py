@@ -7,12 +7,18 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from fdai_core_service.background_task_projection import (
+    BackgroundTaskProjectionPublisher,
+)
 from fdai_core_service.read_investigation_completion import (
     InteractiveCompletionWakeSink,
     InteractiveReadInvestigationCompletionPublisher,
 )
 from fdai_core_service.read_investigation_consumer import (
     ReadInvestigationConsumerBinding,
+)
+from fdai_service_contracts.background_task_projection import (
+    BACKGROUND_TASK_PROJECTION_TOPIC,
 )
 from fdai_service_contracts.read_investigation import (
     READ_INVESTIGATION_CONSUMER_GROUP,
@@ -34,6 +40,8 @@ from fdai.core.read_investigation import (
     interactive_investigation_policy,
 )
 from fdai.delivery.persistence import (
+    PostgresBackgroundTaskProjectionFeed,
+    PostgresBackgroundTaskProjectionFeedConfig,
     PostgresBackgroundTaskStore,
     PostgresBackgroundTaskStoreConfig,
     PostgresReadInvestigationCompletionStore,
@@ -92,6 +100,7 @@ class ReadInvestigationRuntimeBinding:
     interactive_completion_store: PostgresReadInvestigationCompletionStore
     interactive_completion_publisher: InteractiveReadInvestigationCompletionPublisher
     interactive_completion_wake: InteractiveCompletionWakeSink
+    background_task_projection_publisher: BackgroundTaskProjectionPublisher
     maintenance_seconds: float = 30.0
     discovery_refresh: Callable[[], Awaitable[bool]] | None = None
     discovery_refresh_seconds: float = 30.0
@@ -121,6 +130,10 @@ class ReadInvestigationRuntimeBinding:
             self._run_interactive_completions(bus, stop),
             name="read-investigation-interactive-completions",
         )
+        background_task_projection_task = asyncio.create_task(
+            self.background_task_projection_publisher.run(bus=bus, stop=stop),
+            name="background-task-projection-publisher",
+        )
         discovery_task = (
             asyncio.create_task(
                 self._run_discovery_monitor(stop),
@@ -137,6 +150,7 @@ class ReadInvestigationRuntimeBinding:
                 coordinator_task,
                 interactive_task,
                 interactive_completion_task,
+                background_task_projection_task,
                 discovery_task,
                 stop_task,
             )
@@ -241,6 +255,9 @@ def build_read_investigation_runtime_binding(
         raise RuntimeError("read investigation consumer group MUST be non-empty")
     coordinator_id = environment.get("HOSTNAME", "").strip() or "fdai-core"
     task_store = PostgresBackgroundTaskStore(config=PostgresBackgroundTaskStoreConfig(dsn=dsn))
+    projection_feed = PostgresBackgroundTaskProjectionFeed(
+        config=PostgresBackgroundTaskProjectionFeedConfig(dsn=dsn)
+    )
     latency_store = StateStoreReadLatencyProfileStore(store=state_store)
     service = ReadInvestigationService(provider, latency_store=latency_store)
     interactive_run_store = PostgresReadInvestigationRunStore(
@@ -264,6 +281,11 @@ def build_read_investigation_runtime_binding(
         ),
         config=InteractiveReadInvestigationConfig(coordinator_id=coordinator_id),
         completion_sink=interactive_completion_wake,
+    )
+    background_task_projection_publisher = BackgroundTaskProjectionPublisher(
+        outbox=projection_feed,
+        topic=BACKGROUND_TASK_PROJECTION_TOPIC,
+        worker_id=f"{coordinator_id}-background-task-projection",
     )
     completion_sink = EventBusReadInvestigationCompletionSink(
         audit=StateStoreBackgroundTaskCompletionAudit(state_store),
@@ -301,6 +323,7 @@ def build_read_investigation_runtime_binding(
             store=interactive_completion_store,
         ),
         interactive_completion_wake=interactive_completion_wake,
+        background_task_projection_publisher=background_task_projection_publisher,
         discovery_refresh=discovery_refresh,
         discovery_refresh_seconds=_discovery_refresh_seconds(environment),
     )

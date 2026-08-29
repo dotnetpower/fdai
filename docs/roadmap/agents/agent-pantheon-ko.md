@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 059c8fac4cfe5f9001a1a51eaf9ad31653daf163
+translation_source_sha: dae2521de5a2daf4eb638e072896f7846116bd3e
 translation_revised: 2026-08-29
 ---
 # 에이전트 판테온
@@ -107,7 +107,7 @@ operations / 인터페이스), `3` = 거버넌스 staff.
 |------|------|-------|-------------------|-------------------|---------------|
 | Odin | Master 플래너 | 3 | ArbitrationDecision | arbitrate_domain_conflict | no |
 | Thor | 응답자 | 2 | ActionRun, ActionAttempt | (전달 만; 직접 소유 없음 - §7.1) | no |
-| Forseti | Judge | 2 | Verdict, RCA, SecurityEvent, ArbitrationRequest | 판정 생성; 선택적 맥락은 자율성을 낮출 수만 있음; 실행기 역할 없음 | yes (T2 abstain 시만) |
+| Forseti | Judge | 2 | Verdict, RCA, SecurityEvent, ArbitrationRequest | 판정을 생성합니다. 선택적 planned-change graph 맥락은 exact 검증 스냅샷 하나에서 가져오며 자율성을 낮출 수만 있습니다. 실행기 역할은 없습니다. | yes (T2 abstain 시만) |
 | Huginn | Event Collector / 실시간 Resource 발견 | 2 | Event, Change | ingest_event, normalize_change | no |
 | Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome, RetrievalValidation | detect_anomaly, detect_drift, 예측, close_forecast_outcome, observe_terminal_action_effect, validate_retrieval_failure, validate_rule_generation, notify_admin_privilege_violation | no |
 | Vidar | 복구 | 2 | Rollback | perform_rollback, dr_failover | no |
@@ -164,9 +164,9 @@ Huginn은 실시간 리소스 발견과 정규화된 `Change` 기록의 논리�
 조정 backstop입니다. Stale/degraded 인벤토리는 사용 불가이며 Heimdall은 발견 사항만
 publish하고 리소스를 acquire하거나 조정을 시작하지 않습니다.
 
-15개 에이전트는 조합을 통해 SRE, ARB (변경 안전성), FinOps 워크플로우를
-공동으로 커버한다. 토픽 계약은 §6, 처리 불가 요청(인계)이 동일 파이프라인에
-편입되는 방식은 §6.4와 §7.6을 참고한다.
+15개 에이전트는 조합을 통해 SRE, ARB, FinOps 워크플로를 담당합니다. 에이전트가 아닌 관찰
+소비자는 소유 토픽의 재생 및 상태 근거를 보존할 수 있지만 판테온에 참여하거나 소유 객체를
+발행하거나 판단, 승인 또는 실행하지 않습니다. §6, §6.4 및 §7.6을 참조하세요.
 
 ### 4.1 Per-agent 작업 인벤토리
 

@@ -51,7 +51,11 @@ from fdai.agents._framework.introspection import (
 from fdai.agents._framework.pantheon import _FORSETI
 from fdai.agents._framework.specialist_ingress import SPECIALIST_EVENT_PREFIX
 from fdai.core.decision_case import DomainDecisionCoordinator, DomainDecisionProjection
-from fdai.core.impact_analysis import ChangeAssessment
+from fdai.core.impact_analysis import (
+    ChangeAssessment,
+    ChangeGraphEvidenceReceipt,
+    change_graph_evidence_from_snapshot,
+)
 from fdai.core.operational_context import OperationalContextMaterializer, SourceFreshness
 from fdai.core.operational_planning import (
     KineticActionProposal,
@@ -90,7 +94,7 @@ class _ChangeAssessor(Protocol):
         self,
         change: Mapping[str, Any],
         *,
-        graph_fresh: bool,
+        graph_evidence: ChangeGraphEvidenceReceipt,
         unresolved_conflicts: tuple[str, ...] = (),
     ) -> ChangeAssessment: ...
 
@@ -205,7 +209,11 @@ class Forseti(Agent, ForsetiJudgmentMixin):
             self.record_behavior("change_assessment:unavailable")
             return
         try:
-            assessment = await self._change_assessor.assess(change, graph_fresh=False)
+            graph_evidence = await self._planned_change_graph_evidence(change)
+            assessment = await self._change_assessor.assess(
+                change,
+                graph_evidence=graph_evidence,
+            )
         except Exception:  # noqa: BLE001 - missing impact evidence lowers authority
             event["change_assessment_status"] = "failed"
             event["human_approval_required"] = True
@@ -216,6 +224,29 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         if assessment.review_required:
             event["human_approval_required"] = True
         self.record_behavior(f"change_assessment:{event['change_assessment_status']}")
+
+    async def _planned_change_graph_evidence(
+        self,
+        change: Mapping[str, Any],
+    ) -> ChangeGraphEvidenceReceipt:
+        expected_release = str(change.get("ontology_release_digest") or "").strip()
+        if self._operational_context is None or not expected_release:
+            return ChangeGraphEvidenceReceipt.unavailable()
+        occurred_at = datetime.fromisoformat(
+            str(change.get("occurred_at") or "").replace("Z", "+00:00")
+        )
+        if occurred_at.tzinfo is None:
+            raise ValueError("planned change occurred_at MUST be timezone-aware")
+        snapshot = await self._operational_context.materialize(
+            target_resource_id=str(change.get("target_ref") or ""),
+            cutoff=occurred_at,
+            catalog_versions=None,
+            require_verified_links=True,
+        )
+        return change_graph_evidence_from_snapshot(
+            snapshot,
+            expected_ontology_release=expected_release,
+        )
 
     def _record_detection_readiness(self, payload: dict[str, Any]) -> None:
         resource_id = str(payload.get("resource_id") or "")

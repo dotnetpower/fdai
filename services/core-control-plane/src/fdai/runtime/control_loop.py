@@ -709,6 +709,7 @@ def _build_control_loop(
             process_store=process_runtime_store,
             ontology_store=ontology_instance_store,
             outcome_verifier=workflow_outcome_ledger,
+            architecture_evidence_provider=container.architecture_review_evidence_provider,
         ),
         process_runtime_store=process_runtime_store,
         governance_assignments=governance_catalog.assignments,

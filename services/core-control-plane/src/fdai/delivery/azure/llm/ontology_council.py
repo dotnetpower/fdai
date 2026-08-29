@@ -13,6 +13,7 @@ from fdai.core.metering.emitter import MeteringEmitter
 from fdai.core.metering.usage import TokenUsage
 from fdai.delivery.azure.llm.gateway_evidence import record_gateway_route_evidence
 from fdai.delivery.azure.llm.latency_routed_cross_check import ModelHealthTransitionSink
+from fdai.delivery.azure.llm.model_trace import prepare_model_messages
 from fdai.delivery.azure.llm.ontology_council_parser import parse_council_vote
 from fdai.delivery.azure.llm.ontology_council_serialization import (
     encode_council_request,
@@ -148,17 +149,18 @@ class AzureOpenAIOntologyCouncilModel:
         dispute: CouncilDispute | None,
     ) -> CouncilVote:
         request = self._target.operation("chat/completions")
+        messages = [
+            {
+                "role": "system",
+                "content": f"{self._config.system_prompt.strip()}\n\n{_PACKET_SAFETY_PROMPT}",
+            },
+            {
+                "role": "user",
+                "content": serialize_council_user_content(packet, dispute),
+            },
+        ]
         body: dict[str, object] = {
-            "messages": [
-                {
-                    "role": "system",
-                    "content": f"{self._config.system_prompt.strip()}\n\n{_PACKET_SAFETY_PROMPT}",
-                },
-                {
-                    "role": "user",
-                    "content": serialize_council_user_content(packet, dispute),
-                },
-            ],
+            "messages": list(prepare_model_messages(messages).messages),
             "max_completion_tokens": self._config.max_completion_tokens,
             "response_format": {
                 "type": "json_schema",

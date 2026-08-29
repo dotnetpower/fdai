@@ -60,6 +60,7 @@ class OperationalContextMaterializer:
         max_clock_skew_seconds: int = 30,
         decision_evidence: DecisionEvidenceAdmissionProvider | None = None,
         require_decision_evidence: bool = False,
+        catalog_versions: Mapping[str, str] | None = None,
     ) -> None:
         if not clock_identity.strip():
             raise ValueError("clock_identity MUST be non-empty")
@@ -73,13 +74,14 @@ class OperationalContextMaterializer:
         self._max_clock_skew_seconds = max_clock_skew_seconds
         self._decision_evidence = decision_evidence
         self._require_decision_evidence = require_decision_evidence
+        self._catalog_versions = dict(catalog_versions or {})
 
     async def materialize(
         self,
         *,
         target_resource_id: str,
         cutoff: datetime,
-        catalog_versions: Mapping[str, str],
+        catalog_versions: Mapping[str, str] | None,
         source_freshness: Sequence[SourceFreshness] = (),
         require_verified_links: bool = False,
     ) -> OperationalContextSnapshot:
@@ -214,7 +216,8 @@ class OperationalContextMaterializer:
                 if item.object_type in {"Resource", "Workload"} and item.id != target_resource_id
             )
         )
-        canonical_versions = tuple(sorted((str(k), str(v)) for k, v in catalog_versions.items()))
+        selected_versions = self._catalog_versions if catalog_versions is None else catalog_versions
+        canonical_versions = tuple(sorted((str(k), str(v)) for k, v in selected_versions.items()))
         normalized_conflicts = tuple(sorted(set(conflicts)))
         normalized_stale = tuple(sorted(set(stale_sources)))
         ceiling = (

@@ -279,9 +279,10 @@ class _AnsweredRuntime:
         bound_incident: Any = None,
         bound_investigation_continuation: Any = None,
     ) -> RuntimeSemanticTurnResult:
-        del locale, prior_turns, cancelled, bound_incident, bound_investigation_continuation
+        del prior_turns, cancelled, bound_incident, bound_investigation_continuation
         assert utterance == "Show current operations evidence."
         assert principal.id == "operator-1"
+        assert locale == "en"
         plan = SimpleNamespace(
             ontology_release_digest=RELEASE_DIGEST,
             semantic_catalog_digest=MANIFEST_DIGEST,
@@ -422,12 +423,13 @@ async def test_semantic_turn_round_trip_preserves_verified_evidence_and_principa
         )
     )
     events = [event async for event in stream]
-    backbone = [event.event for event in events if event.event != "activity"]
+    backbone = [event.event for event in events if event.event not in {"activity", "token"}]
     assert backbone[0] == "status"
     assert backbone[-1] == "done"
     assert backbone.count("verification") == 1
-    assert set(backbone) == {"status", "verification", "token", "done"}
+    assert set(backbone) == {"status", "verification", "done"}
     assert any(event.event == "activity" for event in events)
+    assert any(event.event == "token" for event in events)
     terminal = events[-1]
     semantic_result = cast(dict[str, object], terminal.data["semantic_result"])
     assert terminal.data["status"] == "answered"

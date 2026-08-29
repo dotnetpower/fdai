@@ -9,6 +9,7 @@ from typing import Final
 import httpx
 
 from fdai.core.metering.emitter import MeteringEmitter
+from fdai.delivery.azure.llm.model_trace import prepare_embedding_input
 from fdai.delivery.azure.llm.request_target import (
     COGNITIVE_SERVICES_SCOPE,
     ModelRequestTarget,
@@ -102,7 +103,10 @@ class AzureOpenAIEmbeddingModel:
         """Return the embedding vector for ``text``."""
         token = await self._identity.get_token(self._target.auth_audience)
         request = self._target.operation("embeddings")
-        request_body: dict[str, object] = {"input": text, "dimensions": self._config.dim}
+        request_body: dict[str, object] = {
+            "input": prepare_embedding_input(text).text,
+            "dimensions": self._config.dim,
+        }
         if request.model_body_field is not None:
             request_body["model"] = request.model_body_field
         response = await self._http.post(

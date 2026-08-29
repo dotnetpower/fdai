@@ -245,8 +245,17 @@ class InMemoryBackgroundTaskStore:
             attempt_id = self._attempt_by_task.get(task_id)
             if attempt_id is None:
                 raise LookupError("background task not found")
+            current = self._attempts[attempt_id]
+            if attempt_id in self._creation_audited:
+                return current
             self._creation_audited.add(attempt_id)
-            return self._attempts[attempt_id]
+            updated = replace(
+                current,
+                revision=current.revision + 1,
+                updated_at=max(now, current.updated_at),
+            )
+            self._attempts[attempt_id] = updated
+            return updated
 
     async def get(
         self,
@@ -452,6 +461,10 @@ class InMemoryBackgroundTaskStore:
     ) -> BackgroundTaskProgress:
         async with self._lock:
             attempt = self._required(progress.attempt_id)
+            if attempt.status in TERMINAL_BACKGROUND_STATUSES:
+                raise BackgroundTaskConflictError(
+                    "background task progress cannot be appended after terminal state"
+                )
             events = self._progress[progress.attempt_id]
             if len(events) >= attempt.task.budget.max_progress_events:
                 raise BackgroundTaskConflictError("background task progress cap reached")

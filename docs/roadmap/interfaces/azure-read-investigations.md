@@ -514,7 +514,9 @@ Only an authenticated owner-scoped cancellation command may move an active run t
 Detached completion commits the
 immutable result first, then appends an untrusted assistant turn and enqueues it through the
 durable background completion outbox and reply ledger. Delivery failure cannot rerun the
-investigation or rewrite its result.
+investigation or rewrite its result. Operator retention deletes only completion inbox rows whose
+contract deadline has passed, in bounded deadline order with `SKIP LOCKED`. Cleanup failure keeps
+readiness closed without discarding the accepted result.
 
 Bragi communicates an estimate only when it changes the operator experience. Example:
 
@@ -575,8 +577,8 @@ raw CLI output, prompts, and unredacted caller payloads.
   selects direct, streamed, or detached execution and keeps direct and streamed state behind the
   owner-scoped PostgreSQL run and progress stores.
 4. Operator replays owner-scoped progress and terminal results without sharing Core write
-  authority. Web completion writeback is composed; channel enqueue, retention purge, and governed
-  cross-service receipts remain open.
+  authority. Web completion writeback and bounded completion inbox retention are composed; channel
+  enqueue and governed cross-service receipts remain open.
 5. Structural tests prove the path does not import an executor, reference Thor, or publish
   `object.event`.
 6. Read-only live validation covers caller attribution, Resource Health, unauthorized scope, and

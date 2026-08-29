@@ -2,6 +2,11 @@
 
 from fdai_service_contracts import ConsumerCodec, ProducerCodec
 
+BACKGROUND_TASK_PROJECTION_CONSUMER_V1 = ConsumerCodec(
+    "background-task-projection",
+    "N",
+    ("1.0.0",),
+)
 CORE_REQUEST_PRODUCER_V1 = ProducerCodec("operator-core-request", "N-1", "1.0.0")
 CORE_REQUEST_PRODUCER_V11 = ProducerCodec("operator-core-request", "N", "1.1.0")
 CORE_REQUEST_PRODUCER_V12 = ProducerCodec("operator-core-request", "N", "1.2.0")
@@ -21,6 +26,7 @@ CORE_PROJECTION_CONSUMER_V14 = ConsumerCodec(
 )
 
 __all__ = [
+    "BACKGROUND_TASK_PROJECTION_CONSUMER_V1",
     "CORE_PROJECTION_CONSUMER_V1",
     "CORE_PROJECTION_CONSUMER_V11",
     "CORE_PROJECTION_CONSUMER_V12",
