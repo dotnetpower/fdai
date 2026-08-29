@@ -6,6 +6,12 @@ from .decision_receipt import (
     ArchitectureReviewDecisionReceipt,
     build_architecture_review_decision_receipt,
 )
+from .observation_trace import (
+    ArchitectureReviewObservationTrace,
+    ArchitectureReviewStage,
+    ArchitectureReviewTraceEvent,
+    replay_architecture_review_trace,
+)
 from .projection import ArchitectureReviewProjector
 from .readiness import (
     PRODUCTION_GATE_REF,
@@ -22,6 +28,9 @@ __all__ = [
     "ArchitectureReviewProductionGateEvaluator",
     "ArchitectureReviewProjector",
     "ArchitectureReviewReadiness",
+    "ArchitectureReviewObservationTrace",
+    "ArchitectureReviewStage",
+    "ArchitectureReviewTraceEvent",
     "ArchitectureDecisionAuthorityBasis",
     "ArchitectureDecisionOutcome",
     "ArchitectureReviewDecisionReceipt",
@@ -31,5 +40,6 @@ __all__ = [
     "PRODUCTION_GATE_REF",
     "evaluate_readiness",
     "build_architecture_review_decision_receipt",
+    "replay_architecture_review_trace",
     "validate_contract",
 ]

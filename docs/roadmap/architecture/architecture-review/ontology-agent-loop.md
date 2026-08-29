@@ -126,7 +126,7 @@ Every displayed state links to the exact `Change`, context digest, evidence bund
 | ARB projection reads manifest status directly | Derive `ReviewCase` and `ReviewCheck` from decision lineage and verified evidence |
 | `OperationalEvidenceBundle` and scenario branches are not composed into ARB | Bind them before Forseti creates the review `DecisionCase` |
 | Operating intent instances are not proven end to end | Project service, recovery, cost, ownership, constraint, and change-window instances with freshness |
-| No ARB pantheon integration test exists | Prove duplicate, reorder, restart, deadline, degradation, and replay behavior across owned topics |
+| The ARB trace replay contract is not yet bound to the runtime bus | Feed the validated replay projection from owned runtime topics and retain provider-backed backpressure and degradation evidence |
 
 ## Related docs
 

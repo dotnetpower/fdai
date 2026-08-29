@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 ARB 에이전트 루프
 translation_of: ontology-agent-loop.md
-translation_source_sha: 93369c1a3a2530f47b750e1533d4a91be48da697
+translation_source_sha: ccee07f18d5731b4473523435d5f0aa7dd39ead8
 translation_revised: 2026-08-29
 ---
 # 온톨로지 기반 ARB 에이전트 루프
@@ -126,7 +126,7 @@ Console은 하나의 녹색 또는 빨간색 상태 대신 다음 축을 별도�
 | ARB 변환 결과가 매니페스트 상태를 직접 읽습니다. | 결정 계보와 검증된 근거에서 `ReviewCase`와 `ReviewCheck`를 파생합니다. |
 | `OperationalEvidenceBundle`과 시나리오 분기가 ARB에 구성되지 않았습니다. | Forseti가 검토 `DecisionCase`를 만들기 전에 두 기반을 연결합니다. |
 | 운영 의도 인스턴스가 전체 경로에서 입증되지 않았습니다. | 서비스, 복구, 비용, 담당 체계, 제약 조건, 변경 구간 인스턴스와 최신성을 변환합니다. |
-| ARB 판테온 통합 테스트가 없습니다. | 소유 토픽 전반에서 중복, 순서 변경, 재시작, 기한, 성능 저하, 재현 동작을 입증합니다. |
+| ARB 추적 재생 계약이 아직 런타임 버스에 연결되지 않았습니다. | 검증된 재생 변환 결과를 소유 런타임 토픽에서 공급하고 공급자 기반 역압력 및 성능 저하 근거를 보존합니다. |
 
 ## 관련 문서
 

@@ -46,14 +46,40 @@ def test_decision_detail_preserves_exact_identity_and_relationship_direction() -
     declaration = detail["declaration"]
     assert isinstance(declaration, dict)
     assert declaration["name"] == "Decision"
-    assert declaration["version"] == "1.0.0"
+    assert declaration["version"] == "1.1.0"
     assert declaration["key"] == "id"
     assert list(declaration["properties"]) == [
+        "approval_receipt_refs",
+        "approver_ids",
+        "arbitrator_id",
+        "audit_intent_ref",
+        "authority_basis",
+        "authority_ref",
+        "catalog_release",
+        "change_id",
+        "conditions",
+        "context_snapshot_id",
+        "decision_case_id",
+        "effective_from",
         "effective_until",
+        "evidence_bundle_id",
+        "evidence_refs",
+        "execution_authority",
+        "graph_revision",
         "id",
+        "impact_envelope_id",
+        "judge_id",
         "outcome",
+        "quorum",
         "rationale",
+        "receipt_digest",
+        "receipt_schema_version",
         "recorded_at",
+        "reevaluation_trigger",
+        "requester_id",
+        "review_case_id",
+        "target_revision",
+        "terminal_audit_ref",
     ]
     assert declaration["lifecycle"] if "lifecycle" in declaration else None is None
     assert detail["ontology_release_digest"] == catalog.build_release().digest
