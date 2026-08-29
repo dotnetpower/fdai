@@ -162,7 +162,8 @@ and capacity is allowed; every field is checked before apply. Exact apply consum
 plan and does not promote an ActionType, Workflow, or autonomy mode.
 Plan restoration filters `hil-only` entries from the Terraform deployment tuple exactly as initial
 planning does, while retaining the complete resolved-model artifact for runtime degradation.
-Quorum apply verifies model deployment readback and skips unrelated Core application health checks.
+Quorum apply verifies readback only for `t1.judge` and `t2.reasoner.primary`, and skips unrelated
+model drift and Core application health checks.
 
 The full **deployer-permission gate table** (what happens when the deployer identity lacks
 `Cognitive Services Contributor`, when a preferred family is missing from the region, when
