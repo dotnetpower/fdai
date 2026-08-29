@@ -37,7 +37,9 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   authentication, evidence, completeness, conflict, and freshness-policy verification to the exact
   receipt, verifier version, trust anchor, and validity window. Core selects a current non-revoked
   binding through the provider-neutral registry and fails closed on producer self-verification,
-  timeout, mismatch, expiry, revocation, or synthetic evidence. Cloud SDK use remains in delivery:
+  timeout, provider or transport failure, mismatch, expiry, revocation, or synthetic evidence.
+  Cancellation remains a control-flow signal and is never converted into a verification result.
+  Cloud SDK use remains in delivery:
   the Azure adapter performs authoritative readback with a short-lived Managed Identity token and
   does not retain the credential. A successful bundle establishes evidence eligibility only; it
   cannot declare execution, approval, or promotion authority.
