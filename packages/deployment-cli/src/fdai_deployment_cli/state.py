@@ -238,6 +238,7 @@ def _read_stream(stream: BinaryIO) -> tuple[ProvisionEvent, ...]:
     stream.seek(0)
     events: list[ProvisionEvent] = []
     previous_digest = GENESIS_HASH
+    previous: ProvisionEvent | None = None
     run_id: str | None = None
     context_digest: str | None = None
     for sequence, line in enumerate(stream, start=1):
@@ -252,9 +253,11 @@ def _read_stream(stream: BinaryIO) -> tuple[ProvisionEvent, ...]:
             raise ValueError("provision journal contains multiple run ids")
         if context_digest is not None and event.context_digest != context_digest:
             raise ValueError("provision journal contains multiple contexts")
+        _validate_transition(previous, event)
         run_id = event.run_id
         context_digest = event.context_digest
         previous_digest = event.digest
+        previous = event
         events.append(event)
     return tuple(events)
 

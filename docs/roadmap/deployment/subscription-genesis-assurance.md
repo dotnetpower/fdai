@@ -266,6 +266,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H32 | License inspection could report signed but runtime-invalid identifiers or unverified image and tenant bindings as active. It now enforces canonical identity and caller-bound digest checks. | `test_license_rejects_invalid_identifiers_and_unverified_bindings` |
 | H33 | The air-gap drill executed checkout source instead of the wheel it shipped. It now installs only from signed kit wheels with `--no-index` inside the isolated network namespace and runs that `fdaictl`. | `test_release_scripts_use_the_installable_distribution` |
 | H34 | Dependency download used the `uvx` interpreter ABI instead of the CLI build interpreter. It now pins wheel resolution to the exact Python used to build and verify the kit. | `test_release_scripts_use_the_installable_distribution` |
+| H35 | Journal replay verified hashes but skipped legal transition checks, allowing a crafted first `ready`. Replay now applies the same transition reducer as append. | `test_journal_replay_rejects_ready_without_readiness_evidence` |
 
 ## Related docs
 

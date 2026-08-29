@@ -80,6 +80,16 @@ def test_journal_rejects_ready_without_readiness_evidence(tmp_path: Path) -> Non
         append_event(path, _event(1, GENESIS_HASH, RunState.READY))
 
 
+def test_journal_replay_rejects_ready_without_readiness_evidence(tmp_path: Path) -> None:
+    path = tmp_path / "run.jsonl"
+    event = _event(1, GENESIS_HASH, RunState.READY)
+    path.write_text(json.dumps(event.to_mapping()) + "\n", encoding="utf-8")
+    path.chmod(0o600)
+
+    with pytest.raises(ValueError, match="ready requires"):
+        read_journal(path)
+
+
 def test_journal_rejects_event_after_terminal_state(tmp_path: Path) -> None:
     path = tmp_path / "runs" / "run.jsonl"
     first = _event(1, GENESIS_HASH, RunState.FAILED)
