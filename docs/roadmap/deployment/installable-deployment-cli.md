@@ -120,6 +120,9 @@ Generated child files use a held-parent, exclusive, no-follow writer. A resumed 
 only the final entry through that descriptor and then recreates it with `O_EXCL`, so an existing
 symlink, FIFO, or hard link cannot redirect or truncate another file. Signed offline-kit metadata
 and streamed bundle archive publication use the same boundary.
+Before creating or resuming a release workdir, the guard also requires every ancestor to be owned by
+root or the current UID. A group- or world-writable ancestor must have the sticky bit, which prevents
+another UID from swapping the validated workdir before cleanup.
 Offline planning recomputes the profile target digest from concrete tenant and subscription input,
 matches the profile region, and supplies the verified subscription to Terraform.
 The synthetic air-gap drill isolates Azure CLI configuration so a host login cannot alter its

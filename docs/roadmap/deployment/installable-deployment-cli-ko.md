@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 70ba5fb9c8d60a0592197e181daea74151995336
+translation_source_sha: 4428fa0f73825daa3399b62c9b9dc1ee6ef0c06a
 translation_revised: 2026-08-29
 ---
 # 설치형 배포 CLI
@@ -122,6 +122,9 @@ Sentinel 검증은 서술자 검사 전에 최종 구성 요소를 비차단 모
 생성하므로 기존 심볼릭 링크, 이름 있는 파이프, 하드 링크가 다른 파일로 쓰기를 돌리거나 자를
 수 없습니다. 서명된 오프라인 키트 메타데이터와 스트리밍 번들 아카이브 게시도 같은 경계를
 사용합니다.
+release 작업 디렉터리를 만들거나 재개하기 전에 guard는 모든 상위 디렉터리를 root 또는 현재
+UID가 소유하도록 요구합니다. 그룹 또는 전체 쓰기가 가능한 상위 디렉터리에는 sticky bit가
+있어야 하므로 다른 UID가 정리 전에 검증된 작업 디렉터리를 교체할 수 없습니다.
 오프라인 계획은 구체적인 테넌트 및 구독 입력으로 프로필 대상 다이제스트를 재계산하고 프로필
 지역을 일치시키며 검증된 구독을 Terraform에 전달합니다.
 합성 air-gap 훈련은 Azure CLI 구성을 격리해 호스트 로그인이 대상 근거를 바꾸지 못하게 하고

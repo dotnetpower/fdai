@@ -19,6 +19,7 @@ class WorkdirGuardError(RuntimeError):
 def create_owned_workdir(path: Path, *, sentinel: str, value: str) -> None:
     """Create a private directory and sentinel without following their final components."""
 
+    _require_nonreplaceable_parent_chain(path)
     os.mkdir(path, 0o700)
     directory = _open_owned_directory(path)
     try:
@@ -39,6 +40,7 @@ def create_owned_workdir(path: Path, *, sentinel: str, value: str) -> None:
 def verify_owned_workdir(path: Path, *, sentinel: str, value: str) -> None:
     """Verify directory and sentinel ownership, modes, type, and bounded content."""
 
+    _require_nonreplaceable_parent_chain(path)
     directory = _open_owned_directory(path)
     try:
         descriptor = os.open(
@@ -69,6 +71,22 @@ def _open_owned_directory(path: Path) -> int:
         os.close(descriptor)
         raise WorkdirGuardError("release workdir MUST be owned by the current UID with mode 0700")
     return descriptor
+
+
+def _require_nonreplaceable_parent_chain(path: Path) -> None:
+    current = path.parent
+    while True:
+        details = current.lstat()
+        if not stat.S_ISDIR(details.st_mode):
+            raise WorkdirGuardError("release workdir parent chain MUST contain only directories")
+        if details.st_uid not in {0, os.geteuid()}:
+            raise WorkdirGuardError("release workdir parent chain has an unsafe owner")
+        mode = stat.S_IMODE(details.st_mode)
+        if mode & 0o022 and not (details.st_mode & stat.S_ISVTX):
+            raise WorkdirGuardError("release workdir parent chain is replaceable")
+        if current == current.parent:
+            return
+        current = current.parent
 
 
 def main(argv: list[str] | None = None) -> int:

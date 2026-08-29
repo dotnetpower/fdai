@@ -61,3 +61,28 @@ def test_workdir_guard_rejects_fifo_sentinel_without_blocking(
     monkeypatch.setattr(os, "open", open_nonblocking)
     with pytest.raises(MODULE.WorkdirGuardError, match="sentinel is unsafe"):
         MODULE.verify_owned_workdir(workdir, sentinel=".owner", value="owned-v1")
+
+
+def test_workdir_guard_rejects_replaceable_parent_chain(tmp_path: Path) -> None:
+    shared = tmp_path / "shared"
+    shared.mkdir(mode=0o777)
+    shared.chmod(0o777)
+
+    with pytest.raises(MODULE.WorkdirGuardError, match="parent chain is replaceable"):
+        MODULE.create_owned_workdir(
+            shared / "stage",
+            sentinel=".owner",
+            value="owned-v1",
+        )
+
+    shared.chmod(0o1777)
+    MODULE.create_owned_workdir(
+        shared / "stage",
+        sentinel=".owner",
+        value="owned-v1",
+    )
+    MODULE.verify_owned_workdir(
+        shared / "stage",
+        sentinel=".owner",
+        value="owned-v1",
+    )

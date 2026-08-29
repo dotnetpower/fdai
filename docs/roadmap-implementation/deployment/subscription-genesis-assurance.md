@@ -33,6 +33,7 @@ and recoverable.
 | 2026-08-29 | implemented | Completed hardening round 100 by bounding journal lock acquisition with a five-second monotonic deadline and pre/post-lock descriptor validation. | `current change`; focused lock-contention regression test and the final deployment CLI gate stack passed 102 tests | Complete resumed-release child-path hardening before login. |
 | 2026-08-29 | implemented | Completed hardening round 101 by moving release child-file writes to a held-parent exclusive writer and all resumed drill inputs to bounded nonblocking readers. | `current change`; three focused secure-writer tests, release productization checks, and fresh plus `--skip-stage` air-gap drills | Repeat the final severity audit and close any remaining finding above Low before login. |
 | 2026-08-29 | implemented | Completed hardening round 102 by publishing offline-kit metadata and streamed bundle archives through the held-parent exclusive writer. | `current change`; four focused secure-writer tests plus release productization and air-gap checks | Repeat the final severity audit and close any remaining finding above Low before login. |
+| 2026-08-29 | implemented | Completed hardening round 103 by rejecting release workdirs whose ancestor ownership and sticky-bit posture permits another UID to swap the validated path. | `current change`; four focused workdir guard tests and fresh plus `--skip-stage` air-gap drills | Repeat the final severity audit and close any remaining finding above Low before login. |
 
 ### Remaining work
 
