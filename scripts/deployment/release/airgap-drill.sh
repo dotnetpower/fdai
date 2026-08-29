@@ -122,6 +122,16 @@ rm -rf "$WORKDIR/work" "$WORKDIR/negative" "$WORKDIR/authenticated-kit" "$WORKDI
 # The kit declares which CLI it was built for; verification binds that exact
 # value, so read it rather than assume the local environment matches.
 CLI_VERSION="$("$PYTHON" -c 'import json,sys; print(json.load(open(sys.argv[1]))["cli_version"])' "$KIT/offline-kit.json")"
+cat > "$WORKDIR/plan-input.tfvars.json" <<'EOF'
+{
+  "core_image": "ghcr.io/example/fdai:plan-only",
+  "postgres_admin_login": "fdaiadmin",
+  "postgres_admin_password": "FDAI-PLAN-ONLY-NOT-A-SECRET",
+  "region": "koreacentral",
+  "tenant_id": "00000000-0000-0000-0000-000000000000"
+}
+EOF
+chmod 600 "$WORKDIR/plan-input.tfvars.json"
 
 echo "== verify (network namespace, no route, no DNS) =="
 REPO_ROOT="$repo_root" WORKDIR="$WORKDIR" KIT="$KIT" PYTHON="$PYTHON" UV="$(command -v uv)" \
@@ -244,18 +254,19 @@ echo "-- 9. fdaictl provision plan (the operator-facing disconnected path)"
 # Steps 4-6 drive Terraform by hand. This step proves the command an operator
 # actually runs reaches the same place on its own. It stops where the drill has
 # always stopped - short of the tenant management plane - so the pass condition
-# is that the ONLY remaining obstacle is deployment input. A provider that could
-# not be resolved, or any attempt to reach the public registry, fails the drill.
+# is that the verified configuration reaches provider authentication without
+# resolving anything from the public registry.
 rm -rf "$WORKDIR/provision"
 set +e
 plan_output="$("$CLI" provision plan \
   --offline-kit "$KIT" --release-root "$WORKDIR/release-root.pub" \
   --bundle-public-key "$WORKDIR/bundle-key.pub" --work-dir "$WORKDIR/provision" \
+  --variables-file "$WORKDIR/plan-input.tfvars.json" \
   --output json 2>&1)"
 set -e
 case "$plan_output" in
-  *"No value for required variable"*) ;;
-  *) fail "provision plan stopped somewhere other than missing deployment input: $plan_output" ;;
+  *"terraform plan failed after offline provider initialization"*) ;;
+  *) fail "provision plan did not reach offline provider execution: $plan_output" ;;
 esac
 case "$plan_output" in
   *registry.terraform.io*|*"Failed to install provider"*|*"could not query provider"*)

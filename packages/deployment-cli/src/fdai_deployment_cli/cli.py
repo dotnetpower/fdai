@@ -22,6 +22,7 @@ from fdai_deployment_cli.doctor import azure_active_target_binding, doctor_json,
 from fdai_deployment_cli.license import LicenseInspectionError, inspect_license
 from fdai_deployment_cli.offline_kit import verify_offline_kit
 from fdai_deployment_cli.offline_kit import materialize_verified_artifacts
+from fdai_deployment_cli.plan_input import snapshot_plan_input
 from fdai_deployment_cli.contracts import ProvisionProfile, canonical_digest
 from fdai_deployment_cli.profile import load_profile, write_profile
 from fdai_deployment_cli.simulation import rehearse
@@ -89,6 +90,7 @@ def _parser() -> argparse.ArgumentParser:
     plan.add_argument("--release-root", type=Path, required=True)
     plan.add_argument("--bundle-public-key", type=Path, required=True)
     plan.add_argument("--work-dir", type=Path, required=True)
+    plan.add_argument("--variables-file", type=Path, required=True)
     plan.add_argument("--output", choices=("text", "json"), default="text")
     plan.set_defaults(handler=_provision_plan)
 
@@ -265,6 +267,8 @@ def _provision_plan(args: argparse.Namespace) -> int:
         config=config,
         source=os.environ,
     )
+    variables_file = work_dir / "plan.auto.tfvars.json"
+    snapshot_plan_input(args.variables_file, variables_file)
     subprocess.run(
         [str(terraform), "init", "-backend=false", "-input=false"],
         cwd=infra_dir,
@@ -272,15 +276,24 @@ def _provision_plan(args: argparse.Namespace) -> int:
         check=True,
         timeout=300,
     )
-    completed = subprocess.run(
-        [str(terraform), "plan", "-input=false", "-no-color"],
-        cwd=infra_dir,
-        env=environment,
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=300,
-    )
+    try:
+        completed = subprocess.run(
+            [
+                str(terraform),
+                "plan",
+                "-input=false",
+                "-no-color",
+                f"-var-file={variables_file}",
+            ],
+            cwd=infra_dir,
+            env=environment,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+    finally:
+        variables_file.unlink(missing_ok=True)
     if completed.returncode != 0:
         raise ValueError(_safe_plan_error(completed.stdout + completed.stderr))
     result = {

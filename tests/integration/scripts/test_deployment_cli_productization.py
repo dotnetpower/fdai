@@ -52,6 +52,9 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     assert 'TFBIN="$WORKDIR/authenticated-kit/terraform/terraform"' in drill
     assert 'path    = "$WORKDIR/authenticated-kit/terraform/providers"' in drill
     assert 'TFBIN="$KIT/terraform/terraform"' not in drill
+    assert '--variables-file "$WORKDIR/plan-input.tfvars.json"' in drill
+    assert "FDAI-PLAN-ONLY-NOT-A-SECRET" in drill
+    assert "No value for required variable" not in drill
     assert "fdai_deployment_cli.offline_kit" in signer
     assert "fdai.deployment_cli" not in stage + drill + signer
 

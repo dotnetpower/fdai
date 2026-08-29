@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 39dc0d1f64dc5a71cca4c82fabb1a966af70537a
+translation_source_sha: 708302f46548eb88ce4d22b8e5df9f6424dc1f13
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -277,6 +277,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H50 | 훈련이 키트를 인증하기 전에 번들을 풀어 범위가 제한되지 않은 보관 구문 분석에 노출되었습니다. 이제 외부 키트 검증 후에만 서명 번들을 구체화하고 안전하게 풀고 검증합니다. | `test_release_scripts_use_the_installable_distribution` |
 | H51 | 수동 훈련 단계가 여전히 변경 가능한 키트 경로의 Terraform과 공급자를 실행했습니다. 이제 모든 Terraform 경로가 인증된 비공개 스냅샷을 가리킵니다. | `test_release_scripts_use_the_installable_distribution` |
 | H52 | 릴리스 준비가 열린 빌드 및 다운로드 도구를 네트워크에서 해석했습니다. 이제 Hatchling과 pip를 정확히 고정하고 빌드, export, download에 커밋된 CLI lock을 요구합니다. | `test_release_tooling_is_exactly_pinned` |
+| H53 | `provision plan`에 Terraform의 필수 입력 5개를 전달할 경로가 없었습니다. 이제 비공개 JSON 입력을 스냅샷하고 실제 또는 추가 비밀을 거부하며 계획 전용 암호를 주입하고 계획 후 스냅샷을 제거합니다. | `test_plan_input_is_private_canonical_and_non_secret` |
 
 ## 관련 문서
 

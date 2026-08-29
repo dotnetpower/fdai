@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: dc2e2aa0b81d97a4eaee6d325ac0d0f2887fd69b
+translation_source_sha: 849e194692695a16901b44cef796113d70742755
 translation_revised: 2026-08-29
 ---
 # 설치형 배포 CLI
@@ -86,7 +86,7 @@ Installer는 system 도구를 변경하지 않습니다. `fdaictl doctor`가 누
 | `fdaictl version` | CLI, 번들, 스키마, 호환성 버전 표시 | 없음 |
 | `fdaictl doctor` | Python, Azure CLI, Terraform, GitHub CLI, 인증, 로컬 구성 검사 | 없음 |
 | `fdaictl provision inspect` | Online/offline, signed-kit trust, 기존/managed 호스트, 전송 계층, 접근, workload-identity 준비 상태 검사 | 없음 |
-| `fdaictl provision plan` | 키트가 선언한 서명 번들을 검증하고 안전하게 푼 뒤 해당 `infra` 루트를 계획 | 없음 |
+| `fdaictl provision plan` | 키트와 번들을 검증하고 비밀이 없는 비공개 `.tfvars.json`을 스냅샷한 뒤 해당 `infra` 루트를 계획 | 없음 |
 | `fdaictl provision init` | 스키마로 검증한, untracked 환경 구성 생성 | 없음 |
 | `fdaictl onboard guided` / `status` / `resume-verification` | 하위 exact-plan 명령으로 하나의 영속 구독 초기 구성 실행을 조정 | 명시적인 보호 승인 후에만 있음 |
 | `fdaictl security audit` | 런타임 플래그 조합, 로컬 구성 hygiene, 요청된 샌드박스 가용성 검사 | 없음, `--fix-permissions`를 명시한 경우 제외 |
