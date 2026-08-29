@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 19c3ff4bd6295e57eab2f1a8f1641b1fe2b2d752
+translation_source_sha: 507aba489fec1df79b6674485c0bdd9a5cf6b533
 translation_revised: 2026-08-29
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -14,7 +14,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 ### 구현 범위
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| Protected platform 계획 및 exact 적용 | implemented | `.github/workflows/deploy-dev.yml`, `.github/workflows/model-settings-projection.yml`, `login-deploy-identity.sh`, `materialize-model-binding-proposal.sh`, `model_binding_proposal.py` 및 집중 배포 workflow 검사 | 모든 보호된 배포 경로는 client ID로 안정적인 배포 UAMI를 선택하고 token `oid`를 검증합니다. 코어 모델 쿼럼 프로필은 `plan-quorum-*` 또는 `apply-quorum-*`에서 직접 파생되고 따옴표가 있는 Terraform 리소스 키를 보존하며 바이너리 계획을 소유 Terraform 디렉터리에서 렌더링합니다. `t1.judge`와 `t2.reasoner.primary`만 정확히 대상으로 지정하고 다른 모든 변경을 차단합니다. Private runner 계획에는 변경 불가 적용 claim과 적용 후 검사가 포함됩니다. 통제된 UAMI 역할 이행 또는 platform 적용 증적은 리포지토리에 보존되어 있지 않습니다. |
+| Protected platform 계획 및 exact 적용 | implemented | `.github/workflows/deploy-dev.yml`, `.github/workflows/model-settings-projection.yml`, `login-deploy-identity.sh`, `materialize-model-binding-proposal.sh`, `model_binding_proposal.py` 및 집중 배포 workflow 검사 | 모든 보호된 배포 경로는 client ID로 안정적인 배포 UAMI를 선택하고 token `oid`를 검증합니다. 코어 모델 쿼럼 프로필은 `plan-quorum-*` 또는 `apply-quorum-*`에서 직접 파생되고 따옴표가 있는 Terraform 리소스 키를 보존하며 바이너리 계획을 소유 Terraform 디렉터리에서 렌더링합니다. 상위 계정의 현재 위치 신원 업데이트와 `t1.judge`, `t2.reasoner.primary` 생성만 허용하고 다른 모든 변경을 차단합니다. Private runner 계획에는 변경 불가 적용 claim과 적용 후 검사가 포함됩니다. 통제된 UAMI 역할 이행 또는 platform 적용 증적은 리포지토리에 보존되어 있지 않습니다. |
 | 독립 소유 런타임 service | validated | `.github/workflows/service-deploy.yml` 및 `config/independent-service-live-evidence-manifest.json` | 각 service에 별도 root, protected 계획, 상태 검사 및 rollback evidence가 있습니다. |
 | OHL scale-out evidence target 및 proposal Job | implemented | `infra/` 및 `services/core-control-plane/src/fdai/delivery/`의 current change, 집중 Terraform 및 publisher test 결과 8 passed와 13 passed | 둘 다 기본적으로 비활성화되며 protected 적용이 남아 있습니다. |
 | OHL production evidence campaign | in-progress | `config/ohl-scale-out-evidence.json` 및 `docs/runbooks/ohl-scale-out-evidence-ko.md` | Runtime rollout, 통제된 실행, sample 100개 및 14일 recurrence window가 남아 있습니다. |
