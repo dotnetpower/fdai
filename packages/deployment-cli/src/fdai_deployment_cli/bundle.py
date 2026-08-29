@@ -144,10 +144,13 @@ def extract_bundle_archive(archive: Path, destination: Path) -> Path:
     roots: set[str] = set()
     try:
         with tarfile.open(archive, mode="r:gz") as stream:
-            members = stream.getmembers()
-            if not members or len(members) > 20_000:
-                raise BundleVerificationError("deployment bundle archive member count is invalid")
-            for member in members:
+            member_count = 0
+            for member in stream:
+                member_count += 1
+                if member_count > 20_000:
+                    raise BundleVerificationError(
+                        "deployment bundle archive member count is invalid"
+                    )
                 path = PurePosixPath(member.name)
                 if (
                     path.is_absolute()
@@ -194,6 +197,8 @@ def extract_bundle_archive(archive: Path, destination: Path) -> Path:
                         raise BundleVerificationError(
                             "deployment bundle archive member size does not match"
                         )
+            if member_count == 0:
+                raise BundleVerificationError("deployment bundle archive member count is invalid")
         if len(roots) != 1:
             raise BundleVerificationError("deployment bundle archive MUST have one root")
         root = destination / roots.pop()
