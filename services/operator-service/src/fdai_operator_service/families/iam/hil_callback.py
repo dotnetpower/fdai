@@ -219,9 +219,9 @@ async def _authenticate_and_parse(
     actor_oid = parsed.get("actor_oid")
     if not isinstance(actor_oid, str) or not actor_oid.strip():
         raise _CallbackError("'actor_oid' MUST be a non-empty string")
-    justification = parsed.get("justification", "")
-    if not isinstance(justification, str):
-        raise _CallbackError("'justification' MUST be a string")
+    justification = parsed.get("justification")
+    if not isinstance(justification, str) or not justification.strip():
+        raise _CallbackError("'justification' MUST be a non-empty string")
     raw_roles = parsed.get("actor_roles", [])
     if not isinstance(raw_roles, list) or not all(isinstance(role, str) for role in raw_roles):
         raise _CallbackError("'actor_roles' MUST be a list of strings")
@@ -234,7 +234,7 @@ async def _authenticate_and_parse(
     return _CallbackBody(
         decision=decision,
         actor_oid=_normalize(actor_oid),
-        justification=justification,
+        justification=justification.strip(),
         actor_roles=tuple(roles),
     )
 

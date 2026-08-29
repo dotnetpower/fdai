@@ -863,6 +863,7 @@ def test_signed_hil_callback_binds_path_rejects_self_approval_and_enqueues_recei
     assert response.status_code == 200
     assert response.json()["delivered"] is True
     assert registry.command is not None
+    assert registry.command.justification == "Independent approval."
     assert hil_outbox.request is not None
     assert path_swap.status_code == 401
 
@@ -881,3 +882,47 @@ def test_signed_hil_callback_binds_path_rejects_self_approval_and_enqueues_recei
     )
     assert self_response.status_code == 403
     assert self_registry.command is None
+
+
+def test_signed_hil_callback_requires_non_empty_justification() -> None:
+    config = HilCallbackConfig(secret="test-secret")
+    timestamp = datetime.now(UTC).isoformat()
+
+    for payload in (
+        {
+            "decision": "approve",
+            "actor_oid": "owner-1",
+            "actor_roles": ["Owner"],
+        },
+        {
+            "decision": "reject",
+            "actor_oid": "owner-1",
+            "actor_roles": ["Owner"],
+            "justification": "   ",
+        },
+    ):
+        registry = RecordingHilRegistry()
+        body = json.dumps(payload, separators=(",", ":")).encode()
+        signature = compute_hmac(
+            secret=config.secret,
+            timestamp=timestamp,
+            approval_id="approval-1",
+            payload=body,
+        )
+
+        response = _client(
+            hil_registry=registry,
+            hil_outbox=RecordingHilOutbox(),
+            hil_config=config,
+        ).post(
+            "/hil/approval-1/decision",
+            content=body,
+            headers={
+                "X-FDAI-Timestamp": timestamp,
+                "X-FDAI-Signature": f"sha256={signature}",
+            },
+        )
+
+        assert response.status_code == 400
+        assert response.json()["error"]["message"] == ("'justification' MUST be a non-empty string")
+        assert registry.command is None
