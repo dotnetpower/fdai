@@ -109,12 +109,7 @@ class DecisionEvidenceReadinessGate:
                     receipt,
                     trust_anchor_id=binding.trust_anchor_id,
                 )
-        except (
-            TimeoutError,
-            PydanticValidationError,
-            RuntimeError,
-            ValueError,
-        ):
+        except (OSError, TimeoutError, PydanticValidationError, RuntimeError, ValueError):
             return _rejected(receipt, DecisionEvidenceReadinessReason.VERIFIER_FAILED)
         return _evaluate_bundle(
             receipt,

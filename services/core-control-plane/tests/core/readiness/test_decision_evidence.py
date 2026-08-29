@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -255,9 +256,10 @@ async def test_forged_subject_and_expired_proof_fail_closed() -> None:
     [
         DecisionEvidenceVerificationError("provider readback unavailable"),
         RuntimeError("managed identity unavailable"),
+        OSError("provider transport unavailable"),
     ],
 )
-async def test_expected_verifier_failure_is_a_bounded_rejection(failure: RuntimeError) -> None:
+async def test_expected_verifier_failure_is_a_bounded_rejection(failure: Exception) -> None:
     receipt = _receipt()
 
     class _FailingVerifier:
@@ -285,3 +287,32 @@ async def test_expected_verifier_failure_is_a_bounded_rejection(failure: Runtime
     )
 
     assert result.reason is DecisionEvidenceReadinessReason.VERIFIER_FAILED
+
+
+async def test_verifier_cancellation_is_not_converted_to_rejection() -> None:
+    receipt = _receipt()
+
+    class _CancelledVerifier:
+        async def verify(self, receipt, *, trust_anchor_id):
+            del receipt, trust_anchor_id
+            raise asyncio.CancelledError
+
+    registry = DecisionEvidenceVerifierRegistry(
+        (
+            DecisionEvidenceVerifierBinding(
+                authority_class=receipt.authority_class,
+                method_id=receipt.method_id,
+                verifier_id="azure.readback",
+                verifier_version="1.0.0",
+                trust_anchor_id="azure:managed-identity",
+                verifier=_CancelledVerifier(),
+            ),
+        )
+    )
+
+    with pytest.raises(asyncio.CancelledError):
+        await DecisionEvidenceReadinessGate(registry=registry).evaluate(
+            receipt,
+            _requirement(),
+            evaluated_at=_NOW + timedelta(minutes=3),
+        )
