@@ -93,7 +93,8 @@ stage() {
     --platform-tag "$PLATFORM_TAG" >/dev/null
 
   echo "-- issue a drill license"
-  PYTHONPATH=src "$PYTHON" scripts/deployment/release/issue-license.py \
+  PYTHONPATH=services/core-control-plane/src:packages/service-contracts/src \
+    "$PYTHON" scripts/deployment/release/issue-license.py \
     --private-key "$WORKDIR/release-key.pem" --public-key "$WORKDIR/release-root.pub" \
     --license-id lic-drill-0001 --distribution-id example-distribution \
     --capability cost.metering --valid-days 30 \

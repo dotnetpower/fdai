@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: a9e2532de5639b0cc613ce096de420eaf02f7faf
+translation_source_sha: 41235b398225435832e76e40711e0d7728873ab7
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -296,6 +296,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H69 | 릴리스 준비가 `PATH`의 주변 Terraform 및 OPA 실행 파일을 서명했습니다. 이제 고정 버전을 다운로드하고 플랫폼별 공식 SHA-256을 검증한 뒤 사용합니다. | `test_release_tooling_is_exactly_pinned` |
 | H70 | Python 호환성 tag가 실제 ABI를 누락해 free-threaded 빌드와 표준 빌드를 같게 처리할 수 있었습니다. 이제 인터프리터의 전체 `SOABI`에 연결합니다. | `test_offline_kit_verifies_signature_exact_files_and_compatibility` |
 | H71 | 구체화가 다이제스트만 유지하고 검증된 크기를 유지하지 않아 교체된 증가 파일이 거부 전에 디스크를 소진할 수 있었습니다. 이제 복사 중 파일별 및 누적 서명 크기 상한을 적용합니다. | `test_materialization_rejects_artifact_growth_after_verification` |
+| H72 | 실제 air-gap 훈련이 폐기된 루트 `src` 경로를 사용해 라이선스 발급에서 중단됐습니다. 이제 독립 패키지 Core 및 서비스 계약 소스 경로를 명시적으로 해석합니다. | 네트워크 격리 `airgap-drill.sh` 재실행 |
 
 ## 관련 문서
 
