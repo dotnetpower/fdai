@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: f823d5c99a65157ed1ab9c146abf4e08a0831026
+translation_source_sha: 2f37ec8ca08cc811188607f802562cf23a076bf8
 translation_revised: 2026-08-29
 ---
 # 설치형 배포 CLI
@@ -60,8 +60,8 @@ fdaictl version
 fdaictl doctor
 ```
 
-출처 체크아웃에서는 `uv run fdaictl`을 사용합니다. 게시된 휠은 위의 pinned 설치를
-사용합니다.
+출처 체크아웃에서는 `uv run --project packages/deployment-cli fdaictl`을 사용합니다.
+게시된 휠은 위의 고정 설치를 사용합니다.
 
 일회성 실행 또는 CI 작업에는 임시 환경을 사용합니다.
 
@@ -73,8 +73,9 @@ uvx --from fdai-deployment-cli==<version> fdaictl deploy preflight --environment
 Installer는 system 도구를 변경하지 않습니다. `fdaictl doctor`가 누락되거나 호환되지 않는
 도구를 보고합니다.
 
-> 이 목록은 목표 명령 집합입니다. 현재 소스 트리는 `fdaictl` 진입점을 등록하지 않습니다.
-> 구현 상태와 관찰 가능한 종료 조건은 위 원장에서 추적합니다.
+> 소스 트리는 로컬 `fdaictl` 진입점을 등록합니다. 보호된 Azure 제출, 게시, 통제된 런타임
+> 근거는 [구현 원장](../../roadmap-implementation/deployment/installable-deployment-cli.md)에서
+> 계속 추적합니다.
 
 ## 명령 모델
 

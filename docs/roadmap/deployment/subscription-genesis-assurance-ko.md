@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 3c3faf3482fcb5fa9913b574b6e621bfd917cf86
+translation_source_sha: 1dbf583c292cee8a9e2cbf3ce0993c7144f43bbf
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -292,6 +292,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H65 | air-gap 훈련이 공급자 인증 전에 발생할 수 있는 일반 계획 실패 하나를 허용했습니다. 이제 CLI가 구분된 정제 인증 표시를 내보내고 훈련이 이를 요구합니다. | `test_terraform_failure_is_redacted_to_stable_reason` |
 | H66 | 훈련이 공급자 인증 근거를 요구하면서 Azure CLI는 요구하지 않고 MSI를 비활성화했습니다. 이제 Azure CLI를 명시적 선행 조건으로 검사합니다. | `test_release_scripts_use_the_installable_distribution` |
 | H67 | `--skip-stage`가 이전 빈 Azure 프로필 디렉터리를 남겨 재생성에 실패했습니다. 이제 재설정이 생성된 모든 검증 디렉터리를 제거한 뒤 비공개로 다시 만듭니다. | `test_release_scripts_use_the_installable_distribution` |
+| H68 | 소스 안내가 주변의 오래된 `fdaictl`을 실행하고 진입점이 없다고 설명했습니다. 이제 독립 프로젝트를 선택하고 현재 구현 원장에 연결합니다. | 문서 명령 및 링크 검사 |
 
 ## 관련 문서
 

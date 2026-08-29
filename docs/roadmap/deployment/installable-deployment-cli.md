@@ -59,7 +59,8 @@ fdaictl version
 fdaictl doctor
 ```
 
-From a source checkout, use `uv run fdaictl`. Published wheels use the pinned installation above.
+From a source checkout, use `uv run --project packages/deployment-cli fdaictl`. Published wheels
+use the pinned installation above.
 
 For a one-time run or a CI job, use an ephemeral environment:
 
@@ -70,8 +71,9 @@ uvx --from fdai-deployment-cli==<version> fdaictl deploy preflight --environment
 Use `pipx` when `uv` is unavailable, or install with `pip` inside a virtual environment. The
 installer never changes system tools; `fdaictl doctor` reports missing or incompatible tools.
 
-> This is the target command set. The current source tree does not register an `fdaictl`
-> entrypoint; implementation state and observable exit conditions are tracked in the ledger above.
+> The source tree registers the local `fdaictl` entrypoint. Protected Azure dispatch, publication,
+> and governed runtime evidence remain tracked in the
+> [implementation ledger](../../roadmap-implementation/deployment/installable-deployment-cli.md).
 
 ## Command model
 

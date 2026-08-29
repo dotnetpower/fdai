@@ -299,6 +299,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H65 | The air-gap drill accepted one generic plan failure that could occur before provider authentication. The CLI now emits a distinct redacted authentication marker, and the drill requires it. | `test_terraform_failure_is_redacted_to_stable_reason` |
 | H66 | The drill required provider-authentication evidence but did not require Azure CLI and disabled MSI. Azure CLI is now an explicit prerequisite. | `test_release_scripts_use_the_installable_distribution` |
 | H67 | `--skip-stage` left the prior empty Azure profile directory and failed on recreation. Reset now removes every generated verification directory before rebuilding it privately. | `test_release_scripts_use_the_installable_distribution` |
+| H68 | Source instructions invoked an ambient stale `fdaictl` and claimed no entry point existed. They now select the independent project and link the current implementation ledger. | documentation command and link checks |
 
 ## Related docs
 
