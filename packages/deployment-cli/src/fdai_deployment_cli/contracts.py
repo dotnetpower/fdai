@@ -33,6 +33,7 @@ class ProvisionProfile:
 
     environment: str
     region: str
+    target_binding: str
     connectivity: str
     host: str
     transport: str
@@ -46,6 +47,8 @@ class ProvisionProfile:
             raise ValueError("environment is unsupported")
         if _ID.fullmatch(self.region) is None:
             raise ValueError("region MUST be a lowercase stable identifier")
+        if re.fullmatch(r"[0-9a-f]{64}", self.target_binding) is None:
+            raise ValueError("target_binding MUST be a lowercase SHA-256")
         if self.connectivity not in _CONNECTIVITY:
             raise ValueError("connectivity is unsupported")
         if self.host not in _HOSTS:
@@ -73,6 +76,7 @@ class ProvisionProfile:
             "schema_version",
             "environment",
             "region",
+            "target_binding",
             "connectivity",
             "host",
             "transport",
@@ -87,6 +91,7 @@ class ProvisionProfile:
         return cls(
             environment=_text(value, "environment"),
             region=_text(value, "region"),
+            target_binding=_text(value, "target_binding"),
             connectivity=_text(value, "connectivity"),
             host=_text(value, "host"),
             transport=_text(value, "transport"),
@@ -103,6 +108,7 @@ class ProvisionProfile:
             "schema_version": "fdai.provision-profile.v1",
             "environment": self.environment,
             "region": self.region,
+            "target_binding": self.target_binding,
             "connectivity": self.connectivity,
             "host": self.host,
             "transport": self.transport,

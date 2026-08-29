@@ -1,7 +1,7 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 9c648f2be23cbf637e48b3d5f542f88e74674c00
+translation_source_sha: 434b47ca75f7a8736bb831bcef818baf61908cb3
 translation_revised: 2026-08-29
 ---
 # 프로비저닝 실행 프로파일
@@ -86,12 +86,14 @@ offline 디렉터리를 `candidate` / `review`로 유지합니다.
 
 ```bash
 fdaictl provision init \
+  --target-binding <sha256> \
   --connectivity online \
   --host existing-host \
   --transport manual \
   --access-method internal_ssh
 ```
 
+대상 연결은 의도한 테넌트와 구독 쌍의 배포 로컬 다이제스트이며 원시 식별자가 아닙니다.
 명령은 모든 `auto` 값을 거부하고 `.fdai/provisioning/profile.json`을 mode-`0700` 디렉터리
 안에 파일 모드 `0600`으로 기록합니다. Offline 프로파일에는 `--artifact-source`가 필요합니다.
 Temporary 공개 SSH에는 전체 주소 space보다 좁은 정본 출처 CIDR과 5-60분 접근

@@ -248,6 +248,8 @@ def test_cli_version_and_private_profile(
                 "dev",
                 "--region",
                 "koreacentral",
+                "--target-binding",
+                "a" * 64,
                 "--connectivity",
                 "online",
                 "--host",
@@ -264,6 +266,37 @@ def test_cli_version_and_private_profile(
     )
     result = json.loads(capsys.readouterr().out)
     assert result["mutation_performed"] is False
+
+
+def test_profile_init_requires_digest_bound_target(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    result = main(
+        [
+            "provision",
+            "init",
+            "--profile",
+            str(tmp_path / "profile.json"),
+            "--environment",
+            "dev",
+            "--region",
+            "koreacentral",
+            "--target-binding",
+            "raw-subscription-id",
+            "--connectivity",
+            "online",
+            "--host",
+            "managed-vm",
+            "--transport",
+            "github-actions",
+            "--access-method",
+            "github_actions",
+        ]
+    )
+
+    assert result == 3
+    assert "target_binding MUST be a lowercase SHA-256" in capsys.readouterr().err
 
 
 def test_terraform_failure_is_redacted_to_stable_reason() -> None:

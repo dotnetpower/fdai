@@ -13,6 +13,7 @@ def _profile() -> ProvisionProfile:
     return ProvisionProfile(
         environment="dev",
         region="koreacentral",
+        target_binding="a" * 64,
         connectivity="online",
         host="managed-vm",
         transport="github-actions",

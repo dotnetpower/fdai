@@ -51,6 +51,7 @@ def _parser() -> argparse.ArgumentParser:
     initialize.add_argument("--profile", type=Path, required=True)
     initialize.add_argument("--environment", choices=("dev", "staging", "prod"), required=True)
     initialize.add_argument("--region", required=True)
+    initialize.add_argument("--target-binding", required=True)
     initialize.add_argument("--connectivity", choices=("online", "offline"), required=True)
     initialize.add_argument("--host", choices=("existing-host", "managed-vm"), required=True)
     initialize.add_argument("--transport", choices=("manual", "github-actions"), required=True)
@@ -145,6 +146,7 @@ def _provision_init(args: argparse.Namespace) -> int:
     profile = ProvisionProfile(
         environment=args.environment,
         region=args.region,
+        target_binding=args.target_binding,
         connectivity=args.connectivity,
         host=args.host,
         transport=args.transport,

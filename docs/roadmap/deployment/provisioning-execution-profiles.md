@@ -83,13 +83,15 @@ The target initialization command saves a reviewed profile with explicit, resolv
 
 ```bash
 fdaictl provision init \
+	--target-binding <sha256> \
 	--connectivity online \
 	--host existing-host \
 	--transport manual \
 	--access-method internal_ssh
 ```
 
-The command rejects every `auto` value and writes `.fdai/provisioning/profile.json` with file mode
+The target binding is a deployment-local digest of the intended tenant and subscription pair, not
+either raw identifier. The command rejects every `auto` value and writes `.fdai/provisioning/profile.json` with file mode
 `0600` in a mode-`0700` directory. Offline profiles require `--artifact-source`. Temporary public
 SSH requires a canonical source CIDR narrower than the entire address space and an access window
 of 5-60 minutes. GitHub Actions transport requires the matching `github_actions` access method.

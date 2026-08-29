@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: d1c995061cc3b2b9b7fc623df370ad1c36b90936
+translation_source_sha: f9568f7fa7d0069454c50f17d97f231ada562e24
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -238,6 +238,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H11 | 로컬 점검이 도구 설치만으로 Azure 활성 계정이 없는 상태를 준비 완료로 처리했습니다. 이제 식별자를 노출하지 않는 읽기 전용 인증 검사를 수행하고 실패 시 차단합니다. | `test_azure_authentication_fails_closed_without_login` |
 | H12 | 오프라인 키트가 `fdaictl` wheel만 준비하고 전이 런타임 wheel을 누락했습니다. 이제 릴리스 준비가 해시로 고정된 운영 의존성을 내보내고 바이너리 wheel을 서명 키트에 포함합니다. | `test_release_scripts_use_the_installable_distribution` |
 | H13 | 번들 검증이 콘텐츠를 인증했지만 선언된 CLI 호환성 구간을 무시했습니다. 이제 서명된 최소 및 최대 버전을 벗어나면 차단합니다. | `test_bundle_rejects_incompatible_cli_version` |
+| H14 | 프로필이 의도한 테넌트와 구독에 연결되지 않아 다른 활성 로그인에서 재사용될 수 있었습니다. 이제 배포 로컬 대상 다이제스트를 요구합니다. | `test_profile_init_requires_digest_bound_target` |
 
 ## 관련 문서
 
