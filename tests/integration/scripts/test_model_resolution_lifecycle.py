@@ -149,6 +149,7 @@ def test_exact_apply_restores_the_plan_sealed_model_manifest() -> None:
     assert 'echo "$resolved_models_digest  resolved-models.json" | sha256sum --check' in _DEPLOY
     assert 'echo "$deployment_models_digest  deployment-models.json" | sha256sum --check' in _DEPLOY
     assert 'echo "TF_VAR_resolved_capabilities=$capabilities_json"' in _DEPLOY
+    assert _DEPLOY.count('item for item in capabilities if item.get("status") != "hil-only"') == 2
     assert '"request_kind"' in _DEPLOY
     assert '"binding_policy_environment"' in _DEPLOY
     assert '"binding_policy_revision"' in _DEPLOY
