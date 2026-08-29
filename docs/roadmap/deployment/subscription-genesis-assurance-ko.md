@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 29d1efa3acfc5475ff7f1c0549d0f4fd47869e22
+translation_source_sha: 7966d016a337b9d6477c7b33f803ab48ddd9b631
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -306,6 +306,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H79 | 설치된 CLI 검사가 주변 `PYTHONPATH`와 `PYTHONHOME`을 상속해 체크아웃 코드가 제공 wheel을 가릴 수 있었습니다. 이제 격리 훈련이 검증 및 실행 전에 두 값을 제거합니다. | `test_release_scripts_use_the_installable_distribution` |
 | H80 | 번들과 키트 해시가 동시 증가 파일이 검증 크기를 넘은 뒤에도 EOF까지 읽었습니다. 이제 두 경로 모두 서명된 바이트 상한에서 즉시 중단합니다. | 집중 서명 아티팩트 검사 |
 | H81 | 라이선스 발급이 권한을 제한하기 전에 기존 공개 읽기 출력 파일을 잘랐습니다. 이제 새 mode-`0600` 파일을 배타적으로 만들고 교체를 거부합니다. | `test_license_output_never_replaces_existing_file` |
+| H82 | 훈련이 호출자가 선택한 임의 작업 디렉터리를 재귀 삭제했습니다. 이제 새 실행은 존재하지 않는 안전한 절대 경로를 요구하고 재개는 소유권 sentinel을 요구합니다. | `test_release_scripts_use_the_installable_distribution` |
 
 ## 관련 문서
 

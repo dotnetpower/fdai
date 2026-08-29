@@ -73,6 +73,10 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     assert "unset PYTHONPATH PYTHONHOME" in drill
     assert "for tool in az curl git openssl unshare uv" in drill
     assert "for tool in az terraform" not in drill
+    assert 'SENTINEL=".fdai-airgap-workdir"' in drill
+    assert "a fresh workdir is required" in drill
+    assert "--skip-stage requires an owned drill workdir" in drill
+    assert 'rm -rf "$WORKDIR"' not in drill
     assert "fdai_deployment_cli.offline_kit" in signer
     assert "fdai.deployment_cli" not in stage + drill + signer
     assert "fdai.delivery.trust.ed25519" not in issuer
