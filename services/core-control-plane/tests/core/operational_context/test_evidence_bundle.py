@@ -23,9 +23,12 @@ from fdai.core.operational_context import (
     bind_citation,
     bind_evidence_item_source,
     build_operational_evidence_bundle,
+    operational_state_scope_digest,
     render_untrusted_document_evidence,
 )
+from fdai.core.operational_context.evidence_bundle_identity import evidence_item_digest
 from fdai.shared.contracts.models import Autonomy
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 from fdai.shared.providers.state_evidence import (
     LinkObservationMetadata,
     StateFactAuthority,
@@ -113,6 +116,19 @@ def _state_item(
             redaction="secret_redacted",
             synthetic=synthetic,
             conflicts=conflicts,
+        ),
+    )
+    item = replace(
+        item,
+        decision_evidence=DecisionEvidenceAdmission(
+            receipt_digest="sha256:" + "d" * 64,
+            verification_bundle_digest="sha256:" + "e" * 64,
+            evidence_digest=evidence_item_digest(item),
+            scope_digest=operational_state_scope_digest(purpose=PURPOSE, scope=SCOPE),
+            purpose_id=PURPOSE,
+            source_revision=item.state_fact.source_revision,
+            verified_at=CUTOFF - timedelta(minutes=1),
+            valid_until=CUTOFF + timedelta(days=1),
         ),
     )
     return bind_evidence_item_source(
@@ -463,6 +479,29 @@ def test_source_receipt_is_content_addressed_and_validator_can_reject_it() -> No
 
     with pytest.raises(ValueError, match="receipt id MUST match canonical content"):
         replace(receipt, source_revision="rules-r10")
+
+
+def test_state_evidence_requires_matching_current_decision_admission() -> None:
+    admitted = _state_item()
+    assert admitted.decision_evidence is not None
+    missing = replace(admitted, decision_evidence=None)
+    mismatched = replace(
+        admitted,
+        decision_evidence=replace(
+            admitted.decision_evidence,
+            evidence_digest="sha256:" + "f" * 64,
+        ),
+    )
+
+    missing_bundle = _build(state=missing)
+    mismatched_bundle = _build(state=mismatched)
+
+    assert "decision_evidence_unverified" in missing_bundle.hold_reasons
+    assert "decision_evidence_missing:state:power" in missing_bundle.evidence_issues
+    assert missing_bundle.autonomy_ceiling is Autonomy.SHADOW_ONLY
+    assert "decision_evidence_unverified" in mismatched_bundle.hold_reasons
+    assert "decision_evidence_evidence_mismatch:state:power" in (mismatched_bundle.evidence_issues)
+    assert mismatched_bundle.autonomy_ceiling is Autonomy.SHADOW_ONLY
     with pytest.raises(ValueError, match="validator rejected"):
         _build(receipt_validator=lambda _receipt, _lane, _digest, _payload, _proof: False)
 

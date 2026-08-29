@@ -5,6 +5,7 @@ from .evidence_bundle import (
     bind_citation,
     bind_evidence_item_source,
     build_operational_evidence_bundle,
+    operational_state_scope_digest,
 )
 from .evidence_bundle_models import (
     CatalogEvidenceItem,
@@ -75,6 +76,7 @@ __all__ = [
     "bind_citation",
     "bind_evidence_item_source",
     "build_operational_evidence_bundle",
+    "operational_state_scope_digest",
     "project_operating_scope",
     "render_untrusted_document_evidence",
 ]

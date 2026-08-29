@@ -10,6 +10,7 @@ from enum import StrEnum
 from typing import Any, Literal
 
 from fdai.shared.contracts.models import Autonomy
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 from fdai.shared.providers.state_evidence import StateFactMetadata
 
 from .evidence_bundle_sources import EvidenceTemporalScope, VerifiedEvidenceSourceReceipt
@@ -179,6 +180,7 @@ class StateEvidenceItem:
     evidence_ref: str
     state_fact: StateFactMetadata
     source: VerifiedEvidenceSourceReceipt
+    decision_evidence: DecisionEvidenceAdmission | None = None
 
     def __post_init__(self) -> None:
         require_ref(self.evidence_ref)

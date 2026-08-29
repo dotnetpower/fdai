@@ -83,10 +83,15 @@ def bind_evidence_item_source[EvidenceItemT: EvidenceItem](
 def evidence_payload(item: EvidenceItem) -> dict[str, object]:
     """Return one lane item's full canonical bundle representation."""
 
-    return {
+    payload = {
         **evidence_item_payload(item),
         "source": item.source.to_mapping(),
     }
+    if isinstance(item, StateEvidenceItem):
+        payload["decision_evidence"] = (
+            item.decision_evidence.to_mapping() if item.decision_evidence is not None else None
+        )
+    return payload
 
 
 def _evidence_lane(item: EvidenceItem) -> EvidenceLane:

@@ -1,7 +1,7 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: 5af8a6fb0d2c3bff523ceb7b21c2272d0e60948a
+translation_source_sha: de81b66d5be78d452f2ad2671d7e8604f49128ef
 translation_revised: 2026-08-29
 ---
 
@@ -29,7 +29,7 @@ translation_revised: 2026-08-29
 | 승격 및 운영 근거 평가 | implemented | `core/measurement/promotion_gate.py`; `operational_promotion.py`; 집중 승격 테스트 | 승격 평가는 개정 번호, 시나리오, 표본, 신뢰 구간, 가드 및 결과 근거를 연결합니다. 현재 유효한 공유 의사 결정 근거 승인 결과가 전체 묶음과 일치해야만 준비 완료 결과가 나올 수 있습니다. 기존 저장 증적은 읽을 수 있지만 증적 및 검증 묶음 다이제스트가 없으면 승격 권한에 사용할 수 없습니다. |
 | 관리되는 운영 커버리지 주장 계약 | implemented | `packages/service-contracts/src/fdai_service_contracts/operational_coverage.py`; `packages/service-contracts/tests/test_operational_coverage.py` | 변경할 수 없는 분모, 최종 처리 결과, 최신성, 정확한 베이시스 포인트, 무관용 조건 및 다이제스트 검사를 통해 불완전한 전체 집합이 99% 주장으로 바뀌지 않도록 합니다. 증적은 실행 권한을 부여하지 않습니다. |
 | 정식 의사 결정 핵심 근거 봉투 | implemented | `packages/service-contracts/src/fdai_service_contracts/decision_evidence.py`; `schemas/decision-critical-evidence/1.0.0.json`; 집중 계약 테스트 | 이 봉투는 근거와 해당 인증 증명, 권위, 범위, 목적, 정확한 생성기와 방법, 시간, 정책에서 파생된 최신성, 완전성 증명, 충돌 판정, 출처 계보 및 합성 상태를 연결합니다. 주장 사전 검사는 입력을 차단하거나 별도의 권위 있는 검증으로 전달할 수만 있으며 실제 운영 준비 상태를 주장하지 않습니다. 기존 의사 결정 경계는 아직 마이그레이션해야 합니다. |
-| 독립적인 의사 결정 근거 검증 | implemented | `decision_evidence_verification.py`; `core/readiness/decision_evidence.py`; `shared/providers/decision_evidence_verifier.py`; `delivery/azure/decision_evidence.py`; 집중 계약, 준비 상태 및 Azure 어댑터 테스트 | 내용 기반 증명 5개가 인증, 근거, 완전성, 충돌 및 최신성 정책을 다룹니다. Core는 현재 유효한 신뢰 묶음이 통과한 후에만 수명이 짧고 권한이 없는 승인 결과를 생성합니다. 이제 ChatOps qualification, 운영 승격 및 보안 온톨로지 쿼리 소비가 이 승인 결과를 사용하고 각 전체 입력에 다시 연결합니다. 런타임 프로바이더 조립과 남은 준비 상태 및 상태 경계 마이그레이션은 아직 열려 있습니다. |
+| 독립적인 의사 결정 근거 검증 | implemented | `decision_evidence_verification.py`; `core/readiness/decision_evidence.py`; `shared/providers/decision_evidence_verifier.py`; `delivery/azure/decision_evidence.py`; 집중 계약, 준비 상태 및 Azure 어댑터 테스트 | 내용 기반 증명 5개가 인증, 근거, 완전성, 충돌 및 최신성 정책을 다룹니다. Core는 현재 유효한 신뢰 묶음이 통과한 후에만 수명이 짧고 권한이 없는 승인 결과를 생성합니다. 이제 ChatOps qualification, 운영 승격, 보안 온톨로지 쿼리 소비 및 운영 컨텍스트 상태 근거가 이 승인 결과를 사용하고 각 전체 입력에 다시 연결합니다. 런타임 프로바이더 조립과 남은 준비 상태 및 직접 상태 경계 마이그레이션은 아직 열려 있습니다. |
 | 고정된 시나리오 집합 계산 | in-progress | `tests/scenarios/manifests/v2026.07.json`; `test_frozen.py`; `test_v2026_07_replay.py` | 이제 SRE 묶음에는 실행 가능한 차원 4개가 있습니다. 성공적인 전체 루프와 목표 간 충돌 근거는 아직 열려 있으며 나머지 4개 묶음도 불완전합니다. |
 | 실제 운영 KPI 기준선, 처리 및 대시보드 종결 | in-progress | [데이터 수집과 원격측정](#데이터-수집과-원격측정); `config/constitution-traceability.json`의 `FDAI-CONST-002` 요구 사항 | 런타임 기록과 작업은 있지만 하나의 고정된 개정에서 모든 성공 및 임계값 0 가드 메트릭을 입증하는 완전한 실제 운영 기준선 및 처리 집단은 보존되지 않았습니다. |
 
@@ -37,6 +37,7 @@ translation_revised: 2026-08-29
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-29 | implemented | 운영 컨텍스트 상태 근거를 공유 승인 결과로 마이그레이션했습니다. 각 묶음은 재생 신원에 승인 결과를 보존하고 순환 약속값 없이 정확한 상태 항목 및 범위 다이제스트를 다시 계산하며, 승인 결과가 없거나 일치하지 않거나 만료되면 명시적 보류와 함께 `SHADOW_ONLY`로 낮춥니다. | `current change`; 운영 근거 모델, 신원, 빌더, 공유 승인 결과 매핑, 집중 묶음 및 materializer 검사, Ruff 및 strict mypy. | 권위 있는 상태 승인 결과 생성기를 연결하고 직접 상태 소비자를 마이그레이션합니다. 준비 상태 및 런타임 조립은 열려 있습니다. |
 | 2026-08-29 | implemented | 보안 온톨로지 쿼리 소비를 공유 승인 계약으로 마이그레이션했습니다. 진단을 위해 쿼리 결과를 계속 보존할 수 있지만, 의존성 해석과 의사 결정 핵심 FunctionType 검증에는 정확한 변환 결과, 범위, 목적, 온톨로지 릴리스 및 출처 세대에 연결된 현재 유효한 승인 결과가 필요합니다. 프로덕션 승인 프로바이더 seam은 연결되지 않았으므로 실패 시 차단합니다. | `current change`; 쿼리 권한, 출처 핸들러, 의미 조립, 집중 쿼리 및 조립 검사, Ruff 및 strict mypy. | 프로덕션 쿼리 승인 프로바이더를 신뢰할 수 있는 검증기 레지스트리에 연결하고 서비스 간 증적과 묶음을 보존합니다. 준비 상태 및 상태 경계를 마이그레이션합니다. |
 | 2026-08-29 | implemented | 운영 승격 준비 상태를 공유 의사 결정 근거 승인 결과로 마이그레이션했습니다. 평가기는 정확한 묶음, 리비전, 시나리오, ActionType, 목적 및 유효 구간을 연결하고 증적과 검증 묶음 다이제스트를 모두 보존하며, 이 정보 없이는 준비 완료 증적을 만들 수 없습니다. 저장소는 진단을 위해 기존 1.0 증적을 읽지만 레지스트리와 직접 실행기는 적용 모드에서 이를 모두 차단합니다. | `current change`; 운영 승격 평가기, 위험 레지스트리, 영속성 코덱, 직접 실행기 및 집중 승격 테스트, Ruff 및 strict mypy. | 프로덕션 승격 근거 출처를 독립 검증기 레지스트리에 연결합니다. 남은 준비 상태, 쿼리 및 상태 경계를 마이그레이션합니다. |
 | 2026-08-29 | implemented | 독립적인 의사 결정 근거 검증이 성공한 경우에만 생성되는 수명이 짧고 권한이 없는 승인 결과를 추가한 다음, ChatOps qualification이 정확한 묶음 근거와 범위 다이제스트를 파생하고 승인 결과가 없거나 일치하지 않거나 만료되면 차단하도록 마이그레이션했습니다. 독립 실행형 qualification CLI는 계속 진단 전용이며 검증기 결속 없이 자격을 주장할 수 없습니다. | `current change`; 공유 검증기 seam, Core 준비 상태 게이트, ChatOps qualification 축약기, 집중 단위 및 CLI 검사, Ruff 및 strict mypy. | 런타임 조립에 검증기 레지스트리를 연결하고 남은 준비 상태, 쿼리, 상태 및 승격 의사 결정 경계를 마이그레이션합니다. 검증된 집단을 주장하기 전에 프로덕션 qualification 증적과 묶음을 보존합니다. |
@@ -56,7 +57,7 @@ translation_revised: 2026-08-29
 - [ ] ARB / 변경 안전성, FinOps / 비용 거버넌스, DR 및 Chaos Engineering 묶음에 실행 가능한 헌법상 6개 차원을 모두 갖춥니다.
 - [ ] 동일한 고정 시나리오 집합에서 표본 크기, 신뢰 구간, 절대값 및 지원되지 않는 배수 주장이 없는 하나의 참조 기준선과 FDAI 처리를 보존합니다.
 - [ ] 실제 운영 인시던트, 변경, 비용, 사람 터치포인트 및 독립적으로 검증된 결과 기록을 KPI 변환 결과에 연결한 다음 모든 임계값 0 가드가 0을 유지함을 입증합니다.
-- [ ] 독립적인 검증기 레지스트리를 런타임 조립에 연결하고 남은 모든 준비 상태 및 상태 의사 결정 경계에서 `DecisionCriticalEvidenceReceipt`와 `DecisionEvidenceVerificationBundle`을 사용하며 프로덕션 qualification, 승격 및 쿼리 묶음을 보존한 다음 합성 또는 불완전 근거가 실제 운영 주장을 충족하지 못함을 입증합니다.
+- [ ] 독립적인 검증기 레지스트리를 런타임 조립에 연결하고 남은 모든 준비 상태 및 직접 상태 의사 결정 경계에서 `DecisionCriticalEvidenceReceipt`와 `DecisionEvidenceVerificationBundle`을 사용하며 프로덕션 qualification, 승격, 쿼리 및 상태 묶음을 보존한 다음 합성 또는 불완전 근거가 실제 운영 주장을 충족하지 못함을 입증합니다.
 - [x] 공급자 중립 `OperationalCoverageReceipt`를 정의하고 집중 테스트를 통해 분모,
   처리 결과, 최신성, 임계값, 무관용 조건 및 다이제스트 불변 조건을 입증합니다.
 

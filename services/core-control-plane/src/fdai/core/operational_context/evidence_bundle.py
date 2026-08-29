@@ -6,7 +6,12 @@ from collections import defaultdict
 from collections.abc import Callable, Sequence
 from datetime import datetime
 
+from fdai_service_contracts.ontology_query import content_digest
+
 from fdai.shared.contracts.models import Autonomy
+from fdai.shared.providers.decision_evidence_verifier import (
+    assess_decision_evidence_admission,
+)
 
 from .evidence_bundle_identity import (
     bind_evidence_item_source,
@@ -154,6 +159,8 @@ def build_operational_evidence_bundle(
         evidence_issues = _evidence_issues(
             cutoff=cutoff,
             trusted_recorded_at=trusted_recorded_at,
+            purpose=purpose,
+            scope=canonical_scope,
             claims=selected_claims,
             ontology=selected_ontology,
             state=selected_state,
@@ -394,6 +401,8 @@ def _evidence_issues(
     *,
     cutoff: datetime,
     trusted_recorded_at: datetime,
+    purpose: str,
+    scope: tuple[str, ...],
     claims: Sequence[ClaimRecord],
     ontology: Sequence[OntologyEvidenceItem],
     state: Sequence[StateEvidenceItem],
@@ -463,6 +472,23 @@ def _evidence_issues(
             issues.extend(
                 f"state_conflict:{item.evidence_ref}:{conflict}" for conflict in fact.conflicts
             )
+            if item.decision_evidence is None:
+                issues.append(f"decision_evidence_missing:{item.evidence_ref}")
+            else:
+                reasons = assess_decision_evidence_admission(
+                    item.decision_evidence,
+                    expected_evidence_digest=evidence_item_digest(item),
+                    expected_scope_digest=operational_state_scope_digest(
+                        purpose=purpose,
+                        scope=scope,
+                    ),
+                    expected_purpose_id=purpose,
+                    expected_source_revision=fact.source_revision,
+                    evaluated_at=trusted_recorded_at,
+                )
+                issues.extend(
+                    f"decision_evidence_{reason.value}:{item.evidence_ref}" for reason in reasons
+                )
         if isinstance(item, OntologyEvidenceItem):
             if source.verification_method != "secured-object-set-query":
                 issues.append(f"unsecured_ontology_source:{item.evidence_ref}")
@@ -474,6 +500,17 @@ def _evidence_issues(
                 )
             )
     return tuple(issues)
+
+
+def operational_state_scope_digest(*, purpose: str, scope: tuple[str, ...]) -> str:
+    """Return the canonical decision scope for state evidence in one bundle."""
+
+    return content_digest(
+        {
+            "purpose": purpose,
+            "scope": tuple(sorted(set(scope))),
+        }
+    )
 
 
 def _temporal_issues(
@@ -600,6 +637,7 @@ def _hold_reasons(
         "state_incomplete:": "evidence_incomplete",
         "state_synthetic:": "synthetic_evidence",
         "state_conflict:": "source_conflict",
+        "decision_evidence_": "decision_evidence_unverified",
     }
     for prefix, hold in issue_holds.items():
         if any(issue.startswith(prefix) for issue in evidence_issues):

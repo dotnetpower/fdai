@@ -83,6 +83,22 @@ class DecisionEvidenceAdmission:
         object.__setattr__(self, "verified_at", self.verified_at.astimezone(UTC))
         object.__setattr__(self, "valid_until", self.valid_until.astimezone(UTC))
 
+    def to_mapping(self) -> dict[str, object]:
+        """Return the canonical admission fields retained by downstream evidence."""
+
+        return {
+            "evidence_digest": self.evidence_digest,
+            "execution_authority": False,
+            "promotion_authority": False,
+            "purpose_id": self.purpose_id,
+            "receipt_digest": self.receipt_digest,
+            "scope_digest": self.scope_digest,
+            "source_revision": self.source_revision,
+            "valid_until": self.valid_until.isoformat(),
+            "verification_bundle_digest": self.verification_bundle_digest,
+            "verified_at": self.verified_at.isoformat(),
+        }
+
 
 def assess_decision_evidence_admission(
     admission: DecisionEvidenceAdmission,

@@ -1,20 +1,17 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: a5b3a9e260d791465f2d3289627cbd6330f17721
-translation_revised: 2026-08-28
+translation_source_sha: eb95f63686478d05506e6658b0390ac797ac47c9
+translation_revised: 2026-08-29
 ---
 # FDAI 운영 온톨로지
 
-이 문서는 FDAI의 15개 에이전트가 사용하는 타입이 지정된 operational truth infrastructure를 정의합니다. 활성 컨트롤 플레인은 에이전트이며, 온톨로지는 대상 신원, 의존성, 목표, 근거,
-허용 액션, 예상 효과의 해석이 서로 달라지지 않도록 제한합니다. 업스트림은 안정적인 cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의도를 제공합니다.
+이 문서는 FDAI의 15개 에이전트가 사용하는 타입이 지정된 operational truth infrastructure를 정의합니다. 활성 컨트롤 플레인은 에이전트이며, 온톨로지는 대상 신원, 의존성, 목표, 근거, 허용 액션, 예상 효과의 해석이 서로 달라지지 않도록 제한합니다. 업스트림은 안정적인 cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의도를 제공합니다.
 
 > **Positioning:** FDAI는 agent-driven이며 ontology-driven이 아닙니다. Graph는 해석을 제한하고 에이전트 작업을 재생 가능하게 하지만 sensing, judgment, 승인, 실행, 복구, learning을 수행하지 않습니다.
-> 다만 그래프는 필수 읽기 경로입니다. 운영 질문은 ad hoc 프로바이더 조회가 아니라 온톨로지를 통해 객체 신원, 관계, 근거를 해석하므로, 답이 의존하는 근거는
-> 타입이 지정된·범위가 제한된·citable 상태로 유지되고 관측하지 못한 범위까지 밝힐 수 있습니다.
+> 다만 그래프는 필수 읽기 경로입니다. 운영 질문은 ad hoc 프로바이더 조회가 아니라 온톨로지를 통해 객체 신원, 관계, 근거를 해석하므로, 답이 의존하는 근거는 타입이 지정된·범위가 제한된·citable 상태로 유지되고 관측하지 못한 범위까지 밝힐 수 있습니다.
 
-> **권한 경계:** 온톨로지 그래프는 공유 의미 읽기 모델이며 변경 가능한 system of 기록 또는 실행 표면이 아닙니다. Event, 승인된 구성, 텔레메트리 출처, 추가 전용 감사
-> 원장, catalog-as-code는 각자 소유한 사실의 권한으로 유지됩니다.
+> **권한 경계:** 온톨로지 그래프는 공유 의미 읽기 모델이며 변경 가능한 system of 기록 또는 실행 표면이 아닙니다. Event, 승인된 구성, 텔레메트리 출처, 추가 전용 감사 원장, catalog-as-code는 각자 소유한 사실의 권한으로 유지됩니다.
 >
 > 변환 결과 갱신은 언제나 권위 있는 재관측을 뒤따릅니다. 의도했거나 발송한 효과를 되쓰는 write-back이 아닙니다. 실행기 결과는 `execution_ledger` 권한을 지닌 `execution` lane 사실이며,
 > `shared/providers/state_evidence.py`의 lane 행렬이 이를 `observed`, `derived`, `desired` lane에서 거부합니다. 따라서 "FDAI가 바꿨으니 그래프가 바뀌었다고 말한다"는 경로는 표현 자체가 불가능합니다.
@@ -94,6 +91,7 @@ translation_revised: 2026-08-28
 |------|------|------|------|
 | O1 의미 체계와 카탈로그 무결성 | implemented | [`test_ontology_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_catalog.py), [`test_ontology_provenance.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_provenance.py) | 통합 카탈로그가 운영 의미 체계, 출처 이력, 참조 및 cardinality를 검증합니다. |
 | O2 범위 제한 맥락과 현재 상태 변환 결과 | in-progress | [`ontology_instance.py`](../../../services/core-control-plane/src/fdai/shared/providers/ontology_instance.py), [`console_projection.py`](../../../services/core-control-plane/src/fdai/core/operational_context/console_projection.py), focused 인스턴스 및 컨텍스트 변환 결과 테스트 | 타입이 지정된 현재 상태 객체와 링크가 있습니다. 이제 보안 receipt의 목적, 릴리스, 기준 시각 및 그래프 범위가 모두 일치할 때만 범위가 제한되고 권한이 없는 컨텍스트 메타데이터를 만들 수 있습니다. Principal 범위 전송과 인증된 런타임 근거는 남아 있습니다. |
+| 운영 상태 의사 결정 근거 승인 | implemented | [`evidence_bundle.py`](../../../services/core-control-plane/src/fdai/core/operational_context/evidence_bundle.py), [`test_evidence_bundle.py`](../../../services/core-control-plane/tests/core/operational_context/test_evidence_bundle.py) | 의사 결정에 연결된 각 상태 항목은 공유 증적 및 검증 묶음 승인 결과를 보존합니다. 묶음은 정확한 상태 항목 및 범위 다이제스트를 다시 계산하고 승인 결과가 없거나 일치하지 않거나 만료되면 명시적 보류와 함께 `SHADOW_ONLY`로 낮춥니다. 운영 근거 묶음을 거치지 않는 직접 상태 소비자는 별도 마이그레이션 작업으로 남아 있습니다. |
 | O3-O5 결정, 결과 및 통제된 learning 루프 | in-progress | [제공 계획](#제공-계획), [`test_ontology_alignment.py`](../../../services/core-control-plane/tests/agents/test_ontology_alignment.py) | 핵심 구획은 있지만 모든 운영 경로에서 효과 종결과 통제된 learning이 완료되지는 않았습니다. |
 | 결정과 학습 writer | in-progress | [`hypothesis_lineage.py`](../../../services/core-control-plane/src/fdai/core/operational_planning/hypothesis_lineage.py), [`_execution.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_execution.py), 집중 계보 및 독립 결과 검사 | `OperationalOutcomeLineageProducer`는 Forseti가 소유한 prospective record가 이미 존재할 때만 단일 효과 에피소드 하나를 종결합니다. 실제 ControlLoop 호출 지점은 런타임 `Action`, 정확한 ActionType 버전, 실행기 시작·종료 시각, terminal 상태와 receipt, `IndependentEffectObserver` 뒤에서 생성된 scorable `ResponseOutcome`을 제공합니다. Prospective record가 없으면 아무것도 쓰지 않으며, 응답 계약에 완전성 receipt가 없으므로 producer는 `telemetry_complete=false`를 기록합니다. 어느 조립 루트도 source, sink 또는 projector를 연결하지 않습니다. 남은 prospective 필드, 다중 효과 독립 결과 및 명시적 telemetry completeness에는 composition 전에 이름이 지정된 권위 있는 생산자가 필요합니다. |
 | 최종 결정 계보 writer | implemented | [`operational_lineage.py`](../../../services/core-control-plane/src/fdai/delivery/operational_lineage.py), [`hypothesis_lineage.py`](../../../services/core-control-plane/src/fdai/core/operational_planning/hypothesis_lineage.py), 집중 계보 및 reconciliation 검사 | 독립 관측된 최종 reconciliation이 exact 영속 plan, proposal, safety receipt, observation 및 context 신원을 해석한 뒤 `DecisionCase -> ActionOption -> ExpectedEffect -> ActionRun -> ObservedOutcome`을 적재합니다. 독립적인 대상 관측에 해당 예상 효과의 정확한 metric이 있을 때만 outcome을 scorable로 기록합니다. Raw action argument는 변환하지 않습니다. Pattern learning은 별도입니다. |
@@ -107,6 +105,7 @@ translation_revised: 2026-08-28
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-29 | implemented | 운영 컨텍스트 상태 근거 경계를 공유 의사 결정 근거 승인 결과로 마이그레이션했습니다. 묶음 신원은 승인 결과를 보존하지만 순환 약속값을 피하기 위해 의사 결정 다이제스트에서는 제외합니다. 승인 결과가 없거나 일치하지 않거나 만료되면 범위가 제한된 근거 문제로 기록하고 `SHADOW_ONLY` 자율성의 `decision_evidence_unverified` 보류를 강제합니다. | `current change`; 운영 근거 모델, 신원, 빌더, 공유 승인 결과 매핑, 집중 묶음 및 materializer 테스트, Ruff 및 strict mypy. | 권위 있는 상태 승인 결과 생성기를 연결하고 운영 근거 묶음을 우회하는 직접 상태 소비자를 마이그레이션합니다. |
 | 2026-08-26 | implemented | UID에 근거한 Ingress, IngressClass, EndpointSlice Resource와 정확한 Node `providerID` -> VMSS VM 아이덴티티 연결로 프로바이더에서 관찰한 Kubernetes 의미를 확장했습니다. Service 선택자는 네임스페이스 범위를 유지하고, 불완전한 Ingress 백엔드 집합은 일부 경로를 내보내지 않으며, 이름이나 식별자 접두사는 연결을 만들지 않습니다. | `current change`, 집중 Kubernetes, 프로바이더 매핑, ResourceType, ResourceClass, 인벤토리 승격 및 카탈로그 검사 111개가 통과했습니다. | 런타임 검증을 주장하기 전에 하나의 완전하고 정확한 클러스터 Kubernetes 세대를 보존합니다. |
 | 2026-08-19 | validated | Service-owned 인벤토리 entry point의 composition parity를 맞춘 뒤 identity-complete provider graph를 승격하고 측정했습니다. Provider fence는 native 객체 533개를 보고합니다. 검토된 mapping 476개와 예약 미분류 신원 57개가 provider type 68종에 걸쳐 있고 `provider_identity_complete=true`입니다. 스냅샷과 온톨로지는 각각 Resource 573개를 유지하며 두 identity 집합의 차이는 0이고 realtime overlay에는 Resource와 link가 모두 0개입니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217), coverage schema `1.1.0`, 최종 로컬 observation은 aggregate graph record 1,215개의 fresh inventory를 보고합니다. | 배포가 검토한 service mapping으로 `unknown_service`를 줄일 수 있습니다. Provider identity, projection parity 또는 realtime overlay 잔여는 없습니다. |
 | 2026-08-19 | validated | `project_operating_scope`를 PostgreSQL 기반 인증 인벤토리 그래프 응답에 연결했습니다. 범위가 제한된 역방향 링크 조회 두 개가 응답 Resource에서 끝나는 서비스 경로만 해석합니다. 모든 Resource는 `service_ref`를 포함하고, 불완전한 입력 또는 대응되지 않은 범위는 정상적인 부재 주장이 아니라 명시적 coverage gap이 됩니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Focused consumer 검사 4개와 strict mypy가 통과했습니다. 읽기 전용 loopback 측정에서 응답 Resource 213/213개가 표시됐고 `input_complete=true`, `complete=false`, `operating_scope_unmapped`를 반환했습니다. | 검토된 BusinessService와 Workload mapping을 제공해 측정된 `unknown_service` 집합을 줄입니다. Consumer 연결 작업은 남지 않았습니다. |
@@ -646,9 +645,7 @@ Admission 전에 각 레인 항목은 근거 참조와 exact 레인 내용을 �
 다이제스트를 다시 계산하며 같은 증적 아래에서 excerpt, 그래프 경로 또는 상태 사실이 바뀌면
 거부합니다. Injected 증적 검증기는 증적, 레인, 항목 다이제스트, 정본 페이로드 및 레인별
 구성원 근거를 받으므로 증적 참조만 확인하지 않고 출처 inclusion 증명을 검증할 수
-있습니다. 상태 근거에서는 최신성 상한, 완전성, synthetic 상태 및 충돌이
-`StateFactMetadata`와 정확히 일치해야 하며, 번들은 보류를 도출할 때 이 메타데이터 필드를 직접
-평가합니다.
+있습니다. 상태 근거에서는 최신성 상한, 완전성, synthetic 상태 및 충돌이 `StateFactMetadata`와 정확히 일치해야 합니다. 의사 결정에 연결된 상태 항목은 정확한 상태 항목을 포함하는 근거 다이제스트와 묶음의 범위, 목적 및 출처 리비전이 일치하는 현재 유효한 공유 승인 결과도 보존합니다. 번들은 보류를 도출할 때 이 필드를 직접 평가합니다.
 
 각 exact 점유는 정본 JSON, 대상, 조건식, 타입이 지정된 effective/근거/기록된 범위 및
 근거 참조, 항목 다이제스트, 출처 개정 번호를 포함하는 인용 연결을 저장합니다. 인용
