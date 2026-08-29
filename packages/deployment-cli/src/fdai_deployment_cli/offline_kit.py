@@ -99,6 +99,8 @@ def build_offline_kit_manifest(
         "opa_binary": _relative_path(opa_binary),
         "sbom_path": _relative_path(sbom_path),
     }
+    if not required["python_wheel"].startswith("python/"):
+        raise OfflineKitVerificationError("offline kit Python wheel MUST be under python/")
     files, _sizes, _total = _scan_tree(root)
     for label in (
         "python_wheel",
@@ -199,6 +201,8 @@ def verify_offline_kit(
             value = payload[field]
             if not isinstance(value, str) or _relative_path(value) not in declared:
                 raise OfflineKitVerificationError(f"offline kit {field} is not declared")
+        if not _payload_text(payload, "python_wheel").startswith("python/"):
+            raise OfflineKitVerificationError("offline kit Python wheel MUST be under python/")
         prefix_value = payload["provider_mirror_prefix"]
         if not isinstance(prefix_value, str):
             raise OfflineKitVerificationError("offline kit provider mirror prefix is invalid")

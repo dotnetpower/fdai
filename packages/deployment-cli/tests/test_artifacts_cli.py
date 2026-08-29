@@ -168,7 +168,8 @@ def test_offline_kit_verifies_signature_exact_files_and_compatibility(tmp_path: 
 def test_offline_kit_rejects_symlink(tmp_path: Path) -> None:
     target = tmp_path / "target"
     target.write_text("value", encoding="utf-8")
-    (tmp_path / "linked").symlink_to(target)
+    (tmp_path / "python").mkdir()
+    (tmp_path / "python/linked").symlink_to(target)
     with pytest.raises(OfflineKitVerificationError, match="symlinks"):
         build_offline_kit_manifest(
             tmp_path,
@@ -176,12 +177,29 @@ def test_offline_kit_rejects_symlink(tmp_path: Path) -> None:
             cli_version="0.1.0",
             bundle_version="0.1.0",
             platform_tag="linux-x86_64",
-            python_wheel="linked",
+            python_wheel="python/linked",
             deployment_bundle="linked",
             terraform_binary="linked",
             provider_mirror_prefix="linked",
             opa_binary="linked",
             sbom_path="linked",
+        )
+
+
+def test_offline_kit_requires_wheel_under_python_directory(tmp_path: Path) -> None:
+    with pytest.raises(OfflineKitVerificationError, match="under python"):
+        build_offline_kit_manifest(
+            tmp_path,
+            kit_version="0.1.0",
+            cli_version="0.1.0",
+            bundle_version="0.1.0",
+            platform_tag="linux-x86_64",
+            python_wheel="wheel.whl",
+            deployment_bundle="deployment/bundle.tar.gz",
+            terraform_binary="terraform/terraform",
+            provider_mirror_prefix="terraform/providers",
+            opa_binary="bin/opa",
+            sbom_path="sbom/offline-kit.cdx.json",
         )
 
 
