@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 575c8f64fd30faa1670d88597bbe6ecc98942588
+translation_source_sha: 7d75a4afa1d0aa69e766c72198614e3eb1d70afe
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -301,6 +301,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H74 | AzureRM 계획이 변경 없음으로 보고하면서 리소스 공급자를 자동 등록할 수 있었습니다. 이제 격리 계획 환경이 공급자 등록을 `none`으로 강제합니다. | `test_terraform_environment_accepts_target_bound_managed_identity` |
 | H75 | 훈련이 고정된 키트 스냅샷만 사용하면서도 주변 Terraform을 요구했습니다. 오래된 호스트 선행 조건을 제거했습니다. | `test_release_scripts_use_the_installable_distribution` |
 | H76 | 오프라인 라이선스 점검이 런타임이 거부하는 타임스탬프 형식과 포괄 만료를 허용했습니다. 이제 정규 UTC `Z`, 기능 개수 상한, 배타 `not_after`를 적용합니다. | `test_license_rejects_noncanonical_timestamp` |
+| H77 | 번들 SBOM 검증이 중복 정규 경로를 조용히 덮어썼습니다. 이제 offline-kit 검증기와 같이 모호한 중복 구성 요소 경로를 거부합니다. | `test_bundle_rejects_duplicate_sbom_paths` |
 
 ## 관련 문서
 
