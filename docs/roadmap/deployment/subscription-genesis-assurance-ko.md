@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 9b7f214766ab8effdba3ea90886391a503946956
+translation_source_sha: cc0bbb62716a12b1b8d2e5be1f176870adb6c5d4
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -303,6 +303,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H76 | 오프라인 라이선스 점검이 런타임이 거부하는 타임스탬프 형식과 포괄 만료를 허용했습니다. 이제 정규 UTC `Z`, 기능 개수 상한, 배타 `not_after`를 적용합니다. | `test_license_rejects_noncanonical_timestamp` |
 | H77 | 번들 SBOM 검증이 중복 정규 경로를 조용히 덮어썼습니다. 이제 offline-kit 검증기와 같이 모호한 중복 구성 요소 경로를 거부합니다. | `test_bundle_rejects_duplicate_sbom_paths` |
 | H78 | 계획 입력이 검토된 환경을 누락해 Terraform의 빈 기본값이 운영 게이트를 우회할 수 있었습니다. 이제 프로필 환경을 `env`로 명시적으로 주입합니다. | `test_plan_input_injects_reviewed_environment` |
+| H79 | 설치된 CLI 검사가 주변 `PYTHONPATH`와 `PYTHONHOME`을 상속해 체크아웃 코드가 제공 wheel을 가릴 수 있었습니다. 이제 격리 훈련이 검증 및 실행 전에 두 값을 제거합니다. | `test_release_scripts_use_the_installable_distribution` |
 
 ## 관련 문서
 

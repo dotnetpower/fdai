@@ -117,6 +117,8 @@ target evidence, requires Azure CLI as a local prerequisite, and expects its dis
 provider-authentication marker. Repeated `--skip-stage` drills recreate their isolated Azure
 configuration instead of inheriting prior run state. It needs no ambient Terraform because it uses
 the authenticated kit snapshot.
+It also clears Python import overrides before invoking the installed distribution, so checkout
+source cannot shadow a shipped wheel.
 The connected stage issues its synthetic license through the current Core and service-contract
 package roots rather than the retired monolithic source path, and verifies the issued Ed25519
 signature without a removed delivery adapter.
