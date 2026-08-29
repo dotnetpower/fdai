@@ -48,7 +48,12 @@ class BundleVerification:
         )
 
 
-def verify_bundle(root: Path, *, public_key_pem: bytes) -> BundleVerification:
+def verify_bundle(
+    root: Path,
+    *,
+    public_key_pem: bytes,
+    cli_version: str = "0.1.0",
+) -> BundleVerification:
     """Verify signature, canonical manifest, exact file set, and every digest."""
 
     manifest_path = root / "manifest.json"
@@ -74,6 +79,16 @@ def verify_bundle(root: Path, *, public_key_pem: bytes) -> BundleVerification:
         raise BundleVerificationError("deployment bundle manifest schema does not match")
     if canonical_bytes(payload) + b"\n" != manifest:
         raise BundleVerificationError("deployment bundle manifest is not canonical")
+    current = _semver(cli_version, "CLI version")
+    minimum = _semver(_text(payload, "min_cli_version"), "minimum CLI version")
+    maximum_value = payload["max_cli_version"]
+    if maximum_value is not None and not isinstance(maximum_value, str):
+        raise BundleVerificationError("deployment bundle maximum CLI version is invalid")
+    maximum = (
+        _semver(maximum_value, "maximum CLI version") if isinstance(maximum_value, str) else None
+    )
+    if current < minimum or (maximum is not None and current > maximum):
+        raise BundleVerificationError("deployment bundle is incompatible with this CLI version")
     files_value = payload["files"]
     if not isinstance(files_value, dict) or not files_value:
         raise BundleVerificationError("deployment bundle files MUST be a non-empty object")
@@ -176,3 +191,10 @@ def _text(value: dict[str, object], field: str) -> str:
     if not isinstance(item, str) or not item:
         raise BundleVerificationError(f"deployment bundle {field} MUST be text")
     return item
+
+
+def _semver(value: str, label: str) -> tuple[int, int, int]:
+    match = re.fullmatch(r"(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)", value)
+    if match is None:
+        raise BundleVerificationError(f"deployment bundle {label} is not semantic version")
+    return tuple(int(item) for item in match.groups())  # type: ignore[return-value]

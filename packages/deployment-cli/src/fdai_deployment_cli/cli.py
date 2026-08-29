@@ -264,7 +264,11 @@ def _safe_plan_error(output: str) -> str:
 
 def _bundle_verify(args: argparse.Namespace) -> int:
     try:
-        result = verify_bundle(args.bundle, public_key_pem=args.public_key.read_bytes())
+        result = verify_bundle(
+            args.bundle,
+            public_key_pem=args.public_key.read_bytes(),
+            cli_version=__version__,
+        )
     except BundleVerificationError:
         raise
     print(result.to_json() if args.output == "json" else f"verified {result.file_count} files")

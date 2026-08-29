@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 2d6c3b874b8ebb66705de44fadb9b794d42d9b2f
+translation_source_sha: d1c995061cc3b2b9b7fc623df370ad1c36b90936
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -237,6 +237,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H10 | 번들 해시에도 같은 교체 경쟁과 집계 크기 상한 부재가 있었습니다. 이제 해시 중 서술자 신원을 확인하고 파일, 개수, 전체 크기 상한을 적용합니다. | `test_bundle_hash_rejects_replaced_file_identity` |
 | H11 | 로컬 점검이 도구 설치만으로 Azure 활성 계정이 없는 상태를 준비 완료로 처리했습니다. 이제 식별자를 노출하지 않는 읽기 전용 인증 검사를 수행하고 실패 시 차단합니다. | `test_azure_authentication_fails_closed_without_login` |
 | H12 | 오프라인 키트가 `fdaictl` wheel만 준비하고 전이 런타임 wheel을 누락했습니다. 이제 릴리스 준비가 해시로 고정된 운영 의존성을 내보내고 바이너리 wheel을 서명 키트에 포함합니다. | `test_release_scripts_use_the_installable_distribution` |
+| H13 | 번들 검증이 콘텐츠를 인증했지만 선언된 CLI 호환성 구간을 무시했습니다. 이제 서명된 최소 및 최대 버전을 벗어나면 차단합니다. | `test_bundle_rejects_incompatible_cli_version` |
 
 ## 관련 문서
 

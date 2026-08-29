@@ -160,6 +160,30 @@ def test_bundle_hash_rejects_replaced_file_identity(tmp_path: Path) -> None:
         _sha256(observed, expected=expected.stat())
 
 
+def test_bundle_rejects_incompatible_cli_version(tmp_path: Path) -> None:
+    private, public = _keys()
+    payload = tmp_path / "infra/main.tf"
+    payload.parent.mkdir()
+    payload.write_text("terraform {}", encoding="utf-8")
+    import hashlib
+
+    manifest = {
+        "schema_version": "fdai.deployment.bundle.v1",
+        "bundle_version": "0.1.0",
+        "release_channel": "development",
+        "min_cli_version": "0.2.0",
+        "max_cli_version": None,
+        "sbom_path": "infra/main.tf",
+        "files": {"infra/main.tf": hashlib.sha256(payload.read_bytes()).hexdigest()},
+    }
+    document = canonical_bytes(manifest) + b"\n"
+    (tmp_path / "manifest.json").write_bytes(document)
+    (tmp_path / "manifest.json.sig").write_bytes(private.sign(document))
+
+    with pytest.raises(BundleVerificationError, match="incompatible"):
+        verify_bundle(tmp_path, public_key_pem=public, cli_version="0.1.0")
+
+
 def test_license_inspection_verifies_signature_and_time() -> None:
     private, public = _keys()
     now = datetime(2026, 8, 29, tzinfo=UTC)

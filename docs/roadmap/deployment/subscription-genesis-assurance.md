@@ -244,6 +244,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H10 | Bundle hashing had the same replacement race and no aggregate size bounds. It now checks descriptor identity during hashing and enforces file, count, and total ceilings. | `test_bundle_hash_rejects_replaced_file_identity` |
 | H11 | Local inspection treated installed tools as readiness even when Azure had no active account. It now performs a read-only, identifier-free authentication check and fails closed. | `test_azure_authentication_fails_closed_without_login` |
 | H12 | The offline kit staged only the `fdaictl` wheel and omitted its transitive runtime wheels. Release staging now exports hashed production dependencies and downloads binary wheels into the signed kit. | `test_release_scripts_use_the_installable_distribution` |
+| H13 | Bundle verification authenticated content but ignored its declared CLI compatibility window. It now blocks versions outside the signed minimum and maximum. | `test_bundle_rejects_incompatible_cli_version` |
 
 ## Related docs
 
