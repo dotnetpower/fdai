@@ -107,6 +107,8 @@ same verifier safely extracts and verifies the signed bundle before Terraform re
 snapshot rather than the original kit.
 Connected staging also requires the committed deployment CLI lock and exact Hatchling and pip
 versions before it can sign an offline kit.
+Offline planning recomputes the profile target digest from concrete tenant and subscription input,
+matches the profile region, and supplies the verified subscription to Terraform.
 
 The C1 commands use stable JSON schemas for automation. `provision init` captures only the active
 subscription and tenant identifiers, environment, region, remote-runner boundary, and shadow-mode

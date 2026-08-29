@@ -729,13 +729,16 @@ def test_terraform_environment_rejects_ambient_plan_controls(tmp_path: Path) -> 
             work_dir=work,
             config=config,
             source={"HOME": str(tmp_path), "TF_CLI_ARGS_plan": "-destroy"},
+            subscription_id="00000000-0000-0000-0000-000000000001",
         )
 
     environment = _terraform_environment(
         work_dir=work,
         config=config,
         source={"HOME": str(tmp_path), "UNRELATED_SECRET": "do-not-copy"},
+        subscription_id="00000000-0000-0000-0000-000000000001",
     )
     assert "UNRELATED_SECRET" not in environment
     assert environment["TF_IN_AUTOMATION"] == "1"
     assert environment["TF_DATA_DIR"].endswith("terraform-data")
+    assert environment["ARM_SUBSCRIPTION_ID"] == "00000000-0000-0000-0000-000000000001"

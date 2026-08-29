@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
-import re
 import shutil
 import subprocess
 from dataclasses import dataclass
+
+from fdai_deployment_cli.target import compute_target_binding
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,12 +120,9 @@ def azure_active_target_binding() -> str | None:
         return None
     subscription = value.get("subscription")
     tenant = value.get("tenant")
-    guid = re.compile(
-        r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
-    )
     if not isinstance(subscription, str) or not isinstance(tenant, str):
         return None
-    if guid.fullmatch(subscription) is None or guid.fullmatch(tenant) is None:
+    try:
+        return compute_target_binding(tenant_id=tenant, subscription_id=subscription)
+    except ValueError:
         return None
-    material = f"{tenant.lower()}:{subscription.lower()}".encode()
-    return hashlib.sha256(material).hexdigest()

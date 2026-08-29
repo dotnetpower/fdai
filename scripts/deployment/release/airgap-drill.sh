@@ -128,7 +128,8 @@ cat > "$WORKDIR/plan-input.tfvars.json" <<'EOF'
   "postgres_admin_login": "fdaiadmin",
   "postgres_admin_password": "FDAI-PLAN-ONLY-NOT-A-SECRET",
   "region": "koreacentral",
-  "target_binding": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "subscription_id": "00000000-0000-0000-0000-000000000001",
+  "target_binding": "34159426193cae792732df54bbe5872aa3b33468cff3834a5cc32d140b9e5257",
   "tenant_id": "00000000-0000-0000-0000-000000000000"
 }
 EOF
@@ -144,7 +145,7 @@ cat > "$WORKDIR/offline-profile.json" <<'EOF'
   "region": "koreacentral",
   "schema_version": "fdai.provision-profile.v1",
   "shadow_only": true,
-  "target_binding": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "target_binding": "34159426193cae792732df54bbe5872aa3b33468cff3834a5cc32d140b9e5257",
   "transport": "manual"
 }
 EOF

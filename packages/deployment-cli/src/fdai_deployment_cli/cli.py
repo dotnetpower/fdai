@@ -224,6 +224,10 @@ def _provision_plan(args: argparse.Namespace) -> int:
     active_target = azure_active_target_binding()
     if active_target is not None and active_target != profile.target_binding:
         raise ValueError("active Azure target does not match the provision profile")
+    profile = load_profile(args.profile)
+    active_target = azure_active_target_binding()
+    if active_target is not None and active_target != profile.target_binding:
+        raise ValueError("active Azure target does not match the provision profile")
     verification = verify_offline_kit(
         args.offline_kit,
         release_root_pem=args.release_root.read_bytes(),
@@ -267,16 +271,18 @@ def _provision_plan(args: argparse.Namespace) -> int:
         "  }\n"
         "}\n",
     )
+    variables_file = work_dir / "plan.auto.tfvars.json"
+    plan_context = snapshot_plan_input(
+        args.variables_file,
+        variables_file,
+        expected_target_binding=profile.target_binding,
+        expected_region=profile.region,
+    )
     environment = _terraform_environment(
         work_dir=work_dir,
         config=config,
         source=os.environ,
-    )
-    variables_file = work_dir / "plan.auto.tfvars.json"
-    snapshot_plan_input(
-        args.variables_file,
-        variables_file,
-        expected_target_binding=profile.target_binding,
+        subscription_id=plan_context.subscription_id,
     )
     subprocess.run(
         [str(terraform), "init", "-backend=false", "-input=false"],
@@ -336,6 +342,7 @@ def _terraform_environment(
     work_dir: Path,
     config: Path,
     source: Mapping[str, str],
+    subscription_id: str,
 ) -> dict[str, str]:
     """Build a minimal Terraform environment and reject ambient control injection."""
 
@@ -357,6 +364,7 @@ def _terraform_environment(
             "TF_CLI_CONFIG_FILE": str(config),
             "TF_DATA_DIR": str(data_dir),
             "TF_IN_AUTOMATION": "1",
+            "ARM_SUBSCRIPTION_ID": subscription_id,
         }
     )
     return environment
