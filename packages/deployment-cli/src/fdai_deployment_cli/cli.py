@@ -197,7 +197,7 @@ def _provision_inspect(args: argparse.Namespace) -> int:
     )
     checks = inspect_tools(required_tools)
     active_target = azure_active_target_binding()
-    authenticated = active_target is not None
+    authenticated = active_target is not None and azure_cli_authenticated()
     target_matches = active_target == profile.target_binding
     base_ready = all(check.available for check in checks) and authenticated and target_matches
     state = "review" if base_ready else "incomplete"

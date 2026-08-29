@@ -750,6 +750,10 @@ def test_local_inspection_cannot_claim_execution_host_readiness(
         "fdai_deployment_cli.cli.azure_active_target_binding",
         lambda: "a" * 64,
     )
+    monkeypatch.setattr(  # type: ignore[attr-defined]
+        "fdai_deployment_cli.cli.azure_cli_authenticated",
+        lambda: True,
+    )
 
     assert main(["provision", "inspect", "--profile", str(profile), "--output", "json"]) == 2
     result = json.loads(capsys.readouterr().out)
@@ -799,6 +803,10 @@ def test_manual_profile_does_not_require_github_cli(
     monkeypatch.setattr(  # type: ignore[attr-defined]
         "fdai_deployment_cli.cli.azure_active_target_binding",
         lambda: "a" * 64,
+    )
+    monkeypatch.setattr(  # type: ignore[attr-defined]
+        "fdai_deployment_cli.cli.azure_cli_authenticated",
+        lambda: True,
     )
 
     assert main(["provision", "inspect", "--profile", str(profile)]) == 2

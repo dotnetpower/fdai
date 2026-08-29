@@ -24,7 +24,9 @@ def test_azure_authentication_is_read_only_and_redacted(monkeypatch: object) -> 
         [
             "/usr/bin/az",
             "account",
-            "show",
+            "get-access-token",
+            "--resource-type",
+            "arm",
             "--output",
             "none",
             "--only-show-errors",

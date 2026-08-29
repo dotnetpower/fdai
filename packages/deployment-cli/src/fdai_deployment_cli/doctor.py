@@ -80,7 +80,9 @@ def azure_cli_authenticated() -> bool:
             [
                 executable,
                 "account",
-                "show",
+                "get-access-token",
+                "--resource-type",
+                "arm",
                 "--output",
                 "none",
                 "--only-show-errors",
