@@ -126,7 +126,9 @@ source cannot shadow a shipped wheel.
 The connected stage issues its synthetic license through the current Core and service-contract
 package roots rather than the retired monolithic source path, and verifies the issued Ed25519
 signature without a removed delivery adapter. License output is a new private file; issuance never
-truncates or replaces an existing path.
+truncates or replaces an existing path. Release utilities read signing keys through one nonblocking,
+no-follow, 65536-byte regular-file boundary. Private keys must be owned by the current UID with mode
+`0600`.
 Connected plans expose only a validated Azure CLI path or target-bound Managed Identity variables
 to Terraform; unrelated environment values remain excluded.
 

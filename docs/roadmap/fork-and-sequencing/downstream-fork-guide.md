@@ -392,7 +392,9 @@ Hard don'ts. Any of these is a merge-blocker:
   or a deployment; an unbound one works for whoever can read it. The fork binds
   its runtime `LicenseVerifier`; release issuance and `fdaictl` inspection use
   their independent Ed25519 verification paths. Issuance writes only to a new
-  private output and never replaces an existing token file.
+  private output and never replaces an existing token file. Release key inputs
+  are bounded nonblocking regular files, and private keys require current-UID
+  ownership with mode `0600`.
 - [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md) -
   the customer-agnostic scope contract every fork honors.
 

@@ -14,10 +14,15 @@ import subprocess
 import sys
 import tarfile
 from pathlib import Path, PurePosixPath
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+if TYPE_CHECKING:
+    from scripts.deployment.release.secure_key_file import read_key_file
+else:
+    from secure_key_file import read_key_file
 
 _ROOTS: Final[tuple[str, ...]] = (
     "infra",
@@ -253,7 +258,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-cli-version", default=None)
     args = parser.parse_args(argv)
     try:
-        private_key = args.private_key.read_bytes()
+        private_key = read_key_file(args.private_key, private=True)
         epoch = int(os.environ.get("SOURCE_DATE_EPOCH", "0"))
         build_bundle(
             args.source,

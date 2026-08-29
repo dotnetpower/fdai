@@ -26,6 +26,7 @@ import os
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
@@ -42,6 +43,11 @@ from fdai.core.licensing import (
     encode_license_token,
 )
 from fdai.core.licensing.token import parse_license_token
+
+if TYPE_CHECKING:
+    from scripts.deployment.release.secure_key_file import read_key_file
+else:
+    from secure_key_file import read_key_file
 
 
 class LicenseIssueError(RuntimeError):
@@ -123,8 +129,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         token = issue_license(
-            private_key_pem=args.private_key.read_bytes(),
-            public_key_pem=args.public_key.read_bytes(),
+            private_key_pem=read_key_file(args.private_key, private=True),
+            public_key_pem=read_key_file(args.public_key, private=False),
             license_id=args.license_id,
             distribution_id=args.distribution_id,
             capability_ids=tuple(args.capabilities),

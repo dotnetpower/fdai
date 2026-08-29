@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
@@ -37,6 +38,11 @@ from fdai_deployment_cli.offline_kit import (
     build_offline_kit_manifest,
     verify_offline_kit,
 )
+
+if TYPE_CHECKING:
+    from scripts.deployment.release.secure_key_file import read_key_file
+else:
+    from secure_key_file import read_key_file
 
 
 class OfflineKitBuildError(RuntimeError):
@@ -131,8 +137,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         report = sign_offline_kit(
             args.kit,
-            private_key_pem=args.private_key.read_bytes(),
-            release_root_pem=args.release_root.read_bytes(),
+            private_key_pem=read_key_file(args.private_key, private=True),
+            release_root_pem=read_key_file(args.release_root, private=False),
             kit_version=args.kit_version,
             cli_version=args.cli_version,
             bundle_version=args.bundle_version,

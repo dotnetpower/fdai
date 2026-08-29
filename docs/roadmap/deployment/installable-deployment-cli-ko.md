@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: ae2d9adb7aa1486e4093d4b18737e3497de4d5e6
+translation_source_sha: bc78546e1009bb179df076dc0735084bf1424f91
 translation_revised: 2026-08-29
 ---
 # 설치형 배포 CLI
@@ -125,7 +125,9 @@ Azure CLI를 로컬 선행 조건으로 검사하며 구분된 정제 공급자 
 wheel을 가리지 못하게 합니다.
 연결된 준비 단계는 폐기된 단일 소스 경로가 아니라 현재 Core 및 서비스 계약 패키지 루트에서
 합성 라이선스를 발급하고 제거된 전달 어댑터 없이 발급한 Ed25519 서명을 검증합니다. 라이선스
-출력은 새 비공개 파일이며 기존 경로를 자르거나 교체하지 않습니다.
+출력은 새 비공개 파일이며 기존 경로를 자르거나 교체하지 않습니다. release 유틸리티는 하나의
+비차단, 심볼릭 링크 차단, 65536바이트 일반 파일 경계를 통해 서명 키를 읽습니다. 비공개 키는
+현재 UID가 소유하고 mode `0600`이어야 합니다.
 연결된 계획은 검증된 Azure CLI 경로 또는 대상에 연결된 Managed Identity 변수만 Terraform에
 제공하고 관련 없는 환경 값은 제외합니다.
 

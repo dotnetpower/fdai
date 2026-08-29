@@ -1,7 +1,7 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: 0fe420e3fe7a8944c8fd194755b898fd9e6e7e8a
+translation_source_sha: 47d299e9af0e86f3e850ac69e765d29257cd5595
 translation_revised: 2026-08-29
 ---
 
@@ -381,6 +381,8 @@ git push origin main
   배포에 연결하십시오. 연결 없는 토큰은 그것을 읽을 수 있는 누구에게나 동작합니다. 포크는
   런타임 `LicenseVerifier`를 연결하고 릴리스 발급과 `fdaictl` 점검은 각각 독립 Ed25519 검증
   경로를 사용합니다. 발급은 새 비공개 출력에만 쓰고 기존 토큰 파일을 교체하지 않습니다.
+  release 키 입력은 크기가 제한된 비차단 일반 파일이며, 비공개 키는 현재 UID가 소유하고 mode
+  `0600`이어야 합니다.
 - [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md) -
   모든 포크가 준수하는 customer-agnostic 스코프 계약.
 

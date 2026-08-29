@@ -144,8 +144,10 @@ PYTHONPATH=src python3 -m fdai.deployment_cli license inspect \
 ```
 
 `issue-license.py` re-verifies its own output against the supplied public key before printing, so a
-rotated signing key fails at issue time rather than at the customer site. `license inspect` reports
-status and non-secret metadata only; it never echoes the token, the document, or the signature.
+rotated signing key fails at issue time rather than at the customer site. It accepts the private key
+only as a current-UID mode-`0600` regular file and reads both keys through a nonblocking, no-follow,
+65536-byte boundary. `license inspect` reports status and non-secret metadata only; it never echoes
+the token, the document, or the signature.
 
 Automated coverage lives in `services/core-control-plane/tests/core/licensing/` for the contract and degradation table, and in
 `tests/integration/scripts/test_issue_license.py` for a real issue-then-verify path including tampering, a wrong
