@@ -43,6 +43,7 @@ class OfflineKitVerification:
     manifest_digest: str
     terraform_binary: str
     provider_mirror_prefix: str
+    deployment_bundle: str
 
     def to_json(self) -> str:
         """Return stable, non-secret machine output."""
@@ -198,6 +199,7 @@ def verify_offline_kit(
             manifest_digest=hashlib.sha256(manifest).hexdigest(),
             terraform_binary=_payload_text(payload, "terraform_binary"),
             provider_mirror_prefix=_payload_text(payload, "provider_mirror_prefix"),
+            deployment_bundle=_payload_text(payload, "deployment_bundle"),
         )
     except OfflineKitVerificationError:
         raise

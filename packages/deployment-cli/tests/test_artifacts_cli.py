@@ -4,6 +4,7 @@ import base64
 import hashlib
 import json
 import os
+import tarfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -11,7 +12,12 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from fdai_deployment_cli.bundle import BundleVerificationError, _sha256, verify_bundle
+from fdai_deployment_cli.bundle import (
+    BundleVerificationError,
+    _sha256,
+    extract_bundle_archive,
+    verify_bundle,
+)
 from fdai_deployment_cli.cli import _runtime_platform_tag, _safe_plan_error, main
 from fdai_deployment_cli.contracts import canonical_bytes
 from fdai_deployment_cli.license import LicenseInspectionError, inspect_license
@@ -78,6 +84,7 @@ def test_offline_kit_verifies_signature_exact_files_and_compatibility(tmp_path: 
     assert result.manifest_digest
     assert result.terraform_binary == "terraform/terraform"
     assert result.provider_mirror_prefix == "terraform/providers"
+    assert result.deployment_bundle == "deployment/bundle.tar.gz"
 
     (tmp_path / "extra").write_text("extra", encoding="utf-8")
     with pytest.raises(OfflineKitVerificationError, match="exact file set"):
@@ -194,6 +201,18 @@ def test_bundle_hash_rejects_fifo_before_open(tmp_path: Path) -> None:
 
     with pytest.raises(BundleVerificationError, match="regular files"):
         _sha256(fifo, expected=fifo.stat())
+
+
+def test_bundle_archive_rejects_path_traversal(tmp_path: Path) -> None:
+    archive = tmp_path / "bundle.tar.gz"
+    payload = tmp_path / "payload"
+    payload.write_text("unsafe", encoding="utf-8")
+    with tarfile.open(archive, "w:gz") as stream:
+        stream.add(payload, arcname="../escape")
+
+    with pytest.raises(BundleVerificationError, match="path is invalid"):
+        extract_bundle_archive(archive, tmp_path / "out")
+    assert not (tmp_path / "escape").exists()
 
 
 def test_bundle_rejects_incompatible_cli_version(tmp_path: Path) -> None:

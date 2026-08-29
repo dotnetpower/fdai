@@ -113,7 +113,7 @@ lead to a mutation makes the remote execution boundary visible.
 | `fdaictl version` | Show CLI, bundle, schema, and compatibility versions | No |
 | `fdaictl doctor` | Check Python, Azure CLI, Terraform, GitHub CLI, authentication, and local config | No |
 | `fdaictl provision inspect` | Inspect online/offline, signed-kit trust, existing/managed host, transport, access, and workload-identity readiness | No |
-| `fdaictl provision plan` | Plan from a verified offline kit bound to the installed CLI version and detected runtime platform | No |
+| `fdaictl provision plan` | Verify and safely extract the kit-declared signed bundle, then plan its `infra` root | No |
 | `fdaictl provision init` | Create a schema-validated, untracked environment configuration | No |
 | `fdaictl onboard guided` / `status` / `resume-verification` | Orchestrate one durable subscription-genesis run over the low-level exact-plan commands | Only after an explicit protected approval |
 | `fdaictl security audit` | Check runtime flag combinations, local config hygiene, and requested sandbox availability | No, unless `--fix-permissions` is explicit |

@@ -11,7 +11,11 @@ import sys
 from pathlib import Path
 
 from fdai_deployment_cli.__about__ import __version__
-from fdai_deployment_cli.bundle import BundleVerificationError, verify_bundle
+from fdai_deployment_cli.bundle import (
+    BundleVerificationError,
+    extract_bundle_archive,
+    verify_bundle,
+)
 from fdai_deployment_cli.compiler import compile_manifest
 from fdai_deployment_cli.doctor import azure_active_target_binding, doctor_json, inspect_tools
 from fdai_deployment_cli.license import LicenseInspectionError, inspect_license
@@ -81,7 +85,7 @@ def _parser() -> argparse.ArgumentParser:
     plan = provision_commands.add_parser("plan")
     plan.add_argument("--offline-kit", type=Path, required=True)
     plan.add_argument("--release-root", type=Path, required=True)
-    plan.add_argument("--infra-dir", type=Path, required=True)
+    plan.add_argument("--bundle-public-key", type=Path, required=True)
     plan.add_argument("--work-dir", type=Path, required=True)
     plan.add_argument("--output", choices=("text", "json"), default="text")
     plan.set_defaults(handler=_provision_plan)
@@ -204,6 +208,18 @@ def _provision_plan(args: argparse.Namespace) -> int:
     args.work_dir.chmod(0o700)
     terraform = args.offline_kit / verification.terraform_binary
     mirror = args.offline_kit / verification.provider_mirror_prefix
+    bundle_root = extract_bundle_archive(
+        args.offline_kit / verification.deployment_bundle,
+        args.work_dir / "bundle",
+    )
+    verify_bundle(
+        bundle_root,
+        public_key_pem=args.bundle_public_key.read_bytes(),
+        cli_version=__version__,
+    )
+    infra_dir = bundle_root / "infra"
+    if not infra_dir.is_dir():
+        raise ValueError("verified deployment bundle does not contain infra")
     config = args.work_dir / "offline.tfrc"
     config.write_text(
         "provider_installation {\n"
@@ -223,14 +239,14 @@ def _provision_plan(args: argparse.Namespace) -> int:
     environment["TF_IN_AUTOMATION"] = "1"
     subprocess.run(
         [str(terraform), "init", "-backend=false", "-input=false"],
-        cwd=args.infra_dir,
+        cwd=infra_dir,
         env=environment,
         check=True,
         timeout=300,
     )
     completed = subprocess.run(
         [str(terraform), "plan", "-input=false", "-no-color"],
-        cwd=args.infra_dir,
+        cwd=infra_dir,
         env=environment,
         check=False,
         capture_output=True,

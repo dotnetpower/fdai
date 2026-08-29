@@ -225,7 +225,7 @@ rm -rf "$WORKDIR/provision"
 set +e
 plan_output="$(PYTHONPATH=packages/deployment-cli/src "$PYTHON" -m fdai_deployment_cli provision plan \
   --offline-kit "$KIT" --release-root "$WORKDIR/release-root.pub" \
-  --infra-dir "$BUNDLE/infra" --work-dir "$WORKDIR/provision" \
+  --bundle-public-key "$WORKDIR/bundle-key.pub" --work-dir "$WORKDIR/provision" \
   --output json 2>&1)"
 set -e
 case "$plan_output" in

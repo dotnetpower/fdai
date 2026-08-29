@@ -7,6 +7,7 @@ import json
 import os
 import re
 import stat
+import tarfile
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
@@ -131,6 +132,79 @@ def verify_bundle(
         file_count=len(observed),
         manifest_digest=hashlib.sha256(manifest).hexdigest(),
     )
+
+
+def extract_bundle_archive(archive: Path, destination: Path) -> Path:
+    """Extract one bounded regular-file bundle archive without path traversal."""
+
+    if destination.exists():
+        raise BundleVerificationError("deployment bundle destination already exists")
+    destination.mkdir(parents=True, mode=0o700)
+    total_bytes = 0
+    roots: set[str] = set()
+    try:
+        with tarfile.open(archive, mode="r:gz") as stream:
+            members = stream.getmembers()
+            if not members or len(members) > 20_000:
+                raise BundleVerificationError("deployment bundle archive member count is invalid")
+            for member in members:
+                path = PurePosixPath(member.name)
+                if (
+                    path.is_absolute()
+                    or any(part in {"", ".", ".."} for part in path.parts)
+                    or not path.parts
+                ):
+                    raise BundleVerificationError("deployment bundle archive path is invalid")
+                roots.add(path.parts[0])
+                if member.isdir():
+                    continue
+                if not member.isfile():
+                    raise BundleVerificationError(
+                        "deployment bundle archive MUST contain regular files"
+                    )
+                if member.size > 512 * 1024 * 1024:
+                    raise BundleVerificationError(
+                        "deployment bundle archive member exceeds its size limit"
+                    )
+                total_bytes += member.size
+                if total_bytes > 8 * 1024 * 1024 * 1024:
+                    raise BundleVerificationError(
+                        "deployment bundle archive exceeds its total size limit"
+                    )
+                target = destination.joinpath(*path.parts)
+                target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+                source = stream.extractfile(member)
+                if source is None:
+                    raise BundleVerificationError("deployment bundle archive member is unreadable")
+                descriptor = os.open(
+                    target,
+                    os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                    0o600,
+                )
+                with source, os.fdopen(descriptor, "wb") as output:
+                    copied = 0
+                    for chunk in iter(lambda: source.read(1024 * 1024), b""):
+                        copied += len(chunk)
+                        if copied > member.size:
+                            raise BundleVerificationError(
+                                "deployment bundle archive member exceeded its declared size"
+                            )
+                        output.write(chunk)
+                    if copied != member.size:
+                        raise BundleVerificationError(
+                            "deployment bundle archive member size does not match"
+                        )
+        if len(roots) != 1:
+            raise BundleVerificationError("deployment bundle archive MUST have one root")
+        root = destination / roots.pop()
+        if not root.is_dir():
+            raise BundleVerificationError("deployment bundle archive root is invalid")
+        return root
+    except BaseException:
+        import shutil
+
+        shutil.rmtree(destination, ignore_errors=True)
+        raise
 
 
 def _verify_signature(public_pem: bytes, document: bytes, signature: bytes) -> None:
