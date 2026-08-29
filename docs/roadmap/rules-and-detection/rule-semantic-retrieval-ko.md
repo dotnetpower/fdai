@@ -1,7 +1,7 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: db493119999b05d5d0d99c6091883b7964257a2b
-translation_revised: 2026-08-20
+translation_source_sha: e4de03ffc66c688b0898b27e801d7f7aa9bd152e
+translation_revised: 2026-08-29
 ---
 # Rule 의미 검색
 
@@ -98,6 +98,7 @@ translation_revised: 2026-08-20
 | 2026-08-13 | in-progress | 영속 기계적 빌드와 독립 검증 worker primitive를 추가했습니다. 첫 결과의 원자적 영속성은 동시 전달 및 재시작에서 안정적인 이벤트 하나를 반환하며, 프로바이더 실패는 재시도 가능하게 유지되고 누락되거나 잘못된 준비 상태 스냅샷은 검증 전용 실패로 종결됩니다. | `current change`; 집중 worker 검사 5개와 worker, 이벤트 계약 및 활성화 통합 검사 19개가 통과했고 Ruff 및 strict mypy가 통과했습니다. | 소유 topic을 통해 Mimir와 Heimdall을 연결하고 운영 reconciliation trigger를 추가한 뒤 통제된 실제 근거를 보존합니다. |
 | 2026-08-13 | in-progress | Mimir 소유의 빌드 요청/결과 topic을 영속 빌더에 연결하고 Heimdall 소유의 독립 검증을 기존 RetrievalValidation topic에 연결했습니다. Mimir는 검증 근거를 권한 없는 변환 결과로 저장하며 Muninn은 이를 검색 실패 피드백으로 변환하지 않습니다. | `current change`; 집중 Pantheon 소유권, 동등성, handler 및 런타임 검사 221개와 exact chain 및 위조/미연결 검사가 통과했고 Ruff 및 strict mypy가 통과했습니다. | 운영 카탈로그 resolver와 reconciliation trigger를 추가한 뒤 독립 근거에 따라 exact 활성화 명령을 발행합니다. |
 | 2026-08-13 | implemented | endpoint binding에서 파생한 임베딩 식별자, 엄격한 승격 표면 문서 로딩, replay가 동일한 요청 영속성, 정확한 준비 상태 증적 연결 및 Heimdall 검증 뒤의 Mimir 소유 활성화 명령 발행으로 운영 세대 reconciliation을 완료했습니다. 질의 바인딩도 다른 임베딩 공간 또는 모델 버전의 활성 세대를 거부합니다. | `current change`; `rule_generation_documents.py`, 의미 인덱스 어댑터, `mimir.py`, `activation.py` 및 집중 문서, worker, 런타임, 활성화, bootstrap 검사 | 이 기능을 `validated`로 변경하기 전에 통제된 실제 빌드, 검증, 활성화 및 Reader 범위 변환 결과 근거를 기록합니다. |
+| 2026-08-29 | implemented | 하드닝 18차에서 운영 연결, 조정, 활성화 게시, Mimir/Heimdall 소유권, Reader 범위 변환 결과를 다시 감사했습니다. 저장소 구현에는 Low를 넘는 문제가 없었고 유일한 남은 항목은 관리되는 실제 근거입니다. | `current change`; 집중 의미 검색, 부팅, 활성화, 게시 및 변환 결과 검사. | 저장소 권한을 바꾸지 않고 관리되는 실제 근거를 기록합니다. |
 
 ### 남은 작업
 
