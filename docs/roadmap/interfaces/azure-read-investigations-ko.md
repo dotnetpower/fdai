@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: bd2a97bbba4b7a3e77b2f555f69f45e143b35891
+translation_source_sha: 7f8611f59c192ebc90d7818eefc7a52b0ed630a7
 translation_revised: 2026-08-27
 ---
 
@@ -512,7 +512,9 @@ Streamed 응답이 닫히면 해당 구독자만 분리됩니다. 영속 Core �
 프로바이더 작업을 취소하고 최종 상태를 커밋합니다. Detached 완료는 변경할 수 없는
 결과를 먼저 커밋한 다음 신뢰할 수 없는 assistant 턴을 덧붙이기하고 영속 background 완료
 발신함 및 회신 원장을 통해 큐에 추가합니다. 전달 실패는 조사를 다시 실행하거나 결과를
-다시 작성할 수 없습니다.
+다시 작성할 수 없습니다. Operator 보존 처리는 계약 기한이 지난 완료 inbox 행만 기한
+순서의 제한된 `SKIP LOCKED` 배치로 삭제합니다. 정리에 실패하면 수락한 결과를 버리지 않고
+준비 상태를 닫습니다.
 
 Bragi는 운영자 experience가 달라질 때만 추정치를 전달합니다. 예:
 
@@ -572,8 +574,8 @@ Activity Log 및 Resource Health REST 읽기를 추가합니다. 입력이 누�
   streamed 또는 detached 실행을 선택하고 direct 및 streamed 상태를 소유자 범위 PostgreSQL 실행
   저장소와 진행 상황 저장소 뒤에 유지합니다.
 4. Operator는 Core 쓰기 권한을 공유하지 않고 소유자 범위 진행 상황과 최종 결과를 재생합니다.
-  Web 완료 기록은 구성되어 있으며 채널 발신 등록, 보존 정리 및 통제된 교차 서비스 증적은 열린
-  상태입니다.
+  Web 완료 기록과 제한된 완료 inbox 보존 정리는 구성되어 있으며 채널 발신 등록 및 통제된
+  교차 서비스 증적은 열린 상태입니다.
 5. Structural 테스트는 이 경로가 실행기를 가져오기하지 않고 Thor를 참조하지 않으며 `object.event`를
   publish하지 않음을 증명합니다.
 6. 읽기 전용 실제 운영 검증은 호출자 귀속, Resource Health, 승인되지 않은 범위 및 모호한

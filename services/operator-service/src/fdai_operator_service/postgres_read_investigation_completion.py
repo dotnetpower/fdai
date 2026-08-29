@@ -6,6 +6,7 @@ import hashlib
 import json
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Final
 
 import psycopg
@@ -273,6 +274,37 @@ class PostgresReadInvestigationCompletionRepository:
             data=stored,
             duplicate=rows[0].get("inserted") is not True,
         )
+
+    async def purge_expired_read_investigation_completions(
+        self,
+        *,
+        now: datetime,
+        limit: int = 200,
+    ) -> int:
+        """Delete a bounded batch only after each completion retention deadline."""
+
+        if now.tzinfo is None or now.utcoffset() is None:
+            raise ValueError("completion retention time MUST be timezone-aware")
+        if not 1 <= limit <= 500:
+            raise ValueError("completion retention limit MUST be between 1 and 500")
+        rows = await self._fetch_all(
+            """
+            WITH expired AS (
+                SELECT completion_id
+                  FROM operator_read_investigation_completion
+                 WHERE retention_until <= %(now)s
+                 ORDER BY retention_until, sequence
+                 FOR UPDATE SKIP LOCKED
+                 LIMIT %(limit)s
+            )
+            DELETE FROM operator_read_investigation_completion AS target
+             USING expired
+             WHERE target.completion_id = expired.completion_id
+            RETURNING target.completion_id
+            """,
+            {"now": now, "limit": limit},
+        )
+        return len(rows)
 
     async def _fetch_all(
         self,

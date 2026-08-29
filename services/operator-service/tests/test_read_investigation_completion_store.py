@@ -193,6 +193,61 @@ async def test_project_maps_integrity_failure_to_bounded_conflict() -> None:
         )
 
 
+async def test_purge_expired_completions_is_bounded_and_deadline_ordered() -> None:
+    calls: list[tuple[str, Mapping[str, object]]] = []
+
+    async def fetch_all(
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        calls.append((statement, parameters))
+        return [{"completion_id": "read-completion-" + "a" * 32}]
+
+    now = datetime(2026, 8, 29, tzinfo=UTC)
+    deleted = await PostgresReadInvestigationCompletionRepository(
+        fetch_all=fetch_all
+    ).purge_expired_read_investigation_completions(now=now, limit=17)
+
+    assert deleted == 1
+    statement, parameters = calls[0]
+    assert "retention_until <= %(now)s" in statement
+    assert "ORDER BY retention_until, sequence" in statement
+    assert "FOR UPDATE SKIP LOCKED" in statement
+    assert "LIMIT %(limit)s" in statement
+    assert "DELETE FROM operator_read_investigation_completion" in statement
+    assert parameters == {"now": now, "limit": 17}
+
+
+@pytest.mark.parametrize("limit", [0, 501])
+async def test_purge_expired_completions_rejects_unbounded_batch(limit: int) -> None:
+    async def fetch_all(
+        _statement: str,
+        _parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        raise AssertionError("invalid retention input MUST fail before PostgreSQL")
+
+    repository = PostgresReadInvestigationCompletionRepository(fetch_all=fetch_all)
+    with pytest.raises(ValueError, match="between 1 and 500"):
+        await repository.purge_expired_read_investigation_completions(
+            now=datetime(2026, 8, 29, tzinfo=UTC),
+            limit=limit,
+        )
+
+
+async def test_purge_expired_completions_requires_aware_time() -> None:
+    async def fetch_all(
+        _statement: str,
+        _parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        raise AssertionError("invalid retention input MUST fail before PostgreSQL")
+
+    repository = PostgresReadInvestigationCompletionRepository(fetch_all=fetch_all)
+    with pytest.raises(ValueError, match="timezone-aware"):
+        await repository.purge_expired_read_investigation_completions(
+            now=datetime(2026, 8, 29),
+        )
+
+
 @pytest.mark.integration
 async def test_postgres_allocates_attempt_turns_and_reuses_duplicate_slot() -> None:
     dsn = _database_url()
