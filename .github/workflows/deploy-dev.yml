@@ -1325,7 +1325,7 @@ jobs:
             echo "$deployment_models_digest  deployment-models.json" | sha256sum --check
             [[ "$(cat resolved-models.sha256)" == "$resolved_models_digest" ]]
             [[ "$(cat deployment-models.sha256)" == "$deployment_models_digest" ]]
-            capabilities_json="$(python3 -c 'import json; print(json.dumps(json.load(open("resolved-models.json", encoding="utf-8"))["capabilities"], separators=(",", ":"), sort_keys=True))')"
+            capabilities_json="$(python3 -c 'import json; capabilities=json.load(open("resolved-models.json", encoding="utf-8"))["capabilities"]; print(json.dumps([item for item in capabilities if item.get("status") != "hil-only"], separators=(",", ":"), sort_keys=True))')"
             resolved_json="$(python3 -c 'import json; print(json.dumps(json.load(open("resolved-models.json", encoding="utf-8")), separators=(",", ":"), sort_keys=True))')"
             {
               echo "TF_VAR_resolved_capabilities=$capabilities_json"
