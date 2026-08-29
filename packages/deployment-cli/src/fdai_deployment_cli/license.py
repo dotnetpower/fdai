@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import binascii
 import json
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -13,6 +14,8 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 
 from fdai_deployment_cli.contracts import canonical_bytes, load_json_object
+
+_B64URL = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
 class LicenseInspectionError(ValueError):
@@ -95,6 +98,8 @@ def inspect_license(
         or not all(isinstance(item, str) and item for item in capabilities)
     ):
         raise LicenseInspectionError("license capability_ids are invalid")
+    if capabilities != sorted(set(capabilities)):
+        raise LicenseInspectionError("license capability_ids MUST be unique and sorted")
     active = not_before <= evaluated <= not_after
     if not active:
         raise LicenseInspectionError("license is not active")
@@ -109,10 +114,15 @@ def inspect_license(
 
 
 def _decode(value: str, label: str) -> bytes:
+    if _B64URL.fullmatch(value) is None:
+        raise LicenseInspectionError(f"license {label} is not canonical base64url")
     try:
-        return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+        decoded = base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
     except (ValueError, binascii.Error) as exc:
         raise LicenseInspectionError(f"license {label} is not base64url") from exc
+    if base64.urlsafe_b64encode(decoded).rstrip(b"=").decode() != value:
+        raise LicenseInspectionError(f"license {label} is not canonical base64url")
+    return decoded
 
 
 def _verify(public_pem: bytes, document: bytes, signature: bytes) -> None:

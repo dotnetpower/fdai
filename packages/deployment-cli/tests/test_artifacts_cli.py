@@ -162,6 +162,30 @@ def test_license_inspection_verifies_signature_and_time() -> None:
         inspect_license(token, public_key_pem=public, now=now + timedelta(days=1))
 
 
+def test_license_rejects_noncanonical_base64_and_duplicate_capabilities() -> None:
+    private, public = _keys()
+    now = datetime(2026, 8, 29, tzinfo=UTC)
+    payload = {
+        "schema_version": "fdai.license.v1",
+        "license_id": "lic-test",
+        "distribution_id": "example-distribution",
+        "capability_ids": ["cost.metering", "cost.metering"],
+        "not_before": (now - timedelta(minutes=1)).isoformat(),
+        "not_after": (now + timedelta(minutes=1)).isoformat(),
+        "image_digest": None,
+        "tenant_binding": None,
+    }
+    document = canonical_bytes(payload)
+    token = ".".join(
+        base64.urlsafe_b64encode(value).rstrip(b"=").decode()
+        for value in (document, private.sign(document))
+    )
+    with pytest.raises(LicenseInspectionError, match="unique and sorted"):
+        inspect_license(token, public_key_pem=public, now=now)
+    with pytest.raises(LicenseInspectionError, match="canonical base64url"):
+        inspect_license(f"{token}=x", public_key_pem=public, now=now)
+
+
 def test_cli_version_and_private_profile(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
