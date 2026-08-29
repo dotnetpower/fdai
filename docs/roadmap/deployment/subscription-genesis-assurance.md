@@ -230,6 +230,9 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 
 ## Pre-login hardening evidence
 
+The recorded pre-login campaign covers H01-H109. The focused local gates leave no finding above Low;
+subscription-backed receipts remain post-login work.
+
 | Round | Finding and resolution | Focused evidence |
 |-------|------------------------|------------------|
 | H01 | Terraform failure output could disclose state-derived values. The CLI now maps it to bounded stable reason codes. | `test_terraform_failure_is_redacted_to_stable_reason` |

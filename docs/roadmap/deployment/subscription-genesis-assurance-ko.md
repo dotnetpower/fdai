@@ -1,8 +1,8 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 2f7ccdf86fbb60b082c5869c2c2168dbcacaa2db
-translation_revised: 2026-08-29
+translation_source_sha: 3fb697fcf4e78f8c7a97e23e1d421b3e21a0b516
+translation_revised: 2026-08-30
 ---
 # 구독 초기 구성 보증
 
@@ -222,6 +222,9 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 계획을 사용합니다. 고객 환경을 검사 픽스처로 재사용하지 않습니다.
 
 ## 로그인 전 하드닝 근거
+
+기록된 로그인 전 캠페인은 H01-H109를 다룹니다. 집중 로컬 게이트에는 Low를 초과하는 발견
+사항이 없으며 구독 기반 증적은 로그인 이후 작업으로 남습니다.
 
 | 라운드 | 발견 사항 및 조치 | 집중 근거 |
 |--------|-------------------|-----------|
