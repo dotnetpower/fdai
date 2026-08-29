@@ -75,6 +75,7 @@ class DeploymentCapacity:
     available_tpm: int
     existing_allocated_tpm: int
     reserve_tpm: int
+    combined_reserve_tpm: int
     required_capabilities: tuple[str, ...]
 
     @property
@@ -88,7 +89,7 @@ class DeploymentCapacity:
     def optional_sufficient(self) -> bool:
         """Return whether quota also covers every optional capability."""
 
-        free = self.available_tpm - self.existing_allocated_tpm - self.reserve_tpm
+        free = self.available_tpm - self.existing_allocated_tpm - self.combined_reserve_tpm
         return free >= self.required_tpm + self.optional_tpm
 
 
@@ -115,11 +116,13 @@ def plan_capacity(
         group = grouped[key]
         required_tpm = sum(item.envelope.minimum_tpm for item in group if item.required)
         optional_tpm = sum(item.envelope.minimum_tpm for item in group if not item.required)
-        reserve_ratio = max(item.envelope.quota_reserve for item in group)
+        required_reserve_ratio = max(item.envelope.quota_reserve for item in group if item.required)
+        combined_reserve_ratio = max(item.envelope.quota_reserve for item in group)
         available = available_tpm_by_deployment[key]
         if available < 0 or existing.get(key, 0) < 0:
             raise ValueError("quota values MUST be non-negative")
-        reserve = math.ceil(available * reserve_ratio)
+        reserve = math.ceil(available * required_reserve_ratio)
+        combined_reserve = math.ceil(available * combined_reserve_ratio)
         result.append(
             DeploymentCapacity(
                 deployment_key=key,
@@ -128,6 +131,7 @@ def plan_capacity(
                 available_tpm=available,
                 existing_allocated_tpm=existing.get(key, 0),
                 reserve_tpm=reserve,
+                combined_reserve_tpm=combined_reserve,
                 required_capabilities=tuple(
                     sorted(item.capability for item in group if item.required)
                 ),

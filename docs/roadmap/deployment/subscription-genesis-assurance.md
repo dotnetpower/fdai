@@ -289,6 +289,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H55 | Offline plans were not bound to the inspected tenant and subscription intent. Planning now requires the reviewed profile, matches its target digest to plan input, and rechecks an active Azure account when available. | `test_plan_input_must_match_profile_target_binding` |
 | H56 | Optional model demand was included in blocking required TPM, causing valid required capacity to fail. Required and optional demand now have separate sufficiency outcomes. | `test_optional_shortfall_does_not_block_required_capacity` |
 | H57 | A caller-supplied target digest did not constrain effective tenant, subscription, or region input. Planning now recomputes the digest, matches the profile region, and injects the verified subscription into Terraform. | `test_plan_input_region_must_match_profile` |
+| H58 | Optional capability reserve ratios still reduced quota used for required sufficiency. Required and combined reserve are now calculated independently. | `test_optional_reserve_does_not_block_required_capacity` |
 
 ## Related docs
 

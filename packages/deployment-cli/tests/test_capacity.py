@@ -69,6 +69,31 @@ def test_optional_shortfall_does_not_block_required_capacity() -> None:
     assert not result.optional_sufficient
 
 
+def test_optional_reserve_does_not_block_required_capacity() -> None:
+    required = CapabilityDemand(
+        capability="required",
+        deployment_key="shared",
+        required=True,
+        envelope=WorkloadEnvelope(10, 100, 100, 1, quota_reserve=0.10),
+    )
+    optional = CapabilityDemand(
+        capability="optional",
+        deployment_key="shared",
+        required=False,
+        envelope=WorkloadEnvelope(1, 1, 1, 1, quota_reserve=0.50),
+    )
+
+    result = plan_capacity(
+        (required, optional),
+        available_tpm_by_deployment={"shared": 5_000},
+    )[0]
+
+    assert result.reserve_tpm == 500
+    assert result.combined_reserve_tpm == 2_500
+    assert result.sufficient
+    assert not result.optional_sufficient
+
+
 def test_capacity_requires_required_capability_and_quota_evidence() -> None:
     optional = CapabilityDemand(
         capability="optional",
