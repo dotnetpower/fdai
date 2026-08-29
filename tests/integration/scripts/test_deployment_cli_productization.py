@@ -70,7 +70,8 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     assert 'mkdir -m 700 "$WORKDIR/empty-azure"' in drill
     assert '"$WORKDIR/cli-venv" "$WORKDIR/empty-azure"' in drill
     assert 'export AZURE_CONFIG_DIR="$WORKDIR/empty-azure"' in drill
-    assert "for tool in az terraform openssl unshare uv git" in drill
+    assert "for tool in az curl git openssl unshare uv" in drill
+    assert "for tool in az terraform" not in drill
     assert "fdai_deployment_cli.offline_kit" in signer
     assert "fdai.deployment_cli" not in stage + drill + signer
     assert "fdai.delivery.trust.ed25519" not in issuer

@@ -306,6 +306,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H72 | The live air-gap drill stopped at license issuance because it used the retired root `src` path. It now resolves the independently packaged Core and service-contract sources explicitly. | network-isolated `airgap-drill.sh` rerun |
 | H73 | License issuance still imported a removed delivery verifier after package-path repair. It now performs Ed25519 public-key verification through the pinned cryptography dependency. | network-isolated `airgap-drill.sh` rerun |
 | H74 | AzureRM planning could auto-register resource providers while reporting no mutation. The isolated plan environment now forces resource-provider registration to `none`. | `test_terraform_environment_accepts_target_bound_managed_identity` |
+| H75 | The drill required ambient Terraform even though it exclusively uses the pinned kit snapshot. The stale host prerequisite was removed. | `test_release_scripts_use_the_installable_distribution` |
 
 ## Related docs
 
