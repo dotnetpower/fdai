@@ -59,6 +59,8 @@ done
 
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
+PYTHON="$repo_root/.venv/bin/python"
+[[ -x "$PYTHON" ]] || { echo "stage-offline-kit: BLOCKED - .venv is missing." >&2; exit 2; }
 STAGE_SENTINEL=".fdai-offline-stage"
 if [[ "$OUT" != /* || "$OUT" == "/" || "$OUT" == "$HOME" || "$OUT" == "$repo_root" ]]; then
   echo "stage-offline-kit: --out must be a safe absolute path outside the repository and home." >&2
@@ -69,17 +71,13 @@ if [[ -L "$OUT" ]]; then
   exit 2
 fi
 if [[ ! -e "$OUT" ]]; then
-  mkdir -m 700 "$OUT"
-  printf 'fdai-offline-stage-v1\n' > "$OUT/$STAGE_SENTINEL"
-  chmod 600 "$OUT/$STAGE_SENTINEL"
+  "$PYTHON" scripts/deployment/release/workdir-guard.py create \
+    --path "$OUT" --sentinel "$STAGE_SENTINEL" --value fdai-offline-stage-v1
 else
-  stage_owner=""
-  if [[ -f "$OUT/$STAGE_SENTINEL" && ! -L "$OUT/$STAGE_SENTINEL" ]]; then
-    IFS= read -r stage_owner < "$OUT/$STAGE_SENTINEL" || true
-  elif [[ -f "$OUT/.fdai-airgap-workdir" && ! -L "$OUT/.fdai-airgap-workdir" ]]; then
-    IFS= read -r stage_owner < "$OUT/.fdai-airgap-workdir" || true
-  fi
-  if [[ ! -d "$OUT" || ( "$stage_owner" != "fdai-offline-stage-v1" && "$stage_owner" != "fdai-airgap-drill-v1" ) ]]; then
+  if ! "$PYTHON" scripts/deployment/release/workdir-guard.py verify \
+    --path "$OUT" --sentinel "$STAGE_SENTINEL" --value fdai-offline-stage-v1 &&
+    ! "$PYTHON" scripts/deployment/release/workdir-guard.py verify \
+      --path "$OUT" --sentinel .fdai-airgap-workdir --value fdai-airgap-drill-v1; then
     echo "stage-offline-kit: existing --out is not owned by offline staging." >&2
     exit 2
   fi
@@ -111,8 +109,6 @@ if [[ "$PLATFORM" != "$HOST_PLATFORM" || "$PLATFORM_TAG" != "$HOST_PLATFORM_TAG"
   echo "stage-offline-kit: cross-platform kit staging is not supported." >&2
   exit 2
 fi
-PYTHON="$repo_root/.venv/bin/python"
-[[ -x "$PYTHON" ]] || { echo "stage-offline-kit: BLOCKED - .venv is missing." >&2; exit 2; }
 TERRAFORM_VERSION="1.9.8"
 OPA_VERSION="0.68.0"
 case "$HOST_PLATFORM" in

@@ -316,6 +316,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H82 | The drill recursively deleted an arbitrary caller-selected work directory. Fresh runs now require a nonexistent safe absolute path, and resume requires an ownership sentinel. | `test_release_scripts_use_the_installable_distribution` |
 | H83 | Resume used an empty-producing sentinel substitution and always rejected valid work directories. It now reads the private sentinel explicitly before ownership validation. | `test_release_scripts_use_the_installable_distribution` |
 | H84 | Offline staging accepted an arbitrary relative or existing output root before recursive cleanup. It now requires a safe absolute path and a private staging or air-gap ownership sentinel. | `test_release_scripts_use_the_installable_distribution` |
+| H85 | A known staging sentinel string was forgeable and did not prove UID ownership or private modes. A descriptor-based guard now verifies current-UID ownership, mode 0700, and a mode-0600 regular sentinel. | `test_workdir_guard_rejects_public_or_linked_roots` |
 
 ## Related docs
 
