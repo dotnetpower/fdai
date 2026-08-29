@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -12,6 +13,7 @@ from fdai.core.readiness import HandoffVerdict, OwnershipTransfer
 from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.projection import Finding, ResourceRef
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+from tests.decision_evidence import StubDecisionEvidenceAdmissionProvider
 
 
 class _Posture:
@@ -42,6 +44,7 @@ def _service(
     posture: _Posture | None = None,
     publisher: _Publisher | None = None,
     mode: Mode = Mode.SHADOW,
+    decision_evidence: bool = True,
 ) -> tuple[OperationalReadinessService, InMemoryStateStore, _Publisher]:
     store = InMemoryStateStore()
     bound_publisher = publisher or _Publisher()
@@ -52,6 +55,11 @@ def _service(
         state_store=store,
         mode=mode,
         clock=lambda: "2026-07-13T00:00:00Z",
+        decision_evidence=(
+            StubDecisionEvidenceAdmissionProvider(lambda: datetime(2026, 7, 13, tzinfo=UTC))
+            if decision_evidence
+            else None
+        ),
     )
     return service, store, bound_publisher
 
@@ -101,6 +109,29 @@ async def test_blocking_posture_finding_gates_enforce_handoff() -> None:
     assert report.blocks_handoff is True
     assert publisher.reports[0]["blocks_handoff"] is True
     assert _audit_payloads(store)[0]["decision"] == "blocked"
+
+
+async def test_missing_decision_evidence_forces_enforce_review_to_shadow() -> None:
+    finding = Finding(
+        rule_id="managed-identity.role-assignment.over-privileged",
+        resource=ResourceRef(resource_type="managed_identity", ref="id-example"),
+        severity="critical",
+        reason="role exceeds the approved action set",
+    )
+    service, store, publisher = _service(
+        posture=_Posture((finding,)),
+        mode=Mode.ENFORCE,
+        decision_evidence=False,
+    )
+
+    report = await service.review(_signal())
+
+    assert report.verdict is HandoffVerdict.BLOCKED
+    assert report.mode is Mode.SHADOW
+    assert report.blocks_handoff is False
+    assert report.decision_evidence_rejection_reasons == ("admission_missing",)
+    assert _audit_payloads(store)[0]["mode"] == "shadow"
+    assert publisher.reports[0]["blocks_handoff"] is False
 
 
 async def test_partial_assessment_failure_audits_abstain_and_does_not_publish() -> None:

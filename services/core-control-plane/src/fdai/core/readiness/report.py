@@ -69,6 +69,9 @@ class ReadinessReport:
     mode: Mode
     verdict: HandoffVerdict
     findings: tuple[ReadinessFinding, ...]
+    decision_evidence_receipt_digest: str | None = None
+    decision_evidence_verification_bundle_digest: str | None = None
+    decision_evidence_rejection_reasons: tuple[str, ...] = ()
 
     @property
     def blocking_findings(self) -> tuple[ReadinessFinding, ...]:
@@ -95,6 +98,11 @@ class ReadinessReport:
             "mode": self.mode.value,
             "verdict": self.verdict.value,
             "blocks_handoff": self.blocks_handoff,
+            "decision_evidence_receipt_digest": self.decision_evidence_receipt_digest,
+            "decision_evidence_verification_bundle_digest": (
+                self.decision_evidence_verification_bundle_digest
+            ),
+            "decision_evidence_rejection_reasons": list(self.decision_evidence_rejection_reasons),
             "findings": [
                 {
                     "evidence": f.evidence,

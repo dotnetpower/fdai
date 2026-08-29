@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Literal
@@ -21,6 +21,8 @@ from fdai_service_contracts.ontology_query import content_digest
 from pydantic import ValidationError as PydanticValidationError
 
 from fdai.core.readiness.models import AuthorityCeiling, ReadinessDecision, StartupReadinessReport
+from fdai.core.readiness.report import ReadinessReport
+from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.decision_evidence_verifier import (
     DecisionEvidenceAdmission,
     DecisionEvidenceAdmissionProvider,
@@ -30,6 +32,7 @@ from fdai.shared.providers.decision_evidence_verifier import (
 )
 
 STARTUP_READINESS_EVIDENCE_PURPOSE = "startup-readiness"
+OPERATIONAL_READINESS_EVIDENCE_PURPOSE = "operational-readiness"
 _AUTHORITY_CEILING_RANK = {
     AuthorityCeiling.DISABLED: 0,
     AuthorityCeiling.DETERMINISTIC_FALLBACK: 1,
@@ -220,6 +223,114 @@ async def apply_startup_readiness_admission(
     )
 
 
+async def apply_operational_readiness_admission(
+    report: ReadinessReport,
+    *,
+    provider: DecisionEvidenceAdmissionProvider | None,
+) -> ReadinessReport:
+    """Bind an ORR verdict to verified evidence or force its gate to shadow."""
+
+    evidence_digest = operational_readiness_evidence_digest(report)
+    scope_digest = operational_readiness_scope_digest(report)
+    source_revision = operational_readiness_source_revision(report)
+    admission = (
+        await provider.admit(
+            evidence_digest=evidence_digest,
+            scope_digest=scope_digest,
+            purpose_id=OPERATIONAL_READINESS_EVIDENCE_PURPOSE,
+            source_revision=source_revision,
+        )
+        if provider is not None
+        else None
+    )
+    reasons = (
+        ("admission_missing",)
+        if admission is None
+        else tuple(
+            reason.value
+            for reason in assess_decision_evidence_admission(
+                admission,
+                expected_evidence_digest=evidence_digest,
+                expected_scope_digest=scope_digest,
+                expected_purpose_id=OPERATIONAL_READINESS_EVIDENCE_PURPOSE,
+                expected_source_revision=source_revision,
+                evaluated_at=datetime.fromisoformat(report.generated_at.replace("Z", "+00:00")),
+            )
+        )
+    )
+    if reasons:
+        return replace(
+            report,
+            mode=Mode.SHADOW,
+            decision_evidence_receipt_digest=(
+                admission.receipt_digest if admission is not None else None
+            ),
+            decision_evidence_verification_bundle_digest=(
+                admission.verification_bundle_digest if admission is not None else None
+            ),
+            decision_evidence_rejection_reasons=reasons,
+        )
+    if admission is None:  # pragma: no cover - reasons handles this branch
+        raise RuntimeError("operational readiness admission invariant failed")
+    return replace(
+        report,
+        decision_evidence_receipt_digest=admission.receipt_digest,
+        decision_evidence_verification_bundle_digest=admission.verification_bundle_digest,
+        decision_evidence_rejection_reasons=(),
+    )
+
+
+def operational_readiness_evidence_digest(report: ReadinessReport) -> str:
+    """Return the exact ORR evidence digest without authority mode or admission."""
+
+    return content_digest(
+        {
+            "findings": [
+                {
+                    "blocking": finding.blocking,
+                    "control_id": finding.control_id,
+                    "dimension": finding.dimension,
+                    "evidence": finding.evidence,
+                    "requirement_refs": finding.requirement_refs,
+                    "resolution": finding.resolution,
+                    "resource": finding.resource,
+                    "severity": finding.severity,
+                    "source": finding.source,
+                }
+                for finding in report.findings
+            ],
+            "generated_at": report.generated_at,
+            "scope": report.scope,
+            "submitter": report.submitter,
+            "target_environment": report.target_environment,
+            "verdict": report.verdict.value,
+        }
+    )
+
+
+def operational_readiness_scope_digest(report: ReadinessReport) -> str:
+    """Return the exact handoff scope and target environment."""
+
+    return content_digest(
+        {
+            "scope": report.scope,
+            "target_environment": report.target_environment,
+        }
+    )
+
+
+def operational_readiness_source_revision(report: ReadinessReport) -> str:
+    """Return the replay-stable revision of ORR evidence sources and controls."""
+
+    return content_digest(
+        {
+            "evidence": tuple(sorted(finding.evidence for finding in report.findings)),
+            "schema": "operational-readiness-report:1",
+            "sources": tuple(sorted({finding.source for finding in report.findings})),
+        }
+    )
+
+
 def startup_readiness_evidence_digest(report: StartupReadinessReport) -> str:
     """Return the canonical report digest without downstream admission fields."""
 
@@ -323,11 +434,16 @@ def _aware_utc(value: datetime) -> datetime:
 
 
 __all__ = [
+    "OPERATIONAL_READINESS_EVIDENCE_PURPOSE",
     "STARTUP_READINESS_EVIDENCE_PURPOSE",
     "DecisionEvidenceReadinessGate",
     "DecisionEvidenceReadinessReason",
     "DecisionEvidenceReadinessResult",
     "apply_startup_readiness_admission",
+    "apply_operational_readiness_admission",
+    "operational_readiness_evidence_digest",
+    "operational_readiness_scope_digest",
+    "operational_readiness_source_revision",
     "startup_readiness_evidence_digest",
     "startup_readiness_scope_digest",
     "startup_readiness_source_revision",

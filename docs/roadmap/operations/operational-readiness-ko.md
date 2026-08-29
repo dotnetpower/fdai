@@ -1,8 +1,8 @@
 ---
 title: 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
 translation_of: operational-readiness.md
-translation_source_sha: bade615eb28bb71ee550a0ecf82ec1e9d22bba1c
-translation_revised: 2026-08-24
+translation_source_sha: d62878c2101295e430d1d6adf49b1541db73b385
+translation_revised: 2026-08-29
 ---
 # 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
 
@@ -226,6 +226,7 @@ ORR 은 새로운 특권 표면을 도입하지 않고 최소한의 새 코드�
 |------|------|------|------|
 | 소유권 이전 신호, 보고서 모델, 발견 사항 축약, 환경 게이트 및 Best Practice 체크리스트 평가 | implemented | [`core/readiness/`](../../../services/core-control-plane/src/fdai/core/readiness), [`test_coordinator.py`](../../../services/core-control-plane/tests/core/readiness/test_coordinator.py), [`test_checklist.py`](../../../services/core-control-plane/tests/core/readiness/test_checklist.py) | 순수 조정기는 근거가 있는 발견 사항을 보존하고 알 수 없는 심각도에서 안전하게 실패하며, 실제 판정과 `blocks_handoff`를 분리합니다. |
 | 추가 전용 감사와 보고서 전달을 포함하는 자세, preflight 및 체크리스트의 동시 오케스트레이션 | implemented | [`composition/readiness.py`](../../../services/core-control-plane/src/fdai/composition/readiness.py), [`test_readiness_service.py`](../../../services/core-control-plane/tests/composition/test_readiness_service.py), [`test_readiness_checklist_service.py`](../../../services/core-control-plane/tests/composition/test_readiness_checklist_service.py) | 서비스는 주입된 프로바이더를 사용합니다. 평가와 전달 실패를 감사한 뒤 오류를 전파합니다. |
+| 의사 결정 핵심 보고서 승인 | implemented | [`decision_evidence.py`](../../../services/core-control-plane/src/fdai/core/readiness/decision_evidence.py), [`composition/readiness.py`](../../../services/core-control-plane/src/fdai/composition/readiness.py), 집중 준비 상태 서비스 테스트 | 감사와 발행 전에 실제 판정을 정확한 발견 사항, 범위, 환경 및 출처 리비전에 연결합니다. 승인 결과가 없거나 수락되지 않으면 판정은 보존하지만 `mode=shadow`를 강제하므로 `blocks_handoff=false`가 되고 감사에는 유효 모드와 차단 이유가 기록됩니다. |
 | Architecture Review Board (ARB) 산출물, 담당자, 최신성 및 만료 정보를 체크리스트 결과로 변환 | implemented | [`composition/readiness_evidence.py`](../../../services/core-control-plane/src/fdai/composition/readiness_evidence.py), [`test_readiness_evidence.py`](../../../services/core-control-plane/tests/composition/test_readiness_evidence.py) | 누락된 연결은 `unknown`으로 유지되고 만료된 근거는 `failed`가 됩니다. 어느 상태도 통과로 처리하지 않습니다. |
 | 자동 `ownership_transfer` 수집 및 책임 있는 검토 런타임 | implemented | [`composition/readiness.py`](../../../services/core-control-plane/src/fdai/composition/readiness.py), [`runtime/consumers.py`](../../../services/core-control-plane/src/fdai/runtime/consumers.py), `runtime/bootstrap_*` 모듈, [`test_operational_readiness_ingest.py`](../../../services/core-control-plane/tests/runtime/test_operational_readiness_ingest.py) | 표준 이벤트를 스키마로 검증하고 `OwnershipTransfer`로 정규화하며 멱등성 키로 중복을 제거한 뒤 Forseti가 최종 책임을 지는 작업 흐름에서 한 번만 검토합니다. 잘못된 페이로드는 배달 못 한 메시지 큐로 보냅니다. |
 | 거버넌스가 적용된 런타임 근거를 포함하는 운영 자세, 체크리스트 및 보고서 발행기 연결 | not-started | [`shared/providers/readiness.py`](../../../services/core-control-plane/src/fdai/shared/providers/readiness.py)의 제공자 연결부와 구성의 실패 시 차단되는 선택적 제공자 쌍 | 업스트림 런타임에는 구체적인 운영 제공자나 거버넌스가 적용된 shadow 검토 증적이 없습니다. 제공자 쌍이 없으면 소비자를 비활성화하고, 한쪽만 있으면 시작을 차단합니다. |
@@ -236,6 +237,7 @@ ORR 은 새로운 특권 표면을 도입하지 않고 최소한의 새 코드�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-29 | implemented | 감사와 발행 전에 운영 준비 상태 보고서 경계를 공유 의사 결정 근거 승인 결과로 마이그레이션했습니다. 근거 다이제스트는 권한 모드를 제외하므로 수락되지 않은 승인 결과가 실제 판정을 보존하면서 유효 모드를 shadow로 강제할 수 있습니다. 보고서와 감사는 모두 증적, 묶음 및 차단 참조를 보존합니다. | `current change`; 준비 상태 보고서 및 승인 모델, 애플리케이션 서비스, 집중 조정기, 서비스, 체크리스트, 교정 및 런타임 수집 검사, Ruff 및 strict mypy. | 프로덕션 보고서 승인 프로바이더를 연결하고 통제된 shadow 검토 묶음 하나를 보존합니다. |
 | 2026-08-13 | in-progress | 구현 원장을 도입했으며 이전 근거 이력은 재구성하지 않았습니다. 구현된 결정론적 기능 및 오케스트레이션 표면과 연결되지 않은 런타임 작업 흐름을 분리해 기록했습니다. | 현재 변경, 위에 인용한 core 및 composition 테스트 파일 5개의 `48 passed` 결과 | 이벤트, 프로바이더, 발행기, 승인 및 교정 경로를 연결한 뒤 거버넌스가 적용된 런타임 근거를 수집합니다. |
 | 2026-08-16 | in-progress | 결정론적 교정 제안 빌더, `RemediationProposalPublisher` 연결부, 그리고 승인자 신원을 기록하고 self-approval 을 차단하며 제안을 shadow 로 유지하고 전달을 2단계로 감사하는 `propose_remediations` 브리지를 추가했습니다. | 현재 변경, `uv run pytest -q --no-cov services/core-control-plane/tests/core/readiness/ services/core-control-plane/tests/composition/test_readiness_remediation_service.py services/core-control-plane/tests/composition/test_readiness_service.py services/core-control-plane/tests/composition/test_readiness_checklist_service.py` 의 `86 passed` 결과 | 제안 발행기를 risk gate 진입점에 연결하고, event ingest 에 `ownership_transfer` 를 등록하며, 거버넌스가 적용된 런타임 증적을 수집합니다. |
 | 2026-08-16 | in-progress | 교정 식별자와 구별된 승인자 검사를 강화했습니다. 멱등성 키 재료에 길이 접두사를 붙여 필드 안의 구분자가 서로 다른 발견 사항 두 개를 충돌시킬 수 없게 했고, 주체는 Unicode NFKC 정규화 후 비교합니다. | 현재 변경, `uv run pytest -q --no-cov services/core-control-plane/tests/core/readiness/ services/core-control-plane/tests/composition/test_readiness_remediation_service.py services/core-control-plane/tests/composition/test_readiness_service.py services/core-control-plane/tests/composition/test_readiness_checklist_service.py` 의 `88 passed` 결과 | 위 행과 동일합니다. |
@@ -247,8 +249,9 @@ ORR 은 새로운 특권 표면을 도입하지 않고 최소한의 새 코드�
   이벤트 기반 작업 흐름을 통해 검토를 호출하고, 교정 전달 없이 보고서를 재생해도
   안전하게 전달함을 통합 테스트로 입증했습니다
   ([`test_operational_readiness_ingest.py`](../../../services/core-control-plane/tests/runtime/test_operational_readiness_ingest.py)).
-- [ ] 운영 자세, 체크리스트 근거 및 보고서 발행기 구현을 composition root에 연결한 뒤
-  하나의 완전한 shadow 검토에 대한 거버넌스 적용 런타임 증적을 기록합니다.
+- [ ] 운영 자세, 체크리스트 근거 및 보고서 발행기 구현을 composition root에 연결하고 신뢰할
+  수 있는 의사 결정 근거 승인 프로바이더를 연결한 뒤 하나의 완전한 shadow 검토에 대한 통제된
+  런타임 증적과 독립 묶음을 기록합니다.
 - [x] 근거가 있는 shadow 전용 교정 제안을 구별된 승인자 경계와 함께 발행하고, 승인자 신원이
   기록되며 자체 승인이 차단되고 검토 서비스가 관리 리소스 변경을 실행하지 않음을 테스트로
   입증했습니다

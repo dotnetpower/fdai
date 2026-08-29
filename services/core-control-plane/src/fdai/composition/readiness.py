@@ -16,6 +16,7 @@ from fdai.core.readiness import (
     ReadinessReport,
     RemediationProposal,
     SelfApprovalError,
+    apply_operational_readiness_admission,
     build_remediation_proposals,
     compose_readiness_report,
     evaluate_best_practices,
@@ -29,6 +30,7 @@ from fdai.shared.contracts.models import (
     RequirementStatus,
 )
 from fdai.shared.contracts.validation import EventValidator
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
 from fdai.shared.providers.feasibility_probe import (
     FeasibilityProbe,
     PreflightTarget,
@@ -86,6 +88,7 @@ class OperationalReadinessService:
     checklist_evidence: ChecklistEvidenceProvider | None = None
     remediation_publisher: RemediationProposalPublisher | None = None
     remediation_levers: Mapping[str, str] = field(default_factory=dict)
+    decision_evidence: DecisionEvidenceAdmissionProvider | None = None
 
     async def review(self, signal: OwnershipTransfer) -> ReadinessReport:
         """Run one fail-closed review bound to ``signal``."""
@@ -129,6 +132,10 @@ class OperationalReadinessService:
                 blocking_min_severity=self.blocking_min_severity,
                 checklist_results=checklist_results,
             )
+            report = await apply_operational_readiness_admission(
+                report,
+                provider=self.decision_evidence,
+            )
         except Exception as exc:
             await self.state_store.append_audit_entry(
                 self._audit_entry(
@@ -153,6 +160,14 @@ class OperationalReadinessService:
                 outcome="reviewed",
                 detail={
                     "blocks_handoff": report.blocks_handoff,
+                    "mode": report.mode.value,
+                    "decision_evidence_receipt_digest": (report.decision_evidence_receipt_digest),
+                    "decision_evidence_verification_bundle_digest": (
+                        report.decision_evidence_verification_bundle_digest
+                    ),
+                    "decision_evidence_rejection_reasons": list(
+                        report.decision_evidence_rejection_reasons
+                    ),
                     "finding_count": len(report.findings),
                 },
             )
