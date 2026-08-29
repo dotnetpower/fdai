@@ -200,6 +200,21 @@ def test_materialization_rejects_artifact_replaced_after_verification(tmp_path: 
         materialize_verified_artifacts(tmp_path, verification, tmp_path / "private")
 
 
+def test_materialization_snapshots_every_python_wheel(tmp_path: Path) -> None:
+    _private, public, _manifest = _kit(tmp_path)
+    verification = verify_offline_kit(
+        tmp_path,
+        release_root_pem=public,
+        cli_version="0.1.0",
+        platform_tag="linux-x86_64",
+    )
+    artifacts = materialize_verified_artifacts(tmp_path, verification, tmp_path / "private")
+
+    assert sorted(path.name for path in artifacts.python_wheels.glob("*.whl")) == [
+        "fdai_deployment_cli-0.1.0-py3-none-any.whl"
+    ]
+
+
 def test_offline_kit_rejects_incomplete_sbom(tmp_path: Path) -> None:
     private, public, _manifest = _kit(tmp_path)
     sbom = tmp_path / "sbom/offline-kit.cdx.json"

@@ -280,6 +280,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H46 | Kit compatibility recorded architecture but not Python ABI or libc. The signed manifest now binds the runtime implementation, minor version, and libc identity. | `test_offline_kit_verifies_signature_exact_files_and_compatibility` |
 | H47 | Malformed bundle archives escaped the CLI's stable error boundary as `TarError`. Extraction now maps archive parser failures to a bounded bundle verification error. | `test_bundle_archive_maps_malformed_input_to_stable_error` |
 | H48 | A truncated gzip raised `EOFError` outside the normalized archive error path. It now produces the same bounded verification failure. | `test_bundle_archive_maps_truncated_gzip_to_stable_error` |
+| H49 | The drill installed wheels from mutable kit storage after verification. The external verifier now materializes every wheel into a private digest-checked snapshot used by `pip`. | `test_materialization_snapshots_every_python_wheel` |
 
 ## Related docs
 

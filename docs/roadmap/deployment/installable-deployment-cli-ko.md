@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: bd245338bc7a2fd64df04fa864b9ac48d8921001
+translation_source_sha: 9efe1d0b399fc8a82c7a493158202d8ad22881f1
 translation_revised: 2026-08-29
 ---
 # 설치형 배포 CLI
@@ -103,8 +103,9 @@ Installer는 system 도구를 변경하지 않습니다. `fdaictl doctor`가 누
 | `fdaictl trajectory validate` | 통제된 trajectory 데이터셋 체크섬/스키마/순서/출처 대응 검사 | 없음 |
 | `fdaictl license inspect` | 기능 license 토큰을 packaged 공개 키로 검증하고 권한 상태 보고 | 없음 |
 
-폐쇄망 설치는 포함된 wheel을 설치하거나 실행하기 전에 키트 외부의 신뢰된 검증기로 서명 키트를
-인증합니다. 설치된 `fdaictl`이 검증을 다시 수행합니다.
+폐쇄망 설치는 키트 외부의 신뢰된 검증기로 서명 키트를 인증하고 wheel을 다이제스트 확인
+비공개 스냅샷으로 복사한 뒤 해당 스냅샷에서만 설치합니다. 설치된 `fdaictl`이 검증을 다시
+수행합니다.
 
 C1 명령은 자동화를 위해 안정적인 JSON 스키마를 사용합니다. `provision init`은 활성 구독
 및 테넌트 식별자, 환경, 지역, remote-runner 경계, shadow-mode 기본값만 gitignored

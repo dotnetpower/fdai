@@ -269,6 +269,7 @@ class MaterializedOfflineArtifacts:
     terraform_binary: Path
     provider_mirror: Path
     deployment_bundle: Path
+    python_wheels: Path
 
 
 def materialize_verified_artifacts(
@@ -284,10 +285,12 @@ def materialize_verified_artifacts(
     destination.chmod(0o700)
     digests = dict(verification.file_digests)
     prefix = verification.provider_mirror_prefix.rstrip("/") + "/"
+    python_prefix = "python/"
     selected = {
         verification.terraform_binary,
         verification.deployment_bundle,
         *(path for path in digests if path.startswith(prefix)),
+        *(path for path in digests if path.startswith(python_prefix)),
     }
     for relative in sorted(selected):
         expected = digests.get(relative)
@@ -302,6 +305,7 @@ def materialize_verified_artifacts(
         terraform_binary=terraform,
         provider_mirror=destination / verification.provider_mirror_prefix,
         deployment_bundle=destination / verification.deployment_bundle,
+        python_wheels=destination / "python",
     )
 
 

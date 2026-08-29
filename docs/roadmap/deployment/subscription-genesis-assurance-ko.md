@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: fb122f6099342c13aa7b39192fae4c9894983d5d
+translation_source_sha: 94234a0752ca3d5e1ae9f80c2f0ca9eb7c57461d
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -273,6 +273,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H46 | 키트 호환성이 아키텍처만 기록하고 Python ABI와 libc를 기록하지 않았습니다. 이제 서명 매니페스트가 런타임 구현, minor 버전, libc 신원에 연결됩니다. | `test_offline_kit_verifies_signature_exact_files_and_compatibility` |
 | H47 | 잘못된 번들 보관이 `TarError`로 CLI의 안정 오류 경계를 벗어났습니다. 이제 추출이 보관 구문 분석 실패를 범위가 제한된 번들 검증 오류로 변환합니다. | `test_bundle_archive_maps_malformed_input_to_stable_error` |
 | H48 | 잘린 gzip이 정규화된 보관 오류 경로 밖에서 `EOFError`를 발생시켰습니다. 이제 같은 범위가 제한된 검증 실패를 반환합니다. | `test_bundle_archive_maps_truncated_gzip_to_stable_error` |
+| H49 | 훈련이 검증 후 변경 가능한 키트 저장소에서 wheel을 설치했습니다. 이제 외부 검증기가 모든 wheel을 다이제스트 확인 비공개 스냅샷으로 구체화하고 `pip`이 해당 스냅샷을 사용합니다. | `test_materialization_snapshots_every_python_wheel` |
 
 ## 관련 문서
 

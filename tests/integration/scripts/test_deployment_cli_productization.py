@@ -37,12 +37,13 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     assert "fdai_deployment_cli-*-py3-none-any.whl" in stage
     assert "PYTHONPATH=packages/deployment-cli/src" in stage
     assert '"$UV" pip install --python "$WORKDIR/cli-venv/bin/python"' in drill
-    assert '--no-index --find-links "$KIT/python"' in drill
+    assert '--no-index --find-links "$WORKDIR/authenticated-kit/python"' in drill
     assert 'CLI="$WORKDIR/cli-venv/bin/fdaictl"' in drill
     external_verify = drill.index("externally verify offline kit before executing it")
     install = drill.index("install authenticated shipped CLI from kit wheels")
     assert external_verify < install
     assert "PYTHONPATH=packages/deployment-cli/src" in drill[external_verify:install]
+    assert "materialize_verified_artifacts" in drill[external_verify:install]
     assert "fdai_deployment_cli.offline_kit" in signer
     assert "fdai.deployment_cli" not in stage + drill + signer
 

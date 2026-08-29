@@ -100,8 +100,9 @@ lead to a mutation makes the remote execution boundary visible.
 | `fdaictl trajectory validate` | Check governed dataset checksums, schema, order, and source mapping | No |
 | `fdaictl license inspect` | Verify a capability license token against the packaged public key and report entitlement status | No |
 
-Disconnected installation authenticates the signed kit with a trusted verifier outside that kit
-before it installs or executes any included wheel. The installed `fdaictl` then repeats verification.
+Disconnected installation authenticates the signed kit with a trusted verifier outside that kit,
+copies its wheels into a private digest-checked snapshot, and installs only from that snapshot. The
+installed `fdaictl` then repeats verification.
 
 The C1 commands use stable JSON schemas for automation. `provision init` captures only the active
 subscription and tenant identifiers, environment, region, remote-runner boundary, and shadow-mode

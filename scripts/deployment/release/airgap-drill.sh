@@ -158,20 +158,22 @@ cd "$REPO_ROOT"
 PYTHONPATH=packages/deployment-cli/src "$PYTHON" -c "
 import sys
 from pathlib import Path
-from fdai_deployment_cli.offline_kit import verify_offline_kit
+from fdai_deployment_cli.offline_kit import materialize_verified_artifacts, verify_offline_kit
 result = verify_offline_kit(
     Path(sys.argv[1]),
     release_root_pem=Path(sys.argv[2]).read_bytes(),
     cli_version=sys.argv[3],
     platform_tag=sys.argv[4],
 )
+materialize_verified_artifacts(Path(sys.argv[1]), result, Path(sys.argv[5]))
 print(f\"   verified {result.file_count} files, {result.total_bytes} bytes\")
-" "$KIT" "$WORKDIR/release-root.pub" "$CLI_VERSION" "$PLATFORM_TAG"
+" "$KIT" "$WORKDIR/release-root.pub" "$CLI_VERSION" "$PLATFORM_TAG" "$WORKDIR/authenticated-kit"
 
 echo "-- install authenticated shipped CLI from kit wheels"
 "$UV" venv --python "$PYTHON" "$WORKDIR/cli-venv" >/dev/null
 "$UV" pip install --python "$WORKDIR/cli-venv/bin/python" \
-  --no-index --find-links "$KIT/python" "fdai-deployment-cli==$CLI_VERSION" >/dev/null
+  --no-index --find-links "$WORKDIR/authenticated-kit/python" \
+  "fdai-deployment-cli==$CLI_VERSION" >/dev/null
 CLI="$WORKDIR/cli-venv/bin/fdaictl"
 CLI_PYTHON="$WORKDIR/cli-venv/bin/python"
 "$CLI" version --output json >/dev/null
