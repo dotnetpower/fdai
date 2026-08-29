@@ -116,6 +116,8 @@ The synthetic air-gap drill isolates Azure CLI configuration so a host login can
 target evidence, requires Azure CLI as a local prerequisite, and expects its distinct redacted
 provider-authentication marker. Repeated `--skip-stage` drills recreate their isolated Azure
 configuration instead of inheriting prior run state.
+The connected stage issues its synthetic license through the current Core and service-contract
+package roots rather than the retired monolithic source path.
 Connected plans expose only a validated Azure CLI path or target-bound Managed Identity variables
 to Terraform; unrelated environment values remain excluded.
 
