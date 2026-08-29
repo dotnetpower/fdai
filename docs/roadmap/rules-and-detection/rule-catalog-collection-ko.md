@@ -1,7 +1,7 @@
 ---
 title: 규칙 카탈로그 수집(Rule Catalog Collection)
 translation_of: rule-catalog-collection.md
-translation_source_sha: 4668b94a4196d63a29c499a167276d7361dab437
+translation_source_sha: 3ae7b0e6c8e29189866875c0a1c3e57c7e5c6588
 translation_revised: 2026-08-29
 ---
 
@@ -613,6 +613,7 @@ Authored Rego는 `rule-catalog/` 아래에 **중첩되지 않음** ; T0와 검�
 | 2026-08-14 | implemented | 영속 reference-only 수집을 차단하고 합성 fixture를 사용하는 staged snapshot 저장소 게이트를 추가했습니다. | 현재 변경의 `test_collect.py`와 `test_check_reference_only_sources.py`. | 소스 분류를 계속 검토합니다. 게이트는 선언된 manifest를 강제하며 임의 텍스트에서 라이선스를 추론하지 않습니다. |
 | 2026-08-29 | implemented | 검토 완료된 `kubernetes-cluster.hardening.baseline` ConfigurationBaseline을 하나 배포했습니다. 이를 위한 결정론적 T0 소비자인 `evaluate_configuration_baseline_control_set` / `require_resolved_configuration_baseline_control_set`와 `baseline_deep` 전체 카탈로그 검증 단계를 추가했으며, 런타임 `FrozenConfigurationBaseline` drift 스냅샷과는 별개로 유지했습니다. Durable snapshot mirror(`snapshot_mirror.py`, `delivery/azure/rule_catalog_snapshot_store.py`), 기존 `RemediationPrPublisher` / `GitOpsPrAdapter` GitOps 통로를 재사용하는 review-only draft-PR 게시(`rule_catalog/pipeline/review.py`, `delivery/gitops_pr/collection_review.py`), 그리고 이를 `rule_collector_job_cli.py`와 `infra/modules/compute/container-apps/rule_watcher_job.tf` / `infra/main.tf`에 opt-in으로 연결하는 작업도 추가했습니다. | `current change`; `pytest services/core-control-plane/tests/rule_catalog/test_baseline_catalog.py services/core-control-plane/tests/rule_catalog/pipeline/test_snapshot_mirror.py services/core-control-plane/tests/rule_catalog/pipeline/test_review.py services/core-control-plane/tests/delivery/test_gitops_collection_review.py services/core-control-plane/tests/delivery/azure/test_rule_catalog_snapshot_store.py services/core-control-plane/tests/delivery/test_rule_catalog_delivery.py services/core-control-plane/tests/delivery/test_rule_collector_job_cli.py` (60 passed); `infra/`와 `infra/modules/compute/container-apps/`에서 `terraform validate` / `terraform fmt -check`. | Durable-mirror와 review-only PR 단계를 실제 배포에서 활성화하고 외부 GitHub 자격 증명을 프로비저닝합니다. 실제 활성화는 이번 변경에서 실행하지 않은 live network/deploy 작업이므로 보류합니다. |
 | 2026-08-29 | implemented | 하드닝 11-13차에서 저장소 문서를 실제 제공 내용과 맞추고, 재검증 시간이 달라도 검토 ID가 유지되도록 했으며, 공유 저장소 보존 접두사가 구성된 각 컨테이너와 일치하도록 수정했습니다. | `current change`; 집중 수집 테스트 61개, `baseline_deep`, 저장소 계약 테스트 3개 통과. 최종 검토에서 Medium 이상 문제는 남지 않았습니다. | 실제 활성화와 외부 자격 증명은 운영 근거로 남습니다. |
+| 2026-08-29 | implemented | 제공 계약을 기준으로 수집 설계 결정을 닫았습니다. 매니페스트 소유 재배포 분류, 수요 기반 파서, 별도 crosswalk, 소스 버전 기반 CVSS, 중립 데이터베이스 매개 변수, 배정 기반 폐기, 소스별 무결성 기준점, 구현된 발견 임계값과 주기를 선택했습니다. | `current change`; 현재 매니페스트, crosswalk, fetcher, 거버넌스 배정 및 발견 계약. | 새 외부 소스에는 각 라이선스와 매니페스트 승인이 계속 필요합니다. |
 
 ### 남은 작업
 
@@ -624,21 +625,31 @@ Authored Rego는 `rule-catalog/` 아래에 **중첩되지 않음** ; T0와 검�
 
 ## 열림 Decisions
 
-- [ ] 어떤 소스가 reference-only vs embeddable, 각 라이선스에 대해 확인.
-- [ ] 남은 소스를 위한 파서 플러그인(docs, Checkov/tfsec/KICS/Trivy 및 추가 벤더 format).
-- [ ] 컴플라이언스-프레임워크 매핑(컨트롤 → NIST/PCI/ISO 태그): 매니페스트 필드 또는 별도 crosswalk
-      아티팩트.
-- [ ] MITRE ATT&CK technique / D3FEND 컨트롤 매핑 저장: 컴플라이언스 crosswalk 아티팩트 재사용
-      또는 규칙에 전용 매핑-태그 필드 추가.
-- [ ] 결정론 CVSS+KEV → `severity` 매핑과 CVSS 버전 정책(v3.1 vs v4.0), 그리고 버전 태그가
-      규칙에 어디에 운반되는지.
-- [ ] Per-DB-엔진 컨트롤 granularity: 엔진이 `resource_type` 에 인코딩 vs 공유 중립 타입의
-      `parameters.engine` discriminator.
-- [ ] 상류 컨트롤이 제거될 때 tombstone/retirement 기록 포맷.
-- [ ] 어떤 소스가 무결성 검증을 위해 체크섬/서명을 노출하고 그것이 없을 때 대체 경로.
-- [ ] 루프-생성 후보가 shadow를 떠날 수 있기 전 최소 shadow-dwell 시간과 표본 크기, 승격을
-      게이트하는 정확도 임계.
-- [ ] 자율 발견 루프의 주기(이벤트-트리거 vs 스케줄) 와 사이클당 후보/토큰 예산.
-- [ ] 단계 2와 단계 3에서 observe 스테이지에 어떤 운영 신호가 공급되는지(재정의 이벤트와
-      HIL 패턴은 재정의 아티팩트가 존재하는 순간부터 범위 내; 롤백 상관관계는 나중에 랜딩
-      가능).
+- [x] 제공되는 각 소스 매니페스트는 검토된 라이선스에 따라 `redistribution`을 선언합니다.
+      새 소스는 같은 검토에서 `embeddable` 또는 `reference-only`로 분류되기 전까지 수집할 수
+      없습니다.
+- [x] 파서 플러그인은 수요에 따라 구현합니다. 승인된 소스 매니페스트가 예약 파서를 선택할
+      때만 구현하며, 그전에는 `ParserNotImplementedError`가 필요한 차단 기본 결과입니다.
+- [x] 컴플라이언스 프레임워크 매핑은 별도의 버전 지정 crosswalk 아티팩트를 사용합니다.
+      MCSB v1 및 v2-preview crosswalk가 제공되는 선례이며 Rule 레코드에는 프레임워크 태그를
+      추가하지 않습니다.
+- [x] 승인된 소스가 추가되면 MITRE ATT&CK 및 D3FEND 매핑도 같은 별도 crosswalk 패턴을
+      사용합니다. Rule 스키마에는 전용 필드를 추가하지 않습니다.
+- [x] 취약성 소스는 자신이 게시한 CVSS 버전을 사용하고 v4.0을 우선하며, v4.0이 없으면
+      v3.1을 유지합니다. 소스 매니페스트가 버전을 보존합니다. KEV 포함 여부는 별도의 관측
+      부울이며 매핑된 심각도를 유지하거나 높이기만 합니다.
+- [x] 데이터베이스 엔진별 구분은 엔진의 운영 의미가 달라 별도의 검토된 리소스 타입이 필요한
+      경우가 아니면 공유 중립 타입의 `parameters.engine`을 사용합니다.
+- [x] 상류에서 제거되면 마지막 검토 Rule을 유지하고 관리되는 배정 효과를 `disabled`로
+      바꿉니다. 소스 리비전과 제거 근거는 provenance에 남습니다. 조용한 삭제와 검토되지 않은
+      tombstone 형식은 지원하지 않습니다.
+- [x] HTTP 소스는 `expected_sha256`이 필요하고, Git 소스는 변경할 수 없는 commit을
+      고정하며, 로컬 소스는 검토된 저장소 내용이 필요합니다. 이러한 무결성 기준점이 없는
+      소스는 reference-only로 유지되고 자동 승격에 들어갈 수 없습니다.
+- [x] 루프 생성 후보는 기본적으로 shadow 14일, 표본 100개, 검토 정확도 0.98, 정책 위반
+      탈출 0건을 사용하며 `ShadowDwellThresholds`가 적용합니다.
+- [x] 발견 스케줄러는 안정적인 1시간 구간에서 실행되고 후보를 최대 500개로 제한하며 주기
+      마감은 5분입니다. 토큰 상한은 주입된 모델 어댑터의 관리되는 예산이 소유하고 소스 주기는
+      이를 부여하거나 우회할 수 없습니다.
+- [x] 단계 2는 재정의, 사람 승인, shadow, 감사 결과 신호를 관측합니다. 롤백 상관관계는
+      독립적으로 검증된 결과 근거가 있을 때만 단계 3에서 결합합니다.

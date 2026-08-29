@@ -616,6 +616,7 @@ boundaries, and CandidateGuard behavior live in
 | 2026-08-15 | implemented | Added dedicated `ConfigurationBaseline` and `MeasurementBaseline` contracts, strict schemas, fail-closed directory loaders, and the separate `rule-catalog/baselines/` stores. | `current change`; `services/core-control-plane/src/fdai/rule_catalog/schema/baseline_catalog.py`; `rule-catalog/baselines/`; `pytest services/core-control-plane/tests/rule_catalog/test_baseline_catalog.py` (22 passed). | Collect or author real baseline content and bind the stores to a T0 drift consumer. |
 | 2026-08-29 | implemented | Shipped one reviewed `kubernetes-cluster.hardening.baseline` ConfigurationBaseline; added `evaluate_configuration_baseline_control_set` / `require_resolved_configuration_baseline_control_set` as its deterministic T0 consumer and the `baseline_deep` full-catalog validation step; kept it distinct from the runtime `FrozenConfigurationBaseline` drift snapshot. Added the durable snapshot mirror (`snapshot_mirror.py`, `delivery/azure/rule_catalog_snapshot_store.py`), review-only draft-PR publication reusing the existing `RemediationPrPublisher` / `GitOpsPrAdapter` GitOps seam (`rule_catalog/pipeline/review.py`, `delivery/gitops_pr/collection_review.py`), and their opt-in wiring into `rule_collector_job_cli.py` and `infra/modules/compute/container-apps/rule_watcher_job.tf` / `infra/main.tf`. | `current change`; `pytest services/core-control-plane/tests/rule_catalog/test_baseline_catalog.py services/core-control-plane/tests/rule_catalog/pipeline/test_snapshot_mirror.py services/core-control-plane/tests/rule_catalog/pipeline/test_review.py services/core-control-plane/tests/delivery/test_gitops_collection_review.py services/core-control-plane/tests/delivery/azure/test_rule_catalog_snapshot_store.py services/core-control-plane/tests/delivery/test_rule_catalog_delivery.py services/core-control-plane/tests/delivery/test_rule_collector_job_cli.py` (60 passed); `terraform validate` / `terraform fmt -check` in `infra/` and `infra/modules/compute/container-apps/`. | Enable the durable-mirror and review-only PR stages in a real deployment and provision the external GitHub credential; live activation is deferred (no live network/deploy operation ran in this change). |
 | 2026-08-29 | implemented | Hardening rounds 11-13 aligned the configuration-store README with the shipped baseline, removed verification wall-clock time from draft-review identity so unchanged content cannot open duplicate pull requests, and corrected the shared storage lifecycle prefix so snapshot versions are actually retained and expired under the configured policy. A final focused review found no remaining Medium-or-higher issue in this slice. | `current change`; focused collection tests passed 61 cases, `baseline_deep` passed with one baseline and four resolved controls, and the storage-module contract passed 3 cases. | Live enabling and external credentials remain operational evidence, not repository implementation. |
+| 2026-08-29 | implemented | Closed the collection design decisions with the shipped contracts: manifest-owned redistribution, demand-driven parsers, separate crosswalks, source-versioned CVSS, neutral database parameters, assignment-based retirement, source-specific integrity anchors, and the implemented discovery thresholds and cadence. | `current change`; current manifests, crosswalks, fetchers, governance assignments, and discovery contracts. | New external sources still require their own license and manifest approval. |
 
 ### Remaining work
 
@@ -627,23 +628,30 @@ boundaries, and CandidateGuard behavior live in
 
 ## Open Decisions
 
-- [ ] Which sources are reference-only vs embeddable, confirmed against each license.
-- [ ] Remaining parser plugins for docs, Checkov/tfsec/KICS/Trivy, and other vendor formats.
-- [ ] Compliance-framework mapping (controls → NIST/PCI/ISO tags): a manifest field or a
-      separate crosswalk artifact.
-- [ ] Storage for MITRE ATT&CK technique / D3FEND control mappings: reuse the compliance
-      crosswalk artifact or add a dedicated mapping-tag field on the rule.
-- [ ] The deterministic CVSS+KEV → `severity` mapping and the CVSS version policy (v3.1 vs
-      v4.0), and where the version tag is carried on the rule.
-- [ ] Per-DB-engine control granularity: engine encoded in `resource_type` vs a
-      `parameters.engine` discriminator on a shared neutral type.
-- [ ] Tombstone/retirement record format when an upstream control is removed.
-- [ ] Which sources expose a checksum/signature for integrity verification, and the fallback
-      when none is available.
-- [ ] Minimum shadow-dwell time and sample size for a loop-generated candidate before it can
-      leave shadow, and the accuracy threshold that gates promotion.
-- [ ] Cadence of the autonomous discovery loop (event-triggered vs scheduled) and its
-      per-cycle candidate/token budget.
-- [ ] Which operational signals feed the observe stage in Phase 2 vs Phase 3 (override events
-      and HIL patterns are in scope from the moment the override artifact exists; rollback
-      correlation may land later).
+- [x] Each shipped source manifest declares `redistribution` from its reviewed license. A new source
+      cannot collect until the same review classifies it as `embeddable` or `reference-only`.
+- [x] Parser plugins are demand-driven. Implement a reserved parser only when an approved source
+      manifest selects it; otherwise `ParserNotImplementedError` is the required fail-closed result.
+- [x] Compliance-framework mappings use a separate versioned crosswalk artifact. The MCSB v1 and
+      v2-preview crosswalks are the shipped precedent; Rule records don't acquire framework tags.
+- [x] MITRE ATT&CK and D3FEND mappings use the same separate crosswalk pattern when an approved
+      source arrives. They don't add a dedicated field to the Rule schema.
+- [x] A vulnerability source uses the CVSS version it publishes, preferring v4.0 and retaining
+      v3.1 when v4.0 is absent. The source manifest carries that version. KEV membership is a
+      separate observed boolean and can only preserve or raise mapped severity.
+- [x] Database-engine specialization uses `parameters.engine` on a shared neutral resource type
+      unless the engines have different operational semantics that justify separate reviewed
+      resource types.
+- [x] An upstream removal keeps the last reviewed Rule and changes its governed assignment to
+      `disabled`; the source revision and removal evidence remain in provenance. Silent deletion
+      and an unreviewed tombstone format are not supported.
+- [x] HTTP sources require `expected_sha256`; Git sources pin an immutable resolved commit; local
+      sources require reviewed repository content. A source without one of these integrity anchors
+      remains reference-only and cannot enter automated promotion.
+- [x] Loop-generated candidates use 14 shadow days, 100 samples, 0.98 reviewed accuracy, and zero
+      policy escapes by default, enforced by `ShadowDwellThresholds`.
+- [x] The discovery scheduler runs in stable hourly buckets with at most 500 candidates and a
+      five-minute cycle deadline. Token ceilings belong to the injected model adapter's governed
+      budget; a source cycle cannot grant or bypass that budget.
+- [x] Phase 2 observes override, human-approval, shadow, and audit-outcome signals. Rollback
+      correlation joins in Phase 3 only when its independently verified outcome evidence exists.

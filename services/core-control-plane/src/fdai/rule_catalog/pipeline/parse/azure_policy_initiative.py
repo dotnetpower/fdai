@@ -1,19 +1,13 @@
 """Parser for Azure Policy Set Definitions (initiatives).
 
-Design: an initiative is a curated bundle of Azure Policy definitions
-that maps 1:1 onto an FDAI :class:`~fdai.core.rule_catalog_profiles.Profile`.
-The parser walks a snapshot tree of `policySetDefinitions/**/*.json`
-and, for each initiative, emits a mapping shaped like the FDAI
-``profile`` schema. The compile step (in the collector CLI) resolves
-the initiative's ``policyDefinitionId`` GUIDs against the imported
-``azure-builtin/`` rule tree; a GUID with no imported counterpart is
-silently dropped (the initiative may reference a preview / non-public
-definition that upstream Azure/azure-policy does not ship).
+This offline helper reads Azure Policy Set Definitions and emits profile intent
+records. It is not registered in ``build_parser`` and no approved source
+manifest selects it. The shipped collected profiles are reviewed static catalog
+artifacts; this helper does not claim a reproducible collector path for them.
 
-Output rule ids are the imported FDAI ids (from
-``rule-catalog/collected/azure-builtin/**/*.yaml``); the parser itself
-does NOT read the imported rules - the compile step does. This keeps
-the parser pure over its own snapshot.
+The helper emits source GUIDs only and does not join them to imported FDAI Rule
+ids. A future automated profile refresh requires its own approved source
+manifest, GUID-to-Rule compiler, and focused end-to-end test.
 """
 
 from __future__ import annotations
@@ -35,18 +29,15 @@ _DEFINITION_ID_RE: Final[re.Pattern[str]] = re.compile(
 class AzurePolicyInitiativeParser:
     """Parser plugin id ``azure-policy-initiative``.
 
-    Emits :class:`ParsedRule` entries whose ``raw`` mapping is the
-    ``profile`` shape (schema id ``profile/1.0.0``), NOT the rule shape.
-    That is intentional: the collector CLI writes these under
-    ``rule-catalog/profiles/collected/`` after joining them with the
-    imported ``azure-builtin`` GUID -> id map.
+    Emits :class:`ParsedRule` containers whose ``raw`` mapping is an
+    intermediate profile-intent shape, not the Rule schema. Callers must not
+    pass these records to the Rule verifier.
     """
 
     @property
     def name(self) -> ParserName:
-        # Reuse the azure-policy-json id - the same source repo ships
-        # both trees. The compile step distinguishes by the shape of
-        # each ParsedRule.raw (`policyDefinitions` field present).
+        # The helper predates a dedicated manifest parser id. It remains
+        # unregistered until an approved profile-refresh design adds one.
         return ParserName.AZURE_POLICY_JSON
 
     def parse(self, snapshot_tree_root: Path) -> ParseReport:

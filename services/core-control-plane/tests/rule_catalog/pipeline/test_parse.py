@@ -38,6 +38,7 @@ ACTION_TYPES_ROOT = REPO_ROOT / "rule-catalog" / "action-types"
 VOCAB_FILE = REPO_ROOT / "rule-catalog" / "vocabulary" / "resource-types.yaml"
 POLICIES_ROOT = REPO_ROOT / "policies"
 REMEDIATION_ROOT = REPO_ROOT / "rule-catalog" / "remediation"
+SOURCES_ROOT = REPO_ROOT / "rule-catalog" / "sources"
 
 
 def _schema_registry() -> PackageResourceSchemaRegistry:
@@ -81,6 +82,15 @@ def test_build_parser_unknown_name_raises_parseerror() -> None:
 def test_build_parser_declared_but_unimplemented_raises_notimplemented(declared: str) -> None:
     with pytest.raises(ParserNotImplementedError, match=declared):
         build_parser(declared)
+
+
+def test_every_approved_source_manifest_selects_an_implemented_parser() -> None:
+    manifests = sorted(SOURCES_ROOT.glob("*/manifest.yaml"))
+    assert manifests
+    for path in manifests:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+        parser = build_parser(str(raw["parser"]))
+        assert parser.name.value == raw["parser"]
 
 
 # ---------------------------------------------------------------------------
