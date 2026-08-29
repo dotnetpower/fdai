@@ -102,7 +102,7 @@ stage() {
   cat > "$WORKDIR/offline.tfrc" <<EOF
 provider_installation {
   filesystem_mirror {
-    path    = "$KIT/terraform/providers"
+    path    = "$WORKDIR/authenticated-kit/terraform/providers"
     include = ["*/*"]
   }
   direct {
@@ -129,7 +129,7 @@ REPO_ROOT="$repo_root" WORKDIR="$WORKDIR" KIT="$KIT" PYTHON="$PYTHON" UV="$(comm
   unshare -rn -- bash -euo pipefail -c '
 ip link set lo up 2>/dev/null || true
 export TF_IN_AUTOMATION=1
-TFBIN="$KIT/terraform/terraform"
+TFBIN="$WORKDIR/authenticated-kit/terraform/terraform"
 BUNDLE="$WORKDIR/work/fdai-deployment-bundle-${BUNDLE_VERSION}"
 fail() { echo "airgap-drill: FAIL - $*" >&2; exit 1; }
 

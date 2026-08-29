@@ -103,7 +103,8 @@ lead to a mutation makes the remote execution boundary visible.
 Disconnected installation authenticates the signed kit with a trusted verifier outside that kit,
 copies its wheels into a private digest-checked snapshot, and installs only from that snapshot. The
 same verifier safely extracts and verifies the signed bundle before Terraform reads it. The installed
-`fdaictl` then repeats verification.
+`fdaictl` then repeats verification, and every Terraform binary and provider path uses the private
+snapshot rather than the original kit.
 
 The C1 commands use stable JSON schemas for automation. `provision init` captures only the active
 subscription and tenant identifiers, environment, region, remote-runner boundary, and shadow-mode
