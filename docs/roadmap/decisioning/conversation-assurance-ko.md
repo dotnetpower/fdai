@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 749c5e17acc12c4cc7770b5e0c38cba1f061963b
+translation_source_sha: 7e4b9e90299adb5b7b9e0a45e87553040084c843
 translation_revised: 2026-08-29
 ---
 # 대화 품질 보증
@@ -20,7 +20,7 @@ translation_revised: 2026-08-29
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 평가 계약 및 독립 축약 | implemented | [`test_assessment.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_assessment.py), [`test_attribution.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_attribution.py) | 결정론적 검사, 독립 평가자 축약, 귀속 및 판단 보류 동작에 집중 테스트가 있습니다. |
-| 비용 인식 런타임 정책 및 수명 주기 | implemented | [`test_runtime_policy.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_runtime_policy.py), [`test_lifecycle.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_lifecycle.py) | 단계적 평가, 후보 수명 주기, 실패 시 차단되는 승격 검사 및 롤백 동작이 구현되어 있습니다. 이는 운영 승격을 증명하지 않습니다. |
+| 비용 인식 런타임 정책 및 수명 주기 | implemented | [`test_runtime_policy.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_runtime_policy.py), [`test_lifecycle.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_lifecycle.py) | 단계적 평가, 후보 수명 주기, 실패 시 차단되는 승격 검사 및 롤백 동작이 구현되어 있습니다. 가드 실패는 계속 롤백할 수 있지만 긍정적인 단계 전진에는 후보와 측정된 시험에 연결된 현재 유효한 공유 의사 결정 근거 승인 결과가 필요합니다. 이는 운영 승격을 증명하지 않습니다. |
 | Qualification 점수표 및 캠페인 원장 | in-progress | [`test_quality_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_scorecard.py), [`conversation-assurance-ledger.py`](../../../scripts/quality/conversation-assurance-ledger.py) | 점수표와 범위가 제한된 결과 형식은 구현되어 있지만 전체 이중 언어 qualification 집합은 통제된 근거로 보존되지 않았습니다. |
 | Qualification 의사 결정 근거 승인 | implemented | [`quality_qualification.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_qualification.py), [`test_quality_qualification.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_qualification.py) | 축약기는 모든 관측과 입력을 정식 다이제스트에 연결하고 독립적인 `DecisionCriticalEvidenceReceipt` 묶음 검증 후 생성된 현재 유효한 승인 결과가 있을 때만 `qualified=true`를 보고합니다. 독립 실행형 CLI에는 검증기 결속이 없으므로 점수는 보존하지만 자격 없음으로 차단합니다. |
 | 5단계 지연 시간 qualification 근거 | implemented | [`quality_latency.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_latency.py), [`test_quality_latency.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_latency.py) | 고정 SLO 계약과 축약기는 콘텐츠가 없는 p50/p95/p99 근거를 생성하며 완전한 추적 범위를 추론하지 않습니다. 통제된 벤치마크 증적은 보존되지 않았습니다. |
@@ -40,6 +40,7 @@ translation_revised: 2026-08-29
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-29 | implemented | 긍정적인 채팅 정책 단계 승격을 공유 의사 결정 근거 승인 결과로 마이그레이션했습니다. 승인 결과는 시험 근거 다이제스트, 후보, principal 범위, 클러스터, 대상, 정책 리비전 및 측정 시각을 연결합니다. 승인 결과가 없거나 수락되지 않으면 현재 단계를 유지하지만 독립적인 가드 실패는 자동 롤백 경로를 유지합니다. | `current change`; 정책 전환 및 런타임 측정기, 집중 learning, 수명 주기 및 런타임 수명 주기 테스트, Ruff 및 strict mypy. | 런타임 측정기를 신뢰할 수 있는 승인 프로바이더에 연결하고 통제된 시험 묶음을 보존합니다. |
 | 2026-08-29 | implemented | ChatOps qualification 의사 결정 경계를 공유 의사 결정 핵심 근거 계약으로 마이그레이션했습니다. 축약기는 전체 묶음에서 예상 근거와 범위 다이제스트를 파생하고 고정 목적, 출처 리비전 및 승인 유효 구간을 다시 검사하며, 누락되거나 일치하지 않거나 만료된 근거를 명시적으로 자격 없음으로 유지합니다. | `current change`; qualification 축약기, 공유 승인 결과, 집중 준비 상태 및 qualification 테스트, CLI 실패 시 차단 검사, Ruff 및 strict mypy. | 독립적으로 검증된 프로덕션 qualification 증적과 묶음을 보존해야 합니다. 다른 FDAI-CONST-002 의사 결정 경계는 별도 작업으로 남아 있습니다. |
 | 2026-08-28 | implemented | 과거 맥락/로케일 모듈 및 테스트 경로를 통합 기여 API의 호환 연결로 복원했습니다. | `current change`; 집중 호환 검사; 저장소 링크 검증. | 과거 링크 복구에 남은 작업은 없습니다. |
 | 2026-08-28 | validated | 고객과 무관한 hidden corpus v1을 동결하고 독립적으로 검토했습니다. 서로 다른 두 기본 모델 계열이 500개 사례 전체를 검토했고 세 번째 계열이 불일치 62개를 모두 해결하여 label 500개가 수락되고 차단된 label은 0개가 됐습니다. | `current change`; 공개 매니페스트 다이제스트 `207683882d269a7cfec2c8a7a737f0a4fa156d7d4e5886bc7814814a91ca5182`; 검토 증적 다이제스트 `cc47f3dd7287e71372b60f6b82fa6e1df8815153b4e3b61cccaa1bdf077e5272`; 매니페스트 및 검토 축약기 통과. | 완전한 blind qualification 실행 3회를 수행해야 합니다. 이 변경에는 정책 승격이 포함되지 않습니다. |

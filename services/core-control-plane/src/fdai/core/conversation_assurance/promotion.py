@@ -5,7 +5,17 @@ from __future__ import annotations
 import hashlib
 import math
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
+
+from fdai_service_contracts.ontology_query import content_digest
+
+from fdai.shared.providers.decision_evidence_verifier import (
+    DecisionEvidenceAdmission,
+    assess_decision_evidence_admission,
+)
+
+CHAT_POLICY_PROMOTION_EVIDENCE_PURPOSE = "chat-policy-promotion"
 
 
 class ChatPolicyTarget(StrEnum):
@@ -72,6 +82,8 @@ class PolicyTrialMetrics:
     latency_delta_ms: float
     locale_gap_delta: float
     disagreement_rate_delta: float
+    measured_at: datetime
+    decision_evidence: DecisionEvidenceAdmission | None = None
 
     def __post_init__(self) -> None:
         _require_digest("policy trial evidence_digest", self.evidence_digest)
@@ -87,6 +99,8 @@ class PolicyTrialMetrics:
             raise ValueError("policy trial metrics MUST be finite")
         if self.sample_count < 0 or self.hard_failure_escapes < 0:
             raise ValueError("policy trial counts MUST be non-negative")
+        if self.measured_at.tzinfo is None or self.measured_at.utcoffset() is None:
+            raise ValueError("policy trial measured_at MUST be timezone-aware")
 
 
 @dataclass(frozen=True, slots=True)
@@ -125,6 +139,8 @@ class PolicyTransition:
     to_stage: PolicyStage
     reasons: tuple[str, ...]
     evidence_digest: str
+    decision_evidence_receipt_digest: str | None = None
+    decision_evidence_verification_bundle_digest: str | None = None
 
     def __post_init__(self) -> None:
         _require_digest("policy transition evidence_digest", self.evidence_digest)
@@ -184,12 +200,54 @@ def evaluate_policy_transition(
             ("insufficient_samples",),
             metrics.evidence_digest,
         )
+    if metrics.decision_evidence is None:
+        return PolicyTransition(
+            candidate.candidate_id,
+            candidate.stage,
+            candidate.stage,
+            ("decision_evidence_admission_missing",),
+            metrics.evidence_digest,
+        )
+    reasons = assess_decision_evidence_admission(
+        metrics.decision_evidence,
+        expected_evidence_digest=f"sha256:{metrics.evidence_digest}",
+        expected_scope_digest=chat_policy_promotion_scope_digest(candidate),
+        expected_purpose_id=CHAT_POLICY_PROMOTION_EVIDENCE_PURPOSE,
+        expected_source_revision=candidate.policy_digest,
+        evaluated_at=metrics.measured_at,
+    )
+    if reasons:
+        return PolicyTransition(
+            candidate.candidate_id,
+            candidate.stage,
+            candidate.stage,
+            tuple(f"decision_evidence_{reason.value}" for reason in reasons),
+            metrics.evidence_digest,
+            metrics.decision_evidence.receipt_digest,
+            metrics.decision_evidence.verification_bundle_digest,
+        )
     return PolicyTransition(
         candidate.candidate_id,
         candidate.stage,
         _NEXT_STAGE[candidate.stage],
         ("promotion_guards_passed",),
         metrics.evidence_digest,
+        metrics.decision_evidence.receipt_digest,
+        metrics.decision_evidence.verification_bundle_digest,
+    )
+
+
+def chat_policy_promotion_scope_digest(candidate: ChatPolicyCandidate) -> str:
+    """Return the exact principal, cluster, target, and policy promotion scope."""
+
+    return content_digest(
+        {
+            "candidate_id": candidate.candidate_id,
+            "cluster_id": candidate.cluster_id,
+            "policy_digest": candidate.policy_digest,
+            "principal_scope": candidate.principal_scope,
+            "target": candidate.target.value,
+        }
     )
 
 
@@ -199,11 +257,13 @@ def _require_digest(name: str, value: str) -> None:
 
 
 __all__ = [
+    "CHAT_POLICY_PROMOTION_EVIDENCE_PURPOSE",
     "ChatPolicyCandidate",
     "ChatPolicyTarget",
     "PolicyStage",
     "PolicyTransition",
     "PolicyTrialMetrics",
     "PromotionConfig",
+    "chat_policy_promotion_scope_digest",
     "evaluate_policy_transition",
 ]

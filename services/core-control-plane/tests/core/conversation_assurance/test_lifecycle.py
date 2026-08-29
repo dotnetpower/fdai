@@ -18,6 +18,11 @@ from fdai.core.conversation_assurance import (
     PolicyTransition,
     PolicyTrialMetrics,
 )
+from fdai.core.conversation_assurance.promotion import (
+    CHAT_POLICY_PROMOTION_EVIDENCE_PURPOSE,
+    chat_policy_promotion_scope_digest,
+)
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 
 
 def _fail(identifier: str) -> AssessmentRecord:
@@ -58,9 +63,11 @@ class _Measurer:
         candidate: ChatPolicyCandidate,
         _cluster: FailureCluster,
     ) -> PolicyTrialMetrics:
+        measured_at = datetime(2026, 8, 29, tzinfo=UTC)
+        evidence_digest = hashlib.sha256(candidate.stage.value.encode()).hexdigest()
         return PolicyTrialMetrics(
             observed_stage=candidate.stage,
-            evidence_digest=hashlib.sha256(candidate.stage.value.encode()).hexdigest(),
+            evidence_digest=evidence_digest,
             sample_count=100,
             score_delta_lcb95=1.0,
             hard_failure_escapes=0,
@@ -69,6 +76,17 @@ class _Measurer:
             latency_delta_ms=0.0,
             locale_gap_delta=0.0,
             disagreement_rate_delta=0.0,
+            measured_at=measured_at,
+            decision_evidence=DecisionEvidenceAdmission(
+                receipt_digest="sha256:" + "d" * 64,
+                verification_bundle_digest="sha256:" + "f" * 64,
+                evidence_digest=f"sha256:{evidence_digest}",
+                scope_digest=chat_policy_promotion_scope_digest(candidate),
+                purpose_id=CHAT_POLICY_PROMOTION_EVIDENCE_PURPOSE,
+                source_revision=candidate.policy_digest,
+                verified_at=measured_at,
+                valid_until=measured_at.replace(day=30),
+            ),
         )
 
 

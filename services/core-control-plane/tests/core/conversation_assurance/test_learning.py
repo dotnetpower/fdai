@@ -23,6 +23,11 @@ from fdai.core.conversation_assurance import (
     cluster_failures,
     evaluate_policy_transition,
 )
+from fdai.core.conversation_assurance.promotion import (
+    CHAT_POLICY_PROMOTION_EVIDENCE_PURPOSE,
+    chat_policy_promotion_scope_digest,
+)
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 
 
 def _assessment(identifier: str, verdict: AssuranceVerdict) -> AssessmentRecord:
@@ -149,6 +154,7 @@ def test_legacy_digest_only_candidate_remains_readable_in_shadow() -> None:
 
 
 def _metrics(**overrides: object) -> PolicyTrialMetrics:
+    candidate = _candidate()
     values: dict[str, object] = {
         "observed_stage": PolicyStage.SHADOW,
         "evidence_digest": "e" * 64,
@@ -160,6 +166,17 @@ def _metrics(**overrides: object) -> PolicyTrialMetrics:
         "latency_delta_ms": 0.0,
         "locale_gap_delta": 0.0,
         "disagreement_rate_delta": 0.0,
+        "measured_at": datetime(2026, 8, 29, tzinfo=UTC),
+        "decision_evidence": DecisionEvidenceAdmission(
+            receipt_digest="sha256:" + "d" * 64,
+            verification_bundle_digest="sha256:" + "f" * 64,
+            evidence_digest="sha256:" + "e" * 64,
+            scope_digest=chat_policy_promotion_scope_digest(candidate),
+            purpose_id=CHAT_POLICY_PROMOTION_EVIDENCE_PURPOSE,
+            source_revision=candidate.policy_digest,
+            verified_at=datetime(2026, 8, 28, tzinfo=UTC),
+            valid_until=datetime(2026, 8, 30, tzinfo=UTC),
+        ),
     }
     values.update(overrides)
     return PolicyTrialMetrics(**values)  # type: ignore[arg-type]
@@ -169,6 +186,17 @@ def test_policy_advances_one_stage_after_guards_pass() -> None:
     transition = evaluate_policy_transition(_candidate(), _metrics())
 
     assert transition.to_stage is PolicyStage.CANARY_1
+    assert transition.decision_evidence_receipt_digest == "sha256:" + "d" * 64
+
+
+def test_policy_cannot_advance_without_decision_evidence() -> None:
+    transition = evaluate_policy_transition(
+        _candidate(),
+        _metrics(decision_evidence=None),
+    )
+
+    assert transition.to_stage is PolicyStage.SHADOW
+    assert transition.reasons == ("decision_evidence_admission_missing",)
 
 
 def test_policy_requires_statistically_positive_gain_by_default() -> None:

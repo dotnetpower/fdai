@@ -8,6 +8,7 @@ import statistics
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from decimal import ROUND_CEILING, Decimal
 from typing import Any, Protocol
 
@@ -239,6 +240,7 @@ class BilingualBlindPolicyTrialMeasurer:
             locale_gap_delta=_locale_gap(candidate_rows) - _locale_gap(incumbent_rows),
             disagreement_rate_delta=_disagreement_rate(candidate_rows)
             - _disagreement_rate(incumbent_rows),
+            measured_at=datetime.now(UTC),
         )
 
     async def _run_answer(

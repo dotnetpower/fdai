@@ -330,7 +330,7 @@
     "services/core-control-plane/src/fdai/core/conversation_assurance/lifecycle.py": "ec3e4bf458d9bfb9fbfc34a4d1cc9c8687d41ba9788065489c5a26381604d8cc",
     "services/core-control-plane/src/fdai/core/conversation_assurance/models.py": "9af4213f84e2ccb6d7766e0208a70334b0a8d20078e3c4d43f1eb85fb4cb42e3",
     "services/core-control-plane/src/fdai/core/conversation_assurance/policy_store.py": "0c50f37a29f7efc21101460b0fd1769d41e92d356a0e120c6a7f3830d8399ca7",
-    "services/core-control-plane/src/fdai/core/conversation_assurance/promotion.py": "bd9165bba107bac53f75f5e319cc47df56800e6c7ffcecacf0e67e3d16470407",
+    "services/core-control-plane/src/fdai/core/conversation_assurance/promotion.py": "ac06465873475c2a6689ce4a0a8acb8a5f0e8d59f7b1ef2cabd771cf9761b77b",
     "services/core-control-plane/src/fdai/core/conversation_assurance/quality_action_observations.py": "293c1dd9157c8ccad2d2478f73d36d9f3a29bc66a78df1cff0b29d3f1e45e058",
     "services/core-control-plane/src/fdai/core/conversation_assurance/quality_answer_observations.py": "14e65e820db77d83a3e49819036a566008321409b55591cade3170941289b323",
     "services/core-control-plane/src/fdai/core/conversation_assurance/quality_context_locale_observations.py": "ff085d8d2df14fe6fa6bd1b6876574879c610ed03e558b384c1aeb1364098435",
