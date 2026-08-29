@@ -85,11 +85,7 @@ dependencies, objectives, evidence, allowed actions, and expected effects. Upstr
 > adjudicated deterministically instead of failing the whole projection. Agreement collapses to one
 > object and keeps the earliest observation time; disagreement stays an explicit state-fact conflict
 > that withholds the contested value and demotes every existing consumer. Cross-authority
-> adjudication now compares projected provider state with independent telemetry while retaining each
-> source's authority, scope, cutoff, freshness, completeness, and provenance. Agreement, missing
-> telemetry, stale projection, stale telemetry, conflict, and censorship remain separate outcomes.
-> Conflicts withhold contested values and lower read confidence without granting mutation or execution
-> authority.
+> adjudication between independent sources is not implemented.
 
 ## Implementation status
 
