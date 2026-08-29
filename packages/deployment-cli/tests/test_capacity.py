@@ -94,6 +94,33 @@ def test_optional_reserve_does_not_block_required_capacity() -> None:
     assert not result.optional_sufficient
 
 
+def test_optional_only_deployment_group_is_review_only() -> None:
+    required = CapabilityDemand(
+        capability="required",
+        deployment_key="primary",
+        required=True,
+        envelope=WorkloadEnvelope(1, 100, 100, 1),
+    )
+    optional = CapabilityDemand(
+        capability="optional",
+        deployment_key="secondary",
+        required=False,
+        envelope=WorkloadEnvelope(1, 100, 100, 1),
+    )
+
+    results = {
+        item.deployment_key: item
+        for item in plan_capacity(
+            (required, optional),
+            available_tpm_by_deployment={"primary": 5_000, "secondary": 1_000},
+        )
+    }
+
+    assert results["secondary"].required_tpm == 0
+    assert results["secondary"].reserve_tpm == 0
+    assert results["secondary"].sufficient
+
+
 def test_capacity_requires_required_capability_and_quota_evidence() -> None:
     optional = CapabilityDemand(
         capability="optional",

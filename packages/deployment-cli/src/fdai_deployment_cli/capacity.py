@@ -116,7 +116,10 @@ def plan_capacity(
         group = grouped[key]
         required_tpm = sum(item.envelope.minimum_tpm for item in group if item.required)
         optional_tpm = sum(item.envelope.minimum_tpm for item in group if not item.required)
-        required_reserve_ratio = max(item.envelope.quota_reserve for item in group if item.required)
+        required_reserve_ratio = max(
+            (item.envelope.quota_reserve for item in group if item.required),
+            default=0.0,
+        )
         combined_reserve_ratio = max(item.envelope.quota_reserve for item in group)
         available = available_tpm_by_deployment[key]
         if available < 0 or existing.get(key, 0) < 0:
