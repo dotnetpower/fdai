@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 97100b965b1ccc78d3d502c1553970cba96d3360
+translation_source_sha: e8f2c6affe19882e514d11d1309426e925069370
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -244,6 +244,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H17 | 오프라인 계획이 검증 후 매니페스트를 다시 열고 구문 분석해 교체 경쟁이 가능했습니다. 이제 검증 결과가 반환한 경로만 사용합니다. | `test_offline_kit_verifies_signature_exact_files_and_compatibility` |
 | H18 | 컴파일된 매니페스트가 넓은 단계만 봉인하고 구체적인 최소 플랫폼 및 서비스 인벤토리를 포함하지 않았습니다. 이제 공급자 등록, 기반, 데이터, 모델, 5개 서비스, Job, Console, 모니터링 항목을 열거합니다. | `test_compiler_emits_finite_ordered_manifest` |
 | H19 | 준비 완료 예행 연습이 요청된 실행과 매니페스트를 검증하기 전에 반환했습니다. 이제 준비 완료 원장도 중단된 원장과 같은 맥락 검사를 통과합니다. | `test_ready_simulation_still_validates_run_and_manifest` |
+| H20 | 번들 검증이 형식 검증 전에 FIFO를 열어 무기한 대기할 수 있었습니다. 이제 모든 비정규 페이로드를 열기 전에 거부합니다. | `test_bundle_hash_rejects_fifo_before_open` |
 
 ## 관련 문서
 

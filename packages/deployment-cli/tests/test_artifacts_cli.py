@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -160,6 +161,14 @@ def test_bundle_hash_rejects_replaced_file_identity(tmp_path: Path) -> None:
 
     with pytest.raises(BundleVerificationError, match="changed during verification"):
         _sha256(observed, expected=expected.stat())
+
+
+def test_bundle_hash_rejects_fifo_before_open(tmp_path: Path) -> None:
+    fifo = tmp_path / "payload"
+    os.mkfifo(fifo)
+
+    with pytest.raises(BundleVerificationError, match="regular files"):
+        _sha256(fifo, expected=fifo.stat())
 
 
 def test_bundle_rejects_incompatible_cli_version(tmp_path: Path) -> None:

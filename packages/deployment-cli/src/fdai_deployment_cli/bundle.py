@@ -114,6 +114,8 @@ def verify_bundle(
             if len(observed) >= 20_000:
                 raise BundleVerificationError("deployment bundle exceeds its file count limit")
             details = candidate.lstat()
+            if not stat.S_ISREG(details.st_mode):
+                raise BundleVerificationError("deployment bundle MUST contain regular files")
             if details.st_size > 512 * 1024 * 1024:
                 raise BundleVerificationError("deployment bundle file exceeds its size limit")
             total_bytes += details.st_size
@@ -153,6 +155,8 @@ def _read_regular(path: Path, maximum: int) -> bytes:
 
 
 def _sha256(path: Path, *, expected: os.stat_result) -> str:
+    if not stat.S_ISREG(expected.st_mode):
+        raise BundleVerificationError("deployment bundle MUST contain regular files")
     descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
     digest = hashlib.sha256()
     with os.fdopen(descriptor, "rb") as stream:
