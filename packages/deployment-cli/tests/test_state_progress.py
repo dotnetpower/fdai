@@ -74,6 +74,17 @@ def test_journal_reader_never_follows_symlink(tmp_path: Path) -> None:
         read_journal(link)
 
 
+def test_journal_never_follows_parent_directory_symlink(tmp_path: Path) -> None:
+    target = tmp_path / "target"
+    target.mkdir(mode=0o700)
+    linked = tmp_path / "linked"
+    linked.symlink_to(target, target_is_directory=True)
+
+    with pytest.raises(OSError):
+        append_event(linked / "run.jsonl", _event(1, GENESIS_HASH))
+    assert not (target / "run.jsonl").exists()
+
+
 def test_journal_rejects_ready_without_readiness_evidence(tmp_path: Path) -> None:
     path = tmp_path / "runs" / "run.jsonl"
     with pytest.raises(ValueError, match="ready requires"):

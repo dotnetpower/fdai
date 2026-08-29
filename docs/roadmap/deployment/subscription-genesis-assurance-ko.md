@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 81b06018387648329d8e8c2502db9acc19db575f
+translation_source_sha: 697425995014dfe69e20cbc3f4b006917ea17368
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -315,6 +315,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H88 | `fdaictl doctor`가 Azure 인증 없이 실행 파일 버전만으로 준비 완료를 보고했습니다. 이제 준비도는 읽기 전용 활성 계정 검사를 요구하고 안정적인 인증 누락 사유를 냅니다. | `test_doctor_readiness_requires_azure_authentication` |
 | H89 | 라이선스 점검이 토큰 상한 전에 경로를 무제한 읽어 FIFO 대기나 메모리 소진이 가능했습니다. 이제 mode-0600 일반 파일을 범위가 제한된 no-follow 서술자로 읽습니다. | `test_license_token_reader_is_private_bounded_and_no_follow` |
 | H90 | 유효한 매니페스트가 CLI wheel을 `python/` 밖에 선언해 구체화에서 누락할 수 있었습니다. 이제 빌드와 검증이 스냅샷 wheel 디렉터리 아래의 선언된 wheel을 요구합니다. | `test_offline_kit_requires_wheel_under_python_directory` |
+| H91 | journal no-follow 검사가 파일 이름만 보호해 부모 링크 교체 경쟁이 남았습니다. 이제 journal open이 현재 UID mode-0700 디렉터리 서술자를 보유해 사용합니다. | `test_journal_never_follows_parent_directory_symlink` |
 
 ## 관련 문서
 

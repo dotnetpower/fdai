@@ -322,6 +322,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H88 | `fdaictl doctor` reported ready from executable versions without Azure authentication. Readiness now requires a read-only active-account check and emits a stable missing-auth reason. | `test_doctor_readiness_requires_azure_authentication` |
 | H89 | License inspection performed an unbounded path read before token limits, allowing FIFO blocking or memory exhaustion. It now reads a mode-0600 regular file through a bounded no-follow descriptor. | `test_license_token_reader_is_private_bounded_and_no_follow` |
 | H90 | A valid manifest could declare the CLI wheel outside `python/`, so materialization omitted it. Build and verification now require the declared wheel under the snapshotted wheel directory. | `test_offline_kit_requires_wheel_under_python_directory` |
+| H91 | Journal no-follow checks protected only the filename, leaving a parent-link replacement race. Journal opens now use a held current-UID mode-0700 directory descriptor. | `test_journal_never_follows_parent_directory_symlink` |
 
 ## Related docs
 
