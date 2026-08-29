@@ -160,6 +160,8 @@ state; after adoption, an empty plan is the accepted converged result. When the 
 the exact legacy `gpt-4o` profile, one replacement to the resolver-selected family, version, SKU,
 and capacity is allowed; every field is checked before apply. Exact apply consumes only that sealed
 plan and does not promote an ActionType, Workflow, or autonomy mode.
+Plan restoration filters `hil-only` entries from the Terraform deployment tuple exactly as initial
+planning does, while retaining the complete resolved-model artifact for runtime degradation.
 
 The full **deployer-permission gate table** (what happens when the deployer identity lacks
 `Cognitive Services Contributor`, when a preferred family is missing from the region, when
