@@ -1,7 +1,7 @@
 ---
 title: 자율 규칙 발견(Autonomous Rule Discovery)
 translation_of: rule-catalog-autonomous-discovery.md
-translation_source_sha: 9c20723101534fe7448d9ab77018f61f040891fe
+translation_source_sha: 9d15d2cd5a4afe4c1ce87e764494d4c8f589ae64
 translation_revised: 2026-08-29
 ---
 
@@ -187,6 +187,7 @@ shadow 결과는 기존 에이전트 소유권을 통해 검토 미비점을 해
 | 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트. | 예약된 루프, shadow 근거, 재정의 유입, 혼합 모델 게이트를 완성합니다. |
 | 2026-08-15 | in-progress | 후보별 shadow 체류 보존과 실패 시 차단하는 임계 게이트를 구현하고, 기존의 스케줄러-체류 통합 행을 분리했습니다. | `current change`; `services/core-control-plane/src/fdai/core/operational_learning/shadow_dwell.py`; `uv run pytest -q --no-cov services/core-control-plane/tests/core/operational_learning services/core-control-plane/tests/agents` 통과(1214건). | 스케줄러, 혼합 모델 교차 검증, 루프 메트릭, 운영자 검토 결과를 기록하는 감사 항목 생산자. |
 | 2026-08-29 | implemented | 재생 가능한 범위 제한 주기, 독립 모델 계열 후보 재승인, 재정의 인식 감사 메트릭, 별도 사람 shadow 검토 완료 경로를 추가했습니다. | `current change`; 발견 주기, 영속 기록, shadow dwell, Var, Saga 경로; `uv run pytest -q --no-cov services/core-control-plane/tests/core/operational_learning services/core-control-plane/tests/agents/test_discovery_shadow_dwell.py services/core-control-plane/tests/agents/test_discovery_shadow_review.py services/core-control-plane/tests/agents/test_wave2_governance.py services/core-control-plane/tests/agents/test_wave3_pipeline.py services/core-control-plane/tests/agents/test_quorum.py services/core-control-plane/tests/agents/test_framework_layout.py services/core-control-plane/tests/agents/test_pantheon_doc_parity.py` 테스트 309개 통과. | `validated` 상태를 주장하기 전에 관리되는 배포 주기와 실환경 검토 코호트를 보존합니다. |
+| 2026-08-29 | implemented | 하드닝 1차에서 모델이 만든 후보 페이로드의 중첩 권한 필드 주입 경로를 차단했습니다. 이제 비활성 후보 계약은 통합 전에 모든 중첩 매핑과 시퀀스를 검사합니다. | `current change`; `discovery_contracts.py`; `test_discovery_cycle.py`; 집중 테스트 8개, Ruff, strict mypy 통과. | 범위가 제한된 하드닝 캠페인을 계속합니다. 관리되는 배포 근거는 별도 작업입니다. |
 
 ### 남은 작업
 

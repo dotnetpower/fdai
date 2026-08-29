@@ -104,7 +104,7 @@ class DiscoveryCandidate:
             raise ValueError("discovery candidate source_signal_ids MUST contain 1 to 64 entries")
         if len(set(self.source_signal_ids)) != len(self.source_signal_ids):
             raise ValueError("discovery candidate source_signal_ids MUST be unique")
-        if set(self.payload) & _AUTHORITY_FIELDS:
+        if _contains_authority_field(self.payload):
             raise ValueError("discovery candidate payload MUST NOT carry authority fields")
         canonical_mapping(self.payload, "discovery candidate payload", maximum_bytes=256 * 1024)
 
@@ -332,6 +332,28 @@ def canonical_mapping(
     if len(encoded.encode()) > maximum_bytes:
         raise ValueError(f"{label} exceeds its byte limit")
     return encoded
+
+
+def _contains_authority_field(value: object) -> bool:
+    stack = [value]
+    visited: set[int] = set()
+    while stack:
+        item = stack.pop()
+        if isinstance(item, Mapping):
+            identity = id(item)
+            if identity in visited:
+                continue
+            visited.add(identity)
+            if any(key in _AUTHORITY_FIELDS for key in item if isinstance(key, str)):
+                return True
+            stack.extend(item.values())
+        elif isinstance(item, list | tuple):
+            identity = id(item)
+            if identity in visited:
+                continue
+            visited.add(identity)
+            stack.extend(item)
+    return False
 
 
 def digest(value: Mapping[str, object]) -> str:

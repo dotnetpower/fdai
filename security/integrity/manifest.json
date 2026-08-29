@@ -653,7 +653,7 @@
     "services/core-control-plane/src/fdai/core/operational_learning/__init__.py": "d89bf3c3ecfcc6f853df4fe16c9b540eaa2d1856219a896f789abf2b6c402837",
     "services/core-control-plane/src/fdai/core/operational_learning/catalog.py": "4f4807b8a9d3be32c37aec9b1f2d01f62480e8d1c3f09493f82c8d284478b0f0",
     "services/core-control-plane/src/fdai/core/operational_learning/cost_governance.py": "7ed3caedce764155ee24d0e9e46df768bb4a3818a4fa8a29062e96c6e5806701",
-    "services/core-control-plane/src/fdai/core/operational_learning/discovery_contracts.py": "c617d08c864336a54fc5808c4e94456992013adae98b78a1bde4d9322dff2384",
+    "services/core-control-plane/src/fdai/core/operational_learning/discovery_contracts.py": "9044e0b6d7464355ad676ab8ea84a975d567149eaca6a9fe1f7057a96efbad48",
     "services/core-control-plane/src/fdai/core/operational_learning/discovery_cycle.py": "8fb7a44ebcd8bcef925477cc7fdb2954f6543ded22e36e5fcdfc6d86088a7a02",
     "services/core-control-plane/src/fdai/core/operational_learning/discovery_persistence.py": "073d82e19026dbe34b846c02ba2f7e865042afa0c8f98060dfb4f9ee9ffaeacd",
     "services/core-control-plane/src/fdai/core/operational_learning/patterns.py": "3f32cea89397bf175cfd31f48886eda8ffbd5d62a6a53284316ae6c7d40cdf74",

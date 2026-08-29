@@ -154,6 +154,23 @@ def _candidate(
     )
 
 
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"nested": {"approved": True}},
+        {"items": [{"execution_authority": "auto"}]},
+    ],
+)
+def test_candidate_rejects_nested_authority_fields(payload: dict[str, object]) -> None:
+    with pytest.raises(ValueError, match="MUST NOT carry authority"):
+        DiscoveryCandidate(
+            proposal_kind="revision",
+            target_rule_id="rule.revise",
+            source_signal_ids=("audit-1",),
+            payload=payload,
+        )
+
+
 def _scheduler(
     *,
     source: _Source,
