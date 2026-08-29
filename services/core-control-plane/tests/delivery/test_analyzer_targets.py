@@ -12,6 +12,7 @@ from fdai.delivery.analyzer_targets import (
     SKIP_STALE_STATE_FACT,
     SKIP_UNMAPPED_RESOURCE_TYPE,
     SKIP_UNUSABLE_STATE_FACT,
+    SKIP_UNVERIFIED_STATE_FACT,
     AnalyzerTargetResolutionError,
     resolve_analyzer_targets,
 )
@@ -26,6 +27,8 @@ from fdai.shared.providers.state_evidence import (
     StateFactLane,
     StateFactMetadata,
 )
+
+from tests.decision_evidence import StubDecisionEvidenceAdmissionProvider
 
 NOW = datetime(2026, 8, 16, 12, 0, tzinfo=UTC)
 
@@ -111,12 +114,16 @@ async def _resolve(
     configured: Sequence[AnalyzerTarget] = (),
     now: datetime = NOW,
     max_discovered: int = 200,
+    decision_evidence: bool = True,
 ):
     return await resolve_analyzer_targets(
         configured=configured,
         store=store,  # type: ignore[arg-type]
         now=now,
         max_discovered=max_discovered,
+        decision_evidence=(
+            StubDecisionEvidenceAdmissionProvider(lambda: now) if decision_evidence else None
+        ),
     )
 
 
@@ -155,6 +162,16 @@ async def test_a_resource_without_a_state_fact_is_still_selectable() -> None:
         AnalyzerTarget(resource_ref="res-apim", resource_kind="api_management"),
     )
     assert resolution.skipped_reasons == ()
+
+
+@pytest.mark.asyncio
+async def test_state_fact_without_independent_admission_is_skipped() -> None:
+    store = StubStore((_resource("res-aks", "kubernetes-cluster", state_fact=_state_fact()),))
+
+    resolution = await _resolve(store, decision_evidence=False)
+
+    assert resolution.targets == ()
+    assert resolution.skipped_reasons == (SKIP_UNVERIFIED_STATE_FACT,)
 
 
 @pytest.mark.asyncio

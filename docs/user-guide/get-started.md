@@ -3,7 +3,7 @@ title: Get Started with FDAI
 description: A five-minute orientation to FDAI - what it is, when it fits, and where to look next.
 derives_from:
   - source: docs/roadmap/architecture/goals-and-metrics.md
-    sha: de81b66d5be78d452f2ad2671d7e8604f49128ef
+    sha: 9b36ef6a046025f38bb3a000b7ad7b350849831f
 ---
 
 # Get Started with FDAI

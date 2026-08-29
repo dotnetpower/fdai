@@ -14,6 +14,8 @@ Resolution is read-only and grants no execution authority. It fails closed:
 - a resource whose observed state fact is stale, conflicting, incomplete, or
   synthetic is skipped with a stable reason rather than analyzed on unusable
   evidence;
+- a resource whose state fact lacks a current independent decision-evidence
+  admission is skipped instead of entering analyzer selection;
 - a resource type with no reviewed analyzer mapping is skipped, never guessed.
 
 A projected ``Resource`` without a state fact carries an observed identity and
@@ -27,8 +29,14 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
+from fdai_service_contracts.ontology_query import content_digest
+
 from fdai.core.investigation.analyzers import ANALYZER_KIND_BY_RESOURCE_TYPE
 from fdai.delivery.analyzer_tick import AnalyzerTarget
+from fdai.shared.providers.decision_evidence_verifier import (
+    DecisionEvidenceAdmissionProvider,
+    assess_decision_evidence_admission,
+)
 from fdai.shared.providers.ontology_instance import (
     OntologyInstanceStore,
     OntologyObjectRecord,
@@ -50,6 +58,8 @@ SKIP_UNMAPPED_RESOURCE_TYPE = "unmapped_resource_type"
 SKIP_MALFORMED_RESOURCE = "malformed_resource"
 SKIP_UNUSABLE_STATE_FACT = "unusable_state_fact"
 SKIP_STALE_STATE_FACT = "stale_state_fact"
+SKIP_UNVERIFIED_STATE_FACT = "unverified_state_fact"
+ANALYZER_TARGET_EVIDENCE_PURPOSE = "analyzer-target-selection"
 
 
 class AnalyzerTargetResolutionError(RuntimeError):
@@ -94,6 +104,7 @@ async def resolve_analyzer_targets(
     now: datetime,
     analyzer_kinds: Mapping[str, str] = ANALYZER_KIND_BY_RESOURCE_TYPE,
     max_discovered: int = DEFAULT_MAX_DISCOVERED,
+    decision_evidence: DecisionEvidenceAdmissionProvider | None = None,
 ) -> AnalyzerTargetResolution:
     """Return the configured targets plus every eligible inventory-backed one.
 
@@ -107,6 +118,8 @@ async def resolve_analyzer_targets(
         now: Timezone-aware evaluation time used for freshness only.
         analyzer_kinds: Reviewed neutral ``resource type -> analyzer kind`` map.
         max_discovered: Upper bound on inventory-backed targets for one tick.
+        decision_evidence: Trusted admission provider, or ``None`` to reject
+            discovered targets that carry state facts.
 
     Raises:
         ValueError: ``now`` is naive or ``max_discovered`` is out of bounds.
@@ -147,11 +160,12 @@ async def resolve_analyzer_targets(
     skipped: set[str] = set()
     eligible: list[AnalyzerTarget] = []
     for record in snapshot.objects:
-        candidate = _eligible_target(
+        candidate = await _eligible_target(
             record,
             now=now,
             analyzer_kinds=analyzer_kinds,
             skipped=skipped,
+            decision_evidence=decision_evidence,
         )
         if candidate is not None:
             eligible.append(candidate)
@@ -179,12 +193,13 @@ async def resolve_analyzer_targets(
     )
 
 
-def _eligible_target(
+async def _eligible_target(
     record: OntologyObjectRecord,
     *,
     now: datetime,
     analyzer_kinds: Mapping[str, str],
     skipped: set[str],
+    decision_evidence: DecisionEvidenceAdmissionProvider | None,
 ) -> AnalyzerTarget | None:
     """Return one analyzable target, or ``None`` with a recorded skip reason."""
     resource_id = record.properties.get("id")
@@ -200,16 +215,26 @@ def _eligible_target(
     if analyzer_kind is None:
         skipped.add(SKIP_UNMAPPED_RESOURCE_TYPE)
         return None
-    if not _state_fact_supports_selection(record, now=now, skipped=skipped):
+    if not await _state_fact_supports_selection(
+        record,
+        resource_id=resource_id,
+        resource_type=resource_type,
+        now=now,
+        skipped=skipped,
+        decision_evidence=decision_evidence,
+    ):
         return None
     return AnalyzerTarget(resource_ref=resource_id, resource_kind=analyzer_kind)
 
 
-def _state_fact_supports_selection(
+async def _state_fact_supports_selection(
     record: OntologyObjectRecord,
     *,
+    resource_id: str,
+    resource_type: str,
     now: datetime,
     skipped: set[str],
+    decision_evidence: DecisionEvidenceAdmissionProvider | None,
 ) -> bool:
     """Report whether the recorded observation still supports selecting a target.
 
@@ -248,6 +273,37 @@ def _state_fact_supports_selection(
     if age_seconds > metadata.freshness_ceiling_seconds:
         skipped.add(SKIP_STALE_STATE_FACT)
         return False
+    if decision_evidence is None:
+        skipped.add(SKIP_UNVERIFIED_STATE_FACT)
+        return False
+    evidence_digest = content_digest(
+        {
+            "resource_id": resource_id,
+            "state_fact": metadata.to_mapping(),
+        }
+    )
+    scope_digest = content_digest(
+        {
+            "resource_id": resource_id,
+            "resource_type": resource_type,
+        }
+    )
+    admission = await decision_evidence.admit(
+        evidence_digest=evidence_digest,
+        scope_digest=scope_digest,
+        purpose_id=ANALYZER_TARGET_EVIDENCE_PURPOSE,
+        source_revision=metadata.source_revision,
+    )
+    if admission is None or assess_decision_evidence_admission(
+        admission,
+        expected_evidence_digest=evidence_digest,
+        expected_scope_digest=scope_digest,
+        expected_purpose_id=ANALYZER_TARGET_EVIDENCE_PURPOSE,
+        expected_source_revision=metadata.source_revision,
+        evaluated_at=now,
+    ):
+        skipped.add(SKIP_UNVERIFIED_STATE_FACT)
+        return False
     return True
 
 
@@ -259,6 +315,8 @@ __all__ = [
     "SKIP_STALE_STATE_FACT",
     "SKIP_UNMAPPED_RESOURCE_TYPE",
     "SKIP_UNUSABLE_STATE_FACT",
+    "SKIP_UNVERIFIED_STATE_FACT",
+    "ANALYZER_TARGET_EVIDENCE_PURPOSE",
     "AnalyzerTargetResolution",
     "AnalyzerTargetResolutionError",
     "resolve_analyzer_targets",
