@@ -25,6 +25,8 @@ domain code and assets. It does not create another control plane or move authori
 > cohort, and independent promotion evidence
 > remain open. The first protected exact-revision plan verified Azure context but model capability
 > quorum failed before Terraform, so the package and its actions remain unvalidated and unpromoted.
+> The packaged semantic profile and parity corpus always pin the active ontology release; an
+> additive kernel declaration refreshes their profile, manifest, and fixture identities together.
 
 ## Design at a glance
 

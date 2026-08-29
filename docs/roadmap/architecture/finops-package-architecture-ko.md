@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 79f70bc853badca973bf0b12124d77ec8b835a60
+translation_source_sha: 9b7a8d35aea2604135265ac9928c04cb14f4cd44
 translation_revised: 2026-08-29
 ---
 
@@ -28,6 +28,8 @@ translation_revised: 2026-08-29
 > 관찰 cohort 및 독립 승격 근거는 아직
 > 없습니다. 첫 protected exact-revision plan은 Azure context를 검증했지만 Terraform 전에
 > model capability quorum이 실패했으므로 패키지와 액션은 운영 검증 또는 승격 완료 상태가 아닙니다.
+> 패키지 semantic profile과 parity corpus는 항상 active ontology release를 고정합니다. 가산
+> kernel 선언이 바뀌면 profile, manifest 및 fixture identity를 함께 갱신합니다.
 
 ## 설계 개요
 
