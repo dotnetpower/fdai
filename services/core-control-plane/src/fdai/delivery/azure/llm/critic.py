@@ -40,6 +40,7 @@ from fdai.core.quality_gate.critic import (
     CriticStance,
 )
 from fdai.core.quality_gate.gate import QualityCandidate
+from fdai.delivery.azure.llm.model_trace import prepare_model_messages
 from fdai.delivery.azure.llm.request_target import (
     COGNITIVE_SERVICES_SCOPE,
     ModelRequestTarget,
@@ -140,6 +141,7 @@ class AzureOpenAICriticModel:
             "max_tokens": self._config.max_tokens,
             "response_format": {"type": "json_object"},
         }
+        body["messages"] = list(prepare_model_messages(body["messages"]).messages)
         if request.model_body_field is not None:
             body["model"] = request.model_body_field
         response = await self._http.post(

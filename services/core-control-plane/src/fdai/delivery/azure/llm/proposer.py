@@ -15,6 +15,7 @@ from fdai.core.tiers.t2_reasoning import T2ProposalContext
 from fdai.delivery.azure.llm.completion_body import completion_body_params
 from fdai.delivery.azure.llm.gateway_evidence import record_gateway_route_evidence
 from fdai.delivery.azure.llm.latency_routed_cross_check import ModelHealthTransitionSink
+from fdai.delivery.azure.llm.model_trace import prepare_model_messages
 from fdai.delivery.azure.llm.request_target import (
     COGNITIVE_SERVICES_SCOPE,
     ModelRequestTarget,
@@ -97,6 +98,7 @@ class AzureOpenAIProposer:
                 max_tokens=self._config.max_tokens,
             ),
         }
+        body["messages"] = list(prepare_model_messages(body["messages"]).messages)
         if request.model_body_field is not None:
             body["model"] = request.model_body_field
         response = await self._http.post(

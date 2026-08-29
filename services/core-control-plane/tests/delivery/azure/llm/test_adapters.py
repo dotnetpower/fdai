@@ -19,6 +19,7 @@ from fdai.delivery.azure.llm.embeddings import (
     AzureOpenAIEmbeddingModel,
     AzureOpenAIEmbeddingModelConfig,
 )
+from fdai.delivery.azure.llm.model_trace import ModelInputMinimizationError
 from fdai.shared.providers.workload_identity import IdentityToken, WorkloadIdentity
 
 # Non-empty placeholder for the required Wave 2 `system_prompt` field.
@@ -174,6 +175,31 @@ async def test_embeddings_propagates_http_error() -> None:
         )
         with pytest.raises(httpx.HTTPStatusError):
             await adapter.embed("hi")
+
+
+@pytest.mark.asyncio
+async def test_embeddings_hold_unredactable_secret_payload_without_network() -> None:
+    calls = 0
+
+    async def handler(_req: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(500)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        adapter = AzureOpenAIEmbeddingModel(
+            identity=_StaticIdentity(),
+            http_client=http,
+            config=AzureOpenAIEmbeddingModelConfig(
+                endpoint="https://oai-test.openai.azure.com",
+                deployment="t1-embedding",
+                dim=1536,
+            ),
+        )
+        with pytest.raises(ModelInputMinimizationError, match="insufficient_safe_text"):
+            await adapter.embed("Bearer secret-token")
+
+    assert calls == 0
 
 
 def test_embeddings_config_rejects_non_https_endpoint() -> None:

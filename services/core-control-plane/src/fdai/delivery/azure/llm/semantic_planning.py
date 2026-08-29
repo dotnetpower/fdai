@@ -20,6 +20,7 @@ from fdai.core.conversation.semantic_planning_models import (
     SemanticFrameProposal,
 )
 from fdai.delivery.azure.llm.completion_body import completion_body_params
+from fdai.delivery.azure.llm.model_trace import prepare_model_messages
 from fdai.delivery.azure.llm.request_target import ModelRequestTarget
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -216,6 +217,7 @@ class AzureOpenAISemanticPlanningModel:
                             max_tokens=self._config.max_tokens,
                         ),
                     }
+                    body["messages"] = list(prepare_model_messages(body["messages"]).messages)
                     if request.model_body_field is not None:
                         body["model"] = request.model_body_field
                     for attempt in range(_MAX_ATTEMPTS_PER_CANDIDATE):

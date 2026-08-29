@@ -49,6 +49,7 @@ from fdai.core.metering.emitter import MeteringEmitter
 from fdai.core.metering.usage import TokenUsage
 from fdai.core.quality_gate.gate import QualityCandidate
 from fdai.core.quality_gate.rubric import RubricCriterion, RubricOutput, RubricScore
+from fdai.delivery.azure.llm.model_trace import prepare_model_messages
 from fdai.delivery.azure.llm.usage import extract_usage
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -173,6 +174,7 @@ class AzureOpenAIRubricEvaluator:
             "max_tokens": self._config.max_tokens,
             "response_format": {"type": "json_object"},
         }
+        body["messages"] = list(prepare_model_messages(body["messages"]).messages)
         # Metering is emitted in ``finally`` so spent tokens are recorded on
         # EVERY exit path - success, a provider error, or a malformed answer
         # that routes to HIL. ``emit_safe`` never raises, so the finally

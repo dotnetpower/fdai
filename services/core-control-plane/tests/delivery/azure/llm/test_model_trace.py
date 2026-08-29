@@ -3,7 +3,14 @@
 from __future__ import annotations
 
 import httpx
-from fdai.delivery.azure.llm.model_trace import complete_model_trace, start_model_trace
+import pytest
+from fdai.delivery.azure.llm.model_trace import (
+    ModelInputMinimizationError,
+    complete_model_trace,
+    prepare_embedding_input,
+    prepare_model_messages,
+    start_model_trace,
+)
 from fdai.delivery.azure.llm.semantic_judgment import _response_mapping
 
 
@@ -65,3 +72,46 @@ def test_response_mapping_preserves_only_measured_provider_usage() -> None:
     assert content == '{"primary_intent":"greeting"}'
     assert usage is not None
     assert usage["prompt_tokens"] == 120
+
+
+def test_prepare_model_messages_redacts_provider_bound_content() -> None:
+    prepared = prepare_model_messages(
+        (
+            {"role": "system", "content": "Return JSON only."},
+            {
+                "role": "user",
+                "content": "contact user@example.com with bearer secret-token at https://private.example.com",
+            },
+        )
+    )
+
+    assert prepared.messages[1]["content"] == "contact [REDACTED] with [REDACTED] at [REDACTED]"
+    assert prepared.receipt.disposition == "transmit"
+    assert prepared.receipt.redaction_rule_count == 3
+    assert prepared.receipt.redaction_rules == ("bearer-token", "email", "url")
+
+
+def test_prepare_model_messages_holds_non_text_content() -> None:
+    with pytest.raises(ModelInputMinimizationError, match="non_text_content") as caught:
+        prepare_model_messages(
+            (
+                {
+                    "role": "user",
+                    "content": [{"type": "image_url", "image_url": {"url": "https://example.com"}}],
+                },
+            )
+        )
+
+    assert caught.value.receipt.disposition == "hold"
+    assert caught.value.receipt.hold_reason_codes == (
+        "insufficient_safe_text",
+        "non_text_content",
+    )
+
+
+def test_prepare_embedding_input_holds_fully_redacted_payload() -> None:
+    with pytest.raises(ModelInputMinimizationError, match="insufficient_safe_text") as caught:
+        prepare_embedding_input("Bearer secret-token")
+
+    assert caught.value.receipt.boundary == "embeddings"
+    assert caught.value.receipt.transmittable_item_count == 0

@@ -44,6 +44,7 @@ from fdai.core.tools import ToolExecutor, ToolRegistry
 from fdai.delivery.azure.llm.completion_body import completion_body_params
 from fdai.delivery.azure.llm.gateway_evidence import record_gateway_route_evidence
 from fdai.delivery.azure.llm.latency_routed_cross_check import ModelHealthTransitionSink
+from fdai.delivery.azure.llm.model_trace import prepare_model_messages
 from fdai.delivery.azure.llm.request_target import (
     COGNITIVE_SERVICES_SCOPE,
     ModelRequestTarget,
@@ -255,6 +256,7 @@ class AzureOpenAICrossCheckModel:
                 if self._tools_param is not None:
                     body["tools"] = self._tools_param
                     body["tool_choice"] = "auto"
+                body["messages"] = list(prepare_model_messages(messages).messages)
                 if request.model_body_field is not None:
                     body["model"] = request.model_body_field
                 response = await self._http.post(

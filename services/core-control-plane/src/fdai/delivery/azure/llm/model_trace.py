@@ -10,7 +10,11 @@ from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Final
+from typing import Annotated, Any, Final, Literal
+
+from pydantic import Field, model_validator
+
+from fdai.shared.contracts.models import ContractBase
 
 _MAX_MESSAGES: Final[int] = 24
 _MAX_REQUEST_CHARS: Final[int] = 12_000
@@ -52,6 +56,65 @@ class ModelTraceStart:
     started_monotonic: float
     request: dict[str, object]
     redactions: Counter[str]
+
+
+class ModelInputMinimizationReceipt(ContractBase):
+    """Content-free receipt for one preflight model or embedding sanitization pass."""
+
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    boundary: Literal["chat-completions", "responses-input", "embeddings"]
+    original_sha256: Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
+    sanitized_sha256: Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
+    content_item_count: int = Field(ge=0)
+    transmittable_item_count: int = Field(ge=0)
+    transmitted_char_count: int = Field(ge=0)
+    redaction_replacement_count: int = Field(ge=0)
+    redaction_rule_count: int = Field(ge=0)
+    redaction_rules: tuple[str, ...] = ()
+    disposition: Literal["transmit", "hold"]
+    hold_reason_codes: tuple[str, ...] = ()
+    execution_authority: Literal[False] = False
+
+    @model_validator(mode="after")
+    def _validate_state(self) -> ModelInputMinimizationReceipt:
+        if (self.disposition == "hold") != bool(self.hold_reason_codes):
+            raise ValueError("model input minimization receipt hold state is inconsistent")
+        if self.redaction_rule_count != len(self.redaction_rules):
+            raise ValueError("model input minimization receipt redaction rules are inconsistent")
+        if tuple(sorted(set(self.redaction_rules))) != self.redaction_rules:
+            raise ValueError(
+                "model input minimization receipt redaction rules MUST be unique and sorted"
+            )
+        if tuple(sorted(set(self.hold_reason_codes))) != self.hold_reason_codes:
+            raise ValueError(
+                "model input minimization receipt hold reason codes MUST be unique and sorted"
+            )
+        return self
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedModelMessages:
+    """Sanitized provider message list paired with its minimization receipt."""
+
+    messages: tuple[dict[str, Any], ...]
+    receipt: ModelInputMinimizationReceipt
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedEmbeddingInput:
+    """Sanitized embedding input paired with its minimization receipt."""
+
+    text: str
+    receipt: ModelInputMinimizationReceipt
+
+
+class ModelInputMinimizationError(RuntimeError):
+    """The input could not be reduced to an approved provider payload."""
+
+    def __init__(self, receipt: ModelInputMinimizationReceipt) -> None:
+        self.receipt = receipt
+        reasons = ",".join(receipt.hold_reason_codes)
+        super().__init__(f"model input minimization blocked provider transmission: {reasons}")
 
 
 def start_model_trace(messages: Sequence[Mapping[str, Any]]) -> ModelTraceStart:
@@ -111,6 +174,75 @@ def bounded_usage(value: Mapping[str, Any] | None) -> dict[str, int] | None:
     return output or None
 
 
+def prepare_model_messages(
+    messages: Sequence[Mapping[str, Any]],
+    *,
+    boundary: Literal["chat-completions", "responses-input"] = "chat-completions",
+) -> PreparedModelMessages:
+    """Redact provider-bound message content and fail closed on unsafe payloads."""
+
+    prepared_messages: list[dict[str, Any]] = []
+    redactions: Counter[str] = Counter()
+    hold_reasons: set[str] = set()
+    content_item_count = 0
+    transmittable_item_count = 0
+    transmitted_char_count = 0
+    for message in messages:
+        prepared_message = dict(message)
+        role = str(message.get("role", ""))
+        if "content" not in message:
+            prepared_messages.append(prepared_message)
+            continue
+        content_item_count += 1
+        prepared_content, content_redactions, content_hold_reasons = _sanitize_live_content(
+            message["content"]
+        )
+        hold_reasons.update(content_hold_reasons)
+        redactions.update(content_redactions)
+        prepared_message["content"] = prepared_content
+        prepared_messages.append(prepared_message)
+        transmitted_char_count += len(prepared_content)
+        if role != "system" and _has_meaningful_text(prepared_content):
+            transmittable_item_count += 1
+    if content_item_count > 0 and transmittable_item_count == 0:
+        hold_reasons.add("insufficient_safe_text")
+    receipt = _build_minimization_receipt(
+        boundary=boundary,
+        original_value=messages,
+        sanitized_value=prepared_messages,
+        content_item_count=content_item_count,
+        transmittable_item_count=transmittable_item_count,
+        transmitted_char_count=transmitted_char_count,
+        redactions=redactions,
+        hold_reasons=hold_reasons,
+    )
+    if receipt.disposition == "hold":
+        raise ModelInputMinimizationError(receipt)
+    return PreparedModelMessages(messages=tuple(prepared_messages), receipt=receipt)
+
+
+def prepare_embedding_input(text: str) -> PreparedEmbeddingInput:
+    """Redact provider-bound embedding text and hold fully unsafe payloads."""
+
+    sanitized_text, redactions = _redact(text, max_chars=None)
+    hold_reasons: set[str] = set()
+    if not _has_meaningful_text(sanitized_text):
+        hold_reasons.add("insufficient_safe_text")
+    receipt = _build_minimization_receipt(
+        boundary="embeddings",
+        original_value=text,
+        sanitized_value=sanitized_text,
+        content_item_count=1,
+        transmittable_item_count=1 if not hold_reasons else 0,
+        transmitted_char_count=len(sanitized_text),
+        redactions=redactions,
+        hold_reasons=hold_reasons,
+    )
+    if receipt.disposition == "hold":
+        raise ModelInputMinimizationError(receipt)
+    return PreparedEmbeddingInput(text=sanitized_text, receipt=receipt)
+
+
 def _sanitize_messages(
     messages: Sequence[Mapping[str, Any]],
 ) -> tuple[list[dict[str, str]], Counter[str]]:
@@ -153,18 +285,73 @@ def _text_content(value: Any, redactions: Counter[str]) -> str:
     return "\n".join(parts)
 
 
-def _redact(value: str, *, max_chars: int) -> tuple[str, Counter[str]]:
+def _redact(value: str, *, max_chars: int | None) -> tuple[str, Counter[str]]:
     output = value
     redactions: Counter[str] = Counter()
     for rule, pattern in _PATTERNS:
         output, count = pattern.subn(_REDACTED, output)
         if count:
             redactions[rule] += count
-    if len(output) > max_chars:
+    if max_chars is not None and len(output) > max_chars:
         keep = max(0, max_chars - len(_TRUNCATED))
         output = f"{output[:keep]}{_TRUNCATED}"[:max_chars]
         redactions["character-limit"] += 1
     return output, redactions
+
+
+def _sanitize_live_content(value: Any) -> tuple[str, Counter[str], set[str]]:
+    if isinstance(value, str):
+        redacted, redactions = _redact(value, max_chars=None)
+        return redacted, redactions, set()
+    if isinstance(value, list):
+        parts: list[str] = []
+        list_redactions: Counter[str] = Counter()
+        hold_reasons: set[str] = set()
+        for item in value:
+            if (
+                isinstance(item, Mapping)
+                and item.get("type") == "text"
+                and isinstance(item.get("text"), str)
+            ):
+                redacted, item_redactions = _redact(str(item["text"]), max_chars=None)
+                list_redactions.update(item_redactions)
+                parts.append(redacted)
+                continue
+            hold_reasons.add("non_text_content")
+        return "\n".join(parts), list_redactions, hold_reasons
+    return "", Counter(), {"non_text_content"}
+
+
+def _build_minimization_receipt(
+    *,
+    boundary: Literal["chat-completions", "responses-input", "embeddings"],
+    original_value: object,
+    sanitized_value: object,
+    content_item_count: int,
+    transmittable_item_count: int,
+    transmitted_char_count: int,
+    redactions: Counter[str],
+    hold_reasons: set[str],
+) -> ModelInputMinimizationReceipt:
+    redaction_rules = tuple(sorted(redactions))
+    return ModelInputMinimizationReceipt(
+        boundary=boundary,
+        original_sha256=f"sha256:{_sha256(_canonical(original_value))}",
+        sanitized_sha256=f"sha256:{_sha256(_canonical(sanitized_value))}",
+        content_item_count=content_item_count,
+        transmittable_item_count=transmittable_item_count,
+        transmitted_char_count=transmitted_char_count,
+        redaction_replacement_count=sum(redactions.values()),
+        redaction_rule_count=len(redaction_rules),
+        redaction_rules=redaction_rules,
+        disposition="hold" if hold_reasons else "transmit",
+        hold_reason_codes=tuple(sorted(hold_reasons)),
+    )
+
+
+def _has_meaningful_text(value: str) -> bool:
+    candidate = value.replace(_REDACTED, "").strip()
+    return bool(candidate)
 
 
 def _canonical(value: object) -> str:
@@ -182,4 +369,14 @@ def _now() -> str:
     return datetime.now(tz=UTC).isoformat()
 
 
-__all__ = ["bounded_usage", "complete_model_trace", "start_model_trace"]
+__all__ = [
+    "ModelInputMinimizationError",
+    "ModelInputMinimizationReceipt",
+    "PreparedEmbeddingInput",
+    "PreparedModelMessages",
+    "bounded_usage",
+    "complete_model_trace",
+    "prepare_embedding_input",
+    "prepare_model_messages",
+    "start_model_trace",
+]
