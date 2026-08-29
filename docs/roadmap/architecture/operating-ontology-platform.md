@@ -70,6 +70,11 @@ bounded object sets, semantic action effects, typed functions, authority-aware w
 > reserves the final slot for terminal closure. A 16 MiB canonical aggregate ceiling rejects
 > oversized durable state before a state or audit write. Production composition wires the worker
 > and materializes immutable multi-effect lineage only after terminal independent reconciliation.
+> Cross-source state adjudication compares one provider projection with independent telemetry while
+> preserving each source's scope, cutoff, freshness, completeness, and provenance. It returns
+> separate agreement, missing-telemetry, stale-projection, stale-telemetry, conflict, and censorship
+> outcomes. Contested values are withheld rather than averaged, and every result fixes mutation and
+> execution authority to false.
 > K6-K8 target graph-wide Dynamic evidence: immutable operational state trajectories,
 > dependency-scoped effect propagation, time-bounded invariants, and independently observed
 > trajectory outcomes. Existing action/metric Dynamic simulation remains implemented; graph-wide

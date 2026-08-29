@@ -8,9 +8,18 @@ import pytest
 from fdai.core.ontology_platform.observation_adjudication import (
     CONFLICT_TRUNCATED,
     MAX_OBSERVATION_CONFLICTS,
+    CrossSourceReadConfidence,
+    CrossSourceStateStatus,
     ObservationIdentityConflictError,
     ObservedClaim,
+    StateEvidenceSnapshot,
     adjudicate_observations,
+    adjudicate_projected_state,
+)
+from fdai.shared.providers.state_evidence import (
+    StateFactAuthority,
+    StateFactLane,
+    StateFactMetadata,
 )
 
 OBSERVED_AT = datetime(2026, 8, 8, 12, tzinfo=UTC)
@@ -28,6 +37,65 @@ def _claim(
         properties=properties if properties is not None else {"status": "running"},
         provider_ref=provider_ref,
         observed_at=OBSERVED_AT + timedelta(seconds=offset_seconds),
+    )
+
+
+def _metadata(
+    *,
+    authority: StateFactAuthority,
+    age_seconds: int = 30,
+    completeness: float = 1.0,
+    conflicts: tuple[str, ...] = (),
+) -> StateFactMetadata:
+    cutoff = OBSERVED_AT - timedelta(seconds=age_seconds)
+    return StateFactMetadata(
+        lane=StateFactLane.OBSERVED,
+        authority=authority,
+        source_identity=f"{authority.value}-source",
+        source_revision=f"{authority.value}-revision",
+        effective_at=cutoff,
+        evidence_cutoff=cutoff,
+        recorded_at=cutoff,
+        freshness_ceiling_seconds=300,
+        completeness=completeness,
+        synthetic=False,
+        conflicts=conflicts,
+        evidence_refs=(f"{authority.value}-evidence",),
+    )
+
+
+def _snapshot(
+    *,
+    authority: StateFactAuthority,
+    state: dict[str, object] | None = None,
+    age_seconds: int = 30,
+    target_id: str = "resource-example",
+    scope_ref: str = "scope-example",
+    censoring_refs: tuple[str, ...] = (),
+    conflicts: tuple[str, ...] = (),
+) -> StateEvidenceSnapshot:
+    return StateEvidenceSnapshot(
+        target_id=target_id,
+        scope_ref=scope_ref,
+        state=state if state is not None else {"status": "running", "replicas": 2},
+        metadata=_metadata(
+            authority=authority,
+            age_seconds=age_seconds,
+            conflicts=conflicts,
+        ),
+        censoring_refs=censoring_refs,
+    )
+
+
+def _adjudicate(
+    *,
+    projection: StateEvidenceSnapshot | None = None,
+    telemetry: StateEvidenceSnapshot | None = None,
+):
+    return adjudicate_projected_state(
+        projection=projection or _snapshot(authority=StateFactAuthority.PROVIDER),
+        telemetry=telemetry,
+        evaluated_at=OBSERVED_AT,
     )
 
 
@@ -169,3 +237,126 @@ def test_oversized_property_key_is_truncated_in_conflict_evidence() -> None:
     )
 
     assert verdict.conflicts == ("observed_property_conflict:" + "k" * 96,)
+
+
+def test_projected_state_agrees_with_fresh_telemetry() -> None:
+    telemetry = _snapshot(authority=StateFactAuthority.TELEMETRY)
+
+    result = _adjudicate(telemetry=telemetry)
+
+    assert result.status is CrossSourceStateStatus.AGREED
+    assert result.read_confidence is CrossSourceReadConfidence.CORROBORATED
+    assert result.agreed_state == {"replicas": 2, "status": "running"}
+    assert result.projection.metadata.authority is StateFactAuthority.PROVIDER
+    assert result.projection.scope_ref == "scope-example"
+    assert result.projection.metadata.evidence_cutoff == OBSERVED_AT - timedelta(seconds=30)
+    assert result.projection.metadata.completeness == 1.0
+    assert result.projection.metadata.evidence_refs == ("provider-evidence",)
+    assert result.telemetry is telemetry
+    assert result.telemetry.metadata.source_identity == "telemetry-source"
+    assert result.execution_authority is result.mutation_authority is False
+
+
+def test_missing_telemetry_preserves_only_degraded_projection_state() -> None:
+    result = _adjudicate(telemetry=None)
+
+    assert result.status is CrossSourceStateStatus.TELEMETRY_MISSING
+    assert result.read_confidence is CrossSourceReadConfidence.DEGRADED
+    assert result.agreed_state == {"replicas": 2, "status": "running"}
+    assert result.telemetry_fresh is None
+
+
+def test_stale_projection_and_stale_telemetry_remain_distinct() -> None:
+    stale_projection = _adjudicate(
+        projection=_snapshot(authority=StateFactAuthority.PROVIDER, age_seconds=301),
+        telemetry=_snapshot(authority=StateFactAuthority.TELEMETRY),
+    )
+    stale_telemetry = _adjudicate(
+        telemetry=_snapshot(authority=StateFactAuthority.TELEMETRY, age_seconds=301),
+    )
+
+    assert stale_projection.status is CrossSourceStateStatus.PROJECTION_STALE
+    assert stale_projection.projection_fresh is False
+    assert stale_telemetry.status is CrossSourceStateStatus.TELEMETRY_STALE
+    assert stale_telemetry.telemetry_fresh is False
+
+
+def test_cross_source_conflict_withholds_value_without_averaging() -> None:
+    telemetry = _snapshot(
+        authority=StateFactAuthority.TELEMETRY,
+        state={"status": "running", "replicas": 4},
+    )
+
+    result = _adjudicate(telemetry=telemetry)
+
+    assert result.status is CrossSourceStateStatus.CONFLICTING
+    assert result.read_confidence is CrossSourceReadConfidence.DEGRADED
+    assert result.agreed_state == {"status": "running"}
+    assert result.conflicting_fields == ("replicas",)
+
+
+def test_scope_mismatch_is_an_explicit_conflict_with_no_agreed_state() -> None:
+    telemetry = _snapshot(
+        authority=StateFactAuthority.TELEMETRY,
+        scope_ref="other-scope",
+    )
+
+    result = _adjudicate(telemetry=telemetry)
+
+    assert result.status is CrossSourceStateStatus.CONFLICTING
+    assert result.conflicting_fields == ("scope_ref",)
+    assert result.agreed_state == {}
+
+
+def test_censored_evidence_is_unavailable_and_retains_both_sources() -> None:
+    projection = _snapshot(
+        authority=StateFactAuthority.PROVIDER,
+        censoring_refs=("policy-redaction:one",),
+    )
+    telemetry = _snapshot(authority=StateFactAuthority.TELEMETRY)
+
+    result = _adjudicate(projection=projection, telemetry=telemetry)
+
+    assert result.status is CrossSourceStateStatus.CENSORED
+    assert result.read_confidence is CrossSourceReadConfidence.UNAVAILABLE
+    assert result.agreed_state == {}
+    assert result.projection.censoring_refs == ("policy-redaction:one",)
+    assert result.telemetry is telemetry
+
+
+def test_existing_source_conflicts_remain_explicit() -> None:
+    telemetry = _snapshot(
+        authority=StateFactAuthority.TELEMETRY,
+        conflicts=("telemetry-source-conflict",),
+    )
+
+    result = _adjudicate(telemetry=telemetry)
+
+    assert result.status is CrossSourceStateStatus.CONFLICTING
+    assert result.conflicting_fields == ("telemetry:telemetry-source-conflict",)
+
+
+def test_cross_source_roles_and_evaluation_time_fail_closed() -> None:
+    with pytest.raises(ValueError, match="projected state MUST carry provider authority"):
+        _adjudicate(
+            projection=_snapshot(authority=StateFactAuthority.TELEMETRY),
+            telemetry=_snapshot(authority=StateFactAuthority.TELEMETRY),
+        )
+
+    with pytest.raises(ValueError, match="telemetry state MUST carry telemetry authority"):
+        _adjudicate(telemetry=_snapshot(authority=StateFactAuthority.PROVIDER))
+
+    with pytest.raises(ValueError, match="evaluated_at MUST be timezone-aware"):
+        adjudicate_projected_state(
+            projection=_snapshot(authority=StateFactAuthority.PROVIDER),
+            telemetry=_snapshot(authority=StateFactAuthority.TELEMETRY),
+            evaluated_at=OBSERVED_AT.replace(tzinfo=None),
+        )
+
+
+def test_cross_source_state_rejects_non_json_values() -> None:
+    with pytest.raises(ValueError, match="MUST contain JSON values"):
+        _snapshot(
+            authority=StateFactAuthority.PROVIDER,
+            state={"status": object()},
+        )

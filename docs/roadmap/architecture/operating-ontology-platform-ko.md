@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 7bdad5e14f5ca6441f5a93a3fe564522185efe27
-translation_revised: 2026-08-28
+translation_source_sha: 0c77bc7051f39f8e739cfe820407dbcd22e41222
+translation_revised: 2026-08-29
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -78,6 +78,10 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 > 예약합니다. 16 MiB 정본 집계 상한은 상태 또는 감사 쓰기 전에 oversized 영속
 > 상태를 차단합니다. 운영 조립은 worker를 연결하고 독립적인 최종 reconciliation 뒤에만
 > 변경 불가능한 다중 효과 계보를 구체화합니다.
+> 교차 출처 상태 판정은 프로바이더 변환 결과 하나를 독립 텔레메트리와 비교하면서 각 출처의
+> 범위, 기준 시점, 최신성, 완전성 및 출처 이력을 보존합니다. 일치, 텔레메트리 누락, 오래된
+> 변환 결과, 오래된 텔레메트리, 충돌 및 검열을 서로 다른 결과로 반환합니다. 경합 중인 값은
+> 평균을 내지 않고 제외하며 모든 결과의 변경 및 실행 권한은 false로 고정됩니다.
 > K6-K8은 변경할 수 없는 operational 상태 trajectory, 의존성 범위 효과 propagation,
 > time-bounded 불변식, 독립 관측 trajectory 결과를 포함하는 graph-wide Dynamic 근거를
 > 목표로 합니다. 기존 액션/메트릭 Dynamic 시뮬레이션은 구현되어 있으며 graph-wide propagation과
