@@ -253,6 +253,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H19 | A ready rehearsal returned before validating the requested run and manifest. Ready journals now pass the same context checks as interrupted journals. | `test_ready_simulation_still_validates_run_and_manifest` |
 | H20 | Bundle verification could block while opening a FIFO before type validation. It now rejects every non-regular payload before opening it. | `test_bundle_hash_rejects_fifo_before_open` |
 | H21 | Profile inspection recorded a target digest but did not compare it with the active Azure context. It now derives the active binding without disclosure and requires an exact match. | `test_active_target_binding_is_stable_and_identifier_free` |
+| H22 | Offline planning let callers choose the CLI version and platform used for compatibility checks. It now binds the installed version and runtime-derived platform. | `test_runtime_platform_is_not_caller_controlled` |
 
 ## Related docs
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import platform
 import subprocess
 import sys
 from pathlib import Path
@@ -82,8 +83,6 @@ def _parser() -> argparse.ArgumentParser:
     plan.add_argument("--release-root", type=Path, required=True)
     plan.add_argument("--infra-dir", type=Path, required=True)
     plan.add_argument("--work-dir", type=Path, required=True)
-    plan.add_argument("--cli-version", required=True)
-    plan.add_argument("--platform-tag", required=True)
     plan.add_argument("--output", choices=("text", "json"), default="text")
     plan.set_defaults(handler=_provision_plan)
 
@@ -198,8 +197,8 @@ def _provision_plan(args: argparse.Namespace) -> int:
     verification = verify_offline_kit(
         args.offline_kit,
         release_root_pem=args.release_root.read_bytes(),
-        cli_version=args.cli_version,
-        platform_tag=args.platform_tag,
+        cli_version=__version__,
+        platform_tag=_runtime_platform_tag(),
     )
     args.work_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     args.work_dir.chmod(0o700)
@@ -259,6 +258,22 @@ def _safe_plan_error(output: str) -> str:
     if "No value for required variable" in output:
         return "terraform plan requires deployment input: No value for required variable"
     return "terraform plan failed after offline provider initialization"
+
+
+def _runtime_platform_tag() -> str:
+    """Return the supported runtime platform identity without caller input."""
+
+    machine = platform.machine().casefold()
+    architectures = {
+        "x86_64": "x86_64",
+        "amd64": "x86_64",
+        "aarch64": "aarch64",
+        "arm64": "aarch64",
+    }
+    architecture = architectures.get(machine)
+    if sys.platform != "linux" or architecture is None:
+        raise ValueError("this deployment CLI build supports linux x86_64 or aarch64")
+    return f"linux-{architecture}"
 
 
 def _bundle_verify(args: argparse.Namespace) -> int:

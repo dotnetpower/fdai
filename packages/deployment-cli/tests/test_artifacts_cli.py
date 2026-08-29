@@ -11,7 +11,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from fdai_deployment_cli.bundle import BundleVerificationError, _sha256, verify_bundle
-from fdai_deployment_cli.cli import _safe_plan_error, main
+from fdai_deployment_cli.cli import _runtime_platform_tag, _safe_plan_error, main
 from fdai_deployment_cli.contracts import canonical_bytes
 from fdai_deployment_cli.license import LicenseInspectionError, inspect_license
 from fdai_deployment_cli.offline_kit import (
@@ -319,3 +319,9 @@ def test_terraform_failure_is_redacted_to_stable_reason() -> None:
     assert "No value for required variable" in _safe_plan_error(
         "Error: No value for required variable\nvariable subscription"
     )
+
+
+def test_runtime_platform_is_not_caller_controlled(monkeypatch: object) -> None:
+    monkeypatch.setattr("fdai_deployment_cli.cli.sys.platform", "linux")  # type: ignore[attr-defined]
+    monkeypatch.setattr("fdai_deployment_cli.cli.platform.machine", lambda: "AMD64")  # type: ignore[attr-defined]
+    assert _runtime_platform_tag() == "linux-x86_64"

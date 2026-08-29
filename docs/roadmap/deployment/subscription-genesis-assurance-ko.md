@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: a77bd81606e11ce9b73552c7b96463302831bc8d
+translation_source_sha: 9bb0797edf31a6ef7e3172a1af228e560c8c5486
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -246,6 +246,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H19 | 준비 완료 예행 연습이 요청된 실행과 매니페스트를 검증하기 전에 반환했습니다. 이제 준비 완료 원장도 중단된 원장과 같은 맥락 검사를 통과합니다. | `test_ready_simulation_still_validates_run_and_manifest` |
 | H20 | 번들 검증이 형식 검증 전에 FIFO를 열어 무기한 대기할 수 있었습니다. 이제 모든 비정규 페이로드를 열기 전에 거부합니다. | `test_bundle_hash_rejects_fifo_before_open` |
 | H21 | 프로필 점검이 대상 다이제스트를 기록했지만 활성 Azure 맥락과 비교하지 않았습니다. 이제 식별자를 노출하지 않고 활성 연결을 파생해 정확한 일치를 요구합니다. | `test_active_target_binding_is_stable_and_identifier_free` |
+| H22 | 오프라인 계획이 호환성 검사에 사용할 CLI 버전과 플랫폼을 호출자가 선택하도록 허용했습니다. 이제 설치된 버전과 런타임에서 파생한 플랫폼에 연결합니다. | `test_runtime_platform_is_not_caller_controlled` |
 
 ## 관련 문서
 

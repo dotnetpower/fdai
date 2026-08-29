@@ -226,7 +226,7 @@ set +e
 plan_output="$(PYTHONPATH=packages/deployment-cli/src "$PYTHON" -m fdai_deployment_cli provision plan \
   --offline-kit "$KIT" --release-root "$WORKDIR/release-root.pub" \
   --infra-dir "$BUNDLE/infra" --work-dir "$WORKDIR/provision" \
-  --cli-version "$CLI_VERSION" --platform-tag "$PLATFORM_TAG" --output json 2>&1)"
+  --output json 2>&1)"
 set -e
 case "$plan_output" in
   *"No value for required variable"*) ;;
