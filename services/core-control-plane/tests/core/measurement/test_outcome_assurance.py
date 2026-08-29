@@ -7,6 +7,7 @@ from fdai.core.measurement.outcome_assurance import (
     ConfidenceInterval,
     ControlAssuranceState,
     ControlAssuranceSummary,
+    FinalizedOutcomeEvent,
     GuardEvaluation,
     ObjectiveAttributionState,
     ObjectiveAttributionSummary,
@@ -22,6 +23,7 @@ from fdai.core.measurement.outcome_assurance import (
     ReadinessFacetSnapshot,
     ReadinessFacetState,
     latest_authoritative_observations,
+    summarize_objective_attribution,
 )
 
 NOW = datetime(2026, 8, 29, 0, 0, tzinfo=UTC)
@@ -210,3 +212,148 @@ def test_non_unknown_readiness_requires_evidence_and_freshness() -> None:
             observed_at=NOW - timedelta(minutes=5),
             expires_at=NOW + timedelta(minutes=5),
         )
+
+
+def _finalized_event(
+    event_id: str,
+    *,
+    objective_ref: str | None = "objective.change-failure-rate@1.0.0",
+    observed_outcome_ref: str | None = "outcome.change-failure-rate",
+) -> FinalizedOutcomeEvent:
+    return FinalizedOutcomeEvent(
+        event_id=event_id,
+        finalized_at=NOW - timedelta(minutes=1),
+        decision_case_id=f"decision.{event_id}",
+        protected_objective_ref=objective_ref,
+        workflow_ref="workflow.change-safety",
+        action_type_id="kubernetes.rollout.restart",
+        action_run_id=f"run.{event_id}",
+        observed_outcome_ref=observed_outcome_ref,
+        evidence_refs=(f"audit:{event_id}",),
+    )
+
+
+def _observation(
+    event_id: str,
+    *,
+    observation_id: str,
+    recorded_at: datetime,
+    evidence_ref: str,
+    objective_ref: str = "objective.change-failure-rate@1.0.0",
+) -> OutcomeMeasurementObservation:
+    return OutcomeMeasurementObservation(
+        event_id=event_id,
+        objective_ref=objective_ref,
+        metric="change_failure_rate",
+        observation_id=observation_id,
+        observed_at=recorded_at - timedelta(seconds=1),
+        recorded_at=recorded_at,
+        value=0.02,
+        evidence_ref=evidence_ref,
+    )
+
+
+def test_objective_attribution_keeps_incomplete_finalized_events_in_denominator() -> None:
+    summary = summarize_objective_attribution(
+        (
+            _finalized_event("event-1"),
+            _finalized_event("event-2", observed_outcome_ref=None),
+            _finalized_event("event-3"),
+        ),
+        (
+            _observation(
+                "event-1",
+                observation_id="observation-1",
+                recorded_at=NOW,
+                evidence_ref="measurement:event-1",
+            ),
+        ),
+    )
+
+    assert summary.state is ObjectiveAttributionState.PARTIAL
+    assert summary.finalized_events == 3
+    assert summary.attributed_events == 1
+    assert summary.unattributed_events == 2
+    assert summary.coverage == pytest.approx(1 / 3)
+    assert summary.objective_refs == ("objective.change-failure-rate@1.0.0",)
+    assert summary.workflow_refs == ("workflow.change-safety",)
+    assert summary.action_type_ids == ("kubernetes.rollout.restart",)
+    assert summary.evidence_refs == (
+        "audit:event-1",
+        "audit:event-2",
+        "audit:event-3",
+        "measurement:event-1",
+    )
+
+
+def test_objective_attribution_uses_only_latest_observation_evidence() -> None:
+    summary = summarize_objective_attribution(
+        (_finalized_event("event-1"),),
+        (
+            _observation(
+                "event-1",
+                observation_id="observation-old",
+                recorded_at=NOW - timedelta(minutes=2),
+                evidence_ref="measurement:old",
+            ),
+            _observation(
+                "event-1",
+                observation_id="observation-new",
+                recorded_at=NOW - timedelta(minutes=1),
+                evidence_ref="measurement:new",
+            ),
+        ),
+    )
+
+    assert summary.state is ObjectiveAttributionState.ATTRIBUTED
+    assert summary.evidence_refs == ("audit:event-1", "measurement:new")
+
+
+def test_objective_attribution_does_not_infer_from_mismatched_objective() -> None:
+    summary = summarize_objective_attribution(
+        (_finalized_event("event-1"),),
+        (
+            _observation(
+                "event-1",
+                observation_id="observation-1",
+                recorded_at=NOW,
+                evidence_ref="measurement:other",
+                objective_ref="objective.unrelated@1.0.0",
+            ),
+        ),
+    )
+
+    assert summary.state is ObjectiveAttributionState.UNATTRIBUTED
+    assert summary.attributed_events == 0
+    assert summary.unattributed_events == 1
+
+
+def test_objective_attribution_rejects_duplicate_finalized_event_identity() -> None:
+    with pytest.raises(ValueError, match="unique by event_id"):
+        summarize_objective_attribution(
+            (_finalized_event("event-1"), _finalized_event("event-1")),
+            (),
+        )
+
+
+def test_objective_attribution_rejects_observation_outside_finalized_universe() -> None:
+    with pytest.raises(ValueError, match="reference a finalized event"):
+        summarize_objective_attribution(
+            (_finalized_event("event-1"),),
+            (
+                _observation(
+                    "event-2",
+                    observation_id="observation-2",
+                    recorded_at=NOW,
+                    evidence_ref="measurement:event-2",
+                ),
+            ),
+        )
+
+
+def test_objective_attribution_empty_universe_is_explicitly_unattributed() -> None:
+    summary = summarize_objective_attribution((), ())
+
+    assert summary.state is ObjectiveAttributionState.UNATTRIBUTED
+    assert summary.finalized_events == 0
+    assert summary.coverage == 0.0

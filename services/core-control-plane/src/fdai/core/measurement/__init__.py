@@ -58,6 +58,7 @@ from fdai.core.measurement.outcome_assurance import (
     ConfidenceInterval,
     ControlAssuranceState,
     ControlAssuranceSummary,
+    FinalizedOutcomeEvent,
     GuardEvaluation,
     ObjectiveAttributionState,
     ObjectiveAttributionSummary,
@@ -73,6 +74,7 @@ from fdai.core.measurement.outcome_assurance import (
     ReadinessFacetSnapshot,
     ReadinessFacetState,
     latest_authoritative_observations,
+    summarize_objective_attribution,
 )
 
 __all__ = [
@@ -83,6 +85,7 @@ __all__ = [
     "CausalPromotionReceipt",
     "CausalPromotionReceiptVerifier",
     "DoraSummary",
+    "FinalizedOutcomeEvent",
     "GuardEvaluation",
     "ObjectiveAttributionState",
     "ObjectiveAttributionSummary",
@@ -110,4 +113,5 @@ __all__ = [
     "ReadinessFacetState",
     "compute_dora",
     "latest_authoritative_observations",
+    "summarize_objective_attribution",
 ]

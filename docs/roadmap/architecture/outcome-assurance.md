@@ -37,7 +37,7 @@ and what outcome was observed. Outcome Assurance joins those facts into three op
 | Reused ontology, readiness, audit, and measurement sources | in-progress | `core/decision_case/`; `core/readiness/`; `core/measurement/`; `core/audit/`; current implementation ledgers in their owner documents | Source capabilities exist at different evidence levels, but they are not joined into one Outcome Assurance projection. |
 | Cost Governance effect settlement source | implemented | `core/measurement/cost_effect_settlement.py`; `core/measurement/cost_retention.py`; focused Cost Governance settlement tests | Cost, capacity, service, and recovery effects remain separate and close only from independent observations bound to the exact expected-effect source revision. This source does not complete the broader `OutcomeAssuranceProjection`. |
 | `OutcomeAssuranceProjection` typed read model | implemented | [Projection contract](#projection-contract); `core/measurement/outcome_assurance.py`; focused Outcome Assurance contract tests | Typed scope, window, readiness, alignment, outcome, guard, and provenance models now exist with deterministic JSON replay and latest-authoritative correction reduction. The contract remains read-only and adds no authority object. |
-| Objective attribution and aggregate evaluation | not-started | [Objective attribution](#objective-attribution) | No aggregator currently closes the complete event-to-objective-to-outcome chain or retains unattributed events in this projection's denominator. |
+| Objective attribution and aggregate evaluation | implemented | [Objective attribution](#objective-attribution); `core/measurement/outcome_assurance.py`; focused Outcome Assurance tests | The pure reducer accepts an explicit finalized-event universe, requires the complete decision, objective, workflow, action, run, outcome, and measurement chain, uses only the latest authoritative observation, and retains every unresolved event in the denominator. Authoritative source binding remains open. |
 | Authenticated Operator API and Console experience | not-started | [Operator API and console](#operator-api-and-console); no matching route or Console module under `services/operator-service/` or `console/` | The proposed read-only endpoint, summaries, evidence drill-downs, and unavailable states are not implemented. |
 | Change Safety pilot and vertical expansion | not-started | [Delivery sequence](#delivery-sequence) | OA0-OA2 must land before a non-synthetic OA3 pilot or OA4 expansion can produce evidence. |
 
@@ -47,12 +47,13 @@ and what outcome was observed. Outcome Assurance joins those facts into three op
 |------|-------|--------|----------|-----------|
 | 2026-08-29 | implemented | Added a Cost Governance source that separates estimated savings from independently verified effect settlement and retains failed, censored, unscorable, and rollback outcomes. | `current change`; focused Cost Governance settlement, retention, and campaign tests. | Join this source through the still-open `OutcomeAssuranceProjection` work. |
 | 2026-08-29 | implemented | Added the OA0 typed read model, bounded evidence states, deterministic replay JSON, and latest-authoritative correction reduction without introducing an authority object. | `current change`; `core/measurement/outcome_assurance.py`, `core/measurement/__init__.py`, and focused `uv run --extra dev python -m pytest -q --no-cov --noconftest services/core-control-plane/tests/core/measurement/test_outcome_assurance.py` (`7 passed`) plus targeted Ruff checks. | Bind authoritative readiness, guard, and measurement sources through OA1. |
+| 2026-08-29 | implemented | Added the objective-attribution reducer over an explicit finalized-event universe. It rejects duplicate event identities and observations outside that universe, never infers an objective from names, joins only a complete typed chain to the latest matching observation, and keeps incomplete or mismatched events in coverage. | `current change`; `core/measurement/outcome_assurance.py`; `core/measurement/__init__.py`; focused Outcome Assurance tests (`13 passed`); targeted Ruff and strict mypy checks. | Bind authenticated finalized-event, objective, audit, and measurement sources before exposing the read model. |
 | 2026-08-14 | not-started | Adopted the implementation ledger without reconstructing earlier provenance and recorded the projection as design-only over partially implemented source systems. | `current change`; repository search for the contract, API route, and Console surface plus the source owner documents cited above. | Deliver OA0 through OA2 before starting the pilot and vertical expansion. |
 
 ### Remaining work
 
 - [x] Define and test the typed `OutcomeAssuranceProjection`, bounded evidence states, correction rules, and deterministic replay without adding an authority object (`core/measurement/outcome_assurance.py`; focused Outcome Assurance contract tests: `7 passed`).
-- [ ] Implement the complete objective-attribution join and keep unresolved finalized events in the denominator with explicit coverage.
+- [x] Implement the complete objective-attribution join and keep unresolved finalized events in the denominator with explicit coverage (`summarize_objective_attribution`; focused Outcome Assurance tests: `13 passed`).
 - [ ] Bind authenticated authoritative sources, add the read-only Operator API and Console drill-downs, and prove missing or stale data renders unavailable rather than synthetic.
 - [ ] Run the Change Safety pilot on one pinned service and scenario set, then expand only after the acceptance criteria have authoritative non-synthetic evidence.
 
@@ -138,6 +139,11 @@ event_id -> decision_case_id -> protected_objective_ref
 Unresolved links remain in the denominator as unattributed events. The projection reports
 `attributed_events`, `unattributed_events`, and `coverage`; it does not assign an objective from an
 ActionType name or UI category.
+
+The reducer receives the finalized-event universe explicitly. It rejects duplicate event identity
+and measurement observations outside that universe, resolves correction order before joining, and
+counts an event as attributed only when every chain reference above and at least one matching
+objective measurement observation exist.
 
 ## Readiness facets
 

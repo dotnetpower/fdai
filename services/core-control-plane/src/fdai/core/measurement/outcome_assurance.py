@@ -13,6 +13,7 @@ from pydantic import Field, field_validator, model_validator
 from fdai.shared.contracts.models import ContractBase
 
 NonEmpty = Annotated[str, Field(min_length=1)]
+EvidenceRefs = Annotated[tuple[NonEmpty, ...], Field(min_length=1, max_length=32)]
 
 
 class OutcomeVertical(StrEnum):
@@ -128,6 +129,34 @@ class ReadinessFacetSnapshot(ContractBase):
         if observed_at is None:
             raise ValueError("non-unknown readiness state MUST include freshness timestamps")
         return self
+
+
+class FinalizedOutcomeEvent(ContractBase):
+    """One finalized denominator event with explicit objective-chain references."""
+
+    event_id: NonEmpty
+    finalized_at: datetime
+    decision_case_id: NonEmpty | None = None
+    protected_objective_ref: NonEmpty | None = None
+    workflow_ref: NonEmpty | None = None
+    action_type_id: NonEmpty | None = None
+    action_run_id: NonEmpty | None = None
+    observed_outcome_ref: NonEmpty | None = None
+    evidence_refs: EvidenceRefs
+
+    @field_validator("finalized_at")
+    @classmethod
+    def require_finalized_timezone(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("finalized Outcome Assurance event time MUST be timezone-aware")
+        return value
+
+    @field_validator("evidence_refs")
+    @classmethod
+    def require_unique_evidence(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if len(value) != len(set(value)):
+            raise ValueError("finalized Outcome Assurance event evidence refs MUST be unique")
+        return value
 
 
 class ObjectiveAttributionSummary(ContractBase):
@@ -388,6 +417,83 @@ def latest_authoritative_observations(
     )
 
 
+def summarize_objective_attribution(
+    finalized_events: tuple[FinalizedOutcomeEvent, ...],
+    observations: tuple[OutcomeMeasurementObservation, ...],
+) -> ObjectiveAttributionSummary:
+    """Join exact finalized-event chains to their latest authoritative observations."""
+
+    event_ids = [event.event_id for event in finalized_events]
+    if len(event_ids) != len(set(event_ids)):
+        raise ValueError("finalized Outcome Assurance events MUST be unique by event_id")
+    event_id_set = set(event_ids)
+    authoritative = latest_authoritative_observations(observations)
+    orphan_event_ids = sorted(
+        {observation.event_id for observation in authoritative} - event_id_set
+    )
+    if orphan_event_ids:
+        raise ValueError(
+            "Outcome Assurance observations MUST reference a finalized event in the join"
+        )
+
+    observations_by_objective: dict[tuple[str, str], list[OutcomeMeasurementObservation]] = {}
+    for observation in authoritative:
+        observations_by_objective.setdefault(
+            (observation.event_id, observation.objective_ref),
+            [],
+        ).append(observation)
+
+    objective_refs: set[str] = set()
+    workflow_refs: set[str] = set()
+    action_type_ids: set[str] = set()
+    evidence_refs: set[str] = set()
+    attributed_events = 0
+    for event in finalized_events:
+        evidence_refs.update(event.evidence_refs)
+        objective_ref = event.protected_objective_ref
+        workflow_ref = event.workflow_ref
+        action_type_id = event.action_type_id
+        if (
+            event.decision_case_id is None
+            or objective_ref is None
+            or workflow_ref is None
+            or action_type_id is None
+            or event.action_run_id is None
+            or event.observed_outcome_ref is None
+        ):
+            continue
+        matched_observations = observations_by_objective.get(
+            (event.event_id, objective_ref),
+            (),
+        )
+        if not matched_observations:
+            continue
+        attributed_events += 1
+        objective_refs.add(objective_ref)
+        workflow_refs.add(workflow_ref)
+        action_type_ids.add(action_type_id)
+        evidence_refs.update(item.evidence_ref for item in matched_observations)
+
+    finalized_count = len(finalized_events)
+    unattributed_events = finalized_count - attributed_events
+    state = ObjectiveAttributionState.PARTIAL
+    if attributed_events == 0:
+        state = ObjectiveAttributionState.UNATTRIBUTED
+    elif unattributed_events == 0:
+        state = ObjectiveAttributionState.ATTRIBUTED
+    return ObjectiveAttributionSummary(
+        state=state,
+        objective_refs=tuple(sorted(objective_refs)),
+        workflow_refs=tuple(sorted(workflow_refs)),
+        action_type_ids=tuple(sorted(action_type_ids)),
+        finalized_events=finalized_count,
+        attributed_events=attributed_events,
+        unattributed_events=unattributed_events,
+        coverage=0.0 if finalized_count == 0 else attributed_events / finalized_count,
+        evidence_refs=tuple(sorted(evidence_refs)),
+    )
+
+
 def _observation_order(
     observation: OutcomeMeasurementObservation,
 ) -> tuple[datetime, datetime, str]:
@@ -402,6 +508,7 @@ __all__ = [
     "ConfidenceInterval",
     "ControlAssuranceState",
     "ControlAssuranceSummary",
+    "FinalizedOutcomeEvent",
     "GuardEvaluation",
     "ObjectiveAttributionState",
     "ObjectiveAttributionSummary",
@@ -417,4 +524,5 @@ __all__ = [
     "ReadinessFacetSnapshot",
     "ReadinessFacetState",
     "latest_authoritative_observations",
+    "summarize_objective_attribution",
 ]

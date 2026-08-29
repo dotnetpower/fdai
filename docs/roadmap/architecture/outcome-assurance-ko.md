@@ -1,7 +1,7 @@
 ---
 title: Outcome Assurance
 translation_of: outcome-assurance.md
-translation_source_sha: 75b231f28ac1e1ac2e6f9cb104782ce3e31fe29d
+translation_source_sha: 244395f83f46244e457ccacc92b78b51131ef766
 translation_revised: 2026-08-29
 ---
 # 결과 Assurance
@@ -40,7 +40,7 @@ FDAI는 서비스가 보호해야 할 목표, 검토한 액션, 실제 실행, �
 | 재사용하는 온톨로지, 준비 상태, 감사 및 측정 출처 | in-progress | `core/decision_case/`; `core/readiness/`; `core/measurement/`; `core/audit/`; 각 소유 문서의 현재 구현 원장 | 출처 기능은 서로 다른 근거 수준으로 존재하지만 하나의 결과 Assurance 변환 결과로 결합되지 않았습니다. |
 | 비용 거버넌스 효과 정산 출처 | implemented | `core/measurement/cost_effect_settlement.py`; `core/measurement/cost_retention.py`; 집중 비용 거버넌스 정산 테스트 | 비용, 용량, 서비스 및 복구 효과를 분리하고 exact expected-effect 출처 revision에 결속된 독립 관찰에서만 종결합니다. 이 출처만으로 더 넓은 `OutcomeAssuranceProjection`이 완료되지는 않습니다. |
 | `OutcomeAssuranceProjection` 타입이 지정된 읽기 모델 | implemented | [변환 결과 계약](#변환-결과-계약); `core/measurement/outcome_assurance.py`; 집중 Outcome Assurance 계약 테스트 | 타입이 지정된 범위, 기간, 준비 상태, 귀속, 결과, 가드, 근거 모델이 이제 존재하며 결정론적 JSON 재현과 최신 권위 관측 correction 축소를 제공합니다. 이 계약은 읽기 전용으로 남고 권한 객체를 추가하지 않습니다. |
-| 목표 귀속과 집계 평가 | not-started | [목표 귀속](#목표-귀속) | 완전한 이벤트에서 목표와 결과까지의 체인을 종결하거나 귀속되지 않은 이벤트를 이 변환 결과의 분모에 보존하는 집계기는 없습니다. |
+| 목표 귀속과 집계 평가 | implemented | [목표 귀속](#목표-귀속), `core/measurement/outcome_assurance.py`, 집중 Outcome Assurance 테스트 | 순수 reducer는 명시적인 finalized 이벤트 집합을 입력받고 decision, objective, workflow, action, run, outcome 및 measurement의 완전한 체인을 요구합니다. 최신 권위 observation만 사용하고 해결되지 않은 모든 이벤트를 분모에 유지합니다. 권위 있는 출처 연결은 열린 상태입니다. |
 | 인증된 Operator API와 Console 경험 | not-started | [Operator API와 console](#operator-api와-console); `services/operator-service/` 또는 `console/` 아래에 일치하는 경로나 Console 모듈 없음 | 제안된 읽기 전용 endpoint, 요약, 근거 상세 경로 및 사용 불가 상태는 구현되지 않았습니다. |
 | 변경 안전성 파일럿과 버티컬 확장 | not-started | [전달 순서](#전달-순서) | 비합성 OA3 파일럿 또는 OA4 확장이 근거를 생성하려면 OA0-OA2가 먼저 구현돼야 합니다. |
 
@@ -50,12 +50,13 @@ FDAI는 서비스가 보호해야 할 목표, 검토한 액션, 실제 실행, �
 |------|------|------|------|-----------|
 | 2026-08-29 | implemented | 예상 절감과 독립적으로 검증된 효과 정산을 분리하고 실패, 검열됨, 점수화 불가 및 롤백 결과를 보존하는 비용 거버넌스 출처를 추가했습니다. | `current change`; 집중 비용 거버넌스 정산, 보존 및 캠페인 테스트. | 아직 열려 있는 `OutcomeAssuranceProjection` 작업을 통해 이 출처를 결합합니다. |
 | 2026-08-29 | implemented | 권한 객체를 도입하지 않고 OA0 타입 읽기 모델, 범위가 제한된 근거 상태, 결정론적 재현 JSON 및 최신 권위 관측 correction 축소를 추가했습니다. | `current change`; `core/measurement/outcome_assurance.py`, `core/measurement/__init__.py`, 그리고 집중 `uv run --extra dev python -m pytest -q --no-cov --noconftest services/core-control-plane/tests/core/measurement/test_outcome_assurance.py` (`7 passed`) 및 대상 Ruff 검사입니다. | OA1을 통해 권위 있는 준비 상태, 가드 및 측정 출처를 연결합니다. |
+| 2026-08-29 | implemented | 명시적인 finalized 이벤트 집합을 사용하는 목표 귀속 reducer를 추가했습니다. 중복 이벤트 identity와 해당 집합 밖의 observation을 거부하고, 이름에서 목표를 추론하지 않으며, 완전한 타입 체인만 최신 일치 observation에 연결하고 불완전하거나 일치하지 않는 이벤트를 커버리지에 유지합니다. | `current change`, `core/measurement/outcome_assurance.py`, `core/measurement/__init__.py`, 집중 Outcome Assurance 테스트 13개, 대상 Ruff 및 strict mypy 검사 통과 | 읽기 모델을 노출하기 전에 인증된 finalized 이벤트, objective, audit 및 measurement 출처를 연결합니다. |
 | 2026-08-14 | not-started | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 부분적으로 구현된 출처 시스템 위의 설계 전용 변환 결과로 기록했습니다. | `current change`; 계약, API 경로, Console 표면에 대한 저장소 검색과 위에 인용한 출처 소유 문서입니다. | 파일럿과 버티컬 확장을 시작하기 전에 OA0부터 OA2까지 전달합니다. |
 
 ### 남은 작업
 
 - [x] 새 권한 객체를 추가하지 않고 타입이 지정된 `OutcomeAssuranceProjection`, 범위가 제한된 근거 상태, correction 규칙 및 결정론적 재현을 정의하고 테스트합니다 (`core/measurement/outcome_assurance.py`; 집중 Outcome Assurance 계약 테스트 `7 passed`).
-- [ ] 완전한 목표 귀속 join을 구현하고 해결되지 않은 finalized 이벤트를 명시적 커버리지와 함께 분모에 유지합니다.
+- [x] 완전한 목표 귀속 join을 구현하고 해결되지 않은 finalized 이벤트를 명시적 커버리지와 함께 분모에 유지합니다 (`summarize_objective_attribution`, 집중 Outcome Assurance 테스트 13개 통과).
 - [ ] 인증된 권위 있는 출처를 연결하고 읽기 전용 Operator API와 Console 상세 경로를 추가하며, 누락되거나 stale한 데이터가 합성되지 않고 사용 불가로 표시됨을 입증합니다.
 - [ ] 하나의 고정된 서비스와 시나리오 집합에서 변경 안전성 파일럿을 실행한 다음 수락 기준에 권위 있는 비합성 근거가 생긴 후에만 확장합니다.
 
@@ -141,6 +142,11 @@ event_id -> decision_case_id -> protected_objective_ref
 해결되지 않은 링크는 unattributed 이벤트로 denominator에 남습니다. 변환 결과는
 `attributed_events`, `unattributed_events`, `coverage`를 보고하며 ActionType 이름이나 UI
 category로 목표를 추정하지 않습니다.
+
+Reducer는 finalized 이벤트 집합을 명시적으로 입력받습니다. 중복 이벤트 identity와 해당
+집합 밖의 measurement observation을 거부하고, correction 순서를 먼저 해석한 뒤 위의 모든
+chain 참조와 일치하는 objective measurement observation이 하나 이상 있을 때만 이벤트를
+귀속된 것으로 계산합니다.
 
 ## 준비도 분류 기준
 
