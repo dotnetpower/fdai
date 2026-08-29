@@ -35,7 +35,10 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     assert 'aarch64|arm64) PLATFORM_TAG="linux-aarch64"' in drill
     assert "fdai_deployment_cli-*-py3-none-any.whl" in stage
     assert "PYTHONPATH=packages/deployment-cli/src" in stage
-    assert "PYTHONPATH=packages/deployment-cli/src" in drill
+    assert '"$UV" pip install --python "$WORKDIR/cli-venv/bin/python"' in drill
+    assert '--no-index --find-links "$KIT/python"' in drill
+    assert 'CLI="$WORKDIR/cli-venv/bin/fdaictl"' in drill
+    assert "PYTHONPATH=packages/deployment-cli/src" not in drill
     assert "fdai_deployment_cli.offline_kit" in signer
     assert "fdai.deployment_cli" not in stage + drill + signer
 

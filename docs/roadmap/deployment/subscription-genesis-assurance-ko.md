@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: f064475b0170a09a9cd83ac3115a8d9181649e24
+translation_source_sha: 8baefeea7f5d1030d13d95417d0a18fecdd49003
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -257,6 +257,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H30 | ARM64 호스트가 x86 준비 기본값을 상속해 지원 대상인데도 실패했습니다. 이제 준비와 훈련은 호스트에서 기본값을 파생하면서 명시적 교차 플랫폼 요청은 계속 거부합니다. | `test_release_scripts_use_the_installable_distribution` |
 | H31 | 로컬 점검이 실행 호스트, 전송, 워크로드 신원, 오프라인 키트 근거 없이 `ready`를 보고할 수 있었습니다. 이제 외부 근거를 검증할 때까지 `review`를 반환합니다. | `test_local_inspection_cannot_claim_execution_host_readiness` |
 | H32 | 라이선스 점검이 서명되었지만 런타임에서 유효하지 않은 식별자나 검증하지 않은 이미지 및 테넌트 연결을 활성으로 보고할 수 있었습니다. 이제 정규 신원과 호출자 연결 다이제스트 검사를 적용합니다. | `test_license_rejects_invalid_identifiers_and_unverified_bindings` |
+| H33 | air-gap 훈련이 제공한 wheel 대신 체크아웃 소스를 실행했습니다. 이제 격리된 네트워크 이름 공간에서 `--no-index`로 서명 키트 wheel만 설치하고 해당 `fdaictl`을 실행합니다. | `test_release_scripts_use_the_installable_distribution` |
 
 ## 관련 문서
 

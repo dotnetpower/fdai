@@ -135,7 +135,7 @@ unpack_bundle
 CLI_VERSION="$("$PYTHON" -c 'import json,sys; print(json.load(open(sys.argv[1]))["cli_version"])' "$KIT/offline-kit.json")"
 
 echo "== verify (network namespace, no route, no DNS) =="
-REPO_ROOT="$repo_root" WORKDIR="$WORKDIR" KIT="$KIT" PYTHON="$PYTHON" \
+REPO_ROOT="$repo_root" WORKDIR="$WORKDIR" KIT="$KIT" PYTHON="$PYTHON" UV="$(command -v uv)" \
   CLI_VERSION="$CLI_VERSION" PLATFORM_TAG="$PLATFORM_TAG" BUNDLE_VERSION="$BUNDLE_VERSION" \
   unshare -rn -- bash -euo pipefail -c '
 ip link set lo up 2>/dev/null || true
@@ -153,9 +153,17 @@ if timeout 5 getent hosts registry.terraform.io >/dev/null 2>&1; then
 fi
 echo "   no egress, no DNS"
 
+echo "-- install shipped CLI from kit wheels"
+"$UV" venv --python "$PYTHON" "$WORKDIR/cli-venv" >/dev/null
+"$UV" pip install --python "$WORKDIR/cli-venv/bin/python" \
+  --no-index --find-links "$KIT/python" "fdai-deployment-cli==$CLI_VERSION" >/dev/null
+CLI="$WORKDIR/cli-venv/bin/fdaictl"
+CLI_PYTHON="$WORKDIR/cli-venv/bin/python"
+"$CLI" version --output json >/dev/null
+
 echo "-- 2. offline kit"
 cd "$REPO_ROOT"
-PYTHONPATH=packages/deployment-cli/src "$PYTHON" -c "
+"$CLI_PYTHON" -c "
 import sys
 from pathlib import Path
 from fdai_deployment_cli.offline_kit import verify_offline_kit
@@ -186,7 +194,7 @@ print(f"   SBOM describes {len(described)} kit files")
 PY
 
 echo "-- 3. signed deployment bundle"
-PYTHONPATH=packages/deployment-cli/src "$PYTHON" -m fdai_deployment_cli bundle verify \
+"$CLI" bundle verify \
   --bundle "$BUNDLE" --public-key "$WORKDIR/bundle-key.pub" --output json >/dev/null \
   || fail "bundle verification failed"
 echo "   verified"
@@ -215,7 +223,7 @@ echo "   failed as required"
 
 echo "-- 8. license inspection"
 cd "$REPO_ROOT"
-PYTHONPATH=packages/deployment-cli/src "$PYTHON" -m fdai_deployment_cli license inspect \
+"$CLI" license inspect \
   --token "$WORKDIR/license.token" --public-key "$WORKDIR/release-root.pub" --output json \
   || fail "license inspection did not report an active entitlement"
 
@@ -227,7 +235,7 @@ echo "-- 9. fdaictl provision plan (the operator-facing disconnected path)"
 # not be resolved, or any attempt to reach the public registry, fails the drill.
 rm -rf "$WORKDIR/provision"
 set +e
-plan_output="$(PYTHONPATH=packages/deployment-cli/src "$PYTHON" -m fdai_deployment_cli provision plan \
+plan_output="$("$CLI" provision plan \
   --offline-kit "$KIT" --release-root "$WORKDIR/release-root.pub" \
   --bundle-public-key "$WORKDIR/bundle-key.pub" --work-dir "$WORKDIR/provision" \
   --output json 2>&1)"
