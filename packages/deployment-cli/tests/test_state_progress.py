@@ -91,6 +91,11 @@ def test_resume_decision_never_retries_ambiguous_apply(
     assert resume_action(claim=claim, receipt=receipt, failed=failed) is expected
 
 
+def test_resume_rejects_failed_state_after_terminal_receipt() -> None:
+    with pytest.raises(ValueError, match="cannot also be failed"):
+        resume_action(claim="present", receipt="present", failed=True)
+
+
 def _progress(
     sequence: int,
     stages: int,

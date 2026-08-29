@@ -193,6 +193,8 @@ def resume_action(*, claim: str, receipt: str, failed: bool) -> ResumeAction:
         raise ValueError("claim and receipt states are unsupported")
     if receipt == "present" and claim != "present":
         raise ValueError("an apply receipt without a claim is invalid")
+    if failed and receipt == "present":
+        raise ValueError("a completed apply receipt cannot also be failed")
     if failed:
         return ResumeAction.REVIEW
     if receipt == "present":

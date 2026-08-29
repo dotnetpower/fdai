@@ -235,6 +235,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H01 | Terraform failure output could disclose state-derived values. The CLI now maps it to bounded stable reason codes. | `test_terraform_failure_is_redacted_to_stable_reason` |
 | H02 | Journal reads checked a path before reopening it and could follow a replacement link. Reads now use one no-follow descriptor and validate that descriptor. | `test_journal_reader_never_follows_symlink` |
 | H03 | Profile reads had the same check-then-open race. They now read through one no-follow descriptor with mode and size validation. | `test_profile_reader_never_follows_symlink` |
+| H04 | Resume input could claim both a terminal receipt and failure. The reducer now rejects that contradictory state instead of selecting a recovery action. | `test_resume_rejects_failed_state_after_terminal_receipt` |
 
 ## Related docs
 
