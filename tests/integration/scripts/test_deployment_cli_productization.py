@@ -24,6 +24,9 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     signer = (ROOT / "scripts/deployment/release/build-offline-kit.py").read_text(encoding="utf-8")
 
     assert "uv build --wheel --project packages/deployment-cli" in stage
+    assert "uv export --project packages/deployment-cli --no-dev --no-emit-project" in stage
+    assert "pip download --only-binary=:all: --require-hashes" in stage
+    assert 'cp "$OUT/wheels"/*.whl "$KIT/python/"' in stage
     assert "fdai_deployment_cli-*-py3-none-any.whl" in stage
     assert "PYTHONPATH=packages/deployment-cli/src" in stage
     assert "PYTHONPATH=packages/deployment-cli/src" in drill
