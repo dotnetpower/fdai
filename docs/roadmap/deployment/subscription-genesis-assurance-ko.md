@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: b6317229e564f5d0ab1f63c8c0ed9d095729f783
+translation_source_sha: 5f117bff3d4cfac1edaaf53c34889302b8ccca65
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -311,6 +311,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H84 | 오프라인 준비가 재귀 정리 전에 임의 상대 또는 기존 출력 루트를 허용했습니다. 이제 안전한 절대 경로와 비공개 준비 또는 air-gap 소유권 sentinel을 요구합니다. | `test_release_scripts_use_the_installable_distribution` |
 | H85 | 알려진 준비 sentinel 문자열을 위조할 수 있고 UID 소유권이나 비공개 모드를 증명하지 않았습니다. 이제 서술자 기반 guard가 현재 UID 소유권, mode 0700, mode-0600 일반 sentinel을 검증합니다. | `test_workdir_guard_rejects_public_or_linked_roots` |
 | H86 | air-gap 재개가 보존된 아티팩트를 실행하기 전에 같은 위조 가능한 공개 표시를 신뢰했습니다. 이제 새 훈련과 재개 모두 서술자 기반 UID 및 모드 guard를 사용합니다. | `test_workdir_guard_creates_and_verifies_private_sentinel` |
+| H87 | 소유한 출력에 다시 준비할 때 이전 번들 보관이 남아 결정론적 빌더가 덮어쓰기를 거부했습니다. 이제 정리가 생성된 모든 단일 파일 빌드 출력을 제거합니다. | `test_release_scripts_use_the_installable_distribution` |
 
 ## 관련 문서
 

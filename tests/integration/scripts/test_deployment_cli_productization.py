@@ -40,6 +40,7 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     assert "workdir-guard.py verify" in stage
     assert "--out must be a safe absolute path" in stage
     assert "existing --out is not owned by offline staging" in stage
+    assert 'rm -f "$OUT/bundle.tar.gz" "$OUT/cli-requirements.txt"' in stage
     assert 'aarch64|arm64) PLATFORM_TAG="linux-aarch64"' in drill
     assert 'TERRAFORM_VERSION="1.9.8"' in stage
     assert 'OPA_VERSION="0.68.0"' in stage
