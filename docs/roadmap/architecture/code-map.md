@@ -44,8 +44,9 @@ unchanged by the physical move.
 
 Semantic conversation planning keeps `semantic_planning.py`, `semantic_planning_cascade.py`, and
 `semantic_planning_frame.py` as compatibility facades. Focused sibling modules own frame checks,
-plan dispatch, judgment, validation, frame construction, facets, evidence-specific investigation
-normalization, and queries while preserving public imports, deterministic gate order, and read-only authority.
+plan dispatch, anchored-incident and stated-value-filter plan construction, judgment, validation,
+frame construction, facets, evidence-specific investigation normalization, and queries while
+preserving public imports, deterministic gate order, and read-only authority.
 The semantic-routing baseline records each lexical owner and classifies deterministic model-output
 validation separately from semantic inference. Content-free judgment telemetry exposes profile and
 model-configuration revisions, tier, confidence, latency, outcome, and abstention rate without

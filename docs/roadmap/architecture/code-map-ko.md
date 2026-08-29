@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 660db3bf692acaebfc8a073be5c04a6e57c14abf
+translation_source_sha: a216f9986a5fd6093b6ea108d7ac7001c0b6374a
 translation_revised: 2026-08-29
 ---
 # 코드 맵
@@ -47,8 +47,9 @@ Core 분포는 전체 `fdai` 이름 공간을 유지합니다. 내부 모듈 경
 
 의미 대화 계획은 `semantic_planning.py`, `semantic_planning_cascade.py`,
 `semantic_planning_frame.py`를 호환성 facade로 유지합니다. 집중 sibling 모듈은 공개 import,
-결정론적 gate 순서 및 읽기 전용 권한을 보존하면서 frame 검사, plan dispatch, 판단, 검증, frame
-생성, facet, 근거별 조사 정규화 및 조회를 소유합니다.
+결정론적 gate 순서 및 읽기 전용 권한을 보존하면서 frame 검사, plan dispatch, 고정된 인시던트와
+명시된 값 필터 plan 생성, 판단, 검증, frame 생성, facet, 근거별 조사 정규화 및 조회를
+소유합니다.
 semantic-routing 기준선은 각 어휘 판단 소유자를 기록하고 결정론적 모델 출력 검증을 의미 추론과
 구분합니다. 내용이 없는 판단 텔레메트리는 발화, 맥락 또는 제안 다이제스트를 보존하지 않으면서
 프로필 및 모델 구성 개정, 계층, 신뢰도, 지연 시간, 결과 및 판단 보류 비율을 제공합니다.

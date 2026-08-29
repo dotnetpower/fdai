@@ -827,7 +827,7 @@ def test_core_contract_requires_complete_bootstrap_environment(contract: ModuleT
     core_root = (_ROOT / "infra" / "services" / "core-control-plane" / "main.tf").read_text(
         encoding="utf-8"
     )
-    assert "llm               = var.llm" in core_root
+    assert any(line.split() == ["llm", "=", "var.llm"] for line in core_root.splitlines())
     assert "phase_timeout_seconds = 75" in core_variables
     assert (
         "phase_timeout_seconds > var.startup_readiness.probe_timeout_seconds * 2" in core_variables

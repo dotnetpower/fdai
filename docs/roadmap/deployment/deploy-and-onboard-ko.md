@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: e6d53957c9e0bbec3bd08915504737d1e82b940e
+translation_source_sha: 3d05319cb5c5d7d1063e0f45457e6bf05fe96694
 translation_revised: 2026-08-29
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -26,6 +26,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-29 | implemented | 보호된 계획 `33235557463`이 실행기에서 `gh`를 찾지 못한 채 격리 실행기 이미지 연결 단계에 도달한 뒤, checksum이 고정된 단일 GitHub CLI 설치 단계를 격리 실행기 이미지 연결에도 적용했습니다. | 실패한 보호 계획 `33235557463`, `current change`, 집중 workflow diet 테스트 | 정확한 보호 대상 계획을 다시 실행한 뒤 봉인된 비파괴 산출물만 적용합니다. |
 | 2026-08-26 | implemented | 보호된 배포 권한을 실행기 VM 수명 주기에서 분리했습니다. Bootstrap은 이제 안정적인 UAMI와 5개 역할 매니페스트를 소유하고, 현재 VM은 시스템 신원과 함께 UAMI를 연결하며, 7개 `fdai-deploy` workflow는 명시적인 client ID 로그인과 테넌트, 구독 및 token `oid` 검증을 요구합니다. | `current change`; bootstrap Terraform 유효성 검사 및 계획 테스트, 집중 신원, workflow, 컨텍스트 및 scenario 검사. | 필수 CI가 green인 exact revision을 push한 뒤 후보를 만들기 전에 관련 없는 destroy가 0인 bootstrap, platform 및 scenario 계획과 유효 역할 실제 상태 확인을 보존합니다. |
 | 2026-08-21 | implemented | 보호된 runner의 암묵적인 system pip 의존성을 제거했습니다. Workflow는 저장소가 pin한 uv release를 설치하고 frozen Core package 환경에서 model resolution과 production readiness를 실행합니다. | `current change`; 실패한 보호 계획 실행 `32434472993`; 집중 배포 workflow 계약, YAML parsing 및 dependency command 검사. | 정확한 Event Bus 이행 계획을 다시 실행하고 protected plan/apply 근거를 보존합니다. |
 | 2026-08-24 | implemented | Azure RBAC kubeconfig가 변경 가능한 VM 이미지 상태에 의존하지 않도록 보호된 시나리오 workflow에 runner 임시 저장소용 checksum-pinned `kubelogin` 설치를 추가했습니다. | 실패한 시나리오 실행 `32780056314`; `current change`; 집중 workflow, 스크립트, checksum 및 시나리오 계약 검사. | 비공개 AKS 기반 준비를 완료하고 보호된 적용 증적을 보존합니다. |
@@ -419,7 +420,7 @@ networking과 digest-pinned FDAI 및 ClamAV 이미지를 요구합니다.
 - **복제본 하한**: 기본값은 복제본 하나입니다. 검증된 Kafka scaler 없이 0으로 설정하면 Event Hubs 데이터로 깨어나지 않으므로 Terraform은 scale-to-zero를 주장하지 않습니다.
 - **분리 기준**: 목표는 Core, Operator, 인제스트 API, 처리 워커, Isolated 실행기이며 권한 전환은 [서비스 승격과 데이터 소유권](../architecture/service-graduation-and-ownership-ko.md)의 모든 게이트를 따릅니다.
 - **신원 분리**: Operator API 읽기/명령과 인제스트 API/워커/이행 principal을 분리합니다. 워커는 `fdai.pantheon.objects`에서 Saga/Muninn 객체만 수신하고 `fdai.pipeline.stages`로 단계 사실을 전송합니다. `ingestion_cohost_worker=true`는 두 범위를 API 신원으로 돌립니다.
-- **실행기 배포와 전환**: `enable_isolated_executor=true`는 내부 앱과 ACR pull, 명령 수신, 증적/DLQ 전송, state-secret 읽기만 가진 전용 UAMI를 프로비저닝합니다. 기본값은 `false`이며 private-runner 작업 흐름은 기본 plan-only를 유지하고 checksum-pinned GitHub CLI를 설치하며 embedded plan-metadata 코드를 syntax-check하고 `ghcr.io/<owner>/<repo>/fdai-core-control-plane`의 Core 산출물 증명을 검증한 뒤 동일한 ACR 다이제스트를 연결하고 최신 개정 번호를 상태 검사에 포함합니다. `promote_runtime_image=true`는 재구축 없이 검증된 다이제스트를 ACR `fdai` 저장소로 가져오기하지만 exact 적용은 승격을 거부하고 protected 계획만 사용하며 convergence에도 같은 런타임 다이제스트를 복원합니다. `enable_isolated_executor_authority_cutover=true`는 개발 operations 게이트웨이도 요구하며 Core의 게이트웨이 및 버티컬 효과 접근을 제거하고 isolated 신원을 승인하며 Core에는 전송 계층/읽기 접근만 유지합니다. `verify_executor_effect=true`는 non-interactive 실행기에서 명시적 pseudo-terminal을 통해 reversible NSG 룰 탐색을 실행하고 원격 exit 상태를 보존합니다. 중복 전달은 변경할 수 없는 액션 및 명령 신원을 유지하도록 하나의 issued-at 시각을 공유하고 정리는 새 범위가 제한된 기한을 받습니다. Azure Resource Manager에서 효과를 확인하고 중복 쓰기를 차단하며 오프셋과 최종 증적을 기록한 뒤 정리합니다. 900초가 지나면 실패합니다.
+- **실행기 배포와 전환**: `enable_isolated_executor=true`는 내부 앱과 ACR pull, 명령 수신, 증적/DLQ 전송, state-secret 읽기만 가진 전용 UAMI를 프로비저닝합니다. 기본값은 `false`이며 private-runner 작업 흐름은 기본 plan-only를 유지합니다. 모델 검증 또는 격리 실행기 이미지 연결에 `gh`가 필요할 때 checksum이 고정된 GitHub CLI를 설치하고, embedded plan-metadata 코드를 syntax-check하며, `ghcr.io/<owner>/<repo>/fdai-core-control-plane`의 Core 산출물 증명을 검증합니다. ACR 가져오기 API가 요구하는 호스트 전용 `ghcr.io` 레지스트리 URI를 전송한 뒤 동일한 ACR 다이제스트를 연결하고 최신 개정 번호를 상태 검사에 포함합니다. `promote_runtime_image=true`는 재구축 없이 검증된 다이제스트를 ACR `fdai` 저장소로 가져오기하지만 exact 적용은 승격을 거부하고 protected 계획만 사용하며 convergence에도 같은 런타임 다이제스트를 복원합니다. `enable_isolated_executor_authority_cutover=true`는 개발 operations 게이트웨이도 요구하며 Core의 게이트웨이 및 버티컬 효과 접근을 제거하고 isolated 신원을 승인하며 Core에는 전송 계층/읽기 접근만 유지합니다. `verify_executor_effect=true`는 non-interactive 실행기에서 명시적 pseudo-terminal을 통해 reversible NSG 룰 탐색을 실행하고 원격 exit 상태를 보존합니다. 중복 전달은 변경할 수 없는 액션 및 명령 신원을 유지하도록 하나의 issued-at 시각을 공유하고 정리는 새 범위가 제한된 기한을 받습니다. Azure Resource Manager에서 효과를 확인하고 중복 쓰기를 차단하며 오프셋과 최종 증적을 기록한 뒤 정리합니다. 900초가 지나면 실패합니다.
 - **OHL evidence target**: `enable_ohl_scale_out_evidence_target=true`는 `dev`에만 전용 Uniform
   VM Scale Set 하나와 manual proposal Job 하나를 추가합니다. 비공개 networking, development
   operations gateway, exact `OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION`, retry-stable

@@ -181,6 +181,11 @@ The shared service-contract export, Operator composition root, and Console messa
 multi-capability host seams. Adding an independent capability such as Azure Monitor ingestion to
 those seams does not register it as Cost Governance behavior. Cost Governance activates only from
 its reviewed package manifest, exact bundle, provider requirements, and deployment gate.
+The Operator semantic stream fallback also remains a host seam: it preserves
+`ConversationAssuranceReader` before the raw PostgreSQL adapter without changing Cost Governance
+availability, enablement, or package ownership.
+The root test harness can import the independent deployment CLI from its source path, but the CLI
+remains outside the uv workspace and does not become part of Cost Governance package composition.
 
 ## Target package contracts
 
