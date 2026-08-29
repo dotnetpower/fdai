@@ -5,7 +5,7 @@ Cost-Quality Tracking / Scalability. Multi-cloud items in phase-4-scale
 are **TBD (deferred)** and NOT built here (see Implementation Focus in
 `.github/copilot-instructions.md`).
 
-The six modules here are:
+The current modules here are:
 
 - :mod:`.regression` - baseline-vs-treatment regression detection with
   automatic demotion to shadow on guard-metric breaches.
@@ -30,6 +30,8 @@ The six modules here are:
 - :mod:`.operational_promotion` - immutable revision/scenario/cohort evidence,
   Wilson confidence, rollback, recurrence, causal, Dynamic, and zero-escape gates.
 - :mod:`.operational_promotion_runner` - audited measurement runner that never promotes.
+- :mod:`.outcome_assurance` - typed Outcome Assurance projection contracts,
+  bounded evidence states, and deterministic correction helpers.
 """
 
 from __future__ import annotations
@@ -52,12 +54,38 @@ from fdai.core.measurement.operational_promotion_runner import (
     OperationalPromotionReceiptSink,
     OperationalPromotionRunResult,
 )
+from fdai.core.measurement.outcome_assurance import (
+    ConfidenceInterval,
+    ControlAssuranceState,
+    ControlAssuranceSummary,
+    GuardEvaluation,
+    ObjectiveAttributionState,
+    ObjectiveAttributionSummary,
+    OutcomeAssuranceProjection,
+    OutcomeAssuranceScope,
+    OutcomeAssuranceWindow,
+    OutcomeEvidenceState,
+    OutcomeMeasurement,
+    OutcomeMeasurementObservation,
+    OutcomeProvenance,
+    OutcomeVertical,
+    ReadinessFacet,
+    ReadinessFacetSnapshot,
+    ReadinessFacetState,
+    latest_authoritative_observations,
+)
 
 __all__ = [
+    "ConfidenceInterval",
+    "ControlAssuranceState",
+    "ControlAssuranceSummary",
     "DeploymentObservation",
     "CausalPromotionReceipt",
     "CausalPromotionReceiptVerifier",
     "DoraSummary",
+    "GuardEvaluation",
+    "ObjectiveAttributionState",
+    "ObjectiveAttributionSummary",
     "OperationalPromotionBatch",
     "OperationalPromotionEvaluator",
     "OperationalPromotionEvidenceSource",
@@ -68,6 +96,18 @@ __all__ = [
     "OperationalPromotionRecord",
     "OperationalPromotionRunResult",
     "OperationalPromotionUnitVerifier",
+    "OutcomeAssuranceProjection",
+    "OutcomeAssuranceScope",
+    "OutcomeAssuranceWindow",
+    "OutcomeEvidenceState",
+    "OutcomeMeasurement",
+    "OutcomeMeasurementObservation",
+    "OutcomeProvenance",
+    "OutcomeVertical",
     "PromotionEvidenceCohort",
+    "ReadinessFacet",
+    "ReadinessFacetSnapshot",
+    "ReadinessFacetState",
     "compute_dora",
+    "latest_authoritative_observations",
 ]
