@@ -10,6 +10,7 @@ from fdai_service_contracts.ontology_query import OntologyQueryNode
 
 from fdai.shared.contracts.models import CeilingRole, OntologyFunctionKind
 from fdai.shared.ontology.acl import ProjectionRequest
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
 
 from .functions import FunctionInvocationContext, OntologyFunctionRegistry
 from .graph_query_refresh import SecuredGraphEvidenceQueryRefresher
@@ -21,7 +22,7 @@ from .models import (
 )
 from .query_execution import QueryNodeHeldError, QueryNodeResult
 from .query_gateway import SecuredObjectSetQueryGateway, SecuredObjectSetQueryResult
-from .query_receipt_authority import SecuredQueryReceiptAuthority
+from .query_receipt_authority import SecuredQueryReceiptAuthority, secured_query_scope_digest
 from .query_values import QueryRow, QueryTable
 
 
@@ -35,6 +36,7 @@ class SecuredObjectSetNodeHandler:
         caller_role: CeilingRole,
         purposes: Sequence[str],
         receipt_authority: SecuredQueryReceiptAuthority | None = None,
+        decision_evidence: DecisionEvidenceAdmissionProvider | None = None,
         graph_refresher: SecuredGraphEvidenceQueryRefresher | None = None,
     ) -> None:
         self._gateway = gateway
@@ -43,6 +45,7 @@ class SecuredObjectSetNodeHandler:
             declared_purposes=frozenset(purposes),
         )
         self._receipt_authority = receipt_authority
+        self._decision_evidence = decision_evidence
         self._graph_refresher = graph_refresher
 
     async def __call__(
@@ -64,7 +67,11 @@ class SecuredObjectSetNodeHandler:
                 secured=secured,
             )
         if self._receipt_authority is not None:
-            self._receipt_authority.issue(secured)
+            await _issue_secured_result(
+                self._receipt_authority,
+                secured,
+                provider=self._decision_evidence,
+            )
         table = _secured_query_table(secured)
         return QueryNodeResult(
             value=table,
@@ -85,6 +92,7 @@ class SecuredRelationshipTraversalNodeHandler:
         caller_role: CeilingRole,
         purposes: Sequence[str],
         receipt_authority: SecuredQueryReceiptAuthority | None = None,
+        decision_evidence: DecisionEvidenceAdmissionProvider | None = None,
     ) -> None:
         self._gateway = gateway
         self._request = ProjectionRequest(
@@ -92,6 +100,7 @@ class SecuredRelationshipTraversalNodeHandler:
             declared_purposes=frozenset(purposes),
         )
         self._receipt_authority = receipt_authority
+        self._decision_evidence = decision_evidence
 
     async def __call__(
         self,
@@ -127,7 +136,11 @@ class SecuredRelationshipTraversalNodeHandler:
             projection_request=self._request,
         )
         if self._receipt_authority is not None:
-            self._receipt_authority.issue(secured)
+            await _issue_secured_result(
+                self._receipt_authority,
+                secured,
+                provider=self._decision_evidence,
+            )
         table = _relationship_traversal_table(
             secured,
             root_ids=(dependency.rows[0].row_id,),
@@ -183,6 +196,7 @@ class SecuredTypedPathNodeHandler:
         caller_role: CeilingRole,
         purposes: Sequence[str],
         receipt_authority: SecuredQueryReceiptAuthority | None = None,
+        decision_evidence: DecisionEvidenceAdmissionProvider | None = None,
     ) -> None:
         self._gateway = gateway
         self._request = ProjectionRequest(
@@ -190,6 +204,7 @@ class SecuredTypedPathNodeHandler:
             declared_purposes=frozenset(purposes),
         )
         self._receipt_authority = receipt_authority
+        self._decision_evidence = decision_evidence
 
     async def __call__(
         self,
@@ -229,7 +244,11 @@ class SecuredTypedPathNodeHandler:
                 projection_request=self._request,
             )
             if self._receipt_authority is not None:
-                self._receipt_authority.issue(secured)
+                await _issue_secured_result(
+                    self._receipt_authority,
+                    secured,
+                    provider=self._decision_evidence,
+                )
             current = _typed_path_step_table(
                 secured,
                 root_ids=root_ids,
@@ -251,6 +270,24 @@ class SecuredTypedPathNodeHandler:
             value=current,
             evidence_refs=tuple(dict.fromkeys(evidence_refs)),
         )
+
+
+async def _issue_secured_result(
+    authority: SecuredQueryReceiptAuthority,
+    result: SecuredObjectSetQueryResult,
+    *,
+    provider: DecisionEvidenceAdmissionProvider | None,
+) -> None:
+    admission = None
+    if provider is not None:
+        receipt = result.receipt
+        admission = await provider.admit(
+            evidence_digest=receipt.projected_result_digest,
+            scope_digest=secured_query_scope_digest(receipt),
+            purpose_id=receipt.purpose,
+            source_revision=receipt.ontology_release.digest,
+        )
+    authority.issue(result, admission)
 
 
 def _typed_path_step_table(

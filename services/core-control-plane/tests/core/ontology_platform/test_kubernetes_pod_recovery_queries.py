@@ -33,9 +33,13 @@ from fdai.core.ontology_platform.query_gateway import (
     SecuredObjectSetQueryResult,
     _projected_result_digest,
 )
-from fdai.core.ontology_platform.query_receipt_authority import SecuredQueryReceiptAuthority
+from fdai.core.ontology_platform.query_receipt_authority import (
+    SecuredQueryReceiptAuthority,
+    secured_query_scope_digest,
+)
 from fdai.shared.contracts.models import CeilingRole, OntologyObjectType, PropertyDecl, PropertyType
 from fdai.shared.ontology.release import build_ontology_release
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 from fdai.shared.providers.ontology_instance import (
     OntologyGraphSnapshot,
     OntologyLinkRecord,
@@ -54,6 +58,20 @@ _CUTOFF = datetime(2026, 8, 25, 16, 0, tzinfo=UTC)
 _POD_ID = "cluster:example/kubernetes/pod/example"
 _REPLICA_SET_ID = "cluster:example/kubernetes/replica-set/example"
 _DEPLOYMENT_ID = "cluster:example/kubernetes/deployment/example"
+
+
+def _query_admission(result: SecuredObjectSetQueryResult) -> DecisionEvidenceAdmission:
+    receipt = result.receipt
+    return DecisionEvidenceAdmission(
+        receipt_digest="sha256:" + "d" * 64,
+        verification_bundle_digest="sha256:" + "e" * 64,
+        evidence_digest=receipt.projected_result_digest,
+        scope_digest=secured_query_scope_digest(receipt),
+        purpose_id=receipt.purpose,
+        source_revision=receipt.ontology_release.digest,
+        verified_at=_CUTOFF - timedelta(minutes=1),
+        valid_until=_CUTOFF + timedelta(minutes=1),
+    )
 
 
 def _metadata() -> StateFactMetadata:
@@ -263,9 +281,9 @@ async def test_pod_recovery_function_accepts_only_issued_receipt() -> None:
     )
     secured = _secured(release=release)
     controller_result, deployment_result = _owner_results(release=release)
-    authority = SecuredQueryReceiptAuthority()
+    authority = SecuredQueryReceiptAuthority(now=lambda: _CUTOFF)
     for query_result in (secured, controller_result, deployment_result):
-        authority.issue(query_result)
+        authority.issue(query_result, _query_admission(query_result))
     registry = OntologyFunctionRegistry(release=release)
     registry.register_contextual(
         declaration,

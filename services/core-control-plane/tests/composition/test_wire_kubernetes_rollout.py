@@ -35,6 +35,7 @@ from fdai.shared.providers.state_evidence import (
     StateFactMetadata,
 )
 from fdai.shared.providers.testing import InMemoryOntologyInstanceStore
+from tests.decision_evidence import StubDecisionEvidenceAdmissionProvider
 
 NOW = datetime(2026, 8, 25, 12, tzinfo=UTC)
 DEPLOYMENT_ID = "deployment-api-v2"
@@ -248,6 +249,7 @@ async def test_runtime_executes_issued_rollout_plan_without_model_plan() -> None
         ontology_store=store,
         purpose="operations-review",
         now=lambda: NOW,
+        decision_evidence_admission_provider=StubDecisionEvidenceAdmissionProvider(lambda: NOW),
     )
 
     result = await runtime.handle(

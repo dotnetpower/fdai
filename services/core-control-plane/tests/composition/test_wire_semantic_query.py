@@ -112,6 +112,7 @@ from fdai.shared.providers.state_evidence import (
     StateFactMetadata,
 )
 from fdai.shared.providers.testing import InMemoryOntologyInstanceStore
+from tests.decision_evidence import StubDecisionEvidenceAdmissionProvider
 
 NOW = datetime(2026, 8, 11, 12, tzinfo=UTC)
 CATALOG_DIGEST = "sha256:" + ("a" * 64)
@@ -1679,6 +1680,7 @@ async def test_runtime_executes_issued_network_function_dependency() -> None:
         ontology_store=store,
         purpose="network-path-verification",
         now=lambda: NOW,
+        decision_evidence_admission_provider=StubDecisionEvidenceAdmissionProvider(lambda: NOW),
     )
 
     result = await runtime.handle(

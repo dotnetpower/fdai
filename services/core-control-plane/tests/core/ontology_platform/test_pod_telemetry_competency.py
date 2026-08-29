@@ -34,7 +34,10 @@ from fdai.core.ontology_platform.query_gateway import (
     SecuredObjectSetQueryGateway,
     SecuredObjectSetQueryResult,
 )
-from fdai.core.ontology_platform.query_receipt_authority import SecuredQueryReceiptAuthority
+from fdai.core.ontology_platform.query_receipt_authority import (
+    SecuredQueryReceiptAuthority,
+    secured_query_scope_digest,
+)
 from fdai.shared.contracts.models import (
     CeilingRole,
     LinkCardinality,
@@ -46,6 +49,7 @@ from fdai.shared.contracts.models import (
 )
 from fdai.shared.ontology.acl import ProjectionRequest
 from fdai.shared.ontology.release import build_ontology_release
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 from fdai.shared.providers.ontology_instance import OntologyLinkRecord, OntologyObjectRecord
 from fdai.shared.providers.state_evidence import (
     LINK_OBSERVATION_METADATA_PROPERTY,
@@ -63,6 +67,20 @@ _POD_ID = f"{_CLUSTER_REF}/resource/pod-uid"
 _SERVICE_ID = f"{_CLUSTER_REF}/resource/service-uid"
 _ENDPOINTS_ID = f"{_CLUSTER_REF}/resource/endpoints-uid"
 _OBSERVATION_ID = "observation:pod-cpu:1"
+
+
+def _query_admission(result: SecuredObjectSetQueryResult) -> DecisionEvidenceAdmission:
+    receipt = result.receipt
+    return DecisionEvidenceAdmission(
+        receipt_digest="sha256:" + "d" * 64,
+        verification_bundle_digest="sha256:" + "e" * 64,
+        evidence_digest=receipt.projected_result_digest,
+        scope_digest=secured_query_scope_digest(receipt),
+        purpose_id=receipt.purpose,
+        source_revision=receipt.ontology_release.digest,
+        verified_at=_CUTOFF - timedelta(minutes=1),
+        valid_until=_CUTOFF + timedelta(minutes=1),
+    )
 
 
 def _resource(object_id: str, kind: str, name: str) -> OntologyObjectRecord:
@@ -518,8 +536,8 @@ async def test_exact_release_function_accepts_only_issued_query_receipt() -> Non
         links=links,
         function_types=(declaration,),
     )
-    authority = SecuredQueryReceiptAuthority()
-    authority.issue(secured)
+    authority = SecuredQueryReceiptAuthority(now=lambda: _CUTOFF)
+    authority.issue(secured, _query_admission(secured))
     registry = OntologyFunctionRegistry(release=release)
     registry.register_contextual(
         declaration,

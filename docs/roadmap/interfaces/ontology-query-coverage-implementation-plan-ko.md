@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 0c8afe0036a6588664467cdb25b25880dabd64c5
-translation_revised: 2026-08-27
+translation_source_sha: 752cdc62fd649a672b3716326ba9766e8ed125a4
+translation_revised: 2026-08-29
 ---
 # 온톨로지 조회 커버리지 구현 계획
 
@@ -153,6 +153,7 @@ translation_revised: 2026-08-27
 | Operator 영속성과 Rule 변환 결과 | 구현됨 | `semantic_turn.py`, `semantic_turn_runtime.py`, `postgres_semantic_turn_store.py`, `test_semantic_turn_bridge.py`, 통과한 의미 경로 테스트 88개 및 롤백 전용 PostgreSQL 트랜잭션 검사 | 유효한 호출자 제공 요청 UUID를 의미 묶음과 상관관계 신원 전체에서 보존하면서 멱등성 키는 분리합니다. 요청 UUID를 생략하면 재시도에도 안정적인 결정론적 대체값을 사용합니다. 발신함과 결과 점유를 복구할 수 있고 잘못된 소유권은 안전하게 차단됩니다. 재생 순서는 타임스탬프를 인식하며 exact Rule 읽기는 principal과 조회 다이제스트로 격리됩니다. `SemanticTurnBridge`는 권위 있는 저장소와 의미 전송이 있을 때만 활성화되고, 로컬 서술기가 구성되면 주기적 갱신은 독립적인 Operator 수명 주기 서비스로 유지됩니다. |
 | 과거 토폴로지 영속성과 발행 | 구현됨 | `inventory_topology_history.py`, `postgres_topology_history.py`, `inventory_sync_cli.py`, 통과한 범위가 제한된 인벤토리/토폴로지 테스트 31개 | 완전한 승격 관측은 bitemporal 개정 번호를 하나의 트랜잭션으로 추가합니다. 과거/현재 파생 쓰기는 서로 독립적으로 시도하며 불완전한 관측은 완전한 과거 기준선을 만들 수 없습니다. |
 | Temporal, metric 및 근거 프로바이더 조립 | 구현됨 | `wire_semantic_query.py`, `bootstrap.py`, `bootstrap_bindings.py`, `test_wire_semantic_query.py`, `test_bootstrap_config.py`, 통과한 focused 조립 및 프로바이더 선택 테스트 16개 | 하나의 핸들러 맵이 검증기 가용성과 실행을 함께 제어합니다. 운영 환경은 상태 저장소 DSN에서 PostgreSQL 이력을 연결하고 검토된 레지스트리와 no-op이 아닌 프로바이더가 모두 있을 때만 metric/evidence 핸들러를 연결합니다. |
+| 의사 결정 핵심 보안 쿼리 승인 | implemented | `query_receipt_authority.py`, `query_source_handlers.py`, `wire_semantic_query.py`, 집중 권한, FunctionType 및 조립 테스트 | 발행된 결과는 진단에 사용할 수 있지만 `verify`와 `resolve`는 변환 결과 다이제스트, 역할과 목적 범위, 온톨로지 릴리스 및 출처 세대가 일치하는 현재 유효한 공유 의사 결정 근거 승인 결과를 요구합니다. 조립은 승인 프로바이더 seam을 노출합니다. 기본값으로는 연결되지 않으므로 의사 결정 핵심 Function은 자체 발행 쿼리 증적을 신뢰하지 않고 보류됩니다. |
 | 통제된 운영 보증 | 진행 중 | [온톨로지 조회 무작위 보증](ontology-query-randomized-assurance-ko.md)과 아래의 검증된 기준선 공백 표 | 로컬 검사는 안전하게 실패하는 조립을 입증하지만 운영 준비 상태를 입증하는 통제된 실제 서비스 간 증적은 없습니다. |
 | 타입 기반 Console 보증 실행기 | 구현됨 | `console-routes.spec.ts`, `ontology-query-assurance.ts`, `ontology-query-assurance.spec.ts`, focused Console 검사 | 한 실행기는 게시, Core 처리, exact projection 읽기 및 인증된 증적 렌더링을 검증합니다. Seed 기반 100-turn 실행기는 타입 전용 oracle로 영어 50개와 한국어 50개 prompt를 다룹니다. 보존 artifact가 통과하기 전에는 어느 구현도 실제 운영 근거가 아닙니다. |
 | T1 명확화 및 frame-plan 정렬 | 구현됨 | `semantic_planning_models.py`, `semantic_planning_cascade.py`, `semantic_planning_frame.py`, `semantic_planning_alignment.py`, 집중 플래너 검사 90개 통과 | Frame 제안은 누락된 사용자 맥락을 범위가 제한된 `clarification_requirements`로 분류합니다. 정당한 T1 명확화는 T2 없이 종료됩니다. 집중된 결정론적 helper는 서버 소유 명확화 맥락을 결속하고 승인된 frame 또는 정확한 기능군을 바꾸는 plan을 거부합니다. Server-bound context 요청, 모호하거나 혼합된 대상, 유효하지 않은 스키마, 결정론적 frame-plan 불일치는 T2 없이 안전하게 종료되고 타입이 지정된 T1 unavailable만 interactive runtime의 범위가 제한된 fallback을 사용할 수 있습니다. |
@@ -171,6 +172,7 @@ translation_revised: 2026-08-27
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-29 | implemented | 보안 ObjectSet 쿼리 소비 경계를 공유 의사 결정 핵심 근거 승인 결과로 마이그레이션했습니다. 정확한 결과 발행은 계속 범위가 제한되며, 이제 해석과 FunctionType 검증은 승인 결과가 없거나 일치하지 않거나 만료되면 차단합니다. 조립 seam은 주입된 프로바이더만 허용하고 합성 또는 기본 긍정 결속을 제공하지 않습니다. | `current change`; 쿼리 권한 및 핸들러 출처, 의미 조립, 집중 권한, Pod 텔레메트리, Pod 복구, rollout, 쿼리 핸들러 및 조립 테스트, Ruff 및 strict mypy. | 프로덕션 프로바이더를 신뢰할 수 있는 증적 검증기 레지스트리에 연결한 다음 인증된 서비스 간 쿼리 묶음을 보존합니다. |
 | 2026-08-27 | implemented | 서버 소유 Event ObjectSet에 출처에 근거한 Resource 이름 하나를 보존하고 일반 검증 행 개수를 이중 언어 Resource Event 답변으로 교체했습니다. 답변은 범위가 제한된 정규화 Event field만 나열하고 출처 완전성, 안정적인 제한 사항 및 `execution_authority=false`를 항상 보고합니다. 보존이 확인되지 않은 행 0개는 과거 부재를 증명하지 않는다고 명시합니다. | `current change`, Event 계획, FunctionType, 읽기 경로, 조립, processor 및 Operator 표현 검사 287개 통과, Ruff, formatter 및 strict mypy 통과. 오래된 Core를 교체한 뒤 인증된 정확한 Deployment 후속 실행이 노드 2/2와 근거 검사 8/8을 완료하고 원인 또는 복구 주장 없이 범위가 제한된 `source_unavailable`을 렌더링했습니다. | 런타임 workload identity의 권위 있는 Kubernetes Event 출처 접근을 복구한 뒤 `source_retention_unverified` 또는 정규화 Event 행을 담은 정확한 child 결과를 보존합니다. 영속 이력은 별도의 열린 작업입니다. |
 | 2026-08-27 | implemented | 구문 경로나 새 plan shape 없이 child-only Kubernetes Event 조회 공백을 닫았습니다. 기존 dependency-issued ObjectSet은 불변 identity-aware reader capability을 통해 inventory UID와 cluster를 전달하고, legacy reader는 호환성을 유지하며, Core는 다른 provider properties를 adapter에 노출하지 않습니다. | `current change`, 집중 FunctionType, 복합, Kubernetes, Azure, immutable identity, legacy compatibility, selector 전달, 위조 identity 검사 27개 통과, Ruff, formatter, strict mypy 통과 | 인증된 정확한 child 근거를 보존합니다. 영속 보존은 여전히 열려 있으므로 행 0개는 불완전한 과거 근거로 유지합니다. |
 | 2026-08-26 | implemented | 구문 경로를 추가하지 않고 `query.resource_event_history`에 descriptor-driven Kubernetes Event 계획과 프로바이더 조립을 추가했습니다. 서버 계획은 정확한 ObjectSet 범위와 요청한 조회 구간을 유지하고, 복합 읽기 경로는 다른 기능군을 사용할 수 없을 때 사용할 수 있는 기능군의 근거를 보존하며, Kubernetes 어댑터는 불변 UID 또는 정확히 선택한 클러스터에 귀속하면서 프로바이더 메시지를 제외합니다. Judgment-bound 정규화는 명시적인 Kubernetes Event, Resource, typed duration, time-range 및 ordering 근거를 요구하고 typed duration과 frame lookback이 같아야 합니다. | `current change`, Resource 이벤트 FunctionType, Kubernetes 및 복합 읽기 경로, 런타임 연결, 공유 UID 신원 helper, 집중 계획, FunctionType, 어댑터, 라우팅, 조립 및 런타임 검사, 혼합 범위 보존, 인코딩 응답 거부, raw 256 KiB 상한을 검사했습니다. 의미 판단 v4와 frame v39가 canonical Kubernetes 기능군과 3,600초 조회 구간을 만들었고 인증된 정확한 클러스터 Console 턴이 6.8초에 노드 2/2와 근거 검사 8/8을 실행 권한 없이 완료했습니다. 행 0개는 과거 부재를 증명하지 않으며, 강화한 어댑터는 `source_retention_unverified`를 보고합니다. | 영속 이벤트 보존을 추가한 뒤 S1 원인 또는 복구를 닫기 전에 변경, replica, 교체 UID, 영향 범위, 새 기준 시점 근거를 결합합니다. |
@@ -259,6 +261,7 @@ translation_revised: 2026-08-27
 | 2026-08-20 | 구현됨 | 모델이 `Resource.name exists`만 제안한 경우에도 모든 명시적 필터를 보존하도록 했습니다. Core는 frame이 보존한 정확한 이름 조각과 카탈로그가 선언한 리소스 타입 값 그룹을 결합해, 전체 Resource 집합을 실행하는 대신 이름 조각과 리소스 타입 조건식으로 결과를 좁힙니다. 운영자 발화에 없는 subject는 피연산자로 승격하지 않습니다. | `current change`, `semantic_planning_value_filters.py`, `test_semantic_planning.py`, 영어와 한국어를 포함한 focused 의미 계획 파일 27개 사례 통과 | Core를 재시작하고 좁혀진 검증 쿼리, 읽기 쉬운 표, 범위가 제한된 trace 및 가로 overflow가 없음을 보여 주는 인증된 Console 결과를 보존합니다. |
 ### 남은 작업
 
+- [ ] 보안 쿼리 승인 프로바이더를 신뢰할 수 있는 검증기 레지스트리에 연결하고 긍정적인 의사 결정 핵심 Function 결과를 복원하기 전에 서비스 간 쿼리 경로에서 인증된 `DecisionCriticalEvidenceReceipt`와 독립 묶음 하나를 보존합니다.
 - [ ] 완전한 Kubernetes 세대에서 인증된 S12 및 S1 정확한 대상 근거를 보존합니다. S12에는 Deployment rollout과 새 기준 시점 복구 증적이 필요합니다. S1에는 현재 Pod 상태가 원인 또는 과거 복구 주장이 되지 않도록 이벤트, 변경, replica, 교체 UID 근거도 필요합니다.
 - [ ] 별도의 정확한 대상 Container Apps 후속 증적 7/7을 완료합니다. 검증된
   `MemoryPercentage` 집계와 인증되고 범위가 제한된 차트는 보존했습니다. 일반 ObjectSet 대체 없이

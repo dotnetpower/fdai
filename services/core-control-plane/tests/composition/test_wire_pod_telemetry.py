@@ -42,6 +42,7 @@ from fdai.shared.providers.state_evidence import (
     StateFactMetadata,
 )
 from fdai.shared.providers.testing import InMemoryOntologyInstanceStore
+from tests.decision_evidence import StubDecisionEvidenceAdmissionProvider
 
 NOW = datetime(2026, 8, 13, 12, tzinfo=UTC)
 CLUSTER_REF = "kubernetes.cluster:example"
@@ -280,6 +281,7 @@ async def _runtime(*, synthetic_sample: bool):
         ontology_store=store,
         purpose="telemetry-verification",
         now=lambda: NOW,
+        decision_evidence_admission_provider=StubDecisionEvidenceAdmissionProvider(lambda: NOW),
     )
 
 

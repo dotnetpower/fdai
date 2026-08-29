@@ -105,7 +105,10 @@ from fdai.core.ontology_platform.pod_telemetry import (
 from fdai.core.ontology_platform.property_values import PropertyValueDomain
 from fdai.core.ontology_platform.query_execution import QueryNodeHandler
 from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
-from fdai.core.ontology_platform.query_receipt_authority import SecuredQueryReceiptAuthority
+from fdai.core.ontology_platform.query_receipt_authority import (
+    SecuredQueryReceiptAuthority,
+    secured_query_scope_digest,
+)
 from fdai.core.ontology_platform.relationship_queries import (
     ONTOLOGY_RELATIONSHIPS_FUNCTION_NAME,
     ontology_relationships_function,
@@ -178,6 +181,7 @@ from fdai.shared.contracts.models import CeilingRole, OntologyRelease
 from fdai.shared.ontology.acl import ProjectionRequest
 from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.catalog_search import CatalogSemanticIndex
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
 from fdai.shared.providers.ontology_instance import OntologyInstanceStore
 from fdai.shared.providers.read_investigation import ReadInvestigationProvider
 from fdai.shared.providers.workload_identity import WorkloadIdentity
@@ -231,6 +235,7 @@ def build_semantic_query_runtime(
     now: Callable[[], datetime] | None = None,
     graph_live_refresh_provider: BoundedGraphLiveRefreshProvider | None = None,
     resource_freshness_seconds: int | None = None,
+    decision_evidence_admission_provider: DecisionEvidenceAdmissionProvider | None = None,
 ) -> SemanticConversationRuntime:
     """Build a read-only runtime over one exact catalog release and instance store."""
 
@@ -270,7 +275,7 @@ def build_semantic_query_runtime(
         evaluation_cutoff=evaluation_cutoff,
         max_as_of_skew=timedelta(seconds=5),
     )
-    receipt_authority = SecuredQueryReceiptAuthority()
+    receipt_authority = SecuredQueryReceiptAuthority(now=evaluation_cutoff)
     graph_refresher = SecuredGraphEvidenceQueryRefresher(
         gateway=gateway,
         live_provider=graph_live_refresh_provider,
@@ -291,7 +296,16 @@ def build_semantic_query_runtime(
                 declared_purposes=frozenset(context.purposes),
             ),
         )
-        receipt_authority.issue(result)
+        admission = None
+        if decision_evidence_admission_provider is not None:
+            receipt = result.receipt
+            admission = await decision_evidence_admission_provider.admit(
+                evidence_digest=receipt.projected_result_digest,
+                scope_digest=secured_query_scope_digest(receipt),
+                purpose_id=receipt.purpose,
+                source_revision=receipt.ontology_release.digest,
+            )
+        receipt_authority.issue(result, admission)
         return result
 
     inventory_function = declarations.get("inventory.select_resources")
@@ -644,6 +658,7 @@ def build_semantic_query_runtime(
                     caller_role=role,
                     purposes=(purpose,),
                     receipt_authority=receipt_authority,
+                    decision_evidence=decision_evidence_admission_provider,
                     graph_refresher=graph_refresher,
                 ),
                 QueryNodeKind.RELATIONSHIP_TRAVERSAL: SecuredRelationshipTraversalNodeHandler(
@@ -651,12 +666,14 @@ def build_semantic_query_runtime(
                     caller_role=role,
                     purposes=(purpose,),
                     receipt_authority=receipt_authority,
+                    decision_evidence=decision_evidence_admission_provider,
                 ),
                 QueryNodeKind.TYPED_PATH: SecuredTypedPathNodeHandler(
                     gateway,
                     caller_role=role,
                     purposes=(purpose,),
                     receipt_authority=receipt_authority,
+                    decision_evidence=decision_evidence_admission_provider,
                 ),
                 QueryNodeKind.FUNCTION: FunctionNodeHandler(
                     function_registry,

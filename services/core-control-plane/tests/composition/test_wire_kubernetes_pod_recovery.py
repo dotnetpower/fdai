@@ -43,6 +43,7 @@ from fdai.shared.providers.state_evidence import (
     StateFactMetadata,
 )
 from fdai.shared.providers.testing import InMemoryOntologyInstanceStore
+from tests.decision_evidence import StubDecisionEvidenceAdmissionProvider
 
 NOW = datetime(2026, 8, 25, 18, tzinfo=UTC)
 POD_ID = "order-api-0"
@@ -303,6 +304,7 @@ async def test_runtime_executes_issued_pod_recovery_plan_without_model_plan() ->
         metric_registry=_metric_registry(),
         metric_window_provider=_RestartMetricProvider(),
         purpose="operations-review",
+        decision_evidence_admission_provider=StubDecisionEvidenceAdmissionProvider(lambda: NOW),
         now=lambda: NOW,
     )
 

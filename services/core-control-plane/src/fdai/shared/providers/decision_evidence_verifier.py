@@ -123,6 +123,19 @@ class DecisionEvidenceVerifier(Protocol):
     ) -> Awaitable[DecisionEvidenceVerificationBundle]: ...
 
 
+class DecisionEvidenceAdmissionProvider(Protocol):
+    """Return a trusted admission for one exact decision input or no admission."""
+
+    def admit(
+        self,
+        *,
+        evidence_digest: str,
+        scope_digest: str,
+        purpose_id: str,
+        source_revision: str,
+    ) -> Awaitable[DecisionEvidenceAdmission | None]: ...
+
+
 @dataclass(frozen=True, slots=True)
 class DecisionEvidenceVerifierBinding:
     """Governed mapping from one evidence class and method to a verifier."""
@@ -189,6 +202,7 @@ class DecisionEvidenceVerifierRegistry:
 
 __all__ = [
     "DecisionEvidenceAdmission",
+    "DecisionEvidenceAdmissionProvider",
     "DecisionEvidenceAdmissionRejectionReason",
     "DecisionEvidenceVerificationError",
     "DecisionEvidenceVerifier",
