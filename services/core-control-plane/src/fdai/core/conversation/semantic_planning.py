@@ -11,11 +11,10 @@ import logging
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from functools import partial
 from typing import Any
 
 from fdai_service_contracts.ontology_query import (
-    OntologyQueryPlan,
-    QueryNodeKind,
     SemanticOperation,
     SemanticProblemFrame,
 )
@@ -25,14 +24,7 @@ from fdai_service_contracts.semantic_judgment import (
 )
 from pydantic import ValidationError
 
-from fdai.core.ontology_platform import (
-    OntologyQueryPlanVerifier,
-    QueryManifest,
-)
-from fdai.core.ontology_platform.incident_queries import (
-    INCIDENT_EVIDENCE_FUNCTION_NAME,
-    INCIDENT_EVIDENCE_MAX_RECORDS,
-)
+from fdai.core.ontology_platform import OntologyQueryPlanVerifier
 from fdai.rule_catalog.schema.inventory_query_language import InventoryQueryLanguageRegistry
 
 from .conversation_preflight import (
@@ -72,6 +64,10 @@ from .semantic_planning_models import (
     SemanticPlanningOutcome,
 )
 from .semantic_planning_plan_dispatch import PlanDispatchResult, dispatch_semantic_plan
+from .semantic_planning_specialized_plans import (
+    build_anchored_incident_plan,
+    build_stated_value_filter_plan,
+)
 from .semantic_planning_support import (
     _MAX_DESCRIPTORS,
     _bounded_context,
@@ -80,11 +76,6 @@ from .semantic_planning_support import (
     _plan_node_summary,
     _validated_descriptors,
     _validated_metric_concepts,
-)
-from .semantic_planning_value_filters import (
-    ground_stated_value_filters,
-    stated_subject_fragment,
-    stated_value_filters,
 )
 from .session import Principal, Turn
 
@@ -118,8 +109,6 @@ _SAFE_VALIDATION_REASONS = frozenset(
     }
 )
 
-_INCIDENT_EVIDENCE_FUNCTION = INCIDENT_EVIDENCE_FUNCTION_NAME
-_INCIDENT_EVIDENCE_NODE_ID = "bound_incident_evidence"
 _DIRECT_RESPONSE_FACETS = {
     SemanticDirectResponseIntent.GREETING: frozenset(),
     SemanticDirectResponseIntent.SELF_INTRODUCTION: frozenset(
@@ -613,8 +602,14 @@ class SemanticPlanningService:
                 now=self._now,
                 cascade=self._cascade,
                 escalation_policy=escalation_policy,
-                anchored_incident_plan_builder=self._anchored_incident_plan,
-                stated_value_filter_plan_builder=self._stated_value_filter_plan,
+                anchored_incident_plan_builder=partial(
+                    build_anchored_incident_plan,
+                    verifier=self._verifier,
+                ),
+                stated_value_filter_plan_builder=partial(
+                    build_stated_value_filter_plan,
+                    verifier=self._verifier,
+                ),
             )
             if isinstance(dispatched, SemanticPlanningOutcome):
                 return finish(dispatched)
@@ -718,161 +713,6 @@ class SemanticPlanningService:
                     "semantic_planning_failed",
                 )
             )
-
-    def _anchored_incident_plan(
-        self,
-        *,
-        bound_incident: BoundIncident | None,
-        frame: SemanticProblemFrame,
-        descriptors: tuple[dict[str, Any], ...],
-        manifest: QueryManifest,
-        principal: Principal,
-        purpose: str,
-        evaluation_time: datetime,
-    ) -> OntologyQueryPlan | None:
-        """Build the anchored incident read from the binding, never from a proposal.
-
-        The frame still decides that this turn wants incident evidence. Reading it
-        then needs only the two identities the conversation already holds, so no
-        model selects the capability or transcribes an identifier. The node runs
-        through the same builder and verifier as any proposed plan.
-        """
-        if bound_incident is None or frame.output_shape != SemanticOutputShape.INCIDENT_EVIDENCE:
-            return None
-        if not any(
-            item.get("kind") == "function" and item.get("name") == _INCIDENT_EVIDENCE_FUNCTION
-            for item in descriptors
-        ):
-            return None
-        proposal = QueryPlanProposal(
-            nodes=(
-                QueryNodeProposal(
-                    node_id=_INCIDENT_EVIDENCE_NODE_ID,
-                    kind=QueryNodeKind.FUNCTION,
-                    depends_on=(),
-                    arguments={
-                        "function_name": _INCIDENT_EVIDENCE_FUNCTION,
-                        "arguments": {
-                            "incident_id": bound_incident.incident_id,
-                            "correlation_id": bound_incident.correlation_id,
-                            "limit": INCIDENT_EVIDENCE_MAX_RECORDS,
-                        },
-                        "dependency_arguments": {},
-                    },
-                    output_kind="query.value",
-                ),
-            ),
-            output_node_ids=(_INCIDENT_EVIDENCE_NODE_ID,),
-        )
-        plan = _build_plan(
-            proposal,
-            frame=frame,
-            manifest=manifest,
-            principal=principal,
-            purpose=purpose,
-            evaluation_time=evaluation_time,
-        )
-        self._verifier.verify(plan, manifest=manifest)
-        return plan
-
-    def _stated_value_filter_plan(
-        self,
-        *,
-        frame: SemanticProblemFrame,
-        utterance: str,
-        descriptors: tuple[dict[str, Any], ...],
-        manifest: QueryManifest,
-        principal: Principal,
-        purpose: str,
-        evaluation_time: datetime,
-    ) -> OntologyQueryPlan | None:
-        """Build a model-free ObjectSet for an explicit catalog value filter."""
-        if frame.operation is not SemanticOperation.SELECT or frame.output_shape not in {
-            SemanticOutputShape.PROPERTY_FILTERED_RESOURCES,
-            SemanticOutputShape.RESOURCE_LIST,
-        }:
-            return None
-        filters = stated_value_filters(utterance, descriptors)
-        object_types = {object_type for object_type, _property_name in filters}
-        if not filters or len(object_types) != 1:
-            return None
-        object_type = next(iter(object_types))
-        subject_fragment = stated_subject_fragment(
-            utterance,
-            frame.subject_constraints,
-            descriptors,
-        )
-        fragment_property = None
-        if subject_fragment is not None:
-            properties = next(
-                (
-                    descriptor.get("properties")
-                    for descriptor in descriptors
-                    if descriptor.get("kind") == "object" and descriptor.get("name") == object_type
-                ),
-                None,
-            )
-            if not isinstance(properties, Mapping):
-                return None
-            fragment_property = next(
-                (
-                    property_name
-                    for property_name in ("name", "label", "id")
-                    if isinstance(properties.get(property_name), Mapping)
-                    and not isinstance(properties[property_name].get("values"), list)
-                ),
-                None,
-            )
-            if fragment_property is None:
-                return None
-        predicates = []
-        if fragment_property is not None:
-            predicates.append({"property": fragment_property, "operator": "exists"})
-        predicates.extend(
-            {"property": property_name, "operator": "exists"}
-            for filter_type, property_name in sorted(filters)
-            if filter_type == object_type
-        )
-        proposal = QueryPlanProposal(
-            nodes=(
-                QueryNodeProposal(
-                    node_id="stated-value-filter",
-                    kind=QueryNodeKind.OBJECT_SET,
-                    arguments={
-                        "definition": {
-                            "selector": {"kind": "object_type", "name": object_type},
-                            "predicates": predicates,
-                            "as_of": evaluation_time.astimezone(UTC).isoformat(),
-                            "purpose": purpose,
-                            "limit": 1000,
-                        }
-                    },
-                    output_kind="query.table",
-                ),
-            ),
-            output_node_ids=("stated-value-filter",),
-        )
-        plan = _build_plan(
-            proposal,
-            frame=frame,
-            manifest=manifest,
-            principal=principal,
-            purpose=purpose,
-            evaluation_time=evaluation_time,
-        )
-        plan, grounded = ground_stated_value_filters(
-            plan,
-            utterance=utterance,
-            descriptors=descriptors,
-            subject_constraints=frame.subject_constraints,
-        )
-        required_grounding = {
-            f"{filter_type}.{property_name}" for filter_type, property_name in filters
-        }
-        if not required_grounding <= set(grounded):
-            return None
-        self._verifier.verify(plan, manifest=manifest)
-        return plan
 
 
 __all__ = [
