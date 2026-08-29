@@ -1,7 +1,7 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: 4aaa7ca648182d1713660c99cba450fe6373cac4
+translation_source_sha: 094ef51ff98a9cd59551a4634416a38b81000605
 translation_revised: 2026-08-29
 ---
 
@@ -29,6 +29,7 @@ translation_revised: 2026-08-29
 | 승격 및 운영 근거 평가 | implemented | `core/measurement/promotion_gate.py`; `operational_promotion.py`; 집중 승격 테스트 | 승격 평가는 개정 번호, 시나리오, 표본, 신뢰 구간, 가드 및 결과 근거를 연결합니다. 그 자체로 실제 운영 집단의 존재를 입증하지는 않습니다. |
 | 관리되는 운영 커버리지 주장 계약 | implemented | `packages/service-contracts/src/fdai_service_contracts/operational_coverage.py`; `packages/service-contracts/tests/test_operational_coverage.py` | 변경할 수 없는 분모, 최종 처리 결과, 최신성, 정확한 베이시스 포인트, 무관용 조건 및 다이제스트 검사를 통해 불완전한 전체 집합이 99% 주장으로 바뀌지 않도록 합니다. 증적은 실행 권한을 부여하지 않습니다. |
 | 정식 의사 결정 핵심 근거 봉투 | implemented | `packages/service-contracts/src/fdai_service_contracts/decision_evidence.py`; `schemas/decision-critical-evidence/1.0.0.json`; 집중 계약 테스트 | 이 봉투는 근거와 해당 인증 증명, 권위, 범위, 목적, 정확한 생성기와 방법, 시간, 정책에서 파생된 최신성, 완전성 증명, 충돌 판정, 출처 계보 및 합성 상태를 연결합니다. 주장 사전 검사는 입력을 차단하거나 별도의 권위 있는 검증으로 전달할 수만 있으며 실제 운영 준비 상태를 주장하지 않습니다. 기존 의사 결정 경계는 아직 마이그레이션해야 합니다. |
+| 독립적인 의사 결정 근거 검증 | implemented | `decision_evidence_verification.py`; `core/readiness/decision_evidence.py`; `shared/providers/decision_evidence_verifier.py`; `delivery/azure/decision_evidence.py`; 집중 계약, 준비 상태 및 Azure 어댑터 테스트 | 내용 기반 증명 5개가 인증, 근거, 완전성, 충돌 및 최신성 정책을 다룹니다. Core는 현재 유효하고 폐기되지 않은 검증기 결속을 선택하고, 생성기의 자체 검증과 증명 불일치를 차단하며, 유효 구간 안의 묶음만 수락합니다. Azure 어댑터는 자격 증명을 보존하지 않고 수명이 짧은 Managed Identity 토큰으로 권위 있는 원본을 다시 읽습니다. 런타임 조립과 기존 의사 결정 경계 마이그레이션은 아직 남아 있습니다. |
 | 고정된 시나리오 집합 계산 | in-progress | `tests/scenarios/manifests/v2026.07.json`; `test_frozen.py`; `test_v2026_07_replay.py` | 이제 SRE 묶음에는 실행 가능한 차원 4개가 있습니다. 성공적인 전체 루프와 목표 간 충돌 근거는 아직 열려 있으며 나머지 4개 묶음도 불완전합니다. |
 | 실제 운영 KPI 기준선, 처리 및 대시보드 종결 | in-progress | [데이터 수집과 원격측정](#데이터-수집과-원격측정); `config/constitution-traceability.json`의 `FDAI-CONST-002` 요구 사항 | 런타임 기록과 작업은 있지만 하나의 고정된 개정에서 모든 성공 및 임계값 0 가드 메트릭을 입증하는 완전한 실제 운영 기준선 및 처리 집단은 보존되지 않았습니다. |
 
@@ -36,6 +37,7 @@ translation_revised: 2026-08-29
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-29 | implemented | 의사 결정 핵심 증명 클래스 5개 모두에 독립적인 검증기 계약과 준비 상태 게이트를 추가했습니다. 버전이 지정된 검증기 결속은 이제 신뢰 기준점, 유효 구간 및 폐기 상태를 전달합니다. 검증기 결속이 없거나 오래된 경우, 생성기 자체 검증, 증적 또는 대상 불일치, 만료된 증명, 시간 초과 및 합성 근거가 있으면 검증을 차단합니다. Azure 어댑터는 Managed Identity로 권위 있는 원본 읽기를 인증하고 액세스 토큰을 반환하거나 저장하지 않습니다. | `current change`; 서비스 계약 모델과 등록된 Draft 2020-12 스키마, 공급자 중립 검증기 seam, Core 준비 상태 게이트, Azure 어댑터 및 집중 계약, 준비 상태, Azure 어댑터 테스트. | FDAI-CONST-002를 `partial`에서 변경하기 전에 런타임 조립에 검증기 레지스트리를 연결하고 기존 준비 상태, 쿼리, 상태, 승격 및 자격 판정 경계를 마이그레이션합니다. |
 | 2026-08-29 | implemented | FDAI-CONST-002에 필요한 공급자 중립 `DecisionCriticalEvidenceReceipt` 기반을 추가했습니다. 정식 다이제스트는 근거 페이로드, 인증 증명, 권위 클래스, 출처, 범위, 목적, 생성기와 방법 버전, 출처 개정, 이벤트와 기록 시각, 정책에서 파생된 최신성, 완전성과 충돌 증명, 출처 계보, 합성 상태 및 권한 없음 플래그를 연결합니다. 검토에서 자체 진술 필드로 실제 운영 자격을 부여하는 결과를 차단했으므로, 계약은 이제 잘못된 주장을 차단하거나 별도의 권위 있는 검증기로 전달하기만 합니다. 등록된 스키마 경계도 JSON Schema로 표현할 수 없는 의미 모델 검사를 실행합니다. | `current change`; 서비스 계약 모델, Draft 2020-12 스키마와 의미 검증, 패키지 레지스트리와 내보내기, 추적성 기록 및 집중 계약 테스트. | FDAI-CONST-002를 `partial`에서 변경하기 전에 신뢰할 수 있는 인증, 근거, 완전성, 충돌 및 정책 검증기를 구현하면서 준비 상태, 쿼리, 상태, 승격 및 자격 판정 경계를 마이그레이션합니다. |
 | 2026-08-29 | in-progress | `sre.slo-signal-source-unmapped.002`에 대해 사실에 맞는 A3-E 비해당 근거를 추가했습니다. 이제 재생 검사는 라우팅 종결 시 발견 항목이나 T2 작업이 생성되지 않고, 실행 권한 평가에 진입하지 않으며, 실행 결과나 PR을 만들지 않고, 판단 보류를 기록함을 입증합니다. 검토에서 제안된 주장 두 가지를 기각했습니다. 게시자 자체의 메모리 내 기록은 독립적인 SRE 효과 검증이 아니라 전달 근거이며, 직접 작성한 후보를 `PrecedenceResolver`에 전달하는 방식은 런타임 중재를 입증하지 않습니다. 해당 테스트와 매니페스트 주장은 커밋 전에 제거했습니다. | `current change`; `services/core-control-plane/tests/scenarios/test_v2026_07_replay.py`; `manifests/v2026.07.json`; 집중 시나리오, 매니페스트, Ruff 및 strict mypy 검사. | `successful_full_loop`에는 독립적이고 권위 있는 복구 및 재발 종결 근거가 여전히 필요합니다. `cross_objective_conflict`에는 시나리오 런타임과 프로덕션 중재 경로에서 생성되고 감사되는 경쟁 작업이 여전히 필요합니다. 비합성 기준선과 처리 결과도 열려 있습니다. |
 | 2026-08-29 | implemented | 강화 라운드 1에서 커버리지 계약 관점 22개를 검토하고 다이제스트 계산 전에 모든 증적 시각을 UTC로 정규화했습니다. 따라서 표준 시간대 오프셋이 달라도 같은 절대 시각은 하나의 재생 신원을 공유합니다. | `current change`; 집중 운영 커버리지 테스트. | 권위 있는 생성기를 연결하고 관리되는 증적을 보존합니다. |
@@ -51,7 +53,7 @@ translation_revised: 2026-08-29
 - [ ] ARB / 변경 안전성, FinOps / 비용 거버넌스, DR 및 Chaos Engineering 묶음에 실행 가능한 헌법상 6개 차원을 모두 갖춥니다.
 - [ ] 동일한 고정 시나리오 집합에서 표본 크기, 신뢰 구간, 절대값 및 지원되지 않는 배수 주장이 없는 하나의 참조 기준선과 FDAI 처리를 보존합니다.
 - [ ] 실제 운영 인시던트, 변경, 비용, 사람 터치포인트 및 독립적으로 검증된 결과 기록을 KPI 변환 결과에 연결한 다음 모든 임계값 0 가드가 0을 유지함을 입증합니다.
-- [ ] 모든 준비 상태, 쿼리, 상태, 승격 및 자격 판정 의사 결정 경계에서 `DecisionCriticalEvidenceReceipt`를 사용한 다음 합성 또는 불완전 근거가 실제 운영 주장을 충족하지 못함을 입증합니다.
+- [ ] 독립적인 검증기 레지스트리를 런타임 조립에 연결하고 모든 준비 상태, 쿼리, 상태, 승격 및 자격 판정 경계에서 `DecisionCriticalEvidenceReceipt`와 `DecisionEvidenceVerificationBundle`을 사용한 다음 합성 또는 불완전 근거가 실제 운영 주장을 충족하지 못함을 입증합니다.
 - [x] 공급자 중립 `OperationalCoverageReceipt`를 정의하고 집중 테스트를 통해 분모,
   처리 결과, 최신성, 임계값, 무관용 조건 및 다이제스트 불변 조건을 입증합니다.
 

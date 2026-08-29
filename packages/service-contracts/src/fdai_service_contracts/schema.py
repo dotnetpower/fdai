@@ -13,6 +13,9 @@ from jsonschema.exceptions import ValidationError as JsonSchemaValidationError
 from pydantic import ValidationError as PydanticValidationError
 
 from fdai_service_contracts.decision_evidence import DecisionCriticalEvidenceReceipt
+from fdai_service_contracts.decision_evidence_verification import (
+    DecisionEvidenceVerificationBundle,
+)
 
 
 @runtime_checkable
@@ -53,6 +56,10 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
         "decision-critical-evidence",
         "1.0.0",
     ): "schemas/decision-critical-evidence/1.0.0.json",
+    (
+        "decision-evidence-verification",
+        "1.0.0",
+    ): "schemas/decision-evidence-verification/1.0.0.json",
     ("document-ingestion-activity", "1.0.0"): "schemas/document-ingestion-activity/1.0.0.json",
     ("document-ingestion-activity", "1.1.0"): "schemas/document-ingestion-activity/1.1.0.json",
     ("document-worker-audit", "1.0.0"): "schemas/document-worker-audit/1.0.0.json",
@@ -162,9 +169,16 @@ class JsonSchemaContractValidator:
         errors = sorted(validator.iter_errors(dict(instance)), key=lambda error: list(error.path))
         if errors:
             raise ContractValidationError(schema_name, [_issue(error) for error in errors])
-        if schema_name == "decision-critical-evidence":
+        semantic_model = (
+            DecisionCriticalEvidenceReceipt
+            if schema_name == "decision-critical-evidence"
+            else DecisionEvidenceVerificationBundle
+            if schema_name == "decision-evidence-verification"
+            else None
+        )
+        if semantic_model is not None:
             try:
-                DecisionCriticalEvidenceReceipt.model_validate(instance)
+                semantic_model.model_validate(instance)
             except PydanticValidationError as exc:
                 issues = [
                     ValidationIssue(

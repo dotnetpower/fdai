@@ -54,6 +54,12 @@ from fdai_service_contracts.decision_evidence import (
     assess_live_evidence_claim,
     decision_critical_evidence_receipt_digest,
 )
+from fdai_service_contracts.decision_evidence_verification import (
+    DecisionEvidenceVerificationBundle,
+    DecisionEvidenceVerificationProof,
+    EvidenceVerificationProofKind,
+    expected_verification_subjects,
+)
 from fdai_service_contracts.descriptor import ServiceDescriptor, ServiceKind
 from fdai_service_contracts.discovery import (
     DiscoveryBackend,
@@ -382,7 +388,10 @@ __all__ = [
     "ContractValidator",
     "ConsumerCodec",
     "DecisionCriticalEvidenceReceipt",
+    "DecisionEvidenceVerificationBundle",
+    "DecisionEvidenceVerificationProof",
     "EvidenceConflictStatus",
+    "EvidenceVerificationProofKind",
     "CostAccessGrant",
     "CostAmountPrecision",
     "CostDisclosureCeiling",
@@ -648,6 +657,7 @@ __all__ = [
     "merged_discovery_result_digest",
     "provider_execution_receipt_digest",
     "delivery_checks",
+    "expected_verification_subjects",
     "decision_critical_evidence_receipt_digest",
     "disclose_cost_records",
     "ensure_supported_version",
