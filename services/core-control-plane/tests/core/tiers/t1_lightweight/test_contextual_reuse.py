@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fdai.core.tiers.t1_lightweight import (
@@ -10,11 +11,17 @@ from fdai.core.tiers.t1_lightweight import (
     T1Outcome,
     T1Tier,
 )
+from fdai.core.tiers.t1_lightweight.contextual_reuse import (
+    CURRENT_REUSE_EVIDENCE_PURPOSE,
+    current_reuse_evidence_digest,
+    current_reuse_scope_digest,
+)
 from fdai.core.tiers.t1_lightweight.testing import (
     DeterministicEmbeddingModel,
     InMemoryPatternLibrary,
 )
 from fdai.shared.contracts.models import Event
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 
 
 def _event() -> Event:
@@ -81,7 +88,26 @@ class _Verifier:
             "rollback_resolved": True,
         }
         values.update(self._changes)
-        return CurrentReuseVerification(**values)  # type: ignore[arg-type]
+        verification = CurrentReuseVerification(**values)  # type: ignore[arg-type]
+        if "decision_evidence" in self._changes:
+            return verification
+        return replace(
+            verification,
+            decision_evidence=DecisionEvidenceAdmission(
+                receipt_digest="sha256:" + "e" * 64,
+                verification_bundle_digest="sha256:" + "9" * 64,
+                evidence_digest=current_reuse_evidence_digest(verification),
+                scope_digest=current_reuse_scope_digest(
+                    event=event,
+                    action=action,
+                    context=context,
+                ),
+                purpose_id=CURRENT_REUSE_EVIDENCE_PURPOSE,
+                source_revision=context.graph_digest,
+                verified_at=verification.observed_at,
+                valid_until=verification.observed_at + timedelta(days=1),
+            ),
+        )
 
 
 async def _tier(verifier: object | None) -> tuple[T1Tier, Event]:
@@ -119,6 +145,15 @@ async def test_operational_case_reuse_requires_all_current_checks() -> None:
     assert decision.current_reuse_verification is not None
     assert decision.current_reuse_verification.case_ref == _context().case_ref
     assert decision.current_reuse_verification.evidence_refs == ("d" * 64,)
+
+
+async def test_operational_case_reuse_rejects_missing_decision_evidence() -> None:
+    tier, event = await _tier(_Verifier(decision_evidence=None))
+
+    decision = await tier.evaluate(event=event)
+
+    assert decision.outcome is T1Outcome.ABSTAIN
+    assert "decision_evidence_admission_missing" in decision.reasons
 
 
 async def test_recent_cached_evidence_may_precede_event_ingestion() -> None:

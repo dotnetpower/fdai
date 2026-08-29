@@ -8,7 +8,13 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Protocol
 
+from fdai_service_contracts.ontology_query import content_digest
+
 from fdai.shared.contracts.models import Event
+from fdai.shared.providers.decision_evidence_verifier import (
+    DecisionEvidenceAdmission,
+    assess_decision_evidence_admission,
+)
 
 if TYPE_CHECKING:
     from .tier import LearnedAction
@@ -19,6 +25,7 @@ _CASE_REF = re.compile(
     r"^case-history:([a-z0-9]+(?:[._-][a-z0-9]+)*):([1-9][0-9]*):([0-9a-f]{64})$"
 )
 _MAX_EVIDENCE_REFS = 64
+CURRENT_REUSE_EVIDENCE_PURPOSE = "current-case-reuse"
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,6 +121,7 @@ class CurrentReuseVerification:
     dry_run_passed: bool
     idempotency_available: bool
     rollback_resolved: bool
+    decision_evidence: DecisionEvidenceAdmission | None = None
 
     def __post_init__(self) -> None:
         if self.observed_at.tzinfo is None:
@@ -201,7 +209,65 @@ def contextual_reuse_reasons(
         (verification.rollback_resolved, "historical_rollback_unresolved"),
     )
     reasons.extend(reason for passed, reason in checks if not passed)
+    if verification.decision_evidence is None:
+        reasons.append("decision_evidence_admission_missing")
+    else:
+        admission_reasons = assess_decision_evidence_admission(
+            verification.decision_evidence,
+            expected_evidence_digest=current_reuse_evidence_digest(verification),
+            expected_scope_digest=current_reuse_scope_digest(
+                event=event,
+                action=action,
+                context=context,
+            ),
+            expected_purpose_id=CURRENT_REUSE_EVIDENCE_PURPOSE,
+            expected_source_revision=context.graph_digest,
+            evaluated_at=verification.observed_at,
+        )
+        reasons.extend(f"decision_evidence_{reason.value}" for reason in admission_reasons)
     return tuple(reasons)
+
+
+def current_reuse_evidence_digest(verification: CurrentReuseVerification) -> str:
+    """Return the exact current observation and safety-check digest."""
+
+    return content_digest(
+        {
+            "blast_radius_within_limit": verification.blast_radius_within_limit,
+            "case_ref": verification.case_ref,
+            "dry_run_passed": verification.dry_run_passed,
+            "evidence_refs": verification.evidence_refs,
+            "failure_fingerprint": verification.failure_fingerprint,
+            "graph_digest": verification.graph_digest,
+            "idempotency_available": verification.idempotency_available,
+            "observed_at": verification.observed_at.isoformat(),
+            "owner_digest": verification.owner_digest,
+            "policy_allowed": verification.policy_allowed,
+            "preconditions_passed": verification.preconditions_passed,
+            "resource_type": verification.resource_type,
+            "rollback_resolved": verification.rollback_resolved,
+            "target_identity_verified": verification.target_identity_verified,
+            "topology_role": verification.topology_role,
+        }
+    )
+
+
+def current_reuse_scope_digest(
+    *,
+    event: Event,
+    action: LearnedAction,
+    context: OperationalCaseContext,
+) -> str:
+    """Return the exact event, case, resource, and learned-action reuse scope."""
+
+    return content_digest(
+        {
+            "action_type": action.action_type,
+            "case_ref": context.case_ref,
+            "event_id": str(event.event_id),
+            "resource_type": context.resource_type,
+        }
+    )
 
 
 def _event_resource_type(event: Event) -> str:
@@ -221,8 +287,11 @@ def _required_text(value: Mapping[str, object], key: str) -> str:
 
 
 __all__ = [
+    "CURRENT_REUSE_EVIDENCE_PURPOSE",
     "CurrentReuseVerification",
     "CurrentReuseVerifier",
     "OperationalCaseContext",
     "contextual_reuse_reasons",
+    "current_reuse_evidence_digest",
+    "current_reuse_scope_digest",
 ]

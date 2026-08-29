@@ -963,7 +963,7 @@
     "services/core-control-plane/src/fdai/core/tiers/t0_deterministic/opa_evaluator.py": "2c0a6d21f0abc2c018c7de26d4ce2c9bd1610dcd0292b9807e5866f415403a57",
     "services/core-control-plane/src/fdai/core/tiers/t1_lightweight/README.md": "d43c7927c15f0f61368e348df5d5fffc1111df95b0ec70a3eee684813b6b8432",
     "services/core-control-plane/src/fdai/core/tiers/t1_lightweight/__init__.py": "f7239679e5b8ae4949f090ecd3b68df54f90a9c8abdd92e04b3e4e296454d3b2",
-    "services/core-control-plane/src/fdai/core/tiers/t1_lightweight/contextual_reuse.py": "e0ee558127465a0f160b2292c2b42f788f77804a711e66a50b343e2d35e69e6d",
+    "services/core-control-plane/src/fdai/core/tiers/t1_lightweight/contextual_reuse.py": "ea5f4f85f4b74b2768a75e47e95a6dcebf34eb523def1ef878ae2a5136d4e827",
     "services/core-control-plane/src/fdai/core/tiers/t1_lightweight/testing.py": "4f5dac26886ab7d79d21779773d774b60052a623b4c05b93aab50905b41285b9",
     "services/core-control-plane/src/fdai/core/tiers/t1_lightweight/tier.py": "2f6de7a804ac56376b46fa8cadae76fea1127ef568bf8c426f73ffda32ec895a",
     "services/core-control-plane/src/fdai/core/tiers/t2_reasoning/README.md": "fa2305782d9bcfd17f344d5a043ae371a06d123eded354dc4b5fa540dcdd9b29",
