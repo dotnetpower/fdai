@@ -1,7 +1,7 @@
 ---
 title: MSCP Operational Profile
 translation_of: mscp-operational-profile.md
-translation_source_sha: 3a9ec33b35249bb01bf780f3525658ee6ffa3b06
+translation_source_sha: 2741bb40b46d7976f1444542287226df7eed6c52
 translation_revised: 2026-08-29
 ---
 # MSCP Operational 프로파일
@@ -170,6 +170,13 @@ FDAI 권한, MSCP 상한)`을 적용합니다. 변경할 수 없는 결과는 �
 롤백 또는 감사 소유자를 우회할 수 없습니다. Measured 준비 상태 구간과 통제된 프로파일
 수명 주기가 없는 동안에는 ControlLoop에 연결하지 않습니다.
 
+프로파일 수명 주기는 정확한 후보 묶음별로 기본 `shadow` 레코드를 영속화합니다. `gating`
+전이는 준비된 보고서와 보고서 다이제스트에 결속된 독립 검토를 모두 요구합니다.
+Compare-and-set 개정 번호 차단은 동시 전이 하나만 성공시킵니다. Demotion은 별도 검토 없이 감사된
+사유와 함께 즉시 `shadow`로 돌아갑니다. 수명 주기 상태는 ControlLoop에 연결되지 않고
+`activation_authority=false`로 고정되므로 `gating` 기록이 ActionType 또는 Workflow를 활성화할 수
+없습니다.
+
 ## 독립적인 축
 
 이 프로파일은 [ADR-0002](decisions/0002-independent-runtime-axes-ko.md)의 런타임 축과
@@ -199,6 +206,8 @@ FDAI 권한, MSCP 상한)`을 적용합니다. 변경할 수 없는 결과는 �
   재생 동작
 - 후보별 검토 준비 상태 메트릭, 신뢰도 하한, 무관용 guard, SLO 미비점 및 권한이 없는 검토
   적격성
+- 재시작 안전 기본 shadow 수명 주기, 정확한 준비 상태/검토 결속, 단일 성공 compare-and-set
+  전이, hash-chain 감사 검증 및 런타임 활성화 없는 즉시 demotion
 
 v1 프로파일은 선택적 shadow 관측으로만 연결됩니다. 강제 적용 결정 경로에는 연결되지
 않았습니다. 향후 gating 변경은 어떤 프로파일 결과도 기존 risk 결정을 높이지 않음을

@@ -42,6 +42,14 @@ from fdai.core.mscp_profile.pending_effect_store import (
     StateStorePendingEffectStore,
 )
 from fdai.core.mscp_profile.profile import DEFAULT_PROFILE, OperationalProfile
+from fdai.core.mscp_profile.profile_lifecycle import (
+    IndependentProfileReview,
+    MscpProfileLifecycleConflictError,
+    MscpProfileLifecycleRecord,
+    MscpProfileMode,
+    StateStoreMscpProfileLifecycle,
+    readiness_digest,
+)
 from fdai.core.mscp_profile.readiness import (
     MscpCandidateKey,
     MscpReadinessPolicy,
@@ -81,10 +89,14 @@ __all__ = [
     "ExpectedEffect",
     "ExpectedEffectProvider",
     "IndependentEffectObserver",
+    "IndependentProfileReview",
     "MscpAuthorityCeiling",
     "MscpAuthorityDecision",
     "MscpAuthorityReason",
     "MscpCandidateKey",
+    "MscpProfileLifecycleConflictError",
+    "MscpProfileLifecycleRecord",
+    "MscpProfileMode",
     "MscpReadinessPolicy",
     "MscpReadinessReport",
     "ObservedEffect",
@@ -103,6 +115,7 @@ __all__ = [
     "RuntimeIntegrityStatus",
     "RuntimeSafetyManifest",
     "ReviewedEffectOutcome",
+    "StateStoreMscpProfileLifecycle",
     "StateStorePendingEffectStore",
     "default_runtime_manifest",
     "build_shadow_effect_audit",
@@ -111,6 +124,7 @@ __all__ = [
     "evaluate_cycle_guard",
     "evaluate_mscp_candidate_groups",
     "evaluate_mscp_readiness",
+    "readiness_digest",
     "response_outcome_audit_entry",
     "verify_effect",
     "verify_runtime_integrity",

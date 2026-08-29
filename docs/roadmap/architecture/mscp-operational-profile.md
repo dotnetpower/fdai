@@ -169,6 +169,13 @@ reason, final decision, and whether authority was lowered. The function performs
 bypass the risk gate, human approval, executor, rollback, or audit owners. It is not connected to
 the ControlLoop while the measured readiness window and governed profile lifecycle remain absent.
 
+The profile lifecycle now persists a default `shadow` record per exact candidate tuple. A `gating`
+transition requires both a ready report and an independent review bound to the report digest.
+Compare-and-set revision fencing permits only one concurrent winner. Demotion returns immediately to
+`shadow` with an audited reason and no review prerequisite. Lifecycle state remains unwired from the
+ControlLoop and fixes `activation_authority=false`, so recording `gating` cannot activate an
+ActionType or Workflow.
+
 ## Independent axes
 
 The profile is independent from the runtime axes in
@@ -199,6 +206,8 @@ Focused tests under `services/core-control-plane/tests/core/mscp_profile/` cover
   failure, and replay behavior.
 - candidate-separated reviewed readiness metrics, confidence lower bounds, zero-tolerance guards,
   SLO gaps, and non-authoritative review eligibility.
+- restart-safe default-shadow lifecycle, exact readiness/review binding, single-winner compare-and-set
+  transitions, hash-chain audit verification, and immediate demotion without runtime activation.
 
 The v1 profile is connected only as optional shadow observation. It is not connected to the enforce
 decision path. A future gating change should demonstrate that no profile outcome raises the existing
