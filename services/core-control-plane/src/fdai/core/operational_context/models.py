@@ -101,6 +101,9 @@ class OperationalContextSnapshot:
     conflicts: tuple[str, ...]
     autonomy_ceiling: Autonomy
     clock_identity: str = "system-utc"
+    decision_evidence_receipt_digest: str | None = None
+    decision_evidence_verification_bundle_digest: str | None = None
+    decision_evidence_rejection_reasons: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.snapshot_id or not self.target_resource_id:

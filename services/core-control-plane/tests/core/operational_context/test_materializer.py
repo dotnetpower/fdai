@@ -23,6 +23,7 @@ from fdai.shared.providers.state_evidence import (
     StateFactMetadata,
 )
 from fdai.shared.providers.testing import InMemoryOntologyInstanceStore
+from tests.decision_evidence import StubDecisionEvidenceAdmissionProvider
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 CUTOFF = datetime(2026, 7, 31, tzinfo=UTC)
@@ -233,6 +234,48 @@ async def test_missing_required_source_freshness_lowers_snapshot_ceiling() -> No
 
     assert "source_freshness_missing:metrics:availability" in snapshot.conflicts
     assert snapshot.autonomy_ceiling is Autonomy.SHADOW_ONLY
+
+
+async def test_runtime_required_decision_evidence_controls_context_autonomy() -> None:
+    store = _store()
+    await _seed_service_graph(store)
+    freshness = (
+        SourceFreshness(
+            source="metrics:availability",
+            observed_at=CUTOFF - timedelta(seconds=30),
+            max_age_seconds=300,
+        ),
+    )
+    missing = await OperationalContextMaterializer(
+        store=store,
+        clock=lambda: CUTOFF,
+        require_decision_evidence=True,
+    ).materialize(
+        target_resource_id="resource-example",
+        cutoff=CUTOFF,
+        catalog_versions={"ontology": "1.0.0", "rules": "2026.07"},
+        source_freshness=freshness,
+    )
+    admitted = await OperationalContextMaterializer(
+        store=store,
+        clock=lambda: CUTOFF,
+        decision_evidence=StubDecisionEvidenceAdmissionProvider(lambda: CUTOFF),
+        require_decision_evidence=True,
+    ).materialize(
+        target_resource_id="resource-example",
+        cutoff=CUTOFF,
+        catalog_versions={"ontology": "1.0.0", "rules": "2026.07"},
+        source_freshness=freshness,
+    )
+
+    assert missing.autonomy_ceiling is Autonomy.SHADOW_ONLY
+    assert missing.decision_evidence_rejection_reasons == ("admission_missing",)
+    assert "decision_evidence_admission_missing" in missing.conflicts
+    assert admitted.autonomy_ceiling is Autonomy.ENFORCE_AUTO
+    assert admitted.decision_evidence_receipt_digest == "sha256:" + "d" * 64
+    assert admitted.decision_evidence_verification_bundle_digest == "sha256:" + "e" * 64
+    assert admitted.decision_evidence_rejection_reasons == ()
+    assert admitted.snapshot_id != missing.snapshot_id
 
 
 async def test_legacy_link_metadata_lowers_authority_only_when_verification_is_required() -> None:

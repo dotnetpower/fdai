@@ -8,7 +8,13 @@ from collections import deque
 from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 
+from fdai_service_contracts.ontology_query import content_digest
+
 from fdai.shared.contracts.models import Autonomy
+from fdai.shared.providers.decision_evidence_verifier import (
+    DecisionEvidenceAdmissionProvider,
+    assess_decision_evidence_admission,
+)
 from fdai.shared.providers.ontology_instance import (
     OntologyInstanceStore,
     OntologyLinkRecord,
@@ -39,6 +45,7 @@ _CONTEXT_LINKS = (
     "objective_owned_by",
 )
 _OBJECTIVE_TYPES = frozenset({"ServiceObjective", "RecoveryObjective", "CostObjective"})
+OPERATIONAL_CONTEXT_EVIDENCE_PURPOSE = "operational-context"
 
 
 class OperationalContextMaterializer:
@@ -51,6 +58,8 @@ class OperationalContextMaterializer:
         clock: Callable[[], datetime] | None = None,
         clock_identity: str = "system-utc",
         max_clock_skew_seconds: int = 30,
+        decision_evidence: DecisionEvidenceAdmissionProvider | None = None,
+        require_decision_evidence: bool = False,
     ) -> None:
         if not clock_identity.strip():
             raise ValueError("clock_identity MUST be non-empty")
@@ -62,6 +71,8 @@ class OperationalContextMaterializer:
         self._clock = clock or (lambda: datetime.now(tz=UTC))
         self._clock_identity = clock_identity
         self._max_clock_skew_seconds = max_clock_skew_seconds
+        self._decision_evidence = decision_evidence
+        self._require_decision_evidence = require_decision_evidence
 
     async def materialize(
         self,
@@ -225,6 +236,62 @@ class OperationalContextMaterializer:
             stale_sources=normalized_stale,
             conflicts=normalized_conflicts,
         )
+        admission = None
+        admission_reasons: tuple[str, ...] = ()
+        if self._require_decision_evidence:
+            scope_digest = content_digest(
+                {
+                    "cutoff": _utc_timestamp(cutoff),
+                    "target_resource_id": target_resource_id,
+                }
+            )
+            source_revision = content_digest(
+                {
+                    "catalog_versions": canonical_versions,
+                    "clock_identity": self._clock_identity,
+                    "require_verified_links": require_verified_links,
+                }
+            )
+            admission = (
+                await self._decision_evidence.admit(
+                    evidence_digest=f"sha256:{identity}",
+                    scope_digest=scope_digest,
+                    purpose_id=OPERATIONAL_CONTEXT_EVIDENCE_PURPOSE,
+                    source_revision=source_revision,
+                )
+                if self._decision_evidence is not None
+                else None
+            )
+            admission_reasons = (
+                ("admission_missing",)
+                if admission is None
+                else tuple(
+                    reason.value
+                    for reason in assess_decision_evidence_admission(
+                        admission,
+                        expected_evidence_digest=f"sha256:{identity}",
+                        expected_scope_digest=scope_digest,
+                        expected_purpose_id=OPERATIONAL_CONTEXT_EVIDENCE_PURPOSE,
+                        expected_source_revision=source_revision,
+                        evaluated_at=recorded_at,
+                    )
+                )
+            )
+            if admission_reasons:
+                normalized_conflicts = tuple(
+                    sorted(
+                        {
+                            *normalized_conflicts,
+                            *(f"decision_evidence_{reason}" for reason in admission_reasons),
+                        }
+                    )
+                )
+                ceiling = Autonomy.SHADOW_ONLY
+            identity = _snapshot_admission_identity(
+                evidence_identity=identity,
+                admission=admission.to_mapping() if admission is not None else None,
+                rejection_reasons=admission_reasons,
+            )
         return OperationalContextSnapshot(
             snapshot_id=identity,
             target_resource_id=target_resource_id,
@@ -248,6 +315,13 @@ class OperationalContextMaterializer:
             stale_sources=normalized_stale,
             conflicts=normalized_conflicts,
             autonomy_ceiling=ceiling,
+            decision_evidence_receipt_digest=(
+                admission.receipt_digest if admission is not None else None
+            ),
+            decision_evidence_verification_bundle_digest=(
+                admission.verification_bundle_digest if admission is not None else None
+            ),
+            decision_evidence_rejection_reasons=admission_reasons,
         )
 
 
@@ -462,6 +536,25 @@ def _snapshot_identity(
     return hashlib.sha256(encoded.encode()).hexdigest()
 
 
+def _snapshot_admission_identity(
+    *,
+    evidence_identity: str,
+    admission: Mapping[str, object] | None,
+    rejection_reasons: tuple[str, ...],
+) -> str:
+    encoded = json.dumps(
+        {
+            "admission": admission,
+            "evidence_identity": evidence_identity,
+            "rejection_reasons": rejection_reasons,
+        },
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return hashlib.sha256(encoded.encode()).hexdigest()
+
+
 def _path_identities(
     paths: Sequence[OperationalContextEvidencePath],
 ) -> tuple[tuple[object, ...], ...]:
@@ -493,4 +586,4 @@ def _utc_timestamp(value: datetime) -> str:
     return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
-__all__ = ["OperationalContextMaterializer"]
+__all__ = ["OPERATIONAL_CONTEXT_EVIDENCE_PURPOSE", "OperationalContextMaterializer"]
