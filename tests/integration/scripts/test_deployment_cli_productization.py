@@ -59,6 +59,7 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     assert "terraform_provider_authentication_unavailable" in drill
     assert 'mkdir -m 700 "$WORKDIR/empty-azure"' in drill
     assert 'export AZURE_CONFIG_DIR="$WORKDIR/empty-azure"' in drill
+    assert "for tool in az terraform openssl unshare uv git" in drill
     assert "fdai_deployment_cli.offline_kit" in signer
     assert "fdai.deployment_cli" not in stage + drill + signer
 

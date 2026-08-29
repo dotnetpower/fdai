@@ -297,6 +297,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H63 | A duplicate CLI target check still negated the Managed Identity exception. The duplicate was removed and the complete plan handler now proves it reaches signed-kit verification under MSI. | `test_complete_plan_handler_reaches_verification_under_msi` |
 | H64 | An optional-only model deployment group called `max()` on no required reserve values and crashed planning. Such groups now use zero required reserve and remain review-only. | `test_optional_only_deployment_group_is_review_only` |
 | H65 | The air-gap drill accepted one generic plan failure that could occur before provider authentication. The CLI now emits a distinct redacted authentication marker, and the drill requires it. | `test_terraform_failure_is_redacted_to_stable_reason` |
+| H66 | The drill required provider-authentication evidence but did not require Azure CLI and disabled MSI. Azure CLI is now an explicit prerequisite. | `test_release_scripts_use_the_installable_distribution` |
 
 ## Related docs
 

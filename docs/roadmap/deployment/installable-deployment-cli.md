@@ -110,7 +110,8 @@ versions before it can sign an offline kit.
 Offline planning recomputes the profile target digest from concrete tenant and subscription input,
 matches the profile region, and supplies the verified subscription to Terraform.
 The synthetic air-gap drill isolates Azure CLI configuration so a host login cannot alter its
-target evidence and requires the distinct redacted provider-authentication marker.
+target evidence, requires Azure CLI as a local prerequisite, and expects its distinct redacted
+provider-authentication marker.
 Connected plans expose only a validated Azure CLI path or target-bound Managed Identity variables
 to Terraform; unrelated environment values remain excluded.
 

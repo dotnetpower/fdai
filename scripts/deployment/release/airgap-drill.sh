@@ -56,7 +56,7 @@ done
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
-for tool in terraform openssl unshare uv git; do
+for tool in az terraform openssl unshare uv git; do
   command -v "$tool" >/dev/null 2>&1 || {
     echo "airgap-drill: BLOCKED - $tool is required." >&2
     exit 2

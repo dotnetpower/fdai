@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 9ed9ee5fec4e40aa0d04d606601ea96694a859bf
+translation_source_sha: ac07c490d6fdf074c4a165cf28797802fb3d0581
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -290,6 +290,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H63 | 중복 CLI 대상 검사가 Managed Identity 예외를 다시 무효화했습니다. 중복 검사를 제거하고 전체 계획 처리기가 MSI에서 서명 키트 검증까지 도달하는지 증명합니다. | `test_complete_plan_handler_reaches_verification_under_msi` |
 | H64 | 선택 기능 전용 모델 배포 그룹이 필수 예비 값이 없어 `max()`에서 실패했습니다. 이제 해당 그룹은 필수 예비 0을 사용하고 검토 전용으로 유지됩니다. | `test_optional_only_deployment_group_is_review_only` |
 | H65 | air-gap 훈련이 공급자 인증 전에 발생할 수 있는 일반 계획 실패 하나를 허용했습니다. 이제 CLI가 구분된 정제 인증 표시를 내보내고 훈련이 이를 요구합니다. | `test_terraform_failure_is_redacted_to_stable_reason` |
+| H66 | 훈련이 공급자 인증 근거를 요구하면서 Azure CLI는 요구하지 않고 MSI를 비활성화했습니다. 이제 Azure CLI를 명시적 선행 조건으로 검사합니다. | `test_release_scripts_use_the_installable_distribution` |
 
 ## 관련 문서
 
