@@ -176,6 +176,12 @@ Compare-and-set revision fencing permits only one concurrent winner. Demotion re
 ControlLoop and fixes `activation_authority=false`, so recording `gating` cannot activate an
 ActionType or Workflow.
 
+Every non-success prediction or observation reason now has one explicit bounded failure decision.
+Prediction failure holds before dispatch and permits at most one caller-owned retry and one approval
+request. Observation, correlation, and deadline failure holds after dispatch with no retry or
+approval fan-out. A measured mismatch requests recovery after dispatch. Every failure in `gating`
+requires demotion to `shadow`, and no failure decision carries execution authority.
+
 ## Independent axes
 
 The profile is independent from the runtime axes in
@@ -208,6 +214,8 @@ Focused tests under `services/core-control-plane/tests/core/mscp_profile/` cover
   SLO gaps, and non-authoritative review eligibility.
 - restart-safe default-shadow lifecycle, exact readiness/review binding, single-winner compare-and-set
   transitions, hash-chain audit verification, and immediate demotion without runtime activation.
+- exhaustive failure-reason routing with one-request ceilings, post-dispatch hold or recovery, and
+  mandatory gating demotion.
 
 The v1 profile is connected only as optional shadow observation. It is not connected to the enforce
 decision path. A future gating change should demonstrate that no profile outcome raises the existing

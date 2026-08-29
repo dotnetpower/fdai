@@ -1,7 +1,7 @@
 ---
 title: MSCP Operational Profile
 translation_of: mscp-operational-profile.md
-translation_source_sha: 2741bb40b46d7976f1444542287226df7eed6c52
+translation_source_sha: 2704458532e96800f29c56ce9cdced3ab0dd73c4
 translation_revised: 2026-08-29
 ---
 # MSCP Operational 프로파일
@@ -177,6 +177,12 @@ Compare-and-set 개정 번호 차단은 동시 전이 하나만 성공시킵니�
 `activation_authority=false`로 고정되므로 `gating` 기록이 ActionType 또는 Workflow를 활성화할 수
 없습니다.
 
+성공이 아닌 모든 예측 또는 관측 사유에는 하나의 명시적인 범위 제한 실패 결정이 있습니다. 예측
+실패는 dispatch 전에 hold하며 호출자가 소유한 재시도와 승인 요청을 각각 최대 한 번만 허용합니다.
+관측, 상관관계 및 기한 실패는 추가 재시도나 승인 fan-out 없이 dispatch 후 hold합니다. 측정된
+mismatch는 dispatch 후 복구를 요청합니다. `gating`의 모든 실패는 `shadow` demotion을 요구하며
+어떤 실패 결정도 실행 권한을 포함하지 않습니다.
+
 ## 독립적인 축
 
 이 프로파일은 [ADR-0002](decisions/0002-independent-runtime-axes-ko.md)의 런타임 축과
@@ -208,6 +214,7 @@ Compare-and-set 개정 번호 차단은 동시 전이 하나만 성공시킵니�
   적격성
 - 재시작 안전 기본 shadow 수명 주기, 정확한 준비 상태/검토 결속, 단일 성공 compare-and-set
   전이, hash-chain 감사 검증 및 런타임 활성화 없는 즉시 demotion
+- 전체 실패 사유 라우팅, 1회 요청 상한, dispatch 후 hold 또는 복구 및 필수 gating demotion
 
 v1 프로파일은 선택적 shadow 관측으로만 연결됩니다. 강제 적용 결정 경로에는 연결되지
 않았습니다. 향후 gating 변경은 어떤 프로파일 결과도 기존 risk 결정을 높이지 않음을

@@ -28,6 +28,11 @@ from fdai.core.mscp_profile.effect_verification import (
     ObservedEffect,
     verify_effect,
 )
+from fdai.core.mscp_profile.failure_policy import (
+    MscpFailureDecision,
+    MscpFailureDisposition,
+    decide_mscp_failure,
+)
 from fdai.core.mscp_profile.observation_worker import (
     ObservationWorkerReport,
     PendingEffectObservationWorker,
@@ -94,6 +99,8 @@ __all__ = [
     "MscpAuthorityDecision",
     "MscpAuthorityReason",
     "MscpCandidateKey",
+    "MscpFailureDecision",
+    "MscpFailureDisposition",
     "MscpProfileLifecycleConflictError",
     "MscpProfileLifecycleRecord",
     "MscpProfileMode",
@@ -124,6 +131,7 @@ __all__ = [
     "evaluate_cycle_guard",
     "evaluate_mscp_candidate_groups",
     "evaluate_mscp_readiness",
+    "decide_mscp_failure",
     "readiness_digest",
     "response_outcome_audit_entry",
     "verify_effect",

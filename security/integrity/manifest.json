@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1243,
+  "file_count": 1244,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "ebca41cd37517c9c564b1351302f9222805b56f186b9a83e9a562e69a51a74a9",
     ".github/instructions/agent-stewardship.instructions.md": "e2e2224db17159323f910252e0f9f6efb44c0f1d7e0d217d5159745c15c9ff46",
@@ -526,10 +526,11 @@
     "services/core-control-plane/src/fdai/core/metering/records.py": "8c6c35cf2c175b8120a4ae5b1de7154854fef07e1ffea7f942696daffbdd3983",
     "services/core-control-plane/src/fdai/core/metering/sink.py": "585b2d852c56d17164965fc626c2cd8e2823b91ff0ef2b61889f2239f51d65f5",
     "services/core-control-plane/src/fdai/core/metering/usage.py": "dc5fea32ea99782a50632f9a7f1527cd04c3f5a3a4ef26bc3357b72c8c5f6cb1",
-    "services/core-control-plane/src/fdai/core/mscp_profile/__init__.py": "ba7470fd173c71537db0ae491b8076bcd7c36e63c6dd956b13e3bc3bd4d1aa1f",
+    "services/core-control-plane/src/fdai/core/mscp_profile/__init__.py": "46370e9d79d0baf0de854c9468ab4adacad36bfb8c607cd810edd0d6dc8c5cce",
     "services/core-control-plane/src/fdai/core/mscp_profile/authority_ceiling.py": "847b9758c6a837cda297796c6a199928bfbe7431bc2ee1201e962b7a09b9fbbe",
     "services/core-control-plane/src/fdai/core/mscp_profile/cycle_guard.py": "ec767fa35b14b04fd816c7f1cad1949ec5dbe684a5c13f54c4b9de1bbfc4c006",
     "services/core-control-plane/src/fdai/core/mscp_profile/effect_verification.py": "ad1e0507bbdc03c069826bfdcbd6d441899229246f853f1289cd106d9e4c13df",
+    "services/core-control-plane/src/fdai/core/mscp_profile/failure_policy.py": "b549dcb32aed09db63af776b799fd5e7595a5c203878278de53297ab9c65c44d",
     "services/core-control-plane/src/fdai/core/mscp_profile/observation_worker.py": "2655e20edd92951902e8780180a4f4d18c7cae9f56f78bffcfbbfe3ba3c28679",
     "services/core-control-plane/src/fdai/core/mscp_profile/pending_effect_store.py": "88d50567d968c263f6634e705b836431d0c77470daa925ec6b4d2f811b5ae009",
     "services/core-control-plane/src/fdai/core/mscp_profile/profile.py": "479d23c9f33d87ce2e71f72c1dfbf12fe1703d7ad29762f385a7c084e2f5835a",
