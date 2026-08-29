@@ -291,6 +291,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H57 | A caller-supplied target digest did not constrain effective tenant, subscription, or region input. Planning now recomputes the digest, matches the profile region, and injects the verified subscription into Terraform. | `test_plan_input_region_must_match_profile` |
 | H58 | Optional capability reserve ratios still reduced quota used for required sufficiency. Required and combined reserve are now calculated independently. | `test_optional_reserve_does_not_block_required_capacity` |
 | H59 | The synthetic air-gap profile inherited a signed-in host's Azure CLI context and failed target binding. The drill now uses a private empty Azure configuration directory. | `test_release_scripts_use_the_installable_distribution` |
+| H60 | The minimal Terraform environment removed both Azure CLI discovery and workload-identity settings. It now supplies a restricted trusted CLI path or target-bound non-secret Managed Identity variables. | `test_terraform_environment_accepts_target_bound_managed_identity` |
 
 ## Related docs
 

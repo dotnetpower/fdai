@@ -159,6 +159,8 @@ REPO_ROOT="$repo_root" WORKDIR="$WORKDIR" KIT="$KIT" PYTHON="$PYTHON" UV="$(comm
 ip link set lo up 2>/dev/null || true
 export TF_IN_AUTOMATION=1
 export AZURE_CONFIG_DIR="$WORKDIR/empty-azure"
+unset ARM_USE_MSI ARM_CLIENT_ID ARM_TENANT_ID TF_CLI_ARGS TF_CLI_ARGS_plan \
+  TF_WORKSPACE TF_DATA_DIR TF_CLI_CONFIG_FILE
 TFBIN="$WORKDIR/authenticated-kit/terraform/terraform"
 BUNDLE="$WORKDIR/work/fdai-deployment-bundle-${BUNDLE_VERSION}"
 fail() { echo "airgap-drill: FAIL - $*" >&2; exit 1; }

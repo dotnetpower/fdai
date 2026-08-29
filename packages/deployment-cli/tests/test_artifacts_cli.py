@@ -730,15 +730,47 @@ def test_terraform_environment_rejects_ambient_plan_controls(tmp_path: Path) -> 
             config=config,
             source={"HOME": str(tmp_path), "TF_CLI_ARGS_plan": "-destroy"},
             subscription_id="00000000-0000-0000-0000-000000000001",
+            tenant_id="00000000-0000-0000-0000-000000000000",
+            azure_cli_path=Path("/usr/bin/true"),
         )
 
+    azure_cli = tmp_path / "bin/az"
+    azure_cli.parent.mkdir()
+    azure_cli.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    azure_cli.chmod(0o755)
     environment = _terraform_environment(
         work_dir=work,
         config=config,
         source={"HOME": str(tmp_path), "UNRELATED_SECRET": "do-not-copy"},
         subscription_id="00000000-0000-0000-0000-000000000001",
+        tenant_id="00000000-0000-0000-0000-000000000000",
+        azure_cli_path=azure_cli,
     )
     assert "UNRELATED_SECRET" not in environment
     assert environment["TF_IN_AUTOMATION"] == "1"
     assert environment["TF_DATA_DIR"].endswith("terraform-data")
     assert environment["ARM_SUBSCRIPTION_ID"] == "00000000-0000-0000-0000-000000000001"
+    assert environment["PATH"].split(os.pathsep)[0] == str(azure_cli.parent)
+
+
+def test_terraform_environment_accepts_target_bound_managed_identity(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    work.mkdir(mode=0o700)
+    config = work / "offline.tfrc"
+    config.write_text("", encoding="utf-8")
+    config.chmod(0o600)
+    environment = _terraform_environment(
+        work_dir=work,
+        config=config,
+        source={
+            "ARM_USE_MSI": "true",
+            "ARM_CLIENT_ID": "00000000-0000-0000-0000-000000000003",
+            "ARM_TENANT_ID": "00000000-0000-0000-0000-000000000000",
+        },
+        subscription_id="00000000-0000-0000-0000-000000000001",
+        tenant_id="00000000-0000-0000-0000-000000000000",
+        azure_cli_path=None,
+    )
+
+    assert environment["ARM_USE_MSI"] == "true"
+    assert environment["ARM_CLIENT_ID"] == "00000000-0000-0000-0000-000000000003"

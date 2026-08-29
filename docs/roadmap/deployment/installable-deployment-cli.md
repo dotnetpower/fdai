@@ -111,6 +111,8 @@ Offline planning recomputes the profile target digest from concrete tenant and s
 matches the profile region, and supplies the verified subscription to Terraform.
 The synthetic air-gap drill isolates Azure CLI configuration so a host login cannot alter its
 target evidence.
+Connected plans expose only a validated Azure CLI path or target-bound Managed Identity variables
+to Terraform; unrelated environment values remain excluded.
 
 The C1 commands use stable JSON schemas for automation. `provision init` captures only the active
 subscription and tenant identifiers, environment, region, remote-runner boundary, and shadow-mode

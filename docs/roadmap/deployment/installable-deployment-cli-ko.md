@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: a18e6a9a02169a800fc591ef1ff995bc7dfee56c
+translation_source_sha: 918e3a0bca5215b65dc46b0c7ef24fb3bcb77950
 translation_revised: 2026-08-29
 ---
 # 설치형 배포 CLI
@@ -112,6 +112,8 @@ Installer는 system 도구를 변경하지 않습니다. `fdaictl doctor`가 누
 오프라인 계획은 구체적인 테넌트 및 구독 입력으로 프로필 대상 다이제스트를 재계산하고 프로필
 지역을 일치시키며 검증된 구독을 Terraform에 전달합니다.
 합성 air-gap 훈련은 Azure CLI 구성을 격리해 호스트 로그인이 대상 근거를 바꾸지 못하게 합니다.
+연결된 계획은 검증된 Azure CLI 경로 또는 대상에 연결된 Managed Identity 변수만 Terraform에
+제공하고 관련 없는 환경 값은 제외합니다.
 
 C1 명령은 자동화를 위해 안정적인 JSON 스키마를 사용합니다. `provision init`은 활성 구독
 및 테넌트 식별자, 환경, 지역, remote-runner 경계, shadow-mode 기본값만 gitignored

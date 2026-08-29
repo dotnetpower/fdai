@@ -31,6 +31,7 @@ class PlanInputContext:
     """Validated provider context removed from Terraform variable content."""
 
     subscription_id: str
+    tenant_id: str
 
 
 def snapshot_plan_input(
@@ -81,4 +82,4 @@ def snapshot_plan_input(
         stream.write(canonical_bytes(terraform_values) + b"\n")
         stream.flush()
         os.fsync(stream.fileno())
-    return PlanInputContext(subscription_id=subscription_id)
+    return PlanInputContext(subscription_id=subscription_id, tenant_id=tenant_id)

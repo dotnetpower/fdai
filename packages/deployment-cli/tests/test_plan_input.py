@@ -48,6 +48,7 @@ def test_plan_input_is_private_canonical_and_non_secret(tmp_path: Path) -> None:
     expected.pop("subscription_id")
     assert json.loads(destination.read_text(encoding="utf-8")) == expected
     assert context.subscription_id == _SUBSCRIPTION
+    assert context.tenant_id == _TENANT
 
 
 def test_plan_input_rejects_real_password_and_extra_secret(tmp_path: Path) -> None:

@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 import platform
+import shutil
 import subprocess
 import sys
 from collections.abc import Mapping
@@ -26,6 +27,7 @@ from fdai_deployment_cli.plan_input import snapshot_plan_input
 from fdai_deployment_cli.contracts import ProvisionProfile, canonical_digest
 from fdai_deployment_cli.profile import load_profile, write_profile
 from fdai_deployment_cli.simulation import rehearse
+from fdai_deployment_cli.target import compute_target_binding
 from fdai_deployment_cli.state import read_journal
 
 
@@ -283,6 +285,8 @@ def _provision_plan(args: argparse.Namespace) -> int:
         config=config,
         source=os.environ,
         subscription_id=plan_context.subscription_id,
+        tenant_id=plan_context.tenant_id,
+        azure_cli_path=Path(azure_cli) if (azure_cli := shutil.which("az")) else None,
     )
     subprocess.run(
         [str(terraform), "init", "-backend=false", "-input=false"],
@@ -343,6 +347,8 @@ def _terraform_environment(
     config: Path,
     source: Mapping[str, str],
     subscription_id: str,
+    tenant_id: str,
+    azure_cli_path: Path | None,
 ) -> dict[str, str]:
     """Build a minimal Terraform environment and reject ambient control injection."""
 
@@ -356,6 +362,29 @@ def _terraform_environment(
         raise ValueError("ambient Terraform control variables are not accepted")
     allowed = ("HOME", "TMPDIR", "TEMP", "TMP", "SSL_CERT_FILE", "SSL_CERT_DIR")
     environment = {key: source[key] for key in allowed if key in source}
+    use_msi = source.get("ARM_USE_MSI", "").casefold()
+    if use_msi not in {"", "true"}:
+        raise ValueError("ARM_USE_MSI MUST be true when supplied")
+    tenant_value = source.get("ARM_TENANT_ID")
+    if tenant_value is not None and tenant_value.casefold() != tenant_id.casefold():
+        raise ValueError("ARM_TENANT_ID does not match the verified plan target")
+    client_id = source.get("ARM_CLIENT_ID")
+    if client_id is not None:
+        compute_target_binding(tenant_id=tenant_id, subscription_id=client_id)
+    if azure_cli_path is not None:
+        resolved_cli = azure_cli_path.resolve(strict=True)
+        details = resolved_cli.stat()
+        if not resolved_cli.is_file() or details.st_mode & 0o022:
+            raise ValueError("Azure CLI executable is not trusted")
+        path_entries = tuple(dict.fromkeys((str(resolved_cli.parent), "/usr/bin", "/bin")))
+        environment["PATH"] = os.pathsep.join(path_entries)
+    elif use_msi != "true":
+        raise ValueError("Terraform plan requires Azure CLI or managed identity")
+    if use_msi == "true":
+        environment["ARM_USE_MSI"] = "true"
+        environment["ARM_TENANT_ID"] = tenant_id
+        if client_id is not None:
+            environment["ARM_CLIENT_ID"] = client_id
     data_dir = work_dir / "terraform-data"
     data_dir.mkdir(mode=0o700)
     data_dir.chmod(0o700)
