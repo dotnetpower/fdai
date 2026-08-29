@@ -36,8 +36,9 @@ Deliver the operating facts that every later decision consumes:
 - model review status as evidence, evaluation, authority, execution, and learning axes.
 
 **Exit:** One exact planned change produces a time-consistent context snapshot on a pinned ontology
-release. Missing, stale, mixed-release, unverified, or truncated context lowers authority and has a
-typed reason.
+release. The assessment carries a typed graph evidence receipt, and any accepted critical or high
+blocker keeps a current risk or exception record. Missing, stale, mixed-release, unverified, or
+truncated context still lowers authority and has a typed reason.
 
 ## ARB-2: Compose the 15-agent evidence loop
 
