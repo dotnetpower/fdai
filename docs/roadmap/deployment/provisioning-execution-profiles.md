@@ -16,9 +16,9 @@ that applies before Terraform changes infrastructure or role assignments.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Read-only inspection and profile initialization commands | not-started | Repository package metadata and the command contracts in this document | No dedicated CLI distribution or `fdaictl` project script currently exists. |
+| Read-only inspection and profile initialization commands | implemented | `packages/deployment-cli`; focused profile, target, tool, and productization tests | The dedicated distribution registers `fdaictl`, writes private target-bound profiles, and returns review until execution-host evidence exists. |
 | Managed VM, private backend, and protected runner | implemented | `infra/bootstrap/`, `.github/workflows/deploy-dev.yml`, and focused bootstrap and workflow tests | The durable VNet host, workload identity, private state, protected plan, and exact-apply mechanics exist without the local CLI facade. |
-| Offline-kit construction and verification | in-progress | `scripts/deployment/release/build-offline-kit.py` and `stage-offline-kit.sh` | Release scripts exist, but their imported `fdai.deployment_cli.offline_kit` implementation is absent. |
+| Offline-kit construction and verification | validated | `fdai_deployment_cli.offline_kit`; locked release scripts; successful network-isolated air-gap drill | Signature-first verification, exact files, SBOM coverage, ABI/libc binding, private snapshots, and shipped-wheel installation pass. |
 | Temporary public-access cleanup | not-started | The access preference contract in this document | No composed command proves bounded creation, automatic cleanup, incomplete-on-cleanup-failure behavior, and audit closure. |
 | Pinned TUF root and rotation | not-started | `docs/runbooks/offline-trust-ceremony.md` | The first root ceremony, package resource, client bootstrap, and rotation evidence remain open. |
 | Post-provision verification | in-progress | Protected workflow checks and `docs/roadmap/operations/operating-and-verification.md` | Runner-side convergence, migrations, health, and canary checks exist; the complete CLI-driven lifecycle and disconnected receipt do not. |
@@ -28,6 +28,7 @@ that applies before Terraform changes infrastructure or role assignments.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Corrected inspection, profile persistence, and offline verification from implemented to their evidence-backed current states. | current change; package metadata, bootstrap source, release scripts, and focused workflow checks listed in the scope table | Create the CLI package, restore offline verification, complete trust bootstrap, and validate the full lifecycle. |
+| 2026-08-29 | validated | Added target-bound inspection and private profiles, restored signed offline verification, and completed the shipped-wheel network-isolated drill. | Campaign commits from `dd28b64d9`; focused tests and successful `airgap-drill.sh` | Complete managed-host Azure execution and retain protected post-provision receipts. |
 
 ### Remaining work
 
