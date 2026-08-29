@@ -53,7 +53,7 @@ def test_compiler_emits_finite_ordered_manifest() -> None:
 
 def test_idempotency_keys_change_with_source_revision() -> None:
     first = compile_manifest(_profile(), source_commit="a" * 40)
-    second = compile_manifest(_profile(), source_commit="b" * 40)
+    second = compile_manifest(_profile(), source_commit=("a" * 39) + "b")
 
     assert {entry.idempotency_key for entry in first.entries}.isdisjoint(
         entry.idempotency_key for entry in second.entries

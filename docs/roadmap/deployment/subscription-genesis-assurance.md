@@ -258,6 +258,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H24 | Offline planning accepted an arbitrary infrastructure directory unrelated to the signed kit. It now safely extracts and verifies the kit-declared deployment bundle and plans only its `infra` root. | `test_bundle_archive_rejects_path_traversal` |
 | H25 | Verified Terraform, provider, and bundle paths could be replaced before execution. Planning now copies them to a private tree while rechecking signed digests, then executes only that snapshot. | `test_materialization_rejects_artifact_replaced_after_verification` |
 | H26 | Release staging could label host binaries and wheels as another target platform. It now rejects cross-platform staging until target-specific artifact resolution exists. | `test_release_scripts_use_the_installable_distribution` |
+| H27 | Idempotency keys used only a 12-character revision prefix, allowing rare cross-revision collisions. They now bind the complete source commit. | `test_idempotency_keys_change_with_source_revision` |
 
 ## Related docs
 

@@ -71,7 +71,7 @@ def compile_manifest(
                 desired_state="ready",
                 prerequisites=() if previous is None else (previous,),
                 approval_class=approval,
-                idempotency_key=(f"genesis.{profile_digest[:16]}.{source_commit[:12]}.{stage}"),
+                idempotency_key=(f"genesis.{profile_digest[:16]}.{source_commit}.{stage}"),
                 timeout_seconds=timeout,
                 no_progress_seconds=no_progress,
                 rollback_ref=f"rollback.{stage}",
