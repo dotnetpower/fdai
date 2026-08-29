@@ -391,7 +391,8 @@ Hard don'ts. Any of these is a merge-blocker:
   may do without ever gating what they can see. Bind tokens to an image digest
   or a deployment; an unbound one works for whoever can read it. The fork binds
   its runtime `LicenseVerifier`; release issuance and `fdaictl` inspection use
-  their independent Ed25519 verification paths.
+  their independent Ed25519 verification paths. Issuance writes only to a new
+  private output and never replaces an existing token file.
 - [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md) -
   the customer-agnostic scope contract every fork honors.
 

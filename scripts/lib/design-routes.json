@@ -1757,6 +1757,7 @@
         "services/core-control-plane/src/fdai/core/licensing/**",
         "services/core-control-plane/tests/core/licensing/**",
         "scripts/deployment/release/issue-license.py",
+        "tests/integration/scripts/test_issue_license.py",
         "docs/roadmap/fork-and-sequencing/capability-licensing*.md"
       ],
       "must_read": [

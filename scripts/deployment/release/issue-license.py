@@ -157,10 +157,9 @@ def _write_private_text(path: Path, content: str) -> None:
     the output path from placing the token somewhere the operator did not
     choose.
     """
-    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
     with os.fdopen(descriptor, "w", encoding="ascii") as stream:
         stream.write(content)
-    path.chmod(0o600)
 
 
 if __name__ == "__main__":
