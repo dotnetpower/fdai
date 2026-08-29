@@ -1,8 +1,8 @@
 ---
 title: 에스컬레이션과 상시 권한(감독형 OODA 루프)
 translation_of: escalation-and-standing-authority.md
-translation_source_sha: dea4693dda5e629b62c34ac0ef1de00e91e1c157
-translation_revised: 2026-08-20
+translation_source_sha: 5482b66d6d8e1b017dcc89cbda19854aa16e1288
+translation_revised: 2026-08-29
 ---
 
 # 에스컬레이션과 상시 권한(감독형 OODA 루프)
@@ -33,12 +33,13 @@ translation_revised: 2026-08-20
 | 영구 shadow 에스컬레이션 supervisor | implemented | [`escalation_supervisor.py`](../../../services/core-control-plane/src/fdai/core/hil_resume/escalation_supervisor.py), [`test_escalation_supervisor.py`](../../../services/core-control-plane/tests/core/hil_resume/test_escalation_supervisor.py) | 제한된 스캔, 전달 claim 및 에스컬레이션 예정 관찰이 승인 또는 실행 권한을 진행하지 않도록 구현되어 있습니다. |
 | HIL 재개 및 위임 단계 검증 | implemented | [`coordinator.py`](../../../services/core-control-plane/src/fdai/core/hil_resume/coordinator.py), [`test_delegation.py`](../../../services/core-control-plane/tests/core/hil_resume/test_delegation.py) | 타입이 지정된 경로를 계속하기 전에 재개 스냅샷과 단계 자격을 검증합니다. |
 | 에스컬레이션 사다리 및 긴급도 카탈로그 | in-progress | [`escalation_ladder.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/escalation_ladder.py), [`test_escalation_ladder_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_escalation_ladder_catalog.py), [`rule-catalog/escalation-ladders/`](../../../rule-catalog/escalation-ladders/README.md) | 검토된 사다리 및 긴급도 정책 인스턴스가 fail-closed 로더 및 순수 스케줄 함수와 함께 배포되었으며, 집중 검사가 만료, 대체 전달, starvation 방지, 결정론적 재실행을 다룹니다. Supervisor는 아직 카탈로그를 읽지 않으며, 실행 중인 집합에서 측정된 긴급도 압축 근거는 없습니다. |
-| A3-E 상시 사람 권한 | in-progress | [`standing-authorization.json`](../../../services/core-control-plane/src/fdai/shared/contracts/authority/standing-authorization.json), [`record.py`](../../../services/core-control-plane/src/fdai/core/standing_authority/record.py), [`evaluator.py`](../../../services/core-control-plane/src/fdai/core/standing_authority/evaluator.py), [`test_evaluator.py`](../../../services/core-control-plane/tests/core/standing_authority/test_evaluator.py) | 카탈로그 스키마, 타입화된 레코드, 결정론적 평가기가 존재하며 모든 헌법 조건을 정확한 reason code로 거부합니다. 평가기는 의도적으로 연결되지 않았고, 결정 경로가 이를 import하면 focused 테스트가 실패합니다. `mode`는 `shadow`만 받으므로 승격 경로가 없습니다. 침묵은 권한을 부여하지 않습니다. |
+| A3-E 상시 사람 권한 | in-progress | [`standing-authorization.json`](../../../services/core-control-plane/src/fdai/shared/contracts/authority/standing-authorization.json), [`lifecycle.py`](../../../services/core-control-plane/src/fdai/core/standing_authority/lifecycle.py), [`fence.py`](../../../services/core-control-plane/src/fdai/core/standing_authority/fence.py), [`postgres_standing_authority.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_standing_authority.py), 집중 상시 권한 및 영속성 테스트 | 타입이 지정된 평가기, 변경할 수 없는 개정 번호와 증명 결속, 해시 체인 수명 주기, 원자적 PostgreSQL 저장소, 다시 만들 수 있는 스냅샷 및 정확한 읽기 시점 fence 계약이 있습니다. 평가기, 저장소 및 fence는 의도적으로 연결하지 않았습니다. 집중 테스트가 에이전트, 위험 게이트, 실행기, HIL 재개, 컨트롤 루프 및 조립에서 지원되지 않는 가져오기를 검사합니다. `mode`는 `shadow`만 허용하고 읽기 시점 fence는 효과 실행 동안 유지되는 lease가 아니므로 승격 경로가 없습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-29 | in-progress | Core가 소유하는 A3-E 수명 주기 계약을 추가했습니다. Core는 조건에서 변경할 수 없는 개정 번호 신원을 계산한 다음 승인과 독립적으로 검증된 근거 다이제스트를 해당 개정 번호에 결속합니다. 기능군별 PostgreSQL 트랜잭션은 승인, 갱신, 개정 번호 범위 폐기 및 기능군 폐기를 직렬화하면서 해시 체인 전이, 다시 만들 수 있는 스냅샷, 단조로운 fence 세대 및 수명 주기 감사 항목을 원자적으로 추가합니다. 정확한 주 저장소 fence 검사는 실패 시 차단하지만 읽기 시점 검사로 효과 실행 중 폐기 경쟁을 막을 수 없으므로 연결하지 않았습니다. | `current change`; 수명 주기, 프로바이더 프로토콜, PostgreSQL 어댑터, Core 마이그레이션 및 집중 상시 권한과 영속성 테스트. | 결정 또는 디스패치 경로에서 평가기, 저장소 또는 fence를 가져오기 전에 통제된 런타임 shadow 집단을 보존하고 효과 실행 동안 유지되는 잠금 또는 lease를 독립적으로 검토합니다. |
 | 2026-08-19 | in-progress | "모든 헌법 조건에 실패 케이스가 있다"는 주장을 손으로 관리하는 대신 스스로 강제되도록 만들었습니다. 이제 테스트가 AST 스캔으로 평가기 소스가 반환할 수 있는 모든 reason code를 읽고, 케이스가 없는 코드가 있으면 실패합니다. 바로 하나를 찾았습니다. `action_type_outside_envelope`는 pin 검사가 먼저 실행되기 때문에 기존 표에서는 도달할 수 없었고, envelope가 허용하지 않지만 pin은 허용하는 action type에 대한 테스트가 없었습니다. 이제 그 케이스가 있습니다. 이는 승격 검토가 필요로 하는 첫 산출물이며, 합성 위임에 대한 오프라인 결정 코호트일 뿐 런타임 shadow 근거가 아닙니다. | `current change`, `tests/core/standing_authority`가 focused 40건 통과, 완전성 테스트는 자체 검증됨 - 누락 케이스를 추가하기 전에 `reason codes with no case: ['action_type_outside_envelope']`로 실패했습니다. 작업 범위 Ruff·format 통과 | envelope 이탈 0건인 통제된 런타임 shadow 코호트, 독립 승격 검토, 런타임 취소 저장소가 모두 없으므로 어떤 결정 경로도 평가기를 참조할 수 없습니다. |
 | 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입하고 기존의 포괄적인 상태 요약을 바로잡았습니다. | `current change`; 구현 범위 표의 현재 소스, 집중 테스트 및 헌법 추적성입니다. | 카탈로그 기반 긴급도와 상시 권한 평가를 제공한 뒤 통제된 shadow 근거를 보존해야 합니다. |
 | 2026-08-14 | in-progress | 검토된 에스컬레이션 사다리와 긴급도 정책 카탈로그 인스턴스를 fail-closed 로더, 결정론적 first-match 선택, 순수 스케줄 함수와 함께 배포했습니다. | `current change`; [`escalation_ladder.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/escalation_ladder.py), [`test_escalation_ladder_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_escalation_ladder_catalog.py); 집중 카탈로그 검사 37건과 rule-catalog 전체 스위트 1251건이 통과했고 strict mypy가 통과했습니다. | Supervisor를 카탈로그에 연결하고 통제된 shadow 집합에서 측정된 긴급도 압축 근거를 보존해야 합니다. |
@@ -50,8 +51,10 @@ translation_revised: 2026-08-20
   배포되었으며, 집중 검사가 만료, 대체 전달, starvation 방지, 결정론적 재실행을 다룹니다.
 - [ ] 에스컬레이션 supervisor를 카탈로그에 연결하고 실행 중인 집합에서 측정된 긴급도 압축
   근거를 보존합니다.
-- [ ] 정족수, 철회, 유효성, 대응자 확인, 정확한 묶음 및 자기 승인 방지 부정 테스트를
+- [x] 정족수, 철회, 유효성, 대응자 확인, 정확한 묶음 및 자기 승인 방지 부정 테스트를
   갖춘 A3-E 상시 권한 스키마와 평가기를 구현합니다.
+- [x] 권한을 연결하지 않고 변경할 수 없는 수명 주기 개정 번호, 원자적 PostgreSQL
+  승인/갱신/폐기 전이, 변환 결과 재현 및 읽기 시점 디스패치 fence 계약을 구현합니다.
 - [ ] 독립 승격 검토 전에 묶음 이탈 0건인 통제된 shadow 집합을 보존하고, 해당 근거가
   생길 때까지 supervisor를 관찰 전용으로 유지합니다.
 
@@ -279,6 +282,29 @@ mode: shadow                      # judge-and-log until explicitly promoted
   `status=active`가 필요합니다. 취소는 즉시 pending re-decision을 차단합니다. 갱신은 기존
   레코드를 연장하지 않고 fresh 정족수, 근거 및 응답자 확인을 가진 새 변경할 수 없는
   개정 번호를 생성합니다.
+
+### 수명 주기 영속성과 디스패치 fence
+
+하나의 Core 수명 주기 작성기가 각 상시 권한 부여 기능군을 소유합니다. Operator API는 사람 명령을
+인증하고 타입이 지정된 수신 경로로 게시하며 수명 주기 테이블을 직접 쓰지 않습니다. PostgreSQL은
+하나의 기능군 행에서 승인, 갱신 및 폐기 명령을 직렬화하고 변경할 수 없는 개정 번호, 해시 체인
+전이, 현재 스냅샷, fencing 세대 및 수명 주기 감사 항목을 하나의 트랜잭션으로 커밋합니다.
+
+개정 번호 다이제스트는 Core가 발급한 기능군 ID, 발급 시각 및 선행 개정 번호를 포함한 변경할 수
+없는 권한 부여 조건만 다룹니다. 승인과 독립적으로 검증된 근거 레코드는 이 다이제스트에 결속된
+별도의 변경할 수 없는 항목입니다. 이 구조는 순환 다이제스트를 피하면서 승인이나 근거 묶음을 다른
+개정 번호에 재사용하지 못하게 합니다.
+
+각 전이는 연속된 기능군 순서, 이전 전이 다이제스트 및 단조롭게 증가하는 fencing 세대를
+포함합니다. 재현은 승인 전이부터 시작하여 전체 체인을 검증한 뒤에만 활성 스냅샷을 다시 만들 수
+있습니다. 변환 결과가 없거나 순서가 비거나 전이 순서가 바뀌거나 다이제스트가 깨지거나 예상 개정
+번호 또는 세대가 오래된 경우 활성 권한을 반환하지 않습니다.
+
+수명 주기 fence는 정확한 기능군, 개정 번호, 세대 및 전이 다이제스트를 지정합니다. 권위 있는 주
+저장소는 효과 디스패치 직전에 이 fence를 비교할 수 있습니다. 이 읽기 시점 검사는 효과 실행 중
+폐기 경쟁을 막지 못하므로 현재 shadow 범위에서는 평가기와 함께 연결하지 않습니다. 적용 모드에는
+부작용 커밋 동안 유지되는 별도 검토된 잠금 또는 lease, 통제된 shadow 근거 및 독립적인 승격 검토가
+필요합니다.
 - **실행이 validity 구간 안에 들어갑니다.** Risk 게이트는 전달 전에
   `now + max_duration_seconds <= valid_until`을 요구합니다. 저장된 instant에는 trusted UTC를,
   실행 기한에는 단조 증가 경과 시간을 사용합니다. 시계 사용 불가 또는 과도한 skew가

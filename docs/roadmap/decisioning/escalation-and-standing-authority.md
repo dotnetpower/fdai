@@ -31,12 +31,13 @@ existing single-pass control loop.
 | Durable shadow escalation supervisor | implemented | [`escalation_supervisor.py`](../../../services/core-control-plane/src/fdai/core/hil_resume/escalation_supervisor.py), [`test_escalation_supervisor.py`](../../../services/core-control-plane/tests/core/hil_resume/test_escalation_supervisor.py) | Bounded scans, delivery claims, and would-escalate observations are implemented without advancing approval or execution authority. |
 | HIL resume and delegated-rung verification | implemented | [`coordinator.py`](../../../services/core-control-plane/src/fdai/core/hil_resume/coordinator.py), [`test_delegation.py`](../../../services/core-control-plane/tests/core/hil_resume/test_delegation.py) | Resume snapshots and rung eligibility are verified before the typed path continues. |
 | Escalation ladder and urgency catalogs | in-progress | [`escalation_ladder.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/escalation_ladder.py), [`test_escalation_ladder_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_escalation_ladder_catalog.py), [`rule-catalog/escalation-ladders/`](../../../rule-catalog/escalation-ladders/README.md) | Reviewed ladder and urgency-policy instances ship with a fail-closed loader and pure schedule functions, and focused checks cover expiry, fallback delivery, starvation prevention, and deterministic replay. The supervisor does not yet read the catalog, and no measured urgency-compression evidence from a running cohort exists. |
-| A3-E standing human authorization | in-progress | [`standing-authorization.json`](../../../services/core-control-plane/src/fdai/shared/contracts/authority/standing-authorization.json), [`record.py`](../../../services/core-control-plane/src/fdai/core/standing_authority/record.py), [`evaluator.py`](../../../services/core-control-plane/src/fdai/core/standing_authority/evaluator.py), [`test_evaluator.py`](../../../services/core-control-plane/tests/core/standing_authority/test_evaluator.py) | The catalog schema, the typed record, and the deterministic evaluator exist and reject every constitutional condition with an exact reason code. The evaluator is unwired by design and a focused test fails if a decision path imports it; `mode` accepts only `shadow`, so no promotion path exists. Silence never grants authority. |
+| A3-E standing human authorization | in-progress | [`standing-authorization.json`](../../../services/core-control-plane/src/fdai/shared/contracts/authority/standing-authorization.json), [`lifecycle.py`](../../../services/core-control-plane/src/fdai/core/standing_authority/lifecycle.py), [`fence.py`](../../../services/core-control-plane/src/fdai/core/standing_authority/fence.py), [`postgres_standing_authority.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_standing_authority.py), focused standing-authority and persistence tests | The typed evaluator, immutable revision and proof binding, hash-chained lifecycle, atomic PostgreSQL store, rebuildable snapshot, and exact read-time fence contract exist. The evaluator, store, and fence remain unwired by design; a focused test scans agents, risk gate, executors, HIL resume, control loop, and composition for forbidden imports. `mode` accepts only `shadow`, and the read-time fence is not an effect-spanning lease, so no promotion path exists. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-29 | in-progress | Added the Core-owned A3-E lifecycle contract. Core computes immutable revision identity from terms, then binds approval and independently verified evidence digests over that revision. Per-family PostgreSQL transactions serialize admit, renew, revision-scoped revoke, and family revoke while atomically appending a hash-chained transition, rebuildable snapshot, monotonic fence generation, and lifecycle audit entry. Exact primary-store fence checks fail closed, but remain unwired because a read-time check cannot close a revoke-during-effect race. | `current change`; lifecycle, provider protocol, PostgreSQL adapter, Core migration, and focused standing-authority and persistence tests. | Retain a governed runtime shadow cohort and independently review an effect-spanning lock or lease before any decision or dispatch path imports the evaluator, store, or fence. |
 | 2026-08-19 | in-progress | Made the "every constitutional condition has a failing case" claim self-enforcing instead of hand-kept. The suite now reads every reason code the evaluator source can return through an AST scan and fails when one has no case. It immediately found one: `action_type_outside_envelope` was unreachable in the existing table because the pin check runs first, so an action type the envelope never allowed but a pin does allow had no test. That case now exists. This is the first artifact a promotion review would need; it is an offline decision cohort over synthetic delegations, not runtime shadow evidence. | `current change`; `tests/core/standing_authority` passed 40 focused cases; the exhaustiveness test is self-verifying - it failed with `reason codes with no case: ['action_type_outside_envelope']` before the missing case was added; task-scoped Ruff and format passed. | A governed runtime shadow cohort with zero envelope escapes, an independent promotion review, and a runtime revocation store all remain absent, so no decision path may consult the evaluator. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and corrected the prior broad status summary. | `current change`; current source, focused tests, and constitutional traceability listed in the scope table. | Deliver catalog-backed urgency and standing-authorization evaluation, then retain governed shadow evidence. |
 | 2026-08-14 | in-progress | Shipped reviewed escalation-ladder and urgency-policy catalog instances with a fail-closed loader, deterministic first-match selection, and pure schedule functions. | `current change`; [`escalation_ladder.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/escalation_ladder.py), [`test_escalation_ladder_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_escalation_ladder_catalog.py); focused catalog checks passed 37 cases and the whole rule-catalog suite passed 1251 cases; strict mypy passed. | Bind the supervisor to the catalog and retain measured urgency-compression evidence from a governed shadow cohort. |
@@ -49,8 +50,10 @@ existing single-pass control loop.
   deterministic replay.
 - [ ] Bind the escalation supervisor to the catalog and retain measured urgency-compression
   evidence from a running cohort.
-- [ ] Implement the A3-E standing-authorization schema and evaluator with quorum, revocation,
+- [x] Implement the A3-E standing-authorization schema and evaluator with quorum, revocation,
   validity, responder confirmation, exact envelope, and no-self-approval negative tests.
+- [x] Implement immutable lifecycle revisions, atomic PostgreSQL admit/renew/revoke transitions,
+  projection replay, and the read-time dispatch-fence contract without wiring authority.
 - [ ] Retain a governed shadow cohort with zero envelope escapes before any independent promotion
   review; keep the supervisor observe-only until that evidence exists.
 
@@ -298,6 +301,30 @@ mode: shadow                      # judge-and-log until explicitly promoted
   are required. Revocation is immediate and blocks pending re-decisions. Renewal creates a new
   immutable revision with fresh quorum, evidence, and responder confirmation; it never extends the
   old record in place.
+
+### Lifecycle persistence and dispatch fence
+
+One Core lifecycle writer owns each standing-authorization family. The Operator API authenticates
+the human command and publishes it through typed ingress; it does not write lifecycle tables.
+PostgreSQL serializes admit, renew, and revoke commands on one family row and commits the immutable
+revision, hash-chained transition, current snapshot, fencing generation, and lifecycle audit entry in one
+transaction.
+
+The revision digest covers immutable authorization terms only, including a Core-issued family id,
+issuance time, and predecessor revision. Approval and independently verified evidence records are
+separate immutable bindings over that digest. This avoids a circular digest while preventing an
+approval or evidence bundle from being reused for another revision.
+
+Every transition carries a contiguous family sequence, the prior transition digest, and a monotonic
+fencing generation. Replay starts at admit and validates the complete chain before it can rebuild an
+active snapshot. A missing projection, sequence gap, reordered transition, broken digest, stale
+expected revision, or stale generation returns no active authority.
+
+A lifecycle fence names the exact family, revision, generation, and transition digest. The
+authoritative primary store can compare that fence immediately before effect dispatch. This
+read-time check does not close a revoke-during-effect race, so it remains unwired with the evaluator
+in the current shadow slice. Enforcement requires a separately reviewed lock or lease that spans
+the side-effect commit, plus governed shadow evidence and independent promotion review.
 - **Execution fits the validity window.** The risk gate requires
   `now + max_duration_seconds <= valid_until` before dispatch. It uses trusted UTC for persisted
   instants and monotonic elapsed time for the running deadline. Clock unavailability or excessive

@@ -1886,6 +1886,7 @@
         "docs/roadmap/decisioning/action-ontology.md"
       ],
       "docs_update": [
+        "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/architecture/finops-package-architecture.md",
         "docs/roadmap/architecture/finops-autonomous-operations.md",
         "docs/roadmap/fork-and-sequencing/finops-package-delivery-plan.md"
