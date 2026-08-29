@@ -1,8 +1,8 @@
 """Directory loader for the governance catalog-as-code.
 
-Reads every assignment, rule-set, and exemption file under a catalog root and
-returns a :class:`GovernanceCatalog`. This is the I/O boundary (it reads files); the
-per-document validation + domain mapping stays in
+Reads every assignment, rule-set, exemption, and override file under a catalog
+root and returns a :class:`GovernanceCatalog`. This is the I/O boundary (it
+reads files); the per-document validation + domain mapping stays in
 :mod:`fdai.rule_catalog.schema.governance_loader`, which is pure. Issues from
 every file are aggregated so one load surfaces the whole catalog's problems.
 
@@ -11,15 +11,19 @@ Layout (CSP-neutral, catalog-as-code):
     <root>/assignments/*.{yaml,yml}   -> Assignment
     <root>/rule-sets/*.{yaml,yml}     -> RuleSet
     <root>/exemptions/*.json          -> Exemption
+    <root>/overrides/*.{yaml,yml}     -> Override
 
 A missing subdirectory is empty, not an error. Duplicate ids within a kind are
-rejected (a catalog cannot bind two assignments under one id).
+rejected (a catalog cannot bind two assignments under one id); an override
+additionally rejects a second active override on the same (rule, scope) pair
+(rule-governance.md "Overrides § Precedence" - overrides never stack).
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +34,7 @@ from fdai.rule_catalog.schema.exemption import (
     Exemption,
     ExemptionError,
     ExemptionState,
+    exemption_duration_issues,
     load_exemption_from_mapping,
     parse_exemption_json,
 )
@@ -37,22 +42,27 @@ from fdai.rule_catalog.schema.governance_loader import (
     GovernanceLoadError,
     GovernanceLoadIssue,
     load_assignment_from_mapping,
+    load_override_from_mapping,
     load_rule_set_from_mapping,
 )
+from fdai.rule_catalog.schema.override import Override, OverrideMode
+from fdai.rule_catalog.schema.parameter_relaxation_policy import ParameterRelaxationPolicy
 from fdai.rule_catalog.schema.rule_set import RuleSet
 
 _ASSIGNMENTS_DIR = "assignments"
 _RULE_SETS_DIR = "rule-sets"
 _EXEMPTIONS_DIR = "exemptions"
+_OVERRIDES_DIR = "overrides"
 
 
 @dataclass(frozen=True, slots=True)
 class GovernanceCatalog:
-    """The immutable assignment, rule-set, and exemption catalog."""
+    """The immutable assignment, rule-set, exemption, and override catalog."""
 
     assignments: tuple[Assignment, ...] = ()
     rule_sets: tuple[RuleSet, ...] = ()
     exemptions: tuple[Exemption, ...] = ()
+    overrides: tuple[Override, ...] = ()
 
 
 def _load_dir[T](
@@ -147,14 +157,33 @@ def load_governance_catalog(
     root: Path,
     *,
     known_rule_versions: Mapping[str, str] | None = None,
+    max_exemption_duration: timedelta | None = None,
+    parameter_relaxation_policies: Mapping[str, ParameterRelaxationPolicy] | None = None,
 ) -> GovernanceCatalog:
-    """Load every governed assignment, rule-set, and exemption under ``root``.
+    """Load every governed assignment, rule-set, exemption, and override under ``root``.
 
     Rule-sets load first so an assignment that binds a rule-set (by ``rule_set``
     id, rather than an explicit ``target_rule_ids`` list) can be resolved. Raises
     :class:`GovernanceLoadError` aggregating the issues from every file (keyed by
     file name) when any document is invalid, an id collides, or an assignment
     references an unknown rule-set.
+
+    ``max_exemption_duration``, when supplied, enforces the configured maximum
+    exemption duration (rule-governance.md "Exemptions";
+    ``AppConfig.rule_governance.exemption_max_duration_days``): any exemption
+    whose ``expires_at - created_at`` exceeds it fails the catalog load closed,
+    alongside every other exemption issue.
+
+    ``parameter_relaxation_policies``, when supplied, is the separately reviewed
+    per-rule allowlist (:mod:`fdai.rule_catalog.schema.parameter_relaxation_policy`)
+    an override's ``mode: parameter-relaxation`` MUST stay inside. A key absent
+    from the rule's policy, or a value outside its declared bound, fails the
+    catalog load closed - the safe design decision from rule-governance.md
+    "Overrides § Rules (MUST)": no ambient/implicit relaxation, and no runtime
+    HIL fallback (an override that violates the policy never reaches a
+    resource, because the catalog carrying it never loads). Omitting this
+    argument (``None``) is stricter still: no rule may use
+    ``parameter-relaxation`` at all.
     """
     issues: list[GovernanceLoadIssue] = []
     rule_sets = _load_dir(root / _RULE_SETS_DIR, load_rule_set_from_mapping, lambda r: r.id, issues)
@@ -173,12 +202,25 @@ def load_governance_catalog(
     issues.extend(_duplicate_active_exemption_issues(exemptions))
     if known_rule_versions is not None:
         issues.extend(_exemption_reference_issues(exemptions, known_rule_versions))
+    if max_exemption_duration is not None:
+        issues.extend(
+            GovernanceLoadIssue(key=issue.key, message=issue.message)
+            for issue in exemption_duration_issues(exemptions, max_duration=max_exemption_duration)
+        )
+    overrides = _load_dir(root / _OVERRIDES_DIR, load_override_from_mapping, lambda o: o.id, issues)
+    issues.extend(_duplicate_override_scope_issues(overrides))
+    if known_rule_versions is not None:
+        issues.extend(_override_reference_issues(overrides, known_rule_versions))
+    issues.extend(
+        _override_parameter_relaxation_issues(overrides, parameter_relaxation_policies or {})
+    )
     if issues:
         raise GovernanceLoadError(issues)
     return GovernanceCatalog(
         assignments=assignments,
         rule_sets=rule_sets,
         exemptions=exemptions,
+        overrides=overrides,
     )
 
 
@@ -263,6 +305,85 @@ def _duplicate_active_exemption_issues(
             )
         else:
             seen[key] = exemption.id
+    return issues
+
+
+def _override_reference_issues(
+    overrides: tuple[Override, ...],
+    known_rule_versions: Mapping[str, str],
+) -> list[GovernanceLoadIssue]:
+    return [
+        GovernanceLoadIssue(
+            key=f"{override.id}:{override.target_rule}",
+            message="references unknown rule id",
+        )
+        for override in overrides
+        if override.target_rule not in known_rule_versions
+    ]
+
+
+def _duplicate_override_scope_issues(
+    overrides: tuple[Override, ...],
+) -> list[GovernanceLoadIssue]:
+    """Reject a second override on the same (target_rule, scope) pair.
+
+    rule-governance.md "Overrides § Precedence": overrides never stack - at
+    most one per (rule, scope) pair. Unlike an exemption, an override has no
+    ``state`` lifecycle field, so every loaded override counts (removal is by
+    deleting the catalog-as-code file, not a state transition).
+    """
+    issues: list[GovernanceLoadIssue] = []
+    seen: dict[tuple[str, str], str] = {}
+    for override in overrides:
+        key = (override.target_rule, override.scope.render().casefold())
+        prior = seen.get(key)
+        if prior is not None:
+            issues.append(
+                GovernanceLoadIssue(
+                    key=override.id,
+                    message=(
+                        "duplicate active override for rule "
+                        f"{override.target_rule!r} at scope {override.scope.render()!r} "
+                        f"(also in {prior!r}) - overrides never stack"
+                    ),
+                )
+            )
+        else:
+            seen[key] = override.id
+    return issues
+
+
+def _override_parameter_relaxation_issues(
+    overrides: tuple[Override, ...],
+    policies: Mapping[str, ParameterRelaxationPolicy],
+) -> list[GovernanceLoadIssue]:
+    """Fail closed on a parameter-relaxation override outside its reviewed policy.
+
+    rule-governance.md "Overrides § Rules (MUST)" + Open Decisions: the safe
+    design decision is a separately reviewed governance-level allowlist
+    (:mod:`fdai.rule_catalog.schema.parameter_relaxation_policy`), not the
+    rule's own (not-yet-declared) schema bounds and not a runtime HIL
+    fallback - an override that names an unlisted key, or a value outside its
+    declared bound, never reaches a resource because the catalog carrying it
+    never loads.
+    """
+    issues: list[GovernanceLoadIssue] = []
+    for override in overrides:
+        if override.mode is not OverrideMode.PARAMETER_RELAXATION:
+            continue
+        policy = policies.get(override.target_rule)
+        for key, value in override.parameter_overrides.items():
+            if policy is None or not policy.allows(key, value):
+                issues.append(
+                    GovernanceLoadIssue(
+                        key=f"{override.id}:{key}",
+                        message=(
+                            f"parameter_overrides key {key!r}={value!r} is not allow-listed by "
+                            "the reviewed parameter-relaxation-bounds policy for rule "
+                            f"{override.target_rule!r}"
+                        ),
+                    )
+                )
     return issues
 
 

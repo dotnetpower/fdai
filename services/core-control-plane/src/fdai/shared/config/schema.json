@@ -167,6 +167,27 @@
           "description": "Latency routing of the T2 primary proposer among its same-publisher candidate pool (invariant-safe). Enforced on by default; takes effect only when resolved-models.json carries >= 2 reasoner_primary_candidates. Set false to pin the single most-preferred primary. See docs/roadmap/architecture/llm-strategy.md T2 Primary Latency Pool."
         }
       }
+    },
+    "rule_governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Configured governance-lifecycle bounds. See docs/roadmap/rules-and-detection/rule-governance.md Exemptions.",
+      "properties": {
+        "exemption_max_duration_days": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3650,
+          "default": 180,
+          "description": "Configured maximum lifetime of a time-boxed exemption (expires_at - created_at). The governance catalog loader fails closed on any exemption exceeding this bound."
+        },
+        "exemption_alert_lead_days": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 365,
+          "default": 14,
+          "description": "Ahead-of-expiry alert lead time. MUST be strictly less than exemption_max_duration_days so every active exemption alerts before it expires."
+        }
+      }
     }
   }
 }

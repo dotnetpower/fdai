@@ -56,6 +56,7 @@ from fdai.core.verticals.change_safety.detector import ChangeSafetyDetector
 from fdai.core.workflow.coordinator import WorkflowTriggerCoordinator
 from fdai.core.workflow.workflow_runtime import WorkflowOutcomeRecorder
 from fdai.rule_catalog.schema.assignment import Assignment
+from fdai.rule_catalog.schema.override import Override
 from fdai.rule_catalog.schema.property_semantic import PropertySemanticRegistry
 from fdai.shared.contracts.models import (
     Event,
@@ -123,6 +124,7 @@ class ControlLoop(
         kill_switch: KillSwitch | None = None,
         kill_switch_refresher: Callable[[], Awaitable[None]] | None = None,
         governance_assignments: Iterable[Assignment] = (),
+        governance_overrides: Iterable[Override] = (),
         inventory_age_provider: Callable[[str], Awaitable[int | None]] | None = None,
         inventory_context_provider: (
             Callable[[str], Awaitable[Mapping[str, Any] | None]] | None
@@ -190,6 +192,7 @@ class ControlLoop(
         self._kill_switch = kill_switch
         self._kill_switch_refresher = kill_switch_refresher
         self._governance_assignments = tuple(governance_assignments)
+        self._governance_overrides = tuple(governance_overrides)
         self._inventory_age_provider = inventory_age_provider
         self._inventory_context_provider = inventory_context_provider
         self._precondition_evaluator = precondition_evaluator or EventPreconditionEvaluator()

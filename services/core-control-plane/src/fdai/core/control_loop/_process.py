@@ -11,6 +11,7 @@ from fdai.core.control_loop._helpers import (
     _extract_resource_props,
     _is_execution_success,
     _synthetic_action_build_failure,
+    apply_governance_override_to_rule,
 )
 from fdai.core.control_loop.models import ControlLoopOutcome, ControlLoopResult
 from fdai.core.control_loop.operator_request import process_operator_request
@@ -22,6 +23,7 @@ from fdai.core.tiers.t0_deterministic.engine import NO_RULE_DENIED
 from fdai.core.trust_router import RoutingTier
 from fdai.core.verticals.change_safety.detector import ChangeSafetyDecision
 from fdai.rule_catalog.schema.effect import Effect, Enforcement
+from fdai.rule_catalog.schema.override import OverrideMode
 from fdai.shared.contracts.models import Event
 from fdai.shared.providers.execution_authorization import ExecutionAuthorizationStatus
 from fdai.shared.providers.stage_publisher import StageName, StagePhase
@@ -269,12 +271,31 @@ async def process_event(host: Any, raw_event: Event | Mapping[str, Any]) -> Cont
             resource_type=decision.resource_type,
             rule_id=rule.id,
         )
+        override = host._resolve_governance_override(
+            event=event,
+            resource_id=finding.resource_id,
+            resource_type=decision.resource_type,
+            rule_id=rule.id,
+        )
         if assignment is not None:
             await host._write_governance_assignment_audit(
                 event=event,
                 resource_id=finding.resource_id,
                 resolution=assignment,
             )
+        if override is not None:
+            await host._write_override_resolution_audit(
+                event=event,
+                resource_id=finding.resource_id,
+                rule_id=rule.id,
+                override=override,
+            )
+            if override.mode is OverrideMode.DISABLED:
+                # The override is independent of assignment presence. Shadow
+                # keeps running, but execution is suppressed on its exact scope.
+                routed.append("governance_observe")
+                continue
+        if assignment is not None:
             if assignment.parameter_tie:
                 routed.append("hil")
                 continue
@@ -287,15 +308,11 @@ async def process_event(host: Any, raw_event: Event | Mapping[str, Any]) -> Cont
             if assignment.enforcement is not Enforcement.ENFORCE:
                 routed.append("governance_observe")
                 continue
-            if assignment.parameters:
-                rule = rule.model_copy(
-                    update={
-                        "parameters": {
-                            **rule.parameters,
-                            **dict(assignment.parameters),
-                        }
-                    }
-                )
+        rule = apply_governance_override_to_rule(
+            rule,
+            assignment_parameters=assignment.parameters if assignment is not None else {},
+            override=override,
+        )
         await host._analyze_and_audit_rca(
             event=event,
             finding=finding,

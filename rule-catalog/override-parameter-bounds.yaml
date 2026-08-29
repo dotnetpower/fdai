@@ -1,0 +1,28 @@
+# Override parameter-relaxation bounds (upstream default: empty).
+#
+# The separately reviewed, governance-level allowlist that a
+# `mode: parameter-relaxation` override MUST stay inside
+# (rule-governance.md "Overrides § Rules (MUST)" and "Open Decisions" -
+# the safe interim design for "the permitted parameter-relaxation bounds per
+# rule", since the rule's own schema does not yet declare a relaxation
+# range). fdai.rule_catalog.schema.governance_catalog.load_governance_catalog
+# rejects any parameter-relaxation override whose key is absent here, or
+# whose value falls outside the declared bound, at the catalog-load
+# boundary - there is no runtime HIL fallback for this: an override that
+# violates the policy never reaches a resource, because the catalog
+# carrying it never loads.
+#
+# Shape (one entry per relaxable rule; a rule with no entry permits no
+# relaxation at all):
+#
+#   rules:
+#     postgresql-server.point-in-time-restore:
+#       min_retention_days: {minimum: 1, maximum: 30}
+#       mode: {allowed_values: [full, incremental]}
+#
+# `minimum` / `maximum` declare a numeric range (either bound optional);
+# `allowed_values` declares a fixed enumerated set. A bound MUST declare
+# exactly one of the two shapes - never both, never neither.
+#
+# The upstream distribution intentionally ships no relaxable rule.
+rules: {}

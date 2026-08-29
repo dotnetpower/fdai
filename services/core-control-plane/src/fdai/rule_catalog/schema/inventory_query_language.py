@@ -187,6 +187,23 @@ def query_signal_matches(
     )
 
 
+def query_scope_matches(
+    utterance: str,
+    registry: InventoryQueryLanguageRegistry | None,
+    scope_name: str,
+) -> bool:
+    """Return whether one reviewed query scope is stated with catalog boundaries."""
+
+    if registry is None or not scope_name:
+        return False
+    scope = registry.scopes.get(scope_name)
+    return scope is not None and _matches_any_term(
+        utterance,
+        scope.terms,
+        suffixes=registry.suffixes,
+    )
+
+
 def query_signal_span(
     utterance: str,
     registry: InventoryQueryLanguageRegistry | None,
@@ -288,6 +305,7 @@ __all__ = [
     "TimeUnit",
     "inventory_query_language_digest",
     "load_inventory_query_language_from_mapping",
+    "query_scope_matches",
     "query_signal_matches",
     "query_signal_span",
     "query_target_cardinality",

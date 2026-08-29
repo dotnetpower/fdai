@@ -27,12 +27,17 @@ from fdai.core.ontology_platform import (
 from fdai.core.ontology_platform.resource_state_queries import (
     RESOURCE_STATE_FUNCTION_NAME,
     RESOURCE_STATE_MEASURE_CONCEPTS,
+    RESOURCE_STATE_OBSERVED_CONCEPT,
+    RESOURCE_STATE_QUERY_CONCEPTS,
 )
 from fdai.rule_catalog.schema.inventory_query_language import (
     InventoryQueryLanguageRegistry,
     QueryEvidenceAuthority,
+    query_scope_matches,
+    query_signal_matches,
 )
 
+from .semantic_current_state_planning import exact_target_from_constraints
 from .semantic_planning_models import SemanticFrameProposal, SemanticOutputShape
 from .semantic_planning_value_filters import stated_value_filters
 
@@ -43,6 +48,8 @@ _GENERIC_COLLECTION_OUTPUTS = frozenset(
     }
 )
 _STATE_MEASURES = frozenset(RESOURCE_STATE_MEASURE_CONCEPTS)
+_STATE_QUERY_MEASURES = frozenset(RESOURCE_STATE_QUERY_CONCEPTS)
+_HEALTH_SIGNALS = ("diagnosis", "health_history", "platform_health")
 
 
 def normalize_resource_state_proposal(
@@ -55,6 +62,12 @@ def normalize_resource_state_proposal(
     """Select the collection-state family only from capability-declared measures."""
 
     declared_measures, value_groups = _state_descriptor_metadata(descriptors)
+    proposal = _normalize_typed_subscription_state(
+        proposal,
+        utterance=utterance,
+        descriptors=descriptors,
+        inventory_query_language=inventory_query_language,
+    )
     catalog_state_measures, catalog_health_measures = _catalog_state_measures(
         utterance,
         registry=inventory_query_language,
@@ -81,6 +94,10 @@ def normalize_resource_state_proposal(
         or stated_measures
         or declared_measures.intersection(proposal.measure_concepts)
     )
+    if RESOURCE_STATE_OBSERVED_CONCEPT in state_measures and len(state_measures) > 1:
+        state_measures = frozenset(
+            concept for concept in state_measures if concept != RESOURCE_STATE_OBSERVED_CONCEPT
+        )
     if (
         proposal.operation is not SemanticOperation.SELECT
         or proposal.output_shape
@@ -140,7 +157,7 @@ def compile_resource_state_plan(
         or not _has_state_function(manifest.descriptors)
     ):
         return None
-    state_concepts = tuple(sorted(_STATE_MEASURES.intersection(frame.measure_concepts)))
+    state_concepts = tuple(sorted(_STATE_QUERY_MEASURES.intersection(frame.measure_concepts)))
     if not state_concepts:
         return None
     definition = resource_collection_definition(
@@ -192,6 +209,52 @@ def compile_resource_state_plan(
         plan_digest=content_digest(body),
     )
     return verifier.verify(plan, manifest=manifest)
+
+
+def _normalize_typed_subscription_state(
+    proposal: SemanticFrameProposal,
+    *,
+    utterance: str,
+    descriptors: tuple[dict[str, Any], ...],
+    inventory_query_language: InventoryQueryLanguageRegistry | None,
+) -> SemanticFrameProposal:
+    """Keep an explicit resource subtype state read out of subscription incident health."""
+
+    type_values = stated_value_filters(utterance, descriptors).get(("Resource", "type"), ())
+    if (
+        proposal.operation is not SemanticOperation.SELECT
+        or proposal.output_shape
+        not in {
+            SemanticOutputShape.SUBSCRIPTION_SERVICE_HEALTH,
+            SemanticOutputShape.TARGET_CURRENT_STATE,
+        }
+        or len(type_values) != 1
+        or not query_scope_matches(utterance, inventory_query_language, "subscription")
+        or not query_signal_matches(utterance, inventory_query_language, "state_inspection")
+        or any(
+            query_signal_matches(utterance, inventory_query_language, signal)
+            for signal in _HEALTH_SIGNALS
+        )
+        or exact_target_from_constraints(
+            proposal.subject_constraints,
+            utterance=utterance,
+            descriptors=descriptors,
+        )
+        is not None
+    ):
+        return proposal
+    return proposal.model_copy(
+        update={
+            "subject_constraints": ("Resource",),
+            "measure_concepts": (RESOURCE_STATE_OBSERVED_CONCEPT,),
+            "temporal_scope": {},
+            "output_shape": SemanticOutputShape.RESOURCE_STATE_LIST,
+            "unresolved_terms": (),
+            "clarification_requirements": (),
+            "clarification": None,
+            "investigation": None,
+        }
+    )
 
 
 def resource_collection_definition(

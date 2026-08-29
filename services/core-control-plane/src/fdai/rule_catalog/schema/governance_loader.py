@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from importlib import resources
 from typing import Any
 
@@ -23,6 +24,7 @@ from jsonschema import Draft202012Validator
 
 from fdai.rule_catalog.schema.assignment import Assignment
 from fdai.rule_catalog.schema.effect import Effect, Enforcement
+from fdai.rule_catalog.schema.override import Override, OverrideMode
 from fdai.rule_catalog.schema.provenance import Provenance
 from fdai.rule_catalog.schema.rule_set import (
     RuleSet,
@@ -37,10 +39,12 @@ from fdai.rule_catalog.schema.scope import (
     ScopeRef,
     ScopeSelector,
 )
+from fdai.shared.contracts.models import Severity
 
 _SCHEMA_PACKAGE = "fdai.rule_catalog.schema"
 _ASSIGNMENT_SCHEMA_FILE = "assignment.schema.json"
 _RULE_SET_SCHEMA_FILE = "rule_set.schema.json"
+_OVERRIDE_SCHEMA_FILE = "override.schema.json"
 
 # The catalog YAML uses hyphenated level labels; the domain enum is an IntEnum
 # (ordered for precedence) with no string value, so the loader owns the mapping.
@@ -75,6 +79,7 @@ def _load_schema(name: str) -> dict[str, Any]:
 
 _ASSIGNMENT_VALIDATOR = Draft202012Validator(_load_schema(_ASSIGNMENT_SCHEMA_FILE))
 _RULE_SET_VALIDATOR = Draft202012Validator(_load_schema(_RULE_SET_SCHEMA_FILE))
+_OVERRIDE_VALIDATOR = Draft202012Validator(_load_schema(_OVERRIDE_SCHEMA_FILE))
 
 
 def _collect_issues(
@@ -126,6 +131,16 @@ def _build_provenance(raw: Mapping[str, Any]) -> Provenance | None:
         raise GovernanceLoadError(
             [GovernanceLoadIssue(key="provenance", message=str(exc))]
         ) from exc
+
+
+def _parse_timestamp(raw: object) -> datetime:
+    """Accept either an RFC 3339 string (JSON) or a parsed YAML timestamp scalar."""
+    if isinstance(raw, datetime):
+        return raw
+    try:
+        return datetime.fromisoformat(str(raw))
+    except ValueError as exc:
+        raise ValueError(f"not a valid RFC 3339 timestamp: {raw!r}") from exc
 
 
 def load_assignment_from_mapping(
@@ -232,9 +247,54 @@ def load_rule_set_from_mapping(raw: Mapping[str, Any]) -> RuleSet:
     )
 
 
+def load_override_from_mapping(raw: Mapping[str, Any]) -> Override:
+    """Validate ``raw`` against the override schema and build an :class:`Override`.
+
+    Raises :class:`GovernanceLoadError` carrying every schema issue on failure;
+    on success returns the domain :class:`Override` (whose constructor enforces
+    the resource-group-or-narrower scope, distinct-approver, and per-mode field
+    invariants - rule-governance.md "Overrides § Rules (MUST)"). Parameter-
+    relaxation-bounds policy validation is a separate, catalog-level boundary
+    check (:mod:`fdai.rule_catalog.schema.parameter_relaxation_policy`), not
+    performed here, because it needs the reviewed policy artifact the directory
+    loader supplies.
+    """
+    issues = _collect_issues(_OVERRIDE_VALIDATOR, raw)
+    if issues:
+        raise GovernanceLoadError(issues)
+
+    try:
+        scope = ScopeRef.parse(raw["scope"])
+    except ValueError as exc:
+        raise GovernanceLoadError([GovernanceLoadIssue(key="scope", message=str(exc))]) from exc
+
+    severity_raw = raw.get("severity_downgrade_to")
+    expires_raw = raw.get("expires_at")
+    try:
+        return Override(
+            id=raw["id"],
+            target_rule=raw["target_rule"],
+            scope=scope,
+            mode=OverrideMode(raw["mode"]),
+            justification=raw["justification"],
+            requested_by=raw["requested_by"],
+            approver=raw["approver"],
+            severity_downgrade_to=Severity(severity_raw) if severity_raw is not None else None,
+            parameter_overrides={
+                str(k): str(v) for k, v in raw.get("parameter_overrides", {}).items()
+            },
+            expires_at=_parse_timestamp(expires_raw) if expires_raw is not None else None,
+            provenance=_build_provenance(raw),
+            version=raw.get("version"),
+        )
+    except ValueError as exc:
+        raise GovernanceLoadError([GovernanceLoadIssue(key="<root>", message=str(exc))]) from exc
+
+
 __all__ = [
     "GovernanceLoadError",
     "GovernanceLoadIssue",
     "load_assignment_from_mapping",
+    "load_override_from_mapping",
     "load_rule_set_from_mapping",
 ]

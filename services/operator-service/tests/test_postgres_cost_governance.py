@@ -8,6 +8,7 @@ import pytest
 from fdai_operator_service.postgres_cost_governance import (
     PostgresCostGovernanceConfig,
     PostgresCostGovernanceReader,
+    _psycopg_dsn,
 )
 from fdai_service_contracts import DISCLOSURE_PRESETS
 
@@ -47,6 +48,15 @@ class _RecordingReader(PostgresCostGovernanceReader):
         ]
 
 
+def test_sqlalchemy_psycopg_dsn_is_normalized_for_direct_driver_use() -> None:
+    assert _psycopg_dsn("postgresql+psycopg://user@example.invalid/fdai") == (
+        "postgresql://user@example.invalid/fdai"
+    )
+    assert _psycopg_dsn("postgresql://user@example.invalid/fdai") == (
+        "postgresql://user@example.invalid/fdai"
+    )
+
+
 @pytest.mark.asyncio
 async def test_access_query_selects_latest_grant_within_requested_scope() -> None:
     reader = _RecordingReader()
@@ -59,7 +69,9 @@ async def test_access_query_selects_latest_grant_within_requested_scope() -> Non
         now=now,
     )
 
-    assert "%(scope)s = ANY(grant.scopes)" in reader.query
+    assert "FROM cost_access_grant AS access_grant" in reader.query
+    assert "access_grant.scopes ? %(scope)s" in reader.query
+    assert " AS grant" not in reader.query
     assert reader.params["scope"] == "subscription:one"
     assert decision.grant is not None
     assert decision.grant.scopes == ("subscription:one",)

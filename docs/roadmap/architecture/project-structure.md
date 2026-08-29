@@ -97,6 +97,10 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   describe intent and remediation; policies are the executable OPA/Rego the verifier re-checks.
   How sources are collected and normalized into that YAML is in
   [rule-catalog-collection.md](../rules-and-detection/rule-catalog-collection.md).
+- **governance changes stay bounded and auditable**: scoped overrides and time-boxed exemptions
+  load as validated catalog data. Core resolves only the exact covered rule and resource scope,
+  preserves separate requester and approver identities, records parameter-relaxation and expiry
+  evidence, and never treats an override as execution approval.
 - **delivery is swappable**: `gitops-pr` and `chatops` are adapters behind one interface, so
   the executor emits an abstract action and the adapter renders it (remediation-pr, Adaptive
   Card). The executor holds the only privileged identity; adapters never share it.

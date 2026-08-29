@@ -44,6 +44,11 @@ RESOURCE_STATE_MEASURE_CONCEPTS = (
     "resource_state.succeeded",
     "resource_state.unavailable",
 )
+RESOURCE_STATE_OBSERVED_CONCEPT = "resource_state.observed"
+RESOURCE_STATE_QUERY_CONCEPTS = (
+    *RESOURCE_STATE_MEASURE_CONCEPTS,
+    RESOURCE_STATE_OBSERVED_CONCEPT,
+)
 RESOURCE_STATE_MEASURE_TERMS = {
     "resource_state.available": ("available", "사용 가능"),
     "resource_state.deallocated": ("deallocated", "할당 해제", "할당 해제된"),
@@ -65,6 +70,13 @@ RESOURCE_STATE_MEASURE_TERMS = {
     ),
     "resource_state.succeeded": ("succeeded", "성공"),
     "resource_state.unavailable": ("unavailable", "사용 불가능", "이용 불가"),
+    RESOURCE_STATE_OBSERVED_CONCEPT: (
+        "status",
+        "current state",
+        "상태",
+        "상태 확인",
+        "현재 상태",
+    ),
 }
 _STATE_NAMES = frozenset(concept.rsplit(".", 1)[-1] for concept in RESOURCE_STATE_MEASURE_CONCEPTS)
 
@@ -74,7 +86,7 @@ def resource_state_function_type() -> OntologyFunctionType:
 
     return OntologyFunctionType(
         name=RESOURCE_STATE_FUNCTION_NAME,
-        version="1.0.0",
+        version="1.1.0",
         kind=OntologyFunctionKind.QUERY,
         artifact_digest=f"sha256:{hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}",
         publisher="fdai",
@@ -87,9 +99,9 @@ def resource_state_function_type() -> OntologyFunctionType:
                 "state_concepts": {
                     "type": "array",
                     "minItems": 1,
-                    "maxItems": len(RESOURCE_STATE_MEASURE_CONCEPTS),
+                    "maxItems": len(RESOURCE_STATE_QUERY_CONCEPTS),
                     "uniqueItems": True,
-                    "items": {"enum": list(RESOURCE_STATE_MEASURE_CONCEPTS)},
+                    "items": {"enum": list(RESOURCE_STATE_QUERY_CONCEPTS)},
                 },
             },
         },
@@ -97,10 +109,10 @@ def resource_state_function_type() -> OntologyFunctionType:
             "type": "object",
             "additionalProperties": False,
             "required": ["rows", "complete", "truncation_reason"],
-            "x-fdai-measure-concepts": list(RESOURCE_STATE_MEASURE_CONCEPTS),
+            "x-fdai-measure-concepts": list(RESOURCE_STATE_QUERY_CONCEPTS),
             "x-fdai-measure-value-groups": [
                 {"concept": concept, "terms": list(RESOURCE_STATE_MEASURE_TERMS[concept])}
-                for concept in RESOURCE_STATE_MEASURE_CONCEPTS
+                for concept in RESOURCE_STATE_QUERY_CONCEPTS
             ],
             "properties": {
                 "rows": {"type": "array", "maxItems": 1000},
@@ -141,6 +153,7 @@ def resource_state_inventory_function(
         if secured.receipt.truncated or not secured.receipt.complete:
             return _table((), complete=False, reason="resource_scope_incomplete")
         requested = frozenset(str(item) for item in arguments["state_concepts"])
+        include_all_observed = requested == {RESOURCE_STATE_OBSERVED_CONCEPT}
         rows: list[QueryRow] = []
         incomplete = False
         for target in sorted(secured.materialization.graph.objects, key=lambda item: item.id):
@@ -151,7 +164,7 @@ def resource_state_inventory_function(
             if values is None:
                 incomplete = True
                 continue
-            if values["state_concept"] not in requested:
+            if not include_all_observed and values["state_concept"] not in requested:
                 continue
             rows.append(
                 QueryRow.from_values(
@@ -251,6 +264,8 @@ __all__ = [
     "RESOURCE_STATE_FUNCTION_NAME",
     "RESOURCE_STATE_MEASURE_CONCEPTS",
     "RESOURCE_STATE_MEASURE_TERMS",
+    "RESOURCE_STATE_OBSERVED_CONCEPT",
+    "RESOURCE_STATE_QUERY_CONCEPTS",
     "resource_state_function_type",
     "resource_state_inventory_function",
     "verified_resource_state_values",

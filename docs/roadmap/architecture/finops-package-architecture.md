@@ -45,6 +45,7 @@ irreversible effects, unresolved ambiguity, or risk outside standing authorizati
 |------|------------------|-----------------------|
 | FinOps guardrails | `core/verticals/cost_governance/finops.py` and 11 focused tests | Pure domain logic can move without importing the control loop or agents. |
 | Cost estimation | `shared/providers/cost_estimator.py` and the control-loop `_resolve_cost_override` path | The Protocol stays in Core; a package can provide a concrete estimator. |
+| Operator Cost Governance projection | `fdai_operator_service/postgres_cost_governance.py` reads the service-owned JSON scope map with a direct psycopg connection | The Operator host normalizes SQLAlchemy-style psycopg DSNs at the driver boundary and evaluates exact scope membership without moving access authority into the optional package. |
 | Cost anomaly advice | `agents/njord.py` ingests cost samples, detects rolling-baseline anomalies, and publishes `object.cost-anomaly` | Njord's fixed role stays in Core, while replaceable detection logic moves behind a typed binding. |
 | Operating ontology | `CostObjective`, service and workload topology, decision lineage, and exact-release query infrastructure | The package must bind existing kernel declarations and package-owned profiles to one ontology release instead of creating parallel FinOps models. |
 | Agent organization | `PANTHEON_SPECS` fixes all 15 identities, owned objects, and topics | The package supplies behavior to existing owners and cannot add an agent, repoint ownership, or create direct calls. |

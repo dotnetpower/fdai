@@ -150,6 +150,79 @@ def test_impact_answer_separates_observed_scope_inference_and_gaps() -> None:
     assert "`execution_authority=false`" in answer
 
 
+@pytest.mark.parametrize(
+    ("complete", "reason", "expected_heading"),
+    (
+        (True, None, "일치하는 관측 근거 없음"),
+        (False, "source_incomplete", "근거가 충분하지 않음"),
+    ),
+)
+def test_generic_empty_answer_does_not_claim_zero_row_verification(
+    complete: bool,
+    reason: str | None,
+    expected_heading: str,
+) -> None:
+    request = _request(locale="ko")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [
+            {
+                "node_id": "generic-query",
+                "rows": [],
+                "returned_rows": 0,
+                "total_rows": 0,
+                "source_complete": complete,
+                "source_truncation_reason": reason,
+                "display_truncated": False,
+            }
+        ],
+        output_shape="subscription_service_health",
+    )
+
+    assert expected_heading in answer
+    assert "전체 0개 행 중 0개를 검증했습니다" not in answer
+    assert "행 0개는" in answer
+    if reason:
+        assert "`source_incomplete`" in answer
+    else:
+        assert "근거 한계:" not in answer
+    assert "`execution_authority=false`" in answer
+
+
+def test_generic_mixed_outputs_do_not_claim_zero_row_verification() -> None:
+    request = _request(locale="en")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [
+            {
+                "node_id": "matched",
+                "rows": [{"row_id": "one", "values": {"status": "ready"}}],
+                "returned_rows": 1,
+                "total_rows": 1,
+                "source_complete": True,
+                "source_truncation_reason": None,
+            },
+            {
+                "node_id": "empty",
+                "rows": [],
+                "returned_rows": 0,
+                "total_rows": 0,
+                "source_complete": True,
+                "source_truncation_reason": None,
+            },
+        ],
+        output_shape="generic",
+    )
+
+    assert "Verified 1 of 1 rows." in answer
+    assert "One verified output returned no matching rows." in answer
+    assert "Verified 0 of 0 rows." not in answer
+
+
 def test_health_answer_separates_lifecycle_readiness_application_and_gaps() -> None:
     request = _request(locale="en")
     semantic_request = cast(dict[str, object], request["semantic_turn"])

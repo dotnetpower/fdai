@@ -153,6 +153,27 @@ class LlmConfig(_ConfigBase):
                 )
 
 
+class RuleGovernanceConfig(_ConfigBase):
+    """Configured governance-lifecycle bounds (rule-governance.md "Exemptions").
+
+    ``exemption_max_duration_days`` bounds how long a time-boxed exemption may
+    stay active; the governance catalog loader fails closed on any exemption
+    whose ``expires_at - created_at`` exceeds it. ``exemption_alert_lead_days``
+    is the ahead-of-expiry alert lead time consumed by
+    :func:`fdai.rule_catalog.schema.exemption_lifecycle.plan_exemption_lifecycle`.
+    """
+
+    exemption_max_duration_days: Annotated[int, Field(ge=1, le=3650)] = 180
+    exemption_alert_lead_days: Annotated[int, Field(ge=1, le=365)] = 14
+
+    def model_post_init(self, __context: object) -> None:
+        if self.exemption_alert_lead_days >= self.exemption_max_duration_days:
+            raise ValueError(
+                "rule_governance.exemption_alert_lead_days MUST be strictly less than "
+                "exemption_max_duration_days so every active exemption alerts before expiry"
+            )
+
+
 class AppConfig(_ConfigBase):
     """Root configuration object handed to :class:`Container`.
 
@@ -168,6 +189,7 @@ class AppConfig(_ConfigBase):
     rule_catalog: RuleCatalogConfig = Field(default_factory=RuleCatalogConfig)
     runtime: RuntimeConfig
     llm: LlmConfig = Field(default_factory=LlmConfig)
+    rule_governance: RuleGovernanceConfig = Field(default_factory=RuleGovernanceConfig)
 
 
 __all__ = [
@@ -178,6 +200,7 @@ __all__ = [
     "LlmMode",
     "PostgresConfig",
     "RuleCatalogConfig",
+    "RuleGovernanceConfig",
     "RuntimeConfig",
     "RuntimeEnv",
 ]

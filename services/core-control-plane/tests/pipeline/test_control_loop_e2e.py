@@ -124,6 +124,7 @@ def _make_loop(
     incident_member_source: Any = None,
     resource_dependency_graph: Any = None,
     governance_assignments: tuple[Any, ...] = (),
+    governance_overrides: tuple[Any, ...] = (),
 ) -> tuple[ControlLoop, RecordingRemediationPrPublisher, InMemoryStateStore]:
     rules, action_types = shipped_catalog
     signal_types = load_signal_type_registry_from_mapping(
@@ -162,6 +163,7 @@ def _make_loop(
         incident_member_source=incident_member_source,
         resource_dependency_graph=resource_dependency_graph,
         governance_assignments=governance_assignments,
+        governance_overrides=governance_overrides,
     )
     return loop, publisher, audit
 
@@ -174,6 +176,7 @@ def _make_event(
     resource_id: str,
     props: dict[str, Any],
     event_type: str = "config_changed",
+    resource_extra: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
         "schema_version": "1.0.0",
@@ -189,6 +192,7 @@ def _make_event(
                 "resource_id": resource_id,
                 "type": resource_type,
                 "props": props,
+                **(resource_extra or {}),
             }
         },
     }
@@ -698,6 +702,191 @@ async def test_governance_remediate_enforce_still_obeys_risk_gate(
     kinds = [entry["entry"].get("action_kind") for entry in audit.audit_entries]
     assert "governance.assignment_resolved" in kinds
     assert "risk_gate.unified" in kinds
+
+
+# Every other object-storage control satisfied so only
+# `object-storage.public-access.deny` fires - isolates the override
+# precedence tests below to one finding instead of the 11 rules bound to
+# this resource type in the shipped catalog.
+_ONLY_PUBLIC_ACCESS_VIOLATION_PROPS: dict[str, Any] = {
+    "public_access": "enabled",
+    "tags": {"owner": "team-a", "cost_center": "example"},
+    "blob_soft_delete_enabled": True,
+    "blob_versioning_enabled": True,
+    "infrastructure_encryption_enabled": True,
+    "enable_https_traffic_only": True,
+    "min_tls_version": "TLS1_2",
+    "diagnostic_settings": [{"id": "log-workspace"}],
+    "public_network_access_enabled": False,
+    "private_endpoints": [{"id": "pe-1"}],
+    "allow_shared_key_access": False,
+}
+
+
+@requires_opa
+@pytest.mark.asyncio
+async def test_override_disabled_suppresses_an_enforced_deny_assignment(
+    shipped_catalog: tuple[Any, Any],
+) -> None:
+    """rule-governance.md "Overrides § Precedence": an override wins over an
+    assignment's effect on the scope it covers - a covering `mode: disabled`
+    override turns an enforced `deny` into `governance_observe`, while shadow
+    (the assignment + override audit trail) keeps recording."""
+    from fdai.rule_catalog.schema.assignment import Assignment
+    from fdai.rule_catalog.schema.effect import Effect, Enforcement
+    from fdai.rule_catalog.schema.override import Override, OverrideMode
+    from fdai.rule_catalog.schema.scope import Scope, ScopeLevel, ScopeRef
+
+    rules, _action_types = shipped_catalog
+    del rules
+    assignment = Assignment(
+        id="enforce-object-storage-deny",
+        target_rule_ids=frozenset({"object-storage.public-access.deny"}),
+        scope=Scope(level=ScopeLevel.RESOURCE, id="stg-open"),
+        effect=Effect.DENY,
+        enforcement=Enforcement.ENFORCE,
+    )
+    override = Override(
+        id="override.disabled.rg-analytics",
+        target_rule="object-storage.public-access.deny",
+        scope=ScopeRef.parse("scope://org-1/account-1/rg-analytics"),
+        mode=OverrideMode.DISABLED,
+        justification="Non-critical analytics workloads accept this rule being inert here.",
+        requested_by="requester-oid",
+        approver="approver-oid",
+    )
+    loop, publisher, audit = _make_loop(
+        shipped_catalog,
+        governance_assignments=(assignment,),
+        governance_overrides=(override,),
+    )
+
+    result = await loop.process(
+        _make_event(
+            idempotency_key="e-override-disabled",
+            resource_type="object-storage",
+            resource_id="stg-open",
+            props=_ONLY_PUBLIC_ACCESS_VIOLATION_PROPS,
+            resource_extra={
+                "organization": "org-1",
+                "account": "account-1",
+                "resource_group": "rg-analytics",
+            },
+        )
+    )
+
+    assert result.outcome is ControlLoopOutcome.GOVERNANCE_OBSERVED
+    assert not publisher.records
+    entries = [row["entry"] for row in audit.audit_entries]
+    assignment_kinds = [
+        e for e in entries if e.get("action_kind") == "governance.assignment_resolved"
+    ]
+    override_kinds = [e for e in entries if e.get("action_kind") == "governance.override_resolved"]
+    assert assignment_kinds[0]["effective_effect"] == "deny"
+    assert override_kinds[0]["override_id"] == "override.disabled.rg-analytics"
+    assert override_kinds[0]["override_mode"] == "disabled"
+
+
+@requires_opa
+@pytest.mark.asyncio
+async def test_override_disabled_applies_without_a_matching_assignment(
+    shipped_catalog: tuple[Any, Any],
+) -> None:
+    from fdai.rule_catalog.schema.override import Override, OverrideMode
+    from fdai.rule_catalog.schema.scope import ScopeRef
+
+    override = Override(
+        id="override.disabled.rg-analytics-unassigned",
+        target_rule="object-storage.public-access.deny",
+        scope=ScopeRef.parse("scope://org-1/account-1/rg-analytics"),
+        mode=OverrideMode.DISABLED,
+        justification="Non-critical analytics workloads accept this rule being inert here.",
+        requested_by="requester-oid",
+        approver="approver-oid",
+    )
+    loop, publisher, audit = _make_loop(
+        shipped_catalog,
+        governance_overrides=(override,),
+    )
+
+    result = await loop.process(
+        _make_event(
+            idempotency_key="e-override-disabled-unassigned",
+            resource_type="object-storage",
+            resource_id="stg-open",
+            props=_ONLY_PUBLIC_ACCESS_VIOLATION_PROPS,
+            resource_extra={
+                "organization": "org-1",
+                "account": "account-1",
+                "resource_group": "rg-analytics",
+            },
+        )
+    )
+
+    assert result.outcome is ControlLoopOutcome.GOVERNANCE_OBSERVED
+    assert not publisher.records
+    entries = [row["entry"] for row in audit.audit_entries]
+    assert not any(
+        entry.get("action_kind") == "governance.assignment_resolved" for entry in entries
+    )
+    assert any(entry.get("action_kind") == "governance.override_resolved" for entry in entries)
+
+
+@requires_opa
+@pytest.mark.asyncio
+async def test_override_outside_its_scope_does_not_apply(
+    shipped_catalog: tuple[Any, Any],
+) -> None:
+    """An override on a different resource group never suppresses enforcement
+    elsewhere - the assignment's deny still stands outside the override's
+    scope (rule-governance.md "Scope" - standard precedence applies
+    unchanged outside the override's covered scope)."""
+    from fdai.rule_catalog.schema.assignment import Assignment
+    from fdai.rule_catalog.schema.effect import Effect, Enforcement
+    from fdai.rule_catalog.schema.override import Override, OverrideMode
+    from fdai.rule_catalog.schema.scope import Scope, ScopeLevel, ScopeRef
+
+    rules, _action_types = shipped_catalog
+    del rules
+    assignment = Assignment(
+        id="enforce-object-storage-deny-2",
+        target_rule_ids=frozenset({"object-storage.public-access.deny"}),
+        scope=Scope(level=ScopeLevel.RESOURCE, id="stg-open"),
+        effect=Effect.DENY,
+        enforcement=Enforcement.ENFORCE,
+    )
+    override = Override(
+        id="override.disabled.rg-other",
+        target_rule="object-storage.public-access.deny",
+        scope=ScopeRef.parse("scope://org-1/account-1/rg-other"),
+        mode=OverrideMode.DISABLED,
+        justification="Non-critical analytics workloads accept this rule being inert here.",
+        requested_by="requester-oid",
+        approver="approver-oid",
+    )
+    loop, publisher, audit = _make_loop(
+        shipped_catalog,
+        governance_assignments=(assignment,),
+        governance_overrides=(override,),
+    )
+
+    result = await loop.process(
+        _make_event(
+            idempotency_key="e-override-out-of-scope",
+            resource_type="object-storage",
+            resource_id="stg-open",
+            props=_ONLY_PUBLIC_ACCESS_VIOLATION_PROPS,
+            resource_extra={
+                "organization": "org-1",
+                "account": "account-1",
+                "resource_group": "rg-analytics",
+            },
+        )
+    )
+
+    assert result.outcome is ControlLoopOutcome.DENIED
+    entries = [row["entry"] for row in audit.audit_entries]
+    assert not any(e.get("action_kind") == "governance.override_resolved" for e in entries)
 
 
 @requires_opa

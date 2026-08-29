@@ -49,13 +49,15 @@ class PostgresCostGovernanceReader:
     ) -> CostAccessDecision:
         rows = await self._fetch(
             """
-            SELECT grant.grant_id, grant.principal_id, grant.revision, grant.purpose,
-                   grant.scopes, grant.disclosure, grant.effective_at, grant.expires_at,
-                   grant.source_authority, ceiling.disclosure AS ceiling_disclosure,
+            SELECT access_grant.grant_id, access_grant.principal_id,
+                   access_grant.revision, access_grant.purpose,
+                   access_grant.scopes, access_grant.disclosure,
+                   access_grant.effective_at, access_grant.expires_at,
+                   access_grant.source_authority, ceiling.disclosure AS ceiling_disclosure,
                    ceiling.revision AS ceiling_revision,
                    ceiling.effective_at AS ceiling_effective_at,
                    ceiling.source_authority AS ceiling_source_authority
-            FROM cost_access_grant AS grant
+            FROM cost_access_grant AS access_grant
             LEFT JOIN LATERAL (
                 SELECT revision, disclosure, effective_at, source_authority
                 FROM cost_disclosure_ceiling
@@ -63,10 +65,10 @@ class PostgresCostGovernanceReader:
                 ORDER BY revision DESC
                 LIMIT 1
             ) AS ceiling ON TRUE
-            WHERE grant.principal_id = %(principal_id)s
-              AND grant.purpose = %(purpose)s
-              AND %(scope)s = ANY(grant.scopes)
-            ORDER BY grant.revision DESC
+            WHERE access_grant.principal_id = %(principal_id)s
+              AND access_grant.purpose = %(purpose)s
+              AND access_grant.scopes ? %(scope)s
+            ORDER BY access_grant.revision DESC
             LIMIT 1
             """,
             {"principal_id": principal_id, "purpose": purpose, "scope": scope, "now": now},
@@ -185,7 +187,7 @@ class PostgresCostGovernanceReader:
         params: Mapping[str, object],
     ) -> list[dict[str, Any]]:
         async with await psycopg.AsyncConnection.connect(
-            self._config.dsn,
+            _psycopg_dsn(self._config.dsn),
             connect_timeout=self._config.connect_timeout_s,
             row_factory=dict_row,
         ) as connection:
@@ -195,6 +197,10 @@ class PostgresCostGovernanceReader:
             )
             cursor = await connection.execute(query, dict(params))
             return [dict(row) for row in await cursor.fetchall()]
+
+
+def _psycopg_dsn(value: str) -> str:
+    return value.replace("postgresql+psycopg://", "postgresql://", 1)
 
 
 class UnavailableCostGovernanceReader:

@@ -12,6 +12,7 @@ from fdai.core.control_loop._audit_helpers import (
 from fdai.core.control_loop._audit_helpers import (
     write_abstain_audit,
     write_governance_assignment_audit,
+    write_override_resolution_audit,
     write_t1_audit,
     write_t2_audit,
 )
@@ -27,6 +28,7 @@ from fdai.core.tiers.t1_lightweight.tier import T1Decision
 from fdai.core.tiers.t2_reasoning import T2Decision
 from fdai.core.trust_router import RoutingDecision
 from fdai.rule_catalog.schema.assignment import AssignmentResolution
+from fdai.rule_catalog.schema.override import Override
 from fdai.shared.contracts.models import Action, Event, Rule
 from fdai.shared.providers.stage_publisher import StageName, StagePhase, StagePublisher
 from fdai.shared.providers.state_store import StateStore
@@ -56,6 +58,22 @@ class ControlLoopBoundaryMixin:
             event=event,
             resource_id=resource_id,
             resolution=resolution,
+        )
+
+    async def _write_override_resolution_audit(
+        self,
+        *,
+        event: Event,
+        resource_id: str,
+        rule_id: str,
+        override: Override,
+    ) -> None:
+        await write_override_resolution_audit(
+            self._audit_store,
+            event=event,
+            resource_id=resource_id,
+            rule_id=rule_id,
+            override=override,
         )
 
     async def _notify_decision(

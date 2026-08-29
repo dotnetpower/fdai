@@ -129,11 +129,9 @@ export function ExecutiveStatus({
             ) : null}
           </div>
           <p class="overview-status-summary">
-            {autonomy
+            {autonomy && autonomy.success.auto_resolution_rate.value !== null
               ? t(autonomy.synthetic ? "overview.status.simulatedSummary" : "overview.status.summary", {
-                  rate: autonomy.success.auto_resolution_rate.value === null
-                    ? t("overview.evidence.unavailable")
-                    : Math.round(autonomy.success.auto_resolution_rate.value * 100),
+                  rate: Math.round(autonomy.success.auto_resolution_rate.value * 100),
                   hil: kpi.hil_pending,
                   escapes: policyEscapes ?? t("overview.evidence.unavailable"),
                 })
@@ -181,7 +179,7 @@ export function ExecutiveStatus({
           ) : null}
           {autonomy?.source.as_of ? (
             <EvidenceLink href={auditHref} label={t("overview.evidence.asOfLabel")}>
-              {t("overview.evidence.asOf", { time: autonomy.source.as_of })}
+              {t("overview.evidence.asOf", { time: formatTimestamp(autonomy.source.as_of) })}
             </EvidenceLink>
           ) : null}
           {kpi.last_recorded_at ? (

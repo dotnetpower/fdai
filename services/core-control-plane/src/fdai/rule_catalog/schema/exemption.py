@@ -14,9 +14,9 @@ one shot.
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from importlib import resources
 from typing import Annotated, Any
@@ -158,6 +158,44 @@ class Exemption(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Configured maximum duration (rule-governance.md "Exemptions")
+# ---------------------------------------------------------------------------
+
+
+def exemption_duration_issue(
+    exemption: Exemption, *, max_duration: timedelta
+) -> ExemptionIssue | None:
+    """Return an issue when ``exemption`` exceeds the configured maximum duration.
+
+    Pure and deterministic: compares ``expires_at - created_at`` (both already
+    validated UTC timestamps) against ``max_duration``
+    (``AppConfig.rule_governance.exemption_max_duration_days``). Returns ``None``
+    when the exemption's duration is within bound. The load boundary
+    (:func:`fdai.rule_catalog.schema.governance_catalog.load_governance_catalog`)
+    aggregates this alongside every other exemption issue and fails closed.
+    """
+    duration = exemption.expires_at - exemption.created_at
+    if duration <= max_duration:
+        return None
+    return ExemptionIssue(
+        key=f"{exemption.id}:expires_at",
+        message=(f"exemption duration {duration} exceeds the configured maximum {max_duration}"),
+    )
+
+
+def exemption_duration_issues(
+    exemptions: Iterable[Exemption], *, max_duration: timedelta
+) -> list[ExemptionIssue]:
+    """Return every :func:`exemption_duration_issue` across ``exemptions``."""
+    issues: list[ExemptionIssue] = []
+    for exemption in exemptions:
+        issue = exemption_duration_issue(exemption, max_duration=max_duration)
+        if issue is not None:
+            issues.append(issue)
+    return issues
+
+
+# ---------------------------------------------------------------------------
 # Loader
 # ---------------------------------------------------------------------------
 
@@ -221,6 +259,8 @@ __all__ = [
     "ExemptionIssue",
     "ExemptionScope",
     "ExemptionState",
+    "exemption_duration_issue",
+    "exemption_duration_issues",
     "load_exemption_from_mapping",
     "parse_exemption_json",
 ]

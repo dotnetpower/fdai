@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: e248c6d8d25890bb03806c6af044f8218725b8ba
-translation_revised: 2026-08-28
+translation_source_sha: 5c63f72e5ee3d5a60acf93b7778aab6ef14d9f00
+translation_revised: 2026-08-29
 ---
 # FDAI Console 대화
 사람 오퍼레이터가 CLI, Teams, Slack, 웹 챗을 통해 FDAI에 **역으로 말할 수 있는** 방식입니다. 별도 제품이 아닌 FDAI Console의 **대화형 표면**로서 계층 아키텍처, 도구 카탈로그, LLM tier, 세션 지속성, 도구별 RBAC, 안전 invariant, 롤아웃 상태를 정의합니다.
@@ -15,6 +15,7 @@ Settings > Integrations에서는 합성 자리 표시자로 운영 incident-open
 Console shell은 헤더에 간결한 FDAI 브랜드 락업을 유지하고, 외부는 투명하고 내부는 흰색인 정사각형 브라우저 아이콘을 사용하여 밝고 어두운 브라우저 UI에서 마크를 선명하게 유지합니다. 기본 탐색은 콘텐츠 레이아웃에서 56 px 활동 레일만 차지합니다. 그룹 버튼이나 페이지 제목의 이동 경로를 선택하면 하위 탐색기가 오버레이로 열리고, 하위 메뉴를 선택하면 닫히며, 핀을 명시적으로 고정하면 300 px 고정 영역으로 전환됩니다. 오퍼레이터는 활동 레일의 상황에 맞는 메뉴나 접근 가능한 `...` 컨트롤에서 선택적 대메뉴를 표시하거나 숨길 수 있습니다. 전체 현황, 설정, 현재 표시 중인 그룹은 숨길 수 없습니다.
 인증된 active-incident 스트림은 idle Command Deck을 인시던트 선택자와 함께 열 수 있습니다. 이 선택자는 표현 힌트일 뿐이며 서버는 답변 전에 영속 인시던트와 근거를 다시 해석합니다.
 Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관찰할 때 localized 읽기 전용 조사 턴을 한 번 제출합니다. Browser-local 인시던트 원장은 reload 뒤 재생을 억제하며, 인시던트 배지를 누르면 명시적으로 다시 조사할 수 있습니다. 인시던트 질문이 여러 기록과 같은 정도로 일치하면 최종 답변은 plain-text 안내 대신 범위가 제한된 후보 버튼을 포함합니다. 버튼은 해당 후보의 exact 인시던트 대화를 열고 localized 읽기 전용 조사 턴을 즉시 제출합니다. 버튼 click은 운영자의 명시적인 요청입니다. 자동 active-incident 스트림 열림은 managed-resource 액션을 제출하지 않습니다.
+전체 현황은 비용 거버넌스 변환 결과를 사용할 수 없을 때 이를 선택적 데이터로 처리하고, 지원되지 않는 자율 운영 요약은 생략하며, 근거 시각을 오퍼레이터 로캘로 표시합니다. 탐색기가 가용 너비를 바꾸면 컨테이너 쿼리를 통해 화면을 다시 배치합니다. Command Deck 계획 피드백은 장식용으로만 유지되고 동작 감소 설정을 따르며, 작업 승인이나 실행을 암시하지 않습니다.
 
 이 문서는 **pull 방향**, 즉 오퍼레이터가 묻고 시뮬레이션하고 승인하는 경로를 다룹니다. Push와 pull은 같은 채널 자격 증명과 감사 계약을 공유하지만 서로 다른 통합 표면입니다.
 > 고객-무관: 아래의 모든 채널 id, LLM 배포 이름, 리소스 id, 그룹 이름은 자리 표시자. 포크는 구성으로 실제 값을 공급합니다 ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
@@ -33,12 +34,14 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 인시던트 대화 RCA 표현 | implemented | `incident_queries.py`, `semantic_turn_processor.py`, `semantic_turn_presentation.py`, `presentation-artifact.ts`, focused Core, Operator 및 Console 검사(`138 passed`) | 기록된 원인은 일치하는 인용이 포함된 grounded 가설 또는 정확한 감사 행에 근거한 허용 목록의 결정론적 최종 실패를 요구합니다. T0는 범위가 제한된 영향 근거를 기록하고 두 언어 모두 실행 권한 없이 근본 원인, 영향 및 인용을 렌더링합니다. 누락된 근거는 명시적으로 유지합니다. |
 | 구조화된 인시던트 근거 가독성 | implemented | `structured-reply.tsx`, `presentation-value.ts`, `structured-reply.css`, 집중 Console 검사(`19 passed`) 및 타입 검사 | Console은 의미가 있는 마크업에 정확한 RFC 3339 값을 보존하면서 운영자 로컬 시각과 시간대, 관찰 구간, 읽기 쉬운 주체와 기계 토큰 레이블, 반응형 근거 행, 범위가 명확한 채팅 연결 상태, 모바일 44 px 컨트롤을 표시합니다. 브라우저 비평 5회 뒤에는 범위가 제한된 모바일 출처 목록의 가로 스크롤만 Low로 남았으며 통제된 브라우저 산출물은 보존하지 않았습니다. |
 | Command Deck workspace 시각적 계층 | implemented | `console/src/deck/command-deck-presenters.tsx`, `console/src/deck/command-deck-workspace-visual.test.ts`, `console/src/styles.css`, 집중 presenter 검사 11개 및 빈 상태 시각 검사 2개 통과, 정확한 staged snapshot 타입 검사와 운영 빌드, 인증된 데스크톱, constrained-desktop 및 모바일 Browser 검사 | 비어 있는 새 workspace는 화면 근거가 연결된 작성기 하나와 상황 또는 운영 영역 prompt 카드 4개, 현재 화면 Checklist 대표 카드 1개를 중앙에 배치합니다. 카드를 선택하면 기존 작성기에 prompt를 채우고 기존 제출 경로가 대화를 시작하며, 첫 턴 또는 복원된 대화는 작성기를 하단으로 되돌립니다. 현재 화면 스냅샷은 답변 근거로 유지하지만 별도 패널로 표시하지 않습니다. 답변, 근거, 승인, 변경 또는 실행 권한은 바뀌지 않았습니다. |
+| 전체 현황 및 Command Deck 표현 복원력 | 진행 중 | `console/src/routes/dashboard.executive.tsx`, `console/src/routes/dashboard.loading.ts`, `console/src/deck/structured-reply.css`, `console/src/styles.css`, 현재 변경 | 선택적 비용 거버넌스 권한 미비를 사용 불가 상태로 표시하고, 자율 운영 지표가 없을 때 합성 요약을 만들지 않으며, 로캘에 맞춰 시각을 표시합니다. 좁은 탐색기 레이아웃은 컨테이너 쿼리로 다시 배치하고 계획 동작은 동작 감소 설정을 따릅니다. 구현 완료 상태를 주장하려면 집중 Console 검사 결과를 기록해야 합니다. |
 | 관찰된 활동 출처 이력 | implemented | `semantic_turn_runtime.py`, `conversation_activity.py`, `conversation_channel.py`, `backend-normalizers.ts`, `investigation-timeline.tsx`, 집중 Core, Operator 및 Console 검사, 인증된 세 viewport Browser 검토 | 수명 주기 전용 이벤트는 기록된 사람용 설명을 먼저 표시하고 외부 명령 또는 프로바이더 요청이 실행되지 않았음을 밝힙니다. 조회 실행 기록은 서비스 간 전송과 실제 실행 인터페이스를 구분합니다. 온톨로지 읽기는 CLI 명령, 공개 엔드포인트 또는 프로바이더 구현을 만들지 않고 Core의 타입이 지정된 조회 실행기, 작업 및 프로바이더 중립 출처를 식별합니다. 추가된 출처 이력 필드가 없는 과거 기록은 추론하지 않고 명시적으로 표시합니다. |
 | 대상 결속 인과 표현 | implemented | `semantic_turn_presentation.py`, `test_semantic_turn_bridge.py`, 집중 이중 언어 및 causal matrix 검사 31개 통과 | 여러 output으로 구성된 causal 결과는 exact 대상, 증상 concept, 정렬된 baseline 및 current window, 측정된 변화, 경쟁 가설 2개 이상을 표시합니다. 각 가설은 `supported`, `refuted`, `unresolved` 중 하나와 범위가 제한된 근거 상세 및 limitation을 유지합니다. 불완전하거나 오래되거나 충돌하는 근거는 limitation으로 남고 인과 claim으로 승격되지 않습니다. 이 projection은 승인, 변경 또는 실행 권한을 부여하지 않습니다. 인증된 post-commit 검증은 Issue #244에 열린 상태로 남아 있습니다. |
 | 온톨로지 보증 cohort release oracle | implemented | `console/tests/live-e2e/ontology-query-assurance.{ts,spec.ts,test.ts}`, 집중 보증 테스트 101개 통과 | 전체 cohort operation coverage는 고정 개수를 복제하지 않고 결과 histogram을 결정론적으로 생성된 cohort와 비교합니다. 누락 또는 대체 operation은 실패하고 extension operation은 작성된 범위 제한 분포를 유지합니다. |
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-29 | 진행 중 | Command Deck 계획 피드백을 권한이 없고 동작 설정을 따르는 표현으로 유지하면서 선택적 전체 현황 데이터 처리와 반응형 표현을 강화했습니다. | `현재 변경`, `console/src/routes/dashboard.executive.tsx`, `console/src/routes/dashboard.loading.ts`, `console/src/deck/structured-reply.css`, `console/src/styles.css`, 집중 테스트 파일 | 구현 범위 상태를 높이기 전에 집중 Console 테스트와 타입 검사 결과를 기록합니다. |
 | 2026-08-28 | 구현됨 | 정적 시안의 Visualization 그룹을 복원하고 왼쪽 가장자리 선택 강조를 Console 시각 경계가 요구하는 완전하고 차분한 윤곽선으로 교체했습니다. | `current change`; 집중 시안 시각 경계 테스트 5개와 Console 타입 검사가 통과했습니다. | 정적 시안에서 통제된 런타임 또는 운영 Console 근거를 주장하지 않습니다. |
 | 2026-08-28 | 구현됨 | 사용할 수 없는 비용 거버넌스 자리 표시자를 답변 준비 중 검색 추적에서 제외하고, 별도 소유 Overview 측정 경로를 사용 불가로 선언했으며, 의미 브리지 뒤에서 원시 PostgreSQL 스트림 대체 경로를 보존했습니다. | `current change`; 집중 검색 추적, Operator 구성, 의미 브리지, 서비스 테스트 소유권 검사 및 Console 타입 검사. | 인증된 실제 변환 결과 근거를 별도로 보존합니다. 이 로컬 검사는 런타임 가용성을 입증하지 않습니다. |
 | 2026-08-28 | 구현됨 | 비용 거버넌스 탐색 통합을 현재 탐색기 셸에 rebase한 뒤 설정 중복 제거 과정에서 타입이 지정된 탐색 그룹을 보존했습니다. | `current change`; `console/src/navigation-preferences.ts`; 집중 탐색 및 비용 거버넌스 경로 테스트 8개와 Console 타입 검사가 통과했습니다. | 이 타입 전용 통합 수정에 남은 작업은 없습니다. 비용 거버넌스 운영 검증은 해당 전달 원장에서 계속 추적합니다. |

@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 5c1445b76fb1d821333777056148a2f50a171676
-translation_revised: 2026-08-28
+translation_source_sha: ac41795d22794a866c1028136324e8ff44dba413
+translation_revised: 2026-08-29
 ---
 # 온톨로지 구조 모델
 
@@ -155,6 +155,10 @@ API endpoint, CA 묶음 또는 마운트된 service-account token이 구성되�
 프로바이더 명령이나 실행 권한 없이 검증된 노드 종류, 의존성 위치, 상태 및 근거 참조를 보존합니다.
 관측 전달이 누락되거나 지연되거나 실패해도 조회 결과는 바뀌지 않으며 최종 실행 증적이 권위를
 유지합니다.
+
+리소스 상태 조회는 카탈로그에 선언된 상태 개념과 정확하고 범위가 제한된 리소스 집합만 받습니다.
+구체적인 상태 개념은 일반 관측 상태 표시자보다 우선합니다. 비어 있거나 불완전한 결과는 행 개수와
+출처 제한을 보존하며, 검증된 조회 범위 밖에 일치하는 리소스가 없다고 증명하지 않습니다.
 
 ### 탐색형 관계 탐색
 

@@ -2497,6 +2497,9 @@ def _render_general_query_answer(
     )
     if impact_answer is not None:
         return impact_answer
+    empty_answer = _render_generic_empty_query_answer(outputs, korean=korean)
+    if empty_answer is not None:
+        return empty_answer
     lines = ["## 검증된 결과" if korean else "## Verified result", ""]
     for output in outputs:
         rule_search = output.get("rule_search")
@@ -2519,11 +2522,30 @@ def _render_general_query_answer(
             continue
         returned = output.get("returned_rows")
         total = output.get("total_rows")
-        lines.append(
-            f"- 전체 {total}개 행 중 {returned}개를 검증했습니다."
-            if korean
-            else f"- Verified {returned} of {total} rows."
-        )
+        if (
+            not isinstance(returned, int)
+            or isinstance(returned, bool)
+            or not isinstance(total, int)
+            or isinstance(total, bool)
+            or total < returned
+        ):
+            lines.append(
+                "- 행 개수 메타데이터를 검증할 수 없습니다."
+                if korean
+                else "- Row-count metadata could not be verified."
+            )
+        elif returned == 0 and total == 0:
+            lines.append(
+                "- 하나의 검증된 출력에서 일치하는 행이 반환되지 않았습니다."
+                if korean
+                else "- One verified output returned no matching rows."
+            )
+        else:
+            lines.append(
+                f"- 전체 {total}개 행 중 {returned}개를 검증했습니다."
+                if korean
+                else f"- Verified {returned} of {total} rows."
+            )
     lines.extend(
         [
             "",
@@ -2536,6 +2558,78 @@ def _render_general_query_answer(
                     "This result grants no execution authority."
                 )
             ),
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _render_generic_empty_query_answer(
+    outputs: list[dict[str, object]],
+    *,
+    korean: bool,
+) -> str | None:
+    """Render zero-row tables without presenting an empty result as positive verification."""
+
+    counted = [
+        output
+        for output in outputs
+        if isinstance(output.get("returned_rows"), int)
+        and not isinstance(output.get("returned_rows"), bool)
+        and isinstance(output.get("total_rows"), int)
+        and not isinstance(output.get("total_rows"), bool)
+    ]
+    if (
+        not counted
+        or len(counted) != len(outputs)
+        or any(output["returned_rows"] != 0 or output["total_rows"] != 0 for output in counted)
+    ):
+        return None
+    complete = all(output.get("source_complete") is True for output in counted)
+    limitations = tuple(
+        dict.fromkeys(
+            reason
+            for output in counted
+            if isinstance((reason := output.get("source_truncation_reason")), str)
+            and reason.strip()
+        )
+    )
+    if korean:
+        lines = [
+            "## 일치하는 관측 근거 없음" if complete else "## 근거가 충분하지 않음",
+            "",
+            (
+                "- 검증된 조회 범위에서 일치하는 행이 반환되지 않았습니다."
+                if complete
+                else "- 반환된 행은 없지만 원본 근거가 완전하지 않아 부재를 판단할 수 없습니다."
+            ),
+        ]
+        if limitations:
+            lines.append(f"- 근거 한계: `{', '.join(limitations)}`")
+        lines.extend(
+            [
+                "- 행 0개는 검증된 조회 범위를 벗어난 실제 리소스의 부재를 증명하지 않습니다.",
+                "",
+                "`execution_authority=false`",
+            ]
+        )
+        return "\n".join(lines)
+    lines = [
+        "## No matching observed evidence" if complete else "## Evidence is insufficient",
+        "",
+        (
+            "- The verified query scope returned no matching rows."
+            if complete
+            else "- No rows were returned, but incomplete source evidence cannot establish absence."
+        ),
+    ]
+    if limitations:
+        lines.append(f"- Evidence limitation: `{', '.join(limitations)}`")
+    lines.extend(
+        [
+            "- Zero rows do not prove that no real resources exist outside the "
+            "verified query scope.",
+            "",
+            "`execution_authority=false`",
         ]
     )
     return "\n".join(lines)

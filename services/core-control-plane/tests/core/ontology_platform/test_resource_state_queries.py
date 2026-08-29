@@ -23,8 +23,9 @@ from fdai.core.ontology_platform.query_gateway import (
 )
 from fdai.core.ontology_platform.resource_state_queries import (
     RESOURCE_STATE_FUNCTION_NAME,
-    RESOURCE_STATE_MEASURE_CONCEPTS,
     RESOURCE_STATE_MEASURE_TERMS,
+    RESOURCE_STATE_OBSERVED_CONCEPT,
+    RESOURCE_STATE_QUERY_CONCEPTS,
     resource_state_function_type,
     resource_state_inventory_function,
 )
@@ -159,12 +160,13 @@ async def _invoke(
 def test_state_function_declares_canonical_measure_concepts() -> None:
     declaration = resource_state_function_type()
 
+    assert declaration.version == "1.1.0"
     assert declaration.output_schema["x-fdai-measure-concepts"] == list(
-        RESOURCE_STATE_MEASURE_CONCEPTS
+        RESOURCE_STATE_QUERY_CONCEPTS
     )
     assert declaration.output_schema["x-fdai-measure-value-groups"] == [
         {"concept": concept, "terms": list(RESOURCE_STATE_MEASURE_TERMS[concept])}
-        for concept in RESOURCE_STATE_MEASURE_CONCEPTS
+        for concept in RESOURCE_STATE_QUERY_CONCEPTS
     ]
 
 
@@ -191,6 +193,62 @@ async def test_state_function_returns_only_requested_verified_states() -> None:
     assert values["state_concept"] == "resource_state.stopped"
     assert values["source_observed_at"] == observed_at.isoformat()
     assert values["execution_authority"] is False
+
+
+async def test_state_function_returns_every_recognized_observed_state() -> None:
+    observed_at = NOW - timedelta(minutes=5)
+    result = await _invoke(
+        _query_result(
+            (
+                _resource("database-a", "Stopped", observed_at=observed_at),
+                _resource("database-b", "Running", observed_at=observed_at),
+                _resource("database-c", "Paused", observed_at=observed_at),
+            )
+        ),
+        concepts=(RESOURCE_STATE_OBSERVED_CONCEPT,),
+    )
+
+    assert result["complete"] is True
+    assert result["truncation_reason"] is None
+    rows = result["rows"]
+    assert isinstance(rows, list)
+    assert [row["values"]["state_concept"] for row in rows] == [
+        "resource_state.stopped",
+        "resource_state.running",
+        "resource_state.paused",
+    ]
+
+
+async def test_state_function_prefers_concrete_filter_over_observed_sentinel() -> None:
+    observed_at = NOW - timedelta(minutes=5)
+    result = await _invoke(
+        _query_result(
+            (
+                _resource("database-a", "Stopped", observed_at=observed_at),
+                _resource("database-b", "Running", observed_at=observed_at),
+            )
+        ),
+        concepts=(RESOURCE_STATE_OBSERVED_CONCEPT, "resource_state.stopped"),
+    )
+
+    rows = result["rows"]
+    assert isinstance(rows, list)
+    assert [row["values"]["name"] for row in rows] == ["database-a"]
+
+
+async def test_state_function_holds_unrecognized_observed_state_incomplete() -> None:
+    result = await _invoke(
+        _query_result(
+            (_resource("database-a", "Updating", observed_at=NOW - timedelta(minutes=5)),)
+        ),
+        concepts=(RESOURCE_STATE_OBSERVED_CONCEPT,),
+    )
+
+    assert result == {
+        "complete": False,
+        "rows": [],
+        "truncation_reason": "resource_state_evidence_incomplete",
+    }
 
 
 async def test_state_function_preserves_matches_but_marks_missing_state_incomplete() -> None:

@@ -17,6 +17,9 @@ from fdai.core.conversation.semantic_planning_models import (
     SemanticOutputShape,
     SemanticPlanningDisposition,
 )
+from fdai.core.conversation.semantic_resource_state_planning import (
+    normalize_resource_state_proposal,
+)
 from fdai.core.conversation.semantic_runtime import SemanticConversationRuntime
 from fdai.core.conversation.session import ConversationSession, Principal, Role, Turn
 from fdai.core.conversation.tools import ToolResult
@@ -48,15 +51,18 @@ from fdai.core.ontology_platform.resource_metric_queries import (
 )
 from fdai.core.ontology_platform.resource_state_queries import (
     RESOURCE_STATE_FUNCTION_NAME,
+    RESOURCE_STATE_OBSERVED_CONCEPT,
     resource_state_function_type,
 )
 from fdai.core.ontology_platform.service_health_queries import (
     SERVICE_HEALTH_FUNCTION_NAME,
+    SERVICE_HEALTH_MEASURE_CONCEPTS,
     service_health_function_type,
 )
 from fdai.rule_catalog.schema.inventory_query_language import (
     InventoryQueryLanguageRegistry,
     QueryEvidenceAuthority,
+    QueryTerms,
     QueryValues,
 )
 from fdai.shared.contracts.models import (
@@ -918,6 +924,11 @@ _VM_GROUP = PropertyValueGroup(
     values=("compute.vm",),
     terms=("vm", "가상 머신"),
 )
+_POSTGRES_GROUP = PropertyValueGroup(
+    id="postgresql-server",
+    values=("postgresql-server",),
+    terms=("postgres", "postgres db", "postgresql"),
+)
 
 
 def _inventory_query_language() -> InventoryQueryLanguageRegistry:
@@ -932,7 +943,7 @@ def _inventory_query_language() -> InventoryQueryLanguageRegistry:
         query_kinds={},
         groupings={},
         projections={},
-        scopes={},
+        scopes={"subscription": QueryTerms(terms=("subscription", "우리 구독"))},
         states={
             "inactive": QueryValues(
                 terms=("not running", "실행 중이 아닌", "실행 중이 아니"),
@@ -950,6 +961,22 @@ def _inventory_query_language() -> InventoryQueryLanguageRegistry:
         },
         operations={},
         time_units={},
+    )
+
+
+def _state_inspection_query_language() -> InventoryQueryLanguageRegistry:
+    return _inventory_query_language().model_copy(
+        update={
+            "suffixes": ("에", "를"),
+            "signals": {
+                "diagnosis": QueryTerms(terms=("why", "원인")),
+                "health_history": QueryTerms(terms=("health history", "상태 이력")),
+                "platform_health": QueryTerms(terms=("platform issue", "플랫폼 장애")),
+                "state_inspection": QueryTerms(
+                    terms=("status", "current state", "상태", "현재 상태")
+                ),
+            },
+        }
     )
 
 
@@ -1583,6 +1610,185 @@ def test_broad_resource_state_query_uses_a_collection_capability(
     assert outcome.plan.nodes[1].arguments["arguments"] == {"state_concepts": expected_concepts}
     assert model.plan_calls == 0
     assert outcome.execution_authority is False
+
+
+@pytest.mark.parametrize(
+    ("utterance", "initial_output_shape"),
+    (
+        (
+            "안녕, 우리 구독에 postgres db 상태 알려줄래?",
+            "subscription_service_health",
+        ),
+        (
+            "안녕, 우리 구독에 postgres db 상태 알려줄래?",
+            "target_current_state",
+        ),
+        (
+            "Show the PostgreSQL database status in our subscription.",
+            "subscription_service_health",
+        ),
+    ),
+)
+def test_typed_subscription_state_query_uses_observed_resource_state(
+    utterance: str,
+    initial_output_shape: str,
+) -> None:
+    manifest, _definition = _typed_fixture(
+        groups=(_POSTGRES_GROUP,),
+        include_resource_state=True,
+        include_service_health=True,
+    )
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Resource"],
+            measure_concepts=list(SERVICE_HEALTH_MEASURE_CONCEPTS),
+            output_shape=initial_output_shape,
+        ),
+        plan=None,
+    )
+
+    outcome = _service(
+        model,
+        manifest,
+        inventory_query_language=_state_inspection_query_language(),
+    ).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "resource_state_list"
+    assert outcome.plan is not None
+    assert tuple(node.kind for node in outcome.plan.nodes) == (
+        QueryNodeKind.OBJECT_SET,
+        QueryNodeKind.FUNCTION,
+    )
+    assert outcome.plan.nodes[0].arguments["definition"]["predicates"] == [
+        {
+            "property": "type",
+            "operator": "equals",
+            "equals": "postgresql-server",
+        }
+    ]
+    assert outcome.plan.nodes[1].arguments["arguments"] == {
+        "state_concepts": [RESOURCE_STATE_OBSERVED_CONCEPT]
+    }
+    assert model.plan_calls == 0
+    assert outcome.execution_authority is False
+
+
+def test_typed_platform_health_query_stays_on_subscription_health() -> None:
+    manifest, _definition = _typed_fixture(
+        groups=(_POSTGRES_GROUP,),
+        include_resource_state=True,
+        include_service_health=True,
+    )
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Resource"],
+            measure_concepts=list(SERVICE_HEALTH_MEASURE_CONCEPTS),
+            output_shape="subscription_service_health",
+        ),
+        plan=None,
+    )
+
+    outcome = _service(
+        model,
+        manifest,
+        inventory_query_language=_state_inspection_query_language(),
+    ).plan(
+        utterance="우리 구독의 postgres 플랫폼 장애 상태를 알려줘.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "subscription_service_health"
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[0].arguments["function_name"] == SERVICE_HEALTH_FUNCTION_NAME
+    assert outcome.execution_authority is False
+
+
+def test_typed_subscription_state_prefers_a_concrete_state_filter() -> None:
+    manifest, _definition = _typed_fixture(
+        groups=(_POSTGRES_GROUP,),
+        include_resource_state=True,
+        include_service_health=True,
+    )
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Resource"],
+            measure_concepts=list(SERVICE_HEALTH_MEASURE_CONCEPTS),
+            output_shape="subscription_service_health",
+        ),
+        plan=None,
+    )
+
+    outcome = _service(
+        model,
+        manifest,
+        inventory_query_language=_state_inspection_query_language(),
+    ).plan(
+        utterance="우리 구독에 중지된 postgres db 상태를 알려줘.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "resource_state_list"
+    assert outcome.plan is not None
+    assert tuple(node.kind for node in outcome.plan.nodes) == (
+        QueryNodeKind.OBJECT_SET,
+        QueryNodeKind.FUNCTION,
+    )
+    assert outcome.plan.nodes[1].arguments["arguments"] == {
+        "state_concepts": ["resource_state.stopped"]
+    }
+
+
+@pytest.mark.parametrize(
+    ("utterance", "subject_constraints"),
+    (
+        ("postgres db 상태를 알려줘.", ("Resource",)),
+        (
+            "우리 구독의 postgres psql-example-prod 상태를 알려줘.",
+            ("Resource", "psql-example-prod"),
+        ),
+    ),
+)
+def test_collection_state_correction_requires_scope_and_no_exact_target(
+    utterance: str,
+    subject_constraints: tuple[str, ...],
+) -> None:
+    manifest, _definition = _typed_fixture(
+        groups=(_POSTGRES_GROUP,),
+        include_resource_state=True,
+        include_service_health=True,
+    )
+    proposal = SemanticFrameProposal.model_validate(
+        _frame(
+            subject_constraints=list(subject_constraints),
+            measure_concepts=list(SERVICE_HEALTH_MEASURE_CONCEPTS),
+            output_shape="target_current_state",
+        )
+    )
+
+    normalized = normalize_resource_state_proposal(
+        proposal,
+        utterance=utterance,
+        descriptors=manifest.descriptors,
+        inventory_query_language=_state_inspection_query_language(),
+    )
+
+    assert normalized.output_shape == "target_current_state"
+    assert normalized.measure_concepts == SERVICE_HEALTH_MEASURE_CONCEPTS
 
 
 def test_current_resource_state_cannot_substitute_for_historical_events() -> None:

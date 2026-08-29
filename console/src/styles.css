@@ -3457,7 +3457,10 @@ pre {
   color: var(--overview-text);
   font-family: "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
 }
-.overview-page { gap: 0; }
+.overview-page {
+  gap: 0;
+  container-type: inline-size;
+}
 .overview-report { width: 100%; }
 .overview-report { gap: 0; padding-bottom: 52px; }
 .overview-skeleton { width: 100%; }
@@ -4327,6 +4330,61 @@ pre {
   .overview-tiers,
   .overview-rules { flex-wrap: wrap; }
   .overview-drill { margin-left: 0; }
+}
+
+@container (max-width: 900px) {
+  .overview-skeleton-grid.is-metrics,
+  .overview-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .overview-skeleton-grid.is-distributions,
+  .overview-skeleton-grid.is-attention,
+  .overview-skeleton-grid.is-verticals,
+  .overview-routing-grid,
+  .overview-attention-cards,
+  .overview-decision-grid,
+  .overview-organization,
+  .overview-verticals,
+  .overview-operating-signals {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .overview-role-chain {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .overview-role-chain li:not(:last-child)::after {
+    display: none;
+  }
+
+  .overview-guards,
+  .overview-tiers,
+  .overview-rules {
+    flex-wrap: wrap;
+  }
+
+  .overview-drill {
+    margin-left: 0;
+  }
+}
+
+@container (max-width: 520px) {
+  .overview-skeleton-grid.is-metrics,
+  .overview-metrics,
+  .overview-assurance-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .overview-status {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 16px;
+  }
+
+  .overview-status-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 
 /* Analytics drill-down hubs --------------------------------------------- */
@@ -9371,7 +9429,29 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-rt-agent-head { margin-bottom: 6px; }
 .deck-rt {
+  position: relative;
+  padding-top: 5px;
+  overflow: hidden;
   animation: deck-preparing-enter 0.22s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+.deck-rt::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background:
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in oklab, var(--accent) 72%, transparent) 45%,
+      transparent 90%
+    );
+  background-size: 220% 100%;
+  animation: deck-planning-flow 1.4s linear infinite;
+}
+@keyframes deck-planning-flow {
+  from { background-position: 100% 0; }
+  to { background-position: -120% 0; }
 }
 @keyframes deck-preparing-enter {
   from { opacity: 0; transform: translateY(5px); }
@@ -11221,7 +11301,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   transition: none !important;
 }
 :root[data-motion="reduced"] .deck-pending-reply,
-:root[data-motion="reduced"] .deck-pending-reply-dots > span {
+:root[data-motion="reduced"] .deck-pending-reply-dots > span,
+:root[data-motion="reduced"] .deck-rt::before {
   animation: none !important;
 }
 
@@ -11230,6 +11311,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   .deck-backend-probing,
   .deck-rt-turn,
   .deck-rt,
+  .deck-rt::before,
   .deck-rt-spin,
   .deck-rt-stage,
   .deck-rt-source,

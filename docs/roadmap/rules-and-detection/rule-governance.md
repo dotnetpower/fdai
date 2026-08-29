@@ -23,10 +23,14 @@ shadow-before-enforce and safety invariants in
 > consumption are implemented. Startup loads one immutable governance catalog, and T0 applies
 > resolved scope, exclusions, selectors, effect, enforcement, parameters, and precedence before
 > ordinary authorization and safety checks. The catalog now loads strict Azure-shaped exemptions
-> and binds them to the safety check. Maximum duration, scheduled expiry, ahead-of-expiry
-> notifications, and lifecycle audit delivery remain open. Override resolution remains target
-> design. Pull-request identity checks are implemented; trusted-verifier deployment remains
-> external work.
+> and binds them to the safety check, enforces a configured maximum exemption duration, and
+> schedules ahead-of-expiry alerts with lifecycle audit evidence via an injectable notifier and
+> the standard append-only audit boundary. The catalog also loads strict overrides bound to a
+> resource-group-or-narrower `scope://` address, resolves the narrowest covering override on top
+> of an assignment's effect, and applies `disabled` / `severity-downgrade` / `parameter-relaxation`
+> at T0 - a parameter-relaxation override's keys and bounds are checked against a separately
+> reviewed policy file at the catalog-load boundary, failing closed otherwise. Pull-request
+> identity checks are implemented; trusted-verifier deployment remains external work.
 
 ## Catalog retrieval
 
@@ -237,23 +241,46 @@ An exemption waives an assignment for a scope, like an Azure Policy exemption:
   resource, **justification**, distinct `requested_by` / `approved_by` UUIDs, `state`, `created_at`,
   and `expires_at`. The loader enforces no self-exemption, explicit UTC timestamps,
   `expires_at > created_at`, and consistent terminal revocation metadata.
-- The current schema doesn't store an assignment reference or waiver/mitigated category and doesn't
-  enforce a configured maximum duration. That metadata and maximum-duration policy are follow-up
-  contracts.
+- The current schema doesn't store an assignment reference or waiver/mitigated category. That
+  metadata is follow-up contract work.
+- A configured **maximum exemption duration** and **ahead-of-expiry alert lead time**
+  (`AppConfig.rule_governance.exemption_max_duration_days` /
+  `exemption_alert_lead_days`, cross-validated so the lead time is always shorter than the
+  maximum) are enforced: the governance catalog loader rejects any exemption whose
+  `expires_at - created_at` exceeds the configured maximum, failing the catalog load closed.
 - Runtime startup loads reviewed exemption JSON into the same immutable governance catalog and
   binds a subscription- and scope-verifying registry to the safety check. Invalid or duplicate
   data, unknown rules, malformed ARM resource ids, expired state, and revoked state fail closed or
   do not match.
-- Auto-renew isn't supported. A standalone expiry command exists, but scheduled execution,
-  ahead-of-expiry ChatOps alerts, and lifecycle audit delivery remain unwired workflows.
+- Auto-renew isn't supported. `fdai.rule_catalog.schema.exemption_lifecycle.plan_exemption_lifecycle`
+  is the pure, deterministic decision core for **scheduled expiry mechanics** and **ahead-of-expiry
+  alerts**: it decides, for every active exemption, whether it is already past `expires_at`
+  (`expire`) or inside the configured alert lead time (`alert_ahead_of_expiry`).
+  `fdai.delivery.exemption_lifecycle.ExemptionLifecycleCoordinator` combines that decision with an
+  injectable `ExemptionLifecycleNotifier` (contract in `shared/providers/exemption_lifecycle.py`;
+  the shipped default only logs - no network) and the standard append-only audit boundary, using
+  the state store's atomic claim-and-audit primitive so an alert fires **at most once** per
+  exemption across replays or replicas. `scripts/governance/exemption-expire.py` runs both passes
+  offline (`--alert-lead-days`, `--no-alerts`) for the standalone/no-cloud-dependency workflow.
+  Wiring the coordinator into a live scheduled trigger (Container Apps Job / CronJob) and a
+  production notifier (ChatOps/email) remain deployment-configured operational work, same as the
+  standalone expiry script's real deployment shape.
 - Every exemption and its expiry is audited; an exemption never suppresses the audit record of the
   underlying finding - it records *why* it was accepted, not that it did not occur.
 
 ## Overrides
 
-> **Current status**: The override contract below isn't implemented. The repository has no
-> override-specific schema, catalog loader, or runtime resolver. Current supported relaxation
-> paths are time-boxed exemptions and catalog/rule retirement.
+> **Current status**: Implemented. `fdai.rule_catalog.schema.override.Override` +
+> `override.schema.json` + `load_override_from_mapping` + the `<root>/overrides/` directory
+> loader (`GovernanceCatalog.overrides`) enforce every MUST rule below at the catalog-load
+> boundary, and `resolve_override` + `apply_governance_override_to_rule` apply the resolved
+> override at T0 runtime, on top of assignment resolution. A parameter-relaxation override's keys
+> and bounds are checked against the separately reviewed
+> [`rule-catalog/override-parameter-bounds.yaml`](../../../rule-catalog/override-parameter-bounds.yaml)
+> policy; an unlisted key or an out-of-bound value fails the catalog load closed - there is no
+> runtime HIL fallback for a policy violation, only a load-time rejection. The upstream
+> distribution ships no active override and no relaxable rule (the policy file is empty by
+> default).
 
 An **override** is the human control surface *above* the automated quality gate: an operator
 declares that a rule is too aggressive in a specific environment and narrows, downgrades, or
@@ -315,6 +342,14 @@ rule's shipped behavior does not match this environment.
   accumulates recurring or long-lived overrides across scopes, the loop proposes a
   **revision** (narrow the rule) or a **retirement** (rule is a systemic poor fit); either
   proposal still passes the quality gate before it can enter the catalog.
+- Every T0 override resolution writes a `governance.override_resolved` append-only audit entry
+  (`rule_id`, `override_id`, `override_mode`, `override_scope`) - the concrete evidence source a
+  `DiscoverySignalKind.OVERRIDE` signal (`operational_learning/discovery_contracts.py`)
+  eventually queries to recognize a recurring or long-lived override. No `object.override` bus
+  topic exists for this (agent-pantheon.instructions.md); the signal thresholds themselves (number
+  of distinct scopes, dwell time, shadow-hit rate before proposing a revision/retirement) remain
+  the open decision below, and a concrete `DiscoverySignalSource` binding for this evidence is
+  the same composition-root seam every discovery signal kind still needs.
 - The console MAY surface an "over-overridden rules" view for operators; it remains
   read-only, and proposing a revision/retirement is still a PR.
 
@@ -443,30 +478,34 @@ placeholders avoid placing real tenant identifiers in this repository example.
 ### Override
 
 ```yaml
+schema_version: 1.0.0
 id: override.pitr-relaxation.rg-analytics
 version: 1.0.0
 kind: override
 target_rule: postgresql-server.point-in-time-restore
-scope: scope://org/account-000/prod/rg-analytics
+scope: scope://org/account-000/rg-analytics
 mode: parameter-relaxation
 parameter_overrides:
-  min_retention_days: 3
+  min_retention_days: "3"
 justification: Non-critical analytics workloads with 3-day retention accepted by the data owner.
-requested_by: assignment-operator
-approver: override-approver
+requested_by: 00000000-0000-0000-0000-000000000004
+approver: 00000000-0000-0000-0000-000000000005
 provenance:
   created_at: 2026-07-03T00:00:00Z
   created_by: assignment-operator
 ```
 
-> `rule-set`, `assignment`, and `exemption` have strict schemas read by the governance catalog
-> loader; `exemption` also retains focused validation and expiry CLIs. The `override` shape is a target example with no
-> loader yet. Each rule-set member pins a rule `version`. Typed validation of
-> `parameter_overrides` remains follow-up work; the current assignment schema accepts string
-> values. Exemption `requested_by` must differ from `approved_by`. The assignment above is intentionally held **fully
-> in shadow** - the rule set's `deny` default for `object-storage.public-access.deny` is
-> overridden to `audit` and `enforcement` is `do-not-enforce` until a separate promotion approval
-> flips it.
+> `rule-set`, `assignment`, `exemption`, and `override` all have strict schemas read by the
+> governance catalog loader (`<root>/overrides/*.yaml` -> `Override`); `exemption` also retains
+> focused validation and expiry CLIs. Each rule-set member pins a rule `version`. Typed validation
+> of `parameter_overrides` remains follow-up work for assignments; the current assignment schema
+> accepts string values, and an override's `parameter_overrides` uses the same string-value
+> contract plus a separately reviewed key/bound allowlist
+> (`rule-catalog/override-parameter-bounds.yaml`). Exemption `requested_by` must differ from
+> `approved_by`; override `requested_by` must differ from `approver` (the same no-self-approval
+> rule). The assignment above is intentionally held **fully in shadow** - the rule set's `deny`
+> default for `object-storage.public-access.deny` is overridden to `audit` and `enforcement` is
+> `do-not-enforce` until a separate promotion approval flips it.
 
 ## Implementation status
 
@@ -476,8 +515,8 @@ provenance:
 |------|-------|----------|-------|
 | Effect, scope, assignment, and rule-set contracts | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/effect.py`; `scope.py`; `assignment.py`; `rule_set.py`; focused schema tests | Strict models reject invalid scopes, references, effects, and rule-set expansion. |
 | Governance catalog and transition CI | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/governance_catalog.py`; `governance_transitions.py`; `scripts/governance/check-governance-transitions.py`; `.github/workflows/ci.yml` | Directory loading and reviewed effect/enforcement transition checks are wired. |
-| Exemptions and expiry | in-progress | `services/core-control-plane/src/fdai/rule_catalog/schema/exemption.py`; `governance_catalog.py`; `delivery/catalog_exemption.py`; `runtime/control_loop.py`; `scripts/governance/exemption-expire.py`; focused loader, registry, safety-check, and runtime tests | Startup loads immutable strict artifacts and the safety check consumes them. Scheduled execution, configured maximum duration, notifications, and lifecycle audit delivery remain open. |
-| Override artifact and resolution | not-started | [Overrides](#overrides); current change source audit | No override-specific schema, directory loader, precedence resolver, or runtime consumer exists. |
+| Exemptions and expiry | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/exemption.py`; `exemption_lifecycle.py`; `governance_catalog.py`; `shared/config/models.py` (`RuleGovernanceConfig`); `delivery/catalog_exemption.py`; `delivery/exemption_lifecycle.py`; `shared/providers/exemption_lifecycle.py`; `runtime/control_loop.py`; `scripts/governance/exemption-expire.py`; focused loader, config, lifecycle, coordinator, safety-check, and runtime tests | Startup enforces the configured maximum duration and binds exemptions to the safety check. Scheduled expiry mechanics and ahead-of-expiry alerting are a pure decision core plus an idempotent, audited coordinator; live scheduling and a production notifier remain deployment work. |
+| Override artifact and resolution | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/override.py`; `override.schema.json`; `parameter_relaxation_policy.py`; `governance_loader.py`; `governance_catalog.py`; `rule-catalog/overrides/`; `rule-catalog/override-parameter-bounds.yaml`; `core/control_loop/_execution.py`, `_helpers.py`, `_process.py`, `_audit_helpers.py`, `_boundary.py`, `orchestrator.py`; focused schema, loader, catalog, and pipeline tests | Directory loader, resource-group-or-narrower scope enforcement, no-stacking, distinct-approver, and the reviewed parameter-relaxation-bounds policy all fail closed at catalog load. `resolve_override` + T0 consumption apply `disabled` / `severity-downgrade` / `parameter-relaxation` on top of assignment resolution and audit every resolution. |
 | T0 assignment consumption | implemented | `services/core-control-plane/src/fdai/runtime/control_loop.py`; `services/core-control-plane/src/fdai/core/control_loop/_execution.py`; `services/core-control-plane/src/fdai/core/control_loop/_process.py`; focused governance and pipeline tests | One immutable startup catalog supplies scope, exclusions, selectors, effect, enforcement, parameters, and precedence. Enforcing remediation still passes through execution authorization and the unified safety check. |
 | Governance pull-request identity checks | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/governance_review_authority.py`; `services/core-control-plane/src/fdai/delivery/gitops_pr/governance_review.py`; `scripts/governance/check-governance-review-authority.py`; `.github/workflows/ci.yml`; focused authority, metadata, CLI, and workflow tests | CI fetches exact-head GitHub commit, review, and Check Run facts and accepts identity evidence only from the configured trusted verifier App. Missing configuration or attestation blocks governed changes. Deploying that external Entra verifier and retaining blocked-then-cleared evidence remain operational work. |
 
@@ -494,12 +533,13 @@ provenance:
 | 2026-08-23 | in-progress | Added a strict delivery boundary that joins GitHub review state, exact commit, and timestamp to deployment-verified Entra OID, FDAI roles, and phishing-resistant assurance. Latest decisive review state wins, stale revisions remain visible to the pure authority decision, and missing or early attestations fail closed. | `current change`; `delivery/gitops_pr/governance_review.py`; focused metadata and authority tests passed 23 cases. | Bind a deployment-owned identity/assurance provider and real pull-request metadata collector into CI, then retain a blocked-and-cleared evidence record. |
 | 2026-08-23 | implemented | Connected the authority decision to GitHub's exact-head PR, commit, review, and Check Run metadata. A configured verifier App must publish the bounded Entra principal bundle in its successful exact-head Check Run; an absent App id, missing or failed check, stale revision, unverified role, weak assurance, self-approval, or insufficient quorum blocks CI. Assignment changes use the stricter enforce-promotion class until transition intent is independently proven. | `current change`; `scripts/governance/check-governance-review-authority.py`; `.github/workflows/ci.yml`; focused governance CLI, bridge, authority, and workflow tests passed 69 cases. | Deploy the trusted Entra verifier GitHub App and retain one blocked-then-cleared governed PR evidence record. |
 | 2026-08-23 | in-progress | Completed immutable T0 assignment consumption and integrated strict exemption artifacts into the startup governance catalog and safety check. Hardened duplicate JSON detection, UTC and terminal-state validation, unknown-rule and duplicate-active-scope rejection, exact resource identity, canonical ARM scope parsing, subscription isolation, deterministic fallback, and terminal revocation across both registries. | `current change`; focused governance loader, exemption model/CLI, catalog and fallback registry, runtime composition, safety-check, and T0 pipeline checks passed. Twelve adversarial hardening rounds leave no Medium-or-higher implementation finding in this slice. | Configure maximum exemption duration and alert lead time, then wire scheduled expiry, notifications, and lifecycle audit delivery. Override delivery and trusted-verifier deployment remain separate. |
+| 2026-08-29 | implemented | Configured the maximum exemption duration and ahead-of-expiry alert lead time as bounded, cross-validated `AppConfig.rule_governance` settings; the governance catalog loader now fails closed on an over-duration exemption. Added the pure `plan_exemption_lifecycle` decision core, an injectable `ExemptionLifecycleNotifier` contract (safe log-only default), and `ExemptionLifecycleCoordinator`, which delivers an ahead-of-expiry alert at most once per exemption via the state store's atomic claim-and-audit primitive and appends lifecycle audit evidence for both alert and already-due-expiry decisions; `exemption-expire.py` runs the alert pass offline. Implemented the full override artifact end to end: `Override` model + `override.schema.json` + `load_override_from_mapping` + the `<root>/overrides/` directory loader, enforcing resource-group-or-narrower scope, distinct approver, per-mode field invariants, and no-stacking at the catalog-load boundary; a separately reviewed `override-parameter-bounds.yaml` allowlist gates `parameter-relaxation`, failing the catalog load closed on an unlisted key or out-of-bound value (no runtime HIL fallback for that violation). Wired `resolve_override` and `apply_governance_override_to_rule` into T0 so an override applies on top of assignment resolution (`disabled` routes to `governance_observe` even under an enforced `deny`; `severity-downgrade` and `parameter-relaxation` merge into the dispatched rule) and appends a `governance.override_resolved` audit entry shaped for the existing `DiscoverySignalKind.OVERRIDE` discovery-loop input. Fixed a governance-runtime-contracts CI path regex that expected a non-existent `rule-catalog/governance/...` nesting instead of the actual flat `rule-catalog/{assignments,exemptions,overrides}/` convention, which would have silently skipped the review-authority gate on this change's own new `overrides/` content. | `current change`; `services/core-control-plane/tests/config/test_rule_governance_config.py`; `tests/exemption/test_exemption_max_duration.py`; `tests/rule_catalog/schema/test_exemption_lifecycle.py`, `test_override.py`, `test_override_loader.py`, `test_parameter_relaxation_policy.py`, `test_override_parameter_bounds_file.py`, `test_governance_catalog.py`; `tests/providers/test_exemption_lifecycle_notifier.py`; `tests/delivery/test_exemption_lifecycle.py`; `tests/core/test_control_loop_governance_override.py`; `tests/pipeline/test_control_loop_e2e.py` (`test_override_disabled_suppresses_an_enforced_deny_assignment`, `test_override_outside_its_scope_does_not_apply`); `tests/runtime/test_control_loop_parameter_relaxation_policies.py`, `test_thor_execution_port.py`; `tests/integration/scripts/test_exemption_expire.py` all passed; task-scoped Ruff and mypy passed. | Deploy the trusted Entra verifier GitHub App (unrelated, pre-existing external item; see below). Wire the exemption-lifecycle coordinator into a live scheduled trigger and a production notifier, and bind a concrete `DiscoverySignalSource` for `DiscoverySignalKind.OVERRIDE`, remain deployment/composition-root work outside this change's scope. |
 
 ### Remaining work
 
 - [x] Load one immutable governance catalog at startup and prove T0 applies resolved effect, enforcement, scope, exclusions, and precedence without bypassing the safety check. Focused pipeline coverage proves remediate+enforce still obeys the unified safety decision.
-- [ ] Configure and enforce the maximum exemption duration and alert lead time, then schedule expiry and deliver ahead-of-expiry notifications with lifecycle audit evidence. Catalog loading and safety-check consumption are implemented.
-- [ ] Implement the bounded override schema, loader, precedence resolver, and runtime consumption with resource-group-or-narrower scope checks.
+- [x] Configure and enforce the maximum exemption duration and alert lead time, then schedule expiry and deliver ahead-of-expiry notifications with lifecycle audit evidence. Proven by `plan_exemption_lifecycle` + `ExemptionLifecycleCoordinator` focused tests; wiring the coordinator into a live scheduled trigger (Container Apps Job / CronJob) and a production ChatOps/email notifier is deployment-configured operational work, not a design gap.
+- [x] Implement the bounded override schema, loader, precedence resolver, and runtime consumption with resource-group-or-narrower scope checks. Proven by `services/core-control-plane/tests/rule_catalog/schema/test_override.py`, `test_override_loader.py`, `test_governance_catalog.py`, and the `tests/pipeline/test_control_loop_e2e.py` override precedence e2e cases.
 - [x] The deterministic pull-request review-authority decision enforces operator identity, the required capability per change class, a distinct-approver quorum, phishing-resistant high-risk approvals, revision-bound approval freshness, and author/co-author/committer self-approval prevention, proven by `services/core-control-plane/tests/rule_catalog/schema/test_governance_review_authority.py`.
 - [x] Bind the decision to exact-head pull-request, commit, review, and trusted verifier Check Run metadata in CI. Missing trusted attestation fails closed; focused CLI and workflow tests cover accepted, sub-quorum, self-approval, and untrusted-App cases.
 - [ ] Deploy the trusted Entra verifier GitHub App, configure `FDAI_GOVERNANCE_IDENTITY_APP_ID`, and retain one evidence record showing a self-approval or sub-quorum change blocked and the corrected change cleared.
@@ -512,13 +552,26 @@ provenance:
 - [ ] Whether the authoring UI ships in the console (draft-PR only) in P1 or P3.
 - [ ] The concrete parameter **type vocabulary** (int/string/enum/bool/array + range/pattern
       constraints) that CI validates `parameter_overrides` against.
-- [ ] The configured **maximum exemption duration** and the ahead-of-expiry alert lead time.
-- [ ] The exact CI check that enforces "override scope is resource-group-equivalent or
-      narrower" against the Scope URI grammar (must reject organization/account/subscription
-      scopes deterministically).
-- [ ] The permitted `parameter-relaxation` bounds per rule - where a rule declares the
-      relaxation range in its own schema vs a governance-level cap that overrides cannot
-      exceed.
+- [x] The configured **maximum exemption duration** and the ahead-of-expiry alert lead time:
+      `AppConfig.rule_governance.exemption_max_duration_days` (default 180) and
+      `exemption_alert_lead_days` (default 14), cross-validated so the lead time is always
+      shorter than the maximum.
+- [x] The exact check that enforces "override scope is resource-group-equivalent or
+      narrower" against the Scope URI grammar: `Override.__post_init__` rejects any
+      `ScopeRef.level < ScopeLevel.RESOURCE_GROUP` deterministically (organization/account
+      addresses), proven by `test_organization_scope_is_rejected` /
+      `test_account_scope_is_rejected` in `test_override.py`. Wiring an equivalent CI-only path
+      filter (like the exemption directory check) is optional now that the load boundary itself
+      is fail-closed on every invocation, including CI's `check-governance-transitions.py`.
+- [x] The permitted `parameter-relaxation` bounds per rule: a **governance-level allowlist**
+      (`rule-catalog/override-parameter-bounds.yaml`,
+      `fdai.rule_catalog.schema.parameter_relaxation_policy`), not the rule's own schema (which
+      still declares no relaxation range - that half of this decision remains open). An unlisted
+      key or an out-of-bound value fails the catalog load closed; there is no runtime HIL
+      fallback for a policy violation.
 - [ ] The signal thresholds the discovery loop uses to flag "over-overridden" rules (number
       of distinct scopes with an active override, dwell time, and shadow-hit rate) before
-      proposing a revision/retirement.
+      proposing a revision/retirement. The evidence source exists
+      (`governance.override_resolved` audit entries), but no concrete `DiscoverySignalSource`
+      binds them into `DiscoverySignalKind.OVERRIDE` yet - the same composition-root gap every
+      discovery signal kind currently has.

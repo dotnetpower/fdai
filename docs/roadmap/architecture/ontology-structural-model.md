@@ -156,6 +156,11 @@ observation preserves the verified node kind, dependency position, status, and e
 without provider commands or execution authority. Missing, delayed, or failed observation delivery
 does not change the query result; the terminal execution receipt remains authoritative.
 
+Resource-state queries accept only catalog-declared state concepts and exact bounded resource
+collections. A concrete state concept takes precedence over the generic observed-state sentinel.
+Empty or incomplete results preserve row-count and source limitations and never prove that matching
+resources do not exist outside the verified query scope.
+
 ### Exploratory traversal
 
 An exploratory traversal accepts an allowed LinkType set, one direction, maximum depth, object

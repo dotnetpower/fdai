@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
@@ -27,6 +28,18 @@ members:
   - rule_id: "r.encryption"
     version: "1.0.0"
     default_effect: "deny"
+"""
+
+_VALID_OVERRIDE_DISABLED = """
+schema_version: "1.0.0"
+kind: "override"
+id: "override.disabled.rg-analytics"
+target_rule: "r.encryption"
+scope: "scope://org/account-000/rg-analytics"
+mode: "disabled"
+justification: "Non-critical analytics workloads accept a shorter retention window."
+requested_by: "00000000-0000-0000-0000-000000000001"
+approver: "00000000-0000-0000-0000-000000000002"
 """
 
 
@@ -250,3 +263,162 @@ def test_duplicate_active_exemption_scope_is_rejected(tmp_path: Path) -> None:
     assert any(
         "duplicate active exemption scope" in issue.message for issue in exc_info.value.issues
     )
+
+
+def test_exemption_within_configured_max_duration_loads(tmp_path: Path) -> None:
+    _write_exemption(tmp_path, "rule-a.json", _valid_exemption())
+
+    catalog = load_governance_catalog(tmp_path, max_exemption_duration=timedelta(days=180))
+
+    assert [exemption.id for exemption in catalog.exemptions] == ["exemption.rule-a.rg-a"]
+
+
+def test_exemption_exceeding_configured_max_duration_is_rejected(tmp_path: Path) -> None:
+    _write_exemption(tmp_path, "rule-a.json", _valid_exemption())
+
+    with pytest.raises(GovernanceLoadError) as exc_info:
+        load_governance_catalog(tmp_path, max_exemption_duration=timedelta(days=1))
+
+    assert any("exceeds the configured maximum" in issue.message for issue in exc_info.value.issues)
+
+
+def test_no_max_duration_argument_skips_the_check(tmp_path: Path) -> None:
+    # Backward compatible default: omitting max_exemption_duration never
+    # rejects an exemption on duration grounds.
+    _write_exemption(tmp_path, "rule-a.json", _valid_exemption())
+
+    catalog = load_governance_catalog(tmp_path)
+
+    assert len(catalog.exemptions) == 1
+
+
+def test_loads_overrides(tmp_path: Path) -> None:
+    _write(tmp_path, "overrides", "o.yaml", _VALID_OVERRIDE_DISABLED)
+
+    catalog = load_governance_catalog(tmp_path)
+
+    assert [o.id for o in catalog.overrides] == ["override.disabled.rg-analytics"]
+
+
+def test_duplicate_override_id_rejected(tmp_path: Path) -> None:
+    _write(tmp_path, "overrides", "o1.yaml", _VALID_OVERRIDE_DISABLED)
+    _write(tmp_path, "overrides", "o2.yaml", _VALID_OVERRIDE_DISABLED)  # same id
+
+    with pytest.raises(GovernanceLoadError) as exc_info:
+        load_governance_catalog(tmp_path)
+
+    assert any("duplicate id" in issue.message for issue in exc_info.value.issues)
+
+
+def test_duplicate_override_scope_for_same_rule_is_rejected(tmp_path: Path) -> None:
+    other = _VALID_OVERRIDE_DISABLED.replace(
+        "override.disabled.rg-analytics", "override.disabled.rg-analytics.v2"
+    )
+    _write(tmp_path, "overrides", "o1.yaml", _VALID_OVERRIDE_DISABLED)
+    _write(tmp_path, "overrides", "o2.yaml", other)
+
+    with pytest.raises(GovernanceLoadError) as exc_info:
+        load_governance_catalog(tmp_path)
+
+    assert any("overrides never stack" in issue.message for issue in exc_info.value.issues)
+
+
+def test_duplicate_override_scope_rejects_case_only_alias(tmp_path: Path) -> None:
+    other = _VALID_OVERRIDE_DISABLED.replace(
+        "override.disabled.rg-analytics", "override.disabled.rg-analytics.v2"
+    ).replace(
+        "scope://org/account-000/rg-analytics",
+        "scope://ORG/ACCOUNT-000/RG-ANALYTICS",
+    )
+    _write(tmp_path, "overrides", "o1.yaml", _VALID_OVERRIDE_DISABLED)
+    _write(tmp_path, "overrides", "o2.yaml", other)
+
+    with pytest.raises(GovernanceLoadError, match="overrides never stack"):
+        load_governance_catalog(tmp_path)
+
+
+def test_override_different_scope_same_rule_is_accepted(tmp_path: Path) -> None:
+    other = _VALID_OVERRIDE_DISABLED.replace(
+        "override.disabled.rg-analytics", "override.disabled.rg-other"
+    ).replace("scope://org/account-000/rg-analytics", "scope://org/account-000/rg-other")
+    _write(tmp_path, "overrides", "o1.yaml", _VALID_OVERRIDE_DISABLED)
+    _write(tmp_path, "overrides", "o2.yaml", other)
+
+    catalog = load_governance_catalog(tmp_path)
+
+    assert len(catalog.overrides) == 2
+
+
+def test_override_unknown_rule_is_rejected(tmp_path: Path) -> None:
+    _write(tmp_path, "overrides", "o.yaml", _VALID_OVERRIDE_DISABLED)
+
+    with pytest.raises(GovernanceLoadError) as exc_info:
+        load_governance_catalog(tmp_path, known_rule_versions={})
+
+    assert any(
+        issue.key == "override.disabled.rg-analytics:r.encryption"
+        and issue.message == "references unknown rule id"
+        for issue in exc_info.value.issues
+    )
+
+
+def test_override_parameter_relaxation_without_policy_is_rejected(tmp_path: Path) -> None:
+    relax = _VALID_OVERRIDE_DISABLED.replace('mode: "disabled"', 'mode: "parameter-relaxation"')
+    relax += 'parameter_overrides:\n  min_retention_days: "3"\n'
+    _write(tmp_path, "overrides", "o.yaml", relax)
+
+    with pytest.raises(GovernanceLoadError) as exc_info:
+        load_governance_catalog(tmp_path)
+
+    assert any("not allow-listed" in issue.message for issue in exc_info.value.issues)
+
+
+def test_override_parameter_relaxation_within_policy_is_accepted(tmp_path: Path) -> None:
+    from fdai.rule_catalog.schema.parameter_relaxation_policy import (
+        ParameterBound,
+        ParameterRelaxationPolicy,
+    )
+
+    relax = _VALID_OVERRIDE_DISABLED.replace('mode: "disabled"', 'mode: "parameter-relaxation"')
+    relax += 'parameter_overrides:\n  min_retention_days: "3"\n'
+    _write(tmp_path, "overrides", "o.yaml", relax)
+    policies = {
+        "r.encryption": ParameterRelaxationPolicy(
+            rule_id="r.encryption",
+            bounds={
+                "min_retention_days": ParameterBound(
+                    key="min_retention_days", minimum=1, maximum=30
+                )
+            },
+        )
+    }
+
+    catalog = load_governance_catalog(tmp_path, parameter_relaxation_policies=policies)
+
+    assert catalog.overrides[0].parameter_overrides == {"min_retention_days": "3"}
+
+
+def test_override_parameter_relaxation_out_of_bound_is_rejected(tmp_path: Path) -> None:
+    from fdai.rule_catalog.schema.parameter_relaxation_policy import (
+        ParameterBound,
+        ParameterRelaxationPolicy,
+    )
+
+    relax = _VALID_OVERRIDE_DISABLED.replace('mode: "disabled"', 'mode: "parameter-relaxation"')
+    relax += 'parameter_overrides:\n  min_retention_days: "999"\n'
+    _write(tmp_path, "overrides", "o.yaml", relax)
+    policies = {
+        "r.encryption": ParameterRelaxationPolicy(
+            rule_id="r.encryption",
+            bounds={
+                "min_retention_days": ParameterBound(
+                    key="min_retention_days", minimum=1, maximum=30
+                )
+            },
+        )
+    }
+
+    with pytest.raises(GovernanceLoadError) as exc_info:
+        load_governance_catalog(tmp_path, parameter_relaxation_policies=policies)
+
+    assert any("not allow-listed" in issue.message for issue in exc_info.value.issues)

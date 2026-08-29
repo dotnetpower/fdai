@@ -64,11 +64,11 @@ describe("loadDashboardOverview", () => {
     });
   });
 
-  it("keeps the KPI backbone when the optional promotion projection is unavailable", async () => {
+  it("keeps the KPI backbone when optional cost access and promotion data are unavailable", async () => {
     const publishBackbone = vi.fn();
     const client = {
       dashboardMetrics: vi.fn(async () => KPI),
-      finops: vi.fn(async () => { throw new OperatorApiError(404, "not found"); }),
+      finops: vi.fn(async () => { throw new OperatorApiError(403, "access required"); }),
       panel: vi.fn(async () => { throw new OperatorApiError(503, "unavailable"); }),
       autonomy: vi.fn(async () => { throw new OperatorApiError(404, "not found"); }),
     };

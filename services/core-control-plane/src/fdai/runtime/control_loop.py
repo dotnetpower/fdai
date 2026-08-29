@@ -6,7 +6,8 @@ import logging
 import os
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import replace
-from datetime import datetime
+from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any, cast
 
 import httpx
@@ -91,6 +92,10 @@ from fdai.delivery.reconciliation_artifacts import StateStoreExecutedActionArtif
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.rule_catalog.schema.governance_catalog import load_governance_catalog
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
+from fdai.rule_catalog.schema.parameter_relaxation_policy import (
+    ParameterRelaxationPolicy,
+    parameter_relaxation_policies_from_mapping,
+)
 from fdai.rule_catalog.schema.property_semantic import empty_property_semantic_registry
 from fdai.rule_catalog.schema.resource_type import (
     ResourceTypeRegistry,
@@ -185,6 +190,24 @@ def _load_resource_types() -> ResourceTypeRegistry:
     vocabulary_file = _resolve_catalog_root() / "vocabulary" / "resource-types.yaml"
     with vocabulary_file.open("r", encoding="utf-8") as handle:
         return load_resource_type_registry_from_mapping(yaml.safe_load(handle))
+
+
+def _load_parameter_relaxation_policies(
+    catalog_root: Path,
+) -> dict[str, ParameterRelaxationPolicy]:
+    """Load the separately reviewed override parameter-relaxation bounds.
+
+    A missing ``override-parameter-bounds.yaml`` is the strict default (empty
+    mapping - no rule may use ``mode: parameter-relaxation`` until a reviewer
+    adds a policy entry), matching the fail-closed design in
+    rule-governance.md "Overrides § Rules (MUST)".
+    """
+    policy_file = catalog_root / "override-parameter-bounds.yaml"
+    if not policy_file.is_file():
+        return {}
+    with policy_file.open("r", encoding="utf-8") as handle:
+        raw = yaml.safe_load(handle) or {}
+    return parameter_relaxation_policies_from_mapping(raw)
 
 
 def _build_control_loop(
@@ -312,6 +335,10 @@ def _build_control_loop(
     governance_catalog = load_governance_catalog(
         catalog_root,
         known_rule_versions={rule.id: rule.version for rule in rules},
+        max_exemption_duration=timedelta(
+            days=container.config.rule_governance.exemption_max_duration_days
+        ),
+        parameter_relaxation_policies=_load_parameter_relaxation_policies(catalog_root),
     )
 
     # Workflow catalog (fail-closed if the directory exists but any file is
@@ -685,6 +712,7 @@ def _build_control_loop(
         ),
         process_runtime_store=process_runtime_store,
         governance_assignments=governance_catalog.assignments,
+        governance_overrides=governance_catalog.overrides,
         inventory_age_provider=_build_inventory_age_provider(),
         inventory_context_provider=_build_inventory_context_provider(),
         precondition_evaluator=precondition_evaluator,

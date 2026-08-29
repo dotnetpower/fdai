@@ -56,6 +56,7 @@ from fdai.rule_catalog.schema.assignment import (
     AssignmentResolution,
     resolve_assignments,
 )
+from fdai.rule_catalog.schema.override import Override, resolve_override
 from fdai.rule_catalog.schema.scope import ResourceContext
 from fdai.shared.contracts.models import (
     Action,
@@ -94,6 +95,7 @@ class ControlLoopExecutionMixin:
     _execution_authorization_evaluator: ExecutionAuthorizationEvaluator | None
     _execution_access_grant_sink: ExecutionAccessGrantSink | None
     _governance_assignments: Sequence[Assignment]
+    _governance_overrides: Sequence[Override]
     _inventory_age_provider: Callable[[str], Awaitable[int | None]] | None
     _kill_switch: KillSwitch | None
     _kill_switch_refresher: Callable[[], Awaitable[None]] | None
@@ -229,16 +231,15 @@ class ControlLoopExecutionMixin:
         )
         return result
 
-    def _resolve_governance_assignment(
+    def _governance_resource_context(
         self,
         *,
         event: Event,
         resource_id: str,
         resource_type: str,
-        rule_id: str,
-    ) -> AssignmentResolution | None:
-        if not self._governance_assignments:
-            return None
+    ) -> ResourceContext:
+        """Build the resource hierarchy context shared by assignment and override
+        resolution, so both read the same event-derived scope facts."""
         payload = event.payload
         resource = payload.get("resource")
         resource_data = resource if isinstance(resource, dict) else {}
@@ -254,7 +255,7 @@ class ControlLoopExecutionMixin:
                     return value
             return ""
 
-        context = ResourceContext(
+        return ResourceContext(
             organization=_text("organization", "tenant_id"),
             account=_text("account", "subscription_id"),
             resource_group=_text("resource_group"),
@@ -262,10 +263,52 @@ class ControlLoopExecutionMixin:
             resource_type=resource_type,
             tags={str(key): str(value) for key, value in tag_data.items()},
         )
+
+    def _resolve_governance_assignment(
+        self,
+        *,
+        event: Event,
+        resource_id: str,
+        resource_type: str,
+        rule_id: str,
+    ) -> AssignmentResolution | None:
+        if not self._governance_assignments:
+            return None
+        context = self._governance_resource_context(
+            event=event, resource_id=resource_id, resource_type=resource_type
+        )
         return resolve_assignments(
             assignments=self._governance_assignments,
             ctx=context,
             rule_id=rule_id,
+        )
+
+    def _resolve_governance_override(
+        self,
+        *,
+        event: Event,
+        resource_id: str,
+        resource_type: str,
+        rule_id: str,
+    ) -> Override | None:
+        """Resolve the narrowest-covering override for ``rule_id`` on this
+        resource "on top of" any assignment resolution
+        (rule-governance.md "Overrides § Precedence").
+
+        Uses the same event-derived :class:`ResourceContext` as
+        :meth:`_resolve_governance_assignment` so scope facts never diverge
+        between the two resolutions.
+        """
+        if not self._governance_overrides:
+            return None
+        context = self._governance_resource_context(
+            event=event, resource_id=resource_id, resource_type=resource_type
+        )
+        return resolve_override(
+            overrides=self._governance_overrides,
+            ctx=context,
+            rule_id=rule_id,
+            at=datetime.now(tz=UTC),
         )
 
     async def _resolve_cost_override(

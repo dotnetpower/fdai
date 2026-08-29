@@ -31,6 +31,7 @@ from fdai.core.risk_gate.gate import RiskGate
 from fdai.core.risk_gate.preconditions import PreconditionEvaluation
 from fdai.core.risk_gate.risk_table import RiskTable
 from fdai.core.trust_router import RoutingDecision
+from fdai.rule_catalog.schema.override import Override, OverrideMode
 from fdai.shared.contracts.models import (
     Action,
     CeilingRole,
@@ -337,6 +338,39 @@ def _synthetic_action_build_failure(*, event: Event, finding: Any, reason: str) 
     )
 
 
+def apply_governance_override_to_rule(
+    rule: Rule,
+    *,
+    assignment_parameters: Mapping[str, str],
+    override: Override | None,
+) -> Rule:
+    """Merge governance-resolved parameters (and an applicable override) into
+    one dispatched :class:`Rule` copy.
+
+    Precedence (rule-governance.md "Overrides § Precedence"): the assignment's
+    ``parameters`` apply first; an override's ``parameter-relaxation`` wins
+    over them for the same key, and a ``severity-downgrade`` override replaces
+    ``rule.severity``. A ``disabled``-mode override never reaches this
+    function - the caller routes it to ``governance_observe`` before any
+    parameter/severity merge (rule-governance.md "Overrides § Rules (MUST)":
+    shadow keeps running, execution is suppressed). Returns ``rule`` unchanged
+    (no new object) when there is nothing to merge.
+    """
+    updates: dict[str, Any] = {}
+    if override is not None and override.mode is OverrideMode.SEVERITY_DOWNGRADE:
+        updates["severity"] = override.severity_downgrade_to
+    if assignment_parameters or (
+        override is not None and override.mode is OverrideMode.PARAMETER_RELAXATION
+    ):
+        merged_parameters = {**rule.parameters, **dict(assignment_parameters)}
+        if override is not None and override.mode is OverrideMode.PARAMETER_RELAXATION:
+            merged_parameters.update(override.parameter_overrides)
+        updates["parameters"] = merged_parameters
+    if not updates:
+        return rule
+    return rule.model_copy(update=updates)
+
+
 __all__ = [
     "ExecutionAuthorityDecision",
     "UnifiedRiskDecision",
@@ -347,6 +381,7 @@ __all__ = [
     "_is_execution_success",
     "_synthetic_action_build_failure",
     "_unified_audit_dict",
+    "apply_governance_override_to_rule",
     "build_shadow_authority_audit",
     "build_unified_risk_audit",
     "combine",

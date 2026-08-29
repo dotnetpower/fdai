@@ -9,6 +9,7 @@ from fdai.rule_catalog.schema.inventory_query_language import (
     QueryTargetCardinality,
     inventory_query_language_digest,
     load_inventory_query_language_from_mapping,
+    query_scope_matches,
     query_signal_matches,
     query_signal_span,
     query_target_cardinality,
@@ -34,6 +35,8 @@ def test_shipped_inventory_query_language_loads() -> None:
         registry,
         "symptom_request_timeout",
     )
+    assert query_scope_matches("우리 구독에 있는 PostgreSQL", registry, "subscription")
+    assert not query_scope_matches("현재 화면의 PostgreSQL", registry, "subscription")
     assert not query_signal_matches(
         "Container App 요청은 정상적으로 완료됐어.",
         registry,

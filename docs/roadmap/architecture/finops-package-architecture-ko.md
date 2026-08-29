@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 51dedc274274c1025cae7303e5f94c56919187b2
+translation_source_sha: ef8eb35db119d6f24df0ce5d4de85d7fc76af9eb
 translation_revised: 2026-08-29
 ---
 
@@ -47,6 +47,7 @@ FDAI는 비용 거버넌스를 하나의 exact-release vertical 프로필로 패
 |------|-----------|---------------|
 | FinOps 가드레일 | `core/verticals/cost_governance/finops.py`와 11개 집중 테스트 | 순수 도메인 로직은 컨트롤 루프나 에이전트를 가져오지 않고 이동할 수 있습니다. |
 | 비용 추정 | `shared/providers/cost_estimator.py`와 컨트롤 루프의 `_resolve_cost_override` 경로 | Protocol은 Core에 남고 패키지는 구체 추정기를 제공할 수 있습니다. |
+| 오퍼레이터 비용 거버넌스 변환 결과 | `fdai_operator_service/postgres_cost_governance.py`는 직접 psycopg 연결을 통해 서비스 소유 JSON 범위 맵을 읽습니다. | 오퍼레이터 호스트는 드라이버 경계에서 SQLAlchemy 형식 psycopg DSN을 정규화하고, 접근 권한을 선택적 패키지로 옮기지 않으면서 정확한 범위 포함 여부를 평가합니다. |
 | 비용 이상 조언 | `agents/njord.py`는 비용 샘플을 수집하고 이동 기준선 이상을 감지해 `object.cost-anomaly`를 발행합니다. | Njord의 고정 역할은 Core에 남고 교체 가능한 탐지 로직은 타입이 지정된 연결 뒤로 이동합니다. |
 | 운영 온톨로지 | `CostObjective`, 서비스와 워크로드 토폴로지, 결정 계보 및 exact-release 쿼리 인프라 | 패키지는 별도 FinOps 모델을 만들지 않고 기존 커널 선언과 패키지 소유 프로필을 하나의 온톨로지 release에 연결해야 합니다. |
 | 에이전트 조직 | `PANTHEON_SPECS`는 15개 식별자, 소유 객체 및 토픽을 모두 고정합니다. | 패키지는 기존 소유자에게 동작을 제공하며 에이전트를 추가하거나 소유권을 바꾸거나 직접 호출을 만들 수 없습니다. |

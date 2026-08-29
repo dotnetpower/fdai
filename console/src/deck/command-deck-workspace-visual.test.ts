@@ -134,11 +134,14 @@ describe("Command Deck workspace hierarchy", () => {
     expect(source).toContain("<PendingReplyIndicator />");
     expect(source).toContain("<RetrievalTrace");
     expect(styles).toContain(".deck-pending-reply {");
+    expect(styles).toContain(".deck-rt::before {");
+    expect(styles).toContain("@keyframes deck-planning-flow");
     expect(styles).toContain("@keyframes deck-pending-dot");
     expect(styles).toContain("@supports (interpolate-size: allow-keywords)");
     expect(styles).toMatch(/@supports \(interpolate-size: allow-keywords\)[\s\S]*\.deck-rt-turn \{[^}]*animation: deck-preparing-expand 0\.44s/s);
     expect(styles).toContain("@keyframes deck-preparing-expand");
     expect(styles).toContain(':root[data-motion="reduced"] .deck-pending-reply,');
+    expect(styles).toContain(':root[data-motion="reduced"] .deck-rt::before');
     expect(styles).toMatch(
       /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.deck-rt-turn,[\s\S]*\.deck-pending-reply-dots > span,/,
     );

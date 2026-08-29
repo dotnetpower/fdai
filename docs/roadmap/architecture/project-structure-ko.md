@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: bb1745b1faa78aab4bff47b9b086158dc599871d
+translation_source_sha: a83f845a5d1d58e5beb487aa3aa355851f3d0f55
 translation_revised: 2026-08-29
 ---
 # 프로젝트 구조
@@ -95,6 +95,10 @@ translation_revised: 2026-08-29
   기술하고, 정책은 검증기가 재검사하는 실행 가능한 OPA/Rego입니다. 소스가 이 YAML로 수집·
   정규화되는 방법은
   [rule-catalog-collection-ko.md](../rules-and-detection/rule-catalog-collection-ko.md) 에 있습니다.
+- **거버넌스 변경은 범위와 감사 가능성을 유지**: 범위가 지정된 재정의와 기한이 있는 예외는
+  검증된 카탈로그 데이터로 로드합니다. Core는 정확히 포함된 규칙과 리소스 범위만 해석하고,
+  요청자와 승인자 신원을 분리하며, 매개 변수 완화와 만료 근거를 기록합니다. 재정의를 실행
+  승인으로 취급하지 않습니다.
 - **전달은 교체 가능**: `gitops-pr` 와 `chatops` 는 하나의 인터페이스 뒤의 어댑터라,
   실행기는 추상 액션을 발행하고 어댑터가 그것을 렌더링합니다(remediation-pr, Adaptive 카드).
   실행기가 유일한 privileged 신원을 보유하며 어댑터는 이를 공유하지 않습니다.

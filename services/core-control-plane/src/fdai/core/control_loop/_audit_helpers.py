@@ -10,6 +10,7 @@ from fdai.core.tiers.t1_lightweight.tier import T1Decision
 from fdai.core.tiers.t2_reasoning import T2Decision
 from fdai.core.trust_router import RoutingDecision
 from fdai.rule_catalog.schema.assignment import AssignmentResolution
+from fdai.rule_catalog.schema.override import Override
 from fdai.shared.contracts.models import Event, Mode
 from fdai.shared.providers.state_store import StateStore
 
@@ -37,6 +38,45 @@ async def write_governance_assignment_audit(
             "winning_assignment_id": resolution.winning_assignment_id,
             "overridden_assignment_ids": list(resolution.overridden_assignment_ids),
             "parameter_tie": resolution.parameter_tie,
+            "recorded_at": datetime.now(tz=UTC).isoformat(),
+        }
+    )
+
+
+async def write_override_resolution_audit(
+    audit_store: StateStore,
+    *,
+    event: Event,
+    resource_id: str,
+    rule_id: str,
+    override: Override,
+) -> None:
+    """Append-only evidence for one override applying to a T0 finding.
+
+    rule-governance.md "Overrides § Rules (MUST)" ("Audit-first": every
+    override create/modify/remove event is audited) and "§ Feedback Loop"
+    (overrides are inputs to the discovery loop). ``rule_id``, ``scope``, and
+    ``mode`` are exactly the facts
+    ``operational_learning/discovery_contracts.py``'s
+    ``DiscoverySignalKind.OPERATIONAL`` input needs to eventually recognize a
+    recurring or long-lived override and propose a rule revision/retirement -
+    this entry is that feedback signal's evidence source, not a new bus topic
+    (agent-pantheon.instructions.md: ``object.override`` is not registered).
+    """
+    await audit_store.append_audit_entry(
+        {
+            "event_id": str(event.event_id),
+            "correlation_id": event.correlation_id or str(event.event_id),
+            "idempotency_key": event.idempotency_key,
+            "actor": "fdai.core.control_loop",
+            "producer_principal": "Mimir",
+            "action_kind": "governance.override_resolved",
+            "mode": Mode.SHADOW.value,
+            "rule_id": rule_id,
+            "resource_id": resource_id,
+            "override_id": override.id,
+            "override_mode": override.mode.value,
+            "override_scope": override.scope.render(),
             "recorded_at": datetime.now(tz=UTC).isoformat(),
         }
     )

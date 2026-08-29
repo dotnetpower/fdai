@@ -28,7 +28,7 @@ export async function loadDashboardOverview(
   publishBackbone({ kpi, finops: null, gates: null, autonomy: null });
 
   const [finops, gates, autonomy] = await Promise.all([
-    optionalOverview(() => client.finops(), [404, 503]),
+    optionalOverview(() => client.finops(), [403, 404, 503]),
     optionalOverview(
       () => client.panel<GatesSummary>("/kpi/promotion-gates"),
       [404, 501, 503],
