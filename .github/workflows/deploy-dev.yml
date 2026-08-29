@@ -1565,7 +1565,7 @@ jobs:
           fi
 
       - name: Verify model deployment readback
-        if: ${{ inputs.apply && env.MODEL_BINDING_ONLY == 'true' }}
+        if: ${{ inputs.apply && (env.MODEL_BINDING_ONLY == 'true' || env.CORE_MODEL_QUORUM_ONLY == 'true') }}
         run: |
           set -euo pipefail
           resource_id="$(terraform output -raw llm_resource_id)"
@@ -1593,7 +1593,7 @@ jobs:
           fi
 
       - name: Publish sanitized model deployment readback
-        if: ${{ inputs.apply && env.MODEL_BINDING_ONLY == 'true' }}
+        if: ${{ inputs.apply && (env.MODEL_BINDING_ONLY == 'true' || env.CORE_MODEL_QUORUM_ONLY == 'true') }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: model-binding-readback-${{ inputs.plan_id }}
@@ -1856,7 +1856,7 @@ jobs:
           retention-days: 90
 
       - name: Verify deployed health endpoints
-        if: ${{ inputs.apply && !inputs.deploy_design_mocks }}
+        if: ${{ inputs.apply && !inputs.deploy_design_mocks && env.CORE_MODEL_QUORUM_ONLY != 'true' }}
         run: |
           set -euo pipefail
           rg="$(terraform output -raw resource_group_name)"

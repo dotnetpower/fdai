@@ -1,7 +1,7 @@
 ---
 title: 모델 기능 수명 주기
 translation_of: model-capability-lifecycle.md
-translation_source_sha: 7877f84ac75f642b21cbe9d3e2a042d5d19f7e0f
+translation_source_sha: c331a9c7678fe8055c62aa12d6c5b077d188c889
 translation_revised: 2026-08-29
 ---
 # 모델 기능 수명 주기
@@ -162,6 +162,7 @@ models:
 모드를 승격하지 않습니다.
 계획 복원은 최초 계획과 동일하게 Terraform 배포 튜플에서 `hil-only` 항목을 제외하면서, 런타임
 성능 저하 처리를 위한 전체 해석 모델 산출물은 보존합니다.
+쿼럼 적용은 모델 배포 실제 상태를 확인하고 관련 없는 Core 애플리케이션 상태 검사를 건너뜁니다.
 
 배포자가 `Cognitive Services Contributor` 를 갖지 않을 때, 선호 계열이 리전에 없을 때,
 `capacity_tpm` 쿼터가 부족할 때, mixed-model 불변식을 만족할 수 없을 때의 **배포자-권한 게이트
