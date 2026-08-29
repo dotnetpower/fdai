@@ -179,23 +179,34 @@ def _provision_inspect(args: argparse.Namespace) -> int:
     active_target = azure_active_target_binding()
     authenticated = active_target is not None
     target_matches = active_target == profile.target_binding
-    ready = all(check.available for check in checks) and authenticated and target_matches
+    base_ready = all(check.available for check in checks) and authenticated and target_matches
+    state = "review" if base_ready else "incomplete"
+    reasons = (
+        ["execution_host_identity_unverified"]
+        if base_ready
+        else [
+            *[f"tool_unavailable.{check.name}" for check in checks if not check.available],
+            *(["azure_authentication_missing"] if not authenticated else []),
+            *(["target_binding_mismatch"] if authenticated and not target_matches else []),
+        ]
+    )
     result = {
         "schema_version": "fdai.provision-inspect.v1",
-        "state": "ready" if ready else "incomplete",
+        "state": state,
         "profile_digest": canonical_digest(profile.to_mapping()),
         "approval_quorum": profile.approval_quorum,
         "azure_authenticated": authenticated,
         "target_matches": target_matches,
         "mutation_performed": False,
         "missing_tools": [check.name for check in checks if not check.available],
+        "reason_codes": reasons,
     }
     print(
         json.dumps(result, sort_keys=True, separators=(",", ":"))
         if args.output == "json"
         else f"state={result['state']}"
     )
-    return 0 if ready else 3
+    return 2 if base_ready else 3
 
 
 def _provision_plan(args: argparse.Namespace) -> int:

@@ -27,6 +27,7 @@ from fdai_deployment_cli.cli import (
     main,
 )
 from fdai_deployment_cli.contracts import canonical_bytes
+from fdai_deployment_cli.doctor import ToolCheck
 from fdai_deployment_cli.license import LicenseInspectionError, inspect_license
 from fdai_deployment_cli.offline_kit import (
     MANIFEST_NAME,
@@ -428,6 +429,59 @@ def test_profile_init_requires_digest_bound_target(
 
     assert result == 3
     assert "target_binding MUST be a lowercase SHA-256" in capsys.readouterr().err
+
+
+def test_local_inspection_cannot_claim_execution_host_readiness(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: object,
+) -> None:
+    profile = tmp_path / "private" / "profile.json"
+    assert (
+        main(
+            [
+                "provision",
+                "init",
+                "--profile",
+                str(profile),
+                "--environment",
+                "dev",
+                "--region",
+                "koreacentral",
+                "--target-binding",
+                "a" * 64,
+                "--connectivity",
+                "online",
+                "--host",
+                "managed-vm",
+                "--transport",
+                "github-actions",
+                "--access-method",
+                "github_actions",
+                "--output",
+                "json",
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+    monkeypatch.setattr(  # type: ignore[attr-defined]
+        "fdai_deployment_cli.cli.inspect_tools",
+        lambda: (
+            ToolCheck(name="az", available=True, version="test"),
+            ToolCheck(name="terraform", available=True, version="test"),
+            ToolCheck(name="gh", available=True, version="test"),
+        ),
+    )
+    monkeypatch.setattr(  # type: ignore[attr-defined]
+        "fdai_deployment_cli.cli.azure_active_target_binding",
+        lambda: "a" * 64,
+    )
+
+    assert main(["provision", "inspect", "--profile", str(profile), "--output", "json"]) == 2
+    result = json.loads(capsys.readouterr().out)
+    assert result["state"] == "review"
+    assert result["reason_codes"] == ["execution_host_identity_unverified"]
 
 
 def test_terraform_failure_is_redacted_to_stable_reason() -> None:

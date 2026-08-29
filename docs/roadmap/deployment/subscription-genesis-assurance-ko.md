@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 0bcf5ae8ef4f279839111279fc869a12f6df3b81
+translation_source_sha: 1e660909619dd78c6ccffef029e543757c708c69
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -255,6 +255,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H28 | 계획이 기존 작업 디렉터리 링크를 따르고 연결된 CLI 구성을 덮어쓸 수 있었습니다. 이제 새 비공개 디렉터리를 요구하고 no-follow 배타 방식으로 구성을 만듭니다. | `test_plan_work_directory_and_config_reject_existing_links` |
 | H29 | 키트가 한 번들 버전을 선언하면서 다른 유효한 서명 번들을 포함할 수 있었습니다. 이제 계획은 두 서명 버전 주장이 일치해야 진행됩니다. | `test_plan_rejects_bundle_version_mismatch` |
 | H30 | ARM64 호스트가 x86 준비 기본값을 상속해 지원 대상인데도 실패했습니다. 이제 준비와 훈련은 호스트에서 기본값을 파생하면서 명시적 교차 플랫폼 요청은 계속 거부합니다. | `test_release_scripts_use_the_installable_distribution` |
+| H31 | 로컬 점검이 실행 호스트, 전송, 워크로드 신원, 오프라인 키트 근거 없이 `ready`를 보고할 수 있었습니다. 이제 외부 근거를 검증할 때까지 `review`를 반환합니다. | `test_local_inspection_cannot_claim_execution_host_readiness` |
 
 ## 관련 문서
 
