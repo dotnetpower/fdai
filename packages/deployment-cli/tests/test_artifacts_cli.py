@@ -27,6 +27,7 @@ from fdai_deployment_cli.offline_kit import (
     OfflineKitVerificationError,
     _sha256_nofollow,
     build_offline_kit_manifest,
+    materialize_verified_artifacts,
     verify_offline_kit,
 )
 
@@ -134,6 +135,20 @@ def test_offline_hash_rejects_replaced_file_identity(tmp_path: Path) -> None:
 
     with pytest.raises(OfflineKitVerificationError, match="changed during verification"):
         _sha256_nofollow(observed, expected=expected.stat())
+
+
+def test_materialization_rejects_artifact_replaced_after_verification(tmp_path: Path) -> None:
+    public, _manifest = _kit(tmp_path)
+    verification = verify_offline_kit(
+        tmp_path,
+        release_root_pem=public,
+        cli_version="0.1.0",
+        platform_tag="linux-x86_64",
+    )
+    (tmp_path / verification.terraform_binary).write_text("replaced", encoding="utf-8")
+
+    with pytest.raises(OfflineKitVerificationError, match="digest changed"):
+        materialize_verified_artifacts(tmp_path, verification, tmp_path / "private")
 
 
 def test_bundle_verification_rejects_tampering(tmp_path: Path) -> None:

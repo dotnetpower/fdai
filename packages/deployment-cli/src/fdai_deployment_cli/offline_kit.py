@@ -44,6 +44,7 @@ class OfflineKitVerification:
     terraform_binary: str
     provider_mirror_prefix: str
     deployment_bundle: str
+    file_digests: tuple[tuple[str, str], ...]
 
     def to_json(self) -> str:
         """Return stable, non-secret machine output."""
@@ -200,6 +201,7 @@ def verify_offline_kit(
             terraform_binary=_payload_text(payload, "terraform_binary"),
             provider_mirror_prefix=_payload_text(payload, "provider_mirror_prefix"),
             deployment_bundle=_payload_text(payload, "deployment_bundle"),
+            file_digests=tuple(sorted(declared.items())),
         )
     except OfflineKitVerificationError:
         raise
@@ -237,6 +239,81 @@ def _scan_tree(root: Path) -> tuple[dict[str, str], int]:
                 raise OfflineKitVerificationError("offline kit exceeds its total size limit")
             files[relative] = _sha256_nofollow(candidate, expected=details)
     return dict(sorted(files.items())), total
+
+
+@dataclass(frozen=True, slots=True)
+class MaterializedOfflineArtifacts:
+    """Private verified copies used after kit verification."""
+
+    terraform_binary: Path
+    provider_mirror: Path
+    deployment_bundle: Path
+
+
+def materialize_verified_artifacts(
+    root: Path,
+    verification: OfflineKitVerification,
+    destination: Path,
+) -> MaterializedOfflineArtifacts:
+    """Copy executable inputs to a private tree and recheck signed digests."""
+
+    if destination.exists():
+        raise OfflineKitVerificationError("offline artifact destination already exists")
+    destination.mkdir(parents=True, mode=0o700)
+    destination.chmod(0o700)
+    digests = dict(verification.file_digests)
+    prefix = verification.provider_mirror_prefix.rstrip("/") + "/"
+    selected = {
+        verification.terraform_binary,
+        verification.deployment_bundle,
+        *(path for path in digests if path.startswith(prefix)),
+    }
+    for relative in sorted(selected):
+        expected = digests.get(relative)
+        if expected is None:
+            raise OfflineKitVerificationError("verified offline artifact is not declared")
+        target = destination / relative
+        target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        _copy_verified_file(root / relative, target, expected_digest=expected)
+    terraform = destination / verification.terraform_binary
+    terraform.chmod(0o700)
+    return MaterializedOfflineArtifacts(
+        terraform_binary=terraform,
+        provider_mirror=destination / verification.provider_mirror_prefix,
+        deployment_bundle=destination / verification.deployment_bundle,
+    )
+
+
+def _copy_verified_file(source: Path, target: Path, *, expected_digest: str) -> None:
+    details = source.lstat()
+    if not stat.S_ISREG(details.st_mode):
+        raise OfflineKitVerificationError("verified offline artifact MUST be a regular file")
+    descriptor = os.open(source, os.O_RDONLY | os.O_NOFOLLOW)
+    output_descriptor = os.open(
+        target,
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+        0o600,
+    )
+    digest = hashlib.sha256()
+    try:
+        with (
+            os.fdopen(descriptor, "rb") as input_stream,
+            os.fdopen(output_descriptor, "wb") as output_stream,
+        ):
+            opened = os.fstat(input_stream.fileno())
+            _require_same_file(details, opened)
+            for chunk in iter(lambda: input_stream.read(1024 * 1024), b""):
+                digest.update(chunk)
+                output_stream.write(chunk)
+            output_stream.flush()
+            os.fsync(output_stream.fileno())
+            _require_same_file(opened, os.fstat(input_stream.fileno()))
+    except BaseException:
+        target.unlink(missing_ok=True)
+        raise
+    if digest.hexdigest() != expected_digest:
+        target.unlink(missing_ok=True)
+        raise OfflineKitVerificationError("verified offline artifact digest changed")
 
 
 def _sha256_nofollow(path: Path, *, expected: os.stat_result) -> str:

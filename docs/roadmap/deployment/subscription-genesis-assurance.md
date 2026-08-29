@@ -256,6 +256,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H22 | Offline planning let callers choose the CLI version and platform used for compatibility checks. It now binds the installed version and runtime-derived platform. | `test_runtime_platform_is_not_caller_controlled` |
 | H23 | Bundle verification trusted an arbitrary `sbom_path` and did not prove component coverage. It now requires a declared CycloneDX 1.5 SBOM whose SHA-256 entries exactly cover the payload. | `test_bundle_rejects_incomplete_sbom` |
 | H24 | Offline planning accepted an arbitrary infrastructure directory unrelated to the signed kit. It now safely extracts and verifies the kit-declared deployment bundle and plans only its `infra` root. | `test_bundle_archive_rejects_path_traversal` |
+| H25 | Verified Terraform, provider, and bundle paths could be replaced before execution. Planning now copies them to a private tree while rechecking signed digests, then executes only that snapshot. | `test_materialization_rejects_artifact_replaced_after_verification` |
 
 ## Related docs
 

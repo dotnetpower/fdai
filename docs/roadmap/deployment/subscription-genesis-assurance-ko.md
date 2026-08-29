@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 1e20d516cb17461efdd5ca967a594d229d29dfe4
+translation_source_sha: 081eaa769aa1957d048dbf0af80aefef95aaf941
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -249,6 +249,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H22 | 오프라인 계획이 호환성 검사에 사용할 CLI 버전과 플랫폼을 호출자가 선택하도록 허용했습니다. 이제 설치된 버전과 런타임에서 파생한 플랫폼에 연결합니다. | `test_runtime_platform_is_not_caller_controlled` |
 | H23 | 번들 검증이 임의의 `sbom_path`를 신뢰하고 구성 요소 커버리지를 증명하지 않았습니다. 이제 선언된 CycloneDX 1.5 SBOM의 SHA-256 항목이 페이로드를 정확히 포함해야 합니다. | `test_bundle_rejects_incomplete_sbom` |
 | H24 | 오프라인 계획이 서명 키트와 무관한 임의 인프라 디렉터리를 허용했습니다. 이제 키트가 선언한 배포 번들을 안전하게 풀고 검증한 `infra` 루트만 계획합니다. | `test_bundle_archive_rejects_path_traversal` |
+| H25 | 검증된 Terraform, 공급자, 번들 경로가 실행 전에 교체될 수 있었습니다. 이제 계획은 서명 다이제스트를 다시 확인하며 비공개 트리로 복사하고 해당 스냅샷만 실행합니다. | `test_materialization_rejects_artifact_replaced_after_verification` |
 
 ## 관련 문서
 

@@ -20,6 +20,7 @@ from fdai_deployment_cli.compiler import compile_manifest
 from fdai_deployment_cli.doctor import azure_active_target_binding, doctor_json, inspect_tools
 from fdai_deployment_cli.license import LicenseInspectionError, inspect_license
 from fdai_deployment_cli.offline_kit import verify_offline_kit
+from fdai_deployment_cli.offline_kit import materialize_verified_artifacts
 from fdai_deployment_cli.contracts import ProvisionProfile, canonical_digest
 from fdai_deployment_cli.profile import load_profile, write_profile
 from fdai_deployment_cli.simulation import rehearse
@@ -206,10 +207,15 @@ def _provision_plan(args: argparse.Namespace) -> int:
     )
     args.work_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     args.work_dir.chmod(0o700)
-    terraform = args.offline_kit / verification.terraform_binary
-    mirror = args.offline_kit / verification.provider_mirror_prefix
+    artifacts = materialize_verified_artifacts(
+        args.offline_kit,
+        verification,
+        args.work_dir / "artifacts",
+    )
+    terraform = artifacts.terraform_binary
+    mirror = artifacts.provider_mirror
     bundle_root = extract_bundle_archive(
-        args.offline_kit / verification.deployment_bundle,
+        artifacts.deployment_bundle,
         args.work_dir / "bundle",
     )
     verify_bundle(
