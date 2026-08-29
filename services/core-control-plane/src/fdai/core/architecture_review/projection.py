@@ -6,6 +6,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from fdai.core.architecture_review.decision_receipt import ArchitectureReviewDecisionReceipt
 from fdai.shared.providers.ontology_instance import (
     OntologyInstanceStore,
     OntologyLinkRecord,
@@ -89,6 +90,12 @@ class ArchitectureReviewProjector:
         }
         if recorded:
             properties["decided_at"] = event.recorded_at.isoformat()
+            approver_id = event.payload.get("approver_id")
+            receipt_ref = event.payload.get("approval_receipt_ref")
+            if isinstance(approver_id, str) and approver_id:
+                properties["approver_id"] = approver_id
+            if isinstance(receipt_ref, str) and receipt_ref:
+                properties["receipt_ref"] = receipt_ref
         await self.store.upsert_object(
             OntologyObjectRecord(
                 id=approval_id,
@@ -105,23 +112,74 @@ class ArchitectureReviewProjector:
         event: ProcessEvent,
     ) -> None:
         step_id = _event_step_id(event)
-        decision_id = f"{review_id}:decision:{step_id}"
+        raw_receipt = event.payload.get("decision_receipt")
+        receipt = (
+            ArchitectureReviewDecisionReceipt.model_validate(raw_receipt)
+            if raw_receipt is not None
+            else None
+        )
+        if receipt is not None:
+            if receipt.review_case_id != review_id:
+                raise ValueError("architecture decision receipt review case does not match")
+            if receipt.recorded_at != event.recorded_at:
+                raise ValueError("architecture decision receipt recorded_at does not match event")
+            if receipt.outcome.value != str(event.payload.get("decision", "")):
+                raise ValueError("architecture decision receipt outcome does not match event")
+        gate = _mapping(review.get("production_gate"), "production_gate")
+        evidence = _mapping(gate.get("evidence_bindings"), "evidence_bindings")
+        evidence_refs = receipt.evidence_refs if receipt is not None else tuple(sorted(evidence))
+        unknown_evidence = set(evidence_refs) - evidence.keys()
+        if unknown_evidence:
+            raise ValueError(
+                "architecture decision receipt references unknown evidence: "
+                + ", ".join(sorted(unknown_evidence))
+            )
+        if receipt is not None:
+            recorded_approvers: set[str] = set()
+            for approval_ref in receipt.approval_receipt_refs:
+                approval = await self.store.get_object(approval_ref)
+                if (
+                    approval is None
+                    or approval.object_type != "Approval"
+                    or approval.properties.get("status") != "approved"
+                ):
+                    raise ValueError(
+                        "architecture decision receipt approval is not authoritatively recorded"
+                    )
+                if approval.properties.get("receipt_ref") != approval_ref:
+                    raise ValueError(
+                        "architecture decision receipt approval identity does not match"
+                    )
+                approver_id = approval.properties.get("approver_id")
+                if not isinstance(approver_id, str) or not approver_id:
+                    raise ValueError(
+                        "architecture decision receipt approval has no recorded approver"
+                    )
+                recorded_approvers.add(approver_id)
+            if recorded_approvers != set(receipt.approver_ids):
+                raise ValueError(
+                    "architecture decision receipt approvers do not match recorded approvals"
+                )
+        decision_id = receipt.decision_id if receipt else f"{review_id}:decision:{step_id}"
+        properties = (
+            receipt.to_decision_properties()
+            if receipt is not None
+            else {
+                "id": decision_id,
+                "outcome": str(event.payload.get("decision", "unknown")),
+                "rationale": str(event.payload.get("reason", "workflow decision")),
+                "recorded_at": event.recorded_at.isoformat(),
+            }
+        )
         await self.store.upsert_object(
             OntologyObjectRecord(
                 id=decision_id,
                 object_type="Decision",
-                properties={
-                    "id": decision_id,
-                    "outcome": str(event.payload.get("decision", "unknown")),
-                    "rationale": str(event.payload.get("reason", "workflow decision")),
-                    "recorded_at": event.recorded_at.isoformat(),
-                },
+                properties=properties,
             )
         )
         await _link(self.store, "resolved_by", review_id, decision_id)
-        gate = _mapping(review.get("production_gate"), "production_gate")
-        evidence = _mapping(gate.get("evidence_bindings"), "evidence_bindings")
-        for key in sorted(evidence):
+        for key in evidence_refs:
             await _link(
                 self.store,
                 "based_on",

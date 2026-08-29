@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: a5b3a9e260d791465f2d3289627cbd6330f17721
+translation_source_sha: 0c7507ad822d9a6e41da0255cdd7db8d7a794dfb
 translation_revised: 2026-08-28
 ---
 # FDAI 운영 온톨로지
@@ -571,14 +571,14 @@ ObjectType 선언이 없는 버스 계약이고, `DecisionCase`는 버스 토픽
 - **온톨로지, 액션, 룰 정의는 런타임 쓰기가 아닙니다.** Mimir는 카탈로그 항목의 승격과 철회를
   관리하며, 정의 자체는 Git의 catalog-as-code로 남습니다.
 
-`lifecycle` 블록이 없는 ObjectType에는 선언된 온톨로지 소유자가 없습니다. 이는 아무도 그 타입을
-쓸 수 없다는 뜻이 아닙니다. ObjectType 선언이 두 번째 쓰기 권한을 추가하지 않는다는 뜻이며, 해당
-타입은 이미 적용되는 권한의 지배를 받습니다. `ActionType`, `Rule`, `SignalType`, `ResourceType`,
-`Property`, `PolicyArtifact`는 catalog-as-code가, `Resource`, `Signal`, `Finding`, `Process`는
-프로바이더 또는 서비스 변환 결과가, `Approval`, `SecurityEvent`, `Conversation`, `Turn`,
-`RuleCandidate`처럼 버스로 전달되는 객체는 이벤트 버스 레지스트리가 권한을 가집니다. 현재 출하되는
-대부분의 ObjectType이 이 상태입니다. 어떤 타입에 `lifecycle` 블록을 추가하는 것은 에이전트 단일
-작성자를 도입하는 의도적인 행위이므로, 빈칸을 채우려는 목적만으로 추가해서는 안 됩니다.
+`lifecycle` 블록이 없는 ObjectType에는 선언된 온톨로지 소유자가 없지만 기존 권한의 쓰기를 막지는
+않습니다. Catalog-as-code는 `ActionType`, `Rule`, `SignalType`, `ResourceType`, `Property`,
+`PolicyArtifact`를 담당하고, 프로바이더 또는 서비스 변환 결과는 `Resource`, `Signal`, `Finding`,
+`Process`를 담당하며, 이벤트 버스 레지스트리는 버스로 전달되는 객체를 담당합니다. 아키텍처 검토는
+가산 `Approval` 및 `Decision` `1.1.0` 선언으로 승인자, receipt, exact case, context, evidence,
+graph, catalog, condition, authority, audit 및 유효 구간을 보존합니다. 이 필드는 온톨로지 소유자를
+추가하지 않고 항상 `execution_authority=false`를 전달합니다. 빈칸을 채우기 위한 `lifecycle`
+추가는 지원되지 않습니다.
 
 에이전트는 타입이 지정된 이벤트로 협업합니다. 다른 에이전트의 객체를 mutate하거나 직접 호출하거나 변경 가능한
 작업 흐름 상태를 공유하지 않습니다.

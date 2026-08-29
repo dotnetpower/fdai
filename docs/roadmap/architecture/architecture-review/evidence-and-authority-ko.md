@@ -1,7 +1,7 @@
 ---
 title: ARB 근거 및 권한
 translation_of: evidence-and-authority.md
-translation_source_sha: 0adcd337b612b96a77e3955978e33604c5f263c9
+translation_source_sha: d54dfb653a865454f26549f4aa15be5eb4ebfee3
 translation_revised: 2026-08-29
 ---
 # ARB 근거 및 권한
@@ -143,6 +143,12 @@ evidence_bindings:
 
 근거 항목, 조건, 승인 집합, 대상 개정, 그래프 개정이 바뀌면 새 결정 식별자를 만듭니다. 워크플로
 컨텍스트 값이나 변경 가능한 매니페스트 필드는 기존 증적을 수정할 수 없습니다.
+
+재사용 가능한 `1.0.0` 증적 계약은 내용 기반 identity를 사용하며 항상
+`execution_authority=false`를 기록합니다. `Decision`과 `Approval` 온톨로지 선언은 `1.1.0`으로
+버전이 올라갑니다. 결정 변환 결과는 review, outcome, recorded time, 근거 key, 승인된 receipt
+객체 및 승인자 identity가 권위 있는 레코드와 일치할 때만 증적을 수락합니다. 증적이 없는 기존
+워크플로 결정은 권한이 없는 변환 결과로 유지됩니다.
 
 ## 실패 동작
 

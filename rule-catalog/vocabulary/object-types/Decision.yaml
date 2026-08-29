@@ -1,6 +1,6 @@
 schema_version: "1.0.0"
 name: Decision
-version: "1.0.0"
+version: "1.1.0"
 key: id
 description: Recorded outcome of a governed review decision point.
 properties:
@@ -8,10 +8,36 @@ properties:
   outcome: {type: string, required: true}
   rationale: {type: string, required: true}
   recorded_at: {type: datetime, required: true}
+  effective_from: {type: datetime, required: false}
   effective_until: {type: datetime, required: false}
+  receipt_schema_version: {type: string, required: false}
+  receipt_digest: {type: string, required: false}
+  review_case_id: {type: string, required: false}
+  change_id: {type: string, required: false}
+  decision_case_id: {type: string, required: false}
+  impact_envelope_id: {type: string, required: false}
+  target_revision: {type: string, required: false}
+  context_snapshot_id: {type: string, required: false}
+  evidence_bundle_id: {type: string, required: false}
+  graph_revision: {type: string, required: false}
+  catalog_release: {type: string, required: false}
+  evidence_refs: {type: array, required: false}
+  conditions: {type: array, required: false}
+  authority_basis: {type: string, required: false}
+  authority_ref: {type: string, required: false}
+  requester_id: {type: string, required: false}
+  judge_id: {type: string, required: false}
+  arbitrator_id: {type: string, required: false}
+  approver_ids: {type: array, required: false}
+  approval_receipt_refs: {type: array, required: false}
+  quorum: {type: integer, required: false}
+  audit_intent_ref: {type: string, required: false}
+  terminal_audit_ref: {type: string, required: false}
+  reevaluation_trigger: {type: string, required: false}
+  execution_authority: {type: boolean, required: false}
 provenance:
   source_url: https://github.com/dotnetpower/fdai
-  resolved_ref: object-type:Decision@1.0.0
-  content_hash: sha256:35f6454ee71413c78899e5cae7566525535239bb5a0b29fc6f17c8a96ae469e4
+  resolved_ref: object-type:Decision@1.1.0
+  content_hash: sha256:2e2f6a39fefa5d6d0d358111c8cd17055efa0ba20b80012037bb35ebf894447f
   license: MIT
   retrieved_at: "2026-07-29T00:00:00Z"

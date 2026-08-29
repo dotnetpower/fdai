@@ -583,14 +583,14 @@ Three consequences of that table are load-bearing and easy to get wrong.
 - **Ontology, action, and rule definitions are not runtime writes.** Mimir stewards promotion and
   revocation of catalog entries; the definitions themselves remain catalog-as-code in Git.
 
-An ObjectType with no `lifecycle` block has no declared ontology owner. That is not a claim that
-nobody may write it. It means the ObjectType declaration adds no second write authority, and the
-type is governed by whichever authority already applies: catalog-as-code for `ActionType`, `Rule`,
-`SignalType`, `ResourceType`, `Property`, and `PolicyArtifact`; a provider or service projection for
-`Resource`, `Signal`, `Finding`, and `Process`; and the event-bus registry for bus-carried objects
-such as `Approval`, `SecurityEvent`, `Conversation`, `Turn`, and `RuleCandidate`. Most shipped
-ObjectTypes are in this state today. Adding a `lifecycle` block to one is a deliberate act that
-introduces an agent single-writer, so it MUST NOT be added merely to fill the field in.
+An ObjectType with no `lifecycle` block has no declared ontology owner, but that does not prevent
+the authority that already applies from writing it. Catalog-as-code governs `ActionType`, `Rule`,
+`SignalType`, `ResourceType`, `Property`, and `PolicyArtifact`; provider or service projections
+govern `Resource`, `Signal`, `Finding`, and `Process`; and the event-bus registry governs bus-carried
+objects. Architecture review uses additive `Approval` and `Decision` `1.1.0` declarations to retain
+the approver, receipt, exact case, context, evidence, graph, catalog, conditions, authority, audit,
+and effective interval. These fields add no ontology owner and always carry
+`execution_authority=false`; adding `lifecycle` merely to fill the field is not supported.
 
 Agents collaborate through typed events. No agent mutates another agent's object, calls another
 agent directly, or shares mutable workflow state.

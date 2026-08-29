@@ -144,6 +144,12 @@ Changing an evidence item, condition, approval set, target revision, or graph re
 new decision identity. A workflow context value or mutable manifest field cannot amend an existing
 receipt.
 
+The reusable `1.0.0` receipt contract is content-addressed and always records
+`execution_authority=false`. `Decision` and `Approval` ontology declarations are versioned to
+`1.1.0`: the decision projection accepts a receipt only when its review, outcome, recorded time,
+evidence keys, approved receipt objects, and approver identities match authoritative records.
+Receipt-free legacy workflow decisions remain non-authoritative projections.
+
 ## Failure behavior
 
 | Dependency | Failure behavior |

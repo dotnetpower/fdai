@@ -61,7 +61,7 @@ explicit hold without mutation or silent loss.
 Replace mutable status assertions with a replayable authority chain:
 
 - version the `Decision` contract with case, context, evidence, graph, catalog, and condition
-  digests;
+  digests. The reusable content-addressed receipt and additive Decision `1.1.0` shape are implemented;
 - bind approval receipt identities, approver roles, quorum, no-self-approval, and expiry;
 - require a complete risk or exception contract for every accepted critical or high blocker;
 - reuse the injected provider verification of evidence bodies, digests, scope, revisions, freshness,
