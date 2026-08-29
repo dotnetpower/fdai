@@ -26,9 +26,8 @@ dependencies = []
 [project.optional-dependencies]
 # Development tooling. Concrete runtime deps still arrive with their own P0 tasks.
 dev = [
-    "fdai-deployment-cli==0.1.0",
     "fdai-service-contracts==0.1.0",
-    # Root integration tests span the runtime distributions and deployment CLI.
+    # Root integration tests span the five independently owned distributions.
     # Runtime images resolve dependencies from each service pyproject instead.
     "aiohttp>=3.14.2,<4",
     "aiokafka>=0.12,<0.13",
@@ -108,7 +107,6 @@ fdai-evaluation-sdk = { workspace = true }
 fdai-benchmark-cybergym = { workspace = true }
 fdai-benchmark-sregym = { workspace = true }
 fdai-cost-governance = { workspace = true }
-fdai-deployment-cli = { workspace = true }
 fdai-service-contracts = { workspace = true }
 fdai-core-control-plane = { workspace = true }
 fdai-operator-service = { workspace = true }
@@ -123,7 +121,6 @@ members = [
     "benchmarks/cybergym",
     "extensions/code-assurance",
     "extensions/cost-governance",
-    "packages/deployment-cli",
     "packages/service-contracts",
     "services/core-control-plane",
     "services/operator-service",
@@ -233,6 +230,7 @@ pythonpath = [
     ".",
     "extensions/code-assurance/src",
     "extensions/cost-governance/src",
+    "packages/deployment-cli/src",
     "packages/service-contracts/src",
     "services/core-control-plane",
     "services/core-control-plane/src",

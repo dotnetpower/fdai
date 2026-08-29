@@ -14,7 +14,7 @@ implementation.
 |---------|--------------------|
 | Five backend services | Each `services/*` root owns its `pyproject.toml`, source package, tests, image, process identity, and service migration branch. |
 | Shared service contracts | `packages/service-contracts/` owns versioned wire types and schemas without importing a service implementation. |
-| Repository root | Root `pyproject.toml` and `uv.lock` coordinate development tooling, cross-service integration, and the independently installable deployment CLI's root test imports; they do not publish an FDAI runtime distribution. |
+| Repository root | Root `pyproject.toml` and `uv.lock` coordinate development tooling and cross-service integration. The root pytest path can import the independently installable deployment CLI for tests without adding it to the uv workspace; the root does not publish an FDAI runtime distribution. |
 | Service communication | Services exchange versioned contracts over PostgreSQL-owned projections and the event bus. One service never imports another service's implementation package. |
 
 ## Multi-Service Repository Layout
