@@ -423,6 +423,7 @@ def _terraform_environment(
             "TF_DATA_DIR": str(data_dir),
             "TF_IN_AUTOMATION": "1",
             "ARM_SUBSCRIPTION_ID": subscription_id,
+            "ARM_RESOURCE_PROVIDER_REGISTRATIONS": "none",
         }
     )
     return environment

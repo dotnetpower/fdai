@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: e35fa6731e51672c472791ccc4746410a3defe95
+translation_source_sha: 31efa3cbb6e1b4bb3e766366a9e0a9649dec1ef5
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -298,6 +298,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H71 | 구체화가 다이제스트만 유지하고 검증된 크기를 유지하지 않아 교체된 증가 파일이 거부 전에 디스크를 소진할 수 있었습니다. 이제 복사 중 파일별 및 누적 서명 크기 상한을 적용합니다. | `test_materialization_rejects_artifact_growth_after_verification` |
 | H72 | 실제 air-gap 훈련이 폐기된 루트 `src` 경로를 사용해 라이선스 발급에서 중단됐습니다. 이제 독립 패키지 Core 및 서비스 계약 소스 경로를 명시적으로 해석합니다. | 네트워크 격리 `airgap-drill.sh` 재실행 |
 | H73 | 패키지 경로 수정 후에도 라이선스 발급이 제거된 전달 검증기를 가져왔습니다. 이제 고정된 cryptography 의존성으로 Ed25519 공개 키를 검증합니다. | 네트워크 격리 `airgap-drill.sh` 재실행 |
+| H74 | AzureRM 계획이 변경 없음으로 보고하면서 리소스 공급자를 자동 등록할 수 있었습니다. 이제 격리 계획 환경이 공급자 등록을 `none`으로 강제합니다. | `test_terraform_environment_accepts_target_bound_managed_identity` |
 
 ## 관련 문서
 
