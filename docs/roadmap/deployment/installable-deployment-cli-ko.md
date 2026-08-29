@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: acdf28f12cee6800d6bc83afc0dd4183816e88d9
+translation_source_sha: bee53d1c9ba7f87265d2946a01303bf17aae3a9d
 translation_revised: 2026-08-29
 ---
 # 설치형 배포 CLI
@@ -15,36 +15,6 @@ translation_revised: 2026-08-29
 > 조정 계층입니다.
 >
 > **구현 초점:** Azure가 유일한 구현 대상입니다. 비-Azure 프로바이더 지원은 연기됩니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 전용 `fdaictl` 배포판 및 명령 진입점 | implemented | `packages/deployment-cli`, 집중 패키지 및 제품화 검사 | `fdai-deployment-cli` wheel이 `fdaictl`을 등록하고 결정론적 로컬 명령을 제공합니다. 보호된 Azure 제출은 아직 미완성입니다. |
-| 코어 배포 프리플라이트 기본 요소 | implemented | `services/core-control-plane/src/fdai/core/deploy_preflight/` 및 프리플라이트 집중 테스트 | 분석기, 리포트, Azure 실제 검사 스크립트, 토글 기본 요소 및 재조립 로직은 배포 CLI 파사드와 독립적으로 존재합니다. |
-| 보호된 실행기 계획 및 exact-apply 작업 흐름 | implemented | `.github/workflows/deploy-dev.yml` 및 집중 배포 작업 흐름 테스트 | 실행기는 보호된 계획 수립, 근거 연결, 점유/증적 가드, 수렴, 마이그레이션 및 상태 검사를 소유합니다. 패키지된 로컬 CLI 클라이언트는 없습니다. |
-| 서명된 배포 번들 release 경로 | not-started | `scripts/deployment/release/build-deployment-bundle.py` 및 이슈 #222 | 번들 구성 기능은 남아 있지만 실행할 수 없는 작업 흐름은 제거했습니다. `fdaictl bundle verify`가 구현되고 깨끗한 체크아웃 테스트를 통과한 뒤에만 release 경로를 복원합니다. |
-| Offline 키트 및 폐쇄망 계획 | in-progress | `fdai_deployment_cli.offline_kit`, 릴리스 스크립트, 서명, 정확한 파일 집합, 호환성, 변조 집중 검사 | 패키징은 호스트 플랫폼을 파생하고 정확한 CLI 빌드 Python으로 해시 바이너리 wheel을 해석합니다. 훈련은 `--no-index`로 해당 wheel만 설치하며 통제된 네트워크 없는 실행은 아직 필요합니다. |
-| 공개 설치 및 정리 경험 | not-started | 이 문서의 목표 설치 및 정리 계약 | 첫 공개 CLI 게시, pinned offline 루트 패키지 및 `deploy teardown` 명령이 없습니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 제거된 배포 CLI 패키지와 그 명령을 현재 사용할 수 있다는 이전 주장을 바로잡았습니다. | 현재 변경과 구현 범위 표에 기재한 패키지 메타데이터, release 스크립트, 보호된 작업 흐름 및 집중 작업 흐름 검사 | 전용 CLI 배포판을 만들고 그 경계 뒤에 검증 기능을 복원한 뒤 설치와 폐쇄망 사용을 입증해야 합니다. |
-| 2026-08-19 | deferred | 사용할 수 없는 `fdaictl bundle verify` 명령을 호출하고 성공 실행 근거도 없던 수동 배포 번들 작업 흐름을 제거했습니다. | 이슈 #222, 현재 작업 흐름 목록 및 집중 CI 계약 테스트 | 먼저 전용 CLI 검증기를 추가한 다음 깨끗한 체크아웃 근거와 함께 보호된 release 작업 흐름을 복원해야 합니다. |
-| 2026-08-19 | deferred | 연기된 작업 흐름과 함께 제거된 경로를 release 검사가 더 이상 요구하지 않도록 productization 검증에서 사용 중단된 작업 흐름 전용 테스트를 제거했습니다. | 현재 변경, `scripts/deployment/release/verify-productization.sh`, 55개의 집중 productization 및 구조 gate 테스트 통과 | 실행 가능한 CLI 검증기와 보호된 release 작업 흐름을 추가할 때만 작업 흐름 테스트를 복원해야 합니다. |
-| 2026-08-29 | implemented | `fdaictl` 진입점을 제공하는 독립 `fdai-deployment-cli` wheel, 안전한 프로필과 원장 계약, 서명 아티팩트 검증, 무변경 초기 구성 예행 연습을 추가했습니다. | 현재 변경, 집중 패키지 및 제품화 검사 28개 통과, Ruff 및 엄격한 mypy 통과 | 보호된 계획 및 적용 어댑터를 완료하고 wheel을 게시하며 폐쇄망 훈련 증적을 보존해야 합니다. |
-
-### 남은 작업
-
-- [ ] `fdaictl` 프로젝트 스크립트를 가진 전용 경량 CLI 배포판을 추가하고, 결정론적 `version`, `doctor` 및 `security audit` 출력에 대한 소스 설치와 격리 휠 테스트를 통과합니다.
-- [ ] 기존 프리플라이트와 보호된 작업 흐름 계약을 `deploy preflight`, `plan`, `status`, `apply`에 연결하고 잘못된 대상, 실패 시 중단, exact-plan, 만료 및 정보 제거 테스트를 통과합니다.
-- [ ] 번들 및 offline-kit 검증을 전용 CLI 패키지로 옮기고, 깨끗한 체크아웃 테스트를 통과한 뒤에만 해당 release 작업 흐름을 복원하며, 네트워크 없는 air-gap 훈련을 성공시킵니다.
-- [ ] Offline trust 루트를 포함한 첫 pinned CLI release를 게시하고 설치, 업그레이드, 롤백, 내부 mirror 전달 및 보호된 정리를 검토 가능한 증적으로 입증합니다.
-
 ## 한눈에 보는 설계
 
 `fdaictl`을 격리된 `uv` 도구로 설치합니다. 승인된 실행 호스트가 exact Terraform 계획을
@@ -447,8 +417,8 @@ Signing-key 또는 bundle-building 코드는 포함하지 않습니다.
 작업이 통과해야 합니다. 검증 작업은 locked Python 및 콘솔 의존성을 설치하고
 disposable pgvector PostgreSQL 서비스를 시작해 single Alembic 헤드로 업그레이드합니다. 이어서 실제 운영
 통합 테스트를 포함한 `scripts/verify.sh --all`을 실행한 다음 productization 및 콘솔 검사를
-실행합니다. Productization 검사는 버전이 지정된 service-contract SDK와 5개 서비스 소유
-출처 및 테스트 루트를 모두 검증한 다음, 6개 독립 휠을 빌드합니다. 마지막
+실행합니다. Productization 검사는 독립 프로젝트 환경에서 배포 CLI를 검증한 다음 버전이
+지정된 service-contract SDK와 5개 서비스 소유 루트를 검증하고 7개 wheel을 빌드합니다. 마지막
 `git diff --exit-code`는 generator가 tracked 출처를 다시 쓰는 경우를 차단합니다.
 Dependency-audit 작업은 pinned Python vulnerability scanner를 실행합니다. 번들 작업은 두
 작업을 `needs`로 선언하고 pinned Ubuntu 실행기 이미지를 사용하며, 이 작업만
@@ -643,6 +613,7 @@ plan-only 전송 계층은 현재 전달 실행 상세를 반환하고 실행기
 
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/deployment/installable-deployment-cli.md) |
 | 구체적인 Azure 인벤토리 및 onboarding | [deploy-and-onboard-ko.md](deploy-and-onboard-ko.md) |
 | 배포 수명 주기 및 롤백 | [deployment-ko.md](deployment-ko.md) |
 | 준비 상태 발견 사항 및 탐색 계약 | [deployment-preflight-ko.md](deployment-preflight-ko.md) |

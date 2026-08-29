@@ -269,6 +269,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H35 | Journal replay verified hashes but skipped legal transition checks, allowing a crafted first `ready`. Replay now applies the same transition reducer as append. | `test_journal_replay_rejects_ready_without_readiness_evidence` |
 | H36 | A blocked run was nonterminal and could continue without a new reviewed run. `blocked` now closes the journal like other fail-closed terminal states. | `test_journal_rejects_event_after_blocked_state` |
 | H37 | Boolean utilization and reserve ratios still passed finite-number checks. Capacity validation now rejects booleans for both ratio fields explicitly. | `test_capacity_rejects_non_numeric_and_non_finite_inputs` |
+| H38 | The root productization pytest process could not import the independent CLI project. Productization now runs CLI tests in that project's environment before the root suite. | `test_productization_builds_the_installable_deployment_cli` |
 
 ## Related docs
 

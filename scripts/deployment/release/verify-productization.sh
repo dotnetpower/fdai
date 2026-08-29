@@ -59,7 +59,6 @@ python_paths=(
 )
 
 test_paths=(
-  packages/deployment-cli/tests
   packages/service-contracts/tests
   services/operator-service/tests
   services/document-ingestion-api/tests
@@ -109,6 +108,8 @@ printf '== productization: typing ==\n'
 uv run mypy "${python_paths[@]}"
 
 printf '== productization: focused tests ==\n'
+uv run --project packages/deployment-cli python -m pytest \
+  -c packages/deployment-cli/pyproject.toml -q packages/deployment-cli/tests
 uv run pytest "${test_paths[@]}" -q
 
 printf '== productization: console ==\n'

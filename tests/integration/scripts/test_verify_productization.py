@@ -47,3 +47,8 @@ def test_productization_builds_every_independent_distribution() -> None:
 def test_productization_builds_the_installable_deployment_cli() -> None:
     script = SCRIPT_PATH.read_text(encoding="utf-8")
     assert "uv build --wheel --project packages/deployment-cli" in script
+    assert (
+        "uv run --project packages/deployment-cli python -m pytest \\\n"
+        "  -c packages/deployment-cli/pyproject.toml -q packages/deployment-cli/tests"
+    ) in script
+    assert "packages/deployment-cli/tests" not in _array_values("test_paths")

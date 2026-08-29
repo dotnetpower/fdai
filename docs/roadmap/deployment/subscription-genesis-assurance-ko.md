@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: b72f5f3eb6c6c35e730c68b7b7163c41f384c39e
+translation_source_sha: c72c1ba5b65385d9a59af479a5f2e4398bc20cb4
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -262,6 +262,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H35 | 원장 재생이 해시는 검증했지만 적법한 전이를 검사하지 않아 조작된 첫 `ready`가 가능했습니다. 이제 재생도 append와 같은 전이 리듀서를 적용합니다. | `test_journal_replay_rejects_ready_without_readiness_evidence` |
 | H36 | 차단된 실행이 비종결 상태여서 새 검토 실행 없이 계속될 수 있었습니다. 이제 `blocked`는 다른 실패 시 차단 종결 상태처럼 원장을 닫습니다. | `test_journal_rejects_event_after_blocked_state` |
 | H37 | 불리언 사용률과 예비 비율이 여전히 유한 수 검사를 통과했습니다. 이제 용량 검증이 두 비율 필드의 불리언을 명시적으로 거부합니다. | `test_capacity_rejects_non_numeric_and_non_finite_inputs` |
+| H38 | 루트 제품화 pytest 프로세스가 독립 CLI 프로젝트를 가져올 수 없었습니다. 이제 제품화 검사가 루트 제품군 전에 해당 프로젝트 환경에서 CLI 검사를 실행합니다. | `test_productization_builds_the_installable_deployment_cli` |
 
 ## 관련 문서
 
