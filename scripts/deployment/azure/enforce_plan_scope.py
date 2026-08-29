@@ -114,11 +114,13 @@ def main() -> int:
     )
     parser.add_argument("--resolved-models", type=Path)
     args = parser.parse_args()
+    plan_path = args.plan.resolve()
     rendered = subprocess.run(
-        ["terraform", "show", "-json", str(args.plan)],
+        ["terraform", "show", "-json", plan_path.name],
         check=True,
         capture_output=True,
         text=True,
+        cwd=plan_path.parent,
     ).stdout
     plan = json.loads(rendered)
     resolved = _load(args.resolved_models) if args.resolved_models else None
