@@ -132,6 +132,7 @@ BUNDLE_IN_KIT="deployment/fdai-deployment-bundle-${BUNDLE_VERSION}.tar.gz"
 rm -rf "$KIT" "$OUT/bundle" "$OUT/wheels" "$OUT/mirror" "$OUT/toolchain"
 rm -f "$OUT/bundle.tar.gz" "$OUT/cli-requirements.txt"
 mkdir -p "$OUT/toolchain" "$KIT"/{python,deployment,terraform,bin,sbom}
+chmod 700 "$KIT"
 
 PYTHONPATH=scripts/deployment/release "$PYTHON" -c '
 import sys

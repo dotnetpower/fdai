@@ -21,10 +21,10 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 if TYPE_CHECKING:
     from scripts.deployment.release.secure_key_file import read_key_file
-    from scripts.deployment.release.secure_work_file import write_work_file
+    from scripts.deployment.release.secure_work_file import open_work_file, write_work_file
 else:
     from secure_key_file import read_key_file
-    from secure_work_file import write_work_file
+    from secure_work_file import open_work_file, write_work_file
 
 _ROOTS: Final[tuple[str, ...]] = (
     "infra",
@@ -109,10 +109,8 @@ def write_reproducible_archive(
     source_date_epoch: int,
 ) -> None:
     """Write a deterministic gzip-compressed tar archive of one built bundle."""
-    if archive_path.exists():
-        raise BundleBuildError("bundle archive already exists")
     prefix = f"fdai-deployment-bundle-{bundle_version}"
-    with archive_path.open("wb") as raw:
+    with open_work_file(archive_path, mode=0o644, replace=False) as raw:
         with gzip.GzipFile(fileobj=raw, mode="wb", filename="", mtime=source_date_epoch) as zipped:
             with tarfile.open(fileobj=zipped, mode="w", format=tarfile.GNU_FORMAT) as archive:
                 _add_directory(archive, prefix, source_date_epoch)

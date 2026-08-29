@@ -41,8 +41,10 @@ from fdai_deployment_cli.offline_kit import (
 
 if TYPE_CHECKING:
     from scripts.deployment.release.secure_key_file import read_key_file
+    from scripts.deployment.release.secure_work_file import remove_work_file, write_work_file
 else:
     from secure_key_file import read_key_file
+    from secure_work_file import remove_work_file, write_work_file
 
 
 class OfflineKitBuildError(RuntimeError):
@@ -83,11 +85,9 @@ def sign_offline_kit(
     signature = private_key.sign(manifest_bytes)
     manifest_path = root / MANIFEST_NAME
     signature_path = root / SIGNATURE_NAME
-    if manifest_path.is_symlink() or signature_path.is_symlink():
-        raise OfflineKitBuildError("offline kit metadata path MUST NOT be a symlink")
-    signature_path.unlink(missing_ok=True)
-    manifest_path.write_bytes(manifest_bytes)
-    signature_path.write_bytes(signature)
+    remove_work_file(signature_path, missing_ok=True)
+    write_work_file(manifest_path, manifest_bytes, mode=0o644, replace=True)
+    write_work_file(signature_path, signature, mode=0o644, replace=False)
     try:
         verification = verify_offline_kit(
             root,
@@ -100,8 +100,8 @@ def sign_offline_kit(
         # reachable cause is a release root that does not match the signing key
         # (for example after a rotation), so leave the stage without metadata
         # rather than with a signature nobody downstream can check.
-        manifest_path.unlink(missing_ok=True)
-        signature_path.unlink(missing_ok=True)
+        remove_work_file(manifest_path, missing_ok=True)
+        remove_work_file(signature_path, missing_ok=True)
         raise OfflineKitBuildError(
             f"offline kit failed its own verification and was left unsigned: {exc}"
         ) from exc

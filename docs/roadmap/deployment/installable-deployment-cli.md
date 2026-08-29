@@ -118,7 +118,8 @@ single-file output while preserving the ownership sentinel. Sentinel verificatio
 component in nonblocking mode before descriptor checks, so a special file cannot stall resume.
 Generated child files use a held-parent, exclusive, no-follow writer. A resumed replacement unlinks
 only the final entry through that descriptor and then recreates it with `O_EXCL`, so an existing
-symlink or FIFO cannot redirect or truncate another file.
+symlink, FIFO, or hard link cannot redirect or truncate another file. Signed offline-kit metadata
+and streamed bundle archive publication use the same boundary.
 Offline planning recomputes the profile target digest from concrete tenant and subscription input,
 matches the profile region, and supplies the verified subscription to Terraform.
 The synthetic air-gap drill isolates Azure CLI configuration so a host login cannot alter its

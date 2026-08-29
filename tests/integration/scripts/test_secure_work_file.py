@@ -41,6 +41,14 @@ def test_work_file_replacement_never_follows_existing_symlink(tmp_path: Path) ->
     assert output.read_bytes() == b"replacement"
     assert not output.is_symlink()
 
+    hard_target = tmp_path / "hard-target"
+    hard_target.write_bytes(b"hard-unchanged")
+    hard_output = parent / "hard-output"
+    os.link(hard_target, hard_output)
+    MODULE.write_work_file(hard_output, b"new-inode", mode=0o600, replace=True)
+    assert hard_target.read_bytes() == b"hard-unchanged"
+    assert hard_output.read_bytes() == b"new-inode"
+
 
 def test_work_file_rejects_fifo_race_and_public_parent(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -69,3 +77,16 @@ def test_work_file_rejects_fifo_race_and_public_parent(
     public.mkdir(mode=0o755)
     with pytest.raises(PermissionError, match="mode 0700"):
         MODULE.write_work_file(public / "output", b"content", mode=0o600, replace=False)
+
+
+def test_streaming_work_file_never_opens_existing_output(tmp_path: Path) -> None:
+    parent = tmp_path / "work"
+    parent.mkdir(mode=0o700)
+    output = parent / "archive"
+    output.write_bytes(b"existing")
+
+    with pytest.raises(FileExistsError):
+        with MODULE.open_work_file(output, mode=0o644, replace=False):
+            pass
+
+    assert output.read_bytes() == b"existing"
