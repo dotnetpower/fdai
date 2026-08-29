@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Final, Protocol
@@ -58,6 +59,90 @@ SELECT probe.ready
        FROM state_kv
       LIMIT 0
   ) AS required_state ON FALSE
+"""
+_DOCUMENT_SEARCH_CANDIDATE_MULTIPLIER: Final = 4
+_DOCUMENT_SEARCH_MIN_CANDIDATES: Final = 20
+_DOCUMENT_SEARCH_MAX_CANDIDATES: Final = 80
+_DOCUMENT_SEARCH_RRF_K: Final = 60.0
+_DOCUMENT_SEARCH_SQL: Final = """
+WITH inputs AS (
+    SELECT %s::vector AS query_embedding,
+           websearch_to_tsquery('simple', %s) AS lexical_query,
+           %s::double precision AS rrf_k
+),
+authorized AS MATERIALIZED (
+    SELECT chunk.doc_id,
+           chunk.chunk_id,
+           chunk.text,
+           chunk.source_ref,
+           chunk.metadata,
+           1.0 - (chunk.embedding <=> inputs.query_embedding) AS semantic_score,
+           ts_rank_cd(
+               to_tsvector('simple', chunk.text),
+               inputs.lexical_query
+           ) AS lexical_score,
+           to_tsvector('simple', chunk.text) @@ inputs.lexical_query AS lexical_match
+      FROM knowledge_chunk AS chunk
+      CROSS JOIN inputs
+     WHERE chunk.metadata->>'governed_document' = 'true'
+       AND chunk.metadata->>'collection_id' = %s
+       AND chunk.metadata->>'access_descriptor_ref' = ANY(%s)
+),
+semantic_bounded AS (
+    SELECT *
+      FROM authorized
+     ORDER BY semantic_score DESC, chunk_id ASC
+     LIMIT %s
+),
+semantic_candidates AS (
+    SELECT semantic_bounded.*,
+           row_number() OVER (
+               ORDER BY semantic_score DESC, chunk_id ASC
+           ) AS semantic_rank
+      FROM semantic_bounded
+),
+lexical_bounded AS (
+    SELECT *
+      FROM authorized
+     WHERE lexical_match
+     ORDER BY lexical_score DESC, chunk_id ASC
+     LIMIT %s
+),
+lexical_candidates AS (
+    SELECT lexical_bounded.*,
+           row_number() OVER (
+               ORDER BY lexical_score DESC, chunk_id ASC
+           ) AS lexical_rank
+      FROM lexical_bounded
+),
+fused AS (
+    SELECT COALESCE(semantic.doc_id, lexical.doc_id) AS doc_id,
+           COALESCE(semantic.chunk_id, lexical.chunk_id) AS chunk_id,
+           COALESCE(semantic.text, lexical.text) AS text,
+           COALESCE(semantic.source_ref, lexical.source_ref) AS source_ref,
+           COALESCE(semantic.metadata, lexical.metadata) AS metadata,
+           semantic.semantic_rank,
+           lexical.lexical_rank
+      FROM semantic_candidates AS semantic
+      FULL OUTER JOIN lexical_candidates AS lexical
+        ON semantic.chunk_id = lexical.chunk_id
+)
+SELECT fused.doc_id,
+       fused.chunk_id,
+       fused.text,
+       fused.source_ref,
+       fused.metadata,
+       LEAST(
+           1.0,
+           (
+               COALESCE(1.0 / (inputs.rrf_k + fused.semantic_rank), 0.0)
+               + COALESCE(1.0 / (inputs.rrf_k + fused.lexical_rank), 0.0)
+           ) / (2.0 / (inputs.rrf_k + 1.0))
+       ) AS score
+  FROM fused
+ CROSS JOIN inputs
+ ORDER BY score DESC, fused.chunk_id ASC
+ LIMIT %s
 """
 
 
@@ -404,7 +489,7 @@ async def _enqueue_outbox(
 
 
 class PostgresDocumentSearch:
-    """Return bounded authorized document chunks using pgvector cosine ranking."""
+    """Return bounded authorized chunks using deterministic hybrid ranking."""
 
     def __init__(
         self,
@@ -428,22 +513,37 @@ class PostgresDocumentSearch:
         if not query or not allowed_access_refs or k < 1 or k > 20:
             return ()
         vector = _vector(await self._embedder.embed(query), self._dimension)
+        candidate_limit = min(
+            _DOCUMENT_SEARCH_MAX_CANDIDATES,
+            max(
+                _DOCUMENT_SEARCH_MIN_CANDIDATES,
+                k * _DOCUMENT_SEARCH_CANDIDATE_MULTIPLIER,
+            ),
+        )
         async with await psycopg.AsyncConnection.connect(
             self._config.dsn,
             row_factory=dict_row,
             connect_timeout=self._config.connect_timeout_s,
         ) as connection:
-            rows = await (
+            async with connection.transaction():
                 await connection.execute(
-                    "SELECT doc_id, chunk_id, text, source_ref, metadata, "
-                    "1.0 - (embedding <=> %s::vector) AS score "
-                    "FROM knowledge_chunk WHERE metadata->>'governed_document' = 'true' "
-                    "AND metadata->>'collection_id' = %s "
-                    "AND metadata->>'access_descriptor_ref' = ANY(%s) "
-                    "ORDER BY embedding <=> %s::vector ASC LIMIT %s",
-                    (vector, collection_id, sorted(allowed_access_refs), vector, k),
+                    f"SET LOCAL statement_timeout = {int(self._config.statement_timeout_ms)}"
                 )
-            ).fetchall()
+                rows = await (
+                    await connection.execute(
+                        _DOCUMENT_SEARCH_SQL,
+                        (
+                            vector,
+                            query,
+                            _DOCUMENT_SEARCH_RRF_K,
+                            collection_id,
+                            sorted(allowed_access_refs),
+                            candidate_limit,
+                            candidate_limit,
+                            k,
+                        ),
+                    )
+                ).fetchall()
         return tuple(
             KnowledgeChunk(
                 doc_id=str(row["doc_id"]),
@@ -474,4 +574,7 @@ def _payload(value: Any) -> dict[str, Any]:
 def _vector(values: Sequence[float], dimension: int) -> str:
     if len(values) != dimension:
         raise ValueError("embedding vector dimension mismatch")
-    return "[" + ",".join(format(float(value), ".12g") for value in values) + "]"
+    normalized = tuple(float(value) for value in values)
+    if any(not math.isfinite(value) for value in normalized):
+        raise ValueError("embedding vector values MUST be finite")
+    return "[" + ",".join(format(value, ".12g") for value in normalized) + "]"
