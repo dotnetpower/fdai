@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 49a4e44a9bcbbe038647b27a24cbbad7a8426aa7
+translation_source_sha: 90bba4f3d8679c96fdcf78841a72e69fefaa588c
 translation_revised: 2026-08-29
 ---
 
@@ -255,6 +255,10 @@ Operator 의미 스트림의 대체 경로도 호스트 연결부로 유지됩�
 모든 운영 조립이 새 네임스페이스를 사용하고, N-1 호환성 검사가 통과하며, 이전 패키지 버전을
 감사나 이벤트 계약 변경 없이 복원할 수 있다는 롤백 근거가 있어야 Core 호환 facade를 제거할 수
 있습니다.
+
+Rule 카탈로그 스냅샷 저장소와 초안 검토 전달은 공유 Core platform 서비스로 유지합니다. 선택적
+저장소 계정과 rule-watcher 설정은 비용 거버넌스 패키지 매니페스트, 활성화 상태, 프로바이더
+연결 또는 승격 권한에 포함되지 않습니다.
 
 ## 실패 동작
 

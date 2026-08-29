@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI 최소 Azure 인벤토리를 프로비저닝하는 방법. azd 턴키와 Terraform 직접 실행 두 경로 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 741d7ecc2e5ecff1c7ce0f50bd298c825e64ad7d
+translation_source_sha: 8166da50d38c1a5863249a441143916d8b2b3d76
 translation_revised: 2026-08-29
 ---
 
@@ -56,6 +56,10 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
   `inventory_kubernetes_audience`를 함께 제공합니다. Inventory managed identity에는 AKS RBAC
   Reader만 부여하며 request 시점에 수명이 짧은 token을 취득합니다. Kubernetes bearer token을
   Terraform 또는 environment 구성에 넣지 마세요.
+- rule-watcher 스냅샷을 보존하고 초안 전용 수집 검토를 열려면
+  `enable_rule_catalog_snapshot_storage`와 기존 담당 체계 GitOps 연결을 함께 활성화하세요.
+  GitHub 자격 증명은 Key Vault 시크릿 참조만 제공합니다. Watcher identity에는 Blob 데이터
+  접근과 초안 검토 권한만 있으며 카탈로그 병합 또는 작업 권한은 없습니다.
 
 ## 최소 인벤토리 프로비저닝
 
@@ -120,6 +124,10 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
    - Provider Schema Job이 daily run을 완료하고 PostgreSQL에 durable generation digest를
      보존하며 material change를 Heimdall의 shadow Drift로 전달합니다. Ontology, rule 또는
      policy를 자동으로 업데이트하지 않습니다.
+   - Rule 수집 전달을 활성화한 경우 Rule Watcher Job은 내용 기반 주소가 지정된 스냅샷을
+     비공개 Blob 컨테이너에 미러링하고, 변경되지 않은 내용에는 초안 검토를 최대 하나만
+     엽니다. 재검증 시간은 패키지 ID를 바꾸지 않으며 Job은 카탈로그 내용을 병합하거나
+     활성화하지 않습니다.
    - AKS topology를 구성한 경우 inventory identity에 AKS RBAC Reader만 있고 API endpoint가
      CA verification을 통과하며, static token secret 없이 완전 세대에 UID 기반 Kubernetes
      resource가 포함되는지 확인합니다.

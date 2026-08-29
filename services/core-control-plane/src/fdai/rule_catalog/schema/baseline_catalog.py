@@ -10,6 +10,11 @@ repository stores, and neither is ever loaded into the Rule catalog.
 `ConfigurationBaseline` here is the authored or collected catalog artifact. The
 runtime drift snapshot is the distinct
 :class:`~fdai.core.detection.configuration_drift_models.FrozenConfigurationBaseline`.
+The two are never interchangeable: this module's
+:func:`evaluate_configuration_baseline_control_set` is the appropriate T0
+consumer for the catalog artifact - it resolves ``controls`` (a list of Rule
+ids) against the loaded Rule catalog - and it never manufactures a
+``FrozenConfigurationBaseline`` from that list.
 
 Both loaders are fail-closed: one invalid document fails the whole directory so
 a partially valid store never reaches an evaluator.
@@ -18,7 +23,7 @@ a partially valid store never reaches an evaluator.
 from __future__ import annotations
 
 import json
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping, Set
 from dataclasses import dataclass
 from datetime import datetime
 from functools import cache
@@ -73,6 +78,87 @@ class ConfigurationBaseline:
     provenance: ConfigurationBaselineProvenance
     title: str | None = None
     schema_version: str = "1.0.0"
+
+
+@dataclass(frozen=True, slots=True)
+class ConfigurationBaselineControlSetReport:
+    """T0 what-if readiness for one catalog :class:`ConfigurationBaseline`.
+
+    Resolves this reviewed control-set baseline's referenced Rule ids
+    against the loaded Rule catalog (``rule-catalog/catalog/`` +
+    ``rule-catalog/collected/``). This is the appropriate deterministic T0
+    consumer for the catalog artifact: it answers "are every one of this
+    hardened reference set's controls a real, evaluable Rule", which is a
+    precondition for using the set in T0 what-if evaluation.
+
+    This is intentionally **not** the runtime resource-attribute drift
+    comparison in
+    :class:`fdai.core.detection.configuration_drift_service.ConfigurationDriftService`.
+    That service compares a separate
+    :class:`fdai.core.detection.configuration_drift_models.FrozenConfigurationBaseline`
+    (expected resource attributes + topology links) against live observed
+    evidence, and never loads this catalog artifact. A catalog control-set
+    baseline names *which checks* a hardened reference set expects to be
+    evaluable; it carries no expected resource attribute values of its own,
+    so it cannot itself produce a drift finding. Conflating the two would
+    misrepresent a catalog reference list as a runtime evidence snapshot.
+    """
+
+    baseline_id: str
+    resource_type: str
+    resolved_controls: tuple[str, ...]
+    unresolved_controls: tuple[str, ...]
+
+    @property
+    def is_resolved(self) -> bool:
+        """``True`` when every referenced control id is a known Rule id."""
+
+        return not self.unresolved_controls
+
+
+def evaluate_configuration_baseline_control_set(
+    baseline: ConfigurationBaseline,
+    *,
+    known_rule_ids: Set[str],
+) -> ConfigurationBaselineControlSetReport:
+    """Resolve one baseline's ``controls`` against the loaded Rule catalog.
+
+    Read-only: never raises on an unresolved control id. Use
+    :func:`require_resolved_configuration_baseline_control_set` for the
+    fail-closed variant.
+    """
+
+    resolved = tuple(sorted(control for control in baseline.controls if control in known_rule_ids))
+    unresolved = tuple(
+        sorted(control for control in baseline.controls if control not in known_rule_ids)
+    )
+    return ConfigurationBaselineControlSetReport(
+        baseline_id=baseline.id,
+        resource_type=baseline.resource_type,
+        resolved_controls=resolved,
+        unresolved_controls=unresolved,
+    )
+
+
+def require_resolved_configuration_baseline_control_set(
+    baseline: ConfigurationBaseline,
+    *,
+    known_rule_ids: Set[str],
+) -> ConfigurationBaselineControlSetReport:
+    """Fail-closed: raise :class:`BaselineCatalogError` on any unresolved control id."""
+
+    report = evaluate_configuration_baseline_control_set(baseline, known_rule_ids=known_rule_ids)
+    if report.unresolved_controls:
+        raise BaselineCatalogError(
+            [
+                BaselineIssue(
+                    key=f"{baseline.id}:{control}",
+                    message="control id does not resolve to a known Rule id",
+                )
+                for control in report.unresolved_controls
+            ]
+        )
+    return report
 
 
 @dataclass(frozen=True, slots=True)
@@ -248,11 +334,14 @@ __all__ = [
     "BaselineCatalogError",
     "BaselineIssue",
     "ConfigurationBaseline",
+    "ConfigurationBaselineControlSetReport",
     "ConfigurationBaselineProvenance",
     "MeasurementBaseline",
     "MeasurementBaselineProvenance",
+    "evaluate_configuration_baseline_control_set",
     "load_configuration_baseline_catalog",
     "load_configuration_baseline_from_mapping",
     "load_measurement_baseline_catalog",
     "load_measurement_baseline_from_mapping",
+    "require_resolved_configuration_baseline_control_set",
 ]

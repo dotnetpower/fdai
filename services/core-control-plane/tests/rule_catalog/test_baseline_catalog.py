@@ -10,14 +10,18 @@ import pytest
 import yaml
 from fdai.rule_catalog.schema.baseline_catalog import (
     BaselineCatalogError,
+    ConfigurationBaselineControlSetReport,
+    evaluate_configuration_baseline_control_set,
     load_configuration_baseline_catalog,
     load_configuration_baseline_from_mapping,
     load_measurement_baseline_catalog,
     load_measurement_baseline_from_mapping,
+    require_resolved_configuration_baseline_control_set,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 BASELINES_ROOT = REPO_ROOT / "rule-catalog" / "baselines"
+CATALOG_DIRS = (REPO_ROOT / "rule-catalog" / "catalog", REPO_ROOT / "rule-catalog" / "collected")
 
 
 def _configuration_document(**overrides: Any) -> dict[str, Any]:
@@ -194,7 +198,95 @@ def test_hidden_paths_are_skipped(tmp_path: Path) -> None:
     assert load_configuration_baseline_catalog(tmp_path) == ()
 
 
-def test_shipped_repository_stores_load(tmp_path: Path) -> None:
+def test_shipped_measurement_store_loads_as_empty(tmp_path: Path) -> None:
     del tmp_path
-    assert load_configuration_baseline_catalog(BASELINES_ROOT / "configuration") == ()
     assert load_measurement_baseline_catalog(BASELINES_ROOT / "measurement") == ()
+
+
+def test_shipped_configuration_store_loads_the_reviewed_baseline(tmp_path: Path) -> None:
+    del tmp_path
+    loaded = load_configuration_baseline_catalog(BASELINES_ROOT / "configuration")
+
+    assert [item.id for item in loaded] == ["kubernetes-cluster.hardening.baseline"]
+    (baseline,) = loaded
+    assert baseline.resource_type == "kubernetes-cluster"
+    assert baseline.provenance.license == "LicenseRef-reference-only"
+
+
+# ---------------------------------------------------------------------------
+# Control-set resolution - the T0 consumer for a catalog ConfigurationBaseline
+# ---------------------------------------------------------------------------
+
+
+def test_evaluate_configuration_baseline_control_set_splits_resolved_and_unresolved() -> None:
+    baseline = load_configuration_baseline_from_mapping(
+        _configuration_document(
+            controls=["known.rule", "also-known.rule", "missing.rule"],
+        )
+    )
+
+    report = evaluate_configuration_baseline_control_set(
+        baseline, known_rule_ids={"known.rule", "also-known.rule"}
+    )
+
+    assert isinstance(report, ConfigurationBaselineControlSetReport)
+    assert report.baseline_id == baseline.id
+    assert report.resource_type == baseline.resource_type
+    assert report.resolved_controls == ("also-known.rule", "known.rule")
+    assert report.unresolved_controls == ("missing.rule",)
+    assert report.is_resolved is False
+
+
+def test_evaluate_configuration_baseline_control_set_fully_resolved() -> None:
+    baseline = load_configuration_baseline_from_mapping(
+        _configuration_document(controls=["known.rule"])
+    )
+
+    report = evaluate_configuration_baseline_control_set(baseline, known_rule_ids={"known.rule"})
+
+    assert report.unresolved_controls == ()
+    assert report.is_resolved is True
+
+
+def test_require_resolved_configuration_baseline_control_set_raises_on_unresolved() -> None:
+    baseline = load_configuration_baseline_from_mapping(
+        _configuration_document(controls=["missing.rule"])
+    )
+
+    with pytest.raises(BaselineCatalogError, match="does not resolve to a known Rule id"):
+        require_resolved_configuration_baseline_control_set(baseline, known_rule_ids=set())
+
+
+def test_require_resolved_configuration_baseline_control_set_passes_when_fully_resolved() -> None:
+    baseline = load_configuration_baseline_from_mapping(
+        _configuration_document(controls=["known.rule"])
+    )
+
+    report = require_resolved_configuration_baseline_control_set(
+        baseline, known_rule_ids={"known.rule"}
+    )
+
+    assert report.is_resolved is True
+
+
+def test_shipped_configuration_baseline_resolves_against_the_real_rule_catalog() -> None:
+    """Focused loaded-baseline evaluation: the shipped, reviewed baseline's
+    controls MUST all resolve against ids actually present in the shipped
+    Rule catalog - the deterministic T0 binding this ledger item requires."""
+
+    (baseline,) = load_configuration_baseline_catalog(BASELINES_ROOT / "configuration")
+    known_rule_ids = {
+        str(document["id"])
+        for root in CATALOG_DIRS
+        if root.is_dir()
+        for path in root.rglob("*.yaml")
+        for document in [yaml.safe_load(path.read_text(encoding="utf-8"))]
+        if isinstance(document, dict) and "id" in document
+    }
+
+    report = require_resolved_configuration_baseline_control_set(
+        baseline, known_rule_ids=known_rule_ids
+    )
+
+    assert report.resolved_controls == tuple(sorted(baseline.controls))
+    assert report.unresolved_controls == ()

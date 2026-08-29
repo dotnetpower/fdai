@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision the FDAI minimum-set inventory on Azure - two equivalent paths (azd turnkey or Terraform direct), preview first, apply only when the plan looks right.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: c51553cd174370c8b261ede16ce5434e595872ca }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 19c3ff4bd6295e57eab2f1a8f1641b1fe2b2d752 }]
 ---
 
 # Deploy Quickstart
@@ -64,6 +64,10 @@ first, so you can review the plan before you run the separate apply step.
   `inventory_kubernetes_audience` together. The inventory managed identity receives AKS RBAC
   Reader and acquires a short-lived token at request time. Don't put a Kubernetes bearer token in
   Terraform or environment configuration.
+- To retain rule-watcher snapshots and open draft-only collection reviews, enable
+  `enable_rule_catalog_snapshot_storage` and the existing stewardship GitOps binding together.
+  Supply only the Key Vault secret reference for the GitHub credential. The watcher identity
+  receives Blob data access and draft-review authority, but no catalog merge or action authority.
 
 ## Provision the minimum inventory
 
@@ -132,6 +136,10 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
    - The Provider Schema Job completes its daily run, retains a durable generation digest in
      PostgreSQL, and sends material changes through Heimdall as shadow Drift. It doesn't update
      the ontology, rules, or policies automatically.
+   - When rule collection delivery is enabled, the Rule Watcher Job mirrors content-addressed
+     snapshots to its private Blob container and opens at most one draft review for unchanged
+     content. Re-verification time doesn't change package identity, and the job never merges or
+     activates catalog content.
    - When AKS topology is configured, the inventory identity has only AKS RBAC Reader, the API
      endpoint passes CA verification, and a complete generation includes UID-grounded Kubernetes
      resources without a static token secret.

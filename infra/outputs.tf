@@ -334,6 +334,22 @@ output "case_history_container_url" {
   value       = length(module.case_history_storage) > 0 ? module.case_history_storage[0].container_url : ""
 }
 
+output "rule_catalog_snapshot_storage_account_name" {
+  description = "Private versioned rule-catalog collector snapshot storage account name."
+  value = (
+    length(module.rule_catalog_snapshot_storage) > 0 ? module.rule_catalog_snapshot_storage[0].name : ""
+  )
+}
+
+output "rule_catalog_snapshot_container_url" {
+  description = "Private Blob container URL consumed by the rule-watcher job's durable snapshot mirror."
+  value = (
+    length(module.rule_catalog_snapshot_storage) > 0
+    ? module.rule_catalog_snapshot_storage[0].container_url
+    : ""
+  )
+}
+
 output "document_storage_dfs_endpoint" {
   description = "Private ADLS Gen2 DFS endpoint consumed by the ingestion gateway."
   value       = length(module.document_storage) > 0 ? module.document_storage[0].primary_dfs_endpoint : ""

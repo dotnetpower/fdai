@@ -523,6 +523,31 @@ variable "case_history_deletion_days" {
   default     = 60
 }
 
+variable "rule_catalog_snapshot_container_url" {
+  description = "Durable private Blob container URL for the rule-watcher job's mirrored source snapshots (FDAI_RULE_CATALOG_SNAPSHOT_CONTAINER_URL). Empty disables the durable-mirror stage."
+  type        = string
+  default     = ""
+}
+
+variable "gitops_owner" {
+  description = "GitHub owner (org or user) the rule-watcher's review-only collection PR targets (FDAI_GITOPS_OWNER). Empty disables PR publication."
+  type        = string
+  default     = ""
+}
+
+variable "gitops_repo" {
+  description = "GitHub repository the rule-watcher's review-only collection PR targets (FDAI_GITOPS_REPO)."
+  type        = string
+  default     = ""
+}
+
+variable "gitops_token_secret_id" {
+  description = "Key Vault secret resource id for the GitHub token the rule-watcher job uses to open review-only collection PRs (FDAI_GITOPS_TOKEN). A secret reference only - never a literal token value; empty disables PR publication."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "state_store_dsn_secret_id" {
   description = "Key Vault secret resource id backing FDAI_STATE_STORE_DSN. Empty = fall back to in-memory."
   type        = string

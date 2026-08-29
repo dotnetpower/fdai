@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: c51553cd174370c8b261ede16ce5434e595872ca
+translation_source_sha: 19c3ff4bd6295e57eab2f1a8f1641b1fe2b2d752
 translation_revised: 2026-08-29
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -53,6 +53,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 | 2026-08-20 | implemented | 모든 legacy 및 service migration 연결에 15분 PostgreSQL statement deadline을 추가했습니다. 이 deadline은 20분 workflow deadline보다 먼저 만료되므로 runner process가 사라져도 database가 장기 실행 DDL을 취소하고 transaction과 advisory lock을 해제합니다. | `current change`; 집중 migration deadline 검사; 일회용 PostgreSQL에서 예산을 초과한 statement를 취소하고 연결 해제 뒤 advisory lock 0개를 확인함; 보호된 run `32357855293`과 `32361126642`에서 shell deadline 뒤에도 남은 backend를 확인함. | 동일한 protected Core 적용을 다시 실행하고 성공한 migration 및 post-apply 상태 증적을 보존합니다. |
 | 2026-08-20 | implemented | 지속 인벤토리 계약을 Container Apps Job에 연결했습니다. Cron은 매분 실행되지만 영속 예약 상태는 정상 6시간 스캔을 유지하고 관측된 변경을 120초 하한 위에서 합칩니다. 진행 마감, 절대 시도 마감 및 ARG 속도 예산은 로컬 구성과 같습니다. | [이슈 #139](https://github.com/dotnetpower/fdai/issues/139); 현재 Terraform 및 집중 인프라 계약 검사입니다. | 보호된 실행기에서 exact revision을 적용한 뒤 주기, 비용 및 실제 변경부터 조정까지 걸린 시간을 측정합니다. |
 | 2026-08-24 | implemented | Read-only inventory identity로 전역 provider-schema Container Apps Job을 추가했습니다. Job은 기존 Key Vault reference로 PostgreSQL DSN을 가져오고 immutable ledger blob을 복원하고 보존하며 인증된 production Pantheon bridge로 Heimdall publication을 수행합니다. | `current change`; provider-schema 검사 78개 통과, Terraform validation 및 집중 Job 검사 통과 | Protected runner로 exact revision을 적용하고 scheduled-run 및 Saga audit receipt 하나를 보존합니다. |
+| 2026-08-29 | implemented | 기존 rule-watcher Job에 선택적 영속 저장소와 초안 전용 GitOps 전달을 추가했습니다. Job은 Managed Identity Blob 접근, Key Vault 기반 GitHub 자격 증명 참조, 내용 기반 주소 스냅샷 경로, 구성된 컨테이너를 따르는 접두사의 보존 정책을 사용합니다. | `current change`; 집중 수집 테스트 64개 통과; Terraform 형식 및 검증 통과. | 보호된 계획으로 기능을 활성화하고 예약 전달 증적 하나를 보존한 뒤 런타임 검증을 주장합니다. |
 | 2026-08-24 | implemented | 모델 바인딩 전용 보호 배포를 위해 범위가 제한된 `plan-model-*` 및 `apply-model-*` 요청 ID를 추가했습니다. 이 모드는 저장된 환경 정책과 보호 요청을 요구하고, 평가 중 의도적으로 보류된 모델 정족수를 허용하며, Azure OpenAI 모듈만 대상으로 삼고 봉인된 Cognitive deployment 이외의 계획 변경을 거부합니다. | [이슈 #270](https://github.com/dotnetpower/fdai/issues/270); `.github/workflows/deploy-dev.yml`; 집중 보호 workflow 검사 60개 및 YAML 구문 분석 통과. | 정확한 계획, 적용, 공급자 readback, 런타임 다이제스트 및 역방향 계획 롤백 증적을 보존합니다. |
 | 2026-08-24 | implemented | Exact 적용까지 요청 종류와 모델 정책 출처를 봉인하고, 중복 기능 바인딩을 거부하며, 테넌트 정보가 없는 다이제스트 결속 적용 증적과 독립 Azure deployment readback을 추가했습니다. | [이슈 #270](https://github.com/dotnetpower/fdai/issues/270); 보호 계획 검증기, 모델 deployment 검증기, workflow 및 집중 검사 107개 통과; 비평 10회 뒤 검증된 미해결 결함은 Low 이하만 남았습니다. | 실제 정방향 및 역방향 보호 증적을 보존하고 독립 배포 런타임이 봉인된 다이제스트를 로드하는지 검증합니다. |
 ### 남은 작업

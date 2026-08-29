@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 652550d4d3500f312507340f011ea0ca79fc3bf6
+translation_source_sha: df168e2d2c3acf3e4ad445beee5d67c2d59d6afc
 translation_revised: 2026-08-29
 ---
 # 프로젝트 구조
@@ -41,6 +41,13 @@ translation_revised: 2026-08-29
   delivery에 남습니다. Azure 어댑터는 수명이 짧은 Managed Identity 토큰으로 권위 있는 원본을
   다시 읽고 자격 증명을 보존하지 않습니다. 성공적인 묶음은 근거 자격만 입증하며 실행, 승인 또는
   승격 권한을 선언할 수 없습니다.
+- **상시 권한 수명 주기에는 작성기가 하나만 있음**: 인증된 Operator 명령은 타입이 지정된 수신
+  경로로 들어오고 하나의 Core 작성기가 공급자 중립 원자적 저장소에 위임합니다. PostgreSQL
+  어댑터는 기능군 행을 기준으로 직렬화하고 변경할 수 없는 개정 번호, 해시 체인 전이, 현재 변환
+  결과, 단조로운 fence 및 감사 항목을 함께 커밋합니다. 개정 번호 신원은 변경할 수 없는 조건을
+  다루고 승인 및 검증된 근거 다이제스트는 순환 다이제스트를 만들지 않고 해당 신원에 결속됩니다.
+  정확한 주 저장소 fence 가드는 shadow 전용이며 연결되지 않았습니다. 이후 적용 설계에는 부작용
+  커밋 동안 유지되는 검토된 lease가 필요합니다.
 - **의미 대상 해석은 결정론적으로 유지**: 모델이 작성한 리소스 신원 명확화는 Core가 같은
   발화에서 정확한 런타임 식별자 하나를 검증한 경우에만 제거합니다. 식별자가 없거나 여러 개이면
   명확화를 유지하고 다른 모든 미해결 개념도 타입이 지정된 명확화로 남깁니다. 이 검증은
@@ -366,6 +373,7 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 | **액션 precondition 근거** | `core/risk_gate/preconditions.py`의 `PreconditionEvaluator`; RiskGate가 consume하는 indexed `PreconditionEvaluation` 기록 | - | `GovernedPreconditionEvaluator`가 정본 이벤트 근거를 결합하고, `StateStoreOpenActionEvidenceProvider`가 Thor의 영속 active-run 인덱스를 읽으며, `OntologyChangeWindowEvidenceProvider`가 범위가 제한된 구간 조회를 수행합니다. 활성 행이 없거나 malformed이면 충돌로 처리하고, 프로바이더가 없으면 조건은 해결되지 않은 상태로 남기며, 잘리거나 malformed인 구간은 inactive 상태로 유지합니다. | 모든 조건 인덱스와 근거가 권한을 유지하거나 낮추기만 한다는 규칙을 보존하면서 읽기 전용 상태 변환 결과를 교체합니다. |
 | **관리형 trajectory 데이터셋** | `shared/providers/trajectory.py`의 변경할 수 없는 감사 / 대화 / 도구 / 승인 / 결과 스냅샷 프로토콜, `TrajectoryAccessAuthorizer`, `TrajectoryDatasetStore`; `core/trajectory/`의 `TrajectoryJoinService`, `TrajectoryDatasetAdminService` | - | Deny-by-default 허용 목록 authorizer, in-memory 메타데이터 저장소, 결정론적 JSONL 내보내기 도구, PostgreSQL 메타데이터/격리 구역 어댑터, Owner-only GET 변환 결과, offline 검증기 | authorization-before-materialization, 범위가 제한된 excerpt, 체크섬, 보존/legal 보류, reviewed-only Norns intake를 유지하며 policy-backed 범위 권한 확인과 변경할 수 없는 출처 읽기 담당을 주입 ([설계](../interfaces/governed-trajectory-datasets-ko.md)) |
 | Rule / 정책 출처 | rule-catalog + `policies/` 로더 | - | 번들된 범용 규칙 | 고객 규칙 세트 / 임계값 |
+| **Rule 수집 근거 전달** | `rule_catalog/pipeline/`의 `RuleCatalogSnapshotStore`와 `CollectionReviewPublisher` | - | 선택적 Azure Blob 내용 기반 주소 미러와 초안 전용 GitOps 검토 게시자. 실시간 카탈로그 경로나 병합 권한 없음 | 다이제스트 검증, 원격 멱등성, 검토 전용 게시, 카탈로그 활성화 권한 없음 규칙을 유지하면서 저장소 또는 pull request 호스트 교체 |
 | **기능 번들 런타임** | `core/capability_catalog/`의 `CapabilityRuntime` + `CapabilityBundle` 및 trust-verified `ExtensionManager`; `core/tools/`의 가산 `StaticToolRegistry` / `CompositeToolRegistry`; `composition/`의 `install_capability_bundle(...)` | - | 포크 연결이 없는 기본 발견 카탈로그, 확장은 비활성화된 상태로 설치 | 검토된 reasoning-tool 메타데이터와 프로바이더를 추가하거나 기능을 기존 `ActionType` / `Workflow`에 연결; 중복 id, 다이제스트, trust, 호환성, 매니페스트 동등성, 모든 참조를 activation 전에 검증 |
 | **기능 라이선싱** | `core/licensing/`의 `LicenseVerifier` 프로토콜, 토큰 계약, `resolve_entitlement(...)`; `delivery/trust/ed25519.py`의 `Ed25519LicenseVerifier` | - | 업스트림은 license 없이 배포되므로 전체 카탈로그가 available이고 개발이 막히지 않음 | 분포가 자기 공개 키를 이미지에 packaging하고 서명된 토큰을 시크릿 경로로 주입하며, 실패 시 차단이 필요하면 `require_license`를 설정. License는 `available` 축만 움직이며 승격, RBAC, risk, 승인은 건드리지 않음 ([design](../fork-and-sequencing/capability-licensing-ko.md)) |
 | **맥락 선택 정책** | `core/working_context/`의 `ContextSelectionPolicy`, 필수 불변식 래퍼, revision-safe 권한, shadow 실행기, 재생, 근거 저장소; `CapabilityRuntime`의 `context_selection_policy` 참조 | - | 불변 `deterministic-tiered-v1@1.0.0`, 후보 설치는 비활성화된, 영속 근거는 `StateStore` 재사용 | 조립에서 검토된 정책 구현을 등록하고 exact id/버전을 `CapabilityRuntime`으로 연결하며, 범위가 제한된 shadow 측정 후 근거 구간과 롤백 대상으로만 promote ([설계](../decisioning/context-selection-policy-ko.md)) |

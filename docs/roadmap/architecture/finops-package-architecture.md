@@ -264,6 +264,10 @@ The Core compatibility facade can be removed only after all production compositi
 namespace, N-1 compatibility passes, and rollback evidence proves the previous package version can
 be restored without changing audit or event contracts.
 
+Rule-catalog snapshot storage and draft-review delivery remain shared Core platform services. Their
+opt-in storage account and rule-watcher settings do not enter the Cost Governance package manifest,
+activation state, provider binding, or promotion authority.
+
 ## Failure behavior
 
 | Failure | Required result |

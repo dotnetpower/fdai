@@ -29,6 +29,9 @@ What it runs (in order)
                           set + version-pinned rule-set members
 * mcsb_deep             - versioned v1/v2 control imports + strict rule,
                           runtime, evidence, and policy-profile crosswalks
+* baseline_deep         - loads the configuration/measurement baseline
+                          stores and resolves every ConfigurationBaseline's
+                          `controls` against the loaded Rule catalog
 * action_type_deep      - schema + argument_schema is valid draft-2020-12
                           + shadow default => promotion_gate present
 * remediation_deep      - schema + action_type_id points to an existing
@@ -86,6 +89,7 @@ from catalog_validation import catalog_steps as _catalog_steps
 from catalog_validation import common as _common
 from catalog_validation.catalog_steps import (
     step_action_type_deep,
+    step_baseline_deep,
     step_best_practice_deep,
     step_mcsb_deep,
     step_profile_deep,
@@ -145,6 +149,7 @@ ALL_STEPS: list[tuple[str, Callable[[Runner], StepResult]]] = [
     ("profile_deep", step_profile_deep),
     ("best_practice_deep", step_best_practice_deep),
     ("mcsb_deep", step_mcsb_deep),
+    ("baseline_deep", step_baseline_deep),
     ("action_type_deep", step_action_type_deep),
     ("remediation_deep", step_remediation_deep),
     ("risk_classification", step_risk_classification),

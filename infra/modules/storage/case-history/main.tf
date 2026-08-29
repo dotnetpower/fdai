@@ -107,7 +107,7 @@ resource "azurerm_storage_management_policy" "case_history" {
     enabled = true
 
     filters {
-      prefix_match = ["${var.container_name}/case-history/"]
+      prefix_match = ["${var.container_name}/${var.container_name}/"]
       blob_types   = ["blockBlob"]
     }
 

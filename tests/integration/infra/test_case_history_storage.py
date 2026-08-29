@@ -14,6 +14,7 @@ def test_case_history_storage_is_private_versioned_and_keyless() -> None:
     assert 'container_access_type = "private"' in module
     assert 'role_definition_name = "Storage Blob Data Contributor"' in module
     assert "delete_after_days_since_creation = var.version_retention_days" in module
+    assert 'prefix_match = ["${var.container_name}/${var.container_name}/"]' in module
     assert 'bypass         = ["None"]' in module
     assert 'dynamic "private_link_access"' in module
     assert "for_each = var.private_link_access" in module

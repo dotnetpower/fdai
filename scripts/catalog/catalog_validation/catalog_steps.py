@@ -334,6 +334,68 @@ def step_mcsb_deep(runner: Runner) -> StepResult:
     )
 
 
+def step_baseline_deep(runner: Runner) -> StepResult:
+    """Load the baseline stores and resolve every ConfigurationBaseline's
+    ``controls`` against the loaded Rule catalog - the deterministic T0
+    consumer for that catalog artifact (see
+    ``fdai.rule_catalog.schema.baseline_catalog.evaluate_configuration_baseline_control_set``).
+    Never touches ``FrozenConfigurationBaseline``, the separate runtime
+    drift snapshot; a catalog control-set baseline and a runtime evidence
+    snapshot are distinct concepts even though both are called "baseline".
+    """
+
+    from fdai.rule_catalog.schema.baseline_catalog import (
+        BaselineCatalogError,
+        load_configuration_baseline_catalog,
+        load_measurement_baseline_catalog,
+        require_resolved_configuration_baseline_control_set,
+    )
+
+    rule_ids: set[str] = set()
+    for path in iter_rule_files():
+        data = load_yaml(path)
+        if isinstance(data, dict) and "id" in data:
+            rule_ids.add(str(data["id"]))
+
+    findings: list[str] = []
+    configuration_baselines: tuple[object, ...] = ()
+    measurement_baselines: tuple[object, ...] = ()
+    try:
+        configuration_baselines = load_configuration_baseline_catalog(
+            CATALOG_ROOT / "baselines" / "configuration"
+        )
+        measurement_baselines = load_measurement_baseline_catalog(
+            CATALOG_ROOT / "baselines" / "measurement"
+        )
+    except BaselineCatalogError as exc:
+        findings.append(str(exc))
+
+    resolved_count = 0
+    for baseline in configuration_baselines:
+        try:
+            report = require_resolved_configuration_baseline_control_set(
+                baseline,  # type: ignore[arg-type]
+                known_rule_ids=rule_ids,
+            )
+        except BaselineCatalogError as exc:
+            findings.append(f"{baseline.id}: {exc}")  # type: ignore[attr-defined]
+            continue
+        resolved_count += len(report.resolved_controls)
+
+    return StepResult(
+        name="baseline_deep",
+        ok=not findings,
+        duration_s=0.0,
+        findings=findings,
+        stats={
+            "configuration_baselines_checked": len(configuration_baselines),
+            "measurement_baselines_checked": len(measurement_baselines),
+            "controls_resolved": resolved_count,
+            "known_rule_ids": len(rule_ids),
+        },
+    )
+
+
 def step_action_type_deep(runner: Runner) -> StepResult:
     if not ACTION_TYPES_DIR.is_dir():
         return StepResult(
