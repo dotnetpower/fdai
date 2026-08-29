@@ -367,7 +367,7 @@ def _build_route_families(
             bridge=semantic_bridge,
             fallback_projections=conversation,
             fallback_outbox=postgres_conversation,
-            fallback_streams=postgres_adapters,
+            fallback_streams=postgres_conversation,
         )
         if semantic_bridge is not None
         else None
