@@ -12,6 +12,7 @@ def _values() -> dict[str, str]:
     return {
         "region": "koreacentral",
         "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "target_binding": "a" * 64,
         "postgres_admin_login": "fdaiadmin",
         "postgres_admin_password": PLAN_ONLY_PASSWORD,
         "core_image": "ghcr.io/example/fdai:plan-only",
@@ -28,10 +29,12 @@ def test_plan_input_is_private_canonical_and_non_secret(tmp_path: Path) -> None:
     destination = tmp_path / "snapshot.json"
     _write(source, _values())
 
-    snapshot_plan_input(source, destination)
+    snapshot_plan_input(source, destination, expected_target_binding="a" * 64)
 
     assert destination.stat().st_mode & 0o777 == 0o600
-    assert json.loads(destination.read_text(encoding="utf-8")) == _values()
+    expected = _values()
+    expected.pop("target_binding")
+    assert json.loads(destination.read_text(encoding="utf-8")) == expected
 
 
 def test_plan_input_rejects_real_password_and_extra_secret(tmp_path: Path) -> None:
@@ -40,13 +43,21 @@ def test_plan_input_rejects_real_password_and_extra_secret(tmp_path: Path) -> No
     values["postgres_admin_password"] = "a-real-password-value"
     _write(source, values)
     with pytest.raises(ValueError, match="plan-only password"):
-        snapshot_plan_input(source, tmp_path / "snapshot.json")
+        snapshot_plan_input(
+            source,
+            tmp_path / "snapshot.json",
+            expected_target_binding="a" * 64,
+        )
 
     values = _values()
     values["alert_webhook_url"] = "https://example.com/credential"
     _write(source, values)
     with pytest.raises(ValueError, match="secret-free schema"):
-        snapshot_plan_input(source, tmp_path / "snapshot.json")
+        snapshot_plan_input(
+            source,
+            tmp_path / "snapshot.json",
+            expected_target_binding="a" * 64,
+        )
 
 
 def test_plan_input_requires_private_regular_source(tmp_path: Path) -> None:
@@ -54,4 +65,20 @@ def test_plan_input_requires_private_regular_source(tmp_path: Path) -> None:
     _write(source, _values())
     source.chmod(0o644)
     with pytest.raises(PermissionError, match="mode-0600"):
-        snapshot_plan_input(source, tmp_path / "snapshot.json")
+        snapshot_plan_input(
+            source,
+            tmp_path / "snapshot.json",
+            expected_target_binding="a" * 64,
+        )
+
+
+def test_plan_input_must_match_profile_target_binding(tmp_path: Path) -> None:
+    source = tmp_path / "input.json"
+    _write(source, _values())
+
+    with pytest.raises(ValueError, match="target binding does not match"):
+        snapshot_plan_input(
+            source,
+            tmp_path / "snapshot.json",
+            expected_target_binding="b" * 64,
+        )

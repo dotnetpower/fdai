@@ -128,10 +128,27 @@ cat > "$WORKDIR/plan-input.tfvars.json" <<'EOF'
   "postgres_admin_login": "fdaiadmin",
   "postgres_admin_password": "FDAI-PLAN-ONLY-NOT-A-SECRET",
   "region": "koreacentral",
+  "target_binding": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "tenant_id": "00000000-0000-0000-0000-000000000000"
 }
 EOF
 chmod 600 "$WORKDIR/plan-input.tfvars.json"
+cat > "$WORKDIR/offline-profile.json" <<'EOF'
+{
+  "access_method": "internal_ssh",
+  "approval_quorum": 1,
+  "connectivity": "offline",
+  "environment": "dev",
+  "host": "existing-host",
+  "monthly_cost_ceiling": 500,
+  "region": "koreacentral",
+  "schema_version": "fdai.provision-profile.v1",
+  "shadow_only": true,
+  "target_binding": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "transport": "manual"
+}
+EOF
+chmod 600 "$WORKDIR/offline-profile.json"
 
 echo "== verify (network namespace, no route, no DNS) =="
 REPO_ROOT="$repo_root" WORKDIR="$WORKDIR" KIT="$KIT" PYTHON="$PYTHON" UV="$(command -v uv)" \
@@ -262,6 +279,7 @@ plan_output="$("$CLI" provision plan \
   --offline-kit "$KIT" --release-root "$WORKDIR/release-root.pub" \
   --bundle-public-key "$WORKDIR/bundle-key.pub" --work-dir "$WORKDIR/provision" \
   --variables-file "$WORKDIR/plan-input.tfvars.json" \
+  --profile "$WORKDIR/offline-profile.json" \
   --output json 2>&1)"
 set -e
 case "$plan_output" in

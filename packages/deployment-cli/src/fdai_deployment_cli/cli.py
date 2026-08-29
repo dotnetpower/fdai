@@ -91,6 +91,7 @@ def _parser() -> argparse.ArgumentParser:
     plan.add_argument("--bundle-public-key", type=Path, required=True)
     plan.add_argument("--work-dir", type=Path, required=True)
     plan.add_argument("--variables-file", type=Path, required=True)
+    plan.add_argument("--profile", type=Path, required=True)
     plan.add_argument("--output", choices=("text", "json"), default="text")
     plan.set_defaults(handler=_provision_plan)
 
@@ -219,6 +220,10 @@ def _provision_inspect(args: argparse.Namespace) -> int:
 
 def _provision_plan(args: argparse.Namespace) -> int:
     work_dir = _absolute_work_dir(args.work_dir)
+    profile = load_profile(args.profile)
+    active_target = azure_active_target_binding()
+    if active_target is not None and active_target != profile.target_binding:
+        raise ValueError("active Azure target does not match the provision profile")
     verification = verify_offline_kit(
         args.offline_kit,
         release_root_pem=args.release_root.read_bytes(),
@@ -268,7 +273,11 @@ def _provision_plan(args: argparse.Namespace) -> int:
         source=os.environ,
     )
     variables_file = work_dir / "plan.auto.tfvars.json"
-    snapshot_plan_input(args.variables_file, variables_file)
+    snapshot_plan_input(
+        args.variables_file,
+        variables_file,
+        expected_target_binding=profile.target_binding,
+    )
     subprocess.run(
         [str(terraform), "init", "-backend=false", "-input=false"],
         cwd=infra_dir,

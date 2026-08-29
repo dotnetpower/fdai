@@ -11,12 +11,24 @@ from fdai_deployment_cli.contracts import canonical_bytes, load_json_object
 
 PLAN_ONLY_PASSWORD = "FDAI-PLAN-ONLY-NOT-A-SECRET"
 _REQUIRED = frozenset(
-    {"region", "tenant_id", "postgres_admin_login", "postgres_admin_password", "core_image"}
+    {
+        "region",
+        "tenant_id",
+        "target_binding",
+        "postgres_admin_login",
+        "postgres_admin_password",
+        "core_image",
+    }
 )
 _KEY = re.compile(r"^[a-z][a-z0-9_]{0,127}$")
 
 
-def snapshot_plan_input(source: Path, destination: Path) -> None:
+def snapshot_plan_input(
+    source: Path,
+    destination: Path,
+    *,
+    expected_target_binding: str,
+) -> None:
     """Validate and copy a mode-0600 JSON plan input without real secret values."""
 
     descriptor = os.open(source, os.O_RDONLY | os.O_NOFOLLOW)
@@ -32,12 +44,15 @@ def snapshot_plan_input(source: Path, destination: Path) -> None:
         raise ValueError("Terraform plan input contains an invalid key")
     if values["postgres_admin_password"] != PLAN_ONLY_PASSWORD:
         raise ValueError("Terraform plan input MUST use the plan-only password placeholder")
+    if values["target_binding"] != expected_target_binding:
+        raise ValueError("Terraform plan input target binding does not match the profile")
+    terraform_values = {key: value for key, value in values.items() if key != "target_binding"}
     output = os.open(
         destination,
         os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
         0o600,
     )
     with os.fdopen(output, "wb") as stream:
-        stream.write(canonical_bytes(values) + b"\n")
+        stream.write(canonical_bytes(terraform_values) + b"\n")
         stream.flush()
         os.fsync(stream.fileno())
