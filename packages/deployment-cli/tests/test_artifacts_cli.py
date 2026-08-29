@@ -198,9 +198,25 @@ def test_materialization_rejects_artifact_replaced_after_verification(tmp_path: 
         cli_version="0.1.0",
         platform_tag="linux-x86_64",
     )
-    (tmp_path / verification.terraform_binary).write_text("replaced", encoding="utf-8")
+    terraform = tmp_path / verification.terraform_binary
+    terraform.write_bytes(b"x" * terraform.stat().st_size)
 
     with pytest.raises(OfflineKitVerificationError, match="digest changed"):
+        materialize_verified_artifacts(tmp_path, verification, tmp_path / "private")
+
+
+def test_materialization_rejects_artifact_growth_after_verification(tmp_path: Path) -> None:
+    _private, public, _manifest = _kit(tmp_path)
+    verification = verify_offline_kit(
+        tmp_path,
+        release_root_pem=public,
+        cli_version="0.1.0",
+        platform_tag="linux-x86_64",
+    )
+    terraform = tmp_path / verification.terraform_binary
+    terraform.write_bytes(terraform.read_bytes() + b"growth")
+
+    with pytest.raises(OfflineKitVerificationError, match="size changed"):
         materialize_verified_artifacts(tmp_path, verification, tmp_path / "private")
 
 

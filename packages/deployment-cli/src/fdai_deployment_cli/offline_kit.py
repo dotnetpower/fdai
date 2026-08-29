@@ -50,6 +50,7 @@ class OfflineKitVerification:
     provider_mirror_prefix: str
     deployment_bundle: str
     file_digests: tuple[tuple[str, str], ...]
+    file_sizes: tuple[tuple[str, int], ...]
 
     def to_json(self) -> str:
         """Return stable, non-secret machine output."""
@@ -98,7 +99,7 @@ def build_offline_kit_manifest(
         "opa_binary": _relative_path(opa_binary),
         "sbom_path": _relative_path(sbom_path),
     }
-    files, _total = _scan_tree(root)
+    files, _sizes, _total = _scan_tree(root)
     for label in (
         "python_wheel",
         "deployment_bundle",
@@ -204,7 +205,7 @@ def verify_offline_kit(
         prefix = _relative_path(prefix_value).rstrip("/") + "/"
         if not any(path.startswith(prefix) for path in declared):
             raise OfflineKitVerificationError("offline kit provider mirror is empty")
-        observed, total = _scan_tree(root)
+        observed, sizes, total = _scan_tree(root)
         if observed != declared:
             raise OfflineKitVerificationError("offline kit exact file set or digest does not match")
         _verify_sbom(root, payload, declared)
@@ -224,6 +225,7 @@ def verify_offline_kit(
             provider_mirror_prefix=_payload_text(payload, "provider_mirror_prefix"),
             deployment_bundle=_payload_text(payload, "deployment_bundle"),
             file_digests=tuple(sorted(declared.items())),
+            file_sizes=tuple(sorted(sizes.items())),
         )
     except OfflineKitVerificationError:
         raise
@@ -231,10 +233,11 @@ def verify_offline_kit(
         raise OfflineKitVerificationError("offline kit manifest is invalid") from exc
 
 
-def _scan_tree(root: Path) -> tuple[dict[str, str], int]:
+def _scan_tree(root: Path) -> tuple[dict[str, str], dict[str, int], int]:
     if root.is_symlink() or not root.is_dir():
         raise OfflineKitVerificationError("offline kit root MUST be a directory")
     files: dict[str, str] = {}
+    sizes: dict[str, int] = {}
     total = 0
     for directory, directories, names in os.walk(root, followlinks=False):
         base = Path(directory)
@@ -260,7 +263,8 @@ def _scan_tree(root: Path) -> tuple[dict[str, str], int]:
             if total > _MAX_TOTAL_BYTES:
                 raise OfflineKitVerificationError("offline kit exceeds its total size limit")
             files[relative] = _sha256_nofollow(candidate, expected=details)
-    return dict(sorted(files.items())), total
+            sizes[relative] = details.st_size
+    return dict(sorted(files.items())), dict(sorted(sizes.items())), total
 
 
 @dataclass(frozen=True, slots=True)
@@ -285,6 +289,7 @@ def materialize_verified_artifacts(
     destination.mkdir(parents=True, mode=0o700)
     destination.chmod(0o700)
     digests = dict(verification.file_digests)
+    sizes = dict(verification.file_sizes)
     prefix = verification.provider_mirror_prefix.rstrip("/") + "/"
     python_prefix = "python/"
     selected = {
@@ -293,13 +298,23 @@ def materialize_verified_artifacts(
         *(path for path in digests if path.startswith(prefix)),
         *(path for path in digests if path.startswith(python_prefix)),
     }
+    total_bytes = 0
     for relative in sorted(selected):
         expected = digests.get(relative)
-        if expected is None:
+        expected_size = sizes.get(relative)
+        if expected is None or expected_size is None:
             raise OfflineKitVerificationError("verified offline artifact is not declared")
+        total_bytes += expected_size
+        if total_bytes > _MAX_TOTAL_BYTES:
+            raise OfflineKitVerificationError("offline artifact snapshot exceeds its size limit")
         target = destination / relative
         target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        _copy_verified_file(root / relative, target, expected_digest=expected)
+        _copy_verified_file(
+            root / relative,
+            target,
+            expected_digest=expected,
+            expected_size=expected_size,
+        )
     terraform = destination / verification.terraform_binary
     terraform.chmod(0o700)
     return MaterializedOfflineArtifacts(
@@ -310,10 +325,18 @@ def materialize_verified_artifacts(
     )
 
 
-def _copy_verified_file(source: Path, target: Path, *, expected_digest: str) -> None:
+def _copy_verified_file(
+    source: Path,
+    target: Path,
+    *,
+    expected_digest: str,
+    expected_size: int,
+) -> None:
     details = source.lstat()
-    if not stat.S_ISREG(details.st_mode):
-        raise OfflineKitVerificationError("verified offline artifact MUST be a regular file")
+    if not stat.S_ISREG(details.st_mode) or details.st_size != expected_size:
+        raise OfflineKitVerificationError("verified offline artifact size changed")
+    if expected_size > _MAX_FILE_BYTES:
+        raise OfflineKitVerificationError("verified offline artifact exceeds its size limit")
     descriptor = os.open(source, os.O_RDONLY | os.O_NOFOLLOW)
     output_descriptor = os.open(
         target,
@@ -321,6 +344,7 @@ def _copy_verified_file(source: Path, target: Path, *, expected_digest: str) -> 
         0o600,
     )
     digest = hashlib.sha256()
+    copied = 0
     try:
         with (
             os.fdopen(descriptor, "rb") as input_stream,
@@ -329,6 +353,9 @@ def _copy_verified_file(source: Path, target: Path, *, expected_digest: str) -> 
             opened = os.fstat(input_stream.fileno())
             _require_same_file(details, opened)
             for chunk in iter(lambda: input_stream.read(1024 * 1024), b""):
+                copied += len(chunk)
+                if copied > expected_size:
+                    raise OfflineKitVerificationError("verified offline artifact size changed")
                 digest.update(chunk)
                 output_stream.write(chunk)
             output_stream.flush()
@@ -340,6 +367,9 @@ def _copy_verified_file(source: Path, target: Path, *, expected_digest: str) -> 
     if digest.hexdigest() != expected_digest:
         target.unlink(missing_ok=True)
         raise OfflineKitVerificationError("verified offline artifact digest changed")
+    if copied != expected_size:
+        target.unlink(missing_ok=True)
+        raise OfflineKitVerificationError("verified offline artifact size changed")
 
 
 def _sha256_nofollow(path: Path, *, expected: os.stat_result) -> str:
