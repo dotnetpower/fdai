@@ -35,13 +35,15 @@ def test_deploy_workflow_uses_consolidated_boundaries() -> None:
     assert "Enforce model-binding-only Terraform plan" not in _WORKFLOW
 
 
-def test_pinned_github_cli_precedes_model_attestation_checks() -> None:
+def test_pinned_github_cli_precedes_model_and_runtime_image_checks() -> None:
     installer = _WORKFLOW.index("- name: Install pinned GitHub CLI")
     installer_block = _WORKFLOW[installer:].split("      - name:", maxsplit=1)[0]
 
     assert "MODEL_BINDING_ONLY == 'true'" in installer_block
+    assert "inputs.deploy_isolated_executor" in installer_block
     assert installer < _WORKFLOW.index("- name: Verify model binding policy active digest")
     assert installer < _WORKFLOW.index("- name: Reverify active Core model fence")
+    assert installer < _WORKFLOW.index("- name: Bind exact isolated Executor runtime image")
 
 
 def test_deploy_workflow_skips_plan_only_work_during_apply() -> None:
