@@ -17,13 +17,26 @@ from fdai_service_contracts.decision_evidence_verification import (
     DecisionEvidenceVerificationBundle,
     expected_verification_subjects,
 )
+from fdai_service_contracts.ontology_query import content_digest
 from pydantic import ValidationError as PydanticValidationError
 
+from fdai.core.readiness.models import AuthorityCeiling, ReadinessDecision, StartupReadinessReport
 from fdai.shared.providers.decision_evidence_verifier import (
     DecisionEvidenceAdmission,
+    DecisionEvidenceAdmissionProvider,
     DecisionEvidenceVerifierBinding,
     DecisionEvidenceVerifierRegistry,
+    assess_decision_evidence_admission,
 )
+
+STARTUP_READINESS_EVIDENCE_PURPOSE = "startup-readiness"
+_AUTHORITY_CEILING_RANK = {
+    AuthorityCeiling.DISABLED: 0,
+    AuthorityCeiling.DETERMINISTIC_FALLBACK: 1,
+    AuthorityCeiling.SHADOW: 2,
+    AuthorityCeiling.HUMAN_APPROVAL: 3,
+    AuthorityCeiling.DEPLOYMENT: 4,
+}
 
 
 class DecisionEvidenceReadinessReason(StrEnum):
@@ -135,6 +148,116 @@ class DecisionEvidenceReadinessGate:
         )
 
 
+async def apply_startup_readiness_admission(
+    report: StartupReadinessReport,
+    *,
+    provider: DecisionEvidenceAdmissionProvider | None,
+) -> StartupReadinessReport:
+    """Bind startup readiness to verified evidence or lower every ceiling to shadow."""
+
+    evidence_digest = startup_readiness_evidence_digest(report)
+    scope_digest = startup_readiness_scope_digest(report)
+    source_revision = startup_readiness_source_revision(report)
+    admission = (
+        await provider.admit(
+            evidence_digest=evidence_digest,
+            scope_digest=scope_digest,
+            purpose_id=STARTUP_READINESS_EVIDENCE_PURPOSE,
+            source_revision=source_revision,
+        )
+        if provider is not None
+        else None
+    )
+    reasons = (
+        ("admission_missing",)
+        if admission is None
+        else tuple(
+            reason.value
+            for reason in assess_decision_evidence_admission(
+                admission,
+                expected_evidence_digest=evidence_digest,
+                expected_scope_digest=scope_digest,
+                expected_purpose_id=STARTUP_READINESS_EVIDENCE_PURPOSE,
+                expected_source_revision=source_revision,
+                evaluated_at=report.generated_at,
+            )
+        )
+    )
+    if reasons:
+        decision = (
+            ReadinessDecision.BLOCKED
+            if report.decision is ReadinessDecision.BLOCKED
+            else ReadinessDecision.DEGRADED
+        )
+        ceilings = {
+            capability: min(
+                (ceiling, AuthorityCeiling.SHADOW),
+                key=lambda item: _AUTHORITY_CEILING_RANK[item],
+            )
+            for capability, ceiling in report.authority_ceilings.items()
+        }
+        return report.model_copy(
+            update={
+                "decision": decision,
+                "authority_ceilings": ceilings,
+                "decision_evidence_receipt_digest": (
+                    admission.receipt_digest if admission is not None else None
+                ),
+                "decision_evidence_verification_bundle_digest": (
+                    admission.verification_bundle_digest if admission is not None else None
+                ),
+                "decision_evidence_rejection_reasons": reasons,
+            }
+        )
+    if admission is None:  # pragma: no cover - reasons handles this branch
+        raise RuntimeError("startup readiness admission invariant failed")
+    return report.model_copy(
+        update={
+            "decision_evidence_receipt_digest": admission.receipt_digest,
+            "decision_evidence_verification_bundle_digest": (admission.verification_bundle_digest),
+            "decision_evidence_rejection_reasons": (),
+        }
+    )
+
+
+def startup_readiness_evidence_digest(report: StartupReadinessReport) -> str:
+    """Return the canonical report digest without downstream admission fields."""
+
+    return content_digest(
+        report.model_dump(
+            mode="json",
+            exclude={
+                "decision_evidence_receipt_digest",
+                "decision_evidence_verification_bundle_digest",
+                "decision_evidence_rejection_reasons",
+            },
+        )
+    )
+
+
+def startup_readiness_scope_digest(report: StartupReadinessReport) -> str:
+    """Return the exact probe and capability scope of one startup report."""
+
+    return content_digest(
+        {
+            "capabilities": tuple(sorted(report.authority_ceilings)),
+            "probe_ids": tuple(sorted(result.probe_id for result in report.results)),
+        }
+    )
+
+
+def startup_readiness_source_revision(report: StartupReadinessReport) -> str:
+    """Return the replay-stable revision of the evaluated startup probe set."""
+
+    return content_digest(
+        {
+            "capabilities": tuple(sorted(report.authority_ceilings)),
+            "probe_ids": tuple(sorted(result.probe_id for result in report.results)),
+            "schema": "startup-readiness-report:1",
+        }
+    )
+
+
 def _evaluate_bundle(
     receipt: DecisionCriticalEvidenceReceipt,
     *,
@@ -200,7 +323,12 @@ def _aware_utc(value: datetime) -> datetime:
 
 
 __all__ = [
+    "STARTUP_READINESS_EVIDENCE_PURPOSE",
     "DecisionEvidenceReadinessGate",
     "DecisionEvidenceReadinessReason",
     "DecisionEvidenceReadinessResult",
+    "apply_startup_readiness_admission",
+    "startup_readiness_evidence_digest",
+    "startup_readiness_scope_digest",
+    "startup_readiness_source_revision",
 ]

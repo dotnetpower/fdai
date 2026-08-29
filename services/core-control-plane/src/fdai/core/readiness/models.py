@@ -175,6 +175,9 @@ class StartupReadinessReport(ContractBase):
     missing_probe_ids: tuple[str, ...] = ()
     stale_probe_ids: tuple[str, ...] = ()
     authority_ceilings: dict[str, AuthorityCeiling] = Field(default_factory=dict)
+    decision_evidence_receipt_digest: str | None = None
+    decision_evidence_verification_bundle_digest: str | None = None
+    decision_evidence_rejection_reasons: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         return self.model_dump(mode="json")

@@ -24,6 +24,7 @@ from fdai.core.readiness.coordinator import (
 from fdai.shared.providers.event_bus import PublishReceipt
 from fdai.shared.providers.startup_probe import StartupProbeRequest
 from fdai.shared.telemetry import current_correlation_id, with_correlation
+from tests.decision_evidence import StubDecisionEvidenceAdmissionProvider
 
 _NOW = datetime(2026, 7, 23, tzinfo=UTC)
 
@@ -138,6 +139,7 @@ def _coordinator(
     probes: list[_Probe],
     *,
     budget: StartupProbeBudget | None = None,
+    decision_evidence: bool = True,
 ) -> tuple[StartupReadinessCoordinator, _Store, _Bus, _Validator]:
     store = _Store()
     bus = _Bus()
@@ -148,10 +150,34 @@ def _coordinator(
         state_store=store,  # type: ignore[arg-type]
         event_bus=bus,  # type: ignore[arg-type]
         event_validator=validator,  # type: ignore[arg-type]
+        decision_evidence=(
+            StubDecisionEvidenceAdmissionProvider(lambda: _NOW) if decision_evidence else None
+        ),
         budget=budget or StartupProbeBudget(),
         clock=lambda: _NOW,
     )
     return coordinator, store, bus, validator
+
+
+async def test_missing_decision_evidence_downgrades_and_persists_shadow_ceiling() -> None:
+    spec = _spec(
+        "optional",
+        StartupPhase.CAPABILITY_WARMUP,
+        criticality=ProbeCriticality.OPTIONAL,
+        ceiling=AuthorityCeiling.DEPLOYMENT,
+    )
+    coordinator, store, _, _ = _coordinator(
+        [spec],
+        [_Probe(spec.probe_id, result=_passed(spec.probe_id))],
+        decision_evidence=False,
+    )
+
+    report = await coordinator.evaluate()
+
+    assert report.decision is ReadinessDecision.DEGRADED
+    assert report.authority_ceilings == {"optional": AuthorityCeiling.SHADOW}
+    assert report.decision_evidence_rejection_reasons == ("admission_missing",)
+    assert store.values["runtime:startup-readiness:latest"]["decision"] == "degraded"
 
 
 async def test_phases_run_in_order_and_publish_one_validated_transition() -> None:

@@ -10,6 +10,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import NAMESPACE_URL, uuid5
 
 from fdai.core.readiness.checklist import ChecklistControlResult, ChecklistControlStatus
+from fdai.core.readiness.decision_evidence import apply_startup_readiness_admission
 from fdai.core.readiness.models import (
     AuthorityCeiling,
     EvidenceRequirement,
@@ -28,6 +29,7 @@ from fdai.core.readiness.report import (
 from fdai.core.readiness.signal import OwnershipTransfer
 from fdai.shared.contracts.models import Event, IncidentCorrelation, Mode
 from fdai.shared.contracts.validation import EventValidator
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.feasibility_probe import FindingSeverity, ProbeFinding
 from fdai.shared.providers.projection import Finding, Severity
@@ -102,6 +104,7 @@ class StartupReadinessCoordinator:
         event_bus: EventBus,
         event_validator: EventValidator,
         deployment_ceilings: Mapping[str, AuthorityCeiling] | None = None,
+        decision_evidence: DecisionEvidenceAdmissionProvider | None = None,
         budget: StartupProbeBudget | None = None,
         clock: Callable[[], datetime] = _utc_now,
     ) -> None:
@@ -113,6 +116,7 @@ class StartupReadinessCoordinator:
         self._event_bus = event_bus
         self._event_validator = event_validator
         self._deployment_ceilings = dict(deployment_ceilings or {})
+        self._decision_evidence = decision_evidence
         self._budget = budget or StartupProbeBudget()
         self._clock = clock
 
@@ -133,6 +137,10 @@ class StartupReadinessCoordinator:
             results,
             generated_at=generated_at,
             deployment_ceilings=self._deployment_ceilings,
+        )
+        report = await apply_startup_readiness_admission(
+            report,
+            provider=self._decision_evidence,
         )
         serialized = report.to_dict()
         await self._state_store.write_state(_LATEST_REPORT_KEY, serialized)

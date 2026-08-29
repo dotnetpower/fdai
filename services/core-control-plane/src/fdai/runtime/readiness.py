@@ -36,6 +36,7 @@ from fdai.delivery.startup_probe import (
     WorkloadIdentityStartupProbe,
 )
 from fdai.shared.contracts.validation import EventValidator
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.startup_probe import StartupProbe
 from fdai.shared.providers.state_store import StateStore
@@ -266,6 +267,7 @@ def build_startup_readiness_runtime(
     registered_specs: Sequence[StartupProbeSpec] = (),
     registered_probes: Sequence[StartupProbe[StartupProbeResult]] = (),
     deployment_ceilings: Mapping[str, AuthorityCeiling] | None = None,
+    decision_evidence: DecisionEvidenceAdmissionProvider | None = None,
 ) -> StartupReadinessRuntime:
     """Compose standard required probes plus registered optional destinations."""
     standard_specs = (
@@ -381,6 +383,7 @@ def build_startup_readiness_runtime(
         event_bus=transition_event_bus,
         event_validator=event_validator,
         deployment_ceilings=deployment_ceilings,
+        decision_evidence=decision_evidence,
         budget=budget,
     )
     return StartupReadinessRuntime(

@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 9853e9c35d0e698e7c1262f57003c8b3f85edc95
+translation_source_sha: eab450194ca0453caa048bb6ea4ed34fb10bf631
 translation_revised: 2026-08-29
 ---
 # 프로젝트 구조
@@ -414,6 +414,10 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 시작 준비 상태의 프로바이더 중립 실행 예산, 탐색 시간 제한 및 파생 근거 수명은 `core/readiness`가
 소유합니다. 런타임은 범위가 제한된 새로 고침을 예약하고 기존 만료 시점에 처리를 닫으며, Thor가
 privileged I/O 전에 확인하는 실제 상한을 제공합니다. 어느 계층도 배포 권한을 높일 수 없습니다.
+조정기는 영속화와 전환 발행 전에 축약된 전체 보고서를 공유 의사 결정 근거 승인 결과에
+연결합니다. 승인 결과가 없거나 일치하지 않으면 차단되지 않은 보고서를 `DEGRADED`로 바꾸고 모든
+기능을 최대 `SHADOW`로 제한하므로, 검증되지 않은 배포 권한을 주장하지 않으면서 읽기 전용 처리를
+계속할 수 있습니다.
 
 `StateStore`는 제거 원시 연산을 `delete_states_beyond(prefix, retain_newest)` 하나만 노출합니다.
 `read_states`와 같은 순서로 한계를 넘는 가장 오래된 행을 버려, 추가 전용 근거 투영의 증가를

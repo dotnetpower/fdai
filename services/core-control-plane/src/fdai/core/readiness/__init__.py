@@ -9,9 +9,14 @@ from fdai.core.readiness.checklist import (
 )
 from fdai.core.readiness.coordinator import compose_readiness_report
 from fdai.core.readiness.decision_evidence import (
+    STARTUP_READINESS_EVIDENCE_PURPOSE,
     DecisionEvidenceReadinessGate,
     DecisionEvidenceReadinessReason,
     DecisionEvidenceReadinessResult,
+    apply_startup_readiness_admission,
+    startup_readiness_evidence_digest,
+    startup_readiness_scope_digest,
+    startup_readiness_source_revision,
 )
 from fdai.core.readiness.detection import (
     DETECTION_READINESS_STATE_PREFIX,
@@ -78,6 +83,7 @@ __all__ = [
     "DecisionEvidenceReadinessGate",
     "DecisionEvidenceReadinessReason",
     "DecisionEvidenceReadinessResult",
+    "STARTUP_READINESS_EVIDENCE_PURPOSE",
     "DiscoveryActivationCoordinator",
     "DiscoveryActivationDecision",
     "DiscoveryActivationInputs",
@@ -103,11 +109,15 @@ __all__ = [
     "ShadowDecisionEvidence",
     "TimedDiscoveryEvidence",
     "build_remediation_proposals",
+    "apply_startup_readiness_admission",
     "compose_readiness_report",
     "detection_readiness_state_key",
     "evaluate_best_practices",
     "reduce_detection_readiness",
     "reduce_discovery_activation",
     "reduce_startup_readiness",
+    "startup_readiness_evidence_digest",
+    "startup_readiness_scope_digest",
+    "startup_readiness_source_revision",
     "remediation_idempotency_key",
 ]

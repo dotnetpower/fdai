@@ -425,7 +425,11 @@ test_...` runs without a per-test marker.
 
 Startup readiness keeps provider-neutral pass budgets, probe timeouts, and derived evidence lifetimes
 in `core/readiness`. Runtime schedules bounded refresh, closes at original expiry, and exposes the
-live ceiling that Thor checks before privileged I/O; no layer can raise deployment authority.
+live ceiling that Thor checks before privileged I/O; no layer can raise deployment authority. The
+coordinator binds the complete reduced report to a shared decision-evidence admission before
+persistence and transition publication. A missing or mismatched admission changes a non-blocked
+report to `DEGRADED` and caps every capability at `SHADOW`, so read-only processing can continue
+without an unverified deployment-authority claim.
 
 `StateStore` exposes exactly one removal primitive, `delete_states_beyond(prefix, retain_newest)`.
 It bounds the growth of an append-only evidence projection by dropping the oldest rows past the

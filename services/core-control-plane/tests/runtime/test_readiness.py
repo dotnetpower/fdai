@@ -24,6 +24,7 @@ from fdai.shared.providers.event_bus import PublishReceipt
 from fdai.shared.providers.local.event_bus import LocalEventBus
 from fdai.shared.providers.local.identity import LocalWorkloadIdentity
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+from tests.decision_evidence import StubDecisionEvidenceAdmissionProvider
 
 
 class _RecordingBus:
@@ -83,6 +84,7 @@ async def test_standard_runtime_inventory_reaches_ready_and_persists_report() ->
         identity=LocalWorkloadIdentity(),
         embedding_model=_Embedding(),
         policy_compile_probe=_policy_probe(),
+        decision_evidence=StubDecisionEvidenceAdmissionProvider(lambda: datetime.now(UTC)),
         environment={"FDAI_STARTUP_KAFKA_SETTLE_SECONDS": "0"},
     )
 
@@ -112,6 +114,7 @@ async def test_readiness_transitions_publish_on_the_transition_bus_not_the_probe
         identity=LocalWorkloadIdentity(),
         embedding_model=_Embedding(),
         policy_compile_probe=_policy_probe(),
+        decision_evidence=StubDecisionEvidenceAdmissionProvider(lambda: datetime.now(UTC)),
         environment={"FDAI_STARTUP_KAFKA_SETTLE_SECONDS": "0"},
     )
 
@@ -132,6 +135,7 @@ async def test_runtime_probes_every_candidate_inside_cross_check_pool() -> None:
         identity=LocalWorkloadIdentity(),
         embedding_model=_Embedding(),
         policy_compile_probe=_policy_probe(),
+        decision_evidence=StubDecisionEvidenceAdmissionProvider(lambda: datetime.now(UTC)),
         cross_check_models=(_CrossCheckPool(candidates),),
         environment={"FDAI_STARTUP_KAFKA_SETTLE_SECONDS": "0"},
     )
@@ -157,6 +161,7 @@ async def test_audit_chain_timeout_degrades_and_disables_autonomous_action() -> 
         identity=LocalWorkloadIdentity(),
         embedding_model=_Embedding(),
         policy_compile_probe=_policy_probe(),
+        decision_evidence=StubDecisionEvidenceAdmissionProvider(lambda: datetime.now(UTC)),
         environment={
             "FDAI_STARTUP_KAFKA_SETTLE_SECONDS": "0",
             "FDAI_STARTUP_PROBE_TIMEOUT_SECONDS": "0.1",
@@ -507,6 +512,7 @@ async def test_guarded_operation_is_not_created_before_readiness() -> None:
         identity=LocalWorkloadIdentity(),
         embedding_model=_Embedding(),
         policy_compile_probe=_policy_probe(),
+        decision_evidence=StubDecisionEvidenceAdmissionProvider(lambda: datetime.now(UTC)),
         environment={"FDAI_STARTUP_KAFKA_SETTLE_SECONDS": "0"},
     )
     started = False
@@ -538,6 +544,7 @@ async def test_guarded_operation_is_cancelled_on_blocker_and_restarts() -> None:
         identity=LocalWorkloadIdentity(),
         embedding_model=_Embedding(),
         policy_compile_probe=_policy_probe(),
+        decision_evidence=StubDecisionEvidenceAdmissionProvider(lambda: datetime.now(UTC)),
         environment={"FDAI_STARTUP_KAFKA_SETTLE_SECONDS": "0"},
     )
     object.__setattr__(runtime, "state", state)
@@ -605,6 +612,7 @@ async def test_guarded_operation_is_drained_when_the_supervisor_is_cancelled() -
         identity=LocalWorkloadIdentity(),
         embedding_model=_Embedding(),
         policy_compile_probe=_policy_probe(),
+        decision_evidence=StubDecisionEvidenceAdmissionProvider(lambda: datetime.now(UTC)),
         environment={"FDAI_STARTUP_KAFKA_SETTLE_SECONDS": "0"},
     )
     object.__setattr__(runtime, "state", state)
