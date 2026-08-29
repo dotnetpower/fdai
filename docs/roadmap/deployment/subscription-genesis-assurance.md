@@ -310,6 +310,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H76 | Offline license inspection accepted timestamp forms and an inclusive expiry that runtime rejects. It now enforces canonical UTC `Z`, the capability-count ceiling, and exclusive `not_after`. | `test_license_rejects_noncanonical_timestamp` |
 | H77 | Bundle SBOM verification silently overwrote duplicate normalized paths. It now rejects ambiguous duplicate component paths like the offline-kit verifier. | `test_bundle_rejects_duplicate_sbom_paths` |
 | H78 | Plan input omitted the reviewed environment, allowing Terraform's empty default to bypass production gates. The profile environment is now injected explicitly as `env`. | `test_plan_input_injects_reviewed_environment` |
+| H79 | Installed CLI checks inherited ambient `PYTHONPATH` and `PYTHONHOME`, allowing checkout code to shadow shipped wheels. The isolated drill now clears both before verification and execution. | `test_release_scripts_use_the_installable_distribution` |
 
 ## Related docs
 
