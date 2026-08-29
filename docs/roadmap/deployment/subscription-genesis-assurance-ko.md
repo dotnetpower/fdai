@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 5b17f43853eb5a8e5258ae27cf4b566823ad6d2f
+translation_source_sha: 575c8f64fd30faa1670d88597bbe6ecc98942588
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -300,6 +300,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H73 | 패키지 경로 수정 후에도 라이선스 발급이 제거된 전달 검증기를 가져왔습니다. 이제 고정된 cryptography 의존성으로 Ed25519 공개 키를 검증합니다. | 네트워크 격리 `airgap-drill.sh` 재실행 |
 | H74 | AzureRM 계획이 변경 없음으로 보고하면서 리소스 공급자를 자동 등록할 수 있었습니다. 이제 격리 계획 환경이 공급자 등록을 `none`으로 강제합니다. | `test_terraform_environment_accepts_target_bound_managed_identity` |
 | H75 | 훈련이 고정된 키트 스냅샷만 사용하면서도 주변 Terraform을 요구했습니다. 오래된 호스트 선행 조건을 제거했습니다. | `test_release_scripts_use_the_installable_distribution` |
+| H76 | 오프라인 라이선스 점검이 런타임이 거부하는 타임스탬프 형식과 포괄 만료를 허용했습니다. 이제 정규 UTC `Z`, 기능 개수 상한, 배타 `not_after`를 적용합니다. | `test_license_rejects_noncanonical_timestamp` |
 
 ## 관련 문서
 

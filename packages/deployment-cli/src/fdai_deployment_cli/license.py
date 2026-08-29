@@ -18,6 +18,7 @@ from fdai_deployment_cli.contracts import canonical_bytes, load_json_object
 _B64URL = re.compile(r"^[A-Za-z0-9_-]+$")
 _ID = re.compile(r"^[a-z0-9][a-z0-9._-]{2,127}$")
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
+_MAX_CAPABILITIES = 512
 
 
 class LicenseInspectionError(ValueError):
@@ -90,6 +91,10 @@ def inspect_license(
         raise LicenseInspectionError("license document is not canonical")
     not_before = _moment(payload, "not_before")
     not_after = _moment(payload, "not_after")
+    if _text(payload, "not_before") != _canonical_moment(not_before) or _text(
+        payload, "not_after"
+    ) != _canonical_moment(not_after):
+        raise LicenseInspectionError("license timestamps are not canonically encoded")
     if not_after <= not_before:
         raise LicenseInspectionError("license validity window is invalid")
     evaluated = now or datetime.now(UTC)
@@ -104,6 +109,8 @@ def inspect_license(
         raise LicenseInspectionError("license capability_ids are invalid")
     if capabilities != sorted(set(capabilities)):
         raise LicenseInspectionError("license capability_ids MUST be unique and sorted")
+    if len(capabilities) > _MAX_CAPABILITIES:
+        raise LicenseInspectionError("license capability_ids exceeds the supported count")
     license_id = _text(payload, "license_id")
     distribution_id = _text(payload, "distribution_id")
     if _ID.fullmatch(license_id) is None or _ID.fullmatch(distribution_id) is None:
@@ -120,7 +127,7 @@ def inspect_license(
         field="tenant_binding",
         expected=expected_tenant_binding,
     )
-    active = not_before <= evaluated <= not_after
+    active = not_before <= evaluated < not_after
     if not active:
         raise LicenseInspectionError("license is not active")
     return LicenseInspection(
@@ -184,6 +191,10 @@ def _moment(value: dict[str, object], field: str) -> datetime:
     if moment.tzinfo is None:
         raise LicenseInspectionError(f"license {field} MUST be timezone-aware")
     return moment
+
+
+def _canonical_moment(moment: datetime) -> str:
+    return moment.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _text(value: dict[str, object], field: str) -> str:

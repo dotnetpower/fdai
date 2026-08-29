@@ -55,6 +55,10 @@ def _keys() -> tuple[Ed25519PrivateKey, bytes]:
     return private, public
 
 
+def _canonical_time(moment: datetime) -> str:
+    return moment.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
 def _kit(root: Path) -> tuple[Ed25519PrivateKey, bytes, bytes]:
     paths = (
         "python/fdai_deployment_cli-0.1.0-py3-none-any.whl",
@@ -448,8 +452,8 @@ def test_license_inspection_verifies_signature_and_time() -> None:
         "license_id": "lic-test",
         "distribution_id": "example-distribution",
         "capability_ids": ["cost.metering"],
-        "not_before": (now - timedelta(minutes=1)).isoformat(),
-        "not_after": (now + timedelta(minutes=1)).isoformat(),
+        "not_before": _canonical_time(now - timedelta(minutes=1)),
+        "not_after": _canonical_time(now + timedelta(minutes=1)),
         "image_digest": None,
         "tenant_binding": None,
     }
@@ -461,6 +465,12 @@ def test_license_inspection_verifies_signature_and_time() -> None:
     assert inspect_license(token, public_key_pem=public, now=now).active
     with pytest.raises(LicenseInspectionError, match="not active"):
         inspect_license(token, public_key_pem=public, now=now + timedelta(days=1))
+    with pytest.raises(LicenseInspectionError, match="not active"):
+        inspect_license(
+            token,
+            public_key_pem=public,
+            now=now + timedelta(minutes=1),
+        )
 
 
 def test_license_rejects_noncanonical_base64_and_duplicate_capabilities() -> None:
@@ -471,8 +481,8 @@ def test_license_rejects_noncanonical_base64_and_duplicate_capabilities() -> Non
         "license_id": "lic-test",
         "distribution_id": "example-distribution",
         "capability_ids": ["cost.metering", "cost.metering"],
-        "not_before": (now - timedelta(minutes=1)).isoformat(),
-        "not_after": (now + timedelta(minutes=1)).isoformat(),
+        "not_before": _canonical_time(now - timedelta(minutes=1)),
+        "not_after": _canonical_time(now + timedelta(minutes=1)),
         "image_digest": None,
         "tenant_binding": None,
     }
@@ -495,8 +505,8 @@ def test_license_rejects_invalid_identifiers_and_unverified_bindings() -> None:
         "license_id": "INVALID",
         "distribution_id": "example-distribution",
         "capability_ids": ["cost.metering"],
-        "not_before": (now - timedelta(minutes=1)).isoformat(),
-        "not_after": (now + timedelta(minutes=1)).isoformat(),
+        "not_before": _canonical_time(now - timedelta(minutes=1)),
+        "not_after": _canonical_time(now + timedelta(minutes=1)),
         "image_digest": "a" * 64,
         "tenant_binding": None,
     }
@@ -520,6 +530,29 @@ def test_license_rejects_invalid_identifiers_and_unverified_bindings() -> None:
             now=now,
             expected_image_digest="b" * 64,
         )
+
+
+def test_license_rejects_noncanonical_timestamp() -> None:
+    private, public = _keys()
+    now = datetime(2026, 8, 29, tzinfo=UTC)
+    payload = {
+        "schema_version": "fdai.license.v1",
+        "license_id": "lic-test",
+        "distribution_id": "example-distribution",
+        "capability_ids": ["cost.metering"],
+        "not_before": (now - timedelta(minutes=1)).isoformat(),
+        "not_after": (now + timedelta(minutes=1)).isoformat(),
+        "image_digest": None,
+        "tenant_binding": None,
+    }
+    document = canonical_bytes(payload)
+    token = ".".join(
+        base64.urlsafe_b64encode(value).rstrip(b"=").decode()
+        for value in (document, private.sign(document))
+    )
+
+    with pytest.raises(LicenseInspectionError, match="timestamps are not canonically"):
+        inspect_license(token, public_key_pem=public, now=now)
 
 
 def test_cli_version_and_private_profile(
