@@ -20,7 +20,13 @@ from fdai.core.decision_case import (
     DecisionSelection,
     ObjectiveEffect,
 )
-from fdai.core.impact_analysis import AffectedSet, ChangeAssessment
+from fdai.core.impact_analysis import (
+    AffectedSet,
+    ChangeAssessment,
+    ChangeGraphEvidenceReceipt,
+    GraphEvidenceReleaseState,
+)
+from fdai.core.ontology_platform.graph_evidence_refresh import GraphEvidenceFreshness
 from fdai.shared.contracts.models import (
     Action,
     ActionStopCondition,
@@ -73,6 +79,11 @@ def _fixtures() -> tuple[
         target_ref="resource:one",
         occurred_at=change.at,
         affected_set=affected,
+        graph_evidence=ChangeGraphEvidenceReceipt(
+            graph_revision="graph-1",
+            freshness=GraphEvidenceFreshness.CURRENT,
+            release_state=GraphEvidenceReleaseState.ALIGNED,
+        ),
         review_required=False,
         reasons=(),
         evidence_digest="a" * 64,

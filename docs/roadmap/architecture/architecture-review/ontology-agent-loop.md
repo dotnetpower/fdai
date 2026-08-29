@@ -117,7 +117,7 @@ Every displayed state links to the exact `Change`, context digest, evidence bund
 
 | Gap | Required correction |
 |-----|---------------------|
-| Planned-change assessment supplies `graph_fresh=False` | Replace the boolean with an authenticated graph revision and freshness receipt |
+| Planned-change assessment now falls back to `ChangeGraphEvidenceReceipt.unavailable()` | Wire the receipt from the exact `OperationalContextSnapshot` so planned-change review carries an authenticated graph revision, release match, freshness, and truncation state |
 | Workflow parallel branches journal caller-supplied outcomes | Drive branches from agent-owned typed evidence and record explicit deadlines |
 | ARB projection reads manifest status directly | Derive `ReviewCase` and `ReviewCheck` from decision lineage and verified evidence |
 | `OperationalEvidenceBundle` and scenario branches are not composed into ARB | Bind them before Forseti creates the review `DecisionCase` |

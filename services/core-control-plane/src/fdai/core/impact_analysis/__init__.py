@@ -4,6 +4,8 @@ from fdai.core.impact_analysis.analyzer import ImpactAnalyzer, ImpactTraversalBo
 from fdai.core.impact_analysis.change_assessment import (
     ChangeAssessment,
     ChangeAssessmentService,
+    ChangeGraphEvidenceReceipt,
+    GraphEvidenceReleaseState,
 )
 from fdai.core.impact_analysis.compiler import compile_impact_envelope
 from fdai.core.impact_analysis.models import (
@@ -18,7 +20,9 @@ __all__ = [
     "AffectedSet",
     "ChangeAssessment",
     "ChangeAssessmentService",
+    "ChangeGraphEvidenceReceipt",
     "compile_impact_envelope",
+    "GraphEvidenceReleaseState",
     "ImpactAnalyzer",
     "ImpactEnvelopeRecord",
     "ImpactEnvelopeProjector",

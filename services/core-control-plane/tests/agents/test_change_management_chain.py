@@ -8,7 +8,13 @@ from fdai.agents._framework.registry import load_pantheon
 from fdai.agents.forseti import Forseti
 from fdai.agents.huginn import Huginn
 from fdai.agents.muninn import Muninn
-from fdai.core.impact_analysis import AffectedSet, ChangeAssessment
+from fdai.core.impact_analysis import (
+    AffectedSet,
+    ChangeAssessment,
+    ChangeGraphEvidenceReceipt,
+    GraphEvidenceReleaseState,
+)
+from fdai.core.ontology_platform.graph_evidence_refresh import GraphEvidenceFreshness
 
 
 async def test_huginn_publishes_change_and_muninn_keeps_revision() -> None:
@@ -98,17 +104,17 @@ async def test_muninn_preserves_distinct_change_revisions() -> None:
 class _ChangeAssessor:
     def __init__(self, *, review_required: bool) -> None:
         self.review_required = review_required
-        self.graph_fresh_values: list[bool] = []
+        self.graph_evidence_receipts: list[ChangeGraphEvidenceReceipt] = []
 
     async def assess(
         self,
         change: dict[str, object],
         *,
-        graph_fresh: bool,
+        graph_evidence: ChangeGraphEvidenceReceipt,
         unresolved_conflicts: tuple[str, ...] = (),
     ) -> ChangeAssessment:
         del unresolved_conflicts
-        self.graph_fresh_values.append(graph_fresh)
+        self.graph_evidence_receipts.append(graph_evidence)
         reasons = ("graph_stale",) if self.review_required else ()
         return ChangeAssessment(
             change_id=str(change["id"]),
@@ -122,6 +128,11 @@ class _ChangeAssessor:
                 protected_objectives=("objective-1",),
                 control_dependencies=(),
                 graph_revision="revision-1",
+            ),
+            graph_evidence=ChangeGraphEvidenceReceipt(
+                freshness=GraphEvidenceFreshness.STALE,
+                release_state=GraphEvidenceReleaseState.UNKNOWN,
+                authenticated=False,
             ),
             review_required=self.review_required,
             reasons=reasons,
@@ -158,7 +169,7 @@ async def test_forseti_lowers_planned_change_to_human_review() -> None:
     assert verdict["risk_verdict"] == "hil"
     assert verdict["change_assessment_status"] == "review"
     assert verdict["change_assessment"]["review_required"] is True
-    assert assessor.graph_fresh_values == [False]
+    assert assessor.graph_evidence_receipts == [ChangeGraphEvidenceReceipt.unavailable()]
 
 
 async def test_forseti_holds_planned_change_without_assessor() -> None:

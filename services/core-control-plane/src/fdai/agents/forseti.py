@@ -51,7 +51,7 @@ from fdai.agents._framework.introspection import (
 from fdai.agents._framework.pantheon import _FORSETI
 from fdai.agents._framework.specialist_ingress import SPECIALIST_EVENT_PREFIX
 from fdai.core.decision_case import DomainDecisionCoordinator, DomainDecisionProjection
-from fdai.core.impact_analysis import ChangeAssessment
+from fdai.core.impact_analysis import ChangeAssessment, ChangeGraphEvidenceReceipt
 from fdai.core.operational_context import OperationalContextMaterializer, SourceFreshness
 from fdai.core.operational_planning import (
     KineticActionProposal,
@@ -90,7 +90,7 @@ class _ChangeAssessor(Protocol):
         self,
         change: Mapping[str, Any],
         *,
-        graph_fresh: bool,
+        graph_evidence: ChangeGraphEvidenceReceipt,
         unresolved_conflicts: tuple[str, ...] = (),
     ) -> ChangeAssessment: ...
 
@@ -205,7 +205,10 @@ class Forseti(Agent, ForsetiJudgmentMixin):
             self.record_behavior("change_assessment:unavailable")
             return
         try:
-            assessment = await self._change_assessor.assess(change, graph_fresh=False)
+            assessment = await self._change_assessor.assess(
+                change,
+                graph_evidence=ChangeGraphEvidenceReceipt.unavailable(),
+            )
         except Exception:  # noqa: BLE001 - missing impact evidence lowers authority
             event["change_assessment_status"] = "failed"
             event["human_approval_required"] = True

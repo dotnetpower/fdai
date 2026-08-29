@@ -7,10 +7,58 @@ import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
+from enum import StrEnum
 from typing import Any
 
 from fdai.core.impact_analysis.analyzer import ImpactAnalyzer, ImpactTraversalBounds
 from fdai.core.impact_analysis.models import AffectedSet
+from fdai.core.ontology_platform.graph_evidence_refresh import GraphEvidenceFreshness
+
+
+class GraphEvidenceReleaseState(StrEnum):
+    """Describe whether the pinned ontology release matches the assessment input."""
+
+    ALIGNED = "aligned"
+    MIXED = "mixed"
+    UNKNOWN = "unknown"
+
+
+@dataclass(frozen=True, slots=True)
+class ChangeGraphEvidenceReceipt:
+    """Bound one planned-change assessment to graph freshness and release evidence."""
+
+    freshness: GraphEvidenceFreshness
+    release_state: GraphEvidenceReleaseState
+    graph_revision: str | None = None
+    authenticated: bool = True
+    truncated: bool = False
+    conflict_reasons: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.graph_revision is not None and not self.graph_revision.strip():
+            raise ValueError("graph evidence graph_revision MUST be non-empty when provided")
+        if any(not reason.strip() for reason in self.conflict_reasons):
+            raise ValueError("graph evidence conflict_reasons MUST contain non-empty values")
+
+    @classmethod
+    def unavailable(cls) -> ChangeGraphEvidenceReceipt:
+        """Return the fail-closed receipt for callers without verified graph evidence."""
+
+        return cls(
+            freshness=GraphEvidenceFreshness.UNAVAILABLE,
+            release_state=GraphEvidenceReleaseState.UNKNOWN,
+            authenticated=False,
+        )
+
+    def to_mapping(self) -> dict[str, object]:
+        return {
+            "graph_revision": self.graph_revision,
+            "freshness": self.freshness.value,
+            "release_state": self.release_state.value,
+            "authenticated": self.authenticated,
+            "truncated": self.truncated,
+            "conflict_reasons": list(self.conflict_reasons),
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,6 +68,7 @@ class ChangeAssessment:
     target_ref: str
     occurred_at: datetime
     affected_set: AffectedSet
+    graph_evidence: ChangeGraphEvidenceReceipt
     review_required: bool
     reasons: tuple[str, ...]
     evidence_digest: str
@@ -35,6 +84,7 @@ class ChangeAssessment:
             "protected_objective_ids": list(self.affected_set.protected_objectives),
             "control_dependency_ids": list(self.affected_set.control_dependencies),
             "graph_revision": self.affected_set.graph_revision,
+            "graph_evidence": self.graph_evidence.to_mapping(),
             "review_required": self.review_required,
             "reasons": list(self.reasons),
             "evidence_digest": self.evidence_digest,
@@ -61,20 +111,22 @@ class ChangeAssessmentService:
         self,
         change: Mapping[str, Any],
         *,
-        graph_fresh: bool,
+        graph_evidence: ChangeGraphEvidenceReceipt,
         unresolved_conflicts: tuple[str, ...] = (),
     ) -> ChangeAssessment:
         change_id = _required_text(change, "id")
         correlation_id = _required_text(change, "correlation_id")
         target_ref = _required_text(change, "target_ref")
         occurred_at = _required_datetime(change, "occurred_at")
+        combined_conflicts = (*graph_evidence.conflict_reasons, *unresolved_conflicts)
         affected = await self._analyzer.analyze(
             direct_target_ids=(target_ref,),
             bounds=self._traversal_bounds,
-            graph_fresh=graph_fresh,
-            unresolved_conflicts=unresolved_conflicts,
+            graph_fresh=graph_evidence.freshness is GraphEvidenceFreshness.CURRENT,
+            unresolved_conflicts=combined_conflicts,
         )
         reasons = list(affected.incomplete_reasons)
+        reasons.extend(_graph_evidence_reasons(graph_evidence))
         if affected.truncated:
             reasons.append("impact_truncated")
         if not affected.protected_services:
@@ -95,6 +147,7 @@ class ChangeAssessmentService:
             target_ref=target_ref,
             occurred_at=occurred_at,
             affected=affected,
+            graph_evidence=graph_evidence,
             reasons=normalized_reasons,
         )
         return ChangeAssessment(
@@ -103,6 +156,7 @@ class ChangeAssessmentService:
             target_ref=target_ref,
             occurred_at=occurred_at,
             affected_set=affected,
+            graph_evidence=graph_evidence,
             review_required=bool(normalized_reasons),
             reasons=normalized_reasons,
             evidence_digest=evidence_digest,
@@ -134,6 +188,7 @@ def _assessment_digest(
     target_ref: str,
     occurred_at: datetime,
     affected: AffectedSet,
+    graph_evidence: ChangeGraphEvidenceReceipt,
     reasons: tuple[str, ...],
 ) -> str:
     material = {
@@ -146,10 +201,35 @@ def _assessment_digest(
         "protected_objectives": affected.protected_objectives,
         "control_dependencies": affected.control_dependencies,
         "graph_revision": affected.graph_revision,
+        "graph_evidence": graph_evidence.to_mapping(),
         "reasons": reasons,
     }
     encoded = json.dumps(material, separators=(",", ":"), sort_keys=True).encode()
     return hashlib.sha256(encoded).hexdigest()
 
 
-__all__ = ["ChangeAssessment", "ChangeAssessmentService"]
+def _graph_evidence_reasons(graph_evidence: ChangeGraphEvidenceReceipt) -> tuple[str, ...]:
+    reasons: list[str] = []
+    if not graph_evidence.authenticated:
+        reasons.append("graph_receipt_unverified")
+    if graph_evidence.release_state is GraphEvidenceReleaseState.MIXED:
+        reasons.append("graph_release_mixed")
+    elif graph_evidence.release_state is GraphEvidenceReleaseState.UNKNOWN:
+        reasons.append("graph_release_unknown")
+    if graph_evidence.freshness is GraphEvidenceFreshness.STALE:
+        reasons.append("graph_stale")
+    elif graph_evidence.freshness is GraphEvidenceFreshness.UNKNOWN:
+        reasons.append("graph_freshness_unknown")
+    elif graph_evidence.freshness is GraphEvidenceFreshness.UNAVAILABLE:
+        reasons.append("graph_unavailable")
+    if graph_evidence.truncated:
+        reasons.append("graph_truncated")
+    return tuple(reasons)
+
+
+__all__ = [
+    "ChangeAssessment",
+    "ChangeAssessmentService",
+    "ChangeGraphEvidenceReceipt",
+    "GraphEvidenceReleaseState",
+]
