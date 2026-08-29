@@ -118,9 +118,9 @@ A distribution that wants fail-closed behavior sets `require_license` at its com
 |---------|----------|
 | Token contract, validation, canonical bytes | `services/core-control-plane/src/fdai/core/licensing/token.py` (crypto-free) |
 | Status, binding, and entitlement resolution | `services/core-control-plane/src/fdai/core/licensing/entitlement.py` |
-| Signature verification | `Ed25519LicenseVerifier` in `services/core-control-plane/src/fdai/delivery/trust/ed25519.py` |
-| Issuing (release-only) | `scripts/deployment/release/issue-license.py` |
-| Offline verification for any operator | `fdaictl license inspect` |
+| Runtime signature verification seam | `LicenseVerifier` Protocol resolved by the distribution composition root |
+| Issuing and self-verification (release-only) | `scripts/deployment/release/issue-license.py`, using Ed25519 from the pinned cryptography dependency |
+| Offline verification for any operator | `fdaictl license inspect`, using the deployment CLI's independent Ed25519 verifier |
 
 The split matches the extension and skill trust seams: `core/` declares a `LicenseVerifier` Protocol
 and never imports a crypto backend, a transport, or `fdai.delivery`

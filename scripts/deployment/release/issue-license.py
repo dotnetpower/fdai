@@ -27,16 +27,21 @@ import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from cryptography.hazmat.primitives.serialization import load_pem_private_key
-
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+    Ed25519PrivateKey,
+    Ed25519PublicKey,
+)
+from cryptography.hazmat.primitives.serialization import (
+    load_pem_private_key,
+    load_pem_public_key,
+)
 from fdai.core.licensing import (
     LicenseClaims,
     LicenseTokenError,
     encode_license_token,
 )
 from fdai.core.licensing.token import parse_license_token
-from fdai.delivery.trust.ed25519 import Ed25519LicenseVerifier
 
 
 class LicenseIssueError(RuntimeError):
@@ -79,11 +84,19 @@ def _confirm(token: str, public_key_pem: bytes) -> None:
         _claims, document, signature = parse_license_token(token)
     except LicenseTokenError as exc:
         raise LicenseIssueError(f"issued license is not parseable: {exc}") from exc
-    if not Ed25519LicenseVerifier(public_key_pem=public_key_pem).verify(document, signature):
+    try:
+        public_key = load_pem_public_key(public_key_pem)
+    except (TypeError, ValueError) as exc:
+        raise LicenseIssueError("license public key is invalid") from exc
+    if not isinstance(public_key, Ed25519PublicKey):
+        raise LicenseIssueError("license public key MUST be Ed25519")
+    try:
+        public_key.verify(signature, document)
+    except InvalidSignature as exc:
         raise LicenseIssueError(
             "issued license does not verify against the supplied public key; "
             "the signing key and the packaged key do not match"
-        )
+        ) from exc
 
 
 def _private_key(private_key_pem: bytes) -> Ed25519PrivateKey:

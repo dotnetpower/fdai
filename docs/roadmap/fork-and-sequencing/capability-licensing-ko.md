@@ -1,8 +1,8 @@
 ---
 title: Capability 라이선싱
 translation_of: capability-licensing.md
-translation_source_sha: c7c46a30bac02d15b0eedc54ebaf3bae7aad84fa
-translation_revised: 2026-08-24
+translation_source_sha: 41e7101c86d01e3be9c5f591c28078027432f219
+translation_revised: 2026-08-29
 ---
 # 기능 라이선싱
 
@@ -116,9 +116,9 @@ License의 유효한 표기는 정확히 하나입니다. 대부분의 표준 �
 |--------|------|
 | 토큰 계약, 검증, 정본 바이트 | `services/core-control-plane/src/fdai/core/licensing/token.py` (crypto-free) |
 | 상태, 연결, 권한 해석 | `services/core-control-plane/src/fdai/core/licensing/entitlement.py` |
-| 서명 검증 | `services/core-control-plane/src/fdai/delivery/trust/ed25519.py`의 `Ed25519LicenseVerifier` |
-| 발급 (release 전용) | `scripts/deployment/release/issue-license.py` |
-| 모든 운영자를 위한 오프라인 검증 | `fdaictl license inspect` |
+| 런타임 서명 검증 확장 지점 | 배포판 조립 루트가 해석하는 `LicenseVerifier` 프로토콜 |
+| 발급 및 자체 검증 (release 전용) | 고정된 cryptography 의존성의 Ed25519를 사용하는 `scripts/deployment/release/issue-license.py` |
+| 모든 운영자를 위한 오프라인 검증 | 배포 CLI의 독립 Ed25519 검증기를 사용하는 `fdaictl license inspect` |
 
 이 분리는 확장 및 스킬 trust 경계와 같습니다. `core/`는 `LicenseVerifier` 프로토콜만 선언하고
 crypto 백엔드, 전송 계층, `fdai.delivery`를 가져오기하지 않습니다

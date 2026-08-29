@@ -304,6 +304,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H70 | The Python compatibility tag omitted the actual ABI and could equate free-threaded and standard builds. It now binds the interpreter's full `SOABI`. | `test_offline_kit_verifies_signature_exact_files_and_compatibility` |
 | H71 | Materialization retained digests but not verified sizes, so a replaced growing file could exhaust disk before rejection. It now enforces per-file and cumulative signed size bounds while copying. | `test_materialization_rejects_artifact_growth_after_verification` |
 | H72 | The live air-gap drill stopped at license issuance because it used the retired root `src` path. It now resolves the independently packaged Core and service-contract sources explicitly. | network-isolated `airgap-drill.sh` rerun |
+| H73 | License issuance still imported a removed delivery verifier after package-path repair. It now performs Ed25519 public-key verification through the pinned cryptography dependency. | network-isolated `airgap-drill.sh` rerun |
 
 ## Related docs
 
