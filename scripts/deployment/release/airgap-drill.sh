@@ -73,7 +73,11 @@ if [[ "$SKIP_STAGE" -eq 0 ]]; then
   printf 'fdai-airgap-drill-v1\n' > "$WORKDIR/$SENTINEL"
   chmod 600 "$WORKDIR/$SENTINEL"
 else
-  if [[ ! -d "$WORKDIR" ]] || [[ "$(<"$WORKDIR/$SENTINEL" 2>/dev/null || true)" != "fdai-airgap-drill-v1" ]]; then
+  sentinel_value=""
+  if [[ -f "$WORKDIR/$SENTINEL" && ! -L "$WORKDIR/$SENTINEL" ]]; then
+    IFS= read -r sentinel_value < "$WORKDIR/$SENTINEL" || true
+  fi
+  if [[ ! -d "$WORKDIR" || "$sentinel_value" != "fdai-airgap-drill-v1" ]]; then
     echo "airgap-drill: --skip-stage requires an owned drill workdir." >&2
     exit 2
   fi

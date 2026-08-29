@@ -116,7 +116,8 @@ The synthetic air-gap drill isolates Azure CLI configuration so a host login can
 target evidence, requires Azure CLI as a local prerequisite, and expects its distinct redacted
 provider-authentication marker. Repeated `--skip-stage` drills recreate their isolated Azure
 configuration only inside a sentinel-owned work directory. Fresh drills require a nonexistent safe
-absolute path. The drill needs no ambient Terraform because it uses the authenticated kit snapshot.
+absolute path, and resume explicitly rereads the private sentinel. The drill needs no ambient
+Terraform because it uses the authenticated kit snapshot.
 It also clears Python import overrides before invoking the installed distribution, so checkout
 source cannot shadow a shipped wheel.
 The connected stage issues its synthetic license through the current Core and service-contract
