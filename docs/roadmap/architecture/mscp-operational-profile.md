@@ -154,6 +154,13 @@ Moving from shadow observation to gating is a separate, future governed change. 
 measured evidence window, a rollback target, and a proof that the profile can only preserve or lower
 the existing authority decision.
 
+A pure readiness evaluator now keeps each `(ActionType, effect metric, environment, observer
+version)` candidate separate. It reports reviewed sample count, point accuracy, the 95% Wilson lower
+bound, false-positive and false-negative outcomes, policy escapes, correlation errors, observer
+coverage and p95 latency, stale and provider-failure rates, rollback rate, and human touchpoints. The
+14-day and 100-sample floors cannot be weakened. Missing statistical or drill evidence remains an
+explicit gap, and the report carries no promotion authority.
+
 The pure `combine_mscp_authority` function supplies that never-raising proof surface. It maps
 `preserve`, `human_approval`, `hold`, and `deny` ceilings onto the canonical FDAI authority ladder
 and takes `min(existing FDAI authority, MSCP ceiling)`. Its immutable result preserves the complete
@@ -190,6 +197,8 @@ Focused tests under `services/core-control-plane/tests/core/mscp_profile/` cover
 - fail-closed validation of non-finite values, malformed digests, and invalid limits.
 - restart-safe pending-effect ownership and deadline-worker verified, mismatch, missing, provider
   failure, and replay behavior.
+- candidate-separated reviewed readiness metrics, confidence lower bounds, zero-tolerance guards,
+  SLO gaps, and non-authoritative review eligibility.
 
 The v1 profile is connected only as optional shadow observation. It is not connected to the enforce
 decision path. A future gating change should demonstrate that no profile outcome raises the existing

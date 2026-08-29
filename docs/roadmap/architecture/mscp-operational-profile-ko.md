@@ -1,7 +1,7 @@
 ---
 title: MSCP Operational Profile
 translation_of: mscp-operational-profile.md
-translation_source_sha: 62f180ebb48c91dfb7e5d77cac889ef98031c05c
+translation_source_sha: 3a9ec33b35249bb01bf780f3525658ee6ffa3b06
 translation_revised: 2026-08-29
 ---
 # MSCP Operational 프로파일
@@ -156,6 +156,12 @@ shadow 관측에서 gating으로 전환하는 작업은 별도의 향후 통제�
 근거 구간, 롤백 대상 및 프로파일이 기존 권한 결정을 유지하거나 낮출 수만 있다는
 증명이 필요합니다.
 
+순수 준비 상태 검증기는 각 `(ActionType, effect metric, environment, observer version)` 후보를
+분리합니다. 검토된 표본 수, point accuracy, 95% Wilson 하한, 오탐 및 미탐 결과, 정책 escape,
+상관관계 오류, 관측기 coverage와 p95 latency, stale 및 프로바이더 실패 비율, 롤백 비율,
+사람 touchpoint를 보고합니다. 14일 및 100개 표본 하한은 완화할 수 없습니다. 통계 또는 훈련
+근거가 누락되면 명시적 미비점으로 남고 보고서에는 승격 권한이 없습니다.
+
 순수 `combine_mscp_authority` 함수는 이 never-raising 증명 표면을 제공합니다. `preserve`,
 `human_approval`, `hold`, `deny` 상한을 정본 FDAI 권한 단계 구조에 매핑하고 `min(기존
 FDAI 권한, MSCP 상한)`을 적용합니다. 변경할 수 없는 결과는 완전한 unified risk 결정을
@@ -191,6 +197,8 @@ FDAI 권한, MSCP 상한)`을 적용합니다. 변경할 수 없는 결과는 �
 - non-finite 값, malformed 다이제스트 및 잘못된 한도의 실패 시 차단 검증
 - 재시작 안전 대기 효과 소유권 및 기한 worker의 verified, mismatch, 누락, 프로바이더 실패 및
   재생 동작
+- 후보별 검토 준비 상태 메트릭, 신뢰도 하한, 무관용 guard, SLO 미비점 및 권한이 없는 검토
+  적격성
 
 v1 프로파일은 선택적 shadow 관측으로만 연결됩니다. 강제 적용 결정 경로에는 연결되지
 않았습니다. 향후 gating 변경은 어떤 프로파일 결과도 기존 risk 결정을 높이지 않음을
