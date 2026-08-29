@@ -59,6 +59,31 @@ done
 
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
+STAGE_SENTINEL=".fdai-offline-stage"
+if [[ "$OUT" != /* || "$OUT" == "/" || "$OUT" == "$HOME" || "$OUT" == "$repo_root" ]]; then
+  echo "stage-offline-kit: --out must be a safe absolute path outside the repository and home." >&2
+  exit 2
+fi
+if [[ -L "$OUT" ]]; then
+  echo "stage-offline-kit: --out must not be a symbolic link." >&2
+  exit 2
+fi
+if [[ ! -e "$OUT" ]]; then
+  mkdir -m 700 "$OUT"
+  printf 'fdai-offline-stage-v1\n' > "$OUT/$STAGE_SENTINEL"
+  chmod 600 "$OUT/$STAGE_SENTINEL"
+else
+  stage_owner=""
+  if [[ -f "$OUT/$STAGE_SENTINEL" && ! -L "$OUT/$STAGE_SENTINEL" ]]; then
+    IFS= read -r stage_owner < "$OUT/$STAGE_SENTINEL" || true
+  elif [[ -f "$OUT/.fdai-airgap-workdir" && ! -L "$OUT/.fdai-airgap-workdir" ]]; then
+    IFS= read -r stage_owner < "$OUT/.fdai-airgap-workdir" || true
+  fi
+  if [[ ! -d "$OUT" || ( "$stage_owner" != "fdai-offline-stage-v1" && "$stage_owner" != "fdai-airgap-drill-v1" ) ]]; then
+    echo "stage-offline-kit: existing --out is not owned by offline staging." >&2
+    exit 2
+  fi
+fi
 
 for tool in curl git openssl sha256sum unzip uv; do
   command -v "$tool" >/dev/null 2>&1 || {

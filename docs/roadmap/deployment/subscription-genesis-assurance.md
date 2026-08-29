@@ -315,6 +315,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H81 | License issuance truncated an existing broadly readable output before tightening permissions. It now creates a new mode-`0600` file exclusively and refuses replacement. | `test_license_output_never_replaces_existing_file` |
 | H82 | The drill recursively deleted an arbitrary caller-selected work directory. Fresh runs now require a nonexistent safe absolute path, and resume requires an ownership sentinel. | `test_release_scripts_use_the_installable_distribution` |
 | H83 | Resume used an empty-producing sentinel substitution and always rejected valid work directories. It now reads the private sentinel explicitly before ownership validation. | `test_release_scripts_use_the_installable_distribution` |
+| H84 | Offline staging accepted an arbitrary relative or existing output root before recursive cleanup. It now requires a safe absolute path and a private staging or air-gap ownership sentinel. | `test_release_scripts_use_the_installable_distribution` |
 
 ## Related docs
 
