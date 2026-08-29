@@ -40,12 +40,14 @@ def test_plan_input_is_private_canonical_and_non_secret(tmp_path: Path) -> None:
         destination,
         expected_target_binding=_BINDING,
         expected_region="koreacentral",
+        expected_environment="dev",
     )
 
     assert destination.stat().st_mode & 0o777 == 0o600
     expected = _values()
     expected.pop("target_binding")
     expected.pop("subscription_id")
+    expected["env"] = "dev"
     assert json.loads(destination.read_text(encoding="utf-8")) == expected
     assert context.subscription_id == _SUBSCRIPTION
     assert context.tenant_id == _TENANT
@@ -62,6 +64,7 @@ def test_plan_input_rejects_real_password_and_extra_secret(tmp_path: Path) -> No
             tmp_path / "snapshot.json",
             expected_target_binding=_BINDING,
             expected_region="koreacentral",
+            expected_environment="dev",
         )
 
     values = _values()
@@ -73,6 +76,7 @@ def test_plan_input_rejects_real_password_and_extra_secret(tmp_path: Path) -> No
             tmp_path / "snapshot.json",
             expected_target_binding=_BINDING,
             expected_region="koreacentral",
+            expected_environment="dev",
         )
 
 
@@ -86,6 +90,7 @@ def test_plan_input_requires_private_regular_source(tmp_path: Path) -> None:
             tmp_path / "snapshot.json",
             expected_target_binding=_BINDING,
             expected_region="koreacentral",
+            expected_environment="dev",
         )
 
 
@@ -99,6 +104,7 @@ def test_plan_input_must_match_profile_target_binding(tmp_path: Path) -> None:
             tmp_path / "snapshot.json",
             expected_target_binding="b" * 64,
             expected_region="koreacentral",
+            expected_environment="dev",
         )
 
 
@@ -112,4 +118,21 @@ def test_plan_input_region_must_match_profile(tmp_path: Path) -> None:
             tmp_path / "snapshot.json",
             expected_target_binding=_BINDING,
             expected_region="eastus",
+            expected_environment="dev",
         )
+
+
+def test_plan_input_injects_reviewed_environment(tmp_path: Path) -> None:
+    source = tmp_path / "input.json"
+    destination = tmp_path / "snapshot.json"
+    _write(source, _values())
+
+    snapshot_plan_input(
+        source,
+        destination,
+        expected_target_binding=_BINDING,
+        expected_region="koreacentral",
+        expected_environment="prod",
+    )
+
+    assert json.loads(destination.read_text(encoding="utf-8"))["env"] == "prod"

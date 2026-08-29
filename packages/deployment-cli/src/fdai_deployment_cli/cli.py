@@ -277,6 +277,7 @@ def _provision_plan(args: argparse.Namespace) -> int:
         variables_file,
         expected_target_binding=profile.target_binding,
         expected_region=profile.region,
+        expected_environment=profile.environment,
     )
     environment = _terraform_environment(
         work_dir=work_dir,
