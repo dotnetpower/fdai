@@ -19,7 +19,12 @@ from fdai_deployment_cli.bundle import (
     verify_bundle,
 )
 from fdai_deployment_cli.compiler import compile_manifest
-from fdai_deployment_cli.doctor import azure_active_target_binding, doctor_json, inspect_tools
+from fdai_deployment_cli.doctor import (
+    azure_active_target_binding,
+    azure_cli_authenticated,
+    doctor_json,
+    inspect_tools,
+)
 from fdai_deployment_cli.license import LicenseInspectionError, inspect_license
 from fdai_deployment_cli.offline_kit import verify_offline_kit
 from fdai_deployment_cli.offline_kit import materialize_verified_artifacts
@@ -148,7 +153,10 @@ def _version(args: argparse.Namespace) -> int:
 
 
 def _doctor(args: argparse.Namespace) -> int:
-    report = doctor_json(inspect_tools())
+    report = doctor_json(
+        inspect_tools(),
+        azure_authenticated=azure_cli_authenticated(),
+    )
     payload = json.loads(report)
     print(report if args.output == "json" else f"ready={str(payload['ready']).lower()}")
     return 0 if payload["ready"] else 3

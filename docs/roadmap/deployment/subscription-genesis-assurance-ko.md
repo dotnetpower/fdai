@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 5f117bff3d4cfac1edaaf53c34889302b8ccca65
+translation_source_sha: d50d122848a437c3e284b5bb7be95650e5070979
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -312,6 +312,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H85 | 알려진 준비 sentinel 문자열을 위조할 수 있고 UID 소유권이나 비공개 모드를 증명하지 않았습니다. 이제 서술자 기반 guard가 현재 UID 소유권, mode 0700, mode-0600 일반 sentinel을 검증합니다. | `test_workdir_guard_rejects_public_or_linked_roots` |
 | H86 | air-gap 재개가 보존된 아티팩트를 실행하기 전에 같은 위조 가능한 공개 표시를 신뢰했습니다. 이제 새 훈련과 재개 모두 서술자 기반 UID 및 모드 guard를 사용합니다. | `test_workdir_guard_creates_and_verifies_private_sentinel` |
 | H87 | 소유한 출력에 다시 준비할 때 이전 번들 보관이 남아 결정론적 빌더가 덮어쓰기를 거부했습니다. 이제 정리가 생성된 모든 단일 파일 빌드 출력을 제거합니다. | `test_release_scripts_use_the_installable_distribution` |
+| H88 | `fdaictl doctor`가 Azure 인증 없이 실행 파일 버전만으로 준비 완료를 보고했습니다. 이제 준비도는 읽기 전용 활성 계정 검사를 요구하고 안정적인 인증 누락 사유를 냅니다. | `test_doctor_readiness_requires_azure_authentication` |
 
 ## 관련 문서
 

@@ -41,13 +41,19 @@ def inspect_tools(names: tuple[str, ...] = ("az", "terraform", "gh")) -> tuple[T
     return tuple(results)
 
 
-def doctor_json(checks: tuple[ToolCheck, ...]) -> str:
+def doctor_json(
+    checks: tuple[ToolCheck, ...],
+    *,
+    azure_authenticated: bool,
+) -> str:
     """Return stable doctor output."""
 
     return json.dumps(
         {
             "schema_version": "fdai.doctor.v1",
-            "ready": all(check.available for check in checks),
+            "ready": all(check.available for check in checks) and azure_authenticated,
+            "azure_authenticated": azure_authenticated,
+            "reason_codes": ([] if azure_authenticated else ["azure_authentication_missing"]),
             "mutation_performed": False,
             "tools": [
                 {

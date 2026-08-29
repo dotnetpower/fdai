@@ -43,6 +43,21 @@ def test_azure_authentication_fails_closed_without_login(monkeypatch: object) ->
     assert not doctor.azure_cli_authenticated()
 
 
+def test_doctor_readiness_requires_azure_authentication() -> None:
+    checks = (
+        doctor.ToolCheck(name="az", available=True, version="test"),
+        doctor.ToolCheck(name="terraform", available=True, version="test"),
+        doctor.ToolCheck(name="gh", available=True, version="test"),
+    )
+
+    unavailable = doctor.doctor_json(checks, azure_authenticated=False)
+    available = doctor.doctor_json(checks, azure_authenticated=True)
+
+    assert '"ready":false' in unavailable
+    assert "azure_authentication_missing" in unavailable
+    assert '"ready":true' in available
+
+
 def test_active_target_binding_is_stable_and_identifier_free(monkeypatch: object) -> None:
     subscription = "00000000-0000-0000-0000-000000000001"
     tenant = "00000000-0000-0000-0000-000000000002"
