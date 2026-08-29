@@ -137,6 +137,8 @@ drill needs no ambient Terraform because it uses the authenticated kit snapshot.
 It also clears Python import overrides before invoking the installed distribution, so checkout
 source cannot shadow a shipped wheel. Manifest, trust-key, and SBOM reads use bounded nonblocking
 regular-file readers in both source and installed-wheel verification.
+The shipped-wheel install disables the `uv` cache, so a previously cached wheel with the same
+version and filename cannot replace the authenticated kit artifact during a hardening drill.
 The connected stage issues its synthetic license through the current Core and service-contract
 package roots rather than the retired monolithic source path, and verifies the issued Ed25519
 signature without a removed delivery adapter. License output is a new private file; issuance never

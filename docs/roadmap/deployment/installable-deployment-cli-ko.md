@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 0e4d89a0f9607dfb0151107d5a59b85862c19c98
+translation_source_sha: 9050224128380733fa62d0b3db54bce11a8cb074
 translation_revised: 2026-08-29
 ---
 # 설치형 배포 CLI
@@ -139,6 +139,8 @@ Azure CLI를 로컬 선행 조건으로 검사하며 구분된 정제 공급자 
 또한 설치된 배포판을 호출하기 전에 Python 가져오기 재정의를 제거해 체크아웃 소스가 제공
 wheel을 가리지 못하게 합니다. 매니페스트, 신뢰 키, SBOM 읽기는 소스 및 설치된 wheel 검증
 모두에서 크기가 제한된 비차단 일반 파일 reader를 사용합니다.
+제공 wheel 설치는 `uv` 캐시를 비활성화하므로 버전과 파일명이 같은 이전 캐시 wheel이 하드닝
+훈련 중 인증된 키트 아티팩트를 대체할 수 없습니다.
 연결된 준비 단계는 폐기된 단일 소스 경로가 아니라 현재 Core 및 서비스 계약 패키지 루트에서
 합성 라이선스를 발급하고 제거된 전달 어댑터 없이 발급한 Ed25519 서명을 검증합니다. 라이선스
 출력은 새 비공개 파일이며 기존 경로를 자르거나 교체하지 않습니다. release 유틸리티는 하나의

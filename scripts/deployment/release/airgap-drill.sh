@@ -231,7 +231,7 @@ cp -r "$BUNDLE/infra" "$WORKDIR/negative"
 
 echo "-- install authenticated shipped CLI from kit wheels"
 "$UV" venv --python "$PYTHON" "$WORKDIR/cli-venv" >/dev/null
-"$UV" pip install --python "$WORKDIR/cli-venv/bin/python" \
+UV_NO_CACHE=1 "$UV" pip install --python "$WORKDIR/cli-venv/bin/python" \
   --no-index --find-links "$WORKDIR/authenticated-kit/python" \
   "fdai-deployment-cli==$CLI_VERSION" >/dev/null
 CLI="$WORKDIR/cli-venv/bin/fdaictl"

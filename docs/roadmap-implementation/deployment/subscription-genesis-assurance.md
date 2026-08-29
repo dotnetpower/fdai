@@ -35,6 +35,7 @@ and recoverable.
 | 2026-08-29 | implemented | Completed hardening round 102 by publishing offline-kit metadata and streamed bundle archives through the held-parent exclusive writer. | `current change`; four focused secure-writer tests plus release productization and air-gap checks | Repeat the final severity audit and close any remaining finding above Low before login. |
 | 2026-08-29 | implemented | Completed hardening round 103 by rejecting release workdirs whose ancestor ownership and sticky-bit posture permits another UID to swap the validated path. | `current change`; four focused workdir guard tests and fresh plus `--skip-stage` air-gap drills | Repeat the final severity audit and close any remaining finding above Low before login. |
 | 2026-08-29 | implemented | Completed hardening round 104 by applying the nonreplaceable ancestor policy and descriptor-mode initialization to CLI plan workdirs. | `current change`; focused replaceable and linked-parent regression test and the final deployment CLI gate stack passed 103 tests | Repeat the final severity audit and close any remaining finding above Low before login. |
+| 2026-08-29 | implemented | Completed hardening round 105 by disabling the package cache for shipped-wheel air-gap installation after a same-version cached wheel reproduced stale code. | `current change`; productization contract plus fresh and `--skip-stage` air-gap drills installed the authenticated current wheel | Repeat the final severity audit and close any remaining finding above Low before login. |
 
 ### Remaining work
 
