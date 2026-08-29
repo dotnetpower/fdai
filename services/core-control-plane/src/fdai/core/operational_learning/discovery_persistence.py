@@ -13,6 +13,7 @@ from .discovery_contracts import (
     DiscoveryCycleMetrics,
     DiscoveryCycleReport,
     DiscoverySignal,
+    require_digest,
 )
 
 
@@ -102,8 +103,10 @@ def interval_bucket_start(value: datetime, interval_seconds: int) -> datetime:
 def _decision_from_mapping(value: object) -> DiscoveryCandidateDecision:
     if not isinstance(value, Mapping):
         raise ValueError("persisted discovery cycle decision shape is invalid")
+    candidate_digest = str(value["candidate_digest"])
+    require_digest(candidate_digest, "candidate_digest")
     return DiscoveryCandidateDecision(
-        candidate_digest=str(value["candidate_digest"]),
+        candidate_digest=candidate_digest,
         state=DiscoveryCandidateState(str(value["state"])),
         reason=str(value["reason"]),
         review_ref=(str(value["review_ref"]) if value.get("review_ref") is not None else None),

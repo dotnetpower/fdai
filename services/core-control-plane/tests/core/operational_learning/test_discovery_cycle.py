@@ -248,9 +248,23 @@ async def test_cycle_persists_all_stages_metrics_and_replays_without_side_effect
 
     assert replay.replayed is True
     assert replay.cycle_id == report.cycle_id
+    assert replay.decisions == report.decisions
+    assert replay.metrics == report.metrics
     assert source.calls == 1
     assert primary.calls == 1
     assert len(integrator.candidates) == 2
+
+    tampered = dict(cycle)
+    tampered["decisions"] = [
+        {**cycle["decisions"][0], "candidate_digest": "not-a-digest"},
+        *cycle["decisions"][1:],
+    ]
+    await store.write_state(
+        f"operational-learning:discovery-cycle:{report.cycle_id}",
+        tampered,
+    )
+    with pytest.raises(ValueError, match="MUST be lowercase SHA-256"):
+        await scheduler.run_due(scheduled_for=_START)
 
 
 @pytest.mark.parametrize("wrong_digest", [False, True], ids=["disagree", "digest-mismatch"])

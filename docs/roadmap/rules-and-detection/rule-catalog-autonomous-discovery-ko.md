@@ -1,7 +1,7 @@
 ---
 title: 자율 규칙 발견(Autonomous Rule Discovery)
 translation_of: rule-catalog-autonomous-discovery.md
-translation_source_sha: ba208e248cbd66617815a0ceee8fe730f399c4db
+translation_source_sha: 65669e0e26f05c5a95f2d858be26d9a04d789c5f
 translation_revised: 2026-08-29
 ---
 
@@ -189,6 +189,7 @@ shadow 결과는 기존 에이전트 소유권을 통해 검토 미비점을 해
 | 2026-08-29 | implemented | 재생 가능한 범위 제한 주기, 독립 모델 계열 후보 재승인, 재정의 인식 감사 메트릭, 별도 사람 shadow 검토 완료 경로를 추가했습니다. | `current change`; 발견 주기, 영속 기록, shadow dwell, Var, Saga 경로; `uv run pytest -q --no-cov services/core-control-plane/tests/core/operational_learning services/core-control-plane/tests/agents/test_discovery_shadow_dwell.py services/core-control-plane/tests/agents/test_discovery_shadow_review.py services/core-control-plane/tests/agents/test_wave2_governance.py services/core-control-plane/tests/agents/test_wave3_pipeline.py services/core-control-plane/tests/agents/test_quorum.py services/core-control-plane/tests/agents/test_framework_layout.py services/core-control-plane/tests/agents/test_pantheon_doc_parity.py` 테스트 309개 통과. | `validated` 상태를 주장하기 전에 관리되는 배포 주기와 실환경 검토 코호트를 보존합니다. |
 | 2026-08-29 | implemented | 하드닝 1차에서 모델이 만든 후보 페이로드의 중첩 권한 필드 주입 경로를 차단했습니다. 이제 비활성 후보 계약은 통합 전에 모든 중첩 매핑과 시퀀스를 검사합니다. | `current change`; `discovery_contracts.py`; `test_discovery_cycle.py`; 집중 테스트 8개, Ruff, strict mypy 통과. | 범위가 제한된 하드닝 캠페인을 계속합니다. 관리되는 배포 근거는 별도 작업입니다. |
 | 2026-08-29 | implemented | 하드닝 2차에서 스케줄러 선점에 실패한 복제본이 진행 중인 주기를 완료된 재생으로 보고하지 못하게 했습니다. 이제 동시 선점 실패자는 명시적인 진행 중 오류를 받습니다. | `current change`; `discovery_cycle.py`; `test_discovery_cycle.py`; 집중 테스트 9개, Ruff, strict mypy 통과. | 범위가 제한된 하드닝 캠페인을 계속합니다. 관리되는 배포 근거는 별도 작업입니다. |
+| 2026-08-29 | implemented | 하드닝 3차에서 영속 후보 결정이 재생 중 SHA-256 ID를 다시 검증하도록 했습니다. 손상된 상태는 임의 조회 키를 사용한 검토 보고서로 들어올 수 없습니다. | `current change`; `discovery_persistence.py`; `test_discovery_cycle.py`; 집중 테스트 9개, Ruff, strict mypy 통과. | 범위가 제한된 하드닝 캠페인을 계속합니다. 관리되는 배포 근거는 별도 작업입니다. |
 
 ### 남은 작업
 
