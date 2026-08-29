@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import os
 from datetime import UTC, datetime, timedelta
@@ -133,7 +134,28 @@ def test_bundle_verification_rejects_tampering(tmp_path: Path) -> None:
     payload = tmp_path / "infra/main.tf"
     payload.parent.mkdir()
     payload.write_text("terraform {}", encoding="utf-8")
-    import hashlib
+    payload_digest = hashlib.sha256(payload.read_bytes()).hexdigest()
+    sbom = tmp_path / "sbom.cdx.json"
+    sbom.write_text(
+        json.dumps(
+            {
+                "bomFormat": "CycloneDX",
+                "specVersion": "1.5",
+                "version": 1,
+                "components": [
+                    {
+                        "type": "file",
+                        "name": "infra/main.tf",
+                        "hashes": [{"alg": "SHA-256", "content": payload_digest}],
+                    }
+                ],
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
     manifest = {
         "schema_version": "fdai.deployment.bundle.v1",
@@ -141,13 +163,16 @@ def test_bundle_verification_rejects_tampering(tmp_path: Path) -> None:
         "release_channel": "development",
         "min_cli_version": "0.1.0",
         "max_cli_version": None,
-        "sbom_path": "infra/main.tf",
-        "files": {"infra/main.tf": hashlib.sha256(payload.read_bytes()).hexdigest()},
+        "sbom_path": "sbom.cdx.json",
+        "files": {
+            "infra/main.tf": payload_digest,
+            "sbom.cdx.json": hashlib.sha256(sbom.read_bytes()).hexdigest(),
+        },
     }
     document = canonical_bytes(manifest) + b"\n"
     (tmp_path / "manifest.json").write_bytes(document)
     (tmp_path / "manifest.json.sig").write_bytes(private.sign(document))
-    assert verify_bundle(tmp_path, public_key_pem=public).file_count == 1
+    assert verify_bundle(tmp_path, public_key_pem=public).file_count == 2
     payload.write_text("changed", encoding="utf-8")
     with pytest.raises(BundleVerificationError, match="exact file set"):
         verify_bundle(tmp_path, public_key_pem=public)
@@ -176,7 +201,28 @@ def test_bundle_rejects_incompatible_cli_version(tmp_path: Path) -> None:
     payload = tmp_path / "infra/main.tf"
     payload.parent.mkdir()
     payload.write_text("terraform {}", encoding="utf-8")
-    import hashlib
+    payload_digest = hashlib.sha256(payload.read_bytes()).hexdigest()
+    sbom = tmp_path / "sbom.cdx.json"
+    sbom.write_text(
+        json.dumps(
+            {
+                "bomFormat": "CycloneDX",
+                "specVersion": "1.5",
+                "version": 1,
+                "components": [
+                    {
+                        "type": "file",
+                        "name": "infra/main.tf",
+                        "hashes": [{"alg": "SHA-256", "content": payload_digest}],
+                    }
+                ],
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
     manifest = {
         "schema_version": "fdai.deployment.bundle.v1",
@@ -184,8 +230,11 @@ def test_bundle_rejects_incompatible_cli_version(tmp_path: Path) -> None:
         "release_channel": "development",
         "min_cli_version": "0.2.0",
         "max_cli_version": None,
-        "sbom_path": "infra/main.tf",
-        "files": {"infra/main.tf": hashlib.sha256(payload.read_bytes()).hexdigest()},
+        "sbom_path": "sbom.cdx.json",
+        "files": {
+            "infra/main.tf": payload_digest,
+            "sbom.cdx.json": hashlib.sha256(sbom.read_bytes()).hexdigest(),
+        },
     }
     document = canonical_bytes(manifest) + b"\n"
     (tmp_path / "manifest.json").write_bytes(document)
@@ -193,6 +242,36 @@ def test_bundle_rejects_incompatible_cli_version(tmp_path: Path) -> None:
 
     with pytest.raises(BundleVerificationError, match="incompatible"):
         verify_bundle(tmp_path, public_key_pem=public, cli_version="0.1.0")
+
+
+def test_bundle_rejects_incomplete_sbom(tmp_path: Path) -> None:
+    private, public = _keys()
+    payload = tmp_path / "infra/main.tf"
+    payload.parent.mkdir()
+    payload.write_text("terraform {}", encoding="utf-8")
+    sbom = tmp_path / "sbom.cdx.json"
+    sbom.write_text(
+        '{"bomFormat":"CycloneDX","specVersion":"1.5","version":1,"components":[]}\n',
+        encoding="utf-8",
+    )
+    manifest = {
+        "schema_version": "fdai.deployment.bundle.v1",
+        "bundle_version": "0.1.0",
+        "release_channel": "development",
+        "min_cli_version": "0.1.0",
+        "max_cli_version": None,
+        "sbom_path": "sbom.cdx.json",
+        "files": {
+            "infra/main.tf": hashlib.sha256(payload.read_bytes()).hexdigest(),
+            "sbom.cdx.json": hashlib.sha256(sbom.read_bytes()).hexdigest(),
+        },
+    }
+    document = canonical_bytes(manifest) + b"\n"
+    (tmp_path / "manifest.json").write_bytes(document)
+    (tmp_path / "manifest.json.sig").write_bytes(private.sign(document))
+
+    with pytest.raises(BundleVerificationError, match="SBOM coverage"):
+        verify_bundle(tmp_path, public_key_pem=public)
 
 
 def test_license_inspection_verifies_signature_and_time() -> None:

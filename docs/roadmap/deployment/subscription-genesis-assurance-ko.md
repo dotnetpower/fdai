@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 9bb0797edf31a6ef7e3172a1af228e560c8c5486
+translation_source_sha: 539cd65910bd5ee3e2edf5151505b66f3113410f
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -247,6 +247,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H20 | 번들 검증이 형식 검증 전에 FIFO를 열어 무기한 대기할 수 있었습니다. 이제 모든 비정규 페이로드를 열기 전에 거부합니다. | `test_bundle_hash_rejects_fifo_before_open` |
 | H21 | 프로필 점검이 대상 다이제스트를 기록했지만 활성 Azure 맥락과 비교하지 않았습니다. 이제 식별자를 노출하지 않고 활성 연결을 파생해 정확한 일치를 요구합니다. | `test_active_target_binding_is_stable_and_identifier_free` |
 | H22 | 오프라인 계획이 호환성 검사에 사용할 CLI 버전과 플랫폼을 호출자가 선택하도록 허용했습니다. 이제 설치된 버전과 런타임에서 파생한 플랫폼에 연결합니다. | `test_runtime_platform_is_not_caller_controlled` |
+| H23 | 번들 검증이 임의의 `sbom_path`를 신뢰하고 구성 요소 커버리지를 증명하지 않았습니다. 이제 선언된 CycloneDX 1.5 SBOM의 SHA-256 항목이 페이로드를 정확히 포함해야 합니다. | `test_bundle_rejects_incomplete_sbom` |
 
 ## 관련 문서
 
