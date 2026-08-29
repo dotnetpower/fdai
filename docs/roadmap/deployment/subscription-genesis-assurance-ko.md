@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 9d54cbb30a8a158d40a43b718ed96fd93b0fa876
+translation_source_sha: 598ed6c77611ef2e403ccc1d9f3167cabfc39b72
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -264,6 +264,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H37 | 불리언 사용률과 예비 비율이 여전히 유한 수 검사를 통과했습니다. 이제 용량 검증이 두 비율 필드의 불리언을 명시적으로 거부합니다. | `test_capacity_rejects_non_numeric_and_non_finite_inputs` |
 | H38 | 루트 제품화 pytest 프로세스가 독립 CLI 프로젝트를 가져올 수 없었습니다. 이제 제품화 검사가 루트 제품군 전에 해당 프로젝트 환경에서 CLI 검사를 실행합니다. | `test_productization_builds_the_installable_deployment_cli` |
 | H39 | 두 이벤트 원장이 `system-readiness`만 완료하고 준비 완료가 될 수 있었습니다. 이제 준비 완료에는 컴파일된 모든 매니페스트 항목이 정확한 순서로 완료되어야 합니다. | `test_journal_rejects_ready_with_only_readiness_stage` |
+| H40 | Terraform이 `TF_CLI_ARGS_plan=-destroy` 같은 주변 제어 변수를 상속했습니다. 이제 계획은 Terraform 제어를 거부하고 비공개 데이터 디렉터리를 포함한 최소 허용 환경을 구성합니다. | `test_terraform_environment_rejects_ambient_plan_controls` |
 
 ## 관련 문서
 

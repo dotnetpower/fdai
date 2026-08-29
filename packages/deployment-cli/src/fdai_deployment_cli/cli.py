@@ -8,6 +8,7 @@ import os
 import platform
 import subprocess
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 
 from fdai_deployment_cli.__about__ import __version__
@@ -255,9 +256,11 @@ def _provision_plan(args: argparse.Namespace) -> int:
         "  }\n"
         "}\n",
     )
-    environment = dict(os.environ)
-    environment["TF_CLI_CONFIG_FILE"] = str(config)
-    environment["TF_IN_AUTOMATION"] = "1"
+    environment = _terraform_environment(
+        work_dir=args.work_dir,
+        config=config,
+        source=os.environ,
+    )
     subprocess.run(
         [str(terraform), "init", "-backend=false", "-input=false"],
         cwd=infra_dir,
@@ -300,6 +303,37 @@ def _safe_plan_error(output: str) -> str:
 def _require_bundle_version(*, kit_version: str, bundle_version: str) -> None:
     if kit_version != bundle_version:
         raise ValueError("offline kit and deployment bundle versions do not match")
+
+
+def _terraform_environment(
+    *,
+    work_dir: Path,
+    config: Path,
+    source: Mapping[str, str],
+) -> dict[str, str]:
+    """Build a minimal Terraform environment and reject ambient control injection."""
+
+    forbidden = {
+        key
+        for key in source
+        if key.startswith("TF_CLI_ARGS")
+        or key in {"TF_WORKSPACE", "TF_DATA_DIR", "TF_CLI_CONFIG_FILE"}
+    }
+    if forbidden:
+        raise ValueError("ambient Terraform control variables are not accepted")
+    allowed = ("HOME", "TMPDIR", "TEMP", "TMP", "SSL_CERT_FILE", "SSL_CERT_DIR")
+    environment = {key: source[key] for key in allowed if key in source}
+    data_dir = work_dir / "terraform-data"
+    data_dir.mkdir(mode=0o700)
+    data_dir.chmod(0o700)
+    environment.update(
+        {
+            "TF_CLI_CONFIG_FILE": str(config),
+            "TF_DATA_DIR": str(data_dir),
+            "TF_IN_AUTOMATION": "1",
+        }
+    )
+    return environment
 
 
 def _create_private_work_dir(path: Path) -> None:

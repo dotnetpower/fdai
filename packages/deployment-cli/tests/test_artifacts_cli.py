@@ -23,6 +23,7 @@ from fdai_deployment_cli.cli import (
     _require_bundle_version,
     _runtime_platform_tag,
     _safe_plan_error,
+    _terraform_environment,
     _write_private_text,
     main,
 )
@@ -558,3 +559,26 @@ def test_plan_work_directory_and_config_reject_existing_links(tmp_path: Path) ->
 def test_plan_rejects_bundle_version_mismatch() -> None:
     with pytest.raises(ValueError, match="versions do not match"):
         _require_bundle_version(kit_version="0.1.0", bundle_version="0.2.0")
+
+
+def test_terraform_environment_rejects_ambient_plan_controls(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    work.mkdir(mode=0o700)
+    config = work / "offline.tfrc"
+    config.write_text("", encoding="utf-8")
+    config.chmod(0o600)
+    with pytest.raises(ValueError, match="control variables"):
+        _terraform_environment(
+            work_dir=work,
+            config=config,
+            source={"HOME": str(tmp_path), "TF_CLI_ARGS_plan": "-destroy"},
+        )
+
+    environment = _terraform_environment(
+        work_dir=work,
+        config=config,
+        source={"HOME": str(tmp_path), "UNRELATED_SECRET": "do-not-copy"},
+    )
+    assert "UNRELATED_SECRET" not in environment
+    assert environment["TF_IN_AUTOMATION"] == "1"
+    assert environment["TF_DATA_DIR"].endswith("terraform-data")

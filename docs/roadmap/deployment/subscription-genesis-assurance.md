@@ -271,6 +271,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H37 | Boolean utilization and reserve ratios still passed finite-number checks. Capacity validation now rejects booleans for both ratio fields explicitly. | `test_capacity_rejects_non_numeric_and_non_finite_inputs` |
 | H38 | The root productization pytest process could not import the independent CLI project. Productization now runs CLI tests in that project's environment before the root suite. | `test_productization_builds_the_installable_deployment_cli` |
 | H39 | A two-event journal could mark only `system-readiness` complete and then become ready. Ready now requires every compiled manifest entry completed in exact order. | `test_journal_rejects_ready_with_only_readiness_stage` |
+| H40 | Terraform inherited ambient control variables such as `TF_CLI_ARGS_plan=-destroy`. Planning now rejects Terraform controls and constructs a minimal allowlisted environment with a private data directory. | `test_terraform_environment_rejects_ambient_plan_controls` |
 
 ## Related docs
 
