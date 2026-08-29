@@ -1,8 +1,8 @@
 ---
 title: Architecture Review Board 패킷
 translation_of: architecture-review-board.md
-translation_source_sha: f33e836df6814600fc299dd1543821a154560295
-translation_revised: 2026-08-24
+translation_source_sha: d4369248c11eaba0c5b8dae3f17f4dca323c35a2
+translation_revised: 2026-08-29
 ---
 # Architecture Review Board 패킷
 
@@ -114,6 +114,11 @@ python3 scripts/governance/check-arb-readiness.py --require-production-ready
 레코드에서 검토 상태를 파생합니다. [근거 및 권한 계약](architecture-review/evidence-and-authority-ko.md)은
 운영 근거 프로필, 담당자 슬롯, 위험 및 예외 레코드, 변경할 수 없는 결정 증적, 실패 동작,
 운영 종료 절차를 정의합니다.
+
+현재 재사용 가능한 구현은 이제 타입 기반 계획된 변경 그래프 증적을 전달하고, 완전하고 현재
+유효한 위험 또는 예외 레코드가 없는 수락된 심각 또는 높음 차단 항목을 거부합니다. 정확한
+컨텍스트 연결, 공급자 기반 근거 본문 증명, 변경할 수 없는 최종 결정 증적은 여전히 남아
+있습니다.
 
 `ReviewCase`와 `ReviewCheck`는 읽기 모델입니다. Process와 Console을 위해 권위 있는 계보를
 요약하지만 판단, 승인, 실행 권한을 부여하지 않습니다.
