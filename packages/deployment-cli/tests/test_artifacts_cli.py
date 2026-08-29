@@ -444,6 +444,52 @@ def test_bundle_rejects_incomplete_sbom(tmp_path: Path) -> None:
         verify_bundle(tmp_path, public_key_pem=public)
 
 
+def test_bundle_rejects_duplicate_sbom_paths(tmp_path: Path) -> None:
+    private, public = _keys()
+    payload = tmp_path / "infra/main.tf"
+    payload.parent.mkdir()
+    payload.write_text("terraform {}", encoding="utf-8")
+    digest = hashlib.sha256(payload.read_bytes()).hexdigest()
+    component = {
+        "type": "file",
+        "name": "infra/main.tf",
+        "hashes": [{"alg": "SHA-256", "content": digest}],
+    }
+    sbom = tmp_path / "sbom.cdx.json"
+    sbom.write_text(
+        json.dumps(
+            {
+                "bomFormat": "CycloneDX",
+                "specVersion": "1.5",
+                "version": 1,
+                "components": [component, component],
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    manifest = {
+        "schema_version": "fdai.deployment.bundle.v1",
+        "bundle_version": "0.1.0",
+        "release_channel": "development",
+        "min_cli_version": "0.1.0",
+        "max_cli_version": None,
+        "sbom_path": "sbom.cdx.json",
+        "files": {
+            "infra/main.tf": digest,
+            "sbom.cdx.json": hashlib.sha256(sbom.read_bytes()).hexdigest(),
+        },
+    }
+    document = canonical_bytes(manifest) + b"\n"
+    (tmp_path / "manifest.json").write_bytes(document)
+    (tmp_path / "manifest.json.sig").write_bytes(private.sign(document))
+
+    with pytest.raises(BundleVerificationError, match="duplicate paths"):
+        verify_bundle(tmp_path, public_key_pem=public)
+
+
 def test_license_inspection_verifies_signature_and_time() -> None:
     private, public = _keys()
     now = datetime(2026, 8, 29, tzinfo=UTC)

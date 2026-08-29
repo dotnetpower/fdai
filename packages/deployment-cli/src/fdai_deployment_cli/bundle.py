@@ -261,7 +261,10 @@ def _verify_sbom(
         ]
         if len(sha256_values) != 1 or not isinstance(sha256_values[0], str):
             raise BundleVerificationError("deployment bundle SBOM SHA-256 is invalid")
-        covered[_relative_path(name)] = sha256_values[0]
+        path = _relative_path(name)
+        if path in covered:
+            raise BundleVerificationError("deployment bundle SBOM contains duplicate paths")
+        covered[path] = sha256_values[0]
     expected = {path: digest for path, digest in declared.items() if path != sbom_path}
     if covered != expected:
         raise BundleVerificationError("deployment bundle SBOM coverage does not match")
