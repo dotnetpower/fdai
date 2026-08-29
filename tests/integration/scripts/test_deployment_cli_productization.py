@@ -44,6 +44,9 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     assert external_verify < install
     assert "PYTHONPATH=packages/deployment-cli/src" in drill[external_verify:install]
     assert "materialize_verified_artifacts" in drill[external_verify:install]
+    assert "extract_bundle_archive" in drill[external_verify:install]
+    assert "verify_bundle" in drill[external_verify:install]
+    assert "tar -xzf" not in drill
     assert "fdai_deployment_cli.offline_kit" in signer
     assert "fdai.deployment_cli" not in stage + drill + signer
 

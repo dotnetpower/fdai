@@ -281,6 +281,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H47 | Malformed bundle archives escaped the CLI's stable error boundary as `TarError`. Extraction now maps archive parser failures to a bounded bundle verification error. | `test_bundle_archive_maps_malformed_input_to_stable_error` |
 | H48 | A truncated gzip raised `EOFError` outside the normalized archive error path. It now produces the same bounded verification failure. | `test_bundle_archive_maps_truncated_gzip_to_stable_error` |
 | H49 | The drill installed wheels from mutable kit storage after verification. The external verifier now materializes every wheel into a private digest-checked snapshot used by `pip`. | `test_materialization_snapshots_every_python_wheel` |
+| H50 | The drill extracted the bundle before authenticating the kit, exposing unbounded archive parsing. It now materializes, safely extracts, and verifies the signed bundle only after external kit verification. | `test_release_scripts_use_the_installable_distribution` |
 
 ## Related docs
 

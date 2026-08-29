@@ -112,23 +112,12 @@ provider_installation {
 EOF
 }
 
-# Always unpacked, never reused. The verify phase runs Terraform inside the
-# bundle tree, which leaves a .terraform directory behind; reusing that tree
-# would make the next run's bundle verification fail on files the drill itself
-# created. A drill that only passes once is not a regression check.
-unpack_bundle() {
-  rm -rf "$WORKDIR/work" "$WORKDIR/negative"
-  mkdir -p "$WORKDIR/work"
-  tar -xzf "$KIT/$BUNDLE_IN_KIT" -C "$WORKDIR/work"
-  cp -r "$WORKDIR/work/fdai-deployment-bundle-${BUNDLE_VERSION}/infra" "$WORKDIR/negative"
-}
-
 if [[ "$SKIP_STAGE" -eq 0 ]]; then
   stage
 else
   [[ -d "$KIT" ]] || { echo "airgap-drill: --skip-stage needs an existing kit." >&2; exit 2; }
 fi
-unpack_bundle
+rm -rf "$WORKDIR/work" "$WORKDIR/negative" "$WORKDIR/authenticated-kit" "$WORKDIR/cli-venv"
 
 # The kit declares which CLI it was built for; verification binds that exact
 # value, so read it rather than assume the local environment matches.
@@ -158,6 +147,7 @@ cd "$REPO_ROOT"
 PYTHONPATH=packages/deployment-cli/src "$PYTHON" -c "
 import sys
 from pathlib import Path
+from fdai_deployment_cli.bundle import extract_bundle_archive, verify_bundle
 from fdai_deployment_cli.offline_kit import materialize_verified_artifacts, verify_offline_kit
 result = verify_offline_kit(
     Path(sys.argv[1]),
@@ -165,9 +155,17 @@ result = verify_offline_kit(
     cli_version=sys.argv[3],
     platform_tag=sys.argv[4],
 )
-materialize_verified_artifacts(Path(sys.argv[1]), result, Path(sys.argv[5]))
+artifacts = materialize_verified_artifacts(Path(sys.argv[1]), result, Path(sys.argv[5]))
+bundle_root = extract_bundle_archive(artifacts.deployment_bundle, Path(sys.argv[6]))
+verify_bundle(
+    bundle_root,
+    public_key_pem=Path(sys.argv[7]).read_bytes(),
+    cli_version=sys.argv[3],
+)
 print(f\"   verified {result.file_count} files, {result.total_bytes} bytes\")
-" "$KIT" "$WORKDIR/release-root.pub" "$CLI_VERSION" "$PLATFORM_TAG" "$WORKDIR/authenticated-kit"
+" "$KIT" "$WORKDIR/release-root.pub" "$CLI_VERSION" "$PLATFORM_TAG" \
+  "$WORKDIR/authenticated-kit" "$WORKDIR/work" "$WORKDIR/bundle-key.pub"
+cp -r "$BUNDLE/infra" "$WORKDIR/negative"
 
 echo "-- install authenticated shipped CLI from kit wheels"
 "$UV" venv --python "$PYTHON" "$WORKDIR/cli-venv" >/dev/null

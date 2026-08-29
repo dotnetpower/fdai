@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 94234a0752ca3d5e1ae9f80c2f0ca9eb7c57461d
+translation_source_sha: 463b4442a4cff68f13c727f8087d56e61d0aab96
 translation_revised: 2026-08-29
 ---
 # 구독 초기 구성 보증
@@ -274,6 +274,7 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H47 | 잘못된 번들 보관이 `TarError`로 CLI의 안정 오류 경계를 벗어났습니다. 이제 추출이 보관 구문 분석 실패를 범위가 제한된 번들 검증 오류로 변환합니다. | `test_bundle_archive_maps_malformed_input_to_stable_error` |
 | H48 | 잘린 gzip이 정규화된 보관 오류 경로 밖에서 `EOFError`를 발생시켰습니다. 이제 같은 범위가 제한된 검증 실패를 반환합니다. | `test_bundle_archive_maps_truncated_gzip_to_stable_error` |
 | H49 | 훈련이 검증 후 변경 가능한 키트 저장소에서 wheel을 설치했습니다. 이제 외부 검증기가 모든 wheel을 다이제스트 확인 비공개 스냅샷으로 구체화하고 `pip`이 해당 스냅샷을 사용합니다. | `test_materialization_snapshots_every_python_wheel` |
+| H50 | 훈련이 키트를 인증하기 전에 번들을 풀어 범위가 제한되지 않은 보관 구문 분석에 노출되었습니다. 이제 외부 키트 검증 후에만 서명 번들을 구체화하고 안전하게 풀고 검증합니다. | `test_release_scripts_use_the_installable_distribution` |
 
 ## 관련 문서
 
