@@ -156,8 +156,10 @@ The protected `deploy_core_model_quorum` mode is a bounded recovery path for a m
 Its plan permits one in-place parent-account identity update and must create exactly `t1.judge` and
 `t2.reasoner.primary`; the scope gate rejects missing, extra, replacement, or unrelated resource
 changes. Planning first adopts an exact-name deployment that already exists outside Terraform
-state; after adoption, an empty plan is the only accepted converged result. Exact apply consumes
-only that sealed plan and does not promote an ActionType, Workflow, or autonomy mode.
+state; after adoption, an empty plan is the accepted converged result. When the adopted primary is
+the exact legacy `gpt-4o` profile, one replacement to the resolver-selected family, version, SKU,
+and capacity is allowed; every field is checked before apply. Exact apply consumes only that sealed
+plan and does not promote an ActionType, Workflow, or autonomy mode.
 
 The full **deployer-permission gate table** (what happens when the deployer identity lacks
 `Cognitive Services Contributor`, when a preferred family is missing from the region, when

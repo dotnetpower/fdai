@@ -104,6 +104,46 @@ def test_core_model_quorum_requires_exact_required_pair() -> None:
         enforce(updating_deployment, mode="core-model-quorum")
 
 
+def test_core_model_quorum_accepts_only_exact_primary_replacement() -> None:
+    primary = (
+        'module.llm_azure_openai[0].azurerm_cognitive_deployment.capability["t2.reasoner.primary"]'
+    )
+    plan = {
+        "resource_changes": [
+            {
+                "address": primary,
+                "change": {
+                    "actions": ["delete", "create"],
+                    "before": {
+                        "model": [{"name": "gpt-4o", "version": "2024-11-20"}],
+                        "sku": [{"name": "GlobalStandard", "capacity": 1}],
+                    },
+                    "after": {
+                        "model": [{"name": "gpt-5.4", "version": "2026-03-05"}],
+                        "sku": [{"name": "GlobalStandard", "capacity": 100}],
+                    },
+                },
+            }
+        ]
+    }
+    resolved = {
+        "capabilities": [
+            {
+                "name": "t2.reasoner.primary",
+                "family": "gpt-5.4",
+                "version": "2026-03-05",
+                "sku": "GlobalStandard",
+                "capacity_tpm": 100_000,
+            }
+        ]
+    }
+
+    assert enforce(plan, mode="core-model-quorum", resolved_models=resolved) == frozenset({primary})
+    plan["resource_changes"][0]["change"]["before"]["model"][0]["name"] = "gpt-4.1"
+    with pytest.raises(ValueError, match="does not match the profile"):
+        enforce(plan, mode="core-model-quorum", resolved_models=resolved)
+
+
 def test_read_and_noop_actions_are_ignored() -> None:
     plan = {
         "resource_changes": [

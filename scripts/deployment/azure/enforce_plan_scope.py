@@ -10,6 +10,9 @@ from pathlib import Path
 from typing import Any
 
 _DESIGN_MOCKS = frozenset({"module.design_mocks[0].azurerm_static_web_app.design_mocks"})
+_PRIMARY_REASONER = (
+    'module.llm_azure_openai[0].azurerm_cognitive_deployment.capability["t2.reasoner.primary"]'
+)
 _CORE_MODEL_QUORUM = frozenset(
     {
         "module.llm_azure_openai[0].azurerm_cognitive_account.primary",
@@ -52,6 +55,51 @@ def _model_addresses(resolved: dict[str, Any]) -> frozenset[str]:
     return frozenset(allowed)
 
 
+def _primary_replacement_is_exact(
+    plan: dict[str, Any], resolved_models: dict[str, Any] | None
+) -> bool:
+    if resolved_models is None:
+        raise ValueError("Core-model-quorum replacement requires resolved models")
+    capabilities = resolved_models.get("capabilities")
+    if not isinstance(capabilities, list):
+        raise ValueError("resolved model capabilities must be an array")
+    target = next(
+        (
+            item
+            for item in capabilities
+            if isinstance(item, dict) and item.get("name") == "t2.reasoner.primary"
+        ),
+        None,
+    )
+    change = next(
+        item for item in plan["resource_changes"] if item.get("address") == _PRIMARY_REASONER
+    ).get("change", {})
+    before = change.get("before")
+    after = change.get("after")
+    if not isinstance(target, dict) or not isinstance(before, dict) or not isinstance(after, dict):
+        return False
+    before_model = before.get("model")
+    after_model = after.get("model")
+    before_sku = before.get("sku")
+    after_sku = after.get("sku")
+    if not all(
+        isinstance(value, list) and len(value) == 1 and isinstance(value[0], dict)
+        for value in (before_model, after_model, before_sku, after_sku)
+    ):
+        return False
+    return (
+        change.get("actions") == ["delete", "create"]
+        and before_model[0].get("name") == "gpt-4o"
+        and before_model[0].get("version") == "2024-11-20"
+        and before_sku[0].get("name") == "GlobalStandard"
+        and before_sku[0].get("capacity") == 1
+        and after_model[0].get("name") == target.get("family")
+        and after_model[0].get("version") == target.get("version")
+        and after_sku[0].get("name") == target.get("sku")
+        and after_sku[0].get("capacity") == target.get("capacity_tpm", 0) // 1000
+    )
+
+
 def enforce(
     plan: dict[str, Any],
     *,
@@ -65,6 +113,10 @@ def enforce(
         label = "Design-mocks-only"
     elif mode == "core-model-quorum":
         if not changed:
+            return changed
+        if changed == frozenset({_PRIMARY_REASONER}):
+            if not _primary_replacement_is_exact(plan, resolved_models):
+                raise ValueError("Core-model-quorum primary replacement does not match the profile")
             return changed
         if changed != _CORE_MODEL_QUORUM:
             raise ValueError(

@@ -104,6 +104,8 @@ def test_gateway_targeted_plan_resolves_models_without_blocking_on_completeness(
     )
     assert "az cognitiveservices account deployment show" in adopter
     assert "for capability in t1.judge t2.reasoner.primary" in adopter
+    assert '"before_family": "gpt-4o"' in _DEPLOY
+    assert '"before_version": "2024-11-20"' in _DEPLOY
 
 
 def test_model_binding_plan_is_exactly_scoped_and_allows_held_quorum() -> None:
