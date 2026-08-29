@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
+import sys
 from pathlib import Path
 from types import ModuleType
 
@@ -139,3 +141,17 @@ def test_malformed_widened_or_mismatched_input_fails_closed(
     _write(source, payload)
 
     assert module.main(["--input", str(source)]) == 2
+
+
+def test_direct_script_entrypoint_is_runnable() -> None:
+    completed = subprocess.run(  # noqa: S603 - fixed interpreter and repository script
+        (sys.executable, str(_SCRIPT), "--help"),
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        check=False,
+        text=True,
+        timeout=10,
+    )
+
+    assert completed.returncode == 0
+    assert "--input" in completed.stdout

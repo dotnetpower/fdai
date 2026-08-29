@@ -18,7 +18,9 @@ from pathlib import Path
 from typing import Any
 
 if __package__ is None or __package__ == "":
-    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    _REPO_ROOT = Path(__file__).resolve().parents[2]
+    sys.path.insert(0, str(_REPO_ROOT))
+    sys.path.insert(0, str(_REPO_ROOT / "services/core-control-plane/src"))
 
 from scripts.evaluation.chatops_quality_corpus import HiddenCorpusManifest
 from scripts.evaluation.chatops_quality_corpus_manifest import load_manifest
