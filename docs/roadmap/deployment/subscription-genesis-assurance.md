@@ -312,6 +312,7 @@ cost ceiling, expiry, and teardown plan. It never reuses a customer environment 
 | H78 | Plan input omitted the reviewed environment, allowing Terraform's empty default to bypass production gates. The profile environment is now injected explicitly as `env`. | `test_plan_input_injects_reviewed_environment` |
 | H79 | Installed CLI checks inherited ambient `PYTHONPATH` and `PYTHONHOME`, allowing checkout code to shadow shipped wheels. The isolated drill now clears both before verification and execution. | `test_release_scripts_use_the_installable_distribution` |
 | H80 | Bundle and kit hashing read until EOF even after a concurrent file exceeded its verified size. Both paths now abort immediately at the signed byte ceiling. | focused signed-artifact tests |
+| H81 | License issuance truncated an existing broadly readable output before tightening permissions. It now creates a new mode-`0600` file exclusively and refuses replacement. | `test_license_output_never_replaces_existing_file` |
 
 ## Related docs
 

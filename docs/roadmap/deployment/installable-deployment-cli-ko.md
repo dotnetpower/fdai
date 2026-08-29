@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: b6dfe5048815c9b11370e9efbec16e8b2d7fffde
+translation_source_sha: cdd09bd6b363d9a7457a7c5182758206027584b0
 translation_revised: 2026-08-29
 ---
 # 설치형 배포 CLI
@@ -120,7 +120,8 @@ Azure CLI를 로컬 선행 조건으로 검사하며 구분된 정제 공급자 
 또한 설치된 배포판을 호출하기 전에 Python 가져오기 재정의를 제거해 체크아웃 소스가 제공
 wheel을 가리지 못하게 합니다.
 연결된 준비 단계는 폐기된 단일 소스 경로가 아니라 현재 Core 및 서비스 계약 패키지 루트에서
-합성 라이선스를 발급하고 제거된 전달 어댑터 없이 발급한 Ed25519 서명을 검증합니다.
+합성 라이선스를 발급하고 제거된 전달 어댑터 없이 발급한 Ed25519 서명을 검증합니다. 라이선스
+출력은 새 비공개 파일이며 기존 경로를 자르거나 교체하지 않습니다.
 연결된 계획은 검증된 Azure CLI 경로 또는 대상에 연결된 Managed Identity 변수만 Terraform에
 제공하고 관련 없는 환경 값은 제외합니다.
 
