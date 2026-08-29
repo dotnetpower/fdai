@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 import yaml
 
@@ -29,6 +31,7 @@ _REQUIRED_TOP_LEVEL = {
     "production_gate",
 }
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+_MAX_EVIDENCE_BODY_BYTES = 4 * 1024 * 1024
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,12 +50,73 @@ class ArchitectureReviewReadiness:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class ProductionEvidenceBinding:
+    """Typed metadata for one required production evidence item."""
+
+    item: str
+    uri: str
+    sha256: str
+    scope_ref: str
+    revision: str
+    approved_by: str
+    approved_at: datetime
+    expires_at: datetime
+    freshness_seconds: int
+
+
+@dataclass(frozen=True, slots=True)
+class ProductionEvidenceAttestation:
+    """Provider evidence as observed before approval, plus authenticated authority metadata."""
+
+    uri: str
+    body: bytes
+    scope_ref: str
+    revision: str
+    observed_at: datetime
+    authorized_approvers: tuple[str, ...]
+    authentication_ref: str
+    synthetic: bool = False
+
+    def __post_init__(self) -> None:
+        if not self.uri.strip() or not self.scope_ref.strip() or not self.revision.strip():
+            raise ValueError("production evidence attestation identity MUST be non-empty")
+        if not self.body or len(self.body) > _MAX_EVIDENCE_BODY_BYTES:
+            raise ValueError("production evidence attestation body MUST be bounded and non-empty")
+        if self.observed_at.tzinfo is None or self.observed_at.utcoffset() is None:
+            raise ValueError("production evidence observed_at MUST be timezone-aware")
+        if not self.authorized_approvers or any(
+            not approver.strip() for approver in self.authorized_approvers
+        ):
+            raise ValueError("production evidence authorized approvers MUST be non-empty")
+        if len(self.authorized_approvers) != len(set(self.authorized_approvers)):
+            raise ValueError("production evidence authorized approvers MUST be unique")
+        if not self.authentication_ref.strip():
+            raise ValueError("production evidence authentication_ref MUST be non-empty")
+
+
+class ProductionEvidenceProvider(Protocol):
+    """Retrieve one governed evidence body without granting decision authority."""
+
+    async def retrieve(
+        self,
+        binding: ProductionEvidenceBinding,
+    ) -> ProductionEvidenceAttestation: ...
+
+
 class ArchitectureReviewProductionGateEvaluator:
     """Evaluate the ARB production gate from the current manifest."""
 
-    def __init__(self, *, manifest_path: Path, repo_root: Path) -> None:
+    def __init__(
+        self,
+        *,
+        manifest_path: Path,
+        repo_root: Path,
+        evidence_provider: ProductionEvidenceProvider | None = None,
+    ) -> None:
         self._manifest_path = manifest_path
         self._repo_root = repo_root
+        self._evidence_provider = evidence_provider
 
     async def evaluate(self, *, rule_id: str, step_id: str, process_id: str) -> bool:
         del step_id, process_id
@@ -62,10 +126,34 @@ class ArchitectureReviewProductionGateEvaluator:
             raw = yaml.safe_load(self._manifest_path.read_text(encoding="utf-8"))
         except (OSError, yaml.YAMLError):
             return False
-        return evaluate_readiness(raw, repo_root=self._repo_root).production_ready
+        try:
+            validate_contract(raw, repo_root=self._repo_root, require_production_ready=False)
+        except ValueError:
+            return False
+        if self._evidence_provider is None:
+            return False
+        evaluated_at = datetime.now(tz=UTC)
+        attestations: dict[str, ProductionEvidenceAttestation] = {}
+        try:
+            for binding in _production_evidence_bindings(raw):
+                attestations[binding.item] = await self._evidence_provider.retrieve(binding)
+        except (OSError, RuntimeError, ValueError):
+            return False
+        return evaluate_readiness(
+            raw,
+            repo_root=self._repo_root,
+            evaluated_at=evaluated_at,
+            evidence_attestations=attestations,
+        ).production_ready
 
 
-def evaluate_readiness(raw: Any, *, repo_root: Path) -> ArchitectureReviewReadiness:
+def evaluate_readiness(
+    raw: Any,
+    *,
+    repo_root: Path,
+    evaluated_at: datetime | None = None,
+    evidence_attestations: Mapping[str, ProductionEvidenceAttestation] | None = None,
+) -> ArchitectureReviewReadiness:
     """Return structural health and production readiness without conflating them."""
     try:
         validate_contract(raw, repo_root=repo_root, require_production_ready=False)
@@ -76,7 +164,13 @@ def evaluate_readiness(raw: Any, *, repo_root: Path) -> ArchitectureReviewReadin
             failures=(str(exc),),
         )
     try:
-        validate_contract(raw, repo_root=repo_root, require_production_ready=True)
+        validate_contract(
+            raw,
+            repo_root=repo_root,
+            require_production_ready=True,
+            evaluated_at=evaluated_at,
+            evidence_attestations=evidence_attestations,
+        )
     except ValueError as exc:
         return ArchitectureReviewReadiness(
             structure_valid=True,
@@ -91,6 +185,7 @@ def validate_contract(
     repo_root: Path,
     require_production_ready: bool,
     evaluated_at: datetime | None = None,
+    evidence_attestations: Mapping[str, ProductionEvidenceAttestation] | None = None,
 ) -> None:
     """Validate the ARB manifest and optionally require every production gate."""
     root = _mapping(raw, "document")
@@ -201,6 +296,13 @@ def validate_contract(
         ]
         if expired_evidence:
             failures.append(f"expired production evidence: {', '.join(expired_evidence)}")
+        attestation_failures = _evidence_attestation_failures(
+            required_evidence=required_evidence,
+            evidence_bindings=evidence_bindings,
+            attestations=evidence_attestations or {},
+            evaluated_at=evaluation_moment,
+        )
+        failures.extend(attestation_failures)
         production_not_ready = [
             str(artifact["id"])
             for artifact in artifacts
@@ -242,7 +344,7 @@ def _validate_owner_binding(slot: str, raw: Any) -> None:
 
 def _validate_evidence_binding(item: str, raw: Any) -> None:
     binding = _mapping(raw, f"evidence_bindings.{item}")
-    for field in ("uri", "approved_by"):
+    for field in ("uri", "scope_ref", "revision", "approved_by"):
         if not isinstance(binding.get(field), str) or not binding[field].strip():
             raise ValueError(f"evidence_bindings.{item}.{field} must be a non-empty string")
     digest = binding.get("sha256")
@@ -256,6 +358,114 @@ def _validate_evidence_binding(item: str, raw: Any) -> None:
         raise ValueError(f"evidence_bindings.{item}.expires_at must be an ISO 8601 timestamp")
     if expires_at <= approved_at:
         raise ValueError(f"evidence_bindings.{item}.expires_at must be after approved_at")
+    freshness_seconds = binding.get("freshness_seconds")
+    if (
+        isinstance(freshness_seconds, bool)
+        or not isinstance(freshness_seconds, int)
+        or not 1 <= freshness_seconds <= 31_536_000
+    ):
+        raise ValueError(
+            f"evidence_bindings.{item}.freshness_seconds must be between 1 and 31536000"
+        )
+
+
+def _production_evidence_bindings(raw: Any) -> tuple[ProductionEvidenceBinding, ...]:
+    root = _mapping(raw, "document")
+    review = _mapping(root.get("architecture_review"), "architecture_review")
+    gate = _mapping(review.get("production_gate"), "production_gate")
+    raw_bindings = _mapping(gate.get("evidence_bindings"), "evidence_bindings")
+    bindings: list[ProductionEvidenceBinding] = []
+    for item in sorted(raw_bindings):
+        raw_binding = _mapping(raw_bindings[item], f"evidence_bindings.{item}")
+        approved_at = _timestamp(raw_binding.get("approved_at"))
+        expires_at = _timestamp(raw_binding.get("expires_at"))
+        freshness_seconds = raw_binding.get("freshness_seconds")
+        if (
+            approved_at is None
+            or expires_at is None
+            or isinstance(freshness_seconds, bool)
+            or not isinstance(freshness_seconds, int)
+        ):
+            raise ValueError(f"evidence_bindings.{item} is not structurally valid")
+        bindings.append(
+            ProductionEvidenceBinding(
+                item=item,
+                uri=str(raw_binding["uri"]),
+                sha256=str(raw_binding["sha256"]),
+                scope_ref=str(raw_binding["scope_ref"]),
+                revision=str(raw_binding["revision"]),
+                approved_by=str(raw_binding["approved_by"]),
+                approved_at=approved_at,
+                expires_at=expires_at,
+                freshness_seconds=freshness_seconds,
+            )
+        )
+    return tuple(bindings)
+
+
+def _evidence_attestation_failures(
+    *,
+    required_evidence: list[Any],
+    evidence_bindings: dict[str, Any],
+    attestations: Mapping[str, ProductionEvidenceAttestation],
+    evaluated_at: datetime,
+) -> list[str]:
+    failures: list[str] = []
+    for item_value in required_evidence:
+        item = str(item_value)
+        raw_binding = evidence_bindings.get(item)
+        if raw_binding is None:
+            continue
+        attestation = attestations.get(item)
+        if attestation is None:
+            failures.append(f"unattested production evidence: {item}")
+            continue
+        binding = next(
+            candidate
+            for candidate in _production_evidence_bindings_from_mapping({item: raw_binding})
+        )
+        reason = _evidence_attestation_failure(binding, attestation, evaluated_at=evaluated_at)
+        if reason is not None:
+            failures.append(f"invalid production evidence {item}: {reason}")
+    return failures
+
+
+def _production_evidence_bindings_from_mapping(
+    raw_bindings: Mapping[str, Any],
+) -> tuple[ProductionEvidenceBinding, ...]:
+    wrapped = {
+        "architecture_review": {"production_gate": {"evidence_bindings": dict(raw_bindings)}}
+    }
+    return _production_evidence_bindings(wrapped)
+
+
+def _evidence_attestation_failure(
+    binding: ProductionEvidenceBinding,
+    attestation: ProductionEvidenceAttestation,
+    *,
+    evaluated_at: datetime,
+) -> str | None:
+    if attestation.uri != binding.uri:
+        return "uri mismatch"
+    if hashlib.sha256(attestation.body).hexdigest() != binding.sha256:
+        return "body digest mismatch"
+    if attestation.scope_ref != binding.scope_ref:
+        return "scope mismatch"
+    if attestation.revision != binding.revision:
+        return "revision mismatch"
+    if binding.approved_by not in attestation.authorized_approvers:
+        return "approver is not authorized"
+    observed_at = attestation.observed_at.astimezone(UTC)
+    evaluation_moment = evaluated_at.astimezone(UTC)
+    if observed_at > binding.approved_at.astimezone(UTC):
+        return "body observation follows approval"
+    if observed_at > evaluation_moment:
+        return "body observation is after evaluation"
+    if (evaluation_moment - observed_at).total_seconds() > binding.freshness_seconds:
+        return "body is stale"
+    if attestation.synthetic:
+        return "synthetic evidence is not production evidence"
+    return None
 
 
 def _validate_accepted_blocker(
@@ -372,6 +582,9 @@ __all__ = [
     "ArchitectureReviewProductionGateEvaluator",
     "ArchitectureReviewReadiness",
     "PRODUCTION_GATE_REF",
+    "ProductionEvidenceAttestation",
+    "ProductionEvidenceBinding",
+    "ProductionEvidenceProvider",
     "evaluate_readiness",
     "validate_contract",
 ]

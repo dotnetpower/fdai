@@ -10,8 +10,8 @@ structural manifest checker.
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Manifest structure validation | implemented | `core/architecture_review/readiness.py`; `scripts/governance/check-arb-readiness.py`; focused tests | Required fields, key sets, digest shape, timestamps, expiry, and missing bindings are checked. |
-| External evidence body and digest verification | not-started | [Owner design](../../../roadmap/architecture/architecture-review/evidence-and-authority.md#evidence-bindings) | The current checker validates metadata syntax but does not retrieve or attest the evidence body. |
-| Risk and exception contract | in-progress | `core/architecture_review/readiness.py`; `tests/core/architecture_review/test_readiness.py`; `config/architecture-review.yaml`; owner design | Accepted critical and high blockers now require a typed risk or exception record, a registered owner slot, and a current review or effective interval. Provider-backed evidence attestation and live compensating-control status remain open. |
+| External evidence body and digest verification | implemented | [Owner design](../../../roadmap/architecture/architecture-review/evidence-and-authority.md#evidence-bindings); `core/architecture_review/readiness.py`; focused readiness and CLI contract tests | The injected provider boundary retrieves a bounded body and authenticated attestation. Runtime readiness verifies URI, digest, scope, revision, observation freshness, approver authorization, and non-synthetic status. No production provider is bound upstream. |
+| Risk and exception contract | in-progress | `core/architecture_review/readiness.py`; `tests/core/architecture_review/test_readiness.py`; `config/architecture-review.yaml`; owner design | Accepted critical and high blockers require a typed risk or exception record, a registered owner slot, and a current review or effective interval. Provider-backed evidence attestation is enforced; live compensating-control status remains open. |
 | Immutable decision receipt | not-started | `core/architecture_review/projection.py`; generic Process events | Current `Decision` projection does not bind case, evidence, conditions, and approval receipt identities. |
 | Production owner and evidence bindings | in-progress | `config/architecture-review.yaml` | Upstream intentionally leaves fork-owned bindings empty and production blocked. |
 | Five-pillar machine-checkable coverage | in-progress | `rule-catalog/best-practices/`; WAF catalog tests | Reliability and Operational Excellence are cataloged; Security, Cost Optimization, and Performance Efficiency are not equivalent yet. |
@@ -21,12 +21,14 @@ structural manifest checker.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-29 | in-progress | Hardened the manifest checker so accepted critical and high blockers need a complete current risk or exception contract before ARB can treat them as accepted. | `current change`; `services/core-control-plane/src/fdai/core/architecture_review/readiness.py`, `services/core-control-plane/tests/core/architecture_review/test_readiness.py`; `./.venv/bin/pytest -q --no-cov services/core-control-plane/tests/core/architecture_review/test_readiness.py services/core-control-plane/tests/core/architecture_review/test_projection.py tests/integration/scripts/test_check_arb_readiness.py` | Add provider-backed evidence attestation, immutable decision receipts, and machine-checkable pillar coverage. |
+| 2026-08-29 | implemented | Added an injected production evidence provider contract, fork-safe `Container` binding, and fail-closed attestation evaluation. Metadata-only readiness cannot pass; exact body digest, URI, scope, revision, freshness, approver authorization, observation order, and non-synthetic status must match. | `current change`; `services/core-control-plane/src/fdai/core/architecture_review/readiness.py`; composition and workflow wiring; focused readiness, projection, workflow, and CLI contract tests (`31 passed`); targeted Ruff and strict mypy checks. | Bind a governed provider in a deployment, validate live compensating controls, and implement immutable decision receipts. |
 | 2026-08-24 | in-progress | Split evidence and authority into a focused owner and distinguished syntax validation from production attestation. | `current change`; owner document, paired translation, current checker, and focused documentation checks. | Add provider-backed attestation, complete risk records, and receipt-derived readiness. |
 
 ### Remaining work
 
-- [ ] Add an injected evidence provider that verifies body digest, scope, revision, freshness, and
-  approver authorization for every production binding.
+- [x] Add an injected evidence provider that verifies URI, bounded body digest, scope, revision,
+  freshness, approver authorization, observation order, and non-synthetic status for every
+  production binding (`31 passed` focused checks).
 - [x] Reject accepted critical or high blockers without a complete, current risk or exception
   record and a registered accountable owner. Evidence: `services/core-control-plane/src/fdai/core/architecture_review/readiness.py`;
   `services/core-control-plane/tests/core/architecture_review/test_readiness.py`.

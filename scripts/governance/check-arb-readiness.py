@@ -6,9 +6,8 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import sys
-from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from types import ModuleType
 
 import yaml
 
@@ -25,7 +24,7 @@ _READINESS_MODULE_PATH = (
 )
 
 
-def _load_validator() -> Callable[[Any, Path, bool], None]:
+def _load_readiness_module() -> ModuleType:
     spec = importlib.util.spec_from_file_location(
         "_fdai_arb_readiness",
         _READINESS_MODULE_PATH,
@@ -35,13 +34,14 @@ def _load_validator() -> Callable[[Any, Path, bool], None]:
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
-    validator = module.validate_contract
-    if not callable(validator):
+    if not callable(module.validate_contract):
         raise RuntimeError("shared ARB readiness evaluator has no validator")
-    return validator
+    return module
 
 
-validate_contract = _load_validator()
+_READINESS_MODULE = _load_readiness_module()
+validate_contract = _READINESS_MODULE.validate_contract
+ProductionEvidenceAttestation = _READINESS_MODULE.ProductionEvidenceAttestation
 
 
 def main() -> int:

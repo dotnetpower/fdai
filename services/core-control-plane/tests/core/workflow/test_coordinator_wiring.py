@@ -9,10 +9,12 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 from uuid import uuid4
 
 import pytest
 from fdai.__main__ import _build_workflow_coordinator, _resolve_catalog_root
+from fdai.core.architecture_review import ProductionEvidenceProvider
 from fdai.delivery.persistence.workflow_approval import StateStoreWorkflowApprovalProvider
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.rule_catalog.schema.workflow import load_workflow_catalog
@@ -52,6 +54,26 @@ def test_enabled_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     assert coord is not None
     assert isinstance(coord._orchestrator._approval_provider, StateStoreWorkflowApprovalProvider)
+
+
+def test_architecture_evidence_provider_reaches_production_gate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("FDAI_WORKFLOW_SHADOW", raising=False)
+    root, atbn, workflows = _load()
+    provider = cast(ProductionEvidenceProvider, object())
+
+    coord = _build_workflow_coordinator(
+        catalog_root=root,
+        workflows=workflows,
+        action_types_by_name=atbn,
+        audit_store=InMemoryStateStore(),
+        architecture_evidence_provider=provider,
+    )
+
+    assert coord is not None
+    guard = coord._orchestrator._guard_evaluator
+    assert guard._evidence_provider is provider
 
 
 def test_explicit_disable_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from copy import deepcopy
 from datetime import UTC, datetime
 from pathlib import Path
@@ -10,12 +11,16 @@ import pytest
 import yaml
 from fdai.core.architecture_review import (
     ArchitectureReviewProductionGateEvaluator,
+    ProductionEvidenceAttestation,
+    ProductionEvidenceBinding,
     evaluate_readiness,
     validate_contract,
 )
 
 _ROOT = Path(__file__).resolve().parents[5]
 _MANIFEST = _ROOT / "config" / "architecture-review.yaml"
+_EVIDENCE_BODY = b'{"status":"passed"}'
+_EVALUATED_AT = datetime(2026, 8, 29, tzinfo=UTC)
 
 
 def _manifest() -> dict[str, object]:
@@ -56,13 +61,30 @@ def _production_ready_manifest() -> dict[str, object]:
     gate["evidence_bindings"] = {
         "network-data-flow-validation": {
             "uri": "evidence://network-data-flow-validation",
-            "sha256": "a" * 64,
+            "sha256": hashlib.sha256(_EVIDENCE_BODY).hexdigest(),
+            "scope_ref": "scope:example-production",
+            "revision": "revision:example-1",
             "approved_by": "group:security-reviewers",
-            "approved_at": "2026-07-13T00:00:00Z",
+            "approved_at": "2026-08-28T00:00:00Z",
             "expires_at": "2099-07-13T00:00:00Z",
+            "freshness_seconds": 604800,
         }
     }
     return raw
+
+
+def _attestation(**overrides: object) -> ProductionEvidenceAttestation:
+    values: dict[str, object] = {
+        "uri": "evidence://network-data-flow-validation",
+        "body": _EVIDENCE_BODY,
+        "scope_ref": "scope:example-production",
+        "revision": "revision:example-1",
+        "observed_at": datetime(2026, 8, 28, tzinfo=UTC),
+        "authorized_approvers": ("group:security-reviewers",),
+        "authentication_ref": "auth:provider-readback-1",
+    }
+    values.update(overrides)
+    return ProductionEvidenceAttestation(**values)
 
 
 def test_upstream_structure_is_valid_but_production_is_blocked() -> None:
@@ -216,6 +238,105 @@ async def test_runtime_gate_fails_closed_for_blocked_or_unknown_gate() -> None:
         )
         is False
     )
+
+
+def test_production_readiness_requires_provider_attestation() -> None:
+    report = evaluate_readiness(
+        _production_ready_manifest(),
+        repo_root=_ROOT,
+        evaluated_at=_EVALUATED_AT,
+    )
+
+    assert report.structure_valid is True
+    assert report.production_ready is False
+    assert report.failures == ("unattested production evidence: network-data-flow-validation",)
+
+
+@pytest.mark.parametrize(
+    ("overrides", "reason"),
+    [
+        ({"body": b"tampered"}, "body digest mismatch"),
+        ({"scope_ref": "scope:other"}, "scope mismatch"),
+        ({"revision": "revision:other"}, "revision mismatch"),
+        ({"authorized_approvers": ("group:other",)}, "approver is not authorized"),
+        ({"observed_at": datetime(2026, 8, 1, tzinfo=UTC)}, "body is stale"),
+        ({"synthetic": True}, "synthetic evidence is not production evidence"),
+    ],
+)
+def test_production_readiness_rejects_invalid_attestation(
+    overrides: dict[str, object],
+    reason: str,
+) -> None:
+    report = evaluate_readiness(
+        _production_ready_manifest(),
+        repo_root=_ROOT,
+        evaluated_at=_EVALUATED_AT,
+        evidence_attestations={
+            "network-data-flow-validation": _attestation(**overrides),
+        },
+    )
+
+    assert report.production_ready is False
+    assert report.failures == (
+        f"invalid production evidence network-data-flow-validation: {reason}",
+    )
+
+
+def test_production_readiness_accepts_exact_provider_attestation() -> None:
+    report = evaluate_readiness(
+        _production_ready_manifest(),
+        repo_root=_ROOT,
+        evaluated_at=_EVALUATED_AT,
+        evidence_attestations={
+            "network-data-flow-validation": _attestation(),
+        },
+    )
+
+    assert report == report.__class__(structure_valid=True, production_ready=True)
+
+
+async def test_runtime_gate_retrieves_and_attests_production_evidence(
+    tmp_path: Path,
+) -> None:
+    raw = _production_ready_manifest()
+    manifest = tmp_path / "architecture-review.yaml"
+    manifest.write_text(yaml.safe_dump(raw), encoding="utf-8")
+
+    class _Provider:
+        def __init__(self) -> None:
+            self.bindings: list[ProductionEvidenceBinding] = []
+
+        async def retrieve(
+            self,
+            binding: ProductionEvidenceBinding,
+        ) -> ProductionEvidenceAttestation:
+            self.bindings.append(binding)
+            return ProductionEvidenceAttestation(
+                uri=binding.uri,
+                body=_EVIDENCE_BODY,
+                scope_ref=binding.scope_ref,
+                revision=binding.revision,
+                observed_at=datetime(2026, 8, 28, tzinfo=UTC),
+                authorized_approvers=(binding.approved_by,),
+                authentication_ref="auth:provider-readback-1",
+            )
+
+    provider = _Provider()
+    evaluator = ArchitectureReviewProductionGateEvaluator(
+        manifest_path=manifest,
+        repo_root=_ROOT,
+        evidence_provider=provider,
+    )
+
+    assert (
+        await evaluator.evaluate(
+            rule_id="architecture-review.production-ready",
+            step_id="production_gate",
+            process_id="process-1",
+        )
+        is True
+    )
+    assert [binding.item for binding in provider.bindings] == ["network-data-flow-validation"]
     assert (
         await evaluator.evaluate(
             rule_id="unknown",

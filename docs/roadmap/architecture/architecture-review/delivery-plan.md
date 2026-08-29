@@ -7,9 +7,9 @@ This plan sequences the smallest changes that turn the current manifest-driven r
 ontology-grounded, agent-owned closed loop. Each work package has an executable exit condition and
 keeps authority-bearing changes behind existing FDAI gates.
 
-> **Starting boundary:** The structural checker, generic workflow, Process projection, and
-> read-only Console view exist. They do not yet prove an autonomous 15-agent ARB path or production
-> evidence attestation.
+> **Starting boundary:** The structural checker, generic workflow, Process projection, read-only
+> Console view, exact snapshot graph receipt, and injected production evidence attestation exist.
+> They do not yet prove an autonomous 15-agent ARB path or an immutable decision authority chain.
 >
 > **Rollout boundary:** Complete the observation-mode vertical slice before adding an
 > authority-bearing decision or execution path.
@@ -64,8 +64,8 @@ Replace mutable status assertions with a replayable authority chain:
   digests;
 - bind approval receipt identities, approver roles, quorum, no-self-approval, and expiry;
 - require a complete risk or exception contract for every accepted critical or high blocker;
-- verify evidence bodies, digests, scope, revisions, freshness, and approver authorization through
-  an injected provider;
+- reuse the injected provider verification of evidence bodies, digests, scope, revisions, freshness,
+  and approver authorization;
 - derive production readiness and `ReviewCase` projection from the final receipt;
 - represent an accepted constraint or production transition as a separate governance ActionType.
 
