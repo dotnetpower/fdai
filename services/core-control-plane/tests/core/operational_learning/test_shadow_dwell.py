@@ -278,6 +278,23 @@ def test_bounded_retention_never_forgets_a_policy_escape() -> None:
     assert evaluate_shadow_dwell(evidence, _THRESHOLDS).eligible is False
 
 
+def test_target_churn_never_evicts_the_only_policy_escape_evidence() -> None:
+    ledger = ShadowDwellLedger(max_targets=1, max_observations_per_target=2)
+    ledger.record(_observation(0, target="rule.escaped", policy_escape=True))
+
+    with pytest.raises(
+        ShadowDwellEvidenceError,
+        match="target_capacity_exhausted_by_escaped_evidence",
+    ):
+        ledger.record(_observation(1, target="rule.new"))
+
+    escaped = ledger.evidence_for("rule.escaped")
+    assert escaped is not None
+    assert escaped.policy_escapes == 1
+    assert ledger.evidence_for("rule.new") is None
+    assert evaluate_shadow_dwell(escaped, _THRESHOLDS).eligible is False
+
+
 def test_ledger_bounds_tracked_targets() -> None:
     ledger = ShadowDwellLedger(max_targets=2)
     for index in range(5):

@@ -305,6 +305,18 @@ class ShadowDwellLedger:
             _validate_observation_id(observation_id)
         entry = self._targets.get(observation.target)
         if entry is None:
+            if len(self._targets) >= self._max_targets:
+                clean_victim = next(
+                    (
+                        target
+                        for target, retained in self._targets.items()
+                        if retained.policy_escapes == 0
+                    ),
+                    None,
+                )
+                if clean_victim is None:
+                    raise ShadowDwellEvidenceError("target_capacity_exhausted_by_escaped_evidence")
+                del self._targets[clean_victim]
             entry = _RetainedTarget(
                 observations=deque(maxlen=self._max_observations_per_target),
                 observation_reviews=OrderedDict(),
@@ -327,8 +339,6 @@ class ShadowDwellLedger:
             entry.agreed_count += int(observation.reviewed and observation.agreed)
         entry.policy_escapes += int(observation.policy_escape)
         self._targets.move_to_end(observation.target)
-        while len(self._targets) > self._max_targets:
-            self._targets.popitem(last=False)
         return True
 
     def apply_review(self, *, target: str, observation_id: str, agreed: bool) -> bool:

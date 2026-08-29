@@ -28,6 +28,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 2026-08-29 | implemented | Hardening round 1 rejected authority-bearing keys at any nesting depth in model-produced candidate payloads. | `current change`; `discovery_contracts.py`; `test_discovery_cycle.py`; 8 focused tests, Ruff, and strict mypy passed. | Continue the hardening campaign; deployed evidence remains separate. |
 | 2026-08-29 | implemented | Hardening round 2 rejected in-flight cycle records at the concurrent claim boundary instead of misreporting them as terminal replay. | `current change`; `discovery_cycle.py`; `test_discovery_cycle.py`; 9 focused tests, Ruff, and strict mypy passed. | Continue the hardening campaign; deployed evidence remains separate. |
 | 2026-08-29 | implemented | Hardening round 3 revalidated persisted candidate digests at the replay boundary. | `current change`; `discovery_persistence.py`; `test_discovery_cycle.py`; 9 focused tests, Ruff, and strict mypy passed. | Continue the hardening campaign; deployed evidence remains separate. |
+| 2026-08-29 | implemented | Hardening round 4 preserved policy-escape evidence across target-capacity pressure and failed closed when no clean eviction candidate remained. | `current change`; `shadow_dwell.py`; `test_shadow_dwell.py`; 60 focused dwell and review tests, Ruff, and strict mypy passed. | Continue the hardening campaign; deployed evidence remains separate. |
 
 ### Remaining work
 
