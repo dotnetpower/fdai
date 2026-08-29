@@ -168,6 +168,7 @@ def append_event(path: Path, event: ProvisionEvent) -> None:
             raise ValueError("provision event run_id does not match the journal")
         if previous is not None and event.context_digest != previous.context_digest:
             raise ValueError("provision event context does not match the journal")
+        _validate_transition(previous, event)
         payload = json.dumps(
             event.to_mapping(),
             sort_keys=True,
@@ -211,6 +212,26 @@ def resume_action(*, claim: str, receipt: str, failed: bool) -> ResumeAction:
     if claim == "present":
         return ResumeAction.RESUME_VERIFICATION
     return ResumeAction.REPLAN
+
+
+def _validate_transition(
+    previous: ProvisionEvent | None,
+    current: ProvisionEvent,
+) -> None:
+    if previous is not None and previous.state in {
+        RunState.READY,
+        RunState.FAILED,
+        RunState.CANCELLED,
+        RunState.INCOMPLETE,
+    }:
+        raise ValueError("terminal provision state cannot advance")
+    if current.state is RunState.READY and (
+        previous is None
+        or previous.state is not RunState.COMPLETED
+        or previous.stage != "system-readiness"
+        or current.stage != "system-readiness"
+    ):
+        raise ValueError("ready requires completed system-readiness evidence")
 
 
 def _read_stream(stream: BinaryIO) -> tuple[ProvisionEvent, ...]:
