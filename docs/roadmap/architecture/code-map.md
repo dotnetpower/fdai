@@ -165,6 +165,12 @@ Operational coverage receipts normalize evidence, evaluation, and freshness time
 before digesting so equivalent instants retain one replay identity across service locales.
 Azure Monitor alert normalization applies the same UTC rule before deriving Event and idempotency
 identity, preventing offset-only provider retries from becoming duplicate incident signals.
+Azure composition compiles only reviewed `azure-monitor` live blast-probe manifests when a metric
+provider is bound. The control loop measures the action target before execution-authority
+evaluation and passes the recorded observation into the existing ceiling. The adapter enforces the
+manifest timeout within the schema maximum, while missing, timed-out, failed, active, or overloaded
+evidence can only lower authority. Audit records retain the sanitized reason and scalar metrics for
+replay without querying Azure again.
 Knowledge retrieval rejects non-finite embeddings at the pgvector boundary and assigns zero
 similarity in the in-memory reference, preserving deterministic ranking under invalid model output.
 Conversation preflight bounds the direct-response profile before social narration and holds

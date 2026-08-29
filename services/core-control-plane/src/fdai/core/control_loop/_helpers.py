@@ -28,6 +28,7 @@ from fdai.core.risk_gate.authority import (
 )
 from fdai.core.risk_gate.evaluator import UnifiedRiskDecision, combine
 from fdai.core.risk_gate.gate import RiskGate
+from fdai.core.risk_gate.live_probe import LiveProbeObservation
 from fdai.core.risk_gate.preconditions import PreconditionEvaluation
 from fdai.core.risk_gate.risk_table import RiskTable
 from fdai.core.trust_router import RoutingDecision
@@ -79,6 +80,7 @@ def _compute_authority(
     system_degraded: bool = False,
     kill_switch_engaged: bool = False,
     inventory_age_seconds: int | None = None,
+    live_probe_observation: LiveProbeObservation | None = None,
 ) -> ExecutionAuthorityDecision:
     """Run the execution-authority pipeline for one action + event context.
 
@@ -107,6 +109,7 @@ def _compute_authority(
         cost_impact_monthly=cost,
         system_degraded=system_degraded,
         kill_switch_engaged=kill_switch_engaged,
+        live_probe_observation=live_probe_observation,
     )
 
 
@@ -120,6 +123,7 @@ def build_shadow_authority_audit(
     cost_override: float | None = None,
     system_degraded: bool = False,
     kill_switch_engaged: bool = False,
+    live_probe_observation: LiveProbeObservation | None = None,
 ) -> dict[str, Any]:
     """Build the ``risk_gate.shadow_authority`` audit entry for one action.
 
@@ -141,6 +145,7 @@ def build_shadow_authority_audit(
         cost_override=cost_override,
         system_degraded=system_degraded,
         kill_switch_engaged=kill_switch_engaged,
+        live_probe_observation=live_probe_observation,
     )
     return {
         "event_id": str(event.event_id),
@@ -171,6 +176,7 @@ def evaluate_unified(
     precondition_evaluations: Sequence[PreconditionEvaluation] = (),
     automation_hold_engaged: bool = False,
     automation_hold_recovery: bool = False,
+    live_probe_observation: LiveProbeObservation | None = None,
 ) -> UnifiedRiskDecision:
     """Run the runtime-Action gate and the policy-ceiling authority and
     combine them into a single :class:`UnifiedRiskDecision` (canonical-level
@@ -199,6 +205,7 @@ def evaluate_unified(
         cost_override=cost_override,
         system_degraded=system_degraded,
         kill_switch_engaged=kill_switch_engaged,
+        live_probe_observation=live_probe_observation,
     )
     return combine(gate_decision, authority)
 
@@ -233,6 +240,7 @@ def build_unified_risk_audit(
     kill_switch_engaged: bool = False,
     inventory_age_seconds: int | None = None,
     precondition_evaluations: Sequence[PreconditionEvaluation] = (),
+    live_probe_observation: LiveProbeObservation | None = None,
 ) -> dict[str, Any]:
     """Build the ``risk_gate.unified`` audit entry combining gate + authority.
 
@@ -258,6 +266,7 @@ def build_unified_risk_audit(
         kill_switch_engaged=kill_switch_engaged,
         inventory_age_seconds=inventory_age_seconds,
         precondition_evaluations=precondition_evaluations,
+        live_probe_observation=live_probe_observation,
     )
     return _unified_audit_dict(event=event, action=action, unified=unified)
 

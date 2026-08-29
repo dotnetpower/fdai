@@ -82,6 +82,7 @@ from ..shared.contracts.models import (
 )
 from ..shared.contracts.registry import SchemaRegistry
 from ..shared.contracts.validation import ContractValidator, EventValidator
+from ..shared.providers.blast_probe import LiveBlastProbe
 from ..shared.providers.change_feed import ChangeFeed, EmptyChangeFeed
 from ..shared.providers.distiller import AbstainingDistiller, Distiller
 from ..shared.providers.execution_authorization import (
@@ -238,6 +239,7 @@ class Container:
     workflows: tuple[Workflow, ...] = ()
     llm_bindings: LlmBindings | None = field(default=None)
     metric_provider: MetricProvider = field(default_factory=NoopMetricProvider)
+    live_blast_probe: LiveBlastProbe | None = None
     log_query_provider: LogQueryProvider = field(default_factory=NoopLogQueryProvider)
     trace_query_provider: TraceQueryProvider = field(default_factory=NoopTraceQueryProvider)
     inventory: Inventory = field(default_factory=EmptyInventory)

@@ -78,6 +78,8 @@ class CeilingInputs:
                 "degraded": probe.degraded,
                 "age_seconds": probe.age_seconds,
                 "max_age_seconds": probe.max_age_seconds,
+                "reason": probe.reason,
+                "metrics": dict(probe.metrics) if probe.metrics is not None else None,
             },
             "live_probe_failure_streak": self.live_probe_failure_streak,
             "system_degraded": self.system_degraded,

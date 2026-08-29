@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import replace
@@ -43,6 +44,7 @@ from fdai.core.operational_planning import (
 )
 from fdai.core.risk_gate.evaluator import UnifiedRiskDecision
 from fdai.core.risk_gate.gate import RiskGate
+from fdai.core.risk_gate.live_probe import LiveProbeObservation
 from fdai.core.risk_gate.preconditions import (
     AutomationHoldReader,
     AutomationHoldRecoveryReader,
@@ -66,6 +68,12 @@ from fdai.shared.contracts.models import (
     ResponseOutcome,
     Rule,
 )
+from fdai.shared.providers.blast_probe import (
+    BlastProbeError,
+    LiveBlastProbe,
+    ProbeQuery,
+    ProbeVerdict,
+)
 from fdai.shared.providers.cost_estimator import (
     CostEstimator,
     resolve_cost_impact_monthly,
@@ -81,6 +89,8 @@ from fdai.shared.providers.state_store import StateStore
 from fdai.shared.resilience import DegradationController, KillSwitch
 
 _LOGGER = logging.getLogger("fdai.core.control_loop.orchestrator")
+_LIVE_PROBE_MAX_DEADLINE_SECONDS = 60.0
+_LIVE_PROBE_TIMEOUT_SLACK_SECONDS = 1.0
 
 
 class ControlLoopExecutionMixin:
@@ -99,6 +109,7 @@ class ControlLoopExecutionMixin:
     _inventory_age_provider: Callable[[str], Awaitable[int | None]] | None
     _kill_switch: KillSwitch | None
     _kill_switch_refresher: Callable[[], Awaitable[None]] | None
+    _live_blast_probe: LiveBlastProbe | None
     _mscp_effect_observer: IndependentEffectObserver | None
     _mscp_expected_effect_provider: ExpectedEffectProvider | None
     _operational_outcome_lineage_sink: OperationalOutcomeLineageSink | None
@@ -112,6 +123,76 @@ class ControlLoopExecutionMixin:
     _risk_gate: RiskGate | None
     _risk_table: RiskTable | None
     _tool_executor: ToolCallShadowExecutor | None
+
+    async def _measure_live_probe(
+        self,
+        *,
+        action: Action,
+        action_type: OntologyActionType,
+    ) -> LiveProbeObservation | None:
+        probe_id = action_type.live_probe_ref
+        if probe_id is None or self._live_blast_probe is None:
+            return None
+        try:
+            async with asyncio.timeout(
+                _LIVE_PROBE_MAX_DEADLINE_SECONDS + _LIVE_PROBE_TIMEOUT_SLACK_SECONDS
+            ):
+                result = await self._live_blast_probe.measure(
+                    ProbeQuery(
+                        probe_id=probe_id,
+                        target_ref=action.target_resource_ref,
+                        deadline_seconds=_LIVE_PROBE_MAX_DEADLINE_SECONDS,
+                    )
+                )
+        except TimeoutError:
+            _LOGGER.warning(
+                "live_blast_probe_failed",
+                extra={"action_type": action.action_type, "error_kind": "timeout"},
+            )
+            return LiveProbeObservation(
+                probe_id=probe_id,
+                verdict=ProbeVerdict.ACTIVE,
+                degraded=True,
+                age_seconds=0.0,
+                max_age_seconds=_LIVE_PROBE_MAX_DEADLINE_SECONDS,
+                reason="probe failure: timeout",
+            )
+        except BlastProbeError as exc:
+            _LOGGER.warning(
+                "live_blast_probe_failed",
+                extra={"action_type": action.action_type, "error_kind": exc.kind},
+            )
+            return LiveProbeObservation(
+                probe_id=probe_id,
+                verdict=ProbeVerdict.ACTIVE,
+                degraded=True,
+                age_seconds=0.0,
+                max_age_seconds=_LIVE_PROBE_MAX_DEADLINE_SECONDS,
+                reason=f"probe failure: {exc.kind}",
+            )
+        except Exception:  # noqa: BLE001 - unexpected adapter failure lowers authority
+            _LOGGER.warning(
+                "live_blast_probe_failed",
+                extra={"action_type": action.action_type, "error_kind": "unexpected"},
+                exc_info=True,
+            )
+            return LiveProbeObservation(
+                probe_id=probe_id,
+                verdict=ProbeVerdict.ACTIVE,
+                degraded=True,
+                age_seconds=0.0,
+                max_age_seconds=_LIVE_PROBE_MAX_DEADLINE_SECONDS,
+                reason="probe failure: unexpected",
+            )
+        return LiveProbeObservation(
+            probe_id=probe_id,
+            verdict=result.verdict,
+            degraded=result.degraded,
+            age_seconds=0.0,
+            max_age_seconds=_LIVE_PROBE_MAX_DEADLINE_SECONDS,
+            reason=result.reason,
+            metrics=result.metrics,
+        )
 
     @staticmethod
     def _bind_authorized_identity(
@@ -697,6 +778,10 @@ class ControlLoopExecutionMixin:
                 extra={"action_type": action.action_type},
                 exc_info=True,
             )
+        live_probe_observation = await self._measure_live_probe(
+            action=action,
+            action_type=action_type,
+        )
         if self._risk_gate is not None:
             unified = evaluate_unified(
                 event=event,
@@ -712,6 +797,7 @@ class ControlLoopExecutionMixin:
                 precondition_evaluations=precondition_evaluations,
                 automation_hold_engaged=automation_hold_engaged,
                 automation_hold_recovery=automation_hold_recovery,
+                live_probe_observation=live_probe_observation,
             )
             entry = _unified_audit_dict(event=event, action=action, unified=unified)
             entry["recorded_at"] = datetime.now(tz=UTC).isoformat()
@@ -726,6 +812,7 @@ class ControlLoopExecutionMixin:
             cost_override=cost_override,
             system_degraded=system_degraded,
             kill_switch_engaged=kill_switch_engaged,
+            live_probe_observation=live_probe_observation,
         )
         entry["recorded_at"] = datetime.now(tz=UTC).isoformat()
         await self._audit_store.append_audit_entry(entry)
