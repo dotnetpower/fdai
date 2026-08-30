@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 637c7f52184f03a681c5d26bb8e96b65f0bdf84c
+translation_source_sha: d4b08d660253e334b2e072ad1322f83d4b066be3
 translation_revised: 2026-08-31
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -147,9 +147,7 @@ Core 런타임만 Pantheon을 소유하며 로컬 및 deployed interactive 읽�
 Operator 서비스는 시작할 때 활성 대화형 CLI 사용자를 확인하고 고정된 Contributor 상한을
 적용하며, 브라우저에 안전한 프로파일과 프로세스별 세션 일회값을 반환합니다. 이 일회값은
 loopback 클라이언트에서만 수락하고 브라우저 요청에는 정확히 구성된 origin도 요구합니다.
-운영 composition은 기존 authentication 모듈을 통해 로컬 identity factory를 가져와 composition
-root를 검토된 fanout 상한 아래로 유지합니다. Azure Resource Manager 토큰은 API 프로세스 안에
-유지합니다. Psycopg를 직접 사용하는 저장소는
+운영 composition은 기존 authentication 모듈을 통해 로컬 identity factory를 가져와 composition root를 검토된 fanout 상한 아래로 유지합니다. Azure Resource Manager 토큰은 API 프로세스 안에 유지합니다. Psycopg를 직접 사용하는 저장소는
 연결 전에 SQLAlchemy 드라이버 표식을 정규화합니다. 보존 작업자는 `FOR UPDATE SKIP LOCKED`에
 필요한 변경 불가능한 잠금 키에 대해서만 컬럼 수준 `UPDATE` 권한을 받으며 테이블 전체
 `UPDATE`는 계속 사용할 수 없습니다.
