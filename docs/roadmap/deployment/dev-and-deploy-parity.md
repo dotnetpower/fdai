@@ -138,6 +138,14 @@ A startup probe confirms response and action workers before traffic is accepted.
 mode so a missing unrelated projection cannot be reported as an unreachable model. Semantic and local narrator fallback streams use the same authoritative `ConversationAssuranceReader`.
 Production replicas share the server consumer group so one replica answers each request. The singleton local core uses a process-scoped server group so a restart begins at the current physical-topic offset instead of replaying unrelated Pantheon traffic from a previous process.
 Requests carry salted SHA-256 user and session references rather than raw identities; timeouts or invalid responses become an explicit agent-to-Bragi handoff instead of a fabricated specialist answer. The same latency profile selects the same direct, streamed, or detached mode; only measured provider latency and configured evidence availability can change it.
+The explicit local Azure CLI principal alternative bootstraps through `GET /local-auth/me`.
+The Operator Service resolves the active interactive CLI user at startup, applies a fixed
+Contributor ceiling, and returns a browser-safe profile plus a process-local session nonce. It
+accepts that nonce only from loopback clients, and browser requests also need an exact configured
+origin. The Azure Resource Manager token remains inside the API process. Direct Psycopg stores
+normalize the SQLAlchemy driver marker before connecting. Retention workers receive column-level
+`UPDATE` only on the immutable lock keys required by `FOR UPDATE SKIP LOCKED`; table-wide `UPDATE`
+remains unavailable.
 The long-running core and Operator API tasks preserve their terminal output in
 `.fdai/logs/core-runtime.log` and `.fdai/logs/operator-api.log`. Every captured child-output line begins
 with a Python logging-style timestamp containing milliseconds and the local timezone abbreviation,

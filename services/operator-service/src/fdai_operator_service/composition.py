@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
+import secrets
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -61,6 +62,7 @@ from fdai_operator_service.family_adapters import (
     UnavailableWorkflowAdapters,
 )
 from fdai_operator_service.family_authorization import OperatorFamilyAuthorizer
+from fdai_operator_service.local_auth import LocalAzureCliIdentity, resolve_azure_cli_identity
 from fdai_operator_service.postgres import (
     PostgresOperatorReadModel,
     PostgresOperatorReadModelConfig,
@@ -148,6 +150,10 @@ class TokenVerifierFactory(Protocol):
     def __call__(self, environment: OperatorEnvironment) -> OperatorTokenVerifier: ...
 
 
+LocalCliIdentityFactory = Callable[[], LocalAzureCliIdentity]
+LocalCliSessionTokenFactory = Callable[[], str]
+
+
 def _build_entra_verifier(environment: OperatorEnvironment) -> OperatorTokenVerifier:
     return EntraJwtVerifier.from_environment(environment)
 
@@ -161,6 +167,8 @@ class ProductionOperatorComposition:
     readiness_probe: ReadinessProbe | None = None
     semantic_event_publisher: SemanticTurnEventPublisher | None = None
     semantic_result_source: SemanticTurnResultSource | None = None
+    local_cli_identity_factory: LocalCliIdentityFactory = resolve_azure_cli_identity
+    local_cli_session_token_factory: LocalCliSessionTokenFactory = lambda: secrets.token_urlsafe(32)
 
     def build_runtime(self, environ: Mapping[str, str] | None = None) -> OperatorRuntime:
         """Bind a validated environment snapshot to service-owned HTTP dependencies."""
@@ -262,9 +270,21 @@ class ProductionOperatorComposition:
             if family_store is not None and semantic_bus is not None and event_topic is not None
             else None
         )
+        local_cli_identity = (
+            self.local_cli_identity_factory() if environment.local_azure_cli_auth else None
+        )
+        local_cli_session_token = (
+            self.local_cli_session_token_factory() if local_cli_identity is not None else None
+        )
+        if local_cli_identity is not None and not local_cli_session_token:
+            raise RuntimeError("local Azure CLI session token MUST NOT be empty")
         authenticator = OperatorAuthenticator(
             verifier=self.verifier_factory(environment),
             group_ids=environment.group_ids,
+            local_principal=(
+                local_cli_identity.principal if local_cli_identity is not None else None
+            ),
+            local_session_token=local_cli_session_token,
         )
         route_families, local_narrator = _build_route_families(
             environment=environment,
@@ -303,6 +323,10 @@ class ProductionOperatorComposition:
             ),
             live_stream_hub=live_stream_hub,
             agent_stream_hub=agent_stream_hub,
+            local_cli_profile=(
+                local_cli_identity.to_dict() if local_cli_identity is not None else None
+            ),
+            local_cli_session_token=local_cli_session_token,
             lifecycle=_application_lifecycle(
                 semantic_bridge,
                 read_investigation_bridge,

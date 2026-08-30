@@ -16,6 +16,7 @@ from fdai_operator_service.families.operations.contracts import (
     ReplayEvent,
     ReplayQuery,
 )
+from fdai_operator_service.postgres_dsn import normalize_psycopg_dsn
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,7 +121,7 @@ class PostgresReadInvestigationReplayStore:
             raise ProjectionUnavailableError
         try:
             async with await psycopg.AsyncConnection.connect(
-                config.dsn,
+                normalize_psycopg_dsn(config.dsn),
                 row_factory=dict_row,
                 connect_timeout=config.connect_timeout_s,
             ) as connection:
