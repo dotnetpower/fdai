@@ -115,6 +115,20 @@ def normalize_missing_resource_slowness_investigation(
         utterance=utterance,
         descriptors=descriptors,
     )
+    judgment_targets = semantic_judgment.get("targets", ()) if semantic_judgment else ()
+    judgment_resource_target = (
+        target is not None
+        and isinstance(judgment_targets, (list, tuple))
+        and len(judgment_targets) == 1
+        and isinstance(judgment_targets[0], Mapping)
+        and judgment_targets[0].get("kind") == "resource"
+        and isinstance(judgment_targets[0].get("value"), str)
+        and judgment_targets[0]["value"].casefold() == target.casefold()
+        and judgment_targets[0].get("canonical_value") in {None, "Resource"}
+    )
+    resource_type_grounded = proposal_types == ("Resource",) or (
+        not proposal_types and judgment_resource_target
+    )
     query_sides = service_impact_query_sides(descriptors)
     spans = {
         signal: query_signal_span(utterance, inventory_query_language, signal)
@@ -152,7 +166,7 @@ def normalize_missing_resource_slowness_investigation(
     )
     checks = (
         ("operation_explain_change", proposal.operation is SemanticOperation.EXPLAIN_CHANGE),
-        ("sole_resource_type", proposal_types == ("Resource",)),
+        ("resource_type_grounded", resource_type_grounded),
         ("unresolved_terms_empty", not proposal.unresolved_terms),
         ("clarification_requirements_empty", not proposal.clarification_requirements),
         ("clarification_absent", proposal.clarification is None),
@@ -269,6 +283,7 @@ def normalize_missing_resource_slowness_investigation(
     )
     return proposal.model_copy(
         update={
+            "subject_constraints": ("Resource", target),
             "measure_concepts": ("service.latency",),
             "evidence_requirements": ("support_and_refutation",),
             "investigation": investigation,

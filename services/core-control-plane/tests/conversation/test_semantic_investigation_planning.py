@@ -272,6 +272,92 @@ def test_resource_slowness_diagnostic_reports_missing_cause(
     assert "cause_facet_present" in diagnostic.failed_preconditions.split(",")
 
 
+def test_resource_slowness_recovers_missing_outer_type_from_verified_target() -> None:
+    utterance = "ca-example-core가 갑자기 왜 느려졌어?"
+    proposal = SemanticFrameProposal(
+        operation="explain_change",
+        subject_constraints=("ca-example-core",),
+        measure_concepts=(),
+        temporal_scope={},
+        output_shape="causal_evidence",
+        evidence_requirements=("support_and_refutation",),
+        unresolved_terms=(),
+        clarification_requirements=(),
+        clarification=None,
+        investigation=None,
+        confidence=0.91,
+    )
+
+    normalized = normalize_missing_resource_slowness_investigation(
+        proposal,
+        utterance=utterance,
+        descriptors=_manifest().descriptors,
+        metric_concepts=METRICS,
+        inventory_query_language=INVENTORY_LANGUAGE,
+        semantic_judgment={
+            "targets": (
+                {
+                    "kind": "resource",
+                    "value": "ca-example-core",
+                    "canonical_value": None,
+                },
+            ),
+            "requested_facets": ("cause",),
+            "action_posture": "advise_only",
+            "execution_authority": False,
+        },
+    )
+
+    assert normalized.subject_constraints == ("Resource", "ca-example-core")
+    assert normalized.investigation is not None
+    verified = verify_investigation_intent(
+        normalized.investigation,
+        utterance=utterance,
+        descriptors=_manifest().descriptors,
+        metric_concepts=METRICS,
+    )
+    assert verified.entities[0].object_type_candidates == ("Resource",)
+
+
+def test_resource_slowness_does_not_infer_type_from_untyped_target() -> None:
+    utterance = "ca-example-core가 갑자기 왜 느려졌어?"
+    proposal = SemanticFrameProposal(
+        operation="explain_change",
+        subject_constraints=("ca-example-core",),
+        measure_concepts=(),
+        temporal_scope={},
+        output_shape="causal_evidence",
+        evidence_requirements=("support_and_refutation",),
+        unresolved_terms=(),
+        clarification_requirements=(),
+        clarification=None,
+        investigation=None,
+        confidence=0.91,
+    )
+
+    normalized = normalize_missing_resource_slowness_investigation(
+        proposal,
+        utterance=utterance,
+        descriptors=_manifest().descriptors,
+        metric_concepts=METRICS,
+        inventory_query_language=INVENTORY_LANGUAGE,
+        semantic_judgment={
+            "targets": (
+                {
+                    "kind": "localized_label",
+                    "value": "ca-example-core",
+                    "canonical_value": None,
+                },
+            ),
+            "requested_facets": ("cause",),
+            "action_posture": "advise_only",
+            "execution_authority": False,
+        },
+    )
+
+    assert normalized is proposal
+
+
 @pytest.mark.parametrize(
     ("utterance", "subject_constraints"),
     (

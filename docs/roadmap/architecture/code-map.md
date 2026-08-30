@@ -196,7 +196,9 @@ primary intent is `query.resource_current_state`. An omitted exact-Resource slow
 is completed only from reviewed non-negated causal, symptom, and onset spans outside the target
 identifier, no competing change event, exact manifest paths, and registered metric concepts.
 Dependency-latency and traffic-load evidence both use the verified relationship path; incomplete
-inputs remain held. An input-free recovery diagnostic records only fixed failed-precondition names
+inputs remain held. A missing outer `Resource` type is restored only from one schema-validated
+`resource` target that exactly matches the frame target without a conflicting canonical type.
+An input-free recovery diagnostic records only fixed failed-precondition names
 and their count, without operator text, target values, source-span text, model payloads, or provider
 data. The
 frame proposal applies the shared wire identifier constraints before Core rebuilds server-owned

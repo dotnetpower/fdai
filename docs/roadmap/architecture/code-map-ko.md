@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 751f83b096a540015b51bf8f4ef040c7b03e8c91
+translation_source_sha: b76ac27a899b49df504090c5daf226ad85cd460b
 translation_revised: 2026-08-31
 ---
 # 코드 맵
@@ -194,7 +194,9 @@ Azure 의미 계획 수립은 기존 `httpx` 및 `WorkloadIdentity` 어댑터를
 못하게 합니다. 누락된 exact-Resource slowness 조사는 부정되지 않고 대상 identifier 밖에 있는
 검토된 인과, 증상, 시작 span, 경쟁 change event 부재, 정확한 manifest path, 등록된 metric
 concept로만 완성합니다. Dependency-latency와 traffic-load 근거는 모두 검증된 relationship path를
-사용하며 불완전한 입력은 판단 보류 상태로 유지합니다. 입력 없는 recovery 진단은 고정된 실패
+사용하며 불완전한 입력은 판단 보류 상태로 유지합니다. 누락된 outer `Resource` type은 충돌하는
+canonical type 없이 frame target과 정확히 일치하는 스키마 검증 `resource` target 하나에서만
+복원합니다. 입력 없는 recovery 진단은 고정된 실패
 precondition 이름과 개수만 기록하며 운영자 text, target 값, source-span text, model payload 또는
 provider data를 남기지 않습니다. 공개
 프레임 제안은 Core가 서버 소유 다이제스트를 다시 만들기 전에 shared wire 식별자 제약을
