@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { decodeAssuranceDetail, decodeConversationAssurance } from "./conversation-assurance.model";
-import { selectedAssessmentId } from "./conversation-assurance";
+import {
+  formatPantheonScore,
+  pantheonSafetyTone,
+  selectedAssessmentId,
+} from "./conversation-assurance";
 
 const assessment = {
   assessment_id: "assessment-1",
@@ -22,6 +26,20 @@ const assessment = {
   assessed_at: "2026-07-31T00:00:00+00:00",
 };
 
+const unavailablePantheon = {
+  available: false,
+  turns: 0,
+  pass: 0,
+  review: 0,
+  fail: 0,
+  hard_zero_fail: 0,
+  average_score: null,
+  routing_accuracy: null,
+  missed_t2_rate: null,
+  unnecessary_t2_rate: null,
+  agents: [],
+};
+
 describe("conversation assurance contracts", () => {
   it("selects only the exact requested turn and never falls back", () => {
     const data = decodeConversationAssurance({
@@ -30,6 +48,7 @@ describe("conversation assurance contracts", () => {
       disputes_available: true,
       policy_mutations_available: false,
       summary: {total: 1, pass: 1, fail: 0, inconclusive: 0, deferred: 0, disputes: 0, average_content_score: 100, model_calls: 0, cost_microusd: 0},
+      pantheon: unavailablePantheon,
       assessments: [assessment],
       disputes: [],
     });
@@ -46,10 +65,33 @@ describe("conversation assurance contracts", () => {
       disputes_available: true,
       policy_mutations_available: false,
       summary: {total: 1, pass: 1, fail: 0, inconclusive: 0, deferred: 0, disputes: 0, average_content_score: 100, model_calls: 0, cost_microusd: 0},
+      pantheon: {
+        available: true,
+        turns: 1,
+        pass: 1,
+        review: 0,
+        fail: 0,
+        hard_zero_fail: 0,
+        average_score: 30,
+        routing_accuracy: 1,
+        missed_t2_rate: 0,
+        unnecessary_t2_rate: 0,
+        agents: [{
+          agent: "Njord",
+          turns: 1,
+          average_score: 30,
+          minimum_score: 30,
+          pass: 1,
+          review: 0,
+          fail: 0,
+          hard_zero_fail: 0,
+        }],
+      },
       assessments: [assessment],
       disputes: [],
     });
     expect(value.assessments[0]?.verdict).toBe("pass");
+    expect(value.pantheon.agents[0]?.agent).toBe("Njord");
   });
 
   it("rejects policy mutation authority", () => {
@@ -69,5 +111,25 @@ describe("conversation assurance contracts", () => {
       assessment,
       turn: {available: true, question: null, answer: null},
     })).toThrow("availability is inconsistent");
+  });
+
+  it("rejects unavailable Pantheon diagnostics that contain measurements", () => {
+    expect(() => decodeConversationAssurance({
+      source: "ledger",
+      read_only: true,
+      disputes_available: true,
+      policy_mutations_available: false,
+      summary: {total: 0, pass: 0, fail: 0, inconclusive: 0, deferred: 0, disputes: 0, average_content_score: null, model_calls: 0, cost_microusd: 0},
+      pantheon: {...unavailablePantheon, average_score: 30},
+      assessments: [],
+      disputes: [],
+    })).toThrow("unavailable Pantheon diagnostics");
+  });
+
+  it("keeps unmeasured and hard-zero Pantheon states visually distinct", () => {
+    expect(formatPantheonScore(null)).not.toContain("0.0/30");
+    expect(formatPantheonScore(0)).toBe("0.0/30");
+    expect(pantheonSafetyTone(1)).toBe("danger");
+    expect(pantheonSafetyTone(0)).toBe("positive");
   });
 });

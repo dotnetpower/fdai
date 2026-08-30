@@ -903,6 +903,27 @@ class _BlockingResultStore:
         raise AssertionError("blocked get MUST prevent put")
 
 
+class _PantheonAssurance:
+    async def evaluate(
+        self,
+        request: SemanticTurnRequest,
+        *,
+        case_id: str,
+    ) -> Mapping[str, object]:
+        assert request.purpose == f"conversation-assurance:{case_id}"
+        return {
+            "schema_version": "1.0.0",
+            "answer": "Bounded Pantheon answer.",
+            "assessment_id": "conversation-assessment:test",
+            "trace_receipt_id": "a" * 64,
+            "pantheon_trace": {"receipt_digest": "a" * 64},
+            "pantheon_observations": {"read_only": True},
+            "pantheon_semantic_reviews": [],
+            "pantheon_diagnostic": {"score": 25},
+            "execution_authority": False,
+        }
+
+
 def _request(
     *,
     roles: list[str] | None = None,
@@ -998,6 +1019,21 @@ def _projection(encoded: bytes) -> dict[str, Any]:
     loaded = json.loads(encoded)
     assert isinstance(loaded, dict)
     return cast(dict[str, Any], loaded)
+
+
+async def test_pantheon_assurance_purpose_uses_bound_diagnostic_runtime() -> None:
+    processor = _processor(_Runtime())
+    processor.bind_pantheon_assurance(_PantheonAssurance())
+
+    projection = _projection(
+        await processor.process(_request(purpose="conversation-assurance:agent-odin-role-en"))
+    )
+
+    assert projection["status"] == "held"
+    assert projection["semantic_result"]["disposition"] == "held"
+    assurance = projection["payload"]["pantheon_assurance"]
+    assert assurance["answer"] == "Bounded Pantheon answer."
+    assert assurance["execution_authority"] is False
 
 
 def test_semantic_turn_timing_partitions_end_to_end_duration_without_gaps() -> None:

@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 9587c1144041e8c9e4c8c4a253bf90d896c0809c
+translation_source_sha: 058073e8a937d7328db83a7d1dd636311fef6f96
 translation_revised: 2026-08-30
 ---
 # FDAI Console 대화
@@ -37,6 +37,7 @@ FDAI Console 대화 표면은 **판단 권한을 가지지 않습니다**. FDAI�
 
 완료된 답변은 off-path [대화 Assurance](../decisioning/conversation-assurance-ko.md) 루프에도 들어갑니다. JSON과 SSE 어댑터는 타입이 지정된 conversation-turn 서비스와 분리된 요청 설정, 근거, 진행 상황, 검증 및 terminal-delivery 보조 로직을 공유하면서 기존 wire 계약을 유지합니다.
 최종 intake는 exact 검증 사유와 evidence-manifest 완전성을 보존합니다. 결과 요약, 맥락 선택, Azure 조사, 영속 전달 및 첨부 근거는 타입이 지정된 프로바이더가 계속 소유하고 어댑터 모듈은 표현과 영속성만 조정합니다.
+명시적 고정 census 진단 요청은 범위가 제한된 `conversation-assurance:<case-id>` 목적을 사용합니다. Core는 Bragi가 답변하기 전에 사례, 질문 및 로케일을 서버 소유 census와 대조해 검증합니다. 생성된 `done` 이벤트는 답변과 콘텐츠가 없는 진단 필드를 전달하며, 일반 `operations-review` 요청은 기존 의미 결과 계약을 유지합니다.
 버전 1.2 semantic projection은 서비스 분리 전반에서 이 경계를 보존합니다. `answered`는 exact release, principal manifest, 계획, 실행 receipt, 근거 참조를 요구하며 의존성을 사용할 수 없으면 typed limitation을 반환합니다.
 Process 저널은 적응형 Investigation Room도 변환할 수 있습니다. Operator는 반환 전에 Process 개정
 번호와 중첩된 콘텐츠 다이제스트를 다시 확인하고, Console은 범위가 제한된 라운드, 경쟁 가설, 근거

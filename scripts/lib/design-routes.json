@@ -1410,12 +1410,15 @@
       "paths": [
         "services/core-control-plane/src/fdai/core/conversation_assurance/**",
         "services/core-control-plane/src/fdai/runtime/conversation_assurance.py",
+        "services/core-control-plane/src/fdai/runtime/pantheon_assurance_evidence.py",
+        "services/core-control-plane/src/fdai/runtime/pantheon_conversation_assurance.py",
         "services/core-control-plane/src/fdai/delivery/azure/llm/conversation_assurance.py",
         "services/core-control-plane/src/fdai/delivery/persistence/postgres_conversation_assurance.py",
         "console/src/routes/conversation-assurance*",
         "console/src/routes/i18n/conversation-assurance*",
         "alembic/versions/*conversation_assurance*.py",
         "services/core-control-plane/tests/**/*conversation_assurance*.py",
+        "services/core-control-plane/tests/runtime/test_pantheon_conversation_assurance.py",
         "docs/roadmap/decisioning/conversation-assurance*.md"
       ],
       "must_read": [

@@ -5,7 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
-from typing import Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from fdai.core.conversation_assurance.pantheon_scorecard import PantheonTurnDiagnostic
 
 _MAX_TEXT_CHARS = 16_384
 _MAX_RATIONALE_CHARS = 1_000
@@ -146,6 +149,7 @@ class EvaluatorOutput:
     model_identity: str
     model_family: str
     scores: tuple[CriterionScore, ...]
+    confidence: float = 1.0
     prompt_tokens: int = 0
     completion_tokens: int = 0
     cost_microusd: int = 0
@@ -153,6 +157,8 @@ class EvaluatorOutput:
     def __post_init__(self) -> None:
         if not self.model_identity.strip() or not self.model_family.strip():
             raise ValueError("evaluator model identity and family MUST be non-empty")
+        if not 0.0 <= self.confidence <= 1.0:
+            raise ValueError("evaluator confidence MUST be in [0, 1]")
         if any(value < 0 for value in self.usage):
             raise ValueError("evaluator usage and cost MUST be non-negative")
 
@@ -174,6 +180,7 @@ class AssuranceDecision:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     cost_microusd: int = 0
+    pantheon_diagnostic: PantheonTurnDiagnostic | None = None
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.content_score <= 100.0:

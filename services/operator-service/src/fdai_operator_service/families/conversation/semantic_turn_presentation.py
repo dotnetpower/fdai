@@ -52,6 +52,9 @@ def semantic_done_event_data(
     locale: str = "en",
 ) -> JsonObject:
     """Compile one bounded terminal event from a validated durable projection."""
+    pantheon = _pantheon_assurance_payload(projection)
+    if pantheon is not None:
+        return _pantheon_done_event_data(pantheon)
     semantic = projection.get("semantic_result")
     if not isinstance(semantic, Mapping):
         raise ValueError("stored semantic projection is missing semantic_result")
@@ -162,6 +165,50 @@ def semantic_done_event_data(
             ),
             **({"trajectory_detail": trajectory_detail} if trajectory_detail is not None else {}),
             **({"semantic_receipt": semantic_receipt} if semantic_receipt is not None else {}),
+        },
+    )
+
+
+def _pantheon_assurance_payload(
+    projection: Mapping[str, object],
+) -> Mapping[str, object] | None:
+    payload = projection.get("payload")
+    value = payload.get("pantheon_assurance") if isinstance(payload, Mapping) else None
+    return value if isinstance(value, Mapping) else None
+
+
+def _pantheon_done_event_data(assurance: Mapping[str, object]) -> JsonObject:
+    answer = assurance.get("answer")
+    trace = assurance.get("pantheon_trace")
+    observations = assurance.get("pantheon_observations")
+    reviews = assurance.get("pantheon_semantic_reviews")
+    diagnostic = assurance.get("pantheon_diagnostic")
+    if (
+        assurance.get("schema_version") != "1.0.0"
+        or not isinstance(answer, str)
+        or not answer
+        or not isinstance(trace, Mapping)
+        or not isinstance(observations, Mapping)
+        or not isinstance(reviews, list)
+        or not isinstance(diagnostic, Mapping)
+        or assurance.get("execution_authority") is not False
+    ):
+        raise ValueError("stored Pantheon conversation assurance result is malformed")
+    return cast(
+        JsonObject,
+        {
+            "seq": 1,
+            "revision": 0,
+            "status": "answered",
+            "answer": answer,
+            "source": "pantheon-conversation-assurance",
+            "assessment_id": assurance.get("assessment_id"),
+            "trace_receipt_id": assurance.get("trace_receipt_id"),
+            "pantheon_trace": dict(trace),
+            "pantheon_observations": dict(observations),
+            "pantheon_semantic_reviews": reviews,
+            "pantheon_diagnostic": dict(diagnostic),
+            "execution_authority": False,
         },
     )
 

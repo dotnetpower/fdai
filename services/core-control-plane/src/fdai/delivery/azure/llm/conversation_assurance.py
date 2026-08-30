@@ -142,12 +142,13 @@ class AzureConversationAssuranceEvaluator:
             extracted = extract_usage(envelope)
             if extracted is not None:
                 usage = extracted
-            scores = _parse_scores(_message_content(envelope))
+            confidence, scores = _parse_evaluation(_message_content(envelope))
             measured_usage = usage or TokenUsage.zero()
             return EvaluatorOutput(
                 model_identity=self.model_identity,
                 model_family=self.model_family,
                 scores=scores,
+                confidence=confidence,
                 prompt_tokens=measured_usage.prompt_tokens,
                 completion_tokens=measured_usage.completion_tokens,
                 cost_microusd=self._actual_cost_microusd(measured_usage),
@@ -226,13 +227,20 @@ def _message_content(envelope: object) -> str:
     return content
 
 
-def _parse_scores(content: str) -> tuple[CriterionScore, ...]:
+def _parse_evaluation(content: str) -> tuple[float, tuple[CriterionScore, ...]]:
     try:
         parsed = json.loads(content)
     except json.JSONDecodeError as exc:
         raise RuntimeError("conversation assurance model returned non-JSON content") from exc
     if not isinstance(parsed, Mapping) or not isinstance(parsed.get("scores"), list):
         raise RuntimeError("conversation assurance response MUST contain a scores array")
+    confidence = parsed.get("confidence")
+    if (
+        isinstance(confidence, bool)
+        or not isinstance(confidence, int | float)
+        or not 0.0 <= float(confidence) <= 1.0
+    ):
+        raise RuntimeError("conversation assurance confidence MUST be in [0, 1]")
     scores: list[CriterionScore] = []
     for raw in parsed["scores"]:
         if not isinstance(raw, Mapping):
@@ -265,7 +273,7 @@ def _parse_scores(content: str) -> tuple[CriterionScore, ...]:
                 evidence_refs=tuple(evidence_raw),
             )
         )
-    return tuple(scores)
+    return float(confidence), tuple(scores)
 
 
 def _cost_microusd(cost: Decimal) -> int:

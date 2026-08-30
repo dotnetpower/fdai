@@ -7,6 +7,7 @@ from pathlib import Path
 
 import httpx
 
+from fdai.agents import PantheonRuntime
 from fdai.core.conversation_assurance import (
     ConversationAssuranceCoordinator,
     ConversationAssuranceEvaluator,
@@ -14,19 +15,34 @@ from fdai.core.conversation_assurance import (
     MixedFamilyAssuranceReviewer,
 )
 from fdai.core.metering import MeteringEmitter, MeteringSink
-from fdai.core.metering.budget import BudgetLedger
+from fdai.core.metering.budget import (
+    BudgetLedger,
+    InMemoryBudgetLedger,
+    ModelBudget,
+)
 from fdai.core.metering.pricing import PricingTable
 from fdai.core.prompts import FileSystemPromptRegistry, PromptLayer
 from fdai.delivery.azure.llm.conversation_assurance import (
     AzureConversationAssuranceEvaluator,
     AzureConversationAssuranceEvaluatorConfig,
 )
+from fdai.delivery.persistence import (
+    PostgresConversationAssuranceLedger,
+    PostgresConversationAssuranceLedgerConfig,
+)
 from fdai.rule_catalog.schema.llm_resolver import CapabilityStatus, ResolvedModels
 from fdai.shared.providers.workload_identity import WorkloadIdentity
+
+from .pantheon_conversation_assurance import (
+    RuntimePantheonConversationAssurance,
+    runtime_source_identity,
+)
 
 _PRIMARY = "t2.reasoner.primary"
 _SECONDARY = "t2.reasoner.secondary"
 _TIE_BREAKER = "t2.reasoner.escalated"
+_ASSESSMENT_CALL_BUDGET = 3
+_ASSESSMENT_COST_BUDGET_MICROUSD = 150_000
 
 
 def build_conversation_assurance_coordinator(
@@ -100,11 +116,17 @@ def build_azure_conversation_assurance_evaluators(
     concrete = tuple(item for item in selected if item is not None)
     if len({item.family for item in concrete}) != len(concrete):
         return ()
-    prompt = next(
-        artifact
-        for artifact in FileSystemPromptRegistry(repo_root / "rule-catalog").artifacts()
-        if artifact.id == "conversation-assurance" and artifact.layer is PromptLayer.RUBRIC
+    prompt = max(
+        (
+            artifact
+            for artifact in FileSystemPromptRegistry(repo_root / "rule-catalog").artifacts()
+            if artifact.id == "conversation-assurance" and artifact.layer is PromptLayer.RUBRIC
+        ),
+        key=lambda artifact: artifact.version,
+        default=None,
     )
+    if prompt is None:
+        return ()
     return tuple(
         AzureConversationAssuranceEvaluator(
             identity=identity,
@@ -129,6 +151,61 @@ def build_azure_conversation_assurance_evaluators(
     )
 
 
+def build_runtime_pantheon_conversation_assurance(
+    *,
+    pantheon: PantheonRuntime | None,
+    repo_root: Path,
+    environment: dict[str, str],
+    dsn: str | None,
+    resolved_models_path: str | None,
+    identity: WorkloadIdentity | None,
+    http_client: httpx.AsyncClient | None,
+    pricing: PricingTable | None,
+    metering_sink: MeteringSink | None,
+) -> RuntimePantheonConversationAssurance | None:
+    """Bind the live diagnostic only when its durable and revision inputs exist."""
+
+    source_identity = runtime_source_identity(repo_root, environment)
+    if pantheon is None or not dsn or source_identity is None:
+        return None
+    evaluators: tuple[ConversationAssuranceEvaluator, ...] = ()
+    if (
+        resolved_models_path
+        and identity is not None
+        and http_client is not None
+        and pricing is not None
+        and metering_sink is not None
+    ):
+        evaluators = build_azure_conversation_assurance_evaluators(
+            repo_root=repo_root,
+            resolved_models_path=resolved_models_path,
+            identity=identity,
+            http_client=http_client,
+            pricing=pricing,
+            metering_sink=metering_sink,
+        )
+    budget = InMemoryBudgetLedger(
+        ModelBudget(
+            max_calls_per_correlation=_ASSESSMENT_CALL_BUDGET,
+            max_cost_microusd_per_correlation=_ASSESSMENT_COST_BUDGET_MICROUSD,
+        )
+    )
+    coordinator = build_conversation_assurance_coordinator(
+        ledger=PostgresConversationAssuranceLedger(
+            config=PostgresConversationAssuranceLedgerConfig(dsn=dsn)
+        ),
+        budget=budget,
+        evaluators=evaluators,
+    )
+    source_revision, source_content_digest = source_identity
+    return RuntimePantheonConversationAssurance(
+        pantheon=pantheon,
+        coordinator=coordinator,
+        source_revision=source_revision,
+        source_content_digest=source_content_digest,
+    )
+
+
 def _load_resolved_models(path_or_json: str) -> ResolvedModels:
     stripped = path_or_json.strip()
     text = stripped if stripped.startswith("{") else Path(stripped).read_text()
@@ -139,4 +216,5 @@ __all__ = [
     "build_azure_conversation_assurance_evaluators",
     "build_conversation_assurance_coordinator",
     "build_conversation_assurance_reviewer",
+    "build_runtime_pantheon_conversation_assurance",
 ]

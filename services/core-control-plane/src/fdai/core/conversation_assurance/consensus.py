@@ -20,6 +20,7 @@ from fdai.core.conversation_assurance.models import (
 from fdai.core.metering.budget import BudgetLedger
 
 _PASS_THRESHOLD = 3
+_MINIMUM_CONFIDENCE = 0.85
 _REQUIRED_CRITERIA = frozenset(AssuranceCriterion)
 
 
@@ -61,6 +62,17 @@ class MixedFamilyAssuranceReviewer:
         return hashlib.sha256("\0".join(identities).encode()).hexdigest()
 
     async def review(self, turn: TurnAssessmentInput) -> AssuranceDecision:
+        """Return the reduced decision while preserving the historical API."""
+
+        decision, _outputs = await self.review_with_outputs(turn)
+        return decision
+
+    async def review_with_outputs(
+        self,
+        turn: TurnAssessmentInput,
+    ) -> tuple[AssuranceDecision, tuple[EvaluatorOutput, ...]]:
+        """Return the decision and independently validated atomic outputs."""
+
         evaluator_identities = {
             self._first.model_identity,
             self._second.model_identity,
@@ -68,47 +80,58 @@ class MixedFamilyAssuranceReviewer:
         if self._tie_breaker is not None:
             evaluator_identities.add(self._tie_breaker.model_identity)
         if turn.answer_model_identity in evaluator_identities:
-            return _inconclusive("answer_model_cannot_self_evaluate")
+            return _inconclusive("answer_model_cannot_self_evaluate"), ()
         if not await self._reserve(turn.turn_id, calls=2):
-            return _inconclusive("model_budget_deferred")
+            return _inconclusive("model_budget_deferred"), ()
         try:
             first, second = await asyncio.gather(
                 self._first.evaluate(turn),
                 self._second.evaluate(turn),
             )
         except Exception as exc:  # noqa: BLE001 - off-path review fails closed
-            return _inconclusive(f"evaluator_error:{type(exc).__name__}")
+            return _inconclusive(f"evaluator_error:{type(exc).__name__}"), ()
+        primary_outputs = (first, second)
         invalid = _validate_outputs(turn, (first, second))
         if invalid is not None:
-            return _inconclusive(invalid, outputs=(first, second))
+            return _inconclusive(invalid, outputs=primary_outputs), primary_outputs
         first_verdict = _verdict(first)
         second_verdict = _verdict(second)
         disputed = _disputed_criteria(first, second)
         if first_verdict is second_verdict and not disputed:
-            return _decision_from_outputs((first, second), disagreement=False)
+            return (
+                _decision_from_outputs(primary_outputs, disagreement=False),
+                primary_outputs,
+            )
         if self._tie_breaker is None:
             reason = (
                 "model_verdict_disagreement"
                 if first_verdict is not second_verdict
                 else "model_criterion_disagreement"
             )
-            return _inconclusive(reason, outputs=(first, second))
+            return _inconclusive(reason, outputs=primary_outputs), primary_outputs
         if not await self._reserve(turn.turn_id, calls=1):
-            return _inconclusive("model_budget_deferred", outputs=(first, second))
+            return (
+                _inconclusive("model_budget_deferred", outputs=primary_outputs),
+                primary_outputs,
+            )
         try:
             tie_output = await self._tie_breaker.evaluate(
                 turn,
                 debate=DebateContext(first, second, disputed),
             )
         except Exception as exc:  # noqa: BLE001 - bounded tie-break fails closed
-            return _inconclusive(
-                f"tie_breaker_error:{type(exc).__name__}",
-                outputs=(first, second),
+            return (
+                _inconclusive(
+                    f"tie_breaker_error:{type(exc).__name__}",
+                    outputs=primary_outputs,
+                ),
+                primary_outputs,
             )
+        all_outputs = (*primary_outputs, tie_output)
         invalid = _validate_outputs(turn, (tie_output,))
         if invalid is not None:
-            return _inconclusive(invalid, outputs=(first, second, tie_output))
-        return _decision_from_outputs((first, second, tie_output), disagreement=True)
+            return _inconclusive(invalid, outputs=all_outputs), all_outputs
+        return _decision_from_outputs(all_outputs, disagreement=True), all_outputs
 
     async def _reserve(self, turn_id: str, *, calls: int) -> bool:
         if self._budget is None:
@@ -126,6 +149,8 @@ def _validate_outputs(
 ) -> str | None:
     allowed_refs = set(turn.evidence_refs)
     for output in outputs:
+        if output.confidence < _MINIMUM_CONFIDENCE:
+            return "evaluator_confidence_below_threshold"
         criteria = [score.criterion for score in output.scores]
         if len(criteria) != len(set(criteria)):
             return "duplicate_criterion"

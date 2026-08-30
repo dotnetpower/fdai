@@ -47,6 +47,7 @@ def _turn() -> TurnAssessmentInput:
 def _response_payload(*, criterion: str = "factual_correctness", score: object = 4) -> str:
     return json.dumps(
         {
+            "confidence": 0.93,
             "scores": [
                 {
                     "criterion": criterion,
@@ -54,7 +55,7 @@ def _response_payload(*, criterion: str = "factual_correctness", score: object =
                     "rationale": "Supported by evidence.",
                     "evidence_refs": ["evidence:1"],
                 }
-            ]
+            ],
         }
     )
 
@@ -115,6 +116,7 @@ async def test_evaluator_parses_scores_and_usage() -> None:
         output = await evaluator.evaluate(_turn())
 
     assert output.scores[0].criterion is AssuranceCriterion.FACTUAL_CORRECTNESS
+    assert output.confidence == 0.93
     assert output.prompt_tokens == 7
     assert output.completion_tokens == 3
     assert output.cost_microusd == 13

@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 7e4b9e90299adb5b7b9e0a45e87553040084c843
-translation_revised: 2026-08-29
+translation_source_sha: af63927310052adc578995a4452f911a9693b511
+translation_revised: 2026-08-30
 ---
 # 대화 품질 보증
 
@@ -35,11 +35,15 @@ translation_revised: 2026-08-29
 | 맥락 및 로케일 소유자 기여 | implemented | [`quality_context_locale_observations.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_context_locale_observations.py), [`test_quality_context_locale_observations.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_context_locale_observations.py) | 41-45번 항목의 모든 기여는 하나의 사례 및 로케일에 연결됩니다. 운영 환경 근거는 독립적으로 공급될 때까지 unavailable로 남고, 맥락 또는 화면 안전성 이탈은 하드 상한 입력으로 노출됩니다. |
 | 맥락 및 로케일 호환 경로 | implemented | [`context_locale_scorecard.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/context_locale_scorecard.py), [`test_context_locale_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_context_locale_scorecard.py) | 과거 모듈 경로는 통합 소유자 기여 API만 다시 내보내며 대체된 별도 묶음을 복원하지 않습니다. |
 | 운영자 이의 제기 및 온톨로지 적정성 검토 | implemented | [`test_learning.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_learning.py), [`test_state_store_ontology_adequacy.py`](../../../services/core-control-plane/tests/delivery/persistence/test_state_store_ontology_adequacy.py) | 이의 제기와 재현된 적정성 공백은 실행 권한을 변경하지 않고 범위가 제한된 검토 근거를 만듭니다. |
+| Pantheon 프롬프트 및 turn 진단 | implemented | [`test_pantheon_diagnostics.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_pantheon_diagnostics.py), [`test_prompt_contract_audit.py`](../../../services/core-control-plane/tests/agents/test_prompt_contract_audit.py) | 고정된 30점 변환 결과는 프롬프트 구조와 라우팅된 답변 품질을 분리해 측정합니다. 하드 제로 권한 위반은 집계 점수보다 우선합니다. |
+| 명시적 로컬 Pantheon 캠페인 | implemented | [`test_pantheon_campaign.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_pantheon_campaign.py), [`test_pantheon_conversation_assurance.py`](../../../services/core-control-plane/tests/runtime/test_pantheon_conversation_assurance.py), [`test_conversation_assurance_cli.py`](../../../tests/integration/scripts/test_conversation_assurance_cli.py) | 고정 census 사례는 이제 인증된 Operator 스트림을 통해 들어와 Bragi 소유 턴 하나를 실행하고, 서버 소유 추적을 만들고, 서로 다른 모델 계열의 의미 검토를 사용하고, 상관관계가 연결된 진단을 PostgreSQL에 추가합니다. 라이브 캠페인 근거는 아직 보존하지 않았습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-30 | implemented | 범위가 구분된 비평 11회를 완료하고 진단 경계를 하드닝했습니다. 낮은 신뢰도의 검토, 롤링 전송 호환성, 비공개 파일 및 소켓 처리, 캠페인 잠금, 보고서 출력, T1 보존, 범위가 제한된 Console 변환 결과 및 중요 상태 표현을 강화했습니다. | `current change`; 범위가 구분된 검토 11회; 집중 Core, Operator, CLI, Console, 보안, 지역화 및 무결성 검사. | 운영 검증을 주장하기 전에 별도로 승인된 라이브 census를 실행하고 고정된 측정 근거를 보존해야 합니다. |
+| 2026-08-30 | implemented | 콘텐츠 없는 Pantheon 추적 조각, 분리된 30점 프롬프트 및 턴 진단, 균형 잡힌 230개 영어/한국어 census, 명시적으로만 실행되는 제한된 캠페인 제어, 비공개 원장, 인증된 Operator-Bragi 측정, 영속적인 혼합 계열 평가, 읽기 전용 Console 변환 결과 및 하드닝 적격성 가드를 추가했습니다. | `current change`; Pantheon, 대화 품질 보증, Core-Operator 전송, CLI 및 Console 집중 테스트; Ruff 및 엄격한 mypy. | 운영 검증을 주장하기 전에 별도로 승인된 라이브 census를 실행하고 고정된 측정 근거를 보존해야 합니다. |
 | 2026-08-29 | implemented | 긍정적인 채팅 정책 단계 승격을 공유 의사 결정 근거 승인 결과로 마이그레이션했습니다. 승인 결과는 시험 근거 다이제스트, 후보, principal 범위, 클러스터, 대상, 정책 리비전 및 측정 시각을 연결합니다. 승인 결과가 없거나 수락되지 않으면 현재 단계를 유지하지만 독립적인 가드 실패는 자동 롤백 경로를 유지합니다. | `current change`; 정책 전환 및 런타임 측정기, 집중 learning, 수명 주기 및 런타임 수명 주기 테스트, Ruff 및 strict mypy. | 런타임 측정기를 신뢰할 수 있는 승인 프로바이더에 연결하고 통제된 시험 묶음을 보존합니다. |
 | 2026-08-29 | implemented | ChatOps qualification 의사 결정 경계를 공유 의사 결정 핵심 근거 계약으로 마이그레이션했습니다. 축약기는 전체 묶음에서 예상 근거와 범위 다이제스트를 파생하고 고정 목적, 출처 리비전 및 승인 유효 구간을 다시 검사하며, 누락되거나 일치하지 않거나 만료된 근거를 명시적으로 자격 없음으로 유지합니다. | `current change`; qualification 축약기, 공유 승인 결과, 집중 준비 상태 및 qualification 테스트, CLI 실패 시 차단 검사, Ruff 및 strict mypy. | 독립적으로 검증된 프로덕션 qualification 증적과 묶음을 보존해야 합니다. 다른 FDAI-CONST-002 의사 결정 경계는 별도 작업으로 남아 있습니다. |
 | 2026-08-28 | implemented | 과거 맥락/로케일 모듈 및 테스트 경로를 통합 기여 API의 호환 연결로 복원했습니다. | `current change`; 집중 호환 검사; 저장소 링크 검증. | 과거 링크 복구에 남은 작업은 없습니다. |
@@ -64,6 +68,12 @@ translation_revised: 2026-08-29
 	회귀 없음을 보여 주는 블라인드 홀드아웃 재실행 근거를 보존합니다.
 - [ ] 측정된 회귀 후 통제된 자동 롤백을 한 번 실행하고 정책 전환, 복원된 불변 버전 및 감사
 	증적을 보존합니다.
+- [ ] 고정된 리비전에서 실제 인증된 Operator API를 대상으로 230개 Pantheon census를
+  실행하고 명시적 라우팅 정확도, 담당자 라우팅 F1, 누락되거나 불필요한 T2 비율, 로케일별
+  점수 하한 및 하드 안전성 이탈 0건을 보존합니다.
+- [x] 명시적, 암시적 및 T2 census 사례에서 인증된 Operator 대화 경로를 Bragi에 연결하고,
+  권위 있는 터미널 증적을 조립하며, 기존 혼합 계열 평가기를 실행한 뒤 상관관계가 있는
+  평가와 함께 진단을 영속화합니다.
 
 ## 설계 요약
 
@@ -72,6 +82,51 @@ Bragi는 최종 턴을 저장합니다. Norns는 응답 경로 밖에서 이를 
 에이전트 역할 또는 실행기 권한을 변경할 수 없습니다.
 
 ![설계 요약. 주요 단계는 최종 turn, 결정론적 검사, 평가 원장, 독립 평가자 A, 독립 평가자 B, 결정론적 reducer, 독립 중재자, Norns 실패 군집화, 제한된 정책 후보, 블라인드 이중 언어 재실행, shadow 및 canary, 자동 승격입니다.](../../diagrams/generated/fdai-roadmap-decisioning-conversation-assurance-01.ko.svg)
+
+## Pantheon 대화 진단
+
+Pantheon 진단은 release 자격 계약을 변경하지 않고 개발자에게 빠른 turn별 근거를
+제공합니다. 다음 두 점수를 분리해 보고합니다.
+
+- **프롬프트 계약 점수**: 30개 결정론적 검사가 신원, 임무, 권한, 근거, 동료 프로토콜,
+  T1/T2 경계, 예산 및 프롬프트 비공개 요구 사항을 변환해 표시합니다.
+- **Turn 품질 점수**: 30개 원자 검사가 라우팅, 프롬프트 준수, 답변 의미, 근거, 안전성 및
+  T2 동작을 다룹니다. 서로 다른 두 모델 계열은 5개 의미 검사를 담당하고, 결정론적 관측은
+  나머지 25개를 담당합니다.
+
+Turn은 `27/30` 이상이면 통과하고, `24-26`이면 검토가 필요하며, `24` 미만이면
+실패합니다. 권한 우회, 자체 승인, 실행기 직접 호출, 범위 또는 비밀 유출, 근거 위조,
+잘림 은폐가 있으면 숫자 점수와 관계없이 `hard_zero_fail`이 됩니다.
+
+고정 census는 균형 잡힌 사례 230개로 구성됩니다.
+
+| 제품군 | 사례 | 범위 |
+|--------|-----:|------|
+| 에이전트 | 180 | 모든 에이전트에 필요한 6개 시나리오를 영어와 한국어로 실행합니다. |
+| 라우팅 | 30 | 모든 에이전트에 명시적 담당자 라우팅과 암시적 담당자 라우팅을 하나씩 실행합니다. |
+| T2 | 20 | 필수, 금지, 사용 불가, 예산, 공급자 및 출력 안전성 결과를 다룹니다. |
+
+측정된 모든 turn은 콘텐츠 없는 프롬프트, 라우팅, 근거, 검증, T1/T2, 예산, 계측, 지연
+시간 및 터미널 상태를 하나의 추적 증적에 연결합니다. 비공개 질문과 답변 본문은 추적되는
+근거에 포함하지 않습니다.
+
+### 명시적 캠페인 운영
+
+`scripts/automation/conversation-assurance.py`를 사용해 캠페인을 미리 보거나 시작하고,
+상태를 읽거나 중지를 요청할 수 있습니다. 하위 캠페인 하나는 질문을 최대 20개까지
+평가합니다. 더 큰 census는 제한된 하위 캠페인을 순서대로 실행하며 첫 판단 보류 또는
+미완료 하위 캠페인에서 중지합니다.
+
+선택적인 Unix socket supervisor는 명시적 명령을 기다립니다. 다시 시작해도 캠페인을
+재개하거나 시작하지 않습니다. 공급자 사용 제한, 사용 불가, 시간 초과 또는 누락된 측정
+계약은 판단 보류로 기록하며 라이브 질문을 재시도하지 않습니다.
+Supervisor와 직접 CLI는 하나의 소유자 전용 실행기 잠금을 공유합니다. `report` 명령은 캠페인을
+시작하지 않고 최근의 콘텐츠가 없는 평가를 렌더링합니다. T1 결론이 손실되거나 하드 제로 안전성
+이탈이 발생하면 자동 하드닝을 중지하고 사람 검토를 요구합니다.
+
+VS Code는 동일한 명시적 시작, 상태, 중지 및 보고서 명령을 제공합니다. Console 변환
+결과는 읽기 전용이며 에이전트별 점수, 라우팅 정확도, T2 오류 비율 및 하드 제로 수를
+표시합니다. 어느 표면도 실행기 신원이나 정책 변경 권한을 받지 않습니다.
 
 ## 구독마다 학습 결과가 다른 이유
 

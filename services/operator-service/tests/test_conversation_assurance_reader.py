@@ -62,6 +62,26 @@ async def test_assurance_list_and_detail_project_principal_rows(monkeypatch: Any
             "prompt_tokens": 100,
             "completion_tokens": 20,
             "cost_microusd": 15,
+            "pantheon_diagnostic": {
+                "case_id": "case-1",
+                "agent": "Njord",
+                "locale": "en",
+                "score": 30,
+                "max_score": 30,
+                "verdict": "pass",
+                "results": [
+                    {
+                        "item_id": index,
+                        "rubric": f"item-{index}",
+                        "passed": True,
+                        "reason": "observed_pass",
+                    }
+                    for index in range(1, 31)
+                ],
+                "hard_zero_violations": [],
+                "trace_receipt_digest": "a" * 64,
+                "t2_expectation": "forbidden",
+            },
         },
         "assessed_at": now,
     }
@@ -112,7 +132,14 @@ async def test_assurance_list_and_detail_project_principal_rows(monkeypatch: Any
     assert listing.body["summary"]["total"] == 1
     assert listing.body["summary"]["pass"] == 1
     assert listing.body["summary"]["disputes"] == 1
+    assert listing.body["pantheon"]["available"] is True
+    assert listing.body["pantheon"]["average_score"] == 30
+    assert listing.body["pantheon"]["routing_accuracy"] == 1
+    assert listing.body["pantheon"]["missed_t2_rate"] is None
+    assert listing.body["pantheon"]["unnecessary_t2_rate"] == 0
+    assert listing.body["pantheon"]["agents"][0]["agent"] == "Njord"
     assert listing.body["assessments"][0]["assessment_id"] == "assessment-1"
+    assert "pantheon_diagnostic" not in listing.body["assessments"][0]
     assert isinstance(detail.body, dict)
     assert detail.body["assessment"]["assessment_id"] == "assessment-1"
     assert detail.body["turn"] == {
@@ -164,6 +191,66 @@ async def test_malformed_assurance_decision_fails_closed(monkeypatch: Any) -> No
                 "state": "completed",
                 "decision": {},
                 "assessed_at": datetime(2026, 8, 27, tzinfo=UTC),
+            }
+        ]
+
+    monkeypatch.setattr(ConversationAssuranceReader, "_fetch_all", fetch)
+    reader = ConversationAssuranceReader(
+        ConversationAssuranceReaderConfig("postgresql://example.invalid/fdai"),
+        RecordingFallback(),
+    )
+
+    with pytest.raises(ConversationUnavailableError, match="missing fields"):
+        await reader.read(_query("assurance.list"))
+
+
+async def test_malformed_pantheon_diagnostic_fails_closed(monkeypatch: Any) -> None:
+    now = datetime(2026, 8, 27, tzinfo=UTC)
+
+    async def fetch(
+        self: ConversationAssuranceReader,
+        statement: str,
+        parameters: tuple[object, ...],
+    ) -> list[dict[str, object]]:
+        del self, parameters
+        if "COUNT(*) AS total" in statement:
+            return [
+                {
+                    "total": 1,
+                    "pass": 1,
+                    "fail": 0,
+                    "inconclusive": 0,
+                    "deferred": 0,
+                    "average_content_score": 100.0,
+                    "model_calls": 0,
+                    "cost_microusd": 0,
+                    "disputes": 0,
+                }
+            ]
+        if "conversation_assurance_dispute" in statement:
+            return []
+        return [
+            {
+                "assessment_id": "assessment-1",
+                "turn_id": "turn-1",
+                "conversation_id": "conversation-1",
+                "rubric_version": "1.0.0",
+                "state": "completed",
+                "decision": {
+                    "verdict": "pass",
+                    "content_score": 100.0,
+                    "confidence": 1.0,
+                    "criteria": [],
+                    "reasons": [],
+                    "evaluator_identities": [],
+                    "disagreement": False,
+                    "model_calls": 0,
+                    "prompt_tokens": 0,
+                    "completion_tokens": 0,
+                    "cost_microusd": 0,
+                    "pantheon_diagnostic": {"score": 30},
+                },
+                "assessed_at": now,
             }
         ]
 

@@ -63,8 +63,34 @@ export interface ConversationAssurancePayload {
     readonly model_calls: number;
     readonly cost_microusd: number;
   };
+  readonly pantheon: PantheonAssuranceSummary;
   readonly assessments: readonly AssuranceAssessment[];
   readonly disputes: readonly AssuranceDispute[];
+}
+
+export interface PantheonAgentSummary {
+  readonly agent: string;
+  readonly turns: number;
+  readonly average_score: number;
+  readonly minimum_score: number;
+  readonly pass: number;
+  readonly review: number;
+  readonly fail: number;
+  readonly hard_zero_fail: number;
+}
+
+export interface PantheonAssuranceSummary {
+  readonly available: boolean;
+  readonly turns: number;
+  readonly pass: number;
+  readonly review: number;
+  readonly fail: number;
+  readonly hard_zero_fail: number;
+  readonly average_score: number | null;
+  readonly routing_accuracy: number | null;
+  readonly missed_t2_rate: number | null;
+  readonly unnecessary_t2_rate: number | null;
+  readonly agents: readonly PantheonAgentSummary[];
 }
 
 export interface AssuranceDetailPayload {
@@ -107,10 +133,52 @@ export function decodeConversationAssurance(value: unknown): ConversationAssuran
       model_calls: panelNonNegativeInteger(summary, "model_calls", "conversation assurance.summary"),
       cost_microusd: panelNonNegativeInteger(summary, "cost_microusd", "conversation assurance.summary"),
     },
+    pantheon: decodePantheonSummary(root["pantheon"]),
     assessments: panelArray(root["assessments"], "conversation assurance.assessments")
       .map((item, index) => decodeAssessment(item, `conversation assurance.assessments[${index}]`)),
     disputes: panelArray(root["disputes"], "conversation assurance.disputes")
       .map((item, index) => decodeDispute(item, `conversation assurance.disputes[${index}]`)),
+  };
+}
+
+function decodePantheonSummary(value: unknown): PantheonAssuranceSummary {
+  const row = panelRecord(value, "conversation assurance.pantheon");
+  const available = panelBoolean(row, "available", "conversation assurance.pantheon");
+  const nullableMetric = (key: string) =>
+    row[key] === null ? null : boundedScore(row, key, "conversation assurance.pantheon", 1);
+  const average = row["average_score"] === null
+    ? null
+    : boundedScore(row, "average_score", "conversation assurance.pantheon", 30);
+  const agents = panelArray(row["agents"], "conversation assurance.pantheon.agents")
+    .map((item, index) => {
+      const label = `conversation assurance.pantheon.agents[${index}]`;
+      const agent = panelRecord(item, label);
+      return {
+        agent: panelNonEmptyString(agent, "agent", label),
+        turns: panelNonNegativeInteger(agent, "turns", label),
+        average_score: boundedScore(agent, "average_score", label, 30),
+        minimum_score: boundedScore(agent, "minimum_score", label, 30),
+        pass: panelNonNegativeInteger(agent, "pass", label),
+        review: panelNonNegativeInteger(agent, "review", label),
+        fail: panelNonNegativeInteger(agent, "fail", label),
+        hard_zero_fail: panelNonNegativeInteger(agent, "hard_zero_fail", label),
+      };
+    });
+  if (!available && (agents.length > 0 || average !== null)) {
+    throw new Error("invalid Operator API response: unavailable Pantheon diagnostics contain measurements");
+  }
+  return {
+    available,
+    turns: panelNonNegativeInteger(row, "turns", "conversation assurance.pantheon"),
+    pass: panelNonNegativeInteger(row, "pass", "conversation assurance.pantheon"),
+    review: panelNonNegativeInteger(row, "review", "conversation assurance.pantheon"),
+    fail: panelNonNegativeInteger(row, "fail", "conversation assurance.pantheon"),
+    hard_zero_fail: panelNonNegativeInteger(row, "hard_zero_fail", "conversation assurance.pantheon"),
+    average_score: average,
+    routing_accuracy: nullableMetric("routing_accuracy"),
+    missed_t2_rate: nullableMetric("missed_t2_rate"),
+    unnecessary_t2_rate: nullableMetric("unnecessary_t2_rate"),
+    agents,
   };
 }
 

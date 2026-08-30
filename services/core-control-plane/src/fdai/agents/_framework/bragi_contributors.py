@@ -166,6 +166,10 @@ async def ask_contributors(
                 "answer": result["answer"],
                 "facts": dict(facts) if isinstance(facts, dict) else {},
             }
+            for key in ("conversation_policy", "prompt_composition"):
+                value = result.get(key)
+                if isinstance(value, dict):
+                    contribution[key] = dict(value)
             if evidence_refs:
                 contribution["evidence_refs"] = evidence_refs
             answers.append(contribution)

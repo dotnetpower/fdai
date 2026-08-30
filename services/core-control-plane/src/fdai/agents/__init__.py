@@ -55,6 +55,7 @@ from fdai.agents._framework.pantheon import (
     PANTHEON_NAMES,
     PANTHEON_SPECS,
 )
+from fdai.agents._framework.prompt_audit import PromptAuditResult, audit_agent_prompt
 from fdai.agents._framework.provider_adapters import (
     StateStoreActionRunStore,
     StateStoreAuditChainAdapter,
@@ -114,6 +115,7 @@ __all__ = [
     "SemanticToolConfig",
     "SemanticToolPlanner",
     "agent_state_evidence_ref",
+    "audit_agent_prompt",
     "Bragi",
     "CatalogReviewBindings",
     "ComposedConversationPrompt",
@@ -132,6 +134,7 @@ __all__ = [
     "InMemoryBus",
     "PantheonRegistry",
     "PantheonRuntime",
+    "PromptAuditResult",
     "RuleGenerationWorkerBindings",
     "Saga",
     "SemanticRouterConfig",

@@ -1062,6 +1062,19 @@
     ,"planningEffects": "Expected effects"
     ,"planningEvidence": "Receipts"
     ,"planningPending": "Planning phases are recorded, but no terminal plan projection is available yet."
+    ,"investigationEyebrow": "Adaptive causal investigation"
+    ,"investigationTitle": "Investigation Room"
+    ,"investigationBody": "Read-only competing hypotheses, verified observations, and bounded session evidence. Selection never grants execution authority."
+    ,"investigationRunning": "running"
+    ,"investigationIncident": "Incident"
+    ,"investigationRounds": "Rounds"
+    ,"investigationQueries": "Verified queries"
+    ,"investigationCost": "Cost units"
+    ,"investigationRound": "Round {round}"
+    ,"investigationHypotheses": "{count} active hypotheses"
+    ,"investigationNoSelection": "No observation selected"
+    ,"investigationSeparation": "Separated hypothesis pairs: {separated} of {total}"
+    ,"investigationShadow": "Shadow comparison"
   },
   "rca": {
     "subtitle": "Root-cause analysis for one incident, projected read-only from the append-only audit log. An RCA result is an evidence-backed hypothesis, never an authoritative final decision; execution eligibility stays with the safety check (risk gate) and verifier.",

@@ -362,6 +362,113 @@
         "instanceLimit": 1,
         "instancePolicy": "silent"
       }
+    },
+    {
+      "label": "conversation assurance: start supervisor",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python scripts/automation/conversation-assurance.py supervisor",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "conversation-assurance-supervisor",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^conversation-assurance-supervisor ready$",
+          "endsPattern": "^conversation-assurance-supervisor ready$"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "conversation-assurance",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "runOptions": {
+        "instanceLimit": 1,
+        "instancePolicy": "silent"
+      }
+    },
+    {
+      "label": "conversation assurance: start census",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python scripts/automation/conversation-assurance.py start --suite census",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "conversation-assurance"
+      }
+    },
+    {
+      "label": "conversation assurance: start selected agent",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python scripts/automation/conversation-assurance.py start --suite agent --agent ${input:pantheonAgent}",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "conversation-assurance"
+      }
+    },
+    {
+      "label": "conversation assurance: status",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python scripts/automation/conversation-assurance.py status",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "group": "conversation-assurance"
+      }
+    },
+    {
+      "label": "conversation assurance: stop",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python scripts/automation/conversation-assurance.py stop",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "group": "conversation-assurance"
+      }
+    },
+    {
+      "label": "conversation assurance: open latest report",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python scripts/automation/conversation-assurance.py report --top 20",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "focus": true,
+        "panel": "new",
+        "group": "conversation-assurance"
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "pantheonAgent",
+      "type": "pickString",
+      "description": "Pantheon agent to evaluate",
+      "options": [
+        "Odin",
+        "Thor",
+        "Forseti",
+        "Huginn",
+        "Heimdall",
+        "Vidar",
+        "Var",
+        "Bragi",
+        "Saga",
+        "Mimir",
+        "Norns",
+        "Muninn",
+        "Njord",
+        "Freyr",
+        "Loki"
+      ],
+      "default": "Odin"
     }
   ]
 }

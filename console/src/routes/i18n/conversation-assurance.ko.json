@@ -42,5 +42,21 @@
     "inappropriate_abstention": "부적절한 판단 보류",
     "language_quality": "언어 품질"
   },
-  "verdict": {"pass": "통과", "fail": "실패", "inconclusive": "판단 보류"}
+  "verdict": {"pass": "통과", "fail": "실패", "inconclusive": "판단 보류"},
+  "pantheon": {
+    "title": "Pantheon 대화 진단",
+    "description": "고정된 15개 Pantheon 에이전트의 프롬프트, 라우팅, 근거, 안전성 및 T2 동작을 읽기 전용 30점 척도로 표시합니다.",
+    "unavailable": "이 범위에서 사용할 수 있는 Pantheon 진단 측정값이 없습니다.",
+    "turns": "측정한 turn",
+    "average": "평균 진단 점수",
+    "routing": "담당자 라우팅 정확도",
+    "missedT2": "누락된 T2 비율",
+    "unnecessaryT2": "불필요한 T2 비율",
+    "hardZero": "중대 안전성 이탈",
+    "agent": "에이전트",
+    "minimum": "최저 점수",
+    "results": "결과",
+    "resultCounts": "통과 {pass}, 검토 {review}, 실패 {fail}",
+    "notMeasured": "측정되지 않음"
+  }
 }

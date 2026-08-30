@@ -68,6 +68,7 @@ class _Evaluator:
     model_family: str
     score: int
     rationale: str = "Supported by the supplied evidence."
+    confidence: float = 1.0
     prospective_cost_microusd: int = 2
     calls: int = 0
     saw_debate: bool = False
@@ -84,6 +85,7 @@ class _Evaluator:
             model_identity=self.model_identity,
             model_family=self.model_family,
             scores=_scores(self.score, rationale=self.rationale),
+            confidence=self.confidence,
             prompt_tokens=10,
             completion_tokens=5,
             cost_microusd=2,
@@ -144,6 +146,29 @@ async def test_mixed_family_consensus_passes_conservatively() -> None:
     assert decision.content_score == 75.0
     assert decision.cost_microusd == 4
     assert {item.rationale for item in decision.criteria} == {"Minor support gap."}
+
+
+async def test_mixed_family_review_returns_distinct_atomic_outputs() -> None:
+    first = _Evaluator("publisher-a:model-a", "family-a", 4)
+    second = _Evaluator("publisher-b:model-b", "family-b", 3)
+    reviewer = MixedFamilyAssuranceReviewer(first=first, second=second)
+
+    decision, outputs = await reviewer.review_with_outputs(_turn())
+
+    assert decision.verdict is AssuranceVerdict.PASS
+    assert tuple(output.model_family for output in outputs) == ("family-a", "family-b")
+
+
+async def test_low_confidence_evaluator_fails_closed_and_preserves_outputs() -> None:
+    first = _Evaluator("publisher-a:model-a", "family-a", 4, confidence=0.84)
+    second = _Evaluator("publisher-b:model-b", "family-b", 4)
+    reviewer = MixedFamilyAssuranceReviewer(first=first, second=second)
+
+    decision, outputs = await reviewer.review_with_outputs(_turn())
+
+    assert decision.verdict is AssuranceVerdict.INCONCLUSIVE
+    assert decision.reasons == ("evaluator_confidence_below_threshold",)
+    assert len(outputs) == 2
 
 
 async def test_disagreement_uses_one_independent_tie_break() -> None:
@@ -253,6 +278,26 @@ async def test_coordinator_caches_deterministic_assessment() -> None:
     assert first == second
     assert first.decision.verdict is AssuranceVerdict.PASS
     assert len(await ledger.list_assessments(principal_scope="principal-scope")) == 1
+
+
+async def test_coordinator_does_not_repeat_cached_semantic_review() -> None:
+    first_evaluator = _Evaluator("publisher-a:model-a", "family-a", 4)
+    second_evaluator = _Evaluator("publisher-b:model-b", "family-b", 4)
+    coordinator = ConversationAssuranceCoordinator(
+        ledger=InMemoryConversationAssuranceLedger(),
+        reviewer=MixedFamilyAssuranceReviewer(
+            first=first_evaluator,
+            second=second_evaluator,
+        ),
+        rubric_version="1.0.0",
+    )
+    turn = _turn()
+
+    first = await coordinator.assess(turn)
+    second = await coordinator.assess(turn)
+
+    assert first == second
+    assert first_evaluator.calls == second_evaluator.calls == 1
 
 
 async def test_coordinator_emits_explicit_pr_verification_timing_receipt() -> None:

@@ -417,6 +417,9 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
         )
 
     def _queue_result(self, result: StoredSemanticResult) -> None:
+        if _pantheon_assurance_payload(result.data) is not None:
+            self._queue_pantheon_result(result)
+            return
         semantic = result.data.get("semantic_result")
         if not isinstance(semantic, Mapping):
             raise ValueError("stored semantic projection is missing semantic_result")
@@ -510,6 +513,38 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
             )
         )
 
+    def _queue_pantheon_result(self, result: StoredSemanticResult) -> None:
+        done = _done_event_data(result.data, locale=self._request.locale)
+        self._settle_pending_activities(result.sequence)
+        if not _cursor_includes(self._cursor, result.sequence, "answer"):
+            for delta in _verified_answer_chunks(done.get("answer")):
+                self._stream_sequence += 1
+                self._events.append(
+                    StreamEvent(
+                        event="token",
+                        event_id=f"{result.sequence}:answer",
+                        data=cast(
+                            JsonObject,
+                            {
+                                "seq": self._stream_sequence,
+                                "revision": 0,
+                                "delta": delta,
+                            },
+                        ),
+                    )
+                )
+        if _cursor_includes(self._cursor, result.sequence, "done"):
+            return
+        self._stream_sequence += 1
+        done["seq"] = self._stream_sequence
+        self._events.append(
+            StreamEvent(
+                event="done",
+                event_id=str(result.sequence),
+                data=done,
+            )
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class SemanticTurnProjectionConsumer:
@@ -521,14 +556,15 @@ class SemanticTurnProjectionConsumer:
         """Reject malformed or evidence-incomplete results before durable projection."""
         decoded = CORE_PROJECTION_CONSUMER_V14.decode_mapping(payload)
         semantic_payload = decoded.get("semantic_result")
+        extension_payload = decoded.get("payload")
+        if not isinstance(extension_payload, dict):
+            raise ValueError("semantic projection payload MUST be an object")
         if not isinstance(semantic_payload, dict):
             raise ValueError("semantic projection MUST contain semantic_result")
         result = SemanticTurnResult.model_validate(semantic_payload)
         if decoded.get("status") != result.disposition.value:
             raise ValueError("semantic projection status MUST match result disposition")
-        extension_payload = decoded.get("payload")
-        if not isinstance(extension_payload, dict):
-            raise ValueError("semantic projection payload MUST be an object")
+        _pantheon_assurance_payload(decoded)
         rule_search = extension_payload.get("rule_search")
         if rule_search is not None:
             RuleSearchProjection.model_validate(rule_search)
@@ -903,6 +939,29 @@ def _held_projection(envelope: Mapping[str, object]) -> dict[str, object]:
         "payload": {"reason_code": "semantic_transport_unavailable"},
         "semantic_result": result_payload,
     }
+
+
+def _pantheon_assurance_payload(
+    projection: Mapping[str, object],
+) -> Mapping[str, object] | None:
+    payload = projection.get("payload")
+    assurance = payload.get("pantheon_assurance") if isinstance(payload, Mapping) else None
+    if not isinstance(assurance, Mapping):
+        return None
+    if (
+        assurance.get("schema_version") != "1.0.0"
+        or not isinstance(assurance.get("answer"), str)
+        or not assurance["answer"]
+        or not isinstance(assurance.get("assessment_id"), str)
+        or not isinstance(assurance.get("trace_receipt_id"), str)
+        or not isinstance(assurance.get("pantheon_trace"), Mapping)
+        or not isinstance(assurance.get("pantheon_observations"), Mapping)
+        or not isinstance(assurance.get("pantheon_semantic_reviews"), list)
+        or not isinstance(assurance.get("pantheon_diagnostic"), Mapping)
+        or assurance.get("execution_authority") is not False
+    ):
+        raise ValueError("Pantheon conversation assurance projection is malformed")
+    return assurance
 
 
 def _proposal_digest(proposal: ConversationProposal) -> str:

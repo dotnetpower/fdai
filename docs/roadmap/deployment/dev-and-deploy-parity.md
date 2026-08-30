@@ -260,6 +260,10 @@ the same local PostgreSQL conversation and assessment stores as deployment and a
 deterministic terminal checks. Semantic review activates only with two distinct resolved model
 families; a narrator-only or `hil-only` secondary stays inconclusive instead of using one model.
 Without the artifact, model and assurance inference remain unavailable and no fixture replaces them.
+The committed VS Code tasks start, inspect, stop, or report a Pantheon campaign only after an
+explicit operator command. Local Core binds the fixed-census diagnostic to the same PostgreSQL and
+Operator semantic transport, records the current Git revision plus task-owned source digest, and
+starts no campaign during process startup or restart.
 When PostgreSQL StateStore is configured, both profiles persist ontology-owned failed-answer
 attributions as idempotent hold-first adequacy reviews with a shadow audit record. Interactive local
 without durable state leaves the optional review sink unavailable. Neither profile performs replay,

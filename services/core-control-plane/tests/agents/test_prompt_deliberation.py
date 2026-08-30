@@ -962,6 +962,8 @@ async def test_a_metering_hiccup_never_costs_the_operator_the_answer() -> None:
     )
 
     assert result["t2_status"] == "completed"
+    assert result["t2_model_family"] == "gpt-test"
+    assert "metering_receipt_digest" not in result
 
 
 async def test_a_failed_metering_write_still_charges_the_money_it_spent() -> None:
@@ -1037,7 +1039,7 @@ async def test_a_recorded_call_states_the_currency_its_price_was_set_in() -> Non
         ),
     )
 
-    await runtime.deliberate(
+    result = await runtime.deliberate(
         question="Compare cost and capacity.",
         requester="Forseti",
         correlation_id="corr-krw",
@@ -1045,3 +1047,5 @@ async def test_a_recorded_call_states_the_currency_its_price_was_set_in() -> Non
 
     invocation = (await sink.invocations())[0]
     assert invocation.currency == "KRW"
+    assert result["t2_model_family"] == "gpt-test"
+    assert len(result["metering_receipt_digest"]) == 64

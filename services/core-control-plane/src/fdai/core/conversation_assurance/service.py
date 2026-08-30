@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from fdai.core.conversation_assurance.consensus import MixedFamilyAssuranceReviewer
@@ -15,8 +16,10 @@ from fdai.core.conversation_assurance.models import (
     AssessmentState,
     AssuranceDecision,
     AssuranceVerdict,
+    EvaluatorOutput,
     TurnAssessmentInput,
 )
+from fdai.core.conversation_assurance.pantheon_scorecard import PantheonTurnDiagnostic
 from fdai.core.conversation_assurance.quality_latency import (
     LatencyEnvironment,
     LatencySampleOutcome,
@@ -24,6 +27,15 @@ from fdai.core.conversation_assurance.quality_latency import (
     LatencyStageReceipt,
     latency_sample_from_stage_receipt,
 )
+
+
+@dataclass(frozen=True, slots=True)
+class AssuranceReview:
+    """One bounded review result retained until its diagnostic is assembled."""
+
+    decision: AssuranceDecision
+    model_set_digest: str
+    evaluator_outputs: tuple[EvaluatorOutput, ...] = ()
 
 
 class ConversationAssuranceCoordinator:
@@ -54,7 +66,35 @@ class ConversationAssuranceCoordinator:
         self._deterministic_timing_sink = deterministic_timing_sink
         self._monotonic_ns = monotonic_ns or time.monotonic_ns
 
-    async def assess(self, turn: TurnAssessmentInput) -> AssessmentRecord:
+    async def assess(
+        self,
+        turn: TurnAssessmentInput,
+        *,
+        pantheon_diagnostic: PantheonTurnDiagnostic | None = None,
+    ) -> AssessmentRecord:
+        model_set_digest = self._reviewer.model_set_digest if self._reviewer else "none"
+        assessment_id = _assessment_id(
+            turn,
+            rubric_version=self._rubric_version,
+            model_set_digest=model_set_digest,
+            pantheon_diagnostic=pantheon_diagnostic,
+        )
+        existing = await self._ledger.get_assessment(
+            principal_scope=turn.principal_scope,
+            assessment_id=assessment_id,
+        )
+        if existing is not None:
+            return existing
+        review = await self.review(turn)
+        return await self.persist(
+            turn,
+            review,
+            pantheon_diagnostic=pantheon_diagnostic,
+        )
+
+    async def review(self, turn: TurnAssessmentInput) -> AssuranceReview:
+        """Evaluate one turn once without persisting an incomplete diagnostic."""
+
         if self._deterministic_timing_sink is None:
             deterministic = assess_deterministically(turn)
         else:
@@ -67,17 +107,6 @@ class ConversationAssuranceCoordinator:
                 completed_monotonic_ns=completed_monotonic_ns,
             )
         model_set_digest = self._reviewer.model_set_digest if self._reviewer else "none"
-        assessment_id = _assessment_id(
-            turn,
-            rubric_version=self._rubric_version,
-            model_set_digest=model_set_digest,
-        )
-        existing = await self._ledger.get_assessment(
-            principal_scope=turn.principal_scope,
-            assessment_id=assessment_id,
-        )
-        if existing is not None:
-            return existing
         if deterministic.verdict is not None:
             decision = AssuranceDecision(
                 verdict=deterministic.verdict,
@@ -87,6 +116,7 @@ class ConversationAssuranceCoordinator:
                 ),
                 reasons=deterministic.reasons,
             )
+            outputs: tuple[EvaluatorOutput, ...] = ()
         elif self._reviewer is None:
             decision = AssuranceDecision(
                 verdict=AssuranceVerdict.INCONCLUSIVE,
@@ -94,8 +124,52 @@ class ConversationAssuranceCoordinator:
                 confidence=0.0,
                 reasons=("mixed_family_reviewer_unavailable",),
             )
+            outputs = ()
         else:
-            decision = await self._reviewer.review(turn)
+            decision, outputs = await self._reviewer.review_with_outputs(turn)
+        return AssuranceReview(
+            decision=decision,
+            model_set_digest=model_set_digest,
+            evaluator_outputs=outputs,
+        )
+
+    async def persist(
+        self,
+        turn: TurnAssessmentInput,
+        review: AssuranceReview,
+        *,
+        pantheon_diagnostic: PantheonTurnDiagnostic | None = None,
+    ) -> AssessmentRecord:
+        """Append one reviewed turn after all correlated diagnostics are complete."""
+
+        decision = review.decision
+        if pantheon_diagnostic is not None:
+            decision = AssuranceDecision(
+                verdict=decision.verdict,
+                content_score=decision.content_score,
+                confidence=decision.confidence,
+                criteria=decision.criteria,
+                reasons=decision.reasons,
+                evaluator_identities=decision.evaluator_identities,
+                disagreement=decision.disagreement,
+                model_calls=decision.model_calls,
+                prompt_tokens=decision.prompt_tokens,
+                completion_tokens=decision.completion_tokens,
+                cost_microusd=decision.cost_microusd,
+                pantheon_diagnostic=pantheon_diagnostic,
+            )
+        assessment_id = _assessment_id(
+            turn,
+            rubric_version=self._rubric_version,
+            model_set_digest=review.model_set_digest,
+            pantheon_diagnostic=pantheon_diagnostic,
+        )
+        existing = await self._ledger.get_assessment(
+            principal_scope=turn.principal_scope,
+            assessment_id=assessment_id,
+        )
+        if existing is not None:
+            return existing
         state = (
             AssessmentState.DEFERRED
             if "model_budget_deferred" in decision.reasons
@@ -110,7 +184,7 @@ class ConversationAssuranceCoordinator:
             answer_digest=turn.answer_digest,
             evidence_manifest_digest=turn.evidence_manifest_digest,
             rubric_version=self._rubric_version,
-            model_set_digest=model_set_digest,
+            model_set_digest=review.model_set_digest,
             decision=decision,
             assessed_at=self._now(),
             state=state,
@@ -162,6 +236,7 @@ def _assessment_id(
     *,
     rubric_version: str,
     model_set_digest: str,
+    pantheon_diagnostic: PantheonTurnDiagnostic | None,
 ) -> str:
     material = "\0".join(
         (
@@ -174,6 +249,7 @@ def _assessment_id(
             str(turn.evidence_complete),
             rubric_version,
             model_set_digest,
+            pantheon_diagnostic.content_digest if pantheon_diagnostic is not None else "",
         )
     )
     return "conversation-assessment:" + hashlib.sha256(material.encode()).hexdigest()
@@ -183,4 +259,4 @@ def _digest_parts(*values: str) -> str:
     return hashlib.sha256("\0".join(values).encode()).hexdigest()
 
 
-__all__ = ["ConversationAssuranceCoordinator"]
+__all__ = ["AssuranceReview", "ConversationAssuranceCoordinator"]

@@ -135,6 +135,17 @@ class SemanticTurnRuntime(Protocol):
     ) -> RuntimeSemanticTurnResult: ...
 
 
+class PantheonAssuranceRuntime(Protocol):
+    """Produce one fixed-census answer and its authoritative diagnostic payload."""
+
+    async def evaluate(
+        self,
+        request: SemanticTurnRequest,
+        *,
+        case_id: str,
+    ) -> Mapping[str, object]: ...
+
+
 class SemanticTurnResultStore(Protocol):
     """Atomically retain the canonical projection for one idempotency key."""
 
@@ -165,6 +176,7 @@ class SemanticTurnProcessor:
         runtime: SemanticTurnRuntime | None,
         results: SemanticTurnResultStore,
         purpose: str = "operations-review",
+        pantheon_assurance: PantheonAssuranceRuntime | None = None,
         now: Callable[[], datetime] | None = None,
     ) -> None:
         if not purpose:
@@ -172,7 +184,15 @@ class SemanticTurnProcessor:
         self._runtime = runtime
         self._results = results
         self._purpose = purpose
+        self._pantheon_assurance = pantheon_assurance
         self._now = now or (lambda: datetime.now(UTC))
+
+    def bind_pantheon_assurance(self, runtime: PantheonAssuranceRuntime) -> None:
+        """Bind the diagnostic runtime once before consumer tasks start."""
+
+        if self._pantheon_assurance is not None:
+            raise RuntimeError("Pantheon conversation assurance is already bound")
+        self._pantheon_assurance = runtime
 
     async def process(
         self,
@@ -184,7 +204,8 @@ class SemanticTurnProcessor:
 
         envelope, request, requested_at = _decode_request(payload)
         principal = _principal(request)
-        if request.purpose != self._purpose:
+        assurance_case_id = _pantheon_assurance_case_id(request.purpose)
+        if request.purpose != self._purpose and assurance_case_id is None:
             raise SemanticTurnRejectedError("semantic_purpose_not_allowed")
 
         idempotency_key = str(envelope["idempotency_key"])
@@ -219,6 +240,7 @@ class SemanticTurnProcessor:
                 idempotency_key=idempotency_key,
                 request_digest=request_digest,
                 cancelled=cancelled,
+                assurance_case_id=assurance_case_id,
             )
         )
         cancellation_task = asyncio.create_task(cancelled.wait()) if cancelled is not None else None
@@ -274,6 +296,7 @@ class SemanticTurnProcessor:
         idempotency_key: str,
         request_digest: str,
         cancelled: asyncio.Event | None,
+        assurance_case_id: str | None,
     ) -> bytes:
         try:
             prior = await self._results.get(idempotency_key)
@@ -319,19 +342,27 @@ class SemanticTurnProcessor:
         claim_finalized = False
         try:
             try:
-                result, extensions = await self._execute(
-                    request=request,
-                    requested_at=requested_at,
-                    principal=principal,
-                    cancelled=cancelled,
-                )
-                projection = self._projection(
-                    envelope,
-                    request,
-                    result,
-                    extensions=extensions,
-                    request_digest=request_digest,
-                )
+                if assurance_case_id is None:
+                    result, extensions = await self._execute(
+                        request=request,
+                        requested_at=requested_at,
+                        principal=principal,
+                        cancelled=cancelled,
+                    )
+                    projection = self._projection(
+                        envelope,
+                        request,
+                        result,
+                        extensions=extensions,
+                        request_digest=request_digest,
+                    )
+                else:
+                    projection = await self._pantheon_assurance_projection(
+                        envelope,
+                        request,
+                        case_id=assurance_case_id,
+                        request_digest=request_digest,
+                    )
                 created = await self._results.put_if_absent(idempotency_key, projection)
                 if created:
                     claim_finalized = True
@@ -544,6 +575,66 @@ class SemanticTurnProcessor:
             "payload": payload,
             "evidence_digest": evidence_digest,
             "semantic_result": semantic_result,
+        }
+        return OPERATOR_PROJECTION_PRODUCER_V14.encode(projection)
+
+    async def _pantheon_assurance_projection(
+        self,
+        envelope: Mapping[str, Any],
+        request: SemanticTurnRequest,
+        *,
+        case_id: str,
+        request_digest: str,
+    ) -> bytes:
+        runtime = self._pantheon_assurance
+        if runtime is None:
+            return self._held_projection(
+                envelope,
+                request,
+                request_digest=request_digest,
+                reason_code="semantic_runtime_unavailable",
+            )
+        result = dict(await runtime.evaluate(request, case_id=case_id))
+        _validate_pantheon_assurance_result(result)
+        evidence_digest = content_digest(
+            {
+                "assessment_id": result["assessment_id"],
+                "trace_receipt_id": result["trace_receipt_id"],
+                "pantheon_diagnostic": result["pantheon_diagnostic"],
+            }
+        )
+        projection_time = _aware_utc(self._now(), field="semantic processor clock")
+        recorded_at = projection_time.replace(
+            microsecond=(projection_time.microsecond // 1000) * 1000,
+        )
+        projection_id = str(
+            uuid5(
+                _PROJECTION_NAMESPACE,
+                f"{envelope['request_id']}\0{evidence_digest}",
+            )
+        )
+        fallback = _terminal_result(
+            request,
+            "held",
+            "semantic_runtime_unavailable",
+        ).model_dump(mode="json", exclude_none=True)
+        projection = {
+            "schema_version": "1.4.0",
+            "projection_id": projection_id,
+            "request_id": envelope["request_id"],
+            "correlation_id": envelope["correlation_id"],
+            "idempotency_key": envelope["idempotency_key"],
+            "status": "held",
+            "recorded_at": recorded_at.isoformat(timespec="milliseconds"),
+            "payload": {
+                "request_kind": "pantheon_conversation_assurance",
+                "request_digest": request_digest,
+                "pantheon_assurance": result,
+            },
+            "evidence_digest": evidence_digest,
+            # Keep the current semantic result shape so an older Operator
+            # consumer safely renders a hold during a consumer-first rollout.
+            "semantic_result": fallback,
         }
         return OPERATOR_PROJECTION_PRODUCER_V14.encode(projection)
 
@@ -3875,6 +3966,35 @@ def _canonical_projection(encoded: bytes, *, request_digest: str) -> bytes:
     return OPERATOR_PROJECTION_PRODUCER_V14.encode(loaded)
 
 
+def _pantheon_assurance_case_id(purpose: str) -> str | None:
+    prefix = "conversation-assurance:"
+    if not purpose.startswith(prefix):
+        return None
+    case_id = purpose.removeprefix(prefix)
+    if not case_id or len(case_id) > 192:
+        raise SemanticTurnRejectedError("conversation_assurance_case_invalid")
+    return case_id
+
+
+def _validate_pantheon_assurance_result(result: Mapping[str, object]) -> None:
+    required_mappings = (
+        "pantheon_trace",
+        "pantheon_observations",
+        "pantheon_diagnostic",
+    )
+    if (
+        result.get("schema_version") != "1.0.0"
+        or not isinstance(result.get("answer"), str)
+        or not result["answer"]
+        or not isinstance(result.get("assessment_id"), str)
+        or not isinstance(result.get("trace_receipt_id"), str)
+        or any(not isinstance(result.get(key), Mapping) for key in required_mappings)
+        or not isinstance(result.get("pantheon_semantic_reviews"), list)
+        or result.get("execution_authority") is not False
+    ):
+        raise ValueError("Pantheon conversation assurance result is malformed")
+
+
 def _aware_utc(value: datetime, *, field: str) -> datetime:
     if value.tzinfo is None or value.utcoffset() is None:
         raise SemanticTurnRejectedError(f"{field.replace(' ', '_')}_invalid")
@@ -3882,6 +4002,7 @@ def _aware_utc(value: datetime, *, field: str) -> datetime:
 
 
 __all__ = [
+    "PantheonAssuranceRuntime",
     "SemanticTurnProcessor",
     "SemanticTurnRejectedError",
     "SemanticTurnResultStore",

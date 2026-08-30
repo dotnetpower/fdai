@@ -15,6 +15,7 @@ from typing import Any, Protocol, cast
 import psycopg
 from psycopg.rows import dict_row
 
+from fdai_operator_service.conversation_assurance_diagnostics import pantheon_projection
 from fdai_operator_service.families.conversation.contracts import (
     ConversationEventStream,
     ConversationProjectionReader,
@@ -84,13 +85,14 @@ class ConversationAssuranceReader:
         return await self.fallback.open(request)
 
     async def _list(self, principal_scope: str) -> JsonObject:
-        assessments = await self._assessment_rows(principal_scope, limit=200)
+        assessment_rows = await self._assessment_rows(principal_scope, limit=1_000)
         disputes = await self._dispute_rows(principal_scope, limit=200)
         summary_rows = await self._summary_rows(principal_scope)
         if len(summary_rows) != 1:
             raise ConversationUnavailableError("conversation assurance summary is unavailable")
         summary = summary_rows[0]
-        projected = [_assessment(row) for row in assessments]
+        projected_diagnostics = [_assessment(row, include_pantheon=True) for row in assessment_rows]
+        projected = [_assessment(row, include_pantheon=False) for row in assessment_rows[:200]]
         return cast(
             JsonObject,
             {
@@ -131,6 +133,7 @@ class ConversationAssuranceReader:
                         "conversation assurance cost",
                     ),
                 },
+                "pantheon": pantheon_projection(projected_diagnostics),
                 "assessments": projected,
                 "disputes": [_dispute(row) for row in disputes],
             },
@@ -233,7 +236,11 @@ class ConversationAssuranceReader:
             ) from exc
 
 
-def _assessment(row: Mapping[str, object]) -> dict[str, object]:
+def _assessment(
+    row: Mapping[str, object],
+    *,
+    include_pantheon: bool = True,
+) -> dict[str, object]:
     decision = _mapping(row["decision"], "conversation assurance decision")
     required = {
         "verdict",
@@ -253,12 +260,15 @@ def _assessment(row: Mapping[str, object]) -> dict[str, object]:
         raise ConversationUnavailableError(
             f"conversation assurance decision is missing fields: {', '.join(missing)}"
         )
+    projected_decision = dict(decision)
+    if not include_pantheon:
+        projected_decision.pop("pantheon_diagnostic", None)
     return {
         "assessment_id": str(row["assessment_id"]),
         "turn_id": str(row["turn_id"]),
         "conversation_id": str(row["conversation_id"]),
         "state": str(row["state"]),
-        **decision,
+        **projected_decision,
         "rubric_version": str(row["rubric_version"]),
         "assessed_at": _timestamp(row["assessed_at"]),
     }

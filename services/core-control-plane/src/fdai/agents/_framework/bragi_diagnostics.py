@@ -45,18 +45,44 @@ def attach_pantheon_diagnostics(
         else ()
     )
     primary = decision.primary_agent
-    participant = (
-        (
+    participants: list[dict[str, str]] = []
+    if primary is not None:
+        participants.append(
             {
                 "agent": primary,
                 "prompt_version": str(policy.get("version") or "unavailable"),
                 "prompt_sha256": str(policy.get("prompt_sha256") or _digest("unavailable")),
                 "situation": str(composition.get("situation") or "operator:direct:T0:en"),
-            },
+            }
         )
-        if primary is not None
-        else ()
-    )
+    contributor_answers = answer.get("contributor_answers")
+    if isinstance(contributor_answers, list):
+        for contribution in contributor_answers:
+            if not isinstance(contribution, Mapping):
+                continue
+            contributor_policy = contribution.get("conversation_policy")
+            contributor_composition = contribution.get("prompt_composition")
+            if not isinstance(contributor_policy, Mapping) or not isinstance(
+                contributor_composition, Mapping
+            ):
+                continue
+            agent = contribution.get("agent")
+            if not isinstance(agent, str):
+                continue
+            participants.append(
+                {
+                    "agent": agent,
+                    "prompt_version": str(contributor_policy.get("version") or "unavailable"),
+                    "prompt_sha256": str(
+                        contributor_policy.get("prompt_sha256") or _digest("unavailable")
+                    ),
+                    "situation": str(
+                        contributor_composition.get("situation") or "peer:contributor:T1:en"
+                    ),
+                }
+            )
+            if len(participants) >= 3:
+                break
     verification_status = str(answer.get("verification_status") or "unverified")
     verification_authority = str(answer.get("verification_authority") or "agent_owned_projection")
     answer["pantheon_trace_fragment"] = {
@@ -71,7 +97,7 @@ def attach_pantheon_diagnostics(
         "semantic_margin": decision.semantic_margin,
         "contributors": contributors,
         "handoff_owner": primary if answer.get("handoff_needed") else None,
-        "participants": participant,
+        "participants": tuple(participants),
         "tool_ids": tool_ids,
         "evidence_ref_digests": tuple(_digest(value) for value in evidence_refs),
         "evidence_manifest_digest": _digest(_canonical(fact_mapping)),

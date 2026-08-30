@@ -42,5 +42,21 @@
     "inappropriate_abstention": "Inappropriate abstention",
     "language_quality": "Language quality"
   },
-  "verdict": {"pass": "Pass", "fail": "Fail", "inconclusive": "Inconclusive"}
+  "verdict": {"pass": "Pass", "fail": "Fail", "inconclusive": "Inconclusive"},
+  "pantheon": {
+    "title": "Pantheon conversation diagnostics",
+    "description": "Read-only 30-point prompt, routing, evidence, safety, and T2 measurements for the fixed 15-agent Pantheon.",
+    "unavailable": "No Pantheon diagnostic measurements are available for this scope.",
+    "turns": "Measured turns",
+    "average": "Average diagnostic score",
+    "routing": "Owner routing accuracy",
+    "missedT2": "Missed T2 rate",
+    "unnecessaryT2": "Unnecessary T2 rate",
+    "hardZero": "Critical safety escapes",
+    "agent": "Agent",
+    "minimum": "Minimum score",
+    "results": "Results",
+    "resultCounts": "{pass} pass, {review} review, {fail} fail",
+    "notMeasured": "Not measured"
+  }
 }

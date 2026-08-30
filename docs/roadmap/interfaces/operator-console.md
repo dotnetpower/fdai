@@ -37,6 +37,7 @@ Three properties follow directly:
 
 Completed answers also enter the off-path [Conversation Assurance](../decisioning/conversation-assurance.md) loop. JSON and SSE adapters share the typed conversation-turn service and extracted request setup, evidence, progress, verification, and terminal-delivery helpers while preserving their existing wire contracts.
 Terminal intake preserves the exact verification reason and evidence-manifest completeness. Outcome summaries, context selection, Azure investigations, durable delivery, and attachment evidence remain owned by their typed providers; adapter modules only coordinate presentation and persistence.
+An explicit fixed-census diagnostic request uses a bounded `conversation-assurance:<case-id>` purpose. Core validates the case, question, and locale against its server-owned census before Bragi answers. The resulting `done` event carries the answer and content-free diagnostic fields; ordinary `operations-review` requests retain the existing semantic result contract.
 The version 1.2 semantic projection preserves this boundary across the service split: `answered` requires exact release, principal manifest, plan, execution receipt, and evidence references; unavailable dependencies return a typed limitation.
 The Process journal can also project an adaptive Investigation Room. Operator rechecks the Process
 revision and nested content digests before returning it, and the Console validates the same identity

@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 4fd0b951926828a3e4f35c0ac6c77dcf13ac9263
+translation_source_sha: 521b1d08ff0003f88bee1200c46c90d01bb526fa
 translation_revised: 2026-08-30
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -257,6 +257,10 @@ Assurance는 배포와 같은 로컬 대화 및 평가 저장소를 사용하고
 검사를 항상 실행합니다. 의미 검토는 서로 다른 resolved 모델 계열이 둘 이상일 때만
 활성화되며 narrator-only 또는 `hil-only` 보조는 단일 모델 대신 inconclusive를 유지합니다.
 산출물이 없으면 모델 및 assurance inference는 사용 불가이며 고정본으로 대체하지 않습니다.
+커밋된 VS Code 작업은 운영자의 명시적 명령이 있을 때만 Pantheon 캠페인을 시작하고, 상태를
+확인하고, 중지하거나 보고합니다. 로컬 Core는 고정 census 진단을 같은 PostgreSQL 및 Operator
+의미 전송 경로에 연결하고, 현재 Git 리비전과 작업 소유 소스 다이제스트를 기록하며, 프로세스
+시작 또는 재시작 중에는 캠페인을 시작하지 않습니다.
 PostgreSQL StateStore가 구성되면 두 프로파일은 ontology-owned failed-answer 귀속을 shadow
 감사 기록이 있는 멱등적 hold-first adequacy 검토로 저장합니다. 영속 상태가 없는
 interactive 로컬은 선택적 검토 싱크를 사용 불가로 유지합니다. 어느 프로파일도 이 intake

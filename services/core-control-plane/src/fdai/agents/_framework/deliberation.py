@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 import logging
 import re
 from collections.abc import Awaitable, Callable, Sequence
@@ -383,7 +384,10 @@ class ConversationDeliberator:
             return result
         conclusion = outcome.conclusion if isinstance(outcome, SynthesisOutcome) else None
         if isinstance(outcome, SynthesisOutcome):
-            await self._meter(outcome, correlation_id=budget_key)
+            result["t2_model_family"] = outcome.model_key or None
+            metering_receipt_digest = await self._meter(outcome, correlation_id=budget_key)
+            if metering_receipt_digest is not None:
+                result["metering_receipt_digest"] = metering_receipt_digest
         if not isinstance(conclusion, str) or not conclusion.strip():
             result["t2_status"] = "abstained"
         elif len(conclusion) > _MAX_T2_CONCLUSION_CHARS:
@@ -413,7 +417,7 @@ class ConversationDeliberator:
             snapshot["max_cost_microusd_per_correlation"] = cost_bound
         return snapshot
 
-    async def _meter(self, outcome: SynthesisOutcome, *, correlation_id: str) -> None:
+    async def _meter(self, outcome: SynthesisOutcome, *, correlation_id: str) -> str | None:
         """Record the measured call so the spend is auditable and charged.
 
         An unmeasured provider is honestly unmeasured: nothing is
@@ -427,7 +431,7 @@ class ConversationDeliberator:
         """
         sink = self._metering
         if sink is None or outcome.usage is None or not outcome.model_key:
-            return
+            return None
         # The currency is whatever the price list says it is. A fork may
         # price in its own currency, so stamping USD on a KRW price would
         # put a number in the audit trail that means something else.
@@ -453,6 +457,19 @@ class ConversationDeliberator:
                 "pantheon_t2_metering_failed",
                 extra={"correlation_id": correlation_id},
             )
+            return None
+        material = json.dumps(
+            {
+                "capability_id": invocation.capability_id,
+                "correlation_id": invocation.correlation_id,
+                "model_key": invocation.model_key,
+                "prompt_tokens": invocation.usage.prompt_tokens,
+                "completion_tokens": invocation.usage.completion_tokens,
+            },
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        return hashlib.sha256(material.encode()).hexdigest()
 
 
 def _claim(agent_name: str, response: dict[str, Any] | None) -> DeliberationClaim | None:

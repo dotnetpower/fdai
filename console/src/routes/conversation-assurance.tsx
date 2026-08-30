@@ -19,6 +19,7 @@ import {
   type AssuranceDetailPayload,
   type AssuranceVerdict,
   type ConversationAssurancePayload,
+  type PantheonAssuranceSummary,
 } from "./conversation-assurance.model";
 import { t } from "./i18n/conversation-assurance";
 
@@ -121,6 +122,7 @@ function AssuranceBody({
         <KpiCard evidenceState={evidenceState} href={href} label={t("assurance.average")} value={data.summary.average_content_score === null ? kpiEvidenceLabel("insufficient-sample") : `${data.summary.average_content_score.toFixed(1)}/100`} />
         <KpiCard evidenceState={evidenceState} href={`${routeHref("conversation-assurance")}#disputes`} label={t("assurance.disputes")} value={data.summary.total ? data.summary.disputes : kpiEvidenceLabel("insufficient-sample")} />
       </KpiGrid>
+      <PantheonSummary summary={data.pantheon} />
       <AssessmentTable assessments={data.assessments} onSelect={onSelect} />
       <AssessmentDetail auth={auth} client={client} assessment={selected} onRefresh={onRefresh} />
       <section id="disputes" class="stack">
@@ -134,6 +136,51 @@ function AssuranceBody({
       </section>
     </div>
   );
+}
+
+function PantheonSummary({ summary }: { readonly summary: PantheonAssuranceSummary }) {
+  return (
+    <section id="pantheon-diagnostics" class="stack">
+      <h2>{t("assurance.pantheon.title")}</h2>
+      <p>{t("assurance.pantheon.description")}</p>
+      {!summary.available ? <p>{t("assurance.pantheon.unavailable")}</p> : (
+        <>
+          <KpiGrid>
+            <KpiCard evidenceState="measured" href="#pantheon-agents" label={t("assurance.pantheon.turns")} value={summary.turns} />
+            <KpiCard evidenceState="measured" href="#pantheon-agents" label={t("assurance.pantheon.average")} value={formatPantheonScore(summary.average_score)} />
+            <KpiCard evidenceState="measured" href="#pantheon-agents" label={t("assurance.pantheon.routing")} value={formatRate(summary.routing_accuracy)} />
+            <KpiCard evidenceState="measured" href="#pantheon-agents" label={t("assurance.pantheon.missedT2")} value={formatRate(summary.missed_t2_rate)} tone={summary.missed_t2_rate ? "warning" : "positive"} />
+            <KpiCard evidenceState="measured" href="#pantheon-agents" label={t("assurance.pantheon.unnecessaryT2")} value={formatRate(summary.unnecessary_t2_rate)} tone={summary.unnecessary_t2_rate ? "warning" : "positive"} />
+            <KpiCard evidenceState="measured" href="#pantheon-agents" label={t("assurance.pantheon.hardZero")} value={summary.hard_zero_fail} tone={pantheonSafetyTone(summary.hard_zero_fail)} />
+          </KpiGrid>
+          <div id="pantheon-agents" class="scroll">
+            <table class="data-table">
+              <thead><tr><th scope="col">{t("assurance.pantheon.agent")}</th><th scope="col">{t("assurance.pantheon.turns")}</th><th scope="col">{t("assurance.pantheon.average")}</th><th scope="col">{t("assurance.pantheon.minimum")}</th><th scope="col">{t("assurance.pantheon.results")}</th></tr></thead>
+              <tbody>{summary.agents.map((item) => (
+                <tr key={item.agent}>
+                  <td>{item.agent}</td><td>{item.turns}</td>
+                  <td>{item.average_score.toFixed(1)}/30</td><td>{item.minimum_score}/30</td>
+                  <td>{t("assurance.pantheon.resultCounts", { pass: item.pass, review: item.review, fail: item.fail + item.hard_zero_fail })}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+function formatRate(value: number | null): string {
+  return value === null ? t("assurance.pantheon.notMeasured") : `${(value * 100).toFixed(1)}%`;
+}
+
+export function formatPantheonScore(value: number | null): string {
+  return value === null ? t("assurance.pantheon.notMeasured") : `${value.toFixed(1)}/30`;
+}
+
+export function pantheonSafetyTone(hardZeroCount: number): "danger" | "positive" {
+  return hardZeroCount > 0 ? "danger" : "positive";
 }
 
 function AssessmentTable({ assessments, onSelect }: { readonly assessments: readonly AssuranceAssessment[]; readonly onSelect: (value: string) => void }) {

@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: d73b3e108d179c8bc9aff415cee1a36aa899711d
+translation_source_sha: 5439dc4f50b7106f2df055e44a5600efcda70d28
 translation_revised: 2026-08-30
 ---
 # 판테온 대화형 숙의
@@ -29,6 +29,11 @@ situational 계층을 더해 자신의 프롬프트를 조립합니다.
 선택을 요구하고 기본 position 하나와 peer 비평을 실행합니다. 결정론적 답변 평가는 같은
 identity의 범위가 제한된 high-signal fact를 비교합니다. 검증된 충돌이 있을 때만 선택적인
 composition-bound T2 synthesizer를 호출할 수 있습니다.
+
+명시적 대화 품질 보증 캠페인도 같은 공개 Bragi 경계를 사용합니다. 콘텐츠가 없는 추적은
+성공적으로 참여한 각 에이전트의 유효 프롬프트 다이제스트를 기록합니다. T2 추적은 주입된 계량
+저장소가 측정된 호출을 수락한 뒤에만 계량 증적 다이제스트를 포함합니다. 이 진단은 표현 전용이며
+실행, 승인, 판정 또는 승격 권한을 부여하지 않습니다.
 
 ## 상황별 프롬프트 조립
 

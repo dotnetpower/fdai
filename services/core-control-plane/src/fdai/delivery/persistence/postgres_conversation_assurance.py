@@ -18,6 +18,7 @@ from fdai.core.conversation_assurance import (
     CriterionScore,
     DisputeReason,
     DisputeRecord,
+    PantheonTurnDiagnostic,
 )
 from fdai.core.conversation_assurance.ledger import same_dispute_request
 
@@ -214,7 +215,7 @@ class PostgresConversationAssuranceLedger:
 
 
 def _decision_mapping(decision: AssuranceDecision) -> dict[str, object]:
-    return {
+    result: dict[str, object] = {
         "verdict": decision.verdict.value,
         "content_score": decision.content_score,
         "confidence": decision.confidence,
@@ -235,6 +236,9 @@ def _decision_mapping(decision: AssuranceDecision) -> dict[str, object]:
         "completion_tokens": decision.completion_tokens,
         "cost_microusd": decision.cost_microusd,
     }
+    if decision.pantheon_diagnostic is not None:
+        result["pantheon_diagnostic"] = decision.pantheon_diagnostic.to_dict()
+    return result
 
 
 def _assessment(row: dict[str, Any]) -> AssessmentRecord:
@@ -260,6 +264,11 @@ def _assessment(row: dict[str, Any]) -> AssessmentRecord:
         prompt_tokens=int(raw["prompt_tokens"]),
         completion_tokens=int(raw["completion_tokens"]),
         cost_microusd=int(raw["cost_microusd"]),
+        pantheon_diagnostic=(
+            PantheonTurnDiagnostic.from_mapping(raw["pantheon_diagnostic"])
+            if isinstance(raw.get("pantheon_diagnostic"), dict)
+            else None
+        ),
     )
     return AssessmentRecord(
         assessment_id=str(row["assessment_id"]),

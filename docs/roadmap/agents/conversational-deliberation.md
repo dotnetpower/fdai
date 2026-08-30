@@ -27,6 +27,12 @@ participant selection and runs one primary position plus peer critiques. A deter
 evaluation compares bounded high-signal facts for the same identity. Only a verified conflict can
 admit the optional composition-bound T2 synthesizer.
 
+Explicit Conversation Assurance campaigns use the same public Bragi boundary. The content-free
+trace records the effective prompt digest for each successful participant. A T2 trace includes a
+metering receipt digest only after the injected metering sink accepts the measured invocation.
+These diagnostics remain presentation-only and grant no execution, approval, judgment, or
+promotion authority.
+
 ## Situational prompt composition
 
 One static string cannot serve every turn. An operator asking in Korean, a read-only peer

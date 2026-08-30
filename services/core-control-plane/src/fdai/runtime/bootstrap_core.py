@@ -6,6 +6,7 @@ import asyncio
 import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from fdai.composition import Container
@@ -77,8 +78,12 @@ from fdai.runtime.control_loop import (
     EventBusDirectApiExecutionClient,
     _build_control_loop,
 )
+from fdai.runtime.conversation_assurance import (
+    build_runtime_pantheon_conversation_assurance,
+)
 from fdai.runtime.dynamic_evidence import bind_dynamic_evidence_from_env
 from fdai.runtime.human_assignment_reconciliation import AssignmentReconciliationWorker
+from fdai.runtime.observation_evidence import bind_executed_action_observation_from_env
 from fdai.runtime.operating_model import project_operating_model_from_env
 from fdai.runtime.providers import (
     _build_audit_store,
@@ -262,6 +267,11 @@ async def build_core_runtime(
         state_store=state_store,
         environ=environment,
     )
+    container = bind_executed_action_observation_from_env(
+        container,
+        state_store=state_store,
+        environ=environment,
+    )
     if container.graph_dynamic_simulation_request_provider is None:
         _LOGGER.info(
             "graph_dynamic_runtime_unavailable",
@@ -441,6 +451,28 @@ async def build_core_runtime(
             semantic_router_config_from_env=_semantic_router_config_from_env,
         )
     )
+    if semantic.semantic_turn_binding is not None:
+        llm_bindings = container.llm_bindings
+        pantheon_assurance = build_runtime_pantheon_conversation_assurance(
+            pantheon=resources.pantheon.runtime,
+            repo_root=Path(__file__).resolve().parents[5],
+            environment=dict(environment),
+            dsn=environment.get("FDAI_STATE_STORE_DSN"),
+            resolved_models_path=container.config.llm.resolved_models_path,
+            identity=identity,
+            http_client=resources.http_client,
+            pricing=(llm_bindings.conversation_pricing if llm_bindings is not None else None),
+            metering_sink=(
+                llm_bindings.conversation_metering if llm_bindings is not None else None
+            ),
+        )
+        if pantheon_assurance is not None:
+            semantic.semantic_turn_binding.processor.bind_pantheon_assurance(pantheon_assurance)
+        else:
+            _LOGGER.warning(
+                "pantheon_conversation_assurance_unavailable",
+                extra={"reason": "runtime_or_durable_source_identity_unavailable"},
+            )
     return CoreRuntime(
         container=container,
         messaging=messaging,
