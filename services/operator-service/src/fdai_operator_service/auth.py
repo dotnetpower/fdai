@@ -18,6 +18,7 @@ from fdai_service_contracts import (
 from jwt import PyJWKClient
 
 from fdai_operator_service.environment import OperatorEnvironment
+from fdai_operator_service.local_auth import LocalAzureCliIdentity, resolve_azure_cli_identity
 
 _BEARER_PREFIX = "Bearer "
 
@@ -198,5 +199,7 @@ __all__ = [
     "AuthenticationError",
     "AuthorizationError",
     "EntraJwtVerifier",
+    "LocalAzureCliIdentity",
     "OperatorAuthenticator",
+    "resolve_azure_cli_identity",
 ]

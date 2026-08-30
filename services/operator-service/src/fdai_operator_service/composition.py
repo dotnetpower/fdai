@@ -27,7 +27,12 @@ from fdai_operator_service.adapters import (
 from fdai_operator_service.adapters.narrator_periodic_scheduler import (
     PeriodicNarratorRefreshScheduler,
 )
-from fdai_operator_service.auth import EntraJwtVerifier, OperatorAuthenticator
+from fdai_operator_service.auth import (
+    EntraJwtVerifier,
+    LocalAzureCliIdentity,
+    OperatorAuthenticator,
+    resolve_azure_cli_identity,
+)
 from fdai_operator_service.azure_monitor_webhook_runtime import AzureMonitorWebhookBridge
 from fdai_operator_service.background_task_projection_runtime import (
     BackgroundTaskProjectionBridge,
@@ -62,7 +67,6 @@ from fdai_operator_service.family_adapters import (
     UnavailableWorkflowAdapters,
 )
 from fdai_operator_service.family_authorization import OperatorFamilyAuthorizer
-from fdai_operator_service.local_auth import LocalAzureCliIdentity, resolve_azure_cli_identity
 from fdai_operator_service.postgres import (
     PostgresOperatorReadModel,
     PostgresOperatorReadModelConfig,

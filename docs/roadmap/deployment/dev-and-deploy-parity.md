@@ -142,7 +142,9 @@ The explicit local Azure CLI principal alternative bootstraps through `GET /loca
 The Operator Service resolves the active interactive CLI user at startup, applies a fixed
 Contributor ceiling, and returns a browser-safe profile plus a process-local session nonce. It
 accepts that nonce only from loopback clients, and browser requests also need an exact configured
-origin. The Azure Resource Manager token remains inside the API process. Direct Psycopg stores
+origin. Production composition imports the local identity factory through the existing
+authentication module so the composition root stays below its reviewed fanout ceiling. The Azure
+Resource Manager token remains inside the API process. Direct Psycopg stores
 normalize the SQLAlchemy driver marker before connecting. Retention workers receive column-level
 `UPDATE` only on the immutable lock keys required by `FOR UPDATE SKIP LOCKED`; table-wide `UPDATE`
 remains unavailable.
