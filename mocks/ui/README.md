@@ -67,7 +67,7 @@ Knowledge surfaces (ontology + trace):
 | [rule-trace.html](rule-trace.html) | Per-correlation timeline - the full pipeline path (ingest &rarr; router &rarr; quality gate &rarr; safety check &rarr; dispatch &rarr; audit) for one event id |
 | [workflow-builder.html](workflow-builder.html) | Read-only visual view of a `when &rarr; do` workflow - ActionType palette, node/edge canvas, per-step inspector with safety facts |
 | [architecture.html](architecture.html) | Production Architecture route structure with summary metrics, observed path, selected relationship, and stored-topology boundary |
-| [handover.html](handover.html) | Agent oversight workspace with ownership coverage, stewardship facts, and identity health |
+| [agent oversight mock](handover.html) | Agent oversight workspace with ownership coverage, operational ownership (`stewardship`) facts, and identity health |
 | [capabilities.html](capabilities.html) | Capability declarations with side-effect class, default mode, eligibility, and required role |
 | [skills.html](skills.html) | Runtime skill packages, dependencies, agent eligibility, bundles, and load diagnostics |
 | [context-selection-comparisons.html](context-selection-comparisons.html) | Baseline and candidate context-policy evaluation with token, overlap, pinned-evidence, latency, and failure facts |

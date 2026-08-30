@@ -50,8 +50,10 @@ preserving public imports, deterministic gate order, and read-only authority.
 The semantic-routing baseline records each lexical owner and classifies deterministic model-output
 validation separately from semantic inference. Content-free judgment telemetry exposes profile and
 model-configuration revisions, tier, confidence, latency, outcome, and abstention rate without
-retaining utterance, context, or proposal digests. The competency fixture pins the current structural
-release and Reader manifest without claiming production readiness.
+retaining utterance, context, or proposal digests. The competency fixture pins the current
+structural release and Reader manifest as one coupled identity without claiming production
+readiness. ARB evidence fixtures use the authenticated principal context required by runtime reads,
+and Cost Governance refreshes its exact-release profile and fixture digests after additive declarations.
 Kubernetes Resource Event projections retain optional object UID, cluster, recorded time, and source
 revision fields so downstream recovery evidence can preserve identity and provenance without raw
 provider payloads.

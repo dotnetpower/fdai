@@ -19,7 +19,10 @@ from fdai.core.architecture_review import (
 )
 from fdai.core.impact_analysis import AffectedSet
 from fdai.core.ontology_platform import OntologyScenarioChangeSet
+from fdai.core.ontology_platform.functions import FunctionInvocationContext
+from fdai.core.ontology_platform.query_receipt_authority import SecuredQueryReceiptAuthority
 from fdai.core.operational_context import (
+    AuthenticatedPrincipalContext,
     OperationalContextSnapshot,
     OperationalEvidenceMaterial,
     OperationalEvidenceReadRequest,
@@ -181,9 +184,26 @@ class _EvidenceSource:
                     purpose="architecture-review",
                     scope=(context.target_resource_id,),
                     cutoff=context.cutoff,
-                )
+                ),
+                authenticated_context=_authenticated_context(),
             )
         ).bundle
+
+
+def _authenticated_context() -> AuthenticatedPrincipalContext:
+    authority = SecuredQueryReceiptAuthority(now=lambda: NOW)
+    return AuthenticatedPrincipalContext(
+        principal_ref="principal-example",
+        principal_scope_digest="sha256:" + "d" * 64,
+        purpose="architecture-review",
+        receipt_authority=authority,
+        invocation_context=FunctionInvocationContext(
+            caller_agent="Forseti",
+            caller_role="reader",
+            purposes=("architecture-review",),
+        ),
+        verification_context=authority.verification_context,
+    )
 
 
 def _change(number: str = "1") -> dict[str, object]:

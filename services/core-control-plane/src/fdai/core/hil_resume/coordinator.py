@@ -663,7 +663,7 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
         # decision is APPROVE and the delegation gate allowed it -> re-dispatch.
         is_delegated = delegation is not None and delegation.is_delegated
         action = Action.model_validate(parked["action"])
-        rule = self._rules_by_id.get(str(parked.get("rule_id") or ""))
+        rule = self._resolve_rule(parked, action=action)
         # Mark resolved BEFORE executing so a concurrent duplicate decision
         # cannot double-apply; the executor is itself idempotent by
         # idempotency_key, this is defense in depth.
@@ -728,6 +728,25 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
             delegated=is_delegated,
             assignee_oid=assignee_oid,
         )
+
+    def _resolve_rule(self, parked: Mapping[str, object], *, action: Action) -> Rule | None:
+        rule_id = str(parked.get("rule_id") or "")
+        catalog_rule = self._rules_by_id.get(rule_id)
+        if catalog_rule is not None:
+            return catalog_rule
+        if rule_id != f"operator.request.{action.action_type}":
+            return None
+        try:
+            parked_rule = Rule.model_validate(parked.get("rule"))
+        except ValueError:
+            return None
+        if (
+            parked_rule.id != rule_id
+            or parked_rule.remediates != action.action_type
+            or parked_rule.check_logic.reference != "server-validated-operator-request"
+        ):
+            return None
+        return parked_rule
 
     # ------------------------------------------------------------------
     # helpers

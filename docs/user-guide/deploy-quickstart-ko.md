@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI 최소 Azure 인벤토리를 프로비저닝하는 방법. azd 턴키와 Terraform 직접 실행 두 경로 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 3a1eaf11e91e70e663f1a40fa18cf7b37b6284b6
+translation_source_sha: 8ad0391f0fbd782cdd1bbfdd46d59ea4297b642f
 translation_revised: 2026-08-30
 ---
 
@@ -57,7 +57,8 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
   Reader만 부여하며 request 시점에 수명이 짧은 token을 취득합니다. Kubernetes bearer token을
   Terraform 또는 environment 구성에 넣지 마세요.
 - rule-watcher 스냅샷을 보존하고 초안 전용 수집 검토를 열려면
-  `enable_rule_catalog_snapshot_storage`와 기존 담당 체계 GitOps 연결을 함께 활성화하세요.
+  `enable_rule_catalog_snapshot_storage`와 기존 운영 책임(`stewardship`) GitOps 연결을 함께
+  활성화하세요.
   GitHub 자격 증명은 Key Vault 시크릿 참조만 제공합니다. Watcher identity에는 Blob 데이터
   접근과 초안 검토 권한만 있으며 카탈로그 병합 또는 작업 권한은 없습니다.
 

@@ -427,8 +427,7 @@ async def test_semantic_turn_round_trip_preserves_verified_evidence_and_principa
     assert backbone[0] == "status"
     assert backbone[-1] == "done"
     assert backbone.count("verification") == 1
-    assert set(backbone) == {"status", "verification", "token", "done"}
-    assert backbone.count("token") >= 1
+    assert set(backbone) == {"status", "verification", "done"}
     assert any(event.event == "activity" for event in events)
     assert any(event.event == "token" for event in events)
     terminal = events[-1]

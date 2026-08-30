@@ -247,6 +247,8 @@ def test_python_test_runner_isolates_database_env_by_phase(tmp_path: Path) -> No
     assert result.returncode == 0, result.stderr
     lines = recorded.read_text(encoding="utf-8").splitlines()
     assert lines[0].startswith("unset|unset|run pytest -q -m not integration")
+    assert " --cov " not in lines[0]
+    assert "--cov=services/core-control-plane/src/fdai/core/event_ingest" in lines[0]
     assert lines[1].startswith(
         "postgresql://example.invalid/fdai|postgresql://example.invalid/state|"
         "run pytest -q -m integration"

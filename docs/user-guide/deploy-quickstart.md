@@ -65,7 +65,8 @@ first, so you can review the plan before you run the separate apply step.
   Reader and acquires a short-lived token at request time. Don't put a Kubernetes bearer token in
   Terraform or environment configuration.
 - To retain rule-watcher snapshots and open draft-only collection reviews, enable
-  `enable_rule_catalog_snapshot_storage` and the existing stewardship GitOps binding together.
+  `enable_rule_catalog_snapshot_storage` and the existing operational ownership
+  (`stewardship`) GitOps binding together.
   Supply only the Key Vault secret reference for the GitHub credential. The watcher identity
   receives Blob data access and draft-review authority, but no catalog merge or action authority.
 

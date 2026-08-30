@@ -1,7 +1,7 @@
 # FDAI Cost Governance
 
 `fdai-cost-governance` is an optional FDAI distribution for reviewed Cost Governance candidate
-resources. It packages rules, policies, remediation templates, a workflow, and the exact semantic
+resources. It packages rules, policies, fix (`remediation`) templates, a workflow, and the exact semantic
 profile without adding an agent or granting approval, execution, or promotion authority.
 
 ## Layout
@@ -12,7 +12,7 @@ profile without adding an agent or granting approval, execution, or promotion au
 | `src/fdai_cost_governance/resources/manifest.json` | Canonical SHA-256 resource inventory |
 | `src/fdai_cost_governance/resources/rules/` | Inert rule candidates with stable ids |
 | `src/fdai_cost_governance/resources/policies/` | Policy candidates referenced by rules |
-| `src/fdai_cost_governance/resources/remediation/` | Remediation templates referenced by rules |
+| `src/fdai_cost_governance/resources/remediation/` | Fix templates referenced by rules |
 | `src/fdai_cost_governance/resources/workflows/` | Observation-mode workflow candidates |
 
 ## Activation boundary

@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: bb7536db02a76f22e2f61ac8467827437f441172
+translation_source_sha: 7e3d57266b45a6cb87c50c5ca74df4b4727e31e1
 translation_revised: 2026-08-30
 ---
 # 코드 맵
@@ -54,7 +54,8 @@ semantic-routing 기준선은 각 어휘 판단 소유자를 기록하고 결정
 구분합니다. 내용이 없는 판단 텔레메트리는 발화, 맥락 또는 제안 다이제스트를 보존하지 않으면서
 프로필 및 모델 구성 개정, 계층, 신뢰도, 지연 시간, 결과 및 판단 보류 비율을 제공합니다.
 competency fixture는 운영 준비 완료를 주장하지 않으면서 현재 구조 release와 Reader 매니페스트를
-고정합니다.
+하나의 결합된 신원으로 고정합니다. ARB 근거 fixture는 런타임 읽기에 필요한 인증된 principal
+context를 사용하고, Cost Governance는 선언이 추가되면 정확한 release 프로필과 fixture digest를 갱신합니다.
 Kubernetes Resource Event 변환 결과는 선택적 객체 UID, 클러스터, 기록 시각 및 출처 리비전을
 보존합니다. 따라서 후속 복구 근거는 원시 프로바이더 페이로드 없이 신원과 출처 계보를 유지할 수
 있습니다.

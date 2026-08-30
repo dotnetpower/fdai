@@ -74,7 +74,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     tasks = _load_jsonc(REPO_ROOT / ".vscode" / "tasks.json")
     assert isinstance(tasks, dict)
     tasks_by_label = {task["label"]: task for task in tasks["tasks"]}
-    assert len(tasks_by_label) == 16
+    assert len(tasks_by_label) == 17
     allowed_instance_policies = {
         "terminateNewest",
         "terminateOldest",
@@ -174,6 +174,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
         "console: start full stack",
         "console: keep full stack ready (10m)",
         "console: wait full stack ready",
+        "analyzer: run continuously (local)",
         "channel edge: Operator Slack and Teams (Local)",
     }
 

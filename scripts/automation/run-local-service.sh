@@ -117,8 +117,14 @@ if ! flock -n "$service_lock_fd"; then
       done
     fi
     if [[ "$owner_is_managed" != "1" && "$child_is_managed" != "1" ]]; then
-      echo "service ownership cannot be verified: $service" >&2
-      exit 75
+      if [[ "$restart_stale" == "1" ]] && flock -w 2 "$service_lock_fd"; then
+        owner_fingerprint=""
+        owner_cwd=""
+        child_cwd=""
+      else
+        echo "service ownership cannot be verified: $service" >&2
+        exit 75
+      fi
     fi
     if [[ "$owner_fingerprint" != "$reuse_fingerprint" ]]; then
       if [[ "$restart_stale" != "1" ]]; then

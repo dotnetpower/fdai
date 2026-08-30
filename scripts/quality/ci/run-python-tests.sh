@@ -8,12 +8,28 @@ cd "$repo_root"
 export PYTHONPATH="$repo_root/services/core-control-plane:$repo_root/services/core-control-plane/src:$repo_root/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}"
 
 coverage_args=(
-  --cov
   --cov-branch
   --cov-report=term-missing
   --cov-report=xml
   --cov-fail-under=90
 )
+mapfile -t coverage_sources < <(
+  python3 - <<'PY'
+import tomllib
+from pathlib import Path
+
+config = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+for source in config["tool"]["coverage"]["run"]["source"]:
+    print(source)
+PY
+)
+if ((${#coverage_sources[@]} == 0)); then
+  printf '%s\n' "python-tests: coverage source list is empty" >&2
+  exit 2
+fi
+for source in "${coverage_sources[@]}"; do
+  coverage_args+=(--cov="$source")
+done
 
 coverage_paths=(
   services/core-control-plane/tests/core

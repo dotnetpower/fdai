@@ -500,6 +500,8 @@ sequence fail-closed: ingest and routing normalize blank resource references bef
 rejects malformed reuse evidence, and a T2 proposal cannot bypass grounding authority when a
 provider fails. HIL approval ids and executor idempotency keys are claimed atomically, while
 per-resource locking serializes competing applies before any delivery adapter can mutate state.
+HIL resume resolves catalog rules from the current catalog and accepts a parked server-validated
+operator-request rule only when its rule id, action type, and fixed check reference still match.
 
 ![Control-Loop Wiring. The main stages are events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops.](../../diagrams/generated/fdai-roadmap-architecture-project-structure-01.en.svg)
 

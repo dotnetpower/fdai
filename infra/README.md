@@ -228,8 +228,8 @@ in a test file synthetic
 `infra-lint.yml` runs Trivy and Checkov as blocking checks without a repository-wide baseline.
 An intentional exception stays next to the exact resource and check. Its comment must identify
 the implemented compensating control, production gate, provider limitation, or managed-service
-constraint. A new finding therefore fails CI unless the source either implements the control or
-records a narrow, reviewable exception.
+constraint. A new detected issue (`finding`) therefore fails CI unless the source either implements
+the control or records a narrow, reviewable exception.
 
 Conditional development paths remain bounded by `production-gates.tf`. For example, production
 requires private networking and private PostgreSQL, while the documented Key Vault teardown

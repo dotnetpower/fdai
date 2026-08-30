@@ -53,12 +53,13 @@ def _token(
     key_id: str = _KEY_ID,
     expires: datetime | None = None,
 ) -> str:
+    issued_at = datetime.now(tz=UTC)
     return jwt.encode(
         {
             "aud": audience,
             "iss": issuer,
-            "exp": expires or (_NOW + timedelta(minutes=5)),
-            "nbf": _NOW - timedelta(seconds=5),
+            "exp": expires or (issued_at + timedelta(minutes=5)),
+            "nbf": issued_at - timedelta(seconds=5),
             "serviceurl": service_url,
         },
         _PRIVATE_KEY,

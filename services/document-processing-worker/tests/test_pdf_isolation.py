@@ -67,7 +67,12 @@ def _pdf(text: str = "Native text", *, pages: int = 1) -> bytes:
     return output.getvalue()
 
 
-def test_native_pdf_text_returns_from_the_isolated_process() -> None:
+def test_native_pdf_text_returns_from_the_isolated_process(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # pytest-cov startup instrumentation can exceed the worker's production memory limit
+    # before the spawned process reaches the PDF parser.
+    monkeypatch.delenv("COV_CORE_DATAFILE", raising=False)
     assert extract_pdf_pages_isolated(_pdf()) == ("Native text",)
 
 
