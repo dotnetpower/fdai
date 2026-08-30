@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 23ff06489d2de7b902e727df0de547fc90e20237
-translation_revised: 2026-08-30
+translation_source_sha: 7d28f5d9244bbe5ae830274babf54f8d3ea6f091
+translation_revised: 2026-08-31
 ---
 # 코드 맵
 
@@ -189,7 +189,9 @@ Azure 의미 계획 수립은 기존 `httpx` 및 `WorkloadIdentity` 어댑터를
 사용할 수 없거나 결정론적 스키마, 매니페스트, 구성 또는 계획 검증을 통과하지 못한 경우에만 T2를
 호출합니다. 각 제안은 기본 90초 예산을 가지며, 범위가 제한된 `Retry-After` 지연이 이 예산 안에
 들어올 때 제한된 후보 하나를 최대 한 번 재시도합니다. 조립은 권위 있는 프로바이더가 연결된
-핸들러만 노출합니다. 공개
+핸들러만 노출합니다. 스키마로 검증된 `cause` facet은 후보 primary intent가
+`query.resource_current_state`여도 current-state 빠른 경로가 구조화된 인과 계획을 대체하지
+못하게 합니다. 공개
 프레임 제안은 Core가 서버 소유 다이제스트를 다시 만들기 전에 shared wire 식별자 제약을
 적용합니다. 구조화된 진단은 계획 단계, 후보 인덱스, 실패 클래스 및 입력을 포함하지 않는
 검증 위치만 기록하며 운영자 텍스트와 프로바이더 상세는 제외합니다. 공개

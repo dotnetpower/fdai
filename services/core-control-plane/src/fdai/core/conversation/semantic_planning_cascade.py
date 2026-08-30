@@ -186,6 +186,7 @@ class SemanticPlanningCascade:
         if (
             semantic_judgment is not None
             and semantic_judgment.get("primary_intent") == "query.resource_current_state"
+            and "cause" not in semantic_judgment.get("requested_facets", ())
             and semantic_judgment.get("action_posture") == "advise_only"
             and semantic_judgment.get("execution_authority") is False
         ):
@@ -691,6 +692,7 @@ def _current_state_clarification_fallback(
     if (
         semantic_judgment is None
         or semantic_judgment.get("primary_intent") != "query.resource_current_state"
+        or "cause" in semantic_judgment.get("requested_facets", ())
     ):
         return None
     proposal = normalize_current_state_proposal(
