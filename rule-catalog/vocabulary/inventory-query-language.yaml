@@ -1,5 +1,5 @@
 schema_version: "1.1.0"
-version: "1.1.39"
+version: "1.1.44"
 default_scope: subscription
 default_activity_lookback_seconds: 604800
 current_requires_fresh: true
@@ -35,6 +35,14 @@ signals:
     terms: [database latency, db latency, slow database, DB 지연, 데이터베이스 지연]
   symptom_response_latency:
     terms: [response latency, response delay, slow response, 응답 지연, 응답 지연이]
+  symptom_slowness:
+    terms: [became slower, got slower, became slow, suddenly slow, slower, 갑자기 느려졌어, 느려졌어, 느려짐]
+  slowness_negation:
+    terms: [not, isn't, is not, wasn't, was not, aren't, are not, weren't, were not, don't, do not, doesn't, does not, didn't, did not, hasn't, has not, haven't, have not, hadn't, had not, can't, cannot, couldn't, could not, won't, will not, wouldn't, would not, shouldn't, should not, never, no longer, without, 안, 않아, 않음, 아니다, 아니야, 느려지지, 느려진 게 아니, 느려진 것은 아니]
+  competing_change_event:
+    terms: [restarted, restart, stopped, failed, error, timeout, deployed, deployment, 재시작, 중지, 실패, 오류, 시간 초과, 배포]
+  temporal_onset:
+    terms: [suddenly, suddenly became, 갑자기]
   hypothesis_network_latency:
     terms:
       [network latency, network cause, caused by network, 네트워크 때문, 네트워크 때문인지, 네트워크 지연]

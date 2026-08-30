@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: c6342847e78d33d93edbccbf3b1dd8fd462423bd
+translation_source_sha: 97f7bba61500e93957733e2c2e010b55c397a202
 translation_revised: 2026-08-31
 ---
 # 코드 맵
@@ -191,7 +191,10 @@ Azure 의미 계획 수립은 기존 `httpx` 및 `WorkloadIdentity` 어댑터를
 들어올 때 제한된 후보 하나를 최대 한 번 재시도합니다. 조립은 권위 있는 프로바이더가 연결된
 핸들러만 노출합니다. 스키마로 검증된 `cause` facet은 후보 primary intent가
 `query.resource_current_state`여도 current-state 빠른 경로가 구조화된 인과 계획을 대체하지
-못하게 합니다. 공개
+못하게 합니다. 누락된 exact-Resource slowness 조사는 부정되지 않고 대상 identifier 밖에 있는
+검토된 인과, 증상, 시작 span, 경쟁 change event 부재, 정확한 manifest path, 등록된 metric
+concept로만 완성합니다. Dependency-latency와 traffic-load 근거는 모두 검증된 relationship path를
+사용하며 불완전한 입력은 판단 보류 상태로 유지합니다. 공개
 프레임 제안은 Core가 서버 소유 다이제스트를 다시 만들기 전에 shared wire 식별자 제약을
 적용합니다. 구조화된 진단은 계획 단계, 후보 인덱스, 실패 클래스 및 입력을 포함하지 않는
 검증 위치만 기록하며 운영자 텍스트와 프로바이더 상세는 제외합니다. 공개

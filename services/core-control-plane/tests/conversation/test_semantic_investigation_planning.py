@@ -33,6 +33,7 @@ from fdai.core.conversation.semantic_planning import SemanticPlanningService
 from fdai.core.conversation.semantic_planning_frame_core import build_semantic_frame
 from fdai.core.conversation.semantic_planning_frame_normalization import (
     normalize_bound_latency_recovery,
+    normalize_missing_resource_slowness_investigation,
 )
 from fdai.core.conversation.semantic_planning_models import (
     BoundInvestigationContinuation,
@@ -119,6 +120,179 @@ METRICS = (
     "resource.saturation",
     "service.latency",
 )
+
+
+def test_exact_resource_slowness_completes_structured_investigation() -> None:
+    utterance = "ca-example-core가 갑자기 왜 느려졌어?"
+    proposal = SemanticFrameProposal(
+        operation="explain_change",
+        subject_constraints=("Resource", "ca-example-core"),
+        measure_concepts=(),
+        temporal_scope={},
+        output_shape="causal_evidence",
+        evidence_requirements=("support_and_refutation",),
+        unresolved_terms=(),
+        clarification_requirements=(),
+        clarification=None,
+        investigation=None,
+        confidence=0.91,
+    )
+
+    normalized = normalize_missing_resource_slowness_investigation(
+        proposal,
+        utterance=utterance,
+        descriptors=_manifest().descriptors,
+        metric_concepts=METRICS,
+        inventory_query_language=INVENTORY_LANGUAGE,
+        semantic_judgment={
+            "requested_facets": ("cause",),
+            "action_posture": "advise_only",
+            "execution_authority": False,
+        },
+    )
+
+    assert normalized.investigation is not None
+    assert normalized.investigation.entities[0].span.text == "ca-example-core"
+    assert normalized.investigation.symptom_measures[0].span.text == "느려졌어"
+    assert normalized.investigation.temporal_cues[0].span.text == "갑자기"
+    assert tuple(item.hypothesis_id for item in normalized.investigation.hypotheses) == (
+        "dependency-latency",
+        "traffic-load",
+    )
+    verified = verify_investigation_intent(
+        normalized.investigation,
+        utterance=utterance,
+        descriptors=_manifest().descriptors,
+        metric_concepts=METRICS,
+    )
+    plan = compile_investigation_plan(
+        verified,
+        manifest=_manifest(),
+        verifier=_verifier(),
+        windows=InvestigationTimeWindows(
+            baseline_start=NOW - timedelta(minutes=30),
+            baseline_end=NOW - timedelta(minutes=15),
+            current_start=NOW - timedelta(minutes=15),
+            current_end=NOW,
+            known_at=NOW,
+        ),
+        purpose="operations-review",
+    )
+    assert plan.execution_authority is False
+    assert {"hypothesis-dependency-latency", "hypothesis-traffic-load"} <= {
+        node.node_id for node in plan.nodes
+    }
+    dependency = next(node for node in plan.nodes if node.node_id == "cause-dependency-latency")
+    traffic = next(node for node in plan.nodes if node.node_id == "cause-traffic-load")
+    assert dependency.depends_on == ("expand-dependencies",)
+    assert traffic.depends_on == ("expand-dependencies",)
+
+
+def test_exact_resource_latency_decrease_is_not_normalized_as_slowness() -> None:
+    utterance = "Why did ca-example-core latency suddenly decrease?"
+    proposal = SemanticFrameProposal(
+        operation="explain_change",
+        subject_constraints=("Resource", "ca-example-core"),
+        measure_concepts=(),
+        temporal_scope={},
+        output_shape="causal_evidence",
+        evidence_requirements=("support_and_refutation",),
+        unresolved_terms=(),
+        clarification_requirements=(),
+        clarification=None,
+        investigation=None,
+        confidence=0.91,
+    )
+
+    normalized = normalize_missing_resource_slowness_investigation(
+        proposal,
+        utterance=utterance,
+        descriptors=_manifest().descriptors,
+        metric_concepts=METRICS,
+        inventory_query_language=INVENTORY_LANGUAGE,
+        semantic_judgment={
+            "requested_facets": ("cause",),
+            "action_posture": "advise_only",
+            "execution_authority": False,
+        },
+    )
+
+    assert normalized is proposal
+
+
+@pytest.mark.parametrize(
+    ("utterance", "subject_constraints"),
+    (
+        (
+            "Why did ca-example-core not suddenly become slower?",
+            ("Resource", "ca-example-core"),
+        ),
+        (
+            "ca-example-core가 갑자기 왜 느려졌어?",
+            ("Resource", "BusinessService", "ca-example-core"),
+        ),
+        (
+            "Why isn't ca-example-core suddenly slower?",
+            ("Resource", "ca-example-core"),
+        ),
+        (
+            "Why did prod-slower-app suddenly restart?",
+            ("Resource", "prod-slower-app"),
+        ),
+        (
+            "Why hasn't ca-example-core suddenly become slower?",
+            ("Resource", "ca-example-core"),
+        ),
+        (
+            "ca-example-core가 갑자기 왜 안 느려졌어?",
+            ("Resource", "ca-example-core"),
+        ),
+        (
+            "Why was ca-example-core restarted after it suddenly became slower?",
+            ("Resource", "ca-example-core"),
+        ),
+        (
+            "Why couldn't ca-example-core suddenly become slower?",
+            ("Resource", "ca-example-core"),
+        ),
+        (
+            "Why did ca-example-core suddenly become slower because of network latency?",
+            ("Resource", "ca-example-core"),
+        ),
+    ),
+)
+def test_resource_slowness_recovery_rejects_unsafe_contexts(
+    utterance: str,
+    subject_constraints: tuple[str, ...],
+) -> None:
+    proposal = SemanticFrameProposal(
+        operation="explain_change",
+        subject_constraints=subject_constraints,
+        measure_concepts=(),
+        temporal_scope={},
+        output_shape="causal_evidence",
+        evidence_requirements=("support_and_refutation",),
+        unresolved_terms=(),
+        clarification_requirements=(),
+        clarification=None,
+        investigation=None,
+        confidence=0.91,
+    )
+
+    normalized = normalize_missing_resource_slowness_investigation(
+        proposal,
+        utterance=utterance,
+        descriptors=_manifest().descriptors,
+        metric_concepts=METRICS,
+        inventory_query_language=INVENTORY_LANGUAGE,
+        semantic_judgment={
+            "requested_facets": ("cause",),
+            "action_posture": "advise_only",
+            "execution_authority": False,
+        },
+    )
+
+    assert normalized is proposal
 
 
 class _ManifestProvider:

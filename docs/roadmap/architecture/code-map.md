@@ -192,7 +192,11 @@ build, or plan verification. Each proposal has a 90-second default budget and re
 throttled candidate at most once when its bounded `Retry-After` delay fits that budget. Composition
 exposes only handlers with bound authoritative providers. A schema-validated `cause` facet prevents
 the current-state fast path from replacing structured causal planning, even when the candidate
-primary intent is `query.resource_current_state`. The
+primary intent is `query.resource_current_state`. An omitted exact-Resource slowness investigation
+is completed only from reviewed non-negated causal, symptom, and onset spans outside the target
+identifier, no competing change event, exact manifest paths, and registered metric concepts.
+Dependency-latency and traffic-load evidence both use the verified relationship path; incomplete
+inputs remain held. The
 frame proposal applies the shared wire identifier constraints before Core rebuilds server-owned
 digests. Structured diagnostics record only the planning stage, candidate index, failure class,
 and input-free validation locations; they omit operator text and provider details. The public composition facade delegates Azure-specific model and catalog binding to

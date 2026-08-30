@@ -83,6 +83,158 @@ def normalize_bound_latency_recovery(
     )
 
 
+def normalize_missing_resource_slowness_investigation(
+    proposal: SemanticFrameProposal,
+    *,
+    utterance: str,
+    descriptors: tuple[dict[str, Any], ...],
+    metric_concepts: Sequence[str],
+    inventory_query_language: InventoryQueryLanguageRegistry | None,
+    semantic_judgment: Mapping[str, Any] | None,
+) -> SemanticFrameProposal:
+    """Complete a typed exact-Resource slowness diagnosis from reviewed spans."""
+
+    facets_raw = semantic_judgment.get("requested_facets", ()) if semantic_judgment else ()
+    facets = {str(item) for item in facets_raw} if isinstance(facets_raw, (list, tuple)) else set()
+    required_metrics = {"service.latency", "dependency.latency", "request.volume"}
+    explicit_hypothesis_signals = (
+        "hypothesis_network_latency",
+        "hypothesis_application_latency",
+        "hypothesis_mysql_saturation",
+        "hypothesis_request_growth",
+    )
+    declared_types = {
+        str(descriptor["name"])
+        for descriptor in descriptors
+        if descriptor.get("kind") == "object" and isinstance(descriptor.get("name"), str)
+    }
+    proposal_types = tuple(
+        constraint for constraint in proposal.subject_constraints if constraint in declared_types
+    )
+    if (
+        proposal.investigation is not None
+        or proposal.operation is not SemanticOperation.EXPLAIN_CHANGE
+        or proposal.output_shape is not SemanticOutputShape.CAUSAL_EVIDENCE
+        or proposal_types != ("Resource",)
+        or proposal.unresolved_terms
+        or proposal.clarification_requirements
+        or proposal.clarification is not None
+        or "cause" not in facets
+        or semantic_judgment is None
+        or semantic_judgment.get("action_posture") != "advise_only"
+        or semantic_judgment.get("execution_authority") is not False
+        or inventory_query_language is None
+        or query_signal_matches(utterance, inventory_query_language, "slowness_negation")
+        or query_signal_matches(utterance, inventory_query_language, "competing_change_event")
+        or any(
+            query_signal_matches(utterance, inventory_query_language, signal)
+            for signal in explicit_hypothesis_signals
+        )
+        or not required_metrics.issubset(metric_concepts)
+    ):
+        return proposal
+    target = exact_target_from_constraints(
+        proposal.subject_constraints,
+        utterance=utterance,
+        descriptors=descriptors,
+    )
+    query_sides = service_impact_query_sides(descriptors)
+    spans = {
+        signal: query_signal_span(utterance, inventory_query_language, signal)
+        for signal in ("causal_diagnosis", "symptom_slowness", "temporal_onset")
+    }
+    if target is None or query_sides is None or any(value is None for value in spans.values()):
+        return proposal
+    target_start = utterance.casefold().find(target.casefold())
+    if target_start < 0 or utterance.casefold().count(target.casefold()) != 1:
+        return proposal
+    target_end = target_start + len(target)
+    if any(
+        match is not None and match[0] < target_end and match[1] > target_start
+        for match in spans.values()
+    ):
+        return proposal
+
+    def source(signal: str) -> IntentSourceSpan:
+        match = spans[signal]
+        if match is None:
+            raise ValueError("resource slowness signal span is unavailable")
+        return IntentSourceSpan(start=match[0], end=match[1], text=match[2])
+
+    target_span = IntentSourceSpan(
+        start=target_start,
+        end=target_end,
+        text=utterance[target_start:target_end],
+    )
+    causal_span = source("causal_diagnosis")
+    symptom_span = source("symptom_slowness")
+    onset_span = source("temporal_onset")
+    investigation = InvestigationIntentProposal(
+        operation=SemanticOperation.EXPLAIN_CHANGE,
+        entities=(
+            InvestigationEntityMention(
+                mention_id="target",
+                span=target_span,
+                role=InvestigationEntityRole.AFFECTED_TARGET,
+                object_type_candidates=("Resource",),
+            ),
+        ),
+        symptom_measures=(
+            InvestigationSymptomMeasure(
+                measure_id="service-latency",
+                span=symptom_span,
+                concept_id="service.latency",
+                target_mention_id="target",
+                direction=InvestigationMeasureDirection.INCREASE,
+            ),
+        ),
+        primary_symptom_measure_id="service-latency",
+        temporal_cues=(
+            InvestigationTemporalCue(
+                cue_id="onset",
+                span=onset_span,
+                role=InvestigationTemporalRole.ONSET,
+            ),
+        ),
+        relationship_intents=(
+            InvestigationRelationshipIntent(
+                relationship_id="dependencies",
+                span=causal_span,
+                source_mention_id="target",
+                query_side_candidates=query_sides,
+            ),
+        ),
+        hypotheses=(
+            InvestigationHypothesis(
+                hypothesis_id="dependency-latency",
+                span=causal_span,
+                relationship_id="dependencies",
+                cause_measure_concept="dependency.latency",
+                effect_measure_id="service-latency",
+                competing_explanations=("traffic-load",),
+            ),
+            InvestigationHypothesis(
+                hypothesis_id="traffic-load",
+                span=causal_span,
+                relationship_id="dependencies",
+                cause_measure_concept="request.volume",
+                effect_measure_id="service-latency",
+                competing_explanations=("dependency-latency",),
+            ),
+        ),
+        evidence_standard=InvestigationEvidenceStandard.SUPPORT_AND_REFUTATION,
+        answer_shape=InvestigationAnswerShape.DIAGNOSIS,
+        confidence=proposal.confidence,
+    )
+    return proposal.model_copy(
+        update={
+            "measure_concepts": ("service.latency",),
+            "evidence_requirements": ("support_and_refutation",),
+            "investigation": investigation,
+        }
+    )
+
+
 def normalize_missing_vm_cpu_investigation(
     proposal: SemanticFrameProposal,
     *,
@@ -537,6 +689,7 @@ def normalize_network_application_latency_investigation(
 __all__ = [
     "normalize_bound_latency_recovery",
     "normalize_missing_mysql_pressure_investigation",
+    "normalize_missing_resource_slowness_investigation",
     "normalize_missing_vm_cpu_investigation",
     "normalize_network_application_latency_investigation",
 ]
