@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 565e57f05109e3203e59554024584d2178a4930e
+translation_source_sha: 632ef8aedf4ee0f82951fedbde471c3ffac4348c
 translation_revised: 2026-08-30
 ---
 # 에이전트 판테온
@@ -383,7 +383,7 @@ Owned-state 범위 좁히기는 범위가 제한된 질문 안에서 내부 `.`,
 
 `AgentConversationToolRegistry`는 모든 declared id를 단일 소유자에 연결하고 잘못된 호출을 거부하며 시간과
 데이터를 제한합니다. 도구 결과는 `agent`, `evidence_refs`, declared 사실 키만 노출하며 undeclared `_ref` 예외가 없습니다. Direct 및 tool-routed 결과는 영속 참조가 없으면 정규화된 사실 기반 내용 기반 주소를 가진 `agent-state` 참조를 사용하며 `agent-spec`을 런타임 점유로 표시하지 않습니다.
-오류와 민감한 출력은 값 없이 보류하고, unbound 변환 결과는 unrelated 사실 대신 사용 불가를 명시합니다. Health는 가용성과 counter를 보고합니다. Conversational 포트만 사용하므로 액션은 실행기 또는 cloud SDK에 도달하지 않습니다.
+오류와 민감한 출력은 값 없이 보류하고, unbound 변환 결과는 unrelated 사실 대신 사용 불가를 명시합니다. Health는 가용성과 counter를 보고합니다. Conversational 포트만 사용하므로 액션은 실행기 또는 cloud SDK에 도달하지 않습니다. 완료된 각 Bragi turn은 프롬프트, 라우팅, 근거, 검증 및 T1/T2 다이제스트가 있는 콘텐츠 없는 진단 조각도 생성하며, 응답 경로 밖의 평가기는 캠페인 기대값과 독립적인 의미 검토를 연결한 뒤 점수를 생성합니다.
 
 ### 6.3 NL 조회 오케스트레이션
 

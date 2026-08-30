@@ -20,6 +20,7 @@ from fdai.agents._framework.conversation_prompt import (
     ConversationSituation,
 )
 from fdai.agents._framework.pantheon import PANTHEON_NAMES, PANTHEON_SPECS
+from fdai.agents._framework.prompt_audit import audit_agent_prompt
 from fdai.agents._framework.topics import topic_for_object_type
 
 _ASCII_IDENTIFIER = re.compile(r"^[a-z][a-z0-9_]*$")
@@ -227,6 +228,15 @@ def test_at_least_twenty_five_independent_critiques_cover_every_prompt() -> None
     ]
 
     assert failures == []
+
+
+def test_every_prompt_projects_to_a_complete_thirty_point_diagnostic() -> None:
+    results = tuple(audit_agent_prompt(spec) for spec in PANTHEON_SPECS)
+
+    assert len(results) == 15
+    assert all(result.score == 30 for result in results)
+    assert all(len(result.items) == 30 for result in results)
+    assert len({result.prompt_sha256 for result in results}) == 15
 
 
 def test_global_single_writer_and_tool_owner_closure() -> None:

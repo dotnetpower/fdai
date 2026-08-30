@@ -24,6 +24,7 @@ from fdai.agents._framework.bragi_contributors import (
     evidence_conflicts,
     normalize_responder_answer,
 )
+from fdai.agents._framework.bragi_diagnostics import attach_pantheon_diagnostics
 from fdai.agents._framework.bragi_models import ConversationSession, RoutingDecision, Turn
 from fdai.agents._framework.bragi_progress import append_submitted, evict_oldest, record_progress
 from fdai.agents._framework.bragi_proposal import build_action_proposal
@@ -499,6 +500,17 @@ class Bragi(Agent):
                 "requires_typed_pipeline": True,
                 **result,
             }
+            attach_pantheon_diagnostics(
+                answer=answer,
+                decision=RoutingDecision(
+                    primary_agent=None,
+                    scores={},
+                    tie_break=None,
+                    method="typed_action_reentry",
+                ),
+                question=question,
+                session_id=session_id,
+            )
             turn = Turn(
                 turn_index=_next_turn_index(session),
                 question=question,
@@ -649,6 +661,13 @@ class Bragi(Agent):
                 "reason_code": judgment_result.receipt.reason_code,
                 "execution_authority": False,
             }
+
+        attach_pantheon_diagnostics(
+            answer=answer,
+            decision=decision,
+            question=question,
+            session_id=session_id,
+        )
 
         turn_index = _next_turn_index(session)
         if answer.get("handoff_needed") and materialize_handoff:

@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1281,
+  "file_count": 1283,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "97ce34acd539155c86cc12208eceb8ca789595cd9189a6450dc0b4c092aa6723",
     ".github/instructions/agent-stewardship.instructions.md": "e2e2224db17159323f910252e0f9f6efb44c0f1d7e0d217d5159745c15c9ff46",
@@ -25,6 +25,7 @@
     "services/core-control-plane/src/fdai/agents/_framework/base.py": "1ef04e3d5378e72db6ee2f48e8c6ea7bfd52cb19faf0127f8cd587bdcd012f84",
     "services/core-control-plane/src/fdai/agents/_framework/bounded.py": "5753ce93e706044ebd92331c1a48d5b5919d185e505d45028b54fdb5a60459a7",
     "services/core-control-plane/src/fdai/agents/_framework/bragi_contributors.py": "e7ac9dfbc02e4c6815c2c95a058d50bbf3154229761a0245983ebba824d42391",
+    "services/core-control-plane/src/fdai/agents/_framework/bragi_diagnostics.py": "00cdf7be65ad58e746bc27ea9bfaae4c0064c7d7104018a0844c9bd70574ac47",
     "services/core-control-plane/src/fdai/agents/_framework/bragi_models.py": "5defd2ee122422c520b239c9fc5b492276201f41f0cbc0ee55560769e4f38a32",
     "services/core-control-plane/src/fdai/agents/_framework/bragi_progress.py": "03029f8a023594caa33e7686482b84c8e95572213865224fc0ad3be0aeccc5dc",
     "services/core-control-plane/src/fdai/agents/_framework/bragi_proposal.py": "905dcc2d3615076a82389efe283680b15eac1072679e6928997b0b451d06e796",
@@ -57,6 +58,7 @@
     "services/core-control-plane/src/fdai/agents/_framework/norns_learning.py": "afb088dd50fa2a6126d8ab150ff1de2767812a0f550ff193d8dc136fdafbc77a",
     "services/core-control-plane/src/fdai/agents/_framework/norns_semantic_feedback.py": "d033f6dbefd34e12e4c507a69f3f4dcdcd4a758320970d99dbdfa796f2537da3",
     "services/core-control-plane/src/fdai/agents/_framework/pantheon.py": "d4fcd6d45ce176f755b381aa2f18065239a84e62d313d63fc329c17226fb7ae8",
+    "services/core-control-plane/src/fdai/agents/_framework/prompt_audit.py": "ac3e7ec68109aa29585be2c73ce125137b9044bbeee81df49fb7383cf8667efa",
     "services/core-control-plane/src/fdai/agents/_framework/provider_adapters.py": "dd69461a97b96b0660b0ee59e39d9e8f12fa3418a6278fbc13bc6dd0a4659367",
     "services/core-control-plane/src/fdai/agents/_framework/rate_limiter.py": "4d6bdf97c04dd1c46c6cc840b6e83719a821f0fc30f6da49645a12d22e025a1a",
     "services/core-control-plane/src/fdai/agents/_framework/registry.py": "c25d7e1a75e5ffb3072e099b240a182498551e5d09a85cb8a26e525d0f1859f5",
@@ -74,7 +76,7 @@
     "services/core-control-plane/src/fdai/agents/_framework/topics.py": "2e53b0cfcebec70d3d0091a8b4d779e59717def50748fa70aebb2faffc554785",
     "services/core-control-plane/src/fdai/agents/_framework/vertical_precedence.py": "5e75973531eba5c426d7b6dd5060c2f8b70c7a1f69236533c27f58bb4b2e55d0",
     "services/core-control-plane/src/fdai/agents/_framework/workflows.py": "0702e932b27232c08dc222bc4f3ebc950dcdc7d25ba612e466f7ad560dbfe9e1",
-    "services/core-control-plane/src/fdai/agents/bragi.py": "fb675dee7702b3e34247b20d801a2fcff93b48d84bb634b43765c00305ac0e6b",
+    "services/core-control-plane/src/fdai/agents/bragi.py": "8534d75aea89ef26be4d2dcd6287f9bc7346aa7c7c8636d11d5ca06d5123c593",
     "services/core-control-plane/src/fdai/agents/forseti.py": "27abc4c0b4d19701493a87dffd60fc059b934be5139af06f0ef642f75aca3f9a",
     "services/core-control-plane/src/fdai/agents/freyr.py": "1156beae1e7c92c8c0c632c59be6c215872cf5d805b5d9dd1bef39fa5052e756",
     "services/core-control-plane/src/fdai/agents/heimdall.py": "e95c00a158a78a01c20a605b13a737900519e11bbcb7138b392d7b7c92f0cdc5",

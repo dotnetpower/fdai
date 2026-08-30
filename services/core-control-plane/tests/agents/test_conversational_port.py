@@ -61,6 +61,15 @@ def test_every_pantheon_agent_is_directly_reachable() -> None:
         assert turn.primary_agent == spec.name
         assert turn.answer["answer"]
         assert turn.answer["abstain_reason"] is None
+        fragment = turn.answer["pantheon_trace_fragment"]
+        assert fragment["actual_primary_agent"] == spec.name
+        assert fragment["execution_authority"] is False
+        assert len(fragment["answer_digest"]) == 64
+        assert turn.question not in str(fragment)
+        assert spec.conversation.system_prompt not in str(fragment)
+        assert "latency_ms" not in fragment
+        assert "hard_zero_violations" not in fragment
+        assert "pantheon_observations" not in turn.answer
 
 
 def test_every_agent_has_unique_bounded_conversation_charter() -> None:
