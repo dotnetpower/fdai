@@ -40,6 +40,12 @@ The production handoff uses the versioned, no-authority `read-investigation-requ
 
 The planner turns one accepted semantic judgment into an immutable `ReadInvestigationRequest`. It carries the requester, conversation and correlation references, canonical intent, source-grounded resource selector, lookback, requested evidence, budget, and idempotency key. The model proposes meaning only; deterministic code validates exact registered intent, plan ownership, resource identity, evidence authority, and bounds.
 
+An adaptive investigation can repeat this selection for a bounded number of rounds. Every candidate
+must already bind an exact server-verified scope, graph revision, evidence cutoff, query plan, and
+cost before selection, and Core revalidates the binding immediately before provider I/O. Deadline,
+cancellation, stale evidence, or budget exhaustion closes the session with a typed hold. Neither the
+selector nor a model can issue a query plan or gain execution authority.
+
 The schema-validated `investigation-intents.yaml` catalog owns the intent-to-contract boundary. Each entry declares a work class, accountable Pantheon agent, registered plan ID, selector kind, answer contract, evidence authorities and facets, and a numeric freshness budget. It does not classify natural-language phrases.
 The catalog cannot contain executable text or grant tool authority. An unknown owner, work class, selector, answer contract, field, or response-mode order blocks catalog loading before provider I/O.
 

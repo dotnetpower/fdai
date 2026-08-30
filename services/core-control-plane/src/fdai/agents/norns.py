@@ -48,6 +48,8 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
+from fdai_service_contracts.ontology_query import content_digest
+
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.introspection import (
@@ -77,6 +79,9 @@ from fdai.core.learning import (
     review_input_from_mapping,
 )
 from fdai.core.operational_learning import (
+    InvestigationStrategyCandidateCompiler,
+    InvestigationStrategyComparisonEvidence,
+    InvestigationStrategyCompilationDisposition,
     OperatingPatternCompiler,
     PatternCase,
     ShadowDwellEvidence,
@@ -113,6 +118,7 @@ class Norns(Agent):
         forecast_error_threshold: int = 3,
         case_history_analyzer: CaseHistoryAnalyzer | None = None,
         operating_pattern_compiler: OperatingPatternCompiler | None = None,
+        investigation_strategy_compiler: InvestigationStrategyCandidateCompiler | None = None,
         semantic_feedback_store: SemanticFeedbackCandidateSink | None = None,
         shadow_dwell_ledger: ShadowDwellLedger | None = None,
         max_pending_candidates: int = _MAX_PENDING_CANDIDATES,
@@ -146,6 +152,10 @@ class Norns(Agent):
         self._promotion_threshold = promotion_threshold
         self.pending_candidates: list[dict[str, Any]] = []
         self._max_pending_candidates = max_pending_candidates
+        self._investigation_strategy_compiler = (
+            investigation_strategy_compiler or InvestigationStrategyCandidateCompiler()
+        )
+        self._investigation_strategy_candidate_ids: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._candidate_publication_gate: Callable[[], bool] | None = None
         self._learning_lock = asyncio.Lock()
         # Cursor into ``pending_candidates`` marking how many have already been
@@ -247,6 +257,8 @@ class Norns(Agent):
         elif topic == "object.context-index":
             if payload.get("kind") == "operational_case_fingerprint_cohort":
                 self._observe_operational_case_cohort(payload)
+            elif payload.get("kind") == "investigation_strategy_comparison_cohort":
+                self._observe_investigation_strategy_cohort(payload)
             elif payload.get("kind") == "semantic_retrieval_failure":
                 candidate = await self._semantic_feedback.observe(payload)
                 if candidate is None:
@@ -299,6 +311,66 @@ class Norns(Agent):
         self._operating_pattern_ids.add(candidate.pattern_id)
         self._append_candidate(candidate.to_rule_candidate_mapping())
         self.record_behavior("operational_case_candidate_created")
+
+    def _observe_investigation_strategy_cohort(self, payload: dict[str, Any]) -> None:
+        if payload.get("producer_principal") != "Muninn":
+            self.record_behavior("investigation_strategy_cohort_invalid_producer")
+            return
+        raw_comparisons = payload.get("comparisons")
+        if not isinstance(raw_comparisons, list) or not 1 <= len(raw_comparisons) <= 100:
+            self.record_behavior("investigation_strategy_cohort_invalid_payload")
+            return
+        try:
+            comparisons = tuple(
+                InvestigationStrategyComparisonEvidence.from_mapping(item)
+                for item in raw_comparisons
+                if isinstance(item, dict)
+            )
+        except ValueError:
+            self.record_behavior("investigation_strategy_cohort_invalid_payload")
+            return
+        if len(comparisons) != len(raw_comparisons):
+            self.record_behavior("investigation_strategy_cohort_invalid_payload")
+            return
+        pairs = {
+            (item.active_strategy_digest, item.challenger_strategy_digest) for item in comparisons
+        }
+        if len(pairs) != 1:
+            self.record_behavior("investigation_strategy_cohort_invalid_payload")
+            return
+        active_digest, challenger_digest = next(iter(pairs))
+        pair_digest = content_digest(
+            {
+                "active_strategy_digest": active_digest,
+                "challenger_strategy_digest": challenger_digest,
+            }
+        )
+        cohort_digest = content_digest(
+            {
+                "pair_digest": pair_digest,
+                "comparison_digests": sorted(item.comparison_digest for item in comparisons),
+            }
+        )
+        if (
+            payload.get("cohort_digest") != cohort_digest
+            or payload.get("correlation_id") != pair_digest
+            or payload.get("idempotency_key") != f"investigation-strategy:{cohort_digest}"
+        ):
+            self.record_behavior("investigation_strategy_cohort_invalid_seal")
+            return
+        result = self._investigation_strategy_compiler.compile_evidence(comparisons)
+        if (
+            result.disposition is not InvestigationStrategyCompilationDisposition.COMPILED
+            or result.candidate is None
+        ):
+            self.record_behavior("investigation_strategy_cohort_held")
+            return
+        if result.candidate.candidate_id in self._investigation_strategy_candidate_ids:
+            self.record_behavior("investigation_strategy_cohort_duplicate")
+            return
+        self._investigation_strategy_candidate_ids.add(result.candidate.candidate_id)
+        self._append_candidate(result.candidate.to_rule_candidate_mapping())
+        self.record_behavior("investigation_strategy_candidate_created")
 
     async def _observe_forecast_case(self, payload: dict[str, Any]) -> None:
         if payload.get("kind") != "forecast_case_history":

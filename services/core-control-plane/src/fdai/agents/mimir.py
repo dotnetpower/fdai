@@ -114,6 +114,9 @@ class Mimir(Agent):
             tuple[str, str, CatalogReviewPublicationReceipt],
         ] = BoundedLruDict(max_review_packages)
         self._published_operational_targets: BoundedLruSet[str] = BoundedLruSet(max_review_packages)
+        self._investigation_candidates: BoundedLruDict[str, str] = BoundedLruDict(
+            max_pending_candidates
+        )
         self._rule_generation_build_handler: RuleGenerationBuildHandler | None = None
         self._rule_generation_activation_binder: RuleGenerationActivationBinder | None = None
         self._rule_generation_state_store: StateStore | None = None
@@ -334,6 +337,24 @@ class Mimir(Agent):
         self.record_behavior("rule_generation_activation_result_duplicate")
 
     async def _handle_rule_candidate(self, payload: dict[str, Any]) -> None:
+        investigation_identity: tuple[str, str] | None = None
+        if payload.get("source_signal") == "investigation_strategy_comparison_cohort":
+            if payload.get("producer_principal") != "Norns":
+                raise ValueError("investigation strategy candidate MUST be published by Norns")
+            idempotency_key = str(payload.get("idempotency_key") or "")
+            evidence = payload.get("evidence")
+            candidate_digest = (
+                str(evidence.get("candidate_digest") or "") if isinstance(evidence, dict) else ""
+            )
+            if not idempotency_key or not candidate_digest:
+                raise ValueError("investigation strategy candidate identity is missing")
+            existing = self._investigation_candidates.get(idempotency_key)
+            if existing is not None:
+                if existing != candidate_digest:
+                    raise ValueError("investigation strategy candidate idempotency conflict")
+                self.record_behavior("investigation_strategy_candidate_duplicate")
+                return
+            investigation_identity = (idempotency_key, candidate_digest)
         if payload.get("source_signal") == "operational_case_fingerprint_cohort":
             idempotency_key = self._idempotency_key(payload)
             if (
@@ -345,6 +366,8 @@ class Mimir(Agent):
         verdict = self._guard.inspect(payload)
         if verdict.accepted:
             await self._accept_candidate(payload)
+            if investigation_identity is not None:
+                self._investigation_candidates.set(*investigation_identity)
         else:
             self._quarantined_candidates.append(
                 {**dict(payload), "quarantine_reason": verdict.reason}

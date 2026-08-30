@@ -13,6 +13,12 @@ from .hypothesis_lineage import (
     OperationalOutcomeLineageProducer,
     OperationalOutcomeLineageSink,
 )
+from .investigation_handoff import (
+    InvestigationPlanningHandoff,
+    InvestigationTerminalDisposition,
+    build_investigation_planning_handoff,
+    planning_handoff_from_adaptive_result,
+)
 from .journal import PlanningPhaseOrderError, append_planning_phase
 from .kinetic_proposal import KineticActionProposal, KineticActionProposalSource
 from .kinetic_safety import PreDispatchKineticSafetyWriter
@@ -59,6 +65,8 @@ __all__ = [
     "ConstitutionalPlanningConstraintEvaluator",
     "KineticActionProposal",
     "KineticActionProposalSource",
+    "InvestigationPlanningHandoff",
+    "InvestigationTerminalDisposition",
     "AssuranceTwinPlanningSimulator",
     "MAX_PLAN_CANDIDATES",
     "MAX_PLAN_CONSTRAINTS",
@@ -91,10 +99,12 @@ __all__ = [
     "SpecialistPlanningProjection",
     "append_planning_phase",
     "build_operational_plan",
+    "build_investigation_planning_handoff",
     "validate_operational_plan_identity",
     "close_operational_plan",
     "compile_selected_mutation_plan",
     "operational_plan_event_payload",
     "operational_planning_capability_status",
     "project_planning_room",
+    "planning_handoff_from_adaptive_result",
 ]

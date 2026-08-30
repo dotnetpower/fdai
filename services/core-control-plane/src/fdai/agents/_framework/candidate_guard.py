@@ -28,6 +28,9 @@ Checks (all deterministic, no I/O, no model call):
 from __future__ import annotations
 
 import math
+import time
+from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -52,6 +55,8 @@ _POSITIVE_COUNT_KEYS: tuple[str, ...] = (
 #: most-recently-used (never evicted mid-burst); a stream of all-distinct
 #: fingerprints is not a flood of any single candidate.
 _MAX_FINGERPRINTS = 10_000
+_INVESTIGATION_STRATEGY_SOURCE = "investigation_strategy_comparison_cohort"
+_MAX_SOURCE_KEYS = 1_000
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,11 +68,26 @@ class GuardVerdict:
 class CandidateGuard:
     """Deterministic provenance + poisoning guard for RuleCandidates."""
 
-    def __init__(self, *, max_repeats: int = 3) -> None:
+    def __init__(
+        self,
+        *,
+        max_repeats: int = 3,
+        max_source_candidates: int = 100,
+        source_window_seconds: float = 60.0,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         if max_repeats < 1:
             raise ValueError("max_repeats MUST be >= 1")
+        if max_source_candidates < 1:
+            raise ValueError("max_source_candidates MUST be >= 1")
+        if source_window_seconds <= 0:
+            raise ValueError("source_window_seconds MUST be positive")
         self._max_repeats = max_repeats
         self._seen: BoundedLruDict[str, int] = BoundedLruDict(_MAX_FINGERPRINTS)
+        self._max_source_candidates = max_source_candidates
+        self._source_window_seconds = source_window_seconds
+        self._clock = clock
+        self._source_events: BoundedLruDict[str, deque[float]] = BoundedLruDict(_MAX_SOURCE_KEYS)
 
     def inspect(self, candidate: dict[str, Any]) -> GuardVerdict:
         kind = str(candidate.get("proposal_kind", ""))
@@ -105,18 +125,46 @@ class CandidateGuard:
         self._seen.set(fingerprint, count)
         if count > self._max_repeats:
             return GuardVerdict(False, "flood_suspected")
+        if self._source_rate_exceeded(candidate):
+            return GuardVerdict(False, "source_rate_exceeded")
 
         return GuardVerdict(True, "ok")
 
     def _fingerprint(self, candidate: dict[str, Any]) -> str:
+        source_signal = str(candidate.get("source_signal", ""))
+        candidate_digest = ""
+        if source_signal == _INVESTIGATION_STRATEGY_SOURCE:
+            evidence = candidate.get("evidence")
+            if isinstance(evidence, dict):
+                candidate_digest = str(evidence.get("candidate_digest", ""))
         return "|".join(
             (
                 str(candidate.get("proposed_by", "")),
                 str(candidate.get("proposal_kind", "")),
                 str(candidate.get("target_rule_id", "")),
-                str(candidate.get("source_signal", "")),
+                source_signal,
+                candidate_digest,
             )
         )
+
+    def _source_rate_exceeded(self, candidate: dict[str, Any]) -> bool:
+        if candidate.get("source_signal") != _INVESTIGATION_STRATEGY_SOURCE:
+            return False
+        source_key = "|".join(
+            (
+                str(candidate.get("proposed_by", "")),
+                str(candidate.get("target_rule_id", "")),
+                _INVESTIGATION_STRATEGY_SOURCE,
+            )
+        )
+        now = self._clock()
+        cutoff = now - self._source_window_seconds
+        events = self._source_events.get(source_key) or deque()
+        while events and events[0] <= cutoff:
+            events.popleft()
+        events.append(now)
+        self._source_events.set(source_key, events)
+        return len(events) > self._max_source_candidates
 
 
 __all__ = ["CandidateGuard", "GuardVerdict"]

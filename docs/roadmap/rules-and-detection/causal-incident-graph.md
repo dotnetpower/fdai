@@ -123,6 +123,86 @@ Candidate generation is deterministic-first and bounded:
 Every path retains a `no_known_cause` option. Candidate generation stops at the configured count;
 overflow keeps the highest deterministic scores and records truncation.
 
+## Adaptive observation selection
+
+When two or more causal hypotheses remain active, FDAI can select the next observation that best
+separates them. The selector receives only pre-verified, read-only query candidates. It performs no
+provider read and cannot authorize a query, action, mutation, or promotion.
+
+One immutable discrimination frame pins the incident, graph revision, evidence cutoff, active
+hypothesis set, active-set receipt, and cost-model digest. Each content-addressed candidate predicts
+whether the same observation would support, refute, or remain neutral for every active hypothesis.
+Candidates from another frame or candidates that omit an active hypothesis remain explicit rejected
+evidence.
+
+Selection maximizes the number of hypothesis pairs with different predicted outcomes. Equal
+candidates use the lower comparable cost and then content identity. Fewer than two active
+hypotheses, no eligible candidate, or no separating observation produces a typed held result. The
+replay receipt binds the complete candidate set, rejections, pair counts, selected candidate or hold
+reason, schema, and method version. A caller must separately use the verified read-query path to run
+the selected observation.
+
+## Adaptive investigation session
+
+An adaptive investigation is a bounded, read-only `Process` that repeats observation selection
+without creating a second causal or execution system. Forseti is accountable for the workflow, while
+a mechanical recorder advances the Process with revision compare-and-set. Heimdall alone supplies
+observation and completeness evidence, Forseti alone accepts hypothesis revisions and the terminal
+causal judgment, and Saga audits each terminal transition through its existing event boundary.
+
+Each iteration binds this immutable lineage:
+`Process and round -> frame digest -> selection receipt -> candidate digest -> verification receipt
+-> OntologyQueryPlan digest -> execution receipt and result digest -> Forseti revision`. The chain
+also pins workflow and reducer versions, ontology and query-manifest digests, principal scope, role,
+purpose, evidence cutoff, source generation, completeness, truncation, scorer version, and actual
+resource usage. Verification and dispatch form one fail-closed gateway operation, and no provider I/O
+starts before validation succeeds.
+
+Every Forseti revision cites the prior active-set receipt, prior frame, exact observation receipt,
+scorer version, new graph revision, and new evidence cutoff. The Process revision compare-and-set
+accepts one complete next active set. Late or competing revisions remain audit evidence and cannot
+advance the session.
+
+The session stops when the Forseti-owned scorer leaves one materially supported hypothesis, every
+candidate is refuted, no query can distinguish the remaining candidates, or its round, query, time,
+or cost budget is exhausted. Creation pins an absolute UTC deadline, monotonic elapsed-time policy,
+all limits and units, and a budget-policy digest. The gateway reserves query count and estimated cost
+before dispatch and reconciles actual usage once. Cancellation blocks new rounds, signals the
+in-flight query, and competes through terminal Process compare-and-set. Late results can be audited
+but cannot advance a cancelled or terminal session. Process `cancelled` and `timed_out` remain
+distinct from investigation holds such as `cost_exhausted`.
+
+A replay reducer reconstructs the same session from append-only `Process` evidence events and
+rejects changed lineage, order, receipt, configuration, or terminal digest. Replay uses retained
+content-addressed results only. It never calls a provider, executes a query, consumes a budget,
+publishes a learning candidate, starts planning, or changes authority.
+
+The active selector is the only policy whose observation may be executed. A challenger runs on the
+same frozen frame in shadow mode, where the system measures agreement, pair separation, cost, and
+held outcomes without returning the challenger selection to the query path. Separation and cost are
+counterfactual predictions when the policies select different queries; realized evidence counts only
+when they select the same query or come from separate governed active-policy cohorts. Saga records
+comparisons, Muninn seals balanced cohorts, Norns alone compiles and publishes an inert
+investigation-strategy candidate, and Mimir reviews it. Activation uses a reviewed immutable
+configuration release, applies only to new sessions, and cannot replace the running session's pinned
+selector.
+
+After an eligible session closes, it may emit an authority-free typed planning-request event that
+references the terminal session digest and evidence. Forseti starts a separate planning Process,
+refreshes current context and target revisions, constructs the mandatory `no_action` baseline, and
+owns treatment candidates, constraints, and simulations. Cancelled, timed-out, all-refuted,
+incomplete, or truncated investigations do not request treatment planning. Investigation evidence
+never bypasses Operational Planning, the safety check, human approval, Thor execution, independent
+effect observation, Saga audit, or Vidar recovery.
+
+The Operator API projects adaptive session events through a GET-only, RBAC-, tenant-, purpose-, and
+principal-scoped Process reader. It returns bounded redacted summaries and opaque evidence
+references, not raw query results. The projection includes Process revision, evidence cutoff, source
+watermarks, release digest, freshness, truncation, unavailable receipts, and explicit
+`mutation_controls: false`. The Console renders an Investigation Room inside Process detail with
+active hypotheses, support and refutation counts, missing evidence, selected observation, shadow
+comparison, budgets, and terminal reason.
+
 ## Causal scoring and refutation
 
 Each candidate is scored over four independent factors:
@@ -243,6 +323,8 @@ Implementation can proceed in independently testable slices:
 | Hypothesis lifecycle and ontology projection | implemented | `services/core-control-plane/src/fdai/core/rca/hypothesis.py`; `projection.py`; `tests/core/rca/test_hypothesis.py`; `test_hypothesis_lineage_projection.py` | Immutable revisions, closure states, and evidence-only graph projection are covered by focused tests. |
 | Time-consistent incident graph | implemented | `services/core-control-plane/src/fdai/core/rca/incident_graph.py`; `tests/core/rca/test_incident_graph.py` | Traversal is bounded by depth, count, time, and size and reports truncation. |
 | Candidate generation and causal scoring | implemented | `services/core-control-plane/src/fdai/core/rca/t0.py`; `t1.py`; `evidence.py`; `tests/core/rca/test_coordinator.py`; `test_evidence.py` | Deterministic candidates, weakest-link scoring, support, and refutation paths are implemented. |
+| Adaptive observation selection | implemented | `services/core-control-plane/src/fdai/core/rca/discrimination_contract.py`; `discrimination.py`; `tests/core/rca/test_discrimination.py` | Exact-frame candidates are content-addressed and ranked by pair separation without granting query or execution authority. |
+| Adaptive investigation session and review surface | implemented | `core/read_investigation/adaptive*.py`; `core/rca/discrimination_shadow.py`; `core/operational_learning/investigation_strategy*.py`; `core/operational_planning/investigation_handoff.py`; `runtime/adaptive_investigation_runtime.py`; Operator and Console Process projections | The integrated session is bounded, replay-stable, shadow-aware, authority-free, and visible through the existing authenticated Process route. This is implementation evidence, not a governed live validation claim. |
 | Shadow runtime and independent closure | implemented | `services/core-control-plane/src/fdai/core/rca/runtime.py`; `tests/core/rca/test_runtime.py`; `test_temporal_causality.py` | The upstream path remains shadow and evidence-only; no result grants execution authority. |
 | Grade demotion and shadow retention | implemented | `services/core-control-plane/src/fdai/core/rca/hypothesis.py` (`close_causal_hypothesis`, `causal_action_mode`); `runtime.py` (`CausalRuntimeResult.action_mode`); `tests/core/rca/test_hypothesis.py`; `test_runtime.py` | Unsafe and refuting closure lowers the grade to `association`, no closure except verified `confirmed` may raise a grade, and every unresolved or contested revision resolves to `shadow`. The runtime exposes the derived mode; no promotion or execution consumer binds it yet, because the causal path is still shadow-only. |
 | Deployment binding and operational evidence | in-progress | [Delivery slices](#delivery-slices); current change source audit | Provider and publisher seams exist, but each deployment must bind them and retain governed closure receipts before validation can be claimed. |
@@ -254,6 +336,9 @@ Implementation can proceed in independently testable slices:
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source and focused tests listed in the scope table. | Bind the production evidence path and retain governed interventional closure evidence. |
 | 2026-08-16 | implemented | Made unsafe closure demote the evidence grade, blocked any non-confirmed closure from raising a grade, and added the deterministic `causal_action_mode` derivation that keeps refuted, unsafe, inconclusive, contested, and weakly graded revisions in `shadow`. | `current change`; `services/core-control-plane/src/fdai/core/rca/hypothesis.py`; `services/core-control-plane/tests/core/rca/test_hypothesis.py`; focused run `pytest services/core-control-plane/tests/core/rca` passed 215 tests. | Bind the deployment evidence path and retain one governed interventional replay. |
 | 2026-08-16 | implemented | Exposed the derived mode as `CausalRuntimeResult.action_mode` so the shadow decision is observable on the runtime path, and qualified the scope row: no promotion or execution consumer binds the mode yet. | `current change`; `services/core-control-plane/src/fdai/core/rca/runtime.py`; `services/core-control-plane/tests/core/rca/test_runtime.py`; focused run `pytest services/core-control-plane/tests/core/rca` passed 216 tests. | Bind the deployment evidence path and retain one governed interventional replay. |
+| 2026-08-30 | implemented | Added replay-stable adaptive observation selection over exact-frame, pre-verified read-only candidates. Selection maximizes hypothesis-pair separation, records stale or incomplete candidates, and returns authority-free selected or held receipts. | `current change`; `services/core-control-plane/src/fdai/core/rca/discrimination_contract.py`; `discrimination.py`; focused discriminator tests, Ruff, and strict mypy. | Bind candidate production to the verified ontology query path and retain governed investigation evidence before claiming operational validation. |
+| 2026-08-30 | implemented | Added the bounded adaptive investigation runtime, Process journal, exact verified-query gateway, active/challenger comparison, Norns-to-Mimir inert strategy review path, separate planning proposal, Operator projection, and Console Investigation Room. | `current change`; focused core, agent, runtime, Operator, Console, and Playwright checks. | Bind deployment-owned candidate and revision sources and retain governed live evidence before selector promotion. |
+| 2026-08-30 | implemented | Completed 22 tracked critique and hardening rounds plus a final independent release review. The rounds hardened immutable identity, deadlines, cancellation, query authority, Process replay, shadow isolation, learning cohorts, planning handoff, Operator projection, Console overflow, large-result hashing, cold import, and at-least-once deduplication until only Low or no findings remained. | `current change`; 646 Core tests, 46 Operator tests, 19 Console tests, three Playwright viewport scenarios, Ruff, strict mypy, and the final task-only review. | Retain governed live evidence before selector promotion; local implementation evidence does not claim deployed validation. |
 
 ### Remaining work
 

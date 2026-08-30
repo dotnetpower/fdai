@@ -146,6 +146,40 @@ describe("process view route model", () => {
     expect(decoded.planning?.plan?.candidates[0]?.expected_effects[0]?.expected_min).toBe(0.99);
   });
 
+  it("decodes a read-only Investigation Room projection", () => {
+    const decoded = decodeProcessJournal({
+      ...validJournal(),
+      investigation: validInvestigationRoom(),
+    });
+
+    expect(decoded.investigation?.read_only).toBe(true);
+    expect(decoded.investigation?.mutation_controls).toBe(false);
+    expect(decoded.investigation?.rounds[0]?.active_hypothesis_ids).toEqual([
+      "hypothesis-a",
+      "hypothesis-b",
+    ]);
+    expect(decoded.investigation?.terminal?.disposition).toBe("held");
+  });
+
+  it("rejects an Investigation Room with mutation controls or broken rounds", () => {
+    const investigation = validInvestigationRoom();
+    expect(() => decodeProcessJournal({
+      ...validJournal(),
+      investigation: { ...investigation, mutation_controls: true },
+    })).toThrow(/read-only/);
+    expect(() => decodeProcessJournal({
+      ...validJournal(),
+      investigation: {
+        ...investigation,
+        rounds: [{ ...investigation.rounds[0], round_index: 2 }],
+      },
+    })).toThrow(/contiguous/);
+    expect(() => decodeProcessJournal({
+      ...validJournal(),
+      investigation: { ...investigation, process_revision: 2 },
+    })).toThrow(/process_revision MUST match/);
+  });
+
   it("rejects contradictory Planning Room projections", () => {
     const planning = validPlanningRoom();
     expect(() => decodeProcessJournal({
@@ -278,6 +312,57 @@ function validPlanningRoom() {
       margin: 0.2,
       candidates: [candidate],
     },
+  };
+}
+
+function validInvestigationRoom() {
+  const digestA = `sha256:${"a".repeat(64)}`;
+  const digestB = `sha256:${"b".repeat(64)}`;
+  return {
+    read_only: true,
+    mutation_controls: false,
+    process_revision: 3,
+    process_id: "process-1",
+    workflow_version: "1",
+    incident_id: "incident-1",
+    initial_frame_digest: digestA,
+    initial_active_set_receipt_digest: digestB,
+    active_strategy_digest: digestA,
+    challenger_strategy_digest: null,
+    budget: {
+      max_rounds: 3,
+      max_queries: 3,
+      max_cost_units: 100,
+      deadline_at: "2026-08-30T00:05:00Z",
+      policy_digest: digestB,
+    },
+    rounds: [{
+      round_index: 1,
+      iteration_digest: digestA,
+      frame_digest: digestB,
+      evidence_cutoff: "2026-08-30T00:00:00Z",
+      graph_revision: "graph-1",
+      active_hypothesis_ids: ["hypothesis-a", "hypothesis-b"],
+      active_set_receipt_digest: digestA,
+      selection_digest: digestB,
+      selected_candidate_id: null,
+      separated_pair_count: 0,
+      total_pair_count: 1,
+      hold_reason: "no_candidates",
+      shadow_comparison_digest: null,
+      execution: null,
+      revision: null,
+    }],
+    round_count: 1,
+    terminal: {
+      result_digest: digestB,
+      disposition: "held",
+      terminal_frame_digest: digestA,
+      terminal_active_set_receipt_digest: digestB,
+      used_queries: 0,
+      used_cost_units: 0,
+    },
+    closure: null,
   };
 }
 

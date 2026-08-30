@@ -1,5 +1,39 @@
 """Bounded, provider-neutral read-investigation planning."""
 
+from fdai.core.read_investigation.adaptive import (
+    AdaptiveHypothesisReviser,
+    AdaptiveInvestigationCoordinator,
+    AdaptiveRoundProposal,
+    AdaptiveRoundSource,
+    AdaptiveShadowComparisonSink,
+    VerifiedObservationGateway,
+)
+from fdai.core.read_investigation.adaptive_codec import (
+    adaptive_result_from_mapping,
+    adaptive_result_to_mapping,
+)
+from fdai.core.read_investigation.adaptive_contract import (
+    ADAPTIVE_SESSION_REDUCER_VERSION,
+    AdaptiveInvestigationBudget,
+    AdaptiveInvestigationDisposition,
+    AdaptiveInvestigationIteration,
+    AdaptiveInvestigationResult,
+    AdaptiveObservationExecution,
+    HypothesisRevisionSet,
+    VerifiedObservationPlanBinding,
+    build_adaptive_investigation_iteration,
+    build_adaptive_investigation_result,
+    build_adaptive_observation_execution,
+    build_hypothesis_revision_set,
+    build_verified_observation_plan_binding,
+)
+from fdai.core.read_investigation.adaptive_process import (
+    ADAPTIVE_INVESTIGATION_WORKFLOW_REF,
+    ADAPTIVE_INVESTIGATION_WORKFLOW_VERSION,
+    AdaptiveInvestigationProcessRecorder,
+    AdaptiveInvestigationProcessStart,
+    project_adaptive_investigation_room,
+)
 from fdai.core.read_investigation.catalog import (
     READ_TOOL_SPECS,
     LatencyClass,
@@ -61,6 +95,21 @@ from fdai.core.read_investigation.routing import resource_name_from_question
 from fdai.core.read_investigation.service import ReadInvestigationService
 
 __all__ = [
+    "ADAPTIVE_INVESTIGATION_WORKFLOW_REF",
+    "ADAPTIVE_INVESTIGATION_WORKFLOW_VERSION",
+    "ADAPTIVE_SESSION_REDUCER_VERSION",
+    "AdaptiveHypothesisReviser",
+    "AdaptiveInvestigationBudget",
+    "AdaptiveInvestigationCoordinator",
+    "AdaptiveInvestigationDisposition",
+    "AdaptiveInvestigationIteration",
+    "AdaptiveInvestigationProcessRecorder",
+    "AdaptiveInvestigationProcessStart",
+    "AdaptiveInvestigationResult",
+    "AdaptiveObservationExecution",
+    "AdaptiveRoundProposal",
+    "AdaptiveRoundSource",
+    "AdaptiveShadowComparisonSink",
     "READ_TOOL_SPECS",
     "LatencyClass",
     "InvestigationExecutionPolicy",
@@ -70,6 +119,7 @@ __all__ = [
     "InteractiveReadInvestigationConfig",
     "InteractiveReadInvestigationCoordinator",
     "InteractiveReadInvestigationSubmission",
+    "HypothesisRevisionSet",
     "PlanLatencyEstimate",
     "MAX_READ_INVESTIGATION_ATTEMPTS",
     "ReadInvestigationExecutionMode",
@@ -96,11 +146,21 @@ __all__ = [
     "ReadInvestigationStep",
     "ReadLatencyProfile",
     "ReadToolSpec",
+    "VerifiedObservationGateway",
+    "VerifiedObservationPlanBinding",
+    "build_adaptive_investigation_iteration",
+    "build_adaptive_investigation_result",
+    "build_adaptive_observation_execution",
+    "build_hypothesis_revision_set",
+    "build_verified_observation_plan_binding",
+    "adaptive_result_from_mapping",
+    "adaptive_result_to_mapping",
     "estimate_parallel_p95",
     "estimate_plan_latency",
     "estimate_sequential_p95",
     "latency_profile",
     "plan_read_investigation",
+    "project_adaptive_investigation_room",
     "read_investigation_request_digest",
     "read_investigation_request_projection",
     "read_investigation_run_id",

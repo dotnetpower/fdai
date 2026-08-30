@@ -57,6 +57,9 @@ No value on one axis selects a value on another axis. In particular:
   deployment defaults cannot turn a tie into promotion evidence.
 - One immutable read-investigation intent spec owns plan IDs, tools, and lookback. Catalog IDs and
   plan IDs must match it exactly; venue or environment cannot supply missing semantics at request time.
+- An adaptive investigation strategy may change which pre-verified read-only observation is selected
+  next. It does not change the evidence, lifecycle, identity, authorization, approval, or execution
+  axes, and its outcome cannot promote an action or grant authority.
 - A fork may have zero or many deployments in any environment. Upstream may also be deployed
   directly.
 - Fork detection protects the upstream framework surface. It never changes runtime behavior,

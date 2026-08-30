@@ -40,6 +40,17 @@ from .discovery_contracts import (
     DiscoveryVerificationReceipt,
 )
 from .discovery_cycle import DiscoveryCycleScheduler
+from .investigation_strategy import (
+    InvestigationStrategyCandidate,
+    InvestigationStrategyCandidateCompiler,
+    InvestigationStrategyCompilation,
+    InvestigationStrategyCompilationDisposition,
+    InvestigationStrategyHoldReason,
+    compile_investigation_strategy_candidate,
+)
+from .investigation_strategy_evidence import (
+    InvestigationStrategyComparisonEvidence,
+)
 from .override_signals import (
     OverrideAuditPage,
     OverrideAuditReader,
@@ -99,6 +110,12 @@ __all__ = [
     "DraftActionTypeInput",
     "DraftCatalogArtifact",
     "ImmutableCaseRef",
+    "InvestigationStrategyCandidate",
+    "InvestigationStrategyCandidateCompiler",
+    "InvestigationStrategyCompilation",
+    "InvestigationStrategyCompilationDisposition",
+    "InvestigationStrategyComparisonEvidence",
+    "InvestigationStrategyHoldReason",
     "OperatingPatternCandidate",
     "OperatingPatternCompiler",
     "OperationalPatternRuleCandidate",
@@ -119,5 +136,6 @@ __all__ = [
     "ShadowDwellThresholds",
     "evaluate_shadow_dwell",
     "build_cost_case_projection",
+    "compile_investigation_strategy_candidate",
     "pattern_case_from_operational_case",
 ]
