@@ -47,6 +47,9 @@ Semantic conversation planning keeps `semantic_planning.py`, `semantic_planning_
 plan dispatch, anchored-incident and stated-value-filter plan construction, judgment, validation,
 frame construction, facets, evidence-specific investigation normalization, and queries while
 preserving public imports, deterministic gate order, and read-only authority.
+Resource Health state-group derivation lives in `semantic_query_health_values.py`, which keeps the
+public semantic composition facade below the enforced 800-line ceiling without changing registration
+order.
 The semantic-routing baseline records each lexical owner and classifies deterministic model-output
 validation separately from semantic inference. Content-free judgment telemetry exposes profile and
 model-configuration revisions, tier, confidence, latency, outcome, and abstention rate without

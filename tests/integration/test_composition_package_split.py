@@ -1,6 +1,6 @@
 """Structural drift guards for the G-3 composition/ split.
 
-The 1018-LOC composition.py became a package with a facade and three
+The 1018-LOC composition.py became a package with a facade and focused
 extraction files. These tests pin the layout, the facade completeness,
 the no-circular-import contract, and the LOC ceiling so the split
 cannot silently re-monolith.
@@ -77,6 +77,9 @@ _EXPECTED_FILES = frozenset(
         # Projects the catalog resource-type vocabulary as a planner value
         # domain so the semantic wire keeps one binding responsibility.
         "semantic_query_value_domains.py",
+        # Derives Resource Health groups from inventory query semantics so the
+        # public semantic wire remains below its enforced LOC ceiling.
+        "semantic_query_health_values.py",
         # Binds Azure models, prompts, and catalog inputs for semantic queries
         # without coupling the provider-neutral semantic wire to Azure setup.
         "semantic_query_azure_composition.py",

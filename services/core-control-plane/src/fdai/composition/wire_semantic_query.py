@@ -161,7 +161,6 @@ from fdai.core.ontology_platform.resource_metric_queries import (
 )
 from fdai.core.ontology_platform.resource_state_queries import (
     RESOURCE_STATE_FUNCTION_NAME,
-    RESOURCE_STATE_MEASURE_CONCEPTS,
     resource_state_inventory_function,
 )
 from fdai.core.ontology_platform.service_health_queries import (
@@ -183,7 +182,6 @@ from fdai.delivery.azure.semantic_resource_ingress import (
 from fdai.delivery.semantic_resource_activity import semantic_resource_activity_function
 from fdai.rule_catalog.schema.inventory_query_language import (
     InventoryQueryLanguageRegistry,
-    QueryEvidenceAuthority,
 )
 from fdai.rule_catalog.schema.ontology_catalog import OntologyCatalog
 from fdai.shared.contracts.models import CeilingRole, OntologyRelease
@@ -196,6 +194,9 @@ from fdai.shared.providers.read_investigation import ReadInvestigationProvider
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 from ._helpers import Container
+from .semantic_query_health_values import (
+    resource_health_state_values as _resource_health_state_values,
+)
 
 _FRAME_CAPABILITY = "semantic.query.frame"
 _PLAN_CAPABILITY = "semantic.query.plan"
@@ -780,27 +781,6 @@ def compose_azure_semantic_query_runtime(
         graph_live_refresh_provider=graph_live_refresh_provider,
         resource_freshness_seconds=resource_freshness_seconds,
     )
-
-
-def _resource_health_state_values(
-    registry: InventoryQueryLanguageRegistry,
-) -> dict[str, tuple[str, ...]]:
-    state_measures = frozenset(RESOURCE_STATE_MEASURE_CONCEPTS)
-    groups: dict[str, tuple[str, ...]] = {}
-    for state_id, state in registry.states.items():
-        normalized = {f"resource_state.{value}" for value in state.values}
-        if (
-            state.evidence_authority is not QueryEvidenceAuthority.CURRENT_INVENTORY
-            or not normalized <= state_measures
-        ):
-            groups[f"resource_health.{state_id}"] = state.values
-    if not groups:
-        raise ValueError("inventory query language declares no Resource Health semantics")
-    return groups
-
-
-def _unavailable(reason: str) -> SemanticQueryRuntimeComposition:
-    return SemanticQueryRuntimeComposition(runtime=None, unavailable_reason=reason)
 
 
 __all__ = [
