@@ -1,4 +1,4 @@
-"""Azure Container Apps executed-action observation tests."""
+"""Azure VM Scale Set executed-action observation tests."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from fdai.core.ontology_platform.reconciliation_contracts import (
     ObservationVerificationReceipt,
 )
 from fdai.delivery.azure.executed_action_observation import (
-    AzureContainerAppScaleOutObservationCollector,
+    AzureScaleOutObservationCollector,
 )
 from fdai.delivery.azure.operational_evidence import AzureOperationalSnapshot
 from fdai.shared.contracts.models import Action, Mode
@@ -75,7 +75,7 @@ def _inputs() -> tuple[ResolvedReconciliationArtifacts, Action, AzureOperational
     )
     snapshot = AzureOperationalSnapshot(
         resource_ref=target.id,
-        resource_type="microsoft.app/containerapps",
+        resource_type="microsoft.compute/virtualmachinescalesets",
         topology_roles=("workload",),
         ownership_shape=("resource-group-contains-workload",),
         graph_digest="a" * 64,
@@ -93,7 +93,7 @@ async def test_collects_exact_plan_declared_scale_out_property(
 ) -> None:
     artifacts, action, snapshot = _inputs()
     monkeypatch.setattr(observation_module, "_ACTION_TYPE", action.action_type)
-    collector = AzureContainerAppScaleOutObservationCollector(
+    collector = AzureScaleOutObservationCollector(
         snapshots=_Snapshots(snapshot),
         context_issuer=_Issuer(),
         observer_identity="observer:heimdall:1",
@@ -120,7 +120,7 @@ async def test_shadow_action_does_not_create_observed_effect(
 ) -> None:
     artifacts, action, snapshot = _inputs()
     monkeypatch.setattr(observation_module, "_ACTION_TYPE", action.action_type)
-    collector = AzureContainerAppScaleOutObservationCollector(
+    collector = AzureScaleOutObservationCollector(
         snapshots=_Snapshots(snapshot),
         context_issuer=_Issuer(),
         observer_identity="observer:heimdall:1",
@@ -146,7 +146,7 @@ async def test_missing_expected_metric_remains_unavailable(
 ) -> None:
     artifacts, action, snapshot = _inputs()
     monkeypatch.setattr(observation_module, "_ACTION_TYPE", action.action_type)
-    collector = AzureContainerAppScaleOutObservationCollector(
+    collector = AzureScaleOutObservationCollector(
         snapshots=_Snapshots(replace(snapshot, metric_values={})),
         context_issuer=_Issuer(),
         observer_identity="observer:heimdall:1",
@@ -172,7 +172,7 @@ async def test_substituted_snapshot_target_is_rejected(
 ) -> None:
     artifacts, action, snapshot = _inputs()
     monkeypatch.setattr(observation_module, "_ACTION_TYPE", action.action_type)
-    collector = AzureContainerAppScaleOutObservationCollector(
+    collector = AzureScaleOutObservationCollector(
         snapshots=_Snapshots(replace(snapshot, resource_ref="other-workload")),
         context_issuer=_Issuer(),
         observer_identity="observer:heimdall:1",
@@ -180,7 +180,7 @@ async def test_substituted_snapshot_target_is_rejected(
         clock=lambda: snapshot.observed_at + timedelta(seconds=1),
     )
 
-    with pytest.raises(ValueError, match="target or type changed"):
+    with pytest.raises(ValueError, match="target changed"):
         await collector.collect(
             action=action,
             artifacts=artifacts,
@@ -191,12 +191,38 @@ async def test_substituted_snapshot_target_is_rejected(
         )
 
 
+async def test_non_vmss_scale_out_target_remains_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    artifacts, action, snapshot = _inputs()
+    monkeypatch.setattr(observation_module, "_ACTION_TYPE", action.action_type)
+    collector = AzureScaleOutObservationCollector(
+        snapshots=_Snapshots(replace(snapshot, resource_type="microsoft.app/containerapps")),
+        context_issuer=_Issuer(),
+        observer_identity="observer:heimdall:1",
+        source_identity="source:azure-inventory:1",
+        clock=lambda: snapshot.observed_at + timedelta(seconds=1),
+    )
+
+    assert (
+        await collector.collect(
+            action=action,
+            artifacts=artifacts,
+            execution_outcome="succeeded",
+            execution_completed_at=snapshot.observed_at - timedelta(seconds=1),
+            execution_receipt_ref=None,
+            correlation_id="correlation-1",
+        )
+        is None
+    )
+
+
 async def test_substituted_signed_context_is_rejected(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     artifacts, action, snapshot = _inputs()
     monkeypatch.setattr(observation_module, "_ACTION_TYPE", action.action_type)
-    collector = AzureContainerAppScaleOutObservationCollector(
+    collector = AzureScaleOutObservationCollector(
         snapshots=_Snapshots(snapshot),
         context_issuer=_Issuer(mismatch_source=True),
         observer_identity="observer:heimdall:1",
@@ -220,7 +246,7 @@ async def test_snapshot_before_terminal_action_is_not_effect_evidence(
 ) -> None:
     artifacts, action, snapshot = _inputs()
     monkeypatch.setattr(observation_module, "_ACTION_TYPE", action.action_type)
-    collector = AzureContainerAppScaleOutObservationCollector(
+    collector = AzureScaleOutObservationCollector(
         snapshots=_Snapshots(snapshot),
         context_issuer=_Issuer(),
         observer_identity="observer:heimdall:1",

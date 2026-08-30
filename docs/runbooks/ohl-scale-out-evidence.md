@@ -66,11 +66,12 @@ primary ingress Event Hub. It has no state-store secret, Key Vault role, gateway
 provider mutation permission. Starting the Job publishes one retry-stable `operator_request`; it
 doesn't scale the target.
 
-The current repository implements the immutable kinetic receipt store but doesn't yet bind its
-writer before dispatch or provide the verified independent effect-observation adapter. Keep the
-contract at `prepared` and don't start the live mutation phase until both residuals are removed by
-focused runtime evidence. A deferred observer that always returns unavailable isn't a production
-binding and cannot satisfy this gate.
+The repository binds the immutable kinetic receipt writer before dispatch and provides the
+deployment-owned Ed25519 effect-observation adapter. The protected platform plan creates its random
+seed in Key Vault, and the Core service receives only the Managed Identity-backed secret reference.
+Keep the contract at `prepared` until the exact platform and Core revisions are applied and startup
+evidence confirms the complete observation binding. A deferred observer that always returns
+unavailable isn't a production binding and cannot satisfy this gate.
 
 ## Required runner configuration
 

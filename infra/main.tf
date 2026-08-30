@@ -1793,6 +1793,20 @@ resource "azurerm_key_vault_secret" "github_webhook_secret" {
   depends_on = [azurerm_role_assignment.kv_officer_self, module.kv_private_endpoint, azurerm_virtual_network_peering.spoke_to_hub, azurerm_virtual_network_peering.hub_to_spoke]
 }
 
+resource "random_id" "ohl_observation_signing_seed" {
+  byte_length = 32
+}
+
+resource "azurerm_key_vault_secret" "ohl_observation_signing_seed" {
+  name         = "fdai-ohl-observation-signing-seed"
+  value        = sensitive(random_id.ohl_observation_signing_seed.b64_url)
+  key_vault_id = module.key_vault.id
+  content_type = "ed25519-seed-base64url"
+  tags         = local.tags
+
+  depends_on = [azurerm_role_assignment.kv_officer_self, module.kv_private_endpoint, azurerm_virtual_network_peering.spoke_to_hub, azurerm_virtual_network_peering.hub_to_spoke]
+}
+
 # -----------------------------------------------------------------------
 # Compute - Container Apps env + core app + out-of-band job.
 # -----------------------------------------------------------------------

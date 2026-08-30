@@ -146,6 +146,15 @@ output "ohl_scale_out_evidence_proposal_job_name" {
   value       = module.compute.ohl_evidence_proposal_job_name
 }
 
+output "ohl_observation_context_binding" {
+  description = "Deployment-owned OHL observation signing and credential-lineage binding. Null without the isolated Executor."
+  value = var.enable_isolated_executor ? {
+    signing_seed_secret_id      = azurerm_key_vault_secret.ohl_observation_signing_seed.id
+    executor_credential_lineage = "azure-managed-identity:${module.isolated_executor_identity[0].client_id}"
+    source_credential_lineage   = "azure-managed-identity:${module.inventory_identity.client_id}"
+  } : null
+}
+
 output "email_communication_service_id" {
   description = "ACS resource id for send-only A2/A4 notification delivery. Empty when email notifications are disabled."
   value       = length(azurerm_communication_service.notifications) > 0 ? azurerm_communication_service.notifications[0].id : ""

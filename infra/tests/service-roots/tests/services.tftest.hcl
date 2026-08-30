@@ -29,6 +29,12 @@ run "core_control_plane_plan" {
         "azure-foundry:aif-fdai-models" = "https://aif-fdai-models.services.ai.azure.com"
       }
     }
+    observation_context = {
+      enabled                     = true
+      signing_seed_secret_id      = "https://example.vault.azure.net/secrets/ohl-signing-seed"
+      executor_credential_lineage = "azure-managed-identity:executor"
+      source_credential_lineage   = "azure-managed-identity:inventory"
+    }
     rollback    = { strategy = "previous-revision", previous_image = "registry.example.com/fdai@sha256:1111111111111111111111111111111111111111111111111111111111111111" }
     runtime_env = "dev"
   }

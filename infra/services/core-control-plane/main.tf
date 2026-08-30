@@ -15,6 +15,7 @@ module "core_control_plane" {
   runtime_env         = var.runtime_env
   startup_readiness   = var.startup_readiness
   llm                 = var.llm
+  observation_context = var.observation_context
   configuration_drift = var.configuration_drift
   diagnostic_ingest   = var.diagnostic_ingest
   scaling             = var.scaling

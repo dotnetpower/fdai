@@ -59,6 +59,19 @@ def topic_hydrator() -> ModuleType:
     return module
 
 
+@pytest.fixture(scope="module")
+def observation_hydrator() -> ModuleType:
+    spec = importlib.util.spec_from_file_location(
+        "focused_hydrate_observation_context",
+        _SCRIPTS / "hydrate_observation_context.py",
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 def _digest(payload: dict[str, Any]) -> str:
     canonical = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
     return hashlib.sha256(canonical).hexdigest()
@@ -267,6 +280,97 @@ def test_hydrates_primary_event_topic_from_authoritative_platform_output(
         "other": "preserved",
     }
     assert payload["environments"]["dev"][service]["event_topics"]["events"] == ("aw.change.events")
+
+
+def test_hydrates_core_observation_context_from_platform_output(
+    observation_hydrator: ModuleType,
+) -> None:
+    payload = {
+        "environments": {
+            "dev": {
+                "core-control-plane": {
+                    "name": "example",
+                    "observation_context": {"enabled": False},
+                }
+            }
+        }
+    }
+    binding = {
+        "signing_seed_secret_id": "https://vault.example.com/secrets/ohl-seed",
+        "executor_credential_lineage": "azure-managed-identity:executor",
+        "source_credential_lineage": "azure-managed-identity:inventory",
+    }
+
+    hydrated = observation_hydrator.hydrate_observation_context(
+        payload,
+        service="core-control-plane",
+        environment="dev",
+        binding=binding,
+    )
+
+    assert hydrated["environments"]["dev"]["core-control-plane"]["observation_context"] == {
+        "enabled": True,
+        **binding,
+    }
+    assert payload["environments"]["dev"]["core-control-plane"]["observation_context"] == {
+        "enabled": False
+    }
+
+
+def test_absent_platform_observation_binding_removes_stale_core_input(
+    observation_hydrator: ModuleType,
+) -> None:
+    payload = {
+        "environments": {
+            "dev": {
+                "core-control-plane": {
+                    "name": "example",
+                    "observation_context": {"enabled": True},
+                }
+            }
+        }
+    }
+
+    hydrated = observation_hydrator.hydrate_observation_context(
+        payload,
+        service="core-control-plane",
+        environment="dev",
+        binding=None,
+    )
+
+    assert "observation_context" not in hydrated["environments"]["dev"]["core-control-plane"]
+
+
+@pytest.mark.parametrize(
+    "binding",
+    [
+        {},
+        {"signing_seed_secret_id": "secret"},
+        {
+            "signing_seed_secret_id": "secret",
+            "executor_credential_lineage": "",
+            "source_credential_lineage": "source",
+        },
+        {
+            "signing_seed_secret_id": "secret",
+            "executor_credential_lineage": " Same ",
+            "source_credential_lineage": "same",
+        },
+    ],
+)
+def test_rejects_invalid_platform_observation_binding(
+    observation_hydrator: ModuleType,
+    binding: object,
+) -> None:
+    payload = {"environments": {"dev": {"core-control-plane": {"name": "example"}}}}
+
+    with pytest.raises(observation_hydrator.ObservationContextError):
+        observation_hydrator.hydrate_observation_context(
+            payload,
+            service="core-control-plane",
+            environment="dev",
+            binding=binding,
+        )
 
 
 def test_preserves_service_without_primary_event_topic(topic_hydrator: ModuleType) -> None:
@@ -543,3 +647,5 @@ def test_workflow_delegates_core_model_binding_materialization() -> None:
     assert 'MODEL_ENDPOINTS_JSON="$model_endpoints_json"' in _WORKFLOW
     assert '"${resolved_model_args[@]}"' in _WORKFLOW
     assert "Core service tfvars has no LLM configuration" not in _WORKFLOW
+    assert "output -json ohl_observation_context_binding" in _WORKFLOW
+    assert "hydrate_observation_context.py" in _WORKFLOW

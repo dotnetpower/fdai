@@ -1,4 +1,4 @@
-"""Independent Azure Container Apps scale-out effect observation."""
+"""Independent Azure VM Scale Set scale-out effect observation."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ from fdai.shared.contracts.models import Action, Mode
 from fdai.shared.providers.ontology_instance import OntologyObjectRecord
 
 _ACTION_TYPE = "ops.scale-out"
-_RESOURCE_TYPE = "microsoft.app/containerapps"
+_RESOURCE_TYPE = "microsoft.compute/virtualmachinescalesets"
 
 
 class AzureObservationContextIssuer(Protocol):
@@ -36,8 +36,8 @@ class AzureObservationContextIssuer(Protocol):
     ) -> AuthenticatedObservationContext: ...
 
 
-class AzureContainerAppScaleOutObservationCollector:
-    """Collect exact plan-declared Container Apps scale-out properties."""
+class AzureScaleOutObservationCollector:
+    """Collect exact plan-declared VM Scale Set scale-out properties."""
 
     def __init__(
         self,
@@ -99,11 +99,10 @@ class AzureContainerAppScaleOutObservationCollector:
         snapshot = await self._snapshots.get(target.object_id)
         if snapshot is None:
             return None
-        if (
-            snapshot.resource_ref.casefold() != target.object_id.casefold()
-            or snapshot.resource_type.casefold() != _RESOURCE_TYPE
-        ):
-            raise ValueError("Azure effect observation snapshot target or type changed")
+        if snapshot.resource_ref.casefold() != target.object_id.casefold():
+            raise ValueError("Azure effect observation snapshot target changed")
+        if snapshot.resource_type.casefold() != _RESOURCE_TYPE:
+            return None
         if snapshot.resource_revision is None:
             raise ValueError("Azure effect observation snapshot lacks a resource revision")
         now = self._clock()
@@ -176,6 +175,11 @@ class AzureContainerAppScaleOutObservationCollector:
 
 
 __all__ = [
+    "AzureScaleOutObservationCollector",
     "AzureContainerAppScaleOutObservationCollector",
     "AzureObservationContextIssuer",
 ]
+
+
+# Compatibility alias for callers that imported the initial, incorrectly scoped name.
+AzureContainerAppScaleOutObservationCollector = AzureScaleOutObservationCollector

@@ -508,6 +508,23 @@ jobs:
             terraform -chdir="$TRUSTED_CONTROLS/infra" output -json event_bus_topics \
               | jq -er '[.[] | select(. == "fdai.pantheon.objects")] | if length == 1 then .[0] else error("platform state must contain exactly one canonical Pantheon-object topic") end'
           )"
+          observation_context_binding="null"
+          if [[ "$SERVICE" == "core-control-plane" ]]; then
+            observation_context_binding="$(
+              terraform -chdir="$TRUSTED_CONTROLS/infra" output -json ohl_observation_context_binding
+            )"
+            jq -e '
+              . == null or (
+                type == "object" and
+                keys == ["executor_credential_lineage", "signing_seed_secret_id", "source_credential_lineage"] and
+                all(.[]; type == "string" and length > 0) and
+                .executor_credential_lineage != .source_credential_lineage
+              )
+            ' <<<"$observation_context_binding" >/dev/null || {
+              echo "Platform state returned an invalid OHL observation-context binding." >&2
+              exit 1
+            }
+          fi
           printf '%s' "$SERVICE_TFVARS_JSON" \
             | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/hydrate_database_host.py" \
                 --service "${{ inputs.service }}" \
@@ -519,6 +536,10 @@ jobs:
                 --event-topic "$event_topic" \
                 --pipeline-stage-topic "$pipeline_stage_topic" \
                 --pantheon-object-topic "$pantheon_object_topic" \
+            | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/hydrate_observation_context.py" \
+                --service "${{ inputs.service }}" \
+                --environment "${{ inputs.environment }}" \
+                --binding-json "$observation_context_binding" \
             | MODEL_ENDPOINTS_JSON="$model_endpoints_json" \
               python3 "$TRUSTED_CONTROLS/scripts/deployment/service/materialize_tfvars.py" \
                 --service "${{ inputs.service }}" \

@@ -8,11 +8,15 @@ module "container_app" {
   registry_identity_id = var.identity.resource_id
   command              = ["fdai-core-control-plane"]
   args                 = []
-  secrets = [{
+  secrets = concat([{
     name                = "database-dsn"
     identity            = var.identity.resource_id
     key_vault_secret_id = var.database.dsn_secret_id
-  }]
+    }], var.observation_context.enabled ? [{
+    name                = "ohl-observation-signing-seed"
+    identity            = var.identity.resource_id
+    key_vault_secret_id = var.observation_context.signing_seed_secret_id
+  }] : [])
   environment = concat([
     { name = "FDAI_STATE_STORE_DSN", secret_name = "database-dsn" },
     { name = "POSTGRES_HOST", value = var.database.host },
@@ -52,6 +56,14 @@ module "container_app" {
     { name = "FDAI_INCIDENT_INTERVENTION_REQUEST_TOPIC", value = var.event_topics.incident_intervention_requests },
     { name = "FDAI_START_CONSUMER", value = "1" },
     { name = "FDAI_HEALTH_PORT", value = tostring(var.health.port) },
+    ], !var.observation_context.enabled ? [] : [
+    { name = "FDAI_OHL_OBSERVATION_SIGNING_SEED", secret_name = "ohl-observation-signing-seed" },
+    { name = "FDAI_OHL_OBSERVER_IDENTITY", value = "observer:heimdall:azure-container-apps" },
+    { name = "FDAI_OHL_OBSERVER_CREDENTIAL_LINEAGE", value = "azure-managed-identity:${var.identity.client_id}" },
+    { name = "FDAI_OHL_EXECUTOR_CREDENTIAL_LINEAGE", value = var.observation_context.executor_credential_lineage },
+    { name = "FDAI_OHL_SOURCE_IDENTITY", value = "source:promoted-azure-inventory" },
+    { name = "FDAI_OHL_SOURCE_CREDENTIAL_LINEAGE", value = var.observation_context.source_credential_lineage },
+    { name = "FDAI_OHL_VERIFIER_IDENTITY", value = "observation-verifier:ohl-ed25519" },
     ], length(var.llm.model_endpoints) == 0 ? [] : [
     { name = "FDAI_MODEL_ENDPOINTS_JSON", value = jsonencode(var.llm.model_endpoints) },
     ], var.llm.resolved_models_digest == "" ? [] : [

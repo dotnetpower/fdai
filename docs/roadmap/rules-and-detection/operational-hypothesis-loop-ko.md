@@ -1,7 +1,7 @@
 ---
 translation_of: operational-hypothesis-loop.md
-translation_source_sha: 69e214d9ed83224f67469ee76228800227ace465
-translation_revised: 2026-08-23
+translation_source_sha: dcbc0a47733237770ded247c89e4d1ac56f51151
+translation_revised: 2026-08-31
 ---
 # 운영 가설 루프
 
@@ -29,6 +29,13 @@ runtime을 기록합니다.
 > 장기 실행 작업 replay test를 추가했습니다. 최종 검토에서 재현 가능한 Medium 이상 defect는
 > 없었습니다. observer identity record와 timeout 분류에 대한 남은 Low 작업은 종료되었으며, 보호된 live
 > drill과 recurrence window는 코드 defect나 완료 claim이 아니라 명시적 release evidence로 남습니다.
+>
+> **서명 맥락 하드닝(2026-08-30):** 추가 16개 라운드에서 키 구문 분석, 서명 정규 형식, 발급 시각과
+> 재생 의미, 자격 증명 분리, 시작 실패, 지원하지 않는 대상, 압축 이벤트 대체, secret 노출,
+> Terraform 소유권, 보호된 입력 채움, 구성 순서, 의존성 잠금 및 문서의 사실성을 검토했습니다.
+> 라운드에서 High 산출물 해석기 Protocol 불일치 1건과 Medium 경계 결함 7건을 수정했습니다. 집중
+> 회귀, 엄격한 타입, Terraform 및 문서 검사가 통과합니다. 의도적인 향후 서명 키 순환을 위한 Low
+> 후속 작업과 별도의 보호된 실제 증적 campaign만 남아 있습니다.
 
 ## 설계 요약
 
@@ -178,12 +185,16 @@ index를 통해 pre-dispatch kinetic artifact 저장소에서 정확한 `Action`
 검증하고 봉인합니다. Artifact 누락, legacy Action, shadow 실행, 지원하지 않는 ActionType, 사용할
 수 없는 근거, signed-context issuer 누락은 관측을 만들지 않으며 권한을 부여하지 않습니다.
 
-첫 concrete collector는 Azure Container Apps `ops.scale-out`으로 제한됩니다. Promoted inventory의
+첫 concrete collector는 Azure VM Scale Set `ops.scale-out`으로 제한됩니다. Promoted inventory의
 `AzureOperationalSnapshot`을 사용하고 정확한 대상 및 plan 이후 snapshot을 요구하며 불변 plan이
 이미 선언한 expected-property 이름만 투영합니다. 모든 속성은 snapshot의 finite metric으로
 존재해야 합니다. 배포가 제공하는 issuer는 독립 observer, executor, source, verifier credential
 계보를 `AuthenticatedObservationContext`에 바인딩해야 하며 collector는 자체 주장을 verified로
 표시할 수 없습니다.
+배포된 Core 서비스는 Managed Identity 기반 Key Vault 참조를 통해서만 무작위 Ed25519 seed를
+받습니다. 런타임 구성은 공개 키 계보를 파생하고 쓰기 및 재생 시 정확한 서명 관측을 검증합니다.
+구성이 일부만 제공되거나 로컬 실행 위치에서 키를 사용하거나 자격 증명 계보가 겹치거나 제한된
+발급 구간 밖에서 관측이 서명되면 시작을 거부합니다.
 
 ## Competency 및 수락
 
@@ -217,49 +228,11 @@ index를 통해 pre-dispatch kinetic artifact 저장소에서 정확한 `Action`
 
 Worker는 public contract를 통해 이러한 capability를 evidence source 또는 fixture로 인용할 수 있습니다.
 구현을 수정, wrap, rename 또는 duplicate하지 않습니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| Lane A 그래프 근거 | implemented | `services/core-control-plane/src/fdai/delivery/azure/graph_dynamic_evidence.py`; `services/core-control-plane/tests/delivery/azure/test_graph_dynamic_evidence.py`; `services/core-control-plane/tests/composition/test_wire_azure_operational_evidence.py` | 범위가 제한된 병렬 근거 구성이 일부 전제 조건과 시간 초과에 실패 시 차단됩니다. |
-| Lane B 영향 조정 | implemented | `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation.py`; `reconciliation_events.py`; `reconciliation_producer.py`; `reconciliation_request_outbox.py`; `delivery/reconciliation_runtime.py`; `delivery/reconciliation_request.py`; `delivery/reconciliation_request_publication.py`; 집중 조정 및 ControlLoop 테스트 | 요청, 결과, 원장, 일반 실행 producer 및 제안 전용 outbox 경로가 실행 권한 없이 구현되어 있습니다. Legacy Action은 producer 대상이 아닙니다. |
-| 검열 및 충돌 에피소드 처리 | implemented | `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_contracts.py`(`EffectObservationEnvelope.censoring_refs`); `reconciliation.py`(`_unscorable_reason`); `services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py` | 검열되거나 충돌하는 에피소드는 `HOLD_UNSCORABLE` 시도 근거로 보류되며, 종결 일치나 복구 요청이 되지 않습니다. |
-| Production reconciliation source | in-progress | `delivery/reconciliation_artifacts.py`; `delivery/reconciliation_observations.py`; `delivery/azure/executed_action_observation.py`; Heimdall 최종 ActionRun hook 및 runtime composition; 집중 source 및 runtime 테스트 | Runtime은 correlation-indexed pre-dispatch artifact를 정확히 복원하고 Azure Container Apps `ops.scale-out` expected property를 검증 mailbox에 수집할 수 있습니다. 배포는 signed-context issuer를 계속 바인딩해야 하며 통제된 live 증적은 아직 없습니다. |
-| Lane C 계보 및 역량 조회 | implemented | `services/core-control-plane/src/fdai/core/assurance_twin/`; `services/core-control-plane/tests/rule_catalog/test_operational_hypothesis_loop_competency.py` | 기존 온톨로지 객체가 병렬 집계 없이 고정된 여섯 조회 등급에 답합니다. 이 입증은 테스트가 공급한 레코드 기준입니다. 어떤 조립 루트도 `OperationalHypothesisLineageProjector`를 구성하지 않으므로 운영은 이 객체들을 하나도 생성하지 않습니다. |
-| Lane D 그래프 모델 승격 | implemented | `services/core-control-plane/src/fdai/delivery/graph_model_promotion.py`; `core/assurance_twin/model_promotion.py`; `tests/delivery/test_graph_model_promotion.py` | 정확한 아티팩트와 롤백 신원이 기존 승인 및 작업 경로에 도달하며, 근거는 스스로 승격할 수 없습니다. |
-| 관찰자 귀속 및 시간 초과 분류 | implemented | `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_identity.py`; `reconciliation_contracts.py`(`ReconciliationOutcome.observer_identity_record`); `reconciliation.py`(`_timeout_reason_code`); `services/core-control-plane/tests/core/ontology_platform/test_reconciliation_identity.py` | 모든 결과가 주체 값을 담지 않는 관찰자·실행자·소스·검증자 기록과 파생된 독립성 판정을 바인딩하고, 시간이 초과된 각 에피소드는 복구 라우팅을 유지한 채 결정론적 분류를 담습니다. |
-| 보호된 live 근거 | in-progress | [하드닝 상태](#설계-요약); 현재 변경의 소스 감사 | 코드 하드닝은 완료됐지만 보호된 live 훈련과 재발 구간은 release 근거로 남아 있습니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 통합 lane 소스와 집중 테스트. | 보호된 live 훈련 및 재발 근거를 보존합니다. |
-| 2026-08-14 | implemented | 일반 실행을 기존 exact V2 plan과 lease로 보호되는 durable publication outbox를 통해 effect-reconciliation request 생성에 연결했으며 downstream failure가 executor outcome을 변경하지 않도록 했습니다. | `current change`; reconciliation producer, outbox, publication, ControlLoop, runtime 및 composition 경로; 집중 검증 163개를 통과했습니다. | Production exact-plan 및 independent-observation source를 연결한 뒤 통제된 live closure 근거를 보존합니다. |
-| 2026-08-15 | in-progress | Lane C 주장에 단서를 달았습니다. 고정된 여섯 조회 등급은 테스트가 공급한 레코드로 입증되며, 어떤 조립 루트도 계보 projector를 구성하지 않습니다. | `current change`, `test_operational_hypothesis_loop_competency.py`가 자체 `OntologyObjectRecord`와 `OntologyLinkRecord` 입력을 만들고 `bootstrap.py`와 `control_loop.py`는 계보 projector를 구성하지 않습니다. | 선언된 `DecisionCase`, `ActionOption`, `ExpectedEffect`, `ActionRun` 속성을 실제 생산자에서 공급한 뒤 projector를 연결해야 합니다. |
-| 2026-08-16 | implemented | Envelope 스키마 1.1.0에 `censoring_refs` 관측 필드를 추가하고 검열된 에피소드를 모든 효과 비교보다 먼저 채점 불가로 처리하여, 검열되거나 충돌하는 에피소드가 보류된 시도 근거로 남도록 했습니다. | `current change`; `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_contracts.py`; `reconciliation.py`; `services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py`; 집중 실행 `pytest services/core-control-plane/tests/core/ontology_platform` 335개 통과. | 통제된 live 에피소드로 재발 관측 구간을 닫습니다. |
-| 2026-08-16 | implemented | Censoring 판정을 마감 분류보다 앞으로 옮겨 늦게 평가된 검열 에피소드가 시간 초과 복구 요청으로 승격되지 않도록 했습니다. | `current change`; `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation.py`(`_episode_validity_reason`); `services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py`; 집중 실행 `pytest services/core-control-plane/tests/core/ontology_platform` 338개 통과. | 통제된 live 에피소드로 재발 관측 구간을 닫습니다. |
-| 2026-08-17 | implemented | 모든 조정 결과에 바인딩되는 주체 값 없는 관찰자 신원 기록과 결정론적 시간 초과 분류를 추가했습니다. 결과 스키마를 `1.1.0`, durable 집합체 스키마를 `1.2.0` 으로 올려, 기록 이전에 저장된 집합체는 귀속 없이 재생되는 대신 실패로 닫힙니다. | `current change`; `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_identity.py`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/core/ontology_platform/test_reconciliation_identity.py services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py services/core-control-plane/tests/core/ontology_platform/test_reconciliation_hardening.py services/core-control-plane/tests/core/ontology_platform/test_state_store_reconciliation.py services/core-control-plane/tests/core/ontology_platform/test_reconciliation_binding.py` 68개 통과. | 프로덕션 관측 어댑터를 바인딩하고 보호된 live 훈련과 재발 근거를 보존합니다. |
-| 2026-08-17 | implemented | 바인딩된 귀속 필드 이름을 `observer_identity_record` 로 정해 결과 이벤트의 원본 관찰자 신원 문자열과 혼동되지 않게 했고, 기록되는 소스 권위 토큰을 제한했으며, 귀속 없이 기록된 지속 집계에 대한 실패 시 닫힘 회귀 테스트를 추가했습니다. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/core/ontology_platform/test_reconciliation_identity.py` 가 12개 테스트를 통과했습니다. | 프로덕션 관찰 어댑터를 연결하고 보호된 실제 드릴 및 재발 근거를 보존합니다. |
-| 2026-08-23 | in-progress | 영속 kinetic artifact 저장소를 production exact-plan source로 재사용하고, 쓰기와 replay에서 서명된 identity 분리를 검증하는 Heimdall 전용 StateStore 관측 mailbox를 추가했습니다. 기존 관측 검증기가 있으면 완전한 배포 조립이 자동으로 연결됩니다. | `current change`; `delivery/reconciliation_observations.py`; `runtime/bootstrap_bindings.py`; 집중 reconciliation 및 bootstrap 테스트 통과 | 권위 있는 Heimdall provider를 mailbox에 연결하고 완전한 계보 record를 materialize한 뒤 관리되는 live 종결 근거를 보존합니다. |
-| 2026-08-23 | in-progress | 최종 ActionRun 관측 경로를 추가했습니다. Correlation-indexed exact kinetic artifact, Heimdall typed 구독, plan이 선언한 expected property만 투영하는 Azure Container Apps `ops.scale-out` collector를 사용합니다. | `current change`; 최종 관측 구현 및 집중 테스트 | Managed identity 기반 signed-context issuer를 연결하고 통제된 live 종결 증적을 보존하며 Lane C 투영 전에 누락된 lineage 속성을 보존합니다. |
-
-### 남은 작업
-
-- [ ] Managed identity 기반 signed-context issuer를 Azure Container Apps `ops.scale-out`
-  collector에 연결한 뒤 검증 mailbox에 통제된 live 관측 하나를 보존합니다.
-- [ ] 보호된 live 훈련을 실행하고 정확한 사전 조건, dry-run, 프로바이더, 독립 결과, 롤백, 감사 증적을 보존합니다.
-- [ ] 통제된 live 에피소드로 재발 관측 구간을 닫고 그 결과 재발 근거를 보존합니다.
-- [x] 검열되거나 충돌하는 에피소드가 계속 채점 불가로 남습니다. 근거는 `services/core-control-plane/src/fdai/core/ontology_platform/`의 `EffectObservationEnvelope.censoring_refs`와 `_unscorable_reason`, 그리고 `services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py`의 집중 사례입니다.
-- [x] 모든 조정 결과가 주체 값을 담지 않는 관찰자·실행자·소스·검증자 신원 기록과 파생된 독립성 판정을 바인딩하고, 시간이 초과된 모든 에피소드가 결정론적 분류를 담습니다. 근거는 `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_identity.py` 와 `services/core-control-plane/tests/core/ontology_platform/test_reconciliation_identity.py` 입니다.
-
 ## 관련 문서
 
 | 알아볼 내용 | 문서 |
 |-------------|------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/rules-and-detection/operational-hypothesis-loop.md) |
 | DecisionCase, ActionOption, ExpectedEffect 및 Process semantic | [FDAI Operating Ontology](../architecture/operating-ontology-ko.md) |
 | Versioned logic 및 candidate planning | [Operational Planning](../decisioning/operational-planning-ko.md) |
 | 사후 액션 causal claim 및 refutation | [Causal Incident Graph](causal-incident-graph-ko.md) |

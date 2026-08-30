@@ -88,6 +88,17 @@ variable "llm" {
   })
 }
 
+variable "observation_context" {
+  description = "Optional deployment-owned signed context for Heimdall executed-action observations."
+  type = object({
+    enabled                     = optional(bool, false)
+    signing_seed_secret_id      = optional(string, "")
+    executor_credential_lineage = optional(string, "")
+    source_credential_lineage   = optional(string, "")
+  })
+  default = {}
+}
+
 variable "configuration_drift" {
   description = "Optional scope-pinned read-only Azure Resource Graph configuration drift binding."
   type = object({

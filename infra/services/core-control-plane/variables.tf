@@ -223,6 +223,27 @@ variable "llm" {
   }
 }
 
+variable "observation_context" {
+  description = "Optional deployment-owned signed context for Heimdall executed-action observations."
+  type = object({
+    enabled                     = optional(bool, false)
+    signing_seed_secret_id      = optional(string, "")
+    executor_credential_lineage = optional(string, "")
+    source_credential_lineage   = optional(string, "")
+  })
+  default = {}
+
+  validation {
+    condition = !var.observation_context.enabled || (
+      can(regex("^https://[^/]+/secrets/[^/]+(/[^/]+)?$", var.observation_context.signing_seed_secret_id)) &&
+      trimspace(var.observation_context.executor_credential_lineage) != "" &&
+      trimspace(var.observation_context.source_credential_lineage) != "" &&
+      lower(trimspace(var.observation_context.executor_credential_lineage)) != lower(trimspace(var.observation_context.source_credential_lineage))
+    )
+    error_message = "Enabled observation_context requires a Key Vault secret id and distinct executor and source credential lineages."
+  }
+}
+
 variable "configuration_drift" {
   description = "Optional scope-pinned read-only Azure Resource Graph configuration drift binding."
   type = object({

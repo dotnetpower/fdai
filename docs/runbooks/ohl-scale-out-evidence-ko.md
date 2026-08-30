@@ -1,8 +1,8 @@
 ---
 title: OHL Scale-Out 근거 Runbook
 translation_of: ohl-scale-out-evidence.md
-translation_source_sha: 886b5a1753cd0305f56e8f44060aa950187ed2d5
-translation_revised: 2026-08-14
+translation_source_sha: 7ab40a444e21b4715ad8f96164f747c46add574c
+translation_revised: 2026-08-30
 ---
 # OHL Scale-Out 근거 Runbook
 
@@ -67,11 +67,11 @@ Identity를 사용합니다. State-store secret, Key Vault role, gateway role �
 mutation 권한은 없습니다. Job을 시작하면 retry-stable `operator_request` 하나만 게시하며 target을
 scale하지 않습니다.
 
-현재 repository는 immutable kinetic receipt store를 구현했지만 dispatch 전 writer를 아직 연결하지
-않았고 verified independent effect-observation adapter도 제공하지 않습니다. 두 residual이 focused
-runtime evidence로 제거되기 전까지 contract를 `prepared`로 유지하고 live mutation 단계를 시작하지
-마세요. 항상 unavailable을 반환하는 deferred observer는 production binding이 아니며 이 gate를
-충족할 수 없습니다.
+저장소는 변경할 수 없는 kinetic receipt writer를 dispatch 전에 연결하고 배포 소유 Ed25519 효과
+관측 어댑터를 제공합니다. 보호된 플랫폼 계획은 Key Vault에 무작위 seed를 만들며 Core 서비스는
+Managed Identity 기반 secret 참조만 받습니다. 정확한 플랫폼 및 Core revision을 적용하고 시작
+근거가 완전한 관측 바인딩을 확인할 때까지 contract를 `prepared`로 유지하세요. 항상
+`unavailable`을 반환하는 지연 관측기는 프로덕션 바인딩이 아니며 이 gate를 충족할 수 없습니다.
 
 ## 필요한 runner 구성
 

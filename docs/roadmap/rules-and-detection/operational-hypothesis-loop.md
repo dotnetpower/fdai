@@ -29,6 +29,14 @@ runtime without adding a second planning, causal, simulation, or promotion syste
 > Remaining Low work on observer-identity records and timeout classification is closed; the
 > protected live drill and recurrence window remain explicit release evidence rather than a code
 > defect or a completed claim.
+>
+> **Signed-context hardening (2026-08-30):** Sixteen additional rounds reviewed key parsing,
+> signature canonicality, issue-time and replay semantics, credential separation, startup failure,
+> unsupported targets, compact-event substitution, secret exposure, Terraform ownership, protected
+> input hydration, composition order, dependency locks, and documentation truth. The rounds fixed
+> one High artifact-resolver protocol mismatch and seven Medium boundary defects. Focused regression,
+> strict type, Terraform, and documentation checks now pass. Only Low follow-up for an intentional
+> future signing-key rotation and the separate protected live evidence campaign remains.
 
 ## Design at a glance
 
@@ -181,12 +189,16 @@ seals it under the Heimdall producer boundary. Missing artifacts, legacy actions
 unsupported ActionTypes, unavailable evidence, or a missing signed-context issuer produce no
 observation and grant no authority.
 
-The first concrete collector is limited to Azure Container Apps `ops.scale-out`. It uses the
+The first concrete collector is limited to Azure VM Scale Set `ops.scale-out`. It uses the
 promoted-inventory `AzureOperationalSnapshot`, requires the exact target and a post-plan snapshot,
 and projects only expected-property names already declared by the immutable plan. Every property
 must be present as a finite snapshot metric. A deployment-provided issuer binds independent
 observer, executor, source, and verifier credential lineages in an
 `AuthenticatedObservationContext`; the collector cannot mark its own claims verified.
+The deployed Core service receives a random Ed25519 seed only through a Managed Identity-backed
+Key Vault reference. Runtime composition derives a public-key lineage, verifies the exact signed
+observation on write and replay, and refuses partial configuration, local-venue key use, collapsed
+credential lineages, or an observation signed outside its bounded issue window.
 
 ## Competency and acceptance
 
@@ -221,49 +233,11 @@ This campaign does not reimplement or fork these completed capabilities:
 
 The workers may cite those capabilities as evidence sources or fixtures through their public
 contracts. They don't modify, wrap, rename, or duplicate their implementations.
-
-## Implementation status
-
-### Implementation scope
-
-| Area | State | Evidence | Notes |
-|------|-------|----------|-------|
-| Lane A graph evidence | implemented | `services/core-control-plane/src/fdai/delivery/azure/graph_dynamic_evidence.py`; `services/core-control-plane/tests/delivery/azure/test_graph_dynamic_evidence.py`; `services/core-control-plane/tests/composition/test_wire_azure_operational_evidence.py` | Bounded concurrent evidence construction fails closed on partial prerequisites and timeouts. |
-| Lane B effect reconciliation | implemented | `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation.py`; `reconciliation_events.py`; `reconciliation_producer.py`; `reconciliation_request_outbox.py`; `delivery/reconciliation_runtime.py`; `delivery/reconciliation_request.py`; `delivery/reconciliation_request_publication.py`; focused reconciliation and ControlLoop tests | Request, outcome, ledger, ordinary-execution producer, and proposal-only outbox paths are implemented without execution authority. Legacy Actions remain outside the producer. |
-| Censored and conflicting episode handling | implemented | `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_contracts.py` (`EffectObservationEnvelope.censoring_refs`); `reconciliation.py` (`_unscorable_reason`); `services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py` | A censored or conflicting episode is held as `HOLD_UNSCORABLE` attempt evidence, never a terminal match and never a recovery request. |
-| Production reconciliation sources | in-progress | `delivery/reconciliation_artifacts.py`; `delivery/reconciliation_observations.py`; `delivery/azure/executed_action_observation.py`; Heimdall terminal ActionRun hook and runtime composition; focused source and runtime tests | The runtime restores exact correlation-indexed pre-dispatch artifacts and can collect Azure Container Apps `ops.scale-out` expected properties into the verified mailbox. A deployment must still bind the signed-context issuer, and no governed live receipt exists yet. |
-| Lane C lineage and competency queries | implemented | `services/core-control-plane/src/fdai/core/assurance_twin/`; `services/core-control-plane/tests/rule_catalog/test_operational_hypothesis_loop_competency.py` | Existing ontology objects answer all six frozen query classes without a parallel aggregate. The proof is over test-supplied records: no composition root constructs `OperationalHypothesisLineageProjector`, so production materializes none of these objects. |
-| Lane D graph-model promotion | implemented | `services/core-control-plane/src/fdai/delivery/graph_model_promotion.py`; `core/assurance_twin/model_promotion.py`; `tests/delivery/test_graph_model_promotion.py` | Exact artifact and rollback identity reach the existing approval and action path; evidence cannot self-promote. |
-| Observer attribution and timeout classification | implemented | `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_identity.py`; `reconciliation_contracts.py` (`ReconciliationOutcome.observer_identity_record`); `reconciliation.py` (`_timeout_reason_code`); `services/core-control-plane/tests/core/ontology_platform/test_reconciliation_identity.py` | Every outcome binds a principal-free observer, executor, source, and verifier record with derived independence findings, and each timed-out episode carries a deterministic classification while keeping its recovery routing. |
-| Protected live evidence | in-progress | [Hardening status](#design-at-a-glance); current change source audit | Code hardening is complete, but the protected live drill and recurrence window remain release evidence. |
-
-### Implementation history
-
-| Date | State | Change | Evidence | Remaining |
-|------|-------|--------|----------|-----------|
-| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; integrated lane source and focused tests listed in the scope table. | Retain protected live-drill and recurrence evidence. |
-| 2026-08-14 | implemented | Connected ordinary execution to effect-reconciliation request production through existing exact V2 plans and a durable lease-fenced publication outbox without changing executor outcomes on downstream failure. | `current change`; reconciliation producer, outbox, publication, ControlLoop, runtime, and composition paths; focused validation passed 163 tests. | Bind production exact-plan and independent-observation sources, then retain governed live closure evidence. |
-| 2026-08-15 | in-progress | Qualified the Lane C claim: the six frozen query classes are proven over test-supplied records, because no composition root constructs the lineage projector. | `current change`; `test_operational_hypothesis_loop_competency.py` builds its own `OntologyObjectRecord` and `OntologyLinkRecord` inputs; `bootstrap.py` and `control_loop.py` construct no lineage projector. | Supply the declared `DecisionCase`, `ActionOption`, `ExpectedEffect`, and `ActionRun` properties from real producers, then wire the projector. |
-| 2026-08-16 | implemented | Added the `censoring_refs` observation field at envelope schema 1.1.0 and made a censored episode unscorable ahead of every effect comparison, so censored and conflicting episodes stay held attempt evidence. | `current change`; `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_contracts.py`; `reconciliation.py`; `services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py`; focused run `pytest services/core-control-plane/tests/core/ontology_platform` passed 335 tests. | Close the recurrence observation window with governed live episodes. |
-| 2026-08-16 | implemented | Moved the censoring decision ahead of the deadline classification so a late-evaluated censored episode is held instead of escalating into a timed-out recovery request. | `current change`; `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation.py` (`_episode_validity_reason`); `services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py`; focused run `pytest services/core-control-plane/tests/core/ontology_platform` passed 338 tests. | Close the recurrence observation window with governed live episodes. |
-| 2026-08-17 | implemented | Added the principal-free observer-identity record bound to every reconciliation outcome and the deterministic timeout classification. Outcome schema advanced to `1.1.0` and the durable aggregate schema to `1.2.0`, so an aggregate written before the record fails closed instead of replaying without attribution. | `current change`; `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_identity.py`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/core/ontology_platform/test_reconciliation_identity.py services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py services/core-control-plane/tests/core/ontology_platform/test_reconciliation_hardening.py services/core-control-plane/tests/core/ontology_platform/test_state_store_reconciliation.py services/core-control-plane/tests/core/ontology_platform/test_reconciliation_binding.py` passed 68 tests. | Bind production observation adapters and retain the protected live drill and recurrence evidence. |
-| 2026-08-17 | implemented | Named the bound attribution field `observer_identity_record` so it cannot be confused with the raw observer identity string on the result event, constrained the recorded source authority token, and added a fail-closed regression for a durable aggregate written without attribution. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/core/ontology_platform/test_reconciliation_identity.py` passed 12 tests. | Bind production observation adapters and retain the protected live drill and recurrence evidence. |
-| 2026-08-23 | in-progress | Reused the durable kinetic artifact store as the production exact-plan source and added a Heimdall-only StateStore observation mailbox that verifies signed identity separation on write and replay. Complete deployment composition now binds automatically when the existing observation verifier is present. | `current change`; `delivery/reconciliation_observations.py`; `runtime/bootstrap_bindings.py`; focused reconciliation and bootstrap tests passed. | Connect an authoritative Heimdall provider to the mailbox, materialize complete lineage records, and retain governed live closure evidence. |
-| 2026-08-23 | in-progress | Added the terminal ActionRun observation route: correlation-indexed exact kinetic artifacts, a Heimdall typed subscription, and an Azure Container Apps `ops.scale-out` collector that projects only plan-declared expected properties. | `current change`; terminal observation implementation and focused tests. | Bind a managed-identity-backed signed-context issuer, retain a controlled live closure receipt, and preserve missing lineage properties before projecting Lane C. |
-
-### Remaining work
-
-- [ ] Bind a managed-identity-backed signed-context issuer to the Azure Container Apps
-  `ops.scale-out` collector, then retain one controlled live observation in the verified mailbox.
-- [ ] Run the protected live drill and retain exact precondition, dry-run, provider, independent-outcome, rollback, and audit receipts.
-- [ ] Close the recurrence observation window with governed live episodes and retain the resulting recurrence evidence.
-- [x] Censored and conflicting episodes remain unscorable, evidenced by `EffectObservationEnvelope.censoring_refs` and `_unscorable_reason` in `services/core-control-plane/src/fdai/core/ontology_platform/` and the focused cases in `services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py`.
-- [x] Every reconciliation outcome binds a principal-free observer, executor, source, and verifier identity record with derived independence findings, and each timed-out episode carries a deterministic classification, evidenced by `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_identity.py` and `services/core-control-plane/tests/core/ontology_platform/test_reconciliation_identity.py`.
-
 ## Related docs
 
 | To learn about | Read |
 |----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/rules-and-detection/operational-hypothesis-loop.md) |
 | DecisionCase, ActionOption, ExpectedEffect, and Process semantics | [FDAI Operating Ontology](../architecture/operating-ontology.md) |
 | Versioned logic and candidate planning | [Operational Planning](../decisioning/operational-planning.md) |
 | Post-action causal claims and refutation | [Causal Incident Graph](causal-incident-graph.md) |
