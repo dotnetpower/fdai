@@ -2965,7 +2965,27 @@ async def test_execution_hold_preserves_verified_attempts_and_limitations() -> N
     held = RuntimeSemanticTurnResult(
         disposition="held",
         reason="semantic_execution_failed",
-        planning=runtime_result.planning,
+        planning=cast(
+            Any,
+            SimpleNamespace(
+                **vars(runtime_result.planning),
+                investigation_intent=SimpleNamespace(
+                    entities=(),
+                    symptom_measures=(),
+                    primary_symptom_measure_id="",
+                    hypotheses=(
+                        SimpleNamespace(
+                            hypothesis_id="dependency-latency",
+                            cause_measure_concept="dependency.latency",
+                        ),
+                        SimpleNamespace(
+                            hypothesis_id="traffic-load",
+                            cause_measure_concept="request.volume",
+                        ),
+                    ),
+                ),
+            ),
+        ),
         execution=execution,
         intent_graph=runtime_result.intent_graph,
         intent_graph_evidence={
@@ -2989,6 +3009,9 @@ async def test_execution_hold_preserves_verified_attempts_and_limitations() -> N
     assert "`query.object_set` - `unavailable`" in semantic["answer"]
     assert "`query.object_set`: `capability_unavailable`" in semantic["answer"]
     assert "실제로 시도한 읽기 전용 조사" in semantic["answer"]
+    assert "## 가설 상태" in semantic["answer"]
+    assert "`dependency-latency` - `unresolved`" in semantic["answer"]
+    assert "`traffic-load` - `unresolved`" in semantic["answer"]
     assert "다음 안전 단계" in semantic["answer"]
     assert "`execution_authority=false`" in semantic["answer"]
 

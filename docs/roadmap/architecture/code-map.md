@@ -200,7 +200,8 @@ inputs remain held. A missing outer `Resource` type is restored only from one sc
 `resource` target that exactly matches the frame target without a conflicting canonical type.
 An input-free recovery diagnostic records only fixed failed-precondition names
 and their count, without operator text, target values, source-span text, model payloads, or provider
-data. The
+data. A partial causal hold renders each verified hypothesis ID as `unresolved`; it never promotes
+unexecuted evidence to a supported or refuted conclusion. The
 frame proposal applies the shared wire identifier constraints before Core rebuilds server-owned
 digests. Structured diagnostics record only the planning stage, candidate index, failure class,
 and input-free validation locations; they omit operator text and provider details. The public composition facade delegates Azure-specific model and catalog binding to

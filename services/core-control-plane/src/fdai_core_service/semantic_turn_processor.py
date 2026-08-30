@@ -1284,7 +1284,7 @@ def _project_execution_hold(
         evidence_refs=evidence_refs,
         checks_completed=completed,
         checks_total=len(execution.receipts),
-        answer=_render_execution_hold_answer(request, execution),
+        answer=_render_execution_hold_answer(request, result, execution),
         assurance_observation=project_semantic_assurance(
             result,
             disposition="held",
@@ -1339,6 +1339,7 @@ def _projected_execution_evidence_matches(
 
 def _render_execution_hold_answer(
     request: SemanticTurnRequest,
+    result: RuntimeSemanticTurnResult,
     execution: QueryPlanExecution,
 ) -> str:
     korean = request.locale.casefold().startswith("ko")
@@ -1363,6 +1364,7 @@ def _render_execution_hold_answer(
     )
     if causal_answer is not None:
         return causal_answer
+    hypotheses = _held_hypothesis_lines(result, korean=korean)
     if korean:
         return "\n".join(
             [
@@ -1375,6 +1377,7 @@ def _render_execution_hold_answer(
                 "- 완료된 단계와 근거 참조만 관측 사실로 사용할 수 있습니다.",
                 "- 완료되지 않은 가설은 `supported` 또는 `refuted`로 승격하지 않고 "
                 "`unresolved`로 유지합니다.",
+                *(["", "## 가설 상태", "", *hypotheses] if hypotheses else []),
                 "",
                 "## 제한 사항",
                 "",
@@ -1403,6 +1406,7 @@ def _render_execution_hold_answer(
             "- Only completed steps and their evidence references can support observations.",
             "- Incomplete hypotheses remain `unresolved`; they are not promoted to "
             "`supported` or `refuted`.",
+            *(["", "## Hypothesis status", "", *hypotheses] if hypotheses else []),
             "",
             "## Limitations",
             "",
@@ -1420,6 +1424,26 @@ def _render_execution_hold_answer(
             "`execution_authority=false`",
         ]
     )
+
+
+def _held_hypothesis_lines(
+    result: RuntimeSemanticTurnResult,
+    *,
+    korean: bool,
+) -> list[str]:
+    intent = getattr(result.planning, "investigation_intent", None)
+    raw_hypotheses = getattr(intent, "hypotheses", ())
+    if not isinstance(raw_hypotheses, tuple):
+        return []
+    lines: list[str] = []
+    for hypothesis in raw_hypotheses:
+        hypothesis_id = getattr(hypothesis, "hypothesis_id", None)
+        if isinstance(hypothesis_id, str) and hypothesis_id:
+            lines.append(
+                f"- `{hypothesis_id}` - `unresolved`"
+                + (" - 근거 미완료" if korean else " - evidence incomplete")
+            )
+    return lines
 
 
 def _render_partial_causal_answer(

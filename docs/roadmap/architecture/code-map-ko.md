@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: b76ac27a899b49df504090c5daf226ad85cd460b
+translation_source_sha: ab3575d6ec609c6908b97c00e2fbfa8a0fa50694
 translation_revised: 2026-08-31
 ---
 # 코드 맵
@@ -198,7 +198,8 @@ concept로만 완성합니다. Dependency-latency와 traffic-load 근거는 모�
 canonical type 없이 frame target과 정확히 일치하는 스키마 검증 `resource` target 하나에서만
 복원합니다. 입력 없는 recovery 진단은 고정된 실패
 precondition 이름과 개수만 기록하며 운영자 text, target 값, source-span text, model payload 또는
-provider data를 남기지 않습니다. 공개
+provider data를 남기지 않습니다. 부분 causal hold는 검증된 각 hypothesis ID를 `unresolved`로
+표시하며 실행하지 않은 evidence를 supported 또는 refuted conclusion으로 승격하지 않습니다. 공개
 프레임 제안은 Core가 서버 소유 다이제스트를 다시 만들기 전에 shared wire 식별자 제약을
 적용합니다. 구조화된 진단은 계획 단계, 후보 인덱스, 실패 클래스 및 입력을 포함하지 않는
 검증 위치만 기록하며 운영자 텍스트와 프로바이더 상세는 제외합니다. 공개
