@@ -96,7 +96,6 @@ def normalize_missing_resource_slowness_investigation(
 
     facets_raw = semantic_judgment.get("requested_facets", ()) if semantic_judgment else ()
     facets = {str(item) for item in facets_raw} if isinstance(facets_raw, (list, tuple)) else set()
-    required_metrics = {"service.latency", "dependency.latency", "request.volume"}
     explicit_hypothesis_signals = (
         "hypothesis_network_latency",
         "hypothesis_application_latency",
@@ -111,28 +110,6 @@ def normalize_missing_resource_slowness_investigation(
     proposal_types = tuple(
         constraint for constraint in proposal.subject_constraints if constraint in declared_types
     )
-    if (
-        proposal.investigation is not None
-        or proposal.operation is not SemanticOperation.EXPLAIN_CHANGE
-        or proposal.output_shape is not SemanticOutputShape.CAUSAL_EVIDENCE
-        or proposal_types != ("Resource",)
-        or proposal.unresolved_terms
-        or proposal.clarification_requirements
-        or proposal.clarification is not None
-        or "cause" not in facets
-        or semantic_judgment is None
-        or semantic_judgment.get("action_posture") != "advise_only"
-        or semantic_judgment.get("execution_authority") is not False
-        or inventory_query_language is None
-        or query_signal_matches(utterance, inventory_query_language, "slowness_negation")
-        or query_signal_matches(utterance, inventory_query_language, "competing_change_event")
-        or any(
-            query_signal_matches(utterance, inventory_query_language, signal)
-            for signal in explicit_hypothesis_signals
-        )
-        or not required_metrics.issubset(metric_concepts)
-    ):
-        return proposal
     target = exact_target_from_constraints(
         proposal.subject_constraints,
         utterance=utterance,
@@ -143,17 +120,81 @@ def normalize_missing_resource_slowness_investigation(
         signal: query_signal_span(utterance, inventory_query_language, signal)
         for signal in ("causal_diagnosis", "symptom_slowness", "temporal_onset")
     }
-    if target is None or query_sides is None or any(value is None for value in spans.values()):
-        return proposal
-    target_start = utterance.casefold().find(target.casefold())
-    if target_start < 0 or utterance.casefold().count(target.casefold()) != 1:
-        return proposal
-    target_end = target_start + len(target)
-    if any(
-        match is not None and match[0] < target_end and match[1] > target_start
-        for match in spans.values()
+    target_start = utterance.casefold().find(target.casefold()) if target is not None else -1
+    target_unique = (
+        target is not None
+        and target_start >= 0
+        and utterance.casefold().count(target.casefold()) == 1
+    )
+    target_end = target_start + len(target) if target_unique and target is not None else -1
+    spans_available = all(value is not None for value in spans.values())
+    spans_outside_target = (
+        target_unique
+        and spans_available
+        and not any(
+            match is not None and match[0] < target_end and match[1] > target_start
+            for match in spans.values()
+        )
+    )
+    no_negation = inventory_query_language is not None and not query_signal_matches(
+        utterance,
+        inventory_query_language,
+        "slowness_negation",
+    )
+    no_competing_event = inventory_query_language is not None and not query_signal_matches(
+        utterance,
+        inventory_query_language,
+        "competing_change_event",
+    )
+    no_explicit_hypothesis = inventory_query_language is not None and not any(
+        query_signal_matches(utterance, inventory_query_language, signal)
+        for signal in explicit_hypothesis_signals
+    )
+    checks = (
+        ("operation_explain_change", proposal.operation is SemanticOperation.EXPLAIN_CHANGE),
+        ("sole_resource_type", proposal_types == ("Resource",)),
+        ("unresolved_terms_empty", not proposal.unresolved_terms),
+        ("clarification_requirements_empty", not proposal.clarification_requirements),
+        ("clarification_absent", proposal.clarification is None),
+        ("cause_facet_present", "cause" in facets),
+        ("judgment_present", semantic_judgment is not None),
+        (
+            "advise_only",
+            semantic_judgment is not None
+            and semantic_judgment.get("action_posture") == "advise_only",
+        ),
+        (
+            "execution_authority_false",
+            semantic_judgment is not None and semantic_judgment.get("execution_authority") is False,
+        ),
+        ("inventory_language_bound", inventory_query_language is not None),
+        ("service_latency_available", "service.latency" in metric_concepts),
+        ("dependency_latency_available", "dependency.latency" in metric_concepts),
+        ("request_volume_available", "request.volume" in metric_concepts),
+        ("non_negated", no_negation),
+        ("no_competing_event", no_competing_event),
+        ("no_explicit_hypothesis", no_explicit_hypothesis),
+        ("exact_target_resolved", target_unique),
+        ("query_sides_available", query_sides is not None),
+        ("signal_spans_available", spans_available),
+        ("signal_spans_outside_target", spans_outside_target),
+    )
+    failed_preconditions = tuple(name for name, passed in checks if not passed)
+    if (
+        proposal.investigation is None
+        and proposal.output_shape is SemanticOutputShape.CAUSAL_EVIDENCE
     ):
+        _LOGGER.info(
+            "semantic_planning_resource_slowness_recovery_evaluated",
+            extra={
+                "failed_preconditions": ",".join(failed_preconditions) or "none",
+                "failed_precondition_count": len(failed_preconditions),
+            },
+        )
+    if failed_preconditions:
         return proposal
+    if target is None or query_sides is None:  # pragma: no cover - precondition invariant
+        raise RuntimeError("resource slowness recovery preconditions drifted")
 
     def source(signal: str) -> IntentSourceSpan:
         match = spans[signal]

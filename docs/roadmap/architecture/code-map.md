@@ -196,7 +196,9 @@ primary intent is `query.resource_current_state`. An omitted exact-Resource slow
 is completed only from reviewed non-negated causal, symptom, and onset spans outside the target
 identifier, no competing change event, exact manifest paths, and registered metric concepts.
 Dependency-latency and traffic-load evidence both use the verified relationship path; incomplete
-inputs remain held. The
+inputs remain held. An input-free recovery diagnostic records only fixed failed-precondition names
+and their count, without operator text, target values, source-span text, model payloads, or provider
+data. The
 frame proposal applies the shared wire identifier constraints before Core rebuilds server-owned
 digests. Structured diagnostics record only the planning stage, candidate index, failure class,
 and input-free validation locations; they omit operator text and provider details. The public composition facade delegates Azure-specific model and catalog binding to

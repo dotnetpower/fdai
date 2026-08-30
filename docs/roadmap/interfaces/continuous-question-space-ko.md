@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: a0877248f3b54cc28d52e7af9555d12729e1f160
+translation_source_sha: 728fab4ef0e727c6b514c26940745658d0bc9afb
 translation_revised: 2026-08-31
 ---
 # 지속형 질문 공간
@@ -59,6 +59,7 @@ translation_revised: 2026-08-31
 |------|------|------|------|-----------|
 | 2026-08-31 | implemented | 타입이 지정된 인과 요청이 구조화된 frame 계획 전에 current-state 판단 빠른 경로를 사용하는 문제를 막았습니다. 이 수정은 스키마로 검증된 `requested_facets` 필드만 사용하며 구문, 정규식, 별칭 또는 공급자별 라우팅을 추가하지 않습니다. | `current change`, 집중 current-state 및 구조화된 조사 계획 검사 88개 통과 | Issue #244에서 커밋된 리비전의 인증된 정확한 대상 인과 답변 또는 타입이 지정된 보류를 하나 보존합니다. |
 | 2026-08-31 | implemented | 누락된 exact-Resource slowness 조사를 부정되지 않고 대상 identifier 밖에 있는 검토된 source span, 검증된 Resource-to-service path, path 범위 dependency-latency 및 traffic-load metric으로 완성했습니다. 입력이 누락되거나 모호하거나 감소, 부정, 겹침, 경쟁 사건 또는 명시적 가설을 포함하면 계속 fail-closed합니다. 질문별 경로, 정규식, 별칭 또는 공급자 identity를 추가하지 않습니다. | `current change`, 집중 구조화된 조사 계획 및 inventory-language 검사 | Issue #244에서 커밋된 리비전의 인증된 정확한 대상 인과 답변 또는 타입이 지정된 보류를 하나 보존합니다. |
+| 2026-08-31 | implemented | 실제 운영 검증에서 어떤 결정론적 precondition이 normalization을 보류했는지 식별할 수 없어 입력 없는 slowness-recovery 진단을 추가했습니다. | `current change`, 진단 테스트는 실패한 precondition 이름과 개수만 기록하며 운영자 text, target, source-span text, model payload 또는 provider data를 남기지 않습니다. | 다음 단일 인증 replay로 남은 실패 precondition을 확인합니다. |
 | 2026-08-29 | validated | 모델이 구독 Service Health 또는 정확한 대상 명확화로 보낼 수 있던 유형 지정 구독 상태 질문을 교정했습니다. Core는 검토된 리소스 하위 유형과 컬렉션 상태 함수를 사용합니다. 링크가 없는 다중 객체 ObjectSet은 관련 없는 관계 불완전성을 더 이상 상속하지 않습니다. 기존 텍스트 표현기는 완전한 0행과 불완전한 0행 근거를 구분하고, Console은 모션 감소 설정을 지원하는 진행 표시줄로 계획이 계속 진행 중임을 보여 줍니다. | `current change`, 집중 의미 계획, 리소스 상태, 인벤토리 언어, PostgreSQL 온톨로지, 표현 및 Console 검사, 인증된 표준 포트 Console에서 `query.resource_state_inventory`를 통해 현재 PostgreSQL 상태 2행을 반환했고 0행, 후보 전용, 오버플로 대체 경로는 없었습니다. | 이 질문 사례를 닫힌 상태로 유지하면서 동일한 exact-source 근거 기준을 구독 범위의 다른 리소스 하위 유형으로 확장합니다. |
 | 2026-08-26 | implemented | 같은 current-state 발화에 결정론적으로 검증된 runtime identifier가 정확히 하나 있는데도 모델이 남긴 오래된 `resource_identity` 명확화 요구를 해소했습니다. 다른 미해결 항목과 신원이 없거나 여러 개인 경우는 계속 명확화를 반환하며 phrase route 또는 실행 권한을 추가하지 않습니다. | `current change`, `semantic_current_state_planning.py`, 집중 exact-target 회귀 검사 2개 통과 | Core 재시작 뒤 인증된 exact-source Console 증적을 보존합니다. 이 결함에 남은 추가 구현 작업은 없습니다. |
 | 2026-08-26 | implemented | 구문 라우팅이나 추론을 추가하지 않고 쿼리에 표시되는 Kubernetes Ingress, IngressClass, EndpointSlice 및 정확한 프로바이더 아이덴티티 연결 어휘를 추가했습니다. 현재 인스턴스 탐색은 저장된 런타임, 스케줄링, 소유권, 선택, 엔드포인트 및 연결 LinkType을 반환할 수 있으며 `unavailable` 출처 근거는 후보 부재를 미해결로 유지합니다. | `current change`, 집중 카탈로그, 인벤토리, Operator 및 Console 검사입니다. | 런타임 역량 주장을 승격하기 전에 완전한 실제 운영 Kubernetes 근거를 보존합니다. |

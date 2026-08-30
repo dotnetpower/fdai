@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -122,7 +123,9 @@ METRICS = (
 )
 
 
-def test_exact_resource_slowness_completes_structured_investigation() -> None:
+def test_exact_resource_slowness_completes_structured_investigation(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     utterance = "ca-example-core가 갑자기 왜 느려졌어?"
     proposal = SemanticFrameProposal(
         operation="explain_change",
@@ -138,18 +141,19 @@ def test_exact_resource_slowness_completes_structured_investigation() -> None:
         confidence=0.91,
     )
 
-    normalized = normalize_missing_resource_slowness_investigation(
-        proposal,
-        utterance=utterance,
-        descriptors=_manifest().descriptors,
-        metric_concepts=METRICS,
-        inventory_query_language=INVENTORY_LANGUAGE,
-        semantic_judgment={
-            "requested_facets": ("cause",),
-            "action_posture": "advise_only",
-            "execution_authority": False,
-        },
-    )
+    with caplog.at_level(logging.INFO):
+        normalized = normalize_missing_resource_slowness_investigation(
+            proposal,
+            utterance=utterance,
+            descriptors=_manifest().descriptors,
+            metric_concepts=METRICS,
+            inventory_query_language=INVENTORY_LANGUAGE,
+            semantic_judgment={
+                "requested_facets": ("cause",),
+                "action_posture": "advise_only",
+                "execution_authority": False,
+            },
+        )
 
     assert normalized.investigation is not None
     assert normalized.investigation.entities[0].span.text == "ca-example-core"
@@ -186,6 +190,13 @@ def test_exact_resource_slowness_completes_structured_investigation() -> None:
     traffic = next(node for node in plan.nodes if node.node_id == "cause-traffic-load")
     assert dependency.depends_on == ("expand-dependencies",)
     assert traffic.depends_on == ("expand-dependencies",)
+    diagnostic = next(
+        record
+        for record in caplog.records
+        if record.message == "semantic_planning_resource_slowness_recovery_evaluated"
+    )
+    assert diagnostic.failed_preconditions == "none"
+    assert diagnostic.failed_precondition_count == 0
 
 
 def test_exact_resource_latency_decrease_is_not_normalized_as_slowness() -> None:
@@ -218,6 +229,47 @@ def test_exact_resource_latency_decrease_is_not_normalized_as_slowness() -> None
     )
 
     assert normalized is proposal
+
+
+def test_resource_slowness_diagnostic_reports_missing_cause(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    utterance = "ca-example-core가 갑자기 느려졌어?"
+    proposal = SemanticFrameProposal(
+        operation="explain_change",
+        subject_constraints=("Resource", "ca-example-core"),
+        measure_concepts=(),
+        temporal_scope={},
+        output_shape="causal_evidence",
+        evidence_requirements=("support_and_refutation",),
+        unresolved_terms=(),
+        clarification_requirements=(),
+        clarification=None,
+        investigation=None,
+        confidence=0.91,
+    )
+
+    with caplog.at_level(logging.INFO):
+        normalized = normalize_missing_resource_slowness_investigation(
+            proposal,
+            utterance=utterance,
+            descriptors=_manifest().descriptors,
+            metric_concepts=METRICS,
+            inventory_query_language=INVENTORY_LANGUAGE,
+            semantic_judgment={
+                "requested_facets": (),
+                "action_posture": "advise_only",
+                "execution_authority": False,
+            },
+        )
+
+    assert normalized is proposal
+    diagnostic = next(
+        record
+        for record in caplog.records
+        if record.message == "semantic_planning_resource_slowness_recovery_evaluated"
+    )
+    assert "cause_facet_present" in diagnostic.failed_preconditions.split(",")
 
 
 @pytest.mark.parametrize(
