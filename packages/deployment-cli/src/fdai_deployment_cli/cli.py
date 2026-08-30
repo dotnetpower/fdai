@@ -19,6 +19,7 @@ from fdai_deployment_cli.bundle import (
     extract_bundle_archive,
     verify_bundle,
 )
+from fdai_deployment_cli.bootstrap_reconcile import reconcile_bootstrap
 from fdai_deployment_cli.compiler import compile_manifest
 from fdai_deployment_cli.doctor import (
     azure_active_target_binding,
@@ -32,6 +33,7 @@ from fdai_deployment_cli.offline_kit import materialize_verified_artifacts
 from fdai_deployment_cli.plan_input import snapshot_plan_input
 from fdai_deployment_cli.contracts import ProvisionProfile, canonical_digest
 from fdai_deployment_cli.profile import load_profile, write_profile
+from fdai_deployment_cli.private_output import write_private_output
 from fdai_deployment_cli.simulation import rehearse
 from fdai_deployment_cli.target import compute_target_binding
 from fdai_deployment_cli.state import read_journal
@@ -102,6 +104,17 @@ def _parser() -> argparse.ArgumentParser:
     plan.add_argument("--profile", type=Path, required=True)
     plan.add_argument("--output", choices=("text", "json"), default="text")
     plan.set_defaults(handler=_provision_plan)
+
+    bootstrap_reconcile = provision_commands.add_parser("bootstrap-reconcile")
+    bootstrap_reconcile.add_argument("--profile", type=Path, required=True)
+    bootstrap_reconcile.add_argument("--source-commit", required=True)
+    bootstrap_reconcile.add_argument("--ops-resource-group", required=True)
+    bootstrap_reconcile.add_argument("--app-resource-group", required=True)
+    bootstrap_reconcile.add_argument("--state-storage-account", required=True)
+    bootstrap_reconcile.add_argument("--output-plan", type=Path, required=True)
+    bootstrap_reconcile.add_argument("--ttl-seconds", type=int, default=3600)
+    bootstrap_reconcile.add_argument("--output", choices=("text", "json"), default="text")
+    bootstrap_reconcile.set_defaults(handler=_provision_bootstrap_reconcile)
 
     bundle = subcommands.add_parser("bundle")
     bundle_commands = bundle.add_subparsers(required=True)
@@ -352,6 +365,37 @@ def _safe_plan_error(output: str) -> str:
     if any(marker in normalized for marker in authentication_markers):
         return "terraform_provider_authentication_unavailable"
     return "terraform plan failed after offline provider initialization"
+
+
+def _provision_bootstrap_reconcile(args: argparse.Namespace) -> int:
+    profile = load_profile(args.profile)
+    result = reconcile_bootstrap(
+        profile,
+        source_commit=args.source_commit,
+        ops_resource_group=args.ops_resource_group,
+        app_resource_group=args.app_resource_group,
+        state_storage_account=args.state_storage_account,
+        ttl_seconds=args.ttl_seconds,
+    )
+    output_plan = _absolute_work_dir(args.output_plan)
+    payload = result.to_mapping()
+    write_private_output(
+        output_plan,
+        json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n",
+    )
+    summary = {
+        "schema_version": "fdai.bootstrap-reconcile-result.v1",
+        "state": payload["state"],
+        "plan_digest": result.plan_digest,
+        "observation_digest": result.observation_digest,
+        "mutation_performed": False,
+    }
+    print(
+        json.dumps(summary, sort_keys=True, separators=(",", ":"))
+        if args.output == "json"
+        else f"state={summary['state']} plan_digest={result.plan_digest}"
+    )
+    return 2 if not result.blockers else 3
 
 
 def _require_bundle_version(*, kit_version: str, bundle_version: str) -> None:

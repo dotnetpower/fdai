@@ -66,8 +66,9 @@ class ProvisionEvent:
     occurred_at: str
     previous_digest: str
     reason_code: str | None = None
+    evidence_digest: str | None = None
     manifest_version: str = GENESIS_MANIFEST_VERSION
-    schema_version: str = "fdai.provision-event.v2"
+    schema_version: str = "fdai.provision-event.v3"
 
     def __post_init__(self) -> None:
         if _ID.fullmatch(self.run_id) is None or _ID.fullmatch(self.stage) is None:
@@ -86,9 +87,18 @@ class ProvisionEvent:
             raise ValueError("event previous_digest MUST be a SHA-256")
         if self.reason_code is not None and _ID.fullmatch(self.reason_code) is None:
             raise ValueError("event reason_code MUST be a stable identifier")
+        if (
+            self.evidence_digest is not None
+            and re.fullmatch(r"[0-9a-f]{64}", self.evidence_digest) is None
+        ):
+            raise ValueError("event evidence_digest MUST be a SHA-256")
         if self.manifest_version not in GENESIS_ENTRY_IDS_BY_VERSION:
             raise ValueError("event manifest_version is unsupported")
-        if self.schema_version not in {"fdai.provision-event.v1", "fdai.provision-event.v2"}:
+        if self.schema_version not in {
+            "fdai.provision-event.v1",
+            "fdai.provision-event.v2",
+            "fdai.provision-event.v3",
+        }:
             raise ValueError("event schema_version is unsupported")
 
     @property
@@ -115,8 +125,10 @@ class ProvisionEvent:
             "previous_digest": self.previous_digest,
             "reason_code": self.reason_code,
         }
-        if self.schema_version == "fdai.provision-event.v2":
+        if self.schema_version in {"fdai.provision-event.v2", "fdai.provision-event.v3"}:
             body["manifest_version"] = self.manifest_version
+        if self.schema_version == "fdai.provision-event.v3":
+            body["evidence_digest"] = self.evidence_digest
         return body
 
     @classmethod
@@ -143,8 +155,18 @@ class ProvisionEvent:
         elif schema_version == "fdai.provision-event.v2":
             expected = common | {"manifest_version"}
             manifest_version = _required_text(value, "manifest_version")
+            evidence_digest = None
+        elif schema_version == "fdai.provision-event.v3":
+            expected = common | {"manifest_version", "evidence_digest"}
+            manifest_version = _required_text(value, "manifest_version")
+            evidence = value["evidence_digest"]
+            if evidence is not None and not isinstance(evidence, str):
+                raise ValueError("event evidence_digest MUST be a string or null")
+            evidence_digest = evidence
         else:
             raise ValueError("provision event schema does not match")
+        if schema_version == "fdai.provision-event.v1":
+            evidence_digest = None
         if set(value) != expected:
             raise ValueError("provision event schema does not match")
         reason = value["reason_code"]
@@ -160,6 +182,7 @@ class ProvisionEvent:
             occurred_at=_required_text(value, "occurred_at"),
             previous_digest=_required_text(value, "previous_digest"),
             reason_code=reason,
+            evidence_digest=evidence_digest,
             manifest_version=manifest_version,
             schema_version=schema_version,
         )
@@ -171,6 +194,8 @@ class ProvisionEvent:
 def append_event(path: Path, event: ProvisionEvent) -> None:
     """Append and fsync one event after checking sequence and hash continuity."""
 
+    if event.schema_version != "fdai.provision-event.v3":
+        raise ValueError("new provision events MUST use schema v3")
     directory = _open_journal_directory(path, create=True)
     try:
         descriptor = os.open(
@@ -186,6 +211,8 @@ def append_event(path: Path, event: ProvisionEvent) -> None:
         _acquire_exclusive_lock(stream.fileno())
         details = _validate_journal_descriptor(stream.fileno())
         events = _read_stream(stream)
+        if any(event.schema_version != "fdai.provision-event.v3" for event in events):
+            raise ValueError("legacy provision journals are replay-only")
         previous = events[-1] if events else None
         expected_sequence = 1 if previous is None else previous.sequence + 1
         expected_digest = GENESIS_HASH if previous is None else previous.digest
@@ -198,7 +225,7 @@ def append_event(path: Path, event: ProvisionEvent) -> None:
         if previous is not None and event.manifest_version != previous.manifest_version:
             raise ValueError("provision event manifest version does not match the journal")
         _validate_ready_history(events, event)
-        _validate_transition(previous, event)
+        _validate_transition(events, previous, event)
         payload = json.dumps(
             event.to_mapping(),
             sort_keys=True,
@@ -313,9 +340,19 @@ def resume_action(*, claim: str, receipt: str, failed: bool) -> ResumeAction:
 
 
 def _validate_transition(
+    events: tuple[ProvisionEvent, ...] | list[ProvisionEvent],
     previous: ProvisionEvent | None,
     current: ProvisionEvent,
 ) -> None:
+    expected = GENESIS_ENTRY_IDS_BY_VERSION[current.manifest_version]
+    if current.stage not in expected:
+        raise ValueError("provision event stage is not in the sealed manifest")
+    if (
+        current.schema_version == "fdai.provision-event.v3"
+        and current.state in {RunState.COMPLETED, RunState.READY}
+        and current.evidence_digest is None
+    ):
+        raise ValueError(f"{current.state.value} requires receipt evidence")
     if previous is not None and previous.state in {
         RunState.READY,
         RunState.BLOCKED,
@@ -324,6 +361,11 @@ def _validate_transition(
         RunState.INCOMPLETE,
     }:
         raise ValueError("terminal provision state cannot advance")
+    if current.state is RunState.COMPLETED:
+        completed = tuple(event.stage for event in events if event.state is RunState.COMPLETED)
+        candidate = (*completed, current.stage)
+        if candidate != expected[: len(candidate)]:
+            raise ValueError("completed provision stages MUST follow sealed manifest order")
     if current.state is RunState.READY and (
         previous is None
         or previous.state is not RunState.COMPLETED
@@ -368,7 +410,7 @@ def _read_stream(stream: BinaryIO) -> tuple[ProvisionEvent, ...]:
         if manifest_version is not None and event.manifest_version != manifest_version:
             raise ValueError("provision journal contains multiple manifest versions")
         _validate_ready_history(events, event)
-        _validate_transition(previous, event)
+        _validate_transition(events, previous, event)
         run_id = event.run_id
         context_digest = event.context_digest
         manifest_version = event.manifest_version

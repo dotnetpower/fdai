@@ -22,7 +22,7 @@ output "state_storage_account_name" {
 
 output "state_container_name" {
   value       = var.state_container_name
-  description = "Blob container holding the app's terraform state. Created from the runner (az storage container create --auth-mode login)."
+  description = "Blob container holding the app's terraform state. Created from the runner during the approved foundation phase."
 }
 
 output "runner_principal_id" {

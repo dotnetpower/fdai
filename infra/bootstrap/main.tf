@@ -95,8 +95,8 @@ data "azurerm_storage_account" "state" {
   resource_group_name = azurerm_resource_group.ops.name
 }
 
-# The state container is also created data-plane (from the runner, inside the
-# VNet, over the blob PE) by the deploy workflow:
+# The state container is created data-plane during the approved foundation
+# phase (from the runner, inside the VNet, over the blob PE):
 #   az storage container create --account-name <sa> --name tfstate --auth-mode login
 
 # Blob private endpoint + privatelink.blob DNS, linked to the ops VNet so the

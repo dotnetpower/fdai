@@ -9,7 +9,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Dedicated `fdaictl` distribution and command entrypoint | implemented | `packages/deployment-cli`; focused package and productization tests | The `fdai-deployment-cli` wheel registers `fdaictl` and provides deterministic local commands. Protected Azure dispatch remains incomplete. |
+| Dedicated `fdaictl` distribution and command entrypoint | implemented | `packages/deployment-cli`; focused package and productization tests | The `fdai-deployment-cli` wheel registers `fdaictl`, provides deterministic local commands, and seals target-pinned read-only bootstrap reconciliation. Protected Azure dispatch remains incomplete. |
 | Core deployment preflight primitives | implemented | `services/core-control-plane/src/fdai/core/deploy_preflight/` and focused preflight tests | The analyzer, report, Azure live script, toggle primitives, and reassembly logic exist independently of a deployment CLI facade. |
 | Protected runner plan and exact-apply workflow | implemented | `.github/workflows/deploy-dev.yml` and focused deployment workflow tests | The runner owns protected planning, evidence binding, claim/receipt guards, convergence, migrations, and health checks; there is no packaged local CLI client. |
 | Signed deployment bundle release path | in-progress | Bundle builder and `fdaictl bundle verify`; focused signature, SBOM, compatibility, extraction, and tamper tests | Construction and verification are executable. Restoring the protected publication workflow remains open. |
@@ -25,6 +25,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 2026-08-19 | deferred | Removed the retired workflow-only test from productization validation so the release check no longer requires a path that the deferred workflow removed. | current change; `scripts/deployment/release/verify-productization.sh`; focused productization and structural-gate tests passed 55 cases | Restore the workflow test only with an executable CLI verifier and protected release workflow. |
 | 2026-08-29 | implemented | Added the independent `fdai-deployment-cli` wheel with the `fdaictl` entry point, secure profile and journal contracts, signed artifact verification, and no-mutation genesis rehearsal. | `current change`; focused package and productization tests passed 28 cases; Ruff and strict mypy passed | Complete protected plan/apply adapters, publish the wheel, and retain the disconnected drill. |
 | 2026-08-29 | validated | Hardened the pre-login CLI and release path through 75 focused rounds and completed the shipped-wheel air-gap drill without network or DNS. | Campaign commits from `dd28b64d9`; 89 focused tests, Ruff, strict mypy, locked wheel build, isolated install, Terraform validation, 20 Terraform tests, and successful `airgap-drill.sh` | Complete protected Azure dispatch and publish the first signed release. |
+| 2026-08-30 | implemented | Added target-pinned bootstrap reconciliation before the first runner or private backend exists. The command distinguishes not-found from unreadable state, checks global storage-name availability and private keyless posture, and separates deterministic intent from expiring observations without mutating Azure. Journal schema v3 now binds every completed stage to a receipt digest, legacy journals are replay-only, and the aggregate readiness contract requires foundation through system-verification evidence, complete inventory closure, and a zero-change second run. Thirteen hardening rounds closed every Medium finding. | `current change`; `bootstrap_plan.py`; `bootstrap_reconcile.py`; `private_output.py`; `readiness.py`; focused bootstrap, plan-input, journal, readiness, simulation, and workflow tests; final independent severity audit found no Medium-or-higher issue | Add the separately approved foundation apply and remote-state handoff before enabling protected application planning. |
 
 ### Remaining work
 
@@ -32,6 +33,9 @@ and resumable work while the roadmap owner remains focused on normative design.
   target-aware inspection, private profile handling, and local security boundaries pass focused tests.
 - [ ] Implement the remaining `security audit` checks and pass deterministic text and JSON tests.
 - [ ] Wire the existing preflight and protected workflow contracts into `deploy preflight`, `plan`, `status`, and `apply`, and pass wrong-target, fail-stop, exact-plan, expiry, and redaction tests.
+- [ ] Bind `bootstrap-reconcile` to an approved foundation apply that revalidates its exact target,
+  intent digest, observation freshness, and conflict-free state before any provider or resource
+  mutation.
 - [x] Bundle and offline-kit verification are in the dedicated package, and the shipped-wheel
   network-free air-gap drill completed successfully.
 - [ ] Restore the protected signed-bundle publication workflow after its clean-checkout tests pass.

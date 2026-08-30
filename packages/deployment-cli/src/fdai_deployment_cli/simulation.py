@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from fdai_deployment_cli.contracts import SubscriptionProvisioningManifest
+from fdai_deployment_cli.contracts import SubscriptionProvisioningManifest, canonical_digest
 from fdai_deployment_cli.state import (
     GENESIS_HASH,
     ProvisionEvent,
@@ -53,6 +53,9 @@ def rehearse(
             occurred_at=(base + timedelta(microseconds=sequence)).isoformat(),
             previous_digest=previous_digest,
             reason_code="simulation-only",
+            evidence_digest=canonical_digest(
+                {"mode": "simulation", "stage": entry.entry_id, "status": "completed"}
+            ),
         )
         append_event(journal, event)
         previous_digest = event.digest
@@ -69,6 +72,9 @@ def rehearse(
         occurred_at=(base + timedelta(microseconds=sequence)).isoformat(),
         previous_digest=previous_digest,
         reason_code="simulation-only",
+        evidence_digest=canonical_digest(
+            {"mode": "simulation", "stage": "system-readiness", "status": "ready"}
+        ),
     )
     append_event(journal, ready)
     return read_journal(journal)

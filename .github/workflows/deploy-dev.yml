@@ -490,20 +490,20 @@ jobs:
             echo "FDAI_DEPLOYMENT_MODELS_SHA256=$deployment_digest"
           } >> "$GITHUB_ENV"
 
-      - name: Ensure protected storage containers
+      - name: Verify protected storage containers
         if: ${{ !inputs.apply && env.MODEL_BINDING_ONLY != 'true' }}
-        # Created data-plane from the runner (inside the VNet, over the blob
-        # private endpoint) since the account is private + key-auth is
-        # policy-forbidden. Idempotent.
         run: |
-          az storage container create \
-            --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" \
-            --name tfstate --auth-mode login --public-access off --only-show-errors \
-            --output none
-          az storage container create \
-            --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" \
-            --name deployment-plans --auth-mode login --public-access off --only-show-errors \
-            --output none
+          set -euo pipefail
+          for container in tfstate deployment-plans; do
+            exists="$(az storage container exists \
+              --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" --subscription "$ARM_SUBSCRIPTION_ID" \
+              --name "$container" --auth-mode login --only-show-errors \
+              --query exists --output tsv)"
+            [[ "$exists" == "true" ]] || {
+              echo "Protected storage container '$container' is missing; complete the approved foundation apply first." >&2
+              exit 1
+            }
+          done
 
       - name: Initialize Terraform remote state
         if: ${{ inputs.apply || env.MODEL_BINDING_ONLY != 'true' }}

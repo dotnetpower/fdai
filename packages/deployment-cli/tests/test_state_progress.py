@@ -70,7 +70,11 @@ def test_journal_replays_legacy_v1_events_with_their_manifest_version(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     path = tmp_path / "run.jsonl"
-    legacy = replace(_event(1, GENESIS_HASH), schema_version="fdai.provision-event.v1")
+    legacy = replace(
+        _event(1, GENESIS_HASH),
+        evidence_digest=None,
+        schema_version="fdai.provision-event.v1",
+    )
     path.write_text(json.dumps(legacy.to_mapping()) + "\n", encoding="utf-8")
     path.chmod(0o600)
     monkeypatch.setattr("fdai_deployment_cli.state.GENESIS_MANIFEST_VERSION", "genesis.v2")
@@ -83,10 +87,67 @@ def test_journal_replays_legacy_v1_events_with_their_manifest_version(
 
 
 def test_journal_v2_seals_manifest_version() -> None:
-    event = _event(1, GENESIS_HASH)
+    event = replace(
+        _event(1, GENESIS_HASH),
+        evidence_digest=None,
+        schema_version="fdai.provision-event.v2",
+    )
 
     assert event.to_mapping()["schema_version"] == "fdai.provision-event.v2"
     assert event.to_mapping()["manifest_version"] == "genesis.v1"
+    assert "evidence_digest" not in event.to_mapping()
+
+
+def test_journal_replays_but_never_appends_legacy_schema(tmp_path: Path) -> None:
+    event = replace(
+        _event(1, GENESIS_HASH),
+        evidence_digest=None,
+        schema_version="fdai.provision-event.v2",
+    )
+
+    with pytest.raises(ValueError, match="MUST use schema v3"):
+        append_event(tmp_path / "run.jsonl", event)
+
+
+def test_legacy_journal_is_replay_only(tmp_path: Path) -> None:
+    path = tmp_path / "run.jsonl"
+    legacy = replace(
+        _event(1, GENESIS_HASH),
+        evidence_digest=None,
+        schema_version="fdai.provision-event.v2",
+    )
+    path.write_text(json.dumps(legacy.to_mapping()) + "\n", encoding="utf-8")
+    path.chmod(0o600)
+    next_event = replace(
+        _event(2, legacy.digest),
+        stage="inspect-context",
+        evidence_digest="b" * 64,
+    )
+
+    assert read_journal(path) == (legacy,)
+    with pytest.raises(ValueError, match="replay-only"):
+        append_event(path, next_event)
+
+
+def test_journal_v3_binds_terminal_stage_evidence(tmp_path: Path) -> None:
+    path = tmp_path / "run.jsonl"
+    completed = replace(
+        _event(1, GENESIS_HASH, RunState.COMPLETED),
+        stage="inspect-context",
+        evidence_digest="b" * 64,
+    )
+
+    append_event(path, completed)
+
+    assert read_journal(path)[0].evidence_digest == "b" * 64
+
+
+def test_journal_v3_rejects_completed_stage_without_receipt(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="completed requires receipt evidence"):
+        append_event(
+            tmp_path / "run.jsonl",
+            _event(1, GENESIS_HASH, RunState.COMPLETED),
+        )
 
 
 def test_journal_reader_never_follows_symlink(tmp_path: Path) -> None:
@@ -189,7 +250,7 @@ def test_journal_replay_rejects_ready_without_readiness_evidence(tmp_path: Path)
         read_journal(path)
 
 
-def test_journal_rejects_ready_with_only_readiness_stage(tmp_path: Path) -> None:
+def test_journal_rejects_out_of_order_completed_stage(tmp_path: Path) -> None:
     path = tmp_path / "runs" / "run.jsonl"
     completed = ProvisionEvent(
         run_id="run.test",
@@ -200,20 +261,10 @@ def test_journal_rejects_ready_with_only_readiness_stage(tmp_path: Path) -> None
         state=RunState.COMPLETED,
         occurred_at="2026-08-29T00:00:00+00:00",
         previous_digest=GENESIS_HASH,
+        evidence_digest="b" * 64,
     )
-    append_event(path, completed)
-    ready = ProvisionEvent(
-        run_id="run.test",
-        context_digest="a" * 64,
-        sequence=2,
-        stage="system-readiness",
-        attempt=1,
-        state=RunState.READY,
-        occurred_at="2026-08-29T00:00:01+00:00",
-        previous_digest=completed.digest,
-    )
-    with pytest.raises(ValueError, match="every manifest entry"):
-        append_event(path, ready)
+    with pytest.raises(ValueError, match="sealed manifest order"):
+        append_event(path, completed)
 
 
 def test_journal_rejects_event_after_terminal_state(tmp_path: Path) -> None:

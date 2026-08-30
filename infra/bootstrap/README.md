@@ -73,9 +73,10 @@ unreadable, or unregistered production root fails the drift run instead of repor
 green result.
 
 The `backend_config_hint` output feeds the app config's `terraform init -backend-config=...` and
-the CI workflow. The `tfstate` and
-`deployment-plans` containers are created from the runner (over the blob PE) by
-the deploy workflow. CLI-requested plans use immutable run-specific blob paths;
+the CI workflow. The approved foundation phase creates the `tfstate` and
+`deployment-plans` containers from the runner over the blob private endpoint before application
+planning. The application plan-only workflow verifies both containers and does not create them.
+CLI-requested plans use immutable run-specific blob paths;
 their metadata carries a one-hour logical expiry and never includes target ids
 or secret values. Each new CLI plan run deletes allowlisted plan blobs older
 than 24 hours under a bounded scan/delete cap; it never targets `tfstate` or an

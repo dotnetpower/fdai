@@ -10,6 +10,19 @@ deployment-specific values outside the upstream distribution.
 > This contract applies to provisioned infrastructure. Runtime code consumes resource identifiers
 > through configuration and does not compute names or ownership tags.
 
+## Foundation and application plan boundary
+
+New-subscription bootstrap derives the ops resource group, application resource group, and state
+storage account names before the first private runner exists. `fdaictl provision
+bootstrap-reconcile` binds those names to the reviewed profile and source commit, pins every Azure
+management-plane read to the verified subscription, and writes only a private expiring plan. It
+does not register providers, create resources, write Terraform state, or dispatch a workflow.
+
+The separately approved foundation phase owns creation of the private `tfstate` and
+`deployment-plans` containers and the remote-state handoff. Application plan-only execution treats
+both containers as prerequisites and stops when either is absent. It never creates foundation
+resources as an incidental planning side effect.
+
 ## Implementation status
 
 ### Implementation scope
@@ -23,6 +36,7 @@ deployment-specific values outside the upstream distribution.
 | Event Bus product topic namespace | validated | Protected platform apply `32475924808`; Operator apply `32514233525`; final live entity, RBAC, environment, service-health, canary, HIL, stage, inventory, semantic, and lag observations | Both namespaces contain only current `fdai.*` product topics, runtime principals use entity-scoped Event Hubs roles, all five services are healthy, and completed one-time migration modes are no longer exposed. Historical Terraform `moved` blocks remain for state compatibility. |
 | Independent-service Terraform state roots | validated | `config/independent-service-live-evidence-manifest.json` and `config/independent-service-remote-evidence.json` | All five service roots have governed plan, apply, health, peer-isolation, and rollback evidence. |
 | Legacy platform and ops-bootstrap Terraform state roots | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, `.github/workflows/deploy-dev.yml`, and focused Terraform and workflow checks | Stable backend keys and deployment mechanisms are shipped; governed apply receipts for these two roots are not retained in the repository. |
+| Genesis foundation plan boundary | implemented | `fdai_deployment_cli.bootstrap_reconcile`; `.github/workflows/deploy-dev.yml`; focused CLI and workflow checks | Bootstrap reconciliation is target-pinned and read-only. Application planning verifies the foundation-owned state containers without creating them. A governed foundation apply and handoff receipt remain open. |
 | Reusable Terraform module compatibility | implemented | `infra/modules/**/versions.tf`; `infra/services/**/modules/**/versions.tf`; TFLint | Every reusable module declares Terraform `>= 1.9`; modules that own Azure resources constrain AzureRM to the supported 4.x line. |
 | OHL scale-out evidence target naming and tags | implemented | current change in `infra/main.tf`; `terraform -chdir=infra test -filter=tests/dev_operations_gateway.tftest.hcl` reports 8 passed | Live provisioning and recurrence evidence remain open. |
 | Operator schema and catalog Job naming | implemented | `infra/main.tf`, `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml`, and focused deployment workflow tests | Deterministic names and digest-pinned images are wired; a protected apply receipt for the ordered Jobs remains open. |
@@ -37,6 +51,7 @@ deployment-specific values outside the upstream distribution.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-30 | implemented | Separated read-only bootstrap reconciliation, approved foundation mutation, and application plan-only execution so planning cannot create protected state containers. | `current change`; focused deployment CLI and workflow checks; issue `#400` | Retain the approved foundation apply, remote-state handoff, and zero-change readback receipts. |
 | 2026-08-28 | implemented | Added an isolated private AIServices account/project/deployment module for publisher-qualified partner models. | `current change`; module format, validate, and Terraform test (`1 passed`). | Compose the module in the root with private endpoint/DNS and endpoint-specific runtime binding before activation. |
 | 2026-08-28 | implemented | Split publisher-qualified capabilities between OpenAI and Foundry accounts and added conditional services.ai private endpoint/DNS composition. | `current change`; root Terraform checks (`5 passed`); module test (`1 passed`). | Bind each runtime capability to its owning endpoint before registry activation. |
 | 2026-08-28 | implemented | Added deterministic partner endpoint bindings before protected model manifest and digest creation. | `current change`; focused sealer/workflow checks (`6 passed`). | Deliver the endpoint reference map to runtime before registry activation. |

@@ -68,6 +68,7 @@ lead to a mutation makes the remote execution boundary visible.
 | `fdaictl version` | Show CLI, bundle, schema, and compatibility versions | No |
 | `fdaictl doctor` | Check Python, Azure CLI, Terraform, GitHub CLI, authentication, and local config | No |
 | `fdaictl provision inspect` | Inspect online/offline, signed-kit trust, existing/managed host, transport, access, and workload-identity readiness | No |
+| `fdaictl provision bootstrap-reconcile` | Read the exact Azure target, provider registrations, foundation resource groups, and private state-account posture into an expiring mode-`0600` plan with separate intent and observation digests | No |
 | `fdaictl provision plan` | Bind a reviewed profile to private non-secret plan input, verify the kit and bundle, then plan its `infra` root | No |
 | `fdaictl provision init` | Create a schema-validated, untracked environment configuration | No |
 | `fdaictl onboard guided` / `status` / `resume-verification` | Orchestrate one durable subscription-genesis run over the low-level exact-plan commands | Only after an explicit protected approval |

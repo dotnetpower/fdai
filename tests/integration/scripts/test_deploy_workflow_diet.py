@@ -48,7 +48,7 @@ def test_pinned_github_cli_precedes_model_and_runtime_image_checks() -> None:
 
 def test_deploy_workflow_skips_plan_only_work_during_apply() -> None:
     for step in (
-        "Ensure protected storage containers",
+        "Verify protected storage containers",
         "Adopt existing Azure resources",
         "Terraform format check",
         "Terraform validate",
@@ -98,6 +98,17 @@ def test_deploy_workflow_initializes_remote_state_before_terraform_use() -> None
     assert "storage_account_name=${{ vars.STATE_STORAGE_ACCOUNT }}" in block
     assert "key=fdai-${{ inputs.environment }}.tfstate" in block
     assert init < first_state_use
+
+
+def test_plan_only_verifies_storage_without_mutating_it() -> None:
+    step = _WORKFLOW.index("- name: Verify protected storage containers")
+    following = _WORKFLOW.index("- name: Initialize Terraform remote state")
+    block = _WORKFLOW[step:following]
+
+    assert "az storage container exists" in block
+    assert '--subscription "$ARM_SUBSCRIPTION_ID"' in block
+    assert "az storage container create" not in block
+    assert "az storage blob upload" not in block
 
 
 def test_gateway_publish_uses_bounded_cli_one_deploy() -> None:

@@ -13,6 +13,17 @@ Use `fdaictl onboard guided --simulate` to rehearse the complete stage graph wit
 authentication or mutation. The rehearsal writes a private hash-chained journal and resumes
 completed stages without duplicating them.
 
+Use `fdaictl provision bootstrap-reconcile` before the first foundation approval. It performs only
+target-pinned Azure management-plane reads and writes a private expiring plan whose intent and
+observations have separate digests. It never creates a resource, registers a provider, writes
+Terraform state, or dispatches a workflow.
+
+Terminal journal events use schema v3 and bind completed stages to receipt digests. The aggregate
+genesis readiness receipt requires every foundation, application, migration, semantic, model,
+inventory, rollback, second-run no-change, and system-verification evidence family.
+Legacy v1 and v2 journals remain readable for audit but are replay-only; a new run is required
+before additional stages can be recorded.
+
 ## Testing
 
 ```bash
