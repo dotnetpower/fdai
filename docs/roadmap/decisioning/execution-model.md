@@ -82,24 +82,11 @@ Each input returns one of:
 - `shadow_only` - judge and log; no mutation.
 - `deny` - do not proceed; the decision is a hard stop.
 
-The final RiskGate output is a **`RiskDecision`** carrying the winning
-minimum, the `quorum` from the risk-classification table (default 1;
-`2` for irreversible per [risk-classification.md](risk-classification.md)),
-plus a `resolved_ceiling` breakdown (§8) that names each input's
-contribution so the audit consumer can render the reasoning.
-
-The resolved autonomy ceiling travels with the decision and the durable
-`ActionRun`. Thor checks it when dispatch begins, after human approval, before
-executor I/O, and after restart. Human approval can satisfy `enforce_hil`, but
-it cannot raise `shadow_only` into an executable state. A missing or malformed
-ceiling therefore remains in observation mode rather than inheriting an
-enforcement default.
-
-Pantheon enforcement also requires an explicit
-`FDAI_PANTHEON_APPROVER_ACTIONS_JSON` deployment policy. The JSON object maps
-authenticated approver principals to non-empty ActionType ID arrays. Missing,
-malformed, unknown-principal, and unlisted-action entries never authorize
-approval.
+The final **`RiskDecision`** carries the minimum ceiling, risk-table `quorum`, and
+`resolved_ceiling` audit breakdown. The ceiling remains bound to the durable `ActionRun`; Thor
+rechecks it at dispatch, approval, restart, and executor I/O, and human approval cannot raise
+`shadow_only`. Enforcement also requires `FDAI_PANTHEON_APPROVER_ACTIONS_JSON`, which maps
+authenticated approvers to allowed ActionType IDs and fails closed for every missing or invalid entry.
 
 ### 2.0 Axis A - Risk-classification table (authoritative baseline)
 

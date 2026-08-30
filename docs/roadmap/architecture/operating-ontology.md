@@ -13,11 +13,7 @@ This document defines the typed operational truth infrastructure used by FDAI's 
 > `execution_ledger` authority, and the lane matrix in `shared/providers/state_evidence.py` rejects it in the `observed`, `derived`, and `desired` lanes. "FDAI changed it, so the graph says it
 > changed" is therefore not an expressible path.
 >
-> **Safety boundary:** Ontology context can only preserve or lower autonomy. Missing, stale, conflicting, or unproven context remains explicitly unknown and triggers bounded evidence
-> recovery, a smaller safe plan, no-op, or review. It never supplies permission to execute.
-> The context snapshot also carries the exact graph source generation and source-completeness
-> result. An incomplete source stays incomplete through planned-change assessment even when every
-> returned relationship is authenticated and current.
+> **Safety boundary:** Ontology context can only preserve or lower autonomy. Its exact graph source generation and completeness remain bound through planned-change assessment; missing, stale, incomplete, conflicting, or unproven context triggers bounded recovery, a smaller safe plan, no-op, or review and never supplies execution permission.
 >
 ## Catalog semantic projection
 

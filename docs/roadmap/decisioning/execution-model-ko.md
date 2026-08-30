@@ -1,7 +1,7 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: d44c4f64735a6db2ed7a165e0512c686ddfda331
+translation_source_sha: 9cff5c4f7b0e337ce32cdcda9324e0e0834b35f6
 translation_revised: 2026-08-30
 ---
 
@@ -84,20 +84,11 @@ authority = min(
 - `shadow_only` - 판정자 하고 로그; 변경 없음.
 - `deny` - 진행 안 함; 결정은 hard stop.
 
-최종 RiskGate 출력은 winning 최소, risk-classification 표로부터의
-`quorum` (기본 1; irreversible 은 2,
-[risk-classification.md](risk-classification-ko.md) 참조), 그리고 감사
-소비자 가 reasoning 을 렌더링 할 수 있도록 각 입력의 기여를 이름 하는
-`resolved_ceiling` breakdown (§8) 을 carry 하는 **`RiskDecision`**.
-
-해결된 자율성 상한은 결정 및 내구성 있는 `ActionRun`과 함께 전달됩니다. Thor는 전달 시작,
-사람 승인 이후, 실행기 I/O 이전, 재시작 이후에 이 상한을 다시 확인합니다. 사람 승인은
-`enforce_hil` 조건을 충족할 수 있지만 `shadow_only`를 실행 가능한 상태로 높일 수 없습니다.
-상한이 누락되거나 잘못된 경우에는 적용 모드를 상속하지 않고 관찰 모드로 유지합니다.
-
-판테온 적용 모드에는 명시적인 `FDAI_PANTHEON_APPROVER_ACTIONS_JSON` 배포 정책도 필요합니다.
-이 JSON 객체는 인증된 승인 주체를 비어 있지 않은 ActionType ID 배열에 매핑합니다. 정책이
-누락되거나 잘못되었거나 주체 또는 작업이 목록에 없으면 승인을 허용하지 않습니다.
+최종 **`RiskDecision`**은 최소 상한, 위험 표의 `quorum`, `resolved_ceiling` 감사 내역을
+유지합니다. 상한은 내구성 있는 `ActionRun`에 연결되며 Thor는 전달, 승인, 재시작, 실행기 I/O
+시점에 다시 확인하고 사람 승인이 `shadow_only`를 높이지 못하게 합니다. 적용 모드에는 인증된
+승인자를 허용된 ActionType ID에 매핑하는 `FDAI_PANTHEON_APPROVER_ACTIONS_JSON`도 필요하며,
+누락되거나 잘못된 모든 항목은 차단됩니다.
 
 ### 2.0 축 A - Risk-classification 표 (권위적 기준선)
 
