@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 3d830cf6657c3d3de5343e215ebc7eacb2862f0d
+translation_source_sha: b2435cf0c3536a2f388c5f7b65e15ef7da76d7f3
 translation_revised: 2026-08-31
 ---
 # 지속형 질문 공간
@@ -63,6 +63,7 @@ translation_revised: 2026-08-31
 | 2026-08-31 | implemented | 누락된 outer `Resource` type을 exact frame target 값과 일치하는 스키마 검증 `resource` target 하나에서만 복원합니다. Type이 없거나 일치하지 않거나 여러 개이거나 canonical type이 충돌하면 계속 unsupported로 유지합니다. | `current change`, 집중 복원 및 거부 검사 14개 통과 | 인증된 exact slowdown 질문을 다시 실행하고 구조화된 frame 또는 다음 typed failure를 보존합니다. |
 | 2026-08-31 | implemented | 부분 causal hold가 일반 skipped node kind만 표시하지 않고 검증된 각 hypothesis를 `unresolved`로 표시하도록 했습니다. 답변은 실행되지 않은 evidence와 지원되지 않는 causal conclusion을 계속 제외합니다. | `current change`, semantic turn projection 및 hold presentation 검사 100개 통과 | 커밋된 리비전에서 desktop 및 mobile 너비의 인증된 부분 hold를 보존합니다. |
 | 2026-08-31 | implemented | 부분 causal hold에서 완료된 symptom comparison을 보존하고 evidence join이 완료되지 않은 검증된 hypothesis에는 canonical `unresolved` placeholder만 추가했습니다. | `current change`, 측정 변화, 이름이 표시된 unresolved 가설 2개, 정확한 limitation, 실행 권한 없음 검사를 포함한 semantic turn projection 검사 101개 통과 | 커밋된 리비전에서 desktop 및 mobile 너비의 인증된 부분 답변을 보존합니다. |
+| 2026-08-31 | implemented | 범위가 제한된 throttling 조합 증명을 닫았습니다. Azure planning 후보 하나는 HTTP 429에서 지연이나 재시도 없이 즉시 종료하고, 사용할 수 없는 T1 및 T2 frame 결과는 전송 모호성이 아니라 타입이 지정된 `held/semantic_frame_unavailable` 결과로 conversation runtime을 종료합니다. | `current change`, 정확한 집중 selector 2개 통과, provider 요청 1개, sleep 0회, T1 frame 호출 1회, T2 frame 호출 1회 | Issue #244의 마지막 기준을 확인하기 전에 기존 실제 운영 429 근거와 현재 커밋의 조합 증명을 함께 보존합니다. |
 | 2026-08-29 | validated | 모델이 구독 Service Health 또는 정확한 대상 명확화로 보낼 수 있던 유형 지정 구독 상태 질문을 교정했습니다. Core는 검토된 리소스 하위 유형과 컬렉션 상태 함수를 사용합니다. 링크가 없는 다중 객체 ObjectSet은 관련 없는 관계 불완전성을 더 이상 상속하지 않습니다. 기존 텍스트 표현기는 완전한 0행과 불완전한 0행 근거를 구분하고, Console은 모션 감소 설정을 지원하는 진행 표시줄로 계획이 계속 진행 중임을 보여 줍니다. | `current change`, 집중 의미 계획, 리소스 상태, 인벤토리 언어, PostgreSQL 온톨로지, 표현 및 Console 검사, 인증된 표준 포트 Console에서 `query.resource_state_inventory`를 통해 현재 PostgreSQL 상태 2행을 반환했고 0행, 후보 전용, 오버플로 대체 경로는 없었습니다. | 이 질문 사례를 닫힌 상태로 유지하면서 동일한 exact-source 근거 기준을 구독 범위의 다른 리소스 하위 유형으로 확장합니다. |
 | 2026-08-26 | implemented | 같은 current-state 발화에 결정론적으로 검증된 runtime identifier가 정확히 하나 있는데도 모델이 남긴 오래된 `resource_identity` 명확화 요구를 해소했습니다. 다른 미해결 항목과 신원이 없거나 여러 개인 경우는 계속 명확화를 반환하며 phrase route 또는 실행 권한을 추가하지 않습니다. | `current change`, `semantic_current_state_planning.py`, 집중 exact-target 회귀 검사 2개 통과 | Core 재시작 뒤 인증된 exact-source Console 증적을 보존합니다. 이 결함에 남은 추가 구현 작업은 없습니다. |
 | 2026-08-26 | implemented | 구문 라우팅이나 추론을 추가하지 않고 쿼리에 표시되는 Kubernetes Ingress, IngressClass, EndpointSlice 및 정확한 프로바이더 아이덴티티 연결 어휘를 추가했습니다. 현재 인스턴스 탐색은 저장된 런타임, 스케줄링, 소유권, 선택, 엔드포인트 및 연결 LinkType을 반환할 수 있으며 `unavailable` 출처 근거는 후보 부재를 미해결로 유지합니다. | `current change`, 집중 카탈로그, 인벤토리, Operator 및 Console 검사입니다. | 런타임 역량 주장을 승격하기 전에 완전한 실제 운영 Kubernetes 근거를 보존합니다. |

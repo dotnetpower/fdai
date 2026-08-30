@@ -2908,6 +2908,29 @@ def test_unavailable_t1_frame_retries_only_frame_with_t2() -> None:
     assert (t2.frame_calls, t2.plan_calls) == (1, 0)
 
 
+async def test_unavailable_t1_and_t2_frames_terminate_as_typed_hold() -> None:
+    manifest, _definition = _fixture()
+    t1 = _Model(frame=None, plan=None)
+    t2 = _Model(frame=None, plan=None)
+    runtime = SemanticConversationRuntime(
+        planner=_service(t1, t2, manifest),
+        executor=object(),  # type: ignore[arg-type]
+    )
+
+    result = await runtime.handle(
+        utterance="Show resources",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+    )
+
+    assert result.disposition == "held"
+    assert result.reason == "semantic_frame_unavailable"
+    assert result.execution is None
+    assert result.execution_authority is False
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (1, 0)
+
+
 def test_unavailable_targetless_t1_frame_discovers_candidates_before_t2() -> None:
     manifest, definition = _fixture(
         property_values=_container_app_property_values(),
