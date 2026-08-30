@@ -1,8 +1,8 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: 0d97df199af93e7ecafc81557750107d6c8a53a5
-translation_revised: 2026-08-28
+translation_source_sha: 9756dbd1a4505446e2afff93ba00dd47c135b901
+translation_revised: 2026-08-30
 ---
 # 운영 학습 온톨로지
 
@@ -175,21 +175,20 @@ sealed 사례를 `case-history:<case_id>:<revision>:<manifest_digest>`로 인용
 투영, 인스턴스 경로, 권한을 추가하지 않으며, 생산 가능한 엔드포인트 쌍이 없으므로
 `predicts_breach_of`와 `learned_as`는 미선언으로 남습니다.
 
-### 보류된 관계
+### 폐기된 관계 계획
 
 이전 개정판이 [관계 계약](../architecture/operating-ontology-ko.md#관계-계약)의 계약 행으로 표기했던
-관계 두 개는 선언된 것이 아니라 보류 상태입니다. 두 엔드포인트 ObjectType은 이제 모두 존재하므로,
-남은 차단 사유는 어느 쌍도 생산할 수 없다는 점입니다.
+관계 두 개는 선언하지 않고 폐기합니다. 관련 ObjectType은 의미 질의에 계속 사용할 수 있지만, FDAI는
+이 링크를 만드는 활성 계획을 유지하지 않습니다.
 
-| 관계 | 의도한 엔드포인트 | 차단 사유 |
+| 관계 | 의도한 엔드포인트 | 폐기 결정 |
 |------|-------------------|-----------|
-| `predicts_breach_of` | Forecast -> 목표 | `ForecastFinding`은 메트릭 임계값 위반을 예측할 뿐 목표 신원을 담지 않으므로, 어떤 생산자도 대상 엔드포인트를 공급할 수 없습니다. `목표`도 명시적인 물리 엔드포인트 이름이 필요한 개념적 합집합입니다. |
-| `learned_as` | ObservedOutcome -> Pattern | Cohort는 sealed 사례를 `case-history:<case_id>:<revision>:<manifest_digest>`로 인용할 뿐 `ObservedOutcome` 신원을 받지 않으므로, 출발 엔드포인트를 생산할 수 없습니다. 복원되더라도 검토된 학습 투영으로만 남고 승격 경로가 되지는 않습니다. |
+| `predicts_breach_of` | Forecast -> 목표 | `ForecastFinding`에 목표 신원이 없고 `Objective`가 개념적 합집합이므로 폐기합니다. 작성자가 대상 엔드포인트를 날조해야만 링크를 만들 수 있습니다. |
+| `learned_as` | ObservedOutcome -> Pattern | 코호트가 봉인된 사례 이력 개정만 인용하고 `ObservedOutcome` 신원을 받지 않으므로 폐기합니다. 작성자가 출발 엔드포인트를 날조해야만 링크를 만들 수 있습니다. |
 
-두 엔드포인트 ObjectType이 모두 존재하기 전에는 LinkType을 선언해서는 안 됩니다. 카탈로그 적재가
-`from_type`과 `to_type`을 교차 참조하며 fail-closed로 동작하기 때문입니다. 선언할 수 있다고 해서 쓸
-수 있는 것은 아니므로, 각 행은 두 엔드포인트의 생산자와 그 관계가 답하는 competency 질문이 갖춰졌을
-때만 계약 표로 돌아옵니다.
+두 이름은 활성 LinkType 카탈로그에 계속 포함하지 않습니다. 어느 계획이든 다시 도입하려면 권위 있는
+엔드포인트 생산자, 정확한 release 정책, 답변할 운영 질문을 포함한 새 설계 검토가 필요합니다. 이는
+현재 학습 런타임의 잔여 작업이 아닙니다.
 
 ## 에이전트 소유권
 

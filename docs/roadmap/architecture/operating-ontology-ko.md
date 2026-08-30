@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 50cd51599b72456ef46ae2898cfcaeb5db935f18
+translation_source_sha: ee58f5b8615b4fa6ffefc7956efb761b5df4a510
 translation_revised: 2026-08-30
 ---
 # FDAI 운영 온톨로지
@@ -39,7 +39,7 @@ equivalent 프로바이더 경로, 그리고 그 근거를 데이터로 추가�
 커버리지를 측정합니다.
 
 <!-- property-semantic-coverage:begin -->
-측정된 검토 커버리지: 룰이 평가하는 Property 참조 62개 중 **62개**(100.0%)이며 검토된 의미는 44개입니다. 이 수치는 손으로 관리하지 않고 커버리지
+측정된 검토 커버리지: 룰이 평가하는 Property 참조 62개 중 **62개**(100.0%)이며 검토된 의미는 45개입니다. 이 수치는 손으로 관리하지 않고 커버리지
 게이트가 계산합니다. 룰이 평가하는 모든 Property 참조가 검토된 의미와 범위가 제한된 정본 정규화를 가지며, 새 참조는 레지스트리나 floor를 갱신하지 않으면
 gate를 통과하지 못합니다.
 <!-- property-semantic-coverage:end -->
@@ -376,8 +376,25 @@ owning 에이전트, 하나 이상의 생성 기준, 선택적인 중복 제거 
   degraded/최신성 unknown으로 표시합니다. 권위 있는 값을 바꾸지 않으며, shadow 경로에는 여전히
   승인·변경·실행 권한이 없습니다.
 
-**아직 판정하지 않는 범위.** 서로 독립된 두 클라우드 프로바이더를 비교하는 프로덕션 경로는
-없고, 변환된 상태와 텔레메트리를 판정하는 경로도 없습니다.
+서로 독립된 프로바이더 관측을 비교하는 `adjudicate_independent_observations` 경로는 각 주장에
+서로 다른 인증된 프로바이더 참조를 요구합니다. 경합 중인 속성을 제외하고 어느 쪽도 승자로
+선택하지 않습니다. 기존 변환 상태와 텔레메트리 shadow 경로도 같은 무권한 규칙을 적용하고
+파생 사실과 증적에 충돌을 기록합니다.
+
+`EvidenceConflict`는 충돌을 읽기 답변 밖으로 전달합니다. 리소스 범위의 content-addressed
+객체이며 변경할 수 없는 `active`와 `resolved` revision을 사용합니다. 각 revision은 서로 다른 두
+출처 신원, 주장 및 출처 revision, 기준 시점, 근거 참조, canonical Property semantic 참조,
+정확한 충돌 필드, 가장 이른 최신성 만료 시점을 보존합니다. 만료만으로는 충돌을 해소하지 않습니다.
+두 주장 다이제스트가 일치하는 새로운 exact-slot revision만 활성 revision을 `resolved`로
+대체할 수 있습니다.
+
+읽기 shadow 비교는 Huginn ingress를 통해 exact-generation 후보를 발행합니다. Heimdall이 이를
+검증하고 유일한 `object.evidence-conflict` 발행자가 됩니다. Muninn은 모든 revision을 추가하고
+비교 후 설정 방식으로 대상-generation 현재 slot 하나를 전진시킵니다. 정상 dispatch 직전과 사람
+승인 후에 실행 경로는 이 현재 변환 결과를 다시 읽습니다. 활성 또는 만료됐지만 해소되지 않은
+충돌의 canonical semantic 참조가 ActionType의 `required_evidence_semantic_refs`와 교차할 때만
+해당 ActionType을 낮춥니다. 조회 실패도 실행기 I/O를 차단합니다. 다른 대상이나 관련 없는
+semantic은 적용 대상이 아니며 기존 판정을 높이거나 낮추지 않습니다.
 
 **비어 있는 충돌 목록을 읽는 법.** 비어 있는 `StateFactMetadata.conflicts`는 비교한 관측들이
 일치했다는 뜻일 뿐입니다. 그 사실이 독립적으로 교차 확인되었다는 증거가 아니며, 충돌이 없다는
@@ -407,9 +424,9 @@ ObjectType 선언이 없는 버스 계약이고, `DecisionCase`는 버스 토픽
 |-------|---------------------------------------------|
 | Odin | 선언 없음 |
 | Thor | `ActionRun` |
-| Forseti | `ActionOption`, `CausalHypothesis`, `DecisionCase`, `ExpectedEffect`, `ImpactEnvelope` |
+| Forseti | `ActionOption`, `CausalHypothesis`, `DecisionCase`, `ExpectedEffect`, `ImpactEnvelope`, `ProspectiveLineage` |
 | Huginn | `Change`, `Observation` |
-| Heimdall | `Forecast`, `Incident`, `ObservedOutcome` |
+| Heimdall | `EvidenceConflict`, `Forecast`, `Incident`, `ObservedOutcome` |
 | Vidar | `RecoveryPlan` |
 | Var | 선언 없음 |
 | Bragi | 선언 없음 |
@@ -418,7 +435,7 @@ ObjectType 선언이 없는 버스 계약이고, `DecisionCase`는 버스 토픽
 | Muninn | `BusinessCapability`, `BusinessService`, `Environment`, `Ownership`, `RecoveryObjective`, `ServiceObjective`, `Workload` |
 | Norns | `Pattern` |
 | Njord | `Budget`, `CostAnomaly`, `CostObjective`, `CostObservation` |
-| Freyr | `CapacityForecast`, `SizingRecommendation` |
+| Freyr | `CapacityForecast`, `CapacityGraduationRecommendation`, `SizingRecommendation` |
 | Loki | `Experiment` |
 
 이 표에서 특히 중요하고 틀리기 쉬운 결론이 세 가지 있습니다.
@@ -442,15 +459,18 @@ graph, catalog, condition, authority, audit 및 유효 구간을 보존합니다
 추가하지 않고 항상 `execution_authority=false`를 전달합니다. 빈칸을 채우기 위한 `lifecycle`
 추가는 지원되지 않습니다.
 
-`lifecycle`이 없는 출하 타입에 대한 전체 검토 결과는 아래와 같습니다. 이는 새 온톨로지
-writer가 아니라 기존 권한이며, 그래프에 표현된다는 이유만으로 에이전트 단일 작성자가 필요한
-타입은 없습니다.
+기계 판독 가능한 `rule-catalog/vocabulary/object-type-lifecycle-classification.yaml`
+레지스트리가 lifecycle 없는 타입의 진실의 원천입니다. 카탈로그 적재는 해당 ObjectType이 정확히
+한 분류에 들어가도록 강제하고, 분류된 타입에 lifecycle 소유자가 생기면 거부합니다. 아래 표는 이
+레지스트리를 독자가 읽을 수 있게 표현한 것입니다. 이는 새 온톨로지 작성자가 아니라 기존
+권한이며, 그래프에 표현된다는 이유만으로 에이전트 단일 작성자가 필요한 타입은 없습니다.
 
-| 기존 권한 | lifecycle 없는 ObjectType |
-|-----------|---------------------------|
+| 분류 | lifecycle 없는 ObjectType |
+|------|---------------------------|
 | Catalog-as-code 또는 검토된 catalog projection | `ActionType`, `AuthorizationCapability`, `AuthorizationPolicyAssignment`, `AuthorizationRequirement`, `ControlObjective`, `PolicyArtifact`, `Property`, `ProviderPermissionSet`, `ResourceClass`, `ResourceType`, `Rule`, `RuleObjectiveBinding`, `SignalType`, `WorkflowDefinition` |
 | Event-bus registry 및 타입 지정 event contract | `Agent`, `Approval`, `Conversation`, `HandoffEscalation`, `PostTurnReview`, `RuleCandidate`, `SecurityEvent`, `Signal`, `Turn` |
-| Provider, service 또는 principal 범위 projection/store | `AccessGrant`, `AccessGrantRequest`, `AuthorizationDecision`, `AuthorizationObservation`, `BenchmarkValidation`, `BriefingRun`, `BriefingSubscription`, `ChangeSummary`, `ConfigurationBaseline`, `ConfigurationDriftCheck`, `ConfigurationDriftEvidence`, `ConfigurationDriftFinding`, `Decision`, `DiagnosticEvidence`, `DiagnosticFinding`, `DiagnosticMechanism`, `EquivalenceValidationReceipt`, `EvidenceArtifact`, `ExecutionProfile`, `Finding`, `Principal`, `Process`, `PythonTask`, `Resource`, `ReviewCase`, `ReviewCheck`, `UserMemoryFact`, `UserPreference`, `VmTaskRun`, `WorkflowBinding` |
+| Provider, service 또는 principal 범위 projection/store | `AccessGrant`, `AccessGrantRequest`, `AuthorizationDecision`, `AuthorizationObservation`, `BenchmarkValidation`, `BriefingRun`, `BriefingSubscription`, `ChangeSummary`, `ConfigurationBaseline`, `ConfigurationDriftCheck`, `ConfigurationDriftEvidence`, `ConfigurationDriftFinding`, `ConversationPolicy`, `Decision`, `DiagnosticEvidence`, `DiagnosticFinding`, `DiagnosticMechanism`, `EquivalenceValidationReceipt`, `EvidenceArtifact`, `ExecutionProfile`, `Finding`, `Principal`, `Process`, `PythonTask`, `Resource`, `ReviewCase`, `ReviewCheck`, `UserMemoryFact`, `UserPreference`, `VmTaskRun`, `WorkflowBinding` |
+| 에이전트 단일 작성자 필요 | 없음 |
 
 에이전트는 타입이 지정된 이벤트로 협업합니다. 다른 에이전트의 객체를 mutate하거나 직접 호출하거나 변경 가능한
 작업 흐름 상태를 공유하지 않습니다.
@@ -541,6 +561,15 @@ Forseti는 스냅샷에서 `DecisionCase`를 만듭니다. 각 사례는 no-acti
 예상 효과, protected 목표, violated 제약, uncertainty, 근거 참조를 포함합니다.
 Odin은 조건을 충족한 옵션이 목표 사이에서 충돌할 때만 중재합니다. 사람 승인이 필요하면 Var가 같은
 사례를 받고, Saga는 재생을 위해 다이제스트를 기록합니다.
+
+Forseti는 prospective lineage의 유일한 소유자입니다. Specialist 후보는 typed canonical
+argument를 전달하고 이 binding은 DecisionCase identity에 포함됩니다. Odin이 winner를 해석하면
+Forseti가 해당 옵션과 exact `KineticActionProposal`을 확정한 뒤 Verdict 전에 content-addressed
+`ProspectiveLineage` 하나를 발행합니다. Muninn은 envelope, DecisionCase, 선택된 ActionOption,
+완전한 ExpectedEffect 집합을 materialize하고 Saga는 같은 subgraph digest를 봉인합니다. 현재
+proposal은 두 증적이 일치하기 전까지 실행기 I/O에 도달할 수 없습니다. Reconciliation은 observed
+multi-effect closure의 유일한 권한이며 예상 효과마다 독립적으로 관측된 결과 하나를 추가합니다.
+이전 control-loop one-effect sink와 불완전 텔레메트리 주장은 폐기했습니다.
 
 운영 시작은 프로바이더 경계를 통해 `FDAI_OPERATING_MODEL_PATH`를 읽고, 전체 객체/링크
 스냅샷을 검증한 뒤 provider-owned subgraph를 atomically replace합니다. `applying` 매니페스트는 stale

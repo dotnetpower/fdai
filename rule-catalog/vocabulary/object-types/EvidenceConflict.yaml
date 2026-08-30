@@ -1,0 +1,45 @@
+schema_version: "1.0.0"
+name: EvidenceConflict
+version: "1.0.0"
+key: id
+description: Immutable active or resolved conflict revision over authoritative evidence sources.
+properties:
+  id: {type: string, required: true}
+  slot_ref: {type: string, required: true}
+  revision_ref: {type: string, required: true}
+  kind: {type: string, required: true}
+  status: {type: string, required: true}
+  target_ref: {type: string, required: true}
+  scope_ref: {type: string, required: true}
+  generation_ref: {type: string, required: true}
+  semantic_refs: {type: array, required: true}
+  conflicting_fields: {type: array, required: true}
+  source_a: {type: object, required: true}
+  source_b: {type: object, required: true}
+  evidence_cutoff: {type: datetime, required: true}
+  expires_at: {type: datetime, required: true}
+  supersedes_revision_ref: {type: string, required: false}
+  producer_principal: {type: string, required: true}
+  execution_authority: {type: boolean, required: true}
+  mutation_authority: {type: boolean, required: true}
+lifecycle:
+  owner: Heimdall
+  creation:
+    - code: authoritative_evidence_disagreement
+      when: Two authenticated evidence sources disagree on one canonical semantic for one exact target generation.
+      result: Publish an immutable active conflict revision without selecting a winning value.
+      source_refs: [docs/roadmap/architecture/operating-ontology.md]
+  closure:
+    - code: exact_generation_agreement
+      when: Newly observed authoritative sources agree and supersede the current active revision.
+      result: Publish an immutable resolved revision; expiry alone never closes the conflict.
+      source_refs: [docs/roadmap/architecture/operating-ontology.md]
+  authority_refs:
+    - docs/roadmap/agents/agent-pantheon.md
+    - docs/roadmap/architecture/operating-ontology.md
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:EvidenceConflict@1.0.0
+  content_hash: sha256:0853e4380c7793a23209cf4726655b77d9f97ca2c3bb88e487ff37f0a3299cd3
+  license: MIT
+  retrieved_at: "2026-08-30T00:00:00Z"

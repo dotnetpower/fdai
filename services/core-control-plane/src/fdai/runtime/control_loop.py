@@ -83,10 +83,14 @@ from fdai.core.workflow import (
     StateStoreWorkflowOutcomeLedger,
 )
 from fdai.delivery.catalog_exemption import CatalogExemptionRegistry
+from fdai.delivery.evidence_conflict import StateStoreEvidenceConflictProjection
 from fdai.delivery.kinetic_proposal import StateStoreKineticActionProposalStore
 from fdai.delivery.kinetic_safety import ExistingProposalKineticSafetyWriter
 from fdai.delivery.persistence.state_store_preconditions import (
     StateStoreOpenActionEvidenceProvider,
+)
+from fdai.delivery.prospective_lineage import (
+    StateStoreProspectiveLineageReadinessReader,
 )
 from fdai.delivery.reconciliation_artifacts import StateStoreExecutedActionArtifactStore
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
@@ -605,7 +609,9 @@ def _build_control_loop(
         artifact_store=StateStoreExecutedActionArtifactStore(store=audit_store),
         action_types_by_name=action_types_by_name,
         active_release=ontology_release,
+        prospective_lineage_readiness=StateStoreProspectiveLineageReadinessReader(audit_store),
     )
+    evidence_conflict_projection = StateStoreEvidenceConflictProjection(audit_store)
     hil_resume_coordinator = HilResumeCoordinator(
         state_store=audit_store,
         executor=executor,
@@ -622,6 +628,7 @@ def _build_control_loop(
         pre_dispatch_kinetic_safety_writer=pre_dispatch_kinetic_safety_writer,
         thor_execution_port=thor_execution_port,
         mutation_dependency_readiness=mutation_dependency_readiness,
+        evidence_conflict_reader=evidence_conflict_projection,
     )
     kill_switch = StateStoreKillSwitch(store=audit_store)
 
@@ -743,6 +750,7 @@ def _build_control_loop(
         execution_authorization_required=container.execution_authorization_required,
         thor_execution_port=thor_execution_port,
         mutation_dependency_readiness=mutation_dependency_readiness,
+        evidence_conflict_reader=evidence_conflict_projection,
     )
 
 

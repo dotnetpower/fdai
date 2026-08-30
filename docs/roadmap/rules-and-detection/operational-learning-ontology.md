@@ -171,21 +171,21 @@ implemented behavior instead of correcting an overclaim. Neither declaration add
 projection, instance path, or authority, and `predicts_breach_of` and `learned_as` stay undeclared
 because neither endpoint pair is producible.
 
-### Deferred relationships
+### Retired relationship plans
 
 Two relationships that earlier revisions of the
 [relationship contract](../architecture/operating-ontology.md#relationship-contract) listed as
-contract rows are deferred, not declared. Both endpoint ObjectTypes now exist, so the remaining
-blocker is that neither pair is producible.
+contract rows are retired, not declared. Their ObjectTypes remain available for semantic queries,
+but FDAI does not keep an active plan to create these links.
 
-| Relationship | Intended endpoints | Blocking reason |
-|--------------|--------------------|-----------------|
-| `predicts_breach_of` | Forecast -> Objective | `ForecastFinding` predicts a metric threshold breach and carries no objective identity, so no producer can supply the target endpoint. `Objective` is also a conceptual union that would need explicit physical endpoint names. |
-| `learned_as` | ObservedOutcome -> Pattern | A cohort cites sealed cases as `case-history:<case_id>:<revision>:<manifest_digest>` and never receives an `ObservedOutcome` identity, so the source endpoint is not producible. It would return as a reviewed learning projection only, never as a promotion path. |
+| Relationship | Intended endpoints | Retirement decision |
+|--------------|--------------------|---------------------|
+| `predicts_breach_of` | Forecast -> Objective | Retired because `ForecastFinding` carries no objective identity and `Objective` is a conceptual union. A writer would have to invent the target endpoint. |
+| `learned_as` | ObservedOutcome -> Pattern | Retired because a cohort cites sealed case-history revisions and never receives an `ObservedOutcome` identity. A writer would have to invent the source endpoint. |
 
-A LinkType MUST NOT be declared before both endpoint ObjectTypes exist, because catalog loading
-cross-references `from_type` and `to_type` and fails closed. Declarable is not usable, so each row
-returns only with a producer for both endpoints and a competency question it answers.
+Both names stay absent from the active LinkType catalog. Reintroducing either plan requires a new
+reviewed design with authoritative endpoint producers, an exact release policy, and a competency
+question. It is not residual work for the current learning runtime.
 
 ## Agent ownership
 

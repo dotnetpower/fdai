@@ -21,6 +21,7 @@ object_types:
   - BusinessCapability
   - BusinessService
   - CapacityForecast
+  - CapacityGraduationRecommendation
   - CausalHypothesis
   - Change
   - ChangeSummary
@@ -42,6 +43,7 @@ object_types:
   - DiagnosticMechanism
   - Environment
   - EquivalenceValidationReceipt
+  - EvidenceConflict
   - EvidenceArtifact
   - ExecutionProfile
   - ExpectedEffect
@@ -60,6 +62,7 @@ object_types:
   - PostTurnReview
   - Principal
   - Process
+  - ProspectiveLineage
   - Property
   - ProviderPermissionSet
   - PythonTask

@@ -163,23 +163,23 @@ def _semantic_layer_object_rows(document: str) -> tuple[tuple[str, str], ...]:
     return tuple(re.findall(r"^\| `([A-Za-z]+)` \| (.+?) \|$", layers, re.MULTILINE))
 
 
-def test_deferred_relationships_are_absent_from_the_catalog() -> None:
-    """A deferred relationship MUST NOT be declared before its endpoint types."""
+def test_retired_relationship_plans_are_absent_from_the_catalog() -> None:
+    """A retired relationship plan MUST remain outside the active catalog."""
     owner_document = (
         REPO_ROOT / "docs/roadmap/rules-and-detection/operational-learning-ontology.md"
     ).read_text(encoding="utf-8")
-    deferred_section = owner_document.split("\n### Deferred relationships\n", 1)[1].split(
+    retired_section = owner_document.split("\n### Retired relationship plans\n", 1)[1].split(
         "\n## ", 1
     )[0]
-    deferred = tuple(re.findall(r"^\| `([a-z_]+)` \|", deferred_section, re.MULTILINE))
+    retired = tuple(re.findall(r"^\| `([a-z_]+)` \|", retired_section, re.MULTILINE))
     link_root = REPO_ROOT / "rule-catalog/vocabulary/link-types"
 
-    assert set(deferred) == {"learned_as", "predicts_breach_of"}
-    assert [name for name in deferred if (link_root / f"{name}.yaml").exists()] == []
+    assert set(retired) == {"learned_as", "predicts_breach_of"}
+    assert [name for name in retired if (link_root / f"{name}.yaml").exists()] == []
     # The relationship contract must keep naming both, or a reader of the contract alone
     # cannot tell that their absence is deliberate.
     contract = _operating_ontology_document().split("\n## Relationship contract\n", 1)[1]
-    assert all(f"`{name}`" in contract.split("\n## ", 1)[0] for name in deferred)
+    assert all(f"`{name}`" in contract.split("\n## ", 1)[0] for name in retired)
 
 
 def test_documented_object_types_are_declared_or_deferred() -> None:
@@ -404,6 +404,29 @@ def test_integrated_catalog_rejects_dangling_precondition_link(tmp_path: Path) -
     object_root.mkdir(parents=True)
     link_root.mkdir()
     action_root.mkdir()
+    (vocabulary_root / "object-type-lifecycle-classification.yaml").write_text(
+        """
+schema_version: "1.0.0"
+categories:
+  catalog_as_code:
+    rationale: Catalog declarations remain authoritative for this test fixture.
+    source_refs: [docs/roadmap/architecture/operating-ontology.md]
+    object_types: []
+  event_bus_registry:
+    rationale: Event bus ownership remains authoritative for this test fixture.
+    source_refs: [docs/roadmap/architecture/operating-ontology.md]
+    object_types: []
+  projection_owned:
+    rationale: The Resource fixture is owned by its provider projection contract.
+    source_refs: [docs/roadmap/architecture/operating-ontology.md]
+    object_types: [Resource]
+  owner_required:
+    rationale: No additional agent lifecycle owner is required by this test fixture.
+    source_refs: [docs/roadmap/architecture/operating-ontology.md]
+    object_types: []
+""".lstrip(),
+        encoding="utf-8",
+    )
     (object_root / "Resource.yaml").write_text(
         (REPO_ROOT / "rule-catalog/vocabulary/object-types/Resource.yaml").read_text(
             encoding="utf-8"

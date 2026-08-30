@@ -70,6 +70,12 @@ class NormalizedResourceStateObservation:
     state: str
     observed_at: datetime
     evidence_refs: tuple[str, ...]
+    source_identity: str
+    source_revision: str
+    authority: StateFactAuthority
+    evidence_cutoff: datetime
+    recorded_at: datetime
+    freshness_ceiling_seconds: int
 
     @property
     def evidence_digest(self) -> str:
@@ -79,6 +85,23 @@ class NormalizedResourceStateObservation:
                 "state": self.state,
                 "observed_at": _timestamp(self.observed_at),
                 "evidence_refs": list(self.evidence_refs),
+                "source_identity": self.source_identity,
+                "source_revision": self.source_revision,
+                "authority": self.authority.value,
+                "evidence_cutoff": _timestamp(self.evidence_cutoff),
+                "recorded_at": _timestamp(self.recorded_at),
+                "freshness_ceiling_seconds": self.freshness_ceiling_seconds,
+            }
+        )
+
+    @property
+    def claim_digest(self) -> str:
+        """Digest the compared identity and state without observation-time skew."""
+
+        return ontology_function_digest(
+            {
+                "resource_identity": self.resource_identity,
+                "state": self.state,
             }
         )
 
@@ -179,6 +202,12 @@ def _extract_existing_state(
             state=_normalize_state(state),
             observed_at=observed_at,
             evidence_refs=evidence_refs,
+            source_identity=envelope.authority,
+            source_revision=ontology_function_digest(_stable_envelope(envelope)),
+            authority=StateFactAuthority.PROVIDER,
+            evidence_cutoff=envelope_observed_at,
+            recorded_at=cutoff,
+            freshness_ceiling_seconds=_RESOURCE_STATE_MAX_AGE_SECONDS,
         ),
         (),
     )
@@ -268,6 +297,12 @@ def _extract_semantic_state(
             state=_normalize_state(raw_state),
             observed_at=observed_at,
             evidence_refs=_bounded_evidence_refs(metadata.evidence_refs),
+            source_identity=metadata.source_identity,
+            source_revision=metadata.source_revision,
+            authority=metadata.authority,
+            evidence_cutoff=evidence_cutoff,
+            recorded_at=recorded_at,
+            freshness_ceiling_seconds=freshness_ceiling,
         ),
         (),
     )

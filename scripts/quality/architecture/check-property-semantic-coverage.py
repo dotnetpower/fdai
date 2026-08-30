@@ -147,7 +147,13 @@ class Coverage:
         return f"{self.reviewed_count * 100 / self.evaluated_count:.1f}"
 
 
-def _load(root: Path) -> tuple[tuple[PropertyReference, ...], PropertySemanticRegistry]:
+def _load(
+    root: Path,
+) -> tuple[
+    tuple[PropertyReference, ...],
+    PropertySemanticRegistry,
+    frozenset[str],
+]:
     catalog_root = root / "rule-catalog"
     schema_registry = PackageResourceSchemaRegistry()
     ontology = load_ontology_catalog(
@@ -210,22 +216,33 @@ def _load(root: Path) -> tuple[tuple[PropertyReference, ...], PropertySemanticRe
         )
         for reference in sorted(leaf_paths)
     )
-    return evaluated, ontology.property_semantics
+    action_semantic_refs = frozenset(
+        semantic_ref
+        for action_type in ontology.action_types
+        for semantic_ref in action_type.required_evidence_semantic_refs
+    )
+    return evaluated, ontology.property_semantics, action_semantic_refs
 
 
 def measure(root: Path) -> tuple[Coverage, tuple[str, ...]]:
     """Measure coverage and return it with any evidence violations found."""
 
-    evaluated, registry = _load(root)
+    evaluated, registry, action_semantic_refs = _load(root)
     evaluated_references = {item.reference for item in evaluated}
     declared = {
         provider_path.property_ref
         for semantic in registry.semantics
         for provider_path in semantic.equivalent_provider_paths
     }
+    action_provider_paths = {
+        provider_path.property_ref
+        for semantic in registry.semantics
+        if semantic.semantic_id in action_semantic_refs
+        for provider_path in semantic.equivalent_provider_paths
+    }
     violations = tuple(
         f"declared equivalent provider path has no shipped rule evidence: {reference}"
-        for reference in sorted(declared - evaluated_references)
+        for reference in sorted(declared - evaluated_references - action_provider_paths)
     )
     reviewed = tuple(
         item.reference for item in evaluated if registry.for_property(item.reference) is not None

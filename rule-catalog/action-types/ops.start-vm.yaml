@@ -17,6 +17,8 @@ preconditions:
 - kind: graph_fresh_within_seconds
   value: 300
 - kind: no_conflicting_open_action_on_resource
+required_evidence_semantic_refs:
+- runtime.vm.power_state
 stop_conditions:
 - kind: provider_api_error_streak
   count: 3
@@ -70,6 +72,6 @@ prod_downgrade:
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: action-type:ops.start-vm@1.0.0
-  content_hash: sha256:41e2e9c1cc7dfdeb3a7c53d537732a24997806f787826285e16b61e4cec7e806
+  content_hash: sha256:b0014968c491756b2a840fb3236969c5d7db4c3a733a769f2dc4af82aeaa8363
   license: MIT
   retrieved_at: "2026-07-29T00:00:00Z"

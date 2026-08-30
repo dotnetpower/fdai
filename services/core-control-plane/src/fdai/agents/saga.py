@@ -103,6 +103,40 @@ class Saga(Agent):
             await self._republish_catalog_review_outcome(payload, correlation_id)
         if topic == "object.handoff-escalation":
             await self._materialize_handoff(payload, correlation_id)
+        if topic == "object.prospective-lineage":
+            await self._republish_prospective_lineage(payload, correlation_id)
+
+    async def _republish_prospective_lineage(
+        self,
+        payload: dict[str, Any],
+        correlation_id: str,
+    ) -> None:
+        if self.bus is None:
+            raise RuntimeError("Saga prospective-lineage audit bus is unavailable")
+        lineage_id = str(payload.get("id") or "")
+        subgraph_digest = str(payload.get("subgraph_digest") or "")
+        if (
+            payload.get("producer_principal") != "Forseti"
+            or not correlation_id
+            or not lineage_id
+            or not subgraph_digest
+        ):
+            raise ValueError("prospective-lineage audit payload is invalid")
+        await self.bus.publish(
+            "Saga",
+            "object.audit-entry",
+            {
+                "producer_principal": "Saga",
+                "correlation_id": correlation_id,
+                "idempotency_key": f"prospective-lineage-seal:{lineage_id}",
+                "audited_topic": "object.prospective-lineage",
+                "action_kind": "prospective_lineage.sealed",
+                "lineage_id": lineage_id,
+                "proposal_id": str(payload.get("proposal_id") or ""),
+                "subgraph_digest": subgraph_digest,
+                "execution_authority": False,
+            },
+        )
 
     async def _republish_catalog_review_outcome(
         self,

@@ -27,6 +27,8 @@ preconditions:
   property: vm_agent_ready
   value: true
 - kind: maintenance_window_active
+required_evidence_semantic_refs:
+- runtime.vm.power_state
 stop_conditions:
 - kind: time_box_exceeded_seconds
   seconds: 86400
@@ -82,6 +84,6 @@ argument_schema:
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: action-type:tool.run-python-on-vm@1.0.0
-  content_hash: sha256:9d2184a47fbe185c879d9d09b2a4fea492283ee8110c043a43b51f1dfb72281d
+  content_hash: sha256:9b1201b19ab8648795aed3f797f0ae75c79f6b9e971e3823a6465047bcfdecf6
   license: MIT
   retrieved_at: "2026-07-29T00:00:00Z"

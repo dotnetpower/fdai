@@ -1,7 +1,7 @@
 ---
 translation_of: operational-planning.md
-translation_source_sha: ceef098b4bd909a1bf633e87a6ed8938c73ee337
-translation_revised: 2026-08-20
+translation_source_sha: ad35b08d06e95beb14924fbd761d65cf3e86fdc5
+translation_revised: 2026-08-30
 ---
 # 운영 계획
 
@@ -32,10 +32,11 @@ DecisionCase, ActionOption, 타입이 지정된 온톨로지 함수, Assurance T
 > effect-model 읽기 담당, causal 검증기가 모두 있을 때만 계획 수립을 연결합니다. Staging 부분
 > 실행 증명과 live graph shadow 측정은 완료된 live claim이 아니라 release 근거로 남습니다.
 > Production graph evidence와 개발 `ops.scale-out` VM Scale Set 실행기 연결은 구현되어 focused
-> test로 검증됩니다. Independent Core 및 Operator service HIL binding, 운영 Forseti proposal
-> source 조립, 보호된 러너 훈련, Heimdall 소유 verified independent effect observer, 독립 종결 및
-> 전체 recurrence window는 아직 남아 있습니다. Core runtime은 proposal이 있으면 모든 Thor 소유
-> 실행기 전에 exact kinetic safety receipt를 저장하고, 없으면 legacy path를 유지합니다.
+> test로 검증됩니다. Independent Core 및 Operator service HIL binding, 보호된 러너 훈련,
+> Heimdall 소유 verified independent effect observer, 독립 종결 및 전체 recurrence window는 아직
+> 남아 있습니다. Forseti는 Odin이 선택한 옵션을 typed argument로 확정하고 content-addressed
+> `ProspectiveLineage`를 발행합니다. 운영 구성은 Muninn을 통해 subgraph를 materialize하고 Saga를
+> 통해 봉인합니다. Core runtime은 두 증적이 일치하기 전에는 현재 proposal의 실행을 거부합니다.
 
 ## 구현 상태
 
@@ -45,8 +46,8 @@ DecisionCase, ActionOption, 타입이 지정된 온톨로지 함수, Assurance T
 |------|------|------|------|
 | P1-P7 operational-planning core | implemented | `services/core-control-plane/src/fdai/core/operational_planning/` 및 focused planning test | 계획은 A0로 유지되고 기존 Process 및 권한 경로를 재사용합니다. |
 | Production graph evidence 및 scale-out executor binding | implemented | `services/core-control-plane/src/fdai/delivery/azure/` 및 focused composition/delivery test | Code와 test만으로는 live outcome evidence가 되지 않습니다. |
-| 인자 연결 kinetic proposal 생성 및 Verdict 계보 | implemented | `services/core-control-plane/src/fdai/core/operational_planning/kinetic_proposal.py`, `services/core-control-plane/src/fdai/delivery/kinetic_proposal.py`, `services/core-control-plane/src/fdai/agents/forseti.py`, `services/core-control-plane/src/fdai/agents/thor.py` 및 집중 producer/agent 테스트 | Delivery 소유 producer는 완전한 plan과 기존 exact V2 plan만 허용합니다. Forseti는 선택적 source를 통해 proposal을 해석하고 quorum, mode, 승인 또는 실행 권한을 바꾸지 않은 채 기존 Verdict에 보존합니다. |
-| Exact kinetic handoff 및 독립 효과 관측 런타임 연결 | in-progress | `services/core-control-plane/src/fdai/core/operational_planning/kinetic_safety.py`, `services/core-control-plane/src/fdai/delivery/kinetic_safety.py`, `services/core-control-plane/src/fdai/delivery/reconciliation_artifacts.py`, `services/core-control-plane/src/fdai/runtime/control_loop.py`, `config/ohl-scale-out-evidence.json` 및 집중 dispatch, HIL, artifact, runtime 테스트(`119 passed`) | Core는 index에 있는 기존 proposal을 해석하고 OperationalPlan identity와 Process, selection, correlation, target, ActionType 및 plan lineage를 다시 검증한 뒤 모든 Thor 소유 실행기 전에 exact V2 plan을 저장합니다. Proposal이 없으면 legacy 동작을 유지하며 malformed, ambiguous, orphaned 또는 substituted evidence는 dispatch를 차단합니다. 운영 Forseti source 조립과 Heimdall 소유 verified observer는 아직 연결되지 않았습니다. |
+| 인자 연결 prospective lineage 및 Verdict 전달 | implemented | `core/decision_case/`, `core/operational_planning/prospective_lineage.py`, `delivery/prospective_lineage.py`, `agents/{forseti,muninn,saga,thor}.py` 및 focused finalization, materialization, agent-chain 테스트 | Specialist proposal은 canonical typed argument를 전달합니다. Forseti가 Odin의 옵션을 확정하고 exact V2 plan을 commit하며 Verdict 전에 ProspectiveLineage를 발행합니다. Thor는 권한을 얻지 않고 두 immutable 참조를 보존합니다. |
+| Exact kinetic handoff 및 독립 효과 관측 런타임 연결 | in-progress | `core/operational_planning/kinetic_safety.py`, `delivery/{kinetic_safety,reconciliation_artifacts,prospective_lineage}.py`, `runtime/{control_loop,bootstrap_pantheon}.py` 및 focused dispatch, HIL, artifact, runtime 테스트 | Core는 exact plan lineage를 다시 검증하고 모든 현재 proposal이 Thor 소유 실행기에 도달하기 전에 일치하는 Muninn materialization과 Saga seal을 요구합니다. Heimdall 소유 verified observer와 통제된 런타임 근거는 아직 남아 있습니다. |
 | Independent-service HIL binding | in-progress | `config/ohl-scale-out-evidence.json` 및 배포된 Core/Operator environment contract | Approval이 action을 park하고 resolve하기 전에 service root가 HIL channel 및 callback signing secret을 bind해야 합니다. |
 | OHL Lane F live evidence | in-progress | `docs/runbooks/ohl-scale-out-evidence-ko.md` | Protected execution, independent closure, sample 100개 및 14일 recurrence window가 열려 있습니다. |
 
@@ -54,6 +55,7 @@ DecisionCase, ActionOption, 타입이 지정된 온톨로지 함수, Assurance T
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-30 | implemented | 늦은 선택적 argument 해석을 운영 Forseti 소유 prospective 경로로 대체했습니다. PlanCandidate와 ActionOption은 canonical typed argument binding을 보존하고, Process 기록 전에 Odin의 선택을 확정합니다. Forseti는 Verdict 전에 content-addressed ProspectiveLineage를 발행하고, Muninn은 exact subgraph를 materialize하며, Saga는 같은 digest를 봉인합니다. Predispatch는 두 증적이 일치하기 전까지 차단합니다. Reconciliation은 observed multi-effect closure의 유일한 권한으로 남습니다. | `current change`, focused planning, proposal, prospective materialization, Forseti-Thor, kinetic readiness, observed-lineage 검사 | Verified independent observer를 연결하고 통제된 Lane F campaign에서 pinned prospective-to-observed replay 하나를 보존합니다. |
 | 2026-08-13 | in-progress | 이전 provenance를 재구성하지 않고 implementation ledger를 도입하고 independent-service HIL binding residual을 드러냈습니다. | current change, `services/core-control-plane/tests/scenarios/operational-planning/test_manifest.py` 결과 7 passed | 두 service root에 HIL을 bind하고 exact revision을 배포한 뒤 live evidence campaign을 완료합니다. |
 | 2026-08-14 | in-progress | 누락된 exact-plan writer와 verified independent effect observer를 별도 Lane F runtime residual로 드러냈습니다. | `current change`, Lane F contract, runbook gate, artifact-store test 및 manifest test | Plan을 reconstruct하거나 executor/provider receipt로 대체하지 않고 두 source를 모두 연결합니다. |
 | 2026-08-14 | implemented | Authority-free argument-bound kinetic proposal contract를 추가하고 valid proposal을 Thor의 durable ActionRun까지 보존했습니다. | `current change`, focused kinetic-proposal, Thor dispatch, persistence 및 role-invariant 검사 | Runtime residual을 제거하기 전에 Forseti 소유 producer와 Core pre-dispatch consumer를 추가합니다. |
@@ -67,9 +69,10 @@ DecisionCase, ActionOption, 타입이 지정된 온톨로지 함수, Assurance T
   Forseti 선택적 source를 통해 해석하며 proposal이 없을 때 legacy Action이 변경되지 않음을 입증합니다.
 - [x] 모든 Core Thor 실행기 전에 기존 proposal의 exact V2 plan을 저장하고 proposal이 없으면
   legacy 동작을 유지하며 malformed 또는 substituted evidence가 dispatch를 차단함을 입증합니다.
-- [ ] 운영 Forseti 조립에서 proposal source와 Heimdall 소유 verified independent effect
-  observer를 연결하고 executor 또는 provider receipt로 observed outcome을 대체하지 않는 통제된
-  end-to-end 근거를 보존합니다.
+- [x] 운영 Forseti prospective finalization, Muninn materialization, Saga sealing, predispatch
+  readiness를 연결하고 Action에서 plan을 재구성하지 않도록 합니다.
+- [ ] Heimdall 소유 verified independent effect observer를 연결하고 executor 또는 provider
+  receipt로 observed outcome을 대체하지 않는 통제된 end-to-end 근거를 보존합니다.
 - [ ] Core HIL channel 및 Operator callback signing secret을 bind하고 검증해 서로 다른 human
   approver가 하나의 `ops.scale-out` proposal을 park, resolve 및 resume하도록 합니다.
 - [ ] Protected-runner drill을 완료하고 independent graph closure, live-shadow sample 100개,
@@ -236,15 +239,18 @@ authority를 포함하지 않습니다.
 plan은 `operational_plan_ref`를 통해 별도로 참조합니다. 이 identity를 혼합하면 안 됩니다. Planner
 provenance와 decision lineage는 서로 다른 replay 검사입니다.
 
-Forseti는 이 optional proposal을 기존 `object.verdict` 안에서만 전달할 수 있습니다. Delivery 소유
-StateStore producer와 선택적 Forseti source가 구현되었습니다. Producer는 plan을 compile하거나
-upgrade하지 않으며 proposal이 없으면 기존 Verdict를 유지합니다. Thor는 correlation, selected
-ActionType, target, argument 및 DecisionCase lineage가 exact한지 검증한 뒤 durable `ActionRun`에
-보존합니다. Malformed 또는 substituted proposal은 실행 전에 Verdict를 deny로 낮춥니다. Proposal이
-없으면 legacy path는 변경되지 않으며 V2 plan을 만들지 않습니다. Core runtime 조립은 exact
-correlation으로 proposal을 해석하고 모든 Thor 소유 실행기 전에 기존 plan을 저장하며 malformed 또는
-substituted evidence를 차단합니다. 운영 Forseti source 조립, 독립 observer 및 통제된 실제 운영 근거는
-아직 남아 있습니다. 집중 테스트만으로 end-to-end runtime 검증을 입증할 수는 없습니다.
+Specialist 근거는 필드별 digest와 redacted safe projection이 있는 canonical argument를
+제안합니다. 이 값은 DecisionCase identity에 포함됩니다. Odin이 eligible 옵션 하나를 선택하면
+Forseti가 OperationalPlan을 확정하고 delivery finalizer가 exact ActionType argument schema, 대상
+revision, rollback contract, V2 lock policy를 검증한 뒤 `KineticActionProposal`을 commit합니다.
+
+Forseti는 기존 `object.verdict` 전에 `object.prospective-lineage`를 발행합니다. Envelope는 plan,
+proposal, DecisionCase, 선택된 ActionOption, 완전한 ExpectedEffect 집합, subgraph digest를
+결합합니다. Muninn은 exact 객체를 materialize하고 Saga는 append-only audit 경로로 같은 digest를
+봉인합니다. Thor는 두 참조를 보존하고 Core predispatch writer는 실행기 I/O 전에 materialization과
+Saga seal을 요구합니다. 누락되거나 일치하지 않는 readiness는 액션을 보류합니다. Reconciliation은
+나중에 같은 prospective 객체를 재사용하고 ActionRun과 독립적으로 관측된 완전한 효과 집합만
+추가합니다.
 
 Risk evaluation은 현재 정책, 승격 상태, 역할, 환경, 영향, 승인, 대상 개정 번호,
 일곱 safeguard를 다시 검사합니다. 계획 수립 근거는 결과 권한을 유지하거나 낮출 수만

@@ -13,8 +13,10 @@ from fdai.core.operational_planning.hypothesis_lineage import (
     OperationalHypothesisLineage,
     OperationalHypothesisLineageProjector,
 )
+from fdai.core.operational_planning.kinetic_proposal import KineticActionProposal
 from fdai.core.operational_planning.models import OperationalPlan
 from fdai.delivery.kinetic_proposal import StateStoreKineticActionProposalStore
+from fdai.delivery.prospective_lineage import build_prospective_lineage_records
 from fdai.delivery.reconciliation_artifacts import (
     KineticSafetyReceipt,
     StateStoreExecutedActionArtifactStore,
@@ -95,6 +97,7 @@ class EffectReconciliationLineageMaterializer:
             return False
         lineage = _build_lineage(
             plan=operational_plan,
+            proposal=proposal,
             kinetic_receipt=kinetic_receipt,
             execution=execution,
             outcome=outcome,
@@ -106,90 +109,17 @@ class EffectReconciliationLineageMaterializer:
 def _build_lineage(
     *,
     plan: OperationalPlan,
+    proposal: KineticActionProposal,
     kinetic_receipt: KineticSafetyReceipt,
     execution: RecordedExecutedActionObservation,
     outcome: ReconciliationOutcome,
 ) -> OperationalHypothesisLineage:
-    selected = next(
-        (
-            option
-            for option in plan.decision_case.options
-            if option.option_id == plan.selection.selected_option_id
-        ),
-        None,
-    )
-    if selected is None or selected.action_type is None:
-        raise ValueError("operational lineage requires one selected ActionType option")
-    baseline_by_objective = {
-        effect.objective_id: effect for effect in plan.decision_case.no_action_effects
-    }
-    expected_effects = tuple(
-        OntologyObjectRecord(
-            id=_lineage_id(
-                "expected-effect",
-                plan.plan_id,
-                selected.option_id,
-                effect.objective_id,
-            ),
-            object_type="ExpectedEffect",
-            properties={
-                "id": _lineage_id(
-                    "expected-effect", plan.plan_id, selected.option_id, effect.objective_id
-                ),
-                "metric": effect.metric,
-                "direction": _direction(effect, baseline_by_objective.get(effect.objective_id)),
-                "lower_bound": effect.expected_min,
-                "upper_bound": effect.expected_max,
-                "window_seconds": effect.observation_window_seconds,
-                "uncertainty": 1.0 - effect.confidence,
-                "predictor_version": plan.logic_release_digest,
-                "created_at": plan.decision_case.created_at,
-            },
-        )
-        for effect in selected.effects
-    )
-    expected_ids = tuple(item.id for item in expected_effects)
-    case = OntologyObjectRecord(
-        id=plan.decision_case.case_id,
-        object_type="DecisionCase",
-        properties={
-            "id": plan.decision_case.case_id,
-            "target_ref": plan.target_resource_id,
-            "evidence_cutoff": plan.context_cutoff,
-            "context_digest": plan.context_digest,
-            "no_action_baseline": {
-                "effects": [
-                    _effect_values(effect) for effect in plan.decision_case.no_action_effects
-                ]
-            },
-            "uncertainty": max(1.0 - effect.confidence for effect in selected.effects),
-            "status": "selected",
-            "created_at": plan.decision_case.created_at,
-        },
-    )
-    option = OntologyObjectRecord(
-        id=selected.option_id,
-        object_type="ActionOption",
-        properties={
-            "id": selected.option_id,
-            "decision_case_id": case.id,
-            "action_type_ref": selected.action_type,
-            "arguments": {
-                "digest": kinetic_receipt.arguments_digest,
-                "redacted": True,
-            },
-            "expected_effect_refs": list(expected_ids),
-            "preconditions": list(
-                dict.fromkeys(
-                    (
-                        *outcome.request.plan.read_set_receipt_digests,
-                        *outcome.request.plan.criterion_receipt_digests,
-                    )
-                )
-            ),
-            "option_kind": "intervention",
-        },
-    )
+    prospective = build_prospective_lineage_records(plan=plan, proposal=proposal)
+    if prospective.action_option.properties["arguments"]["digest"] != (
+        kinetic_receipt.arguments_digest
+    ):
+        raise ValueError("operational lineage argument digest changed after dispatch")
+    expected_effects = prospective.expected_effects
     action_run_id = f"action-run:{outcome.correlation_id}"
     action_run = OntologyObjectRecord(
         id=action_run_id,
@@ -217,8 +147,8 @@ def _build_lineage(
         for expected_effect in expected_effects
     )
     return OperationalHypothesisLineage(
-        decision_case=case,
-        action_option=option,
+        decision_case=prospective.decision_case,
+        action_option=prospective.action_option,
         expected_effects=expected_effects,
         action_run=action_run,
         observed_outcomes=observed_outcomes,

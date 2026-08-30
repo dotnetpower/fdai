@@ -9,12 +9,21 @@ from __future__ import annotations
 
 import logging
 
+from fdai.core.ontology_platform.evidence_conflict import (
+    EvidenceConflictCandidatePublisher,
+    EvidenceConflictCurrentReader,
+    EvidenceConflictRevision,
+    EvidenceConflictStatus,
+    EvidenceSourceLineage,
+    evidence_conflict_slot_ref,
+)
 from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryResult
 from fdai.core.ontology_platform.query_profiles import QueryProfile
 from fdai.core.ontology_platform.semantic_plans import VerifiedSemanticPlan
 from fdai.core.ontology_platform.semantic_query import SemanticQueryReceipt
 from fdai.core.read_investigation.models import ReadInvestigationResult
 from fdai.core.read_investigation.resource_state_shadow_evidence import (
+    NormalizedResourceStateObservation,
     ResourceIdentityCanonicalizer,
     cross_source_state_fact,
     existing_input_digest,
@@ -57,9 +66,13 @@ class ShadowResourceStateComparisonService:
         *,
         sink: ShadowComparisonSink,
         identity_canonicalizer: ResourceIdentityCanonicalizer | None = None,
+        evidence_conflict_reader: EvidenceConflictCurrentReader | None = None,
+        evidence_conflict_publisher: EvidenceConflictCandidatePublisher | None = None,
     ) -> None:
         self._sink = sink
         self._identity_canonicalizer = identity_canonicalizer
+        self._evidence_conflict_reader = evidence_conflict_reader
+        self._evidence_conflict_publisher = evidence_conflict_publisher
 
     async def compare(
         self,
@@ -75,7 +88,7 @@ class ShadowResourceStateComparisonService:
     ) -> ShadowComparisonAttempt:
         """Record a comparison while preserving the original response object."""
 
-        receipt, adjudicated = _compare_receipt(
+        receipt, adjudicated, existing, semantic = _compare_receipt(
             existing_result=existing_result,
             query_result=query_result,
             semantic_receipt=semantic_receipt,
@@ -124,13 +137,68 @@ class ShadowResourceStateComparisonService:
                 cross_source_state_fact=adjudicated,
                 error_kind=ShadowSinkErrorKind.IDENTITY_CONFLICT,
             )
+        evidence_conflict_revision = await self._publish_evidence_conflict(
+            receipt=receipt,
+            existing=existing,
+            semantic=semantic,
+            generation_ref=query_result.receipt.source_generation,
+        )
         return ShadowComparisonAttempt(
             authoritative_result=existing_result,
             receipt=append_result.receipt,
             persistence=append_result.persistence,
             attempt_latency_ms=attempt_latency_ms,
             cross_source_state_fact=adjudicated,
+            evidence_conflict_revision=evidence_conflict_revision,
         )
+
+    async def _publish_evidence_conflict(
+        self,
+        *,
+        receipt: ShadowComparisonReceipt,
+        existing: NormalizedResourceStateObservation | None,
+        semantic: NormalizedResourceStateObservation | None,
+        generation_ref: str | None,
+    ) -> EvidenceConflictRevision | None:
+        reader = self._evidence_conflict_reader
+        publisher = self._evidence_conflict_publisher
+        if (
+            reader is None
+            or publisher is None
+            or generation_ref is None
+            or existing is None
+            or semantic is None
+        ):
+            return None
+        slot_ref = evidence_conflict_slot_ref(
+            target_ref=existing.resource_identity,
+            scope_ref="scope:resource-state",
+            generation_ref=generation_ref,
+        )
+        current = await reader.current(slot_ref)
+        if receipt.outcome is ShadowComparisonOutcome.MATCH:
+            if current is None or current.status is EvidenceConflictStatus.RESOLVED:
+                return None
+            status = EvidenceConflictStatus.RESOLVED
+            conflicting_fields: tuple[str, ...] = ()
+        elif receipt.cross_source_conflicts:
+            status = EvidenceConflictStatus.ACTIVE
+            conflicting_fields = receipt.cross_source_conflicts
+        else:
+            return None
+        revision = EvidenceConflictRevision.create(
+            status=status,
+            target_ref=existing.resource_identity,
+            scope_ref="scope:resource-state",
+            generation_ref=generation_ref,
+            semantic_refs=("runtime.vm.power_state",),
+            conflicting_fields=conflicting_fields,
+            source_a=_evidence_lineage(existing),
+            source_b=_evidence_lineage(semantic),
+            supersedes_revision_ref=current.revision_ref if current is not None else None,
+        )
+        await publisher.publish(revision)
+        return revision
 
 
 def _compare_receipt(
@@ -143,7 +211,12 @@ def _compare_receipt(
     principal_ref: str,
     correlation_ref: str,
     identity_canonicalizer: ResourceIdentityCanonicalizer | None,
-) -> tuple[ShadowComparisonReceipt, StateFactMetadata | None]:
+) -> tuple[
+    ShadowComparisonReceipt,
+    StateFactMetadata | None,
+    NormalizedResourceStateObservation | None,
+    NormalizedResourceStateObservation | None,
+]:
     reasons: set[ShadowComparisonReason] = set()
     try:
         existing_digest = existing_input_digest(existing_result)
@@ -229,7 +302,22 @@ def _compare_receipt(
         existing_evidence_digest=existing_digest,
         semantic_evidence_digest=semantic_digest,
     )
-    return receipt, adjudicated
+    return receipt, adjudicated, existing.observation, semantic.observation
+
+
+def _evidence_lineage(
+    observation: NormalizedResourceStateObservation,
+) -> EvidenceSourceLineage:
+    return EvidenceSourceLineage(
+        source_identity=observation.source_identity,
+        source_revision=observation.source_revision,
+        claim_digest=observation.claim_digest,
+        authority=observation.authority,
+        evidence_cutoff=observation.evidence_cutoff,
+        recorded_at=observation.recorded_at,
+        freshness_ceiling_seconds=observation.freshness_ceiling_seconds,
+        evidence_refs=observation.evidence_refs,
+    )
 
 
 def _failed_attempt(

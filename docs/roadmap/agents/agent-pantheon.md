@@ -79,7 +79,7 @@ scoring, human-approval margins, planning receipts, and temporal policy are owne
 ### 3.2 Discovery-loop learners (Norns)
 
 Norns remains the sole writer of inert `RuleCandidate` proposals. Its three-perspective consensus, balanced cohort limits, pending queue, Mimir review, and catalog activation boundary are owned by
-[Operational Learning Ontology](../rules-and-detection/operational-learning-ontology.md#norns-consensus-and-catalog-boundary). The private `norns_deployment_learning.py` helper holds only bounded scenario-gap and preflight-blocker aggregation state; Norns still creates and publishes every candidate through its consensus and rate-limit boundary. Caller-supplied recurring preflight manual blockers become scope-deduplicated inert `preflight-toggle-gap` candidates and never create a toggle or change deployment authority. Reproduced Rule-retrieval failures enter as Huginn-owned events. Heimdall independently validates the exact failure and publishes `object.retrieval-validation`; Saga audits that evidence and Muninn materializes it as `object.context-index`. Norns strictly rejects raw text, unverified failures, non-retrieval causes, and targets without an exact Rule version; it durably records the remaining challenger before using the same consensus and `object.rule-candidate` path. A missing durable sink backpressures the event instead of dropping it. Production runtime also injects a default-off ceiling at this final publication boundary: a closed gate preserves the bounded pending queue and consensus evidence, while an open gate grants no catalog, promotion, approval, or execution authority and still leads to Mimir plus a reviewed catalog-as-code pull request.
+[Operational Learning Ontology](../rules-and-detection/operational-learning-ontology.md#norns-consensus-and-catalog-boundary). The private `norns_deployment_learning.py` helper holds only bounded scenario-gap and preflight-blocker aggregation state; Norns still creates and publishes every candidate through its consensus and rate-limit boundary. Caller-supplied recurring preflight manual blockers become scope-deduplicated inert `preflight-toggle-gap` candidates and never create a toggle or change deployment authority. Reproduced Rule-retrieval failures enter as Huginn-owned events. Heimdall independently validates the exact failure and publishes `object.retrieval-validation`; Saga audits that evidence and Muninn materializes it as `object.context-index`. Norns strictly rejects raw text, unverified failures, non-retrieval causes, and targets without an exact Rule version; it durably records the remaining challenger before using the same consensus and `object.rule-candidate` path. For adaptive causal investigation, Muninn supplies bounded transport-safe active/challenger comparisons through `object.context-index`; Norns validates the producer and balanced improvement/control evidence, compiles an inert shadow-only `revision`, and sends it to the same Mimir queue without changing a running selector. A missing durable sink backpressures the event instead of dropping it. Production runtime also injects a default-off ceiling at this final publication boundary: a closed gate preserves the bounded pending queue and consensus evidence, while an open gate grants no catalog, promotion, approval, or execution authority and still leads to Mimir plus a reviewed catalog-as-code pull request.
 
 Shadow dwell is the loop's last inert bar. Norns retains shadow-mode audit outcomes as per-target dwell observations - shadow results still never dilute its real rollback-rate learner - and attaches the resulting self-verifying evidence to the candidate it publishes. Mimir re-derives the verdict from that wire evidence and refuses promotion for a candidate with missing, inconsistent, target-mismatched, or under-threshold dwell; the zero policy-escape allowance is not configurable. This grants no authority to either agent: the catalog still changes only through a merged catalog-as-code pull request. See [Autonomous Rule Discovery](../rules-and-detection/rule-catalog-autonomous-discovery.md#shadow-dwell-evidence-upstream-implementation).
 
@@ -107,9 +107,9 @@ operations / interface), `3` = governance staff.
 |------|------|-------|-------------------|-----------------------|-------------------|
 | Odin | Master Planner | 3 | ArbitrationDecision | arbitrate_domain_conflict | no |
 | Thor | Responder | 2 | ActionRun, ActionAttempt | (dispatches; owns none directly - see §7.1) | no |
-| Forseti | Judge | 2 | Verdict, RCA, SecurityEvent, ArbitrationRequest | produces verdicts; optional planned-change graph context comes from one exact verified snapshot and can only lower autonomy; no executor role | yes (T2 abstain only) |
+| Forseti | Judge | 2 | Verdict, RCA, SecurityEvent, ArbitrationRequest, ProspectiveLineage | produces verdicts and exact pre-execution prospective lineage; optional planned-change graph context can only lower autonomy; no executor role | yes (T2 abstain only) |
 | Huginn | Event Collector / Real-time Resource Discovery | 2 | Event, Change | ingest_event, normalize_change | no |
-| Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome, RetrievalValidation | detect_anomaly, detect_drift, forecast, close_forecast_outcome, observe_terminal_action_effect, validate_retrieval_failure, validate_rule_generation, notify_admin_privilege_violation | no |
+| Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome, RetrievalValidation, EvidenceConflict | detect_anomaly, detect_drift, forecast, close_forecast_outcome, publish_evidence_conflict_revision, observe_terminal_action_effect, validate_retrieval_failure, validate_rule_generation, notify_admin_privilege_violation | no |
 | Vidar | Recovery | 2 | Rollback | perform_rollback, dr_failover | no |
 | Var | Approver | 2 | Approval | approve_action, reject_action | no |
 | Bragi | Narrator | 2 | Conversation, Turn, UserPreference, HandoffEscalation, PostTurnReview | translate_intent | yes (translator only) |
@@ -118,7 +118,7 @@ operations / interface), `3` = governance staff.
 | Muninn | Memory | 3 | StateSnapshot, ContextIndex | index_state, snapshot_state, seal_case_history | no |
 | Norns | Learner | 3 | RuleCandidate, Pattern | propose_rule_candidate, analyze_case_history, close_issue | yes (off-path batch only) |
 | Njord | Cost | 1 | CostAnomaly, Budget | propose_cost_action | no |
-| Freyr | Capacity | 1 | CapacityForecast, SizingRecommendation | propose_capacity_action | no |
+| Freyr | Capacity | 1 | CapacityForecast, SizingRecommendation, CapacityGraduationRecommendation | forecast capacity and propose shadow-only graduation | no |
 | Loki | Chaos | 1 | ChaosExperiment, ResilienceScore | schedule_experiment | no |
 
 Heimdall remains accountable for deterministic forecast episode evaluation and closure while the private `heimdall_forecast.py` helper owns that calculation. Its repeated-event detector can call an optional
@@ -356,6 +356,9 @@ Each consumer closes its subscription inside its own task, so the broker adapter
 | object.user-preference | Bragi | Muninn |
 | object.cost-anomaly | Njord | Forseti |
 | object.capacity-forecast | Freyr | Forseti |
+| object.capacity-graduation-recommendation | Freyr | Forseti |
+| object.evidence-conflict | Heimdall | Muninn, Saga |
+| object.prospective-lineage | Forseti | Muninn, Saga |
 | object.chaos-experiment | Loki | Heimdall |
 Partitioning:
 

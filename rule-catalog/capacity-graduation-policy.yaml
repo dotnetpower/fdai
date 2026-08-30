@@ -1,0 +1,36 @@
+schema_version: "1.0.0"
+policy_id: capacity-first
+version: "1.0.0"
+cost_evidence_max_age_seconds: 3600
+scale_to_zero:
+  target_profile: cold
+  min_zero_lag_ratio: 0.7
+  min_cold_starts: 100
+  min_observation_days: 7
+  max_cold_start_budget_ratio: 1.0
+  max_delivery_violations: 0
+  max_cost_ratio: 1.0
+dedicated_vector_store:
+  target_profile: standard-dedicated-vector
+  min_capacity_ratio: 0.6
+  min_latency_budget_ratio: 0.75
+  min_consecutive_windows: 3
+  max_cost_ratio: 1.25
+aks_or_cell:
+  target_profile: standard-cell
+  min_capacity_ratio: 0.6
+  min_consecutive_windows: 3
+  max_headroom_ratio: 0.4
+  heavy_capabilities:
+    - confidential_node
+    - daemonset
+    - gpu
+    - large_memory
+    - sticky_consumer
+  max_cost_ratio: 1.25
+non_azure_provider:
+  target_profile: shadow-provider
+  required_contract_count: 8
+  min_shadow_campaigns: 1
+  max_policy_escapes: 0
+  max_cost_ratio: 1.0

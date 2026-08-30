@@ -207,6 +207,30 @@ Rigor requirements (apply when a non-Azure adapter is eventually scoped):
   when a tenant crosses the hyperscale trigger and preserves every safety invariant and all
   eight CSP-neutral contracts.
 
+### Capacity-first graduation profile
+
+The capacity-first profile acts on leading saturation evidence rather than waiting for an SLO
+breach. It approves the transition criteria below, but it does not activate a target. Each change
+still requires exact-revision measurements, a successful rollback rehearsal, and a separately
+reviewed deployment change.
+
+The versioned `rule-catalog/capacity-graduation-policy.yaml` file is the runtime source of these
+thresholds. The deterministic controller in `core/capacity/graduation.py` accepts only complete,
+current, non-synthetic capacity evidence plus current Njord cost evidence. Freyr is the sole
+publisher of `CapacityGraduationRecommendation`; Forseti records an observation-only judgment, and
+Thor ignores that verdict kind. This release therefore automates recommendation and evidence
+checking without creating an apply path.
+
+| Transition | Measured trigger | Target and cost ceiling | Rollback and authority boundary |
+|------------|------------------|-------------------------|---------------------------------|
+| KEDA scale-to-zero | An eligible stateless lane records at least 70% zero-lag five-minute windows, 100 cold starts over 7 days, cold-start p95 inside its tier budget, and zero lost, duplicated, or reordered events. | Start with scheduled and read-only lanes. Monthly run rate must not exceed the warm baseline; Core keeps `min_replicas = 1` until the same evidence covers its event consumer. | Restore `min_replicas = 1` and remove the lag rule. Scaling changes capacity only and cannot change judgment, approval, execution, or audit authority. |
+| Dedicated vector store | The measured corpus reaches 60% of the proven pgvector capacity limit, or three consecutive windows consume at least 75% of the T1 latency budget after index tuning. | Use reversible dual-write and shadow-read. The projected monthly run rate must stay within 125% of the approved `standard` profile. | Return reads to pgvector, drain the challenger, and preserve the prior generation. Retrieval remains candidate-only and cannot grant policy or execution authority. |
+| AKS or another hyperscale cell | A cell sustains at least 60% of a measured Container Apps or partition limit for three windows, has less than 40% verified headroom, or requires GPU, large-memory, DaemonSet, confidential-node, or sticky-consumer capabilities. | Prefer another `standard` cell; use AKS for a measured heavy or `sovereign` cell. Cost must stay inside the approved profile envelope plus a 25% transition allowance. | Route to the prior cell and render the same OCI image and portable manifest. No `core/` branch, wire-contract change, or new authority surface is allowed. |
+| Non-Azure provider | An explicitly approved provider passes all eight provider-neutral contract suites and one exact-revision live shadow campaign with zero policy escapes. | Start shadow-only inside an approved pilot budget. Provider cost does not justify contract or evidence drift. | Disable the adapter binding and retain Azure as the active provider. A provider adapter cannot change agent roles, risk, approval, execution, or audit ownership. |
+
+Missing, stale, incomplete, conflicting, or synthetic measurements keep the transition deferred.
+Crossing a trigger creates a reviewed migration proposal; it does not authorize apply.
+
 ## Runtime Scale-Out (AKS) - Deferred
 
 > **Container Apps is the default runtime** (min-cost day-zero and the `standard` hyperscale
@@ -245,7 +269,6 @@ Rigor requirements (apply when a non-Azure adapter is eventually scoped):
 
 ## Open Questions
 
-- Vector-store graduation criteria and migration path (pgvector → dedicated store).
 - Regression-window and confidence-interval settings for the continuous measurement loop on
   Azure.
 - **TBD (deferred)**: which second cloud to onboard first and its shadow-to-enforce

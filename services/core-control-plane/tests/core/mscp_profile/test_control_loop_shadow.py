@@ -105,7 +105,6 @@ def _loop(
     expected_effect_provider: Any = None,
     effect_observer: Any = None,
     response_outcome_sink: Any = None,
-    operational_outcome_lineage_sink: Any = None,
     workflow_outcome_recorder: Any = None,
     effect_reconciliation_request_sink: Any = None,
 ) -> ControlLoop:
@@ -120,7 +119,6 @@ def _loop(
         mscp_expected_effect_provider=expected_effect_provider,
         mscp_effect_observer=effect_observer,
         response_outcome_sink=response_outcome_sink,
-        operational_outcome_lineage_sink=operational_outcome_lineage_sink,
         workflow_outcome_recorder=workflow_outcome_recorder,
         effect_reconciliation_request_sink=effect_reconciliation_request_sink,
     )
@@ -381,52 +379,6 @@ async def test_mismatch_is_audited_and_holds_execution_success() -> None:
     assert entry["verification_status"] == "mismatch"
     assert entry["verification_reason"] == "value_outside_acceptable_range"
     assert entry["decision"] == "abstain"
-
-
-async def test_scorable_independent_outcome_reaches_operational_lineage_callsite() -> None:
-    async def predict(_action: Action) -> ExpectedEffect:
-        return _expected()
-
-    async def observe(_action: Action, expected: ExpectedEffect) -> ObservedEffect:
-        return ObservedEffect(
-            prediction_id=expected.prediction_id,
-            target_ref=expected.target_ref,
-            metric=expected.metric,
-            value=1.0,
-            observed_at=_NOW + timedelta(minutes=1),
-        )
-
-    audit = InMemoryStateStore()
-
-    async def project(**kwargs: Any) -> bool:
-        assert len(audit.audit_entries) == 2
-        assert kwargs["correlation_id"] == "correlation-example"
-        assert kwargs["action"] == _action()
-        assert kwargs["execution_status"] == "published"
-        assert kwargs["execution_started_at"].tzinfo is not None
-        assert kwargs["execution_ended_at"] >= kwargs["execution_started_at"]
-        assert kwargs["execution_receipt_ref"] is None
-        assert kwargs["response_outcome"].scorable is True
-        assert kwargs["response_outcome"].verification_passed is True
-        return True
-
-    executor = MagicMock()
-    executor.execute = AsyncMock(return_value=_result())
-    loop = _loop(
-        executor=executor,
-        audit_store=audit,
-        expected_effect_provider=predict,
-        effect_observer=observe,
-        operational_outcome_lineage_sink=project,
-    )
-
-    result = await loop._dispatch_action(
-        action=_action(),
-        rule=_rule(),
-        correlation_id="correlation-example",
-    )
-
-    assert result.outcome is ExecutorOutcome.PUBLISHED
 
 
 @pytest.mark.parametrize("failure_side", ["prediction", "observation"])

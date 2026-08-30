@@ -28,12 +28,14 @@ from fdai.agents.thor import Thor
 from fdai.agents.var import Var
 from fdai.agents.vidar import Vidar
 from fdai.core.architecture_review import OntologyArchitectureReviewLoop
+from fdai.core.capacity import CapacityGraduationController
 from fdai.core.impact_analysis import ChangeAssessmentService
 from fdai.core.operational_context import OperationalContextMaterializer
 from fdai.core.operational_planning import (
     KineticActionProposalSource,
     SpecialistPlanningCoordinator,
 )
+from fdai.core.operational_planning.prospective_lineage import ProspectiveLineageFinalizer
 from fdai.shared.providers.cost_governance import (
     CostAdvisoryProvider,
     CostPackageActivationReader,
@@ -53,6 +55,7 @@ class CostRuntimeBindings:
 
 
 DEFAULT_COST_RUNTIME_BINDINGS = CostRuntimeBindings()
+
 
 # Every pantheon subclass provides a zero-arg constructor that builds
 # its baseline in-memory dependencies. Wave-2+ subclasses accept
@@ -95,6 +98,7 @@ def configured_forseti(
     operational_planner: SpecialistPlanningCoordinator | None,
     kinetic_proposal_source: KineticActionProposalSource | None,
     change_assessor: ChangeAssessmentService | None,
+    prospective_lineage_finalizer: ProspectiveLineageFinalizer | None = None,
     architecture_review_loop: OntologyArchitectureReviewLoop | None = None,
 ) -> Forseti | None:
     """Build Forseti only when composition supplies an optional binding."""
@@ -106,6 +110,7 @@ def configured_forseti(
             operational_context,
             operational_planner,
             kinetic_proposal_source,
+            prospective_lineage_finalizer,
             change_assessor,
             architecture_review_loop,
         )
@@ -117,6 +122,7 @@ def configured_forseti(
         operational_context=operational_context,
         operational_planner=operational_planner,
         kinetic_proposal_source=kinetic_proposal_source,
+        prospective_lineage_finalizer=prospective_lineage_finalizer,
         change_assessor=change_assessor,
         architecture_review_loop=architecture_review_loop,
     )
@@ -134,12 +140,21 @@ def configured_njord(
     )
 
 
+def configured_freyr(
+    graduation_controller: CapacityGraduationController | None,
+) -> Freyr:
+    """Build Freyr with the reviewed graduation controller."""
+
+    return Freyr(graduation_controller=graduation_controller)
+
+
 __all__ = [
     "KineticProposalSource",
     "PlanningCoordinator",
     "CostRuntimeBindings",
     "DEFAULT_COST_RUNTIME_BINDINGS",
     "configured_forseti",
+    "configured_freyr",
     "configured_njord",
     "instantiate_pantheon",
 ]

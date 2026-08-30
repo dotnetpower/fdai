@@ -1,0 +1,34 @@
+schema_version: "1.0.0"
+name: ProspectiveLineage
+version: "1.0.0"
+key: id
+description: Content-addressed pre-execution envelope for one finalized operational plan and expected-effect subgraph.
+properties:
+  id: {type: string, required: true}
+  correlation_id: {type: string, required: true}
+  operational_plan_id: {type: string, required: true}
+  proposal_id: {type: string, required: true}
+  mutation_plan_digest: {type: string, required: true}
+  decision_case_id: {type: string, required: true}
+  action_option_id: {type: string, required: true}
+  expected_effect_ids: {type: array, required: true}
+  subgraph_digest: {type: string, required: true}
+  created_at: {type: datetime, required: true}
+  producer_principal: {type: string, required: true}
+  execution_authority: {type: boolean, required: true}
+lifecycle:
+  owner: Forseti
+  creation:
+    - code: finalized_operational_plan
+      when: Odin selects one eligible option and Forseti binds exact typed arguments and a semantic V2 MutationPlan.
+      result: Publish the immutable envelope before the matching Verdict.
+      source_refs: [docs/roadmap/decisioning/operational-planning.md]
+  authority_refs:
+    - docs/roadmap/agents/agent-pantheon.md
+    - docs/roadmap/decisioning/operational-planning.md
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:ProspectiveLineage@1.0.0
+  content_hash: sha256:ec59b3c6aaed3805bddebf058e59e9684d044266cb4351dbd111ca993c5ee507
+  license: MIT
+  retrieved_at: "2026-08-30T00:00:00Z"

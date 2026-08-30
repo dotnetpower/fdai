@@ -46,6 +46,11 @@ from fdai.agents._framework.specialist_ingress import SPECIALIST_EVENT_PREFIX
 from fdai.core.detection.forecast_closure import ForecastClosureCoordinator
 from fdai.core.detection.forecast_episode import ForecastEpisodeStore
 from fdai.core.detection.forecast_evaluation import ForecastEpisodeEvaluator
+from fdai.core.ontology_platform.evidence_conflict import (
+    EvidenceConflictRevision,
+    EvidenceConflictStatus,
+    EvidenceSourceLineage,
+)
 from fdai.core.readiness import (
     AuthorityCeiling,
     DetectionReadinessDimension,
@@ -202,6 +207,9 @@ class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
         elif topic == RULE_GENERATION_BUILD_RESULT_TOPIC:
             await self._validate_rule_generation(payload)
         elif topic == "object.event":
+            if payload.get("event_type") == "evidence.conflict.candidate.v1":
+                await self._publish_evidence_conflict(payload)
+                return
             retrieval_validation = retrieval_validation_from_event(payload)
             if retrieval_validation is not None:
                 await self._publish_retrieval_validation(retrieval_validation)
@@ -231,6 +239,46 @@ class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
             severity = await self._maybe_classify_severity(payload)
             if severity in ("high", "critical") and self._alerter_hook is not None:
                 await self._maybe_send_admin_card(payload, severity)
+
+    async def _publish_evidence_conflict(self, payload: dict[str, Any]) -> None:
+        """Validate one candidate and publish the authoritative immutable revision."""
+
+        attributes = payload.get("attributes")
+        if payload.get("producer_principal") != "Huginn" or not isinstance(attributes, Mapping):
+            self.record_behavior("evidence_conflict:invalid_candidate")
+            return
+        try:
+            revision = EvidenceConflictRevision.create(
+                status=EvidenceConflictStatus(str(attributes.get("status") or "")),
+                target_ref=str(attributes.get("target_ref") or ""),
+                scope_ref=str(attributes.get("scope_ref") or ""),
+                generation_ref=str(attributes.get("generation_ref") or ""),
+                semantic_refs=tuple(attributes.get("semantic_refs") or ()),
+                conflicting_fields=tuple(attributes.get("conflicting_fields") or ()),
+                source_a=EvidenceSourceLineage.model_validate(attributes.get("source_a")),
+                source_b=EvidenceSourceLineage.model_validate(attributes.get("source_b")),
+                supersedes_revision_ref=(
+                    str(attributes["supersedes_revision_ref"])
+                    if attributes.get("supersedes_revision_ref") is not None
+                    else None
+                ),
+            )
+        except (TypeError, ValueError):
+            self.record_behavior("evidence_conflict:invalid_candidate")
+            return
+        if self.bus is None:
+            raise RuntimeError("Heimdall evidence-conflict bus is unavailable")
+        await self.bus.publish(
+            "Heimdall",
+            "object.evidence-conflict",
+            {
+                **revision.model_dump(mode="json"),
+                "correlation_id": revision.slot_ref,
+                "idempotency_key": revision.revision_ref,
+                "resource_id": revision.target_ref,
+            },
+        )
+        self.record_behavior(f"evidence_conflict:{revision.status.value}")
 
     async def _publish_retrieval_validation(self, payload: dict[str, object]) -> None:
         self.record_behavior("semantic_retrieval_validation:accepted")

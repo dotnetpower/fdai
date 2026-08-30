@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from fdai.core.ontology_platform.evidence_conflict import EvidenceConflictRevision
 from fdai.core.ontology_platform.functions import (
     FunctionInvocationReceipt,
     ontology_function_digest,
@@ -250,32 +251,34 @@ def _state_metadata(
 
 def _projected_result_digest(materialization: ObjectSetMaterialization) -> str:
     graph = materialization.graph
-    return ontology_function_digest(
-        {
-            "definition": materialization.definition.model_dump(mode="json"),
-            "objects": [
-                {
-                    "id": item.id,
-                    "object_type": item.object_type,
-                    "properties": dict(item.properties),
-                    "revision": item.revision,
-                    "type_ref": (
-                        item.type_ref.model_dump(mode="json") if item.type_ref is not None else None
-                    ),
-                }
-                for item in graph.objects
-            ],
-            "links": [],
-            "graph_truncated": graph.truncated,
-            "concrete_types": list(materialization.concrete_types),
-            "truncated": materialization.truncated,
-            "truncation_reason": (
-                materialization.truncation_reason.value
-                if materialization.truncation_reason is not None
-                else None
-            ),
-        }
-    )
+    payload = {
+        "definition": materialization.definition.model_dump(mode="json"),
+        "objects": [
+            {
+                "id": item.id,
+                "object_type": item.object_type,
+                "properties": dict(item.properties),
+                "revision": item.revision,
+                "type_ref": (
+                    item.type_ref.model_dump(mode="json") if item.type_ref is not None else None
+                ),
+            }
+            for item in graph.objects
+        ],
+        "links": [],
+        "graph_truncated": graph.truncated,
+        "concrete_types": list(materialization.concrete_types),
+        "truncated": materialization.truncated,
+        "truncation_reason": (
+            materialization.truncation_reason.value
+            if materialization.truncation_reason is not None
+            else None
+        ),
+    }
+    if not graph.source_complete or graph.source_generation is not None:
+        payload["source_complete"] = graph.source_complete
+        payload["source_generation"] = graph.source_generation
+    return ontology_function_digest(payload)
 
 
 def _semantic_inputs(
@@ -288,6 +291,7 @@ def _semantic_inputs(
     freshness_ceiling_seconds: int = 300,
     extra_properties: Mapping[str, Any] | None = None,
     redacted_identity_count: int = 0,
+    source_generation: str | None = None,
 ) -> tuple[SecuredObjectSetQueryResult, SemanticQueryReceipt]:
     definition = ObjectSetDefinition(
         selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
@@ -317,6 +321,7 @@ def _semantic_inputs(
             ),
         ),
         truncated=truncated if graph_truncated is None else graph_truncated,
+        source_generation=source_generation,
     )
     truncation_reason = ObjectSetTruncationReason.RESULT_LIMIT if truncated else None
     materialization = ObjectSetMaterialization(
@@ -348,6 +353,7 @@ def _semantic_inputs(
             redacted_link_property_count=0,
             removed_link_count=0,
         ),
+        source_generation=source_generation,
     )
     query_result = SecuredObjectSetQueryResult(
         materialization=materialization,
@@ -529,6 +535,56 @@ async def test_state_divergence_is_observed_without_changing_authority() -> None
     assert attempt.receipt.outcome is ShadowComparisonOutcome.DIVERGENCE
     assert attempt.receipt.reasons == (ShadowComparisonReason.STATE_MISMATCH,)
     assert attempt.authoritative_result.outcome is ReadInvestigationOutcome.MATCHED
+
+
+class _EmptyConflictReader:
+    async def current(self, slot_ref: str) -> EvidenceConflictRevision | None:
+        del slot_ref
+        return None
+
+    async def active_for(
+        self,
+        *,
+        target_ref: str,
+        semantic_refs: frozenset[str],
+    ) -> tuple[EvidenceConflictRevision, ...]:
+        del target_ref, semantic_refs
+        return ()
+
+
+class _RecordingConflictPublisher:
+    def __init__(self) -> None:
+        self.revisions: list[EvidenceConflictRevision] = []
+
+    async def publish(self, revision: EvidenceConflictRevision) -> None:
+        self.revisions.append(revision)
+
+
+async def test_state_divergence_publishes_exact_generation_conflict_candidate() -> None:
+    query_result, semantic_receipt = _semantic_inputs(
+        state="stopped",
+        source_generation="inventory-generation:one",
+    )
+    _, query_profile, semantic_plan = _reviewed_lineage(query_result.materialization.definition)
+    publisher = _RecordingConflictPublisher()
+
+    attempt = await ShadowResourceStateComparisonService(
+        sink=InMemoryShadowComparisonSink(),
+        evidence_conflict_reader=_EmptyConflictReader(),
+        evidence_conflict_publisher=publisher,
+    ).compare(
+        existing_result=_existing_result(),
+        query_result=query_result,
+        semantic_receipt=semantic_receipt,
+        query_profile=query_profile,
+        semantic_plan=semantic_plan,
+        principal_ref="principal:reader",
+        correlation_ref="correlation:one",
+    )
+
+    assert attempt.evidence_conflict_revision == publisher.revisions[0]
+    assert publisher.revisions[0].generation_ref == "inventory-generation:one"
+    assert publisher.revisions[0].semantic_refs == ("runtime.vm.power_state",)
 
 
 async def test_existing_unavailable_result_stays_unavailable() -> None:

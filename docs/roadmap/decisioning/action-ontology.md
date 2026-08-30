@@ -113,6 +113,9 @@ preconditions:
     tag: string
   - ...                                  # existing catalog reused
 
+required_evidence_semantic_refs:          # canonical Property.semantic_id values
+  - runtime.vm.power_state               # unresolved matching conflict -> shadow_only
+
 stop_conditions:
   - kind: provider_api_error_streak
     count: int
@@ -270,6 +273,12 @@ and content before returning the same plan. Retained version 1 `MutationPlan` pa
 without the version 2 identity fields, but semantic compilation always emits version 2. The
 compiler does not call the RiskGate, an agent, an executor, or a provider, and neither an effect nor
 a postcondition can declare authority.
+
+`required_evidence_semantic_refs` declares which canonical Property semantics an action relies on.
+The catalog rejects unknown refs. An unresolved `EvidenceConflict` lowers only an exact-target
+ActionType whose required refs intersect the conflict refs. The current backfill covers VM power
+state for start, deallocate, and managed Python execution. Other actions remain unchanged until a
+matching authoritative conflict producer exists.
 
 ## 3. Category catalog
 

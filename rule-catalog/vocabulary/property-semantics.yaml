@@ -3,7 +3,7 @@ version: "3.0.0"
 provenance:
   source_url: repo://rule-catalog/vocabulary/property-semantics.yaml
   resolved_ref: property-semantics@3.0.0
-  content_hash: sha256:a3792bbf4f95dff78721d269ca68c893e6410992e8a847f41d95ba1261fdba78
+  content_hash: sha256:5df9c171592d28bbd06e9bc8e9e3ecc224b45ec25417273e2cb97a6a89e27178
   license: Apache-2.0
   retrieved_at: "2026-08-15T00:00:00Z"
 # Reviewed coverage is deliberately partial. Every Property reference without an entry here
@@ -14,6 +14,19 @@ provenance:
 # and inventory configuration reads carry the 86400 s default of
 # `FDAI_INVENTORY_FRESHNESS_SECONDS` in `fdai/delivery/inventory_sync_cli.py`.
 semantics:
+  - semantic_id: runtime.vm.power_state
+    value_type: string
+    normalization_rule: string.trim_casefold
+    authority:
+      class: provider_observed
+      source_identity_required: true
+    freshness:
+      max_age_seconds: 300
+      stale_behavior: lower_autonomy
+    equivalent_provider_paths:
+      - provider: azure
+        resource_type: compute.vm
+        path: state
   - semantic_id: lifecycle.secret.age
     value_type: integer
     canonical_unit: day

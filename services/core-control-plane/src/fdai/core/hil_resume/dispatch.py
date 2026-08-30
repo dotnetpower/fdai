@@ -16,6 +16,10 @@ from fdai.core.executor import (
 from fdai.core.executor.direct_api import DirectApiExecutionResult
 from fdai.core.executor.tool_call import ToolCallExecutionResult, ToolCallShadowExecutor
 from fdai.core.hil_resume.approval_records import park_key as _park_key
+from fdai.core.ontology_platform.evidence_conflict import (
+    EvidenceConflictCurrentReader,
+    current_evidence_conflict_ceiling,
+)
 from fdai.core.operational_planning import PreDispatchKineticSafetyWriter
 from fdai.shared.contracts.models import Action, ExecutionPath, OntologyActionType, Rule
 from fdai.shared.providers.hil_channel import HilDecision
@@ -30,6 +34,7 @@ class HilDispatchMixin:
 
     _action_types_by_name: Mapping[str, OntologyActionType]
     _direct_api_executor: DirectApiExecutionPort | None
+    _evidence_conflict_reader: EvidenceConflictCurrentReader | None
     _executor: ShadowExecutor
     _pre_dispatch_kinetic_safety_writer: PreDispatchKineticSafetyWriter | None
     _state_store: StateStore
@@ -53,6 +58,29 @@ class HilDispatchMixin:
         rule: Rule,
         correlation_id: str,
     ) -> ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult:
+        action_type = self._action_types_by_name.get(action.action_type)
+        if self._evidence_conflict_reader is not None and action_type is not None:
+            try:
+                _, disposition, conflicts = await current_evidence_conflict_ceiling(
+                    self._evidence_conflict_reader,
+                    action_type=action_type,
+                    target_ref=action.target_resource_ref,
+                    evaluated_at=datetime.now(tz=UTC),
+                )
+            except Exception:  # noqa: BLE001 - unreadable current conflict blocks HIL resume
+                return ExecutionResult(
+                    action_id=str(action.action_id),
+                    outcome=ExecutorOutcome.REJECTED_INVARIANT,
+                    mode=action.mode,
+                    reason="evidence-conflict current state is unavailable",
+                )
+            if conflicts:
+                return ExecutionResult(
+                    action_id=str(action.action_id),
+                    outcome=ExecutorOutcome.REJECTED_INVARIANT,
+                    mode=action.mode,
+                    reason=f"evidence conflict requires shadow-only: {disposition.value}",
+                )
         writer = self._pre_dispatch_kinetic_safety_writer
         if writer is not None:
             try:
@@ -73,7 +101,6 @@ class HilDispatchMixin:
                     reason="pre-dispatch kinetic safety evidence is invalid",
                 )
         if self._action_types_by_name:
-            action_type = self._action_types_by_name.get(action.action_type)
             if action_type is not None:
                 if (
                     self._direct_api_executor is not None

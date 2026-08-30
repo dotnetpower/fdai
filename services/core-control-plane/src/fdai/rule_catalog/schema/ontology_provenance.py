@@ -7,7 +7,7 @@ import json
 
 from pydantic import BaseModel
 
-from fdai.shared.contracts.models import OntologyLinkType
+from fdai.shared.contracts.models import OntologyActionType, OntologyLinkType
 
 
 def ontology_content_hash(declaration: BaseModel) -> str:
@@ -27,6 +27,11 @@ def ontology_content_hash(declaration: BaseModel) -> str:
             payload.pop("forward_role", None)
         if payload.get("reverse_role") is None:
             payload.pop("reverse_role", None)
+    if (
+        isinstance(declaration, OntologyActionType)
+        and payload.get("required_evidence_semantic_refs") == []
+    ):
+        payload.pop("required_evidence_semantic_refs")
     canonical = json.dumps(
         payload,
         allow_nan=False,

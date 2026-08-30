@@ -1,0 +1,36 @@
+schema_version: "1.0.0"
+name: CapacityGraduationRecommendation
+version: "1.0.0"
+key: id
+description: Shadow-only recommendation for an evidence-gated optional capacity topology transition.
+properties:
+  id: {type: string, required: true}
+  transition: {type: string, required: true}
+  target_ref: {type: string, required: true}
+  status: {type: string, required: true}
+  target_profile: {type: string, required: true}
+  reason_codes: {type: array, required: true}
+  policy_id: {type: string, required: true}
+  policy_version: {type: string, required: true}
+  policy_digest: {type: string, required: true}
+  evidence_refs: {type: array, required: true}
+  evaluated_at: {type: datetime, required: true}
+  producer_principal: {type: string, required: true}
+  shadow_only: {type: boolean, required: true}
+  execution_authority: {type: boolean, required: true}
+lifecycle:
+  owner: Freyr
+  creation:
+    - code: evidence_gated_capacity_graduation
+      when: Complete current capacity and cost evidence satisfies one reviewed graduation policy.
+      result: Create a shadow-only recommendation that still requires Forseti judgment.
+      source_refs: [docs/roadmap/phases/phase-4-scale.md]
+  authority_refs:
+    - docs/roadmap/agents/agent-pantheon.md
+    - docs/roadmap/phases/phase-4-scale.md
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:CapacityGraduationRecommendation@1.0.0
+  content_hash: sha256:f6b29bcbac2cfbcd355b459c877531b5c7698b8afe6a241b6a6f4f61a8b1ee69
+  license: MIT
+  retrieved_at: "2026-08-30T00:00:00Z"

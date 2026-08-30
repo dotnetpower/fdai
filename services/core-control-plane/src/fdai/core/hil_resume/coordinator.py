@@ -102,6 +102,7 @@ from fdai.core.hil_resume.load_control import (
     approval_request_from_park,
 )
 from fdai.core.oncall import OnCallResolution, OnCallResolver
+from fdai.core.ontology_platform.evidence_conflict import EvidenceConflictCurrentReader
 from fdai.core.operational_planning import PreDispatchKineticSafetyWriter
 from fdai.shared.contracts.models import (
     Action,
@@ -223,6 +224,7 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
         pre_dispatch_kinetic_safety_writer: PreDispatchKineticSafetyWriter | None = None,
         thor_execution_port: ThorExecutionPort | None = None,
         mutation_dependency_readiness: MutationDependencyReadiness | None = None,
+        evidence_conflict_reader: EvidenceConflictCurrentReader | None = None,
     ) -> None:
         if (thor_execution_port is None) != (mutation_dependency_readiness is None):
             raise ValueError(
@@ -261,6 +263,7 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
         self.escalation_supervisor = escalation_supervisor
         self._default_escalation_rungs = tuple(default_escalation_rungs)
         self._pre_dispatch_kinetic_safety_writer = pre_dispatch_kinetic_safety_writer
+        self._evidence_conflict_reader = evidence_conflict_reader
 
     async def _resolve_on_call(self) -> OnCallResolution | None:
         """Resolve the current on-call responder, or ``None`` when unconfigured.

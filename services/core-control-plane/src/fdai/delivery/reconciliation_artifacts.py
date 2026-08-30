@@ -15,6 +15,7 @@ from fdai.core.ontology_platform.functions import ontology_function_digest
 from fdai.core.ontology_platform.kinetics import MutationPlan
 from fdai.core.ontology_platform.reconciliation_binding import ResolvedReconciliationArtifacts
 from fdai.core.ontology_platform.reconciliation_contracts import reconciliation_content_digest
+from fdai.core.ontology_platform.reconciliation_events import EffectReconciliationRequestEvent
 from fdai.shared.contracts.models import (
     Action,
     ContractBase,
@@ -370,6 +371,30 @@ class StateStoreExecutedActionArtifactStore:
         return f"{cls._CORRELATION_KEY_PREFIX}{correlation_id}"
 
 
+class StateStoreReconciliationArtifactResolver:
+    """Resolve compact reconciliation events through the exact correlation index."""
+
+    def __init__(self, *, store: StateStore) -> None:
+        self._artifacts = StateStoreExecutedActionArtifactStore(store=store)
+
+    async def resolve(
+        self,
+        event: EffectReconciliationRequestEvent,
+    ) -> ResolvedReconciliationArtifacts:
+        """Restore and bind exact pre-dispatch artifacts for one compact event."""
+
+        restored = await self._artifacts.resolve_by_correlation(event.correlation_id)
+        if restored is None:
+            raise ValueError("reconciliation event has no exact pre-dispatch artifacts")
+        _, artifacts = restored
+        event.bind(
+            plan=artifacts.plan,
+            action_type=artifacts.action_type,
+            active_release=artifacts.active_release,
+        )
+        return artifacts
+
+
 def _record(
     *,
     receipt: KineticSafetyReceipt,
@@ -454,4 +479,5 @@ __all__ = [
     "KineticSafetyReceipt",
     "KineticSafetyArtifactConflictError",
     "StateStoreExecutedActionArtifactStore",
+    "StateStoreReconciliationArtifactResolver",
 ]

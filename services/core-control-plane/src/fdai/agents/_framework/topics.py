@@ -41,6 +41,7 @@ CORRELATION_TOPICS: frozenset[str] = frozenset(
         "object.approval",
         "object.arbitration-request",
         "object.arbitration-decision",
+        "object.prospective-lineage",
         "object.audit-entry",
         "object.security-event",
     }
@@ -64,11 +65,13 @@ OWNED_OBJECT_TOPICS: frozenset[str] = frozenset(
         "object.forecast",
         "object.forecast-outcome",
         "object.retrieval-validation",
+        "object.evidence-conflict",
         # Judgment + arbitration
         "object.verdict",
         "object.rca",
         "object.arbitration-request",
         "object.arbitration-decision",
+        "object.prospective-lineage",
         # Execution + recovery
         "object.action-run",
         "object.action-attempt",
@@ -97,6 +100,7 @@ OWNED_OBJECT_TOPICS: frozenset[str] = frozenset(
         "object.cost-anomaly",
         "object.budget",
         "object.capacity-forecast",
+        "object.capacity-graduation-recommendation",
         "object.sizing-recommendation",
         "object.chaos-experiment",
         "object.resilience-score",

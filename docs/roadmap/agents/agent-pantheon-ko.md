@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: d820d217daa02385974cc32f17dc277e4594439b
+translation_source_sha: 565e57f05109e3203e59554024584d2178a4930e
 translation_revised: 2026-08-30
 ---
 # 에이전트 판테온
@@ -82,7 +82,7 @@ margin, 계획 수립 증적 및 temporal 정책은
 ### 3.2 발견 루프 학습기 (Norns)
 
 Norns는 inert `RuleCandidate` 제안의 sole 쓰기 담당으로 유지됩니다. Three-perspective 합의, balanced 집단 한도, pending 큐, Mimir 검토 및 카탈로그 activation 경계는
-[Operational Learning 온톨로지](../rules-and-detection/operational-learning-ontology-ko.md#norns-consensus-및-catalog-boundary)가 소유합니다. 비공개 `norns_deployment_learning.py` 보조 로직은 범위가 제한된 scenario-gap 및 preflight-blocker 집계 상태만 보유합니다. 모든 후보 생성과 publish는 계속 Norns가 합의 및 rate-limit 경계를 통해 수행합니다. Caller-supplied recurring preflight 수동 차단 요인은 scope-deduplicate된 inert `preflight-toggle-gap` 후보가 되며 토글을 만들거나 배포 권한을 변경하지 않습니다. 재현된 Rule 수집 실패는 Huginn-owned 이벤트로 들어옵니다. Heimdall은 exact 실패를 독립적으로 validate하고 `object.retrieval-validation`을 publish하며, Saga는 해당 근거를 감사하고 Muninn은 `object.context-index`로 materialize합니다. Norns는 raw 텍스트, 검증되지 않은 실패, 수집 외 원인 및 exact Rule 버전이 없는 대상을 strict하게 거부합니다. 남은 challenger를 영속하게 기록한 뒤 동일한 합의 및 `object.rule-candidate` 경로를 사용합니다. 영속 싱크가 없으면 이벤트를 폐기하지 않고 backpressure합니다. 운영 런타임은 이 최종 게시 경계에 기본적으로 닫힌 상한도 주입합니다. 닫힌 게이트는 범위가 제한된 대기 큐와 합의 근거를 보존하고, 열린 게이트도 카탈로그, 승격, 승인 또는 실행 권한을 부여하지 않으며 Mimir와 검토된 catalog-as-code pull request를 다음 경계로 유지합니다.
+[Operational Learning 온톨로지](../rules-and-detection/operational-learning-ontology-ko.md#norns-consensus-및-catalog-boundary)가 소유합니다. 비공개 `norns_deployment_learning.py` 보조 로직은 범위가 제한된 scenario-gap 및 preflight-blocker 집계 상태만 보유합니다. 모든 후보 생성과 publish는 계속 Norns가 합의 및 rate-limit 경계를 통해 수행합니다. Caller-supplied recurring preflight 수동 차단 요인은 scope-deduplicate된 inert `preflight-toggle-gap` 후보가 되며 토글을 만들거나 배포 권한을 변경하지 않습니다. 재현된 Rule 수집 실패는 Huginn-owned 이벤트로 들어옵니다. Heimdall은 exact 실패를 독립적으로 validate하고 `object.retrieval-validation`을 publish하며, Saga는 해당 근거를 감사하고 Muninn은 `object.context-index`로 materialize합니다. Norns는 raw 텍스트, 검증되지 않은 실패, 수집 외 원인 및 exact Rule 버전이 없는 대상을 strict하게 거부합니다. 남은 challenger를 영속하게 기록한 뒤 동일한 합의 및 `object.rule-candidate` 경로를 사용합니다. 적응형 인과 조사에서는 Muninn이 `object.context-index`로 범위가 제한된 전송 안전 활성 및 도전 선택기 비교를 제공하며, Norns가 생산자와 균형 잡힌 개선 및 대조 근거를 검증하고 실행 중인 선택기를 바꾸지 않는 비활성 shadow 전용 `revision`을 같은 Mimir 대기열로 보냅니다. 영속 싱크가 없으면 이벤트를 폐기하지 않고 backpressure합니다. 운영 런타임은 이 최종 게시 경계에 기본적으로 닫힌 상한도 주입합니다. 닫힌 게이트는 범위가 제한된 대기 큐와 합의 근거를 보존하고, 열린 게이트도 카탈로그, 승격, 승인 또는 실행 권한을 부여하지 않으며 Mimir와 검토된 catalog-as-code pull request를 다음 경계로 유지합니다.
 
 Shadow dwell은 루프의 마지막 비활성 장벽입니다. Norns는 shadow 모드 감사 결과를 대상별 dwell 관측으로 보존하며(shadow 결과는 여전히 실제 rollback 비율 학습기에 섞이지 않습니다) 산출된 자기 검증 근거를 게시하는 후보에 첨부합니다. Mimir는 그 이벤트 근거에서 판정을 다시 유도하고, 근거가 없거나 일관되지 않거나 대상이 다르거나 임계 미달인 후보의 승격을 거부합니다. 정책 위반 탈출 0건 기준은 설정 항목이 아닙니다. 이는 두 에이전트 어느 쪽에도 권한을 부여하지 않으며, 카탈로그는 여전히 머지된 catalog-as-code PR로만 바뀐니다. [자율 규칙 발견](../rules-and-detection/rule-catalog-autonomous-discovery-ko.md#shadow-dwell-근거상류-구현)을 참고하세요.
 
@@ -108,9 +108,9 @@ operations / 인터페이스), `3` = 거버넌스 staff.
 |------|------|-------|-------------------|-------------------|---------------|
 | Odin | Master 플래너 | 3 | ArbitrationDecision | arbitrate_domain_conflict | no |
 | Thor | 응답자 | 2 | ActionRun, ActionAttempt | (전달 만; 직접 소유 없음 - §7.1) | no |
-| Forseti | Judge | 2 | Verdict, RCA, SecurityEvent, ArbitrationRequest | 판정을 생성합니다. 선택적 planned-change graph 맥락은 exact 검증 스냅샷 하나에서 가져오며 자율성을 낮출 수만 있습니다. 실행기 역할은 없습니다. | yes (T2 abstain 시만) |
+| Forseti | Judge | 2 | Verdict, RCA, SecurityEvent, ArbitrationRequest, ProspectiveLineage | 판정과 정확한 실행 전 prospective lineage를 생성합니다. 선택적 planned-change graph 맥락은 자율성을 낮출 수만 있습니다. 실행기 역할은 없습니다. | yes (T2 abstain 시만) |
 | Huginn | Event Collector / 실시간 Resource 발견 | 2 | Event, Change | ingest_event, normalize_change | no |
-| Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome, RetrievalValidation | detect_anomaly, detect_drift, 예측, close_forecast_outcome, observe_terminal_action_effect, validate_retrieval_failure, validate_rule_generation, notify_admin_privilege_violation | no |
+| Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome, RetrievalValidation, EvidenceConflict | detect_anomaly, detect_drift, 예측, close_forecast_outcome, publish_evidence_conflict_revision, observe_terminal_action_effect, validate_retrieval_failure, validate_rule_generation, notify_admin_privilege_violation | no |
 | Vidar | 복구 | 2 | Rollback | perform_rollback, dr_failover | no |
 | Var | Approver | 2 | Approval | approve_action, reject_action | no |
 | Bragi | Narrator | 2 | Conversation, Turn, UserPreference, HandoffEscalation, PostTurnReview | translate_intent | yes (translator 만) |
@@ -119,7 +119,7 @@ operations / 인터페이스), `3` = 거버넌스 staff.
 | Muninn | Memory | 3 | StateSnapshot, ContextIndex | index_state, snapshot_state, seal_case_history | no |
 | Norns | Learner | 3 | RuleCandidate, Pattern | propose_rule_candidate, analyze_case_history, close_issue | yes (off-path 배치 만) |
 | Njord | 비용 | 1 | CostAnomaly, Budget | propose_cost_action | no |
-| Freyr | 용량 | 1 | CapacityForecast, SizingRecommendation | propose_capacity_action | no |
+| Freyr | 용량 | 1 | CapacityForecast, SizingRecommendation, CapacityGraduationRecommendation | 용량 예측 및 shadow-only 전환 권고 | no |
 | Loki | Chaos | 1 | ChaosExperiment, ResilienceScore | schedule_experiment | no |
 
 Heimdall은 결정론적 예측 에피소드 평가와 종결의 accountable 소유자이며 비공개 `heimdall_forecast.py` 보조 로직이 해당 계산을 소유합니다. Repeated-event detector는 권위 있는 anomaly를 발행한 뒤 선택적
@@ -355,6 +355,9 @@ Dead-letter 쓰기는 제한된 재시도 대기 후 소비자를 재시작합�
 | 객체.user-preference | Bragi | Muninn |
 | 객체.cost-anomaly | Njord | Forseti |
 | 객체.capacity-forecast | Freyr | Forseti |
+| 객체.capacity-graduation-recommendation | Freyr | Forseti |
+| 객체.evidence-conflict | Heimdall | Muninn, Saga |
+| 객체.prospective-lineage | Forseti | Muninn, Saga |
 | 객체.chaos-experiment | Loki | Heimdall |
 Partitioning:
 

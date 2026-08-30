@@ -8,7 +8,13 @@ from datetime import datetime
 
 from fdai.core.operational_context import OperationalContextSnapshot
 
-from .models import ActionOption, DecisionCase, DecisionSelection, ObjectiveEffect
+from .models import (
+    ActionArguments,
+    ActionOption,
+    DecisionCase,
+    DecisionSelection,
+    ObjectiveEffect,
+)
 from .service import build_decision_case, select_action_option
 
 _ACTION_TYPES = {"scale_up": "ops.scale-out", "scale_down": "ops.scale-in"}
@@ -47,6 +53,9 @@ class DomainDecisionProjection:
                     "effects": [_effect_mapping(effect) for effect in option.effects],
                     "evidence_refs": list(option.evidence_refs),
                     "violated_constraint_ids": list(option.violated_constraint_ids),
+                    "arguments": (
+                        option.arguments.to_mapping() if option.arguments is not None else None
+                    ),
                 }
                 for option in self.case.options
             ],
@@ -65,6 +74,7 @@ class DomainDecisionCoordinator:
         advice: Mapping[str, str],
         impacts: Mapping[str, float],
         created_at: datetime,
+        arguments_by_domain: Mapping[str, Mapping[str, object]] | None = None,
     ) -> DomainDecisionProjection | None:
         if not context.objective_ids:
             return None
@@ -91,6 +101,11 @@ class DomainDecisionCoordinator:
                     action_type=action_type,
                     effects=effects,
                     evidence_refs=(f"specialist:{domain}:{correlation_id}",),
+                    arguments=(
+                        ActionArguments.create(arguments_by_domain[domain])
+                        if arguments_by_domain is not None and domain in arguments_by_domain
+                        else None
+                    ),
                 )
             )
             option_by_domain.append((domain, option_id))

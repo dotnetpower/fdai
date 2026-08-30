@@ -92,6 +92,9 @@ class OntologyActionType(_Base):
     default_mode: Mode = Mode.SHADOW
     promotion_gate: PromotionGate
     preconditions: list[ActionPrecondition] = Field(default_factory=list)
+    required_evidence_semantic_refs: list[
+        Annotated[str, Field(pattern=r"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$")]
+    ] = Field(default_factory=list)
     stop_conditions: list[ActionStopCondition] = Field(default_factory=list)
     blast_radius: ActionBlastRadius | None = None
     description: str | None = None
@@ -108,6 +111,10 @@ class OntologyActionType(_Base):
 
     @model_validator(mode="after")
     def _semantic_rollback_is_explicit(self) -> OntologyActionType:
+        if self.required_evidence_semantic_refs != sorted(
+            set(self.required_evidence_semantic_refs)
+        ):
+            raise ValueError("required_evidence_semantic_refs MUST be sorted and unique")
         if self.semantic is not None and not self.irreversible:
             missing = [
                 effect.effect_id

@@ -27,21 +27,25 @@ from fdai.core.mscp_profile import (
     ExpectedEffect,
     ExpectedEffectProvider,
     IndependentEffectObserver,
+    MscpAuthorityCeiling,
     ObservedEffect,
     build_response_outcome,
     build_shadow_effect_audit,
     response_outcome_audit_entry,
     verify_effect,
 )
+from fdai.core.ontology_platform.evidence_conflict import (
+    EvidenceConflictCurrentReader,
+    EvidenceConflictDisposition,
+    current_evidence_conflict_ceiling,
+)
 from fdai.core.ontology_platform.reconciliation_producer import (
     EffectReconciliationRequestSink,
     ReconciliationRequestProduction,
     ReconciliationRequestProductionStatus,
 )
-from fdai.core.operational_planning import (
-    OperationalOutcomeLineageSink,
-    PreDispatchKineticSafetyWriter,
-)
+from fdai.core.operational_planning import PreDispatchKineticSafetyWriter
+from fdai.core.risk_gate.ceiling import AxisLevel
 from fdai.core.risk_gate.evaluator import UnifiedRiskDecision
 from fdai.core.risk_gate.gate import RiskGate
 from fdai.core.risk_gate.live_probe import LiveProbeObservation
@@ -104,6 +108,7 @@ class ControlLoopExecutionMixin:
     _executor: ShadowExecutor
     _execution_authorization_evaluator: ExecutionAuthorizationEvaluator | None
     _execution_access_grant_sink: ExecutionAccessGrantSink | None
+    _evidence_conflict_reader: EvidenceConflictCurrentReader | None
     _governance_assignments: Sequence[Assignment]
     _governance_overrides: Sequence[Override]
     _inventory_age_provider: Callable[[str], Awaitable[int | None]] | None
@@ -112,7 +117,6 @@ class ControlLoopExecutionMixin:
     _live_blast_probe: LiveBlastProbe | None
     _mscp_effect_observer: IndependentEffectObserver | None
     _mscp_expected_effect_provider: ExpectedEffectProvider | None
-    _operational_outcome_lineage_sink: OperationalOutcomeLineageSink | None
     _response_outcome_sink: Callable[[ResponseOutcome], Awaitable[None]] | None
     _workflow_outcome_recorder: WorkflowOutcomeRecorder | None
     _effect_reconciliation_request_sink: EffectReconciliationRequestSink | None
@@ -413,6 +417,13 @@ class ControlLoopExecutionMixin:
         correlation_id: str = "",
     ) -> ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult:
         """Route an action to the executor its ActionType declares."""
+        action_type = self._action_types_by_name.get(action.action_type)
+        conflict_hold = await self._current_evidence_conflict_hold(
+            action=action,
+            action_type=action_type,
+        )
+        if conflict_hold is not None:
+            return conflict_hold
         writer = self._pre_dispatch_kinetic_safety_writer
         if writer is not None:
             try:
@@ -433,7 +444,6 @@ class ControlLoopExecutionMixin:
                     reason="pre-dispatch kinetic safety evidence is invalid",
                 )
         expected, prediction_failure = await self._prepare_mscp_effect(action)
-        action_type = self._action_types_by_name.get(action.action_type)
         path = action_type.execution_path if action_type is not None else None
         result: ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult
         execution_started_at = datetime.now(tz=UTC)
@@ -642,28 +652,6 @@ class ControlLoopExecutionMixin:
         execution_receipt_ref = getattr(result, "receipt_ref", None) or getattr(
             result, "pr_ref", None
         )
-        if self._operational_outcome_lineage_sink is not None and response_outcome.scorable:
-            try:
-                projected = await self._operational_outcome_lineage_sink(
-                    correlation_id=correlation_id,
-                    action=action,
-                    execution_status=result.outcome.value,
-                    execution_started_at=execution_started_at,
-                    execution_ended_at=execution_ended_at,
-                    execution_receipt_ref=execution_receipt_ref,
-                    response_outcome=response_outcome,
-                )
-                if not projected:
-                    _LOGGER.info(
-                        "operational_lineage_prospective_episode_unavailable",
-                        extra={"action_type": action.action_type},
-                    )
-            except Exception:  # noqa: BLE001 - projection never changes executor result
-                _LOGGER.warning(
-                    "operational_lineage_projection_failed",
-                    extra={"action_type": action.action_type},
-                    exc_info=True,
-                )
         if self._response_outcome_sink is not None:
             try:
                 await self._response_outcome_sink(response_outcome)
@@ -688,6 +676,52 @@ class ControlLoopExecutionMixin:
                     exc_info=True,
                 )
         return verification
+
+    async def _current_evidence_conflict_hold(
+        self,
+        *,
+        action: Action,
+        action_type: OntologyActionType | None,
+    ) -> ExecutionResult | None:
+        reader = self._evidence_conflict_reader
+        if reader is None or action_type is None:
+            return None
+        try:
+            ceiling, disposition, conflicts = await current_evidence_conflict_ceiling(
+                reader,
+                action_type=action_type,
+                target_ref=action.target_resource_ref,
+                evaluated_at=datetime.now(tz=UTC),
+            )
+        except Exception:  # noqa: BLE001 - unreadable conflict state blocks executor I/O
+            _LOGGER.warning(
+                "evidence_conflict_lookup_failed",
+                extra={"action_type": action.action_type},
+                exc_info=True,
+            )
+            return ExecutionResult(
+                action_id=str(action.action_id),
+                outcome=ExecutorOutcome.REJECTED_INVARIANT,
+                mode=action.mode,
+                reason="evidence-conflict current state is unavailable",
+            )
+        if not conflicts:
+            return None
+        _LOGGER.info(
+            "evidence_conflict_execution_held",
+            extra={
+                "action_type": action.action_type,
+                "conflict_disposition": disposition.value,
+                "conflict_revision_refs": [item.revision_ref for item in conflicts],
+                "authority_ceiling": ceiling.value,
+            },
+        )
+        return ExecutionResult(
+            action_id=str(action.action_id),
+            outcome=ExecutorOutcome.REJECTED_INVARIANT,
+            mode=action.mode,
+            reason=f"evidence conflict requires shadow-only: {disposition.value}",
+        )
 
     async def _evaluate_and_audit(
         self, *, event: Event, action: Action, rule: Rule
@@ -799,7 +833,42 @@ class ControlLoopExecutionMixin:
                 automation_hold_recovery=automation_hold_recovery,
                 live_probe_observation=live_probe_observation,
             )
+            conflict_disposition = EvidenceConflictDisposition.NOT_APPLICABLE
+            conflict_revision_refs: list[str] = []
+            if self._evidence_conflict_reader is not None:
+                try:
+                    (
+                        ceiling,
+                        conflict_disposition,
+                        conflicts,
+                    ) = await current_evidence_conflict_ceiling(
+                        self._evidence_conflict_reader,
+                        action_type=action_type,
+                        target_ref=action.target_resource_ref,
+                        evaluated_at=datetime.now(tz=UTC),
+                    )
+                    if (
+                        ceiling is MscpAuthorityCeiling.HOLD
+                        and unified.level > AxisLevel.SHADOW_ONLY
+                    ):
+                        unified = replace(
+                            unified,
+                            level=AxisLevel.SHADOW_ONLY,
+                            winning_side="evidence_conflict",
+                        )
+                    conflict_revision_refs = [item.revision_ref for item in conflicts]
+                except Exception:  # noqa: BLE001 - unreadable current conflict fails closed
+                    unified = replace(
+                        unified,
+                        level=min(unified.level, AxisLevel.SHADOW_ONLY),
+                        winning_side="evidence_conflict_unavailable",
+                    )
+                    conflict_disposition = EvidenceConflictDisposition.EXPIRED_UNRESOLVED
             entry = _unified_audit_dict(event=event, action=action, unified=unified)
+            entry["evidence_conflict"] = {
+                "disposition": conflict_disposition.value,
+                "revision_refs": conflict_revision_refs,
+            }
             entry["recorded_at"] = datetime.now(tz=UTC).isoformat()
             await self._audit_store.append_audit_entry(entry)
             return unified

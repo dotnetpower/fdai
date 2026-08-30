@@ -1,8 +1,8 @@
 ---
 title: Phase 4 - 스케일 (Azure); 멀티 클라우드 (TBD)
 translation_of: phase-4-scale.md
-translation_source_sha: 21a2327558b54958efa1fa892403d6090b251cb2
-translation_revised: 2026-08-29
+translation_source_sha: 1d3ef05ef6eaabd2587631ad374ae2da79bab02f
+translation_revised: 2026-08-30
 ---
 
 # 단계 4 - 스케일 (Azure); 멀티 클라우드 (TBD)
@@ -196,6 +196,29 @@ CSP-중립 원칙을 **설계 불변식**(어댑터 표면, 정규화 스키마)
   [hyperscale-cell-architecture-ko.md](../architecture/hyperscale-cell-architecture-ko.md) 에 명세됨.
   테넌트가 초대규모 트리거를 넘을 때만 진입하며, 모든 안전 불변식과 8개 CSP-중립 계약을 보존.
 
+### 용량 우선 전환 프로필
+
+용량 우선 프로필은 SLO 위반을 기다리지 않고 포화 선행 근거에 따라 동작합니다. 아래 전환 기준은
+승인하지만 대상을 활성화하지는 않습니다. 각 변경에는 정확한 revision 측정, 성공한 롤백 예행 연습,
+별도로 검토된 배포 변경이 계속 필요합니다.
+
+버전이 지정된 `rule-catalog/capacity-graduation-policy.yaml` 파일이 이 임계값의 런타임 진실의
+원천입니다. `core/capacity/graduation.py`의 결정론적 controller는 완전하고 최신이며 합성이 아닌
+용량 근거와 최신 Njord 비용 근거만 받습니다. Freyr만
+`CapacityGraduationRecommendation`을 발행하고, Forseti는 관찰 전용 판정을 기록하며, Thor는 이
+판정 종류를 무시합니다. 따라서 이 release는 적용 경로를 만들지 않고 권고와 근거 검사를
+자동화합니다.
+
+| 전환 | 측정 트리거 | 대상 및 비용 상한 | 롤백 및 권한 경계 |
+|------|-------------|-------------------|-------------------|
+| KEDA scale-to-zero | 적합한 무상태 lane에서 5분 단위 zero-lag 구간이 70% 이상이고, 7일 동안 cold start 100회, tier 예산 이내의 cold-start p95, 손실, 중복, 순서 뒤바뀜 이벤트 0건을 기록합니다. | 스케줄 및 읽기 전용 lane부터 시작합니다. 월간 실행 비용은 warm 베이스라인을 넘지 않아야 하며, Core 이벤트 소비자가 같은 근거를 충족할 때까지 `min_replicas = 1`을 유지합니다. | `min_replicas = 1`을 복원하고 lag 규칙을 제거합니다. 스케일링은 용량만 변경하며 판단, 승인, 실행, 감사 권한을 변경할 수 없습니다. |
+| 전용 벡터 저장소 | 측정된 corpus가 검증된 pgvector 용량 한도의 60%에 도달하거나, 색인 조정 후 연속 3개 구간에서 T1 지연 예산의 75% 이상을 사용합니다. | 되돌릴 수 있는 dual-write와 shadow-read를 사용합니다. 예상 월간 실행 비용은 승인된 `standard` 프로필의 125% 이내여야 합니다. | 읽기를 pgvector로 되돌리고 challenger를 비운 뒤 이전 generation을 보존합니다. 검색 결과는 후보일 뿐이며 정책 또는 실행 권한을 부여할 수 없습니다. |
+| AKS 또는 다른 초대규모 셀 | 셀이 측정된 Container Apps 또는 partition 한도의 60% 이상을 3개 구간 동안 유지하거나, 검증된 여유 용량이 40% 미만이거나, GPU, 대용량 메모리, DaemonSet, confidential 노드, sticky consumer 기능이 필요합니다. | 다른 `standard` 셀을 우선 사용하고, 측정된 heavy 또는 `sovereign` 셀에는 AKS를 사용합니다. 비용은 승인된 프로필 상한과 25% 전환 허용 범위 안에 있어야 합니다. | 이전 셀로 라우팅하고 동일한 OCI 이미지와 이식 가능한 매니페스트를 렌더링합니다. `core/` 분기, wire 계약 변경, 새 권한 표면은 허용되지 않습니다. |
+| 비-Azure 프로바이더 | 명시적으로 승인된 프로바이더가 8개 프로바이더 중립 계약 테스트와 정책 위반 0건의 정확한 revision live shadow 캠페인을 통과합니다. | 승인된 pilot 예산 안에서 shadow-only로 시작합니다. 프로바이더 비용을 이유로 계약 또는 근거 일관성을 낮출 수 없습니다. | 어댑터 바인딩을 비활성화하고 Azure를 활성 프로바이더로 유지합니다. 프로바이더 어댑터는 에이전트 역할, 위험, 승인, 실행, 감사 소유권을 변경할 수 없습니다. |
+
+측정값이 누락되거나 오래되거나 불완전하거나 충돌하거나 합성 데이터이면 전환을 계속 보류합니다.
+트리거 충족은 검토할 이행 제안을 만들 뿐 적용 권한을 부여하지 않습니다.
+
 ## 런타임 확장 (AKS) - 연기
 
 > **Container Apps 가 기본 런타임이다**(최소비용 day-zero 와 `standard` 초대규모
@@ -234,7 +257,6 @@ CSP-중립 원칙을 **설계 불변식**(어댑터 표면, 정규화 스키마)
 
 ## 열림 Questions
 
-- Vector-store 졸업 기준과 마이그레이션 경로(pgvector → 전용 저장소).
 - Azure 지속 측정 루프의 회귀-윈도우와 신뢰-구간 설정.
 - **TBD (deferred)**: 어떤 두 번째 클라우드를 먼저 온보딩할지와 그 shadow-to-enforce 시퀀싱;
   OD-3이 나중에 새 백엔드 선택할 시 이벤트-버스 마이그레이션 경로; 메트릭 1의 크로스-CSP 비용

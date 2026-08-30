@@ -33,11 +33,12 @@ central planner or another authority surface.
 > partial-execution proof and live graph shadow measurement remain release evidence, not completed
 > live claims. Production graph evidence and the development `ops.scale-out` VM Scale Set executor
 > bindings are implemented and covered by focused tests. Independent Core and Operator service
-> HIL bindings, production Forseti proposal-source composition, the Heimdall-owned verified
-> independent effect observer, the protected-runner drill, independent closure, and the full
-> recurrence window remain outstanding. The Core runtime now stores an exact kinetic safety receipt
-> before every Thor-owned executor when a proposal exists, and preserves the legacy path when it does
-> not.
+> HIL bindings, the Heimdall-owned verified independent effect observer, the protected-runner drill,
+> independent closure, and the full recurrence window remain outstanding. Forseti now finalizes
+> Odin's selected option with typed arguments, publishes a content-addressed `ProspectiveLineage`,
+> and production composition materializes its subgraph through Muninn and seals it through Saga.
+> The Core runtime refuses a present proposal before every Thor-owned executor until both receipts
+> match.
 
 ## Implementation status
 
@@ -47,8 +48,8 @@ central planner or another authority surface.
 |------|-------|----------|-------|
 | P1-P7 operational-planning core | implemented | `services/core-control-plane/src/fdai/core/operational_planning/` and focused planning tests | Planning remains A0 and reuses existing Process and authority paths. |
 | Production graph evidence and scale-out executor bindings | implemented | `services/core-control-plane/src/fdai/delivery/azure/` and focused composition/delivery tests | Code presence and tests don't count as live outcome evidence. |
-| Argument-bound kinetic proposal production and verdict lineage | implemented | `services/core-control-plane/src/fdai/core/operational_planning/kinetic_proposal.py`, `services/core-control-plane/src/fdai/delivery/kinetic_proposal.py`, `services/core-control-plane/src/fdai/agents/forseti.py`, `services/core-control-plane/src/fdai/agents/thor.py`, and focused producer and agent tests | The delivery-owned producer accepts only a complete plan plus an existing exact V2 plan. Forseti resolves it through an optional source and preserves it on the existing Verdict without changing quorum, mode, approval, or execution authority. |
-| Exact kinetic handoff and independent effect-observation runtime binding | in-progress | `services/core-control-plane/src/fdai/core/operational_planning/kinetic_safety.py`, `services/core-control-plane/src/fdai/delivery/kinetic_safety.py`, `services/core-control-plane/src/fdai/delivery/reconciliation_artifacts.py`, `services/core-control-plane/src/fdai/runtime/control_loop.py`, `config/ohl-scale-out-evidence.json`, and focused dispatch, HIL, artifact, and runtime tests (`119 passed`) | Core resolves an indexed existing proposal, revalidates its OperationalPlan identity and Process, selection, correlation, target, ActionType, and plan lineage, then stores its exact V2 plan before every Thor-owned executor. Missing proposals preserve legacy behavior, while malformed, ambiguous, orphaned, or substituted evidence blocks dispatch. Production Forseti source composition and the Heimdall-owned verified observer remain unbound. |
+| Argument-bound prospective lineage and verdict handoff | implemented | `core/decision_case/`; `core/operational_planning/prospective_lineage.py`; `delivery/prospective_lineage.py`; `agents/{forseti,muninn,saga,thor}.py`; focused finalization, materialization, and agent-chain tests | Specialist proposals carry canonical typed arguments. Forseti finalizes Odin's option, commits the exact V2 plan, publishes ProspectiveLineage before Verdict, and Thor preserves both immutable references without gaining authority. |
+| Exact kinetic handoff and independent effect-observation runtime binding | in-progress | `core/operational_planning/kinetic_safety.py`; `delivery/{kinetic_safety,reconciliation_artifacts,prospective_lineage}.py`; `runtime/{control_loop,bootstrap_pantheon}.py`; focused dispatch, HIL, artifact, and runtime tests | Core revalidates exact plan lineage and requires matching Muninn materialization plus Saga seal before every present proposal reaches a Thor-owned executor. The Heimdall-owned verified observer and governed runtime evidence remain open. |
 | Independent-service HIL binding | in-progress | `config/ohl-scale-out-evidence.json` and the deployed Core/Operator environment contract | The service roots must bind the HIL channel and callback signing secret before approval can park and resolve the action. |
 | OHL Lane F live evidence | in-progress | `docs/runbooks/ohl-scale-out-evidence.md` | Protected execution, independent closure, 100 samples, and the 14-day recurrence window remain open. |
 
@@ -56,6 +57,7 @@ central planner or another authority surface.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-30 | implemented | Replaced late optional argument resolution with a production Forseti-owned prospective path. PlanCandidate and ActionOption now retain canonical typed argument bindings; Odin's winner is finalized before Process recording; Forseti publishes one content-addressed ProspectiveLineage before Verdict; Muninn materializes the exact subgraph; Saga seals the same digest; and predispatch blocks until both receipts match. Reconciliation remains the only observed multi-effect closure. | `current change`; focused planning, proposal, prospective materialization, Forseti-Thor, kinetic readiness, and observed-lineage checks. | Bind the verified independent observer and retain one pinned prospective-to-observed replay in the governed Lane F campaign. |
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and exposed the independent-service HIL binding residual. | current change; `services/core-control-plane/tests/scenarios/operational-planning/test_manifest.py` reports 7 passed. | Bind HIL in both service roots, deploy the exact revision, and complete the live evidence campaign. |
 | 2026-08-14 | in-progress | Exposed the missing exact-plan writer and verified independent effect observer as separate Lane F runtime residuals. | `current change`; the Lane F contract, runbook gate, artifact-store tests, and manifest tests. | Bind both sources without reconstructing plans or substituting executor/provider receipts. |
 | 2026-08-14 | implemented | Added an authority-free, argument-bound kinetic proposal contract and preserved valid proposals through Thor's durable ActionRun. | `current change`; focused kinetic-proposal, Thor dispatch, persistence, and role-invariant checks. | Add the Forseti-owned producer and Core pre-dispatch consumer before removing the runtime residual. |
@@ -71,9 +73,10 @@ central planner or another authority surface.
 - [x] Persist an existing proposal's exact V2 plan before every Core Thor executor and prove
   missing proposals preserve legacy behavior while malformed or substituted evidence blocks
   dispatch.
-- [ ] Bind the proposal source in production Forseti composition and a Heimdall-owned verified
-  independent effect observer, then retain governed end-to-end evidence without substituting an
-  executor or provider receipt for the observed outcome.
+- [x] Bind production Forseti prospective finalization, Muninn materialization, Saga sealing, and
+  predispatch readiness without reconstructing a plan from an Action.
+- [ ] Bind the Heimdall-owned verified independent effect observer, then retain governed end-to-end
+  evidence without substituting an executor or provider receipt for the observed outcome.
 - [ ] Bind and verify the Core HIL channel plus Operator callback signing secret so a distinct human
   approval parks, resolves, and resumes one `ops.scale-out` proposal.
 - [ ] Complete the protected-runner drill and record independent graph closure, 100 live-shadow
@@ -243,16 +246,19 @@ The `MutationPlan` preserves its signed planner FunctionType identity in `planne
 the selected operational plan independently through `operational_plan_ref`. These identities must
 not be conflated: planner provenance and decision lineage are separate replay checks.
 
-Forseti may carry this optional proposal only inside its existing `object.verdict`. The
-delivery-owned StateStore producer and optional Forseti source are implemented. The producer never
-compiles or upgrades a plan, and missing proposals preserve the legacy verdict. Thor validates
-that its correlation, selected ActionType, target, arguments, and DecisionCase lineage are exact,
-then preserves it on the durable `ActionRun`. A malformed or substituted proposal changes the
-verdict to deny before execution. An absent proposal leaves the legacy path unchanged and never
-causes a V2 plan to be created. Core runtime composition now resolves the proposal by exact
-correlation, stores its existing plan before every Thor-owned executor, and blocks malformed or
-substituted evidence. Production Forseti source composition, the independent observer, and governed
-live evidence remain open; focused tests alone do not establish end-to-end runtime validation.
+Specialist evidence proposes canonical arguments with per-field digests and redacted safe
+projections. Those values participate in DecisionCase identity. After Odin selects one eligible
+option, Forseti finalizes the OperationalPlan and the delivery finalizer validates the exact
+ActionType argument schema, target revision, rollback contract, and V2 lock policy before committing
+the `KineticActionProposal`.
+
+Forseti publishes `object.prospective-lineage` before its existing `object.verdict`. The envelope
+binds the plan, proposal, DecisionCase, selected ActionOption, complete ExpectedEffect set, and
+subgraph digest. Muninn materializes the exact objects and Saga seals the same digest through its
+append-only audit path. Thor preserves both references, while the Core predispatch writer requires
+the materialization and Saga seal before executor I/O. Missing or mismatched readiness holds the
+action. Reconciliation later reuses the same prospective objects and appends only ActionRun and the
+complete independently observed effect set.
 
 Risk evaluation rechecks current policy, promotion state, role, environment, impact, approval,
 target revision, and all seven safeguards. Planning evidence can only preserve or lower the

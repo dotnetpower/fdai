@@ -2,6 +2,8 @@
 
 from .domain import DomainDecisionCoordinator, DomainDecisionProjection
 from .models import (
+    ActionArgumentProposal,
+    ActionArguments,
     ActionOption,
     DecisionCase,
     DecisionClosure,
@@ -11,6 +13,8 @@ from .models import (
 from .service import build_decision_case, close_decision, select_action_option
 
 __all__ = [
+    "ActionArgumentProposal",
+    "ActionArguments",
     "ActionOption",
     "DecisionCase",
     "DecisionClosure",

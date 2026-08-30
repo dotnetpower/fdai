@@ -12,6 +12,7 @@ in :mod:`fdai.rule_catalog`. Mixed-model cross-check and grounding
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping
 from datetime import datetime
 from typing import Any, Protocol
@@ -54,6 +55,10 @@ from fdai.core.architecture_review import (
     ArchitectureReviewObservation,
     OntologyArchitectureReviewLoop,
 )
+from fdai.core.capacity import (
+    CapacityGraduationRecommendation,
+    GraduationRecommendationStatus,
+)
 from fdai.core.decision_case import DomainDecisionCoordinator, DomainDecisionProjection
 from fdai.core.impact_analysis import (
     ChangeAssessment,
@@ -68,7 +73,14 @@ from fdai.core.operational_planning import (
     SpecialistPlanningProjection,
     validate_operational_plan_identity,
 )
+from fdai.core.operational_planning.prospective_lineage import (
+    FinalizedProspectiveLineage,
+    ProspectiveLineage,
+    ProspectiveLineageFinalizer,
+)
 from fdai.core.readiness import AuthorityCeiling, DetectionReadinessDecision
+
+_LOGGER = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Deterministic tables (wave 3 defaults)
@@ -116,6 +128,7 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         decision_coordinator: DomainDecisionCoordinator | None = None,
         operational_planner: SpecialistPlanningCoordinator | None = None,
         kinetic_proposal_source: KineticActionProposalSource | None = None,
+        prospective_lineage_finalizer: ProspectiveLineageFinalizer | None = None,
         change_assessor: _ChangeAssessor | None = None,
         architecture_review_loop: OntologyArchitectureReviewLoop | None = None,
     ) -> None:
@@ -127,6 +140,7 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         self._decision_coordinator = decision_coordinator or DomainDecisionCoordinator()
         self._operational_planner = operational_planner
         self._kinetic_proposal_source = kinetic_proposal_source
+        self._prospective_lineage_finalizer = prospective_lineage_finalizer
         self._change_assessor = change_assessor
         self._architecture_review_loop = architecture_review_loop
         # Latest arbitration winner per correlation id (populated when Odin
@@ -153,6 +167,9 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         # to Odin so arbitration weighs magnitude, not just priority.
         self._domain_impact: BoundedLruDict[str, dict[str, float]] = BoundedLruDict(_MAX_RESOURCES)
         self._domain_observed_at: BoundedLruDict[str, str] = BoundedLruDict(_MAX_RESOURCES)
+        self._domain_arguments: BoundedLruDict[str, dict[str, dict[str, object]]] = BoundedLruDict(
+            _MAX_RESOURCES
+        )
         self._pending_decision_cases: BoundedLruDict[str, _DecisionProjection] = BoundedLruDict(
             _MAX_RESOURCES
         )
@@ -205,8 +222,44 @@ class Forseti(Agent, ForsetiJudgmentMixin):
             await self._ingest_domain_signal("cost", payload)
         elif topic == "object.capacity-forecast":
             await self._ingest_domain_signal("capacity", payload)
+        elif topic == "object.capacity-graduation-recommendation":
+            await self._judge_capacity_graduation(payload)
         elif topic == "object.arbitration-decision":
             await self._record_arbitration(payload)
+
+    async def _judge_capacity_graduation(self, payload: dict[str, Any]) -> None:
+        """Issue one observation-only verdict over Freyr's shadow recommendation."""
+
+        try:
+            recommendation = CapacityGraduationRecommendation.model_validate(
+                {
+                    field: payload[field]
+                    for field in CapacityGraduationRecommendation.model_fields
+                    if field in payload
+                }
+            )
+        except (KeyError, ValueError):
+            self.record_behavior("capacity_graduation:invalid")
+            return
+        accepted = recommendation.status is GraduationRecommendationStatus.RECOMMEND
+        verdict = {
+            "kind": "capacity_graduation",
+            "producer_principal": "Forseti",
+            "correlation_id": str(payload.get("correlation_id") or ""),
+            "idempotency_key": f"verdict:{recommendation.id}",
+            "resource_id": recommendation.target_ref,
+            "recommendation_id": recommendation.id,
+            "transition": recommendation.transition.value,
+            "target_profile": recommendation.target_profile,
+            "risk_verdict": "shadow" if accepted else "deny",
+            "reason": "recommendation_accepted" if accepted else "recommendation_held",
+            "reason_codes": list(recommendation.reason_codes),
+            "shadow_only": True,
+            "execution_authority": False,
+        }
+        self.record_behavior("capacity_graduation:" + ("accepted" if accepted else "held"))
+        if self.bus is not None:
+            await self.bus.publish("Forseti", "object.verdict", verdict)
 
     async def _observe_architecture_change(self, payload: dict[str, Any]) -> None:
         """Judge one planned Change through the observation-only ARB seam."""
@@ -353,6 +406,15 @@ class Forseti(Agent, ForsetiJudgmentMixin):
             impacts = {}
             self._domain_impact.set(resource_id, impacts)
         impacts[domain] = _signal_impact(domain, payload)
+        raw_arguments = payload.get("action_arguments")
+        if isinstance(raw_arguments, Mapping):
+            arguments = self._domain_arguments.get(resource_id)
+            if arguments is None:
+                arguments = {}
+                self._domain_arguments.set(resource_id, arguments)
+            arguments[domain] = {
+                str(name): value for name, value in raw_arguments.items() if isinstance(name, str)
+            }
         observed_at = str(payload.get("observed_at") or "")
         if observed_at:
             self._domain_observed_at.set(resource_id, observed_at)
@@ -367,6 +429,7 @@ class Forseti(Agent, ForsetiJudgmentMixin):
             advice=dict(advice),
             correlation_id=correlation_id,
             impacts=dict(impacts),
+            arguments_by_domain=dict(self._domain_arguments.get(resource_id) or {}),
             observed_at=self._domain_observed_at.get(resource_id) or "",
             source_freshness=_source_freshness(payload.get("source_freshness")),
         )
@@ -378,6 +441,7 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         self._domain_advice.pop(resource_id, None)
         self._domain_impact.pop(resource_id, None)
         self._domain_observed_at.pop(resource_id, None)
+        self._domain_arguments.pop(resource_id, None)
         return request
 
     async def _emit_arbitration_request(
@@ -387,6 +451,7 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         advice: dict[str, str],
         correlation_id: str,
         impacts: dict[str, float] | None = None,
+        arguments_by_domain: dict[str, dict[str, object]] | None = None,
         observed_at: str = "",
         change_assessment: dict[str, Any] | None = None,
         source_freshness: tuple[SourceFreshness, ...] = (),
@@ -406,6 +471,7 @@ class Forseti(Agent, ForsetiJudgmentMixin):
             correlation_id=correlation_id,
             advice=advice,
             impacts=impacts or {},
+            arguments_by_domain=arguments_by_domain,
             observed_at=observed_at,
             source_freshness=source_freshness,
         )
@@ -459,12 +525,46 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         if option is None or option.option_id not in eligible_options or option.action_type is None:
             await self._escalate_arbitration(correlation_id, decision)
             return
+        projection, planning_invalid = await self._finalize_planning_projection(
+            projection,
+            selected_option_id=option.option_id,
+        )
         await self._publish_resolved_arbitration_verdict(
             correlation_id=correlation_id,
             decision=decision,
             projection=projection,
             action_type=option.action_type,
+            planning_invalid=planning_invalid,
         )
+
+    async def _finalize_planning_projection(
+        self,
+        projection: _DecisionProjection,
+        *,
+        selected_option_id: str,
+    ) -> tuple[_DecisionProjection, bool]:
+        if not isinstance(projection, SpecialistPlanningProjection):
+            return projection, False
+        planner = self._operational_planner
+        if planner is None:
+            return projection, True
+        try:
+            return (
+                await planner.finalize(
+                    projection,
+                    selected_option_id=selected_option_id,
+                    recorded_at=projection.case.created_at,
+                ),
+                False,
+            )
+        except Exception:  # noqa: BLE001 - incomplete finalization denies execution
+            self.record_behavior("prospective_lineage:planning_failed")
+            _LOGGER.warning(
+                "prospective_lineage_planning_failed",
+                extra={"selected_option_id": selected_option_id},
+                exc_info=True,
+            )
+            return projection, True
 
     async def _build_domain_decision_projection(
         self,
@@ -473,6 +573,7 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         correlation_id: str,
         advice: dict[str, str],
         impacts: dict[str, float],
+        arguments_by_domain: dict[str, dict[str, object]] | None,
         observed_at: str,
         source_freshness: tuple[SourceFreshness, ...],
     ) -> DomainDecisionProjection | SpecialistPlanningProjection | None:
@@ -496,6 +597,7 @@ class Forseti(Agent, ForsetiJudgmentMixin):
                     context=context,
                     advice=advice,
                     impacts=impacts,
+                    arguments_by_domain=arguments_by_domain,
                     created_at=cutoff,
                 )
             return self._decision_coordinator.build(
@@ -504,6 +606,7 @@ class Forseti(Agent, ForsetiJudgmentMixin):
                 advice=advice,
                 impacts=impacts,
                 created_at=cutoff,
+                arguments_by_domain=arguments_by_domain,
             )
         except (TypeError, ValueError):
             self.record_behavior("decision_case:invalid")
@@ -519,15 +622,20 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         decision: dict[str, Any],
         projection: _DecisionProjection,
         action_type: str,
+        planning_invalid: bool = False,
     ) -> None:
         self._pending_decision_cases.pop(correlation_id, None)
         risk_verdict = _RISK_VERDICT.get(action_type, "hil")
-        kinetic_proposal, invalid_kinetic_proposal = await self._resolve_kinetic_proposal(
+        (
+            kinetic_proposal,
+            prospective_lineage,
+            invalid_kinetic_proposal,
+        ) = await self._resolve_kinetic_proposal(
             correlation_id=correlation_id,
             projection=projection,
             action_type=action_type,
         )
-        if invalid_kinetic_proposal:
+        if invalid_kinetic_proposal or planning_invalid:
             risk_verdict = "deny"
         verdict = {
             "producer_principal": "Forseti",
@@ -553,6 +661,8 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         if kinetic_proposal is not None:
             verdict["params"] = kinetic_proposal.arguments()
             verdict["kinetic_proposal"] = kinetic_proposal.model_dump(mode="json")
+        if prospective_lineage is not None:
+            verdict["prospective_lineage"] = prospective_lineage.model_dump(mode="json")
         self.record_behavior(f"verdict:{risk_verdict}")
         self.record_behavior("arbitration_resolved")
         if self.bus is not None:
@@ -595,12 +705,22 @@ class Forseti(Agent, ForsetiJudgmentMixin):
             if winning_option is not None and winning_option.action_type is not None
             else ""
         )
-        kinetic_proposal, invalid_kinetic_proposal = await self._resolve_kinetic_proposal(
+        planning_invalid = False
+        if projection is not None and winning_option is not None:
+            projection, planning_invalid = await self._finalize_planning_projection(
+                projection,
+                selected_option_id=winning_option.option_id,
+            )
+        (
+            kinetic_proposal,
+            prospective_lineage,
+            invalid_kinetic_proposal,
+        ) = await self._resolve_kinetic_proposal(
             correlation_id=correlation_id,
             projection=projection,
             action_type=action_type,
         )
-        risk_verdict = "deny" if invalid_kinetic_proposal else "hil"
+        risk_verdict = "deny" if invalid_kinetic_proposal or planning_invalid else "hil"
         self._unresolved_arbitrations.set(correlation_id, grounding)
         self.record_behavior(f"verdict:{risk_verdict}")
         self.record_behavior("arbitration_escalated")
@@ -627,6 +747,8 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         if kinetic_proposal is not None:
             verdict["params"] = kinetic_proposal.arguments()
             verdict["kinetic_proposal"] = kinetic_proposal.model_dump(mode="json")
+        if prospective_lineage is not None:
+            verdict["prospective_lineage"] = prospective_lineage.model_dump(mode="json")
         if self.bus is not None:
             await self.bus.publish("Forseti", "object.verdict", verdict)
         return verdict
@@ -637,25 +759,31 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         correlation_id: str,
         projection: _DecisionProjection | None,
         action_type: str,
-    ) -> tuple[KineticActionProposal | None, bool]:
+    ) -> tuple[KineticActionProposal | None, ProspectiveLineage | None, bool]:
         """Resolve exact A0 evidence without creating or upgrading a mutation plan."""
 
-        if self._kinetic_proposal_source is None or not isinstance(
-            projection, SpecialistPlanningProjection
-        ):
-            return None, False
+        if not isinstance(projection, SpecialistPlanningProjection):
+            return None, None, False
         operational_plan = projection.plan
+        finalized: FinalizedProspectiveLineage | None = None
+        proposal: KineticActionProposal | None
         try:
             validate_operational_plan_identity(operational_plan)
-            proposal = await self._kinetic_proposal_source.resolve(operational_plan)
+            if self._prospective_lineage_finalizer is not None:
+                finalized = await self._prospective_lineage_finalizer.finalize(projection)
+                proposal = finalized.proposal
+            elif self._kinetic_proposal_source is not None:
+                proposal = await self._kinetic_proposal_source.resolve(operational_plan)
+            else:
+                return None, None, False
             if proposal is None:
-                return None, False
+                return None, None, False
             if not isinstance(proposal, KineticActionProposal):
                 raise ValueError("kinetic proposal source returned an invalid contract")
             proposal = KineticActionProposal.model_validate_json(proposal.model_dump_json())
         except Exception:  # noqa: BLE001 - optional proposal evidence fails closed
             self.record_behavior("kinetic_proposal:invalid")
-            return None, True
+            return None, None, True
 
         selected_option_id = operational_plan.selection.selected_option_id
         selected_option = next(
@@ -678,11 +806,28 @@ class Forseti(Agent, ForsetiJudgmentMixin):
             or proposal.selected_option_id != selected_option_id
             or proposal.plan.action_type_ref.name != action_type
             or proposal.target_resource_ref != operational_plan.target_resource_id
+            or selected_option.arguments is None
+            or proposal.arguments_digest != selected_option.arguments.arguments_digest
         ):
             self.record_behavior("kinetic_proposal:invalid")
-            return None, True
+            return None, None, True
         self.record_behavior("kinetic_proposal:resolved")
-        return proposal, False
+        envelope = finalized.envelope if finalized is not None else None
+        if envelope is not None:
+            if self.bus is None:
+                self.record_behavior("prospective_lineage:bus_unavailable")
+                return None, None, True
+            await self.bus.publish(
+                "Forseti",
+                "object.prospective-lineage",
+                {
+                    **envelope.model_dump(mode="json"),
+                    "idempotency_key": envelope.id,
+                    "resource_id": proposal.target_resource_ref,
+                },
+            )
+            self.record_behavior("prospective_lineage:published")
+        return proposal, envelope, False
 
     def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
         """Report whether any judged runtime state backs this turn.

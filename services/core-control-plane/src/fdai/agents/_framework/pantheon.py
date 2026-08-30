@@ -119,7 +119,7 @@ _FORSETI = AgentSpec(
     name="Forseti",
     layer=Layer.PIPELINE,
     reports_to="Odin",
-    owns=("Verdict", "RCA", "SecurityEvent", "ArbitrationRequest"),
+    owns=("Verdict", "RCA", "SecurityEvent", "ArbitrationRequest", "ProspectiveLineage"),
     conversation=conversation_charter(
         "Forseti",
         "Explain verdicts and grounded root-cause judgments.",
@@ -156,6 +156,7 @@ _FORSETI = AgentSpec(
         "object.forecast",
         "object.cost-anomaly",
         "object.capacity-forecast",
+        "object.capacity-graduation-recommendation",
         "object.arbitration-decision",
         "object.rule",  # cache reload on Mimir update
     ),
@@ -209,7 +210,14 @@ _HEIMDALL = AgentSpec(
     name="Heimdall",
     layer=Layer.PIPELINE,
     reports_to="Forseti",
-    owns=("Anomaly", "Drift", "Forecast", "ForecastOutcome", "RetrievalValidation"),
+    owns=(
+        "Anomaly",
+        "Drift",
+        "Forecast",
+        "ForecastOutcome",
+        "RetrievalValidation",
+        "EvidenceConflict",
+    ),
     conversation=conversation_charter(
         "Heimdall",
         "Explain observed signals, anomalies, drift, and forecasts.",
@@ -414,6 +422,8 @@ _SAGA = AgentSpec(
         "object.issue",
         "object.forecast-outcome",
         "object.retrieval-validation",
+        "object.evidence-conflict",
+        "object.prospective-lineage",
         "object.handoff-escalation",
         "object.rule",
     ),
@@ -512,6 +522,8 @@ _MUNINN = AgentSpec(
         "object.forecast-outcome",
         "object.event",
         "object.change",
+        "object.evidence-conflict",
+        "object.prospective-lineage",
         "object.retrieval-validation",
     ),
     question_domains=(
@@ -621,7 +633,7 @@ _FREYR = AgentSpec(
     name="Freyr",
     layer=Layer.DOMAIN,
     reports_to="Forseti",
-    owns=("CapacityForecast", "SizingRecommendation"),
+    owns=("CapacityForecast", "SizingRecommendation", "CapacityGraduationRecommendation"),
     conversation=conversation_charter(
         "Freyr",
         "Explain capacity forecasts and sizing recommendations.",
@@ -646,7 +658,10 @@ _FREYR = AgentSpec(
     ),
     executes=(),
     initiates=(),
-    subscribes=("object.event",),  # canonical utilization samples from an adapter
+    subscribes=(
+        "object.event",
+        "object.cost-anomaly",
+    ),
     question_domains=("capacity_status", "sizing_recommendation"),
     owns_code_paths=("services/core-control-plane/src/fdai/agents/freyr.py",),
 )

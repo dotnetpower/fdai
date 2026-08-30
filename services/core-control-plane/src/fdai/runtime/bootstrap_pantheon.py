@@ -23,6 +23,7 @@ from fdai.agents import (
 )
 from fdai.agents.vidar import RollbackExecutor
 from fdai.composition import Container
+from fdai.core.capacity import CapacityGraduationController
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.control_loop import ControlLoop
 from fdai.core.executor import MutationDependencyReadiness
@@ -42,12 +43,21 @@ from fdai.delivery.agent_activity import (
     EventBusPantheonActivityObserver,
     runtime_agent_state_snapshot,
 )
+from fdai.delivery.evidence_conflict import StateStoreEvidenceConflictProjection
+from fdai.delivery.kinetic_proposal import StateStoreKineticActionProposalStore
 from fdai.delivery.persistence import (
     PostgresCaseHistoryMetadataStore,
     PostgresCaseHistoryMetadataStoreConfig,
     StateStoreSemanticFeedbackCandidateStore,
 )
+from fdai.delivery.prospective_lineage import (
+    OperationalPlanningProspectiveFinalizer,
+    StateStoreProspectiveLineageMaterializer,
+)
 from fdai.delivery.runtime_settings import RuntimeSettingsService
+from fdai.rule_catalog.schema.capacity_graduation_policy import (
+    load_capacity_graduation_policy,
+)
 from fdai.runtime.bootstrap_bindings import RuleGenerationRuntimeBinding
 from fdai.runtime.case_history import (
     CaseHistoryRetentionTickPublisher,
@@ -328,6 +338,21 @@ async def initialize_pantheon(
             ),
             recorder=ProcessPlanningRecorder(store=process_store),
         )
+    prospective_lineage_finalizer = None
+    prospective_lineage_materializer = None
+    if ontology_release is not None and config.control_loop.ontology_instance_store is not None:
+        proposal_store = StateStoreKineticActionProposalStore(store=config.incident_audit_store)
+        prospective_lineage_finalizer = OperationalPlanningProspectiveFinalizer(
+            proposal_store=proposal_store,
+            ontology_store=config.control_loop.ontology_instance_store,
+            ontology_release=ontology_release,
+            action_types=config.control_loop.action_types,
+        )
+        prospective_lineage_materializer = StateStoreProspectiveLineageMaterializer(
+            state_store=config.incident_audit_store,
+            proposal_store=proposal_store,
+            ontology_store=config.control_loop.ontology_instance_store,
+        )
     thor_mutation_bound = pantheon_enforce and t2_route_selector_bound
     rollback_executors: dict[str, RollbackExecutor] | None = (
         {"state_forward_only": t2_route_registry.rollback} if thor_mutation_bound else None
@@ -387,6 +412,16 @@ async def initialize_pantheon(
         approver_authorizer=_approver_authorizer_from_env(config.environment),
         saga=config.runtime_saga,
         muninn_state_store=config.incident_audit_store,
+        evidence_conflict_sink=StateStoreEvidenceConflictProjection(config.incident_audit_store),
+        prospective_lineage_finalizer=prospective_lineage_finalizer,
+        prospective_lineage_materializer=prospective_lineage_materializer,
+        capacity_graduation_controller=CapacityGraduationController(
+            load_capacity_graduation_policy(
+                Path(__file__).resolve().parents[5]
+                / "rule-catalog"
+                / "capacity-graduation-policy.yaml"
+            )
+        ),
         rule_generation_workers=(
             config.rule_generation_reconciliation.workers
             if config.rule_generation_reconciliation is not None

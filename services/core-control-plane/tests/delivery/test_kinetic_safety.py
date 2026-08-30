@@ -143,6 +143,16 @@ def _writer(
     return writer, proposal_store, artifact_store
 
 
+class _ProspectiveReadiness:
+    def __init__(self, ready: bool) -> None:
+        self.ready_result = ready
+        self.proposal_ids: list[str] = []
+
+    async def ready(self, proposal_id: str) -> bool:
+        self.proposal_ids.append(proposal_id)
+        return self.ready_result
+
+
 async def test_missing_proposal_preserves_legacy_path_without_artifact() -> None:
     state_store = InMemoryStateStore()
     writer, _proposal_store, artifact_store = _writer(state_store)
@@ -180,6 +190,36 @@ async def test_existing_proposal_persists_exact_receipt_before_dispatch() -> Non
     assert resolved is not None
     assert resolved.plan == proposal.plan
     assert resolved.action_type == action_type
+
+
+async def test_present_proposal_requires_materialized_saga_sealed_lineage() -> None:
+    state_store = InMemoryStateStore()
+    _writer_value, proposal_store, artifact_store = _writer(state_store)
+    operational_plan, plan, action, action_type, release = _exact_inputs()
+    proposal = await proposal_store.commit(
+        operational_plan=operational_plan,
+        mutation_plan=plan,
+        arguments={},
+        created_at=plan.created_at + timedelta(seconds=1),
+    )
+    action = action.model_copy(update={"created_at": plan.created_at + timedelta(seconds=2)})
+    readiness = _ProspectiveReadiness(False)
+    writer = ExistingProposalKineticSafetyWriter(
+        proposal_store=proposal_store,
+        artifact_store=artifact_store,
+        action_types_by_name={action_type.name: action_type},
+        active_release=release,
+        prospective_lineage_readiness=readiness,
+    )
+
+    with pytest.raises(ValueError, match="not materialized and Saga-sealed"):
+        await writer.persist(
+            action=action,
+            correlation_id=proposal.correlation_id,
+        )
+
+    assert readiness.proposal_ids == [proposal.proposal_id]
+    assert await artifact_store.resolve(action) is None
 
 
 async def test_present_proposal_rejects_substituted_action() -> None:

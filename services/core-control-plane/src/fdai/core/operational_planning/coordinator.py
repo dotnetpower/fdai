@@ -27,7 +27,7 @@ from .models import (
     SimulationReceipt,
     SpecialistContribution,
 )
-from .selection import build_operational_plan
+from .selection import build_operational_plan, select_operational_plan_option
 
 _DOMAIN_AGENT = {
     "capacity": "Freyr",
@@ -71,6 +71,7 @@ class PlanningProjectionRecorder(Protocol):
 class SpecialistPlanningProjection:
     plan: OperationalPlan
     option_by_domain: tuple[tuple[str, str], ...]
+    context: OperationalContextSnapshot
 
     @property
     def case(self) -> DecisionCase:
@@ -122,6 +123,18 @@ class SpecialistPlanningProjection:
             },
         }
 
+    def finalized(self, option_id: str) -> SpecialistPlanningProjection:
+        """Return the same projection with one eligible option selected by Odin."""
+
+        return SpecialistPlanningProjection(
+            plan=select_operational_plan_option(
+                self.plan,
+                selected_option_id=option_id,
+            ),
+            option_by_domain=self.option_by_domain,
+            context=self.context,
+        )
+
 
 class SpecialistPlanningCoordinator:
     """Join existing specialist evidence with independent planning receipts."""
@@ -151,6 +164,7 @@ class SpecialistPlanningCoordinator:
         advice: dict[str, str],
         impacts: dict[str, float],
         created_at: datetime,
+        arguments_by_domain: dict[str, dict[str, object]] | None = None,
     ) -> SpecialistPlanningProjection | None:
         if len(advice) > MAX_PLAN_SPECIALIST_DOMAINS or len(impacts) > MAX_PLAN_SPECIALIST_DOMAINS:
             raise ValueError("specialist planning domain count exceeds the hard limit")
@@ -169,6 +183,7 @@ class SpecialistPlanningCoordinator:
             advice=advice,
             impacts=impacts,
             created_at=created_at,
+            arguments_by_domain=arguments_by_domain,
         )
         if base is None:
             return None
@@ -212,6 +227,7 @@ class SpecialistPlanningCoordinator:
                     evidence_refs=tuple(
                         dict.fromkeys((*option.evidence_refs, *simulation.evidence_refs))
                     ),
+                    arguments=option.arguments,
                 )
             )
             option_by_domain.append((domain, option_id))
@@ -236,14 +252,27 @@ class SpecialistPlanningCoordinator:
         projection = SpecialistPlanningProjection(
             plan=plan,
             option_by_domain=tuple(option_by_domain),
+            context=context,
         )
+        return projection
+
+    async def finalize(
+        self,
+        projection: SpecialistPlanningProjection,
+        *,
+        selected_option_id: str,
+        recorded_at: datetime,
+    ) -> SpecialistPlanningProjection:
+        """Finalize Odin's selected option and durably record only that plan."""
+
+        finalized = projection.finalized(selected_option_id)
         if self._recorder is not None:
             await self._recorder.record(
-                projection=projection,
-                context=context,
-                recorded_at=created_at,
+                projection=finalized,
+                context=finalized.context,
+                recorded_at=recorded_at,
             )
-        return projection
+        return finalized
 
 
 def _objective_weights(context: OperationalContextSnapshot) -> tuple[tuple[str, float], ...]:
@@ -280,6 +309,7 @@ def _option_mapping(option: ActionOption) -> dict[str, object]:
         "simulation_receipt_refs": list(option.simulation_receipt_refs),
         "constraint_evaluation_refs": list(option.constraint_evaluation_refs),
         "assumptions": list(option.assumptions),
+        "arguments": option.arguments.to_mapping() if option.arguments is not None else None,
     }
 
 

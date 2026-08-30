@@ -139,6 +139,16 @@
         }
       }
     },
+    "required_evidence_semantic_refs": {
+      "type": "array",
+      "default": [],
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"
+      },
+      "description": "Canonical Property.semantic_id values whose unresolved conflicts can only lower this ActionType to shadow."
+    },
     "stop_conditions": {
       "type": "array",
       "default": [],

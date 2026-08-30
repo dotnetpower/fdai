@@ -7,10 +7,12 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from fdai.core.capacity import CapacityGraduationEvidence
 from fdai.shared.providers.cost_governance import COST_SAMPLE_EVENT_TYPE
 
 COST_SAMPLE_EVENT = COST_SAMPLE_EVENT_TYPE
 CAPACITY_SAMPLE_EVENT = "specialist.capacity_sample"
+CAPACITY_GRADUATION_EVENT = "specialist.capacity_graduation_evidence"
 CHAOS_SCHEDULE_EVENT = "specialist.chaos_schedule"
 SPECIALIST_EVENT_PREFIX = "specialist."
 
@@ -77,6 +79,24 @@ def parse_capacity_sample(payload: Mapping[str, Any]) -> CapacitySampleSignal | 
     )
 
 
+def parse_capacity_graduation_evidence(
+    payload: Mapping[str, Any],
+) -> CapacityGraduationEvidence | None:
+    """Parse one exact measurement receipt without filling missing cost evidence."""
+
+    attributes = _attributes(payload, CAPACITY_GRADUATION_EVENT)
+    if attributes is None:
+        return None
+    values = dict(attributes)
+    values["correlation_id"] = _correlation_id(payload)
+    values["observed_at"] = _observed_at(payload)
+    values.setdefault("target_ref", attributes.get("resource_id"))
+    try:
+        return CapacityGraduationEvidence.model_validate(values)
+    except ValueError:
+        return None
+
+
 def parse_chaos_schedule(payload: Mapping[str, Any]) -> ChaosScheduleSignal | None:
     attributes = _attributes(payload, CHAOS_SCHEDULE_EVENT)
     if attributes is None:
@@ -140,6 +160,7 @@ def _observed_at(payload: Mapping[str, Any]) -> str:
 
 __all__ = [
     "CAPACITY_SAMPLE_EVENT",
+    "CAPACITY_GRADUATION_EVENT",
     "CHAOS_SCHEDULE_EVENT",
     "COST_SAMPLE_EVENT",
     "SPECIALIST_EVENT_PREFIX",
@@ -147,6 +168,7 @@ __all__ = [
     "ChaosScheduleSignal",
     "CostSampleSignal",
     "parse_capacity_sample",
+    "parse_capacity_graduation_evidence",
     "parse_chaos_schedule",
     "parse_cost_sample",
 ]

@@ -185,7 +185,7 @@ def _canonical_option(option: ActionOption) -> ActionOption:
 
 
 def _option_material(option: ActionOption) -> dict[str, object]:
-    return {
+    material: dict[str, object] = {
         "option_id": option.option_id,
         "action_type": option.action_type,
         "effects": [_effect_material(effect) for effect in option.effects],
@@ -197,6 +197,9 @@ def _option_material(option: ActionOption) -> dict[str, object]:
         "constraint_evaluation_refs": list(option.constraint_evaluation_refs),
         "assumptions": list(option.assumptions),
     }
+    if option.arguments is not None:
+        material["arguments"] = option.arguments.to_mapping()
+    return material
 
 
 __all__ = ["build_decision_case", "close_decision", "select_action_option"]

@@ -8,7 +8,9 @@ import pytest
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents.forseti import Forseti
+from fdai.agents.muninn import Muninn
 from fdai.agents.odin import Odin
+from fdai.agents.saga import Saga
 from fdai.agents.thor import Thor
 from fdai.agents.var import Var
 from fdai.core.impact_analysis import ChangeAssessmentService, ImpactAnalyzer
@@ -24,6 +26,11 @@ from fdai.core.operational_planning import (
     SpecialistPlanningCoordinator,
 )
 from fdai.delivery.kinetic_proposal import StateStoreKineticActionProposalStore
+from fdai.delivery.prospective_lineage import (
+    OperationalPlanningProspectiveFinalizer,
+    StateStoreProspectiveLineageMaterializer,
+    StateStoreProspectiveLineageReadinessReader,
+)
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.shared.contracts.models import OntologyDeclarationKind
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
@@ -187,6 +194,10 @@ async def test_specialist_conflict_reaches_objective_aware_hil_verdict(
             "impact": 0.2,
             "observed_at": AT,
             "source_freshness": _source_freshness_payload(),
+            "action_arguments": {
+                "target_resource_ref": "resource-example",
+                "reason": "Cost anomaly supports the reviewed scale-down candidate.",
+            },
         },
     )
     await forseti.on_typed_message(
@@ -198,6 +209,10 @@ async def test_specialist_conflict_reaches_objective_aware_hil_verdict(
             "impact": 1.0,
             "observed_at": AT,
             "source_freshness": _source_freshness_payload(),
+            "action_arguments": {
+                "target_resource_ref": "resource-example",
+                "reason": "Capacity forecast crossed the reviewed scaling threshold.",
+            },
         },
     )
 
@@ -413,7 +428,15 @@ class _KineticProposalSource:
             return None
         if self.mutation == "error":
             raise RuntimeError("durable proposal unavailable")
-        proposal = _kinetic_proposal_for(operational_plan, arguments={"replica_count": 3})
+        selected = next(
+            option
+            for option in operational_plan.decision_case.options
+            if option.option_id == operational_plan.selection.selected_option_id
+        )
+        arguments = (
+            selected.arguments.values() if selected.arguments is not None else {"replica_count": 3}
+        )
+        proposal = _kinetic_proposal_for(operational_plan, arguments=arguments)
         if self.mutation is None:
             return proposal
         substitutions: dict[str, Any] = {
@@ -441,9 +464,16 @@ class _DurableKineticProposalBinding:
 
     async def record(self, *, projection, context, recorded_at) -> None:
         del context, recorded_at
+        selected = next(
+            option
+            for option in projection.plan.decision_case.options
+            if option.option_id == projection.plan.selection.selected_option_id
+        )
+        if selected.arguments is None:
+            raise ValueError("test proposal requires selected action arguments")
         proposal = _kinetic_proposal_for(
             projection.plan,
-            arguments={"replica_count": 3},
+            arguments=selected.arguments.values(),
         )
         await self._store.commit(
             operational_plan=projection.plan,
@@ -461,6 +491,7 @@ async def _specialist_verdict(
     kinetic_proposal_source=None,
     recorder=None,
     hil_margin: float = 0.1,
+    prospective_state: InMemoryStateStore | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     bus = InMemoryBus(registry=load_pantheon())
     store = await _context_store()
@@ -470,11 +501,38 @@ async def _specialist_verdict(
         simulator=_PlanningSimulator(),
         recorder=recorder,
     )
+    prospective_finalizer = None
+    if prospective_state is not None:
+        catalog = load_ontology_catalog(
+            REPO_ROOT / "rule-catalog",
+            schema_registry=PackageResourceSchemaRegistry(),
+            probes_root=REPO_ROOT / "rule-catalog" / "probes",
+        )
+        proposal_store = StateStoreKineticActionProposalStore(store=prospective_state)
+        prospective_finalizer = OperationalPlanningProspectiveFinalizer(
+            proposal_store=proposal_store,
+            ontology_store=store,
+            ontology_release=catalog.build_release(),
+            action_types=catalog.action_types,
+        )
+        materializer = StateStoreProspectiveLineageMaterializer(
+            state_store=prospective_state,
+            proposal_store=proposal_store,
+            ontology_store=store,
+        )
+        saga = Saga()
+        saga.bind_bus(bus)
+        muninn = Muninn(prospective_lineage_materializer=materializer)
+        muninn.bind_bus(bus)
+        bus.subscribe("object.prospective-lineage", "Saga", saga.on_typed_message)
+        bus.subscribe("object.prospective-lineage", "Muninn", muninn.on_typed_message)
+        bus.subscribe("object.audit-entry", "Muninn", muninn.on_typed_message)
     forseti = Forseti(
         bus=bus,
         operational_context=OperationalContextMaterializer(store=store),
         operational_planner=planning,
         kinetic_proposal_source=kinetic_proposal_source,
+        prospective_lineage_finalizer=prospective_finalizer,
     )
     odin = Odin(bus=bus, hil_margin=hil_margin)
     thor = Thor(bus=bus)
@@ -492,6 +550,10 @@ async def _specialist_verdict(
                 "impact": 0.2,
                 "observed_at": AT,
                 "source_freshness": _source_freshness_payload(),
+                "action_arguments": {
+                    "target_resource_ref": "resource-example",
+                    "reason": "Cost anomaly supports the reviewed scale-down candidate.",
+                },
             },
         ),
         (
@@ -503,6 +565,10 @@ async def _specialist_verdict(
                 "impact": 0.9,
                 "observed_at": AT,
                 "source_freshness": _source_freshness_payload(),
+                "action_arguments": {
+                    "target_resource_ref": "resource-example",
+                    "reason": "Capacity forecast crossed the reviewed scaling threshold.",
+                },
             },
         ),
     ):
@@ -511,6 +577,20 @@ async def _specialist_verdict(
     verdict = bus.messages_on("object.verdict")[-1].payload
     action_run = bus.messages_on("object.action-run")[-1].payload
     return verdict, action_run
+
+
+async def test_forseti_publishes_materialized_saga_sealed_lineage_before_verdict() -> None:
+    state_store = InMemoryStateStore()
+
+    verdict, action_run = await _specialist_verdict(
+        prospective_state=state_store,
+    )
+
+    envelope = verdict["prospective_lineage"]
+    proposal = KineticActionProposal.model_validate(verdict["kinetic_proposal"])
+    readiness = StateStoreProspectiveLineageReadinessReader(state_store)
+    assert await readiness.ready(proposal.proposal_id) is True
+    assert action_run["prospective_lineage"] == envelope
 
 
 async def test_exact_durable_kinetic_proposal_reaches_thor_without_raising_authority() -> None:
@@ -524,7 +604,10 @@ async def test_exact_durable_kinetic_proposal_reaches_thor_without_raising_autho
     proposal = KineticActionProposal.model_validate(verdict["kinetic_proposal"])
     assert verdict["reason"] == "arbitration_resolved"
     assert verdict["risk_verdict"] == "hil"
-    assert verdict["params"] == {"replica_count": 3}
+    assert verdict["params"] == {
+        "target_resource_ref": "resource-example",
+        "reason": "Capacity forecast crossed the reviewed scaling threshold.",
+    }
     assert proposal.plan.planner_ref != proposal.operational_plan_id
     assert proposal.plan.operational_plan_ref == proposal.operational_plan_id
     assert action_run["state"] == "hil_pending"

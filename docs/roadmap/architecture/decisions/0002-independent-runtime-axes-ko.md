@@ -1,8 +1,8 @@
 ---
 title: ADR-0002 Independent Runtime and Customization Axes
 translation_of: 0002-independent-runtime-axes.md
-translation_source_sha: 536ea6f6e782883502b93d57c93345d4e0624a2e
-translation_revised: 2026-08-24
+translation_source_sha: 8a40eead6a3bac9062ece3d511c5f1d1890215b1
+translation_revised: 2026-08-30
 ---
 # ADR-0002: 독립적인 런타임 및 Customization 축
 
@@ -40,6 +40,7 @@ FDAI는 다음 축을 독립 구성으로 취급합니다.
 | 실행기 신원 | managed 워크로드 신원 | deployed 실행기 경계 |
 | 권한 확인 정책 | Signed scoped 정책 번들 및 effective-access 근거 | execution-authorization 해석기 |
 | Kinetic 근거 가용성 | 누락, 저장된 exact V2 plan, 독립적으로 관측된 outcome | 근거 producer 및 영속 저장소 |
+| 근거 충돌 상태 | 없음, 활성, 상위 개정으로 해결됨 | Heimdall 발행, Muninn 변환 결과 및 ActionType 의미 의존성 |
 | 분포 | `upstream`, `fork` | 출처 및 customization 경계 |
 | Operational 안전성 프로파일 | `mscp-operational-v1` | Versioned 코어 정책, 실행 권한 아님 |
 
@@ -55,6 +56,8 @@ FDAI는 다음 축을 독립 구성으로 취급합니다.
 - 저장된 kinetic safety receipt는 하나의 Action이 pre-dispatch exact V2 plan에 연결되었음만
   입증합니다. 증적의 존재는 Action을 promote하거나 실행 권한을 부여하거나 independent observed
   outcome을 대체하지 않습니다. 증적이 없으면 현재 catalog state에서 복구할 수 없습니다.
+- 해결되지 않은 근거 충돌은 충돌한 Property 의미 규칙을 요구하는 ActionType만 권한을 낮춥니다.
+  실행 위치, 환경, 수명 주기 또는 승인으로 충돌을 해제하거나 권한을 높일 수 없습니다.
 - 대화 경로 완료는 근거 권한이 아닙니다. 결정론적 assurance는 venue,
   환경 또는 답변 출처와 무관하게 비어 있지 않은 최종 근거 매니페스트를 요구합니다.
 - Chat-policy 승격은 통계적으로 양수인 measured gain을 요구합니다. Venue, 환경 또는

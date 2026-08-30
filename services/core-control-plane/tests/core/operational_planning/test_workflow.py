@@ -34,6 +34,17 @@ async def test_planning_coordinator_records_complete_replayable_process() -> Non
     replay = await coordinator.build(**values)
 
     assert first is not None and replay is not None
+    assert first.selection.selected_option_id is not None
+    first = await coordinator.finalize(
+        first,
+        selected_option_id=first.selection.selected_option_id,
+        recorded_at=NOW,
+    )
+    replay = await coordinator.finalize(
+        replay,
+        selected_option_id=first.selection.selected_option_id,
+        recorded_at=NOW,
+    )
     assert replay.plan.plan_id == first.plan.plan_id
     snapshot = await store.get(first.plan.process_id)
     assert snapshot is not None
@@ -71,6 +82,19 @@ async def test_recorder_rejects_conflicting_replay() -> None:
     )
     first = await coordinator.build(**values)
     assert first is not None
+    assert first.selection.selected_option_id is not None
+    await coordinator.finalize(
+        first,
+        selected_option_id=first.selection.selected_option_id,
+        recorded_at=NOW,
+    )
 
     with pytest.raises(ValueError, match="conflicts"):
-        await coordinator.build(**{**values, "impacts": {"cost": 0.9, "capacity": 0.1}})
+        changed = await coordinator.build(**{**values, "impacts": {"cost": 0.9, "capacity": 0.1}})
+        assert changed is not None
+        assert changed.selection.selected_option_id is not None
+        await coordinator.finalize(
+            changed,
+            selected_option_id=changed.selection.selected_option_id,
+            recorded_at=NOW,
+        )

@@ -48,13 +48,13 @@ from fdai.agents.heimdall import (
     ReadInvestigationHook,
 )
 from fdai.agents.huginn import DiscoveryProjector, Huginn
-from fdai.agents.muninn import Muninn
 from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga
 from fdai.agents.thor import ActionExecutor, ActionRunStore, Thor
 from fdai.agents.var import ApproverAuthorizer, Var
 from fdai.agents.vidar import RollbackExecutor, Vidar
 from fdai.core.architecture_review import ArchitectureReviewTraceObserver
+from fdai.core.capacity import CapacityGraduationController
 from fdai.core.case_history import (
     CaseHistoryAnalyzer,
     CaseHistoryMaterializer,
@@ -70,8 +70,13 @@ from fdai.core.learning import PostTurnReviewCoordinator
 from fdai.core.metering.budget import BudgetLedger, ModelBudget
 from fdai.core.metering.pricing import PricingTable
 from fdai.core.metering.sink import MeteringSink
+from fdai.core.ontology_platform.evidence_conflict import EvidenceConflictSink
 from fdai.core.operational_context import OperationalContextMaterializer
 from fdai.core.operational_learning import OperatingPatternCompiler
+from fdai.core.operational_planning.prospective_lineage import (
+    ProspectiveLineageFinalizer,
+    ProspectiveLineageMaterializer,
+)
 from fdai.core.rule_semantic_generation import RuleGenerationActivationBinder
 from fdai.core.tiers.t1_lightweight.tier import EmbeddingModel
 from fdai.rule_catalog.schema.rule_semantic_feedback import SemanticFeedbackCandidateSink
@@ -79,6 +84,8 @@ from fdai.shared.contracts.models import OntologyActionType
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.resource_lock import ResourceLock
 from fdai.shared.providers.state_store import StateStore
+
+from .runtime_operational_agents import bind_operational_agents
 
 _LOG = logging.getLogger(__name__)
 _INGRESS_PRINCIPAL = "Huginn"
@@ -117,6 +124,7 @@ class PantheonRuntime:
         consumer_group_prefix: str = _DEFAULT_GROUP_PREFIX,
         saga: Saga | None = None,
         muninn_state_store: StateStore | None = None,
+        evidence_conflict_sink: EvidenceConflictSink | None = None,
         rule_generation_workers: runtime_subscriptions.RuleGenerationWorkerBindings | None = None,
         rule_generation_activation_binder: RuleGenerationActivationBinder | None = None,
         rule_generation_state_store: StateStore | None = None,
@@ -148,6 +156,8 @@ class PantheonRuntime:
         operational_context_materializer: OperationalContextMaterializer | None = None,
         operational_planner: factory.PlanningCoordinator | None = None,
         kinetic_proposal_source: factory.KineticProposalSource | None = None,
+        prospective_lineage_finalizer: ProspectiveLineageFinalizer | None = None,
+        prospective_lineage_materializer: ProspectiveLineageMaterializer | None = None,
         change_assessor: ChangeAssessmentService | None = None,
         catalog_review: CatalogReviewBindings | None = None,
         case_history_retention: CaseHistoryRetentionService | None = None,
@@ -169,6 +179,7 @@ class PantheonRuntime:
         semantic_router_config: SemanticRouterConfig | None = None,
         conversation_tool_timeout_seconds: float = 5.0,
         cost_runtime: factory.CostRuntimeBindings = factory.DEFAULT_COST_RUNTIME_BINDINGS,
+        capacity_graduation_controller: CapacityGraduationController | None = None,
     ) -> PantheonRuntime:
         """Instantiate + wire the pantheon against ``provider``.
 
@@ -242,43 +253,30 @@ class PantheonRuntime:
         action_semantics = (
             ActionSemanticsCatalog.from_action_types(action_types) if action_types else None
         )
-        if (
-            scenario_coverage_aggregator is not None
-            or post_turn_review is not None
-            or case_history_analyzer is not None
-            or operating_pattern_compiler is not None
-            or semantic_feedback_store is not None
-        ):
-            instantiated["Norns"] = Norns(
-                coverage_aggregator=scenario_coverage_aggregator,
-                post_turn_review=post_turn_review,
-                case_history_analyzer=case_history_analyzer,
-                operating_pattern_compiler=operating_pattern_compiler,
-                semantic_feedback_store=semantic_feedback_store,
-            )
-        if (
-            muninn_state_store is not None
-            or case_history_materializer is not None
-            or case_history_retention is not None
-        ):
-            instantiated["Muninn"] = Muninn(
-                durable_state_store=muninn_state_store,
-                case_history=case_history_materializer,
-                case_history_retention=case_history_retention,
-                case_retention_days=case_retention_days,
-                case_deletion_days=case_deletion_days,
-            )
-        forseti = factory.configured_forseti(
-            rbac=operator_rbac,
+        bind_operational_agents(
+            instantiated,
+            scenario_coverage_aggregator=scenario_coverage_aggregator,
+            post_turn_review=post_turn_review,
+            case_history_analyzer=case_history_analyzer,
+            operating_pattern_compiler=operating_pattern_compiler,
+            semantic_feedback_store=semantic_feedback_store,
+            muninn_state_store=muninn_state_store,
+            case_history_materializer=case_history_materializer,
+            case_history_retention=case_history_retention,
+            case_retention_days=case_retention_days,
+            case_deletion_days=case_deletion_days,
+            evidence_conflict_sink=evidence_conflict_sink,
+            prospective_lineage_materializer=prospective_lineage_materializer,
+            operator_rbac=operator_rbac,
             action_semantics=action_semantics,
-            operational_context=operational_context_materializer,
+            operational_context_materializer=operational_context_materializer,
             operational_planner=operational_planner,
             kinetic_proposal_source=kinetic_proposal_source,
+            prospective_lineage_finalizer=prospective_lineage_finalizer,
             change_assessor=change_assessor,
+            cost_runtime=cost_runtime,
+            capacity_graduation_controller=capacity_graduation_controller,
         )
-        if forseti is not None:
-            instantiated["Forseti"] = forseti
-        instantiated["Njord"] = factory.configured_njord(cost_runtime)
         if (forecast_evaluator is None) != (forecast_closer is None) or (
             forecast_evaluator is None
         ) != (forecast_store is None):

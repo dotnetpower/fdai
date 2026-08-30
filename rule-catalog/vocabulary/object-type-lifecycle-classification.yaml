@@ -1,0 +1,88 @@
+schema_version: "1.0.0"
+categories:
+  catalog_as_code:
+    rationale: >-
+      Git-reviewed catalog declarations are authoritative. A runtime agent owner would duplicate
+      catalog promotion and revision authority.
+    source_refs:
+      - docs/roadmap/architecture/operating-ontology-platform.md
+      - docs/roadmap/architecture/operating-ontology.md
+    object_types:
+      - ActionType
+      - AuthorizationCapability
+      - AuthorizationPolicyAssignment
+      - AuthorizationRequirement
+      - ControlObjective
+      - PolicyArtifact
+      - Property
+      - ProviderPermissionSet
+      - ResourceClass
+      - ResourceType
+      - Rule
+      - RuleObjectiveBinding
+      - SignalType
+      - WorkflowDefinition
+  event_bus_registry:
+    rationale: >-
+      The typed event-bus registry already enforces the publisher and replay identity. Adding an
+      ontology lifecycle owner would create a second ownership registry for the same transition.
+    source_refs:
+      - docs/roadmap/agents/agent-pantheon.md
+      - docs/roadmap/architecture/operating-ontology.md
+    object_types:
+      - Agent
+      - Approval
+      - Conversation
+      - HandoffEscalation
+      - PostTurnReview
+      - RuleCandidate
+      - SecurityEvent
+      - Signal
+      - Turn
+  projection_owned:
+    rationale: >-
+      A provider, service, ledger, or principal-scoped projection owns these records. The projection
+      contract supplies the writer and evidence boundary without granting an agent new authority.
+    source_refs:
+      - docs/roadmap/architecture/operating-ontology.md
+      - docs/roadmap/architecture/project-structure.md
+    object_types:
+      - AccessGrant
+      - AccessGrantRequest
+      - AuthorizationDecision
+      - AuthorizationObservation
+      - BenchmarkValidation
+      - BriefingRun
+      - BriefingSubscription
+      - ChangeSummary
+      - ConfigurationBaseline
+      - ConfigurationDriftCheck
+      - ConfigurationDriftEvidence
+      - ConfigurationDriftFinding
+      - ConversationPolicy
+      - Decision
+      - DiagnosticEvidence
+      - DiagnosticFinding
+      - DiagnosticMechanism
+      - EquivalenceValidationReceipt
+      - EvidenceArtifact
+      - ExecutionProfile
+      - Finding
+      - Principal
+      - Process
+      - PythonTask
+      - Resource
+      - ReviewCase
+      - ReviewCheck
+      - UserMemoryFact
+      - UserPreference
+      - VmTaskRun
+      - WorkflowBinding
+  owner_required:
+    rationale: >-
+      Types enter this group only when review proves that no catalog, projection, ledger, or event
+      registry owns their runtime lifecycle and one fixed pantheon writer is required.
+    source_refs:
+      - docs/roadmap/agents/agent-pantheon.md
+      - docs/roadmap/architecture/operating-ontology.md
+    object_types: []

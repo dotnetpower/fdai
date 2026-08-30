@@ -46,7 +46,14 @@ async def test_terminal_reconciliation_projects_complete_multi_effect_lineage() 
         for option in operational_plan.decision_case.options
         if option.option_id == operational_plan.selection.selected_option_id
     )
-    proposal = SimpleNamespace(plan=mutation_plan, arguments=lambda: {"replica_count": 3})
+    proposal = SimpleNamespace(
+        proposal_id="kinetic-action-proposal:" + "c" * 64,
+        operational_plan_id=operational_plan.plan_id,
+        selected_option_id=selected.option_id,
+        arguments_digest=mutation_plan.arguments_digest,
+        plan=mutation_plan,
+        arguments=lambda: {"replica_count": 3},
+    )
     receipt = SimpleNamespace(
         action_idempotency_key="example-action-1",
         arguments_digest=mutation_plan.arguments_digest,
@@ -134,7 +141,8 @@ async def test_terminal_reconciliation_projects_complete_multi_effect_lineage() 
     assert lineage.decision_case.properties["target_ref"] == operational_plan.target_resource_id
     assert lineage.action_option.properties["arguments"] == {
         "digest": mutation_plan.arguments_digest,
-        "redacted": True,
+        "projection": {},
+        "bindings": [],
     }
     assert lineage.action_run.properties["status"] == "succeeded"
     assert lineage.action_run.properties["mode"] == "shadow"

@@ -1,8 +1,8 @@
 ---
 title: MSCP Operational Profile
 translation_of: mscp-operational-profile.md
-translation_source_sha: 2704458532e96800f29c56ce9cdced3ab0dd73c4
-translation_revised: 2026-08-29
+translation_source_sha: dbd492d9949f3275d987376ce7adcb8f53524955
+translation_revised: 2026-08-30
 ---
 # MSCP Operational 프로파일
 
@@ -36,6 +36,7 @@ MSCP 레벨을 구현하거나 전체 MSCP conformance를 충족한다고 주장
 | 프로파일 신원과 결정론적 정책 기본 요소 | implemented | `core/mscp_profile/profile.py`; `cycle_guard.py`; `runtime_integrity.py`; `tests/core/mscp_profile/` 아래의 집중 테스트 | 출처 이력, 비준수 선언, 범위가 제한된 순환 검사 및 런타임 매니페스트 비교를 순수 정책으로 구현했습니다. |
 | 선택적 효과 관측과 `ResponseOutcome` 변환 결과 | implemented | `core/mscp_profile/effect_verification.py`; `response_outcome.py`; `test_control_loop_shadow.py`; `test_response_outcome.py` | 쌍으로만 구성되는 조립은 실행기 결과를 유지하고 권한을 추가하지 않는 shadow 근거를 기록합니다. |
 | 권한을 높이지 않는 상한 | implemented | `core/mscp_profile/authority_ceiling.py`; `test_authority_ceiling.py` | 유한 도메인 전체를 검사하는 테스트는 프로파일이 기존 FDAI 결정을 유지하거나 낮출 수만 있음을 입증합니다. 이 상한은 강제 적용 경로에 연결되지 않았습니다. |
+| 충돌 인식 권한 낮추기 | implemented | `core/ontology_platform/evidence_conflict.py`, 컨트롤 루프 및 HIL 재개 검사 | 정본 Property 의미 규칙 교집합은 권한을 높이지 않는 상한을 재사용해 관련 ActionType만 보류합니다. 충돌 상태를 읽을 수 없으면 실행기 I/O 전에 안전하게 차단합니다. |
 | 룰 거버넌스 공존 | implemented | `runtime/control_loop.py`; `core/control_loop/_process.py`; 집중 거버넌스 안전 경로 테스트 | 배정 관찰과 exemption 보류는 전달 전에 발생합니다. MSCP 효과 관측을 활성화하거나 `ResponseOutcome`을 만들거나 프로파일 수명 주기를 변경하지 않습니다. |
 | 결정 맥락 변환 결과와 통제된 게이팅 | not-started | [차용한 메커니즘](#차용한-메커니즘); [활성화 및 런타임 동작](#활성화-및-런타임-동작) | 현재 런타임에는 프로파일 수명 주기, 측정된 준비 상태 구간 또는 권한 게이팅 통합이 없습니다. |
 

@@ -1,7 +1,7 @@
 ---
 translation_of: execution-authorization-ontology.md
-translation_source_sha: ac23add884308e7f29293ffe277151d5840ee5ef
-translation_revised: 2026-08-27
+translation_source_sha: f28c56a07fb7a692ae3144aeaf2d4281f5f74a34
+translation_revised: 2026-08-30
 ---
 # 실행 권한 부여 온톨로지
 
@@ -38,6 +38,7 @@ translation_revised: 2026-08-27
 | Exact 권한 부여 lifecycle과 역할 분리 | implemented | [`test_grant_request.py`](../../../services/core-control-plane/tests/core/execution_authorization/test_grant_request.py) | 승인, 적용, 검증, 만료, 취소, idempotency 및 서로 다른 행위자를 집중 검사로 확인합니다. |
 | 컨트롤 루프와 직접 실행기 통합 | implemented | [`test_unified_control_loop.py`](../../../services/core-control-plane/tests/pipeline/test_unified_control_loop.py), [`test_direct_api_executor.py`](../../../services/core-control-plane/tests/core/executor/test_direct_api_executor.py) | 권한 부여는 일반 위험 및 dispatch 권한보다 먼저 독립적인 fail-closed 결정으로 유지됩니다. |
 | 룰 거버넌스 순서 경계 | implemented | `runtime/control_loop.py`; `core/control_loop/_process.py`; 집중 T0 거버넌스 파이프라인 테스트 | 배정 효과와 exemption은 전달 전에 관찰, 보류 또는 차단할 수 있습니다. 적용되는 remediation도 실행 권한 부여에 진입하며 거버넌스 상태에서 프로바이더 접근 권한을 얻을 수 없습니다. |
+| 근거 충돌 실행 상한 | implemented | `evidence_conflict.py`, 일반 전달 및 사람 승인 재개 검사 | 해결되지 않은 정확한 대상 충돌은 실행기 I/O 전에 관련 ActionType을 차단합니다. 만료만으로 보류가 해제되지 않으며 승인으로 상한을 높일 수 없습니다. |
 | 역할로 거르는 보류 권한 부여 브라우저 변환 결과 | implemented | [`postgres_iam.py`](../../../services/operator-service/src/fdai_operator_service/postgres_iam.py), [`test_operator_service_postgres.py`](../../../services/operator-service/tests/test_operator_service_postgres.py), focused Operator suite 394건 통과 및 1건 건너뜀, 인증된 로컬 세션에서 `GET /access-grants/stream`이 200 반환 | Operator는 권위 있는 `execution-authorization:grant-request:` 레코드를 읽고 인증된 검토자 기준으로 걸러낸 뒤 변환합니다. 요청자는 자신의 요청을 볼 수 없으며, 브라우저 레코드는 요청자, 실행 신원, 프로바이더 대응, 결정 및 apply-plan digest를 계속 생략합니다. |
 | 브라우저 검토 권한과 영수증 정확성 | implemented | [`postgres_iam.py`](../../../services/operator-service/src/fdai_operator_service/postgres_iam.py), [`test_operator_service_postgres.py`](../../../services/operator-service/tests/test_operator_service_postgres.py), focused Operator suite 394건 통과 및 1건 건너뜀 | 결정 경로는 알 수 없는 요청, 보류가 아닌 요청, 만료된 요청, 자기 승인 및 잘못된 역할을 대기열에 넣기 전에 거부하고, 각 결정을 요청, 개정 번호 및 검토자 단위로 울타리 치며, 권위 있는 요청에 기록된 정족수, 승인 수 및 개정 번호를 보고합니다. |
 | 배포 정책, 신원 및 프로바이더 바인딩 | not-applicable | [확장 및 배포 경계](#확장-및-배포-경계) | 실제 정책 bundle, 신원, 범위, 관측 및 프로바이더 대응은 업스트림 구현이 아니라 배포가 소유하는 입력입니다. |

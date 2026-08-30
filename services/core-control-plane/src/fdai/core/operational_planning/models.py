@@ -7,7 +7,12 @@ from datetime import datetime
 from enum import StrEnum
 from math import isfinite
 
-from fdai.core.decision_case import DecisionCase, DecisionSelection, ObjectiveEffect
+from fdai.core.decision_case import (
+    ActionArguments,
+    DecisionCase,
+    DecisionSelection,
+    ObjectiveEffect,
+)
 from fdai.core.operational_context import OperationalContextSnapshot
 
 MAX_PLAN_CANDIDATES = 32
@@ -157,6 +162,7 @@ class PlanCandidate:
     simulations: tuple[SimulationReceipt, ...]
     evidence_refs: tuple[str, ...]
     assumptions: tuple[str, ...] = ()
+    arguments: ActionArguments | None = None
 
     def __post_init__(self) -> None:
         if not self.candidate_id or not self.effects:

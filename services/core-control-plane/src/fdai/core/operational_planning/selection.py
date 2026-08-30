@@ -119,6 +119,47 @@ def validate_operational_plan_identity(plan: OperationalPlan) -> None:
         raise ValueError("operational plan identity does not match its content")
 
 
+def select_operational_plan_option(
+    plan: OperationalPlan,
+    *,
+    selected_option_id: str,
+) -> OperationalPlan:
+    """Finalize one eligible Odin-selected option and rebuild plan identity."""
+
+    if not any(
+        option.option_id == selected_option_id and option.action_type is not None
+        for option in plan.decision_case.options
+    ):
+        raise ValueError("final operational plan option is unavailable")
+    assessments = []
+    selected_eligible = False
+    for assessment in plan.assessments:
+        if assessment.candidate_id == selected_option_id:
+            if assessment.disposition not in {
+                CandidateDisposition.SELECTED,
+                CandidateDisposition.ELIGIBLE,
+            }:
+                raise ValueError("final operational plan option is not eligible")
+            selected_eligible = True
+            disposition = CandidateDisposition.SELECTED
+        elif assessment.disposition is CandidateDisposition.SELECTED:
+            disposition = CandidateDisposition.ELIGIBLE
+        else:
+            disposition = assessment.disposition
+        assessments.append(replace(assessment, disposition=disposition))
+    if not selected_eligible:
+        raise ValueError("final operational plan option has no eligible assessment")
+    finalized = replace(
+        plan,
+        plan_id="operational-plan:" + "0" * 64,
+        selection=replace(plan.selection, selected_option_id=selected_option_id),
+        assessments=tuple(assessments),
+        complete=True,
+        reason="selected",
+    )
+    return replace(finalized, plan_id=_operational_plan_id(finalized))
+
+
 def _operational_plan_id(plan: OperationalPlan) -> str:
     material = {
         "process_id": plan.process_id,
@@ -209,6 +250,7 @@ def _action_option(candidate: PlanCandidate) -> ActionOption:
             for evaluation in candidate.constraints
         ),
         assumptions=candidate.assumptions,
+        arguments=candidate.arguments,
     )
 
 

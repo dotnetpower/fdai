@@ -9,6 +9,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field, model_validator
 
+from fdai.core.ontology_platform.evidence_conflict import EvidenceConflictRevision
 from fdai.core.ontology_platform.functions import ontology_function_digest
 from fdai.core.read_investigation.models import ReadInvestigationResult
 from fdai.shared.contracts.models import ContractBase
@@ -166,6 +167,7 @@ class ShadowComparisonAttempt:
     attempt_latency_ms: float | None = None
     sink_error_kind: ShadowSinkErrorKind | None = None
     cross_source_state_fact: StateFactMetadata | None = None
+    evidence_conflict_revision: EvidenceConflictRevision | None = None
 
     def __post_init__(self) -> None:
         if (self.persistence is ShadowReceiptPersistence.FAILED) != (

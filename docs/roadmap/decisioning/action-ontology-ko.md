@@ -1,7 +1,7 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: c195850f9d0c0e4ff6f984eddf3252af05322502
+translation_source_sha: 89e6227555a17ab47041965c80eb698f5aff8253
 translation_revised: 2026-08-30
 ---
 
@@ -109,6 +109,9 @@ preconditions:
   - kind: resource_tag_present
     tag: string
   - ...                                  # 기존 카탈로그 재사용
+
+required_evidence_semantic_refs:          # canonical Property.semantic_id 값
+  - runtime.vm.power_state               # 해소되지 않은 일치 충돌 -> shadow_only
 
 stop_conditions:
   - kind: provider_api_error_streak
@@ -266,6 +269,12 @@ direct-API 및 tool-call 요청과 감사 항목은 같은 목록을 flatten하�
 계획을 반환합니다. 보존된 버전 1 `MutationPlan` 페이로드는 버전 2 신원 필드 없이도 계속
 decode되지만 의미 compilation은 항상 버전 2를 생성합니다. 컴파일러는 RiskGate, 에이전트,
 실행기 또는 프로바이더를 호출하지 않으며 효과와 postcondition은 권한을 선언할 수 없습니다.
+
+`required_evidence_semantic_refs`는 액션이 의존하는 canonical Property semantic을 선언합니다.
+카탈로그는 알 수 없는 참조를 거부합니다. 해소되지 않은 `EvidenceConflict`는 정확한 대상의
+ActionType 필수 참조와 충돌 참조가 교차할 때만 해당 ActionType을 낮춥니다. 현재 backfill은 VM
+시작, 할당 해제, 관리형 Python 실행의 전원 상태를 다룹니다. 다른 액션은 일치하는 권위 있는 충돌
+생산자가 생길 때까지 변경하지 않습니다.
 
 ## 3. Category 카탈로그
 

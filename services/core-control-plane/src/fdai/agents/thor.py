@@ -35,6 +35,7 @@ from fdai.agents._framework.introspection import (
 from fdai.agents._framework.pantheon import _THOR
 from fdai.core.executor.safeguards import resource_lock_key
 from fdai.core.operational_planning import KineticActionProposal
+from fdai.core.operational_planning.prospective_lineage import ProspectiveLineage
 from fdai.shared.contracts.models import Autonomy
 from fdai.shared.providers.resource_lock import ResourceLock
 
@@ -124,6 +125,7 @@ class ActionRun:
     operational_context: dict[str, Any] | None = None
     workflow_action: dict[str, str] | None = None
     kinetic_proposal: dict[str, Any] | None = None
+    prospective_lineage: dict[str, Any] | None = None
     execution_audit_receipt: str | None = None
     approval_expires_at: datetime | None = None
     terminal_published: bool = False
@@ -159,6 +161,7 @@ class ActionRun:
             "operational_context": deepcopy(self.operational_context),
             "workflow_action": deepcopy(self.workflow_action),
             "kinetic_proposal": deepcopy(self.kinetic_proposal),
+            "prospective_lineage": deepcopy(self.prospective_lineage),
             "execution_audit_receipt": self.execution_audit_receipt,
             "approval_expires_at": (
                 self.approval_expires_at.isoformat()
@@ -197,6 +200,7 @@ class ActionRun:
             operational_context=operational_context,
             workflow_action=_bounded_workflow_action(data.get("workflow_action")),
             kinetic_proposal=_durable_kinetic_proposal(data.get("kinetic_proposal")),
+            prospective_lineage=_durable_prospective_lineage(data.get("prospective_lineage")),
             execution_audit_receipt=_optional_bounded_text(
                 data.get("execution_audit_receipt"),
                 field_name="execution_audit_receipt",
@@ -471,6 +475,9 @@ class Thor(Agent):
             if payload.get("kind") == "architecture_review":
                 self.record_behavior("architecture_review_verdict_ignored")
                 return
+            if payload.get("kind") == "capacity_graduation":
+                self.record_behavior("capacity_graduation_verdict_ignored")
+                return
             await self.dispatch_verdict(payload)
         elif topic == "object.approval":
             if payload.get("kind") == "document_ingestion":
@@ -515,6 +522,8 @@ class Thor(Agent):
             resolved_autonomy_ceiling = Autonomy.SHADOW_ONLY
         raw_kinetic_proposal = verdict.get("kinetic_proposal")
         kinetic_proposal = _kinetic_proposal(raw_kinetic_proposal)
+        raw_prospective_lineage = verdict.get("prospective_lineage")
+        prospective_lineage = _prospective_lineage(raw_prospective_lineage)
         semantic_arbitration = verdict.get("reason") in {
             "arbitration_resolved",
             "arbitration_unresolved",
@@ -535,16 +544,28 @@ class Thor(Agent):
                 decision_case=decision_case,
             )
         )
+        invalid_prospective_lineage = raw_prospective_lineage is not None and (
+            prospective_lineage is None
+            or kinetic_proposal is None
+            or prospective_lineage.correlation_id != correlation
+            or prospective_lineage.proposal_id != kinetic_proposal.proposal_id
+            or prospective_lineage.operational_plan_id != kinetic_proposal.operational_plan_id
+            or prospective_lineage.mutation_plan_digest != kinetic_proposal.plan.digest
+        )
         if (
             (semantic_arbitration and decision_case is None)
             or invalid_decision_case
             or invalid_kinetic_proposal
+            or invalid_prospective_lineage
         ):
             risk_verdict = "deny"
             action_type = ""
             kinetic_proposal = None
+            prospective_lineage = None
             if invalid_kinetic_proposal:
                 self.record_behavior("kinetic_proposal:invalid")
+            if invalid_prospective_lineage:
+                self.record_behavior("prospective_lineage:invalid")
         elif kinetic_proposal is not None:
             self.record_behavior("kinetic_proposal:validated")
 
@@ -628,6 +649,11 @@ class Thor(Agent):
             workflow_action=_bounded_workflow_action(verdict.get("workflow_action")),
             kinetic_proposal=(
                 kinetic_proposal.model_dump(mode="json") if kinetic_proposal is not None else None
+            ),
+            prospective_lineage=(
+                prospective_lineage.model_dump(mode="json")
+                if prospective_lineage is not None
+                else None
             ),
             approval_expires_at=(
                 self._now() + timedelta(seconds=self._hil_timeout_seconds)
@@ -1103,6 +1129,7 @@ class Thor(Agent):
             "operational_context": deepcopy(run.operational_context),
             "workflow_action": deepcopy(run.workflow_action),
             "kinetic_proposal": deepcopy(run.kinetic_proposal),
+            "prospective_lineage": deepcopy(run.prospective_lineage),
             "execution_audit_receipt": run.execution_audit_receipt,
             "approval_expires_at": (
                 run.approval_expires_at.isoformat() if run.approval_expires_at is not None else None
@@ -1364,6 +1391,22 @@ def _durable_kinetic_proposal(raw: object) -> dict[str, Any] | None:
     return proposal.model_dump(mode="json") if proposal is not None else None
 
 
+def _prospective_lineage(raw: object) -> ProspectiveLineage | None:
+    if raw is None:
+        return None
+    try:
+        return ProspectiveLineage.model_validate(raw)
+    except (TypeError, ValueError, ValidationError):
+        return None
+
+
+def _durable_prospective_lineage(raw: object) -> dict[str, Any] | None:
+    lineage = _prospective_lineage(raw)
+    if raw is not None and lineage is None:
+        raise ValueError("durable ActionRun prospective lineage is invalid")
+    return lineage.model_dump(mode="json") if lineage is not None else None
+
+
 def _require_bound_kinetic_proposal(run: ActionRun) -> None:
     """Reject rehydrated exact-argument evidence that belongs to another run.
 
@@ -1384,6 +1427,16 @@ def _require_bound_kinetic_proposal(run: ActionRun) -> None:
         decision_case=run.decision_case,
     ):
         raise ValueError("durable ActionRun kinetic proposal is not bound to its run")
+    if run.prospective_lineage is not None:
+        lineage = _prospective_lineage(run.prospective_lineage)
+        if (
+            lineage is None
+            or lineage.correlation_id != run.correlation_id
+            or lineage.proposal_id != proposal.proposal_id
+            or lineage.operational_plan_id != proposal.operational_plan_id
+            or lineage.mutation_plan_digest != proposal.plan.digest
+        ):
+            raise ValueError("durable ActionRun prospective lineage is not bound to its run")
 
 
 def _kinetic_proposal_matches(

@@ -23,6 +23,10 @@ from fdai.core.ontology_platform.inventory_projection import (
     DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS,
 )
 from fdai.core.operational_context import OperationalEvidenceReadService
+from fdai.delivery.evidence_conflict import (
+    EventBusEvidenceConflictCandidatePublisher,
+    StateStoreEvidenceConflictProjection,
+)
 from fdai.delivery.inventory_live_evidence import (
     InventoryGraphLiveRefreshProvider,
     InventoryLiveEvidenceWriter,
@@ -284,6 +288,11 @@ async def build_semantic_runtime(
         activity_publisher=EventBusOperationalActivityPublisher(
             event_bus=operational_event_bus,
             topic=stage_topic,
+        ),
+        evidence_conflict_reader=StateStoreEvidenceConflictProjection(state_store),
+        evidence_conflict_publisher=EventBusEvidenceConflictCandidatePublisher(
+            event_bus=event_bus,
+            topic=container.config.kafka.topic_events,
         ),
     )
     if semantic_turn_binding is not None and not semantic_turn_binding.available:

@@ -6,6 +6,14 @@ runtime reads to decide whether an action class needs a warm lane. See
 [cost-model.md](../../../../docs/roadmap/interfaces/cost-model.md).
 """
 
+from fdai.core.capacity.graduation import (
+    CapacityGraduationController,
+    CapacityGraduationEvidence,
+    CapacityGraduationPolicy,
+    CapacityGraduationRecommendation,
+    CapacityTransition,
+    GraduationRecommendationStatus,
+)
 from fdai.core.capacity.warm_pool import (
     CapacityDecision,
     WarmCapacityConfig,
@@ -14,6 +22,12 @@ from fdai.core.capacity.warm_pool import (
 
 __all__ = [
     "CapacityDecision",
+    "CapacityGraduationController",
+    "CapacityGraduationEvidence",
+    "CapacityGraduationPolicy",
+    "CapacityGraduationRecommendation",
+    "CapacityTransition",
+    "GraduationRecommendationStatus",
     "WarmCapacityConfig",
     "WarmCapacityPolicy",
 ]

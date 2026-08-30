@@ -27,7 +27,15 @@ from fdai.core.case_history import (
     CaseHistoryRetentionService,
     OperationalCaseInput,
 )
+from fdai.core.ontology_platform.evidence_conflict import (
+    EvidenceConflictRevision,
+    EvidenceConflictSink,
+)
 from fdai.core.operational_learning import PatternCase, pattern_case_from_operational_case
+from fdai.core.operational_planning.prospective_lineage import (
+    ProspectiveLineage,
+    ProspectiveLineageMaterializer,
+)
 from fdai.core.readiness import DetectionReadinessSnapshot, detection_readiness_state_key
 from fdai.rule_catalog.schema.rule_semantic_feedback import (
     build_feedback_candidate,
@@ -65,6 +73,8 @@ class Muninn(Agent):
         case_history_clock: Callable[[], datetime] | None = None,
         case_retention_days: int = 30,
         case_deletion_days: int = 60,
+        evidence_conflict_sink: EvidenceConflictSink | None = None,
+        prospective_lineage_materializer: ProspectiveLineageMaterializer | None = None,
     ) -> None:
         if case_retention_days < 1 or case_deletion_days < case_retention_days:
             raise ValueError("Muninn case retention days MUST be positive and ordered")
@@ -76,6 +86,8 @@ class Muninn(Agent):
         self._case_history_clock = case_history_clock or _utc_now
         self._case_retention_days = case_retention_days
         self._case_deletion_days = case_deletion_days
+        self._evidence_conflict_sink = evidence_conflict_sink
+        self._prospective_lineage_materializer = prospective_lineage_materializer
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if topic == "object.turn":
@@ -123,6 +135,57 @@ class Muninn(Agent):
             await self._apply_case_history_retention(payload)
         elif topic == "object.change":
             self._materialize_change(payload)
+        elif topic == "object.evidence-conflict":
+            await self._materialize_evidence_conflict(payload)
+        elif topic == "object.prospective-lineage":
+            await self._materialize_prospective_lineage(payload)
+        elif (
+            topic == "object.audit-entry"
+            and payload.get("action_kind") == "prospective_lineage.sealed"
+        ):
+            await self._seal_prospective_lineage(payload)
+
+    async def _materialize_evidence_conflict(self, payload: dict[str, Any]) -> None:
+        if self._evidence_conflict_sink is None:
+            raise RuntimeError("Muninn evidence-conflict sink is unavailable")
+        try:
+            revision = EvidenceConflictRevision.model_validate(
+                {
+                    field: payload[field]
+                    for field in EvidenceConflictRevision.model_fields
+                    if field in payload
+                }
+            )
+        except (KeyError, ValueError) as exc:
+            raise ValueError("Muninn received invalid evidence-conflict revision") from exc
+        created = await self._evidence_conflict_sink.append(revision)
+        self.record_behavior("evidence_conflict:" + ("stored" if created else "duplicate"))
+
+    async def _materialize_prospective_lineage(self, payload: dict[str, Any]) -> None:
+        materializer = self._prospective_lineage_materializer
+        if materializer is None:
+            raise RuntimeError("Muninn prospective-lineage materializer is unavailable")
+        envelope = ProspectiveLineage.model_validate(
+            {field: payload[field] for field in ProspectiveLineage.model_fields if field in payload}
+        )
+        created = await materializer.materialize(envelope)
+        self.record_behavior("prospective_lineage:" + ("materialized" if created else "duplicate"))
+
+    async def _seal_prospective_lineage(self, payload: dict[str, Any]) -> None:
+        materializer = self._prospective_lineage_materializer
+        if materializer is None:
+            raise RuntimeError("Muninn prospective-lineage materializer is unavailable")
+        lineage_id = str(payload.get("lineage_id") or "")
+        subgraph_digest = str(payload.get("subgraph_digest") or "")
+        if not lineage_id or not subgraph_digest:
+            raise ValueError("prospective-lineage Saga seal is incomplete")
+        created = await materializer.seal_saga(
+            lineage_id=lineage_id,
+            subgraph_digest=subgraph_digest,
+        )
+        self.record_behavior(
+            "prospective_lineage:" + ("saga_sealed" if created else "saga_duplicate")
+        )
 
     async def _materialize_retrieval_validation(self, payload: dict[str, Any]) -> None:
         if payload.get("producer_principal") != "Heimdall":

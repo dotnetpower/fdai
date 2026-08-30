@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 081742da97c3a447bd26b6d88bca4c88c3342916
+translation_source_sha: 2c0815a66c33d6429cb1d4c85c883cf740d05b62
 translation_revised: 2026-08-30
 ---
 # 온톨로지 구조 모델
@@ -336,6 +336,7 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 | ResourceClass 카탈로그와 변환 결과 | implemented | `resource_class.py`, `resource-classes.yaml`, ResourceClass/ObjectType 및 멤버 자격/특수화 선언, 카탈로그 변환 결과, 클로저 증적, 집중 카탈로그 검사 | 검토된 클래스 11개가 직접 멤버 자격 80개와 범위가 제한된 특수화 링크 11개를 통해 중립 ResourceType 80개를 모두 변환합니다. 클로저는 명시적 id만 사용하고 권한을 부여하지 않습니다. |
 | 순서가 있는 형식화된 경로 쿼리 | implemented | `TypedPathDefinition`, `QueryNodeKind.TYPED_PATH`, 결정적 검증기, 보안 적용 handler, composition binding, 집중 쿼리 검사 | 기존 v1 탐색은 LinkType 하나만 받습니다. 형식화된 경로는 방향이 고정된 단계 1-8개를 실행하고 불완전한 중간 근거에서 보류합니다. |
 | 링크 역할과 의미 특성 | implemented | 공유 LinkType 계약 및 스키마, 쿼리 매니페스트, 검토된 런타임 선언 7개와 분류 선언 2개, 카탈로그 테스트 | 선택적인 빈 필드는 기존 provenance를 보존합니다. 검토된 필드는 역방향 edge나 표현 레이아웃을 만들지 않습니다. |
+| 수명 주기 없는 선언과 권한 전달 객체 | implemented | `object-type-lifecycle-classification.yaml`, `CapacityGraduationRecommendation`, `EvidenceConflict`, `ProspectiveLineage`, 엄격한 카탈로그 및 일치 검사 | 수명 주기가 없는 모든 ObjectType에는 검토 가능한 분류가 하나씩 있습니다. 추가된 전달 객체 3개는 고정된 에이전트 소유권을 보존하고 실행 권한을 부여하지 않습니다. |
 | 완전성과 표현 분리 | implemented | 권위 있는 온톨로지 그래프 materializer, 통합 테스트, Console 디코더, LinkType 검사기, 그래프 우선 인스턴스 작업 영역, 이중 언어 제품 카탈로그, 타입 검사, 프로덕션 빌드 | 선언 그래프는 독립적인 제한 계열 4개를 전달하고 범위 내 모든 LinkType의 역할과 특성을 노출합니다. 인스턴스 작업 영역은 그래프 권한을 바꾸지 않고 선택, 범례, Inspector 상태를 표현 계층에 유지합니다. |
 | 거버넌스 아티팩트 분리 | implemented | `rule_catalog/schema/governance_catalog.py`; `rule_catalog/schema/retirement.py`; `delivery/catalog_exemption.py`; 집중 거버넌스 로더 및 registry 테스트 | 배정, exemption 및 rule retirement은 검증된 catalog-as-code 입력입니다. 병합된 retirement은 active rule index에서 projection되며 쿼리, 승인 또는 실행 권한을 부여하지 않습니다. |
 | 프로바이더 관찰 토폴로지 생산 | implemented | `azure-arg-v1.yaml`, `arm_inventory.py`, `kubernetes_api_inventory.py`, `kubernetes_inventory.py`, 집중 Azure, Kubernetes, 인벤토리 승격, 카탈로그, Ruff 및 strict mypy 검사 | 검토된 매핑 94개가 Azure 포함 및 트래픽 구성, UID 기반 Kubernetes 런타임 토폴로지, 정확한 Node 프로바이더 아이덴티티, Ingress 백엔드 Service 및 EndpointSlice 노출을 포함합니다. 구성되지 않은 Kubernetes 출처는 명시적인 `unavailable` 세대 근거로 보존됩니다. 실제 운영 Kubernetes 근거는 별도 검증 작업으로 남습니다. |

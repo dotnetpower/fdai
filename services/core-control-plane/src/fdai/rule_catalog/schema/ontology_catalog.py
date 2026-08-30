@@ -15,6 +15,10 @@ from fdai.rule_catalog.schema.interface_type import (
 )
 from fdai.rule_catalog.schema.link_type import load_link_type_catalog
 from fdai.rule_catalog.schema.object_type import load_object_type_catalog
+from fdai.rule_catalog.schema.object_type_lifecycle_classification import (
+    ObjectTypeLifecycleClassificationRegistry,
+    load_object_type_lifecycle_classification_registry,
+)
 from fdai.rule_catalog.schema.property_semantic import (
     PropertySemanticRegistry,
     empty_property_semantic_registry,
@@ -48,6 +52,7 @@ class OntologyCatalog:
     link_types: tuple[OntologyLinkType, ...]
     action_types: tuple[OntologyActionType, ...]
     property_semantics: PropertySemanticRegistry
+    lifecycle_classifications: ObjectTypeLifecycleClassificationRegistry | None = None
     function_types: tuple[OntologyFunctionType, ...] = ()
     resource_classes: ResourceClassRegistry | None = None
 
@@ -76,6 +81,10 @@ def load_ontology_catalog(
     object_types = load_object_type_catalog(
         vocabulary_root / "object-types",
         schema_registry=schema_registry,
+    )
+    lifecycle_classifications = load_object_type_lifecycle_classification_registry(
+        vocabulary_root / "object-type-lifecycle-classification.yaml",
+        object_types=object_types,
     )
     interface_types = load_interface_type_catalog(
         vocabulary_root / "interface-types",
@@ -114,6 +123,10 @@ def load_ontology_catalog(
         if property_semantics_path.exists()
         else empty_property_semantic_registry()
     )
+    _validate_action_evidence_semantics(
+        action_types=action_types,
+        property_semantics=property_semantics,
+    )
     resource_types_path = vocabulary_root / "resource-types.yaml"
     resource_classes_path = vocabulary_root / "resource-classes.yaml"
     if resource_types_path.exists() != resource_classes_path.exists():
@@ -134,6 +147,7 @@ def load_ontology_catalog(
         link_types=link_types,
         action_types=action_types,
         property_semantics=property_semantics,
+        lifecycle_classifications=lifecycle_classifications,
         function_types=function_types,
         resource_classes=resource_classes,
     )
@@ -161,6 +175,22 @@ def _validate_interface_references(
                 failures.append(f"{interface.name} supports unknown ActionType {action!r}")
     if failures:
         raise ValueError("invalid InterfaceType references: " + "; ".join(sorted(failures)))
+
+
+def _validate_action_evidence_semantics(
+    *,
+    action_types: tuple[OntologyActionType, ...],
+    property_semantics: PropertySemanticRegistry,
+) -> None:
+    known = {item.semantic_id for item in property_semantics.semantics}
+    failures = sorted(
+        f"{action.name} requires unknown Property semantic {semantic_ref!r}"
+        for action in action_types
+        for semantic_ref in action.required_evidence_semantic_refs
+        if semantic_ref not in known
+    )
+    if failures:
+        raise ValueError("invalid ActionType evidence references: " + "; ".join(failures))
 
 
 __all__ = ["OntologyCatalog", "load_ontology_catalog"]

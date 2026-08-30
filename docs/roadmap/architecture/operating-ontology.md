@@ -37,7 +37,7 @@ shipped evidence behind them. Provider paths never branch core code, and
 `scripts/quality/architecture/check-property-semantic-coverage.py` measures the coverage below.
 
 <!-- property-semantic-coverage:begin -->
-Measured reviewed coverage: **62 of 62** rule-evaluated Property references (100.0%) across 44
+Measured reviewed coverage: **62 of 62** rule-evaluated Property references (100.0%) across 45
 reviewed semantics, computed by the gate rather than by hand. Every rule-evaluated Property
 reference has reviewed meaning and bounded canonical normalization; a new reference cannot pass
 the gate without updating the registry and floor.
@@ -256,9 +256,10 @@ therefore compile to explicit physical names such as `workload_runs_on`, `worklo
 `objective_owned_by`. Every other row in the table is a declared LinkType under
 `rule-catalog/vocabulary/link-types/`. This keeps endpoint validation deterministic.
 
-`predicts_breach_of` and `learned_as` are deliberately absent. Both endpoint ObjectTypes now ship,
-but neither pair is producible, so the learning ontology records each blocker and the condition for
-its return in [deferred relationships](../rules-and-detection/operational-learning-ontology.md#deferred-relationships).
+`predicts_breach_of` and `learned_as` are deliberately absent. Both endpoint ObjectTypes remain
+available as semantic declarations, but neither pair has an authoritative runtime producer. The
+relationship plans are retired rather than waiting for speculative endpoint writers. See
+[retired relationship plans](../rules-and-detection/operational-learning-ontology.md#retired-relationship-plans).
 
 ## Identity and time
 
@@ -389,6 +390,21 @@ per claim, withholds contested properties, and emits explicit conflict keys with
 winner. The existing projected-state-versus-telemetry shadow path applies the same no-authority
 rule and records conflicts on its derived fact and receipt.
 
+`EvidenceConflict` carries that conflict beyond the read answer. It is a resource-scoped,
+content-addressed object with immutable `active` and `resolved` revisions. Each revision retains two
+distinct source identities, claim and source revisions, cutoffs, evidence references, canonical
+Property semantic references, the exact conflicting fields, and the earliest freshness expiry.
+Expiry does not resolve a conflict. Only a newer exact-slot revision whose two claim digests agree
+can supersede the active revision as `resolved`.
+
+The read-shadow comparison publishes an exact-generation candidate through Huginn ingress.
+Heimdall validates and becomes the sole `object.evidence-conflict` publisher. Muninn appends every
+revision and advances one target-generation current slot with compare-and-set semantics. Before
+normal dispatch and again after human approval, the executor path reads that current projection.
+An active or expired unresolved conflict lowers an ActionType only when its canonical semantic refs
+intersect `required_evidence_semantic_refs`; lookup failure also blocks executor I/O. Another target
+or unrelated semantic is not applicable and cannot raise or lower the existing decision.
+
 **Reading an empty conflict tuple.** An empty `StateFactMetadata.conflicts` means only that the
 observations that were compared agreed. It is not proof that the fact was independently
 corroborated, and it is never evidence that no conflict exists. Absence of an adjudicated conflict
@@ -418,9 +434,9 @@ name so it can be checked rather than interpreted.
 |-------|---------------------------------------------|
 | Odin | none declared |
 | Thor | `ActionRun` |
-| Forseti | `ActionOption`, `CausalHypothesis`, `DecisionCase`, `ExpectedEffect`, `ImpactEnvelope` |
+| Forseti | `ActionOption`, `CausalHypothesis`, `DecisionCase`, `ExpectedEffect`, `ImpactEnvelope`, `ProspectiveLineage` |
 | Huginn | `Change`, `Observation` |
-| Heimdall | `Forecast`, `Incident`, `ObservedOutcome` |
+| Heimdall | `EvidenceConflict`, `Forecast`, `Incident`, `ObservedOutcome` |
 | Vidar | `RecoveryPlan` |
 | Var | none declared |
 | Bragi | none declared |
@@ -429,7 +445,7 @@ name so it can be checked rather than interpreted.
 | Muninn | `BusinessCapability`, `BusinessService`, `Environment`, `Ownership`, `RecoveryObjective`, `ServiceObjective`, `Workload` |
 | Norns | `Pattern` |
 | Njord | `Budget`, `CostAnomaly`, `CostObjective`, `CostObservation` |
-| Freyr | `CapacityForecast`, `SizingRecommendation` |
+| Freyr | `CapacityForecast`, `CapacityGraduationRecommendation`, `SizingRecommendation` |
 | Loki | `Experiment` |
 
 Three consequences of that table are load-bearing and easy to get wrong.
@@ -454,15 +470,19 @@ the approver, receipt, exact case, context, evidence, graph, catalog, conditions
 and effective interval. These fields add no ontology owner and always carry
 `execution_authority=false`; adding `lifecycle` merely to fill the field is not supported.
 
-The complete review of lifecycle-free shipped types is recorded below. These are existing
-authorities, not new ontology writers; none requires an agent single-writer merely because it is
-represented in the graph.
+The machine-readable
+`rule-catalog/vocabulary/object-type-lifecycle-classification.yaml` registry is the source of truth
+for lifecycle-free types. Catalog loading requires every such ObjectType to appear in exactly one
+category and rejects a classified type after it gains a lifecycle owner. The table below is the
+reader-facing projection of that registry. These are existing authorities, not new ontology
+writers; none requires an agent single-writer merely because it is represented in the graph.
 
-| Existing authority | Lifecycle-free ObjectTypes |
-|--------------------|---------------------------|
+| Classification | Lifecycle-free ObjectTypes |
+|----------------|---------------------------|
 | Catalog-as-code or reviewed catalog projection | `ActionType`, `AuthorizationCapability`, `AuthorizationPolicyAssignment`, `AuthorizationRequirement`, `ControlObjective`, `PolicyArtifact`, `Property`, `ProviderPermissionSet`, `ResourceClass`, `ResourceType`, `Rule`, `RuleObjectiveBinding`, `SignalType`, `WorkflowDefinition` |
 | Event-bus registry and typed event contract | `Agent`, `Approval`, `Conversation`, `HandoffEscalation`, `PostTurnReview`, `RuleCandidate`, `SecurityEvent`, `Signal`, `Turn` |
-| Provider, service, or principal-scoped projection/store | `AccessGrant`, `AccessGrantRequest`, `AuthorizationDecision`, `AuthorizationObservation`, `BenchmarkValidation`, `BriefingRun`, `BriefingSubscription`, `ChangeSummary`, `ConfigurationBaseline`, `ConfigurationDriftCheck`, `ConfigurationDriftEvidence`, `ConfigurationDriftFinding`, `Decision`, `DiagnosticEvidence`, `DiagnosticFinding`, `DiagnosticMechanism`, `EquivalenceValidationReceipt`, `EvidenceArtifact`, `ExecutionProfile`, `Finding`, `Principal`, `Process`, `PythonTask`, `Resource`, `ReviewCase`, `ReviewCheck`, `UserMemoryFact`, `UserPreference`, `VmTaskRun`, `WorkflowBinding` |
+| Provider, service, or principal-scoped projection/store | `AccessGrant`, `AccessGrantRequest`, `AuthorizationDecision`, `AuthorizationObservation`, `BenchmarkValidation`, `BriefingRun`, `BriefingSubscription`, `ChangeSummary`, `ConfigurationBaseline`, `ConfigurationDriftCheck`, `ConfigurationDriftEvidence`, `ConfigurationDriftFinding`, `ConversationPolicy`, `Decision`, `DiagnosticEvidence`, `DiagnosticFinding`, `DiagnosticMechanism`, `EquivalenceValidationReceipt`, `EvidenceArtifact`, `ExecutionProfile`, `Finding`, `Principal`, `Process`, `PythonTask`, `Resource`, `ReviewCase`, `ReviewCheck`, `UserMemoryFact`, `UserPreference`, `VmTaskRun`, `WorkflowBinding` |
+| Agent single-writer required | None |
 
 Agents collaborate through typed events. No agent mutates another agent's object, calls another
 agent directly, or shares mutable workflow state.
@@ -554,6 +574,15 @@ Forseti creates a `DecisionCase` from that snapshot. Each case contains the no-a
 bounded options, expected effects, protected objectives, violated constraints, uncertainty, and
 evidence references. Odin arbitrates only when eligible options conflict across objectives. Var
 receives the same case when human approval is required, and Saga records its digest for replay.
+
+Forseti is the sole prospective-lineage owner. Specialist candidates carry typed canonical
+arguments, and those bindings participate in DecisionCase identity. After Odin resolves the winner,
+Forseti finalizes that option and the exact `KineticActionProposal`, then publishes one
+content-addressed `ProspectiveLineage` before Verdict. Muninn materializes the envelope,
+DecisionCase, selected ActionOption, and complete ExpectedEffect set; Saga seals the same subgraph
+digest. A present proposal cannot reach executor I/O until both receipts match. Reconciliation is
+the sole observed multi-effect closure authority and appends one independent outcome per expected
+effect. The former control-loop one-effect sink and its incomplete telemetry claim are retired.
 
 Production startup reads `FDAI_OPERATING_MODEL_PATH` through the provider boundary, validates the
 complete object/link snapshot, and atomically replaces the provider-owned subgraph. A monotonic

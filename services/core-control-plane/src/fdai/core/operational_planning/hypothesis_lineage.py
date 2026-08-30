@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import hashlib
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Protocol
 
-from fdai.shared.contracts.models import Action, ResponseOutcome, ResponseOutcomeLabel
 from fdai.shared.providers.ontology_instance import (
     OntologyInstanceStore,
     OntologyLinkRecord,
@@ -54,6 +51,20 @@ class OperationalProspectiveLineage:
             tuple(expected_effect_by_id[effect_id] for effect_id in expected_effect_ids),
         )
 
+    @property
+    def objects(self) -> tuple[OntologyObjectRecord, ...]:
+        return (self.decision_case, self.action_option, *self.expected_effects)
+
+    @property
+    def links(self) -> tuple[OntologyLinkRecord, ...]:
+        return (
+            OntologyLinkRecord("considers", self.decision_case.id, self.action_option.id),
+            *(
+                OntologyLinkRecord("expects", self.action_option.id, expected_effect.id)
+                for expected_effect in self.expected_effects
+            ),
+        )
+
 
 class OperationalProspectiveLineageSource(Protocol):
     """Resolve already-produced Forseti records for one execution correlation."""
@@ -62,19 +73,16 @@ class OperationalProspectiveLineageSource(Protocol):
 
 
 class OperationalOutcomeLineageSink(Protocol):
-    """Receive one actual execution and its independently observed outcome."""
+    """Compatibility marker for the retired one-effect outcome writer."""
 
-    async def __call__(
-        self,
-        *,
-        correlation_id: str,
-        action: Action,
-        execution_status: str,
-        execution_started_at: datetime,
-        execution_ended_at: datetime,
-        response_outcome: ResponseOutcome,
-        execution_receipt_ref: str | None = None,
-    ) -> bool: ...
+
+class OperationalOutcomeLineageProducer:
+    """Reject construction of the retired duplicate observed-lineage path."""
+
+    def __init__(self, **_: object) -> None:
+        raise RuntimeError(
+            "OperationalOutcomeLineageProducer is retired; use reconciliation materialization"
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -179,14 +187,36 @@ class OperationalHypothesisLineageProjector:
     def __init__(self, *, store: OntologyInstanceStore) -> None:
         self._store = store
 
+    async def project_prospective(self, lineage: OperationalProspectiveLineage) -> None:
+        """Persist the complete pre-execution subgraph idempotently."""
+
+        await self._project_objects(
+            objects=lineage.objects,
+            links=lineage.links,
+            action_option=lineage.action_option,
+        )
+
     async def project(self, lineage: OperationalHypothesisLineage) -> None:
         """Append missing objects and idempotently restore their typed links."""
 
+        await self._project_objects(
+            objects=lineage.objects,
+            links=lineage.links,
+            action_option=lineage.action_option,
+        )
+
+    async def _project_objects(
+        self,
+        *,
+        objects: tuple[OntologyObjectRecord, ...],
+        links: tuple[OntologyLinkRecord, ...],
+        action_option: OntologyObjectRecord,
+    ) -> None:
         missing: list[OntologyObjectRecord] = []
-        for record in lineage.objects:
+        for record in objects:
             existing = await self._store.get_object(record.id)
             if existing is None:
-                if record is lineage.action_option and not _uses_plural_effect_refs(record):
+                if record is action_option and not _uses_plural_effect_refs(record):
                     raise ValueError(
                         "new action option lineage requires plural expected-effect references"
                     )
@@ -198,167 +228,8 @@ class OperationalHypothesisLineageProjector:
                 )
         await self._store.replace_subgraph(
             objects=tuple(missing),
-            links=lineage.links,
+            links=links,
         )
-
-
-class OperationalOutcomeLineageProducer:
-    """Append a complete episode only when its prospective records already exist."""
-
-    def __init__(
-        self,
-        *,
-        prospective_source: OperationalProspectiveLineageSource,
-        projector: OperationalHypothesisLineageProjector,
-    ) -> None:
-        self._prospective_source = prospective_source
-        self._projector = projector
-
-    async def __call__(
-        self,
-        *,
-        correlation_id: str,
-        action: Action,
-        execution_status: str,
-        execution_started_at: datetime,
-        execution_ended_at: datetime,
-        response_outcome: ResponseOutcome,
-        execution_receipt_ref: str | None = None,
-    ) -> bool:
-        """Project one exact closure, or return false when no prospective episode exists."""
-
-        if not correlation_id:
-            raise ValueError("operational lineage correlation id MUST be non-empty")
-        prospective = await self._prospective_source.resolve(correlation_id)
-        if prospective is None:
-            return False
-        lineage = build_executed_operational_lineage(
-            prospective=prospective,
-            action=action,
-            execution_status=execution_status,
-            execution_started_at=execution_started_at,
-            execution_ended_at=execution_ended_at,
-            response_outcome=response_outcome,
-            execution_receipt_ref=execution_receipt_ref,
-        )
-        await self._projector.project(lineage)
-        return True
-
-
-def build_executed_operational_lineage(
-    *,
-    prospective: OperationalProspectiveLineage,
-    action: Action,
-    execution_status: str,
-    execution_started_at: datetime,
-    execution_ended_at: datetime,
-    response_outcome: ResponseOutcome,
-    execution_receipt_ref: str | None = None,
-) -> OperationalHypothesisLineage:
-    """Close one single-effect episode from owned execution and observation values.
-
-    The producer refuses ambiguous or incomplete joins. In particular, it does
-    not infer a missing effect, ActionType version, execution timestamp, or
-    independent observation from the prospective records.
-    """
-
-    if action.action_type_ref is None:
-        raise ValueError("executed lineage requires an exact ActionType reference")
-    if not execution_status:
-        raise ValueError("executed lineage requires an execution status")
-    if (
-        execution_started_at.tzinfo is None
-        or execution_ended_at.tzinfo is None
-        or execution_ended_at < execution_started_at
-        or execution_started_at < action.created_at
-    ):
-        raise ValueError("executed lineage requires ordered timezone-aware execution timestamps")
-    if prospective.decision_case.properties.get("target_ref") != action.target_resource_ref:
-        raise ValueError("executed lineage target does not match the decision case")
-    if prospective.action_option.properties.get("action_type_ref") != action.action_type:
-        raise ValueError("executed lineage action does not match the selected option")
-    if prospective.action_option.properties.get("arguments") != action.params:
-        raise ValueError("executed lineage arguments do not match the selected option")
-    if (
-        response_outcome.action_id != action.action_id
-        or response_outcome.action_type_id != action.action_type
-        or response_outcome.execution_mode is not action.mode
-        or response_outcome.target_digest
-        != hashlib.sha256(action.target_resource_ref.encode()).hexdigest()
-    ):
-        raise ValueError("response outcome does not match the executed Action")
-    if (
-        response_outcome.label is ResponseOutcomeLabel.UNSCORABLE
-        or response_outcome.metric is None
-        or response_outcome.expected_min is None
-        or response_outcome.expected_max is None
-        or response_outcome.predicted_at is None
-        or response_outcome.observation_deadline is None
-        or response_outcome.observed_value is None
-        or response_outcome.observed_at is None
-    ):
-        raise ValueError("executed lineage requires one scorable independent outcome")
-    if len(prospective.expected_effects) != 1:
-        raise ValueError("executed lineage currently requires exactly one expected effect")
-
-    expected_effect = prospective.expected_effects[0]
-    expected_window = response_outcome.observation_deadline - response_outcome.predicted_at
-    if expected_window.total_seconds() != int(expected_window.total_seconds()) or (
-        expected_effect.properties.get("metric") != response_outcome.metric
-        or expected_effect.properties.get("lower_bound") != response_outcome.expected_min
-        or expected_effect.properties.get("upper_bound") != response_outcome.expected_max
-        or expected_effect.properties.get("window_seconds") != int(expected_window.total_seconds())
-        or expected_effect.properties.get("created_at") != response_outcome.predicted_at
-    ):
-        raise ValueError("response outcome does not match the expected effect")
-
-    action_run_properties: dict[str, object] = {
-        "id": str(action.action_id),
-        "action_type_ref": action.action_type,
-        "action_type_version": action.action_type_ref.version,
-        "target_ref": action.target_resource_ref,
-        "status": execution_status,
-        "mode": action.mode.value,
-        "idempotency_key": action.idempotency_key,
-        "started_at": execution_started_at,
-        "ended_at": execution_ended_at,
-    }
-    if execution_receipt_ref is not None:
-        action_run_properties["receipt_ref"] = execution_receipt_ref
-    action_run = OntologyObjectRecord(
-        str(action.action_id),
-        "ActionRun",
-        action_run_properties,
-    )
-    recovery_status = (
-        "succeeded"
-        if response_outcome.rollback_succeeded is True
-        else "failed"
-        if response_outcome.rollback_succeeded is False
-        else "not_observed"
-    )
-    observed_outcome = OntologyObjectRecord(
-        str(response_outcome.outcome_id),
-        "ObservedOutcome",
-        {
-            "id": str(response_outcome.outcome_id),
-            "action_run_id": action_run.id,
-            "expected_effect_ref": expected_effect.id,
-            "verification": "independent",
-            "recovery_status": recovery_status,
-            "observed_values": {response_outcome.metric: response_outcome.observed_value},
-            "telemetry_complete": False,
-            "scorable": response_outcome.scorable,
-            "observed_at": response_outcome.observed_at,
-        },
-    )
-    return OperationalHypothesisLineage(
-        decision_case=prospective.decision_case,
-        action_option=prospective.action_option,
-        expected_effects=prospective.expected_effects,
-        action_run=action_run,
-        observed_outcomes=(observed_outcome,),
-    )
 
 
 def _require_type(record: OntologyObjectRecord, expected: str) -> None:
@@ -405,9 +276,6 @@ __all__ = [
     "OperationalHypothesisLineage",
     "OperationalHypothesisLineageConflictError",
     "OperationalHypothesisLineageProjector",
-    "OperationalOutcomeLineageSink",
-    "OperationalOutcomeLineageProducer",
     "OperationalProspectiveLineage",
     "OperationalProspectiveLineageSource",
-    "build_executed_operational_lineage",
 ]

@@ -9,10 +9,12 @@ import pytest
 from fdai.core.ontology_platform.kinetics import MutationPlan
 from fdai.core.ontology_platform.planning import build_mutation_plan
 from fdai.core.ontology_platform.reconciliation_binding import ResolvedReconciliationArtifacts
+from fdai.core.ontology_platform.reconciliation_events import EffectReconciliationRequestEvent
 from fdai.delivery.reconciliation_artifacts import (
     KineticSafetyArtifactConflictError,
     KineticSafetyReceipt,
     StateStoreExecutedActionArtifactStore,
+    StateStoreReconciliationArtifactResolver,
 )
 from fdai.shared.contracts.models import (
     Action,
@@ -24,7 +26,11 @@ from fdai.shared.providers.ontology_instance import OntologyObjectRecord
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from pydantic import ValidationError
 
-from tests.core.ontology_platform.test_reconciliation import _fixture
+from tests.core.ontology_platform.test_reconciliation import (
+    _authenticated_context,
+    _fixture,
+    _request,
+)
 from tests.delivery.test_reconciliation_request import _action
 
 
@@ -138,6 +144,83 @@ async def test_correlation_index_restores_exact_action_after_restart() -> None:
     restored_action, restored_artifacts = restored
     assert restored_action == action
     assert restored_artifacts == ResolvedReconciliationArtifacts(plan, action_type, release)
+
+
+async def test_reconciliation_resolver_restores_and_binds_compact_event() -> None:
+    release, target, plan, action_type = _fixture()
+    artifacts = ResolvedReconciliationArtifacts(plan, action_type, release)
+    action = _action(artifacts)
+    state_store = InMemoryStateStore()
+    request = _request(
+        release=release,
+        target=target,
+        plan=plan,
+        action_type=action_type,
+        correlation_id="correlation-event-1",
+    )
+    event = EffectReconciliationRequestEvent.from_request(
+        request,
+        observation_context=_authenticated_context(request),
+    )
+    await StateStoreExecutedActionArtifactStore(store=state_store).store(
+        action=action,
+        plan=plan,
+        action_type=action_type,
+        active_release=release,
+        correlation_id=event.correlation_id,
+    )
+
+    resolved = await StateStoreReconciliationArtifactResolver(store=state_store).resolve(event)
+
+    assert resolved == artifacts
+
+
+async def test_reconciliation_resolver_rejects_missing_correlation_artifact() -> None:
+    release, target, plan, action_type = _fixture()
+    request = _request(
+        release=release,
+        target=target,
+        plan=plan,
+        action_type=action_type,
+        correlation_id="correlation-missing",
+    )
+    event = EffectReconciliationRequestEvent.from_request(
+        request,
+        observation_context=_authenticated_context(request),
+    )
+
+    with pytest.raises(ValueError, match="no exact pre-dispatch artifacts"):
+        await StateStoreReconciliationArtifactResolver(store=InMemoryStateStore()).resolve(event)
+
+
+async def test_reconciliation_resolver_rejects_substituted_valid_event() -> None:
+    release, target, plan, action_type = _fixture()
+    artifacts = ResolvedReconciliationArtifacts(plan, action_type, release)
+    action = _action(artifacts)
+    state_store = InMemoryStateStore()
+    correlation_id = "correlation-substituted-event"
+    await StateStoreExecutedActionArtifactStore(store=state_store).store(
+        action=action,
+        plan=plan,
+        action_type=action_type,
+        active_release=release,
+        correlation_id=correlation_id,
+    )
+    substituted_plan = _rebuild_plan(plan, revision=2)
+    substituted_request = _request(
+        release=release,
+        target=target,
+        plan=substituted_plan,
+        action_type=action_type,
+        correlation_id=correlation_id,
+    )
+    substituted_event = EffectReconciliationRequestEvent.from_request(
+        substituted_request,
+        observation_context=_authenticated_context(substituted_request),
+    )
+
+    with pytest.raises(ValueError, match="do not match the request event"):
+        await StateStoreReconciliationArtifactResolver(store=state_store).resolve(substituted_event)
 
 
 async def test_correlation_index_rejects_different_action() -> None:

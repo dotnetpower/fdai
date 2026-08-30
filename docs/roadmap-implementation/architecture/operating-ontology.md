@@ -111,18 +111,21 @@ and resumable work while the roadmap owner remains focused on normative design.
 | Operational evidence and Context read transport | in-progress | `core/operational_context/evidence_read.py`; `evidence_bundle.py`; `console_projection.py`; [Issue #365](https://github.com/dotnetpower/fdai/issues/365) | Admission, citation, contradiction, budget, and Context projection mechanics exist. Authenticated principal-scoped response transport and governed runtime evidence remain open. |
 | Planned-change graph freshness authority | implemented | `core/operational_context/materializer.py`; `core/impact_analysis/change_assessment.py`; `agents/{huginn,forseti}.py`; commit `ab79eb94e`; focused context, impact, and agent checks | Forseti derives authentication, exact release match, freshness, conflicts, and truncation from one verified snapshot. Missing evidence still fails closed. |
 | Architecture review authority records | implemented | `core/architecture_review/{decision_receipt,projection}.py`; `Approval.yaml`; `Decision.yaml`; focused receipt, projection, and catalog checks | Additive Approval and Decision `1.1.0` declarations retain independent approver identity and the complete content-addressed ARB receipt while explicitly carrying no execution authority. Receipt-derived production readiness remains outside the ontology declaration. |
-| Prospective lineage authority and outcome closure | in-progress | `core/operational_planning/hypothesis_lineage.py`; `delivery/operational_lineage.py`; `core/control_loop/_execution.py`; [Issue #362](https://github.com/dotnetpower/fdai/issues/362) | One-effect and production-style multi-effect paths coexist. The authoritative prospective producer, completeness receipt, duplicate-path retirement, and composition decision remain open. |
+| Prospective lineage authority and outcome closure | implemented | `core/operational_planning/{hypothesis_lineage,prospective_lineage}.py`; `delivery/{prospective_lineage,operational_lineage}.py`; Forseti-Muninn-Saga-Thor chain; [Issue #362](https://github.com/dotnetpower/fdai/issues/362) | Forseti finalizes typed arguments and publishes before Verdict; Muninn materializes; Saga seals; predispatch requires both receipts; reconciliation alone appends the complete observed effect set. One governed pinned-release replay remains operational evidence. |
 | Governed operational-learning publication and promotion | in-progress | Operating-learning source and related implementation ledger; [Issue #370](https://github.com/dotnetpower/fdai/issues/370) | Case and candidate mechanics exist, but pinned-release publication, restart, duplicate, rollback, demotion, and independent promotion evidence remain open. |
 | Bounded canonical JSON Property semantics | implemented | `rule_catalog/schema/property_semantic.py`; `tests/rule_catalog/schema/test_property_semantic.py`; `check-property-semantic-coverage.py`; [Issue #268](https://github.com/dotnetpower/fdai/issues/268); commit `2d0ace31c` | Object keys, array order, depth, size, unsupported values, and canonical bytes are bounded; the measured registry covers 62/62 rule-evaluated Property references. |
-| Forecast and Pattern runtime endpoints | in-progress | Catalog declarations and agent ownership; [Issue #364](https://github.com/dotnetpower/fdai/issues/364) | No runtime producer writes either endpoint. Deferred links remain inactive until producers exist or the endpoints are retired. |
-| ObjectType lifecycle ownership classification | in-progress | Current catalog and owner parity checks; [Issue #367](https://github.com/dotnetpower/fdai/issues/367) | ObjectTypes without `lifecycle` are not yet classified as owner-required, catalog-as-code, projection-owned, or event-bus registry. |
+| Forecast and Pattern active link plans | implemented | Retired relationship-plan table and catalog-absence check; [Issue #364](https://github.com/dotnetpower/fdai/issues/364) | Both ObjectTypes remain semantic declarations. `predicts_breach_of` and `learned_as` are retired from active plans and remain absent from the LinkType catalog. |
+| ObjectType lifecycle ownership classification | implemented | `rule-catalog/vocabulary/object-type-lifecycle-classification.yaml`; strict loader and owner-doc parity check; [Issue #367](https://github.com/dotnetpower/fdai/issues/367) | The machine registry classifies all 54 lifecycle-free ObjectTypes exactly once. Catalog loading rejects missing, duplicate, stale, or extra classifications. None currently requires a new agent single-writer. |
 | Projection-to-telemetry adjudication | implemented | `observation_adjudication.py`; focused ontology-platform checks; [Issue #369](https://github.com/dotnetpower/fdai/issues/369) | Deterministic comparison preserves source, time, freshness, completeness, provenance, and distinct agreement, missing, stale, conflict, and censorship outcomes. Governed runtime evidence remains open. |
-| Cross-source conflict autonomy carrier | in-progress | Read-path conflict degradation; generic autonomy ceiling; [Issue #368](https://github.com/dotnetpower/fdai/issues/368) | Maintainers must select one typed single writer or explicitly keep adjudicated conflict read-only. |
+| Cross-source conflict autonomy carrier | implemented | `core/ontology_platform/evidence_conflict.py`; `delivery/evidence_conflict.py`; Heimdall-Muninn event chain; normal and HIL pre-I/O checks; [Issue #368](https://github.com/dotnetpower/fdai/issues/368) | Immutable active/resolved revisions, exact-generation slots, CAS current state, canonical Property semantic intersection, expiry-without-clear, replay, and no-authority behavior are implemented. |
 | Provider-to-provider adjudication | deferred | Non-Azure implementation [Issue #351](https://github.com/dotnetpower/fdai/issues/351) | Reconsider only after an approved second provider supplies ordering, replay, identity, inventory, telemetry, parity, and rollback evidence. |
 
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-30 | implemented | Completed the prospective-lineage authority path. Typed candidate arguments now participate in DecisionCase identity, Odin's winner is finalized before Process recording, Forseti publishes ProspectiveLineage before Verdict, Muninn materializes the exact subgraph, Saga seals the same digest, and predispatch requires both receipts. Reconciliation reuses those immutable objects as the sole observed multi-effect closure. | `current change`; focused planning, proposal, finalizer, materializer, agent-chain, kinetic-readiness, and observed-lineage checks. | Retain one governed pinned prospective-to-observed replay after the independent observer is bound. |
+| 2026-08-30 | implemented | Completed the selected EvidenceConflict lifecycle. Huginn carries exact-generation candidates, Heimdall alone publishes immutable active/resolved revisions, Muninn advances append-only history and CAS current state, and normal plus HIL-resumed dispatch recheck canonical semantic intersections before executor I/O. Expired unresolved conflicts remain shadow-only until an agreeing superseding revision arrives. | `current change`; conflict lifecycle, agent-chain, authority, read-shadow, composition, ontology, topic, Ruff, and mypy checks. | Add semantic dependencies only with a matching authoritative conflict producer. Prospective lineage remains separate residual work. |
+| 2026-08-30 | implemented | Retired the unproducible Forecast and Pattern relationship plans without deleting their semantic declarations. Promoted the four-way lifecycle-free ObjectType classification into a strict machine-readable registry that must equal the shipped catalog and owner docs. | `current change`; `object-type-lifecycle-classification.yaml`; strict loader; `operating-ontology.md`; `operational-learning-ontology.md`; focused catalog tests and documentation checks. | No residual work remains for issues #364 and #367. A future relationship requires a new reviewed design rather than reopening these retired plans implicitly. |
 | 2026-08-30 | implemented | Preserved graph source completeness and generation through operational context and planned-change evidence, enforced typed traversal roots, and lowered incomplete source evidence to `shadow_only` even when returned links are verified. | `current change`; focused operational-context, impact-assessment, ontology-provider, and decision-case checks. | Retain authenticated deployed evidence and complete the broader outcome and learning paths below. |
 | 2026-08-27 | implemented | Pinned all six operating-intent ObjectTypes through the existing deployment-supplied operating-model path. The fixture supplies no tenant values and proves each exact type is validated and stored instead of disappearing from a generic snapshot. | `current change`; `test_operating_model.py` (`7 passed`); Ruff. | Retain deployment-specific objective, ownership, constraint, and change-window instances as operational evidence. |
 | 2026-08-29 | implemented | Migrated the primary operational-context snapshot used by decision cases and operational planning. Runtime composition requires decision evidence; the materializer binds the pre-admission snapshot digest, target/cutoff scope, catalog and clock revision, and admission into the final replay identity. Missing or rejected admission records a conflict and fixes the autonomy ceiling at `SHADOW_ONLY`. | `current change`; context snapshot model, materializer, runtime pantheon composition, and focused context, agent, and bootstrap tests; Ruff and strict mypy. | Bind the production admission provider and retain a governed context snapshot bundle. |
@@ -180,41 +183,47 @@ and resumable work while the roadmap owner remains focused on normative design.
   reconciliation, and graph-wide Dynamic delivery reaches its focused exit conditions.
 - [x] Bind `project_operating_scope` to the authenticated read-only inventory graph response so
   `unknown_service` reaches an operator surface; focused consumer checks pass 4 cases.
-- [x] Supply authority-free producers for the `Forecast` and `Pattern` endpoint objects. Focused
-  producer and source checks pass. Keep `predicts_breach_of` and `learned_as` deferred until exact
-  objective and outcome endpoint identities exist.
+- [x] Retire `predicts_breach_of` and `learned_as` from active link plans while preserving the
+  `Forecast` and `Pattern` semantic declarations.
 - [x] Project the six operating-intent types from a deployment-supplied source and pin them with a
   focused test that fails when an intent type produces no instance (`7 passed`).
-- [x] Review the shipped ObjectTypes that carry no `lifecycle` block and record, per type, whether an
-  agent single-writer is required or whether catalog-as-code, a projection, or the event-bus
-  registry is the correct authority ([#130](https://github.com/dotnetpower/fdai/issues/130)); the
-  complete authority table is in the owner document.
+- [x] Classify all 54 shipped ObjectTypes without a `lifecycle` block as owner-required,
+  catalog-as-code, projection-owned, or event-bus registry, and enforce exact catalog parity.
 - [x] Adjudicate two independent cloud providers against each other, and projected state against
   telemetry. Focused tests prove explicit conflicts, contested-value withholding, and no authority
   increase.
-- [ ] Decide whether an adjudicated cross-source conflict should reach an autonomy ceiling outside
-  the read path, and which writer may carry it without breaking single-writer ownership of the
-  projected subgraph; this remains deferred pending a separate authority design.
+- [x] Select a resource-scoped `CrossSourceConflictEvidence` carrier owned by Heimdall and prove that
+  active and stale exact-target conflicts can only lower autonomy to hold.
+- [x] Compose one durable Heimdall writer, target-current index, and normal plus HIL pre-executor
+  hold for `EvidenceConflict` without adding a second projected-subgraph writer.
 - [ ] Expose `OperationalEvidenceBundle` and receipt-verified Context metadata through one authenticated principal-scoped read response under [Issue #365](https://github.com/dotnetpower/fdai/issues/365), with admission, contradiction, citation, budget, wrong-principal, wrong-purpose, wrong-release, stale, and truncated checks.
 
 - [ ] Pass an authenticated exact-release graph freshness receipt into Forseti planned-change assessment under [Issue #363](https://github.com/dotnetpower/fdai/issues/363), including stale, mixed-release, incomplete, conflicting, synthetic, future, and truncated negatives.
 
-- [ ] Choose the authoritative prospective-lineage producer, retire duplicate ownership, close the complete multi-effect set, and carry telemetry completeness under [Issue #362](https://github.com/dotnetpower/fdai/issues/362), then retain one pinned-release replay.
+- [x] Select Forseti as prospective-lineage owner, retain reconciliation as the sole complete
+  multi-effect closure, and retire the duplicate one-effect control-loop sink under
+  [Issue #362](https://github.com/dotnetpower/fdai/issues/362).
+- [x] Bind Forseti's durable prospective write to the exact `KineticActionProposal` commit, Muninn
+  materialization, Saga sealing, and predispatch readiness.
+- [ ] Retain one governed pinned-release prospective-to-observed replay after the independent
+  observer is bound.
 
 - [ ] Under [Issue #370](https://github.com/dotnetpower/fdai/issues/370), retain a pinned-release governed-learning receipt that proves inert publication, independent review, restart, duplicate suppression, rollback, demotion, and registry-owned promotion without authority gain.
 
 - [x] Route platform and runtime evidence exits through the synchronized CSP/platform issues [#359](https://github.com/dotnetpower/fdai/issues/359), [#360](https://github.com/dotnetpower/fdai/issues/360), [#260](https://github.com/dotnetpower/fdai/issues/260), and [#351](https://github.com/dotnetpower/fdai/issues/351).
 
-- [x] Supply authority-free producers for the `Forecast` and `Pattern` endpoint objects under [Issue #364](https://github.com/dotnetpower/fdai/issues/364); keep their deferred links closed until exact objective and outcome endpoint identities exist.
+- [x] Retire the `Forecast` and `Pattern` relationship plans under [Issue #364](https://github.com/dotnetpower/fdai/issues/364) while preserving both semantic declarations.
 
 - [x] Project all six deployment-owned operating-intent types under [Issue #366](https://github.com/dotnetpower/fdai/issues/366), and fail when any type has neither an instance nor an explicit unavailable state (`7 passed`).
 
-- [x] Classify every ObjectType without a `lifecycle` block under [Issue #367](https://github.com/dotnetpower/fdai/issues/367) as owner-required, catalog-as-code, projection-owned, or event-bus registry, with the complete authority table in the owner document.
+- [x] Classify every ObjectType without a `lifecycle` block under [Issue #367](https://github.com/dotnetpower/fdai/issues/367) as owner-required, catalog-as-code, projection-owned, or event-bus registry, with exact catalog parity.
 
 - [x] Record provider-to-provider adjudication as deferred under [Issue #351](https://github.com/dotnetpower/fdai/issues/351); reconsider only after an approved second provider and parity suite exist.
 
 - [ ] Adjudicate projected state against authoritative telemetry under [Issue #369](https://github.com/dotnetpower/fdai/issues/369), preserving source authority, time, freshness, completeness, provenance, and explicit conflict.
 
-- [ ] Under [Issue #368](https://github.com/dotnetpower/fdai/issues/368), either select the typed single writer that carries cross-source conflict to an autonomy ceiling or explicitly keep the conflict read-only, with ownership and no-double-write tests.
+- [x] Under [Issue #368](https://github.com/dotnetpower/fdai/issues/368), compose the selected
+  Heimdall-owned conflict carrier through one durable writer and normal plus HIL pre-I/O holds,
+  with duplicate, stale, wrong-target, replay, and no-authority tests.
 
 - [x] Support bounded canonical JSON Property semantics; the 62/62 coverage gate passed 5 cases and focused canonical object/array normalization passed 10 cases, with [Issue #268](https://github.com/dotnetpower/fdai/issues/268) and commit `2d0ace31c` as full-coverage provenance.

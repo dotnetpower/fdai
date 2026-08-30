@@ -22,10 +22,17 @@ from fdai.rule_catalog.schema.object_type import (
     load_object_type_from_mapping,
     object_type_names,
 )
+from fdai.rule_catalog.schema.object_type_lifecycle_classification import (
+    ObjectTypeLifecycleClassification,
+    load_object_type_lifecycle_classification_registry,
+)
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 CATALOG_ROOT = REPO_ROOT / "rule-catalog" / "vocabulary" / "object-types"
+CLASSIFICATION_PATH = (
+    REPO_ROOT / "rule-catalog" / "vocabulary" / "object-type-lifecycle-classification.yaml"
+)
 
 
 def _registry() -> PackageResourceSchemaRegistry:
@@ -67,6 +74,7 @@ def test_shipped_object_types_load() -> None:
         "PostTurnReview",
         # Process automation (docs/roadmap/decisioning/process-automation.md)
         "Process",
+        "ProspectiveLineage",
         # Governed Python task execution on managed compute.
         "PythonTask",
         "VmTaskRun",
@@ -117,9 +125,11 @@ def test_shipped_object_types_load() -> None:
         "CostAnomaly",
         "Budget",
         "CapacityForecast",
+        "CapacityGraduationRecommendation",
         "SizingRecommendation",
         "DecisionCase",
         "Environment",
+        "EvidenceConflict",
         "ExpectedEffect",
         "Experiment",
         "Forecast",
@@ -288,6 +298,17 @@ _OWNERSHIP_DOCS = (
     ),
 )
 
+_LIFECYCLE_FREE_DOCS = (
+    (
+        REPO_ROOT / "docs" / "roadmap" / "architecture" / "operating-ontology.md",
+        "| Classification | Lifecycle-free ObjectTypes |",
+    ),
+    (
+        REPO_ROOT / "docs" / "roadmap" / "architecture" / "operating-ontology-ko.md",
+        "| 분류 | lifecycle 없는 ObjectType |",
+    ),
+)
+
 
 def _documented_owners(doc_path: Path, header: str) -> dict[str, tuple[str, ...]]:
     """Parse the semantic-write ownership table out of an ontology doc."""
@@ -327,3 +348,51 @@ def test_documented_semantic_write_owners_match_the_catalog() -> None:
         documented = _documented_owners(doc_path, header)
         assert documented, f"{doc_path.relative_to(REPO_ROOT)} has no ownership table"
         assert documented == expected, doc_path.relative_to(REPO_ROOT)
+
+
+def _documented_lifecycle_free_types(doc_path: Path, header: str) -> tuple[tuple[str, ...], ...]:
+    lines = doc_path.read_text(encoding="utf-8").splitlines()
+    try:
+        start = lines.index(header)
+    except ValueError:  # pragma: no cover - assertion below reports it
+        return ()
+    classifications: list[tuple[str, ...]] = []
+    for line in lines[start + 2 :]:
+        if not line.startswith("|"):
+            break
+        _, declared = (cell.strip() for cell in line.strip().strip("|").split("|"))
+        classifications.append(
+            tuple(sorted(item.strip().strip("`") for item in declared.split(",") if "`" in item))
+        )
+    return tuple(classifications)
+
+
+def test_lifecycle_free_object_types_match_documented_classifications() -> None:
+    """The owner docs MUST render the machine-readable classification registry."""
+
+    catalog = load_object_type_catalog(CATALOG_ROOT, schema_registry=_registry())
+    registry = load_object_type_lifecycle_classification_registry(
+        CLASSIFICATION_PATH,
+        object_types=catalog,
+    )
+    expected = tuple(
+        registry.categories[classification].object_types
+        for classification in ObjectTypeLifecycleClassification
+    )
+
+    for doc_path, header in _LIFECYCLE_FREE_DOCS:
+        classifications = _documented_lifecycle_free_types(doc_path, header)
+        assert classifications == expected, doc_path.relative_to(REPO_ROOT)
+
+
+def test_lifecycle_classification_rejects_missing_new_type() -> None:
+    catalog = load_object_type_catalog(CATALOG_ROOT, schema_registry=_registry())
+    new_type = next(item for item in catalog if item.lifecycle is None).model_copy(
+        update={"name": "UnclassifiedExample"}
+    )
+
+    with pytest.raises(ValueError, match="missing=\\['UnclassifiedExample'\\]"):
+        load_object_type_lifecycle_classification_registry(
+            CLASSIFICATION_PATH,
+            object_types=(*catalog, new_type),
+        )
