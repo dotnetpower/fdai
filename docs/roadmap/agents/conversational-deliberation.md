@@ -125,6 +125,12 @@ to four rules, each pinned by `services/core-control-plane/tests/agents/test_cha
 The fourth rule has one deliberate exception. Bragi owns no runtime evidence at all - its roster
 answer is derived from the immutable specs - so it is always grounded and keeps the default.
 
+Adaptive investigation learning stays outside conversational authority. Muninn can publish a
+sealed active-versus-challenger comparison cohort, Norns can compile a bounded inert strategy
+candidate, and Mimir can place that candidate in the existing review queue. These event-bus
+handoffs do not let any agent select a live query, mutate a rule, approve promotion, or execute an
+action.
+
 ## Tool planning
 
 A charter tells its agent to answer "through the allowed tools", and the grounding layer now names

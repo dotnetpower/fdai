@@ -5,7 +5,11 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from fdai_operator_service.families.operations import ProjectionQuery
+import pytest
+from fdai_operator_service.families.operations import (
+    ProjectionQuery,
+    ProjectionUnavailableError,
+)
 from fdai_operator_service.runtime_projection_reader import (
     RuntimeProjectionReader,
     RuntimeProjectionReaderConfig,
@@ -107,7 +111,117 @@ async def test_process_list_and_journal_project_durable_rows(monkeypatch: Any) -
         }
     ]
     assert journal["planning"] is None
+    assert journal["investigation"] is None
     assert calls[0][1] == ("architecture-review",)
+
+
+async def test_adaptive_process_journal_includes_investigation_room(
+    monkeypatch: Any,
+) -> None:
+    now = datetime(2026, 8, 30, tzinfo=UTC)
+    process = {
+        "process_id": "adaptive-1",
+        "workflow_ref": "adaptive-investigation",
+        "workflow_version": "1.0.0",
+        "status": "succeeded",
+        "current_step": "",
+        "target_resource_id": "resource-1",
+        "started_at": now,
+        "updated_at": now,
+        "correlation_id": "correlation-1",
+        "revision": 2,
+    }
+    digest_a = f"sha256:{'a' * 64}"
+    digest_b = f"sha256:{'b' * 64}"
+    events = [
+        {
+            "event_id": "created",
+            "kind": "process.created",
+            "recorded_at": now,
+            "correlation_id": "correlation-1",
+            "causation_id": None,
+            "step_id": None,
+            "attempt": 1,
+            "payload": {
+                "record_type": "adaptive_created",
+                "incident_id": "incident-1",
+                "initial_frame_digest": digest_a,
+                "initial_active_set_receipt_digest": digest_b,
+                "initial_cost_model_digest": digest_b,
+                "active_strategy_digest": digest_a,
+                "challenger_strategy_digest": None,
+                "budget": {
+                    "max_rounds": 2,
+                    "max_queries": 2,
+                    "max_cost_units": 10,
+                    "deadline_at": now.isoformat(),
+                    "policy_digest": digest_b,
+                },
+            },
+        }
+    ]
+
+    async def fetch(
+        self: RuntimeProjectionReader,
+        statement: str,
+        parameters: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        del self, parameters
+        return events if "FROM process_event" in statement else [process]
+
+    monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
+    reader = RuntimeProjectionReader(
+        RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"),
+        RecordingFallback(),
+    )
+
+    journal = await reader.read(_query("process.events", path={"process_id": "adaptive-1"}))
+
+    assert journal["investigation"]["read_only"] is True  # type: ignore[index]
+    assert journal["investigation"]["round_count"] == 0  # type: ignore[index]
+
+
+async def test_process_journal_rejects_revision_change_during_read(
+    monkeypatch: Any,
+) -> None:
+    now = datetime(2026, 8, 30, tzinfo=UTC)
+    process = {
+        "process_id": "process-1",
+        "workflow_ref": "adaptive-investigation",
+        "workflow_version": "1.0.0",
+        "status": "running",
+        "current_step": "round-1",
+        "target_resource_id": "resource-1",
+        "started_at": now,
+        "updated_at": now,
+        "correlation_id": "correlation-1",
+        "revision": 1,
+    }
+    process_reads = 0
+
+    async def fetch(
+        self: RuntimeProjectionReader,
+        statement: str,
+        parameters: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        nonlocal process_reads
+        del self, parameters
+        if "FROM process_event" in statement:
+            return []
+        process_reads += 1
+        return [{**process, "revision": process_reads}]
+
+    monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
+    reader = RuntimeProjectionReader(
+        RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"),
+        RecordingFallback(),
+    )
+
+    with pytest.raises(
+        ProjectionUnavailableError,
+        match="changed while",
+    ):
+        await reader.read(_query("process.events", path={"process_id": "process-1"}))
 
 
 async def test_empty_automation_blueprint_table_is_authoritative(monkeypatch: Any) -> None:

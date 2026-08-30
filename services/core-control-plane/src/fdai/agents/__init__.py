@@ -46,6 +46,9 @@ from fdai.agents._framework.deliberation import (
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
 from fdai.agents._framework.factory import instantiate_pantheon
 from fdai.agents._framework.introspection import agent_state_evidence_ref
+from fdai.agents._framework.muninn_investigation_strategy import (
+    MuninnInvestigationStrategyCohortSink,
+)
 from fdai.agents._framework.pantheon import (
     HARD_DEPENDENCY_AGENTS,
     LLM_HOT_PATH_ALLOWLIST,
@@ -104,6 +107,7 @@ __all__ = [
     "AgentHandlerPhase",
     "AgentSpec",
     "MAX_TOOL_PLANS",
+    "MuninnInvestigationStrategyCohortSink",
     "AgentToolResult",
     "AgentToolStatus",
     "ConversationToolPlan",

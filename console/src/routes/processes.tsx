@@ -18,6 +18,7 @@ import {
     INITIAL_PROCESS_REFRESH,
     type ProcessDetailData,
     type ProcessEvent,
+    type InvestigationRoom as InvestigationRoomData,
     type PlanningRoom as PlanningRoomData,
   defaultProcessId,
   processHref,
@@ -287,12 +288,89 @@ function ProcessDetail({ detail }: { readonly detail: ProcessDetailData }) {
         <div><dt>{t("processesView.revision")}</dt><dd>{process.revision}</dd></div>
         <div><dt>{t("processesView.journalEvents")}</dt><dd>{detail.journal.count}</dd></div>
       </dl>
+      {detail.journal.investigation ? (
+        <InvestigationRoom
+          investigation={detail.journal.investigation}
+          processStatus={process.status}
+        />
+      ) : null}
       {detail.journal.planning ? <PlanningRoom planning={detail.journal.planning} /> : null}
       <ProcessJournal processId={process.id} events={events} />
       {detail.view ? <RenderedProcess view={detail.view} compactHeader /> : (
         <p class="process-generic-note muted">{t("processesView.noViewSpec")}</p>
       )}
     </div>
+  );
+}
+
+function InvestigationRoom({
+  investigation,
+  processStatus,
+}: {
+  readonly investigation: InvestigationRoomData;
+  readonly processStatus: string;
+}) {
+  const terminal = investigation.terminal;
+  const effectiveStatus = terminal?.disposition ?? processStatus;
+  const observedExecutions = investigation.rounds.flatMap((round) =>
+    round.execution ? [round.execution] : []);
+  const usedQueries = terminal?.used_queries ?? observedExecutions.length;
+  const usedCostUnits = terminal?.used_cost_units
+    ?? observedExecutions.reduce(
+      (total, execution) => total + (execution.actual_cost_units ?? execution.reserved_cost_units),
+      0,
+    );
+  return (
+    <section class="investigation-room" aria-labelledby="investigation-room-title">
+      <div class="process-section-heading">
+        <div>
+          <span class="eyebrow">{t("processesView.investigationEyebrow")}</span>
+          <h3 id="investigation-room-title">{t("processesView.investigationTitle")}</h3>
+          <p class="muted">{t("processesView.investigationBody")}</p>
+          {investigation.closure ? (
+            <p class="muted">{investigation.closure.reason}</p>
+          ) : null}
+        </div>
+        <StatusPill
+          kind={effectiveStatus === "converged" ? "success" : processTone(effectiveStatus)}
+          label={effectiveStatus === "running" ? t("processesView.investigationRunning") : effectiveStatus}
+        />
+      </div>
+      <dl class="investigation-meta">
+        <div><dt>{t("processesView.investigationIncident")}</dt><dd><code>{investigation.incident_id}</code></dd></div>
+        <div><dt>{t("processesView.investigationRounds")}</dt><dd>{investigation.round_count} / {investigation.budget.max_rounds}</dd></div>
+        <div><dt>{t("processesView.investigationQueries")}</dt><dd>{usedQueries} / {investigation.budget.max_queries}</dd></div>
+        <div><dt>{t("processesView.investigationCost")}</dt><dd>{usedCostUnits} / {investigation.budget.max_cost_units}</dd></div>
+      </dl>
+      <ol class="investigation-rounds" aria-label={t("processesView.investigationRounds")}>
+        {investigation.rounds.map((round) => (
+          <li key={round.iteration_digest}>
+            <div class="investigation-round-head">
+              <strong>{t("processesView.investigationRound", { round: round.round_index })}</strong>
+              <span>{formatConsoleTimestamp(round.evidence_cutoff)}</span>
+            </div>
+            <p>
+              {t("processesView.investigationHypotheses", { count: round.active_hypothesis_ids.length })}
+              {" - "}
+              {round.selected_candidate_id ?? round.hold_reason ?? t("processesView.investigationNoSelection")}
+            </p>
+            <div class="investigation-hypotheses">
+              {round.active_hypothesis_ids.map((hypothesis) => <code key={hypothesis}>{hypothesis}</code>)}
+            </div>
+            <small>
+              {t("processesView.investigationSeparation", {
+                separated: round.separated_pair_count,
+                total: round.total_pair_count,
+              })}
+              {round.revision ? ` - ${round.revision.disposition}` : ""}
+            </small>
+            {round.shadow_comparison_digest ? (
+              <small>{t("processesView.investigationShadow")} <code>{round.shadow_comparison_digest}</code></small>
+            ) : null}
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 

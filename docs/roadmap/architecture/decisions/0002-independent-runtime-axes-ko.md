@@ -1,7 +1,7 @@
 ---
 title: ADR-0002 Independent Runtime and Customization Axes
 translation_of: 0002-independent-runtime-axes.md
-translation_source_sha: 8a40eead6a3bac9062ece3d511c5f1d1890215b1
+translation_source_sha: ffcc3d0528f3c60894b7b976f314c4774373ebd4
 translation_revised: 2026-08-30
 ---
 # ADR-0002: 독립적인 런타임 및 Customization 축
@@ -64,6 +64,9 @@ FDAI는 다음 축을 독립 구성으로 취급합니다.
   배포 기본값은 동점을 승격 근거로 바꿀 수 없습니다.
 - 하나의 변경할 수 없는 read-investigation 의도 spec이 계획 ID, 도구 및 조회 구간을 소유합니다. 카탈로그
   ID와 계획 ID는 이 spec과 정확히 일치해야 하며 venue 또는 환경이 요청 시점에 누락 의미 규칙을 공급할 수 없습니다.
+- 적응형 조사 전략은 미리 검증된 읽기 전용 관측 가운데 다음 관측을 바꿀 수 있습니다. 근거, 수명 주기,
+  신원, 권한 확인, 승인 또는 실행 축은 바꾸지 않으며 조사 결과가 액션을 승격하거나 권한을 부여할 수
+  없습니다.
 - 포크는 모든 환경에 배포가 없거나 여러 개 있을 수 있습니다. 업스트림도 직접
   deploy할 수 있습니다.
 - 포크 detection은 업스트림 framework 표면을 보호합니다. 런타임 행동, 자율성, 신원,

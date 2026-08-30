@@ -102,6 +102,56 @@ def test_distinct_fingerprints_not_flooded() -> None:
     assert guard.inspect(_valid() | {"target_rule_id": "b"}).accepted is True
 
 
+def test_distinct_investigation_cohorts_use_content_identity_and_source_rate() -> None:
+    now = 10.0
+    guard = CandidateGuard(
+        max_repeats=1,
+        max_source_candidates=4,
+        source_window_seconds=60.0,
+        clock=lambda: now,
+    )
+
+    def candidate(index: int) -> dict[str, object]:
+        return {
+            **_valid(),
+            "proposal_kind": "revision",
+            "source_signal": "investigation_strategy_comparison_cohort",
+            "target_rule_id": "investigation.selector.aaaaaaaaaaaaaaaa",
+            "evidence": {
+                "candidate_digest": f"sha256:{index:064x}",
+                "sample_size": 2,
+            },
+        }
+
+    for index in range(4):
+        assert guard.inspect(candidate(index)).accepted is True
+    assert guard.inspect(candidate(5)).reason == "source_rate_exceeded"
+
+
+def test_investigation_source_rate_window_expires() -> None:
+    now = [10.0]
+    guard = CandidateGuard(
+        max_repeats=1,
+        max_source_candidates=1,
+        source_window_seconds=60.0,
+        clock=lambda: now[0],
+    )
+    first = {
+        **_valid(),
+        "proposal_kind": "revision",
+        "source_signal": "investigation_strategy_comparison_cohort",
+        "evidence": {"candidate_digest": f"sha256:{1:064x}", "sample_size": 2},
+    }
+    second = {
+        **first,
+        "evidence": {"candidate_digest": f"sha256:{2:064x}", "sample_size": 2},
+    }
+
+    assert guard.inspect(first).accepted is True
+    now[0] = 71.0
+    assert guard.inspect(second).accepted is True
+
+
 def test_flood_counter_map_is_bounded() -> None:
     # The guard's own repeat-counter must be bounded: an attacker sending
     # candidates with ever-changing fingerprints would otherwise grow it
@@ -128,6 +178,10 @@ def test_flood_detection_survives_bounded_counter() -> None:
 def test_invalid_config_rejected() -> None:
     with pytest.raises(ValueError, match="max_repeats"):
         CandidateGuard(max_repeats=0)
+    with pytest.raises(ValueError, match="max_source_candidates"):
+        CandidateGuard(max_source_candidates=0)
+    with pytest.raises(ValueError, match="source_window_seconds"):
+        CandidateGuard(source_window_seconds=0)
 
 
 def test_non_finite_count_evidence_is_quarantined() -> None:

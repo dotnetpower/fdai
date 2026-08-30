@@ -72,6 +72,12 @@ identity for meaning, unit, value kind, and bounds. Catalog projection validates
 against that registry and preserves finite numeric values without float coercion, so services and
 replays cannot silently reinterpret the same property.
 
+Adaptive causal discrimination consumes an exact hypothesis frame, ontology graph revision, and
+evidence cutoff. It ranks only pre-verified read-only observation candidates by how many competing
+hypothesis pairs they separate. Selection and revision receipts remain evidence records: they do
+not create ontology facts, modify the graph, or grant query, approval, promotion, or execution
+authority.
+
 ## Pod telemetry path runtime
 
 `evaluate_pod_telemetry_path` is a pure A0 read over a `SecuredObjectSetQueryResult` and an immutable

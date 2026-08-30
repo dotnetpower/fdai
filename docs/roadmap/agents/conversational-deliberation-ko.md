@@ -1,8 +1,8 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 97338a9bf32e97bb7db2c665acafe10fcbba75d3
-translation_revised: 2026-08-21
+translation_source_sha: d73b3e108d179c8bc9aff415cee1a36aa899711d
+translation_revised: 2026-08-30
 ---
 # 판테온 대화형 숙의
 
@@ -128,6 +128,11 @@ abstention으로 퇴화합니다. 모든 charter는 네 가지 규칙을 지키�
 
 네 번째 규칙에는 의도된 예외가 하나 있습니다. Bragi는 런타임 근거를 전혀 소유하지
 않고 명단 답변을 변경할 수 없는 spec에서 도출하므로 항상 근거에 기반한이며 기본값을 유지합니다.
+
+적응형 조사 학습은 대화 권한 밖에서 유지됩니다. Muninn은 봉인된 active/challenger 비교 cohort를
+게시할 수 있고, Norns는 범위가 제한된 비활성 전략 후보를 컴파일할 수 있으며, Mimir는 해당 후보를
+기존 검토 큐에 넣을 수 있습니다. 이러한 event-bus 인계는 어떤 에이전트에도 실제 조회 선택, 룰
+변경, 승격 승인 또는 액션 실행 권한을 부여하지 않습니다.
 
 ## 도구 계획
 

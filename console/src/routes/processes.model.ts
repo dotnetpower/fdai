@@ -67,6 +67,81 @@ export interface ProcessJournalResponse {
   readonly events: readonly ProcessEvent[];
   readonly count: number;
   readonly planning: PlanningRoom | null;
+  readonly investigation: InvestigationRoom | null;
+}
+
+export interface InvestigationExecution {
+  readonly candidate_digest: string;
+  readonly verification_receipt_digest: string;
+  readonly plan_digest: string;
+  readonly result_digest: string;
+  readonly execution_digest: string;
+  readonly query_status: string;
+  readonly evidence_refs: readonly string[];
+  readonly reserved_cost_units: number;
+  readonly actual_cost_units: number | null;
+}
+
+export interface InvestigationRevision {
+  readonly revision_digest: string;
+  readonly active_hypothesis_ids: readonly string[];
+  readonly active_set_receipt_digest: string;
+  readonly disposition: string;
+  readonly complete: boolean;
+  readonly truncated: boolean;
+  readonly evidence_refs: readonly string[];
+}
+
+export interface InvestigationRound {
+  readonly round_index: number;
+  readonly iteration_digest: string;
+  readonly frame_digest: string;
+  readonly evidence_cutoff: string;
+  readonly graph_revision: string;
+  readonly active_hypothesis_ids: readonly string[];
+  readonly active_set_receipt_digest: string;
+  readonly selection_digest: string;
+  readonly selected_candidate_id: string | null;
+  readonly separated_pair_count: number;
+  readonly total_pair_count: number;
+  readonly hold_reason: string | null;
+  readonly shadow_comparison_digest: string | null;
+  readonly execution: InvestigationExecution | null;
+  readonly revision: InvestigationRevision | null;
+}
+
+export interface InvestigationRoom {
+  readonly read_only: true;
+  readonly mutation_controls: false;
+  readonly process_revision: number;
+  readonly process_id: string;
+  readonly workflow_version: string;
+  readonly incident_id: string;
+  readonly initial_frame_digest: string;
+  readonly initial_active_set_receipt_digest: string;
+  readonly active_strategy_digest: string;
+  readonly challenger_strategy_digest: string | null;
+  readonly budget: {
+    readonly max_rounds: number;
+    readonly max_queries: number;
+    readonly max_cost_units: number;
+    readonly deadline_at: string;
+    readonly policy_digest: string;
+  };
+  readonly rounds: readonly InvestigationRound[];
+  readonly round_count: number;
+  readonly terminal: {
+    readonly result_digest: string;
+    readonly disposition: string;
+    readonly terminal_frame_digest: string;
+    readonly terminal_active_set_receipt_digest: string;
+    readonly used_queries: number;
+    readonly used_cost_units: number;
+  } | null;
+  readonly closure: {
+    readonly record_type: string;
+    readonly reason: string;
+  } | null;
 }
 
 export interface PlanningPhaseRecord {
@@ -238,11 +313,142 @@ export function decodeProcessJournal(value: unknown): ProcessJournalResponse {
   const planning = root["planning"] === undefined || root["planning"] === null
     ? null
     : decodePlanningRoom(root["planning"]);
+  const investigation = root["investigation"] === undefined || root["investigation"] === null
+    ? null
+    : decodeInvestigationRoom(root["investigation"]);
+  if (investigation !== null && investigation.process_revision !== decodedProcess.revision) {
+    throw new Error("investigation room process_revision MUST match the process revision");
+  }
+  if (investigation !== null && investigation.process_id !== decodedProcess.id) {
+    throw new Error("investigation room process_id MUST match the process identity");
+  }
+  if (
+    investigation !== null
+    && investigation.workflow_version !== decodedProcess.workflow_version
+  ) {
+    throw new Error("investigation room workflow_version MUST match the process");
+  }
   return {
     process: decodedProcess,
     events,
     count,
     planning,
+    investigation,
+  };
+}
+
+function decodeInvestigationRoom(value: unknown): InvestigationRoom {
+  const root = record(value, "investigation room");
+  if (root["read_only"] !== true || root["mutation_controls"] !== false) {
+    throw new Error("investigation room MUST be read-only without mutation controls");
+  }
+  if (!Array.isArray(root["rounds"])) throw new Error("investigation room rounds MUST be an array");
+  const rounds = root["rounds"].map((item, index) => decodeInvestigationRound(item, index));
+  const roundCount = nonNegativeIntegerField(root, "round_count", "investigation room");
+  if (roundCount !== rounds.length) throw new Error("investigation room round_count MUST match rounds");
+  if (rounds.some((round, index) => round.round_index !== index + 1)) {
+    throw new Error("investigation room rounds MUST be contiguous");
+  }
+  const budget = record(root["budget"], "investigation room budget");
+  return {
+    read_only: true,
+    mutation_controls: false,
+    process_revision: nonNegativeIntegerField(root, "process_revision", "investigation room"),
+    process_id: stringField(root, "process_id", "investigation room"),
+    workflow_version: stringField(root, "workflow_version", "investigation room"),
+    incident_id: stringField(root, "incident_id", "investigation room"),
+    initial_frame_digest: digestField(root, "initial_frame_digest", "investigation room"),
+    initial_active_set_receipt_digest: digestField(root, "initial_active_set_receipt_digest", "investigation room"),
+    active_strategy_digest: digestField(root, "active_strategy_digest", "investigation room"),
+    challenger_strategy_digest: nullableDigest(root["challenger_strategy_digest"], "investigation challenger strategy"),
+    budget: {
+      max_rounds: nonNegativeIntegerField(budget, "max_rounds", "investigation room budget"),
+      max_queries: nonNegativeIntegerField(budget, "max_queries", "investigation room budget"),
+      max_cost_units: nonNegativeIntegerField(budget, "max_cost_units", "investigation room budget"),
+      deadline_at: stringField(budget, "deadline_at", "investigation room budget"),
+      policy_digest: digestField(budget, "policy_digest", "investigation room budget"),
+    },
+    rounds,
+    round_count: roundCount,
+    terminal: root["terminal"] === null ? null : decodeInvestigationTerminal(root["terminal"]),
+    closure: root["closure"] === null || root["closure"] === undefined
+      ? null
+      : decodeInvestigationClosure(root["closure"]),
+  };
+}
+
+function decodeInvestigationClosure(
+  value: unknown,
+): NonNullable<InvestigationRoom["closure"]> {
+  const item = record(value, "investigation closure");
+  return {
+    record_type: stringField(item, "record_type", "investigation closure"),
+    reason: stringField(item, "reason", "investigation closure"),
+  };
+}
+
+function decodeInvestigationRound(value: unknown, index: number): InvestigationRound {
+  const label = `investigation rounds[${index}]`;
+  const round = record(value, label);
+  return {
+    round_index: nonNegativeIntegerField(round, "round_index", label),
+    iteration_digest: digestField(round, "iteration_digest", label),
+    frame_digest: digestField(round, "frame_digest", label),
+    evidence_cutoff: stringField(round, "evidence_cutoff", label),
+    graph_revision: stringField(round, "graph_revision", label),
+    active_hypothesis_ids: stringArray(round["active_hypothesis_ids"], `${label}.active_hypothesis_ids`),
+    active_set_receipt_digest: digestField(round, "active_set_receipt_digest", label),
+    selection_digest: digestField(round, "selection_digest", label),
+    selected_candidate_id: nullableString(round["selected_candidate_id"], `${label}.selected_candidate_id`),
+    separated_pair_count: nonNegativeIntegerField(round, "separated_pair_count", label),
+    total_pair_count: nonNegativeIntegerField(round, "total_pair_count", label),
+    hold_reason: nullableString(round["hold_reason"], `${label}.hold_reason`),
+    shadow_comparison_digest: nullableDigest(
+      round["shadow_comparison_digest"],
+      `${label}.shadow_comparison_digest`,
+    ),
+    execution: round["execution"] === null ? null : decodeInvestigationExecution(round["execution"], label),
+    revision: round["revision"] === null ? null : decodeInvestigationRevision(round["revision"], label),
+  };
+}
+
+function decodeInvestigationExecution(value: unknown, parent: string): InvestigationExecution {
+  const item = record(value, `${parent}.execution`);
+  return {
+    candidate_digest: digestField(item, "candidate_digest", `${parent}.execution`),
+    verification_receipt_digest: digestField(item, "verification_receipt_digest", `${parent}.execution`),
+    plan_digest: digestField(item, "plan_digest", `${parent}.execution`),
+    result_digest: digestField(item, "result_digest", `${parent}.execution`),
+    execution_digest: digestField(item, "execution_digest", `${parent}.execution`),
+    query_status: stringField(item, "query_status", `${parent}.execution`),
+    evidence_refs: stringArray(item["evidence_refs"], `${parent}.execution.evidence_refs`),
+    reserved_cost_units: nonNegativeIntegerField(item, "reserved_cost_units", `${parent}.execution`),
+    actual_cost_units: nullableNonNegativeInteger(item["actual_cost_units"], `${parent}.execution.actual_cost_units`),
+  };
+}
+
+function decodeInvestigationRevision(value: unknown, parent: string): InvestigationRevision {
+  const item = record(value, `${parent}.revision`);
+  return {
+    revision_digest: digestField(item, "revision_digest", `${parent}.revision`),
+    active_hypothesis_ids: stringArray(item["active_hypothesis_ids"], `${parent}.revision.active_hypothesis_ids`),
+    active_set_receipt_digest: digestField(item, "active_set_receipt_digest", `${parent}.revision`),
+    disposition: stringField(item, "disposition", `${parent}.revision`),
+    complete: booleanField(item, "complete", `${parent}.revision`),
+    truncated: booleanField(item, "truncated", `${parent}.revision`),
+    evidence_refs: stringArray(item["evidence_refs"], `${parent}.revision.evidence_refs`),
+  };
+}
+
+function decodeInvestigationTerminal(value: unknown): NonNullable<InvestigationRoom["terminal"]> {
+  const item = record(value, "investigation terminal");
+  return {
+    result_digest: digestField(item, "result_digest", "investigation terminal"),
+    disposition: stringField(item, "disposition", "investigation terminal"),
+    terminal_frame_digest: digestField(item, "terminal_frame_digest", "investigation terminal"),
+    terminal_active_set_receipt_digest: digestField(item, "terminal_active_set_receipt_digest", "investigation terminal"),
+    used_queries: nonNegativeIntegerField(item, "used_queries", "investigation terminal"),
+    used_cost_units: nonNegativeIntegerField(item, "used_cost_units", "investigation terminal"),
   };
 }
 
@@ -466,6 +672,28 @@ function stringField(value: Readonly<Record<string, unknown>>, key: string, labe
   return value[key];
 }
 
+function nullableString(value: unknown, label: string): string | null {
+  if (value === null) return null;
+  if (typeof value !== "string") throw new Error(`${label} MUST be a string or null`);
+  return value;
+}
+
+function digestField(value: Readonly<Record<string, unknown>>, key: string, label: string): string {
+  const result = stringField(value, key, label);
+  if (!/^sha256:[a-f0-9]{64}$/.test(result)) {
+    throw new Error(`${label}.${key} MUST be a SHA-256 digest`);
+  }
+  return result;
+}
+
+function nullableDigest(value: unknown, label: string): string | null {
+  if (value === null) return null;
+  if (typeof value !== "string" || !/^sha256:[a-f0-9]{64}$/.test(value)) {
+    throw new Error(`${label} MUST be a SHA-256 digest or null`);
+  }
+  return value;
+}
+
 function numberField(value: Readonly<Record<string, unknown>>, key: string, label: string): number {
   if (typeof value[key] !== "number" || !Number.isFinite(value[key])) {
     throw new Error(`${label}.${key} MUST be a finite number`);
@@ -501,6 +729,14 @@ function nullableFiniteNumber(value: unknown, label: string): number | null {
   if (value === null) return null;
   if (typeof value !== "number" || !Number.isFinite(value)) {
     throw new Error(`${label} MUST be a finite number or null`);
+  }
+  return value;
+}
+
+function nullableNonNegativeInteger(value: unknown, label: string): number | null {
+  if (value === null) return null;
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
+    throw new Error(`${label} MUST be a non-negative integer or null`);
   }
   return value;
 }

@@ -22,6 +22,9 @@ from fdai_operator_service.families.operations import (
     ProjectionReader,
     ProjectionUnavailableError,
 )
+from fdai_operator_service.investigation_projection import (
+    project_adaptive_investigation,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,6 +104,18 @@ class RuntimeProjectionReader:
             "attempt, payload FROM process_event WHERE process_id = %s ORDER BY seq",
             (process_id,),
         )
+        confirmed_rows = await self._fetch_all(
+            "SELECT process_id, workflow_ref, workflow_version, status, current_step, "
+            "target_resource_id, started_at, updated_at, correlation_id, revision "
+            "FROM process_runtime WHERE process_id = %s",
+            (process_id,),
+        )
+        if len(confirmed_rows) != 1 or confirmed_rows[0].get("revision") != process_rows[0].get(
+            "revision"
+        ):
+            raise ProjectionUnavailableError(
+                "Process changed while its journal was being projected"
+            )
         process = {
             **_process_summary(process_rows[0]),
             "started_at": _timestamp(process_rows[0]["started_at"]),
@@ -125,6 +140,16 @@ class RuntimeProjectionReader:
             "events": events,
             "count": len(events),
             "planning": None,
+            "investigation": project_adaptive_investigation(
+                process_id=str(process["id"]),
+                workflow_ref=str(process["workflow_ref"]),
+                workflow_version=str(process["workflow_version"]),
+                process_revision=_integer(
+                    process["revision"],
+                    "process revision",
+                ),
+                events=events,
+            ),
         }
 
     async def _automation_blueprints(self) -> Mapping[str, object]:

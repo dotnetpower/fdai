@@ -1,8 +1,8 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 7f8611f59c192ebc90d7818eefc7a52b0ed630a7
-translation_revised: 2026-08-27
+translation_source_sha: 2ac0ebd6ee0a2615d10adbc41edec0414d2c1915
+translation_revised: 2026-08-30
 ---
 
 # Azure 읽기 조사
@@ -44,6 +44,12 @@ Operator 질문은 `object.event`로 publish하지 않습니다. 해당 토픽�
 대화 및 상관관계 참조, 정본 의도, source-grounded 리소스 선택자, 조회 구간, requested 근거,
 예산 및 멱등성 키를 전달합니다. 모델은 의미만 제안하고 결정론적 코드는 정확히 등록된 의도,
 plan 소유권, 리소스 신원, 근거 권한, 경계를 검증합니다.
+
+적응형 조사는 범위가 제한된 라운드 동안 이 선택을 반복할 수 있습니다. 모든 후보는 선택 전에
+서버가 검증한 정확한 범위, 그래프 개정 번호, 근거 기준 시점, 조회 계획 및 비용에 연결되어야 하며,
+Core는 프로바이더 I/O 직전에 해당 연결을 다시 검증합니다. 기한, 취소, 오래된 근거 또는 예산 소진은
+타입이 지정된 판단 보류로 세션을 닫습니다. 선택기나 모델은 조회 계획을 발행하거나 실행 권한을
+얻을 수 없습니다.
 
 스키마로 검증되는 `investigation-intents.yaml` 카탈로그가 의도와 계약 사이의 경계를 소유합니다.
 각 항목은 작업 등급, 책임 Pantheon 에이전트, 등록된 계획 ID, 선택자 종류, 답변 계약, 근거

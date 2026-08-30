@@ -1,8 +1,8 @@
 ---
 title: 인과 incident graph
 translation_of: causal-incident-graph.md
-translation_source_sha: e963d6c40bbc7e4c5d7cec916b2e763eb33a05e0
-translation_revised: 2026-08-20
+translation_source_sha: cd5f9a88f13cbe564aac7c42f0c779585b4ead22
+translation_revised: 2026-08-30
 ---
 # 인과 인시던트 그래프
 
@@ -129,6 +129,76 @@ Late 이벤트는 새 그래프 개정 번호를 만듭니다. 재생은 항상 
 모든 경로는 `no_known_cause` 옵션을 유지합니다. 후보 생성은 구성된 개수에서
 중지합니다. 초과분에서는 결정론적 점수가 높은 항목만 유지하고 잘림을 기록합니다.
 
+## 적응형 관측 선택
+
+둘 이상의 인과 가설이 활성 상태로 남으면 FDAI는 가설을 가장 잘 구분하는 다음 관측을 선택할 수
+있습니다. 선택기는 미리 검증된 읽기 전용 조회 후보만 받습니다. 선택기 자체는 공급자를 조회하지
+않으며 조회, 액션, 변경 또는 승격 권한을 부여할 수 없습니다.
+
+변경할 수 없는 판별 프레임은 인시던트, 그래프 개정 번호, 근거 기준 시점, 활성 가설 집합, 활성
+집합 증적 및 비용 모델 다이제스트를 고정합니다. 내용 기반 주소가 지정된 각 후보는 동일한 관측이
+각 활성 가설을 지지하거나 반박하거나 어느 쪽에도 영향을 주지 않을지를 예측합니다. 다른 프레임의
+후보나 활성 가설을 빠뜨린 후보는 명시적인 제외 근거로 남습니다.
+
+선택기는 예측 결과가 서로 다른 가설 쌍의 수를 최대화합니다. 결과가 같으면 비교 가능한 비용이 더
+낮은 후보를 우선하고, 이후 내용 식별자로 순서를 정합니다. 활성 가설이 둘보다 적거나, 적합한 후보가
+없거나, 가설을 구분할 관측이 없으면 타입이 지정된 판단 보류 결과를 반환합니다. 재생 증적은 전체
+후보 집합, 제외 결과, 가설 쌍 수, 선택된 후보 또는 보류 사유, 스키마 및 메서드 버전을 고정합니다.
+호출자는 선택된 관측을 실행할 때 별도로 검증된 읽기 조회 경로를 사용해야 합니다.
+
+## 적응형 조사 세션
+
+적응형 조사는 두 번째 인과관계 또는 실행 시스템을 만들지 않고 관측 선택을 반복하는, 범위가 제한된
+읽기 전용 `Process`입니다. Forseti가 workflow의 최종 책임을 맡고, 기계적인 기록기가 Process 개정
+번호 비교 후 설정으로 상태를 진행합니다. Heimdall만 관측 및 완전성 근거를 제공하고, Forseti만 가설
+개정 번호와 최종 인과 판단을 수락하며, Saga는 기존 이벤트 경계에서 각 최종 전이를 감사합니다.
+
+각 반복은 다음과 같은 변경할 수 없는 계보를 연결합니다.
+`Process 및 반복 -> 프레임 다이제스트 -> 선택 증적 -> 후보 다이제스트 -> 검증 증적 ->
+OntologyQueryPlan 다이제스트 -> 실행 증적 및 결과 다이제스트 -> Forseti 개정 번호`. 이 계보는
+workflow 및 리듀서 버전, 온톨로지 및 조회 매니페스트 다이제스트, principal 범위, 역할, 목적, 근거
+기준 시점, 소스 세대, 완전성, 잘림, 채점기 버전 및 실제 리소스 사용량도 고정합니다. 검증과 dispatch는
+하나의 실패 시 닫히는 게이트웨이 작업이며 검증 성공 전에는 공급자 I/O를 시작하지 않습니다.
+
+모든 Forseti 개정 번호는 이전 활성 집합 증적, 이전 프레임, 정확한 관측 증적, 채점기 버전, 새 그래프
+개정 번호 및 새 근거 기준 시점을 인용합니다. Process 개정 번호 비교 후 설정은 완전한 다음 활성 집합
+하나만 수락합니다. 늦거나 경쟁하는 개정 번호는 감사 근거로 남지만 세션을 진행할 수 없습니다.
+
+Forseti 소유 채점기가 실질적으로 지지되는 가설 하나만 남기거나, 모든 후보가 반박되거나, 남은 후보를
+구분할 조회가 없거나, 반복 횟수, 조회 수, 시간 또는 비용 예산이 소진되면 세션을 중지합니다. 생성
+시점에는 절대 UTC 마감, 단조 경과 시간 정책, 모든 제한과 단위 및 예산 정책 다이제스트를 고정합니다.
+게이트웨이는 dispatch 전에 조회 수와 예상 비용을 예약하고 실제 사용량을 한 번 정산합니다. 취소는 새
+반복을 차단하고 진행 중 조회에 신호를 보내며 최종 Process 비교 후 설정에서 경쟁합니다. 늦은 결과는
+감사할 수 있지만 취소되었거나 최종 상태인 세션을 진행할 수 없습니다. Process `cancelled`와
+`timed_out`은 `cost_exhausted` 같은 조사 판단 보류와 구분합니다.
+
+재생 리듀서는 추가 전용 `Process` 근거 이벤트에서 같은 세션을 복원하며 변경된 계보, 순서, 증적,
+구성 또는 최종 다이제스트를 차단합니다. 재생은 보존된 내용 기반 주소 결과만 사용합니다. 공급자를
+호출하거나 조회를 실행하거나 예산을 소비하거나 학습 후보를 발행하거나 계획을 시작하거나 권한을
+변경하지 않습니다.
+
+실제로 관측을 실행할 수 있는 정책은 활성 선택기뿐입니다. 도전 선택기는 동일한 동결 프레임에서
+shadow 모드로 실행하며, 도전 선택 결과를 조회 경로에 반환하지 않은 채 일치 여부, 가설 쌍 구분 수,
+비용 및 판단 보류 결과를 측정합니다. 서로 다른 조회를 선택하면 구분 능력과 비용은 반사실적
+예측입니다. 두 정책이 같은 조회를 선택하거나 별도의 관리되는 활성 정책 집단에서 나온 경우에만 실제
+근거로 계산합니다. Saga가 비교를 기록하고, Muninn이 균형 잡힌 집단을 봉인하며, Norns만 비활성 조사
+전략 후보를 컴파일하고 발행하고, Mimir가 이를 검토합니다. 활성화는 검토된 변경할 수 없는 구성
+release를 사용하고 새 세션에만 적용되며 실행 중인 세션에 고정된 선택기를 바꿀 수 없습니다.
+
+조건을 충족한 세션이 종결되면 최종 세션 다이제스트와 근거를 참조하는 권한 없는 타입 지정 계획 요청
+이벤트를 발행할 수 있습니다. Forseti는 별도의 계획 Process를 시작하고 현재 컨텍스트와 대상 개정
+번호를 다시 수집하며, 필수 `no_action` 기준선과 처리 후보, 제약 조건 및 시뮬레이션을 소유합니다.
+취소, 시간 초과, 전체 반박, 불완전 또는 잘린 조사는 처리 계획을 자동 요청하지 않습니다. 조사 근거는
+Operational Planning, 안전성 검토, 사람 승인, Thor 실행, 독립 효과 관측, Saga 감사 또는 Vidar
+복구를 우회하지 않습니다.
+
+Operator API는 GET 전용이며 RBAC, 테넌트, 목적 및 principal 범위가 적용된 Process 판독기를 통해
+적응형 세션 이벤트를 변환합니다. 원시 조회 결과 대신 범위가 제한되고 정제된 요약과 불투명 근거
+참조를 반환합니다. 변환 결과에는 Process 개정 번호, 근거 기준 시점, 소스 watermark, release
+다이제스트, 최신성, 잘림, 사용할 수 없음 증적 및 명시적인 `mutation_controls: false`가 포함됩니다.
+Console은 Process 상세 화면 안의 조사 공간에 활성 가설, 지지 및 반박 수, 누락 근거, 선택된 관측,
+shadow 비교, 예산 및 최종 사유를 표시합니다.
+
 ## Causal 채점 및 refutation
 
 각 후보는 네 가지 독립 factor로 평가합니다.
@@ -251,6 +321,8 @@ Causal 경로는 불확실할 때 더 안전한 결과를 선택합니다.
 | 가설 수명 주기 및 온톨로지 변환 결과 | implemented | `services/core-control-plane/src/fdai/core/rca/hypothesis.py`; `projection.py`; `tests/core/rca/test_hypothesis.py`; `test_hypothesis_lineage_projection.py` | 불변 수정본, 종결 상태, 근거 전용 그래프 변환 결과를 집중 테스트로 검증합니다. |
 | Time-consistent 인시던트 그래프 | implemented | `services/core-control-plane/src/fdai/core/rca/incident_graph.py`; `tests/core/rca/test_incident_graph.py` | 탐색은 깊이, 개수, 시간, 크기로 제한되며 잘림을 보고합니다. |
 | 후보 생성 및 causal 채점 | implemented | `services/core-control-plane/src/fdai/core/rca/t0.py`; `t1.py`; `evidence.py`; `tests/core/rca/test_coordinator.py`; `test_evidence.py` | 결정론적 후보, 최약 연결 채점, 지지 및 반증 경로가 구현되어 있습니다. |
+| 적응형 관측 선택 | implemented | `services/core-control-plane/src/fdai/core/rca/discrimination_contract.py`; `discrimination.py`; `tests/core/rca/test_discrimination.py` | 정확한 프레임에 속한 후보를 내용 기반 주소로 식별하고, 조회 또는 실행 권한을 부여하지 않은 채 가설 쌍 구분 능력으로 순위를 정합니다. |
+| 적응형 조사 세션 및 검토 화면 | implemented | `core/read_investigation/adaptive*.py`; `core/rca/discrimination_shadow.py`; `core/operational_learning/investigation_strategy*.py`; `core/operational_planning/investigation_handoff.py`; `runtime/adaptive_investigation_runtime.py`; Operator 및 Console Process 변환 결과 | 통합 세션은 범위가 제한되고 재생 가능하며 shadow 비교를 지원하고 권한을 부여하지 않습니다. 기존 인증된 Process 경로에서 확인할 수 있습니다. 이는 구현 근거이며 관리되는 실시간 검증 주장이 아닙니다. |
 | Shadow 런타임 및 독립 종결 | implemented | `services/core-control-plane/src/fdai/core/rca/runtime.py`; `tests/core/rca/test_runtime.py`; `test_temporal_causality.py` | 업스트림 경로는 shadow 및 근거 전용으로 유지되며 어떤 결과도 실행 권한을 부여하지 않습니다. |
 | 등급 demotion 및 shadow 유지 | implemented | `services/core-control-plane/src/fdai/core/rca/hypothesis.py`(`close_causal_hypothesis`, `causal_action_mode`); `runtime.py`(`CausalRuntimeResult.action_mode`); `tests/core/rca/test_hypothesis.py`; `test_runtime.py` | 안전하지 않거나 반증하는 종결은 등급을 `association`으로 낮추고, 검증된 `confirmed` 외에는 어떤 종결도 등급을 올릴 수 없으며, 확정되지 않았거나 다투는 개정 번호는 모두 `shadow`로 귀결됩니다. 런타임은 도출된 모드를 노출하지만, causal 경로가 아직 shadow 전용이므로 승격이나 실행 소비자는 연결되어 있지 않습니다. |
 | 배포 연결 및 운영 근거 | in-progress | [전달 구획](#전달-구획); 현재 변경의 소스 감사 | 프로바이더와 게시자 경계는 있지만, 검증 완료를 주장하기 전에 각 배포에서 이를 연결하고 관리되는 종결 증적을 보존해야 합니다. |
@@ -262,6 +334,9 @@ Causal 경로는 불확실할 때 더 안전한 결과를 선택합니다.
 | 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트. | 운영 근거 경로를 연결하고 관리되는 개입 종결 근거를 보존합니다. |
 | 2026-08-16 | implemented | 안전하지 않은 종결이 근거 등급을 낮추도록 만들고, `confirmed`가 아닌 종결이 등급을 올리지 못하게 막았으며, 반증·안전하지 않음·미확정·다툼·낮은 등급 개정 번호를 `shadow`에 유지하는 결정론적 `causal_action_mode` 도출을 추가했습니다. | `current change`; `services/core-control-plane/src/fdai/core/rca/hypothesis.py`; `services/core-control-plane/tests/core/rca/test_hypothesis.py`; 집중 실행 `pytest services/core-control-plane/tests/core/rca` 215개 통과. | 배포 근거 경로를 연결하고 관리되는 개입 재현 기록 하나를 보존합니다. |
 | 2026-08-16 | implemented | 도출된 모드를 `CausalRuntimeResult.action_mode`로 노출해 shadow 판단을 런타임 경로에서 관찰할 수 있게 했고, 아직 어떤 승격·실행 소비자도 이 모드를 연결하지 않는다는 점을 구현 범위 행에 명시했습니다. | `current change`; `services/core-control-plane/src/fdai/core/rca/runtime.py`; `services/core-control-plane/tests/core/rca/test_runtime.py`; 집중 실행 `pytest services/core-control-plane/tests/core/rca` 216개 통과. | 배포 근거 경로를 연결하고 관리되는 개입 재현 기록 하나를 보존합니다. |
+| 2026-08-30 | implemented | 정확한 프레임에 속하고 미리 검증된 읽기 전용 후보를 대상으로 재생 가능한 적응형 관측 선택을 추가했습니다. 선택기는 가설 쌍 구분 능력을 최대화하고, 오래되었거나 불완전한 후보를 기록하며, 권한이 없는 선택 또는 보류 증적을 반환합니다. | `current change`; `services/core-control-plane/src/fdai/core/rca/discrimination_contract.py`; `discrimination.py`; 판별 선택기 집중 테스트, Ruff 및 strict mypy. | 운영 검증을 주장하기 전에 후보 생성을 검증된 온톨로지 조회 경로에 연결하고 관리되는 조사 근거를 보존합니다. |
+| 2026-08-30 | implemented | 범위가 제한된 적응형 조사 런타임, Process journal, 정확한 검증 조회 게이트웨이, 활성 및 도전 선택기 비교, Norns에서 Mimir로 이어지는 비활성 전략 검토 경로, 별도 계획 제안, Operator 변환 결과 및 Console 조사 공간을 추가했습니다. | `current change`; 집중 core, agent, runtime, Operator, Console 및 Playwright 검사. | 선택기를 승격하기 전에 배포 소유 후보 및 개정 번호 소스를 연결하고 관리되는 실시간 근거를 보존합니다. |
+| 2026-08-30 | implemented | 추적된 비평 및 하드닝 22라운드와 최종 독립 release 검토를 완료했습니다. 변경할 수 없는 신원, 마감, 취소, 조회 권한, Process 재생, shadow 격리, 학습 집단, 계획 전달, Operator 변환 결과, Console 오버플로, 대규모 결과 해시, cold import 및 at-least-once 중복 제거를 Low 이하의 결과만 남을 때까지 보강했습니다. | `current change`; Core 테스트 646개, Operator 테스트 46개, Console 테스트 19개, Playwright viewport 시나리오 3개, Ruff, strict mypy 및 최종 작업 범위 검토. | 선택기를 승격하기 전에 관리되는 실시간 근거를 보존합니다. 로컬 구현 근거는 배포 검증을 의미하지 않습니다. |
 
 ### 남은 작업
 
