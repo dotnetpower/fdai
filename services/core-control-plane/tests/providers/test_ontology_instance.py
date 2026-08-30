@@ -235,6 +235,28 @@ async def test_link_validation_query_and_traversal() -> None:
     assert len(graph.links) == 2
 
 
+async def test_traversal_rejects_root_with_unexpected_object_type() -> None:
+    store = _store()
+    await _upsert(store, "review-1", "ReviewCase", "open")
+    await _upsert(store, "check-1", "ReviewCheck", "ready")
+    await store.upsert_link(
+        OntologyLinkRecord(
+            link_type="contains_check",
+            from_id="review-1",
+            to_id="check-1",
+        )
+    )
+
+    graph = await store.traverse(
+        root_ids=("check-1",),
+        root_object_types=("ReviewCase",),
+        direction="both",
+    )
+
+    assert graph.objects == ()
+    assert graph.links == ()
+
+
 async def test_link_rejects_wrong_endpoint_types() -> None:
     store = _store()
     await _upsert(store, "check-1", "ReviewCheck", "blocked")

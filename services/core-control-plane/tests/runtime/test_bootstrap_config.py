@@ -66,7 +66,10 @@ from fdai.runtime.bootstrap_lifecycle import run_main as _run_main
 from fdai.runtime.bootstrap_lifecycle import (
     semantic_turn_readiness_registration as _semantic_turn_readiness_registration,
 )
-from fdai.runtime.bootstrap_pantheon import _pantheon_enforce_enabled
+from fdai.runtime.bootstrap_pantheon import (
+    _approver_authorizer_from_env,
+    _pantheon_enforce_enabled,
+)
 from fdai.runtime.readiness import RuntimeReadinessState
 from fdai.shared.config.runtime_flags import pantheon_start_enabled
 from fdai.shared.providers.local.event_bus import LocalEventBus
@@ -94,6 +97,27 @@ def test_pantheon_enforce_requires_deployment_authority_ceiling() -> None:
     state = RuntimeReadinessState(report=report)
 
     assert not _pantheon_enforce_enabled({"FDAI_PANTHEON_ENFORCE": "true"}, state)
+
+
+def test_pantheon_approver_policy_is_explicit_and_action_scoped() -> None:
+    authorizer = _approver_authorizer_from_env(
+        {
+            "FDAI_PANTHEON_APPROVER_ACTIONS_JSON": (
+                '{"Approver-A":["ops.restart-service","ops.failover-primary"]}'
+            )
+        }
+    )
+
+    assert authorizer is not None
+    assert authorizer("approver-a", "ops.restart-service") is True
+    assert authorizer("approver-a", "remediate.delete-storage") is False
+    assert authorizer("approver-b", "ops.restart-service") is False
+
+
+@pytest.mark.parametrize("raw", ["[]", '{"approver":[]}', '{"approver":[1]}'])
+def test_pantheon_approver_policy_rejects_invalid_contract(raw: str) -> None:
+    with pytest.raises(ValueError, match="APPROVER_ACTIONS_JSON"):
+        _approver_authorizer_from_env({"FDAI_PANTHEON_APPROVER_ACTIONS_JSON": raw})
 
 
 def test_runtime_multiplexes_startup_readiness_transitions() -> None:

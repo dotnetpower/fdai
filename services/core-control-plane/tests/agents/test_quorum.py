@@ -293,3 +293,33 @@ class TestEndToEndQuorum:
         with pytest.raises(ValueError, match="twice"):
             asyncio.run(var.decide("c-dbl", approver="approver-1@example.com", decision="approve"))
         assert bus.messages_on("object.approval") == []
+
+    def test_unauthorized_approver_cannot_contribute_to_quorum(self) -> None:
+        bus = _bus()
+        var = Var(
+            bus=bus,
+            approver_authorizer=lambda principal, _action_type: principal == "approved@example.com",
+        )
+        asyncio.run(
+            var.on_typed_message(
+                "object.action-run",
+                {
+                    "correlation_id": "c-auth",
+                    "action_type": "remediate.enable-encryption",
+                    "state": "hil_pending",
+                    "quorum_required": 1,
+                    "initiator_principal": "initiator@example.com",
+                },
+            )
+        )
+
+        with pytest.raises(PermissionError, match="not authorized"):
+            asyncio.run(
+                var.decide(
+                    "c-auth",
+                    approver="unapproved@example.com",
+                    decision="approve",
+                )
+            )
+
+        assert bus.messages_on("object.approval") == []

@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 7e3d57266b45a6cb87c50c5ca74df4b4727e31e1
+translation_source_sha: 77c969f6441bd8d7cda701bd1ea10839b95b21b0
 translation_revised: 2026-08-30
 ---
 # 코드 맵
@@ -107,7 +107,12 @@ Kubernetes Resource Event 변환 결과는 선택적 객체 UID, 클러스터, �
 
 Inventory 관계 수렴은 지속형 운영 인스턴스 그래프가 소유합니다. 검토된 provider parent가 일반
 containment를 shadow하고 snapshot 및 ontology store가 cardinality를 강제하며 inventory
-ontology projector는 graph 교체와 generation commit marker를 직렬화합니다. Resource
+ontology projector는 graph 교체와 정확한 세대의 매니페스트 및 상태 마커를 하나의 PostgreSQL
+트랜잭션으로 커밋합니다. 판테온 적용 모드는 고정된 에이전트 역할 분리를 유지하면서 해결된
+자율성 상한, 권한이 있고 만료되는 승인, Saga 소유의 실행 전 receipt, 안정적인 멱등성 예약,
+소유자가 fencing된 리소스 claim, 분산 리소스 lock을 Thor의 실행기 호출 전에 결합합니다.
+재시작 시 모호한 실행은 명시적인 조정 또는 rollback 전까지 `execution_unknown`으로 유지됩니다.
+Resource
 ObjectSet receipt는 결과가 0개인 read를 포함해 source generation 및 completeness를 query
 truncation과 독립적으로 보존합니다.
 Principal 범위 운영 근거 읽기는 기존의 범위가 제한된 응답을 통해 증적으로 검증된 Context

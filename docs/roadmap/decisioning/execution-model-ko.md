@@ -1,7 +1,7 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: 6404bfecaeed3110d5d334107750e331678ba5a2
+translation_source_sha: d44c4f64735a6db2ed7a165e0512c686ddfda331
 translation_revised: 2026-08-30
 ---
 
@@ -89,6 +89,15 @@ authority = min(
 [risk-classification.md](risk-classification-ko.md) 참조), 그리고 감사
 소비자 가 reasoning 을 렌더링 할 수 있도록 각 입력의 기여를 이름 하는
 `resolved_ceiling` breakdown (§8) 을 carry 하는 **`RiskDecision`**.
+
+해결된 자율성 상한은 결정 및 내구성 있는 `ActionRun`과 함께 전달됩니다. Thor는 전달 시작,
+사람 승인 이후, 실행기 I/O 이전, 재시작 이후에 이 상한을 다시 확인합니다. 사람 승인은
+`enforce_hil` 조건을 충족할 수 있지만 `shadow_only`를 실행 가능한 상태로 높일 수 없습니다.
+상한이 누락되거나 잘못된 경우에는 적용 모드를 상속하지 않고 관찰 모드로 유지합니다.
+
+판테온 적용 모드에는 명시적인 `FDAI_PANTHEON_APPROVER_ACTIONS_JSON` 배포 정책도 필요합니다.
+이 JSON 객체는 인증된 승인 주체를 비어 있지 않은 ActionType ID 배열에 매핑합니다. 정책이
+누락되거나 잘못되었거나 주체 또는 작업이 목록에 없으면 승인을 허용하지 않습니다.
 
 ### 2.0 축 A - Risk-classification 표 (권위적 기준선)
 

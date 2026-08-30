@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from copy import deepcopy
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -72,6 +73,83 @@ class _FailStatusOnceStore(InMemoryStateStore):
         await super().write_state(key, value)
 
 
+class _FailManifestOnceStore(InMemoryStateStore):
+    def __init__(self) -> None:
+        super().__init__()
+        self.fail_manifest_once = True
+
+    async def write_state(self, key: str, value: dict[str, object]) -> None:
+        if key == INVENTORY_ONTOLOGY_MANIFEST_KEY and self.fail_manifest_once:
+            self.fail_manifest_once = False
+            raise RuntimeError("injected manifest commit failure")
+        await super().write_state(key, value)
+
+
+class _CountingOntologyStore(InMemoryOntologyInstanceStore):
+    def __init__(self) -> None:
+        catalog = load_ontology_catalog(
+            REPO_ROOT / "rule-catalog",
+            schema_registry=PackageResourceSchemaRegistry(),
+            probes_root=REPO_ROOT / "rule-catalog" / "probes",
+        )
+        super().__init__(object_types=catalog.object_types, link_types=catalog.link_types)
+        self.query_calls = 0
+
+    async def query_objects(self, **kwargs: object):  # type: ignore[no-untyped-def]
+        self.query_calls += 1
+        return await super().query_objects(**kwargs)
+
+
+class _AtomicOntologyStore(InMemoryOntologyInstanceStore):
+    def __init__(self, status: InMemoryStateStore) -> None:
+        catalog = load_ontology_catalog(
+            REPO_ROOT / "rule-catalog",
+            schema_registry=PackageResourceSchemaRegistry(),
+            probes_root=REPO_ROOT / "rule-catalog" / "probes",
+        )
+        super().__init__(object_types=catalog.object_types, link_types=catalog.link_types)
+        self._status = status
+
+    async def replace_subgraph_with_state(
+        self,
+        *,
+        objects: tuple[OntologyObjectRecord, ...],
+        links: tuple[object, ...],
+        previous_object_ids: tuple[str, ...],
+        previous_link_keys: tuple[tuple[str, str, str], ...],
+        state_updates: dict[str, dict[str, object]],
+        expected_active_generation: str,
+    ) -> None:
+        assert expected_active_generation
+        prior_objects = deepcopy(self._objects)
+        prior_links = deepcopy(self._links)
+        prior_state = deepcopy(self._status._state)  # noqa: SLF001 - transactional test double
+        try:
+            await super().replace_subgraph(
+                objects=objects,
+                links=links,  # type: ignore[arg-type]
+                previous_object_ids=previous_object_ids,
+                previous_link_keys=previous_link_keys,
+            )
+            for key, value in state_updates.items():
+                await self._status.write_state(key, value)
+        except Exception:
+            self._objects = prior_objects
+            self._links = prior_links
+            self._status._state = prior_state  # noqa: SLF001 - transactional test double
+            raise
+
+    async def write_state_if_active_generation(
+        self,
+        *,
+        expected_active_generation: str,
+        state_updates: dict[str, dict[str, object]],
+    ) -> None:
+        assert expected_active_generation
+        for key, value in state_updates.items():
+            await self._status.write_state(key, value)
+
+
 def _store() -> InMemoryOntologyInstanceStore:
     catalog = load_ontology_catalog(
         REPO_ROOT / "rule-catalog",
@@ -95,6 +173,7 @@ def _projector(
         status_store=status,
         ontology_release_digest=ONTOLOGY_RELEASE_DIGEST,
         resource_type_mappings=resource_type_mappings,
+        allow_non_atomic_store=not hasattr(store, "replace_subgraph_with_state"),
     )
 
 
@@ -209,6 +288,7 @@ async def test_projector_serializes_the_complete_commit_under_injected_lock() ->
         status_store=status,
         ontology_release_digest=ONTOLOGY_RELEASE_DIGEST,
         projection_lock=projection_lock,
+        allow_non_atomic_store=True,
     )
 
     await asyncio.gather(
@@ -223,22 +303,86 @@ async def test_projector_serializes_the_complete_commit_under_injected_lock() ->
     assert manifest["generation"] == "snapshot-2"
 
 
-async def test_projector_retry_recovers_after_manifest_write_before_status_commit() -> None:
+async def test_projector_rejects_non_atomic_store_before_graph_write() -> None:
     store = _store()
+    projector = InventoryOntologyProjector(
+        store=store,
+        status_store=InMemoryStateStore(),
+        ontology_release_digest=ONTOLOGY_RELEASE_DIGEST,
+    )
+
+    with pytest.raises(RuntimeError, match="requires atomic graph and state commits"):
+        await projector.apply(_observation(generation="snapshot-1", resource_ids=("vm-1",)))
+
+    assert await store.get_object("vm-1") is None
+
+
+async def test_projector_retry_recovers_after_manifest_write_before_status_commit() -> None:
     status = _FailStatusOnceStore()
+    store = _AtomicOntologyStore(status)
     projector = _projector(store, status)
     observation = _observation(generation="snapshot-1", resource_ids=("vm-1",))
 
     with pytest.raises(RuntimeError, match="injected status commit failure"):
         await projector.apply(observation)
 
-    assert await status.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY) is not None
+    assert await status.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY) is None
     assert await status.read_state(INVENTORY_ONTOLOGY_STATUS_KEY) is None
     result = await projector.apply(observation)
     assert result.status == "available"
     committed = await status.read_state(INVENTORY_ONTOLOGY_STATUS_KEY)
     assert committed is not None
     assert committed["generation"] == "snapshot-1"
+
+
+async def test_projector_retry_recovers_after_graph_commit_before_manifest_write() -> None:
+    status = _FailManifestOnceStore()
+    store = _AtomicOntologyStore(status)
+    projector = _projector(store, status)
+    observation = _observation(generation="snapshot-1", resource_ids=("vm-1",))
+
+    with pytest.raises(RuntimeError, match="injected manifest commit failure"):
+        await projector.apply(observation)
+
+    assert await store.get_object("vm-1") is None
+
+    result = await projector.apply(observation)
+
+    assert result.status == "available"
+    manifest = await status.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY)
+    committed = await status.read_state(INVENTORY_ONTOLOGY_STATUS_KEY)
+    assert manifest is not None
+    assert committed is not None
+    assert committed["manifest_digest"] == manifest["manifest_digest"]
+
+
+async def test_new_generation_replaces_interrupted_generation_without_foreign_ownership() -> None:
+    status = _FailManifestOnceStore()
+    store = _AtomicOntologyStore(status)
+    projector = _projector(store, status)
+
+    with pytest.raises(RuntimeError, match="injected manifest commit failure"):
+        await projector.apply(_observation(generation="snapshot-1", resource_ids=("vm-1",)))
+
+    result = await projector.apply(_observation(generation="snapshot-2", resource_ids=("vm-2",)))
+
+    assert result.status == "available"
+    assert await store.get_object("vm-1") is None
+    assert await store.get_object("vm-2") is not None
+
+
+async def test_projector_reads_revisions_in_bounded_batches() -> None:
+    store = _CountingOntologyStore()
+    projector = _projector(store, InMemoryStateStore())
+
+    await projector.apply(
+        _observation(
+            generation="snapshot-large",
+            resource_ids=tuple(f"vm-{index:04d}" for index in range(1_001)),
+        )
+    )
+
+    assert store.query_calls == 2
 
 
 async def test_multi_link_type_manifest_replays_and_upgrades_legacy_schema() -> None:

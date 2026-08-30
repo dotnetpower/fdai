@@ -282,6 +282,8 @@ more observed resources than the original estimate without claiming more than 10
 
 Genesis always scans the exact target subscription root with no resource-type filter. A narrowed
 scope is available only for later operator-requested refreshes and cannot satisfy onboarding.
+The runtime rejects resource-type subset promotion before the global active snapshot or ontology
+projection can change, so a narrowed refresh cannot delete identities outside its requested set.
 Provider-native object coverage, including materialized unmapped types, must be complete and
 untruncated. Classified relationship gaps can close object inventory while keeping relationship
 coverage limited and graph-dependent autonomy lowered. Relationship drops added by verified

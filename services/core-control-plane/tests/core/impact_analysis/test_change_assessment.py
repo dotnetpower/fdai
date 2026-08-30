@@ -77,6 +77,8 @@ def _snapshot(
     ontology_release: str = "sha256:release-1",
     stale_sources: tuple[str, ...] = (),
     conflicts: tuple[str, ...] = (),
+    graph_source_complete: bool = True,
+    graph_source_generation: str | None = "inventory-generation-1",
 ) -> OperationalContextSnapshot:
     state_fact = StateFactMetadata(
         lane=StateFactLane.OBSERVED,
@@ -127,8 +129,12 @@ def _snapshot(
         temporal_exclusions=(),
         stale_sources=stale_sources,
         conflicts=conflicts,
+        graph_source_complete=graph_source_complete,
+        graph_source_generation=graph_source_generation,
         autonomy_ceiling=(
-            Autonomy.SHADOW_ONLY if conflicts or stale_sources else Autonomy.ENFORCE_AUTO
+            Autonomy.SHADOW_ONLY
+            if conflicts or stale_sources or not graph_source_complete
+            else Autonomy.ENFORCE_AUTO
         ),
     )
 
@@ -145,6 +151,8 @@ def test_graph_receipt_projects_verified_exact_release_snapshot() -> None:
     assert receipt.authenticated is True
     assert receipt.truncated is False
     assert receipt.conflict_reasons == ()
+    assert receipt.source_complete is True
+    assert receipt.source_generation == "inventory-generation-1"
 
 
 def test_graph_receipt_preserves_stale_mixed_and_truncated_evidence() -> None:
@@ -161,6 +169,17 @@ def test_graph_receipt_preserves_stale_mixed_and_truncated_evidence() -> None:
     assert receipt.release_state is GraphEvidenceReleaseState.MIXED
     assert receipt.truncated is True
     assert receipt.conflict_reasons == ("context_graph_truncated", "ownership_conflict")
+
+
+def test_graph_receipt_preserves_incomplete_source_as_unknown() -> None:
+    receipt = change_graph_evidence_from_snapshot(
+        _snapshot(graph_source_complete=False),
+        expected_ontology_release="sha256:release-1",
+    )
+
+    assert receipt.source_complete is False
+    assert receipt.source_generation == "inventory-generation-1"
+    assert receipt.freshness is GraphEvidenceFreshness.UNKNOWN
 
 
 async def test_complete_planned_change_is_eligible_for_later_gates() -> None:

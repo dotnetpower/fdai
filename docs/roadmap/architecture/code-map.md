@@ -134,7 +134,12 @@ Operational Context responses are rebound to the exact read request, and topolog
 canonical source-receipt digests before it can report complete evidence.
 Context snapshots must also match the request's catalog revision, and response byte budgets include
 the bundle identity fields they return.
-The inventory ontology projector serializes graph replacement with its generation commit marker.
+The inventory ontology projector commits graph replacement and its exact-generation manifest and
+status markers in one PostgreSQL transaction. Pantheon enforcement preserves the separate fixed
+agent roles while binding the resolved autonomy ceiling, authorized expiring approval, Saga-owned
+pre-execution receipt, stable idempotency reservation, owner-fenced resource claim, and distributed
+resource lock before Thor invokes an executor. Restart ambiguity remains `execution_unknown` until
+explicit reconciliation or rollback.
 Resource ObjectSet receipts preserve source generation and completeness independently from query
 truncation, including zero-result reads.
 The same projection preserves independently verified `runtime_calls` edges in both directions

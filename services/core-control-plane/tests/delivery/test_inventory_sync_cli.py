@@ -677,6 +677,34 @@ async def test_source_builder_preserves_order_and_fallback_coverage() -> None:
     assert sources[1].inventory._unmapped_resources is None  # noqa: SLF001
 
 
+async def test_source_builder_does_not_claim_full_provider_coverage_for_subset() -> None:
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "sub-1",
+            "FDAI_INVENTORY_RESOURCE_TYPES": "compute.vm",
+        }
+    )
+    vocabulary = _vocabulary()
+    identity = StaticWorkloadIdentity(
+        audience="https://management.azure.com/.default",
+        token="test-token",  # noqa: S106 - deterministic test credential
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(_http_ok)) as client:
+        sources = _build_sources(
+            config=config,
+            vocabulary=vocabulary,
+            resource_types=_resolve_resource_types(config, vocabulary),
+            identity=identity,
+            http_client=client,
+            started_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+
+    assert sources[0].manifest.metadata["coverage_scope"] == "requested_resource_types"
+    assert sources[0].inventory._scope_coverage is None  # noqa: SLF001
+    assert sources[0].inventory._unmapped_resources is None  # noqa: SLF001
+
+
 async def test_ontology_observer_publishes_durable_topology_history(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

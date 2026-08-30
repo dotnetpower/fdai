@@ -37,6 +37,7 @@ from fdai.agents.saga import Saga
 from fdai.agents.thor import Thor
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.chaos.symptom_index import build_from_entries
+from fdai.core.executor.lock import ResourceLockManager
 from fdai.core.impact_analysis import ChangeAssessmentService
 from fdai.core.learning import PostTurnReviewInput, review_input_to_mapping
 from fdai.core.operational_planning import (
@@ -67,6 +68,11 @@ from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
 from tests.core.rule_semantic_generation.test_activation import _command, _CountingIndex
+
+
+class _DistributedTestLock(ResourceLockManager):
+    distributed = True
+
 
 _RAW_TOPIC = "fdai.events"
 _DIGEST_A = "sha256:" + "a" * 64
@@ -751,6 +757,8 @@ def test_enforce_true_disables_forced_shadow() -> None:
         thor_executor=executor,
         thor_state_store=StateStoreActionRunStore(store=state_store),
         rollback_executors={"state_forward_only": rollback_executor},
+        approver_authorizer=lambda _principal, _action_type: True,
+        execution_resource_lock=_DistributedTestLock(),
     )
     assert runtime.enforce is True
     thor = runtime.agents["Thor"]
@@ -762,6 +770,7 @@ def test_enforce_true_disables_forced_shadow() -> None:
                 "correlation_id": "c-enforce",
                 "action_type": "ops.restart-service",
                 "risk_verdict": "auto",
+                "resolved_autonomy_ceiling": "enforce_auto",
                 "resource_id": "vm-enforce",
             }
         )

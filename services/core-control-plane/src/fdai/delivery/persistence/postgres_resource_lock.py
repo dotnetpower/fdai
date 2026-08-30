@@ -60,6 +60,8 @@ class PostgresAdvisoryResourceLockConfig:
 class PostgresAdvisoryResourceLock:
     """Distributed :class:`ResourceLock` via Postgres session advisory locks."""
 
+    distributed = True
+
     def __init__(self, *, config: PostgresAdvisoryResourceLockConfig) -> None:
         if not config.dsn:
             raise ValueError("PostgresAdvisoryResourceLockConfig.dsn MUST NOT be empty")

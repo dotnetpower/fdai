@@ -967,6 +967,7 @@ def test_thor_hil_verdict_waits_for_approval_then_executes() -> None:
                 "correlation_id": "c-hil",
                 "action_type": "remediate.enable-encryption",
                 "risk_verdict": "hil",
+                "resolved_autonomy_ceiling": "enforce_hil",
                 "resource_id": "disk-1",
             }
         )
@@ -996,6 +997,7 @@ def test_thor_duplicate_approval_does_not_re_execute() -> None:
                 "correlation_id": "c-dup-appr",
                 "action_type": "remediate.enable-encryption",
                 "risk_verdict": "hil",
+                "resolved_autonomy_ceiling": "enforce_hil",
                 "resource_id": "disk-9",
             }
         )
@@ -1056,6 +1058,7 @@ def test_thor_releases_lock_when_lifecycle_emit_fails() -> None:
                     "correlation_id": "c-boom",
                     "action_type": "ops.restart-service",
                     "risk_verdict": "auto",
+                    "resolved_autonomy_ceiling": "enforce_auto",
                     "resource_id": "vm-boom",
                 }
             )
@@ -1075,6 +1078,7 @@ def test_thor_degrades_to_shadow_when_saga_absent() -> None:
                 "correlation_id": "c",
                 "action_type": "ops.restart-service",
                 "risk_verdict": "auto",
+                "resolved_autonomy_ceiling": "enforce_auto",
                 "resource_id": "vm-2",
             }
         )
@@ -1105,6 +1109,7 @@ def test_thor_triggers_vidar_rollback_on_failure() -> None:
                 "correlation_id": "c-fail",
                 "action_type": "ops.restart-service",
                 "risk_verdict": "auto",
+                "resolved_autonomy_ceiling": "enforce_auto",
                 "resource_id": "vm-3",
             }
         )
@@ -1117,7 +1122,7 @@ def test_thor_triggers_vidar_rollback_on_failure() -> None:
     assert rollbacks[0].payload["state"] == "succeeded"
 
 
-def test_vidar_missing_executor_fails_closed_and_releases_thor_lock() -> None:
+def test_vidar_missing_executor_fails_closed_and_retains_thor_lock() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)
 
@@ -1135,6 +1140,7 @@ def test_vidar_missing_executor_fails_closed_and_releases_thor_lock() -> None:
                 "correlation_id": "c-no-rollback",
                 "action_type": "ops.failover-primary",
                 "risk_verdict": "auto",
+                "resolved_autonomy_ceiling": "enforce_auto",
                 "resource_id": "db-1",
                 "rollback_contract": "scripted",
             }
@@ -1143,7 +1149,7 @@ def test_vidar_missing_executor_fails_closed_and_releases_thor_lock() -> None:
 
     assert run.state == ActionRunState.ROLLBACK_FAILED
     assert run.rollback_ref is None
-    assert "db-1" not in thor._resource_locks
+    assert "db-1" in thor._resource_locks
     rollback = bus.messages_on("object.rollback")[0].payload
     assert rollback["state"] == "failed"
     assert rollback["contract"] == "scripted"
@@ -1184,19 +1190,18 @@ def test_thor_per_resource_mutex_prevents_concurrent_runs() -> None:
             }
         )
     )
-    # Second dispatch on same resource returns the existing (pending) run
-    run2 = asyncio.run(
-        thor.dispatch_verdict(
-            {
-                "correlation_id": "c2",
-                "action_type": "ops.restart-service",
-                "risk_verdict": "auto",
-                "resource_id": "vm-lock",
-            }
+    # A distinct action is not acknowledged or discarded while the resource is held.
+    with pytest.raises(RuntimeError, match="active ActionRun"):
+        asyncio.run(
+            thor.dispatch_verdict(
+                {
+                    "correlation_id": "c2",
+                    "action_type": "ops.restart-service",
+                    "risk_verdict": "auto",
+                    "resource_id": "vm-lock",
+                }
+            )
         )
-    )
-    # It should be the same object (existing pending), not a new one
-    assert run2.correlation_id == "c1"
 
 
 def test_var_quorum_two_approvers_required() -> None:

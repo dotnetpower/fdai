@@ -9,7 +9,7 @@ window and the last-seen counter is incremented on repeat.
 from __future__ import annotations
 
 import inspect
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -28,6 +28,8 @@ from fdai.agents._framework.introspection import (
     mentioned,
 )
 from fdai.agents._framework.pantheon import _VAR
+
+ApproverAuthorizer = Callable[[str, str], bool | Awaitable[bool]]
 
 
 @dataclass
@@ -84,10 +86,12 @@ class Var(Agent):
         *,
         bus: PantheonBus | None = None,
         admin_channel: AdminNotificationAdapter | None = None,
+        approver_authorizer: ApproverAuthorizer | None = None,
     ) -> None:
         super().__init__(spec=_VAR)
         self.bus = bus
         self.admin_channel = admin_channel or InMemoryAdminChannel()
+        self._approver_authorizer = approver_authorizer
         self._pending: dict[str, PendingHilTicket] = {}
         self._pending_shadow_reviews: dict[str, PendingShadowReview] = {}
         # (initiator, action_type) -> AdminCard for dedup counter update
@@ -229,6 +233,30 @@ class Var(Agent):
         if ticket is None:
             return None
 
+        approver_norm = approver.strip().casefold()
+        if not approver_norm:
+            raise ValueError(f"approver MUST be a non-empty principal on {correlation_id!r}")
+        initiator_norm = (ticket.initiator_principal or "").strip().casefold()
+        if initiator_norm and approver_norm == initiator_norm:
+            self._record_blocked_attempt("self_approval_blocked", correlation_id, approver_norm)
+            raise ValueError(
+                f"principal {approver_norm!r} cannot decide an action it initiated "
+                f"({correlation_id!r}): no self-approval"
+            )
+        if self._approver_authorizer is not None:
+            authorized = self._approver_authorizer(approver_norm, ticket.action_type)
+            if inspect.isawaitable(authorized):
+                authorized = await authorized
+            if not authorized:
+                self._record_blocked_attempt(
+                    "approver_unauthorized",
+                    correlation_id,
+                    approver_norm,
+                )
+                raise PermissionError(
+                    f"principal {approver_norm!r} is not authorized to decide "
+                    f"{ticket.action_type!r}"
+                )
         if decision == "reject":
             ticket.rejected = True
         elif decision == "approve":
@@ -241,16 +269,6 @@ class Var(Agent):
             # varying case, and reject a blank approver outright. This matches
             # the case-insensitive rule the operator-memory approval path
             # already enforces.
-            approver_norm = approver.strip().casefold()
-            if not approver_norm:
-                raise ValueError(f"approver MUST be a non-empty principal on {correlation_id!r}")
-            initiator_norm = (ticket.initiator_principal or "").strip().casefold()
-            if initiator_norm and approver_norm == initiator_norm:
-                self._record_blocked_attempt("self_approval_blocked", correlation_id, approver_norm)
-                raise ValueError(
-                    f"principal {approver_norm!r} cannot approve an action it initiated "
-                    f"({correlation_id!r}): no self-approval"
-                )
             if approver_norm in ticket.approvers:
                 self._record_blocked_attempt(
                     "double_approval_blocked", correlation_id, approver_norm

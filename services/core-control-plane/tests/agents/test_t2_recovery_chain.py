@@ -14,11 +14,16 @@ from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents.heimdall import Heimdall
 from fdai.agents.saga import Saga
 from fdai.agents.var import Var
+from fdai.core.executor.lock import ResourceLockManager
 from fdai.runtime.t2_route_registry import T2RouteRegistry
 from fdai.shared.providers.event_bus import EventBus, EventEnvelope, PublishReceipt
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _RAW_TOPIC = "fdai.events"
+
+
+class _DistributedTestLock(ResourceLockManager):
+    distributed = True
 
 
 class LiveInMemoryEventBus(EventBus):
@@ -226,6 +231,8 @@ def test_approved_failure_switches_persistent_route_through_thor() -> None:
         thor_state_store=StateStoreActionRunStore(store),
         saga=Saga(audit_chain=StateStoreAuditChainAdapter(store)),
         rollback_executors={"state_forward_only": registry.rollback},
+        approver_authorizer=lambda _principal, _action_type: True,
+        execution_resource_lock=_DistributedTestLock(),
     )
 
     asyncio.run(
@@ -259,6 +266,8 @@ def test_vidar_restores_route_when_thor_verification_fails() -> None:
         thor_state_store=StateStoreActionRunStore(store),
         saga=Saga(audit_chain=StateStoreAuditChainAdapter(store)),
         rollback_executors={"state_forward_only": registry.rollback},
+        approver_authorizer=lambda _principal, _action_type: True,
+        execution_resource_lock=_DistributedTestLock(),
     )
 
     asyncio.run(

@@ -43,6 +43,9 @@ it makes the roles legible and auditable.
 - **Judge is not the executor.** Forseti issues a verdict; Thor dispatches the verdict; Var carries
   the human approval. Thor rechecks the live startup-readiness authority ceiling at dispatch and
   after approval, so stale or incomplete safety evidence forces shadow before executor I/O.
+  Enforcement also requires a Saga-owned pre-execution receipt, an authorized non-expired approval,
+  a cross-replica resource lock, and a persistent single-use resource claim. Restart ambiguity stays
+  `execution_unknown`; it never replays executor I/O without reconciliation.
 - **Pantheon fixed upstream.** The 15-agent set, the org chart, and the
   role assignments are locked. Forks customize behaviour through configured
   seams (§10) - not by adding, removing, or renaming agents.

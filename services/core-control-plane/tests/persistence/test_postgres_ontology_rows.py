@@ -30,6 +30,23 @@ def test_inventory_graph_source_coverage_requires_exact_complete_generation() ->
     assert generation == "generation-2"
 
 
+def test_inventory_graph_source_coverage_rejects_pending_reconciliation() -> None:
+    complete, generation = postgres_ontology._resolve_inventory_graph_source_coverage(
+        active_generation="generation-2",
+        status={"status": "available", "generation": "generation-2"},
+        manifest={
+            "generation": "generation-2",
+            "complete": True,
+            "relationship_complete": True,
+            "dropped_reasons": [],
+        },
+        pending_reconciliation=True,
+    )
+
+    assert complete is False
+    assert generation == "generation-2"
+
+
 @pytest.mark.parametrize(
     ("status", "manifest"),
     [

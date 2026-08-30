@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 424163363267906070760904460765bc896838a8
+translation_source_sha: 353911e80907a3609f6c535720276c89b49bf98a
 translation_revised: 2026-08-30
 ---
 # 에이전트 판테온
@@ -44,6 +44,9 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 - **판사는 실행기가 아닙니다.** Forseti는 판정을 발행하고 Thor는 이를 전달하며 Var는 사람
   승인을 담당합니다. Thor는 전달 시점과 승인 뒤에 실제 시작 준비 상태 권한 상한을 다시 확인하므로
   오래되거나 불완전한 안전 근거는 실행기 I/O 전에 shadow를 강제합니다.
+  적용 모드에는 Saga 소유의 실행 전 receipt, 권한이 있고 만료되지 않은 승인, replica 간
+  리소스 lock, 영구적인 일회용 리소스 claim도 필요합니다. 재시작 시 모호한 실행은
+  `execution_unknown`으로 유지되며 조정 없이 실행기 I/O를 다시 수행하지 않습니다.
 - **판테온은 업스트림 에서 고정.** 15개 에이전트 세트, 조직도, 역할 배정은
   잠겨 있다. 포크는 구성 경계 (§10) 을 통해 동작을 커스터마이즈한다 -
   에이전트를 추가 / 제거 / 이름 변경 하지 않는다.

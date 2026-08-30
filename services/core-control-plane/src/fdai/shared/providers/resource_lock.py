@@ -36,6 +36,8 @@ class ResourceLock(Protocol):
     re-derived from the audit log + idempotency key).
     """
 
+    distributed: bool
+
     def acquire(self, resource_id: str) -> AbstractAsyncContextManager[None]:
         """Return an async context manager holding the per-resource lock."""
         ...

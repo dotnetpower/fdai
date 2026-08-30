@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 514c3d55d86097910117026c93f4828737e14018
+translation_source_sha: 1a7b8da908de2e519128fc601ad844fc4a130244
 translation_revised: 2026-08-30
 ---
 # 지속형 운영 인스턴스 그래프
@@ -117,6 +117,12 @@ status, manifest generation과 content digest가 일치해야 한다고 요구�
 stale replica는 safe-to-retry migration 또는 commit이 상태를 닫을 때까지 incomplete evidence를
 반환하며 혼합 세대를 complete로 노출하지 않습니다. Legacy 1.2.0 manifest는 다음 exact
 projection에서 다시 만들고 1.3.0으로 기록합니다.
+
+PostgreSQL projector는 lock을 획득하고 활성 인벤토리 세대를 다시 확인한 뒤 그래프 교체와
+매니페스트 및 상태 마커를 하나의 트랜잭션으로 커밋합니다. 엔드포인트 외래 키는 동시 리소스
+삭제가 고아 관계를 남기지 않도록 방지합니다. 대기 중인 관계 조정 마커는 해당 관측 이후의
+완전한 전체 범위 세대가 마커를 지울 때까지 그래프 완전성을 낮춥니다. 리소스 타입 하위 집합
+스캔은 전역 스냅샷으로 승격하거나 전역 온톨로지 projection을 대체할 수 없습니다.
 
 ## 보존, rollup, archive
 

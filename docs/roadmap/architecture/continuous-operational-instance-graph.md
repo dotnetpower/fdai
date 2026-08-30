@@ -117,6 +117,13 @@ incomplete evidence until a safe-to-retry migration or commit closes the state; 
 mixed generation as complete. Legacy 1.2.0 manifests are rebuilt from the next exact projection
 and written as 1.3.0.
 
+The PostgreSQL projector commits graph replacement and the manifest and status markers in one
+transaction after locking and rechecking the active inventory generation. Endpoint foreign keys
+prevent a concurrent resource deletion from leaving an orphan relationship. A pending
+relationship-reconciliation marker also lowers graph completeness until a complete full-scope
+generation at or after that observation clears the marker. Resource-type subset scans cannot
+promote the global snapshot or replace the global ontology projection.
+
 ## Retention, rollup, and archive
 
 ### Storage tiers

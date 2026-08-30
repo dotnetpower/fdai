@@ -182,6 +182,10 @@ class InventorySyncCoordinator:
                     generation=attempt_id,
                     recorded_at=datetime.now(tz=UTC),
                 )
+                if source.manifest.metadata.get("coverage_scope") == "requested_resource_types":
+                    raise InventoryStreamError(
+                        "resource-type subset cannot promote the global inventory snapshot"
+                    )
                 if self._enricher is not None:
                     original_drop_count = len(promoted_observation.relationship_drops)
                     enriched = await self._enricher.enrich(promoted_observation)
@@ -212,6 +216,7 @@ class InventorySyncCoordinator:
                 metadata["derived_source_states"] = [
                     state.to_metadata() for state in promoted_observation.source_states
                 ]
+                metadata["projection_complete"] = promoted_observation.complete
                 if provider_scope_coverage is not None:
                     metadata["provider_scope_coverage"] = provider_scope_coverage.to_metadata()
                 manifest = InventoryCoverageManifest(

@@ -107,15 +107,22 @@ class OperationalContextMaterializer:
             conflicts.append("target_resource_missing")
             objects = ()
             links = ()
+            graph_source_complete = False
+            graph_source_generation = None
         else:
             graph = await self._store.traverse(
                 root_ids=(target_resource_id,),
+                root_object_types=("Resource",),
                 link_types=_CONTEXT_LINKS,
                 direction="both",
-                max_depth=3,
+                max_depth=4,
             )
             objects = graph.objects
             links = graph.links
+            graph_source_complete = graph.source_complete
+            graph_source_generation = graph.source_generation
+            if not graph_source_complete:
+                conflicts.append("context_graph_source_incomplete")
             if graph.truncated:
                 conflicts.append("context_graph_truncated")
 
@@ -237,6 +244,8 @@ class OperationalContextMaterializer:
             evidence_paths=evidence_paths,
             temporal_exclusions=temporal_exclusions,
             source_freshness=canonical_freshness,
+            graph_source_complete=graph_source_complete,
+            graph_source_generation=graph_source_generation,
             stale_sources=normalized_stale,
             conflicts=normalized_conflicts,
         )
@@ -319,6 +328,8 @@ class OperationalContextMaterializer:
             stale_sources=normalized_stale,
             conflicts=normalized_conflicts,
             autonomy_ceiling=ceiling,
+            graph_source_complete=graph_source_complete,
+            graph_source_generation=graph_source_generation,
             decision_evidence_receipt_digest=(
                 admission.receipt_digest if admission is not None else None
             ),
@@ -503,6 +514,8 @@ def _snapshot_identity(
     evidence_paths: tuple[OperationalContextEvidencePath, ...],
     temporal_exclusions: tuple[OperationalContextEvidencePath, ...],
     source_freshness: tuple[SourceFreshness, ...],
+    graph_source_complete: bool,
+    graph_source_generation: str | None,
     stale_sources: tuple[str, ...],
     conflicts: tuple[str, ...],
 ) -> str:
@@ -522,6 +535,8 @@ def _snapshot_identity(
             )
             for item in source_freshness
         ),
+        "graph_source_complete": graph_source_complete,
+        "graph_source_generation": graph_source_generation,
         "stale_sources": stale_sources,
         "target_resource_id": target_resource_id,
         "recorded_at": _utc_timestamp(recorded_at),

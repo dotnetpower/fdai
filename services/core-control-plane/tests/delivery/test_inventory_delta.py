@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 from fdai.delivery.inventory_delta import (
     _links_by_owner,
@@ -133,6 +135,12 @@ class _CursorlessFinalInventory:
         yield InventoryBatch(final=True, cursor=None)
 
 
+class _StalledInventory:
+    async def delta(self, cursor: str):  # type: ignore[no-untyped-def]
+        await asyncio.sleep(1)
+        yield InventoryBatch(final=True, cursor=cursor)
+
+
 class _PartiallyInvalidBatchInventory:
     async def delta(self, cursor: str):  # type: ignore[no-untyped-def]
         yield InventoryBatch(
@@ -204,6 +212,26 @@ async def test_forward_delta_preserves_cursor_without_final_fence() -> None:
     cursor = await state.read_state("inventory_delta_cursor:subscription-1")
     assert cursor == {"cursor": "cursor-old"}
     assert inventory.seen_cursor == "cursor-old"
+
+
+@pytest.mark.asyncio
+async def test_forward_delta_preserves_cursor_when_total_deadline_expires() -> None:
+    state = InMemoryStateStore()
+    await state.write_state("inventory_delta_cursor:subscription-1", {"cursor": "cursor-old"})
+
+    with pytest.raises(RuntimeError, match="exceeded its deadline"):
+        await forward_inventory_delta(
+            inventory=_StalledInventory(),
+            state_store=state,
+            event_bus=InMemoryEventBus(),
+            topic="events",
+            scope="subscription-1",
+            deadline_seconds=0.01,
+        )
+
+    assert await state.read_state("inventory_delta_cursor:subscription-1") == {
+        "cursor": "cursor-old"
+    }
 
 
 @pytest.mark.asyncio

@@ -12,7 +12,7 @@ from typing import Any
 from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
 from fdai.agents._framework import architecture_review_runtime as arb_runtime
-from fdai.agents._framework import factory, runtime_health, runtime_subscriptions
+from fdai.agents._framework import execution_safety, factory, runtime_health, runtime_subscriptions
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus_bridge import AgentHandlerObserver, EventBusBridge
@@ -52,6 +52,7 @@ from fdai.agents.muninn import Muninn
 from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga
 from fdai.agents.thor import ActionExecutor, ActionRunStore, Thor
+from fdai.agents.var import ApproverAuthorizer, Var
 from fdai.agents.vidar import RollbackExecutor, Vidar
 from fdai.core.architecture_review import ArchitectureReviewTraceObserver
 from fdai.core.case_history import (
@@ -76,6 +77,7 @@ from fdai.core.tiers.t1_lightweight.tier import EmbeddingModel
 from fdai.rule_catalog.schema.rule_semantic_feedback import SemanticFeedbackCandidateSink
 from fdai.shared.contracts.models import OntologyActionType
 from fdai.shared.providers.event_bus import EventBus
+from fdai.shared.providers.resource_lock import ResourceLock
 from fdai.shared.providers.state_store import StateStore
 
 _LOG = logging.getLogger(__name__)
@@ -125,6 +127,8 @@ class PantheonRuntime:
         thor_state_store: ActionRunStore | None = None,
         rollback_executors: dict[str, RollbackExecutor] | None = None,
         operator_rbac: dict[str, frozenset[str]] | None = None,
+        approver_authorizer: ApproverAuthorizer | None = None,
+        execution_resource_lock: ResourceLock | None = None,
         incident_candidate_hook: IncidentCandidateHook | None = None,
         heimdall_rate_threshold: int = 5,
         heimdall_rate_window: int = 300,
@@ -168,11 +172,8 @@ class PantheonRuntime:
     ) -> PantheonRuntime:
         """Instantiate + wire the pantheon against ``provider``.
 
-        ``raw_event_topic`` is Huginn's P1 ingress topic. ``enforce`` defaults
-        to ``False`` and changes only after separately reviewed promotion.
-        ``saga`` injects a durable auditor (a fork wires an append-only
-        StateStore-backed ``Saga``); the default is the in-memory audit
-        chain, adequate for shadow but lost on restart.
+        ``raw_event_topic`` is Huginn's P1 ingress topic. ``enforce`` defaults to
+        ``False`` until promotion. The in-memory Saga default is shadow-only.
         ``disabled_agents`` lets a fork run a partial pantheon (agent-pantheon.md 10).
         Unknown names and hard-dependency agents (Saga / Vidar) are rejected. Disabling
         audit or rollback would break the mutation safety invariants. Disabling Huginn
@@ -181,21 +182,15 @@ class PantheonRuntime:
         if not raw_event_topic or not raw_event_topic.strip():
             raise ValueError("raw_event_topic MUST be a non-empty topic name")
 
-        if enforce:
-            missing = []
-            if thor_executor is None:
-                missing.append("thor_executor")
-            if thor_state_store is None:
-                missing.append("thor_state_store")
-            if saga is None or not saga.durable_audit:
-                missing.append("durable_saga")
-            if not rollback_executors:
-                missing.append("rollback_executors")
-            if missing:
-                raise ValueError(
-                    "pantheon enforce mode requires explicit durable safety bindings: "
-                    + ", ".join(missing)
-                )
+        execution_safety.validate_enforce_bindings(
+            enforce=enforce,
+            has_executor=thor_executor is not None,
+            has_state_store=thor_state_store is not None,
+            saga=saga,
+            has_rollback=bool(rollback_executors),
+            has_approver_authorizer=approver_authorizer is not None,
+            resource_lock=execution_resource_lock,
+        )
 
         disabled = frozenset(disabled_agents or frozenset())
         unknown = disabled - PANTHEON_NAMES
@@ -301,6 +296,8 @@ class PantheonRuntime:
             operational_evidence_hook=operational_evidence_hook,
             action_observation_hook=heimdall_action_observation_hook,
         )
+        if approver_authorizer is not None:
+            instantiated["Var"] = Var(approver_authorizer=approver_authorizer)
         if saga is not None:
             instantiated["Saga"] = saga
         if rollback_executors is not None:
@@ -342,6 +339,15 @@ class PantheonRuntime:
             thor.set_shadow(not enforce)
             if thor_state_store is not None:
                 thor.set_state_store(thor_state_store)
+            execution_safety.bind_execution_audit(
+                thor=thor,
+                saga=saga,
+                enforce=enforce,
+            )
+            thor.set_execution_resource_lock(
+                execution_resource_lock,
+                required=enforce,
+            )
 
         # Apply the disabled filter: disabled agents are neither bound nor
         # subscribed, so nobody publishes their owned topics and their
@@ -464,20 +470,12 @@ class PantheonRuntime:
     async def run(self, *, heartbeat_interval: float | None = None) -> None:
         """Start the perpetual consumer with optional periodic health logging."""
         await self._rehydrate()
-        if heartbeat_interval is None or heartbeat_interval <= 0:
-            await self.bridge.run()
-            return
-        heartbeat = asyncio.create_task(
-            self._heartbeat(heartbeat_interval), name="pantheon-heartbeat"
+        await execution_safety.run_with_maintenance(
+            run_consumers=self.bridge.run,
+            agents=self.agents,
+            heartbeat=self._heartbeat,
+            heartbeat_interval=heartbeat_interval,
         )
-        try:
-            await self.bridge.run()
-        finally:
-            heartbeat.cancel()
-            try:
-                await heartbeat
-            except (asyncio.CancelledError, Exception):  # noqa: BLE001, S110 - cleanup
-                pass
 
     async def stop(self) -> None:
         """Cancel every consumer task and drain cleanly."""

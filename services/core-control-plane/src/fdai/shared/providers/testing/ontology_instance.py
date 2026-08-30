@@ -217,15 +217,23 @@ class InMemoryOntologyInstanceStore:
         max_depth: int = 1,
         limit: int = 500,
     ) -> OntologyGraphSnapshot:
-        del root_object_types
         _validate_limit(limit)
         if not 1 <= max_depth <= 5:
             raise ValueError("max_depth MUST be in [1, 5]")
         if direction not in {"outgoing", "incoming", "both"}:
             raise ValueError("direction MUST be outgoing, incoming, or both")
         allowed_links = set(link_types)
+        allowed_root_types = set(root_object_types)
         ordered_root_ids = tuple(
-            dict.fromkeys(root_id for root_id in root_ids if root_id in self._objects)
+            dict.fromkeys(
+                root_id
+                for root_id in root_ids
+                if root_id in self._objects
+                and (
+                    not allowed_root_types
+                    or self._objects[root_id].object_type in allowed_root_types
+                )
+            )
         )
         allowed_root_ids = ordered_root_ids[:limit]
         queue: deque[tuple[str, int, str | None]] = deque(

@@ -22,7 +22,11 @@ from fdai.delivery.persistence.postgres_inventory_graph_helpers import (
     _source_priority,
     _unavailable_graph,
 )
-from fdai.shared.providers.inventory import InventoryBatch, LinkRecord
+from fdai.shared.providers.inventory import (
+    INVENTORY_RELATIONSHIP_RECONCILIATION_PREFIX,
+    InventoryBatch,
+    LinkRecord,
+)
 from fdai.shared.providers.inventory_snapshot import (
     InventoryAttemptFailure,
     InventoryCoverageManifest,
@@ -264,6 +268,18 @@ class PostgresInventorySnapshotStore:
                     "DELETE FROM inventory_realtime_resource WHERE observed_at <= %s",
                     (candidate_started,),
                 )
+                if manifest.metadata.get("coverage_scope") == "full_provider_scope":
+                    await connection.execute(
+                        "DELETE FROM state_kv WHERE key = ANY(%s::text[]) "
+                        "AND (value->>'observed_at')::timestamptz <= %s",
+                        (
+                            [
+                                f"{INVENTORY_RELATIONSHIP_RECONCILIATION_PREFIX}{scope}"
+                                for scope in manifest.scopes
+                            ],
+                            candidate_started,
+                        ),
+                    )
 
     async def fail(self, attempt_id: str, failure: InventoryAttemptFailure) -> None:
         async with await self._connect() as connection:

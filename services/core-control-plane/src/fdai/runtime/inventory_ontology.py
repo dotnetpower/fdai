@@ -42,6 +42,7 @@ _MANIFEST_SCHEMA_VERSION = "1.3.0"
 _LEGACY_MANIFEST_SCHEMA_VERSION = "1.2.0"
 _DIGEST_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
 _PROJECTION_LOCK_ID = "inventory-ontology-projection"
+_REVISION_READ_BATCH_SIZE = 1_000
 
 _LOG = logging.getLogger(__name__)
 
@@ -89,6 +90,7 @@ class InventoryOntologyProjector:
         resource_type_mappings: Mapping[str, str] | None = None,
         freshness_ceiling_seconds: int = DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS,
         projection_lock: ResourceLock | None = None,
+        allow_non_atomic_store: bool = False,
     ) -> None:
         if _DIGEST_PATTERN.fullmatch(ontology_release_digest) is None:
             raise ValueError("inventory ontology release digest MUST be sha256:<64 lowercase hex>")
@@ -100,6 +102,7 @@ class InventoryOntologyProjector:
         self._resource_type_mappings = resource_type_mappings
         self._freshness_ceiling_seconds = freshness_ceiling_seconds
         self._projection_lock = projection_lock
+        self._allow_non_atomic_store = allow_non_atomic_store
         self._local_lock = asyncio.Lock()
 
     async def apply(
@@ -135,10 +138,26 @@ class InventoryOntologyProjector:
             freshness_ceiling_seconds=self._freshness_ceiling_seconds,
         )
         if not projection.complete:
-            await self._write_status(
+            status_state = _projection_status_state(
                 projection,
+                ontology_release_digest=self._ontology_release_digest,
                 status=InventoryOntologyProjectionStatus.UNAVAILABLE,
             )
+            atomic_status = getattr(self._store, "write_state_if_active_generation", None)
+            if callable(atomic_status):
+                await atomic_status(
+                    expected_active_generation=projection.generation,
+                    state_updates={INVENTORY_ONTOLOGY_STATUS_KEY: status_state},
+                )
+            elif self._allow_non_atomic_store:
+                await self._status_store.write_state(
+                    INVENTORY_ONTOLOGY_STATUS_KEY,
+                    status_state,
+                )
+            else:
+                raise RuntimeError(
+                    "inventory ontology projection requires atomic graph and state commits"
+                )
             return InventoryOntologyProjectionResult(
                 generation=projection.generation,
                 ontology_release_digest=self._ontology_release_digest,
@@ -170,20 +189,53 @@ class InventoryOntologyProjector:
             and previous.manifest_digest != current_manifest_digest
         ):
             raise ValueError("inventory ontology generation content changed")
-        pinned = await self._pin_owned_revisions(projection.objects, owned_ids=previous.object_ids)
-        await self._store.replace_subgraph(
-            objects=pinned,
-            links=projection.links,
-            previous_object_ids=previous.object_ids,
-            previous_link_keys=previous.link_keys,
+        pinned = await self._pin_owned_revisions(
+            projection.objects,
+            owned_ids=previous.object_ids,
         )
-        await self._write_manifest(projection)
-        # Status is the commit marker. A crash after the manifest write leaves
-        # generation mismatch visible and a retry safely replays the graph.
-        await self._write_status(
+        manifest_state = _manifest_state(
             projection,
+            ontology_release_digest=self._ontology_release_digest,
+            manifest_digest=current_manifest_digest,
+        )
+        status_state = _status_state(
+            projection,
+            ontology_release_digest=self._ontology_release_digest,
+            manifest_digest=current_manifest_digest,
             status=InventoryOntologyProjectionStatus.AVAILABLE,
         )
+        atomic_replace = getattr(self._store, "replace_subgraph_with_state", None)
+        if callable(atomic_replace):
+            await atomic_replace(
+                objects=pinned,
+                links=projection.links,
+                previous_object_ids=previous.object_ids,
+                previous_link_keys=previous.link_keys,
+                state_updates={
+                    INVENTORY_ONTOLOGY_MANIFEST_KEY: manifest_state,
+                    INVENTORY_ONTOLOGY_STATUS_KEY: status_state,
+                },
+                expected_active_generation=projection.generation,
+            )
+        else:
+            if not self._allow_non_atomic_store:
+                raise RuntimeError(
+                    "inventory ontology projection requires atomic graph and state commits"
+                )
+            await self._store.replace_subgraph(
+                objects=pinned,
+                links=projection.links,
+                previous_object_ids=previous.object_ids,
+                previous_link_keys=previous.link_keys,
+            )
+            await self._status_store.write_state(
+                INVENTORY_ONTOLOGY_MANIFEST_KEY,
+                manifest_state,
+            )
+            await self._status_store.write_state(
+                INVENTORY_ONTOLOGY_STATUS_KEY,
+                status_state,
+            )
         _LOG.info(
             "inventory_ontology_projected",
             extra={
@@ -232,9 +284,23 @@ class InventoryOntologyProjector:
     ) -> tuple[OntologyObjectRecord, ...]:
         """Carry the stored revision so an owned update passes its CAS fence."""
         owned = set(owned_ids)
+        current_by_id: dict[str, OntologyObjectRecord] = {}
+        ordered_ids = tuple(record.id for record in objects)
+        for offset in range(0, len(ordered_ids), _REVISION_READ_BATCH_SIZE):
+            identifiers = ordered_ids[offset : offset + _REVISION_READ_BATCH_SIZE]
+            snapshot = await self._store.query_objects(
+                object_ids=identifiers,
+                limit=len(identifiers),
+                include_relationships=False,
+            )
+            if snapshot.truncated:
+                raise OntologyInstanceValidationError(
+                    "inventory ontology revision read was truncated"
+                )
+            current_by_id.update((record.id, record) for record in snapshot.objects)
         pinned: list[OntologyObjectRecord] = []
         for record in objects:
-            current = await self._store.get_object(record.id)
+            current = current_by_id.get(record.id)
             if current is None:
                 pinned.append(record)
                 continue
@@ -337,40 +403,6 @@ class InventoryOntologyProjector:
             manifest_digest=expected_digest,
         )
 
-    async def _write_manifest(self, projection: InventoryOntologyProjection) -> None:
-        object_content, link_content = _projection_content(projection)
-        manifest_digest = _manifest_digest(
-            generation=projection.generation,
-            ontology_release_digest=self._ontology_release_digest,
-            complete=projection.complete,
-            relationship_complete=projection.relationship_complete,
-            dropped_reasons=projection.dropped_reasons,
-            object_ids=tuple(record.id for record in projection.objects),
-            link_keys=tuple(
-                (record.from_id, record.link_type, record.to_id) for record in projection.links
-            ),
-            object_content=object_content,
-            link_content=link_content,
-        )
-        await self._status_store.write_state(
-            INVENTORY_ONTOLOGY_MANIFEST_KEY,
-            {
-                "schema_version": _MANIFEST_SCHEMA_VERSION,
-                "generation": projection.generation,
-                "ontology_release_digest": self._ontology_release_digest,
-                "manifest_digest": manifest_digest,
-                "complete": projection.complete,
-                "relationship_complete": projection.relationship_complete,
-                "dropped_reasons": list(projection.dropped_reasons),
-                "object_ids": [record.id for record in projection.objects],
-                "link_keys": [
-                    [record.from_id, record.link_type, record.to_id] for record in projection.links
-                ],
-                "object_content": list(object_content),
-                "link_content": list(link_content),
-            },
-        )
-
     async def _write_status(
         self,
         projection: InventoryOntologyProjection,
@@ -393,16 +425,12 @@ class InventoryOntologyProjector:
         )
         await self._status_store.write_state(
             INVENTORY_ONTOLOGY_STATUS_KEY,
-            {
-                "schema_version": _MANIFEST_SCHEMA_VERSION,
-                "generation": projection.generation,
-                "ontology_release_digest": self._ontology_release_digest,
-                "manifest_digest": manifest_digest,
-                "status": status.value,
-                "complete": projection.complete,
-                "relationship_complete": projection.relationship_complete,
-                "dropped_reasons": list(projection.dropped_reasons),
-            },
+            _status_state(
+                projection,
+                ontology_release_digest=self._ontology_release_digest,
+                manifest_digest=manifest_digest,
+                status=status,
+            ),
         )
 
 
@@ -435,6 +463,77 @@ def _content_properties(properties: Mapping[str, object]) -> dict[str, object]:
     """Copy one normalized property mapping into the manifest content envelope."""
 
     return dict(properties)
+
+
+def _manifest_state(
+    projection: InventoryOntologyProjection,
+    *,
+    ontology_release_digest: str,
+    manifest_digest: str,
+) -> dict[str, object]:
+    object_content, link_content = _projection_content(projection)
+    return {
+        "schema_version": _MANIFEST_SCHEMA_VERSION,
+        "generation": projection.generation,
+        "ontology_release_digest": ontology_release_digest,
+        "manifest_digest": manifest_digest,
+        "complete": projection.complete,
+        "relationship_complete": projection.relationship_complete,
+        "dropped_reasons": list(projection.dropped_reasons),
+        "object_ids": [record.id for record in projection.objects],
+        "link_keys": [
+            [record.from_id, record.link_type, record.to_id] for record in projection.links
+        ],
+        "object_content": list(object_content),
+        "link_content": list(link_content),
+    }
+
+
+def _status_state(
+    projection: InventoryOntologyProjection,
+    *,
+    ontology_release_digest: str,
+    manifest_digest: str,
+    status: InventoryOntologyProjectionStatus,
+) -> dict[str, object]:
+    return {
+        "schema_version": _MANIFEST_SCHEMA_VERSION,
+        "generation": projection.generation,
+        "ontology_release_digest": ontology_release_digest,
+        "manifest_digest": manifest_digest,
+        "status": status.value,
+        "complete": projection.complete,
+        "relationship_complete": projection.relationship_complete,
+        "dropped_reasons": list(projection.dropped_reasons),
+    }
+
+
+def _projection_status_state(
+    projection: InventoryOntologyProjection,
+    *,
+    ontology_release_digest: str,
+    status: InventoryOntologyProjectionStatus,
+) -> dict[str, object]:
+    object_content, link_content = _projection_content(projection)
+    digest = _manifest_digest(
+        generation=projection.generation,
+        ontology_release_digest=ontology_release_digest,
+        complete=projection.complete,
+        relationship_complete=projection.relationship_complete,
+        dropped_reasons=projection.dropped_reasons,
+        object_ids=tuple(record.id for record in projection.objects),
+        link_keys=tuple(
+            (record.from_id, record.link_type, record.to_id) for record in projection.links
+        ),
+        object_content=object_content,
+        link_content=link_content,
+    )
+    return _status_state(
+        projection,
+        ontology_release_digest=ontology_release_digest,
+        manifest_digest=digest,
+        status=status,
+    )
 
 
 def _manifest_digest(

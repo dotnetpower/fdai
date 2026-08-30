@@ -47,6 +47,8 @@ class ResourceLockManager:
     doing any work.
     """
 
+    distributed = False
+
     def __init__(self) -> None:
         # resource_id -> (lock, refcount). The refcount tracks how many
         # callers currently hold or are waiting on the lock; the entry is

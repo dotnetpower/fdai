@@ -123,6 +123,8 @@ class OperationalContextSnapshot:
     stale_sources: tuple[str, ...]
     conflicts: tuple[str, ...]
     autonomy_ceiling: Autonomy
+    graph_source_complete: bool = True
+    graph_source_generation: str | None = None
     clock_identity: str = "system-utc"
     decision_evidence_receipt_digest: str | None = None
     decision_evidence_verification_bundle_digest: str | None = None
@@ -135,6 +137,8 @@ class OperationalContextSnapshot:
             raise ValueError("operational context timestamps MUST be timezone-aware")
         if not self.clock_identity.strip():
             raise ValueError("operational context clock_identity MUST be non-empty")
+        if self.graph_source_generation is not None and not self.graph_source_generation.strip():
+            raise ValueError("operational context graph_source_generation MUST be non-empty")
 
     @property
     def review_required(self) -> bool:

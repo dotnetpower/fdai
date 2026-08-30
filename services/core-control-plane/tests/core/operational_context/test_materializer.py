@@ -589,6 +589,36 @@ async def test_truncated_graph_lowers_autonomy() -> None:
     assert snapshot.review_required is True
 
 
+async def test_incomplete_graph_source_lowers_autonomy_and_preserves_generation() -> None:
+    resource = OntologyObjectRecord(
+        id="resource-example",
+        object_type="Resource",
+        properties={"id": "resource-example", "type": "app-service"},
+        revision=1,
+    )
+    store = cast(
+        OntologyInstanceStore,
+        _TruncatedOntologyStore(
+            OntologyGraphSnapshot(
+                objects=(resource,),
+                source_complete=False,
+                source_generation="inventory-generation-1",
+            ),
+        ),
+    )
+
+    snapshot = await OperationalContextMaterializer(store=store, clock=lambda: CUTOFF).materialize(
+        target_resource_id="resource-example",
+        cutoff=CUTOFF,
+        catalog_versions={"ontology": "1.0.0"},
+    )
+
+    assert snapshot.graph_source_complete is False
+    assert snapshot.graph_source_generation == "inventory-generation-1"
+    assert "context_graph_source_incomplete" in snapshot.conflicts
+    assert snapshot.autonomy_ceiling is Autonomy.SHADOW_ONLY
+
+
 async def test_future_effective_context_is_excluded_and_lowers_autonomy() -> None:
     store = _store()
     await _seed_service_graph(store)

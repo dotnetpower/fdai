@@ -238,6 +238,7 @@ def _build_sources(
         )
         inventory: Inventory
         if source_name == "arg":
+            full_provider_scope = not config.resource_types
             query_factory = AzureArgQueryFactory(
                 identity=identity,
                 resource_types=vocabulary,
@@ -265,8 +266,14 @@ def _build_sources(
                     subscription_scopes=config.scopes,
                 ),
                 query=query,
-                scope_coverage=query_factory.build_scope_coverage_fn(),
-                unmapped_resources=query_factory.build_unmapped_resource_query_fn(),
+                scope_coverage=(
+                    query_factory.build_scope_coverage_fn() if full_provider_scope else None
+                ),
+                unmapped_resources=(
+                    query_factory.build_unmapped_resource_query_fn()
+                    if full_provider_scope
+                    else None
+                ),
                 generation_relationships=query_factory.build_generation_relationship_fn(),
             )
         elif source_name == "arm":
@@ -315,6 +322,11 @@ def _build_sources(
                     metadata={
                         "source_priority": source_priority,
                         "link_types": link_types,
+                        "coverage_scope": (
+                            "full_provider_scope"
+                            if source_name == "arg" and not config.resource_types
+                            else "requested_resource_types"
+                        ),
                     },
                 ),
             )

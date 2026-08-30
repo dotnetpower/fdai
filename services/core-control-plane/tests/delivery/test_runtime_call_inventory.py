@@ -200,6 +200,7 @@ async def test_runtime_call_flows_through_inventory_current_and_history_projecti
         store=store,
         status_store=status,
         ontology_release_digest="sha256:" + "a" * 64,
+        allow_non_atomic_store=True,
     )
 
     class _HistoryWriter:

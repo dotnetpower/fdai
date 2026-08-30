@@ -32,12 +32,16 @@ class ChangeGraphEvidenceReceipt:
     release_state: GraphEvidenceReleaseState
     graph_revision: str | None = None
     authenticated: bool = True
+    source_complete: bool = True
+    source_generation: str | None = None
     truncated: bool = False
     conflict_reasons: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.graph_revision is not None and not self.graph_revision.strip():
             raise ValueError("graph evidence graph_revision MUST be non-empty when provided")
+        if self.source_generation is not None and not self.source_generation.strip():
+            raise ValueError("graph evidence source_generation MUST be non-empty when provided")
         if any(not reason.strip() for reason in self.conflict_reasons):
             raise ValueError("graph evidence conflict_reasons MUST contain non-empty values")
 
@@ -49,6 +53,7 @@ class ChangeGraphEvidenceReceipt:
             freshness=GraphEvidenceFreshness.UNAVAILABLE,
             release_state=GraphEvidenceReleaseState.UNKNOWN,
             authenticated=False,
+            source_complete=False,
         )
 
     def to_mapping(self) -> dict[str, object]:
@@ -57,6 +62,8 @@ class ChangeGraphEvidenceReceipt:
             "freshness": self.freshness.value,
             "release_state": self.release_state.value,
             "authenticated": self.authenticated,
+            "source_complete": self.source_complete,
+            "source_generation": self.source_generation,
             "truncated": self.truncated,
             "conflict_reasons": list(self.conflict_reasons),
         }
@@ -83,6 +90,8 @@ def change_graph_evidence_from_snapshot(
     freshness = GraphEvidenceFreshness.CURRENT
     if "target_resource_missing" in snapshot.conflicts:
         freshness = GraphEvidenceFreshness.UNAVAILABLE
+    elif not snapshot.graph_source_complete:
+        freshness = GraphEvidenceFreshness.UNKNOWN
     elif snapshot.stale_sources:
         freshness = GraphEvidenceFreshness.STALE
     elif any(
@@ -99,6 +108,8 @@ def change_graph_evidence_from_snapshot(
         freshness=freshness,
         release_state=release_state,
         authenticated=authenticated,
+        source_complete=snapshot.graph_source_complete,
+        source_generation=snapshot.graph_source_generation,
         truncated="context_graph_truncated" in snapshot.conflicts,
         conflict_reasons=snapshot.conflicts,
     )
@@ -255,6 +266,8 @@ def _graph_evidence_reasons(graph_evidence: ChangeGraphEvidenceReceipt) -> tuple
     reasons: list[str] = []
     if not graph_evidence.authenticated:
         reasons.append("graph_receipt_unverified")
+    if not graph_evidence.source_complete:
+        reasons.append("graph_source_incomplete")
     if graph_evidence.release_state is GraphEvidenceReleaseState.MIXED:
         reasons.append("graph_release_mixed")
     elif graph_evidence.release_state is GraphEvidenceReleaseState.UNKNOWN:

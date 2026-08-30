@@ -15,6 +15,9 @@ This document defines the typed operational truth infrastructure used by FDAI's 
 >
 > **Safety boundary:** Ontology context can only preserve or lower autonomy. Missing, stale, conflicting, or unproven context remains explicitly unknown and triggers bounded evidence
 > recovery, a smaller safe plan, no-op, or review. It never supplies permission to execute.
+> The context snapshot also carries the exact graph source generation and source-completeness
+> result. An incomplete source stays incomplete through planned-change assessment even when every
+> returned relationship is authenticated and current.
 >
 ## Catalog semantic projection
 

@@ -88,6 +88,19 @@ minimum, the `quorum` from the risk-classification table (default 1;
 plus a `resolved_ceiling` breakdown (§8) that names each input's
 contribution so the audit consumer can render the reasoning.
 
+The resolved autonomy ceiling travels with the decision and the durable
+`ActionRun`. Thor checks it when dispatch begins, after human approval, before
+executor I/O, and after restart. Human approval can satisfy `enforce_hil`, but
+it cannot raise `shadow_only` into an executable state. A missing or malformed
+ceiling therefore remains in observation mode rather than inheriting an
+enforcement default.
+
+Pantheon enforcement also requires an explicit
+`FDAI_PANTHEON_APPROVER_ACTIONS_JSON` deployment policy. The JSON object maps
+authenticated approver principals to non-empty ActionType ID arrays. Missing,
+malformed, unknown-principal, and unlisted-action entries never authorize
+approval.
+
 ### 2.0 Axis A - Risk-classification table (authoritative baseline)
 
 `A_risk_table` is the result of evaluating the first-match table in

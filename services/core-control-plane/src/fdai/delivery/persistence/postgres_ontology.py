@@ -333,6 +333,8 @@ class PostgresOntologyInstanceStore:
         links: Sequence[OntologyLinkRecord],
         previous_object_ids: Sequence[str] = (),
         previous_link_keys: Sequence[tuple[str, str, str]] = (),
+        _state_updates: Mapping[str, Mapping[str, Any]] | None = None,
+        _expected_active_generation: str | None = None,
     ) -> None:
         normalized_objects = tuple(
             normalize_object_record(pin_object_record(item, self._release)) for item in objects
@@ -356,6 +358,15 @@ class PostgresOntologyInstanceStore:
                     "SELECT pg_advisory_xact_lock(%s)",
                     (_SUBGRAPH_REPLACEMENT_LOCK,),
                 )
+                if _expected_active_generation is not None:
+                    active_cursor = await connection.execute(
+                        "SELECT snapshot_id FROM inventory_active WHERE singleton=TRUE FOR UPDATE"
+                    )
+                    active = await active_cursor.fetchone()
+                    if active is None or str(active["snapshot_id"]) != _expected_active_generation:
+                        raise OntologyInstanceValidationError(
+                            "inventory ontology generation is no longer active"
+                        )
                 link_type_names = sorted({record.link_type for record in normalized_links})
                 if link_type_names:
                     await connection.execute(
@@ -448,6 +459,69 @@ class PostgresOntologyInstanceStore:
                             )[1],
                             _require_type_ref(link_record.type_ref).version,
                             _require_type_ref(link_record.type_ref).catalog_digest,
+                        ),
+                    )
+                for key, value in sorted((_state_updates or {}).items()):
+                    await connection.execute(
+                        "INSERT INTO state_kv (key, value) VALUES (%s, %s::jsonb) "
+                        "ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()",
+                        (
+                            key,
+                            canonical_json_mapping(value, path=f"state_updates.{key}")[1],
+                        ),
+                    )
+
+    async def replace_subgraph_with_state(
+        self,
+        *,
+        objects: Sequence[OntologyObjectRecord],
+        links: Sequence[OntologyLinkRecord],
+        previous_object_ids: Sequence[str],
+        previous_link_keys: Sequence[tuple[str, str, str]],
+        state_updates: Mapping[str, Mapping[str, Any]],
+        expected_active_generation: str,
+    ) -> None:
+        """Atomically replace a subgraph and advance its state commit markers."""
+
+        await self.replace_subgraph(
+            objects=objects,
+            links=links,
+            previous_object_ids=previous_object_ids,
+            previous_link_keys=previous_link_keys,
+            _state_updates=state_updates,
+            _expected_active_generation=expected_active_generation,
+        )
+
+    async def write_state_if_active_generation(
+        self,
+        *,
+        expected_active_generation: str,
+        state_updates: Mapping[str, Mapping[str, Any]],
+    ) -> None:
+        """Advance projection status only while its inventory generation is active."""
+
+        async with await self._connect() as connection:
+            async with connection.transaction():
+                await self._set_timeout(connection)
+                await connection.execute(
+                    "SELECT pg_advisory_xact_lock(%s)",
+                    (_SUBGRAPH_REPLACEMENT_LOCK,),
+                )
+                active_cursor = await connection.execute(
+                    "SELECT snapshot_id FROM inventory_active WHERE singleton=TRUE FOR UPDATE"
+                )
+                active = await active_cursor.fetchone()
+                if active is None or str(active["snapshot_id"]) != expected_active_generation:
+                    raise OntologyInstanceValidationError(
+                        "inventory ontology generation is no longer active"
+                    )
+                for key, value in sorted(state_updates.items()):
+                    await connection.execute(
+                        "INSERT INTO state_kv (key, value) VALUES (%s, %s::jsonb) "
+                        "ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()",
+                        (
+                            key,
+                            canonical_json_mapping(value, path=f"state_updates.{key}")[1],
                         ),
                     )
 
@@ -565,8 +639,14 @@ class PostgresOntologyInstanceStore:
         async with await self._connect() as connection:
             await self._set_timeout(connection)
             roots = await self._load_objects(connection, identifiers=tuple(root_ids))
+            allowed_root_types = set(root_object_types)
             ordered_root_ids = tuple(
-                dict.fromkeys(root_id for root_id in root_ids if root_id in roots)
+                dict.fromkeys(
+                    root_id
+                    for root_id in root_ids
+                    if root_id in roots
+                    and (not allowed_root_types or roots[root_id].object_type in allowed_root_types)
+                )
             )
             allowed_root_ids = ordered_root_ids[:limit]
             visited = set(allowed_root_ids)
@@ -755,7 +835,10 @@ async def _resource_graph_source_coverage(
         return True, None
     cursor = await connection.execute(
         "SELECT active.snapshot_id, status.value AS status_value, "
-        "manifest.value AS manifest_value "
+        "manifest.value AS manifest_value, "
+        "EXISTS (SELECT 1 FROM state_kv AS marker "
+        "WHERE marker.key LIKE 'inventory-relationship-reconciliation:%') "
+        "AS pending_reconciliation "
         "FROM inventory_active AS active "
         "LEFT JOIN state_kv AS status ON status.key='inventory-ontology:status' "
         "LEFT JOIN state_kv AS manifest ON manifest.key='inventory-ontology:manifest' "
@@ -771,6 +854,7 @@ async def _resource_graph_source_coverage(
         status=status,
         manifest=manifest,
         expresses_relationships=expresses_relationships,
+        pending_reconciliation=bool(row.get("pending_reconciliation")),
     )
 
 
@@ -780,12 +864,13 @@ def _resolve_inventory_graph_source_coverage(
     status: Mapping[str, Any],
     manifest: Mapping[str, Any],
     expresses_relationships: bool = True,
+    pending_reconciliation: bool = False,
 ) -> tuple[bool, str | None]:
     """Reduce inventory projection state to exact graph generation and completeness."""
 
     manifest_generation = manifest.get("generation")
     source_generation = manifest_generation if isinstance(manifest_generation, str) else None
-    if (
+    if pending_reconciliation or (
         not isinstance(active_generation, str)
         or source_generation is None
         or status.get("status") != "available"

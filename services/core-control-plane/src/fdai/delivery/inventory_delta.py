@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 from collections import defaultdict
@@ -20,6 +21,7 @@ from fdai.shared.providers.inventory import (
 from fdai.shared.providers.state_store import StateStore
 
 _CURSOR_PREFIX = "inventory_delta_cursor:"
+DEFAULT_DELTA_DEADLINE_SECONDS = 300.0
 
 
 async def forward_inventory_delta(
@@ -29,8 +31,11 @@ async def forward_inventory_delta(
     event_bus: EventBus,
     topic: str,
     scope: str,
+    deadline_seconds: float = DEFAULT_DELTA_DEADLINE_SECONDS,
 ) -> int:
     """Publish one delta stream and advance its cursor only at the final fence."""
+    if deadline_seconds <= 0:
+        raise ValueError("inventory delta deadline_seconds MUST be > 0")
     cursor_key = f"{_CURSOR_PREFIX}{scope}"
     saved = await state_store.read_state(cursor_key) or {}
     cursor = str(saved.get("cursor") or "")
@@ -39,36 +44,46 @@ async def forward_inventory_delta(
     final_cursor: str | None = None
     saw_final = False
     relationship_reconciliation_after: datetime | None = None
-    async for batch in inventory.delta(cursor):
-        if saw_final:
-            raise RuntimeError("inventory delta stream emitted data after final fence")
-        if batch.cursor is not None:
-            latest_cursor = batch.cursor
-        if batch.final:
-            saw_final = True
-            final_cursor = latest_cursor
-        if batch.relationship_reconciliation_after is not None:
-            observed_at = _parse_reconciliation_timestamp(batch.relationship_reconciliation_after)
-            if (
-                relationship_reconciliation_after is None
-                or observed_at > relationship_reconciliation_after
-            ):
-                relationship_reconciliation_after = observed_at
-        links_by_owner = _links_by_owner(batch.resources, batch.links)
-        events = tuple(
-            (
-                resource,
-                _resource_event(
-                    scope=scope,
-                    resource=resource,
-                    links=links_by_owner.get(resource.resource_id, ()),
-                ),
-            )
-            for resource in batch.resources
-        )
-        for resource, event in events:
-            await event_bus.publish(topic, resource.resource_id, event.model_dump(mode="json"))
-            published += 1
+    try:
+        async with asyncio.timeout(deadline_seconds):
+            async for batch in inventory.delta(cursor):
+                if saw_final:
+                    raise RuntimeError("inventory delta stream emitted data after final fence")
+                if batch.cursor is not None:
+                    latest_cursor = batch.cursor
+                if batch.final:
+                    saw_final = True
+                    final_cursor = latest_cursor
+                if batch.relationship_reconciliation_after is not None:
+                    observed_at = _parse_reconciliation_timestamp(
+                        batch.relationship_reconciliation_after
+                    )
+                    if (
+                        relationship_reconciliation_after is None
+                        or observed_at > relationship_reconciliation_after
+                    ):
+                        relationship_reconciliation_after = observed_at
+                links_by_owner = _links_by_owner(batch.resources, batch.links)
+                events = tuple(
+                    (
+                        resource,
+                        _resource_event(
+                            scope=scope,
+                            resource=resource,
+                            links=links_by_owner.get(resource.resource_id, ()),
+                        ),
+                    )
+                    for resource in batch.resources
+                )
+                for resource, event in events:
+                    await event_bus.publish(
+                        topic,
+                        resource.resource_id,
+                        event.model_dump(mode="json"),
+                    )
+                    published += 1
+    except TimeoutError as exc:
+        raise RuntimeError("inventory delta stream exceeded its deadline") from exc
     if final_cursor is None:
         raise RuntimeError("inventory delta stream ended without a final fence")
     if relationship_reconciliation_after is not None:

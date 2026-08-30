@@ -366,6 +366,38 @@ async def test_promotion_observer_receives_the_promoted_generation() -> None:
     assert observed[0].recorded_at.tzinfo is not None
 
 
+async def test_subset_snapshot_cannot_replace_complete_derived_projection() -> None:
+    store = _Store()
+    observed: list[PromotedInventoryObservation] = []
+
+    async def _record(observation: PromotedInventoryObservation) -> None:
+        observed.append(observation)
+
+    source = InventorySource(
+        name="arg",
+        inventory=_Inventory(
+            [
+                InventoryBatch(
+                    resources=(ResourceRecord(resource_id="r-1", type="compute.vm"),),
+                    final=True,
+                )
+            ]
+        ),
+        manifest=InventoryCoverageManifest(
+            source="arg",
+            scopes=("scope-1",),
+            resource_types=("compute.vm",),
+            metadata={"coverage_scope": "requested_resource_types"},
+        ),
+    )
+
+    with pytest.raises(InventorySourcesExhaustedError):
+        await InventorySyncCoordinator(store=store, promotion_observer=_record).run((source,))
+
+    assert observed == []
+    assert store.promoted_manifests == []
+
+
 async def test_promotion_enrichment_stages_verified_links_before_single_writer_observation() -> (
     None
 ):

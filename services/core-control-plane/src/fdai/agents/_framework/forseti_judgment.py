@@ -15,6 +15,7 @@ from fdai.agents._framework.bounded import BoundedLruDict
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.forseti_decision_helpers import copy_change_assessment, source_freshness
 from fdai.core.operational_context import OperationalContextMaterializer
+from fdai.shared.contracts.models import Autonomy
 
 RULE_MATCH: dict[str, str] = {
     "public_network_enabled": "remediate.disable-public-access",
@@ -134,6 +135,7 @@ class ForsetiJudgmentMixin:
                 "resource_id": resource_id,
                 "action_type": "",
                 "risk_verdict": "hil",
+                "resolved_autonomy_ceiling": Autonomy.SHADOW_ONLY.value,
                 "reason": "no_rule_match",
                 "quorum_required": 1,
                 "initiator_principal": event.get("initiator_principal"),
@@ -233,6 +235,13 @@ class ForsetiJudgmentMixin:
             "resource_id": event.get("resource_id"),
             "action_type": action_type,
             "risk_verdict": risk_verdict,
+            "resolved_autonomy_ceiling": (
+                Autonomy.ENFORCE_AUTO.value
+                if risk_verdict == "auto"
+                else Autonomy.ENFORCE_HIL.value
+                if risk_verdict == "hil"
+                else Autonomy.SHADOW_ONLY.value
+            ),
             "reason": reason,
             "params": params,
             "detection_readiness": readiness,
@@ -298,6 +307,7 @@ class ForsetiJudgmentMixin:
             "conflicts": list(snapshot.conflicts),
             "autonomy_ceiling": snapshot.autonomy_ceiling.value,
         }
+        verdict["resolved_autonomy_ceiling"] = snapshot.autonomy_ceiling.value
         if snapshot.review_required:
             self._hold_for_context(verdict, "operational_context_ceiling")
 

@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 429eb2234a58efa0e6126b1ae8e9b3d9071aba88
+translation_source_sha: ec36f6a94275956f71c4bf774dd1a1c8a5c653f6
 translation_revised: 2026-08-30
 ---
 # FDAI 운영 온톨로지
@@ -16,6 +16,9 @@ translation_revised: 2026-08-30
 > `shared/providers/state_evidence.py`의 lane 행렬이 이를 `observed`, `derived`, `desired` lane에서 거부합니다. 따라서 "FDAI가 바꿨으니 그래프가 바뀌었다고 말한다"는 경로는 표현 자체가 불가능합니다.
 >
 > **안전 경계:** 온톨로지 맥락은 자율성을 유지하거나 낮출 수만 있습니다. 누락되거나 오래되거나 충돌하거나 입증되지 않은 맥락은 알 수 없음으로 남고 범위가 제한된 근거 복구,
+> 더 작은 안전 계획, 변경 없음 또는 검토를 유도합니다. 실행 권한을 제공하지 않습니다.
+> 맥락 스냅샷은 정확한 그래프 원본 세대와 원본 완전성 결과도 유지합니다. 반환된 모든 관계가
+> 인증되고 최신이더라도 원본이 불완전하면 계획된 변경 평가까지 불완전 상태를 유지합니다.
 > 더 작은 safe 계획, no-op 또는 검토를 유발합니다. 실행 권한을 제공하지 않습니다.
 >
 ## 카탈로그 의미 변환 결과
