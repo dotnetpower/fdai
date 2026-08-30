@@ -164,3 +164,55 @@ def test_report_renders_latest_evaluations_without_starting_campaign(
     assert "| Case | Agent | Locale | Score | Verdict |" in output
     assert "not measured" in output
     assert not (tmp_path / ".fdai/conversation-assurance/campaigns.jsonl").exists()
+
+
+def test_qualification_replay_failure_is_retained_as_a_hold(tmp_path: Path) -> None:
+    module = _load_module()
+    root = tmp_path / ".fdai/conversation-assurance"
+    campaigns = module.PrivateJsonlLedger(root / "campaigns.jsonl")
+    for child in range(12):
+        campaign_id = f"campaign-{child}"
+        questions = 20 if child < 11 else 10
+        campaigns.append(
+            {
+                "event": "campaign_started",
+                "campaign_id": campaign_id,
+                "parent_series_id": "series-one",
+            }
+        )
+        campaigns.append(
+            {
+                "event": "campaign_completed",
+                "campaign_id": campaign_id,
+                "parent_series_id": "series-one",
+                "state": "completed",
+                "evaluated": questions,
+                "requested": questions,
+            }
+        )
+    module.PrivateJsonlLedger(root / "evaluations.jsonl").append(
+        {
+            "schema_version": "1.0.0",
+            "campaign_id": "campaign-0",
+            "parent_series_id": "series-one",
+            "trace_receipt_digest": "a" * 64,
+        }
+    )
+
+    with pytest.raises(module.CampaignHoldError, match="evidence_invalid"):
+        module._record_qualification(
+            tmp_path,
+            "series-one",
+            module.build_pantheon_census(module.PANTHEON_SPECS),
+        )
+
+    status = module._status(tmp_path)
+    assert status["latest_qualification"] == {
+        "schema_version": "1.0.0",
+        "event": "qualification_held",
+        "parent_series_id": "series-one",
+        "state": "held",
+        "reason": "qualification_evidence_invalid",
+        "qualification_authority": False,
+        "execution_authority": False,
+    }

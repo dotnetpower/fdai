@@ -15,6 +15,7 @@ from typing import Any
 from uuid import uuid4
 
 _ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_ROOT))
 for _source in ("services/core-control-plane/src", "packages/service-contracts/src"):
     sys.path.insert(0, str(_ROOT / _source))
 
@@ -23,11 +24,13 @@ from fdai.core.conversation_assurance import (  # noqa: E402
     CampaignHoldError,
     ConversationTurnTraceReceipt,
     PantheonCampaignController,
+    PantheonCensus,
     PantheonCensusCase,
     PantheonDiagnosticCase,
     PantheonRubric,
     PantheonSemanticReview,
     PantheonTurnDiagnostic,
+    PrivateJsonlLedger,
     build_pantheon_census,
     evaluate_pantheon_turn,
     open_private_lock,
@@ -43,6 +46,10 @@ from fdai.core.conversation_assurance.local_supervisor import (  # noqa: E402
 from fdai.core.conversation_assurance.local_supervisor import (  # noqa: E402
     serve as serve_supervisor,
 )
+from scripts.automation.conversation_assurance_qualification import (  # noqa: E402
+    PantheonCaseMeasurement,
+    qualify_pantheon_series,
+)
 
 _MAX_RESPONSE_BYTES = 512 * 1024
 _MAX_TOKEN_BYTES = 16 * 1024
@@ -57,6 +64,7 @@ class OperatorHttpEvaluator:
         *,
         base_url: str,
         bearer_token: str,
+        turn_ledger: PrivateJsonlLedger,
     ) -> None:
         if not (
             base_url.startswith("https://")
@@ -66,6 +74,7 @@ class OperatorHttpEvaluator:
             raise ValueError("Operator URL MUST use HTTPS or loopback HTTP")
         self._base_url = base_url.rstrip("/")
         self._bearer_token = bearer_token
+        self._turn_ledger = turn_ledger
 
     async def evaluate(
         self,
@@ -99,12 +108,14 @@ class OperatorHttpEvaluator:
             )
         except (TypeError, ValueError) as error:
             raise CampaignHoldError("measurement_contract_invalid") from error
-        return evaluate_pantheon_turn(
+        diagnostic = evaluate_pantheon_turn(
             case=diagnostic_case,
             trace=trace,
             observed_results=observed,
             semantic_reviews=reviews,
         )
+        self._turn_ledger.append(trace.to_dict())
+        return diagnostic
 
     def _request(self, case: PantheonCensusCase, campaign_id: str) -> dict[str, Any]:
         body = json.dumps(
@@ -259,6 +270,7 @@ async def _start(project: Path, request: Mapping[str, object]) -> dict[str, obje
     evaluator = OperatorHttpEvaluator(
         base_url=base_url,
         bearer_token=_token_from_private_file(),
+        turn_ledger=PrivateJsonlLedger(_state_root(project) / "turns.jsonl"),
     )
     controller = PantheonCampaignController(
         state_root=_state_root(project),
@@ -271,33 +283,189 @@ async def _start(project: Path, request: Mapping[str, object]) -> dict[str, obje
     with runner_lock:
         remove_private_marker(stop_path)
         results = await controller.run_series(selected)
+    qualification: dict[str, object] | None = None
+    census = build_pantheon_census(PANTHEON_SPECS)
+    if (
+        len(selected) == len(census.cases)
+        and {case.case_id for case in selected} == {case.case_id for case in census.cases}
+        and all(
+            result.state.value == "completed" and result.evaluated == result.requested
+            for result in results
+        )
+    ):
+        parent_series_id = _parent_series_id(project, tuple(item.campaign_id for item in results))
+        qualification = _record_qualification(project, parent_series_id, census)
     return {
         "state": results[-1].state.value,
         "campaigns": len(results),
         "evaluated": sum(item.evaluated for item in results),
         "requested": len(selected),
         "reason": results[-1].reason,
+        "qualification": qualification,
     }
 
 
-def _status(project: Path) -> dict[str, object]:
-    from fdai.core.conversation_assurance import PrivateJsonlLedger
+def _record_qualification(
+    project: Path,
+    parent_series_id: str,
+    census: PantheonCensus,
+) -> dict[str, object]:
+    root = _state_root(project)
+    campaigns = PrivateJsonlLedger(root / "campaigns.jsonl")
+    try:
+        campaign_rows = campaigns.read(limit=10_000)
+        child_ids = {
+            str(row.get("campaign_id"))
+            for row in campaign_rows
+            if row.get("event") == "campaign_started"
+            and row.get("parent_series_id") == parent_series_id
+        }
+        completed_children = [
+            row
+            for row in campaign_rows
+            if row.get("event") == "campaign_completed"
+            and row.get("parent_series_id") == parent_series_id
+            and row.get("state") == "completed"
+            and row.get("evaluated") == row.get("requested")
+        ]
+        completed_child_ids = {str(row.get("campaign_id")) for row in completed_children}
+        if (
+            not child_ids
+            or len(completed_children) != len(completed_child_ids)
+            or completed_child_ids != child_ids
+            or any(
+                not isinstance(row.get("requested"), int)
+                or isinstance(row.get("requested"), bool)
+                or not 1 <= row["requested"] <= 20
+                for row in completed_children
+            )
+            or sum(int(row["requested"]) for row in completed_children) != len(census.cases)
+        ):
+            raise CampaignHoldError("qualification_campaign_incomplete")
+        turns = PrivateJsonlLedger(root / "turns.jsonl").read(limit=10_000)
+        evaluations = PrivateJsonlLedger(root / "evaluations.jsonl").read(limit=10_000)
+        turn_by_digest: dict[str, ConversationTurnTraceReceipt] = {}
+        for row in turns:
+            if row.get("campaign_id") not in child_ids:
+                continue
+            trace = ConversationTurnTraceReceipt.from_mapping(row)
+            if trace.receipt_digest in turn_by_digest:
+                raise CampaignHoldError("qualification_trace_duplicate")
+            turn_by_digest[trace.receipt_digest] = trace
+        diagnostic_by_digest: dict[str, tuple[str, PantheonTurnDiagnostic]] = {}
+        for row in evaluations:
+            if row.get("parent_series_id") != parent_series_id:
+                continue
+            evaluation_campaign_id = str(row.get("campaign_id"))
+            if evaluation_campaign_id not in child_ids:
+                raise CampaignHoldError("qualification_evaluation_campaign_mismatch")
+            diagnostic = PantheonTurnDiagnostic.from_mapping(row)
+            if diagnostic.trace_receipt_digest in diagnostic_by_digest:
+                raise CampaignHoldError("qualification_diagnostic_duplicate")
+            diagnostic_by_digest[diagnostic.trace_receipt_digest] = (
+                evaluation_campaign_id,
+                diagnostic,
+            )
+        if set(turn_by_digest) != set(diagnostic_by_digest):
+            raise CampaignHoldError("qualification_measurement_pair_incomplete")
+        measurements = tuple(
+            PantheonCaseMeasurement(
+                diagnostic=diagnostic_by_digest[digest][1],
+                trace=trace,
+            )
+            for digest, trace in turn_by_digest.items()
+            if diagnostic_by_digest[digest][0] == trace.campaign_id
+        )
+        if len(measurements) != len(turn_by_digest):
+            raise CampaignHoldError("qualification_measurement_campaign_mismatch")
+        evidence = qualify_pantheon_series(census, measurements)
+    except CampaignHoldError as error:
+        _append_qualification_hold(campaigns, parent_series_id, str(error))
+        raise
+    except (KeyError, OSError, TypeError, UnicodeError, ValueError) as error:
+        reason = "qualification_evidence_invalid"
+        _append_qualification_hold(campaigns, parent_series_id, reason)
+        raise CampaignHoldError(reason) from error
+    payload = {
+        "event": "qualification_evidence",
+        "parent_series_id": parent_series_id,
+        **evidence.to_dict(),
+    }
+    prior = campaigns.read(limit=10_000)
+    if not any(
+        row.get("event") == "qualification_evidence"
+        and row.get("parent_series_id") == parent_series_id
+        and row.get("evidence_digest") == evidence.evidence_digest
+        for row in prior
+    ):
+        campaigns.append(payload)
+    return payload
 
-    campaigns = PrivateJsonlLedger(_state_root(project) / "campaigns.jsonl").read(limit=200)
+
+def _parent_series_id(project: Path, campaign_ids: tuple[str, ...]) -> str:
+    campaigns = PrivateJsonlLedger(_state_root(project) / "campaigns.jsonl").read(limit=10_000)
+    expected = set(campaign_ids)
+    parent_ids = {
+        str(row.get("parent_series_id"))
+        for row in campaigns
+        if row.get("event") == "campaign_started"
+        and row.get("campaign_id") in expected
+        and row.get("parent_series_id")
+    }
+    matched = {
+        str(row.get("campaign_id"))
+        for row in campaigns
+        if row.get("event") == "campaign_started" and row.get("campaign_id") in expected
+    }
+    if matched != expected or len(parent_ids) != 1:
+        raise CampaignHoldError("qualification_series_identity_unavailable")
+    return next(iter(parent_ids))
+
+
+def _append_qualification_hold(
+    campaigns: PrivateJsonlLedger,
+    parent_series_id: str,
+    reason: str,
+) -> None:
+    payload = {
+        "schema_version": "1.0.0",
+        "event": "qualification_held",
+        "parent_series_id": parent_series_id,
+        "state": "held",
+        "reason": reason[:128],
+        "qualification_authority": False,
+        "execution_authority": False,
+    }
+    prior = campaigns.read(limit=10_000)
+    if not any(
+        row.get("event") == "qualification_held"
+        and row.get("parent_series_id") == parent_series_id
+        and row.get("reason") == payload["reason"]
+        for row in prior
+    ):
+        campaigns.append(payload)
+
+
+def _status(project: Path) -> dict[str, object]:
+    campaigns = PrivateJsonlLedger(_state_root(project) / "campaigns.jsonl").read(limit=10_000)
     evaluations = PrivateJsonlLedger(_state_root(project) / "evaluations.jsonl").read(limit=10_000)
     completed = [item for item in campaigns if item.get("event") == "campaign_completed"]
+    qualifications = [
+        item
+        for item in campaigns
+        if item.get("event") in {"qualification_evidence", "qualification_held"}
+    ]
     return {
         "state": "idle",
         "campaigns": len(completed),
         "evaluations": len(evaluations),
         "latest_campaign": completed[-1] if completed else None,
+        "latest_qualification": qualifications[-1] if qualifications else None,
         "stop_requested": private_marker_exists(_state_root(project) / "STOP"),
     }
 
 
 def _report(project: Path, *, top: int) -> dict[str, object]:
-    from fdai.core.conversation_assurance import PrivateJsonlLedger
-
     if not 1 <= top <= 100:
         raise ValueError("report top MUST be in [1, 100]")
     status = _status(project)
@@ -308,16 +476,34 @@ def _report(project: Path, *, top: int) -> dict[str, object]:
 def _report_markdown(report: Mapping[str, object]) -> str:
     latest = report.get("latest_evaluations")
     rows = latest if isinstance(latest, list) else []
+    qualification = report.get("latest_qualification")
     lines = [
         "# Conversation Assurance Report",
         "",
         f"- Campaigns: {report.get('campaigns', 0)}",
         f"- Evaluations: {report.get('evaluations', 0)}",
         f"- Stop requested: {str(report.get('stop_requested', False)).lower()}",
-        "",
-        "| Case | Agent | Locale | Score | Verdict |",
-        "|---|---|---|---:|---|",
     ]
+    if isinstance(qualification, Mapping):
+        if qualification.get("event") == "qualification_held":
+            lines.append(f"- Qualification: held ({qualification.get('reason', '')})")
+            qualification = None
+    if isinstance(qualification, Mapping):
+        metrics = qualification.get("metrics")
+        metric_values = metrics if isinstance(metrics, Mapping) else {}
+        lines.extend(
+            (
+                f"- Source revision: {qualification.get('source_revision', '')}",
+                f"- Qualified: {str(qualification.get('qualified', False)).lower()}",
+                f"- Explicit target accuracy: {metric_values.get('explicit_target_accuracy', '')}",
+                f"- Owner routing F1: {metric_values.get('owner_routing_f1', '')}",
+                f"- Missed T2 rate: {metric_values.get('missed_t2_rate', '')}",
+                f"- Unnecessary T2 rate: {metric_values.get('unnecessary_t2_rate', '')}",
+                f"- Minimum score: {metric_values.get('minimum_score', '')}",
+                f"- Hard-zero count: {metric_values.get('hard_zero_count', '')}",
+            )
+        )
+    lines.extend(("", "| Case | Agent | Locale | Score | Verdict |", "|---|---|---|---:|---|"))
     for value in rows:
         if not isinstance(value, Mapping):
             continue
