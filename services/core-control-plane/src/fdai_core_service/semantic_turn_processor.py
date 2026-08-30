@@ -1358,6 +1358,7 @@ def _render_execution_hold_answer(
         if receipt.reason is not None:
             limitations.append(f"`{capability}`: `{receipt.reason}`")
     causal_answer = _render_partial_causal_answer(
+        result,
         execution,
         korean=korean,
         additional_limitations=limitations,
@@ -1447,6 +1448,7 @@ def _held_hypothesis_lines(
 
 
 def _render_partial_causal_answer(
+    result: RuntimeSemanticTurnResult,
     execution: QueryPlanExecution,
     *,
     korean: bool,
@@ -1454,28 +1456,57 @@ def _render_partial_causal_answer(
 ) -> str | None:
     outputs: list[dict[str, object]] = []
     for node_id in execution.output_node_ids:
-        result = execution.results.get(node_id)
-        if result is None:
+        node_result = execution.results.get(node_id)
+        if node_result is None:
             continue
-        extension_output = _typed_extension_answer_output(node_id, result.value)
+        extension_output = _typed_extension_answer_output(node_id, node_result.value)
         if extension_output is not None:
-            extension_output["evidence_refs"] = list(result.evidence_refs)
+            extension_output["evidence_refs"] = list(node_result.evidence_refs)
             outputs.append(extension_output)
             continue
-        if not isinstance(result.value, QueryTable):
+        if not isinstance(node_result.value, QueryTable):
             continue
-        table = result.value
+        table = node_result.value
         rows: list[dict[str, object]] = [
             {"row_id": row.row_id, "values": row.values} for row in table.rows[:20]
         ]
         output = _answer_output(node_id=node_id, table=table, rows=rows)
-        output["evidence_refs"] = list(result.evidence_refs)
+        output["evidence_refs"] = list(node_result.evidence_refs)
         outputs.append(output)
+    if not any(output.get("result_kind") == "causal.join" for output in outputs):
+        outputs.extend(_unresolved_hypothesis_outputs(result))
     return _render_causal_query_answer(
         outputs,
         korean=korean,
         additional_limitations=additional_limitations,
     )
+
+
+def _unresolved_hypothesis_outputs(
+    result: RuntimeSemanticTurnResult,
+) -> list[dict[str, object]]:
+    intent = getattr(result.planning, "investigation_intent", None)
+    raw_hypotheses = getattr(intent, "hypotheses", ())
+    if not isinstance(raw_hypotheses, tuple):
+        return []
+    outputs: list[dict[str, object]] = []
+    for hypothesis in raw_hypotheses:
+        hypothesis_id = getattr(hypothesis, "hypothesis_id", None)
+        if isinstance(hypothesis_id, str) and hypothesis_id:
+            outputs.append(
+                {
+                    "node_id": f"hypothesis-{hypothesis_id}",
+                    "result_kind": "causal.join",
+                    "evidence_refs": [],
+                    "summary": {
+                        "hypothesis_id": hypothesis_id,
+                        "status": "unresolved",
+                        "limitations": ["evidence_not_completed"],
+                        "temporal_claim": None,
+                    },
+                }
+            )
+    return outputs
 
 
 def _unsatisfied_incident_binding(

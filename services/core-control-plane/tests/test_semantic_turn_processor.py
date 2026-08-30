@@ -61,6 +61,7 @@ from fdai_core_service.semantic_turn_processor import (
     _incident_next_step_text,
     _project_investigation_continuation,
     _render_general_query_answer,
+    _render_partial_causal_answer,
     _render_query_answer,
     _semantic_turn_timing,
     _typed_extension_answer_output,
@@ -712,6 +713,63 @@ def test_causal_answer_does_not_claim_unmeasured_slowdown() -> None:
     assert "실제 측정 변화: unavailable ms" in answer
     assert "request 및 dependency duration telemetry" in answer
     assert "metric-provider:resource.saturation" in answer
+    assert "`execution_authority=false`" in answer
+
+
+def test_partial_causal_hold_keeps_change_and_names_unresolved_hypotheses() -> None:
+    comparison = MetricWindowComparison(
+        concept_id="service.latency",
+        resource_id="ca-example-core",
+        unit="ms",
+        baseline_start=NOW - timedelta(minutes=10),
+        baseline_end=NOW - timedelta(minutes=5),
+        current_start=NOW - timedelta(minutes=5),
+        current_end=NOW,
+        baseline_value=10.0,
+        current_value=25.0,
+        absolute_change=15.0,
+        relative_change=1.5,
+        complete=True,
+        reason=None,
+        evidence_refs=("metric:evidence-1",),
+    )
+    execution = QueryPlanExecution(
+        plan_digest=PLAN_DIGEST,
+        status="failed",
+        results=MappingProxyType(
+            {
+                "symptom-change": QueryNodeResult(
+                    value=comparison,
+                    evidence_refs=("metric:evidence-1",),
+                )
+            }
+        ),
+        receipts=(),
+        output_node_ids=("symptom-change",),
+    )
+    result = SimpleNamespace(
+        planning=SimpleNamespace(
+            investigation_intent=SimpleNamespace(
+                hypotheses=(
+                    SimpleNamespace(hypothesis_id="dependency-latency"),
+                    SimpleNamespace(hypothesis_id="traffic-load"),
+                )
+            )
+        )
+    )
+
+    answer = _render_partial_causal_answer(
+        cast(Any, result),
+        execution,
+        korean=True,
+        additional_limitations=("`query.typed_path`: `entity_resolution_incomplete`",),
+    )
+
+    assert answer is not None
+    assert "실제 측정 변화: 15.0 ms" in answer
+    assert "`dependency-latency` - `unresolved`" in answer
+    assert "`traffic-load` - `unresolved`" in answer
+    assert "`query.typed_path`: `entity_resolution_incomplete`" in answer
     assert "`execution_authority=false`" in answer
 
 
