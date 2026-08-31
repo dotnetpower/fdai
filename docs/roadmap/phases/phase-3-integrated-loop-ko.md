@@ -1,8 +1,8 @@
 ---
 title: Phase 3 - 통합 컨트롤 루프 (Resilience · Change Safety · Cost Governance)
 translation_of: phase-3-integrated-loop.md
-translation_source_sha: fef275cc76e929809441b14ef68e4ecbce1997b8
-translation_revised: 2026-08-24
+translation_source_sha: de10264255c98240435fd4c869afa65fdb5cc54d
+translation_revised: 2026-08-31
 ---
 
 # 단계 3 - 통합 컨트롤 루프 (복원력 · 변경 안전성 · 비용 거버넌스)
@@ -115,6 +115,14 @@ Stateful 서비스는 stateless처럼 "kill and revive" 될 수 없으므로, DB
      체크섬, referential/제약 일관성 검사; 어떤 mismatch도 실행 실패.
   3. **앱-레벨 smoke 테스트** - 복원된 사본에 대해 대표 읽기와 쓰기 작업 실행하여 애플리케이션-
      레벨 복구 가능성 확인.
+- **실행 경계**: `fdai.delivery.db_dr_drill_cli`는 Azure 특정 시점 복원, 범위가 제한된
+  PostgreSQL 행 수와 체크섬 비교, 롤백되는 읽기/쓰기 smoke 검사, 영속 감사 및
+  `DbDrVerifier.run`을 조립합니다. Azure와 PostgreSQL 가져오기는 전달 계층에만 있고 Core에는
+  프로바이더 중립 검증기와 Protocol만 남습니다.
+- **신원 경계**: 스케줄러와 DB-DR 작업은 서로 다른 비실행기 신원을 사용합니다. 스케줄러는
+  이미지 가져오기, 상태 저장소 비밀 읽기 및 Event Bus 전송 권한만 받습니다. DB-DR은 원본
+  읽기, 이미지 가져오기, 상태 저장소 비밀 읽기 및 미리 만든 격리 대상 리소스 그룹 안의
+  PostgreSQL 복원과 삭제 권한만 받습니다.
 - **RPO 방법론**: replication lag를 지속 측정(p50/p95/max 보고), forced-failover 예행 연습에서
   장애 조치 시점의 **실제 데이터 손실** 측정; 둘 다 같은 윈도우에서 RPO 목표와 비교.
 - **RTO 방법론**: **장애 조치 트리거부터 검증된 복원 서비스까지 wall-clock** 측정(복원 +

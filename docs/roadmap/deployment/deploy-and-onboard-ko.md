@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 9355ccf9dc4107298571707604a3c451b657309f
+translation_source_sha: 74a9ef0545a5d83de04c80d5fd28042bc6aa603b
 translation_revised: 2026-08-31
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -557,7 +557,7 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `FDAI_ENTRA_TENANT_ID` / `FDAI_API_AUDIENCE` | env | 배포 | 프로덕션 Operator API Entra JWT 검증기 (`EntraJwtVerifier`) 필수: 배포 테넌트 id와 `fdai-api` App ID URI (`api://<fdai-api-guid>`). [user-rbac-and-identity-ko.md#102-api-토큰-검증](../interfaces/user-rbac-and-identity-ko.md#102-api-토큰-검증) 참조. |
 | `FDAI_ENTRA_ISSUER` / `FDAI_ENTRA_JWKS_URI` | env | 배포 | 선택 검증기 오버라이드; 기본값은 테넌트 의 v2 발급자 + 공개 키 셋. v1-토큰 앱은 `ISSUER` 를 `https://sts.windows.net/<tenant>/` 로; `JWKS_URI` 는 소버린 / 에어갭 클라우드에서만 오버라이드. |
 | `FDAI_EXECUTOR_PRINCIPAL_ID` / `FDAI_EXECUTOR_EVENT_ROLE_DEFINITION_ID` / `FDAI_EXECUTOR_SECRET_ROLE_DEFINITION_ID` | env | 업스트림 | Operator API onboarding 탐색 입력. ARG를 사용해 프로비저닝된 리소스 집합 및 실행기 Event Hubs / Key Vault 역할을 검증합니다. |
-| `FDAI_DR_DRILL_SOURCE_SERVER_ARM_ID` / `FDAI_DR_DRILL_TARGET_LOCATION` / `FDAI_DR_DRILL_TARGET_RG_PREFIX` / `FDAI_DR_DRILL_TARGET_SERVER_PREFIX` / `FDAI_DR_DRILL_PITR_OFFSET_MINUTES` / `FDAI_DR_DRILL_DRY_RUN` | env | 배포 | DB-DR 훈련 작업 설정 ([../runbooks/db-dr-drill-ko.md](../../runbooks/db-dr-drill-ko.md) 참조); `DRY_RUN=true` 업스트림 기본으로 작업 이 멱등적 유지. |
+| `FDAI_DR_DRILL_SOURCE_SERVER_ARM_ID` / `FDAI_DR_DRILL_TARGET_LOCATION` / `FDAI_DR_DRILL_TARGET_RESOURCE_GROUP` / `FDAI_DR_DRILL_TARGET_SERVER_PREFIX` / `FDAI_DR_DRILL_PITR_OFFSET_MINUTES` / `FDAI_DR_DRILL_INTEGRITY_TABLES` / `FDAI_DR_DRILL_DRY_RUN` | env | 배포 | 전달 계층이 소유하는 DB-DR 훈련 설정입니다. [DB-DR 훈련 런북](../../runbooks/db-dr-drill-ko.md)을 참조하세요. 작업은 전용 비실행기 신원과 미리 만든 격리 대상 그룹을 사용합니다. `DRY_RUN=true`는 Azure나 데이터베이스를 변경하지 않고 완전한 구성을 검증합니다. |
 | `FDAI_SECRET_KAFKA_TOKEN` / 기타 `FDAI_SECRET_*` | KV 참조 | 배포 | 전용 env var 이름이 아직 없는 어댑터가 소비하는 시크릿 을 위한 범용 escape hatch; 모든 `FDAI_SECRET_*` 값은 반드시 KV 경유. |
 
 모든 키에 적용되는 규칙:

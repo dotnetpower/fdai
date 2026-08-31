@@ -4,14 +4,14 @@ title: Deep DB-DR Restore Drill Runbook
 
 # Deep DB-DR restore drill runbook
 
-Operator runbook for the phase-3 § Deep DB-DR drill. Turns the shipped
+Operator runbook for the phase-3 Deep DB-DR drill. It turns the shipped
 [`DbDrVerifier`](../../services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_verifier.py)
-and its Azure adapter
-([`AzureDbDrRestoreAdapter`](../../services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_drill_cli.py))
+and the delivery-owned
+[`AzurePostgresRestoreAdapter`](../../services/core-control-plane/src/fdai/delivery/azure/db_dr_restore.py)
 into a repeatable operational procedure. The drill runs against a
 production PostgreSQL Flexible Server without ever touching production
-data - the restore lands in an **isolated resource group** the drill
-tears down when done.
+data. The restore lands in a Terraform-owned **isolated resource group**,
+and the drill deletes the temporary server when done.
 
 ## When to run
 
@@ -19,7 +19,7 @@ tears down when done.
 - **After schema migration**: within 7 days of every migration that
   changes user-visible tables.
 - **On restore-adapter change**: any commit under
-  [`services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_drill_cli.py`](../../services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_drill_cli.py)
+  [`services/core-control-plane/src/fdai/delivery/azure/db_dr_restore.py`](../../services/core-control-plane/src/fdai/delivery/azure/db_dr_restore.py)
   is a re-run trigger.
 - **On demand**: when incident response needs a fresh RPO/RTO figure.
 
@@ -34,24 +34,16 @@ tears down when done.
    subscription matches your fork's expected id (`az account show`
    returns the subscription you set as
    `FDAI_EXPECTED_SUBSCRIPTION_ID`).
-4. Isolated resource group name is available in the subscription and
-   does NOT clash with the source's resource group. The drill script
-   generates a fresh name each run.
-5. The deployment entry point composes `DbDrVerifier` with its restore,
-  integrity, smoke, and audit adapters, then passes `verifier.run` to
-  the CLI. Calling the upstream `main()` without this explicit runner
-  exits with code `2` before any Azure mutation.
-
-  ```python
-  from fdai.core.verticals.resilience.db_dr_drill_cli import main
-
-  raise SystemExit(main(verifier.run))
-  ```
-6. The injected HTTP client uses the Azure Resource Manager HTTPS origin as its
-  origin-only `base_url`. The adapter accepts LRO pointers only from that same
-  origin or as root-relative paths. The source is a canonical PostgreSQL
-  Flexible Server ARM id; target resource-group, server, and region values are
-  valid Azure path segments; and the restore timestamp is timezone-aware.
+4. Terraform has created the isolated target resource group and the dedicated DB-DR identity.
+  That identity has Reader on the source server, PostgreSQL Flexible Management Service
+  Contributor only on the target group, ACR pull, and read access to the state-store secret. It is
+  not the executor.
+5. `FDAI_DR_DRILL_INTEGRITY_TABLES` names 1-16 small, stable tables. The default checks
+  `alembic_version`; add application tables only when their contents are stable across the selected
+  restore offset.
+6. The scheduled entry point is `python -m fdai.delivery.db_dr_drill_cli`. A complete dry run
+  validates source, target, table, and secret bindings without requesting a token or changing
+  Azure or PostgreSQL.
 
 ## Steps
 
@@ -63,10 +55,9 @@ tears down when done.
    echo "Restore point: $RESTORE_TIME"
    ```
 
-2. **Create the isolated resource group for the manual procedure.** Use a name that carries the
-  drill timestamp so parallel drills do not collide. The automated
-  `AzureDbDrRestoreAdapter` performs this step with `If-None-Match: *`, accepts only a 201
-  ownership result, and rejects an existing group rather than adopting it:
+2. **Use the isolated resource group.** The automated job uses the dedicated group created by
+  Terraform and creates a timestamped server inside it. For a manual procedure, create a separate
+  group that doesn't match the source group:
 
    ```bash
    DRILL_RG="rg-fdai-dr-drill-$(date +%Y%m%d-%H%M)"
@@ -90,9 +81,9 @@ tears down when done.
 
 4. **Poll until the server is `Ready`.** Restore typically completes
    in 15-40 minutes for a small dev database. The
-   [`AzureDbDrRestoreAdapter`](../../services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_drill_cli.py)
-  polls the LRO endpoint under a 30-minute budget by default. The budget uses monotonic elapsed
-  time and includes token and HTTP latency, not only configured sleep intervals. The
+   [`AzurePostgresRestoreAdapter`](../../services/core-control-plane/src/fdai/delivery/azure/db_dr_restore.py)
+   polls the exact server resource under a 45-minute default budget. A malformed, failed,
+   canceled, or incomplete resource response fails closed and triggers partial-target cleanup. The
    operator equivalent is:
 
    ```bash
@@ -140,14 +131,14 @@ tears down when done.
   For the deletion queue, verify that a leased row can be reclaimed
   after `leased_until` and that completing the job removes it.
 
-7. **Tear down.** Delete the isolated resource group. The adapter's
-  ``teardown`` path is idempotent - a 404 is a legal "already gone". A 202 response must provide
-  an LRO pointer; the adapter polls it and verifies that the target group returns 404 before
-  reporting cleanup success. Restore failure or cancellation also removes a group that the
-  adapter itself created:
+7. **Tear down.** Delete the temporary restored server. The adapter's `teardown` path is
+  idempotent: a 404 is a legal "already gone" result. After an accepted delete, the adapter polls
+  the exact server until it returns 404 before reporting cleanup success. Restore failure or
+  cancellation also attempts to delete a partially created server. The Terraform-owned isolated
+  group remains for the next drill:
 
    ```bash
-   az group delete -n "$DRILL_RG" --yes --no-wait
+   az postgres flexible-server delete -g "$DRILL_RG" -n "$TARGET" --yes
    ```
 
 ## Retention and backup residuals
@@ -180,18 +171,17 @@ server:
 
 ## Success criteria
 
-Drill passes iff all five hold:
+The drill passes only when all six conditions hold:
 
 - Restore completed under the configured budget
-  (upstream default 30 minutes).
+  (upstream default 45 minutes).
 - Integrity report contains zero mismatches.
 - Smoke report has at least one check and every check passed.
 - The final ARM resource id exactly matches the requested restored server, and
   its valid FQDN starts with the requested target server name.
-- Isolated resource group deletion returned 2xx (or 404 after retry).
-- Every step wrote its audit entry - the drill is only "done" once the
-  `restore_started` / `restore_ready` / `integrity_passed` /
-  `smoke_passed` / `teardown_complete` events exist in the audit log. Every
+- Restored-server deletion was accepted and an exact read returned 404.
+- Every step wrote its audit entry. The drill is only done once the
+  `start` / `verification_passed` / `teardown_succeeded` / `passed` events exist in the audit log. Every
   phase and teardown record carries the decision's unique `run_id` as its
   `correlation_id`, while `experiment_id` continues to identify the planned
   exercise. Phase idempotency keys must be unique inside that run.
@@ -203,19 +193,16 @@ incident until cleanup is verified.
 
 ## Failure handling
 
-- **Restore exceeds budget** → adapter emits `restore_timeout`;
-  operator captures the last LRO status URL and files an incident.
-  Teardown is still attempted.
-- **Malformed successful LRO response** -> an HTTP 200 poll without a recognized string status is
-  a restore failure, not an implicit running state. Preserve the operation reference and stop.
-- **Integrity mismatch** → drill fails-closed. The mismatch report is
-  the payload of the incident; do NOT delete the isolated resource
-  group until an engineer confirms the sample (add a hold tag).
-- **Smoke query fails** → same as integrity mismatch. Record the
-  failing query + response.
-- **Teardown 408, 429, or 5xx** -> retry with a bounded linear delay (5 attempts, 30-second
-  spacing by default). Other 4xx responses fail immediately. If teardown still fails, page on-call: an isolated
-  resource group left behind costs money and needs manual cleanup.
+- **Restore exceeds budget** -> the adapter returns a restore failure and attempts partial-server
+  cleanup before the verifier records the terminal result.
+- **Malformed successful response** -> an HTTP 200 read without a recognized state is a restore
+  failure, not an implicit running state.
+- **Integrity mismatch** -> the drill fails closed, retains the structured mismatch in audit, and
+  still removes the restored server.
+- **Smoke query fails** -> the drill records the bounded failed check and still removes the server.
+- **Teardown failure** -> `cleanup_failed` preserves the primary outcome and returns a nonzero CLI
+  exit. Page on-call and delete the named server manually; the isolated target group itself is
+  intentionally retained.
 
 ## Cost note
 
@@ -223,8 +210,7 @@ The isolated Postgres server incurs the standard Flexible Server
 compute + storage rate for the duration of the drill. On the
 day-zero Burstable B1ms + 32 GB storage tier that is a small hourly
 figure, but it adds up if teardown is skipped. Alerts on the workload
-tag `purpose=dr-drill` catch stray drill resource groups older than
-24 hours.
+tag `purpose=dr-drill` catch stray restored servers.
 
 ## Related docs
 
