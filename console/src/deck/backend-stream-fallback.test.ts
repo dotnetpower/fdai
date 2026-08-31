@@ -216,6 +216,140 @@ describe("askBackendStream fallback typewriter", () => {
     expect(span).toBeGreaterThan(0);
   });
 
+  test("typed evidence hold rejects streamed text without a canonical terminal answer", async () => {
+    const done = {
+      verification: {
+        status: "unverified",
+        authority: "ontology-query",
+        checks_completed: 1,
+        checks_total: 2,
+        evidence_refs: ["evidence-1"],
+        reason_code: "semantic_evidence_held",
+      },
+      semantic_receipt: {
+        schema_version: "1.0.0",
+        projection_id: "00000000-0000-0000-0000-000000000000",
+        request_id: "00000000-0000-0000-0000-000000000000",
+        disposition: "held",
+        reason_code: "semantic_evidence_held",
+        unavailable_reason: "authoritative_evidence_unavailable",
+        plan_digest: `sha256:${"a".repeat(64)}`,
+        execution_receipt_digest: `sha256:${"b".repeat(64)}`,
+        execution_authority: false,
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async (_input, init) => {
+          const request = JSON.parse(String(init?.body)) as { request_id: string };
+          done.semantic_receipt.request_id = request.request_id;
+          const sseBody = [
+            'event: token\ndata: {"delta":"unverified streamed draft"}\n\n',
+            `event: done\ndata: ${JSON.stringify(done)}\n\n`,
+          ].join("");
+          return new Response(sseBody, {
+            status: 200,
+            headers: { "content-type": "text/event-stream" },
+          });
+        },
+      ),
+    );
+    const mod = await import("./backend");
+    mod.fallbackTypewriter.intervalMs = 0;
+    const revisions: Array<{ answer: string; revision: number }> = [];
+
+    const reply = await mod.askBackendStream("q", snap(), [], {
+      onToken: () => {},
+      onRevision: (answer, revision) => revisions.push({ answer, revision }),
+    });
+
+    expect(reply.source).toBe("unavailable (typed evidence hold missing canonical answer)");
+    expect(reply.text).not.toContain("unverified streamed draft");
+    expect(revisions).toContainEqual({ answer: "", revision: 1 });
+  });
+
+  test("typed evidence hold rejects a whitespace-only canonical answer", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_input, init) => {
+        const request = JSON.parse(String(init?.body)) as { request_id: string };
+        const done = {
+          answer: "   ",
+          verification: {
+            status: "unverified",
+            authority: "ontology-query",
+            checks_completed: 1,
+            checks_total: 2,
+            evidence_refs: ["evidence-1"],
+            reason_code: "semantic_evidence_held",
+          },
+          semantic_receipt: {
+            schema_version: "1.0.0",
+            projection_id: "00000000-0000-0000-0000-000000000000",
+            request_id: request.request_id,
+            disposition: "held",
+            reason_code: "semantic_evidence_held",
+            unavailable_reason: "authoritative_evidence_unavailable",
+            plan_digest: `sha256:${"a".repeat(64)}`,
+            execution_receipt_digest: `sha256:${"b".repeat(64)}`,
+            execution_authority: false,
+          },
+        };
+        return new Response(`event: done\ndata: ${JSON.stringify(done)}\n\n`);
+      }),
+    );
+    const mod = await import("./backend");
+    mod.fallbackTypewriter.intervalMs = 0;
+
+    const reply = await mod.askBackendStream("q", snap(), [], { onToken: () => {} });
+
+    expect(reply.source).toBe("unavailable (typed evidence hold missing canonical answer)");
+    expect(reply.text.trim().length).toBeGreaterThan(0);
+  });
+
+  test("typed evidence hold rejects a mismatched request receipt", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        const done = {
+          answer: "must not be accepted",
+          verification: {
+            status: "unverified",
+            authority: "ontology-query",
+            checks_completed: 1,
+            checks_total: 2,
+            evidence_refs: ["evidence-1"],
+            reason_code: "semantic_evidence_held",
+          },
+          semantic_receipt: {
+            schema_version: "1.0.0",
+            projection_id: "00000000-0000-0000-0000-000000000000",
+            request_id: "00000000-0000-0000-0000-000000000000",
+            disposition: "held",
+            reason_code: "semantic_evidence_held",
+            unavailable_reason: "authoritative_evidence_unavailable",
+            plan_digest: `sha256:${"a".repeat(64)}`,
+            execution_receipt_digest: `sha256:${"b".repeat(64)}`,
+            execution_authority: false,
+          },
+        };
+        return new Response(
+          'event: token\ndata: {"delta":"unverified streamed draft"}\n\n' +
+            `event: done\ndata: ${JSON.stringify(done)}\n\n`,
+        );
+      }),
+    );
+    const mod = await import("./backend");
+    mod.fallbackTypewriter.intervalMs = 0;
+
+    const reply = await mod.askBackendStream("q", snap(), [], { onToken: () => {} });
+
+    expect(reply.source).toBe("unavailable (typed evidence hold receipt invalid)");
+    expect(reply.text).not.toContain("unverified streamed draft");
+    expect(reply.text).not.toContain("must not be accepted");
+  });
+
   test("small incremental SSE delta bypasses cosmetic pacing", async () => {
     const answer = "ready";
     const body =

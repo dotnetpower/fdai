@@ -79,8 +79,10 @@ class LocalAzureCliAuth implements AuthContext {
   readonly localAzureCli = true;
   readonly interactiveSignIn = false;
   readonly account: AuthAccount;
+  #sessionToken: string;
 
-  constructor(profile: LocalCliProfile) {
+  constructor(profile: LocalCliProfile, sessionToken: string) {
+    this.#sessionToken = sessionToken;
     this.account = {
       homeAccountId: profile.oid,
       localAccountId: profile.oid,
@@ -91,7 +93,7 @@ class LocalAzureCliAuth implements AuthContext {
   }
 
   async getAuthorizationHeader(): Promise<string | null> {
-    return null;
+    return "Bearer " + this.#sessionToken;
   }
   async signIn(): Promise<void> {
     /* no-op */
@@ -210,7 +212,11 @@ export async function initAuth(config: ConsoleConfig): Promise<AuthContext> {
         `Local Azure CLI auth failed (${response.status}). Run 'az login' and start the Operator API with FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1.`
       );
     }
-    return new LocalAzureCliAuth(parseLocalCliProfile(await response.json()));
+    const sessionToken = response.headers.get("x-fdai-local-session");
+    if (!sessionToken) {
+      throw new Error("Local Azure CLI auth returned no local session token.");
+    }
+    return new LocalAzureCliAuth(parseLocalCliProfile(await response.json()), sessionToken);
   }
   if (config.devMode) {
     if (

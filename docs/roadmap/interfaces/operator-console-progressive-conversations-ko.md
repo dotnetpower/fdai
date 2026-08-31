@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 2209e6df0bf98e96eb298c60393a5ae0c8411dec
-translation_revised: 2026-08-29
+translation_source_sha: a228aeb8f0c245092a461f245a36b2dd70286e85
+translation_revised: 2026-08-31
 ---
 # 오퍼레이터 콘솔 점진적 대화
 
@@ -27,6 +27,7 @@ Command Deck은 활성 패널의 경로 범위 `ViewSnapshot`을 받습니다. �
 | 통제된 4단계 온톨로지 증적 | 진행 중 | [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts) | 외부 Browser Entra 실행기는 정확한 Operator API 원본을 요구하고, 성공 경로에서 모호하지 않은 조회 가능 유형 요청을 사용하며, 요청 및 변환 결과에 결속된 증적을 펼치고, 산출물을 출처, 작업 영역 패치, 실행 구성 digest에 결속합니다. `answered`가 아닌 증적을 받으면 답변 전용 UI 단언 전에 중단합니다. `검증됨`을 뒷받침하는 새 보존 통과 산출물은 없습니다. |
 | 이중 언어 무작위 릴리스 게이트 | 진행 중 | [`ontology-query-assurance-readiness.ts`](../../../console/tests/live-e2e/ontology-query-assurance-readiness.ts), [`ontology-query-assurance.test.ts`](../../../console/tests/live-e2e/ontology-query-assurance.test.ts) | 집중 보증 테스트 49개가 통과했습니다. 통제되는 모든 실행은 범위가 제한된 실행 식별자를 요구하고 질문 범위의 안정된 backend session id를 파생하므로 checkpoint 재개는 정체성을 보존하지만 새 실행은 다른 실행의 영속 semantic projection을 재사용할 수 없습니다. 전체 집단은 영어와 한국어 모두에서 근거가 완전한 answered 턴이 없으면 `production_ready=true`를 보고할 수 없습니다. 새 100-case 통과 산출물은 여전히 필요합니다. |
 | 의미 명확화 표현 | 구현됨 | [`verification-presentation.ts`](../../../console/src/deck/verification-presentation.ts), [`grounded-reply.tsx`](../../../console/src/deck/grounded-reply.tsx), 집중 Console 검사 | `semantic_clarification_required`를 `Context required`로 표시하면서 범위가 제한된 서버 작성 질문을 기본 답변으로 보존합니다. 질문이 잘못되었거나 없으면 지역화된 대체 문구를 사용합니다. 분류는 제어 평면이 실제로 방출하는 이유 코드만 다룹니다. 인증되고 보존된 증적은 열린 항목으로 남아 있습니다. |
+| 타입 기반 근거 보류 표현 | 구현됨 | [`backend-stream.ts`](../../../console/src/deck/backend-stream.ts), [`grounded-reply.tsx`](../../../console/src/deck/grounded-reply.tsx), 집중 스트림 및 Console 검사, Core 부분 인과 표현 검사 | `semantic_evidence_held`와 `semantic_evidence_incomplete`는 온톨로지 조회 검증에 비어 있지 않은 완료 근거가 있고 같은 요청의 보류 증적이 일치하는 사유, 계획, 실행, 권한 없음 digest와 `authoritative_evidence_unavailable`을 보고할 때만 범위가 제한된 정본 최종 답변을 보존합니다. 검증 사유가 증적 검증 전에 타입 기반 보류 주장을 식별하므로 누락되거나 다른 요청에 속하거나 불일치하는 증적은 거부를 우회할 수 없습니다. 정본 최종 본문이 없거나 공백뿐이면 대기 중인 token을 내보내기 전에 거부하고, 단조 증가하는 미검증 revision과 token pump generation 무효화로 이미 표시된 초안과 로컬 burst token을 철회한 뒤 지역화 대체 문구를 표시합니다. |
 | 의미 모델 투명성 | 구현됨 | `semantic_planning.py`, `semantic_turn_processor.py`, `semantic_turn_presentation.py`, 집중 Core 및 Operator 검사 | 이미 수행된 모든 의미 판단은 표현을 위해 범위가 제한된 실측 모델, 처리 시간 및 토큰 metadata를 보존합니다. 요청과 응답 본문은 요청에서 명시적으로 활성화한 경우에만 projection하며 결정론적으로 민감정보를 제거하고 범위를 제한합니다. 이 정보는 계획 근거나 실행 권한이 되지 않습니다. |
 | 실시간 의미 조회 진행 상황 | 구현됨 | `SemanticQueryProgress`, `query_execution.py`, Core semantic consumer, Operator semantic bridge, 집중 progress 검사 25개 통과 | Core는 검증된 실제 조회 노드의 시작 및 최종 관측만 별도 best-effort topic으로 발행합니다. Operator는 실제 내부 조회를 렌더링하고 권위 있는 최종 receipt가 도착하면 일시적인 진행 상태를 폐기합니다. 진행 정보는 범위가 제한되고 읽기 전용이며 `execution_authority=false`로 고정됩니다. 인증된 Command Deck 증적은 열린 상태입니다. |
 | 현재 화면 컨텍스트 게시 | 구현됨 | [`context.tsx`](../../../console/src/deck/context.tsx), [`app.tsx`](../../../console/src/app.tsx), 집중 Console 컨텍스트 및 경로 검사 58개 통과, 데스크톱 브라우저 검사 | 등록된 모든 패널은 로딩, 사용 불가, 오류, 경로 전환 상태에서 자신을 식별합니다. 특화 게시기는 이전 경로의 스냅샷을 넘기지 않고 대체 정보를 범위가 제한된 표시 사실로 교체할 수 있습니다. |
@@ -37,6 +38,7 @@ Command Deck은 활성 패널의 경로 범위 `ViewSnapshot`을 받습니다. �
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-31 | 구현됨 | 완료된 측정, 이름이 표시된 미해결 가설, 정확한 공백, `execution_authority=false`가 표시되도록 Console에서 타입 기반 부분 근거 보류 답변을 보존했습니다. 보존에는 정본 최종 본문, 비어 있지 않은 근거, 같은 요청의 일치하는 검증 및 의미 증적이 필요합니다. 증적이 없거나 잘못됐거나 최종 답변이 없거나 공백뿐이면 활성 token pump generation을 무효화하고 내보내기 전에 대기 및 누적 초안을 지운 뒤 단조 증가하는 철회 revision을 보냅니다. | `current change`, 집중 grounded-reply 및 스트림 검사 52개와 Console typecheck 통과 | 정확한 커밋 리비전에서 인증된 데스크톱 및 모바일 타입 기반 보류 증적 하나를 보존합니다. |
 | 2026-08-29 | implemented | 강화 라운드 10에서 Console 근거 및 스트림 관점 25개를 검토하고 label에서 파생한 검색 단계 key를 고정된 의미 id로 교체했습니다. SSE 진행 label은 활성 행을 다시 마운트하거나 애니메이션 및 포커스 상태를 초기화하지 않고 갱신됩니다. | `current change`; 집중 retrieval-trace 테스트 및 Console typecheck. | 실제 진행 스트림의 관리되는 시각적 근거를 보존합니다. |
 | 2026-08-27 | 구현됨 | 패널에서 파생한 대체 화면 스냅샷과 경로 전환 격리를 추가하여 특화 게시기 실행 전이나 게시기가 없는 경우에도 Command Deck이 등록된 모든 화면을 인식하도록 했습니다. | `current change`, `console/src/app.tsx`, `console/src/deck/context.tsx`, 집중 Console 검사 58개 통과, 예측 학습, 브라우저 근거, 구성 기준선 데스크톱 검사 | 이 범위가 제한된 동작을 `validated`로 승격하기 전에 인증된 배포 근거를 보존합니다. |
 | 2026-08-26 | 구현됨 | 최종 결과의 권위를 바꾸지 않고 실시간 의미 조회 노드 진행 상황을 추가했습니다. Executor는 실제 노드 시작과 receipt 완료를 관측하고, Core는 범위가 제한되고 권한이 없는 별도 record를 발행하며, Operator는 `done` 전에 안정된 조회 activity를 스트리밍합니다. 느리거나 실패한 progress 발행은 범위 안에서 끝나며 조회 실행을 바꿀 수 없습니다. Reconnect 및 최종 완료는 기존 영속 receipt를 계속 권위로 사용합니다. | `current change`, 공유 계약 및 schema, Core executor 및 consumer, Operator relay 및 Kafka adapter, 집중 progress 검사 25개 통과, Ruff, formatting 및 strict mypy 통과 | 인증된 Command Deck 실행에서 정확한 AKS 현재 상태 ObjectSet 및 Function 단계가 검증된 최종 답변 전에 running에서 completed로 바뀌는 것을 보존합니다. |

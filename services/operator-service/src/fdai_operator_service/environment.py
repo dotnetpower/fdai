@@ -26,6 +26,9 @@ DATABASE_STATEMENT_TIMEOUT_ENV = "FDAI_OPERATOR_DATABASE_STATEMENT_TIMEOUT_MS"
 DATABASE_CONNECT_TIMEOUT_ENV = "FDAI_OPERATOR_DATABASE_CONNECT_TIMEOUT_S"
 EXPECTED_DATABASE_ROLE = "fdai_operator"
 LOCAL_AZURE_NARRATOR_ENV = "FDAI_OPERATOR_SERVICE_LOCAL_AZURE_NARRATOR"
+LOCAL_AZURE_CLI_AUTH_ENV = "FDAI_OPERATOR_API_LOCAL_AZURE_CLI"
+LOCAL_ENTRA_AUTH_ENV = "FDAI_OPERATOR_API_LOCAL_ENTRA"
+DEV_MODE_ENV = "FDAI_OPERATOR_API_DEV_MODE"
 NARRATOR_PROBE_INTERVAL_ENV = "FDAI_NARRATOR_PROBE_INTERVAL_SECONDS"
 KAFKA_BOOTSTRAP_SERVERS_ENV = "FDAI_KAFKA_BOOTSTRAP_SERVERS"
 HIL_DECISION_TOPIC_ENV = "FDAI_HIL_DECISION_TOPIC"
@@ -96,6 +99,7 @@ class OperatorEnvironment:
     database_statement_timeout_ms: int
     database_connect_timeout_s: int
     local_azure_narrator: bool
+    local_azure_cli_auth: bool
     narrator_probe_interval_seconds: int
     kafka_bootstrap_servers: str | None
     hil_decision_topic: str | None
@@ -173,6 +177,19 @@ class OperatorEnvironment:
             DEFAULT_DATABASE_CONNECT_TIMEOUT_S,
         )
         local_azure_narrator = _boolean(values, LOCAL_AZURE_NARRATOR_ENV, default=False)
+        local_azure_cli_auth = _boolean(values, LOCAL_AZURE_CLI_AUTH_ENV, default=False)
+        local_entra_auth = _boolean(values, LOCAL_ENTRA_AUTH_ENV, default=False)
+        dev_mode = _boolean(values, DEV_MODE_ENV, default=False)
+        if local_azure_cli_auth:
+            if values.get("RUNTIME_ENV", "").strip().lower() != "dev":
+                raise OperatorServiceConfigurationError(
+                    f"{LOCAL_AZURE_CLI_AUTH_ENV} requires RUNTIME_ENV=dev"
+                )
+            if dev_mode or local_entra_auth:
+                raise OperatorServiceConfigurationError(
+                    f"{LOCAL_AZURE_CLI_AUTH_ENV} MUST NOT be combined with "
+                    f"{DEV_MODE_ENV} or {LOCAL_ENTRA_AUTH_ENV}"
+                )
         narrator_probe_interval_seconds = _bounded_int(
             values,
             NARRATOR_PROBE_INTERVAL_ENV,
@@ -364,6 +381,7 @@ class OperatorEnvironment:
             database_statement_timeout_ms=database_statement_timeout_ms,
             database_connect_timeout_s=database_connect_timeout_s,
             local_azure_narrator=local_azure_narrator,
+            local_azure_cli_auth=local_azure_cli_auth,
             narrator_probe_interval_seconds=narrator_probe_interval_seconds,
             kafka_bootstrap_servers=kafka_bootstrap_servers,
             hil_decision_topic=hil_decision_topic,
@@ -438,6 +456,7 @@ __all__ = [
     "DATABASE_ROLE_ENV",
     "DATABASE_STATEMENT_TIMEOUT_ENV",
     "DATABASE_URL_ENV",
+    "DEV_MODE_ENV",
     "DEFAULT_HOST",
     "DEFAULT_NARRATOR_PROBE_INTERVAL_SECONDS",
     "DEFAULT_PORT",
@@ -449,6 +468,8 @@ __all__ = [
     "LIVE_STAGE_CONSUMER_GROUP_ENV",
     "STAGE_TOPIC_ENV",
     "LOCAL_AZURE_NARRATOR_ENV",
+    "LOCAL_AZURE_CLI_AUTH_ENV",
+    "LOCAL_ENTRA_AUTH_ENV",
     "MAX_NARRATOR_PROBE_INTERVAL_SECONDS",
     "MANAGED_IDENTITY_CLIENT_ID_ENV",
     "MIN_NARRATOR_PROBE_INTERVAL_SECONDS",

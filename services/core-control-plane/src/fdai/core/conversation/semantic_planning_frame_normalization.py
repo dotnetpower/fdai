@@ -34,6 +34,9 @@ from .semantic_planning_investigation_normalization import (
     normalize_missing_mysql_pressure_investigation as _mysql_pressure_investigation,
 )
 from .semantic_planning_investigation_normalization import (
+    normalize_missing_resource_slowness_investigation as _resource_slowness_investigation,
+)
+from .semantic_planning_investigation_normalization import (
     normalize_missing_vm_cpu_investigation as _normalize_missing_vm_cpu_investigation,
 )
 from .semantic_planning_investigation_normalization import (
@@ -57,6 +60,7 @@ _ACTION_DRAFT_TEMPORAL_SCOPE = {
 
 normalize_bound_latency_recovery = _normalize_bound_latency_recovery
 normalize_missing_mysql_pressure_investigation = _mysql_pressure_investigation
+normalize_missing_resource_slowness_investigation = _resource_slowness_investigation
 normalize_missing_vm_cpu_investigation = _normalize_missing_vm_cpu_investigation
 normalize_network_application_latency_investigation = _network_latency_investigation
 

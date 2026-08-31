@@ -28,7 +28,9 @@ from fdai_operator_service.environment import (
     HOST_ENV,
     KAFKA_BOOTSTRAP_SERVERS_ENV,
     LIVE_STAGE_CONSUMER_GROUP_ENV,
+    LOCAL_AZURE_CLI_AUTH_ENV,
     LOCAL_AZURE_NARRATOR_ENV,
+    LOCAL_ENTRA_AUTH_ENV,
     MANAGED_IDENTITY_CLIENT_ID_ENV,
     NARRATOR_PROBE_INTERVAL_ENV,
     PORT_ENV,
@@ -50,6 +52,7 @@ from fdai_operator_service.families.iam.hil_decision_outbox import (
 from fdai_operator_service.families.iam.hil_teams_callback import (
     TeamsHilCallbackNormalizer,
 )
+from fdai_operator_service.local_auth import AzureCliIdentityError, LocalAzureCliIdentity
 from fdai_operator_service.main import SERVICE
 from fdai_operator_service.parity import BLOCKED_ROUTE_PATHS, PARITY_COMPLETE, ROUTE_PARITY
 from fdai_operator_service.postgres import PostgresOperatorReadModel
@@ -66,6 +69,8 @@ from fdai_service_contracts import (
     IncidentPageProjection,
     IncidentQuery,
     JsonProjection,
+    OperatorPrincipal,
+    OperatorPrincipalKind,
     OperatorReadModel,
     OperatorRole,
     OperatorTokenVerifier,
@@ -324,6 +329,170 @@ def test_health_reflects_required_dependency_loss_after_startup() -> None:
     available = False
     response = client.get("/healthz")
     assert (response.status_code, response.json()) == (503, {"status": "not-ready"})
+
+
+def _local_cli_identity() -> LocalAzureCliIdentity:
+    return LocalAzureCliIdentity(
+        principal=OperatorPrincipal(
+            subject_id="cli-user",
+            roles=frozenset({OperatorRole.CONTRIBUTOR}),
+            principal_kind=OperatorPrincipalKind.HUMAN,
+        ),
+        username="operator@example.com",
+        name="Example Operator",
+    )
+
+
+def test_local_cli_mode_projects_profile_and_authorizes_reader_routes() -> None:
+    composition = ProductionOperatorComposition(
+        verifier_factory=lambda environment: _verify,
+        read_model=EmptyReadModel(),
+        local_cli_identity_factory=_local_cli_identity,
+        local_cli_session_token_factory=lambda: "local-session-token",
+    )
+    client = TestClient(
+        create_app(
+            {
+                **BASE_ENV,
+                "RUNTIME_ENV": "dev",
+                LOCAL_AZURE_CLI_AUTH_ENV: "1",
+                CORS_ORIGINS_ENV: "http://127.0.0.1:5273",
+            },
+            composition=composition,
+        ),
+        client=("127.0.0.1", 50000),
+    )
+
+    request_headers = {"Origin": "http://127.0.0.1:5273"}
+    profile = client.get("/local-auth/me", headers=request_headers)
+    audit = client.get(
+        "/audit",
+        headers={
+            **request_headers,
+            "Authorization": f"Bearer {profile.headers['x-fdai-local-session']}",
+        },
+    )
+
+    assert profile.status_code == 200
+    assert profile.json() == {
+        "oid": "cli-user",
+        "username": "operator@example.com",
+        "name": "Example Operator",
+        "roles": ["Contributor"],
+        "source": "azure-cli",
+    }
+    assert "tenant" not in profile.text
+    assert "subscription" not in profile.text
+    assert "token" not in profile.text
+    assert profile.headers["x-fdai-local-session"] == "local-session-token"
+    assert profile.headers["cache-control"] == "no-store"
+    assert audit.status_code == 200
+
+
+def test_local_cli_mode_rejects_non_loopback_requests() -> None:
+    composition = ProductionOperatorComposition(
+        verifier_factory=lambda environment: _verify,
+        read_model=EmptyReadModel(),
+        local_cli_identity_factory=_local_cli_identity,
+        local_cli_session_token_factory=lambda: "local-session-token",
+    )
+    client = TestClient(
+        create_app(
+            {
+                **BASE_ENV,
+                "RUNTIME_ENV": "dev",
+                LOCAL_AZURE_CLI_AUTH_ENV: "1",
+            },
+            composition=composition,
+        ),
+        client=("192.0.2.1", 50000),
+    )
+
+    profile = client.get(
+        "/local-auth/me",
+        headers={"Origin": "http://127.0.0.1:5273"},
+    )
+    audit = client.get(
+        "/audit",
+        headers={"Authorization": "Bearer local-session-token"},
+    )
+
+    assert profile.status_code == 403
+    assert audit.status_code == 403
+
+
+def test_local_cli_mode_rejects_untrusted_browser_origin() -> None:
+    composition = ProductionOperatorComposition(
+        verifier_factory=lambda environment: _verify,
+        read_model=EmptyReadModel(),
+        local_cli_identity_factory=_local_cli_identity,
+        local_cli_session_token_factory=lambda: "local-session-token",
+    )
+    client = TestClient(
+        create_app(
+            {
+                **BASE_ENV,
+                "RUNTIME_ENV": "dev",
+                LOCAL_AZURE_CLI_AUTH_ENV: "1",
+                CORS_ORIGINS_ENV: "http://127.0.0.1:5273",
+            },
+            composition=composition,
+        ),
+        client=("127.0.0.1", 50000),
+    )
+
+    response = client.get(
+        "/local-auth/me",
+        headers={"Origin": "https://untrusted.example"},
+    )
+
+    assert response.status_code == 403
+
+
+def test_local_cli_profile_route_is_absent_when_mode_is_disabled() -> None:
+    assert _client(read_model=EmptyReadModel()).get("/local-auth/me").status_code == 404
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {LOCAL_AZURE_CLI_AUTH_ENV: "1", "RUNTIME_ENV": "prod"},
+        {
+            LOCAL_AZURE_CLI_AUTH_ENV: "1",
+            "RUNTIME_ENV": "dev",
+            "FDAI_OPERATOR_API_DEV_MODE": "1",
+        },
+        {
+            LOCAL_AZURE_CLI_AUTH_ENV: "1",
+            "RUNTIME_ENV": "dev",
+            LOCAL_ENTRA_AUTH_ENV: "1",
+        },
+    ],
+)
+def test_local_cli_mode_rejects_non_dev_and_conflicting_auth(
+    overrides: Mapping[str, str],
+) -> None:
+    with pytest.raises(OperatorServiceConfigurationError):
+        OperatorEnvironment.parse({**BASE_ENV, **overrides})
+
+
+def test_local_cli_mode_surfaces_unavailable_azure_cli() -> None:
+    def unavailable() -> LocalAzureCliIdentity:
+        raise AzureCliIdentityError("Azure CLI is unavailable")
+
+    composition = ProductionOperatorComposition(
+        verifier_factory=lambda environment: _verify,
+        local_cli_identity_factory=unavailable,
+        local_cli_session_token_factory=lambda: "local-session-token",
+    )
+    with pytest.raises(AzureCliIdentityError, match="unavailable"):
+        composition.build_runtime(
+            {
+                **BASE_ENV,
+                "RUNTIME_ENV": "dev",
+                LOCAL_AZURE_CLI_AUTH_ENV: "1",
+            }
+        )
 
 
 def test_live_stream_requires_reader_authentication_before_opening() -> None:

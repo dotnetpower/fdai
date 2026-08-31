@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import json
 import re
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -162,6 +163,27 @@ class SecurityHeadersMiddleware:
         await self._app(scope, receive, send_with_headers)
 
 
+class LoopbackOnlyMiddleware:
+    """Reject non-loopback traffic when local CLI authentication is active."""
+
+    def __init__(self, app: ASGIApp, allowed_origins: tuple[str, ...]) -> None:
+        self._app = app
+        self._allowed_origins = frozenset(allowed_origins)
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http":
+            if not _is_loopback_client(scope.get("client")):
+                response = _error(403, "local Azure CLI authentication requires a loopback client")
+                await response(scope, receive, send)
+                return
+            origin = _header_value(scope, b"origin")
+            if origin is not None and origin not in self._allowed_origins:
+                response = _error(403, "local Azure CLI authentication rejected the request origin")
+                await response(scope, receive, send)
+                return
+        await self._app(scope, receive, send)
+
+
 def build_operator_app(
     *,
     authenticator: OperatorAuthenticator,
@@ -172,6 +194,8 @@ def build_operator_app(
     live_stream_hub: LiveStreamHub,
     agent_stream_hub: LiveStreamHub,
     cors_allow_origins: tuple[str, ...] = (),
+    local_cli_profile: Mapping[str, object] | None = None,
+    local_cli_session_token: str | None = None,
     lifecycle: ApplicationLifecycle | None = None,
 ) -> Starlette:
     """Build the complete Operator API without executor or FDAI imports."""
@@ -179,6 +203,7 @@ def build_operator_app(
     ownership = aggregate_route_manifest(
         route_families.operation_panels,
         include_cost_governance=route_families.cost_governance is not None,
+        include_local_auth=local_cli_profile is not None,
     )
 
     def authorize(request: Request) -> OperatorPrincipal:
@@ -192,6 +217,16 @@ def build_operator_app(
         return JSONResponse(
             {"status": "ok" if ready else "not-ready"},
             status_code=200 if ready else 503,
+        )
+
+    async def get_local_auth_profile(_: Request) -> Response:
+        if (
+            local_cli_profile is None or local_cli_session_token is None
+        ):  # pragma: no cover - route registration invariant
+            return _error(404, "local Azure CLI authentication is disabled")
+        return JSONResponse(
+            dict(local_cli_profile),
+            headers={"X-FDAI-Local-Session": local_cli_session_token},
         )
 
     async def get_audit(request: Request) -> Response:
@@ -437,9 +472,23 @@ def build_operator_app(
             else ()
         ),
     ]
-    routes = [*minimal_routes, *family_routes]
+    local_auth_routes = (
+        [
+            Route(
+                "/local-auth/me",
+                get_local_auth_profile,
+                methods=["GET"],
+                name="get_local_auth_profile",
+            )
+        ]
+        if local_cli_profile is not None
+        else []
+    )
+    routes = [*local_auth_routes, *minimal_routes, *family_routes]
     _validate_registered_routes(routes, ownership)
     middleware: list[Middleware] = [Middleware(SecurityHeadersMiddleware)]
+    if local_cli_profile is not None:
+        middleware.append(Middleware(LoopbackOnlyMiddleware, allowed_origins=cors_allow_origins))
     if cors_allow_origins:
         middleware.append(
             Middleware(
@@ -452,6 +501,7 @@ def build_operator_app(
                     "Idempotency-Key",
                     "X-Correlation-ID",
                 ],
+                expose_headers=["X-FDAI-Local-Session"],
             )
         )
 
@@ -673,6 +723,22 @@ def _error(status: int, message: str) -> JSONResponse:
     return JSONResponse({"error": {"status": status, "message": message}}, status_code=status)
 
 
+def _is_loopback_client(client: object) -> bool:
+    if not isinstance(client, tuple) or not client or not isinstance(client[0], str):
+        return False
+    try:
+        return ipaddress.ip_address(client[0]).is_loopback
+    except ValueError:
+        return False
+
+
+def _header_value(scope: Scope, name: bytes) -> str | None:
+    for key, value in scope.get("headers", ()):
+        if key.lower() == name and isinstance(value, bytes):
+            return value.decode("latin-1")
+    return None
+
+
 def _validate_data_sources(sources: Sequence[ReadDataSource]) -> None:
     keys = [source.key for source in sources]
     routes = [route for source in sources for route in source.routes]
@@ -686,9 +752,11 @@ def aggregate_route_manifest(
     operation_panels: Sequence[PanelRoute] = (),
     *,
     include_cost_governance: bool = False,
+    include_local_auth: bool = False,
 ) -> tuple[RouteOwnership, ...]:
     """Return the exact aggregate ownership manifest and reject duplicates."""
     ownership = (
+        *((RouteOwnership("GET", "/local-auth/me", "local-auth"),) if include_local_auth else ()),
         *MINIMAL_ROUTE_MANIFEST,
         *(
             RouteOwnership(item.method, item.path, "conversation")

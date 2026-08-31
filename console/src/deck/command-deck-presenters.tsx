@@ -679,6 +679,7 @@ export function TurnBubble({
           source={turn.source}
           streaming={turn.streaming === true}
           verification={turn.verification}
+          semanticReceipt={turn.semanticReceipt}
           confirmed={turn.confirmed}
           verificationProgress={turn.verificationProgress}
           answerPlanning={turn.answerPlanning}

@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: bdf4e4d1ef15efc869f946185c5b09024fdfa35c
+translation_source_sha: 9807ea1acb228cc9f90c955adc242087f350837d
 translation_revised: 2026-09-01
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -150,6 +150,14 @@ Core 런타임만 Pantheon을 소유하며 로컬 및 deployed interactive 읽�
 없는 모델로 잘못 표시하지 않도록 `starting` 또는 `event-bridge` mode와 함께 HTTP 200을 반환합니다. Semantic 및 local narrator fallback stream은 동일한 authoritative `ConversationAssuranceReader`를 사용합니다.
 운영 복제본은 서버 소비자 그룹을 공유하므로 요청마다 복제본 하나만 응답합니다. Singleton 로컬 코어는 process-scoped 서버 그룹을 사용하므로 재시작할 때 이전 프로세스의 관련 없는 Pantheon 트래픽을 재생하지 않고 physical 토픽의 현재 오프셋에서 시작합니다.
 요청은 raw 신원 대신 salted SHA-256 user/세션 참조를 전달하며, 시간 초과 또는 잘못된 응답은 전문가 답변을 꾸미지 않고 명시적인 agent-to-Bragi 인계로 표시합니다. 같은 지연 시간 프로파일은 같은 direct, streamed 또는 detached 모드를 선택하며 측정된 프로바이더 지연 시간과 구성된 근거 가용성만 모드를 바꿀 수 있습니다.
+명시적 로컬 Azure CLI principal 대안은 `GET /local-auth/me`를 통해 초기화합니다.
+Operator 서비스는 시작할 때 활성 대화형 CLI 사용자를 확인하고 고정된 Contributor 상한을
+적용하며, 브라우저에 안전한 프로파일과 프로세스별 세션 일회값을 반환합니다. 이 일회값은
+loopback 클라이언트에서만 수락하고 브라우저 요청에는 정확히 구성된 origin도 요구합니다.
+운영 composition은 기존 authentication 모듈을 통해 로컬 identity factory를 가져와 composition root를 검토된 fanout 상한 아래로 유지합니다. Azure Resource Manager 토큰은 API 프로세스 안에 유지합니다. Psycopg를 직접 사용하는 저장소는
+연결 전에 SQLAlchemy 드라이버 표식을 정규화합니다. 보존 작업자는 `FOR UPDATE SKIP LOCKED`에
+필요한 변경 불가능한 잠금 키에 대해서만 컬럼 수준 `UPDATE` 권한을 받으며 테이블 전체
+`UPDATE`는 계속 사용할 수 없습니다.
 장기 실행 코어 및 Operator API 작업의 최종 출력은 `.fdai/logs/core-runtime.log`와
 `.fdai/logs/operator-api.log`에 보존됩니다. 캡처된 모든 child-output 줄은 millisecond와 로컬 표준 시간대
 약어를 포함한 Python 로깅 style 시각으로 시작합니다. 예시는 `2026-07-28 15:25:53,717 KST`입니다.

@@ -1532,7 +1532,7 @@ def _project_execution_hold(
         evidence_refs=evidence_refs,
         checks_completed=completed,
         checks_total=len(execution.receipts),
-        answer=_render_execution_hold_answer(request, execution),
+        answer=_render_execution_hold_answer(request, result, execution),
         assurance_observation=project_semantic_assurance(
             result,
             disposition="held",
@@ -1587,6 +1587,7 @@ def _projected_execution_evidence_matches(
 
 def _render_execution_hold_answer(
     request: SemanticTurnRequest,
+    result: RuntimeSemanticTurnResult,
     execution: QueryPlanExecution,
 ) -> str:
     korean = request.locale.casefold().startswith("ko")
@@ -1605,12 +1606,14 @@ def _render_execution_hold_answer(
         if receipt.reason is not None:
             limitations.append(f"`{capability}`: `{receipt.reason}`")
     causal_answer = _render_partial_causal_answer(
+        result,
         execution,
         korean=korean,
         additional_limitations=limitations,
     )
     if causal_answer is not None:
         return causal_answer
+    hypotheses = _held_hypothesis_lines(result, korean=korean)
     if korean:
         return "\n".join(
             [
@@ -1623,6 +1626,7 @@ def _render_execution_hold_answer(
                 "- 완료된 단계와 근거 참조만 관측 사실로 사용할 수 있습니다.",
                 "- 완료되지 않은 가설은 `supported` 또는 `refuted`로 승격하지 않고 "
                 "`unresolved`로 유지합니다.",
+                *(["", "## 가설 상태", "", *hypotheses] if hypotheses else []),
                 "",
                 "## 제한 사항",
                 "",
@@ -1651,6 +1655,7 @@ def _render_execution_hold_answer(
             "- Only completed steps and their evidence references can support observations.",
             "- Incomplete hypotheses remain `unresolved`; they are not promoted to "
             "`supported` or `refuted`.",
+            *(["", "## Hypothesis status", "", *hypotheses] if hypotheses else []),
             "",
             "## Limitations",
             "",
@@ -1670,7 +1675,28 @@ def _render_execution_hold_answer(
     )
 
 
+def _held_hypothesis_lines(
+    result: RuntimeSemanticTurnResult,
+    *,
+    korean: bool,
+) -> list[str]:
+    intent = getattr(result.planning, "investigation_intent", None)
+    raw_hypotheses = getattr(intent, "hypotheses", ())
+    if not isinstance(raw_hypotheses, tuple):
+        return []
+    lines: list[str] = []
+    for hypothesis in raw_hypotheses:
+        hypothesis_id = getattr(hypothesis, "hypothesis_id", None)
+        if isinstance(hypothesis_id, str) and hypothesis_id:
+            lines.append(
+                f"- `{hypothesis_id}` - `unresolved`"
+                + (" - 근거 미완료" if korean else " - evidence incomplete")
+            )
+    return lines
+
+
 def _render_partial_causal_answer(
+    result: RuntimeSemanticTurnResult,
     execution: QueryPlanExecution,
     *,
     korean: bool,
@@ -1678,28 +1704,57 @@ def _render_partial_causal_answer(
 ) -> str | None:
     outputs: list[dict[str, object]] = []
     for node_id in execution.output_node_ids:
-        result = execution.results.get(node_id)
-        if result is None:
+        node_result = execution.results.get(node_id)
+        if node_result is None:
             continue
-        extension_output = _typed_extension_answer_output(node_id, result.value)
+        extension_output = _typed_extension_answer_output(node_id, node_result.value)
         if extension_output is not None:
-            extension_output["evidence_refs"] = list(result.evidence_refs)
+            extension_output["evidence_refs"] = list(node_result.evidence_refs)
             outputs.append(extension_output)
             continue
-        if not isinstance(result.value, QueryTable):
+        if not isinstance(node_result.value, QueryTable):
             continue
-        table = result.value
+        table = node_result.value
         rows: list[dict[str, object]] = [
             {"row_id": row.row_id, "values": row.values} for row in table.rows[:20]
         ]
         output = _answer_output(node_id=node_id, table=table, rows=rows)
-        output["evidence_refs"] = list(result.evidence_refs)
+        output["evidence_refs"] = list(node_result.evidence_refs)
         outputs.append(output)
+    if not any(output.get("result_kind") == "causal.join" for output in outputs):
+        outputs.extend(_unresolved_hypothesis_outputs(result))
     return _render_causal_query_answer(
         outputs,
         korean=korean,
         additional_limitations=additional_limitations,
     )
+
+
+def _unresolved_hypothesis_outputs(
+    result: RuntimeSemanticTurnResult,
+) -> list[dict[str, object]]:
+    intent = getattr(result.planning, "investigation_intent", None)
+    raw_hypotheses = getattr(intent, "hypotheses", ())
+    if not isinstance(raw_hypotheses, tuple):
+        return []
+    outputs: list[dict[str, object]] = []
+    for hypothesis in raw_hypotheses:
+        hypothesis_id = getattr(hypothesis, "hypothesis_id", None)
+        if isinstance(hypothesis_id, str) and hypothesis_id:
+            outputs.append(
+                {
+                    "node_id": f"hypothesis-{hypothesis_id}",
+                    "result_kind": "causal.join",
+                    "evidence_refs": [],
+                    "summary": {
+                        "hypothesis_id": hypothesis_id,
+                        "status": "unresolved",
+                        "limitations": ["evidence_not_completed"],
+                        "temporal_claim": None,
+                    },
+                }
+            )
+    return outputs
 
 
 def _unsatisfied_incident_binding(
