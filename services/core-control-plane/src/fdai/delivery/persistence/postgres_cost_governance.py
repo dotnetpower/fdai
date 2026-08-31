@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -144,6 +144,104 @@ class PostgresCostGovernanceStore:
                     ),
                 )
                 return updated.rowcount == 1
+
+    async def append_cost_analytics_snapshot(
+        self,
+        *,
+        snapshot_id: str,
+        package_id: str,
+        scope_id: str,
+        observed_at: datetime,
+        source_authority: str,
+        complete: bool,
+        payload: Mapping[str, object],
+        evidence_digest: str,
+        retention_until: datetime,
+    ) -> bool:
+        """Append one immutable disclosure-safe analytics snapshot."""
+
+        async with await self._connect() as conn:
+            await self._timeout(conn)
+            inserted = await conn.execute(
+                """
+                INSERT INTO cost_governance_analytics_snapshot (
+                    snapshot_id, package_id, scope_id, observed_at,
+                    source_authority, complete, payload, evidence_digest,
+                    retention_until
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (snapshot_id) DO NOTHING
+                """,
+                (
+                    snapshot_id,
+                    package_id,
+                    scope_id,
+                    observed_at,
+                    source_authority,
+                    complete,
+                    Jsonb(dict(payload)),
+                    evidence_digest,
+                    retention_until,
+                ),
+            )
+        return inserted.rowcount == 1
+
+    async def cost_budget_data_available(self) -> bool:
+        """Return whether the latest analytics snapshot contains a budget."""
+
+        async with await self._connect() as conn:
+            await self._timeout(conn)
+            cursor = await conn.execute(
+                """
+                SELECT COALESCE(
+                    jsonb_array_length(payload -> 'budgets') > 0,
+                    FALSE
+                ) AS available
+                  FROM cost_governance_analytics_snapshot
+                 ORDER BY observed_at DESC, snapshot_id DESC
+                 LIMIT 1
+                """
+            )
+            row = await cursor.fetchone()
+        return bool(row and row["available"])
+
+    async def read_recent_complete_cost_observations(
+        self,
+        *,
+        package_id: str,
+        ontology_release_digest: str,
+        limit: int,
+    ) -> tuple[CostObservation, ...]:
+        """Read a bounded restart baseline in chronological order."""
+
+        if not 1 <= limit <= 1000:
+            raise ValueError("cost observation hydration limit MUST be in [1, 1000]")
+        async with await self._connect() as conn:
+            await self._timeout(conn)
+            cursor = await conn.execute(
+                """
+                SELECT *
+                  FROM (
+                    SELECT observation_id, package_id, scope_id, service_id, amount,
+                           currency, event_start_at, event_end_at, observed_at,
+                           recorded_at, source_authority, source_uri, completeness,
+                           ontology_release_id, ontology_release_digest, evidence_digest,
+                           retention_until
+                      FROM cost_observation
+                     WHERE package_id = %s
+                       AND ontology_release_digest = %s
+                       AND completeness = 1
+                       AND currency = 'USD'
+                       AND retention_until > CURRENT_TIMESTAMP
+                     ORDER BY observed_at DESC, observation_id DESC
+                     LIMIT %s
+                  ) AS recent
+                 ORDER BY observed_at, observation_id
+                """,
+                (package_id, ontology_release_digest, limit),
+            )
+            rows: Sequence[dict[str, Any]] = await cursor.fetchall()
+        return tuple(_observation(row) for row in rows)
 
     async def read_cost_cursor(
         self,

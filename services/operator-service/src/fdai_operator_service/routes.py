@@ -706,7 +706,7 @@ def aggregate_route_manifest(
         *(RouteOwnership("GET", panel.path, "operations-panel") for panel in operation_panels),
         *(
             (
-                RouteOwnership("GET", item.path, "cost-governance")
+                RouteOwnership(item.method, item.path, "cost-governance")
                 for item in COST_GOVERNANCE_ROUTE_MANIFEST
             )
             if include_cost_governance

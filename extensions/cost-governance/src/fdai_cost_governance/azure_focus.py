@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Protocol
 from urllib.parse import urlencode, urlparse
@@ -33,11 +34,12 @@ class CostReadCredential(Protocol):
 class CostHttpTransport(Protocol):
     """Injected HTTPS transport; implementations enforce their own timeout."""
 
-    async def get(
+    async def post(
         self,
         url: str,
         *,
         headers: dict[str, str],
+        json_body: dict[str, object],
         max_bytes: int,
         deadline_at: datetime,
     ) -> CostHttpResponse: ...
@@ -55,6 +57,7 @@ class AzureFocusObservationAdapter(CostObservationProvider):
         ontology_release_digest: str,
         max_response_bytes: int = 2_000_000,
         retention: timedelta = timedelta(days=400),
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         if max_response_bytes < 1:
             raise ValueError("max_response_bytes MUST be positive")
@@ -64,6 +67,7 @@ class AzureFocusObservationAdapter(CostObservationProvider):
         self._release_digest = ontology_release_digest
         self._max_bytes = max_response_bytes
         self._retention = retention
+        self._clock = clock or (lambda: datetime.now(UTC))
 
     async def collect_cost_page(
         self,
@@ -73,9 +77,10 @@ class AzureFocusObservationAdapter(CostObservationProvider):
     ) -> CostObservationPage:
         token = await self._credential.access_token(deadline_at=request.deadline_at)
         url = self._url(request, resume_token)
-        response = await self._transport.get(
+        response = await self._transport.post(
             url,
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+            json_body=self._query_body(request),
             max_bytes=self._max_bytes,
             deadline_at=request.deadline_at,
         )
@@ -87,14 +92,28 @@ class AzureFocusObservationAdapter(CostObservationProvider):
             document = json.loads(response.body)
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise ValueError("Azure Cost Management returned invalid JSON") from exc
-        rows = document.get("properties", {}).get("rows", [])
+        properties = document.get("properties", {})
+        columns = properties.get("columns", [])
+        rows = properties.get("rows", [])
         if not isinstance(rows, list) or len(rows) > request.page_size:
             raise ValueError("Azure Cost Management page exceeded row budget")
-        collected_at = datetime.fromisoformat(str(document["collectedAt"]).replace("Z", "+00:00"))
+        if not isinstance(columns, list):
+            raise ValueError("Azure Cost Management columns are invalid")
+        names = [
+            str(column.get("name"))
+            for column in columns
+            if isinstance(column, dict) and column.get("name")
+        ]
+        if len(names) != len(columns):
+            raise ValueError("Azure Cost Management columns are invalid")
+        if any(not isinstance(row, list) or len(row) != len(names) for row in rows):
+            raise ValueError("Azure Cost Management rows are invalid")
+        collected_at = self._clock()
         observations = tuple(
-            self._observation(request, row, collected_at) for row in rows if isinstance(row, dict)
+            self._observation(request, dict(zip(names, row, strict=True)), collected_at)
+            for row in rows
         )
-        next_link = document.get("properties", {}).get("nextLink")
+        next_link = properties.get("nextLink")
         next_token = str(next_link) if next_link else None
         if next_token is not None:
             self._require_management_url(next_token)
@@ -102,7 +121,7 @@ class AzureFocusObservationAdapter(CostObservationProvider):
             observations=observations,
             next_resume_token=next_token,
             complete=next_token is None,
-            source_authority="azure-cost-management-focus",
+            source_authority="azure-cost-management-query",
             bytes_read=len(response.body),
             collected_at=collected_at,
         )
@@ -112,18 +131,26 @@ class AzureFocusObservationAdapter(CostObservationProvider):
             self._require_management_url(resume_token)
             return resume_token
         scope = request.scope_id.removeprefix("/")
-        query = urlencode(
-            {
-                "api-version": "2023-11-01",
-                "start": request.start_at.isoformat(),
-                "end": request.end_at.isoformat(),
-                "top": request.page_size,
-                "format": "focus",
-            }
-        )
+        query = urlencode({"api-version": "2023-11-01"})
         return (
             f"https://management.azure.com/{scope}/providers/Microsoft.CostManagement/query?{query}"
         )
+
+    @staticmethod
+    def _query_body(request: CostCollectionRequest) -> dict[str, object]:
+        return {
+            "type": "ActualCost",
+            "timeframe": "Custom",
+            "timePeriod": {
+                "from": request.start_at.isoformat(),
+                "to": request.end_at.isoformat(),
+            },
+            "dataset": {
+                "granularity": "Daily",
+                "aggregation": {"totalCost": {"name": "Cost", "function": "Sum"}},
+                "grouping": [{"type": "Dimension", "name": "ServiceName"}],
+            },
+        }
 
     @staticmethod
     def _require_management_url(url: str) -> None:
@@ -137,30 +164,42 @@ class AzureFocusObservationAdapter(CostObservationProvider):
         row: dict[str, object],
         collected_at: datetime,
     ) -> CostObservation:
-        required = ("serviceId", "billedCost", "chargePeriodStart", "chargePeriodEnd")
+        required = ("ServiceName", "Cost", "UsageDate", "Currency")
         if any(not row.get(key) for key in required):
             raise ValueError("FOCUS row is missing a required source fact")
         try:
-            amount = Decimal(str(row["billedCost"]))
-            start = datetime.fromisoformat(str(row["chargePeriodStart"]).replace("Z", "+00:00"))
-            end = datetime.fromisoformat(str(row["chargePeriodEnd"]).replace("Z", "+00:00"))
+            amount = Decimal(str(row["Cost"]))
+            start = datetime.strptime(str(row["UsageDate"]), "%Y%m%d").replace(
+                tzinfo=collected_at.tzinfo
+            )
+            end = start + timedelta(days=1)
         except (InvalidOperation, ValueError) as exc:
             raise ValueError("FOCUS row has invalid amount or time") from exc
-        source_uri = str(row.get("sourceUri") or request.scope_id)
+        service_id = str(row["ServiceName"]).strip()
+        currency = str(row["Currency"]).strip().upper()
+        source_digest = hashlib.sha256(f"{request.scope_id}\0{service_id}".encode()).hexdigest()[
+            :24
+        ]
+        source_uri = f"cost-service:{source_digest}"
+        end = min(start + timedelta(days=1), request.end_at, collected_at)
+        if end <= start:
+            raise ValueError("FOCUS row is outside the observed collection window")
         canonical = json.dumps(row, sort_keys=True, separators=(",", ":"), default=str).encode()
-        digest = hashlib.sha256(canonical).hexdigest()
+        digest = hashlib.sha256(
+            request.package_id.encode() + b"\0" + request.scope_id.encode() + b"\0" + canonical
+        ).hexdigest()
         return CostObservation(
             observation_id=f"costobs:{digest}",
             package_id=request.package_id,
             scope_id=request.scope_id,
-            service_id=str(row["serviceId"]),
+            service_id=service_id,
             amount=amount,
-            currency=str(row.get("billingCurrency") or "USD"),
+            currency=currency,
             event_start_at=start,
             event_end_at=end,
-            observed_at=collected_at,
+            observed_at=end,
             recorded_at=collected_at,
-            source_authority="azure-cost-management-focus",
+            source_authority="azure-cost-management-query",
             source_uri=source_uri,
             completeness=Decimal(str(row.get("completeness", "1"))),
             ontology_release_id=self._release_id,

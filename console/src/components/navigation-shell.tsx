@@ -6,7 +6,6 @@ import {
   requestDeckToggle,
 } from "../deck/open-deck";
 import { t } from "../i18n";
-import { isCostGovernanceNavigationVisible } from "../routes/cost-governance.model";
 import {
   DEFAULT_NAVIGATION_PREFERENCES,
   navigationPreferenceKey,
@@ -80,7 +79,6 @@ export function NavigationShell({
   const activityBarMenuRef = useRef<HTMLDivElement | null>(null);
   const activityBarMenuButtonRef = useRef<HTMLButtonElement | null>(null);
   const activityBarMenuItemRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const [costGovernanceVisible, setCostGovernanceVisible] = useState(false);
   const groupRefs = useRef(new Map<PanelGroup, HTMLButtonElement | null>());
   const menuRef = useRef<HTMLDivElement | null>(null);
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -94,18 +92,6 @@ export function NavigationShell({
     [preferences.hiddenGroupIds, visibleGroups],
   );
   const explorerPinned = preferences.explorerPinned && !mobile;
-
-  useEffect(() => {
-    let cancelled = false;
-    client.costGovernanceAvailability().then((availability) => {
-      if (!cancelled) {
-        setCostGovernanceVisible(isCostGovernanceNavigationVisible(availability));
-      }
-    }).catch(() => {
-      if (!cancelled) setCostGovernanceVisible(false);
-    });
-    return () => { cancelled = true; };
-  }, [client, principalId]);
 
   useEffect(() => {
     if (activeGroup !== null) setSelectedGroup(activeGroup);
@@ -211,9 +197,7 @@ export function NavigationShell({
   }, [activityBarMenu]);
 
   const selectedMeta = PANEL_GROUPS.find((group) => group.id === selectedGroup)!;
-  const eligiblePanels = panelsInGroup(selectedGroup).filter(
-    (panel) => panel.id !== "cost-governance" || costGovernanceVisible,
-  );
+  const eligiblePanels = panelsInGroup(selectedGroup);
   const orderedPanels = orderPanels(eligiblePanels, preferences.groupOrder[selectedGroup]);
   const visiblePanels = orderedPanels.filter(
     (panel) => panel.id === activePanelId || !preferences.hiddenPanelIds.includes(panel.id),

@@ -11,6 +11,371 @@
       "title": "CostAmountPrecision",
       "type": "string"
     },
+    "CostAnalyticsBudget": {
+      "additionalProperties": false,
+      "description": "One pseudonymous effective budget and provider-calculated spend state.",
+      "properties": {
+        "amount": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Amount"
+        },
+        "budget_ref": {
+          "pattern": "^budget:[0-9a-f]{16}$",
+          "title": "Budget Ref",
+          "type": "string"
+        },
+        "currency": {
+          "maxLength": 3,
+          "minLength": 3,
+          "title": "Currency",
+          "type": "string"
+        },
+        "current_spend": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Current Spend"
+        },
+        "forecast_spend": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Forecast Spend"
+        },
+        "time_grain": {
+          "maxLength": 32,
+          "minLength": 1,
+          "title": "Time Grain",
+          "type": "string"
+        }
+      },
+      "required": [
+        "budget_ref",
+        "amount",
+        "current_spend",
+        "currency",
+        "time_grain"
+      ],
+      "title": "CostAnalyticsBudget",
+      "type": "object"
+    },
+    "CostAnalyticsProjection": {
+      "additionalProperties": false,
+      "description": "Bounded authoritative analytics that cannot grant action authority.",
+      "properties": {
+        "budgets": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/CostAnalyticsBudget"
+          },
+          "maxItems": 32,
+          "title": "Budgets",
+          "type": "array"
+        },
+        "complete": {
+          "title": "Complete",
+          "type": "boolean"
+        },
+        "limitations": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Limitations",
+          "type": "array"
+        },
+        "observed_at": {
+          "format": "date-time",
+          "title": "Observed At",
+          "type": "string"
+        },
+        "recommendations": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/CostAnalyticsRecommendation"
+          },
+          "maxItems": 200,
+          "title": "Recommendations",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_authority": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Source Authority",
+          "type": "string"
+        },
+        "trend": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/CostAnalyticsTrendPoint"
+          },
+          "maxItems": 400,
+          "title": "Trend",
+          "type": "array"
+        },
+        "type": {
+          "const": "cost-governance.analytics",
+          "default": "cost-governance.analytics",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_authority",
+        "observed_at",
+        "complete"
+      ],
+      "title": "CostAnalyticsProjection",
+      "type": "object"
+    },
+    "CostAnalyticsRecommendation": {
+      "additionalProperties": false,
+      "description": "Pseudonymous provider recommendation that remains candidate-only.",
+      "properties": {
+        "currency": {
+          "anyOf": [
+            {
+              "maxLength": 3,
+              "minLength": 3,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Currency"
+        },
+        "current_sku": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Current Sku"
+        },
+        "impact": {
+          "enum": [
+            "High",
+            "Medium",
+            "Low",
+            "Unknown"
+          ],
+          "title": "Impact",
+          "type": "string"
+        },
+        "monthly_savings": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Monthly Savings"
+        },
+        "observed_at": {
+          "format": "date-time",
+          "title": "Observed At",
+          "type": "string"
+        },
+        "problem": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Problem",
+          "type": "string"
+        },
+        "recommendation_ref": {
+          "pattern": "^recommendation:[0-9a-f]{16}$",
+          "title": "Recommendation Ref",
+          "type": "string"
+        },
+        "resource_ref": {
+          "anyOf": [
+            {
+              "pattern": "^resource:[0-9a-f]{16}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resource Ref"
+        },
+        "resource_type": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Resource Type",
+          "type": "string"
+        },
+        "solution": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Solution",
+          "type": "string"
+        },
+        "source_authority": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Source Authority",
+          "type": "string"
+        },
+        "target_sku": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Sku"
+        },
+        "utilization_metric": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Utilization Metric"
+        },
+        "utilization_percent": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Utilization Percent"
+        }
+      },
+      "required": [
+        "recommendation_ref",
+        "resource_type",
+        "problem",
+        "solution",
+        "impact",
+        "observed_at",
+        "source_authority"
+      ],
+      "title": "CostAnalyticsRecommendation",
+      "type": "object"
+    },
+    "CostAnalyticsTrendPoint": {
+      "additionalProperties": false,
+      "description": "One disclosure-safe daily cost point.",
+      "properties": {
+        "amount": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Amount"
+        },
+        "completeness": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Completeness"
+        },
+        "currency": {
+          "maxLength": 3,
+          "minLength": 3,
+          "title": "Currency",
+          "type": "string"
+        },
+        "observed_on": {
+          "format": "date",
+          "title": "Observed On",
+          "type": "string"
+        }
+      },
+      "required": [
+        "observed_on",
+        "amount",
+        "currency",
+        "completeness"
+      ],
+      "title": "CostAnalyticsTrendPoint",
+      "type": "object"
+    },
     "CostDisclosurePolicy": {
       "additionalProperties": false,
       "description": "Server-enforced component-wise Cost Governance disclosure ceiling.",
@@ -744,6 +1109,17 @@
   "additionalProperties": false,
   "description": "Versioned server-redacted projection for one Cost Governance workspace tab.",
   "properties": {
+    "analytics": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CostAnalyticsProjection"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "complete": {
       "title": "Complete",
       "type": "boolean"

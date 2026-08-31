@@ -6,7 +6,7 @@ import hashlib
 import hmac
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal, ROUND_HALF_UP
 from enum import StrEnum
 from typing import Annotated, Literal, TypeAlias, TypeVar
@@ -295,6 +295,70 @@ class CostOutcomeProjection(_CostDetailedProjection):
     kind: Literal["outcome"] = "outcome"
 
 
+class CostAnalyticsTrendPoint(ContractBase):
+    """One disclosure-safe daily cost point."""
+
+    observed_on: date
+    amount: Annotated[Decimal, Field(ge=0)]
+    currency: Annotated[str, Field(min_length=3, max_length=3)]
+    completeness: Annotated[Decimal, Field(ge=0, le=1)]
+
+
+class CostAnalyticsBudget(ContractBase):
+    """One pseudonymous effective budget and provider-calculated spend state."""
+
+    budget_ref: Annotated[str, Field(pattern=r"^budget:[0-9a-f]{16}$")]
+    amount: Annotated[Decimal, Field(gt=0)]
+    current_spend: Annotated[Decimal, Field(ge=0)]
+    forecast_spend: Annotated[Decimal | None, Field(ge=0)] = None
+    currency: Annotated[str, Field(min_length=3, max_length=3)]
+    time_grain: Annotated[str, Field(min_length=1, max_length=32)]
+
+
+class CostAnalyticsRecommendation(ContractBase):
+    """Pseudonymous provider recommendation that remains candidate-only."""
+
+    recommendation_ref: Annotated[str, Field(pattern=r"^recommendation:[0-9a-f]{16}$")]
+    resource_ref: Annotated[str | None, Field(pattern=r"^resource:[0-9a-f]{16}$")] = None
+    resource_type: Annotated[str, Field(min_length=1, max_length=256)]
+    problem: Annotated[str, Field(min_length=1, max_length=512)]
+    solution: Annotated[str, Field(min_length=1, max_length=512)]
+    impact: Literal["High", "Medium", "Low", "Unknown"]
+    monthly_savings: Annotated[Decimal | None, Field(ge=0)] = None
+    currency: Annotated[str | None, Field(min_length=3, max_length=3)] = None
+    current_sku: Annotated[str | None, Field(max_length=128)] = None
+    target_sku: Annotated[str | None, Field(max_length=128)] = None
+    utilization_percent: Annotated[Decimal | None, Field(ge=0, le=100)] = None
+    utilization_metric: Annotated[str | None, Field(max_length=128)] = None
+    observed_at: datetime
+    source_authority: Annotated[str, Field(min_length=1, max_length=256)]
+
+
+class CostAnalyticsProjection(ContractBase):
+    """Bounded authoritative analytics that cannot grant action authority."""
+
+    type: Literal["cost-governance.analytics"] = "cost-governance.analytics"
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    source_authority: Annotated[str, Field(min_length=1, max_length=256)]
+    observed_at: datetime
+    complete: bool
+    trend: Annotated[tuple[CostAnalyticsTrendPoint, ...], Field(max_length=400)] = ()
+    budgets: Annotated[tuple[CostAnalyticsBudget, ...], Field(max_length=32)] = ()
+    recommendations: Annotated[
+        tuple[CostAnalyticsRecommendation, ...],
+        Field(max_length=200),
+    ] = ()
+    limitations: Annotated[tuple[str, ...], Field(max_length=32)] = ()
+
+    @model_validator(mode="after")
+    def validate_analytics(self) -> CostAnalyticsProjection:
+        if self.observed_at.tzinfo is None:
+            raise ValueError("Cost Governance analytics observed_at must be timezone-aware")
+        if len(set(self.limitations)) != len(self.limitations):
+            raise ValueError("Cost Governance analytics limitations must be unique")
+        return self
+
+
 CostGovernanceItem: TypeAlias = Annotated[
     CostSummaryProjection
     | CostTrendProjection
@@ -317,6 +381,7 @@ class CostGovernanceProjection(ContractBase):
     complete: bool
     items: tuple[CostGovernanceItem, ...] = ()
     suppressed_count: Annotated[int, Field(strict=True, ge=0)] = 0
+    analytics: CostAnalyticsProjection | None = None
 
 
 def disclose_cost_records(

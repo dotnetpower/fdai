@@ -1,8 +1,8 @@
 ---
 title: FinOps 리소스 효율 및 SKU 결정
 translation_of: finops-resource-efficiency.md
-translation_source_sha: 62ba7b673d328f1dd6c208dbaf72661412a4e525
-translation_revised: 2026-08-28
+translation_source_sha: 52534bae68765e1c266e57ea1f96871b4076a916
+translation_revised: 2026-08-31
 ---
 
 # FinOps 리소스 효율 및 SKU 결정
@@ -226,6 +226,19 @@ Console은 다섯 개의 안정적인 탐색 도메인을 유지합니다. FinOp
 `cost-governance`와 기존 `/verticals/cost-governance` 경로 기능군을 사용하는 전체 현황 아래의
 비용 거버넌스 작업 영역으로 표시합니다. 에이전트별 메뉴나 여섯 번째 Activity Bar 도메인은
 추가하지 않습니다.
+
+패키지가 비활성 상태이거나 사용할 수 없어도 탐색 항목은 계속 표시합니다. 설정 > 런타임
+정책에서 패키지 상태를 보여 주며, 소유자는 감사되는 활성화 제어를 사용할 수 있습니다. 데이터
+접근은 목적과 범위가 제한된 별도 권한으로 유지합니다. 작업 영역이 활성 상태이지만 보존된 신뢰할
+수 있는 관찰이 없으면 예시 비용 값을 만들지 않고 빈 근거 상태를 표시합니다.
+명시적인 인증 사용자 검토 정책을 사용하면 개발 배포에서 집계 수준으로만 접근할 수 있습니다.
+브라우저 Entra 신원은 그대로 유지하며 패키지 활성화 또는 작업 권한을 부여하지 않습니다.
+
+로컬의 신뢰할 수 있는 분석 수집기는 범위가 제한된 Azure Consumption Usage Details, 구독 예산,
+Azure Advisor 비용 권고 및 지원되는 Azure Monitor 메트릭을 변경할 수 없는 하나의 스냅샷으로
+결합합니다. 가명 처리된 리소스 및 권고 참조, 정확한 원본 시각, 완전성 및 타입이 지정된 제약만
+저장합니다. Advisor 레코드는 프로바이더 후보로 유지하며 `DecisionCase`, 승인, 실행 또는 검증된
+절감액 레코드가 되지 않습니다.
 
 | 작업 영역 페이지 | 주요 변환 결과 |
 |------------------|----------------|

@@ -201,6 +201,9 @@ order. This restart hydration rebuilds the provider baseline and Njord's convers
 without republishing historical findings. A missing package, disabled activation, or provider
 mismatch keeps the binding disabled or blocks inconsistent startup; it never creates a direct agent
 call or changes action authority.
+Only authoritative USD observations enter the `amount_usd` specialist ingress. Other source
+currencies remain available to disclosure-filtered analytics but do not enter Njord advisory
+baselines without an authoritative conversion.
 The root test harness can import the independent deployment CLI from its source path, but the CLI
 remains outside the uv workspace and does not become part of Cost Governance package composition.
 

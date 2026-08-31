@@ -6,11 +6,14 @@ import {
   panelString,
 } from "./routes/panel-decode";
 
-export type CostGovernanceSurface =
-  | "overview"
-  | "resource-efficiency"
-  | "optimization-cases"
-  | "outcomes";
+export type {
+  CostGovernanceAnalytics,
+  CostGovernanceBudget,
+  CostGovernanceProjection,
+  CostGovernanceRecommendation,
+  CostGovernanceSurface,
+  CostGovernanceTrendPoint,
+} from "./api-cost-governance-projection";
 
 export interface CostGovernanceAvailability {
   readonly available: boolean;
@@ -26,12 +29,13 @@ export interface CostGovernanceAvailability {
   readonly ontology_release_digest: string | null;
 }
 
-export interface CostGovernanceProjection {
-  readonly surface: CostGovernanceSurface;
-  readonly complete: boolean;
-  readonly source_authority: string;
-  readonly items: readonly Readonly<Record<string, unknown>>[];
-  readonly suppressed_count: number;
+export interface CostGovernanceSettings {
+  readonly available: boolean;
+  readonly enabled: boolean;
+  readonly can_manage: boolean;
+  readonly activation_revision: number | null;
+  readonly availability_reasons: readonly string[];
+  readonly package_version: string | null;
 }
 
 export function decodeCostGovernanceAvailability(value: unknown): CostGovernanceAvailability {
@@ -65,21 +69,25 @@ export function decodeCostGovernanceAvailability(value: unknown): CostGovernance
   };
 }
 
-export function decodeCostGovernanceProjection(value: unknown): CostGovernanceProjection {
-  const record = panelRecord(value, "cost governance projection");
-  const surface = panelString(record, "surface", "cost governance projection");
-  if (!["overview", "resource-efficiency", "optimization-cases", "outcomes"].includes(surface)) {
-    throw new Error("Unknown Cost Governance surface");
-  }
+export function decodeCostGovernanceSettings(value: unknown): CostGovernanceSettings {
+  const record = panelRecord(value, "cost governance settings");
+  const revision = record["activation_revision"];
   return {
-    surface: surface as CostGovernanceSurface,
-    complete: panelBoolean(record, "complete", "cost governance projection"),
-    source_authority: panelString(record, "source_authority", "cost governance projection"),
-    items: panelArray(record["items"], "items").map((item) => panelRecord(item, "item")),
-    suppressed_count: panelNonNegativeInteger(
-      record,
-      "suppressed_count",
-      "cost governance projection",
-    ),
+    available: panelBoolean(record, "available", "cost governance settings"),
+    enabled: panelBoolean(record, "enabled", "cost governance settings"),
+    can_manage: panelBoolean(record, "can_manage", "cost governance settings"),
+    activation_revision: revision === null
+      ? null
+      : panelNonNegativeInteger(record, "activation_revision", "cost governance settings"),
+    availability_reasons: panelArray(
+      record["availability_reasons"],
+      "availability_reasons",
+    ).map((item) => {
+      if (typeof item !== "string") throw new Error("Invalid Cost Governance settings reason");
+      return item;
+    }),
+    package_version: record["package_version"] === null
+      ? null
+      : panelString(record, "package_version", "cost governance settings"),
   };
 }

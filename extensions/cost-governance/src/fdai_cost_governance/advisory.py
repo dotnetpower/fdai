@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections import deque
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from statistics import mean
@@ -51,10 +51,10 @@ class RollingCostAdvisoryProvider(CostAdvisoryProvider):
         self._max_age = max_sample_age
         self._table = dict(cost_table or _DEFAULT_COST_TABLE)
         self._clock = clock or (lambda: datetime.now(UTC))
-        self._samples: dict[str, deque[Decimal]] = {}
+        self._samples: dict[tuple[str, str], deque[Decimal]] = {}
         self._seen: set[tuple[str, str, datetime]] = set()
         self._seen_order: deque[tuple[str, str, datetime]] = deque()
-        self._last_observed: dict[str, datetime] = {}
+        self._last_observed: dict[tuple[str, str], datetime] = {}
         self._max_samples = max_samples
         self._max_scopes = max_scopes
         self._max_seen = max_samples * max_scopes
@@ -64,25 +64,60 @@ class RollingCostAdvisoryProvider(CostAdvisoryProvider):
         self,
         sample: CostAnalysisSample,
     ) -> CostAnomalyAdvisory | None:
-        reason = self._invalid_reason(sample)
+        _, advisory = self._accept_sample(
+            sample,
+            allow_stale=False,
+            detect_anomaly=True,
+            accepted_reason="accepted",
+        )
+        return advisory
+
+    async def hydrate_cost_samples(
+        self,
+        samples: Sequence[CostAnalysisSample],
+    ) -> tuple[CostAnalysisSample, ...]:
+        """Restore retained baselines without emitting historical findings."""
+
+        accepted: list[CostAnalysisSample] = []
+        for sample in samples:
+            retained, _ = self._accept_sample(
+                sample,
+                allow_stale=True,
+                detect_anomaly=False,
+                accepted_reason="hydrated",
+            )
+            if retained:
+                accepted.append(sample)
+        return tuple(accepted)
+
+    def _accept_sample(
+        self,
+        sample: CostAnalysisSample,
+        *,
+        allow_stale: bool,
+        detect_anomaly: bool,
+        accepted_reason: str,
+    ) -> tuple[bool, CostAnomalyAdvisory | None]:
+        reason = self._invalid_reason(sample, allow_stale=allow_stale)
         if reason is not None:
             self._record(reason)
-            return None
+            return False, None
         sample_key = (sample.scope_id, sample.correlation_id, sample.observed_at)
         if sample_key in self._seen:
             self._record("duplicate")
-            return None
-        last = self._last_observed.get(sample.scope_id)
+            return False, None
+        series_key = (sample.scope_id, sample.resource_id)
+        last = self._last_observed.get(series_key)
         if last is not None and sample.observed_at <= last:
             self._record("reordered")
-            return None
-        if sample.scope_id not in self._samples and len(self._samples) >= self._max_scopes:
+            return False, None
+        if series_key not in self._samples and len(self._samples) >= self._max_scopes:
             evicted_scope = next(iter(self._samples))
             self._samples.pop(evicted_scope)
             self._last_observed.pop(evicted_scope, None)
-        history = self._samples.setdefault(sample.scope_id, deque(maxlen=self._max_samples))
+        history = self._samples.setdefault(series_key, deque(maxlen=self._max_samples))
         advisory: CostAnomalyAdvisory | None = None
-        if len(history) >= 3:
+        if detect_anomaly and len(history) >= 3:
             baseline = Decimal(str(mean(history))) if history else Decimal("0")
             if baseline > 0 and sample.amount_usd > baseline * self._ratio:
                 ratio = sample.amount_usd / baseline
@@ -103,9 +138,9 @@ class RollingCostAdvisoryProvider(CostAdvisoryProvider):
             self._seen.discard(self._seen_order.popleft())
         self._seen_order.append(sample_key)
         self._seen.add(sample_key)
-        self._last_observed[sample.scope_id] = sample.observed_at
-        self._record("accepted")
-        return advisory
+        self._last_observed[series_key] = sample.observed_at
+        self._record(accepted_reason)
+        return True, advisory
 
     def estimate_cost_effect(self, action_type: str) -> SignedCostEffectEstimate | None:
         delta = self._table.get(action_type)
@@ -127,12 +162,17 @@ class RollingCostAdvisoryProvider(CostAdvisoryProvider):
             valid_until=now + timedelta(days=30),
         )
 
-    def _invalid_reason(self, sample: CostAnalysisSample) -> str | None:
+    def _invalid_reason(
+        self,
+        sample: CostAnalysisSample,
+        *,
+        allow_stale: bool,
+    ) -> str | None:
         if sample.ontology_release_digest != self._release:
             return "ontology_mismatch"
         if sample.completeness != Decimal("1"):
             return "incomplete"
-        if self._clock() - sample.observed_at > self._max_age:
+        if not allow_stale and self._clock() - sample.observed_at > self._max_age:
             return "stale"
         return None
 

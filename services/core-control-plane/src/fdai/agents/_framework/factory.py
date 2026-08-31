@@ -38,6 +38,7 @@ from fdai.core.operational_planning import (
 from fdai.core.operational_planning.prospective_lineage import ProspectiveLineageFinalizer
 from fdai.shared.providers.cost_governance import (
     CostAdvisoryProvider,
+    CostAnalysisSample,
     CostPackageActivationReader,
 )
 
@@ -52,6 +53,8 @@ class CostRuntimeBindings:
     advisory_provider: CostAdvisoryProvider | None = None
     activation_reader: CostPackageActivationReader | None = None
     package_enabled: bool = False
+    budget_data_available: bool = False
+    initial_samples: tuple[CostAnalysisSample, ...] = ()
 
 
 DEFAULT_COST_RUNTIME_BINDINGS = CostRuntimeBindings()
@@ -137,6 +140,8 @@ def configured_njord(
         advisory_provider=bindings.advisory_provider,
         activation_reader=bindings.activation_reader,
         package_enabled=bindings.package_enabled,
+        budget_data_available=bindings.budget_data_available,
+        initial_samples=bindings.initial_samples,
     )
 
 

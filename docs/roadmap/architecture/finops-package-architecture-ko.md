@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: c2f9b45d31b0c79775bb6b40456ab41b728bd64b
+translation_source_sha: a5e9a268ed19c13060c097820df7ab63613435e1
 translation_revised: 2026-08-31
 ---
 
@@ -199,6 +199,9 @@ Core Pantheon 시작 과정은 패키지 중립 저장소를 통해 보존된 �
 않고 프로바이더 기준선과 Njord의 대화 근거를 재구성합니다. 패키지 누락, 비활성 상태 또는
 프로바이더 불일치는 연결을 비활성 상태로 유지하거나 일관되지 않은 시작을 차단합니다. 에이전트를
 직접 호출하거나 작업 권한을 변경하지 않습니다.
+권위 있는 USD 관찰만 `amount_usd` 전문가 ingress로 들어갑니다. 다른 원본 통화는 공개 제어가
+적용된 analytics에서 계속 사용할 수 있지만, 권위 있는 환산 없이는 Njord 권고 기준선에
+포함되지 않습니다.
 루트 테스트 실행기는 독립 배포 CLI를 소스 경로에서 가져올 수 있지만, CLI는 uv workspace 밖에
 유지되며 비용 거버넌스 패키지 조립의 일부가 되지 않습니다.
 

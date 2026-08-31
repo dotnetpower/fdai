@@ -59,7 +59,9 @@ def parse_cost_sample(payload: Mapping[str, Any]) -> CostSampleSignal | None:
         amount_usd=amount,
         resource_id=resource_id,
         correlation_id=_correlation_id(payload),
-        observed_at=_observed_at(payload),
+        observed_at=(
+            _bounded_string(attributes.get("observed_at"), required=False) or _observed_at(payload)
+        ),
     )
 
 

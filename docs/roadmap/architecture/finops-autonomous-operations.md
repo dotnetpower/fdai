@@ -21,8 +21,11 @@ bounded evidence. Agents remain the active control plane and own every state tra
 >
 > **Current status:** The exact FinOps semantic profile, fixed-15 responsibility trace, bounded
 > recovery coordinator, independent multi-effect settlement, replay, retention, and governed
-> learning inputs are implemented with local evidence. A live-authoritative settled cohort and
-> independent package and per-action promotion reviews do not yet exist.
+> learning inputs are implemented with local evidence. Standard Core bootstrap now binds an enabled
+> persisted package to Njord's deterministic advisory port, restores a bounded retained baseline
+> after restart, and receives complete service-day observations from the local collector through the
+> canonical broker path. A live-authoritative settled cohort and independent package and per-action
+> promotion reviews do not yet exist.
 > Twelve critique rounds fixed every identified Medium-or-higher defect; the final review found only Low test-organization opportunities. No runtime authority changed.
 
 ## Design at a glance

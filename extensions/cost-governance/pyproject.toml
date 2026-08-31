@@ -12,6 +12,9 @@ dependencies = [
 fdai-cost-collector = "fdai_cost_governance.job_cli:collector_main"
 fdai-cost-analyzer = "fdai_cost_governance.job_cli:analyzer_main"
 
+[project.entry-points."fdai.cost_advisory_providers"]
+cost-governance = "fdai_cost_governance:RollingCostAdvisoryProvider"
+
 [build-system]
 requires = ["hatchling>=1.24"]
 build-backend = "hatchling.build"

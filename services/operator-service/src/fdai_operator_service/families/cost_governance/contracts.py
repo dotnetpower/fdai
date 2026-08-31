@@ -8,6 +8,7 @@ from typing import Protocol
 
 from fdai_service_contracts import (
     CostAccessGrant,
+    CostAnalyticsProjection,
     CostDisclosureCeiling,
     CostGovernanceUnavailableReason,
     CostProjectionRecord,
@@ -71,6 +72,20 @@ class CostActivationReader(Protocol):
     async def read_activation(self, package_id: str) -> CostActivationSnapshot | None: ...
 
 
+class CostActivationWriter(Protocol):
+    """Apply one audited, revision-fenced package enablement preference."""
+
+    async def set_enabled(
+        self,
+        *,
+        package_id: str,
+        actor_id: str,
+        enabled: bool,
+        expected_revision: int,
+        request_id: str,
+    ) -> CostActivationSnapshot: ...
+
+
 class CostProjectionReader(Protocol):
     """Read retained immutable observations only after access and activation pass."""
 
@@ -83,10 +98,18 @@ class CostProjectionReader(Protocol):
     ) -> tuple[CostProjectionRecord, ...]: ...
 
 
+class CostAnalyticsReader(Protocol):
+    """Read the latest disclosure-safe analytics snapshot for one scope."""
+
+    async def read_analytics(self, *, scope: str) -> CostAnalyticsProjection | None: ...
+
+
 __all__ = [
     "CostAccessDecision",
     "CostAccessReader",
+    "CostAnalyticsReader",
     "CostActivationReader",
     "CostActivationSnapshot",
+    "CostActivationWriter",
     "CostProjectionReader",
 ]

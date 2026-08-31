@@ -18,8 +18,9 @@ import type { ConsoleConfig } from "./config";
 import type { AgentOperationalActivityPage } from "./agent-operational-activity";
 import {
   decodeCostGovernanceAvailability,
-  decodeCostGovernanceProjection,
+  decodeCostGovernanceSettings,
   type CostGovernanceAvailability,
+  type CostGovernanceSettings,
   type CostGovernanceProjection,
   type CostGovernanceSurface,
 } from "./api-cost-governance";
@@ -167,13 +168,21 @@ export class OperatorApiClient {
     );
   }
 
+  async costGovernanceSettings(): Promise<CostGovernanceSettings> {
+    return decodeCostGovernanceSettings(
+      await this.#insights.panel<unknown>("/cost-governance/settings"),
+    );
+  }
+
   async costGovernance(
     surface: CostGovernanceSurface,
   ): Promise<CostGovernanceProjection> {
     await this.#requireAuthoritativeSource(`/cost-governance/${surface}`);
-    return decodeCostGovernanceProjection(
-      await this.#insights.panel<unknown>(`/cost-governance/${surface}`),
+    const payload = await this.#insights.panel<unknown>(`/cost-governance/${surface}`);
+    const { decodeCostGovernanceProjection } = await import(
+      "./api-cost-governance-projection"
     );
+    return decodeCostGovernanceProjection(payload);
   }
 
   /**

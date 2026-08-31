@@ -1,8 +1,8 @@
 ---
 title: FinOps 자율 운영
 translation_of: finops-autonomous-operations.md
-translation_source_sha: 5aa49d4df8dbc1469fa7f4455b3cf309e32ed602
-translation_revised: 2026-08-28
+translation_source_sha: 288c86cc57dc43c7c886d7501007300fd59d86fb
+translation_revised: 2026-08-31
 ---
 
 # FinOps 자율 운영
@@ -23,7 +23,10 @@ translation_revised: 2026-08-28
 >
 > **현재 상태:** 정확한 FinOps 의미 프로파일, 고정된 15개 책임 trace, 범위가 제한된 복구
 > 조정기, 독립 다중 효과 정산, replay, 보존 및 통제된 학습 입력은 로컬 근거와 함께 구현되어
-> 있습니다. Live-authoritative 정산 cohort와 독립 패키지 및 액션별 승격 검토는 아직 없습니다.
+> 있습니다. 표준 Core 시작 과정은 활성화된 보존 패키지를 Njord의 결정론적 권고 포트에 연결하고,
+> 재시작 후 범위가 제한된 보존 기준선을 복원하며, 로컬 수집기가 정규 broker 경로로 게시한 완전한
+> 서비스-일자 관찰을 수신합니다. Live-authoritative 정산 cohort와 독립 패키지 및 액션별 승격
+> 검토는 아직 없습니다.
 > 비평 12회에서 확인된 모든 Medium 이상 결함을 수정했으며 최종 검토에는 Low 수준의 테스트 구성 개선만 남았습니다. 런타임 권한은 바뀌지 않았습니다.
 
 ## 설계 개요

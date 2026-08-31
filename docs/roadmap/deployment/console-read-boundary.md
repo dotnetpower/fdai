@@ -59,6 +59,12 @@ adapters such as Resource Graph, Microsoft Graph, model discovery, and Event Hub
 `FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1` with `VITE_LOCAL_AZURE_CLI_AUTH=1` is an explicit
 CLI-principal debug alternative with a fixed role ceiling.
 
+Cost Governance local review remains authenticated. The explicit
+`FDAI_COST_GOVERNANCE_AUTHENTICATED_REVIEW_ACCESS` profile permits disclosure-filtered aggregate
+review for a verified principal, but it does not bypass JWT validation, role checks, raw-identity
+suppression, package activation, or action authority. Only the Owner-gated Settings route can change
+the exact-revision enablement preference.
+
 ## Workload evidence
 
 Local Kubernetes workload evidence is opt-in and server-owned. Set `FDAI_LOCAL_KUBECONFIG`,

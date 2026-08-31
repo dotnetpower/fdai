@@ -103,6 +103,8 @@ The default interactive local profile is a production-parity control-plane clien
   resource identity. It rejects authority cutover at startup. Azure deployments instead use
   service-owned Azure Database for PostgreSQL DSNs, Event Hubs, and attached managed identities.
 - Missing authoritative providers render unavailable or fail closed. They never select fixtures.
+- Optional-package discovery, retained baseline hydration, and evidence-currency guards use the same
+  contracts locally and when deployed. A local review profile cannot weaken those boundaries.
 
 Automated tests and explicit mock applications may choose the `fixture` evidence profile. Offline
 interactive work is limited to repository catalogs and reference screens and makes no runtime

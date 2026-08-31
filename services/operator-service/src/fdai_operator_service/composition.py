@@ -491,8 +491,19 @@ def _build_route_families(
             authenticator=authenticator,
             access=cost_reader,
             activation=cost_reader,
+            activation_writer=cost_reader,
             projections=cost_reader,
+            analytics=cost_reader,
             pseudonym_key=(environment.values.get(COST_PSEUDONYM_KEY_ENV, "").encode() or None),
+            authenticated_review_access=(
+                environment.values.get(
+                    "FDAI_COST_GOVERNANCE_AUTHENTICATED_REVIEW_ACCESS",
+                    "",
+                )
+                .strip()
+                .casefold()
+                in {"1", "true", "yes", "on"}
+            ),
         ),
     )
     return routes, local_narrator
@@ -734,6 +745,7 @@ def _build_data_sources(*, configured: bool) -> tuple[ReadDataSource, ...]:
             source="retained-cost-observation" if configured else "not-configured",
             routes=(
                 "/cost-governance/availability",
+                "/cost-governance/settings",
                 "/cost-governance/overview",
                 "/cost-governance/resource-efficiency",
                 "/cost-governance/optimization-cases",

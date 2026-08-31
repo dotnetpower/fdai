@@ -40,18 +40,24 @@ class _HttpxCostTransport:
     def __init__(self, client: httpx.AsyncClient) -> None:
         self._client = client
 
-    async def get(
+    async def post(
         self,
         url: str,
         *,
         headers: dict[str, str],
+        json_body: dict[str, object],
         max_bytes: int,
         deadline_at: datetime,
     ) -> CostHttpResponse:
         timeout = (deadline_at - datetime.now(UTC)).total_seconds()
         if timeout <= 0:
             raise TimeoutError("Cost Management request deadline expired")
-        response = await self._client.get(url, headers=headers, timeout=timeout)
+        response = await self._client.post(
+            url,
+            headers=headers,
+            json=json_body,
+            timeout=timeout,
+        )
         body = await response.aread()
         if len(body) > max_bytes:
             raise RuntimeError("Cost Management response exceeded byte budget")
@@ -147,7 +153,7 @@ def _common(
         known_service_ids=frozenset(known),
         max_pages=_positive_int(env, "FDAI_COST_MAX_PAGES", 10),
         max_bytes=_positive_int(env, "FDAI_COST_MAX_BYTES", 10_000_000),
-        page_size=_positive_int(env, "FDAI_COST_PAGE_SIZE", 500),
+        page_size=_positive_int(env, "FDAI_COST_PAGE_SIZE", 1000),
         attempt_timeout=timedelta(
             seconds=_positive_int(env, "FDAI_COST_ATTEMPT_TIMEOUT_SECONDS", 120)
         ),

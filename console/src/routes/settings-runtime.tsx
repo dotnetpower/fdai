@@ -16,6 +16,7 @@ import {
   type RuntimeSettingValue,
   type RuntimeSettingView,
 } from "./settings-runtime.model";
+import { CostGovernanceSettingsSection } from "./cost-governance-settings";
 
 interface Props {
   readonly client: OperatorApiClient;
@@ -173,6 +174,7 @@ export function SettingsRuntimeRoute({ client, auth }: Props) {
           {!view.canManage ? (
             <div class="state-block" role="note">{t("settings.runtimePolicies.readOnly")}</div>
           ) : null}
+          <CostGovernanceSettingsSection client={client} auth={auth} />
           {groups.map((group) => (
             <section class="settings-section settings-runtime-section" key={group}>
               <h3>{t(`settings.runtimePolicies.groups.${group}`)}</h3>

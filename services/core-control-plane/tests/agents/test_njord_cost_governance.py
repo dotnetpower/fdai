@@ -191,6 +191,73 @@ def test_runtime_injects_optional_provider_without_removing_any_agent() -> None:
     assert runtime.agents["Freyr"].spec.name == "Freyr"
 
 
+def test_runtime_restores_njord_conversation_evidence() -> None:
+    provider = InMemoryEventBus()
+    sample = CostAnalysisSample(
+        scope_id="scope-a",
+        resource_id="resource-a",
+        amount_usd=Decimal("123.45"),
+        correlation_id="cost:restored",
+        observed_at=_NOW,
+        source_authority="azure-consumption-usage-details",
+        completeness=Decimal("1"),
+        ontology_release_digest=_RELEASE,
+    )
+    runtime = PantheonRuntime.build(
+        provider=provider,
+        raw_event_topic="fdai.events",
+        cost_runtime=CostRuntimeBindings(
+            advisory_provider=Advisory(),
+            activation_reader=Activation(_snapshot(enabled=True)),
+            package_enabled=True,
+            initial_samples=(sample,),
+        ),
+    )
+    njord = runtime.agents["Njord"]
+    assert isinstance(njord, Njord)
+
+    result = asyncio.run(
+        runtime.invoke_conversation_tool(
+            agent_name="Njord",
+            tool_id="read_cost_samples",
+            question="cost samples",
+        )
+    )
+    assert result.facts["tracked_scopes_count"] == 1
+
+
+def test_njord_accepts_canonical_attribute_observation_time() -> None:
+    advisory = Advisory()
+    njord = Njord(
+        advisory_provider=advisory,
+        activation_reader=Activation(_snapshot(enabled=True)),
+        package_enabled=True,
+    )
+    event = _event(_NOW)
+    event.pop("detected_at")
+    event["attributes"]["observed_at"] = _NOW.isoformat()
+
+    asyncio.run(njord.on_typed_message("object.event", event))
+
+    assert advisory.calls == 1
+    assert njord.behavior_snapshot()["cost_sample:accepted"] == 1
+
+
+def test_njord_reports_bound_budget_projection_without_granting_authority() -> None:
+    njord = Njord(package_enabled=True, budget_data_available=True)
+
+    result = asyncio.run(
+        njord.introspect(
+            "What budget status is available?",
+            {"semantic_intents": ["budget_status"]},
+        )
+    )
+
+    assert result.facts["budget_data_available"] is True
+    assert "available" in result.answer
+    assert "execute" not in result.facts
+
+
 def test_accepted_sample_changes_conversation_evidence_identity() -> None:
     runtime = PantheonRuntime.build(
         provider=InMemoryEventBus(),

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from itertools import product
 
@@ -10,6 +10,10 @@ import pytest
 from fdai_service_contracts import (
     DISCLOSURE_PRESETS,
     CostAccessGrant,
+    CostAnalyticsBudget,
+    CostAnalyticsProjection,
+    CostAnalyticsRecommendation,
+    CostAnalyticsTrendPoint,
     CostAmountPrecision,
     CostDisclosureCeiling,
     CostDisclosurePolicy,
@@ -148,6 +152,43 @@ def test_projection_schema_is_versioned_and_authority_free() -> None:
         generated_at=datetime(2026, 8, 28, tzinfo=UTC),
         source_authority="cost-observation",
         complete=True,
+        analytics=CostAnalyticsProjection(
+            source_authority="azure-cost-analytics",
+            observed_at=datetime(2026, 8, 28, tzinfo=UTC),
+            complete=True,
+            trend=(
+                CostAnalyticsTrendPoint(
+                    observed_on=date(2026, 8, 28),
+                    amount=Decimal("120"),
+                    currency="USD",
+                    completeness=Decimal("1"),
+                ),
+            ),
+            budgets=(
+                CostAnalyticsBudget(
+                    budget_ref="budget:0123456789abcdef",
+                    amount=Decimal("1000"),
+                    current_spend=Decimal("120"),
+                    forecast_spend=Decimal("480"),
+                    currency="USD",
+                    time_grain="Monthly",
+                ),
+            ),
+            recommendations=(
+                CostAnalyticsRecommendation(
+                    recommendation_ref="recommendation:0123456789abcdef",
+                    resource_ref="resource:0123456789abcdef",
+                    resource_type="microsoft.compute/disks",
+                    problem="Unattached disk",
+                    solution="Review whether the disk is still required",
+                    impact="Medium",
+                    monthly_savings=Decimal("12"),
+                    currency="USD",
+                    observed_at=datetime(2026, 8, 28, tzinfo=UTC),
+                    source_authority="azure-advisor",
+                ),
+            ),
+        ),
     )
     payload = projection.model_dump(mode="json")
     assert not {"approval", "execution", "promotion", "authority"} & set(payload)

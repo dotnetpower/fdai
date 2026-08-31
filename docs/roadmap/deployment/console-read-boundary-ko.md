@@ -1,8 +1,8 @@
 ---
 title: Console 읽기 경계
 translation_of: console-read-boundary.md
-translation_source_sha: 415a5ecfd0c087cff693caa60f828c1bc243f257
-translation_revised: 2026-08-30
+translation_source_sha: c9e3652bf32f5045d6aad8c4b24717a69feaae91
+translation_revised: 2026-08-31
 ---
 # Console 읽기 경계
 
@@ -58,6 +58,12 @@ unavailable 화면은 선언된 사유 또는 자체 카탈로그 문구를 보�
 같은 Azure 어댑터로 제한됩니다. `FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1`과
 `VITE_LOCAL_AZURE_CLI_AUTH=1` 조합은 고정 역할 상한을 사용하는 명시적 CLI-principal debug
 대안입니다.
+
+비용 거버넌스의 로컬 검토도 인증을 유지합니다. 명시적인
+`FDAI_COST_GOVERNANCE_AUTHENTICATED_REVIEW_ACCESS` 프로필은 검증된 principal에 공개 제어를 적용한
+집계 검토를 허용하지만 JWT 검증, 역할 확인, 원시 신원 억제, 패키지 활성화 또는 작업 권한을
+우회하지 않습니다. 소유자 gate가 적용된 설정 경로만 exact-revision 활성화 선호를 변경할 수
+있습니다.
 
 ## 워크로드 근거
 

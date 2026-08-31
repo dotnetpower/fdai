@@ -23,6 +23,7 @@ from fdai.agents import (
 )
 from fdai.agents.vidar import RollbackExecutor
 from fdai.composition import Container
+from fdai.composition.cost_governance_activation import build_cost_runtime_bindings
 from fdai.core.capacity import CapacityGraduationController
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.control_loop import ControlLoop
@@ -188,6 +189,16 @@ async def initialize_pantheon(
     if not pantheon_start_enabled(config.environment):
         return PantheonInitializationResult()
 
+    cost_runtime = await build_cost_runtime_bindings(config.environment)
+    _LOGGER.info(
+        "cost_governance_runtime_binding",
+        extra={
+            "enabled": cost_runtime.package_enabled,
+            "advisory_bound": cost_runtime.advisory_provider is not None,
+            "activation_reader_bound": cost_runtime.activation_reader is not None,
+            "restored_samples": len(cost_runtime.initial_samples),
+        },
+    )
     pantheon_enforce = _pantheon_enforce_enabled(
         config.environment,
         config.startup_readiness,
@@ -535,6 +546,7 @@ async def initialize_pantheon(
             else ""
         ),
         semantic_router_config=config.semantic_router_config_from_env(),
+        cost_runtime=cost_runtime,
     )
     thor_agent = pantheon_runtime.agents.get("Thor")
     if thor_agent is None:  # pragma: no cover - fixed Pantheon invariant

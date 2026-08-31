@@ -48,6 +48,34 @@ class _RecordingReader(PostgresCostGovernanceReader):
         ]
 
 
+class _AnalyticsReader(PostgresCostGovernanceReader):
+    def __init__(self) -> None:
+        super().__init__(PostgresCostGovernanceConfig(dsn="postgresql://example.invalid/fdai"))
+        self.query = ""
+        self.params: Mapping[str, object] = {}
+
+    async def _fetch(
+        self,
+        query: str,
+        params: Mapping[str, object],
+    ) -> list[dict[str, Any]]:
+        self.query = query
+        self.params = params
+        return [
+            {
+                "payload": {
+                    "source_authority": "azure-cost-analytics",
+                    "observed_at": "2026-08-28T00:00:00Z",
+                    "complete": True,
+                    "trend": [],
+                    "budgets": [],
+                    "recommendations": [],
+                    "limitations": [],
+                }
+            }
+        ]
+
+
 def test_sqlalchemy_psycopg_dsn_is_normalized_for_direct_driver_use() -> None:
     assert _psycopg_dsn("postgresql+psycopg://user@example.invalid/fdai") == (
         "postgresql://user@example.invalid/fdai"
@@ -75,3 +103,28 @@ async def test_access_query_selects_latest_grant_within_requested_scope() -> Non
     assert reader.params["scope"] == "subscription:one"
     assert decision.grant is not None
     assert decision.grant.scopes == ("subscription:one",)
+
+
+@pytest.mark.asyncio
+async def test_analytics_query_reads_latest_scope_snapshot() -> None:
+    reader = _AnalyticsReader()
+
+    projection = await reader.read_analytics(scope="subscription:one")
+
+    assert "FROM cost_governance_analytics_snapshot" in reader.query
+    assert "ORDER BY observed_at DESC" in reader.query
+    assert reader.params["scope"] == "subscription:one"
+    assert projection is not None
+    assert projection.source_authority == "azure-cost-analytics"
+
+
+@pytest.mark.asyncio
+async def test_global_analytics_requires_one_unambiguous_scope() -> None:
+    reader = _AnalyticsReader()
+
+    await reader.read_analytics(scope="*")
+
+    assert "HAVING COUNT(DISTINCT candidate.scope_id) = 1" in reader.query
+    assert "JOIN (" in reader.query
+    assert "SELECT DISTINCT scope_id" in reader.query
+    assert "FROM cost_observation" in reader.query

@@ -1,8 +1,8 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 51c72c90845f44e6d1d8a1b95aa5efc6f7e02a62
-translation_revised: 2026-08-28
+translation_source_sha: 39d2bdc843ced53c908cacc00eec63c5b839a107
+translation_revised: 2026-08-31
 ---
 # Operator Console 모듈 지도 and Boundaries
 
@@ -462,6 +462,7 @@ Issue 72는 `OperatorApiConfig(**kwargs)`를 범위가 제한된 호환성 생�
 | `application/conversation/evidence/` | Operational 근거 해석, 출처 이력, 가지 수명 주기 및 authority-preserving 병합 | 명시적 패키지 파사드로 가져오기하고 JSON, SSE, authentication, 취소 및 이력은 경로에 유지합니다. |
 | `application/conversation/post_generation/` | Quality 검토, 검증, 이력 영속성 coordination, 최종 페이로드 검증 및 post-turn 검토 | 명시적 패키지 파사드로 가져오기하고 권한 확인, 요청 파싱, 하트비트 framing, 순서, 취소 및 SSE 전달은 경로에 유지합니다. |
 | `application/conversation/request_preparation/` | 내용 정책과 재생, 선호 설정, 문서 참조, 이력, 이전 맥락, 리소스와 최신성 맥락, 후속 조치 범위, 답변 계획 및 target-agent 파생 | 명시적 패키지 파사드로 가져오기하고 권한 확인, 범위가 제한된 본문 파싱, HTTP 대응, SSE 순서 및 전송 계층 전달은 경로에 유지합니다. |
+| `families/cost_governance/` | 선택적 비용 거버넌스 작업 영역을 위한 인증된 가용성, 집계 analytics, 공개 제어 및 exact-revision 활성화 경로 | 원시 프로바이더 데이터와 작업 권한은 이 family 밖에 유지합니다. 소유자만 활성화 선호를 쓸 수 있으며 활성화는 작업을 승격하거나 실행하지 않습니다. |
 | `dev/` | Interactive 로컬 및 test-only 프로바이더 조립 | 운영 가져오기에서 사용할 수 없게 유지합니다. |
 | `dev/fixtures/` | Synthetic pytest-only 고정본 | 운영 조립 밖에 유지합니다. |
 | `persistence/` | Operator API read-model 및 conversation-state 영속성 구현 | 소유된 저장소 계약 뒤에 유지합니다. |

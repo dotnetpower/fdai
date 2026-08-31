@@ -11,6 +11,7 @@ from typing import Any
 import psycopg
 from fdai_service_contracts import (
     CostAccessGrant,
+    CostAnalyticsProjection,
     CostDisclosureCeiling,
     CostDisclosurePolicy,
     CostGovernanceUnavailableReason,
@@ -132,6 +133,119 @@ class PostgresCostGovernanceReader:
         if not rows:
             return None
         row = rows[0]
+        return CostActivationSnapshot(
+            vertical_id=str(row["vertical_id"]),
+            package_id=str(row["package_id"]),
+            available=bool(row["available"]),
+            enabled=bool(row["enabled"]),
+            availability_reasons=tuple(str(value) for value in row["availability_reasons"]),
+            package_version=str(row["package_version"]),
+            image_digest=str(row["image_digest"]),
+            asset_manifest_digest=str(row["asset_manifest_digest"]),
+            semantic_profile_digest=str(row["semantic_profile_digest"]),
+            ontology_release_digest=str(row["ontology_release_digest"]),
+            revision=int(row["revision"]),
+        )
+
+    async def read_analytics(self, *, scope: str) -> CostAnalyticsProjection | None:
+        """Read the latest immutable analytics snapshot without raw identifiers."""
+
+        query = (
+            """
+            SELECT payload
+              FROM cost_governance_analytics_snapshot
+             WHERE scope_id = (
+                SELECT MIN(candidate.scope_id)
+                  FROM (
+                    SELECT analytics_scope.scope_id
+                      FROM (
+                        SELECT DISTINCT scope_id
+                          FROM cost_governance_analytics_snapshot
+                      ) AS analytics_scope
+                      JOIN (
+                        SELECT DISTINCT scope_id
+                          FROM cost_observation
+                      ) AS observation_scope
+                        ON observation_scope.scope_id = analytics_scope.scope_id
+                  ) AS candidate
+                HAVING COUNT(DISTINCT candidate.scope_id) = 1
+                   AND (
+                        SELECT COUNT(DISTINCT scope_id)
+                          FROM cost_governance_analytics_snapshot
+                   ) = 1
+                   AND (
+                        SELECT COUNT(DISTINCT scope_id)
+                          FROM cost_observation
+                   ) = 1
+            )
+            ORDER BY observed_at DESC, snapshot_id DESC
+            LIMIT 1
+            """
+            if scope == "*"
+            else """
+            SELECT payload
+             FROM cost_governance_analytics_snapshot
+            WHERE scope_id = %(scope)s
+            ORDER BY observed_at DESC, snapshot_id DESC
+            LIMIT 1
+            """
+        )
+        rows = await self._fetch(
+            query,
+            {"scope": scope},
+        )
+        if not rows:
+            return None
+        return CostAnalyticsProjection.model_validate(rows[0]["payload"])
+
+    async def set_enabled(
+        self,
+        *,
+        package_id: str,
+        actor_id: str,
+        enabled: bool,
+        expected_revision: int,
+        request_id: str,
+    ) -> CostActivationSnapshot:
+        """Apply the database-owned audited activation transition."""
+
+        try:
+            async with await psycopg.AsyncConnection.connect(
+                _psycopg_dsn(self._config.dsn),
+                connect_timeout=self._config.connect_timeout_s,
+                row_factory=dict_row,
+            ) as connection:
+                await connection.execute(
+                    "SELECT set_config('statement_timeout', %s, true)",
+                    (str(self._config.statement_timeout_ms),),
+                )
+                cursor = await connection.execute(
+                    """
+                    SELECT *
+                      FROM fdai_set_cost_governance_enabled(
+                          %(package_id)s,
+                          %(actor_id)s,
+                          %(enabled)s,
+                          %(expected_revision)s,
+                          %(request_id)s
+                      )
+                    """,
+                    {
+                        "package_id": package_id,
+                        "actor_id": actor_id,
+                        "enabled": enabled,
+                        "expected_revision": expected_revision,
+                        "request_id": request_id,
+                    },
+                )
+                row = await cursor.fetchone()
+        except psycopg.Error as exc:
+            message = exc.diag.message_primary or ""
+            if exc.sqlstate in {"CG001", "CG002", "CG003"}:
+                raise ValueError(message or "Cost Governance activation conflict") from exc
+            raise RuntimeError("Cost Governance activation persistence is unavailable") from exc
+        if row is None:
+            raise RuntimeError("Cost Governance activation returned no state")
         return CostActivationSnapshot(
             vertical_id=str(row["vertical_id"]),
             package_id=str(row["package_id"]),

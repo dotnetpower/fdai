@@ -27,7 +27,7 @@ class CostJobConfig:
     known_service_ids: frozenset[str]
     max_pages: int = 10
     max_bytes: int = 10_000_000
-    page_size: int = 500
+    page_size: int = 1000
     attempt_timeout: timedelta = timedelta(minutes=2)
     max_observation_age: timedelta = timedelta(days=2)
 
@@ -322,6 +322,8 @@ class CostAnalyzerService:
             return "ontology_mismatch"
         if item.completeness != Decimal("1"):
             return "incomplete"
+        if item.currency != "USD":
+            return "unsupported_currency"
         if self._clock() - item.observed_at > self._config.max_observation_age:
             return "stale"
         if not item.source_authority.strip():

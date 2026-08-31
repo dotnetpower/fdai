@@ -21,6 +21,8 @@ class EventBusCostSamplePublisher:
         *,
         activation_revision: int,
     ) -> None:
+        if observation.currency != "USD":
+            raise ValueError("cost sample publisher requires authoritative USD observations")
         payload = {
             "idempotency_key": observation.observation_id,
             "event_id": observation.observation_id,
@@ -33,6 +35,7 @@ class EventBusCostSamplePublisher:
                 "scope": observation.scope_id,
                 "resource_id": observation.source_uri,
                 "amount_usd": float(observation.amount),
+                "observed_at": observation.observed_at.isoformat(),
                 "source_authority": observation.source_authority,
                 "completeness": float(observation.completeness),
                 "ontology_release_digest": observation.ontology_release_digest,

@@ -439,6 +439,69 @@ def test_rolling_advisory_rejects_duplicate_reordered_and_invalid_facts() -> Non
     }
 
 
+def test_rolling_advisory_keeps_resource_series_independent_within_one_scope() -> None:
+    provider = RollingCostAdvisoryProvider(
+        ontology_release_digest=_RELEASE,
+        clock=lambda: _NOW,
+    )
+    observed_at = _NOW - timedelta(minutes=1)
+    first = CostAnalysisSample(
+        scope_id=_SCOPE,
+        resource_id="resource:a",
+        amount_usd=Decimal("10"),
+        correlation_id="sample:a",
+        observed_at=observed_at,
+        source_authority="azure-cost-management",
+        completeness=Decimal("1"),
+        ontology_release_digest=_RELEASE,
+    )
+    second = replace(
+        first,
+        resource_id="resource:b",
+        correlation_id="sample:b",
+    )
+
+    assert asyncio.run(provider.analyze_cost_sample(first)) is None
+    assert asyncio.run(provider.analyze_cost_sample(second)) is None
+    assert provider.diagnostics == {"accepted": 2}
+
+
+def test_rolling_advisory_hydrates_stale_baseline_without_historical_finding() -> None:
+    provider = RollingCostAdvisoryProvider(
+        ontology_release_digest=_RELEASE,
+        clock=lambda: _NOW,
+    )
+    retained = tuple(
+        CostAnalysisSample(
+            scope_id=_SCOPE,
+            resource_id="resource:a",
+            amount_usd=Decimal("100"),
+            correlation_id=f"retained:{index}",
+            observed_at=_NOW - timedelta(days=5 - index),
+            source_authority="azure-consumption-usage-details",
+            completeness=Decimal("1"),
+            ontology_release_digest=_RELEASE,
+        )
+        for index in range(3)
+    )
+
+    accepted = asyncio.run(provider.hydrate_cost_samples(retained))
+    finding = asyncio.run(
+        provider.analyze_cost_sample(
+            replace(
+                retained[-1],
+                amount_usd=Decimal("200"),
+                correlation_id="current",
+                observed_at=_NOW - timedelta(minutes=1),
+            )
+        )
+    )
+
+    assert accepted == retained
+    assert finding is not None
+    assert provider.diagnostics == {"hydrated": 3, "accepted": 1}
+
+
 def test_rolling_advisory_bounds_scope_and_duplicate_bookkeeping() -> None:
     provider = RollingCostAdvisoryProvider(
         ontology_release_digest=_RELEASE,
@@ -495,27 +558,26 @@ class Transport:
         self.body = body
         self.calls = 0
 
-    async def get(self, url, *, headers, max_bytes, deadline_at):  # type: ignore[no-untyped-def]
+    async def post(  # type: ignore[no-untyped-def]
+        self, url, *, headers, json_body, max_bytes, deadline_at
+    ):
         self.calls += 1
         assert url.startswith("https://management.azure.com/")
         assert headers["Authorization"].startswith("Bearer ")
+        assert json_body["type"] == "ActualCost"
         return CostHttpResponse(200, json.dumps(self.body).encode())
 
 
 def test_azure_focus_adapter_uses_injected_read_boundaries() -> None:
     body: dict[str, object] = {
-        "collectedAt": _NOW.isoformat(),
         "properties": {
-            "rows": [
-                {
-                    "serviceId": "service-a",
-                    "billedCost": "12.5",
-                    "billingCurrency": "USD",
-                    "chargePeriodStart": (_NOW - timedelta(hours=2)).isoformat(),
-                    "chargePeriodEnd": (_NOW - timedelta(hours=1)).isoformat(),
-                    "sourceUri": "/subscriptions/example/resources/a",
-                }
-            ]
+            "columns": [
+                {"name": "Cost", "type": "Number"},
+                {"name": "UsageDate", "type": "Number"},
+                {"name": "ServiceName", "type": "String"},
+                {"name": "Currency", "type": "String"},
+            ],
+            "rows": [["12.5", 20260830, "service-a", "USD"]],
         },
     }
     credential = Credential()
@@ -525,6 +587,7 @@ def test_azure_focus_adapter_uses_injected_read_boundaries() -> None:
         credential=credential,
         ontology_release_id=_RELEASE_ID,
         ontology_release_digest=_RELEASE,
+        clock=lambda: _NOW,
     )
     page = asyncio.run(
         adapter.collect_cost_page(
@@ -542,3 +605,49 @@ def test_azure_focus_adapter_uses_injected_read_boundaries() -> None:
     assert credential.calls == transport.calls == 1
     assert len(page.observations) == 1
     assert page.observations[0].amount == Decimal("12.5")
+    assert page.observations[0].observed_at == page.observations[0].event_end_at
+    assert page.observations[0].source_uri.startswith("cost-service:")
+
+
+def test_azure_focus_bounds_current_day_and_scopes_observation_identity() -> None:
+    collected_at = _NOW + timedelta(hours=12)
+    body: dict[str, object] = {
+        "properties": {
+            "columns": [
+                {"name": "Cost", "type": "Number"},
+                {"name": "UsageDate", "type": "Number"},
+                {"name": "ServiceName", "type": "String"},
+                {"name": "Currency", "type": "String"},
+            ],
+            "rows": [["12.5", 20280102, "service-a", "USD"]],
+        },
+    }
+    adapter = AzureFocusObservationAdapter(
+        transport=Transport(body),
+        credential=Credential(),
+        ontology_release_id=_RELEASE_ID,
+        ontology_release_digest=_RELEASE,
+        clock=lambda: collected_at,
+    )
+
+    def collect(scope_id: str) -> CostObservation:
+        page = asyncio.run(
+            adapter.collect_cost_page(
+                CostCollectionRequest(
+                    package_id="cost-governance",
+                    scope_id=scope_id,
+                    start_at=_NOW,
+                    end_at=collected_at,
+                    page_size=10,
+                    deadline_at=collected_at + timedelta(minutes=1),
+                ),
+                resume_token=None,
+            )
+        )
+        return page.observations[0]
+
+    first = collect(_SCOPE)
+    second = collect("subscriptions/example-secondary")
+
+    assert first.event_end_at == collected_at
+    assert first.observation_id != second.observation_id

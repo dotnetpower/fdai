@@ -12,6 +12,7 @@ import {
   type AsyncState,
 } from "../components/ui";
 import { currentRoute, routeHref } from "../router";
+import { CostGovernanceWorkspace } from "./cost-governance-workspace";
 import { t } from "./i18n/cost-governance";
 import {
   isCostGovernanceProjection,
@@ -73,9 +74,9 @@ export function CostGovernanceRoute({ client }: { readonly client: OperatorApiCl
   }, [client, surface]);
 
   return (
-    <div class="stack">
+    <div class="stack cost-governance-route">
       <PageHeader title={t("costGovernance.title")} subtitle={t("costGovernance.subtitle")} />
-      <nav class="tabs" aria-label={t("costGovernance.title")}>
+      <nav class="cost-governance-tabs" aria-label={t("costGovernance.title")}>
         {TABS.map((tab) => (
           <a
             href={routeHref("cost-governance", { segments: [tab.surface] })}
@@ -86,42 +87,14 @@ export function CostGovernanceRoute({ client }: { readonly client: OperatorApiCl
           </a>
         ))}
       </nav>
+      {state.status === "unavailable" ? (
+        <p><a href={routeHref("settings-runtime")}>{t("costGovernance.configure")}</a></p>
+      ) : null}
       <AsyncBoundary state={state} resourceLabel={t("costGovernance.loading")}>
-        {(projection) => projection.items.length === 0 ? (
-          <EmptyState title={t("costGovernance.empty")} />
+        {(projection) => projection.items.length === 0 && projection.analytics == null ? (
+          <EmptyState title={t("costGovernance.empty")} body={t("costGovernance.emptyHint")} />
         ) : (
-          <section aria-live="polite">
-            {!projection.complete ? <p class="muted">{t("costGovernance.incomplete")}</p> : null}
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>{t("costGovernance.columns.identity")}</th>
-                    <th>{t("costGovernance.columns.service")}</th>
-                    <th>{t("costGovernance.columns.amount")}</th>
-                    <th>{t("costGovernance.columns.status")}</th>
-                    <th>{t("costGovernance.columns.observed")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {projection.items.map((item, index) => (
-                    <tr key={String(item["record_id"] ?? item["group_id"] ?? index)}>
-                      <td>{String(item["resource"] ?? item["group_id"] ?? "-")}</td>
-                      <td>{String(item["service_id"] ?? "-")}</td>
-                      <td>{String(
-                        item["amount_exact"]
-                        ?? item["amount_rounded"]
-                        ?? item["amount_band"]
-                        ?? (item["suppressed"] ? "suppressed" : "-"),
-                      )}</td>
-                      <td>{String(item["status"] ?? "-")}</td>
-                      <td>{String(item["observed_at"] ?? "-")}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
+          <CostGovernanceWorkspace projection={projection} />
         )}
       </AsyncBoundary>
     </div>

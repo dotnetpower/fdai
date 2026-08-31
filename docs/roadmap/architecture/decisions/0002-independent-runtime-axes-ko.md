@@ -1,7 +1,7 @@
 ---
 title: ADR-0002 Independent Runtime and Customization Axes
 translation_of: 0002-independent-runtime-axes.md
-translation_source_sha: 4dfa618b60834e2fcb0169b7ac3d515acd54a415
+translation_source_sha: 89624bf2946de0403f54739cbd6b98394b1719b5
 translation_revised: 2026-08-31
 ---
 # ADR-0002: 독립적인 런타임 및 Customization 축
@@ -109,6 +109,8 @@ FDAI는 다음 축을 독립 구성으로 취급합니다.
   for PostgreSQL DSN, Event Hubs 및 연결된 managed identity를 사용합니다.
 - 권위 있는 프로바이더가 없으면 사용 불가로 표시하거나 실패 시 차단합니다. 고정본을 선택하지
   않습니다.
+- 선택적 패키지 발견, 보존 기준선 복원 및 근거 통화 guard는 로컬과 배포에서 같은 계약을
+  사용합니다. 로컬 검토 프로필은 이 경계를 약화할 수 없습니다.
 
 Automated 테스트와 명시적인 mock 애플리케이션은 `fixture` 근거 프로파일을 선택할 수 있습니다.
 Offline interactive 작업은 저장소 카탈로그 및 참조 화면으로 제한하며 런타임 점유를

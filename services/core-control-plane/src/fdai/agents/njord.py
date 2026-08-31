@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
@@ -46,14 +47,19 @@ class Njord(Agent):
         advisory_provider: CostAdvisoryProvider | None = None,
         activation_reader: CostPackageActivationReader | None = None,
         package_enabled: bool = False,
+        budget_data_available: bool = False,
+        initial_samples: Sequence[CostAnalysisSample] = (),
     ) -> None:
         super().__init__(spec=_NJORD)
         self.bus = bus
         self._advisory_provider = advisory_provider
         self._activation_reader = activation_reader
         self._package_enabled = package_enabled
+        self._budget_data_available = budget_data_available
         self._latest: dict[str, tuple[float, str]] = {}
         self._counts: dict[str, int] = {}
+        for sample in initial_samples:
+            self._remember_sample(sample)
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -153,12 +159,7 @@ class Njord(Agent):
             self.record_behavior("cost_sample:provider_absent")
             return None
         finding = await self._advisory_provider.analyze_cost_sample(sample)
-        if len(self._latest) >= _MAX_TRACKED_SCOPES and sample.scope_id not in self._latest:
-            oldest = next(iter(self._latest))
-            self._latest.pop(oldest, None)
-            self._counts.pop(oldest, None)
-        self._latest[sample.scope_id] = (float(sample.amount_usd), sample.observed_at.isoformat())
-        self._counts[sample.scope_id] = self._counts.get(sample.scope_id, 0) + 1
+        self._remember_sample(sample)
         if finding is None:
             return None
         anomaly_material = {
@@ -201,6 +202,14 @@ class Njord(Agent):
         }
         await self._publish_proposal("object.cost-anomaly", payload)
         return payload
+
+    def _remember_sample(self, sample: CostAnalysisSample) -> None:
+        if len(self._latest) >= _MAX_TRACKED_SCOPES and sample.scope_id not in self._latest:
+            oldest = next(iter(self._latest))
+            self._latest.pop(oldest, None)
+            self._counts.pop(oldest, None)
+        self._latest[sample.scope_id] = (float(sample.amount_usd), sample.observed_at.isoformat())
+        self._counts[sample.scope_id] = self._counts.get(sample.scope_id, 0) + 1
 
     async def _message_enabled(self, activation_revision: object) -> bool:
         if not self._package_enabled or self._advisory_provider is None:
@@ -247,11 +256,15 @@ class Njord(Agent):
             "known_action_costs": {},
             "package_enabled": self._package_enabled,
             "advisory_provider_bound": self._advisory_provider is not None,
-            "budget_data_available": False,
+            "budget_data_available": self._budget_data_available,
         }
         if "budget_status" in semantic_intents(context):
             return IntrospectionResult(
-                answer="No budget projection is bound to this conversational port.",
+                answer=(
+                    "A governed budget projection is available for Cost Governance review."
+                    if self._budget_data_available
+                    else "No budget projection is bound to this conversational port."
+                ),
                 facts=facts,
             )
         scopes = mentioned(question, self._latest)

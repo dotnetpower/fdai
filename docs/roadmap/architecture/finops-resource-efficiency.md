@@ -232,6 +232,20 @@ workspace under Overview, using stable machine id `cost-governance` and the exis
 `/verticals/cost-governance` route family. It does not add an agent-specific menu or a sixth Activity
 Bar domain.
 
+The navigation entry remains discoverable when the package is disabled or unavailable. Settings >
+Runtime policies shows the package state and gives Owners an audited enablement control. Data access
+remains a separate purpose- and scope-bound grant. An enabled workspace with no retained
+authoritative observations shows an empty evidence state instead of sample cost values.
+An explicit authenticated-review policy can provide aggregate-only access for a development
+deployment. It preserves browser Entra identity and does not grant package activation or action
+authority.
+
+The local authoritative analytics collector combines bounded Azure Consumption Usage Details,
+subscription budgets, Azure Advisor Cost recommendations, and supported Azure Monitor metrics into
+one immutable snapshot. It stores only pseudonymous resource and recommendation references, exact
+source timestamps, completeness, and typed limitations. Advisor records remain provider candidates;
+they do not become `DecisionCase`, approval, execution, or verified savings records.
+
 | Workspace page | Primary projection |
 |----------------|--------------------|
 | Overview | Total cost, analysis coverage, projected opportunity, verified savings, objective risk, and unavailable evidence |

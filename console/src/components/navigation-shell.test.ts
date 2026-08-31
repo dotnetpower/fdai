@@ -23,6 +23,11 @@ describe("navigation shell groups", () => {
     ]);
   });
 
+  test("keeps Cost Governance discoverable while activation state loads", () => {
+    expect(source).not.toContain("costGovernanceVisible");
+    expect(source).not.toContain('panel.id !== "cost-governance"');
+  });
+
   test("hides optional groups while keeping Overview and Settings fixed", () => {
     const groups = visibleNavigationGroups(true);
     expect(displayedNavigationGroups(groups, ["operations", "overview", "settings"]).map(
