@@ -1,8 +1,8 @@
 ---
 title: Near-real-time detection paths
 translation_of: near-real-time-detection-paths.md
-translation_source_sha: 84b19a61636c12b7036513a81b46a17cb78a6053
-translation_revised: 2026-08-29
+translation_source_sha: 239115f523d6d6f17879d386aa33d91da63db825
+translation_revised: 2026-08-31
 ---
 
 # 근실시간 감지 경로
@@ -128,6 +128,13 @@ Cron을 명시적으로 빈 값으로 설정하면 작업이 비활성화됩니�
 모두에 지원 리소스가 없으면 CLI가 조용히 종료됩니다. 읽을 수 없는 변환 결과는 빈 결과가
 아닙니다. 이 경우 틱이 실패해 작업이 재시도하며, 관측 범위를 조용히 좁히지 않습니다.
 
+각 점검 결과는 추적 상태에 범위가 제한된 증적도 기록합니다. 증적은 리소스, 관찰된 이벤트
+시간, 현재 상태, 근거 완전성, 게시 결과, 복구 상태 및 불투명한 근거 참조를 서로 분리합니다.
+`cause_claim_supported`와 `execution_authority`는 모두 `false`로 고정합니다. 인증된 Operator
+API는 Console에 전달하기 전에 멱등성 키와 리소스별로 증적을 그룹화합니다. 따라서 브라우저는
+수명 주기 간선을 추론하지 않고 서버가 작성한 현재 평가와 보존 이력을 표시합니다. 중복 전달은
+억제된 게시 시도로 표시하며 불완전, 충돌 및 누락 근거를 서로 다른 상태로 유지합니다.
+
 ### 에이전트 소유 AKS 감지 준비도
 
 같은 틱은 각 AKS 대상에 대해 발견, 수집기 구성, 최근 텔레메트리, detector 연결,
@@ -195,6 +202,7 @@ delta 또는 완전한 reconciliation 시도를 결정합니다. 현재 고정 �
 |------|------|------|------|
 | 라우팅된 pull 프로바이더 | implemented | `services/core-control-plane/src/fdai/composition/wire_metric_provider.py`; `services/core-control-plane/tests/providers/test_routed_metric.py` | Prometheus, Metrics API, Logs 프로바이더를 결정론적 경로 순서로 선택합니다. |
 | 예약된 분석 작업 | implemented | `infra/modules/compute/container-apps/analyzer_tick_job.tf`; `services/core-control-plane/src/fdai/delivery/analyzer_tick_cli.py`; `services/core-control-plane/tests/delivery/test_analyzer_tick_routed.py` | Terraform이 1분 간격 작업을 선언하고 `fdai.delivery.analyzer_tick_cli` 진입점도 제공됩니다. 집중 테스트 하나가 라우팅된 각 백엔드에 도달해 임계 위반을 shadow 모드 Event로 발행합니다. 관리되는 실제 지연 근거는 남아 있습니다. |
+| 분석기 수명 주기 증적 변환 결과 | implemented | `fdai/delivery/analyzer_receipt_store.py`; `fdai_operator_service/analyzer_lifecycle_projection.py`; `console/src/routes/detection-readiness.tsx`; 집중 분석기, Operator API, Console 및 세 화면 크기 Playwright 검사 | 범위 제한 추적 상태 증적이 현재 상태를 보존된 재시작, 교체, 게시 및 복구 이력과 분리합니다. 인증된 읽기 변환 결과는 원인 주장, 프로바이더 읽기, 브라우저 유도 간선 또는 실행 권한 없이 불완전, 충돌, 누락, 실패 및 중복 근거를 노출합니다. |
 | AKS 감지 준비도 축약 | implemented | `services/core-control-plane/tests/agents/test_huginn_detection_readiness.py`; `tests/integration/infra/test_detection_readiness.py` | 집중 테스트가 에이전트 소유 준비도 관측과 인프라 계약을 검증합니다. 이는 구현 근거이며 실제 지연 근거는 아닙니다. |
 | 메트릭 경보 웹훅 경로 | implemented | `fdai_service_contracts/azure_monitor.py`; Operator operations 경로, 영속 웹훅 outbox 브리지, semantic Kafka Event 경로; 집중 계약, 경로, 브리지 및 Kafka 테스트 | 검증된 Common Alert payload를 정리된 shadow Event로 바꾸고 lease fence가 있는 영속 제안에서 게시합니다. 관리되는 실제 액션 그룹 전달 및 지연 근거는 아직 남아 있습니다. |
 | Diagnostic Event Hub 경로 | implemented | `delivery/azure/monitor_events.py`; `diagnostic_event_ingest.py`; 런타임 부트스트랩 및 Core 서비스 Terraform 연결; 집중 정규화기, 브리지, 부트스트랩, 종료 및 인프라 테스트 | 전용 Kafka 소비자가 구성된 메트릭만 정규화하고 형식이 잘못된 일치 기록을 DLQ로 보내며 일반 유입 토픽에 전달합니다. 관리되는 실제 전달 및 지연 근거는 아직 남아 있습니다. |
@@ -204,6 +212,7 @@ delta 또는 완전한 reconciliation 시도를 결정합니다. 현재 고정 �
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-31 | implemented | 분석기의 범위 제한 점검 결과 증적을 보존 수가 제한된 추적 상태에 저장하고, 인증된 감지 준비도 경로를 통해 서버가 작성한 현재 상태와 보존 수명 주기 이력으로 변환했습니다. 중복 게시, 복구 및 완전, 불완전, 충돌 또는 누락 근거를 명시적으로 유지하며 원인 주장과 실행 권한은 false로 유지합니다. | `current change`; 집중 Python 및 Operator API 검사 90개, 집중 Console 검사 5개, Console 타입 검사 및 운영 빌드, 가로 넘침이 측정되지 않은 synthetic 데스크톱, 제한된 데스크톱 및 모바일 Playwright 검사 3개가 통과했습니다. | 관리되는 실제 전달 및 지연 근거는 여전히 남아 있으며 이 변경에서는 생성하지 않았습니다. |
 | 2026-08-29 | implemented | 강화 라운드 4에서 진단 유입 관점 26개를 검토하고 Event 신원을 만들기 전에 진단 기록 시각을 UTC로 정규화했습니다. 오프셋 표현만 다른 재생은 이제 하나의 멱등성 키를 유지합니다. | `current change`; 집중 Azure 진단 정규화기 테스트. | 관리되는 실제 전달 및 지연 근거를 보존합니다. |
 | 2026-08-29 | implemented | 강화 라운드 2에서 경보 계약 관점 25개를 검토하고 Event 및 멱등성 신원을 만들기 전에 프로바이더 시각을 UTC로 정규화했습니다. 하나의 경보를 서로 다른 오프셋으로 표현해도 중복 인시던트 신호를 만들지 않습니다. | `current change`; 집중 Azure Monitor 계약 테스트. | 관리되는 실제 전달 및 지연 근거를 보존합니다. |
 | 2026-08-28 | implemented | 두 push 경로의 구현을 완료했습니다. HMAC으로 검증된 Operator 웹훅은 영속 수락 전에 Common Alert Schema 본문을 공유되고 정리된 Event로 바꾸며, lease fence가 있는 outbox가 Core Event 토픽에 직접 게시합니다. Core는 별도로 구성된 진단 Kafka 전송을 소유하고, 범위가 제한된 허용 목록 `AllMetrics` 기록을 정규화하며, 형식이 잘못된 일치 입력을 DLQ로 보내고, 시작 준비도 및 순서가 있는 종료 절차로 브리지를 감독합니다. 두 기능은 shadow를 유지하고 작업 권한을 부여하지 않습니다. | `current change`; 공유 경보 계약; Operator 경로, outbox, Kafka, 조립 및 집중 테스트; Core 정규화기, 브리지, 부트스트랩, 종료, Terraform 계약 및 집중 테스트. | 관리되는 실제 액션 그룹 및 진단 Event Hub 전달과 지연 근거를 보존합니다. |
@@ -217,6 +226,9 @@ delta 또는 완전한 reconciliation 시도를 결정합니다. 현재 고정 �
   영속 outbox 및 Event 토픽 게시기를 추가합니다.
 - [x] 경로 #2의 기록을 유입 토픽으로 전달하고 형식이 잘못된 일치 기록을 DLQ로 보내는 테스트된
   진단 기록 정규화기와 런타임 연결을 추가합니다.
+- [x] 범위 제한 분석기 점검 결과 증적을 저장하고 서버가 작성한 현재 상태, 보존 수명 주기
+  이력, 게시, 복구, 중복 전달 및 명시적 근거 공백 상태를 인증된 Operator API와 반응형
+  Console에 노출합니다.
 - [ ] 경로 상태를 `implemented`에서 `validated`로 변경하기 전에 각 경로의 관리되는 지연 근거를 기록합니다.
 
 ## 아직 배송 안 됨

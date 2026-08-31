@@ -372,6 +372,27 @@ def test_projection_requires_reader_bounds_pagination_and_redacts() -> None:
     )
 
 
+def test_detection_lifecycle_projection_requires_an_authenticated_reader() -> None:
+    dependencies = RecordingDependencies()
+    dependencies.projections["detection.readiness"] = {
+        "source": "postgresql:state_kv:detection-readiness",
+        "targets": [],
+        "lifecycle": {
+            "source": "postgresql:state_kv:analyzer-finding-receipt",
+            "targets": [],
+        },
+    }
+    client = _client(dependencies)
+
+    assert client.get("/detection-readiness").status_code == 401
+    response = client.get("/detection-readiness", headers=HEADERS)
+
+    assert response.status_code == 200
+    assert response.json()["lifecycle"]["targets"] == []
+    assert dependencies.queries[-1].operation == "detection.readiness"
+    assert dependencies.queries[-1].roles == frozenset({OperatorRole.READER})
+
+
 def test_instance_explorer_forwards_bounded_root_and_activity_query() -> None:
     dependencies = RecordingDependencies()
     response = _client(dependencies).get(
