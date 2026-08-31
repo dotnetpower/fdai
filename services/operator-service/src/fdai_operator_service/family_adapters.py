@@ -68,12 +68,17 @@ from fdai_operator_service.families.workflow.contracts import (
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
     PostgresFamilyStoreUnavailable,
+    PostgresProcessNotVisibleError,
     PostgresProposalConflict,
 )
 from fdai_operator_service.postgres_read_investigation_replay import (
     PostgresReadInvestigationReplayStore,
 )
 from fdai_operator_service.postgres_semantic_turn_store import rule_search_projection_key
+from fdai_operator_service.process_transition_projection import (
+    ProcessControlUnavailableError,
+    ProcessTransitionDeniedError,
+)
 
 
 class _ConversationEventIterator(AsyncIterator[StreamEvent]):
@@ -304,17 +309,40 @@ class PostgresWorkflowAdapters:
     async def submit(self, proposal: WorkflowProposal) -> WorkflowProposalReceipt:
         """Append a typed workflow proposal without promoting or executing it."""
         try:
-            stored = await self.store.append_proposal(
-                family="workflow",
-                operation=proposal.operation.value,
-                principal_id=proposal.principal_id,
-                idempotency_key=proposal.idempotency_key,
-                payload=_mapping(asdict(proposal)),
-            )
+            if proposal.operation in {
+                WorkflowOperation.WORKFLOW_RESUME_REQUEST,
+                WorkflowOperation.WORKFLOW_CANCEL_REQUEST,
+                WorkflowOperation.WORKFLOW_RETRY_REQUEST,
+            }:
+                process_id = proposal.path_parameters.get("process_id", "")
+                roles = frozenset(OperatorRole(role) for role in proposal.principal_roles)
+                stored = await self.store.append_guarded_workflow_transition_proposal(
+                    operation=proposal.operation.value,
+                    process_id=process_id,
+                    principal_id=proposal.principal_id,
+                    expected_revision=proposal.expected_revision,
+                    principal_roles=roles,
+                    idempotency_key=proposal.idempotency_key,
+                    proposal_payload=_mapping(asdict(proposal)),
+                )
+            else:
+                stored = await self.store.append_proposal(
+                    family="workflow",
+                    operation=proposal.operation.value,
+                    principal_id=proposal.principal_id,
+                    idempotency_key=proposal.idempotency_key,
+                    payload=_mapping(asdict(proposal)),
+                )
         except PostgresProposalConflict as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except PostgresFamilyStoreUnavailable as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except PostgresProcessNotVisibleError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ProcessControlUnavailableError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except ProcessTransitionDeniedError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
         return WorkflowProposalReceipt(
             proposal_id=stored.proposal_id,
             revision=stored.accepted_at,

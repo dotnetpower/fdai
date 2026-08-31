@@ -101,4 +101,55 @@ describe("workflow builder session store", () => {
     oversized.setItem("fdai.workflow-builder.chat.v1", "x".repeat(256 * 1024 + 1));
     expect(loadWorkflowChatSession(oversized)).toBeNull();
   });
+
+  it("restores every authored control-step field losslessly", () => {
+    const target = storage();
+    const opening = startChat([]);
+    const controlSteps = [
+      {
+        ...opening.slots.form.steps[0]!,
+        id: "wait_for_evidence",
+        kind: "wait" as const,
+        wait_for: "evidence.updated",
+        timeout_seconds: "3600",
+      },
+      {
+        ...opening.slots.form.steps[0]!,
+        key: 1,
+        id: "human_approval",
+        kind: "approval" as const,
+        approval_role: "owner" as const,
+        quorum: "2",
+        timeout_seconds: "1800",
+        no_self_approval: true,
+      },
+      {
+        ...opening.slots.form.steps[0]!,
+        key: 2,
+        id: "choose_outcome",
+        kind: "decision" as const,
+        outcomes: ["approved", "held"],
+      },
+      {
+        ...opening.slots.form.steps[0]!,
+        key: 3,
+        id: "fan_out",
+        kind: "parallel" as const,
+        branches: ["security", "reliability"],
+      },
+      {
+        ...opening.slots.form.steps[0]!,
+        key: 4,
+        id: "evidence_gate",
+        kind: "gate" as const,
+        gate_ref: "release.production-ready",
+      },
+    ];
+    saveWorkflowChatSession(target, {
+      slots: { ...opening.slots, form: { ...opening.slots.form, steps: controlSteps } },
+      messages: [{ id: 1, role: "bot", text: "Control steps" }],
+    });
+
+    expect(loadWorkflowChatSession(target)?.slots.form.steps).toEqual(controlSteps);
+  });
 });

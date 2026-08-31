@@ -1,8 +1,8 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 51c72c90845f44e6d1d8a1b95aa5efc6f7e02a62
-translation_revised: 2026-08-28
+translation_source_sha: 43ee9d30418f7839d968e2bf90ff666037679243
+translation_revised: 2026-08-31
 ---
 # Operator Console 모듈 지도 and Boundaries
 
@@ -26,11 +26,16 @@ translation_revised: 2026-08-28
 | 브라우저 근거 메타데이터 패널 경계 | 구현됨 | `console/src/routes/browser-evidence.tsx`, `console/src/panels.tsx`, focused decoder, panel 및 router 검사(`26 passed`) | 기존 Evidence 탐색 경로는 정확한 payload-free Operator 묶음만 사용합니다. 컨트롤과 수집 또는 구조화된 페이로드를 거부하고 변경 명령을 렌더링하지 않으며 인증된 배포 읽기 근거는 별도 런타임 gate로 유지합니다. |
 | 공유 의미 행 projection | 구현됨 | `families/conversation/presentation_rows.py`, v1 및 v2 표현 모듈, focused Operator 표현 검사(`82 passed`) | 범위가 제한된 순수 projection 하나가 직접 scalar를 유지하고 검증된 중첩 property bag에서 최대 두 단계까지 `name`, `type`, `status`, `location`만 끌어올립니다. 읽기 쉬운 사실이 있으면 기본 표에서 불투명한 `id`와 `object_type` 열을 제외하고, identity만 있는 결과에서는 해당 필드를 계속 표시합니다. 변경하지 않은 exact 행은 기술 세부에 유지합니다. |
 | 의미 스트림 PostgreSQL 취소 | 구현됨 | `postgres_family_store.py`, `test_postgres_family_store_cancellation.py`, focused 의미 bridge 검사(`76 passed`), Ruff 및 strict mypy | AnyIO 스트림 취소는 범위가 제한된 psycopg 쿼리 취소와 연결 종료를 완료한 뒤 전파됩니다. 더 이상 transaction rollback과 경합하지 않으며 HTTP 계약, 데이터베이스 소유권 또는 실행 권한을 변경하지 않습니다. |
+| Workflow Builder 제어 단계 저작 | 구현됨 | `console/src/routes/workflow-builder.{model,editor,session,structure,viz}.ts`, `console/tests/e2e/workflow-builder-control-steps.spec.ts`, 집중 Console 검사 | 유형별 저작, 미리 보기, 탭 복구 및 카탈로그 기반 구조 검사를 별도 모듈로 유지합니다. 다섯 가지 런타임 제어 단계 유형은 복제, 순서 변경, 검증 및 복원 과정에서 유지됩니다. 검증은 서버가 계속 담당하며 저장된 비공개 초안은 shadow 상태로 실행할 수 없습니다. |
+| Process 전환 변환 결과 및 요청 경계 | 구현됨 | `runtime_projection_reader.py`, `process_transition_projection.py`, `process_approval_projection.py`, `process_retry_admission.py`, `family_adapters.py`, `console/src/routes/processes.control.ts`, `console/src/routes/process-control-panel.tsx`, `console/src/routes/processes.transitions.ts`, 집중 Operator 및 Console 검사 | 런타임 읽기는 변경할 수 없는 요청자 근거를 인증된 principal로 필터링하고, 저널을 읽은 뒤 스냅샷 리비전을 다시 검사하며, 고정된 검토 Workflow와 영속 Var 승인 상태를 결합합니다. 워크플로 어댑터는 비활성 제안을 영속화하는 동일한 트랜잭션에서 리비전, 역할, 상태 및 효과 없는 재시도 근거를 미리 검사합니다. 런타임 권한은 변경되지 않습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-31 | 구현됨 | 브라우저 또는 Operator API에 실행 권한을 추가하지 않고 Workflow Builder 모듈 경계를 작업 전용 행에서 손실 없는 `WAIT` 및 `APPROVAL` 저작으로 확장했습니다. | `current change`, 집중 Vitest 검사 72개, 서버 계약 검사 12개, Console 형식 검사와 프로덕션 빌드, 합성 데스크톱, 제한된 데스크톱 및 모바일 Playwright 검사 통과 | #396에서 `DECISION`, `PARALLEL`, `GATE` 구조 저작을 추가한 다음 #397에서 principal 범위 전환을 추가합니다. |
+| 2026-08-31 | 구현됨 | `DECISION`, `PARALLEL`, `GATE`를 위한 순수 구조 검증기와 손실 없는 편집기를 추가했습니다. 검토된 워크플로 카탈로그의 게이트 참조를 재사용하고 별도 결합 계약을 만들지 않으면서 런타임의 고정된 전체 분기 결합 방식을 유지합니다. | `current change`, 집중 Vitest 검사 81개, Console 형식 검사와 프로덕션 빌드, 합성 데스크톱, 제한된 데스크톱 및 모바일 Playwright 검사 통과 | #397에서 principal 범위의 권위 있는 Process 전환을 추가합니다. |
+| 2026-08-31 | 구현됨 | principal 범위의 권위 있는 Process 상태와 보호된 전환 제안 수락을 추가했습니다. Console은 런타임 진행이나 운영 성공을 주장하지 않고 단계 요구 사항과 요청 수락을 표시합니다. | `current change`, 집중 백엔드 및 런타임 검사 67개, 집중 Console 검사 27개, 엄격한 Python 및 TypeScript 검사, 프로덕션 빌드, 합성 세 viewport Playwright 검사 통과 | 인증된 통제 제안 소비 및 Process 진행 증적을 보존해야 합니다. |
 | 2026-08-23 | 구현됨 | SSE 연결 해제가 의미 replay 쿼리를 취소할 때 관측된 PostgreSQL rollback 경합을 제거했습니다. 단일 문장 family 쿼리는 autocommit 모드에서도 PostgreSQL 문장 원자성을 유지하고 session statement timeout을 사용하며, 원래 취소를 다시 발생시키기 전에 범위가 제한된 취소 및 연결 종료 정리만 shield합니다. | `current change`, 정확한 AnyIO 및 `pg_sleep` 재현은 수정 전 실패하고 수정 후 psycopg 경고 없이 통과, focused 의미 bridge 검사 76개 통과, Ruff 및 strict mypy 통과 | 이 취소 결함에 남은 추가 작업은 없습니다. |
 | 2026-08-19 | implemented | 고정된 로캘 50/50 분할을 보존하면서 읽기 전용 보증 하네스에 strict v2 선언, 릴리스/근거, 인벤토리 영향, Rule 상태 셀을 추가했습니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233), [지속형 질문 공간](continuous-question-space-ko.md), 집중 Console 테스트 100개 | seeded 인증 전에 정확한 소스의 인증된 strict-v2 증적을 보존합니다. |
 | 2026-08-20 | 구현됨 | Legacy와 v2 표현에서 읽기 쉬운 의미 행 projection을 통합했습니다. 이전 v2 분석기는 모든 중첩 mapping을 버렸기 때문에 exact 근거에 이름, 타입, 위치가 있어도 검증된 Resource 행이 `id`와 `object_type`만 표시했습니다. | `current change`, [이슈 #241](https://github.com/dotnetpower/fdai/issues/241), focused 표현 및 의미 bridge 검사 94개 통과, Ruff, formatting, strict mypy 통과 | 커밋된 source로 Operator API를 재시작한 뒤 인증된 세 viewport 근거를 보존합니다. |
@@ -507,6 +512,19 @@ Workflow route family는 Reader 역할로 제한된 `GET /context-selection-comp
 표시용 필드만 투영하며, 항상 `read_only`와 `mutation_controls: false`를 선언합니다. 빈 결과는
 권위 있는 답이고, 손상된 영속 기록은 실패 시 차단됩니다. 소유 설계:
 [컨텍스트 선택 정책](../decisioning/context-selection-policy-ko.md).
+
+Workflow Builder는 편집 가능한 단계 모델, 순수 초안 변환, 방어적인 세션 디코더, 구조 검증기,
+유형별 시각화 및 Preact 편집기를 인접한 `workflow-builder.*` 모듈에 유지합니다. 작업 선택지는
+검토된 ActionType 팔레트에서 가져오고 게이트 참조는 검토된 Workflow 카탈로그에서 가져옵니다.
+제어 필드는 서버가 소유한 Workflow 계약을 따르며 기존 검증 경로가 확인한 뒤에만 수락됩니다.
+브라우저는 저장된 비공개 초안을 게시하거나 실행하지 않습니다.
+
+Operations 변환 결과 읽기 구성 요소는 principal 범위의 Process 목록과 저널 읽기를 소유합니다.
+Process 전환, 승인 및 재시도 변환 모듈은 정확한 Process 리비전, 이벤트 저널, 요청자, 역할,
+고정된 Workflow 카탈로그 항목 및 영속 Var 승인 상태를 결합하여 표시 가능한 요구 사항과
+요청할 수 있는 전환을 만듭니다. 워크플로 계열 어댑터는 Process 행 잠금 아래에서 같은 순수
+검사를 반복한 뒤 비활성 제안을 기록합니다. 이 모듈들은 제안을 소비하거나 Process 상태를
+변경하거나 승인하거나 실행하지 않습니다.
 
 ## Core 및 전달 지도
 

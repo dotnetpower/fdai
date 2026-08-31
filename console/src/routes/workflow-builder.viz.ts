@@ -15,7 +15,16 @@ import type { FormState } from "./workflow-builder.model";
  * `category` the accent color; `ref` is the exact machine value shown in mono
  * beneath the human `name`. */
 export interface VizNode {
-  readonly kind: "when" | "do" | "notify" | "done";
+  readonly kind:
+    | "when"
+    | "do"
+    | "notify"
+    | "wait"
+    | "approval"
+    | "decision"
+    | "parallel"
+    | "gate"
+    | "done";
   readonly name: string;
   readonly ref: string;
   readonly category: string;
@@ -51,6 +60,51 @@ export function buildVizModel(
   ];
 
   for (const step of form.steps) {
+    if (step.kind === "wait") {
+      nodes.push({
+        kind: "wait",
+        name: step.wait_for || step.id || "wait",
+        ref: `timeout_seconds=${step.timeout_seconds || "?"}`,
+        category: "control",
+      });
+      continue;
+    }
+    if (step.kind === "approval") {
+      nodes.push({
+        kind: "approval",
+        name: step.approval_role || step.id || "approval",
+        ref: `quorum=${step.quorum || "?"}, timeout_seconds=${step.timeout_seconds || "?"}`,
+        category: "control",
+      });
+      continue;
+    }
+    if (step.kind === "decision") {
+      nodes.push({
+        kind: "decision",
+        name: step.id || "decision",
+        ref: step.outcomes.join(" | "),
+        category: "control",
+      });
+      continue;
+    }
+    if (step.kind === "parallel") {
+      nodes.push({
+        kind: "parallel",
+        name: step.id || "parallel",
+        ref: `${step.branches.join(" + ")}; join=all`,
+        category: "control",
+      });
+      continue;
+    }
+    if (step.kind === "gate") {
+      nodes.push({
+        kind: "gate",
+        name: step.gate_ref || step.id || "gate",
+        ref: step.gate_ref,
+        category: "control",
+      });
+      continue;
+    }
     const ref = step.action_type_ref.trim();
     if (ref.length === 0) continue; // skip blank starter rows
     const category = catOf.get(ref) ?? "other";

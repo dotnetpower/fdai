@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ActionTypePaletteEntry } from "../workflow/validate";
 import { KNOWN_SIGNAL_VALUES } from "./workflow-builder.model";
 import { buildDraft } from "./workflow-builder.helpers";
+import { addActionStep } from "./workflow-builder.chat.builders";
 import {
   extractResourceHint,
   respondToChat,
@@ -45,6 +46,29 @@ function findValues(options: readonly { value: string }[]): string[] {
 }
 
 describe("workflow-builder chat engine", () => {
+  it("keeps authored control steps when adding another action", () => {
+    const started = startChat(PALETTE).slots.form;
+    const wait = {
+      ...started.steps[0]!,
+      id: "wait_for_evidence",
+      kind: "wait" as const,
+      wait_for: "evidence.updated",
+      timeout_seconds: "3600",
+    };
+
+    const next = addActionStep(
+      { ...started, steps: [wait] },
+      "remediate.restart-service",
+    );
+
+    expect(next.steps.map((step) => step.kind)).toEqual(["wait", "action"]);
+    expect(next.steps[0]).toMatchObject({
+      id: "wait_for_evidence",
+      wait_for: "evidence.updated",
+      timeout_seconds: "3600",
+    });
+  });
+
   it("opens with a welcome, examples, and no ready draft", () => {
     const turn = startChat(PALETTE);
     expect(turn.draftReady).toBe(false);

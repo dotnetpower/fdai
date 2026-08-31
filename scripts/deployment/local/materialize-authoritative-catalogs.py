@@ -899,10 +899,27 @@ def _workflow_step(step: Any) -> dict[str, object]:
     branches = getattr(step, "branches", None)
     if branches:
         projected["branches"] = [str(branch) for branch in branches]
-    for field in ("guard_rule_ref", "compensated_by", "on_failure"):
+    outcomes = getattr(step, "outcomes", None)
+    if outcomes:
+        projected["outcomes"] = [str(outcome) for outcome in outcomes]
+    for field in (
+        "guard_rule_ref",
+        "gate_ref",
+        "compensated_by",
+        "on_failure",
+        "wait_for",
+        "timeout_seconds",
+        "approval_role",
+    ):
         value = getattr(step, field, None)
         if value is not None:
             projected[field] = str(value)
+    if kind is not None and str(kind) == "approval":
+        projected["timeout_seconds"] = step.timeout_seconds
+        projected["quorum"] = step.quorum
+        projected["no_self_approval"] = step.no_self_approval
+    elif kind is not None and str(kind) == "wait":
+        projected["timeout_seconds"] = step.timeout_seconds
     params = getattr(step, "params", None)
     if params:
         projected["params"] = {key: params[key] for key in sorted(params)}

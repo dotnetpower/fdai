@@ -69,11 +69,20 @@ export function suggestDraftFromJudgment(
     return {
       key,
       id,
+      kind: "action",
       action_type_ref: entry.name,
       guard_rule_ref: "",
       compensated_by: "",
       on_failure: "",
       params: {},
+      wait_for: "",
+      timeout_seconds: "",
+      approval_role: "",
+      quorum: "1",
+      no_self_approval: true,
+      outcomes: [],
+      branches: [],
+      gate_ref: "",
     };
   });
   if (form.steps.length === 0) form.steps = [emptyStep(0)];

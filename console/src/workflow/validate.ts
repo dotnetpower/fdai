@@ -40,14 +40,32 @@ export interface ActionTypePaletteResponse {
   readonly count: number;
 }
 
+export type WorkflowStepKind =
+  | "action"
+  | "wait"
+  | "approval"
+  | "decision"
+  | "parallel"
+  | "gate"
+  | "evidence";
+
 /** One step of a built-in workflow (read-only catalog projection). */
 export interface WorkflowCatalogStep {
   readonly id: string;
-  readonly action_type_ref: string;
-  readonly guard_rule_ref?: string;
-  readonly compensated_by?: string;
-  readonly on_failure?: string;
+  readonly kind?: WorkflowStepKind;
+  readonly action_type_ref?: string | null;
+  readonly guard_rule_ref?: string | null;
+  readonly gate_ref?: string | null;
+  readonly compensated_by?: string | null;
+  readonly on_failure?: string | null;
   readonly params?: Record<string, string | number | boolean>;
+  readonly wait_for?: string | null;
+  readonly timeout_seconds?: number | null;
+  readonly approval_role?: "reader" | "contributor" | "approver" | "owner" | null;
+  readonly quorum?: number;
+  readonly no_self_approval?: boolean;
+  readonly outcomes?: readonly string[];
+  readonly branches?: readonly string[];
 }
 
 /** One built-in workflow with its full read-only content. */
@@ -138,6 +156,10 @@ let authContext: AuthContext | null = null;
 /** Set once at app init so the validate POST can attach the bearer token. */
 export function setWorkflowAuth(auth: AuthContext | null): void {
   authContext = auth;
+}
+
+export async function workflowAuthorizationHeader(): Promise<string | null> {
+  return authContext ? await authContext.getAuthorizationHeader() : null;
 }
 
 /** Persist a validated workflow as a principal-owned private DRAFT.

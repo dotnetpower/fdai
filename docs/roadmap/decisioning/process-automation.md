@@ -559,11 +559,21 @@ Each artifact has one responsibility:
 - **Generic console renderer** supports the approved widget vocabulary only. It
   never turns arbitrary ontology properties into executable UI or action buttons.
 
-The **Processes** route lists every run, summarizes active, completed, and failed
-counts, and renders the selected Process timeline from oldest event to newest.
-Operators can refresh the read projection after a CLI or ChatOps command advances
-the Process. A workflow-specific ViewSpec, when available, appears below the
-runtime journal. The screen exposes no start, approve, retry, or execute button.
+The **Processes** route lists principal-scoped runs, summarizes active, completed, and failed
+counts, and renders the selected Process timeline from oldest event to newest. Its authoritative
+control projection joins the current Process revision, append-only events, and pinned reviewed
+Workflow step. It shows wait deadlines, durable Var approval role, revision, counted receipts and
+remaining quorum, decision outcomes, parallel branch receipts with the fixed all-branch join, and
+gate evidence state.
+
+The route renders only the resume, cancellation, or retry request that the
+Operator API permits for the authenticated role and current revision. Every `POST` carries
+`If-Match` and a stable idempotency key, and the workflow runtime rechecks authority and state.
+Operator API acceptance is displayed as pending runtime review, never as operational success.
+Stale, unavailable, unauthorized, self-approval, timeout, and invalid-transition states expose no
+optimistic success. Human approval stays on the separate Var-owned Approvals route, so the Process
+requester never receives a self-approval shortcut. The screen still exposes no start or direct
+execute button.
 
 An operational-planning Process also folds its append-only `planning.phase.recorded` child events
 into a Planning Room inside the same detail route. The projection shows accountable agents,

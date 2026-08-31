@@ -1,6 +1,13 @@
 import type { Message } from "./workflow-builder.chatpanel";
 import type { ChatSlots, ChatStage } from "./workflow-builder.chat";
-import type { DraftStep, FormState } from "./workflow-builder.model";
+import {
+  APPROVAL_ROLES,
+  AUTHORABLE_STEP_KINDS,
+  type ApprovalRole,
+  type DraftStep,
+  type DraftStepKind,
+  type FormState,
+} from "./workflow-builder.model";
 
 const STORAGE_KEY = "fdai.workflow-builder.chat.v1";
 const MAX_STORED_CHARS = 256 * 1024;
@@ -123,20 +130,54 @@ function decodeForm(value: unknown): FormState | null {
 function decodeStep(value: unknown): DraftStep | null {
   if (!isRecord(value) || !isRecord(value["params"])) return null;
   const strings = ["id", "action_type_ref", "guard_rule_ref", "compensated_by", "on_failure"] as const;
+  const kind = value["kind"] ?? "action";
+  const waitFor = value["wait_for"] ?? "";
+  const timeoutSeconds = value["timeout_seconds"] ?? "";
+  const approvalRole = value["approval_role"] ?? "";
+  const quorum = value["quorum"] ?? "1";
+  const noSelfApproval = value["no_self_approval"] ?? true;
+  const outcomes = value["outcomes"] ?? [];
+  const branches = value["branches"] ?? [];
+  const gateRef = value["gate_ref"] ?? "";
   if (
     typeof value["key"] !== "number"
     || !Number.isSafeInteger(value["key"])
     || strings.some((key) => typeof value[key] !== "string")
+    || typeof kind !== "string"
+    || !AUTHORABLE_STEP_KINDS.includes(kind as DraftStepKind)
+    || typeof waitFor !== "string"
+    || typeof timeoutSeconds !== "string"
+    || (
+      approvalRole !== ""
+      && (
+        typeof approvalRole !== "string"
+        || !APPROVAL_ROLES.includes(approvalRole as ApprovalRole)
+      )
+    )
+    || typeof quorum !== "string"
+    || typeof noSelfApproval !== "boolean"
+    || !isStringArray(outcomes)
+    || !isStringArray(branches)
+    || typeof gateRef !== "string"
     || Object.values(value["params"]).some((item) => !isPrimitive(item))
   ) return null;
   return {
     key: value["key"],
     id: value["id"] as string,
+    kind: kind as DraftStepKind,
     action_type_ref: value["action_type_ref"] as string,
     guard_rule_ref: value["guard_rule_ref"] as string,
     compensated_by: value["compensated_by"] as string,
     on_failure: value["on_failure"] as string,
     params: value["params"] as Record<string, string | number | boolean>,
+    wait_for: waitFor,
+    timeout_seconds: timeoutSeconds,
+    approval_role: approvalRole as ApprovalRole | "",
+    quorum,
+    no_self_approval: noSelfApproval,
+    outcomes,
+    branches,
+    gate_ref: gateRef,
   };
 }
 
@@ -173,6 +214,10 @@ function isChatOption(value: unknown): boolean {
 
 function isPrimitive(value: unknown): value is string | number | boolean {
   return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

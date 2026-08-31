@@ -124,6 +124,7 @@ def _build_endpoint(
             request_source=f"operator-http:{spec.name}",
             path_parameters=path_parameters,
             payload=body or {},
+            principal_roles=tuple(sorted(role.value for role in principal.roles)),
         )
         receipt = await proposal_writer.submit(proposal)
         return JSONResponse(

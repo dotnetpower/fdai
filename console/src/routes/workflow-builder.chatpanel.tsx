@@ -30,6 +30,7 @@ import { validateWorkflowDraft } from "../workflow/validate";
 import { parseBlocks, type InlineToken } from "./workflow-builder.richtext";
 import { buildVizModel } from "./workflow-builder.viz";
 import { WorkflowDraftEditor } from "./workflow-builder.draft-editor";
+import { validateDraftStructure } from "./workflow-builder.structure";
 import {
   loadWorkflowChatSession,
   saveWorkflowChatSession,
@@ -46,6 +47,7 @@ import {
 
 interface Props {
   readonly palette: readonly ActionTypePaletteEntry[];
+  readonly gateRefs: readonly string[];
   readonly onBack: () => void;
 }
 
@@ -59,7 +61,7 @@ export interface Message {
   readonly preview?: FormState | undefined;
 }
 
-export function WorkflowChat({ palette, onBack }: Props) {
+export function WorkflowChat({ palette, gateRefs, onBack }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [slots, setSlots] = useState<ChatSlots | null>(null);
   const [input, setInput] = useState("");
@@ -159,6 +161,7 @@ export function WorkflowChat({ palette, onBack }: Props) {
             key={m.id}
             message={m}
             palette={palette}
+            gateRefs={gateRefs}
             onChip={send}
             interactive={m.id === latestBotId}
             onPreviewChange={(form) => updatePreview(m.id, form)}
@@ -247,12 +250,14 @@ export function displayInput(raw: string, messages: readonly Message[]): string 
 function MessageBubble({
   message,
   palette,
+  gateRefs,
   onChip,
   interactive,
   onPreviewChange,
 }: {
   readonly message: Message;
   readonly palette: readonly ActionTypePaletteEntry[];
+  readonly gateRefs: readonly string[];
   readonly onChip: (value: string) => void;
   readonly interactive: boolean;
   readonly onPreviewChange: (form: FormState) => void;
@@ -273,6 +278,7 @@ function MessageBubble({
           <WorkflowPreview
             form={message.preview}
             palette={palette}
+            gateRefs={gateRefs}
             onChange={onPreviewChange}
           />
         ) : null}
@@ -355,10 +361,12 @@ function renderSpans(spans: readonly InlineToken[]): ComponentChildren {
 function WorkflowPreview({
   form,
   palette,
+  gateRefs,
   onChange,
 }: {
   readonly form: FormState;
   readonly palette: readonly ActionTypePaletteEntry[];
+  readonly gateRefs: readonly string[];
   readonly onChange: (form: FormState) => void;
 }) {
   const [result, setResult] = useState<ValidateResponse | null>(null);
@@ -383,7 +391,15 @@ function WorkflowPreview({
     const timer = setTimeout(() => {
       validateWorkflowDraft(draft)
         .then((res) => {
-          if (!cancelled) setResult(res);
+          if (cancelled) return;
+          const structureIssues = validateDraftStructure(form, gateRefs);
+          setResult(structureIssues.length === 0
+            ? res
+            : {
+                valid: false,
+                issues: [...structureIssues, ...res.issues],
+                yaml_preview: null,
+              });
         })
         .catch((err: unknown) => {
           if (!cancelled) setError(err instanceof Error ? err.message : String(err));
@@ -396,7 +412,7 @@ function WorkflowPreview({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [draft, retryKey]);
+  }, [draft, form, gateRefs, retryKey]);
 
   const yaml = result?.yaml_preview ?? null;
   const prUrl = yaml ? githubNewFileUrl(`rule-catalog/workflows/${form.name}.yaml`, yaml) : null;
@@ -417,7 +433,12 @@ function WorkflowPreview({
   return (
     <div class="wf-preview">
       <WorkflowViz form={form} palette={palette} />
-      <WorkflowDraftEditor form={form} palette={palette} onChange={onChange} />
+      <WorkflowDraftEditor
+        form={form}
+        palette={palette}
+        gateRefs={gateRefs}
+        onChange={onChange}
+      />
 
       <div class="wf-preview-section">
         <h4 class="wf-preview-title">{t("workflow.chat.generatedWorkflow")}</h4>
@@ -507,7 +528,7 @@ function TestResult({ result }: { readonly result: ValidateResponse }) {
     );
   }
   return (
-    <div class="wf-test-fail">
+    <div class="wf-test-fail" role="alert">
       <p>
         {t(result.issues.length === 1 ? "workflow.chat.issueOne" : "workflow.chat.issueMany", {
           count: formatNumber(result.issues.length),
@@ -537,7 +558,7 @@ function WorkflowViz({
 }) {
   const nodes = useMemo(() => buildVizModel(form, palette), [form, palette]);
   const trigger = nodes[0];
-  const steps = nodes.filter((n) => n.kind === "do" || n.kind === "notify");
+  const steps = nodes.filter((n) => n.kind !== "when" && n.kind !== "done");
 
   return (
     <div class="wf-viz" role="list" aria-label={t("workflow.chat.visualization")}>
@@ -552,7 +573,7 @@ function WorkflowViz({
             <span class="wf-viz-edge-label">{t(i === 0 ? "workflow.chat.thenDo" : "workflow.chat.then")}</span>
           </div>
           <div class={`wf-viz-node wf-viz-action is-${n.category}`} role="listitem">
-            <span class="wf-viz-kind">{n.kind}</span>
+            <span class="wf-viz-kind">{t(`workflow.stepKind.${n.kind}`)}</span>
             <span class="wf-viz-name">{n.name}</span>
             <span class="wf-viz-ref mono">{n.ref}</span>
           </div>

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ActionTypePaletteEntry } from "../workflow/validate";
+import { emptyStep } from "./workflow-builder.helpers";
 import { INITIAL_FORM, type FormState } from "./workflow-builder.model";
 import { buildVizModel } from "./workflow-builder.viz";
 
@@ -39,8 +40,8 @@ describe("workflow-builder buildVizModel", () => {
     const nodes = buildVizModel(
       form({
         steps: [
-          { key: 0, id: "rs", action_type_ref: "remediate.right-size", guard_rule_ref: "", compensated_by: "", on_failure: "", params: {} },
-          { key: 1, id: "note", action_type_ref: "notify.publish-change-summary", guard_rule_ref: "", compensated_by: "", on_failure: "", params: {} },
+          { ...emptyStep(0), id: "rs", action_type_ref: "remediate.right-size" },
+          { ...emptyStep(1), id: "note", action_type_ref: "notify.publish-change-summary" },
         ],
       }),
       PALETTE,
@@ -53,8 +54,8 @@ describe("workflow-builder buildVizModel", () => {
     const nodes = buildVizModel(
       form({
         steps: [
-          { key: 0, id: "", action_type_ref: "  ", guard_rule_ref: "", compensated_by: "", on_failure: "", params: {} },
-          { key: 1, id: "rs", action_type_ref: "remediate.right-size", guard_rule_ref: "", compensated_by: "", on_failure: "", params: {} },
+          { ...emptyStep(0), action_type_ref: "  " },
+          { ...emptyStep(1), id: "rs", action_type_ref: "remediate.right-size" },
         ],
       }),
       PALETTE,
@@ -68,7 +69,7 @@ describe("workflow-builder buildVizModel", () => {
     const nodes = buildVizModel(
       form({
         steps: [
-          { key: 0, id: "w", action_type_ref: "weird.thing", guard_rule_ref: "", compensated_by: "", on_failure: "", params: {} },
+          { ...emptyStep(0), id: "w", action_type_ref: "weird.thing" },
         ],
       }),
       PALETTE,
@@ -92,5 +93,81 @@ describe("workflow-builder buildVizModel", () => {
   it("falls back to 'an event' when a signal type is empty", () => {
     const nodes = buildVizModel(form({ triggerKind: "signal", signalType: "" }), PALETTE);
     expect(nodes[0]?.name).toBe("an event");
+  });
+
+  it("previews every governed control step in order", () => {
+    const nodes = buildVizModel(
+      form({
+        steps: [
+          {
+            ...emptyStep(0),
+            id: "wait_for_evidence",
+            kind: "wait",
+            wait_for: "evidence.updated",
+            timeout_seconds: "3600",
+          },
+          {
+            ...emptyStep(1),
+            id: "human_approval",
+            kind: "approval",
+            approval_role: "approver",
+            quorum: "2",
+            timeout_seconds: "1800",
+          },
+          {
+            ...emptyStep(2),
+            id: "choose_outcome",
+            kind: "decision",
+            outcomes: ["approved", "held"],
+          },
+          {
+            ...emptyStep(3),
+            id: "fan_out",
+            kind: "parallel",
+            branches: ["security", "reliability"],
+          },
+          {
+            ...emptyStep(4),
+            id: "evidence_gate",
+            kind: "gate",
+            gate_ref: "release.production-ready",
+          },
+        ],
+      }),
+      PALETTE,
+    );
+
+    expect(nodes.slice(1, -1)).toEqual([
+      {
+        kind: "wait",
+        name: "evidence.updated",
+        ref: "timeout_seconds=3600",
+        category: "control",
+      },
+      {
+        kind: "approval",
+        name: "approver",
+        ref: "quorum=2, timeout_seconds=1800",
+        category: "control",
+      },
+      {
+        kind: "decision",
+        name: "choose_outcome",
+        ref: "approved | held",
+        category: "control",
+      },
+      {
+        kind: "parallel",
+        name: "fan_out",
+        ref: "security + reliability; join=all",
+        category: "control",
+      },
+      {
+        kind: "gate",
+        name: "release.production-ready",
+        ref: "release.production-ready",
+        category: "control",
+      },
+    ]);
   });
 });

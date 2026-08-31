@@ -44,9 +44,91 @@ describe("workflow catalog wire tolerance", () => {
     const draft = buildDraft(catalogToForm(workflow));
     expect(draft["steps"]).toEqual([{
       id: "notify",
+      kind: "action",
       action_type_ref: "notify.publish-change-summary",
       params: { channel: "operations", retries: 2, urgent: false },
     }]);
+  });
+
+  test("preserves every control-step field through catalog clone and draft assembly", () => {
+    const workflow = {
+      schema_version: "1.0.0",
+      name: "governed-review",
+      version: "1.0.0",
+      trigger: { kind: "signal", signal_type: "review.requested" },
+      default_mode: "shadow",
+      promotion_gate: {
+        min_shadow_days: 14,
+        min_samples: 100,
+        min_accuracy: 0.95,
+        max_policy_escapes: 0,
+      },
+      steps: [
+        {
+          id: "wait_for_evidence",
+          kind: "wait",
+          wait_for: "evidence.updated",
+          timeout_seconds: 3600,
+        },
+        {
+          id: "human_approval",
+          kind: "approval",
+          approval_role: "approver",
+          timeout_seconds: 1800,
+          quorum: 2,
+          no_self_approval: true,
+        },
+        {
+          id: "choose_outcome",
+          kind: "decision",
+          outcomes: ["approved", "held"],
+        },
+        {
+          id: "fan_out",
+          kind: "parallel",
+          branches: ["security", "reliability"],
+        },
+        {
+          id: "evidence_gate",
+          kind: "gate",
+          gate_ref: "release.production-ready",
+        },
+      ],
+      step_count: 5,
+      yaml: "",
+    } as const;
+
+    expect(buildDraft(catalogToForm(workflow))["steps"]).toEqual([
+      {
+        id: "wait_for_evidence",
+        kind: "wait",
+        wait_for: "evidence.updated",
+        timeout_seconds: 3600,
+      },
+      {
+        id: "human_approval",
+        kind: "approval",
+        approval_role: "approver",
+        timeout_seconds: 1800,
+        quorum: 2,
+        no_self_approval: true,
+      },
+      {
+        id: "choose_outcome",
+        kind: "decision",
+        outcomes: ["approved", "held"],
+      },
+      {
+        id: "fan_out",
+        kind: "parallel",
+        branches: ["security", "reliability"],
+      },
+      {
+        id: "evidence_gate",
+        kind: "gate",
+        gate_ref: "release.production-ready",
+      },
+    ]);
   });
 
   test("keeps built-in browsing available when principal definitions are unwired", async () => {

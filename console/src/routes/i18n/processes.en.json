@@ -1,0 +1,52 @@
+{
+  "subtitle": "Principal-scoped workflow state from authoritative Process snapshots and append-only journals, with guarded runtime requests. Execution remains outside the console.",
+  "viewPurpose": "Principal-scoped workflow Process snapshots, step requirements, and runtime-rechecked transition requests.",
+  "controlEyebrow": "Authoritative step state",
+  "controlTitle": "Permitted next transitions",
+  "controlBody": "The Operator API scopes this view to the signed-in principal and current Process revision. Every request is rechecked by the workflow runtime.",
+  "controlUnavailable": "Authoritative Process transition state is unavailable. No transition can be requested.",
+  "controlKind": "Step kind",
+  "controlAttempt": "Attempt",
+  "controlReason": "Current reason",
+  "controlPending": "No terminal reason recorded",
+  "controlStep": {
+    "action": "Action",
+    "wait": "Wait",
+    "approval": "Human approval",
+    "decision": "Decision",
+    "parallel": "Parallel",
+    "gate": "Evidence gate",
+    "evidence": "Evidence",
+    "terminal": "Terminal"
+  },
+  "controlField": {
+    "wait_for": "Waiting for",
+    "timeout_seconds": "Timeout seconds",
+    "approval_revision": "Approval revision",
+    "deadline_at": "Deadline",
+    "approval_role": "Approval role",
+    "quorum": "Approval quorum",
+    "no_self_approval": "No self-approval",
+    "approved_count": "Approved",
+    "remaining_quorum": "Approvals remaining",
+    "decision": "Decision state",
+    "outcomes": "Allowed outcomes",
+    "branches": "Branches",
+    "join": "Join behavior",
+    "completed_branches": "Completed branches",
+    "failed_branches": "Failed branches",
+    "gate_ref": "Evidence gate",
+    "evidence_state": "Evidence state"
+  },
+  "transitionActions": "Permitted Process transitions",
+  "transition": {
+    "resume": "Request resume",
+    "cancel": "Request cancellation",
+    "retry": "Request retry"
+  },
+  "transitionConfirm": "Request {transition}? The runtime will recheck current state and authority.",
+  "transitionRequesting": "Requesting...",
+  "transitionAccepted": "Request {proposalId} was accepted for runtime review. Acceptance is not operational success; refresh until authoritative state changes.",
+  "transitionDenied": "The transition was not accepted: {error}",
+  "noPermittedTransitions": "No operator transition is permitted from the current authoritative state."
+}

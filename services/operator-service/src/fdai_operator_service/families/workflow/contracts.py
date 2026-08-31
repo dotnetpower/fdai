@@ -115,6 +115,7 @@ class WorkflowProposal:
     path_parameters: Mapping[str, str]
     payload: JsonObject
     mode: str = "shadow"
+    principal_roles: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.idempotency_key.strip() or len(self.idempotency_key) > 200:
@@ -123,6 +124,8 @@ class WorkflowProposal:
             raise ValueError("expected_revision MUST be a bounded non-empty string")
         if self.mode != "shadow":
             raise ValueError("Operator workflow proposals MUST remain shadow-first")
+        if any(not role.strip() for role in self.principal_roles):
+            raise ValueError("principal_roles MUST contain bounded non-empty role names")
 
 
 @dataclass(frozen=True, slots=True)
