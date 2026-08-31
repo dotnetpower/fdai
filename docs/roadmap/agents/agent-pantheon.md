@@ -75,6 +75,8 @@ Norns proposes to Mimir, and Odin arbitrates conflicts before judgment.
 only constitutionally eligible soft-objective tradeoffs. Normalization, precedence, weighted
 scoring, human-approval margins, planning receipts, and temporal policy are owned by
 [Operational Planning](../decisioning/operational-planning.md#multi-objective-arbitration). A conflict is a fact about objectives, not about wording: when a domain specialist attaches the ActionType its own deterministic runtime produced together with the signed objective effects it expects and the lineage both were read from, Forseti raises an arbitration only when two domains hold opposite-signed utilities on one and the same governed objective, and the canonical lineage of each contributing replay travels into the decision case and the terminal verdict.
+Once Forseti raises that arbitration, it doesn't also run generic judgment for the same event. The
+arbitration decision or the bounded unavailable-owner closure is the event's only terminal verdict.
 
 ### 3.2 Discovery-loop learners (Norns)
 

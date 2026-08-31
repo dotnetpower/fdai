@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 9284e7efc4edc4b6055a5b7338a8260bb8d2e638
+translation_source_sha: be643e6133b40c7b74390a3b651f546c1cfe9680
 translation_revised: 2026-08-31
 ---
 # 에이전트 판테온
@@ -78,6 +78,8 @@ Norns는 Mimir에 제안하고 Odin은 판단 전에 충돌을 조정합니다.
 통과한 soft-objective tradeoff만 순위합니다. 정규화, precedence, weighted 채점, 사람 승인
 margin, 계획 수립 증적 및 temporal 정책은
 [Operational 계획 수립](../decisioning/operational-planning-ko.md#다목적-중재)이 소유합니다. 충돌은 표현이 아니라 목표에 관한 사실입니다. 영역 전문가가 자신의 결정적 실행이 산출한 ActionType과 예상되는 부호 있는 목표 효과, 그리고 두 값을 읽어 온 계보를 함께 첨부하면, Forseti는 두 영역이 동일한 통제 목표에서 서로 반대 부호의 효용을 가질 때만 중재를 제기하며, 기여한 각 재생의 표준 계보는 의사결정 사례와 종결 판정까지 이어집니다.
+Forseti가 중재를 제기한 뒤에는 같은 이벤트에 일반 판단을 추가로 실행하지 않습니다. 중재
+결정 또는 범위가 제한된 소유자 부재 종결만 해당 이벤트의 종결 판정이 됩니다.
 
 ### 3.2 발견 루프 학습기 (Norns)
 

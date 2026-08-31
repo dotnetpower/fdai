@@ -249,7 +249,9 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         if topic in ("object.event", "object.anomaly", "object.drift", "object.forecast"):
             if topic == "object.event":
                 await self._attach_change_assessment(payload)
-            await self.maybe_request_arbitration(payload)
+            arbitration = await self.maybe_request_arbitration(payload)
+            if arbitration is not None:
+                return
             await self.judge(payload)
         elif topic == "object.cost-anomaly":
             await self._ingest_domain_signal("cost", payload)

@@ -1100,7 +1100,8 @@ async def _replay_conflict(
         shared_target_id=shared_target_id,
         observed_at=observed_at,
     )
-    request = await forseti.maybe_request_arbitration(event)
+    await forseti.on_typed_message("object.event", event)
+    request = bus.messages_on("object.arbitration-request")[-1].payload
     return _ConflictReplay(
         grounded=grounded,
         bus=bus,
@@ -1526,15 +1527,14 @@ async def test_sre_cross_objective_agreement_raises_no_arbitration(
     agreeing = evidence[0]["effects"]
     event["domain_evidence"] = [{**item, "effects": agreeing} for item in evidence]
 
-    _, forseti, _, audit_chain, _ = _conflict_boundary(
+    bus, forseti, _, audit_chain, _ = _conflict_boundary(
         spec,
         await _conflict_context_store(spec),
         with_arbitration_owner=True,
     )
     assert await forseti.maybe_request_arbitration(event) is None
     assert forseti.behavior_snapshot()["arbitration_declined:objectives_agree"] == 1
-    assert forseti.bus is not None
-    assert forseti.bus.published == []
+    assert bus.published == []
     assert audit_chain.entries_for_correlation(spec["correlation_id"]) == []
 
 
