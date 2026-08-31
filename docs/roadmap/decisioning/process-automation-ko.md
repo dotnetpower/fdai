@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 1bdf1d252e27f20a9e151de47602ac57635240fa
+translation_source_sha: 41af4c23ba51525647351b371f9335d5afa42b21
 translation_revised: 2026-08-31
 ---
 # 프로세스 자동화(프로세스 자동화)
@@ -246,6 +246,7 @@ catalog-root, 어댑터 라우팅, 저널, 명령 및 샌드박스 실행 세부
 architecture-review 운영 게이트는 그대로 유지됩니다. 가드 해석은 실패 시 차단입니다: 오래된 평가 시점,
 예외를 던지거나 사용할 수 없는 평가기, 불리언이 아닌 결과는 각각 단계를 차단하고 범위가 제한된
 `guard_error`를 기록하며, 깨끗한 정책 차단은 `guard_error`를 null로 유지합니다.
+리터럴 불리언 `true`만 작업 흐름 게이트를 열 수 있으며, 그 밖의 참으로 평가되는 값은 차단합니다.
 게이트를 여는 것은 긍정적 결정이므로, 조건을 충족한 게이트에는 해당 게이트 참조와 프로세스
 계보에 정확히 연결된 최신 공유 의사 결정 핵심 근거 승인 결과가 추가로 필요합니다. 승인
 프로바이더가 연결되지 않았거나 승인 결과가 일치하지 않으면 게이트는 닫힌 상태로 유지됩니다.

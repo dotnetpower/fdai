@@ -46,6 +46,12 @@ class _Fallback:
         return True
 
 
+class _MalformedFallback:
+    async def evaluate(self, **kwargs: object) -> object:
+        del kwargs
+        return "denied"
+
+
 async def test_change_window_gate_uses_exact_target_and_time() -> None:
     evidence = _ChangeWindows(active=True)
     evaluator = ChangeWindowWorkflowGuardEvaluator(
@@ -85,6 +91,24 @@ async def test_unrelated_gate_delegates_without_querying_change_windows() -> Non
     assert result is True
     assert fallback.calls == ["architecture-review.production-ready"]
     assert evidence.calls == []
+
+
+async def test_truthy_non_boolean_fallback_cannot_open_a_gate() -> None:
+    evaluator = ChangeWindowWorkflowGuardEvaluator(
+        change_windows=_ChangeWindows(active=False),
+        fallback=_MalformedFallback(),  # type: ignore[arg-type]
+        decision_evidence_provider=_Admissions(),
+    )
+
+    result = await evaluator.evaluate_context(
+        rule_id="architecture-review.production-ready",
+        step_id="production",
+        process_id="process-1",
+        target_resource_id="resource-1",
+        at=_NOW,
+    )
+
+    assert result is False
 
 
 async def test_an_unbound_admission_provider_keeps_a_satisfied_gate_closed() -> None:

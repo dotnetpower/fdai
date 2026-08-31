@@ -26,6 +26,7 @@ class EffectVerificationReason(StrEnum):
     TARGET_MISMATCH = "target_mismatch"
     METRIC_MISMATCH = "metric_mismatch"
     OBSERVATION_BEFORE_PREDICTION = "observation_before_prediction"
+    OBSERVATION_BEFORE_DISPATCH = "observation_before_dispatch"
     OBSERVATION_AFTER_DEADLINE = "observation_after_deadline"
     OBSERVATION_NOT_YET_RECORDED = "observation_not_yet_recorded"
     PREDICTION_UNAVAILABLE = "prediction_unavailable"
@@ -148,6 +149,7 @@ def admissible_effect_evidence(
     expected: ExpectedEffect | None,
     observed: ObservedEffect | None,
     recorded_at: datetime,
+    not_before: datetime | None = None,
 ) -> tuple[EffectVerificationResult, ObservedEffect | None]:
     """Return the evidence a record may carry at ``recorded_at``, holding the rest.
 
@@ -165,6 +167,8 @@ def admissible_effect_evidence(
         return verification, None
     if observed.observed_at < expected.predicted_at:
         return _held(verification, EffectVerificationReason.OBSERVATION_BEFORE_PREDICTION), None
+    if not_before is not None and observed.observed_at < not_before:
+        return _held(verification, EffectVerificationReason.OBSERVATION_BEFORE_DISPATCH), None
     if observed.observed_at > expected.observation_deadline:
         return _held(verification, EffectVerificationReason.OBSERVATION_AFTER_DEADLINE), None
     if observed.observed_at > recorded_at:

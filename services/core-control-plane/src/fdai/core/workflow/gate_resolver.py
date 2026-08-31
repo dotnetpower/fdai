@@ -62,7 +62,7 @@ class ChangeWindowWorkflowGuardEvaluator:
                 step_id=step_id,
                 process_id=process_id,
             )
-        if not satisfied:
+        if satisfied is not True:
             return False
         return not await self._admission_rejection_reasons(
             rule_id=rule_id,

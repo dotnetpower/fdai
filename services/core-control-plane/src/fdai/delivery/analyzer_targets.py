@@ -307,14 +307,18 @@ async def _state_fact_supports_selection(
         purpose_id=ANALYZER_TARGET_EVIDENCE_PURPOSE,
         source_revision=metadata.source_revision,
     )
-    if admission is None or assess_decision_evidence_admission(
+    if admission is None:
+        skipped.add(SKIP_UNVERIFIED_STATE_FACT)
+        return False
+    reasons = assess_decision_evidence_admission(
         admission,
         expected_evidence_digest=evidence_digest,
         expected_scope_digest=scope_digest,
         expected_purpose_id=ANALYZER_TARGET_EVIDENCE_PURPOSE,
         expected_source_revision=metadata.source_revision,
         evaluated_at=now,
-    ):
+    )
+    if reasons:
         skipped.add(SKIP_UNVERIFIED_STATE_FACT)
         return False
     return True
@@ -362,14 +366,18 @@ async def _identity_supports_selection(
         purpose_id=ANALYZER_TARGET_IDENTITY_EVIDENCE_PURPOSE,
         source_revision=source_revision,
     )
-    if admission is None or assess_decision_evidence_admission(
+    if admission is None:
+        skipped.add(SKIP_UNVERIFIED_STATE_FACT)
+        return False
+    reasons = assess_decision_evidence_admission(
         admission,
         expected_evidence_digest=evidence_digest,
         expected_scope_digest=scope_digest,
         expected_purpose_id=ANALYZER_TARGET_IDENTITY_EVIDENCE_PURPOSE,
         expected_source_revision=source_revision,
         evaluated_at=now,
-    ):
+    )
+    if reasons:
         skipped.add(SKIP_UNVERIFIED_STATE_FACT)
         return False
     return True
