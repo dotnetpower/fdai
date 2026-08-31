@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: f52f32c6efc256f0e7a9778c9e15532c8e64e955
-translation_revised: 2026-08-30
+translation_source_sha: 65d0399a179046b6fd90e40d8dc28452bfa1d5f1
+translation_revised: 2026-08-31
 ---
 # 프로젝트 구조
 
@@ -401,6 +401,11 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
   `StateStoreExecutedActionObservationStore`는 서명된 맥락이 쓰기와 replay에서 구성된 검증기를
   통과한 Heimdall 귀속 관측만 받습니다. 근거가 없으면 held 상태를 유지합니다.
 - **Azure operational 근거**: `bind_azure_operational_evidence`는 strict promoted-inventory 스냅샷 읽기 담당, 현재 안전성 평가기, 구성된 Azure 메트릭, 범위가 제한된 가지 estimator, effect-model 읽기 담당을 조립합니다. Temporal 어댑터는 근거 hashing 전에 non-finite 메트릭 값을 거부합니다. 부분 연결은 컨테이너 construction에서 실패합니다.
+- **Principal 범위 operational 근거**: `OperationalEvidenceSource`와
+  `OperationalEvidencePrincipalContextProvider`는 하나의 쌍으로 바인딩됩니다. Core는 기존
+  semantic 변환 결과가 Operator로 전달되기 전에 범위가 제한된 번들과 증적으로 검증된 Context
+  메타데이터를 승인합니다. 쌍이 없으면 기존 응답을 유지하고 일부만 바인딩되면 컨테이너 구성에
+  실패합니다. 두 경계 모두 변경 또는 실행 권한을 부여하지 않습니다.
 
 ### 기능 번들
 

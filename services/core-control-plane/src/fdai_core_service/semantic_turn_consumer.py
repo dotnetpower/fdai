@@ -23,6 +23,7 @@ from fdai.shared.providers.state_store import StateStore
 from fdai_service_contracts import SemanticQueryProgress
 
 from .semantic_turn_processor import (
+    OperationalEvidenceProjectionReader,
     SemanticTurnProcessor,
     SemanticTurnRejectedError,
 )
@@ -167,6 +168,7 @@ def build_semantic_turn_processor(
     state_store: StateStore,
     runtime: SemanticConversationRuntime | None,
     purpose: str = "operations-review",
+    operational_evidence: OperationalEvidenceProjectionReader | None = None,
 ) -> SemanticTurnProcessor:
     """Bind the durable store and an optional composed semantic runtime.
 
@@ -178,6 +180,7 @@ def build_semantic_turn_processor(
         runtime=runtime,
         results=StateStoreSemanticTurnResultStore(state_store),
         purpose=purpose,
+        operational_evidence=operational_evidence,
     )
 
 
@@ -187,6 +190,7 @@ def semantic_turn_binding_from_config(
     runtime: SemanticConversationRuntime | None,
     config: Mapping[str, str],
     unavailable_reason: str | None = None,
+    operational_evidence: OperationalEvidenceProjectionReader | None = None,
 ) -> SemanticTurnConsumerBinding | None:
     """Build the consumer only when both transport topics are configured.
 
@@ -227,6 +231,7 @@ def semantic_turn_binding_from_config(
             state_store=state_store,
             runtime=runtime,
             purpose=purpose,
+            operational_evidence=operational_evidence,
         ),
         available=runtime is not None,
         unavailable_reason=(

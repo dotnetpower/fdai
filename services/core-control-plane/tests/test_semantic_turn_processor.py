@@ -22,6 +22,7 @@ from fdai.core.conversation.semantic_planning_cascade import (
 from fdai.core.conversation.semantic_planning_models import (
     BoundIncident,
     BoundInvestigationContinuation,
+    BoundResourceContext,
 )
 from fdai.core.conversation.semantic_runtime import (
     SemanticTurnResult as RuntimeSemanticTurnResult,
@@ -69,9 +70,11 @@ from fdai_core_service.semantic_turn_processor import (
     incident_timeline_rows,
 )
 from fdai_service_contracts import (
+    OperationalEvidenceProjection,
     RuleSearchReceipt,
     SemanticDirectResponseIntent,
     SemanticTurnRequest,
+    context_selection_digest,
     rule_search_query_digest,
 )
 from fdai_service_contracts.ontology_query import (
@@ -79,6 +82,7 @@ from fdai_service_contracts.ontology_query import (
     GoalTaskReceipt,
     SemanticOperation,
     TaskStatus,
+    content_digest,
 )
 
 NOW = datetime(2026, 8, 11, 12, 0, tzinfo=UTC)
@@ -819,6 +823,7 @@ class _Runtime:
         self.principals: list[Principal] = []
         self.prior_turns: tuple[Turn, ...] = ()
         self.bound_incidents: list[BoundIncident | None] = []
+        self.bound_resource_contexts: list[BoundResourceContext | None] = []
         self.bound_investigation_continuations: list[BoundInvestigationContinuation | None] = []
         self.escalation_policies: list[SemanticPlanningEscalationPolicy | None] = []
 
@@ -831,6 +836,7 @@ class _Runtime:
         locale: str = "en",
         cancelled: asyncio.Event | None = None,
         bound_incident: BoundIncident | None = None,
+        bound_resource_context: BoundResourceContext | None = None,
         bound_investigation_continuation: BoundInvestigationContinuation | None = None,
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
     ) -> RuntimeSemanticTurnResult:
@@ -839,6 +845,7 @@ class _Runtime:
         self.principals.append(principal)
         self.prior_turns = prior_turns
         self.bound_incidents.append(bound_incident)
+        self.bound_resource_contexts.append(bound_resource_context)
         self.bound_investigation_continuations.append(bound_investigation_continuation)
         self.escalation_policies.append(escalation_policy)
         if self.failure is not None:
@@ -966,6 +973,7 @@ def _request(
         "schema_version": (
             "1.5.0"
             if investigation_continuation is not None
+            or (bound_context is not None and bound_context.get("kind") != "incident")
             else "1.4.0"
             if include_model_trace
             else "1.3.0"
@@ -1007,11 +1015,13 @@ def _processor(
     runtime: _Runtime | None,
     *,
     now: Any = lambda: NOW,
+    operational_evidence: Any = None,
 ) -> SemanticTurnProcessor:
     return SemanticTurnProcessor(
         runtime=runtime,
         results=StateStoreSemanticTurnResultStore(InMemoryStateStore()),
         now=now,
+        operational_evidence=operational_evidence,
     )
 
 
@@ -1019,6 +1029,140 @@ def _projection(encoded: bytes) -> dict[str, Any]:
     loaded = json.loads(encoded)
     assert isinstance(loaded, dict)
     return cast(dict[str, Any], loaded)
+
+
+def _resource_bound_context() -> dict[str, Any]:
+    identity = {
+        "kind": "screen",
+        "screen_id": "ontology-instances",
+        "resource_group_id": None,
+        "resource_ids": ("resource-example",),
+        "principal_id": "operator-1",
+        "principal_scope_digest": f"sha256:{'e' * 64}",
+        "ontology_release_digest": RELEASE_DIGEST,
+        "source_generation": "generation-1",
+        "complete": True,
+    }
+    return {
+        **{key: value for key, value in identity.items() if value is not None},
+        "selection_token": "context-selection:example",
+        "selection_digest": context_selection_digest(**identity),
+    }
+
+
+def _operational_evidence_projection() -> dict[str, object]:
+    bundle: dict[str, object] = {
+        "autonomy_ceiling": "shadow_only",
+        "catalog_revision": MANIFEST_DIGEST,
+        "catalog": [{"evidence_ref": "catalog:example"}],
+        "citation_manifest": [
+            {
+                "cutoff": NOW.isoformat(),
+                "evidence_ref": "catalog:example",
+                "item_digest": f"sha256:{'1' * 64}",
+                "lane": "catalog",
+                "redaction_summary": [],
+                "source_revision": "catalog-r1",
+            }
+        ],
+        "claims": [],
+        "conflicts": [],
+        "cutoff": NOW.isoformat(),
+        "documents": [],
+        "evidence_issues": [],
+        "grants_action_authority": False,
+        "hold_reasons": [],
+        "max_bytes": 65_536,
+        "max_items": 8,
+        "missing_paths": [],
+        "ontology": [],
+        "ontology_release_digest": RELEASE_DIGEST,
+        "purpose": "operations-review",
+        "scope": ["resource-example"],
+        "state": [],
+        "trusted_recorded_at": NOW.isoformat(),
+        "used_bytes": 1_024,
+        "used_items": 1,
+    }
+    digest = content_digest(bundle)
+    return OperationalEvidenceProjection(
+        bundle=bundle,
+        bundle_id=f"operational-evidence-bundle:{digest}",
+        digest=digest,
+        context_metadata={
+            "schema_version": "1.0.0",
+            "snapshot_id": "context-example",
+            "principal_ref": "operator-1",
+            "ontology_release_digest": RELEASE_DIGEST,
+            "query_result_digest": f"sha256:{'2' * 64}",
+            "purpose": "operations-review",
+            "cutoff": NOW.isoformat(),
+            "recorded_at": NOW.isoformat(),
+            "complete": True,
+            "query_complete": True,
+            "truncated": False,
+            "truncation_reason": None,
+            "autonomy_ceiling": "shadow_only",
+            "object_count": 1,
+            "link_count": 0,
+        },
+        principal_ref="operator-1",
+    ).model_dump(mode="json")
+
+
+class _OperationalEvidenceReader:
+    def __init__(self, *, fail: bool = False) -> None:
+        self.fail = fail
+        self.calls: list[dict[str, object]] = []
+
+    async def read(self, **kwargs: object) -> Mapping[str, object]:
+        self.calls.append(dict(kwargs))
+        if self.fail:
+            raise ValueError("untrusted evidence detail")
+        return _operational_evidence_projection()
+
+
+async def test_resource_scoped_answer_carries_principal_bound_operational_evidence() -> None:
+    evidence = _OperationalEvidenceReader()
+
+    projection = _projection(
+        await _processor(
+            _Runtime(_runtime_result("answered")),
+            operational_evidence=evidence,
+        ).process(_request(bound_context=_resource_bound_context()))
+    )
+
+    assert projection["status"] == "answered"
+    projected = OperationalEvidenceProjection.model_validate(
+        projection["payload"]["operational_evidence"]
+    )
+    assert projected.principal_ref == "operator-1"
+    assert projected.execution_authority is False
+    assert projected.mutation_authority is False
+    assert evidence.calls == [
+        {
+            "principal_ref": "operator-1",
+            "principal_scope_digest": f"sha256:{'e' * 64}",
+            "purpose": "operations-review",
+            "ontology_release_digest": RELEASE_DIGEST,
+            "catalog_revision": MANIFEST_DIGEST,
+            "scope": ("resource-example",),
+            "cutoff": NOW,
+        }
+    ]
+
+
+async def test_resource_scoped_operational_evidence_failure_holds_api_response() -> None:
+    projection = _projection(
+        await _processor(
+            _Runtime(_runtime_result("answered")),
+            operational_evidence=_OperationalEvidenceReader(fail=True),
+        ).process(_request(bound_context=_resource_bound_context()))
+    )
+
+    assert projection["status"] == "held"
+    assert projection["semantic_result"]["reason_code"] == "operational_evidence_unavailable"
+    assert "operational_evidence" not in projection["payload"]
 
 
 async def test_pantheon_assurance_purpose_uses_bound_diagnostic_runtime() -> None:

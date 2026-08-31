@@ -411,6 +411,11 @@ clean (see the fork model in
   `StateStoreExecutedActionObservationStore` accepts only Heimdall-attributed observations whose
   signed context passes the configured verifier on write and replay. Missing evidence remains held.
 - **Azure operational evidence**: `bind_azure_operational_evidence` composes a strict promoted-inventory snapshot reader, current safety evaluator, configured Azure metrics, bounded branch estimator, and effect-model reader. Temporal adapters reject non-finite metric values before evidence hashing. Partial binding fails at container construction.
+- **Principal-scoped operational evidence**: `OperationalEvidenceSource` and
+  `OperationalEvidencePrincipalContextProvider` bind as one pair. Core admits the bounded bundle and
+  receipt-verified Context metadata before the existing semantic projection carries it to Operator.
+  A missing pair preserves the existing response, while a partial pair fails at container
+  construction. Neither seam grants mutation or execution authority.
 
 ### Capability Bundles
 

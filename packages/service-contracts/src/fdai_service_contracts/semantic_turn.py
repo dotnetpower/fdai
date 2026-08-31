@@ -406,6 +406,99 @@ class SemanticTurnRequest(QueryContract):
     execution_authority: Literal[False] = False
 
 
+class OperationalEvidenceProjection(QueryContract):
+    """Admitted principal-scoped evidence and Context metadata with no action authority."""
+
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    bundle: dict[str, Any]
+    bundle_id: BoundedId
+    digest: Digest
+    context_metadata: dict[str, Any]
+    principal_ref: BoundedId
+    execution_authority: Literal[False] = False
+    mutation_authority: Literal[False] = False
+
+    @model_validator(mode="after")
+    def _projection_is_admitted_and_exact(self) -> OperationalEvidenceProjection:
+        body = self.model_dump(mode="json")
+        if len(canonical_json(body).encode("utf-8")) > 65_536:
+            raise ValueError("operational evidence projection exceeds 64 KiB")
+        if self.digest != content_digest(self.bundle):
+            raise ValueError("operational evidence projection digest does not match bundle")
+        if self.bundle_id != f"operational-evidence-bundle:{self.digest}":
+            raise ValueError("operational evidence projection bundle_id does not match digest")
+
+        bundle = self.bundle
+        context = self.context_metadata
+        for field in (
+            "ontology_release_digest",
+            "catalog_revision",
+            "purpose",
+            "scope",
+            "cutoff",
+            "citation_manifest",
+            "conflicts",
+            "missing_paths",
+            "evidence_issues",
+            "hold_reasons",
+            "max_bytes",
+            "used_bytes",
+            "grants_action_authority",
+        ):
+            if field not in bundle:
+                raise ValueError(f"operational evidence bundle is missing {field}")
+        if bundle["grants_action_authority"] is not False:
+            raise ValueError("operational evidence bundle MUST NOT grant action authority")
+        if bundle.get("autonomy_ceiling") != "shadow_only":
+            raise ValueError("operational evidence bundle MUST remain shadow-only")
+        if (
+            not isinstance(bundle["catalog_revision"], str)
+            or not bundle["catalog_revision"]
+            or not isinstance(bundle["purpose"], str)
+            or not bundle["purpose"]
+            or not isinstance(bundle["scope"], (list, tuple))
+            or not bundle["scope"]
+            or any(not isinstance(item, str) or not item for item in bundle["scope"])
+            or not isinstance(bundle["cutoff"], str)
+            or not bundle["cutoff"]
+        ):
+            raise ValueError("operational evidence bundle identity is malformed")
+        if any(
+            bundle[field]
+            for field in ("conflicts", "missing_paths", "evidence_issues", "hold_reasons")
+        ):
+            raise ValueError("operational evidence bundle contains unresolved hold evidence")
+        citations = bundle["citation_manifest"]
+        if not isinstance(citations, (list, tuple)) or not citations:
+            raise ValueError("operational evidence bundle requires admitted citations")
+        max_bytes = bundle["max_bytes"]
+        used_bytes = bundle["used_bytes"]
+        if (
+            not isinstance(max_bytes, int)
+            or isinstance(max_bytes, bool)
+            or not 1 <= max_bytes <= 65_536
+            or not isinstance(used_bytes, int)
+            or isinstance(used_bytes, bool)
+            or not 0 <= used_bytes <= max_bytes
+        ):
+            raise ValueError("operational evidence bundle byte budget is invalid")
+
+        exact_pairs = (
+            ("principal_ref", self.principal_ref),
+            ("ontology_release_digest", bundle["ontology_release_digest"]),
+            ("purpose", bundle["purpose"]),
+            ("cutoff", bundle["cutoff"]),
+        )
+        for field, expected in exact_pairs:
+            if context.get(field) != expected:
+                raise ValueError(f"operational Context {field} does not match the evidence read")
+        if context.get("complete") is not True or context.get("query_complete") is not True:
+            raise ValueError("operational Context graph coverage is incomplete")
+        if context.get("truncated") is not False:
+            raise ValueError("operational Context graph coverage is truncated")
+        return self
+
+
 class SemanticQueryProgress(QueryContract):
     """One observed query-node lifecycle update with no evidence authority."""
 

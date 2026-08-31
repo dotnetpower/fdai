@@ -153,3 +153,15 @@ def test_container_rejects_partial_operational_evidence_bindings() -> None:
             container,
             graph_dynamic_simulation_request_provider=_GraphRequestProvider(),
         )
+
+    with pytest.raises(ValueError, match="operational evidence source and principal contexts"):
+        replace(
+            container,
+            operational_evidence_source=object(),  # type: ignore[arg-type]
+        )
+
+    with pytest.raises(ValueError, match="operational evidence source and principal contexts"):
+        replace(
+            container,
+            operational_evidence_principal_contexts=object(),  # type: ignore[arg-type]
+        )
