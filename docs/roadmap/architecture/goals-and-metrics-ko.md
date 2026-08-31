@@ -1,7 +1,7 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: b293a69cce30c4ddbad086941d5e520cdf2f6e84
+translation_source_sha: a13eba58b3746527159e982d4812e47c58717935
 translation_revised: 2026-08-31
 ---
 
@@ -31,7 +31,7 @@ translation_revised: 2026-08-31
 | 관리되는 운영 커버리지 주장 계약 | implemented | `packages/service-contracts/src/fdai_service_contracts/operational_coverage.py`; `packages/service-contracts/tests/test_operational_coverage.py` | 변경할 수 없는 분모, 최종 처리 결과, 최신성, 정확한 베이시스 포인트, 무관용 조건 및 다이제스트 검사를 통해 불완전한 전체 집합이 99% 주장으로 바뀌지 않도록 합니다. 증적은 실행 권한을 부여하지 않습니다. |
 | 정식 의사 결정 핵심 근거 봉투 | implemented | `packages/service-contracts/src/fdai_service_contracts/decision_evidence.py`; `schemas/decision-critical-evidence/1.0.0.json`; 집중 계약 테스트 | 이 봉투는 근거와 해당 인증 증명, 권위, 범위, 목적, 정확한 생성기와 방법, 시간, 정책에서 파생된 최신성, 완전성 증명, 충돌 판정, 출처 계보 및 합성 상태를 연결합니다. 주장 사전 검사는 입력을 차단하거나 별도의 권위 있는 검증으로 전달할 수만 있으며 실제 운영 준비 상태를 주장하지 않습니다. 기존 의사 결정 경계는 아직 마이그레이션해야 합니다. |
 | 독립적인 의사 결정 근거 검증 | in-progress | `decision_evidence_verification.py`; `core/readiness/decision_evidence.py`; `shared/providers/decision_evidence_verifier.py`; `delivery/azure/decision_evidence.py`; 집중 계약, 준비 상태 및 Azure 어댑터 테스트 | 내용 기반 증명 5개와 공유 승인 결과는 인벤토리에 등록된 모든 경계에 구현되어 있습니다. 프로덕션 프로바이더 조립과 통제된 실제 묶음은 아직 열려 있으므로, 배포된 각 경계는 현재 실제 근거를 승인하지 않고 검토 보류로 처리합니다. |
-| 고정된 시나리오 집합 계산 | in-progress | `tests/scenarios/manifests/v2026.07.json`; `test_frozen.py`; `test_v2026_07_replay.py` | 이제 SRE 묶음에는 실행 가능한 차원 4개가 있습니다. 성공적인 전체 루프와 목표 간 충돌 근거는 아직 열려 있으며 나머지 4개 묶음도 불완전합니다. |
+| 고정된 시나리오 집합 계산 | in-progress | `tests/scenarios/manifests/v2026.07.json`; `tests/scenarios/cross-objective/v2026.07-sre.json`; `test_frozen.py`; `test_v2026_07_replay.py` | 이제 SRE 묶음에는 실행 가능한 차원 5개가 있습니다. 성공적인 전체 루프 근거는 아직 열려 있으며 나머지 4개 묶음도 불완전합니다. |
 | 운영 인텔리전스 99% 완료 근거 | in-progress | `config/azure-discovery-live-evidence.json`; 연결된 거버넌스, RCA, 실행, 문서 수집 및 배포 원장 | Azure 발견에는 실행 권한이 없는 최신 커버리지 증적이 있습니다. 나머지 도메인에는 관리되는 정확한 개정 번호의 근거 집합이 없으므로 통합 99% 주장을 할 수 없습니다. |
 | 실제 운영 KPI 기준선, 처리 및 대시보드 종결 | in-progress | [데이터 수집과 원격측정](#데이터-수집과-원격측정); `config/constitution-traceability.json`의 `FDAI-CONST-002` 요구 사항 | 런타임 기록과 작업은 있지만 하나의 고정된 개정에서 모든 성공 및 임계값 0 가드 메트릭을 입증하는 완전한 실제 운영 기준선 및 처리 집단은 보존되지 않았습니다. |
 
@@ -39,6 +39,7 @@ translation_revised: 2026-08-31
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-31 | in-progress | `sre` 묶음에 `cross_objective_conflict` 근거를 확보했습니다. 고정된 고객 비의존 충돌 명세는 선택지 3개를 구성하며, 각 선택지는 고정된 v2026.07 시나리오를 실제 제어 루프로 재생하므로 적격 여부는 직접 작성한 후보가 아니라 런타임 속성입니다. 근거를 확보한 적격 선택지 2개, 즉 변경 안전성과 비용 거버넌스가 동일한 논리적 대상 하나를 두고 경합하는 동안 복원력 선택지는 판단을 보류하고 `hold`을 제출합니다. 이후 충돌은 이미 제공되는 통제 경계를 통과합니다. Forseti는 상관관계, 공유 대상 및 관련 목표 전체를 담은 `object.arbitration-request`를 정확히 한 번 발행하고, Odin은 유일한 중재 소유자로 남습니다. 우선순위가 가장 높은 목표가 곧 근거가 해소되지 않은 목표이므로 어떤 적격 선택지도 승리를 물려받지 못하며, 종단 처리는 ActionType과 개시자가 모두 비어 있는 `arbitration_unresolved` HIL 판정입니다. Odin을 제거하면 충돌은 제기된 채로 남아 결정, 판정, 승자 기록이 모두 없으며, 두 경우 모두 근거를 확보한 실행과 발행된 PR은 shadow에 머뭅니다. | `current change`; `services/core-control-plane/tests/scenarios/cross-objective/{schema.json,v2026.07-sre.json}`; `services/core-control-plane/tests/scenarios/test_v2026_07_replay.py`; `manifests/v2026.07.json`; `uv run pytest -q --no-cov services/core-control-plane/tests/scenarios services/core-control-plane/tests/agents/test_arbitration.py services/core-control-plane/tests/core/risk_gate/test_precedence.py`로 집중 209건 통과. | `successful_full_loop`에는 독립적이고 권위 있는 복구 및 재발 종결 근거가 여전히 필요합니다. 이번 충돌은 메모리 내 버스에서 shadow로 입증했으므로 프로덕션 버스의 배포 런타임 중재 증적은 열려 있으며, 나머지 4개 묶음과 비합성 기준선 및 처리 결과도 열려 있습니다. |
 | 2026-08-31 | implemented | FDAI-CONST-002 경계 인벤토리를 완결했습니다. 인과 종결, 효과 모델 활성화, 작업 흐름 게이트 및 작업 흐름 결과 수락은 이제 정확한 근거, 범위, 목적 및 소스 개정에 연결된 최신 공유 승인 결과를 요구하며, 승인 결과가 없거나 수락되지 않으면 각각 검토 보류로 처리합니다. `config/decision-boundary-inventory.json`이 전체 인벤토리를 기록하고, 새 커버리지 가드가 이를 양방향으로 검사하므로 공유 승인이 없는 등록 경계도, 인벤토리에 없는 소스 경계도 실패합니다. 준비 상태 경계는 이제 누락, 오래됨, 불완전, 충돌, 합성, 잘못된 목적 및 잘못된 범위 근거를 각각 이름으로 차단합니다. | `current change`; `config/decision-boundary-inventory.json`; `scripts/quality/architecture/check-decision-boundary-coverage.py`; `core/rca/hypothesis.py`; `core/assurance_twin/model_promotion.py`; `core/workflow/gate_resolver.py`; `core/workflow/outcome_verification.py`; 집중 rca, assurance-twin, 영속성, 작업 흐름, 준비 상태 및 스크립트 통합 검사; `check-constitution.py`; Ruff 및 엄격 mypy. | FDAI-CONST-002가 `partial`을 벗어나려면 프로덕션 검증기와 승인 프로바이더를 런타임 조립에 연결하고 통제된 실제 묶음을 보존해야 합니다. |
 | 2026-08-29 | in-progress | 독립적인 종료 검토에서 추가 하위 시스템 증적 게이트를 확인한 뒤 FDAI-CONST-002 경계 목록을 정정했습니다. 마이그레이션된 경계는 계속 구현 상태이지만 Rubric 및 채팅 정책 승격, 인과 종결과 Dynamic 모델 활성화, 현재 사례 T1 재사용, 작업 흐름 결과 또는 승인은 아직 공유 계약 채택으로 계산할 수 없습니다. Standing authority는 숨겨진 완료 주장이 아니라 명시적인 shadow 전용 미연결 제외 항목으로 유지합니다. | `current change`; `core/quality_gate`, `core/conversation_assurance`, `core/rca`, `core/tiers/t1_lightweight`, `core/workflow`, `core/assurance_twin`의 출처 목록, 계속 `partial`인 추적성 상태. | 이름이 지정된 각 긍정적 의사 결정 경계를 마이그레이션하거나 외부 공유 게이트로 명시하고 자동 커버리지 가드를 추가하며 프로덕션 프로바이더를 연결하고 통제된 실제 묶음을 보존합니다. |
 | 2026-08-29 | implemented | 의사 결정 사례와 계획이 사용하는 런타임 운영 컨텍스트 스냅샷을 마이그레이션했습니다. 최종 재생 신원은 승인 전 그래프 다이제스트와 승인 결과를 연결하며, 승인 결과가 없거나 수락되지 않으면 명시적 충돌로 기록하고 자율성을 `SHADOW_ONLY`로 고정합니다. 프로덕션 pantheon은 승인 결과를 요구하며 기본 긍정 프로바이더가 없습니다. | `current change`; 컨텍스트 모델, materializer, 런타임 pantheon 조립, 집중 컨텍스트, 에이전트 및 부트스트랩 검사, Ruff 및 strict mypy. | 프로덕션 컨텍스트 승인 프로바이더를 연결하고 통제된 스냅샷 묶음을 보존합니다. |
@@ -63,7 +64,9 @@ translation_revised: 2026-08-31
 
 ### 남은 작업
 
-- [ ] 독립적이고 권위 있는 복구 및 재발 종결 근거로 SRE `successful_full_loop`를 완료하고, 시나리오가 생성한 경쟁 작업을 프로덕션 중재 경로에서 감사해 `cross_objective_conflict`를 완료합니다.
+- [ ] 독립적이고 권위 있는 복구 및 재발 종결 근거로 SRE `successful_full_loop`를 완료합니다.
+- [x] 이미 제공되는 Forseti-Odin 중재 경계에서 런타임으로 근거를 확보한 경쟁 선택지를 해소하거나 보류해 SRE `cross_objective_conflict`를 완료했습니다. 근거: `services/core-control-plane/tests/scenarios/cross-objective/v2026.07-sre.json`과 `test_v2026_07_replay.py`의 집중 충돌 테스트 3건.
+- [ ] 현재 근거는 메모리 내 버스에서 실행한 shadow 재생이므로, 프로덕션 이벤트 버스에서 해당 목표 간 충돌의 배포 런타임 중재 증적을 확보해야 합니다.
 - [ ] ARB / 변경 안전성, FinOps / 비용 거버넌스, DR 및 Chaos Engineering 묶음에 실행 가능한 헌법상 6개 차원을 모두 갖춥니다.
 - [ ] 동일한 고정 시나리오 집합에서 표본 크기, 신뢰 구간, 절대값 및 지원되지 않는 배수 주장이 없는 하나의 참조 기준선과 FDAI 처리를 보존합니다.
 - [ ] 실제 운영 인시던트, 변경, 비용, 사람 터치포인트 및 독립적으로 검증된 결과 기록을 KPI 변환 결과에 연결한 다음 모든 임계값 0 가드가 0을 유지함을 입증합니다.

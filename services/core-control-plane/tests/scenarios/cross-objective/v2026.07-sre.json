@@ -1,0 +1,66 @@
+{
+  "schema_version": "1.0.0",
+  "id": "sre.cross-objective-conflict.v2026-07",
+  "scenario_set_version": "v2026.07",
+  "capability": "sre",
+  "dimension": "cross_objective_conflict",
+  "shared_target_id": "example-observability-pipeline",
+  "correlation_id": "sre-cross-objective-conflict-v2026-07",
+  "observed_at": "2026-07-05T08:00:00Z",
+  "arbitration": {
+    "raiser_agent": "Forseti",
+    "owner_agent": "Odin",
+    "request_topic": "object.arbitration-request",
+    "decision_topic": "object.arbitration-decision",
+    "verdict_topic": "object.verdict"
+  },
+  "options": [
+    {
+      "option_id": "enable-cluster-diagnostics",
+      "scenario_id": "sre.cluster-diagnostics-missing.001",
+      "objective_domain": "change_safety",
+      "recommendation": "enable_diagnostic_settings",
+      "expected_eligibility": "eligible",
+      "note": "Change Safety option. The frozen scenario declares domain `change`, and its replay cites `kubernetes-cluster.diagnostic-settings-required`, so the option is grounded by a real deterministic finding rather than a hand-authored candidate."
+    },
+    {
+      "option_id": "reduce-telemetry-retention",
+      "scenario_id": "sre.telemetry-retention-excessive.003",
+      "objective_domain": "cost",
+      "recommendation": "reduce_retention_to_ceiling",
+      "expected_eligibility": "eligible",
+      "note": "Cost Governance option. The frozen scenario declares domain `finops`, and its replay cites `log-workspace.retention-excessive`. It opposes the Change Safety option because enabling diagnostics increases the telemetry the retention cut is meant to shrink."
+    },
+    {
+      "option_id": "map-slo-signal-source",
+      "scenario_id": "sre.slo-signal-source-unmapped.002",
+      "objective_domain": "resilience",
+      "recommendation": "map_signal_source",
+      "expected_eligibility": "unresolved_evidence",
+      "note": "Resilience option. The frozen scenario declares domain `dr` and abstains on an unmodelled signal source, so its evidence stays unresolved and it contributes `hold` instead of an eligible recommendation."
+    }
+  ],
+  "expected": {
+    "eligible_option_ids": ["enable-cluster-diagnostics", "reduce-telemetry-retention"],
+    "unresolved_option_ids": ["map-slo-signal-source"],
+    "held_recommendation": "hold",
+    "domains_in_conflict": ["change_safety", "cost", "resilience"],
+    "winning_domain": "resilience",
+    "losing_domains": ["change_safety", "cost"],
+    "reason": "initial_vertical_precedence",
+    "escalate_hil": false,
+    "terminal": {
+      "risk_verdict": "hil",
+      "reason": "arbitration_unresolved",
+      "action_type": "",
+      "initiator_principal": null
+    },
+    "without_arbitration_owner": {
+      "decisions": 0,
+      "verdicts": 0,
+      "recorded_arbitrations": 0
+    },
+    "decision_digest": "sha256:de768730caf3d37b78147ca5407d3cb7702149dfba444bc79b825f2f9b402ee5",
+    "evidence_digest": "sha256:e72a1d7665263e2a4f5aa65d4a2a9d3892ee9bf020ecb914d26ae11b695a9f9a"
+  }
+}

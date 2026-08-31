@@ -47,12 +47,18 @@ fixture builder as
 
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 from pathlib import Path
 from typing import Any, cast
 
 import pytest
+from fdai.agents._framework.bus import InMemoryBus
+from fdai.agents._framework.registry import load_pantheon
+from fdai.agents._framework.vertical_precedence import InitialVerticalPrecedence
+from fdai.agents.forseti import Forseti
+from fdai.agents.odin import Odin
 from fdai.core.control_loop import (
     ControlLoop,
     ControlLoopOutcome,
@@ -94,10 +100,14 @@ from fdai_core_test_support.cost_governance_catalog import (
     compose_cost_governance_catalog,
 )
 from fdai_core_test_support.verified_shadow_executor import VerifiedShadowExecutor
+from jsonschema import Draft202012Validator
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 SCENARIO_DIR = Path(__file__).resolve().parent / "v2026.07"
 ENRICHMENT_DIR = Path(__file__).resolve().parent / "enrichment" / "v2026.07"
+CONFLICT_DIR = Path(__file__).resolve().parent / "cross-objective"
+CONFLICT_SPEC_PATH = CONFLICT_DIR / "v2026.07-sre.json"
+CONFLICT_SCHEMA_PATH = CONFLICT_DIR / "schema.json"
 
 _OPA_PRESENT = shutil.which("opa") is not None
 requires_opa = pytest.mark.skipif(
@@ -515,3 +525,340 @@ async def test_sre_partial_publish_failure_closes_the_audit_and_recovers_on_retr
 def _unwrap_audit(record: Any) -> dict[str, Any]:
     inner = record.get("entry") if isinstance(record, dict) else None
     return inner if isinstance(inner, dict) else dict(record)
+
+
+# ---------------------------------------------------------------------------
+# Cross-objective conflict
+# ---------------------------------------------------------------------------
+#
+# The SRE `cross_objective_conflict` dimension. The frozen spec under
+# [`cross-objective/`](cross-objective/) composes one conflict out of three
+# options that each replay a frozen v2026.07 scenario through the real
+# :class:`ControlLoop`, so every option is grounded by a runtime result
+# rather than by a hand-authored candidate. The conflict then travels the
+# shipped governed boundary - Forseti is the sole writer of
+# `object.arbitration-request` and Odin is the sole arbitration owner - and
+# no second arbiter is introduced here.
+
+
+def _load_conflict_spec() -> dict[str, Any]:
+    return cast(dict[str, Any], json.loads(CONFLICT_SPEC_PATH.read_text(encoding="utf-8")))
+
+
+def _canonical_digest(payload: object) -> str:
+    """Digest a payload under one canonical encoding.
+
+    Sorted keys and separator-tight JSON make the digest a property of the
+    content, not of dict ordering or formatting, so an unchanged replay
+    reproduces it exactly.
+    """
+    body = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return "sha256:" + hashlib.sha256(body.encode("utf-8")).hexdigest()
+
+
+async def _ground_conflict_options(
+    shipped_catalog: CostGovernanceCatalogComposition,
+    spec: dict[str, Any],
+) -> tuple[dict[str, Any], ...]:
+    """Replay every option's frozen scenario and return its runtime evidence.
+
+    An option is *eligible* only when its own replay reaches an executed
+    deterministic outcome that cites a shipped rule. Anything else - an
+    abstention on an unmodelled signal, for example - leaves the option's
+    evidence unresolved, and the harness records that instead of inventing
+    a recommendation for it.
+    """
+
+    grounded: list[dict[str, Any]] = []
+    for option in spec["options"]:
+        scenario_id = str(option["scenario_id"])
+        scenario = json.loads(
+            (SCENARIO_DIR / _scenario_id_to_filename(scenario_id)).read_text(encoding="utf-8")
+        )
+        overlay = _load_enrichment(scenario_id)
+        assert overlay is not None, f"{scenario_id} lost its enrichment overlay"
+        publisher = RecordingRemediationPrPublisher()
+        audit = InMemoryStateStore()
+        loop, _, _, _ = _make_loop(
+            shipped_catalog,
+            publisher=publisher,
+            audit=audit,
+            wire_risk_gate=bool(overlay.get("wire_risk_gate", False)),
+            wire_t2=bool(overlay.get("wire_t2", False)),
+        )
+        event = _merge_enrichment(scenario["event"], overlay)
+        event["correlation_id"] = spec["correlation_id"]
+
+        result = await loop.process(event)
+
+        eligible = (
+            result.outcome is ControlLoopOutcome.EXECUTED
+            and result.decision == "auto"
+            and bool(result.citing_rule_ids)
+        )
+        grounded.append(
+            {
+                "option_id": str(option["option_id"]),
+                "scenario_id": scenario_id,
+                "objective_domain": str(option["objective_domain"]),
+                "eligible": eligible,
+                "recommendation": (
+                    str(option["recommendation"])
+                    if eligible
+                    else str(spec["expected"]["held_recommendation"])
+                ),
+                "event_id": str(event["event_id"]),
+                "outcome": result.outcome.value,
+                "decision": result.decision,
+                "citing_rule_ids": list(result.citing_rule_ids),
+                "execution_modes": sorted({item.mode.value for item in result.execution_results}),
+                "published_pr_modes": sorted({record.mode.value for record in publisher.records}),
+                "audit_action_kinds": sorted(
+                    {
+                        str(_unwrap_audit(entry).get("action_kind", ""))
+                        for entry in audit.audit_entries
+                    }
+                ),
+            }
+        )
+    return tuple(grounded)
+
+
+def _conflict_boundary(*, with_arbitration_owner: bool) -> tuple[InMemoryBus, Forseti, Odin | None]:
+    """Wire the shipped arbitration boundary, optionally without its owner.
+
+    Dropping Odin models missing arbitration authority: Forseti still
+    raises the request, but nothing on the bus may resolve it.
+    """
+
+    bus = InMemoryBus(registry=load_pantheon())
+    forseti = Forseti(bus=bus)
+    bus.subscribe("object.arbitration-decision", "Forseti", forseti.on_typed_message)
+    odin: Odin | None = None
+    if with_arbitration_owner:
+        odin = Odin(bus=bus, vertical_precedence=InitialVerticalPrecedence())
+        bus.subscribe("object.arbitration-request", "Odin", odin.on_typed_message)
+    return bus, forseti, odin
+
+
+async def _raise_conflict(
+    forseti: Forseti,
+    spec: dict[str, Any],
+    grounded: tuple[dict[str, Any], ...],
+) -> dict[str, Any] | None:
+    return await forseti.maybe_request_arbitration(
+        {
+            "correlation_id": spec["correlation_id"],
+            "resource_id": spec["shared_target_id"],
+            "detected_at": spec["observed_at"],
+            "domain_advice": {
+                option["objective_domain"]: option["recommendation"] for option in grounded
+            },
+        }
+    )
+
+
+async def _replay_conflict(
+    shipped_catalog: CostGovernanceCatalogComposition,
+    spec: dict[str, Any],
+    *,
+    with_arbitration_owner: bool = True,
+) -> tuple[tuple[dict[str, Any], ...], InMemoryBus, Forseti, dict[str, Any] | None]:
+    grounded = await _ground_conflict_options(shipped_catalog, spec)
+    bus, forseti, _ = _conflict_boundary(with_arbitration_owner=with_arbitration_owner)
+    request = await _raise_conflict(forseti, spec, grounded)
+    return grounded, bus, forseti, request
+
+
+def test_cross_objective_conflict_spec_is_schema_valid() -> None:
+    """The frozen conflict spec MUST stay valid and self-consistent."""
+
+    schema = cast(dict[str, Any], json.loads(CONFLICT_SCHEMA_PATH.read_text(encoding="utf-8")))
+    Draft202012Validator.check_schema(schema)
+    spec = _load_conflict_spec()
+    Draft202012Validator(schema).validate(spec)
+
+    manifest = json.loads(
+        (Path(__file__).resolve().parent / "manifests" / "v2026.07.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    owned = set(manifest["capability_packs"][spec["capability"]]["scenario_ids"])
+    assert {str(option["scenario_id"]) for option in spec["options"]} <= owned, (
+        "every conflict option MUST replay a scenario the cited capability pack owns"
+    )
+    expected = spec["expected"]
+    eligible = {
+        str(option["option_id"])
+        for option in spec["options"]
+        if option["expected_eligibility"] == "eligible"
+    }
+    unresolved = {
+        str(option["option_id"])
+        for option in spec["options"]
+        if option["expected_eligibility"] == "unresolved_evidence"
+    }
+    assert eligible == set(expected["eligible_option_ids"])
+    assert unresolved == set(expected["unresolved_option_ids"])
+    assert set(expected["domains_in_conflict"]) == {
+        str(option["objective_domain"]) for option in spec["options"]
+    }
+    assert expected["winning_domain"] not in expected["losing_domains"]
+
+
+@requires_opa
+@pytest.mark.asyncio
+async def test_sre_cross_objective_conflict_reaches_governed_arbitration(
+    shipped_catalog: CostGovernanceCatalogComposition,
+) -> None:
+    """SRE `cross_objective_conflict` evidence for the frozen v2026.07 pack.
+
+    Two grounded eligible options (Change Safety against Cost Governance)
+    contend for the same logical observability target while the Resilience
+    option's evidence stays unresolved. The conflict MUST leave the local
+    replay and reach the shipped boundary with its lineage intact, and the
+    single arbitration owner MUST be the only producer of the decision.
+    """
+
+    spec = _load_conflict_spec()
+    expected = spec["expected"]
+    grounded, bus, forseti, request = await _replay_conflict(shipped_catalog, spec)
+
+    by_id = {option["option_id"]: option for option in grounded}
+    assert sorted(option_id for option_id, option in by_id.items() if option["eligible"]) == sorted(
+        expected["eligible_option_ids"]
+    )
+    assert sorted(
+        option_id for option_id, option in by_id.items() if not option["eligible"]
+    ) == sorted(expected["unresolved_option_ids"])
+    for option_id in expected["eligible_option_ids"]:
+        assert by_id[option_id]["citing_rule_ids"], (
+            f"option {option_id} claims eligibility without a cited shipped rule"
+        )
+    for option_id in expected["unresolved_option_ids"]:
+        assert by_id[option_id]["recommendation"] == expected["held_recommendation"]
+        assert by_id[option_id]["citing_rule_ids"] == []
+
+    # The conflict crossed the boundary: one request, from the sole raiser,
+    # carrying the shared target, correlation, and every objective at stake.
+    assert request is not None, "the grounded conflict never reached arbitration"
+    requests = bus.messages_on(spec["arbitration"]["request_topic"])
+    assert len(requests) == 1
+    raised = requests[0].payload
+    assert raised["producer_principal"] == spec["arbitration"]["raiser_agent"]
+    assert raised["correlation_id"] == spec["correlation_id"]
+    assert raised["resource_id"] == spec["shared_target_id"]
+    assert sorted(raised["domains_in_conflict"]) == sorted(expected["domains_in_conflict"])
+    assert raised["advice"] == {
+        option["objective_domain"]: option["recommendation"] for option in grounded
+    }
+
+    # Exactly one arbitration owner answered it.
+    decisions = bus.messages_on(spec["arbitration"]["decision_topic"])
+    assert len(decisions) == 1
+    decided = decisions[0].payload
+    assert decided["producer_principal"] == spec["arbitration"]["owner_agent"]
+    assert decided["winning_domain"] == expected["winning_domain"]
+    assert list(decided["losing_domains"]) == list(expected["losing_domains"])
+    assert decided["reason"] == expected["reason"]
+    assert decided["escalate_hil"] is expected["escalate_hil"]
+    assert forseti.arbitrations[spec["correlation_id"]] == expected["winning_domain"]
+
+    # The winning objective is the one whose evidence stayed unresolved, so
+    # no eligible option may inherit the win. The terminal disposition is a
+    # human approval that carries no ActionType and no initiator.
+    verdicts = bus.messages_on(spec["arbitration"]["verdict_topic"])
+    assert len(verdicts) == 1
+    verdict = verdicts[0].payload
+    assert verdict["risk_verdict"] == expected["terminal"]["risk_verdict"]
+    assert verdict["reason"] == expected["terminal"]["reason"]
+    assert verdict["action_type"] == expected["terminal"]["action_type"]
+    assert verdict["initiator_principal"] is expected["terminal"]["initiator_principal"]
+    assert verdict["resource_id"] == spec["shared_target_id"]
+    assert verdict["arbitration"]["winning_domain"] == expected["winning_domain"]
+
+    # Authority was not widened anywhere: every grounded execution and every
+    # published PR stayed in shadow.
+    for option in grounded:
+        assert option["execution_modes"] in ([], [Mode.SHADOW.value])
+        assert option["published_pr_modes"] in ([], [Mode.SHADOW.value])
+
+
+@requires_opa
+@pytest.mark.asyncio
+async def test_sre_cross_objective_conflict_holds_without_arbitration_authority(
+    shipped_catalog: CostGovernanceCatalogComposition,
+) -> None:
+    """Missing arbitration authority MUST NOT collapse into a local tie-break.
+
+    With no Odin bound to the request topic the conflict is raised and then
+    stays open. Nothing may resolve it locally, record a winner, or issue a
+    verdict that lets one objective proceed.
+    """
+
+    spec = _load_conflict_spec()
+    expected = spec["expected"]["without_arbitration_owner"]
+    grounded, bus, forseti, request = await _replay_conflict(
+        shipped_catalog, spec, with_arbitration_owner=False
+    )
+
+    assert request is not None
+    assert len(bus.messages_on(spec["arbitration"]["request_topic"])) == 1
+    assert len(bus.messages_on(spec["arbitration"]["decision_topic"])) == expected["decisions"]
+    assert len(bus.messages_on(spec["arbitration"]["verdict_topic"])) == expected["verdicts"]
+    assert len(forseti.arbitrations) == expected["recorded_arbitrations"]
+    assert bus.dead_letters == []
+    for option in grounded:
+        assert option["execution_modes"] in ([], [Mode.SHADOW.value])
+        assert option["published_pr_modes"] in ([], [Mode.SHADOW.value])
+
+
+@requires_opa
+@pytest.mark.asyncio
+async def test_sre_cross_objective_conflict_replays_to_stable_digests(
+    shipped_catalog: CostGovernanceCatalogComposition,
+) -> None:
+    """Deterministic replay MUST reproduce the frozen decision and evidence digests.
+
+    Two independent replays - fresh loops, fresh audit stores, a fresh bus,
+    and a fresh arbitration boundary each time - MUST agree with each other
+    and with the digests pinned in the frozen spec. A digest that only
+    matches itself would prove repetition, not a freeze.
+    """
+
+    spec = _load_conflict_spec()
+    digests: list[tuple[str, str]] = []
+    for _ in range(2):
+        grounded, bus, _, _ = await _replay_conflict(shipped_catalog, spec)
+        decided = bus.messages_on(spec["arbitration"]["decision_topic"])[0].payload
+        verdict = bus.messages_on(spec["arbitration"]["verdict_topic"])[0].payload
+        digests.append(
+            (
+                _canonical_digest(
+                    {
+                        "correlation_id": spec["correlation_id"],
+                        "resource_id": spec["shared_target_id"],
+                        "domains_in_conflict": sorted(
+                            str(domain)
+                            for domain in bus.messages_on(spec["arbitration"]["request_topic"])[
+                                0
+                            ].payload["domains_in_conflict"]
+                        ),
+                        "winning_domain": decided["winning_domain"],
+                        "losing_domains": list(decided["losing_domains"]),
+                        "reason": decided["reason"],
+                        "escalate_hil": decided["escalate_hil"],
+                        "objective_scores": decided["objective_scores"],
+                        "margin": decided["margin"],
+                        "terminal_risk_verdict": verdict["risk_verdict"],
+                        "terminal_reason": verdict["reason"],
+                        "terminal_action_type": verdict["action_type"],
+                    }
+                ),
+                _canonical_digest(sorted(grounded, key=lambda option: option["option_id"])),
+            )
+        )
+
+    assert digests[0] == digests[1], "replay is not deterministic across independent runs"
+    assert digests[0][0] == spec["expected"]["decision_digest"]
+    assert digests[0][1] == spec["expected"]["evidence_digest"]

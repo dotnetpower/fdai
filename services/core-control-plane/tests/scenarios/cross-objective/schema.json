@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/cross-objective-conflict-scenario/1.0.0",
+  "title": "Cross-objective conflict scenario",
+  "description": "One frozen cross-objective conflict composed from options that each replay a frozen scenario through the real control loop. Synthetic and customer-agnostic: machine identifiers stay ASCII and no option carries a customer value.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "scenario_set_version",
+    "capability",
+    "dimension",
+    "shared_target_id",
+    "correlation_id",
+    "observed_at",
+    "arbitration",
+    "options",
+    "expected"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,127}$"},
+    "scenario_set_version": {"type": "string", "pattern": "^v\\d{4}\\.\\d{2}$"},
+    "capability": {"enum": ["sre", "arb_change_safety", "finops", "dr", "chaos"]},
+    "dimension": {"const": "cross_objective_conflict"},
+    "shared_target_id": {"type": "string", "pattern": "^example-[a-z0-9-]{1,63}$"},
+    "correlation_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,127}$"},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "arbitration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["raiser_agent", "owner_agent", "request_topic", "decision_topic", "verdict_topic"],
+      "properties": {
+        "raiser_agent": {"const": "Forseti"},
+        "owner_agent": {"const": "Odin"},
+        "request_topic": {"const": "object.arbitration-request"},
+        "decision_topic": {"const": "object.arbitration-decision"},
+        "verdict_topic": {"const": "object.verdict"}
+      }
+    },
+    "options": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "option_id",
+          "scenario_id",
+          "objective_domain",
+          "recommendation",
+          "expected_eligibility",
+          "note"
+        ],
+        "properties": {
+          "option_id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$"},
+          "scenario_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,127}$"},
+          "objective_domain": {"enum": ["resilience", "change_safety", "cost"]},
+          "recommendation": {"type": "string", "pattern": "^[a-z][a-z0-9_]{1,63}$"},
+          "expected_eligibility": {"enum": ["eligible", "unresolved_evidence"]},
+          "note": {"type": "string", "minLength": 1, "maxLength": 400}
+        }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "eligible_option_ids",
+        "unresolved_option_ids",
+        "held_recommendation",
+        "domains_in_conflict",
+        "winning_domain",
+        "losing_domains",
+        "reason",
+        "escalate_hil",
+        "terminal",
+        "without_arbitration_owner",
+        "decision_digest",
+        "evidence_digest"
+      ],
+      "properties": {
+        "eligible_option_ids": {
+          "type": "array",
+          "minItems": 2,
+          "items": {"type": "string"},
+          "uniqueItems": true
+        },
+        "unresolved_option_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string"},
+          "uniqueItems": true
+        },
+        "held_recommendation": {"const": "hold"},
+        "domains_in_conflict": {
+          "type": "array",
+          "minItems": 2,
+          "items": {"enum": ["resilience", "change_safety", "cost"]},
+          "uniqueItems": true
+        },
+        "winning_domain": {"enum": ["resilience", "change_safety", "cost"]},
+        "losing_domains": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"enum": ["resilience", "change_safety", "cost"]},
+          "uniqueItems": true
+        },
+        "reason": {"type": "string", "minLength": 1},
+        "escalate_hil": {"type": "boolean"},
+        "terminal": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["risk_verdict", "reason", "action_type", "initiator_principal"],
+          "properties": {
+            "risk_verdict": {"enum": ["hil", "deny"]},
+            "reason": {"const": "arbitration_unresolved"},
+            "action_type": {"const": ""},
+            "initiator_principal": {"type": "null"}
+          }
+        },
+        "without_arbitration_owner": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["decisions", "verdicts", "recorded_arbitrations"],
+          "properties": {
+            "decisions": {"const": 0},
+            "verdicts": {"const": 0},
+            "recorded_arbitrations": {"const": 0}
+          }
+        },
+        "decision_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "evidence_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    }
+  }
+}
