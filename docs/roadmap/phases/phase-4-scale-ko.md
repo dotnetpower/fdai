@@ -1,8 +1,8 @@
 ---
 title: Phase 4 - 스케일 (Azure); 멀티 클라우드 (TBD)
 translation_of: phase-4-scale.md
-translation_source_sha: 1d3ef05ef6eaabd2587631ad374ae2da79bab02f
-translation_revised: 2026-08-30
+translation_source_sha: 27696a0748dd7ded0f04c4717e09bccfcce02b5f
+translation_revised: 2026-08-31
 ---
 
 # 단계 4 - 스케일 (Azure); 멀티 클라우드 (TBD)
@@ -41,7 +41,7 @@ CSP-중립 원칙을 **설계 불변식**(어댑터 표면, 정규화 스키마)
 - Azure에서 확장성/성능 검증(티어별 지연 예산, 이벤트-기반 scale-to-zero 보존).
   모듈:
   [core/measurement/latency_budget.py](../../../services/core-control-plane/src/fdai/core/measurement/latency_budget.py).
-- 두 라이브러리-전용 측정 컴포넌트를 Container Apps Jobs로 배선하는 스케줄 러너 -
+- 두 라이브러리 전용 측정 컴포넌트를 Container Apps Jobs로 연결하는 선택적 스케줄 러너 -
   automated-baseline 회귀 러너(P0 시나리오 세트를 매일 리플레이, 회귀 시 자동 강등)와
   pattern-growth 인테이크 러너(감사 스트림 드레인, 허용된 패턴을 shadow 로만 인제스트,
   자동 승격 금지). 선택적 세 번째 `operational-promotion` 러너는 검토된 정확한 증적을 저장하지만
@@ -52,6 +52,9 @@ CSP-중립 원칙을 **설계 불변식**(어댑터 표면, 정규화 스키마)
   [core/measurement/operational_promotion_runner.py](../../../services/core-control-plane/src/fdai/core/measurement/operational_promotion_runner.py).
   Infra:
   [infra/modules/measurement-runners/](../../../infra/modules/measurement-runners).
+  세 작업은 모두 기본적으로 비활성화되며 이미지 가져오기, 상태 저장소 비밀 읽기, 선택적 모델
+  추론 접근 권한만 있는 전용 측정 신원을 사용합니다. 실행기 신원이나 클라우드 변경 역할은
+  받지 않습니다.
   작업 은 library-only 코어 모듈 이 아니라 `fdai.delivery.measurement_runner_cli`을
   호출합니다. 기준선 모드 는 배포된 enriched 고정된 시나리오 를 재생 하고 회귀
   demotion 을 shared `StateStore`에 저장 하며 모든 실행 을 감사 합니다. Growth 모드 는

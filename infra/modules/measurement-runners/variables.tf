@@ -1,3 +1,15 @@
+variable "baseline_enabled" {
+  description = "Create the automated baseline regression Job."
+  type        = bool
+  default     = false
+}
+
+variable "growth_enabled" {
+  description = "Create the T1 pattern-growth intake Job."
+  type        = bool
+  default     = false
+}
+
 variable "baseline_job_name" {
   description = "Container Apps Job name for the automated baseline regression runner (CAF: caj-<workload>[-env][-region]-measure-baseline)."
   type        = string
@@ -75,8 +87,8 @@ variable "resource_group_name" {
   type        = string
 }
 
-variable "executor_identity_id" {
-  description = "User-assigned MI resource id used by both jobs (same identity as the core app + rule watcher)."
+variable "measurement_identity_id" {
+  description = "Dedicated non-executor user-assigned Managed Identity resource id used by measurement jobs."
   type        = string
 }
 

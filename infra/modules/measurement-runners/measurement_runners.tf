@@ -8,9 +8,8 @@
 //   docs/roadmap/phases/phase-4-scale.md § Continuous Measurement
 //   docs/roadmap/phases/phase-4-scale.md § Pattern Library Growth (T1)
 //
-// Baseline and growth always ship. Operational promotion is an opt-in third
-// job over reviewed digest-only evidence. All jobs share one Container Apps environment + MI (the
-// same one the core app + rule-watcher already use). No new seams are
+// All three jobs are opt-in. They share one Container Apps environment and a
+// dedicated measurement MI with no executor mutation role. No new seams are
 // introduced - cadence + identity + logging are provided by the caller so a
 // non-Azure adapter can render the same manifest without touching the core.
 //
@@ -26,6 +25,8 @@
 //   and lifts them.
 
 resource "azurerm_container_app_job" "baseline_regression" {
+  count = var.baseline_enabled ? 1 : 0
+
   name                         = var.baseline_job_name
   container_app_environment_id = var.container_app_environment_id
   resource_group_name          = var.resource_group_name
@@ -38,20 +39,20 @@ resource "azurerm_container_app_job" "baseline_regression" {
 
   identity {
     type         = "UserAssigned"
-    identity_ids = [var.executor_identity_id]
+    identity_ids = [var.measurement_identity_id]
   }
 
   dynamic "registry" {
     for_each = var.acr_login_server == "" ? toset([]) : toset(["1"])
     content {
       server   = var.acr_login_server
-      identity = var.executor_identity_id
+      identity = var.measurement_identity_id
     }
   }
 
   secret {
     name                = "state-store-dsn"
-    identity            = var.executor_identity_id
+    identity            = var.measurement_identity_id
     key_vault_secret_id = var.state_store_dsn_secret_id
   }
 
@@ -99,6 +100,8 @@ resource "azurerm_container_app_job" "baseline_regression" {
 }
 
 resource "azurerm_container_app_job" "pattern_growth" {
+  count = var.growth_enabled ? 1 : 0
+
   name                         = var.growth_job_name
   container_app_environment_id = var.container_app_environment_id
   resource_group_name          = var.resource_group_name
@@ -112,21 +115,21 @@ resource "azurerm_container_app_job" "pattern_growth" {
 
   identity {
     type         = "UserAssigned"
-    identity_ids = [var.executor_identity_id]
+    identity_ids = [var.measurement_identity_id]
   }
 
   dynamic "registry" {
     for_each = var.acr_login_server == "" ? toset([]) : toset(["1"])
     content {
       server   = var.acr_login_server
-      identity = var.executor_identity_id
+      identity = var.measurement_identity_id
     }
   }
 
 
   secret {
     name                = "state-store-dsn"
-    identity            = var.executor_identity_id
+    identity            = var.measurement_identity_id
     key_vault_secret_id = var.state_store_dsn_secret_id
   }
 
@@ -181,20 +184,20 @@ resource "azurerm_container_app_job" "operational_promotion" {
 
   identity {
     type         = "UserAssigned"
-    identity_ids = [var.executor_identity_id]
+    identity_ids = [var.measurement_identity_id]
   }
 
   dynamic "registry" {
     for_each = var.acr_login_server == "" ? toset([]) : toset(["1"])
     content {
       server   = var.acr_login_server
-      identity = var.executor_identity_id
+      identity = var.measurement_identity_id
     }
   }
 
   secret {
     name                = "state-store-dsn"
-    identity            = var.executor_identity_id
+    identity            = var.measurement_identity_id
     key_vault_secret_id = var.state_store_dsn_secret_id
   }
 

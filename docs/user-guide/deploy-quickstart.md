@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision the FDAI minimum-set inventory on Azure - two equivalent paths (azd turnkey or Terraform direct), preview first, apply only when the plan looks right.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 13cee5ed259d9348131ac655f157ccbd366cf15b }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 9355ccf9dc4107298571707604a3c451b657309f }]
 ---
 
 # Deploy Quickstart
@@ -69,6 +69,10 @@ first, so you can review the plan before you run the separate apply step.
   (`stewardship`) GitOps binding together.
   Supply only the Key Vault secret reference for the GitHub credential. The watcher identity
   receives Blob data access and draft-review authority, but no catalog merge or action authority.
+- To schedule Phase 4 measurement, explicitly enable only the required baseline, pattern-growth, or
+  operational-promotion job. All three are disabled by default and share a dedicated measurement
+  identity with image-pull, state-secret, and optional model-inference access. They never receive
+  the executor identity or a cloud mutation role.
 
 ## Provision the minimum inventory
 

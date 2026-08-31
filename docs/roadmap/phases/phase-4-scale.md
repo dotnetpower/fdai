@@ -41,7 +41,7 @@ customer-agnostic and Azure-only in intent (multi-cloud deliverables below stay 
   scale-to-zero preserved).
   Module:
   [core/measurement/latency_budget.py](../../../services/core-control-plane/src/fdai/core/measurement/latency_budget.py).
-- Scheduled runners that wire the two library-only measurement components into Container
+- Opt-in scheduled runners that wire the two library-only measurement components into Container
   Apps Jobs - an automated-baseline regression runner (daily replay of the P0 scenario set,
   auto-demotes on regression) and a pattern-growth intake runner (drains the audit stream,
   ingests accepted patterns in shadow only, never auto-promotes). An optional third
@@ -52,6 +52,9 @@ customer-agnostic and Azure-only in intent (multi-cloud deliverables below stay 
   [core/measurement/operational_promotion_runner.py](../../../services/core-control-plane/src/fdai/core/measurement/operational_promotion_runner.py).
   Infra:
   [infra/modules/measurement-runners/](../../../infra/modules/measurement-runners).
+  All three jobs are disabled by default and use one dedicated measurement identity with image
+  pull, state-secret read, and optional model-inference access only. They never receive the
+  executor identity or a cloud mutation role.
   The jobs call `fdai.delivery.measurement_runner_cli`, not the library-only
   core module. Baseline mode replays the shipped enriched frozen scenarios,
   persists regression demotions in the shared `StateStore`, and audits every

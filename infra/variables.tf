@@ -417,6 +417,23 @@ variable "scheduler_tick_cron_expression" {
   default     = ""
 }
 
+variable "baseline_measurement_enabled" {
+  description = "Create the automated baseline regression measurement Job."
+  type        = bool
+  default     = false
+}
+
+variable "pattern_growth_measurement_enabled" {
+  description = "Create the T1 pattern-growth intake measurement Job."
+  type        = bool
+  default     = false
+
+  validation {
+    condition     = !var.pattern_growth_measurement_enabled || var.enable_llm
+    error_message = "pattern_growth_measurement_enabled requires enable_llm so the configured embedding endpoint is available."
+  }
+}
+
 variable "measurement_scenario_set_version" {
   description = "Frozen P0 scenario-set version the automated baseline runner replays (e.g. 'v2026.07'). Bump this in lockstep with tests/scenarios/<version>/ contents so a promotion never compares metrics across versions."
   type        = string

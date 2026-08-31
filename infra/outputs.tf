@@ -176,18 +176,18 @@ output "browser_evidence_cleanup_job_id" {
 }
 
 output "measurement_baseline_job_name" {
-  description = "Automated-baseline regression Container Apps Job name (Phase-4 continuous measurement)."
-  value       = module.measurement_runners.baseline_job_name
+  description = "Automated-baseline regression Container Apps Job name, or null when disabled."
+  value       = try(module.measurement_runners[0].baseline_job_name, null)
 }
 
 output "measurement_growth_job_name" {
-  description = "Pattern-growth intake Container Apps Job name (Phase-4 T1 library growth)."
-  value       = module.measurement_runners.growth_job_name
+  description = "Pattern-growth intake Container Apps Job name, or null when disabled."
+  value       = try(module.measurement_runners[0].growth_job_name, null)
 }
 
 output "measurement_operational_promotion_job_name" {
   description = "Operational-promotion measurement Job name, or null when disabled."
-  value       = module.measurement_runners.operational_promotion_job_name
+  value       = try(module.measurement_runners[0].operational_promotion_job_name, null)
 }
 
 
