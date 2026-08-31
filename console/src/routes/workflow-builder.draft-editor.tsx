@@ -2,10 +2,12 @@ import { Tooltip } from "../components/tooltip";
 import type { ActionTypePaletteEntry } from "../workflow/validate";
 import { cloneForm } from "./workflow-builder.chat.builders";
 import {
+  addDraftListItem,
   addDraftStep,
   coerceDraftParam,
   draftParamType,
   moveDraftStep,
+  removeDraftListItem,
   removeDraftParam,
   removeDraftStep,
   setDraftParam,
@@ -13,6 +15,7 @@ import {
   setDraftStepApprovalRole,
   setDraftStepKind,
   setDraftStepNoSelfApproval,
+  setDraftListItem,
   updateDraftStepField,
   type DraftParamType,
   type DraftParamValue,
@@ -28,10 +31,12 @@ import { t } from "./i18n/workflow";
 export function WorkflowDraftEditor({
   form,
   palette,
+  gateRefs,
   onChange,
 }: {
   readonly form: FormState;
   readonly palette: readonly ActionTypePaletteEntry[];
+  readonly gateRefs: readonly string[];
   readonly onChange: (form: FormState) => void;
 }) {
   const patch = (values: Partial<FormState>) => onChange({ ...cloneForm(form), ...values });
@@ -159,6 +164,60 @@ export function WorkflowDraftEditor({
                   </label>
                 </>
               ) : null}
+              {step.kind === "decision" ? (
+                <StringListField
+                  form={form}
+                  stepKey={step.key}
+                  field="outcomes"
+                  values={step.outcomes}
+                  labelKey="workflow.editor.outcomes"
+                  itemLabelKey="workflow.editor.outcomeNumber"
+                  addLabelKey="workflow.editor.addOutcome"
+                  hintKey="workflow.editor.outcomesHint"
+                  onChange={onChange}
+                />
+              ) : null}
+              {step.kind === "parallel" ? (
+                <>
+                  <StringListField
+                    form={form}
+                    stepKey={step.key}
+                    field="branches"
+                    values={step.branches}
+                    labelKey="workflow.editor.branches"
+                    itemLabelKey="workflow.editor.branchNumber"
+                    addLabelKey="workflow.editor.addBranch"
+                    hintKey="workflow.editor.branchesHint"
+                    onChange={onChange}
+                  />
+                  <label class="form-field">
+                    <span class="form-label">{t("workflow.editor.joinBehavior")}</span>
+                    <input class="form-input" value={t("workflow.editor.joinAll")} disabled />
+                    <span class="field-hint">{t("workflow.editor.joinHint")}</span>
+                  </label>
+                </>
+              ) : null}
+              {step.kind === "gate" ? (
+                <label class="form-field form-field-wide">
+                  <span class="form-label">{t("workflow.editor.gateRef")}</span>
+                  <input
+                    class="form-input mono"
+                    list={`workflow-gate-refs-${step.key}`}
+                    required
+                    value={step.gate_ref}
+                    onInput={(event) => onChange(updateDraftStepField(
+                      form,
+                      step.key,
+                      "gate_ref",
+                      (event.target as HTMLInputElement).value,
+                    ))}
+                  />
+                  <datalist id={`workflow-gate-refs-${step.key}`}>
+                    {gateRefs.map((gateRef) => <option key={gateRef} value={gateRef} />)}
+                  </datalist>
+                  <span class="field-hint">{t("workflow.editor.gateRefHint")}</span>
+                </label>
+              ) : null}
             </div>
             <details class="step-advanced">
               <summary>{t("workflow.editor.advanced")}</summary>
@@ -200,6 +259,69 @@ export function WorkflowDraftEditor({
         </div>
       </details>
     </details>
+  );
+}
+
+function StringListField({
+  form,
+  stepKey,
+  field,
+  values,
+  labelKey,
+  itemLabelKey,
+  addLabelKey,
+  hintKey,
+  onChange,
+}: {
+  readonly form: FormState;
+  readonly stepKey: number;
+  readonly field: "outcomes" | "branches";
+  readonly values: readonly string[];
+  readonly labelKey: string;
+  readonly itemLabelKey: string;
+  readonly addLabelKey: string;
+  readonly hintKey: string;
+  readonly onChange: (form: FormState) => void;
+}) {
+  return (
+    <fieldset class="form-field form-field-wide wf-string-list">
+      <legend class="form-label">{t(labelKey)}</legend>
+      {values.map((value, index) => (
+        <div class="wf-string-list-row" key={index}>
+          <input
+            class="form-input mono"
+            aria-label={t(itemLabelKey, { number: index + 1 })}
+            required
+            value={value}
+            onInput={(event) => onChange(setDraftListItem(
+              form,
+              stepKey,
+              field,
+              index,
+              (event.target as HTMLInputElement).value,
+            ))}
+          />
+          <Tooltip content={t("workflow.editor.removeListItem")}>
+            <button
+              type="button"
+              class="btn btn-small btn-danger"
+              aria-label={t("workflow.editor.removeListItem")}
+              onClick={() => onChange(removeDraftListItem(form, stepKey, field, index))}
+            >
+              &times;
+            </button>
+          </Tooltip>
+        </div>
+      ))}
+      <button
+        type="button"
+        class="btn btn-small"
+        onClick={() => onChange(addDraftListItem(form, stepKey, field))}
+      >
+        + {t(addLabelKey)}
+      </button>
+      <span class="field-hint">{t(hintKey)}</span>
+    </fieldset>
   );
 }
 

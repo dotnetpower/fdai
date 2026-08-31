@@ -95,7 +95,7 @@ describe("workflow-builder buildVizModel", () => {
     expect(nodes[0]?.name).toBe("an event");
   });
 
-  it("previews WAIT and APPROVAL requirements in order", () => {
+  it("previews every governed control step in order", () => {
     const nodes = buildVizModel(
       form({
         steps: [
@@ -114,6 +114,24 @@ describe("workflow-builder buildVizModel", () => {
             quorum: "2",
             timeout_seconds: "1800",
           },
+          {
+            ...emptyStep(2),
+            id: "choose_outcome",
+            kind: "decision",
+            outcomes: ["approved", "held"],
+          },
+          {
+            ...emptyStep(3),
+            id: "fan_out",
+            kind: "parallel",
+            branches: ["security", "reliability"],
+          },
+          {
+            ...emptyStep(4),
+            id: "evidence_gate",
+            kind: "gate",
+            gate_ref: "release.production-ready",
+          },
         ],
       }),
       PALETTE,
@@ -130,6 +148,24 @@ describe("workflow-builder buildVizModel", () => {
         kind: "approval",
         name: "approver",
         ref: "quorum=2, timeout_seconds=1800",
+        category: "control",
+      },
+      {
+        kind: "decision",
+        name: "choose_outcome",
+        ref: "approved | held",
+        category: "control",
+      },
+      {
+        kind: "parallel",
+        name: "fan_out",
+        ref: "security + reliability; join=all",
+        category: "control",
+      },
+      {
+        kind: "gate",
+        name: "release.production-ready",
+        ref: "release.production-ready",
         category: "control",
       },
     ]);

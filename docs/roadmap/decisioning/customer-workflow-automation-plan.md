@@ -26,7 +26,7 @@ bounded enforcement.
 |------|-------|----------|-------|
 | Waves 0-2 catalog, observation, journal, and approval | implemented | [`test_workflow_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_workflow_catalog.py), [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`test_workflow_approval.py`](../../../services/core-control-plane/tests/delivery/persistence/test_workflow_approval.py) | Structural validation, shadow execution, durable Process state, and approval mechanics have focused coverage. |
 | Wave 3 behavior simulation and bounded mutation | not-started | [Wave 3](#wave-3---add-bounded-substrate-mutations) | Structural validation exists, but behavior-delta simulation and staging comparison are not implemented. |
-| Wave 4 authoring and operating experience | in-progress | [`workflow-builder.chat.ts`](../../../console/src/routes/workflow-builder.chat.ts), [`workflow-builder-control-steps.spec.ts`](../../../console/tests/e2e/workflow-builder-control-steps.spec.ts), [Wave 4](#wave-4---complete-the-authoring-and-operating-experience) | Action, wait, and approval authoring, validation, and private drafts exist. Decision, parallel, gate, reviewed catalog proposal, and complete operating transitions remain open. |
+| Wave 4 authoring and operating experience | in-progress | [`workflow-builder.structure.ts`](../../../console/src/routes/workflow-builder.structure.ts), [`workflow-builder-control-steps.spec.ts`](../../../console/tests/e2e/workflow-builder-control-steps.spec.ts), [Wave 4](#wave-4---complete-the-authoring-and-operating-experience) | Action and all five runtime control-step kinds support authoring, validation, and private drafts. Reviewed catalog proposal and complete operating transitions remain open. |
 | Wave 5 scale, SLIs, and automated demotion | not-started | [Wave 5](#wave-5---scale-and-hand-over-operations) | No retained distributed-lock, per-scope backpressure, operational SLI, or automated-demotion evidence exists. |
 
 ### Implementation history
@@ -35,13 +35,14 @@ bounded enforcement.
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and aligned the current posture with wave evidence. | `current change`; current source and focused tests listed in the scope table. | Complete Waves 3-5 and retain promotion evidence per process. |
 | 2026-08-31 | in-progress | Added catalog-backed `WAIT` and `APPROVAL` authoring with required timeout, authority, quorum, anti-self-approval, lossless clone and session recovery, localized guidance, and typed preview. Private drafts remain shadow and non-runnable. | `current change`; [`workflow-builder.model.ts`](../../../console/src/routes/workflow-builder.model.ts), [`workflow-builder.session.ts`](../../../console/src/routes/workflow-builder.session.ts), [`workflow-builder-control-steps.spec.ts`](../../../console/tests/e2e/workflow-builder-control-steps.spec.ts); 72 focused Vitest checks, 12 server contract checks, Console typecheck and build, catalog parity, readable Hangul, punctuation, and desktop, constrained, and mobile Playwright checks passed. | Complete structural authoring in #396 and authoritative operator transitions in #397. |
+| 2026-08-31 | in-progress | Added lossless `DECISION`, `PARALLEL`, and `GATE` authoring. The builder rejects duplicate or malformed outcomes and branches, fewer than two parallel branches, unknown or backward failure targets, and gate references absent from the reviewed workflow catalog. Parallel join remains the runtime's fixed fail-closed all-branches behavior. | `current change`; [`workflow-builder.structure.ts`](../../../console/src/routes/workflow-builder.structure.ts), [`workflow-builder.structure.test.ts`](../../../console/src/routes/workflow-builder.structure.test.ts), [`workflow-builder-control-steps.spec.ts`](../../../console/tests/e2e/workflow-builder-control-steps.spec.ts); 81 focused Vitest checks, Console typecheck and build, localization gates, and desktop, constrained, and mobile Playwright checks passed. | Complete principal-scoped authoritative operator transitions in #397. |
 
 ### Remaining work
 
 - [ ] Implement a read-only behavior simulator that returns exact targets and expected state deltas,
   then retain parity evidence against a staging execution.
-- [ ] Complete #396 by preserving and rejecting invalid `DECISION`, `PARALLEL`, and `GATE`
-  structures through authoring, validation, reorder, save, and restore.
+- [x] Completed #396 with lossless `DECISION`, `PARALLEL`, and `GATE` authoring plus focused
+  structural, restore, accessibility, typecheck, build, and three-viewport evidence.
 - [ ] Complete #397 by rendering principal-scoped authoritative step state and proving guarded
   transition denial for stale, unavailable, unauthorized, self-approval, timeout, and invalid cases.
 - [ ] Complete reviewed catalog proposal and deep-link review from the authoring surface without
@@ -85,11 +86,11 @@ The baseline separates implemented platform capability from adoption work.
 
 | Capability | Current state | Delivery implication |
 |------------|---------------|----------------------|
-| Definition validation and private drafts | Implemented | Teams can model action, wait, and approval steps, preserve required control fields through reorder and tab recovery, and review a process now. Drafts remain non-runnable. |
+| Definition validation and private drafts | Implemented | Teams can model action, wait, approval, decision, parallel, and gate steps, preserve required fields through reorder and tab recovery, and review a process now. Drafts remain non-runnable. |
 | Signal and schedule triggers | Implemented | Observation runs can start from normalized events or schedules. |
 | Process snapshot and append-only journal | Implemented | Runs can be inspected and deterministically identified. |
 | Verified action progress and compensation | Implemented in the core runtime | Proposal dispatch, authoritative outcome verification, reverse compensation, and recovery-incomplete closure are separate journal states. Headless and production Operator API composition bind the shared StateStore recorder and verifier; missing independent effect evidence keeps the Process waiting. A held target admits only matching Process compensation through human approval, and all verified receipts plus a CAS hold release are required before `compensated`. |
-| `WAIT`, `APPROVAL`, `DECISION`, `PARALLEL`, and `GATE` execution | Implemented in the runtime | `WAIT` and `APPROVAL` builder support is implemented. `DECISION`, `PARALLEL`, and `GATE` authoring plus end-to-end operator transitions still need completion. |
+| `WAIT`, `APPROVAL`, `DECISION`, `PARALLEL`, and `GATE` execution | Implemented in the runtime | Builder support for all five kinds is implemented with catalog-backed structural checks. End-to-end operator transitions still need completion. |
 | Read-only `EVIDENCE` execution | Implemented for browser evidence | Uses a separate evidence dispatcher, stays shadow-only, and fails closed without granting action authority. |
 | Enforce workflow command | Owner and allowlist gated | Action steps publish typed `operator_request` events; this isn't direct mutation authority. |
 | Tool execution | Available for selected adapters | GitHub, Jira, chaos, investigation, and Azure VM paths require explicit configuration and per-tool promotion. |
@@ -221,8 +222,8 @@ Make complex workflows manageable without granting the console mutation authorit
 
 - Schema-driven parameter editing. Primitive parameter editing plus action-step insertion,
   removal, and reordering are implemented; ActionType parameter-schema guidance remains.
-- Wait and approval authoring with required timeout, authority, quorum, and anti-self-approval is
-  implemented. Decision, parallel, gate, and failure-branch authoring remains.
+- Wait, approval, decision, parallel, gate, and later-only failure-target authoring is implemented.
+  The fixed parallel join waits for all branches, and gate references come from the reviewed catalog.
 - Tab-scoped draft recovery is implemented. Deep links, immutable review diff, and the complete
   GitHub catalog proposal flow remain.
 - A behavior preview clearly separated from structural validation.

@@ -32,6 +32,9 @@ export function emptyStep(key: number): DraftStep {
     approval_role: "",
     quorum: "1",
     no_self_approval: true,
+    outcomes: [],
+    branches: [],
+    gate_ref: "",
   };
 }
 
@@ -70,7 +73,13 @@ export function catalogToForm(w: WorkflowCatalogEntry): FormState {
     steps: w.steps.map((s, i) => ({
       key: i,
       id: s.id,
-      kind: s.kind === "wait" || s.kind === "approval" ? s.kind : "action",
+      kind: (
+        s.kind === "wait"
+        || s.kind === "approval"
+        || s.kind === "decision"
+        || s.kind === "parallel"
+        || s.kind === "gate"
+      ) ? s.kind : "action",
       action_type_ref: s.action_type_ref ?? "",
       guard_rule_ref: s.guard_rule_ref ?? "",
       compensated_by: s.compensated_by ?? "",
@@ -83,6 +92,9 @@ export function catalogToForm(w: WorkflowCatalogEntry): FormState {
       approval_role: s.approval_role ?? "",
       quorum: String(s.quorum ?? 1),
       no_self_approval: s.no_self_approval ?? true,
+      outcomes: [...(s.outcomes ?? [])],
+      branches: [...(s.branches ?? [])],
+      gate_ref: s.gate_ref ?? "",
     })),
   };
 }
@@ -175,6 +187,9 @@ export function buildDraft(form: FormState): Record<string, unknown> {
       step["quorum"] = Number(s.quorum);
       step["no_self_approval"] = s.no_self_approval;
     }
+    if (kind === "decision") step["outcomes"] = s.outcomes.map((value) => value.trim());
+    if (kind === "parallel") step["branches"] = s.branches.map((value) => value.trim());
+    if (kind === "gate") step["gate_ref"] = s.gate_ref.trim();
     if (s.guard_rule_ref.trim()) step["guard_rule_ref"] = s.guard_rule_ref.trim();
     if (kind === "action" && s.compensated_by.trim()) {
       step["compensated_by"] = s.compensated_by.trim();

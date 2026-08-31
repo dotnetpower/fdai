@@ -136,6 +136,9 @@ function decodeStep(value: unknown): DraftStep | null {
   const approvalRole = value["approval_role"] ?? "";
   const quorum = value["quorum"] ?? "1";
   const noSelfApproval = value["no_self_approval"] ?? true;
+  const outcomes = value["outcomes"] ?? [];
+  const branches = value["branches"] ?? [];
+  const gateRef = value["gate_ref"] ?? "";
   if (
     typeof value["key"] !== "number"
     || !Number.isSafeInteger(value["key"])
@@ -153,6 +156,9 @@ function decodeStep(value: unknown): DraftStep | null {
     )
     || typeof quorum !== "string"
     || typeof noSelfApproval !== "boolean"
+    || !isStringArray(outcomes)
+    || !isStringArray(branches)
+    || typeof gateRef !== "string"
     || Object.values(value["params"]).some((item) => !isPrimitive(item))
   ) return null;
   return {
@@ -169,6 +175,9 @@ function decodeStep(value: unknown): DraftStep | null {
     approval_role: approvalRole as ApprovalRole | "",
     quorum,
     no_self_approval: noSelfApproval,
+    outcomes,
+    branches,
+    gate_ref: gateRef,
   };
 }
 
@@ -205,6 +214,10 @@ function isChatOption(value: unknown): boolean {
 
 function isPrimitive(value: unknown): value is string | number | boolean {
   return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -80,6 +80,9 @@ export function suggestDraftFromJudgment(
       approval_role: "",
       quorum: "1",
       no_self_approval: true,
+      outcomes: [],
+      branches: [],
+      gate_ref: "",
     };
   });
   if (form.steps.length === 0) form.steps = [emptyStep(0)];

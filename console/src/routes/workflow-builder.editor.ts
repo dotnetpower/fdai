@@ -78,6 +78,8 @@ export function setDraftStepKind(
       next.steps.filter((candidate) => candidate.key !== key).map((candidate) => candidate.id),
     );
   }
+  if (kind === "decision" && step.outcomes.length === 0) step.outcomes = ["", ""];
+  if (kind === "parallel" && step.branches.length === 0) step.branches = ["", ""];
   return next;
 }
 
@@ -91,12 +93,49 @@ export function updateDraftStepField(
     | "on_failure"
     | "wait_for"
     | "timeout_seconds"
-    | "quorum",
+    | "quorum"
+    | "gate_ref",
   value: string,
 ): FormState {
   const next = cloneForm(form);
   const step = next.steps.find((candidate) => candidate.key === key);
   if (step) step[field] = value;
+  return next;
+}
+
+export function setDraftListItem(
+  form: FormState,
+  key: number,
+  field: "outcomes" | "branches",
+  index: number,
+  value: string,
+): FormState {
+  const next = cloneForm(form);
+  const step = next.steps.find((candidate) => candidate.key === key);
+  if (step && index >= 0 && index < step[field].length) step[field][index] = value;
+  return next;
+}
+
+export function addDraftListItem(
+  form: FormState,
+  key: number,
+  field: "outcomes" | "branches",
+): FormState {
+  const next = cloneForm(form);
+  const step = next.steps.find((candidate) => candidate.key === key);
+  if (step) step[field] = [...step[field], ""];
+  return next;
+}
+
+export function removeDraftListItem(
+  form: FormState,
+  key: number,
+  field: "outcomes" | "branches",
+  index: number,
+): FormState {
+  const next = cloneForm(form);
+  const step = next.steps.find((candidate) => candidate.key === key);
+  if (step) step[field] = step[field].filter((_, candidateIndex) => candidateIndex !== index);
   return next;
 }
 

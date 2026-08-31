@@ -20,13 +20,19 @@ import type { PythonTaskAvailability } from "../workflow/python-task";
 // Types
 // ---------------------------------------------------------------------------
 
-export type DraftStepKind = Extract<WorkflowStepKind, "action" | "wait" | "approval">;
+export type DraftStepKind = Extract<
+  WorkflowStepKind,
+  "action" | "wait" | "approval" | "decision" | "parallel" | "gate"
+>;
 export type ApprovalRole = "reader" | "contributor" | "approver" | "owner";
 
 export const AUTHORABLE_STEP_KINDS: readonly DraftStepKind[] = [
   "action",
   "wait",
   "approval",
+  "decision",
+  "parallel",
+  "gate",
 ];
 
 export const APPROVAL_ROLES: readonly ApprovalRole[] = [
@@ -52,6 +58,9 @@ export interface DraftStep {
   approval_role: ApprovalRole | "";
   quorum: string;
   no_self_approval: boolean;
+  outcomes: string[];
+  branches: string[];
+  gate_ref: string;
 }
 
 /** The full builder form state. Mirrors the workflow YAML shape (minus
@@ -248,6 +257,9 @@ function _emptyStep(key: number): DraftStep {
     approval_role: "",
     quorum: "1",
     no_self_approval: true,
+    outcomes: [],
+    branches: [],
+    gate_ref: "",
   };
 }
 
@@ -287,6 +299,9 @@ export const BUILDER_FORM_FIELDS: readonly Record<string, string>[] = [
   { section: "3. Steps", field: "step.approval_role", required: "when kind=approval", note: "minimum reviewed approval role" },
   { section: "3. Steps", field: "step.quorum", required: "when kind=approval", note: "number of distinct approvals required" },
   { section: "3. Steps", field: "step.no_self_approval", required: "when kind=approval", note: "keeps the requester and approver principals distinct" },
+  { section: "3. Steps", field: "step.outcomes", required: "when kind=decision", note: "at least two unique outcome labels accepted by the runtime" },
+  { section: "3. Steps", field: "step.branches", required: "when kind=parallel", note: "at least two unique branch ids; the runtime joins only after all complete" },
+  { section: "3. Steps", field: "step.gate_ref", required: "when kind=gate", note: "a deterministic gate reference already present in the reviewed workflow catalog" },
   { section: "3. Steps", field: "step.guard_rule_ref", required: "no", note: "optional policy rule that gates the step" },
   { section: "3. Steps", field: "step.compensated_by", required: "no", note: "optional ActionType that undoes this step on rollback" },
   { section: "3. Steps", field: "step.on_failure", required: "no", note: "optional fallback; must be a later step id" },

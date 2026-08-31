@@ -177,6 +177,18 @@ export function WorkflowDetail({
                   <div><dt>{t("workflow.detail.field.timeoutSeconds")}</dt><dd>{selected.timeout_seconds ?? t("workflow.detail.notRecorded")}</dd></div>
                 </>
               ) : null}
+              {selected.kind === "decision" ? (
+                <div><dt>{t("workflow.detail.field.outcomes")}</dt><dd>{selected.outcomes?.join(", ") || t("workflow.detail.notRecorded")}</dd></div>
+              ) : null}
+              {selected.kind === "parallel" ? (
+                <>
+                  <div><dt>{t("workflow.detail.field.branches")}</dt><dd>{selected.branches?.join(", ") || t("workflow.detail.notRecorded")}</dd></div>
+                  <div><dt>{t("workflow.detail.field.joinBehavior")}</dt><dd>{t("workflow.editor.joinAll")}</dd></div>
+                </>
+              ) : null}
+              {selected.kind === "gate" ? (
+                <div><dt>{t("workflow.detail.field.gateRef")}</dt><dd><code>{selected.gate_ref ?? t("workflow.detail.notRecorded")}</code></dd></div>
+              ) : null}
               <div><dt>{t("workflow.detail.field.guard")}</dt><dd>{selected.guard_rule_ref ?? t("workflow.detail.none")}</dd></div>
               <div><dt>{t("workflow.detail.field.compensatedBy")}</dt><dd>{selected.compensated_by ?? t("workflow.detail.none")}</dd></div>
               <div><dt>{t("workflow.detail.field.onFailure")}</dt><dd>{selected.on_failure ?? t("workflow.detail.notRecorded")}</dd></div>
@@ -207,5 +219,7 @@ function stepPrimaryRef(step: WorkflowCatalogStep): string {
   if ((step.kind ?? "action") === "action") return step.action_type_ref ?? step.id;
   if (step.kind === "wait") return step.wait_for ?? step.id;
   if (step.kind === "approval") return step.approval_role ?? step.id;
+  if (step.kind === "decision") return step.outcomes?.join(" | ") || step.id;
+  if (step.kind === "parallel") return step.branches?.join(" + ") || step.id;
   return step.gate_ref ?? step.id;
 }

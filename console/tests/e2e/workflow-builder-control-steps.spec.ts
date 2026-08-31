@@ -55,6 +55,63 @@ const form = {
       approval_role: "approver",
       quorum: "2",
       no_self_approval: true,
+      outcomes: [],
+      branches: [],
+      gate_ref: "",
+    },
+    {
+      key: 2,
+      id: "choose_outcome",
+      kind: "decision",
+      action_type_ref: "",
+      guard_rule_ref: "",
+      compensated_by: "",
+      on_failure: "",
+      params: {},
+      wait_for: "",
+      timeout_seconds: "",
+      approval_role: "",
+      quorum: "1",
+      no_self_approval: true,
+      outcomes: ["approved", "held"],
+      branches: [],
+      gate_ref: "",
+    },
+    {
+      key: 3,
+      id: "fan_out",
+      kind: "parallel",
+      action_type_ref: "",
+      guard_rule_ref: "",
+      compensated_by: "",
+      on_failure: "",
+      params: {},
+      wait_for: "",
+      timeout_seconds: "",
+      approval_role: "",
+      quorum: "1",
+      no_self_approval: true,
+      outcomes: [],
+      branches: ["security", "reliability"],
+      gate_ref: "",
+    },
+    {
+      key: 4,
+      id: "evidence_gate",
+      kind: "gate",
+      action_type_ref: "",
+      guard_rule_ref: "",
+      compensated_by: "",
+      on_failure: "",
+      params: {},
+      wait_for: "",
+      timeout_seconds: "",
+      approval_role: "",
+      quorum: "1",
+      no_self_approval: true,
+      outcomes: [],
+      branches: [],
+      gate_ref: "release.production-ready",
     },
   ],
 };
@@ -102,7 +159,29 @@ async function installFixture(page: Page): Promise<() => readonly Record<string,
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ workflows: [], count: 0 }),
+        body: JSON.stringify({
+          workflows: [{
+            schema_version: "1.0.0",
+            name: "release-review",
+            version: "1.0.0",
+            trigger: { kind: "signal", signal_type: "release.requested" },
+            default_mode: "shadow",
+            promotion_gate: {
+              min_shadow_days: 14,
+              min_samples: 30,
+              min_accuracy: 0.98,
+              max_policy_escapes: 0,
+            },
+            steps: [{
+              id: "evidence_gate",
+              kind: "gate",
+              gate_ref: "release.production-ready",
+            }],
+            step_count: 1,
+            yaml: "name: release-review\n",
+          }],
+          count: 1,
+        }),
       });
       return;
     }
@@ -143,7 +222,7 @@ async function installFixture(page: Page): Promise<() => readonly Record<string,
   return () => validations;
 }
 
-test("authors and restores governed WAIT and APPROVAL steps accessibly", async ({
+test("authors and restores governed workflow control steps accessibly", async ({
   page,
 }, testInfo) => {
   const viewport = process.env["FDAI_WORKFLOW_VIEWPORT"] === "constrained"
@@ -163,16 +242,25 @@ test("authors and restores governed WAIT and APPROVAL steps accessibly", async (
   const visualization = page.getByRole("list", { name: "Workflow visualization" });
   await expect(visualization.getByText("Wait", { exact: true })).toBeVisible();
   await expect(visualization.getByText("Human approval", { exact: true })).toBeVisible();
+  await expect(visualization.getByText("Decision", { exact: true })).toBeVisible();
+  await expect(visualization.getByText("Parallel", { exact: true })).toBeVisible();
+  await expect(visualization.getByText("Evidence gate", { exact: true })).toBeVisible();
 
   await page.getByText("Edit validated draft", { exact: true }).click();
   await page.getByLabel("Wait for event or evidence").fill("review.evidence.ready");
   await page.getByLabel("Minimum approval role").selectOption("owner");
   await page.getByLabel("Approval quorum").fill("3");
+  await page.getByLabel("Evidence gate reference").fill("unknown.gate");
+  await expect(page.getByRole("alert")).toContainText(
+    "unsupported gate reference 'unknown.gate'",
+  );
+  const invalidValidationCount = validations().length;
+  await page.getByLabel("Evidence gate reference").fill("release.production-ready");
   await expect(page.getByText(
     "Disabling this draft field does not bypass runtime anti-self-approval.",
   )).toBeVisible();
 
-  await expect.poll(() => validations().length).toBeGreaterThan(1);
+  await expect.poll(() => validations().length).toBeGreaterThan(invalidValidationCount);
   const latest = validations().at(-1);
   expect(latest?.["default_mode"]).toBe("shadow");
   expect(latest?.["steps"]).toEqual([
@@ -189,6 +277,21 @@ test("authors and restores governed WAIT and APPROVAL steps accessibly", async (
       timeout_seconds: 1800,
       quorum: 3,
       no_self_approval: true,
+    },
+    {
+      id: "choose_outcome",
+      kind: "decision",
+      outcomes: ["approved", "held"],
+    },
+    {
+      id: "fan_out",
+      kind: "parallel",
+      branches: ["security", "reliability"],
+    },
+    {
+      id: "evidence_gate",
+      kind: "gate",
+      gate_ref: "release.production-ready",
     },
   ]);
 

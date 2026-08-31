@@ -50,7 +50,7 @@ describe("workflow catalog wire tolerance", () => {
     }]);
   });
 
-  test("preserves WAIT and APPROVAL fields through catalog clone and draft assembly", () => {
+  test("preserves every control-step field through catalog clone and draft assembly", () => {
     const workflow = {
       schema_version: "1.0.0",
       name: "governed-review",
@@ -78,8 +78,23 @@ describe("workflow catalog wire tolerance", () => {
           quorum: 2,
           no_self_approval: true,
         },
+        {
+          id: "choose_outcome",
+          kind: "decision",
+          outcomes: ["approved", "held"],
+        },
+        {
+          id: "fan_out",
+          kind: "parallel",
+          branches: ["security", "reliability"],
+        },
+        {
+          id: "evidence_gate",
+          kind: "gate",
+          gate_ref: "release.production-ready",
+        },
       ],
-      step_count: 2,
+      step_count: 5,
       yaml: "",
     } as const;
 
@@ -97,6 +112,21 @@ describe("workflow catalog wire tolerance", () => {
         timeout_seconds: 1800,
         quorum: 2,
         no_self_approval: true,
+      },
+      {
+        id: "choose_outcome",
+        kind: "decision",
+        outcomes: ["approved", "held"],
+      },
+      {
+        id: "fan_out",
+        kind: "parallel",
+        branches: ["security", "reliability"],
+      },
+      {
+        id: "evidence_gate",
+        kind: "gate",
+        gate_ref: "release.production-ready",
       },
     ]);
   });

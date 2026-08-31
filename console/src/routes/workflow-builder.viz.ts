@@ -15,7 +15,16 @@ import type { FormState } from "./workflow-builder.model";
  * `category` the accent color; `ref` is the exact machine value shown in mono
  * beneath the human `name`. */
 export interface VizNode {
-  readonly kind: "when" | "do" | "notify" | "wait" | "approval" | "done";
+  readonly kind:
+    | "when"
+    | "do"
+    | "notify"
+    | "wait"
+    | "approval"
+    | "decision"
+    | "parallel"
+    | "gate"
+    | "done";
   readonly name: string;
   readonly ref: string;
   readonly category: string;
@@ -65,6 +74,33 @@ export function buildVizModel(
         kind: "approval",
         name: step.approval_role || step.id || "approval",
         ref: `quorum=${step.quorum || "?"}, timeout_seconds=${step.timeout_seconds || "?"}`,
+        category: "control",
+      });
+      continue;
+    }
+    if (step.kind === "decision") {
+      nodes.push({
+        kind: "decision",
+        name: step.id || "decision",
+        ref: step.outcomes.join(" | "),
+        category: "control",
+      });
+      continue;
+    }
+    if (step.kind === "parallel") {
+      nodes.push({
+        kind: "parallel",
+        name: step.id || "parallel",
+        ref: `${step.branches.join(" + ")}; join=all`,
+        category: "control",
+      });
+      continue;
+    }
+    if (step.kind === "gate") {
+      nodes.push({
+        kind: "gate",
+        name: step.gate_ref || step.id || "gate",
+        ref: step.gate_ref,
         category: "control",
       });
       continue;

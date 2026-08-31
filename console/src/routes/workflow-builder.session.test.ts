@@ -102,7 +102,7 @@ describe("workflow builder session store", () => {
     expect(loadWorkflowChatSession(oversized)).toBeNull();
   });
 
-  it("restores WAIT and APPROVAL fields losslessly", () => {
+  it("restores every authored control-step field losslessly", () => {
     const target = storage();
     const opening = startChat([]);
     const controlSteps = [
@@ -122,6 +122,27 @@ describe("workflow builder session store", () => {
         quorum: "2",
         timeout_seconds: "1800",
         no_self_approval: true,
+      },
+      {
+        ...opening.slots.form.steps[0]!,
+        key: 2,
+        id: "choose_outcome",
+        kind: "decision" as const,
+        outcomes: ["approved", "held"],
+      },
+      {
+        ...opening.slots.form.steps[0]!,
+        key: 3,
+        id: "fan_out",
+        kind: "parallel" as const,
+        branches: ["security", "reliability"],
+      },
+      {
+        ...opening.slots.form.steps[0]!,
+        key: 4,
+        id: "evidence_gate",
+        kind: "gate" as const,
+        gate_ref: "release.production-ready",
       },
     ];
     saveWorkflowChatSession(target, {

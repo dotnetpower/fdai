@@ -220,6 +220,9 @@ export function addActionStep(form: FormState, actionName: string): FormState {
       approval_role: "",
       quorum: "1",
       no_self_approval: true,
+      outcomes: [],
+      branches: [],
+      gate_ref: "",
     },
   ];
   return next;
@@ -294,6 +297,11 @@ export function slugifyName(text: string): string {
 export function cloneForm(form: FormState): FormState {
   return {
     ...form,
-    steps: form.steps.map((step) => ({ ...step, params: { ...step.params } })),
+    steps: form.steps.map((step) => ({
+      ...step,
+      params: { ...step.params },
+      outcomes: [...step.outcomes],
+      branches: [...step.branches],
+    })),
   };
 }

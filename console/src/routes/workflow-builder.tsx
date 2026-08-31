@@ -17,7 +17,7 @@
  * detail, automation, chat, and Python-task surfaces live in sibling modules.
  */
 
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable } from "../api";
 import type { OperatorApiClient } from "../api";
 import { AsyncBoundary, PageHeader, type AsyncState } from "../components/ui";
@@ -37,6 +37,7 @@ import { BuiltInList } from "./workflow-builder.catalog";
 import { WorkflowChat } from "./workflow-builder.chatpanel";
 import { PythonTaskWorkbench } from "./workflow-builder.python-task";
 import { formatNumber, t } from "./i18n/workflow";
+import { workflowGateRefs } from "./workflow-builder.structure";
 
 // Re-export the pure helpers the vitest suite pins so `./workflow-builder`
 // stays a stable public import surface (workflow-builder.test.ts).
@@ -137,6 +138,12 @@ export function WorkflowBuilderRoute({ client }: Props) {
  * workflow" action so the default surface is safe inspection. */
 function WorkflowShell({ data }: { readonly data: CombinedData }) {
   const [mode, setMode] = useState<"list" | "new" | "python">("list");
+  const gateRefs = useMemo(() => workflowGateRefs([
+    ...data.workflows,
+    ...Object.values(data.definitions.groups).flatMap((group) =>
+      group.map((definition) => definition.workflow_document)
+    ),
+  ]), [data.definitions.groups, data.workflows]);
 
   usePublishViewContext(
     () => {
@@ -209,7 +216,13 @@ function WorkflowShell({ data }: { readonly data: CombinedData }) {
   );
 
   if (mode === "new") {
-    return <WorkflowChat palette={data.palette} onBack={() => setMode("list")} />;
+    return (
+      <WorkflowChat
+        palette={data.palette}
+        gateRefs={gateRefs}
+        onBack={() => setMode("list")}
+      />
+    );
   }
   if (mode === "python") {
     return data.pythonTasks
