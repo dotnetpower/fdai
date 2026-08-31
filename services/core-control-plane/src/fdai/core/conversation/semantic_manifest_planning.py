@@ -68,7 +68,7 @@ def compile_ontology_manifest_count_plan(
 
     aggregate_arguments: dict[str, object] = {}
     aggregate_arguments["operation"] = "count"
-    aggregate_arguments["group_by"] = []
+    aggregate_arguments["group_by"] = ["kind"]
     aggregate_arguments["limit"] = 10
     aggregate_node = QueryNodeProposal(
         node_id="declaration-count",

@@ -47,8 +47,10 @@ Semantic conversation planning keeps `semantic_planning.py`, `semantic_planning_
 plan dispatch, anchored-incident and stated-value-filter plan construction, judgment, validation,
 frame construction, facets, evidence-specific investigation normalization, and queries. A validated
 declaration-count frame uses the focused manifest planner to compile `query.manifest` and `count`
-without a model-authored plan. These modules preserve public imports, deterministic gate order, and
-read-only authority.
+without a model-authored plan. The Core semantic-turn processor renders complete grouped values as
+typed declaration counts and names the read-only manifest source instead of reporting only the
+aggregate row count. These modules preserve public imports, deterministic gate order, and read-only
+authority.
 Resource Health state-group derivation lives in `semantic_query_health_values.py`, which keeps the
 public semantic composition facade below the enforced 800-line ceiling without changing registration
 order.

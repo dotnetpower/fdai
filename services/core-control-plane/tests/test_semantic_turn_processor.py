@@ -229,6 +229,58 @@ def test_generic_mixed_outputs_do_not_claim_zero_row_verification() -> None:
     assert "Verified 0 of 0 rows." not in answer
 
 
+@pytest.mark.parametrize(
+    ("locale", "heading", "source"),
+    (
+        ("en", "Verified ontology declaration count", "Read-only source"),
+        ("ko", "검증된 온톨로지 선언 개수", "읽기 전용 출처"),
+    ),
+)
+def test_declaration_count_answer_reports_the_aggregate_value_and_source(
+    locale: str,
+    heading: str,
+    source: str,
+) -> None:
+    request = _request(locale=locale)
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [
+            {
+                "node_id": "declaration-count",
+                "rows": [
+                    {
+                        "row_id": "aggregate:action",
+                        "values": {
+                            "group": {"kind": "action"},
+                            "operation": "count",
+                            "value": 44,
+                        },
+                    }
+                ],
+                "returned_rows": 1,
+                "total_rows": 1,
+                "source_complete": True,
+                "source_truncation_reason": None,
+                "display_truncated": False,
+            }
+        ],
+        output_shape="aggregation_table",
+    )
+
+    assert heading in answer
+    assert "- ActionTypes: 44" in answer
+    assert source in answer
+    assert "`query.manifest`" in answer
+    assert "1 of 1 rows" not in answer
+    assert (
+        "실행 권한을 부여하지 않습니다" in answer
+        if locale == "ko"
+        else ("grants no execution authority" in answer)
+    )
+
+
 def test_health_answer_separates_lifecycle_readiness_application_and_gaps() -> None:
     request = _request(locale="en")
     semantic_request = cast(dict[str, object], request["semantic_turn"])

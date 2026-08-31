@@ -9736,6 +9736,7 @@ def test_manifest_declaration_count_uses_server_owned_plan() -> None:
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert outcome.plan is not None
     assert outcome.plan.nodes[0].arguments["arguments"]["kinds"] == ["action"]
+    assert outcome.plan.nodes[1].arguments["group_by"] == ["kind"]
     assert outcome.plan.output_node_ids == ("declaration-count",)
     assert (t1.frame_calls, t1.plan_calls) == (1, 0)
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
