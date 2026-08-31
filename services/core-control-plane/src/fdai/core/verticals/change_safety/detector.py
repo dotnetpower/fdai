@@ -455,7 +455,8 @@ class ChangeSafetyDetector:
                 ),
                 None,
             )
-        if age < window:
+        settling_age = max(age, _ZERO_AGE)
+        if settling_age < window:
             seconds = int(window.total_seconds())
             return (
                 ChangeAttribution.SUPPRESSED,

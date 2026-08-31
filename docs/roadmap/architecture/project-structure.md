@@ -23,7 +23,8 @@ and satisfy the mixed-model quorum.
 An effective freeze or quiet ChangeWindow with unusable bounds denies maintenance authority
 instead of being skipped.
 A change event stamped further ahead than the configured clock-skew tolerance reports
-out-of-band instead of being suppressed by the settling window.
+out-of-band instead of being suppressed by the settling window. Tolerated negative age never
+creates suppression when the configured settling window is zero.
 A missed breach is scored only from complete telemetry, so a false-negative outcome never
 publishes a completeness claim its observation did not make.
 Forecast closure attempts every claimed episode before re-raising the first failure, so one

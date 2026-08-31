@@ -110,7 +110,7 @@ def _detector(
     bus = InMemoryEventBus()
     audit = InMemoryStateStore()
     config = ChangeSafetyDetectorConfig(
-        default_settling_window=settling or timedelta(seconds=60),
+        default_settling_window=(settling if settling is not None else timedelta(seconds=60)),
         settling_windows=dict(per_type_settling or {}),
     )
     clock = (lambda fixed=now: fixed) if now is not None else None
@@ -800,6 +800,26 @@ async def test_ordinary_clock_skew_still_suppresses_inside_the_window() -> None:
     assert decision.outcome is DetectorOutcome.SUPPRESSED
     assert publisher.records == ()
     assert bus._records.get(OUT_OF_BAND_ALERT_TOPIC) is None  # type: ignore[attr-defined]
+
+
+async def test_clock_skew_does_not_create_a_zero_window_suppression() -> None:
+    detected = FIXED_DETECTED_AT
+    detector, publisher, bus, _ = _detector(
+        settling=timedelta(0),
+        now=detected - timedelta(seconds=2),
+    )
+    event = _event(
+        actor="unknown-actor",
+        idempotency_key="zero-window-skew",
+        detected_at=detected,
+    )
+
+    decision = await detector.detect(event)
+
+    assert decision.attribution is ChangeAttribution.OUT_OF_BAND
+    assert decision.outcome is DetectorOutcome.OUT_OF_BAND_EMITTED
+    assert len(publisher.records) == 1
+    assert len(bus._records[OUT_OF_BAND_ALERT_TOPIC]) == 1  # type: ignore[attr-defined]
 
 
 async def test_negative_clock_skew_tolerance_is_rejected() -> None:
