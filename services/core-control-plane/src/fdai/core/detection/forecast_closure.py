@@ -44,6 +44,14 @@ class ForecastClosureCoordinator:
         self._lease_seconds = lease_seconds
 
     async def close_due(self, *, now: datetime, limit: int = 100) -> int:
+        """Close every claimed due episode and report how many were closed.
+
+        One episode's observation or closure failure MUST NOT block the rest of
+        the claimed batch: a repeatedly failing episode is claimed first on
+        every tick, so aborting the loop would hold the whole due queue open
+        until its lease expired again. Every claimed episode is attempted, then
+        the first failure is re-raised so the tick still reports the outage.
+        """
         if now.tzinfo is None:
             raise ValueError("forecast closure clock MUST be timezone-aware")
         if not 1 <= limit <= 1_000:
@@ -54,19 +62,27 @@ class ForecastClosureCoordinator:
             lease_until=now + timedelta(seconds=self._lease_seconds),
         )
         closed = 0
+        failure: Exception | None = None
         for episode in episodes:
-            observation = await self._observations.observe(episode)
-            outcome, reason = _close_episode(episode, observation, closed_at=now)
-            created = await self._store.close(
-                ForecastEpisodeClosure(
-                    episode_id=episode.episode_id,
-                    expected_revision=episode.revision,
-                    closed_at=now,
-                    reason=reason,
-                    outcome_payload=(outcome.model_dump(mode="json") if outcome else None),
+            try:
+                observation = await self._observations.observe(episode)
+                outcome, reason = _close_episode(episode, observation, closed_at=now)
+                created = await self._store.close(
+                    ForecastEpisodeClosure(
+                        episode_id=episode.episode_id,
+                        expected_revision=episode.revision,
+                        closed_at=now,
+                        reason=reason,
+                        outcome_payload=(outcome.model_dump(mode="json") if outcome else None),
+                    )
                 )
-            )
+            except Exception as exc:  # noqa: BLE001 - re-raised after the batch
+                if failure is None:
+                    failure = exc
+                continue
             closed += int(created)
+        if failure is not None:
+            raise failure
         return closed
 
 

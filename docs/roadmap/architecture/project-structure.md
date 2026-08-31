@@ -26,6 +26,8 @@ A change event stamped ahead of the detector clock reports out-of-band instead o
 suppressed by the settling window.
 A missed breach is scored only from complete telemetry, so a false-negative outcome never
 publishes a completeness claim its observation did not make.
+Forecast closure attempts every claimed episode before re-raising the first failure, so one
+failing episode cannot hold the whole due queue open.
 
 ## Core domain navigation decision
 
