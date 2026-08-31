@@ -1,7 +1,7 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: b0b16a83d3e4b0b40825a7c3cd06757071255a54
+translation_source_sha: 82d4413dfa4030ba07fc67b28f186c22adee794b
 translation_revised: 2026-08-31
 ---
 
@@ -70,6 +70,9 @@ Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.
 
 Operator Service는 token 검증과 server-owned App Role 해석 후에만 role을 serialize하며 browser payload는 이를 넓힐 수 없습니다. Core는 read 전에 principal-scoped purpose를 재검사하고 broker command identity는 executor 권한을 부여하지 않습니다.
 계약은 ordinary role 4개와 고정된 topic만 허용하고 readiness에는 bridge worker 두 개가 모두 필요하며 transactional storage와 replay는 모든 projection을 request, principal, result digest에 bind합니다.
+
+정확한 HIL 결정 재생은 결정과 정규화된 승인자 신원을 모두 보존해야 합니다. 다른 승인자가 같은
+멱등성 키를 재사용하면 결정이 같아도 충돌로 처리합니다.
 
 ## 2. 롤 모델 (4티어 + Break-Glass)
 

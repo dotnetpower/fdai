@@ -207,7 +207,10 @@ class StateStoreHilApprovalRegistry(HilApprovalRegistry):
         existing = await self._store.read_state(_decision_key(idempotency_key))
         if existing is not None:
             prior = _receipt_from_mapping(existing, already_recorded=True)
-            if prior.decision is not decision:
+            if (
+                prior.decision is not decision
+                or prior.approver_oid.strip().casefold() != approver_oid.strip().casefold()
+            ):
                 raise HilItemAlreadyResolvedError(
                     idempotency_key,
                     prior_decision=prior.decision.value,

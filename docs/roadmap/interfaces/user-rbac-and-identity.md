@@ -48,6 +48,9 @@ for the *human* side; the executor-side mapping stays as declared there.
 | 2026-08-21 | implemented | Added a loopback-only durable MSAL cache and one lifecycle-owned proactive refresh loop without changing deployed token storage or API verification. | `current change`; `console/src/auth-session.ts`; `console/src/auth.ts`; `console/src/app.tsx`; focused auth tests passed 10 cases and Console typecheck passed. An unretained loopback Browser check restored a second tab with no MSAL `sessionStorage` entry and observed one successful startup refresh. | Retain a governed Browser receipt across a webview recreation or overnight suspension before claiming runtime validation. |
 | 2026-08-31 | implemented | Replaced callback-supplied identity and roles with server-verified Entra authority for Teams and mapped Slack A1 decisions. Callback context, expiry, justification, no-self-approval, duplicate handling, first-timestamp audit idempotency, proposal-first recovery, and durable Kafka publication now fail closed. Teams audience comes from a separate group-connected team and channel rather than an RBAC group id. | `current change`; focused Operator IAM, PostgreSQL, Kafka, composition, workflow approval, and local canary checks. | Retain one governed deployed Teams OBO and broker-acceptance receipt without storing a token or tenant value. |
 
+An exact HIL decision replay must preserve both the decision and the normalized approver identity.
+Reusing the same idempotency key from another approver is a conflict even when the decision matches.
+
 ### Remaining work
 
 - [x] The production Break-Glass activation endpoint exists, requires an incident id, a reason, and a bounded future expiry, records the activation audit evidence, and grants no runtime HIL approval or executor identity, proven by `services/operator-service/tests/test_operator_break_glass_activation.py`.

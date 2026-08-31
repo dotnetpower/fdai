@@ -121,6 +121,12 @@ async def test_registry_records_idempotent_decision_and_rejects_conflict() -> No
             decision=HilApprovalDecision.REJECT,
             approver_oid="approver-2",
         )
+    with pytest.raises(HilItemAlreadyResolvedError):
+        await registry.record_decision(
+            idempotency_key=key,
+            decision=HilApprovalDecision.APPROVE,
+            approver_oid="approver-2",
+        )
 
 
 @pytest.mark.asyncio
