@@ -467,11 +467,14 @@ class SemanticTurnProcessor:
             try:
                 winner = await self._results.get(idempotency_key)
             except Exception:  # noqa: BLE001 - persistence detail must not cross the wire
-                return self._held_projection(
-                    envelope,
-                    request,
-                    request_digest=request_digest,
-                    reason_code="semantic_result_store_unavailable",
+                return (
+                    self._held_projection(
+                        envelope,
+                        request,
+                        request_digest=request_digest,
+                        reason_code="semantic_result_store_unavailable",
+                    ),
+                    None,
                 )
             if winner is None:
                 try:

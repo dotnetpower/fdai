@@ -86,7 +86,8 @@ read tool, agent owner, public-web query, clarification, or write draft from the
 server-provided capability manifest. The browser does not classify action intent
 and does not send natural language directly to a write endpoint.
 Concurrent semantic requests share one durable processing claim. A waiter retries the claim after
-its lease expires, so a failed owner cannot strand the request until its outer deadline.
+its lease expires, so a failed owner cannot strand the request until its outer deadline. A result
+store failure while waiting returns an explicit held projection.
 
 - **Draft**: An `action_draft` or `incident_draft` returns the allowlisted
   `action_type`, bounded typed arguments, conversation `session_id`, and a

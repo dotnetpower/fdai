@@ -911,6 +911,33 @@ class _BlockingResultStore:
         raise AssertionError("blocked get MUST prevent put")
 
 
+class _WaitFailureResultStore:
+    def __init__(self) -> None:
+        self.get_calls = 0
+
+    async def get(self, idempotency_key: str) -> bytes | None:
+        del idempotency_key
+        self.get_calls += 1
+        if self.get_calls == 1:
+            return None
+        raise RuntimeError("store unavailable")
+
+    async def claim(self, idempotency_key: str, request_digest: str) -> str | None:
+        del idempotency_key, request_digest
+        return None
+
+    async def release(
+        self,
+        idempotency_key: str,
+        request_digest: str,
+        claim_id: str,
+    ) -> bool:
+        raise AssertionError((idempotency_key, request_digest, claim_id))
+
+    async def put_if_absent(self, idempotency_key: str, projection: bytes) -> bool:
+        raise AssertionError((idempotency_key, projection))
+
+
 class _PantheonAssurance:
     async def evaluate(
         self,
@@ -2371,6 +2398,20 @@ async def test_waiting_duplicate_recovers_an_expired_processing_claim() -> None:
 
     assert _projection(projection)["semantic_result"]["disposition"] == "answered"
     assert runtime.calls == 1
+
+
+async def test_waiting_duplicate_holds_when_result_store_fails() -> None:
+    store = _WaitFailureResultStore()
+    encoded = await SemanticTurnProcessor(
+        runtime=_Runtime(_runtime_result("answered")),
+        results=store,
+        now=lambda: NOW,
+    ).process(_request())
+
+    assert _projection(encoded)["semantic_result"]["reason_code"] == (
+        "semantic_result_store_unavailable"
+    )
+    assert store.get_calls == 2
 
 
 async def test_default_claim_lease_covers_healthy_request_deadline() -> None:
