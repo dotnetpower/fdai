@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 2dc337e26c26b26878cf0ccddef0d63371483813
+translation_source_sha: 6a8cc30c240b0d61ed4274c06edda0ed725224f9
 translation_revised: 2026-08-31
 ---
 # 프로젝트 구조
@@ -11,6 +11,23 @@ translation_revised: 2026-08-31
 ## 설계 개요
 
 물리적인 5개 서비스 workspace는 [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md)이 소유합니다. 이 문서는 의존성 방향, 구조 게이트, 확장 seam, 컨트롤 루프 배선, 구성 및 저장소 규칙을 소유합니다.
+
+## Core 도메인 탐색 결정
+
+**초기 설계.** 모든 평면 Core 하위 시스템을 `pipeline`, `incident`, `operator`, `knowledge`
+또는 `platform` 아래로 실제 이동한 뒤 한 번의 코드 변경 도구로 모든 가져오기를 다시 작성합니다.
+
+**비판.** 현재 저장소에서는 영향받는 하위 시스템 경로를 1,063개 파일이 가져옵니다. 이 이동은
+안전 핵심 커버리지 소스 목록도 바꾸고 fan-out 게이트를 하위 시스템 이름에서 도메인 이름으로
+축소합니다. `incident`와 `knowledge`는 이미 하위 시스템과 facade 역할을 함께 수행하며
+`ontology_explorer.py`는 다른 구성원과 달리 패키지가 아닌 파일입니다. 이를 이동 전용 변경으로
+취급하면 대규모 차이 안에 중요한 테스트, 커버리지 및 게이트 의미가 숨습니다.
+
+**개정 설계.** 5개 도메인 facade를 영구 G-1 레이아웃으로 사용합니다. 그룹 탐색을 제공하면서
+실제 하위 시스템과 직접 가져오기는 안정적으로 유지합니다. 집중 레이아웃 검사 98개가 도메인
+구성원, 단일 소유권, 이중 역할 패키지, 직접 가져오기 호환성 및 동료 격리를 고정합니다.
+`verticals`는 자체 최상위 그룹으로 유지합니다. 이후 실제 이동은 필요하지 않으며 진행하려면
+커버리지와 fan-out 의미를 명시적으로 보존하는 별도의 도메인 범위 설계가 필요합니다.
 
 ## 모듈 경계(모듈 Boundaries)
 

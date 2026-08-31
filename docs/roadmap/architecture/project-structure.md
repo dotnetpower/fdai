@@ -9,6 +9,23 @@ The system is a **headless control plane + thin console + ChatOps**, not one web
 
 The physical five-service workspace is owned by [Multi-Service Repository Layout](multi-service-repository-layout.md). This document owns dependency direction, structural gates, extension seams, control-loop wiring, configuration, and repository conventions.
 
+## Core domain navigation decision
+
+**Initial design.** Physically move every flat Core subsystem under `pipeline`, `incident`,
+`operator`, `knowledge`, or `platform`, then rewrite every import in one codemod.
+
+**Critique.** The current repository has 1,063 files that import the affected subsystem paths.
+The move would also change the safety-core coverage source list and collapse the fan-out gate from
+subsystem names to domain names. `incident` and `knowledge` already serve both subsystem and facade
+roles, and `ontology_explorer.py` is a file while the other members are packages. Treating this as
+a moves-only change would hide material test, coverage, and gate semantics inside a mass diff.
+
+**Revised design.** The five domain facades are the permanent G-1 layout. They provide grouped
+navigation while physical subsystems and direct imports remain stable. The 98 focused layout checks
+pin domain membership, single ownership, dual-role packages, direct-import compatibility, and peer
+isolation. `verticals` remains its own top-level group. A future physical move is not required and
+would need a separate, domain-bounded design that explicitly preserves coverage and fan-out meaning.
+
 ## Module Boundaries
 
 Dependency direction is strict and one-way; a violation is a review blocker.
