@@ -33,6 +33,7 @@ bounded enforcement.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-31 | implemented | Added configuration-derived Teams and Slack bindings for notification steps when deployments provide only the existing URL references. Explicit binding JSON remains authoritative, and the derived registry adds delivery routes without changing workflow, ActionType, approval, or execution authority. | `current change`; `delivery/notifications/bindings.py`, `runtime/delivery.py`, and focused notification binding and runtime Settings tests. | Retain governed delivery receipts for a promoted workflow notification before claiming runtime validation. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and aligned the current posture with wave evidence. | `current change`; current source and focused tests listed in the scope table. | Complete Waves 3-5 and retain promotion evidence per process. |
 
 ### Remaining work

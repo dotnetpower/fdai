@@ -22,7 +22,7 @@ _PUBLIC_CLOUD_HOST = re.compile(
     r"^[a-z0-9-]+(?:\.[a-z0-9-]+)*\.environment\.api\.powerplatform\.com$"
 )
 _WORKFLOW_PATH = re.compile(
-    r"^/powerautomate/automations/direct/workflows/[a-f0-9]{32}"
+    r"^/powerautomate/automations/direct(?:/[a-z0-9]{2}){0,2}/workflows/[a-f0-9]{32}"
     r"/triggers/manual/paths/invoke$"
 )
 _REQUEST_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")

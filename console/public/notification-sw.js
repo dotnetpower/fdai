@@ -18,14 +18,22 @@ self.addEventListener("notificationclick", (event) => {
     const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
     const exact = windows.find((client) => client.url === target.href);
     if (exact !== undefined) {
-      await exact.focus();
+      try {
+        await exact.focus();
+      } catch {
+        await self.clients.openWindow(target.href);
+      }
       return;
     }
     const sameOrigin = windows.find((client) => new URL(client.url).origin === target.origin);
     if (sameOrigin !== undefined) {
       try {
-        await sameOrigin.navigate(target.href);
-        await sameOrigin.focus();
+        const navigated = await sameOrigin.navigate(target.href);
+        if (navigated === null) {
+          await self.clients.openWindow(target.href);
+          return;
+        }
+        await navigated.focus();
       } catch {
         await self.clients.openWindow(target.href);
       }

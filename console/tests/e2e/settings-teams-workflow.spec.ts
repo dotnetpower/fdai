@@ -8,10 +8,10 @@ const runtimeSettings = {
   integrations: [
     {
       key: "notification-bindings",
-      configured: false,
-      ready: false,
-      mode: "disabled",
-      reason: "not configured",
+      configured: true,
+      ready: true,
+      mode: "enabled",
+      reason: "configured",
     },
   ],
   runtime: {
@@ -118,6 +118,19 @@ test("sends transient Teams and Slack tests without retaining either URL", async
   const fixture = await installFixture(page);
   await page.goto("/settings/integrations");
 
+  await expect(page.getByText("Ready", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Connect and test Teams Workflows" })).toBeVisible();
+  await expect(page.getByText("Current FDAI account")).toBeVisible();
+  const accountInput = page.getByLabel("Microsoft 365 workflow account");
+  await accountInput.fill("workflow-owner@example.onmicrosoft.com");
+  await expect(
+    page.getByRole("button", { name: "Copy Microsoft 365 account" }),
+  ).toBeEnabled();
+  await expect(page.getByRole("link", { name: /Open Power Automate/ })).toHaveAttribute(
+    "href",
+    "https://make.powerautomate.com/",
+  );
+
   const teamsInput = page.getByLabel("One-time webhook URL");
   await expect(teamsInput).toHaveAttribute("type", "password");
   await expect(teamsInput).toHaveAttribute("autocomplete", "off");
@@ -138,13 +151,20 @@ test("sends transient Teams and Slack tests without retaining either URL", async
   expect(fixture.slackBody()).toMatchObject({ webhook_url: slackWebhookUrl });
 
   for (const selector of ["html", ".settings-route", ".settings-webhook-diagnostic"]) {
-    const dimensions = await page.locator(selector).evaluate((element) => ({
-      clientWidth: element.clientWidth,
-      scrollWidth: element.scrollWidth,
-    }));
-    expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
+    const dimensions = await page.locator(selector).evaluateAll((elements) =>
+      elements.map((element) => ({
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+      })),
+    );
+    for (const element of dimensions) {
+      expect(element.scrollWidth).toBeLessThanOrEqual(element.clientWidth);
+    }
   }
   if (process.env["FDAI_CAPTURE_SETTINGS_SCREENSHOT"] === "1") {
+    await page
+      .getByRole("heading", { name: "Connect and test Teams Workflows" })
+      .scrollIntoViewIfNeeded();
     await page.screenshot({
       path: test.info().outputPath("settings-teams-workflow.png"),
       fullPage: true,

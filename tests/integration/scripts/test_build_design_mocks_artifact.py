@@ -53,3 +53,17 @@ def test_artifact_builder_refuses_to_replace_existing_output(tmp_path: Path) -> 
 
     with pytest.raises(FileExistsError, match="output already exists"):
         module.build_artifact(_REPO_ROOT, output)
+
+
+def test_master_shell_exposes_accessible_operational_controls() -> None:
+    source = (_REPO_ROOT / "index.html").read_text(encoding="utf-8")
+
+    assert (
+        'data-page="mocks/ui/finops-resource-efficiency.html" data-title="Cost Governance"'
+    ) in source
+    assert 'data-header-page="mocks/ui/incidents.html"' in source
+    assert 'aria-label="Open 16 illustrative active incidents"' in source
+    assert "data-alert-control" in source
+    assert 'aria-pressed="true"' in source
+    assert "Disable illustrative browser alerts" in source
+    assert "Enable illustrative browser alerts" in source

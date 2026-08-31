@@ -1,8 +1,8 @@
 ---
 title: 다중 채널 알림 전달
 translation_of: multi-channel-notification-delivery.md
-translation_source_sha: 26482511efac9f31ce27e7617a2883a593729018
-translation_revised: 2026-08-27
+translation_source_sha: 6882334dff0c0b18f28c9fc6cb7cb34667288bc4
+translation_revised: 2026-08-31
 ---
 # 다중 채널 알림 전달
 
@@ -97,6 +97,24 @@ route에 없는 채널은 대상이 아니므로, 어댑터를 추가했다는 �
 - **`enabled: false`는 명시적 제외입니다.** 모든 대상 집합에서 제거되며 dispatch 기록에
   드러납니다.
 - **Trust tier는 바인딩 단위로 유지합니다.** 요약 전용 채널은 A2 호출 트래픽을 받지 않습니다.
+
+### URL만 사용하는 초기 설정
+
+Teams 대상 하나와 Slack 대상 하나를 사용하는 배포에서는 `FDAI_NOTIFICATION_BINDINGS_JSON`을
+생략하고 엔드포인트 환경 변수만 설정할 수 있습니다.
+
+| 환경 변수 | 기본 바인딩 id | 허용되는 트래픽 |
+|-----------|----------------|-----------------|
+| `FDAI_TEAMS_OPS_ENDPOINT` | `teams-ops-prd`, `teams-hil-prd` | A2 운영 알림 및 A4 요약 |
+| `FDAI_SLACK_OPS_WEBHOOK_URL` | `slack-ops-prd` | A2 운영 알림 |
+
+이 초기 설정은 합성된 바인딩 맵에 엔드포인트 값을 저장하지 않습니다. URL만으로는 워크로드 신원
+설정을 제공할 수 없으므로 Teams 엔드포인트는 `anyone` 워크플로 인증 모드를 사용합니다. A1 사람
+승인이나 A3 대화는 활성화하지 않습니다.
+
+여러 대상, 서로 다른 trust tier 또는 Teams 워크로드 신원이 필요하면
+`FDAI_NOTIFICATION_BINDINGS_JSON`을 사용하세요. 명시적 바인딩 맵이 우선하며 URL만 사용하는
+기본값과 병합되지 않습니다.
 
 ### 가용성은 전송 시점 상태 확인이 아닙니다
 
@@ -212,10 +230,12 @@ dispatch:<audit_id>            targets = [teams-ops-primary, slack-ops, email-on
 완료 관찰 감사 단계가 이 상태 변경을 둘러쌉니다. 콜백 시크릿은 배포 환경에서 관리합니다.
 
 Settings > Integrations는 설정을 위한 별도의 일회성 상용 클라우드 진단을 제공합니다. Owner는
-서명된 URL을 붙여 넣어 고정된 합성 카드 한 건을 전송할 수 있습니다. Console은 값을 즉시 지우고
-API는 URL을 응답하거나 저장하지 않으며, 영속 진단 기록에는 URL 다이제스트와 준비 및 완료
-메타데이터만 남깁니다. 진단 성공은 붙여 넣은 URL만 검증하며 배포 환경에서 관리하는 운영 바인딩을
-업데이트하거나 증명하지 않습니다.
+현재 FDAI ID와 배포 설정에서 제공한 Microsoft 365 계정 힌트를 비교하고, 해당 계정을 복사한 다음
+Power Automate를 열 수 있습니다. 서명된 URL을 붙여 넣으면 고정된 합성 카드 한 건을 전송합니다.
+Microsoft 365 테넌트의 인증, MFA, 동의, Team 및 Channel 선택은 명시적인 사용자 작업으로
+유지합니다. Console은 URL을 즉시 지우고 API는 URL을 응답하거나 저장하지 않으며, 영속 진단
+기록에는 URL 다이제스트와 준비 및 완료 메타데이터만 남깁니다. 진단 성공은 붙여 넣은 URL만
+검증하며 배포 환경에서 관리하는 운영 바인딩을 업데이트하거나 증명하지 않습니다.
 
 ## 6. 이 설계가 넘지 않는 경계
 

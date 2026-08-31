@@ -23,6 +23,13 @@ URL = (
     "?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0"
     "&sig=abcdefghijklmnopqrstuvwxyz012345"
 )
+REGIONAL_URL = (
+    "https://example.e4.environment.api.powerplatform.com/"
+    "powerautomate/automations/direct/a1/b2/workflows/"
+    "d74f3e0ee1314a4191c650cfda483a70/triggers/manual/paths/invoke"
+    "?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0"
+    "&sig=abcdefghijklmnopqrstuvwxyz012345"
+)
 
 
 class MemoryStore:
@@ -49,6 +56,11 @@ def _command(request_id: str = "teams-test-1") -> TeamsWorkflowTestCommand:
         request_id=request_id,
         webhook_url=URL,
     )
+
+
+@pytest.mark.parametrize("url", [URL, REGIONAL_URL])
+def test_accepts_canonical_and_regional_power_platform_urls(url: str) -> None:
+    assert len(validate_teams_workflow_url(url)) == 64
 
 
 async def test_accepts_fixed_card_and_never_persists_url() -> None:

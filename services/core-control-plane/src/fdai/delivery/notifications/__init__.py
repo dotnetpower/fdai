@@ -22,6 +22,7 @@ are untrusted), and translates non-2xx into
 from .bindings import (
     NotificationBindingKind,
     NotificationBindingSpec,
+    default_notification_bindings_from_env,
     parse_notification_bindings,
 )
 from .email import AzureCommunicationEmailChannel, AzureCommunicationEmailConfig
@@ -57,5 +58,6 @@ __all__ = [
     "TeamsWorkflowReceiptConfig",
     "TeamsWorkflowReceiptHandler",
     "compute_receipt_signature",
+    "default_notification_bindings_from_env",
     "parse_notification_bindings",
 ]

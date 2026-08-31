@@ -1,8 +1,8 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: c1f6972dab4240c843f2977e844e79a084bdcc24
-translation_revised: 2026-08-28
+translation_source_sha: 385275e0a75fd909083a3a5e4951a2d64f447ad1
+translation_revised: 2026-08-31
 ---
 
 # 채널과 알림(Channels and Notifications)
@@ -47,7 +47,7 @@ Teams Workflows 웹훅 바인딩은
 | Teams, Slack 및 아웃바운드 알림 어댑터 | 구현됨 | [`teams_adapter.py`](../../../services/core-control-plane/src/fdai/delivery/chatops/teams_adapter.py), `fdai_operator_service/families/conversation/channel_edge/`, 집중 edge 검사 81개 통과 | Teams는 `HilChannel`을 구현하고 A2/A4 알림 adapter는 집중 테스트를 통과합니다. Operator 소유 A3 workload는 인증된 유입, 순수 렌더링, 영속 전달, 고정 프로바이더 발행 및 실패 시 닫히는 수명 주기를 구현합니다. Slack `HilChannel`, A1 callback, Entra 재인증 및 배포된 전송 증적은 열린 상태입니다. |
 | 영속 아웃바운드 대화 전달 | implemented | [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py), [`outbound_delivery.py`](../../../services/core-control-plane/src/fdai/core/conversation/outbound_delivery.py), [`test_outbound_delivery.py`](../../../services/core-control-plane/tests/conversation/test_outbound_delivery.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py) | 조정기는 확정적인 거절과 모호한 확인 응답을 구분하고 재시도를 제한하며 중단된 전송을 조정하고 안정적인 전달 신원을 보존합니다. 이 동작은 집중 테스트를 통과했습니다. |
 | 순수 채널 표현 렌더링 | 구현됨 | `fdai_operator_service/families/conversation/channel_edge/{presentation,renderers}.py`, 집중 Operator 렌더러 검사 | 정규화된 묶음 하나가 정본 텍스트, 사실, 제한, 근거, 권한 및 사용 불가 상태를 보존합니다. 순수 Teams 및 Slack 페이로드 builder는 전송 또는 확인 응답 없이 기능 상한을 강제하며 잘못된 산출물은 정본 텍스트로 저하됩니다. |
-| 명시적 선택 브라우저 알림 | implemented | [`browser-notifications.ts`](../../../console/src/browser-notifications.ts), [`browser-notification-control.tsx`](../../../console/src/components/browser-notification-control.tsx), [`browser-notifications.test.ts`](../../../console/src/browser-notifications.test.ts) | 권한, 기본 설정, 가시성 및 알림 동작이 일곱 개의 집중 Vitest 사례를 통과했습니다. 실제 브라우저 또는 push service 증적은 기록되지 않았습니다. |
+| 명시적 선택 브라우저 알림 | implemented | [`browser-notifications.ts`](../../../console/src/browser-notifications.ts), [`browser-notification-control.tsx`](../../../console/src/components/browser-notification-control.tsx), [`notification-sw.js`](../../../console/public/notification-sw.js) 및 집중 브라우저 알림 테스트 | 권한, 기본 설정, 가시성, 전달 및 알림 클릭 시 창 활성화 동작이 집중 Vitest 사례를 통과했습니다. 실제 Windows 알림 또는 푸시 서비스 증적은 기록되지 않았습니다. |
 | 이해관계자 브리핑과 A3 edge 런타임 | 구현됨 | [`briefing.py`](../../../services/core-control-plane/src/fdai/core/notifications/briefing.py), [`test_briefing.py`](../../../services/core-control-plane/tests/notifications/test_briefing.py), [운영 A3 채널 런타임](production-a3-channel-runtime-ko.md) | 결정론적 이해관계자 브리핑은 집중 테스트를 통과했습니다. 독립 Operator distribution ASGI factory, 로컬 실행 및 선택적 Container App이 구현됐으며 통제된 프로바이더 및 보호된 배포 근거는 런타임 소유 문서에서 추적합니다. |
 | 선택적 비용 거버넌스 알림 | implemented | `fdai_cost_governance/notifications.py`, 패키지 알림 테스트, `config/notifications-matrix.yaml` | 패키지는 알림을 만들기 전에 활성화를 확인하고 API 변환 결과와 같은 공개 정책을 적용합니다. 비활성 패키지는 아무것도 전송하지 않으며 전역 인시던트, 승인, KPI 및 LLM 비용 경로는 독립적으로 유지됩니다. |
 
@@ -55,6 +55,7 @@ Teams Workflows 웹훅 바인딩은
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-31 | implemented | 브라우저 알림을 클릭하면 동일 출처 인시던트 화면으로 이동할 때 반환된 창을 활성화하고, 정확한 창의 활성화 또는 화면 이동이 실패하면 대상을 새 창으로 열도록 수정했습니다. | `current change`; 집중 서비스 워커 및 브라우저 알림 테스트, Console 타입 검사와 빌드. | 실제 데스크톱 검증을 주장하기 전에 사람이 확인한 Windows 알림 클릭 증적을 보존합니다. |
 | 2026-08-29 | implemented | 공유 라우팅 권한을 바꾸지 않고 활성화 및 공개 정책으로 제한되는 비용 거버넌스 알림 생성을 추가했습니다. | `current change`; 패키지 알림, 공개 정책 및 비활성 전송 테스트. | 실제 비용 거버넌스 검증 중에 통제된 전달 증적을 보존합니다. |
 | 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했으며 근거가 없는 Slack A1 및 독립 런타임 구현 주장을 바로잡았습니다. | 현재 변경에서 Python 집중 테스트 170개가 통과했고, `FDAI_DATABASE_URL`이 설정되지 않아 PostgreSQL 통합 테스트 두 개가 건너뛰어졌으며, 브라우저 알림 집중 테스트 일곱 개가 통과했습니다. 테스트 경로는 구현 범위 표에 나열했습니다. | 데이터베이스 기반 검사를 실행하고 Slack A1과 운영 대화 어댑터를 구현하며 독립 런타임을 조립하고 통제된 runtime 증적을 수집해야 합니다. |
 | 2026-08-14 | implemented | PostgreSQL에서 재시작 후 영속성을 증명한 뒤 페어링과 교차 채널 신원 연결을 승격했습니다. | 현재 변경에서 `test_postgres_channel_pairing.py`와 `test_postgres_channel_identity_link.py`가 지원되는 일회용 데이터베이스에서 네 건을 건너뛰기 없이 통과했습니다. | Slack A1과 운영 대화 어댑터를 구현하고 독립 런타임을 조립하며 통제된 runtime 증적을 수집해야 합니다. |
@@ -376,6 +377,11 @@ server-derived same-origin 읽기 전용 인시던트 화면 링크만 포함합
 따라서 브라우저가 완전히 종료되면 알림을 받지 않습니다. Closed-browser Web Push를
 활성화하려면 별도로 인증된 쓰기 서비스, 암호화된 구독 저장소, 철회, CSRF
 protection, 전달 감사가 필요하며 Operator API에 속하지 않습니다.
+
+알림을 클릭하면 정확히 일치하는 Console 창이 있을 때 해당 창을 활성화합니다. 그렇지 않으면
+서비스 워커가 동일 출처의 Console 창을 읽기 전용 인시던트 대상으로 이동하고, 그 이동에서
+반환된 창을 활성화합니다. 브라우저 창 활성화 또는 화면 이동이 실패하면 검증된 동일 대상을
+새 창으로 엽니다. 이 활성화 동작은 작업을 승인하거나 실행하지 않습니다.
 
 ## 5. 채널 인터페이스 (계약)
 

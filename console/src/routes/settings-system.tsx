@@ -5,6 +5,8 @@ import "./settings-email-template.css";
 import "./settings-webhook-diagnostic.css";
 import {
   AsyncBoundary,
+  CopyButton,
+  ExternalLink,
   type AsyncState,
   PageHeader,
   StatusPill,
@@ -37,6 +39,34 @@ import {
 interface Props {
   readonly client: OperatorApiClient;
   readonly auth: AuthContext;
+}
+
+const TEAMS_WORKFLOW_SETUP_URL = "https://make.powerautomate.com/";
+const TEAMS_WORKFLOW_ACCOUNT_HINT = normalizeTeamsWorkflowAccountHint(
+  import.meta.env.VITE_TEAMS_WORKFLOW_ACCOUNT_HINT,
+);
+
+export function normalizeTeamsWorkflowAccountHint(value: unknown): string {
+  if (value === undefined) return "";
+  if (typeof value !== "string") {
+    throw new Error("VITE_TEAMS_WORKFLOW_ACCOUNT_HINT must be a string.");
+  }
+  const normalized = value.trim();
+  if (
+    normalized
+    && (
+      normalized.length > 254
+      || normalized.includes(" ")
+      || normalized.split("@").length !== 2
+      || normalized.startsWith("@")
+      || normalized.endsWith("@")
+    )
+  ) {
+    throw new Error(
+      "VITE_TEAMS_WORKFLOW_ACCOUNT_HINT must be an email-style user principal name.",
+    );
+  }
+  return normalized;
 }
 
 export function isCurrentDiagnosticCheck(current: number, candidate: number): boolean {
@@ -299,6 +329,7 @@ function TeamsWorkflowTestPanel({
   readonly canManage: boolean;
 }) {
   const [webhookUrl, setWebhookUrl] = useState("");
+  const [accountHint, setAccountHint] = useState(TEAMS_WORKFLOW_ACCOUNT_HINT);
   const [testing, setTesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<TeamsWorkflowTestResult | null>(null);
@@ -328,41 +359,103 @@ function TeamsWorkflowTestPanel({
   };
 
   return (
-    <div class="settings-webhook-diagnostic">
+    <div class="settings-webhook-diagnostic settings-teams-workflow-setup">
       <div class="settings-webhook-diagnostic-copy">
-        <strong>{t("settings.teamsWorkflowTest.heading")}</strong>
+        <h4>{t("settings.teamsWorkflowTest.heading")}</h4>
         <p>{t("settings.teamsWorkflowTest.description")}</p>
         <p>{t("settings.teamsWorkflowTest.boundary")}</p>
       </div>
-      <form class="settings-webhook-diagnostic-form" onSubmit={(event) => { void submit(event); }}>
-        <label class="settings-webhook-diagnostic-field">
-          <span>{t("settings.teamsWorkflowTest.urlLabel")}</span>
-          <input
-            class="form-input"
-            type="password"
-            inputMode="url"
-            autocomplete="off"
-            data-1p-ignore
-            data-bwignore
-            data-lpignore="true"
-            spellcheck={false}
-            maxlength={4096}
-            value={webhookUrl}
-            disabled={!canManage || testing}
-            placeholder={t("settings.teamsWorkflowTest.urlPlaceholder")}
-            onInput={(event) => setWebhookUrl(event.currentTarget.value)}
-          />
-        </label>
-        <button
-          type="submit"
-          class="btn primary"
-          disabled={!canManage || testing || !webhookUrl.trim()}
-        >
-          {testing
-            ? t("settings.teamsWorkflowTest.testing")
-            : t("settings.teamsWorkflowTest.test")}
-        </button>
-      </form>
+      <ol class="settings-teams-workflow-steps">
+        <li>
+          <span class="settings-teams-workflow-step-index" aria-hidden="true">1</span>
+          <div class="settings-teams-workflow-step">
+            <strong>{t("settings.teamsWorkflowTest.accountStep")}</strong>
+            <p>{t("settings.teamsWorkflowTest.accountStepHint")}</p>
+            <div class="settings-teams-workflow-identities">
+              <span>
+                <small>{t("settings.teamsWorkflowTest.fdaiAccount")}</small>
+                <code>{auth.account?.username ?? t("settings.teamsWorkflowTest.accountUnavailable")}</code>
+              </span>
+              <label>
+                <small>{t("settings.teamsWorkflowTest.m365Account")}</small>
+                <span class="settings-teams-workflow-account-control">
+                  <input
+                    class="form-input"
+                    type="email"
+                    autocomplete="username"
+                    maxlength={254}
+                    value={canManage ? accountHint : ""}
+                    disabled={!canManage}
+                    placeholder={canManage
+                      ? t("settings.teamsWorkflowTest.accountPlaceholder")
+                      : t("settings.teamsWorkflowTest.ownerOnly")}
+                    onInput={(event) => setAccountHint(event.currentTarget.value)}
+                  />
+                  {canManage && accountHint.trim() ? (
+                    <CopyButton
+                      text={accountHint.trim()}
+                      label={t("settings.teamsWorkflowTest.copyAccount")}
+                    />
+                  ) : null}
+                </span>
+              </label>
+            </div>
+          </div>
+        </li>
+        <li>
+          <span class="settings-teams-workflow-step-index" aria-hidden="true">2</span>
+          <div class="settings-teams-workflow-step">
+            <strong>{t("settings.teamsWorkflowTest.workflowStep")}</strong>
+            <p>{t("settings.teamsWorkflowTest.workflowStepHint")}</p>
+            {canManage ? (
+              <span class="settings-teams-workflow-open">
+                <ExternalLink href={TEAMS_WORKFLOW_SETUP_URL}>
+                  {t("settings.teamsWorkflowTest.openWorkflow")}
+                </ExternalLink>
+              </span>
+            ) : null}
+          </div>
+        </li>
+        <li>
+          <span class="settings-teams-workflow-step-index" aria-hidden="true">3</span>
+          <div class="settings-teams-workflow-step">
+            <strong>{t("settings.teamsWorkflowTest.testStep")}</strong>
+            <p>{t("settings.teamsWorkflowTest.testStepHint")}</p>
+            <form
+              class="settings-webhook-diagnostic-form"
+              onSubmit={(event) => { void submit(event); }}
+            >
+              <label class="settings-webhook-diagnostic-field">
+                <span>{t("settings.teamsWorkflowTest.urlLabel")}</span>
+                <input
+                  class="form-input"
+                  type="password"
+                  inputMode="url"
+                  autocomplete="off"
+                  data-1p-ignore
+                  data-bwignore
+                  data-lpignore="true"
+                  spellcheck={false}
+                  maxlength={4096}
+                  value={webhookUrl}
+                  disabled={!canManage || testing}
+                  placeholder={t("settings.teamsWorkflowTest.urlPlaceholder")}
+                  onInput={(event) => setWebhookUrl(event.currentTarget.value)}
+                />
+              </label>
+              <button
+                type="submit"
+                class="btn primary"
+                disabled={!canManage || testing || !webhookUrl.trim()}
+              >
+                {testing
+                  ? t("settings.teamsWorkflowTest.testing")
+                  : t("settings.teamsWorkflowTest.test")}
+              </button>
+            </form>
+          </div>
+        </li>
+      </ol>
       {!canManage ? (
         <div class="state-block" role="note">{t("settings.teamsWorkflowTest.ownerRequired")}</div>
       ) : null}

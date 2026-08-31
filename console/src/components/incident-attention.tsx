@@ -73,15 +73,22 @@ export function IncidentAttention({ client, principalId }: Props) {
   return (
     <button
       type="button"
-      class="incident-attention"
+      class="topbar-control incident-attention"
       aria-label={t("incidentAttention.open", { count: incidents.length })}
+      title={t("incidentAttention.open", { count: incidents.length })}
       onClick={() => {
         if (openDeckWithContext(incidentDeckDetail(first))) {
           opened.current.add(first.incident_id);
         }
       }}
     >
-      {t("incidentAttention.badge", { count: incidents.length })}
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 9v4" />
+        <path d="M12 17h.01" />
+        <path d="M10.3 3.6 2.5 17.1A2 2 0 0 0 4.2 20h15.6a2 2 0 0 0 1.7-2.9L13.7 3.6a2 2 0 0 0-3.4 0Z" />
+      </svg>
+      <span class="topbar-control-label">{t("incidentAttention.label")}</span>
+      <span class="incident-attention-count">{incidents.length}</span>
     </button>
   );
 }

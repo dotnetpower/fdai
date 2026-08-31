@@ -35,6 +35,34 @@ class NotificationBindingSpec:
     identity_client_id_env: str = "FDAI_NOTIFICATION_MI_CLIENT_ID"
 
 
+def default_notification_bindings_from_env(environment: Mapping[str, str]) -> str:
+    """Build default matrix bindings from URL-only webhook configuration."""
+    bindings: dict[str, dict[str, object]] = {}
+    if environment.get("FDAI_TEAMS_OPS_ENDPOINT", "").strip():
+        bindings["teams-ops-prd"] = {
+            "kind": "teams_workflow",
+            "enabled": True,
+            "trust_tiers": ["a2_operational_alert"],
+            "auth_mode": "anyone",
+            "endpoint_env": "FDAI_TEAMS_OPS_ENDPOINT",
+        }
+        bindings["teams-hil-prd"] = {
+            "kind": "teams_workflow",
+            "enabled": True,
+            "trust_tiers": ["a4_digest"],
+            "auth_mode": "anyone",
+            "endpoint_env": "FDAI_TEAMS_OPS_ENDPOINT",
+        }
+    if environment.get("FDAI_SLACK_OPS_WEBHOOK_URL", "").strip():
+        bindings["slack-ops-prd"] = {
+            "kind": "slack_webhook",
+            "enabled": True,
+            "trust_tiers": ["a2_operational_alert"],
+            "endpoint_env": "FDAI_SLACK_OPS_WEBHOOK_URL",
+        }
+    return json.dumps(bindings, separators=(",", ":")) if bindings else ""
+
+
 def parse_notification_bindings(raw: str) -> tuple[NotificationBindingSpec, ...]:
     """Parse a channel-id keyed JSON object without resolving secret values."""
     try:
@@ -204,5 +232,6 @@ def _env_name(value: object, channel_id: str, field: str) -> str:
 __all__ = [
     "NotificationBindingKind",
     "NotificationBindingSpec",
+    "default_notification_bindings_from_env",
     "parse_notification_bindings",
 ]

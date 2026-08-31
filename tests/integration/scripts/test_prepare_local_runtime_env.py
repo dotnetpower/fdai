@@ -155,7 +155,9 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "FDAI_DEV_OPERATIONS_GATEWAY_URL=https://stale.example.com\n"
         "FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE=stale-audience\n"
         "FDAI_WEB_SEARCH_ENABLED=1\n"
-        "FDAI_DIRECT_API_FAKE=1\n",
+        "FDAI_DIRECT_API_FAKE=1\n"
+        "FDAI_TEAMS_OPS_ENDPOINT=https://flow.example.com/trigger/local\n"
+        "FDAI_SLACK_OPS_WEBHOOK_URL=https://hooks.slack.example/services/local\n",
         encoding="utf-8",
     )
     semantic_outputs = (
@@ -240,6 +242,8 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
     values = output.read_text(encoding="utf-8").splitlines()
     assert values == [
         "VITE_MSAL_CLIENT_ID=client",
+        "FDAI_TEAMS_OPS_ENDPOINT=https://flow.example.com/trigger/local",
+        "FDAI_SLACK_OPS_WEBHOOK_URL=https://hooks.slack.example/services/local",
         "AZURE_TENANT_ID=00000000-0000-0000-0000-000000000002",
         "AZURE_SUBSCRIPTION_ID=00000000-0000-0000-0000-000000000001",
         "AZURE_RESOURCE_GROUP=rg-example",

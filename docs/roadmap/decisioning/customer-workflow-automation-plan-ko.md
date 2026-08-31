@@ -1,8 +1,8 @@
 ---
 title: 고객 워크플로 자동화 제공 계획
 translation_of: customer-workflow-automation-plan.md
-translation_source_sha: 1eefd6256e48b04f3be2b645c9b76f8f27790e03
-translation_revised: 2026-08-20
+translation_source_sha: 53e917b21aaddb3ab9728ff0a3077699826a4585
+translation_revised: 2026-09-01
 ---
 
 # 고객 워크플로 자동화 제공 계획
@@ -35,6 +35,7 @@ translation_revised: 2026-08-20
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-31 | implemented | 배포에서 기존 URL 참조만 제공할 때 알림 스텝에 사용할 Teams 및 Slack 바인딩을 구성에서 파생하도록 추가했습니다. 명시적 바인딩 JSON은 계속 우선하며, 파생된 레지스트리는 Workflow, ActionType, 승인 또는 실행 권한을 변경하지 않고 전달 경로만 추가합니다. | `current change`; `delivery/notifications/bindings.py`, `runtime/delivery.py` 및 알림 바인딩과 런타임 Settings 집중 테스트입니다. | 런타임 검증을 선언하기 전에 승격된 워크플로 알림의 통제된 전달 증적을 보존해야 합니다. |
 | 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입하고 현재 상태를 웨이브 근거와 맞췄습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트입니다. | 웨이브 3-5를 완료하고 프로세스별 승격 근거를 보존해야 합니다. |
 
 ### 남은 작업

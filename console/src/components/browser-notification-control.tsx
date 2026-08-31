@@ -31,6 +31,15 @@ const CONTROL_LABEL_KEYS: Readonly<Record<ControlState, string>> = {
   error: "browserNotifications.error",
 };
 
+const CONTROL_STATE_KEYS: Readonly<Record<ControlState, string>> = {
+  off: "browserNotifications.stateOff",
+  enabling: "browserNotifications.stateEnabling",
+  on: "browserNotifications.stateOn",
+  blocked: "browserNotifications.stateBlocked",
+  unsupported: "browserNotifications.stateUnsupported",
+  error: "browserNotifications.stateError",
+};
+
 const ALERT_TITLE_KEYS: Readonly<Record<BrowserAlertKind, string>> = {
   approval: "browserNotifications.approvalTitle",
   denied: "browserNotifications.deniedTitle",
@@ -173,15 +182,24 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
 
   const disabled = state === "unsupported" || state === "blocked" || state === "enabling";
   const label = t(CONTROL_LABEL_KEYS[state]);
+  const stateLabel = t(CONTROL_STATE_KEYS[state]);
   return (
     <button
       type="button"
-      class={`browser-notification-control ${state === "on" ? "is-active" : ""}`}
+      class={`topbar-control browser-notification-control ${state === "on" ? "is-active" : ""}`}
       aria-pressed={state === "on"}
+      aria-label={label}
+      title={label}
       disabled={disabled}
       onClick={() => { void toggle(); }}
     >
-      {label}
+      <span class="browser-notification-indicator" aria-hidden="true" />
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+        <path d="M10 21h4" />
+      </svg>
+      <span class="topbar-control-label">{t("browserNotifications.label")}</span>
+      <span class="browser-notification-state">{stateLabel}</span>
     </button>
   );
 }

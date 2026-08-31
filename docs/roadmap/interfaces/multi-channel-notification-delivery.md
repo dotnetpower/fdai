@@ -97,6 +97,24 @@ Rules:
   visible in the dispatch record.
 - **Trust tiers stay per binding.** A digest-only room never receives A2 paging traffic.
 
+### URL-only bootstrap
+
+For a deployment with one Teams destination and one Slack destination, you can omit
+`FDAI_NOTIFICATION_BINDINGS_JSON` and set only the endpoint variables:
+
+| Environment variable | Default binding ids | Allowed traffic |
+|----------------------|---------------------|-----------------|
+| `FDAI_TEAMS_OPS_ENDPOINT` | `teams-ops-prd`, `teams-hil-prd` | A2 operational alerts and A4 digests |
+| `FDAI_SLACK_OPS_WEBHOOK_URL` | `slack-ops-prd` | A2 operational alerts |
+
+This bootstrap stores no endpoint value in the synthesized binding map. The Teams endpoint uses the
+`anyone` workflow authentication mode because a URL alone provides no workload identity
+configuration. It does not enable A1 approvals or A3 conversations.
+
+Use `FDAI_NOTIFICATION_BINDINGS_JSON` when you need multiple destinations, different trust tiers,
+or Teams workload identity. An explicit binding map is authoritative and is not merged with the
+URL-only defaults.
+
 ### Availability is not a send-time health probe
 
 The design deliberately rejects a per-send `is_ready()` network probe. A provider outage must
@@ -213,10 +231,13 @@ completed observation audit phases bracket that state change. The callback secre
 deployment-owned.
 
 Settings > Integrations provides a separate one-time public-cloud diagnostic for setup. An Owner
-can paste a signed URL to send one fixed synthetic card. The Console clears the value immediately,
-the API never returns or persists it, and the durable diagnostic record contains only the URL
-digest and prepared/completed metadata. A successful diagnostic validates the pasted URL only; it
-does not update or prove the deployment-managed production binding.
+can compare the current FDAI identity with a deployment-provided Microsoft 365 account hint, copy
+that account, and open Power Automate before pasting the signed URL to send one fixed synthetic
+card. Authentication, MFA, consent, and Team/Channel selection remain explicit user actions in the
+Microsoft 365 tenant. The Console clears the URL immediately, the API never returns or persists it,
+and the durable diagnostic record contains only the URL digest and prepared/completed metadata. A
+successful diagnostic validates the pasted URL only; it does not update or prove the
+deployment-managed production binding.
 
 ## 6. Boundaries this design does not cross
 

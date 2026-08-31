@@ -41,4 +41,5 @@ describe("console config", () => {
       "VITE_OPERATOR_API_REQUEST_TIMEOUT_MS must be a positive integer.",
     );
   });
+
 });

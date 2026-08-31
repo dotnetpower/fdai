@@ -787,10 +787,30 @@ a:hover {
   color: var(--fg);
 }
 
+.topbar .principal .topbar-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+  font-size: var(--cs-type-label-size);
+  font-weight: 600;
+}
+
+.topbar-control svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .topbar .principal .browser-notification-control.is-active {
-  color: var(--accent-strong);
-  border-color: color-mix(in oklab, var(--accent) 55%, var(--border));
-  background: color-mix(in oklab, var(--accent) 8%, transparent);
+  color: var(--fg);
+  border-color: color-mix(in oklab, var(--accent) 28%, var(--border));
+  background: color-mix(in oklab, var(--accent) 5%, transparent);
 }
 
 .topbar .principal .browser-notification-control:disabled {
@@ -798,12 +818,47 @@ a:hover {
   opacity: 0.62;
 }
 
+.browser-notification-indicator {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--fg-muted);
+}
+
+.browser-notification-control.is-active .browser-notification-indicator {
+  background: var(--accent-strong);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 10%, transparent);
+}
+
+.browser-notification-state {
+  color: var(--fg-muted);
+  font-size: var(--cs-type-caption-size);
+  font-weight: 700;
+}
+
+.browser-notification-control.is-active .browser-notification-state {
+  color: var(--accent-strong);
+}
+
 .topbar .principal .access-grant-attention,
 .topbar .principal .incident-attention {
-  border-color: color-mix(in oklab, var(--warning) 55%, var(--border));
-  background: color-mix(in oklab, var(--warning) 10%, var(--bg-elevated));
+  border-color: color-mix(in oklab, var(--warning) 34%, var(--border));
+  background: color-mix(in oklab, var(--warning) 8%, var(--bg-elevated));
+  color: var(--fg);
+}
+
+.incident-attention svg {
   color: var(--warning);
-  font-weight: 700;
+}
+
+.incident-attention-count {
+  min-width: 20px;
+  padding-left: 7px;
+  border-left: 1px solid var(--border);
+  color: var(--warning);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
 }
 
 .access-grant-attention-wrap {
@@ -11318,6 +11373,12 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 @media (max-width: 640px) {
   .topbar .principal button,
   .topbar .principal .theme-toggle { min-height: 44px; }
+  .topbar .principal .topbar-control {
+    min-width: 44px;
+    justify-content: center;
+    padding-inline: 8px;
+  }
+  .topbar-control-label { display: none; }
   .deck-invoke { left: var(--rail-width); }
   .deck-overlay,
   .deck-overlay.deck-overlay-mode-workspace { left: 0; }

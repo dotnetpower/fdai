@@ -610,7 +610,11 @@ def _valid_json_string_map(raw: str) -> bool:
 
 
 def _notification_bindings_projection(env: Mapping[str, str]) -> dict[str, object]:
-    raw = env.get("FDAI_NOTIFICATION_BINDINGS_JSON", "").strip()
+    from fdai.delivery.notifications import default_notification_bindings_from_env
+
+    raw = env.get(
+        "FDAI_NOTIFICATION_BINDINGS_JSON", ""
+    ).strip() or default_notification_bindings_from_env(env)
     if not raw:
         return {
             "key": "notification-bindings",

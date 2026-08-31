@@ -386,3 +386,26 @@ async def test_notification_binding_projection_validates_referenced_environment(
     )
     assert valid_integration["ready"] is True
     assert valid_integration["enabled_count"] == 1
+
+
+async def test_notification_binding_projection_recognizes_url_only_defaults() -> None:
+    service = RuntimeSettingsService(
+        store=None,
+        env={
+            "FDAI_TEAMS_OPS_ENDPOINT": "https://flow.example.com/trigger",
+            "FDAI_SLACK_OPS_WEBHOOK_URL": (
+                "https://hooks.slack.com/services/T000/B000/abcdefghijklmnopqrstuvwxyz"
+            ),
+        },
+        durable=False,
+    )
+
+    projection = await service.projection(can_manage=False)
+    integration = next(
+        item for item in projection["integrations"] if item["key"] == "notification-bindings"
+    )
+
+    assert integration["configured"] is True
+    assert integration["ready"] is True
+    assert integration["binding_count"] == 3
+    assert integration["enabled_count"] == 3

@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: da72ff685c43759e53c1dcf01f826bca03db2107
-translation_revised: 2026-08-31
+translation_source_sha: 95e73456c341ea5e9e18dedb437c207657281a19
+translation_revised: 2026-09-01
 ---
 # 코드 맵
 
@@ -242,6 +242,7 @@ shadow 테스트가 두 경계를 고정합니다.
 | Operator 서비스 | 인증된 경로 계열, 영속적인 세 토픽 의미 브리지, 범위가 제한된 불일치 변환 결과 격리, 프로세스 소유 브리지 상태, 순서가 정해진 Managed Identity Kafka 수명 주기, 기존 downgrade 검사와 격리된 서비스 소유 스키마 검사, exact-release 온톨로지 읽기, 범위가 제한된 활성 인벤토리 영향 탐색, 버전이 지정된 background-task 변환 결과 수집, Core 테이블 직접 읽기 없는 소유자 범위 작업 목록/상세/진행 상황/유한 SSE 재생, 명시적 고정 census Pantheon 보증 확장, 읽기 전용 런타임 및 보증 변환 결과 | [운영 경로 계열](../../../services/operator-service/src/fdai_operator_service/families/operations/), [의미 변환 결과 수집기](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [Pantheon 최종 표현](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_presentation.py), [Pantheon 보증 런타임](../../../services/core-control-plane/src/fdai/runtime/pantheon_conversation_assurance.py), [백그라운드 작업 변환 결과](../../../services/operator-service/src/fdai_operator_service/families/conversation/background_tasks.py), [변환 결과 저장소](../../../services/operator-service/src/fdai_operator_service/postgres_background_task_projection.py), [런타임 변환 결과 읽기 구성요소](../../../services/operator-service/src/fdai_operator_service/runtime_projection_reader.py), [대화 보증 읽기 구성요소](../../../services/operator-service/src/fdai_operator_service/conversation_assurance_reader.py), [PostgreSQL 계열 저장소](../../../services/operator-service/src/fdai_operator_service/postgres_family_store.py), [읽기 마이그레이션](../../../service-migrations/branches/operator-service/versions/), [어댑터](../../../services/operator-service/src/fdai_operator_service/adapters/), [스트리밍](../../../services/operator-service/src/fdai_operator_service/streaming/) 및 [composition.py](../../../services/operator-service/src/fdai_operator_service/composition.py) |
 | FDAI Console 백그라운드 작업 점검 | 엄격한 소유자 범위 작업/진행 상황 decoder, 이중 언어 목록 및 선택 상세 표현, 생성, 취소, 재시도 또는 실행 컨트롤이 없는 명시적 새로 고침 | [경로](../../../console/src/routes/background-tasks.tsx), [decoder](../../../console/src/routes/background-tasks.model.ts), [decoder 테스트](../../../console/src/routes/background-tasks.model.test.ts) |
 | FDAI Console 온톨로지 워크벤치 | Exact 선언 경로, 엄격한 변환 결과 decoder, 근거/종속 항목/release 구역, localized 검증 상태 및 실행 control이 없는 스냅샷 결속 영향/map 표현 | [ObjectType 워크벤치](../../../console/src/routes/ontology-object-type-detail.tsx), [영향 경로](../../../console/src/routes/blast-radius.tsx), [영향 decoder](../../../console/src/routes/blast-radius.model.ts), [온톨로지 계약](../../../console/src/routes/ontology.types.ts) |
+| FDAI Console 지역화 카탈로그 | 공유 셸, 인시던트, 알림 및 채널 설정 레이블은 기본 이중 언어 카탈로그에 둡니다. 선택적 Cost Governance 레이블은 패키지별 경로 카탈로그에 유지하므로 공유 레이블 변경으로 패키지를 활성화하거나 구성할 수 없습니다. | [기본 영어 카탈로그](../../../console/src/i18n/messages.en.json), [기본 한국어 카탈로그](../../../console/src/i18n/messages.ko.json), [Cost Governance 경로 카탈로그](../../../console/src/routes/i18n/) |
 | 네트워크 토폴로지 시각화 | 공유 네트워크 어휘, 작성된 정적 다이어그램 계약, 관측 전용 Console 포커스 및 경로 표현, 실행 권한이 없는 정제된 내보내기 | [공유 어휘](../../../packages/network-topology-contracts/), [다이어그램 컴파일러](../../../tools/architecture-diagrams/), [Console 아키텍처 컴포넌트](../../../console/src/components/), [소유 설계](../interfaces/network-topology-visualization-ko.md) |
 | 문서 인제스트 API | 업로드 intake, API 소유 전이 및 서비스 어댑터 | [패키지](../../../services/document-ingestion-api/src/fdai_ingestion_api_service/) |
 | 문서 처리 워커 | 영속 문서 처리와 워커 소유 어댑터 | [패키지](../../../services/document-processing-worker/src/fdai_document_worker_service/) |

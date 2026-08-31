@@ -4,6 +4,7 @@ import {
   authenticationMode,
   isCurrentDiagnosticCheck,
   isHealthy,
+  normalizeTeamsWorkflowAccountHint,
 } from "./settings-system";
 
 function auth(overrides: Partial<AuthContext>): AuthContext {
@@ -41,5 +42,20 @@ describe("Settings authentication mode", () => {
   it("distinguishes Azure CLI and production Entra", () => {
     expect(authenticationMode(auth({ devMode: true, localAzureCli: true }))).toBe("Azure CLI");
     expect(authenticationMode(auth({ devMode: false }))).toBe("Microsoft Entra ID");
+  });
+});
+
+describe("Teams workflow account hint", () => {
+  it("normalizes an optional user principal name", () => {
+    expect(normalizeTeamsWorkflowAccountHint(undefined)).toBe("");
+    expect(
+      normalizeTeamsWorkflowAccountHint(" workflow-owner@example.onmicrosoft.com "),
+    ).toBe("workflow-owner@example.onmicrosoft.com");
+  });
+
+  it("rejects invalid account hints", () => {
+    expect(() => normalizeTeamsWorkflowAccountHint("not an account")).toThrow(
+      "must be an email-style user principal name",
+    );
   });
 });

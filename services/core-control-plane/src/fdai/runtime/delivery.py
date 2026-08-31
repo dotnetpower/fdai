@@ -573,9 +573,21 @@ def _build_notification_registry(http_client: httpx.AsyncClient | None) -> Any:
             )
         return _build_named_notification_registry(bindings_raw, http_client)
 
+    registry = ChannelRegistry()
+    from fdai.delivery.notifications import default_notification_bindings_from_env
+
+    implicit_bindings_raw = default_notification_bindings_from_env(os.environ)
+    if implicit_bindings_raw:
+        if http_client is None:
+            raise RuntimeError(
+                "a Teams or Slack notification webhook URL is set but no HTTP client is available"
+            )
+        _LOGGER.info("notification_bindings_defaulted")
+        registry = _build_named_notification_registry(implicit_bindings_raw, http_client)
+
     endpoint = os.environ.get("FDAI_EMAIL_ENDPOINT", "").strip()
     if not endpoint:
-        return ChannelRegistry()
+        return registry
     if http_client is None:
         raise RuntimeError(
             "FDAI_EMAIL_ENDPOINT is set but no HTTP client is available. "
@@ -641,7 +653,10 @@ def _build_notification_registry(http_client: httpx.AsyncClient | None) -> Any:
         )
         for channel_id, channel in channels.items()
     }
-    return ChannelRegistry(channels=channels, bindings=bindings)
+    return ChannelRegistry(
+        channels={**registry.channels, **channels},
+        bindings={**registry.bindings, **bindings},
+    )
 
 
 def _build_named_notification_registry(
