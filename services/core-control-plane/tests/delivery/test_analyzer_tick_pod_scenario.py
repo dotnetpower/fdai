@@ -1,401 +1,427 @@
-"""Bounded Pod restart and replacement scenario through the analyzer path."""
+"""Bounded Pod restart and replacement scenario through the real analyzer CLI.
+
+The scenario declares typed Pod observations exactly as a venue does, then runs
+:func:`fdai.delivery.analyzer_tick_cli.main`. Nothing here supplies a finding,
+a completeness flag, or a recovery verdict: the CLI composes the production
+:class:`~fdai.core.investigation.KubernetesPodLifecycleAnalyzer`, which delegates
+both conclusions to the canonical reducers, so the joined receipt the CLI prints
+is re-derivable from the declared observations alone.
+"""
 
 from __future__ import annotations
 
 import json
-from dataclasses import replace
+from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import pytest
-from fdai.core.investigation import AnalyzerFinding, InvestigationCoordinator
-from fdai.core.ontology_platform.kubernetes_pod_replacement_evidence import (
-    DeploymentReplicaObservation,
-    KubernetesPodReplacementEvidenceResult,
-    KubernetesPodReplacementStatus,
-    PodLifecycleObservation,
-    PodReplacementDeploymentObservation,
-    PodTerminationObservation,
-    evaluate_kubernetes_pod_replacement,
+from fdai.delivery import analyzer_tick_cli as cli
+from fdai.delivery.persistence.postgres_analyzer_publication import (
+    PostgresAnalyzerPublicationLedger,
 )
-from fdai.delivery.analyzer_targets import AnalyzerTargetResolution
-from fdai.delivery.analyzer_tick import (
-    AnalyzerPublicationClaim,
-    AnalyzerPublicationClaimStatus,
-    AnalyzerTarget,
-    AnalyzerTickRunner,
-)
-from fdai.delivery.analyzer_tick_cli import AnalyzerJobReport, run_loop
-from fdai.delivery.trace_continuity_tick import TraceContinuityTickReport
-from fdai.shared.contracts.models import Severity
 from fdai.shared.providers.event_bus import PublishReceipt
-from fdai.shared.providers.state_evidence import (
-    LinkObservationMetadata,
-    StateFactAuthority,
-    StateFactLane,
-    StateFactMetadata,
-)
 
-_CUTOFF = datetime(2026, 8, 27, 8, 0, tzinfo=UTC)
+from tests.delivery.publication_store import ConditionalStore
+
+# The scenario is anchored to the current tick so the CLI's own clock produces a
+# bounded detection latency, exactly as a live window would.
+_CUTOFF = datetime.now(tz=UTC)
 _WINDOW_START = _CUTOFF - timedelta(minutes=30)
+_RESTART_REF = "scenario/same-uid"
+_REPLACEMENT_REF = "scenario/distinct-uid"
 
 
-def _metadata(at: datetime) -> StateFactMetadata:
-    return StateFactMetadata(
-        lane=StateFactLane.OBSERVED,
-        authority=StateFactAuthority.PROVIDER,
-        source_identity="kubernetes-api-inventory",
-        source_revision="resource-version-10",
-        effective_at=at,
-        recorded_at=at,
-        evidence_cutoff=at,
-        freshness_ceiling_seconds=300,
-        completeness=1.0,
-        synthetic=False,
-        evidence_refs=(f"kubernetes:{at.isoformat()}",),
-    )
+def _metadata(at: datetime) -> dict[str, Any]:
+    return {
+        "lane": "observed",
+        "authority": "provider",
+        "source_identity": "kubernetes-api-inventory",
+        "source_revision": "resource-version-10",
+        "effective_at": at.isoformat(),
+        "recorded_at": at.isoformat(),
+        "evidence_cutoff": at.isoformat(),
+        "freshness_ceiling_seconds": 300,
+        "completeness": 1.0,
+        "synthetic": False,
+        "conflicts": [],
+        "evidence_refs": ["kubernetes-api-inventory"],
+    }
 
 
-def _link(at: datetime, suffix: str) -> LinkObservationMetadata:
-    return LinkObservationMetadata(
-        state_fact=_metadata(at),
-        verification_method="independent-source",
-        verified=True,
-        verifier_identity="kubernetes-link-verifier",
-        verifier_revision="verifier-v1",
-        verification_receipt_ref=f"link-verification:{suffix}",
-    )
+def _link(at: datetime, suffix: str) -> dict[str, Any]:
+    return {
+        "state_fact": _metadata(at),
+        "verification_method": "independent-source",
+        "verified": True,
+        "verifier_identity": "kubernetes-link-verifier",
+        "verifier_revision": "verifier-v1",
+        "verification_receipt_ref": f"link-verification:{suffix}",
+        "inventory_generation": None,
+        "mapping_id": None,
+        "mapping_revision": None,
+        "source_schema_version": None,
+        "source_schema_digest": None,
+    }
 
 
-def _old_pod() -> PodLifecycleObservation:
-    observed_at = _CUTOFF - timedelta(minutes=10)
-    return PodLifecycleObservation(
+def _pod(
+    *,
+    pod_id: str,
+    pod_uid: str,
+    observed_at: datetime,
+    created_at: datetime,
+    phase: str,
+    ready: bool,
+    ready_container_count: int,
+    restart_count: int,
+    evidence_ref: str,
+    link_suffix: str,
+) -> dict[str, Any]:
+    return {
+        "pod_id": pod_id,
+        "pod_uid": pod_uid,
+        "cluster_id": "cluster-a",
+        "namespace": "default",
+        "owner_uid": "replicaset-uid-a",
+        "root_controller_uid": "deployment-uid-a",
+        "root_controller_kind": "Deployment",
+        "owner_link": _link(observed_at, f"{link_suffix}-owner"),
+        "root_controller_link": _link(observed_at, f"{link_suffix}-root"),
+        "created_at": created_at.isoformat(),
+        "phase": phase,
+        "ready": ready,
+        "container_count": 1,
+        "ready_container_count": ready_container_count,
+        "restart_count": restart_count,
+        "waiting_reasons": [],
+        "workload_revision": "revision-a",
+        "metadata": _metadata(observed_at),
+        "evidence_refs": [evidence_ref],
+    }
+
+
+def _old_pod() -> dict[str, Any]:
+    return _pod(
         pod_id="pod/old",
         pod_uid="pod-uid-old",
-        cluster_id="cluster-a",
-        namespace="default",
-        owner_uid="replicaset-uid-a",
-        root_controller_uid="deployment-uid-a",
-        root_controller_kind="Deployment",
-        owner_link=_link(observed_at, "old-owner"),
-        root_controller_link=_link(observed_at, "old-root"),
+        observed_at=_CUTOFF - timedelta(minutes=10),
         created_at=_WINDOW_START - timedelta(hours=1),
         phase="Failed",
         ready=False,
-        container_count=1,
         ready_container_count=0,
         restart_count=0,
-        waiting_reasons=(),
-        workload_revision="revision-a",
-        metadata=_metadata(observed_at),
-        evidence_refs=("pod-old",),
+        evidence_ref="pod-old",
+        link_suffix="old",
     )
 
 
-def _new_pod() -> PodLifecycleObservation:
-    return PodLifecycleObservation(
+def _termination() -> dict[str, Any]:
+    at = _CUTOFF - timedelta(minutes=5)
+    return {
+        "pod_uid": "pod-uid-old",
+        "cluster_id": "cluster-a",
+        "namespace": "default",
+        "event_type": "Failed",
+        "reason": "OOMKilled",
+        "exit_code": 137,
+        "event_time": at.isoformat(),
+        "recorded_at": at.isoformat(),
+        "source_identity": "kubernetes-event-watch",
+        "source_revision": "resource-version-20",
+        "evidence_refs": ["termination-old"],
+    }
+
+
+def _deployment() -> dict[str, Any]:
+    return {
+        "deployment_id": "deployment/orders",
+        "deployment_uid": "deployment-uid-a",
+        "cluster_id": "cluster-a",
+        "namespace": "default",
+        "desired_replicas_before": 1,
+        "desired_replicas_after": 1,
+        "desired_replica_history": [
+            {"observed_at": _WINDOW_START.isoformat(), "desired_replicas": 1},
+            {"observed_at": _CUTOFF.isoformat(), "desired_replicas": 1},
+        ],
+        "replica_history_complete": True,
+        "ready_replicas": 1,
+        "available_replicas": 1,
+        "unavailable_replicas": 0,
+        "metadata": _metadata(_CUTOFF),
+        "evidence_refs": ["deployment-current"],
+    }
+
+
+def _recovery_pod(pod_id: str, restart_count: int) -> dict[str, Any]:
+    return {
+        "pod_id": pod_id,
+        "phase": "Running",
+        "ready": True,
+        "container_count": 1,
+        "ready_container_count": 1,
+        "restart_count": restart_count,
+        "waiting_reasons": [],
+        "metadata": _metadata(_CUTOFF),
+    }
+
+
+def _restart_history(pod_id: str, restart_delta: int) -> dict[str, Any]:
+    return {
+        "pod_id": pod_id,
+        "start": _WINDOW_START.isoformat(),
+        "end": _CUTOFF.isoformat(),
+        "restart_delta": restart_delta,
+        "complete": True,
+        "missing_reason": None,
+        "evidence_refs": [f"restart-history:{pod_id}"],
+    }
+
+
+def _owner_deployment() -> dict[str, Any]:
+    return {
+        "deployment_id": "deployment/orders",
+        "desired_replicas": 1,
+        "ready_replicas": 1,
+        "available_replicas": 1,
+        "unavailable_replicas": 0,
+        "metadata": _metadata(_CUTOFF),
+    }
+
+
+def _restart_evidence() -> dict[str, Any]:
+    """A same-UID container restart the workload recovered from."""
+
+    restarted = _pod(
+        pod_id="pod/old",
+        pod_uid="pod-uid-old",
+        observed_at=_CUTOFF,
+        created_at=_WINDOW_START - timedelta(hours=1),
+        phase="Running",
+        ready=True,
+        ready_container_count=1,
+        restart_count=1,
+        evidence_ref="pod-old",
+        link_suffix="restarted",
+    )
+    return {
+        "resource_ref": _RESTART_REF,
+        "old_pod": _old_pod(),
+        "candidates": [restarted],
+        "termination": _termination(),
+        "deployment": _deployment(),
+        "recovery_pod": _recovery_pod("pod/old", 1),
+        "restart_history": _restart_history("pod/old", 1),
+        "owner_deployment": _owner_deployment(),
+        "correlation_window_start": _WINDOW_START.isoformat(),
+        "cutoff": _CUTOFF.isoformat(),
+        "graph_complete": True,
+        "ownership_complete": True,
+        "detected_at": (_CUTOFF - timedelta(seconds=12)).isoformat(),
+    }
+
+
+def _replacement_evidence() -> dict[str, Any]:
+    """A distinct-UID Pod replacement under the same controller."""
+
+    replacement = _pod(
         pod_id="pod/new",
         pod_uid="pod-uid-new",
-        cluster_id="cluster-a",
-        namespace="default",
-        owner_uid="replicaset-uid-a",
-        root_controller_uid="deployment-uid-a",
-        root_controller_kind="Deployment",
-        owner_link=_link(_CUTOFF, "new-owner"),
-        root_controller_link=_link(_CUTOFF, "new-root"),
+        observed_at=_CUTOFF,
         created_at=_CUTOFF - timedelta(minutes=4),
         phase="Running",
         ready=True,
-        container_count=1,
         ready_container_count=1,
-        restart_count=0,
-        waiting_reasons=(),
-        workload_revision="revision-a",
-        metadata=_metadata(_CUTOFF),
-        evidence_refs=("pod-new",),
+        restart_count=1,
+        evidence_ref="pod-new",
+        link_suffix="new",
     )
-
-
-def _termination() -> PodTerminationObservation:
-    return PodTerminationObservation(
-        pod_uid="pod-uid-old",
-        cluster_id="cluster-a",
-        namespace="default",
-        event_type="Failed",
-        reason="OOMKilled",
-        exit_code=137,
-        event_time=_CUTOFF - timedelta(minutes=5),
-        recorded_at=_CUTOFF - timedelta(minutes=5),
-        source_identity="kubernetes-event-watch",
-        source_revision="resource-version-20",
-        evidence_refs=("termination-old",),
-    )
-
-
-def _deployment() -> PodReplacementDeploymentObservation:
-    return PodReplacementDeploymentObservation(
-        deployment_id="deployment/orders",
-        deployment_uid="deployment-uid-a",
-        cluster_id="cluster-a",
-        namespace="default",
-        desired_replicas_before=1,
-        desired_replicas_after=1,
-        desired_replica_history=(
-            DeploymentReplicaObservation(observed_at=_WINDOW_START, desired_replicas=1),
-            DeploymentReplicaObservation(observed_at=_CUTOFF, desired_replicas=1),
-        ),
-        replica_history_complete=True,
-        ready_replicas=1,
-        available_replicas=1,
-        unavailable_replicas=0,
-        metadata=_metadata(_CUTOFF),
-        evidence_refs=("deployment-current",),
-    )
-
-
-def _evaluate(
-    old_pod: PodLifecycleObservation,
-    candidate: PodLifecycleObservation,
-) -> KubernetesPodReplacementEvidenceResult:
-    return evaluate_kubernetes_pod_replacement(
-        old_pod=old_pod,
-        candidates=(candidate,),
-        termination=_termination(),
-        deployment=_deployment(),
-        correlation_window_start=_WINDOW_START,
-        cutoff=_CUTOFF,
-    )
-
-
-class _PodScenarioAnalyzer:
-    resource_kind = "kubernetes_pod"
-
-    def __init__(self, findings: dict[str, AnalyzerFinding]) -> None:
-        self._findings = findings
-
-    async def analyze(
-        self,
-        *,
-        resource_ref: str,
-        window_seconds: float,
-    ) -> tuple[AnalyzerFinding, ...]:
-        assert window_seconds == 300
-        return (self._findings[resource_ref],)
+    return {
+        "resource_ref": _REPLACEMENT_REF,
+        "old_pod": _old_pod(),
+        "candidates": [replacement],
+        "termination": _termination(),
+        "deployment": _deployment(),
+        "recovery_pod": _recovery_pod("pod/new", 1),
+        "restart_history": _restart_history("pod/new", 1),
+        "owner_deployment": _owner_deployment(),
+        "correlation_window_start": _WINDOW_START.isoformat(),
+        "cutoff": _CUTOFF.isoformat(),
+        "graph_complete": True,
+        "ownership_complete": True,
+        "detected_at": (_CUTOFF - timedelta(seconds=7)).isoformat(),
+    }
 
 
 class _ScenarioBus:
-    def __init__(self) -> None:
-        self.published: list[dict[str, object]] = []
+    """Accept every record and report a broker acknowledgement."""
 
-    async def publish(
-        self,
-        topic: str,
-        key: str,
-        payload: dict[str, object],
-    ) -> PublishReceipt:
+    def __init__(self) -> None:
+        self.published: list[dict[str, Any]] = []
+
+    async def publish(self, topic: str, key: str, payload: dict[str, Any]) -> PublishReceipt:
         self.published.append(payload)
         return PublishReceipt(topic=topic, partition=0, offset=len(self.published) - 1)
 
-
-class _ScenarioPublicationLedger:
-    def __init__(self) -> None:
-        self.receipts: dict[str, PublishReceipt] = {}
-
-    async def claim(self, idempotency_key: str) -> AnalyzerPublicationClaim:
-        receipt = self.receipts.get(idempotency_key)
-        if receipt is not None:
-            return AnalyzerPublicationClaim(
-                status=AnalyzerPublicationClaimStatus.COMPLETED,
-                receipt=receipt,
-            )
-        return AnalyzerPublicationClaim(
-            status=AnalyzerPublicationClaimStatus.NEW,
-            token=idempotency_key,
-            claimed_at=_CUTOFF,
-        )
-
-    async def complete(
-        self,
-        idempotency_key: str,
-        claim: AnalyzerPublicationClaim,
-        receipt: PublishReceipt,
-    ) -> None:
-        assert claim.status is AnalyzerPublicationClaimStatus.NEW
-        self.receipts[idempotency_key] = receipt
-
-    async def release(
-        self,
-        idempotency_key: str,
-        claim: AnalyzerPublicationClaim,
-    ) -> None:
-        raise AssertionError(f"unexpected release for {idempotency_key}:{claim.token}")
+    async def close(self) -> None:
+        return None
 
 
-def _finding(
-    resource_ref: str,
-    result: KubernetesPodReplacementEvidenceResult,
-    *,
-    latency_seconds: int,
-) -> AnalyzerFinding:
-    return AnalyzerFinding(
-        resource_ref=resource_ref,
-        resource_kind="kubernetes_pod",
-        signal=result.status.value,
-        observation=f"Bounded pod lifecycle assessment: {result.status.value}.",
-        severity=Severity.HIGH,
-        occurred_at=_CUTOFF - timedelta(seconds=latency_seconds),
-        evidence_refs=tuple(
-            sorted({*result.historical_evidence_refs, *result.current_evidence_refs})
-        ),
-        metadata={
-            "evidence_complete": str(result.complete).lower(),
-            "recovery_closed": str(result.recovery_verified).lower(),
-        },
-    )
+@pytest.fixture
+def scenario_bus(monkeypatch: pytest.MonkeyPatch) -> Iterator[_ScenarioBus]:
+    """Run the real CLI composition against a local broker and ledger."""
 
-
-def _scenario_results() -> tuple[
-    KubernetesPodReplacementEvidenceResult,
-    KubernetesPodReplacementEvidenceResult,
-]:
-    """Evaluate one same-UID restart and one distinct-UID replacement."""
-
-    old_pod = _old_pod()
-    same_uid = _evaluate(
-        old_pod,
-        replace(
-            _new_pod(),
-            pod_id=old_pod.pod_id,
-            pod_uid=old_pod.pod_uid,
-            created_at=old_pod.created_at,
-            restart_count=1,
-        ),
-    )
-    distinct_uid = _evaluate(old_pod, _new_pod())
-    assert same_uid.status is KubernetesPodReplacementStatus.CONTAINER_RESTART
-    assert distinct_uid.status is KubernetesPodReplacementStatus.POD_REPLACEMENT
-    assert same_uid.complete and same_uid.recovery_verified
-    assert distinct_uid.complete and distinct_uid.recovery_verified
-    return same_uid, distinct_uid
-
-
-_SAME_REF = "scenario/same-uid"
-_REPLACEMENT_REF = "scenario/distinct-uid"
-_TARGETS = (
-    AnalyzerTarget(resource_ref=_SAME_REF, resource_kind="kubernetes_pod"),
-    AnalyzerTarget(resource_ref=_REPLACEMENT_REF, resource_kind="kubernetes_pod"),
-)
-
-
-def _scenario_runner(bus: _ScenarioBus) -> AnalyzerTickRunner:
-    same_uid, distinct_uid = _scenario_results()
-    return AnalyzerTickRunner(
-        coordinator=InvestigationCoordinator(
-            analyzers=(
-                _PodScenarioAnalyzer(
-                    {
-                        _SAME_REF: _finding(_SAME_REF, same_uid, latency_seconds=12),
-                        _REPLACEMENT_REF: _finding(
-                            _REPLACEMENT_REF,
-                            distinct_uid,
-                            latency_seconds=7,
-                        ),
-                    }
-                ),
-            )
-        ),
-        event_bus=bus,  # type: ignore[arg-type]
-        publication_ledger=_ScenarioPublicationLedger(),
-        window_seconds=300,
-        clock=lambda: _CUTOFF,
-    )
-
-
-async def test_analyzer_path_joins_restart_replacement_and_recovery_receipts() -> None:
     bus = _ScenarioBus()
-    runner = _scenario_runner(bus)
+    store = ConditionalStore()
+    environment = {
+        "FDAI_EXECUTION_VENUE": "local",
+        "KAFKA_BOOTSTRAP_SERVERS": "localhost:9092",
+        "KAFKA_TOPIC_EVENTS": "fdai.change.events",
+        "FDAI_ANALYZER_TOPIC": "fdai.change.events",
+        "FDAI_ANALYZER_WINDOW_SECONDS": "300",
+        "FDAI_ANALYZER_SCHEDULING_MODE": "one_shot",
+        "AZURE_TENANT_ID": "00000000-0000-0000-0000-000000000000",
+        "AZURE_SUBSCRIPTION_ID": "00000000-0000-0000-0000-000000000001",
+        "AZURE_REGION": "koreacentral",
+        "POSTGRES_HOST": "localhost",
+        "POSTGRES_DATABASE": "fdai",
+        "RUNTIME_ENV": "dev",
+        "FDAI_ANALYZER_TARGETS": json.dumps(
+            [
+                {"resource_id": _RESTART_REF, "kind": "kubernetes_pod"},
+                {"resource_id": _REPLACEMENT_REF, "kind": "kubernetes_pod"},
+            ]
+        ),
+        cli.POD_EVIDENCE_JSON_ENV: json.dumps([_restart_evidence(), _replacement_evidence()]),
+    }
+    for name, value in environment.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setattr(cli, "_build_identity", lambda *args, **kwargs: object())
+    monkeypatch.setattr(cli, "_build_finding_bus", lambda **kwargs: bus)
+    monkeypatch.setattr(
+        cli,
+        "build_publication_ledger",
+        lambda: PostgresAnalyzerPublicationLedger(store=store),
+    )
+    yield bus
 
-    first = await runner.run_once(_TARGETS)
-    duplicate = await runner.run_once(_TARGETS)
 
-    assert first.published == 2
-    assert duplicate.published == 0
-    assert duplicate.duplicates_suppressed == 2
-    assert len(bus.published) == 2
-    replacement_receipt = next(item for item in first.receipts if item.signal == "pod_replacement")
-    assert replacement_receipt.to_dict() == {
-        "idempotency_key": replacement_receipt.idempotency_key,
+def _reports(captured: str) -> list[dict[str, Any]]:
+    return [json.loads(line) for line in captured.splitlines() if line.startswith('{"analyzer')]
+
+
+def test_cli_emits_one_joined_receipt_derived_from_the_canonical_reducers(
+    scenario_bus: _ScenarioBus,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    exit_code = cli.main([])
+
+    assert exit_code == 0
+    report = _reports(capsys.readouterr().out)[-1]
+    assert report["published"] == 2
+    assert report["unsupported_targets"] == []
+    assert report["publish_errors"] == []
+    assert report["readiness"]["event_publication"] == "verified"
+    assert {payload["event_type"] for payload in scenario_bus.published} == {
+        "analyzer.container_restart.observed",
+        "analyzer.pod_replacement.observed",
+    }
+    replacement = next(item for item in report["receipts"] if item["signal"] == "pod_replacement")
+    assert 7.0 <= replacement.pop("detection_latency_seconds") < 60.0
+    assert replacement == {
+        "idempotency_key": replacement["idempotency_key"],
         "signal": "pod_replacement",
-        "detection_latency_seconds": 7.0,
         "evidence_complete": True,
         "publication": "published",
         "recovery_closed": True,
         "evidence_refs": [
             "deployment-current",
+            "kubernetes-api-inventory",
             "pod-new",
             "pod-old",
+            "restart-history:pod/new",
             "termination-old",
         ],
+        "assessed_by": "core.ontology_platform.kubernetes_pod_lifecycle",
+        "evidence_gaps": [],
     }
+    restart = next(item for item in report["receipts"] if item["signal"] == "container_restart")
+    assert 12.0 <= restart["detection_latency_seconds"] < 60.0
+    assert restart["evidence_complete"] is True
+    assert restart["recovery_closed"] is True
+    assert restart["assessed_by"] == "core.ontology_platform.kubernetes_pod_lifecycle"
 
 
-async def test_local_loop_reports_one_joined_receipt_per_bounded_scenario_tick(
+def test_cli_suppresses_the_same_window_on_the_next_tick(
+    scenario_bus: _ScenarioBus,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    bus = _ScenarioBus()
-    runner = _scenario_runner(bus)
+    assert cli.main([]) == 0
+    assert cli.main([]) == 0
 
-    async def tick() -> AnalyzerJobReport:
-        return AnalyzerJobReport(
-            analyzer=await runner.run_once(_TARGETS),
-            trace_continuity=TraceContinuityTickReport(
-                targets=0,
-                scenarios=0,
-                continuous=0,
-                unknown=0,
-                findings=0,
-                published=0,
-            ),
-            target_resolution=AnalyzerTargetResolution(
-                targets=_TARGETS,
-                configured=len(_TARGETS),
-                discovered=0,
-                inventory_consulted=False,
-            ),
-        )
-
-    async def sleep(_seconds: float) -> None:
-        return None
-
-    result = await run_loop(interval_seconds=1, max_ticks=2, tick=tick, sleep=sleep)
-
-    assert result == 0
-    emitted = [
-        json.loads(line) for line in capsys.readouterr().out.splitlines() if line.startswith("{")
-    ]
-    assert len(emitted) == 2
-    first, second = emitted
+    first, duplicate = _reports(capsys.readouterr().out)
     assert first["published"] == 2
-    assert first["duplicates_suppressed"] == 0
-    assert second["published"] == 0
-    assert second["duplicates_suppressed"] == 2
-    assert len(bus.published) == 2
-    assert {payload["event_type"] for payload in bus.published} == {
-        "analyzer.container_restart.observed",
-        "analyzer.pod_replacement.observed",
-    }
-    for report in emitted:
-        assert report["readiness"]["scheduling"] == "local_loop"
-        assert report["readiness"]["event_publication"] == "verified"
-        assert report["publish_errors"] == []
-    restart_receipt = next(
-        item for item in first["receipts"] if item["signal"] == "container_restart"
-    )
-    assert restart_receipt["detection_latency_seconds"] == 12.0
-    assert restart_receipt["evidence_complete"] is True
-    assert restart_receipt["publication"] == "published"
-    assert restart_receipt["recovery_closed"] is True
-    assert restart_receipt["evidence_refs"]
-    assert [item["publication"] for item in second["receipts"]] == [
+    assert duplicate["published"] == 0
+    assert duplicate["duplicates_suppressed"] == 2
+    assert len(scenario_bus.published) == 2
+    assert [item["publication"] for item in duplicate["receipts"]] == [
         "duplicate_suppressed",
         "duplicate_suppressed",
     ]
+
+
+def test_incomplete_recovery_evidence_never_reports_a_closed_recovery(
+    scenario_bus: _ScenarioBus,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    unverified = _replacement_evidence()
+    unverified["restart_history"] = {
+        **_restart_history("pod/new", 1),
+        "restart_delta": None,
+        "complete": False,
+        "missing_reason": "restart_history_retention_gap",
+    }
+    monkeypatch.setenv(cli.POD_EVIDENCE_JSON_ENV, json.dumps([unverified]))
+    monkeypatch.setenv(
+        "FDAI_ANALYZER_TARGETS",
+        json.dumps([{"resource_id": _REPLACEMENT_REF, "kind": "kubernetes_pod"}]),
+    )
+
+    assert cli.main([]) == 0
+
+    receipt = _reports(capsys.readouterr().out)[-1]["receipts"][0]
+    assert receipt["evidence_complete"] is False
+    assert receipt["recovery_closed"] is False
+    assert receipt["evidence_gaps"]
+    assert receipt["publication"] == "published"
+
+
+def test_unbound_pod_evidence_reports_unsupported_targets_instead_of_a_verdict(
+    scenario_bus: _ScenarioBus,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv(cli.POD_EVIDENCE_JSON_ENV)
+
+    assert cli.main([]) == 0
+
+    report = _reports(capsys.readouterr().out)[-1]
+    assert report["published"] == 0
+    assert report["receipts"] == []
+    assert sorted(report["unsupported_targets"]) == [_REPLACEMENT_REF, _RESTART_REF]
+    assert report["readiness"]["metric_access"] == "unavailable"
+    assert scenario_bus.published == []
+
+
+def test_malformed_pod_evidence_fails_closed_with_the_environment_key_named(
+    scenario_bus: _ScenarioBus,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    broken = _replacement_evidence()
+    del broken["termination"]
+    monkeypatch.setenv(cli.POD_EVIDENCE_JSON_ENV, json.dumps([broken]))
+
+    with pytest.raises(ValueError, match=cli.POD_EVIDENCE_JSON_ENV):
+        cli.main([])

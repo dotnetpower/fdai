@@ -1,4 +1,13 @@
-"""Durable analyzer publication suppression on the shared idempotency store."""
+"""Durable analyzer publication suppression on the shared idempotency store.
+
+The ledger records four states for one publication key. ``pending`` means a
+tick owns the key and has attempted no send, so an expired lease is safely
+reclaimable. ``sending`` means a send was attempted before any outcome was
+known, so an expired lease resolves to ``uncertain`` instead of a fresh claim:
+republishing it would duplicate a record the broker may already hold.
+``uncertain`` requires reconciliation before any retry, and ``completed``
+carries the durable broker receipt that suppresses every later attempt.
+"""
 
 from __future__ import annotations
 
@@ -19,6 +28,9 @@ from fdai.shared.providers.event_bus import PublishReceipt
 
 _PREFIX = "analyzer-publication:"
 _DEFAULT_LEASE_SECONDS = 600
+_MAX_REASON_CHARS = 512
+_LEASE_EXPIRED_AFTER_SEND = "lease_expired_after_send_attempt"
+_OWNED_STATES = frozenset({"pending", "sending", "uncertain"})
 
 
 class _ConditionalIdempotencyStore(Protocol):
@@ -63,8 +75,43 @@ class PostgresAnalyzerPublicationLedger:
         pending = self._new_pending(now)
         key = f"{_PREFIX}{idempotency_key}"
         if await self._store.record(key, pending):
-            return _pending_claim(pending, AnalyzerPublicationClaimStatus.NEW)
+            return _owned_claim(pending, AnalyzerPublicationClaimStatus.NEW)
         return await self._resolve_existing(key, now=now, allow_reclaim=True)
+
+    async def mark_sending(
+        self,
+        idempotency_key: str,
+        claim: AnalyzerPublicationClaim,
+    ) -> AnalyzerPublicationClaim:
+        expected = _owned_record(claim, {"pending", "uncertain"})
+        sending = {
+            "state": "sending",
+            "token": expected["token"],
+            "claimed_at": expected["claimed_at"],
+        }
+        key = f"{_PREFIX}{idempotency_key}"
+        if not await self._store.insert_or_replace_if(key, expected, sending):
+            raise RuntimeError("analyzer publication claim changed before send")
+        return _owned_claim(sending, AnalyzerPublicationClaimStatus.SENDING)
+
+    async def mark_uncertain(
+        self,
+        idempotency_key: str,
+        claim: AnalyzerPublicationClaim,
+        *,
+        reason: str,
+    ) -> AnalyzerPublicationClaim:
+        expected = _owned_record(claim, {"pending", "sending"})
+        uncertain = {
+            "state": "uncertain",
+            "token": expected["token"],
+            "claimed_at": expected["claimed_at"],
+            "reason": reason[:_MAX_REASON_CHARS],
+        }
+        key = f"{_PREFIX}{idempotency_key}"
+        if not await self._store.insert_or_replace_if(key, expected, uncertain):
+            raise RuntimeError("analyzer publication claim changed before uncertainty")
+        return _owned_claim(uncertain, AnalyzerPublicationClaimStatus.UNCERTAIN)
 
     async def complete(
         self,
@@ -72,7 +119,7 @@ class PostgresAnalyzerPublicationLedger:
         claim: AnalyzerPublicationClaim,
         receipt: PublishReceipt,
     ) -> None:
-        pending = _pending_record(claim)
+        expected = _owned_record(claim, {"pending", "sending", "uncertain"})
         completed = {
             "state": "completed",
             "topic": receipt.topic,
@@ -80,7 +127,7 @@ class PostgresAnalyzerPublicationLedger:
             "offset": receipt.offset,
         }
         key = f"{_PREFIX}{idempotency_key}"
-        if await self._store.insert_or_replace_if(key, pending, completed):
+        if await self._store.insert_or_replace_if(key, expected, completed):
             return
         if await self._store.seen(key) != completed:
             raise RuntimeError("analyzer publication receipt conflict")
@@ -89,10 +136,13 @@ class PostgresAnalyzerPublicationLedger:
         self,
         idempotency_key: str,
         claim: AnalyzerPublicationClaim,
+        *,
+        provably_unsent: bool = False,
     ) -> None:
-        pending = _pending_record(claim)
+        allowed = {"pending", "uncertain"} | ({"sending"} if provably_unsent else set())
+        expected = _owned_record(claim, allowed)
         key = f"{_PREFIX}{idempotency_key}"
-        if await self._store.remove_if(key, pending):
+        if await self._store.remove_if(key, expected):
             return
         existing = await self._store.seen(key)
         if existing is not None:
@@ -120,58 +170,81 @@ class PostgresAnalyzerPublicationLedger:
             return AnalyzerPublicationClaim(
                 status=AnalyzerPublicationClaimStatus.COMPLETED,
                 receipt=_completed_receipt(existing),
+                record=dict(existing),
             )
-        pending = _pending_claim(existing, AnalyzerPublicationClaimStatus.IN_PROGRESS)
-        if pending.claimed_at is None:
-            raise RuntimeError("analyzer publication pending claim has no timestamp")
-        age_seconds = (now - pending.claimed_at).total_seconds()
+        if state == "uncertain":
+            return _owned_claim(existing, AnalyzerPublicationClaimStatus.UNCERTAIN)
+        if state not in {"pending", "sending"}:
+            raise RuntimeError("analyzer publication claim has an invalid state")
+        active = _owned_claim(existing, AnalyzerPublicationClaimStatus.IN_PROGRESS)
+        if active.claimed_at is None:
+            raise RuntimeError("analyzer publication claim has no timestamp")
+        age_seconds = (now - active.claimed_at).total_seconds()
         if age_seconds < 0:
-            raise RuntimeError("analyzer publication pending claim is from the future")
+            raise RuntimeError("analyzer publication claim is from the future")
         if age_seconds < self._lease_seconds or not allow_reclaim:
-            return pending
+            return active
+        if state == "sending":
+            expired = {
+                "state": "uncertain",
+                "token": existing["token"],
+                "claimed_at": existing["claimed_at"],
+                "reason": _LEASE_EXPIRED_AFTER_SEND,
+            }
+            if await self._store.insert_or_replace_if(key, existing, expired):
+                return _owned_claim(expired, AnalyzerPublicationClaimStatus.UNCERTAIN)
+            return await self._resolve_existing(key, now=now, allow_reclaim=False)
         replacement = self._new_pending(now)
         if await self._store.insert_or_replace_if(key, existing, replacement):
-            return _pending_claim(replacement, AnalyzerPublicationClaimStatus.NEW)
+            return _owned_claim(replacement, AnalyzerPublicationClaimStatus.NEW)
         return await self._resolve_existing(key, now=now, allow_reclaim=False)
 
 
-def _pending_claim(
+def _owned_claim(
     record: Mapping[str, Any],
     status: AnalyzerPublicationClaimStatus,
 ) -> AnalyzerPublicationClaim:
-    if record.get("state") != "pending":
+    if record.get("state") not in _OWNED_STATES:
         raise RuntimeError("analyzer publication claim has an invalid state")
     token = record.get("token")
     claimed_at_raw = record.get("claimed_at")
     if not isinstance(token, str) or not token:
-        raise RuntimeError("analyzer publication pending claim has no token")
+        raise RuntimeError("analyzer publication claim has no token")
     if not isinstance(claimed_at_raw, str):
-        raise RuntimeError("analyzer publication pending claim has no timestamp")
+        raise RuntimeError("analyzer publication claim has no timestamp")
     try:
         claimed_at = datetime.fromisoformat(claimed_at_raw)
     except ValueError as exc:
-        raise RuntimeError("analyzer publication pending timestamp is invalid") from exc
+        raise RuntimeError("analyzer publication timestamp is invalid") from exc
     if claimed_at.tzinfo is None:
-        raise RuntimeError("analyzer publication pending timestamp has no timezone")
+        raise RuntimeError("analyzer publication timestamp has no timezone")
     return AnalyzerPublicationClaim(
         status=status,
         token=token,
         claimed_at=claimed_at,
+        record=dict(record),
     )
 
 
-def _pending_record(claim: AnalyzerPublicationClaim) -> dict[str, Any]:
-    if (
-        claim.status is not AnalyzerPublicationClaimStatus.NEW
-        or claim.token is None
-        or claim.claimed_at is None
-    ):
-        raise ValueError("analyzer publication completion requires a new token-owned claim")
-    return {
-        "state": "pending",
-        "token": claim.token,
-        "claimed_at": claim.claimed_at.isoformat(),
-    }
+def _owned_record(
+    claim: AnalyzerPublicationClaim,
+    allowed_states: set[str],
+) -> dict[str, Any]:
+    """Return the exact record this tick observed, for a compare-and-set."""
+
+    record = claim.record
+    if record is None:
+        raise ValueError("analyzer publication transition requires an observed claim record")
+    state = record.get("state")
+    if state not in allowed_states:
+        raise ValueError(f"analyzer publication transition rejects claim state {state!r}")
+    token = record.get("token")
+    claimed_at = record.get("claimed_at")
+    if not isinstance(token, str) or not token or not isinstance(claimed_at, str):
+        raise ValueError("analyzer publication transition requires a token-owned claim")
+    if claim.token != token:
+        raise ValueError("analyzer publication claim token does not match its record")
+    return dict(record)
 
 
 def _completed_receipt(record: Mapping[str, Any]) -> PublishReceipt:

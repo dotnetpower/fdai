@@ -27,6 +27,11 @@ from fdai.core.investigation.analyzer import (
     Threshold,
     ThresholdAnalyzer,
 )
+from fdai.core.investigation.kubernetes_pod import (
+    KIND_KUBERNETES_POD,
+    KubernetesPodLifecycleAnalyzer,
+    PodLifecycleEvidenceSource,
+)
 from fdai.shared.contracts.models import Severity
 from fdai.shared.providers.metric import MetricProvider
 
@@ -206,21 +211,36 @@ ANALYZER_KIND_BY_RESOURCE_TYPE: Mapping[str, str] = MappingProxyType(
 
 
 def default_analyzers(
-    provider: MetricProvider, *, wall_clock: _Clock = None
+    provider: MetricProvider,
+    *,
+    wall_clock: _Clock = None,
+    pod_lifecycle_evidence: PodLifecycleEvidenceSource | None = None,
 ) -> tuple[ResourceAnalyzer, ...]:
-    """The five reference analyzers wired to one shared metric provider."""
+    """The reference analyzers wired to one shared metric provider.
+
+    The typed Kubernetes Pod lifecycle analyzer joins the set only when a
+    deployment bound an evidence source for it. An unbound source leaves Pod
+    targets unsupported rather than analyzed on absent observations, so a
+    receipt never reports a lifecycle conclusion nobody observed.
+    """
     return (
         app_gateway_analyzer(provider, wall_clock=wall_clock),
         mysql_analyzer(provider, wall_clock=wall_clock),
         azure_openai_analyzer(provider, wall_clock=wall_clock),
         aks_analyzer(provider, wall_clock=wall_clock),
         api_management_analyzer(provider, wall_clock=wall_clock),
+        *(
+            (KubernetesPodLifecycleAnalyzer(pod_lifecycle_evidence),)
+            if pod_lifecycle_evidence is not None
+            else ()
+        ),
     )
 
 
 __all__ = [
     "ANALYZER_KIND_BY_RESOURCE_TYPE",
     "KIND_AKS",
+    "KIND_KUBERNETES_POD",
     "KIND_API_MANAGEMENT",
     "KIND_APP_GATEWAY",
     "KIND_AZURE_OPENAI",

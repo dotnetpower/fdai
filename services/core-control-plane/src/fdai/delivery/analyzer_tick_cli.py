@@ -61,6 +61,10 @@ from fdai.delivery.persistence.postgres_analyzer_publication import (
     PostgresAnalyzerPublicationLedger,
 )
 from fdai.delivery.persistence.postgres_idempotency import PostgresIdempotencyStoreConfig
+from fdai.delivery.pod_evidence_binding import (
+    POD_EVIDENCE_ENV,
+    build_pod_lifecycle_evidence_source,
+)
 from fdai.delivery.repo_assets import repo_asset_root
 from fdai.delivery.trace_continuity_tick import (
     TraceContinuityTickReport,
@@ -75,6 +79,7 @@ from fdai.runtime.venue import (
     uses_workload_identity,
 )
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
+from fdai.shared.providers.metric import MetricProvider
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger("fdai.analyzer_tick")
@@ -89,6 +94,7 @@ MAX_DISCOVERED_ENV = "FDAI_ANALYZER_MAX_DISCOVERED_TARGETS"
 INVENTORY_DSN_ENV = "FDAI_INVENTORY_DSN"
 STATE_STORE_DSN_ENV = "FDAI_STATE_STORE_DSN"
 TRACE_TOPOLOGIES_ENV = "FDAI_TRACE_TOPOLOGIES_JSON"
+POD_EVIDENCE_JSON_ENV = POD_EVIDENCE_ENV
 _TRACE_TOPOLOGY_KEYS = frozenset({"topology_ref", "resource_ref", "expected_hops"})
 _MAX_TRACE_TOPOLOGIES = 32
 LOOP_INTERVAL_ENV = "FDAI_ANALYZER_INTERVAL_SECONDS"
@@ -413,6 +419,23 @@ def build_publication_ledger() -> PostgresAnalyzerPublicationLedger:
     )
 
 
+def build_analyzer_coordinator(metric_provider: MetricProvider) -> InvestigationCoordinator:
+    """Compose every production analyzer this venue can actually ground.
+
+    The Pod lifecycle analyzer joins the pantheon only when this venue declares
+    typed Pod evidence. An undeclared source leaves Pod targets reported as
+    unsupported, which is the honest outcome: an analyzer with no observations
+    would have to invent the completeness its receipt claims.
+    """
+
+    return InvestigationCoordinator(
+        analyzers=default_analyzers(
+            metric_provider,
+            pod_lifecycle_evidence=build_pod_lifecycle_evidence_source(),
+        )
+    )
+
+
 async def run_once() -> AnalyzerJobReport:
     """Compose the tick from the environment and run one analyzer pass."""
     configured = parse_targets(os.environ.get(TARGETS_ENV, ""))
@@ -466,9 +489,7 @@ async def run_once() -> AnalyzerJobReport:
         try:
             if targets:
                 analyzer_report = await AnalyzerTickRunner(
-                    coordinator=InvestigationCoordinator(
-                        analyzers=default_analyzers(container.metric_provider)
-                    ),
+                    coordinator=build_analyzer_coordinator(container.metric_provider),
                     event_bus=bus,
                     publication_ledger=build_publication_ledger(),
                     window_seconds=window_seconds,

@@ -31,6 +31,7 @@ from aiokafka.abc import AbstractTokenProvider
 from fdai.shared.providers.event_bus import (
     EventBus,
     EventEnvelope,
+    EventPublishNotAttemptedError,
     PublishReceipt,
 )
 from fdai.shared.providers.workload_identity import WorkloadIdentity
@@ -275,13 +276,16 @@ class EventHubsKafkaBus(EventBus):
         key: str,
         payload: Mapping[str, Any],
     ) -> PublishReceipt:
-        producer = await self._get_producer()
         try:
-            record_meta = await producer.send_and_wait(
-                topic,
-                value=_encode(payload),
-                key=key.encode("utf-8"),
-            )
+            producer = await self._get_producer()
+            record = _encode(payload)
+            record_key = key.encode("utf-8")
+        except Exception as exc:
+            raise EventPublishNotAttemptedError(
+                f"analyzer record was not sent to {topic}: {type(exc).__name__}: {exc}"
+            ) from exc
+        try:
+            record_meta = await producer.send_and_wait(topic, value=record, key=record_key)
         except BaseException:
             await self._discard_failed_producer(producer, operation="publish")
             raise

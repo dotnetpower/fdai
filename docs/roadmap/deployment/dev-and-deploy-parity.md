@@ -244,8 +244,10 @@ separate fixed severity or window.
 
 Detection readiness uses the same boundary. Deployment reads Muninn StateSnapshots from PostgreSQL, while interactive
 local registers `/detection-readiness` only with local PostgreSQL. The standard local analyzer task reuses the
-deployed CLI, targets, metrics, events, shadow posture, and a fail-closed claim that suppresses a repeat only after a
-broker acknowledgement; readiness separates scheduling, discovery, metric, publication, and source-delay state.
+deployed CLI, targets, metrics, events, shadow posture, typed Pod lifecycle evidence binding, and a fail-closed claim
+that suppresses a repeat only after a broker acknowledgement. Both venues release a claim only when the bus attests
+that the record was provably not sent and otherwise hold it uncertain for reconciliation, so neither venue republishes
+an ambiguous send; readiness separates scheduling, discovery, metric, publication, and source-delay state.
 
 The standard full-stack launch keeps narrator endpoint reconciliation enabled. Its independent
 Operator Service binds a local-only narrator adapter only for `RUNTIME_ENV=dev`, reads

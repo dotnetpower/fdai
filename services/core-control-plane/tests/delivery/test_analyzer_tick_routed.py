@@ -19,14 +19,18 @@ from fdai.delivery.analyzer_tick import (
     ANALYZER_EVENT_SOURCE,
     ANALYZER_EVENT_TOPIC,
     AnalyzerPublicationClaim,
-    AnalyzerPublicationClaimStatus,
     AnalyzerTarget,
     AnalyzerTickRunner,
+)
+from fdai.delivery.persistence.postgres_analyzer_publication import (
+    PostgresAnalyzerPublicationLedger,
 )
 from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.event_bus import PublishReceipt
 from fdai.shared.providers.metric import MetricPoint, MetricQuery
 from fdai.shared.providers.routed_metric import MetricRoute, RoutedMetricProvider
+
+from tests.delivery.publication_store import ConditionalStore
 
 NOW = datetime(2026, 8, 16, 12, 0, tzinfo=UTC)
 
@@ -77,21 +81,29 @@ class RecordingBus:
 
 
 class PublicationLedger:
+    """Durable publication ledger over an in-memory compare-and-set store."""
+
     def __init__(self) -> None:
-        self.keys: set[str] = set()
+        self._inner = PostgresAnalyzerPublicationLedger(store=ConditionalStore())
 
     async def claim(self, idempotency_key: str) -> AnalyzerPublicationClaim:
-        if idempotency_key in self.keys:
-            return AnalyzerPublicationClaim(
-                status=AnalyzerPublicationClaimStatus.COMPLETED,
-                receipt=PublishReceipt(topic=ANALYZER_EVENT_TOPIC, partition=0, offset=0),
-            )
-        self.keys.add(idempotency_key)
-        return AnalyzerPublicationClaim(
-            status=AnalyzerPublicationClaimStatus.NEW,
-            token=idempotency_key,
-            claimed_at=NOW,
-        )
+        return await self._inner.claim(idempotency_key)
+
+    async def mark_sending(
+        self,
+        idempotency_key: str,
+        claim: AnalyzerPublicationClaim,
+    ) -> AnalyzerPublicationClaim:
+        return await self._inner.mark_sending(idempotency_key, claim)
+
+    async def mark_uncertain(
+        self,
+        idempotency_key: str,
+        claim: AnalyzerPublicationClaim,
+        *,
+        reason: str,
+    ) -> AnalyzerPublicationClaim:
+        return await self._inner.mark_uncertain(idempotency_key, claim, reason=reason)
 
     async def complete(
         self,
@@ -99,16 +111,16 @@ class PublicationLedger:
         claim: AnalyzerPublicationClaim,
         receipt: PublishReceipt,
     ) -> None:
-        del idempotency_key, claim, receipt
-        return None
+        await self._inner.complete(idempotency_key, claim, receipt)
 
     async def release(
         self,
         idempotency_key: str,
         claim: AnalyzerPublicationClaim,
+        *,
+        provably_unsent: bool = False,
     ) -> None:
-        del claim
-        self.keys.remove(idempotency_key)
+        await self._inner.release(idempotency_key, claim, provably_unsent=provably_unsent)
 
 
 def _routed() -> tuple[RoutedMetricProvider, StubBackend, StubBackend]:
