@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fdai.core.investigation import (
@@ -12,9 +13,15 @@ from fdai.core.investigation import (
     InvestigationRequest,
 )
 from fdai.core.investigation.contract import InvestigationReport
+from fdai.delivery.analyzer_receipt_store import (
+    ANALYZER_RECEIPT_STATE_PREFIX,
+    StateStoreAnalyzerReceiptStore,
+)
 from fdai.delivery.analyzer_tick import (
     ANALYZER_EVENT_SOURCE,
     ANALYZER_EVENT_TOPIC,
+    AnalyzerPublicationClaim,
+    AnalyzerPublicationClaimStatus,
     AnalyzerTarget,
     AnalyzerTickRunner,
     analyzer_idempotency_key,
@@ -29,6 +36,8 @@ from fdai.delivery.analyzer_tick_cli import (
     parse_window_seconds,
 )
 from fdai.shared.contracts.models import Mode, Severity
+from fdai.shared.providers.event_bus import PublishReceipt
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 NOW = datetime(2026, 8, 15, 12, 0, tzinfo=UTC)
 
@@ -73,18 +82,84 @@ class RecordingBus:
         self.published: list[tuple[str, str, dict[str, object]]] = []
         self._fail_on = fail_on
 
-    async def publish(self, topic: str, key: str, payload: dict[str, object]) -> None:
+    async def publish(self, topic: str, key: str, payload: dict[str, object]) -> PublishReceipt:
         if self._fail_on is not None and key == self._fail_on:
             raise RuntimeError("broker unavailable")
         self.published.append((topic, key, payload))
+        return PublishReceipt(topic=topic, partition=0, offset=len(self.published) - 1)
 
 
-def _runner(coordinator: InvestigationCoordinator, bus: RecordingBus) -> AnalyzerTickRunner:
+class RecordingPublicationLedger:
+    def __init__(self, *, fail_complete: bool = False) -> None:
+        self.claimed: set[str] = set()
+        self.completed: dict[str, PublishReceipt] = {}
+        self._fail_complete = fail_complete
+
+    async def claim(self, idempotency_key: str) -> AnalyzerPublicationClaim:
+        if idempotency_key in self.claimed:
+            if idempotency_key not in self.completed:
+                return AnalyzerPublicationClaim(
+                    status=AnalyzerPublicationClaimStatus.IN_PROGRESS,
+                    token=idempotency_key,
+                    claimed_at=NOW,
+                )
+            return AnalyzerPublicationClaim(
+                status=AnalyzerPublicationClaimStatus.COMPLETED,
+                receipt=self.completed[idempotency_key],
+            )
+        self.claimed.add(idempotency_key)
+        return AnalyzerPublicationClaim(
+            status=AnalyzerPublicationClaimStatus.NEW,
+            token=idempotency_key,
+            claimed_at=NOW,
+        )
+
+    async def complete(
+        self,
+        idempotency_key: str,
+        claim: AnalyzerPublicationClaim,
+        receipt: PublishReceipt,
+    ) -> None:
+        assert claim.status is AnalyzerPublicationClaimStatus.NEW
+        if self._fail_complete:
+            raise RuntimeError("store unavailable")
+        self.completed[idempotency_key] = receipt
+
+    async def release(
+        self,
+        idempotency_key: str,
+        claim: AnalyzerPublicationClaim,
+    ) -> None:
+        assert claim.status is AnalyzerPublicationClaimStatus.NEW
+        self.claimed.remove(idempotency_key)
+
+
+class RecordingReceiptStore:
+    def __init__(self, *, fail: bool = False) -> None:
+        self.receipts: list[object] = []
+        self._fail = fail
+
+    async def record(self, receipt: object) -> None:
+        if self._fail:
+            raise RuntimeError("receipt store unavailable")
+        self.receipts.append(receipt)
+
+
+def _runner(
+    coordinator: InvestigationCoordinator,
+    bus: RecordingBus,
+    *,
+    ledger: RecordingPublicationLedger | None = None,
+    receipt_store: RecordingReceiptStore | None = None,
+    clock: Callable[[], datetime] = lambda: NOW,
+) -> AnalyzerTickRunner:
     return AnalyzerTickRunner(
         coordinator=coordinator,
         event_bus=bus,  # type: ignore[arg-type]
+        publication_ledger=ledger or RecordingPublicationLedger(),
+        receipt_store=receipt_store or RecordingReceiptStore(),  # type: ignore[arg-type]
         window_seconds=300,
-        clock=lambda: NOW,
+        clock=clock,
     )
 
 
@@ -138,17 +213,97 @@ def test_idempotency_key_is_stable_inside_one_window() -> None:
 
 
 @pytest.mark.asyncio
-async def test_a_retried_tick_republishes_the_same_key() -> None:
+async def test_a_retried_tick_suppresses_the_same_key() -> None:
     bus = RecordingBus()
-    runner = _runner(StubCoordinator(findings=(_finding(),)), bus)
+    ledger = RecordingPublicationLedger()
+    runner = _runner(StubCoordinator(findings=(_finding(),)), bus, ledger=ledger)
     targets = (AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),)
 
-    await runner.run_once(targets)
-    await runner.run_once(targets)
+    first = await runner.run_once(targets)
+    duplicate = await runner.run_once(targets)
 
     keys = {payload["idempotency_key"] for _, _, payload in bus.published}
-    assert len(bus.published) == 2
+    assert len(bus.published) == 1
     assert len(keys) == 1
+    assert first.published == 1
+    assert first.duplicates_suppressed == 0
+    assert duplicate.published == 0
+    assert duplicate.duplicates_suppressed == 1
+    assert duplicate.receipts[0].publication.value == "duplicate_suppressed"
+
+
+@pytest.mark.asyncio
+async def test_receipt_latency_uses_post_analysis_broker_ack_time() -> None:
+    times = iter(
+        (
+            NOW,
+            NOW.replace(second=20),
+            NOW.replace(second=21),
+        )
+    )
+    bus = RecordingBus()
+
+    report = await _runner(
+        StubCoordinator(findings=(_finding(),)),
+        bus,
+        clock=lambda: next(times),
+    ).run_once((AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),))
+
+    assert bus.published[0][2]["ingested_at"] == "2026-08-15T12:00:20Z"
+    assert report.receipts[0].detection_latency_seconds == 21.0
+
+
+@pytest.mark.asyncio
+async def test_receipt_store_failure_fails_the_tick_without_hiding_publication() -> None:
+    bus = RecordingBus()
+    report = await _runner(
+        StubCoordinator(findings=(_finding(),)),
+        bus,
+        receipt_store=RecordingReceiptStore(fail=True),
+    ).run_once((AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),))
+
+    assert report.published == 1
+    assert report.failed
+    assert report.receipt_errors == (
+        (report.receipts[0].idempotency_key, "RuntimeError:receipt store unavailable"),
+    )
+
+
+@pytest.mark.asyncio
+async def test_active_publication_claim_fails_tick_without_publishing() -> None:
+    bus = RecordingBus()
+    ledger = RecordingPublicationLedger()
+    key = analyzer_idempotency_key(_finding(), at=NOW, window_seconds=300)
+    ledger.claimed.add(key)
+
+    report = await _runner(
+        StubCoordinator(findings=(_finding(),)),
+        bus,
+        ledger=ledger,
+    ).run_once((AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),))
+
+    assert report.failed
+    assert report.duplicates_suppressed == 0
+    assert report.publish_errors == ((key, "RuntimeError:publication_claim_in_progress"),)
+    assert bus.published == []
+
+
+@pytest.mark.asyncio
+async def test_broker_success_with_unrecorded_receipt_is_reported_without_release() -> None:
+    bus = RecordingBus()
+    ledger = RecordingPublicationLedger(fail_complete=True)
+
+    report = await _runner(
+        StubCoordinator(findings=(_finding(),)),
+        bus,
+        ledger=ledger,
+    ).run_once((AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),))
+
+    assert report.failed
+    assert report.published == 1
+    assert len(bus.published) == 1
+    assert report.receipts[0].publication.value == "published_receipt_unrecorded"
+    assert report.publish_errors[0][1] == "publication_receipt=RuntimeError:store unavailable"
 
 
 # ---------------------------------------------------------------------------
@@ -159,11 +314,12 @@ async def test_a_retried_tick_republishes_the_same_key() -> None:
 @pytest.mark.asyncio
 async def test_publish_failure_is_reported_and_does_not_stop_the_pass() -> None:
     bus = RecordingBus(fail_on="res-1")
+    ledger = RecordingPublicationLedger()
     coordinator = StubCoordinator(
         findings=(_finding(resource_ref="res-1"), _finding(resource_ref="res-2"))
     )
 
-    report = await _runner(coordinator, bus).run_once(
+    report = await _runner(coordinator, bus, ledger=ledger).run_once(
         (
             AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),
             AnalyzerTarget(resource_ref="res-2", resource_kind="aks"),
@@ -174,6 +330,7 @@ async def test_publish_failure_is_reported_and_does_not_stop_the_pass() -> None:
     assert report.failed
     assert len(report.publish_errors) == 1
     assert report.publish_errors[0][1].startswith("RuntimeError:")
+    assert not any(key.startswith("analyzer:res-1:cpu_saturation:") for key in ledger.claimed)
 
 
 @pytest.mark.asyncio
@@ -211,6 +368,8 @@ def test_runner_rejects_a_non_positive_window() -> None:
         AnalyzerTickRunner(
             coordinator=StubCoordinator(),
             event_bus=RecordingBus(),  # type: ignore[arg-type]
+            publication_ledger=RecordingPublicationLedger(),
+            receipt_store=RecordingReceiptStore(),  # type: ignore[arg-type]
             window_seconds=0,
         )
 
@@ -282,3 +441,48 @@ def test_the_projection_stays_unbound_without_a_database(
     monkeypatch.delenv(INVENTORY_DSN_ENV, raising=False)
 
     assert build_inventory_projection() is None
+
+
+@pytest.mark.asyncio
+async def test_a_persistent_finding_records_receipts_across_repeated_ticks() -> None:
+    # A finding that outlives one tick keeps the same window-bucket idempotency
+    # key, so every later tick re-records the same (key, publication) receipt
+    # with a later recorded_at. That MUST stay idempotent instead of failing the
+    # tick as a receipt identity collision.
+    state = InMemoryStateStore()
+    receipt_store = StateStoreAnalyzerReceiptStore(state)
+    ledger = RecordingPublicationLedger()
+    at = [NOW]
+    runner = AnalyzerTickRunner(
+        coordinator=StubCoordinator(findings=(_finding(),)),
+        event_bus=RecordingBus(),  # type: ignore[arg-type]
+        publication_ledger=ledger,  # type: ignore[arg-type]
+        receipt_store=receipt_store,
+        window_seconds=300,
+        clock=lambda: at[0],
+    )
+    targets = (AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),)
+
+    reports = []
+    for offset in (0, 60, 120, 180):
+        at[0] = NOW + timedelta(seconds=offset)
+        reports.append(await runner.run_once(targets))
+
+    assert [report.receipt_errors for report in reports] == [(), (), (), ()]
+    assert not any(report.failed for report in reports)
+    # One published receipt plus one duplicate-suppressed receipt per bucket.
+    keys = {analyzer_idempotency_key(_finding(), at=NOW, window_seconds=300)}
+    records = await state.read_states(ANALYZER_RECEIPT_STATE_PREFIX, limit=10)
+    assert len(records) == 2
+    assert {record["idempotency_key"] for record in records} == keys
+    assert {record["publication"] for record in records} == {
+        "published",
+        "duplicate_suppressed",
+    }
+    # The retained duplicate receipt keeps its first observation, so detection
+    # latency stays a detection measurement rather than the finding's age.
+    duplicate = next(
+        record for record in records if record["publication"] == "duplicate_suppressed"
+    )
+    assert duplicate["detection_latency_seconds"] == 60.0
+    assert duplicate["recorded_at"] == (NOW + timedelta(seconds=60)).isoformat()

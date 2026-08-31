@@ -29,6 +29,7 @@ import httpx
 
 from fdai.composition import attach_metric_provider, default_container_from_env
 from fdai.core.investigation import InvestigationCoordinator, default_analyzers
+from fdai.delivery.analyzer_receipt_store import StateStoreAnalyzerReceiptStore
 from fdai.delivery.analyzer_targets import (
     DEFAULT_MAX_DISCOVERED,
     MAX_DISCOVERED_CEILING,
@@ -56,7 +57,13 @@ from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentit
 from fdai.delivery.persistence import (
     PostgresOntologyInstanceStore,
     PostgresOntologyInstanceStoreConfig,
+    PostgresStateStore,
+    PostgresStateStoreConfig,
 )
+from fdai.delivery.persistence.postgres_analyzer_publication import (
+    PostgresAnalyzerPublicationLedger,
+)
+from fdai.delivery.persistence.postgres_idempotency import PostgresIdempotencyStoreConfig
 from fdai.delivery.repo_assets import repo_asset_root
 from fdai.delivery.trace_continuity_tick import (
     TraceContinuityTickReport,
@@ -83,6 +90,7 @@ TOPIC_ENV = "FDAI_ANALYZER_TOPIC"
 INGRESS_TOPIC_ENV = "KAFKA_TOPIC_EVENTS"
 MAX_DISCOVERED_ENV = "FDAI_ANALYZER_MAX_DISCOVERED_TARGETS"
 INVENTORY_DSN_ENV = "FDAI_INVENTORY_DSN"
+STATE_STORE_DSN_ENV = "FDAI_STATE_STORE_DSN"
 TRACE_TOPOLOGIES_ENV = "FDAI_TRACE_TOPOLOGIES_JSON"
 _TRACE_TOPOLOGY_KEYS = frozenset({"topology_ref", "resource_ref", "expected_hops"})
 _MAX_TRACE_TOPOLOGIES = 32
@@ -152,7 +160,9 @@ class AnalyzerJobReport:
             "unavailable"
             if self.analyzer.publish_errors or self.trace_continuity.publish_errors
             else "verified"
-            if self.analyzer.published > 0 or self.trace_continuity.published > 0
+            if self.analyzer.published > 0
+            or self.analyzer.duplicates_suppressed > 0
+            or self.trace_continuity.published > 0
             else "unverified"
         )
         return {
@@ -391,6 +401,36 @@ def build_inventory_projection() -> PostgresOntologyInstanceStore | None:
     )
 
 
+def build_publication_ledger() -> PostgresAnalyzerPublicationLedger:
+    """Bind restart-durable publication suppression in every execution venue."""
+
+    dsn = os.environ.get(STATE_STORE_DSN_ENV, "").strip()
+    if not dsn:
+        raise RuntimeError(
+            f"{STATE_STORE_DSN_ENV} is required for duplicate-safe analyzer publication"
+        )
+    return PostgresAnalyzerPublicationLedger(
+        config=PostgresIdempotencyStoreConfig(
+            dsn=dsn.replace("postgresql+psycopg://", "postgresql://", 1)
+        )
+    )
+
+
+def build_receipt_store() -> StateStoreAnalyzerReceiptStore:
+    """Bind the bounded receipt projection to the same tracked-state database."""
+
+    dsn = os.environ.get(STATE_STORE_DSN_ENV, "").strip()
+    if not dsn:
+        raise RuntimeError(f"{STATE_STORE_DSN_ENV} is required for analyzer finding receipts")
+    return StateStoreAnalyzerReceiptStore(
+        PostgresStateStore(
+            config=PostgresStateStoreConfig(
+                dsn=dsn.replace("postgresql+psycopg://", "postgresql://", 1)
+            )
+        )
+    )
+
+
 async def run_once() -> AnalyzerJobReport:
     """Compose the tick from the environment and run one analyzer pass."""
     configured = parse_targets(os.environ.get(TARGETS_ENV, ""))
@@ -448,6 +488,8 @@ async def run_once() -> AnalyzerJobReport:
                         analyzers=default_analyzers(container.metric_provider)
                     ),
                     event_bus=bus,
+                    publication_ledger=build_publication_ledger(),
+                    receipt_store=build_receipt_store(),
                     window_seconds=window_seconds,
                     topic=topic,
                 ).run_once(targets)

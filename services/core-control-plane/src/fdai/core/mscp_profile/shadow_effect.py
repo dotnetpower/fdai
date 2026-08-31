@@ -44,8 +44,17 @@ def build_shadow_effect_audit(
     recorded_at: datetime,
     expected: ExpectedEffect | None = None,
     observed: ObservedEffect | None = None,
+    dispatch_started_at: datetime | None = None,
+    dispatch_completed_at: datetime | None = None,
 ) -> dict[str, object]:
-    """Build one secret-free, shadow-only effect verification audit entry."""
+    """Build one secret-free, shadow-only effect verification audit entry.
+
+    The entry carries the action lifecycle timeline - when the action was
+    created, when its dispatch started and completed, when the effect was
+    predicted and observed, and when the comparison was recorded - so a
+    reviewer can order an observation against the dispatch it claims to
+    describe instead of trusting that ordering.
+    """
 
     entry: dict[str, object] = {
         "actor": "fdai.core.mscp_profile",
@@ -60,9 +69,14 @@ def build_shadow_effect_audit(
         "execution_outcome": execution_outcome,
         "verification_status": verification.status.value,
         "verification_reason": verification.reason.value,
+        "action_created_at": action.created_at.isoformat(),
         "recorded_at": recorded_at.isoformat(),
         **DEFAULT_PROFILE.audit_context(),
     }
+    if dispatch_started_at is not None:
+        entry["dispatch_started_at"] = dispatch_started_at.isoformat()
+    if dispatch_completed_at is not None:
+        entry["dispatch_completed_at"] = dispatch_completed_at.isoformat()
     if expected is not None:
         entry.update(
             {

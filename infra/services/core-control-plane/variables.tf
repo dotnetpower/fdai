@@ -58,6 +58,35 @@ variable "event_topics" {
   })
 }
 
+variable "teams_approval_destination" {
+  description = "Optional group-connected Teams destination and Bot activity endpoint for A1."
+  type = object({
+    team_id      = string
+    channel_id   = string
+    activity_url = string
+  })
+  default = {
+    team_id      = ""
+    channel_id   = ""
+    activity_url = ""
+  }
+  validation {
+    condition = length(compact([
+      var.teams_approval_destination.team_id,
+      var.teams_approval_destination.channel_id,
+      var.teams_approval_destination.activity_url,
+      ])) == 0 || (
+      length(compact([
+        var.teams_approval_destination.team_id,
+        var.teams_approval_destination.channel_id,
+        var.teams_approval_destination.activity_url,
+      ])) == 3 &&
+      startswith(var.teams_approval_destination.activity_url, "https://")
+    )
+    error_message = "Teams approval team_id, channel_id, and HTTPS activity_url must be configured together."
+  }
+}
+
 variable "database" {
   description = "Role-scoped database secret reference supplied by the state-store state owner."
   type = object({

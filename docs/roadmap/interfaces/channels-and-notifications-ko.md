@@ -1,8 +1,8 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 385275e0a75fd909083a3a5e4951a2d64f447ad1
-translation_revised: 2026-08-31
+translation_source_sha: 2b61215f643f6a802b0f4395ce7c08b9e4115ce0
+translation_revised: 2026-09-01
 ---
 
 # 채널과 알림(Channels and Notifications)
@@ -44,7 +44,7 @@ Teams Workflows 웹훅 바인딩은
 |------|------|------|------|
 | 프로바이더 계약과 구성 기반 라우팅 | implemented | [`base.py`](../../../services/core-control-plane/src/fdai/shared/providers/notifications/base.py), [`hil_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/hil_channel.py), [`conversation_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_channel.py), [`test_matrix.py`](../../../services/core-control-plane/tests/notifications/test_matrix.py), [`test_fanout_delivery.py`](../../../services/core-control-plane/tests/notifications/test_fanout_delivery.py) | A1, A2/A4 및 A3 계약이 분리되어 있습니다. A1/A3는 신뢰 수준을 보존하는 대체 경로를 유지하고, A2/A4는 이름이 있는 바인딩 활성화, 채널별 영속 상태, 범위가 제한된 재시도 및 집계 결과를 갖춘 명시적 fan-out을 사용합니다. |
 | 페어링과 교차 채널 신원 연결 | implemented | [`channel_access.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_access.py), [`postgres_channel_pairing.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_channel_pairing.py), [`postgres_channel_identity_link.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_channel_identity_link.py), [`test_channel_access.py`](../../../services/core-control-plane/tests/conversation/test_channel_access.py), [`test_identity_links.py`](../../../services/core-control-plane/tests/conversation/test_identity_links.py), [`test_postgres_channel_pairing.py`](../../../services/core-control-plane/tests/persistence/test_postgres_channel_pairing.py), [`test_postgres_channel_identity_link.py`](../../../services/core-control-plane/tests/persistence/test_postgres_channel_identity_link.py) | 서비스 수준 페어링, challenge digest 처리, 명시적 신원 연결 및 재시작 후 영속성이 집중 테스트를 통과했습니다. PostgreSQL 통합 테스트 파일 두 개는 지원되는 일회용 데이터베이스에서 네 건을 건너뛰기 없이 통과했습니다. |
-| Teams, Slack 및 아웃바운드 알림 어댑터 | 구현됨 | [`teams_adapter.py`](../../../services/core-control-plane/src/fdai/delivery/chatops/teams_adapter.py), `fdai_operator_service/families/conversation/channel_edge/`, 집중 edge 검사 81개 통과 | Teams는 `HilChannel`을 구현하고 A2/A4 알림 adapter는 집중 테스트를 통과합니다. Operator 소유 A3 workload는 인증된 유입, 순수 렌더링, 영속 전달, 고정 프로바이더 발행 및 실패 시 닫히는 수명 주기를 구현합니다. Slack `HilChannel`, A1 callback, Entra 재인증 및 배포된 전송 증적은 열린 상태입니다. |
+| Teams, Slack 및 아웃바운드 알림 어댑터 | 구현됨 | [`teams_adapter.py`](../../../services/core-control-plane/src/fdai/delivery/chatops/teams_adapter.py), `fdai_operator_service/families/conversation/channel_edge/`, `families/iam/hil_callback*.py`, 집중 에지, 콜백, Kafka, 워크플로 및 카나리 검사 | Teams는 `HilChannel`을 구현합니다. Core와 Operator는 별도로 구성된 그룹 연결 팀과 채널에서 같은 콜백 대상을 파생합니다. Operator는 브로커에 게시하기 전에 각 결정의 보낼 편지함 레코드를 영속화하고 수락된 뒤에만 전달 완료로 표시합니다. Slack A1은 구성된 워크스페이스와 Entra 매핑으로 독립 운영할 수 있습니다. 전용 아웃바운드 Slack `HilChannel`과 배포 증적은 열린 상태입니다. |
 | 영속 아웃바운드 대화 전달 | implemented | [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py), [`outbound_delivery.py`](../../../services/core-control-plane/src/fdai/core/conversation/outbound_delivery.py), [`test_outbound_delivery.py`](../../../services/core-control-plane/tests/conversation/test_outbound_delivery.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py) | 조정기는 확정적인 거절과 모호한 확인 응답을 구분하고 재시도를 제한하며 중단된 전송을 조정하고 안정적인 전달 신원을 보존합니다. 이 동작은 집중 테스트를 통과했습니다. |
 | 순수 채널 표현 렌더링 | 구현됨 | `fdai_operator_service/families/conversation/channel_edge/{presentation,renderers}.py`, 집중 Operator 렌더러 검사 | 정규화된 묶음 하나가 정본 텍스트, 사실, 제한, 근거, 권한 및 사용 불가 상태를 보존합니다. 순수 Teams 및 Slack 페이로드 builder는 전송 또는 확인 응답 없이 기능 상한을 강제하며 잘못된 산출물은 정본 텍스트로 저하됩니다. |
 | 명시적 선택 브라우저 알림 | implemented | [`browser-notifications.ts`](../../../console/src/browser-notifications.ts), [`browser-notification-control.tsx`](../../../console/src/components/browser-notification-control.tsx), [`notification-sw.js`](../../../console/public/notification-sw.js) 및 집중 브라우저 알림 테스트 | 권한, 기본 설정, 가시성, 전달 및 알림 클릭 시 창 활성화 동작이 집중 Vitest 사례를 통과했습니다. 실제 Windows 알림 또는 푸시 서비스 증적은 기록되지 않았습니다. |
@@ -72,8 +72,8 @@ Teams Workflows 웹훅 바인딩은
 - [x] PostgreSQL을 사용해 `test_postgres_channel_pairing.py`와
   `test_postgres_channel_identity_link.py`를 건너뛰기 없이 실행하고 통과 결과를 보존한 후
   영속 페어링 및 신원 연결을 `implemented`로 올립니다.
-- [ ] Slack A1 지원을 주장하기 전에 명시적 사용자-Entra 매핑, 브라우저 재인증,
-  action-bound callback 및 집중 fail-closed 테스트를 갖춘 Slack `HilChannel`을 추가합니다.
+- [ ] 통제된 실제 Teams 콜백과 브로커 증적을 보존하고 전용 아웃바운드 Slack
+  `HilChannel`을 추가합니다. 로컬 콜백, 재생, 정족수 및 네트워크 없는 카나리 동작은 통과했습니다.
 - [x] 인증된 Slack 및 Teams A3 유입과 범위가 제한된 rich-response 발행기를 추가하고
   signature, service identity, principal 해석 및 확인 응답 집중 테스트를 통과합니다.
 - [x] `ProductionChannelRuntime`, 운영 ASGI factory, 서비스 entry point 및 Terraform workload를
@@ -127,10 +127,9 @@ Teams Workflows 웹훅 바인딩은
 
 **카테고리 경계 (MUST)**
 
-- **A1 승인은 절대 메시지에 결정 페이로드를 운반하지 않음.** Adaptive 카드 / 블록 키트 /
-  이메일 본문은 **opaque `approval_id`**을 운반; 실제 결정은 `fdai-api`로 게시,
-  이것이 재인증하고 재검증 (`idempotency_key` + `action_hash`) 하여 유출된 메시지가 유효한
-  승인이 아니게 함.
+- **A1 승인은 불투명한 결합 값만 운반하고 신원, 권한 또는 결정 페이로드를 운반하지 않습니다.**
+  수신기는 인증된 전송과 위임 토큰에서 승인자를 도출한 뒤 정확한 카드 계약을 다시
+  검증합니다. [Operator 승인 콜백 wire 계약](operator-console-wire-contracts-ko.md#133-operator-api-승인-콜백-주-1)을 참조하세요.
 - **A3 쓰기 명령은 절대 라이브 카탈로그를 직접 변형하지 않음** - 콘솔과 같은 방식으로 초안
   PR을 생산
   ([user-rbac-and-identity-ko.md](user-rbac-and-identity-ko.md#6-identity-flow-console--draft-pr--audit)
@@ -159,7 +158,7 @@ Teams Workflows 웹훅 바인딩은
 |------|--------------|-----------|--------------|
 | **Teams (same 테넌트)** | ✓ | Teams SSO → OBO 교환 → `fdai-api` 토큰 | **A1, A2, A3, A4** |
 | **Teams (게스트 테넌트)** | 게스트 | 게스트 OID로 OBO | **A2, A3, A4** (A1 거부 - [user-rbac-and-identity-ko.md §10.5](user-rbac-and-identity-ko.md#105-guest-entra-b2b-users)와 동일한 게스트 규칙) |
-| **Slack** | ✗ | Slack OAuth; **fork-mandatory** Slack userId ↔ Entra OID 매핑; A1 승인은 브라우저에서 Entra 재인증을 위해 `fdai-api`로 바운스 | **A1, A2, A3, A4** 목표 - A1은 아직 계획 상태(§7 Slack notes 참조) |
+| **Slack** | ✗ | Slack OAuth, **포크 필수** Slack userId ↔ Entra OID 매핑, A1 승인은 브라우저에서 Entra 재인증을 위해 `fdai-api`로 이동 | 비어 있지 않은 매핑이 있을 때만 **A1 콜백**, **A2, A3, A4**, 아웃바운드 A1 전달은 계획 상태 |
 | **이메일 (SMTP / Graph)** | ✗ | 발신 전용, return 채널 없음 | **A2, A4 only** - 절대 A1 아님 (magic-link 승인 금지) |
 | **범용 웹훅** | ✗ | HMAC-signed, timestamped, replay-guarded | **A2 only** |
 | **PagerDuty / Opsgenie** | ✗ | API 키, 모바일 앱에서 ack | **A2 only** (운영 라인 paging) |
@@ -400,6 +399,9 @@ protection, 전달 감사가 필요하며 Operator API에 속하지 않습니다
 - **어댑터는 멱등 `send`를 구현** 해야 함: 같은 `correlation_id + audit_id + category`로
   재발행된 전송은 중복 포스트를 생성해선 안 됨.
 
+- **A1 결정 반환:** 정확한 Teams와 Slack 전송, 행위자, 맥락, 워크플로 라우팅, 감사 및
+  영속 전달 계약은 [Operator 승인 콜백](operator-console-wire-contracts-ko.md#133-operator-api-승인-콜백-주-1)에서 소유합니다.
+
 ### 5.1 오디언스 파생 (channel-as-audience)
 
 수신자 리스트는 라우터에서 per-user로 파생되지 **않음**. 각 채널이 오디언스 *그 자체* 이며,
@@ -537,8 +539,8 @@ matrix:
 
 | 채널 | 노트 |
 |------|------|
-| **Teams** | A1에 Adaptive Cards; OAuth 스코프 세트를 최소로 유지(`ChannelMessage.Send.Group` + 봇 시그널링). SSO + OBO는 이미 [user-rbac-and-identity-ko.md §10.4](user-rbac-and-identity-ko.md#104-chatops-teams-sign-in)에 커버. 다이제스트 오디언스는 **`aw-*` Entra 보안 그룹으로 백업된 group-connected 팀** - 멤버십이 별도 리스트 없이 Entra를 따름. |
-| **Slack** | A2/A3에 블록 키트; 승인 콜백 URL은 `fdai-api`를 통해 리다이렉트하여 Entra 재인증이 Slack 안이 아니라 브라우저에서 발생. `chat:write` 스코프만. 포크는 userId↔OID 매핑 저장소를 공급해야 함; Slack 사용자에게 매핑된 Entra OID가 없으면 어댑터는 A1 트래픽 거부. Slack 채널 멤버십은 Slack에서 관리; 해당 `aw-*` 그룹과 수동 또는 SCIM으로 sync 유지. |
+| **Teams** | A1에 Adaptive Cards를 사용하고 OAuth 범위를 최소로 유지합니다(`ChannelMessage.Send.Group` + 봇 신호). SSO + OBO는 [user-rbac-and-identity-ko.md §10.4](user-rbac-and-identity-ko.md#104-chatops-teams-sign-in)를 따릅니다. **`aw-*` Entra 보안 그룹이 뒷받침하는 그룹 연결 팀**에 `FDAI_TEAMS_APPROVAL_TEAM_ID`, `FDAI_TEAMS_APPROVAL_CHANNEL_ID`, HTTPS `FDAI_TEAMS_APPROVAL_ACTIVITY_URL`을 함께 구성합니다. Core는 Bot 신원으로 전송하고 `teams:<team-id>:<channel-id>` 대상을 카드에 넣으며 Operator는 같은 값을 검증합니다. Incoming Webhook은 `Action.Execute` 콜백을 전달할 수 없으므로 A1에서 지원되지 않습니다. 수신기에는 `FDAI_TEAMS_TENANT_ID`, `FDAI_TEAMS_ALLOWED_SERVICE_URLS_JSON`, `FDAI_TEAMS_JWKS_URL`도 필요하며 모든 입력이 갖춰질 때까지 Teams A1은 닫혀 있습니다. |
+| **Slack** | A2/A3에 블록 키트를 사용합니다. 승인 콜백 URL은 `fdai-api`를 통해 이동하므로 Entra 재인증은 Slack 내부가 아니라 브라우저에서 수행됩니다. 배포에서는 `FDAI_SLACK_TEAM_ID`와 userId-OID 매핑을 함께 제공합니다. 둘 중 하나라도 없으면 A1 트래픽을 차단합니다. 완전한 Slack 전용 구성에는 Teams 설정이 필요하지 않습니다. 서명된 HMAC 콜백은 이 내부 중계 경로만 담당하며 `teams` 채널 주장을 거부하므로, 공유 비밀이 유출되어도 Teams 행위자를 주장할 수 없습니다. |
 | **이메일** | Azure Communication Services 이메일을 통한 send-only 채널입니다. 승인 링크는 포함하지 않고 다이제스트와 알림만 전달합니다. 어댑터는 모든 메시지에 `plainText`를 보내고 `notice_kind=opened`일 때 범위가 제한된 HTML을 추가합니다. 인시던트 템플릿은 인시던트 id, 상태, 심각도, opened 시간, 집계 구성원 개수, 배정 상태, `audit_id` 및 HTTPS Console 링크만 사용합니다. 상관관계 키, 리소스 페이로드, 행위자 신원 또는 free-form 사유는 렌더링하지 않습니다. Terraform은 Azure-managed 발신자 도메인과 Communication Services 리소스에 범위가 제한된 전용 알림 managed 신원을 프로비저닝합니다. `FDAI_CONSOLE_BASE_URL`이 Console 출처를 제공하며, 값이 없거나 완성된 링크가 absolute HTTPS가 아니면 렌더러는 CTA를 생략합니다. 어댑터는 단기 `https://communication.azure.com/.default` 토큰을 요청하고 프로바이더 연산이 `Succeeded`가 될 때까지 기다린 후 프로바이더 메시지 id를 기록합니다. Settings > Integrations는 합성 자리 표시자만 사용하는 인증된 GET으로 동일한 렌더러를 가져옵니다. 권장 수신자는 `aw-approvers` / `aw-owners`를 미러링하는 **Entra 동적 분배 그룹**입니다. |
 | **범용 웹훅** | HMAC-SHA256 서명, 단조 타임스탬프, 단발 nonce. Receiver 실패는 절대 블록 안 함; 코어가 어댑터 정책대로 재시도 후 이동. |
 | **PagerDuty / Opsgenie** | Dedup 키 = observability 상관 id 이므로 버스트가 접힘. 런북 URL은 모든 알림에 필수. |
@@ -560,7 +562,7 @@ matrix:
 |------|--------------|------|
 | 세 프로바이더 계약과 메시지/증적 타입 | ✓ | - |
 | Teams 어댑터 | A1과 A2/A4 구현됨; A3 계획됨 | 테넌트 / group-connected 팀 바인딩 |
-| **A1 기본 활성화된 Slack 어댑터 (P1)** | 계획됨; 현재 A2/A4 webhook 발신기만 제공 | workspace 자격증명 + userId↔OID 매핑(필수) |
+| **Slack A1 콜백** | 구현됨, 매핑이 비어 있으면 기본 비활성화, 전용 아웃바운드 `HilChannel`은 계획 상태 | workspace 자격 증명 + userId↔OID 매핑(필수) |
 | ACS 이메일 어댑터 | ✓ (A2/A4, managed 신원, 최종 상태 polling) | 수신자 바인딩 + 활성화 |
 | 웹훅 / PagerDuty / SMS 어댑터 | ✓ (구체적인 전달 어댑터) | 자격증명 + 활성화 |
 | 라우팅-config 스키마 + 시작 검증 | ✓ | 배포별 연결/오버레이 |

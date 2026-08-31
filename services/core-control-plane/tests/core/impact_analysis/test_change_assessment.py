@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 
 from fdai.core.impact_analysis import (
     ChangeAssessmentService,
@@ -180,6 +181,53 @@ def test_graph_receipt_preserves_incomplete_source_as_unknown() -> None:
     assert receipt.source_complete is False
     assert receipt.source_generation == "inventory-generation-1"
     assert receipt.freshness is GraphEvidenceFreshness.UNKNOWN
+
+
+def test_graph_receipt_rederives_synthetic_link_conflict() -> None:
+    snapshot = _snapshot()
+    link = snapshot.evidence_links[0]
+    assert link.observation_metadata is not None
+    synthetic_fact = replace(link.observation_metadata.state_fact, synthetic=True)
+    synthetic_link = replace(
+        link,
+        observation_metadata=replace(link.observation_metadata, state_fact=synthetic_fact),
+    )
+
+    receipt = change_graph_evidence_from_snapshot(
+        replace(snapshot, evidence_links=(synthetic_link,)),
+        expected_ontology_release="sha256:release-1",
+    )
+
+    assert receipt.conflict_reasons == (
+        "link_evidence_synthetic:workload_runs_on:workload-a:resource-a",
+    )
+
+
+def test_graph_receipt_rederives_future_link_as_unknown() -> None:
+    snapshot = _snapshot()
+    link = snapshot.evidence_links[0]
+    assert link.observation_metadata is not None
+    future = snapshot.cutoff + timedelta(seconds=1)
+    future_fact = replace(
+        link.observation_metadata.state_fact,
+        effective_at=future,
+        recorded_at=future,
+        evidence_cutoff=future,
+    )
+    future_link = replace(
+        link,
+        observation_metadata=replace(link.observation_metadata, state_fact=future_fact),
+    )
+
+    receipt = change_graph_evidence_from_snapshot(
+        replace(snapshot, evidence_links=(future_link,)),
+        expected_ontology_release="sha256:release-1",
+    )
+
+    assert receipt.freshness is GraphEvidenceFreshness.UNKNOWN
+    assert receipt.conflict_reasons == (
+        "link_evidence_after_cutoff:workload_runs_on:workload-a:resource-a",
+    )
 
 
 async def test_complete_planned_change_is_eligible_for_later_gates() -> None:

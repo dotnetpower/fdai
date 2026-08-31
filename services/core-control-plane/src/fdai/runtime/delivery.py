@@ -112,50 +112,64 @@ def _build_publisher(http_client: httpx.AsyncClient | None) -> Any:
     )
 
 
-def _build_hil_channel(http_client: httpx.AsyncClient | None) -> Any:
+def _build_hil_channel(
+    http_client: httpx.AsyncClient | None,
+    identity: WorkloadIdentity | None = None,
+) -> Any:
     """Select the :class:`HilChannel` backend for this process.
 
-    Presence of ``FDAI_CHATOPS_WEBHOOK_URL`` opts into the real
-    :class:`TeamsHilAdapter`; missing URL returns ``None`` so the caller
+    Presence of ``FDAI_TEAMS_APPROVAL_ACTIVITY_URL`` opts into the real
+    :class:`TeamsHilAdapter`; missing channel configuration returns ``None`` so the caller
     falls back to its persisted HIL queue (existing P1 behavior - see
     ``docs/roadmap/interfaces/channels-and-notifications.md § 6``). The
     ``HilChannel`` Protocol is the contract, so ``core/`` neither knows
     nor cares which backend is active.
 
-    Env vars (Incoming Webhook mode - P1 default):
+    Env vars (Bot Framework mode):
 
-    - ``FDAI_CHATOPS_WEBHOOK_URL`` - Teams channel Incoming
-      Webhook URL. **Required to opt in.**
-    - ``FDAI_CHATOPS_WEBHOOK_SECRET`` - optional HMAC-SHA256
-      shared secret; when set the adapter attaches an
-      ``X-FDAI-Signature`` header for the receiver to verify.
-    - ``FDAI_CHATOPS_APPROVE_CALLBACK_URL`` /
-      ``FDAI_CHATOPS_REJECT_CALLBACK_URL`` - optional callback
-      URLs rendered as ``Action.Submit`` data on the card buttons.
+    - ``FDAI_TEAMS_APPROVAL_ACTIVITY_URL`` - fixed group-connected channel activity endpoint.
+    - ``FDAI_TEAMS_APPROVAL_TEAM_ID`` / ``FDAI_TEAMS_APPROVAL_CHANNEL_ID`` - callback audience.
     - ``FDAI_CHATOPS_TIMEOUT_SECONDS`` - optional per-request
       timeout (default 15s).
 
-    ``http_client`` MUST be non-None when the URL is set - the adapter
-    never opens its own connection; the composition root owns the
-    client lifecycle.
+    The injected workload identity requests the Bot Framework token. ``http_client`` remains
+    composition-owned, and Incoming Webhooks are not accepted because they cannot deliver
+    ``Action.Execute`` approval callbacks.
     """
     webhook_url = os.environ.get("FDAI_CHATOPS_WEBHOOK_URL", "").strip()
-    if not webhook_url:
+    activity_url = os.environ.get("FDAI_TEAMS_APPROVAL_ACTIVITY_URL", "").strip()
+    if not webhook_url and not activity_url:
         _LOGGER.info("hil_channel_backend", extra={"backend": "none"})
         return None
+    if not activity_url:
+        raise RuntimeError(
+            "FDAI_TEAMS_APPROVAL_ACTIVITY_URL is required because Incoming Webhooks "
+            "cannot deliver Action.Execute approval callbacks"
+        )
+    if identity is None:
+        raise RuntimeError("Teams approval Bot delivery requires a workload identity")
 
     if http_client is None:
         raise RuntimeError(
-            "FDAI_CHATOPS_WEBHOOK_URL is set but no HTTP client is "
-            "available. The composition root MUST create an httpx.AsyncClient "
+            "Teams approval Bot delivery has no HTTP client available. "
+            "The composition root MUST create an httpx.AsyncClient "
             "before building the HIL channel."
         )
 
     from fdai.delivery.chatops.teams_adapter import TeamsHilAdapter, TeamsHilAdapterConfig
 
-    webhook_secret = os.environ.get("FDAI_CHATOPS_WEBHOOK_SECRET", "").strip() or None
     approve_cb = os.environ.get("FDAI_CHATOPS_APPROVE_CALLBACK_URL", "").strip() or None
     reject_cb = os.environ.get("FDAI_CHATOPS_REJECT_CALLBACK_URL", "").strip() or None
+    approval_team_id = os.environ.get("FDAI_TEAMS_APPROVAL_TEAM_ID", "").strip()
+    approval_channel_id = os.environ.get("FDAI_TEAMS_APPROVAL_CHANNEL_ID", "").strip()
+    if bool(approval_team_id) != bool(approval_channel_id):
+        raise RuntimeError(
+            "FDAI_TEAMS_APPROVAL_TEAM_ID and FDAI_TEAMS_APPROVAL_CHANNEL_ID "
+            "MUST be configured together"
+        )
+    approval_audience = (
+        f"teams:{approval_team_id}:{approval_channel_id}" if approval_team_id else None
+    )
 
     timeout_raw = os.environ.get("FDAI_CHATOPS_TIMEOUT_SECONDS", "").strip()
     try:
@@ -168,21 +182,23 @@ def _build_hil_channel(http_client: httpx.AsyncClient | None) -> Any:
     _LOGGER.info(
         "hil_channel_backend",
         extra={
-            "backend": "teams-webhook",
-            "signed": webhook_secret is not None,
+            "backend": "teams-bot",
+            "workload_identity": True,
             "approve_callback_configured": approve_cb is not None,
             "reject_callback_configured": reject_cb is not None,
         },
     )
     return TeamsHilAdapter(
         config=TeamsHilAdapterConfig(
-            webhook_url=webhook_url,
-            webhook_secret=webhook_secret,
+            webhook_url=activity_url,
+            webhook_secret=None,
             approve_callback_url=approve_cb,
             reject_callback_url=reject_cb,
+            approval_audience=approval_audience,
             timeout_seconds=timeout_seconds,
         ),
         http_client=http_client,
+        identity=identity,
     )
 
 

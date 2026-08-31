@@ -131,8 +131,12 @@ class CaseHistoryMaterializer:
                 metadata=(
                     ("action_type", case_input.action_type),
                     ("failure_fingerprint", case_input.failure_fingerprint.digest),
+                    ("fdai_revision", case_input.fdai_revision),
                     ("operational_outcome", case_input.outcome_class.value),
                     ("resource_type", case_input.failure_fingerprint.resource_type),
+                    ("scenario_set_version", case_input.scenario_set_version),
+                    ("source_identity_digest", case_input.source_identity_digest),
+                    ("source_kind", case_input.source_kind.value),
                 ),
                 retention_until=retention_until,
                 deletion_due_at=deletion_due_at,

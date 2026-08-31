@@ -84,6 +84,16 @@ class InMemoryHilApprovalRegistry(HilApprovalRegistry):
                 return replace(receipt, already_recorded=True)
         return None
 
+    async def get_decision_route(self, approval_id: str) -> str:
+        """Report the routing class of one in-memory park."""
+        for item in self._pending.values():
+            if item.approval_id == approval_id:
+                return str(item.metadata.get("decision_route") or "action")
+        for receipt in self._resolved.values():
+            if receipt.approval_id == approval_id:
+                return "action"
+        return ""
+
     async def record_decision(
         self,
         *,

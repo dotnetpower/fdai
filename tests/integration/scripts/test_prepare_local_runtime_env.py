@@ -259,6 +259,7 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "KAFKA_TOPIC_EVENTS=fdai.change.events",
         "FDAI_STAGE_TOPIC=fdai.pipeline.stages",
         "FDAI_PANTHEON_OBJECT_TOPIC=fdai.pantheon.objects",
+        "FDAI_HIL_DECISION_TOPIC=fdai.hil.decisions",
         "FDAI_INVENTORY_RAW_TOPIC=fdai.inventory.raw",
         "POSTGRES_HOST=127.0.0.1",
         "POSTGRES_DATABASE=fdai",

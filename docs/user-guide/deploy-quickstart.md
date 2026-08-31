@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
-description: Provision FDAI on Azure with the protected fdaictl workflow, or preview the infrastructure-only development path with azd.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 752acb42097c6abf7d336a3e733929fda9b9af09 }]
+description: Provision FDAI's minimum Azure inventory with the protected fdaictl workflow, or preview the infrastructure-only development path with azd.
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 188813dd0dba6b3c3b311dfd07d725d66e380931 }]
 ---
 
 # Deploy Quickstart
@@ -54,6 +54,10 @@ Terraform remains an expert path.
   mappings in local-only inputs and Key Vault. Set only the versionless secret-id list in the
   repository variable, then review and apply the platform identity plan before the separate
   Operator service `enable` plan. The edge identity receives no executor role.
+- To enable A1 approval, configure the group-connected Teams team, channel, and HTTPS Bot activity
+  endpoint together, or configure the Slack workspace and user-to-Entra mapping together. Keep
+  mapping values and signing inputs in Key Vault or local-only deployment inputs. Missing or partial
+  channel authority leaves approval unavailable; it never falls back to an Incoming Webhook.
 - To provision the bounded OHL scale-out evidence target, enable
   `enable_ohl_scale_out_evidence_target` only in `dev` with private networking and the
   development operations gateway. Supply an exact image version, the protected workflow's SSH
@@ -71,6 +75,14 @@ Terraform remains an expert path.
   (`stewardship`) GitOps binding together.
   Supply only the Key Vault secret reference for the GitHub credential. The watcher identity
   receives Blob data access and draft-review authority, but no catalog merge or action authority.
+- To schedule Phase 4 measurement, explicitly enable only the required baseline, pattern-growth, or
+  operational-promotion job. All three are disabled by default and share a dedicated measurement
+  identity with image-pull, state-secret, and optional model-inference access. They never receive
+  the executor identity or a cloud mutation role.
+- To enable the Phase 3 scheduler or DB-DR drill, review their separate job identities first. The
+  scheduler receives only Event Bus send, image-pull, and state-secret access. DB-DR receives source
+  read and PostgreSQL restore/delete only inside its isolated target group. Keep
+  `dr_drill_dry_run=true` until the complete configuration plan is reviewed.
 
 ## Provision the minimum inventory
 

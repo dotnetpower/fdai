@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import math
 from collections.abc import Awaitable, Callable, Iterable, Mapping
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 from fdai.core.assurance_twin import DynamicRuntimeCoordinator, GraphDynamicRuntimeCoordinator
@@ -19,6 +19,9 @@ from fdai.core.control_loop._execution import ControlLoopExecutionMixin
 from fdai.core.control_loop._fallback import ControlLoopFallbackMixin
 from fdai.core.control_loop._process import process_event
 from fdai.core.control_loop._rca import ControlLoopRcaMixin
+from fdai.core.control_loop.change_safety_evidence import (
+    ChangeSafetyPreAuthorityEvidenceProvider,
+)
 from fdai.core.control_loop.models import ControlLoopResult
 from fdai.core.event_ingest import EventCorrelator, EventIngest
 from fdai.core.executor import (
@@ -97,6 +100,7 @@ class ControlLoop(
         audit_store: StateStore,
         rules_by_id: Mapping[str, Rule],
         change_safety_detector: ChangeSafetyDetector | None = None,
+        change_safety_evidence_provider: ChangeSafetyPreAuthorityEvidenceProvider | None = None,
         risk_table: RiskTable | None = None,
         action_types_by_name: Mapping[str, OntologyActionType] | None = None,
         risk_gate: RiskGate | None = None,
@@ -147,6 +151,7 @@ class ControlLoop(
         thor_execution_port: ThorExecutionPort | None = None,
         mutation_dependency_readiness: MutationDependencyReadiness | None = None,
         evidence_conflict_reader: EvidenceConflictCurrentReader | None = None,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         if (thor_execution_port is None) != (mutation_dependency_readiness is None):
             raise ValueError(
@@ -169,6 +174,11 @@ class ControlLoop(
             raise ValueError(
                 "mscp_expected_effect_provider and mscp_effect_observer MUST be bound together"
             )
+        if clock is not None and action_builder.clock is not clock:
+            raise ValueError(
+                "action_builder MUST share the control loop clock so action creation, "
+                "dispatch, and effect evidence stay on one timeline"
+            )
         if execution_authorization_required and execution_authorization_evaluator is None:
             raise ValueError("execution authorization is required but no evaluator is bound")
         if not math.isfinite(rca_side_path_timeout_seconds) or rca_side_path_timeout_seconds <= 0.0:
@@ -177,6 +187,10 @@ class ControlLoop(
         self._trust_router = trust_router
         self._t0_engine = t0_engine
         self._action_builder = action_builder
+        # One clock for the action lifecycle: creation, dispatch window, and
+        # effect recording. A frozen replay binds it so an observation can be
+        # ordered against the dispatch it belongs to instead of wall clock.
+        self._clock: Callable[[], datetime] = clock or (lambda: datetime.now(tz=UTC))
         self._thor_execution_port = thor_execution_port
         self._mutation_dependency_readiness = mutation_dependency_readiness
         self._evidence_conflict_reader = evidence_conflict_reader
@@ -184,6 +198,7 @@ class ControlLoop(
         self._audit_store = audit_store
         self._rules_by_id = dict(rules_by_id)
         self._change_safety_detector = change_safety_detector
+        self._change_safety_evidence_provider = change_safety_evidence_provider
         self._risk_table = risk_table
         self._action_types_by_name = (
             dict(action_types_by_name) if action_types_by_name is not None else {}

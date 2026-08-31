@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Protocol
+
+if TYPE_CHECKING:
+    from .evidence_read import OperationalEvidenceReadRequest
 
 from fdai.core.ontology_platform.functions import FunctionInvocationContext
 from fdai.core.ontology_platform.query_receipt_authority import SecuredQueryReceiptAuthority
@@ -34,4 +38,19 @@ class AuthenticatedPrincipalContext:
             raise ValueError("authenticated principal scope MUST be a SHA-256 digest")
 
 
-__all__ = ["AuthenticatedPrincipalContext"]
+class OperationalEvidencePrincipalContextProvider(Protocol):
+    """Resolve the receipt authority for one already-authenticated evidence read."""
+
+    async def context_for(
+        self,
+        request: OperationalEvidenceReadRequest,
+        *,
+        principal_ref: str,
+        principal_scope_digest: str,
+    ) -> AuthenticatedPrincipalContext: ...
+
+
+__all__ = [
+    "AuthenticatedPrincipalContext",
+    "OperationalEvidencePrincipalContextProvider",
+]

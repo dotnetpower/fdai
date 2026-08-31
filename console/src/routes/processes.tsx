@@ -1,9 +1,14 @@
 import { useEffect, useReducer, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
-import { AsyncBoundary, EmptyState, PageHeader, StatusPill, type AsyncState } from "../components/ui";
+import {
+  AsyncBoundary,
+  EmptyState,
+  PageHeader,
+  StatusPill,
+  type AsyncState,
+} from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
-import { t } from "../i18n";
 import { currentRoute, routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import { ProcessWidget, RenderedRegion } from "./process-view-renderer";
@@ -31,6 +36,8 @@ import {
   type ProcessSummary,
   type RenderedProcessView,
 } from "./processes.model";
+import { ProcessControlPanel } from "./process-control-panel";
+import { t } from "./i18n/processes";
 
 interface Props { readonly client: OperatorApiClient }
 
@@ -159,7 +166,13 @@ function ProcessRuntimeRoute({ client }: Props) {
         }
       />
       <AsyncBoundary state={listState} resourceLabel={t("processesView.resourceLabel")}>
-        {(data) => <ProcessWorkspace processList={data.response} selectedId={selectedId} detailState={detailState} />}
+        {(data) => (
+          <ProcessWorkspace
+            processList={data.response}
+            selectedId={selectedId}
+            detailState={detailState}
+          />
+        )}
       </AsyncBoundary>
     </div>
   );
@@ -187,6 +200,7 @@ function ProcessWorkspace({ processList, selectedId, detailState }: {
         { key: "source", value: processList.source, group: "process" },
         { key: "synthetic", value: processList.synthetic, group: "process" },
         { key: "durable", value: processList.durable, group: "process" },
+        { key: "principal_scoped", value: processList.principal_scoped, group: "process" },
         { key: "selected", value: selected?.id ?? "-", group: "process" },
         { key: "status", value: selected?.status ?? "-", group: "process" },
       ],
@@ -267,7 +281,11 @@ function ProcessStatusSummary({ processes }: { readonly processes: readonly Proc
   );
 }
 
-function ProcessDetail({ detail }: { readonly detail: ProcessDetailData }) {
+function ProcessDetail({
+  detail,
+}: {
+  readonly detail: ProcessDetailData;
+}) {
   const { process, events } = detail.journal;
   return (
     <div class="stack process-detail">
@@ -288,6 +306,10 @@ function ProcessDetail({ detail }: { readonly detail: ProcessDetailData }) {
         <div><dt>{t("processesView.revision")}</dt><dd>{process.revision}</dd></div>
         <div><dt>{t("processesView.journalEvents")}</dt><dd>{detail.journal.count}</dd></div>
       </dl>
+      <ProcessControlPanel
+        processId={process.id}
+        control={detail.journal.control}
+      />
       {detail.journal.investigation ? (
         <InvestigationRoom
           investigation={detail.journal.investigation}

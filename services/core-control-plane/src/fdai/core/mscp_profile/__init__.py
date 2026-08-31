@@ -26,6 +26,7 @@ from fdai.core.mscp_profile.effect_verification import (
     EffectVerificationStatus,
     ExpectedEffect,
     ObservedEffect,
+    admissible_effect_evidence,
     verify_effect,
 )
 from fdai.core.mscp_profile.failure_policy import (
@@ -125,6 +126,7 @@ __all__ = [
     "StateStoreMscpProfileLifecycle",
     "StateStorePendingEffectStore",
     "default_runtime_manifest",
+    "admissible_effect_evidence",
     "build_shadow_effect_audit",
     "build_response_outcome",
     "combine_mscp_authority",

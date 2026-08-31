@@ -11,13 +11,12 @@ notice using `plan_exemption_lifecycle`
 (rule-governance.md "Exemptions" - scheduled expiry mechanics + ahead-of-expiry
 notifications).
 
-Real deployment shape: this script is invoked by a scheduled Container
-Apps Job (or an equivalent K8s CronJob) after W4.1 provisions the Azure
-infrastructure. Today the script is standalone so the workflow can be
-exercised without any cloud dependency. A runtime that already holds a
-`StateStore` (idempotency + a persisted lifecycle audit trail) SHOULD use
-`fdai.delivery.exemption_lifecycle.ExemptionLifecycleCoordinator` instead of
-this script's per-run, non-deduplicated alert print.
+This standalone repository scanner never calls a provider or publishes an
+execution request. It only reports or persists the reviewed catalog state.
+A scheduled runtime uses
+`fdai.delivery.exemption_lifecycle.ExemptionLifecycleCoordinator` with
+`EventBusExemptionExpiryCommandPublisher` to emit the typed, idempotent
+assignment-reapply proposal through the normal action pipeline.
 """
 
 from __future__ import annotations

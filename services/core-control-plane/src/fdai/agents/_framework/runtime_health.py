@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -65,6 +65,51 @@ def evaluate_degradation(unavailable_agents: set[str]) -> DegradationDecision:
     )
 
 
+def derive_unavailable_agents(
+    *,
+    disabled: Iterable[str],
+    continuity_failures: Iterable[str],
+) -> frozenset[str]:
+    """Return the pantheon agents a runtime cannot currently reach.
+
+    Derived from the two facts a runtime already owns: the agents a fork
+    disabled at composition, and the consumers whose bus continuity failed.
+    Names outside the degradation policy table are dropped so the result is
+    always a valid :func:`evaluate_degradation` input. Cheap and re-entrant,
+    so an agent may probe it inline on a decision path.
+    """
+    unavailable = set(disabled)
+    unavailable.update(consumer.split(":", 1)[0] for consumer in continuity_failures)
+    return frozenset(name for name in unavailable if name in AGENT_DEGRADATION_POLICIES)
+
+
+def bind_availability_probe(
+    agents: Mapping[str, Agent],
+    *,
+    disabled: Iterable[str],
+    continuity_failures: Mapping[str, Any],
+) -> None:
+    """Give agents that fail closed on an unreachable peer a live probe.
+
+    ``continuity_failures`` is read on every probe call, so an agent bound at
+    wiring time observes failures recorded later. The binding is duck-typed on
+    the ``bind_agent_availability`` seam because this module must not import a
+    concrete agent: agents import this module.
+    """
+    fixed_disabled = frozenset(disabled)
+
+    def probe() -> frozenset[str]:
+        return derive_unavailable_agents(
+            disabled=fixed_disabled,
+            continuity_failures=continuity_failures,
+        )
+
+    for agent in agents.values():
+        bind = getattr(agent, "bind_agent_availability", None)
+        if callable(bind):
+            bind(probe)
+
+
 def safe_agent_health(name: str, agent: Agent) -> dict[str, Any]:
     """Read one agent's health without allowing a failed probe to fan out."""
     try:
@@ -96,6 +141,8 @@ __all__ = [
     "AGENT_DEGRADATION_POLICIES",
     "AgentDegradationPolicy",
     "DegradationDecision",
+    "bind_availability_probe",
+    "derive_unavailable_agents",
     "evaluate_degradation",
     "report_agent_kpis",
     "safe_agent_health",

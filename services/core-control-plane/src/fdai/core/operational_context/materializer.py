@@ -305,6 +305,11 @@ class OperationalContextMaterializer:
                 admission=admission.to_mapping() if admission is not None else None,
                 rejection_reasons=admission_reasons,
             )
+        else:
+            # A snapshot built without the shared admission proves nothing about
+            # its own decision-critical evidence, so it can never carry autonomy
+            # above shadow.
+            ceiling = Autonomy.SHADOW_ONLY
         return OperationalContextSnapshot(
             snapshot_id=identity,
             target_resource_id=target_resource_id,

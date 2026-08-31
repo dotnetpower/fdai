@@ -10,7 +10,16 @@ from typing import Protocol, runtime_checkable
 from fdai.shared.contracts.models import ForecastOutcomeLabel
 
 _OPERATIONAL_METADATA_KEYS = frozenset(
-    {"action_type", "failure_fingerprint", "operational_outcome", "resource_type"}
+    {
+        "action_type",
+        "failure_fingerprint",
+        "fdai_revision",
+        "operational_outcome",
+        "resource_type",
+        "scenario_set_version",
+        "source_identity_digest",
+        "source_kind",
+    }
 )
 
 

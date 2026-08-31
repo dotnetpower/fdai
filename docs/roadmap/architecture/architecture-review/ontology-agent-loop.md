@@ -81,8 +81,9 @@ or escalate.
 3. Relevant specialists publish only their owned object topics with the same case reference.
 4. Forseti converts that exact snapshot into the planned-change graph receipt, compares its ontology
    release with the requested digest, and joins the policy-required evidence set under a deadline.
-   Missing, stale, unauthenticated, conflicting, synthetic, or truncated evidence lowers the
-   authority ceiling.
+   Missing, stale, mixed-release, incomplete, unauthenticated, conflicting, synthetic, future, or
+   truncated evidence lowers the authority ceiling. The receipt projector re-derives link evidence
+   quality from typed metadata instead of trusting the snapshot's conflict summary.
 5. Before asking a person, FDAI attempts bounded reacquisition, an alternate authoritative source,
    deterministic reevaluation, or a smaller safe option.
 

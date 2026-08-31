@@ -62,6 +62,14 @@ package that carries the deliverable in
   options. When two remaining soft-objective actions target the same resource in the same window,
   the default precedence is **Resilience safety hold > Change Safety > Cost Governance**. The lower
   option is deferred and re-evaluated or escalated to HIL; conflicts never resolve by racing.
+- **Typed candidate join**: Loki, Heimdall, and Njord publish Resilience, Change Safety, and Cost
+  Governance candidates on their existing owned topics. Forseti joins exactly one candidate per
+  vertical for the same resource, correlation, and cutoff before asking Odin to arbitrate. Exact
+  redelivery is a no-op; conflicting duplicates, concurrent sets, and incomplete sets that reach
+  the bounded timeout close as human approval without an action.
+- **Audited disposition**: Odin records `win`, `defer`, or `hil` for every candidate. Saga retains
+  the arbitration decision and terminal verdict, while only Thor can publish the resulting
+  `ActionRun`. The selected specialist remains the initiator identity and never becomes an executor.
 - **Idempotency**: all P3 actions key off the stable idempotency key; re-delivered events and
   retried actions are no-ops on already-applied state.
 - **Audit**: every terminal outcome - auto-apply, HIL approve/reject/timeout, defer, abstain,
@@ -123,6 +131,14 @@ isolated copy and never on the live production DB.
      any mismatch fails the run.
   3. **App-level smoke tests** - run representative read and write operations against the
      restored copy to confirm application-level recoverability.
+- **Executable boundary**: `fdai.delivery.db_dr_drill_cli` composes the Azure point-in-time restore,
+  bounded PostgreSQL count/checksum comparison, rolled-back read/write smoke checks, durable audit,
+  and `DbDrVerifier.run`. Azure and PostgreSQL imports stay in delivery; Core keeps only the
+  provider-neutral verifier and Protocols.
+- **Identity boundary**: the scheduler and DB-DR jobs use distinct non-executor identities. The
+  scheduler receives only image pull, state-secret read, and Event Bus send. DB-DR receives only
+  source read, image pull, state-secret read, and PostgreSQL restore/delete inside its pre-created
+  isolated target resource group.
 - **RPO methodology**: continuously measure replication lag (report p50/p95/max) and, in
   forced-failover rehearsals, measure the **actual data loss** at the failover point; compare
   both against the RPO objective on the same window.

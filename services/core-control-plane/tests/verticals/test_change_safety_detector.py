@@ -110,7 +110,7 @@ def _detector(
     bus = InMemoryEventBus()
     audit = InMemoryStateStore()
     config = ChangeSafetyDetectorConfig(
-        default_settling_window=settling or timedelta(seconds=60),
+        default_settling_window=(settling if settling is not None else timedelta(seconds=60)),
         settling_windows=dict(per_type_settling or {}),
     )
     clock = (lambda fixed=now: fixed) if now is not None else None
@@ -262,6 +262,28 @@ async def test_naive_detected_at_does_not_crash_settling_window() -> None:
     assert decision.outcome is DetectorOutcome.SUPPRESSED
 
 
+async def test_future_dated_event_is_not_suppressed() -> None:
+    # A change stamped ahead of the detector clock has no measurable age, so
+    # the settling window MUST NOT silently suppress it.
+    detected = FIXED_DETECTED_AT
+    detector, publisher, bus, audit = _detector(
+        now=detected - timedelta(hours=1),
+    )
+    event = _event(
+        actor="unknown-actor",
+        idempotency_key="settling-future",
+        detected_at=detected,
+    )
+
+    decision = await detector.detect(event)
+
+    assert decision.attribution is ChangeAttribution.OUT_OF_BAND
+    assert decision.outcome is DetectorOutcome.OUT_OF_BAND_EMITTED
+    assert "ahead of the detector clock" in decision.reason
+    assert len(publisher.records) == 1
+    assert bus._records.get(OUT_OF_BAND_ALERT_TOPIC) is not None  # type: ignore[attr-defined]
+
+
 async def test_settling_window_per_resource_type_override() -> None:
     detected = FIXED_DETECTED_AT
     detector, publisher, _, audit = _detector(
@@ -337,15 +359,18 @@ async def test_non_activity_log_is_a_no_op() -> None:
     assert list(audit.audit_entries) == []
 
 
-async def test_wrong_signal_kind_is_a_no_op() -> None:
+async def test_wrong_signal_kind_is_explicitly_unsupported_and_audited() -> None:
     detector, publisher, _, audit = _detector()
     event = _event(signal_kind="azure.resource_health", idempotency_key="not-al-2")
 
     decision = await detector.detect(event)
 
-    assert decision.outcome is DetectorOutcome.NOT_ACTIVITY_LOG
+    assert decision.outcome is DetectorOutcome.UNSUPPORTED_SIGNAL
+    assert decision.reason == "unsupported_signal_kind:azure.resource_health"
     assert publisher.records == ()
-    assert list(audit.audit_entries) == []
+    entries = list(audit.audit_entries)
+    assert len(entries) == 1
+    assert entries[0]["entry"]["outcome"] == "unsupported_signal"
 
 
 # ---------------------------------------------------------------------------
@@ -756,3 +781,47 @@ async def test_resource_type_flat_payload_shape_still_extracted() -> None:
     # was read + fed into window_for.
     assert decision.outcome is DetectorOutcome.SUPPRESSED
     assert decision.resource_type == "compute.vm"
+
+
+async def test_ordinary_clock_skew_still_suppresses_inside_the_window() -> None:
+    # A signal stamped a moment ahead of the detector clock is ordinary NTP
+    # skew, not detection evasion, so the settling window still applies.
+    detected = FIXED_DETECTED_AT
+    detector, publisher, bus, _ = _detector(now=detected - timedelta(seconds=2))
+    event = _event(
+        actor="unknown-actor",
+        idempotency_key="settling-skew",
+        detected_at=detected,
+    )
+
+    decision = await detector.detect(event)
+
+    assert decision.attribution is ChangeAttribution.SUPPRESSED
+    assert decision.outcome is DetectorOutcome.SUPPRESSED
+    assert publisher.records == ()
+    assert bus._records.get(OUT_OF_BAND_ALERT_TOPIC) is None  # type: ignore[attr-defined]
+
+
+async def test_clock_skew_does_not_create_a_zero_window_suppression() -> None:
+    detected = FIXED_DETECTED_AT
+    detector, publisher, bus, _ = _detector(
+        settling=timedelta(0),
+        now=detected - timedelta(seconds=2),
+    )
+    event = _event(
+        actor="unknown-actor",
+        idempotency_key="zero-window-skew",
+        detected_at=detected,
+    )
+
+    decision = await detector.detect(event)
+
+    assert decision.attribution is ChangeAttribution.OUT_OF_BAND
+    assert decision.outcome is DetectorOutcome.OUT_OF_BAND_EMITTED
+    assert len(publisher.records) == 1
+    assert len(bus._records[OUT_OF_BAND_ALERT_TOPIC]) == 1  # type: ignore[attr-defined]
+
+
+async def test_negative_clock_skew_tolerance_is_rejected() -> None:
+    with pytest.raises(ValueError, match="clock_skew_tolerance"):
+        ChangeSafetyDetectorConfig(clock_skew_tolerance=timedelta(seconds=-1))

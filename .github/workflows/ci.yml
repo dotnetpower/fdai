@@ -267,6 +267,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Reject generated service-contract drift
+        run: python3 scripts/quality/contracts/generate_service_contracts.py --check
+
       - name: Install repository check dependencies
         run: python3 -m pip install --quiet pyyaml
 
@@ -354,7 +357,7 @@ jobs:
           set -euo pipefail
           changed="$RUNNER_TEMP/governance-changed-files.txt"
           git diff --no-renames --name-only "$PR_BASE_SHA...$PR_HEAD_SHA" > "$changed"
-          if ! grep -Eq '^(rule-catalog/(rules|rule-sets|assignments|exemptions|overrides|retirements)/|rule-catalog/override-parameter-bounds\.yaml$|policies/risk|.*risk-classification)' "$changed"; then
+          if ! grep -Eq '^(config/notifications-matrix\.yaml$|rule-catalog/(rules|rule-sets|assignments|exemptions|overrides|retirements)/|rule-catalog/override-parameter-bounds\.yaml$|policies/risk|.*risk-classification)' "$changed"; then
             echo "No governed catalog changes require identity review."
             exit 0
           fi
@@ -664,6 +667,55 @@ jobs:
           services/operator-service/tests/test_read_investigation_completion_store.py::test_postgres_allocates_attempt_turns_and_reuses_duplicate_slot
           services/core-control-plane/tests/persistence/test_postgres_kubernetes_lifecycle.py::test_lease_reacquire_duplicate_and_reorder_are_safe
 
+  provider-contracts-docker:
+    name: fake and real provider contract matrix
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
+    runs-on: ubuntu-24.04
+    env:
+      POSTGRES_PASSWORD: ci
+      FDAI_PROVIDER_CONTRACT_BACKENDS: real
+      FDAI_KAFKA_BOOTSTRAP_SERVERS: 127.0.0.1:19092
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up uv (Python 3.13)
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          python-version: "3.13"
+          enable-cache: true
+          save-cache: false
+
+      - name: Install dependencies
+        run: uv sync --extra dev --frozen
+
+      - name: Start loopback provider stack
+        run: docker compose -f infra/local/docker-compose.yml up -d --wait postgres-validation redpanda
+
+      - name: Prepare isolated provider database URL
+        run: |
+          python3 - <<'PY'
+          import os
+
+          database_url = (
+              "postgresql+psycopg://fdai:"
+              f"{os.environ['POSTGRES_PASSWORD']}@127.0.0.1:5433/fdai_validation"
+          )
+          print(f"::add-mask::{database_url}")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as stream:
+              stream.write(f"FDAI_DATABASE_URL={database_url}\n")
+          PY
+
+      - name: Run the shared provider contract matrix
+        run: >-
+          uv run pytest -q --no-cov
+          services/core-control-plane/tests/providers/test_contracts.py
+
+      - name: Stop loopback provider stack
+        if: always()
+        run: docker compose -f infra/local/docker-compose.yml down -v
+
   terraform-validate:
     name: Terraform fmt + validate + config tests
     runs-on: ubuntu-24.04
@@ -718,6 +770,7 @@ jobs:
       - deps-audit
       - freeze-scenarios
       - db-migrations
+      - provider-contracts-docker
       - terraform-validate
     runs-on: ubuntu-24.04
     steps:

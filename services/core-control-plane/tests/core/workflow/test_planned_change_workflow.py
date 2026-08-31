@@ -19,6 +19,8 @@ from fdai.shared.providers.process_runtime import ProcessStatus
 from fdai.shared.providers.testing.process_runtime import InMemoryProcessRuntimeStore
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
+from tests.decision_evidence import StubDecisionEvidenceAdmissionProvider
+
 _ROOT = Path(__file__).resolve().parents[5]
 _NOW = datetime(2026, 8, 4, tzinfo=UTC)
 
@@ -65,7 +67,10 @@ async def test_planned_change_window_precedes_quorum_approval(
         audit_store=InMemoryStateStore(),
         process_store=InMemoryProcessRuntimeStore(),
         guard_evaluator=ChangeWindowWorkflowGuardEvaluator(
-            change_windows=_ChangeWindows(active=window_active)
+            change_windows=_ChangeWindows(active=window_active),
+            decision_evidence_provider=StubDecisionEvidenceAdmissionProvider(
+                lambda: datetime.now(tz=UTC)
+            ),
         ),
     )
 

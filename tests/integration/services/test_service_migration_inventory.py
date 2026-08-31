@@ -38,11 +38,12 @@ SERVICE_IDS = (
 def test_legacy_migration_inventory_is_linear_and_complete() -> None:
     inventory = inventory_module.load_legacy_inventory(REPO_ROOT / "alembic" / "versions")
 
-    assert len(inventory.down_revisions) == 90
-    assert inventory.heads == ("20260829_0088",)
-    assert len(inventory.table_sources) == 104
+    assert len(inventory.down_revisions) == 91
+    assert inventory.heads == ("20260831_0089",)
+    assert len(inventory.table_sources) == 108
     assert "IF" not in inventory.table_sources
     assert inventory.table_sources["background_task_projection_outbox"] == ("20260829_0088",)
+    assert inventory.table_sources["t2_cache_rotation_receipt"] == ("20260831_0089",)
     assert inventory.table_sources["document_worker_claim"] == ("20260806_0075",)
     assert inventory.table_sources["case_history_migration_state"] == (
         "20260723_0054",
@@ -1430,6 +1431,10 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         / "branches/core-control-plane/versions/20260829_core_standing_authority_lifecycle.py"
     )
     standing_authority_migration = inventory_module.load_revision_metadata(standing_authority_path)
+    t2_cache_path = (
+        MIGRATION_ROOT / "branches/core-control-plane/versions/20260831_core_t2_cache_lifecycle.py"
+    )
+    t2_cache_migration = inventory_module.load_revision_metadata(t2_cache_path)
 
     expected_tables = {
         table for table, owner in ownership.table_migrators.items() if owner == "core-control-plane"
@@ -1450,6 +1455,7 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         | set(cost_governance_validation_migration.owned_tables)
         | set(cost_governance_settings_migration.owned_tables)
         | set(standing_authority_migration.owned_tables)
+        | set(t2_cache_migration.owned_tables)
     )
     assert granted_tables == expected_tables
     source = role_path.read_text(encoding="utf-8")

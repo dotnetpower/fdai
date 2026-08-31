@@ -94,6 +94,7 @@ from fdai.runtime.providers import (
 )
 from fdai.runtime.readiness import StartupReadinessRuntime, build_startup_readiness_runtime
 from fdai.shared.contracts.models import ResponseOutcome
+from fdai.shared.providers.hil_registry import HilWorkflowDecisionRegistry
 from fdai.shared.providers.state_store import StateStore
 
 _LOGGER = logging.getLogger("fdai.startup")
@@ -119,6 +120,7 @@ class CoreRuntime:
     incident_notification_replay_worker: IncidentNotificationReplayWorker
     environment: Mapping[str, str]
     diagnostic_event_ingest_bridge: DiagnosticEventIngestBridge | None = None
+    hil_workflow_registry: HilWorkflowDecisionRegistry | None = None
 
     def task_configuration(self, stop: asyncio.Event) -> RuntimeTaskConfiguration:
         """Project assembled bindings into the task-supervision contract."""
@@ -151,6 +153,7 @@ class CoreRuntime:
             operational_readiness_handler=self.operational_readiness_handler,
             incident_notification_replay_worker=self.incident_notification_replay_worker,
             diagnostic_event_ingest_bridge=self.diagnostic_event_ingest_bridge,
+            hil_workflow_registry=self.hil_workflow_registry,
         )
 
 
@@ -496,7 +499,21 @@ async def build_core_runtime(
         incident_notification_replay_worker=incident_runtime.notification_replay_worker,
         environment=environment,
         diagnostic_event_ingest_bridge=diagnostic_event_ingest_bridge,
+        hil_workflow_registry=_build_hil_workflow_registry(state_store),
     )
+
+
+def _build_hil_workflow_registry(state_store: StateStore) -> HilWorkflowDecisionRegistry:
+    """Bind the authoritative quorum owner used by the HIL decision consumer.
+
+    Composition owns the delivery import so ``fdai.core`` and the consumer's
+    own module keep depending only on the shared provider contract.
+    """
+    from fdai.delivery.persistence.state_store_hil_registry import (
+        StateStoreHilApprovalRegistry,
+    )
+
+    return StateStoreHilApprovalRegistry(store=state_store)
 
 
 __all__ = [

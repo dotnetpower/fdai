@@ -78,8 +78,10 @@ async def test_process_list_and_journal_project_durable_rows(monkeypatch: Any) -
     ) -> list[dict[str, object]]:
         del self
         calls.append((statement, parameters))
-        if "FROM process_event" in statement:
+        if "SELECT event_id" in statement and "FROM process_event" in statement:
             return [event]
+        if "FROM state_kv" in statement:
+            return []
         return [process]
 
     monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
@@ -112,7 +114,8 @@ async def test_process_list_and_journal_project_durable_rows(monkeypatch: Any) -
     ]
     assert journal["planning"] is None
     assert journal["investigation"] is None
-    assert calls[0][1] == ("architecture-review",)
+    assert journal["control"]["available"] is False  # type: ignore[index]
+    assert calls[0][1] == ("architecture-review", "operator-a")
 
 
 async def test_adaptive_process_journal_includes_investigation_room(
@@ -167,7 +170,11 @@ async def test_adaptive_process_journal_includes_investigation_room(
         parameters: tuple[object, ...] = (),
     ) -> list[dict[str, object]]:
         del self, parameters
-        return events if "FROM process_event" in statement else [process]
+        if "SELECT event_id" in statement and "FROM process_event" in statement:
+            return events
+        if "FROM state_kv" in statement:
+            return []
+        return [process]
 
     monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
     reader = RuntimeProjectionReader(
@@ -206,7 +213,9 @@ async def test_process_journal_rejects_revision_change_during_read(
     ) -> list[dict[str, object]]:
         nonlocal process_reads
         del self, parameters
-        if "FROM process_event" in statement:
+        if "SELECT event_id" in statement and "FROM process_event" in statement:
+            return []
+        if "FROM state_kv" in statement:
             return []
         process_reads += 1
         return [{**process, "revision": process_reads}]
@@ -222,6 +231,177 @@ async def test_process_journal_rejects_revision_change_during_read(
         match="changed while",
     ):
         await reader.read(_query("process.events", path={"process_id": "process-1"}))
+
+
+async def test_process_journal_projects_principal_scoped_authoritative_control(
+    monkeypatch: Any,
+) -> None:
+    now = datetime(2026, 8, 31, tzinfo=UTC)
+    process = {
+        "process_id": "process-1",
+        "workflow_ref": "review-workflow",
+        "workflow_version": "1.0.0",
+        "status": "waiting",
+        "current_step": "wait_for_evidence",
+        "target_resource_id": "resource-1",
+        "started_at": now,
+        "updated_at": now,
+        "correlation_id": "correlation-1",
+        "revision": 3,
+    }
+    events = [
+        {
+            "event_id": "created",
+            "kind": "process.created",
+            "recorded_at": now,
+            "correlation_id": "correlation-1",
+            "causation_id": None,
+            "step_id": None,
+            "attempt": 1,
+            "payload": {
+                "resume": {
+                    "mode": "shadow",
+                    "context": {"requester.principal": "operator-a"},
+                }
+            },
+        },
+        {
+            "event_id": "started",
+            "kind": "step.started",
+            "recorded_at": now,
+            "correlation_id": "correlation-1",
+            "causation_id": None,
+            "step_id": "wait_for_evidence",
+            "attempt": 1,
+            "payload": {},
+        },
+        {
+            "event_id": "waiting",
+            "kind": "step.waiting",
+            "recorded_at": now,
+            "correlation_id": "correlation-1",
+            "causation_id": None,
+            "step_id": "wait_for_evidence",
+            "attempt": 1,
+            "payload": {"step_kind": "wait", "reason": "waiting_for:evidence.updated"},
+        },
+    ]
+    catalog = {
+        "_revision": "catalog-7",
+        "workflows": [
+            {
+                "name": "review-workflow",
+                "version": "1.0.0",
+                "steps": [
+                    {
+                        "id": "wait_for_evidence",
+                        "kind": "wait",
+                        "wait_for": "evidence.updated",
+                        "timeout_seconds": 300,
+                    }
+                ],
+            }
+        ],
+    }
+    calls: list[tuple[str, tuple[object, ...]]] = []
+
+    async def fetch(
+        self: RuntimeProjectionReader,
+        statement: str,
+        parameters: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        del self
+        calls.append((statement, parameters))
+        if "SELECT event_id" in statement:
+            return events
+        if "FROM state_kv" in statement:
+            return [{"value": catalog}]
+        return [process]
+
+    monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
+    reader = RuntimeProjectionReader(
+        RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"),
+        RecordingFallback(),
+    )
+
+    journal = await reader.read(_query("process.events", path={"process_id": "process-1"}))
+
+    assert journal["control"]["available"] is True  # type: ignore[index]
+    assert journal["control"]["principal_scoped"] is True  # type: ignore[index]
+    assert journal["control"]["step"]["requirements"]["wait_for"] == "evidence.updated"  # type: ignore[index]
+    assert {
+        item["id"]
+        for item in journal["control"]["permitted_transitions"]  # type: ignore[index]
+    } == set()
+    process_calls = [
+        parameters for statement, parameters in calls if "process_runtime" in statement
+    ]
+    assert process_calls == [
+        ("process-1", "operator-a"),
+        ("process-1", "operator-a"),
+    ]
+
+
+async def test_process_projection_reads_durable_var_approval_state(
+    monkeypatch: Any,
+) -> None:
+    now = datetime(2026, 8, 31, tzinfo=UTC)
+    events = [
+        {
+            "kind": "approval.requested",
+            "step_id": "approval",
+            "attempt": 1,
+            "payload": {"step_kind": "approval"},
+        }
+    ]
+    approval = {
+        "process_id": "process-1",
+        "step_id": "approval",
+        "attempt": 1,
+        "requester_principal": "operator-a",
+        "required_role": "approver",
+        "quorum": 2,
+        "no_self_approval": True,
+        "timeout_seconds": 300,
+        "requested_at": now.isoformat(),
+        "expires_at": now.isoformat(),
+        "slots": [
+            {
+                "approval_id": "approval-1",
+                "idempotency_key": "approval-1:decision",
+            }
+        ],
+        "state": "pending",
+        "revision": 1,
+    }
+    statements: list[str] = []
+
+    async def fetch(
+        self: RuntimeProjectionReader,
+        statement: str,
+        parameters: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        del self, parameters
+        statements.append(statement)
+        if "key = ANY" in statement:
+            return [{"value": {"approver_oid": "operator-b", "decision": "approve"}}]
+        return [{"value": approval}]
+
+    monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
+    reader = RuntimeProjectionReader(
+        RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"),
+        RecordingFallback(),
+    )
+
+    state = await reader._approval_state(  # noqa: SLF001 - focused owned-reader contract
+        process_id="process-1",
+        step_id="approval",
+        events=events,
+    )
+
+    assert state is not None
+    assert state["_external_decisions"] == [{"principal": "operator-b", "decision": "approve"}]
+    assert any("key = ANY" in statement for statement in statements)
 
 
 async def test_empty_automation_blueprint_table_is_authoritative(monkeypatch: Any) -> None:
@@ -377,6 +557,8 @@ async def test_remaining_console_evidence_projects_durable_tables(
             ]
         if "runtime:detection-readiness" in statement:
             return []
+        if "runtime:analyzer-finding-receipt" in statement:
+            return []
         if "runtime:configuration-baseline" in statement:
             return []
         if "MAX(created_at)" in statement:
@@ -412,6 +594,7 @@ async def test_remaining_console_evidence_projects_durable_tables(
     assert skills["diagnostics"][0]["status"] == "ready"
     assert detection["target_count"] == 0
     assert detection["counts"]["unknown"] == 0
+    assert detection["lifecycle"]["target_count"] == 0
     assert baselines["baseline"]["version"] == "not-published"
     assert baselines["drift"]["verdict"] == "not-evaluated"
 

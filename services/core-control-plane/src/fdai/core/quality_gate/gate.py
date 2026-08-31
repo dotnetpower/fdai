@@ -52,6 +52,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
@@ -61,6 +62,13 @@ from fdai.core.quality_gate._debate_helpers import resolve_disagreement
 from fdai.core.quality_gate._verification import (
     cross_check_candidate,
     verify_grounding,
+)
+from fdai.core.quality_gate.deterministic_evidence import (
+    DeterministicEvidenceKind,
+    DeterministicEvidenceStatus,
+    DeterministicEvidenceVerifier,
+    DeterministicVerifierEvidence,
+    quality_candidate_digest,
 )
 from fdai.shared.contracts.models import Rule
 
@@ -179,6 +187,7 @@ class QualityDecision:
     reasons: tuple[str, ...] = field(default_factory=tuple)
     grounded_rule_ids: tuple[str, ...] = field(default_factory=tuple)
     aggregate_confidence: float = 0.0
+    deterministic_evidence: tuple[DeterministicVerifierEvidence, ...] = ()
     model_votes: tuple[ModelVote, ...] = field(default_factory=tuple)
     """Per-model cross-check votes (empty when the gate aborted before the
     cross-check ran). Provenance for reproducible replay of a T2 judgment."""
@@ -338,6 +347,10 @@ class QualityGate:
         rubric_evaluator: RubricEvaluator | None = None,
         escalation_ladder_config: EscalationLadderConfig | None = None,
         escalated_available: bool = False,
+        deterministic_evidence_verifiers: (
+            Mapping[DeterministicEvidenceKind, DeterministicEvidenceVerifier] | None
+        ) = None,
+        evidence_clock: Any = None,
     ) -> None:
         cfg = config or QualityGateConfig()
         if not 0.0 <= cfg.confidence_threshold <= 1.0:
@@ -346,6 +359,18 @@ class QualityGate:
             raise ValueError("require_cross_check_quorum MUST be >= 1")
         if len(cross_check_models) < cfg.require_cross_check_quorum:
             raise ValueError("not enough cross-check models registered for the configured quorum")
+        # The mixed-model cross-check is only meaningful across distinct models.
+        # Registering one model twice would let it agree with itself and satisfy
+        # a quorum of two, so a single model would grant execution eligibility.
+        if len({id(model) for model in cross_check_models}) != len(cross_check_models):
+            raise ValueError("cross-check models MUST be distinct instances")
+        declared_ids = [
+            str(model_id)
+            for model_id in (getattr(model, "model_id", None) for model in cross_check_models)
+            if model_id is not None
+        ]
+        if len(set(declared_ids)) != len(declared_ids):
+            raise ValueError("cross-check models MUST declare distinct model ids")
         # Wave 4.5 delta-2b: debate wire is opt-in. Half-wiring
         # (orchestrator without router or vice versa) is a fork bug
         # that would only surface on the first disagreement - refuse
@@ -364,6 +389,19 @@ class QualityGate:
         self._rubric_evaluator = rubric_evaluator
         self._escalation_ladder_config = escalation_ladder_config
         self._escalated_available = escalated_available
+        if deterministic_evidence_verifiers is not None:
+            expected = set(DeterministicEvidenceKind)
+            supplied = set(deterministic_evidence_verifiers)
+            if supplied != expected:
+                raise ValueError(
+                    "deterministic evidence verifiers MUST bind exactly what_if and security"
+                )
+        self._deterministic_evidence_verifiers = (
+            dict(deterministic_evidence_verifiers)
+            if deterministic_evidence_verifiers is not None
+            else None
+        )
+        self._evidence_clock = evidence_clock or (lambda: datetime.now(tz=UTC))
 
     async def evaluate(
         self,
@@ -373,11 +411,10 @@ class QualityGate:
     ) -> QualityDecision:
         """Return the gate outcome for one candidate action.
 
-        Ordering: verifier → grounding → cross-check → threshold. A hard
-        deny short-circuits (verifier ``False``); every other failure
-        falls through to :attr:`QualityOutcome.ABSTAIN` or
-        :attr:`QualityOutcome.DISAGREE` so a caller sees the whole
-        picture in :attr:`QualityDecision.reasons`.
+        Ordering: rule verifier -> independent what-if/security evidence ->
+        grounding -> cross-check -> threshold. A hard deny short-circuits;
+        missing, stale, conflicting, or synthetic deterministic evidence
+        holds before any model cross-check.
         """
         reasons: list[str] = []
 
@@ -393,7 +430,47 @@ class QualityGate:
         if verify is None:
             reasons.append("verifier_abstained")
 
-        # 2. Grounding (RAG citation validity)
+        # 2. Independent deterministic what-if and security evidence.
+        deterministic_evidence: list[DeterministicVerifierEvidence] = []
+        if self._deterministic_evidence_verifiers is not None:
+            evaluated_at = self._evidence_clock()
+            if evaluated_at.tzinfo is None:
+                raise ValueError("quality gate evidence clock MUST include timezone")
+            candidate_digest = quality_candidate_digest(candidate)
+            for kind in DeterministicEvidenceKind:
+                verifier = self._deterministic_evidence_verifiers[kind]
+                try:
+                    evidence = verifier.verify(candidate)
+                except Exception as exc:  # noqa: BLE001 - fail closed before model or risk work
+                    return QualityDecision(
+                        outcome=QualityOutcome.ABSTAIN,
+                        candidate=candidate,
+                        reasons=(f"{kind.value}_evidence_error:{type(exc).__name__}",),
+                        aggregate_confidence=candidate.aggregate_confidence,
+                        deterministic_evidence=tuple(deterministic_evidence),
+                    )
+                deterministic_evidence.append(evidence)
+                evidence_reason = _deterministic_evidence_rejection_reason(
+                    evidence,
+                    expected_kind=kind,
+                    candidate_digest=candidate_digest,
+                    evaluated_at=evaluated_at,
+                )
+                if evidence_reason is None:
+                    continue
+                return QualityDecision(
+                    outcome=(
+                        QualityOutcome.DENY
+                        if evidence.status is DeterministicEvidenceStatus.FAILED
+                        else QualityOutcome.ABSTAIN
+                    ),
+                    candidate=candidate,
+                    reasons=(evidence_reason,),
+                    aggregate_confidence=candidate.aggregate_confidence,
+                    deterministic_evidence=tuple(deterministic_evidence),
+                )
+
+        # 3. Grounding (RAG citation validity)
         grounding_result = verify_grounding(
             candidate,
             self._grounding,
@@ -403,7 +480,7 @@ class QualityGate:
         grounded = list(grounding_result.grounded_rule_ids)
         reasons.extend(grounding_result.reasons)
 
-        # 3. Mixed-model cross-check (agreement on action_type)
+        # 4. Mixed-model cross-check (agreement on action_type)
         try:
             cross_check = await cross_check_candidate(candidate, self._models)
             agree = cross_check.agree_count
@@ -586,6 +663,7 @@ class QualityGate:
             reasons=tuple(reasons),
             grounded_rule_ids=tuple(grounded),
             aggregate_confidence=confidence,
+            deterministic_evidence=tuple(deterministic_evidence),
             model_votes=tuple(votes),
             rubric_scores=rubric_scores,
             rubric_min_score=rubric_min_score,
@@ -619,6 +697,28 @@ class QualityGate:
         if not self._models:  # pragma: no cover - constructor enforces >= 1
             raise RuntimeError("no cross-check model available for retry")
         return await self._models[0].propose(candidate)
+
+
+def _deterministic_evidence_rejection_reason(
+    evidence: DeterministicVerifierEvidence,
+    *,
+    expected_kind: DeterministicEvidenceKind,
+    candidate_digest: str,
+    evaluated_at: datetime,
+) -> str | None:
+    if evidence.kind is not expected_kind:
+        return f"{expected_kind.value}_evidence_kind_mismatch"
+    if evidence.candidate_digest != candidate_digest:
+        return f"{expected_kind.value}_evidence_candidate_mismatch"
+    if evidence.synthetic:
+        return f"{expected_kind.value}_evidence_synthetic"
+    if evidence.observed_at > evaluated_at:
+        return f"{expected_kind.value}_evidence_from_future"
+    if evidence.expires_at < evaluated_at:
+        return f"{expected_kind.value}_evidence_stale"
+    if evidence.status is not DeterministicEvidenceStatus.PASSED:
+        return f"{expected_kind.value}_evidence_{evidence.status.value}"
+    return None
 
 
 __all__ = [

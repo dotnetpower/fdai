@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Mapping
-from datetime import UTC, datetime
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import psycopg
@@ -12,6 +13,9 @@ import pytest
 from fdai_operator_service.families.iam.contracts import (
     AccessGrantDecisionCommand,
     AccessGrantSnapshotQuery,
+    HilApprovalDecision,
+    HilDecisionCommand,
+    HilDecisionReceipt,
     ModelBindingDraftCommand,
     ModelBindingRequestCommand,
 )
@@ -20,6 +24,11 @@ from fdai_operator_service.families.iam.errors import (
     IamNotFoundError,
     IamPermissionError,
     IamUnavailableError,
+)
+from fdai_operator_service.families.iam.hil_callback_audit import (
+    HilCallbackAuditPhase,
+    HilCallbackAuditRecord,
+    HilCallbackOutcome,
 )
 from fdai_operator_service.incident_projection import incident_outcome_metrics, incident_summary
 from fdai_operator_service.postgres import (
@@ -33,6 +42,7 @@ from fdai_operator_service.postgres import (
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
     PostgresFamilyStoreConfig,
+    PostgresFamilyStoreUnavailable,
     PostgresProposalConflict,
     StoredProposal,
     StoredStatePage,
@@ -70,6 +80,20 @@ from fdai_service_contracts import (
 
 _NOW = datetime(2026, 8, 8, tzinfo=UTC)
 _GRANT_EXPIRY = datetime(2099, 1, 1, tzinfo=UTC)
+
+
+class CallbackAuditStore:
+    def __init__(self) -> None:
+        self.values: dict[str, dict[str, object]] = {}
+
+    async def create_state(self, key: str, value: Mapping[str, object]) -> bool:
+        if key in self.values:
+            return False
+        self.values[key] = dict(value)
+        return True
+
+    async def read_state(self, key: str) -> dict[str, object] | None:
+        return self.values.get(key)
 
 
 def _binding_policy(*, revision: int, active_digest: bool = True) -> dict[str, object]:
@@ -110,6 +134,329 @@ def _hil_row() -> dict[str, Any]:
             },
         },
     }
+
+
+@pytest.mark.asyncio
+async def test_callback_audit_persists_distinct_prepared_and_completed_records() -> None:
+    store = CallbackAuditStore()
+    adapter = PostgresIamAdapters(store)  # type: ignore[arg-type]
+    common = {
+        "callback_id": "hil-callback:one",
+        "correlation_id": "correlation-one",
+        "actor_identity_ref": "sha256:" + "a" * 64,
+        "authority_basis": "teams_sso_obo+entra_app_role",
+        "recorded_at": _NOW,
+    }
+    prepared = HilCallbackAuditRecord(
+        phase=HilCallbackAuditPhase.PREPARED,
+        outcome=HilCallbackOutcome.PENDING,
+        **common,
+    )
+    completed = HilCallbackAuditRecord(
+        phase=HilCallbackAuditPhase.COMPLETED,
+        outcome=HilCallbackOutcome.ACCEPTED,
+        **common,
+    )
+
+    await adapter.append_callback_audit(prepared)
+    await adapter.append_callback_audit(completed)
+    await adapter.append_callback_audit(replace(prepared, recorded_at=_NOW + timedelta(seconds=1)))
+    await adapter.append_callback_audit(replace(completed, recorded_at=_NOW + timedelta(seconds=2)))
+
+    assert len(store.values) == 2
+    assert {value["phase"] for value in store.values.values()} == {
+        "prepared",
+        "completed",
+    }
+    assert {value["correlation_id"] for value in store.values.values()} == {"correlation-one"}
+    assert all("justification" not in value for value in store.values.values())
+    assert {value["recorded_at"] for value in store.values.values()} == {_NOW.isoformat()}
+
+
+@pytest.mark.asyncio
+async def test_hil_context_reader_preserves_original_context_after_timeout() -> None:
+    store = CallbackAuditStore()
+    store.values["hil_park:approval-1"] = {
+        "status": "resolved",
+        "decision": "timeout",
+        "approval_id": "approval-1",
+        "idempotency_key": "idem-1",
+        "submitter_oid": "submitter-1",
+        "correlation_id": "correlation-1",
+        "request_fingerprint": "action-hash-1",
+        "approval_context": {
+            "reasons": ["Workflow step approval requires one approver."],
+            "blast_radius_summary": "1 workflow target",
+            "ttl_seconds": 120,
+            "expires_at": _GRANT_EXPIRY.isoformat(),
+        },
+        "metadata": {
+            "decision_route": "workflow",
+            "required_role": "approver",
+        },
+    }
+
+    context = await PostgresIamAdapters(store).get_callback_context(  # type: ignore[arg-type]
+        "approval-1"
+    )
+
+    assert context is not None
+    assert context.correlation_id == "correlation-1"
+    assert context.idempotency_key == "idem-1"
+    assert context.action_hash == "action-hash-1"
+    assert context.expires_at == _GRANT_EXPIRY
+    assert context.metadata == {
+        "decision_route": "workflow",
+        "required_role": "approver",
+    }
+
+
+class HilDecisionRecoveryStore:
+    """Model proposal-first persistence and a separately raced receipt state."""
+
+    def __init__(self) -> None:
+        self.proposal: dict[str, object] | None = None
+        self.receipt: dict[str, object] | None = None
+        self.fail_receipt_once = False
+        self.raced_receipt: dict[str, object] | None = None
+
+    async def find_state(
+        self,
+        *,
+        prefix: str,
+        field: str,
+        value: str,
+    ) -> dict[str, object] | None:
+        assert prefix == "hil_park:"
+        assert field == "idempotency_key"
+        return {
+            "approval_id": "approval-1",
+            "idempotency_key": value,
+        }
+
+    async def append_proposal(
+        self,
+        *,
+        family: str,
+        operation: str,
+        principal_id: str | None,
+        idempotency_key: str,
+        payload: Mapping[str, object],
+    ) -> StoredProposal:
+        del family, operation, principal_id
+        candidate = {"idempotency_key": idempotency_key, "payload": dict(payload)}
+        if self.proposal is not None and self.proposal != candidate:
+            raise PostgresProposalConflict("conflicting proposal")
+        duplicate = self.proposal is not None
+        self.proposal = candidate
+        return StoredProposal(
+            proposal_id="operator-hil-receipt",
+            accepted_at=_NOW.isoformat(),
+            duplicate=duplicate,
+            record=candidate,
+        )
+
+    async def create_state(self, key: str, value: Mapping[str, object]) -> bool:
+        assert key == "operator-hil-decision:approval-1"
+        if self.fail_receipt_once:
+            self.fail_receipt_once = False
+            raise PostgresFamilyStoreUnavailable("interrupted receipt write")
+        if self.raced_receipt is not None:
+            self.receipt = self.raced_receipt
+            return False
+        if self.receipt is not None:
+            return False
+        self.receipt = dict(value)
+        return True
+
+    async def read_state(self, key: str) -> dict[str, object] | None:
+        assert key == "operator-hil-decision:approval-1"
+        return self.receipt
+
+
+def _hil_decision_command() -> HilDecisionCommand:
+    return HilDecisionCommand(
+        idempotency_key="hil-key-1",
+        decision=HilApprovalDecision.APPROVE,
+        approver_oid="approver-1",
+        justification="Verified impact and rollback.",
+        decided_at=_NOW,
+    )
+
+
+@pytest.mark.asyncio
+async def test_hil_decision_recovers_after_proposal_precedes_receipt_state() -> None:
+    store = HilDecisionRecoveryStore()
+    store.fail_receipt_once = True
+    adapter = PostgresIamAdapters(store)  # type: ignore[arg-type]
+
+    with pytest.raises(IamUnavailableError, match="receipt store"):
+        await adapter.record_decision(_hil_decision_command())
+    recovered = await adapter.record_decision(_hil_decision_command())
+
+    assert recovered.decided_at == _NOW
+    assert recovered.justification == "Verified impact and rollback."
+    assert store.proposal is not None
+    assert store.receipt is not None
+
+
+@pytest.mark.asyncio
+async def test_hil_decision_rejects_conflicting_receipt_create_race() -> None:
+    store = HilDecisionRecoveryStore()
+    store.raced_receipt = {
+        "approval_id": "approval-1",
+        "idempotency_key": "hil-key-1",
+        "decision": "reject",
+        "approver_oid": "approver-2",
+        "decided_at": _NOW.isoformat(),
+        "receipt_ref": "raced-receipt",
+    }
+
+    with pytest.raises(IamConflictError, match="concurrent durable receipt"):
+        await PostgresIamAdapters(store).record_decision(  # type: ignore[arg-type]
+            _hil_decision_command()
+        )
+
+
+@pytest.mark.asyncio
+async def test_newly_signed_retry_after_the_replay_window_recovers_the_proposal() -> None:
+    """A re-signed retry carries a new observation time for the same decision.
+
+    The internal callback replay window is five minutes. Recovering a decision
+    whose receipt state never landed therefore requires a fresh signature and a
+    fresh ``decided_at``. The durable proposal identity excludes that
+    timestamp, so the retry recovers the original proposal instead of
+    conflicting with it.
+    """
+    store = HilDecisionRecoveryStore()
+    store.fail_receipt_once = True
+    adapter = PostgresIamAdapters(store)  # type: ignore[arg-type]
+
+    with pytest.raises(IamUnavailableError, match="receipt store"):
+        await adapter.record_decision(_hil_decision_command())
+    original_proposal = dict(store.proposal or {})
+
+    later = _NOW + timedelta(minutes=6)
+    recovered = await adapter.record_decision(replace(_hil_decision_command(), decided_at=later))
+
+    assert recovered.decided_at == later
+    assert recovered.receipt_ref == "operator-hil-receipt"
+    assert store.proposal == original_proposal
+    payload = original_proposal["payload"]
+    assert isinstance(payload, Mapping)
+    assert "decided_at" not in payload
+    assert payload["approval_id"] == "approval-1"
+    assert payload["decision"] == "approve"
+    assert payload["approver_oid"] == "approver-1"
+    assert str(payload["justification_digest"]).startswith("sha256:")
+
+
+@pytest.mark.asyncio
+async def test_conflicting_decision_actor_or_justification_is_still_refused() -> None:
+    for override in (
+        {"decision": HilApprovalDecision.REJECT},
+        {"approver_oid": "approver-2"},
+        {"justification": "Different recorded reasoning."},
+    ):
+        store = HilDecisionRecoveryStore()
+        store.fail_receipt_once = True
+        adapter = PostgresIamAdapters(store)  # type: ignore[arg-type]
+        with pytest.raises(IamUnavailableError):
+            await adapter.record_decision(_hil_decision_command())
+
+        with pytest.raises(IamConflictError):
+            await adapter.record_decision(replace(_hil_decision_command(), **override))
+
+
+@pytest.mark.asyncio
+async def test_case_only_actor_difference_recovers_the_same_durable_decision() -> None:
+    store = HilDecisionRecoveryStore()
+    store.fail_receipt_once = True
+    adapter = PostgresIamAdapters(store)  # type: ignore[arg-type]
+    with pytest.raises(IamUnavailableError):
+        await adapter.record_decision(_hil_decision_command())
+
+    recovered = await adapter.record_decision(
+        replace(_hil_decision_command(), approver_oid="Approver-1")
+    )
+
+    assert recovered.approver_oid == "Approver-1"
+
+
+class HilDeliveryStateStore:
+    """Model the durable decision receipt with monotonic delivery state."""
+
+    def __init__(self, receipt: Mapping[str, object] | None = None) -> None:
+        self.values: dict[str, dict[str, object]] = {}
+        if receipt is not None:
+            self.values["operator-hil-decision:approval-1"] = dict(receipt)
+        self.writes = 0
+
+    async def read_state(self, key: str) -> dict[str, object] | None:
+        return self.values.get(key)
+
+    async def write_state(self, key: str, value: Mapping[str, object]) -> None:
+        self.writes += 1
+        self.values[key] = dict(value)
+
+
+def _stored_receipt(**overrides: object) -> dict[str, object]:
+    value: dict[str, object] = {
+        "approval_id": "approval-1",
+        "idempotency_key": "hil-key-1",
+        "decision": "approve",
+        "approver_oid": "approver-1",
+        "decided_at": _NOW.isoformat(),
+        "receipt_ref": "receipt-1",
+        "justification": "Verified impact and rollback.",
+        "already_recorded": False,
+        "delivered": False,
+    }
+    value.update(overrides)
+    return value
+
+
+@pytest.mark.asyncio
+async def test_mark_delivered_is_monotonic_and_never_regresses() -> None:
+    store = HilDeliveryStateStore(_stored_receipt(delivered=True))
+    adapter = PostgresIamAdapters(store)  # type: ignore[arg-type]
+
+    stale = await adapter.mark_delivered(
+        HilDecisionReceipt(
+            approval_id="approval-1",
+            idempotency_key="hil-key-1",
+            decision=HilApprovalDecision.APPROVE,
+            approver_oid="approver-1",
+            decided_at=_NOW,
+            receipt_ref="receipt-1",
+            delivered=False,
+        )
+    )
+
+    assert stale.delivered is True
+    assert store.writes == 0
+    assert store.values["operator-hil-decision:approval-1"]["delivered"] is True
+
+
+@pytest.mark.asyncio
+async def test_mark_delivered_advances_the_stored_receipt_once() -> None:
+    store = HilDeliveryStateStore(_stored_receipt())
+    adapter = PostgresIamAdapters(store)  # type: ignore[arg-type]
+    receipt = HilDecisionReceipt(
+        approval_id="approval-1",
+        idempotency_key="hil-key-1",
+        decision=HilApprovalDecision.APPROVE,
+        approver_oid="approver-1",
+        decided_at=_NOW,
+        receipt_ref="receipt-1",
+    )
+
+    first = await adapter.mark_delivered(receipt)
+    second = await adapter.mark_delivered(receipt)
+
+    assert first.delivered is True
+    assert second.delivered is True
+    assert store.writes == 1
 
 
 class ReadinessPostgresFamilyStore(PostgresFamilyStore):

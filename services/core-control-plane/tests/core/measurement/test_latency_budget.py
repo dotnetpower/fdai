@@ -55,24 +55,24 @@ def test_boundary_equal_to_ceiling_is_pass() -> None:
     assert decision.outcome is LatencyOutcome.PASS
 
 
-def test_no_budget_configured_treats_as_pass() -> None:
+def test_no_budget_configured_is_explicitly_unavailable() -> None:
     monitor = LatencyBudgetMonitor(
         budgets={Tier.T0: LatencyBudget(tier=Tier.T0, p95_ceiling_ms=100)}
     )
     decision = monitor.evaluate(LatencyObservation(tier=Tier.T2, p95_ms=1e9, sample_size=1))
-    assert decision.outcome is LatencyOutcome.PASS
+    assert decision.outcome is LatencyOutcome.UNAVAILABLE
     assert "no_budget_configured_for_tier" in decision.reasons
 
 
-def test_insufficient_samples_holds_instead_of_demoting() -> None:
+def test_insufficient_samples_are_explicitly_unavailable() -> None:
     # A p95 from too few samples is statistical noise - demoting on it
-    # would penalize an ActionType on chance. Hold (PASS) until enough.
+    # would penalize an ActionType on chance. Hold as unavailable until enough.
     monitor = LatencyBudgetMonitor(
         budgets={Tier.T0: LatencyBudget(tier=Tier.T0, p95_ceiling_ms=100)},
         min_sample_size=30,
     )
     decision = monitor.evaluate(LatencyObservation(tier=Tier.T0, p95_ms=9999.0, sample_size=5))
-    assert decision.outcome is LatencyOutcome.PASS
+    assert decision.outcome is LatencyOutcome.UNAVAILABLE
     assert any("insufficient_samples" in r for r in decision.reasons)
 
 
@@ -81,4 +81,29 @@ def test_min_sample_size_validation() -> None:
         LatencyBudgetMonitor(
             budgets={Tier.T0: LatencyBudget(tier=Tier.T0, p95_ceiling_ms=100)},
             min_sample_size=0,
+        )
+
+
+def test_unavailable_observation_preserves_reason() -> None:
+    decision = _monitor().evaluate(
+        LatencyObservation(
+            tier=Tier.T1,
+            p95_ms=None,
+            sample_size=0,
+            unavailable_reason="provider_timeout",
+        )
+    )
+
+    assert decision.outcome is LatencyOutcome.UNAVAILABLE
+    assert decision.reasons == ("provider_timeout",)
+
+
+def test_percentiles_must_be_ordered() -> None:
+    with pytest.raises(ValueError, match="p50_ms"):
+        LatencyObservation(
+            tier=Tier.T0,
+            p50_ms=200,
+            p95_ms=100,
+            p99_ms=300,
+            sample_size=100,
         )

@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 4e490d82fc009332873165078cafa0dc17685510
-translation_revised: 2026-08-28
+translation_source_sha: 068963da2ed257f04885786ea65ff7c0aaae4a68
+translation_revised: 2026-08-31
 ---
 # 콘솔 근거 및 복원력
 이 문서는 운영자 콘솔의 근거 출처 이력, localization, 스트림 복구, 영속 재생 및 아키텍처 지도 복원력 계약을 소유합니다. 대화형 도구 및 RBAC 계약은 [operator-console-ko.md](operator-console-ko.md)에 유지됩니다.
@@ -12,6 +12,7 @@ translation_revised: 2026-08-28
 |------|------|------|-----------|
 | 통제된 온톨로지 보증 출처 이력 | in-progress | `console/tests/live-e2e/ontology-query-assurance*.ts`, `console/tests/live-e2e/assurance-budget.ts`, `console/tests/live-e2e/assurance-checkpoint.ts`, focused Vitest 143개 통과 | 강화된 release gate는 두 locale의 모든 operation에 완전하게 검증된 답변을 요구하고 ambient 또는 incident-bound chat 요청을 거부합니다. 실행은 질문별 및 무진행 deadline을 갖춘 유도된 budget으로 제한되고 evidence identity에 바인딩된 checkpoint에서 재개하며, 소진된 budget은 ready 아티팩트를 보고하지 않습니다. |
 | Exact-release 온톨로지 카탈로그 및 선언 워크벤치 | implemented | `ontology_console_projection.py`, `ontology_{declaration,dependents,evidence_health,release_diff}_projection.py`, `materialize-authoritative-catalogs.py`, Console 워크벤치 경로, focused Python 및 Console 검사 | 하나의 생산자가 exact release 신원과 변경 권한 부재를 유지하면서 요약, 선언 상세, 종속 항목, 정제된 근거 상태, release 비교 및 카탈로그 토폴로지를 제공합니다. 증적 기반 Context 근거는 남아 있습니다. |
+| Kubernetes 수명 주기 근거 표현 | implemented | `analyzer_lifecycle_projection.py`, `detection-readiness.tsx`, 집중 Operator, Console, 타입 검사, 빌드 및 세 화면 크기 Playwright 검사 | 인증된 감지 준비도 응답은 서버가 작성한 현재 상태를 보존된 장애, 교체, 게시 및 복구 이력과 분리합니다. 불완전, 충돌, 누락 및 중복 근거를 명시적으로 유지하며 Console은 수명 주기 간선을 유도하지 않고 원인 주장이나 실행 권한을 노출하지 않습니다. |
 | 운영 온톨로지 인스턴스 탐색기 | implemented | `instance_explorer.py`, `postgres_family_store.py`, `ontology-instances*.{tsx,ts,css}`, 포커스 Operator 및 Console 검사, strict mypy, Ruff, 작업 범위 편집기 진단, 운영 Vite 빌드 및 인증된 세 화면 크기 검사 | `인스턴스` 보기는 활성 세대 Resource 디렉터리와 정확한 선택 Resource 하나를 범위가 제한된 양방향 그래프, 허용 목록 속성, 최신순 정확한 Resource FDAI 감사 사실, 독립적인 출처 가용성, 릴리스 신원, 세대, 기준 시점 및 잘림 상태에 연결합니다. Role assignment는 IAM evidence에서 사용할 수 있지만 기본 instance directory, graph, Inspector 및 screen context에서는 생략합니다. Resource Group 또는 Subscription root는 유형 다양성을 보존한 직접 관계를 최대 36개까지 표시하며, 다른 선택 Resource는 immediate owning Resource Group 하나만 유지하고 indirect peer scope ancestor를 생략합니다. 정확한 AKS node Resource Group mapping은 link를 만들지 않고 managed Resource Group, 포함된 VMSS, VM instance 및 NIC를 순서대로 배치합니다. Graph는 wheel zoom과 native full screen을 사용하며 Inspector는 선택 detail을 잃지 않고 접을 수 있습니다. |
 | 인스턴스 관계 근거 상태 | implemented | `instance_explorer.py`, 엄격한 `ontology-instances.model.ts`, 지역화된 Inspector, 집중 Operator 및 Console 검사 | 모든 직접 관계는 완전성과 별도로 current, stale, unavailable evidence를 보고합니다. 공급자 configuration observation은 independently verified observation evidence와 구분되며 future 또는 expired cutoff는 complete로 표시하지 않고 provenance를 유지합니다. |
 | VM network path 요약 | implemented | `ontology-instances.model.ts`, 관계 Inspector, 인증된 활성 세대 비교 | Inspector는 반환된 graph에 있는 범위가 제한된 path만 유도하고 모든 저장 edge 방향을 보존하며 current configuration evidence와 verification을 구분합니다. 완전한 NAT egress chain은 평면 path 목록과 별도로 요약하고, 관계 커버리지가 불완전하거나 VM backend association이 모델링되지 않았으면 누락된 ingress를 unknown으로 유지합니다. |
@@ -32,6 +33,7 @@ translation_revised: 2026-08-28
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-08-31 | implemented | 감지 준비도에 읽기 전용 Kubernetes 수명 주기 구역을 추가했습니다. 브라우저가 아닌 API가 범위 제한 분석기 증적을 현재 평가와 과거 평가로 그룹화합니다. Console은 접근 가능한 펼침 컨트롤과 반응형 줄바꿈으로 게시, 복구, 중복 전달 및 완전, 불완전, 충돌 또는 누락 근거를 표시합니다. | `current change`, 집중 Python 및 Operator API 검사 90개, 집중 Console 검사 5개, 타입 검사 및 운영 빌드, 가로 넘침이 측정되지 않은 synthetic 1440 x 900, 993 x 641 및 390 x 844 Playwright 검사 3개 통과 | 인증된 관리형 런타임 근거는 별도이며 생성하지 않았습니다. |
 | 2026-08-28 | implemented | 정적 내비게이션 시안을 운영 Console 셸과 맞추고 개요, 리소스 효율, 최적화 사례 및 정산된 성과 화면을 갖춘 대화형 비용 거버넌스 시안을 추가했습니다. | `current change`, `mocks/ui/nav-redesign-v3.html`, `mocks/ui/finops-resource-efficiency.html`, `console/src/components/mock-visual-boundary.test.ts`, 집중 시안 동등성 테스트 통과 | 통제된 런타임 검증은 이러한 synthetic 표현 시안과 별도로 유지합니다. |
 | 2026-08-26 | implemented | 하나의 그룹화된 역할 아래에서 설명과 인접한 JSON을 포함해 유효한 모든 모델 요청 JSON 레이어를 공유 구문 강조 JSON 블록으로 전달하도록 수정했습니다. 요청의 key, 문자열, 숫자 및 literal은 서로 다른 구문 색상, 구조화된 들여쓰기, JSON 레이블 및 복사 컨트롤을 사용하며, 인접한 설명과 JSON이 아닌 텍스트는 원문 대체 표시를 유지합니다. | `current change`, `model-trace-waterfall.tsx`, `styles.css`, `agents-incident-deck.spec.ts`, 집중 Vitest 16개 통과, mixed group, JSON token, 복사 컨트롤, 중첩 값, 대체 표시 및 overflow 0을 검증한 집중 데스크톱 Playwright 1개 통과, synthetic 요소 캡처 검토 | 범위가 제한된 요청 JSON 표현 작업은 남아 있지 않습니다. 통제된 런타임 검증은 synthetic 브라우저 fixture와 별도로 유지합니다. |
 | 2026-08-26 | implemented | 모델 공급자 워터폴이 실행 기록 안과 독립적인 직접 응답 위치 모두에서 간결한 실행 기록 타이포그래피 크기를 직접 사용하도록 수정했습니다. 좁은 Command Deck 컨테이너에서는 6열 호출 행을 3열로 재배치해 넘침을 방지합니다. | `current change`, `styles.css`, `model-trace-waterfall.test.ts`, `agents-incident-deck.spec.ts`, 집중 Vitest 7개 통과, 계산된 제목 `13px`, 안내 및 모델 텍스트 `12px`, 패널 overflow 0을 확인한 집중 데스크톱 Playwright 1개 통과, Console Vite 운영 빌드 통과 | 범위가 제한된 모델 trace 작업은 남아 있지 않습니다. 전체 Console 타입 검사는 `retrieval-trace.test.ts`의 기존 비공개 `sourceCards` import로 인해 별도로 차단된 상태입니다. |

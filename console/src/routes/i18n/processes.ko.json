@@ -1,0 +1,52 @@
+{
+  "subtitle": "권위 있는 Process 스냅샷과 추가 전용 저널에서 가져온 principal 범위 워크플로 상태와 보호된 런타임 요청입니다. 실행은 콘솔 외부에 유지됩니다.",
+  "viewPurpose": "Principal 범위의 워크플로 Process 스냅샷, 단계 요구 사항 및 런타임에서 다시 검사하는 전환 요청입니다.",
+  "controlEyebrow": "권위 있는 단계 상태",
+  "controlTitle": "허용된 다음 전환",
+  "controlBody": "Operator API는 로그인한 principal과 현재 Process 리비전으로 이 보기를 제한합니다. 모든 요청은 워크플로 런타임에서 다시 검사됩니다.",
+  "controlUnavailable": "권위 있는 Process 전환 상태를 사용할 수 없습니다. 전환을 요청할 수 없습니다.",
+  "controlKind": "단계 유형",
+  "controlAttempt": "시도",
+  "controlReason": "현재 사유",
+  "controlPending": "기록된 종료 사유 없음",
+  "controlStep": {
+    "action": "작업",
+    "wait": "대기",
+    "approval": "사람 승인",
+    "decision": "결정",
+    "parallel": "병렬",
+    "gate": "근거 게이트",
+    "evidence": "근거",
+    "terminal": "종료"
+  },
+  "controlField": {
+    "wait_for": "대기 대상",
+    "timeout_seconds": "제한 시간(초)",
+    "approval_revision": "승인 리비전",
+    "deadline_at": "기한",
+    "approval_role": "승인 역할",
+    "quorum": "승인 정족수",
+    "no_self_approval": "자기 승인 방지",
+    "approved_count": "승인 완료",
+    "remaining_quorum": "남은 승인 수",
+    "decision": "결정 상태",
+    "outcomes": "허용된 결과",
+    "branches": "분기",
+    "join": "결합 방식",
+    "completed_branches": "완료된 분기",
+    "failed_branches": "실패한 분기",
+    "gate_ref": "근거 게이트",
+    "evidence_state": "근거 상태"
+  },
+  "transitionActions": "허용된 Process 전환",
+  "transition": {
+    "resume": "재개 요청",
+    "cancel": "취소 요청",
+    "retry": "재시도 요청"
+  },
+  "transitionConfirm": "{transition}을 요청할까요? 런타임에서 현재 상태와 권한을 다시 검사합니다.",
+  "transitionRequesting": "요청 중...",
+  "transitionAccepted": "요청 {proposalId}이 런타임 검토 대상으로 수락되었습니다. 수락은 운영 성공이 아닙니다. 권위 있는 상태가 바뀔 때까지 새로 고치세요.",
+  "transitionDenied": "전환이 수락되지 않았습니다: {error}",
+  "noPermittedTransitions": "현재 권위 있는 상태에서는 운영자 전환이 허용되지 않습니다."
+}

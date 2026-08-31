@@ -1,9 +1,9 @@
 ---
 title: 배포 빠른 시작
-description: 보호된 fdaictl 작업 흐름으로 Azure에 FDAI를 프로비저닝하거나 azd로 인프라 전용 개발 경로를 미리 봅니다.
+description: 보호된 fdaictl 작업 흐름으로 FDAI의 최소 Azure 인벤토리를 프로비저닝하거나 azd로 인프라 전용 개발 경로를 미리 봅니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 6966dc1f8a99a7c64d0e4b1ebcbc850c89776c20
-translation_revised: 2026-08-31
+translation_source_sha: e314f6c59614ef69276137d7276751a4e05e4966
+translation_revised: 2026-09-01
 ---
 
 # 배포 빠른 시작
@@ -46,6 +46,10 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
   local-only input 및 Key Vault에 보관하세요. Repository variable에는 versionless secret-id 목록만
   설정하고, 별도 Operator service `enable` plan보다 platform identity plan을 먼저 검토하고
   적용하세요. Edge identity에는 executor role을 부여하지 않습니다.
+- A1 승인을 사용하려면 그룹 연결 Teams 팀, 채널 및 HTTPS Bot 액티비티 endpoint를 함께
+  구성하거나 Slack 워크스페이스와 사용자-Entra 매핑을 함께 구성하세요. 매핑 값과 서명 입력은
+  Key Vault 또는 로컬 전용 배포 입력에 보관합니다. 채널 권한 구성이 없거나 일부뿐이면 승인을
+  사용할 수 없으며 Incoming Webhook으로 대체하지 않습니다.
 - 범위가 제한된 OHL scale-out 근거 대상을 프로비저닝하려면 private networking과 개발 운영
   게이트웨이를 사용하는 `dev` 환경에서만 `enable_ohl_scale_out_evidence_target`을 사용하도록
   설정하세요. Exact 이미지 버전, 보호된 작업 흐름의 SSH 공개 키 입력, 재시도해도 유지되는
@@ -62,6 +66,14 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
   활성화하세요.
   GitHub 자격 증명은 Key Vault 시크릿 참조만 제공합니다. Watcher identity에는 Blob 데이터
   접근과 초안 검토 권한만 있으며 카탈로그 병합 또는 작업 권한은 없습니다.
+- 단계 4 측정을 예약하려면 필요한 기준선, 패턴 성장 또는 운영 승격 작업만 명시적으로
+  활성화하세요. 세 작업은 모두 기본적으로 비활성화되며 이미지 가져오기, 상태 저장소 비밀,
+  선택적 모델 추론 접근 권한만 있는 전용 측정 신원을 공유합니다. 실행기 신원이나 클라우드
+  변경 역할은 받지 않습니다.
+- 단계 3 스케줄러 또는 DB-DR 훈련을 활성화하기 전에 서로 분리된 작업 신원을 검토하세요.
+  스케줄러는 Event Bus 전송, 이미지 가져오기 및 상태 저장소 비밀 접근 권한만 받습니다.
+  DB-DR은 원본 읽기와 격리 대상 그룹 안의 PostgreSQL 복원 및 삭제 권한만 받습니다. 완전한
+  구성 계획을 검토할 때까지 `dr_drill_dry_run=true`를 유지하세요.
 
 ## 최소 인벤토리 프로비저닝
 

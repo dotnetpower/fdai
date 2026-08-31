@@ -87,31 +87,66 @@ def change_graph_evidence_from_snapshot(
             if graph_ontology_release == expected_ontology_release
             else GraphEvidenceReleaseState.MIXED
         )
+    conflict_reasons = set(snapshot.conflicts)
+    evidence_complete = True
+    authenticated = bool(snapshot.evidence_links)
+    for link in snapshot.evidence_links:
+        identity = f"{link.link_type}:{link.from_id}:{link.to_id}"
+        metadata = link.observation_metadata
+        if metadata is None:
+            authenticated = False
+            evidence_complete = False
+            conflict_reasons.add(f"link_evidence_missing:{identity}")
+            continue
+        fact = metadata.state_fact
+        if not metadata.verified:
+            authenticated = False
+            conflict_reasons.add(f"link_evidence_unverified:{identity}")
+        if fact.completeness < 1.0:
+            evidence_complete = False
+            conflict_reasons.add(f"link_evidence_incomplete:{identity}")
+        if fact.conflicts:
+            conflict_reasons.add(f"link_evidence_conflicting:{identity}")
+        if fact.synthetic:
+            conflict_reasons.add(f"link_evidence_synthetic:{identity}")
+        if (
+            fact.recorded_at > snapshot.cutoff
+            or fact.evidence_cutoff > snapshot.cutoff
+            or fact.effective_at > snapshot.cutoff
+        ):
+            conflict_reasons.add(f"link_evidence_after_cutoff:{identity}")
+        elif (snapshot.cutoff - fact.effective_at).total_seconds() > fact.freshness_ceiling_seconds:
+            conflict_reasons.add(f"link_evidence_stale:{identity}")
+
     freshness = GraphEvidenceFreshness.CURRENT
-    if "target_resource_missing" in snapshot.conflicts:
+    if "target_resource_missing" in conflict_reasons:
         freshness = GraphEvidenceFreshness.UNAVAILABLE
-    elif not snapshot.graph_source_complete:
+    elif not snapshot.graph_source_complete or not evidence_complete:
         freshness = GraphEvidenceFreshness.UNKNOWN
-    elif snapshot.stale_sources:
+    elif snapshot.stale_sources or any(
+        reason.startswith("link_evidence_stale:") for reason in conflict_reasons
+    ):
         freshness = GraphEvidenceFreshness.STALE
     elif any(
-        reason.startswith(("source_freshness_missing:", "source_after_"))
-        for reason in snapshot.conflicts
+        reason.startswith(
+            (
+                "source_freshness_missing:",
+                "source_after_",
+                "link_evidence_after_",
+            )
+        )
+        for reason in conflict_reasons
     ):
         freshness = GraphEvidenceFreshness.UNKNOWN
-    authenticated = bool(snapshot.evidence_links) and all(
-        link.observation_metadata is not None and link.observation_metadata.verified
-        for link in snapshot.evidence_links
-    )
     return ChangeGraphEvidenceReceipt(
         graph_revision=snapshot.snapshot_id,
         freshness=freshness,
         release_state=release_state,
         authenticated=authenticated,
-        source_complete=snapshot.graph_source_complete,
+        source_complete=snapshot.graph_source_complete and evidence_complete,
         source_generation=snapshot.graph_source_generation,
-        truncated="context_graph_truncated" in snapshot.conflicts,
-        conflict_reasons=snapshot.conflicts,
+        truncated="context_graph_truncated" in conflict_reasons,
+        conflict_reasons=tuple(sorted(conflict_reasons)),
     )
 
 

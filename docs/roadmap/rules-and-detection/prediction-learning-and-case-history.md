@@ -132,7 +132,8 @@ cards plus source digests; a model cannot treat an embedding as source evidence.
 
 Norns receives failure cases together with matched correct and censored controls. This prevents
 survivorship bias and overly conservative threshold changes. Every analysis claim cites a case id,
-revision, and manifest digest. Missing or conflicting evidence produces no candidate.
+revision, and manifest digest. At least one failure and one matched control are required before the
+reviewer runs. Missing or conflicting evidence produces no candidate.
 
 ## Learning and promotion
 

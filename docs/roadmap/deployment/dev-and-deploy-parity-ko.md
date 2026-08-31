@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: a146ed685d17b4d4c758a0204032323e00aaf52e
+translation_source_sha: c730d88703436948e23a79f7667030c2a4db880d
 translation_revised: 2026-09-01
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -81,6 +81,13 @@ managed-resource identity가 없는 영속 shadow consumer입니다. 이 venue�
 문서 처리 워커 및 격리 실행기는 각각 담당 역할로 연결하고, 로컬 이벤트 전송은 `127.0.0.1:19092`의
 Docker Redpanda를 사용합니다. Azure에 배포된 프로세스는 `FDAI_EXECUTION_VENUE=deployed`를 설정하고
 서비스 소유 Azure Database for PostgreSQL DSN과 Event Hubs Kafka endpoint를 사용합니다. Venue 선택은 근거 권한, 승격 상태, 사람 신원 또는 executor 권한을 변경하지 않습니다. Schema parity는 legacy 및 서비스 소유 migration 5개로 이동한 뒤 대상 Settings, catalog, ontology 및 inventory projection을 권위 있는 입력에서 다시 생성합니다. 로컬 `audit_log`, `state_kv`, 승인, idempotency record, lease 또는 executor receipt를 배포 환경에 복제하지 않습니다. 이러한 record는 출처 venue의 인과 관계와 권한을 유지합니다.
+
+프로바이더 계약 Docker 작업은 격리된 검증 PostgreSQL 포트 `5433`과 Redpanda 호스트 포트
+`19092`만 사용하며 Compose 클라이언트는 `redpanda:29092`를 사용합니다. 같은 단언 파일이
+페이크 및 실제 어댑터를 실행하지만 실제 모드는 명시적으로 CI에서 선택합니다. 정확한 임시
+데이터베이스 하나와 UUID 범위 토픽 및 소비자 그룹을 만든 뒤 해당 리소스만 삭제합니다.
+loopback 전용 소켓 가드는 클라우드 호출을 차단하며 Docker 서비스가 없으면 성공한 프로바이더
+결과로 바꾸지 않고 실제 작업을 실패시킵니다.
 
 `database_host_binding` 배포 mode는 배포 service의 비밀이 아닌 `POSTGRES_HOST` 연결만 변경합니다. 모든 service root는 비어 있지 않은 host를 요구하고, Core는 검증된 `llm` object를 child module로 전달하며, 봉인된 guard는 다른 명령이나 환경 표류를 차단하고 exact apply는 plan의 mode와 digest를 그대로 반복해야 합니다. Core 모델 전환은 비밀 service tfvars 대신 저장소의 resolved-model 매니페스트와 웹 검색 정책에서 해당 `llm` object를 도출합니다. 구체화 도구는 매니페스트의 정규 digest가 이미지 attestation과 일치하도록 요구하고 HTTPS endpoint 출처를 정확히 하나만 허용하며, 산출물에 일치하는 후보가 있고 저장소 정책이 허용 목록을 제공할 때만 웹 검색을 활성화합니다. Legacy Core revision에 검토된 Event Bus topic, database host 및 model binding이 모두 없으면 Core 전용 전환 하나가 세 mode를 함께 봉인하고 모든 전용 guard를 같은 plan에 적용합니다. 네 번째 환경 변경은 계속 차단됩니다. 독립 배포된 Operator는 typed incident request와 read-investigation completion topic 및 consumer group을 렌더링하고 필수로 요구하므로 topic guard가 정확한 값을 검증합니다. 격리 Executor migration도 command, receipt 및 DLQ transport 값을 `FDAI_EXECUTION_VENUE=deployed`와 함께 고정하며 관련 없는 환경 변경은 계속 차단됩니다. Local composition은 loopback host를 계속 사용하므로 이 전환은 실행 venue를 바꾸거나 배포 DSN을 local에서 재사용하지 않습니다. Database venue도 측정 권한을 변경하지 않습니다. Core는 table `SELECT, INSERT`와 `llm_invocation_invocation_id_seq`의 `USAGE, SELECT` 권한으로 `llm_invocation`에 행을 추가하고 Operator는 table을 `SELECT`로 읽습니다. 권한 migration은 `PUBLIC` 접근을 revoke하고 어느 role에도 table update 또는 delete 권한을 주지 않으며 Core에는 sequence `UPDATE` 권한을 주지 않습니다. 두 venue 모두 JSON payload를 scan하지 않고 concurrently 생성한 동일한 partial `audit_log.action_kind` index를 통해 incident lifecycle history를 복구합니다.
 
@@ -239,10 +246,13 @@ API에 실행기 신원을 부여하거나 ActionType 및 작업 흐름 승격 �
 Headless 런타임은 영속 effective 값을 로드합니다. Embedded 로컬 Pantheon은 별도의 fixed 심각도나
 구간 대신 동일하게 검증된 환경, 기본값 및 accepted-versus-held 인계 결과를 사용합니다.
 
-Detection 준비 상태도 같은 경계를 사용합니다. 배포는 PostgreSQL의 Muninn StateSnapshot을 읽고,
-interactive 로컬은 로컬 PostgreSQL이 있을 때만 `/detection-readiness`를 등록합니다. 표준 로컬
-analyzer 작업은 배포 one-shot CLI, 인벤토리 대상, 메트릭, 멱등성, 이벤트 및 shadow 상태를 직렬로
-재사용하며 준비 상태는 일정 관리, 검색, 메트릭, 게시 및 출처 지연 상태를 분리합니다.
+감지 준비 상태도 같은 경계를 사용합니다. 배포는 PostgreSQL의 Muninn StateSnapshot을 읽고,
+대화형 로컬은 로컬 PostgreSQL이 있을 때만 `/detection-readiness`를 등록합니다. 표준 로컬
+분석기 작업은 배포 one-shot CLI, 인벤토리 대상, 메트릭, 이벤트, `shadow` 상태 및 영속 게시
+원장을 직렬로 재사용합니다. 두 실행 환경은 게시 전에 같은 구간 키를 청구하고 브로커 확인을
+기록한 뒤에만 반복 게시를 억제합니다. 기존 로컬 개발자 신원과 배포 워크로드 신원 및 전송
+보안의 차이는 그대로 유지합니다. 준비 상태는 일정 관리, 검색, 메트릭, 게시 및 출처 지연
+상태를 분리합니다.
 
 Standard full-stack launch는 서술기 엔드포인트 조정을 유지합니다. 독립 Operator 서비스는
 `RUNTIME_ENV=dev`에서만 local-only 서술기 어댑터를 연결하고 `LLM_RESOLVED_MODELS_PATH`와 수명이 짧은

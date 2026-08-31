@@ -20,8 +20,9 @@ Timeline suggestions below are directional, not hard rules; **the gates are hard
 > **Implementation status**: The current reference Terraform deploys one `core` container with
 > `min_replicas = 1` and no KEDA scaling rule. Protected deployment runs the model resolver and a
 > proposal-only weekly lifecycle reconciler. The collector job has a configurable deployment
-> schedule, and discovery activation is a fail-closed runtime decision. End-to-end Human approval
-> bootstrap remains incomplete.
+> schedule, and discovery activation is a fail-closed runtime decision. The Human approval callback
+> bootstrap is implemented with deterministic local evidence; governed deployment evidence remains
+> separate.
 
 ## Implementation status
 
@@ -32,7 +33,8 @@ Timeline suggestions below are directional, not hard rules; **the gates are hard
 | Startup readiness orchestration | implemented | [`runtime/readiness.py`](../../../services/core-control-plane/src/fdai/runtime/readiness.py), [`runtime/bootstrap_incidents.py`](../../../services/core-control-plane/src/fdai/runtime/bootstrap_incidents.py), [`core/readiness/coordinator.py`](../../../services/core-control-plane/src/fdai/core/readiness/coordinator.py), and focused readiness tests | The coordinator derives one evidence lifetime and refresh lead from the full-pass and per-probe budgets. Runtime refresh is bounded, closes processing at exact expiry, and supplies Thor's live fail-closed authority ceiling. PostgreSQL state rehydration remains process-critical, while durable A2 notification replay remains isolated. |
 | T2 cross-check startup proof reuse | implemented | [`delivery/startup_model_probe.py`](../../../services/core-control-plane/src/fdai/delivery/startup_model_probe.py) and [`tests/delivery/test_startup_probe.py`](../../../services/core-control-plane/tests/delivery/test_startup_probe.py) | The first successful process-local proof uses the configured samples. Refreshes reuse it without another T2 request, while failures remain retryable. |
 | Collector scheduling and governed discovery activation | implemented | [`rule_watcher_job.tf`](../../../infra/modules/compute/container-apps/rule_watcher_job.tf), [`rule_collector_job_cli.py`](../../../services/core-control-plane/src/fdai/delivery/rule_collector_job_cli.py), [`core/readiness/discovery_activation.py`](../../../services/core-control-plane/src/fdai/core/readiness/discovery_activation.py), [`runtime/discovery_activation.py`](../../../services/core-control-plane/src/fdai/runtime/discovery_activation.py), and focused collector, activation, Norns, runtime, and infrastructure tests | The configurable Job uses the non-effect inventory identity and records only validated provenance receipts. Runtime composition closes Norns publication until policy and every current prerequisite pass. |
-| Bootstrap and lifecycle automation | in-progress | [`llm_resolver_cli.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver_cli.py), `.github/workflows/deploy-dev.yml`, `.github/workflows/model-lifecycle-reconcile.yml`, and focused lifecycle tests | Protected model resolution and proposal-only reconciliation are implemented. Collector scheduling and governed discovery activation are implemented in the current change; end-to-end Human approval bootstrap remains incomplete. |
+| Human approval bootstrap | implemented | `fdai_operator_service/families/iam/hil_callback*.py`; `scripts/operations/run-hil-bootstrap-canary.py`; focused Operator callback, PostgreSQL, Kafka, workflow, governance, and canary tests | Teams callbacks require an API-audience Entra token issued to the configured approval bot, a mapped actor, and the configured group-connected team/channel audience. Slack A1 can operate independently with its workspace and Entra map. Signed time anchors `decided_at`; exact retries preserve first audit timestamps; workflow approvals require bounded expiry; and Operator closes delivery only after broker acceptance. |
+| Bootstrap and lifecycle automation | in-progress | [`llm_resolver_cli.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver_cli.py), `.github/workflows/deploy-dev.yml`, `.github/workflows/model-lifecycle-reconcile.yml`, and focused lifecycle tests | Protected model resolution, proposal-only reconciliation, collector scheduling, governed discovery activation, and the local Human approval bootstrap are implemented. Governed runtime receipts remain separate. |
 
 ### Implementation history
 
@@ -46,11 +48,19 @@ Timeline suggestions below are directional, not hard rules; **the gates are hard
 | 2026-08-25 | implemented | Added a five-minute process-local cooldown after an incomplete full audit-chain proof. A timeout or cancellation now lowers autonomous authority without immediately starting another historical scan; a confirmed mismatch remains blocking and a later bounded retry can still recover. | Failed protected apply `32846624686`; PostgreSQL CPU stayed between 98.5 and 100 percent during the readiness window; `current change`; focused startup probe tests. | Deploy the bounded retry behavior and retain a healthy or degraded-shadow Core receipt before metering validation. |
 | 2026-08-25 | implemented | Started periodic readiness refresh before the earliest evidence expiry and extended coordinator-generated failure evidence through the current and next bounded pass. A refresh that reaches the original expiry still closes guarded processing, so availability improves without accepting stale evidence or raising authority. | Failed protected apply `32846624686`; deployed report showed `degraded`, `postgres.state=passed`, and an expired audit timeout while the replica remained live; `current change`; focused coordinator and runtime timing tests. | Deploy the exact repaired Core image and retain a healthy or degraded-shadow revision plus peer-isolation evidence. |
 | 2026-08-25 | implemented | Unified built-in probe and coordinator-failure lifetimes under the startup budget, added a minimum refresh delay and bounded transient retry, and made expiry transitions visible through sanitized probe ids. Thor now reads the live ceiling before a new automatic dispatch and again after Human approval, so a degraded or stale report cannot retain enforcement from startup. | `current change`; focused readiness, probe, Thor durable, and bootstrap checks passed 94 cases; strict mypy, Ruff, Pantheon layout, and agent import gates passed. | Deploy the exact repaired Core image and retain degraded-shadow dispatch, expiry recovery, and peer-isolation evidence. |
+| 2026-08-31 | implemented | Completed the local Human approval bootstrap. Operator uses separate Teams team/channel slots, validates Teams SSO OBO and independently configured Slack authority, binds decisions to original context and signed time, preserves first audit timestamps, recovers proposal-first persistence, and publishes from a durable outbox before marking broker delivery. Workflow approval slots now carry bounded callback context and reject missing timeouts. | `current change`; focused callback, PostgreSQL IAM, Kafka, composition, workflow, governance, and canary checks; `uv run python scripts/operations/run-hil-bootstrap-canary.py` returns Teams accepted, Slack rejected, timeout fail-closed, six audit phases, zero retained records, and zero live network calls. | Retain a governed deployed Teams callback, broker-acceptance receipt, and trusted governance-App receipt before claiming runtime validation. |
+| 2026-08-31 | implemented | Closed the human approval delivery loop. A Teams card click now reaches an Operator Bot activity receiver that verifies the Bot Framework service token, the configured tenant, team, and channel, and a delegated OBO actor token before the shared decision service runs. Operator additionally owns a lease-fenced replay worker in its application lifecycle, so a broker failure or a crash after the durable outbox write is redriven without an HTTP callback retry, and delivery is marked only after broker acceptance. Core routes workflow approval slots to the quorum owner instead of the resume coordinator. | `current change`; focused Operator IAM, Teams receiver, outbox replay, PostgreSQL, composition, Core chatops, and cross-service routing checks; `uv run python scripts/operations/run-hil-bootstrap-canary.py` returns `mode=local_dry_run_no_network`, `live_teams_proof=false`, and zero live network calls. | Retain a governed deployed Teams callback receipt and a broker-acceptance receipt before claiming runtime validation. |
 
 ### Remaining work
 
-- [ ] Complete end-to-end Human approval bootstrap with focused workflow tests cited in this
-   ledger; retain governed collector and model reconciler runs separately.
+- [x] Complete the deterministic local Human approval bootstrap with focused callback, authority,
+   timeout, duplicate, audit, governance, and canary checks.
+- [x] Compose a repository-owned Teams Bot activity receiver and a lease-fenced decision outbox
+   replay worker so a card click and a failed broker publication both complete without operator
+   intervention.
+- [ ] Retain one governed deployed Teams callback and one trusted governance-App blocked-then-cleared
+   receipt on a pinned revision before changing the Human approval row to `validated`. The local
+   canary is an explicit no-network dry run and cannot substitute for that receipt.
 - [ ] Record governed deployed-runtime metering that shows one successful T2 startup sample set per
    candidate and no additional T2 calls from later five-minute readiness refreshes in that process.
 - [ ] Retain a deployed Core readiness report showing that the existing large audit chain produces
@@ -331,10 +341,11 @@ Rules that apply throughout:
 
 ## Human Approval Role Bootstrap
 
-> **Current boundary**: The role/group resolver and Teams/Slack delivery adapters are implemented,
-> but Teams SSO OBO approval callbacks, group-connected audience derivation, governance PR quorum
-> CI, and the dry-run HIL bootstrap are not wired end to end. The BreakGlass role has no runtime
-> HIL approval capability. The steps below are deployment targets for a fork.
+> **Current boundary**: The Operator callback verifies Teams SSO OBO and Slack browser tokens through
+> the API-audience Entra verifier, re-resolves current Approver authority, derives the Teams audience
+> from the separately configured group-connected team and channel, preserves BreakGlass separation, and writes two-phase
+> audit records. The local canary is deterministic and makes no provider call. Tenant values,
+> Conditional Access, provider credentials, and governed runtime receipts remain deployment inputs.
 
 Before any enforce-mode rule can be promoted, the approver group MUST be provisioned. If no
 approver exists, high-risk findings queue and alert via the fallback channel; **they never
@@ -355,18 +366,28 @@ Steps (fork responsibility):
 4. Populate `aw-approvers` with at least the number of members needed to sustain the
    **quorum-2** rule for enforce promotions, exemptions, and overrides
    ([user-rbac-and-identity.md#51-codeowners-single-approver-group-path-based-reviewer-count](../interfaces/user-rbac-and-identity.md#51-codeowners-single-approver-group-path-based-reviewer-count)).
-5. Register the approver group id in the executor's Chat adapter config so Adaptive Card
-   approvals can validate role claims.
+5. Supply the same `FDAI_TEAMS_APPROVAL_TEAM_ID` and `FDAI_TEAMS_APPROVAL_CHANNEL_ID` to Core and
+   Operator, plus `FDAI_TEAMS_APPROVAL_ACTIVITY_URL` to Core and the channel principal maps. The
+   five Entra group ids remain role slots only.
+   Teams accepts only an API-audience OBO token issued to the configured bot, mapped to the callback
+   actor, and bound to that team/channel audience. The executor receives only the resulting typed
+   decision after Operator's durable outbox receives broker acceptance.
 6. **Provision the Slack workspace** (P1 A1 channel): install the FDAI Slack app,
    grant `chat:write`, populate the mandatory Slack userId ↔ Entra OID mapping store; the
    Slack adapter refuses A1 traffic until the mapping is non-empty
    ([channels-and-notifications.md#7-channel-specific-notes](../interfaces/channels-and-notifications.md#7-channel-specific-notes)).
-7. Commit `rule-catalog/channel-routing/` config (primary/fallback channels, digest
-   schedule, audience) with the same review rigor as rules; Owner-tier reviewers are
-   required for any change touching A1 routing.
-8. Run a **dry-run HIL** through the canary path to confirm approvals land, `justification`
-   is required, timeout is fail-closed, and every approval writes an audit entry with a
-   `correlation_id`.
+7. Commit A1 primary/fallback changes in `config/notifications-matrix.yaml` with the same review
+   rigor as overrides. Governance CI requires two distinct authorized reviewers and rejects an
+   approval from the proposer, a co-author, or a committer.
+8. Supply the Teams Bot receiver inputs so a card click can complete: `FDAI_TEAMS_TENANT_ID`,
+   `FDAI_TEAMS_ALLOWED_SERVICE_URLS_JSON`, and `FDAI_TEAMS_JWKS_URL`, and register the Operator
+   route `POST /hil/teams-activity` as the bot messaging endpoint. Teams A1 stays
+   closed until every input is present.
+9. Run `uv run python scripts/operations/run-hil-bootstrap-canary.py`. The bounded local canary
+   drives the composed Teams activity receiver, the signed internal callback, the shared decision
+   service, the durable outbox, and the lease-fenced replay worker with in-process fakes. It
+   reports `mode=local_dry_run_no_network` and `live_teams_proof=false`; it is a composition dry
+   run, not a live Teams, Entra, or broker proof.
 
 ## Autonomous Discovery Loop Kickoff
 
@@ -427,4 +448,7 @@ move between them; each transition is versioned and audited.
 - [ ] Kafka topic layout + Diagnostic-Settings forwarder filter shape and per-source rate caps.
 - [ ] Bootstrap runbook: the exact command sequence for a fork to reach D+0 (owned by
       [operating-and-verification.md](operating-and-verification.md#runbook-set)).
-- [ ] Dry-run HIL procedure: canary payload, expected timing, teardown.
+- [x] Dry-run HIL procedure: `scripts/operations/run-hil-bootstrap-canary.py` drives the composed
+      Teams activity receiver, signed internal callback, shared decision service, durable outbox,
+      and lease-fenced replay worker over bounded synthetic payloads, and reports the terminal
+      outcomes, audit count, zero-retention teardown, and its own `local_dry_run_no_network` mode.

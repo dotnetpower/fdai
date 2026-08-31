@@ -1,8 +1,8 @@
 ---
 title: 인과 incident graph
 translation_of: causal-incident-graph.md
-translation_source_sha: cd5f9a88f13cbe564aac7c42f0c779585b4ead22
-translation_revised: 2026-08-30
+translation_source_sha: eb0bfc521125e11399377c111418c27e6a346a13
+translation_revised: 2026-08-31
 ---
 # 인과 인시던트 그래프
 
@@ -251,6 +251,11 @@ Refuting 근거가 도착하면 근거 grade가 낮아질 수 있습니다. 낮�
 이 모드는 권한으로 저장하지 않고 불변 개정 번호에서 도출합니다. Refuting 참조가 하나라도
 있거나 상태가 확정되지 않았거나 grade가 `quasi_experimental`보다 낮은 개정 번호는 `shadow`에
 남습니다. `gated`는 기존 안전 경로에 들어갈 자격을 뜻할 뿐 허가가 아닙니다.
+
+개정 번호를 `shadow` 위로 올리는 것은 긍정적 결정이므로, 이 도출에는 해당 개정 번호와 인과
+범위, 소스 개정에 정확히 연결된 최신 공유 의사 결정 핵심 근거 승인 결과도 필요합니다. 런타임
+조정기가 승인 결과를 요청해 결과에 함께 담습니다. 승인 프로바이더가 연결되지 않았거나 승인
+결과가 일치하지 않으면 모드는 `shadow`로 유지됩니다.
 
 ## 복구 및 chaos를 통한 종결
 

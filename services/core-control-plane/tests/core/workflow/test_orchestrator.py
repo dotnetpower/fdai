@@ -57,7 +57,15 @@ from fdai.shared.providers.process_runtime import (
 from fdai.shared.providers.testing.process_runtime import InMemoryProcessRuntimeStore
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
+from tests.decision_evidence import StubDecisionEvidenceAdmissionProvider
+
 _TRIGGER_TS = datetime(2026, 7, 9, 12, 0, 0, tzinfo=UTC)
+
+
+def _approval_now() -> datetime:
+    """Anchor stub approval admissions to the trigger instant the tests replay."""
+
+    return _TRIGGER_TS
 
 
 def _group_mapping() -> GroupMapping:
@@ -1227,6 +1235,77 @@ async def test_guard_block_is_a_shadow_noop_not_a_failure() -> None:
     assert entry["guard_passed"] is False
 
 
+async def test_guard_block_precedes_successful_control_step_in_enforce_mode() -> None:
+    audit = InMemoryStateStore()
+    guard = _StubGuard(verdict=False)
+    workflow = Workflow(
+        schema_version="1.0.0",
+        name="guarded-decision-flow",
+        version="1.0.0",
+        trigger=WorkflowTrigger(kind=WorkflowTriggerKind.SIGNAL, signal_type="object.drift"),
+        default_mode=Mode.SHADOW,
+        promotion_gate=PromotionGate(
+            min_shadow_days=14,
+            min_samples=100,
+            min_accuracy=0.95,
+            max_policy_escapes=0,
+        ),
+        steps=[
+            WorkflowStep(
+                id="guarded",
+                kind=WorkflowStepKind.DECISION,
+                outcomes=["continue", "stop"],
+                guard_rule_ref="some.guard.rule",
+            ),
+        ],
+    )
+
+    run = await _orchestrator_with_guard(audit, guard).run(
+        workflow,
+        target_resource_id="res-1",
+        trigger_ts=_TRIGGER_TS,
+        context={"decision.guarded": "continue"},
+        mode=Mode.ENFORCE,
+    )
+
+    assert run.status is ProcessStatus.FAILED
+    assert run.step_results[0].reason == "guard_blocked_enforce"
+
+
+async def test_guard_block_prevents_approval_request_side_effects() -> None:
+    audit = InMemoryStateStore()
+    registry = StateStoreHilApprovalRegistry(store=audit, clock=lambda: _TRIGGER_TS)
+    provider = StateStoreWorkflowApprovalProvider(audit)
+    guard = _StubGuard(verdict=False)
+    base = _approval_workflow(name="guarded-approval")
+    guarded_step = base.steps[0].model_copy(update={"guard_rule_ref": "some.guard.rule"})
+    workflow = base.model_copy(update={"steps": [guarded_step]})
+    orchestrator = WorkflowOrchestrator(
+        planner=WorkflowApprovalPlanner(
+            action_types=_ACTION_TYPES,
+            group_mapping=_group_mapping(),
+            matrix=_matrix(),
+        ),
+        action_types=_ACTION_TYPES,
+        audit_store=audit,
+        process_store=InMemoryProcessRuntimeStore(),
+        approval_provider=provider,
+        guard_evaluator=guard,
+    )
+
+    run = await orchestrator.run(
+        workflow,
+        target_resource_id="res-1",
+        trigger_ts=_TRIGGER_TS,
+        context={"requester.principal": "requester-1"},
+        mode=Mode.ENFORCE,
+    )
+
+    assert run.status is ProcessStatus.FAILED
+    assert run.step_results[0].reason == "guard_blocked_enforce"
+    assert await registry.list_pending() == ()
+
+
 async def test_no_evaluator_leaves_guard_unevaluated() -> None:
     audit = InMemoryStateStore()
     await _orchestrator_with_guard(audit, None).run(
@@ -1525,6 +1604,7 @@ async def test_enforce_approval_uses_only_durable_var_receipts() -> None:
         audit_store=audit,
         process_store=process_store,
         approval_provider=provider,
+        approval_decision_evidence_provider=StubDecisionEvidenceAdmissionProvider(_approval_now),
     )
     workflow = _control_workflow()
 
@@ -1587,6 +1667,7 @@ async def test_enforce_approval_resumes_from_exact_process_id() -> None:
         audit_store=audit,
         process_store=process_store,
         approval_provider=provider,
+        approval_decision_evidence_provider=StubDecisionEvidenceAdmissionProvider(_approval_now),
     )
     workflow = Workflow(
         schema_version="1.0.0",
@@ -1659,6 +1740,7 @@ async def test_waiting_approval_cancellation_closes_var_slots() -> None:
         audit_store=audit,
         process_store=process_store,
         approval_provider=provider,
+        approval_decision_evidence_provider=StubDecisionEvidenceAdmissionProvider(_approval_now),
     )
     workflow = Workflow(
         schema_version="1.0.0",
@@ -1742,6 +1824,7 @@ async def test_rejected_approval_retries_with_fresh_attempt_slots() -> None:
         audit_store=audit,
         process_store=process_store,
         approval_provider=provider,
+        approval_decision_evidence_provider=StubDecisionEvidenceAdmissionProvider(_approval_now),
     )
     waiting = await orchestrator.run(
         workflow,
@@ -1808,6 +1891,7 @@ async def test_timed_out_approval_retries_with_fresh_attempt_slots() -> None:
         audit_store=audit,
         process_store=process_store,
         approval_provider=provider,
+        approval_decision_evidence_provider=StubDecisionEvidenceAdmissionProvider(_approval_now),
     )
     waiting = await orchestrator.run(
         workflow,
@@ -2117,6 +2201,7 @@ async def test_enforce_approval_timeout_uses_persisted_request_clock() -> None:
         audit_store=audit,
         process_store=InMemoryProcessRuntimeStore(),
         approval_provider=provider,
+        approval_decision_evidence_provider=StubDecisionEvidenceAdmissionProvider(_approval_now),
     )
     workflow = _control_workflow()
     base_context = {
@@ -2174,6 +2259,7 @@ async def test_enforce_approval_timeout_persistence_failure_is_explicit() -> Non
         audit_store=audit,
         process_store=InMemoryProcessRuntimeStore(),
         approval_provider=provider,
+        approval_decision_evidence_provider=StubDecisionEvidenceAdmissionProvider(_approval_now),
     )
     workflow = _control_workflow()
     context = {
@@ -2226,6 +2312,7 @@ async def test_enforce_approval_timeout_retries_after_concurrent_revision_loss()
         audit_store=audit,
         process_store=InMemoryProcessRuntimeStore(),
         approval_provider=provider,
+        approval_decision_evidence_provider=StubDecisionEvidenceAdmissionProvider(_approval_now),
     )
     workflow = _approval_workflow(name="approval-timeout-race", timeout_seconds=10)
     waiting = await orchestrator.run(
@@ -2260,6 +2347,7 @@ async def test_enforce_approval_preserves_quorum_completed_before_expiry() -> No
         audit_store=audit,
         process_store=InMemoryProcessRuntimeStore(),
         approval_provider=provider,
+        approval_decision_evidence_provider=StubDecisionEvidenceAdmissionProvider(_approval_now),
     )
     workflow = _approval_workflow(name="approval-timely-quorum", timeout_seconds=10)
     waiting = await orchestrator.run(
@@ -2289,6 +2377,112 @@ async def test_enforce_approval_preserves_quorum_completed_before_expiry() -> No
     )
 
     assert completed.status is ProcessStatus.SUCCEEDED
+
+
+async def test_enforce_approval_quorum_without_shared_admission_fails_closed() -> None:
+    audit = InMemoryStateStore()
+    registry = StateStoreHilApprovalRegistry(store=audit, clock=lambda: _TRIGGER_TS)
+    provider = StateStoreWorkflowApprovalProvider(audit)
+    orchestrator = WorkflowOrchestrator(
+        planner=WorkflowApprovalPlanner(
+            action_types=_ACTION_TYPES,
+            group_mapping=_group_mapping(),
+            matrix=_matrix(),
+        ),
+        action_types=_ACTION_TYPES,
+        audit_store=audit,
+        process_store=InMemoryProcessRuntimeStore(),
+        approval_provider=provider,
+    )
+    workflow = _approval_workflow(name="approval-unadmitted-quorum", timeout_seconds=10)
+    waiting = await orchestrator.run(
+        workflow,
+        target_resource_id="scope-unadmitted-quorum",
+        trigger_ts=_TRIGGER_TS,
+        context={"requester.principal": "requester-1"},
+        now=_TRIGGER_TS,
+        mode=Mode.ENFORCE,
+    )
+    for item, approver in zip(
+        await registry.list_pending(),
+        ("owner-a", "owner-b"),
+        strict=True,
+    ):
+        await registry.record_decision(
+            idempotency_key=item.idempotency_key,
+            decision=HilApprovalDecision.APPROVE,
+            approver_oid=approver,
+            decided_at=_TRIGGER_TS + timedelta(seconds=5),
+        )
+
+    failed = await orchestrator.resume(
+        process_id=waiting.process_id,
+        workflow=workflow,
+        now=_TRIGGER_TS + timedelta(seconds=6),
+    )
+
+    approval_result = next(
+        result for result in failed.step_results if result.step_id == "owner_approval"
+    )
+    assert approval_result.outcome is RunbookStepOutcome.FAILURE
+    assert approval_result.reason == (
+        "approval_evidence_unadmitted:decision_evidence_admission_missing"
+    )
+
+
+async def test_enforce_approval_admission_failure_is_explicit() -> None:
+    class FailingAdmissionProvider:
+        async def admit(self, **kwargs: object) -> object:
+            del kwargs
+            raise RuntimeError("synthetic admission failure")
+
+    audit = InMemoryStateStore()
+    registry = StateStoreHilApprovalRegistry(store=audit, clock=lambda: _TRIGGER_TS)
+    provider = StateStoreWorkflowApprovalProvider(audit)
+    orchestrator = WorkflowOrchestrator(
+        planner=WorkflowApprovalPlanner(
+            action_types=_ACTION_TYPES,
+            group_mapping=_group_mapping(),
+            matrix=_matrix(),
+        ),
+        action_types=_ACTION_TYPES,
+        audit_store=audit,
+        process_store=InMemoryProcessRuntimeStore(),
+        approval_provider=provider,
+        approval_decision_evidence_provider=FailingAdmissionProvider(),  # type: ignore[arg-type]
+    )
+    workflow = _approval_workflow(name="approval-admission-failure", timeout_seconds=10)
+    waiting = await orchestrator.run(
+        workflow,
+        target_resource_id="scope-admission-failure",
+        trigger_ts=_TRIGGER_TS,
+        context={"requester.principal": "requester-1"},
+        now=_TRIGGER_TS,
+        mode=Mode.ENFORCE,
+    )
+    for item, approver in zip(
+        await registry.list_pending(),
+        ("owner-a", "owner-b"),
+        strict=True,
+    ):
+        await registry.record_decision(
+            idempotency_key=item.idempotency_key,
+            decision=HilApprovalDecision.APPROVE,
+            approver_oid=approver,
+            decided_at=_TRIGGER_TS + timedelta(seconds=5),
+        )
+
+    failed = await orchestrator.resume(
+        process_id=waiting.process_id,
+        workflow=workflow,
+        now=_TRIGGER_TS + timedelta(seconds=6),
+    )
+
+    approval_result = next(
+        result for result in failed.step_results if result.step_id == "owner_approval"
+    )
+    assert approval_result.outcome is RunbookStepOutcome.FAILURE
+    assert approval_result.reason == "approval_evidence_unavailable"
 
 
 async def test_wait_timeout_terminates_process() -> None:

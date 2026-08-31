@@ -294,6 +294,26 @@ def test_workflow_catalog_carries_reviewed_steps_and_source() -> None:
                 assert step["action_type_ref"] in palette_names
             else:
                 assert step.get("branches") or step.get("kind")
+    architecture = next(
+        workflow for workflow in workflows if workflow["name"] == "architecture-review"
+    )
+    steps = {step["id"]: step for step in architecture["steps"]}
+    assert steps["evidence"] == {
+        "id": "evidence",
+        "kind": "wait",
+        "wait_for": "evidence.updated",
+        "timeout_seconds": 1209600,
+    }
+    assert steps["design_approval"] == {
+        "id": "design_approval",
+        "kind": "approval",
+        "timeout_seconds": 604800,
+        "approval_role": "approver",
+        "quorum": 2,
+        "no_self_approval": True,
+    }
+    assert steps["design_decision"]["outcomes"] == ["approved", "conditional", "rejected"]
+    assert steps["production_gate"]["gate_ref"] == "architecture-review.production-ready"
 
 
 def test_scope_snapshot_keeps_observation_separate_from_execution() -> None:

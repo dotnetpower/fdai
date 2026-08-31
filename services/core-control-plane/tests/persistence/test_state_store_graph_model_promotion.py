@@ -17,6 +17,7 @@ from fdai.core.assurance_twin.model_promotion import (
 from fdai.delivery.persistence.state_store_graph_model_promotion import (
     StateStoreGraphModelPromotionRegistry,
 )
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _ONTOLOGY = "a" * 64
@@ -82,15 +83,49 @@ def _receipt(
     )
 
 
+class _MatchingAdmissions:
+    """Admit exactly what the boundary asks about, so only the boundary decides."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def admit(
+        self,
+        *,
+        evidence_digest: str,
+        scope_digest: str,
+        purpose_id: str,
+        source_revision: str,
+    ) -> DecisionEvidenceAdmission:
+        self.calls += 1
+        digest = f"sha256:{'9' * 64}"
+        return DecisionEvidenceAdmission(
+            receipt_digest=digest,
+            verification_bundle_digest=digest,
+            evidence_digest=evidence_digest,
+            scope_digest=scope_digest,
+            purpose_id=purpose_id,
+            source_revision=source_revision,
+            verified_at=datetime(2020, 1, 1, tzinfo=UTC),
+            valid_until=datetime(2100, 1, 1, tzinfo=UTC),
+        )
+
+
 def _registry(
     store: InMemoryStateStore,
     *,
     ontology_release_digest: str = _ONTOLOGY,
+    decision_evidence_provider: object | None = None,
 ) -> StateStoreGraphModelPromotionRegistry:
     return StateStoreGraphModelPromotionRegistry(
         store=store,
         ontology_release_digest=ontology_release_digest,
         property_semantics_digest=_SEMANTICS,
+        decision_evidence_provider=(
+            _MatchingAdmissions()
+            if decision_evidence_provider is None
+            else decision_evidence_provider  # type: ignore[arg-type]
+        ),
     )
 
 
@@ -228,3 +263,60 @@ async def test_stale_receipt_cannot_replace_a_newer_active_pointer() -> None:
     pointer = await registry.load_active(receipt.slot_digest)
     assert pointer is not None
     assert pointer.active_model_ref == first.ref
+
+
+async def test_an_already_applied_promotion_still_requires_a_current_admission() -> None:
+    """An idempotent repeat is still a positive result, so it is not a free pass."""
+
+    store = InMemoryStateStore()
+    registry = _registry(store)
+    model = _model("graph-challenger", 1)
+    receipt = _receipt(model, expected_revision=0, rollback_model=None)
+
+    async with asyncio.timeout(0.5):
+        await _prepare(registry, model, receipt)
+        first = await registry.promote(receipt, actor="Thor")
+        assert first.applied is True
+
+        repeated = await registry.promote(receipt, actor="Thor")
+        assert repeated.applied is False
+        assert repeated.reason == "already_applied"
+
+        unbound = StateStoreGraphModelPromotionRegistry(
+            store=store,
+            ontology_release_digest=_ONTOLOGY,
+            property_semantics_digest=_SEMANTICS,
+        )
+        with pytest.raises(ValueError, match="admission_missing"):
+            await unbound.promote(receipt, actor="Thor")
+
+        mismatched_semantics = StateStoreGraphModelPromotionRegistry(
+            store=store,
+            ontology_release_digest="f" * 64,
+            property_semantics_digest=_SEMANTICS,
+            decision_evidence_provider=_MatchingAdmissions(),
+        )
+        with pytest.raises(ValueError, match="semantic release mismatched"):
+            await mismatched_semantics.promote(receipt, actor="Thor")
+
+    pointer = await registry.load_active(receipt.slot_digest)
+    assert pointer is not None
+    assert pointer.revision == 1
+
+
+async def test_an_unbound_admission_provider_never_moves_the_active_pointer() -> None:
+    store = InMemoryStateStore()
+    registry = StateStoreGraphModelPromotionRegistry(
+        store=store,
+        ontology_release_digest=_ONTOLOGY,
+        property_semantics_digest=_SEMANTICS,
+    )
+    model = _model("graph-challenger", 1)
+    receipt = _receipt(model, expected_revision=0, rollback_model=None)
+
+    async with asyncio.timeout(0.5):
+        await _prepare(registry, model, receipt)
+        with pytest.raises(ValueError, match="admission_missing"):
+            await registry.promote(receipt, actor="Thor")
+
+    assert await registry.load_active(receipt.slot_digest) is None

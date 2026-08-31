@@ -19,6 +19,7 @@ from fdai.shared.providers.hil_registry import (
     HilItemAlreadyResolvedError,
     HilItemNotFoundError,
     HilPendingItem,
+    HilSelfApprovalForbiddenError,
     MutationTarget,
 )
 from fdai.shared.providers.state_store import StateStore
@@ -108,6 +109,23 @@ class StateStoreHilApprovalRegistry(HilApprovalRegistry):
             return _receipt_from_workflow_claim(item, claim) if item is not None and claim else None
         return _receipt_from_mapping(stored, already_recorded=True)
 
+    async def get_decision_route(self, approval_id: str) -> str:
+        """Return the durable routing class of one park, decided or not.
+
+        ``workflow`` parks are quorum slots owned by this registry; ``action``
+        parks resume through the HIL coordinator. An unknown approval returns
+        an empty string, which never routes to this registry - the coordinator
+        owns the audited not-found outcome for a park that does not exist.
+        """
+        park = await self._store.read_state(_park_key(approval_id))
+        if park is None:
+            return ""
+        metadata = park.get("metadata")
+        if not isinstance(metadata, Mapping):
+            return "action"
+        route = metadata.get("decision_route")
+        return str(route) if isinstance(route, str) and route else "action"
+
     async def _item_is_decided(self, item: HilPendingItem) -> bool:
         workflow_record = await self._workflow_record(item)
         if workflow_record is not None:
@@ -189,7 +207,10 @@ class StateStoreHilApprovalRegistry(HilApprovalRegistry):
         existing = await self._store.read_state(_decision_key(idempotency_key))
         if existing is not None:
             prior = _receipt_from_mapping(existing, already_recorded=True)
-            if prior.decision is not decision:
+            if (
+                prior.decision is not decision
+                or prior.approver_oid.strip().casefold() != approver_oid.strip().casefold()
+            ):
                 raise HilItemAlreadyResolvedError(
                     idempotency_key,
                     prior_decision=prior.decision.value,
@@ -341,6 +362,11 @@ class StateStoreHilApprovalRegistry(HilApprovalRegistry):
                     pending.idempotency_key,
                     prior_decision=str(prior_claim.get("decision") or "claimed"),
                 )
+            if (
+                record.get("no_self_approval") is not False
+                and _normalize_principal(record.get("requester_principal")) == principal
+            ):
+                raise HilSelfApprovalForbiddenError(pending.idempotency_key)
             if any(
                 isinstance(value, Mapping) and value.get("principal") == principal
                 for value in claims.values()
@@ -546,6 +572,10 @@ async def add_pending_approval(store: StateStore, approval_id: str) -> None:
 
 def _park_key(approval_id: str) -> str:
     return f"{_PARK_PREFIX}{approval_id}"
+
+
+def _normalize_principal(value: object) -> str:
+    return str(value or "").strip().casefold()
 
 
 def _decision_key(idempotency_key: str) -> str:

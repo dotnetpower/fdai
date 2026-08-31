@@ -298,8 +298,8 @@ class Muninn(Agent):
             case,
             recorded_at=sealed.record.sealed_at,
         )
-        self.state_store.put("operational_case_fingerprint_cohorts", fingerprint, cohort)
         await self._durable_state_store.write_state(state_key, cohort)
+        self.state_store.put("operational_case_fingerprint_cohorts", fingerprint, cohort)
         cases = cohort["cases"]
         digest = _cohort_digest(cases) if len(cases) >= 2 else None
         if digest is None or digest == cohort.get("last_emitted_digest") or self.bus is None:
@@ -326,9 +326,13 @@ class Muninn(Agent):
                 "cases": [record["case"] for record in cases],
             },
         )
-        cohort["last_emitted_digest"] = digest
-        self.state_store.put("operational_case_fingerprint_cohorts", fingerprint, cohort)
-        await self._durable_state_store.write_state(state_key, cohort)
+        emitted_cohort = {**cohort, "last_emitted_digest": digest}
+        await self._durable_state_store.write_state(state_key, emitted_cohort)
+        self.state_store.put(
+            "operational_case_fingerprint_cohorts",
+            fingerprint,
+            emitted_cohort,
+        )
         self.record_behavior("operational_case:published")
 
     async def _materialize_detection_readiness(self, payload: dict[str, Any]) -> None:
@@ -567,12 +571,15 @@ def _append_pattern_case(
             str(record.get("case", {}).get("case_id", "")),
         )
     )
-    return {
+    cohort = {
         "schema_version": "1.0.0",
         "failure_fingerprint": case.failure_fingerprint,
         "cases": records[-_MAX_OPERATING_PATTERN_CASES:],
-        "last_emitted_digest": current.get("last_emitted_digest"),
     }
+    last_emitted_digest = current.get("last_emitted_digest")
+    if isinstance(last_emitted_digest, str):
+        cohort["last_emitted_digest"] = last_emitted_digest
+    return cohort
 
 
 def _cohort_digest(cases: list[dict[str, Any]]) -> str:

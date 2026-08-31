@@ -11,6 +11,7 @@ from fdai.core.hil_resume.load_control import (
     ApprovalLoadController,
     ApprovalLoadPolicy,
     ApprovalReminderDispatcher,
+    approval_request_from_park,
 )
 from fdai.shared.providers.hil_channel import HilChannelError
 from fdai.shared.providers.testing.hil_channel import InMemoryHilChannel
@@ -50,6 +51,7 @@ def _park(
         "submitter_oid": "submitter-one",
         "correlation_id": f"corr-{approval_id}",
         "idempotency_key": f"idem-{approval_id}",
+        "request_fingerprint": f"hash-{approval_id}",
         "parked_at": at.isoformat(),
         "action": {
             "action_id": f"action-{approval_id}",
@@ -67,6 +69,13 @@ def _park(
 
 async def _store_park(store: InMemoryStateStore, park: dict[str, object]) -> None:
     await store.write_state(f"hil_park:{park['approval_id']}", park)
+
+
+def test_approval_request_carries_original_action_and_idempotency_context() -> None:
+    request = approval_request_from_park(_park("approval-one", at=_BASE))
+
+    assert request.action_hash == "hash-approval-one"
+    assert request.metadata["idempotency_key"] == "idem-approval-one"
 
 
 def test_policy_rejects_unbounded_or_noncritical_configuration() -> None:

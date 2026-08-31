@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+from fdai.core.control_loop.change_safety_evidence import ChangeSafetyPreAuthorityDecision
 from fdai.core.executor import ExecutionResult
 from fdai.core.executor.direct_api import DirectApiExecutionResult
 from fdai.core.executor.tool_call import ToolCallExecutionResult
@@ -51,6 +52,7 @@ class ControlLoopResult:
     reason: str | None = None
     event_id: str | None = None
     change_safety_decision: ChangeSafetyDecision | None = None
+    change_safety_evidence: tuple[ChangeSafetyPreAuthorityDecision, ...] = ()
     t1_decision: T1Decision | None = None
     t2_decision: T2Decision | None = None
     rca_result: RcaResult | None = None

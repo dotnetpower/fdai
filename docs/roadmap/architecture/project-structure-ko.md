@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 347c387f0a2bd5c19a70c6d94dc7e79a02e5231c
-translation_revised: 2026-08-30
+translation_source_sha: d52e1ea50e9a3bc425c85b31fc53e02ba386417a
+translation_revised: 2026-09-01
 ---
 # 프로젝트 구조
 
@@ -11,6 +11,46 @@ translation_revised: 2026-08-30
 ## 설계 개요
 
 물리적인 5개 서비스 workspace는 [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md)이 소유합니다. 이 문서는 의존성 방향, 구조 게이트, 확장 seam, 컨트롤 루프 배선, 구성 및 저장소 규칙을 소유합니다.
+비공개 composition 타입 모듈은 강제 크기 상한 아래로 유지합니다. 따라서 새 바인딩은 검토 가능한
+상태를 유지하고, 공유 컨테이너가 두 번째 루트가 되기 전에 목적별 wire 모듈로 이동합니다.
+사례 이력 검토는 비활성 학습 후보를 제안하기 전에 실패 근거와 일치하는 컨트롤 근거를 모두
+요구합니다.
+Workflow 승인 단계는 no-self-approval invariant를 낮출 수 없습니다. 컨트랙트가 카탈로그
+로드 시점에 비활성화된 값을 거부합니다.
+DR 목표 근거는 nearest-rank p90을 보고합니다. 따라서 표본이 적은 cohort도 가장 느린 측정
+실행을 유지하며 목표 달성으로 잘못 보고하지 않습니다.
+기록된 action 다이제스트가 없는 park된 HIL 레코드는 재개하지 않고 무결성 게이트에서
+실패합니다. 따라서 다이제스트를 제거해도 변조된 payload를 승인할 수 없습니다.
+품질 게이트는 중복된 교차 검사 모델을 거부합니다. 따라서 한 모델이 자기 자신과 동의해
+혼합 모델 정족수를 충족할 수 없습니다.
+사용할 수 없는 경계를 가진 유효한 freeze 또는 quiet ChangeWindow는 건너뛰지 않고 유지 보수
+권한을 거부합니다.
+구성된 시계 오차 허용치보다 더 앞선 시각이 기록된 변경 이벤트는 settling 윈도우로 억제하지
+않고 out-of-band로 보고합니다. 허용 범위 안의 음수 age도 구성된 settling 윈도우가 0이면
+억제 구간을 만들지 않습니다.
+놓친 임계 위반은 완전한 telemetry에서만 채점합니다. 따라서 false-negative 결과는 관측이
+주장하지 않은 완전성 주장을 게시하지 않습니다.
+예측 종료 처리는 청구한 모든 episode를 시도한 뒤 첫 실패를 다시 발생시킵니다. 따라서 실패한
+episode 하나가 due 대기열 전체를 막을 수 없습니다.
+T1 맥락 재사용은 trust router와 동일한 정규 형태로 이벤트 리소스 유형을 읽습니다. 따라서
+이미 허용된 이벤트를 리소스 유형 변경으로 보고하지 않습니다.
+
+## Core 도메인 탐색 결정
+
+**초기 설계.** 모든 평면 Core 하위 시스템을 `pipeline`, `incident`, `operator`, `knowledge`
+또는 `platform` 아래로 실제 이동한 뒤 한 번의 코드 변경 도구로 모든 가져오기를 다시 작성합니다.
+
+**비판.** 현재 저장소에서는 영향받는 하위 시스템 경로를 1,063개 파일이 가져옵니다. 이 이동은
+안전 핵심 커버리지 소스 목록도 바꾸고 fan-out 게이트를 하위 시스템 이름에서 도메인 이름으로
+축소합니다. `incident`와 `knowledge`는 이미 하위 시스템과 facade 역할을 함께 수행하며
+`ontology_explorer.py`는 다른 구성원과 달리 패키지가 아닌 파일입니다. 이를 이동 전용 변경으로
+취급하면 대규모 차이 안에 중요한 테스트, 커버리지 및 게이트 의미가 숨습니다.
+
+**개정 설계.** 5개 도메인 facade를 영구 G-1 레이아웃으로 사용합니다. 그룹 탐색을 제공하면서
+실제 하위 시스템과 직접 가져오기는 안정적으로 유지합니다. 집중 레이아웃 검사 98개가 도메인
+구성원, 단일 소유권, 이중 역할 패키지, 직접 가져오기 호환성 및 동료 격리를 고정합니다.
+`verticals`는 자체 최상위 그룹으로 유지합니다. 이후 실제 이동은 필요하지 않으며 진행하려면
+커버리지와 fan-out 의미를 명시적으로 보존하는 별도의 도메인 범위 설계가 필요합니다.
 
 ## 모듈 경계(모듈 Boundaries)
 
@@ -25,6 +65,10 @@ translation_revised: 2026-08-30
   `delivery/`를 가져오기하지 않으며 provider 동작은 shared Protocol과 composition으로 진입합니다.
   집중 sibling 모듈은 canonical identity 투영과 hashing을 소유할 수 있으며 기존 소유 모듈은
   해당 공개 표면을 다시 내보냅니다. 이 분리는 직렬화 바이트와 replay 의미를 보존해야 합니다.
+- **사람 승인 권한은 서비스별로 분리**: Operator는 Teams/Slack 인증, 암호화 검증, 콜백 감사 및
+  영속 결정 보낼 편지함을 소유합니다. Core는 형식화된 결정 이벤트만 소비하고 워크플로 슬롯은
+  레지스트리로, 액션 park는 HIL 코디네이터로 라우팅합니다. Operator 패키지는 로컬 JWT/JWK
+  검증을 위해 `cryptography`에 의존하지만 Core 구현을 가져오거나 실행기 신원을 받지 않습니다.
 - **관찰 모드 ARB 구성**: `core/architecture_review/observation_loop.py`는 프로바이더 중립적인
   Change -> 인증된 컨텍스트 -> 근거 묶음 -> 시나리오 -> DecisionCase 및 ImpactEnvelope 구성을
   담당합니다. Forseti만 기존 형식화된 버스에 관찰 판정을 게시하고 Saga가 감사하며,
@@ -401,7 +445,10 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 - **Governed action 및 probe 전달**: `GovernedGovernancePrPublisher`는 retire 및 exemption
   순수 writer를 기존 write-once PR adapter에 연결하고 replay 가능한 open-to-merge 또는
   종단 증적을 저장합니다. Retirement loader는 병합된 retirement artifact를 active rule
-  index에서 projection하고 exemption은 canonical JSON schema를 사용합니다.
+  index에서 projection하고 exemption은 canonical JSON schema를 사용합니다. 예외 수명 주기
+  조정기는 기존 `EventBus` 경계를 사용해 정확한 예외 개정과 배정이 연결된
+  `governance.reapply-rule-assignment` 제안을 게시합니다. 연결이 없으면 보류하며 브로커
+  수락은 최종 증적이 아닙니다.
   `LiveBlastProbeAdapter`는 배포가 제공하는 `BlastSignalSource`와 `ProbeFailureStreakSource`
   구현을 연결하며, 소스가 없거나 실패하면 Axis E를 낮추고 권한을 부여하지 않습니다.
   Runtime 조립은 retired-rule projection을 모든 downstream rule map에 전달하고 HIL/direct
@@ -412,6 +459,23 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
   `StateStoreExecutedActionObservationStore`는 서명된 맥락이 쓰기와 replay에서 구성된 검증기를
   통과한 Heimdall 귀속 관측만 받습니다. 근거가 없으면 held 상태를 유지합니다.
 - **Azure operational 근거**: `bind_azure_operational_evidence`는 strict promoted-inventory 스냅샷 읽기 담당, 현재 안전성 평가기, 구성된 Azure 메트릭, 범위가 제한된 가지 estimator, effect-model 읽기 담당을 조립합니다. Temporal 어댑터는 근거 hashing 전에 non-finite 메트릭 값을 거부합니다. 부분 연결은 컨테이너 construction에서 실패합니다.
+- **대시보드 가용성 변환**: `shared/telemetry/dashboard_status.py`는 프로바이더와 도메인
+  리듀서가 생성한 뒤의 정규화된 메트릭 관측을 사용합니다. 프로바이더 I/O를 수행하지 않으며
+  어떤 권한도 부여하지 않습니다. Phase 0 서술자는 소스가 연결된 패널의 예상 생산자와 최신성
+  구간을 지정합니다. 누락되거나 오래되었거나 충돌하거나 일치하지 않거나 미래 시점이거나 합성인
+  라이브 관측은 숫자 대체값 없이 사용 불가로 표시됩니다.
+- **변경 안전성 권한 전 근거**: `core/control_loop/change_safety_evidence.py`는
+  `Container.change_safety_evidence_provider`를 통해 주입된 프로바이더 하나를 받고 Activity
+  Log 감지기는 `Container.change_safety_detector`를 통해 별도로 주입됩니다. 대역 외
+  발견 사항의 경우 컨트롤 루프는 Action 생성 후 실행 권한 및 risk-gate 전에 정확한 표류 및
+  what-if 레코드를 결합합니다. 근거가 없거나 유효하지 않으면 발견 사항을 억제하지 않고
+  보류합니다. 프로바이더는 관측된 영향 개수만 채울 수 있으며 권한을 부여하거나 독립 작업 후
+  검증을 충족할 수 없습니다.
+- **Principal 범위 operational 근거**: `OperationalEvidenceSource`와
+  `OperationalEvidencePrincipalContextProvider`는 하나의 쌍으로 바인딩됩니다. Core는 기존
+  semantic 변환 결과가 Operator로 전달되기 전에 범위가 제한된 번들과 증적으로 검증된 Context
+  메타데이터를 승인합니다. 쌍이 없으면 기존 응답을 유지하고 일부만 바인딩되면 컨테이너 구성에
+  실패합니다. 두 경계 모두 변경 또는 실행 권한을 부여하지 않습니다.
 
 ### 기능 번들
 
@@ -461,9 +525,11 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 | 전달 어댑터 | 전달 인터페이스 | - | `gitops-pr` / `chatops` | 다른 PR 호스트 / 채팅 채널 |
 | Risk 채점 & thresholds | risk-gate 구성 | - | 범용 임계값 | 고객 리스크 정책 |
 | 모델 프로바이더 | 모델 클라이언트 (기능별) | - | 설정된 기본 엔드포인트 | 고객 승인 모델 |
+| **Assurance Twin 의미 컴파일러** | `Container`를 통해 주입하는 `NlQueryCompiler` 및 `AssuranceTwinDiscoverySink` | - | 명시적인 `semantic_model_unavailable`, 발견 인계는 사용 불가를 보고 | 정확한 입력 다이제스트, 컴파일러 개정, 근거 참조, 결과 한계, 읽기 전용 검증, 원시 질문 및 변경 권한 없음 조건을 보존하는 스키마 제한 컴파일러와 비활성 발견 sink 주입 |
 | **실시간 아웃바운드 스트림** | `SseSink` (비동기 publish + async-iterator 구독, SSE 페이로드) | - | `InMemorySseSink` (테스트/데브); HTTP `text/event-stream` 어댑터는 콘솔 읽기 전용 표면과 함께 랜딩 | 양방향 표면이 필요하면 WebSocket 어댑터로 교체; 헤드리스 관찰기는 웹훅 전용. `shared/streaming/SseBroadcaster` 가 `EventBus` 토픽을 채널로 릴레이. |
 | **파이프라인 스테이지 발행자** | `StagePublisher` (`shared/providers/stage_publisher.py`) 의 `emit(StageEvent)` | - | `NullStagePublisher` (기본 - 스테이지 코드가 관찰 사이드이펙트 없이 실행되도록 유지) | 인프로세스 데브 / 단일 레플리카: `SseSinkStagePublisher` 가 `SseSink` 로 바로 동시 확산. 멀티 레플리카 프로덕션: `EventBusStagePublisher` 가 Kafka 토픽(기본 `fdai.pipeline.stages`) 에 발행하고 기존 `SseBroadcaster` 가 모든 레플리카가 소비하는 SSE 채널로 릴레이. 파이프라인 스테이지 (`event_ingest`, `trust_router`, T0/T1/T2, `risk_gate`, `executor`, `audit`) 가 프로토콜을 받도록 backward-compat - 업스트림 기본은 아무 것도 발행 하지 않음. |
 | **콘솔 읽기 패널** | `ReadPanel` (`delivery/operator_api/panels.py`) | - | 코어 라우트만 (`/audit`, `/kpi`, `/hil-queue`); `ExampleFinOpsPanel` 은 참조용으로 제공되지만 UI 최소화를 위해 **미등록** | 포크가 `OperatorApiConfig.extra_panels` (각각 GET 전용 라우트로 래핑, 빌드 시 경로 검증) + 콘솔 `panels.tsx` 레지스트리 항목으로 버티컬 대시보드(FinOps 비용, 드리프트 보드, DR 드릴 이력) 추가 |
+| **T2 결정론적 검증 근거** | `Container.t2_deterministic_evidence_verifiers`를 통해 주입하는 `DeterministicEvidenceVerifier` 구현 | - | 런타임은 명시적인 사용 불가 `what_if` 및 `security` 검증기를 연결하므로 권위 있는 생산자 두 개 없이는 T2가 적격이 될 수 없습니다. | 시뮬레이션 엔진과 보안 스캐너 구현을 버전 있고 후보에 연결된 레코드와 함께 모두 주입합니다. 부분 연결, 오래되거나 충돌하는 근거, 합성 라이브 근거, 범위가 제한되지 않았거나 중복된 근거 메타데이터는 계속 보류합니다. |
 | **LLM 계량(metering)** | `MeteringSink` / `MeteringReader` (`core/metering/sink.py`); `MeteringEmitter`가 명시적인 `control_plane` 또는 `operator_chat` 범위와 함께 프로바이더가 측정한 `usage`를 기록 | - | 단일 프로세스 dev 실행 장치는 하나의 `InMemoryMeteringSink`를 공유합니다. T1, T2, 서술기 어댑터가 측정된 토큰을 발행합니다. 독립적인 Operator 서비스는 `GET /kpi/llm-cost`를 유지하고 SELECT-only 역할로 영속 `llm_invocation` 행을 읽으며 상세를 제한하되 token-only 집계는 정확하게 유지합니다. Interactive 로컬은 준비된 권위 있는 입력에서 정제된 인벤토리와 Settings 변환 결과를 별도로 materialize합니다. | 설정된 가격은 내부 예산 컨트롤에 남고 프로바이더 지출로 변환 결과되지 않으며, 누락된 프로바이더는 synthetic 대신 사용 불가 상태를 유지합니다. |
 | **Infra 모듈** | `infra/modules/<seam>/` (Terraform 서브-모듈, `var.<seam>_kind` 로 선택) | - | Container Apps + PostgreSQL Flex + Event Hubs Kafka + Key Vault + Log Analytics | [csp-neutrality-ko.md § 승인된 대안 Azure 구현](csp-neutrality-ko.md#승인된-대안-azure-구현approved-alternative-azure-implementations) 에 따라 다른 서브-모듈 선택; 모듈의 출력 계약은 고정 유지 |
 
@@ -542,10 +608,14 @@ HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서
   패키지 활성화는 사용자 접근 및 액션 승격과 독립적으로 유지됩니다.
 - 서비스 wire 계약은 `packages/service-contracts/src/fdai_service_contracts/`에 있습니다.
   `schemas/<contract-id>/<version>.json` 아래의 버전별 JSON 스키마는 불변이므로 새 필드는
-  새 추가적 버전으로 배포되며 이전 소비자는 그것을 계속 무시합니다. `operator-core-request`는
-  `1.4.0`입니다. Version 1.3은 서버 소유 `semantic_turn.bound_context`를 추가했고, version 1.4는
-  실행 권한을 부여하지 않는 범위가 제한된 `semantic_turn.include_model_trace` 활성화 설정을
-  추가합니다.
+  새 추가적 버전으로 배포되며 이전 소비자는 그것을 계속 무시합니다. 저장소가 소유하고
+  체크섬으로 고정한 생성기는 호환성 매니페스트의 모든 N/N-1 스키마를 백엔드 서비스 5개용
+  Python 타입과 Console용 TypeScript 타입으로 변환합니다. 이 파일은 읽기 전용 개발
+  변환 결과이며 런타임 검증은 기준 JSON Schema를 계속 사용합니다.
+  `operator-core-request`는 `1.5.0`입니다. Version 1.3은 서버 소유
+  `semantic_turn.bound_context`를 추가했고, version 1.4는 범위가 제한된
+  `semantic_turn.include_model_trace` 활성화 설정을 추가했으며, version 1.5는 실행 권한을
+  부여하지 않는 서버 해석 조사 연속 작업을 추가했습니다.
   `core-operator-projection` 1.4는 닫힌 사회적 의도를 전달하는 타입 지정 `direct_response`
   최종 처리 결과를 추가합니다. 범위가 제한된 텍스트는 스키마로 검증된 의미 판단 모델에서 오며
   조회 digest, 근거 참조, 검증 주장 또는 권한을 포함하지 않습니다.

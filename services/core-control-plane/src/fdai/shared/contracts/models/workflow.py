@@ -41,7 +41,10 @@ class WorkflowStep(_Base):
     guard, saga-compensation, and on-failure branch. A step never carries
     its own mutation logic - it delegates to ``action_type_ref`` so it
     inherits that ActionType's safeguard declarations and reaches execution
-    only through a path that completes all seven safeguards."""
+    only through a path that completes all seven safeguards.
+
+    ``no_self_approval`` is an invariant, not a preference: a catalog author
+    cannot set it to ``False`` to let a requester approve their own step."""
 
     id: Annotated[str, Field(min_length=1)]
     kind: WorkflowStepKind = WorkflowStepKind.ACTION
@@ -56,6 +59,7 @@ class WorkflowStep(_Base):
     approval_role: CeilingRole | None = None
     quorum: Annotated[int, Field(ge=1)] = 1
     no_self_approval: bool = True
+    """Requester exclusion. Catalog data MUST NOT lower it; see ``_kind_contract``."""
     outcomes: list[Annotated[str, Field(pattern=r"^[a-z][a-z0-9_-]{0,63}$")]] = Field(
         default_factory=list
     )
@@ -65,6 +69,10 @@ class WorkflowStep(_Base):
 
     @model_validator(mode="after")
     def _kind_contract(self) -> WorkflowStep:
+        if not self.no_self_approval:
+            raise ValueError(
+                "no_self_approval MUST stay enabled; catalog data cannot authorize self-approval"
+            )
         if self.kind is WorkflowStepKind.ACTION:
             if self.action_type_ref is None:
                 raise ValueError("action step requires action_type_ref")

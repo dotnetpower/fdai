@@ -1,0 +1,118 @@
+{
+  "schema_version": "1.0.0",
+  "scenario_id": "phase3-cross-vertical-shadow-v2026.08",
+  "release": "v2026.08",
+  "correlation_id": "phase3-cross-vertical-0001",
+  "resource_id": "resource://example/shared-workload-1",
+  "observed_at": "2026-08-31T07:00:00Z",
+  "candidates": [
+    {
+      "domain": "resilience",
+      "topic": "object.resilience-score",
+      "principal": "Loki",
+      "idempotency_key": "phase3-candidate-resilience-0001",
+      "action_type": "ops.restart-service",
+      "effects": [
+        {
+          "objective_id": "objective.availability",
+          "utility": 0.9,
+          "confidence": 1.0,
+          "metric": "availability",
+          "expected_min": 0.8,
+          "expected_max": 1.0,
+          "observation_window_seconds": 300
+        },
+        {
+          "objective_id": "objective.cost",
+          "utility": -0.1,
+          "confidence": 1.0,
+          "metric": "cost",
+          "expected_min": -0.2,
+          "expected_max": 0.0,
+          "observation_window_seconds": 300
+        }
+      ],
+      "evidence_refs": [
+        "event:phase3-resilience-0001",
+        "rule:resilience-recovery-v1",
+        "audit:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ]
+    },
+    {
+      "domain": "change_safety",
+      "topic": "object.drift",
+      "principal": "Heimdall",
+      "idempotency_key": "phase3-candidate-change-0001",
+      "action_type": "remediate.enable-encryption",
+      "effects": [
+        {
+          "objective_id": "objective.availability",
+          "utility": 0.4,
+          "confidence": 1.0,
+          "metric": "availability",
+          "expected_min": 0.3,
+          "expected_max": 0.5,
+          "observation_window_seconds": 300
+        },
+        {
+          "objective_id": "objective.cost",
+          "utility": -0.2,
+          "confidence": 1.0,
+          "metric": "cost",
+          "expected_min": -0.3,
+          "expected_max": -0.1,
+          "observation_window_seconds": 300
+        }
+      ],
+      "evidence_refs": [
+        "event:phase3-change-0001",
+        "rule:change-safety-encryption-v1",
+        "audit:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ]
+    },
+    {
+      "domain": "cost",
+      "topic": "object.cost-anomaly",
+      "principal": "Njord",
+      "idempotency_key": "phase3-candidate-cost-0001",
+      "action_type": "remediate.disable-public-access",
+      "effects": [
+        {
+          "objective_id": "objective.availability",
+          "utility": 0.1,
+          "confidence": 1.0,
+          "metric": "availability",
+          "expected_min": 0.0,
+          "expected_max": 0.2,
+          "observation_window_seconds": 300
+        },
+        {
+          "objective_id": "objective.cost",
+          "utility": 0.9,
+          "confidence": 1.0,
+          "metric": "cost",
+          "expected_min": 0.8,
+          "expected_max": 1.0,
+          "observation_window_seconds": 300
+        }
+      ],
+      "evidence_refs": [
+        "event:phase3-cost-0001",
+        "rule:cost-public-access-v1",
+        "audit:sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      ]
+    }
+  ],
+  "expected": {
+    "winning_domain": "resilience",
+    "dispositions": {
+      "resilience": "win",
+      "change_safety": "defer",
+      "cost": "defer"
+    },
+    "terminal_outcome": "shadow_success",
+    "executor_principal": "Thor",
+    "initiator_principal": "Loki",
+    "managed_resource_mutations": 0
+  }
+}

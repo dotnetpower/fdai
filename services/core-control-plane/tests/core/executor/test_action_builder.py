@@ -193,14 +193,12 @@ def test_static_bucket_blast_radius_maps_to_action_shape() -> None:
     assert action.blast_radius.count == 1
 
 
-def test_graph_derived_blast_radius_carries_max_count() -> None:
-    """`remediate.disable-public-access` uses `graph_derived` with
-    `max_affected_resources: 5`. The action should carry that as its
-    cap so the executor's blast-radius check is exercised."""
+def test_graph_derived_blast_radius_stays_unknown_until_simulated() -> None:
+    """The authored maximum is not an observed affected-resource count."""
     rule = _rule("r1", "remediate.disable-public-access")
     builder = ActionBuilder(action_types_by_name=_shipped_action_types())  # type: ignore[arg-type]
     action = builder.build_from_finding(event=_event(), finding=_finding(rule), rule=rule)
-    assert action.blast_radius.count == 5
+    assert action.blast_radius.count is None
 
 
 # ---------------------------------------------------------------------------

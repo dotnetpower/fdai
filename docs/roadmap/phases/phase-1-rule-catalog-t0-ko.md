@@ -1,8 +1,8 @@
 ---
 title: Phase 1 - 규칙 카탈로그와 T0 결정론적 엔진
 translation_of: phase-1-rule-catalog-t0.md
-translation_source_sha: 913e64f39463258c277ded6dbf8efdba2e05dc2b
-translation_revised: 2026-08-24
+translation_source_sha: 71231f4c81ea6dafed5a8b3d1904c828f6cbdc90
+translation_revised: 2026-08-31
 ---
 
 # 단계 1 - 규칙 카탈로그와 T0 결정론적 엔진
@@ -34,22 +34,29 @@ translation_revised: 2026-08-24
   멀티-소스 컬렉터. 첫 authored 규칙들은 [`rule-catalog/catalog/`](../../../rule-catalog/catalog)
   아래 룰 id 하나당 YAML 하나로 배송되며, 각 규칙은 필수 `remediates` 필드로 정확히 하나의
   ActionType 을 exercise: `object-storage.public-access.deny`,
-  `object-storage.owner-tag.required`, `compute.vm-scale-set.over-provisioned`,
-  `secret-store.rotation-overdue`, `sql-database.tde-required`. 로더
+  `object-storage.owner-tag.required`, `secret-store.rotation-overdue`,
+  `sql-database.tde-required`. VMSS 비용 규칙 `compute.vm-scale-set.over-provisioned`와 해당
+  Rego 정책, 수정 템플릿, `remediate.right-size` 연결은 선택적 Cost Governance 확장이
+  소유합니다. 비용 동작이 범위에 포함될 때 Phase 1 기본 재생은 해당 패키지를 명시적으로
+  조립합니다. 패키지가 없거나 비활성화되면 비용 자산이 추가되지 않습니다. 로더
   [`services/core-control-plane/src/fdai/rule_catalog/schema/rule.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule.py)
   가 부하 시점에 모든 규칙의 `remediates` / `alternatives` 를 ActionType 카탈로그와,
   `resource_type` 을 CSP-중립 어휘와 교차 검증, **그리고** `policies_root` 가 주어지면
   `policies/` 로 시작하는 모든 `check_logic.reference` 를 디스크에 실제로 존재하는 Rego 파일과
   교차 검증 (실패 시 차단).
-- **Authored Rego 정책** - 위 5개 규칙은 각각 자기 `check_logic.reference` Rego 본체와 함께
+- **Authored Rego 정책** - 위 4개 기본 규칙은 각각 자기 `check_logic.reference` Rego 본체와 함께
   [`policies/`](../../../policies) 하위(resource-type 계열별 폴더 하나)에 배송:
   `policies/object_storage/{public_access,owner_tag_required}.rego`,
-  `policies/compute/vmss_over_provisioned.rego`,
   `policies/secret_store/rotation_overdue.rego`,
   `policies/sql_database/tde_required.rego`. 모든 모듈은
   `default deny := false` + `deny if { ... }` 엔트리포인트를 내보내기 하고,
   `input.parameters.<name>` 를 authored 기본값과 함께 읽어서 per-assignment 오버라이드
   ([rule-governance-ko.md](../rules-and-detection/rule-governance-ko.md)) 가 규칙 편집 없이 흐르도록 함.
+
+첫 설계는 구현에서 같은 자산 묶음을 확장으로 이동한 뒤에도 과거 VMSS 시드를 기본 목록에
+유지했습니다. 두 주장을 함께 유지하면 소유권이 중복되거나 선택적 버티컬이 숨겨진 Phase 1
+전제 조건이 됩니다. 수정된 설계는 구현된 패키지 경계를 보존하고 비용 재생에서 패키지를
+명시적으로 조립하도록 요구합니다.
 - **정본 `resource_type` 어휘** - [`rule-catalog/vocabulary/resource-types.yaml`](../../../rule-catalog/vocabulary/resource-types.yaml)
   가 3개 버티컬 을 커버하는 초기 CSP-중립 식별자 집합을 열거; 로더 + JSON 스키마 는
   `services/core-control-plane/src/fdai/rule_catalog/schema/`.
@@ -137,6 +144,19 @@ translation_revised: 2026-08-24
   기재된 `xfail` (T1/T2 또는 risk-gate 미배선). 가드 테스트가 사유 없이 조용히
   스킵되는 시나리오가 없도록 강제.
 
+### 수집기 검토 경계
+
+Phase 1은 소스 가져오기, 내용 기반 주소 스냅샷 보존, 파서 선택, 정규화, 검증, 영속 미러링,
+비활성 수집 검토 패키지 게시를 소유합니다. 지원 파서는 `rule-yaml`, `rego`,
+`azure-policy-json`, `kube-bench`입니다. `checkov-yaml`, `gatekeeper-templates` 같은 예약
+파서 id는 명시적인 미지원 결과를 반환하며 원시 소스를 규칙으로 통과시키지 않습니다.
+
+Phase 2는 shadow 평가, 회귀, Mimir가 통제하는 catalog-as-code 검토, 활성화, 마지막 정상 개정으로
+롤백을 소유합니다. 수집 검토 패키지는 출처 이력과 `grants_authority=false`를 전달하며 이를
+병합하거나 저장해도 런타임 카탈로그를 변경할 수 없습니다. 첫 설계에서는 수집기 출력을 Phase 1에서
+직접 승격하는 방안을 검토했습니다. 이 방식은 관측과 카탈로그 권한을 결합하고 검토를 우회합니다.
+수정된 설계는 검토 아티팩트를 비활성 상태로 유지하고 활성화를 별도 Phase 2 전환으로 만듭니다.
+
 ## 규칙 카탈로그
 
 ### 정규화 스키마
@@ -204,6 +224,22 @@ CSP-중립 어휘로 정규화되어 한 프로바이더용으로 작성된 규�
 - **표류 감지** - 관측된 리소스 상태를 선언된 IaC/desired 상태와 비교; 표류 델타(추가/제거/
   변경된 속성) 보고.
 
+### 변경 안전성 권한 전 단계 순서
+
+대역 외 변경 안전성 발견 사항의 경우 컨트롤 루프는 원래 T0 발견 사항을 보존한 뒤 다음 순서를
+적용합니다. 형식화된 Action을 만들고, 현재 표류 및 what-if 근거를 결합하고, 같은 상관관계 id로
+결합 근거를 기록하고, 실행 권한을 평가하고, 통합 risk-gate를 평가하고, 예행 실행 증적을 만든
+뒤 모든 후속 안전장치가 허용할 때만 전달합니다. 독립적인 작업 후 관측은 별도 최종 단계로
+유지되며 what-if 레코드로 충족할 수 없습니다.
+
+첫 설계에서는 표류 검사를 T0와 병렬로 실행하고 누락 근거를 정보성 레코드로만 처리하는 방안을
+검토했습니다. 이 방식은 해결되지 않은 대상이 권한 단계로 계속 진행할 수 있습니다. 수정된
+설계는 발견 사항 형성을 독립적으로 유지하지만, 프로바이더가 없거나 실패했거나 근거가 오래됨,
+충돌, 미래 시점, 합성, 아이덴티티 불일치, 불완전 상태이면 권한 및 risk-gate 전에 액션을
+보류합니다. 유효한 what-if 근거는 관측된 영향 리소스 수를 기존 risk-gate에 제공합니다.
+ActionType에 작성된 상한을 측정값처럼 Action에 복사하지 않습니다. 중복 이벤트는 기존 인제스트
+멱등성 키와 재생 가능한 안정적 액션 아이덴티티를 유지합니다.
+
 위반 시 엔진은 직접 실행 대신 **교정 PR** 발행; 감사, 롤백, 승인은 git에서 무료. 단계 1
 에서 모든 판정은 **shadow only** - PR 머지 안 됨, 상태 변형 안 됨.
 
@@ -227,8 +263,11 @@ PR은 `shadow` 라벨되고 초안으로(또는 shadow 브랜치에 대해) 오�
 
 ## Out-of-Band 감지 (변경 안전성)
 
-- **신호**: Activity Log, Resource Graph, 변경 Analysis, 배포 Stacks deny-assignment
-  이벤트, IaC 표류. 단일 피드를 믿는 대신 신호 간 상관관계.
+- **지원 신호**: Phase 1은 `signal_kind=azure.activity_log`인 정규화된 Azure Activity Log
+  레코드만 받습니다. Resource Graph, Change Analysis, Deployment Stacks deny-assignment 이벤트,
+  IaC 표류 피드는 각자의 권한, 완전성, 최신성 계약이 생길 때까지 지원되지 않는 감지기
+  입력으로 유지됩니다. 선언된 미지원 종류는 감사된 `unsupported_signal` 결과를 만들며
+  조용히 정상 또는 대역 외 상태로 처리되지 않습니다.
 - **귀속**: 각 감지된 변경을 authorized(머지된 교정 PR / 알려진 파이프라인 principal에서
   발원) 또는 out-of-band(수동/콘솔) 로 분류, 행위자 아이덴티티와 상관관계 id 사용하여 파이프라인-
   주도 변경이 오플래그되지 않도록.
@@ -237,6 +276,14 @@ PR은 `shadow` 라벨되고 초안으로(또는 shadow 브랜치에 대해) 오�
   전; 억제 사유 기록.
 - **false 부정**: 신호 피드는 lag하거나 드롭 가능; 감지 완전성은 측정된 가드(Exit 기준 참조),
   가정 아님.
+- **인벤토리 경계**: 인벤토리 최신성은 결정론적 발견 사항 형성을 억제하지 않습니다. Action
+  생성 후 risk 판단 전에 평가합니다. 필수 인벤토리가 없거나 오래되면 권한을 HIL 또는
+  차단으로 낮추므로 침묵이 발견 사항을 숨기거나 오래된 상태가 실행을 허용할 수 없습니다.
+
+첫 설계는 출시된 완전성 계약 없이 여러 미래 신호 계열을 나열하고 판정 전 인벤토리 순서를
+암시했습니다. 이 방식은 관측되지 않은 피드를 거짓 부재로 만들거나 유효한 결정론적 발견 사항을
+억제할 수 있습니다. 수정된 설계는 감지를 구현된 Activity Log 계약으로 좁히고 인벤토리
+최신성을 액션 권한 경계로 이동하여 자율성을 유지하거나 낮추기만 하도록 합니다.
 - **응답 (shadow)**: 정책 위반 리소스의 out-of-band 변경은 *shadow* revert-or-reconcile PR과
   알림 생성; 판단·로그만. Auto-revert와 reconcile-to-IaC 실행은 단계 2 검증까지 게이팅 오프.
 

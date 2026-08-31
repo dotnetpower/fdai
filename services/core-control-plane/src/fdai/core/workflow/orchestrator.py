@@ -60,6 +60,9 @@ from fdai.core.workflow.workflow_runtime import (
 )
 from fdai.core.workflow.workflow_step_executor import ShadowWorkflowStepExecutor
 from fdai.shared.contracts.models import Mode, OntologyActionType, Workflow
+from fdai.shared.providers.decision_evidence_verifier import (
+    DecisionEvidenceAdmissionProvider,
+)
 from fdai.shared.providers.process_runtime import (
     ProcessEvent,
     ProcessEventKind,
@@ -79,6 +82,7 @@ class WorkflowOrchestrator:
         "_action_types",
         "_action_dispatcher",
         "_approval_provider",
+        "_approval_decision_evidence_provider",
         "_evidence_dispatcher",
         "_audit",
         "_guard_evaluator",
@@ -96,6 +100,7 @@ class WorkflowOrchestrator:
         guard_evaluator: (WorkflowGuardEvaluator | WorkflowContextualGuardEvaluator | None) = None,
         action_dispatcher: WorkflowActionDispatcher | None = None,
         approval_provider: WorkflowApprovalProvider | None = None,
+        approval_decision_evidence_provider: DecisionEvidenceAdmissionProvider | None = None,
         evidence_dispatcher: WorkflowEvidenceDispatcher | None = None,
         outcome_verifier: WorkflowOutcomeVerifier | None = None,
     ) -> None:
@@ -103,6 +108,7 @@ class WorkflowOrchestrator:
         self._action_types = action_types
         self._action_dispatcher = action_dispatcher
         self._approval_provider = approval_provider
+        self._approval_decision_evidence_provider = approval_decision_evidence_provider
         self._evidence_dispatcher = evidence_dispatcher
         self._audit = audit_store
         self._guard_evaluator = guard_evaluator
@@ -122,6 +128,7 @@ class WorkflowOrchestrator:
             guard_evaluator=self._guard_evaluator,
             action_dispatcher=dispatcher,
             approval_provider=self._approval_provider,
+            approval_decision_evidence_provider=self._approval_decision_evidence_provider,
             evidence_dispatcher=self._evidence_dispatcher,
             outcome_verifier=self._outcome_verifier,
         )
@@ -139,6 +146,7 @@ class WorkflowOrchestrator:
             guard_evaluator=self._guard_evaluator,
             action_dispatcher=self._action_dispatcher,
             approval_provider=self._approval_provider,
+            approval_decision_evidence_provider=self._approval_decision_evidence_provider,
             evidence_dispatcher=dispatcher,
             outcome_verifier=self._outcome_verifier,
         )
@@ -447,6 +455,7 @@ class WorkflowOrchestrator:
             action_types=self._action_types,
             action_dispatcher=self._action_dispatcher,
             approval_provider=self._approval_provider,
+            approval_decision_evidence_provider=self._approval_decision_evidence_provider,
             evidence_dispatcher=self._evidence_dispatcher,
             audit_store=self._audit,
             approvals=approvals,

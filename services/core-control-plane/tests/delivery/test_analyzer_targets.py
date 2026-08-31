@@ -165,6 +165,18 @@ async def test_a_resource_without_a_state_fact_is_still_selectable() -> None:
 
 
 @pytest.mark.asyncio
+async def test_identity_only_selection_without_admission_is_skipped() -> None:
+    """Identity and type alone still need their own admission before selection."""
+
+    store = StubStore((_resource("res-apim", "api-gateway"),))
+
+    resolution = await _resolve(store, decision_evidence=False)
+
+    assert resolution.targets == ()
+    assert resolution.skipped_reasons == (SKIP_UNVERIFIED_STATE_FACT,)
+
+
+@pytest.mark.asyncio
 async def test_state_fact_without_independent_admission_is_skipped() -> None:
     store = StubStore((_resource("res-aks", "kubernetes-cluster", state_fact=_state_fact()),))
 
@@ -172,6 +184,24 @@ async def test_state_fact_without_independent_admission_is_skipped() -> None:
 
     assert resolution.targets == ()
     assert resolution.skipped_reasons == (SKIP_UNVERIFIED_STATE_FACT,)
+
+
+@pytest.mark.asyncio
+async def test_future_dated_state_fact_is_skipped() -> None:
+    store = StubStore(
+        (
+            _resource(
+                "res-aks",
+                "kubernetes-cluster",
+                state_fact=_state_fact(observed_at=NOW + timedelta(seconds=1)),
+            ),
+        )
+    )
+
+    resolution = await _resolve(store)
+
+    assert resolution.targets == ()
+    assert resolution.skipped_reasons == (SKIP_STALE_STATE_FACT,)
 
 
 @pytest.mark.asyncio

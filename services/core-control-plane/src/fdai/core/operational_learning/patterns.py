@@ -8,10 +8,12 @@ import re
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 
 from fdai.core.case_history import (
     OperationalCaseInput,
     OperationalCaseProjection,
+    OperationalEvidenceSourceKind,
     OperationalOutcomeClass,
     OperationalReceiptType,
 )
@@ -43,8 +45,18 @@ _PATTERN_CASE_FIELDS = frozenset(
         "reusable",
         "negative",
         "digest_evidence",
+        "fdai_revision",
+        "scenario_set_version",
+        "event_time_cutoff",
+        "source_kind",
+        "source_identity_digest",
+        "source_synthetic",
+        "evidence_complete",
+        "conflict_digests",
     }
 )
+_GIT_REVISION = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
+_DEFAULT_MAX_CASE_AGE = timedelta(days=90)
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,6 +71,14 @@ class PatternCase:
     reusable: bool
     negative: bool
     digest_evidence: tuple[str, ...]
+    fdai_revision: str
+    scenario_set_version: str
+    event_time_cutoff: datetime
+    source_kind: OperationalEvidenceSourceKind
+    source_identity_digest: str
+    source_synthetic: bool
+    evidence_complete: bool
+    conflict_digests: tuple[str, ...]
 
     def __post_init__(self) -> None:
         if not self.case_id or len(self.case_id) > _MAX_CASE_ID_CHARS or self.revision < 1:
@@ -81,6 +101,22 @@ class PatternCase:
             raise ValueError("pattern case classification MUST match its outcome class")
         if self.reusable == self.negative:
             raise ValueError("pattern case MUST be reusable or negative")
+        if _GIT_REVISION.fullmatch(self.fdai_revision) is None:
+            raise ValueError("pattern case FDAI revision MUST be immutable")
+        if _IDENTIFIER.fullmatch(self.scenario_set_version) is None:
+            raise ValueError("pattern case scenario set MUST be canonical")
+        if self.event_time_cutoff.tzinfo is None:
+            raise ValueError("pattern case cutoff MUST be timezone-aware")
+        if not _is_sha256(self.source_identity_digest):
+            raise ValueError("pattern case source identity MUST be lowercase SHA-256")
+        if not isinstance(self.source_synthetic, bool) or not isinstance(
+            self.evidence_complete, bool
+        ):
+            raise ValueError("pattern case source flags MUST be boolean")
+        conflicts = tuple(sorted(set(self.conflict_digests)))
+        if any(not _is_sha256(item) for item in conflicts):
+            raise ValueError("pattern case conflicts MUST contain SHA-256 values")
+        object.__setattr__(self, "conflict_digests", conflicts)
         evidence = tuple(sorted(set(self.digest_evidence)))
         if not 1 <= len(evidence) <= _MAX_CASE_EVIDENCE_REFS or any(
             not _is_sha256(item) for item in evidence
@@ -104,6 +140,14 @@ class PatternCase:
             "reusable": self.reusable,
             "negative": self.negative,
             "digest_evidence": list(self.digest_evidence),
+            "fdai_revision": self.fdai_revision,
+            "scenario_set_version": self.scenario_set_version,
+            "event_time_cutoff": self.event_time_cutoff.isoformat(),
+            "source_kind": self.source_kind.value,
+            "source_identity_digest": self.source_identity_digest,
+            "source_synthetic": self.source_synthetic,
+            "evidence_complete": self.evidence_complete,
+            "conflict_digests": list(self.conflict_digests),
         }
 
     @classmethod
@@ -117,8 +161,13 @@ class PatternCase:
             raise ValueError("pattern case revision MUST be an integer")
         if not isinstance(reusable, bool) or not isinstance(negative, bool):
             raise ValueError("pattern case classifications MUST be boolean")
+        source_synthetic = value.get("source_synthetic")
+        evidence_complete = value.get("evidence_complete")
+        if not isinstance(source_synthetic, bool) or not isinstance(evidence_complete, bool):
+            raise ValueError("pattern case source flags MUST be boolean")
         try:
             outcome_class = OperationalOutcomeClass(_required(value, "outcome_class"))
+            source_kind = OperationalEvidenceSourceKind(_required(value, "source_kind"))
         except ValueError as exc:
             raise ValueError("pattern case outcome class is unsupported") from exc
         evidence = value.get("digest_evidence")
@@ -139,6 +188,14 @@ class PatternCase:
             reusable=reusable,
             negative=negative,
             digest_evidence=tuple(evidence),
+            fdai_revision=_required(value, "fdai_revision"),
+            scenario_set_version=_required(value, "scenario_set_version"),
+            event_time_cutoff=_required_datetime(value, "event_time_cutoff"),
+            source_kind=source_kind,
+            source_identity_digest=_required(value, "source_identity_digest"),
+            source_synthetic=source_synthetic,
+            evidence_complete=evidence_complete,
+            conflict_digests=_string_array(value, "conflict_digests"),
         )
 
 
@@ -154,6 +211,9 @@ class OperatingPatternCandidate:
     outcome_counts: tuple[tuple[str, int], ...]
     immutable_case_refs: tuple[str, ...]
     digest_evidence: tuple[str, ...]
+    fdai_revision: str
+    scenario_set_version: str
+    case_reviews: tuple[dict[str, object], ...]
 
     def to_rule_candidate_mapping(self) -> dict[str, object]:
         return {
@@ -168,6 +228,9 @@ class OperatingPatternCandidate:
                 "action_type": self.action_type,
                 "immutable_case_refs": list(self.immutable_case_refs),
                 "digest_evidence": list(self.digest_evidence),
+                "fdai_revision": self.fdai_revision,
+                "scenario_set_version": self.scenario_set_version,
+                "case_reviews": [dict(review) for review in self.case_reviews],
             },
             "provenance": {"source": "case-history", "pattern_id": self.pattern_id},
             "proposed_by": "Norns",
@@ -180,7 +243,13 @@ class OperatingPatternCandidate:
 class OperatingPatternCompiler:
     """Require one mechanism/action pair with reusable and negative evidence."""
 
-    def compile(self, cases: Sequence[PatternCase]) -> OperatingPatternCandidate | None:
+    def compile(
+        self,
+        cases: Sequence[PatternCase],
+        *,
+        reviewed_at: datetime | None = None,
+        max_case_age: timedelta = _DEFAULT_MAX_CASE_AGE,
+    ) -> OperatingPatternCandidate | None:
         if len(cases) < 2:
             return None
         if len(cases) > _MAX_CASES:
@@ -189,6 +258,21 @@ class OperatingPatternCompiler:
         resource_types = {case.resource_type for case in cases}
         action_types = {case.action_type for case in cases}
         if len(fingerprints) != 1 or len(resource_types) != 1 or len(action_types) != 1:
+            return None
+        releases = {(case.fdai_revision, case.scenario_set_version) for case in cases}
+        if len(releases) != 1:
+            return None
+        review_time = reviewed_at or max(case.event_time_cutoff for case in cases)
+        if review_time.tzinfo is None or max_case_age <= timedelta(0):
+            raise ValueError("operational pattern review bounds are invalid")
+        if any(
+            not case.evidence_complete
+            or case.conflict_digests
+            or (case.source_kind is OperationalEvidenceSourceKind.LIVE and case.source_synthetic)
+            or case.event_time_cutoff > review_time
+            or review_time - case.event_time_cutoff > max_case_age
+            for case in cases
+        ):
             return None
         reusable = sum(case.reusable for case in cases)
         negative = sum(case.negative for case in cases)
@@ -203,6 +287,19 @@ class OperatingPatternCompiler:
         if len(digest_evidence) > _MAX_PATTERN_EVIDENCE_REFS:
             raise ValueError("operational pattern evidence exceeds its aggregate limit")
         outcome_counts = tuple(sorted(Counter(case.outcome_class.value for case in cases).items()))
+        case_reviews: tuple[dict[str, object], ...] = tuple(
+            {
+                "case_ref": case.immutable_case_ref,
+                "event_time_cutoff": case.event_time_cutoff.isoformat(),
+                "source_kind": case.source_kind.value,
+                "source_identity_digest": case.source_identity_digest,
+                "source_synthetic": case.source_synthetic,
+                "evidence_complete": case.evidence_complete,
+                "conflict_digests": list(case.conflict_digests),
+            }
+            for case in sorted(cases, key=lambda item: item.immutable_case_ref)
+        )
+        fdai_revision, scenario_set_version = next(iter(releases))
         material = {
             "action_type": cases[0].action_type,
             "digest_evidence": digest_evidence,
@@ -210,6 +307,9 @@ class OperatingPatternCompiler:
             "immutable_case_refs": immutable_case_refs,
             "outcome_counts": outcome_counts,
             "resource_type": cases[0].resource_type,
+            "fdai_revision": fdai_revision,
+            "scenario_set_version": scenario_set_version,
+            "case_reviews": case_reviews,
         }
         pattern_id = hashlib.sha256(
             json.dumps(material, separators=(",", ":"), sort_keys=True).encode()
@@ -225,6 +325,9 @@ class OperatingPatternCompiler:
             outcome_counts=outcome_counts,
             immutable_case_refs=immutable_case_refs,
             digest_evidence=digest_evidence,
+            fdai_revision=fdai_revision,
+            scenario_set_version=scenario_set_version,
+            case_reviews=case_reviews,
         )
 
 
@@ -278,6 +381,14 @@ def pattern_case_from_operational_case(
         reusable=projection.outcome_class is OperationalOutcomeClass.SUCCESS,
         negative=projection.outcome_class in _NEGATIVE_OUTCOMES,
         digest_evidence=case_input.evidence_refs,
+        fdai_revision=projection.fdai_revision,
+        scenario_set_version=projection.scenario_set_version,
+        event_time_cutoff=projection.event_time_cutoff,
+        source_kind=projection.source_kind,
+        source_identity_digest=projection.source_identity_digest,
+        source_synthetic=projection.source_synthetic,
+        evidence_complete=projection.evidence_complete,
+        conflict_digests=projection.conflict_digests,
     )
 
 
@@ -290,6 +401,23 @@ def _required(value: Mapping[str, object], key: str) -> str:
 
 def _is_sha256(value: str) -> bool:
     return len(value) == 64 and all(character in "0123456789abcdef" for character in value)
+
+
+def _required_datetime(value: Mapping[str, object], key: str) -> datetime:
+    raw = _required(value, key)
+    parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        raise ValueError(f"pattern case field {key!r} MUST be timezone-aware")
+    return parsed
+
+
+def _string_array(value: Mapping[str, object], key: str) -> tuple[str, ...]:
+    raw = value.get(key)
+    if not isinstance(raw, Sequence) or isinstance(raw, str | bytes):
+        raise ValueError(f"pattern case field {key!r} MUST be an array")
+    if any(not isinstance(item, str) for item in raw):
+        raise ValueError(f"pattern case field {key!r} MUST contain strings")
+    return tuple(raw)
 
 
 __all__ = [

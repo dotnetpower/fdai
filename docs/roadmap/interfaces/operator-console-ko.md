@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: ad05f05a5f5bb2d20de01b13af66990573547d9a
-translation_revised: 2026-08-31
+translation_source_sha: 891ca2468b97ce5cd1d23d24fb015e4f06cfbc69
+translation_revised: 2026-09-01
 ---
 # FDAI Console 대화
 사람 오퍼레이터가 CLI, Teams, Slack, 웹 챗을 통해 FDAI에 **역으로 말할 수 있는** 방식입니다. 별도 제품이 아닌 FDAI Console의 **대화형 표면**로서 계층 아키텍처, 도구 카탈로그, LLM tier, 세션 지속성, 도구별 RBAC, 안전 invariant, 롤아웃 상태를 정의합니다.
@@ -581,6 +581,12 @@ pull 어댑터 추가. 콘솔은 이제:
   `ToolResult(status=error)`로 wrap; 서술기는 exception 스택 추적이
   아닌 구조화된 오류를 봄.
 ## 13. 데이터 + wire 계약
+
+FDAI Console은 `console/src/generated/service-contracts.ts`의 생성 TypeScript 변환 결과를
+컴파일합니다. 체크섬으로 고정한 저장소 생성기는 백엔드 서비스 5개가 사용하는 것과 같은
+N/N-1 JSON Schema에서 이 변환 결과를 만듭니다. 생성 인터페이스는 컴파일 시점의 정렬만
+개선합니다. Operator 서비스는 계속 기준 스키마로 와이어 페이로드를 검증하며 Console에는
+승인, 변경 또는 실행 권한이 없습니다.
 
 focused 소유자 문서로 분리했습니다:
 

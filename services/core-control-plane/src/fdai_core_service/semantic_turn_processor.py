@@ -37,6 +37,7 @@ from fdai.core.ontology_platform.incident_queries import (
 from fdai.core.ontology_platform.query_values import QueryTable
 from fdai_service_contracts import (
     MAX_SEMANTIC_EVIDENCE_REFS,
+    OperationalEvidenceProjection,
     OperatorRole,
     RuleSearchProjection,
     RuleSearchRequest,
@@ -53,6 +54,7 @@ from fdai_service_contracts import (
 from fdai_service_contracts import (
     SemanticTurnResult as ContractSemanticTurnResult,
 )
+from fdai_service_contracts.codec import MAX_WIRE_BYTES
 from fdai_service_contracts.ontology_query import (
     MAX_INTENT_GRAPH_GOALS,
     TaskStatus,
@@ -99,6 +101,8 @@ _AUTHORITATIVE_EVIDENCE_UNAVAILABLE_REASONS = {
     "incident_evidence_mismatched_binding",
     "semantic_exact_source_unavailable",
     "semantic_knowledge_source_status_unavailable",
+    "operational_evidence_unavailable",
+    "operational_evidence_over_budget",
 }
 
 
@@ -112,6 +116,7 @@ class _SemanticProjectionExtensions:
     model_trace: dict[str, object] | None = None
     social_act: str | None = None
     investigation_continuation: SemanticInvestigationContinuation | None = None
+    operational_evidence: OperationalEvidenceProjection | None = None
 
 
 class SemanticTurnRejectedError(ValueError):
@@ -146,6 +151,26 @@ class PantheonAssuranceRuntime(Protocol):
     ) -> Mapping[str, object]: ...
 
 
+class OperationalEvidenceProjectionReader(Protocol):
+    """Project admitted evidence for one authenticated resource-scoped turn."""
+
+    async def read(
+        self,
+        *,
+        principal_ref: str,
+        principal_scope_digest: str,
+        purpose: str,
+        ontology_release_digest: str,
+        catalog_revision: str,
+        scope: tuple[str, ...],
+        cutoff: datetime,
+    ) -> Mapping[str, object]: ...
+
+
+class _OperationalEvidenceWireBudgetExceededError(RuntimeError):
+    """The optional evidence extension cannot fit the shared wire envelope."""
+
+
 class SemanticTurnResultStore(Protocol):
     """Atomically retain the canonical projection for one idempotency key."""
 
@@ -177,6 +202,7 @@ class SemanticTurnProcessor:
         results: SemanticTurnResultStore,
         purpose: str = "operations-review",
         pantheon_assurance: PantheonAssuranceRuntime | None = None,
+        operational_evidence: OperationalEvidenceProjectionReader | None = None,
         now: Callable[[], datetime] | None = None,
     ) -> None:
         if not purpose:
@@ -185,6 +211,7 @@ class SemanticTurnProcessor:
         self._results = results
         self._purpose = purpose
         self._pantheon_assurance = pantheon_assurance
+        self._operational_evidence = operational_evidence
         self._now = now or (lambda: datetime.now(UTC))
 
     def bind_pantheon_assurance(self, runtime: PantheonAssuranceRuntime) -> None:
@@ -332,12 +359,21 @@ class SemanticTurnProcessor:
                 reason_code="semantic_result_store_unavailable",
             )
         if claim_id is None:
-            return await self._wait_for_claimed_projection(
+            winner, claim_id = await self._wait_for_claimed_projection(
                 envelope=envelope,
                 request=request,
                 idempotency_key=idempotency_key,
                 request_digest=request_digest,
             )
+            if winner is not None:
+                return winner
+            if claim_id is None:
+                return self._held_projection(
+                    envelope,
+                    request,
+                    request_digest=request_digest,
+                    reason_code="semantic_result_store_unavailable",
+                )
 
         claim_finalized = False
         try:
@@ -349,13 +385,26 @@ class SemanticTurnProcessor:
                         principal=principal,
                         cancelled=cancelled,
                     )
-                    projection = self._projection(
-                        envelope,
-                        request,
-                        result,
-                        extensions=extensions,
-                        request_digest=request_digest,
-                    )
+                    try:
+                        projection = self._projection(
+                            envelope,
+                            request,
+                            result,
+                            extensions=extensions,
+                            request_digest=request_digest,
+                        )
+                    except _OperationalEvidenceWireBudgetExceededError:
+                        projection = self._projection(
+                            envelope,
+                            request,
+                            _terminal_result(
+                                request,
+                                "held",
+                                "operational_evidence_over_budget",
+                            ),
+                            extensions=None,
+                            request_digest=request_digest,
+                        )
                 else:
                     projection = await self._pantheon_assurance_projection(
                         envelope,
@@ -411,32 +460,57 @@ class SemanticTurnProcessor:
         request: SemanticTurnRequest,
         idempotency_key: str,
         request_digest: str,
-    ) -> bytes:
+    ) -> tuple[bytes | None, str | None]:
         delay = 0.01
         while True:
             await asyncio.sleep(delay)
             try:
                 winner = await self._results.get(idempotency_key)
             except Exception:  # noqa: BLE001 - persistence detail must not cross the wire
-                return self._held_projection(
-                    envelope,
-                    request,
-                    request_digest=request_digest,
-                    reason_code="semantic_result_store_unavailable",
+                return (
+                    self._held_projection(
+                        envelope,
+                        request,
+                        request_digest=request_digest,
+                        reason_code="semantic_result_store_unavailable",
+                    ),
+                    None,
                 )
             if winner is None:
+                try:
+                    recovered_claim = await self._results.claim(
+                        idempotency_key,
+                        request_digest,
+                    )
+                except SemanticTurnRejectedError:
+                    raise
+                except Exception:  # noqa: BLE001 - persistence detail must not cross the wire
+                    return (
+                        self._held_projection(
+                            envelope,
+                            request,
+                            request_digest=request_digest,
+                            reason_code="semantic_result_store_unavailable",
+                        ),
+                        None,
+                    )
+                if recovered_claim is not None:
+                    return None, recovered_claim
                 delay = min(delay * 2, 0.25)
                 continue
             try:
-                return _canonical_projection(winner, request_digest=request_digest)
+                return _canonical_projection(winner, request_digest=request_digest), None
             except SemanticTurnRejectedError:
                 raise
             except Exception:  # noqa: BLE001 - corrupt persistence fails closed
-                return self._held_projection(
-                    envelope,
-                    request,
-                    request_digest=request_digest,
-                    reason_code="semantic_result_store_unavailable",
+                return (
+                    self._held_projection(
+                        envelope,
+                        request,
+                        request_digest=request_digest,
+                        reason_code="semantic_result_store_unavailable",
+                    ),
+                    None,
                 )
 
     async def _execute(
@@ -501,7 +575,13 @@ class SemanticTurnProcessor:
             if pending:
                 await asyncio.gather(*pending, return_exceptions=True)
             runtime_result = runtime_task.result()
-            return _project_runtime_result(request, runtime_result)
+            result, extensions = _project_runtime_result(request, runtime_result)
+            return await self._bind_operational_evidence(
+                request=request,
+                runtime_result=runtime_result,
+                result=result,
+                extensions=extensions,
+            )
         except asyncio.CancelledError:
             runtime_cancelled.set()
             runtime_task.cancel()
@@ -514,6 +594,63 @@ class SemanticTurnProcessor:
             if cancellation_task is not None and not cancellation_task.done():
                 cancellation_task.cancel()
                 await asyncio.gather(cancellation_task, return_exceptions=True)
+
+    async def _bind_operational_evidence(
+        self,
+        *,
+        request: SemanticTurnRequest,
+        runtime_result: RuntimeSemanticTurnResult,
+        result: ContractSemanticTurnResult,
+        extensions: _SemanticProjectionExtensions | None,
+    ) -> tuple[ContractSemanticTurnResult, _SemanticProjectionExtensions | None]:
+        reader = self._operational_evidence
+        binding = request.bound_context
+        if (
+            reader is None
+            or result.disposition is not SemanticTurnDisposition.ANSWERED
+            or binding is None
+            or binding.kind not in {"screen", "resource_group"}
+        ):
+            return result, extensions
+        plan = runtime_result.planning.plan
+        if (
+            plan is None
+            or binding.principal_id != request.principal.subject_id
+            or binding.principal_scope_digest is None
+            or binding.ontology_release_digest != plan.ontology_release_digest
+            or not binding.resource_ids
+        ):
+            return (
+                _terminal_result(request, "held", "operational_evidence_unavailable"),
+                None,
+            )
+        try:
+            projected = await reader.read(
+                principal_ref=request.principal.subject_id,
+                principal_scope_digest=binding.principal_scope_digest,
+                purpose=request.purpose,
+                ontology_release_digest=plan.ontology_release_digest,
+                catalog_revision=plan.semantic_catalog_digest,
+                scope=binding.resource_ids,
+                cutoff=_aware_utc(self._now(), field="operational evidence cutoff"),
+            )
+            evidence = OperationalEvidenceProjection.model_validate(projected)
+        except (ValueError, RuntimeError):
+            _LOGGER.warning(
+                "semantic_operational_evidence_unavailable",
+                extra={
+                    "reason_code": "operational_evidence_unavailable",
+                    "turn_id": request.turn_id,
+                },
+            )
+            return (
+                _terminal_result(request, "held", "operational_evidence_unavailable"),
+                None,
+            )
+        return result, _merge_projection_extensions(
+            extensions,
+            _SemanticProjectionExtensions(operational_evidence=evidence),
+        )
 
     def _projection(
         self,
@@ -564,6 +701,10 @@ class SemanticTurnProcessor:
                 payload["investigation_continuation"] = (
                     extensions.investigation_continuation.model_dump(mode="json")
                 )
+            if extensions.operational_evidence is not None:
+                payload["operational_evidence"] = extensions.operational_evidence.model_dump(
+                    mode="json"
+                )
         projection = {
             "schema_version": "1.4.0",
             "projection_id": projection_id,
@@ -576,6 +717,17 @@ class SemanticTurnProcessor:
             "evidence_digest": evidence_digest,
             "semantic_result": semantic_result,
         }
+        if extensions is not None and extensions.operational_evidence is not None:
+            encoded_size = len(
+                json.dumps(
+                    projection,
+                    allow_nan=False,
+                    separators=(",", ":"),
+                    sort_keys=True,
+                ).encode("utf-8")
+            )
+            if encoded_size > MAX_WIRE_BYTES:
+                raise _OperationalEvidenceWireBudgetExceededError
         return OPERATOR_PROJECTION_PRODUCER_V14.encode(projection)
 
     async def _pantheon_assurance_projection(
@@ -1319,6 +1471,11 @@ def _merge_projection_extensions(
             first.investigation_continuation
             if first.investigation_continuation is not None
             else second.investigation_continuation
+        ),
+        operational_evidence=(
+            first.operational_evidence
+            if first.operational_evidence is not None
+            else second.operational_evidence
         ),
     )
 

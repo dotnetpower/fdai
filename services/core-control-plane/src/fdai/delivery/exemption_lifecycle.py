@@ -25,16 +25,26 @@ tracked file is updated.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Protocol
+from uuid import NAMESPACE_URL, uuid5
 
 from fdai.rule_catalog.schema.exemption import Exemption
 from fdai.rule_catalog.schema.exemption_lifecycle import (
+    ExemptionAssignmentBinding,
+    ExemptionExpiryCommand,
+    ExemptionExpiryDigest,
+    ExemptionExpiryDigestItem,
     ExemptionLifecycleAction,
     ExemptionLifecycleDecision,
+    build_exemption_expiry_command,
+    exemption_revision,
     plan_exemption_lifecycle,
 )
+from fdai.shared.contracts.models import Event
+from fdai.shared.providers.event_bus import EventBus, PublishReceipt
 from fdai.shared.providers.exemption_lifecycle import ExemptionLifecycleNotifier
 from fdai.shared.providers.state_store import StateStore
 
@@ -48,6 +58,58 @@ class ExemptionLifecycleRunResult:
     evaluated: int
     alerted: int
     expired_due: int
+    commands_published: int = 0
+    commands_held: int = 0
+
+
+class ExemptionExpiryCommandPublisher(Protocol):
+    """Publish one expiry proposal into the normal typed action pipeline."""
+
+    async def publish(self, command: ExemptionExpiryCommand) -> PublishReceipt: ...
+
+
+class EventBusExemptionExpiryCommandPublisher:
+    """EventBus adapter that attributes a scheduled proposal without impersonating an operator."""
+
+    def __init__(self, *, event_bus: EventBus, topic: str) -> None:
+        if not topic.strip():
+            raise ValueError("expiry command topic MUST be non-empty")
+        self._event_bus = event_bus
+        self._topic = topic
+
+    async def publish(self, command: ExemptionExpiryCommand) -> PublishReceipt:
+        event_id = str(uuid5(NAMESPACE_URL, f"fdai.exemption-expiry://{command.idempotency_key}"))
+        event = Event.model_validate(
+            {
+                "schema_version": "1.0.0",
+                "event_id": event_id,
+                "idempotency_key": command.idempotency_key,
+                "correlation_id": f"exemption-expiry:{command.exemption_id}",
+                "source": "scheduler",
+                "event_type": "operator_request",
+                "resource_ref": command.scope_ref,
+                "payload": {
+                    "operator_request": {
+                        "initiator_principal": "ExemptionLifecycleCoordinator",
+                        "action_type": "governance.reapply-rule-assignment",
+                        "params": command.action_params(),
+                    },
+                    "scheduled_task": {
+                        "command_schema_version": command.schema_version,
+                        "issued_at": command.issued_at.isoformat(),
+                        "grants_authority": False,
+                    },
+                },
+                "detected_at": command.issued_at.isoformat(),
+                "ingested_at": command.issued_at.isoformat(),
+                "mode": "shadow",
+            }
+        )
+        return await self._event_bus.publish(
+            self._topic,
+            command.assignment_id,
+            event.model_dump(mode="json"),
+        )
 
 
 def _audit_entry(decision: ExemptionLifecycleDecision, *, kind: str) -> dict[str, object]:
@@ -85,6 +147,8 @@ class ExemptionLifecycleCoordinator:
         notifier: ExemptionLifecycleNotifier,
         audit_store: StateStore,
         alert_lead_days: int,
+        assignment_bindings: Mapping[str, ExemptionAssignmentBinding] | None = None,
+        command_publisher: ExemptionExpiryCommandPublisher | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._exemptions = tuple(exemptions)
@@ -92,6 +156,8 @@ class ExemptionLifecycleCoordinator:
         self._notifier = notifier
         self._audit_store = audit_store
         self._alert_lead = timedelta(days=alert_lead_days)
+        self._assignment_bindings = dict(assignment_bindings or {})
+        self._command_publisher = command_publisher
         self._clock = clock or (lambda: datetime.now(tz=UTC))
 
     async def run_once(self, *, now: datetime | None = None) -> ExemptionLifecycleRunResult:
@@ -103,34 +169,15 @@ class ExemptionLifecycleCoordinator:
         )
         alerted = 0
         expired_due = 0
+        published = 0
+        held = 0
+        alert_attempts: list[tuple[str, int, ExemptionLifecycleDecision]] = []
         for decision in decisions:
             if decision.action is ExemptionLifecycleAction.ALERT_AHEAD_OF_EXPIRY:
                 attempt = await self._claim_alert_attempt(decision, moment=moment)
                 if attempt is not None:
                     key, revision = attempt
-                    try:
-                        await self._notifier.notify_ahead_of_expiry(
-                            exemption=self._by_id[decision.exemption_id],
-                            decision=decision,
-                        )
-                    except Exception as exc:  # noqa: BLE001 - audit and retain retry state
-                        await self._complete_alert_attempt(
-                            key,
-                            decision,
-                            revision=revision,
-                            status="failed",
-                            moment=moment,
-                            error_kind=type(exc).__name__,
-                        )
-                        raise
-                    await self._complete_alert_attempt(
-                        key,
-                        decision,
-                        revision=revision,
-                        status="delivered",
-                        moment=moment,
-                    )
-                    alerted += 1
+                    alert_attempts.append((key, revision, decision))
             else:
                 claimed = await self._audit_store.write_state_with_audit_if_absent(
                     f"{_STATE_KEY_PREFIX}expiry-due:{decision.exemption_id}",
@@ -142,11 +189,117 @@ class ExemptionLifecycleCoordinator:
                 )
                 if claimed:
                     expired_due += 1
+                disposition = await self._publish_expiry_command(decision, moment=moment)
+                published += disposition == "published"
+                held += disposition == "held"
+        if alert_attempts:
+            digest = ExemptionExpiryDigest(
+                schema_version="1.0.0",
+                generated_at=moment,
+                items=tuple(
+                    ExemptionExpiryDigestItem(
+                        exemption_id=decision.exemption_id,
+                        exemption_revision=exemption_revision(self._by_id[decision.exemption_id]),
+                        rule_id=decision.rule_id,
+                        requested_by=str(self._by_id[decision.exemption_id].requested_by),
+                        expires_at=decision.expires_at,
+                    )
+                    for _, _, decision in alert_attempts
+                ),
+            )
+            try:
+                await self._notifier.notify_expiry_digest(digest=digest)
+            except Exception as exc:  # noqa: BLE001 - audit every item and retain retry state
+                for key, revision, decision in alert_attempts:
+                    await self._complete_alert_attempt(
+                        key,
+                        decision,
+                        revision=revision,
+                        status="failed",
+                        moment=moment,
+                        error_kind=type(exc).__name__,
+                    )
+                raise
+            for key, revision, decision in alert_attempts:
+                await self._complete_alert_attempt(
+                    key,
+                    decision,
+                    revision=revision,
+                    status="delivered",
+                    moment=moment,
+                )
+            alerted = len(alert_attempts)
         return ExemptionLifecycleRunResult(
             evaluated=len(decisions),
             alerted=alerted,
             expired_due=expired_due,
+            commands_published=published,
+            commands_held=held,
         )
+
+    async def _publish_expiry_command(
+        self,
+        decision: ExemptionLifecycleDecision,
+        *,
+        moment: datetime,
+    ) -> str:
+        binding = self._assignment_bindings.get(decision.exemption_id)
+        if binding is None or self._command_publisher is None:
+            reason = (
+                "assignment_binding_unavailable"
+                if binding is None
+                else "command_publisher_unavailable"
+            )
+            await self._audit_store.write_state_with_audit_if_absent(
+                f"{_STATE_KEY_PREFIX}expiry-held:{decision.exemption_id}:{reason}",
+                {"exemption_id": decision.exemption_id, "reason": reason},
+                {
+                    **_audit_entry(decision, kind="governance.exemption_expiry_held"),
+                    "reason": reason,
+                },
+            )
+            return "held"
+
+        command = build_exemption_expiry_command(
+            self._by_id[decision.exemption_id],
+            binding,
+            issued_at=moment,
+        )
+        key = f"{_STATE_KEY_PREFIX}expiry-command:{command.idempotency_key}"
+        if await self._audit_store.read_state(key) is not None:
+            return "duplicate"
+        try:
+            receipt = await self._command_publisher.publish(command)
+        except Exception as exc:  # noqa: BLE001 - unknown delivery is audited and retried by key
+            await self._audit_store.append_audit_entry(
+                {
+                    **_audit_entry(decision, kind="governance.exemption_expiry_publish_failed"),
+                    "command_idempotency_key": command.idempotency_key,
+                    "error_kind": type(exc).__name__,
+                    "outcome": "held_unknown_delivery",
+                }
+            )
+            raise
+        claimed = await self._audit_store.write_state_with_audit_if_absent(
+            key,
+            {
+                "exemption_id": command.exemption_id,
+                "command_idempotency_key": command.idempotency_key,
+                "topic": receipt.topic,
+                "partition": receipt.partition,
+                "offset": receipt.offset,
+                "outcome": "broker_accepted_not_executed",
+            },
+            {
+                **_audit_entry(decision, kind="governance.exemption_expiry_command_published"),
+                "command_idempotency_key": command.idempotency_key,
+                "assignment_id": command.assignment_id,
+                "active_exemption_revision": command.active_exemption_revision,
+                "expired_exemption_revision": command.expired_exemption_revision,
+                "outcome": "broker_accepted_not_executed",
+            },
+        )
+        return "published" if claimed else "duplicate"
 
     async def _claim_alert_attempt(
         self,
@@ -225,4 +378,9 @@ class ExemptionLifecycleCoordinator:
             raise RuntimeError("exemption alert attempt lost its revision")
 
 
-__all__ = ["ExemptionLifecycleCoordinator", "ExemptionLifecycleRunResult"]
+__all__ = [
+    "EventBusExemptionExpiryCommandPublisher",
+    "ExemptionExpiryCommandPublisher",
+    "ExemptionLifecycleCoordinator",
+    "ExemptionLifecycleRunResult",
+]

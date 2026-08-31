@@ -6,10 +6,11 @@ import logging
 from datetime import UTC, datetime
 
 import pytest
-from fdai.rule_catalog.schema.exemption import load_exemption_from_mapping
+from fdai.rule_catalog.schema.exemption import Exemption, load_exemption_from_mapping
 from fdai.rule_catalog.schema.exemption_lifecycle import (
-    ExemptionLifecycleAction,
-    ExemptionLifecycleDecision,
+    ExemptionExpiryDigest,
+    ExemptionExpiryDigestItem,
+    exemption_revision,
 )
 from fdai.shared.providers.exemption_lifecycle import (
     ExemptionLifecycleNotifier,
@@ -17,7 +18,7 @@ from fdai.shared.providers.exemption_lifecycle import (
 )
 
 
-def _exemption() -> object:
+def _exemption() -> Exemption:
     return load_exemption_from_mapping(
         {
             "schema_version": "1.0.0",
@@ -44,16 +45,22 @@ def test_logging_notifier_satisfies_the_protocol() -> None:
 @pytest.mark.asyncio
 async def test_logging_notifier_logs_without_raising(caplog: pytest.LogCaptureFixture) -> None:
     exemption = _exemption()
-    decision = ExemptionLifecycleDecision(
-        exemption_id=exemption.id,  # type: ignore[attr-defined]
-        rule_id=exemption.rule_id,  # type: ignore[attr-defined]
-        action=ExemptionLifecycleAction.ALERT_AHEAD_OF_EXPIRY,
-        expires_at=datetime(2026, 8, 25, tzinfo=UTC),
-        at=datetime(2026, 8, 20, tzinfo=UTC),
+    digest = ExemptionExpiryDigest(
+        schema_version="1.0.0",
+        generated_at=datetime(2026, 8, 20, tzinfo=UTC),
+        items=(
+            ExemptionExpiryDigestItem(
+                exemption_id=exemption.id,
+                exemption_revision=exemption_revision(exemption),
+                rule_id=exemption.rule_id,
+                requested_by=str(exemption.requested_by),
+                expires_at=exemption.expires_at,
+            ),
+        ),
     )
     notifier = LoggingExemptionLifecycleNotifier()
 
     with caplog.at_level(logging.WARNING, logger="fdai.governance.exemption_lifecycle"):
-        await notifier.notify_ahead_of_expiry(exemption=exemption, decision=decision)  # type: ignore[arg-type]
+        await notifier.notify_expiry_digest(digest=digest)
 
-    assert any("exemption_ahead_of_expiry" in record.message for record in caplog.records)
+    assert any("exemption_expiry_lookahead_digest" in record.message for record in caplog.records)

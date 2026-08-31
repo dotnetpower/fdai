@@ -223,6 +223,28 @@ def test_invalid_control_step_contract_fails(step: dict[str, object]) -> None:
         )
 
 
+def test_self_approval_cannot_be_disabled_by_catalog_data() -> None:
+    raw = _base_mapping()
+    raw["steps"] = [
+        {
+            "id": "approve",
+            "kind": "approval",
+            "approval_role": "approver",
+            "timeout_seconds": 60,
+            "quorum": 1,
+            "no_self_approval": False,
+        }
+    ]
+    with pytest.raises(WorkflowCatalogError) as info:
+        load_workflow_from_mapping(
+            raw,
+            schema_registry=_registry(),
+            action_type_names={"remediate.tag-add"},
+        )
+    joined = " ".join(issue.message for issue in info.value.issues)
+    assert "no_self_approval" in joined
+
+
 def test_shipped_workflows_compile_to_runbooks() -> None:
     catalog = load_workflow_catalog(
         WORKFLOWS_ROOT,

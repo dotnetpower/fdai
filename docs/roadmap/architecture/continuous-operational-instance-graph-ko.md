@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 9af1a037f5e82ba508c1f5f53dd2f6a48052331a
-translation_revised: 2026-08-31
+translation_source_sha: 48dd5c36f6df96d8683db4fcc48e4be76953c148
+translation_revised: 2026-09-01
 ---
 # 지속형 운영 인스턴스 그래프
 
@@ -225,9 +225,9 @@ binding을
 | 완전한 inventory promotion과 ontology 변환 결과 | implemented | `delivery/inventory_sync.py`, `runtime/inventory_ontology.py`, 집중 inventory 및 변환 결과 테스트 | 완전 세대가 소유된 하위 그래프를 원자적으로 대체합니다. 기존 정기 cadence는 목표 지속형 정책이 아닙니다. |
 | 관계 세대 수렴 | implemented | `arm_inventory.py`, `postgres_inventory_snapshot.py`, `inventory_projection.py`, `inventory_ontology.py`, PostgreSQL source coverage, Operator/Console evidence projection, 집중 회귀 검사 | 검토된 parent가 일반 fallback을 shadow하고 snapshot과 ontology cardinality gate가 일치합니다. 분류된 non-edge는 complete coverage를 주장하지 않고 exact generation을 전진시키며 graph receipt는 generation, freshness, verification level, zero-result limitation을 보존합니다. |
 | Kubernetes 워크로드 관측 | validated | `kubernetes_api_inventory.py`, Kubernetes 실제 및 영속 Event reader, rollout, Pod 복구 및 Pod 진단 FunctionType, lifecycle collector와 PostgreSQL store, 집중 인벤토리, Event, migration, 영속성, 플래너, 증적, 조립 및 런타임 검사, 인증된 Event API와 영속 cursor 증적 | UID에 근거한 세대는 허용 목록에 있는 rollout 상태를 보존합니다. `query.resource_event_history`는 불변 `uid`와 `cluster_ref`로 정확한 child 하나를 좁힐 수 있습니다. Lease 기반 bookmark watch는 `resourceVersion`을 불투명 값으로 취급하고 로컬 단조 cursor 진행과 타입 지정 관측을 원자적으로 append하며 expiry, authorization, source, retention 및 result-limit gap을 보고합니다. `query.kubernetes_pod_diagnosis`는 실제 로그 프로바이더가 연결된 경우에만 정확한 UID 하나를 범위가 제한된 수명 주기 및 로그 본문을 보존하지 않는 근거와 결합합니다. 내용 다이제스트, 개수, 시각, 출처 신원 및 명시적인 공백을 보존하고 인과 및 실행 권한을 false로 고정하며, 로그 행이 0개이면 `zero_records_unverified`로 유지합니다. 원시 Event message, 로그 본문, provider payload 및 ontology 쓰기는 제외합니다. 격리 validation database는 병합된 Core migration head에 도달했고 연속 실제 cycle 5개가 sequence 0에서 5까지 전진하며 약 60초의 완전한 coverage를 보존했습니다. 60초 zero-row 영속 읽기는 해당 구간을 관측한 뒤에만 complete였습니다. 이 로컬 증적은 배포 보존이나 Pod 원인 및 복구를 주장하지 않습니다. |
-| 불변 Pod 교체 상관 분석 | in-progress | `kubernetes_pod_replacement_evidence.py`, 검증된 lifecycle 보존, 집중 교체 축약기 테스트 | 결정론적 축약기는 클러스터, 네임스페이스 및 루트 컨트롤러 UID를 통해 정확히 한 후보만 허용하며, 복구 시 최신 Deployment UID가 해당 루트 컨트롤러와 일치해야 합니다. 영속 lifecycle 수집은 이름 상관 분석이나 실행 권한 없이 필요한 UID 및 종료 근거를 제공합니다. 보존된 이전 및 새 UID 근거를 최신 Deployment 복구와 결합하는 인증된 실제 delete/recreate 시나리오는 완료된 retention 범위 밖의 [이슈 #291](https://github.com/dotnetpower/fdai/issues/291)에 남아 있습니다. |
+| 불변 Pod 교체 상관 분석 | in-progress | `kubernetes_pod_replacement_evidence.py`, 검증된 수명 주기 보존, 집중 교체 축약기 및 분석기 경로 테스트 | 결정론적 축약기는 클러스터, 네임스페이스 및 루트 컨트롤러 UID를 통해 정확히 한 후보만 허용하며, 복구 시 최신 Deployment UID가 해당 루트 컨트롤러와 일치해야 합니다. 범위가 제한된 분석기 경로 시나리오는 이제 같은 UID의 컨테이너 재시작과 서로 다른 UID의 Pod 교체를 구분하고 감지 지연 시간, 근거 완전성, 브로커 게시 및 복구 완료를 하나의 발견 사항 증적으로 결합합니다. 영속 수명 주기 수집은 이름 상관 분석이나 실행 권한 없이 필요한 UID 및 종료 근거를 제공합니다. 인증된 실제 삭제 및 재생성 시나리오는 이슈 #295의 범위 밖인 [이슈 #291](https://github.com/dotnetpower/fdai/issues/291)에 남아 있습니다. |
 | Bitemporal topology 이력 | implemented | `core/ontology_platform/topology_history.py`, PostgreSQL topology 이력 adapter와 집중 테스트 | 현재 production 보존, rollup, archive, 복원 근거는 열려 있습니다. |
-| 적응형 지속 일정 관리 | implemented | `inventory_source_policy.py`, `inventory_scheduler.py`, PostgreSQL reconciliation 상태, collection health, analyzer tick CLI와 로컬 VS Code 작업 및 집중 collection 검사 | Source policy와 결정론적 일정 관리가 구현됐습니다. 배포 Container Apps Job과 로컬 백그라운드 작업은 같은 one-shot analyzer 로직을 직렬로 실행합니다. 준비 상태는 일정 관리, 대상 검색, 메트릭 접근, 이벤트 게시 및 설정된 Log Analytics와 Prometheus 지연 바닥을 분리합니다. 배포 운영 측정은 별도의 검증 근거로 남습니다. |
+| 적응형 지속 일정 관리 | implemented | `inventory_source_policy.py`, `inventory_scheduler.py`, PostgreSQL 조정 상태, 수집 상태, 분석기 틱 CLI와 로컬 VS Code 작업, 영속 게시 원장 및 집중 수집 검사 | 출처 정책과 결정론적 일정 관리가 구현됐습니다. 배포된 Container Apps Job과 로컬 백그라운드 작업은 같은 one-shot 분석기 논리와 게시 전 PostgreSQL 청구를 사용합니다. 완료된 브로커 증적은 프로세스가 다시 시작되어도 같은 구간의 발견 사항이 다시 게시되지 않도록 억제합니다. 활성 청구가 있으면 틱이 실패하고 오래된 청구는 범위가 제한된 임대 기간 뒤 다시 획득할 수 있으며 게시 실패 시 토큰 소유 청구를 해제합니다. 준비 상태는 일정 관리, 대상 검색, 메트릭 접근, 이벤트 게시 및 구성된 Log Analytics와 Prometheus 지연 시간 하한을 분리합니다. 배포 운영 측정은 별도 검증 근거로 남습니다. |
 | 타입 지정 rollup과 archive lifecycle | implemented | `semantic_rollup*.py`, `archive_*.py`, `inventory_rollup.py`, PostgreSQL archive adapter, Core service migration, focused integration 검사 | Rollup과 archive 계약은 구현되고 로컬에서 검증됐습니다. Azure archive store 또는 배포 purge는 호출하지 않았습니다. |
 | 그래프 우선 조건부 실시간 보강 | implemented | `graph_evidence_refresh.py`, `graph_query_refresh.py`, `inventory_live_evidence.py`, runtime 의미 조립, 부분 overlay 영속성, 집중 테스트 | Exact-target 현재 상태 조립은 action authority 없이 graph-first 평가, bounded live read 1회, canonical write-through, 재조회 및 fail-closed hold를 종단으로 연결합니다. 최신성을 요구하는 Resource 결과는 반환된 모든 Resource가 완전한 state-fact metadata를 가질 때만 complete입니다. |
 | 운영 인스턴스 semantic 정확성 | implemented | `operational_instance_competency.py`, 집중 이중 언어 action-draft routing 검사, 타입 지정 no-authority 증적 | 대표 typed competency와 OI-11 이중 언어 positive 및 negative 분류 검사가 답변 text 또는 keyword routing 없이 통과합니다. 전체 corpus 및 예약 검증은 [지속형 의미 보증](../interfaces/continuous-semantic-assurance-ko.md)이 소유합니다. |
@@ -241,6 +241,7 @@ binding을
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-31 | implemented | 이슈 #295의 결정론적 분석기 동등성 경계를 완료했습니다. 분석기 이벤트 ID와 구간 키는 안정적이며, 토큰 소유 PostgreSQL 청구는 완료된 브로커 증적이 있는 발견 사항만 억제합니다. 활성 청구가 있으면 안전하게 실패하고 오래된 청구를 다시 획득할 수 있으며 게시 실패 시 청구를 해제합니다. 범위가 제한된 분석기 경로 시나리오는 같은 UID의 재시작과 서로 다른 UID의 교체를 구분하고 감지 지연 시간, 근거 완전성, 게시 및 복구 완료를 하나의 증적으로 만듭니다. | `current change`, 분석기 실행기, CLI, PostgreSQL 게시 원장, Pod 교체 분석기 경로 시나리오 및 집중 검사 85개 통과, Ruff 통과 | 배포 런타임 또는 Azure 증적을 만들지 않았습니다. 보호된 배포 인증은 이슈 #295 외부에 남아 있습니다. |
 | 2026-08-28 | implemented | `graph_at`의 bitemporal 토폴로지 재생 완전성과 다이제스트 무결성을 강화했습니다. 선택된 모든 리비전 묶음에 비어 있지 않은 출처 증적 다이제스트가 있어야 완전하며, 재생 다이제스트는 응답이 반환하는 것과 동일하게 정규화하고 중복을 제거한 출처 증적 다이제스트 튜플을 해시합니다. | `current change`; `core/ontology_platform/topology_history.py`; 되돌린 수정으로 이전 다이제스트와 필드 불일치를 재현한 회귀를 포함한 집중 토폴로지 이력 검사 8개 통과. | 배포 재생 근거는 별도로 보존합니다. 현재 프로덕션 작성자는 각 묶음에 출처 증적 다이제스트를 설정합니다. |
 | 2026-08-28 | implemented | 로그 provider I/O 전에 정확 Pod 진단을 강화했습니다. 종료 근거는 요청된 lookback 안에 있어야 하고 라이프사이클 행은 정확한 Pod UID와 일치해야 하며 projected 상태는 출처가 있고 신선하며 완전하고 충돌과 synthetic 값이 없어야 합니다. 동일 UID 재시작 판정은 불변 UID가 대체한 과거 소유권 근거를 요구하지 않습니다. | `current change`; 집중 Pod 진단 및 교체 검사 27개, Ruff 및 strict mypy 통과. | 인증된 정확 대상 진단 근거를 별도로 보존합니다. |
 | 2026-08-27 | implemented | 양방향 `runtime_calls` 관측을 방향 edge 두 개로 보존했습니다. 서비스 간 상호 호출은 더 이상 방향 충돌로 전체 토폴로지 기준선을 억제하지 않습니다. | `current change`; 집중 인벤토리 변환 및 토폴로지 이력 검사 29개 통과; Ruff 및 strict mypy. | 인증된 런타임 호출 근거는 별도로 보존합니다. 출처 관측을 만들지 않았습니다. |
@@ -357,6 +358,9 @@ provider-type coverage와 deployed evidence 보존이며 authority를 넓히거�
 - [x] 표준 로컬 프로필에 `analyzer: run continuously (local)`을 제공합니다. 배포 one-shot
   analyzer CLI, 로컬 런타임 환경, 인벤토리 대상 검색, 메트릭 매핑, 멱등성 키, 이벤트 계약 및
   shadow 상태를 재사용하며 analyzer 로직을 중복하지 않습니다.
+- [x] 재시작 후에도 유지되는 완료된 브로커 증적을 사용해 같은 구간의 분석기 게시 반복을
+  억제하고, 감지 지연 시간, 근거 완전성, 게시 및 복구 완료를 결합하는 결정론적 같은 UID
+  재시작 및 서로 다른 UID 교체 증적을 보존합니다.
 - [ ] [타입이 지정된 재개 가능 Kubernetes 수명 주기 수집](https://github.com/dotnetpower/fdai/issues/292)을 완료하고 보존된 이전/신규 UID 및 종료 관측을 교체 축약기에 연결한 뒤 인증된 정확한 대상 교체 및 새 기준 시점 복구 증적을 보존합니다.
 - [x] 저장된 mapping별 모든 relationship candidate를 해결하거나 검토된 unavailable 상태로
   분류합니다. 최종 세대에는 classification 9개와 candidate 66개가 있습니다.

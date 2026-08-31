@@ -24,6 +24,7 @@ from fdai.runtime.discovery_activation import DiscoveryActivationRuntime
 from fdai.runtime.readiness import StartupReadinessRuntime
 from fdai.runtime.rule_generation_documents import RuleGenerationReconciliation
 from fdai.shared.providers.event_bus import EventBus
+from fdai.shared.providers.hil_registry import HilWorkflowDecisionRegistry
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,6 +58,12 @@ class RuntimeTaskConfiguration:
     read_investigation_binding: Any = None
     operational_readiness_handler: OperationalReadinessEventHandler | None = None
     diagnostic_event_ingest_bridge: Any = None
+    hil_workflow_registry: HilWorkflowDecisionRegistry | None = None
+    """Authoritative quorum owner for ``decision_route=workflow`` parks.
+
+    Bound by runtime composition so the decision consumer can route a workflow
+    approval slot without Core importing a delivery implementation.
+    """
 
 
 @dataclass(frozen=True, slots=True)
@@ -234,6 +241,7 @@ async def run_runtime_tasks(
                     ),
                     coordinator=hil_coordinator,
                     stop=config.stop,
+                    workflow_registry=config.hil_workflow_registry,
                 ),
             ),
             name="hil-decision-consumer",

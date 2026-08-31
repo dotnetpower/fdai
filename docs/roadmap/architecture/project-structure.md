@@ -8,6 +8,46 @@ The system is a **headless control plane + thin console + ChatOps**, not one web
 ## Design at a glance
 
 The physical five-service workspace is owned by [Multi-Service Repository Layout](multi-service-repository-layout.md). This document owns dependency direction, structural gates, extension seams, control-loop wiring, configuration, and repository conventions.
+The private composition type module stays below its enforced size ceiling so new bindings remain
+reviewable and move to focused wire modules before the shared container becomes a second root.
+Case-history review requires both failure and matched control evidence before it can propose an
+inert learning candidate.
+A Workflow approval step cannot lower the no-self-approval invariant; the contract rejects a
+disabled value at catalog load.
+DR objective evidence reports a nearest-rank p90, so a small cohort keeps its slowest measured
+run instead of reporting an objective as met.
+A parked HIL record without a recorded action digest fails the integrity gate instead of
+resuming, so removing the digest cannot authorize a tampered payload.
+The quality gate refuses duplicate cross-check models, so one model cannot agree with itself
+and satisfy the mixed-model quorum.
+An effective freeze or quiet ChangeWindow with unusable bounds denies maintenance authority
+instead of being skipped.
+A change event stamped further ahead than the configured clock-skew tolerance reports
+out-of-band instead of being suppressed by the settling window. Tolerated negative age never
+creates suppression when the configured settling window is zero.
+A missed breach is scored only from complete telemetry, so a false-negative outcome never
+publishes a completeness claim its observation did not make.
+Forecast closure attempts every claimed episode before re-raising the first failure, so one
+failing episode cannot hold the whole due queue open.
+T1 contextual reuse reads the event resource type through the same canonical shapes as the
+trust router, so an accepted event is not reported as a changed resource type.
+
+## Core domain navigation decision
+
+**Initial design.** Physically move every flat Core subsystem under `pipeline`, `incident`,
+`operator`, `knowledge`, or `platform`, then rewrite every import in one codemod.
+
+**Critique.** The current repository has 1,063 files that import the affected subsystem paths.
+The move would also change the safety-core coverage source list and collapse the fan-out gate from
+subsystem names to domain names. `incident` and `knowledge` already serve both subsystem and facade
+roles, and `ontology_explorer.py` is a file while the other members are packages. Treating this as
+a moves-only change would hide material test, coverage, and gate semantics inside a mass diff.
+
+**Revised design.** The five domain facades are the permanent G-1 layout. They provide grouped
+navigation while physical subsystems and direct imports remain stable. The 98 focused layout checks
+pin domain membership, single ownership, dual-role packages, direct-import compatibility, and peer
+isolation. `verticals` remains its own top-level group. A future physical move is not required and
+would need a separate, domain-bounded design that explicitly preserves coverage and fan-out meaning.
 
 ## Module Boundaries
 
@@ -24,6 +64,11 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   Focused sibling modules may own canonical identity projection and hashing while the established
   owner module re-exports that public surface; the split must preserve serialized bytes and replay
   semantics.
+- **human approval stays split by service authority**: Operator owns Teams/Slack authentication,
+  cryptographic verification, callback audit, and the durable decision outbox. Core consumes only
+  the typed decision event, routes workflow slots to the registry, and sends action parks to the
+  HIL coordinator. The Operator package depends on `cryptography` for local JWT/JWK verification
+  but never imports Core implementation or receives executor identity.
 - **observation-mode ARB composition**: `core/architecture_review/observation_loop.py` owns the
   provider-neutral Change -> authenticated context -> evidence bundle -> scenario -> DecisionCase
   and ImpactEnvelope composition. Forseti is the only publisher of its observation verdict on the
@@ -412,7 +457,10 @@ clean (see the fork model in
   retirement and exemption writers to the existing write-once PR adapter and persists a
   replayable open-to-merge or terminal receipt. The retirement loader projects merged
   retirement artifacts out of the active rule index, while exemptions use the canonical JSON
-  schema. `LiveBlastProbeAdapter` binds deployment-supplied `BlastSignalSource` and
+  schema. The exemption lifecycle coordinator uses the existing `EventBus` seam to publish one
+  exact-revision, exact-assignment `governance.reapply-rule-assignment` proposal. Missing bindings
+  hold, and broker acceptance remains non-terminal evidence. `LiveBlastProbeAdapter` binds
+  deployment-supplied `BlastSignalSource` and
   `ProbeFailureStreakSource` implementations; missing or failed sources lower Axis E and never
   grant authority. Runtime assembly passes retired-rule projections to every downstream rule
   map and binds the durable promotion-attestation store before the HIL/direct route.
@@ -422,6 +470,23 @@ clean (see the fork model in
   `StateStoreExecutedActionObservationStore` accepts only Heimdall-attributed observations whose
   signed context passes the configured verifier on write and replay. Missing evidence remains held.
 - **Azure operational evidence**: `bind_azure_operational_evidence` composes a strict promoted-inventory snapshot reader, current safety evaluator, configured Azure metrics, bounded branch estimator, and effect-model reader. Temporal adapters reject non-finite metric values before evidence hashing. Partial binding fails at container construction.
+- **Dashboard availability projection**: `shared/telemetry/dashboard_status.py` consumes normalized
+  metric observations after provider and domain reducers have produced them. It performs no provider
+  I/O and grants no authority. The Phase 0 descriptor names the expected producer and freshness
+  window for source-bound panels; missing, stale, conflicting, mismatched, future-dated, or synthetic
+  live observations render unavailable with no numeric fallback.
+- **Change Safety pre-authority evidence**: `core/control_loop/change_safety_evidence.py` accepts one
+  injected provider through `Container.change_safety_evidence_provider`; the Activity Log detector
+  is independently injected through `Container.change_safety_detector`. For out-of-band findings,
+  the control loop joins exact drift and what-if records after Action construction and before
+  execution authorization and risk. Missing or invalid evidence holds without suppressing the
+  finding. The provider can only populate the observed blast count; it cannot grant authority or
+  satisfy independent post-action verification.
+- **Principal-scoped operational evidence**: `OperationalEvidenceSource` and
+  `OperationalEvidencePrincipalContextProvider` bind as one pair. Core admits the bounded bundle and
+  receipt-verified Context metadata before the existing semantic projection carries it to Operator.
+  A missing pair preserves the existing response, while a partial pair fails at container
+  construction. Neither seam grants mutation or execution authority.
 
 ### Capability Bundles
 
@@ -471,9 +536,11 @@ non-Azure phase registers a new implementation at the composition root without e
 | Delivery adapter | delivery interface | - | `gitops-pr` / `chatops` | a different PR host / chat channel |
 | Risk scoring & thresholds | risk-gate config | - | generic thresholds | customer risk policy |
 | Model provider | model client (per capability) | - | configured default endpoints | customer-approved models |
+| **Assurance Twin semantic compiler** | `NlQueryCompiler` and `AssuranceTwinDiscoverySink` injected through `Container` | - | explicit `semantic_model_unavailable`; discovery handoff reports unavailable | inject a schema-constrained compiler and inert discovery sink while preserving exact input digest, compiler revision, evidence refs, result limit, read-only verification, and no raw-question or mutation authority |
 | **Real-time outbound stream** | `SseSink` (async publish + async-iterator subscribe over an SSE-shaped payload) | - | `InMemorySseSink` (test/dev); HTTP `text/event-stream` adapter lands with the console read-only surface | replace with a WebSocket adapter for a two-way surface; a webhook-only variant for headless observers. `shared/streaming/SseBroadcaster` relays `EventBus` topics into channels. |
 | **Pipeline stage publisher** | `StagePublisher` (in `shared/providers/stage_publisher.py`) with `emit(StageEvent)` | - | `NullStagePublisher` (discards; keeps stage code side-effect-free by default) | in-process dev / single-replica: `SseSinkStagePublisher` fans out directly onto `SseSink`. Multi-replica prod: `EventBusStagePublisher` writes to a Kafka topic (default `fdai.pipeline.stages`) and the existing `SseBroadcaster` relays that topic to the SSE channel every replica consumes. Pipeline stages (`event_ingest`, `trust_router`, T0/T1/T2, `risk_gate`, `executor`, `audit`) accept the Protocol so wiring is fully backward-compatible - the upstream default emits nothing. |
 | **Console read panel** | `ReadPanel` (in `delivery/operator_api/panels.py`) | - | core routes only (`/audit`, `/kpi`, `/hil-queue`); `ExampleFinOpsPanel` ships as reference but is **not** registered, so the upstream UI stays minimal | fork adds vertical dashboards (FinOps cost, drift board, DR-drill history) via `OperatorApiConfig.extra_panels` (each wrapped as a GET-only route, path validated at build) + a matching entry in the console `panels.tsx` registry |
+| **T2 deterministic verifier evidence** | `DeterministicEvidenceVerifier` implementations injected through `Container.t2_deterministic_evidence_verifiers` | - | runtime binds explicit unavailable `what_if` and `security` verifiers, so T2 cannot become eligible without both authoritative producers | inject both the simulation-engine and security-scanner implementations with versioned candidate-bound records; partial binding, stale/conflicting evidence, synthetic live evidence, and unbounded or duplicate evidence metadata remain held |
 | **LLM metering** | `MeteringSink` / `MeteringReader` (in `core/metering/sink.py`); `MeteringEmitter` records measured provider `usage` with an explicit `control_plane` or `operator_chat` scope | - | one shared `InMemoryMeteringSink` in the single-process dev harness. T1, T2, and narrator adapters emit measured tokens; the independent Operator Service retains `GET /kpi/llm-cost`, reads durable `llm_invocation` rows through a SELECT-only role, and caps detail while keeping token-only aggregates exact. Interactive local separately materializes sanitized inventory and Settings projections from prepared authoritative inputs. | configured pricing remains internal to budget controls and isn't projected as provider spend; missing providers remain unavailable rather than synthetic |
 | **Infra module** | `infra/modules/<seam>/` (Terraform sub-module selected by `var.<seam>_kind`) | - | Container Apps + PostgreSQL Flex + Event Hubs Kafka + Key Vault + Log Analytics | pick a different sub-module per [csp-neutrality.md § Approved Alternative Azure Implementations](csp-neutrality.md#approved-alternative-azure-implementations); the module's output contract stays fixed |
 
@@ -555,9 +622,14 @@ operator-request rule only when its rule id, action type, and fixed check refere
   package, and package activation remains independent from user access and action promotion.
 - Service wire contracts live in `packages/service-contracts/src/fdai_service_contracts/`.
   Each versioned JSON Schema under `schemas/<contract-id>/<version>.json` is immutable, so a new
-  field ships as a new additive version that older consumers keep ignoring. `operator-core-request`
-  is at `1.4.0`. Version 1.3 added the server-owned `semantic_turn.bound_context`, and version 1.4
-  adds the bounded `semantic_turn.include_model_trace` opt-in without granting execution authority.
+  field ships as a new additive version that older consumers keep ignoring. A repository-owned,
+  checksum-pinned generator projects every compatibility-manifest N/N-1 schema into Python types
+  for the five backend services and TypeScript types for Console. These files are read-only
+  development views; runtime validation continues to use the canonical JSON Schema.
+  `operator-core-request` is at `1.5.0`. Version 1.3 added the server-owned
+  `semantic_turn.bound_context`, version 1.4 added the bounded
+  `semantic_turn.include_model_trace` opt-in, and version 1.5 added the server-resolved
+  investigation continuation without granting execution authority.
   `core-operator-projection` 1.4 adds the typed `direct_response` terminal disposition for a closed
   social intent. Its bounded text comes from the schema-validated semantic judgment model and
   carries no query digests, evidence references, verification claims, or authority.

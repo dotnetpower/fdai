@@ -12,6 +12,7 @@ from fdai.core.mscp_profile.effect_verification import (
     EffectVerificationStatus,
     ExpectedEffect,
     ObservedEffect,
+    admissible_effect_evidence,
 )
 from fdai.shared.contracts.models import (
     Action,
@@ -32,8 +33,21 @@ def build_response_outcome(
     decision: Literal["auto", "hil", "deny", "abstain"] = "auto",
     rollback_succeeded: bool | None = None,
 ) -> ResponseOutcome:
-    """Build one replay-stable expected-versus-observed response record."""
+    """Build one replay-stable expected-versus-observed response record.
 
+    Evidence the record cannot represent - an observation outside its effect
+    window or one that has not happened yet at ``recorded_at`` - is held by
+    :func:`admissible_effect_evidence` first, so the projection degrades to an
+    unscorable ``hold`` record instead of raising a contract error during
+    dispatch. The raw observation still reaches the shadow effect audit entry.
+    """
+
+    verification, observed = admissible_effect_evidence(
+        verification=verification,
+        expected=expected,
+        observed=observed,
+        recorded_at=recorded_at,
+    )
     label = _label(verification.status, observed=observed)
     prediction_id = expected.prediction_id if expected is not None else None
     identity = f"{action.action_id}:{prediction_id or 'unavailable'}"

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from pathlib import Path
@@ -11,14 +12,20 @@ from fdai.delivery.azure.provider_relationship_schema import (
     AzureArmIdReference,
     AzureProviderRelationshipSchemaSnapshot,
 )
-from fdai.delivery.provider_schema import ProviderSchemaSnapshot, ProviderSchemaType
+from fdai.delivery.provider_schema import (
+    ProviderSchemaError,
+    ProviderSchemaSnapshot,
+    ProviderSchemaType,
+)
 from fdai.delivery.provider_schema_relationship_generation import (
+    ProviderSchemaRelationshipCandidate,
     RelationshipGenerationDropReason,
     RelationshipLinkMetadata,
     changed_provider_type_versions,
     generate_provider_schema_relationship_generation,
     invalidate_changed_relationship_candidates,
     replay_provider_schema_relationship_generation,
+    transitive_changed_provider_types,
 )
 from fdai.delivery.provider_schema_relationship_ledger import ProviderSchemaRelationshipLedger
 from fdai.delivery.provider_schema_relationship_review import ProviderSchemaRelationshipReview
@@ -311,6 +318,68 @@ def test_changed_subset_invalidation_does_not_reuse_unrelated_candidates() -> No
     assert RelationshipGenerationDropReason.STALE_LINK_METADATA in invalidated.drops
 
 
+def test_incremental_invalidation_expands_only_through_transitive_references() -> None:
+    generation = _generation(
+        _schema(),
+        metadata={"azure.function-depends-on-app-service-plan": _metadata()},
+    )
+    first = generation.candidates[0]
+
+    def candidate(
+        source: str,
+        target: str,
+        mapping_id: str,
+    ) -> ProviderSchemaRelationshipCandidate:
+        return replace(
+            first,
+            source_provider_type=source,
+            target_provider_type=target,
+            metadata=replace(
+                first.metadata,
+                mapping_id=mapping_id,
+                source_provider_type=source,
+                target_provider_type=target,
+            ),
+        )
+
+    candidates = tuple(
+        sorted(
+            (
+                candidate("microsoft.example/a", "microsoft.example/b", "mapping-a-b"),
+                candidate("microsoft.example/b", "microsoft.example/c", "mapping-b-c"),
+                candidate("microsoft.example/x", "microsoft.example/y", "mapping-x-y"),
+            ),
+            key=lambda item: (
+                item.source_provider_type,
+                item.target_provider_type,
+                item.metadata.mapping_id,
+            ),
+        )
+    )
+    expanded_generation = replace(generation, candidates=candidates)
+
+    changed = transitive_changed_provider_types(
+        expanded_generation,
+        ("microsoft.example/c@2026-01-01",),
+    )
+    invalidated = invalidate_changed_relationship_candidates(
+        expanded_generation,
+        ("microsoft.example/c@2026-01-01",),
+    )
+
+    assert changed == frozenset(
+        {
+            "microsoft.example/a",
+            "microsoft.example/b",
+            "microsoft.example/c",
+            "microsoft.example/c@2026-01-01",
+        }
+    )
+    assert [candidate.metadata.mapping_id for candidate in invalidated.candidates] == [
+        "mapping-x-y"
+    ]
+
+
 def test_ledger_rollback_keeps_proposal_only_authority(tmp_path: Path) -> None:
     first = _generation(
         _schema(),
@@ -346,6 +415,35 @@ def test_ledger_rollback_keeps_proposal_only_authority(tmp_path: Path) -> None:
         generation_ref="provider-schema-generation:one",
         projection_manifest_digest=MANIFEST_DIGEST,
     )
+
+
+def test_ledger_rejects_an_active_pointer_to_a_missing_generation(tmp_path: Path) -> None:
+    generation = _generation(
+        _schema(),
+        metadata={"azure.function-depends-on-app-service-plan": _metadata()},
+    )
+    ledger = ProviderSchemaRelationshipLedger(tmp_path)
+    ledger.record(generation)
+    (tmp_path / "generations" / f"{generation.generation_digest[7:]}.json").unlink()
+
+    with pytest.raises(ProviderSchemaError, match="active generation is missing"):
+        ledger.read_active()
+
+
+def test_ledger_rollback_rejects_a_tampered_generation(tmp_path: Path) -> None:
+    generation = _generation(
+        _schema(),
+        metadata={"azure.function-depends-on-app-service-plan": _metadata()},
+    )
+    ledger = ProviderSchemaRelationshipLedger(tmp_path)
+    ledger.record(generation)
+    path = tmp_path / "generations" / f"{generation.generation_digest[7:]}.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["generation_ref"] = "provider-schema-generation:tampered"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ProviderSchemaError, match="artifact digest mismatch"):
+        ledger.rollback(generation.generation_digest)
 
 
 def test_ledger_serializes_concurrent_recorders_with_unique_staging_files(

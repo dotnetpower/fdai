@@ -1,7 +1,7 @@
 ---
 title: Workflow Control-Loop Integration
 translation_of: workflow-control-loop-integration.md
-translation_source_sha: e7d936ff0fe68e6e95860174a381a87f79f15ab2
+translation_source_sha: d0f7a9a13fb2602d1723699b49a5b46ef2f7a141
 translation_revised: 2026-08-14
 ---
 
@@ -140,8 +140,9 @@ non-mutating 관측을 활성 상태로 유지한다.
 저널 은 "어떻게 여기까지 왔는가?"에 답합니다. 타입이 지정된 이벤트 는 생성, 단계
 수명 주기, wait/승인/결정 상태, 병렬 가지 결과, 보상, 시간 초과,
 최종 결과를 다룹니다. Approval 단계 은 서로 다른 승인 principal 수를 세고,
-`no_self_approval` 이 켜져 있으면 요청자 를 제외하며, 정족수 을 충족할 때까지
-waiting 상태를 유지합니다. Applied 단계가 없는 wait 및 승인 시간 초과는 프로세스를
+Workflow contract 가 비활성화된 `no_self_approval` 을 거부하므로 요청자 를 항상
+제외하며, 정족수 을 충족할 때까지 waiting 상태를 유지합니다.
+Applied 단계가 없는 wait 및 승인 시간 초과는 프로세스를
 `timed_out`으로 끝내지만 applied 단계 이후에는 forward 전달을 중단하고 보상에
 진입합니다. 병렬 가지는 동시에 실행되고 상위 스냅샷 개정 번호를 두고 경쟁하지 않는
 하위 이벤트를 기록하지만 실패는 새 가지 전달을 freeze하고 applied 증적을 결합한 뒤

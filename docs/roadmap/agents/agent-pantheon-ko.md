@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 36db7b95c16e244df41be7ade7bf4a70972c4add
-translation_revised: 2026-08-31
+translation_source_sha: e1ab5ab5750dc305ef95166e2484ee5d116822ec
+translation_revised: 2026-09-01
 ---
 # 에이전트 판테온
 FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임을 소유합니다. 에이전트는 schema-checked 이벤트로 관측, 판단, 계획, 승인, 실행, 검증, 복구, 감사, 학습합니다. 운영 온톨로지는 타입이 지정된 meaning과 범위가 제한된 맥락을 제공하며 행위자, 권한 또는 실행기가 아닙니다. 판테온은 업스트림에서 정의되고 포크는 에이전트를 추가하거나 이름을 바꾸지 않습니다.
@@ -77,12 +77,30 @@ Norns는 Mimir에 제안하고 Odin은 판단 전에 충돌을 조정합니다.
 **헌법 적격성을 먼저 확인합니다.** Forseti는 중재 요청을 소유하고 Odin은 헌법 제약을
 통과한 soft-objective tradeoff만 순위합니다. 정규화, precedence, weighted 채점, 사람 승인
 margin, 계획 수립 증적 및 temporal 정책은
-[Operational 계획 수립](../decisioning/operational-planning-ko.md#다목적-중재)이 소유합니다.
+[Operational 계획 수립](../decisioning/operational-planning-ko.md#다목적-중재)이 소유합니다. 충돌은 표현이 아니라 목표에 관한 사실입니다. 영역 전문가가 자신의 결정적 실행이 산출한 ActionType과 예상되는 부호 있는 목표 효과, 그리고 두 값을 읽어 온 계보를 함께 첨부하면, Forseti는 두 영역이 동일한 통제 목표에서 서로 반대 부호의 효용을 가질 때만 중재를 제기하며, 기여한 각 재생의 표준 계보는 의사결정 사례와 종결 판정까지 이어집니다.
+Forseti가 중재를 제기한 뒤에는 같은 이벤트에 일반 판단을 추가로 실행하지 않습니다. 중재
+결정 또는 범위가 제한된 소유자 부재 종결만 해당 이벤트의 종결 판정이 됩니다.
+초기 세 버티컬에서는 Loki, Heimdall, Njord가 `object.resilience-score`, `object.drift`,
+`object.cost-anomaly` 토픽에서 서로 다른 후보 아이덴티티를 유지합니다. Forseti는 같은
+리소스와 기준 시점에 대해 소유자가 인증된 버티컬별 후보를 하나씩 결합합니다. Odin은 각
+후보의 `win`, `defer`, `hil` 처리 결과를 포함한 결정을 하나만 게시하고 Saga가 이를
+감사하며, 승리한 판정을 `ActionRun`으로 전환할 수 있는 에이전트는 Thor뿐입니다.
+후보의 상관관계, 멱등성, 리소스 및 ActionType 식별자는 유입 경계에서 범위가 제한되고 비어
+있지 않으며 앞뒤 공백을 허용하지 않습니다. 공유 관측 기준 시점에는 시간대가 포함되어야 합니다.
 
 ### 3.2 발견 루프 학습기 (Norns)
 
 Norns는 inert `RuleCandidate` 제안의 sole 쓰기 담당으로 유지됩니다. Three-perspective 합의, balanced 집단 한도, pending 큐, Mimir 검토 및 카탈로그 activation 경계는
 [Operational Learning 온톨로지](../rules-and-detection/operational-learning-ontology-ko.md#norns-consensus-및-catalog-boundary)가 소유합니다. 비공개 `norns_deployment_learning.py` 보조 로직은 범위가 제한된 scenario-gap 및 preflight-blocker 집계 상태만 보유합니다. 모든 후보 생성과 publish는 계속 Norns가 합의 및 rate-limit 경계를 통해 수행합니다. Caller-supplied recurring preflight 수동 차단 요인은 scope-deduplicate된 inert `preflight-toggle-gap` 후보가 되며 토글을 만들거나 배포 권한을 변경하지 않습니다. 재현된 Rule 수집 실패는 Huginn-owned 이벤트로 들어옵니다. Heimdall은 exact 실패를 독립적으로 validate하고 `object.retrieval-validation`을 publish하며, Saga는 해당 근거를 감사하고 Muninn은 `object.context-index`로 materialize합니다. Norns는 raw 텍스트, 검증되지 않은 실패, 수집 외 원인 및 exact Rule 버전이 없는 대상을 strict하게 거부합니다. 남은 challenger를 영속하게 기록한 뒤 동일한 합의 및 `object.rule-candidate` 경로를 사용합니다. 적응형 인과 조사에서는 Muninn이 `object.context-index`로 범위가 제한된 전송 안전 활성 및 도전 선택기 비교를 제공하며, Norns가 생산자와 균형 잡힌 개선 및 대조 근거를 검증하고 실행 중인 선택기를 바꾸지 않는 비활성 shadow 전용 `revision`을 같은 Mimir 대기열로 보냅니다. 영속 싱크가 없으면 이벤트를 폐기하지 않고 backpressure합니다. 운영 런타임은 이 최종 게시 경계에 기본적으로 닫힌 상한도 주입합니다. 닫힌 게이트는 범위가 제한된 대기 큐와 합의 근거를 보존하고, 열린 게이트도 카탈로그, 승격, 승인 또는 실행 권한을 부여하지 않으며 Mimir와 검토된 catalog-as-code pull request를 다음 경계로 유지합니다.
+
+운영 사례 코호트에서 Norns는 하나로 고정된 FDAI 수정본과 시나리오 세트, 불변 사례별
+완전하고 최신이며 충돌이 없는 검토 레코드도 요구합니다. 합성으로 표시된 live 레코드와
+중복 사례 수정본은 게시 전에 보류합니다. Mimir는 비활성 초안을 만들기 전에 같은 검토
+레코드와 정확한 릴리스를 독립적으로 다시 해석합니다. 두 에이전트 모두 권위 있는 승격
+레지스트리를 변경할 수 없으며, 독립적으로 승인된 정확한 재생만 이를 변경할 수 있습니다.
+Muninn은 영속 코호트 쓰기가 성공한 뒤에만 프로세스 로컬 코호트 캐시를 갱신합니다. 게시
+후에는 발행 다이제스트도 영속한 다음 해당 억제 표시를 캐시하며, 영속 쓰기 전에는 표시가
+존재하지 않습니다.
 
 Shadow dwell은 루프의 마지막 비활성 장벽입니다. Norns는 shadow 모드 감사 결과를 대상별 dwell 관측으로 보존하며(shadow 결과는 여전히 실제 rollback 비율 학습기에 섞이지 않습니다) 산출된 자기 검증 근거를 게시하는 후보에 첨부합니다. Mimir는 그 이벤트 근거에서 판정을 다시 유도하고, 근거가 없거나 일관되지 않거나 대상이 다르거나 임계 미달인 후보의 승격을 거부합니다. 정책 위반 탈출 0건 기준은 설정 항목이 아닙니다. 이는 두 에이전트 어느 쪽에도 권한을 부여하지 않으며, 카탈로그는 여전히 머지된 catalog-as-code PR로만 바뀐니다. [자율 규칙 발견](../rules-and-detection/rule-catalog-autonomous-discovery-ko.md#shadow-dwell-근거상류-구현)을 참고하세요.
 
@@ -242,7 +260,7 @@ absence를 zero로 해석하지 않고 실패로 처리합니다.
 | **Saga** | 감사 불가 | **HARD FAIL**: 새 변경 허용 안 됨; 전체 시스템 shadow 로 강등 |
 | **Vidar** | 롤백 불가 | Thor 가 새 auto 실행 거부; 모든 새 액션 shadow 로 강등 |
 | **Forseti** | 판단 정지 | Huginn / Heimdall 은 계속 publish (Kafka retain); 판정 대체 경로 없음 (판사 없이 판단 불가); 운영자 경보 |
-| **Odin** | cross-vertical 중재 누락 | Forseti가 충돌 판정을 HIL로 낮춤 (사람이 arbitrate) |
+| **Odin** | cross-vertical 중재 누락 | Forseti가 Odin의 출시된 성능 저하 정책을 적용하고 자신이 제기한 중재를 ActionType도 개시자도 승리 영역도 조치 권한도 없는 종결 HIL 판정으로 닫으므로, 소유자 없는 중재가 열린 채로 남지 않고 두 번째 arbiter도 세우지 않음 (사람이 arbitrate) |
 | **Thor** | 실행 정지 | 판정 큐잉; 판정 TTL 만료 시 stale 폐기 (republish 시 재판단) |
 | **Huginn** | 인제스트 정지 | Kafka 보존 이 이벤트 보존; Huginn 복구 시 체크포인트 부터 재개 (멱등적) |
 | **Heimdall** | 감지/효과 관측 정지 | 읽기, 거부, shadow judgment는 계속; Heimdall 관측이 필요한 새 상태 변경은 차단되고 기존 결과는 pending, RBAC 거부는 감사 |
@@ -340,7 +358,7 @@ Dead-letter 쓰기는 제한된 재시도 대기 후 소비자를 재시작합�
 | 객체.security-event | Forseti | Heimdall (상관관계), Saga |
 | 객체.판정 | Forseti | Thor, Saga, Odin |
 | 객체.arbitration-request | Forseti | Odin |
-| 객체.arbitration-decision | Odin | Forseti |
+| 객체.arbitration-decision | Odin | Forseti, Saga |
 | 객체.action-run | Thor | Heimdall(최종 효과 관측), Vidar, Var, Saga |
 | 객체.승인 | Var | Thor, Saga |
 | 객체.롤백 | Vidar | Thor (ActionRun 변환 결과), Saga |
@@ -354,6 +372,7 @@ Dead-letter 쓰기는 제한된 재시도 대기 후 소비자를 재시작합�
 | 객체.post-turn-review | Bragi | Norns(동의가 확인된 off-path 검토만) |
 | 객체.user-preference | Bragi | Muninn |
 | 객체.cost-anomaly | Njord | Forseti |
+| 객체.resilience-score | Loki | Forseti |
 | 객체.capacity-forecast | Freyr | Forseti |
 | 객체.capacity-graduation-recommendation | Freyr | Forseti |
 | 객체.evidence-conflict | Heimdall | Muninn, Saga |

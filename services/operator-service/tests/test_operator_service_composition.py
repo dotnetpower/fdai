@@ -24,6 +24,7 @@ from fdai_operator_service.environment import (
     DATABASE_URL_ENV,
     DEFAULT_LIVE_STAGE_CONSUMER_GROUP,
     GROUP_ENV,
+    HIL_DECISION_TOPIC_ENV,
     HOST_ENV,
     KAFKA_BOOTSTRAP_SERVERS_ENV,
     LIVE_STAGE_CONSUMER_GROUP_ENV,
@@ -41,6 +42,13 @@ from fdai_operator_service.environment import (
     TENANT_ENV,
     OperatorEnvironment,
     OperatorServiceConfigurationError,
+)
+from fdai_operator_service.families.iam import make_iam_family_routes
+from fdai_operator_service.families.iam.hil_decision_outbox import (
+    DurableHilDecisionOutboxPublisher,
+)
+from fdai_operator_service.families.iam.hil_teams_callback import (
+    TeamsHilCallbackNormalizer,
 )
 from fdai_operator_service.main import SERVICE
 from fdai_operator_service.parity import BLOCKED_ROUTE_PATHS, PARITY_COMPLETE, ROUTE_PARITY
@@ -655,6 +663,94 @@ def test_semantic_kafka_environment_preserves_optional_transport_ids() -> None:
     assert environment.semantic_outbox_namespace == "issue63.run-1"
     assert environment.read_investigation_request_topic == ("operator.read-investigation.requests")
     assert environment.managed_identity_client_id == "command-identity"
+    assert environment.hil_decision_topic == "fdai.hil.decisions"
+
+
+def test_hil_callback_requires_durable_kafka_transport() -> None:
+    with pytest.raises(OperatorServiceConfigurationError, match="PostgreSQL and configured Kafka"):
+        OperatorEnvironment.parse(
+            {
+                **BASE_ENV,
+                "FDAI_CHATOPS_WEBHOOK_SECRET": "synthetic-test-secret",
+            }
+        )
+
+
+def test_hil_callback_composes_configured_durable_outbox_publisher() -> None:
+    runtime = ProductionOperatorComposition(
+        verifier_factory=lambda environment: _verify,
+        read_model=EmptyReadModel(),
+    ).build_runtime(
+        {
+            **BASE_ENV,
+            "FDAI_EXECUTION_VENUE": "local",
+            DATABASE_URL_ENV: "postgresql://example.invalid/fdai",
+            DATABASE_ROLE_ENV: "fdai_operator",
+            KAFKA_BOOTSTRAP_SERVERS_ENV: "localhost:9092",
+            SEMANTIC_REQUEST_TOPIC_ENV: "operator.semantic-turn.requests",
+            SEMANTIC_PROJECTION_TOPIC_ENV: "core.semantic-turn.projections",
+            HIL_DECISION_TOPIC_ENV: "configured.hil.decisions",
+            "FDAI_CHATOPS_WEBHOOK_SECRET": "synthetic-test-secret",
+            "FDAI_TEAMS_APPLICATION_ID": "approval-bot",
+            "FDAI_TEAMS_APPROVAL_TEAM_ID": "approval-team",
+            "FDAI_TEAMS_APPROVAL_CHANNEL_ID": "approval-channel",
+            "FDAI_TEAMS_PRINCIPAL_MAP_JSON": '{"teams-owner":"owner-1"}',
+        }
+    )
+
+    outbox = runtime.route_families.iam.hil_outbox
+    assert isinstance(outbox, DurableHilDecisionOutboxPublisher)
+    assert outbox.topic == "configured.hil.decisions"
+    # The durable ledger closes the record only after broker acceptance, so the
+    # lease-fenced worker never republishes an already-delivered decision.
+    assert outbox.ledger is not None
+    # Teams A1 stays unbound until its Bot service surface is configured.
+    assert runtime.route_families.iam.hil_teams_normalizer is None
+
+
+def _teams_a1_environment() -> dict[str, str]:
+    return {
+        **BASE_ENV,
+        "FDAI_EXECUTION_VENUE": "local",
+        DATABASE_URL_ENV: "postgresql://example.invalid/fdai",
+        DATABASE_ROLE_ENV: "fdai_operator",
+        KAFKA_BOOTSTRAP_SERVERS_ENV: "localhost:9092",
+        SEMANTIC_REQUEST_TOPIC_ENV: "operator.semantic-turn.requests",
+        SEMANTIC_PROJECTION_TOPIC_ENV: "core.semantic-turn.projections",
+        "FDAI_CHATOPS_WEBHOOK_SECRET": "synthetic-test-secret",
+        "FDAI_TEAMS_APPLICATION_ID": "approval-bot",
+        "FDAI_TEAMS_APPROVAL_TEAM_ID": "approval-team",
+        "FDAI_TEAMS_APPROVAL_CHANNEL_ID": "approval-channel",
+        "FDAI_TEAMS_PRINCIPAL_MAP_JSON": '{"teams-owner":"owner-1"}',
+        "FDAI_TEAMS_TENANT_ID": "tenant-1",
+        "FDAI_TEAMS_ALLOWED_SERVICE_URLS_JSON": '["https://smba.example.invalid/amer"]',
+        "FDAI_TEAMS_JWKS_URL": "https://login.example.invalid/keys",
+    }
+
+
+def test_teams_a1_receiver_is_composed_with_its_complete_bot_surface() -> None:
+    runtime = ProductionOperatorComposition(
+        verifier_factory=lambda environment: _verify,
+        read_model=EmptyReadModel(),
+    ).build_runtime(_teams_a1_environment())
+
+    normalizer = runtime.route_families.iam.hil_teams_normalizer
+    assert isinstance(normalizer, TeamsHilCallbackNormalizer)
+    assert "/hil/teams-activity" in {
+        route.path for route in make_iam_family_routes(runtime.route_families.iam)
+    }
+
+
+def test_teams_a1_receiver_fails_closed_without_its_bot_key_source() -> None:
+    values = _teams_a1_environment()
+    values.pop("FDAI_TEAMS_JWKS_URL")
+
+    runtime = ProductionOperatorComposition(
+        verifier_factory=lambda environment: _verify,
+        read_model=EmptyReadModel(),
+    ).build_runtime(values)
+
+    assert runtime.route_families.iam.hil_teams_normalizer is None
 
 
 def test_read_investigation_topic_requires_kafka_and_distinct_identity() -> None:

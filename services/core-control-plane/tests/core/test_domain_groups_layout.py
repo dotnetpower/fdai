@@ -1,14 +1,8 @@
-"""Structural drift guards for the G-1 domain-group facades (phase 1).
+"""Structural drift guards for the permanent G-1 facade-only layout.
 
-Phase 1 of G-1 (tracker #14, issue #15) creates five domain-group
-packages under ``fdai.core.`` that re-export the existing subsystems
-along the target taxonomy. These tests pin the shape of the taxonomy
-so a stray addition (subsystem in two groups; subsystem missing from
-its group; a subsystem's old import path breaks) surfaces here
-instead of at runtime.
-
-The physical ``git mv`` mass move is deferred to phase 2 - phase 1 is
-the additive enabling step.
+Five domain-group packages under ``fdai.core`` re-export the existing
+subsystems along the target taxonomy. Physical subsystem paths remain stable
+so coverage, fan-out, and compatibility checks retain their exact scope.
 """
 
 from __future__ import annotations
@@ -139,7 +133,7 @@ def test_verticals_is_not_a_domain_group_member() -> None:
 
 
 # ---------------------------------------------------------------------------
-# H5: old import path still works (phase 1 is additive, never migratory).
+# H5: direct import paths remain the compatibility contract.
 # ---------------------------------------------------------------------------
 
 
@@ -179,22 +173,18 @@ def test_knowledge_facade_absorbs_both_roles() -> None:
 
 
 # ---------------------------------------------------------------------------
-# H7: facade docstring anchors the phase-1 / phase-2 split so a
-# well-meaning refactor cannot silently erase the intent.
+# H7: facade files anchor the permanent facade-only decision.
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("domain", sorted(_DOMAIN_MEMBERSHIP))
-def test_facade_docstring_anchors_phase_1(domain: str) -> None:
+def test_facade_file_anchors_permanent_facade_only_layout(domain: str) -> None:
     facade_path = _CORE_DIR / domain / "__init__.py"
     body = facade_path.read_text(encoding="utf-8").lower()
-    # 'incident' and 'knowledge' packages carry the ORIGINAL subsystem
-    # docstring plus an appended facade comment block; look for the
-    # phase-1 anchor anywhere in the file rather than only in __doc__.
-    for anchor in ("g-1", "phase 1"):
+    for anchor in ("g-1", "facade-only"):
         assert anchor in body, (
             f"fdai.core.{domain}/__init__.py file body lost anchor "
-            f"{anchor!r} - phase-1 intent is drifting"
+            f"{anchor!r} - the permanent layout decision is drifting"
         )
 
 

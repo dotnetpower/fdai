@@ -1,8 +1,8 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: 9756dbd1a4505446e2afff93ba00dd47c135b901
-translation_revised: 2026-08-30
+translation_source_sha: 8748098578a4ed4b2a37b3ad9412d60772833ea6
+translation_revised: 2026-08-31
 ---
 # 운영 학습 온톨로지
 
@@ -82,6 +82,12 @@ Operational 사례는 `kind: incident` 또는 `kind: action`인 `CaseHistoryRevi
 성공은 응답 증적이 검증된 적용과 `rollback_succeeded: false`를 명시적으로
 기록할 때만 reusable로 계산합니다. Rollback 상태 누락은 insufficient 근거로 유지합니다.
 
+`EligibleOperationalOutcome`은 결과가 이 학습 경로에 적격하다고 표시하는 유일한 구성
+계약입니다. 하나의 불변 FDAI 수정본 및 시나리오 세트를 정확한 출처 아이덴티티 다이제스트,
+이벤트 시각 기준 시점, Action 증적, 독립적으로 관측한 효과 증적, Saga 감사 증적, 완전성
+표시, 합성 여부, 충돌 집합에 연결합니다. 불완전하거나 오래됐거나 충돌하거나 미래 시각이거나
+합성 근거를 live로 표시한 결과는 사례 이벤트를 게시하기 전에 거부됩니다.
+
 ### 실패 지문
 
 지문은 벤치마크 및 제안된 remedy와 독립적으로 실패 등급을 식별합니다.
@@ -115,6 +121,11 @@ Norns는 집단을 기존 `RuleCandidate` 객체로 컴파일합니다. 후보 �
 - 최대 100개 변경할 수 없는 사례, 사례당 64개 다이제스트 참조, 집계 256개 다이제스트 참조;
 - 확신도 한계, 알려진 exclusion, 해결되지 않은 충돌.
 
+각 후보에는 고정된 FDAI 수정본, 시나리오 세트 버전, 불변 사례별 검토 레코드도 포함됩니다.
+Norns는 게시 전에 완전성, 최신성, 출처 분류, 충돌, 중복 수정본을 확인합니다. Mimir는 같은
+레코드를 독립적으로 다시 해석하고 누락, 오래됨, 충돌, synthetic-live, 중복, 릴리스 불일치,
+다이제스트 대체가 있는 후보를 비활성 검토 패키지로 컴파일하기 전에 거부합니다.
+
 타입이 지정된 learning 핸들러는 Norns 인스턴스별로 serialize됩니다. Pending 제안 큐는 5,000개로
 범위가 제한된되며 포화 시 먼저 배출을 재시도하고, 여전히 가득 차면 새 신호의 learner 상태를
 바꾸지 않은 채 전송 계층을 backpressure합니다. 런타임 조립은 생성자 경계를 통해
@@ -138,6 +149,12 @@ Norns는 집단을 기존 `RuleCandidate` 객체로 컴파일합니다. 후보 �
 별도 벤치마크 룰 형식이나 learned-action 실행기를 도입하지 않습니다. 구현이 이 링크로
 필요한 조회를 표현할 수 없다면 먼저 실패하는 온톨로지 조회 테스트를 추가해야 합니다.
 그때에만 범위가 명확한 `ObjectType` 또는 `LinkType` 확장을 제안할 수 있습니다.
+
+후보 또는 초안 검토 패키지 게시는 권한을 부여하지 않습니다. 독립 검토자가 정확한 후보,
+패키지, 결정론적 재생 다이제스트, FDAI 수정본, 시나리오 세트, O7 근거 다이제스트를 승인한
+경우에만 ActionType이 권위 있는 승격 레지스트리에서 변경될 수 있습니다. 재시작 시 같은
+귀속 정보를 다시 검증하며 중복은 no-op이고 롤백 또는 강등은 레지스트리를 shadow로
+되돌립니다.
 
 ### Pattern은 두 층위가 아니라 하나입니다
 
@@ -388,12 +405,14 @@ Terraform은 `operational_promotion_measurement_enabled=true`일 때만 Containe
 | O4 현재 근거 T1 재사용 | implemented | `services/core-control-plane/tests/core/tiers/t1_lightweight/test_contextual_reuse.py`; `tests/core/test_control_loop_t1_wire.py` | 현재 근거가 누락되거나 오래됐거나 변경됐거나 안전하지 않으면 변경 없이 검토 대기합니다. |
 | O5-O6 Azure 근거 연결 | validated | [제공 계획](#제공-계획); `services/core-control-plane/src/fdai/delivery/azure/operational_evidence.py`; 집중 전달 테스트 | 저장소에 기록된 비운영 AKS 및 읽기 전용 Azure 훈련이 운영 환경 주장을 하지 않으면서 필요한 운영 근거를 제공합니다. |
 | O7 승격 측정 | implemented | `services/core-control-plane/src/fdai/core/measurement/operational_promotion.py`; `operational_promotion_runner.py`; `services/core-control-plane/src/fdai/delivery/measurement/{operational_promotion_evidence.py,operational_promotion_batch.py}`; `measurement_runner_cli.py`; `infra/modules/measurement-runners/`; 집중 O7 테스트 및 Terraform 검증 | exact-digest consumer, 매니페스트 검증기, 영속 영수증 저장소, opt-in 작업 및 governed batch producer를 구현했습니다. Producer는 변경할 수 없는 frozen-benchmark 레코드를 필수로 받아 live-shadow 레코드와 함께 구성하며 promotion state를 변경하지 않습니다. 작업별 관측 일수, 신뢰도 표본 및 인증된 runtime 증적은 아직 부족합니다. |
+| 통제된 사례-승격 구성 | implemented | `core/operational_learning/{eligible_outcome,patterns,catalog,promotion_review}.py`; `tests/agents/test_governed_learning_loop.py`; 고정된 `v2026.08` 시나리오 | 정확한 출처 및 증적 계보를 불변 사례로 봉인하고 Norns와 Mimir가 전체 부정 행렬을 독립적으로 거부합니다. 후보 게시는 비활성 상태를 유지하며 독립적으로 검토한 재생만 영속 승격 레지스트리에 권한을 부여할 수 있습니다. |
 | Evaluation adapter case 입력 | deferred | [Benchmark adapter 휴면 상태](../interfaces/benchmark-adapters-ko.md#휴면-상태) | 현재 EvaluationHost 또는 adapter runtime이 case 입력을 방출할 수 없습니다. Semantic golden dataset은 case history와 learning 밖에 유지됩니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-31 | implemented | 하나의 고정 릴리스에서 적격 결과, 불변 사례, 이벤트 버스 후보 게시, 독립 Norns/Mimir 검토, 검토된 재생 승격을 구성했습니다. 게시는 권한을 부여하지 않으며 재시작, 중복, 롤백 근거, 릴리스 불일치, 강등은 안전하게 닫힙니다. | `current change`; 고정된 `v2026.08` 시나리오를 포함한 Story #370 집중 회귀 검사 119개 통과. | 운영 검증을 주장하기 전에 작업별 live 근거와 통제된 배포 증적을 보존합니다. |
 | 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 제공 계획 근거와 구현 범위 표의 집중 소스 및 테스트. | 배포 연결과 O7 작업별 근거 임계값을 완성합니다. |
 | 2026-08-21 | deferred | 현재 트리에 호스트 통합이 없음을 확인한 뒤 evaluation 입력 설명을 정정했습니다. 새로운 semantic golden dataset은 operational-case 및 promotion authority 밖에 유지했습니다. | `current change`, benchmark adapter 휴면 상태 결정, `eval/golden-dataset/`, 집중 dataset contract 검사 | 통제된 호스트와 canonical case-input 증적을 복원할 때만 adapter 입력을 다시 엽니다. |
 | 2026-08-23 | implemented | O3를 기존 Rule loader, shadow evaluator, regression gate, 초안 전용 GitOps adapter에 연결했습니다. 게시된 artifact는 내용 기반 주소를 가지며 초안 Rule 또는 ActionType을 활성화할 수 없습니다. | `current change`; `delivery/gitops_pr/{catalog_validator,catalog_review}.py`; `runtime/operational_catalog_review.py`; 집중 O3 테스트 통과 | 구성된 배포에서 관리되는 초안 PR 증적을 보존합니다. |
@@ -419,6 +438,9 @@ Terraform은 `operational_promotion_measurement_enabled=true`일 때만 Containe
    차단합니다. 집중 카탈로그 기반 테스트는 metric 하나를 선택하거나 날조하지 않고 선택된
    option의 모든 effect를 보존합니다.
 - [ ] 승격 검토에 필요한 O7 작업별 live 일수, 표본 크기, 완전한 재발 구간, Wilson 경계, 위반 0건 근거를 누적합니다.
+- [x] 하나의 고정 릴리스에서 사례-후보-검토된 승격 경로와 재시작, 중복, 롤백,
+  릴리스 불일치, 강등 근거를 완성하여 [이슈 #370](https://github.com/dotnetpower/fdai/issues/370)을
+  완료했습니다.
 - [ ] Evaluation 호스트 통합을 다시 활성화하면 adapter 결과가 canonical operational-case 증적만
    통과하고 golden-answer 성공을 promotion evidence로 취급할 수 없음을 입증합니다.
 

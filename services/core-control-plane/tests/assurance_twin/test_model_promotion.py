@@ -7,17 +7,42 @@ import pytest
 from fdai.core.assurance_twin.effect_model import CausalEvidenceGrade, EffectModelStatus
 from fdai.core.assurance_twin.graph_effect import GraphEffectModel
 from fdai.core.assurance_twin.model_promotion import (
+    EFFECT_MODEL_ACTIVATION_EVIDENCE_PURPOSE,
     GraphModelEvidenceCohort,
     GraphModelPromotionPolicy,
     GraphModelPromotionReceipt,
     GraphModelRisk,
+    effect_model_activation_evidence_digest,
+    effect_model_activation_rejection_reasons,
+    effect_model_activation_scope_digest,
     graph_effect_model_digest,
     graph_effect_model_slot_digest,
     validate_graph_model_promotion,
 )
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 
 _ONTOLOGY = "a" * 64
 _SEMANTICS = "b" * 64
+_NOW = datetime(2026, 8, 3, tzinfo=UTC)
+_BUNDLE_DIGEST = f"sha256:{'f' * 64}"
+
+
+def _admission(
+    receipt: GraphModelPromotionReceipt,
+    **overrides: object,
+) -> DecisionEvidenceAdmission:
+    values: dict[str, object] = {
+        "receipt_digest": _BUNDLE_DIGEST,
+        "verification_bundle_digest": _BUNDLE_DIGEST,
+        "evidence_digest": effect_model_activation_evidence_digest(receipt),
+        "scope_digest": effect_model_activation_scope_digest(receipt),
+        "purpose_id": EFFECT_MODEL_ACTIVATION_EVIDENCE_PURPOSE,
+        "source_revision": _ONTOLOGY,
+        "verified_at": datetime(2026, 8, 2, 12, tzinfo=UTC),
+        "valid_until": datetime(2026, 8, 4, tzinfo=UTC),
+    }
+    values.update(overrides)
+    return DecisionEvidenceAdmission(**values)  # type: ignore[arg-type]
 
 
 def _model(*, evidence_grade: CausalEvidenceGrade) -> GraphEffectModel:
@@ -84,15 +109,20 @@ def test_high_risk_policy_can_require_interventional_evidence() -> None:
             expected_ontology_release_digest=_ONTOLOGY,
             expected_property_semantics_digest=_SEMANTICS,
             policy=GraphModelPromotionPolicy(require_interventional_for_high_risk=True),
+            decision_evidence=_admission(receipt),
+            evaluated_at=_NOW,
         )
 
+    standard = replace(receipt, risk=GraphModelRisk.STANDARD)
     validate_graph_model_promotion(
-        receipt=replace(receipt, risk=GraphModelRisk.STANDARD),
+        receipt=standard,
         model=model,
         current_pointer=None,
         expected_ontology_release_digest=_ONTOLOGY,
         expected_property_semantics_digest=_SEMANTICS,
         policy=GraphModelPromotionPolicy(require_interventional_for_high_risk=True),
+        decision_evidence=_admission(standard),
+        evaluated_at=_NOW,
     )
 
 
@@ -109,3 +139,70 @@ def test_promotion_receipt_digest_fixes_every_governed_evidence_field() -> None:
     assert replace(receipt, invariant_evidence_digests=("1" * 64,)).content_digest != (
         receipt.content_digest
     )
+
+
+@pytest.mark.parametrize(
+    ("overrides", "expected"),
+    [
+        ({"purpose_id": "operational-promotion"}, "decision_evidence_purpose_mismatch"),
+        ({"scope_digest": f"sha256:{'1' * 64}"}, "decision_evidence_scope_mismatch"),
+        ({"evidence_digest": f"sha256:{'2' * 64}"}, "decision_evidence_evidence_mismatch"),
+        ({"source_revision": "d" * 64}, "decision_evidence_source_revision_mismatch"),
+        (
+            {
+                "verified_at": datetime(2026, 7, 1, tzinfo=UTC),
+                "valid_until": datetime(2026, 7, 2, tzinfo=UTC),
+            },
+            "decision_evidence_not_current",
+        ),
+    ],
+)
+def test_a_mismatched_admission_blocks_effect_model_activation(
+    overrides: dict[str, object],
+    expected: str,
+) -> None:
+    model = _model(evidence_grade=CausalEvidenceGrade.INTERVENTIONAL)
+    receipt = _receipt(model, risk=GraphModelRisk.STANDARD)
+
+    assert effect_model_activation_rejection_reasons(
+        receipt,
+        decision_evidence=_admission(receipt, **overrides),
+        expected_ontology_release_digest=_ONTOLOGY,
+        evaluated_at=_NOW,
+    ) == (expected,)
+
+    with pytest.raises(ValueError, match="evidence admission failed"):
+        validate_graph_model_promotion(
+            receipt=receipt,
+            model=model,
+            current_pointer=None,
+            expected_ontology_release_digest=_ONTOLOGY,
+            expected_property_semantics_digest=_SEMANTICS,
+            policy=GraphModelPromotionPolicy(),
+            decision_evidence=_admission(receipt, **overrides),
+            evaluated_at=_NOW,
+        )
+
+
+def test_a_missing_admission_blocks_effect_model_activation() -> None:
+    model = _model(evidence_grade=CausalEvidenceGrade.INTERVENTIONAL)
+    receipt = _receipt(model, risk=GraphModelRisk.STANDARD)
+
+    assert effect_model_activation_rejection_reasons(
+        receipt,
+        decision_evidence=None,
+        expected_ontology_release_digest=_ONTOLOGY,
+        evaluated_at=_NOW,
+    ) == ("decision_evidence_admission_missing",)
+
+    with pytest.raises(ValueError, match="admission_missing"):
+        validate_graph_model_promotion(
+            receipt=receipt,
+            model=model,
+            current_pointer=None,
+            expected_ontology_release_digest=_ONTOLOGY,
+            expected_property_semantics_digest=_SEMANTICS,
+            policy=GraphModelPromotionPolicy(),
+            decision_evidence=None,
+            evaluated_at=_NOW,
+        )

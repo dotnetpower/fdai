@@ -18,10 +18,13 @@ from fdai.delivery.analyzer_targets import resolve_analyzer_targets
 from fdai.delivery.analyzer_tick import (
     ANALYZER_EVENT_SOURCE,
     ANALYZER_EVENT_TOPIC,
+    AnalyzerPublicationClaim,
+    AnalyzerPublicationClaimStatus,
     AnalyzerTarget,
     AnalyzerTickRunner,
 )
 from fdai.shared.contracts.models import Mode
+from fdai.shared.providers.event_bus import PublishReceipt
 from fdai.shared.providers.metric import MetricPoint, MetricQuery
 from fdai.shared.providers.routed_metric import MetricRoute, RoutedMetricProvider
 
@@ -68,8 +71,49 @@ class RecordingBus:
     def __init__(self) -> None:
         self.published: list[tuple[str, str, dict[str, object]]] = []
 
-    async def publish(self, topic: str, key: str, payload: dict[str, object]) -> None:
+    async def publish(self, topic: str, key: str, payload: dict[str, object]) -> PublishReceipt:
         self.published.append((topic, key, payload))
+        return PublishReceipt(topic=topic, partition=0, offset=len(self.published) - 1)
+
+
+class PublicationLedger:
+    def __init__(self) -> None:
+        self.keys: set[str] = set()
+
+    async def claim(self, idempotency_key: str) -> AnalyzerPublicationClaim:
+        if idempotency_key in self.keys:
+            return AnalyzerPublicationClaim(
+                status=AnalyzerPublicationClaimStatus.COMPLETED,
+                receipt=PublishReceipt(topic=ANALYZER_EVENT_TOPIC, partition=0, offset=0),
+            )
+        self.keys.add(idempotency_key)
+        return AnalyzerPublicationClaim(
+            status=AnalyzerPublicationClaimStatus.NEW,
+            token=idempotency_key,
+            claimed_at=NOW,
+        )
+
+    async def complete(
+        self,
+        idempotency_key: str,
+        claim: AnalyzerPublicationClaim,
+        receipt: PublishReceipt,
+    ) -> None:
+        del idempotency_key, claim, receipt
+        return None
+
+    async def release(
+        self,
+        idempotency_key: str,
+        claim: AnalyzerPublicationClaim,
+    ) -> None:
+        del claim
+        self.keys.remove(idempotency_key)
+
+
+class ReceiptStore:
+    async def record(self, receipt: object) -> None:
+        del receipt
 
 
 def _routed() -> tuple[RoutedMetricProvider, StubBackend, StubBackend]:
@@ -90,6 +134,8 @@ def _runner(provider: RoutedMetricProvider, bus: RecordingBus) -> AnalyzerTickRu
             analyzers=default_analyzers(provider, wall_clock=lambda: NOW)
         ),
         event_bus=bus,  # type: ignore[arg-type]
+        publication_ledger=PublicationLedger(),
+        receipt_store=ReceiptStore(),  # type: ignore[arg-type]
         window_seconds=300,
         clock=lambda: NOW,
     )

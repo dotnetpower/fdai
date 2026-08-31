@@ -40,7 +40,7 @@ durable delivery, and the Teams Workflows webhook binding are owned by
 |------|-------|----------|-------|
 | Provider contracts and config-driven routing | implemented | [`base.py`](../../../services/core-control-plane/src/fdai/shared/providers/notifications/base.py), [`hil_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/hil_channel.py), [`conversation_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_channel.py), [`test_matrix.py`](../../../services/core-control-plane/tests/notifications/test_matrix.py), [`test_fanout_delivery.py`](../../../services/core-control-plane/tests/notifications/test_fanout_delivery.py) | Separate A1, A2/A4, and A3 contracts exist. A1/A3 keep trust-preserving failover; A2/A4 use explicit fan-out with named binding enablement, per-channel durable state, bounded retries, and aggregate outcomes. |
 | Pairing and cross-channel identity linkage | implemented | [`channel_access.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_access.py), [`postgres_channel_pairing.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_channel_pairing.py), [`postgres_channel_identity_link.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_channel_identity_link.py), [`test_channel_access.py`](../../../services/core-control-plane/tests/conversation/test_channel_access.py), [`test_identity_links.py`](../../../services/core-control-plane/tests/conversation/test_identity_links.py), [`test_postgres_channel_pairing.py`](../../../services/core-control-plane/tests/persistence/test_postgres_channel_pairing.py), [`test_postgres_channel_identity_link.py`](../../../services/core-control-plane/tests/persistence/test_postgres_channel_identity_link.py) | Service-level pairing, challenge-digest handling, explicit identity links, and restart persistence pass focused tests. The two PostgreSQL integration files passed four cases with zero skips against a disposable supported database. |
-| Teams, Slack, and outbound notification adapters | implemented | [`teams_adapter.py`](../../../services/core-control-plane/src/fdai/delivery/chatops/teams_adapter.py); `fdai_operator_service/families/conversation/channel_edge/`; focused edge checks (`81 passed`) | Teams implements `HilChannel`; the A2/A4 notification adapters pass focused tests; and the Operator-owned A3 workload implements authenticated ingress, pure rendering, durable delivery, fixed provider publication, and fail-closed lifecycle. Slack `HilChannel`, A1 callback, Entra re-authentication, and deployed transport receipts remain open. |
+| Teams, Slack, and outbound notification adapters | implemented | [`teams_adapter.py`](../../../services/core-control-plane/src/fdai/delivery/chatops/teams_adapter.py); `fdai_operator_service/families/conversation/channel_edge/`; `families/iam/hil_callback*.py`; focused edge, callback, Kafka, workflow, and canary checks | Teams implements `HilChannel`; Core and Operator derive the same callback audience from a separately configured group-connected team and channel. Operator persists each decision outbox record before broker publication and marks delivery only after acceptance. Slack A1 can operate independently with a configured workspace and Entra map. A dedicated outbound Slack `HilChannel` and deployed receipts remain open. |
 | Durable outbound conversation delivery | implemented | [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py), [`outbound_delivery.py`](../../../services/core-control-plane/src/fdai/core/conversation/outbound_delivery.py), [`test_outbound_delivery.py`](../../../services/core-control-plane/tests/conversation/test_outbound_delivery.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py) | The coordinator distinguishes definitive rejection from ambiguous acknowledgement, bounds retries, reconciles interrupted sends, and preserves stable delivery identity in focused tests. |
 | Pure channel presentation rendering | implemented | `fdai_operator_service/families/conversation/channel_edge/{presentation,renderers}.py`; focused Operator renderer checks | One normalized envelope preserves canonical text, facts, limitations, evidence, authority, and unavailable state. Pure Teams and Slack payload builders enforce capability bounds without transport or acknowledgement, and malformed artifacts degrade to canonical text. |
 | Opt-in browser notifications | implemented | [`browser-notifications.ts`](../../../console/src/browser-notifications.ts), [`browser-notification-control.tsx`](../../../console/src/components/browser-notification-control.tsx), [`notification-sw.js`](../../../console/public/notification-sw.js), and focused browser notification tests | Permission, preference, visibility, delivery, and notification-click focus behavior pass focused Vitest cases. No live Windows notification or push-service receipt is recorded. |
@@ -68,8 +68,8 @@ durable delivery, and the Teams Workflows webhook binding are owned by
 - [x] Run `test_postgres_channel_pairing.py` and `test_postgres_channel_identity_link.py` against
   PostgreSQL with zero skips and retain the passing result before promoting durable pairing and
   identity linkage to `implemented`.
-- [ ] Add a Slack `HilChannel` with explicit user-to-Entra mapping, browser re-authentication,
-  action-bound callbacks, and focused fail-closed tests before claiming Slack A1 support.
+- [ ] Retain a governed live Teams callback and broker receipt, and add the dedicated outbound
+  Slack `HilChannel`; local callback, replay, quorum, and no-network canary mechanics pass.
 - [x] Add authenticated Slack and Teams A3 ingress plus bounded rich-response publishers, with
   focused signature, service-identity, principal-resolution, and acknowledgement tests.
 - [x] Implement `ProductionChannelRuntime`, a production ASGI factory, a service entry point, and
@@ -125,10 +125,9 @@ equivalence or conversion between the enum families.
 
 **Category boundaries (MUST)**
 
-- **A1 approvals never carry the decision payload in the message.** The Adaptive Card /
-  Block Kit / email body carries an **opaque `approval_id`**; the actual decision is
-  posted back to `fdai-api`, which re-authenticates and re-validates
-  (`idempotency_key` + `action_hash`) so a leaked message is not a valid approval.
+- **A1 approvals carry opaque bindings, never identity, authority, or a decision payload.** The
+  receiver derives the approver from the authenticated transport and delegated token, then
+  revalidates the exact card contract. See [Operator approval callback wire contract](operator-console-wire-contracts.md#133-operator-api-approval-callback-week-1).
 - **A3 write commands never mutate the live catalog directly** - they produce a draft
   PR the same way the console does (§6 in
   [user-rbac-and-identity.md](user-rbac-and-identity.md#6-identity-flow-console--draft-pr--audit)),
@@ -159,7 +158,7 @@ and what its authentication can prove.
 |---------|--------------|-----------|--------------------|
 | **Teams (same tenant)** | ✓ | Teams SSO → OBO exchange → `fdai-api` token | **A1, A2, A3, A4** |
 | **Teams (guest tenant)** | guest | OBO with guest OID | **A2, A3, A4** (A1 denied - same guest rule as [user-rbac-and-identity.md §10.5](user-rbac-and-identity.md#105-guest-entra-b2b-users)) |
-| **Slack** | ✗ | Slack OAuth; **fork-mandatory** Slack userId ↔ Entra OID mapping; A1 approvals bounce through `fdai-api` for Entra re-auth in the browser | **A1, A2, A3, A4** target - A1 remains planned (see §7 Slack notes) |
+| **Slack** | ✗ | Slack OAuth; **fork-mandatory** Slack userId ↔ Entra OID mapping; A1 approvals bounce through `fdai-api` for Entra re-auth in the browser | **A1 callback** only with a non-empty mapping; **A2, A3, A4**; outbound A1 delivery remains planned |
 | **Email (SMTP / Graph)** | ✗ | send-only, no return channel | **A2, A4 only** - never A1 (magic-link approvals aren't supported) |
 | **Generic webhook** | ✗ | HMAC-signed, timestamped, replay-guarded | **A2 only** |
 | **PagerDuty / Opsgenie** | ✗ | API key, ack from mobile app | **A2 only** (operational lane paging) |
@@ -401,6 +400,9 @@ validated target in a new window. This activation behavior does not approve or e
 - **Adapters MUST implement idempotent `send`**: a re-issued send with the same
   `correlation_id + audit_id + category` MUST NOT create a duplicate post.
 
+- **A1 decision return:** The exact Teams and Slack transport, actor, context, workflow-routing,
+  audit, and durable-delivery contract is owned by [Operator approval callbacks](operator-console-wire-contracts.md#133-operator-api-approval-callback-week-1).
+
 ### 5.1 Audience Derivation (channel-as-audience)
 
 Recipient lists are **not** derived per-user by the router. Each channel *is* an audience,
@@ -547,8 +549,8 @@ matrix:
 
 | Channel | Notes |
 |---------|-------|
-| **Teams** | Adaptive Cards for A1; keep the OAuth scope set minimal (`ChannelMessage.Send.Group` + bot signaling). SSO + OBO already covered in [user-rbac-and-identity.md §10.4](user-rbac-and-identity.md#104-chatops-teams-sign-in). Digest audience is a **group-connected team backed by an `aw-*` Entra security group** so membership follows Entra without a separate list. |
-| **Slack** | Block Kit for A2/A3; the approval callback URL redirects through `fdai-api` so Entra re-auth happens in the browser, not inside Slack. `chat:write` scope only. Fork MUST supply the userId↔OID mapping store; the adapter refuses A1 traffic when a Slack user has no mapped Entra OID. Slack channel membership is administered in Slack; keep it in sync with the corresponding `aw-*` group manually or via SCIM. |
+| **Teams** | Adaptive Cards for A1; keep the OAuth scope set minimal (`ChannelMessage.Send.Group` + bot signaling). SSO + OBO already covered in [user-rbac-and-identity.md §10.4](user-rbac-and-identity.md#104-chatops-teams-sign-in). Configure `FDAI_TEAMS_APPROVAL_TEAM_ID`, `FDAI_TEAMS_APPROVAL_CHANNEL_ID`, and the HTTPS `FDAI_TEAMS_APPROVAL_ACTIVITY_URL` for the **group-connected team backed by an `aw-*` Entra security group**. Core sends through its Bot identity and places the resulting `teams:<team-id>:<channel-id>` audience on the card; Operator validates the same value. Incoming Webhooks are not supported for A1 because they cannot deliver `Action.Execute` callbacks. The receiver additionally needs `FDAI_TEAMS_TENANT_ID`, `FDAI_TEAMS_ALLOWED_SERVICE_URLS_JSON`, and `FDAI_TEAMS_JWKS_URL`; Teams A1 stays closed until all inputs are present. |
+| **Slack** | Block Kit for A2/A3; the approval callback URL redirects through `fdai-api` so Entra re-auth happens in the browser, not inside Slack. `chat:write` scope only. A deployment supplies `FDAI_SLACK_TEAM_ID` and the userId-to-OID mapping together; the adapter refuses A1 traffic when either is missing. Complete Slack-only configuration doesn't require Teams settings. The signed HMAC callback serves only this internal relay path and refuses a `teams` channel claim, so a leaked shared secret can never assert a Teams actor. |
 | **Email** | Send-only through Azure Communication Services Email. Never include an approval link; digest and alert only. The adapter sends `plainText` for every message and adds bounded HTML when `notice_kind=opened`. That incident template uses only incident id, state, severity, opened time, aggregate member count, assignment state, `audit_id`, and an HTTPS Console link. It never renders correlation keys, resource payload, actor identity, or the free-form reason. Terraform provisions an Azure-managed sender domain and a dedicated notification managed identity scoped to the Communication Services resource. `FDAI_CONSOLE_BASE_URL` supplies the Console origin; when it is absent or the resulting link is not absolute HTTPS, the renderer omits the CTA. The adapter requests a short-lived `https://communication.azure.com/.default` token, waits for the provider operation to reach `Succeeded`, and records the provider message id. Settings > Integrations fetches the same renderer through an authenticated GET using synthetic placeholders only. Recommended recipient: an **Entra dynamic distribution group** mirroring `aw-approvers` / `aw-owners`. |
 | **Generic webhook** | HMAC-SHA256 signature, monotonic timestamp, single-use nonce. Receiver failures never block; core retries per adapter policy and moves on. |
 | **PagerDuty / Opsgenie** | Deduplication key = the observability correlation id so a burst collapses. Runbook URL is required in every alert. |
@@ -570,7 +572,7 @@ matrix:
 |------|----------------------|------|
 | Three provider contracts plus their message/receipt types | ✓ | - |
 | Teams adapters | A1 and A2/A4 implemented; A3 planned | tenant / group-connected team binding |
-| **Slack adapter with A1 enabled by default (P1)** | planned; A2/A4 webhook sender only today | workspace credentials + userId↔OID mapping (required) |
+| **Slack A1 callback** | implemented and default-disabled on an empty mapping; dedicated outbound `HilChannel` remains planned | workspace credentials + userId↔OID mapping (required) |
 | ACS Email adapter | ✓ (A2/A4, managed identity, final-status polling) | recipient binding + enablement |
 | Webhook / PagerDuty / SMS adapters | ✓ (concrete delivery adapters) | credentials + enablement |
 | Routing-config schema + startup validation | ✓ | deployment-specific bindings/overlays |

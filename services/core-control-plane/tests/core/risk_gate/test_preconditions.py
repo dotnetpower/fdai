@@ -334,3 +334,64 @@ async def test_ontology_change_window_freeze_overrides_allowing_window() -> None
     )
 
     assert active is False
+
+
+async def test_ontology_change_window_freeze_with_unusable_bounds_denies() -> None:
+    now = datetime(2026, 8, 4, 12, tzinfo=UTC)
+    store = _OntologyQueryStore(
+        OntologyGraphSnapshot(
+            objects=(
+                _object_record(
+                    "ChangeWindow",
+                    "window-allow",
+                    scope_ref="resource-1",
+                    status="active",
+                    window_kind="maintenance",
+                    effective_from=(now - timedelta(hours=1)).isoformat(),
+                    effective_to=(now + timedelta(hours=1)).isoformat(),
+                ),
+                _object_record(
+                    "ChangeWindow",
+                    "window-freeze",
+                    scope_ref="resource-1",
+                    status="active",
+                    window_kind="freeze",
+                    effective_from="not-a-timestamp",
+                    effective_to=(now + timedelta(hours=4)).isoformat(),
+                ),
+            )
+        )
+    )
+
+    active = await OntologyChangeWindowEvidenceProvider(store).is_active(  # type: ignore[arg-type]
+        target_ref="resource-1",
+        at=now,
+    )
+
+    assert active is False
+
+
+async def test_ontology_change_window_ignores_unusable_allowing_window() -> None:
+    now = datetime(2026, 8, 4, 12, tzinfo=UTC)
+    store = _OntologyQueryStore(
+        OntologyGraphSnapshot(
+            objects=(
+                _object_record(
+                    "ChangeWindow",
+                    "window-allow",
+                    scope_ref="resource-1",
+                    status="active",
+                    window_kind="maintenance",
+                    effective_from="not-a-timestamp",
+                    effective_to=(now + timedelta(hours=1)).isoformat(),
+                ),
+            )
+        )
+    )
+
+    active = await OntologyChangeWindowEvidenceProvider(store).is_active(  # type: ignore[arg-type]
+        target_ref="resource-1",
+        at=now,
+    )
+
+    assert active is False

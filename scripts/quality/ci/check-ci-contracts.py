@@ -254,6 +254,9 @@ def _validate_python_test_partitioning() -> list[str]:
         "pytest regression shard ${{ matrix.shard }}/3",
         "FDAI_PYTEST_MODE: coverage",
         "FDAI_PYTEST_MODE: integration",
+        "provider-contracts-docker:",
+        "FDAI_PROVIDER_CONTRACT_BACKENDS: real",
+        "services/core-control-plane/tests/providers/test_contracts.py",
     )
     errors = [
         f"ci.yml is missing partition contract: {fragment}"
@@ -264,6 +267,12 @@ def _validate_python_test_partitioning() -> list[str]:
         if mode not in runner:
             errors.append(f"run-python-tests.sh is missing mode branch: {mode}")
     return errors
+
+
+def _validate_service_contract_generation() -> list[str]:
+    workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    command = "python3 scripts/quality/contracts/generate_service_contracts.py --check"
+    return [] if command in workflow else [f"ci.yml is missing generation drift gate: {command}"]
 
 
 def _validate_action_runtime_versions() -> list[str]:
@@ -436,6 +445,7 @@ def main() -> int:
         *_validate_base_images(),
         *_validate_shared_runners(),
         *_validate_python_test_partitioning(),
+        *_validate_service_contract_generation(),
         *_validate_action_runtime_versions(),
         *_validate_privileged_workflow_guards(),
         *_validate_uv_cache_writers(),

@@ -826,6 +826,35 @@ The complete storage, schema, and boot/reload design now lives in
 - **Invalidation**: apply a TTL and invalidate on rule-catalog promotion; **never** serve an
   `auto` result for a case that a fresh evaluation would send to HIL, and never reuse a
   shadow-mode result to satisfy an enforce-mode decision.
+
+### L4 cache lifecycle decision
+
+**Initial design.** Add `expires_at` to each T2 cache row, sweep expired rows, and separately drop
+old catalog partitions during promotion.
+
+**Critique.** Independent row and partition deletion paths would create two writers and race with
+promotion or rollback. A rotation command that trusts caller-supplied active versions could also
+delete the only rollback partition when its view is stale.
+
+**Revised design.** The Core control plane owns one PostgreSQL T2 cache adapter and one authoritative
+catalog-state row. Reads select an exact `catalog_version` and `input_hash`, require
+`expires_at > now()`, and use the `(catalog_version, input_hash, expires_at)` index. Writes create an
+exact list partition first; the detached legacy default table is never a write or read fallback.
+Partition names derive from the SHA-256 of the catalog version, while the registry retains the
+original exact version. Migration-owned security-definer functions validate the digest, derived
+name, registry entry, and protected versions before creating or dropping one partition, so the Core
+runtime does not receive broad schema DDL authority.
+
+Promotion creates the new active partition and retains the prior active partition as rollback.
+Rollback swaps those exact state values and never reconstructs deleted data. Rotation takes one
+transaction-scoped advisory lock, verifies the command's active and rollback versions against the
+authoritative row, and drops only registered partitions outside both protected versions whose rows
+are all expired at the bounded cutoff. The same transaction appends a receipt keyed by the stable
+idempotency key. Duplicate delivery returns that receipt; any failure rolls back both partition DDL
+and receipt creation. The local PostgreSQL check uses a bounded statement timeout and confirms the
+indexed hit and miss query plan instead of using a synthetic delay.
+If two full catalog digests map to the same shortened physical partition name, promotion fails
+closed before PostgreSQL DDL runs.
 - **Budget guards**: per-tier token budgets and rate limits; overflow degrades to HIL, never to
   an ungated auto-action.
 - **Provider failure handling**: on timeout, rate-limit, or outage, fail **closed** - retry with bounded backoff,
@@ -873,5 +902,6 @@ Decide each by **measured cost/quality on the scenario set**, not assumption.
 - [ ] Quorum size / N and the disagreement-escalation policy for mixed-model.
 - [ ] Confidence-threshold values per vertical (Resilience, Change Safety, Cost Governance).
 - [ ] Redaction ruleset and residency routing per event class.
-- [ ] Cache TTL and the catalog-version invalidation trigger.
+- [x] Cache TTL, exact catalog-version selection, promotion invalidation, rollback retention, and
+  audited partition rotation are implemented and covered against local PostgreSQL.
 - [ ] Whether to distill T2 outcomes into T1, and the fork-side training pipeline.

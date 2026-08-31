@@ -75,6 +75,15 @@ async def test_workflow_approval_reuses_hil_queue_and_resolves_durable_receipts(
     assert initial.requested_at == _NOW
     assert all(item.action_kind == "workflow.approval" for item in pending)
     assert all(item.metadata["required_role"] == "approver" for item in pending)
+    parks, _ = await store.read_state_page("hil_park:", limit=10, offset=0)
+    assert {tuple(sorted(park["approval_context"])) for park in parks} == {
+        ("blast_radius_summary", "expires_at", "reasons", "ttl_seconds"),
+    }
+    assert all(
+        park["approval_context"]["expires_at"] == (_NOW + timedelta(seconds=120)).isoformat()
+        for park in parks
+    )
+    assert all(park["approval_context"]["ttl_seconds"] == 120 for park in parks)
 
     for item, approver in zip(pending, ("operator-a", "operator-b"), strict=True):
         receipt = await registry.record_decision(
@@ -117,6 +126,28 @@ async def test_workflow_approval_timeout_is_persisted_and_closes_pending_slots()
     assert timed_out.timed_out
     assert timed_out.revision == 2
     assert await registry.list_pending() == ()
+
+
+async def test_workflow_approval_without_timeout_fails_closed_before_parking() -> None:
+    store = InMemoryStateStore()
+    provider = StateStoreWorkflowApprovalProvider(store)
+
+    with pytest.raises(ValueError, match="requires a bounded timeout"):
+        await provider.ensure_requested(
+            process_id="process-1",
+            step_id="board_approval",
+            correlation_id="correlation-1",
+            target_resource_id="resource-1",
+            requester_principal="requester-1",
+            required_role="approver",
+            quorum=1,
+            no_self_approval=True,
+            timeout_seconds=None,
+            requested_at=_NOW,
+        )
+
+    parks, _ = await store.read_state_page("hil_park:", limit=10, offset=0)
+    assert not parks
 
 
 async def test_generic_expiry_worker_does_not_close_workflow_approval_slots() -> None:

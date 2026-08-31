@@ -43,16 +43,14 @@ class StateStoreWorkflowApprovalProvider:
     ) -> WorkflowApprovalSnapshot:
         if not process_id or not step_id or not requester_principal:
             raise ValueError("workflow approval identity fields MUST be non-empty")
-        if quorum < 1 or timeout_seconds is not None and timeout_seconds < 1:
+        if timeout_seconds is None:
+            raise ValueError("workflow approval requires a bounded timeout")
+        if quorum < 1 or timeout_seconds < 1:
             raise ValueError("workflow approval bounds MUST be positive")
         if attempt < 1:
             raise ValueError("workflow approval attempt MUST be >= 1")
         key = _state_key(process_id, step_id, attempt)
-        expires_at = (
-            requested_at + timedelta(seconds=timeout_seconds)
-            if timeout_seconds is not None
-            else None
-        )
+        expires_at = requested_at + timedelta(seconds=timeout_seconds)
         slots = tuple(_slot(process_id, step_id, attempt, index) for index in range(quorum))
         record: dict[str, object] = {
             "process_id": process_id,
@@ -66,7 +64,7 @@ class StateStoreWorkflowApprovalProvider:
             "no_self_approval": no_self_approval,
             "timeout_seconds": timeout_seconds,
             "requested_at": requested_at.isoformat(),
-            "expires_at": expires_at.isoformat() if expires_at is not None else None,
+            "expires_at": expires_at.isoformat(),
             "slots": list(slots),
             "state": "pending",
             "revision": 1,
@@ -82,7 +80,7 @@ class StateStoreWorkflowApprovalProvider:
                 "required_role": required_role,
                 "quorum": quorum,
                 "requested_at": requested_at.isoformat(),
-                "expires_at": expires_at.isoformat() if expires_at is not None else None,
+                "expires_at": expires_at.isoformat(),
             },
         )
         stored = record if created else await self.store.read_state(key)
@@ -428,6 +426,17 @@ def _park_record(
         "correlation_id": record["correlation_id"],
         "parked_at": record["requested_at"],
         "request_fingerprint": fingerprint,
+        "approval_context": {
+            "reasons": [
+                (
+                    f"Workflow step {record['step_id']} requires "
+                    f"{record['quorum']} {record['required_role']} approval(s)."
+                )
+            ],
+            "blast_radius_summary": "1 workflow target",
+            "ttl_seconds": record["timeout_seconds"],
+            "expires_at": record["expires_at"],
+        },
         "reason": (
             f"Workflow step {record['step_id']} requires "
             f"{record['quorum']} {record['required_role']} approval(s)."

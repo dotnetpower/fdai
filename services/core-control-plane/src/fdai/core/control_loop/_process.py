@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import replace
+from datetime import UTC, datetime
 from typing import Any, cast
 
 from fdai.core.control_loop._helpers import (
@@ -13,6 +14,10 @@ from fdai.core.control_loop._helpers import (
     _synthetic_action_build_failure,
     apply_governance_override_to_rule,
 )
+from fdai.core.control_loop.change_safety_evidence import (
+    ChangeSafetyPreAuthorityDecision,
+    evaluate_change_safety_pre_authority,
+)
 from fdai.core.control_loop.models import ControlLoopOutcome, ControlLoopResult
 from fdai.core.control_loop.operator_request import process_operator_request
 from fdai.core.executor import ExecutionResult
@@ -21,7 +26,7 @@ from fdai.core.executor.direct_api import DirectApiExecutionResult
 from fdai.core.executor.tool_call import ToolCallExecutionResult
 from fdai.core.tiers.t0_deterministic.engine import NO_RULE_DENIED
 from fdai.core.trust_router import RoutingTier
-from fdai.core.verticals.change_safety.detector import ChangeSafetyDecision
+from fdai.core.verticals.change_safety.detector import ChangeAttribution, ChangeSafetyDecision
 from fdai.rule_catalog.schema.effect import Effect, Enforcement
 from fdai.rule_catalog.schema.override import OverrideMode
 from fdai.shared.contracts.models import Event
@@ -66,8 +71,8 @@ async def process_event(host: Any, raw_event: Event | Mapping[str, Any]) -> Cont
     await host._analyze_and_audit_temporal_causality(event=event, incident_id=incident_id)
 
     cs_decision: ChangeSafetyDecision | None = None
-    if host._change_safety_detector is not None and host._change_safety_detector.is_activity_log(
-        event
+    if host._change_safety_detector is not None and isinstance(
+        event.payload.get("signal_kind"), str
     ):
         cs_decision = await host._change_safety_detector.detect(event)
 
@@ -259,6 +264,7 @@ async def process_event(host: Any, raw_event: Event | Mapping[str, Any]) -> Cont
 
     exec_results: list[ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult] = []
     routed: list[str] = []
+    pre_authority_evidence: list[ChangeSafetyPreAuthorityDecision] = []
     for finding in verdict.findings:
         rule = host._rules_by_id.get(finding.rule_id)
         if rule is None:  # pragma: no cover - index/catalog inconsistency
@@ -343,6 +349,46 @@ async def process_event(host: Any, raw_event: Event | Mapping[str, Any]) -> Cont
                 _synthetic_action_build_failure(event=event, finding=finding, reason=str(exc))
             )
             continue
+
+        if cs_decision is not None and cs_decision.attribution is ChangeAttribution.OUT_OF_BAND:
+            evidence_decision = await evaluate_change_safety_pre_authority(
+                host._change_safety_evidence_provider,
+                event=event,
+                action=action,
+                evaluated_at=datetime.now(tz=UTC),
+            )
+            pre_authority_evidence.append(evidence_decision)
+            evidence = evidence_decision.evidence
+            await host._audit_store.append_audit_entry(
+                {
+                    "actor": "control-loop",
+                    "producer_principal": "Saga",
+                    "action_kind": "change_safety.pre_authority_evidence",
+                    "event_id": str(event.event_id),
+                    "action_id": str(action.action_id),
+                    "correlation_id": correlation_id,
+                    "ready_for_risk": evidence_decision.ready_for_risk,
+                    "finding_preserved": True,
+                    "reason": evidence_decision.reason,
+                    "drift_status": evidence.drift_status.value if evidence is not None else None,
+                    "what_if_status": (
+                        evidence.what_if_status.value if evidence is not None else None
+                    ),
+                    "drift_evidence_ref": (
+                        evidence.drift_evidence_ref if evidence is not None else None
+                    ),
+                    "what_if_evidence_ref": (
+                        evidence.what_if_evidence_ref if evidence is not None else None
+                    ),
+                    "affected_count": evidence.affected_count if evidence is not None else None,
+                    "dry_run_is_effect_verification": False,
+                    "mode": event.mode.value,
+                }
+            )
+            if not evidence_decision.ready_for_risk:
+                routed.append("hil")
+                continue
+            action = evidence_decision.action
 
         authorization = await host._evaluate_execution_authorization(
             event=event,
@@ -478,6 +524,7 @@ async def process_event(host: Any, raw_event: Event | Mapping[str, Any]) -> Cont
         execution_results=tuple(exec_results),
         event_id=str(event.event_id),
         change_safety_decision=cs_decision,
+        change_safety_evidence=tuple(pre_authority_evidence),
     )
 
 

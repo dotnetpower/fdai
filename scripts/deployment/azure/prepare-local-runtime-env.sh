@@ -351,6 +351,7 @@ grep -vE '^(AZURE_TENANT_ID|AZURE_SUBSCRIPTION_ID|AZURE_RESOURCE_GROUP|AZURE_REG
   printf 'KAFKA_TOPIC_EVENTS=fdai.change.events\n'
   printf 'FDAI_STAGE_TOPIC=fdai.pipeline.stages\n'
   printf 'FDAI_PANTHEON_OBJECT_TOPIC=fdai.pantheon.objects\n'
+  printf 'FDAI_HIL_DECISION_TOPIC=fdai.hil.decisions\n'
   if [[ -n "$inventory_topic" ]]; then
     printf 'FDAI_INVENTORY_RAW_TOPIC=%s\n' "$inventory_topic"
   fi

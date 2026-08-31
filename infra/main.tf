@@ -344,6 +344,53 @@ module "inventory_identity" {
   tags                = local.tags
 }
 
+locals {
+  measurement_runners_enabled = (
+    var.baseline_measurement_enabled ||
+    var.pattern_growth_measurement_enabled ||
+    var.operational_promotion_measurement_enabled
+  )
+  scheduler_job_enabled = (
+    var.vm_task_enabled ||
+    var.scheduler_tick_cron_expression != ""
+  )
+}
+
+module "measurement_identity" {
+  count               = local.measurement_runners_enabled ? 1 : 0
+  source              = "./modules/identity/user-assigned-mi"
+  name                = "id-${var.workload}${local.full_suffix}-measurement"
+  resource_group_name = module.resource_group.name
+  location            = var.region
+  tags                = merge(local.tags, { "fdai:component" = "measurement" })
+}
+
+module "scheduler_identity" {
+  count               = local.scheduler_job_enabled ? 1 : 0
+  source              = "./modules/identity/user-assigned-mi"
+  name                = "id-${var.workload}${local.full_suffix}-scheduler"
+  resource_group_name = module.resource_group.name
+  location            = var.region
+  tags                = merge(local.tags, { "fdai:component" = "scheduler" })
+}
+
+module "dr_drill_identity" {
+  count               = var.dr_drill_enabled ? 1 : 0
+  source              = "./modules/identity/user-assigned-mi"
+  name                = "id-${var.workload}${local.full_suffix}-db-dr"
+  resource_group_name = module.resource_group.name
+  location            = var.region
+  tags                = merge(local.tags, { "fdai:component" = "db-dr-drill" })
+}
+
+module "dr_drill_resource_group" {
+  count    = var.dr_drill_enabled ? 1 : 0
+  source   = "./modules/resource-group"
+  name     = "rg-${var.workload}${local.full_suffix}-db-dr"
+  location = var.region
+  tags     = merge(local.tags, { "fdai:component" = "db-dr-drill-target" })
+}
+
 module "canary_identity" {
   source              = "./modules/identity/user-assigned-mi"
   name                = "id-${var.workload}${local.full_suffix}-canary"
@@ -738,10 +785,38 @@ resource "azurerm_role_assignment" "inventory_acr_pull" {
   principal_id         = module.inventory_identity.principal_id
 }
 
+resource "azurerm_role_assignment" "measurement_acr_pull" {
+  count                = local.measurement_runners_enabled ? 1 : 0
+  scope                = module.container_registry.id
+  role_definition_name = "AcrPull"
+  principal_id         = module.measurement_identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "scheduler_acr_pull" {
+  count                = local.scheduler_job_enabled ? 1 : 0
+  scope                = module.container_registry.id
+  role_definition_name = "AcrPull"
+  principal_id         = module.scheduler_identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "dr_drill_acr_pull" {
+  count                = var.dr_drill_enabled ? 1 : 0
+  scope                = module.container_registry.id
+  role_definition_name = "AcrPull"
+  principal_id         = module.dr_drill_identity[0].principal_id
+}
+
 resource "azurerm_role_assignment" "inventory_eventhubs_sender" {
   scope                = module.event_bus.topic_ids[local.event_topics[0]]
   role_definition_name = "Azure Event Hubs Data Sender"
   principal_id         = module.inventory_identity.principal_id
+}
+
+resource "azurerm_role_assignment" "scheduler_eventhubs_sender" {
+  count                = local.scheduler_job_enabled ? 1 : 0
+  scope                = module.event_bus.topic_ids[local.event_topics[0]]
+  role_definition_name = "Azure Event Hubs Data Sender"
+  principal_id         = module.scheduler_identity[0].principal_id
 }
 
 resource "azurerm_role_assignment" "inventory_stage_sender" {
@@ -1011,6 +1086,41 @@ resource "azurerm_role_assignment" "inventory_kv_secrets_user" {
   scope                = azurerm_key_vault_secret.state_store_dsn.resource_versionless_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = module.inventory_identity.principal_id
+}
+
+resource "azurerm_role_assignment" "measurement_kv_secrets_user" {
+  count                = local.measurement_runners_enabled ? 1 : 0
+  scope                = azurerm_key_vault_secret.state_store_dsn.resource_versionless_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.measurement_identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "scheduler_kv_secrets_user" {
+  count                = local.scheduler_job_enabled ? 1 : 0
+  scope                = azurerm_key_vault_secret.state_store_dsn.resource_versionless_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.scheduler_identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "dr_drill_kv_secrets_user" {
+  count                = var.dr_drill_enabled ? 1 : 0
+  scope                = azurerm_key_vault_secret.state_store_dsn.resource_versionless_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.dr_drill_identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "dr_drill_source_reader" {
+  count                = var.dr_drill_enabled ? 1 : 0
+  scope                = var.dr_drill_source_server_arm_id
+  role_definition_name = "Reader"
+  principal_id         = module.dr_drill_identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "dr_drill_target_contributor" {
+  count                = var.dr_drill_enabled ? 1 : 0
+  scope                = module.dr_drill_resource_group[0].id
+  role_definition_name = "PostgreSQL Flexible Management Service Contributor"
+  principal_id         = module.dr_drill_identity[0].principal_id
 }
 
 resource "azurerm_role_assignment" "operator_api_kv_secrets_user" {
@@ -1832,6 +1942,18 @@ module "compute" {
   log_workspace_id            = module.log_analytics.workspace_id
   executor_identity_id        = module.identity.resource_id
   executor_identity_client_id = module.identity.client_id
+  scheduler_identity_id = (
+    local.scheduler_job_enabled ? module.scheduler_identity[0].resource_id : ""
+  )
+  scheduler_identity_client_id = (
+    local.scheduler_job_enabled ? module.scheduler_identity[0].client_id : ""
+  )
+  dr_drill_identity_id = (
+    var.dr_drill_enabled ? module.dr_drill_identity[0].resource_id : ""
+  )
+  dr_drill_identity_client_id = (
+    var.dr_drill_enabled ? module.dr_drill_identity[0].client_id : ""
+  )
   change_identity_client_id = (
     var.enable_isolated_executor_authority_cutover ? "" : module.identity_change.client_id
   )
@@ -1980,7 +2102,11 @@ module "compute" {
   dr_drill_enabled              = var.dr_drill_enabled
   dr_drill_job_name             = "caj-${var.workload}${local.full_suffix}-drill"
   dr_drill_source_server_arm_id = var.dr_drill_source_server_arm_id
-  dr_drill_dry_run              = var.dr_drill_dry_run
+  dr_drill_target_resource_group = (
+    var.dr_drill_enabled ? module.dr_drill_resource_group[0].name : ""
+  )
+  dr_drill_integrity_tables = sort(var.dr_drill_integrity_tables)
+  dr_drill_dry_run          = var.dr_drill_dry_run
 
   # Metric analyzer and detection-readiness tick. The one-minute shadow
   # default uses explicit targets or durable inventory and runs under the
@@ -2041,6 +2167,13 @@ module "compute" {
     azurerm_role_assignment.inventory_acr_pull,
     azurerm_role_assignment.inventory_eventhubs_sender,
     azurerm_role_assignment.inventory_stage_sender,
+    azurerm_role_assignment.scheduler_acr_pull,
+    azurerm_role_assignment.scheduler_eventhubs_sender,
+    azurerm_role_assignment.scheduler_kv_secrets_user,
+    azurerm_role_assignment.dr_drill_acr_pull,
+    azurerm_role_assignment.dr_drill_kv_secrets_user,
+    azurerm_role_assignment.dr_drill_source_reader,
+    azurerm_role_assignment.dr_drill_target_contributor,
     azurerm_role_assignment.canary_acr_pull,
     azurerm_role_assignment.canary_eventhubs_sender,
     azurerm_role_assignment.ohl_evidence_acr_pull,
@@ -2079,6 +2212,9 @@ module "llm_azure_openai" {
   executor_principal_id = module.identity.principal_id
   additional_user_principal_ids = (
     merge(
+      var.enable_llm && var.pattern_growth_measurement_enabled
+      ? { measurement = module.measurement_identity[0].principal_id }
+      : {},
       var.enable_operator_api
       ? { operator_api = module.operator_api_identity[0].principal_id }
       : {},
@@ -2262,21 +2398,22 @@ module "llm_foundry_partner_private_endpoint" {
 }
 
 # -----------------------------------------------------------------------
-# Phase-4 continuous measurement - baseline and growth jobs plus an optional
-# operational-promotion evidence measurement job.
-# The jobs share the same Container Apps env + user-assigned MI as the
-# core app + rule watcher (least privilege - no extra role assignments).
+# Phase-4 continuous measurement - three opt-in jobs with one dedicated
+# non-executor identity and only image, state-secret, and optional model access.
 # -----------------------------------------------------------------------
 module "measurement_runners" {
+  count  = local.measurement_runners_enabled ? 1 : 0
   source = "./modules/measurement-runners"
 
+  baseline_enabled                    = var.baseline_measurement_enabled
+  growth_enabled                      = var.pattern_growth_measurement_enabled
   baseline_job_name                   = "caj-${var.workload}${local.full_suffix}-baseline"
   growth_job_name                     = "caj-${var.workload}${local.full_suffix}-growth"
   operational_promotion_job_name      = "caj-${var.workload}${local.full_suffix}-promotion"
   container_app_environment_id        = module.compute.environment_id
   location                            = var.region
   resource_group_name                 = module.resource_group.name
-  executor_identity_id                = module.identity.resource_id
+  measurement_identity_id             = module.measurement_identity[0].resource_id
   image                               = var.core_image
   acr_login_server                    = module.container_registry.login_server
   scenario_set_version                = var.measurement_scenario_set_version
@@ -2295,7 +2432,7 @@ module "measurement_runners" {
     POSTGRES_HOST                     = module.state_store.fqdn
     POSTGRES_DATABASE                 = module.state_store.database_name
     RUNTIME_ENV                       = local.env_label == "day-zero" ? "dev" : local.env_label
-    FDAI_MI_CLIENT_ID                 = module.identity.client_id
+    FDAI_MI_CLIENT_ID                 = module.measurement_identity[0].client_id
     T1_SIMILARITY_THRESHOLD           = tostring(var.t1_similarity_threshold)
     T1_MIN_SUCCESS_RATE               = tostring(var.t1_min_success_rate)
     QUALITY_GATE_CONFIDENCE_THRESHOLD = tostring(var.quality_gate_confidence_threshold)
@@ -2308,6 +2445,12 @@ module "measurement_runners" {
     FDAI_MODEL_ENDPOINTS_JSON  = local.llm_model_endpoints_json
   } : {})
   tags = local.tags
+
+  depends_on = [
+    azurerm_role_assignment.measurement_acr_pull,
+    azurerm_role_assignment.measurement_kv_secrets_user,
+    module.llm_azure_openai,
+  ]
 }
 
 # -----------------------------------------------------------------------

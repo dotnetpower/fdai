@@ -50,6 +50,7 @@ class OperatorSemanticKafkaConfig:
     read_investigation_completion_topic: str | None = None
     background_task_projection_topic: str | None = None
     event_topic: str | None = None
+    hil_decision_topic: str | None = None
     client_id: str = "fdai-operator-service"
     auto_offset_reset: str = "earliest"
     dlq_suffix: str = ".dlq"
@@ -109,6 +110,20 @@ class OperatorSemanticKafkaConfig:
             }
         ):
             raise ValueError("event topic MUST be distinct and valid")
+        if self.hil_decision_topic is not None and (
+            _TOPIC_PATTERN.fullmatch(self.hil_decision_topic) is None
+            or self.hil_decision_topic
+            in {
+                self.request_topic,
+                self.projection_topic,
+                self.progress_topic,
+                self.read_investigation_topic,
+                self.read_investigation_completion_topic,
+                self.background_task_projection_topic,
+                self.event_topic,
+            }
+        ):
+            raise ValueError("HIL decision topic MUST be distinct and valid")
         if self.auto_offset_reset not in {"earliest", "latest"}:
             raise ValueError("auto_offset_reset MUST be earliest or latest")
         if not self.dlq_suffix:
@@ -187,6 +202,8 @@ class OperatorSemanticKafkaBus:
             allowed.add(f"{self._config.background_task_projection_topic}{self._config.dlq_suffix}")
         if self._config.event_topic is not None:
             allowed.add(self._config.event_topic)
+        if self._config.hil_decision_topic is not None:
+            allowed.add(self._config.hil_decision_topic)
         if topic not in allowed:
             raise ValueError("semantic Kafka publish topic is not configured")
         producer = await self._get_producer()
@@ -196,7 +213,11 @@ class OperatorSemanticKafkaBus:
             else _encode(payload, maximum=self._config.maximum_message_bytes)
         )
         physical_topic = topic
-        if self._config.physical_topic is not None and topic != self._config.event_topic:
+        direct_topics = {
+            self._config.event_topic,
+            self._config.hil_decision_topic,
+        }
+        if self._config.physical_topic is not None and topic not in direct_topics:
             logical_topic = topic.removesuffix(self._config.dlq_suffix)
             enriched = json.loads(encoded)
             enriched[LOGICAL_TOPIC_FIELD] = logical_topic

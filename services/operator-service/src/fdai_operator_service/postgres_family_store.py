@@ -16,7 +16,7 @@ from uuid import uuid4
 
 import anyio
 import psycopg
-from fdai_service_contracts import SemanticInvestigationContinuation
+from fdai_service_contracts import OperatorRole, SemanticInvestigationContinuation
 from psycopg.rows import dict_row
 
 from fdai_operator_service.environment import EXPECTED_DATABASE_ROLE
@@ -48,6 +48,11 @@ from fdai_operator_service.postgres_semantic_turn_store import (
     StoredSemanticResult,
     StoredSemanticTurn,
     rule_search_projection_key,
+)
+from fdai_operator_service.process_transition_projection import (
+    ProcessTransitionDeniedError,
+    authorize_process_transition,
+    project_process_control,
 )
 
 _PROJECTION_PREFIX: Final = "operator-projection:"
@@ -352,6 +357,10 @@ class PostgresProposalConflictError(RuntimeError):
     """An idempotency key is already bound to different proposal content."""
 
 
+class PostgresProcessNotVisibleError(RuntimeError):
+    """A Process is absent from the authenticated principal's visible scope."""
+
+
 PostgresFamilyStoreUnavailable = PostgresFamilyStoreUnavailableError
 PostgresProposalConflict = PostgresProposalConflictError
 PostgresSemanticTurnConflict = SemanticTurnConflictError
@@ -401,6 +410,16 @@ class ActionProposalClaim:
 @dataclass(frozen=True, slots=True)
 class WebhookProposalClaim:
     """One lease-fenced normalized webhook proposal awaiting publication."""
+
+    key: str
+    claim_id: str
+    payload: Mapping[str, object]
+    attempt: int
+
+
+@dataclass(frozen=True, slots=True)
+class HilDecisionProposalClaim:
+    """One lease-fenced durable human-approval decision awaiting publication."""
 
     key: str
     claim_id: str
@@ -1491,6 +1510,170 @@ class PostgresFamilyStore:
             record=stored,
         )
 
+    async def append_guarded_workflow_transition_proposal(
+        self,
+        *,
+        operation: str,
+        process_id: str,
+        principal_id: str,
+        principal_roles: frozenset[OperatorRole],
+        idempotency_key: str,
+        expected_revision: str,
+        proposal_payload: Mapping[str, object],
+    ) -> StoredProposal:
+        """Atomically fence Process state and append one inert transition proposal."""
+        request = {
+            "family": "workflow",
+            "operation": operation,
+            "principal_id": principal_id,
+            "idempotency_key": idempotency_key,
+            "payload": dict(proposal_payload),
+        }
+        request_digest = _digest(request)
+        proposal_id = f"operator-{request_digest[:32]}"
+        accepted_at = datetime.now(UTC).isoformat()
+        record: dict[str, object] = {
+            "kind": "operator.proposal",
+            "proposal_id": proposal_id,
+            "request_digest": request_digest,
+            "dispatch_status": "pending",
+            "mode": "shadow",
+            "accepted_at": accepted_at,
+            **request,
+        }
+        key = _proposal_key("workflow", idempotency_key)
+        try:
+            async with await psycopg.AsyncConnection.connect(
+                _psycopg_dsn(self._config.dsn),
+                row_factory=dict_row,
+                connect_timeout=self._config.connect_timeout_s,
+            ) as connection:
+                async with connection.transaction():
+                    await _set_statement_timeout(connection, self._config.statement_timeout_ms)
+                    existing_cursor = await connection.execute(
+                        "SELECT value FROM state_kv WHERE key = %s FOR UPDATE",
+                        (key,),
+                    )
+                    existing_row = await existing_cursor.fetchone()
+                    if existing_row is not None:
+                        existing = _json_object(existing_row["value"], label=key)
+                        if existing.get("request_digest") != request_digest:
+                            raise PostgresProposalConflictError(
+                                "idempotency key conflicts with a different durable "
+                                "Operator proposal"
+                            )
+                        return _stored_proposal(existing, duplicate=True)
+
+                    process_cursor = await connection.execute(
+                        """
+                        SELECT runtime.process_id, runtime.workflow_ref,
+                               runtime.workflow_version, runtime.status,
+                               runtime.current_step, runtime.target_resource_id,
+                               runtime.started_at, runtime.updated_at,
+                               runtime.correlation_id, runtime.revision
+                          FROM process_runtime AS runtime
+                          JOIN process_event AS created
+                            ON created.process_id = runtime.process_id
+                           AND created.kind = 'process.created'
+                         WHERE runtime.process_id = %s
+                           AND LOWER(BTRIM(created.payload #>>
+                               '{resume,context,requester.principal}'))
+                               = LOWER(BTRIM(%s))
+                           FOR SHARE OF runtime
+                        """,
+                        (process_id, principal_id),
+                    )
+                    process = await process_cursor.fetchone()
+                    if process is None:
+                        raise PostgresProcessNotVisibleError("Process is not visible")
+                    event_cursor = await connection.execute(
+                        """
+                        SELECT event_id, kind, recorded_at, correlation_id,
+                               causation_id, step_id, attempt, payload
+                          FROM process_event
+                         WHERE process_id = %s
+                         ORDER BY seq
+                        """,
+                        (process_id,),
+                    )
+                    events = list(await event_cursor.fetchall())
+                    catalog_cursor = await connection.execute(
+                        "SELECT value FROM state_kv WHERE key = %s FOR SHARE",
+                        ("operator-projection:workflow:workflow.catalog",),
+                    )
+                    catalog_row = await catalog_cursor.fetchone()
+                    if catalog_row is None:
+                        raise PostgresFamilyStoreUnavailableError(
+                            "authoritative Workflow catalog projection is unavailable"
+                        )
+                    approval = await _read_workflow_approval_state(
+                        connection,
+                        process_id=process_id,
+                        step_id=str(process["current_step"]),
+                        events=events,
+                    )
+                    state = project_process_control(
+                        process=process,
+                        events=events,
+                        workflow_catalog=_json_object(
+                            catalog_row["value"],
+                            label="operator-projection:workflow:workflow.catalog",
+                        ),
+                        principal_id=principal_id,
+                        roles=principal_roles,
+                        approval_state=approval,
+                    )
+                    if (
+                        state.payload["mode"] == "enforce"
+                        and OperatorRole.OWNER not in principal_roles
+                    ):
+                        raise ProcessTransitionDeniedError(
+                            "Enforce Process transitions require Owner",
+                            status_code=403,
+                        )
+                    authorize_process_transition(
+                        operation=operation,
+                        expected_revision=expected_revision,
+                        state=state,
+                    )
+                    inserted = await connection.execute(
+                        """
+                        INSERT INTO state_kv (key, value)
+                        VALUES (%s, %s::jsonb)
+                        ON CONFLICT (key) DO NOTHING
+                        RETURNING value
+                        """,
+                        (key, json.dumps(record, separators=(",", ":"), sort_keys=True)),
+                    )
+                    inserted_row = await inserted.fetchone()
+                    if inserted_row is not None:
+                        return StoredProposal(proposal_id, accepted_at, False, record)
+                    raced_cursor = await connection.execute(
+                        "SELECT value FROM state_kv WHERE key = %s FOR UPDATE",
+                        (key,),
+                    )
+                    raced_row = await raced_cursor.fetchone()
+                    if raced_row is None:
+                        raise PostgresFamilyStoreUnavailableError(
+                            "stored Operator proposal disappeared"
+                        )
+                    raced = _json_object(raced_row["value"], label=key)
+                    if raced.get("request_digest") != request_digest:
+                        raise PostgresProposalConflictError(
+                            "idempotency key conflicts with a different durable Operator proposal"
+                        )
+                    return _stored_proposal(raced, duplicate=True)
+        except (
+            PostgresFamilyStoreUnavailableError,
+            PostgresProcessNotVisibleError,
+            PostgresProposalConflictError,
+        ):
+            raise
+        except psycopg.Error as exc:
+            raise PostgresFamilyStoreUnavailableError(
+                "authoritative PostgreSQL transition proposal store is unavailable"
+            ) from exc
+
     async def append_revisioned_proposal(
         self,
         *,
@@ -1697,6 +1880,102 @@ class PostgresFamilyStore:
             payload=dict(payload),
             attempt=attempt,
         )
+
+    async def claim_hil_decision_proposal(
+        self,
+        *,
+        worker_id: str,
+        lease_seconds: int,
+    ) -> HilDecisionProposalClaim | None:
+        """Lease the oldest pending or expired durable human-approval decision.
+
+        The lease fences concurrent Operator replicas, and an expired lease is
+        reclaimable, so a replica that crashed after its durable write cannot
+        strand a recorded human decision behind an HTTP retry.
+        """
+        _bounded_component("worker_id", worker_id)
+        if not 1 <= lease_seconds <= 300:
+            raise ValueError("lease_seconds MUST be in [1, 300]")
+        claim_id = str(uuid4())
+        rows = await self._fetch_all(
+            """
+            WITH candidate AS (
+                SELECT key
+                  FROM state_kv
+                 WHERE key LIKE %(proposal_prefix)s
+                   AND value ->> 'family' = 'iam'
+                   AND value ->> 'operation' = 'hil.decision.enqueue'
+                   AND (
+                        value ->> 'dispatch_status' = 'pending'
+                        OR (
+                            value ->> 'dispatch_status' = 'claimed'
+                            AND (value ->> 'claim_expires_at')::timestamptz <= NOW()
+                        )
+                   )
+                 ORDER BY COALESCE((value ->> 'attempt')::integer, 0),
+                          value ->> 'accepted_at', key
+                 FOR UPDATE SKIP LOCKED
+                 LIMIT 1
+            )
+            UPDATE state_kv AS proposal
+               SET value = proposal.value || jsonb_build_object(
+                   'dispatch_status', 'claimed',
+                   'claim_id', %(claim_id)s::text,
+                   'claim_worker_id', %(worker_id)s::text,
+                   'claim_expires_at', NOW() + make_interval(secs => %(lease_seconds)s),
+                   'attempt', COALESCE((proposal.value ->> 'attempt')::integer, 0) + 1
+               ),
+                   updated_at = NOW()
+              FROM candidate
+             WHERE proposal.key = candidate.key
+         RETURNING proposal.key, proposal.value
+            """,
+            {
+                "claim_id": claim_id,
+                "proposal_prefix": "operator-proposal:%",
+                "worker_id": worker_id,
+                "lease_seconds": lease_seconds,
+            },
+        )
+        if not rows:
+            return None
+        key = rows[0].get("key")
+        value = _json_object(rows[0].get("value"), label="HIL decision proposal claim")
+        payload = value.get("payload")
+        attempt = value.get("attempt")
+        if (
+            not isinstance(key, str)
+            or not isinstance(payload, Mapping)
+            or not isinstance(attempt, int)
+            or isinstance(attempt, bool)
+        ):
+            raise PostgresFamilyStoreUnavailable("HIL decision proposal claim is malformed")
+        return HilDecisionProposalClaim(
+            key=key,
+            claim_id=str(value.get("claim_id") or claim_id),
+            payload=dict(payload),
+            attempt=attempt,
+        )
+
+    async def mark_hil_decision_published(self, *, idempotency_key: str) -> bool:
+        """Close one durable decision record the immediate path already published."""
+        if not idempotency_key.strip() or len(idempotency_key) > 512:
+            raise ValueError("idempotency_key MUST be a bounded non-empty string")
+        rows = await self._fetch_all(
+            """
+            UPDATE state_kv
+               SET value = value || jsonb_build_object(
+                   'dispatch_status', 'published',
+                   'published_at', NOW()
+               ),
+                   updated_at = NOW()
+             WHERE key = %(key)s
+               AND value ->> 'dispatch_status' = 'pending'
+         RETURNING value
+            """,
+            {"key": _proposal_key("iam", idempotency_key)},
+        )
+        return bool(rows)
 
     async def claim_webhook_proposal(
         self,
@@ -2458,6 +2737,19 @@ class UnavailablePostgresFamilyStore(PostgresFamilyStore):
         del principal_id, idempotency_key, request_digest, envelope
         raise PostgresFamilyStoreUnavailable("semantic turn outbox is unavailable")
 
+    async def claim_hil_decision_proposal(
+        self,
+        *,
+        worker_id: str,
+        lease_seconds: int,
+    ) -> HilDecisionProposalClaim | None:
+        del worker_id, lease_seconds
+        raise PostgresFamilyStoreUnavailable("HIL decision outbox is unavailable")
+
+    async def mark_hil_decision_published(self, *, idempotency_key: str) -> bool:
+        del idempotency_key
+        raise PostgresFamilyStoreUnavailable("HIL decision outbox is unavailable")
+
     async def claim_semantic_turn(
         self,
         *,
@@ -2879,6 +3171,78 @@ def _proposal_key(family: str, idempotency_key: str) -> str:
     return f"{_PROPOSAL_PREFIX}{family}:{digest}"
 
 
+def _stored_proposal(
+    value: Mapping[str, object],
+    *,
+    duplicate: bool,
+) -> StoredProposal:
+    proposal_id = value.get("proposal_id")
+    accepted_at = value.get("accepted_at")
+    if not isinstance(proposal_id, str) or not isinstance(accepted_at, str):
+        raise PostgresFamilyStoreUnavailableError("stored Operator proposal receipt is malformed")
+    return StoredProposal(proposal_id, accepted_at, duplicate, value)
+
+
+async def _read_workflow_approval_state(
+    connection: psycopg.AsyncConnection[dict[str, Any]],
+    *,
+    process_id: str,
+    step_id: str,
+    events: list[dict[str, Any]],
+) -> Mapping[str, object] | None:
+    latest = next(
+        (
+            event
+            for event in reversed(events)
+            if event.get("step_id") == step_id and isinstance(event.get("payload"), Mapping)
+        ),
+        None,
+    )
+    if (
+        latest is None
+        or cast(Mapping[str, object], latest["payload"]).get("step_kind") != "approval"
+    ):
+        return None
+    attempts = [event.get("attempt", 1) for event in events]
+    if any(not isinstance(attempt, int) or isinstance(attempt, bool) for attempt in attempts):
+        raise PostgresFamilyStoreUnavailableError("workflow approval attempt is malformed")
+    attempt = max(cast(list[int], attempts), default=1)
+    identity = f"{process_id}\0{step_id}"
+    if attempt > 1:
+        identity += f"\0{attempt}"
+    key = f"workflow:approval:{hashlib.sha256(identity.encode()).hexdigest()}"
+    cursor = await connection.execute("SELECT value FROM state_kv WHERE key = %s FOR SHARE", (key,))
+    row = await cursor.fetchone()
+    if row is None:
+        return None
+    record = _json_object(row["value"], label=key)
+    slots = record.get("slots")
+    if not isinstance(slots, list) or any(not isinstance(slot, Mapping) for slot in slots):
+        raise PostgresFamilyStoreUnavailableError("workflow approval slots are malformed")
+    decision_keys = [
+        f"hil_decision:{slot['idempotency_key']}"
+        for slot in cast(list[Mapping[str, object]], slots)
+        if isinstance(slot.get("idempotency_key"), str)
+    ]
+    if len(decision_keys) != len(slots) or not decision_keys:
+        raise PostgresFamilyStoreUnavailableError("workflow approval slots are malformed")
+    decision_cursor = await connection.execute(
+        "SELECT value FROM state_kv WHERE key = ANY(%s)",
+        (decision_keys,),
+    )
+    decisions = [
+        {
+            "principal": str(value.get("approver_oid") or ""),
+            "decision": str(value.get("decision") or ""),
+        }
+        for value in (
+            _json_object(decision_row["value"], label="workflow approval decision")
+            for decision_row in await decision_cursor.fetchall()
+        )
+    ]
+    return {**record, "_external_decisions": decisions}
+
+
 def _bounded_component(name: str, value: str) -> None:
     if not value.strip() or len(value) > 128:
         raise ValueError(f"{name} MUST be a bounded non-empty string")
@@ -3095,9 +3459,11 @@ async def _cancel_and_close(
 
 
 __all__ = [
+    "HilDecisionProposalClaim",
     "PostgresFamilyStore",
     "PostgresFamilyStoreConfig",
     "PostgresFamilyStoreUnavailable",
+    "PostgresProcessNotVisibleError",
     "PostgresProposalConflict",
     "PostgresSemanticTurnConflict",
     "SemanticTurnClaim",

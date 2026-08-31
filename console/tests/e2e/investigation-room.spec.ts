@@ -19,6 +19,7 @@ async function installFixture(page: Page): Promise<void> {
         source: "postgresql:process_runtime",
         synthetic: false,
         durable: true,
+        principal_scoped: true,
         items: [{
           id: "adaptive-1",
           workflow_ref: "adaptive-investigation",

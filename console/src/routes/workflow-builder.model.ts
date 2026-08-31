@@ -12,6 +12,7 @@ import type {
   WorkflowCatalogEntry,
   WorkflowDefinitionCatalogResponse,
   WorkflowDefinitionEntry,
+  WorkflowStepKind,
 } from "../workflow/validate";
 import type { PythonTaskAvailability } from "../workflow/python-task";
 
@@ -19,16 +20,47 @@ import type { PythonTaskAvailability } from "../workflow/python-task";
 // Types
 // ---------------------------------------------------------------------------
 
+export type DraftStepKind = Extract<
+  WorkflowStepKind,
+  "action" | "wait" | "approval" | "decision" | "parallel" | "gate"
+>;
+export type ApprovalRole = "reader" | "contributor" | "approver" | "owner";
+
+export const AUTHORABLE_STEP_KINDS: readonly DraftStepKind[] = [
+  "action",
+  "wait",
+  "approval",
+  "decision",
+  "parallel",
+  "gate",
+];
+
+export const APPROVAL_ROLES: readonly ApprovalRole[] = [
+  "reader",
+  "contributor",
+  "approver",
+  "owner",
+];
+
 /** One editable step row in the builder form. `key` is a stable client-side
  * identity so re-orders and removals do not shuffle React state. */
 export interface DraftStep {
   readonly key: number;
   id: string;
+  kind: DraftStepKind;
   action_type_ref: string;
   guard_rule_ref: string;
   compensated_by: string;
   on_failure: string;
   params: Record<string, string | number | boolean>;
+  wait_for: string;
+  timeout_seconds: string;
+  approval_role: ApprovalRole | "";
+  quorum: string;
+  no_self_approval: boolean;
+  outcomes: string[];
+  branches: string[];
+  gate_ref: string;
 }
 
 /** The full builder form state. Mirrors the workflow YAML shape (minus
@@ -214,11 +246,20 @@ function _emptyStep(key: number): DraftStep {
   return {
     key,
     id: "",
+    kind: "action",
     action_type_ref: "",
     guard_rule_ref: "",
     compensated_by: "",
     on_failure: "",
     params: {},
+    wait_for: "",
+    timeout_seconds: "",
+    approval_role: "",
+    quorum: "1",
+    no_self_approval: true,
+    outcomes: [],
+    branches: [],
+    gate_ref: "",
   };
 }
 
@@ -251,7 +292,16 @@ export const BUILDER_FORM_FIELDS: readonly Record<string, string>[] = [
   { section: "2. Trigger", field: "signal_type", required: "when kind=signal", note: "what happened that starts the workflow; pick a detection signal from trigger_signal_options or choose Custom" },
   { section: "2. Trigger", field: "schedule", required: "when kind=schedule", note: "standard 5-field cron, e.g. 0 3 * * 1 = 03:00 every Monday" },
   { section: "3. Steps", field: "step.id", required: "yes", note: "unique id for the step; auto-suggested from the chosen ActionType (e.g. right_size), editable" },
-  { section: "3. Steps", field: "step.action_type_ref", required: "yes", note: "pick one ontology ActionType from the action_types palette" },
+  { section: "3. Steps", field: "step.kind", required: "yes", note: "action, wait, or approval; each kind keeps its runtime contract fields" },
+  { section: "3. Steps", field: "step.action_type_ref", required: "when kind=action", note: "pick one ontology ActionType from the action_types palette" },
+  { section: "3. Steps", field: "step.wait_for", required: "when kind=wait", note: "the catalog event or evidence reference that releases the wait" },
+  { section: "3. Steps", field: "step.timeout_seconds", required: "when kind=wait or approval", note: "positive bounded timeout before the runtime fails closed" },
+  { section: "3. Steps", field: "step.approval_role", required: "when kind=approval", note: "minimum reviewed approval role" },
+  { section: "3. Steps", field: "step.quorum", required: "when kind=approval", note: "number of distinct approvals required" },
+  { section: "3. Steps", field: "step.no_self_approval", required: "when kind=approval", note: "keeps the requester and approver principals distinct" },
+  { section: "3. Steps", field: "step.outcomes", required: "when kind=decision", note: "at least two unique outcome labels accepted by the runtime" },
+  { section: "3. Steps", field: "step.branches", required: "when kind=parallel", note: "at least two unique branch ids; the runtime joins only after all complete" },
+  { section: "3. Steps", field: "step.gate_ref", required: "when kind=gate", note: "a deterministic gate reference already present in the reviewed workflow catalog" },
   { section: "3. Steps", field: "step.guard_rule_ref", required: "no", note: "optional policy rule that gates the step" },
   { section: "3. Steps", field: "step.compensated_by", required: "no", note: "optional ActionType that undoes this step on rollback" },
   { section: "3. Steps", field: "step.on_failure", required: "no", note: "optional fallback; must be a later step id" },

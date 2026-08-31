@@ -7,6 +7,7 @@ Authority and state: Reads only; it cannot create, transition, approve, or execu
 
 from __future__ import annotations
 
+import hashlib
 from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -16,6 +17,9 @@ from typing import Any, cast
 import psycopg
 from psycopg.rows import dict_row
 
+from fdai_operator_service.analyzer_lifecycle_projection import (
+    project_analyzer_lifecycle,
+)
 from fdai_operator_service.families.operations import (
     ProjectionNotFoundError,
     ProjectionQuery,
@@ -25,6 +29,12 @@ from fdai_operator_service.families.operations import (
 from fdai_operator_service.investigation_projection import (
     project_adaptive_investigation,
 )
+from fdai_operator_service.process_transition_projection import (
+    ProcessControlUnavailableError,
+    project_process_control,
+)
+
+_WORKFLOW_CATALOG_KEY = "operator-projection:workflow:workflow.catalog"
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,31 +81,50 @@ class RuntimeProjectionReader:
         workflow_ref = _last(query.params.get("workflow_ref"))
         if workflow_ref:
             rows = await self._fetch_all(
-                "SELECT process_id, workflow_ref, workflow_version, status, current_step, "
-                "target_resource_id, updated_at FROM process_runtime "
-                "WHERE workflow_ref = %s ORDER BY updated_at DESC, process_id LIMIT 500",
-                (workflow_ref,),
+                "SELECT runtime.process_id, runtime.workflow_ref, runtime.workflow_version, "
+                "runtime.status, runtime.current_step, runtime.target_resource_id, "
+                "runtime.updated_at FROM process_runtime AS runtime "
+                "JOIN process_event AS created ON created.process_id = runtime.process_id "
+                "AND created.kind = 'process.created' "
+                "WHERE runtime.workflow_ref = %s "
+                "AND LOWER(BTRIM(created.payload #>> "
+                "'{resume,context,requester.principal}')) = LOWER(BTRIM(%s)) "
+                "ORDER BY runtime.updated_at DESC, runtime.process_id LIMIT 500",
+                (workflow_ref, query.principal_id),
             )
         else:
             rows = await self._fetch_all(
-                "SELECT process_id, workflow_ref, workflow_version, status, current_step, "
-                "target_resource_id, updated_at FROM process_runtime "
-                "ORDER BY updated_at DESC, process_id LIMIT 500",
+                "SELECT runtime.process_id, runtime.workflow_ref, runtime.workflow_version, "
+                "runtime.status, runtime.current_step, runtime.target_resource_id, "
+                "runtime.updated_at FROM process_runtime AS runtime "
+                "JOIN process_event AS created ON created.process_id = runtime.process_id "
+                "AND created.kind = 'process.created' "
+                "WHERE LOWER(BTRIM(created.payload #>> "
+                "'{resume,context,requester.principal}')) = LOWER(BTRIM(%s)) "
+                "ORDER BY runtime.updated_at DESC, runtime.process_id LIMIT 500",
+                (query.principal_id,),
             )
         return {
             "source": "postgresql:process_runtime",
             "synthetic": False,
             "durable": True,
+            "principal_scoped": True,
             "items": [_process_summary(row) for row in rows],
         }
 
     async def _process_events(self, query: ProjectionQuery) -> Mapping[str, object]:
         process_id = query.path.get("process_id", "")
         process_rows = await self._fetch_all(
-            "SELECT process_id, workflow_ref, workflow_version, status, current_step, "
-            "target_resource_id, started_at, updated_at, correlation_id, revision "
-            "FROM process_runtime WHERE process_id = %s",
-            (process_id,),
+            "SELECT runtime.process_id, runtime.workflow_ref, runtime.workflow_version, "
+            "runtime.status, runtime.current_step, runtime.target_resource_id, "
+            "runtime.started_at, runtime.updated_at, runtime.correlation_id, runtime.revision "
+            "FROM process_runtime AS runtime "
+            "JOIN process_event AS created ON created.process_id = runtime.process_id "
+            "AND created.kind = 'process.created' "
+            "WHERE runtime.process_id = %s "
+            "AND LOWER(BTRIM(created.payload #>> "
+            "'{resume,context,requester.principal}')) = LOWER(BTRIM(%s))",
+            (process_id, query.principal_id),
         )
         if not process_rows:
             raise ProjectionNotFoundError(process_id)
@@ -105,10 +134,16 @@ class RuntimeProjectionReader:
             (process_id,),
         )
         confirmed_rows = await self._fetch_all(
-            "SELECT process_id, workflow_ref, workflow_version, status, current_step, "
-            "target_resource_id, started_at, updated_at, correlation_id, revision "
-            "FROM process_runtime WHERE process_id = %s",
-            (process_id,),
+            "SELECT runtime.process_id, runtime.workflow_ref, runtime.workflow_version, "
+            "runtime.status, runtime.current_step, runtime.target_resource_id, "
+            "runtime.started_at, runtime.updated_at, runtime.correlation_id, runtime.revision "
+            "FROM process_runtime AS runtime "
+            "JOIN process_event AS created ON created.process_id = runtime.process_id "
+            "AND created.kind = 'process.created' "
+            "WHERE runtime.process_id = %s "
+            "AND LOWER(BTRIM(created.payload #>> "
+            "'{resume,context,requester.principal}')) = LOWER(BTRIM(%s))",
+            (process_id, query.principal_id),
         )
         if len(confirmed_rows) != 1 or confirmed_rows[0].get("revision") != process_rows[0].get(
             "revision"
@@ -135,10 +170,38 @@ class RuntimeProjectionReader:
             }
             for row in event_rows
         ]
+        catalog_rows = await self._fetch_all(
+            "SELECT value FROM state_kv WHERE key = %s",
+            (_WORKFLOW_CATALOG_KEY,),
+        )
+        control: Mapping[str, object]
+        if len(catalog_rows) != 1:
+            control = _unavailable_process_control(
+                process=process,
+                reason="Authoritative Workflow catalog projection is unavailable",
+            )
+        else:
+            try:
+                approval_state = await self._approval_state(
+                    process_id=str(process["id"]),
+                    step_id=str(process["current_step"]),
+                    events=event_rows,
+                )
+                control = project_process_control(
+                    process=process_rows[0],
+                    events=event_rows,
+                    workflow_catalog=_json_mapping(catalog_rows[0].get("value")),
+                    principal_id=query.principal_id,
+                    roles=query.roles,
+                    approval_state=approval_state,
+                ).payload
+            except (ProcessControlUnavailableError, ProjectionUnavailableError) as exc:
+                control = _unavailable_process_control(process=process, reason=str(exc))
         return {
             "process": process,
             "events": events,
             "count": len(events),
+            "control": control,
             "planning": None,
             "investigation": project_adaptive_investigation(
                 process_id=str(process["id"]),
@@ -151,6 +214,61 @@ class RuntimeProjectionReader:
                 events=events,
             ),
         }
+
+    async def _approval_state(
+        self,
+        *,
+        process_id: str,
+        step_id: str,
+        events: list[dict[str, Any]],
+    ) -> Mapping[str, object] | None:
+        latest = next(
+            (
+                event
+                for event in reversed(events)
+                if event.get("step_id") == step_id and isinstance(event.get("payload"), Mapping)
+            ),
+            None,
+        )
+        if latest is None or _json_mapping(latest["payload"]).get("step_kind") != "approval":
+            return None
+        attempt = max(_integer(event.get("attempt", 1), "approval attempt") for event in events)
+        key = _workflow_approval_key(process_id, step_id, attempt)
+        rows = await self._fetch_all("SELECT value FROM state_kv WHERE key = %s", (key,))
+        if len(rows) != 1:
+            return None
+        record = _json_mapping(rows[0].get("value"))
+        record["_external_decisions"] = await self._approval_decisions(record)
+        return record
+
+    async def _approval_decisions(
+        self,
+        approval: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        slots = approval.get("slots")
+        if not isinstance(slots, list) or any(not isinstance(slot, Mapping) for slot in slots):
+            raise ProjectionUnavailableError("durable approval slots are malformed")
+        keys = [
+            f"hil_decision:{slot['idempotency_key']}"
+            for slot in slots
+            if isinstance(slot.get("idempotency_key"), str)
+        ]
+        if len(keys) != len(slots) or not keys:
+            raise ProjectionUnavailableError("durable approval slots are malformed")
+        rows = await self._fetch_all(
+            "SELECT key, value FROM state_kv WHERE key = ANY(%s)",
+            (keys,),
+        )
+        decisions: list[dict[str, object]] = []
+        for row in rows:
+            value = _json_mapping(row.get("value"))
+            decisions.append(
+                {
+                    "principal": str(value.get("approver_oid") or ""),
+                    "decision": str(value.get("decision") or ""),
+                }
+            )
+        return decisions
 
     async def _automation_blueprints(self) -> Mapping[str, object]:
         rows = await self._fetch_all(
@@ -540,15 +658,20 @@ class RuntimeProjectionReader:
         }
 
     async def _detection_readiness(self) -> Mapping[str, object]:
-        rows = await self._fetch_all(
+        readiness_rows = await self._fetch_all(
             "SELECT value, updated_at FROM state_kv "
             "WHERE key LIKE 'runtime:detection-readiness:%%' ORDER BY key"
         )
-        targets = [_json_mapping(row["value"]) for row in rows]
+        receipt_rows = await self._fetch_all(
+            "SELECT value, updated_at FROM state_kv "
+            "WHERE key LIKE 'runtime:analyzer-finding-receipt:%%' "
+            "ORDER BY updated_at DESC, key DESC LIMIT 500"
+        )
+        targets = [_json_mapping(row["value"]) for row in readiness_rows]
         decisions = Counter(str(target.get("decision", "unknown")) for target in targets)
         observed = [
             _required_timestamp(row["updated_at"])
-            for row in rows
+            for row in readiness_rows
             if row.get("updated_at") is not None
         ]
         decision_keys = (
@@ -565,6 +688,7 @@ class RuntimeProjectionReader:
             "target_count": len(targets),
             "counts": {key: decisions.get(key, 0) for key in decision_keys},
             "targets": targets,
+            "lifecycle": project_analyzer_lifecycle(receipt_rows),
         }
 
     async def _configuration_baselines(self) -> Mapping[str, object]:
@@ -651,6 +775,24 @@ def _process_summary(row: Mapping[str, object]) -> dict[str, object]:
     }
 
 
+def _unavailable_process_control(
+    *,
+    process: Mapping[str, object],
+    reason: str,
+) -> dict[str, object]:
+    return {
+        "schema_version": "1.0.0",
+        "authoritative": True,
+        "principal_scoped": True,
+        "available": False,
+        "process_revision": process["revision"],
+        "reason": reason,
+        "step": None,
+        "permitted_transitions": [],
+        "acceptance_is_success": False,
+    }
+
+
 def _timestamp(value: object) -> str:
     if not isinstance(value, datetime):
         raise ProjectionUnavailableError("durable runtime timestamp is malformed")
@@ -703,6 +845,13 @@ def _last(values: tuple[str, ...] | None) -> str | None:
 
 def _metric(value: float | None, direction: str) -> dict[str, object]:
     return {"value": value, "baseline": None, "direction": direction}
+
+
+def _workflow_approval_key(process_id: str, step_id: str, attempt: int) -> str:
+    identity = f"{process_id}\0{step_id}"
+    if attempt > 1:
+        identity += f"\0{attempt}"
+    return f"workflow:approval:{hashlib.sha256(identity.encode()).hexdigest()}"
 
 
 def _psycopg_dsn(value: str) -> str:

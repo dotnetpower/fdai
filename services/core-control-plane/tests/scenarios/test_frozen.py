@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime
 from ipaddress import ip_address
 from pathlib import Path
 from typing import Any, cast
@@ -22,6 +23,9 @@ SCENARIO_DIR = Path(__file__).resolve().parent / "v2026.07"
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema.json"
 MANIFEST_SCHEMA_PATH = Path(__file__).resolve().parent / "manifest.schema.json"
 MANIFEST_PATH = Path(__file__).resolve().parent / "manifests" / "v2026.07.json"
+CONFLICT_DIR = Path(__file__).resolve().parent / "cross-objective"
+CONFLICT_SCHEMA_PATH = CONFLICT_DIR / "schema.json"
+ENRICHMENT_DIR = Path(__file__).resolve().parent / "enrichment" / "v2026.07"
 
 # ── Guard patterns ──────────────────────────────────────────────────────────
 # Any GUID whose first four groups are non-zero is a real customer identifier
@@ -88,6 +92,62 @@ def _load_scenarios() -> list[tuple[Path, dict[str, Any]]]:
 
 def _load_manifest() -> dict[str, Any]:
     return cast(dict[str, Any], json.loads(MANIFEST_PATH.read_text(encoding="utf-8")))
+
+
+def _conflict_id_to_filename(conflict_id: str) -> str:
+    """Return the frozen filename convention `<set-version>-<capability>.json`."""
+
+    capability, _, remainder = conflict_id.partition(".")
+    _dimension, _, set_version = remainder.rpartition(".")
+    return f"{set_version.replace('-', '.')}-{capability}.json"
+
+
+def _load_conflict_specs() -> list[tuple[Path, dict[str, Any]]]:
+    """Load every frozen cross-objective artifact, excluding its own schema."""
+
+    files = sorted(path for path in CONFLICT_DIR.glob("*.json") if path.name != "schema.json")
+    return [
+        (p, cast(dict[str, Any], _load_json_without_duplicates(p.read_text(encoding="utf-8"))))
+        for p in files
+    ]
+
+
+def _manifest_conflict_spec_ids() -> list[str]:
+    return [
+        str(conflict_id)
+        for pack in _load_manifest()["capability_packs"].values()
+        for conflict_id in pack["conflict_spec_ids"]
+    ]
+
+
+_FAIL_CLOSED_EVIDENCE_CLASSES = (
+    "missing",
+    "stale",
+    "incomplete",
+    "conflicting",
+    "not_yet_recorded",
+)
+_DISPATCH_RECEIPT_KEYS = (
+    "pr_ref",
+    "pr_url",
+    "receipt_ref",
+    "execution_outcome",
+    "effect_verified",
+)
+
+
+def _load_effect_evidence() -> list[tuple[Path, dict[str, Any]]]:
+    """Load every frozen independent effect-evidence block from the overlays."""
+
+    found: list[tuple[Path, dict[str, Any]]] = []
+    for path in sorted(ENRICHMENT_DIR.glob("*.json")):
+        overlay = cast(
+            dict[str, Any], _load_json_without_duplicates(path.read_text(encoding="utf-8"))
+        )
+        evidence = overlay.get("effect_evidence")
+        if isinstance(evidence, dict):
+            found.append((path, cast(dict[str, Any], evidence)))
+    return found
 
 
 def _load_json_without_duplicates(text: str) -> object:
@@ -344,6 +404,131 @@ def test_complete_pack_requires_every_coverage_dimension() -> None:
         else "incomplete"
     )
     assert manifest["status"] == expected_status
+
+
+# ---------------------------------------------------------------------------
+# Cross-objective conflict artifacts
+# ---------------------------------------------------------------------------
+#
+# A frozen cross-objective artifact composes several frozen scenarios into one
+# conflict, so it cannot live inside the per-scenario hierarchy that the
+# scenario schema and the one-pack-per-scenario assignment govern. It is still
+# frozen: it carries its own id, so the manifest inventories that id directly,
+# and every immutability guard applied to a scenario is applied to it here.
+
+
+def test_capability_manifest_inventories_every_conflict_spec_exactly_once() -> None:
+    """Every frozen conflict artifact MUST be registered by its own id."""
+
+    specs = {raw["id"]: (path, raw) for path, raw in _load_conflict_specs()}
+    manifest = _load_manifest()
+    registered: list[str] = []
+    for capability, pack in manifest["capability_packs"].items():
+        for conflict_id in pack["conflict_spec_ids"]:
+            assert conflict_id in specs, f"{conflict_id} is registered but has no frozen artifact"
+            path, raw = specs[conflict_id]
+            assert raw["capability"] == capability
+            assert raw["scenario_set_version"] == manifest["scenario_set_version"]
+            assert path.name == _conflict_id_to_filename(conflict_id), (
+                f"{path.name} does not follow the frozen conflict filename convention"
+            )
+            registered.append(conflict_id)
+    assert sorted(registered) == sorted(specs), (
+        "every frozen conflict artifact MUST be inventoried by exactly one capability pack"
+    )
+    assert len(registered) == len(set(registered))
+
+
+@pytest.mark.parametrize(("path", "raw"), _load_conflict_specs())
+def test_conflict_spec_passes_its_schema(path: Path, raw: dict[str, Any]) -> None:
+    schema = cast(dict[str, Any], json.loads(CONFLICT_SCHEMA_PATH.read_text(encoding="utf-8")))
+    Draft202012Validator.check_schema(schema)
+    errors = sorted(Draft202012Validator(schema).iter_errors(raw), key=lambda e: list(e.path))
+    assert not errors, f"{path.name}: {[e.message for e in errors[:5]]}"
+
+
+@pytest.mark.parametrize(("path", "raw"), _load_conflict_specs())
+def test_conflict_spec_composes_only_scenarios_its_pack_owns(
+    path: Path, raw: dict[str, Any]
+) -> None:
+    pack = _load_manifest()["capability_packs"][raw["capability"]]
+    owned = set(pack["scenario_ids"])
+    composed = {str(option["scenario_id"]) for option in raw["options"]}
+    assert composed <= owned, f"{path.name} composes scenarios its pack does not own: {composed}"
+    assert raw["id"] in pack["conflict_spec_ids"], (
+        f"{path.name} is not inventoried by the pack it claims"
+    )
+
+
+@pytest.mark.parametrize(("path", "raw"), _load_conflict_specs())
+def test_conflict_spec_carries_no_non_zero_guid(path: Path, raw: dict[str, Any]) -> None:
+    matches = _NONZERO_GUID.findall(json.dumps(raw))
+    assert not matches, f"{path.name} contains customer-identifying GUIDs: {matches[:3]}"
+
+
+@pytest.mark.parametrize(("path", "raw"), _load_conflict_specs())
+def test_conflict_spec_carries_no_customer_data(path: Path, raw: dict[str, Any]) -> None:
+    findings = _customer_data_findings(raw)
+    assert not findings, f"{path.name} contains customer data: {findings}"
+
+
+@pytest.mark.parametrize(("path", "raw"), _load_conflict_specs())
+def test_conflict_spec_machine_fields_are_ascii(path: Path, raw: dict[str, Any]) -> None:
+    invalid = _non_ascii_machine_fields(raw)
+    assert not invalid, f"{path.name} contains non-ASCII machine fields: {invalid}"
+
+
+# ---------------------------------------------------------------------------
+# Frozen independent effect evidence
+# ---------------------------------------------------------------------------
+#
+# The `successful_full_loop` dimension may close only from an independent
+# authoritative observation. Its frozen inputs therefore get the same
+# customer-agnosticness guards as the scenarios, plus a completeness guard that
+# keeps every fail-closed evidence class covered and keeps dispatch receipts
+# out of the artifact.
+
+
+@pytest.mark.parametrize(("path", "raw"), _load_effect_evidence())
+def test_effect_evidence_carries_no_customer_data(path: Path, raw: dict[str, Any]) -> None:
+    findings = _customer_data_findings(raw)
+    assert not findings, f"{path.name} effect evidence contains customer data: {findings}"
+    guids = _NONZERO_GUID.findall(json.dumps(raw))
+    assert not guids, f"{path.name} effect evidence contains customer GUIDs: {guids[:3]}"
+    invalid = _non_ascii_machine_fields(raw)
+    assert not invalid, f"{path.name} effect evidence has non-ASCII machine fields: {invalid}"
+
+
+@pytest.mark.parametrize(("path", "raw"), _load_effect_evidence())
+def test_effect_evidence_covers_every_fail_closed_class(path: Path, raw: dict[str, Any]) -> None:
+    """Positive closure needs an in-window observation; every deficiency is pinned."""
+
+    window_start = datetime.fromisoformat(str(raw["predicted_at"]))
+    deadline = datetime.fromisoformat(str(raw["observation_deadline"]))
+    observation = raw["authoritative_observation"]
+    observed_at = datetime.fromisoformat(str(observation["observed_at"]))
+    assert window_start <= observed_at <= deadline, (
+        f"{path.name} authoritative observation falls outside its effect window"
+    )
+    assert raw["acceptable_min"] <= observation["value"] <= raw["acceptable_max"], (
+        f"{path.name} authoritative observation cannot satisfy its own prediction"
+    )
+
+    kinds = [case["kind"] for case in raw["negative_cases"]]
+    assert sorted(kinds) == sorted(_FAIL_CLOSED_EVIDENCE_CLASSES), (
+        f"{path.name} must pin exactly the fail-closed evidence classes"
+    )
+    for case in raw["negative_cases"]:
+        assert case["expected_verification_status"] in {"hold", "mismatch"}
+        assert case["expected_verification_reason"]
+        assert case["expected_response_label"] in {"unscorable", "mismatch"}
+
+    body = json.dumps(raw)
+    for forbidden in _DISPATCH_RECEIPT_KEYS:
+        assert forbidden not in body, (
+            f"{path.name} effect evidence must not carry {forbidden!r}; "
+            "closure may not restate dispatch"
+        )
 
 
 @pytest.mark.parametrize(("path", "raw"), _load_scenarios())

@@ -46,6 +46,15 @@ from fdai.core.quality_gate.debate_router import (
     DebateRoutingDecision,
     decide_debate_route,
 )
+from fdai.core.quality_gate.deterministic_evidence import (
+    DeterministicEvidenceKind,
+    DeterministicEvidenceStatus,
+    DeterministicEvidenceVerifier,
+    DeterministicVerifierEvidence,
+    UnavailableDeterministicEvidenceVerifier,
+    expected_evidence_authority,
+    quality_candidate_digest,
+)
 from fdai.core.quality_gate.escalation_ladder import (
     EscalationDecision,
     EscalationLadderConfig,
@@ -115,6 +124,10 @@ __all__ = [
     "DebateRouterConfig",
     "DebateRoutingDecision",
     "DebateVerdict",
+    "DeterministicEvidenceKind",
+    "DeterministicEvidenceStatus",
+    "DeterministicEvidenceVerifier",
+    "DeterministicVerifierEvidence",
     "EscalationDecision",
     "EscalationLadderConfig",
     "EscalationRoute",
@@ -146,6 +159,7 @@ __all__ = [
     "CascadeDecision",
     "SelfConsistencyResult",
     "SelfConsistencySampler",
+    "UnavailableDeterministicEvidenceVerifier",
     "VerifierPolicy",
     "compute_stability",
     "decide_debate_route",
@@ -153,7 +167,9 @@ __all__ = [
     "evaluate_critic_output",
     "evaluate_judge_output",
     "evaluate_rubric_output",
+    "expected_evidence_authority",
     "escalation_decision_audit_fields",
     "quality_decision_audit_fields",
+    "quality_candidate_digest",
     "run_consistency_cascade",
 ]

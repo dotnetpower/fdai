@@ -671,6 +671,28 @@ async def test_approve_refuses_tampered_parked_action() -> None:
 
 
 @pytest.mark.asyncio
+async def test_approve_refuses_parked_action_without_a_digest() -> None:
+    coordinator, publisher, store, _ = _coordinator()
+    await _park(coordinator, approval_id="aid-no-digest")
+    parked = await store.read_state("hil_park:aid-no-digest")
+    assert parked is not None
+    parked.pop("action_hash")
+    parked["action"]["target_resource_ref"] = "azure://resource/changed"
+    await store.write_state("hil_park:aid-no-digest", parked)
+
+    result = await coordinator.resolve(
+        approval_id="aid-no-digest",
+        decision=HilDecision.APPROVE,
+        approver_oid=_APPROVER,
+    )
+
+    assert result.outcome is ResolveOutcome.TIMED_OUT
+    assert result.reason == "approval_integrity_failed"
+    assert publisher.records == ()
+    assert "hil.resolve.integrity_failed" in _audit_kinds(store)
+
+
+@pytest.mark.asyncio
 async def test_reject_records_no_execution() -> None:
     coordinator, publisher, store, _ = _coordinator()
     await _park(coordinator, approval_id="aid-3")

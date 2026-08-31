@@ -31,6 +31,7 @@ for the *human* side; the executor-side mapping stays as declared there.
 |------|-------|----------|-------|
 | Human and workload identity separation for activity observation | implemented | `fdai_operator_service/activity_projection.py`; `test_activity_projection.py`; the authenticated observation contract in this document | Durable current-state activity carries only a hashed correlation reference, while the Reader bearer gate and the relay workload credential remain separate and no activity row gains executor authority. |
 | Break-Glass activation request boundary | implemented | `services/operator-service/src/fdai_operator_service/families/iam/break_glass.py`; `capabilities.py`; `services/operator-service/tests/test_operator_break_glass_activation.py` | `POST /system/break-glass/activation` requires the BreakGlass-only `activate-break-glass` capability, a non-empty incident id and reason, and a future offset-aware expiry inside a bounded maximum. It records an audit-only projection and grants no HIL approval or executor identity. The durable activation store, TTL enforcement, and sign-in alerting remain deployment work. |
+| Human approval callback identity | implemented | `families/iam/hil_callback.py`; `hil_callback_authority.py`; `hil_decision_outbox.py`; `postgres_iam.py`; focused callback, persistence, Kafka, workflow, and canary tests | Teams requires an API-audience OBO token issued to the configured bot, exact provider-to-Entra mapping, and the separately configured group-connected team and channel. Slack requires browser Entra reauthentication plus a configured workspace and user-to-Entra-OID map. Callback decisions use the signed callback time, recover proposal-first persistence, and publish through the durable Operator outbox. BreakGlass remains available to its existing global capabilities but never contributes Human approval authority. |
 | Local Browser Entra session resilience | implemented | `console/src/auth-session.ts`; `console/src/auth.ts`; focused Console auth tests (`10 passed`) and typecheck | MSAL Browser v4 uses encrypted `localStorage` only on loopback origins and keeps deployed origins on `sessionStorage`. One coalesced refresh runs at startup, every 30 minutes, and after focus, visibility, or network recovery. Entra can still require interactive authentication. |
 | Owner-scoped notification integration diagnostics | implemented | `services/operator-service/src/fdai_operator_service/families/iam/settings.py`; `services/operator-service/src/fdai_operator_service/families/iam/manifest.py`; `services/operator-service/src/fdai_operator_service/{teams_workflow,slack_webhook}_diagnostics.py`; focused diagnostic and IAM-family tests | The `POST` routes accept a transient Teams Workflows or Slack webhook URL, send one fixed synthetic notification, persist only digest and status metadata, and return a secret-free result. Their factory order matches the frozen IAM route manifest so startup fails closed on public-surface drift. |
 | Per-user Cost Governance access | implemented | `CostAccessGrant`; `CostDisclosureCeiling`; Cost Governance Operator routes and focused tests | The reader selects the latest matching principal, purpose, and scope grant before applying time checks and the deployment disclosure ceiling. The server applies `hidden`, `aggregate`, `masked`, or `detailed` disclosure before serialization; the grant cannot enable the package or promote an action. |
@@ -45,6 +46,10 @@ for the *human* side; the executor-side mapping stays as declared there.
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and recorded the bounded identity carried by durable current-state activity. | Current source plus `test_activity_projection.py`; the focused persistence and projection suites passed. | Add the separately designed production Break-Glass activation boundary. |
 | 2026-08-15 | implemented | Added the `POST /system/break-glass/activation` request boundary with a BreakGlass-only capability, incident id, reason, bounded future expiry, and an audit-only projection. | `current change`; `services/operator-service/src/fdai_operator_service/families/iam/break_glass.py`; `pytest services/operator-service/tests` (308 passed, 1 skipped). | Bind a durable activation store, TTL enforcement, and sign-in alerting in a deployment. |
 | 2026-08-21 | implemented | Added a loopback-only durable MSAL cache and one lifecycle-owned proactive refresh loop without changing deployed token storage or API verification. | `current change`; `console/src/auth-session.ts`; `console/src/auth.ts`; `console/src/app.tsx`; focused auth tests passed 10 cases and Console typecheck passed. An unretained loopback Browser check restored a second tab with no MSAL `sessionStorage` entry and observed one successful startup refresh. | Retain a governed Browser receipt across a webview recreation or overnight suspension before claiming runtime validation. |
+| 2026-08-31 | implemented | Replaced callback-supplied identity and roles with server-verified Entra authority for Teams and mapped Slack A1 decisions. Callback context, expiry, justification, no-self-approval, duplicate handling, first-timestamp audit idempotency, proposal-first recovery, and durable Kafka publication now fail closed. Teams audience comes from a separate group-connected team and channel rather than an RBAC group id. | `current change`; focused Operator IAM, PostgreSQL, Kafka, composition, workflow approval, and local canary checks. | Retain one governed deployed Teams OBO and broker-acceptance receipt without storing a token or tenant value. |
+
+An exact HIL decision replay must preserve both the decision and the normalized approver identity.
+Reusing the same idempotency key from another approver is a conflict even when the decision matches.
 
 ### Remaining work
 
@@ -89,9 +94,7 @@ more roles.
 - **Break-Glass is NOT nested inside Owner**. It is a separately managed group; an Owner
   account is not authorized for break-glass actions unless also in `aw-break-glass`. This
   bounds blast radius even if an Owner account is compromised.
-- **Activation preserves verified entitlement**. Token resolution removes `BreakGlass` from
-  effective roles but retains a separate eligibility flag. Time-boxed activation checks that
-  flag before adding the emergency role.
+- **Activation preserves verified entitlement**. Token resolution preserves the existing `BreakGlass` role for its global kill-switch and emergency-access capabilities. The Human approval capability map excludes `BreakGlass`, so this callback path cannot turn emergency entitlement into approval authority.
 - **Current activation boundary.** `RoleResolver.activate_break_glass` is a pure activation
   primitive that validates an incident id and future expiry. `POST /system/break-glass/activation`
   is the request boundary in front of it: it requires the BreakGlass-only `activate-break-glass`
@@ -227,8 +230,9 @@ PR and API layer:
 > **Implementation status**: Runtime capability checks, `RoleEnforcer.no_self_approval`, and
 > risk-gate quorum are implemented. CI now joins exact-head GitHub PR, commit, review, and Check Run
 > facts to an Entra principal bundle emitted by a configured trusted verifier App. Missing trusted
-> attestation fails closed. Deploying that App, recording the human OID trailer at draft creation,
-> justification enforcement, and the complete `@aw-approvers` CODEOWNERS layout remain open.
+> attestation fails closed. Quorum 2 and proposer, co-author, and committer separation cover enforce
+> promotions, exemptions, overrides, and A1 routing. Deploying that App, recording the human OID
+> trailer at draft creation, and the complete `@aw-approvers` CODEOWNERS layout remain open.
 
 ### 5.1 Target CODEOWNERS (single approver group, path-based reviewer count)
 
@@ -250,6 +254,7 @@ requirement based on **diff content**:
 | Assignment `effect` promotion `audit → deny / remediate` | **2 (quorum)** |
 | Exemption create / renew | **2 (quorum)** |
 | Override create / modify | **2 (quorum)** |
+| A1 primary / fallback route change | **2 (quorum)** |
 
 Quorum-2 is the shadow→enforce promotion gate ([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md))
 made concrete without introducing an "elevated approver" group.
@@ -269,20 +274,15 @@ made concrete without introducing an "elevated approver" group.
 
 ### 5.3 App-Level Justification (runtime human approval)
 
-The target Adaptive Card approval contract requires `justification` and rejects missing or empty
-values with `400`. The current HMAC callback validates that `justification` is a string but allows
-an empty string. Its enforced boundary is the callback signature and replay window,
-no-self-approval, optional signed `actor_roles` capability, and a typed registry/coordinator
-decision.
+The callback requires `justification` and rejects a missing or blank value with `400`. It derives
+roles from the verified API token, never from callback JSON. Teams requires a token whose API
+audience was validated and whose authorized client is the configured approval bot. Slack requires
+browser Entra reauthentication and a non-empty provider-user-to-Entra-OID mapping.
+The five Entra group ids remain role assignments only. Teams callback audience is instead `teams:<team-id>:<channel-id>` from the configured group-connected approval destination. Teams configuration is all-or-none; Slack can operate independently with `slack:<workspace-id>`.
 
 ```jsonc
 POST /hil/{approval_id}/decision
-{
-  "approval_id": "hil-2026-07-04-abc123",
-  "decision": "approve",
-  "actor_oid": "approver-oid",
-  "justification": "verified rollback plan in runbook X; safe within maintenance window"
-}
+{"decision":"approve","justification":"verified rollback plan","channel":"teams","provider_actor_id":"<provider-user-id>","audience":"teams:<configured-team-id>:<configured-channel-id>","correlation_id":"<original-correlation-id>","idempotency_key":"<original-idempotency-key>","action_hash":"<original-action-hash>"}
 ```
 
 ## 6. Target Identity Flow: Console → Draft PR → Audit
@@ -309,26 +309,25 @@ categories, trust tiers, per-vendor rules, and fallback policy - lives in
 [channels-and-notifications.md](channels-and-notifications.md).
 
 > **Current boundary**: Teams conversation ingress verifies a Bot Framework JWT and same-tenant
-> principal binding. Runtime HIL decisions use an optionally registered HMAC-signed
-> `POST /hil/{approval_id}/decision` callback that passes a typed decision to the registry or
-> `HilResumeCoordinator`. The Teams SSO OBO exchange and user callback carrying App Roles below
-> are a target flow and aren't implemented yet.
+> principal binding. The HMAC-bound callback then verifies the API-audience Teams SSO OBO token,
+> configured bot client, mapped Entra actor, configured team-and-channel audience, and current App Roles before it
+> records a typed decision. Slack follows the same callback only after browser Entra
+> reauthentication and explicit provider-user mapping.
 
 ![7. ChatOps Human Approval Flow. The main stages are HIL request (action_hash, idempotency_key, ttl), Adaptive Card (Teams SSO), approve / reject + justification, POST /approvals (SSO on-behalf-of), Verify approver OID ∈ aw-approvers, / action_hash matches pending, / approver OID ≠ action originator OID, decision + audit entry (correlation_id), (approved) execute.](../../diagrams/generated/fdai-roadmap-interfaces-user-rbac-and-identity-02.en.svg)
 
-- The current callback binds its HMAC to the timestamp, URL `approval_id`, and body. The registry
-  or parked coordinator resolves that identifier against a pending item and enforces idempotent
-  terminal decisions.
-- No-self-approval compares the signed callback actor OID with the pending item's submitter OID.
-  End-to-end propagation from a future human-authored governance PR remains part of the target
-  flow.
+- The current callback binds its HMAC to the timestamp, URL `approval_id`, and body. The registry resolves that identifier against a pending item and checks the original `correlation_id`, `idempotency_key`, and action hash before a safe-to-retry terminal decision. The signed timestamp is the stable `decided_at`, and an exact retry preserves the first prepared/completed audit times. Operator persists the decision outbox before publication and marks delivery only after broker acceptance; a publication failure returns retryable `503`.
+- No-self-approval compares the server-authenticated Entra OID with the pending item's submitter
+  OID. Ordinary authentication keeps existing BreakGlass behavior, while the Human approval
+  capability check excludes BreakGlass.
 
 ## 8. Audit Correlation
 
 The target governance flow leaves the same `correlation_id` in four systems so a single decision
-is reconstructable end-to-end. Current typed HIL and IAM paths record their own correlated state
-and audit entries, but Entra sign-in, GitHub PR, Teams OBO, and core audit aren't wired into one
-end-to-end flow.
+is reconstructable end-to-end. The Operator callback now writes sanitized prepared and completed
+records for accepted, rejected, expired, and invalid attempts with the original correlation,
+hashed actor reference, authority basis, and outcome. Retained cross-system production evidence
+across Entra sign-in, GitHub PR, and Core audit remains deployment work.
 
 | Source | What it records |
 |--------|-----------------|
@@ -344,8 +343,8 @@ flow and propagated to GitHub (PR body), Adaptive Cards, and the core audit writ
 
 The table below is the target ownership split. The current upstream includes roles and
 capabilities, the Entra verifier and resolver, RBAC group slots, IAM request/directory contracts,
-and a remediation PR adapter. App registration manifest templates, a human OID-to-GitHub-login
-mapping provider, and governance PR CI aren't implemented yet.
+the callback authority path, governance PR CI, and a remediation PR adapter. App registration
+manifest templates and a human OID-to-GitHub-login mapping provider aren't implemented yet.
 
 | Item | Upstream (this repo) | Fork |
 |------|----------------------|------|

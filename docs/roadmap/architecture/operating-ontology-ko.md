@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 779ecac43a7db3fdf4b77d1f30f02a3329682136
-translation_revised: 2026-08-31
+translation_source_sha: 8e89bde392e917b40b20949a03d3b0b52aa9eb01
+translation_revised: 2026-09-01
 ---
 # FDAI 운영 온톨로지
 
@@ -532,11 +532,11 @@ clock-skew allowance의 합을 넘는 경우에도 상한을 낮춥니다.
 `context_graph_truncated`를 충돌로 기록하고 자율성 상한을 `SHADOW_ONLY`로 낮춥니다. 일부
 그래프만으로 자동 실행 권한을 유지하지 않습니다.
 
-`OperationalEvidenceBundle` 기반은 권한을 하나로 flatten하지 않고 그래프 및 문서
-근거를 결합할 수 있습니다. 런타임 조립, Forseti decision-case construction 또는
-운영 프롬프트 경로에는 연결되어 있지 않습니다. 운영 자율성은 기존 operational-context
-스냅샷과 일반 정책, risk, 승인, 실행, 감사 게이트를 계속 사용합니다. 네 개의 변경할 수 없는
-레인은 검증된 출처 증적을 독립적으로 보존합니다.
+`OperationalEvidenceBundle` 기반은 권한을 합치지 않고 그래프 및 문서 근거를 결합합니다.
+선택적 출처와 인증된 principal Context 제공자는 하나의 쌍으로 바인딩됩니다. Core는 답변된
+리소스 범위 턴을 승인한 뒤 Operator 변환 결과에 번들과 Context를 전달합니다. 신원, 최신성,
+그래프, 모순, 인용, 승인 결과 또는 예산 문제가 있으면 응답을 보류하고 쌍이 없으면 기존 응답을
+유지합니다. 번들은 Forseti 밖에 있고 운영 권한을 바꾸지 않습니다.
 
 - **온톨로지 근거:** Operational 그래프에서 가져온 secured 타입이 지정된 사실과 closed, acyclic
   결정론적 경로입니다. Secured ObjectSet 스냅샷 증적이 권장 입력이며, 모든 중첩된 링크의

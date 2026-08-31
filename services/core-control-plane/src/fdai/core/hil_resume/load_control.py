@@ -507,6 +507,10 @@ def approval_request_from_park(
         raise ValueError("parked approval context MUST be an object")
     citing_rules = action.get("citing_rules", ())
     reasons = context.get("reasons", ())
+    resolved_metadata = {
+        "idempotency_key": _required_str(parked, "idempotency_key"),
+        **dict(metadata or {}),
+    }
     return HilApprovalRequest(
         approval_id=_required_str(parked, "approval_id"),
         correlation_id=_required_str(parked, "correlation_id"),
@@ -517,7 +521,8 @@ def approval_request_from_park(
         blast_radius_summary=str(context.get("blast_radius_summary") or ""),
         reasons=tuple(str(item) for item in reasons),
         ttl_seconds=_positive_int(context.get("ttl_seconds"), "approval ttl_seconds"),
-        metadata=dict(metadata or {}),
+        action_hash=str(parked.get("request_fingerprint") or ""),
+        metadata=resolved_metadata,
     )
 
 

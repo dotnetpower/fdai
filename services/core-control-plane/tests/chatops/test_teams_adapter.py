@@ -5,7 +5,8 @@ Verifies the wire contract the P2 risk-gate + HIL notifier rely on:
 - Adaptive Card body is sent to the configured webhook URL with the
   correct content-type and (optionally) HMAC signature.
 - Body is JSON-encoded and includes ``approve`` / ``reject``
-  ``Action.Submit`` buttons that carry the opaque ``approval_id``.
+  ``Action.Execute`` buttons whose ``data`` matches the Operator Teams
+  receiver contract exactly and carries no actor, role, or authority field.
 - HMAC signature header is present + verifiable when a secret is
   configured; absent when no secret is set.
 - Bot Framework mode attaches a ``Bearer`` token from the injected
@@ -33,6 +34,7 @@ from typing import Any
 import httpx
 import pytest
 from fdai.delivery.chatops.teams_adapter import (
+    HIL_DECISION_ACTION,
     TeamsHilAdapter,
     TeamsHilAdapterConfig,
 )
@@ -49,6 +51,24 @@ from fdai.shared.providers.testing.workload_identity import (
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
+RECEIVER_ACTION_FIELDS = frozenset(
+    {
+        "decision",
+        "justification",
+        "approval_id",
+        "correlation_id",
+        "idempotency_key",
+        "action_hash",
+        "audience",
+    }
+)
+"""Exact Operator Teams receiver action-data contract.
+
+Kept as a literal so the Core suite stays service-owned; the cross-service
+check in ``tests/integration/test_teams_hil_callback_contract.py`` proves this
+set still equals the Operator receiver's own field set.
+"""
 
 _WEBHOOK_URL = "https://mock-teams.local/webhookb2/example@tenant/IncomingWebhook/abc/def"
 _WEBHOOK_SECRET = "s3cret-shared-hmac-key"  # noqa: S105 - deterministic test literal
@@ -79,6 +99,7 @@ def _request(
         reasons=reasons,
         ttl_seconds=ttl_seconds,
         action_hash=action_hash,
+        metadata={"idempotency_key": "idem-1"},
     )
 
 
@@ -100,6 +121,7 @@ def _adapter(
             webhook_secret=webhook_secret,
             approve_callback_url=approve_callback_url,
             reject_callback_url=reject_callback_url,
+            approval_audience="teams:approval-team:approval-channel",
         ),
         http_client=client,
         identity=identity,
@@ -209,16 +231,29 @@ async def test_send_posts_adaptive_card_and_returns_receipt() -> None:
     assert card["type"] == "AdaptiveCard"
     assert card["version"] == "1.5"
 
-    # Two Action.Submit buttons carrying the approval_id.
+    # Two Action.Execute buttons carrying only re-verifiable bindings.
     actions = card["actions"]
     titles = [a["title"] for a in actions]
     assert titles == ["Approve", "Reject"]
+    assert [a["type"] for a in actions] == ["Action.Execute", "Action.Execute"]
+    assert [a["verb"] for a in actions] == [HIL_DECISION_ACTION, HIL_DECISION_ACTION]
     approve_data = actions[0]["data"]
     reject_data = actions[1]["data"]
-    assert approve_data["action"] == "approve"
+    assert approve_data["decision"] == "approve"
     assert approve_data["approval_id"] == "appr-1"
     assert approve_data["action_hash"] == "hash-abc"
-    assert reject_data["action"] == "reject"
+    assert approve_data["correlation_id"] == "corr-1"
+    assert approve_data["idempotency_key"] == "idem-1"
+    assert approve_data["audience"] == "teams:approval-team:approval-channel"
+    assert reject_data["decision"] == "reject"
+
+    # The card contributes no actor, role, or authority field, and the
+    # justification input id completes the receiver's exact data contract.
+    assert set(approve_data) == RECEIVER_ACTION_FIELDS - {"justification"}
+    assert set(reject_data) == RECEIVER_ACTION_FIELDS - {"justification"}
+    justification_input = next(block for block in card["body"] if block.get("type") == "Input.Text")
+    assert justification_input["id"] == "justification"
+    assert justification_input["isRequired"] is True
 
     # Facts include target + blast radius + rules.
     facts = card["body"][2]["facts"]
@@ -371,36 +406,20 @@ async def test_send_refuses_card_matching_secret_pattern() -> None:
             await adapter.send(bad)
 
 
-async def test_send_omits_optional_fields_when_empty() -> None:
-    seen: list[httpx.Request] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        seen.append(request)
-        return httpx.Response(200)
-
-    async with _client(httpx.MockTransport(handler)) as client:
+async def test_send_rejects_missing_callback_correlation() -> None:
+    async with _client(httpx.MockTransport(lambda request: httpx.Response(200))) as client:
         adapter = _adapter(client)
-        empty_extras = _request(
+        missing_correlation = _request(
             correlation_id="",
             rule_ids=(),
             reasons=(),
         )
-        await adapter.send(empty_extras)
 
-    card = json.loads(seen[0].content)["attachments"][0]["content"]
-    facts = card["body"][2]["facts"]
-    titles = {f["title"] for f in facts}
-    # Facts skip the optional "Rules" and "Correlation" entries.
-    assert "Rules" not in titles
-    assert "Correlation" not in titles
-    # And no **Reasons** TextBlock is appended when reasons are empty.
-    reason_blocks = [
-        b for b in card["body"] if isinstance(b, dict) and "Reasons" in str(b.get("text", ""))
-    ]
-    assert reason_blocks == []
+        with pytest.raises(ValueError, match="callback bindings MUST be complete"):
+            await adapter.send(missing_correlation)
 
 
-async def test_send_includes_callback_urls_when_configured() -> None:
+async def test_send_never_embeds_configured_callback_urls_in_the_card() -> None:
     seen: list[httpx.Request] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -419,8 +438,9 @@ async def test_send_includes_callback_urls_when_configured() -> None:
     card = body["attachments"][0]["content"]
     approve_data = card["actions"][0]["data"]
     reject_data = card["actions"][1]["data"]
-    assert approve_data["callback_url"] == "https://api.example.com/approve"
-    assert reject_data["callback_url"] == "https://api.example.com/reject"
+    assert "callback_url" not in approve_data
+    assert "callback_url" not in reject_data
+    assert "api.example.com" not in json.dumps(body)
 
 
 # ---------------------------------------------------------------------------

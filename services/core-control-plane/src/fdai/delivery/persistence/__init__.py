@@ -181,6 +181,15 @@ from fdai.delivery.persistence.postgres_skill_source import (
     PostgresSkillSourceStore,
     PostgresSkillSourceStoreConfig,
 )
+from fdai.delivery.persistence.postgres_t2_cache import (
+    PostgresT2Cache,
+    PostgresT2CacheConfig,
+    T2CacheCatalogState,
+    T2CacheCatalogTransitionReceipt,
+    T2CacheEntry,
+    T2CacheLifecycleError,
+    T2CacheRotationReceipt,
+)
 from fdai.delivery.persistence.postgres_task_worker import (
     PostgresTaskWorkerStore,
     PostgresTaskWorkerStoreConfig,
@@ -329,6 +338,8 @@ __all__ = [
     "PostgresTrustedArtifactStoreConfig",
     "PostgresTaskWorkerStore",
     "PostgresTaskWorkerStoreConfig",
+    "PostgresT2Cache",
+    "PostgresT2CacheConfig",
     "PostgresTrajectoryDatasetStore",
     "PostgresTrajectoryDatasetStoreConfig",
     "PostgresStateStore",
@@ -350,5 +361,10 @@ __all__ = [
     "StateStoreOperationalPromotionReceiptStore",
     "StateStoreOntologyAdequacyReviewSink",
     "StateStoreSemanticFeedbackCandidateStore",
+    "T2CacheCatalogState",
+    "T2CacheCatalogTransitionReceipt",
+    "T2CacheEntry",
+    "T2CacheLifecycleError",
+    "T2CacheRotationReceipt",
     "add_pending_approval",
 ]

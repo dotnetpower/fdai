@@ -131,6 +131,18 @@ discovered supported resource joins the next tick without a deployment edit. An 
 explicit targets nor durable inventory contains a supported resource. An unreadable projection is
 not an empty one: the tick fails so the Job retries instead of narrowing its coverage silently.
 
+Each finding also writes a bounded receipt to tracked state. The receipt keeps the resource,
+observed event time, current state, evidence completeness, publication outcome, recovery state, and
+opaque evidence references separate. It fixes both `cause_claim_supported` and
+`execution_authority` to `false`. The authenticated Operator API groups receipts by idempotency key
+and resource before the Console receives them, so the browser renders a server-authored current
+assessment and retained history instead of inferring a lifecycle edge. Duplicate deliveries remain
+visible as suppressed publication attempts, and incomplete, conflicting, and missed evidence remain
+distinct states. A receipt identity is immutable; replay with different lifecycle evidence fails
+instead of rewriting history. A finding that outlives one tick keeps its window-bucket identity, so
+a later tick restating the same outcome is an idempotent no-op that retains the first observation
+and leaves detection latency a detection measurement rather than the finding's age.
+
 ### Agent-owned AKS detection readiness
 
 For every AKS target, the same tick publishes six sanitized observations to Huginn's raw ingress:
@@ -202,6 +214,7 @@ composition binding, and path #1 also requires an authentication bridge.
 |------|-------|----------|-------|
 | Routed pull providers | implemented | `services/core-control-plane/src/fdai/composition/wire_metric_provider.py`; `services/core-control-plane/tests/providers/test_routed_metric.py` | Prometheus, Metrics API, and Logs providers resolve through a deterministic route order. |
 | Scheduled analyzer job | implemented | `infra/modules/compute/container-apps/analyzer_tick_job.tf`; `services/core-control-plane/src/fdai/delivery/analyzer_tick_cli.py`; `services/core-control-plane/tests/delivery/test_analyzer_tick_routed.py` | Terraform declares the one-minute job and its `fdai.delivery.analyzer_tick_cli` entry point ships. One focused tick reaches each routed backend and publishes its breach as a shadow-mode Event; governed live latency evidence remains open. |
+| Analyzer lifecycle receipt projection | implemented | `fdai/delivery/analyzer_receipt_store.py`; `fdai_operator_service/analyzer_lifecycle_projection.py`; `console/src/routes/detection-readiness.tsx`; focused analyzer, Operator API, Console, and three-viewport Playwright checks | The bounded tracked-state receipt separates current state from retained restart, replacement, publication, and recovery history. The authenticated read projection exposes incomplete, conflicting, missed, failed, and duplicate evidence without a cause claim, provider read, browser-derived edge, or execution authority. |
 | AKS detection-readiness reduction | implemented | `services/core-control-plane/tests/agents/test_huginn_detection_readiness.py`; `tests/integration/infra/test_detection_readiness.py` | Focused tests cover the agent-owned readiness observations and the infrastructure contract. This is implementation evidence, not live latency evidence. |
 | Metric Alert webhook path | implemented | `fdai_service_contracts/azure_monitor.py`; Operator operations route, durable webhook outbox bridge, semantic Kafka event route; focused contract, route, bridge, and Kafka tests | Verified Common Alert payloads become sanitized shadow Events and publish from a lease-fenced durable proposal. Governed live Action Group delivery and latency evidence remain open. |
 | Diagnostic Event Hub path | implemented | `delivery/azure/monitor_events.py`; `diagnostic_event_ingest.py`; runtime bootstrap and Core service Terraform binding; focused normalizer, bridge, bootstrap, shutdown, and infrastructure tests | A dedicated Kafka consumer normalizes only configured metrics, dead-letters malformed matching records, and feeds the ordinary ingest topic. Governed live delivery and latency evidence remain open. |
@@ -211,6 +224,7 @@ composition binding, and path #1 also requires an authentication bridge.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-31 | implemented | Persisted the analyzer's bounded finding receipt in retention-limited tracked state and projected it through the authenticated detection-readiness route as server-authored current state plus retained lifecycle history. Duplicate publication, recovery, and complete, incomplete, conflicting, or missed evidence remain explicit while cause and execution authority stay false. | `current change`; focused Python and Operator API checks passed 90 cases; focused Console checks passed 5 cases; Console typecheck and production build passed; synthetic desktop, constrained-desktop, and mobile Playwright checks passed 3 cases with no measured horizontal overflow. | Governed live delivery and latency evidence remains open and was not produced by this change. |
 | 2026-08-29 | implemented | Hardening round 4 reviewed 26 diagnostic-ingest lenses and normalized diagnostic record time to UTC before Event identity derivation. Offset-only replays now retain one idempotency key. | `current change`; focused Azure diagnostic normalizer tests. | Retain governed live delivery and latency evidence. |
 | 2026-08-29 | implemented | Hardening round 2 reviewed 25 alert-contract lenses and normalized provider timestamps to UTC before deriving Event and idempotency identity. Equivalent offset representations of one alert can no longer create duplicate incident signals. | `current change`; focused Azure Monitor contract tests. | Retain governed live delivery and latency evidence. |
 | 2026-08-28 | implemented | Completed both push-path implementations. The HMAC-verified Operator webhook now converts Common Alert Schema bodies into shared sanitized Events before durable acceptance, and a lease-fenced outbox publishes them directly to the Core event topic. Core now owns a separately configured diagnostic Kafka transport, normalizes bounded whitelisted `AllMetrics` records, dead-letters malformed matching input, and supervises the bridge with startup readiness and ordered shutdown. Both capabilities remain shadow and grant no action authority. | `current change`; shared alert contract; Operator route, outbox, Kafka, composition, and focused tests; Core normalizer, bridge, bootstrap, shutdown, Terraform contract, and focused tests. | Retain governed live Action Group and diagnostic Event Hub delivery and latency evidence. |
@@ -224,6 +238,9 @@ composition binding, and path #1 also requires an authentication bridge.
   outbox, and event-topic publisher for path #1.
 - [x] Add a tested diagnostic-record normalizer and runtime binding that feeds path #2 records into
   the ingest topic and dead-letters malformed matching records.
+- [x] Persist bounded analyzer finding receipts and expose server-authored current state, retained
+  lifecycle history, publication, recovery, duplicate delivery, and explicit evidence-gap states
+  through the authenticated Operator API and responsive Console.
 - [ ] Record governed latency evidence for each path before changing any path from `implemented` to `validated`.
 
 ## What is NOT yet shipped

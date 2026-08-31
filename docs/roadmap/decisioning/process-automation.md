@@ -252,6 +252,24 @@ Process target and evaluation time. It delegates other refs to the existing guar
 the architecture-review production gate remains unchanged. Guard resolution is fail-closed: a
 stale evaluation clock, a raising or unavailable evaluator, and a non-boolean result each block
 the step and record a bounded `guard_error`, while a clean policy block keeps `guard_error` null.
+Only the literal boolean `true` can open a workflow gate; other truthy values remain blocked.
+An open gate is a positive decision, so a satisfied gate additionally needs a current shared
+decision-critical evidence admission bound to that exact gate reference and Process lineage. When no
+admission provider is bound, or the admission does not match, the gate stays closed.
+The runtime wraps every production gate evaluator with this admission check, including when no
+ontology store is configured. It evaluates the gate before any approval request, evidence read,
+parallel branch, wait, or decision step can produce a side effect or advance.
+
+Accepting a durable step outcome follows the same rule. `StateStoreWorkflowOutcomeLedger` still
+records every observed outcome, but it treats a receipt as a verified success only when a current
+admission matches that exact record and Process lineage. Without one, `verify` returns false and
+`resolve` refuses the receipt instead of advancing the Process.
+
+An enforce-mode approval quorum is also decision-critical evidence. The executor binds the durable
+Process, step, attempt, revision, requester, quorum, self-approval rule, and decision set into one
+admission request before it records the approval step as complete. A missing, rejected, or
+unavailable admission fails the step explicitly and cannot advance the Process.
+
 The shipped
 `planned-vm-start-change` workflow demonstrates the complete reusable pattern: active window,
 Owner quorum, `ops.start-vm`, independent outcome verification, change summary, and
@@ -313,6 +331,15 @@ and retries timeout CAS, so quorum completed after the deadline never advances t
 completed before the deadline remains valid when Process reconciliation resumes later. Callback
 and conversation approval surfaces compare normalized principals for no-self-approval. Approval
 claim CAS retries scale with the immutable slot quorum rather than a fixed contention bound.
+
+The workflow approval registry is the **only** owner of a quorum slot decision. A durable decision
+record published on `fdai.hil.decisions` is routed by the parked `decision_route`: a `workflow`
+park is recorded through the registry, and only an `action` park resumes through the HIL
+coordinator, which is the sole path that can reach an executor. Routing a slot to the coordinator
+would bypass quorum accounting, duplicate-approver refusal, and requester self-approval refusal, so
+the registry itself now refuses a decision whose normalized principal equals the recorded
+`requester_principal` while `no_self_approval` is set. That refusal applies identically to the
+Operator callback, a replayed decision event, and a console tool.
 
 Workflow audit uses each ActionType's `x-fdai-redact` paths. Redacted fields render as
 `[REDACTED]` and never enter the Process journal. Because the workflow runtime has no secret
@@ -559,11 +586,21 @@ Each artifact has one responsibility:
 - **Generic console renderer** supports the approved widget vocabulary only. It
   never turns arbitrary ontology properties into executable UI or action buttons.
 
-The **Processes** route lists every run, summarizes active, completed, and failed
-counts, and renders the selected Process timeline from oldest event to newest.
-Operators can refresh the read projection after a CLI or ChatOps command advances
-the Process. A workflow-specific ViewSpec, when available, appears below the
-runtime journal. The screen exposes no start, approve, retry, or execute button.
+The **Processes** route lists principal-scoped runs, summarizes active, completed, and failed
+counts, and renders the selected Process timeline from oldest event to newest. Its authoritative
+control projection joins the current Process revision, append-only events, and pinned reviewed
+Workflow step. It shows wait deadlines, durable Var approval role, revision, counted receipts and
+remaining quorum, decision outcomes, parallel branch receipts with the fixed all-branch join, and
+gate evidence state.
+
+The route renders only the resume, cancellation, or retry request that the
+Operator API permits for the authenticated role and current revision. Every `POST` carries
+`If-Match` and a stable idempotency key, and the workflow runtime rechecks authority and state.
+Operator API acceptance is displayed as pending runtime review, never as operational success.
+Stale, unavailable, unauthorized, self-approval, timeout, and invalid-transition states expose no
+optimistic success. Human approval stays on the separate Var-owned Approvals route, so the Process
+requester never receives a self-approval shortcut. The screen still exposes no start or direct
+execute button.
 
 An operational-planning Process also folds its append-only `planning.phase.recorded` child events
 into a Planning Room inside the same detail route. The projection shows accountable agents,

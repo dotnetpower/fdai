@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 69f752d8124e75dcbabc982e9a44ee026013e366
-translation_revised: 2026-08-30
+translation_source_sha: 5aa92fe04b3f8d216f4650eb8ccce7407266075f
+translation_revised: 2026-08-31
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -263,6 +263,11 @@ signed planner FunctionType identity를 `planner_ref`에 보존하고, 해당 li
 노드는 건너뛴 상태로 남습니다. 런타임은 허용 목록에 있는 `node_kind`와 `failure_type` 필드만
 포함한 `ontology_query_node_failed`를 기록합니다. 이러한 안정적 실패에는 예외 본문, 인자,
 노드 식별자, 프로바이더 페이로드 또는 운영자 데이터를 기록하지 않습니다.
+
+리소스 범위 semantic 읽기에서는 선택적 operational 근거 출처와 인증된 principal Context
+제공자를 하나의 쌍으로 바인딩합니다. Core는 Operator 저장과 표시 전에 정확한 번들과 Context
+메타데이터를 승인합니다. 신원, 근거, 그래프, 인용, 모순 또는 예산 문제가 있으면 응답을
+보류하며, 이 경로는 프로바이더 읽기 또는 권한을 추가하지 않습니다.
 
 진단 런타임은 Kubernetes 집약기 22개를 exact-release `derive` 함수로 등록합니다.
 실제 운영 프로바이더는 `diagnostic-evaluation` 용도에서 Heimdall로 레지스트리를 호출하고 각 호출

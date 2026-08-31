@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: f9ff9c205ff26f672df048a09bdc262b8dd89608
-translation_revised: 2026-08-19
+translation_source_sha: c13ef429e988728e6b552b9e27767283934210ed
+translation_revised: 2026-08-31
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -47,16 +47,29 @@ translation_revised: 2026-08-19
 
 ### 13.3 Operator API 승인 콜백 (주 1)
 
-- `POST /hil/{approval_id}/decision`
-- 본문: `{"decision": "approve|reject|defer", "justification": "..."}`
-- 헤더: `X-FDAI-Signature: sha256=<hex>`,
-  `X-FDAI-Timestamp: <RFC3339>`.
-- 서명 재료: `HMAC-SHA256(secret, timestamp . approval_id . body)`.
-  세 부분은 리터럴 `.` 구분자 로 결합. URL 경로 `approval_id` 를
-  다이제스트 에 연결 하면, 캡처된 유효 메시지를 다른 pending 항목 으로 재생
-  (URL swap) 할 수 없음. bot은 URL 에 넣은 `approval_id` 를 서명 재료에도
-  반드시 동일하게 포함해야 함.
-- 응답: `200 {"queued": true, "audit_entry_id": "..."}`.
+Operator 소유 수신기 두 개는 하나의 결정 서비스에서 처리됩니다. 어느 수신기도 메시지의 신원
+또는 권한을 신뢰하지 않습니다.
+
+| 전송 | 경로 | 인증 및 행위자 |
+|------|------|----------------|
+| Teams Bot 액티비티 | `POST /hil/teams-activity` | Bot Framework RS256 서비스 토큰, 발급자, 대상, `serviceurl`, 테넌트, 구성된 그룹 연결 팀과 채널, `invoke` 및 `adaptiveCard/action`을 검증합니다. 정확한 카드 계약에서 `approval_id`를, `from.aadObjectId`에서 행위자를 도출한 뒤 Operator API 대상과 인가된 봇 클라이언트에 대한 위임 OBO 토큰을 검증합니다. |
+| 내부 Slack 중계 | `POST /hil/{approval_id}/decision` | 재생 구간 안에서 타임스탬프, URL 승인 ID 및 정확한 바이트에 대한 HMAC을 검증합니다. 위임된 Operator bearer로 매핑된 Slack 사용자를 확인합니다. 이 경로는 `channel=teams`를 거부합니다. |
+
+Teams 카드는 `approval_id`, `correlation_id`, `idempotency_key`, `action_hash`, 채널 대상,
+결정 및 필수 근거만 전달합니다. 수신기는 추가 카드 키를 거부하므로 카드 데이터가
+`provider_actor_id`, 역할 또는 승인자 ID를 제공할 수 없습니다. 두 수신기는 영속 park,
+현재 승인 기능, 만료, 워크플로 역할 하한 및 자기 승인 금지 규칙과 모든 결합을 다시
+검증합니다. BreakGlass는 HIL 승인 기능을 부여하지 않습니다.
+
+전송 인증을 통과한 각 시도는 정제된 `prepared`와 `completed` 감사 단계를 기록합니다.
+인증되지 않은 트래픽은 영속 저장 전에 차단합니다. 정확한 재시도는 첫 단계의 시각을
+보존합니다. 승인 및 거부 결정은 브로커 게시 전에 영속화되고, 브로커 수락 뒤에만
+전달 완료로 표시되며, 실패 또는 재시작 뒤에는 리스 펜싱 보낼 편지함 작업자가 다시 구동합니다.
+
+Core는 park의 `decision_route`에 따라 `fdai.hil.decisions`를 라우팅합니다. `workflow`
+레코드는 서로 다른 승인자와 요청자 분리를 강제하는 워크플로 레지스트리의 정족수 슬롯 하나를
+차지합니다. `action` 레코드만 `HilResumeCoordinator`로 들어가므로 워크플로 승인은 실행기에
+도달할 수 없습니다.
 
 이 경로는 Operator API의 GET 전용 변환 결과 표면에 문서화된 write-route
 예외입니다. 불변식 테스트는 이 콜백을 명시적으로 allow-list합니다. 이는
@@ -74,6 +87,9 @@ translation_revised: 2026-08-19
 도구, 에이전트 소유자, 공개 웹 조회, 명확화 또는 쓰기 초안을 선택한
 strict JSON-schema `TurnPlan`을 반환합니다. 브라우저는 액션 의도를
 분류하지 않으며 자연어를 쓰기 엔드포인트에 직접 보내지 않습니다.
+동시 의미 기반 요청은 하나의 영속 처리 claim을 공유합니다. 대기자는 lease가 만료되면 claim을
+다시 시도하므로 실패한 소유자가 요청을 외부 기한까지 멈추게 할 수 없습니다. 대기 중 결과
+저장소가 실패하면 명시적인 보류 변환 결과를 반환합니다.
 
 - **초안**: `action_draft` 또는 `incident_draft`는 허용 목록에 있는
   `action_type`, 범위가 제한된 타입이 지정된 arguments, 대화 `session_id`, request-scoped

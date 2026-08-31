@@ -172,13 +172,12 @@ __all__ = [
 
 
 # ---------------------------------------------------------------------------
-# G-1 phase 1 facade (tracker #14): treat the ``incident`` package as the
-# domain-group facade. Re-export the sibling subsystems this group owns
+# Permanent G-1 facade-only layout: treat the ``incident`` package as the
+# domain-group facade while preserving its original subsystem role. Re-export siblings
 # (rca, slo, runbook, postmortem, oncall, irp, investigation, chaos,
 # capacity) so new code can write ``from fdai.core.incident import rca``,
-# etc. Phase 2 will physically ``git mv`` these siblings into this
-# directory. Pre-existing callsites at ``from fdai.core.<sub> import X``
-# continue to work unchanged; this is additive.
+# while direct ``fdai.core.<sub>`` imports remain stable. Any physical move
+# requires a separate reviewed design.
 # ---------------------------------------------------------------------------
 
 from fdai.core import (  # noqa: E402, F401 - domain-group facade re-exports
