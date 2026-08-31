@@ -7,6 +7,7 @@ const SOURCE_ROOT = join(import.meta.dirname, "..");
 const ACCESSIBLE_NATIVE_TITLE_ELEMENTS = new Set(["iframe"]);
 const VISIBLE_TITLE_COMPONENTS = new Set([
   "BarChart",
+  "CardHeader",
   "Chart",
   "ComboChart",
   "DetailSection",
@@ -24,6 +25,7 @@ const VISIBLE_TITLE_COMPONENTS = new Set([
   "RelationshipDirection",
   "TrendChart",
   "TypeSelector",
+  "UnavailablePanel",
   "UnavailableView",
 ]);
 

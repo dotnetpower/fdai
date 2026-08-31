@@ -13,6 +13,8 @@ import governanceCatalog from "../routes/i18n/governance.en.json";
 import llmCostCatalog from "../routes/i18n/llm-cost.en.json";
 import liveCatalog from "../routes/i18n/live.messages.en.json";
 import ontologyCatalog from "../routes/i18n/ontology.en.json";
+import processesCatalog from "../routes/i18n/processes.en.json";
+import provisionCatalog from "../routes/i18n/provision.en.json";
 import workflowCatalog from "../routes/i18n/workflow.en.json";
 
 const SOURCE_ROOT = join(process.cwd(), "src");
@@ -100,6 +102,8 @@ describe("console static translation keys", () => {
     ]);
     const llmCostKeys = catalogKeys({ llmCost: llmCostCatalog });
     const liveKeys = catalogKeys({ live: liveCatalog });
+    const processesKeys = catalogKeys({ processesView: processesCatalog });
+    const provisionKeys = catalogKeys({ provision: provisionCatalog });
     const ontologyKeys = new Set([
       ...catalogKeys(ontologyCatalog),
       ...catalogKeys({ ontology: ontologyCatalog }),
@@ -134,6 +138,10 @@ describe("console static translation keys", () => {
                 ? workflowKeys
           : source.includes('from "./i18n/llm-cost"')
             ? llmCostKeys
+          : source.includes("i18n/processes")
+            ? processesKeys
+          : source.includes("i18n/provision")
+            ? provisionKeys
             : new Set<string>();
       const expected = new Set([...mainKeys, ...routeKeys]);
       for (const key of staticKeys(source)) {

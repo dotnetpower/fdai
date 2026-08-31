@@ -189,7 +189,6 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
       class={`topbar-control browser-notification-control ${state === "on" ? "is-active" : ""}`}
       aria-pressed={state === "on"}
       aria-label={label}
-      title={label}
       disabled={disabled}
       onClick={() => { void toggle(); }}
     >

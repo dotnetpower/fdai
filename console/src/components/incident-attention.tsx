@@ -75,7 +75,6 @@ export function IncidentAttention({ client, principalId }: Props) {
       type="button"
       class="topbar-control incident-attention"
       aria-label={t("incidentAttention.open", { count: incidents.length })}
-      title={t("incidentAttention.open", { count: incidents.length })}
       onClick={() => {
         if (openDeckWithContext(incidentDeckDetail(first))) {
           opened.current.add(first.incident_id);
