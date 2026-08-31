@@ -35,6 +35,7 @@ FDAI treats the following axes as independent configuration:
 | Human identity | Entra principal plus App Roles | browser token and RBAC policy |
 | Executor identity | managed workload identity | deployed executor boundary |
 | Authorization policy | signed scoped policy bundle plus effective-access evidence | execution-authorization resolver |
+| Optional package preference | unavailable, disabled, enabled | exact-revision package activation store |
 | Kinetic evidence availability | missing, stored exact V2 plan, independently observed outcome | evidence producers and durable stores |
 | Evidence conflict state | absent, active, resolved superseding revision | Heimdall publication, Muninn projection, and ActionType semantic dependencies |
 | Distribution | `upstream`, `fork` | source and customization boundary |
@@ -71,6 +72,9 @@ No value on one axis selects a value on another axis. In particular:
   action lifecycle, identity, authorization, or execution authority.
 - Authorization policy and effective-access evidence are deployment inputs. Environment and fork
   status never select a grant posture or imply that an identity has access.
+- Enabling an optional package changes only its activation preference. It does not grant data
+  access, select action lifecycle or authority, or turn a retained restart baseline into a current
+  operational outcome.
 - The operational safety profile is venue-, environment-, evidence-, lifecycle-, identity-, and
   distribution-neutral. Its checks may only preserve or lower an existing autonomy decision.
 

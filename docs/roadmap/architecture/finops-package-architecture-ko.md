@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: c3a0130c04c151c750dfe2b4126db0d2128530da
-translation_revised: 2026-08-30
+translation_source_sha: c2f9b45d31b0c79775bb6b40456ab41b728bd64b
+translation_revised: 2026-08-31
 ---
 
 # 온톨로지 기반 FinOps 패키지 아키텍처
@@ -180,9 +180,10 @@ shadow-first 모드입니다. 실패하면 기존의 변경할 수 없는 런타
 
 ![의존성 방향. 주요 단계는 Deployment composition, fdai-cost-governance, fdai-core-control-plane, fdai-service-contracts, Event bus, Isolated Executor입니다.](../../diagrams/generated/fdai-roadmap-architecture-finops-package-architecture-01.ko.svg)
 
-Core는 `fdai_cost_governance`를 가져오지 않습니다. 검토된 조립 루트가 패키지를 가져와 변경할 수
-없는 번들과 타입이 지정된 프로바이더 구현을 Core에 전달합니다. 이 방향은 선택적 패키지가 없어도
-기본 FDAI 이미지를 사용할 수 있게 합니다.
+Core는 `fdai_cost_governance`를 가져오지 않습니다. 설치된 배포판이 패키지 중립
+`fdai.cost_advisory_providers` 진입점 그룹을 통해 결정론적 권고 factory를 등록합니다. 시작
+과정에서는 타입이 지정된 권고 포트를 구현하는 호출 가능한 항목이 정확히 하나인지 확인합니다.
+이 방향은 선택적 패키지가 없어도 기본 FDAI 이미지를 사용할 수 있게 합니다.
 
 공유 서비스 계약 export, Operator 조립 루트 및 Console 메시지 카탈로그는 여러 기능이 사용하는
 호스트 연결부로 유지됩니다. 이 연결부에 Azure Monitor 수집이나 백그라운드 작업 변환 결과 같은
@@ -191,6 +192,13 @@ Core는 `fdai_cost_governance`를 가져오지 않습니다. 검토된 조립 �
 Operator 의미 스트림의 대체 경로도 호스트 연결부로 유지됩니다. 원시 PostgreSQL 어댑터 앞에서
 `ConversationAssuranceReader`를 보존하며 비용 거버넌스 가용성, 활성화 또는 패키지 소유권은
 변경하지 않습니다.
+Core Pantheon 시작 과정은 패키지 중립 저장소를 통해 보존된 패키지 활성화 상태를 읽습니다. 검토된
+배포 패키지가 설치되고 활성화되면 기존 이벤트 버스 구독을 시작하기 전에 조립 과정이 결정론적
+권고 프로바이더를 Njord에 연결합니다. 또한 활성 온톨로지 release에 속하는 보존된 완전한 USD
+관찰을 시간순으로 최대 1,000개 복원합니다. 이 재시작 hydration은 과거 finding을 다시 게시하지
+않고 프로바이더 기준선과 Njord의 대화 근거를 재구성합니다. 패키지 누락, 비활성 상태 또는
+프로바이더 불일치는 연결을 비활성 상태로 유지하거나 일관되지 않은 시작을 차단합니다. 에이전트를
+직접 호출하거나 작업 권한을 변경하지 않습니다.
 루트 테스트 실행기는 독립 배포 CLI를 소스 경로에서 가져올 수 있지만, CLI는 uv workspace 밖에
 유지되며 비용 거버넌스 패키지 조립의 일부가 되지 않습니다.
 
@@ -238,6 +246,13 @@ Operator 의미 스트림의 대체 경로도 호스트 연결부로 유지됩�
 6. 권한이 있는 활성화 요청이 변경할 수 없는 base와 활성화된 패키지에서 런타임 후보를 다시 만듭니다.
 7. 모든 검증이 성공한 경우에만 후보 런타임을 원자적으로 게시합니다.
 8. 규칙과 작업은 별도 promotion 근거가 통과할 때까지 shadow 모드로 유지됩니다.
+
+설정에서는 작업 영역이 비활성 상태여도 설치된 패키지의 가용성, 활성화 상태, 버전 및 범위가
+제한된 실패 이유를 표시합니다. 소유자는 정확한 revision을 사용하는 데이터베이스 함수를 통해
+`enabled`만 변경할 수 있습니다. 이 함수는 manager에서 파생된 활성화 행을 갱신하고 보존되는
+수명 주기 영수증을 하나의 트랜잭션으로 추가합니다. 설치되지 않은 패키지를 설치하거나, 사용할 수
+없는 패키지를 사용할 수 있게 만들거나, 비용 데이터 접근 권한을 부여하거나, 작업을 승격할 수는
+없습니다.
 
 ## 자율 런타임 인계
 

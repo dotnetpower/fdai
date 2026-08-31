@@ -181,9 +181,10 @@ explicit inventory and one owner for every existing cost asset; duplicate owners
 
 ![Dependency direction. The main stages are Deployment composition, fdai-cost-governance, fdai-core-control-plane, fdai-service-contracts, Event bus, Isolated Executor.](../../diagrams/generated/fdai-roadmap-architecture-finops-package-architecture-01.en.svg)
 
-Core never imports `fdai_cost_governance`. The reviewed composition root imports the package and
-passes its immutable bundle and typed provider implementations into Core. This direction keeps the
-base FDAI image usable when the optional package is absent.
+Core never imports `fdai_cost_governance`. The installed distribution registers its deterministic
+advisory factory through the package-neutral `fdai.cost_advisory_providers` entry-point group.
+Bootstrap requires exactly one callable implementation of the typed advisory port. This direction
+keeps the base FDAI image usable when the optional package is absent.
 
 The shared service-contract export, Operator composition root, and Console message catalogs remain
 multi-capability host seams. Adding an independent capability such as Azure Monitor ingestion or
@@ -192,6 +193,14 @@ its reviewed package manifest, exact bundle, provider requirements, and deployme
 The Operator semantic stream fallback also remains a host seam: it preserves
 `ConversationAssuranceReader` before the raw PostgreSQL adapter without changing Cost Governance
 availability, enablement, or package ownership.
+Core Pantheon bootstrap reads the persisted package activation through the package-neutral store.
+When the reviewed distribution is installed and enabled, composition binds its deterministic
+advisory provider to Njord before the existing event-bus subscriptions start. It also restores at
+most 1,000 retained, complete USD observations for the active ontology release in chronological
+order. This restart hydration rebuilds the provider baseline and Njord's conversational evidence
+without republishing historical findings. A missing package, disabled activation, or provider
+mismatch keeps the binding disabled or blocks inconsistent startup; it never creates a direct agent
+call or changes action authority.
 The root test harness can import the independent deployment CLI from its source path, but the CLI
 remains outside the uv workspace and does not become part of Cost Governance package composition.
 
@@ -243,6 +252,12 @@ live secrets.
    packages.
 7. The candidate runtime is published atomically only when every validation succeeds.
 8. Rules and actions remain in shadow mode until their separate promotion evidence passes.
+
+Settings exposes the installed package's availability, enablement, version, and bounded failure
+reasons even while the workspace is disabled. An Owner can change only `enabled` through an
+exact-revision database function. The function updates the manager-derived activation row and
+appends a retained lifecycle receipt in one transaction. It cannot install an absent package, make
+an unavailable package available, grant cost-data access, or promote an action.
 
 ## Autonomous runtime handoff
 

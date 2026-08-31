@@ -68,6 +68,7 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
         "executor_receipt_outbox",
         "conversation_channel_message_claim",
         "cost_collection_cursor",
+        "cost_governance_analytics_snapshot",
         "cost_governance_campaign_episode",
         "cost_governance_effect_settlement",
         "cost_governance_episode",
@@ -1417,6 +1418,13 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
     cost_governance_validation_migration = inventory_module.load_revision_metadata(
         cost_governance_validation_path
     )
+    cost_governance_settings_path = (
+        MIGRATION_ROOT
+        / "branches/core-control-plane/versions/20260831_core_cost_governance_settings.py"
+    )
+    cost_governance_settings_migration = inventory_module.load_revision_metadata(
+        cost_governance_settings_path
+    )
     standing_authority_path = (
         MIGRATION_ROOT
         / "branches/core-control-plane/versions/20260829_core_standing_authority_lifecycle.py"
@@ -1440,6 +1448,7 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         | set(cost_governance_migration.owned_tables)
         | set(cost_governance_decision_migration.owned_tables)
         | set(cost_governance_validation_migration.owned_tables)
+        | set(cost_governance_settings_migration.owned_tables)
         | set(standing_authority_migration.owned_tables)
     )
     assert granted_tables == expected_tables

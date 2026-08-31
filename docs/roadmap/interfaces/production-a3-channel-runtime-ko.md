@@ -1,8 +1,8 @@
 ---
 title: 운영 A3 채널 런타임
 translation_of: production-a3-channel-runtime.md
-translation_source_sha: 64599fc00c20a98ea0258cdfb2164b7a4ae004c4
-translation_revised: 2026-08-28
+translation_source_sha: cb5661454f71bc81d1f554084cf3f687daaa52d2
+translation_revised: 2026-08-31
 ---
 # 운영 A3 채널 런타임
 
@@ -17,6 +17,10 @@ translation_revised: 2026-08-28
 > adapter workload입니다. 독립적으로 release하는 여섯 번째 컨트롤 플레인 distribution이
 > 아니며 Operator migration branch와 conversation table writer를 사용하고 Thor 신원을 받지
 > 않습니다.
+>
+> 공유 migration 소유권 매니페스트는 테이블별 소유권을 유지합니다. Core 소유 비용 거버넌스
+> 활성화 및 analytics 테이블은 Operator 채널 테이블이 되지 않으며 channel-edge 쓰기 권한을
+> 부여하지 않습니다.
 
 ## 설계 개요
 

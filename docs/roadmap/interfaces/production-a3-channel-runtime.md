@@ -16,6 +16,10 @@ contracts without creating another judgment or execution surface.
 > Operator Service distribution. It is not a sixth independently releasable control-plane
 > distribution, uses the Operator migration branch and conversation table writer, and never
 > receives Thor's identity.
+>
+> The shared migration ownership manifest remains table-specific. Core-owned Cost Governance
+> activation and analytics tables do not become Operator channel tables and grant no channel-edge
+> write authority.
 
 ## Design at a glance
 

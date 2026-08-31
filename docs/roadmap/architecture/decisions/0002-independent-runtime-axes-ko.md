@@ -1,8 +1,8 @@
 ---
 title: ADR-0002 Independent Runtime and Customization Axes
 translation_of: 0002-independent-runtime-axes.md
-translation_source_sha: ffcc3d0528f3c60894b7b976f314c4774373ebd4
-translation_revised: 2026-08-30
+translation_source_sha: 4dfa618b60834e2fcb0169b7ac3d515acd54a415
+translation_revised: 2026-08-31
 ---
 # ADR-0002: 독립적인 런타임 및 Customization 축
 
@@ -39,6 +39,7 @@ FDAI는 다음 축을 독립 구성으로 취급합니다.
 | 사용자 신원 | Entra principal 및 App 역할 | 브라우저 토큰 및 RBAC 정책 |
 | 실행기 신원 | managed 워크로드 신원 | deployed 실행기 경계 |
 | 권한 확인 정책 | Signed scoped 정책 번들 및 effective-access 근거 | execution-authorization 해석기 |
+| 선택적 패키지 선호 | 사용 불가, 비활성, 활성 | exact-revision 패키지 활성화 저장소 |
 | Kinetic 근거 가용성 | 누락, 저장된 exact V2 plan, 독립적으로 관측된 outcome | 근거 producer 및 영속 저장소 |
 | 근거 충돌 상태 | 없음, 활성, 상위 개정으로 해결됨 | Heimdall 발행, Muninn 변환 결과 및 ActionType 의미 의존성 |
 | 분포 | `upstream`, `fork` | 출처 및 customization 경계 |
@@ -75,6 +76,8 @@ FDAI는 다음 축을 독립 구성으로 취급합니다.
   권한 확인 또는 실행 권한을 선택하지 않습니다.
 - 권한 확인 정책과 effective-access 근거는 배포 입력입니다. 환경과 포크
   상태는 권한 부여 자세를 선택하거나 신원의 접근 권한을 암시하지 않습니다.
+- 선택적 패키지를 활성화해도 활성화 선호만 바뀝니다. 데이터 접근 권한이나 액션 수명 주기 또는
+  권한을 선택하지 않으며, 재시작 때 복원한 보존 기준선을 현재 운영 결과로 바꾸지 않습니다.
 - Operational 안전성 프로파일은 실행 위치, 환경, 근거, 수명 주기, 신원 및
   분포와 독립적입니다. 프로파일 검사는 기존 자율성 결정을 유지하거나 낮출 수만
   있습니다.
