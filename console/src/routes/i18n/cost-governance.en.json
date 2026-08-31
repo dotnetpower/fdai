@@ -164,7 +164,7 @@
     "unknown": "Unknown",
     "notEvaluated": "Not evaluated",
     "noChangesApplied": "No changes are applied from this view.",
-    "openMapDetail": "Review efficiency detail"
+    "openMapDetail": "Jump to resource table"
   },
   "distribution": {
     "title": "Observed cost distribution",
@@ -209,9 +209,9 @@
     "state": "Unavailable evidence",
     "unavailableTitle": "No optimization cases are projected",
     "unavailableBody": "Utilization, SKU alternatives, objectives, and decision records are required before FDAI can present an optimization case.",
-    "openMixDetail": "Review opportunity mix",
-    "openFlowDetail": "Review decision flow",
-    "openListDetail": "Review case list"
+    "openMixDetail": "Jump to case list",
+    "openFlowDetail": "Jump to case list",
+    "openListDetail": "Review resource efficiency"
   },
   "outcomes": {
     "eyebrow": "EFFECT SETTLEMENT",
@@ -250,9 +250,9 @@
     "effectDescription": "A case does not close when cost improves but an operating objective fails.",
     "unavailableTitle": "No verified outcomes are projected",
     "unavailableBody": "Savings remain unavailable until an action has an expected effect and an independent authoritative observation closes its settlement window.",
-    "openWaterfallDetail": "Review savings waterfall",
-    "openUnitDetail": "Review unit cost detail",
-    "openEffectDetail": "Review cost effects"
+    "openWaterfallDetail": "Jump to settlement records",
+    "openUnitDetail": "Jump to settlement records",
+    "openEffectDetail": "Review optimization cases"
   },
   "settings": {
     "title": "Cost Governance",

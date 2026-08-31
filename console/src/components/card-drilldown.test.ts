@@ -237,4 +237,93 @@ describe("console card drill-down contract", () => {
   test("keeps structural tool surfaces out of card semantics", () => {
     expect(forbiddenStructuralNames()).toEqual([]);
   });
+
+  test("cost-governance card links target a narrower section or cross-surface route", () => {
+    const COST_GOV_FILE = join(SOURCE_ROOT, "routes/cost-governance-workspace.tsx");
+    const raw = readFileSync(COST_GOV_FILE, "utf8");
+    const source = ts.createSourceFile(COST_GOV_FILE, raw, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+
+    interface CardLink {
+      readonly surface: string;
+      readonly href: string;
+      readonly line: number;
+    }
+
+    const SURFACE_FUNCTIONS = new Map<string, string>([
+      ["Overview", "overview"],
+      ["ResourceEfficiency", "resource-efficiency"],
+      ["OptimizationCases", "optimization-cases"],
+      ["Outcomes", "outcomes"],
+    ]);
+
+    const links: CardLink[] = [];
+    const visit = (node: ts.Node, surface: string): void => {
+      if (ts.isFunctionDeclaration(node) && node.name) {
+        const name = node.name.getText(source);
+        if (SURFACE_FUNCTIONS.has(name)) surface = SURFACE_FUNCTIONS.get(name)!;
+      }
+      if (ts.isJsxAttribute(node) && node.name.getText(source) === "href" && node.initializer) {
+        const parent = node.parent.parent;
+        if ((ts.isJsxOpeningElement(parent) || ts.isJsxSelfClosingElement(parent)) && jsxTag(parent, source) === "a") {
+          let inCard = false;
+          let ancestor: ts.Node | undefined = parent.parent;
+          while (ancestor && !ts.isSourceFile(ancestor)) {
+            if ((ts.isJsxOpeningElement(ancestor) || ts.isJsxSelfClosingElement(ancestor))) {
+              const tokens = ancestor.attributes.properties.flatMap((p) =>
+                ts.isJsxAttribute(p) && ["class", "className"].includes(p.name.getText(source))
+                  ? classTokens(p, source)
+                  : [],
+              );
+              if (tokens.some(isCardToken)) { inCard = true; break; }
+            }
+            if (ts.isJsxElement(ancestor)) {
+              const tokens = ancestor.openingElement.attributes.properties.flatMap((p) =>
+                ts.isJsxAttribute(p) && ["class", "className"].includes(p.name.getText(source))
+                  ? classTokens(p, source)
+                  : [],
+              );
+              if (tokens.some(isCardToken)) { inCard = true; break; }
+            }
+            ancestor = ancestor.parent;
+          }
+          if (inCard) {
+            const hrefText = node.initializer.getText(source);
+            links.push({
+              surface,
+              href: hrefText,
+              line: source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1,
+            });
+          }
+        }
+      }
+      ts.forEachChild(node, (child) => visit(child, surface));
+    };
+    visit(source, "");
+
+    const noOps = links.filter(({ surface, href }) => {
+      if (href.startsWith('"#') || href.startsWith("'#")) return false;
+      return href.includes(`"${surface}"`) || href.includes(`'${surface}'`);
+    });
+
+    expect(noOps).toEqual([]);
+
+    const anchors = links
+      .map(({ href, line }) => {
+        const match = href.match(/^["']#([^"']+)["']$/);
+        return match ? { fragment: match[1], line } : null;
+      })
+      .filter((item): item is { fragment: string; line: number } => item !== null);
+
+    const idValues = new Set<string>();
+    const collectIds = (node: ts.Node): void => {
+      if (ts.isJsxAttribute(node) && node.name.getText(source) === "id" && node.initializer && ts.isStringLiteral(node.initializer)) {
+        idValues.add(node.initializer.text);
+      }
+      ts.forEachChild(node, collectIds);
+    };
+    collectIds(source);
+
+    const danglingAnchors = anchors.filter(({ fragment }) => !idValues.has(fragment));
+    expect(danglingAnchors).toEqual([]);
+  });
 });

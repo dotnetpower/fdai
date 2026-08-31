@@ -164,7 +164,7 @@
     "unknown": "알 수 없음",
     "notEvaluated": "평가되지 않음",
     "noChangesApplied": "이 보기에서는 변경을 적용하지 않습니다.",
-    "openMapDetail": "효율성 상세 보기"
+    "openMapDetail": "리소스 테이블로 이동"
   },
   "distribution": {
     "title": "관찰 비용 분포",
@@ -209,9 +209,9 @@
     "state": "사용할 수 없는 근거",
     "unavailableTitle": "제공된 최적화 사례가 없습니다",
     "unavailableBody": "FDAI가 최적화 사례를 표시하려면 사용률, SKU 대안, 목표 및 결정 레코드가 필요합니다.",
-    "openMixDetail": "기회 구성 검토",
-    "openFlowDetail": "의사결정 흐름 검토",
-    "openListDetail": "사례 목록 검토"
+    "openMixDetail": "사례 목록으로 이동",
+    "openFlowDetail": "사례 목록으로 이동",
+    "openListDetail": "리소스 효율성 검토"
   },
   "outcomes": {
     "eyebrow": "효과 정산",
@@ -250,9 +250,9 @@
     "effectDescription": "비용이 개선되어도 운영 목표가 실패하면 사례를 종결하지 않습니다.",
     "unavailableTitle": "제공된 검증 성과가 없습니다",
     "unavailableBody": "작업에 예상 효과가 있고 독립된 신뢰할 수 있는 관찰이 정산 구간을 종료할 때까지 절감액을 표시하지 않습니다.",
-    "openWaterfallDetail": "절감 폭포 검토",
-    "openUnitDetail": "단가 상세 보기",
-    "openEffectDetail": "비용 효과 검토"
+    "openWaterfallDetail": "정산 기록으로 이동",
+    "openUnitDetail": "정산 기록으로 이동",
+    "openEffectDetail": "최적화 사례 검토"
   },
   "settings": {
     "title": "비용 거버넌스",
