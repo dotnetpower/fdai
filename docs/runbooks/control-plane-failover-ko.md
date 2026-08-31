@@ -2,7 +2,7 @@
 title: 컨트롤 플레인 Regional Failover 및 Failback
 summary: Split-brain execution이나 검증되지 않은 replay 없이 승인된 FDAI recovery plan 하나를 운영합니다.
 translation_of: control-plane-failover.md
-translation_source_sha: 01503e0cad97e2f9861f4a632a43ddb872cff8df
+translation_source_sha: 9ee28a25b659ddb0340a17d9dcd6b23e553f8cc6
 translation_revised: 2026-08-23
 ---
 
@@ -132,6 +132,7 @@ Operator는 승인된 interactive 신원 흐름으로 `FDAI_OPERATOR_BEARER_TOKE
  fdaictl deploy 적용 \
   --repository "$FDAI_REPOSITORY" \
   --plan-id '<protected-plan-id>' \
+  --plan-expires-at '<expires-at>' \
   --output json
  ```
 

@@ -1,7 +1,7 @@
 ---
 title: 컨트롤 플레인 재해 복구
 translation_of: control-plane-disaster-recovery.md
-translation_source_sha: 482311037c1c7d49719236e2445ff7240a315f92
+translation_source_sha: c2d355c89742f2347707b912f2b7de1b07bb77af
 translation_revised: 2026-08-31
 ---
 
@@ -34,6 +34,7 @@ translation_revised: 2026-08-31
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-31 | implemented | 선택형 데이터베이스 복원 작업을 완전한 전달 계층 소유 Azure 및 PostgreSQL 검증 경로에 연결하고 신원을 실행기와 분리했습니다. 부분 복원과 정리 실패는 명시적으로 유지되며 완전한 dry-run 구성은 프로바이더 요청을 만들지 않습니다. | `current change`; 전달 어댑터와 CLI, 루트 및 compute Terraform, 복원, 무결성, CLI, 검증기 및 인프라 집중 검사. | 측정된 RPO/RTO와 검증된 정리를 포함한 통제된 실제 기반 DB-DR 증적 하나를 보존합니다. |
+| 2026-09-01 | implemented | 장애 복구 런북의 적용 예시에 정제된 계획 메타데이터에서 가져오는 필수 `--plan-expires-at` 인수를 추가했습니다. | `current change`; 장애 복구 런북 EN/KO. | 잔여 작업 변경 없음. |
 | 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 테스트된 복구 동작과 지역 배포 및 운영 근거를 분리했습니다. | 현재 변경과 구현 범위 표에 기재한 복구 계획 및 조정기 집중 테스트 | 지역 프로바이더 경로를 조립하고 실행한 뒤 통제된 장애 조치 및 failback 근거를 보존해야 합니다. |
 | 2026-08-15 | implemented | 검토 가능한 Terraform 구성으로 예약 실행을 단일 프로세스로 제한하고 예약된 모든 Job에 대한 집중 동시성 검사를 추가했습니다. | `current change`; `tests/integration/infra/test_scheduled_job_concurrency.py`; `pytest tests/integration/infra/test_scheduled_job_concurrency.py` (24 passed). | 프로세스 간 실험 예약, 조립된 지역 경로, 통제된 훈련 증적은 남아 있습니다. |
 | 2026-08-24 | implemented | 프로바이더 중립 지역 작업 계약과 순수 shadow 조정기를 추가했습니다. 이전 epoch, 실패한 증적, 안전하지 않은 쓰기 담당 상태 또는 누락된 failback 전제조건이 있으면 중단합니다. | `current change`; `control_plane_recovery.py`; `shadow_recovery.py`; `test_recovery_plan_shadow.py`; `python -m pytest -q --no-cov services/core-control-plane/tests/core/verticals/test_recovery_plan_shadow.py` (10 passed). | 배포 프로바이더를 연결하고 실제 기반 환경의 이벤트 연속성을 입증하며 통제된 장애 조치 및 failback 증적을 보존해야 합니다. |

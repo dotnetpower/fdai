@@ -126,14 +126,17 @@ fdaictl deploy apply \
   --repository <owner>/<repository> \
   --plan-id <plan-id> \
   --plan-digest <plan-digest> \
+  --plan-expires-at <expires-at> \
   --commit-sha <git-sha> \
   --run-id <run-id> \
   --output json
 ```
 
-The apply command fails unless the repository target and region match the profile and the GitHub
-Environment requires one independent reviewer with self-review and administrator bypass disabled.
-Profiles that require more than one approval and all `prod` requests remain blocked.
+The `--plan-expires-at` value comes from the sanitized `deploy status` plan metadata. The apply
+command fails unless the plan has not expired, the repository target and region match the profile,
+and the GitHub Environment requires one independent reviewer with self-review and administrator
+bypass disabled. Profiles that require more than one approval and all `prod` requests remain
+blocked.
 
 #### azd (direct development infrastructure)
 

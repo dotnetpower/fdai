@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: 보호된 fdaictl 작업 흐름으로 FDAI의 최소 Azure 인벤토리를 프로비저닝하거나 azd로 인프라 전용 개발 경로를 미리 봅니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: e411a4fa6f02249bcf64bdd9f325f851b235c7c9
+translation_source_sha: 49054f5a28771e657fc54800d1595a678275324f
 translation_revised: 2026-09-01
 ---
 
@@ -114,14 +114,16 @@ fdaictl deploy apply \
   --repository <owner>/<repository> \
   --plan-id <plan-id> \
   --plan-digest <plan-digest> \
+  --plan-expires-at <expires-at> \
   --commit-sha <git-sha> \
   --run-id <run-id> \
   --output json
 ```
 
-저장소 대상과 지역이 프로필과 일치하고 GitHub 환경이 독립적인 검토자 한 명을 요구하며 자체
-검토와 관리자 우회를 차단해야 적용 명령을 진행할 수 있습니다. 두 명 이상의 승인이 필요한
-프로필과 모든 `prod` 요청은 차단됩니다.
+`--plan-expires-at` 값은 정제된 `deploy status` 계획 메타데이터에서 가져옵니다. 계획이
+만료되지 않았고, 저장소 대상과 지역이 프로필과 일치하며, GitHub 환경이 독립적인 검토자
+한 명을 요구하고 자체 검토와 관리자 우회를 차단해야 적용 명령을 진행할 수 있습니다.
+두 명 이상의 승인이 필요한 프로필과 모든 `prod` 요청은 차단됩니다.
 
 #### azd (직접 개발 인프라)
 

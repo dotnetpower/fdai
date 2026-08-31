@@ -125,6 +125,7 @@ Stop if any of these bindings is absent:
    fdaictl deploy apply \
      --repository "$FDAI_REPOSITORY" \
      --plan-id '<protected-plan-id>' \
+     --plan-expires-at '<expires-at>' \
      --output json
    ```
 
