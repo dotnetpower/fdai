@@ -24,6 +24,8 @@ An effective freeze or quiet ChangeWindow with unusable bounds denies maintenanc
 instead of being skipped.
 A change event stamped ahead of the detector clock reports out-of-band instead of being
 suppressed by the settling window.
+A missed breach is scored only from complete telemetry, so a false-negative outcome never
+publishes a completeness claim its observation did not make.
 
 ## Core domain navigation decision
 

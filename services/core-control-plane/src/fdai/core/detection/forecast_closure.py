@@ -76,6 +76,12 @@ def _close_episode(
     *,
     closed_at: datetime,
 ) -> tuple[ForecastOutcome | None, ForecastClosureReason]:
+    """Return the terminal outcome and reason for one due episode.
+
+    A missed breach is scored only from complete telemetry: the false-negative
+    contract requires complete telemetry, so an incomplete observation would
+    otherwise be published with a completeness claim it never made.
+    """
     if episode.evaluation_kind is ForecastEvaluationKind.PREDICTED_BREACH:
         if (
             episode.predicted_value is None
@@ -112,6 +118,7 @@ def _close_episode(
     if (
         observation.actual_breach_at is not None
         and observation.actual_breach_at <= episode.horizon_ended_at
+        and observation.telemetry_completeness is TelemetryCompleteness.COMPLETE
     ):
         miss_origin = (
             ForecastMissOrigin.PIPELINE

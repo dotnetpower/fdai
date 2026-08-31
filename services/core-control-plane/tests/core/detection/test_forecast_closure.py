@@ -147,3 +147,33 @@ async def test_negative_evaluation_does_not_count_post_horizon_breach_as_miss() 
     )
     assert await coordinator.close_due(now=T0 + timedelta(hours=1, minutes=5)) == 1
     assert store.outbox == {}
+
+
+async def test_incomplete_telemetry_breach_is_not_scored_as_a_miss() -> None:
+    store = InMemoryForecastEpisodeStore()
+    await store.record(
+        _episode(
+            evaluation_kind=ForecastEvaluationKind.PREDICTED_NO_BREACH,
+            predicted_value=None,
+            interval_lower=None,
+            interval_upper=None,
+        )
+    )
+    coordinator = ForecastClosureCoordinator(
+        store=store,
+        observations=_Observations(
+            ForecastObservation(
+                observed_value=96.0,
+                actual_breach_at=T0 + timedelta(minutes=30),
+                telemetry_completeness=TelemetryCompleteness.PARTIAL,
+                evidence_refs=("breach:1",),
+            )
+        ),
+    )
+
+    assert await coordinator.close_due(now=T0 + timedelta(hours=1, minutes=5)) == 1
+
+    closure = next(iter(store.closures.values()))
+    assert closure.outcome_payload is None
+    assert closure.reason.value == "abstained_no_breach"
+    assert store.outbox == {}
