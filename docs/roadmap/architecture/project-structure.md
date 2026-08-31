@@ -28,6 +28,8 @@ A missed breach is scored only from complete telemetry, so a false-negative outc
 publishes a completeness claim its observation did not make.
 Forecast closure attempts every claimed episode before re-raising the first failure, so one
 failing episode cannot hold the whole due queue open.
+T1 contextual reuse reads the event resource type through the same canonical shapes as the
+trust router, so an accepted event is not reported as a changed resource type.
 
 ## Core domain navigation decision
 

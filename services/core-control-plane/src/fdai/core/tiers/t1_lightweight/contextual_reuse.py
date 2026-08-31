@@ -271,12 +271,25 @@ def current_reuse_scope_digest(
 
 
 def _event_resource_type(event: Event) -> str:
+    """Return the event's resource type using the canonical payload shapes.
+
+    Mirrors ``fdai.core.trust_router`` so reuse compares the same value the
+    router already accepted. Reading only ``payload['resource']['type']``
+    reported every other canonical shape as a changed resource type, which
+    blocked reuse for a reason the event never stated.
+    """
+
     payload = event.payload
-    resource = payload.get("resource") if isinstance(payload, Mapping) else None
-    if not isinstance(resource, Mapping):
+    if not isinstance(payload, Mapping):
         return ""
-    resource_type = resource.get("type")
-    return resource_type if isinstance(resource_type, str) else ""
+    resource = payload.get("resource")
+    if isinstance(resource, Mapping):
+        for key in ("type", "resource_type"):
+            value = resource.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+    flat = payload.get("resource_type")
+    return flat.strip() if isinstance(flat, str) and flat.strip() else ""
 
 
 def _required_text(value: Mapping[str, object], key: str) -> str:

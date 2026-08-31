@@ -13,6 +13,7 @@ from fdai.core.tiers.t1_lightweight import (
 )
 from fdai.core.tiers.t1_lightweight.contextual_reuse import (
     CURRENT_REUSE_EVIDENCE_PURPOSE,
+    contextual_reuse_reasons,
     current_reuse_evidence_digest,
     current_reuse_scope_digest,
 )
@@ -207,3 +208,41 @@ async def test_current_verifier_error_abstains() -> None:
 
     assert decision.outcome is T1Outcome.ABSTAIN
     assert decision.reason == "current_reuse_verification_error:RuntimeError"
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"resource": {"resource_type": "kubernetes.service", "props": {}}},
+        {"resource_type": "kubernetes.service", "resource": {"props": {}}},
+    ],
+)
+async def test_reuse_accepts_every_canonical_resource_type_shape(
+    payload: dict[str, object],
+) -> None:
+    event = Event.model_validate(
+        {
+            "schema_version": "1.0.0",
+            "event_id": "00000000-0000-0000-0000-000000000001",
+            "idempotency_key": "event-1",
+            "source": "example",
+            "event_type": "change_detected",
+            "detected_at": "2026-08-01T00:00:00Z",
+            "ingested_at": "2026-08-01T00:00:01Z",
+            "mode": "shadow",
+            "payload": payload,
+        }
+    )
+
+    reasons = contextual_reuse_reasons(
+        event=event,
+        action=_action(),
+        context=_context(),
+        verification=await _Verifier().verify(
+            event=event,
+            action=_action(),
+            context=_context(),
+        ),
+    )
+
+    assert "current_resource_type_changed" not in reasons

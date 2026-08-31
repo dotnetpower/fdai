@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 206d66482d3231cc34d28bddfb672a67c3428d49
+translation_source_sha: 5079372864541e18a8ee706fabe820bce6963813
 translation_revised: 2026-08-31
 ---
 # 프로젝트 구조
@@ -31,6 +31,8 @@ out-of-band로 보고합니다.
 주장하지 않은 완전성 주장을 게시하지 않습니다.
 예측 종료 처리는 청구한 모든 episode를 시도한 뒤 첫 실패를 다시 발생시킵니다. 따라서 실패한
 episode 하나가 due 대기열 전체를 막을 수 없습니다.
+T1 맥락 재사용은 trust router와 동일한 정규 형태로 이벤트 리소스 유형을 읽습니다. 따라서
+이미 허용된 이벤트를 리소스 유형 변경으로 보고하지 않습니다.
 
 ## Core 도메인 탐색 결정
 
