@@ -46,20 +46,8 @@ from fdai_operator_service.conversation_assurance_reader import (
 )
 from fdai_operator_service.environment import (
     OperatorEnvironment,
-    OperatorServiceConfigurationError,
 )
 from fdai_operator_service.families.conversation import ConversationFamilyDependencies
-from fdai_operator_service.families.conversation.channel_edge.environment import (
-    TEAMS_JWKS_URL_ENV,
-)
-from fdai_operator_service.families.conversation.channel_edge.provider_adapters import (
-    RemoteJwksConfig,
-    RemoteJwksProvider,
-)
-from fdai_operator_service.families.conversation.channel_edge.teams_auth import (
-    TeamsServiceTokenVerifier,
-    TeamsTokenConfig,
-)
 from fdai_operator_service.families.conversation.semantic_turn import SemanticTurnEnvelopeBuilder
 from fdai_operator_service.families.conversation.semantic_turn_runtime import (
     SEMANTIC_REQUEST_TOPIC,
@@ -70,22 +58,6 @@ from fdai_operator_service.families.conversation.semantic_turn_runtime import (
     SemanticTurnResultSource,
 )
 from fdai_operator_service.families.cost_governance import CostGovernanceFamilyDependencies
-from fdai_operator_service.families.iam import HilCallbackConfig, IamFamilyBindings
-from fdai_operator_service.families.iam.hil_callback_authority import (
-    TEAMS_APPLICATION_ID_ENV,
-    TEAMS_APPROVAL_CHANNEL_ID_ENV,
-    TEAMS_APPROVAL_TEAM_ID_ENV,
-    EntraHilCallbackAuthority,
-    HilCallbackAuthorityConfig,
-)
-from fdai_operator_service.families.iam.hil_decision_outbox import (
-    DurableHilDecisionOutboxPublisher,
-    HilDecisionOutboxBridge,
-)
-from fdai_operator_service.families.iam.hil_teams_callback import (
-    TeamsHilCallbackConfig,
-    TeamsHilCallbackNormalizer,
-)
 from fdai_operator_service.families.operations import PanelRoute
 from fdai_operator_service.families.operations.contracts import ProjectionReader
 from fdai_operator_service.family_adapters import (
@@ -97,6 +69,14 @@ from fdai_operator_service.family_adapters import (
     UnavailableWorkflowAdapters,
 )
 from fdai_operator_service.family_authorization import OperatorFamilyAuthorizer
+from fdai_operator_service.iam_composition import (
+    HIL_SIGNING_SECRET_ENV,
+    HilDecisionOutboxBridge,
+    build_hil_decision_outbox_bridge,
+    build_postgres_iam_bindings,
+    build_teams_hil_http_client,
+    build_unavailable_iam_bindings,
+)
 from fdai_operator_service.postgres import (
     PostgresOperatorReadModel,
     PostgresOperatorReadModelConfig,
@@ -113,9 +93,7 @@ from fdai_operator_service.postgres_cost_governance import (
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
     PostgresFamilyStoreConfig,
-    UnavailablePostgresFamilyStore,
 )
-from fdai_operator_service.postgres_iam import PostgresIamAdapters
 from fdai_operator_service.postgres_read_investigation_completion import (
     PostgresReadInvestigationCompletionConfig,
     PostgresReadInvestigationCompletionRepository,
@@ -139,11 +117,8 @@ from fdai_operator_service.runtime_projection_reader import (
     RuntimeProjectionReader,
     RuntimeProjectionReaderConfig,
 )
-from fdai_operator_service.slack_webhook_diagnostics import SlackWebhookDiagnosticTester
 from fdai_operator_service.streaming import LiveStreamEvent, LiveStreamHub
-from fdai_operator_service.teams_workflow_diagnostics import TeamsWorkflowDiagnosticTester
 
-HIL_SIGNING_SECRET_ENV = "FDAI_CHATOPS_WEBHOOK_SECRET"  # noqa: S105
 WEBHOOK_SIGNING_SECRET_ENV = "FDAI_OPERATOR_WEBHOOK_SECRET"  # noqa: S105
 COST_PSEUDONYM_KEY_ENV = "FDAI_COST_PSEUDONYM_KEY"  # noqa: S105
 REFERENCE_PANEL_ROUTES = (
@@ -320,7 +295,7 @@ class ProductionOperatorComposition:
             ),
             local_session_token=local_cli_session_token,
         )
-        teams_http_client = _teams_hil_http_client(environment)
+        teams_http_client = build_teams_hil_http_client(environment)
         route_families, local_narrator = _build_route_families(
             environment=environment,
             authenticator=authenticator,
@@ -332,18 +307,10 @@ class ProductionOperatorComposition:
             context_selection_registry=context_selection_registry,
             teams_http_client=teams_http_client,
         )
-        hil_decision_outbox_bridge = (
-            HilDecisionOutboxBridge(
-                store=family_store,
-                registry=PostgresIamAdapters(family_store),
-                publisher=semantic_bus,
-                topic=environment.hil_decision_topic,
-            )
-            if family_store is not None
-            and semantic_bus is not None
-            and environment.hil_decision_topic is not None
-            and environment.values.get(HIL_SIGNING_SECRET_ENV, "").strip()
-            else None
+        hil_decision_outbox_bridge = build_hil_decision_outbox_bridge(
+            environment=environment,
+            store=family_store,
+            semantic_bus=semantic_bus,
         )
         narrator_scheduler = (
             PeriodicNarratorRefreshScheduler(
@@ -409,47 +376,6 @@ class _OwnedHttpClient:
             await self._client.aclose()
 
 
-def _teams_hil_http_client(environment: OperatorEnvironment) -> httpx.AsyncClient | None:
-    """Own one bounded HTTPS client for Bot Framework key retrieval."""
-    if not environment.values.get(HIL_SIGNING_SECRET_ENV, "").strip():
-        return None
-    if not environment.values.get(TEAMS_JWKS_URL_ENV, "").strip():
-        return None
-    return httpx.AsyncClient(timeout=10.0, follow_redirects=False)
-
-
-def _teams_hil_normalizer(
-    environment: OperatorEnvironment,
-    http_client: httpx.AsyncClient,
-) -> TeamsHilCallbackNormalizer | None:
-    """Bind the Teams A1 receiver only when its complete surface is configured."""
-    values = environment.values
-    jwks_url = values.get(TEAMS_JWKS_URL_ENV, "").strip()
-    application_id = values.get(TEAMS_APPLICATION_ID_ENV, "").strip()
-    config = TeamsHilCallbackConfig.from_environment(
-        values,
-        application_id=application_id,
-        team_id=values.get(TEAMS_APPROVAL_TEAM_ID_ENV, "").strip(),
-        channel_id=values.get(TEAMS_APPROVAL_CHANNEL_ID_ENV, "").strip(),
-    )
-    if config is None:
-        return None
-    if not jwks_url:
-        raise OperatorServiceConfigurationError(
-            f"{TEAMS_JWKS_URL_ENV} is required for the Teams approval callback"
-        )
-    return TeamsHilCallbackNormalizer(
-        config=config,
-        tokens=TeamsServiceTokenVerifier(
-            config=TeamsTokenConfig(application_id=config.application_id),
-            jwks=RemoteJwksProvider(
-                config=RemoteJwksConfig(url=jwks_url),
-                http_client=http_client,
-            ),
-        ),
-    )
-
-
 def _postgres_read_model(environment: OperatorEnvironment) -> OperatorReadModel | None:
     if environment.database_url is None:
         return None
@@ -481,7 +407,6 @@ def _build_route_families(
         unavailable_conversation = UnavailableConversationAdapters()
         unavailable_workflow = UnavailableWorkflowAdapters()
         unavailable_operations = UnavailableOperationsAdapters()
-        unavailable_iam = PostgresIamAdapters(UnavailablePostgresFamilyStore())
         unavailable_cost = UnavailableCostGovernanceReader()
         routes = OperatorRouteFamilies(
             conversation=ConversationFamilyDependencies(
@@ -490,18 +415,8 @@ def _build_route_families(
                 outbox=unavailable_conversation,
                 streams=unavailable_conversation,
             ),
-            iam=IamFamilyBindings(
-                authorize=authorizer.iam,
-                authenticate=authorizer.iam,
-                access_grants=unavailable_iam,
-                human_access=unavailable_iam,
-                directory=unavailable_iam,
-                assignments=unavailable_iam,
-                handover_goals=unavailable_iam,
-                model_settings=unavailable_iam,
-                runtime_settings=unavailable_iam,
-                kill_switch=unavailable_iam,
-                configuration_review=unavailable_iam,
+            iam=build_unavailable_iam_bindings(
+                authorizer=authorizer,
                 role_group_ids=role_group_ids,
             ),
             workflow_authorize=authorizer.workflow,
@@ -555,7 +470,6 @@ def _build_route_families(
         else None
     )
     postgres_workflow = PostgresWorkflowAdapters(store)
-    iam = PostgresIamAdapters(store)
     postgres_operations = PostgresOperationsAdapters(
         store,
         webhook_secret=environment.values.get(WEBHOOK_SIGNING_SECRET_ENV, "").strip() or None,
@@ -584,36 +498,6 @@ def _build_route_families(
         ),
         fallback=operations_reader,
     )
-    hil_secret = environment.values.get(HIL_SIGNING_SECRET_ENV, "").strip() or None
-    hil_authority = (
-        EntraHilCallbackAuthority(
-            authenticator=authenticator,
-            config=HilCallbackAuthorityConfig.from_environment(
-                environment.values,
-                group_ids=environment.group_ids,
-            ),
-        )
-        if hil_secret is not None
-        else None
-    )
-    hil_outbox = (
-        DurableHilDecisionOutboxPublisher(
-            durable=iam,
-            publisher=semantic_bus,
-            topic=environment.hil_decision_topic,
-            ledger=iam,
-            registry=iam,
-        )
-        if hil_secret is not None
-        and semantic_bus is not None
-        and environment.hil_decision_topic is not None
-        else None
-    )
-    hil_teams_normalizer = (
-        _teams_hil_normalizer(environment, teams_http_client)
-        if hil_secret is not None and teams_http_client is not None
-        else None
-    )
     routes = OperatorRouteFamilies(
         conversation=ConversationFamilyDependencies(
             authorizer=authorizer,
@@ -621,27 +505,13 @@ def _build_route_families(
             outbox=semantic_adapters or postgres_conversation,
             streams=semantic_adapters or conversation,
         ),
-        iam=IamFamilyBindings(
-            authorize=authorizer.iam,
-            authenticate=authorizer.iam,
-            access_grants=iam,
-            human_access=iam,
-            directory=iam,
-            assignments=iam,
-            handover_goals=iam,
-            model_settings=iam,
-            runtime_settings=iam,
-            teams_workflow_tester=TeamsWorkflowDiagnosticTester(store),
-            slack_webhook_tester=SlackWebhookDiagnosticTester(store),
-            kill_switch=iam,
-            configuration_review=iam,
-            hil_registry=iam if hil_secret is not None else None,
-            hil_outbox=hil_outbox,
-            hil_config=HilCallbackConfig(hil_secret) if hil_secret is not None else None,
-            hil_authority=hil_authority,
-            hil_audit=iam if hil_secret is not None else None,
-            hil_context=iam if hil_secret is not None else None,
-            hil_teams_normalizer=hil_teams_normalizer,
+        iam=build_postgres_iam_bindings(
+            environment=environment,
+            authenticator=authenticator,
+            authorizer=authorizer,
+            store=store,
+            semantic_bus=semantic_bus,
+            teams_http_client=teams_http_client,
             role_group_ids=role_group_ids,
         ),
         workflow_authorize=authorizer.workflow,

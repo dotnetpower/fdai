@@ -293,6 +293,10 @@ These packages depend only on `fdai-service-contracts`, never another service im
 Local composition binds service-owned client lifecycles and loopback adapters, so the Operator
 semantic bridge, ingestion publisher, document worker consumer, and isolated Executor preserve the
 same logical topics, idempotency, readiness, and receipt boundaries as deployed adapters.
+Operator IAM assembly stays behind the focused
+[`iam_composition.py`](../../../services/operator-service/src/fdai_operator_service/iam_composition.py)
+boundary so channel verification, durable HIL delivery, and database adapters do not widen the
+top-level service composition dependency fanout.
 The document worker parses native PDFs in a spawned resource-limited process so untrusted
 decompression cannot terminate its long-lived service.
 Duplex IPC runs through a bounded daemon thread under one monotonic deadline, and the parent
