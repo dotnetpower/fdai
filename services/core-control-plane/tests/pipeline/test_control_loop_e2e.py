@@ -908,10 +908,20 @@ async def test_multiple_rules_fire_on_one_resource_e2e(
     rule_ids = set(result.citing_rule_ids)
     assert "object-storage.public-access.deny" in rule_ids
     assert "object-storage.owner-tag.required" in rule_ids
-    # One shadow PR per rule that fired. Newer object-storage rules also fire
-    # when their compliance property is absent from the snapshot; the invariant
-    # is that PR count matches fired-rule count (never fewer, never batched).
-    assert len(publisher.records) == len(rule_ids)
+    # Rules whose ActionType uses ``graph_derived`` blast radius
+    # legitimately abstain (``ABSTAINED_BLAST_RADIUS``) because the
+    # control loop does not yet supply ``graph_affected``.  The invariant
+    # is: published PRs + audited blast-radius abstentions == fired rules.
+    published = [
+        r for r in result.execution_results
+        if r.outcome in (ExecutorOutcome.PUBLISHED, ExecutorOutcome.ALREADY_EXISTED)
+    ]
+    abstained_blast = [
+        r for r in result.execution_results
+        if r.outcome is ExecutorOutcome.ABSTAINED_BLAST_RADIUS
+    ]
+    assert len(publisher.records) == len(published)
+    assert len(published) + len(abstained_blast) == len(rule_ids)
 
 
 @requires_opa
@@ -931,8 +941,14 @@ async def test_idempotent_replay_does_not_reopen_pr(
     second = await loop.process(event)
     assert first.outcome is ControlLoopOutcome.EXECUTED
     assert second.outcome is ControlLoopOutcome.DEDUPED
-    # Publisher saw exactly the fresh publish from the first delivery.
-    assert len(publisher.records) == len(first.execution_results)
+    # Publisher saw exactly the fresh publishes from the first delivery.
+    # graph_derived actions abstain at the executor (ABSTAINED_BLAST_RADIUS)
+    # and do not produce publisher records; count only published results.
+    published = [
+        r for r in first.execution_results
+        if r.outcome in (ExecutorOutcome.PUBLISHED, ExecutorOutcome.ALREADY_EXISTED)
+    ]
+    assert len(publisher.records) == len(published)
 
 
 @requires_opa
@@ -1059,7 +1075,15 @@ async def test_every_terminal_path_writes_audit(
     assert abstain_entries == 1
     assert compliant_entries == 1
     assert result_b.outcome is ControlLoopOutcome.COMPLIANT
-    assert executor_entries == 2 * len(result_c.execution_results)
+    # Published results write 2 executor audit entries (intent + terminal);
+    # ABSTAINED_BLAST_RADIUS results write 1 (terminal only) because the
+    # blast-radius ceiling refuses before the intent/dry-run step.
+    published_count = sum(
+        1 for r in result_c.execution_results
+        if r.outcome in (ExecutorOutcome.PUBLISHED, ExecutorOutcome.ALREADY_EXISTED)
+    )
+    abstained_count = len(result_c.execution_results) - published_count
+    assert executor_entries == 2 * published_count + abstained_count
     assert await audit.verify_chain(), "audit chain broken"
 
 

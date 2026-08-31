@@ -248,13 +248,23 @@ async def test_concurrent_events_on_different_resources_run_in_parallel(
     lock = _RecordingResourceLock(events_log, hold=0.02)
     loop, publisher, _audit = _loop_with_lock(shipped_catalog, lock)
 
+    # Each event must trigger at least one rule whose ActionType has a
+    # resolvable (static_enum) blast radius so the executor publishes a
+    # PR.  ``public_access: "enabled"`` fires
+    # ``object-storage.public-access.deny`` whose ActionType uses
+    # ``graph_derived`` — the control loop does not yet supply
+    # ``graph_affected``, so the executor legitimately abstains
+    # (``ABSTAINED_BLAST_RADIUS``).  Omitting ``cost_center`` from the
+    # tags causes ``object-storage.cost-center-tag.required`` to fire;
+    # its ActionType (``remediate.tag-add``) has ``static_enum`` blast
+    # radius and the executor publishes the shadow PR.
     event_a = _event(
         idempotency_key="par-a",
         resource_id="stg-alpha",
         resource_type="object-storage",
         props={
             "public_access": "enabled",
-            "tags": {"owner": "team-a", "cost_center": "cc-1"},
+            "tags": {"owner": "team-a"},
         },
         event_id="00000000-0000-0000-0000-000000000303",
     )
@@ -264,7 +274,7 @@ async def test_concurrent_events_on_different_resources_run_in_parallel(
         resource_type="object-storage",
         props={
             "public_access": "enabled",
-            "tags": {"owner": "team-b", "cost_center": "cc-2"},
+            "tags": {"owner": "team-b"},
         },
         event_id="00000000-0000-0000-0000-000000000304",
     )
