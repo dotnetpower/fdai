@@ -35,6 +35,7 @@ from fdai.core.ontology_platform.incident_queries import (
     INCIDENT_EVIDENCE_MAX_RECORDS,
 )
 from fdai.core.ontology_platform.query_values import QueryTable
+from fdai.shared.contracts.models import OntologyDeclarationKind
 from fdai_service_contracts import (
     MAX_SEMANTIC_EVIDENCE_REFS,
     OperationalEvidenceProjection,
@@ -1139,6 +1140,7 @@ def _project_runtime_result(
         execution,
         operation=frame.operation.value,
         output_shape=frame.output_shape,
+        subject_constraints=tuple(frame.subject_constraints),
         rule_search=rule_search,
         rule_search_node_id=rule_search_node_id,
         incident_evidence=incident_evidence,
@@ -2201,6 +2203,7 @@ def _render_query_answer(
     *,
     operation: str,
     output_shape: str,
+    subject_constraints: tuple[str, ...] = (),
     rule_search: RuleSearchProjection | None = None,
     rule_search_node_id: str | None = None,
     incident_evidence: dict[str, object] | None = None,
@@ -2314,6 +2317,7 @@ def _render_query_answer(
                 request,
                 outputs,
                 output_shape=output_shape,
+                subject_constraints=subject_constraints,
             )
         )
     )
@@ -2779,6 +2783,7 @@ def _render_general_query_answer(
     outputs: list[dict[str, object]],
     *,
     output_shape: str | None = None,
+    subject_constraints: tuple[str, ...] = (),
 ) -> str:
     """Report what was verified without naming the plan that produced it.
 
@@ -2829,6 +2834,7 @@ def _render_general_query_answer(
         outputs,
         korean=korean,
         output_shape=output_shape,
+        subject_constraints=subject_constraints,
     )
     if declaration_count_answer is not None:
         return declaration_count_answer
@@ -2910,39 +2916,33 @@ def _render_ontology_declaration_count_answer(
     *,
     korean: bool,
     output_shape: str | None,
+    subject_constraints: tuple[str, ...],
 ) -> str | None:
     """Render only complete declaration counts from the verified aggregate output."""
 
-    if (
-        output_shape != "aggregation_table"
-        or len(outputs) != 1
-        or outputs[0].get("node_id") != "declaration-count"
-    ):
+    if output_shape != "aggregation_table" or len(outputs) != 1 or len(subject_constraints) != 1:
+        return None
+    try:
+        declaration_kind = OntologyDeclarationKind(subject_constraints[0])
+    except ValueError:
         return None
     output = outputs[0]
     complete = output.get("source_complete") is True and output.get("display_truncated") is not True
     rows = output.get("rows")
-    counts: list[tuple[str, int]] = []
-    row_count = len(rows) if isinstance(rows, list) else 0
-    if isinstance(rows, list):
-        for row in rows:
-            if not isinstance(row, Mapping):
-                continue
-            values = row.get("values")
-            if not isinstance(values, Mapping) or values.get("operation") != "count":
-                continue
-            group = values.get("group")
-            value = values.get("value")
-            kind = group.get("kind") if isinstance(group, Mapping) else None
-            if (
-                isinstance(kind, str)
-                and kind
-                and isinstance(value, int)
-                and not isinstance(value, bool)
-                and value >= 0
-            ):
-                counts.append((f"{kind[:1].upper()}{kind[1:]}Types", value))
-    if not complete or not counts or len(counts) != row_count:
+    row = rows[0] if isinstance(rows, list) and len(rows) == 1 else None
+    values = row.get("values") if isinstance(row, Mapping) else None
+    group = values.get("group") if isinstance(values, Mapping) else None
+    group_kind = group.get("kind") if isinstance(group, Mapping) else None
+    value = values.get("value") if isinstance(values, Mapping) else None
+    valid_count = (
+        isinstance(values, Mapping)
+        and values.get("operation") == "count"
+        and group_kind in {None, declaration_kind.value}
+        and isinstance(value, int)
+        and not isinstance(value, bool)
+        and value >= 0
+    )
+    if not complete or not valid_count:
         if korean:
             return (
                 "## 온톨로지 선언 개수를 확인할 수 없음\n\n"
@@ -2958,9 +2958,10 @@ def _render_ontology_declaration_count_answer(
             "- Read-only source: `query.manifest`.\n\n"
             "This result grants no execution authority."
         )
+    label = f"{declaration_kind.value[:1].upper()}{declaration_kind.value[1:]}Types"
     heading = "## 검증된 온톨로지 선언 개수" if korean else "## Verified ontology declaration count"
     lines = [heading, ""]
-    lines.extend(f"- {label}: {value}" for label, value in counts)
+    lines.append(f"- {label}: {value}")
     lines.extend(
         [
             (

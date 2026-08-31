@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: c3327cd1db507456b11db448a3b7f23c9d44bccd
+translation_source_sha: 4a7aebb95a614c1b9ad6650b07006751e4032a55
 translation_revised: 2026-09-01
 ---
 # 코드 맵
@@ -52,8 +52,9 @@ facet, 근거별 조사 정규화 및 조회를 소유합니다. 검증된 `quer
 자연어 표현을 검사하지 않고 canonical `*Type` 대상을 해당 선언 종류로 정규화합니다. 정규화된
 선언 개수 frame은 전용 매니페스트 플래너를 사용해 모델 작성 계획 없이 `query.manifest`와
 `count`를 컴파일합니다. Core 의미 턴 처리기는 완전한 그룹 값을 선언 종류별 개수로 표시하고
-집계 행 개수만 보고하는 대신 읽기 전용 매니페스트 출처를 밝힙니다. 이 모듈들은 공개 import,
-결정론적 gate 순서 및 읽기 전용 권한을 보존합니다.
+집계 행 개수만 보고하는 대신 읽기 전용 매니페스트 출처를 밝힙니다. 표시할 선언 종류는 모델이
+작성한 노드 ID가 아니라 검증된 frame subject에 결속됩니다. 이 모듈들은 공개 import, 결정론적
+gate 순서 및 읽기 전용 권한을 보존합니다.
 Resource Health 상태 그룹 파생은 `semantic_query_health_values.py`에 있으며 public 의미
 composition facade를 강제된 800줄 제한 아래로 유지하면서 등록 순서는 바꾸지 않습니다.
 semantic-routing 기준선은 각 어휘 판단 소유자를 기록하고 결정론적 모델 출력 검증을 의미 추론과

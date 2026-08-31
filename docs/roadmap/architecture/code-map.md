@@ -50,8 +50,9 @@ frame construction, facets, evidence-specific investigation normalization, and q
 declaration kind without inspecting natural-language wording. The resulting declaration-count frame
 uses the focused manifest planner to compile `query.manifest` and `count` without a model-authored
 plan. The Core semantic-turn processor renders complete grouped values as typed declaration counts
-and names the read-only manifest source instead of reporting only the aggregate row count. These
-modules preserve public imports, deterministic gate order, and read-only authority.
+and names the read-only manifest source instead of reporting only the aggregate row count. It binds
+the display type to the verified frame subject, not to a model-authored node id. These modules
+preserve public imports, deterministic gate order, and read-only authority.
 Resource Health state-group derivation lives in `semantic_query_health_values.py`, which keeps the
 public semantic composition facade below the enforced 800-line ceiling without changing registration
 order.

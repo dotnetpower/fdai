@@ -248,12 +248,12 @@ def test_declaration_count_answer_reports_the_aggregate_value_and_source(
         SemanticTurnRequest.model_validate(semantic_request),
         [
             {
-                "node_id": "declaration-count",
+                "node_id": "model-aggregate",
                 "rows": [
                     {
                         "row_id": "aggregate:action",
                         "values": {
-                            "group": {"kind": "action"},
+                            "group": {},
                             "operation": "count",
                             "value": 44,
                         },
@@ -267,6 +267,7 @@ def test_declaration_count_answer_reports_the_aggregate_value_and_source(
             }
         ],
         output_shape="aggregation_table",
+        subject_constraints=("action",),
     )
 
     assert heading in answer
@@ -1370,6 +1371,7 @@ def _runtime_result(
         frame=SimpleNamespace(
             operation=SemanticOperation.SELECT,
             output_shape="resource_list",
+            subject_constraints=(),
         ),
         manifest_digest=MANIFEST_DIGEST,
         direct_response_intent=(
@@ -1605,6 +1607,7 @@ def _rule_search_runtime_result(*, execution_authority: bool = False) -> Runtime
         frame=SimpleNamespace(
             operation=SemanticOperation.SELECT,
             output_shape="resource_list",
+            subject_constraints=(),
         ),
         manifest_digest=MANIFEST_DIGEST,
     )
@@ -1780,6 +1783,7 @@ def _incident_evidence_runtime_result(
         frame=SimpleNamespace(
             operation=SemanticOperation.SELECT,
             output_shape="incident_evidence",
+            subject_constraints=(),
         ),
         manifest_digest=MANIFEST_DIGEST,
     )
@@ -1884,6 +1888,7 @@ def _ontology_relationship_runtime_result(
         frame=SimpleNamespace(
             operation=SemanticOperation.SELECT,
             output_shape="ontology_relationships",
+            subject_constraints=(),
         ),
         manifest_digest=MANIFEST_DIGEST,
     )
@@ -2658,6 +2663,7 @@ async def test_target_candidates_answer_names_verified_choices_in_korean() -> No
         frame=SimpleNamespace(
             operation=SemanticOperation.SELECT,
             output_shape="resource_target_candidates",
+            subject_constraints=(),
         ),
         manifest_digest=result.planning.manifest_digest,
     )
@@ -3230,6 +3236,7 @@ async def test_rule_search_candidates_must_not_exceed_function_limit() -> None:
             frame=SimpleNamespace(
                 operation=SemanticOperation.SELECT,
                 output_shape="resource_list",
+                subject_constraints=(),
             ),
             manifest_digest=MANIFEST_DIGEST,
         ),
