@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from datetime import UTC, datetime
 
 import pytest
@@ -17,6 +18,7 @@ from fdai.core.verticals.resilience import (
     SchedulerOutcome,
     summarize_runs,
 )
+from fdai.core.verticals.resilience.evidence import percentile
 
 
 def _window(name: str, start: str, end: str) -> MaintenanceWindow:
@@ -220,3 +222,33 @@ def test_summarize_aggregates_integrity_and_smoke_failures() -> None:
     )
     assert report.integrity_mismatches_total == 3
     assert report.smoke_failures == 1
+
+
+def test_summarize_p90_keeps_the_slowest_run_of_a_small_cohort() -> None:
+    now = _at("2026-07-05T04:00:00")
+    runs = [
+        DrRunReport(
+            experiment_id=f"e-{i}",
+            completed_at=now,
+            rpo_seconds=float(seconds),
+            rto_seconds=float(seconds) * 10,
+        )
+        for i, seconds in enumerate((1, 2, 3, 4, 5, 900))
+    ]
+    report = summarize_runs(
+        runs=runs, objective=DrObjective(max_rpo_seconds=60, max_rto_seconds=600)
+    )
+
+    # Nearest rank for six runs is ceil(0.9 * 6) = 6, so the breaching run
+    # cannot be dropped from the p90 evidence.
+    assert report.rpo_p90_seconds == 900.0
+    assert report.rto_p90_seconds == 9000.0
+    assert report.breach_count == 1
+    assert report.rpo_objective_met is False
+    assert report.rto_objective_met is False
+
+
+def test_percentile_uses_nearest_rank_for_every_small_sample_size() -> None:
+    for size in range(1, 13):
+        values = [float(index) for index in range(1, size + 1)]
+        assert percentile(values, 0.9) == float(math.ceil(0.9 * size))

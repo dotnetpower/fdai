@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: cabdd405c48dc83aab358899c15c52b84c695fab
+translation_source_sha: ba47a7af51e2e4c8711a7466538556977f1f9ce5
 translation_revised: 2026-08-31
 ---
 # 프로젝트 구조
@@ -17,6 +17,8 @@ translation_revised: 2026-08-31
 요구합니다.
 Workflow 승인 단계는 no-self-approval invariant를 낮출 수 없습니다. 컨트랙트가 카탈로그
 로드 시점에 비활성화된 값을 거부합니다.
+DR 목표 근거는 nearest-rank p90을 보고합니다. 따라서 표본이 적은 cohort도 가장 느린 측정
+실행을 유지하며 목표 달성으로 잘못 보고하지 않습니다.
 
 ## Core 도메인 탐색 결정
 

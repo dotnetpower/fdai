@@ -14,6 +14,8 @@ Case-history review requires both failure and matched control evidence before it
 inert learning candidate.
 A Workflow approval step cannot lower the no-self-approval invariant; the contract rejects a
 disabled value at catalog load.
+DR objective evidence reports a nearest-rank p90, so a small cohort keeps its slowest measured
+run instead of reporting an objective as met.
 
 ## Core domain navigation decision
 

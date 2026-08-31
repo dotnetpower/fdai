@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
@@ -91,11 +92,17 @@ def summarize_runs(*, runs: Iterable[DrRunReport], objective: DrObjective) -> Dr
 
 
 def percentile(sorted_values: list[float], p: float) -> float:
-    """Return the nearest-rank percentile for a sorted small sample."""
+    """Return the nearest-rank percentile for a sorted small sample.
+
+    Nearest rank is ``ceil(p * n)``. Rounding to the nearest integer instead
+    would drop the slowest runs from a small cohort (five to nine runs) and
+    report a p90 below the measured evidence, so a breached RPO/RTO objective
+    could read as met.
+    """
     if not sorted_values:
         return _MEDIAN_SENTINEL
     if len(sorted_values) == 1:
         return sorted_values[0]
-    rank = max(1, int(round(p * len(sorted_values))))
+    rank = max(1, math.ceil(p * len(sorted_values)))
     rank = min(rank, len(sorted_values))
     return sorted_values[rank - 1]
