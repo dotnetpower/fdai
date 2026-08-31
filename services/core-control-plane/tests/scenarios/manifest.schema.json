@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://fdai.dev/schemas/scenario-manifest/1.1.0",
+  "$id": "https://fdai.dev/schemas/scenario-manifest/1.2.0",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "scenario_set_version", "status", "capability_packs"],
   "properties": {
-    "schema_version": {"const": "1.1.0"},
+    "schema_version": {"const": "1.2.0"},
     "scenario_set_version": {"type": "string", "pattern": "^v\\d{4}\\.\\d{2}$"},
     "status": {"enum": ["incomplete", "complete"]},
     "capability_packs": {
@@ -16,10 +16,16 @@
         "^(sre|arb_change_safety|finops|dr|chaos)$": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["status", "scenario_ids", "coverage"],
+          "required": ["status", "scenario_ids", "conflict_spec_ids", "coverage"],
           "properties": {
             "status": {"enum": ["missing", "partial", "complete"]},
             "scenario_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+            "conflict_spec_ids": {
+              "description": "Frozen cross-objective conflict artifacts this pack owns, registered by their own ids so each one is directly inventoried and guarded.",
+              "type": "array",
+              "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,127}$"},
+              "uniqueItems": true
+            },
             "coverage": {
               "type": "object",
               "additionalProperties": false,

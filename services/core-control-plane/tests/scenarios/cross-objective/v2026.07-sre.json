@@ -1,66 +1,187 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "id": "sre.cross-objective-conflict.v2026-07",
   "scenario_set_version": "v2026.07",
   "capability": "sre",
   "dimension": "cross_objective_conflict",
-  "shared_target_id": "example-observability-pipeline",
   "correlation_id": "sre-cross-objective-conflict-v2026-07",
   "observed_at": "2026-07-05T08:00:00Z",
   "arbitration": {
     "raiser_agent": "Forseti",
     "owner_agent": "Odin",
+    "auditor_agent": "Saga",
     "request_topic": "object.arbitration-request",
     "decision_topic": "object.arbitration-decision",
     "verdict_topic": "object.verdict"
+  },
+  "operating_context": {
+    "clock_identity": "frozen-scenario-utc",
+    "note": "The customer-agnostic ontology neighborhood the replayed options share. The harness loads it into the shipped instance store and lets `OperationalContextMaterializer` fold it into the snapshot that grounds the decision case. The shared logical target is not named here as an input: the harness derives it by traversing the shipped graph from each option's replayed resource and intersecting what they reach.",
+    "objects": [
+      {
+        "id": "example-observability-pipeline",
+        "object_type": "Resource",
+        "properties": {"id": "example-observability-pipeline", "type": "observability-pipeline"}
+      },
+      {
+        "id": "example-aks-cluster",
+        "object_type": "Resource",
+        "properties": {"id": "example-aks-cluster", "type": "kubernetes-cluster"}
+      },
+      {
+        "id": "example-log-workspace",
+        "object_type": "Resource",
+        "properties": {"id": "example-log-workspace", "type": "log-workspace"}
+      },
+      {
+        "id": "example-unmapped-slo-target",
+        "object_type": "Resource",
+        "properties": {"id": "example-unmapped-slo-target", "type": "slo-target"}
+      },
+      {
+        "id": "example-observability-workload",
+        "object_type": "Workload",
+        "properties": {
+          "id": "example-observability-workload",
+          "name": "Example Observability Workload",
+          "workload_kind": "api",
+          "effective_from": "2026-07-05T08:00:00Z",
+          "source_ref": "service-manifest:example"
+        }
+      },
+      {
+        "id": "example-observability-service",
+        "object_type": "BusinessService",
+        "properties": {
+          "id": "example-observability-service",
+          "name": "Example Observability Service",
+          "criticality": "high",
+          "effective_from": "2026-07-05T08:00:00Z",
+          "source_ref": "service-catalog:example"
+        }
+      },
+      {
+        "id": "example-availability-objective",
+        "object_type": "ServiceObjective",
+        "properties": {
+          "id": "example-availability-objective",
+          "objective_kind": "availability",
+          "metric": "successful_request_ratio",
+          "unit": "ratio",
+          "target": 0.999,
+          "window_seconds": 2592000,
+          "measurement_source_ref": "metrics:availability",
+          "freshness_seconds": 300,
+          "effective_from": "2026-07-05T08:00:00Z"
+        }
+      },
+      {
+        "id": "example-telemetry-cost-objective",
+        "object_type": "CostObjective",
+        "properties": {
+          "id": "example-telemetry-cost-objective",
+          "objective_kind": "run_rate",
+          "currency": "USD",
+          "target": 1000.0,
+          "period_seconds": 2592000,
+          "measurement_source_ref": "cost:monthly",
+          "freshness_seconds": 86400,
+          "effective_from": "2026-07-05T08:00:00Z"
+        }
+      }
+    ],
+    "links": [
+      {"link_type": "workload_runs_on", "from_id": "example-observability-workload", "to_id": "example-observability-pipeline"},
+      {"link_type": "workload_runs_on", "from_id": "example-observability-workload", "to_id": "example-aks-cluster"},
+      {"link_type": "workload_runs_on", "from_id": "example-observability-workload", "to_id": "example-log-workspace"},
+      {"link_type": "workload_runs_on", "from_id": "example-observability-workload", "to_id": "example-unmapped-slo-target"},
+      {"link_type": "implemented_by", "from_id": "example-observability-service", "to_id": "example-observability-workload"},
+      {"link_type": "service_has_service_objective", "from_id": "example-observability-service", "to_id": "example-availability-objective"},
+      {"link_type": "service_has_cost_objective", "from_id": "example-observability-service", "to_id": "example-telemetry-cost-objective"}
+    ]
+  },
+  "action_type_recommendations": {
+    "remediate.enable-diagnostic-settings": "scale_up",
+    "remediate.set-retention-policy": "scale_down"
   },
   "options": [
     {
       "option_id": "enable-cluster-diagnostics",
       "scenario_id": "sre.cluster-diagnostics-missing.001",
       "objective_domain": "change_safety",
-      "recommendation": "enable_diagnostic_settings",
+      "expected_action_type": "remediate.enable-diagnostic-settings",
       "expected_eligibility": "eligible",
-      "note": "Change Safety option. The frozen scenario declares domain `change`, and its replay cites `kubernetes-cluster.diagnostic-settings-required`, so the option is grounded by a real deterministic finding rather than a hand-authored candidate."
+      "note": "Change Safety option. The frozen scenario declares domain `change`, and its replay cites `kubernetes-cluster.diagnostic-settings-required` and builds a `remediate.enable-diagnostic-settings` action. Enabling diagnostics raises the telemetry volume the shared pipeline carries, so the runtime ActionType maps to `scale_up`."
     },
     {
       "option_id": "reduce-telemetry-retention",
       "scenario_id": "sre.telemetry-retention-excessive.003",
       "objective_domain": "cost",
-      "recommendation": "reduce_retention_to_ceiling",
+      "expected_action_type": "remediate.set-retention-policy",
       "expected_eligibility": "eligible",
-      "note": "Cost Governance option. The frozen scenario declares domain `finops`, and its replay cites `log-workspace.retention-excessive`. It opposes the Change Safety option because enabling diagnostics increases the telemetry the retention cut is meant to shrink."
+      "note": "Cost Governance option. The frozen scenario declares domain `finops`, and its replay cites `log-workspace.retention-excessive` and builds a `remediate.set-retention-policy` action. Cutting retention lowers the telemetry volume the shared pipeline carries, so the runtime ActionType maps to `scale_down` and opposes the Change Safety option."
     },
     {
       "option_id": "map-slo-signal-source",
       "scenario_id": "sre.slo-signal-source-unmapped.002",
       "objective_domain": "resilience",
-      "recommendation": "map_signal_source",
+      "expected_action_type": null,
       "expected_eligibility": "unresolved_evidence",
-      "note": "Resilience option. The frozen scenario declares domain `dr` and abstains on an unmodelled signal source, so its evidence stays unresolved and it contributes `hold` instead of an eligible recommendation."
+      "note": "Resilience option. The frozen scenario declares domain `dr` and abstains on an unmodelled signal source, so the replay produces no ActionType at all. With nothing to map, the option contributes `hold` instead of a recommendation."
     }
   ],
   "expected": {
+    "shared_target_id": "example-observability-pipeline",
     "eligible_option_ids": ["enable-cluster-diagnostics", "reduce-telemetry-retention"],
     "unresolved_option_ids": ["map-slo-signal-source"],
     "held_recommendation": "hold",
     "domains_in_conflict": ["change_safety", "cost", "resilience"],
+    "advice": {"change_safety": "scale_up", "cost": "scale_down", "resilience": "hold"},
     "winning_domain": "resilience",
     "losing_domains": ["change_safety", "cost"],
     "reason": "initial_vertical_precedence",
     "escalate_hil": false,
+    "decision_case": {
+      "case_id": "804995b3569e266431270a90f9c553e00f251431177a6f12fbee4b0a018cdc9c",
+      "context_snapshot_id": "5f18192f4de8a21c90e359857ceb635df5d2647acdbf6262d33d7433ab849392",
+      "option_by_domain": {"change_safety": "change_safety:scale_up", "cost": "cost:scale_down"},
+      "option_ids": ["change_safety:scale_up", "cost:scale_down"],
+      "protected_objective_ids": ["example-availability-objective"],
+      "evidence_refs": [
+        "specialist:change_safety:sre-cross-objective-conflict-v2026-07",
+        "specialist:cost:sre-cross-objective-conflict-v2026-07",
+        "specialist:resilience:sre-cross-objective-conflict-v2026-07"
+      ],
+      "selected_option_id": null,
+      "selection_reason": "no_safe_option",
+      "requires_human_approval": true
+    },
     "terminal": {
       "risk_verdict": "hil",
       "reason": "arbitration_unresolved",
       "action_type": "",
-      "initiator_principal": null
+      "initiator_principal": null,
+      "audited_producer": "Forseti",
+      "audited_topic": "object.verdict"
     },
     "without_arbitration_owner": {
+      "unavailable_agent": "Odin",
+      "degradation_effect": "conflicts_require_hil",
+      "blocks_mutation": false,
+      "effective_mode": "configured",
       "decisions": 0,
-      "verdicts": 0,
-      "recorded_arbitrations": 0
+      "recorded_arbitrations": 0,
+      "verdicts": 1,
+      "audited_verdicts": 1,
+      "terminal": {
+        "risk_verdict": "hil",
+        "reason": "no_rule_match",
+        "action_type": "",
+        "resolved_autonomy_ceiling": "shadow_only",
+        "quorum_required": 1
+      }
     },
-    "decision_digest": "sha256:de768730caf3d37b78147ca5407d3cb7702149dfba444bc79b825f2f9b402ee5",
-    "evidence_digest": "sha256:e72a1d7665263e2a4f5aa65d4a2a9d3892ee9bf020ecb914d26ae11b695a9f9a"
+    "decision_digest": "sha256:c81bbe1cea9f07f1c1e47ee897474af49c35237da9f60d18416b22ab71d661b9",
+    "evidence_digest": "sha256:0f0e497b539a5d18d5478fdc4fe608f3af0628164f48f70246617f579e0b2d24"
   }
 }

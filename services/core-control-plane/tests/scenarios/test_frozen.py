@@ -22,6 +22,8 @@ SCENARIO_DIR = Path(__file__).resolve().parent / "v2026.07"
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema.json"
 MANIFEST_SCHEMA_PATH = Path(__file__).resolve().parent / "manifest.schema.json"
 MANIFEST_PATH = Path(__file__).resolve().parent / "manifests" / "v2026.07.json"
+CONFLICT_DIR = Path(__file__).resolve().parent / "cross-objective"
+CONFLICT_SCHEMA_PATH = CONFLICT_DIR / "schema.json"
 
 # ── Guard patterns ──────────────────────────────────────────────────────────
 # Any GUID whose first four groups are non-zero is a real customer identifier
@@ -88,6 +90,32 @@ def _load_scenarios() -> list[tuple[Path, dict[str, Any]]]:
 
 def _load_manifest() -> dict[str, Any]:
     return cast(dict[str, Any], json.loads(MANIFEST_PATH.read_text(encoding="utf-8")))
+
+
+def _conflict_id_to_filename(conflict_id: str) -> str:
+    """Return the frozen filename convention `<set-version>-<capability>.json`."""
+
+    capability, _, remainder = conflict_id.partition(".")
+    _dimension, _, set_version = remainder.rpartition(".")
+    return f"{set_version.replace('-', '.')}-{capability}.json"
+
+
+def _load_conflict_specs() -> list[tuple[Path, dict[str, Any]]]:
+    """Load every frozen cross-objective artifact, excluding its own schema."""
+
+    files = sorted(path for path in CONFLICT_DIR.glob("*.json") if path.name != "schema.json")
+    return [
+        (p, cast(dict[str, Any], _load_json_without_duplicates(p.read_text(encoding="utf-8"))))
+        for p in files
+    ]
+
+
+def _manifest_conflict_spec_ids() -> list[str]:
+    return [
+        str(conflict_id)
+        for pack in _load_manifest()["capability_packs"].values()
+        for conflict_id in pack["conflict_spec_ids"]
+    ]
 
 
 def _load_json_without_duplicates(text: str) -> object:
@@ -344,6 +372,78 @@ def test_complete_pack_requires_every_coverage_dimension() -> None:
         else "incomplete"
     )
     assert manifest["status"] == expected_status
+
+
+# ---------------------------------------------------------------------------
+# Cross-objective conflict artifacts
+# ---------------------------------------------------------------------------
+#
+# A frozen cross-objective artifact composes several frozen scenarios into one
+# conflict, so it cannot live inside the per-scenario hierarchy that the
+# scenario schema and the one-pack-per-scenario assignment govern. It is still
+# frozen: it carries its own id, so the manifest inventories that id directly,
+# and every immutability guard applied to a scenario is applied to it here.
+
+
+def test_capability_manifest_inventories_every_conflict_spec_exactly_once() -> None:
+    """Every frozen conflict artifact MUST be registered by its own id."""
+
+    specs = {raw["id"]: (path, raw) for path, raw in _load_conflict_specs()}
+    manifest = _load_manifest()
+    registered: list[str] = []
+    for capability, pack in manifest["capability_packs"].items():
+        for conflict_id in pack["conflict_spec_ids"]:
+            assert conflict_id in specs, f"{conflict_id} is registered but has no frozen artifact"
+            path, raw = specs[conflict_id]
+            assert raw["capability"] == capability
+            assert raw["scenario_set_version"] == manifest["scenario_set_version"]
+            assert path.name == _conflict_id_to_filename(conflict_id), (
+                f"{path.name} does not follow the frozen conflict filename convention"
+            )
+            registered.append(conflict_id)
+    assert sorted(registered) == sorted(specs), (
+        "every frozen conflict artifact MUST be inventoried by exactly one capability pack"
+    )
+    assert len(registered) == len(set(registered))
+
+
+@pytest.mark.parametrize(("path", "raw"), _load_conflict_specs())
+def test_conflict_spec_passes_its_schema(path: Path, raw: dict[str, Any]) -> None:
+    schema = cast(dict[str, Any], json.loads(CONFLICT_SCHEMA_PATH.read_text(encoding="utf-8")))
+    Draft202012Validator.check_schema(schema)
+    errors = sorted(Draft202012Validator(schema).iter_errors(raw), key=lambda e: list(e.path))
+    assert not errors, f"{path.name}: {[e.message for e in errors[:5]]}"
+
+
+@pytest.mark.parametrize(("path", "raw"), _load_conflict_specs())
+def test_conflict_spec_composes_only_scenarios_its_pack_owns(
+    path: Path, raw: dict[str, Any]
+) -> None:
+    pack = _load_manifest()["capability_packs"][raw["capability"]]
+    owned = set(pack["scenario_ids"])
+    composed = {str(option["scenario_id"]) for option in raw["options"]}
+    assert composed <= owned, f"{path.name} composes scenarios its pack does not own: {composed}"
+    assert raw["id"] in pack["conflict_spec_ids"], (
+        f"{path.name} is not inventoried by the pack it claims"
+    )
+
+
+@pytest.mark.parametrize(("path", "raw"), _load_conflict_specs())
+def test_conflict_spec_carries_no_non_zero_guid(path: Path, raw: dict[str, Any]) -> None:
+    matches = _NONZERO_GUID.findall(json.dumps(raw))
+    assert not matches, f"{path.name} contains customer-identifying GUIDs: {matches[:3]}"
+
+
+@pytest.mark.parametrize(("path", "raw"), _load_conflict_specs())
+def test_conflict_spec_carries_no_customer_data(path: Path, raw: dict[str, Any]) -> None:
+    findings = _customer_data_findings(raw)
+    assert not findings, f"{path.name} contains customer data: {findings}"
+
+
+@pytest.mark.parametrize(("path", "raw"), _load_conflict_specs())
+def test_conflict_spec_machine_fields_are_ascii(path: Path, raw: dict[str, Any]) -> None:
+    invalid = _non_ascii_machine_fields(raw)
+    assert not invalid, f"{path.name} contains non-ASCII machine fields: {invalid}"
 
 
 @pytest.mark.parametrize(("path", "raw"), _load_scenarios())
