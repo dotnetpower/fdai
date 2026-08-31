@@ -329,6 +329,24 @@ An approval rejection closes every sibling quorum slot. Retrying `approval_rejec
 `approval_timed_out` creates a new attempt with distinct approval ids; no prior decision satisfies
 the new quorum.
 
+The Process detail projection is scoped to the authenticated requester recorded in immutable
+`process.created` evidence. It rereads the Process after loading its journal, joins the pinned
+Workflow version from the authoritative catalog projection plus durable Var state for an approval
+step, and returns the current step kind, requirements, deadline or evidence state, exact revision,
+and only requestable transitions.
+Missing requester evidence, a catalog mismatch, a revision race, or malformed step evidence returns
+an unavailable control state with no transitions.
+
+The Operator workflow adapter repeats this projection under a Process row lock in the same database
+transaction that persists a resume, cancellation, or retry proposal. An exact duplicate is returned
+before revalidation, preserving idempotent replay after state advancement. `If-Match` must equal the
+current numeric Process revision, enforcement-mode
+requests require Owner, retry needs the same effect-free terminal evidence as the runtime, and an
+invalid or unavailable transition is denied. The resulting `202` receipt means only that a
+shadow-first request was accepted for runtime review. It is not Process advancement, approval,
+execution, or verified operational success. Human approval remains on the separate Var-owned
+Approvals route, which preserves distinct-principal enforcement.
+
 ### Request checks
 
 Every domain route repeats the checks appropriate to its source:

@@ -1,5 +1,15 @@
 import { isOptionalOperatorApiUnavailable } from "../api";
 import { panelPath } from "../router";
+import {
+  decodeProcessControl,
+  type ProcessControlProjection,
+} from "./processes.control";
+
+export type {
+  ProcessControlProjection,
+  ProcessTransition,
+  ProcessTransitionId,
+} from "./processes.control";
 
 export interface ProcessSummary {
   readonly id: string;
@@ -16,6 +26,7 @@ export interface ProcessListResponse {
   readonly source: string;
   readonly synthetic: boolean | null;
   readonly durable: boolean | null;
+  readonly principal_scoped: true;
   readonly items: readonly ProcessSummary[];
 }
 
@@ -68,6 +79,7 @@ export interface ProcessJournalResponse {
   readonly count: number;
   readonly planning: PlanningRoom | null;
   readonly investigation: InvestigationRoom | null;
+  readonly control: ProcessControlProjection;
 }
 
 export interface InvestigationExecution {
@@ -277,6 +289,9 @@ export function decodeProcessList(value: unknown): ProcessListResponse {
   if (!Array.isArray(root["items"])) throw new Error("process list items MUST be an array");
   const synthetic = root["synthetic"];
   const durable = root["durable"];
+  if (root["principal_scoped"] !== true) {
+    throw new Error("process list MUST be scoped to the authenticated principal");
+  }
   if (synthetic !== undefined && synthetic !== null && typeof synthetic !== "boolean") {
     throw new Error("process list synthetic MUST be boolean or null");
   }
@@ -289,6 +304,7 @@ export function decodeProcessList(value: unknown): ProcessListResponse {
     source: typeof root["source"] === "string" ? root["source"] : "unknown",
     synthetic: synthetic === undefined ? null : synthetic,
     durable: durable === undefined ? null : durable,
+    principal_scoped: true,
     items,
   };
 }
@@ -328,12 +344,14 @@ export function decodeProcessJournal(value: unknown): ProcessJournalResponse {
   ) {
     throw new Error("investigation room workflow_version MUST match the process");
   }
+  const control = decodeProcessControl(root["control"], decodedProcess);
   return {
     process: decodedProcess,
     events,
     count,
     planning,
     investigation,
+    control,
   };
 }
 

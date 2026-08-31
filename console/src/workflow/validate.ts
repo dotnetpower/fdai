@@ -158,6 +158,10 @@ export function setWorkflowAuth(auth: AuthContext | null): void {
   authContext = auth;
 }
 
+export async function workflowAuthorizationHeader(): Promise<string | null> {
+  return authContext ? await authContext.getAuthorizationHeader() : null;
+}
+
 /** Persist a validated workflow as a principal-owned private DRAFT.
  * This does not publish, bind, enable, or execute the workflow. */
 export async function createWorkflowDefinition(

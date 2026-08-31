@@ -1,7 +1,7 @@
 ---
 title: 고객 워크플로 자동화 제공 계획
 translation_of: customer-workflow-automation-plan.md
-translation_source_sha: c8f8010095f5a7bc00cb1248193a8b8ccd0d40ef
+translation_source_sha: 3dd2fe572b93fb9b5e2c0aaab20c7f793a7801b6
 translation_revised: 2026-08-31
 ---
 
@@ -28,7 +28,7 @@ translation_revised: 2026-08-31
 |------|------|------|------|
 | 웨이브 0-2 카탈로그, 관찰, 저널 및 승인 | implemented | [`test_workflow_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_workflow_catalog.py), [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`test_workflow_approval.py`](../../../services/core-control-plane/tests/delivery/persistence/test_workflow_approval.py) | 구조 검증, shadow 실행, 영속 Process 상태 및 승인 동작에 집중 테스트가 있습니다. |
 | 웨이브 3 동작 시뮬레이션 및 제한된 변경 | not-started | [웨이브 3](#웨이브-3---제한된-기반-변경-추가) | 구조 검증은 있지만 동작 차이 시뮬레이션과 staging 비교는 구현되지 않았습니다. |
-| 웨이브 4 저작 및 운영 경험 | in-progress | [`workflow-builder.structure.ts`](../../../console/src/routes/workflow-builder.structure.ts), [`workflow-builder-control-steps.spec.ts`](../../../console/tests/e2e/workflow-builder-control-steps.spec.ts), [웨이브 4](#웨이브-4---저작-및-운영-경험-완성) | 작업과 다섯 가지 런타임 제어 단계 유형의 저작, 검증 및 비공개 초안을 지원합니다. 검토된 카탈로그 제안과 완전한 운영 전환은 남아 있습니다. |
+| 웨이브 4 저작 및 운영 경험 | in-progress | [`workflow-builder.structure.ts`](../../../console/src/routes/workflow-builder.structure.ts), [`process_transition_projection.py`](../../../services/operator-service/src/fdai_operator_service/process_transition_projection.py), [`workflow-process-transitions.spec.ts`](../../../console/tests/e2e/workflow-process-transitions.spec.ts), [웨이브 4](#웨이브-4---저작-및-운영-경험-완성) | 작업과 다섯 가지 런타임 제어 단계 유형의 저작 및 principal 범위 운영 요청을 지원합니다. 검토된 카탈로그 제안, Process 수신함 필터 및 통제된 런타임 진행 근거는 남아 있습니다. |
 | 웨이브 5 확장, SLI 및 자동 강등 | not-started | [웨이브 5](#웨이브-5---확장-및-운영-인수인계) | 분산 잠금, 범위별 backpressure, 운영 SLI 또는 자동 강등 근거가 보존되지 않았습니다. |
 
 ### 구현 이력
@@ -38,6 +38,7 @@ translation_revised: 2026-08-31
 | 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입하고 현재 상태를 웨이브 근거와 맞췄습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트입니다. | 웨이브 3-5를 완료하고 프로세스별 승격 근거를 보존해야 합니다. |
 | 2026-08-31 | in-progress | 필수 제한 시간, 권한, 정족수, 자기 승인 방지, 손실 없는 복제 및 세션 복구, 현지화된 안내, 유형별 미리 보기를 포함한 카탈로그 기반 `WAIT` 및 `APPROVAL` 저작을 추가했습니다. 비공개 초안은 shadow이며 실행할 수 없습니다. | `current change`; [`workflow-builder.model.ts`](../../../console/src/routes/workflow-builder.model.ts), [`workflow-builder.session.ts`](../../../console/src/routes/workflow-builder.session.ts), [`workflow-builder-control-steps.spec.ts`](../../../console/tests/e2e/workflow-builder-control-steps.spec.ts); 집중 Vitest 검사 72개, 서버 계약 검사 12개, Console 형식 검사와 빌드, 카탈로그 일치, 읽을 수 있는 한글, 문장 부호, 데스크톱, 제한된 데스크톱 및 모바일 Playwright 검사를 통과했습니다. | #396에서 구조 저작을 완료하고 #397에서 권위 있는 운영자 전환을 완료해야 합니다. |
 | 2026-08-31 | in-progress | 손실 없는 `DECISION`, `PARALLEL`, `GATE` 저작을 추가했습니다. 빌더는 중복되거나 잘못된 결과와 분기, 두 개 미만의 병렬 분기, 알 수 없거나 이전 단계인 실패 대상, 검토된 워크플로 카탈로그에 없는 게이트 참조를 차단합니다. 병렬 결합은 런타임의 고정된 전체 분기 완료 방식을 유지합니다. | `current change`; [`workflow-builder.structure.ts`](../../../console/src/routes/workflow-builder.structure.ts), [`workflow-builder.structure.test.ts`](../../../console/src/routes/workflow-builder.structure.test.ts), [`workflow-builder-control-steps.spec.ts`](../../../console/tests/e2e/workflow-builder-control-steps.spec.ts); 집중 Vitest 검사 81개, Console 형식 검사와 빌드, 현지화 검사, 데스크톱, 제한된 데스크톱 및 모바일 Playwright 검사를 통과했습니다. | #397에서 principal 범위의 권위 있는 운영자 전환을 완료해야 합니다. |
+| 2026-08-31 | in-progress | 다섯 가지 제어 단계 유형에 대한 principal 범위의 권위 있는 상태와 보호된 재개, 취소 및 재시도 요청을 추가했습니다. Operator 경계는 영속화 전에 오래됨, 사용 불가, 잘못된 역할, 자기 승인, 시간 초과 및 잘못된 사례를 차단합니다. Core는 최종 권한을 유지하고 `202`는 운영 성공으로 표시되지 않습니다. | `current change`; [`process_transition_projection.py`](../../../services/operator-service/src/fdai_operator_service/process_transition_projection.py), [`processes.tsx`](../../../console/src/routes/processes.tsx), [`workflow-process-transitions.spec.ts`](../../../console/tests/e2e/workflow-process-transitions.spec.ts); 집중 백엔드 및 런타임 검사 67개, 집중 Console 검사 27개, 엄격한 Python 및 TypeScript 검사, 프로덕션 빌드, 현지화 검사, 데스크톱, 제한된 데스크톱 및 모바일 Playwright 검사를 통과했습니다. | 통제된 제안 소비 및 권위 있는 Process 진행 근거를 보존한 다음 남은 웨이브 4 수신함 및 카탈로그 검토 작업을 완료해야 합니다. |
 
 ### 남은 작업
 
@@ -45,8 +46,9 @@ translation_revised: 2026-08-31
   실행과의 동등성 근거를 보존합니다.
 - [x] #396에서 손실 없는 `DECISION`, `PARALLEL`, `GATE` 저작과 집중 구조, 복원,
   접근성, 형식 검사, 빌드 및 세 viewport 근거를 완료했습니다.
-- [ ] #397에서 principal 범위의 권위 있는 단계 상태를 표시하고 오래됨, 사용 불가, 권한 없음,
-  자기 승인, 시간 초과 및 잘못된 전환 사례가 차단되는지 입증합니다.
+- [x] #397에서 principal 범위의 권위 있는 단계 상태와 보호된 전환 요청을 완료하고 오래됨,
+  사용 불가, 권한 없음, 자기 승인, 시간 초과 및 잘못된 사례의 집중 차단 근거를 확보했습니다.
+  통제된 런타임 진행 증적은 별도의 운영 근거로 남아 있습니다.
 - [ ] 초안에 실행 권한을 부여하지 않는 저작 화면의 검토된 카탈로그 제안 및 deep-link 검토를
   완료합니다.
 - [ ] 웨이브 5 종료 전에 다중 replica shadow 캠페인에서 분산 잠금, 제한된 backpressure,
@@ -92,7 +94,7 @@ translation_revised: 2026-08-31
 | 신호 및 예약 트리거 | 구현됨 | 정규화된 이벤트나 일정에서 관찰 실행을 시작할 수 있습니다. |
 | 프로세스 스냅샷 및 추가 전용 저널 | 구현됨 | 실행을 검사하고 결정론적으로 식별할 수 있습니다. |
 | 검증된 액션 진행 상황 및 보상 | Core 런타임에 구현됨 | 제안 전달, 권위 있는 결과 검증, reverse 보상, recovery-incomplete 종결을 별도 저널 상태로 기록합니다. Headless 및 운영 Operator API 조립은 shared StateStore recorder와 검증기를 연결하며 독립적인 효과 근거가 없으면 프로세스를 waiting 상태로 유지합니다. Held 대상은 일치하는 프로세스 보상만 사람 승인을 통해 허용하며 모든 검증된 증적과 CAS 보류 release가 끝나야 `compensated`가 됩니다. |
-| `WAIT`, `APPROVAL`, `DECISION`, `PARALLEL`, `GATE` 실행 | 런타임에 구현됨 | 카탈로그 기반 구조 검사를 포함한 다섯 가지 유형의 빌더 지원이 구현되었습니다. 종단간 운영자 전환은 추가 완성이 필요합니다. |
+| `WAIT`, `APPROVAL`, `DECISION`, `PARALLEL`, `GATE` 실행 | 런타임에 구현됨 | 다섯 가지 유형의 빌더 지원과 principal 범위 상태 및 요청 컨트롤이 구현되었습니다. 통제된 제안 소비 및 런타임 진행 근거는 남아 있습니다. |
 | 읽기 전용 `EVIDENCE` 실행 | 브라우저 근거에 구현됨 | 별도 근거 디스패처를 사용하고 shadow-only로 유지되며 액션 권한 없이 실패 시 차단됩니다. |
 | 강제 적용 워크플로 명령 | Owner 및 허용 목록으로 제한됨 | 작업 스텝이 형식화된 `operator_request` 이벤트를 게시합니다. 직접 변경 권한은 아닙니다. |
 | 도구 실행 | 선택된 어댑터에 제공됨 | GitHub, Jira, chaos, 조사 및 Azure VM 경로에는 명시적 구성과 도구별 승격이 필요합니다. |

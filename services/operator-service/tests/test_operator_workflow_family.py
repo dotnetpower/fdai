@@ -19,7 +19,12 @@ from fdai_operator_service.families.workflow import (
 )
 from fdai_operator_service.families.workflow.manifest import READER_ROLES
 from fdai_operator_service.family_adapters import PostgresWorkflowAdapters
-from fdai_operator_service.postgres_family_store import StoredProposal
+from fdai_operator_service.postgres_family_store import (
+    PostgresFamilyStoreUnavailable,
+    PostgresProcessNotVisibleError,
+    StoredProposal,
+)
+from fdai_operator_service.process_transition_projection import ProcessTransitionDeniedError
 from fdai_service_contracts import (
     GoalTaskReceipt,
     OperatorPrincipal,
@@ -520,6 +525,162 @@ async def test_postgres_workflow_adapter_submits_inert_proposal() -> None:
     assert payload["mode"] == "shadow"
 
 
+async def test_postgres_workflow_adapter_prechecks_authoritative_process_transition() -> None:
+    class ProposalStore:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, object]] = []
+
+        async def append_guarded_workflow_transition_proposal(
+            self,
+            **kwargs: object,
+        ) -> StoredProposal:
+            self.calls.append(kwargs)
+            return StoredProposal("proposal-7", "revision-8", False, kwargs)
+
+    store = ProposalStore()
+    adapter = PostgresWorkflowAdapters(cast(Any, store))
+    receipt = await adapter.submit(
+        WorkflowProposal(
+            operation=WorkflowOperation.WORKFLOW_CANCEL_REQUEST,
+            principal_id="operator-a",
+            idempotency_key="cancel-7",
+            expected_revision="3",
+            request_source="console",
+            path_parameters={"process_id": "process-1"},
+            payload={},
+            principal_roles=(OperatorRole.CONTRIBUTOR.value,),
+        )
+    )
+
+    assert receipt.proposal_id == "proposal-7"
+    assert len(store.calls) == 1
+    assert store.calls[0]["process_id"] == "process-1"
+    assert store.calls[0]["expected_revision"] == "3"
+
+
+@pytest.mark.parametrize(
+    ("revision", "roles", "operation", "expected_status"),
+    [
+        (
+            "2",
+            (OperatorRole.CONTRIBUTOR.value,),
+            WorkflowOperation.WORKFLOW_CANCEL_REQUEST,
+            409,
+        ),
+        (
+            "3",
+            (OperatorRole.CONTRIBUTOR.value,),
+            WorkflowOperation.WORKFLOW_RESUME_REQUEST,
+            409,
+        ),
+        (
+            "3",
+            (OperatorRole.CONTRIBUTOR.value,),
+            WorkflowOperation.WORKFLOW_CANCEL_REQUEST,
+            403,
+        ),
+    ],
+)
+async def test_postgres_workflow_adapter_denies_stale_invalid_or_unauthorized_transition(
+    revision: str,
+    roles: tuple[str, ...],
+    operation: WorkflowOperation,
+    expected_status: int,
+) -> None:
+    class ProposalStore:
+        async def append_guarded_workflow_transition_proposal(
+            self,
+            **kwargs: object,
+        ) -> StoredProposal:
+            raise ProcessTransitionDeniedError(
+                "transition denied",
+                status_code=expected_status,
+            )
+
+    adapter = PostgresWorkflowAdapters(cast(Any, ProposalStore()))
+    with pytest.raises(HTTPException) as error:
+        await adapter.submit(
+            WorkflowProposal(
+                operation=operation,
+                principal_id="operator-a",
+                idempotency_key="transition-7",
+                expected_revision=revision,
+                request_source="console",
+                path_parameters={"process_id": "process-1"},
+                payload={},
+                principal_roles=roles,
+            )
+        )
+
+    assert error.value.status_code == expected_status
+
+
+async def test_postgres_workflow_adapter_denies_invisible_or_unavailable_process() -> None:
+    class InvisibleStore:
+        async def append_guarded_workflow_transition_proposal(
+            self,
+            **kwargs: object,
+        ) -> StoredProposal:
+            raise PostgresProcessNotVisibleError("Process is not visible")
+
+    adapter = PostgresWorkflowAdapters(cast(Any, InvisibleStore()))
+    with pytest.raises(HTTPException) as invisible:
+        await adapter.submit(
+            WorkflowProposal(
+                operation=WorkflowOperation.WORKFLOW_CANCEL_REQUEST,
+                principal_id="operator-a",
+                idempotency_key="cancel-invisible",
+                expected_revision="3",
+                request_source="console",
+                path_parameters={"process_id": "process-1"},
+                payload={},
+                principal_roles=(OperatorRole.OWNER.value,),
+            )
+        )
+    assert invisible.value.status_code == 404
+
+    class UnavailableStore:
+        async def append_guarded_workflow_transition_proposal(
+            self,
+            **kwargs: object,
+        ) -> StoredProposal:
+            raise PostgresFamilyStoreUnavailable("workflow state unavailable")
+
+    unavailable_adapter = PostgresWorkflowAdapters(cast(Any, UnavailableStore()))
+    with pytest.raises(HTTPException) as unavailable:
+        await unavailable_adapter.submit(
+            WorkflowProposal(
+                operation=WorkflowOperation.WORKFLOW_CANCEL_REQUEST,
+                principal_id="operator-a",
+                idempotency_key="cancel-unavailable",
+                expected_revision="3",
+                request_source="console",
+                path_parameters={"process_id": "process-1"},
+                payload={},
+                principal_roles=(OperatorRole.OWNER.value,),
+            )
+        )
+    assert unavailable.value.status_code == 503
+
+
+def test_guarded_transition_store_fences_state_and_preserves_idempotent_replay() -> None:
+    source = (
+        REPO_ROOT / "services/operator-service/src/fdai_operator_service/postgres_family_store.py"
+    ).read_text(encoding="utf-8")
+    method = source[
+        source.index("    async def append_guarded_workflow_transition_proposal(") : source.index(
+            "    async def append_revisioned_proposal("
+        )
+    ]
+
+    existing = method.index("SELECT value FROM state_kv WHERE key = %s FOR UPDATE")
+    process_lock = method.index("FOR SHARE OF runtime")
+    precheck = method.index("authorize_process_transition(")
+    proposal_insert = method.index("INSERT INTO state_kv (key, value)")
+    assert "async with connection.transaction():" in method
+    assert existing < process_lock < precheck < proposal_insert
+
+
 @pytest.mark.parametrize("query", ["limit=0", "limit=501", "limit=many", "offset=-1"])
 def test_catalog_pagination_rejects_legacy_invalid_bounds(query: str) -> None:
     client, _, reads, _ = _client(role=OperatorRole.READER)
@@ -572,6 +733,7 @@ def test_mutation_routes_require_revision_and_idempotency_before_submission() ->
     assert duplicate.json()["duplicate"] is True
     assert proposals.proposals[0].expected_revision == "workflow-revision-2"
     assert proposals.proposals[0].request_source == "operator-http:handler"
+    assert proposals.proposals[0].principal_roles == (OperatorRole.CONTRIBUTOR.value,)
 
 
 def test_enforce_request_is_rejected_without_calling_proposal_writer() -> None:

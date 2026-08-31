@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 439c095cde164f0f0737a9ba628e63a698e52f5b
-translation_revised: 2026-08-30
+translation_source_sha: b89ff33bda94f444d7b3385c78cd7a970409b52a
+translation_revised: 2026-08-31
 ---
 # 프로세스 자동화(프로세스 자동화)
 
@@ -542,12 +542,19 @@ Workflow -> Process snapshot + journal -> ontology projection
 - **범용 콘솔 렌더러** 는 승인된 위젯 vocabulary 만 지원합니다. 임의의
   온톨로지 속성 를 executable UI 또는 액션 버튼 으로 변환하지 않습니다.
 
-**Processes** 경로 는 모든 실행을 나열하고 활성, completed, 실패한 수를
-요약하며 선택한 프로세스 타임라인 을 가장 오래된 이벤트 부터 최신 이벤트 순으로
-렌더링합니다. CLI 또는 ChatOps 명령이 프로세스 를 진행시킨 후 오퍼레이터는 읽기
-변환 결과 을 새로 고칠 수 있습니다. Workflow-specific ViewSpec 이 있으면 런타임
-저널 아래에 표시됩니다. 화면은 시작, approve, 재시도, execute 버튼 을 제공하지
-않습니다.
+**Processes** 경로는 principal 범위의 실행을 나열하고 활성, 완료 및 실패 수를 요약하며,
+선택한 Process 타임라인을 가장 오래된 이벤트부터 최신 이벤트 순으로 표시합니다. 권위 있는
+제어 변환 결과는 현재 Process 리비전, 추가 전용 이벤트 및 고정된 검토 Workflow 단계를
+결합합니다. 대기 기한, 영속 Var 승인 역할과 리비전, 집계된 증적과 남은 정족수, 결정 결과,
+고정된 전체 분기 결합 방식의 병렬 분기 증적 및 게이트 근거 상태를 표시합니다.
+
+이 경로는 Operator API가 인증된 역할과 현재 리비전에 허용한 재개, 취소 또는 재시도 요청만
+표시합니다. 모든 `POST`는 `If-Match`와 안정적인 멱등성 키를 포함하며 워크플로
+런타임이 권한과 상태를 다시 검사합니다. Operator API 수락은 운영 성공이 아니라 런타임 검토
+대기로 표시됩니다. 오래됨, 사용 불가, 권한 없음, 자기 승인, 시간 초과 및 잘못된 전환
+상태는 낙관적인 성공을 표시하지 않습니다. 사람 승인은 별도의 Var 소유 Approvals 경로에
+유지되므로 Process 요청자에게 자기 승인 바로 가기를 제공하지 않습니다. 화면은 여전히 시작
+또는 직접 실행 버튼을 제공하지 않습니다.
 
 Operational-planning 프로세스는 추가 전용 `planning.phase.recorded` 하위 이벤트를 동일한 상세
 경로의 계획 수립 Room으로 접기합니다. 변환 결과는 accountable 에이전트, 후보 ActionType,

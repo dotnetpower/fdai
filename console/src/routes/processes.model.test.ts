@@ -65,6 +65,20 @@ describe("process view route model", () => {
     expect(defaultProcessId(items, "#/processes")).toBe("unsupported");
   });
 
+  it("accepts only principal-scoped Process lists", () => {
+    expect(decodeProcessList({
+      source: "postgresql:process_runtime",
+      synthetic: false,
+      durable: true,
+      principal_scoped: true,
+      items: [summary("process-1", false)],
+    }).principal_scoped).toBe(true);
+    expect(() => decodeProcessList({
+      principal_scoped: false,
+      items: [summary("process-1", false)],
+    })).toThrow(/authenticated principal/);
+  });
+
   it("coalesces refresh starts until the matching generation finishes", () => {
     const started = reduceProcessRefresh(INITIAL_PROCESS_REFRESH, { type: "start" });
     expect(started).toEqual({ generation: 1, refreshing: true });
@@ -81,7 +95,10 @@ describe("process view route model", () => {
 
   it("rejects malformed list and detail payloads at the boundary", () => {
     expect(() => decodeProcessList({})).toThrow(/items MUST be an array/);
-    expect(() => decodeProcessList({ items: [{ id: "partial" }] })).toThrow(/workflow_ref/);
+    expect(() => decodeProcessList({
+      principal_scoped: true,
+      items: [{ id: "partial" }],
+    })).toThrow(/workflow_ref/);
     expect(() => decodeRenderedProcessView({ process: {}, regions: null })).toThrow(/regions MUST be an array/);
   });
 
@@ -131,7 +148,71 @@ describe("process view route model", () => {
     expect(decoded.events[0]?.step_id).toBe("inspect");
     expect(decoded.events[0]?.payload["outcome"]).toBe("success");
     expect(decoded.planning).toBeNull();
+    expect(decoded.control.available).toBe(false);
+    expect(decoded.control.permitted_transitions).toEqual([]);
     expect(() => assertProcessDetailSelection("process-1", decoded, null)).not.toThrow();
+  });
+
+  it("decodes revision-bound authoritative Process control", () => {
+    const decoded = decodeProcessJournal({
+      ...validJournal(),
+      control: validControl(),
+    });
+
+    expect(decoded.control.available).toBe(true);
+    expect(decoded.control.principal_scoped).toBe(true);
+    expect(decoded.control.step?.requirements["wait_for"]).toBe("evidence.updated");
+    expect(decoded.control.permitted_transitions.map((transition) => transition.id)).toEqual([
+      "resume",
+      "cancel",
+    ]);
+    expect(decoded.control.acceptance_is_success).toBe(false);
+  });
+
+  it("rejects stale, success-shaped, or mismatched Process control", () => {
+    expect(() => decodeProcessJournal({
+      ...validJournal(),
+      control: { ...validControl(), process_revision: 2 },
+    })).toThrow(/revision MUST match/);
+    expect(() => decodeProcessJournal({
+      ...validJournal(),
+      control: { ...validControl(), acceptance_is_success: true },
+    })).toThrow(/non-success-bearing/);
+    expect(() => decodeProcessJournal({
+      ...validJournal(),
+      control: {
+        ...validControl(),
+        permitted_transitions: [{
+          ...validControl().permitted_transitions[0],
+          path: "/workflows/other/resume",
+        }],
+      },
+    })).toThrow(/path does not match/);
+  });
+
+  it("accepts unavailable control only when every transition is denied", () => {
+    const decoded = decodeProcessJournal({
+      ...validJournal(),
+      control: {
+        schema_version: "1.0.0",
+        authoritative: true,
+        principal_scoped: true,
+        available: false,
+        process_revision: 3,
+        reason: "Workflow catalog unavailable",
+        step: null,
+        permitted_transitions: [],
+        acceptance_is_success: false,
+      },
+    });
+    expect(decoded.control.reason).toBe("Workflow catalog unavailable");
+    expect(() => decodeProcessJournal({
+      ...validJournal(),
+      control: {
+        ...decoded.control,
+        permitted_transitions: validControl().permitted_transitions,
+      },
+    })).toThrow(/deny transitions/);
   });
 
   it("decodes a bounded Planning Room projection", () => {
@@ -207,7 +288,10 @@ describe("process view route model", () => {
 
   it("rejects duplicate process and journal identities", () => {
     const repeated = summary("process-1", false);
-    expect(() => decodeProcessList({ items: [repeated, repeated] })).toThrow(/ids MUST be unique/);
+    expect(() => decodeProcessList({
+      principal_scoped: true,
+      items: [repeated, repeated],
+    })).toThrow(/ids MUST be unique/);
     const journal = validJournal();
     expect(() => decodeProcessJournal({ ...journal, events: [journal.events[0], journal.events[0]], count: 2 }))
       .toThrow(/event ids MUST be unique/);
@@ -272,6 +356,49 @@ function validJournal() {
     count: 1,
     planning: null,
   };
+}
+
+function validControl() {
+  return {
+    schema_version: "1.0.0",
+    authoritative: true,
+    principal_scoped: true,
+    available: true,
+    process_revision: 3,
+    catalog_revision: "catalog-7",
+    mode: "shadow",
+    step: {
+      id: "evidence",
+      kind: "wait",
+      state: "waiting",
+      attempt: 1,
+      reason: "waiting_for:evidence.updated",
+      requirements: {
+        wait_for: "evidence.updated",
+        timeout_seconds: 300,
+        deadline_at: "2026-07-15T09:35:00Z",
+      },
+    },
+    permitted_transitions: [
+      {
+        id: "resume",
+        method: "POST",
+        path: "/workflows/process-1/resume",
+        expected_revision: 3,
+        requires_confirmation: false,
+        runtime_recheck: true,
+      },
+      {
+        id: "cancel",
+        method: "POST",
+        path: "/workflows/process-1/cancel",
+        expected_revision: 3,
+        requires_confirmation: true,
+        runtime_recheck: true,
+      },
+    ],
+    acceptance_is_success: false,
+  } as const;
 }
 
 function validPlanningRoom() {
