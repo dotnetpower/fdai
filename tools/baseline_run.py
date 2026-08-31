@@ -14,6 +14,11 @@ Usage
         --json docs/baselines/v2026.07.json \
         --report docs/baselines/v2026.07.md
 
+A published claim additionally needs ``--cohort-receipt``, a governed bundle
+produced outside this repository. Without it - and without a current
+independent decision-evidence admission inside it - ``claim_eligible`` stays
+false.
+
 Success metrics reported (from `goals-and-metrics.md`):
 
 - Metric 2 - auto-resolution rate
@@ -37,7 +42,21 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from fdai_service_contracts.baseline_cohort import (
+    MINIMUM_COHORT_SAMPLE_SIZE,
+    CohortArtifactOrigin,
+    CohortClaimAssessment,
+)
+
 from tools.reference_agent import ReferenceAgent
+
+#: What still has to happen outside this repository before a published SRE
+#: claim can be eligible. The runner never satisfies it locally.
+EXTERNAL_RESIDUAL = (
+    "governed non-synthetic baseline and treatment cohorts of at least "
+    f"{MINIMUM_COHORT_SAMPLE_SIZE} samples each, retained on one pinned revision and the "
+    "identical frozen scenario set, with a current independent decision-evidence admission"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,6 +100,7 @@ def _load_scenarios(root: Path) -> list[Mapping[str, Any]]:
 def _run(
     root: Path,
     observations_path: Path | None = None,
+    cohort_claim_path: Path | None = None,
 ) -> tuple[list[ScenarioOutcome], dict[str, Any]]:
     agent = ReferenceAgent()
     scenarios = _load_scenarios(root)
@@ -203,9 +223,43 @@ def _run(
             for domain, items in sorted(per_domain.items())
         },
     }
+    summary["cohort_claim"] = _cohort_claim(
+        cohort_claim_path,
+        summary["scenario_set_version"],
+    )
     summary["release_gate"] = _release_gate(summary)
-    summary["evidence"]["claim_eligible"] = summary["release_gate"]["release_eligible"]
+    summary["evidence"]["claim_eligible"] = (
+        summary["release_gate"]["release_eligible"] and summary["cohort_claim"]["claim_eligible"]
+    )
     return outcomes, summary
+
+
+def _cohort_claim(path: Path | None, scenario_set_version: str) -> dict[str, Any]:
+    """Evaluate the governed cohort claim, failing closed when it is absent.
+
+    The evaluation timestamp is deliberately not published: this artifact has
+    to stay byte-reproducible from the frozen scenario set.
+    """
+
+    from tools.cohort_receipt import evaluate_cohort_claim_bundle
+
+    assessment: CohortClaimAssessment = evaluate_cohort_claim_bundle(
+        path,
+        evaluated_at=datetime.now(tz=UTC),
+        expected_scenario_set_version=scenario_set_version,
+    )
+    return {
+        "claim_eligible": assessment.claim_eligible,
+        "rejection_reasons": [reason.value for reason in assessment.rejection_reasons],
+        "receipt_digest": assessment.receipt_digest,
+        "minimum_sample_size": MINIMUM_COHORT_SAMPLE_SIZE,
+        "artifact_origin": (
+            CohortArtifactOrigin.GOVERNED_EXTERNAL.value
+            if path is not None
+            else CohortArtifactOrigin.REPOSITORY.value
+        ),
+        "external_residual": EXTERNAL_RESIDUAL,
+    }
 
 
 def _tier_economics(outcomes: list[ScenarioOutcome]) -> dict[str, dict[str, Any]]:
@@ -517,7 +571,17 @@ def _render_markdown(summary: Mapping[str, Any]) -> str:
     for check, passed in summary["release_gate"]["checks"].items():
         lines.append(f"| `{check}` | `{str(passed).lower()}` |")
 
+    cohort = summary["cohort_claim"]
     lines += [
+        "",
+        "## Governed Cohort Claim",
+        "",
+        f"- **Claim eligible**: `{str(cohort['claim_eligible']).lower()}`",
+        f"- **Artifact origin**: `{cohort['artifact_origin']}`",
+        f"- **Minimum sample size**: {cohort['minimum_sample_size']}",
+        "- **Rejection reasons**: "
+        + (", ".join(f"`{reason}`" for reason in cohort["rejection_reasons"]) or "none"),
+        f"- **External residual**: {cohort['external_residual']}.",
         "",
         "## Per-Domain Breakdown",
         "",
@@ -617,7 +681,17 @@ def _render_markdown_ko(summary: Mapping[str, Any], source_sha: str) -> str:
     for check, passed in summary["release_gate"]["checks"].items():
         lines.append(f"| `{check}` | `{str(passed).lower()}` |")
 
+    cohort = summary["cohort_claim"]
     lines += [
+        "",
+        "## 통제된 코호트 주장",
+        "",
+        f"- **주장 사용 가능**: `{str(cohort['claim_eligible']).lower()}`",
+        f"- **산출물 출처**: `{cohort['artifact_origin']}`",
+        f"- **최소 표본 수**: {cohort['minimum_sample_size']}",
+        "- **거부 사유**: "
+        + (", ".join(f"`{reason}`" for reason in cohort["rejection_reasons"]) or "none"),
+        f"- **외부 잔여 조건**: {cohort['external_residual']}.",
         "",
         "## 도메인별 분해",
         "",
@@ -677,6 +751,14 @@ def main(argv: Iterable[str] | None = None) -> int:
         type=Path,
         help="Measured reference outcomes JSON covering the frozen scenario set exactly.",
     )
+    parser.add_argument(
+        "--cohort-receipt",
+        type=Path,
+        help=(
+            "Governed cohort claim bundle (receipt, requirement, and independent "
+            "decision-evidence admissions) produced outside this repository."
+        ),
+    )
     parser.add_argument("--json", type=Path, help="Write the JSON summary here.")
     parser.add_argument("--report", type=Path, help="Write the Markdown report here.")
     parser.add_argument(
@@ -684,9 +766,14 @@ def main(argv: Iterable[str] | None = None) -> int:
         action="store_true",
         help="Exit 3 unless every frozen-scenario release threshold passes.",
     )
+    parser.add_argument(
+        "--require-claim-eligible",
+        action="store_true",
+        help="Exit 4 unless a governed cohort claim makes the published metrics eligible.",
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
 
-    _, summary = _run(args.scenarios, args.observations)
+    _, summary = _run(args.scenarios, args.observations, args.cohort_receipt)
 
     stdout_summary = json.dumps(summary, indent=2)
     if args.json is None and args.report is None:
@@ -712,6 +799,8 @@ def main(argv: Iterable[str] | None = None) -> int:
         summary_with_source["_source_filename"] = args.report.name
         _write(ko_path, _render_markdown_ko(summary_with_source, source_sha))
 
+    if args.require_claim_eligible and not summary["evidence"]["claim_eligible"]:
+        return 4
     return (
         3
         if args.require_release_eligible and not summary["release_gate"]["release_eligible"]

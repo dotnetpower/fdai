@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-18T16:02:09.010682+00:00",
+  "generated_at": "2026-08-31T06:42:54.497314+00:00",
   "reference_agent": "reference-agent-stub@1.0.0",
   "scenario_set_version": "v2026.07",
   "scenario_count": 12,
@@ -115,6 +115,16 @@
       "hil_rate": 1.0,
       "routed_correctly_rate": 0.0
     }
+  },
+  "cohort_claim": {
+    "claim_eligible": false,
+    "rejection_reasons": [
+      "receipt_missing"
+    ],
+    "receipt_digest": null,
+    "minimum_sample_size": 30,
+    "artifact_origin": "repository",
+    "external_residual": "governed non-synthetic baseline and treatment cohorts of at least 30 samples each, retained on one pinned revision and the identical frozen scenario set, with a current independent decision-evidence admission"
   },
   "release_gate": {
     "release_eligible": false,

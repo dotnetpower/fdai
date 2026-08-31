@@ -27,6 +27,8 @@ The current modules here are:
   canary echoes, citation F1) scoring how well a T2 response satisfies
   the composer's contract (Wave 3 step D-1). Step D-2 wires them into
   the KPI dashboard.
+- :mod:`.baseline_cohort_claim` - admission-bound eligibility for one retained
+  baseline and treatment cohort; it never admits evidence itself.
 - :mod:`.operational_promotion` - immutable revision/scenario/cohort evidence,
   Wilson confidence, rollback, recurrence, causal, Dynamic, and zero-escape gates.
 - :mod:`.operational_promotion_runner` - audited measurement runner that never promotes.
@@ -36,6 +38,10 @@ The current modules here are:
 
 from __future__ import annotations
 
+from fdai.core.measurement.baseline_cohort_claim import (
+    admitted_cohort_receipt_digests,
+    evaluate_admitted_cohort_claim,
+)
 from fdai.core.measurement.dora import DeploymentObservation, DoraSummary, compute_dora
 from fdai.core.measurement.operational_promotion import (
     CausalPromotionReceipt,
@@ -111,7 +117,9 @@ __all__ = [
     "ReadinessFacet",
     "ReadinessFacetSnapshot",
     "ReadinessFacetState",
+    "admitted_cohort_receipt_digests",
     "compute_dora",
+    "evaluate_admitted_cohort_claim",
     "latest_authoritative_observations",
     "summarize_objective_attribution",
 ]

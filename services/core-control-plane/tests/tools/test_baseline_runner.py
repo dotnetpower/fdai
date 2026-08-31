@@ -243,3 +243,254 @@ def test_committed_baseline_artifact_matches_a_fresh_run() -> None:
         "--report docs/baselines/v2026.07.md` or bump the reference-agent "
         "version pin"
     )
+
+
+def _cohort_bundle(
+    *,
+    scenario_set_version: str = "v2026.07",
+    origin: str = "governed_external",
+    synthetic: bool = False,
+    admitted: bool = True,
+) -> dict[str, object]:
+    """Build one governed cohort bundle shaped exactly like the external artifact.
+
+    The values are test fixtures for the fail-closed path; the repository never
+    retains a non-synthetic cohort of its own.
+    """
+    from fdai_service_contracts.baseline_cohort import baseline_treatment_cohort_receipt_digest
+    from fdai_service_contracts.decision_evidence import (
+        decision_critical_evidence_receipt_digest,
+    )
+
+    scope = "sha256:" + "1" * 64
+    static = "sha256:" + "6" * 64
+    revision = "git:0123456789abcdef0123456789abcdef01234567"
+    cutoff = "2026-08-31T00:00:00+00:00"
+    fresh_until = "2026-09-01T00:00:00+00:00"
+
+    def _arm(arm: str, report: str, provenance: str) -> dict[str, object]:
+        evidence: dict[str, object] = {
+            "schema_version": "1.0.0",
+            "authority_class": "deployment_observation",
+            "source_identity": "principal:sre-cohort-runner",
+            "authentication_evidence_digest": static,
+            "scope_digest": scope,
+            "purpose_id": "sre-claim-cohort",
+            "producer_id": "cohort-runner",
+            "producer_version": "1.0.0",
+            "method_id": "frozen-scenario-replay",
+            "method_version": "1.0.0",
+            "source_revision": revision,
+            "evidence_digest": report,
+            "provenance_digest": provenance,
+            "event_at": "2026-08-30T22:00:00+00:00",
+            "evidence_cutoff": cutoff,
+            "recorded_at": "2026-08-31T00:30:00+00:00",
+            "fresh_until": fresh_until,
+            "freshness_policy_id": "cohort-daily",
+            "freshness_policy_version": "1.0.0",
+            "freshness_policy_digest": static,
+            "freshness_ceiling_seconds": 86_400,
+            "completeness_basis_points": 10_000,
+            "completeness_evidence_digest": static,
+            "conflict_status": "clear",
+            "conflict_evidence_digest": static,
+            "conflict_evidence_digests": [],
+            "synthetic": synthetic,
+            "execution_authority": False,
+        }
+        evidence["receipt_digest"] = decision_critical_evidence_receipt_digest(**evidence)
+        return {
+            "arm": arm,
+            "scenario_set_version": scenario_set_version,
+            "scenario_set_digest": scope,
+            "fdai_revision": revision,
+            "report_digest": report,
+            "provenance_digest": provenance,
+            "sample_count": 30,
+            "synthetic": synthetic,
+            "metrics_complete": True,
+            "provenance_complete": True,
+            "metrics": [
+                {
+                    "metric_id": "auto_resolution_rate",
+                    "absolute_value": 0.4,
+                    "sample_size": 30,
+                    "confidence_level_basis_points": 9_500,
+                    "lower_bound": 0.25,
+                    "upper_bound": 0.57,
+                }
+            ],
+            "guards": [
+                {
+                    "guard_id": "policy_violation_escape_rate",
+                    "observed_basis_points": 0,
+                    "maximum_basis_points": 0,
+                    "sample_size": 30,
+                    "breached": False,
+                }
+            ],
+            "evidence_receipt": evidence,
+        }
+
+    receipt: dict[str, object] = {
+        "schema_version": "1.0.0",
+        "cohort_id": "sre-v2026.07-cohort",
+        "scenario_set_version": scenario_set_version,
+        "scenario_set_digest": scope,
+        "fdai_revision": revision,
+        "artifact_origin": origin,
+        "baseline": _arm("baseline", "sha256:" + "2" * 64, "sha256:" + "3" * 64),
+        "treatment": _arm("treatment", "sha256:" + "4" * 64, "sha256:" + "5" * 64),
+        "evidence_cutoff": cutoff,
+        "execution_authority": False,
+    }
+    receipt["receipt_digest"] = baseline_treatment_cohort_receipt_digest(**receipt)
+
+    evidence_requirement = {
+        "allowed_authority_classes": ["deployment_observation"],
+        "allowed_source_identities": ["principal:sre-cohort-runner"],
+        "scope_digest": scope,
+        "purpose_id": "sre-claim-cohort",
+        "producer_id": "cohort-runner",
+        "producer_version": "1.0.0",
+        "method_id": "frozen-scenario-replay",
+        "method_version": "1.0.0",
+        "source_revision": revision,
+        "freshness_policy_digest": static,
+        "freshness_ceiling_seconds": 86_400,
+    }
+    admissions = []
+    if admitted:
+        for arm in ("baseline", "treatment"):
+            arm_body = receipt[arm]
+            assert isinstance(arm_body, dict)
+            evidence = arm_body["evidence_receipt"]
+            assert isinstance(evidence, dict)
+            admissions.append(
+                {
+                    "receipt_digest": evidence["receipt_digest"],
+                    "verification_bundle_digest": "sha256:" + "7" * 64,
+                    "evidence_digest": arm_body["report_digest"],
+                    "scope_digest": scope,
+                    "purpose_id": "sre-claim-cohort",
+                    "source_revision": revision,
+                    "verified_at": "2026-08-31T00:35:00+00:00",
+                    "valid_until": fresh_until,
+                }
+            )
+    return {
+        "receipt": receipt,
+        "requirement": {
+            "scenario_set_version": scenario_set_version,
+            "scenario_set_digest": scope,
+            "fdai_revision": revision,
+            "minimum_sample_size": 30,
+            "required_metric_ids": ["auto_resolution_rate"],
+            "required_guard_ids": ["policy_violation_escape_rate"],
+            "baseline_evidence": evidence_requirement,
+            "treatment_evidence": evidence_requirement,
+        },
+        "admissions": admissions,
+    }
+
+
+def test_a_run_without_a_cohort_receipt_is_never_claim_eligible() -> None:
+    _, summary = _run(SCENARIOS)
+
+    assert summary["cohort_claim"]["claim_eligible"] is False
+    assert summary["cohort_claim"]["rejection_reasons"] == ["receipt_missing"]
+    assert summary["cohort_claim"]["artifact_origin"] == "repository"
+    assert summary["cohort_claim"]["minimum_sample_size"] == 30
+    assert summary["evidence"]["claim_eligible"] is False
+
+
+def test_the_committed_baseline_artifact_records_the_external_residual() -> None:
+    committed = json.loads(
+        (REPO_ROOT / "docs" / "baselines" / "v2026.07.json").read_text(encoding="utf-8")
+    )
+
+    assert committed["evidence"]["kind"] == "synthetic-harness"
+    assert committed["evidence"]["claim_eligible"] is False
+    assert committed["scenario_count"] == _FROZEN_SCENARIO_COUNT
+    assert committed["cohort_claim"]["claim_eligible"] is False
+    assert committed["cohort_claim"]["rejection_reasons"] == ["receipt_missing"]
+    assert "30 samples" in committed["cohort_claim"]["external_residual"]
+
+
+def test_a_governed_admitted_cohort_receipt_makes_the_claim_eligible(tmp_path: Path) -> None:
+    bundle = tmp_path / "cohort.json"
+    bundle.write_text(json.dumps(_cohort_bundle()), encoding="utf-8")
+
+    _, summary = _run(SCENARIOS, None, bundle)
+
+    assert summary["cohort_claim"]["claim_eligible"] is True
+    assert summary["cohort_claim"]["artifact_origin"] == "governed_external"
+    # The frozen set is still 12 scenarios, so the release gate keeps the
+    # published claim ineligible even with a governed cohort.
+    assert summary["evidence"]["claim_eligible"] is False
+
+
+@pytest.mark.parametrize(
+    ("overrides", "expected"),
+    [
+        ({"synthetic": True}, "synthetic"),
+        ({"admitted": False}, "evidence_not_admitted"),
+        ({"origin": "repository"}, "artifact_ungoverned"),
+    ],
+)
+def test_a_defective_cohort_receipt_fails_closed(
+    tmp_path: Path,
+    overrides: dict[str, object],
+    expected: str,
+) -> None:
+    bundle = tmp_path / "cohort.json"
+    bundle.write_text(json.dumps(_cohort_bundle(**overrides)), encoding="utf-8")  # type: ignore[arg-type]
+
+    _, summary = _run(SCENARIOS, None, bundle)
+
+    assert summary["cohort_claim"]["claim_eligible"] is False
+    assert expected in summary["cohort_claim"]["rejection_reasons"]
+
+
+def test_a_cohort_receipt_for_another_frozen_set_is_refused(tmp_path: Path) -> None:
+    from tools.cohort_receipt import CohortClaimBundleError
+
+    bundle = tmp_path / "cohort.json"
+    bundle.write_text(
+        json.dumps(_cohort_bundle(scenario_set_version="v2026.08")),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(CohortClaimBundleError, match="frozen scenario set"):
+        _run(SCENARIOS, None, bundle)
+
+
+def test_an_unreadable_cohort_receipt_is_refused(tmp_path: Path) -> None:
+    from tools.cohort_receipt import CohortClaimBundleError
+
+    bundle = tmp_path / "cohort.json"
+    bundle.write_text("{", encoding="utf-8")
+
+    with pytest.raises(CohortClaimBundleError, match="unreadable"):
+        _run(SCENARIOS, None, bundle)
+
+
+def test_the_cli_refuses_to_publish_an_unsupported_claim() -> None:
+    result = subprocess.run(  # noqa: S603 - controlled subprocess
+        [
+            sys.executable,
+            "-m",
+            "tools.baseline_run",
+            "--scenarios",
+            str(SCENARIOS),
+            "--require-claim-eligible",
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 4
+    assert json.loads(result.stdout)["cohort_claim"]["rejection_reasons"] == ["receipt_missing"]
