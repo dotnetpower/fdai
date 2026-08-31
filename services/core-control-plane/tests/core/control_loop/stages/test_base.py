@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from fdai.core.control_loop import stages
 from fdai.core.control_loop.stages.base import Stage
 
 
@@ -18,3 +19,8 @@ async def test_stage_protocol_accepts_async_structural_implementation() -> None:
     assert isinstance(stage, Stage)
     marker = object()
     assert await stage.handle(marker) is marker
+
+
+def test_stage_package_exports_only_the_protocol() -> None:
+    assert stages.Stage is Stage
+    assert stages.__all__ == ["Stage"]
