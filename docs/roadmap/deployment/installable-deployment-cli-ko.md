@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: bfe95f5844969f4d7a772393c5f620aa178467e6
+translation_source_sha: 689cc1b01eb5988b4ff3b591d9eb8d21fe5cc14f
 translation_revised: 2026-09-01
 ---
 # 설치형 배포 CLI
@@ -80,7 +80,7 @@ Installer는 system 도구를 변경하지 않습니다. `fdaictl doctor`가 누
 | `fdaictl backup restore` | Portable 보관을 검증하고 새로운 로컬 디렉터리에 atomic 복원 | 없음 |
 | `fdaictl deploy preflight` | Static 및 실제 운영 읽기 전용 배포 차단 요인 수집 | 없음 |
 | `fdaictl deploy plan` | 승인된 실행기에 plan-only 작업 흐름 제출 | 없음 |
-| `fdaictl deploy apply --plan-id <id>` | 정확히 승인된 계획을 원격 적용에 제출 | 있음, 실행기에서 실행 |
+| `fdaictl deploy apply --plan-id <id>` | 정확히 승인된 계획을 원격 적용에 제출; `deploy status` 계획 메타데이터의 `--plan-expires-at` 필요 | 있음, 실행기에서 실행 |
 | `fdaictl deploy status` | 정제된 계획 다이제스트, 만료, 상태, 작업 흐름 URL 조회 | 없음 |
 | `fdaictl deploy teardown` | 보호된 환경 정리 작업 흐름 제출 | 있음, 실행기에서 실행 |
 | `fdaictl release upgrade` / `rollback` | 서명된 번들 활성 포인터를 검증 후 atomic 전환 | 없음 |
@@ -552,6 +552,8 @@ remote-state 컨테이너 옆의 `deployment-plans` Blob 컨테이너에 저장�
 
 - 계획이 동일한 구독, 환경, 번들 다이제스트, 커밋에 대해 생성됨.
 - 계획이 만료되지 않았고 이미 적용되지 않음.
+- `--plan-expires-at`(정제된 `deploy status` 계획 메타데이터에서 획득)이 디스패치 전에
+  결정적 UTC 클라이언트 측 만료 검증을 통과함.
 - Preflight 보고에 enforce-mode 차단 요인이 없음.
 - 호출자가 적용을 명시적으로 요청했고 작업 흐름 승인 정책을 충족함.
 - 실행기 신원과 백엔드 구성이 기록된 계획 맥락과 일치함.
@@ -583,6 +585,7 @@ fdaictl deploy apply \
   --repository <owner>/<repository> \
   --plan-id <plan-id> \
   --plan-digest <plan-digest> \
+  --plan-expires-at <expires-at> \
   --commit-sha <git-sha> \
   --run-id <run-id> \
   --output json

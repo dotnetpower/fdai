@@ -20,7 +20,9 @@ Terraform state, or dispatches a workflow.
 
 After the approved foundation and runner are available, use `fdaictl deploy plan` to dispatch the
 protected plan-only workflow. Read its request-bound status and sanitized plan id/digest with
-`fdaictl deploy status`, then use `fdaictl deploy apply` for the exact reviewed plan.
+`fdaictl deploy status`, then use `fdaictl deploy apply` with the plan id, digest, and
+`--plan-expires-at` value from the sanitized `deploy status` plan metadata for the exact reviewed
+plan.
 `fdaictl onboard guided` composes the same plan/apply transport and requires
 `--approve-application` before it can dispatch apply. Verification-only resume never reruns
 Terraform apply.

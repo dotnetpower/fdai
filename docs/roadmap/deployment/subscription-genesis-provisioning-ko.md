@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: fe2455caec1b256d2e589df650fe7e98af556bfb
+translation_source_sha: 0e784bd92a6e957af6e7e0357e2077c17e21e5a1
 translation_revised: 2026-08-31
 ---
 # 구독 초기 프로비저닝
@@ -72,13 +72,15 @@ fdaictl onboard guided --profile .fdai/environments/dev.json \
   --source-commit <git-sha> --run-id <run-id> \
   --journal .fdai/runs/<run-id>.jsonl \
   --repository <owner>/<repository> --plan-id <plan-id> \
-  --plan-digest <plan-digest> --approve-application --output json
+  --plan-digest <plan-digest> --plan-expires-at <expires-at> \
+  --approve-application --output json
 fdaictl onboard status --journal .fdai/runs/<run-id>.jsonl --output json
 ```
 
 - `provision inspect`와 `provision init`은 Azure를 변경하지 않습니다.
 - `onboard guided`는 하위 `deploy plan`과 `deploy apply`를 구성합니다. `deploy status`는
-  요청에 연결된 작업 흐름 상태와 정제된 계획 메타데이터를 반환합니다. 애플리케이션 적용에는
+  요청에 연결된 작업 흐름 상태와 `expires_at`을 포함한 정제된 계획 메타데이터를 반환합니다.
+  애플리케이션 적용에는 `--plan-expires-at`(`deploy status` 계획 메타데이터에서 획득)과
   `--approve-application`이 필요합니다.
 - `status`는 정제된 변환 결과를 읽습니다. Terraform 상태, 비밀 값, DSN, 토큰, 모델 요청
   내용, 공급자 페이로드를 내려받지 않습니다.

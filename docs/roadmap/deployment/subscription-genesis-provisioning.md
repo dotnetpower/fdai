@@ -69,14 +69,15 @@ fdaictl onboard guided --profile .fdai/environments/dev.json \
   --source-commit <git-sha> --run-id <run-id> \
   --journal .fdai/runs/<run-id>.jsonl \
   --repository <owner>/<repository> --plan-id <plan-id> \
-  --plan-digest <plan-digest> --approve-application --output json
+  --plan-digest <plan-digest> --plan-expires-at <expires-at> \
+  --approve-application --output json
 fdaictl onboard status --journal .fdai/runs/<run-id>.jsonl --output json
 ```
 
 - `provision inspect` and `provision init` never mutate Azure.
 - `onboard guided` composes low-level `deploy plan` and `deploy apply`; `deploy status` returns the
-  request-bound workflow state and sanitized plan metadata. Application apply requires
-  `--approve-application`.
+  request-bound workflow state and sanitized plan metadata including `expires_at`. Application apply
+  requires `--plan-expires-at` (from `deploy status` plan metadata) and `--approve-application`.
 - `status` reads a sanitized projection. It never downloads Terraform state, secret values, DSNs,
   tokens, model request content, or provider payloads.
 - `resume-verification` never retries Terraform apply. A stage without an apply claim can restart;

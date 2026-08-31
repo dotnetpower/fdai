@@ -78,7 +78,7 @@ lead to a mutation makes the remote execution boundary visible.
 | `fdaictl backup restore` | Verify and atomically restore a portable archive into a new local directory | No |
 | `fdaictl deploy preflight` | Collect static and live read-only deployment blockers | No |
 | `fdaictl deploy plan` | Submit a plan-only workflow to the approved runner | No |
-| `fdaictl deploy apply --plan-id <id>` | Submit the exact approved plan for remote apply | Yes, on the runner |
+| `fdaictl deploy apply --plan-id <id>` | Submit the exact approved plan for remote apply; requires `--plan-expires-at` from `deploy status` plan metadata | Yes, on the runner |
 | `fdaictl deploy status` | Read sanitized plan digest, expiry, status, and workflow URL | No |
 | `fdaictl deploy teardown` | Submit the guarded environment teardown workflow | Yes, on the runner |
 | `fdaictl release upgrade` / `rollback` | Verify and atomically switch the signed-bundle active pointer | No |
@@ -555,6 +555,8 @@ pass:
 
 - the plan was produced for the same subscription, environment, bundle digest, and commit;
 - the plan has not expired or already been applied;
+- `--plan-expires-at` (from sanitized `deploy status` plan metadata) passes deterministic UTC
+  client-side expiry enforcement before dispatch;
 - the preflight report has no enforce-mode blocker;
 - the caller requested apply explicitly and satisfies the workflow approval policy;
 - the runner identity and backend configuration match the recorded plan context.
@@ -588,6 +590,7 @@ fdaictl deploy apply \
   --repository <owner>/<repository> \
   --plan-id <plan-id> \
   --plan-digest <plan-digest> \
+  --plan-expires-at <expires-at> \
   --commit-sha <git-sha> \
   --run-id <run-id> \
   --output json
