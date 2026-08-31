@@ -14,6 +14,7 @@ from fdai.delivery.analyzer_tick_cli import (
     TOPIC_ENV,
     TRACE_WINDOW_ENV,
     AnalyzerJobReport,
+    build_publication_ledger,
     metric_source_delays,
     parse_loop_interval,
     parse_tick_budget,
@@ -41,6 +42,23 @@ def test_explicit_analyzer_topic_overrides_the_ingress_topic() -> None:
 def test_missing_ingress_topic_is_a_configuration_error() -> None:
     with pytest.raises(RuntimeError):
         resolve_finding_topic({TOPIC_ENV: "   "})
+
+
+def test_publication_ledger_requires_the_shared_state_store(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("FDAI_STATE_STORE_DSN", raising=False)
+
+    with pytest.raises(RuntimeError, match="duplicate-safe analyzer publication"):
+        build_publication_ledger()
+
+
+def test_publication_ledger_accepts_the_shared_psycopg_dsn(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("FDAI_STATE_STORE_DSN", "postgresql+psycopg://localhost/fdai")
+
+    assert build_publication_ledger().__class__.__name__ == "PostgresAnalyzerPublicationLedger"
 
 
 def test_trace_window_defaults_to_the_analyzer_window() -> None:
@@ -134,6 +152,22 @@ def test_readiness_separates_scheduling_discovery_metrics_and_publication() -> N
             "prometheus": "unbound",
         },
     }
+
+
+def test_suppressed_duplicate_retains_verified_publication_readiness() -> None:
+    report = _job_report()
+    report = AnalyzerJobReport(
+        analyzer=AnalyzerTickReport(
+            targets=report.analyzer.targets,
+            findings=report.analyzer.findings,
+            published=0,
+            duplicates_suppressed=1,
+        ),
+        trace_continuity=report.trace_continuity,
+        target_resolution=report.target_resolution,
+    )
+
+    assert report.readiness(scheduling="local_loop")["event_publication"] == "verified"
 
 
 def test_scheduling_mode_and_metric_delays_are_explicit() -> None:
