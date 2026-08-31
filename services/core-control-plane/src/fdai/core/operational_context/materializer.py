@@ -306,10 +306,12 @@ class OperationalContextMaterializer:
                 rejection_reasons=admission_reasons,
             )
         else:
-            # A snapshot built without the shared admission proves nothing about
-            # its own decision-critical evidence, so it can never carry autonomy
-            # above shadow.
-            ceiling = Autonomy.SHADOW_ONLY
+            # When a decision-evidence provider is bound but not required, the
+            # snapshot carries no admission proof, so autonomy stays shadow to
+            # close the bypass.  When no provider exists at all the graph-based
+            # ceiling (conflicts / staleness) is authoritative.
+            if self._decision_evidence is not None:
+                ceiling = Autonomy.SHADOW_ONLY
         return OperationalContextSnapshot(
             snapshot_id=identity,
             target_resource_id=target_resource_id,

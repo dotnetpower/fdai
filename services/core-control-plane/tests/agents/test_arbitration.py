@@ -281,7 +281,7 @@ def test_njord_cost_anomaly_carries_recommendation() -> None:
     bus = _bus()
     njord = _njord(bus)
     for _ in range(3):
-        _ingest_cost(njord, scope="rg", amount_usd=100.0)
+        _ingest_cost(njord, scope="rg", amount_usd=100.0, resource_id="vm-9")
     payload = _ingest_cost(njord, scope="rg", amount_usd=1000.0, resource_id="vm-9")
     assert payload is not None
     assert payload["recommendation"] == "scale_down"
@@ -449,7 +449,7 @@ def test_njord_publishes_normalized_impact_on_anomaly() -> None:
     bus = _bus()
     njord = _njord(bus)
     for _ in range(3):
-        _ingest_cost(njord, scope="rg", amount_usd=100.0)
+        _ingest_cost(njord, scope="rg", amount_usd=100.0, resource_id="vm-9")
     payload = _ingest_cost(njord, scope="rg", amount_usd=200.0, resource_id="vm-9")
     assert payload is not None
     # ratio = 200 / 100 = 2.0 -> impact = 1.0 (full severity).
@@ -466,7 +466,7 @@ def test_njord_impact_scales_with_moderate_overspend() -> None:
     bus = _bus()
     njord = _njord(bus)
     for _ in range(3):
-        _ingest_cost(njord, scope="rg", amount_usd=100.0)
+        _ingest_cost(njord, scope="rg", amount_usd=100.0, resource_id="vm-9")
     payload = _ingest_cost(njord, scope="rg", amount_usd=160.0, resource_id="vm-9")
     assert payload is not None
     assert payload["impact"] == pytest.approx(0.6)

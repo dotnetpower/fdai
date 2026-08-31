@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 3f0259f77efa81d4029b9087c956ad9dc39a02a5
+translation_source_sha: 9a0024f7713d153fafb265315ff16b5a08443911
 translation_revised: 2026-09-01
 ---
 # FDAI 운영 온톨로지
@@ -645,7 +645,7 @@ deprecation 구간, 재생 테스트를 사용합니다.
 |------|-------------|-----------|
 | O0 - Constitution | 이 권한, competency 고정본, 신원/시간 룰, 소유권 매트릭스입니다. | 스키마 작업 전에 용어, 권한, 알 수 없음 처리, 확장 경계 검토가 합의됩니다. |
 | O1 - 의미 spine | 구현됨: 카탈로그 선언과 결정론적 조회 고정본입니다. | Catalog-owned 런타임 쓰기 담당 없이 로더, 출처 이력, cardinality, versioning, 조회 테스트가 통과합니다. |
-| O2 - 맥락 변환 결과 | 구현됨: 변경할 수 없는 `OperationalContextSnapshot`, materializer, 런타임 저장소 공유, Forseti 상한입니다. | Fresh 맥락은 권한을 유지하고 stale, conflicting, unmapped 맥락은 auto를 사람 승인으로 낮춥니다. |
+| O2 - 맥락 변환 결과 | 구현됨: 변경할 수 없는 `OperationalContextSnapshot`, materializer, 런타임 저장소 공유, Forseti 상한입니다. Decision-evidence 제공자가 바인딩되었지만 필수가 아닌 경우 상한은 `SHADOW_ONLY`(bypass closure)이며, 제공자가 없는 경우 그래프 기반 상한(충돌/staleness)이 권한입니다. | Fresh 맥락은 권한을 유지하고 stale, conflicting, unmapped 맥락은 auto를 사람 승인으로 낮춥니다. |
 | O3 - Reliability 루프 | Core 구현됨: objective-aware 결정 사례, 옵션 선택, `ResponseOutcome` 종결입니다. | 고정된 테스트가 서비스 -> 목표 -> 옵션 -> 액션 -> 효과를 하나의 상관관계로 통과합니다. |
 | O4 - ARB 및 비용 루프 | Core 구현됨: architecture-constraint exclusion, 타입이 지정된 변경 수명 주기 선언, protected-objective 비용 tradeoff입니다. | 변경 및 비용 옵션은 protected reliability 목표를 희생하거나 그래프에서 권한을 얻을 수 없습니다. |
 | O5 - 통제된 learning | Operational-learning O2까지 구현됨: strict Huginn 사례 이벤트, Muninn 지문 집단, balanced inert Norns 후보입니다. Mimir 카탈로그 행동은 변경하지 않았습니다. | Success-only 및 raw-response 집단을 보류하고 후보가 변경할 수 없는 개정 번호를 인용하며 결과는 실제 운영 카탈로그 선언을 직접 수정하지 않습니다. |
