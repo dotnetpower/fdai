@@ -9,8 +9,16 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from enum import StrEnum
 
+from fdai_service_contracts.ontology_query import content_digest
+
 from fdai.shared.contracts.models import CausalEvidenceGrade
+from fdai.shared.providers.decision_evidence_verifier import (
+    DecisionEvidenceAdmission,
+    assess_decision_evidence_admission,
+)
 from fdai.shared.providers.ontology_instance import OntologyObjectRecord
+
+CAUSAL_CLOSURE_EVIDENCE_PURPOSE = "causal-closure"
 
 
 class CausalHypothesisStatus(StrEnum):
@@ -259,14 +267,23 @@ def close_causal_hypothesis(
     )
 
 
-def causal_action_mode(hypothesis: CausalHypothesisRecord) -> CausalActionMode:
+def causal_action_mode(
+    hypothesis: CausalHypothesisRecord,
+    *,
+    decision_evidence: DecisionEvidenceAdmission | None,
+    evaluated_at: datetime,
+) -> CausalActionMode:
     """Return the highest action mode this causal revision may support.
 
     Refuting evidence, an unsafe or refuted closure, an unresolved status, or an evidence
     grade below `quasi_experimental` keeps the related action or experiment in `shadow`.
     A `supported` status is trustworthy only because the runtime records supporting
     references after refutation completes; missing refutation stays `candidate`.
-    The result is derived from the immutable revision and never grants execution authority.
+
+    `gated` additionally requires a current shared decision-critical evidence admission
+    bound to this exact revision, scope, purpose, and graph revision. An absent, expired,
+    or mismatched admission fails closed to `shadow`; it never raises the mode. The
+    result is derived from the immutable revision and never grants execution authority.
     """
 
     if hypothesis.refuting_refs:
@@ -287,7 +304,70 @@ def causal_action_mode(hypothesis: CausalHypothesisRecord) -> CausalActionMode:
         < _EVIDENCE_RANK[CausalEvidenceGrade.QUASI_EXPERIMENTAL]
     ):
         return CausalActionMode.SHADOW
+    if causal_closure_rejection_reasons(
+        hypothesis,
+        decision_evidence=decision_evidence,
+        evaluated_at=evaluated_at,
+    ):
+        return CausalActionMode.SHADOW
     return CausalActionMode.GATED
+
+
+def causal_closure_rejection_reasons(
+    hypothesis: CausalHypothesisRecord,
+    *,
+    decision_evidence: DecisionEvidenceAdmission | None,
+    evaluated_at: datetime,
+) -> tuple[str, ...]:
+    """Return why the shared admission cannot admit this causal revision, if it cannot."""
+
+    if decision_evidence is None:
+        return ("decision_evidence_admission_missing",)
+    return tuple(
+        f"decision_evidence_{reason.value}"
+        for reason in assess_decision_evidence_admission(
+            decision_evidence,
+            expected_evidence_digest=causal_closure_evidence_digest(hypothesis),
+            expected_scope_digest=causal_closure_scope_digest(hypothesis),
+            expected_purpose_id=CAUSAL_CLOSURE_EVIDENCE_PURPOSE,
+            expected_source_revision=hypothesis.graph_revision,
+            evaluated_at=evaluated_at,
+        )
+    )
+
+
+def causal_closure_evidence_digest(hypothesis: CausalHypothesisRecord) -> str:
+    """Return the exact closed causal revision digest without downstream mode fields."""
+
+    return content_digest(
+        {
+            "ambiguity": hypothesis.ambiguity,
+            "closure": hypothesis.closure.value if hypothesis.closure is not None else None,
+            "confidence": hypothesis.confidence,
+            "evidence_cutoff": hypothesis.evidence_cutoff.astimezone(UTC).isoformat(),
+            "evidence_grade": hypothesis.evidence_grade.value,
+            "graph_revision": hypothesis.graph_revision,
+            "hypothesis_id": hypothesis.hypothesis_id,
+            "incident_id": hypothesis.incident_id,
+            "method_version": hypothesis.method_version,
+            "refuting_refs": hypothesis.refuting_refs,
+            "status": hypothesis.status.value,
+            "supporting_refs": hypothesis.supporting_refs,
+        }
+    )
+
+
+def causal_closure_scope_digest(hypothesis: CausalHypothesisRecord) -> str:
+    """Return the exact incident, cause, effect, and mechanism scope of one revision."""
+
+    return content_digest(
+        {
+            "cause_ref": hypothesis.cause_ref,
+            "effect_ref": hypothesis.effect_ref,
+            "incident_id": hypothesis.incident_id,
+            "mechanism": hypothesis.mechanism,
+        }
+    )
 
 
 def _identity(**values: object) -> str:
@@ -306,8 +386,12 @@ def _is_sha256(value: str) -> bool:
 
 
 __all__ = [
+    "CAUSAL_CLOSURE_EVIDENCE_PURPOSE",
     "build_causal_hypothesis",
     "causal_action_mode",
+    "causal_closure_evidence_digest",
+    "causal_closure_rejection_reasons",
+    "causal_closure_scope_digest",
     "CausalActionMode",
     "CausalClosure",
     "CausalEvidenceAssessment",

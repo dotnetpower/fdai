@@ -1,0 +1,375 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/cross-objective-conflict-scenario/1.2.0",
+  "title": "Cross-objective conflict scenario",
+  "description": "One frozen cross-objective conflict composed from options that each replay a frozen scenario through the real control loop. The spec carries only runtime inputs and pinned expectations. An option's recommendation is the ActionType its replay produced; whether two options conflict is decided by the runtime over the signed objective effects bound to them, never declared here; and the shared logical target is derived by traversing the declared ontology neighborhood. Synthetic and customer-agnostic: machine identifiers stay ASCII and no option carries a customer value.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "scenario_set_version",
+    "capability",
+    "dimension",
+    "correlation_id",
+    "observed_at",
+    "arbitration",
+    "operating_context",
+    "objective_effects",
+    "options",
+    "expected"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.2.0"},
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,127}$"},
+    "scenario_set_version": {"type": "string", "pattern": "^v\\d{4}\\.\\d{2}$"},
+    "capability": {"enum": ["sre", "arb_change_safety", "finops", "dr", "chaos"]},
+    "dimension": {"const": "cross_objective_conflict"},
+    "correlation_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,127}$"},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "arbitration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raiser_agent",
+        "owner_agent",
+        "auditor_agent",
+        "request_topic",
+        "decision_topic",
+        "verdict_topic"
+      ],
+      "properties": {
+        "raiser_agent": {"const": "Forseti"},
+        "owner_agent": {"const": "Odin"},
+        "auditor_agent": {"const": "Saga"},
+        "request_topic": {"const": "object.arbitration-request"},
+        "decision_topic": {"const": "object.arbitration-decision"},
+        "verdict_topic": {"const": "object.verdict"}
+      }
+    },
+    "operating_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["clock_identity", "note", "objects", "links"],
+      "properties": {
+        "clock_identity": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$"},
+        "note": {"type": "string", "minLength": 1, "maxLength": 600},
+        "objects": {
+          "type": "array",
+          "minItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "object_type", "properties"],
+            "properties": {
+              "id": {"type": "string", "pattern": "^example-[a-z0-9-]{1,63}$"},
+              "object_type": {
+                "enum": [
+                  "Resource",
+                  "Workload",
+                  "BusinessService",
+                  "ServiceObjective",
+                  "RecoveryObjective",
+                  "CostObjective"
+                ]
+              },
+              "properties": {"type": "object", "minProperties": 1}
+            }
+          }
+        },
+        "links": {
+          "type": "array",
+          "minItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["link_type", "from_id", "to_id"],
+            "properties": {
+              "link_type": {"type": "string", "pattern": "^[a-z][a-z0-9_]{1,63}$"},
+              "from_id": {"type": "string", "pattern": "^example-[a-z0-9-]{1,63}$"},
+              "to_id": {"type": "string", "pattern": "^example-[a-z0-9-]{1,63}$"}
+            }
+          }
+        }
+      }
+    },
+    "objective_effects": {
+      "description": "Typed frozen enrichment: the signed objective effects a shipped rule's remediation is expected to have. A record binds to an option only when that option's replay cites this rule id AND builds this ActionType, so it cannot be attached by hand. It names no domain, no option, and no counterpart, and it declares no direction vocabulary - whether two bound records oppose is decided independently by the runtime relation over their signed utilities on one and the same objective.",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["cited_rule_id", "action_type", "effects", "note"],
+        "properties": {
+          "cited_rule_id": {"type": "string", "pattern": "^[a-z][a-z0-9.-]{1,127}$"},
+          "action_type": {"type": "string", "pattern": "^[a-z][a-z0-9.-]{1,63}$"},
+          "effects": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 16,
+            "uniqueItems": true,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "objective_kind",
+                "metric",
+                "utility",
+                "confidence",
+                "expected_min",
+                "expected_max",
+                "observation_window_seconds"
+              ],
+              "properties": {
+                "objective_kind": {
+                  "description": "Resolved to a concrete objective id by traversing the declared ontology neighborhood, so an effect can only land on an objective the graph actually governs this target with.",
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{1,63}$"
+                },
+                "metric": {"type": "string", "pattern": "^[a-z][a-z0-9_]{1,63}$"},
+                "utility": {"type": "number", "minimum": -1.0, "maximum": 1.0},
+                "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                "expected_min": {"type": "number", "minimum": -1.0, "maximum": 1.0},
+                "expected_max": {"type": "number", "minimum": -1.0, "maximum": 1.0},
+                "observation_window_seconds": {"type": "integer", "minimum": 1, "maximum": 86400}
+              }
+            }
+          },
+          "note": {"type": "string", "minLength": 1, "maxLength": 600}
+        }
+      }
+    },
+    "options": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "option_id",
+          "scenario_id",
+          "objective_domain",
+          "expected_action_type",
+          "expected_eligibility",
+          "note"
+        ],
+        "properties": {
+          "option_id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$"},
+          "scenario_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,127}$"},
+          "objective_domain": {"enum": ["resilience", "change_safety", "cost"]},
+          "expected_action_type": {
+            "type": ["string", "null"],
+            "pattern": "^[a-z][a-z0-9.-]{1,63}$"
+          },
+          "expected_eligibility": {"enum": ["eligible", "unresolved_evidence"]},
+          "note": {"type": "string", "minLength": 1, "maxLength": 400}
+        }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "shared_target_id",
+        "eligible_option_ids",
+        "unresolved_option_ids",
+        "held_recommendation",
+        "domains_in_conflict",
+        "advice",
+        "objective_conflicts",
+        "winning_domain",
+        "losing_domains",
+        "reason",
+        "escalate_hil",
+        "decision_case",
+        "terminal",
+        "without_arbitration_owner",
+        "decision_digest",
+        "evidence_digest"
+      ],
+      "properties": {
+        "shared_target_id": {"type": "string", "pattern": "^example-[a-z0-9-]{1,63}$"},
+        "eligible_option_ids": {
+          "type": "array",
+          "minItems": 2,
+          "items": {"type": "string"},
+          "uniqueItems": true
+        },
+        "unresolved_option_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string"},
+          "uniqueItems": true
+        },
+        "held_recommendation": {"const": "hold"},
+        "domains_in_conflict": {
+          "type": "array",
+          "minItems": 2,
+          "items": {"enum": ["resilience", "change_safety", "cost"]},
+          "uniqueItems": true
+        },
+        "advice": {
+          "description": "What each domain contributed. A grounded domain contributes the ActionType its own replay built; a domain whose evidence stayed unresolved contributes only the abstention marker.",
+          "type": "object",
+          "minProperties": 2,
+          "additionalProperties": false,
+          "patternProperties": {
+            "^(resilience|change_safety|cost)$": {
+              "type": "string",
+              "pattern": "^(hold|[a-z][a-z0-9.-]{1,63})$"
+            }
+          }
+        },
+        "objective_conflicts": {
+          "description": "The independently computed relation that justified arbitration: every pair of domains whose bound effects oppose on one and the same objective id. Pinned, never authored - the runtime derives it from signed utilities.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["domains", "objective_id"],
+            "properties": {
+              "domains": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "uniqueItems": true,
+                "items": {"enum": ["resilience", "change_safety", "cost"]}
+              },
+              "objective_id": {"type": "string", "pattern": "^example-[a-z0-9-]{1,63}$"}
+            }
+          }
+        },
+        "winning_domain": {"enum": ["resilience", "change_safety", "cost"]},
+        "losing_domains": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"enum": ["resilience", "change_safety", "cost"]},
+          "uniqueItems": true
+        },
+        "reason": {"type": "string", "minLength": 1},
+        "escalate_hil": {"type": "boolean"},
+        "decision_case": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "case_id",
+            "context_snapshot_id",
+            "option_by_domain",
+            "option_ids",
+            "protected_objective_ids",
+            "evidence_refs",
+            "selected_option_id",
+            "selection_reason",
+            "requires_human_approval"
+          ],
+          "properties": {
+            "case_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "context_snapshot_id": {"type": "string", "minLength": 1},
+            "option_by_domain": {
+              "type": "object",
+              "minProperties": 1,
+              "additionalProperties": {"type": "string", "minLength": 1}
+            },
+            "option_ids": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"type": "string", "minLength": 1},
+              "uniqueItems": true
+            },
+            "protected_objective_ids": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"type": "string", "minLength": 1},
+              "uniqueItems": true
+            },
+            "evidence_refs": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"type": "string", "minLength": 1},
+              "uniqueItems": true
+            },
+            "selected_option_id": {"type": ["string", "null"]},
+            "selection_reason": {"type": "string", "minLength": 1},
+            "requires_human_approval": {"type": "boolean"}
+          }
+        },
+        "terminal": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "risk_verdict",
+            "reason",
+            "action_type",
+            "initiator_principal",
+            "audited_producer",
+            "audited_topic"
+          ],
+          "properties": {
+            "risk_verdict": {"enum": ["hil", "deny"]},
+            "reason": {"const": "arbitration_unresolved"},
+            "action_type": {"const": ""},
+            "initiator_principal": {"type": "null"},
+            "audited_producer": {"const": "Forseti"},
+            "audited_topic": {"const": "object.verdict"}
+          }
+        },
+        "without_arbitration_owner": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "unavailable_agent",
+            "degradation_effect",
+            "blocks_mutation",
+            "effective_mode",
+            "decisions",
+            "recorded_arbitrations",
+            "verdicts",
+            "audited_verdicts",
+            "terminal"
+          ],
+          "properties": {
+            "unavailable_agent": {"const": "Odin"},
+            "degradation_effect": {"const": "conflicts_require_hil"},
+            "blocks_mutation": {"const": false},
+            "effective_mode": {"const": "configured"},
+            "decisions": {"const": 0},
+            "recorded_arbitrations": {"const": 0},
+            "verdicts": {"const": 1},
+            "audited_verdicts": {"const": 1},
+            "terminal": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "risk_verdict",
+                "reason",
+                "action_type",
+                "winning_domain",
+                "owner_available",
+                "quorum_required"
+              ],
+              "properties": {
+                "risk_verdict": {"const": "hil"},
+                "reason": {"const": "arbitration_owner_unavailable"},
+                "action_type": {"const": ""},
+                "winning_domain": {"const": ""},
+                "owner_available": {"const": false},
+                "quorum_required": {"const": 1}
+              }
+            }
+          }
+        },
+        "decision_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "evidence_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

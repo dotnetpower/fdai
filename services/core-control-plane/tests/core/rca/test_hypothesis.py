@@ -4,17 +4,55 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from fdai.core.rca.hypothesis import (
+    CAUSAL_CLOSURE_EVIDENCE_PURPOSE,
     CausalActionMode,
     CausalClosure,
     CausalEvidenceAssessment,
+    CausalHypothesisRecord,
     CausalHypothesisStatus,
     build_causal_hypothesis,
     causal_action_mode,
+    causal_closure_evidence_digest,
+    causal_closure_rejection_reasons,
+    causal_closure_scope_digest,
     close_causal_hypothesis,
 )
 from fdai.shared.contracts.models import CausalEvidenceGrade
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 
 _NOW = datetime(2026, 7, 31, tzinfo=UTC)
+_DIGEST = f"sha256:{'c' * 64}"
+
+
+def _admission(
+    hypothesis: CausalHypothesisRecord,
+    **overrides: object,
+) -> DecisionEvidenceAdmission:
+    values: dict[str, object] = {
+        "receipt_digest": _DIGEST,
+        "verification_bundle_digest": _DIGEST,
+        "evidence_digest": causal_closure_evidence_digest(hypothesis),
+        "scope_digest": causal_closure_scope_digest(hypothesis),
+        "purpose_id": CAUSAL_CLOSURE_EVIDENCE_PURPOSE,
+        "source_revision": hypothesis.graph_revision,
+        "verified_at": _NOW - timedelta(minutes=1),
+        "valid_until": _NOW + timedelta(hours=1),
+    }
+    values.update(overrides)
+    return DecisionEvidenceAdmission(**values)  # type: ignore[arg-type]
+
+
+def _mode(
+    hypothesis: CausalHypothesisRecord,
+    *,
+    decision_evidence: DecisionEvidenceAdmission | None | str = "match",
+) -> CausalActionMode:
+    admission = _admission(hypothesis) if isinstance(decision_evidence, str) else decision_evidence
+    return causal_action_mode(
+        hypothesis,
+        decision_evidence=admission,
+        evaluated_at=_NOW,
+    )
 
 
 def _assessment(**overrides: object) -> CausalEvidenceAssessment:
@@ -151,7 +189,7 @@ def _graded_hypothesis(grade: CausalEvidenceGrade, **assessment: object):  # typ
 
 def test_unsafe_closure_demotes_grade_and_keeps_the_action_in_shadow() -> None:
     supported = _graded_hypothesis(CausalEvidenceGrade.QUASI_EXPERIMENTAL)
-    assert causal_action_mode(supported) is CausalActionMode.GATED
+    assert _mode(supported) is CausalActionMode.GATED
 
     closed = close_causal_hypothesis(
         supported,
@@ -163,7 +201,7 @@ def test_unsafe_closure_demotes_grade_and_keeps_the_action_in_shadow() -> None:
     assert closed.closure is CausalClosure.UNSAFE
     assert closed.evidence_grade is CausalEvidenceGrade.ASSOCIATION
     assert closed.hypothesis_id != supported.hypothesis_id
-    assert causal_action_mode(closed) is CausalActionMode.SHADOW
+    assert _mode(closed) is CausalActionMode.SHADOW
 
 
 def test_refuted_closure_demotes_grade_and_keeps_the_action_in_shadow() -> None:
@@ -175,7 +213,7 @@ def test_refuted_closure_demotes_grade_and_keeps_the_action_in_shadow() -> None:
     )
 
     assert closed.evidence_grade is CausalEvidenceGrade.ASSOCIATION
-    assert causal_action_mode(closed) is CausalActionMode.SHADOW
+    assert _mode(closed) is CausalActionMode.SHADOW
 
 
 def test_inconclusive_closure_never_raises_the_grade_and_stays_in_shadow() -> None:
@@ -187,7 +225,7 @@ def test_inconclusive_closure_never_raises_the_grade_and_stays_in_shadow() -> No
     )
 
     assert closed.evidence_grade is CausalEvidenceGrade.QUASI_EXPERIMENTAL
-    assert causal_action_mode(closed) is CausalActionMode.SHADOW
+    assert _mode(closed) is CausalActionMode.SHADOW
 
 
 def test_refuting_evidence_keeps_a_high_grade_revision_in_shadow() -> None:
@@ -197,7 +235,7 @@ def test_refuting_evidence_keeps_a_high_grade_revision_in_shadow() -> None:
     )
 
     assert contested.status is CausalHypothesisStatus.INCONCLUSIVE
-    assert causal_action_mode(contested) is CausalActionMode.SHADOW
+    assert _mode(contested) is CausalActionMode.SHADOW
 
 
 def test_weak_grades_and_open_candidates_stay_in_shadow() -> None:
@@ -207,9 +245,9 @@ def test_weak_grades_and_open_candidates_stay_in_shadow() -> None:
         supporting_refs=(),
     )
 
-    assert causal_action_mode(weak) is CausalActionMode.SHADOW
+    assert _mode(weak) is CausalActionMode.SHADOW
     assert candidate.status is CausalHypothesisStatus.CANDIDATE
-    assert causal_action_mode(candidate) is CausalActionMode.SHADOW
+    assert _mode(candidate) is CausalActionMode.SHADOW
 
 
 def test_confirmed_interventional_closure_is_gated_evidence_only() -> None:
@@ -222,4 +260,64 @@ def test_confirmed_interventional_closure_is_gated_evidence_only() -> None:
     )
 
     assert closed.evidence_grade is CausalEvidenceGrade.INTERVENTIONAL
-    assert causal_action_mode(closed) is CausalActionMode.GATED
+    assert _mode(closed) is CausalActionMode.GATED
+
+
+def test_missing_admission_keeps_a_qualified_revision_in_shadow() -> None:
+    supported = _graded_hypothesis(CausalEvidenceGrade.QUASI_EXPERIMENTAL)
+
+    assert _mode(supported, decision_evidence=None) is CausalActionMode.SHADOW
+    assert causal_closure_rejection_reasons(
+        supported,
+        decision_evidence=None,
+        evaluated_at=_NOW,
+    ) == ("decision_evidence_admission_missing",)
+
+
+def test_expired_admission_keeps_a_qualified_revision_in_shadow() -> None:
+    supported = _graded_hypothesis(CausalEvidenceGrade.QUASI_EXPERIMENTAL)
+    expired = _admission(
+        supported,
+        verified_at=_NOW - timedelta(hours=2),
+        valid_until=_NOW - timedelta(hours=1),
+    )
+
+    assert _mode(supported, decision_evidence=expired) is CausalActionMode.SHADOW
+    assert causal_closure_rejection_reasons(
+        supported,
+        decision_evidence=expired,
+        evaluated_at=_NOW,
+    ) == ("decision_evidence_not_current",)
+
+
+def test_wrong_purpose_or_scope_admission_keeps_the_revision_in_shadow() -> None:
+    supported = _graded_hypothesis(CausalEvidenceGrade.QUASI_EXPERIMENTAL)
+    other = _graded_hypothesis(
+        CausalEvidenceGrade.QUASI_EXPERIMENTAL,
+        supporting_refs=("event:other-change",),
+    )
+    wrong_purpose = _admission(supported, purpose_id="operational-readiness")
+    wrong_scope = _admission(
+        supported,
+        scope_digest=causal_closure_scope_digest(
+            build_causal_hypothesis(
+                incident_id="incident-2",
+                cause_ref="change-2",
+                effect_ref="finding-2",
+                mechanism="capacity_error",
+                graph_revision="graph-1",
+                evidence_cutoff=_NOW,
+                method_version="causal-v1",
+                evidence_grade=CausalEvidenceGrade.QUASI_EXPERIMENTAL,
+                assessment=_assessment(),
+                created_at=_NOW,
+            )
+        ),
+    )
+    wrong_evidence = _admission(supported, evidence_digest=causal_closure_evidence_digest(other))
+    wrong_revision = _admission(supported, source_revision="graph-2")
+
+    assert _mode(supported, decision_evidence=wrong_purpose) is CausalActionMode.SHADOW
+    assert _mode(supported, decision_evidence=wrong_scope) is CausalActionMode.SHADOW
+    assert _mode(supported, decision_evidence=wrong_evidence) is CausalActionMode.SHADOW
+    assert _mode(supported, decision_evidence=wrong_revision) is CausalActionMode.SHADOW

@@ -196,6 +196,29 @@
       ]
     },
     {
+      "id": "decision-evidence-admission",
+      "paths": [
+        "config/decision-boundary-inventory.json",
+        "scripts/quality/architecture/check-decision-boundary-coverage.py",
+        "services/core-control-plane/src/fdai/shared/providers/decision_evidence_verifier.py",
+        "services/core-control-plane/src/fdai/core/readiness/decision_evidence.py",
+        "services/core-control-plane/src/fdai/core/workflow/gate_resolver.py",
+        "services/core-control-plane/src/fdai/core/workflow/outcome_verification.py",
+        "services/core-control-plane/src/fdai/core/rca/hypothesis.py",
+        "services/core-control-plane/src/fdai/core/assurance_twin/model_promotion.py",
+        "tests/integration/scripts/test_decision_boundary_coverage.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        "docs/roadmap/architecture/fdai-constitution.md",
+        "config/decision-boundary-inventory.json"
+      ],
+      "validate": [
+        "python3 scripts/quality/architecture/check-decision-boundary-coverage.py",
+        "uv run pytest -q --no-cov tests/integration/scripts/test_decision_boundary_coverage.py"
+      ]
+    },
+    {
       "id": "issue-lifecycle",
       "paths": [
         ".github/ISSUE_TEMPLATE/**",

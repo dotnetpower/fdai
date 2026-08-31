@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 
+from fdai_service_contracts.ontology_query import content_digest
+
 from fdai.core.assurance_twin.effect_model import CausalEvidenceGrade, EffectModelStatus
 from fdai.core.assurance_twin.graph_effect import GraphEffectModel
 from fdai.shared.ontology.threshold_bounds import (
@@ -17,6 +19,12 @@ from fdai.shared.ontology.threshold_bounds import (
     check_within_bounds,
     load_promotion_gate_bounds,
 )
+from fdai.shared.providers.decision_evidence_verifier import (
+    DecisionEvidenceAdmission,
+    assess_decision_evidence_admission,
+)
+
+EFFECT_MODEL_ACTIVATION_EVIDENCE_PURPOSE = "effect-model-activation"
 
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _MAX_INVARIANT_EVIDENCE = 64
@@ -272,8 +280,48 @@ def validate_graph_model_promotion(
     expected_ontology_release_digest: str,
     expected_property_semantics_digest: str,
     policy: GraphModelPromotionPolicy,
+    decision_evidence: DecisionEvidenceAdmission | None,
+    evaluated_at: datetime,
 ) -> None:
-    """Reject stale, mismatched, or insufficient evidence before pointer mutation."""
+    """Reject stale, mismatched, or insufficient evidence before pointer mutation.
+
+    Activation additionally requires a current shared decision-critical evidence admission
+    bound to this exact receipt, slot scope, purpose, and ontology release. An absent,
+    expired, or mismatched admission raises `ValueError` so the active pointer is never
+    moved; the admission itself grants no execution or promotion authority.
+    """
+
+    validate_graph_model_promotion_evidence(
+        receipt=receipt,
+        model=model,
+        expected_ontology_release_digest=expected_ontology_release_digest,
+        expected_property_semantics_digest=expected_property_semantics_digest,
+        policy=policy,
+        decision_evidence=decision_evidence,
+        evaluated_at=evaluated_at,
+    )
+    current_revision = current_pointer.revision if current_pointer is not None else 0
+    current_ref = current_pointer.active_model_ref if current_pointer is not None else None
+    current_digest = current_pointer.active_model_digest if current_pointer is not None else None
+    if (
+        receipt.expected_pointer_revision != current_revision
+        or receipt.rollback_model_ref != current_ref
+        or receipt.rollback_model_digest != current_digest
+    ):
+        raise ValueError("graph model promotion receipt is stale")
+
+
+def validate_graph_model_promotion_evidence(
+    *,
+    receipt: GraphModelPromotionReceipt,
+    model: GraphEffectModel,
+    expected_ontology_release_digest: str,
+    expected_property_semantics_digest: str,
+    policy: GraphModelPromotionPolicy,
+    decision_evidence: DecisionEvidenceAdmission | None,
+    evaluated_at: datetime,
+) -> None:
+    """Reject invalid promotion evidence independently of pointer transition state."""
 
     if model.status is not EffectModelStatus.CHALLENGER:
         raise ValueError("only a challenger graph effect model can be promoted")
@@ -290,15 +338,6 @@ def validate_graph_model_promotion(
         or receipt.property_semantics_digest != expected_property_semantics_digest
     ):
         raise ValueError("graph model promotion semantic release mismatched")
-    current_revision = current_pointer.revision if current_pointer is not None else 0
-    current_ref = current_pointer.active_model_ref if current_pointer is not None else None
-    current_digest = current_pointer.active_model_digest if current_pointer is not None else None
-    if (
-        receipt.expected_pointer_revision != current_revision
-        or receipt.rollback_model_ref != current_ref
-        or receipt.rollback_model_digest != current_digest
-    ):
-        raise ValueError("graph model promotion receipt is stale")
     minimum_grade = policy.min_evidence_grade
     if receipt.risk is GraphModelRisk.HIGH and policy.require_interventional_for_high_risk:
         minimum_grade = CausalEvidenceGrade.INTERVENTIONAL
@@ -312,6 +351,56 @@ def validate_graph_model_promotion(
         or receipt.policy_escapes > policy.max_policy_escapes
     ):
         raise ValueError("graph model promotion policy evidence failed")
+    reasons = effect_model_activation_rejection_reasons(
+        receipt,
+        decision_evidence=decision_evidence,
+        expected_ontology_release_digest=expected_ontology_release_digest,
+        evaluated_at=evaluated_at,
+    )
+    if reasons:
+        raise ValueError(f"graph model promotion evidence admission failed: {reasons[0]}")
+
+
+def effect_model_activation_rejection_reasons(
+    receipt: GraphModelPromotionReceipt,
+    *,
+    decision_evidence: DecisionEvidenceAdmission | None,
+    expected_ontology_release_digest: str,
+    evaluated_at: datetime,
+) -> tuple[str, ...]:
+    """Return why the shared admission cannot admit this activation, if it cannot."""
+
+    if decision_evidence is None:
+        return ("decision_evidence_admission_missing",)
+    return tuple(
+        f"decision_evidence_{reason.value}"
+        for reason in assess_decision_evidence_admission(
+            decision_evidence,
+            expected_evidence_digest=effect_model_activation_evidence_digest(receipt),
+            expected_scope_digest=effect_model_activation_scope_digest(receipt),
+            expected_purpose_id=EFFECT_MODEL_ACTIVATION_EVIDENCE_PURPOSE,
+            expected_source_revision=expected_ontology_release_digest,
+            evaluated_at=evaluated_at,
+        )
+    )
+
+
+def effect_model_activation_evidence_digest(receipt: GraphModelPromotionReceipt) -> str:
+    """Return the exact sealed promotion-evidence digest for one activation."""
+
+    return content_digest({"receipt_digest": receipt.content_digest})
+
+
+def effect_model_activation_scope_digest(receipt: GraphModelPromotionReceipt) -> str:
+    """Return the exact model-revision and pointer-slot scope of one activation."""
+
+    return content_digest(
+        {
+            "expected_pointer_revision": receipt.expected_pointer_revision,
+            "model_ref": receipt.model_ref,
+            "slot_digest": receipt.slot_digest,
+        }
+    )
 
 
 def _content_digest(value: object) -> str:
@@ -344,11 +433,15 @@ def _validate_optional_model_identity(
 
 
 __all__ = [
+    "EFFECT_MODEL_ACTIVATION_EVIDENCE_PURPOSE",
     "GraphModelActivePointer",
     "GraphModelEvidenceCohort",
     "GraphModelPromotionPolicy",
     "GraphModelPromotionReceipt",
     "GraphModelRisk",
+    "effect_model_activation_evidence_digest",
+    "effect_model_activation_rejection_reasons",
+    "effect_model_activation_scope_digest",
     "graph_effect_model_digest",
     "graph_effect_model_slot_digest",
     "validate_graph_model_promotion",

@@ -29,6 +29,7 @@ from fdai.core.mscp_profile import (
     IndependentEffectObserver,
     MscpAuthorityCeiling,
     ObservedEffect,
+    admissible_effect_evidence,
     build_response_outcome,
     build_shadow_effect_audit,
     response_outcome_audit_entry,
@@ -102,6 +103,7 @@ class ControlLoopExecutionMixin:
 
     _action_types_by_name: Mapping[str, OntologyActionType]
     _audit_store: StateStore
+    _clock: Callable[[], datetime]
     _cost_estimator: CostEstimator | None
     _degradation: DegradationController | None
     _direct_api_executor: DirectApiExecutionPort | None
@@ -446,7 +448,7 @@ class ControlLoopExecutionMixin:
         expected, prediction_failure = await self._prepare_mscp_effect(action)
         path = action_type.execution_path if action_type is not None else None
         result: ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult
-        execution_started_at = datetime.now(tz=UTC)
+        execution_started_at = self._clock()
 
         if path is ExecutionPath.DIRECT_API and self._direct_api_executor is not None:
             result = await self._direct_api_executor.execute(action=action)
@@ -476,7 +478,7 @@ class ControlLoopExecutionMixin:
                     path if path is ExecutionPath.PR_MANUAL else ExecutionPath.PR_NATIVE
                 ),
             )
-        execution_ended_at = datetime.now(tz=UTC)
+        execution_ended_at = self._clock()
         request_production = await self._produce_effect_reconciliation_request(
             action=action,
             result=result,
@@ -616,7 +618,18 @@ class ControlLoopExecutionMixin:
                     )
                 )
 
-        recorded_at = datetime.now(tz=UTC)
+        # An observation is admissible only against the moment the comparison
+        # is recorded: evidence that has not happened yet holds the verdict
+        # before the decision, the audit entry, and the response projection
+        # read it, so a dispatch-time contract error cannot replace a
+        # fail-closed hold.
+        recorded_at = self._clock()
+        verification, _ = admissible_effect_evidence(
+            verification=verification,
+            expected=expected,
+            observed=observed,
+            recorded_at=recorded_at,
+        )
         entry = build_shadow_effect_audit(
             action=action,
             execution_outcome=result.outcome.value,
@@ -624,6 +637,8 @@ class ControlLoopExecutionMixin:
             recorded_at=recorded_at,
             expected=expected,
             observed=observed,
+            dispatch_started_at=execution_started_at,
+            dispatch_completed_at=execution_ended_at,
         )
         response_outcome = build_response_outcome(
             action=action,

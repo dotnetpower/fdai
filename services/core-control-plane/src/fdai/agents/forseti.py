@@ -13,8 +13,9 @@ in :mod:`fdai.rule_catalog`. Mixed-model cross-check and grounding
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
+from collections.abc import Callable, Iterable, Mapping
 from datetime import datetime
+from functools import lru_cache
 from typing import Any, Protocol
 
 from fdai.agents._framework.action_semantics import (
@@ -30,6 +31,9 @@ from fdai.agents._framework.forseti_decision_helpers import (
 )
 from fdai.agents._framework.forseti_decision_helpers import (
     decision_case_mapping as _decision_case_mapping,
+)
+from fdai.agents._framework.forseti_decision_helpers import (
+    domain_option_evidence as _domain_option_evidence,
 )
 from fdai.agents._framework.forseti_decision_helpers import (
     is_conflict as _is_conflict,
@@ -50,6 +54,11 @@ from fdai.agents._framework.introspection import (
     semantic_intents,
 )
 from fdai.agents._framework.pantheon import _FORSETI
+from fdai.agents._framework.registry import load_pantheon
+from fdai.agents._framework.runtime_health import (
+    AGENT_DEGRADATION_POLICIES,
+    evaluate_degradation,
+)
 from fdai.agents._framework.specialist_ingress import SPECIALIST_EVENT_PREFIX
 from fdai.core.architecture_review import (
     ArchitectureReviewObservation,
@@ -59,7 +68,12 @@ from fdai.core.capacity import (
     CapacityGraduationRecommendation,
     GraduationRecommendationStatus,
 )
-from fdai.core.decision_case import DomainDecisionCoordinator, DomainDecisionProjection
+from fdai.core.decision_case import (
+    DomainDecisionCoordinator,
+    DomainDecisionProjection,
+    DomainOptionEvidence,
+    conflicting_objective_effects,
+)
 from fdai.core.impact_analysis import (
     ChangeAssessment,
     ChangeGraphEvidenceReceipt,
@@ -104,6 +118,16 @@ _MAX_RESOURCES = 10_000
 
 _DecisionProjection = DomainDecisionProjection | SpecialistPlanningProjection
 
+# The topic whose single owner is the pantheon's arbitration authority.
+# Resolved from the registry so the fail-closed path can never name a
+# second arbiter or drift from the fixed pantheon.
+_ARBITRATION_DECISION_TOPIC = "object.arbitration-decision"
+
+
+@lru_cache(maxsize=1)
+def _arbitration_owner() -> str | None:
+    return load_pantheon().owner_of_topic(_ARBITRATION_DECISION_TOPIC)
+
 
 class _ChangeAssessor(Protocol):
     async def assess(
@@ -131,6 +155,7 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         prospective_lineage_finalizer: ProspectiveLineageFinalizer | None = None,
         change_assessor: _ChangeAssessor | None = None,
         architecture_review_loop: OntologyArchitectureReviewLoop | None = None,
+        agent_availability: Callable[[], Iterable[str]] | None = None,
     ) -> None:
         super().__init__(spec=_FORSETI)
         self.bus = bus
@@ -143,6 +168,10 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         self._prospective_lineage_finalizer = prospective_lineage_finalizer
         self._change_assessor = change_assessor
         self._architecture_review_loop = architecture_review_loop
+        # Runtime health seam: reports which pantheon agents are currently
+        # unreachable. Bound by the composition root; absent in a bare unit
+        # (an unbound probe never invents unavailability).
+        self._agent_availability = agent_availability
         # Latest arbitration winner per correlation id (populated when Odin
         # resolves a cross-vertical conflict Forseti raised).
         self.arbitrations: dict[str, str] = {}
@@ -183,6 +212,10 @@ class Forseti(Agent, ForsetiJudgmentMixin):
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
 
+    def bind_agent_availability(self, probe: Callable[[], Iterable[str]]) -> None:
+        """Bind the runtime health probe that reports unreachable agents."""
+        self._agent_availability = probe
+
     # ---- typed port ----------------------------------------------------
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
@@ -216,7 +249,9 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         if topic in ("object.event", "object.anomaly", "object.drift", "object.forecast"):
             if topic == "object.event":
                 await self._attach_change_assessment(payload)
-            await self.maybe_request_arbitration(payload)
+            arbitration = await self.maybe_request_arbitration(payload)
+            if arbitration is not None:
+                return
             await self.judge(payload)
         elif topic == "object.cost-anomaly":
             await self._ingest_domain_signal("cost", payload)
@@ -354,20 +389,42 @@ class Forseti(Agent, ForsetiJudgmentMixin):
     # ---- cross-vertical arbitration -----------------------------------
 
     async def maybe_request_arbitration(self, event: dict[str, Any]) -> dict[str, Any] | None:
-        """Raise an ArbitrationRequest when inline domain advice conflicts.
+        """Raise an ArbitrationRequest when domains contend on the same objective.
 
         Domain specialists (Njord / Freyr / Loki) may attach advice to an
-        event under ``domain_advice`` (``{domain: recommendation}``). When
-        two or more domains disagree on the same resource, Forseti - the
-        sole writer of ``object.arbitration-request`` - asks Odin to break
-        the tie by priority. Unanimous or single-domain advice needs no
-        arbitration.
+        event under ``domain_advice`` (``{domain: recommendation}``), and a
+        specialist whose own deterministic runtime already produced an
+        action may attach ``domain_evidence``: the ActionType it built, the
+        signed objective effects it expects, and the canonical lineage both
+        were read from.
+
+        When that grounded evidence is present it is the sole basis for the
+        conflict: two domains contend only when one and the same objective
+        moves in opposite directions, checked over signed utilities by
+        :func:`conflicting_objective_effects`. Two different recommendation
+        labels are then not enough, so a shared direction vocabulary can
+        never manufacture an arbitration. Without grounded evidence the
+        older label comparison still applies. Forseti - the sole writer of
+        ``object.arbitration-request`` - asks Odin to settle it.
         """
         advice = event.get("domain_advice")
-        if not isinstance(advice, dict) or len(advice) < 2:
-            return None
-        normalized = {str(k): str(v) for k, v in advice.items()}
-        if not _is_conflict(normalized):
+        normalized = (
+            {str(key): str(value) for key, value in advice.items()}
+            if isinstance(advice, dict)
+            else {}
+        )
+        evidence = _domain_option_evidence(event.get("domain_evidence"))
+        objective_conflicts: tuple[tuple[str, str, str], ...] = ()
+        if evidence:
+            objective_conflicts = conflicting_objective_effects(evidence)
+            if not objective_conflicts:
+                self.record_behavior("arbitration_declined:objectives_agree")
+                return None
+            # The ActionType a domain's runtime built is its canonical
+            # recommendation; an advice label never overrides it.
+            for item in evidence:
+                normalized[item.domain] = item.action_type
+        elif len(normalized) < 2 or not _is_conflict(normalized):
             return None
         correlation_id = str(event.get("correlation_id") or "")
         resource_id = str(event.get("resource_id") or "")
@@ -381,6 +438,8 @@ class Forseti(Agent, ForsetiJudgmentMixin):
             observed_at=str(event.get("detected_at") or ""),
             change_assessment=_change_assessment_mapping(event),
             source_freshness=_source_freshness(event.get("source_freshness")),
+            evidence_by_domain={item.domain: item for item in evidence},
+            objective_conflicts=objective_conflicts,
         )
 
     async def _ingest_domain_signal(
@@ -455,10 +514,12 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         observed_at: str = "",
         change_assessment: dict[str, Any] | None = None,
         source_freshness: tuple[SourceFreshness, ...] = (),
+        evidence_by_domain: dict[str, DomainOptionEvidence] | None = None,
+        objective_conflicts: tuple[tuple[str, str, str], ...] = (),
     ) -> dict[str, Any]:
         if not correlation_id or not str(resource_id or ""):
             raise ValueError("arbitration request identities MUST be non-empty")
-        request = {
+        request: dict[str, Any] = {
             "producer_principal": "Forseti",
             "correlation_id": correlation_id,
             "resource_id": resource_id,
@@ -466,6 +527,14 @@ class Forseti(Agent, ForsetiJudgmentMixin):
             "advice": advice,
             "impacts": impacts or {},
         }
+        if objective_conflicts:
+            # The independently computed relation that justified raising
+            # this at all, carried so the arbiter and the audit can see
+            # which objectives are actually contended.
+            request["objective_conflicts"] = [
+                {"domains": [left, right], "objective_id": objective_id}
+                for left, right, objective_id in objective_conflicts
+            ]
         projection = await self._build_domain_decision_projection(
             resource_id=str(resource_id or ""),
             correlation_id=correlation_id,
@@ -474,6 +543,7 @@ class Forseti(Agent, ForsetiJudgmentMixin):
             arguments_by_domain=arguments_by_domain,
             observed_at=observed_at,
             source_freshness=source_freshness,
+            evidence_by_domain=evidence_by_domain,
         )
         if projection is not None:
             request["decision_case"] = _decision_case_mapping(projection, change_assessment)
@@ -487,7 +557,54 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         self.record_behavior("arbitration_requested")
         if self.bus is not None:
             await self.bus.publish("Forseti", "object.arbitration-request", request)
+        await self._close_unowned_arbitration(correlation_id, domains=sorted(advice))
         return request
+
+    async def _close_unowned_arbitration(
+        self,
+        correlation_id: str,
+        *,
+        domains: list[str],
+    ) -> dict[str, Any] | None:
+        """Close a request the arbitration owner cannot answer, fail-closed.
+
+        A published request that nobody owns would otherwise hang open
+        forever: no decision arrives, so nothing ever escalates and the
+        conflict silently leaves no terminal record. When the runtime
+        reports the sole owner of ``object.arbitration-decision``
+        unreachable, Forseti applies the shipped degradation policy for
+        that agent immediately and issues the terminal ``hil`` verdict
+        itself - no ActionType, no initiator, no action authority
+        (``agent-pantheon.md`` 3.1, 3.7). This never appoints a second
+        arbiter: the conflict is handed to a human, not settled.
+        """
+
+        owner = _arbitration_owner()
+        probe = self._agent_availability
+        if owner is None or probe is None:
+            return None
+        try:
+            unavailable = frozenset(str(name) for name in probe())
+        except Exception:  # noqa: BLE001 - a failed probe never invents unavailability
+            self.record_behavior("arbitration_owner_probe_failed")
+            _LOGGER.warning("forseti_agent_availability_probe_failed", exc_info=True)
+            return None
+        if owner not in unavailable:
+            return None
+        # Bound the policy lookup to known agents so a misbehaving probe
+        # degrades this to the owner alone instead of raising.
+        degradation = evaluate_degradation(set(unavailable) & set(AGENT_DEGRADATION_POLICIES))
+        self.record_behavior("arbitration_owner_unavailable")
+        return await self._escalate_arbitration(
+            correlation_id,
+            {"winning_domain": "", "losing_domains": list(domains), "margin": None},
+            reason="arbitration_owner_unavailable",
+            grounding_extra={
+                "arbitration_owner": owner,
+                "owner_available": False,
+                "degradation_effect": degradation.effects.get(owner, ""),
+            },
+        )
 
     async def _record_arbitration(self, decision: dict[str, Any]) -> None:
         correlation_id = str(decision.get("correlation_id", ""))
@@ -576,6 +693,7 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         arguments_by_domain: dict[str, dict[str, object]] | None,
         observed_at: str,
         source_freshness: tuple[SourceFreshness, ...],
+        evidence_by_domain: dict[str, DomainOptionEvidence] | None = None,
     ) -> DomainDecisionProjection | SpecialistPlanningProjection | None:
         if self._operational_context is None or not resource_id or not observed_at:
             return None
@@ -599,6 +717,7 @@ class Forseti(Agent, ForsetiJudgmentMixin):
                     impacts=impacts,
                     arguments_by_domain=arguments_by_domain,
                     created_at=cutoff,
+                    evidence_by_domain=evidence_by_domain,
                 )
             return self._decision_coordinator.build(
                 correlation_id=correlation_id,
@@ -607,6 +726,7 @@ class Forseti(Agent, ForsetiJudgmentMixin):
                 impacts=impacts,
                 created_at=cutoff,
                 arguments_by_domain=arguments_by_domain,
+                evidence_by_domain=evidence_by_domain,
             )
         except (TypeError, ValueError):
             self.record_behavior("decision_case:invalid")
@@ -672,19 +792,25 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         self,
         correlation_id: str,
         decision: dict[str, Any],
+        *,
+        reason: str = "arbitration_unresolved",
+        grounding_extra: Mapping[str, Any] | None = None,
     ) -> dict[str, Any] | None:
-        """Turn Odin's unresolved arbitration into a human-visible verdict.
+        """Turn an unresolved arbitration into a human-visible verdict.
 
         Odin flags a near-tie, an unknown domain, or a non-finite impact
-        rather than auto-picking. Recording the winner and stopping there
-        would drop the conflict: the accumulated domain advice is already
-        consumed, so nothing else would ever surface it, and the escalation
-        would exist only inside Odin's payload. Fail toward safety instead
+        rather than auto-picking; the arbitration owner may also be
+        unreachable, in which case no decision will ever arrive. Recording
+        the winner and stopping there would drop the conflict: the
+        accumulated domain advice is already consumed, so nothing else
+        would ever surface it, and the escalation would exist only inside
+        Odin's payload. Fail toward safety instead
         (``agent-pantheon.md`` 3.1) and issue the ``hil`` verdict that puts
         the conflict in front of a human.
 
         Idempotent by correlation id: a redelivered decision re-records the
-        winner but does not publish a second verdict.
+        winner but does not publish a second verdict, and a decision that
+        arrives after a fail-closed closure cannot reopen it.
         """
         if self._unresolved_arbitrations.get(correlation_id) is not None:
             return None
@@ -695,6 +821,8 @@ class Forseti(Agent, ForsetiJudgmentMixin):
             "losing_domains": losing,
             "margin": decision.get("margin"),
         }
+        if grounding_extra is not None:
+            grounding.update(dict(grounding_extra))
         projection = self._pending_decision_cases.pop(correlation_id, None)
         change_assessment = self._pending_change_assessments.pop(correlation_id, None)
         winning_option = (
@@ -733,7 +861,7 @@ class Forseti(Agent, ForsetiJudgmentMixin):
             # complete DecisionCase keeps every alternative visible.
             "action_type": action_type,
             "risk_verdict": risk_verdict,
-            "reason": "arbitration_unresolved",
+            "reason": reason,
             "arbitration": grounding,
             "decision_case": (
                 _decision_case_mapping(projection, change_assessment)

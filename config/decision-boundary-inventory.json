@@ -1,0 +1,533 @@
+{
+  "version": "1.0.0",
+  "description": "Complete inventory of registered positive decision boundaries that must resolve decision-critical evidence through the shared admission contract (FDAI-CONST-002).",
+  "decision_surface_digest": "05fb8c527a561cb7fba2331a2357b9426becb735539afeaf945e68585057f52a",
+  "shared_admission": {
+    "module": "fdai.shared.providers.decision_evidence_verifier",
+    "assessor": "assess_decision_evidence_admission",
+    "admission_type": "DecisionEvidenceAdmission",
+    "provider_protocol": "DecisionEvidenceAdmissionProvider",
+    "source": "services/core-control-plane/src/fdai/shared/providers/decision_evidence_verifier.py"
+  },
+  "source_roots": [
+    "services/core-control-plane/src/fdai"
+  ],
+  "boundaries": [
+    {
+      "id": "analyzer-target-identity",
+      "positive_decision": "Select an analyzer target from an identity-and-type-only projection that asserts no state.",
+      "module": "services/core-control-plane/src/fdai/delivery/analyzer_targets.py",
+      "purpose_constant": "ANALYZER_TARGET_IDENTITY_EVIDENCE_PURPOSE",
+      "purpose_id": "analyzer-target-identity",
+      "tests": [
+        "services/core-control-plane/tests/delivery/test_analyzer_targets.py"
+      ],
+      "decisions": [
+        {
+          "function": "_identity_supports_selection",
+          "guards": [
+            {
+              "name": "assess_decision_evidence_admission",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": [
+            "False"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "analyzer-target-selection",
+      "positive_decision": "Select an analyzer target for a scheduled analysis tick.",
+      "module": "services/core-control-plane/src/fdai/delivery/analyzer_targets.py",
+      "purpose_constant": "ANALYZER_TARGET_EVIDENCE_PURPOSE",
+      "purpose_id": "analyzer-target-selection",
+      "tests": [
+        "services/core-control-plane/tests/delivery/test_analyzer_targets.py"
+      ],
+      "decisions": [
+        {
+          "function": "_state_fact_supports_selection",
+          "guards": [
+            {
+              "name": "assess_decision_evidence_admission",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": [
+            "False"
+          ],
+          "delegations": [
+            {
+              "marker": "_identity_supports_selection",
+              "decision": "services/core-control-plane/src/fdai/delivery/analyzer_targets.py::_identity_supports_selection"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "causal-closure",
+      "positive_decision": "Raise a causal hypothesis to a gated or autonomous action mode.",
+      "module": "services/core-control-plane/src/fdai/core/rca/hypothesis.py",
+      "purpose_constant": "CAUSAL_CLOSURE_EVIDENCE_PURPOSE",
+      "purpose_id": "causal-closure",
+      "tests": [
+        "services/core-control-plane/tests/core/rca/test_hypothesis.py",
+        "services/core-control-plane/tests/core/rca/test_runtime.py"
+      ],
+      "decisions": [
+        {
+          "function": "causal_action_mode",
+          "guards": [
+            {
+              "name": "causal_closure_rejection_reasons",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": [
+            "CausalActionMode.SHADOW"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "chat-policy-promotion",
+      "positive_decision": "Promote a conversation assurance policy revision.",
+      "module": "services/core-control-plane/src/fdai/core/conversation_assurance/promotion.py",
+      "purpose_constant": "CHAT_POLICY_PROMOTION_EVIDENCE_PURPOSE",
+      "purpose_id": "chat-policy-promotion",
+      "tests": [
+        "services/core-control-plane/tests/core/conversation_assurance/test_lifecycle.py"
+      ],
+      "decisions": [
+        {
+          "function": "evaluate_policy_transition",
+          "guards": [
+            {
+              "name": "assess_decision_evidence_admission",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": [
+            "measurement_stage_mismatch",
+            "terminal_stage",
+            "PolicyStage.ROLLED_BACK",
+            "insufficient_samples",
+            "decision_evidence_admission_missing"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "chatops-quality-qualification",
+      "positive_decision": "Qualify a ChatOps quality scorecard as decision grade.",
+      "module": "services/core-control-plane/src/fdai/core/conversation_assurance/quality_qualification.py",
+      "purpose_constant": "CHATOPS_QUALIFICATION_EVIDENCE_PURPOSE",
+      "purpose_id": "chatops-quality-qualification",
+      "tests": [
+        "services/core-control-plane/tests/core/conversation_assurance/test_quality_qualification.py"
+      ],
+      "decisions": [
+        {
+          "function": "evaluate_chatops_qualification",
+          "guards": [
+            {
+              "name": "assess_decision_evidence_admission",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": [
+            "decision_evidence_admission_missing",
+            "decision_evidence_evaluation_time_missing"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "current-case-reuse",
+      "positive_decision": "Reuse a prior resolved case for the current T1 case.",
+      "module": "services/core-control-plane/src/fdai/core/tiers/t1_lightweight/contextual_reuse.py",
+      "purpose_constant": "CURRENT_REUSE_EVIDENCE_PURPOSE",
+      "purpose_id": "current-case-reuse",
+      "tests": [
+        "services/core-control-plane/tests/core/tiers/t1_lightweight/test_contextual_reuse.py"
+      ],
+      "decisions": [
+        {
+          "function": "contextual_reuse_reasons",
+          "guards": [
+            {
+              "name": "assess_decision_evidence_admission",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": [
+            "decision_evidence_admission_missing"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "effect-model-activation",
+      "positive_decision": "Activate a graph effect model revision for prediction.",
+      "module": "services/core-control-plane/src/fdai/core/assurance_twin/model_promotion.py",
+      "purpose_constant": "EFFECT_MODEL_ACTIVATION_EVIDENCE_PURPOSE",
+      "purpose_id": "effect-model-activation",
+      "tests": [
+        "services/core-control-plane/tests/assurance_twin/test_model_promotion.py",
+        "services/core-control-plane/tests/persistence/test_state_store_graph_model_promotion.py"
+      ],
+      "decisions": [
+        {
+          "function": "validate_graph_model_promotion",
+          "guards": [
+            {
+              "name": "validate_graph_model_promotion_evidence",
+              "kind": "raises"
+            }
+          ],
+          "fail_closed_markers": []
+        },
+        {
+          "function": "validate_graph_model_promotion_evidence",
+          "guards": [
+            {
+              "name": "effect_model_activation_rejection_reasons",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": []
+        }
+      ]
+    },
+    {
+      "id": "effect-model-activation-store",
+      "positive_decision": "Return an activation result for a graph model promotion, including an idempotent already-applied result.",
+      "module": "services/core-control-plane/src/fdai/delivery/persistence/state_store_graph_model_promotion.py",
+      "purpose_constant": null,
+      "purpose_id": null,
+      "purpose_note": "Reuses EFFECT_MODEL_ACTIVATION_EVIDENCE_PURPOSE from fdai.core.assurance_twin.model_promotion; the store owns the activation call site, not the purpose.",
+      "tests": [
+        "services/core-control-plane/tests/persistence/test_state_store_graph_model_promotion.py"
+      ],
+      "decisions": [
+        {
+          "function": "StateStoreGraphModelPromotionRegistry.promote",
+          "guards": [
+            {
+              "name": "self._require_admission",
+              "kind": "raises"
+            },
+            {
+              "name": "validate_graph_model_promotion",
+              "kind": "raises"
+            },
+            {
+              "name": "validate_graph_model_promotion_evidence",
+              "kind": "raises"
+            }
+          ],
+          "fail_closed_markers": []
+        }
+      ]
+    },
+    {
+      "id": "ontology-query-authority",
+      "positive_decision": "Accept a secured ontology query receipt as decision-grade evidence.",
+      "module": "services/core-control-plane/src/fdai/core/ontology_platform/query_receipt_authority.py",
+      "purpose_constant": null,
+      "purpose_id": null,
+      "purpose_note": "The purpose is carried by the receipt under review.",
+      "tests": [
+        "services/core-control-plane/tests/core/ontology_platform/test_query_receipt_authority.py"
+      ],
+      "decisions": [
+        {
+          "function": "SecuredQueryReceiptAuthority._admitted",
+          "guards": [
+            {
+              "name": "assess_decision_evidence_admission",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": [
+            "False"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "operational-context",
+      "positive_decision": "Materialize an operational context snapshot as decision grade.",
+      "module": "services/core-control-plane/src/fdai/core/operational_context/materializer.py",
+      "purpose_constant": "OPERATIONAL_CONTEXT_EVIDENCE_PURPOSE",
+      "purpose_id": "operational-context",
+      "tests": [
+        "services/core-control-plane/tests/core/operational_context/test_materializer.py"
+      ],
+      "decisions": [
+        {
+          "function": "OperationalContextMaterializer.materialize",
+          "guards": [
+            {
+              "name": "assess_decision_evidence_admission",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": [
+            "Autonomy.SHADOW_ONLY"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "operational-evidence-bundle",
+      "positive_decision": "Admit one operational evidence bundle item into a decision bundle.",
+      "module": "services/core-control-plane/src/fdai/core/operational_context/evidence_bundle.py",
+      "purpose_constant": null,
+      "purpose_id": null,
+      "purpose_note": "The bundle purpose is supplied per request by the calling boundary.",
+      "tests": [
+        "services/core-control-plane/tests/core/operational_context/test_evidence_bundle.py"
+      ],
+      "decisions": [
+        {
+          "function": "build_operational_evidence_bundle",
+          "guards": [
+            {
+              "name": "_evidence_issues",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": []
+        }
+      ]
+    },
+    {
+      "id": "operational-promotion",
+      "positive_decision": "Promote an operational measurement receipt for autonomy review.",
+      "module": "services/core-control-plane/src/fdai/core/measurement/operational_promotion.py",
+      "purpose_constant": "OPERATIONAL_PROMOTION_EVIDENCE_PURPOSE",
+      "purpose_id": "operational-promotion",
+      "tests": [
+        "services/core-control-plane/tests/core/measurement/test_operational_promotion.py"
+      ],
+      "decisions": [
+        {
+          "function": "OperationalPromotionEvaluator.evaluate",
+          "guards": [
+            {
+              "name": "assess_decision_evidence_admission",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": [
+            "decision_evidence_admission_missing"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "operational-readiness",
+      "positive_decision": "Declare an operational readiness checklist item satisfied.",
+      "module": "services/core-control-plane/src/fdai/core/readiness/decision_evidence.py",
+      "purpose_constant": "OPERATIONAL_READINESS_EVIDENCE_PURPOSE",
+      "purpose_id": "operational-readiness",
+      "tests": [
+        "services/core-control-plane/tests/core/readiness/test_decision_evidence.py"
+      ],
+      "decisions": [
+        {
+          "function": "apply_operational_readiness_admission",
+          "guards": [
+            {
+              "name": "assess_decision_evidence_admission",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": []
+        }
+      ]
+    },
+    {
+      "id": "rubric-promotion",
+      "positive_decision": "Promote a quality gate rubric revision.",
+      "module": "services/core-control-plane/src/fdai/core/quality_gate/promotion.py",
+      "purpose_constant": "RUBRIC_PROMOTION_EVIDENCE_PURPOSE",
+      "purpose_id": "rubric-promotion",
+      "tests": [
+        "services/core-control-plane/tests/core/quality_gate/test_rubric_promotion.py"
+      ],
+      "decisions": [
+        {
+          "function": "RubricPromotionRegistry.resolve",
+          "guards": [
+            {
+              "name": "assess_decision_evidence_admission",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": [
+            "Mode.SHADOW"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "startup-readiness",
+      "positive_decision": "Declare a startup readiness checklist item satisfied.",
+      "module": "services/core-control-plane/src/fdai/core/readiness/decision_evidence.py",
+      "purpose_constant": "STARTUP_READINESS_EVIDENCE_PURPOSE",
+      "purpose_id": "startup-readiness",
+      "tests": [
+        "services/core-control-plane/tests/core/readiness/test_decision_evidence.py",
+        "services/core-control-plane/tests/core/readiness/test_startup_coordinator.py"
+      ],
+      "decisions": [
+        {
+          "function": "apply_startup_readiness_admission",
+          "guards": [
+            {
+              "name": "assess_decision_evidence_admission",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": []
+        }
+      ]
+    },
+    {
+      "id": "workflow-approval",
+      "positive_decision": "Record a durable approval quorum that lets a Process leave an approval step.",
+      "module": "services/core-control-plane/src/fdai/core/workflow/workflow_step_executor.py",
+      "purpose_constant": null,
+      "purpose_id": null,
+      "purpose_note": "Reuses WORKFLOW_APPROVAL_EVIDENCE_PURPOSE from fdai.core.workflow.approval_admission; the executor owns the advance call site, not the purpose.",
+      "tests": [
+        "services/core-control-plane/tests/core/workflow/test_orchestrator.py"
+      ],
+      "decisions": [
+        {
+          "function": "ShadowWorkflowStepExecutor._admitted_approval_result",
+          "guards": [
+            {
+              "name": "workflow_approval_admission_rejection_reasons",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": [
+            "result",
+            "approval_evidence_unavailable"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "workflow-gate",
+      "positive_decision": "Open a workflow step gate for a Process step.",
+      "module": "services/core-control-plane/src/fdai/core/workflow/gate_resolver.py",
+      "purpose_constant": "WORKFLOW_GATE_EVIDENCE_PURPOSE",
+      "purpose_id": "workflow-gate",
+      "tests": [
+        "services/core-control-plane/tests/core/workflow/test_gate_resolver.py",
+        "services/core-control-plane/tests/core/workflow/test_guard_fail_closed.py"
+      ],
+      "decisions": [
+        {
+          "function": "ChangeWindowWorkflowGuardEvaluator.evaluate_context",
+          "guards": [
+            {
+              "name": "self._admission_rejection_reasons",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": [
+            "False"
+          ]
+        },
+        {
+          "function": "AdmittedWorkflowGuardEvaluator.evaluate_context",
+          "guards": [
+            {
+              "name": "workflow_gate_admission_rejection_reasons",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": [
+            "False"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "workflow-outcome",
+      "positive_decision": "Accept a durable receipt as a verified workflow step outcome.",
+      "module": "services/core-control-plane/src/fdai/core/workflow/outcome_verification.py",
+      "purpose_constant": "WORKFLOW_OUTCOME_EVIDENCE_PURPOSE",
+      "purpose_id": "workflow-outcome",
+      "tests": [
+        "services/core-control-plane/tests/core/workflow/test_outcome_verification.py"
+      ],
+      "decisions": [
+        {
+          "function": "StateStoreWorkflowOutcomeLedger.verify",
+          "guards": [
+            {
+              "name": "self._admission_rejection_reasons",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": [
+            "False"
+          ]
+        }
+      ]
+    }
+  ],
+  "purpose_declarations": [
+    {
+      "constant": "INCIDENT_EVIDENCE_PURPOSE",
+      "module": "services/core-control-plane/src/fdai/core/ontology_platform/incident_queries.py",
+      "purpose_id": "operations-review",
+      "note": "Declares the purpose stamped on incident query receipts. The receipt is admitted by the ontology-query-authority boundary, so this module resolves no admission itself."
+    },
+    {
+      "module": "services/core-control-plane/src/fdai/core/workflow/approval_admission.py",
+      "constant": "WORKFLOW_APPROVAL_EVIDENCE_PURPOSE",
+      "note": "Declared beside the durable approval digest helpers; the registered workflow-approval boundary is the call site in workflow_step_executor.py."
+    }
+  ],
+  "negative_evidence_matrix": {
+    "gate": "services/core-control-plane/src/fdai/core/readiness/decision_evidence.py",
+    "tests": [
+      "services/core-control-plane/tests/core/readiness/test_decision_evidence.py"
+    ],
+    "classes": [
+      "missing",
+      "stale",
+      "incomplete",
+      "conflicting",
+      "synthetic",
+      "wrong-purpose",
+      "wrong-scope"
+    ]
+  },
+  "admission_helpers": [
+    {
+      "module": "services/core-control-plane/src/fdai/core/assurance_twin/model_promotion.py",
+      "functions": [
+        "effect_model_activation_rejection_reasons"
+      ],
+      "note": "Computes the shared admission rejection reasons reused by the graph-model activation call sites."
+    },
+    {
+      "module": "services/core-control-plane/src/fdai/core/workflow/approval_admission.py",
+      "functions": [
+        "workflow_approval_admission_rejection_reasons"
+      ],
+      "note": "Computes the durable workflow-approval admission verdict for the registered workflow-approval boundary; it makes no positive decision of its own."
+    }
+  ]
+}

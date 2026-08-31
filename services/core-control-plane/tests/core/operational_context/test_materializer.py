@@ -171,7 +171,12 @@ async def _set_workload_link_metadata(
 async def test_fresh_context_preserves_autonomy_and_replays() -> None:
     store = _store()
     await _seed_service_graph(store)
-    materializer = OperationalContextMaterializer(store=store, clock=lambda: CUTOFF)
+    materializer = OperationalContextMaterializer(
+        store=store,
+        clock=lambda: CUTOFF,
+        decision_evidence=StubDecisionEvidenceAdmissionProvider(lambda: CUTOFF),
+        require_decision_evidence=True,
+    )
     freshness = (
         SourceFreshness(
             source="metrics:availability",
@@ -261,6 +266,34 @@ async def test_missing_required_source_freshness_lowers_snapshot_ceiling() -> No
     assert snapshot.autonomy_ceiling is Autonomy.SHADOW_ONLY
 
 
+async def test_context_without_required_decision_evidence_cannot_carry_autonomy() -> None:
+    """A snapshot that never consults the shared admission stays shadow-only."""
+
+    store = _store()
+    await _seed_service_graph(store)
+    freshness = (
+        SourceFreshness(
+            source="metrics:availability",
+            observed_at=CUTOFF - timedelta(seconds=30),
+            max_age_seconds=300,
+        ),
+    )
+
+    snapshot = await OperationalContextMaterializer(
+        store=store,
+        clock=lambda: CUTOFF,
+        decision_evidence=StubDecisionEvidenceAdmissionProvider(lambda: CUTOFF),
+    ).materialize(
+        target_resource_id="resource-example",
+        cutoff=CUTOFF,
+        catalog_versions={"ontology": "1.0.0", "rules": "2026.07"},
+        source_freshness=freshness,
+    )
+
+    assert snapshot.autonomy_ceiling is Autonomy.SHADOW_ONLY
+    assert snapshot.decision_evidence_receipt_digest is None
+
+
 async def test_runtime_required_decision_evidence_controls_context_autonomy() -> None:
     store = _store()
     await _seed_service_graph(store)
@@ -306,7 +339,12 @@ async def test_runtime_required_decision_evidence_controls_context_autonomy() ->
 async def test_legacy_link_metadata_lowers_authority_only_when_verification_is_required() -> None:
     store = _store()
     await _seed_service_graph(store)
-    materializer = OperationalContextMaterializer(store=store, clock=lambda: CUTOFF)
+    materializer = OperationalContextMaterializer(
+        store=store,
+        clock=lambda: CUTOFF,
+        decision_evidence=StubDecisionEvidenceAdmissionProvider(lambda: CUTOFF),
+        require_decision_evidence=True,
+    )
     freshness = (
         SourceFreshness(
             source="metrics:availability",
@@ -513,7 +551,12 @@ async def test_revision_and_freshness_receipts_change_snapshot_identity() -> Non
 async def test_link_metadata_is_retained_and_changes_snapshot_identity() -> None:
     store = _store()
     await _seed_service_graph(store)
-    materializer = OperationalContextMaterializer(store=store, clock=lambda: CUTOFF)
+    materializer = OperationalContextMaterializer(
+        store=store,
+        clock=lambda: CUTOFF,
+        decision_evidence=StubDecisionEvidenceAdmissionProvider(lambda: CUTOFF),
+        require_decision_evidence=True,
+    )
     first_metadata = _link_metadata(source_revision="revision-1")
     await _set_workload_link_metadata(store, first_metadata)
     first = await materializer.materialize(

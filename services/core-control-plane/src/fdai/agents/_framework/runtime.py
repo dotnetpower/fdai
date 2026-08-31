@@ -429,6 +429,10 @@ class PantheonRuntime:
             _semantic_tool_planner=semantic_tool_planner,
         )
 
+        runtime_health.bind_availability_probe(
+            agents, disabled=runtime.disabled, continuity_failures=runtime._continuity_failures
+        )
+
         # Huginn's spec subscribes to nothing, so wire raw P1 ingress here.
         # If Huginn is disabled there is no ingress and the pantheon idles.
         if huginn_active:
@@ -713,13 +717,12 @@ class PantheonRuntime:
             for consumer, state in self._continuity_failures.items()
             if consumer.split(":", 1)[0] in HARD_DEPENDENCY_AGENTS
         }
-        unavailable_agents = set(self.disabled)
-        unavailable_agents.update(
-            name for name, health in agent_health.items() if health.get("status") == "error"
-        )
-        unavailable_agents.update(
-            consumer.split(":", 1)[0] for consumer in self._continuity_failures
-        )
+        unavailable_agents = {
+            *runtime_health.derive_unavailable_agents(
+                disabled=self.disabled, continuity_failures=self._continuity_failures
+            ),
+            *(name for name, item in agent_health.items() if item.get("status") == "error"),
+        }
         degradation = runtime_health.evaluate_degradation(unavailable_agents)
         if degradation.blocks_mutation:
             thor = self.agents.get("Thor")

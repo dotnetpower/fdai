@@ -12,6 +12,7 @@ from fdai.core.decision_case import (
     DecisionCase,
     DecisionSelection,
     DomainDecisionCoordinator,
+    DomainOptionEvidence,
     ObjectiveEffect,
 )
 from fdai.core.operational_context import OperationalContextSnapshot
@@ -165,6 +166,7 @@ class SpecialistPlanningCoordinator:
         impacts: dict[str, float],
         created_at: datetime,
         arguments_by_domain: dict[str, dict[str, object]] | None = None,
+        evidence_by_domain: dict[str, DomainOptionEvidence] | None = None,
     ) -> SpecialistPlanningProjection | None:
         if len(advice) > MAX_PLAN_SPECIALIST_DOMAINS or len(impacts) > MAX_PLAN_SPECIALIST_DOMAINS:
             raise ValueError("specialist planning domain count exceeds the hard limit")
@@ -184,6 +186,7 @@ class SpecialistPlanningCoordinator:
             impacts=impacts,
             created_at=created_at,
             arguments_by_domain=arguments_by_domain,
+            evidence_by_domain=evidence_by_domain,
         )
         if base is None:
             return None
@@ -199,7 +202,9 @@ class SpecialistPlanningCoordinator:
             contribution = SpecialistContribution(
                 agent=agent,
                 domain=domain,
-                recommendation=advice[domain],
+                # A runtime-grounded domain recommends the ActionType its
+                # own loop built; a label-only domain recommends its label.
+                recommendation=advice.get(domain) or option.action_type or "",
                 observed_at=created_at,
                 impact=impacts.get(domain, 1.0),
                 evidence_refs=option.evidence_refs,

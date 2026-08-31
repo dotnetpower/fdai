@@ -18,6 +18,7 @@ from fdai.shared.providers.decision_evidence_verifier import (
 from fdai_service_contracts.decision_evidence import (
     DecisionCriticalEvidenceReceipt,
     EvidenceConflictStatus,
+    LiveEvidenceClaimRejectionReason,
     LiveEvidenceClaimRequirement,
     decision_critical_evidence_receipt_digest,
 )
@@ -326,3 +327,92 @@ async def test_verifier_cancellation_is_not_converted_to_rejection() -> None:
             _requirement(),
             evaluated_at=_NOW + timedelta(minutes=3),
         )
+
+
+@pytest.mark.parametrize(
+    ("evidence_class", "overrides", "expected_reason"),
+    [
+        pytest.param(
+            "stale",
+            {
+                "event_at": _NOW - timedelta(hours=1),
+                "evidence_cutoff": _NOW - timedelta(minutes=59),
+                "recorded_at": _NOW - timedelta(minutes=58),
+                "fresh_until": _NOW - timedelta(minutes=50),
+            },
+            LiveEvidenceClaimRejectionReason.STALE,
+            id="stale",
+        ),
+        pytest.param(
+            "incomplete",
+            {"completeness_basis_points": 9_000},
+            LiveEvidenceClaimRejectionReason.INCOMPLETE,
+            id="incomplete",
+        ),
+        pytest.param(
+            "conflicting",
+            {
+                "conflict_status": EvidenceConflictStatus.CONFLICTING,
+                "conflict_evidence_digests": (_DIGESTS[0],),
+            },
+            LiveEvidenceClaimRejectionReason.CONFLICTING,
+            id="conflicting",
+        ),
+        pytest.param(
+            "synthetic",
+            {"synthetic": True},
+            LiveEvidenceClaimRejectionReason.SYNTHETIC,
+            id="synthetic",
+        ),
+        pytest.param(
+            "wrong-purpose",
+            {"purpose_id": "cost-review"},
+            LiveEvidenceClaimRejectionReason.PURPOSE_MISMATCH,
+            id="wrong-purpose",
+        ),
+        pytest.param(
+            "wrong-scope",
+            {"scope_digest": _DIGESTS[0]},
+            LiveEvidenceClaimRejectionReason.SCOPE_MISMATCH,
+            id="wrong-scope",
+        ),
+    ],
+)
+async def test_each_negative_evidence_class_is_denied_without_an_admission(
+    evidence_class: str,
+    overrides: dict[str, object],
+    expected_reason: LiveEvidenceClaimRejectionReason,
+) -> None:
+    # One boundary contract must deny every negative evidence class by name, so the
+    # complete-inventory coverage guard can cite this single authoritative matrix.
+    receipt = _receipt(**overrides)
+
+    result = await _gate(receipt).evaluate(
+        receipt,
+        _requirement(),
+        evaluated_at=_NOW + timedelta(minutes=3),
+    )
+
+    assert result.eligible is False, evidence_class
+    assert result.admission is None
+    assert result.reason is DecisionEvidenceReadinessReason.PREFLIGHT_REJECTED
+    assert expected_reason.value in result.rejection_details
+    assert result.execution_authority is result.promotion_authority is False
+
+
+async def test_missing_evidence_is_denied_because_no_receipt_can_be_verified() -> None:
+    # The 'missing' evidence class has no receipt at all: the readiness reducer must
+    # refuse to admit an item whose decision-critical evidence was never produced.
+    receipt = _receipt()
+    gate = DecisionEvidenceReadinessGate(registry=DecisionEvidenceVerifierRegistry(()))
+
+    result = await gate.evaluate(
+        receipt,
+        _requirement(),
+        evaluated_at=_NOW + timedelta(minutes=3),
+    )
+
+    assert result.eligible is False
+    assert result.admission is None
+    assert result.reason is DecisionEvidenceReadinessReason.VERIFIER_UNAVAILABLE
+    assert result.execution_authority is result.promotion_authority is False

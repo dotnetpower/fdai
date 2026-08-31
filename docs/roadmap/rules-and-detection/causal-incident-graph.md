@@ -256,6 +256,11 @@ with any refuting reference, an unresolved status, or a grade below `quasi_exper
 `shadow`. `gated` is an eligibility statement for the existing safety path, never a permission
 grant.
 
+Raising a revision above `shadow` is a positive decision, so the derivation also requires a current
+shared decision-critical evidence admission bound to that exact revision, its causal scope, and its
+source revision. The runtime coordinator requests the admission and carries it on the result. When
+no admission provider is bound, or the admission does not match, the mode stays `shadow`.
+
 ## Closure through recovery and chaos
 
 A recovery or experiment declares expected observations before execution. Heimdall independently

@@ -11,13 +11,22 @@ from typing import Any
 from fdai.core.assurance_twin.effect_model import CausalEvidenceGrade, EffectModelStatus
 from fdai.core.assurance_twin.graph_effect import GraphEffectModel
 from fdai.core.assurance_twin.model_promotion import (
+    EFFECT_MODEL_ACTIVATION_EVIDENCE_PURPOSE,
     GraphModelActivePointer,
     GraphModelEvidenceCohort,
     GraphModelPromotionPolicy,
     GraphModelPromotionReceipt,
     GraphModelRisk,
+    effect_model_activation_evidence_digest,
+    effect_model_activation_rejection_reasons,
+    effect_model_activation_scope_digest,
     graph_effect_model_digest,
     validate_graph_model_promotion,
+    validate_graph_model_promotion_evidence,
+)
+from fdai.shared.providers.decision_evidence_verifier import (
+    DecisionEvidenceAdmission,
+    DecisionEvidenceAdmissionProvider,
 )
 from fdai.shared.providers.state_store import StateStore
 
@@ -109,6 +118,7 @@ class StateStoreGraphModelPromotionRegistry:
         property_semantics_digest: str,
         policy: GraphModelPromotionPolicy | None = None,
         max_retries: int = 2,
+        decision_evidence_provider: DecisionEvidenceAdmissionProvider | None = None,
     ) -> None:
         _require_digest(ontology_release_digest, "ontology release")
         _require_digest(property_semantics_digest, "property semantics")
@@ -119,6 +129,7 @@ class StateStoreGraphModelPromotionRegistry:
         self._property_semantics_digest = property_semantics_digest
         self._policy = policy or GraphModelPromotionPolicy()
         self._max_retries = max_retries
+        self._decision_evidence_provider = decision_evidence_provider
 
     async def save_artifact(self, model: GraphEffectModel, *, recorded_by: str) -> str:
         """Store one immutable model snapshot without changing its active status."""
@@ -223,9 +234,19 @@ class StateStoreGraphModelPromotionRegistry:
         model = await self.load_artifact(receipt.model_digest)
         if model is None:
             raise ValueError("exact graph model promotion artifact was not found")
+        admission = await self._admit(receipt)
         for _ in range(self._max_retries):
             current = await self.load_active(receipt.slot_digest)
             if current is not None and _promotion_already_applied(current, receipt):
+                validate_graph_model_promotion_evidence(
+                    receipt=receipt,
+                    model=model,
+                    expected_ontology_release_digest=self._ontology_release_digest,
+                    expected_property_semantics_digest=self._property_semantics_digest,
+                    policy=self._policy,
+                    decision_evidence=admission,
+                    evaluated_at=datetime.now(tz=UTC),
+                )
                 return GraphModelPointerUpdate(False, "already_applied", current)
             validate_graph_model_promotion(
                 receipt=receipt,
@@ -234,6 +255,8 @@ class StateStoreGraphModelPromotionRegistry:
                 expected_ontology_release_digest=self._ontology_release_digest,
                 expected_property_semantics_digest=self._property_semantics_digest,
                 policy=self._policy,
+                decision_evidence=admission,
+                evaluated_at=datetime.now(tz=UTC),
             )
             expected_revision = current.revision if current is not None else 0
             pointer = GraphModelActivePointer(
@@ -251,8 +274,48 @@ class StateStoreGraphModelPromotionRegistry:
         if latest is None:
             raise ValueError("graph model promotion CAS conflict left no active pointer")
         if _promotion_already_applied(latest, receipt):
+            validate_graph_model_promotion_evidence(
+                receipt=receipt,
+                model=model,
+                expected_ontology_release_digest=self._ontology_release_digest,
+                expected_property_semantics_digest=self._property_semantics_digest,
+                policy=self._policy,
+                decision_evidence=admission,
+                evaluated_at=datetime.now(tz=UTC),
+            )
             return GraphModelPointerUpdate(False, "already_applied", latest)
         raise ValueError("graph model promotion pointer conflict")
+
+    def _require_admission(
+        self,
+        receipt: GraphModelPromotionReceipt,
+        admission: DecisionEvidenceAdmission | None,
+    ) -> None:
+        """Fail closed before any positive activation result, including idempotent reuse."""
+
+        reasons = effect_model_activation_rejection_reasons(
+            receipt,
+            decision_evidence=admission,
+            expected_ontology_release_digest=self._ontology_release_digest,
+            evaluated_at=datetime.now(tz=UTC),
+        )
+        if reasons:
+            raise ValueError("graph model activation is not admissible: " + ", ".join(reasons))
+
+    async def _admit(
+        self,
+        receipt: GraphModelPromotionReceipt,
+    ) -> DecisionEvidenceAdmission | None:
+        """Request the shared admission for one activation; an unbound seam admits nothing."""
+
+        if self._decision_evidence_provider is None:
+            return None
+        return await self._decision_evidence_provider.admit(
+            evidence_digest=effect_model_activation_evidence_digest(receipt),
+            scope_digest=effect_model_activation_scope_digest(receipt),
+            purpose_id=EFFECT_MODEL_ACTIVATION_EVIDENCE_PURPOSE,
+            source_revision=self._ontology_release_digest,
+        )
 
     async def rollback(
         self,

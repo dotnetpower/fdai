@@ -30,11 +30,14 @@ from fdai.core.stewardship import (
     load_stewardship_from_yaml,
 )
 from fdai.core.workflow import (
+    AdmittedWorkflowGuardEvaluator,
     ChangeWindowWorkflowGuardEvaluator,
     ProcessOntologyProjector,
     ProjectingProcessRuntimeStore,
     StateStoreWorkflowOutcomeLedger,
     WorkflowApprovalPlanner,
+    WorkflowContextualGuardEvaluator,
+    WorkflowGuardEvaluator,
     WorkflowOrchestrator,
     WorkflowTriggerCoordinator,
     WorkflowTriggerIndex,
@@ -111,7 +114,7 @@ def build_workflow_coordinator(
         repo_root=catalog_root.parent,
         evidence_provider=architecture_evidence_provider,
     )
-    guard_evaluator = (
+    inner_guard: WorkflowContextualGuardEvaluator | WorkflowGuardEvaluator = (
         ChangeWindowWorkflowGuardEvaluator(
             change_windows=OntologyChangeWindowEvidenceProvider(ontology_store),
             fallback=architecture_guard,
@@ -119,6 +122,7 @@ def build_workflow_coordinator(
         if ontology_store is not None
         else architecture_guard
     )
+    guard_evaluator = AdmittedWorkflowGuardEvaluator(inner=inner_guard)
     orchestrator = WorkflowOrchestrator(
         planner=planner,
         action_types=action_types_by_name,

@@ -57,6 +57,7 @@ from fdai.core.rca.discrimination_shadow import (
 from fdai.core.rca.evidence import TelemetryEvidenceGatherer
 from fdai.core.rca.grounding import enforce_grounding
 from fdai.core.rca.hypothesis import (
+    CAUSAL_CLOSURE_EVIDENCE_PURPOSE,
     CausalActionMode,
     CausalClosure,
     CausalEvidenceAssessment,
@@ -64,6 +65,9 @@ from fdai.core.rca.hypothesis import (
     CausalHypothesisStatus,
     build_causal_hypothesis,
     causal_action_mode,
+    causal_closure_evidence_digest,
+    causal_closure_rejection_reasons,
+    causal_closure_scope_digest,
     close_causal_hypothesis,
 )
 from fdai.core.rca.incident_graph import (
@@ -96,6 +100,7 @@ from fdai.core.rca.temporal_causality import (
 )
 
 __all__ = [
+    "CAUSAL_CLOSURE_EVIDENCE_PURPOSE",
     "CausalActionMode",
     "CausalChain",
     "CausalChainAnalyzer",
@@ -161,6 +166,9 @@ __all__ = [
     "build_discriminating_observation_candidate",
     "build_hypothesis_discrimination_frame",
     "causal_action_mode",
+    "causal_closure_evidence_digest",
+    "causal_closure_rejection_reasons",
+    "causal_closure_scope_digest",
     "close_causal_hypothesis",
     "enforce_grounding",
     "parse_rca_response",

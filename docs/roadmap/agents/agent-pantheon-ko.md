@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 632ef8aedf4ee0f82951fedbde471c3ffac4348c
-translation_revised: 2026-08-30
+translation_source_sha: be643e6133b40c7b74390a3b651f546c1cfe9680
+translation_revised: 2026-08-31
 ---
 # 에이전트 판테온
 FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임을 소유합니다. 에이전트는 schema-checked 이벤트로 관측, 판단, 계획, 승인, 실행, 검증, 복구, 감사, 학습합니다. 운영 온톨로지는 타입이 지정된 meaning과 범위가 제한된 맥락을 제공하며 행위자, 권한 또는 실행기가 아닙니다. 판테온은 업스트림에서 정의되고 포크는 에이전트를 추가하거나 이름을 바꾸지 않습니다.
@@ -77,7 +77,9 @@ Norns는 Mimir에 제안하고 Odin은 판단 전에 충돌을 조정합니다.
 **헌법 적격성을 먼저 확인합니다.** Forseti는 중재 요청을 소유하고 Odin은 헌법 제약을
 통과한 soft-objective tradeoff만 순위합니다. 정규화, precedence, weighted 채점, 사람 승인
 margin, 계획 수립 증적 및 temporal 정책은
-[Operational 계획 수립](../decisioning/operational-planning-ko.md#다목적-중재)이 소유합니다.
+[Operational 계획 수립](../decisioning/operational-planning-ko.md#다목적-중재)이 소유합니다. 충돌은 표현이 아니라 목표에 관한 사실입니다. 영역 전문가가 자신의 결정적 실행이 산출한 ActionType과 예상되는 부호 있는 목표 효과, 그리고 두 값을 읽어 온 계보를 함께 첨부하면, Forseti는 두 영역이 동일한 통제 목표에서 서로 반대 부호의 효용을 가질 때만 중재를 제기하며, 기여한 각 재생의 표준 계보는 의사결정 사례와 종결 판정까지 이어집니다.
+Forseti가 중재를 제기한 뒤에는 같은 이벤트에 일반 판단을 추가로 실행하지 않습니다. 중재
+결정 또는 범위가 제한된 소유자 부재 종결만 해당 이벤트의 종결 판정이 됩니다.
 
 ### 3.2 발견 루프 학습기 (Norns)
 
@@ -242,7 +244,7 @@ absence를 zero로 해석하지 않고 실패로 처리합니다.
 | **Saga** | 감사 불가 | **HARD FAIL**: 새 변경 허용 안 됨; 전체 시스템 shadow 로 강등 |
 | **Vidar** | 롤백 불가 | Thor 가 새 auto 실행 거부; 모든 새 액션 shadow 로 강등 |
 | **Forseti** | 판단 정지 | Huginn / Heimdall 은 계속 publish (Kafka retain); 판정 대체 경로 없음 (판사 없이 판단 불가); 운영자 경보 |
-| **Odin** | cross-vertical 중재 누락 | Forseti가 충돌 판정을 HIL로 낮춤 (사람이 arbitrate) |
+| **Odin** | cross-vertical 중재 누락 | Forseti가 Odin의 출시된 성능 저하 정책을 적용하고 자신이 제기한 중재를 ActionType도 개시자도 승리 영역도 조치 권한도 없는 종결 HIL 판정으로 닫으므로, 소유자 없는 중재가 열린 채로 남지 않고 두 번째 arbiter도 세우지 않음 (사람이 arbitrate) |
 | **Thor** | 실행 정지 | 판정 큐잉; 판정 TTL 만료 시 stale 폐기 (republish 시 재판단) |
 | **Huginn** | 인제스트 정지 | Kafka 보존 이 이벤트 보존; Huginn 복구 시 체크포인트 부터 재개 (멱등적) |
 | **Heimdall** | 감지/효과 관측 정지 | 읽기, 거부, shadow judgment는 계속; Heimdall 관측이 필요한 새 상태 변경은 차단되고 기존 결과는 pending, RBAC 거부는 감사 |
