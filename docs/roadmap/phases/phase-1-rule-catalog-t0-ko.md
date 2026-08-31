@@ -1,7 +1,7 @@
 ---
 title: Phase 1 - 규칙 카탈로그와 T0 결정론적 엔진
 translation_of: phase-1-rule-catalog-t0.md
-translation_source_sha: 08bb717171c8138a67f3bff865f210884879016e
+translation_source_sha: e666b96fc8a33ed6609c01a88d693432873043f6
 translation_revised: 2026-08-31
 ---
 
@@ -34,22 +34,29 @@ translation_revised: 2026-08-31
   멀티-소스 컬렉터. 첫 authored 규칙들은 [`rule-catalog/catalog/`](../../../rule-catalog/catalog)
   아래 룰 id 하나당 YAML 하나로 배송되며, 각 규칙은 필수 `remediates` 필드로 정확히 하나의
   ActionType 을 exercise: `object-storage.public-access.deny`,
-  `object-storage.owner-tag.required`, `compute.vm-scale-set.over-provisioned`,
-  `secret-store.rotation-overdue`, `sql-database.tde-required`. 로더
+  `object-storage.owner-tag.required`, `secret-store.rotation-overdue`,
+  `sql-database.tde-required`. VMSS 비용 규칙 `compute.vm-scale-set.over-provisioned`와 해당
+  Rego 정책, 수정 템플릿, `remediate.right-size` 연결은 선택적 Cost Governance 확장이
+  소유합니다. 비용 동작이 범위에 포함될 때 Phase 1 기본 재생은 해당 패키지를 명시적으로
+  조립합니다. 패키지가 없거나 비활성화되면 비용 자산이 추가되지 않습니다. 로더
   [`services/core-control-plane/src/fdai/rule_catalog/schema/rule.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule.py)
   가 부하 시점에 모든 규칙의 `remediates` / `alternatives` 를 ActionType 카탈로그와,
   `resource_type` 을 CSP-중립 어휘와 교차 검증, **그리고** `policies_root` 가 주어지면
   `policies/` 로 시작하는 모든 `check_logic.reference` 를 디스크에 실제로 존재하는 Rego 파일과
   교차 검증 (실패 시 차단).
-- **Authored Rego 정책** - 위 5개 규칙은 각각 자기 `check_logic.reference` Rego 본체와 함께
+- **Authored Rego 정책** - 위 4개 기본 규칙은 각각 자기 `check_logic.reference` Rego 본체와 함께
   [`policies/`](../../../policies) 하위(resource-type 계열별 폴더 하나)에 배송:
   `policies/object_storage/{public_access,owner_tag_required}.rego`,
-  `policies/compute/vmss_over_provisioned.rego`,
   `policies/secret_store/rotation_overdue.rego`,
   `policies/sql_database/tde_required.rego`. 모든 모듈은
   `default deny := false` + `deny if { ... }` 엔트리포인트를 내보내기 하고,
   `input.parameters.<name>` 를 authored 기본값과 함께 읽어서 per-assignment 오버라이드
   ([rule-governance-ko.md](../rules-and-detection/rule-governance-ko.md)) 가 규칙 편집 없이 흐르도록 함.
+
+첫 설계는 구현에서 같은 자산 묶음을 확장으로 이동한 뒤에도 과거 VMSS 시드를 기본 목록에
+유지했습니다. 두 주장을 함께 유지하면 소유권이 중복되거나 선택적 버티컬이 숨겨진 Phase 1
+전제 조건이 됩니다. 수정된 설계는 구현된 패키지 경계를 보존하고 비용 재생에서 패키지를
+명시적으로 조립하도록 요구합니다.
 - **정본 `resource_type` 어휘** - [`rule-catalog/vocabulary/resource-types.yaml`](../../../rule-catalog/vocabulary/resource-types.yaml)
   가 3개 버티컬 을 커버하는 초기 CSP-중립 식별자 집합을 열거; 로더 + JSON 스키마 는
   `services/core-control-plane/src/fdai/rule_catalog/schema/`.

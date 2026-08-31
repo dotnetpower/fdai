@@ -34,23 +34,30 @@ It consumes the telemetry, baseline, and identity/policy unblocking delivered by
   [`rule-catalog/catalog/`](../../../rule-catalog/catalog) - one YAML per rule id, each
   exercising exactly one ActionType via the required `remediates` field:
   `object-storage.public-access.deny`, `object-storage.owner-tag.required`,
-  `compute.vm-scale-set.over-provisioned`, `secret-store.rotation-overdue`,
-  `sql-database.tde-required`. The loader
+  `secret-store.rotation-overdue`, `sql-database.tde-required`. The VMSS cost rule
+  `compute.vm-scale-set.over-provisioned`, its Rego policy, remediation template, and
+  `remediate.right-size` binding are owned by the optional Cost Governance extension. Phase 1 base
+  replay composes that package explicitly when cost behavior is in scope; absence or disablement of
+  the package contributes no cost assets. The loader
   [`services/core-control-plane/src/fdai/rule_catalog/schema/rule.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule.py)
   cross-checks every rule's `remediates` / `alternatives` against the ActionType catalog,
   `resource_type` against the CSP-neutral vocabulary, **and** - when a `policies_root` is
   supplied - every `check_logic.reference` that starts with `policies/` against a Rego file
   that exists on disk at load time (fail-closed).
-- **Authored Rego policies** - the five rules above ship with their `check_logic.reference`
+- **Authored Rego policies** - the four base rules above ship with their `check_logic.reference`
   Rego bodies under [`policies/`](../../../policies) (one folder per resource-type family):
   `policies/object_storage/{public_access,owner_tag_required}.rego`,
-  `policies/compute/vmss_over_provisioned.rego`,
   `policies/secret_store/rotation_overdue.rego`,
   `policies/sql_database/tde_required.rego`. Every module exports a
   `default deny := false` + `deny if { ... }` entrypoint and reads
   `input.parameters.<name>` with an authored default so per-assignment
   overrides ([rule-governance.md](../rules-and-detection/rule-governance.md)) flow through
   without editing the rule.
+
+The first design retained the historical VMSS seed in the base list while implementation moved the
+same asset tuple into the extension. Keeping both claims would create duplicate ownership or make
+an optional vertical a hidden Phase 1 prerequisite. The revised design preserves the implemented
+package boundary and requires explicit package composition for cost replay.
 - **Canonical `resource_type` vocabulary** - [`rule-catalog/vocabulary/resource-types.yaml`](../../../rule-catalog/vocabulary/resource-types.yaml)
   enumerates the initial CSP-neutral identifier set covering the three verticals; loader +
   JSON Schema in `services/core-control-plane/src/fdai/rule_catalog/schema/`.
