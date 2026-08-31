@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: a031ce7d8f29afbbbf4149d1cf1428e30cb0b5ee
+translation_source_sha: 27c5ab8122ab10d714d4016b2eb1eda48bf69334
 translation_revised: 2026-08-31
 ---
 # 프로젝트 구조
@@ -13,6 +13,8 @@ translation_revised: 2026-08-31
 물리적인 5개 서비스 workspace는 [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md)이 소유합니다. 이 문서는 의존성 방향, 구조 게이트, 확장 seam, 컨트롤 루프 배선, 구성 및 저장소 규칙을 소유합니다.
 비공개 composition 타입 모듈은 강제 크기 상한 아래로 유지합니다. 따라서 새 바인딩은 검토 가능한
 상태를 유지하고, 공유 컨테이너가 두 번째 루트가 되기 전에 목적별 wire 모듈로 이동합니다.
+사례 이력 검토는 비활성 학습 후보를 제안하기 전에 실패 근거와 일치하는 컨트롤 근거를 모두
+요구합니다.
 
 ## Core 도메인 탐색 결정
 

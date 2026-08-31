@@ -1,7 +1,7 @@
 ---
 translation_of: prediction-learning-and-case-history.md
-translation_source_sha: 724bb8c2b0f4f4d4d505850534d1fe347121fd87
-translation_revised: 2026-08-20
+translation_source_sha: 4f762d1ea5e187e21305bdcac0c9faf640e175e5
+translation_revised: 2026-08-31
 ---
 # 예측 학습 및 케이스 히스토리
 
@@ -133,9 +133,10 @@ detector 버전, 결과 라벨 및 시간에 대한 결정론적 필터를 적�
 제한된 사례 카드와 출처 다이제스트를 반환하며 모델은 임베딩을 출처 근거로 취급할 수
 없습니다.
 
-Norns는 실패 사례와 함께 matched correct 및 censored 컨트롤을 받습니다. 이는 survivorship
-bias와 과도하게 보수적인 임계값 변경을 방지합니다. 모든 분석 주장은 사례 id, 개정 번호 및
-매니페스트 다이제스트를 인용합니다. 근거가 없거나 충돌하면 후보를 만들지 않습니다.
+Norns는 실패 사례와 함께 일치하는 정확한 결과 및 검열된 컨트롤을 받습니다. 이는 생존자
+편향과 과도하게 보수적인 임계값 변경을 방지합니다. 검토기를 실행하려면 실패 사례와 일치하는
+컨트롤이 각각 하나 이상 필요합니다. 모든 분석 주장은 사례 id, 개정 번호 및 매니페스트
+다이제스트를 인용합니다. 근거가 없거나 충돌하면 후보를 만들지 않습니다.
 
 ## Learning 및 승격
 

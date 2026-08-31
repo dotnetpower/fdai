@@ -190,6 +190,37 @@ async def test_analyzer_denies_cross_scope_history() -> None:
     )
 
 
+async def test_analyzer_requires_a_matched_control_case() -> None:
+    metadata = InMemoryCaseHistoryMetadataStore()
+    artifacts = InMemoryCaseHistoryArtifactStore()
+    materializer = CaseHistoryMaterializer(metadata=metadata, artifacts=artifacts)
+    await materializer.seal_forecast_outcome(
+        _outcome(0, "false_positive"),
+        purpose="forecast-error-analysis",
+        redaction_policy_version="1.0.0",
+        retention_until=T0 + timedelta(days=30),
+        deletion_due_at=T0 + timedelta(days=60),
+    )
+    reviewer = _Reviewer()
+
+    hint = await CaseHistoryAnalyzer(
+        metadata=metadata,
+        artifacts=artifacts,
+        reviewer=reviewer,
+    ).analyze(
+        {
+            "kind": "forecast_case_history",
+            "access_scope_digest": "a" * 64,
+            "purpose": "forecast-error-analysis",
+            "detector_id": "capacity-linear",
+            "metric": "capacity_percent",
+        }
+    )
+
+    assert hint is None
+    assert reviewer.inputs == []
+
+
 async def test_analyzer_rejects_artifact_from_another_case_identity() -> None:
     metadata, artifacts = await _seed()
     original = await _record_for_correlation(metadata, "corr-0")

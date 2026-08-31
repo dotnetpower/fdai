@@ -91,7 +91,7 @@ class CaseHistoryAnalyzer:
             limit=self._control_limit,
         )
         selected = (*failures, *controls)
-        if not failures or not selected:
+        if not failures or not controls:
             return None
         semaphore = asyncio.Semaphore(self._artifact_concurrency)
 
