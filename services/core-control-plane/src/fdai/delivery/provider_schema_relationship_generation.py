@@ -361,9 +361,14 @@ def invalidate_changed_relationship_candidates(
     generation: ProviderSchemaRelationshipGeneration,
     changed_identities: Sequence[str],
 ) -> ProviderSchemaRelationshipGeneration:
-    """Drop candidates touching changed types so an incremental rebuild cannot reuse stale links."""
+    """Drop candidates touching changed types or their transitive schema references."""
 
-    changed = {value.casefold() for value in changed_identities}
+    changed = set(
+        transitive_changed_provider_types(
+            generation,
+            changed_identities,
+        )
+    )
     retained = tuple(
         candidate
         for candidate in generation.candidates
@@ -384,6 +389,31 @@ def invalidate_changed_relationship_candidates(
         drops=tuple(sorted(drops, key=str)),
         complete=False if invalidated else generation.complete,
     )
+
+
+def transitive_changed_provider_types(
+    generation: ProviderSchemaRelationshipGeneration,
+    changed_identities: Sequence[str],
+) -> frozenset[str]:
+    """Expand changed provider types through candidate relationship references."""
+
+    changed = {value.casefold() for value in changed_identities}
+    pending = [value.split("@", maxsplit=1)[0] for value in changed]
+    adjacency: dict[str, set[str]] = {}
+    for candidate in generation.candidates:
+        source = candidate.source_provider_type.casefold()
+        target = candidate.target_provider_type.casefold()
+        adjacency.setdefault(source, set()).add(target)
+        adjacency.setdefault(target, set()).add(source)
+    expanded = set(pending)
+    while pending:
+        current = pending.pop()
+        for related in adjacency.get(current, ()):
+            if related in expanded:
+                continue
+            expanded.add(related)
+            pending.append(related)
+    return frozenset((*changed, *expanded))
 
 
 def _mapping_for_id(
@@ -483,4 +513,5 @@ __all__ = [
     "generate_provider_schema_relationship_generation",
     "invalidate_changed_relationship_candidates",
     "replay_provider_schema_relationship_generation",
+    "transitive_changed_provider_types",
 ]

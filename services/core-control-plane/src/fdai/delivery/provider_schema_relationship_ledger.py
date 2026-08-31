@@ -10,6 +10,11 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
+from fdai.core.ontology_platform.direction_shadow import (
+    DirectionGraphGeneration,
+    DirectionPromotionAssessment,
+    DirectionShadowReceipt,
+)
 from fdai.delivery.provider_schema import ProviderSchemaError
 from fdai.delivery.provider_schema_relationship_generation import (
     ProviderSchemaRelationshipGeneration,
@@ -76,6 +81,114 @@ class ProviderSchemaRelationshipLedger:
             )
         return raw
 
+    def record_promotion_review(
+        self,
+        *,
+        assessment: DirectionPromotionAssessment,
+        receipt: DirectionShadowReceipt,
+        prior: DirectionGraphGeneration,
+        aligned: DirectionGraphGeneration,
+    ) -> str:
+        """Persist immutable comparison, context, and reviewed proposal history."""
+
+        if assessment.comparison_receipt_digest != receipt.receipt_digest:
+            raise ProviderSchemaError("promotion assessment does not match comparison receipt")
+        if (
+            assessment.prior_generation_digest != prior.generation_digest
+            or receipt.legacy_generation_digest != prior.generation_digest
+            or assessment.aligned_generation_digest != aligned.generation_digest
+            or receipt.aligned_generation_digest != aligned.generation_digest
+        ):
+            raise ProviderSchemaError("promotion review generation identity mismatch")
+        with _exclusive_lock(self._root):
+            _write_immutable_json(
+                self._root / "direction-contexts" / f"{prior.generation_digest[7:]}.json",
+                prior.to_mapping(),
+                collision_message="prior direction context digest collision",
+            )
+            _write_immutable_json(
+                self._root / "direction-contexts" / f"{aligned.generation_digest[7:]}.json",
+                aligned.to_mapping(),
+                collision_message="aligned direction context digest collision",
+            )
+            _write_immutable_json(
+                self._root / "direction-comparisons" / f"{receipt.receipt_digest[7:]}.json",
+                receipt.to_mapping(),
+                collision_message="direction comparison digest collision",
+            )
+            _write_immutable_json(
+                self._root
+                / "direction-promotion-reviews"
+                / f"{assessment.assessment_digest[7:]}.json",
+                assessment.to_mapping(),
+                collision_message="direction promotion review digest collision",
+            )
+            history = self._read_promotion_history()
+            if not any(
+                item.get("assessment_digest") == assessment.assessment_digest for item in history
+            ):
+                history.append(
+                    {
+                        "aligned_generation_digest": aligned.generation_digest,
+                        "assessment_digest": assessment.assessment_digest,
+                        "comparison_receipt_digest": receipt.receipt_digest,
+                        "decision": assessment.decision.value,
+                        "graph_mutation_authority": False,
+                        "migration_execution_authority": False,
+                        "prior_generation_digest": prior.generation_digest,
+                        "proposal_ready": assessment.proposal_ready,
+                        "rebuild_pointer": {
+                            "authoritative_generation_ref": (
+                                assessment.rebuild_pointer.authoritative_generation_ref
+                            ),
+                            "mutation_authority": (assessment.rebuild_pointer.mutation_authority),
+                            "rebuild_procedure_ref": (
+                                assessment.rebuild_pointer.rebuild_procedure_ref
+                            ),
+                            "restores_deleted_rows": (
+                                assessment.rebuild_pointer.restores_deleted_rows
+                            ),
+                            "strategy": assessment.rebuild_pointer.strategy,
+                        },
+                        "regression_receipt_digests": list(assessment.regression_receipt_digests),
+                        "requested_by": assessment.requested_by,
+                        "reviewed_at": assessment.reviewed_at.isoformat(),
+                        "reviewed_by": assessment.reviewed_by,
+                    }
+                )
+                _append_json_line(
+                    self._root / "direction-promotion-history.jsonl",
+                    history[-1],
+                )
+        return str(assessment.assessment_digest)
+
+    def read_promotion_history(self) -> tuple[dict[str, object], ...]:
+        """Return immutable reviewed proposal history without activation authority."""
+
+        history = self._read_promotion_history()
+        if any(
+            item.get("graph_mutation_authority") is not False
+            or item.get("migration_execution_authority") is not False
+            for item in history
+        ):
+            raise ProviderSchemaError("direction promotion history grants mutation authority")
+        return tuple(history)
+
+    def _read_promotion_history(self) -> list[dict[str, object]]:
+        path = self._root / "direction-promotion-history.jsonl"
+        if not path.exists():
+            return []
+        history: list[dict[str, object]] = []
+        for line in path.read_text(encoding="utf-8").splitlines():
+            try:
+                raw = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise ProviderSchemaError("direction promotion history is invalid") from exc
+            if not isinstance(raw, dict):
+                raise ProviderSchemaError("direction promotion history is invalid")
+            history.append(raw)
+        return history
+
     def _write_active(self, generation_digest: str) -> None:
         _atomic_write(
             self._root / "active.json",
@@ -102,6 +215,29 @@ def _canonical_json(value: object) -> bytes:
     return json.dumps(value, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode(
         "utf-8"
     )
+
+
+def _write_immutable_json(
+    path: Path,
+    value: object,
+    *,
+    collision_message: str,
+) -> None:
+    payload = _canonical_json(value) + b"\n"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        if path.read_bytes() != payload:
+            raise ProviderSchemaError(collision_message)
+        return
+    _atomic_write(path, payload)
+
+
+def _append_json_line(path: Path, value: object) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("ab") as handle:
+        handle.write(_canonical_json(value) + b"\n")
+        handle.flush()
+        os.fsync(handle.fileno())
 
 
 def _atomic_write(path: Path, payload: bytes) -> None:

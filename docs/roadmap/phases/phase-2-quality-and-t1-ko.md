@@ -1,8 +1,8 @@
 ---
 title: "Phase 2 - 지속적 규칙 업데이트, Quality Gate, T1"
 translation_of: phase-2-quality-and-t1.md
-translation_source_sha: 3832b86ce12200ebbfa8d25a8ab3acf20c33cb76
-translation_revised: 2026-08-29
+translation_source_sha: f68c6bfe432baabb0268913e4fd41a85469bee90
+translation_revised: 2026-08-31
 ---
 
 # 단계 2 - 지속적 규칙 업데이트, Quality 게이트, T1
@@ -109,6 +109,12 @@ Azure source는 변경할 수 없는 commit에 고정된 `Azure/bicep-types-az` 
 | `breaking` | 타입이나 stable API version이 제거됐거나 비호환 변경과 추가가 함께 있습니다. | 고정된 의미 surface를 보류하고 통제된 검토를 요구합니다. |
 | `policy_blocked` | network policy가 primary와 mirror access를 모두 허용하지 않습니다. | 외부 호출 없이 마지막 완전 snapshot을 유지하고 stale 또는 unavailable 근거를 보고합니다. |
 | `unavailable` | 허용된 모든 source가 무결성, 완전성, timeout 또는 I/O 검사에 실패했습니다. | 마지막 완전 snapshot을 유지하고 의미 proposal을 만들지 않습니다. |
+
+관계 후보 새로 고침은 변경된 프로바이더 타입과 이에 의존하는 전이 관계 참조 구성 요소만
+무효화합니다. 관련 없는 프로바이더 구성 요소는 재사용할 수 있습니다. D4 검토 원장은 변경할 수
+없는 이전 및 정렬 후 맥락, 정확한 비교, 회귀 증적 및 서로 다른 검토자의 결과를 보존합니다.
+승인은 catalog pull request 제안만 만들 수 있으며 mapping을 활성화하거나 그래프를 변경할 수
+없습니다.
 
 결정론적 diff는 정규화한 type identity와 stable/preview API-version 집합을 비교합니다. 제거는
 근거 ledger의 tombstone이며 ontology 또는 rule catalog에서 즉시 삭제되지 않습니다. 중요하고

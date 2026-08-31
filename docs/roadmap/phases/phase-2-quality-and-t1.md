@@ -108,6 +108,12 @@ Each bounded run ends in one explicit state:
 | `policy_blocked` | Network policy permits neither primary nor mirror access. | Make no external call, retain the last complete snapshot, and report stale or unavailable evidence. |
 | `unavailable` | Every allowed source failed integrity, completeness, timeout, or I/O checks. | Retain the last complete snapshot and create no semantic proposal. |
 
+Relationship candidate refresh invalidates a changed provider type and only the transitive
+relationship-reference component that depends on it. Unrelated provider components stay reusable.
+The D4 review ledger preserves immutable prior and aligned contexts, the exact comparison, regression
+receipts, and distinct-reviewer outcomes. Approval can create only a catalog pull request proposal;
+it cannot activate a mapping or mutate the graph.
+
 Deterministic diffing compares normalized type identities and stable/preview API-version sets.
 Removal is a tombstone in the evidence ledger, never immediate deletion from ontology or rule
 catalogs. Only a material, policy-gated drift package enters the existing agent and architecture

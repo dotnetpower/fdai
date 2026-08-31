@@ -263,6 +263,10 @@ def test_complete_generation_verifies_infrastructure_relationship_matrix() -> No
         )
 
     result = _verify(resources=tuple(resources.values()), links=tuple(candidates))
+    reversed_result = _verify(
+        resources=tuple(reversed(tuple(resources.values()))),
+        links=tuple(reversed(candidates)),
+    )
 
     assert result.dropped == ()
     assert {
@@ -274,6 +278,141 @@ def test_complete_generation_verifies_infrastructure_relationship_matrix() -> No
         for link in result.links
         if link.mapping_evidence is not None
     } == expected
+    assert reversed_result == result
+
+
+def test_complete_observed_endpoints_materialize_canonical_core_directions() -> None:
+    catalog = load_provider_relationship_mapping_catalog(
+        REPO_ROOT / "rule-catalog" / "vocabulary" / "provider-relationship-mappings"
+    )
+    registry = load_resource_type_registry_from_mapping(
+        yaml.safe_load(
+            (REPO_ROOT / "rule-catalog" / "vocabulary" / "resource-types.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+    )
+    arm_to_neutral = build_arm_to_neutral_map(registry)
+    subscription = "00000000-0000-0000-0000-000000000001"
+    group_ref = f"/subscriptions/{subscription}/resourceGroups/rg-example"
+    base = f"{group_ref}/providers"
+    refs = {
+        "group": group_ref,
+        "vm": f"{base}/Microsoft.Compute/virtualMachines/vm-example",
+        "nic": f"{base}/Microsoft.Network/networkInterfaces/nic-example",
+        "web": f"{base}/Microsoft.Web/sites/web-example",
+        "storage": f"{base}/Microsoft.Storage/storageAccounts/storage-example",
+    }
+    resources = {
+        "group": ResourceRecord(
+            resource_id=to_neutral_id(refs["group"]),
+            type="resource-group",
+            provider_ref=refs["group"],
+            props={"providerType": "Microsoft.Resources/resourceGroups"},
+            last_seen=OBSERVED_AT,
+        ),
+        "vm": ResourceRecord(
+            resource_id=to_neutral_id(refs["vm"]),
+            type="compute.vm",
+            provider_ref=refs["vm"],
+            props={"providerType": "Microsoft.Compute/virtualMachines"},
+            last_seen=OBSERVED_AT,
+        ),
+        "nic": ResourceRecord(
+            resource_id=to_neutral_id(refs["nic"]),
+            type="network.interface",
+            provider_ref=refs["nic"],
+            props={"providerType": "Microsoft.Network/networkInterfaces"},
+            last_seen=OBSERVED_AT,
+        ),
+        "web": ResourceRecord(
+            resource_id=to_neutral_id(refs["web"]),
+            type="compute.app-service",
+            provider_ref=refs["web"],
+            props={"providerType": "Microsoft.Web/sites"},
+            last_seen=OBSERVED_AT,
+        ),
+        "storage": ResourceRecord(
+            resource_id=to_neutral_id(refs["storage"]),
+            type="object-storage",
+            provider_ref=refs["storage"],
+            props={"providerType": "Microsoft.Storage/storageAccounts"},
+            last_seen=OBSERVED_AT,
+        ),
+    }
+    rows = (
+        (
+            "vm",
+            {
+                "id": refs["vm"],
+                "type": "Microsoft.Compute/virtualMachines",
+                "properties": {"networkProfile": {"networkInterfaces": [{"id": refs["nic"]}]}},
+            },
+        ),
+        (
+            "web",
+            {
+                "id": refs["web"],
+                "type": "Microsoft.Web/sites",
+                "properties": {"storageAccount": {"id": refs["storage"]}},
+            },
+        ),
+    )
+    candidates: list[LinkRecord] = []
+    selected = {
+        "azure.resource-group-contains-resource",
+        "azure.vm-nic-attached-to-vm",
+        "azure.web-app-depends-on-storage",
+    }
+    for owner_key, row in rows:
+        projected = project_provider_relationships(
+            row,
+            owner=resources[owner_key],
+            arm_to_neutral=arm_to_neutral,
+            catalog=catalog,
+            arm_id_to_type=arm_id_to_type,
+            to_neutral_id=to_neutral_id,
+        )
+        candidates.extend(
+            link
+            for link in projected.links
+            if link.mapping_evidence is not None and link.mapping_evidence.mapping_id in selected
+        )
+
+    result = _verify(
+        resources=tuple(resources.values()),
+        links=tuple(candidates),
+    )
+
+    assert {
+        (
+            link.from_id,
+            link.link_type,
+            link.to_id,
+        )
+        for link in result.links
+    } == {
+        (
+            resources["group"].resource_id,
+            "contains",
+            resources["vm"].resource_id,
+        ),
+        (
+            resources["group"].resource_id,
+            "contains",
+            resources["web"].resource_id,
+        ),
+        (
+            resources["nic"].resource_id,
+            "attached_to",
+            resources["vm"].resource_id,
+        ),
+        (
+            resources["web"].resource_id,
+            "depends_on",
+            resources["storage"].resource_id,
+        ),
+    }
 
 
 def test_missing_source_endpoint_is_absent_and_reported() -> None:
