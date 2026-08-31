@@ -224,6 +224,22 @@ async def test_candidate_ingress_rejects_unbounded_identity_before_accumulation(
     assert len(bus.dead_letters) == 1
 
 
+async def test_candidate_ingress_rejects_whitespace_only_identity() -> None:
+    scenario = _scenario()
+    bus, _audit, _thor = _wire()
+    candidate = scenario["candidates"][0]
+    payload = {
+        **_candidate_payload(scenario, candidate),
+        "resource_id": "   ",
+    }
+
+    await bus.publish(candidate["principal"], candidate["topic"], payload)
+
+    assert bus.messages_on("object.arbitration-request") == []
+    assert bus.messages_on("object.verdict") == []
+    assert len(bus.dead_letters) == 1
+
+
 async def test_concurrent_sets_for_one_resource_close_both_to_hil() -> None:
     scenario = _scenario()
     bus, audit, _ = _wire()

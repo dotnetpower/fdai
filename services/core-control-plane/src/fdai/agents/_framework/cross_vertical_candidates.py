@@ -258,8 +258,8 @@ def _parse_candidate(topic: str, payload: dict[str, Any]) -> _Candidate:
         ("resource_id", resource_id, 512),
         ("action_type", action_type, 160),
     ):
-        if len(value) > maximum:
-            raise ValueError(f"cross-vertical candidate {name} exceeds its bound")
+        if not value.strip() or value != value.strip() or len(value) > maximum:
+            raise ValueError(f"cross-vertical candidate {name} is not a bounded identifier")
     try:
         observed = datetime.fromisoformat(observed_at.replace("Z", "+00:00"))
     except ValueError as exc:

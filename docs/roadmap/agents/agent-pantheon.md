@@ -82,8 +82,8 @@ For the initial three verticals, Loki, Heimdall, and Njord retain distinct candi
 owner-authenticated candidate from each vertical for the same resource and cutoff. Odin emits one
 decision with a `win`, `defer`, or `hil` disposition per candidate, Saga audits that decision, and
 only Thor can turn the winning verdict into an `ActionRun`.
-Candidate correlation, idempotency, resource, and ActionType identifiers are bounded at ingress,
-and the shared observation cutoff must include a timezone.
+Candidate correlation, idempotency, resource, and ActionType identifiers are bounded, nonblank, and
+free of surrounding whitespace at ingress. The shared observation cutoff must include a timezone.
 
 ### 3.2 Discovery-loop learners (Norns)
 
