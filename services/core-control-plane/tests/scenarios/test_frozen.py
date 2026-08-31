@@ -120,7 +120,13 @@ def _manifest_conflict_spec_ids() -> list[str]:
     ]
 
 
-_FAIL_CLOSED_EVIDENCE_CLASSES = ("missing", "stale", "incomplete", "conflicting")
+_FAIL_CLOSED_EVIDENCE_CLASSES = (
+    "missing",
+    "stale",
+    "incomplete",
+    "conflicting",
+    "not_yet_recorded",
+)
 _DISPATCH_RECEIPT_KEYS = (
     "pr_ref",
     "pr_url",

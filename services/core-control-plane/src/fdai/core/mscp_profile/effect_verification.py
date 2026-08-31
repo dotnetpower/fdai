@@ -27,6 +27,7 @@ class EffectVerificationReason(StrEnum):
     METRIC_MISMATCH = "metric_mismatch"
     OBSERVATION_BEFORE_PREDICTION = "observation_before_prediction"
     OBSERVATION_AFTER_DEADLINE = "observation_after_deadline"
+    OBSERVATION_NOT_YET_RECORDED = "observation_not_yet_recorded"
     PREDICTION_UNAVAILABLE = "prediction_unavailable"
     PREDICTION_PROVIDER_FAILED = "prediction_provider_failed"
     PREDICTION_TARGET_MISMATCH = "prediction_target_mismatch"
@@ -141,11 +142,51 @@ def verify_effect(
     )
 
 
+def admissible_effect_evidence(
+    *,
+    verification: EffectVerificationResult,
+    expected: ExpectedEffect | None,
+    observed: ObservedEffect | None,
+    recorded_at: datetime,
+) -> tuple[EffectVerificationResult, ObservedEffect | None]:
+    """Return the evidence a record may carry at ``recorded_at``, holding the rest.
+
+    :func:`verify_effect` compares a prediction with an observation and knows
+    nothing about the moment the comparison is written down. An observation
+    timestamped after that moment has not happened yet from the recorder's
+    point of view, so it is not admissible evidence no matter how well its
+    value matches: the verdict fails closed to ``hold`` and the observation
+    leaves the record. Evidence outside the effect window is held the same
+    way. An existing ``hold`` keeps its original reason, so a held verdict is
+    never relabelled by this rule.
+    """
+
+    if observed is None or expected is None:
+        return verification, None
+    if observed.observed_at < expected.predicted_at:
+        return _held(verification, EffectVerificationReason.OBSERVATION_BEFORE_PREDICTION), None
+    if observed.observed_at > expected.observation_deadline:
+        return _held(verification, EffectVerificationReason.OBSERVATION_AFTER_DEADLINE), None
+    if observed.observed_at > recorded_at:
+        return _held(verification, EffectVerificationReason.OBSERVATION_NOT_YET_RECORDED), None
+    return verification, observed
+
+
+def _held(
+    verification: EffectVerificationResult,
+    reason: EffectVerificationReason,
+) -> EffectVerificationResult:
+    if verification.status is EffectVerificationStatus.HOLD:
+        return verification
+    return EffectVerificationResult(EffectVerificationStatus.HOLD, reason)
+
+
 __all__ = [
     "EffectVerificationReason",
     "EffectVerificationResult",
     "EffectVerificationStatus",
     "ExpectedEffect",
     "ObservedEffect",
+    "admissible_effect_evidence",
     "verify_effect",
 ]

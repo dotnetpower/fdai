@@ -43,6 +43,7 @@ provenance.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-31 | implemented | Held a not-yet-recorded observation instead of only dropping it, and put the action lifecycle on an injectable clock. The earlier projection dropped an observation the contract cannot represent but left the verdict `verified`, so a real `verify_effect` result whose observation followed `recorded_at` still raised a contract validation error inside dispatch. Admissibility now runs before the decision, the shadow audit entry, and the projection, downgrading such evidence to `hold` with `observation_not_yet_recorded` while an already-held verdict keeps its reason. The shadow effect entry additionally records action creation and the dispatch window, and `ControlLoop` and `ActionBuilder` accept one shared clock so a frozen replay orders creation, prediction, dispatch, observation, and recording on the scenario timeline instead of wall clock. | `current change`; `core/mscp_profile/effect_verification.py`; `core/mscp_profile/response_outcome.py`; `core/mscp_profile/shadow_effect.py`; `core/control_loop/_execution.py`; `core/executor/action_builder.py`; the `not_yet_recorded` case of `tests/scenarios/test_v2026_07_replay.py::test_sre_full_loop_fails_closed_on_deficient_effect_evidence`, which fails with the contract validation error when the hold is reverted; `uv run pytest -q --no-cov services/core-control-plane/tests/scenarios services/core-control-plane/tests/core/mscp_profile services/core-control-plane/tests/core/executor services/core-control-plane/tests/pipeline` passed. | Evidence remains frozen in-process replay in shadow; a pinned deployed shadow evidence window stays open. |
 | 2026-08-31 | implemented | Made the `ResponseOutcome` projection fail closed on an observation the contract cannot represent. An observation outside the effect window, or one not yet recorded, previously raised a contract validation error inside dispatch, so deficient effect evidence became a dispatch-time error instead of shadow `hold` evidence. The projection now drops such an observation and records `unscorable`, while the shadow effect audit entry keeps the raw value and the contract invariant itself is unchanged. | `current change`; `core/mscp_profile/response_outcome.py`; `tests/core/mscp_profile/test_response_outcome.py`; the stale case of `tests/scenarios/test_v2026_07_replay.py::test_sre_full_loop_fails_closed_on_deficient_effect_evidence`, which fails with the contract validation error when the projection fix is reverted; `uv run pytest -q --no-cov services/core-control-plane/tests/scenarios services/core-control-plane/tests/core/mscp_profile services/core-control-plane/tests/contracts/test_response_outcome.py` passed. | Evidence comes from frozen in-process replays in shadow, so a pinned deployed shadow evidence window is still open. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and separated implemented shadow observation from unimplemented gating. | `current change`; profile source and focused tests listed in the scope table. | Retain a measured readiness window and implement the bounded decision-context and gating work below. |
 | 2026-08-23 | implemented | Recorded the ordering boundary between immutable rule governance and optional post-dispatch MSCP effect observation. | `current change`; focused governance and MSCP composition checks. | The existing measured-readiness and governed-gating work remains unchanged. |
@@ -134,11 +135,19 @@ also leaves the primary result unchanged.
 The same observation now writes a strict `ResponseOutcome` as
 `measurement.action_outcome.v1`. The contract stores a target digest rather than the resource
 reference, marks missing or stale evidence `unscorable`, and supplies the independent watermark
-consumed by the scheduled Dynamic challenger-learning pass. The contract also refuses to represent
-an observation that falls outside the effect window or that is not yet recorded, so the projection
-drops such an observation and records `unscorable` rather than raising during dispatch. The shadow
-effect audit entry still keeps the raw observed value, so no evidence is lost. This additional
-record remains shadow evidence. It cannot promote an effect model or change execution authority.
+consumed by the scheduled Dynamic challenger-learning pass. Evidence the contract cannot
+represent - an observation outside the effect window, or one timestamped after the moment the
+comparison is recorded - is inadmissible: the verdict fails closed to `hold` before the decision,
+the shadow audit entry, and the projection read it, so the record is `unscorable` and dispatch
+never raises a contract error. A value that matches its prediction is held the same way when it
+has not been recorded yet, because a recorder cannot attest an observation it has not seen, and a
+verdict already held keeps its original reason. The shadow effect audit entry keeps the raw
+observed value together with the action lifecycle timeline - creation, dispatch start and
+completion, prediction, observation, and recording - so no evidence is lost and the ordering stays
+reviewable. Those lifecycle timestamps come from the control-loop clock seam, which a frozen
+replay binds so that an observation is ordered against the dispatch it describes instead of
+against wall clock. This additional record remains shadow evidence. It cannot promote an effect
+model or change execution authority.
 
 After both durable audit records are written, an optional composition-owned sink republishes the
 strict contract through raw ingress. Audit failure suppresses the relay, so unaudited outcomes

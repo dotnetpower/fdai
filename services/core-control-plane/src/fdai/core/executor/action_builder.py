@@ -19,11 +19,15 @@ Design notes
   fields raise :class:`ActionBuildError` so a partial ActionType
   cannot slip past.
 - **Shadow-only** - every Action carries :attr:`Mode.SHADOW` in P1.
+- **Injected clock**: ``created_at`` comes from :attr:`ActionBuilder.clock`
+  so a frozen replay can place action creation on the same timeline as the
+  evidence it is replayed against. The default is the wall clock.
 """
 
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -69,6 +73,12 @@ class ActionBuilder:
 
     action_types_by_name: dict[str, OntologyActionType]
     ontology_release: OntologyRelease | None = None
+    clock: Callable[[], datetime] | None = None
+
+    def _created_at(self) -> datetime:
+        """Return the action creation time from the injected clock."""
+        clock = self.clock
+        return clock() if clock is not None else datetime.now(tz=UTC)
 
     def build_from_finding(
         self,
@@ -111,7 +121,7 @@ class ActionBuilder:
             blast_radius=blast_radius,
             mode=Mode.SHADOW,
             citing_rules=[finding.rule_id],
-            created_at=datetime.now(tz=UTC),
+            created_at=self._created_at(),
             action_type_ref=self._action_type_ref(action_type),
         )
 
@@ -152,7 +162,7 @@ class ActionBuilder:
             blast_radius=_derive_blast_radius(action_type),
             mode=Mode.SHADOW,
             citing_rules=list(candidate.cited_rule_ids),
-            created_at=datetime.now(tz=UTC),
+            created_at=self._created_at(),
             action_type_ref=self._action_type_ref(action_type),
         )
 
@@ -186,7 +196,7 @@ class ActionBuilder:
             blast_radius=_derive_blast_radius(action_type),
             mode=Mode.SHADOW,
             citing_rules=[learned.rule_id],
-            created_at=datetime.now(tz=UTC),
+            created_at=self._created_at(),
             action_type_ref=self._action_type_ref(action_type),
         )
 
@@ -258,7 +268,7 @@ class ActionBuilder:
                 blast_radius=_derive_blast_radius(action_type),
                 mode=Mode.SHADOW,
                 citing_rules=[rule.id],
-                created_at=datetime.now(tz=UTC),
+                created_at=self._created_at(),
                 action_type_ref=self._action_type_ref(action_type),
                 workflow_action=workflow_action,
             ),

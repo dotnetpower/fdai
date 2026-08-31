@@ -50,9 +50,9 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
-from collections.abc import Mapping
-from dataclasses import dataclass
-from datetime import datetime
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 
@@ -186,6 +186,7 @@ def _make_loop(
     stage_publisher: Any | None = None,
     expected_effect_provider: Any | None = None,
     effect_observer: Any | None = None,
+    clock: Callable[[], datetime] | None = None,
 ) -> tuple[ControlLoop, Any, InMemoryStateStore, Any]:
     rules = shipped_catalog.rules
     action_types = shipped_catalog.action_types
@@ -200,7 +201,7 @@ def _make_loop(
         resource_lock=ResourceLockManager(),
     )
     action_types_by_name = {a.name: a for a in action_types}
-    action_builder = ActionBuilder(action_types_by_name=action_types_by_name)
+    action_builder = ActionBuilder(action_types_by_name=action_types_by_name, clock=clock)
     validator = JsonSchemaEventValidator(
         JsonSchemaContractValidator(PackageResourceSchemaRegistry())
     )
@@ -241,6 +242,7 @@ def _make_loop(
         stage_publisher=stage_publisher,
         mscp_expected_effect_provider=expected_effect_provider,
         mscp_effect_observer=effect_observer,
+        clock=clock,
         **risk_kwargs,
     )
     return loop, publisher, audit, executor
@@ -643,6 +645,62 @@ class _IndependentEffectEvidence:
         )
 
 
+@dataclass
+class _ReplayClock:
+    """One monotone frozen-replay clock. Never the wall clock.
+
+    Read on the wall clock, a frozen replay creates and dispatches its action
+    months after the frozen prediction it is compared against, so "the
+    observation followed the dispatch it describes" cannot be asserted at all -
+    the observation would precede the action. This clock hands out one instant
+    per read, anchored on the frozen event and advancing by a fixed step, which
+    places action creation, the dispatch window, and the effect recording on
+    the scenario's own timeline.
+    """
+
+    at: datetime
+    step: timedelta = timedelta(seconds=30)
+    reads: list[datetime] = field(default_factory=list)
+
+    def __call__(self) -> datetime:
+        now = self.at
+        self.at = now + self.step
+        self.reads.append(now)
+        return now
+
+
+def _replay_clock(scenario: Mapping[str, Any]) -> _ReplayClock:
+    """Anchor the replay clock on the moment the frozen event was ingested."""
+
+    return _ReplayClock(at=datetime.fromisoformat(str(scenario["event"]["ingested_at"])))
+
+
+def _assert_temporal_lineage(effect: Mapping[str, Any], scenario: Mapping[str, Any]) -> None:
+    """The recorded effect evidence MUST order the whole action lifecycle."""
+
+    ingested = datetime.fromisoformat(str(scenario["event"]["ingested_at"]))
+    created = datetime.fromisoformat(str(effect["action_created_at"]))
+    predicted = datetime.fromisoformat(str(effect["predicted_at"]))
+    dispatch_started = datetime.fromisoformat(str(effect["dispatch_started_at"]))
+    dispatch_completed = datetime.fromisoformat(str(effect["dispatch_completed_at"]))
+    deadline = datetime.fromisoformat(str(effect["observation_deadline"]))
+    observed = datetime.fromisoformat(str(effect["observed_at"]))
+    recorded = datetime.fromisoformat(str(effect["recorded_at"]))
+
+    assert ingested <= created, "the action MUST NOT precede the event it answers"
+    assert created <= predicted, "the prediction MUST NOT precede the action it predicts"
+    assert predicted <= dispatch_started, "the prediction MUST be made before dispatch"
+    assert dispatch_started <= dispatch_completed
+    assert dispatch_completed < observed, (
+        "the independent observation MUST follow the dispatch it describes"
+    )
+    assert observed <= deadline, "the observation MUST fall inside the expected window"
+    assert observed <= recorded, "an observation MUST NOT follow the moment it is recorded"
+    # A wall-clock read would put the whole lineage months away from the
+    # frozen event; the replay stays on the scenario's own timeline.
+    assert recorded - ingested <= timedelta(hours=1)
+
+
 def _plain_shadow_executor(
     shipped_catalog: CostGovernanceCatalogComposition,
     *,
@@ -687,6 +745,7 @@ async def test_sre_successful_full_loop_closes_only_on_independent_effect_observ
     publisher = RecordingRemediationPrPublisher()
     audit = InMemoryStateStore()
     stages = RecordingStagePublisher()
+    clock = _replay_clock(scenario)
     loop, _, _, executor = _make_loop(
         shipped_catalog,
         publisher=publisher,
@@ -695,6 +754,7 @@ async def test_sre_successful_full_loop_closes_only_on_independent_effect_observ
         stage_publisher=stages,
         expected_effect_provider=source.predict,
         effect_observer=source.observe,
+        clock=clock,
     )
     assert type(executor) is ShadowExecutor, (
         "the successful full loop MUST NOT run on a self-attesting executor"
@@ -729,6 +789,10 @@ async def test_sre_successful_full_loop_closes_only_on_independent_effect_observ
     assert effect[0]["verification_reason"] == "within_acceptable_range"
     assert effect[0]["prediction_id"] == evidence["prediction_id"]
     assert effect[0]["observed_value"] == evidence["authoritative_observation"]["value"]
+    # The closure is only meaningful if the observation could have seen the
+    # dispatch: creation, prediction, dispatch, observation, and recording
+    # MUST be ordered on the frozen timeline.
+    _assert_temporal_lineage(effect[0], scenario)
 
     measurement = [
         entry for entry in entries if entry.get("action_kind") == "measurement.action_outcome.v1"
@@ -757,7 +821,9 @@ async def test_sre_successful_full_loop_closes_only_on_independent_effect_observ
 
 @requires_opa
 @pytest.mark.asyncio
-@pytest.mark.parametrize("kind", ["missing", "stale", "incomplete", "conflicting"])
+@pytest.mark.parametrize(
+    "kind", ["missing", "stale", "incomplete", "conflicting", "not_yet_recorded"]
+)
 async def test_sre_full_loop_fails_closed_on_deficient_effect_evidence(
     kind: str,
     shipped_catalog: CostGovernanceCatalogComposition,
@@ -776,6 +842,7 @@ async def test_sre_full_loop_fails_closed_on_deficient_effect_evidence(
         executor=_plain_shadow_executor(shipped_catalog, publisher=publisher, audit=audit),
         expected_effect_provider=source.predict,
         effect_observer=source.observe,
+        clock=_replay_clock(scenario),
     )
 
     result = await loop.process(_merge_enrichment(scenario["event"], overlay))
@@ -831,6 +898,7 @@ async def test_sre_full_loop_dispatch_without_observation_is_never_success(
         publisher=publisher,
         audit=audit,
         executor=_plain_shadow_executor(shipped_catalog, publisher=publisher, audit=audit),
+        clock=_replay_clock(scenario),
     )
 
     result = await loop.process(_merge_enrichment(scenario["event"], overlay))

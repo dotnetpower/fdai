@@ -15,7 +15,7 @@
   "expected_decision": "auto",
   "expected_citing_rule_id_present": "kubernetes-cluster.diagnostic-settings-required",
   "effect_evidence": {
-    "note": "Frozen independent effect evidence for the SRE `successful_full_loop` dimension. The prediction is bound to the ActionType the replay builds; the authoritative observation comes from a source that never receives the executor receipt, so closure cannot be satisfied by dispatch success. The negative cases are the fail-closed evidence classes: missing, stale, incomplete, and conflicting.",
+    "note": "Frozen independent effect evidence for the SRE `successful_full_loop` dimension. The prediction is bound to the ActionType the replay builds; the authoritative observation comes from a source that never receives the executor receipt, so closure cannot be satisfied by dispatch success. The negative cases are the fail-closed evidence classes: missing, stale, incomplete, conflicting, and not-yet-recorded.",
     "prediction_id": "sre-successful-full-loop-v2026-07",
     "metric": "diagnostic_settings_configured_count",
     "acceptable_min": 1.0,
@@ -72,6 +72,18 @@
         "expected_verification_status": "mismatch",
         "expected_verification_reason": "value_outside_acceptable_range",
         "expected_response_label": "mismatch"
+      },
+      {
+        "kind": "not_yet_recorded",
+        "note": "The observation carries a value the prediction accepts and a time inside the effect window, but a time later than the moment the comparison is recorded on the replay timeline, so it has not happened yet from the recorder's point of view and cannot be scored.",
+        "observation": {
+          "observation_source": "example-diagnostic-settings-readback",
+          "value": 1.0,
+          "observed_at": "2026-07-05T08:02:02Z"
+        },
+        "expected_verification_status": "hold",
+        "expected_verification_reason": "observation_not_yet_recorded",
+        "expected_response_label": "unscorable"
       }
     ]
   },
