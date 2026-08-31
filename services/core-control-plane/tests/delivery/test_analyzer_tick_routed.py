@@ -111,6 +111,11 @@ class PublicationLedger:
         self.keys.remove(idempotency_key)
 
 
+class ReceiptStore:
+    async def record(self, receipt: object) -> None:
+        del receipt
+
+
 def _routed() -> tuple[RoutedMetricProvider, StubBackend, StubBackend]:
     prometheus = StubBackend("prometheus", {"node_cpu_percent": 93.0, "pod_restart_count": 0.0})
     monitor_logs = StubBackend("monitor_logs", {"cpu_percent": 95.0, "active_connections": 12.0})
@@ -130,6 +135,7 @@ def _runner(provider: RoutedMetricProvider, bus: RecordingBus) -> AnalyzerTickRu
         ),
         event_bus=bus,  # type: ignore[arg-type]
         publication_ledger=PublicationLedger(),
+        receipt_store=ReceiptStore(),  # type: ignore[arg-type]
         window_seconds=300,
         clock=lambda: NOW,
     )

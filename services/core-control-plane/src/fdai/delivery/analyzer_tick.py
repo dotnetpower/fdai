@@ -47,6 +47,15 @@ class AnalyzerPublicationStatus(StrEnum):
     FAILED = "failed"
 
 
+class AnalyzerEvidenceState(StrEnum):
+    """Completeness classification exposed by the bounded finding receipt."""
+
+    COMPLETE = "complete"
+    INCOMPLETE = "incomplete"
+    CONFLICTING = "conflicting"
+    MISSED = "missed"
+
+
 class AnalyzerPublicationClaimStatus(StrEnum):
     """State returned by the durable publication ledger."""
 
@@ -70,23 +79,74 @@ class AnalyzerFindingReceipt:
     """Join timing, evidence, publication, and recovery for one finding."""
 
     idempotency_key: str
+    resource_ref: str
+    resource_kind: str
     signal: str
+    occurred_at: datetime
+    recorded_at: datetime
+    current_state: str
     detection_latency_seconds: float
     evidence_complete: bool
+    evidence_state: AnalyzerEvidenceState
     publication: AnalyzerPublicationStatus
     recovery_closed: bool | None
     evidence_refs: tuple[str, ...]
+    cause_claim_supported: bool = False
+    execution_authority: bool = False
+
+    def __post_init__(self) -> None:
+        for field_name, maximum in (
+            ("idempotency_key", 1024),
+            ("resource_ref", 512),
+            ("resource_kind", 128),
+            ("signal", 128),
+            ("current_state", 128),
+        ):
+            value = getattr(self, field_name)
+            if not value.strip() or len(value) > maximum:
+                raise ValueError(f"AnalyzerFindingReceipt.{field_name} MUST be bounded text")
+        if self.occurred_at.tzinfo is None or self.recorded_at.tzinfo is None:
+            raise ValueError("AnalyzerFindingReceipt timestamps MUST be timezone-aware")
+        if self.detection_latency_seconds < 0:
+            raise ValueError("AnalyzerFindingReceipt latency MUST be non-negative")
+        if (
+            len(self.evidence_refs) > 128
+            or len(self.evidence_refs) != len(set(self.evidence_refs))
+            or any(not item or len(item) > 512 for item in self.evidence_refs)
+        ):
+            raise ValueError(
+                "AnalyzerFindingReceipt evidence references MUST be bounded and unique"
+            )
+        if self.cause_claim_supported or self.execution_authority:
+            raise ValueError("AnalyzerFindingReceipt MUST remain no-cause and read-only")
 
     def to_dict(self) -> dict[str, object]:
         return {
+            "schema_version": "1.0.0",
             "idempotency_key": self.idempotency_key,
+            "resource_ref": self.resource_ref,
+            "resource_kind": self.resource_kind,
             "signal": self.signal,
+            "occurred_at": self.occurred_at.isoformat(),
+            "recorded_at": self.recorded_at.isoformat(),
+            "current_state": self.current_state,
             "detection_latency_seconds": self.detection_latency_seconds,
             "evidence_complete": self.evidence_complete,
+            "evidence_state": self.evidence_state.value,
             "publication": self.publication.value,
             "recovery_closed": self.recovery_closed,
             "evidence_refs": list(self.evidence_refs),
+            "cause_claim_supported": self.cause_claim_supported,
+            "execution_authority": self.execution_authority,
         }
+
+
+class AnalyzerReceiptStore(Protocol):
+    """Persist bounded finding receipts without granting action authority."""
+
+    async def record(self, receipt: AnalyzerFindingReceipt) -> None:
+        """Record one idempotent publication outcome for later projection."""
+        ...
 
 
 class AnalyzerPublicationLedger(Protocol):
@@ -139,12 +199,13 @@ class AnalyzerTickReport:
     unsupported_targets: tuple[str, ...] = ()
     analyzer_errors: tuple[tuple[str, str], ...] = ()
     publish_errors: tuple[tuple[str, str], ...] = ()
+    receipt_errors: tuple[tuple[str, str], ...] = ()
     receipts: tuple[AnalyzerFindingReceipt, ...] = ()
 
     @property
     def failed(self) -> bool:
         """True when the tick must report a non-zero result to its caller."""
-        return bool(self.publish_errors)
+        return bool(self.publish_errors or self.receipt_errors)
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -155,6 +216,7 @@ class AnalyzerTickReport:
             "unsupported_targets": list(self.unsupported_targets),
             "analyzer_errors": [list(item) for item in self.analyzer_errors],
             "publish_errors": [list(item) for item in self.publish_errors],
+            "receipt_errors": [list(item) for item in self.receipt_errors],
             "receipts": [item.to_dict() for item in self.receipts],
         }
 
@@ -179,6 +241,7 @@ class AnalyzerTickRunner:
         "_coordinator",
         "_mode",
         "_publication_ledger",
+        "_receipt_store",
         "_topic",
         "_window_seconds",
     )
@@ -189,6 +252,7 @@ class AnalyzerTickRunner:
         coordinator: InvestigationCoordinator,
         event_bus: EventBus,
         publication_ledger: AnalyzerPublicationLedger,
+        receipt_store: AnalyzerReceiptStore,
         window_seconds: int = DEFAULT_WINDOW_SECONDS,
         topic: str = ANALYZER_EVENT_TOPIC,
         mode: Mode = Mode.SHADOW,
@@ -199,6 +263,7 @@ class AnalyzerTickRunner:
         self._coordinator = coordinator
         self._bus = event_bus
         self._publication_ledger = publication_ledger
+        self._receipt_store = receipt_store
         self._window_seconds = window_seconds
         self._topic = topic
         self._mode = mode
@@ -231,6 +296,7 @@ class AnalyzerTickRunner:
         published = 0
         duplicates_suppressed = 0
         publish_errors: list[tuple[str, str]] = []
+        receipt_errors: list[tuple[str, str]] = []
         receipts: list[AnalyzerFindingReceipt] = []
         for finding in report.findings:
             event = self._build_event(
@@ -241,26 +307,26 @@ class AnalyzerTickRunner:
             claim = await self._publication_ledger.claim(event.idempotency_key)
             if claim.status is AnalyzerPublicationClaimStatus.COMPLETED:
                 duplicates_suppressed += 1
-                receipts.append(
-                    _finding_receipt(
-                        finding,
-                        event=event,
-                        at=self._clock(),
-                        publication=AnalyzerPublicationStatus.DUPLICATE_SUPPRESSED,
-                    )
+                receipt = _finding_receipt(
+                    finding,
+                    event=event,
+                    at=self._clock(),
+                    publication=AnalyzerPublicationStatus.DUPLICATE_SUPPRESSED,
                 )
+                receipts.append(receipt)
+                await self._record_receipt(receipt, receipt_errors)
                 continue
             if claim.status is AnalyzerPublicationClaimStatus.IN_PROGRESS:
                 error = "RuntimeError:publication_claim_in_progress"
                 publish_errors.append((event.idempotency_key, error))
-                receipts.append(
-                    _finding_receipt(
-                        finding,
-                        event=event,
-                        at=self._clock(),
-                        publication=AnalyzerPublicationStatus.FAILED,
-                    )
+                receipt = _finding_receipt(
+                    finding,
+                    event=event,
+                    at=self._clock(),
+                    publication=AnalyzerPublicationStatus.FAILED,
                 )
+                receipts.append(receipt)
+                await self._record_receipt(receipt, receipt_errors)
                 continue
             try:
                 broker_receipt = await self._bus.publish(
@@ -279,14 +345,14 @@ class AnalyzerTickRunner:
                 else:
                     error = f"{type(exc).__name__}:{exc}"
                 publish_errors.append((event.idempotency_key, error))
-                receipts.append(
-                    _finding_receipt(
-                        finding,
-                        event=event,
-                        at=self._clock(),
-                        publication=AnalyzerPublicationStatus.FAILED,
-                    )
+                receipt = _finding_receipt(
+                    finding,
+                    event=event,
+                    at=self._clock(),
+                    publication=AnalyzerPublicationStatus.FAILED,
                 )
+                receipts.append(receipt)
+                await self._record_receipt(receipt, receipt_errors)
                 _LOGGER.warning(
                     "analyzer_publish_failed",
                     extra={"idempotency_key": event.idempotency_key, "error": error},
@@ -302,28 +368,28 @@ class AnalyzerTickRunner:
                 error = f"publication_receipt={type(exc).__name__}:{exc}"
                 publish_errors.append((event.idempotency_key, error))
                 published += 1
-                receipts.append(
-                    _finding_receipt(
-                        finding,
-                        event=event,
-                        at=self._clock(),
-                        publication=AnalyzerPublicationStatus.PUBLISHED_RECEIPT_UNRECORDED,
-                    )
+                receipt = _finding_receipt(
+                    finding,
+                    event=event,
+                    at=self._clock(),
+                    publication=AnalyzerPublicationStatus.PUBLISHED_RECEIPT_UNRECORDED,
                 )
+                receipts.append(receipt)
+                await self._record_receipt(receipt, receipt_errors)
                 _LOGGER.warning(
                     "analyzer_publication_receipt_failed",
                     extra={"idempotency_key": event.idempotency_key, "error": error},
                 )
                 continue
             published += 1
-            receipts.append(
-                _finding_receipt(
-                    finding,
-                    event=event,
-                    at=self._clock(),
-                    publication=AnalyzerPublicationStatus.PUBLISHED,
-                )
+            receipt = _finding_receipt(
+                finding,
+                event=event,
+                at=self._clock(),
+                publication=AnalyzerPublicationStatus.PUBLISHED,
             )
+            receipts.append(receipt)
+            await self._record_receipt(receipt, receipt_errors)
 
         return AnalyzerTickReport(
             targets=len(targets),
@@ -333,8 +399,24 @@ class AnalyzerTickRunner:
             unsupported_targets=unsupported,
             analyzer_errors=analyzer_errors,
             publish_errors=tuple(publish_errors),
+            receipt_errors=tuple(receipt_errors),
             receipts=tuple(receipts),
         )
+
+    async def _record_receipt(
+        self,
+        receipt: AnalyzerFindingReceipt,
+        errors: list[tuple[str, str]],
+    ) -> None:
+        try:
+            await self._receipt_store.record(receipt)
+        except Exception as exc:  # noqa: BLE001 - receipt loss must fail the bounded tick
+            error = f"{type(exc).__name__}:{exc}"
+            errors.append((receipt.idempotency_key, error))
+            _LOGGER.warning(
+                "analyzer_finding_receipt_failed",
+                extra={"idempotency_key": receipt.idempotency_key, "error": error},
+            )
 
     def _build_event(
         self,
@@ -387,9 +469,15 @@ def _finding_receipt(
         raise ValueError(f"analyzer finding {finding.signal!r} occurred after its publication tick")
     return AnalyzerFindingReceipt(
         idempotency_key=event.idempotency_key,
+        resource_ref=finding.resource_ref,
+        resource_kind=finding.resource_kind,
         signal=finding.signal,
+        occurred_at=finding.occurred_at,
+        recorded_at=at,
+        current_state=_metadata_text(finding.metadata, "current_state") or "unknown",
         detection_latency_seconds=latency,
         evidence_complete=_metadata_bool(finding.metadata, "evidence_complete") is True,
+        evidence_state=_evidence_state(finding),
         publication=publication,
         recovery_closed=_metadata_bool(finding.metadata, "recovery_closed"),
         evidence_refs=finding.evidence_refs,
@@ -407,15 +495,40 @@ def _metadata_bool(metadata: Mapping[str, Any], key: str) -> bool | None:
     raise ValueError(f"analyzer finding metadata {key!r} MUST be 'true' or 'false'")
 
 
+def _metadata_text(metadata: Mapping[str, Any], key: str) -> str | None:
+    value = metadata.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip() or len(value) > 128:
+        raise ValueError(f"analyzer finding metadata {key!r} MUST be bounded non-empty text")
+    return value
+
+
+def _evidence_state(finding: AnalyzerFinding) -> AnalyzerEvidenceState:
+    declared = _metadata_text(finding.metadata, "evidence_state")
+    if declared is not None:
+        try:
+            return AnalyzerEvidenceState(declared)
+        except ValueError as exc:
+            raise ValueError("analyzer finding metadata 'evidence_state' is invalid") from exc
+    if finding.signal == "conflicting_evidence":
+        return AnalyzerEvidenceState.CONFLICTING
+    if _metadata_bool(finding.metadata, "evidence_complete") is not True:
+        return AnalyzerEvidenceState.INCOMPLETE
+    return AnalyzerEvidenceState.COMPLETE
+
+
 __all__ = [
     "ANALYZER_EVENT_SOURCE",
     "ANALYZER_EVENT_TOPIC",
     "DEFAULT_WINDOW_SECONDS",
     "AnalyzerFindingReceipt",
+    "AnalyzerEvidenceState",
     "AnalyzerPublicationClaim",
     "AnalyzerPublicationClaimStatus",
     "AnalyzerPublicationLedger",
     "AnalyzerPublicationStatus",
+    "AnalyzerReceiptStore",
     "AnalyzerTarget",
     "AnalyzerTickReport",
     "AnalyzerTickRunner",

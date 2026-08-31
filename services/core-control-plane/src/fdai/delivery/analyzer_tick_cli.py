@@ -29,6 +29,7 @@ import httpx
 
 from fdai.composition import attach_metric_provider, default_container_from_env
 from fdai.core.investigation import InvestigationCoordinator, default_analyzers
+from fdai.delivery.analyzer_receipt_store import StateStoreAnalyzerReceiptStore
 from fdai.delivery.analyzer_targets import (
     DEFAULT_MAX_DISCOVERED,
     MAX_DISCOVERED_CEILING,
@@ -56,6 +57,8 @@ from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentit
 from fdai.delivery.persistence import (
     PostgresOntologyInstanceStore,
     PostgresOntologyInstanceStoreConfig,
+    PostgresStateStore,
+    PostgresStateStoreConfig,
 )
 from fdai.delivery.persistence.postgres_analyzer_publication import (
     PostgresAnalyzerPublicationLedger,
@@ -413,6 +416,21 @@ def build_publication_ledger() -> PostgresAnalyzerPublicationLedger:
     )
 
 
+def build_receipt_store() -> StateStoreAnalyzerReceiptStore:
+    """Bind the bounded receipt projection to the same tracked-state database."""
+
+    dsn = os.environ.get(STATE_STORE_DSN_ENV, "").strip()
+    if not dsn:
+        raise RuntimeError(f"{STATE_STORE_DSN_ENV} is required for analyzer finding receipts")
+    return StateStoreAnalyzerReceiptStore(
+        PostgresStateStore(
+            config=PostgresStateStoreConfig(
+                dsn=dsn.replace("postgresql+psycopg://", "postgresql://", 1)
+            )
+        )
+    )
+
+
 async def run_once() -> AnalyzerJobReport:
     """Compose the tick from the environment and run one analyzer pass."""
     configured = parse_targets(os.environ.get(TARGETS_ENV, ""))
@@ -471,6 +489,7 @@ async def run_once() -> AnalyzerJobReport:
                     ),
                     event_bus=bus,
                     publication_ledger=build_publication_ledger(),
+                    receipt_store=build_receipt_store(),
                     window_seconds=window_seconds,
                     topic=topic,
                 ).run_once(targets)

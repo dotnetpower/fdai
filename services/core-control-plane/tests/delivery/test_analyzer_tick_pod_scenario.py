@@ -15,6 +15,10 @@ from fdai.core.ontology_platform.kubernetes_pod_replacement_evidence import (
     PodTerminationObservation,
     evaluate_kubernetes_pod_replacement,
 )
+from fdai.delivery.analyzer_receipt_store import (
+    ANALYZER_RECEIPT_STATE_PREFIX,
+    StateStoreAnalyzerReceiptStore,
+)
 from fdai.delivery.analyzer_tick import (
     AnalyzerPublicationClaim,
     AnalyzerPublicationClaimStatus,
@@ -29,6 +33,7 @@ from fdai.shared.providers.state_evidence import (
     StateFactLane,
     StateFactMetadata,
 )
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _CUTOFF = datetime(2026, 8, 27, 8, 0, tzinfo=UTC)
 _WINDOW_START = _CUTOFF - timedelta(minutes=30)
@@ -243,6 +248,14 @@ def _finding(
         ),
         metadata={
             "evidence_complete": str(result.complete).lower(),
+            "evidence_state": (
+                "conflicting"
+                if result.status is KubernetesPodReplacementStatus.CONFLICTING_EVIDENCE
+                else "incomplete"
+                if not result.complete
+                else "complete"
+            ),
+            "current_state": "running" if result.recovery_verified else "unknown",
             "recovery_closed": str(result.recovery_verified).lower(),
         },
     )
@@ -269,6 +282,7 @@ async def test_analyzer_path_joins_restart_replacement_and_recovery_receipts() -
     same_ref = "scenario/same-uid"
     replacement_ref = "scenario/distinct-uid"
     bus = _ScenarioBus()
+    state_store = InMemoryStateStore()
     runner = AnalyzerTickRunner(
         coordinator=InvestigationCoordinator(
             analyzers=(
@@ -286,6 +300,7 @@ async def test_analyzer_path_joins_restart_replacement_and_recovery_receipts() -
         ),
         event_bus=bus,  # type: ignore[arg-type]
         publication_ledger=_ScenarioPublicationLedger(),
+        receipt_store=StateStoreAnalyzerReceiptStore(state_store),
         window_seconds=300,
         clock=lambda: _CUTOFF,
     )
@@ -301,12 +316,25 @@ async def test_analyzer_path_joins_restart_replacement_and_recovery_receipts() -
     assert duplicate.published == 0
     assert duplicate.duplicates_suppressed == 2
     assert len(bus.published) == 2
+    stored = await state_store.read_states(ANALYZER_RECEIPT_STATE_PREFIX, limit=10)
+    assert len(stored) == 4
+    assert {item["publication"] for item in stored} == {
+        "published",
+        "duplicate_suppressed",
+    }
     replacement_receipt = next(item for item in first.receipts if item.signal == "pod_replacement")
     assert replacement_receipt.to_dict() == {
+        "schema_version": "1.0.0",
         "idempotency_key": replacement_receipt.idempotency_key,
+        "resource_ref": "scenario/distinct-uid",
+        "resource_kind": "kubernetes_pod",
         "signal": "pod_replacement",
+        "occurred_at": "2026-08-27T07:59:53+00:00",
+        "recorded_at": "2026-08-27T08:00:00+00:00",
+        "current_state": "running",
         "detection_latency_seconds": 7.0,
         "evidence_complete": True,
+        "evidence_state": "complete",
         "publication": "published",
         "recovery_closed": True,
         "evidence_refs": [
@@ -315,4 +343,71 @@ async def test_analyzer_path_joins_restart_replacement_and_recovery_receipts() -
             "pod-old",
             "termination-old",
         ],
+        "cause_claim_supported": False,
+        "execution_authority": False,
     }
+
+
+async def test_analyzer_path_retains_missed_and_conflicting_evidence_without_cause() -> None:
+    old_pod = _old_pod()
+    missed = _evaluate(old_pod, replace(_new_pod(), root_controller_uid="other-deployment"))
+    conflicting = _evaluate(
+        old_pod,
+        replace(
+            _new_pod(),
+            pod_id=old_pod.pod_id,
+            pod_uid=old_pod.pod_uid,
+            created_at=old_pod.created_at + timedelta(seconds=1),
+            restart_count=1,
+        ),
+    )
+    assert missed.status is KubernetesPodReplacementStatus.INSUFFICIENT_EVIDENCE
+    assert conflicting.status is KubernetesPodReplacementStatus.CONFLICTING_EVIDENCE
+
+    missed_ref = "scenario/missed-evidence"
+    conflict_ref = "scenario/conflicting-evidence"
+    missed_finding = replace(
+        _finding(missed_ref, missed, latency_seconds=9),
+        metadata={
+            "evidence_complete": "false",
+            "evidence_state": "missed",
+            "current_state": "unknown",
+            "recovery_closed": "false",
+        },
+    )
+    bus = _ScenarioBus()
+    state_store = InMemoryStateStore()
+    runner = AnalyzerTickRunner(
+        coordinator=InvestigationCoordinator(
+            analyzers=(
+                _PodScenarioAnalyzer(
+                    {
+                        missed_ref: missed_finding,
+                        conflict_ref: _finding(conflict_ref, conflicting, latency_seconds=8),
+                    }
+                ),
+            )
+        ),
+        event_bus=bus,  # type: ignore[arg-type]
+        publication_ledger=_ScenarioPublicationLedger(),
+        receipt_store=StateStoreAnalyzerReceiptStore(state_store),
+        window_seconds=300,
+        clock=lambda: _CUTOFF,
+    )
+
+    report = await runner.run_once(
+        (
+            AnalyzerTarget(resource_ref=missed_ref, resource_kind="kubernetes_pod"),
+            AnalyzerTarget(resource_ref=conflict_ref, resource_kind="kubernetes_pod"),
+        )
+    )
+
+    states = {item.resource_ref: item.evidence_state.value for item in report.receipts}
+    assert states == {
+        missed_ref: "missed",
+        conflict_ref: "conflicting",
+    }
+    assert all(item.cause_claim_supported is False for item in report.receipts)
+    assert all(item.execution_authority is False for item in report.receipts)
+    stored = await state_store.read_states(ANALYZER_RECEIPT_STATE_PREFIX, limit=10)
+    assert {item["evidence_state"] for item in stored} == {"missed", "conflicting"}

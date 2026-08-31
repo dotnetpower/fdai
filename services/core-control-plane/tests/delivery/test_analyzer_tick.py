@@ -129,17 +129,30 @@ class RecordingPublicationLedger:
         self.claimed.remove(idempotency_key)
 
 
+class RecordingReceiptStore:
+    def __init__(self, *, fail: bool = False) -> None:
+        self.receipts: list[object] = []
+        self._fail = fail
+
+    async def record(self, receipt: object) -> None:
+        if self._fail:
+            raise RuntimeError("receipt store unavailable")
+        self.receipts.append(receipt)
+
+
 def _runner(
     coordinator: InvestigationCoordinator,
     bus: RecordingBus,
     *,
     ledger: RecordingPublicationLedger | None = None,
+    receipt_store: RecordingReceiptStore | None = None,
     clock: Callable[[], datetime] = lambda: NOW,
 ) -> AnalyzerTickRunner:
     return AnalyzerTickRunner(
         coordinator=coordinator,
         event_bus=bus,  # type: ignore[arg-type]
         publication_ledger=ledger or RecordingPublicationLedger(),
+        receipt_store=receipt_store or RecordingReceiptStore(),  # type: ignore[arg-type]
         window_seconds=300,
         clock=clock,
     )
@@ -233,6 +246,22 @@ async def test_receipt_latency_uses_post_analysis_broker_ack_time() -> None:
 
     assert bus.published[0][2]["ingested_at"] == "2026-08-15T12:00:20Z"
     assert report.receipts[0].detection_latency_seconds == 21.0
+
+
+@pytest.mark.asyncio
+async def test_receipt_store_failure_fails_the_tick_without_hiding_publication() -> None:
+    bus = RecordingBus()
+    report = await _runner(
+        StubCoordinator(findings=(_finding(),)),
+        bus,
+        receipt_store=RecordingReceiptStore(fail=True),
+    ).run_once((AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),))
+
+    assert report.published == 1
+    assert report.failed
+    assert report.receipt_errors == (
+        (report.receipts[0].idempotency_key, "RuntimeError:receipt store unavailable"),
+    )
 
 
 @pytest.mark.asyncio
@@ -335,6 +364,7 @@ def test_runner_rejects_a_non_positive_window() -> None:
             coordinator=StubCoordinator(),
             event_bus=RecordingBus(),  # type: ignore[arg-type]
             publication_ledger=RecordingPublicationLedger(),
+            receipt_store=RecordingReceiptStore(),  # type: ignore[arg-type]
             window_seconds=0,
         )
 

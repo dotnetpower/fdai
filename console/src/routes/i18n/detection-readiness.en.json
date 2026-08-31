@@ -18,6 +18,56 @@
   "targetTitle": "Target readiness",
   "emptyTitle": "No detection readiness snapshots",
   "emptyBody": "No target has completed the Huginn to Heimdall to Muninn evidence path.",
+  "lifecycle": {
+    "title": "Pod lifecycle evidence",
+    "description": "Current observed state stays separate from retained restart, replacement, publication, and recovery history.",
+    "observedAt": "Last receipt {at}",
+    "assessments": "Assessments",
+    "incomplete": "Incomplete or missed",
+    "conflicting": "Conflicting",
+    "emptyTitle": "No analyzer lifecycle receipts",
+    "emptyBody": "No bounded analyzer finding receipt has been retained for this deployment.",
+    "currentRegion": "Current lifecycle assessment for {target}",
+    "current": "Current state and latest assessment",
+    "history": "Earlier failure and recovery history ({count})",
+    "noHistory": "No earlier assessment is retained for this target.",
+    "boundary": "Read-only bounded receipts from {source}. They carry no cause claim or execution authority.",
+    "currentState": "Current observed state",
+    "currentStateValue": {
+      "running": "Running",
+      "failed": "Failed",
+      "unknown": "Unknown"
+    },
+    "event": "Lifecycle event",
+    "signal": {
+      "container_restart": "Container restart",
+      "pod_replacement": "Pod replacement",
+      "insufficient_evidence": "Insufficient evidence",
+      "conflicting_evidence": "Conflicting evidence"
+    },
+    "occurredAt": "Observed event time",
+    "latency": "Detection latency",
+    "seconds": "{value} seconds",
+    "evidenceRefs": "Evidence references",
+    "duplicateObserved": "A duplicate delivery was observed and suppressed without republishing the finding.",
+    "evidence": {
+      "complete": "Evidence complete",
+      "incomplete": "Evidence incomplete",
+      "conflicting": "Evidence conflicting",
+      "missed": "Evidence missed"
+    },
+    "recovery": {
+      "verified": "Recovery verified",
+      "open": "Recovery not verified",
+      "unknown": "Recovery unknown"
+    },
+    "publication": {
+      "published": "Published",
+      "published_receipt_unrecorded": "Broker receipt unrecorded",
+      "duplicate_suppressed": "Duplicate suppressed",
+      "failed": "Publication failed"
+    }
+  },
   "gapSummary": "Missing {missing}, stale {stale}",
   "column": {
     "target": "Target",
