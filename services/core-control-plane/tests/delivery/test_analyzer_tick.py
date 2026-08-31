@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from uuid import UUID
 
 import pytest
 from fdai.core.investigation import (
@@ -21,7 +22,6 @@ from fdai.delivery.analyzer_tick import (
     ANALYZER_EVENT_SOURCE,
     ANALYZER_EVENT_TOPIC,
     AnalyzerPublicationClaim,
-    AnalyzerPublicationClaimStatus,
     AnalyzerTarget,
     AnalyzerTickRunner,
     analyzer_idempotency_key,
@@ -35,9 +35,17 @@ from fdai.delivery.analyzer_tick_cli import (
     parse_trace_topologies,
     parse_window_seconds,
 )
+from fdai.delivery.persistence.postgres_analyzer_publication import (
+    PostgresAnalyzerPublicationLedger,
+)
 from fdai.shared.contracts.models import Mode, Severity
-from fdai.shared.providers.event_bus import PublishReceipt
+from fdai.shared.providers.event_bus import (
+    EventPublishNotAttemptedError,
+    PublishReceipt,
+)
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+from tests.delivery.publication_store import ConditionalStore
 
 NOW = datetime(2026, 8, 15, 12, 0, tzinfo=UTC)
 
@@ -89,30 +97,44 @@ class RecordingBus:
         return PublishReceipt(topic=topic, partition=0, offset=len(self.published) - 1)
 
 
-class RecordingPublicationLedger:
-    def __init__(self, *, fail_complete: bool = False) -> None:
-        self.claimed: set[str] = set()
-        self.completed: dict[str, PublishReceipt] = {}
+class FailingLedger:
+    """Wrap the durable ledger and fail one exact transition."""
+
+    def __init__(
+        self,
+        inner: PostgresAnalyzerPublicationLedger,
+        *,
+        fail_complete: bool = False,
+        fail_claim_on: str | None = None,
+        fail_sending: bool = False,
+    ) -> None:
+        self._inner = inner
         self._fail_complete = fail_complete
+        self._fail_claim_on = fail_claim_on
+        self._fail_sending = fail_sending
 
     async def claim(self, idempotency_key: str) -> AnalyzerPublicationClaim:
-        if idempotency_key in self.claimed:
-            if idempotency_key not in self.completed:
-                return AnalyzerPublicationClaim(
-                    status=AnalyzerPublicationClaimStatus.IN_PROGRESS,
-                    token=idempotency_key,
-                    claimed_at=NOW,
-                )
-            return AnalyzerPublicationClaim(
-                status=AnalyzerPublicationClaimStatus.COMPLETED,
-                receipt=self.completed[idempotency_key],
-            )
-        self.claimed.add(idempotency_key)
-        return AnalyzerPublicationClaim(
-            status=AnalyzerPublicationClaimStatus.NEW,
-            token=idempotency_key,
-            claimed_at=NOW,
-        )
+        if self._fail_claim_on is not None and self._fail_claim_on in idempotency_key:
+            raise RuntimeError("claim store unavailable")
+        return await self._inner.claim(idempotency_key)
+
+    async def mark_sending(
+        self,
+        idempotency_key: str,
+        claim: AnalyzerPublicationClaim,
+    ) -> AnalyzerPublicationClaim:
+        if self._fail_sending:
+            raise RuntimeError("store unavailable")
+        return await self._inner.mark_sending(idempotency_key, claim)
+
+    async def mark_uncertain(
+        self,
+        idempotency_key: str,
+        claim: AnalyzerPublicationClaim,
+        *,
+        reason: str,
+    ) -> AnalyzerPublicationClaim:
+        return await self._inner.mark_uncertain(idempotency_key, claim, reason=reason)
 
     async def complete(
         self,
@@ -120,18 +142,44 @@ class RecordingPublicationLedger:
         claim: AnalyzerPublicationClaim,
         receipt: PublishReceipt,
     ) -> None:
-        assert claim.status is AnalyzerPublicationClaimStatus.NEW
         if self._fail_complete:
             raise RuntimeError("store unavailable")
-        self.completed[idempotency_key] = receipt
+        await self._inner.complete(idempotency_key, claim, receipt)
 
     async def release(
         self,
         idempotency_key: str,
         claim: AnalyzerPublicationClaim,
+        *,
+        provably_unsent: bool = False,
     ) -> None:
-        assert claim.status is AnalyzerPublicationClaimStatus.NEW
-        self.claimed.remove(idempotency_key)
+        await self._inner.release(idempotency_key, claim, provably_unsent=provably_unsent)
+
+
+class RecordingReconciler:
+    """Return one pre-decided independent observation per key."""
+
+    def __init__(
+        self,
+        *,
+        receipt: PublishReceipt | None = None,
+        undecidable: bool = False,
+    ) -> None:
+        self.calls: list[str] = []
+        self._receipt = receipt
+        self._undecidable = undecidable
+
+    async def reconcile(
+        self,
+        *,
+        event_id: UUID,
+        idempotency_key: str,
+        topic: str,
+    ) -> PublishReceipt | None:
+        self.calls.append(idempotency_key)
+        if self._undecidable:
+            raise RuntimeError("broker history unavailable")
+        return self._receipt
 
 
 class RecordingReceiptStore:
@@ -145,19 +193,30 @@ class RecordingReceiptStore:
         self.receipts.append(receipt)
 
 
+def _ledger(store: ConditionalStore | None = None, **kwargs: object) -> FailingLedger:
+    inner = PostgresAnalyzerPublicationLedger(store=store or ConditionalStore())
+    return FailingLedger(inner, **kwargs)  # type: ignore[arg-type]
+
+
+def _states(store: ConditionalStore) -> list[str]:
+    return [str(record["state"]) for record in store.values.values()]
+
+
 def _runner(
     coordinator: InvestigationCoordinator,
     bus: RecordingBus,
     *,
-    ledger: RecordingPublicationLedger | None = None,
+    ledger: FailingLedger | None = None,
+    reconciler: RecordingReconciler | None = None,
     receipt_store: RecordingReceiptStore | None = None,
     clock: Callable[[], datetime] = lambda: NOW,
 ) -> AnalyzerTickRunner:
     return AnalyzerTickRunner(
         coordinator=coordinator,
         event_bus=bus,  # type: ignore[arg-type]
-        publication_ledger=ledger or RecordingPublicationLedger(),
-        receipt_store=receipt_store or RecordingReceiptStore(),  # type: ignore[arg-type]
+        publication_ledger=ledger or _ledger(),  # type: ignore[arg-type]
+        publication_reconciler=reconciler,  # type: ignore[arg-type]
+        receipt_store=receipt_store,  # type: ignore[arg-type]
         window_seconds=300,
         clock=clock,
     )
@@ -215,7 +274,7 @@ def test_idempotency_key_is_stable_inside_one_window() -> None:
 @pytest.mark.asyncio
 async def test_a_retried_tick_suppresses_the_same_key() -> None:
     bus = RecordingBus()
-    ledger = RecordingPublicationLedger()
+    ledger = _ledger()
     runner = _runner(StubCoordinator(findings=(_finding(),)), bus, ledger=ledger)
     targets = (AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),)
 
@@ -254,32 +313,17 @@ async def test_receipt_latency_uses_post_analysis_broker_ack_time() -> None:
 
 
 @pytest.mark.asyncio
-async def test_receipt_store_failure_fails_the_tick_without_hiding_publication() -> None:
-    bus = RecordingBus()
-    report = await _runner(
-        StubCoordinator(findings=(_finding(),)),
-        bus,
-        receipt_store=RecordingReceiptStore(fail=True),
-    ).run_once((AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),))
-
-    assert report.published == 1
-    assert report.failed
-    assert report.receipt_errors == (
-        (report.receipts[0].idempotency_key, "RuntimeError:receipt store unavailable"),
-    )
-
-
-@pytest.mark.asyncio
 async def test_active_publication_claim_fails_tick_without_publishing() -> None:
     bus = RecordingBus()
-    ledger = RecordingPublicationLedger()
+    store = ConditionalStore()
+    ledger = _ledger(store)
     key = analyzer_idempotency_key(_finding(), at=NOW, window_seconds=300)
-    ledger.claimed.add(key)
+    await ledger.claim(key)
 
     report = await _runner(
         StubCoordinator(findings=(_finding(),)),
         bus,
-        ledger=ledger,
+        ledger=_ledger(store),
     ).run_once((AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),))
 
     assert report.failed
@@ -289,9 +333,33 @@ async def test_active_publication_claim_fails_tick_without_publishing() -> None:
 
 
 @pytest.mark.asyncio
+async def test_unreadable_publication_claim_fails_closed_for_that_finding_only() -> None:
+    bus = RecordingBus()
+    ledger = _ledger(fail_claim_on="res-1")
+    coordinator = StubCoordinator(
+        findings=(_finding(resource_ref="res-1"), _finding(resource_ref="res-2"))
+    )
+
+    report = await _runner(coordinator, bus, ledger=ledger).run_once(
+        (
+            AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),
+            AnalyzerTarget(resource_ref="res-2", resource_kind="aks"),
+        )
+    )
+
+    assert report.failed
+    assert report.published == 1
+    assert report.duplicates_suppressed == 0
+    assert [key for _, key, _ in bus.published] == ["res-2"]
+    blocked = next(item for item in report.receipts if "res-1" in item.idempotency_key)
+    assert blocked.publication.value == "failed"
+    assert report.publish_errors[0][1] == ("publication_claim=RuntimeError:claim store unavailable")
+
+
+@pytest.mark.asyncio
 async def test_broker_success_with_unrecorded_receipt_is_reported_without_release() -> None:
     bus = RecordingBus()
-    ledger = RecordingPublicationLedger(fail_complete=True)
+    ledger = _ledger(fail_complete=True)
 
     report = await _runner(
         StubCoordinator(findings=(_finding(),)),
@@ -306,6 +374,202 @@ async def test_broker_success_with_unrecorded_receipt_is_reported_without_releas
     assert report.publish_errors[0][1] == "publication_receipt=RuntimeError:store unavailable"
 
 
+@pytest.mark.asyncio
+async def test_uncertain_publication_is_not_republished_by_the_next_tick() -> None:
+    bus = RecordingBus()
+    ledger = _ledger(fail_complete=True)
+    runner = _runner(StubCoordinator(findings=(_finding(),)), bus, ledger=ledger)
+    targets = (AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),)
+
+    first = await runner.run_once(targets)
+    second = await runner.run_once(targets)
+
+    assert first.receipts[0].publication.value == "published_receipt_unrecorded"
+    assert second.failed
+    assert second.published == 0
+    assert second.duplicates_suppressed == 0
+    assert len(bus.published) == 1
+    assert second.publish_errors[0][1] == "RuntimeError:publication_claim_in_progress"
+
+
+@pytest.mark.asyncio
+async def test_a_provably_unsent_record_is_released_and_retried_next_tick() -> None:
+    class _FlakyBus(RecordingBus):
+        def __init__(self) -> None:
+            super().__init__()
+            self.attempts = 0
+
+        async def publish(self, topic: str, key: str, payload: dict[str, object]) -> PublishReceipt:
+            self.attempts += 1
+            if self.attempts == 1:
+                raise EventPublishNotAttemptedError("producer unavailable")
+            return await super().publish(topic, key, payload)
+
+    bus = _FlakyBus()
+    store = ConditionalStore()
+    runner = _runner(StubCoordinator(findings=(_finding(),)), bus, ledger=_ledger(store))
+    targets = (AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),)
+
+    first = await runner.run_once(targets)
+    retry = await runner.run_once(targets)
+
+    assert first.failed
+    assert first.uncertain == 0
+    assert first.receipts[0].publication.value == "failed"
+    assert retry.published == 1
+    assert not retry.failed
+    assert len(bus.published) == 1
+    assert _states(store) == ["completed"]
+
+
+@pytest.mark.asyncio
+async def test_an_ambiguous_broker_error_preserves_the_claim_and_blocks_retry() -> None:
+    bus = RecordingBus(fail_on="res-1")
+    store = ConditionalStore()
+    runner = _runner(StubCoordinator(findings=(_finding(),)), bus, ledger=_ledger(store))
+    targets = (AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),)
+
+    first = await runner.run_once(targets)
+    second = await runner.run_once(targets)
+
+    assert first.failed
+    assert first.published == 0
+    assert first.uncertain == 1
+    assert first.receipts[0].publication.value == "publish_uncertain"
+    assert first.publish_errors[0][1] == "publish_uncertain=RuntimeError:broker unavailable"
+    assert _states(store) == ["uncertain"]
+    assert second.published == 0
+    assert second.uncertain == 1
+    assert second.receipts[0].publication.value == "awaiting_reconciliation"
+    assert second.publish_errors[0][1] == "RuntimeError:publication_reconciler_unbound"
+    assert bus.published == []
+
+
+@pytest.mark.asyncio
+async def test_reconciliation_finding_a_broker_receipt_suppresses_the_duplicate() -> None:
+    bus = RecordingBus(fail_on="res-1")
+    store = ConditionalStore()
+    targets = (AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),)
+    await _runner(StubCoordinator(findings=(_finding(),)), bus, ledger=_ledger(store)).run_once(
+        targets
+    )
+    reconciler = RecordingReconciler(
+        receipt=PublishReceipt(topic=ANALYZER_EVENT_TOPIC, partition=0, offset=4)
+    )
+
+    resolved = await _runner(
+        StubCoordinator(findings=(_finding(),)),
+        RecordingBus(),
+        ledger=_ledger(store),
+        reconciler=reconciler,
+    ).run_once(targets)
+
+    assert resolved.published == 0
+    assert resolved.duplicates_suppressed == 1
+    assert not resolved.failed
+    assert resolved.receipts[0].publication.value == "reconciled_duplicate"
+    assert len(reconciler.calls) == 1
+    assert _states(store) == ["completed"]
+
+
+@pytest.mark.asyncio
+async def test_reconciliation_proving_no_send_allows_exactly_one_retry() -> None:
+    store = ConditionalStore()
+    targets = (AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),)
+    await _runner(
+        StubCoordinator(findings=(_finding(),)),
+        RecordingBus(fail_on="res-1"),
+        ledger=_ledger(store),
+    ).run_once(targets)
+    bus = RecordingBus()
+
+    retried = await _runner(
+        StubCoordinator(findings=(_finding(),)),
+        bus,
+        ledger=_ledger(store),
+        reconciler=RecordingReconciler(),
+    ).run_once(targets)
+
+    assert retried.published == 1
+    assert not retried.failed
+    assert len(bus.published) == 1
+    assert _states(store) == ["completed"]
+
+
+@pytest.mark.asyncio
+async def test_an_undecidable_reconciliation_never_republishes() -> None:
+    store = ConditionalStore()
+    targets = (AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),)
+    await _runner(
+        StubCoordinator(findings=(_finding(),)),
+        RecordingBus(fail_on="res-1"),
+        ledger=_ledger(store),
+    ).run_once(targets)
+    bus = RecordingBus()
+
+    blocked = await _runner(
+        StubCoordinator(findings=(_finding(),)),
+        bus,
+        ledger=_ledger(store),
+        reconciler=RecordingReconciler(undecidable=True),
+    ).run_once(targets)
+
+    assert blocked.failed
+    assert blocked.published == 0
+    assert blocked.uncertain == 1
+    assert blocked.receipts[0].publication.value == "awaiting_reconciliation"
+    assert blocked.publish_errors[0][1].startswith("publication_reconcile=RuntimeError:")
+    assert bus.published == []
+    assert _states(store) == ["uncertain"]
+
+
+@pytest.mark.asyncio
+async def test_a_crash_after_an_acknowledged_publish_never_republishes_on_lease_expiry() -> None:
+    bus = RecordingBus()
+    store = ConditionalStore()
+
+    acknowledged = await _runner(
+        StubCoordinator(findings=(_finding(),)),
+        bus,
+        ledger=_ledger(store, fail_complete=True),
+    ).run_once((AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),))
+    assert acknowledged.receipts[0].publication.value == "published_receipt_unrecorded"
+    key = next(iter(store.values))
+    store.values[key]["claimed_at"] = "2026-08-15T00:00:00+00:00"
+
+    expired = AnalyzerTickRunner(
+        coordinator=StubCoordinator(findings=(_finding(),)),
+        event_bus=bus,  # type: ignore[arg-type]
+        publication_ledger=PostgresAnalyzerPublicationLedger(store=store, lease_seconds=1),
+        window_seconds=300,
+        clock=lambda: NOW,
+    )
+    report = await expired.run_once((AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),))
+
+    assert len(bus.published) == 1
+    assert report.published == 0
+    assert report.uncertain == 1
+    assert report.receipts[0].publication.value == "awaiting_reconciliation"
+    assert _states(store) == ["uncertain"]
+
+
+@pytest.mark.asyncio
+async def test_an_unrecorded_send_intent_never_reaches_the_broker() -> None:
+    bus = RecordingBus()
+    store = ConditionalStore()
+
+    report = await _runner(
+        StubCoordinator(findings=(_finding(),)),
+        bus,
+        ledger=_ledger(store, fail_sending=True),
+    ).run_once((AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),))
+
+    assert report.failed
+    assert bus.published == []
+    assert report.publish_errors[0][1] == "publication_intent=RuntimeError:store unavailable"
+    assert store.values == {}
+
+
 # ---------------------------------------------------------------------------
 # Retry and error reporting
 # ---------------------------------------------------------------------------
@@ -314,7 +578,8 @@ async def test_broker_success_with_unrecorded_receipt_is_reported_without_releas
 @pytest.mark.asyncio
 async def test_publish_failure_is_reported_and_does_not_stop_the_pass() -> None:
     bus = RecordingBus(fail_on="res-1")
-    ledger = RecordingPublicationLedger()
+    store = ConditionalStore()
+    ledger = _ledger(store)
     coordinator = StubCoordinator(
         findings=(_finding(resource_ref="res-1"), _finding(resource_ref="res-2"))
     )
@@ -328,9 +593,10 @@ async def test_publish_failure_is_reported_and_does_not_stop_the_pass() -> None:
 
     assert report.published == 1
     assert report.failed
+    assert report.uncertain == 1
     assert len(report.publish_errors) == 1
-    assert report.publish_errors[0][1].startswith("RuntimeError:")
-    assert not any(key.startswith("analyzer:res-1:cpu_saturation:") for key in ledger.claimed)
+    assert report.publish_errors[0][1].startswith("publish_uncertain=RuntimeError:")
+    assert sorted(_states(store)) == ["completed", "uncertain"]
 
 
 @pytest.mark.asyncio
@@ -368,8 +634,7 @@ def test_runner_rejects_a_non_positive_window() -> None:
         AnalyzerTickRunner(
             coordinator=StubCoordinator(),
             event_bus=RecordingBus(),  # type: ignore[arg-type]
-            publication_ledger=RecordingPublicationLedger(),
-            receipt_store=RecordingReceiptStore(),  # type: ignore[arg-type]
+            publication_ledger=_ledger(),
             window_seconds=0,
         )
 
@@ -444,14 +709,26 @@ def test_the_projection_stays_unbound_without_a_database(
 
 
 @pytest.mark.asyncio
+async def test_receipt_store_failure_fails_the_tick_without_hiding_publication() -> None:
+    bus = RecordingBus()
+    report = await _runner(
+        StubCoordinator(findings=(_finding(),)),
+        bus,
+        receipt_store=RecordingReceiptStore(fail=True),
+    ).run_once((AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),))
+
+    assert report.published == 1
+    assert report.failed
+    assert report.receipt_errors == (
+        (report.receipts[0].idempotency_key, "RuntimeError:receipt store unavailable"),
+    )
+
+
+@pytest.mark.asyncio
 async def test_a_persistent_finding_records_receipts_across_repeated_ticks() -> None:
-    # A finding that outlives one tick keeps the same window-bucket idempotency
-    # key, so every later tick re-records the same (key, publication) receipt
-    # with a later recorded_at. That MUST stay idempotent instead of failing the
-    # tick as a receipt identity collision.
     state = InMemoryStateStore()
     receipt_store = StateStoreAnalyzerReceiptStore(state)
-    ledger = RecordingPublicationLedger()
+    ledger = _ledger()
     at = [NOW]
     runner = AnalyzerTickRunner(
         coordinator=StubCoordinator(findings=(_finding(),)),
@@ -470,7 +747,6 @@ async def test_a_persistent_finding_records_receipts_across_repeated_ticks() -> 
 
     assert [report.receipt_errors for report in reports] == [(), (), (), ()]
     assert not any(report.failed for report in reports)
-    # One published receipt plus one duplicate-suppressed receipt per bucket.
     keys = {analyzer_idempotency_key(_finding(), at=NOW, window_seconds=300)}
     records = await state.read_states(ANALYZER_RECEIPT_STATE_PREFIX, limit=10)
     assert len(records) == 2
@@ -479,8 +755,6 @@ async def test_a_persistent_finding_records_receipts_across_repeated_ticks() -> 
         "published",
         "duplicate_suppressed",
     }
-    # The retained duplicate receipt keeps its first observation, so detection
-    # latency stays a detection measurement rather than the finding's age.
     duplicate = next(
         record for record in records if record["publication"] == "duplicate_suppressed"
     )

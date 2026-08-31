@@ -27,6 +27,22 @@ from typing import Any, Protocol, runtime_checkable
 _LOGGER = logging.getLogger(__name__)
 
 
+class EventPublishNotAttemptedError(RuntimeError):
+    """A publish failed before any byte of the record could reach the broker.
+
+    Publishing has three outcomes, not two: acknowledged, provably not sent,
+    and unknown. A caller that owns a duplicate-suppression claim may retry
+    only the provable case, because a timeout, a dropped connection, or a
+    broker error raised after the record left the client MAY still have been
+    accepted.
+
+    An adapter raises this ONLY when the failure happened strictly before the
+    send - producer acquisition, authentication setup, or payload encoding.
+    Every other failure MUST propagate as its own exception so the caller
+    treats it as uncertain and reconciles it before republishing.
+    """
+
+
 @dataclass(frozen=True, slots=True)
 class PublishReceipt:
     """Broker-side acknowledgement of a published record.
@@ -65,6 +81,11 @@ class EventBus(Protocol):
         The Kafka contract preserves order per partition; the caller passes a
         stable ``key`` (typically the affected resource id) so ordering is
         per-resource, not global.
+
+        Raises:
+            EventPublishNotAttemptedError: the record provably never reached the
+                transport, so a caller MAY retry it without reconciliation.
+                Any other exception leaves the outcome unknown.
         """
         ...
 
@@ -153,4 +174,10 @@ async def _close_quietly(
         )
 
 
-__all__ = ["EventBus", "EventEnvelope", "PublishReceipt", "subscription"]
+__all__ = [
+    "EventBus",
+    "EventEnvelope",
+    "EventPublishNotAttemptedError",
+    "PublishReceipt",
+    "subscription",
+]

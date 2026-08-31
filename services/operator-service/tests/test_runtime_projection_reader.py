@@ -559,6 +559,8 @@ async def test_remaining_console_evidence_projects_durable_tables(
             return []
         if "runtime:analyzer-finding-receipt" in statement:
             return []
+        if "runtime:detection-lifecycle" in statement:
+            return []
         if "runtime:configuration-baseline" in statement:
             return []
         if "MAX(created_at)" in statement:
@@ -595,6 +597,7 @@ async def test_remaining_console_evidence_projects_durable_tables(
     assert detection["target_count"] == 0
     assert detection["counts"]["unknown"] == 0
     assert detection["lifecycle"]["target_count"] == 0
+    assert detection["pod_lifecycle"]["target_count"] == 0
     assert baselines["baseline"]["version"] == "not-published"
     assert baselines["drift"]["verdict"] == "not-evaluated"
 

@@ -15,7 +15,6 @@ from fdai.delivery.analyzer_tick_cli import (
     TRACE_WINDOW_ENV,
     AnalyzerJobReport,
     build_publication_ledger,
-    build_receipt_store,
     metric_source_delays,
     parse_loop_interval,
     parse_tick_budget,
@@ -60,7 +59,6 @@ def test_publication_ledger_accepts_the_shared_psycopg_dsn(
     monkeypatch.setenv("FDAI_STATE_STORE_DSN", "postgresql+psycopg://localhost/fdai")
 
     assert build_publication_ledger().__class__.__name__ == "PostgresAnalyzerPublicationLedger"
-    assert build_receipt_store().__class__.__name__ == "StateStoreAnalyzerReceiptStore"
 
 
 def test_trace_window_defaults_to_the_analyzer_window() -> None:

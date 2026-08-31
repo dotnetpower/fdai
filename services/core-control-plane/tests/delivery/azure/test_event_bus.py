@@ -32,6 +32,7 @@ from fdai.delivery.azure.event_bus import (
     _iter_consumer,  # type: ignore[attr-defined]
     _token_refresh_delay,  # type: ignore[attr-defined]
 )
+from fdai.shared.providers.event_bus import EventPublishNotAttemptedError
 from fdai.shared.providers.workload_identity import IdentityToken, WorkloadIdentity
 
 
@@ -312,7 +313,10 @@ async def test_producer_start_failure_stops_partial_producer(
     monkeypatch.setattr(event_bus_module, "AIOKafkaProducer", _StartFailingProducer)
     bus = EventHubsKafkaBus(identity=_StaticIdentity(), config=_cfg())
 
-    with pytest.raises(RuntimeError, match="broker unavailable"):
+    # Producer acquisition happens before any wire send, so the adapter MUST attest that
+    # the record was provably not sent. Only that attestation lets a caller release a
+    # publication claim without reconciliation.
+    with pytest.raises(EventPublishNotAttemptedError, match="broker unavailable"):
         await bus.publish("fdai.control.events", "event-1", {"event_id": "event-1"})
 
     assert len(instances) == 1
@@ -346,8 +350,11 @@ async def test_publish_failure_discards_cached_producer_for_retry(
     monkeypatch.setattr(event_bus_module, "AIOKafkaProducer", _RecoveringProducer)
     bus = EventHubsKafkaBus(identity=_StaticIdentity(), config=_cfg())
 
-    with pytest.raises(RuntimeError, match="producer transport failed"):
+    # A transport failure raised by ``send_and_wait`` is ambiguous: the broker may already
+    # hold the record. The adapter MUST NOT attest that the record was not sent.
+    with pytest.raises(RuntimeError, match="producer transport failed") as failure:
         await bus.publish("fdai.control.events", "event-1", {"event_id": "event-1"})
+    assert not isinstance(failure.value, EventPublishNotAttemptedError)
 
     receipt = await bus.publish("fdai.control.events", "event-2", {"event_id": "event-2"})
     assert len(instances) == 2

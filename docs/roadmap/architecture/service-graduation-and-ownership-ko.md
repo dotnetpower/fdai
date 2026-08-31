@@ -1,7 +1,7 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: 030ac5ca5a3e3a620ed32fbe0bacdfaceaf9d1bd
-translation_revised: 2026-08-29
+translation_source_sha: 1f1f6bc158787bc5e451727a6de5a7ebf37cfa7d
+translation_revised: 2026-08-31
 ---
 # 서비스 승격과 데이터 소유권
 
@@ -37,6 +37,7 @@ translation_revised: 2026-08-29
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| Pod 수명 주기 탐지 축약과 프로젝션 분리 | implemented | `fdai/core/readiness/detection_lifecycle.py`, `fdai/delivery/detection_lifecycle_state.py`, `fdai_operator_service/detection_lifecycle_projection.py`, `check-independent-services` OK | Core가 축약과 `runtime:detection-lifecycle:` 단일 기록자를 소유하고, Operator 서비스는 저장된 프로젝션을 검증하고 집계해 기존 인증된 `/detection-readiness` 계열에 제공하며 이를 위해 어떤 `fdai.*` 모듈도 가져오지 않습니다. 저장된 행에 결함이 있으면 판독기가 재해석하지 않고 명시된 사유와 함께 해당 구획을 사용 불가로 만듭니다. |
 | 5개 서비스 승격 결정과 권한 전환 | validated | `config/service-decomposition.json`; `config/independent-services.json`; [서비스 분해 근거 로그](service-decomposition-execution-plan-ko.md#근거-로그) | 필수 및 승인된 서비스 후보는 정확한 토폴로지, 신원, 상태, 롤백 및 원격 전이 근거를 완료했습니다. |
 | 단일 쓰기 담당 데이터 소유권과 서비스 migration 가지 | validated | `service-migrations/branches/`; 실행 계획의 독립 서비스 도입 및 peer-isolation 근거 | 5개 migration 가지와 서비스 역할은 보호된 N/N-1/N 전이 전체에서 겹치지 않는 쓰기 담당 소유권을 유지합니다. |
 | 버전이 지정된 프로세스 간 계약과 격리된 신원 | validated | `packages/service-contracts/`; `infra/services/`; IS-03, IS-05, IS-07 및 IS-09 근거 | 서비스 분포는 다른 서비스 구현을 가져오지 않고 공유 계약 SDK를 소비하며 Isolated 실행기만 효과 권한을 보유할 수 있습니다. |
@@ -49,6 +50,7 @@ translation_revised: 2026-08-29
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-31 | implemented | Pod 수명 주기 탐지 축약을 Core에 두고 Operator 서비스에는 `runtime:detection-lifecycle:`에 대한 검증 프로젝션만 남겼습니다. 그 결과 이슈 #291을 위해 추가한 보고 표면은 서비스 경계를 넘지 않았고 공유 모듈도 추가하지 않았습니다. | `current change`, `check-independent-services` OK(services=5, service_forbidden=0), `check-operator-api-boundaries` OK, 집중 Python 테스트 122건 통과. 여기에는 하나의 리비전에 고정된 서비스 간 증명 8건이 포함됩니다. | 실제 Pod 수명 주기 근거는 여전히 `FDAI_POD_LIFECYCLE_EVIDENCE_JSON` 구성 이음새로만 Core에 도달합니다. |
 | 2026-08-14 | validated | 원장 도입 이전의 설계 이력을 재구성하지 않고 완료된 5개 서비스 근거와 보류된 향후 후보를 분리해 기록했습니다. | `current change`; 구현 범위 표에 인용한 머신 매니페스트, 서비스 migration 가지, 공유 계약 및 보존된 전이 근거입니다. | 관찰 가능한 강제 트리거와 완전한 점수표 근거가 생긴 보류 후보만 다시 평가합니다. |
 | 2026-08-15 | validated | Norns가 소유하는 객체 이름을 `PatternObservation`에서 `Pattern`으로 변경해 에이전트 스펙, 등록된 토픽, 판테온 표, Console 에이전트 계약이 하나의 기록을 가리키게 했습니다. | `current change`, `PANTHEON_SPECS`, `agents/_framework/topics.py`, `console/src/routes/agents.model.ts`, 집중 판테온 레이아웃, 문서 파리티, 카탈로그 테스트 통과 | 아직 어느 것도 이 기록을 생산하지 않으며, 발행 또는 폐기는 prediction-learning 원장에서 추적합니다. |
 | 2026-08-19 | implemented | Operator writer 또는 새 서비스를 만들지 않고 재구성 가능한 temporal 인시던트 roster projection을 추가했습니다. Database trigger는 Saga 감사 append transaction 안에서 이전 correlation version을 닫고 다음 as-of version을 삽입하며, Operator branch는 Core schema prerequisite가 존재한 뒤 읽기 권한만 부여합니다. | `current change`, [이슈 #169](https://github.com/dotnetpower/fdai/issues/169), local PostgreSQL migration, trigger, temporal cursor, platform 제외, role grant 검사 통과, 집중 Operator 및 service-migration suite 117개 통과 | 보호된 migration과 service rollout 뒤 deployed latency 근거를 보존합니다. |
@@ -155,6 +157,7 @@ Logical 기록 또는 수명 주기 전이 하나에는 쓰기 담당 하나만 
 | `document_worker_outbox` | 워커 소유 수명 주기 이벤트의 문서 처리 워커 | 워커 발신함 drainer | 문서 처리 워커 이행 가지 |
 | `executor_receipt_outbox` | 최종 증적 전달의 Isolated 실행기 | 실행기 증적 drainer | Isolated 실행기 이행 가지 |
 | `state_kv` namespaced 기록 | 각 키 이름 공간이 이름으로 지정한 subsystem | 해당 subsystem 프로바이더 계약이 명시한 변환 결과 | Alembic 이행 작업 |
+| `state_kv` `runtime:detection-lifecycle:` 기록 | Pod 수명 주기 기록기를 통한 Core analyzer tick | 인증된 Operator API `/detection-readiness` 수명 주기 프로젝션, 읽기 전용 | Alembic 이행 작업 |
 | Agent-owned control-loop 객체와 토픽 | 각 객체 타입에 선언된 single pantheon 에이전트 | 등록된 타입이 지정된 구독자와 cited 읽기 변환 결과 | Shared 계약/카탈로그 소유자. Service-local 이행 없음 |
 
 새 후보는 구현 전에 데이터 행을 추가합니다. 쓰기 담당이 겹치는 행, 소유자가 "shared 서비스"인

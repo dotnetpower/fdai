@@ -10,6 +10,7 @@ import {
   KpiGrid,
   PageHeader,
   StatusPill,
+  UnavailableState,
   type AsyncState,
   type Column,
   type PillKind,
@@ -41,20 +42,52 @@ const DIMENSIONS = [
 ] as const;
 const CEILINGS = ["disabled", "deterministic_fallback", "shadow", "human_approval", "deployment"] as const;
 const EVIDENCE_STATES = ["complete", "incomplete", "conflicting", "missed"] as const;
+const CURRENT_STATES = ["recovered", "failing", "unknown"] as const;
+const RECOVERY_STATES = ["verified", "not_verified", "unknown"] as const;
+const LIFECYCLE_SIGNALS = [
+  "container_restart",
+  "pod_replacement",
+  "rollout_replacement",
+  "insufficient_evidence",
+  "conflicting_evidence",
+] as const;
+const RECOVERY_STATUSES = [
+  "restart_observed_recovered",
+  "restart_observed_not_recovered",
+  "insufficient_evidence",
+  "conflicting_evidence",
+] as const;
+const EVIDENCE_GAPS = [
+  "missing_evidence",
+  "stale_evidence",
+  "incomplete_evidence",
+  "conflicting_evidence",
+  "unassessed_finding",
+  "delivery_uncertain",
+  "delivery_failed",
+] as const;
 const PUBLICATION_STATES = [
   "published",
   "published_receipt_unrecorded",
   "duplicate_suppressed",
+  "reconciled_duplicate",
+  "publish_uncertain",
+  "awaiting_reconciliation",
   "failed",
 ] as const;
-const RECOVERY_STATES = ["verified", "open", "unknown"] as const;
+const ANALYZER_RECOVERY_STATES = ["verified", "open", "unknown"] as const;
 
 type Decision = typeof DECISIONS[number];
 type Dimension = typeof DIMENSIONS[number];
 type AuthorityCeiling = typeof CEILINGS[number];
 type EvidenceState = typeof EVIDENCE_STATES[number];
+type CurrentState = typeof CURRENT_STATES[number];
+type PodRecoveryState = typeof RECOVERY_STATES[number];
+type LifecycleSignal = typeof LIFECYCLE_SIGNALS[number];
+type RecoveryStatus = typeof RECOVERY_STATUSES[number];
+type EvidenceGap = typeof EVIDENCE_GAPS[number];
 type PublicationState = typeof PUBLICATION_STATES[number];
-type RecoveryState = typeof RECOVERY_STATES[number];
+type AnalyzerRecoveryState = typeof ANALYZER_RECOVERY_STATES[number];
 
 interface DetectionObservationView {
   readonly dimension: Dimension;
@@ -71,6 +104,49 @@ interface DetectionTargetView {
   readonly stale_dimensions: readonly Dimension[];
 }
 
+interface LifecycleFailureView {
+  readonly idempotency_key: string;
+  readonly signal: LifecycleSignal;
+  readonly occurred_at: string;
+  readonly recorded_at: string;
+  readonly detection_latency_seconds: number;
+  readonly evidence_complete: boolean;
+  readonly recovery_closed: boolean | null;
+  readonly recovery_status: RecoveryStatus | null;
+  readonly publication: PublicationState;
+  readonly evidence_refs: readonly string[];
+  readonly evidence_gaps: readonly string[];
+}
+
+interface LifecycleTargetView {
+  readonly resource_ref: string;
+  readonly generated_at: string;
+  readonly stale: boolean;
+  readonly projection_age_seconds: number;
+  readonly current_state: CurrentState;
+  readonly current_signal: LifecycleSignal | null;
+  readonly current_state_observed_at: string | null;
+  readonly recovery_state: PodRecoveryState;
+  readonly recovery_verified_at: string | null;
+  readonly failure_count: number;
+  readonly failures: readonly LifecycleFailureView[];
+  readonly retained_record_count: number;
+  readonly evidence_gaps: readonly EvidenceGap[];
+  readonly evidence_gap_details: readonly string[];
+  readonly delivery_counts: Readonly<Record<PublicationState, number>>;
+}
+
+interface LifecycleView {
+  readonly status: "available" | "unavailable";
+  readonly unavailable_reason: string | null;
+  readonly target_count: number;
+  readonly failure_total: number;
+  readonly gap_target_count: number;
+  readonly counts: Readonly<Record<CurrentState, number>>;
+  readonly recovery_counts: Readonly<Record<PodRecoveryState, number>>;
+  readonly targets: readonly LifecycleTargetView[];
+}
+
 interface DetectionReadinessView {
   readonly source: string;
   readonly observed_at: string | null;
@@ -78,6 +154,7 @@ interface DetectionReadinessView {
   readonly counts: Readonly<Record<Decision, number>>;
   readonly targets: readonly DetectionTargetView[];
   readonly lifecycle: DetectionLifecycleView;
+  readonly pod_lifecycle: LifecycleView;
 }
 
 interface DetectionLifecycleAssessment {
@@ -96,7 +173,7 @@ interface DetectionLifecycleAssessment {
     readonly attempts: readonly PublicationState[];
     readonly duplicate_observed: boolean;
   };
-  readonly recovery_state: RecoveryState;
+  readonly recovery_state: AnalyzerRecoveryState;
   readonly evidence_refs: readonly string[];
   readonly cause_claim_supported: false;
   readonly execution_authority: false;
@@ -172,11 +249,12 @@ export function decodeDetectionReadiness(value: unknown): DetectionReadinessView
     target_count: targetCount,
     counts,
     targets,
-    lifecycle: decodeLifecycle(root["lifecycle"]),
+    lifecycle: decodeAnalyzerLifecycle(root["lifecycle"]),
+    pod_lifecycle: decodeLifecycle(root["pod_lifecycle"]),
   };
 }
 
-function decodeLifecycle(value: unknown): DetectionLifecycleView {
+function decodeAnalyzerLifecycle(value: unknown): DetectionLifecycleView {
   const root = panelRecord(value, "detection lifecycle");
   const countsRoot = panelRecord(root["evidence_counts"], "detection lifecycle evidence counts");
   const evidenceCounts = Object.fromEntries(
@@ -234,7 +312,9 @@ function decodeAssessment(value: unknown, label: string): DetectionLifecycleAsse
     attempts.length === 0
     || new Set(attempts).size !== attempts.length
     || attempts.at(-1) !== currentPublication
-    || duplicateObserved !== attempts.includes("duplicate_suppressed")
+    || duplicateObserved !== (
+      attempts.includes("duplicate_suppressed") || attempts.includes("reconciled_duplicate")
+    )
   ) {
     throw new OperatorApiError(502, "invalid Operator API response: detection lifecycle publication history is inconsistent");
   }
@@ -265,13 +345,178 @@ function decodeAssessment(value: unknown, label: string): DetectionLifecycleAsse
     },
     recovery_state: member(
       panelNonEmptyString(row, "recovery_state", label),
-      RECOVERY_STATES,
+      ANALYZER_RECOVERY_STATES,
       "recovery state",
     ),
     evidence_refs: panelStringArray(row["evidence_refs"], `${label}.evidence_refs`),
     cause_claim_supported: false,
     execution_authority: false,
   };
+}
+
+export function decodeLifecycle(value: unknown): LifecycleView {
+  if (value === undefined || value === null) {
+    return unavailableLifecycle("section_absent");
+  }
+  const root = panelRecord(value, "pod lifecycle detection");
+  const status = panelNonEmptyString(root, "status", "pod lifecycle detection");
+  if (panelBoolean(root, "cause_claim_supported", "pod lifecycle detection")) {
+    throw new OperatorApiError(502, "invalid Operator API response: pod lifecycle projection claims a cause");
+  }
+  if (panelBoolean(root, "execution_authority", "pod lifecycle detection")) {
+    throw new OperatorApiError(502, "invalid Operator API response: pod lifecycle projection claims authority");
+  }
+  const reason = panelNullableString(root, "unavailable_reason", "pod lifecycle detection");
+  if (status === "unavailable") {
+    return unavailableLifecycle(reason ?? "unavailable");
+  }
+  if (status !== "available") {
+    throw new OperatorApiError(502, "invalid Operator API response: unknown pod lifecycle status");
+  }
+  const targets = panelArray(root["targets"], "pod lifecycle targets").map(
+    (item, index) => decodeLifecycleTarget(item, index),
+  );
+  const targetCount = panelNonNegativeInteger(root, "target_count", "pod lifecycle detection");
+  const counts = countsOf(root["counts"], CURRENT_STATES, "pod lifecycle counts");
+  const recoveryCounts = countsOf(root["recovery_counts"], RECOVERY_STATES, "pod lifecycle recovery counts");
+  const failureTotal = panelNonNegativeInteger(root, "failure_total", "pod lifecycle detection");
+  const observedFailures = targets.reduce((sum, target) => sum + target.failure_count, 0);
+  if (
+    targets.length !== targetCount ||
+    sum(counts) !== targetCount ||
+    sum(recoveryCounts) !== targetCount ||
+    observedFailures !== failureTotal
+  ) {
+    throw new OperatorApiError(502, "invalid Operator API response: pod lifecycle totals do not reconcile");
+  }
+  return {
+    status: "available",
+    unavailable_reason: reason,
+    target_count: targetCount,
+    failure_total: failureTotal,
+    gap_target_count: panelNonNegativeInteger(root, "gap_target_count", "pod lifecycle detection"),
+    counts,
+    recovery_counts: recoveryCounts,
+    targets,
+  };
+}
+
+function unavailableLifecycle(reason: string): LifecycleView {
+  return {
+    status: "unavailable",
+    unavailable_reason: reason,
+    target_count: 0,
+    failure_total: 0,
+    gap_target_count: 0,
+    counts: { recovered: 0, failing: 0, unknown: 0 },
+    recovery_counts: { verified: 0, not_verified: 0, unknown: 0 },
+    targets: [],
+  };
+}
+
+function decodeLifecycleTarget(value: unknown, index: number): LifecycleTargetView {
+  const row = panelRecord(value, `pod lifecycle targets[${index}]`);
+  const currentState = member(
+    panelNonEmptyString(row, "current_state", "pod lifecycle target"),
+    CURRENT_STATES,
+    "current state",
+  );
+  const recoveryState = member(
+    panelNonEmptyString(row, "recovery_state", "pod lifecycle target"),
+    RECOVERY_STATES,
+    "recovery state",
+  );
+  const recoveryVerifiedAt = panelNullableString(row, "recovery_verified_at", "pod lifecycle target");
+  if ((recoveryState === "verified") !== (recoveryVerifiedAt !== null)) {
+    throw new OperatorApiError(502, "invalid Operator API response: pod lifecycle recovery time does not match its state");
+  }
+  if (currentState === "recovered" && recoveryState !== "verified") {
+    throw new OperatorApiError(502, "invalid Operator API response: pod lifecycle recovery is not independently verified");
+  }
+  const currentSignal = panelNullableString(row, "current_signal", "pod lifecycle target");
+  const failures = panelArray(row["failures"], "pod lifecycle failures").map(
+    (item, position) => decodeLifecycleFailure(item, position),
+  );
+  const failureCount = panelNonNegativeInteger(row, "failure_count", "pod lifecycle target");
+  const retained = panelNonNegativeInteger(row, "retained_record_count", "pod lifecycle target");
+  if (failures.length !== failureCount || retained < failureCount) {
+    throw new OperatorApiError(502, "invalid Operator API response: pod lifecycle failure history does not reconcile");
+  }
+  const gaps = panelStringArray(row["evidence_gaps"], "pod lifecycle gaps").map(
+    (gap) => member(gap, EVIDENCE_GAPS, "evidence gap"),
+  );
+  if (new Set(gaps).size !== gaps.length) {
+    throw new OperatorApiError(502, "invalid Operator API response: duplicate pod lifecycle evidence gap");
+  }
+  const stale = panelBoolean(row, "stale", "pod lifecycle target");
+  if (stale && !gaps.includes("stale_evidence")) {
+    throw new OperatorApiError(502, "invalid Operator API response: stale pod lifecycle target reports no gap");
+  }
+  if (stale && (currentState !== "unknown" || recoveryState !== "unknown")) {
+    throw new OperatorApiError(502, "invalid Operator API response: stale pod lifecycle target still reports a state");
+  }
+  return {
+    resource_ref: panelNonEmptyString(row, "resource_ref", "pod lifecycle target"),
+    generated_at: panelNonEmptyString(row, "generated_at", "pod lifecycle target"),
+    stale,
+    projection_age_seconds: panelNonNegativeNumber(row, "projection_age_seconds", "pod lifecycle target"),
+    current_state: currentState,
+    current_signal: currentSignal === null ? null : member(currentSignal, LIFECYCLE_SIGNALS, "signal"),
+    current_state_observed_at: panelNullableString(row, "current_state_observed_at", "pod lifecycle target"),
+    recovery_state: recoveryState,
+    recovery_verified_at: recoveryVerifiedAt,
+    failure_count: failureCount,
+    failures,
+    retained_record_count: retained,
+    evidence_gaps: gaps,
+    evidence_gap_details: panelStringArray(row["evidence_gap_details"], "pod lifecycle gap details"),
+    delivery_counts: countsOf(row["delivery_counts"], PUBLICATION_STATES, "pod lifecycle delivery counts"),
+  };
+}
+
+function decodeLifecycleFailure(value: unknown, index: number): LifecycleFailureView {
+  const row = panelRecord(value, `pod lifecycle failures[${index}]`);
+  const evidenceComplete = panelBoolean(row, "evidence_complete", "pod lifecycle failure");
+  const recoveryClosedValue = row["recovery_closed"];
+  if (recoveryClosedValue !== null && typeof recoveryClosedValue !== "boolean") {
+    throw new OperatorApiError(502, "invalid Operator API response: pod lifecycle recovery closure is malformed");
+  }
+  if (recoveryClosedValue === true && !evidenceComplete) {
+    throw new OperatorApiError(502, "invalid Operator API response: pod lifecycle closes recovery on incomplete evidence");
+  }
+  const recoveryStatus = panelNullableString(row, "recovery_status", "pod lifecycle failure");
+  return {
+    idempotency_key: panelNonEmptyString(row, "idempotency_key", "pod lifecycle failure"),
+    signal: member(panelNonEmptyString(row, "signal", "pod lifecycle failure"), LIFECYCLE_SIGNALS, "signal"),
+    occurred_at: panelNonEmptyString(row, "occurred_at", "pod lifecycle failure"),
+    recorded_at: panelNonEmptyString(row, "recorded_at", "pod lifecycle failure"),
+    detection_latency_seconds: panelNonNegativeNumber(row, "detection_latency_seconds", "pod lifecycle failure"),
+    evidence_complete: evidenceComplete,
+    recovery_closed: recoveryClosedValue,
+    recovery_status: recoveryStatus === null ? null : member(recoveryStatus, RECOVERY_STATUSES, "recovery status"),
+    publication: member(
+      panelNonEmptyString(row, "publication", "pod lifecycle failure"),
+      PUBLICATION_STATES,
+      "publication state",
+    ),
+    evidence_refs: panelStringArray(row["evidence_refs"], "pod lifecycle evidence refs"),
+    evidence_gaps: panelStringArray(row["evidence_gaps"], "pod lifecycle failure gaps"),
+  };
+}
+
+function countsOf<T extends string>(
+  value: unknown,
+  keys: readonly T[],
+  label: string,
+): Readonly<Record<T, number>> {
+  const root = panelRecord(value, label);
+  return Object.fromEntries(
+    keys.map((key) => [key, panelNonNegativeInteger(root, key, label)]),
+  ) as Record<T, number>;
+}
+
+function sum(counts: Readonly<Record<string, number>>): number {
+  return Object.values(counts).reduce((total, count) => total + count, 0);
 }
 
 function decodeTarget(value: unknown, index: number): DetectionTargetView {
@@ -330,10 +575,16 @@ function DetectionReadinessBody({ data }: { readonly data: DetectionReadinessVie
         { key: "ready_count", value: data.counts.ready, group: "readiness" },
         { key: "attention_count", value: attention, group: "readiness" },
         { key: "source", value: data.source, group: "provenance" },
+        { key: "lifecycle_status", value: data.pod_lifecycle.status, group: "lifecycle" },
+        { key: "lifecycle_failing", value: data.pod_lifecycle.counts.failing, group: "lifecycle" },
+        { key: "lifecycle_failure_total", value: data.pod_lifecycle.failure_total, group: "lifecycle" },
+        { key: "lifecycle_recovery_verified", value: data.pod_lifecycle.recovery_counts.verified, group: "lifecycle" },
+        { key: "lifecycle_gap_targets", value: data.pod_lifecycle.gap_target_count, group: "lifecycle" },
       ],
       records: {
         targets: data.targets.map((target) => ({ ...target })),
         lifecycle: data.lifecycle.targets.map((target) => ({ ...target })),
+        pod_lifecycle: data.pod_lifecycle.targets.map((target) => ({ ...target })),
       },
     }),
     [attention, data],
@@ -397,6 +648,7 @@ function DetectionReadinessBody({ data }: { readonly data: DetectionReadinessVie
           <DataTable columns={columns} rows={data.targets} keyOf={(target) => target.resource_ref} empty={t("emptyTitle")} />
         )}
       </section>
+      <PodLifecycleSection lifecycle={data.pod_lifecycle} />
     </div>
   );
 }
@@ -406,47 +658,47 @@ function DetectionLifecycle({ lifecycle }: { readonly lifecycle: DetectionLifecy
     <section class="stack-section detection-lifecycle" aria-labelledby="detection-lifecycle-title">
       <div class="section-heading-row">
         <div>
-          <h3 id="detection-lifecycle-title" class="section-title">{t("lifecycle.title")}</h3>
-          <p class="section-description">{t("lifecycle.description")}</p>
+          <h3 id="detection-lifecycle-title" class="section-title">{t("analyzerLifecycle.title")}</h3>
+          <p class="section-description">{t("analyzerLifecycle.description")}</p>
         </div>
         <span class="muted small">
           {lifecycle.observed_at
-            ? t("lifecycle.observedAt", { at: formatConsoleTimestamp(lifecycle.observed_at) })
+            ? t("analyzerLifecycle.observedAt", { at: formatConsoleTimestamp(lifecycle.observed_at) })
             : t("notObserved")}
         </span>
       </div>
       <KpiGrid>
-        <KpiCard href="#detection-lifecycle-records" label={t("lifecycle.assessments")} value={lifecycle.assessment_count} />
+        <KpiCard href="#detection-lifecycle-records" label={t("analyzerLifecycle.assessments")} value={lifecycle.assessment_count} />
         <KpiCard
           href="#detection-lifecycle-records"
-          label={t("lifecycle.incomplete")}
+          label={t("analyzerLifecycle.incomplete")}
           value={lifecycle.evidence_counts.incomplete + lifecycle.evidence_counts.missed}
           tone={lifecycle.evidence_counts.incomplete + lifecycle.evidence_counts.missed > 0 ? "warning" : "positive"}
         />
         <KpiCard
           href="#detection-lifecycle-records"
-          label={t("lifecycle.conflicting")}
+          label={t("analyzerLifecycle.conflicting")}
           value={lifecycle.evidence_counts.conflicting}
           tone={lifecycle.evidence_counts.conflicting > 0 ? "danger" : "positive"}
         />
       </KpiGrid>
       <div id="detection-lifecycle-records" class="detection-lifecycle-list">
         {lifecycle.targets.length === 0 ? (
-          <EmptyState title={t("lifecycle.emptyTitle")} body={t("lifecycle.emptyBody")} />
+          <EmptyState title={t("analyzerLifecycle.emptyTitle")} body={t("analyzerLifecycle.emptyBody")} />
         ) : lifecycle.targets.map((target) => (
           <article class="detection-lifecycle-target" key={target.resource_ref}>
             <h4 class="panel-title mono">{target.resource_ref}</h4>
             <section
               class="detection-lifecycle-current"
-              aria-label={t("lifecycle.currentRegion", { target: target.resource_ref })}
+              aria-label={t("analyzerLifecycle.currentRegion", { target: target.resource_ref })}
             >
-              <h5>{t("lifecycle.current")}</h5>
+              <h5>{t("analyzerLifecycle.current")}</h5>
               <LifecycleAssessment assessment={target.current} />
             </section>
             <details class="detection-lifecycle-history">
-              <summary>{t("lifecycle.history", { count: target.history.length })}</summary>
+              <summary>{t("analyzerLifecycle.history", { count: target.history.length })}</summary>
               {target.history.length === 0 ? (
-                <p class="muted small">{t("lifecycle.noHistory")}</p>
+                <p class="muted small">{t("analyzerLifecycle.noHistory")}</p>
               ) : (
                 <ol>
                   {target.history.map((assessment) => (
@@ -461,8 +713,130 @@ function DetectionLifecycle({ lifecycle }: { readonly lifecycle: DetectionLifecy
         ))}
       </div>
       <p class="muted footnote">
-        {t("lifecycle.boundary", { source: lifecycle.source })}
+        {t("analyzerLifecycle.boundary", { source: lifecycle.source })}
       </p>
+    </section>
+  );
+}
+
+function PodLifecycleSection({ lifecycle }: { readonly lifecycle: LifecycleView }) {
+  const anchor = `${routeHref("detection-readiness")}#pod-detection-lifecycle`;
+  const failureColumns: readonly Column<LifecycleFailureView>[] = [
+    {
+      key: "occurred",
+      header: t("lifecycle.column.occurred"),
+      render: (failure) => formatConsoleTimestamp(failure.occurred_at),
+    },
+    {
+      key: "signal",
+      header: t("lifecycle.column.signal"),
+      render: (failure) => <code>{failure.signal}</code>,
+    },
+    {
+      key: "recovery",
+      header: t("lifecycle.column.recovery"),
+      render: (failure) => (failure.recovery_status === null ? t("lifecycle.unassessed") : <code>{failure.recovery_status}</code>),
+    },
+    {
+      key: "delivery",
+      header: t("lifecycle.column.delivery"),
+      render: (failure) => <code>{failure.publication}</code>,
+    },
+    {
+      key: "evidence",
+      header: t("lifecycle.column.evidence"),
+      render: (failure) => (failure.evidence_complete ? t("lifecycle.evidenceComplete") : t("lifecycle.evidenceIncomplete")),
+    },
+  ];
+  return (
+    <section id="pod-detection-lifecycle" class="stack-section" aria-labelledby="pod-detection-lifecycle-title">
+      <h3 id="pod-detection-lifecycle-title" class="section-title">{t("lifecycle.title")}</h3>
+      <p class="muted small">{t("lifecycle.note")}</p>
+      {lifecycle.status === "unavailable" ? (
+        <UnavailableState
+          message={t("lifecycle.unavailable", { reason: lifecycle.unavailable_reason ?? "unavailable" })}
+          evidenceState="not-measured"
+        />
+      ) : lifecycle.targets.length === 0 ? (
+        <EmptyState title={t("lifecycle.emptyTitle")} body={t("lifecycle.emptyBody")} />
+      ) : (
+        <div class="stack">
+          <KpiGrid>
+            <KpiCard href={anchor} label={t("lifecycle.failing")} value={lifecycle.counts.failing} tone={lifecycle.counts.failing > 0 ? "warning" : "positive"} />
+            <KpiCard href={anchor} label={t("lifecycle.recoveredVerified")} value={lifecycle.recovery_counts.verified} tone={lifecycle.recovery_counts.verified > 0 ? "positive" : "default"} />
+            <KpiCard href={anchor} label={t("lifecycle.failureTotal")} value={lifecycle.failure_total} />
+            <KpiCard
+              href={anchor}
+              label={t("lifecycle.gapTargets")}
+              value={lifecycle.gap_target_count}
+              tone={lifecycle.gap_target_count > 0 ? "warning" : "positive"}
+              evidenceState={lifecycle.gap_target_count > 0 ? "insufficient-sample" : "measured"}
+            />
+          </KpiGrid>
+          <ul class="detection-lifecycle-list">
+            {lifecycle.targets.map((target) => (
+              <li key={target.resource_ref} class="detection-lifecycle-target">
+                <details>
+                  <summary class="detection-lifecycle-summary">
+                    <span class="mono small detection-lifecycle-ref">{target.resource_ref}</span>
+                    <StatusPill kind={currentStateKind(target.current_state)} label={t(`lifecycle.state.${target.current_state}`)} />
+                    <StatusPill kind={podRecoveryKind(target.recovery_state)} label={t(`lifecycle.recovery.${target.recovery_state}`)} />
+                    <span class="small">{t("lifecycle.failureCount", { count: target.failure_count })}</span>
+                  </summary>
+                  <dl class="details-list">
+                    <div>
+                      <dt>{t("lifecycle.currentSignal")}</dt>
+                      <dd>{target.current_signal ? <code>{target.current_signal}</code> : t("lifecycle.noSignal")}</dd>
+                    </div>
+                    <div>
+                      <dt>{t("lifecycle.currentObservedAt")}</dt>
+                      <dd>{target.current_state_observed_at ? formatConsoleTimestamp(target.current_state_observed_at) : t("notObserved")}</dd>
+                    </div>
+                    <div>
+                      <dt>{t("lifecycle.recoveryVerifiedAt")}</dt>
+                      <dd>{target.recovery_verified_at ? formatConsoleTimestamp(target.recovery_verified_at) : t("lifecycle.recoveryNotVerified")}</dd>
+                    </div>
+                    <div>
+                      <dt>{t("lifecycle.retained")}</dt>
+                      <dd>{t("lifecycle.retainedValue", { retained: target.retained_record_count, failures: target.failure_count })}</dd>
+                    </div>
+                  </dl>
+                  <h4 class="detection-lifecycle-subtitle">{t("lifecycle.historyTitle")}</h4>
+                  {target.failures.length === 0 ? (
+                    <p class="small">{t("lifecycle.noHistory")}</p>
+                  ) : (
+                    <DataTable
+                      columns={failureColumns}
+                      rows={target.failures}
+                      keyOf={(failure) => failure.idempotency_key}
+                      empty={t("lifecycle.noHistory")}
+                    />
+                  )}
+                  <h4 class="detection-lifecycle-subtitle">{t("lifecycle.gapsTitle")}</h4>
+                  {target.evidence_gaps.length === 0 ? (
+                    <p class="small">{t("lifecycle.noGaps")}</p>
+                  ) : (
+                    <ul class="detection-lifecycle-gaps">
+                      {target.evidence_gaps.map((gap) => (
+                        <li key={gap}>
+                          <StatusPill kind="warning" label={t(`lifecycle.gap.${gap}`)} />
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {target.evidence_gap_details.length > 0 ? (
+                    <ul class="detection-lifecycle-gap-details small mono">
+                      {target.evidence_gap_details.map((detail) => (
+                        <li key={detail}>{detail}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </details>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </section>
   );
 }
@@ -471,27 +845,27 @@ function LifecycleAssessment({ assessment }: { readonly assessment: DetectionLif
   return (
     <div class="detection-lifecycle-assessment">
       <div class="detection-lifecycle-status">
-        <StatusPill kind={evidenceKind(assessment.evidence_state)} label={t(`lifecycle.evidence.${assessment.evidence_state}`)} />
-        <StatusPill kind={recoveryKind(assessment.recovery_state)} label={t(`lifecycle.recovery.${assessment.recovery_state}`)} />
-        <StatusPill kind={publicationKind(assessment.publication.current)} label={t(`lifecycle.publication.${assessment.publication.current}`)} />
+        <StatusPill kind={evidenceKind(assessment.evidence_state)} label={t(`analyzerLifecycle.evidence.${assessment.evidence_state}`)} />
+        <StatusPill kind={analyzerRecoveryKind(assessment.recovery_state)} label={t(`analyzerLifecycle.recovery.${assessment.recovery_state}`)} />
+        <StatusPill kind={publicationKind(assessment.publication.current)} label={t(`analyzerLifecycle.publication.${assessment.publication.current}`)} />
       </div>
       <dl class="details-list detection-lifecycle-facts">
-        <div><dt>{t("lifecycle.currentState")}</dt><dd>{currentStateLabel(assessment.current_state)}</dd></div>
+        <div><dt>{t("analyzerLifecycle.currentState")}</dt><dd>{currentStateLabel(assessment.current_state)}</dd></div>
         <div>
-          <dt>{t("lifecycle.event")}</dt>
+          <dt>{t("analyzerLifecycle.event")}</dt>
           <dd>{signalLabel(assessment.signal)} <code>{assessment.signal}</code></dd>
         </div>
-        <div><dt>{t("lifecycle.occurredAt")}</dt><dd>{formatConsoleTimestamp(assessment.occurred_at)}</dd></div>
-        <div><dt>{t("lifecycle.latency")}</dt><dd>{t("lifecycle.seconds", { value: assessment.detection_latency_seconds })}</dd></div>
+        <div><dt>{t("analyzerLifecycle.occurredAt")}</dt><dd>{formatConsoleTimestamp(assessment.occurred_at)}</dd></div>
+        <div><dt>{t("analyzerLifecycle.latency")}</dt><dd>{t("analyzerLifecycle.seconds", { value: assessment.detection_latency_seconds })}</dd></div>
       </dl>
       <div class="detection-lifecycle-evidence">
-        <span class="label">{t("lifecycle.evidenceRefs")}</span>
+        <span class="label">{t("analyzerLifecycle.evidenceRefs")}</span>
         <ul>
           {assessment.evidence_refs.map((reference) => <li class="mono small" key={reference}>{reference}</li>)}
         </ul>
       </div>
       {assessment.publication.duplicate_observed ? (
-        <p class="muted small">{t("lifecycle.duplicateObserved")}</p>
+        <p class="muted small">{t("analyzerLifecycle.duplicateObserved")}</p>
       ) : null}
     </div>
   );
@@ -499,13 +873,13 @@ function LifecycleAssessment({ assessment }: { readonly assessment: DetectionLif
 
 function currentStateLabel(state: string): string {
   return ["running", "failed", "unknown"].includes(state)
-    ? t(`lifecycle.currentStateValue.${state}`)
+    ? t(`analyzerLifecycle.currentStateValue.${state}`)
     : state;
 }
 
 function signalLabel(signal: string): string {
   return ["container_restart", "pod_replacement", "insufficient_evidence", "conflicting_evidence"].includes(signal)
-    ? t(`lifecycle.signal.${signal}`)
+    ? t(`analyzerLifecycle.signal.${signal}`)
     : signal;
 }
 
@@ -515,15 +889,28 @@ function evidenceKind(state: EvidenceState): PillKind {
   return "warning";
 }
 
-function recoveryKind(state: RecoveryState): PillKind {
+function currentStateKind(state: CurrentState): PillKind {
+  if (state === "recovered") return "success";
+  if (state === "failing") return "danger";
+  return "neutral";
+}
+
+function analyzerRecoveryKind(state: AnalyzerRecoveryState): PillKind {
   if (state === "verified") return "success";
   if (state === "open") return "warning";
   return "neutral";
 }
 
 function publicationKind(state: PublicationState): PillKind {
-  if (state === "published" || state === "duplicate_suppressed") return "success";
+  if (state === "published" || state === "duplicate_suppressed" || state === "reconciled_duplicate") return "success";
   if (state === "failed" || state === "published_receipt_unrecorded") return "danger";
+  if (state === "publish_uncertain" || state === "awaiting_reconciliation") return "warning";
+  return "neutral";
+}
+
+function podRecoveryKind(state: PodRecoveryState): PillKind {
+  if (state === "verified") return "success";
+  if (state === "not_verified") return "warning";
   return "neutral";
 }
 

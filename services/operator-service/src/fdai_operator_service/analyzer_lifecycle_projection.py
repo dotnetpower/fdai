@@ -15,6 +15,9 @@ _PUBLICATION_STATES = frozenset(
         "published",
         "published_receipt_unrecorded",
         "duplicate_suppressed",
+        "reconciled_duplicate",
+        "publish_uncertain",
+        "awaiting_reconciliation",
         "failed",
     }
 )
@@ -108,7 +111,9 @@ def _assessment(receipts: list[dict[str, object]]) -> dict[str, object]:
         "publication": {
             "current": publications[-1],
             "attempts": publications,
-            "duplicate_observed": "duplicate_suppressed" in publications,
+            "duplicate_observed": any(
+                item in publications for item in ("duplicate_suppressed", "reconciled_duplicate")
+            ),
         },
         "recovery_state": recovery_state,
         "evidence_refs": newest["evidence_refs"],

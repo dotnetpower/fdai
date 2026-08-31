@@ -18,7 +18,7 @@
   "targetTitle": "대상 준비도",
   "emptyTitle": "감지 준비도 스냅샷 없음",
   "emptyBody": "Huginn에서 Heimdall과 Muninn으로 이어지는 근거 경로를 완료한 대상이 없습니다.",
-  "lifecycle": {
+  "analyzerLifecycle": {
     "title": "Pod 수명 주기 근거",
     "description": "현재 관찰 상태를 보존된 재시작, 교체, 게시 및 복구 이력과 분리해 표시합니다.",
     "observedAt": "마지막 증적 {at}",
@@ -65,6 +65,9 @@
       "published": "게시됨",
       "published_receipt_unrecorded": "브로커 증적 미기록",
       "duplicate_suppressed": "중복 억제됨",
+      "reconciled_duplicate": "조정된 중복",
+      "publish_uncertain": "게시 불확실",
+      "awaiting_reconciliation": "조정 대기 중",
       "failed": "게시 실패"
     }
   },
@@ -83,5 +86,57 @@
     "stale": "오래됨",
     "unauthorized": "권한 없음",
     "unknown": "알 수 없음"
+  },
+  "lifecycle": {
+    "title": "Pod 장애와 복구",
+    "note": "현재 상태, 장애 이력, 복구, 근거 공백을 각각 구분해 보고합니다. 감지는 원인을 단정하지 않으며 실행 권한도 부여하지 않습니다.",
+    "unavailable": "Pod 수명주기 감지를 사용할 수 없습니다({reason}). 현재 상태, 이력, 복구를 표시하지 않습니다.",
+    "emptyTitle": "Pod 수명주기 감지 결과 없음",
+    "emptyBody": "아직 Pod 수명주기 투영으로 축약된 analyzer 접수 기록이 없습니다.",
+    "failing": "현재 장애",
+    "recoveredVerified": "복구 검증됨",
+    "failureTotal": "보존된 장애",
+    "gapTargets": "근거 공백 대상",
+    "failureCount": "보존된 장애 {count}건",
+    "currentSignal": "현재 신호",
+    "noSignal": "기록된 신호 없음",
+    "currentObservedAt": "현재 상태 관측 시각",
+    "recoveryVerifiedAt": "복구 검증 시각",
+    "recoveryNotVerified": "독립 검증되지 않음",
+    "retained": "보존",
+    "retainedValue": "보존 기록 {retained}건 중 장애 {failures}건",
+    "historyTitle": "장애 이력",
+    "noHistory": "이 대상에 보존된 장애가 없습니다.",
+    "gapsTitle": "근거 공백",
+    "noGaps": "이 대상에 기록된 근거 공백이 없습니다.",
+    "unassessed": "판정 안 됨",
+    "evidenceComplete": "완전",
+    "evidenceIncomplete": "불완전",
+    "column": {
+      "occurred": "발생 시각",
+      "signal": "신호",
+      "recovery": "복구",
+      "delivery": "전달",
+      "evidence": "근거"
+    },
+    "state": {
+      "recovered": "복구됨",
+      "failing": "장애 중",
+      "unknown": "알 수 없음"
+    },
+    "recovery": {
+      "verified": "검증됨",
+      "not_verified": "검증 안 됨",
+      "unknown": "알 수 없음"
+    },
+    "gap": {
+      "missing_evidence": "근거 누락",
+      "stale_evidence": "근거 오래됨",
+      "incomplete_evidence": "근거 불완전",
+      "conflicting_evidence": "근거 상충",
+      "unassessed_finding": "판정되지 않은 발견",
+      "delivery_uncertain": "전달 불확실",
+      "delivery_failed": "전달 실패"
+    }
   }
 }

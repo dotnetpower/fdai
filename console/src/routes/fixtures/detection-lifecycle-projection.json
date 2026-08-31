@@ -1,0 +1,171 @@
+{
+  "cause_claim_supported": false,
+  "counts": {
+    "failing": 0,
+    "recovered": 2,
+    "unknown": 1
+  },
+  "execution_authority": false,
+  "failure_total": 3,
+  "gap_target_count": 1,
+  "recovery_counts": {
+    "not_verified": 0,
+    "unknown": 1,
+    "verified": 2
+  },
+  "schema_version": 1,
+  "status": "available",
+  "target_count": 3,
+  "targets": [
+    {
+      "current_signal": "container_restart",
+      "current_state": "recovered",
+      "current_state_observed_at": "2026-08-31T12:00:00Z",
+      "delivery_counts": {
+        "awaiting_reconciliation": 0,
+        "duplicate_suppressed": 0,
+        "failed": 0,
+        "publish_uncertain": 0,
+        "published": 1,
+        "published_receipt_unrecorded": 0,
+        "reconciled_duplicate": 0
+      },
+      "evidence_gap_details": [],
+      "evidence_gaps": [],
+      "failure_count": 1,
+      "failures": [
+        {
+          "assessed_by": "core.ontology_platform.kubernetes_pod_lifecycle",
+          "detection_latency_seconds": 12.0,
+          "evidence_complete": true,
+          "evidence_gaps": [],
+          "evidence_refs": [
+            "deployment-current",
+            "kubernetes-api-inventory",
+            "pod-old",
+            "restart-history:pod/old",
+            "termination-old"
+          ],
+          "idempotency_key": "analyzer:cluster-a/default/orders:container_restart:993432",
+          "occurred_at": "2026-08-31T11:59:48Z",
+          "publication": "published",
+          "recorded_at": "2026-08-31T12:00:00Z",
+          "recovery_closed": true,
+          "recovery_status": "restart_observed_recovered",
+          "signal": "container_restart"
+        }
+      ],
+      "freshness_budget_seconds": 900.0,
+      "generated_at": "2026-08-31T12:00:00Z",
+      "projection_age_seconds": 0.0,
+      "recovery_state": "verified",
+      "recovery_verified_at": "2026-08-31T12:00:00Z",
+      "resource_ref": "cluster-a/default/orders",
+      "retained_record_count": 1,
+      "stale": false
+    },
+    {
+      "current_signal": "pod_replacement",
+      "current_state": "recovered",
+      "current_state_observed_at": "2026-08-31T12:00:00Z",
+      "delivery_counts": {
+        "awaiting_reconciliation": 0,
+        "duplicate_suppressed": 0,
+        "failed": 0,
+        "publish_uncertain": 0,
+        "published": 1,
+        "published_receipt_unrecorded": 0,
+        "reconciled_duplicate": 0
+      },
+      "evidence_gap_details": [],
+      "evidence_gaps": [],
+      "failure_count": 1,
+      "failures": [
+        {
+          "assessed_by": "core.ontology_platform.kubernetes_pod_lifecycle",
+          "detection_latency_seconds": 7.0,
+          "evidence_complete": true,
+          "evidence_gaps": [],
+          "evidence_refs": [
+            "deployment-current",
+            "kubernetes-api-inventory",
+            "pod-new",
+            "pod-old",
+            "restart-history:pod/new",
+            "termination-old"
+          ],
+          "idempotency_key": "analyzer:cluster-a/default/payments:pod_replacement:993432",
+          "occurred_at": "2026-08-31T11:59:53Z",
+          "publication": "published",
+          "recorded_at": "2026-08-31T12:00:00Z",
+          "recovery_closed": true,
+          "recovery_status": "restart_observed_recovered",
+          "signal": "pod_replacement"
+        }
+      ],
+      "freshness_budget_seconds": 900.0,
+      "generated_at": "2026-08-31T12:00:00Z",
+      "projection_age_seconds": 0.0,
+      "recovery_state": "verified",
+      "recovery_verified_at": "2026-08-31T12:00:00Z",
+      "resource_ref": "cluster-a/default/payments",
+      "retained_record_count": 1,
+      "stale": false
+    },
+    {
+      "current_signal": "pod_replacement",
+      "current_state": "unknown",
+      "current_state_observed_at": null,
+      "delivery_counts": {
+        "awaiting_reconciliation": 0,
+        "duplicate_suppressed": 0,
+        "failed": 0,
+        "publish_uncertain": 0,
+        "published": 1,
+        "published_receipt_unrecorded": 0,
+        "reconciled_duplicate": 0
+      },
+      "evidence_gap_details": [
+        "restart_history_restart_history_retention_gap"
+      ],
+      "evidence_gaps": [
+        "incomplete_evidence"
+      ],
+      "failure_count": 1,
+      "failures": [
+        {
+          "assessed_by": "core.ontology_platform.kubernetes_pod_lifecycle",
+          "detection_latency_seconds": 21.0,
+          "evidence_complete": false,
+          "evidence_gaps": [
+            "restart_history_restart_history_retention_gap"
+          ],
+          "evidence_refs": [
+            "deployment-current",
+            "kubernetes-api-inventory",
+            "pod-new",
+            "pod-old",
+            "restart-history:pod/new",
+            "termination-old"
+          ],
+          "idempotency_key": "analyzer:cluster-a/default/reports:pod_replacement:993432",
+          "occurred_at": "2026-08-31T11:59:39Z",
+          "publication": "published",
+          "recorded_at": "2026-08-31T12:00:00Z",
+          "recovery_closed": false,
+          "recovery_status": "insufficient_evidence",
+          "signal": "pod_replacement"
+        }
+      ],
+      "freshness_budget_seconds": 900.0,
+      "generated_at": "2026-08-31T12:00:00Z",
+      "projection_age_seconds": 0.0,
+      "recovery_state": "unknown",
+      "recovery_verified_at": null,
+      "resource_ref": "cluster-a/default/reports",
+      "retained_record_count": 1,
+      "stale": false
+    }
+  ],
+  "unavailable_reason": null
+}

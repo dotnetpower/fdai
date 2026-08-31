@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: c730d88703436948e23a79f7667030c2a4db880d
+translation_source_sha: bdf4e4d1ef15efc869f946185c5b09024fdfa35c
 translation_revised: 2026-09-01
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -249,10 +249,12 @@ Headless 런타임은 영속 effective 값을 로드합니다. Embedded 로컬 P
 감지 준비 상태도 같은 경계를 사용합니다. 배포는 PostgreSQL의 Muninn StateSnapshot을 읽고,
 대화형 로컬은 로컬 PostgreSQL이 있을 때만 `/detection-readiness`를 등록합니다. 표준 로컬
 분석기 작업은 배포 one-shot CLI, 인벤토리 대상, 메트릭, 이벤트, `shadow` 상태 및 영속 게시
-원장을 직렬로 재사용합니다. 두 실행 환경은 게시 전에 같은 구간 키를 청구하고 브로커 확인을
-기록한 뒤에만 반복 게시를 억제합니다. 기존 로컬 개발자 신원과 배포 워크로드 신원 및 전송
-보안의 차이는 그대로 유지합니다. 준비 상태는 일정 관리, 검색, 메트릭, 게시 및 출처 지연
-상태를 분리합니다.
+원장과 타입 지정 Pod 수명 주기 근거 바인딩을 직렬로 재사용합니다. 두 실행 환경은 게시 전에
+같은 구간 키를 청구하고 브로커 확인을 기록한 뒤에만 반복 게시를 억제합니다. 레코드가 확실히
+전송되지 않았다는 버스 증명이 있을 때만 청구를 해제하고, 그 외에는 조정을 위해 불확실 상태로
+유지하므로 어느 실행 환경도 모호한 전송을 다시 게시하지 않습니다. 기존 로컬 개발자 신원과
+배포 워크로드 신원 및 전송 보안의 차이는 그대로 유지합니다. 준비 상태는 일정 관리, 검색,
+메트릭, 게시 및 출처 지연 상태를 분리합니다.
 
 Standard full-stack launch는 서술기 엔드포인트 조정을 유지합니다. 독립 Operator 서비스는
 `RUNTIME_ENV=dev`에서만 local-only 서술기 어댑터를 연결하고 `LLM_RESOLVED_MODELS_PATH`와 수명이 짧은

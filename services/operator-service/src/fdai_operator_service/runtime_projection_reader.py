@@ -20,6 +20,9 @@ from psycopg.rows import dict_row
 from fdai_operator_service.analyzer_lifecycle_projection import (
     project_analyzer_lifecycle,
 )
+from fdai_operator_service.detection_lifecycle_projection import (
+    detection_lifecycle_projection,
+)
 from fdai_operator_service.families.operations import (
     ProjectionNotFoundError,
     ProjectionQuery,
@@ -667,11 +670,15 @@ class RuntimeProjectionReader:
             "WHERE key LIKE 'runtime:analyzer-finding-receipt:%%' "
             "ORDER BY updated_at DESC, key DESC LIMIT 500"
         )
+        pod_lifecycle_rows = await self._fetch_all(
+            "SELECT value, updated_at FROM state_kv "
+            "WHERE key LIKE 'runtime:detection-lifecycle:%%' ORDER BY key"
+        )
         targets = [_json_mapping(row["value"]) for row in readiness_rows]
         decisions = Counter(str(target.get("decision", "unknown")) for target in targets)
         observed = [
             _required_timestamp(row["updated_at"])
-            for row in readiness_rows
+            for row in (*readiness_rows, *receipt_rows, *pod_lifecycle_rows)
             if row.get("updated_at") is not None
         ]
         decision_keys = (
@@ -689,6 +696,7 @@ class RuntimeProjectionReader:
             "counts": {key: decisions.get(key, 0) for key in decision_keys},
             "targets": targets,
             "lifecycle": project_analyzer_lifecycle(receipt_rows),
+            "pod_lifecycle": detection_lifecycle_projection(pod_lifecycle_rows),
         }
 
     async def _configuration_baselines(self) -> Mapping[str, object]:

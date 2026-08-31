@@ -95,6 +95,10 @@ class AnalyzerFinding:
     ``evidence_refs`` are opaque metric names / value handles (never a raw
     payload or secret) so a report can cite what it saw without leaking
     telemetry.
+
+    ``metadata`` is descriptive only. An analyzer that reaches a typed
+    conclusion about evidence completeness or recovery closure carries it in
+    ``assessment``, which a canonical reducer produced.
     """
 
     resource_ref: str
@@ -106,12 +110,49 @@ class AnalyzerFinding:
     evidence_refs: tuple[str, ...] = ()
     remediation_ref: str | None = None
     metadata: Mapping[str, str] = field(default_factory=dict)
+    assessment: FindingAssessment | None = None
 
     def __post_init__(self) -> None:
         if not self.resource_ref:
             raise ValueError("AnalyzerFinding.resource_ref MUST be non-empty")
         if not self.signal:
             raise ValueError("AnalyzerFinding.signal MUST be non-empty")
+
+
+@dataclass(frozen=True, slots=True)
+class FindingAssessment:
+    """Typed reducer-derived disposition attached to one finding.
+
+    A finding's evidence completeness and recovery closure are conclusions, so
+    they MUST come from a canonical typed reducer that a replay can re-derive.
+    Free-form ``metadata`` strings stay descriptive: nothing downstream may
+    turn them into an evidence or recovery claim.
+    """
+
+    assessed_by: str
+    evidence_complete: bool
+    recovery_closed: bool | None
+    status: str
+    recovery_status: str | None = None
+    evidence_gaps: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.assessed_by.strip():
+            raise ValueError("FindingAssessment.assessed_by MUST be non-empty")
+        if not self.status.strip():
+            raise ValueError("FindingAssessment.status MUST be non-empty")
+        if self.recovery_closed is True and not self.evidence_complete:
+            raise ValueError("FindingAssessment MUST NOT close recovery on incomplete evidence")
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "assessed_by": self.assessed_by,
+            "evidence_complete": self.evidence_complete,
+            "recovery_closed": self.recovery_closed,
+            "status": self.status,
+            "recovery_status": self.recovery_status,
+            "evidence_gaps": list(self.evidence_gaps),
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -189,6 +230,7 @@ class InvestigationReport:
 
 __all__ = [
     "AnalyzerFinding",
+    "FindingAssessment",
     "InvestigationOutcome",
     "InvestigationReport",
     "Priority",
