@@ -152,6 +152,21 @@ package boundary and requires explicit package composition for cost replay.
   risk-gate not wired yet). A guard test ensures no scenario is silently
   skipped without an explicit reason.
 
+### Collector review boundary
+
+Phase 1 owns source fetch, content-addressed snapshot retention, parser selection, normalization,
+verification, durable mirroring, and publication of an inert collection-review package. Supported
+parsers are `rule-yaml`, `rego`, `azure-policy-json`, and `kube-bench`. Reserved parser ids such as
+`checkov-yaml` and `gatekeeper-templates` return an explicit unsupported outcome; they never pass
+raw source through as a rule.
+
+Phase 2 owns shadow evaluation, regression, Mimir-governed catalog-as-code review, activation, and
+rollback to the last-good revision. A collection-review package carries provenance and
+`grants_authority=false`; merging or storing it cannot mutate the runtime catalog. The first design
+considered promoting collector output directly in Phase 1. That would combine observation with
+catalog authority and bypass review. The revised design keeps the review artifact inert and makes
+activation a separate Phase 2 transition.
+
 ## Rule Catalog
 
 ### Normalized Schema

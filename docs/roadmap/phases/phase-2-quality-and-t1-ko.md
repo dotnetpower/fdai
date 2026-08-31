@@ -1,7 +1,7 @@
 ---
 title: "Phase 2 - 지속적 규칙 업데이트, Quality Gate, T1"
 translation_of: phase-2-quality-and-t1.md
-translation_source_sha: 10cfa4913f06d47d24f7780419c97cf6f14c5140
+translation_source_sha: ca34bc6abdb4951c6dd57251bc1286cd6d94a357
 translation_revised: 2026-08-31
 ---
 
@@ -83,6 +83,10 @@ auto-edit 절대 아님) 로 shadow 기본으로 나감.
   승격 블록.
 - **Promote | 롤백**: 승격은 명시적, 리뷰된 catalog-as-code 머지; **롤백 트리거** 는 실패한
   회귀, shadow-eval escape, 또는 사후 승격 가드 위반이며, 마지막-good 버전된 세트로 되돌림.
+- **수집기 인계**: Phase 1 수집 검토 패키지는 이 단계의 비활성 입력입니다. Mimir가 검토된
+  후보 전환을 소유합니다. 승격 컨트롤러는 shadow 승격 또는 롤백 근거만 기록하고, 별도로
+  권한이 부여된 catalog-as-code 병합이 활성 개정을 변경합니다. 스냅샷 저장, 검토 패키지 병합,
+  컨트롤러 출력만으로는 규칙이 활성화되지 않습니다.
 - **새 리소스 타입**: 프로바이더 스키마 변경 감지, 커버되지 않은 리소스 타입 식별, **shadow-only
   및 HIL-리뷰로 출시되는 규칙 stub 생성** - stub은 절대 auto-enforce 아님.
 

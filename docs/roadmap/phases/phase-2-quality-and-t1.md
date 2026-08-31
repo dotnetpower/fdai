@@ -81,6 +81,11 @@ Every stage writes an audit entry; a rule change is itself a change and ships as
 - **Promote | rollback**: promotion is an explicit, reviewed catalog-as-code merge; **rollback
   triggers** are a failed regression, a shadow-eval escape, or a post-promote guard breach, and
   revert to the last-good versioned set.
+- **Collector handoff**: Phase 1 collection-review packages are inert inputs to this phase. Mimir
+  owns the reviewed candidate transition; the promotion controller records only shadow promotion
+  or rollback evidence, and a separately authorized catalog-as-code merge changes the active
+  revision. Snapshot storage, review-package merge, and controller output never activate rules by
+  themselves.
 - **New resource types**: detect provider schema changes, identify uncovered resource types, and
   generate **rule stubs that ship shadow-only and HIL-reviewed** - a stub is never auto-enforced.
 

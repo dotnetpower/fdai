@@ -1,7 +1,7 @@
 ---
 title: Phase 1 - 규칙 카탈로그와 T0 결정론적 엔진
 translation_of: phase-1-rule-catalog-t0.md
-translation_source_sha: e666b96fc8a33ed6609c01a88d693432873043f6
+translation_source_sha: 71231f4c81ea6dafed5a8b3d1904c828f6cbdc90
 translation_revised: 2026-08-31
 ---
 
@@ -143,6 +143,19 @@ translation_revised: 2026-08-31
   아래의 concrete-payload 오버레이와 페어(P1-replayable) 이거나, 코드 안에 사유
   기재된 `xfail` (T1/T2 또는 risk-gate 미배선). 가드 테스트가 사유 없이 조용히
   스킵되는 시나리오가 없도록 강제.
+
+### 수집기 검토 경계
+
+Phase 1은 소스 가져오기, 내용 기반 주소 스냅샷 보존, 파서 선택, 정규화, 검증, 영속 미러링,
+비활성 수집 검토 패키지 게시를 소유합니다. 지원 파서는 `rule-yaml`, `rego`,
+`azure-policy-json`, `kube-bench`입니다. `checkov-yaml`, `gatekeeper-templates` 같은 예약
+파서 id는 명시적인 미지원 결과를 반환하며 원시 소스를 규칙으로 통과시키지 않습니다.
+
+Phase 2는 shadow 평가, 회귀, Mimir가 통제하는 catalog-as-code 검토, 활성화, 마지막 정상 개정으로
+롤백을 소유합니다. 수집 검토 패키지는 출처 이력과 `grants_authority=false`를 전달하며 이를
+병합하거나 저장해도 런타임 카탈로그를 변경할 수 없습니다. 첫 설계에서는 수집기 출력을 Phase 1에서
+직접 승격하는 방안을 검토했습니다. 이 방식은 관측과 카탈로그 권한을 결합하고 검토를 우회합니다.
+수정된 설계는 검토 아티팩트를 비활성 상태로 유지하고 활성화를 별도 Phase 2 전환으로 만듭니다.
 
 ## 규칙 카탈로그
 
