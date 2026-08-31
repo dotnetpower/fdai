@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지 메타모델
 translation_of: operating-ontology-metamodel.md
-translation_source_sha: 0bddba4f18359cfc4dc188310ec8d5c7565d4140
-translation_revised: 2026-08-30
+translation_source_sha: a1625d9fb452030a4c9b019299cb8ea48b2c0e1f
+translation_revised: 2026-08-31
 ---
 # FDAI 운영 온톨로지 메타모델
 
@@ -118,7 +118,7 @@ symmetric 관계는 현재 스키마에서 independently supported directed 기�
 | D0 | 이 direction 계약과 VM adversarial 예시를 게시합니다. | 엔드포인트, 의미, 탐색, causal, temporal, inverse 및 symmetric direction을 구분할 수 있습니다. |
 | D1 | 모든 shipped LinkType과 생산자를 정본 역할/cardinality에 맞춰 감사합니다. | `contains`, `attached_to`, `depends_on` 선언, Azure/Kubernetes 변환 결과, 소유권 룰 및 테스트가 하나의 orientation에 동의합니다. |
 | D2 | 명시적 엔드포인트 orientation과 source-schema 출처 이력이 있는 검토된 프로바이더 관계 대응을 추가합니다. | 프로바이더 참조 소유권이 온톨로지 direction을 암묵적으로 선택할 수 없습니다. |
-| D3 | 완전한, missing-endpoint, reversed-input, 중복 및 partial-coverage 고정본을 추가합니다. | 검증된 링크만 활성 그래프에 들어가며 모호한/불완전한 경로는 absent 상태로 보고됩니다. |
+| D3 | 완전한, missing-endpoint, reversed-input, 중복, preview 및 partial-coverage 고정본을 추가합니다. | 검증된 링크만 활성 그래프에 들어가며 모호한/불완전한 경로는 absent 상태로 보고됩니다. |
 | D4 | 이행 전에 기존 그래프 세대와 aligned 그래프 세대를 shadow 비교합니다. | Directional 조회 및 blast-radius 차이가 측정, 검토, 재생 가능하며 롤백 포인터를 갖습니다. 서로 다른 검토자와 비어 있지 않은 회귀 증적은 catalog PR 제안만 만들 수 있으며 이행 권한은 부여하지 않습니다. |
 
 저장된 링크 해석을 바꾸는 direction 또는 cardinality 수정에는 새 LinkType major 버전이나 명시적
@@ -128,6 +128,11 @@ symmetric 관계는 현재 스키마에서 independently supported directed 기�
 시각 및 재구성 포인터를 결속합니다. 승인은 catalog pull request 제안을 허용한다는 뜻입니다.
 비교를 이행 준비 완료로 바꾸거나 그래프를 변경하거나 이행을 실행하거나 과거 스냅샷을 다시
 쓰지 않습니다.
+
+증분 후보 재구축은 변경된 타입 또는 타입 버전에서 관계로 연결된 전이 참조까지만 확장합니다.
+관련 없는 후보 구성 요소는 재사용할 수 있습니다. 검토된 승격 원장은 제안 이력을 추가하기 전에
+변경할 수 없는 두 그래프 세대, 완전한 D4 비교 및 서로 다른 모든 검토 평가를 보존합니다. 중복
+검토 전달은 멱등적이며 이력과 활성 제안 포인터에는 그래프 또는 이행 권한을 담을 수 없습니다.
 
 ## 상태 모델
 
@@ -259,7 +264,7 @@ declaration-kind 제안이 됩니다.
 | Kinetic 실행 상태 산출물 | implemented | [`reconciliation_artifacts.py`](../../../services/core-control-plane/src/fdai/delivery/reconciliation_artifacts.py), 집중 adversarial 테스트(`15 passed`) | 범위가 제한된 immutable delivery 증적이 raw Action argument를 저장하거나 권한을 부여하지 않고 기존 exact V2 plan 하나를 연결합니다. Pre-dispatch writer와 independent observation source는 열린 작업입니다. |
 | 예상 계보와 근거 충돌 개정 | implemented | `ProspectiveLineage.yaml`, `EvidenceConflict.yaml`, Forseti, Heimdall, Muninn 및 Saga 집중 검사 | 내용 주소 방식의 예상 레코드는 실행 전에 확정됩니다. 충돌 개정은 권한을 유지하거나 낮출 수만 있는 변경 불가, 상위 개정 기반, 정확한 대상 레코드입니다. |
 | 전역 프로바이더 스키마 집계 | implemented | [`provider-schema-catalog`](../../../provider-schema-catalog/index.json), [`의미 검토 증적`](../../../provider-schema-catalog/azure/reviews/0cf18200498c344e53078193d9c8eaf2568c4c134f5f92088be7b529c3223b85.json.gz), `provider_schema.py`, `provider_relationship_schema.py`, `provider_schema_relationship_review.py`, `provider_schema_state_ledger.py`, [`ProviderSchemaDriftProjector`](../../../services/core-control-plane/src/fdai/shared/providers/provider_schema.py), 집중 parser, ledger, review, watcher, agent, catalog 및 infrastructure 검사 | 고정된 Azure Bicep corpus는 고유한 타입 3,405개와 모든 타입의 명시적 disposition을 보존합니다. 고정된 Azure REST corpus는 exact 4,707개와 unresolved 2,189개를 포함한 ARM ID reference 6,896개를 별도로 보존합니다. Exact reference는 content-addressed review receipt에서 endpoint pair 908개를 생성합니다. 양쪽 endpoint type이 modeled인 pair는 46개, source만 modeled인 pair는 56개, target만 modeled인 pair는 213개, 어느 쪽도 modeled가 아닌 pair는 593개이며, 기존에 검토된 mapping ID 8개가 이 pair와 겹칩니다. 보존된 의미 검토 package는 `review_required`를 유지하고 automatic promotion을 false로 고정하며 어떤 권한도 부여하지 않습니다. Pair 확장, durable file 수, file별 byte 및 generation byte에는 상한이 있습니다. Hydration은 완전히 검증된 staged generation만 게시하며 manifest 게시는 revision CAS와 atomic audit entry를 사용합니다. Composition root는 strict delivery projector를 provider Protocol로 주입합니다. Heimdall은 delivery import를 사용하지 않으며 projector가 없으면 hold합니다. Modeled 타입 62개는 검토된 의미 subset으로 유지됩니다. Daily Job은 strict material package를 Heimdall의 기존 shadow `object.drift` ownership으로 전달합니다. Review receipt는 LinkType이나 orientation을 추론하지 않으며 어떤 record도 ontology 또는 실행 권한을 부여하지 않습니다. |
-| Versioned 관계 후보 materialization | implemented | `provider_schema_relationship_generation.py`, `provider_schema_relationship_ledger.py`, `provider_schema_relationship_review.py`, `provider_relationship_mapping.py`, `provider_schema_watcher.py`, `test_provider_schema_relationship_generation.py`, `test_provider_schema_watcher.py`, `direction_shadow` exact-release comparator | Exact provider-schema 및 REST evidence digest, 다시 계산한 review digest, catalog cardinality를 포함한 모든 semantic mapping field, provider type@version 신원, mapping revision, projection manifest, 명시적 direction/cardinality/link metadata, 변경 타입 무효화, bounded candidate, rollback, replay 및 watcher receipt authority를 content-address합니다. Active pointer는 generation digest를 검증하며 graph 또는 migration 권한으로 변조될 수 없습니다. Partial, stale, duplicate 또는 mixed-release 입력은 비활성 상태로 유지됩니다. Ledger 쓰기는 lock과 고유 staging 파일로 직렬화되며 promotion 및 refresh receipt는 graph, execution 및 migration 권한을 false로 고정한 proposal-only입니다. |
+| Versioned 관계 후보 materialization | implemented | `provider_schema_relationship_generation.py`, `provider_schema_relationship_ledger.py`, `provider_schema_relationship_review.py`, `provider_relationship_mapping.py`, `provider_schema_watcher.py`, 집중 세대, 고정본, D4 및 원장 테스트 | Exact provider-schema 및 REST 근거 다이제스트, 다시 계산한 검토 다이제스트, catalog cardinality를 포함한 모든 의미 mapping 필드, provider type@version 신원, mapping revision, projection manifest, 명시적 direction/cardinality/link metadata, 변경 타입과 전이 참조 무효화, 범위가 제한된 후보, 롤백, 재현 및 watcher 증적 권한을 내용 기반 주소로 만듭니다. 완전하게 관측된 엔드포인트는 정본 `contains`, `attached_to`, `depends_on`을 입증하며 누락되거나 부분적인 엔드포인트는 생성하지 않습니다. 검토된 승격 원장은 변경할 수 없는 두 맥락, 비교 및 추가 전용 검토 이력을 보존합니다. 활성 포인터와 이력은 그래프 또는 이행 권한으로 변조할 수 없습니다. |
 | 관계 direction 및 분류 보강 | in-progress | 이 문서의 direction 계약 및 `resource_classified_as` 설계, [`kubernetes_relationships.py`](../../../services/core-control-plane/src/fdai/delivery/kubernetes_relationships.py), [`kubernetes_api_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/kubernetes_api_inventory.py), [`direction_shadow`](../../../services/core-control-plane/src/fdai/core/ontology_platform/direction_shadow), focused 테스트, 보존된 증적 `sha256:ad64c267b6f0c6ac5a1a037067f926aa5613f1fe5a84702877eb607e368736f6` | D1과 D3은 검토된 Azure 및 Kubernetes producer로 구현되었습니다. 실제 D4 비교는 재생 가능하며 `review_required`로 보존되었습니다. 과거 release가 결속되지 않았고 정렬 후 세대가 불완전하며 링크가 검증되지 않았으므로 이행 근거가 아닙니다. |
 | 네트워크 및 Pod 텔레메트리 competency | in-progress | [`operational_functions.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/operational_functions.py), [`kubernetes_api_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/kubernetes_api_inventory.py), [`kubernetes_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/kubernetes_inventory.py), 집중 인벤토리 및 Pod 텔레메트리 검사 | 운영 인벤토리 조립은 exact endpoint, public CA, cluster 및 workload-identity binding이 구성되면 UID에 근거한 Kubernetes 런타임 기록을 수집합니다. Inventory identity에는 AKS RBAC Reader만 부여되며 request 시점에 수명이 짧은 audience token을 취득합니다. Static Kubernetes token은 Terraform, environment 구성 또는 ledger에 들어가지 않습니다. 보존된 실제 운영 Kubernetes 증적은 아직 없습니다. |
 | 운영 메타모델 보증 | in-progress | 위의 focused 소스 및 테스트 근거 | 이 문서가 운영 검증을 주장하려면 인증된 cross-service 및 운영 증적이 더 필요합니다. |
@@ -268,6 +273,7 @@ declaration-kind 제안이 됩니다.
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-31 | implemented | 로컬 D2-D4 관계 수명 주기를 완료했습니다. 전체 인프라 고정본은 순서와 무관하고, 완전하게 관측된 엔드포인트는 정본 `contains`, `attached_to`, `depends_on`을 입증하며, 증분 무효화는 전이 참조만 따릅니다. 검토된 승격 이력은 변경할 수 없는 이전 및 정렬 후 맥락과 정확한 비교를 보존합니다. 모든 제안, 그래프, 실행 및 이행 권한은 false로 유지됩니다. | `current change`; 프로바이더 관계 세대 및 원장, direction 세대 직렬화, 인프라 및 preview 고정본, D4 비교기 및 승격 테스트, 집중 스키마, 변환 결과 및 재현 검사. | 완전한 release-bound 실제 세대 D4 검토와 별도로 통제되는 프로바이더 스키마 및 Saga 런타임 증적을 보존합니다. 외부 근거는 주장하지 않습니다. |
 | 2026-08-13 | in-progress | 구현 원장을 도입하고 집계된 production-ready 설명을 범위가 제한된 상태로 교체했습니다. 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 소스 및 focused 검사 | 아래 direction/분류 감사, M5 competency, 운영 보증 항목을 완료해야 합니다. |
 | 2026-08-13 | in-progress | 검토된 Kubernetes Service 선택기 및 Endpoints 매핑과 함께 missing, duplicate, reversed-order, partial 입력에서 안전하게 링크를 만들지 않는 범위 제한 후보 변환기를 추가했습니다. | `current change`; `test_kubernetes_relationships.py` 6개 통과, focused 프로바이더 카탈로그 테스트 1개 통과 | D1 생산자 감사를 완료하고 D4 비교/롤백 근거를 보존하며 production 인벤토리 조립을 통해 변환기를 연결해야 합니다. |
 | 2026-08-13 | in-progress | 중복 비교기를 만들지 않고 기존 D4 구현을 원장에 반영했습니다. 내용 기반 주소를 가진 증적은 direction 조회와 영향 범위를 측정하고 exact 재생을 지원하며 권한이 없는 재구축 포인터를 포함합니다. | 커밋 `18be5ab02`; focused `pytest -q services/core-control-plane/tests/core/ontology_platform/direction_shadow`에서 6개 테스트를 통과했습니다. | 보존된 기존/정렬 후 production 세대를 비교하고 차이를 검토한 뒤 이행 전에 결과 증적을 보존해야 합니다. |

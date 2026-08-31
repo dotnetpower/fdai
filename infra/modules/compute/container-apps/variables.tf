@@ -77,6 +77,30 @@ variable "executor_identity_client_id" {
   type        = string
 }
 
+variable "scheduler_identity_id" {
+  description = "Dedicated non-executor scheduler Job Managed Identity resource id."
+  type        = string
+  default     = ""
+}
+
+variable "scheduler_identity_client_id" {
+  description = "Client id selecting the dedicated scheduler Job identity."
+  type        = string
+  default     = ""
+}
+
+variable "dr_drill_identity_id" {
+  description = "Dedicated DB-DR Job Managed Identity resource id."
+  type        = string
+  default     = ""
+}
+
+variable "dr_drill_identity_client_id" {
+  description = "Client id selecting the dedicated DB-DR Job identity."
+  type        = string
+  default     = ""
+}
+
 variable "change_identity_client_id" {
   description = "Client id of the attached Change Safety execution identity."
   type        = string
@@ -747,10 +771,10 @@ variable "dr_drill_source_server_arm_id" {
   default     = ""
 }
 
-variable "dr_drill_target_rg_prefix" {
-  description = "Prefix for the isolated resource group the drill lands in."
+variable "dr_drill_target_resource_group" {
+  description = "Pre-created isolated resource group where the drill restores its temporary server."
   type        = string
-  default     = "rg-fdai-dr-drill"
+  default     = ""
 }
 
 variable "dr_drill_target_server_prefix" {
@@ -763,6 +787,12 @@ variable "dr_drill_pitr_offset_minutes" {
   description = "How many minutes back from now the drill restore point sits."
   type        = number
   default     = 30
+}
+
+variable "dr_drill_integrity_tables" {
+  description = "Ordered PostgreSQL tables whose counts and deterministic checksums the drill compares."
+  type        = list(string)
+  default     = ["alembic_version"]
 }
 
 variable "dr_drill_dry_run" {

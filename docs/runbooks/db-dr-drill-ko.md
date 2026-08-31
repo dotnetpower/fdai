@@ -1,19 +1,19 @@
 ---
 title: Deep DB-DR 복원 훈련 런북
 translation_of: db-dr-drill.md
-translation_source_sha: b2e20a31732d10e406aba508893ece84e4214670
-translation_revised: 2026-08-11
+translation_source_sha: 9ee164c34f24f06b308463b1da788fb68b29d07b
+translation_revised: 2026-08-31
 ---
 
 # Deep DB-DR 복원 훈련 런북
 
-Phase-3 § Deep DB-DR 훈련을 위한 운영자 런북. 이 리포지토리가 제공하는
+단계 3 Deep DB-DR 훈련을 위한 운영자 런북입니다. 이 리포지토리가 제공하는
 [`DbDrVerifier`](../../services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_verifier.py)와
-Azure 어댑터
-([`AzureDbDrRestoreAdapter`](../../services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_drill_cli.py))를
+전달 계층 소유
+[`AzurePostgresRestoreAdapter`](../../services/core-control-plane/src/fdai/delivery/azure/db_dr_restore.py)를
 반복 가능한 운영 절차로 만듭니다. 훈련은 프로덕션 PostgreSQL Flexible Server를
-대상으로 실행되지만 프로덕션 데이터는 절대 건드리지 않습니다 - 복원 결과는
-훈련이 끝나면 자동으로 정리되는 **격리된 리소스 그룹**에 배치됩니다.
+대상으로 실행되지만 프로덕션 데이터를 변경하지 않습니다. 복원 결과는 Terraform이 소유하는
+**격리된 리소스 그룹**에 배치되고 훈련이 끝나면 임시 서버를 삭제합니다.
 
 ## 언제 실행하나
 
@@ -21,7 +21,7 @@ Azure 어댑터
 - **스키마 마이그레이션 이후**: 사용자 노출 테이블을 변경한 마이그레이션은 7일
   이내 재실행합니다.
 - **복원 어댑터 변경 시**:
-  [`services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_drill_cli.py`](../../services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_drill_cli.py)
+  [`services/core-control-plane/src/fdai/delivery/azure/db_dr_restore.py`](../../services/core-control-plane/src/fdai/delivery/azure/db_dr_restore.py)
   아래 어떤 커밋이든 재실행을 유발합니다.
 - **필요 시**: 인시던트 대응에서 최신 RPO/RTO 수치가 필요할 때 실행합니다.
 
@@ -33,21 +33,15 @@ Azure 어댑터
 3. 운영자의 Azure CLI 프로파일이 배포 프로파일이어야 합니다 - `env -u AZURE_CONFIG_DIR`가
    기본 프로파일을 선택합니다. `az account show`가 포크에서 설정한
    `FDAI_EXPECTED_SUBSCRIPTION_ID`와 일치하는 서브스크립션을 반환하는지 확인합니다.
-4. 격리 리소스 그룹 이름이 서브스크립션에서 사용 가능하고 원본 리소스 그룹과
-   충돌하지 않아야 합니다. 훈련 스크립트가 매 실행마다 새 이름을 생성합니다.
-5. 배포 항목 지점에서 `DbDrVerifier`에 복원, 무결성, smoke, 감사 어댑터를
-  구성한 후 `verifier.run`을 CLI에 전달합니다. 명시적 실행기 없이 업스트림
-  `main()`을 호출하면 Azure를 변경하기 전에 종료 코드 `2`로 중단됩니다.
-
-  ```python
-  from fdai.코어.verticals.복원력.db_dr_drill_cli 가져오기 main
-
-  raise SystemExit(main(검증기.실행))
-  ```
-6. 주입된 HTTP 클라이언트는 Azure Resource Manager HTTPS 출처를 origin-only `base_url`로
-  사용합니다. 어댑터는 동일 출처 또는 root-relative 경로의 LRO 포인터만 허용합니다.
-  출처는 정본 PostgreSQL Flexible Server ARM id이고 대상 resource-group, 서버 및
-  지역 값은 유효한 Azure 경로 구간이며 복원 시각은 timezone-aware여야 합니다.
+4. Terraform이 격리 대상 리소스 그룹과 전용 DB-DR 신원을 만들었는지 확인합니다. 이 신원은
+   원본 서버 Reader, 대상 그룹 범위의 PostgreSQL Flexible Management Service Contributor,
+   ACR 가져오기, 상태 저장소 비밀 읽기 권한만 받으며 실행기 신원이 아닙니다.
+5. `FDAI_DR_DRILL_INTEGRITY_TABLES`에 작고 안정적인 테이블 1-16개를 지정합니다. 기본값은
+   `alembic_version`입니다. 선택한 복원 간격에도 내용이 안정적인 애플리케이션 테이블만
+   추가하세요.
+6. 예약 진입점은 `python -m fdai.delivery.db_dr_drill_cli`입니다. 완전한 dry run은 토큰을
+   요청하거나 Azure 또는 PostgreSQL을 변경하지 않고 원본, 대상, 테이블 및 비밀 연결을
+   검증합니다.
 
 ## 단계
 
@@ -58,10 +52,9 @@ Azure 어댑터
    echo "복원 지점: $RESTORE_TIME"
    ```
 
-2. **수동 절차용 격리 리소스 그룹 생성.** 병렬 훈련이 충돌하지 않도록 훈련 타임스탬프가
-  포함된 이름을 사용합니다. Automated `AzureDbDrRestoreAdapter`는 `If-None-Match: *`로 이
-  단계를 직접 수행하고 201 소유권 결과만 허용하며 기존 그룹을 채택하지 않고
-  차단합니다.
+2. **격리 리소스 그룹 사용.** 자동 작업은 Terraform이 만든 전용 그룹을 사용하고 그 안에
+  타임스탬프가 있는 서버를 만듭니다. 수동 절차에서는 원본 그룹과 다른 별도 그룹을
+  만드세요.
 
    ```bash
    DRILL_RG="rg-fdai-dr-drill-$(date +%Y%m%d-%H%M)"
@@ -84,9 +77,9 @@ Azure 어댑터
 
 4. **서버가 `Ready` 상태가 될 때까지 폴링.** 작은 dev 데이터베이스는 보통
    15-40분 안에 복원이 끝납니다.
-   [`AzureDbDrRestoreAdapter`](../../services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_drill_cli.py)는
-  기본 30분 예산 내에서 LRO 엔드포인트를 폴링합니다. 예산은 단조 증가 경과 시간을
-  사용하며 구성된 sleep 간격뿐 아니라 토큰 및 HTTP 지연 시간도 포함합니다. 운영자용 등가 명령은
+   [`AzurePostgresRestoreAdapter`](../../services/core-control-plane/src/fdai/delivery/azure/db_dr_restore.py)는
+  기본 45분 예산 안에서 정확한 서버 리소스를 폴링합니다. 잘못된 형식, 실패, 취소 또는
+  불완전한 응답은 실패 시 차단되고 부분 대상 정리를 시작합니다. 운영자용 등가 명령은
    다음과 같습니다.
 
    ```bash
@@ -133,14 +126,13 @@ Azure 어댑터
   `leased_until` 이후 leased 행을 다시 점유할 수 있고 작업 완료 시 행이
   제거되는지 검증합니다.
 
-7. **정리.** 격리 리소스 그룹을 삭제합니다. 어댑터의 `teardown` 경로는
-  멱등적이므로 404 응답은 '이미 삭제됨'을 의미하며 정상으로 간주합니다. 202 응답은 LRO
-  포인터를 제공해야 하고 어댑터는 이를 polling한 후 대상 그룹이 404를 반환하는지 검증한
-  뒤 정리 성공을 보고합니다. 복원 실패 또는 취소도 어댑터가 직접 만든
-  그룹만 제거합니다.
+7. **정리.** 임시 복원 서버를 삭제합니다. 어댑터의 `teardown` 경로는 멱등적이므로 404는
+  이미 삭제된 정상 결과입니다. 삭제 요청이 허용되면 정확한 서버 읽기가 404를 반환할 때까지
+  폴링합니다. 복원 실패 또는 취소도 부분 생성된 서버 삭제를 시도합니다. Terraform이 소유하는
+  격리 그룹은 다음 훈련을 위해 유지합니다.
 
    ```bash
-   az 그룹 삭제 -n "$DRILL_RG" --yes --no-wait
+   az postgres flexible-server delete -g "$DRILL_RG" -n "$TARGET" --yes
    ```
 
 ## 보존 및 백업 잔존 데이터
@@ -170,17 +162,17 @@ PITR은 개인정보 또는 보존 삭제 이전의 데이터베이스 상태를
 
 ## 성공 기준
 
-다음 다섯 조건이 모두 성립하면 훈련 통과입니다:
+다음 여섯 조건이 모두 성립할 때만 훈련을 통과합니다:
 
-- 설정된 시간 예산 내에 복원 완료 (상위 기본값 30분).
+- 설정된 시간 예산 내에 복원 완료 (상위 기본값 45분).
 - 무결성 리포트에 불일치 0건.
 - 스모크 리포트에 최소 1건의 검사가 있고 모든 검사 통과.
 - 최종 ARM 리소스 id가 요청한 restored 서버와 정확히 일치하고 유효한 FQDN이 요청한 대상
   서버 이름으로 시작합니다.
-- 격리 리소스 그룹 삭제가 2xx (또는 재시도 후 404)를 반환.
-- 모든 단계가 감사 엔트리를 기록. 훈련은 감사 로그에
-  `restore_started` / `restore_ready` / `integrity_passed` /
-  `smoke_passed` / `teardown_complete` 이벤트가 모두 있을 때만 '완료' 상태입니다. 모든 단계와
+- 복원 서버 삭제가 허용되고 정확한 읽기가 404를 반환합니다.
+- 모든 단계가 감사 엔트리를 기록합니다. 훈련은 감사 로그에
+  `start` / `verification_passed` / `teardown_succeeded` / `passed` 이벤트가 모두 있을 때만
+  완료 상태입니다. 모든 단계와
   정리 기록은 결정의 고유 `run_id`를 `correlation_id`로 사용하고 `experiment_id`는
   계획된 exercise를 계속 식별합니다. 단계 멱등성 키는 해당 실행 안에서 고유해야 합니다.
 
@@ -191,28 +183,23 @@ PITR은 개인정보 또는 보존 삭제 이전의 데이터베이스 상태를
 
 ## 실패 처리
 
-- **복원이 예산 초과** -> 어댑터가 `restore_timeout` 이벤트를 발생시킵니다.
-  운영자는 마지막 LRO 상태 URL을 캡처하고 인시던트를 등록합니다. 그래도 정리는
-  시도합니다.
-- **Malformed successful LRO 응답** -> 인식된 문자열 상태가 없는 HTTP 200 poll은 암묵적
-  running 상태가 아니라 복원 실패입니다. 연산 참조를 보존하고 중단합니다.
-- **무결성 불일치** -> 훈련이 안전 측으로 닫히며(실패 시 차단) 실패 처리됩니다.
-  불일치 리포트가 인시던트의 페이로드입니다. 엔지니어가 표본을 확인하기 전까지
-  격리 리소스 그룹을 삭제하지 마세요 (보류 태그 추가).
-- **스모크 쿼리 실패** -> 무결성 불일치와 동일하게 처리합니다. 실패한 쿼리와
-  응답을 기록합니다.
-- **정리 408, 429 또는 5xx** -> 범위가 제한된 linear delay로 재시도합니다(기본 5회, 30초 간격).
-  다른 4xx 응답은 즉시 실패합니다. 그래도
-  실패하면 on-call 담당자를 호출합니다 - 남겨진 격리 리소스 그룹은 비용이
-  발생하며 수동 정리가 필요합니다.
+- **복원이 예산 초과** -> 어댑터가 복원 실패를 반환하고 검증기가 종료 결과를 기록하기 전에
+  부분 서버 정리를 시도합니다.
+- **잘못된 성공 응답** -> 인식 가능한 상태가 없는 HTTP 200 읽기는 암묵적인 실행 중 상태가
+  아니라 복원 실패입니다.
+- **무결성 불일치** -> 훈련은 실패 시 차단되고 구조화된 불일치를 감사에 보존한 뒤 복원 서버를
+  삭제합니다.
+- **Smoke 쿼리 실패** -> 범위가 제한된 실패 검사를 기록하고 서버를 삭제합니다.
+- **정리 실패** -> `cleanup_failed`가 기본 결과를 보존하고 CLI는 0이 아닌 종료 코드를
+  반환합니다. 담당자에게 알리고 해당 서버를 수동 삭제하세요. 격리 대상 그룹 자체는 의도적으로
+  유지합니다.
 
 ## 비용 참고
 
 격리 Postgres 서버는 훈련 기간 동안 표준 Flexible Server 컴퓨트 + 스토리지
 요금이 발생합니다. day-zero의 Burstable B1ms + 32GB 스토리지 티어에서는 시간당
 요금이 소액이지만, 정리를 건너뛰면 누적됩니다. 워크로드 태그 `purpose=dr-drill`에
-대한 알림을 걸어 24시간 이상 남아 있는 잔여(stray) 훈련 리소스 그룹을
-감지합니다.
+대한 알림으로 남아 있는 복원 서버를 감지합니다.
 
 ## 관련 문서
 

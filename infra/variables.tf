@@ -417,6 +417,23 @@ variable "scheduler_tick_cron_expression" {
   default     = ""
 }
 
+variable "baseline_measurement_enabled" {
+  description = "Create the automated baseline regression measurement Job."
+  type        = bool
+  default     = false
+}
+
+variable "pattern_growth_measurement_enabled" {
+  description = "Create the T1 pattern-growth intake measurement Job."
+  type        = bool
+  default     = false
+
+  validation {
+    condition     = !var.pattern_growth_measurement_enabled || var.enable_llm
+    error_message = "pattern_growth_measurement_enabled requires enable_llm so the configured embedding endpoint is available."
+  }
+}
+
 variable "measurement_scenario_set_version" {
   description = "Frozen P0 scenario-set version the automated baseline runner replays (e.g. 'v2026.07'). Bump this in lockstep with tests/scenarios/<version>/ contents so a promotion never compares metrics across versions."
   type        = string
@@ -458,10 +475,40 @@ variable "dr_drill_source_server_arm_id" {
   description = "ARM id of the production Postgres Flexible Server whose PITR checkpoint the drill restores. Required when dr_drill_enabled = true."
   type        = string
   default     = ""
+
+  validation {
+    condition = (
+      !var.dr_drill_enabled ||
+      can(regex(
+        "^/subscriptions/[0-9a-fA-F-]{36}/resourceGroups/[A-Za-z0-9._()-]{1,90}/providers/Microsoft\\.DBforPostgreSQL/flexibleServers/[A-Za-z0-9-]{3,63}$",
+        var.dr_drill_source_server_arm_id,
+      ))
+    )
+    error_message = "dr_drill_source_server_arm_id must identify one PostgreSQL Flexible Server when the drill is enabled."
+  }
+}
+
+variable "dr_drill_integrity_tables" {
+  description = "Ordered stable PostgreSQL tables whose row counts and deterministic checksums the DB-DR drill compares."
+  type        = list(string)
+  default     = ["alembic_version"]
+
+  validation {
+    condition = (
+      length(var.dr_drill_integrity_tables) >= 1 &&
+      length(var.dr_drill_integrity_tables) <= 16 &&
+      length(var.dr_drill_integrity_tables) == length(distinct(var.dr_drill_integrity_tables)) &&
+      alltrue([
+        for table in var.dr_drill_integrity_tables :
+        can(regex("^[a-z_][a-z0-9_]{0,62}(?:\\.[a-z_][a-z0-9_]{0,62})?$", table))
+      ])
+    )
+    error_message = "dr_drill_integrity_tables must contain 1-16 unique lowercase PostgreSQL table identifiers."
+  }
 }
 
 variable "dr_drill_dry_run" {
-  description = "When true, the drill CLI logs its composed config and exits without touching Azure. Upstream default is true so accidentally enabling the drill does not incur cost; the fork sets false in production."
+  description = "When true, the drill CLI validates complete non-secret configuration and exits without touching Azure. Upstream defaults to true."
   type        = bool
   default     = true
 }

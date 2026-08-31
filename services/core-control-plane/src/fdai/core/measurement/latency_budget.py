@@ -8,6 +8,7 @@ demote-vs-hold decision the caller wires into the promotion registry.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from enum import StrEnum
 
@@ -25,12 +26,35 @@ class LatencyOutcome(StrEnum):
     OVER_BUDGET = "over_budget"
     """Observed p95 exceeds budget - caller demotes / alerts."""
 
+    UNAVAILABLE = "unavailable"
+    """The tier lacks a budget or enough valid samples for a decision."""
+
 
 @dataclass(frozen=True, slots=True)
 class LatencyObservation:
     tier: Tier
-    p95_ms: float
+    p95_ms: float | None
     sample_size: int
+    p50_ms: float | None = None
+    p99_ms: float | None = None
+    unavailable_reason: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.sample_size < 0:
+            raise ValueError("sample_size MUST be >= 0")
+        percentiles = tuple(
+            value for value in (self.p50_ms, self.p95_ms, self.p99_ms) if value is not None
+        )
+        if any(not math.isfinite(value) or value < 0.0 for value in percentiles):
+            raise ValueError("latency percentiles MUST be finite and >= 0")
+        if self.unavailable_reason is not None and not self.unavailable_reason.strip():
+            raise ValueError("unavailable_reason MUST be non-empty when provided")
+        if self.unavailable_reason is None and self.p95_ms is None:
+            raise ValueError("p95_ms is required unless latency is unavailable")
+        if self.p50_ms is not None and self.p95_ms is not None and self.p50_ms > self.p95_ms:
+            raise ValueError("p50_ms MUST be <= p95_ms")
+        if self.p99_ms is not None and self.p95_ms is not None and self.p95_ms > self.p99_ms:
+            raise ValueError("p95_ms MUST be <= p99_ms")
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,7 +77,7 @@ class LatencyBudgetMonitor:
         for tier, budget in budgets.items():
             if budget.tier is not tier:
                 raise ValueError(f"budgets[{tier}].tier is {budget.tier}, expected {tier}")
-            if budget.p95_ceiling_ms <= 0:
+            if not math.isfinite(budget.p95_ceiling_ms) or budget.p95_ceiling_ms <= 0:
                 raise ValueError(f"budgets[{tier}].p95_ceiling_ms MUST be > 0")
         if min_sample_size < 1:
             raise ValueError("min_sample_size MUST be >= 1")
@@ -65,8 +89,14 @@ class LatencyBudgetMonitor:
         if budget is None:
             return LatencyDecision(
                 tier=observation.tier,
-                outcome=LatencyOutcome.PASS,
+                outcome=LatencyOutcome.UNAVAILABLE,
                 reasons=("no_budget_configured_for_tier",),
+            )
+        if observation.unavailable_reason is not None or observation.p95_ms is None:
+            return LatencyDecision(
+                tier=observation.tier,
+                outcome=LatencyOutcome.UNAVAILABLE,
+                reasons=(observation.unavailable_reason or "p95_unavailable",),
             )
         if observation.sample_size < self._min_sample_size:
             # A p95 computed from too few samples is statistical noise;
@@ -74,7 +104,7 @@ class LatencyBudgetMonitor:
             # (PASS) until enough samples accumulate.
             return LatencyDecision(
                 tier=observation.tier,
-                outcome=LatencyOutcome.PASS,
+                outcome=LatencyOutcome.UNAVAILABLE,
                 reasons=(
                     f"insufficient_samples:{observation.sample_size}<min={self._min_sample_size}",
                 ),

@@ -28,14 +28,14 @@ resource "azurerm_container_app_job" "scheduler_tick" {
 
   identity {
     type         = "UserAssigned"
-    identity_ids = [var.executor_identity_id]
+    identity_ids = [var.scheduler_identity_id]
   }
 
   dynamic "registry" {
     for_each = var.acr_login_server == "" ? toset([]) : toset(["1"])
     content {
       server   = var.acr_login_server
-      identity = var.executor_identity_id
+      identity = var.scheduler_identity_id
     }
   }
 
@@ -44,7 +44,7 @@ resource "azurerm_container_app_job" "scheduler_tick" {
     for_each = nonsensitive(var.state_store_dsn_secret_id) == "" ? toset([]) : toset(["1"])
     content {
       name                = "schedule-store-dsn"
-      identity            = var.executor_identity_id
+      identity            = var.scheduler_identity_id
       key_vault_secret_id = var.state_store_dsn_secret_id
     }
   }
@@ -73,7 +73,7 @@ resource "azurerm_container_app_job" "scheduler_tick" {
 
       env {
         name  = "FDAI_MI_CLIENT_ID"
-        value = var.executor_identity_client_id
+        value = var.scheduler_identity_client_id
       }
 
       dynamic "env" {
@@ -83,6 +83,17 @@ resource "azurerm_container_app_job" "scheduler_tick" {
           secret_name = "schedule-store-dsn"
         }
       }
+    }
+  }
+
+  lifecycle {
+    precondition {
+      condition = (
+        var.scheduler_identity_id != "" &&
+        var.scheduler_identity_client_id != "" &&
+        nonsensitive(var.state_store_dsn_secret_id) != ""
+      )
+      error_message = "enabled scheduler Job requires its dedicated identity and state-store secret reference."
     }
   }
 

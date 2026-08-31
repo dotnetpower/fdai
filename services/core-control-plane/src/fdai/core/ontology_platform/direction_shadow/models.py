@@ -190,6 +190,14 @@ class DirectionGraphGeneration:
             "truncated": self.truncated,
         }
 
+    def to_mapping(self) -> dict[str, object]:
+        """Return the complete immutable generation snapshot."""
+
+        return {
+            **self._digest_material(),
+            "generation_digest": self.generation_digest,
+        }
+
 
 @dataclass(frozen=True, slots=True)
 class ComparisonBounds:

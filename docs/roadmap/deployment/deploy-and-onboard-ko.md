@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 13cee5ed259d9348131ac655f157ccbd366cf15b
-translation_revised: 2026-08-30
+translation_source_sha: 74a9ef0545a5d83de04c80d5fd28042bc6aa603b
+translation_revised: 2026-08-31
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 진실 원본입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -534,7 +534,7 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `FDAI_INVENTORY_RECONCILIATION_INTERVAL_SECONDS` | env | 업스트림 | 인벤토리 작업의 정상 full-scan 간격입니다. 기본 작업 cron은 10분마다 wake하지만 PostgreSQL 시도 상태가 간격 due 전 검사를 건너뜀하고 newer 실패한/abandoned 시도는 다음 틱에 재시도합니다. |
 | `FDAI_EMAIL_ENDPOINT` / `FDAI_EMAIL_SENDER_ADDRESS` / `FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON` / `FDAI_NOTIFICATION_MI_CLIENT_ID` | env | 업스트림 / 배포 | ACS 이메일 A2/A4 채널을 활성화합니다. Terraform이 엔드포인트와 Azure-managed 발신자를 파생하고 전용 알림 MI를 연결한 뒤 클라이언트 id를 주입합니다. 배포 구성은 `NOTIFICATION_EMAIL_RECIPIENTS_JSON`으로 수신자를 공급하며 앱에는 접근 키나 연결 문자열이 들어가지 않습니다. 부분 설정은 시작을 차단합니다. |
 | `FDAI_CONSOLE_BASE_URL` | env | 배포 | 인시던트 이메일의 읽기 전용 근거 링크를 만드는 공개 HTTPS 출처입니다. Console을 활성화하면 Terraform이 Static Web App hostname에서 파생합니다. 값이 없으면 이메일 전달은 계속되며 렌더러는 인시던트 CTA를 생략합니다. |
-| `FDAI_MEASUREMENT_MODE` | env | 업스트림 | `infra/modules/measurement-runners/`의 Container Apps 작업 항목 지점을 선택합니다. `baseline`은 고정된 시나리오 회귀 측정을 실행하고, `growth`는 검토된 결과를 pattern-growth intake로 전달하며, `operational-promotion`은 승격 없이 불변 작업별 근거를 평가합니다. 액션 권한은 승격 및 risk 게이트가 독립적으로 관리합니다. |
+| `FDAI_MEASUREMENT_MODE` | env | 업스트림 | `infra/modules/measurement-runners/`의 선택적 Container Apps 작업 진입점을 선택합니다. `baseline`은 고정된 시나리오 회귀 측정을 실행하고, `growth`는 검토된 결과를 패턴 성장 수집으로 전달하며, `operational-promotion`은 승격 없이 변경할 수 없는 작업별 근거를 평가합니다. 모든 작업은 기본적으로 비활성화되며 전용 비실행기 측정 신원을 사용합니다. 액션 권한은 승격 및 안전성 검토가 독립적으로 관리합니다. |
 | `FDAI_REVISION` / `FDAI_OPERATIONAL_PROMOTION_EVIDENCE_ROOT` / `FDAI_OPERATIONAL_PROMOTION_MANIFEST` | env | 배포 | Opt-in operational-promotion 작업에 필요합니다. Revision은 전체 불변 소스 개정 번호이고 root는 고정 이미지 또는 보호된 읽기 전용 mount가 제공하는 컨테이너 절대 경로이며 manifest는 해당 root 기준 상대 경로입니다. 근거 파일은 raw provider payload가 아니라 범위가 제한된 정본 사실과 digest를 담습니다. |
 | `FDAI_DIRECT_API_FAKE` | env | test-only / dev-local | `1`이면 실행기 direct-API 경로를 in-memory shadow 가짜로 바꿉니다. Automated 테스트는 명시적으로 설정하고, `prepare-local-runtime-env.sh`는 operations 게이트웨이를 찾지 못할 때만 - Terraform 상태에도 없고 리소스 그룹의 실제 운영 Azure CLI 탐색(`func-*-devgw-*`와 해당 App Service Authentication 대상)로도 복구되지 않을 때 - interactive 로컬 dev에서 이를 자동 주입하여 실제 운영 백엔드 없이도 `execution_path: direct_api` 전달을 유지합니다. `FDAI_DEV_OPERATIONS_GATEWAY_URL`과 상호 배타적입니다. |
 | `FDAI_TOOL_CALL_FAKE` | env | test-only | Automated 테스트에서 실행기 tool-call 경로를 `RecordingToolExecutor`로 바꿉니다. Interactive 로컬 시작은 실행기를 연결하지 않습니다. |
@@ -557,7 +557,7 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `FDAI_ENTRA_TENANT_ID` / `FDAI_API_AUDIENCE` | env | 배포 | 프로덕션 Operator API Entra JWT 검증기 (`EntraJwtVerifier`) 필수: 배포 테넌트 id와 `fdai-api` App ID URI (`api://<fdai-api-guid>`). [user-rbac-and-identity-ko.md#102-api-토큰-검증](../interfaces/user-rbac-and-identity-ko.md#102-api-토큰-검증) 참조. |
 | `FDAI_ENTRA_ISSUER` / `FDAI_ENTRA_JWKS_URI` | env | 배포 | 선택 검증기 오버라이드; 기본값은 테넌트 의 v2 발급자 + 공개 키 셋. v1-토큰 앱은 `ISSUER` 를 `https://sts.windows.net/<tenant>/` 로; `JWKS_URI` 는 소버린 / 에어갭 클라우드에서만 오버라이드. |
 | `FDAI_EXECUTOR_PRINCIPAL_ID` / `FDAI_EXECUTOR_EVENT_ROLE_DEFINITION_ID` / `FDAI_EXECUTOR_SECRET_ROLE_DEFINITION_ID` | env | 업스트림 | Operator API onboarding 탐색 입력. ARG를 사용해 프로비저닝된 리소스 집합 및 실행기 Event Hubs / Key Vault 역할을 검증합니다. |
-| `FDAI_DR_DRILL_SOURCE_SERVER_ARM_ID` / `FDAI_DR_DRILL_TARGET_LOCATION` / `FDAI_DR_DRILL_TARGET_RG_PREFIX` / `FDAI_DR_DRILL_TARGET_SERVER_PREFIX` / `FDAI_DR_DRILL_PITR_OFFSET_MINUTES` / `FDAI_DR_DRILL_DRY_RUN` | env | 배포 | DB-DR 훈련 작업 설정 ([../runbooks/db-dr-drill-ko.md](../../runbooks/db-dr-drill-ko.md) 참조); `DRY_RUN=true` 업스트림 기본으로 작업 이 멱등적 유지. |
+| `FDAI_DR_DRILL_SOURCE_SERVER_ARM_ID` / `FDAI_DR_DRILL_TARGET_LOCATION` / `FDAI_DR_DRILL_TARGET_RESOURCE_GROUP` / `FDAI_DR_DRILL_TARGET_SERVER_PREFIX` / `FDAI_DR_DRILL_PITR_OFFSET_MINUTES` / `FDAI_DR_DRILL_INTEGRITY_TABLES` / `FDAI_DR_DRILL_DRY_RUN` | env | 배포 | 전달 계층이 소유하는 DB-DR 훈련 설정입니다. [DB-DR 훈련 런북](../../runbooks/db-dr-drill-ko.md)을 참조하세요. 작업은 전용 비실행기 신원과 미리 만든 격리 대상 그룹을 사용합니다. `DRY_RUN=true`는 Azure나 데이터베이스를 변경하지 않고 완전한 구성을 검증합니다. |
 | `FDAI_SECRET_KAFKA_TOKEN` / 기타 `FDAI_SECRET_*` | KV 참조 | 배포 | 전용 env var 이름이 아직 없는 어댑터가 소비하는 시크릿 을 위한 범용 escape hatch; 모든 `FDAI_SECRET_*` 값은 반드시 KV 경유. |
 
 모든 키에 적용되는 규칙:

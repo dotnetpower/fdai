@@ -2,8 +2,8 @@
 title: 배포 빠른 시작
 description: FDAI 최소 Azure 인벤토리를 프로비저닝하는 방법. azd 턴키와 Terraform 직접 실행 두 경로 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 8ad0391f0fbd782cdd1bbfdd46d59ea4297b642f
-translation_revised: 2026-08-30
+translation_source_sha: 4c68c958a78e29040060ad51e0f98e63258ba85e
+translation_revised: 2026-08-31
 ---
 
 # 배포 빠른 시작
@@ -61,6 +61,14 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
   활성화하세요.
   GitHub 자격 증명은 Key Vault 시크릿 참조만 제공합니다. Watcher identity에는 Blob 데이터
   접근과 초안 검토 권한만 있으며 카탈로그 병합 또는 작업 권한은 없습니다.
+- 단계 4 측정을 예약하려면 필요한 기준선, 패턴 성장 또는 운영 승격 작업만 명시적으로
+  활성화하세요. 세 작업은 모두 기본적으로 비활성화되며 이미지 가져오기, 상태 저장소 비밀,
+  선택적 모델 추론 접근 권한만 있는 전용 측정 신원을 공유합니다. 실행기 신원이나 클라우드
+  변경 역할은 받지 않습니다.
+- 단계 3 스케줄러 또는 DB-DR 훈련을 활성화하기 전에 서로 분리된 작업 신원을 검토하세요.
+  스케줄러는 Event Bus 전송, 이미지 가져오기 및 상태 저장소 비밀 접근 권한만 받습니다.
+  DB-DR은 원본 읽기와 격리 대상 그룹 안의 PostgreSQL 복원 및 삭제 권한만 받습니다. 완전한
+  구성 계획을 검토할 때까지 `dr_drill_dry_run=true`를 유지하세요.
 
 ## 최소 인벤토리 프로비저닝
 
