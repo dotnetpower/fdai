@@ -44,16 +44,29 @@ title: Operator Console - Data and Wire Contracts
 
 ### 13.3 Operator API approval callback (Week 1)
 
-- `POST /hil/{approval_id}/decision`
-- Body: `{"decision": "approve|reject|defer", "justification": "..."}`
-- Headers: `X-FDAI-Signature: sha256=<hex>`,
-  `X-FDAI-Timestamp: <RFC3339>`.
-- Signature material: `HMAC-SHA256(secret, timestamp . approval_id . body)`
-  where the three parts are joined by a literal `.` separator. Binding
-  the URL path `approval_id` into the digest blocks a captured valid
-  message from being replayed against a different pending item (URL
-  swap). The bot MUST include the same `approval_id` it puts in the URL.
-- Response: `200 {"queued": true, "audit_entry_id": "..."}`.
+Two Operator-owned receivers resolve in one decision service. Neither trusts message identity or
+authority:
+
+| Transport | Route | Authentication and actor |
+|-----------|-------|--------------------------|
+| Teams Bot activity | `POST /hil/teams-activity` | Verify the Bot Framework RS256 service token, issuer, audience, `serviceurl`, tenant, configured group-connected team/channel, and `invoke` plus `adaptiveCard/action`. Derive `approval_id` from the exact card contract and the actor from `from.aadObjectId`, then verify the delegated OBO token for the Operator API audience and authorized bot client. |
+| Internal Slack relay | `POST /hil/{approval_id}/decision` | Verify HMAC over timestamp, URL approval id, and exact bytes inside the replay window. Resolve the mapped Slack user through a delegated Operator bearer. This route refuses `channel=teams`. |
+
+The Teams card carries only `approval_id`, `correlation_id`, `idempotency_key`, `action_hash`,
+channel audience, decision, and required justification. The receiver rejects any extra card key,
+so card data cannot provide `provider_actor_id`, roles, or an approver id. Both receivers revalidate
+those bindings against the durable park, current approval capability, expiry, workflow role floor,
+and no-self-approval rule. BreakGlass grants no HIL approval capability.
+
+Each transport-authenticated attempt writes sanitized `prepared` and `completed` audit phases.
+Unauthenticated traffic is rejected before durable storage. Exact retries preserve the first phase
+timestamps. Accepted and rejected decisions are durable before broker publication,
+marked delivered only after broker acceptance, and redriven by a lease-fenced outbox worker after
+failure or restart.
+
+Core routes `fdai.hil.decisions` by the parked `decision_route`. A `workflow` record occupies one
+workflow-registry quorum slot, which enforces distinct approvers and requester separation. Only an
+`action` record enters `HilResumeCoordinator`, so workflow approval cannot reach an executor.
 
 This is a documented write-route exception to the Operator API's GET-only
 projection surface. The invariant test allow-lists this callback explicitly.
@@ -64,6 +77,7 @@ the endpoint only *records an approval decision* into the existing HIL
 queue (a signal), which a separate executor principal later acts on. The
 API process never holds the executor Managed Identity and never calls a
 mutation surface itself; approval and execution stay distinct principals.
+
 ### 13.6 Semantic action draft and typed confirmation
 
 All natural-language turns use `POST /chat` or `POST /chat/stream`. The configured

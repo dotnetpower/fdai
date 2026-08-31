@@ -2,8 +2,8 @@
 title: 배포 빠른 시작
 description: FDAI 최소 Azure 인벤토리를 프로비저닝하는 방법. azd 턴키와 Terraform 직접 실행 두 경로 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 8ad0391f0fbd782cdd1bbfdd46d59ea4297b642f
-translation_revised: 2026-08-30
+translation_source_sha: 244f916d5bbeafd0a59fcb485323ae4645ce2c2a
+translation_revised: 2026-08-31
 ---
 
 # 배포 빠른 시작
@@ -45,6 +45,10 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
   local-only input 및 Key Vault에 보관하세요. Repository variable에는 versionless secret-id 목록만
   설정하고, 별도 Operator service `enable` plan보다 platform identity plan을 먼저 검토하고
   적용하세요. Edge identity에는 executor role을 부여하지 않습니다.
+- A1 승인을 사용하려면 그룹 연결 Teams 팀, 채널 및 HTTPS Bot 액티비티 endpoint를 함께
+  구성하거나 Slack 워크스페이스와 사용자-Entra 매핑을 함께 구성하세요. 매핑 값과 서명 입력은
+  Key Vault 또는 로컬 전용 배포 입력에 보관합니다. 채널 권한 구성이 없거나 일부뿐이면 승인을
+  사용할 수 없으며 Incoming Webhook으로 대체하지 않습니다.
 - 범위가 제한된 OHL scale-out 근거 대상을 프로비저닝하려면 private networking과 개발 운영
   게이트웨이를 사용하는 `dev` 환경에서만 `enable_ohl_scale_out_evidence_target`을 사용하도록
   설정하세요. Exact 이미지 버전, 보호된 작업 흐름의 SSH 공개 키 입력, 재시도해도 유지되는

@@ -8,12 +8,24 @@ module "container_app" {
   registry_identity_id = var.identity.runtime_resource_id
   command              = ["fdai-operator-service"]
   args                 = []
-  secrets = [{
+  secrets = concat([{
     name                = "database-dsn"
     identity            = var.identity.runtime_resource_id
     key_vault_secret_id = var.database.dsn_secret_id
-  }]
-  environment = [
+    }], var.hil_callback.enabled ? concat([{
+      name                = "hil-callback-signing-secret"
+      identity            = var.identity.runtime_resource_id
+      key_vault_secret_id = var.hil_callback.signing_secret_id
+      }], var.hil_callback.teams_application_id != "" ? [{
+      name                = "hil-teams-principal-map"
+      identity            = var.identity.runtime_resource_id
+      key_vault_secret_id = var.hil_callback.teams_principal_map_secret_id
+      }] : [], var.hil_callback.slack_team_id != "" ? [{
+      name                = "hil-slack-principal-map"
+      identity            = var.identity.runtime_resource_id
+      key_vault_secret_id = var.hil_callback.slack_principal_map_secret_id
+  }] : []) : [])
+  environment = concat([
     { name = "FDAI_DATABASE_URL", secret_name = "database-dsn" },
     { name = "POSTGRES_HOST", value = var.database.host },
     { name = "FDAI_DATABASE_ROLE", value = var.database.role },
@@ -31,6 +43,7 @@ module "container_app" {
     { name = "FDAI_INCIDENT_INTERVENTION_REQUEST_TOPIC", value = var.event_topics.incident_intervention_requests },
     { name = "FDAI_READ_INVESTIGATION_COMPLETION_TOPIC", value = var.event_topics.read_investigation_completions },
     { name = "FDAI_READ_INVESTIGATION_COMPLETION_CONSUMER_GROUP_ID", value = "operator-read-investigation-completion-v1" },
+    { name = "FDAI_HIL_DECISION_TOPIC", value = var.event_topics.hil_decisions },
     { name = "FDAI_ENTRA_TENANT_ID", value = var.auth.tenant_id },
     { name = "FDAI_API_AUDIENCE", value = var.auth.api_audience },
     { name = "FDAI_RBAC_READERS_GROUP_ID", value = var.rbac.readers_group_id },
@@ -40,7 +53,20 @@ module "container_app" {
     { name = "FDAI_RBAC_BREAK_GLASS_GROUP_ID", value = var.rbac.break_glass_group_id },
     { name = "FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS", value = var.cors_allow_origins },
     { name = "FDAI_OPERATOR_SERVICE_PORT", value = tostring(var.health.port) },
-  ]
+    ], var.hil_callback.enabled ? concat([
+      { name = "FDAI_CHATOPS_WEBHOOK_SECRET", secret_name = "hil-callback-signing-secret" },
+      ], var.hil_callback.teams_application_id != "" ? [
+      { name = "FDAI_TEAMS_APPLICATION_ID", value = var.hil_callback.teams_application_id },
+      { name = "FDAI_TEAMS_TENANT_ID", value = var.hil_callback.teams_tenant_id },
+      { name = "FDAI_TEAMS_APPROVAL_TEAM_ID", value = var.hil_callback.teams_approval_team_id },
+      { name = "FDAI_TEAMS_APPROVAL_CHANNEL_ID", value = var.hil_callback.teams_approval_channel_id },
+      { name = "FDAI_TEAMS_ALLOWED_SERVICE_URLS_JSON", value = var.hil_callback.teams_allowed_service_urls },
+      { name = "FDAI_TEAMS_JWKS_URL", value = var.hil_callback.teams_jwks_url },
+      { name = "FDAI_TEAMS_PRINCIPAL_MAP_JSON", secret_name = "hil-teams-principal-map" },
+      ] : [], var.hil_callback.slack_team_id != "" ? [
+      { name = "FDAI_SLACK_TEAM_ID", value = var.hil_callback.slack_team_id },
+      { name = "FDAI_SLACK_PRINCIPAL_MAP_JSON", secret_name = "hil-slack-principal-map" },
+  ] : []) : [])
   health            = var.health
   ingress           = { external_enabled = true, target_port = var.health.port }
   scaling           = var.scaling

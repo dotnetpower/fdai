@@ -25,6 +25,10 @@ def test_operator_module_renders_reviewed_request_and_completion_topics() -> Non
         "FDAI_READ_INVESTIGATION_COMPLETION_CONSUMER_GROUP_ID": (
             '"operator-read-investigation-completion-v1"'
         ),
+        "FDAI_HIL_DECISION_TOPIC": "var.event_topics.hil_decisions",
+        "FDAI_TEAMS_TENANT_ID": "var.hil_callback.teams_tenant_id",
+        "FDAI_TEAMS_ALLOWED_SERVICE_URLS_JSON": ("var.hil_callback.teams_allowed_service_urls"),
+        "FDAI_TEAMS_JWKS_URL": "var.hil_callback.teams_jwks_url",
     }
 
     for name, value in expected.items():
@@ -38,4 +42,26 @@ def test_operator_deploy_contract_requires_reviewed_topic_environment() -> None:
         "FDAI_INCIDENT_INTERVENTION_REQUEST_TOPIC",
         "FDAI_READ_INVESTIGATION_COMPLETION_TOPIC",
         "FDAI_READ_INVESTIGATION_COMPLETION_CONSUMER_GROUP_ID",
+        "FDAI_HIL_DECISION_TOPIC",
     } <= required
+
+
+def test_approval_team_channel_is_separate_from_role_groups_and_shared_with_core() -> None:
+    core = (
+        _ROOT / "infra/services/core-control-plane/modules/core-control-plane/main.tf"
+    ).read_text(encoding="utf-8")
+
+    for environment_name in (
+        "FDAI_TEAMS_APPROVAL_TEAM_ID",
+        "FDAI_TEAMS_APPROVAL_CHANNEL_ID",
+    ):
+        assert environment_name in _MODULE
+        assert environment_name in core
+    assert "FDAI_TEAMS_APPROVAL_ACTIVITY_URL" in core
+    assert (
+        "var.rbac.approvers_group_id"
+        not in _MODULE.split(
+            "FDAI_TEAMS_APPROVAL_TEAM_ID",
+            maxsplit=1,
+        )[1].split("FDAI_TEAMS_APPROVAL_CHANNEL_ID", maxsplit=1)[0]
+    )

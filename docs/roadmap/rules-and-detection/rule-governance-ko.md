@@ -1,8 +1,8 @@
 ---
 title: 규칙 거버넌스(Rule Governance)
 translation_of: rule-governance.md
-translation_source_sha: 910ffb2e5d29f2432030c53a8dad0682d7d6b429
-translation_revised: 2026-08-30
+translation_source_sha: f51efe0bbe4b1334bbcb1a7cf7c2576d6e0edc8e
+translation_revised: 2026-08-31
 ---
 
 # 규칙 거버넌스(Rule 거버넌스)
@@ -356,9 +356,9 @@ Exemption은 Azure Policy exemption처럼 스코프의 할당을 waive:
 [security-and-identity-ko.md](../architecture/security-and-identity-ko.md) 의 승인≠실행 규칙
 미러링. 이들은 **논리적** 거버넌스 롤; 소수의 Entra 보안 그룹(읽기 담당 / 기여자 / Approver
 / Owner + Break-Glass) 에 매핑 ([user-rbac-and-identity-ko.md](../interfaces/user-rbac-and-identity-ko.md)).
-여러 논리 롤은 같은 Entra 그룹으로 접힘 - no-self-approval은 그룹 분리가 아니라 PR 저작에 대한
-CI로 강제, 고위험 승인(`audit → deny / remediate`, exemption, 재정의) 은 `aw-approvers` 로부터
-**quorum-2** 필요.
+여러 논리 역할은 같은 Entra 그룹에 속할 수 있습니다. 자기 승인 차단은 그룹 분리가 아니라 PR
+작성 정보를 기준으로 CI에서 적용합니다. 고위험 승인(`audit → deny / remediate`, 예외, 재정의,
+A1 채널 라우팅)은 `aw-approvers`의 **정족수 2**를 요구합니다.
 
 | 논리 롤 | Entra 그룹 | 가능 | 불가 |
 |---------|-----------|------|------|
@@ -368,6 +368,7 @@ CI로 강제, 고위험 승인(`audit → deny / remediate`, exemption, 재정�
 | Enforce-promotion 승인자 | `aw-approvers` (quorum-2) | `audit`→`deny`/`remediate` 승격 승인 | 승격을 제안한 운영자 |
 | Exemption 승인자 | `aw-approvers` (quorum-2) | Time-boxed exemption 승인 | 영구 exemption 부여, 자신의 요청 승인 |
 | 재정의 승인자 | `aw-approvers` (quorum-2) | Resource-group-스코프 재정의 승인 (permanent 가능) | resource-group-equivalent 밖 재정의 승인, 자신의 요청 승인 |
+| A1 라우팅 승인자 | `aw-approvers` (정족수 2) | 결정을 전달하는 기본 또는 대체 경로 변경 승인 | 자신이 제안, 공동 작성 또는 커밋한 경로 승인 |
 | 룰 retirement 승인자 | `aw-approvers` (quorum-2, Owner 수준) | 전역 enforce 집합에서 룰을 제외하는 변경 승인 | 정족수에 Owner 수준 검토자가 없는 retirement 또는 자신의 요청 승인 |
 
 해당 표의 결정론적 결정 코어는 `fdai.rule_catalog.schema.governance_review_authority` 입니다.
@@ -513,7 +514,7 @@ provenance:
 | Exemption 및 만료 | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/exemption.py`; `exemption_lifecycle.py`; `governance_catalog.py`; `shared/config/models.py`(`RuleGovernanceConfig`); `delivery/catalog_exemption.py`; `delivery/exemption_lifecycle.py`; `shared/providers/exemption_lifecycle.py`; `runtime/control_loop.py`; `scripts/governance/exemption-expire.py`; 집중 로더, 설정, 라이프사이클, 코디네이터, 안전성 검토, 런타임 테스트 | 시작 시 구성된 최대 기간을 강제하고 exemption을 안전성 검토에 바인딩합니다. 예약 만료 메커니즘과 만료 전 알림은 순수 판단 코어에 idempotent 하고 감사되는 코디네이터를 더한 것이며, 실제 예약 및 프로덕션 notifier는 배포 작업으로 남습니다. |
 | 재정의 아티팩트 및 해석 | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/override.py`; `override.schema.json`; `parameter_relaxation_policy.py`; `governance_loader.py`; `governance_catalog.py`; `rule-catalog/overrides/`; `rule-catalog/override-parameter-bounds.yaml`; `core/control_loop/_execution.py`, `_helpers.py`, `_process.py`, `_audit_helpers.py`, `_boundary.py`, `orchestrator.py`; 집중 스키마, 로더, 카탈로그, 파이프라인 테스트 | 디렉터리 로더, resource-group-이하 범위 강제, no-stacking, 서로 다른 승인자, 리뷰된 parameter-relaxation-bounds 정책 모두 카탈로그 로드에서 fail closed 됩니다. `resolve_override` 와 T0 소비가 배정 해석 위에 `disabled` / `severity-downgrade` / `parameter-relaxation` 을 적용하고 모든 해석을 감사합니다. |
 | T0 배정 소비 | implemented | `services/core-control-plane/src/fdai/runtime/control_loop.py`; `services/core-control-plane/src/fdai/core/control_loop/_execution.py`; `services/core-control-plane/src/fdai/core/control_loop/_process.py`; 집중 거버넌스 및 파이프라인 테스트 | 하나의 불변 시작 카탈로그가 범위, 제외, 선택기, 효과, 적용, 파라미터 및 우선순위를 제공합니다. 적용되는 remediation도 실행 권한 부여와 통합 안전성 검토를 통과합니다. |
-| 거버넌스 pull request 신원 검사 | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/governance_review_authority.py`; `services/core-control-plane/src/fdai/delivery/gitops_pr/governance_review.py`; `scripts/governance/check-governance-review-authority.py`; `.github/workflows/ci.yml`; 집중 권한, 메타데이터, CLI 및 workflow 테스트 | CI는 exact-head GitHub commit, review, Check Run 사실을 수집하고 구성된 trusted verifier App의 identity 근거만 수락합니다. 구성이나 attestation이 없으면 관리되는 변경을 차단합니다. 외부 Entra verifier 배포와 차단 후 해소된 운영 근거 보존은 남아 있습니다. |
+| 거버넌스 pull request 신원 검사 | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/governance_review_authority.py`; `services/core-control-plane/src/fdai/delivery/gitops_pr/governance_review.py`; `scripts/governance/check-governance-review-authority.py`; `.github/workflows/ci.yml`; 집중 권한, 메타데이터, CLI 및 workflow 테스트 | CI는 exact-head GitHub commit, review, Check Run 사실을 수집하고 구성된 trusted verifier App의 identity 근거만 수락합니다. 강제 적용 승격, 예외, 재정의 및 A1 라우팅은 정족수 2를 요구하고 제안자, 공동 작성자 또는 커미터의 자기 승인을 차단합니다. 구성이나 attestation이 없으면 관리되는 변경을 차단합니다. |
 
 ### 구현 이력
 
@@ -533,6 +534,7 @@ provenance:
 | 2026-08-28 | implemented | CI 거버넌스 사전 필터가 변경 경로를 열거할 때 rename 탐지를 끕니다. retirement를 거버넌스 디렉터리 밖으로 옮겨도 거버넌스 대상 삭제와 추가로 남아 인증된 검토를 우회할 수 없습니다. | `current change`; 집중 거버넌스 검토 권한 검사 7개 통과. | 거버넌스 경로 rename의 인증된 CI 증적을 보존합니다. |
 | 2026-08-29 | implemented | 최대 exemption 기간과 만료 전 알림 lead time을 상호 검증되는 bounded `AppConfig.rule_governance` 설정으로 구성했습니다; 거버넌스 카탈로그 로더는 이제 기간을 초과하는 exemption을 fail closed 합니다. 순수 `plan_exemption_lifecycle` 판단 코어, 주입 가능한 `ExemptionLifecycleNotifier` 계약(안전한 로그 전용 기본), state store의 원자적 claim-and-audit 기본 연산을 통해 exemption당 최대 한 번만 알림을 전달하고 alert/이미-만료 판단 모두에 라이프사이클 감사 근거를 남기는 `ExemptionLifecycleCoordinator`를 추가했습니다; `exemption-expire.py`는 알림 패스를 오프라인으로 실행합니다. 재정의 아티팩트를 end-to-end로 완성했습니다: `Override` 모델 + `override.schema.json` + `load_override_from_mapping` + `<root>/overrides/` 디렉터리 로더가 카탈로그 로드 경계에서 resource-group-이하 범위, 서로 다른 승인자, 모드별 필드 불변식, no-stacking을 강제합니다; 별도로 리뷰된 `override-parameter-bounds.yaml` allowlist가 `parameter-relaxation`을 게이트하며 목록에 없는 키나 한계 초과 값에 대해 카탈로그 로드를 fail closed 합니다(그 위반에는 런타임 HIL 폴백이 없습니다). `resolve_override`와 `apply_governance_override_to_rule`을 T0에 연결해 배정 해석 위에 재정의가 적용되도록 했고(`disabled`는 강제된 `deny` 아래에서도 `governance_observe`로 라우팅; `severity-downgrade`와 `parameter-relaxation`은 디스패치되는 규칙에 병합됨) 기존 `DiscoverySignalKind.OVERRIDE` discovery-loop 입력 모양에 맞춘 `governance.override_resolved` 감사 엔트리를 추가했습니다. 이 변경이 새로 추가한 `overrides/` 콘텐츠 자체에 대한 검토 권한 게이트를 조용히 건너뛰게 만들었을 존재하지 않는 `rule-catalog/governance/...` 중첩을 기대하던 governance-runtime-contracts CI 경로 정규식을 실제 flat `rule-catalog/{assignments,exemptions,overrides}/` 관례에 맞게 수정했습니다. | `current change`; `services/core-control-plane/tests/config/test_rule_governance_config.py`; `tests/exemption/test_exemption_max_duration.py`; `tests/rule_catalog/schema/test_exemption_lifecycle.py`, `test_override.py`, `test_override_loader.py`, `test_parameter_relaxation_policy.py`, `test_override_parameter_bounds_file.py`, `test_governance_catalog.py`; `tests/providers/test_exemption_lifecycle_notifier.py`; `tests/delivery/test_exemption_lifecycle.py`; `tests/core/test_control_loop_governance_override.py`; `tests/pipeline/test_control_loop_e2e.py`(`test_override_disabled_suppresses_an_enforced_deny_assignment`, `test_override_outside_its_scope_does_not_apply`); `tests/runtime/test_control_loop_parameter_relaxation_policies.py`, `test_thor_execution_port.py`; `tests/integration/scripts/test_exemption_expire.py` 모두 통과했습니다; 작업 범위 Ruff와 mypy가 통과했습니다. | Trusted Entra verifier GitHub App 배포(이 변경과 무관한 기존 외부 항목; 아래 참조). exemption-lifecycle 코디네이터를 실제 예약 트리거와 프로덕션 notifier에 연결하고, `DiscoverySignalKind.OVERRIDE`를 위한 구체적 `DiscoverySignalSource`를 바인딩하는 작업은 이 변경 범위 밖의 배포/composition-root 작업으로 남습니다. |
 | 2026-08-29 | implemented | 하드닝 6-16차에서 중복 만료 감사, 실패한 알림 손실, 배정에 종속된 재정의 적용, 대소문자 별칭, 비유한 완화 값, 범위 일치 불일치를 수정했습니다. 또한 감사된 재정의 사용을 임계값 기반 발견 신호 소스에 연결했습니다. 최종 검토 두 번에서 Medium 이상 구현 문제는 남지 않았습니다. | `current change`; 범위/재정의 64개, 매개 변수 정책/카탈로그 44개, exemption 수명 주기 재시도 테스트를 포함한 집중 검사가 통과했습니다. Ruff와 strict mypy도 통과했습니다. | Trusted Entra verifier 배포와 관리되는 실제 근거는 운영 작업으로 남습니다. |
+| 2026-08-31 | implemented | A1 채널 라우팅 변경을 기존 고위험 재정의 검토 등급에 추가했습니다. 작업 흐름 사전 필터와 권한 스크립트는 서로 다른 권한 보유 검토자 2명을 요구하고 제안자, 공동 작성자 및 커미터 분리를 적용합니다. | `current change`, 집중 거버넌스 권한 테스트. | 신뢰할 수 있는 Entra 검증기를 배포하고 차단 후 통과 근거를 보존합니다. |
 
 ### 남은 작업
 
@@ -541,6 +543,8 @@ provenance:
 - [x] 리소스 그룹 이하 범위 검사와 함께 범위가 제한된 재정의 스키마, 로더, 우선순위 해석기, 런타임 소비를 구현합니다. `services/core-control-plane/tests/rule_catalog/schema/test_override.py`, `test_override_loader.py`, `test_governance_catalog.py`, `tests/pipeline/test_control_loop_e2e.py`의 재정의 우선순위 e2e 사례로 증명됩니다.
 - [x] 결정론적 pull request 검토 권한 결정이 운영자 신원, 변경 클래스별 필수 역량, 서로 다른 승인자 정족수, 고위험 phishing-resistant 승인, 리비전에 바인딩된 승인 신선도, 작성자·공동 작성자·커미터 자기 승인 방지를 적용하며, `services/core-control-plane/tests/rule_catalog/schema/test_governance_review_authority.py` 로 증명됩니다.
 - [x] 결정을 exact-head pull request, commit, review, trusted verifier Check Run 메타데이터에 연결했습니다. Trusted attestation이 없으면 실패 시 닫히며 집중 CLI 및 workflow 테스트가 수락, 정족수 미달, 자기 승인, 신뢰하지 않는 App 사례를 검증합니다.
+- [x] `config/notifications-matrix.yaml`의 A1 변경을 같은 정족수 2 재정의 결정으로 라우팅하고
+  제안자, 공동 작성자 및 커미터의 자기 승인을 차단합니다.
 - [ ] Trusted Entra verifier GitHub App을 배포하고 `FDAI_GOVERNANCE_IDENTITY_APP_ID`를 구성한 뒤 자기 승인 또는 정족수 미달 변경이 차단되고 수정된 변경이 통과한 근거 기록 하나를 보존합니다.
 
 ## 열림 Decisions

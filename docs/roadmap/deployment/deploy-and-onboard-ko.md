@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 13cee5ed259d9348131ac655f157ccbd366cf15b
-translation_revised: 2026-08-30
+translation_source_sha: abc9f23fece78885be95d4859516af633ad26a26
+translation_revised: 2026-08-31
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 진실 원본입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -356,7 +356,7 @@ Event Hubs Kafka를 계속 요구합니다.
   배포가 별도로 제공합니다. 업스트림 Terraform은 signed 웹훅 경계만 배포합니다.
 - **서명된 HIL 웹훅** - 운영은 CI 시크릿으로 URL과 32자 이상의 HMAC 시크릿을
   제공합니다. Terraform은 둘 다 Key Vault에 저장하며, 코어는 URL과 시크릿을 읽고 Operator API에는
-  콜백 시크릿만 전달합니다.
+  콜백 시크릿만 전달합니다. 그룹 연결 승인 팀과 채널은 Core와 Operator가 공유하는 별도 배포 슬롯이며 RBAC 그룹 id는 역할 배정에만 사용합니다.
 - **Topic-scoped Event Hubs 역할** - 실행기는 이름 공간이 아니라 현재 프로비저닝된 각 허브
   개체에 데이터 Owner를 받습니다. 인벤토리와 canary는 각자의 토픽에만 전송할 수 있습니다.
   Operator API 명령 신원은 제안, HIL 결정, pantheon 객체 메시지를 전송하고
@@ -547,8 +547,8 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `FDAI_JIRA_ENFORCE` | env | 배포 | unset/`0` 기본값은 Jira를 shadow-only로 유지합니다. `1`은 ActionType 승격 게이트와 risk/HIL 결정도 강제 적용을 허용한 경우에만 강제 적용 요청을 허용합니다. Shadow 증적은 실제 인시던트 티켓으로 링크되지 않습니다. |
 | `FDAI_PROFILE_ID` | env | 배포 | `rule-catalog/profiles/` 에서 한 프로파일을 선택 ([rule-catalog-profiles-ko.md](../rules-and-detection/rule-catalog-profiles-ko.md) 참조). 시작 시 바인딩되며, 비어 있거나 없으면 전체 카탈로그를 유지합니다. |
 | `FDAI_NARRATOR_PROVIDER` / `FDAI_NARRATOR_BASE_URL` / `FDAI_NARRATOR_MODEL` / `FDAI_NARRATOR_API_VERSION` / `FDAI_NARRATOR_API_KEY` | env + KV 참조 | 배포 | Operator-console 서술기 translator 설정 ([operator-console-ko.md](../interfaces/operator-console-ko.md) 참조); `API_KEY` 는 반드시 KV 경유. 빈 프로바이더 = 결정론적 폴백. |
-| `FDAI_CHATOPS_APPROVE_CALLBACK_URL` / `FDAI_CHATOPS_REJECT_CALLBACK_URL` / `FDAI_CHATOPS_WEBHOOK_SECRET` / `FDAI_CHATOPS_TIMEOUT_SECONDS` | env + KV 참조 | 배포 | Chatops HIL 콜백 엔드포인트와 공유 웹훅 시크릿입니다. 시크릿 은 반드시 KV를 경유합니다. 시크릿 을 설정하면 운영 콜백 경로 와 영속 Postgres 결정 레지스트리 가 활성화됩니다. |
-| `FDAI_KAFKA_BOOTSTRAP_SERVERS` / `FDAI_HIL_DECISION_TOPIC` | env | 배포 / 업스트림 | Operator API 가 영속 HIL 결정 증적 를 publish 하는 Event Hubs Kafka 엔드포인트 입니다. 토픽 기본값은 `fdai.hil.decisions`이며 코어 가 같은 토픽 을 소비하고 재개/실행 을 소유합니다. |
+| `FDAI_CHATOPS_WEBHOOK_SECRET` / `FDAI_CHATOPS_TIMEOUT_SECONDS` / `FDAI_TEAMS_APPLICATION_ID` / `FDAI_TEAMS_TENANT_ID` / `FDAI_TEAMS_APPROVAL_TEAM_ID` / `FDAI_TEAMS_APPROVAL_CHANNEL_ID` / `FDAI_TEAMS_APPROVAL_ACTIVITY_URL` / `FDAI_TEAMS_ALLOWED_SERVICE_URLS_JSON` / `FDAI_TEAMS_JWKS_URL` / `FDAI_TEAMS_PRINCIPAL_MAP_JSON` / `FDAI_SLACK_TEAM_ID` / `FDAI_SLACK_PRINCIPAL_MAP_JSON` | env + KV 참조 | 배포 | 사람 승인 콜백에는 PostgreSQL, Kafka, 범위가 제한된 워크플로 시간 초과 및 내부 Slack 중계용 공유 HMAC 비밀이 필요합니다. Teams에는 완전한 Bot 애플리케이션, 테넌트, 그룹 연결 팀/채널 액티비티 endpoint, 서비스 토큰 신뢰 입력 및 주체 매핑이 필요합니다. Slack은 워크스페이스와 주체 매핑이 완전하면 독립 운영할 수 있습니다. 일부 구성은 사용할 수 없습니다. |
+| `FDAI_KAFKA_BOOTSTRAP_SERVERS` / `FDAI_HIL_DECISION_TOPIC` | env | 배포 / 업스트림 | Operator API 영속 결정 보낼 편지함이 사용하는 Event Hubs Kafka 엔드포인트입니다. 토픽 기본값은 `fdai.hil.decisions`입니다. Operator는 먼저 영속화하고 정확한 결정 필드를 게시한 뒤 브로커 수락 후에만 전달 완료로 표시합니다. Core는 같은 토픽을 소비하고 재개와 실행을 소유합니다. |
 | `FDAI_KAFKA_BOOTSTRAP_SERVERS` / `FDAI_SEMANTIC_TURN_REQUEST_TOPIC` / `FDAI_SEMANTIC_TURN_PROJECTION_TOPIC` | env | 배포 / 업스트림 | Operator 의미 전송 계층 구성입니다. 세 값은 모두 함께 설정하며 부분 구성은 시작을 차단합니다. 요청과 변환 결과 값은 프로비저닝된 `operator-core-request` 및 `core-operator-projection` 개체를 지정합니다. 선택 항목인 `FDAI_SEMANTIC_TURN_CONSUMER_GROUP_ID`와 `FDAI_SEMANTIC_TURN_KAFKA_CLIENT_ID`는 안정적인 서비스 기본값을 재정의합니다. `FDAI_COMMAND_MI_CLIENT_ID`는 `OAUTHBEARER`용 명령 신원을 선택하며 연결 문자열 또는 shared 키는 지원하지 않습니다. 로컬 preparation은 Terraform 출력에 같은 토픽이 이미 있을 때만 값을 복사하고 해당 실행에서는 dev-only 서술기를 비활성화합니다. |
 | `FDAI_GITOPS_API_BASE` / `FDAI_GITOPS_DEFAULT_BRANCH` / `FDAI_GITOPS_BRANCH_PREFIX` / `FDAI_GITOPS_TIMEOUT_SECONDS` | env | 배포 | `gitops-pr` 어댑터 대상 repo 설정 (GitHub App / Azure DevOps). 인증 시크릿 은 플랫폼 App installation 을 통해 흐르고 env var 아님. |
 | `FDAI_GITOPS_TOKEN` / `FDAI_GITOPS_OWNER` / `FDAI_GITOPS_REPO` / `FDAI_GITHUB_WORKFLOW_TOOLS_ENFORCE` | KV 참조 + env | 배포 | fix/release/security/인시던트/IRP 산출물용 GitHub 변경 피드 및 작업 흐름 도구 연결. 강제 적용 플래그는 ActionType 승격 및 risk/HIL 게이트를 우회하지 않습니다. |

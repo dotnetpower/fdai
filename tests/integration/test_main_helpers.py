@@ -619,8 +619,26 @@ def _clear_chatops_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "FDAI_CHATOPS_APPROVE_CALLBACK_URL",
         "FDAI_CHATOPS_REJECT_CALLBACK_URL",
         "FDAI_CHATOPS_TIMEOUT_SECONDS",
+        "FDAI_TEAMS_APPROVAL_TEAM_ID",
+        "FDAI_TEAMS_APPROVAL_CHANNEL_ID",
+        "FDAI_TEAMS_APPROVAL_ACTIVITY_URL",
     ):
         monkeypatch.delenv(name, raising=False)
+
+
+def _set_teams_approval_destination(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FDAI_TEAMS_APPROVAL_TEAM_ID", "approval-team")
+    monkeypatch.setenv("FDAI_TEAMS_APPROVAL_CHANNEL_ID", "approval-channel")
+    monkeypatch.setenv(
+        "FDAI_TEAMS_APPROVAL_ACTIVITY_URL",
+        "https://smba.example.com/v3/conversations/approval-channel/activities",
+    )
+
+
+class _TeamsWorkloadIdentity:
+    async def get_token(self, audience: str) -> str:
+        assert audience == "https://api.botframework.com/.default"
+        return "synthetic-token"
 
 
 def test_build_hil_channel_returns_none_when_not_configured(
@@ -638,9 +656,10 @@ def test_build_hil_channel_returns_teams_adapter_when_url_set(
         "FDAI_CHATOPS_WEBHOOK_URL",
         "https://teams.example.com/hook/abc",
     )
+    _set_teams_approval_destination(monkeypatch)
     from fdai.delivery.chatops.teams_adapter import TeamsHilAdapter
 
-    channel = _build_hil_channel(http_client=httpx.AsyncClient())
+    channel = _build_hil_channel(http_client=httpx.AsyncClient(), identity=_TeamsWorkloadIdentity())
     assert isinstance(channel, TeamsHilAdapter)
 
 
@@ -652,8 +671,9 @@ def test_build_hil_channel_requires_http_client_when_enabled(
         "FDAI_CHATOPS_WEBHOOK_URL",
         "https://teams.example.com/hook/abc",
     )
-    with pytest.raises(RuntimeError, match="no HTTP client is available"):
-        _build_hil_channel(http_client=None)
+    _set_teams_approval_destination(monkeypatch)
+    with pytest.raises(RuntimeError, match="no HTTP client"):
+        _build_hil_channel(http_client=None, identity=_TeamsWorkloadIdentity())
 
 
 def test_build_hil_channel_passes_secret_and_callbacks_through(
@@ -673,14 +693,50 @@ def test_build_hil_channel_passes_secret_and_callbacks_through(
         "FDAI_CHATOPS_REJECT_CALLBACK_URL",
         "https://api.example.com/reject",
     )
+    monkeypatch.setenv("FDAI_TEAMS_APPROVAL_TEAM_ID", "approval-team")
+    monkeypatch.setenv("FDAI_TEAMS_APPROVAL_CHANNEL_ID", "approval-channel")
+    monkeypatch.setenv(
+        "FDAI_TEAMS_APPROVAL_ACTIVITY_URL",
+        "https://smba.example.com/v3/conversations/approval-channel/activities",
+    )
 
-    channel = _build_hil_channel(http_client=httpx.AsyncClient())
+    channel = _build_hil_channel(http_client=httpx.AsyncClient(), identity=_TeamsWorkloadIdentity())
     # Internals are inspected only for test purposes.
     assert channel is not None
     cfg = channel._config
-    assert cfg.webhook_secret == "shhh"
+    assert cfg.webhook_secret is None
     assert cfg.approve_callback_url == "https://api.example.com/approve"
     assert cfg.reject_callback_url == "https://api.example.com/reject"
+    assert cfg.approval_audience == "teams:approval-team:approval-channel"
+
+
+def test_build_hil_channel_rejects_partial_teams_approval_destination(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_chatops_env(monkeypatch)
+    monkeypatch.setenv("FDAI_CHATOPS_WEBHOOK_URL", "https://teams.example.com/hook/abc")
+    monkeypatch.setenv("FDAI_TEAMS_APPROVAL_TEAM_ID", "approval-team")
+    monkeypatch.setenv(
+        "FDAI_TEAMS_APPROVAL_ACTIVITY_URL",
+        "https://smba.example.com/v3/conversations/approval-channel/activities",
+    )
+
+    with pytest.raises(RuntimeError, match="MUST be configured together"):
+        _build_hil_channel(http_client=httpx.AsyncClient(), identity=_TeamsWorkloadIdentity())
+
+
+def test_build_hil_channel_rejects_callbacks_without_teams_destination(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_chatops_env(monkeypatch)
+    monkeypatch.setenv("FDAI_CHATOPS_WEBHOOK_URL", "https://teams.example.com/hook/abc")
+    monkeypatch.setenv(
+        "FDAI_CHATOPS_APPROVE_CALLBACK_URL",
+        "https://api.example.com/approve",
+    )
+
+    with pytest.raises(RuntimeError, match="APPROVAL_ACTIVITY_URL"):
+        _build_hil_channel(http_client=httpx.AsyncClient())
 
 
 def test_build_hil_channel_rejects_non_float_timeout(
@@ -692,8 +748,9 @@ def test_build_hil_channel_rejects_non_float_timeout(
         "https://teams.example.com/hook/abc",
     )
     monkeypatch.setenv("FDAI_CHATOPS_TIMEOUT_SECONDS", "not-a-number")
+    _set_teams_approval_destination(monkeypatch)
     with pytest.raises(RuntimeError, match="not a float"):
-        _build_hil_channel(http_client=httpx.AsyncClient())
+        _build_hil_channel(http_client=httpx.AsyncClient(), identity=_TeamsWorkloadIdentity())
 
 
 def test_build_hil_channel_rejects_nonpositive_timeout(
@@ -705,8 +762,9 @@ def test_build_hil_channel_rejects_nonpositive_timeout(
         "https://teams.example.com/hook/abc",
     )
     monkeypatch.setenv("FDAI_CHATOPS_TIMEOUT_SECONDS", "0")
+    _set_teams_approval_destination(monkeypatch)
     with pytest.raises(RuntimeError, match="MUST be > 0"):
-        _build_hil_channel(http_client=httpx.AsyncClient())
+        _build_hil_channel(http_client=httpx.AsyncClient(), identity=_TeamsWorkloadIdentity())
 
 
 def test_build_hil_channel_honors_timeout_env(
@@ -718,8 +776,9 @@ def test_build_hil_channel_honors_timeout_env(
         "https://teams.example.com/hook/abc",
     )
     monkeypatch.setenv("FDAI_CHATOPS_TIMEOUT_SECONDS", "42.5")
+    _set_teams_approval_destination(monkeypatch)
 
-    channel = _build_hil_channel(http_client=httpx.AsyncClient())
+    channel = _build_hil_channel(http_client=httpx.AsyncClient(), identity=_TeamsWorkloadIdentity())
     assert channel is not None
     assert channel._config.timeout_seconds == 42.5
 
@@ -1364,12 +1423,14 @@ def test_build_control_loop_wires_hil_coordinator_when_webhook_set(
     """Setting the ChatOps webhook opts the loop into the HIL approval
     round-trip: a HIL-routed action parks + pushes an A1 card."""
     monkeypatch.setenv("FDAI_CHATOPS_WEBHOOK_URL", "https://example.com/webhook")
+    _set_teams_approval_destination(monkeypatch)
     from fdai.__main__ import _build_control_loop
     from fdai.composition import default_container
 
     loop = _build_control_loop(
         default_container(app_config),
         http_client=httpx.AsyncClient(),
+        identity=_TeamsWorkloadIdentity(),
         mutation_dependency_readiness=_SHADOW_MUTATION_READINESS,
     )
     assert loop._hil_resume_coordinator is not None

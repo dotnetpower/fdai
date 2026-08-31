@@ -15,5 +15,6 @@ module "operator_service" {
   cors_allow_origins = var.cors_allow_origins
   scaling            = var.scaling
   channel_edge       = var.channel_edge
+  hil_callback       = var.hil_callback
   tags               = var.tags
 }

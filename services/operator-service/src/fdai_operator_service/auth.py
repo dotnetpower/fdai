@@ -72,6 +72,14 @@ class EntraJwtVerifier:
 
 
 @dataclass(frozen=True, slots=True)
+class VerifiedOperatorIdentity:
+    """Retain one verified principal and its token's authorized client."""
+
+    principal: OperatorPrincipal
+    authorized_party: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class OperatorAuthenticator:
     """Authenticate verified claims and enforce server-owned role gates."""
 
@@ -80,6 +88,13 @@ class OperatorAuthenticator:
 
     def authenticate(self, authorization_header: str | None) -> OperatorPrincipal:
         """Return a verified principal or raise a stable authentication error."""
+        return self.authenticate_identity(authorization_header).principal
+
+    def authenticate_identity(
+        self,
+        authorization_header: str | None,
+    ) -> VerifiedOperatorIdentity:
+        """Return server-derived authority plus the verified client binding."""
         token = _extract_bearer(authorization_header)
         try:
             claims = self.verifier(token)
@@ -98,10 +113,13 @@ class OperatorAuthenticator:
                 raise AuthenticationError(
                     "invalid claims: workload principals require the Reader App Role"
                 )
-            return OperatorPrincipal(
-                subject_id=_principal_digest(subject_id),
-                roles=claimed_roles,
-                principal_kind=principal_kind,
+            return VerifiedOperatorIdentity(
+                principal=OperatorPrincipal(
+                    subject_id=_principal_digest(subject_id),
+                    roles=claimed_roles,
+                    principal_kind=principal_kind,
+                ),
+                authorized_party=_authorized_party(claims),
             )
         if not claimed_roles and _has_group_overage(claims):
             raise AuthenticationError("invalid claims: group overage tokens require FDAI App Roles")
@@ -110,10 +128,13 @@ class OperatorAuthenticator:
             claimed_roles = frozenset(
                 role for role, group_id in self.group_ids.items() if group_id in groups
             )
-        return OperatorPrincipal(
-            subject_id=subject_id,
-            roles=claimed_roles - {OperatorRole.BREAK_GLASS},
-            principal_kind=principal_kind,
+        return VerifiedOperatorIdentity(
+            principal=OperatorPrincipal(
+                subject_id=subject_id,
+                roles=claimed_roles,
+                principal_kind=principal_kind,
+            ),
+            authorized_party=_authorized_party(claims),
         )
 
     def require_any(
@@ -183,9 +204,19 @@ def _principal_digest(subject_id: str) -> str:
     return f"sha256:{digest}"
 
 
+def _authorized_party(claims: Mapping[str, object]) -> str | None:
+    value = claims.get("azp", claims.get("appid"))
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip() or len(value) > 200:
+        raise AuthenticationError("invalid claims: authorized party is malformed")
+    return value.strip()
+
+
 __all__ = [
     "AuthenticationError",
     "AuthorizationError",
     "EntraJwtVerifier",
     "OperatorAuthenticator",
+    "VerifiedOperatorIdentity",
 ]

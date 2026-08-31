@@ -225,6 +225,52 @@ class HilDuplicateApproverError(HilRegistryError):
         )
 
 
+class HilSelfApprovalForbiddenError(HilRegistryError):
+    """Raised when the requester tries to fill a quorum slot on their own request.
+
+    ``no_self_approval`` is a property of the authoritative workflow approval
+    record, so the quorum owner enforces it. Any transport that reaches
+    ``record_decision`` - the Operator callback, a replayed decision event, or
+    a console tool - is refused identically.
+    """
+
+    def __init__(self, idempotency_key: str) -> None:
+        super().__init__(
+            kind="self_approval_forbidden",
+            message=(
+                "workflow approval requester cannot approve their own request; "
+                f"cannot decide {idempotency_key!r}"
+            ),
+        )
+
+
+@runtime_checkable
+class HilWorkflowDecisionRegistry(Protocol):
+    """Route and record a decision against authoritative quorum state.
+
+    The ``fdai.hil.decisions`` consumer binds this narrow view so a workflow
+    approval slot reaches the quorum owner instead of the action-park resume
+    coordinator, without Core depending on a delivery implementation.
+    """
+
+    async def get_decision_route(self, approval_id: str) -> str: ...
+
+    async def get_pending_by_approval_id(
+        self,
+        approval_id: str,
+    ) -> HilPendingItem | None: ...
+
+    async def record_decision(
+        self,
+        *,
+        idempotency_key: str,
+        decision: HilApprovalDecision,
+        approver_oid: str,
+        justification: str = "",
+        decided_at: datetime | None = None,
+    ) -> HilDecisionReceipt: ...
+
+
 @runtime_checkable
 class HilApprovalRegistry(Protocol):
     """Authoritative store for pending HIL items + recorded decisions.
@@ -260,6 +306,8 @@ class HilApprovalRegistry(Protocol):
         self,
         approval_id: str,
     ) -> HilDecisionReceipt | None: ...
+
+    async def get_decision_route(self, approval_id: str) -> str: ...
 
     async def list_undelivered(self, *, limit: int = 100) -> Sequence[HilDecisionReceipt]: ...
 
@@ -389,6 +437,8 @@ __all__ = [
     "HilDecisionReceipt",
     "HilDuplicateApproverError",
     "HilItemAlreadyResolvedError",
+    "HilSelfApprovalForbiddenError",
+    "HilWorkflowDecisionRegistry",
     "HilItemNotFoundError",
     "HilPendingItem",
     "HilRegistryError",

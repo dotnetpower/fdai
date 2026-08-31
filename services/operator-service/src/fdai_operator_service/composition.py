@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
+import httpx
 from azure.identity.aio import ManagedIdentityCredential
 from fdai_service_contracts import OperatorReadModel, OperatorTokenVerifier, ReadDataSource
 from fdai_service_contracts.venue import (
@@ -37,8 +38,22 @@ from fdai_operator_service.conversation_assurance_reader import (
     ConversationAssuranceReader,
     ConversationAssuranceReaderConfig,
 )
-from fdai_operator_service.environment import OperatorEnvironment
+from fdai_operator_service.environment import (
+    OperatorEnvironment,
+    OperatorServiceConfigurationError,
+)
 from fdai_operator_service.families.conversation import ConversationFamilyDependencies
+from fdai_operator_service.families.conversation.channel_edge.environment import (
+    TEAMS_JWKS_URL_ENV,
+)
+from fdai_operator_service.families.conversation.channel_edge.provider_adapters import (
+    RemoteJwksConfig,
+    RemoteJwksProvider,
+)
+from fdai_operator_service.families.conversation.channel_edge.teams_auth import (
+    TeamsServiceTokenVerifier,
+    TeamsTokenConfig,
+)
 from fdai_operator_service.families.conversation.semantic_turn import SemanticTurnEnvelopeBuilder
 from fdai_operator_service.families.conversation.semantic_turn_runtime import (
     SEMANTIC_REQUEST_TOPIC,
@@ -50,6 +65,21 @@ from fdai_operator_service.families.conversation.semantic_turn_runtime import (
 )
 from fdai_operator_service.families.cost_governance import CostGovernanceFamilyDependencies
 from fdai_operator_service.families.iam import HilCallbackConfig, IamFamilyBindings
+from fdai_operator_service.families.iam.hil_callback_authority import (
+    TEAMS_APPLICATION_ID_ENV,
+    TEAMS_APPROVAL_CHANNEL_ID_ENV,
+    TEAMS_APPROVAL_TEAM_ID_ENV,
+    EntraHilCallbackAuthority,
+    HilCallbackAuthorityConfig,
+)
+from fdai_operator_service.families.iam.hil_decision_outbox import (
+    DurableHilDecisionOutboxPublisher,
+    HilDecisionOutboxBridge,
+)
+from fdai_operator_service.families.iam.hil_teams_callback import (
+    TeamsHilCallbackConfig,
+    TeamsHilCallbackNormalizer,
+)
 from fdai_operator_service.families.operations import PanelRoute
 from fdai_operator_service.families.operations.contracts import ProjectionReader
 from fdai_operator_service.family_adapters import (
@@ -266,14 +296,30 @@ class ProductionOperatorComposition:
             verifier=self.verifier_factory(environment),
             group_ids=environment.group_ids,
         )
+        teams_http_client = _teams_hil_http_client(environment)
         route_families, local_narrator = _build_route_families(
             environment=environment,
             authenticator=authenticator,
             store=family_store,
             semantic_bridge=semantic_bridge,
+            semantic_bus=semantic_bus,
             read_model=configured_read_model,
             webhook_enabled=azure_monitor_webhook_bridge is not None,
             context_selection_registry=context_selection_registry,
+            teams_http_client=teams_http_client,
+        )
+        hil_decision_outbox_bridge = (
+            HilDecisionOutboxBridge(
+                store=family_store,
+                registry=PostgresIamAdapters(family_store),
+                publisher=semantic_bus,
+                topic=environment.hil_decision_topic,
+            )
+            if family_store is not None
+            and semantic_bus is not None
+            and environment.hil_decision_topic is not None
+            and environment.values.get(HIL_SIGNING_SECRET_ENV, "").strip()
+            else None
         )
         narrator_scheduler = (
             PeriodicNarratorRefreshScheduler(
@@ -300,6 +346,7 @@ class ProductionOperatorComposition:
                 action_confirmation_bridge,
                 azure_monitor_webhook_bridge,
                 live_stage_relay,
+                hil_decision_outbox_bridge,
             ),
             live_stream_hub=live_stream_hub,
             agent_stream_hub=agent_stream_hub,
@@ -313,8 +360,66 @@ class ProductionOperatorComposition:
                 semantic_bus,
                 live_stage_relay,
                 narrator_scheduler,
+                hil_decision_outbox_bridge,
+                teams_http_client,
             ),
         )
+
+
+class _OwnedHttpClient:
+    """Close one composition-owned HTTP client with the application lifecycle."""
+
+    def __init__(self, client: httpx.AsyncClient) -> None:
+        self._client = client
+
+    async def start(self) -> None:
+        """Own no startup work; the client is ready when it is constructed."""
+
+    async def aclose(self) -> None:
+        """Close the owned client exactly once."""
+        if not self._client.is_closed:
+            await self._client.aclose()
+
+
+def _teams_hil_http_client(environment: OperatorEnvironment) -> httpx.AsyncClient | None:
+    """Own one bounded HTTPS client for Bot Framework key retrieval."""
+    if not environment.values.get(HIL_SIGNING_SECRET_ENV, "").strip():
+        return None
+    if not environment.values.get(TEAMS_JWKS_URL_ENV, "").strip():
+        return None
+    return httpx.AsyncClient(timeout=10.0, follow_redirects=False)
+
+
+def _teams_hil_normalizer(
+    environment: OperatorEnvironment,
+    http_client: httpx.AsyncClient,
+) -> TeamsHilCallbackNormalizer | None:
+    """Bind the Teams A1 receiver only when its complete surface is configured."""
+    values = environment.values
+    jwks_url = values.get(TEAMS_JWKS_URL_ENV, "").strip()
+    application_id = values.get(TEAMS_APPLICATION_ID_ENV, "").strip()
+    config = TeamsHilCallbackConfig.from_environment(
+        values,
+        application_id=application_id,
+        team_id=values.get(TEAMS_APPROVAL_TEAM_ID_ENV, "").strip(),
+        channel_id=values.get(TEAMS_APPROVAL_CHANNEL_ID_ENV, "").strip(),
+    )
+    if config is None:
+        return None
+    if not jwks_url:
+        raise OperatorServiceConfigurationError(
+            f"{TEAMS_JWKS_URL_ENV} is required for the Teams approval callback"
+        )
+    return TeamsHilCallbackNormalizer(
+        config=config,
+        tokens=TeamsServiceTokenVerifier(
+            config=TeamsTokenConfig(application_id=config.application_id),
+            jwks=RemoteJwksProvider(
+                config=RemoteJwksConfig(url=jwks_url),
+                http_client=http_client,
+            ),
+        ),
+    )
 
 
 def _postgres_read_model(environment: OperatorEnvironment) -> OperatorReadModel | None:
@@ -335,9 +440,11 @@ def _build_route_families(
     authenticator: OperatorAuthenticator,
     store: PostgresFamilyStore | None,
     semantic_bridge: SemanticTurnBridge | None,
+    semantic_bus: OperatorSemanticKafkaBus | None,
     read_model: OperatorReadModel | None,
     webhook_enabled: bool,
     context_selection_registry: ContextSelectionRegistry,
+    teams_http_client: httpx.AsyncClient | None = None,
 ) -> tuple[OperatorRouteFamilies, LocalAzureNarratorAdapters | None]:
     authorizer = OperatorFamilyAuthorizer(authenticator)
     report_pdf_encoder = optional_pdf_report_encoder()
@@ -450,6 +557,35 @@ def _build_route_families(
         fallback=operations_reader,
     )
     hil_secret = environment.values.get(HIL_SIGNING_SECRET_ENV, "").strip() or None
+    hil_authority = (
+        EntraHilCallbackAuthority(
+            authenticator=authenticator,
+            config=HilCallbackAuthorityConfig.from_environment(
+                environment.values,
+                group_ids=environment.group_ids,
+            ),
+        )
+        if hil_secret is not None
+        else None
+    )
+    hil_outbox = (
+        DurableHilDecisionOutboxPublisher(
+            durable=iam,
+            publisher=semantic_bus,
+            topic=environment.hil_decision_topic,
+            ledger=iam,
+            registry=iam,
+        )
+        if hil_secret is not None
+        and semantic_bus is not None
+        and environment.hil_decision_topic is not None
+        else None
+    )
+    hil_teams_normalizer = (
+        _teams_hil_normalizer(environment, teams_http_client)
+        if hil_secret is not None and teams_http_client is not None
+        else None
+    )
     routes = OperatorRouteFamilies(
         conversation=ConversationFamilyDependencies(
             authorizer=authorizer,
@@ -472,8 +608,12 @@ def _build_route_families(
             kill_switch=iam,
             configuration_review=iam,
             hil_registry=iam if hil_secret is not None else None,
-            hil_outbox=iam if hil_secret is not None else None,
+            hil_outbox=hil_outbox,
             hil_config=HilCallbackConfig(hil_secret) if hil_secret is not None else None,
+            hil_authority=hil_authority,
+            hil_audit=iam if hil_secret is not None else None,
+            hil_context=iam if hil_secret is not None else None,
+            hil_teams_normalizer=hil_teams_normalizer,
             role_group_ids=role_group_ids,
         ),
         workflow_authorize=authorizer.workflow,
@@ -566,6 +706,7 @@ def _build_semantic_bus(environment: OperatorEnvironment) -> OperatorSemanticKaf
             read_investigation_completion_topic=(environment.read_investigation_completion_topic),
             background_task_projection_topic=environment.background_task_projection_topic,
             event_topic=environment.values.get("KAFKA_TOPIC_EVENTS", "").strip() or None,
+            hil_decision_topic=environment.hil_decision_topic,
             physical_topic=environment.semantic_physical_topic,
             client_id=environment.semantic_kafka_client_id,
         ),
@@ -642,6 +783,8 @@ def _application_lifecycle(
     bus: OperatorSemanticKafkaBus | None,
     live_stage_relay: LiveStageKafkaRelay | None,
     narrator_scheduler: PeriodicNarratorRefreshScheduler | None,
+    hil_decision_outbox_bridge: HilDecisionOutboxBridge | None,
+    teams_http_client: httpx.AsyncClient | None,
 ) -> ApplicationLifecycle | None:
     services = tuple(
         service
@@ -655,6 +798,8 @@ def _application_lifecycle(
             azure_monitor_webhook_bridge,
             live_stage_relay,
             narrator_scheduler,
+            hil_decision_outbox_bridge,
+            _OwnedHttpClient(teams_http_client) if teams_http_client is not None else None,
         )
         if service is not None
     )
@@ -675,6 +820,7 @@ def _readiness_probe(
     action_confirmation_bridge: ActionConfirmationBridge | None,
     azure_monitor_webhook_bridge: AzureMonitorWebhookBridge | None,
     live_stage_relay: LiveStageKafkaRelay | None,
+    hil_decision_outbox_bridge: HilDecisionOutboxBridge | None = None,
 ) -> ReadinessProbe:
     if store is None:
         return _unavailable
@@ -700,6 +846,7 @@ def _readiness_probe(
                 azure_monitor_webhook_bridge is None or azure_monitor_webhook_bridge.workers_ready()
             )
             and (live_stage_relay is None or live_stage_relay.readiness())
+            and (hil_decision_outbox_bridge is None or hil_decision_outbox_bridge.workers_ready())
         )
 
     return probe

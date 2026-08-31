@@ -198,7 +198,11 @@ def _change_classes(paths: Sequence[str]) -> tuple[GovernanceChangeClass, ...]:
         normalized = path.strip().replace("\\", "/")
         if not normalized:
             continue
-        if "/exemptions/" in f"/{normalized}":
+        if normalized == "config/notifications-matrix.yaml":
+            # A1 routing is an authority override: changing its primary or
+            # fallback can change who receives a decision-bearing callback.
+            classes.add(GovernanceChangeClass.OVERRIDE)
+        elif "/exemptions/" in f"/{normalized}":
             classes.add(GovernanceChangeClass.EXEMPTION)
         elif "/overrides/" in f"/{normalized}":
             classes.add(GovernanceChangeClass.OVERRIDE)

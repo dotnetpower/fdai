@@ -5,11 +5,14 @@ from __future__ import annotations
 import ast
 import json
 from collections.abc import Mapping, Sequence
+from copy import deepcopy
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+import pytest
+from fdai_operator_service.auth import OperatorAuthenticator
 from fdai_operator_service.families.iam import (
     IAM_FAMILY_MANIFEST,
     HilCallbackConfig,
@@ -32,6 +35,7 @@ from fdai_operator_service.families.iam.contracts import (
     ConfigurationReviewCommand,
     DirectoryIdentity,
     HandoverGoalCommand,
+    HilApprovalDecision,
     HilDecisionCommand,
     HilDecisionOutboxRequest,
     HilDecisionReceipt,
@@ -48,7 +52,26 @@ from fdai_operator_service.families.iam.contracts import (
     TeamsWorkflowTestResult,
     WebSearchSettingsCommand,
 )
-from fdai_operator_service.families.iam.hil_callback import compute_hmac
+from fdai_operator_service.families.iam.hil_callback import (
+    compute_hmac,
+    make_hil_callback_route,
+)
+from fdai_operator_service.families.iam.hil_callback_audit import (
+    HilCallbackAuditRecord,
+    HilCallbackOutcome,
+)
+from fdai_operator_service.families.iam.hil_callback_authority import (
+    EntraHilCallbackAuthority,
+    HilCallbackActor,
+    HilCallbackAuthorityConfig,
+    HilCallbackAuthorityError,
+    HilCallbackChannel,
+)
+from fdai_operator_service.families.iam.hil_callback_context import HilCallbackContext
+from fdai_operator_service.families.iam.hil_decision_outbox import (
+    DurableHilDecisionOutboxPublisher,
+)
+from fdai_operator_service.postgres_iam import PostgresIamAdapters
 from fdai_service_contracts import OperatorRole
 from starlette.applications import Starlette
 from starlette.requests import Request
@@ -349,19 +372,40 @@ class RecordingReview:
 
 class RecordingHilRegistry:
     def __init__(self, *, submitter_oid: str = "submitter-1") -> None:
-        self.pending = HilPendingItem(
+        self.pending: HilPendingItem | None = HilPendingItem(
             approval_id="approval-1",
             idempotency_key="hil-key-1",
             submitter_oid=submitter_oid,
+            metadata={
+                "correlation_id": "correlation-1",
+                "action_hash": "action-hash-1",
+                "expires_at": (datetime.now(UTC) + timedelta(minutes=10)).isoformat(),
+            },
         )
         self.receipt: HilDecisionReceipt | None = None
         self.command: HilDecisionCommand | None = None
+        self.context = HilCallbackContext(
+            approval_id=self.pending.approval_id,
+            correlation_id=self.pending.metadata["correlation_id"],
+            idempotency_key=self.pending.idempotency_key,
+            action_hash=self.pending.metadata["action_hash"],
+            expires_at=datetime.fromisoformat(self.pending.metadata["expires_at"]),
+            submitter_oid=self.pending.submitter_oid,
+            metadata=self.pending.metadata,
+        )
 
     async def get_pending_by_approval_id(self, approval_id: str) -> HilPendingItem | None:
-        return self.pending if approval_id == self.pending.approval_id else None
+        return (
+            self.pending
+            if self.pending is not None and approval_id == self.pending.approval_id
+            else None
+        )
 
     async def get_decision_by_approval_id(self, approval_id: str) -> HilDecisionReceipt | None:
         return self.receipt if self.receipt and approval_id == self.receipt.approval_id else None
+
+    async def get_callback_context(self, approval_id: str) -> HilCallbackContext | None:
+        return self.context if approval_id == self.context.approval_id else None
 
     async def record_decision(self, command: HilDecisionCommand) -> HilDecisionReceipt:
         self.command = command
@@ -372,6 +416,7 @@ class RecordingHilRegistry:
             approver_oid=command.approver_oid,
             decided_at=command.decided_at,
             receipt_ref="receipt-1",
+            justification=command.justification,
         )
         return self.receipt
 
@@ -388,6 +433,45 @@ class RecordingHilOutbox:
         self.request = request
 
 
+class RecordingHilAuthority:
+    def __init__(
+        self,
+        *,
+        oid: str = "owner-1",
+        error: HilCallbackAuthorityError | None = None,
+    ) -> None:
+        self.oid = oid
+        self.error = error
+        self.authorization: str | None = None
+
+    async def authenticate(
+        self,
+        *,
+        authorization: str | None,
+        channel: HilCallbackChannel,
+        provider_actor_id: str,
+        audience: str,
+    ) -> HilCallbackActor:
+        self.authorization = authorization
+        del provider_actor_id, audience
+        if self.error is not None:
+            raise self.error
+        return HilCallbackActor(
+            oid=self.oid,
+            identity_ref=f"sha256:{'a' * 64}",
+            roles=frozenset({OperatorRole.OWNER}),
+            authority_basis=f"{channel.value}:test-authority",
+        )
+
+
+class RecordingHilAudit:
+    def __init__(self) -> None:
+        self.records: list[HilCallbackAuditRecord] = []
+
+    async def append_callback_audit(self, record: HilCallbackAuditRecord) -> None:
+        self.records.append(record)
+
+
 def _bindings(**overrides: object) -> IamFamilyBindings:
     values: dict[str, object] = {
         "authorize": authorize,
@@ -401,14 +485,14 @@ def _client(**overrides: object) -> TestClient:
     return TestClient(Starlette(routes=make_iam_family_routes(_bindings(**overrides))))
 
 
-def test_family_owns_exact_33_route_manifest_without_fdai_implementation_imports() -> None:
+def test_family_owns_exact_34_route_manifest_without_fdai_implementation_imports() -> None:
     routes = make_iam_family_routes(_bindings())
     snapshot = tuple(
         (next(iter((route.methods or set()) - {"HEAD"})), route.path, route.name)
         for route in routes
     )
     assert snapshot == tuple((item.method, item.path, item.name) for item in IAM_FAMILY_MANIFEST)
-    assert len(snapshot) == 33
+    assert len(snapshot) == 34
 
     for path in FAMILY_SOURCE.rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -826,14 +910,26 @@ def test_iam_settings_redact_nested_sensitive_alias_fields() -> None:
 def test_signed_hil_callback_binds_path_rejects_self_approval_and_enqueues_receipt() -> None:
     registry = RecordingHilRegistry()
     hil_outbox = RecordingHilOutbox()
+    audit = RecordingHilAudit()
     config = HilCallbackConfig(secret="test-secret")
-    client = _client(hil_registry=registry, hil_outbox=hil_outbox, hil_config=config)
+    client = _client(
+        hil_registry=registry,
+        hil_outbox=hil_outbox,
+        hil_config=config,
+        hil_authority=RecordingHilAuthority(),
+        hil_audit=audit,
+        hil_context=registry,
+    )
     body = json.dumps(
         {
             "decision": "approve",
-            "actor_oid": "owner-1",
-            "actor_roles": ["Owner"],
             "justification": "Independent approval.",
+            "channel": "slack",
+            "provider_actor_id": "slack-owner",
+            "audience": "slack:slack-team",
+            "correlation_id": "correlation-1",
+            "idempotency_key": "hil-key-1",
+            "action_hash": "action-hash-1",
         },
         separators=(",", ":"),
     ).encode()
@@ -864,14 +960,22 @@ def test_signed_hil_callback_binds_path_rejects_self_approval_and_enqueues_recei
     assert response.json()["delivered"] is True
     assert registry.command is not None
     assert registry.command.justification == "Independent approval."
+    assert registry.command.decided_at == datetime.fromisoformat(timestamp)
     assert hil_outbox.request is not None
     assert path_swap.status_code == 401
+    assert [record.outcome for record in audit.records] == [
+        HilCallbackOutcome.PENDING,
+        HilCallbackOutcome.ACCEPTED,
+    ]
 
     self_registry = RecordingHilRegistry(submitter_oid="OWNER-1")
     self_response = _client(
         hil_registry=self_registry,
         hil_outbox=RecordingHilOutbox(),
         hil_config=config,
+        hil_authority=RecordingHilAuthority(),
+        hil_audit=RecordingHilAudit(),
+        hil_context=self_registry,
     ).post(
         "/hil/approval-1/decision",
         content=body,
@@ -891,13 +995,21 @@ def test_signed_hil_callback_requires_non_empty_justification() -> None:
     for payload in (
         {
             "decision": "approve",
-            "actor_oid": "owner-1",
-            "actor_roles": ["Owner"],
+            "channel": "slack",
+            "provider_actor_id": "slack-owner",
+            "audience": "slack:slack-team",
+            "correlation_id": "correlation-1",
+            "idempotency_key": "hil-key-1",
+            "action_hash": "action-hash-1",
         },
         {
             "decision": "reject",
-            "actor_oid": "owner-1",
-            "actor_roles": ["Owner"],
+            "channel": "slack",
+            "provider_actor_id": "slack-owner",
+            "audience": "slack:slack-team",
+            "correlation_id": "correlation-1",
+            "idempotency_key": "hil-key-1",
+            "action_hash": "action-hash-1",
             "justification": "   ",
         },
     ):
@@ -914,6 +1026,9 @@ def test_signed_hil_callback_requires_non_empty_justification() -> None:
             hil_registry=registry,
             hil_outbox=RecordingHilOutbox(),
             hil_config=config,
+            hil_authority=RecordingHilAuthority(),
+            hil_audit=RecordingHilAudit(),
+            hil_context=registry,
         ).post(
             "/hil/approval-1/decision",
             content=body,
@@ -924,5 +1039,542 @@ def test_signed_hil_callback_requires_non_empty_justification() -> None:
         )
 
         assert response.status_code == 400
-        assert response.json()["error"]["message"] == ("'justification' MUST be a non-empty string")
+        assert response.json()["error"]["message"] in {
+            "callback body fields do not match the contract",
+            "'justification' MUST be bounded non-empty text",
+        }
         assert registry.command is None
+
+
+def _callback_body(**overrides: object) -> bytes:
+    payload: dict[str, object] = {
+        "decision": "approve",
+        "justification": "Verified rollback and impact bounds.",
+        "channel": "slack",
+        "provider_actor_id": "slack-owner",
+        "audience": "slack:slack-team",
+        "correlation_id": "correlation-1",
+        "idempotency_key": "hil-key-1",
+        "action_hash": "action-hash-1",
+    }
+    payload.update(overrides)
+    return json.dumps(payload, separators=(",", ":")).encode()
+
+
+def _signed_callback(
+    client: TestClient,
+    config: HilCallbackConfig,
+    *,
+    body: bytes,
+    timestamp: str | None = None,
+    bearer: str = "callback-token",
+) -> Any:
+    timestamp = timestamp or datetime.now(UTC).isoformat()
+    return client.post(
+        "/hil/approval-1/decision",
+        content=body,
+        headers={
+            "Authorization": f"Bearer {bearer}",
+            "X-FDAI-Timestamp": timestamp,
+            "X-FDAI-Signature": "sha256="
+            + compute_hmac(
+                secret=config.secret,
+                timestamp=timestamp,
+                approval_id="approval-1",
+                payload=body,
+            ),
+        },
+    )
+
+
+def test_hil_callback_duplicate_is_idempotent_and_audited() -> None:
+    registry = RecordingHilRegistry()
+    audit = RecordingHilAudit()
+    config = HilCallbackConfig(secret="test-secret")
+    client = _client(
+        hil_registry=registry,
+        hil_outbox=RecordingHilOutbox(),
+        hil_config=config,
+        hil_authority=RecordingHilAuthority(),
+        hil_audit=audit,
+        hil_context=registry,
+    )
+    body = _callback_body()
+
+    first = _signed_callback(client, config, body=body)
+    registry.pending = None
+    duplicate = _signed_callback(client, config, body=body)
+
+    assert first.status_code == duplicate.status_code == 200
+    assert duplicate.json()["already_recorded"] is True
+    assert duplicate.json()["idempotency_key"] == "hil-key-1"
+    assert [record.phase.value for record in audit.records] == [
+        "prepared",
+        "completed",
+        "prepared",
+        "completed",
+    ]
+    assert all(record.correlation_id == "correlation-1" for record in audit.records)
+    assert audit.records[-1].outcome is HilCallbackOutcome.ACCEPTED
+
+
+def test_exact_callback_retry_with_moving_clock_retains_first_audit_times() -> None:
+    class AuditStore:
+        def __init__(self) -> None:
+            self.values: dict[str, dict[str, object]] = {}
+
+        async def create_state(self, key: str, value: Mapping[str, object]) -> bool:
+            if key in self.values:
+                return False
+            self.values[key] = dict(value)
+            return True
+
+        async def read_state(self, key: str) -> dict[str, object] | None:
+            return self.values.get(key)
+
+    registry = RecordingHilRegistry()
+    audit_store = AuditStore()
+    audit = PostgresIamAdapters(audit_store)  # type: ignore[arg-type]
+    config = HilCallbackConfig(secret="test-secret")
+    current = [NOW]
+    client = TestClient(
+        Starlette(
+            routes=[
+                make_hil_callback_route(
+                    registry=registry,
+                    outbox=RecordingHilOutbox(),
+                    config=config,
+                    authority=RecordingHilAuthority(),
+                    audit=audit,
+                    context_reader=registry,
+                    clock=lambda: current[0],
+                )
+            ]
+        )
+    )
+    body = _callback_body()
+    timestamp = NOW.isoformat()
+
+    first = _signed_callback(client, config, body=body, timestamp=timestamp)
+    current[0] += timedelta(seconds=1)
+    duplicate = _signed_callback(client, config, body=body, timestamp=timestamp)
+
+    assert first.status_code == duplicate.status_code == 200
+    assert duplicate.json()["already_recorded"] is True
+    assert len(audit_store.values) == 2
+    assert {value["recorded_at"] for value in audit_store.values.values()} == {NOW.isoformat()}
+
+
+def test_hil_callback_publish_failure_remains_retryable_until_broker_acceptance() -> None:
+    class FailOnceOutbox(RecordingHilOutbox):
+        attempts = 0
+
+        async def enqueue(self, request: HilDecisionOutboxRequest) -> None:
+            self.attempts += 1
+            await super().enqueue(request)
+            if self.attempts == 1:
+                raise RuntimeError("broker unavailable")
+
+    registry = RecordingHilRegistry()
+    outbox = FailOnceOutbox()
+    config = HilCallbackConfig(secret="test-secret")
+    client = _client(
+        hil_registry=registry,
+        hil_outbox=outbox,
+        hil_config=config,
+        hil_authority=RecordingHilAuthority(),
+        hil_audit=RecordingHilAudit(),
+        hil_context=registry,
+    )
+    body = _callback_body()
+    timestamp = datetime.now(UTC).isoformat()
+
+    failed = _signed_callback(client, config, body=body, timestamp=timestamp)
+    retried = _signed_callback(client, config, body=body, timestamp=timestamp)
+
+    assert failed.status_code == 503
+    assert failed.json()["error"]["kind"] == "decision_publish_failed"
+    assert retried.status_code == 200
+    assert retried.json()["already_recorded"] is True
+    assert retried.json()["delivered"] is True
+    assert outbox.attempts == 2
+
+
+@pytest.mark.asyncio
+async def test_durable_hil_outbox_persists_before_exact_broker_payload() -> None:
+    order: list[str] = []
+
+    class DurableOutbox:
+        async def enqueue(self, request: HilDecisionOutboxRequest) -> None:
+            assert request.receipt.justification == "Independent approval."
+            order.append("persisted")
+
+    class Publisher:
+        payload: dict[str, object] | None = None
+
+        async def publish(
+            self,
+            topic: str,
+            key: str,
+            payload: dict[str, object],
+        ) -> object:
+            assert order == ["persisted"]
+            assert topic == "fdai.hil.decisions"
+            assert key == "approval-1"
+            self.payload = payload
+            order.append("published")
+            return object()
+
+    publisher = Publisher()
+    outbox = DurableHilDecisionOutboxPublisher(
+        durable=DurableOutbox(),
+        publisher=publisher,
+        topic="fdai.hil.decisions",
+    )
+    await outbox.enqueue(
+        HilDecisionOutboxRequest(
+            HilDecisionReceipt(
+                approval_id="approval-1",
+                idempotency_key="hil-key-1",
+                decision=HilApprovalDecision.APPROVE,
+                approver_oid="owner-1",
+                decided_at=NOW,
+                receipt_ref="receipt-1",
+                justification="Independent approval.",
+            )
+        )
+    )
+
+    assert order == ["persisted", "published"]
+    assert publisher.payload == {
+        "approval_id": "approval-1",
+        "idempotency_key": "hil-key-1",
+        "decision": "approve",
+        "approver_oid": "owner-1",
+        "justification": "Independent approval.",
+        "decided_at": NOW.isoformat(),
+        "receipt_ref": "receipt-1",
+    }
+
+
+def test_hil_callback_timeout_and_unavailable_authority_fail_closed_with_audit() -> None:
+    config = HilCallbackConfig(secret="test-secret")
+    expired_registry = RecordingHilRegistry()
+    assert expired_registry.pending is not None
+    expired_registry.pending = replace(
+        expired_registry.pending,
+        metadata={
+            **expired_registry.pending.metadata,
+            "expires_at": (datetime.now(UTC) - timedelta(seconds=1)).isoformat(),
+        },
+    )
+    expired_registry.context = replace(
+        expired_registry.context,
+        expires_at=datetime.now(UTC) - timedelta(seconds=1),
+    )
+    expired_audit = RecordingHilAudit()
+    expired = _signed_callback(
+        _client(
+            hil_registry=expired_registry,
+            hil_outbox=RecordingHilOutbox(),
+            hil_config=config,
+            hil_authority=RecordingHilAuthority(),
+            hil_audit=expired_audit,
+            hil_context=expired_registry,
+        ),
+        config,
+        body=_callback_body(),
+    )
+    assert expired.status_code == 410
+    assert expired_registry.command is None
+    assert expired_audit.records[-1].outcome is HilCallbackOutcome.EXPIRED
+
+    unavailable_registry = RecordingHilRegistry()
+    unavailable_audit = RecordingHilAudit()
+    unavailable = _signed_callback(
+        _client(
+            hil_registry=unavailable_registry,
+            hil_outbox=RecordingHilOutbox(),
+            hil_config=config,
+            hil_authority=RecordingHilAuthority(
+                error=HilCallbackAuthorityError(
+                    "current authority source is unavailable",
+                    status_code=503,
+                    kind="authority_unavailable",
+                )
+            ),
+            hil_audit=unavailable_audit,
+            hil_context=unavailable_registry,
+        ),
+        config,
+        body=_callback_body(),
+    )
+    assert unavailable.status_code == 503
+    assert unavailable_registry.command is None
+    assert unavailable_audit.records[-1].outcome is HilCallbackOutcome.INVALID
+
+
+def test_hil_callback_context_mismatch_is_invalid_before_decision() -> None:
+    registry = RecordingHilRegistry()
+    audit = RecordingHilAudit()
+    config = HilCallbackConfig(secret="test-secret")
+    response = _signed_callback(
+        _client(
+            hil_registry=registry,
+            hil_outbox=RecordingHilOutbox(),
+            hil_config=config,
+            hil_authority=RecordingHilAuthority(),
+            hil_audit=audit,
+            hil_context=registry,
+        ),
+        config,
+        body=_callback_body(correlation_id="different-correlation"),
+    )
+
+    assert response.status_code == 409
+    assert registry.command is None
+    assert audit.records[-1].outcome is HilCallbackOutcome.INVALID
+    assert audit.records[-1].correlation_id == "correlation-1"
+
+
+def test_unverified_callback_does_not_consume_durable_audit_storage() -> None:
+    registry = RecordingHilRegistry()
+    audit = RecordingHilAudit()
+    body = _callback_body(channel="attacker-controlled-audit-text")
+    response = _client(
+        hil_registry=registry,
+        hil_outbox=RecordingHilOutbox(),
+        hil_config=HilCallbackConfig(secret="test-secret"),
+        hil_authority=RecordingHilAuthority(),
+        hil_audit=audit,
+        hil_context=registry,
+    ).post("/hil/approval-1/decision", content=body)
+
+    assert response.status_code == 401
+    assert audit.records == []
+
+
+def _authority(
+    *,
+    slack_mapping: str = '{"slack-owner":"owner-1"}',
+    claims: Mapping[str, object] | None = None,
+) -> EntraHilCallbackAuthority:
+    group_ids = {
+        OperatorRole.READER: "readers",
+        OperatorRole.CONTRIBUTOR: "contributors",
+        OperatorRole.APPROVER: "approvers",
+        OperatorRole.OWNER: "owners",
+        OperatorRole.BREAK_GLASS: "break-glass",
+    }
+    resolved_claims = deepcopy(
+        claims
+        or {
+            "oid": "owner-1",
+            "roles": ["Owner"],
+            "idtyp": "user",
+            "azp": "approval-bot",
+        }
+    )
+    authenticator = OperatorAuthenticator(
+        verifier=lambda _token: resolved_claims,
+        group_ids=group_ids,
+    )
+    environment = {
+        "FDAI_TEAMS_APPLICATION_ID": "approval-bot",
+        "FDAI_TEAMS_APPROVAL_TEAM_ID": "approval-team",
+        "FDAI_TEAMS_APPROVAL_CHANNEL_ID": "approval-channel",
+        "FDAI_TEAMS_PRINCIPAL_MAP_JSON": '{"teams-owner":"owner-1"}',
+        "FDAI_SLACK_PRINCIPAL_MAP_JSON": slack_mapping,
+    }
+    if slack_mapping:
+        environment["FDAI_SLACK_TEAM_ID"] = "slack-team"
+    return EntraHilCallbackAuthority(
+        authenticator=authenticator,
+        config=HilCallbackAuthorityConfig.from_environment(
+            environment,
+            group_ids=group_ids,
+        ),
+    )
+
+
+_AUTHORIZATION = "Bearer callback-token"  # noqa: S105 - synthetic test header.
+
+
+@pytest.mark.asyncio
+async def test_teams_obo_authority_rejects_wrong_actor_audience_and_client() -> None:
+    authority = _authority()
+
+    accepted = await authority.authenticate(
+        authorization=_AUTHORIZATION,
+        channel=HilCallbackChannel.TEAMS,
+        provider_actor_id="teams-owner",
+        audience="teams:approval-team:approval-channel",
+    )
+    assert accepted.oid == "owner-1"
+    assert accepted.authority_basis == "teams_sso_obo+entra_app_role"
+
+    for kwargs, kind in (
+        ({"provider_actor_id": "unknown"}, "actor_mapping_missing"),
+        ({"audience": "teams:other-team:other-channel"}, "wrong_audience"),
+    ):
+        values = {
+            "channel": HilCallbackChannel.TEAMS,
+            "provider_actor_id": "teams-owner",
+            "audience": "teams:approval-team:approval-channel",
+            **kwargs,
+        }
+        with pytest.raises(HilCallbackAuthorityError) as raised:
+            await authority.authenticate(authorization=_AUTHORIZATION, **values)
+        assert raised.value.kind == kind
+
+    wrong_client = _authority(
+        claims={
+            "oid": "owner-1",
+            "roles": ["Owner"],
+            "idtyp": "user",
+            "azp": "different-client",
+        }
+    )
+    with pytest.raises(HilCallbackAuthorityError) as raised:
+        await wrong_client.authenticate(
+            authorization=_AUTHORIZATION,
+            channel=HilCallbackChannel.TEAMS,
+            provider_actor_id="teams-owner",
+            audience="teams:approval-team:approval-channel",
+        )
+    assert raised.value.kind == "wrong_client"
+
+
+@pytest.mark.asyncio
+async def test_slack_a1_requires_non_empty_mapping_and_mapped_entra_identity() -> None:
+    disabled = _authority(slack_mapping="")
+    with pytest.raises(HilCallbackAuthorityError) as raised:
+        await disabled.authenticate(
+            authorization=_AUTHORIZATION,
+            channel=HilCallbackChannel.SLACK,
+            provider_actor_id="slack-owner",
+            audience="slack:slack-team",
+        )
+    assert raised.value.kind == "slack_a1_disabled"
+
+    mapped = _authority()
+    actor = await mapped.authenticate(
+        authorization=_AUTHORIZATION,
+        channel=HilCallbackChannel.SLACK,
+        provider_actor_id="slack-owner",
+        audience="slack:slack-team",
+    )
+    assert actor.oid == "owner-1"
+    assert actor.authority_basis == "slack_mapping+entra_browser_reauthentication"
+
+    wrong_actor = _authority(
+        claims={
+            "oid": "different-owner",
+            "roles": ["Owner"],
+            "idtyp": "user",
+        }
+    )
+    with pytest.raises(HilCallbackAuthorityError) as raised:
+        await wrong_actor.authenticate(
+            authorization=_AUTHORIZATION,
+            channel=HilCallbackChannel.SLACK,
+            provider_actor_id="slack-owner",
+            audience="slack:slack-team",
+        )
+    assert raised.value.kind == "wrong_actor"
+
+
+@pytest.mark.asyncio
+async def test_break_glass_token_cannot_gain_callback_approval_authority() -> None:
+    break_glass = _authority(
+        claims={
+            "oid": "owner-1",
+            "roles": ["BreakGlass"],
+            "idtyp": "user",
+            "azp": "approval-bot",
+        }
+    )
+
+    principal = break_glass.authenticator.authenticate("Bearer callback-token")
+    assert principal.roles == frozenset({OperatorRole.BREAK_GLASS})
+    with pytest.raises(HilCallbackAuthorityError) as raised:
+        await break_glass.authenticate(
+            authorization=_AUTHORIZATION,
+            channel=HilCallbackChannel.TEAMS,
+            provider_actor_id="teams-owner",
+            audience="teams:approval-team:approval-channel",
+        )
+
+    assert raised.value.kind == "capability_forbidden"
+
+
+def test_callback_authority_keeps_role_groups_separate_from_channel_audiences() -> None:
+    groups = {
+        OperatorRole.READER: "readers",
+        OperatorRole.CONTRIBUTOR: "contributors",
+        OperatorRole.APPROVER: "approvers",
+        OperatorRole.OWNER: "owners",
+        OperatorRole.BREAK_GLASS: "break-glass",
+    }
+    config = HilCallbackAuthorityConfig.from_environment(
+        {
+            "FDAI_TEAMS_APPLICATION_ID": "approval-bot",
+            "FDAI_TEAMS_APPROVAL_TEAM_ID": "approval-team",
+            "FDAI_TEAMS_APPROVAL_CHANNEL_ID": "approval-channel",
+            "FDAI_TEAMS_PRINCIPAL_MAP_JSON": '{"teams-owner":"owner-1"}',
+        },
+        group_ids=groups,
+    )
+
+    assert config.teams_approval_audience == "teams:approval-team:approval-channel"
+    with pytest.raises(ValueError, match="all five"):
+        HilCallbackAuthorityConfig.from_environment(
+            {},
+            group_ids={
+                role: value for role, value in groups.items() if role is not OperatorRole.OWNER
+            },
+        )
+
+
+@pytest.mark.asyncio
+async def test_callback_authority_rejects_partial_teams_config_but_allows_slack_only() -> None:
+    groups = {
+        OperatorRole.READER: "readers",
+        OperatorRole.CONTRIBUTOR: "contributors",
+        OperatorRole.APPROVER: "approvers",
+        OperatorRole.OWNER: "owners",
+        OperatorRole.BREAK_GLASS: "break-glass",
+    }
+    with pytest.raises(ValueError, match="Teams A1 requires"):
+        HilCallbackAuthorityConfig.from_environment(
+            {"FDAI_TEAMS_APPROVAL_TEAM_ID": "approval-team"},
+            group_ids=groups,
+        )
+
+    slack = HilCallbackAuthorityConfig.from_environment(
+        {
+            "FDAI_SLACK_TEAM_ID": "slack-team",
+            "FDAI_SLACK_PRINCIPAL_MAP_JSON": '{"slack-owner":"owner-1"}',
+        },
+        group_ids=groups,
+    )
+    assert slack.teams_approval_audience is None
+    assert slack.slack_approval_audience == "slack:slack-team"
+    authority = EntraHilCallbackAuthority(
+        authenticator=OperatorAuthenticator(
+            verifier=lambda _token: {
+                "oid": "owner-1",
+                "roles": ["Owner"],
+                "idtyp": "user",
+            },
+            group_ids=groups,
+        ),
+        config=slack,
+    )
+    actor = await authority.authenticate(
+        authorization=_AUTHORIZATION,
+        channel=HilCallbackChannel.SLACK,
+        provider_actor_id="slack-owner",
+        audience="slack:slack-team",
+    )
+    assert actor.oid == "owner-1"

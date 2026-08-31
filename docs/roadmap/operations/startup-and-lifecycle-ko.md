@@ -1,8 +1,8 @@
 ---
 title: 시작과 라이프사이클(Startup and Lifecycle)
 translation_of: startup-and-lifecycle.md
-translation_source_sha: 2eddf47cf293e7406377343b00b9333a497576c5
-translation_revised: 2026-08-25
+translation_source_sha: 3d68cbdf2fc399a3047daa8cc5d87cc334eeffc0
+translation_revised: 2026-08-31
 ---
 
 # 시작과 라이프사이클(시작 and 수명 주기)
@@ -23,7 +23,8 @@ Azure 초점: 비-Azure 프로바이더는 TBD
 > **구현 상태**: 현재 참조 Terraform은 KEDA 규모 룰 없이 `min_replicas = 1`인 단일
 > `core` 컨테이너를 배포합니다. 보호된 배포는 모델 해석기와 제안 전용 주간 수명 주기
 > 조정기를 실행합니다. 수집기 작업은 구성 가능한 배포 일정을 사용하고, 발견 활성화는
-> 실패 시 차단되는 런타임 결정입니다. 종단 간 사람 승인 초기화는 아직 완료되지 않았습니다.
+> 실패 시 차단되는 런타임 결정입니다. 사람 승인 콜백 초기화는 결정론적 로컬 근거로
+> 구현되었으며, 통제된 배포 근거는 별도로 남아 있습니다.
 
 ## 구현 상태
 
@@ -34,7 +35,8 @@ Azure 초점: 비-Azure 프로바이더는 TBD
 | 시작 준비 상태 조정 | `implemented` | [`runtime/readiness.py`](../../../services/core-control-plane/src/fdai/runtime/readiness.py), [`runtime/bootstrap_incidents.py`](../../../services/core-control-plane/src/fdai/runtime/bootstrap_incidents.py), [`core/readiness/coordinator.py`](../../../services/core-control-plane/src/fdai/core/readiness/coordinator.py) 및 준비 상태 집중 테스트 | 조정기는 전체 실행 및 탐색별 예산에서 하나의 근거 수명과 새로 고침 선행 시간을 계산합니다. 런타임 새로 고침은 범위가 제한되고 정확한 만료 시점에 처리를 닫으며 Thor에 실제 fail-closed 권한 상한을 제공합니다. PostgreSQL 상태 재구성은 process-critical로 유지하고 영속 A2 알림 replay는 격리합니다. |
 | T2 교차 검사 시작 증명 재사용 | `implemented` | [`delivery/startup_model_probe.py`](../../../services/core-control-plane/src/fdai/delivery/startup_model_probe.py) 및 [`tests/delivery/test_startup_probe.py`](../../../services/core-control-plane/tests/delivery/test_startup_probe.py) | 프로세스에서 처음 성공한 증명은 구성된 샘플을 사용합니다. 이후 새로 고침은 추가 T2 요청 없이 이를 재사용하며 실패는 계속 재시도할 수 있습니다. |
 | 수집기 일정 및 통제된 발견 활성화 | `implemented` | [`rule_watcher_job.tf`](../../../infra/modules/compute/container-apps/rule_watcher_job.tf), [`rule_collector_job_cli.py`](../../../services/core-control-plane/src/fdai/delivery/rule_collector_job_cli.py), [`core/readiness/discovery_activation.py`](../../../services/core-control-plane/src/fdai/core/readiness/discovery_activation.py), [`runtime/discovery_activation.py`](../../../services/core-control-plane/src/fdai/runtime/discovery_activation.py) 및 집중 수집기/활성화/Norns/런타임/인프라 검사 | 구성 가능한 작업은 실행 권한이 없는 인벤토리 신원을 사용하고, 검증된 출처 증적만 기록합니다. 런타임 조립은 정책과 최신 선행 조건이 모두 통과할 때까지 Norns 게시를 차단합니다. |
-| 부트스트랩 및 수명 주기 자동화 | `in-progress` | [`llm_resolver_cli.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver_cli.py), `.github/workflows/deploy-dev.yml`, `.github/workflows/model-lifecycle-reconcile.yml` 및 집중 수명 주기 테스트 | 보호된 모델 해석과 제안 전용 조정은 구현됐습니다. 수집기 일정과 통제된 발견 활성화는 현재 변경에서 구현되며, 종단 간 사람 승인 초기화는 아직 완료되지 않았습니다. |
+| 사람 승인 초기화 | `implemented` | `fdai_operator_service/families/iam/hil_callback*.py`, `scripts/operations/run-hil-bootstrap-canary.py`, 집중 Operator 콜백, PostgreSQL, Kafka, 워크플로, 거버넌스 및 카나리 테스트 | Teams 콜백은 구성된 승인 봇에 발급된 API 대상 Entra 토큰, 매핑된 행위자, 구성된 그룹 연결 팀/채널 대상을 요구합니다. Slack A1은 워크스페이스와 Entra 매핑으로 독립 운영할 수 있습니다. 서명 시각은 `decided_at`을 고정하고 정확한 재시도는 첫 감사 시각을 보존합니다. 워크플로 승인은 범위가 제한된 만료가 필요하며 Operator는 브로커가 수락한 뒤에만 전달 완료로 표시합니다. |
+| 부트스트랩 및 수명 주기 자동화 | `in-progress` | [`llm_resolver_cli.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver_cli.py), `.github/workflows/deploy-dev.yml`, `.github/workflows/model-lifecycle-reconcile.yml` 및 집중 수명 주기 테스트 | 보호된 모델 해석, 제안 전용 조정, 수집기 일정, 통제된 발견 활성화 및 로컬 사람 승인 초기화가 구현됐습니다. 통제된 런타임 증적은 별도로 남아 있습니다. |
 
 ### 구현 이력
 
@@ -48,11 +50,18 @@ Azure 초점: 비-Azure 프로바이더는 TBD
 | 2026-08-25 | `implemented` | 완료되지 않은 전체 감사 체인 증명 뒤에 5분의 프로세스 로컬 대기 시간을 추가했습니다. 시간 초과나 취소가 발생하면 즉시 과거 체인 스캔을 다시 시작하지 않고 자율 권한을 낮춥니다. 확인된 불일치는 계속 준비 상태를 차단하며, 이후의 제한된 재시도로 복구할 수 있습니다. | 실패한 보호 적용 `32846624686`; 준비 상태 확인 구간에서 PostgreSQL CPU 98.5~100%; `current change`; 집중 시작 탐색 테스트. | 제한된 재시도 동작을 배포하고 계량 검증 전에 정상 또는 저하된 관찰 모드 Core 근거를 보존합니다. |
 | 2026-08-25 | `implemented` | 가장 이른 근거 만료 전에 주기적 준비 상태 새로 고침을 시작하고 조정기가 만든 실패 근거를 현재 및 다음 범위가 제한된 실행까지 유지했습니다. 새로 고침이 기존 만료 시점에 도달하면 보호된 처리를 계속 닫으므로 오래된 근거를 수락하거나 권한을 높이지 않고 가용성을 개선합니다. | 실패한 보호 적용 `32846624686`, 배포 보고서의 `degraded`, `postgres.state=passed` 및 살아 있는 replica에서 만료된 감사 시간 초과, `current change`, 집중 조정기 및 런타임 타이밍 테스트 | 정확히 수정된 Core 이미지를 배포하고 정상 또는 degraded-shadow revision과 peer 격리 근거를 보존합니다. |
 | 2026-08-25 | `implemented` | 내장 탐색과 조정기 실패 근거 수명을 시작 예산 아래 통합하고, 최소 새로 고침 지연과 범위가 제한된 일시적 실패 재시도를 추가했으며, 정제된 탐색 id로 만료 전이를 관찰할 수 있게 했습니다. 이제 Thor는 새 자동 전달 전과 사람 승인 뒤에 실제 상한을 읽으므로 저하되거나 오래된 보고서가 시작 시점의 enforcement를 유지할 수 없습니다. | `current change`; 집중 준비 상태, 탐색, Thor 내구 및 bootstrap 검사 94개 통과, strict mypy, Ruff, Pantheon 레이아웃 및 에이전트 import gate 통과. | 정확한 수정 Core 이미지를 배포하고 degraded-shadow 전달, 만료 복구 및 peer 격리 근거를 보존합니다. |
+| 2026-08-31 | `implemented` | 로컬 사람 승인 초기화를 완료했습니다. Operator는 별도 Teams 팀/채널 슬롯을 사용하고 Teams SSO OBO 및 독립 구성된 Slack 권한을 검증하며, 결정을 원래 문맥과 서명 시각에 바인딩하고, 첫 감사 시각을 보존하고, 제안 우선 영속화를 복구하고, 전달 완료 표시에 앞서 영속 보낼 편지함에서 게시합니다. 워크플로 승인 슬롯은 이제 범위가 제한된 콜백 문맥을 운반하며 시간 초과가 없으면 거부합니다. | `current change`, 집중 콜백, PostgreSQL IAM, Kafka, 조립, 워크플로, 거버넌스 및 카나리 검사, `uv run python scripts/operations/run-hil-bootstrap-canary.py`는 Teams 수락, Slack 거절, 시간 초과 시 차단, 감사 단계 6개, 잔존 레코드 0개, 실제 네트워크 호출 0개를 반환했습니다. | 런타임 검증을 주장하기 전에 통제된 배포 Teams 콜백, 브로커 수락 및 신뢰할 수 있는 거버넌스 App 증적을 보존합니다. |
+| 2026-08-31 | `implemented` | 사람 승인 전달 고리를 닫았습니다. 이제 Teams 카드 클릭은 Operator Bot 액티비티 수신기에 도달하며, 수신기는 공유 결정 서비스가 실행되기 전에 Bot Framework 서비스 토큰과 구성된 테넌트, 팀, 채널, 그리고 위임 OBO 행위자 토큰을 검증합니다. Operator는 애플리케이션 lifecycle에 리스 펜싱 재구동 작업자도 소유하므로, 브로커 실패나 영속 보낼 편지함 기록 직후의 크래시를 HTTP 콜백 재시도 없이 재구동하고 브로커 수락 뒤에만 전달로 표시합니다. Core는 워크플로 승인 슬롯을 재개 코디네이터가 아니라 정족수 소유자로 라우팅합니다. | `current change`, 집중 Operator IAM, Teams 수신기, 보낼 편지함 재구동, PostgreSQL, 조립, Core chatops 및 교차 서비스 라우팅 검사, `uv run python scripts/operations/run-hil-bootstrap-canary.py`는 `mode=local_dry_run_no_network`, `live_teams_proof=false`, 실제 네트워크 호출 0개를 반환했습니다. | 런타임 검증을 주장하기 전에 통제된 배포 Teams 콜백 증적과 브로커 수락 증적을 보존합니다. |
 
 ### 남은 작업
 
-- [ ] 종단 간 사람 승인 초기화를 완료하고 이 원장에 집중 workflow 테스트를 인용하며,
-   통제된 수집기와 모델 조정기 실행은 별도로 보존합니다.
+- [x] 집중 콜백, 권한, 시간 초과, 중복, 감사, 거버넌스 및 카나리 검사로 결정론적 로컬
+   사람 승인 초기화를 완료합니다.
+- [x] 카드 클릭과 실패한 브로커 게시가 모두 운영자 개입 없이 완료되도록, 저장소 소유 Teams
+   Bot 액티비티 수신기와 리스 펜싱 결정 보낼 편지함 재구동 작업자를 조립합니다.
+- [ ] 사람 승인 행을 `validated`로 변경하기 전에 고정된 개정 번호에서 통제된 배포 Teams
+   콜백 증적과 신뢰할 수 있는 거버넌스 App의 차단 후 통과 증적을 하나씩 보존합니다. 로컬
+   카나리는 명시적인 네트워크 없는 예행이며 이 증적을 대체할 수 없습니다.
 - [ ] 후보별로 성공한 T2 시작 샘플 세트가 한 번만 실행되고, 해당 프로세스의 이후 5분 준비
    상태 새로 고침에서는 T2 호출이 추가되지 않음을 보여 주는 관리되는 배포 런타임 계측을 기록합니다.
 - [ ] 기존 대규모 감사 체인이 강제 적용 권한을 부여하지 않고 healthy 또는 degraded-shadow
@@ -326,10 +335,11 @@ materialize하고 런타임/Operator API는 구성된 파일 시스템 경로를
 
 ## 사람 승인 담당자 부트스트랩
 
-> **현재 경계**: 역할/그룹 해석기와 Teams/Slack 전달 어댑터는 구현되어 있지만 Teams SSO
-> OBO 승인 콜백, group-connected 대상 derivation, 거버넌스 PR 정족수 CI 및 예행 실행 HIL
-> 초기화 작업 흐름은 아직 종단 간으로 연결되지 않았습니다. BreakGlass 역할은 런타임 HIL
-> 승인 기능을 갖지 않습니다. 아래 단계는 포크 배포 목표입니다.
+> **현재 경계**: Operator 콜백은 API 대상 Entra 검증기를 통해 Teams SSO OBO와 Slack
+> 브라우저 토큰을 검증하고, 현재 Approver 권한을 다시 해석하며, 별도로 구성된 그룹 연결
+> 팀과 채널에서 Teams 대상을 파생하고, BreakGlass 분리를 보존하며, 2단계 감사 레코드를
+> 기록합니다. 로컬 카나리는 결정론적이며 공급자를 호출하지 않습니다. 테넌트 값,
+> Conditional Access, 공급자 자격 증명 및 통제된 런타임 증적은 배포 입력으로 남습니다.
 
 어떤 enforce-mode 규칙도 승격되기 전에 승인자 그룹이 프로비저닝되어야 함. 승인자가 없으면
 고위험 발견 사항은 대체 경로 채널을 통해 큐잉되고 알림; **절대 auto-execute 안 함**. Entra 그룹
@@ -349,16 +359,28 @@ materialize하고 런타임/Operator API는 구성된 파일 시스템 경로를
 4. 강제 적용 승격, 예외, 재정의에 **quorum-2** 규칙을 유지하는 데 필요한 최소 멤버 수로
    `aw-approvers` 채움
    ([user-rbac-and-identity-ko.md#51-codeowners-single-approver-group-path-based-reviewer-count](../interfaces/user-rbac-and-identity-ko.md#51-codeowners-single-approver-group-path-based-reviewer-count)).
-5. 실행기의 Chat 어댑터 구성에 승인자 그룹 id 등록하여 Adaptive 카드 승인이 롤 점유를
-   검증할 수 있게 함.
+5. Core와 Operator에 같은 `FDAI_TEAMS_APPROVAL_TEAM_ID` 및
+   `FDAI_TEAMS_APPROVAL_CHANNEL_ID`를 제공하고 Core에 `FDAI_TEAMS_APPROVAL_ACTIVITY_URL`과
+   채널 주체 매핑을 제공합니다. 5개 Entra 그룹 id는 역할
+   슬롯에만 사용합니다. Teams는 구성된 봇에 발급되고 콜백 행위자 및 해당 팀/채널 대상에
+   바인딩된 API 대상 OBO 토큰만 수락합니다. Operator의 영속 보낼 편지함이 브로커 수락을
+   받은 뒤 실행기는 형식화된 결정만 받습니다.
 6. **Slack 워크스페이스 프로비저닝** (P1 A1 채널): FDAI Slack 앱 설치, `chat:write`
    부여, 필수 Slack userId ↔ Entra OID 매핑 저장소 채움; 매핑이 비어 있지 않을 때까지 Slack
    어댑터는 A1 트래픽 거부
    ([channels-and-notifications-ko.md#7-channel-specific-notes](../interfaces/channels-and-notifications-ko.md#7-channel-specific-notes)).
-7. `rule-catalog/channel-routing/` 구성 (기본/대체 경로 채널, 다이제스트 스케줄, 오디언스)
-   를 규칙과 같은 리뷰 엄격도로 커밋; A1 라우팅을 만지는 모든 변경은 Owner-티어 리뷰어 필요.
-8. 카나리 경로를 통해 **예행 실행 HIL** 실행하여 승인이 랜딩하고 `justification` 이 요구되고
-   시간 초과가 실패 시 차단이고 모든 승인이 `correlation_id` 있는 감사 엔트리를 씀을 확인.
+7. `config/notifications-matrix.yaml`의 A1 기본 및 대체 경로 변경을 재정의와 같은 검토
+   엄격도로 커밋합니다. 거버넌스 CI는 서로 다른 권한 보유 검토자 2명을 요구하고 제안자,
+   공동 작성자 또는 커미터의 승인을 차단합니다.
+8. 카드 클릭이 완료될 수 있도록 Teams Bot 수신기 입력을 제공합니다.
+   `FDAI_TEAMS_TENANT_ID`, `FDAI_TEAMS_ALLOWED_SERVICE_URLS_JSON`, `FDAI_TEAMS_JWKS_URL`을 넣고,
+   Operator 경로 `POST /hil/teams-activity`를 봇 메시징 endpoint로 등록합니다.
+   입력이 모두 갖춰질 때까지 Teams A1은 닫혀 있습니다.
+9. `uv run python scripts/operations/run-hil-bootstrap-canary.py`를 실행합니다. 범위가 제한된
+   로컬 카나리는 조립된 Teams 액티비티 수신기, 서명된 내부 콜백, 공유 결정 서비스, 영속 보낼
+   편지함, 리스 펜싱 재구동 작업자를 in-process 가짜 구현으로 구동합니다. 결과는
+   `mode=local_dry_run_no_network`와 `live_teams_proof=false`이며, 이는 조립 예행이지 실제
+   Teams, Entra 또는 브로커 증적이 아닙니다.
 
 ## 자율 발견 루프 시동
 
@@ -418,4 +440,7 @@ materialize하고 런타임/Operator API는 구성된 파일 시스템 경로를
 - [ ] Kafka 토픽 레이아웃 + Diagnostic-Settings 포워더 필터 형상과 소스별 속도 상한.
 - [ ] 부트스트랩 런북: 포크가 D+0에 도달하기 위한 정확한 명령 시퀀스 (
       [operating-and-verification-ko.md](operating-and-verification-ko.md#runbook-set) 소유).
-- [ ] 예행 실행 HIL 절차: 카나리 페이로드, 예상 타이밍, 정리.
+- [x] 예행 실행 HIL 절차: `scripts/operations/run-hil-bootstrap-canary.py`가 범위가 제한된
+      합성 페이로드로 조립된 Teams 액티비티 수신기, 서명된 내부 콜백, 공유 결정 서비스, 영속
+      보낼 편지함, 리스 펜싱 재구동 작업자를 구동하고, 종단 결과, 감사 개수, 잔존 레코드 없는
+      정리 및 자신의 `local_dry_run_no_network` 모드를 보고합니다.

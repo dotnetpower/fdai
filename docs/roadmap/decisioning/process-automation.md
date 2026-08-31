@@ -314,6 +314,15 @@ completed before the deadline remains valid when Process reconciliation resumes 
 and conversation approval surfaces compare normalized principals for no-self-approval. Approval
 claim CAS retries scale with the immutable slot quorum rather than a fixed contention bound.
 
+The workflow approval registry is the **only** owner of a quorum slot decision. A durable decision
+record published on `fdai.hil.decisions` is routed by the parked `decision_route`: a `workflow`
+park is recorded through the registry, and only an `action` park resumes through the HIL
+coordinator, which is the sole path that can reach an executor. Routing a slot to the coordinator
+would bypass quorum accounting, duplicate-approver refusal, and requester self-approval refusal, so
+the registry itself now refuses a decision whose normalized principal equals the recorded
+`requester_principal` while `no_self_approval` is set. That refusal applies identically to the
+Operator callback, a replayed decision event, and a console tool.
+
 Workflow audit uses each ActionType's `x-fdai-redact` paths. Redacted fields render as
 `[REDACTED]` and never enter the Process journal. Because the workflow runtime has no secret
 custody provider, an enforce action whose resolved params include a redacted field fails before

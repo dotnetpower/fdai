@@ -1,13 +1,14 @@
 module "core_control_plane" {
   source = "./modules/core-control-plane"
 
-  name         = var.name
-  platform     = var.platform
-  image        = var.image
-  bootstrap    = var.bootstrap
-  identity     = var.identity
-  event_topics = var.event_topics
-  database     = var.database
+  name                       = var.name
+  platform                   = var.platform
+  image                      = var.image
+  bootstrap                  = var.bootstrap
+  identity                   = var.identity
+  event_topics               = var.event_topics
+  teams_approval_destination = var.teams_approval_destination
+  database                   = var.database
   # The runtime opens its health port before startup readiness runs, so liveness
   # answers immediately and no startup probe is needed to cover a slow boot.
   health              = var.health

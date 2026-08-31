@@ -47,6 +47,14 @@ from fdai_operator_service.families.iam.errors import (
     IamPermissionError,
     IamUnavailableError,
 )
+from fdai_operator_service.families.iam.hil_callback_audit import HilCallbackAuditRecord
+from fdai_operator_service.families.iam.hil_callback_context import HilCallbackContext
+from fdai_operator_service.families.iam.hil_decision_outbox import (
+    hil_decision_delivery_key,
+)
+from fdai_operator_service.families.iam.hil_decision_outbox import (
+    outbox_payload as _outbox_payload,
+)
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
     PostgresFamilyStoreUnavailable,
@@ -58,6 +66,7 @@ from fdai_operator_service.postgres_family_store import (
 
 _HIL_PARK_PREFIX = "hil_park:"
 _HIL_DECISION_PREFIX = "operator-hil-decision:"
+_HIL_CALLBACK_AUDIT_PREFIX = "operator-hil-callback-audit:"
 _ACCESS_GRANT_PREFIX = "execution-authorization:grant-request:"
 _ACCESS_GRANT_SCAN_LIMIT = 1_000
 _CANONICAL_GRANT_ID = re.compile(r"^[A-Za-z0-9._:-]{1,256}$")
@@ -447,14 +456,28 @@ class PostgresIamAdapters:
         idempotency_key = state.get("idempotency_key")
         if not isinstance(idempotency_key, str) or not idempotency_key:
             raise IamUnavailableError("pending HIL record has no idempotency key")
-        metadata = state.get("metadata", {})
+        raw_metadata = state.get("metadata", {})
+        metadata = (
+            {str(key): str(value) for key, value in raw_metadata.items()}
+            if isinstance(raw_metadata, Mapping)
+            else {}
+        )
+        correlation_id = state.get("correlation_id")
+        request_fingerprint = state.get("request_fingerprint")
+        approval_context = state.get("approval_context")
+        if isinstance(correlation_id, str) and correlation_id:
+            metadata.setdefault("correlation_id", correlation_id)
+        if isinstance(request_fingerprint, str) and request_fingerprint:
+            metadata.setdefault("action_hash", request_fingerprint)
+        if isinstance(approval_context, Mapping):
+            expires_at = approval_context.get("expires_at")
+            if isinstance(expires_at, str) and expires_at:
+                metadata.setdefault("expires_at", expires_at)
         return HilPendingItem(
             approval_id=approval_id,
             idempotency_key=idempotency_key,
             submitter_oid=str(state.get("submitter_oid") or ""),
-            metadata={str(key): str(value) for key, value in metadata.items()}
-            if isinstance(metadata, Mapping)
-            else {},
+            metadata=metadata,
         )
 
     async def get_decision_by_approval_id(
@@ -466,7 +489,16 @@ class PostgresIamAdapters:
         return None if state is None else _hil_receipt(state)
 
     async def record_decision(self, command: HilDecisionCommand) -> HilDecisionReceipt:
-        """Record a signed decision and queue no managed-resource effect."""
+        """Record a signed decision and queue no managed-resource effect.
+
+        The durable proposal identity deliberately excludes the observation
+        timestamp. A callback that must be re-signed after the replay window
+        closed carries a new ``decided_at`` for the same human decision, so
+        including it would turn a legitimate proposal-first recovery into an
+        idempotency conflict. Identity is instead the stable approval, the
+        decision, the normalized actor, and a justification digest, so a
+        conflicting decision, actor, or justification is still refused.
+        """
         pending = await self._find_state(
             prefix=_HIL_PARK_PREFIX,
             field="idempotency_key",
@@ -477,7 +509,11 @@ class PostgresIamAdapters:
         approval_id = pending.get("approval_id")
         if not isinstance(approval_id, str) or not approval_id:
             raise IamUnavailableError("pending HIL record has no approval id")
-        stored = await self._proposal("hil.decision.record", command, command.idempotency_key)
+        stored = await self._proposal(
+            "hil.decision.record",
+            _decision_identity(approval_id, command),
+            command.idempotency_key,
+        )
         receipt = HilDecisionReceipt(
             approval_id=approval_id,
             idempotency_key=command.idempotency_key,
@@ -485,35 +521,121 @@ class PostgresIamAdapters:
             approver_oid=command.approver_oid,
             decided_at=command.decided_at,
             receipt_ref=stored.proposal_id,
+            justification=command.justification,
         )
         state = _json_mapping(asdict(receipt))
-        created = await self.store.create_state(f"{_HIL_DECISION_PREFIX}{approval_id}", state)
+        try:
+            created = await self.store.create_state(
+                f"{_HIL_DECISION_PREFIX}{approval_id}",
+                state,
+            )
+        except PostgresFamilyStoreUnavailable as exc:
+            raise IamUnavailableError("HIL decision receipt store is unavailable") from exc
         if not created:
             existing = await self.get_decision_by_approval_id(approval_id)
             if existing is None:
                 raise IamUnavailableError("recorded HIL decision disappeared")
+            if (
+                existing.idempotency_key != command.idempotency_key
+                or existing.decision is not command.decision
+                or existing.approver_oid.strip().casefold()
+                != command.approver_oid.strip().casefold()
+            ):
+                raise IamConflictError(
+                    "recorded HIL decision conflicts with the concurrent durable receipt"
+                )
             return replace(existing, already_recorded=True)
         return receipt
 
     async def enqueue(self, request: HilDecisionOutboxRequest) -> None:
-        """Queue a recorded HIL decision for typed downstream transport."""
+        """Queue a recorded HIL decision for typed downstream transport.
+
+        The proposal is the durable outbox record. Broker publication happens
+        only after this write returns, so a crash between the two leaves a
+        replayable ``pending`` record for the lease-fenced drainer.
+        """
         await self._proposal(
             "hil.decision.enqueue",
-            request,
-            f"{request.receipt.idempotency_key}:delivery",
+            _outbox_payload(request.receipt),
+            hil_decision_delivery_key(request.receipt.idempotency_key),
         )
 
     async def mark_delivered(self, receipt: HilDecisionReceipt) -> HilDecisionReceipt:
-        """Mark only the durable outbox handoff, never the managed-resource effect."""
-        delivered = replace(receipt, delivered=True)
+        """Mark only the durable outbox handoff, never the managed-resource effect.
+
+        Delivery is monotonic: a stale caller can never move a delivered
+        receipt back to undelivered.
+        """
+        key = f"{_HIL_DECISION_PREFIX}{receipt.approval_id}"
+        current = await self._state(key)
+        stored = _hil_receipt(current) if current is not None else receipt
+        if stored.delivered:
+            return replace(stored, already_recorded=True, delivered=True)
+        delivered = replace(stored, delivered=True)
         try:
-            await self.store.write_state(
-                f"{_HIL_DECISION_PREFIX}{receipt.approval_id}",
-                _json_mapping(asdict(delivered)),
-            )
+            await self.store.write_state(key, _json_mapping(asdict(delivered)))
         except PostgresFamilyStoreUnavailable as exc:
             raise IamUnavailableError("HIL delivery receipt store is unavailable") from exc
-        return delivered
+        return replace(delivered, already_recorded=receipt.already_recorded)
+
+    async def mark_decision_published(self, idempotency_key: str) -> bool:
+        """Close the durable outbox record once the broker accepted the decision."""
+        try:
+            return await self.store.mark_hil_decision_published(
+                idempotency_key=hil_decision_delivery_key(idempotency_key),
+            )
+        except PostgresFamilyStoreUnavailable as exc:
+            raise IamUnavailableError("HIL decision outbox store is unavailable") from exc
+
+    async def append_callback_audit(self, record: HilCallbackAuditRecord) -> None:
+        """Append one sanitized callback phase as an immutable Operator record."""
+        key = f"{_HIL_CALLBACK_AUDIT_PREFIX}{record.callback_id}:{record.phase.value}"
+        value = _json_mapping(asdict(record))
+        try:
+            created = await self.store.create_state(key, value)
+            if created:
+                return
+            existing = await self.store.read_state(key)
+        except PostgresFamilyStoreUnavailable as exc:
+            raise IamUnavailableError("HIL callback audit store is unavailable") from exc
+        if existing is None:
+            raise IamUnavailableError("HIL callback audit phase disappeared")
+        immutable_fields = set(value) - {"recorded_at"}
+        if any(existing.get(field) != value[field] for field in immutable_fields):
+            raise IamConflictError("HIL callback audit phase conflicts with its durable record")
+
+    async def get_callback_context(self, approval_id: str) -> HilCallbackContext | None:
+        """Read immutable callback identity from a pending or terminal park."""
+        state = await self._state(f"{_HIL_PARK_PREFIX}{approval_id}")
+        if state is None:
+            return None
+        approval_context = state.get("approval_context")
+        if not isinstance(approval_context, Mapping):
+            raise IamUnavailableError("HIL callback context is malformed")
+        correlation_id = state.get("correlation_id")
+        idempotency_key = state.get("idempotency_key")
+        action_hash = state.get("request_fingerprint")
+        if not all(
+            isinstance(value, str) and value
+            for value in (correlation_id, idempotency_key, action_hash)
+        ):
+            raise IamUnavailableError("HIL callback identity is incomplete")
+        expires_at = _datetime(approval_context.get("expires_at"), "expires_at")
+        raw_metadata = state.get("metadata")
+        metadata = (
+            {str(key): str(value) for key, value in raw_metadata.items()}
+            if isinstance(raw_metadata, Mapping)
+            else {}
+        )
+        return HilCallbackContext(
+            approval_id=approval_id,
+            correlation_id=cast(str, correlation_id),
+            idempotency_key=cast(str, idempotency_key),
+            action_hash=cast(str, action_hash),
+            expires_at=expires_at,
+            submitter_oid=str(state.get("submitter_oid") or ""),
+            metadata=metadata,
+        )
 
     async def _directory(self) -> tuple[DirectoryIdentity, ...]:
         payload = await self._projection("directory")
@@ -795,6 +917,22 @@ def _directory_identity(value: Mapping[str, Any]) -> DirectoryIdentity:
     )
 
 
+def _decision_identity(approval_id: str, command: HilDecisionCommand) -> dict[str, object]:
+    """Return the timestamp-free durable identity of one human decision.
+
+    A justification digest keeps the exact text out of the durable proposal
+    request while still refusing a retry that changes the recorded reasoning.
+    """
+    return {
+        "approval_id": approval_id,
+        "idempotency_key": command.idempotency_key,
+        "decision": command.decision.value,
+        "approver_oid": command.approver_oid.strip().casefold(),
+        "justification_digest": "sha256:"
+        + hashlib.sha256(command.justification.strip().encode("utf-8")).hexdigest(),
+    }
+
+
 def _hil_receipt(value: Mapping[str, object]) -> HilDecisionReceipt:
     try:
         return HilDecisionReceipt(
@@ -804,6 +942,7 @@ def _hil_receipt(value: Mapping[str, object]) -> HilDecisionReceipt:
             approver_oid=str(value["approver_oid"]),
             decided_at=_datetime(value.get("decided_at"), "decided_at"),
             receipt_ref=str(value["receipt_ref"]),
+            justification=str(value.get("justification") or ""),
             already_recorded=value.get("already_recorded") is True,
             delivered=value.get("delivered") is True,
         )

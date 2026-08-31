@@ -28,6 +28,7 @@ EXPECTED_DATABASE_ROLE = "fdai_operator"
 LOCAL_AZURE_NARRATOR_ENV = "FDAI_OPERATOR_SERVICE_LOCAL_AZURE_NARRATOR"
 NARRATOR_PROBE_INTERVAL_ENV = "FDAI_NARRATOR_PROBE_INTERVAL_SECONDS"
 KAFKA_BOOTSTRAP_SERVERS_ENV = "FDAI_KAFKA_BOOTSTRAP_SERVERS"
+HIL_DECISION_TOPIC_ENV = "FDAI_HIL_DECISION_TOPIC"
 STAGE_TOPIC_ENV = "FDAI_STAGE_TOPIC"
 LIVE_STAGE_CONSUMER_GROUP_ENV = "FDAI_LIVE_STAGE_CONSUMER_GROUP_ID"
 SEMANTIC_REQUEST_TOPIC_ENV = "FDAI_SEMANTIC_TURN_REQUEST_TOPIC"
@@ -51,6 +52,7 @@ DEFAULT_DATABASE_CONNECT_TIMEOUT_S = 10
 DEFAULT_SEMANTIC_CONSUMER_GROUP = "operator-semantic-turn-v1"
 DEFAULT_SEMANTIC_KAFKA_CLIENT_ID = "fdai-operator-service"
 DEFAULT_STAGE_TOPIC = "fdai.pipeline.stages"
+DEFAULT_HIL_DECISION_TOPIC = "fdai.hil.decisions"
 DEFAULT_LIVE_STAGE_CONSUMER_GROUP = "fdai-operator-live-stage-v1"
 DEFAULT_READ_INVESTIGATION_COMPLETION_TOPIC = "core.read-investigation.completions"
 DEFAULT_READ_INVESTIGATION_COMPLETION_CONSUMER_GROUP = "operator-read-investigation-completion-v1"
@@ -96,6 +98,7 @@ class OperatorEnvironment:
     local_azure_narrator: bool
     narrator_probe_interval_seconds: int
     kafka_bootstrap_servers: str | None
+    hil_decision_topic: str | None
     stage_topic: str
     live_stage_consumer_group_id: str
     semantic_request_topic: str | None
@@ -182,6 +185,16 @@ class OperatorEnvironment:
                 f"{LOCAL_AZURE_NARRATOR_ENV} requires RUNTIME_ENV=dev"
             )
         kafka_bootstrap_servers = values.get(KAFKA_BOOTSTRAP_SERVERS_ENV, "").strip() or None
+        explicit_hil_decision_topic = values.get(HIL_DECISION_TOPIC_ENV, "").strip()
+        if explicit_hil_decision_topic and kafka_bootstrap_servers is None:
+            raise OperatorServiceConfigurationError(
+                f"{HIL_DECISION_TOPIC_ENV} requires {KAFKA_BOOTSTRAP_SERVERS_ENV}"
+            )
+        hil_decision_topic = (
+            explicit_hil_decision_topic or DEFAULT_HIL_DECISION_TOPIC
+            if kafka_bootstrap_servers is not None
+            else None
+        )
         stage_topic = values.get(STAGE_TOPIC_ENV, "").strip() or DEFAULT_STAGE_TOPIC
         live_stage_consumer_group_id = (
             values.get(LIVE_STAGE_CONSUMER_GROUP_ENV, "").strip()
@@ -217,10 +230,24 @@ class OperatorEnvironment:
                 f"{SEMANTIC_PHYSICAL_TOPIC_ENV} and the semantic transport MUST be "
                 "configured together"
             )
+        if hil_decision_topic is not None and hil_decision_topic in {
+            semantic_request_topic,
+            semantic_projection_topic,
+            semantic_physical_topic,
+        }:
+            raise OperatorServiceConfigurationError(
+                f"{HIL_DECISION_TOPIC_ENV} MUST be distinct from semantic topics"
+            )
         if local_azure_narrator and kafka_bootstrap_servers is not None:
             raise OperatorServiceConfigurationError(
                 f"{LOCAL_AZURE_NARRATOR_ENV} MUST be disabled when semantic Kafka transport "
                 "is configured"
+            )
+        if values.get("FDAI_CHATOPS_WEBHOOK_SECRET", "").strip() and (
+            database_url is None or kafka_bootstrap_servers is None or hil_decision_topic is None
+        ):
+            raise OperatorServiceConfigurationError(
+                "HIL callback requires PostgreSQL and configured Kafka decision transport"
             )
         semantic_consumer_group_id = (
             values.get(SEMANTIC_CONSUMER_GROUP_ENV, "").strip() or DEFAULT_SEMANTIC_CONSUMER_GROUP
@@ -239,6 +266,7 @@ class OperatorEnvironment:
             semantic_request_topic,
             semantic_projection_topic,
             semantic_physical_topic,
+            hil_decision_topic,
         }:
             raise OperatorServiceConfigurationError(
                 f"{READ_INVESTIGATION_REQUEST_TOPIC_ENV} MUST be distinct from semantic topics"
@@ -274,6 +302,7 @@ class OperatorEnvironment:
                 semantic_projection_topic,
                 semantic_physical_topic,
                 read_investigation_request_topic,
+                hil_decision_topic,
             }
         ):
             raise OperatorServiceConfigurationError(
@@ -312,6 +341,7 @@ class OperatorEnvironment:
                 semantic_physical_topic,
                 read_investigation_request_topic,
                 read_investigation_completion_topic,
+                hil_decision_topic,
             }
         ):
             raise OperatorServiceConfigurationError(
@@ -336,6 +366,7 @@ class OperatorEnvironment:
             local_azure_narrator=local_azure_narrator,
             narrator_probe_interval_seconds=narrator_probe_interval_seconds,
             kafka_bootstrap_servers=kafka_bootstrap_servers,
+            hil_decision_topic=hil_decision_topic,
             stage_topic=stage_topic,
             live_stage_consumer_group_id=live_stage_consumer_group_id,
             semantic_request_topic=semantic_request_topic,

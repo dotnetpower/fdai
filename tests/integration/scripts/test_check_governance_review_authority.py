@@ -19,6 +19,7 @@ def test_ci_prefilter_routes_retirement_changes_to_authority_check() -> None:
     workflow = _CI_WORKFLOW.read_text(encoding="utf-8")
 
     assert "rule-sets|assignments|exemptions|overrides|retirements" in workflow
+    assert "config/notifications-matrix\\.yaml" in workflow
     assert "git diff --no-renames --name-only" in workflow
 
 
@@ -54,6 +55,8 @@ def _write_inputs(
     reviewers: tuple[tuple[str, str, str], ...],
     author_login: str = "author",
     trusted_app_id: int = _APP_ID,
+    co_author_oids: tuple[str, ...] = (),
+    committer_oids: tuple[str, ...] = (),
 ) -> list[str]:
     event = {
         "pull_request": {
@@ -78,8 +81,8 @@ def _write_inputs(
             _principal(author_login, "oid-author", "Contributor"),
             *[_principal(login, oid, role) for login, oid, role in reviewers],
         ],
-        "co_author_oids": [],
-        "committer_oids": [],
+        "co_author_oids": list(co_author_oids),
+        "committer_oids": list(committer_oids),
     }
     checks = {
         "check_runs": [
@@ -143,6 +146,38 @@ def test_assignment_change_requires_two_attested_approvers(
     assert gate.main(argv) == 1
 
 
+@pytest.mark.parametrize(
+    "changed_path",
+    (
+        "rule-catalog/governance/assignments/example.yaml",
+        "rule-catalog/exemptions/example.json",
+        "rule-catalog/overrides/example.yaml",
+        "config/notifications-matrix.yaml",
+    ),
+)
+def test_high_risk_governance_classes_require_two_distinct_approvers(
+    gate: ModuleType,
+    tmp_path: Path,
+    changed_path: str,
+) -> None:
+    under_quorum = _write_inputs(
+        tmp_path,
+        changed_path=changed_path,
+        reviewers=(("reviewer-one", "oid-reviewer-1", "Owner"),),
+    )
+    assert gate.main(under_quorum) == 1
+
+    quorum = _write_inputs(
+        tmp_path,
+        changed_path=changed_path,
+        reviewers=(
+            ("reviewer-one", "oid-reviewer-1", "Owner"),
+            ("reviewer-two", "oid-reviewer-2", "Owner"),
+        ),
+    )
+    assert gate.main(quorum) == 0
+
+
 def test_untrusted_check_run_app_is_rejected(gate: ModuleType, tmp_path: Path) -> None:
     argv = _write_inputs(
         tmp_path,
@@ -189,6 +224,33 @@ def test_author_self_approval_is_rejected(gate: ModuleType, tmp_path: Path) -> N
         tmp_path,
         changed_path="rule-catalog/rules/example.yaml",
         reviewers=(("author", "oid-author", "Approver"),),
+    )
+
+    assert gate.main(argv) == 1
+
+
+@pytest.mark.parametrize(
+    ("identity_kind", "identity_kwargs"),
+    (
+        ("coauthor", {"co_author_oids": ("oid-reviewer-1",)}),
+        ("committer", {"committer_oids": ("oid-reviewer-1",)}),
+    ),
+)
+def test_a1_routing_rejects_coauthor_and_committer_self_approval(
+    gate: ModuleType,
+    tmp_path: Path,
+    identity_kind: str,
+    identity_kwargs: dict[str, tuple[str, ...]],
+) -> None:
+    del identity_kind
+    argv = _write_inputs(
+        tmp_path,
+        changed_path="config/notifications-matrix.yaml",
+        reviewers=(
+            ("reviewer-one", "oid-reviewer-1", "Owner"),
+            ("reviewer-two", "oid-reviewer-2", "Owner"),
+        ),
+        **identity_kwargs,
     )
 
     assert gate.main(argv) == 1
