@@ -1,4 +1,30 @@
-# Pre-existing main-branch inventory orchestration debt; growth remains blocked until tracker #14 extraction.
-841 services/core-control-plane/src/fdai/delivery/inventory_sync_cli.py
-# Pre-existing main-branch delivery-composition debt; growth remains blocked until tracker #14 extraction.
-885 services/core-control-plane/src/fdai/runtime/delivery.py
+# Pre-existing main-branch agent debt (bragi); growth blocked until tracker #14 extraction.
+814 services/core-control-plane/src/fdai/agents/bragi.py
+# Pre-existing main-branch agent debt (forseti); growth blocked until tracker #14 extraction.
+1111 services/core-control-plane/src/fdai/agents/forseti.py
+# Pre-existing main-branch agent debt (heimdall); growth blocked until tracker #14 extraction.
+837 services/core-control-plane/src/fdai/agents/heimdall.py
+# Pre-existing main-branch agent debt (norns); growth blocked until tracker #14 extraction.
+814 services/core-control-plane/src/fdai/agents/norns.py
+# Pre-existing main-branch agent debt (thor); growth blocked until tracker #14 extraction.
+1482 services/core-control-plane/src/fdai/agents/thor.py
+# Pre-existing main-branch control-loop execution debt; growth blocked until tracker #14 extraction.
+907 services/core-control-plane/src/fdai/core/control_loop/_execution.py
+# Pre-existing main-branch adaptive-contract debt; growth blocked until tracker #14 extraction.
+931 services/core-control-plane/src/fdai/core/read_investigation/adaptive_contract.py
+# Pre-existing main-branch workflow-executor debt; growth blocked until tracker #14 extraction.
+843 services/core-control-plane/src/fdai/core/workflow/workflow_step_executor.py
+# Pre-existing main-branch analyzer-tick debt; growth blocked until tracker #14 extraction.
+850 services/core-control-plane/src/fdai/delivery/analyzer_tick.py
+# Pre-existing main-branch inventory orchestration debt; growth blocked until tracker #14 extraction.
+853 services/core-control-plane/src/fdai/delivery/inventory_sync_cli.py
+# Pre-existing main-branch postgres background-task debt; growth blocked until tracker #14 extraction.
+801 services/core-control-plane/src/fdai/delivery/persistence/postgres_background_task.py
+# Pre-existing main-branch postgres ontology-persistence debt; growth blocked until tracker #14 extraction.
+912 services/core-control-plane/src/fdai/delivery/persistence/postgres_ontology.py
+# Pre-existing main-branch promotion debt; growth blocked until tracker #14 extraction.
+880 services/core-control-plane/src/fdai/delivery/promotion.py
+# Pre-existing main-branch runtime control-loop debt; growth blocked until tracker #14 extraction.
+826 services/core-control-plane/src/fdai/runtime/control_loop.py
+# Pre-existing main-branch delivery-composition debt; growth blocked until tracker #14 extraction.
+921 services/core-control-plane/src/fdai/runtime/delivery.py
