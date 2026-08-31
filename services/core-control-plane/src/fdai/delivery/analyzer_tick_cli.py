@@ -57,6 +57,10 @@ from fdai.delivery.persistence import (
     PostgresOntologyInstanceStore,
     PostgresOntologyInstanceStoreConfig,
 )
+from fdai.delivery.persistence.postgres_analyzer_publication import (
+    PostgresAnalyzerPublicationLedger,
+)
+from fdai.delivery.persistence.postgres_idempotency import PostgresIdempotencyStoreConfig
 from fdai.delivery.repo_assets import repo_asset_root
 from fdai.delivery.trace_continuity_tick import (
     TraceContinuityTickReport,
@@ -83,6 +87,7 @@ TOPIC_ENV = "FDAI_ANALYZER_TOPIC"
 INGRESS_TOPIC_ENV = "KAFKA_TOPIC_EVENTS"
 MAX_DISCOVERED_ENV = "FDAI_ANALYZER_MAX_DISCOVERED_TARGETS"
 INVENTORY_DSN_ENV = "FDAI_INVENTORY_DSN"
+STATE_STORE_DSN_ENV = "FDAI_STATE_STORE_DSN"
 TRACE_TOPOLOGIES_ENV = "FDAI_TRACE_TOPOLOGIES_JSON"
 _TRACE_TOPOLOGY_KEYS = frozenset({"topology_ref", "resource_ref", "expected_hops"})
 _MAX_TRACE_TOPOLOGIES = 32
@@ -152,7 +157,9 @@ class AnalyzerJobReport:
             "unavailable"
             if self.analyzer.publish_errors or self.trace_continuity.publish_errors
             else "verified"
-            if self.analyzer.published > 0 or self.trace_continuity.published > 0
+            if self.analyzer.published > 0
+            or self.analyzer.duplicates_suppressed > 0
+            or self.trace_continuity.published > 0
             else "unverified"
         )
         return {
@@ -391,6 +398,21 @@ def build_inventory_projection() -> PostgresOntologyInstanceStore | None:
     )
 
 
+def build_publication_ledger() -> PostgresAnalyzerPublicationLedger:
+    """Bind restart-durable publication suppression in every execution venue."""
+
+    dsn = os.environ.get(STATE_STORE_DSN_ENV, "").strip()
+    if not dsn:
+        raise RuntimeError(
+            f"{STATE_STORE_DSN_ENV} is required for duplicate-safe analyzer publication"
+        )
+    return PostgresAnalyzerPublicationLedger(
+        config=PostgresIdempotencyStoreConfig(
+            dsn=dsn.replace("postgresql+psycopg://", "postgresql://", 1)
+        )
+    )
+
+
 async def run_once() -> AnalyzerJobReport:
     """Compose the tick from the environment and run one analyzer pass."""
     configured = parse_targets(os.environ.get(TARGETS_ENV, ""))
@@ -448,6 +470,7 @@ async def run_once() -> AnalyzerJobReport:
                         analyzers=default_analyzers(container.metric_provider)
                     ),
                     event_bus=bus,
+                    publication_ledger=build_publication_ledger(),
                     window_seconds=window_seconds,
                     topic=topic,
                 ).run_once(targets)
