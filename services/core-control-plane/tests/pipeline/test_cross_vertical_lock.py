@@ -252,7 +252,7 @@ async def test_concurrent_events_on_different_resources_run_in_parallel(
     # resolvable (static_enum) blast radius so the executor publishes a
     # PR.  ``public_access: "enabled"`` fires
     # ``object-storage.public-access.deny`` whose ActionType uses
-    # ``graph_derived`` — the control loop does not yet supply
+    # ``graph_derived`` - the control loop does not yet supply
     # ``graph_affected``, so the executor legitimately abstains
     # (``ABSTAINED_BLAST_RADIUS``).  Omitting ``cost_center`` from the
     # tags causes ``object-storage.cost-center-tag.required`` to fire;
