@@ -26,7 +26,7 @@ afterEach(() => {
 });
 
 describe("local Azure CLI auth", () => {
-  test("projects the local profile without returning a bearer token", async () => {
+  test("projects the local profile with a process-local bearer token", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -36,7 +36,13 @@ describe("local Azure CLI auth", () => {
           roles: ["Contributor"],
           source: "azure-cli",
         }),
-        { status: 200, headers: { "content-type": "application/json" } },
+        {
+          status: 200,
+          headers: {
+            "content-type": "application/json",
+            "x-fdai-local-session": "local-session-token",
+          },
+        },
       ),
     );
     vi.stubGlobal("fetch", fetchMock);
@@ -47,7 +53,7 @@ describe("local Azure CLI auth", () => {
     expect(auth.account?.homeAccountId).toBe("cli-user");
     expect(auth.account?.username).toBe("operator@example.com");
     expect(auth.account?.idTokenClaims?.roles).toEqual(["Contributor"]);
-    expect(await auth.getAuthorizationHeader()).toBeNull();
+    expect(await auth.getAuthorizationHeader()).toBe("Bearer local-session-token");
     expect(fetchMock).toHaveBeenCalledWith(
       "http://127.0.0.1:8000/local-auth/me",
       expect.objectContaining({ cache: "no-store" }),
@@ -59,9 +65,34 @@ describe("local Azure CLI auth", () => {
   });
 
   test("rejects a malformed local profile", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ source: "azure-cli" })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json(
+          { source: "azure-cli" },
+          { headers: { "x-fdai-local-session": "local-session-token" } },
+        ),
+      ),
+    );
 
     await expect(initAuth(config())).rejects.toThrow("invalid profile");
+  });
+
+  test("rejects a profile response without a local session token", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json({
+          oid: "cli-user",
+          username: "operator@example.com",
+          name: null,
+          roles: ["Contributor"],
+          source: "azure-cli",
+        }),
+      ),
+    );
+
+    await expect(initAuth(config())).rejects.toThrow("no local session token");
   });
 
   test("keeps immediate anonymous bypass when the local prompt is disabled", async () => {

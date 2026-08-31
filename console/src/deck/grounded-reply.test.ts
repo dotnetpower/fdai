@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { setLocale } from "../i18n";
-import type { AnswerVerification } from "./backend";
+import type { AnswerVerification, SemanticProjectionReceipt } from "./backend";
 import { assuranceHref, primaryAnswerText, verificationLabel } from "./grounded-reply";
 
 function verification(authority: string): AnswerVerification {
@@ -112,6 +112,47 @@ describe("grounded reply presentation", () => {
     } finally {
       setLocale("en");
     }
+  });
+
+  it("preserves the server's typed partial-evidence hold", () => {
+    const held = {
+      ...verification("ontology-query"),
+      status: "unverified" as const,
+      reason_code: "semantic_evidence_held",
+    };
+    const receipt: SemanticProjectionReceipt = {
+      schema_version: "2.0.0",
+      projection_id: "semantic-projection-1",
+      request_id: "semantic-request-1",
+      disposition: "held",
+      reason_code: "semantic_evidence_held",
+      unavailable_reason: "authoritative_evidence_unavailable",
+      plan_digest: `sha256:${"a".repeat(64)}`,
+      execution_receipt_digest: `sha256:${"b".repeat(64)}`,
+      execution_authority: false,
+    };
+    const answer = [
+      "## Verified observations",
+      "- Measured change: 15 ms",
+      "## Competing hypotheses",
+      "- `dependency-latency` - `unresolved`",
+      "- `traffic-load` - `unresolved`",
+      "`execution_authority=false`",
+    ].join("\n");
+
+    expect(primaryAnswerText(answer, held, receipt)).toBe(answer);
+    expect(primaryAnswerText("unverified streamed draft", held)).toBe(
+      "Which source or scope should I check instead? Name a resource, time range, or evidence source.",
+    );
+    expect(
+      primaryAnswerText(
+        "unverified streamed draft",
+        { ...held, evidence_refs: [""] },
+        receipt,
+      ),
+    ).toBe(
+      "Which source or scope should I check instead? Name a resource, time range, or evidence source.",
+    );
   });
 
   it("keeps long source badges readable without clipping", () => {

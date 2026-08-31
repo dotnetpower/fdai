@@ -111,6 +111,7 @@ export async function askBackendStream(
   callbacks: StreamCallbacks,
 ): Promise<ProgressiveAnswer> {
   let emittedText = "";
+  let pumpGeneration = 0;
   const emitToken = (delta: string): void => {
     emittedText += delta;
     callbacks.onToken(delta);
@@ -127,6 +128,13 @@ export async function askBackendStream(
       const interval = visibleDelay(fallbackTypewriter.intervalMs);
       if (interval > 0) await new Promise((resolve) => setTimeout(resolve, interval));
     }
+  };
+  const discardEmittedDraft = (): void => {
+    pumpGeneration += 1;
+    tokenQueue.length = 0;
+    emittedText = "";
+    answerText = "";
+    callbacks.onRevision?.("", lastRevision + 1, "unverified");
   };
   const unavailable = async (why: string): Promise<Answer & { readonly source: string }> => {
     const result = semanticUnavailable(why);
@@ -148,10 +156,11 @@ export async function askBackendStream(
   let pumpPromise: Promise<void> | null = null;
   const startPump = (): void => {
     if (pumpPromise) return;
+    const generation = pumpGeneration;
     pumpPromise = (async () => {
       try {
         while (true) {
-          if (callbacks.signal?.aborted) return;
+          if (callbacks.signal?.aborted || generation !== pumpGeneration) return;
           if (tokenQueue.length === 0) {
             if (queueDone) return;
             await new Promise<void>((resolve) => {
@@ -168,7 +177,7 @@ export async function askBackendStream(
           const burstMode = queuedBurst || delta.length > 48;
           const parts = burstMode ? chunksForBurst(delta) : [delta];
           for (const part of parts) {
-            if (callbacks.signal?.aborted) return;
+            if (callbacks.signal?.aborted || generation !== pumpGeneration) return;
             emitToken(part);
             const delay = burstMode ? visibleDelay(streamBurstPacer.intervalMs) : 0;
             if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
@@ -389,6 +398,30 @@ export async function askBackendStream(
   }
   buffer += decoder.decode();
   if (buffer.trim().length > 0) handleFrame(buffer);
+  const done: Record<string, unknown> = doneData ?? {};
+  const verification = parseAnswerVerification(done.verification);
+  const parsedSemanticReceipt = parseSemanticProjectionReceipt(done.semantic_receipt);
+  const semanticReceipt = parsedSemanticReceipt?.request_id === requestId
+    ? parsedSemanticReceipt
+    : undefined;
+  const terminalAnswer = typeof done.answer === "string" && done.answer.trim()
+    ? done.answer
+    : null;
+  const typedEvidenceHoldClaim = verification?.status === "unverified" &&
+    (verification.reason_code === "semantic_evidence_held" ||
+      verification.reason_code === "semantic_evidence_incomplete");
+  const typedEvidenceHoldReceiptValid = typedEvidenceHoldClaim &&
+    semanticReceipt?.disposition === "held" &&
+    semanticReceipt.reason_code === verification.reason_code;
+  if (typedEvidenceHoldClaim && (!typedEvidenceHoldReceiptValid || terminalAnswer === null)) {
+    discardEmittedDraft();
+    await flushPump();
+    return unavailable(
+      terminalAnswer === null
+        ? "typed evidence hold missing canonical answer"
+        : "typed evidence hold receipt invalid",
+    );
+  }
   await flushPump();
   if (callbacks.signal?.aborted) return stopped(emittedText);
   if (turnInterrupted) return stopped(answerText);
@@ -448,15 +481,13 @@ export async function askBackendStream(
   }
   if (confirmedSegment !== undefined) callbacks.onConfirmed?.(confirmedSegment);
 
-  const done: Record<string, unknown> = doneData ?? {};
   const model = typeof done.model === "string" ? done.model : "llm";
   const latencyMs = typeof done.latency_ms === "number" && Number.isFinite(done.latency_ms)
     ? done.latency_ms
     : null;
   const router = parseRouter(done.router);
-  const verification = parseAnswerVerification(done.verification);
   const presentationArtifact = parsePresentationArtifact(done.presentation_artifact, verification);
-  const canonicalAnswer = typeof done.answer === "string" && done.answer ? done.answer : answerText;
+  const canonicalAnswer = terminalAnswer ?? answerText;
   const finalText = presentationArtifact
     ? canonicalAnswer
     : chartArtifactText(done.chart_artifact) ?? canonicalAnswer;
@@ -477,7 +508,6 @@ export async function askBackendStream(
   const trajectoryDetail = parseTrajectoryDetail(done.trajectory_detail);
   const intentGraph = parseIntentGraph(done.intent_graph);
   const intentGraphEvidence = parseIntentGraphEvidence(done.intent_graph_evidence);
-  const semanticReceipt = parseSemanticProjectionReceipt(done.semantic_receipt);
     const conversationBinding = normalizeIncidentBinding(done.conversation_context);
   const chosen = router?.chose ?? model;
   const explicitSource = typeof done.source === "string" ? done.source : null;

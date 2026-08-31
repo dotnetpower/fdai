@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import cast
@@ -17,6 +18,7 @@ from fdai_service_contracts import (
 from jwt import PyJWKClient
 
 from fdai_operator_service.environment import OperatorEnvironment
+from fdai_operator_service.local_auth import LocalAzureCliIdentity, resolve_azure_cli_identity
 
 _BEARER_PREFIX = "Bearer "
 
@@ -77,9 +79,19 @@ class OperatorAuthenticator:
 
     verifier: OperatorTokenVerifier
     group_ids: Mapping[OperatorRole, str]
+    local_principal: OperatorPrincipal | None = None
+    local_session_token: str | None = None
 
     def authenticate(self, authorization_header: str | None) -> OperatorPrincipal:
         """Return a verified principal or raise a stable authentication error."""
+        if self.local_principal is not None:
+            expected = f"{_BEARER_PREFIX}{self.local_session_token}"
+            if authorization_header is not None and hmac.compare_digest(
+                authorization_header,
+                expected,
+            ):
+                return self.local_principal
+            raise AuthenticationError("local Azure CLI session token is missing or invalid")
         token = _extract_bearer(authorization_header)
         try:
             claims = self.verifier(token)
@@ -187,5 +199,7 @@ __all__ = [
     "AuthenticationError",
     "AuthorizationError",
     "EntraJwtVerifier",
+    "LocalAzureCliIdentity",
     "OperatorAuthenticator",
+    "resolve_azure_cli_identity",
 ]

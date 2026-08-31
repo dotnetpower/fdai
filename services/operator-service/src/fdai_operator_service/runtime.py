@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import Any
 
 from fdai_service_contracts import OperatorReadModel, ReadDataSource
 
@@ -25,6 +27,8 @@ class OperatorRuntime:
     readiness_probe: ReadinessProbe
     live_stream_hub: LiveStreamHub
     agent_stream_hub: LiveStreamHub
+    local_cli_profile: Mapping[str, Any] | None = None
+    local_cli_session_token: str | None = None
     lifecycle: ApplicationLifecycle | None = None
 
     def create_app(self) -> AsgiApplication:
@@ -38,5 +42,7 @@ class OperatorRuntime:
             live_stream_hub=self.live_stream_hub,
             agent_stream_hub=self.agent_stream_hub,
             cors_allow_origins=self.environment.cors_allow_origins,
+            local_cli_profile=self.local_cli_profile,
+            local_cli_session_token=self.local_cli_session_token,
             lifecycle=self.lifecycle,
         )

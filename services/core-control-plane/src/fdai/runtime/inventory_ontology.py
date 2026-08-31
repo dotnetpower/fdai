@@ -76,6 +76,7 @@ class _OwnedIdentities:
     link_keys: tuple[tuple[str, str, str], ...]
     generation: str | None = None
     manifest_digest: str | None = None
+    content_digest: str | None = None
 
 
 class InventoryOntologyProjector:
@@ -183,10 +184,27 @@ class InventoryOntologyProjector:
             object_content=object_content,
             link_content=link_content,
         )
-        if (
-            previous.generation == projection.generation
-            and previous.manifest_digest is not None
-            and previous.manifest_digest != current_manifest_digest
+        current_content_digest = _manifest_content_digest(
+            generation=projection.generation,
+            complete=projection.complete,
+            relationship_complete=projection.relationship_complete,
+            dropped_reasons=projection.dropped_reasons,
+            object_ids=tuple(record.id for record in projection.objects),
+            link_keys=tuple(
+                (record.from_id, record.link_type, record.to_id) for record in projection.links
+            ),
+            object_content=object_content,
+            link_content=link_content,
+        )
+        if previous.generation == projection.generation and (
+            (
+                previous.content_digest is not None
+                and previous.content_digest != current_content_digest
+            )
+            or (
+                previous.manifest_digest is not None
+                and previous.manifest_digest != current_manifest_digest
+            )
         ):
             raise ValueError("inventory ontology generation content changed")
         pinned = await self._pin_owned_revisions(
@@ -318,8 +336,15 @@ class InventoryOntologyProjector:
         schema_version = raw.get("schema_version")
         if schema_version not in {_LEGACY_MANIFEST_SCHEMA_VERSION, _MANIFEST_SCHEMA_VERSION}:
             raise ValueError("inventory ontology manifest schema version is unsupported")
-        if raw.get("ontology_release_digest") != self._ontology_release_digest:
-            raise ValueError("inventory ontology manifest release digest does not match")
+        previous_release_digest = raw.get("ontology_release_digest")
+        if (
+            not isinstance(previous_release_digest, str)
+            or _DIGEST_PATTERN.fullmatch(previous_release_digest) is None
+        ):
+            raise ValueError("inventory ontology manifest release digest is invalid")
+        release_changed = previous_release_digest != self._ontology_release_digest
+        if release_changed and schema_version == _LEGACY_MANIFEST_SCHEMA_VERSION:
+            raise ValueError("legacy inventory ontology manifest cannot cross ontology releases")
         if not isinstance(raw.get("generation"), str) or not raw["generation"].strip():
             raise ValueError("inventory ontology manifest generation is invalid")
         object_values = raw.get("object_ids")
@@ -385,7 +410,7 @@ class InventoryOntologyProjector:
             raise ValueError("inventory ontology manifest link content is invalid")
         expected_digest = _manifest_digest(
             generation=raw["generation"],
-            ontology_release_digest=self._ontology_release_digest,
+            ontology_release_digest=previous_release_digest,
             complete=raw.get("complete"),
             relationship_complete=raw.get("relationship_complete"),
             dropped_reasons=raw.get("dropped_reasons"),
@@ -396,11 +421,22 @@ class InventoryOntologyProjector:
         )
         if raw.get("manifest_digest") != expected_digest:
             raise ValueError("inventory ontology manifest digest does not match its contents")
+        content_digest = _manifest_content_digest(
+            generation=raw["generation"],
+            complete=raw.get("complete"),
+            relationship_complete=raw.get("relationship_complete"),
+            dropped_reasons=raw.get("dropped_reasons"),
+            object_ids=object_ids,
+            link_keys=link_keys,
+            object_content=object_content,
+            link_content=link_content,
+        )
         return _OwnedIdentities(
             object_ids,
             link_keys,
             generation=raw["generation"],
-            manifest_digest=expected_digest,
+            manifest_digest=None if release_changed else expected_digest,
+            content_digest=content_digest,
         )
 
     async def _write_status(
@@ -554,6 +590,35 @@ def _manifest_digest(
         "schema_version": _MANIFEST_SCHEMA_VERSION,
         "generation": generation,
         "ontology_release_digest": ontology_release_digest,
+        "complete": complete,
+        "relationship_complete": relationship_complete,
+        "dropped_reasons": dropped_reasons,
+        "object_ids": list(object_ids),
+        "link_keys": [list(key) for key in link_keys],
+        "object_content": list(object_content),
+        "link_content": list(link_content),
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode(
+        "utf-8"
+    )
+    return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
+def _manifest_content_digest(
+    *,
+    generation: str,
+    complete: object,
+    relationship_complete: object,
+    dropped_reasons: object,
+    object_ids: tuple[str, ...],
+    link_keys: tuple[tuple[str, str, str], ...],
+    object_content: Sequence[Mapping[str, object]],
+    link_content: Sequence[Mapping[str, object]],
+) -> str:
+    """Hash release-independent observed content for safe release transitions."""
+
+    payload = {
+        "generation": generation,
         "complete": complete,
         "relationship_complete": relationship_complete,
         "dropped_reasons": dropped_reasons,

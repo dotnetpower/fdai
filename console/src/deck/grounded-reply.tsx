@@ -28,6 +28,7 @@ import type {
   GroundedCodeArtifact,
   IncidentCandidate,
   PresentationArtifact,
+  SemanticProjectionReceipt,
   VerificationProgress,
 } from "./backend";
 import { confirmActionDraft, renderActionResult } from "./backend";
@@ -60,6 +61,7 @@ export function GroundedReply({
   source,
   streaming,
   verification,
+  semanticReceipt,
   confirmed,
   verificationProgress,
   answerPlanning,
@@ -77,6 +79,7 @@ export function GroundedReply({
   /** True while the answer is still streaming tokens in from the backend. */
   readonly streaming: boolean;
   readonly verification: AnswerVerification | undefined;
+  readonly semanticReceipt: SemanticProjectionReceipt | undefined;
   readonly confirmed: ConfirmedAnswerSegment | undefined;
   readonly verificationProgress: VerificationProgress | undefined;
   readonly answerPlanning: AnswerPlanningMetadata | undefined;
@@ -94,7 +97,7 @@ export function GroundedReply({
   const [copied, showCopied] = useTransientFlag(1500);
   const [draftState, setDraftState] = useState<"idle" | "submitting" | "done" | "cancelled">("idle");
   const [draftResult, setDraftResult] = useState<string | null>(null);
-  const primaryText = primaryAnswerText(text, verification);
+  const primaryText = primaryAnswerText(text, verification, semanticReceipt);
   const cites = relevantCitations(citations ?? [], primaryText);
   const renderedText = incidentCandidates && incidentCandidates.length > 0
     ? incidentCandidateAnswerLead(primaryText)
@@ -425,9 +428,15 @@ export function GroundedReply({
 export function primaryAnswerText(
   text: string,
   verification: AnswerVerification | undefined,
+  semanticReceipt?: SemanticProjectionReceipt,
 ): string {
   if (verification?.status === "unverified") {
     const clarification = text.trim();
+    if (
+      preservesTypedEvidenceHold(verification, semanticReceipt)
+    ) {
+      return clarification;
+    }
     if (
       verification.reason_code === "semantic_clarification_required" &&
       clarification.endsWith("?")
@@ -445,6 +454,26 @@ export function primaryAnswerText(
   return trimmed.endsWith(suffix)
     ? trimmed.slice(0, -suffix.length).trimEnd()
     : text;
+}
+
+function preservesTypedEvidenceHold(
+  verification: AnswerVerification,
+  semanticReceipt: SemanticProjectionReceipt | undefined,
+): boolean {
+  return (
+    verification.authority === "ontology-query" &&
+    verification.checks_completed > 0 &&
+    verification.checks_completed <= verification.checks_total &&
+    verification.evidence_refs.some((reference) => reference.trim().length > 0) &&
+    (verification.reason_code === "semantic_evidence_held" ||
+      verification.reason_code === "semantic_evidence_incomplete") &&
+    semanticReceipt?.disposition === "held" &&
+    semanticReceipt.unavailable_reason === "authoritative_evidence_unavailable" &&
+    semanticReceipt.reason_code === verification.reason_code &&
+    typeof semanticReceipt.plan_digest === "string" &&
+    typeof semanticReceipt.execution_receipt_digest === "string" &&
+    semanticReceipt.execution_authority === false
+  );
 }
 
 export function assuranceHref(turnId: string): string {

@@ -65,6 +65,60 @@ def test_shipped_inventory_query_language_loads() -> None:
     assert query_signal_matches(latency_question, registry, "symptom_response_latency")
     assert query_signal_matches(latency_question, registry, "hypothesis_network_latency")
     assert query_signal_matches(latency_question, registry, "hypothesis_application_latency")
+    slowness_question = "ca-example-core가 갑자기 왜 느려졌어?"
+    assert query_signal_span(slowness_question, registry, "temporal_onset") == (
+        slowness_question.index("갑자기"),
+        slowness_question.index("갑자기") + len("갑자기"),
+        "갑자기",
+    )
+    assert query_signal_span(slowness_question, registry, "causal_diagnosis") == (
+        slowness_question.index("왜"),
+        slowness_question.index("왜") + len("왜"),
+        "왜",
+    )
+    assert query_signal_span(slowness_question, registry, "symptom_slowness") == (
+        slowness_question.index("느려졌어"),
+        slowness_question.index("느려졌어") + len("느려졌어"),
+        "느려졌어",
+    )
+    assert (
+        query_signal_span(
+            "Why did ca-example-core latency suddenly decrease?",
+            registry,
+            "symptom_slowness",
+        )
+        is None
+    )
+    assert query_signal_matches(
+        "Why did ca-example-core not suddenly become slower?",
+        registry,
+        "slowness_negation",
+    )
+    assert query_signal_matches(
+        "Why isn't ca-example-core suddenly slower?",
+        registry,
+        "slowness_negation",
+    )
+    assert query_signal_matches(
+        "Why hasn't ca-example-core suddenly become slower?",
+        registry,
+        "slowness_negation",
+    )
+    assert query_signal_matches(
+        "Why couldn't ca-example-core suddenly become slower?",
+        registry,
+        "slowness_negation",
+    )
+    assert query_signal_matches(
+        "ca-example-core가 갑자기 왜 안 느려졌어?",
+        registry,
+        "slowness_negation",
+    )
+    assert query_signal_matches(
+        "Why was ca-example-core restarted after it suddenly became slower?",
+        registry,
+        "competing_change_event",
+    )
     assert query_signal_matches(
         "Container App에서 무엇이 변경됐어?",
         registry,

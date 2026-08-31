@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 77c969f6441bd8d7cda701bd1ea10839b95b21b0
-translation_revised: 2026-08-30
+translation_source_sha: 7ec38418cd45d5566a035a26c1572d093a4631e6
+translation_revised: 2026-08-31
 ---
 # 코드 맵
 
@@ -189,7 +189,19 @@ Azure 의미 계획 수립은 기존 `httpx` 및 `WorkloadIdentity` 어댑터를
 사용할 수 없거나 결정론적 스키마, 매니페스트, 구성 또는 계획 검증을 통과하지 못한 경우에만 T2를
 호출합니다. 각 제안은 기본 90초 예산을 가지며, 범위가 제한된 `Retry-After` 지연이 이 예산 안에
 들어올 때 제한된 후보 하나를 최대 한 번 재시도합니다. 조립은 권위 있는 프로바이더가 연결된
-핸들러만 노출합니다. 공개
+핸들러만 노출합니다. 스키마로 검증된 `cause` facet은 후보 primary intent가
+`query.resource_current_state`여도 current-state 빠른 경로가 구조화된 인과 계획을 대체하지
+못하게 합니다. 누락된 exact-Resource slowness 조사는 부정되지 않고 대상 identifier 밖에 있는
+검토된 인과, 증상, 시작 span, 경쟁 change event 부재, 정확한 manifest path, 등록된 metric
+concept로만 완성합니다. Dependency-latency와 traffic-load 근거는 모두 검증된 relationship path를
+사용하며 불완전한 입력은 판단 보류 상태로 유지합니다. 누락된 outer `Resource` type은 충돌하는
+canonical type 없이 frame target과 정확히 일치하는 스키마 검증 `resource` target 하나에서만
+복원합니다. 입력 없는 recovery 진단은 고정된 실패
+precondition 이름과 개수만 기록하며 운영자 text, target 값, source-span text, model payload 또는
+provider data를 남기지 않습니다. 부분 causal hold는 검증된 각 hypothesis ID를 `unresolved`로
+표시하며 실행하지 않은 evidence를 supported 또는 refuted conclusion으로 승격하지 않습니다.
+Metric comparison이 완료되면 같은 hold가 측정 변화를 보존하고 합성된 unresolved hypothesis
+요약에는 evidence를 연결하지 않습니다. 공개
 프레임 제안은 Core가 서버 소유 다이제스트를 다시 만들기 전에 shared wire 식별자 제약을
 적용합니다. 구조화된 진단은 계획 단계, 후보 인덱스, 실패 클래스 및 입력을 포함하지 않는
 검증 위치만 기록하며 운영자 텍스트와 프로바이더 상세는 제외합니다. 공개
@@ -237,7 +249,7 @@ shadow 테스트가 두 경계를 고정합니다.
 | 서비스 | 패키지 responsibility | 패키지 지도 |
 |---------|------------------------|-------------|
 | 환경 모델 바인딩 | 권한이 없는 공유 정책 계약, 정확한 제안-정책 결합, 3-way-CAS Settings projection, 고유한 기능 신원, 정확한 GA 및 TPM/PTU 해석, 범위가 제한된 공급자 읽기, Core 전용 attested runtime binding, healthy active-revision CAS, 정책 결속 exact 적용 및 독립 공급자 readback | [공유 계약](../../../packages/service-contracts/src/fdai_service_contracts/model_binding.py), [해석기 스키마](../../../services/core-control-plane/src/fdai/rule_catalog/schema/model_binding_policy.py), [제안 검증기](../../../scripts/deployment/azure/model_binding_proposal.py), [projection workflow](../../../.github/workflows/model-settings-projection.yml), [projection materializer](../../../scripts/deployment/local/materialize-authoritative-settings.py), [service guard](../../../scripts/deployment/service/guard_plan.py), [계획 검증기](../../../scripts/deployment/azure/verify-deployment-plan.py), [active revision 검증기](../../../scripts/deployment/azure/verify_active_core_revision.py), [공급자 readback](../../../scripts/deployment/azure/verify_model_deployments.py), [Operator IAM 어댑터](../../../services/operator-service/src/fdai_operator_service/postgres_iam.py), [Console 편집기](../../../console/src/routes/settings-model-binding-policy.tsx) |
-| Operator 서비스 | 인증된 경로 계열, 영속적인 세 토픽 의미 브리지, 범위가 제한된 불일치 변환 결과 격리, 프로세스 소유 브리지 상태, 순서가 정해진 Managed Identity Kafka 수명 주기, 기존 downgrade 검사와 격리된 서비스 소유 스키마 검사, exact-release 온톨로지 읽기, 범위가 제한된 활성 인벤토리 영향 탐색, 버전이 지정된 background-task 변환 결과 수집, Core 테이블 직접 읽기 없는 소유자 범위 작업 목록/상세/진행 상황/유한 SSE 재생, 읽기 전용 런타임 및 대화 보증 변환 결과 | [운영 경로 계열](../../../services/operator-service/src/fdai_operator_service/families/operations/), [백그라운드 작업 변환 결과](../../../services/operator-service/src/fdai_operator_service/families/conversation/background_tasks.py), [projection consumer](../../../services/operator-service/src/fdai_operator_service/background_task_projection_runtime.py), [projection store](../../../services/operator-service/src/fdai_operator_service/postgres_background_task_projection.py), [런타임 변환 결과 읽기 구성요소](../../../services/operator-service/src/fdai_operator_service/runtime_projection_reader.py), [대화 보증 읽기 구성요소](../../../services/operator-service/src/fdai_operator_service/conversation_assurance_reader.py), [PostgreSQL 계열 저장소](../../../services/operator-service/src/fdai_operator_service/postgres_family_store.py), [읽기 마이그레이션](../../../service-migrations/branches/operator-service/versions/), [어댑터](../../../services/operator-service/src/fdai_operator_service/adapters/), [스트리밍](../../../services/operator-service/src/fdai_operator_service/streaming/) 및 [composition.py](../../../services/operator-service/src/fdai_operator_service/composition.py) |
+| Operator 서비스 | 인증된 경로 계열, 범위가 제한된 authentication 모듈을 통한 loopback 전용 로컬 Azure CLI 세션 초기화, 영속적인 세 토픽 의미 브리지, 범위가 제한된 불일치 변환 결과 격리, 프로세스 소유 브리지 상태, 순서가 정해진 Managed Identity Kafka 수명 주기, 기존 downgrade 검사와 격리된 서비스 소유 스키마 검사, 정규화된 직접 Psycopg 연결, 최소 컬럼 수준 보존 잠금, exact-release 온톨로지 읽기, 범위가 제한된 활성 인벤토리 영향 탐색, 버전이 지정된 background-task 변환 결과 수집, Core 테이블 직접 읽기 없는 소유자 범위 작업 목록/상세/진행 상황/유한 SSE 재생, 읽기 전용 런타임 및 대화 보증 변환 결과 | [authentication 경계](../../../services/operator-service/src/fdai_operator_service/auth.py), [로컬 인증](../../../services/operator-service/src/fdai_operator_service/local_auth.py), [DSN 정규화](../../../services/operator-service/src/fdai_operator_service/postgres_dsn.py), [운영 경로 계열](../../../services/operator-service/src/fdai_operator_service/families/operations/), [백그라운드 작업 변환 결과](../../../services/operator-service/src/fdai_operator_service/families/conversation/background_tasks.py), [projection consumer](../../../services/operator-service/src/fdai_operator_service/background_task_projection_runtime.py), [projection store](../../../services/operator-service/src/fdai_operator_service/postgres_background_task_projection.py), [런타임 변환 결과 읽기 구성요소](../../../services/operator-service/src/fdai_operator_service/runtime_projection_reader.py), [대화 보증 읽기 구성요소](../../../services/operator-service/src/fdai_operator_service/conversation_assurance_reader.py), [PostgreSQL 계열 저장소](../../../services/operator-service/src/fdai_operator_service/postgres_family_store.py), [읽기 마이그레이션](../../../service-migrations/branches/operator-service/versions/), [어댑터](../../../services/operator-service/src/fdai_operator_service/adapters/), [스트리밍](../../../services/operator-service/src/fdai_operator_service/streaming/) 및 [composition.py](../../../services/operator-service/src/fdai_operator_service/composition.py) |
 | FDAI Console 백그라운드 작업 점검 | 엄격한 소유자 범위 작업/진행 상황 decoder, 이중 언어 목록 및 선택 상세 표현, 생성, 취소, 재시도 또는 실행 컨트롤이 없는 명시적 새로 고침 | [경로](../../../console/src/routes/background-tasks.tsx), [decoder](../../../console/src/routes/background-tasks.model.ts), [decoder 테스트](../../../console/src/routes/background-tasks.model.test.ts) |
 | FDAI Console 온톨로지 워크벤치 | Exact 선언 경로, 엄격한 변환 결과 decoder, 근거/종속 항목/release 구역, localized 검증 상태 및 실행 control이 없는 스냅샷 결속 영향/map 표현 | [ObjectType 워크벤치](../../../console/src/routes/ontology-object-type-detail.tsx), [영향 경로](../../../console/src/routes/blast-radius.tsx), [영향 decoder](../../../console/src/routes/blast-radius.model.ts), [온톨로지 계약](../../../console/src/routes/ontology.types.ts) |
 | 네트워크 토폴로지 시각화 | 공유 네트워크 어휘, 작성된 정적 다이어그램 계약, 관측 전용 Console 포커스 및 경로 표현, 실행 권한이 없는 정제된 내보내기 | [공유 어휘](../../../packages/network-topology-contracts/), [다이어그램 컴파일러](../../../tools/architecture-diagrams/), [Console 아키텍처 컴포넌트](../../../console/src/components/), [소유 설계](../interfaces/network-topology-visualization-ko.md) |

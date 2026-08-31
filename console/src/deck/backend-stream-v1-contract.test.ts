@@ -52,10 +52,14 @@ test("rejects v1 frames with mismatched request ids or missing sequences", async
 
 test("accepts an evidence-bound ontology query done frame", async () => {
   const digest = `sha256:${"a".repeat(64)}`;
+  let submittedRequestId = "";
   vi.stubGlobal(
     "fetch",
-    vi.fn(async () => new Response(
-      `event: done\ndata: ${JSON.stringify({
+    vi.fn(async (_input, init) => {
+      const request = JSON.parse(String(init?.body)) as { request_id: string };
+      submittedRequestId = request.request_id;
+      return new Response(
+        `event: done\ndata: ${JSON.stringify({
         seq: 1,
         revision: 0,
         status: "answered",
@@ -64,7 +68,7 @@ test("accepts an evidence-bound ontology query done frame", async () => {
         semantic_receipt: {
           schema_version: "1.0.0",
           projection_id: `00000000-0000-4000-8000-${"0".repeat(12)}`,
-          request_id: `00000000-0000-4000-8000-${"0".repeat(11)}1`,
+          request_id: request.request_id,
           disposition: "answered",
           reason_code: "verified_answer",
           semantic_route: "verified_query_plan",
@@ -119,8 +123,9 @@ test("accepts an evidence-bound ontology query done frame", async () => {
             evidence_refs: ["inventory:evidence-1"],
           }],
         },
-      })}\n\n`,
-    )),
+        })}\n\n`,
+      );
+    }),
   );
   const backend = await import("./backend");
 
@@ -135,7 +140,7 @@ test("accepts an evidence-bound ontology query done frame", async () => {
   expect(reply.intentGraphEvidence?.evidence_mode).toBe("operational_grounded");
   expect(reply.semanticReceipt).toMatchObject({
     projection_id: `00000000-0000-4000-8000-${"0".repeat(12)}`,
-    request_id: `00000000-0000-4000-8000-${"0".repeat(11)}1`,
+    request_id: submittedRequestId,
     ontology_release_digest: digest,
     principal_manifest_digest: digest,
     plan_digest: digest,

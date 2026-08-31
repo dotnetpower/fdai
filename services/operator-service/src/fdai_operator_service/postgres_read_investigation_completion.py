@@ -13,6 +13,8 @@ import psycopg
 from fdai_service_contracts.read_investigation import ReadInvestigationCompletion
 from psycopg.rows import dict_row
 
+from fdai_operator_service.postgres_dsn import normalize_psycopg_dsn
+
 _COMPLETION_PREFIX: Final = "operator-read-investigation-completion:"
 
 FetchAll = Callable[[str, Mapping[str, object]], Awaitable[list[dict[str, Any]]]]
@@ -318,7 +320,7 @@ class PostgresReadInvestigationCompletionRepository:
             if config is None:  # pragma: no cover - constructor invariant
                 raise RuntimeError("completion repository PostgreSQL binding is unavailable")
             async with await psycopg.AsyncConnection.connect(
-                config.dsn,
+                normalize_psycopg_dsn(config.dsn),
                 row_factory=dict_row,
                 connect_timeout=config.connect_timeout_s,
                 autocommit=True,

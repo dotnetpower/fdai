@@ -100,3 +100,43 @@ def test_current_state_judgment_bypasses_drifted_frame_model() -> None:
     assert proposal.subject_constraints == ("Resource",)
     assert frame.output_shape == SemanticOutputShape.TARGET_CURRENT_STATE
     assert investigation is None
+
+
+def test_causal_facet_never_degrades_to_current_state_judgment() -> None:
+    class _UnavailableModel:
+        frame_calls = 0
+
+        def propose_frame(self, **_kwargs: Any) -> None:
+            self.frame_calls += 1
+            return None
+
+        def propose_plan(self, **_kwargs: Any) -> object:
+            raise AssertionError("an unavailable frame cannot produce a plan")
+
+    model = _UnavailableModel()
+    cascade = SemanticPlanningCascade(
+        model=model,  # type: ignore[arg-type]
+        escalation_model=None,
+        verifier=object(),  # type: ignore[arg-type]
+        frame_builder=lambda *_args, **_kwargs: None,  # type: ignore[arg-type]
+        plan_builder=lambda *_args, **_kwargs: None,  # type: ignore[arg-type]
+    )
+
+    result = cascade.propose_frame(
+        utterance="ca-example-core가 갑자기 왜 느려졌어?",
+        context=(),
+        descriptors=_DESCRIPTORS,
+        metric_concepts=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        semantic_judgment={
+            "primary_intent": "query.resource_current_state",
+            "requested_facets": ("current_state", "cause"),
+            "action_posture": "advise_only",
+            "execution_authority": False,
+            "confidence": 0.95,
+        },
+    )
+
+    assert result is None
+    assert model.frame_calls == 1

@@ -269,7 +269,7 @@ def compile_investigation_plan(
         cause_scope_id = (
             resolve_id
             if target_type == "Resource"
-            and hypothesis.cause_measure_concept in {"dependency.latency", "resource.saturation"}
+            and hypothesis.cause_measure_concept == "resource.saturation"
             else traversal_ids[relationship.relationship_id]
         )
         nodes.append(

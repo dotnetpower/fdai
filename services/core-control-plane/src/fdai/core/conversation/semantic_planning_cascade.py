@@ -49,6 +49,7 @@ from .semantic_planning_frame import (
 from .semantic_planning_frame_normalization import (
     normalize_bound_latency_recovery,
     normalize_missing_mysql_pressure_investigation,
+    normalize_missing_resource_slowness_investigation,
     normalize_missing_vm_cpu_investigation,
     normalize_network_application_latency_investigation,
 )
@@ -186,6 +187,7 @@ class SemanticPlanningCascade:
         if (
             semantic_judgment is not None
             and semantic_judgment.get("primary_intent") == "query.resource_current_state"
+            and "cause" not in semantic_judgment.get("requested_facets", ())
             and semantic_judgment.get("action_posture") == "advise_only"
             and semantic_judgment.get("execution_authority") is False
         ):
@@ -366,6 +368,14 @@ class SemanticPlanningCascade:
                     descriptors=descriptors,
                     metric_concepts=metric_concepts,
                     inventory_query_language=self._inventory_query_language,
+                )
+                proposal = normalize_missing_resource_slowness_investigation(
+                    proposal,
+                    utterance=utterance,
+                    descriptors=descriptors,
+                    metric_concepts=metric_concepts,
+                    inventory_query_language=self._inventory_query_language,
+                    semantic_judgment=semantic_judgment,
                 )
                 if proposal.investigation is not None:
                     investigation = normalize_investigation_symptom(
@@ -691,6 +701,7 @@ def _current_state_clarification_fallback(
     if (
         semantic_judgment is None
         or semantic_judgment.get("primary_intent") != "query.resource_current_state"
+        or "cause" in semantic_judgment.get("requested_facets", ())
     ):
         return None
     proposal = normalize_current_state_proposal(
