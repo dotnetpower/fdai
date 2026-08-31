@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 7afd0064cd58f322c2fd61ae07e1a346e14b0886
+translation_source_sha: cabdd405c48dc83aab358899c15c52b84c695fab
 translation_revised: 2026-08-31
 ---
 # 프로젝트 구조
@@ -15,6 +15,8 @@ translation_revised: 2026-08-31
 상태를 유지하고, 공유 컨테이너가 두 번째 루트가 되기 전에 목적별 wire 모듈로 이동합니다.
 사례 이력 검토는 비활성 학습 후보를 제안하기 전에 실패 근거와 일치하는 컨트롤 근거를 모두
 요구합니다.
+Workflow 승인 단계는 no-self-approval invariant를 낮출 수 없습니다. 컨트랙트가 카탈로그
+로드 시점에 비활성화된 값을 거부합니다.
 
 ## Core 도메인 탐색 결정
 

@@ -140,9 +140,10 @@ target, and every other gate reference delegates to the architecture-review eval
 The runtime snapshot answers "where is this Process now?" The append-only journal
 answers "how did it get here?" Typed events cover creation, step lifecycle,
 wait/approval/decision state, parallel branch outcomes, compensation, timeout, and
-terminal outcomes. Approval steps count distinct approving principals, exclude the
-requester when `no_self_approval` is enabled, and remain waiting until their quorum
-is met. Wait and approval timeouts with no applied step end as `timed_out`; after any applied step
+terminal outcomes. Approval steps count distinct approving principals, always exclude the
+requester because the Workflow contract rejects a disabled `no_self_approval`, and remain
+waiting until their quorum is met. Wait and approval timeouts with no applied step end as
+`timed_out`; after any applied step
 they stop forward dispatch and enter compensation. Parallel branches run concurrently and write
 child events without competing for the parent snapshot revision, but a failure freezes new branch
 dispatch and joins applied receipts before reverse-dependency compensation.

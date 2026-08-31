@@ -12,6 +12,8 @@ The private composition type module stays below its enforced size ceiling so new
 reviewable and move to focused wire modules before the shared container becomes a second root.
 Case-history review requires both failure and matched control evidence before it can propose an
 inert learning candidate.
+A Workflow approval step cannot lower the no-self-approval invariant; the contract rejects a
+disabled value at catalog load.
 
 ## Core domain navigation decision
 
