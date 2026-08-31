@@ -99,16 +99,40 @@ Every task lands **shadow-first** ([architecture.instructions.md § Shadow → E
 Promotion](../../../.github/instructions/architecture.instructions.md#safety-invariants)); no
 enforce-mode capability is in scope for P0.
 
+### W1.2 generated contract decision
+
+**Initial design.** Generate Python models for the five backend services and TypeScript interfaces
+for FDAI Console by adding a language-specific external generator for each target.
+
+**Critique.** Two external generators would create separate supply-chain and formatting contracts,
+and neither should become a second source of wire truth. Generating only Python would avoid that
+cost but would leave Console outside the supported-language contract.
+
+**Revised design.** JSON Schema Draft 2020-12 remains the only wire authority. The
+repository-owned `generate_service_contracts.py` version `1.0.0` deterministically projects every
+distinct N and N-1 producer schema in `compatibility-manifest.json` into these read-only type views:
+
+| Language | Consumers | Generated artifact |
+|----------|-----------|--------------------|
+| Python | Core control plane, Operator service, Document Ingestion API, Document Processing Worker, and Isolated Executor | `packages/service-contracts/src/fdai_service_contracts/generated/contracts.py` |
+| TypeScript | FDAI Console | `console/src/generated/service-contracts.ts` |
+
+`packages/service-contracts/contract-generation.json` pins the generator version, source checksum,
+schema selection, outputs, and consumers. CI runs the offline `--check` command and fails if a clean
+regeneration differs, so generated files are never hand-edited. The existing N/N-1 manifest gate
+continues to reject a same-major breaking schema change and requires every producer-consumer pair
+to be classified. Generated types carry no validation, approval, mutation, or execution authority.
+
 ### WI1 - Telemetry Backbone
 
 | Task | Title | Deps | Deliverable | Acceptance | Size |
 |------|-------|------|-------------|------------|------|
 | **W1.1** | Multi-service workspace skeleton | - | Five service-owned Python distributions, the shared service-contract SDK, root workspace lockfile, `infra/`, `policies/`, and `.github/` from [Multi-Service Repository Layout](../architecture/multi-service-repository-layout.md) | Service and module dependency direction enforced by CI | S |
-| **W1.2** | Ontology + event contracts | W1.1 | `services/core-control-plane/src/fdai/shared/contracts/ontology/{object-type,link-type,action-type}.json`, `services/core-control-plane/src/fdai/shared/contracts/event/schema.json`; generated types per language | Schema validates in CI (`ajv`); breaking changes bump semver | M |
+| **W1.2** | Ontology + event contracts | W1.1 | Canonical Draft 2020-12 schemas; generated Python types for all five services; generated TypeScript types for Console | CI rejects generated drift and same-major breaking N/N-1 changes; a new major requires explicit compatibility and migration evidence | M |
 | **W1.3** | Config schema + fail-fast loader | W1.1 | `services/core-control-plane/src/fdai/shared/config/schema.json` + Python loader; env + file provider | Invalid or missing required field aborts startup with a structured error | S |
 | **W1.4** | OpenTelemetry wiring | W1.1 | `services/core-control-plane/src/fdai/shared/telemetry/` traces, metrics, logs; JSON-structured logs with `correlation_id`; collector config in `infra/` | A synthetic event traces end-to-end (ingest → tier → gate → audit) with one correlation id | M |
 | **W1.5** | PostgreSQL DDL - instance + audit | W1.2 | Migration for `ontology_object_type`, `ontology_link_type`, `ontology_resource`, `ontology_finding`, `ontology_link`, `audit_log` (hash-chained) | `flyway`/`alembic` migration runs clean on empty DB; DDL matches [llm-strategy.md § Ontology Storage Layout](../architecture/llm-strategy.md#ontology-storage-layout) | M |
-| **W1.6** | PostgreSQL DDL - layered cache | W1.5 | Migration for `learned_action`, `ontology_embedding` (pgvector), `t2_cache` (partition by `catalog_version`) | pgvector extension enabled; HNSW index builds; partition rotation script tested | S |
+| **W1.6** | PostgreSQL DDL - layered cache | W1.5 | Migration for `learned_action`, `ontology_embedding` (pgvector), and explicit `t2_cache` partitions with TTL, catalog state, registry, and rotation receipts | pgvector and HNSW remain enabled; promotion, expiry, rollback, duplicate, failure, concurrency, and bounded indexed hit/miss checks pass against local PostgreSQL | S |
 | **W1.7** | CI baseline pipeline | W1.1 | `.github/workflows/`: format, lint, ASCII identifier/path and punctuation checks, translation/catalog parity, secret scan, coverage gate, dependency audit | A failing check blocks merge; English and Korean natural-language text are both allowed | M |
 | **W1.8** | Golden-fixture metrics test | W1.4, W1.5 | `services/core-control-plane/tests/telemetry/` - a recorded synthetic-event trace + fixture asserting every dashboard metric reproduces from telemetry | Test runs green in CI; removing a trace attribute fails a specific metric assertion | M |
 | **W1.9** | KPI dashboard | W1.4, W1.5, W1.8 | Panels for success 1-4, guard metrics, leading indicators - each with its telemetry-source annotation | No panel is manually populated; a source rename fails the panel's build check | M |
@@ -163,11 +187,26 @@ The in-memory fake is what a developer runs under `pytest` and in the debugger; 
 preset is what integration tests, `event-ingest` smoke runs, and pgvector similarity checks
 run against.
 
+**Initial design.** Register every backend through zero-argument factories and run Docker-backed
+providers in the ordinary pytest job.
+
+**Critique.** Real providers require lifecycle-owned databases, topics, consumer groups, timeouts,
+and cleanup. Starting them in the default job would make offline unit tests depend on Docker and
+would turn missing infrastructure into ambiguous test behavior.
+
+**Revised design.** The shared `test_contracts.py` assertions consume lifecycle-managed fixtures.
+Default pytest registers only fakes and denies non-loopback network access. The explicit
+`provider-contracts-docker` CI job opts into both matrices, creates and drops one exact temporary
+PostgreSQL database, isolates every Redpanda topic and consumer group by UUID, deletes those exact
+broker records, and fails if either real backend is unavailable. The canonical local endpoints are
+runtime PostgreSQL `127.0.0.1:5432`, validation PostgreSQL `127.0.0.1:5433`, Redpanda host
+`127.0.0.1:19092`, and Redpanda Compose-network `redpanda:29092`.
+
 | Task | Title | Deps | Deliverable | Acceptance | Size |
 |------|-------|------|-------------|------------|------|
 | **W6.1** | Storage / bus / secret / identity provider interfaces | W1.2 | Protocol classes in `services/core-control-plane/src/fdai/shared/providers/` for `StateStore`, `EventBus`, `SecretProvider`, `WorkloadIdentity` - each mapping to one of the four CSP-neutral contracts | `mypy --strict` passes; every core module that touches infra imports **only** these protocols (import-lint rule W1.7 enforces the ban on cloud SDKs in `core/`) | S |
-| **W6.2** | In-memory fake adapters + shared contract-test suite | W6.1 | `services/core-control-plane/src/fdai/shared/providers/testing/` with in-memory `StateStore` (dict-backed, with hash-chain semantics for audit), `EventBus` (queue + consumer-group), `SecretProvider`, `WorkloadIdentity`; contract tests in `services/core-control-plane/tests/providers/` parameterized over `[fake, postgres, redpanda]` | Contract-test suite runs green against the fake with **zero Docker** and against the Compose stack when Docker is available; the *same* test file passes both matrices | M |
-| **W6.3** | Docker Compose dev preset + wrapper scripts | W6.1 | `infra/local/docker-compose.yml` running `pgvector/pgvector:pg16` and `redpandadata/redpanda:latest` (single-node, no zookeeper); `scripts/deployment/local/dev-up.sh` / `scripts/deployment/local/dev-down.sh` bringing the stack up/down with health checks; `Makefile` targets `dev-up`, `dev-down`, `dev-logs` | Fresh clone: `scripts/deployment/local/dev-up.sh` returns 0 with both containers healthy; `psql` connects on the exposed port and `CREATE EXTENSION vector` succeeds; a Redpanda producer + consumer roundtrip completes on `localhost:9092`. No Azure / cloud calls made | M |
+| **W6.2** | In-memory fake adapters + shared contract-test suite | W6.1 | Lifecycle fixtures register fake, PostgreSQL, and Redpanda against the same assertions in `services/core-control-plane/tests/providers/test_contracts.py` | Default pytest stays Docker-free; the explicit Docker CI job proves state, audit chain, duplicate delivery, pgvector, Kafka order, group resume, DLQ, loopback-only access, and exact cleanup | M |
+| **W6.3** | Docker Compose dev preset + wrapper scripts | W6.1 | `infra/local/docker-compose.yml` running pgvector/PostgreSQL and single-node Redpanda with health checks and wrapper scripts | Runtime PostgreSQL `5432`, validation PostgreSQL `5433`, Redpanda host `19092`, and Redpanda container `29092` stay consistent across Compose, scripts, docs, tests, and CI; no Azure or cloud calls occur | M |
 
 ### Sequenced Task Timeline
 

@@ -107,7 +107,7 @@ fdai/
 │   │   ├── channels/           # pure Teams/Slack presentation plus authenticated bounded A3 transports; no executor identity
 │   │   ├── chatops/            # channel adapters (Teams / Slack / email / webhook / pager / SMS)
 │   │   ├── notifications/      # per-channel senders; sibling `incident_platform/` provides PagerDuty/ServiceNow lifecycle and PagerDuty roster adapters
-│   │   ├── persistence/        # Postgres / pgvector stores, including forecast episodes/outbox, relational case-history backfill, and atomic background-task completion audit markers
+│   │   ├── persistence/        # Postgres / pgvector stores, including exact-version T2 cache TTL, promotion/rollback state, and atomic rotation receipts
 │   │   ├── operating_model/    # bounded JSON deployment operating-model adapter; startup-only and all-before-write
 │   │   ├── runtime_settings.py  # allowlisted env defaults + revisioned StateStore overrides; no executor identity or promotion authority
 │   │   ├── behavior_knowledge/ # in-memory hybrid behavior index, tracked-source freshness, and built-in behavior seeds

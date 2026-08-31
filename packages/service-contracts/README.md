@@ -11,6 +11,7 @@ Use this package for contracts that cross an independently released process boun
 
 - Versioned request, event, projection, receipt, and evidence records.
 - JSON Schema lookup, validation, and bounded wire codecs.
+- Deterministic Python and TypeScript views generated from the N/N-1 schema manifest.
 - N/N-1 compatibility checks, additive translators, and rolling-transition evidence.
 - Provider-neutral protocols that service-owned adapters implement.
 - Stable service identity, execution venue, readiness, and audit serialization records.
@@ -28,6 +29,8 @@ access, composition, and workflow decisions in the service that owns them.
 | `src/fdai_service_contracts/discovery.py`, `discovery_evidence.py`, `operational_activity.py` | Bounded discovery and operational evidence contracts |
 | `src/fdai_service_contracts/executor.py`, `executor_models.py`, `executor_providers.py` | Isolated Executor commands, receipts, values, and protocols |
 | `src/fdai_service_contracts/schema.py`, `schemas/` | Package-backed JSON Schema registry and immutable schema versions |
+| `contract-generation.json`, `src/fdai_service_contracts/generated/` | Pinned generation policy and generated Python contract types |
+| `../../console/src/generated/service-contracts.ts` | Generated TypeScript contract types for FDAI Console |
 | `tests/` | Focused contract, compatibility, delivery, and boundary tests |
 
 The package is typed and includes `py.typed`. Public convenience exports are available from
@@ -60,7 +63,9 @@ Keep contract changes reviewable across independently deployable consumers:
    older peer needs a smaller envelope.
 3. Update the compatibility manifest and producer or consumer codecs for every affected edge.
 4. Add focused N/N-1 and malformed-input tests without importing another service implementation.
-5. Keep authorization, policy, provider I/O, and business behavior outside this package.
+5. Regenerate Python and TypeScript artifacts with
+   `python3 scripts/quality/contracts/generate_service_contracts.py`.
+6. Keep authorization, policy, provider I/O, and business behavior outside this package.
 
 ## Testing
 
@@ -68,6 +73,7 @@ Run the package tests from the repository root:
 
 ```bash
 uv run pytest -q --no-cov packages/service-contracts/tests
+python3 scripts/quality/contracts/generate_service_contracts.py --check
 ```
 
 Validate the independent-service boundary after changing package structure or metadata:

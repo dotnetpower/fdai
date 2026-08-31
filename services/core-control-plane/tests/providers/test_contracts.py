@@ -1,54 +1,46 @@
-"""Behavioural contract tests for the four provider Protocols.
-
-The whole point of these tests is that **the same file** runs against
-every backend that claims to satisfy a Protocol. Today only the shipped
-in-memory fakes are registered; the Postgres StateStore (W1.5) and the
-Redpanda / Event Hubs EventBus (W6.3) will register themselves once they
-land, and they inherit this suite.
-
-Each provider factory is a zero-arg callable that hands back a fresh
-instance - tests never share state between runs.
-
-All provider methods are async by contract, so every test function here
-is ``async def``; pytest-asyncio's ``asyncio_mode = "auto"`` picks them up.
-"""
+"""Shared behavioural assertions for fake, PostgreSQL, and Redpanda providers."""
 
 from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import UTC, datetime
+from typing import Protocol
 
+import psycopg
 import pytest
 from fdai.shared.providers import (
     EventBus,
+    EventEnvelope,
     SecretNotFoundError,
     SecretProvider,
     StateStore,
     WorkloadIdentity,
 )
 from fdai.shared.providers.testing import (
-    InMemoryEventBus,
     InMemorySecretProvider,
     InMemoryStateStore,
     StaticWorkloadIdentity,
 )
 
-# ---------------------------------------------------------------------------
-# Provider factories (add real adapters here once they exist).
-# ---------------------------------------------------------------------------
-
-STATE_STORE_FACTORIES: list[Callable[[], StateStore]] = [
-    lambda: InMemoryStateStore(),
-]
-"""New adapters MUST append themselves here (or via pytest_generate_tests)."""
-
-EVENT_BUS_FACTORIES: list[Callable[[], EventBus]] = [
-    lambda: InMemoryEventBus(),
-]
-
 SECRET_PROVIDER_FACTORIES: list[Callable[[SecretProvider], SecretProvider]] = [
     lambda p: p,
 ]
+
+
+class EventBusTestHarness(Protocol):
+    bus: EventBus
+
+    def topic(self, suffix: str) -> str: ...
+
+    def group(self, suffix: str) -> str: ...
+
+    async def collect(
+        self,
+        topic: str,
+        group: str,
+        *,
+        expected_count: int,
+    ) -> tuple[EventEnvelope, ...]: ...
 
 
 # ---------------------------------------------------------------------------
@@ -56,38 +48,32 @@ SECRET_PROVIDER_FACTORIES: list[Callable[[SecretProvider], SecretProvider]] = [
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("factory", STATE_STORE_FACTORIES)
 async def test_state_store_write_then_read_returns_same_value(
-    factory: Callable[[], StateStore],
+    state_store: StateStore,
 ) -> None:
-    store = factory()
-    await store.write_state("event:1", {"tier": "t0", "decision": "auto"})
-    got = await store.read_state("event:1")
+    await state_store.write_state("event:1", {"tier": "t0", "decision": "auto"})
+    got = await state_store.read_state("event:1")
     assert got == {"tier": "t0", "decision": "auto"}
 
 
-@pytest.mark.parametrize("factory", STATE_STORE_FACTORIES)
 async def test_state_store_read_missing_returns_none(
-    factory: Callable[[], StateStore],
+    state_store: StateStore,
 ) -> None:
-    store = factory()
-    assert await store.read_state("nothing-here") is None
+    assert await state_store.read_state("nothing-here") is None
 
 
-@pytest.mark.parametrize("factory", STATE_STORE_FACTORIES)
 async def test_state_store_audit_chain_is_intact_after_appends(
-    factory: Callable[[], StateStore],
+    state_store: StateStore,
 ) -> None:
-    store = factory()
     for i in range(3):
-        await store.append_audit_entry({"event_id": f"evt-{i}", "decision": "auto"})
+        await state_store.append_audit_entry({"event_id": f"evt-{i}", "decision": "auto"})
+    assert await state_store.verify_chain() is True
 
-    if isinstance(store, InMemoryStateStore):
-        assert await store.verify_chain() is True
-        entries = list(store.audit_entries)
-        assert len(entries) == 3
-        for i in range(1, 3):
-            assert entries[i]["previous_hash"] == entries[i - 1]["entry_hash"]
+
+async def test_state_store_duplicate_delivery_is_a_no_op(state_store: StateStore) -> None:
+    assert await state_store.write_state_if_absent("delivery:1", {"attempt": 1}) is True
+    assert await state_store.write_state_if_absent("delivery:1", {"attempt": 2}) is False
+    assert await state_store.read_state("delivery:1") == {"attempt": 1}
 
 
 async def test_in_memory_state_store_verify_chain_detects_tampered_previous_hash() -> None:
@@ -119,91 +105,118 @@ async def test_in_memory_state_store_verify_chain_detects_tampered_entry_hash() 
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("factory", EVENT_BUS_FACTORIES)
 async def test_event_bus_publish_receipt_has_monotonic_offsets(
-    factory: Callable[[], EventBus],
+    event_bus_harness: EventBusTestHarness,
 ) -> None:
-    bus = factory()
-    r1 = await bus.publish("fdai.change.events", "rg-example", {"n": 1})
-    r2 = await bus.publish("fdai.change.events", "rg-example", {"n": 2})
-    assert r1.topic == "fdai.change.events"
-    assert r2.topic == "fdai.change.events"
+    topic = event_bus_harness.topic("change-events")
+    r1 = await event_bus_harness.bus.publish(topic, "rg-example", {"n": 1})
+    r2 = await event_bus_harness.bus.publish(topic, "rg-example", {"n": 2})
+    assert r1.topic == topic
+    assert r2.topic == topic
     if r1.offset is not None and r2.offset is not None:
         assert r2.offset > r1.offset
 
 
-@pytest.mark.parametrize("factory", EVENT_BUS_FACTORIES)
 async def test_event_bus_subscribe_returns_publish_order(
-    factory: Callable[[], EventBus],
+    event_bus_harness: EventBusTestHarness,
 ) -> None:
-    bus = factory()
+    bus = event_bus_harness.bus
+    topic = event_bus_harness.topic("change-events")
+    group = event_bus_harness.group("group-a")
     for i in range(3):
-        await bus.publish("fdai.change.events", f"key-{i}", {"n": i})
-
-    got: list[int] = []
-    async for envelope in bus.subscribe("fdai.change.events", "group-a"):
-        got.append(int(envelope.payload["n"]))
+        await bus.publish(topic, f"key-{i}", {"n": i})
+    got = [
+        int(envelope.payload["n"])
+        for envelope in await event_bus_harness.collect(topic, group, expected_count=3)
+    ]
     assert got == [0, 1, 2]
 
 
-@pytest.mark.parametrize("factory", EVENT_BUS_FACTORIES)
 async def test_event_bus_two_groups_see_same_messages(
-    factory: Callable[[], EventBus],
+    event_bus_harness: EventBusTestHarness,
 ) -> None:
-    bus = factory()
-    await bus.publish("fdai.change.events", "k", {"n": 1})
-    await bus.publish("fdai.change.events", "k", {"n": 2})
-
-    a: list[int] = []
-    async for e in bus.subscribe("fdai.change.events", "group-a"):
-        a.append(int(e.payload["n"]))
-    b: list[int] = []
-    async for e in bus.subscribe("fdai.change.events", "group-b"):
-        b.append(int(e.payload["n"]))
+    bus = event_bus_harness.bus
+    topic = event_bus_harness.topic("change-events")
+    await bus.publish(topic, "k", {"n": 1})
+    await bus.publish(topic, "k", {"n": 2})
+    a = [
+        int(envelope.payload["n"])
+        for envelope in await event_bus_harness.collect(
+            topic,
+            event_bus_harness.group("group-a"),
+            expected_count=2,
+        )
+    ]
+    b = [
+        int(envelope.payload["n"])
+        for envelope in await event_bus_harness.collect(
+            topic,
+            event_bus_harness.group("group-b"),
+            expected_count=2,
+        )
+    ]
     assert a == [1, 2]
     assert b == [1, 2]
 
 
-@pytest.mark.parametrize("factory", EVENT_BUS_FACTORIES)
 async def test_event_bus_same_group_resumes_from_committed_offset(
-    factory: Callable[[], EventBus],
+    event_bus_harness: EventBusTestHarness,
 ) -> None:
-    bus = factory()
-    await bus.publish("fdai.change.events", "k", {"n": 1})
-    await bus.publish("fdai.change.events", "k", {"n": 2})
-
-    first_pass: list[int] = []
-    async for e in bus.subscribe("fdai.change.events", "group-a"):
-        first_pass.append(int(e.payload["n"]))
+    bus = event_bus_harness.bus
+    topic = event_bus_harness.topic("change-events")
+    group = event_bus_harness.group("group-a")
+    await bus.publish(topic, "k", {"n": 1})
+    await bus.publish(topic, "k", {"n": 2})
+    first_pass = [
+        int(envelope.payload["n"])
+        for envelope in await event_bus_harness.collect(topic, group, expected_count=2)
+    ]
     assert first_pass == [1, 2]
 
-    second_pass: list[int] = []
-    async for e in bus.subscribe("fdai.change.events", "group-a"):
-        second_pass.append(int(e.payload["n"]))
-    assert second_pass == []
+    second_pass = await event_bus_harness.collect(topic, group, expected_count=0)
+    assert second_pass == ()
 
-    await bus.publish("fdai.change.events", "k", {"n": 3})
-    third_pass: list[int] = []
-    async for e in bus.subscribe("fdai.change.events", "group-a"):
-        third_pass.append(int(e.payload["n"]))
+    await bus.publish(topic, "k", {"n": 3})
+    third_pass = [
+        int(envelope.payload["n"])
+        for envelope in await event_bus_harness.collect(topic, group, expected_count=1)
+    ]
     assert third_pass == [3]
 
 
-@pytest.mark.parametrize("factory", EVENT_BUS_FACTORIES)
 async def test_event_bus_dead_letter_uses_topic_dlq_convention(
-    factory: Callable[[], EventBus],
+    event_bus_harness: EventBusTestHarness,
 ) -> None:
-    bus = factory()
-    await bus.publish("fdai.change.events", "k", {"n": 1})
-    await bus.dead_letter("fdai.change.events", "k", {"n": 1}, reason="poison")
-
-    envelopes = []
-    async for e in bus.subscribe("fdai.change.events.dlq", "auditor"):
-        envelopes.append(e)
+    bus = event_bus_harness.bus
+    topic = event_bus_harness.topic("change-events")
+    await bus.publish(topic, "k", {"n": 1})
+    await bus.dead_letter(topic, "k", {"n": 1}, reason="poison")
+    envelopes = await event_bus_harness.collect(
+        f"{topic}.dlq",
+        event_bus_harness.group("auditor"),
+        expected_count=1,
+    )
     assert len(envelopes) == 1
-    assert envelopes[0].topic == "fdai.change.events.dlq"
-    assert envelopes[0].payload["original_topic"] == "fdai.change.events"
+    assert envelopes[0].topic == f"{topic}.dlq"
+    assert envelopes[0].payload["original_topic"] == topic
     assert envelopes[0].payload["reason"] == "poison"
+
+
+@pytest.mark.integration
+async def test_postgres_pgvector_creation_and_query(
+    provider_contract_postgres_dsn: str | None,
+) -> None:
+    if provider_contract_postgres_dsn is None:
+        pytest.skip("real provider matrix is not selected")
+    async with await psycopg.AsyncConnection.connect(provider_contract_postgres_dsn) as connection:
+        await connection.execute("CREATE TEMP TABLE provider_vectors (embedding vector(3))")
+        await connection.execute(
+            "INSERT INTO provider_vectors (embedding) VALUES ('[1,0,0]'), ('[0,1,0]')"
+        )
+        cursor = await connection.execute(
+            "SELECT embedding::text FROM provider_vectors ORDER BY embedding <=> '[1,0,0]' LIMIT 1"
+        )
+        assert await cursor.fetchone() == ("[1,0,0]",)
 
 
 # ---------------------------------------------------------------------------

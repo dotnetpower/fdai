@@ -1,7 +1,7 @@
 ---
 title: Phase 0 - 계측과 언블록
 translation_of: phase-0-instrumentation.md
-translation_source_sha: ae9cf6279c6bf2eabde2e32b1f088b34761592f2
+translation_source_sha: 179f0f3ebfc858434be75bd55979deac4a645e40
 translation_revised: 2026-08-31
 ---
 
@@ -99,16 +99,40 @@ Phase 1 또는 Phase 2 결과가 필요한 메트릭은 명시적인 사용 불�
 ([architecture.instructions.md § Shadow → 강제 적용 승격](../../../.github/instructions/architecture.instructions.md#safety-invariants));
 P0에는 enforce-mode 능력이 범위에 없음.
 
+### W1.2 생성 계약 결정
+
+**초기 설계.** 백엔드 서비스 5개용 Python 모델과 FDAI Console용 TypeScript 인터페이스를
+생성하기 위해 대상 언어마다 외부 생성기를 추가합니다.
+
+**비판.** 외부 생성기 두 개를 사용하면 공급망 계약과 서식 계약도 두 개가 되며, 어느 생성기도
+두 번째 와이어 기준 정보가 되어서는 안 됩니다. Python만 생성하면 이 비용을 피할 수 있지만
+Console이 지원 언어 계약에서 제외됩니다.
+
+**개정 설계.** JSON Schema Draft 2020-12를 유일한 와이어 기준 정보로 유지합니다. 저장소가
+소유하는 `generate_service_contracts.py` 버전 `1.0.0`은 `compatibility-manifest.json`에 선언된
+서로 다른 모든 N 및 N-1 생산자 스키마를 다음 읽기 전용 타입으로 결정론적으로 변환합니다.
+
+| 언어 | 소비자 | 생성 아티팩트 |
+|------|--------|--------------|
+| Python | Core 컨트롤 플레인, Operator 서비스, Document Ingestion API, Document Processing Worker, Isolated Executor | `packages/service-contracts/src/fdai_service_contracts/generated/contracts.py` |
+| TypeScript | FDAI Console | `console/src/generated/service-contracts.ts` |
+
+`packages/service-contracts/contract-generation.json`은 생성기 버전, 소스 체크섬, 스키마 선택,
+출력 및 소비자를 고정합니다. CI는 오프라인 `--check` 명령을 실행하고 깨끗한 재생성 결과가
+다르면 실패하므로 생성 파일을 직접 편집하지 않습니다. 기존 N/N-1 매니페스트 게이트는 같은
+메이저 버전의 호환성을 깨는 스키마 변경을 계속 차단하며 모든 생산자-소비자 조합을 분류하도록
+요구합니다. 생성 타입에는 검증, 승인, 변경 또는 실행 권한이 없습니다.
+
 ### WI1 - 원격측정 백본
 
 | 작업 | 제목 | Deps | 산출물 | 수용 | 크기 |
 |------|------|------|--------|------|------|
 | **W1.1** | 다중 서비스 workspace skeleton | - | [다중 서비스 저장소 레이아웃](../architecture/multi-service-repository-layout-ko.md)의 서비스 소유 Python 배포판 5개, 공유 서비스 계약 SDK, 루트 workspace lockfile, `infra/`, `policies/`, `.github/` | CI가 서비스 및 모듈 의존성 방향을 강제 | S |
-| **W1.2** | 온톨로지 + 이벤트 계약 | W1.1 | `services/core-control-plane/src/fdai/shared/contracts/ontology/{object-type,link-type,action-type}.json`, `services/core-control-plane/src/fdai/shared/contracts/event/schema.json`; 언어별 생성 타입 | 스키마가 CI에서 검증 (`ajv`); breaking 변경은 semver bump | M |
+| **W1.2** | 온톨로지 + 이벤트 계약 | W1.1 | 기준 Draft 2020-12 스키마, 서비스 5개용 생성 Python 타입, Console용 생성 TypeScript 타입 | CI가 생성 결과 표류와 같은 메이저 버전의 호환성을 깨는 N/N-1 변경을 차단하며, 새 메이저 버전에는 명시적 호환성 및 이행 근거가 필요 | M |
 | **W1.3** | 구성 스키마 + fail-fast 로더 | W1.1 | `services/core-control-plane/src/fdai/shared/config/schema.json` + Python 로더; env + 파일 프로바이더 | 잘못되거나 누락된 필수 필드가 구조화된 에러로 시작 중단 | S |
 | **W1.4** | OpenTelemetry 배선 | W1.1 | `services/core-control-plane/src/fdai/shared/telemetry/` traces, metrics, logs; `correlation_id` 있는 JSON-구조화 로그; `infra/` 의 수집기 구성 | 합성 이벤트가 하나의 상관관계 id로 종단 추적 (ingest → 계층 → 게이트 → 감사) | M |
 | **W1.5** | PostgreSQL DDL - 인스턴스 + 감사 | W1.2 | `ontology_object_type`, `ontology_link_type`, `ontology_resource`, `ontology_finding`, `ontology_link`, `audit_log`(hash-chain) 마이그레이션 | `flyway`/`alembic` 마이그레이션이 빈 DB에서 클린 실행; DDL이 [llm-strategy-ko.md § 온톨로지 Storage 배치](../architecture/llm-strategy-ko.md#ontology-storage-layout) 와 매칭 | M |
-| **W1.6** | PostgreSQL DDL - 계층 캐시 | W1.5 | `learned_action`, `ontology_embedding` (pgvector), `t2_cache`(`catalog_version` 파티션) 마이그레이션 | pgvector 확장 활성; HNSW 인덱스 빌드; 파티션 로테이션 스크립트 테스트 | S |
+| **W1.6** | PostgreSQL DDL - 계층 캐시 | W1.5 | `learned_action`, `ontology_embedding`(pgvector), TTL, 카탈로그 상태, 레지스트리 및 로테이션 증적을 포함한 명시적 `t2_cache` 파티션 마이그레이션 | pgvector와 HNSW가 계속 활성화되고 로컬 PostgreSQL에서 승격, 만료, 롤백, 중복, 실패, 동시성 및 범위가 제한된 인덱스 적중/누락 검사가 통과 | S |
 | **W1.7** | CI 기준선 파이프라인 | W1.1 | `.github/workflows/`: format, lint, ASCII 식별자/경로 및 punctuation 검사, translation/카탈로그 동등성, 시크릿 검사, 커버리지 게이트, 의존성 감사 | 실패한 검사가 머지 블록; 한국어와 영어 natural-language 텍스트는 모두 허용 | M |
 | **W1.8** | Golden-fixture 메트릭 테스트 | W1.4, W1.5 | `services/core-control-plane/tests/telemetry/` - 기록된 합성-이벤트 추적 + 픽스처가 모든 대시보드 메트릭이 원격측정에서 재현되는지 단언 | CI에서 green; 추적 속성 제거가 특정 메트릭 단언 실패 | M |
 | **W1.9** | KPI 대시보드 | W1.4, W1.5, W1.8 | 성공 1-4, 가드 메트릭, 선행 지표 패널 - 각각 원격측정-소스 주석 | 어떤 패널도 수동으로 채워지지 않음; 소스 이름 변경이 패널 빌드 검사 실패 | M |
@@ -161,11 +185,26 @@ P0에는 enforce-mode 능력이 범위에 없음.
 의 주입 경계 으로 실현. In-memory 페이크는 개발자가 `pytest` 와 디버거에서 실행하는
 것; Compose 프리셋은 통합 테스트, `event-ingest` 스모크 런, pgvector 유사도 체크가 실행되는 대상.
 
+**초기 설계.** 인자가 없는 팩터리로 모든 백엔드를 등록하고 일반 pytest 작업에서 Docker 기반
+프로바이더를 실행합니다.
+
+**비판.** 실제 프로바이더에는 수명 주기를 관리하는 데이터베이스, 토픽, 소비자 그룹, 타임아웃 및
+정리가 필요합니다. 기본 작업에서 이를 시작하면 오프라인 유닛 테스트가 Docker에 의존하며 인프라
+누락이 모호한 테스트 동작으로 바뀝니다.
+
+**개정 설계.** 공유 `test_contracts.py` 단언은 수명 주기를 관리하는 픽스처를 사용합니다. 기본
+pytest는 페이크만 등록하고 loopback 밖의 네트워크 접근을 차단합니다. 명시적
+`provider-contracts-docker` CI 작업은 두 매트릭스를 선택하고 정확한 임시 PostgreSQL 데이터베이스
+하나를 생성한 뒤 삭제합니다. 모든 Redpanda 토픽과 소비자 그룹은 UUID로 격리하고 해당 브로커
+기록만 삭제하며 실제 백엔드가 없으면 실패합니다. 기준 로컬 엔드포인트는 런타임 PostgreSQL
+`127.0.0.1:5432`, 검증 PostgreSQL `127.0.0.1:5433`, Redpanda 호스트 `127.0.0.1:19092`,
+Redpanda Compose 네트워크 `redpanda:29092`입니다.
+
 | 작업 | 제목 | Deps | 산출물 | 수용 | 크기 |
 |------|------|------|--------|------|------|
 | **W6.1** | Storage / 버스 / 시크릿 / 신원 프로바이더 인터페이스 | W1.2 | `services/core-control-plane/src/fdai/shared/providers/` 의 `StateStore`, `EventBus`, `SecretProvider`, `WorkloadIdentity` 프로토콜 클래스 - 각각 네 개의 CSP-중립 계약 중 하나에 매핑 | `mypy --strict` 통과; 인프라에 닿는 모든 코어 모듈이 이 프로토콜 만 가져오기 (W1.7 import-lint 규칙이 `core/` 의 클라우드 SDK 금지 강제) | S |
-| **W6.2** | In-memory 페이크 어댑터 + 공유 계약-테스트 스위트 | W6.1 | `services/core-control-plane/src/fdai/shared/providers/testing/` - dict 기반 `StateStore`(감사 용 hash-chain 생산), 큐 + 컨슈머-그룹 `EventBus`, `SecretProvider`, `WorkloadIdentity`; `services/core-control-plane/tests/providers/` 에 `[fake, postgres, redpanda]` 로 파라미터라이즈된 계약 테스트 | 계약-테스트 스위트가 **Docker 없이** 페이크에서 green, Docker 가용 시 Compose 스택에서도 green; *동일* 테스트 파일이 두 매트릭스 모두 통과 | M |
-| **W6.3** | Docker Compose 개발 프리셋 + 래퍼 스크립트 | W6.1 | `pgvector/pgvector:pg16` 와 `redpandadata/redpanda:latest` 가 실행되는 `infra/local/docker-compose.yml` (single-node, zookeeper 불필요); 헬스 체크와 함께 스택을 올리고 내리는 `scripts/deployment/local/dev-up.sh` / `scripts/deployment/local/dev-down.sh`; `Makefile` 타겟 `dev-up`, `dev-down`, `dev-logs` | Fresh clone: `scripts/deployment/local/dev-up.sh` 가 종료코드 0과 건강한 두 컨테이너 반환; 노출된 포트에 `psql` 연결되고 `CREATE EXTENSION vector` 성공; Redpanda 프로듀서 + 컨슈머 라운드트립이 `localhost:9092` 에서 완료. Azure / 클라우드 호출 없음 | M |
+| **W6.2** | In-memory 페이크 어댑터 + 공유 계약-테스트 스위트 | W6.1 | 수명 주기 픽스처가 `services/core-control-plane/tests/providers/test_contracts.py`의 같은 단언에 페이크, PostgreSQL 및 Redpanda를 등록 | 기본 pytest는 Docker 없이 유지되고 명시적 Docker CI 작업이 상태, 감사 체인, 중복 전달, pgvector, Kafka 순서, 그룹 재개, DLQ, loopback 전용 접근 및 정확한 정리를 검증 | M |
+| **W6.3** | Docker Compose 개발 프리셋 + 래퍼 스크립트 | W6.1 | 상태 검사와 래퍼 스크립트를 포함한 pgvector/PostgreSQL 및 단일 노드 Redpanda `infra/local/docker-compose.yml` | 런타임 PostgreSQL `5432`, 검증 PostgreSQL `5433`, Redpanda 호스트 `19092`, Redpanda 컨테이너 `29092`가 Compose, 스크립트, 문서, 테스트 및 CI에서 일치하며 Azure 또는 클라우드 호출이 없음 | M |
 
 ### 시퀀싱된 태스크 타임라인
 

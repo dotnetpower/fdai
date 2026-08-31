@@ -1,7 +1,7 @@
 ---
 title: 다중 서비스 저장소 레이아웃
 translation_of: multi-service-repository-layout.md
-translation_source_sha: 98140983309da9cd2190a962c501a14a06194c9b
+translation_source_sha: 8c751cec267bcdfc08f7e83063bb0cb2caf57879
 translation_revised: 2026-08-31
 ---
 # 다중 서비스 저장소 레이아웃
@@ -109,7 +109,7 @@ fdai/
 │   │   ├── channels/           # 순수 Teams/Slack 표현과 인증된 범위 제한 A3 전송; executor identity 없음
 │   │   ├── chatops/            # 채널 어댑터 (Teams / Slack / email / webhook / pager / SMS)
 │   │   ├── notifications/      # 채널별 sender; sibling `incident_platform/`은 PagerDuty/ServiceNow lifecycle 및 PagerDuty roster adapter 제공
-│   │   ├── persistence/        # Forecast episode/outbox, relational case-history backfill 및 원자적 background-task 완료 감사 표시를 포함한 Postgres / pgvector store
+│   │   ├── persistence/        # 정확한 버전의 T2 캐시 TTL, 승격/롤백 상태 및 원자적 로테이션 증적을 포함한 Postgres / pgvector 저장소
 │   │   ├── operating_model/    # bounded JSON deployment operating-model adapter; startup-only, all-before-write
 │   │   ├── runtime_settings.py  # allowlist된 env default + revisioned StateStore override; executor identity 또는 promotion authority 없음
 │   │   ├── behavior_knowledge/ # in-memory hybrid behavior index, tracked-source freshness, built-in behavior seed

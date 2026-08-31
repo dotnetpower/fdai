@@ -586,6 +586,12 @@ and the authoritative registry, never inferred from phase names in this document
   structured error, not an exception traceback.
 ## 13. Data + wire contracts
 
+FDAI Console compiles the generated TypeScript view at
+`console/src/generated/service-contracts.ts`. The checksum-pinned repository generator derives this
+view from the same N/N-1 JSON Schemas used by the five backend services. The generated interface
+improves compile-time alignment only; the Operator service still validates wire payloads against
+the canonical schema, and Console receives no approval, mutation, or execution authority.
+
 Split into focused owner documents:
 
 - [operator-console-wire-contracts.md](operator-console-wire-contracts.md) - audit entry, CLI REPL, approval callback (13.1-13.3), action submit, Python VM workbench, grounded code, and ontology projection (13.6-13.9).

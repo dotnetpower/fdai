@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 200ae1a3342d7e500e150e987ece779888f94c08
+translation_source_sha: 8831e272faa6e4221c50f32d51e75347b7f62f92
 translation_revised: 2026-08-31
 ---
 # 프로젝트 구조
@@ -11,6 +11,23 @@ translation_revised: 2026-08-31
 ## 설계 개요
 
 물리적인 5개 서비스 workspace는 [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md)이 소유합니다. 이 문서는 의존성 방향, 구조 게이트, 확장 seam, 컨트롤 루프 배선, 구성 및 저장소 규칙을 소유합니다.
+
+## Core 도메인 탐색 결정
+
+**초기 설계.** 모든 평면 Core 하위 시스템을 `pipeline`, `incident`, `operator`, `knowledge`
+또는 `platform` 아래로 실제 이동한 뒤 한 번의 코드 변경 도구로 모든 가져오기를 다시 작성합니다.
+
+**비판.** 현재 저장소에서는 영향받는 하위 시스템 경로를 1,063개 파일이 가져옵니다. 이 이동은
+안전 핵심 커버리지 소스 목록도 바꾸고 fan-out 게이트를 하위 시스템 이름에서 도메인 이름으로
+축소합니다. `incident`와 `knowledge`는 이미 하위 시스템과 facade 역할을 함께 수행하며
+`ontology_explorer.py`는 다른 구성원과 달리 패키지가 아닌 파일입니다. 이를 이동 전용 변경으로
+취급하면 대규모 차이 안에 중요한 테스트, 커버리지 및 게이트 의미가 숨습니다.
+
+**개정 설계.** 5개 도메인 facade를 영구 G-1 레이아웃으로 사용합니다. 그룹 탐색을 제공하면서
+실제 하위 시스템과 직접 가져오기는 안정적으로 유지합니다. 집중 레이아웃 검사 98개가 도메인
+구성원, 단일 소유권, 이중 역할 패키지, 직접 가져오기 호환성 및 동료 격리를 고정합니다.
+`verticals`는 자체 최상위 그룹으로 유지합니다. 이후 실제 이동은 필요하지 않으며 진행하려면
+커버리지와 fan-out 의미를 명시적으로 보존하는 별도의 도메인 범위 설계가 필요합니다.
 
 ## 모듈 경계(모듈 Boundaries)
 
@@ -548,10 +565,14 @@ HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서
   패키지 활성화는 사용자 접근 및 액션 승격과 독립적으로 유지됩니다.
 - 서비스 wire 계약은 `packages/service-contracts/src/fdai_service_contracts/`에 있습니다.
   `schemas/<contract-id>/<version>.json` 아래의 버전별 JSON 스키마는 불변이므로 새 필드는
-  새 추가적 버전으로 배포되며 이전 소비자는 그것을 계속 무시합니다. `operator-core-request`는
-  `1.4.0`입니다. Version 1.3은 서버 소유 `semantic_turn.bound_context`를 추가했고, version 1.4는
-  실행 권한을 부여하지 않는 범위가 제한된 `semantic_turn.include_model_trace` 활성화 설정을
-  추가합니다.
+  새 추가적 버전으로 배포되며 이전 소비자는 그것을 계속 무시합니다. 저장소가 소유하고
+  체크섬으로 고정한 생성기는 호환성 매니페스트의 모든 N/N-1 스키마를 백엔드 서비스 5개용
+  Python 타입과 Console용 TypeScript 타입으로 변환합니다. 이 파일은 읽기 전용 개발
+  변환 결과이며 런타임 검증은 기준 JSON Schema를 계속 사용합니다.
+  `operator-core-request`는 `1.5.0`입니다. Version 1.3은 서버 소유
+  `semantic_turn.bound_context`를 추가했고, version 1.4는 범위가 제한된
+  `semantic_turn.include_model_trace` 활성화 설정을 추가했으며, version 1.5는 실행 권한을
+  부여하지 않는 서버 해석 조사 연속 작업을 추가했습니다.
   `core-operator-projection` 1.4는 닫힌 사회적 의도를 전달하는 타입 지정 `direct_response`
   최종 처리 결과를 추가합니다. 범위가 제한된 텍스트는 스키마로 검증된 의미 판단 모델에서 오며
   조회 digest, 근거 참조, 검증 주장 또는 권한을 포함하지 않습니다.
