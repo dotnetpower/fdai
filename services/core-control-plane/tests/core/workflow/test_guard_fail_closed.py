@@ -30,6 +30,8 @@ from fdai.shared.providers.process_runtime import ProcessStatus
 from fdai.shared.providers.testing.process_runtime import InMemoryProcessRuntimeStore
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
+from tests.decision_evidence import StubDecisionEvidenceAdmissionProvider
+
 _ROOT = Path(__file__).resolve().parents[5]
 
 
@@ -176,7 +178,10 @@ async def test_missing_window_evidence_blocks_the_step_without_an_error() -> Non
 async def test_active_window_evidence_passes_the_guard() -> None:
     status, reason, rows = await _run(
         ChangeWindowWorkflowGuardEvaluator(
-            change_windows=cast(ChangeWindowGateEvidence, _ActiveWindows())
+            change_windows=cast(ChangeWindowGateEvidence, _ActiveWindows()),
+            decision_evidence_provider=StubDecisionEvidenceAdmissionProvider(
+                lambda: datetime.now(tz=UTC)
+            ),
         ),
     )
 
@@ -213,3 +218,18 @@ def test_guard_evidence_age_must_be_positive() -> None:
             snapshot=cast(Any, object()),
             guard_evidence_max_age=timedelta(0),
         )
+
+
+async def test_an_unbound_admission_provider_blocks_an_active_window_step() -> None:
+    # The change window is authoritative and active, but no shared decision-critical
+    # evidence admission covers the gate decision, so the step can only block.
+    status, reason, rows = await _run(
+        ChangeWindowWorkflowGuardEvaluator(
+            change_windows=cast(ChangeWindowGateEvidence, _ActiveWindows())
+        ),
+    )
+
+    assert status is ProcessStatus.FAILED
+    assert reason == "gate_blocked"
+    assert rows[0]["guard_passed"] is False
+    assert rows[0]["guard_error"] is None

@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 439c095cde164f0f0737a9ba628e63a698e52f5b
-translation_revised: 2026-08-30
+translation_source_sha: 2a4473520bb550725776156a9891c0f43ad552de
+translation_revised: 2026-08-31
 ---
 # 프로세스 자동화(프로세스 자동화)
 
@@ -246,6 +246,15 @@ catalog-root, 어댑터 라우팅, 저널, 명령 및 샌드박스 실행 세부
 architecture-review 운영 게이트는 그대로 유지됩니다. 가드 해석은 실패 시 차단입니다: 오래된 평가 시점,
 예외를 던지거나 사용할 수 없는 평가기, 불리언이 아닌 결과는 각각 단계를 차단하고 범위가 제한된
 `guard_error`를 기록하며, 깨끗한 정책 차단은 `guard_error`를 null로 유지합니다.
+게이트를 여는 것은 긍정적 결정이므로, 조건을 충족한 게이트에는 해당 게이트 참조와 프로세스
+계보에 정확히 연결된 최신 공유 의사 결정 핵심 근거 승인 결과가 추가로 필요합니다. 승인
+프로바이더가 연결되지 않았거나 승인 결과가 일치하지 않으면 게이트는 닫힌 상태로 유지됩니다.
+
+지속된 단계 결과를 수락할 때도 같은 규칙을 적용합니다. `StateStoreWorkflowOutcomeLedger`는
+관측된 모든 결과를 계속 기록하지만, 해당 기록과 프로세스 계보에 정확히 일치하는 최신 승인
+결과가 있을 때만 증적을 검증된 성공으로 처리합니다. 승인 결과가 없으면 `verify`는 false를
+반환하고 `resolve`는 프로세스를 진행시키는 대신 증적을 거부합니다.
+
 Shipped `planned-vm-start-change`
 작업 흐름은 활성 구간, Owner 정족수, `ops.start-vm`, 독립 결과 검증, 변경 요약,
 `ops.deallocate-vm` 보상의 재사용 가능한 전체 pattern을 보여 줍니다. Versioned 작업 흐름

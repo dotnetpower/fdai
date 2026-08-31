@@ -1,8 +1,8 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: a83b56938d06387b3962700ebb28c6d2dd0d965e
-translation_revised: 2026-08-30
+translation_source_sha: b293a69cce30c4ddbad086941d5e520cdf2f6e84
+translation_revised: 2026-08-31
 ---
 
 # 목표와 메트릭
@@ -27,9 +27,10 @@ translation_revised: 2026-08-30
 |------|------|------|------|
 | 결정론적 KPI와 가드 메트릭 집계 | implemented | `core/measurement/mttr.py`; `dora.py`; `regression.py`; `tests/core/measurement/` 아래의 집중 테스트 | MTTR, 변경, 회귀, 지연 시간, 모델 및 pattern 메트릭에 실행 가능한 reducer와 실패 시 차단 검사가 있습니다. |
 | 승격 및 운영 근거 평가 | implemented | `core/measurement/promotion_gate.py`; `operational_promotion.py`; 집중 승격 테스트 | 승격 평가는 개정 번호, 시나리오, 표본, 신뢰 구간, 가드 및 결과 근거를 연결합니다. 현재 유효한 공유 의사 결정 근거 승인 결과가 전체 묶음과 일치해야만 준비 완료 결과가 나올 수 있습니다. 기존 저장 증적은 읽을 수 있지만 증적 및 검증 묶음 다이제스트가 없으면 승격 권한에 사용할 수 없습니다. |
+| 의사 결정 경계 승인 완전 커버리지 | implemented | `config/decision-boundary-inventory.json`; `scripts/quality/architecture/check-decision-boundary-coverage.py`; `tests/integration/scripts/test_decision_boundary_coverage.py`; 집중 경계 테스트 | 등록된 긍정적 의사 결정 경계 15개가 모두 공유 승인 계약을 통해 의사 결정 핵심 근거를 해석하며, 승인 결과가 없거나 수락되지 않으면 검토 보류로 처리합니다. 가드는 인벤토리를 양방향으로 검사하므로 의도적으로 누락된 등록 경계는 실패합니다. 준비 상태 매트릭스는 누락, 오래됨, 불완전, 충돌, 합성, 잘못된 목적 및 잘못된 범위 근거를 각각 이름으로 차단합니다. |
 | 관리되는 운영 커버리지 주장 계약 | implemented | `packages/service-contracts/src/fdai_service_contracts/operational_coverage.py`; `packages/service-contracts/tests/test_operational_coverage.py` | 변경할 수 없는 분모, 최종 처리 결과, 최신성, 정확한 베이시스 포인트, 무관용 조건 및 다이제스트 검사를 통해 불완전한 전체 집합이 99% 주장으로 바뀌지 않도록 합니다. 증적은 실행 권한을 부여하지 않습니다. |
 | 정식 의사 결정 핵심 근거 봉투 | implemented | `packages/service-contracts/src/fdai_service_contracts/decision_evidence.py`; `schemas/decision-critical-evidence/1.0.0.json`; 집중 계약 테스트 | 이 봉투는 근거와 해당 인증 증명, 권위, 범위, 목적, 정확한 생성기와 방법, 시간, 정책에서 파생된 최신성, 완전성 증명, 충돌 판정, 출처 계보 및 합성 상태를 연결합니다. 주장 사전 검사는 입력을 차단하거나 별도의 권위 있는 검증으로 전달할 수만 있으며 실제 운영 준비 상태를 주장하지 않습니다. 기존 의사 결정 경계는 아직 마이그레이션해야 합니다. |
-| 독립적인 의사 결정 근거 검증 | in-progress | `decision_evidence_verification.py`; `core/readiness/decision_evidence.py`; `shared/providers/decision_evidence_verifier.py`; `delivery/azure/decision_evidence.py`; 집중 계약, 준비 상태 및 Azure 어댑터 테스트 | 내용 기반 증명 5개와 공유 승인 결과는 qualification, 운영 승격, 보안 온톨로지 쿼리 소비, 운영 컨텍스트 상태 근거와 스냅샷, 분석기 대상 선택, 시작 준비 상태 및 운영 준비 상태에 구현되어 있습니다. Rubric 및 채팅 정책 승격, 인과 종결과 효과 모델 활성화, 현재 사례 T1 재사용, 작업 흐름 결과 또는 승인은 아직 마이그레이션해야 합니다. 프로덕션 프로바이더 조립과 통제된 실제 묶음도 열려 있습니다. |
+| 독립적인 의사 결정 근거 검증 | in-progress | `decision_evidence_verification.py`; `core/readiness/decision_evidence.py`; `shared/providers/decision_evidence_verifier.py`; `delivery/azure/decision_evidence.py`; 집중 계약, 준비 상태 및 Azure 어댑터 테스트 | 내용 기반 증명 5개와 공유 승인 결과는 인벤토리에 등록된 모든 경계에 구현되어 있습니다. 프로덕션 프로바이더 조립과 통제된 실제 묶음은 아직 열려 있으므로, 배포된 각 경계는 현재 실제 근거를 승인하지 않고 검토 보류로 처리합니다. |
 | 고정된 시나리오 집합 계산 | in-progress | `tests/scenarios/manifests/v2026.07.json`; `test_frozen.py`; `test_v2026_07_replay.py` | 이제 SRE 묶음에는 실행 가능한 차원 4개가 있습니다. 성공적인 전체 루프와 목표 간 충돌 근거는 아직 열려 있으며 나머지 4개 묶음도 불완전합니다. |
 | 운영 인텔리전스 99% 완료 근거 | in-progress | `config/azure-discovery-live-evidence.json`; 연결된 거버넌스, RCA, 실행, 문서 수집 및 배포 원장 | Azure 발견에는 실행 권한이 없는 최신 커버리지 증적이 있습니다. 나머지 도메인에는 관리되는 정확한 개정 번호의 근거 집합이 없으므로 통합 99% 주장을 할 수 없습니다. |
 | 실제 운영 KPI 기준선, 처리 및 대시보드 종결 | in-progress | [데이터 수집과 원격측정](#데이터-수집과-원격측정); `config/constitution-traceability.json`의 `FDAI-CONST-002` 요구 사항 | 런타임 기록과 작업은 있지만 하나의 고정된 개정에서 모든 성공 및 임계값 0 가드 메트릭을 입증하는 완전한 실제 운영 기준선 및 처리 집단은 보존되지 않았습니다. |
@@ -38,6 +39,7 @@ translation_revised: 2026-08-30
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-31 | implemented | FDAI-CONST-002 경계 인벤토리를 완결했습니다. 인과 종결, 효과 모델 활성화, 작업 흐름 게이트 및 작업 흐름 결과 수락은 이제 정확한 근거, 범위, 목적 및 소스 개정에 연결된 최신 공유 승인 결과를 요구하며, 승인 결과가 없거나 수락되지 않으면 각각 검토 보류로 처리합니다. `config/decision-boundary-inventory.json`이 전체 인벤토리를 기록하고, 새 커버리지 가드가 이를 양방향으로 검사하므로 공유 승인이 없는 등록 경계도, 인벤토리에 없는 소스 경계도 실패합니다. 준비 상태 경계는 이제 누락, 오래됨, 불완전, 충돌, 합성, 잘못된 목적 및 잘못된 범위 근거를 각각 이름으로 차단합니다. | `current change`; `config/decision-boundary-inventory.json`; `scripts/quality/architecture/check-decision-boundary-coverage.py`; `core/rca/hypothesis.py`; `core/assurance_twin/model_promotion.py`; `core/workflow/gate_resolver.py`; `core/workflow/outcome_verification.py`; 집중 rca, assurance-twin, 영속성, 작업 흐름, 준비 상태 및 스크립트 통합 검사; `check-constitution.py`; Ruff 및 엄격 mypy. | FDAI-CONST-002가 `partial`을 벗어나려면 프로덕션 검증기와 승인 프로바이더를 런타임 조립에 연결하고 통제된 실제 묶음을 보존해야 합니다. |
 | 2026-08-29 | in-progress | 독립적인 종료 검토에서 추가 하위 시스템 증적 게이트를 확인한 뒤 FDAI-CONST-002 경계 목록을 정정했습니다. 마이그레이션된 경계는 계속 구현 상태이지만 Rubric 및 채팅 정책 승격, 인과 종결과 Dynamic 모델 활성화, 현재 사례 T1 재사용, 작업 흐름 결과 또는 승인은 아직 공유 계약 채택으로 계산할 수 없습니다. Standing authority는 숨겨진 완료 주장이 아니라 명시적인 shadow 전용 미연결 제외 항목으로 유지합니다. | `current change`; `core/quality_gate`, `core/conversation_assurance`, `core/rca`, `core/tiers/t1_lightweight`, `core/workflow`, `core/assurance_twin`의 출처 목록, 계속 `partial`인 추적성 상태. | 이름이 지정된 각 긍정적 의사 결정 경계를 마이그레이션하거나 외부 공유 게이트로 명시하고 자동 커버리지 가드를 추가하며 프로덕션 프로바이더를 연결하고 통제된 실제 묶음을 보존합니다. |
 | 2026-08-29 | implemented | 의사 결정 사례와 계획이 사용하는 런타임 운영 컨텍스트 스냅샷을 마이그레이션했습니다. 최종 재생 신원은 승인 전 그래프 다이제스트와 승인 결과를 연결하며, 승인 결과가 없거나 수락되지 않으면 명시적 충돌로 기록하고 자율성을 `SHADOW_ONLY`로 고정합니다. 프로덕션 pantheon은 승인 결과를 요구하며 기본 긍정 프로바이더가 없습니다. | `current change`; 컨텍스트 모델, materializer, 런타임 pantheon 조립, 집중 컨텍스트, 에이전트 및 부트스트랩 검사, Ruff 및 strict mypy. | 프로덕션 컨텍스트 승인 프로바이더를 연결하고 통제된 스냅샷 묶음을 보존합니다. |
 | 2026-08-29 | in-progress | 공유 증적, 5개 증명 묶음, 마이그레이션된 qualification, 승격, 쿼리, 상태 묶음, 분석기, 시작 준비 상태 및 운영 준비 상태 경계와 집중 테스트를 FDAI-CONST-002 추적성 목록에 갱신했습니다. 헌법 상태는 계속 `partial`이며 로컬 테스트나 어댑터 경로를 통제된 실제 운영 근거로 기록하지 않았습니다. | `current change`; `config/constitution-traceability.json`, 헌법 및 집중 경계 검사. | 남은 직접 상태 소비자를 목록화하고 마이그레이션하며 프로덕션 검증기 및 승인 프로바이더를 연결하고 통제된 실제 묶음을 보존한 뒤에만 상태를 `implemented`로 변경합니다. |
@@ -65,9 +67,9 @@ translation_revised: 2026-08-30
 - [ ] ARB / 변경 안전성, FinOps / 비용 거버넌스, DR 및 Chaos Engineering 묶음에 실행 가능한 헌법상 6개 차원을 모두 갖춥니다.
 - [ ] 동일한 고정 시나리오 집합에서 표본 크기, 신뢰 구간, 절대값 및 지원되지 않는 배수 주장이 없는 하나의 참조 기준선과 FDAI 처리를 보존합니다.
 - [ ] 실제 운영 인시던트, 변경, 비용, 사람 터치포인트 및 독립적으로 검증된 결과 기록을 KPI 변환 결과에 연결한 다음 모든 임계값 0 가드가 0을 유지함을 입증합니다.
-- [ ] Rubric 및 채팅 정책 승격, 인과 종결과 효과 모델 활성화, 현재 사례 T1 재사용, 작업 흐름 결과 또는 승인을 공유 증적 및 승인 결과로 마이그레이션하거나 외부 공유 게이트로 명시합니다.
-- [ ] 등록된 긍정적 의사 결정 경계에 공유 승인 결과가 없으면 실패하는 자동 커버리지 가드를 추가합니다.
-- [ ] 독립적인 검증기 레지스트리와 승인 프로바이더를 프로덕션 조립에 연결하고 프로덕션 시작, 운영 준비 상태, qualification, 승격, 쿼리 및 상태 묶음을 보존한 다음 합성 또는 불완전 근거가 실제 운영 주장을 충족하지 못함을 입증합니다.
+- [x] Rubric 및 채팅 정책 승격, 인과 종결, 효과 모델 활성화, 현재 사례 T1 재사용, 작업 흐름 게이트 및 작업 흐름 결과 수락을 포함한 등록된 모든 긍정적 의사 결정 경계를 공유 증적 및 승인 결과로 마이그레이션했습니다. 근거: `config/decision-boundary-inventory.json`과 여기에 인용된 집중 경계 테스트.
+- [x] 등록된 긍정적 의사 결정 경계에 공유 승인 결과가 없으면 실패하는 자동 커버리지 가드를 추가했습니다. 근거: `scripts/quality/architecture/check-decision-boundary-coverage.py`와 `tests/integration/scripts/test_decision_boundary_coverage.py`.
+- [ ] `config/decision-boundary-inventory.json`의 모든 경계에 대해 독립적인 검증기 레지스트리와 승인 프로바이더를 프로덕션 조립에 연결하고, 경계마다 통제된 실제 묶음을 하나씩 보존한 다음, 합성 또는 불완전 근거가 실제 운영 주장을 충족하지 못한다는 결과와 함께 `python3 scripts/quality/architecture/check-decision-boundary-coverage.py` 통과 결과를 기록합니다.
 - [x] 공급자 중립 `OperationalCoverageReceipt`를 정의하고 집중 테스트를 통해 분모,
   처리 결과, 최신성, 임계값, 무관용 조건 및 다이제스트 불변 조건을 입증합니다.
 

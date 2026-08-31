@@ -4,23 +4,46 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+
+from fdai_service_contracts.ontology_query import content_digest
 
 from fdai.shared.contracts.models import Action, Mode, ResponseOutcome, ResponseOutcomeLabel
+from fdai.shared.providers.decision_evidence_verifier import (
+    DecisionEvidenceAdmission,
+    DecisionEvidenceAdmissionProvider,
+    assess_decision_evidence_admission,
+)
 from fdai.shared.providers.state_store import StateStore
 
 from .workflow_runtime import WorkflowVerifiedOutcome
 
+WORKFLOW_OUTCOME_EVIDENCE_PURPOSE = "workflow-outcome"
 _SUCCESS_OUTCOMES = frozenset({"dispatched", "already_applied", "published", "already_existed"})
 _UNKNOWN_OUTCOMES = frozenset({"publish_outcome_unknown"})
 _KEY_PREFIX = "workflow:outcome:"
 
 
+def _default_clock() -> datetime:
+    return datetime.now(tz=UTC)
+
+
 @dataclass(frozen=True, slots=True)
 class StateStoreWorkflowOutcomeLedger:
-    """Record and verify independently evidenced workflow action outcomes."""
+    """Record and verify independently evidenced workflow action outcomes.
+
+    Recording is a durable observation and needs no admission. Accepting a durable
+    receipt as a positive workflow outcome additionally requires a current shared
+    decision-critical evidence admission bound to that exact record and Process
+    lineage. An unbound provider or a mismatched admission fails closed: `verify`
+    returns `False` and `resolve` raises instead of returning a verified outcome.
+    """
 
     store: StateStore
+    decision_evidence_provider: DecisionEvidenceAdmissionProvider | None = None
+    clock: Callable[[], datetime] = field(default=_default_clock)
 
     async def record(
         self,
@@ -98,9 +121,40 @@ class StateStoreWorkflowOutcomeLedger:
             "outcome": outcome,
             "receipt_ref": receipt_ref,
         }
-        return all(record.get(field) == value for field, value in expected.items()) and (
+        matched = all(record.get(name) == value for name, value in expected.items()) and (
             record.get("evidence_status")
             == ("effect_verified" if outcome == "succeeded" else "terminal_failure")
+        )
+        if not matched:
+            return False
+        return not await self._admission_rejection_reasons(record)
+
+    async def _admission_rejection_reasons(self, record: Mapping[str, object]) -> tuple[str, ...]:
+        """Return why the shared admission cannot admit this durable receipt."""
+
+        evidence_digest = workflow_outcome_evidence_digest(record)
+        scope_digest = workflow_outcome_scope_digest(record)
+        source_revision = _text(record, "receipt_ref")
+        admission: DecisionEvidenceAdmission | None = None
+        if self.decision_evidence_provider is not None:
+            admission = await self.decision_evidence_provider.admit(
+                evidence_digest=evidence_digest,
+                scope_digest=scope_digest,
+                purpose_id=WORKFLOW_OUTCOME_EVIDENCE_PURPOSE,
+                source_revision=source_revision,
+            )
+        if admission is None:
+            return ("decision_evidence_admission_missing",)
+        return tuple(
+            f"decision_evidence_{reason.value}"
+            for reason in assess_decision_evidence_admission(
+                admission,
+                expected_evidence_digest=evidence_digest,
+                expected_scope_digest=scope_digest,
+                expected_purpose_id=WORKFLOW_OUTCOME_EVIDENCE_PURPOSE,
+                expected_source_revision=source_revision,
+                evaluated_at=self.clock(),
+            )
         )
 
     async def resolve(
@@ -129,6 +183,44 @@ class StateStoreWorkflowOutcomeLedger:
         return WorkflowVerifiedOutcome(outcome=outcome, receipt_ref=receipt_ref)
 
 
+def workflow_outcome_evidence_digest(record: Mapping[str, object]) -> str:
+    """Return the exact durable workflow outcome digest without admission fields."""
+
+    return content_digest(
+        {
+            "action_id": _text(record, "action_id"),
+            "evidence_status": _text(record, "evidence_status"),
+            "execution_outcome": _text(record, "execution_outcome"),
+            "execution_receipt_ref": record.get("execution_receipt_ref"),
+            "outcome": _text(record, "outcome"),
+            "process_id": _text(record, "process_id"),
+            "proposal_ref": _text(record, "proposal_ref"),
+            "receipt_ref": _text(record, "receipt_ref"),
+            "response_outcome_id": _text(record, "response_outcome_id"),
+            "step_id": _text(record, "step_id"),
+        }
+    )
+
+
+def workflow_outcome_scope_digest(record: Mapping[str, object]) -> str:
+    """Return the exact Process, step, and proposal lineage scope of one receipt."""
+
+    return content_digest(
+        {
+            "process_id": _text(record, "process_id"),
+            "proposal_ref": _text(record, "proposal_ref"),
+            "step_id": _text(record, "step_id"),
+        }
+    )
+
+
+def _text(record: Mapping[str, object], key: str) -> str:
+    value = record.get(key)
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"durable workflow outcome receipt field '{key}' is malformed")
+    return value
+
+
 def _classify_outcome(*, execution_outcome: str, response_outcome: ResponseOutcome) -> str | None:
     if execution_outcome in _SUCCESS_OUTCOMES:
         if response_outcome.label is ResponseOutcomeLabel.VERIFIED:
@@ -148,4 +240,9 @@ def _digest(payload: dict[str, object]) -> str:
     return hashlib.sha256(canonical.encode()).hexdigest()
 
 
-__all__ = ["StateStoreWorkflowOutcomeLedger"]
+__all__ = [
+    "WORKFLOW_OUTCOME_EVIDENCE_PURPOSE",
+    "StateStoreWorkflowOutcomeLedger",
+    "workflow_outcome_evidence_digest",
+    "workflow_outcome_scope_digest",
+]

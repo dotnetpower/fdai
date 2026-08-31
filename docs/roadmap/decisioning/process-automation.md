@@ -252,6 +252,15 @@ Process target and evaluation time. It delegates other refs to the existing guar
 the architecture-review production gate remains unchanged. Guard resolution is fail-closed: a
 stale evaluation clock, a raising or unavailable evaluator, and a non-boolean result each block
 the step and record a bounded `guard_error`, while a clean policy block keeps `guard_error` null.
+An open gate is a positive decision, so a satisfied gate additionally needs a current shared
+decision-critical evidence admission bound to that exact gate reference and Process lineage. When no
+admission provider is bound, or the admission does not match, the gate stays closed.
+
+Accepting a durable step outcome follows the same rule. `StateStoreWorkflowOutcomeLedger` still
+records every observed outcome, but it treats a receipt as a verified success only when a current
+admission matches that exact record and Process lineage. Without one, `verify` returns false and
+`resolve` refuses the receipt instead of advancing the Process.
+
 The shipped
 `planned-vm-start-change` workflow demonstrates the complete reusable pattern: active window,
 Owner quorum, `ops.start-vm`, independent outcome verification, change summary, and

@@ -10,15 +10,22 @@ from enum import StrEnum
 from typing import Protocol
 
 from fdai.shared.contracts.models import Event
+from fdai.shared.providers.decision_evidence_verifier import (
+    DecisionEvidenceAdmission,
+    DecisionEvidenceAdmissionProvider,
+)
 from fdai.shared.providers.ontology_instance import OntologyObjectRecord
 
 from .hypothesis import (
+    CAUSAL_CLOSURE_EVIDENCE_PURPOSE,
     CausalActionMode,
     CausalClosure,
     CausalEvidenceAssessment,
     CausalHypothesisRecord,
     build_causal_hypothesis,
     causal_action_mode,
+    causal_closure_evidence_digest,
+    causal_closure_scope_digest,
     close_causal_hypothesis,
 )
 from .temporal_causality import (
@@ -164,14 +171,20 @@ class CausalRuntimeResult:
     outcome: CausalRuntimeOutcome
     claim: TemporalCausalClaim | None = None
     hypothesis: CausalHypothesisRecord | None = None
+    decision_evidence: DecisionEvidenceAdmission | None = None
+    evaluated_at: datetime | None = None
 
     @property
     def action_mode(self) -> CausalActionMode:
         """Return the highest mode this result supports; absent evidence stays in shadow."""
 
-        if self.hypothesis is None:
+        if self.hypothesis is None or self.evaluated_at is None:
             return CausalActionMode.SHADOW
-        return causal_action_mode(self.hypothesis)
+        return causal_action_mode(
+            self.hypothesis,
+            decision_evidence=self.decision_evidence,
+            evaluated_at=self.evaluated_at,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -248,6 +261,7 @@ class CausalRuntimeCoordinator:
         projector: CausalHypothesisProjection,
         method_version: str,
         intervention_receipt_verifier: CausalInterventionReceiptVerifier | None = None,
+        decision_evidence_provider: DecisionEvidenceAdmissionProvider | None = None,
     ) -> None:
         if not method_version:
             raise ValueError("causal runtime method_version MUST be non-empty")
@@ -256,6 +270,7 @@ class CausalRuntimeCoordinator:
         self._projector = projector
         self._method_version = method_version
         self._intervention_receipt_verifier = intervention_receipt_verifier
+        self._decision_evidence_provider = decision_evidence_provider
 
     async def analyze(self, *, event: Event, incident_id: str) -> CausalRuntimeResult:
         evidence = await self._evidence_provider.collect(event=event, incident_id=incident_id)
@@ -306,6 +321,23 @@ class CausalRuntimeCoordinator:
             CausalRuntimeOutcome.ANALYZED,
             claim=claim,
             hypothesis=hypothesis,
+            decision_evidence=await self._admit(hypothesis),
+            evaluated_at=event.ingested_at,
+        )
+
+    async def _admit(
+        self,
+        hypothesis: CausalHypothesisRecord,
+    ) -> DecisionEvidenceAdmission | None:
+        """Request the shared admission for one revision; an unbound seam admits nothing."""
+
+        if self._decision_evidence_provider is None:
+            return None
+        return await self._decision_evidence_provider.admit(
+            evidence_digest=causal_closure_evidence_digest(hypothesis),
+            scope_digest=causal_closure_scope_digest(hypothesis),
+            purpose_id=CAUSAL_CLOSURE_EVIDENCE_PURPOSE,
+            source_revision=hypothesis.graph_revision,
         )
 
     async def close(self, observation: CausalClosureObservation) -> CausalHypothesisRecord:

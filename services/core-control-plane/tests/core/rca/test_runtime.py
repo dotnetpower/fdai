@@ -6,7 +6,14 @@ from typing import Any
 
 import pytest
 from fdai.core.detection.series import MetricSample
-from fdai.core.rca.hypothesis import CausalActionMode, CausalClosure, causal_action_mode
+from fdai.core.rca.hypothesis import (
+    CAUSAL_CLOSURE_EVIDENCE_PURPOSE,
+    CausalActionMode,
+    CausalClosure,
+    causal_action_mode,
+    causal_closure_evidence_digest,
+    causal_closure_scope_digest,
+)
 from fdai.core.rca.runtime import (
     CausalClosureObservation,
     CausalRuntimeCoordinator,
@@ -18,7 +25,8 @@ from fdai.core.rca.temporal_causality import (
     TemporalCausalityConfig,
     TemporalSeries,
 )
-from fdai.shared.contracts.models import Event
+from fdai.shared.contracts.models import CausalEvidenceGrade, Event
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 
 _START = datetime(2026, 8, 1, tzinfo=UTC)
 _VALUES = (3, 8, 1, 7, 2, 9, 4, 6, 0, 5, 11, 3, 10, 2, 8, 1, 12, 4, 9, 0, 7, 5, 13, 2)
@@ -309,5 +317,88 @@ async def test_runtime_results_expose_shadow_mode_for_analysis_and_unsafe_closur
 
     assert missing.action_mode is CausalActionMode.SHADOW
     assert analyzed.action_mode is CausalActionMode.SHADOW
+    assert analyzed.decision_evidence is None
     assert unsafe.closure is CausalClosure.UNSAFE
-    assert causal_action_mode(unsafe) is CausalActionMode.SHADOW
+    assert (
+        causal_action_mode(
+            unsafe,
+            decision_evidence=None,
+            evaluated_at=datetime(2026, 8, 2, 1, tzinfo=UTC),
+        )
+        is CausalActionMode.SHADOW
+    )
+
+
+class _StubAdmissionProvider:
+    """Return one admission bound to whatever the boundary asked about."""
+
+    def __init__(self, *, purpose_id: str | None = None) -> None:
+        self._purpose_id = purpose_id
+        self.requests: list[dict[str, str]] = []
+
+    async def admit(
+        self,
+        *,
+        evidence_digest: str,
+        scope_digest: str,
+        purpose_id: str,
+        source_revision: str,
+    ) -> DecisionEvidenceAdmission:
+        self.requests.append(
+            {
+                "evidence_digest": evidence_digest,
+                "scope_digest": scope_digest,
+                "purpose_id": purpose_id,
+                "source_revision": source_revision,
+            }
+        )
+        digest = f"sha256:{'d' * 64}"
+        return DecisionEvidenceAdmission(
+            receipt_digest=digest,
+            verification_bundle_digest=digest,
+            evidence_digest=evidence_digest,
+            scope_digest=scope_digest,
+            purpose_id=self._purpose_id or purpose_id,
+            source_revision=source_revision,
+            verified_at=_START,
+            valid_until=_START + timedelta(days=7),
+        )
+
+
+async def test_the_runtime_binds_the_exact_causal_admission_request() -> None:
+    admissions = _StubAdmissionProvider()
+    coordinator = CausalRuntimeCoordinator(
+        evidence_provider=_Provider(replace(_evidence(), refuting_evidence_ids=())),
+        analyzer=TemporalCausalityAnalyzer(
+            TemporalCausalityConfig(
+                lag_seconds=(0, 3600, 7200),
+                min_samples=12,
+                min_abs_correlation=0.7,
+                direction_margin=0.2,
+                candidate_count=3,
+            )
+        ),
+        projector=_Projector(),
+        method_version="temporal-causal-v1",
+        intervention_receipt_verifier=_InterventionVerifier(),
+        decision_evidence_provider=admissions,
+    )
+
+    analyzed = await coordinator.analyze(event=_event(), incident_id="incident-1")
+    assert analyzed.hypothesis is not None
+
+    assert admissions.requests == [
+        {
+            "evidence_digest": causal_closure_evidence_digest(analyzed.hypothesis),
+            "scope_digest": causal_closure_scope_digest(analyzed.hypothesis),
+            "purpose_id": CAUSAL_CLOSURE_EVIDENCE_PURPOSE,
+            "source_revision": "graph-r1",
+        }
+    ]
+    assert analyzed.decision_evidence is not None
+    assert analyzed.decision_evidence.execution_authority is False
+    assert analyzed.decision_evidence.promotion_authority is False
+    # A matched admission never raises the mode: this temporal grade stays below
+    # quasi-experimental, so the revision remains evidence-only.
+    assert analyzed.hypothesis.evidence_grade is CausalEvidenceGrade.PREDICTIVE_PRECEDENCE
+    assert analyzed.action_mode is CausalActionMode.SHADOW

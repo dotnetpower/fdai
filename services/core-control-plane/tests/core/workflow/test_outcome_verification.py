@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
+import pytest
 from fdai.core.workflow import StateStoreWorkflowOutcomeLedger
 from fdai.shared.contracts.models import (
     Action,
@@ -14,7 +16,32 @@ from fdai.shared.contracts.models import (
     RollbackRef,
     WorkflowActionRef,
 )
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+from tests.decision_evidence import StubDecisionEvidenceAdmissionProvider
+
+_EPOCH = datetime(2026, 8, 1, tzinfo=UTC)
+
+
+class _Admissions(StubDecisionEvidenceAdmissionProvider):
+    """Emit one otherwise-matching admission with explicit field overrides."""
+
+    def __init__(self, **overrides: object) -> None:
+        super().__init__(lambda: _EPOCH)
+        self._overrides = overrides
+
+    async def admit(self, **request: str) -> DecisionEvidenceAdmission:
+        admission = await super().admit(**request)  # type: ignore[arg-type]
+        return replace(admission, **self._overrides)  # type: ignore[arg-type]
+
+
+def _ledger(**overrides: object) -> StateStoreWorkflowOutcomeLedger:
+    return StateStoreWorkflowOutcomeLedger(
+        InMemoryStateStore(),
+        decision_evidence_provider=_Admissions(**overrides),
+        clock=lambda: _EPOCH,
+    )
 
 
 def _action(*, mode: Mode = Mode.ENFORCE) -> Action:
@@ -74,7 +101,7 @@ def _response(action: Action, *, verified: bool) -> ResponseOutcome:
 
 
 async def test_verified_success_requires_exact_durable_lineage_and_receipt() -> None:
-    ledger = StateStoreWorkflowOutcomeLedger(InMemoryStateStore())
+    ledger = _ledger()
     action = _action()
     receipt_ref = await ledger.record(
         action=action,
@@ -141,3 +168,64 @@ async def test_verified_shadow_execution_does_not_advance_enforce_workflow() -> 
     )
 
     assert receipt_ref is None
+
+
+async def test_an_unbound_admission_provider_cannot_verify_a_durable_receipt() -> None:
+    ledger = StateStoreWorkflowOutcomeLedger(InMemoryStateStore())
+    action = _action()
+    receipt_ref = await ledger.record(
+        action=action,
+        execution_outcome="dispatched",
+        execution_receipt_ref="provider-receipt-1",
+        response_outcome=_response(action, verified=True),
+    )
+
+    assert receipt_ref is not None
+    assert not await ledger.verify(
+        process_id="process-1",
+        step_id="restart",
+        proposal_ref="process-1:step:restart:attempt:1",
+        outcome="succeeded",
+        receipt_ref=receipt_ref,
+    )
+    with pytest.raises(ValueError, match="does not match Process lineage"):
+        await ledger.resolve(
+            process_id="process-1",
+            step_id="restart",
+            proposal_ref="process-1:step:restart:attempt:1",
+        )
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"purpose_id": "operational-readiness"},
+        {"scope_digest": f"sha256:{'3' * 64}"},
+        {"evidence_digest": f"sha256:{'4' * 64}"},
+        {"source_revision": "workflow-outcome:forged"},
+        {
+            "verified_at": _EPOCH - timedelta(days=3),
+            "valid_until": _EPOCH - timedelta(days=2),
+        },
+    ],
+)
+async def test_a_mismatched_admission_cannot_verify_a_durable_receipt(
+    overrides: dict[str, object],
+) -> None:
+    ledger = _ledger(**overrides)
+    action = _action()
+    receipt_ref = await ledger.record(
+        action=action,
+        execution_outcome="dispatched",
+        execution_receipt_ref="provider-receipt-1",
+        response_outcome=_response(action, verified=True),
+    )
+
+    assert receipt_ref is not None
+    assert not await ledger.verify(
+        process_id="process-1",
+        step_id="restart",
+        proposal_ref="process-1:step:restart:attempt:1",
+        outcome="succeeded",
+        receipt_ref=receipt_ref,
+    )
