@@ -25,8 +25,8 @@ What it runs (in order)
                           ``catalog/`` and ``collected/``
 * profile_deep          - schema + strict resolve against real known
                           rule ids + extends dag for every profile
-* best_practice_deep    - strict typed refs + complete Azure WAF control
-                          set + version-pinned rule-set members
+* best_practice_deep    - strict typed refs + pinned five-pillar Azure WAF
+                          control set + version-pinned rule-set members
 * mcsb_deep             - versioned v1/v2 control imports + strict rule,
                           runtime, evidence, and policy-profile crosswalks
 * baseline_deep         - loads the configuration/measurement baseline

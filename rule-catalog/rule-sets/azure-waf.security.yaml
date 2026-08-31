@@ -1,0 +1,51 @@
+schema_version: 1.0.0
+kind: rule-set
+id: azure-waf.security
+version: 1.0.0
+members:
+- rule_id: compute.vm.managed-identity.assigned
+  version: 1.0.0
+- rule_id: managed-identity.role-assignment.no-privileged-subscription-scope
+  version: 1.0.0
+- rule_id: managed-identity.role-assignment.no-wildcard-action
+  version: 1.0.0
+- rule_id: network.nsg.no-inbound-any-rdp
+  version: 1.0.0
+- rule_id: network.nsg.no-inbound-any-ssh
+  version: 1.0.0
+- rule_id: object-storage.encryption-at-rest.required
+  version: 1.0.0
+- rule_id: object-storage.https-only.required
+  version: 1.0.0
+- rule_id: object-storage.min-tls-version
+  version: 1.0.0
+- rule_id: object-storage.private-endpoint.required
+  version: 1.0.0
+- rule_id: object-storage.public-access.deny
+  version: 1.0.0
+- rule_id: object-storage.shared-key-access.disabled
+  version: 1.0.0
+- rule_id: postgresql-server.encryption-at-rest
+  version: 1.0.0
+- rule_id: postgresql-server.ssl-enforcement
+  version: 1.0.0
+- rule_id: secret-store.public-network-access.disabled
+  version: 1.0.0
+- rule_id: secret-store.purge-protection.enabled
+  version: 1.0.0
+- rule_id: secret-store.rbac-authorization.enabled
+  version: 1.0.0
+- rule_id: secret-store.rotation-overdue
+  version: 1.0.0
+- rule_id: sql-database.audit-enabled
+  version: 1.0.0
+- rule_id: sql-database.tde-required
+  version: 1.0.0
+- rule_id: subscription.role-assignment.no-guest-privileged
+  version: 1.0.0
+- rule_id: subscription.role-assignment.no-standing-privileged-access
+  version: 1.0.0
+provenance:
+  created_at: '2026-08-31T00:00:00Z'
+  created_by: catalog-team
+  source: azure-waf

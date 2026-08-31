@@ -54,9 +54,9 @@ approved value, measurement method, result, timestamp, approver, and immutable e
 | Supply chain | SBOM, image signature, provenance, vulnerability and IaC scans | Exact release artifact verified; blocking scans clean |
 | Cost | Current estimate, monthly cap, quota, and 12/36-month assumptions | Cost owner approves the measured envelope |
 
-The required-evidence profile should cover all five Azure Well-Architected pillars. Reliability and
-Operational Excellence controls are already cataloged; Security, Cost Optimization, and
-Performance Efficiency need the same machine-checkable depth.
+The required-evidence profile covers all five Azure Well-Architected pillars through 59 pinned
+control definitions. Catalog presence proves definition coverage only. A workload remains
+`unknown` until scope-matching typed evidence and separate approvals are supplied.
 
 ## Ownership bindings
 
@@ -73,6 +73,7 @@ escalation route and a distinct approval authority when separation of duties app
 | `reliability-owner` | SLO, RPO/RTO, recovery design, drills |
 | `release-owner` | Artifact provenance, deployment, rollback, promotion gates |
 | `cost-owner` | Budget, quota, price confirmation, capacity graduation |
+| `performance-owner` | Performance targets, capacity, load tests, scaling, and trend review |
 
 Blocker ownership must resolve to one of the registered slots. Agent stewardship is a separate
 human accountability overlay and does not replace production owners or approval authority.
@@ -97,21 +98,35 @@ approval mismatch, synthetic evidence, and bodies outside the fixed byte ceiling
 validation cannot turn metadata alone into production readiness.
 
 ```yaml
-evidence_bindings:
+checklist_evidence_bindings:
   production-terraform-plan:
+    kind: artifact
+    scope: scope://<fork-owned-scope-reference>
     uri: evidence://<governed-store-reference>
-    sha256: <64-lowercase-hex-digest>
-    scope_ref: <fork-owned-scope-reference>
-    revision: <immutable-source-revision>
-    approved_by: group:<fork-owned-approver>
-    approved_at: 2026-07-13T00:00:00Z
+    sha256: sha256:<64-lowercase-hex-digest>
+    source_identity: provider:<authenticated-source>
+    observed_at: 2026-07-13T00:00:00Z
+    recorded_at: 2026-07-13T00:01:00Z
     expires_at: 2027-01-13T00:00:00Z
-    freshness_seconds: 86400
+approval_bindings:
+  release-owner:
+    scope: scope://<fork-owned-scope-reference>
+    uri: evidence://<approval-receipt>
+    sha256: sha256:<64-lowercase-hex-digest>
+    approved_by: principal:<fork-owned-approver>
+    approved_at: 2026-07-13T00:02:00Z
+    expires_at: 2027-01-13T00:00:00Z
 ```
 
 Structural validation rejects unknown keys, missing fields, malformed digests, and invalid time
 ranges. Production validation also verifies the external evidence body and authority binding. A
 syntactically valid URI or digest alone is not production proof.
+
+The checklist projection uses `evidence_kinds` to prevent an artifact from satisfying a metric or
+drill requirement. Every evidence or not-applicable binding names the exact workload scope.
+`owner_bindings` assigns accountability only; `approval_bindings` carries a separate, current
+approval receipt. A not-applicable result also requires a justification and an approver distinct
+from the evidence producer.
 
 ## Risk, assumptions, issues, and exceptions
 

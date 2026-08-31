@@ -206,19 +206,21 @@ def _best_practice_reference_registries(
     catalog_root: Path,
     architecture_review: Mapping[str, Any],
 ) -> dict[RequirementKind, set[str]]:
-    evidence_ids = _architecture_review_evidence_ids(architecture_review)
+    evidence_ids = _architecture_review_evidence_ids_by_kind(architecture_review)
     owner_ids = _architecture_review_owner_ids(architecture_review)
     return {
         RequirementKind.RULE: {rule.id for rule in rules},
         RequirementKind.PROBE: probe_ids(load_probe_catalog(catalog_root / "probes")),
-        RequirementKind.ARTIFACT: evidence_ids,
-        RequirementKind.METRIC: evidence_ids,
-        RequirementKind.DRILL: evidence_ids,
+        RequirementKind.ARTIFACT: evidence_ids[RequirementKind.ARTIFACT],
+        RequirementKind.METRIC: evidence_ids[RequirementKind.METRIC],
+        RequirementKind.DRILL: evidence_ids[RequirementKind.DRILL],
         RequirementKind.APPROVAL: owner_ids,
     }
 
 
-def _architecture_review_evidence_ids(raw: Mapping[str, Any]) -> set[str]:
+def _architecture_review_evidence_ids_by_kind(
+    raw: Mapping[str, Any],
+) -> dict[RequirementKind, set[str]]:
     review = raw.get("architecture_review")
     if not isinstance(review, Mapping):
         raise RuntimeError("architecture_review MUST be a mapping")
@@ -228,17 +230,38 @@ def _architecture_review_evidence_ids(raw: Mapping[str, Any]) -> set[str]:
         raise RuntimeError("architecture_review.artifacts MUST be a sequence")
     if not isinstance(gate, Mapping):
         raise RuntimeError("architecture_review.production_gate MUST be a mapping")
-    required = gate.get("required_evidence")
+    required = gate.get("checklist_required_evidence")
     if not isinstance(required, Sequence) or isinstance(required, (str, bytes)):
         raise RuntimeError(
-            "architecture_review.production_gate.required_evidence MUST be a sequence"
+            "architecture_review.production_gate.checklist_required_evidence MUST be a sequence"
         )
-    artifact_ids = {
-        str(artifact["id"])
-        for artifact in artifacts
-        if isinstance(artifact, Mapping) and isinstance(artifact.get("id"), str)
+    evidence_kinds = gate.get("evidence_kinds")
+    if not isinstance(evidence_kinds, Mapping):
+        raise RuntimeError("architecture_review.production_gate.evidence_kinds MUST be a mapping")
+    required_ids = {str(value) for value in required}
+    if set(evidence_kinds) != required_ids:
+        raise RuntimeError(
+            "evidence_kinds MUST classify every checklist_required_evidence id exactly once"
+        )
+    by_kind = {
+        RequirementKind.ARTIFACT: {
+            str(artifact["id"])
+            for artifact in artifacts
+            if isinstance(artifact, Mapping) and isinstance(artifact.get("id"), str)
+        },
+        RequirementKind.METRIC: set(),
+        RequirementKind.DRILL: set(),
     }
-    return artifact_ids | {str(value) for value in required}
+    for ref, raw_kind in evidence_kinds.items():
+        kind = RequirementKind(str(raw_kind))
+        if kind not in by_kind:
+            raise RuntimeError(f"unsupported architecture-review evidence kind {kind.value!r}")
+        by_kind[kind].add(str(ref))
+    return by_kind
+
+
+def _architecture_review_evidence_ids(raw: Mapping[str, Any]) -> set[str]:
+    return set().union(*_architecture_review_evidence_ids_by_kind(raw).values())
 
 
 def _architecture_review_owner_ids(raw: Mapping[str, Any]) -> set[str]:
@@ -340,6 +363,13 @@ def _best_practice_entry(control: BestPractice) -> dict[str, object]:
         "requirement_mode": control.requirement_mode.value,
         "requirement_count": len(requirements),
         "owner": None,
+        "catalog_status": "present",
+        "mapping_status": "mapped",
+        "evaluation_status": "not_evaluated",
+        "applicability": "unknown",
+        "satisfaction": "unknown",
+        "evaluation_scope": None,
+        "evaluated_at": None,
         "status": "unknown",
         "satisfied_requirement_count": 0,
         "evaluation_source": "not_connected",

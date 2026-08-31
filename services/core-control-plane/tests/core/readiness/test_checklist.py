@@ -59,13 +59,19 @@ def _outcome(
     status: RequirementStatus,
     *,
     observed_at: datetime | None = None,
+    scope: str | None = None,
+    not_applicable_reason: str | None = None,
+    not_applicable_approved_by: str | None = None,
 ) -> RequirementOutcome:
     return RequirementOutcome(
         kind=RequirementKind.ARTIFACT,
         ref=ref,
         status=status,
+        scope=scope,
         evidence_refs=(f"evidence://{ref}",),
         observed_at=observed_at,
+        not_applicable_reason=not_applicable_reason,
+        not_applicable_approved_by=not_applicable_approved_by,
     )
 
 
@@ -93,11 +99,43 @@ def test_freshness_boundary_is_stale() -> None:
 
 def test_not_applicable_requirements_are_neutral() -> None:
     control = _control(_requirement("not-used"))
-    outcome = _outcome("not-used", RequirementStatus.NOT_APPLICABLE)
+    outcome = _outcome(
+        "not-used",
+        RequirementStatus.NOT_APPLICABLE,
+        not_applicable_reason="The workload has no applicable component.",
+        not_applicable_approved_by="approver@example.com",
+    )
 
     (result,) = evaluate_best_practices((control,), (outcome,), evaluated_at=_NOW)
 
     assert result.status is ChecklistControlStatus.NOT_APPLICABLE
+
+
+def test_unapproved_not_applicable_outcome_is_unknown() -> None:
+    control = _control(_requirement("not-used"))
+    outcome = _outcome("not-used", RequirementStatus.NOT_APPLICABLE)
+
+    (result,) = evaluate_best_practices((control,), (outcome,), evaluated_at=_NOW)
+
+    assert result.status is ChecklistControlStatus.UNKNOWN
+
+
+def test_cross_scope_evidence_is_not_reused() -> None:
+    control = _control(_requirement("scoped"))
+    outcome = _outcome(
+        "scoped",
+        RequirementStatus.SATISFIED,
+        scope="scope-a",
+    )
+
+    (result,) = evaluate_best_practices(
+        (control,),
+        (outcome,),
+        evaluated_at=_NOW,
+        scope="scope-b",
+    )
+
+    assert result.status is ChecklistControlStatus.UNKNOWN
 
 
 def test_any_mode_passes_when_one_applicable_requirement_passes() -> None:

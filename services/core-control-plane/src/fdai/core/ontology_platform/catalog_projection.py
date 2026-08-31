@@ -243,12 +243,18 @@ def build_catalog_ontology_projection(
 class CatalogOntologyProjector:
     """Atomically replace only the catalog-owned ontology subgraph."""
 
-    def __init__(self, store: OntologyInstanceStore) -> None:
+    def __init__(
+        self,
+        store: OntologyInstanceStore,
+        *,
+        owned_object_types: Sequence[str] = _OBJECT_TYPES,
+    ) -> None:
         self._store = store
+        self._owned_object_types = tuple(owned_object_types)
 
     async def replace(self, projection: CatalogOntologyProjection) -> None:
         previous = await self._store.query_objects(
-            object_types=_OBJECT_TYPES,
+            object_types=self._owned_object_types,
             limit=_MAX_CATALOG_HISTORY_OBJECTS,
         )
         if previous.truncated:

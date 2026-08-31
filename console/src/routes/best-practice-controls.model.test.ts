@@ -20,6 +20,13 @@ const CONTROL = {
   requirement_mode: "all",
   requirement_count: 2,
   owner: "resilience-owner",
+  catalog_status: "present",
+  mapping_status: "mapped",
+  evaluation_status: "not_evaluated",
+  applicability: "unknown",
+  satisfaction: "unknown",
+  evaluation_scope: null,
+  evaluated_at: null,
   status: "unknown",
   satisfied_requirement_count: 0,
   evaluation_source: "not_connected",
@@ -46,6 +53,8 @@ describe("best practice controls contract", () => {
     const decoded = decodeBestPracticeResponse(response());
     expect(decoded.controls[0]?.control_id).toBe("RE:09");
     expect(decoded.controls[0]?.status).toBe("unknown");
+    expect(decoded.controls[0]?.catalog_status).toBe("present");
+    expect(decoded.controls[0]?.evaluation_status).toBe("not_evaluated");
     expect(decoded.evaluation_source).toBe("not_connected");
   });
 

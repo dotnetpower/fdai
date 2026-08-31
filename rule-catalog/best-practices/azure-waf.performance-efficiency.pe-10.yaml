@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+kind: best-practice
+id: azure-waf.performance-efficiency.pe-10
+version: 1.0.0
+framework: azure-waf
+control_id: PE:10
+title: Minimize operational task performance impact
+rationale: Current evidence is required to assess minimize operational task performance impact.
+severity: medium
+category: reliability
+requirement_mode: all
+requirements:
+- kind: artifact
+  ref: maintenance-impact-plan
+  freshness_days: 90
+- kind: approval
+  ref: operations-owner
+- kind: approval
+  ref: performance-owner
+provenance:
+  source_url: https://learn.microsoft.com/en-us/azure/well-architected/performance-efficiency/checklist
+  source_version: '2026-05-06'
+  resolved_ref: ce3921ce25f18132fc642077a7e9edfc0fa69cc3
+  content_hash: git:ce3921ce25f18132fc642077a7e9edfc0fa69cc3
+  license: CC-BY-4.0
+  redistribution: embeddable
+  retrieved_at: '2026-08-31T00:00:00Z'
+  mapped_by: catalog-team

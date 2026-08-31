@@ -17,6 +17,9 @@ export const CONTROL_STATUSES = [
   "not_applicable",
 ] as const;
 export type ControlStatus = (typeof CONTROL_STATUSES)[number];
+export type CatalogStatus = "present";
+export type MappingStatus = "mapped" | "partially_mapped" | "unmapped";
+export type EvaluationStatus = "not_evaluated" | "evaluated";
 export type RulesCatalogView = "rules" | "controls";
 
 export interface BestPracticeControl {
@@ -32,6 +35,13 @@ export interface BestPracticeControl {
   readonly requirement_mode: string;
   readonly requirement_count: number;
   readonly owner: string | null;
+  readonly catalog_status: CatalogStatus;
+  readonly mapping_status: MappingStatus;
+  readonly evaluation_status: EvaluationStatus;
+  readonly applicability: ControlStatus;
+  readonly satisfaction: ControlStatus;
+  readonly evaluation_scope: string | null;
+  readonly evaluated_at: string | null;
   readonly status: ControlStatus;
   readonly satisfied_requirement_count: number;
   readonly evaluation_source: string;
@@ -77,6 +87,17 @@ function decodeStatus(value: string, label: string): ControlStatus {
   return value as ControlStatus;
 }
 
+function decodeEnum<T extends string>(
+  value: string,
+  allowed: readonly T[],
+  label: string,
+): T {
+  if (!allowed.includes(value as T)) {
+    throw new OperatorApiError(502, `invalid Operator API response: ${label} has unknown value ${value}`);
+  }
+  return value as T;
+}
+
 function nullableInteger(
   value: Readonly<Record<string, unknown>>,
   key: string,
@@ -110,6 +131,31 @@ function decodeControl(value: unknown, index: number): BestPracticeControl {
     requirement_mode: panelNonEmptyString(row, "requirement_mode", label),
     requirement_count: requirementCount,
     owner: panelNullableString(row, "owner", label),
+    catalog_status: decodeEnum(
+      panelNonEmptyString(row, "catalog_status", label),
+      ["present"] as const,
+      `${label}.catalog_status`,
+    ),
+    mapping_status: decodeEnum(
+      panelNonEmptyString(row, "mapping_status", label),
+      ["mapped", "partially_mapped", "unmapped"] as const,
+      `${label}.mapping_status`,
+    ),
+    evaluation_status: decodeEnum(
+      panelNonEmptyString(row, "evaluation_status", label),
+      ["not_evaluated", "evaluated"] as const,
+      `${label}.evaluation_status`,
+    ),
+    applicability: decodeStatus(
+      panelNonEmptyString(row, "applicability", label),
+      `${label}.applicability`,
+    ),
+    satisfaction: decodeStatus(
+      panelNonEmptyString(row, "satisfaction", label),
+      `${label}.satisfaction`,
+    ),
+    evaluation_scope: panelNullableString(row, "evaluation_scope", label),
+    evaluated_at: panelNullableString(row, "evaluated_at", label),
     status: decodeStatus(panelNonEmptyString(row, "status", label), label),
     satisfied_requirement_count: satisfiedCount,
     evaluation_source: panelNonEmptyString(row, "evaluation_source", label),

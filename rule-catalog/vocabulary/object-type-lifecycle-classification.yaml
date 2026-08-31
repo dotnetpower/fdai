@@ -13,6 +13,8 @@ categories:
       - AuthorizationPolicyAssignment
       - AuthorizationRequirement
       - ControlObjective
+      - Framework
+      - FrameworkControl
       - PolicyArtifact
       - Property
       - ProviderPermissionSet

@@ -1,28 +1,29 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 kind: best-practice
 id: azure-waf.reliability.re-04
-version: "1.0.0"
+version: 1.0.0
 framework: azure-waf
-control_id: "RE:04"
+control_id: RE:04
 title: Define reliability and recovery targets
-rationale: Approved service and recovery objectives provide measurable design and health-model inputs.
+rationale: Current evidence is required to assess define reliability and recovery targets.
 severity: high
 category: reliability
+requirement_mode: all
 requirements:
-  - kind: metric
-    ref: workload-slo-approval
-    freshness_days: 90
-  - kind: metric
-    ref: rpo-rto-approval
-    freshness_days: 180
-  - kind: approval
-    ref: reliability-owner
+- kind: metric
+  ref: workload-slo-approval
+  freshness_days: 90
+- kind: metric
+  ref: rpo-rto-approval
+  freshness_days: 180
+- kind: approval
+  ref: reliability-owner
 provenance:
   source_url: https://learn.microsoft.com/en-us/azure/well-architected/reliability/checklist
-  source_version: "2026-05-29"
+  source_version: '2026-05-29'
   resolved_ref: 687e8febe6ddfa4646952220e057a50b1046a75a
   content_hash: git:687e8febe6ddfa4646952220e057a50b1046a75a
   license: CC-BY-4.0
   redistribution: embeddable
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-08-31T00:00:00Z'
   mapped_by: catalog-team

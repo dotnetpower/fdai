@@ -29,6 +29,19 @@ One reviewed configuration baseline SignalType handles unmatched raw event types
 deterministic T0 coverage without retaining wildcard ontology links. These catalog declarations
 describe meaning only. They don't assert current provider state or grant execution authority.
 
+The catalog also declares `Framework` and `FrameworkControl` for pinned CAF and WAF guidance.
+`framework_contains_control` preserves hierarchy, and `framework_control_maps_objective` records
+only reviewed semantic mappings to `ControlObjective`. Startup projects these definitions and the
+mapped objective into the catalog-owned read graph. A framework record is advisory: it cannot become
+an approval, risk decision, policy verdict, or execution input, and no framework link can terminate
+at `AccessGrant`, `AuthorizationRequirement`, or `ActionType`.
+
+The same non-authoritative projection includes the complete pinned WARA/APRL lifecycle. It exposes
+456 `FrameworkControl` records with advisory impact, source resource type, active or disabled state,
+product-group verification, automation availability, tags, and query digest. It does not project or
+execute external query bodies. The WARA subgraph can narrow discovery, but it cannot assert that a
+resource passed or failed a recommendation.
+
 The catalog-owned `Property` ObjectType remains the meta object for rule property references.
 `rule-catalog/vocabulary/property-semantics.yaml` adds reviewed semantics to every Property instance
 evaluated by a shipped rule: canonical `semantic_id`, value type, optional unit, enum
@@ -479,7 +492,7 @@ writers; none requires an agent single-writer merely because it is represented i
 
 | Classification | Lifecycle-free ObjectTypes |
 |----------------|---------------------------|
-| Catalog-as-code or reviewed catalog projection | `ActionType`, `AuthorizationCapability`, `AuthorizationPolicyAssignment`, `AuthorizationRequirement`, `ControlObjective`, `PolicyArtifact`, `Property`, `ProviderPermissionSet`, `ResourceClass`, `ResourceType`, `Rule`, `RuleObjectiveBinding`, `SignalType`, `WorkflowDefinition` |
+| Catalog-as-code or reviewed catalog projection | `ActionType`, `AuthorizationCapability`, `AuthorizationPolicyAssignment`, `AuthorizationRequirement`, `ControlObjective`, `Framework`, `FrameworkControl`, `PolicyArtifact`, `Property`, `ProviderPermissionSet`, `ResourceClass`, `ResourceType`, `Rule`, `RuleObjectiveBinding`, `SignalType`, `WorkflowDefinition` |
 | Event-bus registry and typed event contract | `Agent`, `Approval`, `Conversation`, `HandoffEscalation`, `PostTurnReview`, `RuleCandidate`, `SecurityEvent`, `Signal`, `Turn` |
 | Provider, service, or principal-scoped projection/store | `AccessGrant`, `AccessGrantRequest`, `AuthorizationDecision`, `AuthorizationObservation`, `BenchmarkValidation`, `BriefingRun`, `BriefingSubscription`, `ChangeSummary`, `ConfigurationBaseline`, `ConfigurationDriftCheck`, `ConfigurationDriftEvidence`, `ConfigurationDriftFinding`, `ConversationPolicy`, `Decision`, `DiagnosticEvidence`, `DiagnosticFinding`, `DiagnosticMechanism`, `EquivalenceValidationReceipt`, `EvidenceArtifact`, `ExecutionProfile`, `Finding`, `Principal`, `Process`, `PythonTask`, `Resource`, `ReviewCase`, `ReviewCheck`, `UserMemoryFact`, `UserPreference`, `VmTaskRun`, `WorkflowBinding` |
 | Agent single-writer required | None |

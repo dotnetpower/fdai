@@ -1,25 +1,29 @@
-schema_version: "1.0.0"
+schema_version: 1.0.0
 kind: best-practice
 id: azure-waf.reliability.re-06
-version: "1.0.0"
+version: 1.0.0
 framework: azure-waf
-control_id: "RE:06"
+control_id: RE:06
 title: Implement timely and reliable scaling
-rationale: Measured scaling behavior prevents demand changes from breaking critical flows.
+rationale: Current evidence is required to assess implement timely and reliable scaling.
 severity: high
 category: reliability
+requirement_mode: all
 requirements:
-  - kind: metric
-    ref: capacity-test-results
-    freshness_days: 90
-  - kind: approval
-    ref: reliability-owner
+- kind: artifact
+  ref: scaling-strategy
+  freshness_days: 180
+- kind: metric
+  ref: capacity-test-results
+  freshness_days: 90
+- kind: approval
+  ref: reliability-owner
 provenance:
   source_url: https://learn.microsoft.com/en-us/azure/well-architected/reliability/checklist
-  source_version: "2026-05-29"
+  source_version: '2026-05-29'
   resolved_ref: 687e8febe6ddfa4646952220e057a50b1046a75a
   content_hash: git:687e8febe6ddfa4646952220e057a50b1046a75a
   license: CC-BY-4.0
   redistribution: embeddable
-  retrieved_at: "2026-07-29T00:00:00Z"
+  retrieved_at: '2026-08-31T00:00:00Z'
   mapped_by: catalog-team

@@ -1,8 +1,8 @@
 ---
 title: ARB 근거 및 권한
 translation_of: evidence-and-authority.md
-translation_source_sha: d54dfb653a865454f26549f4aa15be5eb4ebfee3
-translation_revised: 2026-08-29
+translation_source_sha: 04679281fba85bb84d70d1eabee93f13e6bf81a1
+translation_revised: 2026-08-31
 ---
 # ARB 근거 및 권한
 
@@ -56,9 +56,9 @@ translation_revised: 2026-08-29
 | 공급망 | SBOM, 이미지 서명, 출처, 취약성 및 IaC 검사 | 정확한 릴리스 산출물 검증, 차단 검사 이상 없음 |
 | 비용 | 최신 추정치, 월 한도, 할당량, 12/36개월 가정 | 비용 담당자가 측정된 범위를 승인 |
 
-필수 근거 프로필은 Azure Well-Architected의 다섯 원칙을 모두 다루는 것이 좋습니다. 신뢰성과
-운영 우수성 제어는 이미 카탈로그에 있습니다. 보안, 비용 최적화, 성능 효율성도 같은 깊이의
-기계 판독 가능한 계약이 필요합니다.
+필수 근거 프로필은 고정된 컨트롤 정의 59개를 통해 Azure Well-Architected의 다섯 핵심 요소를
+모두 다룹니다. 카탈로그 존재는 정의 범위만 입증합니다. 워크로드는 범위가 일치하는 형식화된
+증거와 별도 승인이 제공될 때까지 `unknown`으로 유지됩니다.
 
 ## 담당 체계 연결
 
@@ -75,6 +75,7 @@ translation_revised: 2026-08-29
 | `reliability-owner` | SLO, RPO/RTO, 복구 설계, 훈련 |
 | `release-owner` | 산출물 출처, 배포, 롤백, 승격 게이트 |
 | `cost-owner` | 예산, 할당량, 가격 확인, 용량 승격 |
+| `performance-owner` | 성능 목표, 용량, 부하 테스트, 크기 조정, 추세 검토 |
 
 차단 항목 담당자는 등록된 슬롯 중 하나로 해석되어야 합니다. 에이전트 담당 체계는 별도의 사람
 책임 계층이며 운영 담당자 또는 승인 권한을 대체하지 않습니다.
@@ -98,21 +99,34 @@ owner_bindings:
 본문을 거부합니다. 구조 CLI 검증에서 메타데이터만으로 운영 준비 상태를 만들 수 없습니다.
 
 ```yaml
-evidence_bindings:
+checklist_evidence_bindings:
   production-terraform-plan:
+    kind: artifact
+    scope: scope://<fork-owned-scope-reference>
     uri: evidence://<governed-store-reference>
-    sha256: <64-lowercase-hex-digest>
-    scope_ref: <fork-owned-scope-reference>
-    revision: <immutable-source-revision>
-    approved_by: group:<fork-owned-approver>
-    approved_at: 2026-07-13T00:00:00Z
+    sha256: sha256:<64-lowercase-hex-digest>
+    source_identity: provider:<authenticated-source>
+    observed_at: 2026-07-13T00:00:00Z
+    recorded_at: 2026-07-13T00:01:00Z
     expires_at: 2027-01-13T00:00:00Z
-    freshness_seconds: 86400
+approval_bindings:
+  release-owner:
+    scope: scope://<fork-owned-scope-reference>
+    uri: evidence://<approval-receipt>
+    sha256: sha256:<64-lowercase-hex-digest>
+    approved_by: principal:<fork-owned-approver>
+    approved_at: 2026-07-13T00:02:00Z
+    expires_at: 2027-01-13T00:00:00Z
 ```
 
 구조 검증은 알 수 없는 키, 누락된 필드, 잘못된 다이제스트, 유효하지 않은 시간 범위를 차단합니다.
 운영 검증은 외부 근거 본문과 권한 연결도 검증합니다. 형식만 유효한 URI 또는 다이제스트는 운영
 근거가 아닙니다.
+
+체크리스트 투영은 `evidence_kinds`를 사용하여 아티팩트가 metric 또는 drill 요구 사항을 충족한
+것으로 처리되지 않도록 합니다. 모든 증거 및 적용 제외 연결은 정확한 워크로드 범위를 지정합니다.
+`owner_bindings`는 담당자만 지정하고 `approval_bindings`는 별도의 최신 승인 증적을 보유합니다.
+적용 제외 결과에는 사유와 증거 생산자와 다른 승인자가 필요합니다.
 
 ## 위험, 가정, 이슈, 예외
 

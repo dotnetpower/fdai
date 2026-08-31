@@ -1,0 +1,221 @@
+schema_version: 1.0.0
+kind: framework-definition
+id: azure-caf
+version: '2026-08-31'
+name: Microsoft Cloud Adoption Framework for Azure
+scope: cloud-estate
+advisory: true
+completeness_scope: Seven adoption methodologies and eight Azure landing-zone design areas; prose guidance remains living
+  and context dependent.
+sources:
+- id: overview
+  source_url: https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/overview
+  source_version: '2026-08-27'
+  resolved_ref: 9e9db6f427b04cccdc3040b31aaf3440eaf5b994
+  retrieved_at: '2026-08-31T00:00:00Z'
+- id: strategy
+  source_url: https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/strategy/
+  source_version: '2026-05-19'
+  resolved_ref: f01c1dab5d89efad6e7f4b54739d8c03ba6b4545
+  retrieved_at: '2026-08-31T00:00:00Z'
+- id: plan
+  source_url: https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/plan/prepare-organization-for-cloud
+  source_version: '2026-04-07'
+  resolved_ref: 67c4c4dcec8a6e24c28b34342d46e5b3cfea0e5d
+  retrieved_at: '2026-08-31T00:00:00Z'
+- id: ready
+  source_url: https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/
+  source_version: '2026-08-26'
+  resolved_ref: 5c260b3f1e0676826d514a018b5c4226da1b29a1
+  retrieved_at: '2026-08-31T00:00:00Z'
+- id: adopt
+  source_url: https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/migrate/plan-migration
+  source_version: '2026-03-25'
+  resolved_ref: bb4d2f198b2cb6b4a67449bf01922b43784d3757
+  retrieved_at: '2026-08-31T00:00:00Z'
+- id: govern
+  source_url: https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/govern/build-cloud-governance-team
+  source_version: '2026-03-09'
+  resolved_ref: 082e3bf69bd3a5045d8c51c47774d15ec01642e1
+  retrieved_at: '2026-08-31T00:00:00Z'
+- id: secure
+  source_url: https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/secure/overview
+  source_version: '2026-01-05'
+  resolved_ref: d139382c5522f77ab28cbbeddbbc517064f5ff8c
+  retrieved_at: '2026-08-31T00:00:00Z'
+- id: manage
+  source_url: https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/manage/ready-cloud-operations
+  source_version: '2026-04-07'
+  resolved_ref: 9454caeefed88e57d5134e2bd25738b3b8dc967b
+  retrieved_at: '2026-08-31T00:00:00Z'
+- id: landing-zone
+  source_url: https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/design-areas
+  source_version: '2025-12-19'
+  resolved_ref: 7ad494e8e4d704b4e89be8091979fe80c0281a8d
+  retrieved_at: '2026-08-31T00:00:00Z'
+controls:
+- id: strategy
+  title: Strategy
+  description: Define motivations, measurable outcomes, ownership, and strategic tradeoffs.
+  source_url: https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/strategy/
+  source_version: '2026-05-19'
+  resolved_ref: f01c1dab5d89efad6e7f4b54739d8c03ba6b4545
+  retrieved_at: '2026-08-31T00:00:00Z'
+  best_practice_ref: null
+  objective_refs: []
+  mapping_status: reference_only
+  applicability: deployment_review_required
+- id: plan
+  title: Plan
+  description: Prepare people, skills, backlog, operating model, and adoption sequencing.
+  source_url: https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/plan/prepare-organization-for-cloud
+  source_version: '2026-04-07'
+  resolved_ref: 67c4c4dcec8a6e24c28b34342d46e5b3cfea0e5d
+  retrieved_at: '2026-08-31T00:00:00Z'
+  best_practice_ref: null
+  objective_refs: []
+  mapping_status: reference_only
+  applicability: deployment_review_required
+- id: ready
+  title: Ready
+  description: Establish an Azure landing zone and shared platform foundation.
+  source_url: https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/
+  source_version: '2026-08-26'
+  resolved_ref: 5c260b3f1e0676826d514a018b5c4226da1b29a1
+  retrieved_at: '2026-08-31T00:00:00Z'
+  best_practice_ref: null
+  objective_refs: []
+  mapping_status: reference_only
+  applicability: deployment_review_required
+- id: adopt
+  title: Adopt
+  description: Migrate, modernize, and build workloads through governed delivery.
+  source_url: https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/migrate/plan-migration
+  source_version: '2026-03-25'
+  resolved_ref: bb4d2f198b2cb6b4a67449bf01922b43784d3757
+  retrieved_at: '2026-08-31T00:00:00Z'
+  best_practice_ref: null
+  objective_refs: []
+  mapping_status: reference_only
+  applicability: deployment_review_required
+- id: govern
+  title: Govern
+  description: Assess risks, document guardrails, enforce policy, and monitor compliance.
+  source_url: https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/govern/build-cloud-governance-team
+  source_version: '2026-03-09'
+  resolved_ref: 082e3bf69bd3a5045d8c51c47774d15ec01642e1
+  retrieved_at: '2026-08-31T00:00:00Z'
+  best_practice_ref: null
+  objective_refs: []
+  mapping_status: reference_only
+  applicability: deployment_review_required
+- id: secure
+  title: Secure
+  description: Apply Zero Trust, incident readiness, CIA safeguards, and posture sustainment across phases.
+  source_url: https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/secure/overview
+  source_version: '2026-01-05'
+  resolved_ref: d139382c5522f77ab28cbbeddbbc517064f5ff8c
+  retrieved_at: '2026-08-31T00:00:00Z'
+  best_practice_ref: null
+  objective_refs: []
+  mapping_status: reference_only
+  applicability: deployment_review_required
+- id: manage
+  title: Manage
+  description: Operate through the Ready, Administer, Monitor, and Protect responsibilities.
+  source_url: https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/manage/ready-cloud-operations
+  source_version: '2026-04-07'
+  resolved_ref: 9454caeefed88e57d5134e2bd25738b3b8dc967b
+  retrieved_at: '2026-08-31T00:00:00Z'
+  best_practice_ref: null
+  objective_refs: []
+  mapping_status: reference_only
+  applicability: deployment_review_required
+- id: landing-zone.billing-tenant
+  title: 'Landing zone: billing and tenant'
+  description: Structure billing and tenant foundations deliberately.
+  source_url: https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/design-areas
+  source_version: '2025-12-19'
+  resolved_ref: 7ad494e8e4d704b4e89be8091979fe80c0281a8d
+  retrieved_at: '2026-08-31T00:00:00Z'
+  best_practice_ref: null
+  objective_refs: []
+  mapping_status: reference_only
+  applicability: deployment_review_required
+- id: landing-zone.identity-access
+  title: 'Landing zone: identity and access'
+  description: Use identity as the primary security boundary.
+  source_url: https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/design-areas
+  source_version: '2025-12-19'
+  resolved_ref: 7ad494e8e4d704b4e89be8091979fe80c0281a8d
+  retrieved_at: '2026-08-31T00:00:00Z'
+  best_practice_ref: null
+  objective_refs: []
+  mapping_status: reference_only
+  applicability: deployment_review_required
+- id: landing-zone.resource-organization
+  title: 'Landing zone: resource organization'
+  description: Design management groups, subscriptions, and resource organization.
+  source_url: https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/design-areas
+  source_version: '2025-12-19'
+  resolved_ref: 7ad494e8e4d704b4e89be8091979fe80c0281a8d
+  retrieved_at: '2026-08-31T00:00:00Z'
+  best_practice_ref: null
+  objective_refs: []
+  mapping_status: reference_only
+  applicability: deployment_review_required
+- id: landing-zone.network-connectivity
+  title: 'Landing zone: network topology and connectivity'
+  description: Define connectivity and network security boundaries.
+  source_url: https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/design-areas
+  source_version: '2025-12-19'
+  resolved_ref: 7ad494e8e4d704b4e89be8091979fe80c0281a8d
+  retrieved_at: '2026-08-31T00:00:00Z'
+  best_practice_ref: null
+  objective_refs: []
+  mapping_status: reference_only
+  applicability: deployment_review_required
+- id: landing-zone.security
+  title: 'Landing zone: security'
+  description: Implement controls and processes that protect the cloud environment.
+  source_url: https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/design-areas
+  source_version: '2025-12-19'
+  resolved_ref: 7ad494e8e4d704b4e89be8091979fe80c0281a8d
+  retrieved_at: '2026-08-31T00:00:00Z'
+  best_practice_ref: null
+  objective_refs: []
+  mapping_status: reference_only
+  applicability: deployment_review_required
+- id: landing-zone.management
+  title: 'Landing zone: management'
+  description: Provide visibility, operational compliance, protection, and recovery.
+  source_url: https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/design-areas
+  source_version: '2025-12-19'
+  resolved_ref: 7ad494e8e4d704b4e89be8091979fe80c0281a8d
+  retrieved_at: '2026-08-31T00:00:00Z'
+  best_practice_ref: null
+  objective_refs: []
+  mapping_status: reference_only
+  applicability: deployment_review_required
+- id: landing-zone.governance
+  title: 'Landing zone: governance'
+  description: Automate policy auditing and enforcement.
+  source_url: https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/design-areas
+  source_version: '2025-12-19'
+  resolved_ref: 7ad494e8e4d704b4e89be8091979fe80c0281a8d
+  retrieved_at: '2026-08-31T00:00:00Z'
+  best_practice_ref: null
+  objective_refs: []
+  mapping_status: reference_only
+  applicability: deployment_review_required
+- id: landing-zone.platform-automation-devops
+  title: 'Landing zone: platform automation and DevOps'
+  description: Use governed tools and templates for platform deployment.
+  source_url: https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/design-areas
+  source_version: '2025-12-19'
+  resolved_ref: 7ad494e8e4d704b4e89be8091979fe80c0281a8d
+  retrieved_at: '2026-08-31T00:00:00Z'
+  best_practice_ref: null
+  objective_refs: []
+  mapping_status: reference_only
+  applicability: deployment_review_required

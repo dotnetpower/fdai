@@ -1,0 +1,29 @@
+schema_version: 1.0.0
+kind: best-practice
+id: azure-waf.cost-optimization.co-03
+version: 1.0.0
+framework: azure-waf
+control_id: CO:03
+title: Collect and review cost data
+rationale: Current evidence is required to assess collect and review cost data.
+severity: high
+category: cost
+requirement_mode: all
+requirements:
+- kind: metric
+  ref: daily-cost-report
+  freshness_days: 30
+- kind: metric
+  ref: budget-forecast-evidence
+  freshness_days: 30
+- kind: approval
+  ref: cost-owner
+provenance:
+  source_url: https://learn.microsoft.com/en-us/azure/well-architected/cost-optimization/checklist
+  source_version: '2025-10-30'
+  resolved_ref: 28a78d22523542beeafc7de5eaa11fad791559b6
+  content_hash: git:28a78d22523542beeafc7de5eaa11fad791559b6
+  license: CC-BY-4.0
+  redistribution: embeddable
+  retrieved_at: '2026-08-31T00:00:00Z'
+  mapped_by: catalog-team

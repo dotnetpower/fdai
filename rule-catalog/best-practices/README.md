@@ -13,6 +13,12 @@ drills, documents, and approvals; it does not replace those authoritative artifa
   rule.
 - Upstream entries remain customer-agnostic. Deployment-specific scope and evidence stay outside
   this directory.
+- The Azure WAF set contains all 59 coded recommendations from the five source pages pinned in
+  [`../frameworks/azure-waf.yaml`](../frameworks/azure-waf.yaml). Pillar is a framework dimension;
+  `category` remains FDAI's separate risk and finding taxonomy.
+- CAF remains in [`../frameworks/azure-caf.yaml`](../frameworks/azure-caf.yaml) as advisory,
+  applicability-dependent reference data. A CAF area becomes a Best Practice only after it has a
+  concrete provider-neutral invariant and typed evidence path.
 
 The loader in
 [`best_practice_catalog.py`](../../services/core-control-plane/src/fdai/rule_catalog/schema/best_practice_catalog.py)

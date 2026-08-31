@@ -1,0 +1,335 @@
+schema_version: 1.0.0
+kind: framework-definition
+id: azure-waf
+version: '2026-08-31'
+name: Azure Well-Architected Framework
+scope: workload
+advisory: true
+completeness_scope: All coded recommendations on the five pinned design review checklist pages.
+areas:
+- id: reliability
+  source_url: https://learn.microsoft.com/en-us/azure/well-architected/reliability/checklist
+  source_version: '2026-05-29'
+  resolved_ref: 687e8febe6ddfa4646952220e057a50b1046a75a
+  retrieved_at: '2026-08-31T00:00:00Z'
+  controls:
+  - id: RE:01
+    title: Focus workload design on simplicity and efficiency
+    best_practice_ref: azure-waf.reliability.re-01@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: RE:02
+    title: Identify and rate user and system flows
+    best_practice_ref: azure-waf.reliability.re-02@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: RE:03
+    title: Perform failure mode analysis
+    best_practice_ref: azure-waf.reliability.re-03@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: RE:04
+    title: Define reliability and recovery targets
+    best_practice_ref: azure-waf.reliability.re-04@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: RE:05
+    title: Add redundancy for critical flows
+    best_practice_ref: azure-waf.reliability.re-05@1.0.0
+    objective_refs:
+    - reliability.node-pool.zone-failure-tolerance@1.0.0
+    mapping_status: best_practice
+  - id: RE:06
+    title: Implement timely and reliable scaling
+    best_practice_ref: azure-waf.reliability.re-06@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: RE:07
+    title: Implement self-preservation and self-healing
+    best_practice_ref: azure-waf.reliability.re-07@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: RE:08
+    title: Test resiliency and availability scenarios
+    best_practice_ref: azure-waf.reliability.re-08@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: RE:09
+    title: Implement tested disaster recovery plans
+    best_practice_ref: azure-waf.reliability.re-09@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: RE:10
+    title: Continuously measure and track system health
+    best_practice_ref: azure-waf.reliability.re-10@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+- id: security
+  source_url: https://learn.microsoft.com/en-us/azure/well-architected/security/checklist
+  source_version: '2026-06-26'
+  resolved_ref: 1df1c6023e01032c7be0013b086379c176827b1c
+  retrieved_at: '2026-08-31T00:00:00Z'
+  controls:
+  - id: SE:01
+    title: Establish and continuously improve a security baseline
+    best_practice_ref: azure-waf.security.se-01@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: SE:02
+    title: Apply a secure development lifecycle
+    best_practice_ref: azure-waf.security.se-02@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: SE:03
+    title: Classify workload data and systems
+    best_practice_ref: azure-waf.security.se-03@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: SE:04
+    title: Design intentional segmentation and perimeters
+    best_practice_ref: azure-waf.security.se-04@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: SE:05
+    title: Implement strict conditional and auditable identity and access management
+    best_practice_ref: azure-waf.security.se-05@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: SE:06
+    title: Isolate filter and control network traffic
+    best_practice_ref: azure-waf.security.se-06@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: SE:07
+    title: Encrypt data with modern methods
+    best_practice_ref: azure-waf.security.se-07@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: SE:08
+    title: Harden workload resources
+    best_practice_ref: azure-waf.security.se-08@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: SE:09
+    title: Protect and rotate application secrets
+    best_practice_ref: azure-waf.security.se-09@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: SE:10
+    title: Implement holistic threat monitoring
+    best_practice_ref: azure-waf.security.se-10@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: SE:11
+    title: Establish comprehensive security testing
+    best_practice_ref: azure-waf.security.se-11@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: SE:12
+    title: Define and test security incident response
+    best_practice_ref: azure-waf.security.se-12@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+- id: cost-optimization
+  source_url: https://learn.microsoft.com/en-us/azure/well-architected/cost-optimization/checklist
+  source_version: '2025-10-30'
+  resolved_ref: 28a78d22523542beeafc7de5eaa11fad791559b6
+  retrieved_at: '2026-08-31T00:00:00Z'
+  controls:
+  - id: CO:01
+    title: Create a culture of financial responsibility
+    best_practice_ref: azure-waf.cost-optimization.co-01@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: CO:02
+    title: Create and maintain a cost model
+    best_practice_ref: azure-waf.cost-optimization.co-02@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: CO:03
+    title: Collect and review cost data
+    best_practice_ref: azure-waf.cost-optimization.co-03@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: CO:04
+    title: Set spending guardrails
+    best_practice_ref: azure-waf.cost-optimization.co-04@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: CO:05
+    title: Obtain the best available provider rates
+    best_practice_ref: azure-waf.cost-optimization.co-05@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: CO:06
+    title: Align usage to billing increments
+    best_practice_ref: azure-waf.cost-optimization.co-06@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: CO:07
+    title: Optimize component costs
+    best_practice_ref: azure-waf.cost-optimization.co-07@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: CO:08
+    title: Optimize environment costs
+    best_practice_ref: azure-waf.cost-optimization.co-08@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: CO:09
+    title: Optimize flow costs
+    best_practice_ref: azure-waf.cost-optimization.co-09@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: CO:10
+    title: Optimize data costs
+    best_practice_ref: azure-waf.cost-optimization.co-10@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: CO:11
+    title: Optimize code costs
+    best_practice_ref: azure-waf.cost-optimization.co-11@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: CO:12
+    title: Optimize scaling costs
+    best_practice_ref: azure-waf.cost-optimization.co-12@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: CO:13
+    title: Optimize personnel time
+    best_practice_ref: azure-waf.cost-optimization.co-13@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: CO:14
+    title: Consolidate resources and responsibility
+    best_practice_ref: azure-waf.cost-optimization.co-14@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+- id: operational-excellence
+  source_url: https://learn.microsoft.com/en-us/azure/well-architected/operational-excellence/checklist
+  source_version: '2026-06-11'
+  resolved_ref: 84fd234f106eacce573ee415497edd96436e6620
+  retrieved_at: '2026-08-31T00:00:00Z'
+  controls:
+  - id: OE:01
+    title: Define standard workload development and operating practices
+    best_practice_ref: azure-waf.operational-excellence.oe-01@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: OE:02
+    title: Standardize routine ad-hoc and emergency operations
+    best_practice_ref: azure-waf.operational-excellence.oe-02@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: OE:03
+    title: Formalize practices across the software development lifecycle
+    best_practice_ref: azure-waf.operational-excellence.oe-03@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: OE:04
+    title: Standardize development tools and quality processes
+    best_practice_ref: azure-waf.operational-excellence.oe-04@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: OE:05
+    title: Use a standardized infrastructure-as-code approach
+    best_practice_ref: azure-waf.operational-excellence.oe-05@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: OE:06
+    title: Build a predictable workload supply chain
+    best_practice_ref: azure-waf.operational-excellence.oe-06@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: OE:07
+    title: Design a workload monitoring stack
+    best_practice_ref: azure-waf.operational-excellence.oe-07@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: OE:08
+    title: Establish a structured incident management process
+    best_practice_ref: azure-waf.operational-excellence.oe-08@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: OE:09
+    title: Adopt testing practices aligned with business objectives
+    best_practice_ref: azure-waf.operational-excellence.oe-09@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: OE:10
+    title: Design reliable secure and maintainable automation
+    best_practice_ref: azure-waf.operational-excellence.oe-10@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: OE:11
+    title: Define safe deployment practices
+    best_practice_ref: azure-waf.operational-excellence.oe-11@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+- id: performance-efficiency
+  source_url: https://learn.microsoft.com/en-us/azure/well-architected/performance-efficiency/checklist
+  source_version: '2026-05-06'
+  resolved_ref: ce3921ce25f18132fc642077a7e9edfc0fa69cc3
+  retrieved_at: '2026-08-31T00:00:00Z'
+  controls:
+  - id: PE:01
+    title: Define numerical performance targets for workload flows
+    best_practice_ref: azure-waf.performance-efficiency.pe-01@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: PE:02
+    title: Conduct capacity planning before predicted demand changes
+    best_practice_ref: azure-waf.performance-efficiency.pe-02@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: PE:03
+    title: Select services and tiers that meet performance targets
+    best_practice_ref: azure-waf.performance-efficiency.pe-03@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: PE:04
+    title: Establish consistent performance measurement
+    best_practice_ref: azure-waf.performance-efficiency.pe-04@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: PE:05
+    title: Optimize scaling and partitioning
+    best_practice_ref: azure-waf.performance-efficiency.pe-05@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: PE:06
+    title: Test performance in a production-like environment
+    best_practice_ref: azure-waf.performance-efficiency.pe-06@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: PE:07
+    title: Optimize code and infrastructure
+    best_practice_ref: azure-waf.performance-efficiency.pe-07@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: PE:08
+    title: Optimize data usage and data-store performance
+    best_practice_ref: azure-waf.performance-efficiency.pe-08@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: PE:09
+    title: Prioritize performance of critical flows
+    best_practice_ref: azure-waf.performance-efficiency.pe-09@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: PE:10
+    title: Minimize operational task performance impact
+    best_practice_ref: azure-waf.performance-efficiency.pe-10@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: PE:11
+    title: Respond effectively to live performance issues
+    best_practice_ref: azure-waf.performance-efficiency.pe-11@1.0.0
+    objective_refs: []
+    mapping_status: best_practice
+  - id: PE:12
+    title: Continuously optimize deteriorating performance
+    best_practice_ref: azure-waf.performance-efficiency.pe-12@1.0.0
+    objective_refs: []
+    mapping_status: best_practice

@@ -1,0 +1,34 @@
+schema_version: 1.0.0
+kind: best-practice
+id: azure-waf.security.se-06
+version: 1.0.0
+framework: azure-waf
+control_id: SE:06
+title: Isolate filter and control network traffic
+rationale: Current evidence is required to assess isolate filter and control network traffic.
+severity: critical
+category: security
+requirement_mode: all
+requirements:
+- kind: rule
+  ref: network.nsg.no-inbound-any-rdp
+- kind: rule
+  ref: network.nsg.no-inbound-any-ssh
+- kind: rule
+  ref: object-storage.private-endpoint.required
+- kind: rule
+  ref: secret-store.public-network-access.disabled
+- kind: artifact
+  ref: network-data-flow-validation
+  freshness_days: 90
+- kind: approval
+  ref: security-owner
+provenance:
+  source_url: https://learn.microsoft.com/en-us/azure/well-architected/security/checklist
+  source_version: '2026-06-26'
+  resolved_ref: 1df1c6023e01032c7be0013b086379c176827b1c
+  content_hash: git:1df1c6023e01032c7be0013b086379c176827b1c
+  license: CC-BY-4.0
+  redistribution: embeddable
+  retrieved_at: '2026-08-31T00:00:00Z'
+  mapped_by: catalog-team

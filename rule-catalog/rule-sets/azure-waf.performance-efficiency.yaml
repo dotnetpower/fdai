@@ -1,0 +1,19 @@
+schema_version: 1.0.0
+kind: rule-set
+id: azure-waf.performance-efficiency
+version: 1.0.0
+members:
+- rule_id: cache.zone-redundant
+  version: 1.0.0
+- rule_id: compute.vm-scale-set.zone-redundancy
+  version: 1.0.0
+- rule_id: kubernetes-node-pool.multi-zone
+  version: 1.0.0
+- rule_id: postgresql-server.high-availability
+  version: 1.0.0
+- rule_id: sql-database.zone-redundant
+  version: 1.0.0
+provenance:
+  created_at: '2026-08-31T00:00:00Z'
+  created_by: catalog-team
+  source: azure-waf

@@ -310,8 +310,8 @@
         "headline": "{total} control definitions; {unknown} remain Unknown"
       },
       "banner": {
-        "title": "Control definitions are connected; runtime evidence is not.",
-        "body": "These 21 Azure Well-Architected controls are version-pinned catalog definitions. Unknown is intentional until an evidence provider evaluates the requirements."
+        "title": "All five WAF pillars are cataloged; evaluation remains scope-bound.",
+        "body": "These 59 Azure Well-Architected controls are version-pinned definitions. Catalog and mapping state are separate from applicability, evaluation, and satisfaction."
       },
       "kpi": {
         "total": "Control definitions",
@@ -325,6 +325,11 @@
         "pillar": "Pillar",
         "requirements": "Requirements",
         "owner": "Owner",
+        "catalog": "Catalog",
+        "mapping": "Mapping",
+        "evaluation": "Evaluation",
+        "applicability": "Applicability",
+        "satisfaction": "Satisfaction",
         "status": "Status"
       },
       "filter": {
@@ -345,6 +350,8 @@
         "notConnected": "No runtime evidence provider is connected. Requirement status remains Unknown; catalog presence is not a pass.",
         "framework": "Framework",
         "mode": "Requirement mode",
+        "scope": "Evaluation scope",
+        "evaluatedAt": "Evaluated at",
         "requirements": "Evidence requirements"
       }
     },
@@ -426,8 +433,20 @@
     },
     "controlPillar": {
       "reliability": "Reliability",
+      "security": "Security",
+      "cost_optimization": "Cost optimization",
       "operational_excellence": "Operational excellence",
+      "performance_efficiency": "Performance efficiency",
       "other": "Other"
+    },
+    "controlMapping": {
+      "mapped": "Mapped",
+      "partially_mapped": "Partially mapped",
+      "unmapped": "Unmapped"
+    },
+    "controlEvaluation": {
+      "not_evaluated": "Not evaluated",
+      "evaluated": "Evaluated"
     },
     "controlStatus": {
       "satisfied": "Satisfied",

@@ -66,6 +66,8 @@ function BestPracticeDetailContent({ data }: { readonly data: BestPracticeDetail
     <div class="stack">
       <div class="pill-row">
         <StatusPill kind={CONTROL_STATUS_PILL[data.status]} label={displayValue("controlStatus", data.status)} />
+        <StatusPill kind="info" label={displayValue("controlMapping", data.mapping_status)} />
+        <StatusPill kind="neutral" label={displayValue("controlEvaluation", data.evaluation_status)} />
         <StatusPill kind={SEVERITY_PILL[data.severity] ?? "neutral"} label={displayValue("severity", data.severity)} />
         <StatusPill kind="info" label={displayValue("controlPillar", data.pillar)} />
       </div>
@@ -78,6 +80,13 @@ function BestPracticeDetailContent({ data }: { readonly data: BestPracticeDetail
         <DetailRow label={t("governance.rules.controls.detail.framework")} value={data.framework} mono />
         <DetailRow label={t("governance.common.version")} value={data.version} mono />
         <DetailRow label={t("governance.rules.controls.detail.mode")} value={data.requirement_mode} />
+        <DetailRow label={t("governance.rules.controls.column.catalog")} value={data.catalog_status} />
+        <DetailRow label={t("governance.rules.controls.column.mapping")} value={displayValue("controlMapping", data.mapping_status)} />
+        <DetailRow label={t("governance.rules.controls.column.evaluation")} value={displayValue("controlEvaluation", data.evaluation_status)} />
+        <DetailRow label={t("governance.rules.controls.column.applicability")} value={displayValue("controlStatus", data.applicability)} />
+        <DetailRow label={t("governance.rules.controls.column.satisfaction")} value={displayValue("controlStatus", data.satisfaction)} />
+        <DetailRow label={t("governance.rules.controls.detail.scope")} value={data.evaluation_scope ?? "-"} mono />
+        <DetailRow label={t("governance.rules.controls.detail.evaluatedAt")} value={data.evaluated_at ?? "-"} mono />
         <DetailRow label={t("governance.rules.controls.column.owner")} value={data.owner ?? "-"} mono />
       </dl>
       <DetailSection title={t("governance.rules.controls.detail.requirements")}>

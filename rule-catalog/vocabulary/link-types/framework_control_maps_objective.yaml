@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: framework_control_maps_objective
+version: "1.0.0"
+from_type: FrameworkControl
+to_type: ControlObjective
+cardinality: many_to_many
+description: Reviewed semantic mapping from advisory guidance to a provider-neutral objective.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:framework_control_maps_objective@1.0.0
+  content_hash: sha256:766ddfa473b9136bfbbc29bbe8ff0e40b4c110b285a50eefa1d56c924b670775
+  license: MIT
+  retrieved_at: "2026-08-31T00:00:00Z"

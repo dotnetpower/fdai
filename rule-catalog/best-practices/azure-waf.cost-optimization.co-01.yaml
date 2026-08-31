@@ -1,0 +1,29 @@
+schema_version: 1.0.0
+kind: best-practice
+id: azure-waf.cost-optimization.co-01
+version: 1.0.0
+framework: azure-waf
+control_id: CO:01
+title: Create a culture of financial responsibility
+rationale: Current evidence is required to assess create a culture of financial responsibility.
+severity: medium
+category: cost
+requirement_mode: all
+requirements:
+- kind: artifact
+  ref: financial-accountability-model
+  freshness_days: 180
+- kind: artifact
+  ref: cost-training-evidence
+  freshness_days: 180
+- kind: approval
+  ref: cost-owner
+provenance:
+  source_url: https://learn.microsoft.com/en-us/azure/well-architected/cost-optimization/checklist
+  source_version: '2025-10-30'
+  resolved_ref: 28a78d22523542beeafc7de5eaa11fad791559b6
+  content_hash: git:28a78d22523542beeafc7de5eaa11fad791559b6
+  license: CC-BY-4.0
+  redistribution: embeddable
+  retrieved_at: '2026-08-31T00:00:00Z'
+  mapped_by: catalog-team

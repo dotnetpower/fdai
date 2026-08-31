@@ -165,6 +165,7 @@ def step_best_practice_deep(runner: Runner) -> StepResult:
         BestPracticeCatalogError,
         load_best_practice_catalog,
     )
+    from fdai.rule_catalog.schema.framework_catalog import load_framework_catalog
     from fdai.rule_catalog.schema.governance_catalog import load_governance_catalog
     from fdai.rule_catalog.schema.governance_loader import GovernanceLoadError
     from fdai.rule_catalog.schema.probe import load_probe_catalog, probe_ids
@@ -201,14 +202,23 @@ def step_best_practice_deep(runner: Runner) -> StepResult:
         for artifact in artifacts
         if isinstance(artifact, dict) and "id" in artifact
     }
-    evidence_ids = {str(item) for item in gate.get("required_evidence", ())}
+    evidence_ids = {str(item) for item in gate.get("checklist_required_evidence", ())}
+    evidence_kinds = gate.get("evidence_kinds")
+    if not isinstance(evidence_kinds, dict) or set(evidence_kinds) != evidence_ids:
+        return StepResult(
+            name="best_practice_deep",
+            ok=False,
+            duration_s=0.0,
+            findings=["evidence_kinds must classify checklist_required_evidence exactly once"],
+        )
     owner_ids = {str(item) for item in gate.get("required_owner_slots", ())}
     registries = {
         RequirementKind.RULE: set(rule_versions),
         RequirementKind.PROBE: probe_ids(load_probe_catalog(PROBES_DIR)),
-        RequirementKind.ARTIFACT: artifact_ids | evidence_ids,
-        RequirementKind.METRIC: evidence_ids,
-        RequirementKind.DRILL: evidence_ids,
+        RequirementKind.ARTIFACT: artifact_ids
+        | {ref for ref, kind in evidence_kinds.items() if kind == "artifact"},
+        RequirementKind.METRIC: {ref for ref, kind in evidence_kinds.items() if kind == "metric"},
+        RequirementKind.DRILL: {ref for ref, kind in evidence_kinds.items() if kind == "drill"},
         RequirementKind.APPROVAL: owner_ids,
     }
 
@@ -218,12 +228,38 @@ def step_best_practice_deep(runner: Runner) -> StepResult:
         controls = load_best_practice_catalog(BEST_PRACTICES_DIR, known_refs=registries)
     except BestPracticeCatalogError as exc:
         findings.extend(f"{issue.key}: {issue.message}" for issue in exc.issues)
-    expected_controls = {f"RE:{number:02d}" for number in range(1, 11)} | {
-        f"OE:{number:02d}" for number in range(1, 12)
-    }
+    frameworks = ()
+    try:
+        frameworks = load_framework_catalog(
+            CATALOG_ROOT / "frameworks",
+            best_practices=controls,
+            objective_refs=frozenset({"reliability.node-pool.zone-failure-tolerance@1.0.0"}),
+            additional_roots=(CATALOG_ROOT / "collected/wara-aprl",),
+        )
+    except (OSError, ValueError) as exc:
+        findings.append(f"framework catalog: {exc}")
+    waf = next((item for item in frameworks if item.id == "azure-waf"), None)
+    wara = next((item for item in frameworks if item.id == "azure-wara"), None)
+    expected_controls = (
+        {item.control.id for item in waf.resolved_controls()} if waf is not None else set()
+    )
     actual_controls = {control.control_id for control in controls}
-    if actual_controls != expected_controls:
-        findings.append("azure-waf controls differ from the required RE:01-10 and OE:01-11 set")
+    if len(expected_controls) != 59 or actual_controls != expected_controls:
+        findings.append(
+            "azure-waf controls differ from the pinned five-pillar framework definition"
+        )
+    if wara is None or wara.inventory is None:
+        findings.append("missing Azure WARA framework inventory")
+    elif (
+        wara.inventory.total_controls,
+        wara.inventory.active_controls,
+        wara.inventory.disabled_controls,
+        wara.inventory.area_count,
+        wara.inventory.resource_type_count,
+        wara.inventory.automated_active_controls,
+        wara.inventory.product_group_verified_active_controls,
+    ) != (456, 393, 63, 83, 80, 143, 276):
+        findings.append("Azure WARA inventory differs from the pinned APRL source")
 
     rule_sets = ()
     try:
@@ -235,9 +271,15 @@ def step_best_practice_deep(runner: Runner) -> StepResult:
     except GovernanceLoadError as exc:
         findings.extend(f"{issue.key}: {issue.message}" for issue in exc.issues)
     rule_set_ids = {rule_set.id for rule_set in rule_sets}
-    required_rule_sets = {"azure-waf.reliability", "azure-waf.operational-excellence"}
+    required_rule_sets = {
+        "azure-waf.reliability",
+        "azure-waf.security",
+        "azure-waf.cost-optimization",
+        "azure-waf.operational-excellence",
+        "azure-waf.performance-efficiency",
+    }
     if not required_rule_sets <= rule_set_ids:
-        findings.append("missing Azure WAF Reliability or Operational Excellence rule-set")
+        findings.append("missing one or more Azure WAF five-pillar rule sets")
 
     return StepResult(
         name="best_practice_deep",

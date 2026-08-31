@@ -14,6 +14,7 @@ from fdai.composition.readiness import (
     OperationalReadinessEventHandler,
     build_operational_readiness_event_handler,
 )
+from fdai.composition.readiness_catalog import load_runtime_best_practice_bindings
 from fdai.core.chaos.symptom_index import build_from_promoted
 from fdai.core.control_loop import ControlLoop
 from fdai.delivery.azure.diagnostic_event_ingest import DiagnosticEventIngestBridge
@@ -195,12 +196,17 @@ async def build_core_runtime(
         )
 
     state_store: StateStore = _build_audit_store()
+    best_practices, checklist_evidence = load_runtime_best_practice_bindings(
+        _resolve_catalog_root()
+    )
     operational_readiness_handler = build_operational_readiness_event_handler(
         posture=container.operational_readiness_posture,
         publisher=container.operational_readiness_report_publisher,
         feasibility_probes=container.feasibility_probes,
         event_validator=container.event_validator,
         state_store=state_store,
+        best_practices=best_practices,
+        checklist_evidence=checklist_evidence,
     )
     if operational_readiness_handler is None:
         _LOGGER.info(

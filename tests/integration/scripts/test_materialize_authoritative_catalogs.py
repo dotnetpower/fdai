@@ -61,8 +61,13 @@ def test_catalog_snapshots_are_deterministic_complete_reference_projections() ->
 
     best_practices = first[module.BEST_PRACTICE_LIST_KEY]
     assert best_practices["_revision"].startswith("sha256:")
-    assert len(best_practices["controls"]) == 21
+    assert len(best_practices["controls"]) == 59
     assert all(control["status"] == "unknown" for control in best_practices["controls"])
+    assert all(control["catalog_status"] == "present" for control in best_practices["controls"])
+    assert all(control["mapping_status"] == "mapped" for control in best_practices["controls"])
+    assert all(
+        control["evaluation_status"] == "not_evaluated" for control in best_practices["controls"]
+    )
     assert all(
         requirement["status"] == "unknown"
         for control in best_practices["controls"]

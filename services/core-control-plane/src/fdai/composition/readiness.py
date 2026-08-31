@@ -116,12 +116,14 @@ class OperationalReadinessService:
                 outcomes=provided_outcomes,
                 posture_findings=posture_findings,
                 preflight_findings=preflight_report.findings,
+                scope=signal.scope,
             )
             evaluated_at = datetime.fromisoformat(generated_at.replace("Z", "+00:00"))
             checklist_results = evaluate_best_practices(
                 tuple(self.best_practices),
                 outcomes,
                 evaluated_at=evaluated_at,
+                scope=signal.scope,
             )
             report = compose_readiness_report(
                 signal=signal,
@@ -399,6 +401,8 @@ def build_operational_readiness_event_handler(
     feasibility_probes: Sequence[FeasibilityProbe],
     event_validator: EventValidator,
     state_store: StateStore,
+    best_practices: Sequence[BestPractice] = (),
+    checklist_evidence: ChecklistEvidenceProvider | None = None,
 ) -> OperationalReadinessEventHandler | None:
     """Build the shadow handoff workflow only for a complete provider pair."""
 
@@ -417,6 +421,8 @@ def build_operational_readiness_event_handler(
             publisher=publisher,
             state_store=state_store,
             mode=mode,
+            best_practices=best_practices,
+            checklist_evidence=checklist_evidence,
         ),
     )
 
@@ -434,9 +440,12 @@ def _merge_failure_outcomes(
     outcomes: Sequence[RequirementOutcome],
     posture_findings: Sequence[Finding],
     preflight_findings: Sequence[ProbeFinding],
+    scope: str,
 ) -> tuple[RequirementOutcome, ...]:
     merged: dict[tuple[RequirementKind, str], RequirementOutcome] = {}
     for outcome in outcomes:
+        if outcome.scope != scope:
+            continue
         key = (outcome.kind, outcome.ref)
         if key in merged:
             raise ValueError(
@@ -456,6 +465,7 @@ def _merge_failure_outcomes(
                 kind=RequirementKind.RULE,
                 ref=posture_finding.rule_id,
                 status=RequirementStatus.FAILED,
+                scope=scope,
                 evidence_refs=posture_finding.evidence_refs,
             )
 
@@ -471,6 +481,7 @@ def _merge_failure_outcomes(
                 kind=RequirementKind.PROBE,
                 ref=preflight_finding.id,
                 status=RequirementStatus.FAILED,
+                scope=scope,
                 evidence_refs=(preflight_finding.evidence.source,),
             )
     return tuple(merged.values())

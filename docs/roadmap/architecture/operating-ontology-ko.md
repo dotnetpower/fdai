@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: ee58f5b8615b4fa6ffefc7956efb761b5df4a510
-translation_revised: 2026-08-30
+translation_source_sha: 779ecac43a7db3fdf4b77d1f30f02a3329682136
+translation_revised: 2026-08-31
 ---
 # FDAI 운영 온톨로지
 
@@ -30,6 +30,19 @@ translation_revised: 2026-08-30
 검토된 하나의 구성 기준선 SignalType이 일치하지 않는 원시 이벤트 형식을 처리합니다. 따라서
 와일드카드 온톨로지 링크 없이 결정론적 T0 범위를 보존합니다. 이러한 카탈로그 선언은 의미만
 설명하며 현재 프로바이더 상태를 주장하거나 실행 권한을 부여하지 않습니다.
+
+카탈로그는 고정된 CAF 및 WAF 지침을 위한 `Framework`와 `FrameworkControl`도 선언합니다.
+`framework_contains_control`은 계층을 보존하고, `framework_control_maps_objective`는 검토된
+`ControlObjective` 의미 매핑만 기록합니다. 시작 과정은 이 정의와 매핑된 목표를 카탈로그 소유
+읽기 그래프에 투영합니다. 프레임워크 레코드는 자문 데이터이며 승인, 위험 판정, 정책 판정 또는
+실행 입력이 될 수 없습니다. 프레임워크 링크는 `AccessGrant`, `AuthorizationRequirement` 또는
+`ActionType`으로 연결될 수 없습니다.
+
+동일한 비권한 투영에는 고정된 WARA/APRL lifecycle 전체도 포함됩니다. 자문 영향도, 출처
+리소스 종류, 활성 또는 비활성 상태, 제품 그룹 검증 여부, 자동화 가용성, 태그, 쿼리
+다이제스트를 가진 `FrameworkControl` 레코드 456개를 제공합니다. 외부 쿼리 본문은 투영하거나
+실행하지 않습니다. WARA 하위 그래프는 검색 후보를 좁힐 수 있지만 리소스가 권고를 통과하거나
+실패했다고 주장할 수 없습니다.
 
 Catalog-owned `Property` ObjectType은 룰 속성 참조를 위한 meta 객체로 유지됩니다.
 `rule-catalog/vocabulary/property-semantics.yaml`은 제공되는 룰이 평가하는 모든 Property 인스턴스에
@@ -467,7 +480,7 @@ graph, catalog, condition, authority, audit 및 유효 구간을 보존합니다
 
 | 분류 | lifecycle 없는 ObjectType |
 |------|---------------------------|
-| Catalog-as-code 또는 검토된 catalog projection | `ActionType`, `AuthorizationCapability`, `AuthorizationPolicyAssignment`, `AuthorizationRequirement`, `ControlObjective`, `PolicyArtifact`, `Property`, `ProviderPermissionSet`, `ResourceClass`, `ResourceType`, `Rule`, `RuleObjectiveBinding`, `SignalType`, `WorkflowDefinition` |
+| Catalog-as-code 또는 검토된 catalog projection | `ActionType`, `AuthorizationCapability`, `AuthorizationPolicyAssignment`, `AuthorizationRequirement`, `ControlObjective`, `Framework`, `FrameworkControl`, `PolicyArtifact`, `Property`, `ProviderPermissionSet`, `ResourceClass`, `ResourceType`, `Rule`, `RuleObjectiveBinding`, `SignalType`, `WorkflowDefinition` |
 | Event-bus registry 및 타입 지정 event contract | `Agent`, `Approval`, `Conversation`, `HandoffEscalation`, `PostTurnReview`, `RuleCandidate`, `SecurityEvent`, `Signal`, `Turn` |
 | Provider, service 또는 principal 범위 projection/store | `AccessGrant`, `AccessGrantRequest`, `AuthorizationDecision`, `AuthorizationObservation`, `BenchmarkValidation`, `BriefingRun`, `BriefingSubscription`, `ChangeSummary`, `ConfigurationBaseline`, `ConfigurationDriftCheck`, `ConfigurationDriftEvidence`, `ConfigurationDriftFinding`, `ConversationPolicy`, `Decision`, `DiagnosticEvidence`, `DiagnosticFinding`, `DiagnosticMechanism`, `EquivalenceValidationReceipt`, `EvidenceArtifact`, `ExecutionProfile`, `Finding`, `Principal`, `Process`, `PythonTask`, `Resource`, `ReviewCase`, `ReviewCheck`, `UserMemoryFact`, `UserPreference`, `VmTaskRun`, `WorkflowBinding` |
 | 에이전트 단일 작성자 필요 | 없음 |

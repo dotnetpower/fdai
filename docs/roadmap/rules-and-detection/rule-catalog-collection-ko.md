@@ -1,8 +1,8 @@
 ---
 title: 규칙 카탈로그 수집(Rule Catalog Collection)
 translation_of: rule-catalog-collection.md
-translation_source_sha: 3ae7b0e6c8e29189866875c0a1c3e57c7e5c6588
-translation_revised: 2026-08-29
+translation_source_sha: 720f89b946cd69110984211bad8981162f21f1b5
+translation_revised: 2026-08-31
 ---
 
 # 규칙 카탈로그 수집(Rule 카탈로그 수집)
@@ -21,7 +21,7 @@ FDAI가 체크리스트, 모범 사례, 정책, 베이스라인을 어떻게 **�
 > [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md) 에
 > 따라 합성 자리 표시자만 사용.
 
-> **구현 상태**: 출처 매니페스트/fetch/스냅샷/watcher 코어, 룰/Rego/Azure Policy/kube-bench parsers, strict 룰/ActionType/리소스 vocabulary loaders, collected Azure/kube-bench catalogs, continuous 파이프라인 stages 및 CandidateGuard가 구현되어 있습니다. `BestPractice`에도 strict 스키마, 로더, typed-reference 카탈로그 검증, 전체 Azure WAF Reliability 및 Operational Excellence 컨트롤 집합이 구현되어 있습니다.
+> **구현 상태**: 출처 매니페스트/fetch/스냅샷/watcher 코어, 룰/Rego/Azure Policy/kube-bench parsers, strict 룰/ActionType/리소스 vocabulary loaders, collected Azure/kube-bench catalogs, continuous 파이프라인 stages 및 CandidateGuard가 구현되어 있습니다. `BestPractice`에는 strict 스키마, 로더, typed-reference 카탈로그 검증과 고정된 Azure WAF 체크리스트 5개 페이지의 코드화된 권고 59개 전체가 구현되어 있습니다. WARA/APRL 스냅샷은 고정된 출처 파일 83개의 권고 456개 전체를 보존합니다. 이 중 393개는 WARA가 소비하는 활성 권고이고 63개는 비활성 lifecycle 레코드입니다.
 >
 > 전용 config-baseline/measurement-baseline 스키마, 로더, 저장소도 구현되어 있으며, configuration 저장소는 이제 결정론적 T0 소비자 `evaluate_configuration_baseline_control_set`가 룰 카탈로그와 대조해 해석하는 검토 완료 기준선을 하나 배포합니다(자세한 내용은 "구성 기준선" 절 참고). measurement 저장소는 설계상 여전히 비어 있습니다. 버전별 MCSB 카탈로그는 v1 컨트롤 86개와 v2 미리보기 컨트롤 81개를 모두 가져오고 모든 소스 문서를 고정하며, 버전별 독립 구현 crosswalk를 검증합니다.
 >
@@ -38,6 +38,18 @@ FDAI가 체크리스트, 모범 사례, 정책, 베이스라인을 어떻게 **�
 | **구성 기준선** | 리소스 타입의 하드닝된 참조 세트(예: 클러스터 하드닝 베이스라인) | T0 표류 / what-if |
 | **측정 기준선** | 고정 시나리오 세트의 참조 에이전트에 대한 기록된 KPI 값 | goals-and-metrics 비교 |
 
+프레임워크 정의는 이 네 가지 증거 아티팩트와 별도로 저장됩니다. 평가 판정을 만들지 않으면서
+고정된 CAF 및 WAF 계층, 출처 ID, 매핑 상태, 정확한 완전성 범위를 보존합니다. Azure WAF는
+코드화된 체크리스트 권고 59개 모두를 `BestPractice` 레코드에 매핑합니다. CAF는 배포가 적용
+가능성과 형식화된 증거를 제공할 때까지 도입 방법론 7개와 landing zone 설계 영역 8개를
+참조 전용 컨트롤로 기록합니다.
+
+WARA는 별도의 비공개 질문 카탈로그가 아니라 Azure Proactive Resiliency Library(APRL)를
+사용합니다. FDAI는 리소스 종류, 자문 영향도, 제품 그룹 검증 여부, 자동화 가용성, 태그,
+출처 다이제스트, 선택적 Azure Resource Graph 쿼리 다이제스트를 포함한 고정 APRL 권고
+메타데이터 전체를 가져옵니다. 쿼리 본문은 외부에 유지되며 실행되지 않습니다. APRL 권고는
+일반 Rule, 증거, 의미, 회귀, shadow, 승격 게이트를 통과하기 전까지 실행 가능한 Rule이 아닙니다.
+
 처음 셋은 결정론 엔진에 공급. 넷째는
 [phase-0-instrumentation-ko.md](../phases/phase-0-instrumentation-ko.md) 의 **성능 베이스라인** -
 다른 개념이며 이 문서는 둘 다 "베이스라인" 이라는 이유로만 공유; 저장소와 스키마에서 분리 유지.
@@ -49,7 +61,7 @@ FDAI가 체크리스트, 모범 사례, 정책, 베이스라인을 어떻게 **�
 
 | 그룹 | 소스 | 네이티브 포맷 | Fetch 방법 |
 |------|------|--------------|-----------|
-| Azure-네이티브 | WAF checklists, AKS 기준선, MCSB, Azure Policy built-in initiatives, Advisor, Defender recommendations | JSON / ARM 정책 / docs | REST API, 정책 definitions 내보내기, docs repo |
+| Azure-네이티브 | WAF checklists, WARA/APRL, AKS 기준선, MCSB, Azure Policy built-in initiatives, Advisor, Defender recommendations | YAML / JSON / ARM 정책 / docs | 고정된 git 출처, REST API, 정책 definitions 내보내기, docs repo |
 | Cloud-중립 / OSS | CIS Benchmarks, OPA/Gatekeeper libraries, Cloud 관리인 policies | PDF/spreadsheet, Rego, YAML | git clone, 패키지 레지스트리, licensed download |
 | IaC 스캐너 | Checkov, tfsec, KICS, Trivy | 내장 룰 묶음 (YAML/JSON/Go) | git clone, 패키지 레지스트리 |
 | Kubernetes | kube-bench, Gatekeeper 제약 templates | YAML | git clone |
@@ -599,7 +611,7 @@ Authored Rego는 `rule-catalog/` 아래에 **중첩되지 않음** ; T0와 검�
 |------|------|------|------|
 | 매니페스트, 수집, 스냅샷, watcher 파이프라인 | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/collect/`; `watcher.py`; 집중 `tests/rule_catalog/pipeline/test_collect.py`; `test_watcher.py` | 요청 시 실행과 주기 평가가 결정론적 스냅샷 및 실패 시 차단 수집과 함께 구현되어 있습니다. |
 | 제공 파서 및 수집 Rule 말뭉치 | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/parse/`; `rule-catalog/collected/`; 집중 파서 및 전체 카탈로그 테스트 | Rule YAML, Rego, Azure Policy, kube-bench 경로가 구현됐으며 예약 파서는 명시적으로 실패합니다. |
-| 모범 사례 및 MCSB 카탈로그 | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/best_practice_catalog.py`; `mcsb_catalog.py`; `rule-catalog/best-practices/`; `rule-catalog/compliance/mcsb/` | 엄격한 로더와 현재 버전별 카탈로그가 구현되어 있습니다. |
+| 프레임워크 정의, 모범 사례, WARA/APRL 및 MCSB 카탈로그 | implemented | `framework_catalog.py`; `best_practice_catalog.py`; `mcsb_catalog.py`; `rule-catalog/frameworks/`; `rule-catalog/best-practices/`; `rule-catalog/compliance/mcsb/` | 엄격한 로더, 고정된 CAF/WAF 구조, WAF 컨트롤 59개 전체, 고정된 APRL lifecycle 레코드 456개 전체, 현재 MCSB 카탈로그가 구현되어 있습니다. 카탈로그 존재는 워크로드 준수를 의미하지 않습니다. |
 | 구성 및 측정 기준선 | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/baseline_catalog.py`; `configuration_baseline.schema.json`; `measurement_baseline.schema.json`; `rule-catalog/baselines/`; `rule-catalog/baselines/configuration/kubernetes-cluster.hardening.baseline.yaml`; `services/core-control-plane/tests/rule_catalog/test_baseline_catalog.py` | 스키마, id 네임스페이스, 저장소를 분리했으며 두 로더 모두 차단 기본입니다. configuration 저장소는 이제 `evaluate_configuration_baseline_control_set`가 로드된 룰 카탈로그와 대조해 해석하는 검토 완료 기준선을 하나 제공합니다(`baseline_deep` 참고). measurement 저장소는 설계상 여전히 비어 있습니다(이 저장소는 고객이 측정한 값을 절대 커밋하지 않습니다). |
 | 선언된 reference-only 수집 및 저장소 가드 | implemented | [`collector.py`](../../../services/core-control-plane/src/fdai/rule_catalog/pipeline/collect/collector.py), [`check-reference-only-sources.py`](../../../scripts/quality/repository/check-reference-only-sources.py), 집중 collector 및 checker 테스트 | Non-dry 수집은 reference-only tree를 materialize할 수 없고 Git index 게이트는 선언된 reference-only snapshot 옆에 강제로 추가된 원문을 거부합니다. 임의의 미분류 텍스트는 이 선언 기반 주장 밖에 남습니다. |
 | 운영 발견 일정 및 pull request 전달 | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/watcher_cli.py`; `promotion.py`; `snapshot_mirror.py`; `rule_catalog/pipeline/review.py`; `delivery/azure/rule_catalog_snapshot_store.py`; `delivery/gitops_pr/collection_review.py`; `delivery/rule_catalog_delivery.py`; `rule_collector_job_cli.py`; `infra/modules/compute/container-apps/rule_watcher_job.tf`; [열린 결정](#열림-decisions) | 주기, 자격 증명 참조, durable snapshot mirroring, review-only draft-PR 게시가 구현되어 배포 설정에 연결되어 있으며 기본값은 opt-in/off입니다. 저장소/PR 플래그를 실제 배포에서 활성화하고 외부 GitHub 자격 증명을 프로비저닝하는 작업은 여전히 배포 시점의 외부 작업으로 남아 있습니다. |
@@ -614,6 +626,8 @@ Authored Rego는 `rule-catalog/` 아래에 **중첩되지 않음** ; T0와 검�
 | 2026-08-29 | implemented | 검토 완료된 `kubernetes-cluster.hardening.baseline` ConfigurationBaseline을 하나 배포했습니다. 이를 위한 결정론적 T0 소비자인 `evaluate_configuration_baseline_control_set` / `require_resolved_configuration_baseline_control_set`와 `baseline_deep` 전체 카탈로그 검증 단계를 추가했으며, 런타임 `FrozenConfigurationBaseline` drift 스냅샷과는 별개로 유지했습니다. Durable snapshot mirror(`snapshot_mirror.py`, `delivery/azure/rule_catalog_snapshot_store.py`), 기존 `RemediationPrPublisher` / `GitOpsPrAdapter` GitOps 통로를 재사용하는 review-only draft-PR 게시(`rule_catalog/pipeline/review.py`, `delivery/gitops_pr/collection_review.py`), 그리고 이를 `rule_collector_job_cli.py`와 `infra/modules/compute/container-apps/rule_watcher_job.tf` / `infra/main.tf`에 opt-in으로 연결하는 작업도 추가했습니다. | `current change`; `pytest services/core-control-plane/tests/rule_catalog/test_baseline_catalog.py services/core-control-plane/tests/rule_catalog/pipeline/test_snapshot_mirror.py services/core-control-plane/tests/rule_catalog/pipeline/test_review.py services/core-control-plane/tests/delivery/test_gitops_collection_review.py services/core-control-plane/tests/delivery/azure/test_rule_catalog_snapshot_store.py services/core-control-plane/tests/delivery/test_rule_catalog_delivery.py services/core-control-plane/tests/delivery/test_rule_collector_job_cli.py` (60 passed); `infra/`와 `infra/modules/compute/container-apps/`에서 `terraform validate` / `terraform fmt -check`. | Durable-mirror와 review-only PR 단계를 실제 배포에서 활성화하고 외부 GitHub 자격 증명을 프로비저닝합니다. 실제 활성화는 이번 변경에서 실행하지 않은 live network/deploy 작업이므로 보류합니다. |
 | 2026-08-29 | implemented | 하드닝 11-13차에서 저장소 문서를 실제 제공 내용과 맞추고, 재검증 시간이 달라도 검토 ID가 유지되도록 했으며, 공유 저장소 보존 접두사가 구성된 각 컨테이너와 일치하도록 수정했습니다. | `current change`; 집중 수집 테스트 61개, `baseline_deep`, 저장소 계약 테스트 3개 통과. 최종 검토에서 Medium 이상 문제는 남지 않았습니다. | 실제 활성화와 외부 자격 증명은 운영 근거로 남습니다. |
 | 2026-08-29 | implemented | 제공 계약을 기준으로 수집 설계 결정을 닫았습니다. 매니페스트 소유 재배포 분류, 수요 기반 파서, 별도 crosswalk, 소스 버전 기반 CVSS, 중립 데이터베이스 매개 변수, 배정 기반 폐기, 소스별 무결성 기준점, 구현된 발견 임계값과 주기를 선택했습니다. | `current change`; 현재 매니페스트, crosswalk, fetcher, 거버넌스 배정 및 발견 계약. | 새 외부 소스에는 각 라이선스와 매니페스트 승인이 계속 필요합니다. |
+| 2026-08-31 | implemented | 고정된 CAF/WAF 프레임워크 정의를 추가하고 WAF 범위를 2개 핵심 요소에서 코드화된 권고 59개 전체로 확장했습니다. 완전성 게이트는 이제 고정된 매니페스트에서 양방향이며 출처가 일치하는 예상 집합을 도출합니다. | `current change`; 프레임워크/카탈로그 경로와 집중 프레임워크, 준비 상태, `best_practice_deep` 검사. | 평가된 충족 상태에는 여전히 배포 증거가 필요합니다. |
+| 2026-08-31 | implemented | 결정론적 WARA/APRL importer를 추가하고 출처 파일 83개의 권고 456개 전체를 고정했습니다. 활성 GUID와 메타데이터 393개는 WARA 빌드 객체와 정확히 일치하며 비활성 레코드 63개는 lifecycle 이력으로 유지합니다. | `current change`; WARA 프레임워크 카탈로그, importer, loader, 온톨로지 투영 및 집중 검사. | 검토된 FDAI 평가 경로가 승격될 때까지 권고는 참조 전용으로 유지합니다. |
 
 ### 남은 작업
 

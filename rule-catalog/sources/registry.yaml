@@ -37,8 +37,8 @@ sources:
   - id: waf
     name: Azure Well-Architected Framework
     url_prefix: https://learn.microsoft.com/azure/well-architected/
-    license: LicenseRef-reference-only
-    redistribution: reference-only
+    license: CC-BY-4.0
+    redistribution: embeddable
     scope: >-
       Five pillars of workload design - Reliability, Security, Cost
       Optimization, Operational Excellence, Performance Efficiency. The
@@ -46,6 +46,38 @@ sources:
       Cost (right-size, orphan cleanup), and Operational Excellence
       (diagnostics, observability).
     maintainer_url: https://learn.microsoft.com/azure/well-architected/
+
+  - id: caf
+    name: Microsoft Cloud Adoption Framework for Azure
+    url_prefix: https://learn.microsoft.com/azure/cloud-adoption-framework/
+    license: CC-BY-4.0
+    redistribution: embeddable
+    scope: >-
+      Living organizational, landing-zone, governance, security, and management
+      guidance. FDAI stores pinned methodology and design-area references as
+      advisory framework controls; deployment-specific applicability and evidence
+      remain outside the repository.
+    maintainer_url: https://learn.microsoft.com/azure/cloud-adoption-framework/overview
+
+  - id: wara
+    name: Azure Well-Architected Reliability Assessment
+    url_prefix: https://github.com/Azure/Well-Architected-Reliability-Assessment
+    license: MIT
+    redistribution: embeddable
+    scope: >-
+      Assessment automation that consumes the Azure Proactive Resiliency Library
+      recommendation object to produce workload reliability findings and reports.
+    maintainer_url: https://github.com/Azure/Well-Architected-Reliability-Assessment
+
+  - id: aprl
+    name: Azure Proactive Resiliency Library v2
+    url_prefix: https://github.com/Azure/Azure-Proactive-Resiliency-Library-v2
+    license: MIT
+    redistribution: embeddable
+    scope: >-
+      Product-group-reviewed and community-reviewed Azure reliability recommendations,
+      resource applicability, and optional Azure Resource Graph automation consumed by WARA.
+    maintainer_url: https://azure.github.io/Azure-Proactive-Resiliency-Library-v2/
 
   - id: azure_advisor
     name: Azure Advisor recommendations

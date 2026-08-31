@@ -92,6 +92,7 @@ async def test_projects_merged_runtime_catalog_idempotently_to_typed_store(
         rules=(),
         action_types=(),
         property_semantics=catalog.property_semantics,
+        ontology_release=catalog.build_release(),
     )
     monkeypatch.setattr("fdai.runtime.catalog_ontology.shutil.which", lambda _name: "/opa")
     original_read_text = Path.read_text

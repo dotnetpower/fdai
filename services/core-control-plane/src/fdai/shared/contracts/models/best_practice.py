@@ -54,13 +54,27 @@ class RequirementOutcome(_Base):
     kind: RequirementKind
     ref: Annotated[str, Field(min_length=1, max_length=256)]
     status: RequirementStatus
+    scope: Annotated[str, Field(min_length=1, max_length=512)] | None = None
     evidence_refs: tuple[str, ...] = ()
     observed_at: datetime | None = None
+    recorded_at: datetime | None = None
+    source_identity: Annotated[str, Field(min_length=1, max_length=512)] | None = None
+    evidence_digest: Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")] | None = None
+    not_applicable_reason: Annotated[str, Field(min_length=1, max_length=2048)] | None = None
+    not_applicable_approved_by: Annotated[str, Field(min_length=1, max_length=512)] | None = None
 
     @model_validator(mode="after")
-    def _validate_observed_at(self) -> Self:
-        if self.observed_at is not None and self.observed_at.tzinfo is None:
-            raise ValueError("RequirementOutcome.observed_at MUST be timezone-aware")
+    def _validate_times_and_not_applicable_fields(self) -> Self:
+        for field_name, value in (
+            ("observed_at", self.observed_at),
+            ("recorded_at", self.recorded_at),
+        ):
+            if value is not None and value.tzinfo is None:
+                raise ValueError(f"RequirementOutcome.{field_name} MUST be timezone-aware")
+        if self.status is not RequirementStatus.NOT_APPLICABLE and (
+            self.not_applicable_reason is not None or self.not_applicable_approved_by is not None
+        ):
+            raise ValueError("not-applicable justification fields require NOT_APPLICABLE status")
         return self
 
 

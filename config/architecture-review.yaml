@@ -112,8 +112,13 @@ architecture_review:
       - reliability-owner
       - release-owner
       - cost-owner
+      - performance-owner
     owner_bindings: {}
+    approval_bindings: {}
     required_evidence:
+      - automation-safety-review
+      - capacity-test-results
+      - cost-estimate-confirmation
       - production-terraform-plan
       - signed-image-provenance
       - network-data-flow-validation
@@ -137,9 +142,166 @@ architecture_review:
       - incident-response-plan
       - incident-response-drill
       - test-strategy-results
-      - automation-safety-review
       - operational-readiness-report
       - smoke-canary-results
+    checklist_required_evidence:
+      - alerting-and-retention-review
+      - architecture-tradeoff-record
+      - automation-reliability-results
+      - automation-safety-review
+      - billing-increment-analysis
+      - budget-alert-validation
+      - budget-forecast-evidence
+      - capacity-plan
       - capacity-test-results
+      - code-cost-review
+      - code-infrastructure-performance-review
+      - component-cost-review
+      - configuration-compliance-report
+      - consolidation-review
       - cost-estimate-confirmation
+      - cost-training-evidence
+      - critical-flow-cost-analysis
+      - critical-flow-inventory
+      - critical-flow-redundancy-review
+      - daily-cost-report
+      - data-classification-inventory
+      - data-cost-optimization-review
+      - data-performance-review
+      - development-practices
+      - development-quality-standards
+      - disaster-recovery-plan
+      - emergency-secret-rotation
+      - environment-cost-review
+      - event-recovery-validation
+      - failback-drill
+      - failure-mode-analysis
+      - financial-accountability-model
+      - health-monitoring-evidence
+      - identity-access-review
+      - incident-response-drill
+      - incident-response-plan
+      - maintenance-impact-plan
+      - network-data-flow-validation
+      - operational-practices
+      - operational-readiness-report
+      - operations-task-standards
+      - performance-baseline
+      - performance-incident-drill
+      - performance-incident-runbook
+      - performance-targets
+      - performance-test-results
+      - performance-trend-review
+      - personnel-time-optimization
+      - primary-fence-validation
+      - privacy-impact-assessment
+      - production-terraform-plan
+      - rate-optimization-review
+      - reliability-test-results
+      - resource-hardening-baseline
+      - restore-failover-drill
+      - rpo-rto-approval
+      - scaling-cost-analysis
+      - scaling-partitioning-plan
+      - scaling-strategy
+      - secrets-management-plan
+      - secure-development-lifecycle
+      - secure-score-snapshot
+      - security-baseline
+      - security-monitoring-plan
+      - security-scan-results
+      - security-test-results
+      - segmentation-design
+      - self-healing-validation
+      - service-selection-review
+      - signed-image-provenance
+      - smoke-canary-results
+      - spending-guardrails
+      - supply-chain-gate-results
+      - test-strategy-results
+      - threat-detection-evidence
+      - threat-detection-validation
+      - workload-cost-model
+      - workload-slo-approval
+    evidence_kinds:
+      alerting-and-retention-review: artifact
+      architecture-tradeoff-record: artifact
+      automation-reliability-results: metric
+      automation-safety-review: artifact
+      billing-increment-analysis: metric
+      budget-alert-validation: metric
+      budget-forecast-evidence: metric
+      capacity-plan: artifact
+      capacity-test-results: metric
+      code-cost-review: artifact
+      code-infrastructure-performance-review: artifact
+      component-cost-review: metric
+      configuration-compliance-report: metric
+      consolidation-review: artifact
+      cost-estimate-confirmation: metric
+      cost-training-evidence: artifact
+      critical-flow-cost-analysis: metric
+      critical-flow-inventory: artifact
+      critical-flow-redundancy-review: artifact
+      daily-cost-report: metric
+      data-classification-inventory: artifact
+      data-cost-optimization-review: artifact
+      data-performance-review: artifact
+      development-practices: artifact
+      development-quality-standards: artifact
+      disaster-recovery-plan: artifact
+      emergency-secret-rotation: drill
+      environment-cost-review: metric
+      event-recovery-validation: drill
+      failback-drill: drill
+      failure-mode-analysis: artifact
+      financial-accountability-model: artifact
+      health-monitoring-evidence: metric
+      identity-access-review: artifact
+      incident-response-drill: drill
+      incident-response-plan: artifact
+      maintenance-impact-plan: artifact
+      network-data-flow-validation: artifact
+      operational-practices: artifact
+      operational-readiness-report: artifact
+      operations-task-standards: artifact
+      performance-baseline: metric
+      performance-incident-drill: drill
+      performance-incident-runbook: artifact
+      performance-targets: metric
+      performance-test-results: artifact
+      performance-trend-review: metric
+      personnel-time-optimization: metric
+      primary-fence-validation: drill
+      privacy-impact-assessment: artifact
+      production-terraform-plan: artifact
+      rate-optimization-review: artifact
+      reliability-test-results: drill
+      resource-hardening-baseline: artifact
+      restore-failover-drill: drill
+      rpo-rto-approval: metric
+      scaling-cost-analysis: metric
+      scaling-partitioning-plan: artifact
+      scaling-strategy: artifact
+      secrets-management-plan: artifact
+      secure-development-lifecycle: artifact
+      secure-score-snapshot: metric
+      security-baseline: artifact
+      security-monitoring-plan: artifact
+      security-scan-results: metric
+      security-test-results: artifact
+      segmentation-design: artifact
+      self-healing-validation: drill
+      service-selection-review: artifact
+      signed-image-provenance: artifact
+      smoke-canary-results: drill
+      spending-guardrails: artifact
+      supply-chain-gate-results: metric
+      test-strategy-results: artifact
+      threat-detection-evidence: metric
+      threat-detection-validation: drill
+      workload-cost-model: artifact
+      workload-slo-approval: metric
     evidence_bindings: {}
+    checklist_evidence_bindings: {}
+    not_applicable_bindings: {}

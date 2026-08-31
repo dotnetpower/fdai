@@ -6,6 +6,7 @@ from copy import deepcopy
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
 import yaml
 from fdai.composition.readiness_evidence import ArchitectureReviewChecklistEvidenceProvider
 from fdai.shared.contracts.models import RequirementKind, RequirementStatus
@@ -45,11 +46,16 @@ async def test_bound_evidence_carries_time_and_reference() -> None:
     assert isinstance(review, dict)
     gate = review["production_gate"]
     assert isinstance(gate, dict)
-    gate["evidence_bindings"] = {
+    gate["checklist_evidence_bindings"] = {
         "restore-failover-drill": {
+            "kind": "drill",
+            "scope": "scope-example",
             "uri": "evidence://restore-failover-drill",
-            "approved_at": "2026-07-29T00:00:00Z",
+            "observed_at": "2026-07-29T00:00:00Z",
+            "recorded_at": "2026-07-29T00:01:00Z",
             "expires_at": "2027-07-29T00:00:00Z",
+            "source_identity": "observer@example.com",
+            "sha256": f"sha256:{'a' * 64}",
         }
     }
 
@@ -74,11 +80,16 @@ async def test_expired_bound_evidence_is_failed() -> None:
     assert isinstance(review, dict)
     gate = review["production_gate"]
     assert isinstance(gate, dict)
-    gate["evidence_bindings"] = {
+    gate["checklist_evidence_bindings"] = {
         "restore-failover-drill": {
+            "kind": "drill",
+            "scope": "scope-example",
             "uri": "evidence://restore-failover-drill",
-            "approved_at": "2026-07-01T00:00:00Z",
+            "observed_at": "2026-07-01T00:00:00Z",
+            "recorded_at": "2026-07-01T00:01:00Z",
             "expires_at": "2026-07-15T00:00:00Z",
+            "source_identity": "observer@example.com",
+            "sha256": f"sha256:{'b' * 64}",
         }
     }
 
@@ -93,3 +104,48 @@ async def test_expired_bound_evidence_is_failed() -> None:
     )
 
     assert drill.status is RequirementStatus.FAILED
+
+
+async def test_owner_assignment_does_not_count_as_approval() -> None:
+    manifest = deepcopy(_manifest())
+    review = manifest["architecture_review"]
+    assert isinstance(review, dict)
+    gate = review["production_gate"]
+    assert isinstance(gate, dict)
+    gate["owner_bindings"] = {"reliability-owner": "owner@example.com"}
+
+    outcomes = await ArchitectureReviewChecklistEvidenceProvider(manifest).outcomes_for_scope(
+        "scope-example"
+    )
+    approval = next(
+        outcome
+        for outcome in outcomes
+        if outcome.kind is RequirementKind.APPROVAL and outcome.ref == "reliability-owner"
+    )
+
+    assert approval.status is RequirementStatus.UNKNOWN
+
+
+async def test_rejects_evidence_bound_to_another_scope() -> None:
+    manifest = deepcopy(_manifest())
+    review = manifest["architecture_review"]
+    assert isinstance(review, dict)
+    gate = review["production_gate"]
+    assert isinstance(gate, dict)
+    gate["checklist_evidence_bindings"] = {
+        "restore-failover-drill": {
+            "kind": "drill",
+            "scope": "another-scope",
+            "uri": "evidence://restore-failover-drill",
+            "observed_at": "2026-07-29T00:00:00Z",
+            "recorded_at": "2026-07-29T00:01:00Z",
+            "expires_at": "2027-07-29T00:00:00Z",
+            "source_identity": "observer@example.com",
+            "sha256": f"sha256:{'c' * 64}",
+        }
+    }
+
+    with pytest.raises(ValueError, match="scope does not match"):
+        await ArchitectureReviewChecklistEvidenceProvider(manifest).outcomes_for_scope(
+            "scope-example"
+        )

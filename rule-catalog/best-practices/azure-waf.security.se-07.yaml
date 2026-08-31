@@ -1,0 +1,35 @@
+schema_version: 1.0.0
+kind: best-practice
+id: azure-waf.security.se-07
+version: 1.0.0
+framework: azure-waf
+control_id: SE:07
+title: Encrypt data with modern methods
+rationale: Current evidence is required to assess encrypt data with modern methods.
+severity: critical
+category: security
+requirement_mode: all
+requirements:
+- kind: rule
+  ref: object-storage.encryption-at-rest.required
+- kind: rule
+  ref: object-storage.https-only.required
+- kind: rule
+  ref: object-storage.min-tls-version
+- kind: rule
+  ref: postgresql-server.encryption-at-rest
+- kind: rule
+  ref: postgresql-server.ssl-enforcement
+- kind: rule
+  ref: sql-database.tde-required
+- kind: approval
+  ref: security-owner
+provenance:
+  source_url: https://learn.microsoft.com/en-us/azure/well-architected/security/checklist
+  source_version: '2026-06-26'
+  resolved_ref: 1df1c6023e01032c7be0013b086379c176827b1c
+  content_hash: git:1df1c6023e01032c7be0013b086379c176827b1c
+  license: CC-BY-4.0
+  redistribution: embeddable
+  retrieved_at: '2026-08-31T00:00:00Z'
+  mapped_by: catalog-team

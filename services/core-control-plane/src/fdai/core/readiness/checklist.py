@@ -35,13 +35,16 @@ def evaluate_best_practices(
     outcomes: tuple[RequirementOutcome, ...],
     *,
     evaluated_at: datetime,
+    scope: str | None = None,
 ) -> tuple[ChecklistControlResult, ...]:
-    """Evaluate controls without treating missing evidence as a pass."""
+    """Evaluate controls without treating missing or cross-scope evidence as a pass."""
 
     if evaluated_at.tzinfo is None:
         raise ValueError("evaluated_at MUST be timezone-aware")
     by_key: dict[tuple[object, str], RequirementOutcome] = {}
     for provided_outcome in outcomes:
+        if scope is not None and provided_outcome.scope != scope:
+            continue
         key = (provided_outcome.kind, provided_outcome.ref)
         if key in by_key:
             raise ValueError(
@@ -91,6 +94,13 @@ def _requirement_status(
     if outcome.status is RequirementStatus.FAILED:
         return ChecklistControlStatus.FAILED
     if outcome.status is RequirementStatus.NOT_APPLICABLE:
+        if not outcome.not_applicable_reason or not outcome.not_applicable_approved_by:
+            return ChecklistControlStatus.UNKNOWN
+        if (
+            outcome.source_identity is not None
+            and outcome.source_identity == outcome.not_applicable_approved_by
+        ):
+            return ChecklistControlStatus.UNKNOWN
         return ChecklistControlStatus.NOT_APPLICABLE
     if freshness_days is not None:
         if outcome.observed_at is None:

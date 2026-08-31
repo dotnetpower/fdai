@@ -60,6 +60,9 @@ _EXPECTED_FILES = frozenset(
         # Projects ARB evidence bindings into typed checklist outcomes without
         # adding I/O or decision authority to the readiness core.
         "readiness_evidence.py",
+        # Loads the pinned framework checklist and scope-aware ARB evidence
+        # adapter without adding authority to the readiness core.
+        "readiness_catalog.py",
         # Extracted from wire_azure.py (G-4) to keep the file under the
         # per-file LOC ceiling; assembles the metric-provider composite
         # from whichever telemetry backends the deploy exposes.

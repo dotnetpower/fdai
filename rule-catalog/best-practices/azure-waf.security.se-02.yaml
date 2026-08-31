@@ -1,0 +1,29 @@
+schema_version: 1.0.0
+kind: best-practice
+id: azure-waf.security.se-02
+version: 1.0.0
+framework: azure-waf
+control_id: SE:02
+title: Apply a secure development lifecycle
+rationale: Current evidence is required to assess apply a secure development lifecycle.
+severity: critical
+category: security
+requirement_mode: all
+requirements:
+- kind: artifact
+  ref: secure-development-lifecycle
+  freshness_days: 180
+- kind: metric
+  ref: security-scan-results
+  freshness_days: 30
+- kind: approval
+  ref: security-owner
+provenance:
+  source_url: https://learn.microsoft.com/en-us/azure/well-architected/security/checklist
+  source_version: '2026-06-26'
+  resolved_ref: 1df1c6023e01032c7be0013b086379c176827b1c
+  content_hash: git:1df1c6023e01032c7be0013b086379c176827b1c
+  license: CC-BY-4.0
+  redistribution: embeddable
+  retrieved_at: '2026-08-31T00:00:00Z'
+  mapped_by: catalog-team

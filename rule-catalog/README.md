@@ -18,7 +18,7 @@ Runtime and collection code lives under
 | [`action-types-custom/`](action-types-custom/) and [`action-types-overrides/`](action-types-overrides/) | Fork-only additions and narrowing overlays. |
 | [`vocabulary/`](vocabulary/) | Canonical ObjectType, LinkType, resource, signal, property, purpose, and investigation vocabulary. |
 | [`workflows/`](workflows/) | Versioned Workflow definitions compiled into Process instances. |
-| [`best-practices/`](best-practices/) and [`rule-sets/`](rule-sets/) | Framework controls and version-pinned initiatives over atomic rules. |
+| [`frameworks/`](frameworks/), [`best-practices/`](best-practices/), and [`rule-sets/`](rule-sets/) | Pinned advisory framework inventories, evidence-bearing controls, and version-pinned initiatives over atomic rules. |
 | [`probes/`](probes/) and [`operational-insights/`](operational-insights/) | Read-only live-blast probes and deterministic insight recipes. |
 | [`remediation/`](remediation/) | Provider-neutral remediation templates rendered by governed delivery paths. |
 | [`prompts/`](prompts/) | Versioned prompt fragments, task packs, scenarios, and tool descriptors. |
