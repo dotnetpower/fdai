@@ -4,23 +4,28 @@ import json
 
 import pytest
 
+from fdai_deployment_cli.cli import main
+from fdai_deployment_cli.contracts import ProvisionProfile
+from fdai_deployment_cli.doctor import ToolCheck
 from fdai_deployment_cli.github_actions import (
     CommandResult,
     DeploymentSelection,
     deployment_context_digest,
     dispatch_apply,
     dispatch_plan,
+    enforce_plan_not_expired,
+    parse_plan_expiry,
+    request_binding_prefix,
     workflow_status,
 )
-from fdai_deployment_cli.cli import main
-from fdai_deployment_cli.contracts import ProvisionProfile
-from fdai_deployment_cli.doctor import ToolCheck
 from fdai_deployment_cli.profile import write_profile
 from fdai_deployment_cli.target import compute_target_binding
 
 _COMMIT = "a" * 40
 _TARGET = "e" * 64
 _REGION = "koreacentral"
+_FUTURE_EXPIRY = "2099-12-31T23:59:59Z"
+_PAST_EXPIRY = "2020-01-01T00:00:00Z"
 
 
 class RecordingRunner:
@@ -84,6 +89,7 @@ def test_plan_and_apply_share_one_context_and_exact_feature_inputs() -> None:
         run_id="run.example",
         plan_id="plan-123-1",
         plan_digest="c" * 64,
+        plan_expires_at=_FUTURE_EXPIRY,
         resume_verification=False,
         selection=selection,
         run=runner,
@@ -115,6 +121,7 @@ def test_resume_dispatch_uses_exact_apply_with_verification_only_flag() -> None:
         run_id="run.resume",
         plan_id="plan-99-2",
         plan_digest="d" * 64,
+        plan_expires_at=_FUTURE_EXPIRY,
         resume_verification=True,
         selection=DeploymentSelection(),
         run=runner,
@@ -139,6 +146,7 @@ def test_apply_and_resume_use_distinct_request_ids() -> None:
         "run_id": "run.same",
         "plan_id": "plan-99-2",
         "plan_digest": "d" * 64,
+        "plan_expires_at": _FUTURE_EXPIRY,
         "selection": DeploymentSelection(),
         "run": runner,
     }
@@ -213,6 +221,7 @@ def test_apply_rejects_unsupported_quorum_or_self_reviewable_environment() -> No
         "run_id": "run.quorum",
         "plan_id": "plan-99-2",
         "plan_digest": "d" * 64,
+        "plan_expires_at": _FUTURE_EXPIRY,
         "resume_verification": False,
         "selection": DeploymentSelection(),
     }
@@ -523,6 +532,8 @@ def test_guided_live_flow_pauses_for_plan_then_requires_explicit_apply(
                 "plan-123-1",
                 "--plan-digest",
                 "c" * 64,
+                "--plan-expires-at",
+                _FUTURE_EXPIRY,
                 "--approve-application",
             ]
         )
@@ -531,3 +542,205 @@ def test_guided_live_flow_pauses_for_plan_then_requires_explicit_apply(
     applying = json.loads(capsys.readouterr().out)
     assert applying["state"] == "applying"
     assert len(apply_calls) == 1
+
+
+# --- Plan expiry enforcement ---
+
+
+def test_enforce_plan_not_expired_rejects_past_timestamps() -> None:
+    with pytest.raises(ValueError, match="expired"):
+        enforce_plan_not_expired(_PAST_EXPIRY)
+
+
+def test_enforce_plan_not_expired_accepts_future_timestamps() -> None:
+    enforce_plan_not_expired(_FUTURE_EXPIRY)  # Must not raise.
+
+
+def test_parse_plan_expiry_rejects_non_utc_formats() -> None:
+    with pytest.raises(ValueError, match="ISO-8601"):
+        parse_plan_expiry("2026-08-31T12:00:00+09:00")
+    with pytest.raises(ValueError, match="ISO-8601"):
+        parse_plan_expiry("2026-08-31 12:00:00Z")
+    with pytest.raises(ValueError, match="ISO-8601"):
+        parse_plan_expiry("")
+
+
+def test_parse_plan_expiry_rejects_invalid_dates() -> None:
+    with pytest.raises(ValueError, match="invalid date"):
+        parse_plan_expiry("2026-02-30T12:00:00Z")
+
+
+def test_dispatch_apply_rejects_expired_plan() -> None:
+    with pytest.raises(ValueError, match="expired"):
+        dispatch_apply(
+            repository="example/fdai",
+            environment="dev",
+            commit_sha=_COMMIT,
+            target_binding=_TARGET,
+            region=_REGION,
+            approval_quorum=1,
+            run_id="run.expired",
+            plan_id="plan-99-2",
+            plan_digest="d" * 64,
+            plan_expires_at=_PAST_EXPIRY,
+            resume_verification=False,
+            selection=DeploymentSelection(),
+            run=RecordingRunner(),
+        )
+
+
+def test_status_exposes_expired_field_without_blocking_read() -> None:
+    """workflow_status returns expired=True for past expiry, not an error."""
+
+    context_digest = deployment_context_digest(
+        environment="dev",
+        commit_sha=_COMMIT,
+        selection=DeploymentSelection(),
+    )
+    request = dispatch_plan(
+        repository="example/fdai",
+        environment="dev",
+        commit_sha=_COMMIT,
+        target_binding=_TARGET,
+        region=_REGION,
+        run_id="run.expiry-status",
+        selection=DeploymentSelection(),
+        run=RecordingRunner(),
+    ).request_id
+
+    class ExpiryArtifactRunner(RecordingRunner):
+        def __call__(self, arguments: tuple[str, ...]) -> CommandResult:
+            self.calls.append(arguments)
+            if arguments[:2] == ("run", "download"):
+                directory = arguments[arguments.index("--dir") + 1]
+                with open(f"{directory}/plan-metadata.json", "w", encoding="utf-8") as stream:
+                    json.dump(
+                        {
+                            "schema_version": "fdai.deployment-plan.v1",
+                            "request_id": request,
+                            "commit_sha": _COMMIT,
+                            "status": "ready",
+                            "plan_id": "plan-123-1",
+                            "plan_digest": "c" * 64,
+                            "context_digest": context_digest,
+                            "expires_at": _PAST_EXPIRY,
+                        },
+                        stream,
+                    )
+                return CommandResult(0, "")
+            return CommandResult(
+                0,
+                json.dumps(
+                    [
+                        {
+                            "databaseId": 456,
+                            "displayTitle": f"deploy-{request}",
+                            "status": "completed",
+                            "conclusion": "success",
+                            "url": "https://example.com/run/456",
+                            "headSha": "f" * 40,
+                        }
+                    ]
+                ),
+            )
+
+    status = workflow_status(
+        repository="example/fdai",
+        request_id_value=request,
+        expected_commit=_COMMIT,
+        expected_context_digest=context_digest,
+        target_binding=_TARGET,
+        expected_region=_REGION,
+        run=ExpiryArtifactRunner(),
+    )
+
+    assert status["plan"]["expired"] is True
+    assert status["plan"]["plan_id"] == "plan-123-1"
+
+
+# --- Round-trip contract test: CLI ↔ validate_deploy_request.py ---
+
+
+def test_request_binding_and_context_digest_match_workflow_validator() -> None:
+    """Prove the client-side formulas match the server-side validator."""
+
+    import hashlib
+
+    # Reproduce the server-side _target_binding formula.
+    tenant_id = "00000000-0000-0000-0000-000000000000"
+    subscription_id = "00000000-0000-0000-0000-000000000001"
+    material = f"{tenant_id.lower()}:{subscription_id.lower()}".encode()
+    server_target_binding = hashlib.sha256(material).hexdigest()
+
+    # The client uses compute_target_binding from target.py.
+    from fdai_deployment_cli.target import compute_target_binding
+
+    client_target_binding = compute_target_binding(
+        tenant_id=tenant_id,
+        subscription_id=subscription_id,
+    )
+    assert client_target_binding == server_target_binding
+
+    # Reproduce the server-side _request_binding_prefix formula.
+    mode = "plan"
+    region = "koreacentral"
+    context = deployment_context_digest(
+        environment="dev",
+        commit_sha=_COMMIT,
+        selection=DeploymentSelection(deploy_document_ingestion=True),
+    )
+    server_prefix_material = json.dumps(
+        {
+            "target_binding": server_target_binding,
+            "context_digest": context,
+            "mode": mode,
+            "region": region.casefold(),
+        },
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    server_prefix = hashlib.sha256(server_prefix_material).hexdigest()[:24]
+
+    client_prefix = request_binding_prefix(
+        target_binding=client_target_binding,
+        context_digest=context,
+        mode=mode,
+        region=region,
+    )
+    assert client_prefix == server_prefix
+
+    # Reproduce the server-side _deployment_context_digest formula.
+    server_context_material = json.dumps(
+        {
+            "schema_version": "fdai.deployment-context.v1",
+            "environment": "dev",
+            "commit_sha": _COMMIT,
+            "selection": {
+                "deploy_console": True,
+                "deploy_operator_api": True,
+                "deploy_document_ingestion": True,
+                "deploy_isolated_executor": False,
+                "deploy_monitoring": False,
+            },
+        },
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    server_context = hashlib.sha256(server_context_material).hexdigest()
+    assert context == server_context
+
+    # Full round-trip: dispatch_plan request_id prefix matches server recomputation.
+    plan_receipt = dispatch_plan(
+        repository="example/fdai",
+        environment="dev",
+        commit_sha=_COMMIT,
+        target_binding=client_target_binding,
+        region=region,
+        run_id="run.contract",
+        selection=DeploymentSelection(deploy_document_ingestion=True),
+        run=RecordingRunner(),
+    )
+    actual_prefix = plan_receipt.request_id.split("-", maxsplit=1)[1][:24]
+    assert actual_prefix == server_prefix

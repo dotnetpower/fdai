@@ -143,6 +143,7 @@ def _parser() -> argparse.ArgumentParser:
     deploy_apply.add_argument("--run-id", required=True)
     deploy_apply.add_argument("--plan-id", required=True)
     deploy_apply.add_argument("--plan-digest", required=True)
+    deploy_apply.add_argument("--plan-expires-at", required=True)
     deploy_apply.add_argument("--resume-verification", action="store_true")
     deploy_apply.set_defaults(handler=_deploy_apply)
     deploy_status = deploy_commands.add_parser("status")
@@ -174,6 +175,7 @@ def _parser() -> argparse.ArgumentParser:
     guided.add_argument("--attempt", type=int, default=1)
     guided.add_argument("--plan-id")
     guided.add_argument("--plan-digest")
+    guided.add_argument("--plan-expires-at")
     guided.add_argument("--approve-application", action="store_true")
     guided.add_argument("--resume-verification", action="store_true")
     guided.add_argument("--deploy-console", action=argparse.BooleanOptionalAction, default=True)
@@ -701,6 +703,7 @@ def _deploy_apply(args: argparse.Namespace) -> int:
         run_id=args.run_id,
         plan_id=args.plan_id,
         plan_digest=args.plan_digest,
+        plan_expires_at=args.plan_expires_at,
         resume_verification=args.resume_verification,
         selection=_deployment_selection(args),
         attempt=args.attempt,
@@ -803,6 +806,8 @@ def _onboard_guided(args: argparse.Namespace) -> int:
             raise ValueError("plan id and digest MUST be supplied together")
         if not args.approve_application and not args.resume_verification:
             raise ValueError("exact apply requires --approve-application")
+        if args.plan_expires_at is None:
+            raise ValueError("--plan-expires-at is required for apply")
         receipt = dispatch_apply(
             repository=args.repository,
             environment=profile.environment,
@@ -813,6 +818,7 @@ def _onboard_guided(args: argparse.Namespace) -> int:
             run_id=args.run_id,
             plan_id=args.plan_id,
             plan_digest=args.plan_digest,
+            plan_expires_at=args.plan_expires_at,
             resume_verification=args.resume_verification,
             selection=selection,
             attempt=args.attempt,

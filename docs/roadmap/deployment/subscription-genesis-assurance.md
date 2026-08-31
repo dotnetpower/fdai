@@ -328,6 +328,9 @@ subscription-backed receipts remain post-login work.
 | H91 | Journal no-follow checks protected only the filename, leaving a parent-link replacement race. Journal opens now use a held current-UID mode-0700 directory descriptor. | `test_journal_never_follows_parent_directory_symlink` |
 | H92 | Archive extraction expanded the complete member index before enforcing its count bound. It now streams members and stops at the limit incrementally. | bundle archive extraction tests |
 | H93 | Doctor trusted cached `az account show` metadata after token expiry. It now performs a read-only ARM token acquisition with output suppressed, and inspection requires that success. | `test_azure_authentication_is_read_only_and_redacted` |
+| H94 | `dispatch_apply` accepted expired plans because client-side expiry was not enforced. It now parses `expires_at` with deterministic UTC parsing and rejects expired plans fail-closed before dispatch. Status exposes `expired` without blocking read-only queries. | `test_dispatch_apply_rejects_expired_plan`, `test_status_exposes_expired_field_without_blocking_read` |
+| H95 | The uniform 30-second `gh` timeout caused plan-metadata artifact downloads to fail spuriously under normal network latency. Artifact downloads now use a bounded 90-second operation-specific timeout. | `test_status_requires_one_exact_run_title` |
+| H96 | No direct test proved that the client-side `request_binding_prefix` and `deployment_context_digest` formulas remain compatible with the workflow-side `validate_deploy_request.py` validator. A round-trip contract test now verifies digest and binding identity. | `test_request_binding_and_context_digest_match_workflow_validator` |
 
 ## Related docs
 

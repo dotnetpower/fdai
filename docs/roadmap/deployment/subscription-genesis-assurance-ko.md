@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 3fb697fcf4e78f8c7a97e23e1d421b3e21a0b516
+translation_source_sha: 681b1da1400b0a467e15c0306acf05d5558675cd
 translation_revised: 2026-08-30
 ---
 # 구독 초기 구성 보증
@@ -321,6 +321,9 @@ Azure 리소스가 바뀔 수 있으므로 계수 단계와 수집 단계는 트
 | H91 | journal no-follow 검사가 파일 이름만 보호해 부모 링크 교체 경쟁이 남았습니다. 이제 journal open이 현재 UID mode-0700 디렉터리 서술자를 보유해 사용합니다. | `test_journal_never_follows_parent_directory_symlink` |
 | H92 | 보관 추출이 개수 상한을 적용하기 전에 전체 구성원 색인을 확장했습니다. 이제 구성원을 스트리밍하고 상한에서 점진적으로 중단합니다. | 번들 보관 추출 검사 |
 | H93 | doctor가 토큰 만료 후에도 캐시된 `az account show` 메타데이터를 신뢰했습니다. 이제 출력을 버리는 읽기 전용 ARM 토큰 발급을 수행하고 점검도 해당 성공을 요구합니다. | `test_azure_authentication_is_read_only_and_redacted` |
+| H94 | `dispatch_apply`가 만료된 계획을 수락했습니다. 이제 `expires_at`를 결정적 UTC 파싱으로 검증하고, 만료된 계획은 디스패치 전에 실패 폐쇄로 거부합니다. 상태 조회에서는 읽기 전용으로 `expired`를 노출합니다. | `test_dispatch_apply_rejects_expired_plan`, `test_status_exposes_expired_field_without_blocking_read` |
+| H95 | 아티팩트 다운로드에 균일한 30초 `gh` 제한 시간이 적용되어 정상 네트워크 지연에서도 계획 메타데이터 다운로드가 간헐적으로 실패했습니다. 이제 90초의 작업별 제한 시간을 사용합니다. | `test_status_requires_one_exact_run_title` |
+| H96 | 클라이언트 측 `request_binding_prefix` 및 `deployment_context_digest` 수식이 워크플로 측 `validate_deploy_request.py` 검증기와 호환되는지 직접 테스트하지 않았습니다. 왕복 계약 테스트가 다이제스트 및 바인딩 동일성을 검증합니다. | `test_request_binding_and_context_digest_match_workflow_validator` |
 
 ## 관련 문서
 

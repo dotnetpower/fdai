@@ -11,6 +11,7 @@ import subprocess
 import tempfile
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fdai_deployment_cli.contracts import canonical_digest
@@ -28,6 +29,11 @@ _BOOL_INPUTS = (
     "deploy_isolated_executor",
     "deploy_monitoring",
 )
+_EXPIRES_AT_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+
+# Artifact downloads are larger than metadata queries; use a longer timeout.
+_ARTIFACT_DOWNLOAD_TIMEOUT = 90
+_DEFAULT_GH_TIMEOUT = 30
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,6 +95,30 @@ class WorkflowDispatch:
             "mode": self.mode,
             "mutation_performed": True,
         }
+
+
+def parse_plan_expiry(expires_at: str) -> datetime:
+    """Parse a strict ISO-8601 UTC timestamp or raise fail-closed."""
+
+    if _EXPIRES_AT_RE.fullmatch(expires_at) is None:
+        raise ValueError("expires_at MUST be an ISO-8601 UTC timestamp ending in Z")
+    try:
+        return datetime.fromisoformat(expires_at)
+    except ValueError as exc:
+        raise ValueError("expires_at contains an invalid date or time") from exc
+
+
+def enforce_plan_not_expired(
+    expires_at: str,
+    *,
+    now: datetime | None = None,
+) -> None:
+    """Fail-closed: reject expired plans before apply dispatch."""
+
+    deadline = parse_plan_expiry(expires_at)
+    current = now if now is not None else datetime.now(UTC)
+    if current >= deadline:
+        raise ValueError("protected plan has expired; replan before applying")
 
 
 def deployment_context_digest(
@@ -209,6 +239,7 @@ def dispatch_apply(
     run_id: str,
     plan_id: str,
     plan_digest: str,
+    plan_expires_at: str,
     resume_verification: bool,
     selection: DeploymentSelection,
     attempt: int = 1,
@@ -222,6 +253,7 @@ def dispatch_apply(
         raise ValueError("plan_id is invalid")
     if _DIGEST.fullmatch(plan_digest) is None:
         raise ValueError("plan_digest MUST be a lowercase SHA-256")
+    enforce_plan_not_expired(plan_expires_at)
     context_digest = deployment_context_digest(
         environment=environment,
         commit_sha=commit_sha,
@@ -351,17 +383,29 @@ def workflow_status(
         "mutation_performed": False,
     }
     if request_id_value.startswith("plan-") and status == "completed" and conclusion == "success":
-        projected["plan"] = _download_plan_metadata(
+        plan_meta = _download_plan_metadata(
             repository=repository,
             workflow_run_id=database_id,
             request_id_value=request_id_value,
             expected_commit=expected_commit,
-            run=runner,
+            run=_artifact_runner(runner),
         )
+        # Expose expired as read-only status without blocking the status query.
+        expires_at = plan_meta.get("expires_at")
+        if isinstance(expires_at, str):
+            try:
+                deadline = parse_plan_expiry(expires_at)
+                plan_meta["expired"] = datetime.now(UTC) >= deadline
+            except ValueError:
+                plan_meta["expired"] = True  # Fail-closed on unparseable expiry.
+        projected["plan"] = plan_meta
     return projected
 
 
-def run_github_cli(arguments: tuple[str, ...]) -> CommandResult:
+def run_github_cli(
+    arguments: tuple[str, ...],
+    timeout: int = _DEFAULT_GH_TIMEOUT,
+) -> CommandResult:
     """Execute one fixed GitHub CLI command with bounded output and duration."""
 
     executable = shutil.which("gh")
@@ -373,7 +417,7 @@ def run_github_cli(arguments: tuple[str, ...]) -> CommandResult:
             check=False,
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=timeout,
         )
     except subprocess.TimeoutExpired:
         return CommandResult(returncode=124, stdout="", stderr="")
@@ -521,6 +565,14 @@ def _validate_repository(repository: str) -> None:
         raise ValueError("repository MUST be owner/name")
 
 
+def _artifact_runner(base: CommandRunner) -> CommandRunner:
+    """Wrap the real runner with a longer timeout for artifact downloads."""
+
+    if base is not run_github_cli:
+        return base  # Test runners handle their own timing.
+    return lambda args: run_github_cli(args, timeout=_ARTIFACT_DOWNLOAD_TIMEOUT)
+
+
 def _download_plan_metadata(
     *,
     repository: str,
@@ -615,6 +667,9 @@ __all__ = [
     "deployment_context_digest",
     "dispatch_apply",
     "dispatch_plan",
+    "enforce_plan_not_expired",
+    "parse_plan_expiry",
+    "request_binding_prefix",
     "request_id",
     "run_github_cli",
     "verify_environment_quorum",
