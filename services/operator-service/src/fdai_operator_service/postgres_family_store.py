@@ -233,6 +233,9 @@ SELECT (
     AND has_table_privilege(current_user, 'operator_background_task_progress', 'SELECT')
     AND has_table_privilege(current_user, 'operator_background_task_progress', 'INSERT')
     AND NOT has_table_privilege(current_user, 'operator_background_task_progress', 'UPDATE')
+    AND has_column_privilege(
+        current_user, 'operator_background_task_progress', 'task_id', 'UPDATE'
+    )
     AND has_table_privilege(current_user, 'operator_background_task_progress', 'DELETE')
     AND NOT has_table_privilege(current_user, 'operator_background_task_progress', 'TRUNCATE')
     AND NOT has_table_privilege(current_user, 'operator_background_task_progress', 'REFERENCES')
@@ -244,6 +247,9 @@ SELECT (
         current_user, 'operator_read_investigation_completion', 'INSERT'
     )
     AND NOT has_table_privilege(current_user, 'operator_read_investigation_completion', 'UPDATE')
+    AND has_column_privilege(
+        current_user, 'operator_read_investigation_completion', 'completion_id', 'UPDATE'
+    )
     AND has_table_privilege(current_user, 'operator_read_investigation_completion', 'DELETE')
     AND NOT has_table_privilege(
         current_user, 'operator_read_investigation_completion', 'TRUNCATE'

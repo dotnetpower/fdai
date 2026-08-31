@@ -1,8 +1,8 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 2ac0ebd6ee0a2615d10adbc41edec0414d2c1915
-translation_revised: 2026-08-30
+translation_source_sha: 50f2a3924770283a9a6425b7594a67164fdd36dd
+translation_revised: 2026-08-31
 ---
 
 # Azure 읽기 조사
@@ -36,6 +36,10 @@ translation_revised: 2026-08-30
 | 작업 워커 | 격리된 depth-one attenuated 읽기 조사 하나를 실행합니다. | Pantheon에 합류하거나 Pantheon 객체를 publish하거나 실행 권한을 상속하지 않습니다. |
 
 Operator 질문은 `object.event`로 publish하지 않습니다. 해당 토픽은 detection, judgment, risk 및 실행 처리로 들어갑니다. 현재 운영자 API는 `202`를 반환하거나 SSE 재생을 시작하기 전에 제안과 발신함 레코드를 저장합니다. 아직 이 제안을 분리 작업으로 바꾸는 운영 소비자는 없으므로 영속적 Operator 발신함은 이제 버전이 지정된 요청 또는 취소를 publish하고, 선택적 Core consumer는 소유자 범위 영속 작업을 생성하거나 취소합니다. 영속 수락은 여전히 프로바이더 작업 완료 근거가 아닙니다. PostgreSQL이 정본이고 coordinator wake 신호는 전달 힌트일 뿐입니다.
+
+Operator 변환 결과, 완료, 재생 저장소는 직접 Psycopg 연결 전에 준비된 SQLAlchemy 형식 DSN을
+정규화합니다. 따라서 영속 수락, 완료 writeback, 소유자 범위 재생이 같은 서비스 소유
+데이터베이스 계약을 사용합니다.
 
 운영 인계는 버전이 지정된 권한 없는 `read-investigation-request` 계약을 사용합니다. Operator는 영속 수락과 CAS로 보호되는 발행을 소유하고, Core는 요청을 소비하며 실행 원장 및 background-task 테이블의 유일한 런타임 쓰기 담당입니다. 전송은 at-least-once이므로 Core는 영속 작업 생성 또는 최종 실행 원장 저장 뒤에만 브로커 offset을 커밋합니다. 선택적 조정기는 기존 Core 서비스 안에서 시작하며 다른 Pantheon 구성원, 서비스 distribution 또는 실행기 신원이 아닙니다.
 ## 조사 요청 및 계획

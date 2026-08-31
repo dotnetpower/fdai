@@ -20,6 +20,9 @@ contracts without creating another judgment or execution surface.
 > The shared migration ownership manifest remains table-specific. Core-owned Cost Governance
 > activation and analytics tables do not become Operator channel tables and grant no channel-edge
 > write authority.
+>
+> Forward Operator migrations grant projection retention workers `UPDATE` only on immutable lock-key
+> columns required by `FOR UPDATE SKIP LOCKED`. Table-wide projection update authority remains denied.
 
 ## Design at a glance
 

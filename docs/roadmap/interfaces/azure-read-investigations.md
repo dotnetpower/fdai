@@ -35,6 +35,10 @@ A read investigation stays outside the mutation control loop. Shared semantic ju
 
 An operator question is not published as `object.event`. That topic enters detection, judgment, risk, and execution processing. The current Operator API persists a proposal and outbox record before it returns `202` or begins SSE replay. The Operator outbox now publishes a versioned request or cancellation, and the optional Core consumer creates or cancels the owner-scoped durable task. Durable acceptance is still not evidence that provider work completed. PostgreSQL remains the source of truth; the coordinator wake signal is only a delivery hint.
 
+Operator projection, completion, and replay stores normalize the prepared SQLAlchemy-form DSN
+before direct Psycopg connections. This keeps durable acceptance, completion writeback, and
+owner-scoped replay on the same service-owned database contract.
+
 The production handoff uses the versioned, no-authority `read-investigation-request` contract. Operator owns durable acceptance and CAS-fenced publication; Core consumes the request and is the only runtime writer for the run ledger and background-task tables. The transport is at-least-once, so Core commits its broker offset only after durable task creation or terminal run-ledger persistence. The optional coordinator starts inside the existing Core service. It is not another Pantheon member, service distribution, or executor identity.
 ## Investigation request and plan
 

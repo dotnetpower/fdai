@@ -1,7 +1,7 @@
 ---
 title: 운영 A3 채널 런타임
 translation_of: production-a3-channel-runtime.md
-translation_source_sha: cb5661454f71bc81d1f554084cf3f687daaa52d2
+translation_source_sha: 6f8a70f3066638a65d7c04865ecb68b53d2615eb
 translation_revised: 2026-08-31
 ---
 # 운영 A3 채널 런타임
@@ -21,6 +21,10 @@ translation_revised: 2026-08-31
 > 공유 migration 소유권 매니페스트는 테이블별 소유권을 유지합니다. Core 소유 비용 거버넌스
 > 활성화 및 analytics 테이블은 Operator 채널 테이블이 되지 않으며 channel-edge 쓰기 권한을
 > 부여하지 않습니다.
+>
+> 순방향 Operator migration은 변환 결과 보존 worker에 `FOR UPDATE SKIP LOCKED`가 요구하는
+> 변경 불가능한 lock-key column의 `UPDATE` 권한만 부여합니다. 변환 결과 table 전체의 update
+> 권한은 계속 차단됩니다.
 
 ## 설계 개요
 
