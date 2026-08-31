@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 
 import pytest
 from fdai.agents._framework.bus import InMemoryBus
@@ -10,7 +11,7 @@ from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents.mimir import CatalogReviewCapacityError, Mimir
 from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga
-from fdai.core.case_history import OperationalOutcomeClass
+from fdai.core.case_history import OperationalEvidenceSourceKind, OperationalOutcomeClass
 from fdai.core.operational_learning import (
     CatalogCandidateCompiler,
     CatalogCheckReceipts,
@@ -145,6 +146,14 @@ def _candidate(marker: int = 0) -> dict[str, object]:
             reusable=True,
             negative=False,
             digest_evidence=(f"{marker + 20:064x}",),
+            fdai_revision="a" * 40,
+            scenario_set_version="v2026.08",
+            event_time_cutoff=datetime(2026, 8, 1, tzinfo=UTC),
+            source_kind=OperationalEvidenceSourceKind.LIVE,
+            source_identity_digest=f"{marker + 21:064x}",
+            source_synthetic=False,
+            evidence_complete=True,
+            conflict_digests=(),
         ),
         PatternCase(
             case_id=f"case-rollback-{suffix}",
@@ -157,6 +166,14 @@ def _candidate(marker: int = 0) -> dict[str, object]:
             reusable=False,
             negative=True,
             digest_evidence=(f"{marker + 40:064x}",),
+            fdai_revision="a" * 40,
+            scenario_set_version="v2026.08",
+            event_time_cutoff=datetime(2026, 8, 2, tzinfo=UTC),
+            source_kind=OperationalEvidenceSourceKind.LIVE,
+            source_identity_digest=f"{marker + 41:064x}",
+            source_synthetic=False,
+            evidence_complete=True,
+            conflict_digests=(),
         ),
     )
     candidate = OperatingPatternCompiler().compile(cases)

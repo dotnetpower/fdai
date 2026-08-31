@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any, cast
 
 from fdai.agents import Norns, instantiate_pantheon
@@ -23,6 +24,14 @@ def _case(
         "reusable": reusable,
         "negative": not reusable,
         "digest_evidence": ["e" * 64],
+        "fdai_revision": "a" * 40,
+        "scenario_set_version": "v2026.08",
+        "event_time_cutoff": datetime(2026, 8, 1, tzinfo=UTC).isoformat(),
+        "source_kind": "live",
+        "source_identity_digest": identifier[0] * 64,
+        "source_synthetic": False,
+        "evidence_complete": True,
+        "conflict_digests": [],
     }
 
 

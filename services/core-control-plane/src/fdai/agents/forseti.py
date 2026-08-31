@@ -12,6 +12,7 @@ in :mod:`fdai.rule_catalog`. Mixed-model cross-check and grounding
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Callable, Iterable, Mapping
 from datetime import datetime
@@ -26,6 +27,13 @@ from fdai.agents._framework.action_semantics import (
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict
 from fdai.agents._framework.bus import PantheonBus
+from fdai.agents._framework.cross_vertical_candidates import (
+    INITIAL_VERTICAL_DOMAINS,
+    CandidateClosure,
+    CandidateIntakeState,
+    CrossVerticalCandidateAccumulator,
+    is_cross_vertical_candidate,
+)
 from fdai.agents._framework.forseti_decision_helpers import (
     change_assessment_mapping as _change_assessment_mapping,
 )
@@ -156,7 +164,10 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         change_assessor: _ChangeAssessor | None = None,
         architecture_review_loop: OntologyArchitectureReviewLoop | None = None,
         agent_availability: Callable[[], Iterable[str]] | None = None,
+        cross_vertical_timeout_seconds: float = 30.0,
     ) -> None:
+        if cross_vertical_timeout_seconds <= 0.0 or cross_vertical_timeout_seconds > 300.0:
+            raise ValueError("cross_vertical_timeout_seconds MUST be in (0, 300]")
         super().__init__(spec=_FORSETI)
         self.bus = bus
         self._rbac = rbac if rbac is not None else _DEFAULT_RBAC
@@ -172,6 +183,14 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         # unreachable. Bound by the composition root; absent in a bare unit
         # (an unbound probe never invents unavailability).
         self._agent_availability = agent_availability
+        self._cross_vertical_timeout_seconds = cross_vertical_timeout_seconds
+        self._cross_vertical_candidates = CrossVerticalCandidateAccumulator(
+            max_pending=_MAX_RESOURCES
+        )
+        self._cross_vertical_timeout_tasks: dict[str, asyncio.Task[None]] = {}
+        self._pending_arbitration_principals: BoundedLruDict[str, dict[str, str]] = BoundedLruDict(
+            _MAX_RESOURCES
+        )
         # Latest arbitration winner per correlation id (populated when Odin
         # resolves a cross-vertical conflict Forseti raised).
         self.arbitrations: dict[str, str] = {}
@@ -219,6 +238,9 @@ class Forseti(Agent, ForsetiJudgmentMixin):
     # ---- typed port ----------------------------------------------------
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if is_cross_vertical_candidate(topic, payload):
+            await self._ingest_cross_vertical_candidate(topic, payload)
+            return
         if topic == "object.change":
             await self._observe_architecture_change(payload)
             return
@@ -261,6 +283,88 @@ class Forseti(Agent, ForsetiJudgmentMixin):
             await self._judge_capacity_graduation(payload)
         elif topic == "object.arbitration-decision":
             await self._record_arbitration(payload)
+
+    async def _ingest_cross_vertical_candidate(
+        self,
+        topic: str,
+        payload: dict[str, Any],
+    ) -> None:
+        """Join the three owner-authenticated candidates and publish one request."""
+
+        intake = self._cross_vertical_candidates.ingest(topic, payload)
+        if intake.state is CandidateIntakeState.DUPLICATE:
+            self.record_behavior("cross_vertical_candidate:duplicate")
+            return
+        if intake.state is CandidateIntakeState.HIL:
+            await self._close_cross_vertical_candidates(intake.closures)
+            return
+        if intake.state is CandidateIntakeState.PENDING:
+            if intake.correlation_id not in self._cross_vertical_timeout_tasks:
+                self._cross_vertical_timeout_tasks[intake.correlation_id] = asyncio.create_task(
+                    self._expire_cross_vertical_candidates(intake.correlation_id)
+                )
+            self.record_behavior("cross_vertical_candidate:pending")
+            return
+
+        batch = intake.batch
+        if batch is None:  # pragma: no cover - CandidateIntake invariant
+            raise RuntimeError("ready cross-vertical candidate intake has no batch")
+        timeout_task = self._cross_vertical_timeout_tasks.pop(batch.correlation_id, None)
+        if timeout_task is not None:
+            timeout_task.cancel()
+        conflicts = conflicting_objective_effects(tuple(batch.evidence_by_domain.values()))
+        if not conflicts:
+            self.record_behavior("cross_vertical_candidate:no_conflict")
+            return
+        self._pending_arbitration_principals.set(
+            batch.correlation_id,
+            batch.principals_by_domain,
+        )
+        await self._emit_arbitration_request(
+            resource_id=batch.resource_id,
+            advice=batch.advice,
+            correlation_id=batch.correlation_id,
+            impacts=batch.impacts,
+            observed_at=batch.observed_at,
+            source_freshness=batch.source_freshness,
+            evidence_by_domain=batch.evidence_by_domain,
+            objective_conflicts=conflicts,
+        )
+        self.record_behavior("cross_vertical_candidate:ready")
+
+    async def _expire_cross_vertical_candidates(self, correlation_id: str) -> None:
+        try:
+            await asyncio.sleep(self._cross_vertical_timeout_seconds)
+            closure = self._cross_vertical_candidates.expire(correlation_id)
+            if closure is not None:
+                await self._close_cross_vertical_candidates((closure,))
+        finally:
+            self._cross_vertical_timeout_tasks.pop(correlation_id, None)
+
+    async def _close_cross_vertical_candidates(
+        self,
+        closures: tuple[CandidateClosure, ...],
+    ) -> None:
+        for closure in closures:
+            timeout_task = self._cross_vertical_timeout_tasks.pop(
+                closure.correlation_id,
+                None,
+            )
+            current = asyncio.current_task()
+            if timeout_task is not None and timeout_task is not current:
+                timeout_task.cancel()
+            self._arbitration_resources.set(closure.correlation_id, closure.resource_id)
+            await self._escalate_arbitration(
+                closure.correlation_id,
+                {
+                    "winning_domain": "",
+                    "losing_domains": list(INITIAL_VERTICAL_DOMAINS),
+                    "margin": None,
+                },
+                reason=closure.reason,
+                grounding_extra={"candidate_set_complete": False},
+            )
+            self.record_behavior(f"cross_vertical_candidate:{closure.reason}")
 
     async def _judge_capacity_graduation(self, payload: dict[str, Any]) -> None:
         """Issue one observation-only verdict over Freyr's shadow recommendation."""
@@ -522,6 +626,7 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         request: dict[str, Any] = {
             "producer_principal": "Forseti",
             "correlation_id": correlation_id,
+            "idempotency_key": f"arbitration:{correlation_id}",
             "resource_id": resource_id,
             "domains_in_conflict": sorted(advice),
             "advice": advice,
@@ -776,7 +881,9 @@ class Forseti(Agent, ForsetiJudgmentMixin):
             ),
             "quorum_required": quorum_for(action_type, self._action_semantics),
             "rollback_contract": rollback_contract_for(action_type, self._action_semantics),
-            "initiator_principal": None,
+            "initiator_principal": (
+                self._pending_arbitration_principals.pop(correlation_id, {}) or {}
+            ).get(str(decision.get("winning_domain") or "")),
         }
         if kinetic_proposal is not None:
             verdict["params"] = kinetic_proposal.arguments()
@@ -852,6 +959,7 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         self._unresolved_arbitrations.set(correlation_id, grounding)
         self.record_behavior(f"verdict:{risk_verdict}")
         self.record_behavior("arbitration_escalated")
+        principals = self._pending_arbitration_principals.pop(correlation_id, {}) or {}
         verdict = {
             "producer_principal": "Forseti",
             "correlation_id": correlation_id,
@@ -870,7 +978,7 @@ class Forseti(Agent, ForsetiJudgmentMixin):
             ),
             "quorum_required": quorum_for(action_type, self._action_semantics),
             "rollback_contract": rollback_contract_for(action_type, self._action_semantics),
-            "initiator_principal": None,
+            "initiator_principal": principals.get(winning_domain),
         }
         if kinetic_proposal is not None:
             verdict["params"] = kinetic_proposal.arguments()

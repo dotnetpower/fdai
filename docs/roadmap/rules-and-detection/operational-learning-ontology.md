@@ -79,6 +79,13 @@ successful rollback is negative evidence that prevents FDAI from repeating an un
 A success counts as reusable only when the response receipt explicitly records verified enforcement
 and `rollback_succeeded: false`; missing rollback state remains insufficient evidence.
 
+`EligibleOperationalOutcome` is the only composition contract that labels an outcome eligible for
+this learning path. It binds one immutable FDAI revision and scenario set to the exact source
+identity digest, event-time cutoff, Action receipt, independently observed effect receipt, Saga
+audit receipt, completeness flag, synthetic status, and conflict set. Incomplete, stale,
+conflicting, future-dated, or synthetic evidence labeled as live is rejected before a case event is
+published.
+
 ### Failure fingerprint
 
 The fingerprint identifies a failure class independently of the benchmark and proposed remedy. It
@@ -111,6 +118,12 @@ Norns compiles a cohort into the existing `RuleCandidate` object. Candidate evid
 - at most 100 immutable cases, 64 digest refs per case, and 256 aggregate digest refs;
 - confidence bounds, known exclusions, and unresolved conflicts.
 
+Each candidate also carries the pinned FDAI revision, scenario-set version, and one review record
+per immutable case. Norns checks completeness, freshness, source classification, conflicts, and
+duplicate revisions before publication. Mimir independently parses the same records and rejects a
+missing, stale, conflicting, synthetic-live, duplicate, release-mismatched, or digest-substituted
+candidate before compiling the inert review package.
+
 Typed learning handlers are serialized per Norns instance. The pending proposal queue is bounded at
 5,000 entries; saturation first retries a drain and then backpressures the transport without changing
 the new signal's learner state. Runtime composition can replace the deterministic
@@ -134,6 +147,12 @@ A promoted pattern uses existing catalog objects and links:
 No separate benchmark rule format or learned-action executor is introduced. If an implementation
 cannot express a required query with these links, it must first add a failing ontology query test.
 Only then may a focused `ObjectType` or `LinkType` extension be proposed.
+
+Publishing a candidate or draft review package grants no authority. An ActionType can move in the
+authoritative promotion registry only when an independent reviewer approves the exact candidate,
+package, deterministic replay digests, FDAI revision, scenario set, and O7 evidence digest.
+Restart revalidates the same attribution; a duplicate is a no-op, and rollback or demotion returns
+the registry to shadow.
 
 ### Pattern is one layer, not two
 
@@ -388,12 +407,14 @@ receipts only; it has no catalog, promotion-registry, or executor authority.
 | O4 current-evidence T1 reuse | implemented | `services/core-control-plane/tests/core/tiers/t1_lightweight/test_contextual_reuse.py`; `tests/core/test_control_loop_t1_wire.py` | Missing, stale, changed, or unsafe current evidence holds for review without mutation. |
 | O5-O6 Azure evidence bindings | validated | [Delivery plan](#delivery-plan); `services/core-control-plane/src/fdai/delivery/azure/operational_evidence.py`; focused delivery tests | Repository-recorded non-production AKS and read-only Azure drills provide the required operational evidence without a production claim. |
 | O7 promotion measurement | implemented | `services/core-control-plane/src/fdai/core/measurement/operational_promotion.py`; `operational_promotion_runner.py`; `services/core-control-plane/src/fdai/delivery/measurement/{operational_promotion_evidence.py,operational_promotion_batch.py}`; `measurement_runner_cli.py`; `infra/modules/measurement-runners/`; focused O7 tests and Terraform validation | The exact-digest consumer, manifest verifiers, durable receipt sink, opt-in job, and governed batch producer are implemented. The producer requires immutable frozen-benchmark records and composes them with live-shadow records without changing promotion state. Action-specific observation days, confidence samples, and authenticated runtime receipts remain incomplete. |
+| Governed case-to-promotion composition | implemented | `core/operational_learning/{eligible_outcome,patterns,catalog,promotion_review}.py`; `tests/agents/test_governed_learning_loop.py`; frozen `v2026.08` scenario | Exact source and receipt lineage is sealed into immutable cases, Norns and Mimir independently reject the complete negative matrix, candidate publication remains inert, and only independently reviewed replay can authorize the durable promotion registry. |
 | Evaluation-adapter case intake | deferred | [Benchmark adapter dormant status](../interfaces/benchmark-adapters.md#dormant-status) | No current EvaluationHost or adapter runtime can emit case inputs. The semantic golden dataset remains outside case history and learning. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-31 | implemented | Composed eligible outcomes, immutable cases, event-bus candidate publication, independent Norns/Mimir review, and reviewed-replay promotion on one pinned release. Publication remains authority-free; restart, duplicate, rollback evidence, release mismatch, and demotion stay fail-closed. | `current change`; focused Story #370 regression passed 119 cases, including the frozen `v2026.08` scenario. | Retain action-specific live evidence and a governed deployment receipt before claiming operational validation. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; delivery-plan evidence and focused source/tests listed in the scope table. | Complete deployment bindings and O7 action-specific evidence thresholds. |
 | 2026-08-21 | deferred | Corrected evaluation intake after the host integration was found absent from the current tree. Kept the new semantic golden dataset outside operational-case and promotion authority. | `current change`; benchmark adapter dormant-status decision; `eval/golden-dataset/`; focused dataset contract checks. | Reopen adapter intake only with a restored governed host and canonical case-input receipts. |
 | 2026-08-23 | implemented | Bound O3 to the existing Rule loader, shadow evaluator, regression gate, and draft-only GitOps adapter. The published artifact is content-addressed and cannot activate its draft Rule or ActionType. | `current change`; `delivery/gitops_pr/{catalog_validator,catalog_review}.py`; `runtime/operational_catalog_review.py`; focused O3 tests passed. | Retain a governed draft-PR receipt from a configured deployment. |
@@ -419,6 +440,9 @@ receipts only; it has no catalog, promotion-registry, or executor authority.
   singular and plural fields fail closed. Focused catalog-backed tests preserve every selected
   option effect without choosing or fabricating one metric.
 - [ ] Accumulate O7 per-action live days, sample sizes, complete recurrence windows, Wilson bounds, and zero-escape evidence required for promotion review.
+- [x] Complete [issue #370](https://github.com/dotnetpower/fdai/issues/370) with one pinned-release
+  case-to-candidate-to-reviewed-promotion path and restart, duplicate, rollback, release-mismatch,
+  and demotion evidence.
 - [ ] If evaluation host integration is reactivated, prove that adapter results enter only through
   canonical operational-case receipts and cannot treat golden-answer success as promotion evidence.
 

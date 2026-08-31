@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from fdai.core.case_history import OperationalOutcomeClass
+from datetime import UTC, datetime
+
+from fdai.core.case_history import OperationalEvidenceSourceKind, OperationalOutcomeClass
 from fdai.core.operational_learning import OperatingPatternCompiler, PatternCase
 
 
@@ -20,6 +22,14 @@ def operational_candidate_mapping() -> dict[str, object]:
             reusable=True,
             negative=False,
             digest_evidence=("3" * 64,),
+            fdai_revision="a" * 40,
+            scenario_set_version="v2026.08",
+            event_time_cutoff=datetime(2026, 8, 1, tzinfo=UTC),
+            source_kind=OperationalEvidenceSourceKind.LIVE,
+            source_identity_digest="6" * 64,
+            source_synthetic=False,
+            evidence_complete=True,
+            conflict_digests=(),
         ),
         PatternCase(
             case_id="case-rollback",
@@ -32,6 +42,14 @@ def operational_candidate_mapping() -> dict[str, object]:
             reusable=False,
             negative=True,
             digest_evidence=("5" * 64,),
+            fdai_revision="a" * 40,
+            scenario_set_version="v2026.08",
+            event_time_cutoff=datetime(2026, 8, 2, tzinfo=UTC),
+            source_kind=OperationalEvidenceSourceKind.LIVE,
+            source_identity_digest="7" * 64,
+            source_synthetic=False,
+            evidence_complete=True,
+            conflict_digests=(),
         ),
     )
     candidate = OperatingPatternCompiler().compile(cases)

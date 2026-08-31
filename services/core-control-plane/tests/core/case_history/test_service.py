@@ -125,8 +125,12 @@ async def test_operational_case_duplicate_and_late_receipt_preserve_governance(
     assert document["metadata"] == {
         "action_type": "ops.restart-service",
         "failure_fingerprint": case_input.failure_fingerprint.digest,
+        "fdai_revision": case_input.fdai_revision,
         "operational_outcome": "rollback",
         "resource_type": "kubernetes.service",
+        "scenario_set_version": case_input.scenario_set_version,
+        "source_identity_digest": case_input.source_identity_digest,
+        "source_kind": case_input.source_kind.value,
     }
 
     late_evaluation = _receipt(

@@ -5,12 +5,21 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Protocol, TypeGuard
 
 from fdai.core.case_history import OperationalOutcomeClass
 from fdai.shared.contracts.models import Autonomy, Mode, OntologyActionType
+
+from .case_review import (
+    CaseReviewError,
+    ImmutableCaseRef,
+    OperationalCaseReview,
+    parse_case_reviews,
+    validate_case_review_window,
+)
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _IDENTIFIER = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$")
@@ -21,6 +30,8 @@ _MAX_CANDIDATE_DEPTH = 16
 _MAX_CANDIDATE_NODES = 4_096
 _MAX_CANDIDATE_STRING_BYTES = 64 * 1024
 _MAX_VERSION_LENGTH = 128
+_GIT_REVISION = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
+_DEFAULT_MAX_CASE_AGE = timedelta(days=90)
 _CANDIDATE_FIELDS = frozenset(
     {
         "source_signal",
@@ -54,6 +65,9 @@ _EVIDENCE_FIELDS = frozenset(
         "action_type",
         "immutable_case_refs",
         "digest_evidence",
+        "fdai_revision",
+        "scenario_set_version",
+        "case_reviews",
     }
 )
 _PROVENANCE_FIELDS = frozenset({"source", "pattern_id"})
@@ -83,41 +97,6 @@ class CatalogCompilationError(ValueError):
 
 
 @dataclass(frozen=True, slots=True)
-class ImmutableCaseRef:
-    case_id: str
-    revision: int
-    manifest_digest: str
-
-    @classmethod
-    def parse(cls, value: object) -> ImmutableCaseRef:
-        if not isinstance(value, str) or len(value) > 320:
-            raise CatalogCompilationError("immutable_case_refs_invalid")
-        parts = value.split(":")
-        if len(parts) != 4 or parts[0] != "case-history":
-            raise CatalogCompilationError("immutable_case_refs_invalid")
-        case_id, revision_text, manifest_digest = parts[1:]
-        if (
-            not case_id
-            or len(case_id) > 128
-            or _IDENTIFIER.fullmatch(case_id) is None
-            or not revision_text.isascii()
-            or not revision_text.isdecimal()
-            or int(revision_text) < 1
-            or _SHA256.fullmatch(manifest_digest) is None
-        ):
-            raise CatalogCompilationError("immutable_case_refs_invalid")
-        return cls(
-            case_id=case_id,
-            revision=int(revision_text),
-            manifest_digest=manifest_digest,
-        )
-
-    @property
-    def value(self) -> str:
-        return f"case-history:{self.case_id}:{self.revision}:{self.manifest_digest}"
-
-
-@dataclass(frozen=True, slots=True)
 class OperationalPatternRuleCandidate:
     pattern_id: str
     failure_fingerprint: str
@@ -129,6 +108,9 @@ class OperationalPatternRuleCandidate:
     outcome_counts: tuple[tuple[str, int], ...]
     immutable_case_refs: tuple[str, ...]
     digest_evidence: tuple[str, ...]
+    fdai_revision: str
+    scenario_set_version: str
+    case_reviews: tuple[OperationalCaseReview, ...]
     digest: str
 
     @classmethod
@@ -191,6 +173,12 @@ class OperationalPatternRuleCandidate:
             raise CatalogCompilationError("candidate_count_conflict")
 
         case_refs = _parse_case_refs(evidence.get("immutable_case_refs"), sample_size)
+        fdai_revision = _required_git_revision(evidence, "fdai_revision")
+        scenario_set_version = _required_identifier(evidence, "scenario_set_version")
+        try:
+            case_reviews = parse_case_reviews(evidence.get("case_reviews"), case_refs)
+        except CaseReviewError as exc:
+            raise CatalogCompilationError(exc.code) from exc
         digest_evidence = _parse_digests(
             evidence.get("digest_evidence"),
             maximum=_MAX_DIGEST_EVIDENCE,
@@ -203,6 +191,9 @@ class OperationalPatternRuleCandidate:
             immutable_case_refs=case_refs,
             outcome_counts=outcome_counts,
             resource_type=resource_type,
+            fdai_revision=fdai_revision,
+            scenario_set_version=scenario_set_version,
+            case_reviews=case_reviews,
         )
         if pattern_id != expected_pattern_id:
             raise CatalogCompilationError("candidate_digest_conflict")
@@ -218,6 +209,9 @@ class OperationalPatternRuleCandidate:
             "resource_type": resource_type,
             "reusable_count": reusable_count,
             "sample_size": sample_size,
+            "fdai_revision": fdai_revision,
+            "scenario_set_version": scenario_set_version,
+            "case_reviews": tuple(review.to_mapping() for review in case_reviews),
         }
         return cls(
             pattern_id=pattern_id,
@@ -230,6 +224,9 @@ class OperationalPatternRuleCandidate:
             outcome_counts=outcome_counts,
             immutable_case_refs=case_refs,
             digest_evidence=digest_evidence,
+            fdai_revision=fdai_revision,
+            scenario_set_version=scenario_set_version,
+            case_reviews=case_reviews,
             digest=_digest(material),
         )
 
@@ -245,6 +242,9 @@ class OperationalPatternRuleCandidate:
             "outcome_counts": dict(self.outcome_counts),
             "immutable_case_refs": list(self.immutable_case_refs),
             "digest_evidence": list(self.digest_evidence),
+            "fdai_revision": self.fdai_revision,
+            "scenario_set_version": self.scenario_set_version,
+            "case_reviews": [review.to_mapping() for review in self.case_reviews],
         }
 
 
@@ -432,12 +432,32 @@ class CatalogCandidateCompiler:
         validator: CatalogValidator,
         catalog_version: str,
         schema_version: str,
+        expected_fdai_revision: str | None = None,
+        expected_scenario_set_version: str | None = None,
+        max_case_age: timedelta = _DEFAULT_MAX_CASE_AGE,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         if not catalog_version or not schema_version:
             raise ValueError("catalog and schema versions MUST be non-empty")
         self._validator = validator
         self._catalog_version = catalog_version
         self._schema_version = schema_version
+        if (
+            expected_fdai_revision is not None
+            and _GIT_REVISION.fullmatch(expected_fdai_revision) is None
+        ):
+            raise ValueError("expected FDAI revision MUST be immutable")
+        if (
+            expected_scenario_set_version is not None
+            and _IDENTIFIER.fullmatch(expected_scenario_set_version) is None
+        ):
+            raise ValueError("expected scenario set version MUST be canonical")
+        if max_case_age <= timedelta(0):
+            raise ValueError("maximum case age MUST be positive")
+        self._expected_fdai_revision = expected_fdai_revision
+        self._expected_scenario_set_version = expected_scenario_set_version
+        self._max_case_age = max_case_age
+        self._clock = clock or (lambda: datetime.now(UTC))
 
     def compile(
         self,
@@ -446,6 +466,7 @@ class CatalogCandidateCompiler:
         draft_action_type: DraftActionTypeInput | None = None,
     ) -> CatalogReviewPackage:
         candidate = OperationalPatternRuleCandidate.from_mapping(raw_candidate)
+        self._validate_case_reviews(candidate)
         action_artifact = None
         if draft_action_type is not None:
             if draft_action_type.declaration.name != candidate.action_type:
@@ -470,6 +491,27 @@ class CatalogCandidateCompiler:
         )
         receipts = self._validator.validate(request)
         return CatalogReviewPackage.build(request=request, receipts=receipts)
+
+    def _validate_case_reviews(self, candidate: OperationalPatternRuleCandidate) -> None:
+        if (
+            self._expected_fdai_revision is not None
+            and candidate.fdai_revision != self._expected_fdai_revision
+        ):
+            raise CatalogCompilationError("case_release_conflict")
+        if (
+            self._expected_scenario_set_version is not None
+            and candidate.scenario_set_version != self._expected_scenario_set_version
+        ):
+            raise CatalogCompilationError("case_release_conflict")
+        reviewed_at = self._clock()
+        try:
+            validate_case_review_window(
+                candidate.case_reviews,
+                reviewed_at=reviewed_at,
+                maximum_age=self._max_case_age,
+            )
+        except CaseReviewError as exc:
+            raise CatalogCompilationError(exc.code) from exc
 
 
 def _compile_rule(candidate: OperationalPatternRuleCandidate) -> DraftCatalogArtifact:
@@ -564,7 +606,10 @@ def _validate_receipts(
 def _parse_case_refs(value: object, sample_size: int) -> tuple[str, ...]:
     if not _is_sequence(value) or len(value) != sample_size:
         raise CatalogCompilationError("immutable_case_refs_invalid")
-    parsed = tuple(ImmutableCaseRef.parse(item) for item in value)
+    try:
+        parsed = tuple(ImmutableCaseRef.parse(item) for item in value)
+    except CaseReviewError as exc:
+        raise CatalogCompilationError(exc.code) from exc
     identities: dict[str, tuple[int, str]] = {}
     for item in parsed:
         identity = (item.revision, item.manifest_digest)
@@ -577,7 +622,12 @@ def _parse_case_refs(value: object, sample_size: int) -> tuple[str, ...]:
     return refs
 
 
-def _parse_digests(value: object, *, maximum: int, code: str) -> tuple[str, ...]:
+def _parse_digests(
+    value: object,
+    *,
+    maximum: int,
+    code: str,
+) -> tuple[str, ...]:
     if not _is_sequence(value) or not 1 <= len(value) <= maximum:
         raise CatalogCompilationError(code)
     digests: list[str] = []
@@ -606,6 +656,9 @@ def _pattern_id(
     immutable_case_refs: tuple[str, ...],
     outcome_counts: tuple[tuple[str, int], ...],
     resource_type: str,
+    fdai_revision: str,
+    scenario_set_version: str,
+    case_reviews: tuple[OperationalCaseReview, ...],
 ) -> str:
     return _digest(
         {
@@ -615,6 +668,9 @@ def _pattern_id(
             "immutable_case_refs": immutable_case_refs,
             "outcome_counts": outcome_counts,
             "resource_type": resource_type,
+            "fdai_revision": fdai_revision,
+            "scenario_set_version": scenario_set_version,
+            "case_reviews": tuple(review.to_mapping() for review in case_reviews),
         }
     )
 
@@ -630,6 +686,13 @@ def _required_identifier(value: Mapping[str, object], key: str) -> str:
     item = value.get(key)
     if not isinstance(item, str) or len(item) > 128 or _IDENTIFIER.fullmatch(item) is None:
         raise CatalogCompilationError("candidate_schema_invalid")
+    return item
+
+
+def _required_git_revision(value: Mapping[str, object], key: str) -> str:
+    item = value.get(key)
+    if not isinstance(item, str) or _GIT_REVISION.fullmatch(item) is None:
+        raise CatalogCompilationError("case_release_invalid")
     return item
 
 
