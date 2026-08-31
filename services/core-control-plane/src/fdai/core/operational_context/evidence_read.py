@@ -196,6 +196,7 @@ __all__: Sequence[str] = (
     "OperationalEvidenceReadResult",
     "OperationalEvidenceReadService",
     "OperationalEvidenceSource",
+    "project_operational_evidence_read_result",
 )
 
 
@@ -209,7 +210,42 @@ def _serialized_response_size(
 ) -> int:
     """Return canonical bytes for the complete response, including Context metadata."""
 
-    body = {
+    body = _project_read_result(
+        bundle,
+        context_metadata,
+        principal_ref=principal_ref,
+        execution_authority=execution_authority,
+        mutation_authority=mutation_authority,
+    )
+    return len(canonical_json(body).encode("utf-8"))
+
+
+def project_operational_evidence_read_result(
+    result: OperationalEvidenceReadResult,
+) -> dict[str, object]:
+    """Project one admitted read into the bounded cross-service response envelope."""
+
+    if result.context_metadata is None:
+        raise ValueError("operational evidence response requires Context metadata")
+    return _project_read_result(
+        result.bundle,
+        result.context_metadata,
+        principal_ref=result.principal_ref,
+        execution_authority=result.execution_authority,
+        mutation_authority=result.mutation_authority,
+    )
+
+
+def _project_read_result(
+    bundle: OperationalEvidenceBundle,
+    context_metadata: dict[str, object] | None,
+    *,
+    principal_ref: str,
+    execution_authority: bool,
+    mutation_authority: bool,
+) -> dict[str, object]:
+    return {
+        "schema_version": "1.0.0",
         "bundle": bundle_body(
             cutoff=bundle.cutoff,
             trusted_recorded_at=bundle.trusted_recorded_at,
@@ -240,7 +276,6 @@ def _serialized_response_size(
         "execution_authority": execution_authority,
         "mutation_authority": mutation_authority,
     }
-    return len(canonical_json(body).encode("utf-8"))
 
 
 # SHA-256 digests and the bundle_id derived from them ("operational-evidence-bundle:" + digest)
@@ -258,6 +293,7 @@ def _response_overhead(
     empty_bundle = canonical_json({})
     response = canonical_json(
         {
+            "schema_version": "1.0.0",
             "bundle": {},
             "bundle_id": _PLACEHOLDER_BUNDLE_ID,
             "digest": _PLACEHOLDER_DIGEST,

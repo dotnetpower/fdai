@@ -364,6 +364,7 @@ from fdai_service_contracts.schema import (
 )
 from fdai_service_contracts.semantic_turn import (
     MAX_SEMANTIC_EVIDENCE_REFS,
+    OperationalEvidenceProjection,
     RuleSearchCandidate,
     RuleSearchProjection,
     RuleSearchRank,
@@ -647,6 +648,7 @@ __all__ = [
     "build_background_task_snapshot",
     "SchemaNotFoundError",
     "SchemaRegistry",
+    "OperationalEvidenceProjection",
     "SemanticAssuranceFrame",
     "SemanticAssuranceObservation",
     "SemanticAssurancePath",

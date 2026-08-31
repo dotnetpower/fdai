@@ -27,6 +27,7 @@ from .evidence_read import (
     OperationalEvidenceReadResult,
     OperationalEvidenceReadService,
     OperationalEvidenceSource,
+    project_operational_evidence_read_result,
 )
 from .materializer import OperationalContextMaterializer
 from .models import (
@@ -41,7 +42,10 @@ from .operating_scope import (
     ResourceScopeCoverage,
     project_operating_scope,
 )
-from .principal_context import AuthenticatedPrincipalContext
+from .principal_context import (
+    AuthenticatedPrincipalContext,
+    OperationalEvidencePrincipalContextProvider,
+)
 from .projector import OperatingModelProjectionResult, OperatingModelProjector
 
 __all__ = [
@@ -68,6 +72,7 @@ __all__ = [
     "OperationalEvidenceReadResult",
     "OperationalEvidenceReadService",
     "OperationalEvidenceSource",
+    "OperationalEvidencePrincipalContextProvider",
     "OperatingModelProjectionResult",
     "OperatingModelProjector",
     "OperatingScopeCoverage",
@@ -80,5 +85,6 @@ __all__ = [
     "build_operational_evidence_bundle",
     "operational_state_scope_digest",
     "project_operating_scope",
+    "project_operational_evidence_read_result",
     "render_untrusted_document_evidence",
 ]

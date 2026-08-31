@@ -41,6 +41,7 @@ from fdai_operator_service.postgres_semantic_turn_store import SemanticTurnConfl
 from fdai_service_contracts import (
     MAX_INTENT_GRAPH_GOALS,
     ContractValidationError,
+    OperationalEvidenceProjection,
     RuleSearchProjection,
     SemanticInvestigationContinuation,
     SemanticQueryProgress,
@@ -564,6 +565,11 @@ class SemanticTurnProjectionConsumer:
         result = SemanticTurnResult.model_validate(semantic_payload)
         if decoded.get("status") != result.disposition.value:
             raise ValueError("semantic projection status MUST match result disposition")
+        operational_evidence = extension_payload.get("operational_evidence")
+        if operational_evidence is not None:
+            if result.disposition is not SemanticTurnDisposition.ANSWERED:
+                raise ValueError("operational evidence requires an answered semantic result")
+            OperationalEvidenceProjection.model_validate(operational_evidence)
         _pantheon_assurance_payload(decoded)
         rule_search = extension_payload.get("rule_search")
         if rule_search is not None:

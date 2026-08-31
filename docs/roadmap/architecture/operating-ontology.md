@@ -531,11 +531,11 @@ A bounded traversal that reaches its node limit is incomplete evidence. Material
 `context_graph_truncated` as a conflict and lowers the autonomy ceiling to `SHADOW_ONLY`; a partial
 graph never preserves automatic execution authority.
 
-An `OperationalEvidenceBundle` foundation can combine graph and document evidence without
-flattening their authority. It is not wired into runtime composition, Forseti decision-case
-construction, or the production prompt path. Production autonomy continues to use the existing
-operational-context snapshot and ordinary policy, risk, approval, execution, and audit gates. Its
-four immutable lanes retain verified source receipts independently:
+An `OperationalEvidenceBundle` foundation combines graph and document evidence without flattening
+authority. Its optional source and authenticated-principal Context provider bind as one pair. Core
+admits an answered resource-scoped turn before the Operator projection carries its bundle and Context.
+Identity, freshness, graph, contradiction, citation, admission, or budget failure holds the response;
+an absent pair preserves it. The bundle remains outside Forseti and changes no operational authority:
 
 - **Ontology evidence:** Secured typed facts and closed, acyclic deterministic paths from the
   operational graph. The preferred input is a secured ObjectSet snapshot receipt; every nested

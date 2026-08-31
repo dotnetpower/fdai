@@ -11,6 +11,7 @@ variable "event_topics" {
     read_investigation_requests    = optional(string, "")
     incident_intervention_requests = optional(string, "operator.incident-intervention.requests")
     read_investigation_completions = optional(string, "core.read-investigation.completions")
+    hil_decisions                  = optional(string, "fdai.hil.decisions")
   })
 }
 variable "database" {
@@ -44,6 +45,21 @@ variable "channel_edge" {
       port = number, liveness_path = string, readiness_path = string, startup_path = optional(string), interval_seconds = optional(number, 30), timeout_seconds = optional(number, 3), failure_count_threshold = optional(number, 3), startup_failure_count = optional(number, 30)
     })
     scaling = object({ min_replicas = number, max_replicas = number, cpu = number, memory = string })
+  })
+}
+variable "hil_callback" {
+  type = object({
+    enabled                       = bool
+    signing_secret_id             = string
+    teams_application_id          = string
+    teams_tenant_id               = string
+    teams_approval_team_id        = string
+    teams_approval_channel_id     = string
+    teams_allowed_service_urls    = string
+    teams_jwks_url                = string
+    teams_principal_map_secret_id = string
+    slack_team_id                 = string
+    slack_principal_map_secret_id = string
   })
 }
 variable "tags" { type = map(string) }

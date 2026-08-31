@@ -517,6 +517,7 @@ class HilDecisionReceipt:
     approver_oid: str
     decided_at: datetime
     receipt_ref: str
+    justification: str = ""
     already_recorded: bool = False
     delivered: bool = False
 

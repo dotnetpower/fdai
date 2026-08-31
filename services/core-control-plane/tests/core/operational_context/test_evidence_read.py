@@ -49,6 +49,8 @@ from fdai.core.operational_context.evidence_read import (
 from fdai.shared.contracts.models import Autonomy, OntologyReleaseRef
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 from fdai.shared.providers.ontology_instance import OntologyGraphSnapshot, OntologyObjectRecord
+from fdai_core_service.operational_evidence_projection import SemanticOperationalEvidenceReader
+from fdai_service_contracts import OperationalEvidenceProjection
 
 NOW = datetime(2026, 8, 24, 1, tzinfo=UTC)
 RELEASE = "sha256:" + "a" * 64
@@ -449,6 +451,7 @@ def _expected_response_body(
     bundle: OperationalEvidenceBundle, context_metadata: object, principal_ref: str
 ) -> dict[str, object]:
     return {
+        "schema_version": "1.0.0",
         "bundle": bundle_body(
             cutoff=bundle.cutoff,
             trusted_recorded_at=bundle.trusted_recorded_at,
@@ -510,6 +513,7 @@ def test_response_overhead_reserves_exact_bytes_for_bundle_identity_fields() -> 
         canonical_json(
             {
                 "bundle": {},
+                "schema_version": "1.0.0",
                 "bundle_id": bundle.bundle_id,
                 "digest": bundle.digest,
                 "context_metadata": None,
@@ -521,6 +525,138 @@ def test_response_overhead_reserves_exact_bytes_for_bundle_identity_fields() -> 
     ) - len(canonical_json({}).encode("utf-8"))
 
     assert placeholder_overhead == real_identity_overhead
+
+
+class _PrincipalContexts:
+    def __init__(self, context: AuthenticatedPrincipalContext) -> None:
+        self.context = context
+
+    async def context_for(
+        self,
+        request: OperationalEvidenceReadRequest,
+        *,
+        principal_ref: str,
+        principal_scope_digest: str,
+    ) -> AuthenticatedPrincipalContext:
+        del request, principal_ref, principal_scope_digest
+        return self.context
+
+
+def _projection_reader(
+    *,
+    material: OperationalEvidenceMaterial,
+    context: AuthenticatedPrincipalContext,
+    max_bytes: int = 65_536,
+) -> SemanticOperationalEvidenceReader:
+    return SemanticOperationalEvidenceReader(
+        service=OperationalEvidenceReadService(
+            source=_Source(material),
+            clock=lambda: NOW,
+            max_items=8,
+            max_bytes=max_bytes,
+        ),
+        principal_contexts=_PrincipalContexts(context),
+    )
+
+
+async def test_semantic_projection_carries_admitted_bundle_and_context() -> None:
+    request = _request()
+    secured = _secured_context()
+    material = replace(
+        await _Source().collect(request),
+        catalog=(_catalog_item(1),),
+        context_snapshot=_context_snapshot(),
+        secured_context_result=secured,
+    )
+    reader = _projection_reader(
+        material=material,
+        context=_authenticated_context(secured),
+    )
+
+    projection = await reader.read(
+        principal_ref=PRINCIPAL,
+        principal_scope_digest=PRINCIPAL_SCOPE,
+        purpose=request.purpose,
+        ontology_release_digest=request.ontology_release_digest,
+        catalog_revision=request.catalog_revision,
+        scope=request.scope,
+        cutoff=request.cutoff,
+    )
+
+    validated = OperationalEvidenceProjection.model_validate(projection)
+    assert validated.principal_ref == PRINCIPAL
+    assert validated.context_metadata["object_count"] == 1
+    assert validated.bundle["citation_manifest"]
+    assert validated.execution_authority is False
+    assert validated.mutation_authority is False
+
+
+@pytest.mark.parametrize(
+    "failure",
+    (
+        "wrong-principal",
+        "wrong-purpose",
+        "wrong-release",
+        "wrong-cutoff",
+        "stale",
+        "truncated",
+        "conflicting",
+        "over-budget",
+    ),
+)
+async def test_semantic_projection_fail_closed_inputs(failure: str) -> None:
+    request = _request()
+    secured = _secured_context()
+    snapshot = _context_snapshot()
+    context = _authenticated_context(secured)
+    material = replace(
+        await _Source().collect(request),
+        catalog=(_catalog_item(1),),
+        context_snapshot=snapshot,
+        secured_context_result=secured,
+    )
+    max_bytes = 65_536
+    if failure == "wrong-principal":
+        context = replace(context, principal_ref="other-principal")
+    elif failure == "wrong-purpose":
+        context = replace(context, purpose="other-purpose")
+    elif failure == "wrong-release":
+        material = replace(material, ontology_release_digest="sha256:" + "b" * 64)
+    elif failure == "wrong-cutoff":
+        material = replace(material, cutoff=NOW + timedelta(seconds=1))
+    elif failure == "stale":
+        material = replace(material, context_snapshot=replace(snapshot, stale_sources=("graph",)))
+    elif failure == "truncated":
+        material = replace(
+            material,
+            secured_context_result=secured.model_copy(
+                update={
+                    "receipt": secured.receipt.model_copy(
+                        update={"complete": False, "truncated": True}
+                    )
+                }
+            ),
+        )
+    elif failure == "conflicting":
+        material = replace(material, context_snapshot=replace(snapshot, conflicts=("graph",)))
+    elif failure == "over-budget":
+        max_bytes = 128
+    reader = _projection_reader(
+        material=material,
+        context=context,
+        max_bytes=max_bytes,
+    )
+
+    with pytest.raises(ValueError):
+        await reader.read(
+            principal_ref=PRINCIPAL,
+            principal_scope_digest=PRINCIPAL_SCOPE,
+            purpose=request.purpose,
+            ontology_release_digest=request.ontology_release_digest,
+            catalog_revision=request.catalog_revision,
+            scope=request.scope,
+            cutoff=request.cutoff,
+        )
 
 
 async def test_runtime_evidence_read_bounds_bundle_and_context_response_together() -> None:

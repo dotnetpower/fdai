@@ -56,6 +56,10 @@ module "container_app" {
     { name = "FDAI_INCIDENT_INTERVENTION_REQUEST_TOPIC", value = var.event_topics.incident_intervention_requests },
     { name = "FDAI_START_CONSUMER", value = "1" },
     { name = "FDAI_HEALTH_PORT", value = tostring(var.health.port) },
+    ], var.teams_approval_destination.team_id == "" ? [] : [
+    { name = "FDAI_TEAMS_APPROVAL_TEAM_ID", value = var.teams_approval_destination.team_id },
+    { name = "FDAI_TEAMS_APPROVAL_CHANNEL_ID", value = var.teams_approval_destination.channel_id },
+    { name = "FDAI_TEAMS_APPROVAL_ACTIVITY_URL", value = var.teams_approval_destination.activity_url },
     ], !var.observation_context.enabled ? [] : [
     { name = "FDAI_OHL_OBSERVATION_SIGNING_SEED", secret_name = "ohl-observation-signing-seed" },
     { name = "FDAI_OHL_OBSERVER_IDENTITY", value = "observer:heimdall:azure-container-apps" },

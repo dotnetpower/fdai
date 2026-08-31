@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 48e63767ace972941e0fa58afea4e062273d3be2
+translation_source_sha: 22151ccbc6afbbf6a9874eb33bfe4db35328e181
 translation_revised: 2026-08-31
 ---
 # 프로세스 자동화(프로세스 자동화)
@@ -324,6 +324,14 @@ creation 이벤트를 다시 읽고 작업 흐름 이름 및 버전과 derived �
 조정이 나중에 재개되어도 유효합니다. 콜백과 대화 승인 표면은
 no-self-approval을 위해 정규화된 principal을 비교합니다. Approval 점유 CAS 재시도는 fixed
 contention 한계 대신 변경할 수 없는 자리 정족수에 따라 확장됩니다.
+
+정족수 슬롯 결정의 소유자는 작업 흐름 승인 레지스트리 **뿐** 입니다. `fdai.hil.decisions`에
+게시된 영속 결정 레코드는 park의 `decision_route`로 라우팅합니다. `workflow` park는 레지스트리를
+통해 기록하고, `action` park만 HIL 코디네이터로 재개하며 이 경로만이 실행기에 도달할 수 있습니다.
+슬롯을 코디네이터로 보내면 정족수 집계, 중복 승인자 거부, 요청자 자기 승인 거부를 우회하게 되므로,
+이제 레지스트리 자체가 `no_self_approval`이 설정된 상태에서 정규화된 principal이 기록된
+`requester_principal`과 같은 결정을 거부합니다. 이 거부는 Operator 콜백, 재생된 결정 이벤트,
+콘솔 도구에 동일하게 적용됩니다.
 
 작업 흐름 감사는 각 ActionType의 `x-fdai-redact` 경로를 사용합니다. 민감정보가 제거된 필드는
 `[REDACTED]`로 표시되며 프로세스 저널에 들어가지 않습니다. 작업 흐름 런타임에는 시크릿 보관

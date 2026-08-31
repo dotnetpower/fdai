@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: d4f247a3fdbc35c5487281c4e7a5968875964e73
+translation_source_sha: a031ce7d8f29afbbbf4149d1cf1428e30cb0b5ee
 translation_revised: 2026-08-31
 ---
 # 프로젝트 구조
@@ -44,6 +44,10 @@ translation_revised: 2026-08-31
   `delivery/`를 가져오기하지 않으며 provider 동작은 shared Protocol과 composition으로 진입합니다.
   집중 sibling 모듈은 canonical identity 투영과 hashing을 소유할 수 있으며 기존 소유 모듈은
   해당 공개 표면을 다시 내보냅니다. 이 분리는 직렬화 바이트와 replay 의미를 보존해야 합니다.
+- **사람 승인 권한은 서비스별로 분리**: Operator는 Teams/Slack 인증, 암호화 검증, 콜백 감사 및
+  영속 결정 보낼 편지함을 소유합니다. Core는 형식화된 결정 이벤트만 소비하고 워크플로 슬롯은
+  레지스트리로, 액션 park는 HIL 코디네이터로 라우팅합니다. Operator 패키지는 로컬 JWT/JWK
+  검증을 위해 `cryptography`에 의존하지만 Core 구현을 가져오거나 실행기 신원을 받지 않습니다.
 - **관찰 모드 ARB 구성**: `core/architecture_review/observation_loop.py`는 프로바이더 중립적인
   Change -> 인증된 컨텍스트 -> 근거 묶음 -> 시나리오 -> DecisionCase 및 ImpactEnvelope 구성을
   담당합니다. Forseti만 기존 형식화된 버스에 관찰 판정을 게시하고 Saga가 감사하며,
@@ -435,6 +439,11 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
   what-if 레코드를 결합합니다. 근거가 없거나 유효하지 않으면 발견 사항을 억제하지 않고
   보류합니다. 프로바이더는 관측된 영향 개수만 채울 수 있으며 권한을 부여하거나 독립 작업 후
   검증을 충족할 수 없습니다.
+- **Principal 범위 operational 근거**: `OperationalEvidenceSource`와
+  `OperationalEvidencePrincipalContextProvider`는 하나의 쌍으로 바인딩됩니다. Core는 기존
+  semantic 변환 결과가 Operator로 전달되기 전에 범위가 제한된 번들과 증적으로 검증된 Context
+  메타데이터를 승인합니다. 쌍이 없으면 기존 응답을 유지하고 일부만 바인딩되면 컨테이너 구성에
+  실패합니다. 두 경계 모두 변경 또는 실행 권한을 부여하지 않습니다.
 
 ### 기능 번들
 

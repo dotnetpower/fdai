@@ -580,7 +580,7 @@ def _build_control_loop(
     # stops at the persisted queue (backward-compatible). Parking never
     # turns a HIL verdict into an execution - the coordinator holds the
     # no-self-approval + idempotency invariants.
-    hil_channel = _build_hil_channel(http_client)
+    hil_channel = _build_hil_channel(http_client, identity)
     approval_load_policy = _load_approval_load_policy(catalog_root)
     escalation_rungs = _load_hil_escalation_rungs(catalog_root) if hil_channel else ()
     escalation_supervisor = (

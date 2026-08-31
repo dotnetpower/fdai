@@ -266,6 +266,11 @@ remain skipped. The runtime emits `ontology_query_node_failed` with only the all
 `node_kind` and `failure_type` fields. It doesn't record the exception text, arguments, node
 identifier, provider payload, or operator data for these stable failures.
 
+For a resource-scoped semantic read, the optional operational evidence source and authenticated
+principal Context provider bind as one pair. Core admits the exact bundle and Context metadata
+before Operator persistence and presentation. Any identity, evidence, graph, citation,
+contradiction, or budget failure holds the response; the path adds no provider read or authority.
+
 The diagnostic runtime registers 22 Kubernetes reducers as exact-release `derive` functions. Live
 providers invoke the registry as Heimdall under the `diagnostic-evaluation` purpose and preserve
 the canonical function arguments with each invocation receipt. The observer accepts a finding only

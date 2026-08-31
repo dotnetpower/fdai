@@ -44,7 +44,10 @@ from ..core.ontology_platform import (
     ObservationContextVerifier,
     ReconciliationArtifactResolver,
 )
-from ..core.operational_context import OperationalEvidenceSource
+from ..core.operational_context import (
+    OperationalEvidencePrincipalContextProvider,
+    OperationalEvidenceSource,
+)
 from ..core.quality_gate.critic import CriticModel
 from ..core.quality_gate.debate import DebateOrchestrator
 from ..core.quality_gate.deterministic_evidence import DeterministicEvidenceVerifier
@@ -271,6 +274,9 @@ class Container:
     browser_evidence_console_tool: BrowserEvidenceConsoleTool | None = None
     browser_evidence_workflow_dispatcher: BrowserEvidenceWorkflowStepDispatcher | None = None
     operational_evidence_source: OperationalEvidenceSource | None = None
+    operational_evidence_principal_contexts: OperationalEvidencePrincipalContextProvider | None = (
+        None
+    )
     execution_authorization_evaluator: ExecutionAuthorizationEvaluator | None = None
     execution_access_grant_sink: ExecutionAccessGrantSink | None = None
     execution_authorization_required: bool = False
@@ -301,6 +307,13 @@ class Container:
     persisted_promotion_authority_verifier: PersistedPromotionAuthorityVerifier | None = None
 
     def __post_init__(self) -> None:
+        if (self.operational_evidence_source is None) != (
+            self.operational_evidence_principal_contexts is None
+        ):
+            raise ValueError(
+                "Container operational evidence source and principal contexts "
+                "MUST be bound together"
+            )
         if (self.operational_readiness_posture is None) != (
             self.operational_readiness_report_publisher is None
         ):

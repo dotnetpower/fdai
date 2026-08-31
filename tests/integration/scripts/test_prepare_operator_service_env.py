@@ -18,6 +18,7 @@ _TRANSPORT_ENV_KEYS = (
     "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC",
     "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC",
     "FDAI_READ_INVESTIGATION_REQUEST_TOPIC",
+    "FDAI_HIL_DECISION_TOPIC",
 )
 
 
@@ -40,6 +41,7 @@ def _repo(tmp_path: Path, *, semantic: str) -> Path:
             "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=core.semantic-turn.projections\n"
             "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC=fdai.pantheon.objects\n"
             "FDAI_READ_INVESTIGATION_REQUEST_TOPIC=operator.read-investigation.requests\n"
+            "FDAI_HIL_DECISION_TOPIC=fdai.hil.decisions\n"
         ),
         "partial": "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=operator.semantic-turn.requests\n",
         "absent": "",
@@ -82,12 +84,14 @@ def test_prepares_semantic_transport_or_local_narrator(tmp_path: Path, semantic:
         assert (
             "FDAI_READ_INVESTIGATION_REQUEST_TOPIC=operator.read-investigation.requests" in rendered
         )
+        assert "FDAI_HIL_DECISION_TOPIC=fdai.hil.decisions" in rendered
         assert "FDAI_OPERATOR_SERVICE_LOCAL_AZURE_NARRATOR=" not in rendered
     else:
         assert "FDAI_SEMANTIC_TURN_REQUEST_TOPIC=" not in rendered
         assert "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC=" not in rendered
         assert "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC=" not in rendered
         assert "FDAI_READ_INVESTIGATION_REQUEST_TOPIC=" not in rendered
+        assert "FDAI_HIL_DECISION_TOPIC=" not in rendered
         assert "FDAI_OPERATOR_SERVICE_LOCAL_AZURE_NARRATOR=1" in rendered
 
 

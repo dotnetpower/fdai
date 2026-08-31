@@ -4,10 +4,9 @@ Realizes the ChatOps A1 (approval) contract for Microsoft Teams. The
 adapter dispatches a v1.5 Adaptive Card via an Incoming Webhook (P1
 default) and MAY be upgraded to a Bot Framework REST call
 (``POST /v3/conversations/{conv}/activities``) when the caller supplies
-a :class:`WorkloadIdentity`. Callback delivery is out of scope for P1
-- :meth:`TeamsHilAdapter.poll` returns :data:`HilDecision.PENDING`
-until the future webhook trigger lands (see
-``docs/roadmap/deployment/deploy-and-onboard.md § Azure Bot Free tier``).
+a :class:`WorkloadIdentity`. The Operator callback owns SSO OBO identity
+and decision recording; :meth:`TeamsHilAdapter.poll` remains
+:data:`HilDecision.PENDING` because callback delivery is asynchronous.
 
 Design boundaries
 -----------------
@@ -33,8 +32,8 @@ Wire contract (P1 - Incoming Webhook)
 | ``poll``                        | *(no-op - always PENDING in P1)*             |
 +---------------------------------+----------------------------------------------+
 
-The card body carries an **opaque ``approval_id``** only - the decision
-endpoint (``fdai-api``) is what actually authorizes an APPROVE.
+The card body carries only opaque approval-context identifiers - the
+decision endpoint (``fdai-api``) is what actually authorizes an APPROVE.
 See ``docs/roadmap/interfaces/channels-and-notifications.md § 3
 (Category boundaries MUST)``.
 
@@ -102,6 +101,13 @@ _TIMESTAMP_HEADER: Final[str] = "X-FDAI-Timestamp"
 _ADAPTIVE_CARD_VERSION: Final[str] = "1.5"
 _ADAPTIVE_CARD_CONTENT_TYPE: Final[str] = "application/vnd.microsoft.card.adaptive"
 
+HIL_DECISION_ACTION: Final[str] = "fdai.hil.decision"
+"""Fixed value of the ``Action.Execute`` ``verb`` field the receiver requires.
+
+Mirrors ``fdai_operator_service.families.iam.hil_teams_callback.HIL_DECISION_ACTION``.
+The two services stay in sync through the focused card-contract test.
+"""
+
 # Small, high-signal secret patterns re-checked before dispatch. This is
 # defense-in-depth - the caller is expected to have redacted already.
 _SECRET_PATTERNS: Final[tuple[re.Pattern[str], ...]] = (
@@ -142,14 +148,21 @@ class TeamsHilAdapterConfig:
     """Cap on the vendor error snippet embedded in :class:`HilChannelError`."""
 
     approve_callback_url: str | None = None
-    """Optional absolute URL rendered as the ``Approve`` button's
-    ``Action.Submit`` data target. When omitted the card carries the
-    ``approval_id`` only; the future webhook receiver derives the URL
-    from configuration."""
+    """Optional operator-facing record of the ``Approve`` decision endpoint.
+
+    The card never embeds it: an ``Action.Execute`` click reaches the bot's
+    messaging endpoint, and the Operator receiver derives its own route from
+    configuration. Keeping the endpoint out of the channel message also keeps
+    the internal callback surface out of a chat transcript."""
 
     reject_callback_url: str | None = None
-    """Optional absolute URL for the ``Reject`` button; same contract
-    as :attr:`approve_callback_url`."""
+    """Optional absolute URL for the ``Reject`` decision endpoint; same
+    contract as :attr:`approve_callback_url`."""
+
+    approval_audience: str | None = None
+    """Configured group-connected Teams audience (``teams:<team>:<channel>``)
+    for A1 callbacks. The Operator receiver derives the same value from its
+    own configuration and refuses a card binding that disagrees."""
 
 
 class TeamsHilAdapter(HilChannel):
@@ -180,6 +193,8 @@ class TeamsHilAdapter(HilChannel):
                 "webhook_secret and WorkloadIdentity are mutually exclusive; "
                 "pick either Incoming Webhook (secret) or Bot Framework (identity)"
             )
+        if not config.approval_audience:
+            raise ValueError("approval_audience MUST be configured for Teams HIL")
         self._config: Final[TeamsHilAdapterConfig] = config
         self._http: Final[httpx.AsyncClient] = http_client
         self._identity: Final[WorkloadIdentity | None] = identity
@@ -272,7 +287,7 @@ class TeamsHilAdapter(HilChannel):
                 "callback payload is missing 'approval_id'",
                 approval_id="",
             )
-        raw_action = payload.get("action")
+        raw_action = payload.get("action", payload.get("decision"))
         action = raw_action.lower() if isinstance(raw_action, str) else ""
         decision: HilDecision
         if action == "approve":
@@ -378,11 +393,18 @@ def _render_adaptive_card(
 ) -> dict[str, Any]:
     """Render one v1.5 Adaptive Card for a Teams channel post.
 
-    The card carries the opaque ``approval_id`` only - the decision
-    endpoint re-verifies identity + action hash before honoring the
-    click. Buttons are ``Action.Submit`` so the callback lands as a
-    JSON body the future webhook receiver can parse via
-    :meth:`TeamsHilAdapter.parse_response`.
+    The card carries opaque correlation, idempotency, audience, and action
+    bindings only. The Operator receiver re-verifies every binding and
+    re-resolves the actor from the authenticated Bot activity before honoring
+    a click, so the card grants no authority.
+
+    Buttons are ``Action.Execute`` with the fixed
+    ``fdai.hil.decision`` verb because that is the only Teams action shape
+    that reaches the bot as an ``invoke`` activity carrying an SSO
+    (delegated) user token. A plain ``Action.Submit`` cannot satisfy the
+    Operator callback contract: it neither signs the internal callback HMAC
+    nor supplies a delegated actor token. The receiver contract lives in
+    ``fdai_operator_service.families.iam.hil_teams_callback``.
     """
     facts: list[dict[str, str]] = [
         {"title": "Action", "value": request.action_type},
@@ -422,38 +444,28 @@ def _render_adaptive_card(
     body.append(
         {
             "type": "Input.Text",
-            "id": "reason",
-            "label": "Reason (optional)",
+            "id": "justification",
+            "label": "Justification",
+            "isRequired": True,
             "isMultiline": True,
             "maxLength": 500,
         }
     )
 
-    approve_action: dict[str, Any] = {
-        "type": "Action.Submit",
-        "title": "Approve",
-        "style": "positive",
-        "data": {
-            "action": "approve",
-            "approval_id": request.approval_id,
-            "action_hash": request.action_hash,
-        },
-    }
-    if config.approve_callback_url is not None:
-        approve_action["data"]["callback_url"] = config.approve_callback_url
-
-    reject_action: dict[str, Any] = {
-        "type": "Action.Submit",
-        "title": "Reject",
-        "style": "destructive",
-        "data": {
-            "action": "reject",
-            "approval_id": request.approval_id,
-            "action_hash": request.action_hash,
-        },
-    }
-    if config.reject_callback_url is not None:
-        reject_action["data"]["callback_url"] = config.reject_callback_url
+    approve_action = _decision_action(
+        request,
+        config=config,
+        decision="approve",
+        title="Approve",
+        style="positive",
+    )
+    reject_action = _decision_action(
+        request,
+        config=config,
+        decision="reject",
+        title="Reject",
+        style="destructive",
+    )
 
     card = {
         "type": "AdaptiveCard",
@@ -473,6 +485,45 @@ def _render_adaptive_card(
                 "content": card,
             }
         ],
+    }
+
+
+def _decision_action(
+    request: HilApprovalRequest,
+    *,
+    config: TeamsHilAdapterConfig,
+    decision: str,
+    title: str,
+    style: str,
+) -> dict[str, Any]:
+    """Render one ``Action.Execute`` button carrying only re-verifiable bindings.
+
+    ``data`` deliberately excludes any actor, role, or authority field. The
+    Operator receiver refuses an action whose data keys differ from this exact
+    set, so a tampered card cannot smuggle ``provider_actor_id`` or ``roles``.
+    """
+    idempotency_key = request.metadata.get("idempotency_key", "").strip()
+    if (
+        not request.approval_id.strip()
+        or not request.correlation_id.strip()
+        or not idempotency_key
+        or not request.action_hash.strip()
+        or not config.approval_audience
+    ):
+        raise ValueError("Teams HIL callback bindings MUST be complete")
+    return {
+        "type": "Action.Execute",
+        "verb": HIL_DECISION_ACTION,
+        "title": title,
+        "style": style,
+        "data": {
+            "decision": decision,
+            "approval_id": request.approval_id,
+            "correlation_id": request.correlation_id,
+            "idempotency_key": idempotency_key,
+            "action_hash": request.action_hash,
+            "audience": config.approval_audience,
+        },
     }
 
 

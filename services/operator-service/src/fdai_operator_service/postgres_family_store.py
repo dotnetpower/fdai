@@ -412,6 +412,16 @@ class WebhookProposalClaim:
 
 
 @dataclass(frozen=True, slots=True)
+class HilDecisionProposalClaim:
+    """One lease-fenced durable human-approval decision awaiting publication."""
+
+    key: str
+    claim_id: str
+    payload: Mapping[str, object]
+    attempt: int
+
+
+@dataclass(frozen=True, slots=True)
 class ReadInvestigationProposalClaim:
     """One lease-fenced read proposal awaiting versioned Core publication."""
 
@@ -1865,6 +1875,102 @@ class PostgresFamilyStore:
             attempt=attempt,
         )
 
+    async def claim_hil_decision_proposal(
+        self,
+        *,
+        worker_id: str,
+        lease_seconds: int,
+    ) -> HilDecisionProposalClaim | None:
+        """Lease the oldest pending or expired durable human-approval decision.
+
+        The lease fences concurrent Operator replicas, and an expired lease is
+        reclaimable, so a replica that crashed after its durable write cannot
+        strand a recorded human decision behind an HTTP retry.
+        """
+        _bounded_component("worker_id", worker_id)
+        if not 1 <= lease_seconds <= 300:
+            raise ValueError("lease_seconds MUST be in [1, 300]")
+        claim_id = str(uuid4())
+        rows = await self._fetch_all(
+            """
+            WITH candidate AS (
+                SELECT key
+                  FROM state_kv
+                 WHERE key LIKE %(proposal_prefix)s
+                   AND value ->> 'family' = 'iam'
+                   AND value ->> 'operation' = 'hil.decision.enqueue'
+                   AND (
+                        value ->> 'dispatch_status' = 'pending'
+                        OR (
+                            value ->> 'dispatch_status' = 'claimed'
+                            AND (value ->> 'claim_expires_at')::timestamptz <= NOW()
+                        )
+                   )
+                 ORDER BY COALESCE((value ->> 'attempt')::integer, 0),
+                          value ->> 'accepted_at', key
+                 FOR UPDATE SKIP LOCKED
+                 LIMIT 1
+            )
+            UPDATE state_kv AS proposal
+               SET value = proposal.value || jsonb_build_object(
+                   'dispatch_status', 'claimed',
+                   'claim_id', %(claim_id)s::text,
+                   'claim_worker_id', %(worker_id)s::text,
+                   'claim_expires_at', NOW() + make_interval(secs => %(lease_seconds)s),
+                   'attempt', COALESCE((proposal.value ->> 'attempt')::integer, 0) + 1
+               ),
+                   updated_at = NOW()
+              FROM candidate
+             WHERE proposal.key = candidate.key
+         RETURNING proposal.key, proposal.value
+            """,
+            {
+                "claim_id": claim_id,
+                "proposal_prefix": "operator-proposal:%",
+                "worker_id": worker_id,
+                "lease_seconds": lease_seconds,
+            },
+        )
+        if not rows:
+            return None
+        key = rows[0].get("key")
+        value = _json_object(rows[0].get("value"), label="HIL decision proposal claim")
+        payload = value.get("payload")
+        attempt = value.get("attempt")
+        if (
+            not isinstance(key, str)
+            or not isinstance(payload, Mapping)
+            or not isinstance(attempt, int)
+            or isinstance(attempt, bool)
+        ):
+            raise PostgresFamilyStoreUnavailable("HIL decision proposal claim is malformed")
+        return HilDecisionProposalClaim(
+            key=key,
+            claim_id=str(value.get("claim_id") or claim_id),
+            payload=dict(payload),
+            attempt=attempt,
+        )
+
+    async def mark_hil_decision_published(self, *, idempotency_key: str) -> bool:
+        """Close one durable decision record the immediate path already published."""
+        if not idempotency_key.strip() or len(idempotency_key) > 512:
+            raise ValueError("idempotency_key MUST be a bounded non-empty string")
+        rows = await self._fetch_all(
+            """
+            UPDATE state_kv
+               SET value = value || jsonb_build_object(
+                   'dispatch_status', 'published',
+                   'published_at', NOW()
+               ),
+                   updated_at = NOW()
+             WHERE key = %(key)s
+               AND value ->> 'dispatch_status' = 'pending'
+         RETURNING value
+            """,
+            {"key": _proposal_key("iam", idempotency_key)},
+        )
+        return bool(rows)
+
     async def claim_webhook_proposal(
         self,
         *,
@@ -2625,6 +2731,19 @@ class UnavailablePostgresFamilyStore(PostgresFamilyStore):
         del principal_id, idempotency_key, request_digest, envelope
         raise PostgresFamilyStoreUnavailable("semantic turn outbox is unavailable")
 
+    async def claim_hil_decision_proposal(
+        self,
+        *,
+        worker_id: str,
+        lease_seconds: int,
+    ) -> HilDecisionProposalClaim | None:
+        del worker_id, lease_seconds
+        raise PostgresFamilyStoreUnavailable("HIL decision outbox is unavailable")
+
+    async def mark_hil_decision_published(self, *, idempotency_key: str) -> bool:
+        del idempotency_key
+        raise PostgresFamilyStoreUnavailable("HIL decision outbox is unavailable")
+
     async def claim_semantic_turn(
         self,
         *,
@@ -3334,6 +3453,7 @@ async def _cancel_and_close(
 
 
 __all__ = [
+    "HilDecisionProposalClaim",
     "PostgresFamilyStore",
     "PostgresFamilyStoreConfig",
     "PostgresFamilyStoreUnavailable",

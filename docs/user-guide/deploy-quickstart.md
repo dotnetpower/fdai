@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision the FDAI minimum-set inventory on Azure - two equivalent paths (azd turnkey or Terraform direct), preview first, apply only when the plan looks right.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 74a9ef0545a5d83de04c80d5fd28042bc6aa603b }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 5c2a1bc278e9007ce8d65990c98d849eac12947e }]
 ---
 
 # Deploy Quickstart
@@ -52,6 +52,10 @@ first, so you can review the plan before you run the separate apply step.
   mappings in local-only inputs and Key Vault. Set only the versionless secret-id list in the
   repository variable, then review and apply the platform identity plan before the separate
   Operator service `enable` plan. The edge identity receives no executor role.
+- To enable A1 approval, configure the group-connected Teams team, channel, and HTTPS Bot activity
+  endpoint together, or configure the Slack workspace and user-to-Entra mapping together. Keep
+  mapping values and signing inputs in Key Vault or local-only deployment inputs. Missing or partial
+  channel authority leaves approval unavailable; it never falls back to an Incoming Webhook.
 - To provision the bounded OHL scale-out evidence target, enable
   `enable_ohl_scale_out_evidence_target` only in `dev` with private networking and the
   development operations gateway. Supply an exact image version, the protected workflow's SSH

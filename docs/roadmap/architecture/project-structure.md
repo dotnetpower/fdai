@@ -43,6 +43,11 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   Focused sibling modules may own canonical identity projection and hashing while the established
   owner module re-exports that public surface; the split must preserve serialized bytes and replay
   semantics.
+- **human approval stays split by service authority**: Operator owns Teams/Slack authentication,
+  cryptographic verification, callback audit, and the durable decision outbox. Core consumes only
+  the typed decision event, routes workflow slots to the registry, and sends action parks to the
+  HIL coordinator. The Operator package depends on `cryptography` for local JWT/JWK verification
+  but never imports Core implementation or receives executor identity.
 - **observation-mode ARB composition**: `core/architecture_review/observation_loop.py` owns the
   provider-neutral Change -> authenticated context -> evidence bundle -> scenario -> DecisionCase
   and ImpactEnvelope composition. Forseti is the only publisher of its observation verdict on the
@@ -445,6 +450,11 @@ clean (see the fork model in
   execution authorization and risk. Missing or invalid evidence holds without suppressing the
   finding. The provider can only populate the observed blast count; it cannot grant authority or
   satisfy independent post-action verification.
+- **Principal-scoped operational evidence**: `OperationalEvidenceSource` and
+  `OperationalEvidencePrincipalContextProvider` bind as one pair. Core admits the bounded bundle and
+  receipt-verified Context metadata before the existing semantic projection carries it to Operator.
+  A missing pair preserves the existing response, while a partial pair fails at container
+  construction. Neither seam grants mutation or execution authority.
 
 ### Capability Bundles
 

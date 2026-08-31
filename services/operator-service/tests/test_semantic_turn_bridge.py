@@ -63,6 +63,7 @@ from fdai_operator_service.postgres_semantic_turn_store import (
 from fdai_service_contracts import (
     ContractValidationError,
     GoalTaskReceipt,
+    OperationalEvidenceProjection,
     RuleSearchProjection,
     RuleSearchReceipt,
     SemanticInvestigationContinuation,
@@ -70,6 +71,7 @@ from fdai_service_contracts import (
     query_content_digest,
     rule_search_query_digest,
 )
+from fdai_service_contracts.ontology_query import content_digest
 from pydantic import ValidationError
 
 _TEST_NAMESPACE = UUID(int=0)
@@ -875,6 +877,60 @@ def _projection(
         "payload": {},
         "semantic_result": result,
     }
+
+
+def _operational_evidence_projection() -> dict[str, object]:
+    cutoff = "2026-08-11T00:00:00+00:00"
+    release = f"sha256:{'a' * 64}"
+    bundle: dict[str, object] = {
+        "autonomy_ceiling": "shadow_only",
+        "catalog_revision": f"sha256:{'b' * 64}",
+        "catalog": [{"evidence_ref": "catalog:example"}],
+        "citation_manifest": [
+            {
+                "cutoff": cutoff,
+                "evidence_ref": "catalog:example",
+                "item_digest": f"sha256:{'c' * 64}",
+                "lane": "catalog",
+                "redaction_summary": [],
+                "source_revision": "catalog-r1",
+            }
+        ],
+        "claims": [],
+        "conflicts": [],
+        "cutoff": cutoff,
+        "documents": [],
+        "evidence_issues": [],
+        "grants_action_authority": False,
+        "hold_reasons": [],
+        "max_bytes": 65_536,
+        "max_items": 8,
+        "missing_paths": [],
+        "ontology": [],
+        "ontology_release_digest": release,
+        "purpose": "operations-review",
+        "scope": ["resource-example"],
+        "state": [],
+        "trusted_recorded_at": cutoff,
+        "used_bytes": 1_024,
+        "used_items": 1,
+    }
+    digest = content_digest(bundle)
+    return OperationalEvidenceProjection(
+        bundle=bundle,
+        bundle_id=f"operational-evidence-bundle:{digest}",
+        digest=digest,
+        context_metadata={
+            "principal_ref": "operator-1",
+            "ontology_release_digest": release,
+            "purpose": "operations-review",
+            "cutoff": cutoff,
+            "complete": True,
+            "query_complete": True,
+            "truncated": False,
+        },
+        principal_ref="operator-1",
+    ).model_dump(mode="json")
 
 
 def _rule_search_projection() -> dict[str, object]:
@@ -1741,6 +1797,56 @@ async def test_valid_answered_result_projects_idempotently() -> None:
     assert first.duplicate is False
     assert duplicate.duplicate is True
     assert len(store.results) == 1
+
+
+async def test_result_consumer_retains_admitted_operational_evidence() -> None:
+    store = _MemorySemanticStore()
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    await store.append_semantic_turn(
+        principal_id="operator-1",
+        idempotency_key="turn-retry-1",
+        request_digest="digest",
+        envelope=envelope,
+    )
+    projection = _projection(envelope, disposition="answered", answered_evidence=True)
+    cast(dict[str, object], projection["payload"])["operational_evidence"] = (
+        _operational_evidence_projection()
+    )
+
+    stored = await SemanticTurnProjectionConsumer(store).consume(projection)
+    done = semantic_turn_runtime_module._done_event_data(stored.data)
+
+    assert (
+        cast(dict[str, object], stored.data["payload"])["operational_evidence"]
+        == _operational_evidence_projection()
+    )
+    assert done["operational_evidence"] == _operational_evidence_projection()
+
+
+async def test_result_consumer_rejects_wrong_principal_operational_context() -> None:
+    store = _MemorySemanticStore()
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    await store.append_semantic_turn(
+        principal_id="operator-1",
+        idempotency_key="turn-retry-1",
+        request_digest="digest",
+        envelope=envelope,
+    )
+    projection = _projection(envelope, disposition="answered", answered_evidence=True)
+    operational_evidence = _operational_evidence_projection()
+    cast(dict[str, object], operational_evidence["context_metadata"])["principal_ref"] = (
+        "other-principal"
+    )
+    cast(dict[str, object], projection["payload"])["operational_evidence"] = operational_evidence
+
+    with pytest.raises(ValidationError, match="principal_ref"):
+        await SemanticTurnProjectionConsumer(store).consume(projection)
+
+    assert store.results == {}
 
 
 def test_answered_done_exposes_exact_no_authority_semantic_receipt() -> None:

@@ -114,6 +114,75 @@ variable "channel_edge" {
     error_message = "Enabled channel_edge requires at least one complete Slack or Teams provider contract plus principal scopes."
   }
 }
+variable "hil_callback" {
+  description = "Durable A1 callback transport and optional Teams or Slack authority inputs."
+  type = object({
+    enabled                       = bool
+    signing_secret_id             = string
+    teams_application_id          = string
+    teams_tenant_id               = string
+    teams_approval_team_id        = string
+    teams_approval_channel_id     = string
+    teams_allowed_service_urls    = string
+    teams_jwks_url                = string
+    teams_principal_map_secret_id = string
+    slack_team_id                 = string
+    slack_principal_map_secret_id = string
+  })
+  default = {
+    enabled                       = false
+    signing_secret_id             = ""
+    teams_application_id          = ""
+    teams_tenant_id               = ""
+    teams_approval_team_id        = ""
+    teams_approval_channel_id     = ""
+    teams_allowed_service_urls    = ""
+    teams_jwks_url                = ""
+    teams_principal_map_secret_id = ""
+    slack_team_id                 = ""
+    slack_principal_map_secret_id = ""
+  }
+  validation {
+    condition = (
+      length(compact([
+        var.hil_callback.teams_application_id,
+        var.hil_callback.teams_tenant_id,
+        var.hil_callback.teams_approval_team_id,
+        var.hil_callback.teams_approval_channel_id,
+        var.hil_callback.teams_allowed_service_urls,
+        var.hil_callback.teams_jwks_url,
+        var.hil_callback.teams_principal_map_secret_id,
+      ])) == 0 ||
+      length(compact([
+        var.hil_callback.teams_application_id,
+        var.hil_callback.teams_tenant_id,
+        var.hil_callback.teams_approval_team_id,
+        var.hil_callback.teams_approval_channel_id,
+        var.hil_callback.teams_allowed_service_urls,
+        var.hil_callback.teams_jwks_url,
+        var.hil_callback.teams_principal_map_secret_id,
+      ])) == 7
+      ) && (
+      length(compact([
+        var.hil_callback.slack_team_id,
+        var.hil_callback.slack_principal_map_secret_id,
+      ])) == 0 ||
+      length(compact([
+        var.hil_callback.slack_team_id,
+        var.hil_callback.slack_principal_map_secret_id,
+      ])) == 2
+      ) && (
+      !var.hil_callback.enabled || (
+        var.hil_callback.signing_secret_id != "" &&
+        (
+          var.hil_callback.teams_application_id != "" ||
+          var.hil_callback.slack_team_id != ""
+        )
+      )
+    )
+    error_message = "HIL callback requires a signing secret and at least one complete Teams or Slack authority contract; partial channel configuration is invalid."
+  }
+}
 variable "event_topics" {
   description = "Event Hub entities used for typed operator requests."
   type = object({
@@ -124,6 +193,7 @@ variable "event_topics" {
     read_investigation_requests    = optional(string, "")
     incident_intervention_requests = optional(string, "operator.incident-intervention.requests")
     read_investigation_completions = optional(string, "core.read-investigation.completions")
+    hil_decisions                  = optional(string, "fdai.hil.decisions")
   })
 }
 variable "database" {

@@ -52,6 +52,13 @@ from fdai_operator_service.families.iam.hil_callback import (
     HilCallbackConfig,
     make_hil_callback_route,
 )
+from fdai_operator_service.families.iam.hil_callback_audit import HilCallbackAuditWriter
+from fdai_operator_service.families.iam.hil_callback_authority import HilCallbackAuthority
+from fdai_operator_service.families.iam.hil_callback_context import HilCallbackContextReader
+from fdai_operator_service.families.iam.hil_teams_callback import (
+    TeamsHilCallbackNormalizer,
+    make_hil_teams_callback_route,
+)
 from fdai_operator_service.families.iam.iam_routes import make_iam_routes
 from fdai_operator_service.families.iam.manifest import IAM_FAMILY_MANIFEST
 from fdai_operator_service.families.iam.settings import (
@@ -85,6 +92,10 @@ class IamFamilyBindings:
     hil_registry: HilDecisionRegistry | None = None
     hil_outbox: HilDecisionOutbox | None = None
     hil_config: HilCallbackConfig | None = None
+    hil_authority: HilCallbackAuthority | None = None
+    hil_audit: HilCallbackAuditWriter | None = None
+    hil_context: HilCallbackContextReader | None = None
+    hil_teams_normalizer: TeamsHilCallbackNormalizer | None = None
     identity_provider: str = "entra"
     role_group_ids: dict[str, str] | None = None
 
@@ -140,6 +151,17 @@ def make_iam_family_routes(bindings: IamFamilyBindings) -> tuple[Route, ...]:
             registry=bindings.hil_registry,
             outbox=bindings.hil_outbox,
             config=bindings.hil_config,
+            authority=bindings.hil_authority,
+            audit=bindings.hil_audit,
+            context_reader=bindings.hil_context,
+        ),
+        make_hil_teams_callback_route(
+            registry=bindings.hil_registry,
+            outbox=bindings.hil_outbox,
+            authority=bindings.hil_authority,
+            audit=bindings.hil_audit,
+            context_reader=bindings.hil_context,
+            normalizer=bindings.hil_teams_normalizer,
         ),
     )
     snapshot = tuple(

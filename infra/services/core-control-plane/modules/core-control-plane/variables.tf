@@ -41,6 +41,14 @@ variable "event_topics" {
     incident_intervention_requests = optional(string, "operator.incident-intervention.requests")
   })
 }
+
+variable "teams_approval_destination" {
+  type = object({
+    team_id      = string
+    channel_id   = string
+    activity_url = string
+  })
+}
 variable "database" {
   type = object({
     dsn_secret_id = string

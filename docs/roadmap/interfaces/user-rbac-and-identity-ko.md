@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: b09477972a327b7d40e6170b8d43d898ab2d25e3
-translation_revised: 2026-08-28
+translation_source_sha: b0b16a83d3e4b0b40825a7c3cd06757071255a54
+translation_revised: 2026-08-31
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -34,6 +34,7 @@ Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.
 |------|------|------|------|
 | 활동 관찰의 사람 및 workload identity 분리 | 구현됨 | `fdai_operator_service/activity_projection.py`, `test_activity_projection.py`, 이 문서의 인증된 관찰 계약 | 영속 현재 상태 활동은 hash된 correlation 참조만 전달하며 Reader bearer 게이트와 relay workload credential은 계속 분리되고 어떤 활동 행도 executor 권한을 얻지 않습니다. |
 | Break-Glass 활성화 요청 경계 | 구현됨 | `services/operator-service/src/fdai_operator_service/families/iam/break_glass.py`; `capabilities.py`; `services/operator-service/tests/test_operator_break_glass_activation.py` | `POST /system/break-glass/activation`은 BreakGlass 전용 `activate-break-glass` 기능과 비어 있지 않은 인시던트 id 및 사유, 한도 안의 미래 오프셋 인식 만료 시각을 요구합니다. 감사 전용 projection만 기록하며 HIL 승인이나 executor identity를 부여하지 않습니다. 영속 활성화 저장소, TTL 적용, 사인인 알림은 배포 작업으로 남습니다. |
+| 사람 승인 콜백 신원 | 구현됨 | `families/iam/hil_callback.py`, `hil_callback_authority.py`, `hil_decision_outbox.py`, `postgres_iam.py`, 집중 콜백, 영속성, Kafka, 워크플로 및 카나리 테스트 | Teams는 구성된 봇에 발급된 API 대상 OBO 토큰, 정확한 공급자-Entra 매핑, 별도로 구성된 그룹 연결 팀과 채널을 요구합니다. Slack은 브라우저 Entra 재인증과 구성된 워크스페이스 및 사용자-Entra OID 매핑을 요구합니다. 콜백 결정은 서명된 콜백 시각을 사용하고 제안 우선 영속화를 복구하며 영속 Operator 보낼 편지함을 통해 게시됩니다. BreakGlass는 기존 전역 기능에서 계속 사용할 수 있지만 사람 승인 권한은 부여하지 않습니다. |
 | 로컬 Browser Entra 세션 복원력 | 구현됨 | `console/src/auth-session.ts`; `console/src/auth.ts`; focused Console 인증 테스트(`10 passed`)와 typecheck | MSAL Browser v4는 loopback origin에서만 암호화된 `localStorage`를 사용하고 배포 origin에서는 `sessionStorage`를 유지합니다. 시작 시, 30분마다, focus, visibility 또는 network 복구 뒤에 하나로 병합된 refresh를 실행합니다. Entra는 여전히 대화형 인증을 요구할 수 있습니다. |
 | Owner 범위 알림 통합 진단 | 구현됨 | `services/operator-service/src/fdai_operator_service/families/iam/settings.py`; `services/operator-service/src/fdai_operator_service/families/iam/manifest.py`; `services/operator-service/src/fdai_operator_service/{teams_workflow,slack_webhook}_diagnostics.py`; 집중 진단 및 IAM 기능군 테스트 | `POST` 경로는 일회성 Teams Workflows 또는 Slack 웹후크 URL을 받아 고정된 합성 알림 하나를 보내고, 다이제스트와 상태 메타데이터만 영속화하며, 비밀 없는 결과를 반환합니다. 팩터리 순서는 고정된 IAM 경로 매니페스트와 일치하므로 공개 화면 차이가 생기면 시작을 차단합니다. |
 | 사용자별 비용 거버넌스 접근 | 구현됨 | `CostAccessGrant`, `CostDisclosureCeiling`, 비용 거버넌스 Operator 경로 및 집중 테스트 | Reader는 시간 검사와 배포 공개 상한을 적용하기 전에 principal, 목적, scope가 일치하는 최신 grant를 선택합니다. 서버는 직렬화 전에 `hidden`, `aggregate`, `masked` 또는 `detailed` 공개 정책을 적용하며, 권한은 패키지를 활성화하거나 액션을 승격할 수 없습니다. |
@@ -48,6 +49,7 @@ Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.
 | 2026-08-13 | 구현됨 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 영속 현재 상태 활동이 전달하는 범위 제한 identity를 기록했습니다. | 현재 출처와 `test_activity_projection.py`, 통과한 focused 영속성 및 projection 테스트 | 별도로 설계된 운영 Break-Glass 활성화 경계를 추가합니다. |
 | 2026-08-15 | 구현됨 | BreakGlass 전용 기능, 인시던트 id, 사유, 한도 안의 미래 만료, 감사 전용 projection을 갖춘 `POST /system/break-glass/activation` 요청 경계를 추가했습니다. | `current change`; `services/operator-service/src/fdai_operator_service/families/iam/break_glass.py`; `pytest services/operator-service/tests` (308 passed, 1 skipped). | 배포에서 영속 활성화 저장소, TTL 적용, 사인인 알림을 연결합니다. |
 | 2026-08-21 | 구현됨 | 배포 token 저장이나 API 검증을 바꾸지 않고 loopback 전용 영속 MSAL cache와 App 수명 주기가 소유하는 proactive refresh loop 하나를 추가했습니다. | `current change`; `console/src/auth-session.ts`; `console/src/auth.ts`; `console/src/app.tsx`; focused 인증 테스트 10개와 Console typecheck가 통과했습니다. 보존하지 않은 loopback Browser 검사에서 MSAL `sessionStorage` 항목 없이 두 번째 탭을 복구했고 startup refresh 한 번의 성공을 관찰했습니다. | runtime 검증을 주장하기 전에 webview 재생성 또는 야간 중단을 통과한 관리되는 Browser 증적을 보존합니다. |
+| 2026-08-31 | 구현됨 | 콜백이 제공한 신원과 역할을 서버가 검증한 Teams 및 매핑된 Slack Entra 권한으로 교체했습니다. 콜백 문맥, 만료, 사유, 자기 승인 차단, 중복 처리, 첫 감사 시각 보존, 제안 우선 복구 및 영속 Kafka 게시가 이제 실패 시 차단됩니다. Teams 대상은 RBAC 그룹 id가 아니라 별도의 그룹 연결 팀과 채널에서 파생됩니다. | `current change`, 집중 Operator IAM, PostgreSQL, Kafka, 조립, 워크플로 승인 및 로컬 카나리 검사. | 토큰이나 테넌트 값을 저장하지 않는 통제된 배포 Teams OBO 및 브로커 수락 증적을 하나 보존합니다. |
 
 ### 남은 작업
 
@@ -91,9 +93,9 @@ CODEOWNERS 경로, 앱 레벨 정당화에서 옴.
 - **Break-Glass는 Owner 안에 중첩되지 않음.** 별도 관리 그룹; Owner 계정도 `aw-break-glass`
   에 없으면 break-glass 액션을 authorize하지 않음. 이는 Owner 계정이 손상되어도 영향 범위
   제한.
-- **활성화 시 검증된 자격을 보존합니다.** 토큰 확인 과정은 유효 역할에서 `BreakGlass`를
-  제거하지만 별도의 자격 플래그를 유지합니다. 시간 제한 활성화는 긴급 역할을 추가하기 전에
-  이 플래그를 확인합니다.
+- **활성화 시 검증된 자격을 보존합니다.** 토큰 확인 과정은 기존 전역 비상 정지와 비상 접근
+  기능을 위해 `BreakGlass` 역할을 보존합니다. 사람 승인 기능 매핑에서는 `BreakGlass`를
+  제외하므로 콜백 경로가 비상 자격을 승인 권한으로 바꿀 수 없습니다.
 - **현재 activation 경계.** `RoleResolver.activate_break_glass`는 인시던트 id와 future 만료를
   검증하는 pure activation 기본 요소입니다. `POST /system/break-glass/activation`이 그 앞의 요청
   경계로, BreakGlass 전용 `activate-break-glass` 기능과 인시던트 id, 사유, 한도 안의 미래 만료를
@@ -223,8 +225,9 @@ Coarse 롤은 PR과 API 레이어에서 **quorum + justification + 저자≠승�
 > **구현 상태**: 런타임 기능 검사, `RoleEnforcer.no_self_approval`, risk-gate quorum을
 > 구현했습니다. CI는 이제 exact-head GitHub PR, commit, review, Check Run 사실을 구성된 trusted
 > verifier App이 발급한 Entra principal bundle과 결합합니다. Trusted attestation이 없으면 실패
-> 시 닫힙니다. 해당 App 배포, 초안 생성 시 human OID trailer 기록, justification 적용, 완전한
-> `@aw-approvers` CODEOWNERS 구성은 남아 있습니다.
+> 시 닫힙니다. 정족수 2와 제안자, 공동 작성자 및 커미터 분리는 강제 적용 승격, 예외,
+> 재정의 및 A1 라우팅에 적용됩니다. 해당 App 배포, 초안 생성 시 사람 OID trailer 기록 및
+> 완전한 `@aw-approvers` CODEOWNERS 구성은 남아 있습니다.
 
 ### 5.1 목표 CODEOWNERS (단일 승인자 그룹, 경로-기반 리뷰어 카운트)
 
@@ -246,6 +249,7 @@ rule-catalog/overrides/**   @aw-approvers
 | 할당 `effect` 승격 `audit → deny / remediate` | **2 (quorum)** |
 | Exemption 생성 / 갱신 | **2 (quorum)** |
 | 재정의 생성 / 수정 | **2 (quorum)** |
+| A1 기본 / 대체 경로 변경 | **2 (quorum)** |
 
 Quorum-2는 "elevated 승인자" 그룹 도입 없이 구체화된 shadow→enforce 승격 게이트
 ([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)).
@@ -264,19 +268,17 @@ Quorum-2는 "elevated 승인자" 그룹 도입 없이 구체화된 shadow→enfo
 
 ### 5.3 앱 레벨 정당화 (런타임 사람 승인)
 
-목표 Adaptive 카드 승인 계약은 `justification` 필드를 필수로 하고 `""` / 누락 값을 `400`으로
-거부합니다. 현재 HMAC 콜백은 `justification`을 문자열로 검증하지만 빈 문자열을 허용합니다.
-현재 강제되는 경계는 콜백 서명과 재생 구간, no-self-approval, 선택적 signed
-`actor_roles` 기능, 레지스트리/조정기의 타입이 지정된 결정입니다.
+콜백은 `justification`을 필수로 하며 누락되거나 공백이면 `400`으로 차단합니다. 역할은 콜백
+JSON이 아니라 검증된 API 토큰에서 파생합니다. Teams는 API 대상이 검증되고 구성된 승인 봇을
+허가된 클라이언트로 갖는 토큰을 요구합니다. Slack은 브라우저 Entra 재인증과 비어 있지 않은
+공급자 사용자-Entra OID 매핑을 요구합니다.
+5개 Entra 그룹 id는 역할 배정에만 사용됩니다. Teams 콜백 대상은 별도로 구성된 그룹 연결
+승인 대상의 `teams:<team-id>:<channel-id>`입니다. Teams 구성은 전부 구성하거나 전부 비워야
+하며, Slack은 `slack:<workspace-id>`로 독립적으로 운영할 수 있습니다.
 
 ```jsonc
 POST /hil/{approval_id}/decision
-{
- "approval_id": "hil-2026-07-04-abc123",
- "decision": "approve",
- "actor_oid": "approver-oid",
- "justification": "verified rollback plan in runbook X; safe within maintenance window"
-}
+{"decision":"approve","justification":"verified rollback plan","channel":"teams","provider_actor_id":"<provider-user-id>","audience":"teams:<configured-team-id>:<configured-channel-id>","correlation_id":"<original-correlation-id>","idempotency_key":"<original-idempotency-key>","action_hash":"<original-action-hash>"}
 ```
 
 ## 6. 목표 아이덴티티 흐름: 콘솔 → 초안 PR → 감사
@@ -300,24 +302,30 @@ Entra OID를 no-self-approval과 감사 상관관계 검사까지 전달합니�
 규칙, 대체 경로 정책 - 는 [channels-and-notifications-ko.md](channels-and-notifications-ko.md)
 에 있음.
 
-> **현재 경계**: Teams 대화 유입은 Bot Framework JWT와 same-tenant principal
-> 연결을 검증합니다. 런타임 HIL 결정은 선택적으로 등록되는 HMAC-signed
-> `POST /hil/{approval_id}/decision` 콜백이 레지스트리 또는 `HilResumeCoordinator`에 타입이 지정된
-> 결정을 전달합니다. 아래 Teams SSO OBO 교환과 App 역할을 포함한 사용자 콜백은 목표
-> 흐름이며 아직 구현되어 있지 않습니다.
+> **현재 경계**: Teams 대화 유입은 Bot Framework JWT와 동일 테넌트 주체 연결을
+> 검증합니다. 그 다음 HMAC으로 묶인 콜백은 형식화된 결정을 기록하기 전에 API 대상 Teams
+> SSO OBO 토큰, 구성된 봇 클라이언트, 매핑된 Entra 행위자, 구성된 팀-채널 대상 및 현재 App Roles를
+> 검증합니다. Slack은 브라우저 Entra 재인증과 명시적 공급자 사용자 매핑 뒤에만 같은 콜백을
+> 사용합니다.
 
 ![7. ChatOps 사람 승인 흐름. 주요 단계는 HIL request (action_hash, idempotency_key, ttl), Adaptive Card (Teams SSO), approve / reject + justification, POST /approvals (SSO on-behalf-of), Verify approver OID ∈ aw-approvers, / action_hash matches pending, / approver OID ≠ action originator OID, decision + audit entry (correlation_id), (approved) execute입니다.](../../diagrams/generated/fdai-roadmap-interfaces-user-rbac-and-identity-02.ko.svg)
 
 - 현재 콜백은 시각, URL `approval_id`, 본문을 HMAC에 바인딩합니다. 레지스트리 또는 parked
-  조정기는 이 식별자를 pending 항목과 대조하고 멱등적 최종 결정을 강제합니다.
-- No-self-approval은 signed 콜백 행위자 OID와 pending 항목의 submitter OID를 비교합니다. 향후
-  사람이 작성한 거버넌스 PR에서 이 신원을 종단으로 전달하는 것은 목표 흐름에 남아 있습니다.
+  조정기는 이 식별자를 pending 항목과 대조하고 원래 `correlation_id`, `idempotency_key` 및
+  액션 해시를 검사한 뒤 안전하게 재시도할 수 있는 최종 결정을 강제합니다. 서명된 시각은
+  안정적인 `decided_at`이며 정확한 재시도는 첫 준비/완료 감사 시각을 보존합니다. Operator는
+  게시 전에 결정 보낼 편지함을 영속화하고 브로커가 수락한 뒤에만 전달 완료로 표시합니다.
+  게시 실패는 재시도 가능한 `503`을 반환합니다.
+- 자기 승인 차단은 서버가 인증한 Entra OID와 pending 항목의 제출자 OID를 비교합니다.
+  일반 인증은 기존 BreakGlass 동작을 유지하지만 사람 승인 기능 검사에서는 BreakGlass를
+  제외합니다.
 
 ## 8. 감사 상관관계
 
 목표 거버넌스 흐름은 네 시스템에 같은 `correlation_id`를 남겨 단일 결정을 종단으로
-재구성합니다. 현재 타입이 지정된 HIL 및 IAM 경로는 자체 state-and-audit 상관관계를 기록하지만 Entra
-사인인, GitHub PR, Teams OBO 및 코어 감사를 하나로 잇는 흐름은 구현되어 있지 않습니다.
+재구성합니다. Operator 콜백은 이제 수락, 거절, 만료 및 잘못된 시도에 대해 원래 상관관계,
+해시된 행위자 참조, 권한 근거 및 결과가 포함된 정제된 준비 및 완료 레코드를 기록합니다.
+Entra 사인인, GitHub PR 및 Core 감사를 아우르는 보존된 운영 근거는 배포 작업으로 남습니다.
 
 | 소스 | 기록 내용 |
 |------|----------|
@@ -331,9 +339,10 @@ Adaptive 카드, 코어 감사 쓰기 담당으로 전파.
 
 ## 9. 포크 vs 상류 분리
 
-아래 표는 목표 소유권 분리입니다. 현재 상류에는 역할/기능, Entra 검증기와 해석기,
-RBAC 그룹 slot, IAM 요청/디렉터리 계약, 교정 PR 어댑터가 있습니다. App registration
-매니페스트 템플릿, 사람 OID와 GitHub 로그인 대응 프로바이더 및 거버넌스 PR CI는 아직 없습니다.
+아래 표는 목표 소유권 분리입니다. 현재 상류에는 역할과 기능, Entra 검증기와 해석기,
+RBAC 그룹 슬롯, IAM 요청 및 디렉터리 계약, 콜백 권한 경로, 거버넌스 PR CI와 교정 PR
+어댑터가 있습니다. App registration 매니페스트 템플릿과 사람 OID-GitHub 로그인 대응
+프로바이더는 아직 없습니다.
 
 | 항목 | 상류 (이 리포) | 포크 |
 |------|--------------|------|

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Mapping
+from datetime import datetime
 from typing import Any
 
 from fdai.agents import ShadowDivergenceLedger
@@ -12,6 +14,7 @@ from fdai.core.control_loop import ControlLoop, ControlLoopOutcome, ControlLoopR
 from fdai.core.hil_resume import HilResumeCoordinator
 from fdai.rule_catalog.schema.resource_type import ResourceTypeRegistry
 from fdai.shared.providers.event_bus import EventBus, subscription
+from fdai.shared.providers.hil_registry import HilWorkflowDecisionRegistry
 
 _LOGGER = logging.getLogger("fdai.startup")
 _LOOP_LOGGER = logging.getLogger("fdai.control_loop")
@@ -195,8 +198,19 @@ async def _consume_hil_decisions(
     topic: str,
     coordinator: HilResumeCoordinator,
     stop: asyncio.Event,
+    workflow_registry: HilWorkflowDecisionRegistry | None = None,
 ) -> None:
+    """Route one durable human decision to its authoritative owner.
+
+    A ``workflow`` park is one quorum slot owned by the workflow approval
+    registry: resolving it through :meth:`HilResumeCoordinator.resolve` would
+    bypass quorum accounting, duplicate-approver refusal, and self-approval
+    refusal, and would mark a slot park terminal without a claim. Only an
+    ``action`` park resumes through the coordinator, which is the sole path
+    that can reach an executor.
+    """
     from fdai.shared.providers.hil_channel import HilDecision
+    from fdai.shared.providers.hil_registry import HilApprovalDecision
 
     async with subscription(bus, topic, "fdai-hil-resume") as stream:
         async for envelope in stream:
@@ -207,13 +221,31 @@ async def _consume_hil_decisions(
                 approval_id = str(payload["approval_id"])
                 decision = HilDecision(str(payload["decision"]))
                 approver_oid = str(payload["approver_oid"])
+                justification = str(payload.get("justification") or "")
                 if not approval_id or not approver_oid:
                     raise ValueError("approval_id and approver_oid MUST be non-empty")
+                route = (
+                    await workflow_registry.get_decision_route(approval_id)
+                    if workflow_registry is not None
+                    else "action"
+                )
+                if route == "workflow":
+                    if workflow_registry is None:  # pragma: no cover - route implies binding
+                        raise ValueError("workflow decision route has no bound registry")
+                    await _record_workflow_decision(
+                        registry=workflow_registry,
+                        approval_id=approval_id,
+                        decision=HilApprovalDecision(decision.value),
+                        approver_oid=approver_oid,
+                        justification=justification,
+                        payload=payload,
+                    )
+                    continue
                 await coordinator.resolve(
                     approval_id=approval_id,
                     decision=decision,
                     approver_oid=approver_oid,
-                    reason=str(payload.get("justification") or ""),
+                    reason=justification,
                 )
             except Exception as exc:  # noqa: BLE001 - broker boundary isolation
                 reason = f"hil_decision_consume_error:{type(exc).__name__}"
@@ -224,6 +256,44 @@ async def _consume_hil_decisions(
                     reason,
                 )
                 continue
+
+
+async def _record_workflow_decision(
+    *,
+    registry: HilWorkflowDecisionRegistry,
+    approval_id: str,
+    decision: Any,
+    approver_oid: str,
+    justification: str,
+    payload: Mapping[str, Any],
+) -> None:
+    """Fill exactly one quorum slot through the authoritative registry."""
+    idempotency_key = str(payload.get("idempotency_key") or "")
+    if not idempotency_key:
+        pending = await registry.get_pending_by_approval_id(approval_id)
+        if pending is None:
+            raise ValueError("workflow approval slot is not pending and carries no key")
+        idempotency_key = pending.idempotency_key
+    decided_at = _decided_at(payload.get("decided_at"))
+    await registry.record_decision(
+        idempotency_key=idempotency_key,
+        decision=decision,
+        approver_oid=approver_oid,
+        justification=justification,
+        decided_at=decided_at,
+    )
+
+
+def _decided_at(value: object) -> datetime | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("HIL decision decided_at is malformed") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("HIL decision decided_at MUST carry a timezone")
+    return parsed
 
 
 async def _consume_canaries(

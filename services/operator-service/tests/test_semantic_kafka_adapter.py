@@ -226,6 +226,42 @@ async def test_producer_allows_only_configured_read_investigation_topic(monkeypa
     }
 
 
+async def test_hil_decision_topic_publishes_directly_with_broker_ack(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(kafka_module, "AIOKafkaProducer", Producer)
+    credential = Credential()
+    bus = OperatorSemanticKafkaBus(
+        config=OperatorSemanticKafkaConfig(
+            bootstrap_servers="example.servicebus.windows.net:9093",
+            physical_topic="fdai.pantheon.objects",
+            hil_decision_topic="fdai.hil.decisions",
+        ),
+        credential=credential,  # type: ignore[arg-type]
+    )
+
+    await bus.publish(
+        "fdai.hil.decisions",
+        "approval-1",
+        {
+            "approval_id": "approval-1",
+            "decision": "approve",
+            "approver_oid": "approver-1",
+            "justification": "Verified impact and rollback.",
+        },
+    )
+
+    producer = Producer.latest
+    assert producer is not None
+    assert producer.sent[0][0] == "fdai.hil.decisions"
+    assert json.loads(producer.sent[0][2]) == {
+        "approval_id": "approval-1",
+        "approver_oid": "approver-1",
+        "decision": "approve",
+        "justification": "Verified impact and rollback.",
+    }
+
+
 async def test_projection_dlq_and_subscription_require_configured_background_task_topic(  # type: ignore[no-untyped-def]
     monkeypatch,
 ) -> None:

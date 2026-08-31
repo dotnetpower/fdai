@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import httpx
+from fdai_core_service.operational_evidence_projection import SemanticOperationalEvidenceReader
 
 from fdai.agents import Saga
 from fdai.composition import (
@@ -203,6 +204,7 @@ async def build_semantic_runtime(
         OperationalEvidenceReadService(
             source=container.operational_evidence_source,
             clock=lambda: datetime.now(tz=UTC),
+            max_bytes=65_536,
         )
         if container.operational_evidence_source is not None
         else None
@@ -277,6 +279,15 @@ async def build_semantic_runtime(
         config=environment,
         runtime=semantic_composition.runtime,
         unavailable_reason=semantic_composition.unavailable_reason,
+        operational_evidence=(
+            SemanticOperationalEvidenceReader(
+                service=operational_evidence_read_service,
+                principal_contexts=container.operational_evidence_principal_contexts,
+            )
+            if operational_evidence_read_service is not None
+            and container.operational_evidence_principal_contexts is not None
+            else None
+        ),
     )
     read_investigation_hook = compose_resource_state_shadow_hook(
         provider=read_investigation_provider,
