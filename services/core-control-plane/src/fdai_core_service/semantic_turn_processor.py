@@ -359,12 +359,21 @@ class SemanticTurnProcessor:
                 reason_code="semantic_result_store_unavailable",
             )
         if claim_id is None:
-            return await self._wait_for_claimed_projection(
+            winner, claim_id = await self._wait_for_claimed_projection(
                 envelope=envelope,
                 request=request,
                 idempotency_key=idempotency_key,
                 request_digest=request_digest,
             )
+            if winner is not None:
+                return winner
+            if claim_id is None:
+                return self._held_projection(
+                    envelope,
+                    request,
+                    request_digest=request_digest,
+                    reason_code="semantic_result_store_unavailable",
+                )
 
         claim_finalized = False
         try:
@@ -451,7 +460,7 @@ class SemanticTurnProcessor:
         request: SemanticTurnRequest,
         idempotency_key: str,
         request_digest: str,
-    ) -> bytes:
+    ) -> tuple[bytes | None, str | None]:
         delay = 0.01
         while True:
             await asyncio.sleep(delay)
@@ -465,18 +474,40 @@ class SemanticTurnProcessor:
                     reason_code="semantic_result_store_unavailable",
                 )
             if winner is None:
+                try:
+                    recovered_claim = await self._results.claim(
+                        idempotency_key,
+                        request_digest,
+                    )
+                except SemanticTurnRejectedError:
+                    raise
+                except Exception:  # noqa: BLE001 - persistence detail must not cross the wire
+                    return (
+                        self._held_projection(
+                            envelope,
+                            request,
+                            request_digest=request_digest,
+                            reason_code="semantic_result_store_unavailable",
+                        ),
+                        None,
+                    )
+                if recovered_claim is not None:
+                    return None, recovered_claim
                 delay = min(delay * 2, 0.25)
                 continue
             try:
-                return _canonical_projection(winner, request_digest=request_digest)
+                return _canonical_projection(winner, request_digest=request_digest), None
             except SemanticTurnRejectedError:
                 raise
             except Exception:  # noqa: BLE001 - corrupt persistence fails closed
-                return self._held_projection(
-                    envelope,
-                    request,
-                    request_digest=request_digest,
-                    reason_code="semantic_result_store_unavailable",
+                return (
+                    self._held_projection(
+                        envelope,
+                        request,
+                        request_digest=request_digest,
+                        reason_code="semantic_result_store_unavailable",
+                    ),
+                    None,
                 )
 
     async def _execute(

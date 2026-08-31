@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 0d73ec35cd5001a1be152411f114951aa2767d0d
-translation_revised: 2026-08-29
+translation_source_sha: e7c9bee50b278cc7401c4a6b1ab00f409bf9bfe8
+translation_revised: 2026-08-31
 ---
 # 지속형 질문 공간
 
@@ -25,6 +25,8 @@ translation_revised: 2026-08-29
 질문 집합이 분모를 결정합니다. 모델은 문장만 제안할 수 있습니다. Core는 읽기 전에
 정확한 릴리스, 매니페스트, 역할, 목적, 제한, 등록된 처리기를 기준으로 의미 계획을 다시
 구성하고 검증합니다.
+영속 의미 실행 claim에는 lease가 적용됩니다. 대기 중인 중복 요청은 만료된 claim을 복구할 수
+있으므로 실패한 worker 때문에 요청 기한까지 차단되지 않습니다.
 
 ## 구현 상태
 

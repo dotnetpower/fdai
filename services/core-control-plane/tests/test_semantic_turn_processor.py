@@ -63,6 +63,7 @@ from fdai_core_service.semantic_turn_processor import (
     _project_investigation_continuation,
     _render_general_query_answer,
     _render_query_answer,
+    _request_digest,
     _semantic_turn_timing,
     _typed_extension_answer_output,
     incident_next_step_actions,
@@ -2345,6 +2346,31 @@ async def test_abandoned_claim_is_recovered_only_after_lease_expiry() -> None:
         recovered_claim,
     )
     assert await after_expiry.claim("turn-1", "sha256:request") is not None
+
+
+async def test_waiting_duplicate_recovers_an_expired_processing_claim() -> None:
+    current = [NOW]
+    state_store = InMemoryStateStore()
+    results = StateStoreSemanticTurnResultStore(
+        state_store,
+        claim_lease_seconds=0.01,
+        now=lambda: current[0],
+    )
+    request = _request(deadline_at=NOW + timedelta(seconds=10))
+    semantic_request = SemanticTurnRequest.model_validate(request["semantic_turn"])
+    request_digest = _request_digest(request, semantic_request)
+    idempotency_key = str(request["idempotency_key"])
+    assert await results.claim(idempotency_key, request_digest) is not None
+    runtime = _Runtime(_runtime_result("answered"))
+    processor = SemanticTurnProcessor(runtime=runtime, results=results, now=lambda: current[0])
+
+    pending = asyncio.create_task(processor.process(request))
+    await asyncio.sleep(0.02)
+    current[0] = NOW + timedelta(seconds=1)
+    projection = await asyncio.wait_for(pending, timeout=0.5)
+
+    assert _projection(projection)["semantic_result"]["disposition"] == "answered"
+    assert runtime.calls == 1
 
 
 async def test_default_claim_lease_covers_healthy_request_deadline() -> None:

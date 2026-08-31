@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 799e1a2ba6024d4b01b285c1feac5217036d2049
+translation_source_sha: 24dc2410b2a9e35e9f8e4bca178b598fc2e99999
 translation_revised: 2026-08-31
 ---
 
@@ -87,6 +87,8 @@ Core는 park의 `decision_route`에 따라 `fdai.hil.decisions`를 라우팅합�
 도구, 에이전트 소유자, 공개 웹 조회, 명확화 또는 쓰기 초안을 선택한
 strict JSON-schema `TurnPlan`을 반환합니다. 브라우저는 액션 의도를
 분류하지 않으며 자연어를 쓰기 엔드포인트에 직접 보내지 않습니다.
+동시 의미 기반 요청은 하나의 영속 처리 claim을 공유합니다. 대기자는 lease가 만료되면 claim을
+다시 시도하므로 실패한 소유자가 요청을 외부 기한까지 멈추게 할 수 없습니다.
 
 - **초안**: `action_draft` 또는 `incident_draft`는 허용 목록에 있는
   `action_type`, 범위가 제한된 타입이 지정된 arguments, 대화 `session_id`, request-scoped
