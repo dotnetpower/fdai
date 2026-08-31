@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 6f81ff8a4adc5ac50ad86d334abacaf8f2d473da
+translation_source_sha: f67f13305a51c80c5a03c684adaef15437476780
 translation_revised: 2026-08-31
 ---
 # 코드 맵
@@ -233,6 +233,21 @@ failure는 held 또는 pending evidence로 남으며 executor outcome을 다시 
 때만 단일 효과 episode 하나를 제출합니다. 변환 결과 기록 실패는 실행기 결과를 변경하지 않으며,
 이 producer는 누락된 결과를 날조하는 대신 복수 효과를 거부합니다. focused 계보 및 컨트롤 루프
 shadow 테스트가 두 경계를 고정합니다.
+
+수직 영역 간 중재는 권고 표기가 아니라 목표 효과를 읽습니다.
+[의사결정 사례 도메인](../../../services/core-control-plane/src/fdai/core/decision_case/domain.py)은
+한 영역이 산출한 ActionType, 부호가 있는 목표 효과, 그리고 두 값을 읽어 온 표준 계보를
+전달하는 고정 `DomainOptionEvidence` 계약과, 두 영역이 동일한 통제 목표에서 서로 반대
+부호의 효용을 가질 때만 충돌을 보고하는 순수 관계 `conflicting_objective_effects`를
+소유합니다.
+[Forseti 수용 지점](../../../services/core-control-plane/src/fdai/agents/_framework/forseti_decision_helpers.py)은
+이 근거를 한정된 엄격 파서로 수용하고 계보가 합성 전문가 표식뿐인 페이로드를 거부하므로,
+의사결정 사례와 종결 판정에 도달하는 선택지 참조는 기여한 재생이 실제로 산출한 값입니다.
+가용성 이음매는 실행 상태 점검이 소유합니다.
+[`runtime_health`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime_health.py)가
+도달 불가 에이전트 집합을 한 번만 도출해 구성 시점에 탐침으로 결속하므로, Forseti는 프레임워크에
+에이전트를 들여오지 않고도 소유자가 응답할 수 없는 중재를 종결 HIL 판정으로 닫습니다.
+
 ## 독립 서비스 지도
 
 | 서비스 | 패키지 responsibility | 패키지 지도 |

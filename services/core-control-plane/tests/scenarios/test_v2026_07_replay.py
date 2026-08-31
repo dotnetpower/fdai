@@ -50,6 +50,7 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -59,7 +60,10 @@ import pytest
 from fdai.agents._framework.adapters import AuditEntry, InMemoryAuditChain
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
-from fdai.agents._framework.runtime_health import evaluate_degradation
+from fdai.agents._framework.runtime_health import (
+    bind_availability_probe,
+    evaluate_degradation,
+)
 from fdai.agents._framework.vertical_precedence import InitialVerticalPrecedence
 from fdai.agents.forseti import Forseti
 from fdai.agents.odin import Odin
@@ -547,9 +551,18 @@ def _unwrap_audit(record: Any) -> dict[str, Any]:
 # options that each replay a frozen v2026.07 scenario through the real
 # :class:`ControlLoop`. Nothing about the conflict is hand-authored:
 #
-# - each option's recommendation is derived from the ActionType its own
-#   replay produced, through the spec's frozen ActionType-to-direction map,
-#   so an option that produces no action can only contribute `hold`;
+# - each option's recommendation is the ActionType its own replay produced,
+#   so an option that produces no action can only hold;
+# - the signed objective effects an option carries come from a typed frozen
+#   enrichment that binds to it only through the rule id its replay cited
+#   and the ActionType its replay built, and they land on objective ids
+#   resolved from the shipped graph;
+# - whether two options conflict is then decided by the runtime relation
+#   :func:`conflicting_objective_effects`, which reads signed utilities on
+#   one and the same objective and never a recommendation label, so the
+#   spec cannot declare the conflict it is supposed to demonstrate;
+# - each option's canonical lineage - its event id, its cited rule ids, its
+#   audit idempotency key and dry-run receipt digest - travels with it;
 # - the shared logical target is derived by traversing the shipped ontology
 #   graph from each replayed resource and intersecting what they reach;
 # - the arbitration observation time is derived from the replayed events.
@@ -685,22 +698,162 @@ async def _derive_shared_target(
     return shared.pop()
 
 
+async def _governing_objective_ids(
+    store: InMemoryOntologyInstanceStore,
+    spec: dict[str, Any],
+) -> dict[str, str]:
+    """Map each objective kind to the objective id the graph governs with.
+
+    The frozen effect records name an objective *kind* only; the concrete
+    objective id is whatever the shipped graph links to the business
+    service. Resolving through the store keeps an effect from landing on
+    an objective this neighborhood does not actually govern, and keeps the
+    enrichment from choosing its own identifiers.
+    """
+
+    link_types = sorted({str(link["link_type"]) for link in spec["operating_context"]["links"]})
+    services = sorted(
+        str(record["id"])
+        for record in spec["operating_context"]["objects"]
+        if record["object_type"] == "BusinessService"
+    )
+    assert services, "the neighborhood declares no business service to govern objectives"
+    snapshot = await store.traverse(
+        root_ids=tuple(services),
+        root_object_types=("BusinessService",),
+        link_types=link_types,
+        direction="outgoing",
+        max_depth=1,
+    )
+    by_kind: dict[str, str] = {}
+    for record in snapshot.objects:
+        kind = record.properties.get("objective_kind")
+        if not isinstance(kind, str) or not kind:
+            continue
+        assert kind not in by_kind, f"objective kind {kind!r} is ambiguous in this neighborhood"
+        by_kind[kind] = record.id
+    assert by_kind, "the graph governs this service with no objective at all"
+    return by_kind
+
+
+def _bound_effect_record(
+    spec: dict[str, Any],
+    *,
+    citing_rule_ids: tuple[str, ...],
+    action_type: str | None,
+) -> dict[str, Any] | None:
+    """Bind a frozen effect record to what one replay actually produced.
+
+    A record binds only when the replay cited its rule *and* built its
+    ActionType, so the enrichment cannot be attached to an option by hand.
+    A replay that cites a rule the enrichment covers but builds a
+    different action, or builds no action at all, binds nothing.
+    """
+
+    candidates = [
+        record for record in spec["objective_effects"] if record["cited_rule_id"] in citing_rule_ids
+    ]
+    if action_type is None:
+        assert not candidates, (
+            "an option with no ActionType MUST NOT carry objective effects: "
+            f"{[record['cited_rule_id'] for record in candidates]}"
+        )
+        return None
+    bound = [record for record in candidates if record["action_type"] == action_type]
+    assert len(bound) == 1, (
+        f"exactly one frozen effect record MUST bind to rules {list(citing_rule_ids)} "
+        f"and ActionType {action_type!r}, got {len(bound)}"
+    )
+    return cast(dict[str, Any], bound[0])
+
+
+def _option_objective_effects(
+    record: dict[str, Any],
+    objective_ids: Mapping[str, str],
+) -> list[dict[str, Any]]:
+    """Resolve a bound record's effects onto governed objective ids."""
+
+    effects: list[dict[str, Any]] = []
+    for effect in record["effects"]:
+        kind = str(effect["objective_kind"])
+        assert kind in objective_ids, (
+            f"effect declares objective kind {kind!r}, which this neighborhood does not govern"
+        )
+        effects.append(
+            {
+                "objective_id": objective_ids[kind],
+                "metric": str(effect["metric"]),
+                "utility": float(effect["utility"]),
+                "confidence": float(effect["confidence"]),
+                "expected_min": float(effect["expected_min"]),
+                "expected_max": float(effect["expected_max"]),
+                "observation_window_seconds": int(effect["observation_window_seconds"]),
+            }
+        )
+    return effects
+
+
+def _canonical_lineage(
+    *,
+    event_id: str,
+    citing_rule_ids: tuple[str, ...],
+    entries: list[dict[str, Any]],
+) -> list[str]:
+    """Collect the canonical lineage one replay produced.
+
+    Every ref is a runtime output: the event id the loop routed, the rule
+    ids it cited, the stable idempotency key its two-phase audit closed
+    under, and the dry-run receipt digest that audit recorded. No
+    placeholder is minted here, so an arbitration built on this lineage
+    can always be traced back to the replay it came from.
+
+    The idempotency key keeps its segments but swaps the ``::`` separator
+    for ``/`` so a ref never reads as an IPv6 literal to the frozen
+    generic-data guard.
+    """
+
+    refs = [f"event:{event_id}"]
+    refs.extend(f"rule:{rule_id}" for rule_id in citing_rule_ids)
+    refs.extend(
+        f"audit:{key.replace('::', '/')}"
+        for key in sorted(
+            {
+                str(entry["idempotency_key"])
+                for entry in entries
+                if entry.get("audit_phase") == "terminal" and entry.get("idempotency_key")
+            }
+        )
+    )
+    refs.extend(
+        f"receipt:{digest}"
+        for digest in sorted(
+            {
+                str(entry["dry_run_receipt"])
+                for entry in entries
+                if entry.get("audit_phase") == "terminal" and entry.get("dry_run_receipt")
+            }
+        )
+    )
+    return list(dict.fromkeys(refs))
+
+
 async def _ground_conflict_options(
     shipped_catalog: CostGovernanceCatalogComposition,
     spec: dict[str, Any],
+    objective_ids: Mapping[str, str],
 ) -> tuple[dict[str, Any], ...]:
     """Replay every option's frozen scenario and return its runtime evidence.
 
     An option is *eligible* only when its own replay reaches an executed
     deterministic outcome that cites a shipped rule and builds exactly one
-    ActionType. The recommendation it contributes is then read out of the
-    frozen ActionType-to-direction map using the ActionType the runtime
-    actually produced - never a string carried in the spec for that option.
-    Anything else - an abstention on an unmodelled signal, for example -
-    leaves the option's evidence unresolved and it contributes `hold`.
+    ActionType. That ActionType is the recommendation it contributes -
+    never a string carried in the spec for that option - and it is also
+    half of what binds the frozen effect record the option carries into
+    arbitration. Anything else - an abstention on an unmodelled signal,
+    for example - leaves the option's evidence unresolved: it binds no
+    effects, carries no lineage, and can only hold.
     """
 
-    recommendations = spec["action_type_recommendations"]
     grounded: list[dict[str, Any]] = []
     for option in spec["options"]:
         scenario_id = str(option["scenario_id"])
@@ -738,11 +891,11 @@ async def _ground_conflict_options(
             and len(action_types) == 1
         )
         action_type = action_types[0] if eligible else None
-        if action_type is not None:
-            assert action_type in recommendations, (
-                f"{scenario_id} produced ActionType {action_type!r}, "
-                "which the frozen conflict does not map to an objective direction"
-            )
+        bound = _bound_effect_record(
+            spec,
+            citing_rule_ids=tuple(result.citing_rule_ids),
+            action_type=action_type,
+        )
         # The resource identity the loop actually routed on. The executor
         # audit is authoritative when the option executed; the routed event
         # carries it when the option abstained before any action existed.
@@ -753,6 +906,15 @@ async def _ground_conflict_options(
         assert audited_resources in ([], [routed_resource]), (
             f"{scenario_id} audited a resource its routed event never named: {audited_resources}"
         )
+        lineage = (
+            _canonical_lineage(
+                event_id=str(result.event_id),
+                citing_rule_ids=tuple(result.citing_rule_ids),
+                entries=entries,
+            )
+            if bound is not None
+            else []
+        )
         grounded.append(
             {
                 "option_id": str(option["option_id"]),
@@ -761,13 +923,17 @@ async def _ground_conflict_options(
                 "eligible": eligible,
                 "action_type": action_type,
                 "recommendation": (
-                    str(recommendations[action_type])
+                    action_type
                     if action_type is not None
                     else str(spec["expected"]["held_recommendation"])
                 ),
+                "objective_effects": (
+                    _option_objective_effects(bound, objective_ids) if bound is not None else []
+                ),
+                "evidence_refs": lineage,
                 "observed_resource_id": routed_resource,
                 "observed_at": str(event["detected_at"]),
-                "event_id": str(event["event_id"]),
+                "event_id": str(result.event_id),
                 "outcome": result.outcome.value,
                 "decision": result.decision,
                 "citing_rule_ids": list(result.citing_rule_ids),
@@ -790,6 +956,22 @@ def _conflict_observed_at(grounded: tuple[dict[str, Any], ...]) -> str:
     return observed.pop()
 
 
+def _unwired_pantheon_agents(bus: InMemoryBus) -> frozenset[str]:
+    """Report the pantheon agents nothing on this bus can reach.
+
+    Derived from the bus's own subscriber table against the fixed
+    pantheon: an agent that declares a subscription but has no consumer
+    bound here cannot receive anything published to it, so the runtime
+    reports it unavailable. Nothing is named by hand, so dropping an agent
+    from the wiring is what makes it unavailable.
+    """
+
+    bound = {name for consumers in bus.subscribers.values() for name, _ in consumers}
+    return frozenset(
+        spec.name for spec in load_pantheon().all() if spec.subscribes and spec.name not in bound
+    )
+
+
 def _conflict_boundary(
     spec: dict[str, Any],
     store: InMemoryOntologyInstanceStore,
@@ -804,6 +986,12 @@ def _conflict_boundary(
     disposition lands in the append-only audit chain. Dropping Odin models
     missing arbitration authority: Forseti still raises the request, but
     nothing on the bus may resolve it.
+
+    The runtime health probe is bound last, through the same
+    :func:`bind_availability_probe` seam the composition root uses, over
+    the availability this wiring actually has. Forseti therefore learns
+    that the arbitration owner is unreachable from the wiring itself, and
+    no test needs to drive its fail-closed path by hand.
     """
 
     cutoff = _conflict_cutoff(spec)
@@ -826,6 +1014,11 @@ def _conflict_boundary(
     if with_arbitration_owner:
         odin = Odin(bus=bus, vertical_precedence=InitialVerticalPrecedence())
         bus.subscribe("object.arbitration-request", "Odin", odin.on_typed_message)
+    bind_availability_probe(
+        {"Forseti": forseti},
+        disabled=_unwired_pantheon_agents(bus),
+        continuity_failures={},
+    )
     return bus, forseti, saga, audit_chain, odin
 
 
@@ -836,7 +1029,14 @@ def _conflict_event(
     shared_target_id: str,
     observed_at: str,
 ) -> dict[str, Any]:
-    """Assemble the conflict entirely from replay outputs and the graph."""
+    """Assemble the conflict entirely from replay outputs and the graph.
+
+    A grounded option attaches evidence - the ActionType its replay built,
+    the objective effects bound to that replay, and the canonical lineage
+    both were read from. An option whose evidence stayed unresolved has
+    nothing to attach and carries only the abstention marker, so no
+    direction vocabulary crosses the boundary at all.
+    """
 
     return {
         "event_type": "cross_objective_conflict",
@@ -844,8 +1044,20 @@ def _conflict_event(
         "resource_id": shared_target_id,
         "detected_at": observed_at,
         "domain_advice": {
-            str(option["objective_domain"]): str(option["recommendation"]) for option in grounded
+            str(option["objective_domain"]): str(option["recommendation"])
+            for option in grounded
+            if not option["objective_effects"]
         },
+        "domain_evidence": [
+            {
+                "domain": str(option["objective_domain"]),
+                "action_type": str(option["action_type"]),
+                "effects": option["objective_effects"],
+                "evidence_refs": option["evidence_refs"],
+            }
+            for option in grounded
+            if option["objective_effects"]
+        ],
         "source_freshness": _conflict_source_freshness(spec, observed_at),
     }
 
@@ -863,6 +1075,7 @@ class _ConflictReplay:
     event: dict[str, Any]
     shared_target_id: str
     observed_at: str
+    objective_ids: dict[str, str]
 
 
 async def _replay_conflict(
@@ -871,8 +1084,9 @@ async def _replay_conflict(
     *,
     with_arbitration_owner: bool = True,
 ) -> _ConflictReplay:
-    grounded = await _ground_conflict_options(shipped_catalog, spec)
     store = await _conflict_context_store(spec)
+    objective_ids = await _governing_objective_ids(store, spec)
+    grounded = await _ground_conflict_options(shipped_catalog, spec, objective_ids)
     shared_target_id = await _derive_shared_target(store, spec, grounded)
     observed_at = _conflict_observed_at(grounded)
     bus, forseti, saga, audit_chain, _ = _conflict_boundary(
@@ -897,6 +1111,7 @@ async def _replay_conflict(
         event=event,
         shared_target_id=shared_target_id,
         observed_at=observed_at,
+        objective_ids=objective_ids,
     )
 
 
@@ -905,6 +1120,16 @@ def _audited_verdicts(chain: InMemoryAuditChain, correlation_id: str) -> list[Au
         entry
         for entry in chain.entries_for_correlation(correlation_id)
         if entry.topic == "object.verdict"
+    ]
+
+
+def _objective_records(spec: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return every declared object the graph governs an objective with."""
+
+    return [
+        cast(dict[str, Any], record)
+        for record in spec["operating_context"]["objects"]
+        if "objective_kind" in record["properties"]
     ]
 
 
@@ -943,18 +1168,54 @@ def test_cross_objective_conflict_spec_is_schema_valid() -> None:
     }
     assert expected["winning_domain"] not in expected["losing_domains"]
 
-    # Advice is a projection of the ActionType each option is expected to
-    # produce, so the spec may not pin a recommendation an option has no
-    # runtime basis for.
+    # An option's recommendation is the ActionType its replay is expected
+    # to build, so the spec may not pin a recommendation an option has no
+    # runtime basis for, and the abstaining option may not pin one at all.
+    covered = {
+        (str(record["cited_rule_id"]), str(record["action_type"]))
+        for record in spec["objective_effects"]
+    }
     for option in spec["options"]:
         action_type = option["expected_action_type"]
         domain = str(option["objective_domain"])
         if option["expected_eligibility"] == "eligible":
-            assert action_type in spec["action_type_recommendations"]
-            assert expected["advice"][domain] == spec["action_type_recommendations"][action_type]
+            assert expected["advice"][domain] == action_type
+            assert any(entry[1] == action_type for entry in covered), (
+                f"no frozen effect record can bind to ActionType {action_type!r}"
+            )
         else:
             assert action_type is None
             assert expected["advice"][domain] == expected["held_recommendation"]
+
+    # The enrichment MUST stay bindable-by-runtime-output only: it names no
+    # domain, no option, and no counterpart, so it cannot declare the
+    # conflict the runtime relation is supposed to find independently.
+    domains = {str(option["objective_domain"]) for option in spec["options"]}
+    option_ids = {str(option["option_id"]) for option in spec["options"]}
+    for record in spec["objective_effects"]:
+        keys = set(record) - {"note"}
+        assert keys == {"cited_rule_id", "action_type", "effects"}
+        assert not (domains | option_ids) & {str(value) for value in record.values()}
+    assert len(covered) == len(spec["objective_effects"]), (
+        "two frozen effect records MUST NOT share one rule and ActionType binding"
+    )
+
+    # Every pinned conflict is a pair of domains contending over one
+    # objective the declared neighborhood actually governs.
+    objectives = {
+        str(record["id"])
+        for record in spec["operating_context"]["objects"]
+        if "objective_kind" in record["properties"]
+    }
+    kinds = {str(record["properties"]["objective_kind"]) for record in _objective_records(spec)}
+    assert kinds == {
+        str(effect["objective_kind"])
+        for record in spec["objective_effects"]
+        for effect in record["effects"]
+    }, "every governed objective kind MUST be covered by the frozen effects, and no other"
+    for conflict in expected["objective_conflicts"]:
+        assert set(conflict["domains"]) <= domains
+        assert conflict["objective_id"] in objectives
 
     # The shared target is derived, so it MUST be a resource the declared
     # neighborhood actually contains, and never one of the replayed ones.
@@ -1005,11 +1266,25 @@ async def test_sre_cross_objective_conflict_reaches_governed_arbitration(
         assert option["citing_rule_ids"], (
             f"option {option_id} claims eligibility without a cited shipped rule"
         )
-        # Advice is derived: the ActionType the replay built decides it.
+        # The recommendation is derived: it IS the ActionType the replay
+        # built, and the objective effects bound to that same replay are
+        # what the conflict is decided over.
         assert option["action_type"] is not None
-        assert (
-            option["recommendation"] == spec["action_type_recommendations"][option["action_type"]]
+        assert option["recommendation"] == option["action_type"]
+        assert option["objective_effects"], (
+            f"option {option_id} reached arbitration with no grounded objective effect"
         )
+        assert {str(effect["objective_id"]) for effect in option["objective_effects"]} <= set(
+            replay.objective_ids.values()
+        )
+        # Canonical lineage, and never only the marker Forseti mints.
+        assert f"event:{option['event_id']}" in option["evidence_refs"]
+        assert {f"rule:{rule_id}" for rule_id in option["citing_rule_ids"]} <= set(
+            option["evidence_refs"]
+        )
+        assert any(ref.startswith("audit:") for ref in option["evidence_refs"])
+        assert any(ref.startswith("receipt:sha256:") for ref in option["evidence_refs"])
+        assert not any(ref.startswith("specialist:") for ref in option["evidence_refs"])
         assert option["audit_phases"] == ["intent", "terminal"], (
             f"option {option_id} did not close its two-phase audit"
         )
@@ -1018,6 +1293,8 @@ async def test_sre_cross_objective_conflict_reaches_governed_arbitration(
         assert option["action_type"] is None
         assert option["recommendation"] == expected["held_recommendation"]
         assert option["citing_rule_ids"] == []
+        assert option["objective_effects"] == []
+        assert option["evidence_refs"] == []
 
     # The shared target was derived from the graph, not asserted by the spec.
     assert replay.shared_target_id == expected["shared_target_id"]
@@ -1038,7 +1315,25 @@ async def test_sre_cross_objective_conflict_reaches_governed_arbitration(
     assert raised["advice"] == {
         option["objective_domain"]: option["recommendation"] for option in replay.grounded
     }
+
+    # The conflict relation was computed over signed effects by the
+    # runtime, not declared by the spec: the same objective moves in
+    # opposite directions under the two grounded options.
+    assert raised["objective_conflicts"] == expected["objective_conflicts"]
+    contested = {str(item["objective_id"]) for item in raised["objective_conflicts"]}
+    for objective_id in contested:
+        utilities = [
+            utility
+            for option in replay.grounded
+            for effect in option["objective_effects"]
+            if str(effect["objective_id"]) == objective_id
+            for utility in (float(effect["utility"]),)
+        ]
+        assert len(utilities) == 2 and utilities[0] * utilities[1] < 0.0, (
+            f"objective {objective_id} was arbitrated without opposing signed utilities"
+        )
     _assert_decision_case(raised.get("decision_case"), spec)
+    _assert_lineage_survived(raised.get("decision_case"), replay)
 
     # Exactly one arbitration owner answered it.
     decisions = bus.messages_on(spec["arbitration"]["decision_topic"])
@@ -1065,6 +1360,7 @@ async def test_sre_cross_objective_conflict_reaches_governed_arbitration(
     assert verdict["resource_id"] == replay.shared_target_id
     assert verdict["arbitration"]["winning_domain"] == expected["winning_domain"]
     _assert_decision_case(verdict.get("decision_case"), spec)
+    _assert_lineage_survived(verdict.get("decision_case"), replay)
 
     # Audit lineage is terminal and append-only: Saga retained the verdict
     # on its declared subscription and the chain still verifies.
@@ -1081,6 +1377,33 @@ async def test_sre_cross_objective_conflict_reaches_governed_arbitration(
     for option in replay.grounded:
         assert option["execution_modes"] in ([], [Mode.SHADOW.value])
         assert option["published_pr_modes"] in ([], [Mode.SHADOW.value])
+
+
+def _assert_lineage_survived(case: Any, replay: _ConflictReplay) -> None:
+    """Assert every grounded replay's canonical lineage is still readable.
+
+    The decision case a human or an arbiter reads MUST carry the event id
+    the loop routed, the rule ids it cited, and the audit lineage it closed
+    under - per option and in the case-level union. A case that carried
+    only the `specialist:` marker Forseti mints would name no runtime
+    record at all, which is the failure this guards.
+    """
+
+    assert isinstance(case, dict), "arbitration carried no canonical decision case"
+    case_refs = set(case["evidence_refs"])
+    options_by_id = {str(option["option_id"]): option for option in case["options"]}
+    for grounded in replay.grounded:
+        if not grounded["evidence_refs"]:
+            continue
+        option_id = f"{grounded['objective_domain']}:{grounded['action_type']}"
+        assert option_id in options_by_id, f"option {option_id} left the decision case"
+        option_refs = set(options_by_id[option_id]["evidence_refs"])
+        assert set(grounded["evidence_refs"]) <= option_refs
+        assert set(grounded["evidence_refs"]) <= case_refs
+        assert option_refs - set(grounded["evidence_refs"]) == {
+            f"specialist:{grounded['objective_domain']}:{replay.event['correlation_id']}"
+        }, "an option's lineage MUST be its replay's, plus only the specialist marker"
+    assert not all(ref.startswith("specialist:") for ref in case_refs)
 
 
 def _assert_decision_case(case: Any, spec: dict[str, Any]) -> None:
@@ -1109,14 +1432,15 @@ async def test_sre_cross_objective_conflict_closes_hil_without_arbitration_autho
     """Missing arbitration authority MUST close through the governed HIL path.
 
     With no Odin bound to the request topic nothing may resolve the conflict
-    locally: no decision, no recorded winner, no auto verdict, and no new
-    arbiter. The shipped degradation policy already names the safe effect for
-    an unavailable Odin (`conflicts_require_hil`), so the conflict is closed
-    the way that policy says - Forseti judges it on the same runtime-derived
-    event, finds no deterministic rule for it, and issues a terminal `hil`
-    verdict that carries no ActionType and a shadow-only autonomy ceiling.
-    Saga retains it, so the conflict ends with terminal audit evidence
-    instead of hanging open forever.
+    locally: no decision, no recorded winner, and no new arbiter. Forseti
+    learns that from the runtime availability probe the wiring bound - the
+    same seam the composition root uses - and closes the request it just
+    published itself, fail-closed, under the shipped degradation policy for
+    an unavailable Odin (`conflicts_require_hil`). The terminal record is an
+    explicit `hil` verdict that names no winning domain, carries no
+    ActionType and no initiator, and still carries the canonical decision
+    case. Nothing in this test drives that closure by hand: raising the
+    conflict is the only call made.
     """
 
     spec = _load_conflict_spec()
@@ -1127,11 +1451,15 @@ async def test_sre_cross_objective_conflict_closes_hil_without_arbitration_autho
     assert replay.request is not None
     assert len(bus.messages_on(spec["arbitration"]["request_topic"])) == 1
 
+    # The owner is unreachable because the wiring has no consumer for the
+    # topic the fixed pantheon says it owns - not because a test said so.
+    owner = str(expected["unavailable_agent"])
+    assert load_pantheon().owner_of_topic(spec["arbitration"]["decision_topic"]) == owner
+    assert owner in _unwired_pantheon_agents(bus)
+
     # The shipped policy for an unavailable arbitration owner, not a new one.
-    degradation = evaluate_degradation({str(expected["unavailable_agent"])})
-    assert degradation.effects == {
-        str(expected["unavailable_agent"]): str(expected["degradation_effect"])
-    }
+    degradation = evaluate_degradation({owner})
+    assert degradation.effects == {owner: str(expected["degradation_effect"])}
     assert degradation.blocks_mutation is expected["blocks_mutation"]
     assert degradation.to_mapping()["effective_mode"] == expected["effective_mode"]
 
@@ -1139,22 +1467,29 @@ async def test_sre_cross_objective_conflict_closes_hil_without_arbitration_autho
     assert len(bus.messages_on(spec["arbitration"]["decision_topic"])) == expected["decisions"]
     assert len(replay.forseti.arbitrations) == expected["recorded_arbitrations"]
 
-    # Close it the governed way: explicit HIL, no action authority.
-    terminal = await replay.forseti.judge(replay.event)
-    assert terminal is not None
+    # It closed anyway, automatically: explicit HIL, no action authority.
+    verdicts = bus.messages_on(spec["arbitration"]["verdict_topic"])
+    assert len(verdicts) == expected["verdicts"]
+    terminal = verdicts[0].payload
+    assert terminal["producer_principal"] == spec["arbitration"]["raiser_agent"]
     assert terminal["risk_verdict"] == expected["terminal"]["risk_verdict"]
     assert terminal["reason"] == expected["terminal"]["reason"]
     assert terminal["action_type"] == expected["terminal"]["action_type"]
-    assert (
-        terminal["resolved_autonomy_ceiling"] == expected["terminal"]["resolved_autonomy_ceiling"]
+    assert terminal["arbitration"]["winning_domain"] == expected["terminal"]["winning_domain"]
+    assert sorted(terminal["arbitration"]["losing_domains"]) == sorted(
+        spec["expected"]["domains_in_conflict"]
     )
+    assert terminal["arbitration"]["arbitration_owner"] == owner
+    assert terminal["arbitration"]["owner_available"] is expected["terminal"]["owner_available"]
+    assert terminal["arbitration"]["degradation_effect"] == str(expected["degradation_effect"])
     assert terminal["quorum_required"] == expected["terminal"]["quorum_required"]
     assert terminal["resource_id"] == replay.shared_target_id
     assert terminal["initiator_principal"] is None
+    assert "kinetic_proposal" not in terminal
 
-    verdicts = bus.messages_on(spec["arbitration"]["verdict_topic"])
-    assert len(verdicts) == expected["verdicts"]
-    assert all(message.payload["risk_verdict"] == "hil" for message in verdicts)
+    # The human who picks this up still gets the grounded case and lineage.
+    _assert_decision_case(terminal.get("decision_case"), spec)
+    _assert_lineage_survived(terminal.get("decision_case"), replay)
 
     # Terminal audit evidence exists even though no authority acted.
     audited = _audited_verdicts(replay.audit_chain, spec["correlation_id"])
@@ -1165,6 +1500,42 @@ async def test_sre_cross_objective_conflict_closes_hil_without_arbitration_autho
     for option in replay.grounded:
         assert option["execution_modes"] in ([], [Mode.SHADOW.value])
         assert option["published_pr_modes"] in ([], [Mode.SHADOW.value])
+
+
+@requires_opa
+@pytest.mark.asyncio
+async def test_sre_cross_objective_agreement_raises_no_arbitration(
+    shipped_catalog: CostGovernanceCatalogComposition,
+) -> None:
+    """Negative control: agreeing objective effects MUST NOT be arbitrated.
+
+    Same grounded replays, same two different ActionTypes, same governed
+    objectives - but both domains are given the effects one replay actually
+    produced, so no objective moves in opposite directions. If the conflict
+    still rested on the recommendation labels disagreeing, this would raise
+    an arbitration. It MUST NOT: the relation reads signed utilities only,
+    so nothing crosses the boundary and no verdict is fabricated.
+    """
+
+    spec = _load_conflict_spec()
+    replay = await _replay_conflict(shipped_catalog, spec)
+    event = dict(replay.event)
+    evidence = [dict(item) for item in event["domain_evidence"]]
+    assert len(evidence) == 2
+    assert evidence[0]["action_type"] != evidence[1]["action_type"]
+    agreeing = evidence[0]["effects"]
+    event["domain_evidence"] = [{**item, "effects": agreeing} for item in evidence]
+
+    _, forseti, _, audit_chain, _ = _conflict_boundary(
+        spec,
+        await _conflict_context_store(spec),
+        with_arbitration_owner=True,
+    )
+    assert await forseti.maybe_request_arbitration(event) is None
+    assert forseti.behavior_snapshot()["arbitration_declined:objectives_agree"] == 1
+    assert forseti.bus is not None
+    assert forseti.bus.published == []
+    assert audit_chain.entries_for_correlation(spec["correlation_id"]) == []
 
 
 @requires_opa
@@ -1201,6 +1572,7 @@ async def test_sre_cross_objective_conflict_replays_to_stable_digests(
                             str(domain) for domain in raised["domains_in_conflict"]
                         ),
                         "advice": raised["advice"],
+                        "objective_conflicts": raised["objective_conflicts"],
                         "case_id": case["case_id"],
                         "context_snapshot_id": case["context_snapshot_id"],
                         "case_evidence_refs": list(case["evidence_refs"]),

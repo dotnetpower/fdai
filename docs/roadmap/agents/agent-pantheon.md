@@ -74,7 +74,7 @@ Norns proposes to Mimir, and Odin arbitrates conflicts before judgment.
 **Constitutional eligibility comes first.** Forseti owns the arbitration request and Odin ranks
 only constitutionally eligible soft-objective tradeoffs. Normalization, precedence, weighted
 scoring, human-approval margins, planning receipts, and temporal policy are owned by
-[Operational Planning](../decisioning/operational-planning.md#multi-objective-arbitration).
+[Operational Planning](../decisioning/operational-planning.md#multi-objective-arbitration). A conflict is a fact about objectives, not about wording: when a domain specialist attaches the ActionType its own deterministic runtime produced together with the signed objective effects it expects and the lineage both were read from, Forseti raises an arbitration only when two domains hold opposite-signed utilities on one and the same governed objective, and the canonical lineage of each contributing replay travels into the decision case and the terminal verdict.
 
 ### 3.2 Discovery-loop learners (Norns)
 
@@ -240,7 +240,7 @@ behaviors. Anti-pattern §11 forbids collapsing these to nothing.
 | **Saga** | audit unavailable | **HARD FAIL**: no new mutation permitted; whole system demoted to shadow |
 | **Vidar** | rollback unavailable | Thor refuses new auto executions; all new actions demoted to shadow |
 | **Forseti** | judgment stopped | Huginn / Heimdall keep publishing (Kafka retains); no verdict fallback (judgment cannot proceed without judge); operator alert |
-| **Odin** | cross-vertical arbitration missing | Forseti lowers conflict verdicts to HIL (human arbitrates) |
+| **Odin** | cross-vertical arbitration missing | Forseti applies Odin's shipped degradation policy and closes the arbitration it raised as a terminal HIL verdict with no ActionType, no initiator, no winning domain, and no action authority, so an unowned arbitration never hangs open and no second arbiter is appointed (human arbitrates) |
 | **Thor** | execution stopped | verdicts queued; verdict TTL expiry drops stale ones (re-judge on republish) |
 | **Huginn** | ingestion stopped | Kafka retention preserves events; Huginn resumes from checkpoint on recovery (idempotent) |
 | **Heimdall** | detection/effect observation stopped | reads, deny, and shadow judgment continue; new state changes needing Heimdall observation are blocked, existing outcomes remain pending, RBAC deny stays audited |

@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.1.0",
+  "schema_version": "1.2.0",
   "id": "sre.cross-objective-conflict.v2026-07",
   "scenario_set_version": "v2026.07",
   "capability": "sre",
@@ -21,22 +21,34 @@
       {
         "id": "example-observability-pipeline",
         "object_type": "Resource",
-        "properties": {"id": "example-observability-pipeline", "type": "observability-pipeline"}
+        "properties": {
+          "id": "example-observability-pipeline",
+          "type": "observability-pipeline"
+        }
       },
       {
         "id": "example-aks-cluster",
         "object_type": "Resource",
-        "properties": {"id": "example-aks-cluster", "type": "kubernetes-cluster"}
+        "properties": {
+          "id": "example-aks-cluster",
+          "type": "kubernetes-cluster"
+        }
       },
       {
         "id": "example-log-workspace",
         "object_type": "Resource",
-        "properties": {"id": "example-log-workspace", "type": "log-workspace"}
+        "properties": {
+          "id": "example-log-workspace",
+          "type": "log-workspace"
+        }
       },
       {
         "id": "example-unmapped-slo-target",
         "object_type": "Resource",
-        "properties": {"id": "example-unmapped-slo-target", "type": "slo-target"}
+        "properties": {
+          "id": "example-unmapped-slo-target",
+          "type": "slo-target"
+        }
       },
       {
         "id": "example-observability-workload",
@@ -91,19 +103,95 @@
       }
     ],
     "links": [
-      {"link_type": "workload_runs_on", "from_id": "example-observability-workload", "to_id": "example-observability-pipeline"},
-      {"link_type": "workload_runs_on", "from_id": "example-observability-workload", "to_id": "example-aks-cluster"},
-      {"link_type": "workload_runs_on", "from_id": "example-observability-workload", "to_id": "example-log-workspace"},
-      {"link_type": "workload_runs_on", "from_id": "example-observability-workload", "to_id": "example-unmapped-slo-target"},
-      {"link_type": "implemented_by", "from_id": "example-observability-service", "to_id": "example-observability-workload"},
-      {"link_type": "service_has_service_objective", "from_id": "example-observability-service", "to_id": "example-availability-objective"},
-      {"link_type": "service_has_cost_objective", "from_id": "example-observability-service", "to_id": "example-telemetry-cost-objective"}
+      {
+        "link_type": "workload_runs_on",
+        "from_id": "example-observability-workload",
+        "to_id": "example-observability-pipeline"
+      },
+      {
+        "link_type": "workload_runs_on",
+        "from_id": "example-observability-workload",
+        "to_id": "example-aks-cluster"
+      },
+      {
+        "link_type": "workload_runs_on",
+        "from_id": "example-observability-workload",
+        "to_id": "example-log-workspace"
+      },
+      {
+        "link_type": "workload_runs_on",
+        "from_id": "example-observability-workload",
+        "to_id": "example-unmapped-slo-target"
+      },
+      {
+        "link_type": "implemented_by",
+        "from_id": "example-observability-service",
+        "to_id": "example-observability-workload"
+      },
+      {
+        "link_type": "service_has_service_objective",
+        "from_id": "example-observability-service",
+        "to_id": "example-availability-objective"
+      },
+      {
+        "link_type": "service_has_cost_objective",
+        "from_id": "example-observability-service",
+        "to_id": "example-telemetry-cost-objective"
+      }
     ]
   },
-  "action_type_recommendations": {
-    "remediate.enable-diagnostic-settings": "scale_up",
-    "remediate.set-retention-policy": "scale_down"
-  },
+  "objective_effects": [
+    {
+      "cited_rule_id": "kubernetes-cluster.diagnostic-settings-required",
+      "action_type": "remediate.enable-diagnostic-settings",
+      "effects": [
+        {
+          "objective_kind": "availability",
+          "metric": "slo_signal_completeness",
+          "utility": 0.6,
+          "confidence": 0.9,
+          "expected_min": -1.0,
+          "expected_max": 1.0,
+          "observation_window_seconds": 300
+        },
+        {
+          "objective_kind": "run_rate",
+          "metric": "telemetry_ingestion_run_rate",
+          "utility": -0.4,
+          "confidence": 0.9,
+          "expected_min": -1.0,
+          "expected_max": 1.0,
+          "observation_window_seconds": 300
+        }
+      ],
+      "note": "Turning cluster diagnostics on completes the signal the availability objective is measured from and raises the ingestion the run-rate objective pays for. The record binds to a replay only when that replay cites this rule and builds this ActionType; it never names a domain, an option, or a counterpart, so it cannot declare a conflict on its own."
+    },
+    {
+      "cited_rule_id": "log-workspace.retention-excessive",
+      "action_type": "remediate.set-retention-policy",
+      "effects": [
+        {
+          "objective_kind": "availability",
+          "metric": "slo_signal_completeness",
+          "utility": -0.5,
+          "confidence": 0.9,
+          "expected_min": -1.0,
+          "expected_max": 1.0,
+          "observation_window_seconds": 300
+        },
+        {
+          "objective_kind": "run_rate",
+          "metric": "telemetry_ingestion_run_rate",
+          "utility": 0.5,
+          "confidence": 0.9,
+          "expected_min": -1.0,
+          "expected_max": 1.0,
+          "observation_window_seconds": 300
+        }
+      ],
+      "note": "Cutting workspace retention lowers the ingestion the run-rate objective pays for and shortens the window the availability signal is reconstructed from. Bound the same way, by cited rule and produced ActionType."
+    }
+  ],
   "options": [
     {
       "option_id": "enable-cluster-diagnostics",
@@ -111,7 +199,7 @@
       "objective_domain": "change_safety",
       "expected_action_type": "remediate.enable-diagnostic-settings",
       "expected_eligibility": "eligible",
-      "note": "Change Safety option. The frozen scenario declares domain `change`, and its replay cites `kubernetes-cluster.diagnostic-settings-required` and builds a `remediate.enable-diagnostic-settings` action. Enabling diagnostics raises the telemetry volume the shared pipeline carries, so the runtime ActionType maps to `scale_up`."
+      "note": "Change Safety option. The frozen scenario declares domain `change`, and its replay cites `kubernetes-cluster.diagnostic-settings-required` and builds a `remediate.enable-diagnostic-settings` action. That pair is what binds the objective effects this option carries into arbitration."
     },
     {
       "option_id": "reduce-telemetry-retention",
@@ -119,7 +207,7 @@
       "objective_domain": "cost",
       "expected_action_type": "remediate.set-retention-policy",
       "expected_eligibility": "eligible",
-      "note": "Cost Governance option. The frozen scenario declares domain `finops`, and its replay cites `log-workspace.retention-excessive` and builds a `remediate.set-retention-policy` action. Cutting retention lowers the telemetry volume the shared pipeline carries, so the runtime ActionType maps to `scale_down` and opposes the Change Safety option."
+      "note": "Cost Governance option. The frozen scenario declares domain `finops`, and its replay cites `log-workspace.retention-excessive` and builds a `remediate.set-retention-policy` action. Whether it opposes the Change Safety option is decided by `conflicting_objective_effects` over the two signed effect sets, not by anything declared here."
     },
     {
       "option_id": "map-slo-signal-source",
@@ -127,34 +215,82 @@
       "objective_domain": "resilience",
       "expected_action_type": null,
       "expected_eligibility": "unresolved_evidence",
-      "note": "Resilience option. The frozen scenario declares domain `dr` and abstains on an unmodelled signal source, so the replay produces no ActionType at all. With nothing to map, the option contributes `hold` instead of a recommendation."
+      "note": "Resilience option. The frozen scenario declares domain `dr` and abstains on an unmodelled signal source, so the replay produces no ActionType and no effect record binds to it. With no grounded option it can only hold, and it carries the abstention marker instead of evidence."
     }
   ],
   "expected": {
     "shared_target_id": "example-observability-pipeline",
-    "eligible_option_ids": ["enable-cluster-diagnostics", "reduce-telemetry-retention"],
-    "unresolved_option_ids": ["map-slo-signal-source"],
+    "eligible_option_ids": [
+      "enable-cluster-diagnostics",
+      "reduce-telemetry-retention"
+    ],
+    "unresolved_option_ids": [
+      "map-slo-signal-source"
+    ],
     "held_recommendation": "hold",
-    "domains_in_conflict": ["change_safety", "cost", "resilience"],
-    "advice": {"change_safety": "scale_up", "cost": "scale_down", "resilience": "hold"},
+    "domains_in_conflict": [
+      "change_safety",
+      "cost",
+      "resilience"
+    ],
+    "advice": {
+      "change_safety": "remediate.enable-diagnostic-settings",
+      "cost": "remediate.set-retention-policy",
+      "resilience": "hold"
+    },
+    "objective_conflicts": [
+      {
+        "domains": [
+          "change_safety",
+          "cost"
+        ],
+        "objective_id": "example-availability-objective"
+      },
+      {
+        "domains": [
+          "change_safety",
+          "cost"
+        ],
+        "objective_id": "example-telemetry-cost-objective"
+      }
+    ],
     "winning_domain": "resilience",
-    "losing_domains": ["change_safety", "cost"],
+    "losing_domains": [
+      "change_safety",
+      "cost"
+    ],
     "reason": "initial_vertical_precedence",
     "escalate_hil": false,
     "decision_case": {
-      "case_id": "804995b3569e266431270a90f9c553e00f251431177a6f12fbee4b0a018cdc9c",
+      "case_id": "3337395384cc8b6ffcdc677306007aa561b373a360a8f8444450f4ae5458e41b",
       "context_snapshot_id": "5f18192f4de8a21c90e359857ceb635df5d2647acdbf6262d33d7433ab849392",
-      "option_by_domain": {"change_safety": "change_safety:scale_up", "cost": "cost:scale_down"},
-      "option_ids": ["change_safety:scale_up", "cost:scale_down"],
-      "protected_objective_ids": ["example-availability-objective"],
+      "option_by_domain": {
+        "change_safety": "change_safety:remediate.enable-diagnostic-settings",
+        "cost": "cost:remediate.set-retention-policy"
+      },
+      "option_ids": [
+        "change_safety:remediate.enable-diagnostic-settings",
+        "cost:remediate.set-retention-policy"
+      ],
+      "protected_objective_ids": [
+        "example-availability-objective"
+      ],
       "evidence_refs": [
+        "audit:scenario-10/kubernetes-cluster.diagnostic-settings-required/example-aks-cluster",
+        "audit:scenario-12/log-workspace.retention-excessive/example-log-workspace",
+        "event:00000000-0000-0000-0000-000000000010",
+        "event:00000000-0000-0000-0000-000000000012",
+        "receipt:sha256:2224b2d188e9616ff7add4e40af18f22f4a9bb4e3a551e8c6b4d28cff5fc2d7d",
+        "receipt:sha256:761500102d7ed81b296246fe3447bea2822d8a5670222dc38c14e64187b01d5f",
+        "rule:kubernetes-cluster.diagnostic-settings-required",
+        "rule:log-workspace.retention-excessive",
         "specialist:change_safety:sre-cross-objective-conflict-v2026-07",
         "specialist:cost:sre-cross-objective-conflict-v2026-07",
         "specialist:resilience:sre-cross-objective-conflict-v2026-07"
       ],
-      "selected_option_id": null,
-      "selection_reason": "no_safe_option",
-      "requires_human_approval": true
+      "selected_option_id": "change_safety:remediate.enable-diagnostic-settings",
+      "selection_reason": "weighted_objective_score;rejected=cost:remediate.set-retention-policy:protected_objective",
+      "requires_human_approval": false
     },
     "terminal": {
       "risk_verdict": "hil",
@@ -175,13 +311,14 @@
       "audited_verdicts": 1,
       "terminal": {
         "risk_verdict": "hil",
-        "reason": "no_rule_match",
+        "reason": "arbitration_owner_unavailable",
         "action_type": "",
-        "resolved_autonomy_ceiling": "shadow_only",
+        "winning_domain": "",
+        "owner_available": false,
         "quorum_required": 1
       }
     },
-    "decision_digest": "sha256:c81bbe1cea9f07f1c1e47ee897474af49c35237da9f60d18416b22ab71d661b9",
-    "evidence_digest": "sha256:0f0e497b539a5d18d5478fdc4fe608f3af0628164f48f70246617f579e0b2d24"
+    "decision_digest": "sha256:070db21b08908099de3b7619283ea84935f2d37f2dcdc3552eb1dd9c74ae2b6a",
+    "evidence_digest": "sha256:5b45651b0d70f64252d4e6e6affbca86bf3e0a1d7c7de9677f21913b5335b66f"
   }
 }

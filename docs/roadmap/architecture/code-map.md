@@ -236,6 +236,22 @@ submit one single-effect episode only when authoritative planning records, a com
 result, and one matching independent scorable observation are all present. Projection failure leaves
 the executor result unchanged, and this producer rejects plural effects instead of fabricating
 missing outcomes. Focused lineage and control-loop shadow tests pin both boundaries.
+
+Cross-vertical arbitration reads objective effects rather than recommendation wording. The
+[decision-case domain](../../../services/core-control-plane/src/fdai/core/decision_case/domain.py)
+owns the frozen `DomainOptionEvidence` contract, which carries one domain's produced
+ActionType, its signed objective effects, and the canonical lineage both were read from, and
+the pure `conflicting_objective_effects` relation, which reports a conflict only when two
+domains hold opposite-signed utilities on the same governed objective. The
+[Forseti ingress](../../../services/core-control-plane/src/fdai/agents/_framework/forseti_decision_helpers.py)
+admits that evidence through a bounded strict parser and rejects a payload whose only lineage
+is a synthetic specialist marker, so the option refs that reach the decision case and the
+terminal verdict are the ones the contributing replays produced. Runtime health owns the
+availability seam: [`runtime_health`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime_health.py)
+derives the unreachable-agent set once and binds it as a probe at composition, which lets
+Forseti close an arbitration no owner can answer as a terminal HIL verdict without importing
+an agent into the framework.
+
 ## Independent service map
 
 | Service | Package responsibility | Package map |

@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://fdai.dev/schemas/cross-objective-conflict-scenario/1.1.0",
+  "$id": "https://fdai.dev/schemas/cross-objective-conflict-scenario/1.2.0",
   "title": "Cross-objective conflict scenario",
-  "description": "One frozen cross-objective conflict composed from options that each replay a frozen scenario through the real control loop. The spec carries only runtime inputs and pinned expectations: recommendations are derived from the ActionType a replay produces, and the shared logical target is derived by traversing the declared ontology neighborhood. Synthetic and customer-agnostic: machine identifiers stay ASCII and no option carries a customer value.",
+  "description": "One frozen cross-objective conflict composed from options that each replay a frozen scenario through the real control loop. The spec carries only runtime inputs and pinned expectations. An option's recommendation is the ActionType its replay produced; whether two options conflict is decided by the runtime over the signed objective effects bound to them, never declared here; and the shared logical target is derived by traversing the declared ontology neighborhood. Synthetic and customer-agnostic: machine identifiers stay ASCII and no option carries a customer value.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -15,12 +15,12 @@
     "observed_at",
     "arbitration",
     "operating_context",
-    "action_type_recommendations",
+    "objective_effects",
     "options",
     "expected"
   ],
   "properties": {
-    "schema_version": {"const": "1.1.0"},
+    "schema_version": {"const": "1.2.0"},
     "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,127}$"},
     "scenario_set_version": {"type": "string", "pattern": "^v\\d{4}\\.\\d{2}$"},
     "capability": {"enum": ["sre", "arb_change_safety", "finops", "dr", "chaos"]},
@@ -95,12 +95,53 @@
         }
       }
     },
-    "action_type_recommendations": {
-      "type": "object",
-      "minProperties": 2,
-      "additionalProperties": false,
-      "patternProperties": {
-        "^[a-z][a-z0-9.-]{1,63}$": {"enum": ["scale_up", "scale_down"]}
+    "objective_effects": {
+      "description": "Typed frozen enrichment: the signed objective effects a shipped rule's remediation is expected to have. A record binds to an option only when that option's replay cites this rule id AND builds this ActionType, so it cannot be attached by hand. It names no domain, no option, and no counterpart, and it declares no direction vocabulary - whether two bound records oppose is decided independently by the runtime relation over their signed utilities on one and the same objective.",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["cited_rule_id", "action_type", "effects", "note"],
+        "properties": {
+          "cited_rule_id": {"type": "string", "pattern": "^[a-z][a-z0-9.-]{1,127}$"},
+          "action_type": {"type": "string", "pattern": "^[a-z][a-z0-9.-]{1,63}$"},
+          "effects": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 16,
+            "uniqueItems": true,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "objective_kind",
+                "metric",
+                "utility",
+                "confidence",
+                "expected_min",
+                "expected_max",
+                "observation_window_seconds"
+              ],
+              "properties": {
+                "objective_kind": {
+                  "description": "Resolved to a concrete objective id by traversing the declared ontology neighborhood, so an effect can only land on an objective the graph actually governs this target with.",
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{1,63}$"
+                },
+                "metric": {"type": "string", "pattern": "^[a-z][a-z0-9_]{1,63}$"},
+                "utility": {"type": "number", "minimum": -1.0, "maximum": 1.0},
+                "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                "expected_min": {"type": "number", "minimum": -1.0, "maximum": 1.0},
+                "expected_max": {"type": "number", "minimum": -1.0, "maximum": 1.0},
+                "observation_window_seconds": {"type": "integer", "minimum": 1, "maximum": 86400}
+              }
+            }
+          },
+          "note": {"type": "string", "minLength": 1, "maxLength": 600}
+        }
       }
     },
     "options": {
@@ -142,6 +183,7 @@
         "held_recommendation",
         "domains_in_conflict",
         "advice",
+        "objective_conflicts",
         "winning_domain",
         "losing_domains",
         "reason",
@@ -174,11 +216,36 @@
           "uniqueItems": true
         },
         "advice": {
+          "description": "What each domain contributed. A grounded domain contributes the ActionType its own replay built; a domain whose evidence stayed unresolved contributes only the abstention marker.",
           "type": "object",
           "minProperties": 2,
           "additionalProperties": false,
           "patternProperties": {
-            "^(resilience|change_safety|cost)$": {"enum": ["scale_up", "scale_down", "hold"]}
+            "^(resilience|change_safety|cost)$": {
+              "type": "string",
+              "pattern": "^(hold|[a-z][a-z0-9.-]{1,63})$"
+            }
+          }
+        },
+        "objective_conflicts": {
+          "description": "The independently computed relation that justified arbitration: every pair of domains whose bound effects oppose on one and the same objective id. Pinned, never authored - the runtime derives it from signed utilities.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["domains", "objective_id"],
+            "properties": {
+              "domains": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "uniqueItems": true,
+                "items": {"enum": ["resilience", "change_safety", "cost"]}
+              },
+              "objective_id": {"type": "string", "pattern": "^example-[a-z0-9-]{1,63}$"}
+            }
           }
         },
         "winning_domain": {"enum": ["resilience", "change_safety", "cost"]},
@@ -285,14 +352,16 @@
                 "risk_verdict",
                 "reason",
                 "action_type",
-                "resolved_autonomy_ceiling",
+                "winning_domain",
+                "owner_available",
                 "quorum_required"
               ],
               "properties": {
                 "risk_verdict": {"const": "hil"},
-                "reason": {"const": "no_rule_match"},
+                "reason": {"const": "arbitration_owner_unavailable"},
                 "action_type": {"const": ""},
-                "resolved_autonomy_ceiling": {"const": "shadow_only"},
+                "winning_domain": {"const": ""},
+                "owner_available": {"const": false},
                 "quorum_required": {"const": 1}
               }
             }
