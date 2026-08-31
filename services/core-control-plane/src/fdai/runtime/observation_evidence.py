@@ -17,6 +17,7 @@ from fdai.delivery.azure.operational_evidence import AzureCachedOperationalSnaps
 from fdai.delivery.reconciliation import IndependentObservationContextVerifier
 from fdai.delivery.reconciliation_artifacts import StateStoreReconciliationArtifactResolver
 from fdai.runtime.providers import _build_inventory_context_provider
+from fdai.runtime.venue import VenueCapability, resolve_execution_venue, select_capability
 from fdai.shared.providers.state_store import StateStore
 
 _CONFIG_ENV = (
@@ -47,7 +48,8 @@ def bind_executed_action_observation_from_env(
         raise RuntimeError(
             "OHL observation context configuration is incomplete: " + ", ".join(sorted(missing))
         )
-    if environ.get("FDAI_EXECUTION_VENUE", "").strip().casefold() != "deployed":
+    venue = resolve_execution_venue(environ)
+    if select_capability(VenueCapability.WORKLOAD_IDENTITY_SOURCE, venue) != "managed_identity":
         raise RuntimeError("OHL observation context requires the deployed execution venue")
     inventory_context = _build_inventory_context_provider()
     if inventory_context is None:
