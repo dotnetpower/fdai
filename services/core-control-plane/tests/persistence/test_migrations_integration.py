@@ -121,6 +121,53 @@ def test_upgrade_head_creates_hnsw_index_on_embeddings() -> None:
     assert rows, "no HNSW index found on ontology_embedding"
 
 
+def test_t2_cache_lifecycle_converges_from_service_migration_state() -> None:
+    url = _requires_live_db()
+    _alembic("upgrade", "head")
+    _alembic("downgrade", "20260829_0088")
+
+    with _connect(url) as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            ALTER TABLE t2_cache
+                ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
+            UPDATE t2_cache
+               SET expires_at = created_at + INTERVAL '1 hour'
+             WHERE expires_at IS NULL;
+            ALTER TABLE t2_cache
+                ALTER COLUMN expires_at SET NOT NULL,
+                ALTER COLUMN expires_at SET DEFAULT (NOW() + INTERVAL '1 hour');
+            CREATE INDEX IF NOT EXISTS idx_t2_cache_expires_at
+                ON t2_cache (expires_at);
+            """
+        )
+
+    _alembic("upgrade", "head")
+
+    with _connect(url) as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT is_nullable, column_default
+              FROM information_schema.columns
+             WHERE table_schema = 'public'
+               AND table_name = 't2_cache'
+               AND column_name = 'expires_at'
+            """
+        )
+        assert cur.fetchone() == ("NO", None)
+        cur.execute(
+            """
+            SELECT indexname
+              FROM pg_catalog.pg_indexes
+             WHERE schemaname = 'public'
+               AND tablename = 't2_cache'
+               AND indexname IN ('idx_t2_cache_expires_at', 'idx_t2_cache_lookup')
+             ORDER BY indexname
+            """
+        )
+        assert [row[0] for row in cur.fetchall()] == ["idx_t2_cache_lookup"]
+
+
 def test_downgrade_base_removes_ontology_tables() -> None:
     url = _requires_live_db()
     _alembic("upgrade", "head")

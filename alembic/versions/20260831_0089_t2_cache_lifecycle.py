@@ -21,15 +21,17 @@ def upgrade() -> None:
     op.execute(
         """
         ALTER TABLE t2_cache
-            ADD COLUMN expires_at TIMESTAMPTZ;
+            ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
         UPDATE t2_cache
            SET expires_at = created_at + INTERVAL '24 hours'
          WHERE expires_at IS NULL;
         ALTER TABLE t2_cache
-            ALTER COLUMN expires_at SET NOT NULL;
+            ALTER COLUMN expires_at SET NOT NULL,
+            ALTER COLUMN expires_at DROP DEFAULT;
 
-        DROP INDEX idx_t2_cache_input_hash;
-        CREATE INDEX idx_t2_cache_lookup
+        DROP INDEX IF EXISTS idx_t2_cache_input_hash;
+        DROP INDEX IF EXISTS idx_t2_cache_expires_at;
+        CREATE INDEX IF NOT EXISTS idx_t2_cache_lookup
             ON t2_cache (catalog_version, input_hash, expires_at DESC, created_at DESC);
 
         ALTER TABLE t2_cache DETACH PARTITION t2_cache_default;
