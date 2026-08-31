@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 
 from fdai.core.operational_learning import (
     CatalogReviewPackage,
@@ -13,12 +14,29 @@ from fdai.core.operational_learning import (
     SchemaCheckReceipt,
     ShadowCheckReceipt,
 )
+from fdai.core.operational_learning.case_review import OperationalCaseReview
 from fdai.delivery.gitops_pr.catalog_review import GitOpsCatalogReviewPublisher
 from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.remediation_pr import PublishReceipt, RemediationPr
 
 
 def _review_package() -> CatalogReviewPackage:
+    case_refs = (
+        f"case-history:case-a:1:{'3' * 64}",
+        f"case-history:case-b:1:{'4' * 64}",
+    )
+    case_reviews = tuple(
+        OperationalCaseReview(
+            case_ref=ref,
+            event_time_cutoff=datetime(2026, 1, 1, tzinfo=UTC),
+            source_kind="operational_case",
+            source_identity_digest="c" * 64,
+            source_synthetic=False,
+            evidence_complete=True,
+            conflict_digests=(),
+        )
+        for ref in case_refs
+    )
     candidate = OperationalPatternRuleCandidate(
         pattern_id="1" * 64,
         failure_fingerprint="2" * 64,
@@ -28,11 +46,11 @@ def _review_package() -> CatalogReviewPackage:
         reusable_count=1,
         negative_count=1,
         outcome_counts=(("rollback", 1), ("success", 1)),
-        immutable_case_refs=(
-            f"case-history:case-a:1:{'3' * 64}",
-            f"case-history:case-b:1:{'4' * 64}",
-        ),
+        immutable_case_refs=case_refs,
         digest_evidence=("5" * 64,),
+        fdai_revision="d" * 40,
+        scenario_set_version="operational-learning-v1",
+        case_reviews=case_reviews,
         digest="6" * 64,
     )
     common = {"candidate_digest": candidate.digest, "artifact_digest": "7" * 64}
