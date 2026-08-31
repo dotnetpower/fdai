@@ -18,7 +18,11 @@ from .approval import (
 from .automation_hold import StateStoreAutomationHoldLedger
 from .compiler import CompiledWorkflow, compile_workflow
 from .coordinator import WorkflowTriggerCoordinator
-from .gate_resolver import CHANGE_WINDOW_GATE_REF, ChangeWindowWorkflowGuardEvaluator
+from .gate_resolver import (
+    CHANGE_WINDOW_GATE_REF,
+    AdmittedWorkflowGuardEvaluator,
+    ChangeWindowWorkflowGuardEvaluator,
+)
 from .orchestrator import (
     ProcessRun,
     ProcessStatus,
@@ -46,6 +50,7 @@ __all__ = [
     "ApprovalPlanError",
     "CompiledWorkflow",
     "CHANGE_WINDOW_GATE_REF",
+    "AdmittedWorkflowGuardEvaluator",
     "ChangeWindowWorkflowGuardEvaluator",
     "ProcessRun",
     "ProcessStatus",

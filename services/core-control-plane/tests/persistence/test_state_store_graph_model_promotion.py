@@ -265,6 +265,45 @@ async def test_stale_receipt_cannot_replace_a_newer_active_pointer() -> None:
     assert pointer.active_model_ref == first.ref
 
 
+async def test_an_already_applied_promotion_still_requires_a_current_admission() -> None:
+    """An idempotent repeat is still a positive result, so it is not a free pass."""
+
+    store = InMemoryStateStore()
+    registry = _registry(store)
+    model = _model("graph-challenger", 1)
+    receipt = _receipt(model, expected_revision=0, rollback_model=None)
+
+    async with asyncio.timeout(0.5):
+        await _prepare(registry, model, receipt)
+        first = await registry.promote(receipt, actor="Thor")
+        assert first.applied is True
+
+        repeated = await registry.promote(receipt, actor="Thor")
+        assert repeated.applied is False
+        assert repeated.reason == "already_applied"
+
+        unbound = StateStoreGraphModelPromotionRegistry(
+            store=store,
+            ontology_release_digest=_ONTOLOGY,
+            property_semantics_digest=_SEMANTICS,
+        )
+        with pytest.raises(ValueError, match="admission_missing"):
+            await unbound.promote(receipt, actor="Thor")
+
+        mismatched_semantics = StateStoreGraphModelPromotionRegistry(
+            store=store,
+            ontology_release_digest="f" * 64,
+            property_semantics_digest=_SEMANTICS,
+            decision_evidence_provider=_MatchingAdmissions(),
+        )
+        with pytest.raises(ValueError, match="semantic release mismatched"):
+            await mismatched_semantics.promote(receipt, actor="Thor")
+
+    pointer = await registry.load_active(receipt.slot_digest)
+    assert pointer is not None
+    assert pointer.revision == 1
+
+
 async def test_an_unbound_admission_provider_never_moves_the_active_pointer() -> None:
     store = InMemoryStateStore()
     registry = StateStoreGraphModelPromotionRegistry(

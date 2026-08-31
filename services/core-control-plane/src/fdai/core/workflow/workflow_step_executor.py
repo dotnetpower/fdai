@@ -8,6 +8,9 @@ from datetime import UTC, datetime, timedelta
 
 from fdai.core.runbook.models import RunbookStep, RunbookStepOutcome, RunbookStepResult
 from fdai.core.workflow.approval import StepApproval
+from fdai.core.workflow.approval_admission import (
+    workflow_approval_admission_rejection_reasons,
+)
 from fdai.core.workflow.workflow_cancellation import cancellation_blocks_new_step
 from fdai.core.workflow.workflow_runtime import (
     ACTOR,
@@ -26,6 +29,9 @@ from fdai.core.workflow.workflow_runtime import (
 )
 from fdai.rule_catalog.schema.action_type import argument_schema_redaction_paths
 from fdai.shared.contracts.models import Mode, OntologyActionType, WorkflowStepKind
+from fdai.shared.providers.decision_evidence_verifier import (
+    DecisionEvidenceAdmissionProvider,
+)
 from fdai.shared.providers.process_runtime import (
     ProcessEvent,
     ProcessEventKind,
@@ -63,6 +69,7 @@ class ShadowWorkflowStepExecutor:
         "_action_types",
         "_action_dispatcher",
         "_approval_provider",
+        "_approval_decision_evidence_provider",
         "_evidence_dispatcher",
         "_audit",
         "_approvals",
@@ -87,6 +94,7 @@ class ShadowWorkflowStepExecutor:
         action_types: Mapping[str, OntologyActionType],
         action_dispatcher: WorkflowActionDispatcher | None = None,
         approval_provider: WorkflowApprovalProvider | None = None,
+        approval_decision_evidence_provider: DecisionEvidenceAdmissionProvider | None = None,
         evidence_dispatcher: WorkflowEvidenceDispatcher | None = None,
         audit_store: StateStore,
         approvals: Mapping[str, StepApproval],
@@ -111,6 +119,7 @@ class ShadowWorkflowStepExecutor:
         self._action_types = action_types
         self._action_dispatcher = action_dispatcher
         self._approval_provider = approval_provider
+        self._approval_decision_evidence_provider = approval_decision_evidence_provider
         self._evidence_dispatcher = evidence_dispatcher
         self._audit = audit_store
         self._approvals = approvals
@@ -233,41 +242,44 @@ class ShadowWorkflowStepExecutor:
                 "recorded_at": datetime.now(tz=UTC).isoformat(),
             }
         )
-
-        control_result = await self._control_result(
-            step=step,
-            guard_evaluated=guard_evaluated,
-            guard_passed=guard_passed,
-        )
-        if control_result is not None:
-            result = control_result
-        elif not known:
-            result = step_result(step, RunbookStepOutcome.FAILURE, "unknown_action_type")
-        elif guard_evaluated and guard_passed is False:
-            result = step_result(
-                step,
-                (
-                    RunbookStepOutcome.SUCCESS
-                    if self._mode is Mode.SHADOW
-                    else RunbookStepOutcome.FAILURE
-                ),
-                (
-                    "guard_blocked_shadow_noop"
-                    if self._mode is Mode.SHADOW
-                    else "guard_blocked_enforce"
-                ),
-            )
-        elif step.kind is WorkflowStepKind.ACTION and self._mode is Mode.ENFORCE:
-            if redacted_paths:
+        if guard_evaluated and guard_passed is False:
+            if step.kind is WorkflowStepKind.GATE:
+                result = step_result(step, RunbookStepOutcome.FAILURE, "gate_blocked")
+            else:
                 result = step_result(
                     step,
-                    RunbookStepOutcome.FAILURE,
-                    "workflow_sensitive_params_unsupported",
+                    (
+                        RunbookStepOutcome.SUCCESS
+                        if self._mode is Mode.SHADOW
+                        else RunbookStepOutcome.FAILURE
+                    ),
+                    (
+                        "guard_blocked_shadow_noop"
+                        if self._mode is Mode.SHADOW
+                        else "guard_blocked_enforce"
+                    ),
                 )
-            else:
-                result = await self._dispatch_action(step)
         else:
-            result = step_result(step, RunbookStepOutcome.SUCCESS, "shadow_judge_and_log")
+            control_result = await self._control_result(
+                step=step,
+                guard_evaluated=guard_evaluated,
+                guard_passed=guard_passed,
+            )
+            if control_result is not None:
+                result = control_result
+            elif not known:
+                result = step_result(step, RunbookStepOutcome.FAILURE, "unknown_action_type")
+            elif step.kind is WorkflowStepKind.ACTION and self._mode is Mode.ENFORCE:
+                if redacted_paths:
+                    result = step_result(
+                        step,
+                        RunbookStepOutcome.FAILURE,
+                        "workflow_sensitive_params_unsupported",
+                    )
+                else:
+                    result = await self._dispatch_action(step)
+            else:
+                result = step_result(step, RunbookStepOutcome.SUCCESS, "shadow_judge_and_log")
 
         event_kind, process_status, suffix = self._result_transition(step, result)
         event_payload: dict[str, object] = {
@@ -522,11 +534,7 @@ class ShadowWorkflowStepExecutor:
                 RunbookStepOutcome.FAILURE,
                 "process_cancellation_requested",
             )
-        approval_result = self._approval_result(
-            step,
-            decisions={decision.principal: decision.decision for decision in snapshot.decisions},
-            requester=snapshot.requester_principal,
-        )
+        approval_result = await self._admitted_approval_result(step, snapshot)
         if approval_result.outcome is not RunbookStepOutcome.WAITING:
             return approval_result
         if snapshot.timed_out or (
@@ -546,13 +554,7 @@ class ShadowWorkflowStepExecutor:
                             RunbookStepOutcome.FAILURE,
                             "process_cancellation_requested",
                         )
-                    approval_result = self._approval_result(
-                        step,
-                        decisions={
-                            decision.principal: decision.decision for decision in snapshot.decisions
-                        },
-                        requester=snapshot.requester_principal,
-                    )
+                    approval_result = await self._admitted_approval_result(step, snapshot)
                     if approval_result.outcome is not RunbookStepOutcome.WAITING:
                         return approval_result
                     if snapshot.expires_at is None or self._now < snapshot.expires_at:
@@ -589,6 +591,49 @@ class ShadowWorkflowStepExecutor:
                     "approval_evidence_unavailable",
                 )
         return approval_result
+
+    async def _admitted_approval_result(
+        self,
+        step: RunbookStep,
+        snapshot: WorkflowApprovalSnapshot,
+    ) -> RunbookStepResult:
+        """Resolve one durable approval snapshot and admit any recorded quorum.
+
+        A recorded quorum advances the Process, so it is a positive decision
+        boundary. The exact durable snapshot MUST additionally hold a current
+        shared decision-critical evidence admission bound to that Process, step,
+        attempt, quorum, and decision set. An unbound provider or a mismatched
+        admission fails closed and blocks the step instead of advancing it.
+        """
+
+        result = self._approval_result(
+            step,
+            decisions={decision.principal: decision.decision for decision in snapshot.decisions},
+            requester=snapshot.requester_principal,
+        )
+        if result.outcome is not RunbookStepOutcome.SUCCESS:
+            return result
+        try:
+            reasons = await workflow_approval_admission_rejection_reasons(
+                self._approval_decision_evidence_provider,
+                snapshot=snapshot,
+                quorum=step.quorum,
+                no_self_approval=step.no_self_approval,
+                evaluated_at=self._now,
+            )
+        except Exception:  # noqa: BLE001 - admission transport failure blocks advancement
+            return step_result(
+                step,
+                RunbookStepOutcome.FAILURE,
+                "approval_evidence_unavailable",
+            )
+        if reasons:
+            return step_result(
+                step,
+                RunbookStepOutcome.FAILURE,
+                f"approval_evidence_unadmitted:{reasons[0]}",
+            )
+        return result
 
     async def _ensure_approval_requested(
         self,

@@ -15,6 +15,7 @@ from uuid import uuid4
 import pytest
 from fdai.__main__ import _build_workflow_coordinator, _resolve_catalog_root
 from fdai.core.architecture_review import ProductionEvidenceProvider
+from fdai.core.workflow import AdmittedWorkflowGuardEvaluator
 from fdai.delivery.persistence.workflow_approval import StateStoreWorkflowApprovalProvider
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.rule_catalog.schema.workflow import load_workflow_catalog
@@ -73,7 +74,9 @@ def test_architecture_evidence_provider_reaches_production_gate(
 
     assert coord is not None
     guard = coord._orchestrator._guard_evaluator
-    assert guard._evidence_provider is provider
+    assert isinstance(guard, AdmittedWorkflowGuardEvaluator)
+    assert guard.decision_evidence_provider is None
+    assert guard.inner._evidence_provider is provider
 
 
 def test_explicit_disable_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:

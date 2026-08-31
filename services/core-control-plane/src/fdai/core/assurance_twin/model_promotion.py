@@ -291,6 +291,38 @@ def validate_graph_model_promotion(
     moved; the admission itself grants no execution or promotion authority.
     """
 
+    validate_graph_model_promotion_evidence(
+        receipt=receipt,
+        model=model,
+        expected_ontology_release_digest=expected_ontology_release_digest,
+        expected_property_semantics_digest=expected_property_semantics_digest,
+        policy=policy,
+        decision_evidence=decision_evidence,
+        evaluated_at=evaluated_at,
+    )
+    current_revision = current_pointer.revision if current_pointer is not None else 0
+    current_ref = current_pointer.active_model_ref if current_pointer is not None else None
+    current_digest = current_pointer.active_model_digest if current_pointer is not None else None
+    if (
+        receipt.expected_pointer_revision != current_revision
+        or receipt.rollback_model_ref != current_ref
+        or receipt.rollback_model_digest != current_digest
+    ):
+        raise ValueError("graph model promotion receipt is stale")
+
+
+def validate_graph_model_promotion_evidence(
+    *,
+    receipt: GraphModelPromotionReceipt,
+    model: GraphEffectModel,
+    expected_ontology_release_digest: str,
+    expected_property_semantics_digest: str,
+    policy: GraphModelPromotionPolicy,
+    decision_evidence: DecisionEvidenceAdmission | None,
+    evaluated_at: datetime,
+) -> None:
+    """Reject invalid promotion evidence independently of pointer transition state."""
+
     if model.status is not EffectModelStatus.CHALLENGER:
         raise ValueError("only a challenger graph effect model can be promoted")
     if (
@@ -306,15 +338,6 @@ def validate_graph_model_promotion(
         or receipt.property_semantics_digest != expected_property_semantics_digest
     ):
         raise ValueError("graph model promotion semantic release mismatched")
-    current_revision = current_pointer.revision if current_pointer is not None else 0
-    current_ref = current_pointer.active_model_ref if current_pointer is not None else None
-    current_digest = current_pointer.active_model_digest if current_pointer is not None else None
-    if (
-        receipt.expected_pointer_revision != current_revision
-        or receipt.rollback_model_ref != current_ref
-        or receipt.rollback_model_digest != current_digest
-    ):
-        raise ValueError("graph model promotion receipt is stale")
     minimum_grade = policy.min_evidence_grade
     if receipt.risk is GraphModelRisk.HIGH and policy.require_interventional_for_high_risk:
         minimum_grade = CausalEvidenceGrade.INTERVENTIONAL
