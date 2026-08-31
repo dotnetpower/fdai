@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: f52f32c6efc256f0e7a9778c9e15532c8e64e955
-translation_revised: 2026-08-30
+translation_source_sha: 2dc337e26c26b26878cf0ccddef0d63371483813
+translation_revised: 2026-08-31
 ---
 # 프로젝트 구조
 
@@ -531,10 +531,14 @@ HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서
   패키지 활성화는 사용자 접근 및 액션 승격과 독립적으로 유지됩니다.
 - 서비스 wire 계약은 `packages/service-contracts/src/fdai_service_contracts/`에 있습니다.
   `schemas/<contract-id>/<version>.json` 아래의 버전별 JSON 스키마는 불변이므로 새 필드는
-  새 추가적 버전으로 배포되며 이전 소비자는 그것을 계속 무시합니다. `operator-core-request`는
-  `1.4.0`입니다. Version 1.3은 서버 소유 `semantic_turn.bound_context`를 추가했고, version 1.4는
-  실행 권한을 부여하지 않는 범위가 제한된 `semantic_turn.include_model_trace` 활성화 설정을
-  추가합니다.
+  새 추가적 버전으로 배포되며 이전 소비자는 그것을 계속 무시합니다. 저장소가 소유하고
+  체크섬으로 고정한 생성기는 호환성 매니페스트의 모든 N/N-1 스키마를 백엔드 서비스 5개용
+  Python 타입과 Console용 TypeScript 타입으로 변환합니다. 이 파일은 읽기 전용 개발
+  변환 결과이며 런타임 검증은 기준 JSON Schema를 계속 사용합니다.
+  `operator-core-request`는 `1.5.0`입니다. Version 1.3은 서버 소유
+  `semantic_turn.bound_context`를 추가했고, version 1.4는 범위가 제한된
+  `semantic_turn.include_model_trace` 활성화 설정을 추가했으며, version 1.5는 실행 권한을
+  부여하지 않는 서버 해석 조사 연속 작업을 추가했습니다.
   `core-operator-projection` 1.4는 닫힌 사회적 의도를 전달하는 타입 지정 `direct_response`
   최종 처리 결과를 추가합니다. 범위가 제한된 텍스트는 스키마로 검증된 의미 판단 모델에서 오며
   조회 digest, 근거 참조, 검증 주장 또는 권한을 포함하지 않습니다.

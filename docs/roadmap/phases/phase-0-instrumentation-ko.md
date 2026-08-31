@@ -1,8 +1,8 @@
 ---
 title: Phase 0 - 계측과 언블록
 translation_of: phase-0-instrumentation.md
-translation_source_sha: 8349c44d0c18e1ca05a1e0be848e24e1c3fb7ed9
-translation_revised: 2026-08-24
+translation_source_sha: 8fbe5250bf1c00190111b7c9ec2c3a84afe509f5
+translation_revised: 2026-08-31
 ---
 
 # 단계 0 - 계측과 언블록
@@ -83,12 +83,36 @@ translation_revised: 2026-08-24
 ([architecture.instructions.md § Shadow → 강제 적용 승격](../../../.github/instructions/architecture.instructions.md#safety-invariants));
 P0에는 enforce-mode 능력이 범위에 없음.
 
+### W1.2 생성 계약 결정
+
+**초기 설계.** 백엔드 서비스 5개용 Python 모델과 FDAI Console용 TypeScript 인터페이스를
+생성하기 위해 대상 언어마다 외부 생성기를 추가합니다.
+
+**비판.** 외부 생성기 두 개를 사용하면 공급망 계약과 서식 계약도 두 개가 되며, 어느 생성기도
+두 번째 와이어 기준 정보가 되어서는 안 됩니다. Python만 생성하면 이 비용을 피할 수 있지만
+Console이 지원 언어 계약에서 제외됩니다.
+
+**개정 설계.** JSON Schema Draft 2020-12를 유일한 와이어 기준 정보로 유지합니다. 저장소가
+소유하는 `generate_service_contracts.py` 버전 `1.0.0`은 `compatibility-manifest.json`에 선언된
+서로 다른 모든 N 및 N-1 생산자 스키마를 다음 읽기 전용 타입으로 결정론적으로 변환합니다.
+
+| 언어 | 소비자 | 생성 아티팩트 |
+|------|--------|--------------|
+| Python | Core 컨트롤 플레인, Operator 서비스, Document Ingestion API, Document Processing Worker, Isolated Executor | `packages/service-contracts/src/fdai_service_contracts/generated/contracts.py` |
+| TypeScript | FDAI Console | `console/src/generated/service-contracts.ts` |
+
+`packages/service-contracts/contract-generation.json`은 생성기 버전, 소스 체크섬, 스키마 선택,
+출력 및 소비자를 고정합니다. CI는 오프라인 `--check` 명령을 실행하고 깨끗한 재생성 결과가
+다르면 실패하므로 생성 파일을 직접 편집하지 않습니다. 기존 N/N-1 매니페스트 게이트는 같은
+메이저 버전의 호환성을 깨는 스키마 변경을 계속 차단하며 모든 생산자-소비자 조합을 분류하도록
+요구합니다. 생성 타입에는 검증, 승인, 변경 또는 실행 권한이 없습니다.
+
 ### WI1 - 원격측정 백본
 
 | 작업 | 제목 | Deps | 산출물 | 수용 | 크기 |
 |------|------|------|--------|------|------|
 | **W1.1** | 다중 서비스 workspace skeleton | - | [다중 서비스 저장소 레이아웃](../architecture/multi-service-repository-layout-ko.md)의 서비스 소유 Python 배포판 5개, 공유 서비스 계약 SDK, 루트 workspace lockfile, `infra/`, `policies/`, `.github/` | CI가 서비스 및 모듈 의존성 방향을 강제 | S |
-| **W1.2** | 온톨로지 + 이벤트 계약 | W1.1 | `services/core-control-plane/src/fdai/shared/contracts/ontology/{object-type,link-type,action-type}.json`, `services/core-control-plane/src/fdai/shared/contracts/event/schema.json`; 언어별 생성 타입 | 스키마가 CI에서 검증 (`ajv`); breaking 변경은 semver bump | M |
+| **W1.2** | 온톨로지 + 이벤트 계약 | W1.1 | 기준 Draft 2020-12 스키마, 서비스 5개용 생성 Python 타입, Console용 생성 TypeScript 타입 | CI가 생성 결과 표류와 같은 메이저 버전의 호환성을 깨는 N/N-1 변경을 차단하며, 새 메이저 버전에는 명시적 호환성 및 이행 근거가 필요 | M |
 | **W1.3** | 구성 스키마 + fail-fast 로더 | W1.1 | `services/core-control-plane/src/fdai/shared/config/schema.json` + Python 로더; env + 파일 프로바이더 | 잘못되거나 누락된 필수 필드가 구조화된 에러로 시작 중단 | S |
 | **W1.4** | OpenTelemetry 배선 | W1.1 | `services/core-control-plane/src/fdai/shared/telemetry/` traces, metrics, logs; `correlation_id` 있는 JSON-구조화 로그; `infra/` 의 수집기 구성 | 합성 이벤트가 하나의 상관관계 id로 종단 추적 (ingest → 계층 → 게이트 → 감사) | M |
 | **W1.5** | PostgreSQL DDL - 인스턴스 + 감사 | W1.2 | `ontology_object_type`, `ontology_link_type`, `ontology_resource`, `ontology_finding`, `ontology_link`, `audit_log`(hash-chain) 마이그레이션 | `flyway`/`alembic` 마이그레이션이 빈 DB에서 클린 실행; DDL이 [llm-strategy-ko.md § 온톨로지 Storage 배치](../architecture/llm-strategy-ko.md#ontology-storage-layout) 와 매칭 | M |

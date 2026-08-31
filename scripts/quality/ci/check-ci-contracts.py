@@ -266,6 +266,12 @@ def _validate_python_test_partitioning() -> list[str]:
     return errors
 
 
+def _validate_service_contract_generation() -> list[str]:
+    workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    command = "python3 scripts/quality/contracts/generate_service_contracts.py --check"
+    return [] if command in workflow else [f"ci.yml is missing generation drift gate: {command}"]
+
+
 def _validate_action_runtime_versions() -> list[str]:
     errors: list[str] = []
     for path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml")):
@@ -436,6 +442,7 @@ def main() -> int:
         *_validate_base_images(),
         *_validate_shared_runners(),
         *_validate_python_test_partitioning(),
+        *_validate_service_contract_generation(),
         *_validate_action_runtime_versions(),
         *_validate_privileged_workflow_guards(),
         *_validate_uv_cache_writers(),

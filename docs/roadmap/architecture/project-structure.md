@@ -544,9 +544,14 @@ operator-request rule only when its rule id, action type, and fixed check refere
   package, and package activation remains independent from user access and action promotion.
 - Service wire contracts live in `packages/service-contracts/src/fdai_service_contracts/`.
   Each versioned JSON Schema under `schemas/<contract-id>/<version>.json` is immutable, so a new
-  field ships as a new additive version that older consumers keep ignoring. `operator-core-request`
-  is at `1.4.0`. Version 1.3 added the server-owned `semantic_turn.bound_context`, and version 1.4
-  adds the bounded `semantic_turn.include_model_trace` opt-in without granting execution authority.
+  field ships as a new additive version that older consumers keep ignoring. A repository-owned,
+  checksum-pinned generator projects every compatibility-manifest N/N-1 schema into Python types
+  for the five backend services and TypeScript types for Console. These files are read-only
+  development views; runtime validation continues to use the canonical JSON Schema.
+  `operator-core-request` is at `1.5.0`. Version 1.3 added the server-owned
+  `semantic_turn.bound_context`, version 1.4 added the bounded
+  `semantic_turn.include_model_trace` opt-in, and version 1.5 added the server-resolved
+  investigation continuation without granting execution authority.
   `core-operator-projection` 1.4 adds the typed `direct_response` terminal disposition for a closed
   social intent. Its bounded text comes from the schema-validated semantic judgment model and
   carries no query digests, evidence references, verification claims, or authority.

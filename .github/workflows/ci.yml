@@ -267,6 +267,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Reject generated service-contract drift
+        run: python3 scripts/quality/contracts/generate_service_contracts.py --check
+
       - name: Install repository check dependencies
         run: python3 -m pip install --quiet pyyaml
 

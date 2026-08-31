@@ -83,12 +83,36 @@ Every task lands **shadow-first** ([architecture.instructions.md § Shadow → E
 Promotion](../../../.github/instructions/architecture.instructions.md#safety-invariants)); no
 enforce-mode capability is in scope for P0.
 
+### W1.2 generated contract decision
+
+**Initial design.** Generate Python models for the five backend services and TypeScript interfaces
+for FDAI Console by adding a language-specific external generator for each target.
+
+**Critique.** Two external generators would create separate supply-chain and formatting contracts,
+and neither should become a second source of wire truth. Generating only Python would avoid that
+cost but would leave Console outside the supported-language contract.
+
+**Revised design.** JSON Schema Draft 2020-12 remains the only wire authority. The
+repository-owned `generate_service_contracts.py` version `1.0.0` deterministically projects every
+distinct N and N-1 producer schema in `compatibility-manifest.json` into these read-only type views:
+
+| Language | Consumers | Generated artifact |
+|----------|-----------|--------------------|
+| Python | Core control plane, Operator service, Document Ingestion API, Document Processing Worker, and Isolated Executor | `packages/service-contracts/src/fdai_service_contracts/generated/contracts.py` |
+| TypeScript | FDAI Console | `console/src/generated/service-contracts.ts` |
+
+`packages/service-contracts/contract-generation.json` pins the generator version, source checksum,
+schema selection, outputs, and consumers. CI runs the offline `--check` command and fails if a clean
+regeneration differs, so generated files are never hand-edited. The existing N/N-1 manifest gate
+continues to reject a same-major breaking schema change and requires every producer-consumer pair
+to be classified. Generated types carry no validation, approval, mutation, or execution authority.
+
 ### WI1 - Telemetry Backbone
 
 | Task | Title | Deps | Deliverable | Acceptance | Size |
 |------|-------|------|-------------|------------|------|
 | **W1.1** | Multi-service workspace skeleton | - | Five service-owned Python distributions, the shared service-contract SDK, root workspace lockfile, `infra/`, `policies/`, and `.github/` from [Multi-Service Repository Layout](../architecture/multi-service-repository-layout.md) | Service and module dependency direction enforced by CI | S |
-| **W1.2** | Ontology + event contracts | W1.1 | `services/core-control-plane/src/fdai/shared/contracts/ontology/{object-type,link-type,action-type}.json`, `services/core-control-plane/src/fdai/shared/contracts/event/schema.json`; generated types per language | Schema validates in CI (`ajv`); breaking changes bump semver | M |
+| **W1.2** | Ontology + event contracts | W1.1 | Canonical Draft 2020-12 schemas; generated Python types for all five services; generated TypeScript types for Console | CI rejects generated drift and same-major breaking N/N-1 changes; a new major requires explicit compatibility and migration evidence | M |
 | **W1.3** | Config schema + fail-fast loader | W1.1 | `services/core-control-plane/src/fdai/shared/config/schema.json` + Python loader; env + file provider | Invalid or missing required field aborts startup with a structured error | S |
 | **W1.4** | OpenTelemetry wiring | W1.1 | `services/core-control-plane/src/fdai/shared/telemetry/` traces, metrics, logs; JSON-structured logs with `correlation_id`; collector config in `infra/` | A synthetic event traces end-to-end (ingest → tier → gate → audit) with one correlation id | M |
 | **W1.5** | PostgreSQL DDL - instance + audit | W1.2 | Migration for `ontology_object_type`, `ontology_link_type`, `ontology_resource`, `ontology_finding`, `ontology_link`, `audit_log` (hash-chained) | `flyway`/`alembic` migration runs clean on empty DB; DDL matches [llm-strategy.md § Ontology Storage Layout](../architecture/llm-strategy.md#ontology-storage-layout) | M |
