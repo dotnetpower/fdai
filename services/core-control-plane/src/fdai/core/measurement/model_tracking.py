@@ -14,6 +14,7 @@ and cost both improved.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from enum import StrEnum
 
@@ -37,6 +38,19 @@ class ModelObservation:
 
     verifier_abstain_rate: float
     mixed_model_disagreement_rate: float
+
+    def __post_init__(self) -> None:
+        if not self.model_id.strip() or not self.scenario_set_version.strip():
+            raise ValueError("model_id and scenario_set_version MUST be non-empty")
+        for name, value in (
+            ("quality_score", self.quality_score),
+            ("verifier_abstain_rate", self.verifier_abstain_rate),
+            ("mixed_model_disagreement_rate", self.mixed_model_disagreement_rate),
+        ):
+            if not math.isfinite(value) or not 0.0 <= value <= 1.0:
+                raise ValueError(f"{name} MUST be finite and in [0, 1]")
+        if not math.isfinite(self.cost_per_verified_answer) or self.cost_per_verified_answer < 0.0:
+            raise ValueError("cost_per_verified_answer MUST be finite and >= 0")
 
 
 class SwapOutcome(StrEnum):
@@ -72,11 +86,14 @@ class ModelSwapPolicy:
 
     def __init__(self, *, config: ModelSwapConfig | None = None) -> None:
         cfg = config or ModelSwapConfig()
-        if cfg.quality_gain_threshold < 0.0:
+        if not math.isfinite(cfg.quality_gain_threshold) or cfg.quality_gain_threshold < 0.0:
             raise ValueError("quality_gain_threshold MUST be >= 0")
-        if not 0.0 <= cfg.max_abstain_rate <= 1.0:
+        if not math.isfinite(cfg.max_abstain_rate) or not 0.0 <= cfg.max_abstain_rate <= 1.0:
             raise ValueError("max_abstain_rate MUST be in [0, 1]")
-        if not 0.0 <= cfg.max_disagreement_rate <= 1.0:
+        if (
+            not math.isfinite(cfg.max_disagreement_rate)
+            or not 0.0 <= cfg.max_disagreement_rate <= 1.0
+        ):
             raise ValueError("max_disagreement_rate MUST be in [0, 1]")
         self._config = cfg
 

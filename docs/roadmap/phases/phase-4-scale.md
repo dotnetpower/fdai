@@ -68,6 +68,17 @@ customer-agnostic and Azure-only in intent (multi-cloud deliverables below stay 
   Missing provenance yields zero intake rather than inferred training data.
   Azure text-embedding-3 requests use the fixed 384-dimension pgvector
   contract; a different family or dimension fails startup.
+  Pattern construction now requires one complete durable temporal-holdout envelope. Missing,
+  incomplete, insufficient, or failed holdout evidence records a rejected shadow audit and leaves
+  the candidate inert.
+  The baseline job also drains immutable `measurement:phase4:evidence:*` batches. Each complete
+  batch pairs incumbent and challenger cost/quality evidence with T0, T1, and T2 volume plus
+  p50/p95/p99 latency. Server-owned p95 ceilings drive evaluation; a producer-reported ceiling is
+  retained only for comparison. Restart, duplicate, and malformed delivery converge through an
+  atomic processed marker and audit entry without poisoning later batches. Partial, stale, future,
+  rollback, and unavailable inputs stay explicit. An `adopt_challenger` result is only a review
+  recommendation; the runner cannot change a model binding, promotion state, or execution
+  authority.
 - **TBD (deferred)**: multi-cloud expansion of policy and execution via **provider adapters**
   (no new core), cross-CSP rule-catalog normalization, per-CSP execution identity, and the
   multi-cloud event-bus decision (OD-3 in [tech-stack.md](../architecture/tech-stack.md)). These items

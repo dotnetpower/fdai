@@ -28,6 +28,7 @@ from fdai.core.measurement import (
     OperationalPromotionEvaluator,
     OperationalPromotionMeasurementRunner,
 )
+from fdai.core.measurement.pattern_growth import TemporalHoldoutValidator
 from fdai.core.measurement.regression import RegressionDetector
 from fdai.core.measurement.runners import (
     AutomatedBaselineRunner,
@@ -36,6 +37,15 @@ from fdai.core.measurement.runners import (
 )
 from fdai.core.operator_memory import InMemoryOperatorMemoryStore
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
+from fdai.delivery.measurement.holdout import (
+    HoldoutVerifiedPatternBuilder,
+    StateStoreTemporalHoldoutEvidenceSource,
+)
+from fdai.delivery.measurement.measured_policy import (
+    MeasuredPolicyRunner,
+    MeasuredPolicyRunReport,
+    StateStoreMeasuredPolicyBatchSource,
+)
 from fdai.delivery.measurement.operational_promotion_evidence import (
     ImmutableFileOperationalPromotionEvidenceSource,
     ManifestCausalPromotionReceiptVerifier,
@@ -58,6 +68,7 @@ from fdai.delivery.persistence import (
 )
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
+from fdai.shared.providers.state_store import StateStore
 
 _LOGGER = logging.getLogger("fdai.delivery.measurement_runner_cli")
 
@@ -107,6 +118,7 @@ async def _run_baseline() -> int:
         audit_store=audit_store,
         persist_mode=registry.persist,
     ).run_once()
+    policy_report = await _run_measured_policy(audit_store)
     _LOGGER.info(
         "measurement_baseline_complete aborted_reason=%s",
         report.aborted_reason or "none",
@@ -116,9 +128,22 @@ async def _run_baseline() -> int:
             "regression_count": len(report.regressions),
             "demoted_action_types": list(report.demoted_action_types),
             "aborted": report.aborted_reason is not None,
+            "policy_processed_count": policy_report.processed_count,
+            "policy_rejected_count": policy_report.rejected_count,
+            "policy_duplicate_count": policy_report.duplicate_count,
+            "policy_rollback_count": policy_report.rollback_count,
         },
     )
     return 3 if report.aborted_reason is not None else 0
+
+
+async def _run_measured_policy(
+    audit_store: StateStore,
+) -> MeasuredPolicyRunReport:
+    return await MeasuredPolicyRunner(
+        source=StateStoreMeasuredPolicyBatchSource(audit_store),
+        store=audit_store,
+    ).run_once()
 
 
 async def _run_growth() -> int:
@@ -150,9 +175,14 @@ async def _run_growth() -> int:
                 dsn=dsn,
                 state_store=state_store,
             ),
-            pattern_builder=PostgresVerifiedPatternBuilder(
-                dsn=dsn,
-                embedding_model=embedding_model,
+            pattern_builder=HoldoutVerifiedPatternBuilder(
+                delegate=PostgresVerifiedPatternBuilder(
+                    dsn=dsn,
+                    embedding_model=embedding_model,
+                ),
+                evidence_source=StateStoreTemporalHoldoutEvidenceSource(state_store),
+                validator=TemporalHoldoutValidator(),
+                audit_store=state_store,
             ),
             writer=PgVectorPatternLibrary(config=PgVectorPatternLibraryConfig(dsn=dsn)),
             audit_store=state_store,

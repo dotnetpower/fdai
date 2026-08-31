@@ -112,3 +112,27 @@ def test_equal_cost_still_counts_as_beats() -> None:
         challenger=_obs("m-b", quality=0.80, cost=1.0),
     )
     assert decision.outcome is SwapOutcome.ADOPT_CHALLENGER
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        ("quality_score", float("nan")),
+        ("cost_per_verified_answer", -1.0),
+        ("verifier_abstain_rate", 1.1),
+        ("mixed_model_disagreement_rate", -0.1),
+    ),
+)
+def test_observation_rejects_invalid_measurements(field: str, value: float) -> None:
+    values = {
+        "model_id": "model-a",
+        "scenario_set_version": "v2026.07",
+        "quality_score": 0.8,
+        "cost_per_verified_answer": 0.5,
+        "verifier_abstain_rate": 0.1,
+        "mixed_model_disagreement_rate": 0.1,
+    }
+    values[field] = value
+
+    with pytest.raises(ValueError):
+        ModelObservation(**values)

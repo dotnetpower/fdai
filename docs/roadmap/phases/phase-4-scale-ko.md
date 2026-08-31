@@ -1,7 +1,7 @@
 ---
 title: Phase 4 - 스케일 (Azure); 멀티 클라우드 (TBD)
 translation_of: phase-4-scale.md
-translation_source_sha: 27696a0748dd7ded0f04c4717e09bccfcce02b5f
+translation_source_sha: f000d526d9476a6e410523f1e02ecdd4593c9432
 translation_revised: 2026-08-31
 ---
 
@@ -67,6 +67,15 @@ CSP-중립 원칙을 **설계 불변식**(어댑터 표면, 정규화 스키마)
   데이터 를 추론하지 않고 zero intake 로 처리합니다. Azure text-embedding-3 요청 는 fixed
   384-dimension pgvector 계약 를
   사용하며 다른 계열 또는 dimension 은 시작 에서 실패합니다.
+  패턴 생성에는 완전한 영속 시간 홀드아웃 묶음 하나가 필요합니다. 누락, 불완전, 표본 부족 또는
+  실패한 홀드아웃 근거는 거부된 shadow 감사를 기록하고 후보를 비활성 상태로 유지합니다.
+  기준선 작업은 변경할 수 없는 `measurement:phase4:evidence:*` 묶음도 처리합니다. 완전한 각
+  묶음은 기존 모델과 도전 모델의 비용 및 품질 근거를 T0, T1, T2의 처리량 및 p50/p95/p99
+  지연 시간과 짝지어 보존합니다. 서버 소유 p95 상한으로 평가하며 생산자가 보고한 상한은 비교
+  목적으로만 보존합니다. 재시작, 중복 및 잘못된 형식의 전달은 원자적 처리 표식과 감사 항목으로
+  수렴하며 이후 묶음을 막지 않습니다. 부분, 오래됨, 미래 시점, 롤백 및 사용 불가 입력은
+  명시적으로 남습니다. `adopt_challenger` 결과는 검토 권고일 뿐이며 러너는 모델 연결, 승격
+  상태 또는 실행 권한을 변경할 수 없습니다.
 - **TBD (deferred)**: **프로바이더 어댑터** 를 통한 정책과 실행의 멀티 클라우드 확장(새 코어 없음),
   크로스-CSP rule-catalog 정규화, per-CSP 실행 아이덴티티, 멀티 클라우드 이벤트 버스 결정
   ([tech-stack-ko.md](../architecture/tech-stack-ko.md) 의 OD-3). 이 항목들은 비-Azure 작업이 스코프될
