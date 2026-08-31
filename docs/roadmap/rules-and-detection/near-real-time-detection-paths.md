@@ -139,7 +139,9 @@ and resource before the Console receives them, so the browser renders a server-a
 assessment and retained history instead of inferring a lifecycle edge. Duplicate deliveries remain
 visible as suppressed publication attempts, and incomplete, conflicting, and missed evidence remain
 distinct states. A receipt identity is immutable; replay with different lifecycle evidence fails
-instead of rewriting history.
+instead of rewriting history. A finding that outlives one tick keeps its window-bucket identity, so
+a later tick restating the same outcome is an idempotent no-op that retains the first observation
+and leaves detection latency a detection measurement rather than the finding's age.
 
 ### Agent-owned AKS detection readiness
 

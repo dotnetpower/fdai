@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fdai.core.investigation import (
@@ -13,6 +13,10 @@ from fdai.core.investigation import (
     InvestigationRequest,
 )
 from fdai.core.investigation.contract import InvestigationReport
+from fdai.delivery.analyzer_receipt_store import (
+    ANALYZER_RECEIPT_STATE_PREFIX,
+    StateStoreAnalyzerReceiptStore,
+)
 from fdai.delivery.analyzer_tick import (
     ANALYZER_EVENT_SOURCE,
     ANALYZER_EVENT_TOPIC,
@@ -33,6 +37,7 @@ from fdai.delivery.analyzer_tick_cli import (
 )
 from fdai.shared.contracts.models import Mode, Severity
 from fdai.shared.providers.event_bus import PublishReceipt
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 NOW = datetime(2026, 8, 15, 12, 0, tzinfo=UTC)
 
@@ -436,3 +441,48 @@ def test_the_projection_stays_unbound_without_a_database(
     monkeypatch.delenv(INVENTORY_DSN_ENV, raising=False)
 
     assert build_inventory_projection() is None
+
+
+@pytest.mark.asyncio
+async def test_a_persistent_finding_records_receipts_across_repeated_ticks() -> None:
+    # A finding that outlives one tick keeps the same window-bucket idempotency
+    # key, so every later tick re-records the same (key, publication) receipt
+    # with a later recorded_at. That MUST stay idempotent instead of failing the
+    # tick as a receipt identity collision.
+    state = InMemoryStateStore()
+    receipt_store = StateStoreAnalyzerReceiptStore(state)
+    ledger = RecordingPublicationLedger()
+    at = [NOW]
+    runner = AnalyzerTickRunner(
+        coordinator=StubCoordinator(findings=(_finding(),)),
+        event_bus=RecordingBus(),  # type: ignore[arg-type]
+        publication_ledger=ledger,  # type: ignore[arg-type]
+        receipt_store=receipt_store,
+        window_seconds=300,
+        clock=lambda: at[0],
+    )
+    targets = (AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),)
+
+    reports = []
+    for offset in (0, 60, 120, 180):
+        at[0] = NOW + timedelta(seconds=offset)
+        reports.append(await runner.run_once(targets))
+
+    assert [report.receipt_errors for report in reports] == [(), (), (), ()]
+    assert not any(report.failed for report in reports)
+    # One published receipt plus one duplicate-suppressed receipt per bucket.
+    keys = {analyzer_idempotency_key(_finding(), at=NOW, window_seconds=300)}
+    records = await state.read_states(ANALYZER_RECEIPT_STATE_PREFIX, limit=10)
+    assert len(records) == 2
+    assert {record["idempotency_key"] for record in records} == keys
+    assert {record["publication"] for record in records} == {
+        "published",
+        "duplicate_suppressed",
+    }
+    # The retained duplicate receipt keeps its first observation, so detection
+    # latency stays a detection measurement rather than the finding's age.
+    duplicate = next(
+        record for record in records if record["publication"] == "duplicate_suppressed"
+    )
+    assert duplicate["detection_latency_seconds"] == 60.0
+    assert duplicate["recorded_at"] == (NOW + timedelta(seconds=60)).isoformat()

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fdai.delivery.analyzer_receipt_store import (
@@ -66,3 +66,41 @@ async def test_store_rejects_rewriting_an_immutable_receipt_identity() -> None:
 
     with pytest.raises(ValueError, match="identity collision"):
         await store.record(replace(receipt, current_state="terminated"))
+
+
+async def test_store_keeps_the_first_observation_of_a_repeated_outcome() -> None:
+    state = InMemoryStateStore()
+    store = StateStoreAnalyzerReceiptStore(state)
+    first = _receipt("analyzer:key-1", AnalyzerPublicationStatus.DUPLICATE_SUPPRESSED)
+
+    await store.record(first)
+    await store.record(
+        replace(
+            first,
+            recorded_at=NOW + timedelta(seconds=120),
+            detection_latency_seconds=124.0,
+        )
+    )
+
+    records = await state.read_states(ANALYZER_RECEIPT_STATE_PREFIX, limit=10)
+
+    assert len(records) == 1
+    assert records[0]["recorded_at"] == NOW.isoformat()
+    assert records[0]["detection_latency_seconds"] == 4.0
+
+
+async def test_store_still_rejects_a_conflicting_repeat_with_later_timing() -> None:
+    state = InMemoryStateStore()
+    store = StateStoreAnalyzerReceiptStore(state)
+    receipt = _receipt("analyzer:key-1", AnalyzerPublicationStatus.PUBLISHED)
+    await store.record(receipt)
+
+    with pytest.raises(ValueError, match="identity collision"):
+        await store.record(
+            replace(
+                receipt,
+                current_state="terminated",
+                recorded_at=NOW + timedelta(seconds=60),
+                detection_latency_seconds=64.0,
+            )
+        )

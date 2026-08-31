@@ -1,7 +1,7 @@
 ---
 title: Near-real-time detection paths
 translation_of: near-real-time-detection-paths.md
-translation_source_sha: 0d61fa38342933132bc6e7ecdced5e8b09dae264
+translation_source_sha: 85d896f8d98fae64291edbef34e1119f369f7ca6
 translation_revised: 2026-08-31
 ---
 
@@ -135,6 +135,9 @@ API는 Console에 전달하기 전에 멱등성 키와 리소스별로 증적을
 수명 주기 간선을 추론하지 않고 서버가 작성한 현재 평가와 보존 이력을 표시합니다. 중복 전달은
 억제된 게시 시도로 표시하며 불완전, 충돌 및 누락 근거를 서로 다른 상태로 유지합니다. 증적
 신원은 변경할 수 없습니다. 다른 수명 주기 근거로 재생하면 이력을 덮어쓰지 않고 실패합니다.
+한 틱보다 오래 지속되는 점검 결과는 같은 윈도 버킷 신원을 유지합니다. 따라서 같은 결과를 다시
+기록하는 이후 틱은 멱등한 no-op이며 첫 관측을 보존합니다. 그 결과 감지 지연은 점검 결과의
+경과 시간이 아니라 감지 측정값으로 남습니다.
 
 ### 에이전트 소유 AKS 감지 준비도
 
