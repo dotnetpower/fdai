@@ -171,11 +171,26 @@ The in-memory fake is what a developer runs under `pytest` and in the debugger; 
 preset is what integration tests, `event-ingest` smoke runs, and pgvector similarity checks
 run against.
 
+**Initial design.** Register every backend through zero-argument factories and run Docker-backed
+providers in the ordinary pytest job.
+
+**Critique.** Real providers require lifecycle-owned databases, topics, consumer groups, timeouts,
+and cleanup. Starting them in the default job would make offline unit tests depend on Docker and
+would turn missing infrastructure into ambiguous test behavior.
+
+**Revised design.** The shared `test_contracts.py` assertions consume lifecycle-managed fixtures.
+Default pytest registers only fakes and denies non-loopback network access. The explicit
+`provider-contracts-docker` CI job opts into both matrices, creates and drops one exact temporary
+PostgreSQL database, isolates every Redpanda topic and consumer group by UUID, deletes those exact
+broker records, and fails if either real backend is unavailable. The canonical local endpoints are
+runtime PostgreSQL `127.0.0.1:5432`, validation PostgreSQL `127.0.0.1:5433`, Redpanda host
+`127.0.0.1:19092`, and Redpanda Compose-network `redpanda:29092`.
+
 | Task | Title | Deps | Deliverable | Acceptance | Size |
 |------|-------|------|-------------|------------|------|
 | **W6.1** | Storage / bus / secret / identity provider interfaces | W1.2 | Protocol classes in `services/core-control-plane/src/fdai/shared/providers/` for `StateStore`, `EventBus`, `SecretProvider`, `WorkloadIdentity` - each mapping to one of the four CSP-neutral contracts | `mypy --strict` passes; every core module that touches infra imports **only** these protocols (import-lint rule W1.7 enforces the ban on cloud SDKs in `core/`) | S |
-| **W6.2** | In-memory fake adapters + shared contract-test suite | W6.1 | `services/core-control-plane/src/fdai/shared/providers/testing/` with in-memory `StateStore` (dict-backed, with hash-chain semantics for audit), `EventBus` (queue + consumer-group), `SecretProvider`, `WorkloadIdentity`; contract tests in `services/core-control-plane/tests/providers/` parameterized over `[fake, postgres, redpanda]` | Contract-test suite runs green against the fake with **zero Docker** and against the Compose stack when Docker is available; the *same* test file passes both matrices | M |
-| **W6.3** | Docker Compose dev preset + wrapper scripts | W6.1 | `infra/local/docker-compose.yml` running `pgvector/pgvector:pg16` and `redpandadata/redpanda:latest` (single-node, no zookeeper); `scripts/deployment/local/dev-up.sh` / `scripts/deployment/local/dev-down.sh` bringing the stack up/down with health checks; `Makefile` targets `dev-up`, `dev-down`, `dev-logs` | Fresh clone: `scripts/deployment/local/dev-up.sh` returns 0 with both containers healthy; `psql` connects on the exposed port and `CREATE EXTENSION vector` succeeds; a Redpanda producer + consumer roundtrip completes on `localhost:9092`. No Azure / cloud calls made | M |
+| **W6.2** | In-memory fake adapters + shared contract-test suite | W6.1 | Lifecycle fixtures register fake, PostgreSQL, and Redpanda against the same assertions in `services/core-control-plane/tests/providers/test_contracts.py` | Default pytest stays Docker-free; the explicit Docker CI job proves state, audit chain, duplicate delivery, pgvector, Kafka order, group resume, DLQ, loopback-only access, and exact cleanup | M |
+| **W6.3** | Docker Compose dev preset + wrapper scripts | W6.1 | `infra/local/docker-compose.yml` running pgvector/PostgreSQL and single-node Redpanda with health checks and wrapper scripts | Runtime PostgreSQL `5432`, validation PostgreSQL `5433`, Redpanda host `19092`, and Redpanda container `29092` stay consistent across Compose, scripts, docs, tests, and CI; no Azure or cloud calls occur | M |
 
 ### Sequenced Task Timeline
 
