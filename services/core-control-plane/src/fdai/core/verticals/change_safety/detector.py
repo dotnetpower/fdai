@@ -141,9 +141,10 @@ class DetectorOutcome(StrEnum):
     which one failed so an operator can retry."""
 
     NOT_ACTIVITY_LOG = "not_activity_log"
-    """Event's ``signal_kind`` did not match - the detector is a no-op
-    for this event. No audit is written (the primary pipeline audits
-    the routing decision)."""
+    """The event declares no Change Safety signal kind."""
+
+    UNSUPPORTED_SIGNAL = "unsupported_signal"
+    """A declared signal kind is outside the Phase 1 Activity Log contract."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -255,19 +256,30 @@ class ChangeSafetyDetector:
     async def detect(self, event: Event) -> ChangeSafetyDecision:
         """Classify ``event``, side-effect on out-of-band, audit every path.
 
-        Non-activity-log events short-circuit with
-        :attr:`DetectorOutcome.NOT_ACTIVITY_LOG` and NO audit - the
-        control loop writes the routing audit for the primary path
-        after the detector returns.
+        Events without a signal marker remain outside this detector. A
+        declared but unsupported signal produces an explicit audited outcome.
         """
         if not self.is_activity_log(event):
-            return ChangeSafetyDecision(
+            signal_kind = event.payload.get("signal_kind")
+            unsupported = isinstance(signal_kind, str) and bool(signal_kind.strip())
+            decision = ChangeSafetyDecision(
                 event_id=str(event.event_id),
                 attribution=ChangeAttribution.AUTHORIZED,  # placeholder - outcome trumps
-                outcome=DetectorOutcome.NOT_ACTIVITY_LOG,
+                outcome=(
+                    DetectorOutcome.UNSUPPORTED_SIGNAL
+                    if unsupported
+                    else DetectorOutcome.NOT_ACTIVITY_LOG
+                ),
                 actor=None,
-                reason="event.payload.signal_kind != azure.activity_log",
+                reason=(
+                    f"unsupported_signal_kind:{str(signal_kind)[:128]}"
+                    if unsupported
+                    else "signal_kind_not_declared"
+                ),
             )
+            if unsupported:
+                await self._write_audit(event=event, decision=decision)
+            return decision
 
         actor = _extract_actor(event.payload)
         resource_type = _extract_resource_type(event.payload)

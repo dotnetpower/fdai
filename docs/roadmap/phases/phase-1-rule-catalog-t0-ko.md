@@ -1,7 +1,7 @@
 ---
 title: Phase 1 - 규칙 카탈로그와 T0 결정론적 엔진
 translation_of: phase-1-rule-catalog-t0.md
-translation_source_sha: 5bac9d9d7c15a4f1cd51a7eeb7c7089a8dec80e7
+translation_source_sha: 08bb717171c8138a67f3bff865f210884879016e
 translation_revised: 2026-08-31
 ---
 
@@ -243,8 +243,11 @@ PR은 `shadow` 라벨되고 초안으로(또는 shadow 브랜치에 대해) 오�
 
 ## Out-of-Band 감지 (변경 안전성)
 
-- **신호**: Activity Log, Resource Graph, 변경 Analysis, 배포 Stacks deny-assignment
-  이벤트, IaC 표류. 단일 피드를 믿는 대신 신호 간 상관관계.
+- **지원 신호**: Phase 1은 `signal_kind=azure.activity_log`인 정규화된 Azure Activity Log
+  레코드만 받습니다. Resource Graph, Change Analysis, Deployment Stacks deny-assignment 이벤트,
+  IaC 표류 피드는 각자의 권한, 완전성, 최신성 계약이 생길 때까지 지원되지 않는 감지기
+  입력으로 유지됩니다. 선언된 미지원 종류는 감사된 `unsupported_signal` 결과를 만들며
+  조용히 정상 또는 대역 외 상태로 처리되지 않습니다.
 - **귀속**: 각 감지된 변경을 authorized(머지된 교정 PR / 알려진 파이프라인 principal에서
   발원) 또는 out-of-band(수동/콘솔) 로 분류, 행위자 아이덴티티와 상관관계 id 사용하여 파이프라인-
   주도 변경이 오플래그되지 않도록.
@@ -253,6 +256,14 @@ PR은 `shadow` 라벨되고 초안으로(또는 shadow 브랜치에 대해) 오�
   전; 억제 사유 기록.
 - **false 부정**: 신호 피드는 lag하거나 드롭 가능; 감지 완전성은 측정된 가드(Exit 기준 참조),
   가정 아님.
+- **인벤토리 경계**: 인벤토리 최신성은 결정론적 발견 사항 형성을 억제하지 않습니다. Action
+  생성 후 risk 판단 전에 평가합니다. 필수 인벤토리가 없거나 오래되면 권한을 HIL 또는
+  차단으로 낮추므로 침묵이 발견 사항을 숨기거나 오래된 상태가 실행을 허용할 수 없습니다.
+
+첫 설계는 출시된 완전성 계약 없이 여러 미래 신호 계열을 나열하고 판정 전 인벤토리 순서를
+암시했습니다. 이 방식은 관측되지 않은 피드를 거짓 부재로 만들거나 유효한 결정론적 발견 사항을
+억제할 수 있습니다. 수정된 설계는 감지를 구현된 Activity Log 계약으로 좁히고 인벤토리
+최신성을 액션 권한 경계로 이동하여 자율성을 유지하거나 낮추기만 하도록 합니다.
 - **응답 (shadow)**: 정책 위반 리소스의 out-of-band 변경은 *shadow* revert-or-reconcile PR과
   알림 생성; 판단·로그만. Auto-revert와 reconcile-to-IaC 실행은 단계 2 검증까지 게이팅 오프.
 

@@ -718,6 +718,7 @@ def _build_control_loop(
         executor=executor,
         audit_store=audit_store,
         rules_by_id=rules_by_id,
+        change_safety_detector=container.change_safety_detector,
         change_safety_evidence_provider=container.change_safety_evidence_provider,
         risk_table=risk_table,
         action_types_by_name=action_types_by_name,

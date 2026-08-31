@@ -258,8 +258,11 @@ but cannot be merged by the normal flow.
 
 ## Out-of-Band Detection (Change Safety)
 
-- **Signals**: Activity Log, Resource Graph, Change Analysis, Deployment Stacks deny-assignment
-  events, and IaC drift. Correlate across signals rather than trusting a single feed.
+- **Supported signal**: Phase 1 accepts only normalized Azure Activity Log records with
+  `signal_kind=azure.activity_log`. Resource Graph, Change Analysis, Deployment Stacks
+  deny-assignment events, and IaC drift feeds remain unsupported detector inputs until their own
+  authority, completeness, and freshness contracts exist. A declared unsupported kind produces an
+  audited `unsupported_signal` result; it is never silently treated as healthy or out-of-band.
 - **Attribution**: classify each detected change as authorized (originating from a merged
   remediation PR / known pipeline principal) or out-of-band (manual/console), using the actor
   identity and correlation id so pipeline-driven changes are not misflagged.
@@ -268,6 +271,16 @@ but cannot be merged by the normal flow.
   window before a change is declared out-of-band; record the suppression reason.
 - **False negatives**: signal feeds can lag or drop; detection completeness is a measured guard
   (see Exit Criteria), not assumed.
+- **Inventory boundary**: inventory freshness does not suppress deterministic finding formation.
+  It is evaluated after Action construction and before the risk decision. Missing or stale required
+  inventory caps authority at HIL or deny, so silence cannot hide a finding and stale state cannot
+  authorize execution.
+
+The first design named several future signal families without shipped completeness contracts and
+implied inventory-before-verdict ordering. That could turn an unobserved feed into a false absence
+or suppress a valid deterministic finding. The revised design narrows detection to the implemented
+Activity Log contract and moves inventory freshness to the action-authority boundary, where it can
+only preserve or lower autonomy.
 - **Response (shadow)**: an out-of-band change on a policy-violating resource generates a
   *shadow* revert-or-reconcile PR and an alert; it is **judged and logged only**. Auto-revert
   and reconcile-to-IaC execution are gated off until Phase 2 validation.

@@ -71,6 +71,7 @@ from ..core.risk_gate import (
 from ..core.tiers.t1_lightweight import CurrentReuseVerifier, EmbeddingModel
 from ..core.tiers.t2_reasoning import T2Proposer
 from ..core.trajectory import TrajectoryJoinService
+from ..core.verticals.change_safety import ChangeSafetyDetector
 from ..core.working_context import (
     ContextSelectionPolicyAuthority,
     ContextSelectionShadowRunner,
@@ -249,6 +250,7 @@ class Container:
     inventory: Inventory = field(default_factory=EmptyInventory)
     knowledge_source: KnowledgeSource = field(default_factory=EmptyKnowledgeSource)
     change_feed: ChangeFeed = field(default_factory=EmptyChangeFeed)
+    change_safety_detector: ChangeSafetyDetector | None = None
     change_safety_evidence_provider: ChangeSafetyPreAuthorityEvidenceProvider | None = None
     operational_readiness_posture: PostureAssessmentProvider | None = None
     operational_readiness_report_publisher: ReadinessReportPublisher | None = None
