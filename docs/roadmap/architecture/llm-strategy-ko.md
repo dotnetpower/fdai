@@ -1,7 +1,7 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 044356090625b44a61eb1ab8bda9cacfe4e74a26
+translation_source_sha: 08ecde60c449eea0bc1af1fd5de2a7db2b2fe593
 translation_revised: 2026-08-31
 ---
 # LLM 전략(LLM Strategy)
@@ -815,6 +815,8 @@ Resolvable `reused_from` 없는 재사용은 결함 - 감사 체인은 원래 �
 트랜잭션은 안정적인 멱등성 키로 증적을 추가합니다. 중복 전달은 이 증적을 반환하며 실패하면
 파티션 DDL과 증적 생성이 모두 롤백됩니다. 로컬 PostgreSQL 검사는 합성 지연 대신 범위가 제한된
 문 타임아웃과 인덱스를 사용하는 적중 및 누락 쿼리 계획을 확인합니다.
+전체 카탈로그 다이제스트 두 개가 같은 축약 물리 파티션 이름으로 매핑되면 PostgreSQL DDL을
+실행하기 전에 승격을 실패 시 차단합니다.
 - **예산 가드**: 티어별 토큰 예산과 비율 한도; 초과분은 HIL로 강등, 게이트 없는 auto-action
   이 되지 않음.
 - **프로바이더 실패 처리**: 시간 초과, rate-limit, 장애 시 **실패 시 차단** - 범위가 제한된 백오프로 재시도하고 보조 프로바이더로 대체 경로한 뒤 circuit 차단기로 HIL 강등.

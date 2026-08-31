@@ -340,6 +340,17 @@ class PostgresT2Cache:
     ) -> None:
         partition_name = _partition_name(catalog_version)
         cursor = await connection.execute(
+            """
+            SELECT catalog_version
+              FROM t2_cache_partition_registry
+             WHERE partition_name = %s
+            """,
+            (partition_name,),
+        )
+        registered = await cursor.fetchone()
+        if registered is not None and registered["catalog_version"] != catalog_version:
+            raise T2CacheLifecycleError("T2 cache partition name collides with another catalog")
+        cursor = await connection.execute(
             "SELECT fdai_t2_cache_create_partition(%s) AS partition_name",
             (catalog_version,),
         )

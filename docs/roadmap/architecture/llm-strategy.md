@@ -853,6 +853,8 @@ are all expired at the bounded cutoff. The same transaction appends a receipt ke
 idempotency key. Duplicate delivery returns that receipt; any failure rolls back both partition DDL
 and receipt creation. The local PostgreSQL check uses a bounded statement timeout and confirms the
 indexed hit and miss query plan instead of using a synthetic delay.
+If two full catalog digests map to the same shortened physical partition name, promotion fails
+closed before PostgreSQL DDL runs.
 - **Budget guards**: per-tier token budgets and rate limits; overflow degrades to HIL, never to
   an ungated auto-action.
 - **Provider failure handling**: on timeout, rate-limit, or outage, fail **closed** - retry with bounded backoff,

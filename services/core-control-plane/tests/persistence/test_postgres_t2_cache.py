@@ -167,6 +167,20 @@ async def test_promotion_ttl_duplicate_and_rollback(database_url: str) -> None:
     )
 
 
+async def test_promotion_rejects_a_partition_name_prefix_collision(database_url: str) -> None:
+    store = _store(database_url)
+    prefix = "a" * 24
+    first = f"sha256:{prefix}{'1' * 40}"
+    colliding = f"sha256:{prefix}{'2' * 40}"
+    await store.promote(catalog_version=first, idempotency_key="promote-prefix-one")
+
+    with pytest.raises(T2CacheLifecycleError, match="partition name collides"):
+        await store.promote(
+            catalog_version=colliding,
+            idempotency_key="promote-prefix-two",
+        )
+
+
 async def test_rotation_preserves_active_and_rollback_and_is_idempotent(
     database_url: str,
 ) -> None:
