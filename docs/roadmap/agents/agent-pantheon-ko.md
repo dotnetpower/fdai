@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 1a8a6acf17edf4685534319cc47e11f8ed0b126d
+translation_source_sha: 5e822f27e85d704280eb3c2af0db473c882b827a
 translation_revised: 2026-08-31
 ---
 # 에이전트 판테온
@@ -99,7 +99,8 @@ Norns는 inert `RuleCandidate` 제안의 sole 쓰기 담당으로 유지됩니�
 레코드와 정확한 릴리스를 독립적으로 다시 해석합니다. 두 에이전트 모두 권위 있는 승격
 레지스트리를 변경할 수 없으며, 독립적으로 승인된 정확한 재생만 이를 변경할 수 있습니다.
 Muninn은 영속 코호트 쓰기가 성공한 뒤에만 프로세스 로컬 코호트 캐시를 갱신합니다. 게시
-후에는 발행 다이제스트도 영속한 다음 해당 억제 표시를 캐시합니다.
+후에는 발행 다이제스트도 영속한 다음 해당 억제 표시를 캐시하며, 영속 쓰기 전에는 표시가
+존재하지 않습니다.
 
 Shadow dwell은 루프의 마지막 비활성 장벽입니다. Norns는 shadow 모드 감사 결과를 대상별 dwell 관측으로 보존하며(shadow 결과는 여전히 실제 rollback 비율 학습기에 섞이지 않습니다) 산출된 자기 검증 근거를 게시하는 후보에 첨부합니다. Mimir는 그 이벤트 근거에서 판정을 다시 유도하고, 근거가 없거나 일관되지 않거나 대상이 다르거나 임계 미달인 후보의 승격을 거부합니다. 정책 위반 탈출 0건 기준은 설정 항목이 아닙니다. 이는 두 에이전트 어느 쪽에도 권한을 부여하지 않으며, 카탈로그는 여전히 머지된 catalog-as-code PR로만 바뀐니다. [자율 규칙 발견](../rules-and-detection/rule-catalog-autonomous-discovery-ko.md#shadow-dwell-근거상류-구현)을 참고하세요.
 

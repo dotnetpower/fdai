@@ -571,12 +571,15 @@ def _append_pattern_case(
             str(record.get("case", {}).get("case_id", "")),
         )
     )
-    return {
+    cohort = {
         "schema_version": "1.0.0",
         "failure_fingerprint": case.failure_fingerprint,
         "cases": records[-_MAX_OPERATING_PATTERN_CASES:],
-        "last_emitted_digest": current.get("last_emitted_digest"),
     }
+    last_emitted_digest = current.get("last_emitted_digest")
+    if isinstance(last_emitted_digest, str):
+        cohort["last_emitted_digest"] = last_emitted_digest
+    return cohort
 
 
 def _cohort_digest(cases: list[dict[str, Any]]) -> str:
