@@ -105,6 +105,10 @@ _ATTRIBUTION_NAMESPACE: Final[UUID] = UUID("6b1b6f2c-5a3e-4a91-8f1a-8b8a7e2f9d10
 re-delivered signal producing the same alert event id so the audit
 trail can be reconciled across retries."""
 
+_ZERO_AGE: Final[timedelta] = timedelta(0)
+"""Lower bound of a measurable event age; below it the settling window
+cannot be evaluated."""
+
 
 # ---------------------------------------------------------------------------
 # Enums + dataclasses
@@ -420,6 +424,19 @@ class ChangeSafetyDetector:
         if detected_at.tzinfo is None:
             detected_at = detected_at.replace(tzinfo=UTC)
         age = now - detected_at
+        if age < _ZERO_AGE:
+            # A change stamped ahead of the detector clock has no measurable
+            # age, so the settling window cannot suppress it. Suppression is
+            # the silent outcome, so an unmeasurable age reports out-of-band.
+            return (
+                ChangeAttribution.OUT_OF_BAND,
+                (
+                    f"actor:{actor or '<unknown>'} not a pipeline principal and event "
+                    f"time is {abs(age.total_seconds()):.3f}s ahead of the detector clock, "
+                    "so the settling window is unmeasurable"
+                ),
+                None,
+            )
         if age < window:
             seconds = int(window.total_seconds())
             return (

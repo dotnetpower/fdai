@@ -22,6 +22,8 @@ The quality gate refuses duplicate cross-check models, so one model cannot agree
 and satisfy the mixed-model quorum.
 An effective freeze or quiet ChangeWindow with unusable bounds denies maintenance authority
 instead of being skipped.
+A change event stamped ahead of the detector clock reports out-of-band instead of being
+suppressed by the settling window.
 
 ## Core domain navigation decision
 

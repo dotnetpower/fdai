@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 3c0932084fdd84a8ee7de0fe88d67e5f4be4c791
+translation_source_sha: ca7746d30873ce8d22234bf9bc1ba676eb6011d6
 translation_revised: 2026-08-31
 ---
 # 프로젝트 구조
@@ -25,6 +25,8 @@ DR 목표 근거는 nearest-rank p90을 보고합니다. 따라서 표본이 적
 혼합 모델 정족수를 충족할 수 없습니다.
 사용할 수 없는 경계를 가진 유효한 freeze 또는 quiet ChangeWindow는 건너뛰지 않고 유지 보수
 권한을 거부합니다.
+탐지기 시계보다 앞선 시각이 기록된 변경 이벤트는 settling 윈도우로 억제하지 않고
+out-of-band로 보고합니다.
 
 ## Core 도메인 탐색 결정
 

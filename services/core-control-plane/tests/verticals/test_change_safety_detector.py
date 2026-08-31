@@ -262,6 +262,28 @@ async def test_naive_detected_at_does_not_crash_settling_window() -> None:
     assert decision.outcome is DetectorOutcome.SUPPRESSED
 
 
+async def test_future_dated_event_is_not_suppressed() -> None:
+    # A change stamped ahead of the detector clock has no measurable age, so
+    # the settling window MUST NOT silently suppress it.
+    detected = FIXED_DETECTED_AT
+    detector, publisher, bus, audit = _detector(
+        now=detected - timedelta(hours=1),
+    )
+    event = _event(
+        actor="unknown-actor",
+        idempotency_key="settling-future",
+        detected_at=detected,
+    )
+
+    decision = await detector.detect(event)
+
+    assert decision.attribution is ChangeAttribution.OUT_OF_BAND
+    assert decision.outcome is DetectorOutcome.OUT_OF_BAND_EMITTED
+    assert "ahead of the detector clock" in decision.reason
+    assert len(publisher.records) == 1
+    assert bus._records.get(OUT_OF_BAND_ALERT_TOPIC) is not None  # type: ignore[attr-defined]
+
+
 async def test_settling_window_per_resource_type_override() -> None:
     detected = FIXED_DETECTED_AT
     detector, publisher, _, audit = _detector(
