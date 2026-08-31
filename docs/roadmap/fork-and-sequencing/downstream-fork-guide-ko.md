@@ -1,7 +1,7 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: 42b1aa7258c18f752d3208df3f44e0bcece516bf
+translation_source_sha: fce17d8956e5b2a79f154ec5265546d344d8fa14
 translation_revised: 2026-08-30
 ---
 
@@ -230,7 +230,7 @@ focused owner 문서를 사용하세요.
 
 **독립 업스트림 vertical 패키지**는 포크 overlay나 새 seam recipe가 아닙니다. 검토된
 `fdai-cost-governance` 배포판은 테넌트 값, 배포 상태, 사용자 접근 또는 자율성을 선택하지 않고
-하나의 exact 온톨로지 프로필과 기존 고정 pantheon을 연결합니다. 해당 업스트림 수명 주기는 [FinOps
+하나의 exact 온톨로지 프로필(활성 release에 핀 고정)과 기존 고정 pantheon을 연결합니다. 해당 업스트림 수명 주기는 [FinOps
 패키지 전달 계획](finops-package-delivery-plan-ko.md)을 참조하세요.
 이 계획의 정적 다이어그램 사양과 생성된 자산은 업스트림 문서 산출물입니다. 포크는 이를 변경
 없이 동기화하며, 이 산출물은 편집 가능한 경계를 추가하거나 포크 경계를 넓히지 않습니다.

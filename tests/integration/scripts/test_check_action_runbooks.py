@@ -115,7 +115,7 @@ def test_shipped_action_types_have_valid_runbook_coverage() -> None:
     result = _run(REPO_ROOT)
 
     assert result.returncode == 0, result.stderr
-    assert "OK (48 ActionType(s)" in result.stdout
+    assert "OK (49 ActionType(s)" in result.stdout
 
 
 def test_checker_is_wired_into_ci_and_local_gates() -> None:

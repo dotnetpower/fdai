@@ -33,6 +33,8 @@ EXPECTED_FDAI_ROOTS = {
 
 EXPECTED_RUNTIME_MODULES = {
     "__init__.py",
+    "adaptive_investigation_runtime.py",
+    "assurance_twin_query.py",
     "bootstrap.py",
     "bootstrap_bindings.py",
     "bootstrap_core.py",
@@ -67,8 +69,11 @@ EXPECTED_RUNTIME_MODULES = {
     "inventory_ontology.py",
     "isolated_executor_client.py",
     "metric_semantic_catalog.py",
+    "observation_evidence.py",
     "operating_model.py",
     "operational_catalog_review.py",
+    "pantheon_assurance_evidence.py",
+    "pantheon_conversation_assurance.py",
     "post_turn_review.py",
     "providers.py",
     "read_investigation_runtime.py",

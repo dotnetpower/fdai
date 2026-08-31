@@ -20,7 +20,7 @@
     "active_owner": "package-owned",
     "package_version": "0.1.1",
     "package_manifest_path": "extensions/cost-governance/src/fdai_cost_governance/resources/manifest.json",
-    "package_manifest_sha256": "5e9ded8ad089286ef3b4470c31210b09f3170984b958c99c49eaf27ec0f8cd2c",
+    "package_manifest_sha256": "75d8ab083a51db7de7be7c76ef6ec598ad7ff6c06012e8c4a6e76f40a2b8c828",
     "active_asset_counts": {
       "rules": 12,
       "policies": 12,
@@ -690,7 +690,7 @@
       {
         "id": "cost-governance.w0.no-op.001",
         "path": "tests/integration/fixtures/cost_governance_w0_outcomes/no-op.json",
-        "sha256": "bc33edc312aef8e955b89dbdf71434b53c0fa4af03628b04d7b53db70c80db3c",
+        "sha256": "369ef937475105b142705bc859c5c86e1f4be1f69b9d7ef01eec3112661c4222",
         "outcome": "no-op",
         "driver": "thor-duplicate",
         "coverage": ["executable-replay", "no-op"]
@@ -706,7 +706,7 @@
       {
         "id": "cost-governance.w0.execute.001",
         "path": "tests/integration/fixtures/cost_governance_w0_outcomes/execute.json",
-        "sha256": "e22de3bc3a1407d8bbb70ed77128fc730a18ae37e5143bd1408cfb9d14513eac",
+        "sha256": "1d693c63d2623309b1d9d7c3604388b9e7926d956ff9ddff85f8988bf4a08b50",
         "outcome": "execute",
         "driver": "thor-dispatch",
         "coverage": ["executable-replay", "execute"]
@@ -714,7 +714,7 @@
       {
         "id": "cost-governance.w0.rollback.001",
         "path": "tests/integration/fixtures/cost_governance_w0_outcomes/rollback.json",
-        "sha256": "8e83e12c7713bddce6c34efae92ed8a4dbc600264c453814b901ee5941230acf",
+        "sha256": "1fc5b52167673aab7287ab056372643f76bc9cf1779d941a4717fd1be279a191",
         "outcome": "rollback",
         "driver": "thor-vidar",
         "coverage": ["executable-replay", "rollback"]

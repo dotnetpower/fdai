@@ -229,7 +229,8 @@ focused owner documents linked by each recipe.
 | [5.17](downstream-fork-seam-recipes.md#517-capability-bundle-registration) | `CapabilityBundle` registration and startup cross-validation |
 
 **Independent upstream vertical packages** are not fork overlays or new seam recipes. The reviewed
-`fdai-cost-governance` distribution binds one exact ontology profile and the existing fixed
+`fdai-cost-governance` distribution binds one exact ontology profile (pinned to the active release)
+and the existing fixed
 pantheon without selecting tenant values, deployment state, user access, or autonomy. See the
 [FinOps Package Delivery Plan](finops-package-delivery-plan.md) for that upstream lifecycle.
 Its static diagram specification and generated assets are upstream documentation artifacts. A fork

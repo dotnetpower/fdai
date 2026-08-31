@@ -9,7 +9,8 @@
     "risk_verdict": "auto",
     "resource_id": "resource-example-rollback",
     "idempotency_key": "cost-rollback-key-001",
-    "rollback_contract": "state_forward_only"
+    "rollback_contract": "state_forward_only",
+    "resolved_autonomy_ceiling": "enforce_auto"
   },
   "expected": {
     "state": "rolled_back",

@@ -2,19 +2,19 @@
   "schema_version": "1.0.0",
   "profile_id": "cost-governance.semantic-profile",
   "profile_version": "1.0.0",
-  "ontology_release_digest": "sha256:098868352fa3efd8ccaf6df77101c2bb51e3f4008ca733bf69881d13623390fb",
+  "ontology_release_digest": "sha256:f422fe77b8c56129b037cec69a98f770c7e455d5cf3f46661051f27a75e4ed71",
   "declarations": [
     {
       "kind": "action",
       "name": "remediate.remove-orphan-resource",
       "version": "1.0.0",
-      "declaration_digest": "sha256:ca6cb995e8fdf0b9fd40dc8d39cf93156c4d8bd3d007477bb0a06e980dee9414"
+      "declaration_digest": "sha256:072fa154c5c60e6c779b4a741f6868a765f18e074d19429cc30eb1a18c12e88a"
     },
     {
       "kind": "action",
       "name": "remediate.right-size",
       "version": "1.0.0",
-      "declaration_digest": "sha256:9be615152cef65098c0ed6182be6fb698b0b83606f7b95a4b44af262214cd221"
+      "declaration_digest": "sha256:67e2644a1c095ecdb60b2c25cb698df0e1665ebaa33c71224ec47a3a47647b4c"
     },
     {
       "kind": "link",
@@ -255,49 +255,134 @@
     {
       "id": "cost-governance.budget",
       "root_type": "BusinessService",
-      "object_types": ["BusinessService", "Budget", "CostObjective", "CostObservation", "Resource", "Workload"],
-      "link_types": ["budget_implements_cost_objective", "cost_observation_targets_resource", "implemented_by", "service_has_budget", "service_has_cost_objective", "workload_runs_on"],
+      "object_types": [
+        "BusinessService",
+        "Budget",
+        "CostObjective",
+        "CostObservation",
+        "Resource",
+        "Workload"
+      ],
+      "link_types": [
+        "budget_implements_cost_objective",
+        "cost_observation_targets_resource",
+        "implemented_by",
+        "service_has_budget",
+        "service_has_cost_objective",
+        "workload_runs_on"
+      ],
       "evidence_function": "cost-governance.evidence.budget",
-      "bounds": {"max_depth": 4, "max_edges": 256, "max_objects": 128}
+      "bounds": {
+        "max_depth": 4,
+        "max_edges": 256,
+        "max_objects": 128
+      }
     },
     {
       "id": "cost-governance.cleanup",
       "root_type": "Resource",
-      "object_types": ["ActionOption", "BusinessService", "CostObservation", "DecisionCase", "Resource", "Workload"],
-      "link_types": ["considers", "cost_observation_targets_resource", "implemented_by", "workload_runs_on"],
+      "object_types": [
+        "ActionOption",
+        "BusinessService",
+        "CostObservation",
+        "DecisionCase",
+        "Resource",
+        "Workload"
+      ],
+      "link_types": [
+        "considers",
+        "cost_observation_targets_resource",
+        "implemented_by",
+        "workload_runs_on"
+      ],
       "evidence_function": "cost-governance.evidence.cleanup",
-      "bounds": {"max_depth": 4, "max_edges": 256, "max_objects": 128}
+      "bounds": {
+        "max_depth": 4,
+        "max_edges": 256,
+        "max_objects": 128
+      }
     },
     {
       "id": "cost-governance.cost-anomaly",
       "root_type": "CostAnomaly",
-      "object_types": ["BusinessService", "CostAnomaly", "CostObservation", "Resource", "Workload"],
-      "link_types": ["cost_anomaly_derived_from", "cost_observation_targets_resource", "implemented_by", "workload_runs_on"],
+      "object_types": [
+        "BusinessService",
+        "CostAnomaly",
+        "CostObservation",
+        "Resource",
+        "Workload"
+      ],
+      "link_types": [
+        "cost_anomaly_derived_from",
+        "cost_observation_targets_resource",
+        "implemented_by",
+        "workload_runs_on"
+      ],
       "evidence_function": "cost-governance.evidence.cost-anomaly",
-      "bounds": {"max_depth": 4, "max_edges": 256, "max_objects": 128}
+      "bounds": {
+        "max_depth": 4,
+        "max_edges": 256,
+        "max_objects": 128
+      }
     },
     {
       "id": "cost-governance.right-sizing",
       "root_type": "SizingRecommendation",
-      "object_types": ["ActionOption", "CapacityForecast", "DecisionCase", "ExpectedEffect", "Resource", "SizingRecommendation"],
-      "link_types": ["capacity_forecast_targets_resource", "considers", "expects", "sizing_recommendation_based_on", "sizing_recommendation_targets_resource"],
+      "object_types": [
+        "ActionOption",
+        "CapacityForecast",
+        "DecisionCase",
+        "ExpectedEffect",
+        "Resource",
+        "SizingRecommendation"
+      ],
+      "link_types": [
+        "capacity_forecast_targets_resource",
+        "considers",
+        "expects",
+        "sizing_recommendation_based_on",
+        "sizing_recommendation_targets_resource"
+      ],
       "evidence_function": "cost-governance.evidence.right-sizing",
-      "bounds": {"max_depth": 4, "max_edges": 256, "max_objects": 128}
+      "bounds": {
+        "max_depth": 4,
+        "max_edges": 256,
+        "max_objects": 128
+      }
     },
     {
       "id": "cost-governance.settlement",
       "root_type": "DecisionCase",
-      "object_types": ["ActionOption", "ActionRun", "DecisionCase", "ExpectedEffect", "ObservedOutcome"],
-      "link_types": ["considers", "executed_as", "expects", "resulted_in"],
+      "object_types": [
+        "ActionOption",
+        "ActionRun",
+        "DecisionCase",
+        "ExpectedEffect",
+        "ObservedOutcome"
+      ],
+      "link_types": [
+        "considers",
+        "executed_as",
+        "expects",
+        "resulted_in"
+      ],
       "evidence_function": "cost-governance.evidence.settlement",
-      "bounds": {"max_depth": 4, "max_edges": 256, "max_objects": 128}
+      "bounds": {
+        "max_depth": 4,
+        "max_edges": 256,
+        "max_objects": 128
+      }
     }
   ],
   "evidence_functions": [
     {
       "id": "cost-governance.evidence.budget",
       "operation": "validate",
-      "input_types": ["Budget", "CostObjective", "CostObservation"],
+      "input_types": [
+        "Budget",
+        "CostObjective",
+        "CostObservation"
+      ],
       "output": "budget_evidence",
       "source_authority_required": true,
       "independent_source_required": true,
@@ -307,7 +392,12 @@
     {
       "id": "cost-governance.evidence.cleanup",
       "operation": "validate",
-      "input_types": ["BusinessService", "CostObservation", "Resource", "Workload"],
+      "input_types": [
+        "BusinessService",
+        "CostObservation",
+        "Resource",
+        "Workload"
+      ],
       "output": "cleanup_evidence",
       "source_authority_required": true,
       "independent_source_required": true,
@@ -317,7 +407,10 @@
     {
       "id": "cost-governance.evidence.cost-anomaly",
       "operation": "derive",
-      "input_types": ["CostAnomaly", "CostObservation"],
+      "input_types": [
+        "CostAnomaly",
+        "CostObservation"
+      ],
       "output": "cost_anomaly_evidence",
       "source_authority_required": true,
       "independent_source_required": false,
@@ -327,7 +420,11 @@
     {
       "id": "cost-governance.evidence.right-sizing",
       "operation": "validate",
-      "input_types": ["CapacityForecast", "Resource", "SizingRecommendation"],
+      "input_types": [
+        "CapacityForecast",
+        "Resource",
+        "SizingRecommendation"
+      ],
       "output": "sizing_evidence",
       "source_authority_required": true,
       "independent_source_required": true,
@@ -337,7 +434,11 @@
     {
       "id": "cost-governance.evidence.settlement",
       "operation": "validate",
-      "input_types": ["ActionRun", "ExpectedEffect", "ObservedOutcome"],
+      "input_types": [
+        "ActionRun",
+        "ExpectedEffect",
+        "ObservedOutcome"
+      ],
       "output": "settlement_evidence",
       "source_authority_required": true,
       "independent_source_required": true,
@@ -346,14 +447,46 @@
     }
   ],
   "competency_gates": [
-    {"id": "F1", "object_set": "cost-governance.cost-anomaly", "question": "Resolve exact resource, workload, and service scope with direction and completeness."},
-    {"id": "F2", "object_set": "cost-governance.budget", "question": "Resolve effective cost, service, recovery, architecture, ownership, and change-window intent at the cutoff."},
-    {"id": "F3", "object_set": "cost-governance.cost-anomaly", "question": "Classify evidence freshness, completeness, source authority, conflicts, synthetic status, and availability."},
-    {"id": "F4", "object_set": "cost-governance.right-sizing", "question": "Compare no-action and bounded change options after hard-constraint filtering."},
-    {"id": "F5", "object_set": "cost-governance.right-sizing", "question": "Preserve cost and non-cost expected effects, uncertainty, windows, and falsifiers."},
-    {"id": "F6", "object_set": "cost-governance.right-sizing", "question": "Expose exact governance references without deciding approval or execution eligibility."},
-    {"id": "F7", "object_set": "cost-governance.settlement", "question": "Require independent observations for every expected effect."},
-    {"id": "F8", "object_set": "cost-governance.settlement", "question": "Replay exact context, decision, action, and outcome revisions before learning."}
+    {
+      "id": "F1",
+      "object_set": "cost-governance.cost-anomaly",
+      "question": "Resolve exact resource, workload, and service scope with direction and completeness."
+    },
+    {
+      "id": "F2",
+      "object_set": "cost-governance.budget",
+      "question": "Resolve effective cost, service, recovery, architecture, ownership, and change-window intent at the cutoff."
+    },
+    {
+      "id": "F3",
+      "object_set": "cost-governance.cost-anomaly",
+      "question": "Classify evidence freshness, completeness, source authority, conflicts, synthetic status, and availability."
+    },
+    {
+      "id": "F4",
+      "object_set": "cost-governance.right-sizing",
+      "question": "Compare no-action and bounded change options after hard-constraint filtering."
+    },
+    {
+      "id": "F5",
+      "object_set": "cost-governance.right-sizing",
+      "question": "Preserve cost and non-cost expected effects, uncertainty, windows, and falsifiers."
+    },
+    {
+      "id": "F6",
+      "object_set": "cost-governance.right-sizing",
+      "question": "Expose exact governance references without deciding approval or execution eligibility."
+    },
+    {
+      "id": "F7",
+      "object_set": "cost-governance.settlement",
+      "question": "Require independent observations for every expected effect."
+    },
+    {
+      "id": "F8",
+      "object_set": "cost-governance.settlement",
+      "question": "Replay exact context, decision, action, and outcome revisions before learning."
+    }
   ],
   "safety": {
     "autonomy_effect": "preserve_or_lower",
@@ -361,5 +494,5 @@
     "execution_authority": false,
     "promotion_authority": false
   },
-  "canonical_sha256": "sha256:bb23b5ae5a827f5fa869c48b5e9cd061c32395dbe04ddf2e4dde97d07779d825"
+  "canonical_sha256": "sha256:b44935a987f974e65429448e38fc4f780ce81f0f2d8acda5160ad1dd756701c0"
 }

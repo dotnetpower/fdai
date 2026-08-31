@@ -12,7 +12,7 @@
   },
   "expected": {
     "state": "succeeded",
-    "executor_calls": 1,
+    "executor_calls": 0,
     "duplicate_returns_existing_run": true
   }
 }
