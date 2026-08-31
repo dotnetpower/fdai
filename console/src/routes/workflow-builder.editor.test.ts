@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { INITIAL_FORM } from "./workflow-builder.model";
 import {
@@ -7,6 +8,10 @@ import {
   removeDraftStep,
   setDraftParam,
   setDraftStepAction,
+  setDraftStepApprovalRole,
+  setDraftStepKind,
+  setDraftStepNoSelfApproval,
+  updateDraftStepField,
 } from "./workflow-builder.editor";
 
 describe("workflow draft editor", () => {
@@ -52,5 +57,63 @@ describe("workflow draft editor", () => {
 
     expect(withBoolean.steps[0]!.params).toEqual({ retries: 3, urgent: true });
     expect(INITIAL_FORM.steps[0]!.params).toEqual({});
+  });
+
+  it("authors WAIT and APPROVAL requirements without losing hidden kind fields", () => {
+    const wait = updateDraftStepField(
+      updateDraftStepField(
+        updateDraftStepField(setDraftStepKind(INITIAL_FORM, 0, "wait"), 0, "id", "wait_for_evidence"),
+        0,
+        "wait_for",
+        "evidence.updated",
+      ),
+      0,
+      "timeout_seconds",
+      "3600",
+    );
+    const approvalKind = setDraftStepKind(addDraftStep(wait), 1, "approval");
+    const withRole = setDraftStepApprovalRole(approvalKind, 1, "approver");
+    const withQuorum = updateDraftStepField(withRole, 1, "quorum", "2");
+    const approval = setDraftStepNoSelfApproval(
+      updateDraftStepField(withQuorum, 1, "timeout_seconds", "1800"),
+      1,
+      true,
+    );
+
+    expect(approval.steps).toMatchObject([
+      {
+        kind: "wait",
+        id: "wait_for_evidence",
+        wait_for: "evidence.updated",
+        timeout_seconds: "3600",
+      },
+      {
+        kind: "approval",
+        approval_role: "approver",
+        quorum: "2",
+        timeout_seconds: "1800",
+        no_self_approval: true,
+      },
+    ]);
+    expect(moveDraftStep(approval, 1, -1).steps.map((step) => step.kind)).toEqual([
+      "approval",
+      "wait",
+    ]);
+  });
+
+  it("keeps required control fields and validation feedback accessible", () => {
+    const editorSource = readFileSync(
+      new URL("./workflow-builder.draft-editor.tsx", import.meta.url),
+      "utf8",
+    );
+    const previewSource = readFileSync(
+      new URL("./workflow-builder.chatpanel.tsx", import.meta.url),
+      "utf8",
+    );
+
+    expect(editorSource).toContain('type="number" min="1" step="1" required');
+    expect(editorSource).toContain('type="checkbox"');
+    expect(editorSource).toContain('workflow.editor.noSelfApprovalHint');
+    expect(previewSource).toContain('class="wf-test-fail" role="alert"');
   });
 });

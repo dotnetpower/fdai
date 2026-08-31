@@ -21,11 +21,17 @@ export function emptyStep(key: number): DraftStep {
   return {
     key,
     id: "",
+    kind: "action",
     action_type_ref: "",
     guard_rule_ref: "",
     compensated_by: "",
     on_failure: "",
     params: {},
+    wait_for: "",
+    timeout_seconds: "",
+    approval_role: "",
+    quorum: "1",
+    no_self_approval: true,
   };
 }
 
@@ -64,11 +70,19 @@ export function catalogToForm(w: WorkflowCatalogEntry): FormState {
     steps: w.steps.map((s, i) => ({
       key: i,
       id: s.id,
-      action_type_ref: s.action_type_ref,
+      kind: s.kind === "wait" || s.kind === "approval" ? s.kind : "action",
+      action_type_ref: s.action_type_ref ?? "",
       guard_rule_ref: s.guard_rule_ref ?? "",
       compensated_by: s.compensated_by ?? "",
       on_failure: s.on_failure ?? "",
       params: { ...(s.params ?? {}) },
+      wait_for: s.wait_for ?? "",
+      timeout_seconds: s.timeout_seconds === null || s.timeout_seconds === undefined
+        ? ""
+        : String(s.timeout_seconds),
+      approval_role: s.approval_role ?? "",
+      quorum: String(s.quorum ?? 1),
+      no_self_approval: s.no_self_approval ?? true,
     })),
   };
 }
@@ -145,12 +159,26 @@ export function buildDraft(form: FormState): Record<string, unknown> {
   else trigger["schedule"] = form.schedule.trim();
 
   const steps = form.steps.map((s) => {
+    const kind = s.kind;
     const step: Record<string, unknown> = {
       id: s.id.trim(),
-      action_type_ref: s.action_type_ref.trim(),
+      kind,
     };
+    if (kind === "action") step["action_type_ref"] = s.action_type_ref.trim();
+    if (kind === "wait") {
+      step["wait_for"] = s.wait_for.trim();
+      step["timeout_seconds"] = Number(s.timeout_seconds);
+    }
+    if (kind === "approval") {
+      step["approval_role"] = s.approval_role;
+      step["timeout_seconds"] = Number(s.timeout_seconds);
+      step["quorum"] = Number(s.quorum);
+      step["no_self_approval"] = s.no_self_approval;
+    }
     if (s.guard_rule_ref.trim()) step["guard_rule_ref"] = s.guard_rule_ref.trim();
-    if (s.compensated_by.trim()) step["compensated_by"] = s.compensated_by.trim();
+    if (kind === "action" && s.compensated_by.trim()) {
+      step["compensated_by"] = s.compensated_by.trim();
+    }
     if (s.on_failure.trim()) step["on_failure"] = s.on_failure.trim();
     if (Object.keys(s.params).length > 0) step["params"] = { ...s.params };
     return step;

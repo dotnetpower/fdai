@@ -6154,6 +6154,9 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .wf-editor-section-head h5,
 .wf-editor-section-head h6 { margin: 0; }
 .wf-editor-steps { display: grid; gap: 10px; margin-top: 8px; }
+.wf-checkbox-field { flex-direction: row; align-items: flex-start; gap: 8px; padding-top: 20px; }
+.wf-checkbox-field > input { margin-top: 2px; }
+.wf-checkbox-field > span { display: grid; gap: 3px; }
 .wf-param-list { display: grid; gap: 6px; margin-top: 8px; }
 .wf-param-row { display: grid; grid-template-columns: minmax(100px, 1fr) 100px minmax(100px, 1fr) auto; gap: 6px; }
 @media (max-width: 720px) {

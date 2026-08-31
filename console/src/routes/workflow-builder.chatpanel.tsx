@@ -507,7 +507,7 @@ function TestResult({ result }: { readonly result: ValidateResponse }) {
     );
   }
   return (
-    <div class="wf-test-fail">
+    <div class="wf-test-fail" role="alert">
       <p>
         {t(result.issues.length === 1 ? "workflow.chat.issueOne" : "workflow.chat.issueMany", {
           count: formatNumber(result.issues.length),
@@ -537,7 +537,7 @@ function WorkflowViz({
 }) {
   const nodes = useMemo(() => buildVizModel(form, palette), [form, palette]);
   const trigger = nodes[0];
-  const steps = nodes.filter((n) => n.kind === "do" || n.kind === "notify");
+  const steps = nodes.filter((n) => n.kind !== "when" && n.kind !== "done");
 
   return (
     <div class="wf-viz" role="list" aria-label={t("workflow.chat.visualization")}>
@@ -552,7 +552,7 @@ function WorkflowViz({
             <span class="wf-viz-edge-label">{t(i === 0 ? "workflow.chat.thenDo" : "workflow.chat.then")}</span>
           </div>
           <div class={`wf-viz-node wf-viz-action is-${n.category}`} role="listitem">
-            <span class="wf-viz-kind">{n.kind}</span>
+            <span class="wf-viz-kind">{t(`workflow.stepKind.${n.kind}`)}</span>
             <span class="wf-viz-name">{n.name}</span>
             <span class="wf-viz-ref mono">{n.ref}</span>
           </div>

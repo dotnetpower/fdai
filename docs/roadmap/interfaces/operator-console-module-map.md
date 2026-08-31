@@ -23,11 +23,13 @@ Repository catalogs are materialized into revisioned Operator projections, while
 | Browser-evidence metadata panel boundary | implemented | `console/src/routes/browser-evidence.tsx`; `console/src/panels.tsx`; focused decoder, panel, and router checks (`26 passed`) | The existing Evidence navigation route now consumes only the exact payload-free Operator envelope. It rejects controls and captured or structured payloads, renders no mutation commands, and keeps authenticated deployed read evidence as a separate runtime gate. |
 | Shared semantic row projection | implemented | `families/conversation/presentation_rows.py`; v1 and v2 presentation modules; focused Operator presentation checks (`82 passed`) | One bounded pure projection keeps direct scalars and lifts only `name`, `type`, `status`, and `location` through at most two nested verified property bags. When readable facts exist, the default table omits opaque `id` and `object_type` columns; an identity-only result still renders those fields. Exact untouched rows remain in technical details. |
 | Semantic stream PostgreSQL cancellation | implemented | `postgres_family_store.py`; `test_postgres_family_store_cancellation.py`; focused semantic bridge checks (`76 passed`); Ruff and strict mypy | An AnyIO stream cancellation finishes bounded psycopg query cancellation and connection closure before propagating. It no longer races transaction rollback, and it changes no HTTP contract, database ownership, or execution authority. |
+| Workflow Builder wait and approval authoring | implemented | `console/src/routes/workflow-builder.{model,editor,session,viz}.ts`; `console/tests/e2e/workflow-builder-control-steps.spec.ts`; focused Console checks | The route keeps typed authoring, preview, and tab recovery in separate modules. Required timeout, approval role, quorum, and no-self-approval fields survive clone, reorder, validation, and restore. Validation remains server-authoritative, and saved private drafts remain shadow and non-runnable. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-31 | implemented | Extended the Workflow Builder module boundary from action-only rows to lossless `WAIT` and `APPROVAL` authoring without adding browser or Operator API execution authority. | `current change`; 72 focused Vitest checks, 12 server contract checks, Console typecheck and production build, and synthetic desktop, constrained, and mobile Playwright checks passed. | Add `DECISION`, `PARALLEL`, and `GATE` structural authoring in #396, then principal-scoped transitions in #397. |
 | 2026-08-23 | implemented | Removed the PostgreSQL rollback race observed when an SSE disconnect cancelled a semantic replay query. Single-statement family queries retain PostgreSQL statement atomicity in autocommit mode, use a session statement timeout, and shield only bounded cancellation and close cleanup before re-raising the original cancellation. | `current change`; exact AnyIO plus `pg_sleep` reproduction failed before the fix and passed afterward without psycopg warnings; focused semantic bridge checks passed 76 cases; Ruff and strict mypy passed. | No additional work remains for this cancellation defect. |
 | 2026-08-19 | implemented | Extended the read-only assurance harness with the strict v2 declaration, release/evidence, inventory-impact, and Rule-state cells while preserving the fixed 50/50 locale split. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); [Continuous Question Space](continuous-question-space.md); 100 focused Console tests. | Retain an exact-source authenticated strict-v2 artifact before seeded certification. |
 | 2026-08-20 | implemented | Unified readable semantic-row projection across legacy and v2 presentation. The v2 analyzer previously discarded every nested mapping, so a verified Resource row rendered only `id` and `object_type` even though its exact evidence carried name, type, and location. | `current change`; [Issue #241](https://github.com/dotnetpower/fdai/issues/241); focused presentation and semantic bridge checks passed 94 cases; Ruff, formatting, and strict mypy passed. | Retain authenticated three-viewport evidence after restarting the Operator API on the committed source. |
@@ -513,6 +515,12 @@ It reads bounded context-selection shadow comparisons from the existing tracked-
 projects only presentation fields, and always declares `read_only` with `mutation_controls: false`.
 An empty result is authoritative; a malformed durable record fails closed. Owning design:
 [Context Selection Policy](../decisioning/context-selection-policy.md).
+
+Workflow Builder keeps its editable step model, pure draft projection, defensive session decoder,
+typed visualization, and Preact editor in sibling `workflow-builder.*` modules. Action choices come
+from the reviewed ActionType palette. Wait and approval fields follow the server-owned Workflow
+contract and are accepted only after the existing validation route checks them. The browser neither
+publishes nor executes a saved private draft.
 
 ## Core and delivery map
 

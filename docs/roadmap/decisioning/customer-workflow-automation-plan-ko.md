@@ -1,8 +1,8 @@
 ---
 title: 고객 워크플로 자동화 제공 계획
 translation_of: customer-workflow-automation-plan.md
-translation_source_sha: 1eefd6256e48b04f3be2b645c9b76f8f27790e03
-translation_revised: 2026-08-20
+translation_source_sha: fa2bbfc36e4362698e0169c48d247a2622ee4851
+translation_revised: 2026-08-31
 ---
 
 # 고객 워크플로 자동화 제공 계획
@@ -28,7 +28,7 @@ translation_revised: 2026-08-20
 |------|------|------|------|
 | 웨이브 0-2 카탈로그, 관찰, 저널 및 승인 | implemented | [`test_workflow_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_workflow_catalog.py), [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`test_workflow_approval.py`](../../../services/core-control-plane/tests/delivery/persistence/test_workflow_approval.py) | 구조 검증, shadow 실행, 영속 Process 상태 및 승인 동작에 집중 테스트가 있습니다. |
 | 웨이브 3 동작 시뮬레이션 및 제한된 변경 | not-started | [웨이브 3](#웨이브-3---제한된-기반-변경-추가) | 구조 검증은 있지만 동작 차이 시뮬레이션과 staging 비교는 구현되지 않았습니다. |
-| 웨이브 4 저작 및 운영 경험 | in-progress | [`workflow-builder.chat.ts`](../../../console/src/routes/workflow-builder.chat.ts), [웨이브 4](#웨이브-4---저작-및-운영-경험-완성) | 저작, 검증 및 비공개 초안은 있지만 검토된 카탈로그 제안과 완전한 운영 흐름은 미완료입니다. |
+| 웨이브 4 저작 및 운영 경험 | in-progress | [`workflow-builder.chat.ts`](../../../console/src/routes/workflow-builder.chat.ts), [`workflow-builder-control-steps.spec.ts`](../../../console/tests/e2e/workflow-builder-control-steps.spec.ts), [웨이브 4](#웨이브-4---저작-및-운영-경험-완성) | 작업, 대기 및 승인 단계 저작과 검증, 비공개 초안은 구현되었습니다. 결정, 병렬, 게이트, 검토된 카탈로그 제안 및 완전한 운영 전환은 남아 있습니다. |
 | 웨이브 5 확장, SLI 및 자동 강등 | not-started | [웨이브 5](#웨이브-5---확장-및-운영-인수인계) | 분산 잠금, 범위별 backpressure, 운영 SLI 또는 자동 강등 근거가 보존되지 않았습니다. |
 
 ### 구현 이력
@@ -36,11 +36,16 @@ translation_revised: 2026-08-20
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입하고 현재 상태를 웨이브 근거와 맞췄습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트입니다. | 웨이브 3-5를 완료하고 프로세스별 승격 근거를 보존해야 합니다. |
+| 2026-08-31 | in-progress | 필수 제한 시간, 권한, 정족수, 자기 승인 방지, 손실 없는 복제 및 세션 복구, 현지화된 안내, 유형별 미리 보기를 포함한 카탈로그 기반 `WAIT` 및 `APPROVAL` 저작을 추가했습니다. 비공개 초안은 shadow이며 실행할 수 없습니다. | `current change`; [`workflow-builder.model.ts`](../../../console/src/routes/workflow-builder.model.ts), [`workflow-builder.session.ts`](../../../console/src/routes/workflow-builder.session.ts), [`workflow-builder-control-steps.spec.ts`](../../../console/tests/e2e/workflow-builder-control-steps.spec.ts); 집중 Vitest 검사 72개, 서버 계약 검사 12개, Console 형식 검사와 빌드, 카탈로그 일치, 읽을 수 있는 한글, 문장 부호, 데스크톱, 제한된 데스크톱 및 모바일 Playwright 검사를 통과했습니다. | #396에서 구조 저작을 완료하고 #397에서 권위 있는 운영자 전환을 완료해야 합니다. |
 
 ### 남은 작업
 
 - [ ] 정확한 대상과 예상 상태 차이를 반환하는 읽기 전용 동작 시뮬레이터를 구현하고 staging
   실행과의 동등성 근거를 보존합니다.
+- [ ] #396에서 저작, 검증, 순서 변경, 저장 및 복원 과정의 `DECISION`, `PARALLEL`, `GATE`
+  구조를 보존하고 잘못된 구조를 차단합니다.
+- [ ] #397에서 principal 범위의 권위 있는 단계 상태를 표시하고 오래됨, 사용 불가, 권한 없음,
+  자기 승인, 시간 초과 및 잘못된 전환 사례가 차단되는지 입증합니다.
 - [ ] 초안에 실행 권한을 부여하지 않는 저작 화면의 검토된 카탈로그 제안 및 deep-link 검토를
   완료합니다.
 - [ ] 웨이브 5 종료 전에 다중 replica shadow 캠페인에서 분산 잠금, 제한된 backpressure,
@@ -82,11 +87,11 @@ translation_revised: 2026-08-20
 
 | 기능 | 현재 상태 | 제공 시 의미 |
 |------|-----------|-------------|
-| 정의 검증 및 비공개 초안 | 구현됨 | 지금 액션 단계 과 기본 요소 매개변수 를 직접 편집하고 탭 초안 를 복구하여 프로세스를 모델링하고 검토할 수 있습니다. 초안은 실행할 수 없습니다. |
+| 정의 검증 및 비공개 초안 | 구현됨 | 지금 작업, 대기 및 승인 단계를 모델링하고, 순서 변경과 탭 복구 중 필수 제어 필드를 보존하며, 프로세스를 검토할 수 있습니다. 초안은 실행할 수 없습니다. |
 | 신호 및 예약 트리거 | 구현됨 | 정규화된 이벤트나 일정에서 관찰 실행을 시작할 수 있습니다. |
 | 프로세스 스냅샷 및 추가 전용 저널 | 구현됨 | 실행을 검사하고 결정론적으로 식별할 수 있습니다. |
 | 검증된 액션 진행 상황 및 보상 | Core 런타임에 구현됨 | 제안 전달, 권위 있는 결과 검증, reverse 보상, recovery-incomplete 종결을 별도 저널 상태로 기록합니다. Headless 및 운영 Operator API 조립은 shared StateStore recorder와 검증기를 연결하며 독립적인 효과 근거가 없으면 프로세스를 waiting 상태로 유지합니다. Held 대상은 일치하는 프로세스 보상만 사람 승인을 통해 허용하며 모든 검증된 증적과 CAS 보류 release가 끝나야 `compensated`가 됩니다. |
-| `WAIT`, `APPROVAL`, `DECISION`, `PARALLEL`, `GATE` 실행 | 런타임에 구현됨 | 빌더 지원과 종단간 운영자 전환은 추가 완성이 필요합니다. |
+| `WAIT`, `APPROVAL`, `DECISION`, `PARALLEL`, `GATE` 실행 | 런타임에 구현됨 | `WAIT` 및 `APPROVAL` 빌더 지원은 구현되었습니다. `DECISION`, `PARALLEL`, `GATE` 저작과 종단간 운영자 전환은 추가 완성이 필요합니다. |
 | 읽기 전용 `EVIDENCE` 실행 | 브라우저 근거에 구현됨 | 별도 근거 디스패처를 사용하고 shadow-only로 유지되며 액션 권한 없이 실패 시 차단됩니다. |
 | 강제 적용 워크플로 명령 | Owner 및 허용 목록으로 제한됨 | 작업 스텝이 형식화된 `operator_request` 이벤트를 게시합니다. 직접 변경 권한은 아닙니다. |
 | 도구 실행 | 선택된 어댑터에 제공됨 | GitHub, Jira, chaos, 조사 및 Azure VM 경로에는 명시적 구성과 도구별 승격이 필요합니다. |
@@ -215,7 +220,8 @@ Console에 변경 권한을 부여하지 않고 복잡한 워크플로를 관리
 
 - 스키마 기반 매개 변수 편집. 기본 요소 매개변수 편집과 액션 단계 삽입, 제거 및
   순서 변경은 구현되었으며 ActionType 매개변수 스키마 안내는 남아 있습니다.
-- Wait, 승인, 결정, 병렬, 게이트 및 실패 가지 저작 지원.
+- 필수 제한 시간, 권한, 정족수 및 자기 승인 방지를 포함한 대기 및 승인 저작은
+  구현되었습니다. 결정, 병렬, 게이트 및 실패 분기 저작은 남아 있습니다.
 - 탭 범위 초안 복구는 구현되었습니다. Deep 링크, 변경할 수 없는 검토 차이 및 완전한 GitHub
   카탈로그 제안 흐름은 남아 있습니다.
 - 구조 검증과 명확하게 구분된 동작 미리 보기.

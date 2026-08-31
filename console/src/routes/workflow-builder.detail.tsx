@@ -1,7 +1,11 @@
 import { useEffect, useState } from "preact/hooks";
 import { CopyButton, UnavailableState } from "../components/ui";
 import { currentRoute, navigate, routeHref } from "../router";
-import type { ActionTypePaletteEntry, WorkflowCatalogEntry } from "../workflow/validate";
+import type {
+  ActionTypePaletteEntry,
+  WorkflowCatalogEntry,
+  WorkflowCatalogStep,
+} from "../workflow/validate";
 import { formatParams } from "./workflow-builder.helpers";
 import {
   hasActionTypeRef,
@@ -114,7 +118,7 @@ export function WorkflowDetail({
               >
                 <span>{t(index === workflow.steps.length - 1 ? "workflow.detail.then" : "workflow.detail.do")}</span>
                 <strong>{step.id}</strong>
-                <code>{step.action_type_ref || step.guard_rule_ref || step.on_failure || t("workflow.detail.workflowStage")}</code>
+                <code>{stepPrimaryRef(step)}</code>
               </button>
             </div>
           ))}
@@ -150,10 +154,29 @@ export function WorkflowDetail({
             <code class="workflow-inspector-name">{selected.action_type_ref || selected.id}</code>
             <dl>
               <div><dt>{t("workflow.detail.field.stepId")}</dt><dd>{selected.id}</dd></div>
-              <div><dt>{t("workflow.detail.field.category")}</dt><dd>{actionType?.category ?? t("workflow.detail.notRecorded")}</dd></div>
-              <div><dt>{t("workflow.detail.field.executionPath")}</dt><dd>{actionType?.execution_path ?? t("workflow.detail.notRecorded")}</dd></div>
-              <div><dt>{t("workflow.detail.field.rollback")}</dt><dd>{actionType?.rollback_contract ?? t("workflow.detail.notRecorded")}</dd></div>
-              <div><dt>{t("workflow.detail.field.defaultMode")}</dt><dd>{actionType?.default_mode ?? workflow.default_mode}</dd></div>
+              <div><dt>{t("workflow.detail.field.stepKind")}</dt><dd>{t(`workflow.stepKind.${selected.kind ?? "action"}`)}</dd></div>
+              {(selected.kind ?? "action") === "action" ? (
+                <>
+                  <div><dt>{t("workflow.detail.field.category")}</dt><dd>{actionType?.category ?? t("workflow.detail.notRecorded")}</dd></div>
+                  <div><dt>{t("workflow.detail.field.executionPath")}</dt><dd>{actionType?.execution_path ?? t("workflow.detail.notRecorded")}</dd></div>
+                  <div><dt>{t("workflow.detail.field.rollback")}</dt><dd>{actionType?.rollback_contract ?? t("workflow.detail.notRecorded")}</dd></div>
+                  <div><dt>{t("workflow.detail.field.defaultMode")}</dt><dd>{actionType?.default_mode ?? workflow.default_mode}</dd></div>
+                </>
+              ) : null}
+              {selected.kind === "wait" ? (
+                <>
+                  <div><dt>{t("workflow.detail.field.waitFor")}</dt><dd><code>{selected.wait_for ?? t("workflow.detail.notRecorded")}</code></dd></div>
+                  <div><dt>{t("workflow.detail.field.timeoutSeconds")}</dt><dd>{selected.timeout_seconds ?? t("workflow.detail.notRecorded")}</dd></div>
+                </>
+              ) : null}
+              {selected.kind === "approval" ? (
+                <>
+                  <div><dt>{t("workflow.detail.field.approvalRole")}</dt><dd>{selected.approval_role ?? t("workflow.detail.notRecorded")}</dd></div>
+                  <div><dt>{t("workflow.detail.field.quorum")}</dt><dd>{selected.quorum ?? 1}</dd></div>
+                  <div><dt>{t("workflow.detail.field.noSelfApproval")}</dt><dd>{selected.no_self_approval === false ? t("workflow.common.no") : t("workflow.common.yes")}</dd></div>
+                  <div><dt>{t("workflow.detail.field.timeoutSeconds")}</dt><dd>{selected.timeout_seconds ?? t("workflow.detail.notRecorded")}</dd></div>
+                </>
+              ) : null}
               <div><dt>{t("workflow.detail.field.guard")}</dt><dd>{selected.guard_rule_ref ?? t("workflow.detail.none")}</dd></div>
               <div><dt>{t("workflow.detail.field.compensatedBy")}</dt><dd>{selected.compensated_by ?? t("workflow.detail.none")}</dd></div>
               <div><dt>{t("workflow.detail.field.onFailure")}</dt><dd>{selected.on_failure ?? t("workflow.detail.notRecorded")}</dd></div>
@@ -178,4 +201,11 @@ export function WorkflowDetail({
       </details>
     </section>
   );
+}
+
+function stepPrimaryRef(step: WorkflowCatalogStep): string {
+  if ((step.kind ?? "action") === "action") return step.action_type_ref ?? step.id;
+  if (step.kind === "wait") return step.wait_for ?? step.id;
+  if (step.kind === "approval") return step.approval_role ?? step.id;
+  return step.gate_ref ?? step.id;
 }

@@ -10,11 +10,19 @@ import {
   removeDraftStep,
   setDraftParam,
   setDraftStepAction,
+  setDraftStepApprovalRole,
+  setDraftStepKind,
+  setDraftStepNoSelfApproval,
   updateDraftStepField,
   type DraftParamType,
   type DraftParamValue,
 } from "./workflow-builder.editor";
-import type { FormState } from "./workflow-builder.model";
+import {
+  APPROVAL_ROLES,
+  AUTHORABLE_STEP_KINDS,
+  type ApprovalRole,
+  type FormState,
+} from "./workflow-builder.model";
 import { t } from "./i18n/workflow";
 
 export function WorkflowDraftEditor({
@@ -81,21 +89,85 @@ export function WorkflowDraftEditor({
             </div>
             <div class="wf-editor-grid">
               <label class="form-field">
-                <span class="form-label">{t("workflow.editor.actionType")}</span>
-                <select class="form-input mono" value={step.action_type_ref} onChange={(event) => onChange(setDraftStepAction(form, step.key, (event.target as HTMLSelectElement).value))}>
-                  <option value="">{t("workflow.editor.chooseAction")}</option>
-                  {palette.map((entry) => <option key={entry.name} value={entry.name}>{entry.name}</option>)}
+                <span class="form-label">{t("workflow.editor.stepKind")}</span>
+                <select
+                  class="form-input"
+                  value={step.kind}
+                  onChange={(event) => onChange(setDraftStepKind(
+                    form,
+                    step.key,
+                    (event.target as HTMLSelectElement).value as typeof step.kind,
+                  ))}
+                >
+                  {AUTHORABLE_STEP_KINDS.map((kind) => (
+                    <option key={kind} value={kind}>{t(`workflow.stepKind.${kind}`)}</option>
+                  ))}
                 </select>
               </label>
               <label class="form-field">
                 <span class="form-label">{t("workflow.editor.stepId")}</span>
-                <input class="form-input mono" value={step.id} onInput={(event) => onChange(updateDraftStepField(form, step.key, "id", (event.target as HTMLInputElement).value))} />
+                <input class="form-input mono" required value={step.id} onInput={(event) => onChange(updateDraftStepField(form, step.key, "id", (event.target as HTMLInputElement).value))} />
               </label>
+              {step.kind === "action" ? (
+              <label class="form-field">
+                <span class="form-label">{t("workflow.editor.actionType")}</span>
+                <select class="form-input mono" required value={step.action_type_ref} onChange={(event) => onChange(setDraftStepAction(form, step.key, (event.target as HTMLSelectElement).value))}>
+                  <option value="">{t("workflow.editor.chooseAction")}</option>
+                  {palette.map((entry) => <option key={entry.name} value={entry.name}>{entry.name}</option>)}
+                </select>
+              </label>
+              ) : null}
+              {step.kind === "wait" ? (
+                <>
+                  <label class="form-field">
+                    <span class="form-label">{t("workflow.editor.waitFor")}</span>
+                    <input class="form-input mono" required value={step.wait_for} onInput={(event) => onChange(updateDraftStepField(form, step.key, "wait_for", (event.target as HTMLInputElement).value))} />
+                    <span class="field-hint">{t("workflow.editor.waitForHint")}</span>
+                  </label>
+                  <TimeoutField form={form} stepKey={step.key} value={step.timeout_seconds} onChange={onChange} />
+                </>
+              ) : null}
+              {step.kind === "approval" ? (
+                <>
+                  <label class="form-field">
+                    <span class="form-label">{t("workflow.editor.approvalRole")}</span>
+                    <select class="form-input" required value={step.approval_role} onChange={(event) => onChange(setDraftStepApprovalRole(form, step.key, (event.target as HTMLSelectElement).value as ApprovalRole | ""))}>
+                      <option value="">{t("workflow.editor.chooseApprovalRole")}</option>
+                      {APPROVAL_ROLES.map((role) => <option key={role} value={role}>{t(`workflow.approvalRole.${role}`)}</option>)}
+                    </select>
+                  </label>
+                  <label class="form-field">
+                    <span class="form-label">{t("workflow.editor.quorum")}</span>
+                    <input class="form-input" type="number" min="1" step="1" required value={step.quorum} onInput={(event) => onChange(updateDraftStepField(form, step.key, "quorum", (event.target as HTMLInputElement).value))} />
+                    <span class="field-hint">{t("workflow.editor.quorumHint")}</span>
+                  </label>
+                  <TimeoutField form={form} stepKey={step.key} value={step.timeout_seconds} onChange={onChange} />
+                  <label class="form-field wf-checkbox-field">
+                    <input
+                      type="checkbox"
+                      checked={step.no_self_approval}
+                      onChange={(event) => onChange(setDraftStepNoSelfApproval(
+                        form,
+                        step.key,
+                        (event.target as HTMLInputElement).checked,
+                      ))}
+                    />
+                    <span>
+                      <span class="form-label">{t("workflow.editor.noSelfApproval")}</span>
+                      <span class="field-hint">{t("workflow.editor.noSelfApprovalHint")}</span>
+                    </span>
+                  </label>
+                </>
+              ) : null}
             </div>
             <details class="step-advanced">
               <summary>{t("workflow.editor.advanced")}</summary>
               <div class="wf-editor-grid">
-                {(["guard_rule_ref", "compensated_by", "on_failure"] as const).map((field) => (
+                {([
+                  "guard_rule_ref",
+                  ...(step.kind === "action" ? ["compensated_by"] as const : []),
+                  "on_failure",
+                ] as const).map((field) => (
                   <label class="form-field" key={field}>
                     <span class="form-label">{t(`workflow.editor.${field}`)}</span>
                     <input class="form-input mono" value={step[field]} onInput={(event) => onChange(updateDraftStepField(form, step.key, field, (event.target as HTMLInputElement).value))} />
@@ -128,6 +200,26 @@ export function WorkflowDraftEditor({
         </div>
       </details>
     </details>
+  );
+}
+
+function TimeoutField({
+  form,
+  stepKey,
+  value,
+  onChange,
+}: {
+  readonly form: FormState;
+  readonly stepKey: number;
+  readonly value: string;
+  readonly onChange: (form: FormState) => void;
+}) {
+  return (
+    <label class="form-field">
+      <span class="form-label">{t("workflow.editor.timeoutSeconds")}</span>
+      <input class="form-input" type="number" min="1" step="1" required value={value} onInput={(event) => onChange(updateDraftStepField(form, stepKey, "timeout_seconds", (event.target as HTMLInputElement).value))} />
+      <span class="field-hint">{t("workflow.editor.timeoutHint")}</span>
+    </label>
   );
 }
 

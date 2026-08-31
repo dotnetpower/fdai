@@ -101,4 +101,34 @@ describe("workflow builder session store", () => {
     oversized.setItem("fdai.workflow-builder.chat.v1", "x".repeat(256 * 1024 + 1));
     expect(loadWorkflowChatSession(oversized)).toBeNull();
   });
+
+  it("restores WAIT and APPROVAL fields losslessly", () => {
+    const target = storage();
+    const opening = startChat([]);
+    const controlSteps = [
+      {
+        ...opening.slots.form.steps[0]!,
+        id: "wait_for_evidence",
+        kind: "wait" as const,
+        wait_for: "evidence.updated",
+        timeout_seconds: "3600",
+      },
+      {
+        ...opening.slots.form.steps[0]!,
+        key: 1,
+        id: "human_approval",
+        kind: "approval" as const,
+        approval_role: "owner" as const,
+        quorum: "2",
+        timeout_seconds: "1800",
+        no_self_approval: true,
+      },
+    ];
+    saveWorkflowChatSession(target, {
+      slots: { ...opening.slots, form: { ...opening.slots.form, steps: controlSteps } },
+      messages: [{ id: 1, role: "bot", text: "Control steps" }],
+    });
+
+    expect(loadWorkflowChatSession(target)?.slots.form.steps).toEqual(controlSteps);
+  });
 });

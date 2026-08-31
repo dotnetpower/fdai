@@ -187,14 +187,17 @@ export function triggerChips(): ChatOption[] {
 
 /** Steps that carry a real action ref (ignores blank starter rows). */
 export function realActions(form: FormState): DraftStep[] {
-  return form.steps.filter((s) => s.action_type_ref.trim().length > 0);
+  return form.steps.filter((s) => s.kind === "action" && s.action_type_ref.trim().length > 0);
 }
 
 /** Append an action step, deduped by action ref, with a unique suggested id. */
 export function addActionStep(form: FormState, actionName: string): FormState {
   const next = cloneForm(form);
-  const steps = realActions(next);
-  if (steps.some((s) => s.action_type_ref === actionName)) return next;
+  const actions = realActions(next);
+  if (actions.some((s) => s.action_type_ref === actionName)) return next;
+  const steps = next.steps.filter(
+    (step) => step.kind !== "action" || step.action_type_ref.trim().length > 0,
+  );
   const taken = steps.map((s) => s.id);
   const id = suggestStepId(actionName, taken);
   // Unique client key: one past the max existing key (across all rows, not
@@ -206,11 +209,17 @@ export function addActionStep(form: FormState, actionName: string): FormState {
     {
       key,
       id,
+      kind: "action",
       action_type_ref: actionName,
       guard_rule_ref: "",
       compensated_by: "",
       on_failure: "",
       params: {},
+      wait_for: "",
+      timeout_seconds: "",
+      approval_role: "",
+      quorum: "1",
+      no_self_approval: true,
     },
   ];
   return next;

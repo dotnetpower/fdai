@@ -161,7 +161,14 @@ function WorkflowShell({ data }: { readonly data: CombinedData }) {
               trigger:
                 w.trigger.kind === "signal" ? w.trigger.signal_type : w.trigger.schedule,
               steps: w.step_count,
-              step_actions: w.steps.map((s) => s.action_type_ref).join(" -> "),
+              step_actions: w.steps.map((s) =>
+                s.action_type_ref
+                ?? s.wait_for
+                ?? s.approval_role
+                ?? s.gate_ref
+                ?? s.kind
+                ?? s.id
+              ).join(" -> "),
               mode: w.default_mode,
             })),
           };
