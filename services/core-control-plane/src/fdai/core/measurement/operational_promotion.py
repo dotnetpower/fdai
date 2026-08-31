@@ -459,7 +459,7 @@ class OperationalPromotionEvaluator:
             gaps.append("action_type_mismatch")
         if batch.action_type_version != action_type.version:
             gaps.append("action_type_version_mismatch")
-        if batch.action_type_digest != _action_type_digest(action_type):
+        if batch.action_type_digest != action_type_digest(action_type):
             gaps.append("action_type_digest_mismatch")
         if batch.sealed_at > evaluated_at:
             gaps.append("batch_sealed_in_future")
@@ -622,7 +622,8 @@ def _digest(value: object) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def _action_type_digest(action_type: OntologyActionType) -> str:
+def action_type_digest(action_type: OntologyActionType) -> str:
+    """Return the canonical content digest of an ActionType excluding provenance."""
     value = action_type.model_dump(mode="json", exclude={"provenance"}, exclude_none=True)
     return _digest(value)
 
@@ -664,6 +665,7 @@ __all__ = [
     "OperationalPromotionRecord",
     "OperationalPromotionUnitVerifier",
     "PromotionEvidenceCohort",
+    "action_type_digest",
     "operational_promotion_evidence_digest",
     "operational_promotion_scope_digest",
 ]

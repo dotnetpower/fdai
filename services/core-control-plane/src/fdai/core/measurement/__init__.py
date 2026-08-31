@@ -64,6 +64,7 @@ from fdai.core.measurement.operational_promotion import (
     OperationalPromotionRecord,
     OperationalPromotionUnitVerifier,
     PromotionEvidenceCohort,
+    action_type_digest,
 )
 from fdai.core.measurement.operational_promotion_runner import (
     OperationalPromotionEvidenceSource,
@@ -130,6 +131,7 @@ __all__ = [
     "ReadinessFacet",
     "ReadinessFacetSnapshot",
     "ReadinessFacetState",
+    "action_type_digest",
     "admitted_cohort_claim_digest",
     "admitted_cohort_receipt_digests",
     "compute_dora",
