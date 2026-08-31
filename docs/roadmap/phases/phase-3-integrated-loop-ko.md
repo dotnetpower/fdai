@@ -1,7 +1,7 @@
 ---
 title: Phase 3 - 통합 컨트롤 루프 (Resilience · Change Safety · Cost Governance)
 translation_of: phase-3-integrated-loop.md
-translation_source_sha: de10264255c98240435fd4c869afa65fdb5cc54d
+translation_source_sha: 3a7842ea445f07cac0434d23cbde2f4b12997833
 translation_revised: 2026-08-31
 ---
 
@@ -59,6 +59,14 @@ P2에서 딜리버리된 T0/T1/T2 라우터, quality 게이트, 리스크 게이
   soft-objective 액션이 같은 윈도우에 같은 리소스를 대상으로 하면 기본 우선순위는
   **복원력 안전성 보류 > 변경 안전성 > 비용 거버넌스**입니다. 낮은 선택지는 연기 및
   재평가되거나 HIL로 escalate되며 충돌은 racing으로 해결하지 않습니다.
+- **타입이 지정된 후보 결합**: Loki, Heimdall, Njord는 기존 소유 토픽에 복원력, 변경
+  안전성, 비용 거버넌스 후보를 게시합니다. Forseti는 같은 리소스, 상관관계, 기준 시점에
+  대해 버티컬별 후보를 정확히 하나씩 결합한 뒤 Odin에 중재를 요청합니다. 동일한 재전달은
+  no-op이며 충돌하는 중복, 동시 후보 세트, 제한된 시간 안에 완성되지 않은 세트는 액션 없이
+  사람 승인으로 종결됩니다.
+- **감사되는 처리 결과**: Odin은 모든 후보에 `win`, `defer`, `hil`을 기록합니다. Saga는
+  중재 결정과 종결 판정을 보존하며 결과 `ActionRun`은 Thor만 게시할 수 있습니다. 선택된
+  전문가의 아이덴티티는 시작 주체로 유지되며 실행기가 되지 않습니다.
 - **멱등**: 모든 P3 액션은 안정 멱등성 키를 사용; 재전달된 이벤트와 재시도된 액션은 이미
   적용된 상태에서 no-op.
 - **감사**: 모든 종단 결과 - auto-apply, HIL approve/거부/시간 초과, defer, abstain, 모든 스케줄

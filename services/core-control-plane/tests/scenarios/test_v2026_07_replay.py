@@ -57,14 +57,15 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
-from fdai.agents._framework.adapters import AuditEntry, InMemoryAuditChain
-from fdai.agents._framework.bus import InMemoryBus
-from fdai.agents._framework.registry import load_pantheon
-from fdai.agents._framework.runtime_health import (
+from fdai.agents import (
+    AuditEntry,
+    InitialVerticalPrecedence,
+    InMemoryAuditChain,
+    InMemoryBus,
     bind_availability_probe,
     evaluate_degradation,
+    load_pantheon,
 )
-from fdai.agents._framework.vertical_precedence import InitialVerticalPrecedence
 from fdai.agents.forseti import Forseti
 from fdai.agents.odin import Odin
 from fdai.agents.saga import Saga

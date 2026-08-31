@@ -62,6 +62,14 @@ package that carries the deliverable in
   options. When two remaining soft-objective actions target the same resource in the same window,
   the default precedence is **Resilience safety hold > Change Safety > Cost Governance**. The lower
   option is deferred and re-evaluated or escalated to HIL; conflicts never resolve by racing.
+- **Typed candidate join**: Loki, Heimdall, and Njord publish Resilience, Change Safety, and Cost
+  Governance candidates on their existing owned topics. Forseti joins exactly one candidate per
+  vertical for the same resource, correlation, and cutoff before asking Odin to arbitrate. Exact
+  redelivery is a no-op; conflicting duplicates, concurrent sets, and incomplete sets that reach
+  the bounded timeout close as human approval without an action.
+- **Audited disposition**: Odin records `win`, `defer`, or `hil` for every candidate. Saga retains
+  the arbitration decision and terminal verdict, while only Thor can publish the resulting
+  `ActionRun`. The selected specialist remains the initiator identity and never becomes an executor.
 - **Idempotency**: all P3 actions key off the stable idempotency key; re-delivered events and
   retried actions are no-ops on already-applied state.
 - **Audit**: every terminal outcome - auto-apply, HIL approve/reject/timeout, defer, abstain,

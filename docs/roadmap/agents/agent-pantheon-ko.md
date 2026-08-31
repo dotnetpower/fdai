@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: be643e6133b40c7b74390a3b651f546c1cfe9680
+translation_source_sha: 9d4c16382a8502c5252b91c670cb91c7361460e3
 translation_revised: 2026-08-31
 ---
 # 에이전트 판테온
@@ -80,6 +80,11 @@ margin, 계획 수립 증적 및 temporal 정책은
 [Operational 계획 수립](../decisioning/operational-planning-ko.md#다목적-중재)이 소유합니다. 충돌은 표현이 아니라 목표에 관한 사실입니다. 영역 전문가가 자신의 결정적 실행이 산출한 ActionType과 예상되는 부호 있는 목표 효과, 그리고 두 값을 읽어 온 계보를 함께 첨부하면, Forseti는 두 영역이 동일한 통제 목표에서 서로 반대 부호의 효용을 가질 때만 중재를 제기하며, 기여한 각 재생의 표준 계보는 의사결정 사례와 종결 판정까지 이어집니다.
 Forseti가 중재를 제기한 뒤에는 같은 이벤트에 일반 판단을 추가로 실행하지 않습니다. 중재
 결정 또는 범위가 제한된 소유자 부재 종결만 해당 이벤트의 종결 판정이 됩니다.
+초기 세 버티컬에서는 Loki, Heimdall, Njord가 `object.resilience-score`, `object.drift`,
+`object.cost-anomaly` 토픽에서 서로 다른 후보 아이덴티티를 유지합니다. Forseti는 같은
+리소스와 기준 시점에 대해 소유자가 인증된 버티컬별 후보를 하나씩 결합합니다. Odin은 각
+후보의 `win`, `defer`, `hil` 처리 결과를 포함한 결정을 하나만 게시하고 Saga가 이를
+감사하며, 승리한 판정을 `ActionRun`으로 전환할 수 있는 에이전트는 Thor뿐입니다.
 
 ### 3.2 발견 루프 학습기 (Norns)
 
@@ -342,7 +347,7 @@ Dead-letter 쓰기는 제한된 재시도 대기 후 소비자를 재시작합�
 | 객체.security-event | Forseti | Heimdall (상관관계), Saga |
 | 객체.판정 | Forseti | Thor, Saga, Odin |
 | 객체.arbitration-request | Forseti | Odin |
-| 객체.arbitration-decision | Odin | Forseti |
+| 객체.arbitration-decision | Odin | Forseti, Saga |
 | 객체.action-run | Thor | Heimdall(최종 효과 관측), Vidar, Var, Saga |
 | 객체.승인 | Var | Thor, Saga |
 | 객체.롤백 | Vidar | Thor (ActionRun 변환 결과), Saga |
@@ -356,6 +361,7 @@ Dead-letter 쓰기는 제한된 재시도 대기 후 소비자를 재시작합�
 | 객체.post-turn-review | Bragi | Norns(동의가 확인된 off-path 검토만) |
 | 객체.user-preference | Bragi | Muninn |
 | 객체.cost-anomaly | Njord | Forseti |
+| 객체.resilience-score | Loki | Forseti |
 | 객체.capacity-forecast | Freyr | Forseti |
 | 객체.capacity-graduation-recommendation | Freyr | Forseti |
 | 객체.evidence-conflict | Heimdall | Muninn, Saga |

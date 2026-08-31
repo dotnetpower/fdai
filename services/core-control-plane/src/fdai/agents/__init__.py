@@ -13,7 +13,9 @@ Design authority: `docs/roadmap/agents/agent-pantheon.md`.
 from fdai.agents._framework.adapters import (
     AdminCard,
     AdminNotificationAdapter,
+    AuditEntry,
     GitHubIssue,
+    InMemoryAuditChain,
     IssueTrackerAdapter,
 )
 from fdai.agents._framework.base import (
@@ -62,6 +64,10 @@ from fdai.agents._framework.provider_adapters import (
 )
 from fdai.agents._framework.registry import PantheonRegistry, load_pantheon
 from fdai.agents._framework.runtime import PantheonRuntime
+from fdai.agents._framework.runtime_health import (
+    bind_availability_probe,
+    evaluate_degradation,
+)
 from fdai.agents._framework.runtime_subscriptions import RuleGenerationWorkerBindings
 from fdai.agents._framework.semantic_routing import SemanticRouterConfig
 from fdai.agents._framework.tool_planner import (
@@ -75,6 +81,7 @@ from fdai.agents._framework.topics import (
     partition_key_for,
     topic_for_object_type,
 )
+from fdai.agents._framework.vertical_precedence import InitialVerticalPrecedence
 from fdai.agents._framework.workflows import WORKFLOWS, WorkflowSpec
 from fdai.agents.bragi import Bragi
 from fdai.agents.heimdall import Heimdall
@@ -102,6 +109,7 @@ __all__ = [
     "Agent",
     "AdminCard",
     "AdminNotificationAdapter",
+    "AuditEntry",
     "BASELINE_LAYER_IDS",
     "CONSTRAINT_LAYER_IDS",
     "AgentHandlerObserver",
@@ -116,6 +124,7 @@ __all__ = [
     "SemanticToolPlanner",
     "agent_state_evidence_ref",
     "audit_agent_prompt",
+    "bind_availability_probe",
     "Bragi",
     "CatalogReviewBindings",
     "ComposedConversationPrompt",
@@ -132,6 +141,7 @@ __all__ = [
     "Norns",
     "PantheonBus",
     "InMemoryBus",
+    "InMemoryAuditChain",
     "PantheonRegistry",
     "PantheonRuntime",
     "PromptAuditResult",
@@ -147,6 +157,8 @@ __all__ = [
     "request_rule_generation",
     "load_pantheon",
     "instantiate_pantheon",
+    "evaluate_degradation",
+    "InitialVerticalPrecedence",
     "PANTHEON_SPECS",
     "PANTHEON_NAMES",
     "HARD_DEPENDENCY_AGENTS",

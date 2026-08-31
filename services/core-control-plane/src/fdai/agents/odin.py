@@ -92,6 +92,7 @@ class ArbitrationDecision:
     objective_scores: dict[str, float] = field(default_factory=dict)
     margin: float = 0.0
     escalate_hil: bool = False
+    dispositions: dict[str, str] = field(default_factory=dict)
 
 
 class Odin(Agent):
@@ -211,6 +212,11 @@ class Odin(Agent):
             objective_scores=outcome.objective_scores,
             margin=outcome.margin,
             escalate_hil=outcome.escalate_hil,
+            dispositions=(
+                {domain: "hil" for domain in domains}
+                if outcome.escalate_hil
+                else {domain: "win" if domain == outcome.winner else "defer" for domain in domains}
+            ),
         )
         self._last_decision = decision
         self._last_history_considered = len(history)
@@ -221,12 +227,14 @@ class Odin(Agent):
                 {
                     "producer_principal": "Odin",
                     "correlation_id": decision.correlation_id,
+                    "idempotency_key": f"arbitration-decision:{decision.correlation_id}",
                     "winning_domain": decision.winning_domain,
                     "losing_domains": list(decision.losing_domains),
                     "reason": decision.reason,
                     "objective_scores": decision.objective_scores,
                     "margin": decision.margin,
                     "escalate_hil": decision.escalate_hil,
+                    "dispositions": decision.dispositions,
                     # Grounding for the audit log: how many prior
                     # decisions the policy considered on this resource.
                     "history_considered": len(history),

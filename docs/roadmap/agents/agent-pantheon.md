@@ -77,6 +77,11 @@ scoring, human-approval margins, planning receipts, and temporal policy are owne
 [Operational Planning](../decisioning/operational-planning.md#multi-objective-arbitration). A conflict is a fact about objectives, not about wording: when a domain specialist attaches the ActionType its own deterministic runtime produced together with the signed objective effects it expects and the lineage both were read from, Forseti raises an arbitration only when two domains hold opposite-signed utilities on one and the same governed objective, and the canonical lineage of each contributing replay travels into the decision case and the terminal verdict.
 Once Forseti raises that arbitration, it doesn't also run generic judgment for the same event. The
 arbitration decision or the bounded unavailable-owner closure is the event's only terminal verdict.
+For the initial three verticals, Loki, Heimdall, and Njord retain distinct candidate identities on
+`object.resilience-score`, `object.drift`, and `object.cost-anomaly`. Forseti joins one
+owner-authenticated candidate from each vertical for the same resource and cutoff. Odin emits one
+decision with a `win`, `defer`, or `hil` disposition per candidate, Saga audits that decision, and
+only Thor can turn the winning verdict into an `ActionRun`.
 
 ### 3.2 Discovery-loop learners (Norns)
 
@@ -343,7 +348,7 @@ Each consumer closes its subscription inside its own task, so the broker adapter
 | object.security-event | Forseti | Heimdall (correlation), Saga |
 | object.verdict | Forseti | Thor, Saga, Odin |
 | object.arbitration-request | Forseti | Odin |
-| object.arbitration-decision | Odin | Forseti |
+| object.arbitration-decision | Odin | Forseti, Saga |
 | object.action-run | Thor | Heimdall (terminal effect observation), Vidar, Var, Saga |
 | object.approval | Var | Thor, Saga |
 | object.rollback | Vidar | Thor (ActionRun projection), Saga |
@@ -357,6 +362,7 @@ Each consumer closes its subscription inside its own task, so the broker adapter
 | object.post-turn-review | Bragi | Norns (consent-filtered off-path review only) |
 | object.user-preference | Bragi | Muninn |
 | object.cost-anomaly | Njord | Forseti |
+| object.resilience-score | Loki | Forseti |
 | object.capacity-forecast | Freyr | Forseti |
 | object.capacity-graduation-recommendation | Freyr | Forseti |
 | object.evidence-conflict | Heimdall | Muninn, Saga |
