@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 7921ff27659e5f5830617dffeb8a45827109c4fd
+translation_source_sha: 6fd8f5328dee25beafb1d7396a13095191ee63f1
 translation_revised: 2026-08-30
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -173,6 +173,7 @@ translation_revised: 2026-08-30
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-01 | implemented | Framework와 FrameworkControl을 Identifiable 구현체로 등록했습니다. 인터페이스 구현 레지스트리는 이제 출하된 모든 객체 유형을 나열합니다. | `current change`; 집중 온톨로지 카탈로그 및 객체 유형 카탈로그 검사 통과. | 이 인터페이스 등록으로 추가 쿼리 커버리지 작업은 없습니다. |
 | 2026-08-29 | implemented | 보안 ObjectSet 쿼리 소비 경계를 공유 의사 결정 핵심 근거 승인 결과로 마이그레이션했습니다. 정확한 결과 발행은 계속 범위가 제한되며, 이제 해석과 FunctionType 검증은 승인 결과가 없거나 일치하지 않거나 만료되면 차단합니다. 조립 seam은 주입된 프로바이더만 허용하고 합성 또는 기본 긍정 결속을 제공하지 않습니다. | `current change`; 쿼리 권한 및 핸들러 출처, 의미 조립, 집중 권한, Pod 텔레메트리, Pod 복구, rollout, 쿼리 핸들러 및 조립 테스트, Ruff 및 strict mypy. | 프로덕션 프로바이더를 신뢰할 수 있는 증적 검증기 레지스트리에 연결한 다음 인증된 서비스 간 쿼리 묶음을 보존합니다. |
 | 2026-08-27 | implemented | 서버 소유 Event ObjectSet에 출처에 근거한 Resource 이름 하나를 보존하고 일반 검증 행 개수를 이중 언어 Resource Event 답변으로 교체했습니다. 답변은 범위가 제한된 정규화 Event field만 나열하고 출처 완전성, 안정적인 제한 사항 및 `execution_authority=false`를 항상 보고합니다. 보존이 확인되지 않은 행 0개는 과거 부재를 증명하지 않는다고 명시합니다. | `current change`, Event 계획, FunctionType, 읽기 경로, 조립, processor 및 Operator 표현 검사 287개 통과, Ruff, formatter 및 strict mypy 통과. 오래된 Core를 교체한 뒤 인증된 정확한 Deployment 후속 실행이 노드 2/2와 근거 검사 8/8을 완료하고 원인 또는 복구 주장 없이 범위가 제한된 `source_unavailable`을 렌더링했습니다. | 런타임 workload identity의 권위 있는 Kubernetes Event 출처 접근을 복구한 뒤 `source_retention_unverified` 또는 정규화 Event 행을 담은 정확한 child 결과를 보존합니다. 영속 이력은 별도의 열린 작업입니다. |
 | 2026-08-27 | implemented | 구문 경로나 새 plan shape 없이 child-only Kubernetes Event 조회 공백을 닫았습니다. 기존 dependency-issued ObjectSet은 불변 identity-aware reader capability을 통해 inventory UID와 cluster를 전달하고, legacy reader는 호환성을 유지하며, Core는 다른 provider properties를 adapter에 노출하지 않습니다. | `current change`, 집중 FunctionType, 복합, Kubernetes, Azure, immutable identity, legacy compatibility, selector 전달, 위조 identity 검사 27개 통과, Ruff, formatter, strict mypy 통과 | 인증된 정확한 child 근거를 보존합니다. 영속 보존은 여전히 열려 있으므로 행 0개는 불완전한 과거 근거로 유지합니다. |

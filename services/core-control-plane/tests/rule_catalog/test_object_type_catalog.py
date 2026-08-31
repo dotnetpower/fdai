@@ -133,6 +133,9 @@ def test_shipped_object_types_load() -> None:
         "ExpectedEffect",
         "Experiment",
         "Forecast",
+        # Advisory framework ontology (advisory-only, no policy authority).
+        "Framework",
+        "FrameworkControl",
         "ImpactEnvelope",
         "Incident",
         "Observation",

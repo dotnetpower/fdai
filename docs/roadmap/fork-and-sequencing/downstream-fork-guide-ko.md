@@ -1,7 +1,7 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: fce17d8956e5b2a79f154ec5265546d344d8fa14
+translation_source_sha: 2a7fefcd84cee75ba756de79c1b1eb2cd59660de
 translation_revised: 2026-08-30
 ---
 
@@ -386,6 +386,12 @@ git push origin main
   기록합니다.
 - [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md) -
   모든 포크가 준수하는 customer-agnostic 스코프 계약.
+
+## 업스트림 변경 사항
+
+| 날짜 | 변경 | 포크에 대한 영향 |
+|------|------|-----------------|
+| 2026-09-01 | Framework와 FrameworkControl이 `interface-implementations/Identifiable.yaml`에 Identifiable로 등록 | 온톨로지 카탈로그를 상속하는 포크가 두 개의 권고 전용 객체 유형을 얻습니다. 포크 커스터마이즈 seam은 변경되지 않았습니다. |
 
 ## 관련 문서
 

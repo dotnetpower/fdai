@@ -1,7 +1,7 @@
 ---
 title: FinOps 패키지 전달 계획
 translation_of: finops-package-delivery-plan.md
-translation_source_sha: 748d80fc76ea630708840f47c817bc580a0dcffb
+translation_source_sha: 2cc9ccc36678b23c5f46e06bc27b9847dc873836
 translation_revised: 2026-08-28
 ---
 
@@ -38,7 +38,7 @@ release, 자산 inventory 및 안정적인 식별자 집합으로 수렴한 뒤�
 |------|-----------|-------------|
 | FinOps 패키지 | `extensions/cost-governance/`, 패키지 빌드, 리소스, 이미지 및 수명 주기 테스트 | 로컬 빌드와 수명 주기 메커니즘은 통과했습니다. 기본 전용 프로필은 패키지 자산을 제외하고 호환성 재생은 활성화된 패키지 하나를 명시적으로 구성합니다. 통제된 이미지 및 수명 주기 증적은 W7 근거로 남습니다. |
 | 비용 자문 | 주입된 Njord 자문 프로바이더, 활성화 gate가 적용된 수집 및 분리된 signed 효과 추정 | Live-authoritative 프로바이더 cohort는 아직 기록되지 않았습니다. |
-| 온톨로지 | 정확한 의미 프로파일, 추가 선언 및 F1-F8 긍정과 부정 고정본 | 프로파일은 활성 온톨로지 release를 핀으로 고정하며 실제 근거는 같은 release에 연결되어야 합니다. |
+| 온톨로지 | 정확한 의미 프로파일, 추가 선언, F1-F8 긍정과 부정 고정본, 그리고 완전한 Identifiable 인터페이스 커버리지 | 프로파일은 활성 온톨로지 release를 핀으로 고정하며 실제 근거는 같은 release에 연결되어야 합니다. |
 | 에이전트 런타임 | 고정 판테온, 소유 topic, 전체 책임 replay, 복구, 정산 및 학습 테스트 | 출처와 합성 근거는 운영 자율성을 입증하지 않습니다. |
 | 자산 | 안정적인 id를 유지하는 패키지 소유 Rule 12개, Policy 12개, 수정 template 12개 및 Workflow 1개 | 더 이상 사용하지 않는 Core facade는 통제된 롤백 근거가 제거를 허용할 때까지 동등성 검사에만 남습니다. |
 | 확장 수명 주기 | 원자적인 가용성, 활성화, upgrade, 비활성화 및 N-1 롤백 메커니즘 | Live-authoritative 증적과 독립 승격 결정은 열려 있습니다. |

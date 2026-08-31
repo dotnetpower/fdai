@@ -35,7 +35,7 @@ one manifest, ontology release, asset inventory, and stable identifier set.
 |------|----------------|--------------|
 | FinOps package | `extensions/cost-governance/`; package build, resource, image, and lifecycle tests | Local build and lifecycle mechanics pass. Base-only profiles omit package assets, while compatibility replay explicitly composes one enabled package; governed image and lifecycle receipts remain W7 evidence. |
 | Cost advice | Injected Njord advisory provider, activation-gated collection, and separate signed effect estimates | A live-authoritative provider cohort remains unrecorded. |
-| Ontology | Exact semantic profile, additive declarations, and F1-F8 positive and negative fixtures | The profile pins the active ontology release; live evidence still must bind the same release. |
+| Ontology | Exact semantic profile, additive declarations, F1-F8 positive and negative fixtures, and complete Identifiable interface coverage | The profile pins the active ontology release; live evidence still must bind the same release. |
 | Agent runtime | Fixed pantheon, owned topics, all-responsibility replay, recovery, settlement, and learning tests | Source and synthetic evidence do not prove operational autonomy. |
 | Assets | Package-owned 12 rules, 12 policies, 12 fix templates, and one workflow with stable ids | The deprecated Core facade remains only for parity until governed rollback evidence permits removal. |
 | Extension lifecycle | Atomic availability, enablement, upgrade, disable, and N-1 rollback mechanics | Live-authoritative receipts and independent promotion decisions remain open. |

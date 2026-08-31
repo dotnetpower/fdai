@@ -400,6 +400,12 @@ Hard don'ts. Any of these is a merge-blocker:
 - [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md) -
   the customer-agnostic scope contract every fork honors.
 
+## Upstream changes
+
+| Date | Change | Impact on forks |
+|------|--------|-----------------|
+| 2026-09-01 | Framework and FrameworkControl registered as Identifiable in `interface-implementations/Identifiable.yaml` | Forks inheriting the ontology catalog gain two advisory object types; no fork customization seam changed. |
+
 ## Related docs
 
 | To learn about | Read |

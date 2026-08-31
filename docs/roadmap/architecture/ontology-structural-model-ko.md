@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: c6779547af10801f871eeef52f06ff6e7e2a8d99
+translation_source_sha: dda5c3c929a845d5a6abb02853b8b5bb64c9f9e2
 translation_revised: 2026-08-31
 ---
 # 온톨로지 구조 모델
@@ -347,6 +347,7 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-01 | implemented | Framework와 FrameworkControl을 Identifiable 구현체로 등록했습니다. 두 객체 유형 모두 `id: {type: string, required: true}`를 선언하며 수명 주기 분류에는 이미 포함되어 있었지만 인터페이스 구현 레지스트리에서 누락되어 있었습니다. | `current change`; 집중 온톨로지 카탈로그 및 객체 유형 카탈로그 검사 통과. | 범위가 제한된 구조 작업은 남아 있지 않습니다. |
 | 2026-08-31 | implemented | 온톨로지 관계나 권한 출처를 추가하지 않고 예외 만료를 정확한 배정 하나와 등록된 ActionType 하나에 연결했습니다. 연결 근거가 없거나 충돌하면 제안을 보류합니다. | `current change`; 예외 수명 주기 스키마, ActionType 선언, 집중 수명 주기 및 카탈로그 검사. | 범위가 제한된 구조 작업은 남아 있지 않으며 배포 근거는 별도로 유지합니다. |
 | 2026-08-28 | implemented | 대화 화면 컨텍스트에서 제외해야 하는 `authorization.role-assignment`가 정확한 화면 선택 신원에 포함되던 문제를 닫았습니다. `ontologyInstanceContextIdentity`는 기존 표시 리소스 가드로 숨겨진 역할 배정을 제거한 뒤 `resourceIds`를 구성하므로 숨겨진 역할 배정만 있는 디렉터리가 비어 있지 않은 선택처럼 보이지 않습니다. | `current change`; `console/src/routes/ontology-instances.model.test.ts` 30개 및 Console typecheck 통과. | 이 표시 범위에 남은 제한된 구현 작업은 없습니다. |
 | 2026-08-28 | implemented | 권위 있는 Operator 선택 발급자에도 같은 제외 규칙을 적용했습니다. 서버가 선택 가능한 리소스 유형만으로 다이제스트와 토큰을 계산하므로 토큰 해석이 Console에서 제외한 역할 배정 ID를 복원하지 않습니다. | `current change`; 집중 Operator 인스턴스 projection 검사 8개, Ruff 및 strict mypy 통과. | 인증된 화면 간 근거를 보존합니다. 실제 서비스는 조회하지 않았습니다. |
