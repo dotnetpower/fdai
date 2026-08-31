@@ -45,14 +45,21 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from fdai.core.measurement.cohort_claim_policy import (
+# The repository CLI runs from a non-package workspace root, so expose the
+# service-owned policy module before importing it.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+CORE_SOURCE = REPO_ROOT / "services/core-control-plane/src"
+if str(CORE_SOURCE) not in sys.path:
+    sys.path.insert(0, str(CORE_SOURCE))
+
+from fdai.core.measurement.cohort_claim_policy import (  # noqa: E402
     COHORT_CLAIM_POLICY_PATH,
     CohortClaimPolicy,
     CohortClaimPolicyError,
     load_cohort_claim_policy,
     require_commit_revision,
 )
-from fdai_service_contracts.baseline_cohort import (
+from fdai_service_contracts.baseline_cohort import (  # noqa: E402
     MINIMUM_COHORT_SAMPLE_SIZE,
     CohortArtifactOrigin,
     CohortClaimAssessment,
@@ -60,10 +67,7 @@ from fdai_service_contracts.baseline_cohort import (
     missing_cohort_claim,
 )
 
-from tools.reference_agent import ReferenceAgent
-
-#: Repository root, used only to resolve the trusted cohort claim policy.
-REPO_ROOT = Path(__file__).resolve().parents[1]
+from tools.reference_agent import ReferenceAgent  # noqa: E402
 
 #: What still has to happen outside this repository before a published SRE
 #: claim can be eligible. The runner never satisfies it locally.
