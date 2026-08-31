@@ -118,7 +118,8 @@ relationship-reference component that depends on it. Unrelated provider componen
 The D4 review ledger preserves immutable prior and aligned contexts, the exact comparison, regression
 receipts, and distinct-reviewer outcomes. Approval can create only a catalog pull request proposal;
 it cannot activate a mapping or mutate the graph. An active proposal pointer is valid only while its
-content-addressed generation artifact still exists.
+content-addressed generation artifact still exists. Rollback recomputes that artifact's digest before
+moving the pointer.
 
 Deterministic diffing compares normalized type identities and stable/preview API-version sets.
 Removal is a tombstone in the evidence ledger, never immediate deletion from ontology or rule

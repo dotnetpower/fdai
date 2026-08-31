@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import fcntl
+import hashlib
 import json
 import os
 import tempfile
@@ -52,6 +53,7 @@ class ProviderSchemaRelationshipLedger:
             path = self._root / "generations" / f"{generation_digest[7:]}.json"
             if not path.is_file():
                 raise ProviderSchemaError("provider relationship rollback generation is missing")
+            _verify_generation_artifact(path, generation_digest)
             self._write_active(generation_digest)
         return generation_digest
 
@@ -212,6 +214,19 @@ def _require_digest(value: str, name: str) -> None:
         raise ValueError(f"{name} MUST be sha256:<64 lowercase hex>")
     if any(character not in "0123456789abcdef" for character in value[7:]):
         raise ValueError(f"{name} MUST be sha256:<64 lowercase hex>")
+
+
+def _verify_generation_artifact(path: Path, expected_digest: str) -> None:
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ProviderSchemaError("provider relationship generation artifact is invalid") from exc
+    if not isinstance(raw, dict) or raw.get("generation_digest") != expected_digest:
+        raise ProviderSchemaError("provider relationship generation artifact digest mismatch")
+    material = {key: value for key, value in raw.items() if key != "generation_digest"}
+    actual_digest = "sha256:" + hashlib.sha256(_canonical_json(material)).hexdigest()
+    if actual_digest != expected_digest:
+        raise ProviderSchemaError("provider relationship generation artifact digest mismatch")
 
 
 def _canonical_json(value: object) -> bytes:

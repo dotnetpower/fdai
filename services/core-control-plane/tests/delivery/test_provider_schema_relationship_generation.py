@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from pathlib import Path
@@ -427,6 +428,22 @@ def test_ledger_rejects_an_active_pointer_to_a_missing_generation(tmp_path: Path
 
     with pytest.raises(ProviderSchemaError, match="active generation is missing"):
         ledger.read_active()
+
+
+def test_ledger_rollback_rejects_a_tampered_generation(tmp_path: Path) -> None:
+    generation = _generation(
+        _schema(),
+        metadata={"azure.function-depends-on-app-service-plan": _metadata()},
+    )
+    ledger = ProviderSchemaRelationshipLedger(tmp_path)
+    ledger.record(generation)
+    path = tmp_path / "generations" / f"{generation.generation_digest[7:]}.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["generation_ref"] = "provider-schema-generation:tampered"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ProviderSchemaError, match="artifact digest mismatch"):
+        ledger.rollback(generation.generation_digest)
 
 
 def test_ledger_serializes_concurrent_recorders_with_unique_staging_files(
