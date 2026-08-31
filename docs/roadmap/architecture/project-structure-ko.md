@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: dcf9585a9d179343abad8c697d8915bfcf749427
+translation_source_sha: 3c0932084fdd84a8ee7de0fe88d67e5f4be4c791
 translation_revised: 2026-08-31
 ---
 # 프로젝트 구조
@@ -23,6 +23,8 @@ DR 목표 근거는 nearest-rank p90을 보고합니다. 따라서 표본이 적
 실패합니다. 따라서 다이제스트를 제거해도 변조된 payload를 승인할 수 없습니다.
 품질 게이트는 중복된 교차 검사 모델을 거부합니다. 따라서 한 모델이 자기 자신과 동의해
 혼합 모델 정족수를 충족할 수 없습니다.
+사용할 수 없는 경계를 가진 유효한 freeze 또는 quiet ChangeWindow는 건너뛰지 않고 유지 보수
+권한을 거부합니다.
 
 ## Core 도메인 탐색 결정
 

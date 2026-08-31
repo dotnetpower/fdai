@@ -53,7 +53,12 @@ class OntologyOpenActionEvidenceProvider:
 
 
 class OntologyChangeWindowEvidenceProvider:
-    """Resolve effective maintenance authority without granting execution authority."""
+    """Resolve effective maintenance authority without granting execution authority.
+
+    A truncated read and an effective freeze or quiet window with unusable
+    bounds both deny: neither proves that the target is inside an open
+    maintenance window.
+    """
 
     def __init__(self, store: OntologyInstanceStore, *, query_limit: int = 500) -> None:
         if query_limit < 1:
@@ -77,13 +82,18 @@ class OntologyChangeWindowEvidenceProvider:
             status = str(properties.get("status") or "").strip().casefold()
             if status not in _EFFECTIVE_WINDOW_STATUSES:
                 continue
+            window_kind = str(properties.get("window_kind") or "").strip().casefold()
             effective_from = _parse_timestamp(properties.get("effective_from"))
             effective_to = _parse_timestamp(properties.get("effective_to"))
             if effective_from is None or effective_to is None or effective_from > effective_to:
+                # An effective blocking window whose bounds cannot be resolved
+                # is not proof that the freeze is over, so it denies instead of
+                # being skipped.
+                if window_kind in _BLOCKING_WINDOW_KINDS:
+                    return False
                 continue
             if not effective_from <= at <= effective_to:
                 continue
-            window_kind = str(properties.get("window_kind") or "").strip().casefold()
             if window_kind in _BLOCKING_WINDOW_KINDS:
                 return False
             if window_kind in _ALLOWING_WINDOW_KINDS:

@@ -20,6 +20,8 @@ A parked HIL record without a recorded action digest fails the integrity gate in
 resuming, so removing the digest cannot authorize a tampered payload.
 The quality gate refuses duplicate cross-check models, so one model cannot agree with itself
 and satisfy the mixed-model quorum.
+An effective freeze or quiet ChangeWindow with unusable bounds denies maintenance authority
+instead of being skipped.
 
 ## Core domain navigation decision
 
