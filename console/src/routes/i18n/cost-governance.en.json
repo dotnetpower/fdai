@@ -72,7 +72,9 @@
     "driversTitle": "Cost change drivers",
     "driversDescription": "Relative changes against a comparable prior window.",
     "driversUnavailableTitle": "Comparable change evidence is unavailable",
-    "driversUnavailableBody": "A prior-period baseline and relative-change projection are required before cost drivers can be ranked."
+    "driversUnavailableBody": "A prior-period baseline and relative-change projection are required before cost drivers can be ranked.",
+    "openTrendDetail": "Review cost trend detail",
+    "openDriversDetail": "Review cost drivers"
   },
   "attention": {
     "eyebrow": "EVIDENCE AND STATE",
@@ -161,7 +163,8 @@
     },
     "unknown": "Unknown",
     "notEvaluated": "Not evaluated",
-    "noChangesApplied": "No changes are applied from this view."
+    "noChangesApplied": "No changes are applied from this view.",
+    "openMapDetail": "Review efficiency detail"
   },
   "distribution": {
     "title": "Observed cost distribution",
@@ -205,7 +208,10 @@
     "recordsTitle": "Projected decision cases",
     "state": "Unavailable evidence",
     "unavailableTitle": "No optimization cases are projected",
-    "unavailableBody": "Utilization, SKU alternatives, objectives, and decision records are required before FDAI can present an optimization case."
+    "unavailableBody": "Utilization, SKU alternatives, objectives, and decision records are required before FDAI can present an optimization case.",
+    "openMixDetail": "Review opportunity mix",
+    "openFlowDetail": "Review decision flow",
+    "openListDetail": "Review case list"
   },
   "outcomes": {
     "eyebrow": "EFFECT SETTLEMENT",
@@ -243,7 +249,10 @@
     "effectTitle": "Operating constraints and savings effects",
     "effectDescription": "A case does not close when cost improves but an operating objective fails.",
     "unavailableTitle": "No verified outcomes are projected",
-    "unavailableBody": "Savings remain unavailable until an action has an expected effect and an independent authoritative observation closes its settlement window."
+    "unavailableBody": "Savings remain unavailable until an action has an expected effect and an independent authoritative observation closes its settlement window.",
+    "openWaterfallDetail": "Review savings waterfall",
+    "openUnitDetail": "Review unit cost detail",
+    "openEffectDetail": "Review cost effects"
   },
   "settings": {
     "title": "Cost Governance",

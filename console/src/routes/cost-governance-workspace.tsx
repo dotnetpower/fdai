@@ -130,6 +130,7 @@ function Overview({
           <TrendChart rows={analytics?.trend ?? []} />
           <UnavailableContribution />
           <CardFooter projection={projection} />
+          <a class="cost-text-action" href={routeHref("cost-governance", { segments: ["resource-efficiency"] })}>{t("costGovernance.overview.openTrendDetail")} <span aria-hidden="true">{"->"}</span></a>
         </article>
 
         <article class="cost-visual-card cost-spend-flow-card">
@@ -165,6 +166,7 @@ function Overview({
               body={t("costGovernance.overview.driversUnavailableBody")}
             />
           )}
+          <a class="cost-text-action" href={routeHref("cost-governance", { segments: ["optimization-cases"] })}>{t("costGovernance.overview.openDriversDetail")} <span aria-hidden="true">{"->"}</span></a>
         </article>
         <AttentionPanel projection={projection} summary={summary} />
       </div>
@@ -231,6 +233,7 @@ function ResourceEfficiency({
         ) : (
           <CostUtilizationMap rows={summary.rows} totals={summary.totalsByCurrency} onSelect={setSelectedId} selectedId={selected?.id ?? ""} />
         )}
+        <a class="cost-text-action" href={routeHref("cost-governance", { segments: ["resource-efficiency"] })}>{t("costGovernance.resource.openMapDetail")} <span aria-hidden="true">{"->"}</span></a>
       </article>
       <DecisionStrip count={recommendations.length || summary.rows.length} />
       <div class="cost-resource-workspace">
@@ -296,10 +299,12 @@ function OptimizationCases({
           <CardHeader eyebrow={t("costGovernance.cases.mixEyebrow")} title={t("costGovernance.cases.mixTitle")} description={t("costGovernance.cases.mixDescription")} />
           <OpportunityBars recommendations={recommendations} />
           <CardFooterText label={t("costGovernance.cases.netEffect")} value="-" />
+          <a class="cost-text-action" href={routeHref("cost-governance", { segments: ["optimization-cases"] })}>{t("costGovernance.cases.openMixDetail")} <span aria-hidden="true">{"->"}</span></a>
         </article>
         <article class="cost-visual-card">
           <CardHeader eyebrow={t("costGovernance.cases.flowEyebrow")} title={t("costGovernance.cases.flowTitle")} description={t("costGovernance.cases.flowDescription")} />
           <DecisionFunnel summary={summary} cases={cases} recommendations={recommendations} />
+          <a class="cost-text-action" href={routeHref("cost-governance", { segments: ["optimization-cases"] })}>{t("costGovernance.cases.openFlowDetail")} <span aria-hidden="true">{"->"}</span></a>
         </article>
       </div>
       <article class="cost-visual-card cost-case-list">
@@ -309,6 +314,7 @@ function OptimizationCases({
         ) : (
           <UnavailablePanel title={t("costGovernance.cases.unavailableTitle")} body={t("costGovernance.cases.unavailableBody")} />
         )}
+        <a class="cost-text-action" href={routeHref("cost-governance", { segments: ["optimization-cases"] })}>{t("costGovernance.cases.openListDetail")} <span aria-hidden="true">{"->"}</span></a>
       </article>
     </>
   );
@@ -328,10 +334,12 @@ function Outcomes({ summary }: { readonly summary: CostGovernanceSummary }) {
         <article class="cost-visual-card">
           <CardHeader eyebrow={t("costGovernance.outcomes.waterfallEyebrow")} title={t("costGovernance.outcomes.waterfallTitle")} description={t("costGovernance.outcomes.waterfallDescription")} />
           <UnavailableWaterfall />
+          <a class="cost-text-action" href={routeHref("cost-governance", { segments: ["outcomes"] })}>{t("costGovernance.outcomes.openWaterfallDetail")} <span aria-hidden="true">{"->"}</span></a>
         </article>
         <article class="cost-visual-card">
           <CardHeader eyebrow={t("costGovernance.outcomes.unitEyebrow")} title={t("costGovernance.outcomes.unitTitle")} description={t("costGovernance.outcomes.unitDescription")} value="-" valueLabel={t("costGovernance.outcomes.unitUnavailable")} />
           <UnavailableUnitChart />
+          <a class="cost-text-action" href={routeHref("cost-governance", { segments: ["outcomes"] })}>{t("costGovernance.outcomes.openUnitDetail")} <span aria-hidden="true">{"->"}</span></a>
         </article>
       </div>
       <article class="cost-visual-card">
@@ -339,6 +347,7 @@ function Outcomes({ summary }: { readonly summary: CostGovernanceSummary }) {
         {outcomes.length > 0 ? <SettlementGrid rows={outcomes} /> : (
           <UnavailablePanel title={t("costGovernance.outcomes.unavailableTitle")} body={t("costGovernance.outcomes.unavailableBody")} />
         )}
+        <a class="cost-text-action" href={routeHref("cost-governance", { segments: ["outcomes"] })}>{t("costGovernance.outcomes.openEffectDetail")} <span aria-hidden="true">{"->"}</span></a>
       </article>
     </>
   );
