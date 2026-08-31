@@ -377,6 +377,8 @@ async def test_remaining_console_evidence_projects_durable_tables(
             ]
         if "runtime:detection-readiness" in statement:
             return []
+        if "runtime:detection-lifecycle" in statement:
+            return []
         if "runtime:configuration-baseline" in statement:
             return []
         if "MAX(created_at)" in statement:
@@ -412,6 +414,10 @@ async def test_remaining_console_evidence_projects_durable_tables(
     assert skills["diagnostics"][0]["status"] == "ready"
     assert detection["target_count"] == 0
     assert detection["counts"]["unknown"] == 0
+    assert detection["lifecycle"]["status"] == "available"
+    assert detection["lifecycle"]["target_count"] == 0
+    assert detection["lifecycle"]["cause_claim_supported"] is False
+    assert detection["lifecycle"]["execution_authority"] is False
     assert baselines["baseline"]["version"] == "not-published"
     assert baselines["drift"]["verdict"] == "not-evaluated"
 

@@ -130,6 +130,11 @@ class AnalyzerFindingReceipt:
     assessment a canonical reducer produced. A finding without one carries no
     completeness or recovery claim at all, because a receipt that inferred one
     from free-form analyzer text would report a conclusion nothing verified.
+
+    The receipt also carries the finding's own identity and observation time.
+    A downstream projection needs to say *which* target a conclusion is about
+    and *when* it was observed; deriving either from the idempotency key would
+    re-parse a delivery detail into an operator-facing fact.
     """
 
     idempotency_key: str
@@ -139,17 +144,33 @@ class AnalyzerFindingReceipt:
     publication: AnalyzerPublicationStatus
     recovery_closed: bool | None
     evidence_refs: tuple[str, ...]
+    resource_ref: str
+    resource_kind: str
+    occurred_at: datetime
     assessed_by: str | None = None
+    recovery_status: str | None = None
     evidence_gaps: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.resource_ref.strip():
+            raise ValueError("AnalyzerFindingReceipt.resource_ref MUST be non-empty")
+        if not self.resource_kind.strip():
+            raise ValueError("AnalyzerFindingReceipt.resource_kind MUST be non-empty")
+        if self.occurred_at.tzinfo is None or self.occurred_at.utcoffset() is None:
+            raise ValueError("AnalyzerFindingReceipt.occurred_at MUST be timezone-aware")
 
     def to_dict(self) -> dict[str, object]:
         return {
             "idempotency_key": self.idempotency_key,
+            "resource_ref": self.resource_ref,
+            "resource_kind": self.resource_kind,
             "signal": self.signal,
+            "occurred_at": self.occurred_at.isoformat(),
             "detection_latency_seconds": self.detection_latency_seconds,
             "evidence_complete": self.evidence_complete,
             "publication": self.publication.value,
             "recovery_closed": self.recovery_closed,
+            "recovery_status": self.recovery_status,
             "evidence_refs": list(self.evidence_refs),
             "assessed_by": self.assessed_by,
             "evidence_gaps": list(self.evidence_gaps),
@@ -676,7 +697,11 @@ def _finding_receipt(
         publication=publication,
         recovery_closed=assessment.recovery_closed if assessment is not None else None,
         evidence_refs=finding.evidence_refs,
+        resource_ref=finding.resource_ref,
+        resource_kind=finding.resource_kind,
+        occurred_at=finding.occurred_at,
         assessed_by=assessment.assessed_by if assessment is not None else None,
+        recovery_status=assessment.recovery_status if assessment is not None else None,
         evidence_gaps=assessment.evidence_gaps if assessment is not None else (),
     )
 

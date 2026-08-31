@@ -33,5 +33,57 @@
     "stale": "Stale",
     "unauthorized": "Unauthorized",
     "unknown": "Unknown"
+  },
+  "lifecycle": {
+    "title": "Pod failure and recovery",
+    "note": "Current state, failure history, recovery, and evidence gaps are reported separately. Detection never claims a cause and never grants execution authority.",
+    "unavailable": "Pod lifecycle detection is unavailable ({reason}). No current state, history, or recovery is shown.",
+    "emptyTitle": "No Pod lifecycle detections",
+    "emptyBody": "No analyzer receipt has been reduced into a Pod lifecycle projection yet.",
+    "failing": "Failing now",
+    "recoveredVerified": "Recovery verified",
+    "failureTotal": "Retained failures",
+    "gapTargets": "Targets with evidence gaps",
+    "failureCount": "{count} retained failures",
+    "currentSignal": "Current signal",
+    "noSignal": "No signal recorded",
+    "currentObservedAt": "Current state observed",
+    "recoveryVerifiedAt": "Recovery verified at",
+    "recoveryNotVerified": "Not independently verified",
+    "retained": "Retention",
+    "retainedValue": "{failures} of {retained} retained records are failures",
+    "historyTitle": "Failure history",
+    "noHistory": "No failure is retained for this target.",
+    "gapsTitle": "Evidence gaps",
+    "noGaps": "No evidence gap is recorded for this target.",
+    "unassessed": "Not assessed",
+    "evidenceComplete": "Complete",
+    "evidenceIncomplete": "Incomplete",
+    "column": {
+      "occurred": "Occurred",
+      "signal": "Signal",
+      "recovery": "Recovery",
+      "delivery": "Delivery",
+      "evidence": "Evidence"
+    },
+    "state": {
+      "recovered": "Recovered",
+      "failing": "Failing",
+      "unknown": "Unknown"
+    },
+    "recovery": {
+      "verified": "Verified",
+      "not_verified": "Not verified",
+      "unknown": "Unknown"
+    },
+    "gap": {
+      "missing_evidence": "Missing evidence",
+      "stale_evidence": "Stale evidence",
+      "incomplete_evidence": "Incomplete evidence",
+      "conflicting_evidence": "Conflicting evidence",
+      "unassessed_finding": "Unassessed finding",
+      "delivery_uncertain": "Delivery uncertain",
+      "delivery_failed": "Delivery failed"
+    }
   }
 }

@@ -53,9 +53,12 @@ from fdai.delivery.azure.trace_continuity import (
     TraceTopologyTarget,
 )
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
+from fdai.delivery.detection_lifecycle_state import DetectionLifecycleRecorder
 from fdai.delivery.persistence import (
     PostgresOntologyInstanceStore,
     PostgresOntologyInstanceStoreConfig,
+    PostgresStateStore,
+    PostgresStateStoreConfig,
 )
 from fdai.delivery.persistence.postgres_analyzer_publication import (
     PostgresAnalyzerPublicationLedger,
@@ -419,6 +422,26 @@ def build_publication_ledger() -> PostgresAnalyzerPublicationLedger:
     )
 
 
+def build_lifecycle_recorder() -> DetectionLifecycleRecorder:
+    """Bind the tracked-state writer that keeps Pod failure history readable.
+
+    The projection shares the analyzer's state store: it is the same durable
+    boundary the publication ledger already requires, so a venue that can
+    suppress a duplicate can also retain what it detected.
+    """
+
+    dsn = os.environ.get(STATE_STORE_DSN_ENV, "").strip()
+    if not dsn:
+        raise RuntimeError(f"{STATE_STORE_DSN_ENV} is required for Pod lifecycle projection")
+    return DetectionLifecycleRecorder(
+        PostgresStateStore(
+            config=PostgresStateStoreConfig(
+                dsn=dsn.replace("postgresql+psycopg://", "postgresql://", 1)
+            )
+        )
+    )
+
+
 def build_analyzer_coordinator(metric_provider: MetricProvider) -> InvestigationCoordinator:
     """Compose every production analyzer this venue can actually ground.
 
@@ -495,6 +518,10 @@ async def run_once() -> AnalyzerJobReport:
                     window_seconds=window_seconds,
                     topic=topic,
                 ).run_once(targets)
+                await build_lifecycle_recorder().record_report(
+                    analyzer_report,
+                    at=datetime.now(tz=UTC),
+                )
             else:
                 analyzer_report = AnalyzerTickReport(targets=0, findings=0, published=0)
 

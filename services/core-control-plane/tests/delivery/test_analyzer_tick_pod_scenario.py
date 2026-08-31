@@ -17,10 +17,12 @@ from typing import Any
 
 import pytest
 from fdai.delivery import analyzer_tick_cli as cli
+from fdai.delivery.detection_lifecycle_state import DetectionLifecycleRecorder
 from fdai.delivery.persistence.postgres_analyzer_publication import (
     PostgresAnalyzerPublicationLedger,
 )
 from fdai.shared.providers.event_bus import PublishReceipt
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 from tests.delivery.publication_store import ConditionalStore
 
@@ -269,7 +271,17 @@ class _ScenarioBus:
 
 
 @pytest.fixture
-def scenario_bus(monkeypatch: pytest.MonkeyPatch) -> Iterator[_ScenarioBus]:
+def lifecycle_store() -> InMemoryStateStore:
+    """Bind the tick's tracked-state boundary without a database."""
+
+    return InMemoryStateStore()
+
+
+@pytest.fixture
+def scenario_bus(
+    monkeypatch: pytest.MonkeyPatch,
+    lifecycle_store: InMemoryStateStore,
+) -> Iterator[_ScenarioBus]:
     """Run the real CLI composition against a local broker and ledger."""
 
     bus = _ScenarioBus()
@@ -304,6 +316,11 @@ def scenario_bus(monkeypatch: pytest.MonkeyPatch) -> Iterator[_ScenarioBus]:
         "build_publication_ledger",
         lambda: PostgresAnalyzerPublicationLedger(store=store),
     )
+    monkeypatch.setattr(
+        cli,
+        "build_lifecycle_recorder",
+        lambda: DetectionLifecycleRecorder(lifecycle_store),
+    )
     yield bus
 
 
@@ -332,9 +349,13 @@ def test_cli_emits_one_joined_receipt_derived_from_the_canonical_reducers(
     assert replacement == {
         "idempotency_key": replacement["idempotency_key"],
         "signal": "pod_replacement",
+        "resource_ref": _REPLACEMENT_REF,
+        "resource_kind": "kubernetes_pod",
+        "occurred_at": replacement["occurred_at"],
         "evidence_complete": True,
         "publication": "published",
         "recovery_closed": True,
+        "recovery_status": "restart_observed_recovered",
         "evidence_refs": [
             "deployment-current",
             "kubernetes-api-inventory",
