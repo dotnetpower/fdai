@@ -7,6 +7,7 @@ from collections.abc import Sequence
 from fdai.core.ontology_platform.catalog_projection import CatalogOntologyProjection
 from fdai.rule_catalog.schema.control_objective import ControlObjective
 from fdai.rule_catalog.schema.framework_catalog import FrameworkDefinition
+from fdai.rule_catalog.schema.wara_assessment import WaraAssessmentCatalog
 from fdai.shared.providers.ontology_instance import (
     OntologyLinkRecord,
     OntologyObjectRecord,
@@ -17,6 +18,7 @@ def build_framework_catalog_projection(
     *,
     frameworks: Sequence[FrameworkDefinition],
     objectives: Sequence[ControlObjective],
+    wara_assessment: WaraAssessmentCatalog | None = None,
 ) -> CatalogOntologyProjection:
     """Project framework meaning without producing assessment or authority facts."""
 
@@ -41,6 +43,11 @@ def build_framework_catalog_projection(
                 },
             )
         )
+    wara_by_id = (
+        {item.aprl_guid: item for item in wara_assessment.recommendations}
+        if wara_assessment is not None
+        else {}
+    )
     for framework in frameworks:
         framework_id = f"framework:{framework.id}@{framework.version}"
         objects.append(
@@ -74,6 +81,7 @@ def build_framework_catalog_projection(
             if control.best_practice_ref is not None:
                 properties["best_practice_ref"] = control.best_practice_ref
             if control.wara is not None:
+                assessment = wara_by_id.get(control.id)
                 properties.update(
                     {
                         "recommendation_control": control.wara.control,
@@ -84,8 +92,13 @@ def build_framework_catalog_projection(
                         "automation_available": control.wara.automation_available,
                         "tags": list(control.wara.tags),
                         "potential_benefits": control.wara.potential_benefits,
+                        "assessment_mapping_state": (
+                            assessment.mapping_state.value if assessment is not None else "unmapped"
+                        ),
                     }
                 )
+                if wara_assessment is not None:
+                    properties["assessment_crosswalk_digest"] = wara_assessment.crosswalk_digest
                 if control.wara.query_digest is not None:
                     properties["query_digest"] = control.wara.query_digest
             objects.append(

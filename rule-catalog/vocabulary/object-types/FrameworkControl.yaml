@@ -1,6 +1,6 @@
 schema_version: "1.0.0"
 name: FrameworkControl
-version: "1.0.0"
+version: "1.1.0"
 key: id
 description: One advisory framework recommendation with explicit FDAI mapping state.
 properties:
@@ -20,12 +20,14 @@ properties:
   tags: {type: array, required: false}
   potential_benefits: {type: string, required: false}
   query_digest: {type: string, required: false}
+  assessment_crosswalk_digest: {type: string, required: false}
+  assessment_mapping_state: {type: string, required: false}
   source_url: {type: string, required: true}
   source_version: {type: string, required: true}
   resolved_ref: {type: string, required: true}
 provenance:
   source_url: https://github.com/dotnetpower/fdai
-  resolved_ref: object-type:FrameworkControl@1.0.0
-  content_hash: sha256:d717f4a7d18626ac937019603b1421ef5152241513b911a295f0809387882f74
+  resolved_ref: object-type:FrameworkControl@1.1.0
+  content_hash: sha256:bc2202e45c29068ba8141aef5418c1977be32a5791151610877d3b6710281d99
   license: MIT
   retrieved_at: "2026-08-31T00:00:00Z"

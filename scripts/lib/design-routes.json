@@ -2162,6 +2162,47 @@
       ]
     },
     {
+      "id": "wara-assessment",
+      "paths": [
+        "docs/roadmap/rules-and-detection/wara-assessment*.md",
+        "docs/roadmap-implementation/rules-and-detection/wara-assessment.md",
+        "rule-catalog/collected/wara-aprl/assessment/**",
+        "scripts/catalog/build_wara_assessment.py",
+        "services/core-control-plane/src/fdai/core/wara/**",
+        "services/core-control-plane/src/fdai/shared/providers/wara_assessment.py",
+        "services/core-control-plane/src/fdai/rule_catalog/pipeline/wara_review.py",
+        "packages/service-contracts/src/fdai_service_contracts/wara_assessment.py",
+        "services/core-control-plane/tests/core/wara/**",
+        "services/core-control-plane/tests/rule_catalog/test_wara_assessment_catalog.py",
+        "services/core-control-plane/tests/rule_catalog/pipeline/test_wara_review.py",
+        "services/operator-service/src/fdai_operator_service/**",
+        "services/operator-service/tests/test_operator_workflow_family.py",
+        "console/src/routes/wara-*",
+        "console/src/routes/controls-catalog.tsx",
+        "console/src/routes/i18n/governance.*.json"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        "docs/roadmap/rules-and-detection/wara-assessment.md",
+        "docs/roadmap/rules-and-detection/rule-catalog-collection.md",
+        "docs/roadmap/rules-and-detection/rule-governance.md",
+        "docs/roadmap/architecture/operating-ontology.md",
+        "docs/roadmap/interfaces/operator-console.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/rules-and-detection/wara-assessment.md",
+        "docs/roadmap-implementation/rules-and-detection/wara-assessment.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov services/core-control-plane/tests/core/wara services/core-control-plane/tests/rule_catalog/test_wara_assessment_catalog.py services/core-control-plane/tests/rule_catalog/pipeline/test_wara_review.py services/operator-service/tests/test_operator_workflow_family.py",
+        "npm --prefix console test -- wara",
+        "npm --prefix console run typecheck",
+        "python3 scripts/quality/architecture/check-roadmap-implementation-tracking.py"
+      ]
+    },
+    {
       "id": "catalog",
       "paths": [
         "rule-catalog/**",

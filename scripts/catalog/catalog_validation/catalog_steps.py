@@ -169,6 +169,7 @@ def step_best_practice_deep(runner: Runner) -> StepResult:
     from fdai.rule_catalog.schema.governance_catalog import load_governance_catalog
     from fdai.rule_catalog.schema.governance_loader import GovernanceLoadError
     from fdai.rule_catalog.schema.probe import load_probe_catalog, probe_ids
+    from fdai.rule_catalog.schema.wara_assessment import load_wara_assessment_catalog
     from fdai.shared.contracts.models import RequirementKind
 
     rule_versions: dict[str, str] = {}
@@ -260,6 +261,16 @@ def step_best_practice_deep(runner: Runner) -> StepResult:
         wara.inventory.product_group_verified_active_controls,
     ) != (456, 393, 63, 83, 80, 143, 276):
         findings.append("Azure WARA inventory differs from the pinned APRL source")
+    if wara is not None:
+        try:
+            load_wara_assessment_catalog(
+                CATALOG_ROOT / "collected/wara-aprl/assessment/crosswalk.json",
+                CATALOG_ROOT / "collected/wara-aprl/assessment/queries.json",
+                framework=wara,
+                framework_path=CATALOG_ROOT / "collected/wara-aprl/azure-wara.json",
+            )
+        except (OSError, ValueError) as exc:
+            findings.append(f"WARA assessment catalog: {exc}")
 
     rule_sets = ()
     try:

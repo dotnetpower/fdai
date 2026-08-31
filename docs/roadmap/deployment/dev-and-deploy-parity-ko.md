@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: ec9c267c6326d93754c3368de348cf3231f888da
+translation_source_sha: 815bfd8353c32d448ed59bd739d3a01dd80460d1
 translation_revised: 2026-09-01
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -427,6 +427,7 @@ Headless Bragi 의미 라우팅은 T1과 같은 한계 임베딩 기능을 사�
 | 서브시스템 | 상태 | 갭 |
 |-----------|------|-----|
 | 권한 인식 Azure 관측 | 로컬과 배포는 같은 등록 출처 카탈로그, 실행 조건 게이트, 범위가 제한된 프로바이더 probe, PostgreSQL 결과 상태 및 Agent Activity 계약을 사용합니다. | 같은 카탈로그 digest와 출처 결과를 입증하는 통제된 로컬 및 배포 실행 전까지 런타임 검증은 열려 있습니다. |
+| WARA shadow 평가 | 로컬과 배포는 같은 고정 교차워크, 범위가 제한된 읽기 계획 계약, shadow 토픽, Operator 소비자 그룹, PostgreSQL 읽기 변환 결과를 사용합니다. | 공급자 관측 바인딩과 통제된 다중 리소스 실제 Azure 증적은 별도 권한이 부여될 때까지 사용할 수 없습니다. |
 | OHL 독립 효과 관측 | 배포는 VM Scale Set collector를 Key Vault 기반 Ed25519 seed와 서로 다른 observer, executor, source, verifier 계보에 연결할 수 있습니다. | 로컬 interactive는 연결하지 않습니다. 고정본 테스트는 결정론적 키를 주입할 수 있으며 통제된 배포 mailbox 근거는 열려 있습니다. |
 | Azure Monitor Logs KQL | 운영과 로컬 어댑터가 `AzureLogAnalyticsQueryProvider`를 공유합니다. | 서버가 소유한 `FDAI_MONITOR_WORKSPACE_ID`가 필요하며 명시적 `query_log`는 사용 불가일 때 실패 시 차단합니다. |
 | Managed Identity 토큰 (`WorkloadIdentity`) | Deployed 어댑터 존재 | interactive 로컬은 deployed 실행기로 publish하며 고정본 테스트만 로컬 발급자 사용 |

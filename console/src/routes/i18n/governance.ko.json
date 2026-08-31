@@ -300,6 +300,7 @@
       "framework": {
         "aria": "컨트롤 프레임워크",
         "waf": "Azure WAF",
+        "wara": "Azure WARA",
         "mcsbV1": "MCSB v1",
         "mcsbV2": "MCSB v2 미리 보기"
       },
@@ -408,6 +409,58 @@
         "none": "검토된 매핑이 기록되지 않았습니다."
       }
     },
+    "wara": {
+      "routeUnavailable": "이 배포에서는 WARA 컨트롤을 사용할 수 없습니다.",
+      "loadFailed": "WARA 컨트롤을 로드하지 못했습니다: {message}",
+      "loading": "WARA 컨트롤 로드 중...",
+      "banner": {
+        "title": "Shadow 모드의 자문용 안정성 평가입니다.",
+        "body": "상태를 구분해서 표시합니다. 권고와 쿼리는 수정 권한을 부여하지 않습니다."
+      },
+      "kpi": {
+        "total": "수명 주기 레코드",
+        "active": "활성 권고",
+        "automated": "쿼리 사용 가능",
+        "unknown": "충족 여부 알 수 없음"
+      },
+      "column": {
+        "recommendation": "권고",
+        "resourceType": "리소스 종류",
+        "control": "권고 컨트롤",
+        "impact": "자문 영향도"
+      },
+      "filter": {
+        "resourceType": "리소스 종류",
+        "control": "컨트롤",
+        "impact": "영향도",
+        "lifecycle": "수명 주기",
+        "productVerified": "제품 그룹 검증",
+        "automation": "자동화 사용 가능",
+        "mapping": "매핑 처리 결과",
+        "applicability": "적용 가능성",
+        "evaluation": "평가",
+        "satisfaction": "충족 상태",
+        "searchAria": "WARA 권고 검색",
+        "searchPlaceholder": "권고 GUID, 제목 또는 리소스 종류"
+      },
+      "result": {
+        "empty": "현재 필터와 일치하는 WARA 권고가 없습니다.",
+        "showing": "전체 WARA 수명 주기 레코드 {total}개 중 {filtered}개 표시"
+      },
+      "detail": {
+        "aria": "WARA 권고 세부 정보",
+        "title": "WARA 권고 세부 정보",
+        "loading": "WARA 권고 로드 중...",
+        "loadFailed": "WARA 권고를 로드하지 못했습니다: {message}",
+        "boundary": "Shadow 자문 근거입니다. 카탈로그 존재와 제품 검증은 충족을 증명하지 않습니다.",
+        "sourceRevision": "원본 리비전",
+        "evaluationScope": "평가 범위",
+        "evaluatedAt": "평가 시각",
+        "evidenceComplete": "근거 완전성",
+        "evidenceRefs": "근거 참조",
+        "limitations": "제한 사항"
+      }
+    },
     "severityRisk": {
       "critical": "매우 심각 - 위반 시 즉각적이고 영향이 큰 노출이 발생합니다.",
       "high": "심각 - 위반 시 신속하게 수정해야 하는 중대한 위험이 발생합니다.",
@@ -445,13 +498,15 @@
     },
     "controlEvaluation": {
       "not_evaluated": "평가되지 않음",
-      "evaluated": "평가됨"
+      "evaluated": "평가됨",
+      "blocked": "차단됨"
     },
     "controlStatus": {
       "satisfied": "충족",
       "failed": "실패",
       "stale": "만료됨",
       "unknown": "알 수 없음",
+      "applicable": "적용 가능",
       "not_applicable": "해당 없음"
     },
     "mcsbCoverage": {
@@ -459,6 +514,22 @@
       "partial": "부분 적용",
       "manual": "수동 증거",
       "unmapped": "미매핑"
+    },
+    "waraLifecycle": {
+      "active": "활성",
+      "disabled": "비활성 이력"
+    },
+    "waraMapping": {
+      "existing_rule": "기존 규칙",
+      "new_rule_candidate": "새 규칙 후보",
+      "manual_evidence": "수동 근거",
+      "conditional_not_applicable": "조건부 해당 없음",
+      "ambiguous_or_blocked": "모호하거나 차단됨",
+      "unmapped": "미매핑"
+    },
+    "boolean": {
+      "true": "예",
+      "false": "아니요"
     },
     "mcsbDomain": {
       "NS": "네트워크 보안",

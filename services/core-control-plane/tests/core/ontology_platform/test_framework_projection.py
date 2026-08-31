@@ -9,6 +9,7 @@ from fdai.core.ontology_platform.framework_projection import (
 )
 from fdai.rule_catalog.schema.control_objective import load_control_objective_catalog
 from fdai.rule_catalog.schema.framework_catalog import load_framework_catalog
+from fdai.rule_catalog.schema.wara_assessment import load_wara_assessment_catalog
 
 ROOT = Path(__file__).resolve().parents[5]
 CATALOG = ROOT / "rule-catalog"
@@ -30,10 +31,17 @@ def test_framework_projection_is_advisory_and_complete() -> None:
         objective_refs=frozenset({OBJECTIVE_REF}),
         additional_roots=(CATALOG / "collected/wara-aprl",),
     )
+    wara = next(item for item in frameworks if item.id == "azure-wara")
+    wara_assessment, _ = load_wara_assessment_catalog(
+        CATALOG / "collected/wara-aprl/assessment/crosswalk.json",
+        CATALOG / "collected/wara-aprl/assessment/queries.json",
+        framework=wara,
+    )
 
     projection = build_framework_catalog_projection(
         frameworks=frameworks,
         objectives=objectives,
+        wara_assessment=wara_assessment,
     )
 
     assert sum(item.object_type == "Framework" for item in projection.objects) == 3
@@ -47,10 +55,26 @@ def test_framework_projection_is_advisory_and_complete() -> None:
         for item in projection.objects
         if item.object_type == "Framework"
     )
+    wara_controls = [
+        item
+        for item in projection.objects
+        if item.object_type == "FrameworkControl"
+        and item.properties.get("assessment_crosswalk_digest")
+    ]
+    assert len(wara_controls) == 456
+    assert all(item.properties["assessment_mapping_state"] == "unmapped" for item in wara_controls)
 
 
-def test_framework_types_do_not_connect_to_authorization_or_actions() -> None:
-    forbidden = {"AccessGrant", "AuthorizationRequirement", "ActionType"}
+def test_framework_types_do_not_connect_to_authority_paths() -> None:
+    forbidden = {
+        "AccessGrant",
+        "AuthorizationRequirement",
+        "ActionType",
+        "ApprovalRequest",
+        "RiskDecision",
+        "PromotionDecision",
+        "ActionRun",
+    }
     for path in (CATALOG / "vocabulary/link-types").glob("*.yaml"):
         raw = yaml.safe_load(path.read_text(encoding="utf-8"))
         endpoints = {raw["from_type"], raw["to_type"]}

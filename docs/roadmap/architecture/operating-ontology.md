@@ -40,6 +40,10 @@ product-group verification, automation availability, tags, and query digest. It 
 execute external query bodies. The WARA subgraph can narrow discovery, but it cannot assert that a
 resource passed or failed a recommendation.
 
+The WARA assessment crosswalk adds its exact digest and explicit full, partial, or unmapped state to
+these catalog-owned controls. Scope-bound assessment results remain separate observations. They
+cannot add links to approval, risk, promotion, authorization, `ActionType`, or execution objects.
+
 The catalog-owned `Property` ObjectType remains the meta object for rule property references.
 `rule-catalog/vocabulary/property-semantics.yaml` adds reviewed semantics to every Property instance
 evaluated by a shipped rule: canonical `semantic_id`, value type, optional unit, enum

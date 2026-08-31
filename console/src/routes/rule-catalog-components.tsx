@@ -7,11 +7,13 @@ export function FacetSelect({
   label,
   value,
   counts,
+  displayGroup,
   onChange,
 }: {
   readonly label: string;
   readonly value: string;
   readonly counts: FacetMap;
+  readonly displayGroup?: string;
   readonly onChange: (next: string) => void;
 }) {
   const options = Object.entries(counts);
@@ -23,7 +25,7 @@ export function FacetSelect({
           {t("governance.common.all")} ({options.reduce((sum, [, count]) => sum + count, 0)})
         </option>
         {options.map(([key, count]) => (
-          <option key={key} value={key}>{key} ({count})</option>
+          <option key={key} value={key}>{displayGroup ? displayValue(displayGroup, key) : key} ({count})</option>
         ))}
       </select>
     </label>

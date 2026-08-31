@@ -39,6 +39,11 @@ Azure Resource Graph query digest. The query body remains external and inert. An
 does not become an executable Rule until it passes the normal Rule, evidence, semantic, regression,
 shadow, and promotion gates.
 
+The derived [WARA assessment crosswalk](wara-assessment.md) consumes this pinned catalog without
+rewriting it. It accounts for active and disabled lifecycle records separately, stores external
+query bodies apart from framework metadata, and adds conservative applicability, evidence, and
+mapping reviews. Collection success still does not prove workload satisfaction.
+
 The first three feed the deterministic engine. The fourth is the **performance baseline** from
 [phase-0-instrumentation.md](../phases/phase-0-instrumentation.md) - a different concept that shares
 this document only because both are "baselines"; keep them separate in storage and schema.
@@ -635,3 +640,4 @@ boundaries, and CandidateGuard behavior live in
 | To learn about | Read |
 |----------------|------|
 | Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/rules-and-detection/rule-catalog-collection.md) |
+| Scope-aware WARA evaluation | [WARA Evidence-Governed Assessment](wara-assessment.md) |

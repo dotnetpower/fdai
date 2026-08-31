@@ -18,6 +18,7 @@ from fdai_service_contracts.semantic_turn import (
     LOGICAL_TOPIC_FIELD,
     multiplexed_consumer_group,
 )
+from fdai_service_contracts.wara_assessment import WARA_ASSESSMENT_TOPIC
 
 from fdai_operator_service.contract_codecs import CORE_REQUEST_PRODUCER_V15
 
@@ -49,6 +50,7 @@ class OperatorSemanticKafkaConfig:
     read_investigation_topic: str | None = None
     read_investigation_completion_topic: str | None = None
     background_task_projection_topic: str | None = None
+    wara_assessment_topic: str = WARA_ASSESSMENT_TOPIC
     event_topic: str | None = None
     hil_decision_topic: str | None = None
     client_id: str = "fdai-operator-service"
@@ -110,6 +112,18 @@ class OperatorSemanticKafkaConfig:
             }
         ):
             raise ValueError("event topic MUST be distinct and valid")
+        if _TOPIC_PATTERN.fullmatch(
+            self.wara_assessment_topic
+        ) is None or self.wara_assessment_topic in {
+            self.request_topic,
+            self.projection_topic,
+            self.progress_topic,
+            self.read_investigation_topic,
+            self.read_investigation_completion_topic,
+            self.background_task_projection_topic,
+            self.event_topic,
+        }:
+            raise ValueError("WARA assessment topic MUST be distinct and valid")
         if self.hil_decision_topic is not None and (
             _TOPIC_PATTERN.fullmatch(self.hil_decision_topic) is None
             or self.hil_decision_topic
@@ -121,6 +135,7 @@ class OperatorSemanticKafkaConfig:
                 self.read_investigation_completion_topic,
                 self.background_task_projection_topic,
                 self.event_topic,
+                self.wara_assessment_topic,
             }
         ):
             raise ValueError("HIL decision topic MUST be distinct and valid")
@@ -242,6 +257,7 @@ class OperatorSemanticKafkaBus:
             self._config.progress_topic,
             self._config.read_investigation_completion_topic,
             self._config.background_task_projection_topic,
+            self._config.wara_assessment_topic,
         }:
             raise ValueError("semantic Kafka subscription topic is not configured")
         physical_topic = self._config.physical_topic or topic

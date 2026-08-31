@@ -578,6 +578,16 @@ class PostgresFamilyStore:
             )
         return _json_object(rows[0].get("value"), label=key)
 
+    async def read_wara_catalog(self) -> dict[str, object]:
+        """Read the current catalog-plus-assessment WARA projection."""
+
+        return await self.read_projection(family="workflow", operation="wara.list")
+
+    async def write_wara_projection(self, value: Mapping[str, object]) -> None:
+        """Persist one validated no-authority WARA Operator projection."""
+
+        await self.write_state(_projection_key("workflow", "wara.list"), value)
+
     async def list_background_tasks(
         self,
         *,

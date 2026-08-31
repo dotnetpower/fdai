@@ -118,6 +118,7 @@ from fdai_operator_service.runtime_projection_reader import (
     RuntimeProjectionReaderConfig,
 )
 from fdai_operator_service.streaming import LiveStreamEvent, LiveStreamHub
+from fdai_operator_service.wara_projection import WaraAssessmentProjectionBridge
 
 WEBHOOK_SIGNING_SECRET_ENV = "FDAI_OPERATOR_WEBHOOK_SECRET"  # noqa: S105
 COST_PSEUDONYM_KEY_ENV = "FDAI_COST_PSEUDONYM_KEY"  # noqa: S105
@@ -240,6 +241,15 @@ class ProductionOperatorComposition:
             and environment.background_task_projection_consumer_group_id is not None
             else None
         )
+        wara_assessment_projection_bridge = (
+            WaraAssessmentProjectionBridge(
+                store=family_store,
+                source=semantic_bus,
+                publisher=semantic_bus,
+            )
+            if family_store is not None and semantic_bus is not None
+            else None
+        )
         read_investigation_completion_bridge = (
             ReadInvestigationCompletionBridge(
                 store=PostgresReadInvestigationCompletionRepository(
@@ -333,6 +343,7 @@ class ProductionOperatorComposition:
                 semantic_bridge,
                 read_investigation_bridge,
                 background_task_projection_bridge,
+                wara_assessment_projection_bridge,
                 read_investigation_completion_bridge,
                 action_confirmation_bridge,
                 azure_monitor_webhook_bridge,
@@ -349,6 +360,7 @@ class ProductionOperatorComposition:
                 semantic_bridge,
                 read_investigation_bridge,
                 background_task_projection_bridge,
+                wara_assessment_projection_bridge,
                 read_investigation_completion_bridge,
                 action_confirmation_bridge,
                 azure_monitor_webhook_bridge,
@@ -686,6 +698,7 @@ def _application_lifecycle(
     bridge: SemanticTurnBridge | None,
     read_investigation_bridge: ReadInvestigationBridge | None,
     background_task_projection_bridge: BackgroundTaskProjectionBridge | None,
+    wara_assessment_projection_bridge: WaraAssessmentProjectionBridge | None,
     read_investigation_completion_bridge: ReadInvestigationCompletionBridge | None,
     action_confirmation_bridge: ActionConfirmationBridge | None,
     azure_monitor_webhook_bridge: AzureMonitorWebhookBridge | None,
@@ -702,6 +715,7 @@ def _application_lifecycle(
             bridge,
             read_investigation_bridge,
             background_task_projection_bridge,
+            wara_assessment_projection_bridge,
             read_investigation_completion_bridge,
             action_confirmation_bridge,
             azure_monitor_webhook_bridge,
@@ -725,6 +739,7 @@ def _readiness_probe(
     bridge: SemanticTurnBridge | None,
     read_investigation_bridge: ReadInvestigationBridge | None,
     background_task_projection_bridge: BackgroundTaskProjectionBridge | None,
+    wara_assessment_projection_bridge: WaraAssessmentProjectionBridge | None,
     read_investigation_completion_bridge: ReadInvestigationCompletionBridge | None,
     action_confirmation_bridge: ActionConfirmationBridge | None,
     azure_monitor_webhook_bridge: AzureMonitorWebhookBridge | None,
@@ -745,6 +760,10 @@ def _readiness_probe(
             and (
                 background_task_projection_bridge is None
                 or background_task_projection_bridge.workers_ready()
+            )
+            and (
+                wara_assessment_projection_bridge is None
+                or wara_assessment_projection_bridge.workers_ready()
             )
             and (
                 read_investigation_completion_bridge is None

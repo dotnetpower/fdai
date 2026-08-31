@@ -31,6 +31,7 @@ from fdai.rule_catalog.schema.rego_semantics import load_rego_semantics
 from fdai.rule_catalog.schema.resource_class import load_resource_class_registry_from_mapping
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
 from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_mapping
+from fdai.rule_catalog.schema.wara_assessment import load_wara_assessment_catalog
 from fdai.runtime.configuration import _resolve_catalog_root
 
 
@@ -148,6 +149,15 @@ async def project_catalog_ontology(
         objective_refs=frozenset(item.ref for item in objectives),
         additional_roots=(catalog_root / "collected/wara-aprl",),
     )
+    wara = next((item for item in frameworks if item.id == "azure-wara"), None)
+    if wara is None:
+        raise RuntimeError("WARA framework is required for catalog ontology projection")
+    wara_assessment, _ = load_wara_assessment_catalog(
+        catalog_root / "collected/wara-aprl/assessment/crosswalk.json",
+        catalog_root / "collected/wara-aprl/assessment/queries.json",
+        framework=wara,
+        framework_path=catalog_root / "collected/wara-aprl/azure-wara.json",
+    )
     projection = merge_catalog_ontology_projections(
         base_projection,
         load_diagnostic_catalog_projection(repo_root),
@@ -156,6 +166,7 @@ async def project_catalog_ontology(
     framework_projection = build_framework_catalog_projection(
         frameworks=frameworks,
         objectives=objectives,
+        wara_assessment=wara_assessment,
     )
     await CatalogOntologyProjector(
         store,

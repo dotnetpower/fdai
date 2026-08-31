@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 9a0024f7713d153fafb265315ff16b5a08443911
+translation_source_sha: 8b5d0f19eb789cb9e5a6399d98f30a98740cb7d6
 translation_revised: 2026-09-01
 ---
 # FDAI 운영 온톨로지
@@ -43,6 +43,10 @@ translation_revised: 2026-09-01
 다이제스트를 가진 `FrameworkControl` 레코드 456개를 제공합니다. 외부 쿼리 본문은 투영하거나
 실행하지 않습니다. WARA 하위 그래프는 검색 후보를 좁힐 수 있지만 리소스가 권고를 통과하거나
 실패했다고 주장할 수 없습니다.
+
+WARA 평가 교차워크는 정확한 다이제스트와 명시적인 전체, 부분 또는 미매핑 상태를 이러한
+카탈로그 소유 컨트롤에 추가합니다. 범위별 평가 결과는 별도 관측으로 유지됩니다. 승인, 위험,
+승격, 권한 부여, `ActionType` 또는 실행 객체로 이어지는 링크를 추가할 수 없습니다.
 
 Catalog-owned `Property` ObjectType은 룰 속성 참조를 위한 meta 객체로 유지됩니다.
 `rule-catalog/vocabulary/property-semantics.yaml`은 제공되는 룰이 평가하는 모든 Property 인스턴스에

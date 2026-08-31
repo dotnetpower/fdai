@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1306,
+  "file_count": 1309,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "184bbde89444c6896480ccf1b591dd5b69f2fe84513e37f8923dd1e9f61451ec",
     ".github/instructions/agent-stewardship.instructions.md": "e2e2224db17159323f910252e0f9f6efb44c0f1d7e0d217d5159745c15c9ff46",
@@ -601,7 +601,7 @@
     "services/core-control-plane/src/fdai/core/ontology_platform/direction_shadow/promotion.py": "44a52a137ea752963139e3b460b7a45345fb8d232a2976fed8c8534c041c96ac",
     "services/core-control-plane/src/fdai/core/ontology_platform/evidence_conflict.py": "0c5329a14ad7e44becdd3510659c86185781bf32bb2c0ae43123244c2f4bb5bf",
     "services/core-control-plane/src/fdai/core/ontology_platform/evidence_health_queries.py": "ec35cc6e4301bb7c4f35b70fefd7b015f3815af8e0979936ec6d8fdef2f4690c",
-    "services/core-control-plane/src/fdai/core/ontology_platform/framework_projection.py": "5ff15eda0b203cbe20b70ed8de6489212c3ac27b6919ebf2aa22fe46309a0858",
+    "services/core-control-plane/src/fdai/core/ontology_platform/framework_projection.py": "abb900293158089cd2aa6c75a4df1bdda0d134138258bb8e926bcf4daec28959",
     "services/core-control-plane/src/fdai/core/ontology_platform/functions.py": "86a84d88100524de15d75d53fd924281cbdc86a1df1cb968251e1c40a98f3244",
     "services/core-control-plane/src/fdai/core/ontology_platform/graph_evidence_refresh.py": "dcecff60565507dc35ab21fecfa73746dcd7bc6c424bebc0137ce13cabf941c0",
     "services/core-control-plane/src/fdai/core/ontology_platform/graph_query_refresh.py": "255b30d158e513b89bcf1ab072c80430148185714c0d2a8b9eb001fea3a2fb92",
@@ -1075,6 +1075,8 @@
     "services/core-control-plane/src/fdai/core/views/engine.py": "15da16a04f7caec48d80a63b6d86f8044b19fd5194845c13712efd6cfc02bc31",
     "services/core-control-plane/src/fdai/core/views/models.py": "8f9dddfdcaaae43f5e19c7a0e6c275e8ec466db00253bda69696de845a04eea4",
     "services/core-control-plane/src/fdai/core/views/workflow_apps.py": "888fc65c0325b957490abd969059ee61855da8b378b9a470e04d2811af2e7436",
+    "services/core-control-plane/src/fdai/core/wara/__init__.py": "5120c5d2beff2500238a88cbdb2deb511e200a2410c1632b1a19d89c82b6828b",
+    "services/core-control-plane/src/fdai/core/wara/runtime.py": "5bb727c4eb1f5cb634c875be80e51713ad77b634cad2d14dba7c7147d4f74401",
     "services/core-control-plane/src/fdai/core/web_search/__init__.py": "95db4eba09f528399a6e24bfe99cb09803d64c564d52e9c831a7d173f2b033cc",
     "services/core-control-plane/src/fdai/core/web_search/policy.py": "6903713ac2579ce073a298dc97738bb091a6900d01dd4eceb4bb0bfa60b8ae12",
     "services/core-control-plane/src/fdai/core/web_search/provider.py": "35b6cf6a5103b492ae1dfba181bbd3a2b40910d9966c4ddddc147f814f91640c",
@@ -1306,6 +1308,7 @@
     "services/core-control-plane/src/fdai/shared/providers/trajectory.py": "b1b4d0817c6e3a88d7f640bb4a9e3461d2968dcd50a2d5cf2d446203f42008a0",
     "services/core-control-plane/src/fdai/shared/providers/user_context.py": "ae9b475220b012d835a49071c264e1ef690cdd0d979b59cb0f8e928460e99a36",
     "services/core-control-plane/src/fdai/shared/providers/vm_task.py": "1c1042d8452f05e81b8010797cc5afff00db8b99653999d1c8db574e3057d9ff",
+    "services/core-control-plane/src/fdai/shared/providers/wara_assessment.py": "6d3e614b47be14d51c277e2f530856a728ebde9b0d2f7532d31fc980374eea2c",
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },

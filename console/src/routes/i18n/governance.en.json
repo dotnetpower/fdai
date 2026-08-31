@@ -301,6 +301,7 @@
       "framework": {
         "aria": "Control framework",
         "waf": "Azure WAF",
+        "wara": "Azure WARA",
         "mcsbV1": "MCSB v1",
         "mcsbV2": "MCSB v2 preview"
       },
@@ -409,6 +410,58 @@
         "none": "No reviewed mapping is recorded."
       }
     },
+    "wara": {
+      "routeUnavailable": "WARA controls are not available in this deployment.",
+      "loadFailed": "Failed to load WARA controls: {message}",
+      "loading": "Loading WARA controls...",
+      "banner": {
+        "title": "Advisory reliability assessment in shadow mode.",
+        "body": "States remain separate. Recommendations and queries have no remediation authority."
+      },
+      "kpi": {
+        "total": "Lifecycle records",
+        "active": "Active recommendations",
+        "automated": "Queries available",
+        "unknown": "Unknown satisfaction"
+      },
+      "column": {
+        "recommendation": "Recommendation",
+        "resourceType": "Resource type",
+        "control": "Recommendation control",
+        "impact": "Advisory impact"
+      },
+      "filter": {
+        "resourceType": "Resource type",
+        "control": "Control",
+        "impact": "Impact",
+        "lifecycle": "Lifecycle",
+        "productVerified": "Product-group verified",
+        "automation": "Automation available",
+        "mapping": "Mapping disposition",
+        "applicability": "Applicability",
+        "evaluation": "Evaluation",
+        "satisfaction": "Satisfaction",
+        "searchAria": "Search WARA recommendations",
+        "searchPlaceholder": "Recommendation GUID, title, or resource type"
+      },
+      "result": {
+        "empty": "No WARA recommendations match the current filters.",
+        "showing": "Showing {filtered} of {total} WARA lifecycle records"
+      },
+      "detail": {
+        "aria": "WARA recommendation detail",
+        "title": "WARA recommendation detail",
+        "loading": "Loading WARA recommendation...",
+        "loadFailed": "Failed to load WARA recommendation: {message}",
+        "boundary": "Advisory shadow evidence. Catalog presence and product verification do not prove satisfaction.",
+        "sourceRevision": "Source revision",
+        "evaluationScope": "Evaluation scope",
+        "evaluatedAt": "Evaluated at",
+        "evidenceComplete": "Evidence complete",
+        "evidenceRefs": "Evidence references",
+        "limitations": "Limitations"
+      }
+    },
     "severityRisk": {
       "critical": "Critical - a violation is an immediate, high-impact exposure.",
       "high": "High - a violation is a serious risk that should be fixed promptly.",
@@ -446,13 +499,15 @@
     },
     "controlEvaluation": {
       "not_evaluated": "Not evaluated",
-      "evaluated": "Evaluated"
+      "evaluated": "Evaluated",
+      "blocked": "Blocked"
     },
     "controlStatus": {
       "satisfied": "Satisfied",
       "failed": "Failed",
       "stale": "Stale",
       "unknown": "Unknown",
+      "applicable": "Applicable",
       "not_applicable": "Not applicable"
     },
     "mcsbCoverage": {
@@ -460,6 +515,22 @@
       "partial": "Partial",
       "manual": "Manual evidence",
       "unmapped": "Unmapped"
+    },
+    "waraLifecycle": {
+      "active": "Active",
+      "disabled": "Disabled history"
+    },
+    "waraMapping": {
+      "existing_rule": "Existing rule",
+      "new_rule_candidate": "New rule candidate",
+      "manual_evidence": "Manual evidence",
+      "conditional_not_applicable": "Conditional not applicable",
+      "ambiguous_or_blocked": "Ambiguous or blocked",
+      "unmapped": "Unmapped"
+    },
+    "boolean": {
+      "true": "Yes",
+      "false": "No"
     },
     "mcsbDomain": {
       "NS": "Network security",

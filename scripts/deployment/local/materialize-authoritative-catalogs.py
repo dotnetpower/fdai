@@ -44,12 +44,17 @@ from fdai.delivery.ontology_evidence_health_projection import (
 from fdai.delivery.ontology_release_diff_projection import build_release_diff_registry
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
 from fdai.rule_catalog.schema.best_practice_catalog import load_best_practice_catalog
+from fdai.rule_catalog.schema.framework_catalog import load_framework_catalog
 from fdai.rule_catalog.schema.mcsb_catalog import McsbCatalog, load_mcsb_catalogs
 from fdai.rule_catalog.schema.ontology_catalog import OntologyCatalog, load_ontology_catalog
 from fdai.rule_catalog.schema.probe import load_probe_catalog, probe_ids
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
 from fdai.rule_catalog.schema.rule import load_rule_catalog
 from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_mapping
+from fdai.rule_catalog.schema.wara_assessment import (
+    WaraAssessmentCatalog,
+    load_wara_assessment_catalog,
+)
 from fdai.rule_catalog.schema.workflow import load_workflow_catalog
 from fdai.shared.contracts.models import (
     BestPractice,
@@ -63,6 +68,7 @@ from psycopg.rows import dict_row
 
 RULE_LIST_KEY = "operator-projection:workflow:rule.list"
 BEST_PRACTICE_LIST_KEY = "operator-projection:workflow:best-practice.list"
+WARA_LIST_KEY = "operator-projection:workflow:wara.list"
 MCSB_LIST_KEY = "operator-projection:workflow:mcsb.list"
 PROMOTION_GATE_LIST_KEY = "operator-projection:workflow:promotion-gate.list"
 CAPABILITY_LIST_KEY = "operator-projection:operations:capabilities"
@@ -121,6 +127,19 @@ def catalog_snapshots(repo_root: Path) -> dict[str, dict[str, object]]:
             architecture_review=architecture_review,
         ),
     )
+    frameworks = load_framework_catalog(
+        catalog_root / "frameworks",
+        best_practices=best_practices,
+        objective_refs=frozenset({"reliability.node-pool.zone-failure-tolerance@1.0.0"}),
+        additional_roots=(catalog_root / "collected/wara-aprl",),
+    )
+    wara_framework = next(item for item in frameworks if item.id == "azure-wara")
+    wara_assessment, _ = load_wara_assessment_catalog(
+        catalog_root / "collected/wara-aprl/assessment/crosswalk.json",
+        catalog_root / "collected/wara-aprl/assessment/queries.json",
+        framework=wara_framework,
+        framework_path=catalog_root / "collected/wara-aprl/azure-wara.json",
+    )
     mcsb_catalogs = load_mcsb_catalogs(
         catalog_root / "compliance/mcsb",
         strict=False,
@@ -170,6 +189,7 @@ def catalog_snapshots(repo_root: Path) -> dict[str, dict[str, object]]:
             )
         ),
         BEST_PRACTICE_LIST_KEY: _revisioned(_best_practice_snapshot(best_practices)),
+        WARA_LIST_KEY: _revisioned(_wara_snapshot(wara_framework, wara_assessment)),
         MCSB_LIST_KEY: _revisioned(_mcsb_snapshot(mcsb_catalogs)),
         PROMOTION_GATE_LIST_KEY: _revisioned(_promotion_gate_snapshot(ontology.action_types)),
         CAPABILITY_LIST_KEY: _revisioned(_capability_snapshot()),
@@ -385,6 +405,68 @@ def _mcsb_snapshot(catalogs: Sequence[McsbCatalog]) -> dict[str, object]:
             for catalog in sorted(catalogs, key=lambda item: item.benchmark_version)
         ],
         "evaluation_source": "catalog-crosswalk",
+    }
+
+
+def _wara_snapshot(
+    framework: Any,
+    assessment: WaraAssessmentCatalog,
+) -> dict[str, object]:
+    crosswalk = {item.aprl_guid: item for item in assessment.recommendations}
+    controls: list[dict[str, object]] = []
+    for resolved in framework.resolved_controls():
+        control = resolved.control
+        metadata = control.wara
+        if metadata is None:
+            continue
+        mapping = crosswalk.get(control.id)
+        limitations = (
+            ["disabled_catalog_history"]
+            if metadata.state == "Disabled"
+            else ["not_evaluated"]
+            if mapping is not None and mapping.query_review is None
+            else sorted(mapping.query_review.blocked_reasons)
+            if mapping is not None and mapping.query_review is not None
+            else ["crosswalk_missing"]
+        )
+        controls.append(
+            {
+                "id": control.id,
+                "title": control.title,
+                "recommendation_control": metadata.control,
+                "impact": metadata.impact,
+                "resource_type": metadata.resource_type,
+                "lifecycle": metadata.state.casefold(),
+                "product_group_verified": metadata.product_group_verified,
+                "automation_available": metadata.automation_available,
+                "mapping_disposition": (
+                    mapping.disposition.value if mapping is not None else "unmapped"
+                ),
+                "mapping_state": (
+                    mapping.mapping_state.value if mapping is not None else "unmapped"
+                ),
+                "applicability": "unknown",
+                "evaluation_status": "not_evaluated",
+                "satisfaction": "unknown",
+                "evaluation_scope": None,
+                "evaluated_at": None,
+                "evidence_complete": False,
+                "evidence_refs": [],
+                "evidence_digests": [],
+                "source_revision": resolved.resolved_ref,
+                "source_path": metadata.source_path,
+                "source_digest": metadata.source_digest,
+                "query_digest": metadata.query_digest,
+                "workload_tags": list(metadata.tags),
+                "limitations": limitations,
+                "execution_authority": False,
+            }
+        )
+    return {
+        "controls": sorted(controls, key=lambda item: str(item["id"])),
+        "evaluation_source": "not_connected",
+        "source_revision": assessment.source_revision,
+        "crosswalk_digest": assessment.crosswalk_digest,
     }
 
 

@@ -1,7 +1,7 @@
 ---
 title: 규칙 카탈로그 수집(Rule Catalog Collection)
 translation_of: rule-catalog-collection.md
-translation_source_sha: c64ee9d8cb0775fa4c1c3ebeec4aebc04642257f
+translation_source_sha: d89d18c97abf1bc6403a77f2867c9cfe850926a7
 translation_revised: 2026-09-01
 ---
 
@@ -43,6 +43,11 @@ WARA는 별도의 비공개 질문 카탈로그가 아니라 Azure Proactive Res
 출처 다이제스트, 선택적 Azure Resource Graph 쿼리 다이제스트를 포함한 고정 APRL 권고
 메타데이터 전체를 가져옵니다. 쿼리 본문은 외부에 유지되며 실행되지 않습니다. APRL 권고는
 일반 Rule, 증거, 의미, 회귀, shadow, 승격 게이트를 통과하기 전까지 실행 가능한 Rule이 아닙니다.
+
+파생 [WARA 평가 교차워크](wara-assessment-ko.md)는 이 고정 카탈로그를 다시 작성하지 않고
+사용합니다. 활성 및 비활성 수명 주기 레코드를 구분해서 집계하고 외부 쿼리 본문을 프레임워크
+메타데이터와 별도로 저장하며 보수적인 적용 가능성, 근거, 매핑 검토를 추가합니다. 수집 성공은
+여전히 워크로드 충족을 증명하지 않습니다.
 
 처음 셋은 결정론 엔진에 공급. 넷째는
 [phase-0-instrumentation-ko.md](../phases/phase-0-instrumentation-ko.md) 의 **성능 베이스라인** -
@@ -632,3 +637,4 @@ Authored Rego는 `rule-catalog/` 아래에 **중첩되지 않음** ; T0와 검�
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
 | 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/rules-and-detection/rule-catalog-collection.md) |
+| 범위를 인식하는 WARA 평가 | [WARA 근거 기반 평가](wara-assessment-ko.md) |

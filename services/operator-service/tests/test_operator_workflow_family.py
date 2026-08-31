@@ -50,6 +50,8 @@ EXPECTED_MANIFEST = (
     ("GET", "/rules/{rule_id}", "detail_handler"),
     ("GET", "/best-practices", "list_handler"),
     ("GET", "/best-practices/{best_practice_id}", "detail_handler"),
+    ("GET", "/wara-controls", "list_handler"),
+    ("GET", "/wara-controls/{recommendation_id}", "detail_handler"),
     ("GET", "/mcsb-controls", "list_handler"),
     ("GET", "/mcsb-controls/{benchmark_version}/{control_id}", "detail_handler"),
     ("GET", "/kpi/promotion-gates", "handler"),
@@ -159,7 +161,7 @@ def test_manifest_preserves_exact_legacy_method_path_and_name_surface() -> None:
         tuple((spec.method, spec.path, spec.name) for spec in WORKFLOW_FAMILY_ROUTE_MANIFEST)
         == EXPECTED_MANIFEST
     )
-    assert len(WORKFLOW_FAMILY_ROUTE_MANIFEST) == 39
+    assert len(WORKFLOW_FAMILY_ROUTE_MANIFEST) == 41
     assert sum(spec.dispatch == "proposal" for spec in WORKFLOW_FAMILY_ROUTE_MANIFEST) == 13
 
     client, _, _, _ = _client()
@@ -434,6 +436,33 @@ async def test_postgres_control_catalogs_project_lists_filters_and_details() -> 
         "source": {"resolved_ref": "catalog-revision"},
         "evaluation_source": "catalog-crosswalk",
     }
+    wara_control = {
+        "id": "00000000-0000-0000-0000-000000000001",
+        "title": "Use zones",
+        "recommendation_control": "HighAvailability",
+        "impact": "High",
+        "resource_type": "Microsoft.Compute/virtualMachines",
+        "lifecycle": "active",
+        "product_group_verified": True,
+        "automation_available": False,
+        "mapping_disposition": "manual_evidence",
+        "mapping_state": "unmapped",
+        "applicability": "unknown",
+        "evaluation_status": "not_evaluated",
+        "satisfaction": "unknown",
+        "evaluation_scope": None,
+        "evaluated_at": None,
+        "evidence_complete": False,
+        "evidence_refs": [],
+        "evidence_digests": [],
+        "source_revision": "catalog-revision",
+        "source_path": "azure-resources/example/recommendations.yaml",
+        "source_digest": "sha256:" + "a" * 64,
+        "query_digest": None,
+        "workload_tags": [],
+        "limitations": ["not_evaluated"],
+        "execution_authority": False,
+    }
     projections = {
         "best-practice.list": {
             "_revision": "best-practice-revision",
@@ -444,6 +473,13 @@ async def test_postgres_control_catalogs_project_lists_filters_and_details() -> 
             "_revision": "mcsb-revision",
             "catalogs": [{"benchmark": benchmark, "controls": [mcsb_control]}],
             "evaluation_source": "catalog-crosswalk",
+        },
+        "wara.list": {
+            "_revision": "wara-revision",
+            "controls": [wara_control],
+            "evaluation_source": "not_connected",
+            "source_revision": "catalog-revision",
+            "crosswalk_digest": "sha256:" + "b" * 64,
         },
     }
 
@@ -489,6 +525,27 @@ async def test_postgres_control_catalogs_project_lists_filters_and_details() -> 
             path_parameters={"benchmark_version": "v1", "control_id": "NS-1"},
         )
     )
+    wara_list = await adapter.read(
+        WorkflowReadRequest(
+            operation=WorkflowOperation.WARA_LIST,
+            principal_id="operator-a",
+            query={
+                "resource_type": "Microsoft.Compute/virtualMachines",
+                "lifecycle": "active",
+            },
+            path_parameters={},
+            limit=100,
+            offset=0,
+        )
+    )
+    wara_detail = await adapter.read(
+        WorkflowReadRequest(
+            operation=WorkflowOperation.WARA_DETAIL,
+            principal_id="operator-a",
+            query={},
+            path_parameters={"recommendation_id": wara_control["id"]},
+        )
+    )
 
     assert best_list.payload["total"] == 1
     assert best_list.payload["controls"][0]["control_id"] == "RE:01"
@@ -500,6 +557,13 @@ async def test_postgres_control_catalogs_project_lists_filters_and_details() -> 
     assert "rule_ids" not in mcsb_list.payload["controls"][0]
     assert mcsb_detail.payload == mcsb_control
     assert mcsb_detail.provenance.revision == "mcsb-revision"
+    assert wara_list.payload["filtered_total"] == 1
+    assert wara_list.payload["controls"] == [wara_control]
+    assert wara_list.payload["evaluation_source"] == "not_connected"
+    assert wara_list.payload["facets"]["by_product_group_verified"] == {"true": 1}
+    assert wara_list.payload["facets"]["by_automation_available"] == {"false": 1}
+    assert wara_detail.payload == wara_control
+    assert wara_detail.provenance.revision == "wara-revision"
 
 
 async def test_postgres_workflow_adapter_submits_inert_proposal() -> None:

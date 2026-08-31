@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 88114d964cd581aabc4e93fe352ec131ea1bf968
+translation_source_sha: 46e20b66ef27e82c4950fed70d8b3c2ff38c7761
 translation_revised: 2026-09-01
 ---
 # 코드 맵
@@ -368,6 +368,11 @@ SDK는 두 semantic channel이 하나의 physical Event Hub를 공유할 때 사
 identity, logical topic 및 offset group을 유지하며 상대 서비스 구현을 가져오지 않습니다. 같은 계약은
 targeted Terraform 상태가 새 output을 아직 materialize하지 않았을 때 사용하는 canonical physical-topic
 기본값도 제공합니다.
+
+SDK는 WARA shadow 평가 토픽과 Operator 소비자 그룹 ID도 소유합니다. Core는 권한이 없는 평가
+결과를 이 토픽으로 발행하고 독립 Operator 서비스는 활성 컨트롤 전체가 정확히 포함됐는지 검증한
+뒤 읽기 변환 결과를 교체합니다. 공유 계약에는 wire ID만 있으며 어느 서비스에도 공급자 읽기 또는
+실행 권한을 부여하지 않습니다.
 
 또한 SDK는 실행 장소 계약을 소유합니다. `FDAI_EXECUTION_VENUE`를 해석하는 유일한 resolver와
 장소가 선택하는 기능 플래그 표 하나입니다. 모든 프로세스가 같은 변수를 해석하고 독립 서비스는

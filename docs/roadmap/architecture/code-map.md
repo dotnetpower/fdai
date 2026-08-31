@@ -376,6 +376,11 @@ codecs, identities, logical topics, and offset groups; neither imports the other
 The same contract exports the canonical physical-topic default used when targeted Terraform state
 has not yet materialized newly declared outputs.
 
+The SDK also owns the WARA shadow-assessment topic and Operator consumer-group identifiers. Core
+publishes no-authority assessment results through that topic, and the independent Operator service
+validates exact active-control coverage before replacing its read projection. The shared contract
+contains wire identifiers only; it grants neither service provider-read or execution authority.
+
 The SDK also owns the execution-venue contract: the one resolver for `FDAI_EXECUTION_VENUE` and
 the one table of venue-selected capability flags. It lives here rather than in a service because
 every process resolves the same variable, and an independent service cannot import the core

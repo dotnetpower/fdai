@@ -8,8 +8,10 @@ Settings > Integrations can preview the production incident-open email renderer 
 For optional Console projections, typed `404`, `501`, and source-gate `503` responses render as unavailable. Authentication failures, unexpected transport or `500` responses, and decoder failures remain visible errors.
 The Controls view separates catalog presence and semantic mapping from scope-bound evaluation,
 applicability, and satisfaction. The WAF checklist can therefore show all pinned definitions without
-claiming that a workload passed them. WARA/APRL recommendations remain searchable reference controls
-in the ontology projection; query digests never become browser-side or Operator API execution.
+claiming that a workload passed them. The read-only WARA view exposes active and disabled lifecycle
+records, reviewed mapping dispositions, applicability, evaluation, satisfaction, source revision,
+scope, completeness, and limitations. Query digests remain metadata and never become browser-side
+or Operator API execution.
 Catalog topology preserves its deterministic exact-release coordinates while using one bounded 900 ms spring-settle on initial entry. Interaction ends the effect, reduced-motion preference skips it, and no persistent simulation runs.
 Agent Activity links a correlation to Trace only when the row is backed by durable audit evidence.
 Inventory scan, ontology projection, and current-state read correlations remain visible identifiers without an audit-trace link. A manual lookup with no matching audit steps renders a neutral unavailable state instead of an operational failure.

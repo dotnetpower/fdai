@@ -99,6 +99,21 @@ WORKFLOW_FAMILY_ROUTE_MANIFEST: tuple[WorkflowRouteSpec, ...] = (
     ),
     WorkflowRouteSpec(
         "GET",
+        "/wara-controls",
+        "list_handler",
+        WorkflowOperation.WARA_LIST,
+        "read",
+        pagination=PaginationSpec(100, 500),
+    ),
+    WorkflowRouteSpec(
+        "GET",
+        "/wara-controls/{recommendation_id}",
+        "detail_handler",
+        WorkflowOperation.WARA_DETAIL,
+        "read",
+    ),
+    WorkflowRouteSpec(
+        "GET",
         "/mcsb-controls",
         "list_handler",
         WorkflowOperation.MCSB_LIST,
