@@ -52,6 +52,8 @@ legacy_preparation_inputs=(
 )
 required_outputs=(
   console/node_modules/.bin/vite
+  .venv/bin/fdai-document-processing-worker
+  .venv/bin/fdai-isolated-executor-service
   .fdai/local-runtime.env
   .fdai/local-operator-service.env
   .fdai/local-document-ingestion-api.env
@@ -80,6 +82,13 @@ run_bounded() {
 }
 
 run_dependency_install() {
+  "$repo_root/.venv/bin/python" \
+    "$bounded_runner" \
+    --label python-workspace-dependencies \
+    --timeout-seconds "$dependency_timeout_seconds" \
+    --no-progress-seconds "$stage_no_progress_seconds" \
+    -- \
+    uv sync --all-packages --extra dev --extra azure-mcp --frozen
   "$repo_root/.venv/bin/python" \
     "$bounded_runner" \
     --label console-dependencies \
@@ -301,12 +310,27 @@ rm -f "$legacy_preparation_marker"
 console_dependency_inputs=(
   console/package.json
   console/package-lock.json
+  pyproject.toml
+  uv.lock
+  evaluation-sdk/pyproject.toml
+  benchmarks/cybergym/pyproject.toml
+  benchmarks/sregym/pyproject.toml
+  extensions/code-assurance/pyproject.toml
+  extensions/cost-governance/pyproject.toml
+  packages/service-contracts/pyproject.toml
+  services/core-control-plane/pyproject.toml
+  services/document-ingestion-api/pyproject.toml
+  services/document-processing-worker/pyproject.toml
+  services/isolated-executor/pyproject.toml
+  services/operator-service/pyproject.toml
 )
 run_stage \
   console-dependencies \
   "$(path_digest "${console_dependency_inputs[@]}")" \
   run_dependency_install \
-  "$repo_root/console/node_modules/.bin/vite"
+  "$repo_root/console/node_modules/.bin/vite" \
+  "$repo_root/.venv/bin/fdai-document-processing-worker" \
+  "$repo_root/.venv/bin/fdai-isolated-executor-service"
 
 write_database_identity
 database_identity="$stage_marker_dir/database-volumes.sha256"

@@ -236,6 +236,8 @@ def test_preparation_reuses_an_unchanged_healthy_stack(tmp_path: Path) -> None:
     shutil.copy2(_PREPARE_SCRIPT, prepare_script)
     digest = "a" * 64
     required_outputs = (
+        ".venv/bin/fdai-document-processing-worker",
+        ".venv/bin/fdai-isolated-executor-service",
         ".fdai/local-runtime.env",
         ".fdai/local-operator-service.env",
         ".fdai/local-document-ingestion-api.env",
@@ -303,6 +305,8 @@ def _staged_preparation_repo(
     (repo / "console/package-lock.json").write_text("{}\n", encoding="utf-8")
     _write_executable(repo / "console/node_modules/.bin/vite", "#!/usr/bin/env bash\nexit 0\n")
     for relative in (
+        ".venv/bin/fdai-document-processing-worker",
+        ".venv/bin/fdai-isolated-executor-service",
         ".fdai/local-runtime.env",
         ".fdai/local-operator-service.env",
         ".fdai/local-document-ingestion-api.env",
@@ -422,7 +426,19 @@ def test_preparation_repairs_missing_console_dependencies(tmp_path: Path) -> Non
         stale_stage="console-dependencies",
     )
     (repo / "console/node_modules/.bin/vite").unlink()
+    (repo / ".venv/bin/fdai-document-processing-worker").unlink()
+    (repo / ".venv/bin/fdai-isolated-executor-service").unlink()
     bin_dir = Path(environment["PATH"].split(":", 1)[0])
+    _write_executable(
+        bin_dir / "uv",
+        """#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p .venv/bin
+printf '#!/usr/bin/env bash\nexit 0\n' > .venv/bin/fdai-document-processing-worker
+printf '#!/usr/bin/env bash\nexit 0\n' > .venv/bin/fdai-isolated-executor-service
+chmod +x .venv/bin/fdai-document-processing-worker .venv/bin/fdai-isolated-executor-service
+""",
+    )
     _write_executable(
         bin_dir / "npm",
         """#!/usr/bin/env bash
@@ -447,6 +463,8 @@ chmod +x console/node_modules/.bin/vite
     assert result.stdout.count("stage=console-dependencies event=completed") == 1
     assert result.stdout.count("event=reused") == 7
     assert (repo / "console/node_modules/.bin/vite").is_file()
+    assert (repo / ".venv/bin/fdai-document-processing-worker").is_file()
+    assert (repo / ".venv/bin/fdai-isolated-executor-service").is_file()
 
 
 def test_force_preparation_bypasses_a_healthy_cache(tmp_path: Path) -> None:
