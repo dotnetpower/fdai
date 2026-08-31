@@ -97,6 +97,7 @@ from fdai.core.ontology_platform.incident_queries import (
     incident_evidence_function_type,
 )
 from fdai.core.ontology_platform.inventory_impact_queries import inventory_impact_function_type
+from fdai.core.ontology_platform.manifest_queries import ontology_manifest_function_type
 from fdai.core.ontology_platform.property_values import PropertyValueDomain, PropertyValueGroup
 from fdai.core.ontology_platform.query_values import QueryRow, QueryTable
 from fdai.core.ontology_platform.release_diff_queries import ontology_release_diff_function_type
@@ -9707,6 +9708,36 @@ def test_manifest_function_may_feed_declaration_aggregate_output() -> None:
 
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+def test_manifest_declaration_count_uses_server_owned_plan() -> None:
+    manifest, definition = _fixture(function_types=(ontology_manifest_function_type(),))
+    frame = _frame(
+        operation="aggregate",
+        subject_constraints=["action"],
+        measure_concepts=["count"],
+        output_shape="aggregation_table",
+    )
+    t1 = _Model(frame=frame, plan=None)
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=OntologyQueryPlanVerifier(
+            available_kinds=(QueryNodeKind.FUNCTION, QueryNodeKind.AGGREGATE),
+        ),
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="How many action declarations are available?")
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[0].arguments["arguments"]["kinds"] == ["action"]
+    assert outcome.plan.output_node_ids == ("declaration-count",)
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 

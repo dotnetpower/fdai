@@ -35,6 +35,7 @@ from .semantic_latency_recovery_planning import (
     LatencyRecoveryWindowPendingError,
     compile_latency_recovery_plan,
 )
+from .semantic_manifest_planning import compile_ontology_manifest_count_plan
 from .semantic_mysql_pressure_planning import compile_mysql_pressure_plan
 from .semantic_planning_cascade import SemanticPlanningCascade, SemanticPlanningEscalationPolicy
 from .semantic_planning_models import (
@@ -159,6 +160,17 @@ def dispatch_semantic_plan(
             evaluation_time=evaluation_time,
         )
         plan_source = "bound_incident" if plan is not None else "proposed"
+    if plan is None:
+        plan = compile_ontology_manifest_count_plan(
+            frame=frame,
+            manifest=manifest,
+            verifier=verifier,
+            principal=principal,
+            purpose=purpose,
+            evaluation_time=evaluation_time,
+        )
+        if plan is not None:
+            plan_source = "server_ontology_manifest_count"
     if plan is None:
         try:
             plan = compile_latency_recovery_plan(

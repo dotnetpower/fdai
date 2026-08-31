@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 4c0128c82ec2a719f9dc6b864ccc88b3340a976f
+translation_source_sha: d2d28e3b90895a82ef735d3d83105bfd53a5f431
 translation_revised: 2026-09-01
 ---
 # 코드 맵
@@ -47,9 +47,10 @@ Core 분포는 전체 `fdai` 이름 공간을 유지합니다. 내부 모듈 경
 
 의미 대화 계획은 `semantic_planning.py`, `semantic_planning_cascade.py`,
 `semantic_planning_frame.py`를 호환성 facade로 유지합니다. 집중 sibling 모듈은 공개 import,
-결정론적 gate 순서 및 읽기 전용 권한을 보존하면서 frame 검사, plan dispatch, 고정된 인시던트와
-명시된 값 필터 plan 생성, 판단, 검증, frame 생성, facet, 근거별 조사 정규화 및 조회를
-소유합니다.
+frame 검사, plan dispatch, 고정된 인시던트와 명시된 값 필터 plan 생성, 판단, 검증, frame 생성,
+facet, 근거별 조사 정규화 및 조회를 소유합니다. 검증된 선언 개수 frame은 전용 매니페스트
+플래너를 사용해 모델 작성 계획 없이 `query.manifest`와 `count`를 컴파일합니다. 이 모듈들은
+공개 import, 결정론적 gate 순서 및 읽기 전용 권한을 보존합니다.
 Resource Health 상태 그룹 파생은 `semantic_query_health_values.py`에 있으며 public 의미
 composition facade를 강제된 800줄 제한 아래로 유지하면서 등록 순서는 바꾸지 않습니다.
 semantic-routing 기준선은 각 어휘 판단 소유자를 기록하고 결정론적 모델 출력 검증을 의미 추론과
