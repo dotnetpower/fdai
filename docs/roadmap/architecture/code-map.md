@@ -46,10 +46,11 @@ Semantic conversation planning keeps `semantic_planning.py`, `semantic_planning_
 `semantic_planning_frame.py` as compatibility facades. Focused sibling modules own frame checks,
 plan dispatch, anchored-incident and stated-value-filter plan construction, judgment, validation,
 frame construction, facets, evidence-specific investigation normalization, and queries. For a
-validated `query.ontology_declaration` count judgment, a unique canonical `*Type` target takes
-precedence over a conflicting frame subject. An exact declaration-kind or canonical `*Type` frame
-subject is used only when the judgment has no canonical target. Conflicting canonical targets remain
-unresolved. The resulting declaration-count frame uses the focused manifest planner to compile
+validated `query.ontology_declaration` count judgment, a unique canonical declaration `*Type` target
+takes precedence over a conflicting frame subject. Non-declaration domain targets do not participate
+in declaration selection. An exact declaration-kind or canonical `*Type` frame subject is used only
+when the judgment has no canonical declaration target. Conflicting canonical declaration targets
+remain unresolved. The resulting declaration-count frame uses the focused manifest planner to compile
 `query.manifest` and `count` without a model-authored plan.
 The Core semantic-turn processor renders complete grouped values as typed declaration counts and
 names the read-only manifest source instead of reporting only the aggregate row count. It binds the

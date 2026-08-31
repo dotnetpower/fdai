@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 14b565b6e7a201422340b80b096c83b6e9337e38
+translation_source_sha: e265437057dfea49b41ff7d1eb1f232f7c8aa579
 translation_revised: 2026-09-01
 ---
 # 코드 맵
@@ -49,10 +49,11 @@ Core 분포는 전체 `fdai` 이름 공간을 유지합니다. 내부 모듈 경
 `semantic_planning_frame.py`를 호환성 facade로 유지합니다. 집중 sibling 모듈은 공개 import,
 frame 검사, plan dispatch, 고정된 인시던트와 명시된 값 필터 plan 생성, 판단, 검증, frame 생성,
 facet, 근거별 조사 정규화 및 조회를 소유합니다. 검증된 `query.ontology_declaration` 개수
-판단에서는 고유한 canonical `*Type` target이 충돌하는 frame subject보다 우선합니다. 판단에
-canonical target이 없을 때만 정확한 선언 종류 또는 canonical `*Type` frame subject를
-사용합니다. 충돌하는 canonical target은 해결되지 않은 상태로 유지합니다. 정규화된 선언 개수
-frame은 전용 매니페스트 플래너를 사용해 모델 작성 계획 없이 `query.manifest`와 `count`를
+판단에서는 고유한 canonical 선언 `*Type` target이 충돌하는 frame subject보다 우선합니다.
+선언이 아닌 영역 target은 선언 선택에 참여하지 않습니다. 판단에 canonical 선언 target이 없을
+때만 정확한 선언 종류 또는 canonical `*Type` frame subject를 사용합니다. 충돌하는 canonical
+선언 target은 해결되지 않은 상태로 유지합니다. 정규화된 선언 개수 frame은 전용 매니페스트
+플래너를 사용해 모델 작성 계획 없이 `query.manifest`와 `count`를
 컴파일합니다. Core 의미 턴 처리기는 완전한 그룹 값을 선언 종류별 개수로 표시하고
 집계 행 개수만 보고하는 대신 읽기 전용 매니페스트 출처를 밝힙니다. 표시할 선언 종류는 모델이
 작성한 노드 ID가 아니라 검증된 frame subject에 결속됩니다. 이 모듈들은 공개 import, 결정론적

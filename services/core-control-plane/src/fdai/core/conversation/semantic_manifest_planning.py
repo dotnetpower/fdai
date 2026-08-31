@@ -64,22 +64,33 @@ def _declaration_kind(
     frame: SemanticProblemFrame,
     judgment: SemanticJudgmentProposal,
 ) -> OntologyDeclarationKind | None:
-    canonical_targets = {
-        target.canonical_value for target in judgment.targets if target.canonical_value is not None
+    canonical_kinds = {
+        declaration_kind
+        for target in judgment.targets
+        if (declaration_kind := _as_declaration_kind(target.canonical_value)) is not None
     }
-    if len(canonical_targets) > 1:
+    if len(canonical_kinds) > 1:
         return None
-    candidates = tuple(canonical_targets) if canonical_targets else tuple(frame.subject_constraints)
-    if len(candidates) != 1:
+    if canonical_kinds:
+        return next(iter(canonical_kinds))
+    frame_kinds = {
+        declaration_kind
+        for subject in frame.subject_constraints
+        if (declaration_kind := _as_declaration_kind(subject)) is not None
+    }
+    return next(iter(frame_kinds)) if len(frame_kinds) == 1 else None
+
+
+def _as_declaration_kind(value: str | None) -> OntologyDeclarationKind | None:
+    if value is None:
         return None
-    candidate = candidates[0]
     try:
-        return OntologyDeclarationKind(candidate)
+        return OntologyDeclarationKind(value)
     except ValueError:
-        if not candidate.endswith("Type"):
+        if not value.endswith("Type"):
             return None
     try:
-        return OntologyDeclarationKind(candidate.removesuffix("Type").casefold())
+        return OntologyDeclarationKind(value.removesuffix("Type").casefold())
     except ValueError:
         return None
 

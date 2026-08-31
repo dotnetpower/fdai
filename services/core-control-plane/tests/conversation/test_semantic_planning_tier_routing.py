@@ -9743,15 +9743,17 @@ def test_manifest_declaration_count_uses_server_owned_plan() -> None:
 
 
 @pytest.mark.parametrize(
-    ("judgment_target", "frame_subject"),
+    ("judgment_target", "include_domain_target", "frame_subjects"),
     (
-        (None, "ActionType"),
-        ("ActionTypes", "LinkType"),
+        (None, False, ("ActionType", "Ontology")),
+        ("ActionTypes", False, ("LinkType",)),
+        ("ActionTypes", True, ("LinkType",)),
     ),
 )
 def test_manifest_count_normalizes_the_validated_declaration_intent(
     judgment_target: str | None,
-    frame_subject: str,
+    include_domain_target: bool,
+    frame_subjects: tuple[str, ...],
 ) -> None:
     class _DeclarationCountJudgmentModel:
         def judge(self, *, utterance: str, **_kwargs: Any) -> dict[str, object]:
@@ -9765,6 +9767,18 @@ def test_manifest_count_normalizes_the_validated_declaration_intent(
                         "canonical_value": "ActionType",
                         "source_start": source_start,
                         "source_end": source_start + len(judgment_target),
+                    }
+                )
+            if include_domain_target:
+                value = "ontology"
+                source_start = utterance.index(value)
+                targets.append(
+                    {
+                        "kind": "question_domain",
+                        "value": value,
+                        "canonical_value": value,
+                        "source_start": source_start,
+                        "source_end": source_start + len(value),
                     }
                 )
             return {
@@ -9786,7 +9800,7 @@ def test_manifest_count_normalizes_the_validated_declaration_intent(
     manifest, definition = _fixture(function_types=(ontology_manifest_function_type(),))
     frame = _frame(
         operation="aggregate",
-        subject_constraints=[frame_subject],
+        subject_constraints=list(frame_subjects),
         measure_concepts=["count", "visibility", "read_only_verification_source", "scope"],
         temporal_scope={"kind": "current"},
         output_shape="aggregation_table",
@@ -9816,7 +9830,7 @@ def test_manifest_count_normalizes_the_validated_declaration_intent(
 
     outcome = _run(
         service,
-        utterance="How many ActionTypes are currently visible in this scope?",
+        utterance="How many ActionTypes are currently visible in this ontology scope?",
     )
 
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
