@@ -56,8 +56,8 @@ class DeterministicVerifierEvidence:
             raise ValueError("deterministic evidence schema_version MUST be 1.0.0")
         if self.source_authority != _EXPECTED_AUTHORITY[self.kind]:
             raise ValueError("deterministic evidence source authority does not match its kind")
-        if not self.producer_id.strip():
-            raise ValueError("deterministic evidence producer_id MUST be non-empty")
+        if not self.producer_id.strip() or len(self.producer_id) > 128:
+            raise ValueError("deterministic evidence producer_id MUST be bounded text")
         if not _is_digest(self.candidate_digest):
             raise ValueError("deterministic evidence candidate_digest MUST be SHA-256")
         if self.observed_at.tzinfo is None or self.expires_at.tzinfo is None:
@@ -66,6 +66,14 @@ class DeterministicVerifierEvidence:
             raise ValueError("deterministic evidence expires_at MUST not precede observed_at")
         if self.status is DeterministicEvidenceStatus.PASSED and not self.evidence_refs:
             raise ValueError("passed deterministic evidence MUST cite at least one evidence ref")
+        if (
+            len(self.evidence_refs) > 64
+            or len(self.evidence_refs) != len(set(self.evidence_refs))
+            or any(not item.strip() or len(item) > 512 for item in self.evidence_refs)
+        ):
+            raise ValueError("deterministic evidence refs MUST be bounded and unique")
+        if self.reason is not None and (not self.reason.strip() or len(self.reason) > 512):
+            raise ValueError("deterministic evidence reason MUST be bounded text")
 
 
 @runtime_checkable

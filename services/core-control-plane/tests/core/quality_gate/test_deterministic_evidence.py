@@ -212,6 +212,12 @@ def test_evidence_record_rejects_wrong_authority_and_unreferenced_pass() -> None
         replace(valid, source_authority="t2_model")
     with pytest.raises(ValueError, match="cite"):
         replace(valid, evidence_refs=())
+    with pytest.raises(ValueError, match="producer_id"):
+        replace(valid, producer_id="x" * 129)
+    with pytest.raises(ValueError, match="bounded and unique"):
+        replace(valid, evidence_refs=("evidence:duplicate", "evidence:duplicate"))
+    with pytest.raises(ValueError, match="bounded text"):
+        replace(valid, status=DeterministicEvidenceStatus.FAILED, reason="x" * 513)
 
 
 @pytest.mark.asyncio

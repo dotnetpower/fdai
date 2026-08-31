@@ -1,7 +1,7 @@
 ---
 title: "Phase 2 - 지속적 규칙 업데이트, Quality Gate, T1"
 translation_of: phase-2-quality-and-t1.md
-translation_source_sha: 6e656b52e9c2ea07dfc802913f1e43e70a317231
+translation_source_sha: 1147504f9b8fca9b1f64abe9da21f890c0102d81
 translation_revised: 2026-08-31
 ---
 
@@ -153,7 +153,8 @@ T2 입력은 **신뢰할 수 없는** ([security-and-identity-ko.md](../architec
   소유한 후보 다이제스트, 생산자, 관측 및 만료 시각, 근거 참조, 충돌 상태, 합성 상태를
   연결합니다. 누락, 만료, 충돌, 미래 시점, 후보 불일치, 합성 근거는 모델 교차 검사 전에
   보류됩니다. 명시적으로 실패한 근거는 후보를 차단합니다. 포크는 프로바이더 중립 검증기 두
-  개를 함께 주입해야 하며 부분 연결은 조립 시 실패합니다.
+  개를 함께 주입해야 하며 부분 연결은 조립 시 실패합니다. 생산자 식별자, 이유 및 근거 참조는
+  범위가 제한되며 중복 참조는 근거 경계에서 거부합니다.
 - **Grounding (RAG)**: 정당화 규칙/정책 인용 강제, **각 인용 항목이 규칙 카탈로그에 존재하고
   실제로 주장을 지지하는지 검증**(fabricated 인용 방어); ungrounded 시 **HIL로 abstain**.
 - **임계 게이팅**: 스키마, 정책, what-if, 보안-스캔 검사가 모두 통과해야 하고 검증기/교차 검사

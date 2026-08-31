@@ -157,7 +157,8 @@ verifier and policy re-check are the authority, not model text.
   times, evidence references, conflict status, and synthetic status. Missing, stale, conflicting,
   future-dated, candidate-mismatched, or synthetic evidence holds before any model cross-check.
   Explicit failed evidence denies the candidate. A fork must inject both provider-neutral verifiers
-  together; partial binding fails at construction.
+  together; partial binding fails at construction. Producer identifiers, reasons, and evidence
+  references are bounded and duplicate references are rejected at the evidence boundary.
 - **Grounding (RAG)**: force citation of the justifying rules/policies and **validate each cited
   item exists in the rule catalog and actually supports the claim** (guards fabricated citations);
   **abstain to HIL** when ungrounded.
