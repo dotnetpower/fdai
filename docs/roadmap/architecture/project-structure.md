@@ -8,6 +8,8 @@ The system is a **headless control plane + thin console + ChatOps**, not one web
 ## Design at a glance
 
 The physical five-service workspace is owned by [Multi-Service Repository Layout](multi-service-repository-layout.md). This document owns dependency direction, structural gates, extension seams, control-loop wiring, configuration, and repository conventions.
+The private composition type module stays below its enforced size ceiling so new bindings remain
+reviewable and move to focused wire modules before the shared container becomes a second root.
 
 ## Core domain navigation decision
 

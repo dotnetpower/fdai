@@ -1,10 +1,7 @@
 """Shared composition types (extracted from composition/__init__.py, G-3).
 
-Contains :class:`Container`, :class:`LlmBindings`, and
-:class:`LlmBindingsUnavailableError` - the three types every wire file
-needs to import without going through the package facade. Keeping them
-in a private submodule prevents circular imports between
-``__init__.py`` and the ``wire_*.py`` extractors.
+Contains the shared container and LLM binding types used by wire modules.
+Keeping them private prevents circular imports through the package facade.
 """
 
 from __future__ import annotations
