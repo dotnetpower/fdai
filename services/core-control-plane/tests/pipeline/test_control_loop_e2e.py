@@ -913,12 +913,12 @@ async def test_multiple_rules_fire_on_one_resource_e2e(
     # control loop does not yet supply ``graph_affected``.  The invariant
     # is: published PRs + audited blast-radius abstentions == fired rules.
     published = [
-        r for r in result.execution_results
+        r
+        for r in result.execution_results
         if r.outcome in (ExecutorOutcome.PUBLISHED, ExecutorOutcome.ALREADY_EXISTED)
     ]
     abstained_blast = [
-        r for r in result.execution_results
-        if r.outcome is ExecutorOutcome.ABSTAINED_BLAST_RADIUS
+        r for r in result.execution_results if r.outcome is ExecutorOutcome.ABSTAINED_BLAST_RADIUS
     ]
     assert len(publisher.records) == len(published)
     assert len(published) + len(abstained_blast) == len(rule_ids)
@@ -945,7 +945,8 @@ async def test_idempotent_replay_does_not_reopen_pr(
     # graph_derived actions abstain at the executor (ABSTAINED_BLAST_RADIUS)
     # and do not produce publisher records; count only published results.
     published = [
-        r for r in first.execution_results
+        r
+        for r in first.execution_results
         if r.outcome in (ExecutorOutcome.PUBLISHED, ExecutorOutcome.ALREADY_EXISTED)
     ]
     assert len(publisher.records) == len(published)
@@ -1079,7 +1080,8 @@ async def test_every_terminal_path_writes_audit(
     # ABSTAINED_BLAST_RADIUS results write 1 (terminal only) because the
     # blast-radius ceiling refuses before the intent/dry-run step.
     published_count = sum(
-        1 for r in result_c.execution_results
+        1
+        for r in result_c.execution_results
         if r.outcome in (ExecutorOutcome.PUBLISHED, ExecutorOutcome.ALREADY_EXISTED)
     )
     abstained_count = len(result_c.execution_results) - published_count

@@ -44,8 +44,8 @@ unchanged by the physical move.
 
 Service migration inventory tests verify that renamed partitions retain their creation lineage and
 use the effective table name at the current migration head.
-Control-loop end-to-end tests count unresolved graph-derived blast radius as a fail-closed
-abstention rather than a published action.
+Control-loop end-to-end tests count published actions and unresolved graph-derived blast-radius
+abstentions separately.
 
 Semantic conversation planning keeps `semantic_planning.py`, `semantic_planning_cascade.py`, and
 `semantic_planning_frame.py` as compatibility facades. Focused sibling modules own frame checks,
