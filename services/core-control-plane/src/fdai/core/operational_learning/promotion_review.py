@@ -11,12 +11,27 @@ from fdai.shared.contracts.models import OntologyActionType
 _GIT_REVISION = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 _IDENTIFIER = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
-_LEARNING_AGENTS = frozenset({"Norns", "Mimir"})
+_LEARNING_AGENTS = frozenset({"norns", "mimir"})
+
+
+def _normalized_principal(value: str) -> str:
+    """Canonical form of a reviewer identifier for identity comparison.
+
+    Principal spellings differ in case and surrounding space, so the learner
+    agent could otherwise be recorded as its own independent reviewer.
+    """
+
+    return value.strip().casefold()
 
 
 @dataclass(frozen=True, slots=True)
 class ReviewedReplayPromotionEvidence:
-    """One approved review over an exact inert package and replay."""
+    """One approved review over an exact inert package and replay.
+
+    The reviewer identity is compared case-insensitively against the learning
+    agents, so ``Norns`` cannot re-enter as ``norns`` and review its own
+    promotion evidence.
+    """
 
     action_type: str
     action_type_version: str
@@ -55,8 +70,8 @@ class ReviewedReplayPromotionEvidence:
         if (
             not self.review_ref
             or len(self.review_ref) > 512
-            or not self.reviewer_principal
-            or self.reviewer_principal in _LEARNING_AGENTS
+            or not self.reviewer_principal.strip()
+            or _normalized_principal(self.reviewer_principal) in _LEARNING_AGENTS
         ):
             raise ValueError("reviewed replay requires an independent reviewer")
         if not isinstance(self.approved, bool):
