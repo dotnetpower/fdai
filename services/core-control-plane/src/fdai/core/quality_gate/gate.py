@@ -359,6 +359,18 @@ class QualityGate:
             raise ValueError("require_cross_check_quorum MUST be >= 1")
         if len(cross_check_models) < cfg.require_cross_check_quorum:
             raise ValueError("not enough cross-check models registered for the configured quorum")
+        # The mixed-model cross-check is only meaningful across distinct models.
+        # Registering one model twice would let it agree with itself and satisfy
+        # a quorum of two, so a single model would grant execution eligibility.
+        if len({id(model) for model in cross_check_models}) != len(cross_check_models):
+            raise ValueError("cross-check models MUST be distinct instances")
+        declared_ids = [
+            str(model_id)
+            for model_id in (getattr(model, "model_id", None) for model in cross_check_models)
+            if model_id is not None
+        ]
+        if len(set(declared_ids)) != len(declared_ids):
+            raise ValueError("cross-check models MUST declare distinct model ids")
         # Wave 4.5 delta-2b: debate wire is opt-in. Half-wiring
         # (orchestrator without router or vice versa) is a fork bug
         # that would only surface on the first disagreement - refuse

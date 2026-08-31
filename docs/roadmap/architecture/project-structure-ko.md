@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: f7b81d8fa9f0be76656e95f10b695d816953d38e
+translation_source_sha: dcf9585a9d179343abad8c697d8915bfcf749427
 translation_revised: 2026-08-31
 ---
 # 프로젝트 구조
@@ -21,6 +21,8 @@ DR 목표 근거는 nearest-rank p90을 보고합니다. 따라서 표본이 적
 실행을 유지하며 목표 달성으로 잘못 보고하지 않습니다.
 기록된 action 다이제스트가 없는 park된 HIL 레코드는 재개하지 않고 무결성 게이트에서
 실패합니다. 따라서 다이제스트를 제거해도 변조된 payload를 승인할 수 없습니다.
+품질 게이트는 중복된 교차 검사 모델을 거부합니다. 따라서 한 모델이 자기 자신과 동의해
+혼합 모델 정족수를 충족할 수 없습니다.
 
 ## Core 도메인 탐색 결정
 

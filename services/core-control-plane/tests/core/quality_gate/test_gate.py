@@ -111,6 +111,28 @@ def test_quorum_larger_than_models_is_rejected() -> None:
         )
 
 
+def test_same_model_registered_twice_is_rejected() -> None:
+    model = MatchTypeCrossCheckModel()
+    with pytest.raises(ValueError, match="distinct instances"):
+        QualityGate(
+            verifier=StaticVerifier(outcome=True),
+            cross_check_models=(model, model),
+            grounding=_grounding(),
+        )
+
+
+def test_duplicate_declared_model_ids_are_rejected() -> None:
+    class _IdentifiedModel(MatchTypeCrossCheckModel):
+        model_id = "gpt-shared"
+
+    with pytest.raises(ValueError, match="distinct model ids"):
+        QualityGate(
+            verifier=StaticVerifier(outcome=True),
+            cross_check_models=(_IdentifiedModel(), _IdentifiedModel()),
+            grounding=_grounding(),
+        )
+
+
 # ---------------------------------------------------------------------------
 # Happy path
 # ---------------------------------------------------------------------------

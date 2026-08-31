@@ -18,6 +18,8 @@ DR objective evidence reports a nearest-rank p90, so a small cohort keeps its sl
 run instead of reporting an objective as met.
 A parked HIL record without a recorded action digest fails the integrity gate instead of
 resuming, so removing the digest cannot authorize a tampered payload.
+The quality gate refuses duplicate cross-check models, so one model cannot agree with itself
+and satisfy the mixed-model quorum.
 
 ## Core domain navigation decision
 
