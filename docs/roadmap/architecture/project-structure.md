@@ -63,6 +63,13 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   the Azure adapter performs authoritative readback with a short-lived Managed Identity token and
   does not retain the credential. A successful bundle establishes evidence eligibility only; it
   cannot declare execution, approval, or promotion authority.
+- **executed-action observation authentication stays in delivery**:
+  `delivery/azure/observation_context.py` signs the exact observation digest and four distinct
+  identity lineages with a deployment-owned Ed25519 key. `runtime/observation_evidence.py` binds the
+  signer, public-key verifier, exact artifact resolver, and Azure snapshot collector only when the
+  deployed venue supplies one complete configuration. The Core Container App receives the private
+  seed only through a Managed Identity-backed Key Vault reference. Partial configuration, local
+  venue use, signature substitution, and collapsed credential lineages fail closed.
 - **standing-authorization lifecycle has one writer**: authenticated Operator commands enter through
   typed ingress, and one Core writer delegates to the provider-neutral atomic store. The PostgreSQL
   adapter serializes on a family row and commits an immutable revision, hash-chained transition,
@@ -116,6 +123,10 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   duration only after the receipt environment matches the installed stage contract.
   Conversation Assurance emits the deterministic-verification receipt only when composition injects
   both the PR benchmark environment and a sink; normal runtime composition remains unchanged.
+  Explicit Pantheon campaigns use a separate one-time runtime binding after Pantheon initialization.
+  Core validates the requested case against the fixed server census, Bragi produces the single
+  terminal answer, and the off-path distinct-family reviewers append the correlated 30-point
+  diagnostic. Ordinary `operations-review` turns continue through the existing semantic runtime.
   Historical `context_locale_scorecard.py` imports remain a compatibility-only re-export of the
   unified contribution module.
   The repository CLI parses content-free samples and never converts a trace commitment into a

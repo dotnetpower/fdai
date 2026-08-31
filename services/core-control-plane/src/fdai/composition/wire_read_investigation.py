@@ -12,6 +12,10 @@ from uuid import uuid4
 
 from fdai_service_contracts import OperationalActivityStatus, OperationalFreshness
 
+from fdai.core.ontology_platform.evidence_conflict import (
+    EvidenceConflictCandidatePublisher,
+    EvidenceConflictCurrentReader,
+)
 from fdai.core.ontology_platform.functions import (
     FunctionInvocationContext,
     OntologyFunctionRegistry,
@@ -325,6 +329,8 @@ def build_resource_state_shadow_hook(
     clock: Callable[[], datetime] | None = None,
     activity_publisher: EventBusOperationalActivityPublisher | None = None,
     invocation_id_factory: Callable[[], str] | None = None,
+    evidence_conflict_reader: EvidenceConflictCurrentReader | None = None,
+    evidence_conflict_publisher: EvidenceConflictCandidatePublisher | None = None,
 ) -> ResourceStateShadowHook:
     """Compose exact-release resource-state shadowing from production read seams."""
 
@@ -372,7 +378,11 @@ def build_resource_state_shadow_hook(
         semantic_service=SemanticQueryService(release=ontology_release, registry=registry),
         function_type=function_type,
         release=ontology_release,
-        shadow_service=ShadowResourceStateComparisonService(sink=shadow_sink),
+        shadow_service=ShadowResourceStateComparisonService(
+            sink=shadow_sink,
+            evidence_conflict_reader=evidence_conflict_reader,
+            evidence_conflict_publisher=evidence_conflict_publisher,
+        ),
         clock=evaluation_clock,
         activity_publisher=activity_publisher,
         invocation_id_factory=invocation_id_factory,
@@ -389,6 +399,8 @@ def compose_resource_state_shadow_hook(
     catalog_root: Path,
     clock: Callable[[], datetime] | None = None,
     activity_publisher: EventBusOperationalActivityPublisher | None = None,
+    evidence_conflict_reader: EvidenceConflictCurrentReader | None = None,
+    evidence_conflict_publisher: EvidenceConflictCandidatePublisher | None = None,
 ) -> ResourceStateShadowHook | None:
     """Compose the optional production hook only when every read seam is available."""
 
@@ -407,6 +419,8 @@ def compose_resource_state_shadow_hook(
         ontology_store=ontology_store,
         clock=clock,
         activity_publisher=activity_publisher,
+        evidence_conflict_reader=evidence_conflict_reader,
+        evidence_conflict_publisher=evidence_conflict_publisher,
     )
 
 

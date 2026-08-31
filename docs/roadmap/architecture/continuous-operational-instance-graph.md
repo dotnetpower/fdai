@@ -114,8 +114,14 @@ ontology projector holds a process-local lock and a PostgreSQL session advisory 
 replacement and its manifest/status commit marker. Readers require the active snapshot, status, and
 manifest generations and content digests to match. A crash or stale replica therefore yields
 incomplete evidence until a safe-to-retry migration or commit closes the state; it never exposes a
-mixed generation as complete. Legacy 1.2.0 manifests are rebuilt from the next exact projection
-and written as 1.3.0.
+mixed generation as complete. Legacy 1.2.0 manifests are rebuilt by the next exact projection
+within the same release and written as 1.3.0; they cannot carry unverified ownership across a
+release transition. When the ontology release changes, the projector first verifies the retained
+manifest against its recorded release digest, then reprojects the complete active inventory under
+the new release. The retained identities remain ownership evidence for atomic replacement, while
+the old manifest digest cannot certify same-generation content under the new release. A separate
+release-independent content digest keeps same-generation tamper detection active during that
+transition.
 
 The PostgreSQL projector commits graph replacement and the manifest and status markers in one
 transaction after locking and rechecking the active inventory generation. Endpoint foreign keys

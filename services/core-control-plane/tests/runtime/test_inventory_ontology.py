@@ -167,11 +167,12 @@ def _projector(
     status: InMemoryStateStore,
     *,
     resource_type_mappings: dict[str, str] | None = None,
+    ontology_release_digest: str = ONTOLOGY_RELEASE_DIGEST,
 ) -> InventoryOntologyProjector:
     return InventoryOntologyProjector(
         store=store,
         status_store=status,
-        ontology_release_digest=ONTOLOGY_RELEASE_DIGEST,
+        ontology_release_digest=ontology_release_digest,
         resource_type_mappings=resource_type_mappings,
         allow_non_atomic_store=not hasattr(store, "replace_subgraph_with_state"),
     )
@@ -465,6 +466,80 @@ async def test_projector_rejects_same_generation_content_changes() -> None:
 
     with pytest.raises(ValueError, match="generation content changed"):
         await projector.apply(changed)
+
+
+async def test_projector_reprojects_same_generation_for_new_ontology_release() -> None:
+    store = _store()
+    status = InMemoryStateStore()
+    observation = _observation(generation="snapshot-same", resource_ids=("vm-1",))
+    await _projector(store, status).apply(observation)
+    next_release_digest = "sha256:" + "b" * 64
+
+    result = await _projector(
+        store,
+        status,
+        ontology_release_digest=next_release_digest,
+    ).apply(observation)
+
+    manifest = await status.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY)
+    projection_status = await status.read_state(INVENTORY_ONTOLOGY_STATUS_KEY)
+    assert result.ontology_release_digest == next_release_digest
+    assert manifest is not None
+    assert manifest["ontology_release_digest"] == next_release_digest
+    assert projection_status is not None
+    assert projection_status["ontology_release_digest"] == next_release_digest
+    assert await store.get_object("vm-1") is not None
+
+
+async def test_release_transition_rejects_same_generation_content_changes() -> None:
+    store = _store()
+    status = InMemoryStateStore()
+    observation = _observation(generation="snapshot-same", resource_ids=("vm-1",))
+    await _projector(store, status).apply(observation)
+    changed = replace(
+        observation,
+        resources=(replace(observation.resources[0], props={"name": "changed"}),),
+    )
+
+    with pytest.raises(ValueError, match="generation content changed"):
+        await _projector(
+            store,
+            status,
+            ontology_release_digest="sha256:" + "b" * 64,
+        ).apply(changed)
+
+
+async def test_legacy_manifest_cannot_cross_ontology_releases() -> None:
+    store = _store()
+    status = InMemoryStateStore()
+    observation = _observation(generation="snapshot-legacy", resource_ids=("vm-1",))
+    await store.upsert_object(
+        OntologyObjectRecord(
+            id="vm-1",
+            object_type="Resource",
+            properties={"id": "vm-1", "type": "compute.vm", "name": "vm-1"},
+        )
+    )
+    await status.write_state(
+        INVENTORY_ONTOLOGY_MANIFEST_KEY,
+        {
+            "schema_version": "1.2.0",
+            "generation": observation.generation,
+            "ontology_release_digest": ONTOLOGY_RELEASE_DIGEST,
+            "complete": True,
+            "relationship_complete": True,
+            "dropped_reasons": [],
+            "object_ids": ["vm-1"],
+            "link_keys": [],
+        },
+    )
+
+    with pytest.raises(ValueError, match="legacy inventory ontology manifest"):
+        await _projector(
+            store,
+            status,
+            ontology_release_digest="sha256:" + "b" * 64,
+        ).apply(observation)
 
 
 async def test_manifest_digest_binds_object_and_link_properties() -> None:

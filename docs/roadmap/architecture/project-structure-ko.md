@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: f52f32c6efc256f0e7a9778c9e15532c8e64e955
+translation_source_sha: 347c387f0a2bd5c19a70c6d94dc7e79a02e5231c
 translation_revised: 2026-08-30
 ---
 # 프로젝트 구조
@@ -62,6 +62,13 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   사용은 delivery에 남습니다. Azure 어댑터는 수명이 짧은 Managed Identity 토큰으로 권위 있는 원본을
   다시 읽고 자격 증명을 보존하지 않습니다. 성공적인 묶음은 근거 자격만 입증하며 실행, 승인 또는
   승격 권한을 선언할 수 없습니다.
+- **실행된 작업의 관측 인증은 전달 계층에 유지**:
+  `delivery/azure/observation_context.py`는 배포 소유 Ed25519 키로 정확한 관측 다이제스트와 서로 다른
+  네 가지 신원 계보에 서명합니다. `runtime/observation_evidence.py`는 배포 실행 위치가 완전한 구성
+  하나를 제공할 때만 서명기, 공개 키 검증기, 정확한 산출물 해석기, Azure snapshot collector를
+  연결합니다. Core Container App은 Managed Identity 기반 Key Vault 참조를 통해서만 private
+  seed를 받습니다. 일부 구성, 로컬 실행 위치의 사용, 서명 대체, 겹치는 자격 증명 계보는 실패 시
+  차단됩니다.
 - **상시 권한 수명 주기에는 작성기가 하나만 있음**: 인증된 Operator 명령은 타입이 지정된 수신
   경로로 들어오고 하나의 Core 작성기가 공급자 중립 원자적 저장소에 위임합니다. PostgreSQL
   어댑터는 기능군 행을 기준으로 직렬화하고 변경할 수 없는 개정 번호, 해시 체인 전이, 현재 변환
@@ -113,6 +120,10 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   환경이 설치된 단계 계약과 일치한 후에만 기간을 파생합니다. 저장소 CLI는 콘텐츠가 없는
   Conversation Assurance는 composition이 PR benchmark 환경과 sink를 모두 주입한 경우에만
   결정론 검증 증적을 생성합니다. 일반 runtime composition은 변경되지 않습니다.
+  명시적 Pantheon 캠페인은 Pantheon 초기화 후 별도의 일회성 런타임 연결을 사용합니다. Core는
+  요청된 사례를 서버의 고정 census와 대조해 검증하고, Bragi는 단일 최종 답변을 만들며, 응답 경로
+  밖의 서로 다른 모델 계열 검토자는 상관관계가 연결된 30점 진단을 추가합니다. 일반
+  `operations-review` 턴은 기존 의미 런타임을 계속 사용합니다.
   과거 `context_locale_scorecard.py` 가져오기는 통합 기여 모듈의 호환 전용 재내보내기로
   유지합니다.
   표본을 구문 분석하며 추적 약속값을 완전한 추적 주장으로 변환하지 않습니다. 인접한

@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 1a7b8da908de2e519128fc601ad844fc4a130244
-translation_revised: 2026-08-30
+translation_source_sha: 9af1a037f5e82ba508c1f5f53dd2f6a48052331a
+translation_revised: 2026-08-31
 ---
 # 지속형 운영 인스턴스 그래프
 
@@ -115,8 +115,13 @@ configuration으로 instance identity를 만들지 않습니다. Ontology projec
 process-local lock과 PostgreSQL session advisory lock을 유지합니다. Reader는 active snapshot,
 status, manifest generation과 content digest가 일치해야 한다고 요구합니다. 따라서 crash 또는
 stale replica는 safe-to-retry migration 또는 commit이 상태를 닫을 때까지 incomplete evidence를
-반환하며 혼합 세대를 complete로 노출하지 않습니다. Legacy 1.2.0 manifest는 다음 exact
-projection에서 다시 만들고 1.3.0으로 기록합니다.
+반환하며 혼합 세대를 complete로 노출하지 않습니다. Legacy 1.2.0 manifest는 같은 릴리스의
+다음 exact projection에서 다시 만들고 1.3.0으로 기록하며, 검증되지 않은 소유권을 릴리스
+전환에 넘길 수 없습니다. 온톨로지 릴리스가 바뀌면 projector는
+보존된 manifest를 기록된 릴리스 digest로 먼저 검증한 뒤 완전한 활성 인벤토리를 새 릴리스로
+다시 projection합니다. 보존된 identity는 원자적 교체를 위한 소유권 근거로 유지하지만 이전
+manifest digest는 새 릴리스의 같은 generation content를 인증할 수 없습니다. 별도의
+릴리스 독립적 content digest가 전환 중에도 같은 generation의 변조 감지를 유지합니다.
 
 PostgreSQL projector는 lock을 획득하고 활성 인벤토리 세대를 다시 확인한 뒤 그래프 교체와
 매니페스트 및 상태 마커를 하나의 트랜잭션으로 커밋합니다. 엔드포인트 외래 키는 동시 리소스
