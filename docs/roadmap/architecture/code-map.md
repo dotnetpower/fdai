@@ -42,6 +42,9 @@ retired top-level application tree.
 The Core distribution retains the complete `fdai` namespace. Internal module boundaries remain
 unchanged by the physical move.
 
+Service migration inventory tests verify that renamed partitions retain their creation lineage and
+use the effective table name at the current migration head.
+
 Semantic conversation planning keeps `semantic_planning.py`, `semantic_planning_cascade.py`, and
 `semantic_planning_frame.py` as compatibility facades. Focused sibling modules own frame checks,
 plan dispatch, anchored-incident and stated-value-filter plan construction, judgment, validation,

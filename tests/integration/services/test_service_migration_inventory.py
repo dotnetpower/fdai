@@ -1902,7 +1902,7 @@ def test_service_sql_writers_and_outbox_paths_match_ownership_manifest() -> None
 
 
 def test_legacy_inventory_tracks_partition_renames_at_head() -> None:
-    """Regression: Alembic 0089 renames t2_cache_default → t2_cache_legacy_default.
+    """Regression: Alembic 0089 renames t2_cache_default to t2_cache_legacy_default.
 
     The legacy inventory must report the effective table name at head so that
     ownership validation and schema fingerprinting reference a table that

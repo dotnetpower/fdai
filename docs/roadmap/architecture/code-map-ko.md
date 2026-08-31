@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: be4aac2a862bc12f40972c7813f3b01025bf3d2f
+translation_source_sha: 49239743d6fee47ccbf761646012bf510b9dd1e5
 translation_revised: 2026-09-01
 ---
 # 코드 맵
@@ -44,6 +44,9 @@ translation_revised: 2026-09-01
 
 Core 분포는 전체 `fdai` 이름 공간을 유지합니다. 내부 모듈 경계는 물리 이동으로
 변경되지 않습니다.
+
+서비스 마이그레이션 인벤토리 테스트는 이름이 변경된 파티션이 생성 계보를 유지하고 현재
+마이그레이션 헤드의 유효 테이블 이름을 사용하는지 검증합니다.
 
 의미 대화 계획은 `semantic_planning.py`, `semantic_planning_cascade.py`,
 `semantic_planning_frame.py`를 호환성 facade로 유지합니다. 집중 sibling 모듈은 공개 import,
