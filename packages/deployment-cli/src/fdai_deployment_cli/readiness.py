@@ -41,6 +41,16 @@ REQUIRED_TERRAFORM_ROOTS = frozenset(
         "service.operator-service",
     }
 )
+REQUIRED_SERVICE_MIGRATIONS = frozenset(
+    {
+        "core-control-plane",
+        "document-ingestion-api",
+        "document-processing-worker",
+        "isolated-executor",
+        "operator-service",
+    }
+)
+REQUIRED_POSTGRES_EXTENSIONS = frozenset({"pg_trgm", "plpgsql", "vector"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,6 +90,123 @@ class NoChangeReadback:
 
 
 @dataclass(frozen=True, slots=True)
+class DatabaseSemanticReadback:
+    """Independent database and semantic gates required before runtime readiness."""
+
+    expected_legacy_head: str
+    legacy_head: str
+    expected_service_heads: Mapping[str, str]
+    service_heads: Mapping[str, str]
+    extensions: tuple[str, ...]
+    expected_runtime_role_checks: tuple[str, ...]
+    runtime_role_checks: Mapping[str, bool]
+    ontology_release_digest: str
+    catalog_digest: str
+    defaults_digest: str
+    role_manifest_digest: str
+    expected_ontology_release_digest: str
+    expected_catalog_digest: str
+    expected_defaults_digest: str
+    expected_role_manifest_digest: str
+    shadow_only: bool
+    observer_distinct: bool
+
+    def __post_init__(self) -> None:
+        if (
+            not self.expected_legacy_head
+            or len(self.expected_legacy_head) > 128
+            or self.legacy_head != self.expected_legacy_head
+        ):
+            raise ValueError("legacy migration head is invalid")
+        expected_service_heads = dict(self.expected_service_heads)
+        service_heads = dict(self.service_heads)
+        if (
+            set(expected_service_heads) != REQUIRED_SERVICE_MIGRATIONS
+            or service_heads != expected_service_heads
+        ):
+            raise ValueError("database readback MUST contain every service migration head")
+        if any(not value or len(value) > 128 for value in service_heads.values()):
+            raise ValueError("service migration head is invalid")
+        object.__setattr__(
+            self,
+            "expected_service_heads",
+            MappingProxyType(expected_service_heads),
+        )
+        object.__setattr__(self, "service_heads", MappingProxyType(service_heads))
+        extensions = tuple(sorted(set(self.extensions)))
+        if not REQUIRED_POSTGRES_EXTENSIONS <= set(extensions):
+            raise ValueError("database readback is missing required PostgreSQL extensions")
+        object.__setattr__(self, "extensions", extensions)
+        role_checks = dict(self.runtime_role_checks)
+        expected_role_checks = tuple(sorted(set(self.expected_runtime_role_checks)))
+        if (
+            not expected_role_checks
+            or set(role_checks) != set(expected_role_checks)
+            or not all(
+                isinstance(name, str) and 0 < len(name) <= 128 and isinstance(value, bool) and value
+                for name, value in role_checks.items()
+            )
+        ):
+            raise ValueError("runtime role readback MUST contain only passing checks")
+        object.__setattr__(self, "expected_runtime_role_checks", expected_role_checks)
+        object.__setattr__(self, "runtime_role_checks", MappingProxyType(role_checks))
+        for label, value in (
+            ("ontology_release_digest", self.ontology_release_digest),
+            ("catalog_digest", self.catalog_digest),
+            ("defaults_digest", self.defaults_digest),
+            ("role_manifest_digest", self.role_manifest_digest),
+        ):
+            if _SHA256.fullmatch(value) is None:
+                raise ValueError(f"{label} MUST be a lowercase SHA-256")
+        expected_digests = (
+            self.expected_ontology_release_digest,
+            self.expected_catalog_digest,
+            self.expected_defaults_digest,
+            self.expected_role_manifest_digest,
+        )
+        if any(_SHA256.fullmatch(value) is None for value in expected_digests):
+            raise ValueError("expected semantic digests MUST be lowercase SHA-256 values")
+        if expected_digests != (
+            self.ontology_release_digest,
+            self.catalog_digest,
+            self.defaults_digest,
+            self.role_manifest_digest,
+        ):
+            raise ValueError("database semantic readback does not match the sealed manifest")
+        if not self.shadow_only:
+            raise ValueError("subscription genesis semantic defaults MUST remain shadow-only")
+        if not self.observer_distinct:
+            raise ValueError("database semantic readback observer MUST be independent")
+
+    def to_mapping(self) -> dict[str, object]:
+        """Return sanitized database and semantic readiness evidence."""
+
+        return {
+            "expected_manifest_digest": canonical_digest(
+                {
+                    "legacy_head": self.expected_legacy_head,
+                    "service_heads": dict(sorted(self.expected_service_heads.items())),
+                    "runtime_role_checks": list(self.expected_runtime_role_checks),
+                    "ontology_release_digest": self.expected_ontology_release_digest,
+                    "catalog_digest": self.expected_catalog_digest,
+                    "defaults_digest": self.expected_defaults_digest,
+                    "role_manifest_digest": self.expected_role_manifest_digest,
+                }
+            ),
+            "legacy_head": self.legacy_head,
+            "service_heads": dict(sorted(self.service_heads.items())),
+            "extensions": list(self.extensions),
+            "runtime_role_checks": dict(sorted(self.runtime_role_checks.items())),
+            "ontology_release_digest": self.ontology_release_digest,
+            "catalog_digest": self.catalog_digest,
+            "defaults_digest": self.defaults_digest,
+            "role_manifest_digest": self.role_manifest_digest,
+            "shadow_only": self.shadow_only,
+            "observer_distinct": self.observer_distinct,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class GenesisReadinessReceipt:
     """Sanitized proof set required before a run can transition to ready."""
 
@@ -88,6 +215,7 @@ class GenesisReadinessReceipt:
     target_binding: str
     generated_at: str
     evidence_digests: Mapping[str, str]
+    database_semantic: DatabaseSemanticReadback
     inventory_closure: InventoryClosure
     second_run: NoChangeReadback
 
@@ -141,6 +269,7 @@ class GenesisReadinessReceipt:
             "target_binding": self.target_binding,
             "generated_at": self.generated_at,
             "evidence_digests": dict(sorted(self.evidence_digests.items())),
+            "database_semantic": self.database_semantic.to_mapping(),
             "inventory_closure": {
                 "subscription_root": self.inventory_closure.subscription_root,
                 "resource_type_filter": self.inventory_closure.resource_type_filter,

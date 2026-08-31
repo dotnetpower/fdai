@@ -35,10 +35,10 @@ dev-logs: ## tail postgres + redpanda logs (optional: SERVICE=postgres)
 dev-nuke: ## stop the stack AND drop its volumes (fresh state next `dev-up`)
 	@docker compose -f infra/local/docker-compose.yml down -v
 
-azd-up: ## turnkey provision preview (azd + Terraform); FDAI_AZD_CONFIRM=1 to apply
+azd-up: ## direct public-network dev preview; FDAI_AZD_CONFIRM=1 to apply
 	@scripts/deployment/azure/azd-up.sh
 
-genesis-up: ## Day-1 Genesis screen over 'terraform apply -json'; FDAI_GENESIS_CONFIRM=1 to apply
+genesis-up: ## explain the retired Terraform-stream prototype and canonical fdaictl path
 	@scripts/deployment/azure/genesis-up.sh
 
 # ---------------------------------------------------------------------------

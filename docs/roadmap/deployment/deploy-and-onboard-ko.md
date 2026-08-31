@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 13cee5ed259d9348131ac655f157ccbd366cf15b
-translation_revised: 2026-08-30
+translation_source_sha: 752acb42097c6abf7d336a3e733929fda9b9af09
+translation_revised: 2026-08-31
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 진실 원본입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -287,6 +287,12 @@ exact 쌍에 접근할 수 없으면 변경 전에 fail합니다.
   중단하기 전에 정제된 검사와 발견 사항만 출력합니다. Terraform은 실행 엔진이자
   infrastructure 정본으로 유지됩니다. Bicep과 OpenTofu는
   [tech-stack-ko.md](../architecture/tech-stack-ko.md)에 따른 호환 대안으로 남습니다.
+- 보호된 `fdaictl` 전송 계층은 `dev`와 `staging`을 지원합니다. 요청 식별자는 승인된 테넌트,
+  구독, 지역, 정확한 커밋, 선택한 서비스, 실행, 시도, 계획/적용/재개 모드를 연결합니다.
+  작업 흐름은 이 바인딩을 독립적으로 다시 계산하고 대상 GitHub 환경이 한 명의 필수 검토자를
+  요구하며 자체 검토와 관리자 우회를 차단하는지 확인한 후 정확한 비공개 계획만 복원합니다.
+  N명 중 M명 정족수가 필요한 프로필과 프로덕션 전용 이미지, 경고, 예산 입력은 작업 흐름이
+  소유한 권한 계층에서 바인딩하고 검증할 수 있을 때까지 차단합니다.
 - 같은 서명 이미지가 `dev → staging → prod` 승격; 환경별 재빌드 없음
   ([deployment-ko.md](deployment-ko.md)).
 

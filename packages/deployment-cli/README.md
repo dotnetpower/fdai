@@ -18,9 +18,19 @@ target-pinned Azure management-plane reads and writes a private expiring plan wh
 observations have separate digests. It never creates a resource, registers a provider, writes
 Terraform state, or dispatches a workflow.
 
+After the approved foundation and runner are available, use `fdaictl deploy plan` to dispatch the
+protected plan-only workflow. Read its request-bound status and sanitized plan id/digest with
+`fdaictl deploy status`, then use `fdaictl deploy apply` for the exact reviewed plan.
+`fdaictl onboard guided` composes the same plan/apply transport and requires
+`--approve-application` before it can dispatch apply. Verification-only resume never reruns
+Terraform apply.
+
 Terminal journal events use schema v3 and bind completed stages to receipt digests. The aggregate
 genesis readiness receipt requires every foundation, application, migration, semantic, model,
-inventory, rollback, second-run no-change, and system-verification evidence family.
+inventory, rollback, second-run no-change, and system-verification evidence family. Database and
+semantic readback additionally requires all five service migration heads, the required PostgreSQL
+extensions, passing runtime-role checks, exact ontology/catalog/default/role-manifest digests,
+shadow-only defaults, and an independent observer.
 Legacy v1 and v2 journals remain readable for audit but are replay-only; a new run is required
 before additional stages can be recorded.
 

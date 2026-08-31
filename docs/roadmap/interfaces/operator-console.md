@@ -13,6 +13,14 @@ in the ontology projection; query digests never become browser-side or Operator 
 Catalog topology preserves its deterministic exact-release coordinates while using one bounded 900 ms spring-settle on initial entry. Interaction ends the effect, reduced-motion preference skips it, and no persistent simulation runs.
 Agent Activity links a correlation to Trace only when the row is backed by durable audit evidence.
 Inventory scan, ontology projection, and current-state read correlations remain visible identifiers without an audit-trace link. A manual lookup with no matching audit steps renders a neutral unavailable state instead of an operational failure.
+The authenticated `/provisioning` route is a read-only projection of one durable subscription
+genesis run. It replays completed setup stages and follows resource discovery plus final
+verification, but it never starts, retries, approves, or changes deployment. The route renders
+database, semantic, model, runtime, inventory, and system readiness separately. It labels resource
+and page totals as estimates until an independent observer closes inventory, and it reaches 100
+percent only from a fully consistent terminal readiness snapshot. Replay cursors advance across
+invalid frames, a new run resets run-local sequence, and cancelled or failed runs remain explicit
+terminal outcomes.
 The Console shell keeps a compact FDAI brand lockup in its header and uses a square browser icon whose transparent exterior and white interior preserve the mark on light and dark browser chrome. By default, navigation reserves only the 56 px activity rail in the content layout. A group button or page-title breadcrumb opens its child Explorer as an overlay, selecting a child closes the overlay, and an explicit pin restores the persistent 300 px dock. Operators can use the activity rail context menu or its accessible `...` control to show or hide optional groups; Overview, Settings, and the current visible group remain protected.
 The authenticated active-incident stream can open an idle Command Deck with an incident selector. That selector is a presentation hint only; the server re-resolves the durable incident and its evidence before answering.
 When the tab and Deck are idle, the first browser observation of an incident submits one localized read-only investigation turn. A browser-local incident ledger suppresses replay after reload; the incident badge remains an explicit way to investigate again. When an incident question matches several records equally, the terminal answer includes bounded candidate buttons rather than relying on a plain-text instruction. A button opens the candidate's exact incident conversation and immediately submits the localized read-only investigation turn. The click is the operator's explicit request; an automatic active-incident stream open never submits a managed-resource action.
@@ -539,6 +547,7 @@ availability source.
 | Web chat and memory | JSON/SSE chat, principal-scoped history/preferences/memory, AnswerPlan, and progressive verification ship. |
 | Observation/discovery | `POST /read-investigations` selects direct, streamed, or detached execution from durable latency evidence before Azure I/O. Direct Command Deck and HTTP reads share an owner-scoped result-replay ledger; closing a streamed response cancels its in-flight read. The surface is registered only with a dedicated reader binding; catalog presence alone proves neither provider health nor promotion. |
 | Forecast and Dynamic learning | `GET /forecast-learning` projects forecast closure and publication health; `GET /dynamic-assurance` projects durable scalar/graph model summaries and trajectory closure counts. Both routes are Reader-only and expose no detector/model mutation, promotion, approval, or execution control. |
+| Subscription provisioning | `/provisioning` replays durable stage evidence, follows estimated inventory progress, and renders verified readiness, failure, or cancellation without deployment authority. |
 
 Live Azure completion evidence and capability promotion remain governed by deployment verification
 and the authoritative registry, never inferred from phase names in this document.

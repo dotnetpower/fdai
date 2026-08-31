@@ -1,0 +1,40 @@
+{
+  "subtitle": "활성 구독 구성 실행의 검증된 진행 상태",
+  "viewPurpose": "정제된 구성 근거를 재생하고 리소스 검색과 최종 검증을 실시간으로 확인합니다. 이 화면에서는 프로비저닝을 시작, 재시도, 승인 또는 변경할 수 없습니다.",
+  "done": "인프라 배포가 완료되었습니다. 준비 상태 검증을 계속합니다.",
+  "cancelled": "구독 구성이 취소되었습니다.",
+  "ready": "구독 구성이 검증되어 사용할 준비가 되었습니다.",
+  "stages": "구성 단계",
+  "stagesSummary": "전체 {total}단계 중 {completed}단계 완료",
+  "readinessTitle": "준비 상태 근거",
+  "readinessDescription": "각 게이트를 독립적으로 관찰합니다. 배포 완료만으로 실행을 준비 완료로 표시하지 않습니다.",
+  "verified": "검증됨",
+  "pending": "대기 중",
+  "inventoryTitle": "리소스 검색",
+  "inventoryEstimate": "활성 세대와 커버리지 매니페스트가 독립적인 재확인을 통과할 때까지 수량은 예상값입니다.",
+  "resources": "관찰된 리소스",
+  "pages": "공급자 페이지",
+  "completeness": "최종 완전성",
+  "independentlyVerified": "독립 검증됨",
+  "awaitingVerification": "독립 검증 대기 중",
+  "notMeasured": "측정되지 않음",
+  "progressPair": "{completed}개 관찰 / {expected}개 예상",
+  "readiness": {
+    "database": "데이터베이스",
+    "semantic": "온톨로지 및 카탈로그",
+    "models": "모델 기능",
+    "runtime": "Console 및 런타임",
+    "inventory": "리소스 인벤토리",
+    "system": "시스템 검증"
+  },
+  "stageStatus": {
+    "pending": "대기 중",
+    "active": "진행 중",
+    "waiting": "대기",
+    "completed": "완료",
+    "blocked": "차단됨",
+    "failed": "실패",
+    "cancelled": "취소됨",
+    "incomplete": "미완료"
+  }
+}

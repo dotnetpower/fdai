@@ -11,6 +11,7 @@ Azure focus: this document targets an Azure subscription. Non-Azure providers ar
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Protected platform plan and exact apply | implemented | `.github/workflows/deploy-dev.yml`, `.github/workflows/model-settings-projection.yml`, `login-deploy-identity.sh`, `materialize-model-binding-proposal.sh`, `model_binding_proposal.py`, and focused deployment workflow checks | Every protected deploy path selects the stable deploy UAMI by client ID and verifies its token `oid`. The core-model-quorum profile adopts exact-name existing deployments, permits only the initial creation set, an empty converged plan, or the field-pinned legacy primary replacement, and rejects every other change. Plan and apply restoration use the same deployable-capability filter; quorum apply limits readback to its two targets and skips unrelated model drift and app health. Private-runner planning includes immutable apply claims and post-apply checks; no governed UAMI role-migration or platform apply receipt is retained in the repository. |
+| Installable protected deployment transport | implemented | `fdai_deployment_cli.github_actions`; `validate_deploy_request.py`; `verify-github-environment.py`; focused CLI and workflow checks | Dev and staging requests bind target, region, context, mode, run, and attempt. The client and workflow both fail closed on weak approval policy; multi-approver and production inputs remain explicitly unsupported. |
 | Independently owned runtime services | validated | `.github/workflows/service-deploy.yml` and `config/independent-service-live-evidence-manifest.json` | Each service has a separate root, protected plan, health check, and rollback evidence. |
 | OHL scale-out evidence target and proposal Job | implemented | current change in `infra/` and `services/core-control-plane/src/fdai/delivery/`; focused Terraform and publisher tests report 8 and 13 passed | Both are disabled by default and still need a protected apply. |
 | OHL production evidence campaign | in-progress | `config/ohl-scale-out-evidence.json` and `docs/runbooks/ohl-scale-out-evidence.md` | Runtime rollout, governed execution, 100 samples, and the 14-day recurrence window remain open. |
@@ -22,6 +23,7 @@ Azure focus: this document targets an Azure subscription. Non-Azure providers ar
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-31 | implemented | Added request-bound plan, exact apply, verification-only resume, and sanitized status transport for the installable CLI, with workflow-side target/context recomputation and approval-policy verification. | `current change`; deployment CLI and workflow tests, Ruff, strict mypy, Terraform validation, and reviewability budget | Retain one governed dev or staging plan/apply receipt, then implement workflow-owned N-of-M and production input binding before widening support. |
 | 2026-08-29 | implemented | Extended the single checksum-pinned GitHub CLI installation step to isolated Executor image binding after protected plan `33235557463` reached that step without `gh` on the runner. | Failed protected plan `33235557463`; `current change`; focused workflow diet test. | Rerun the exact protected target plan, then apply only its sealed non-destructive artifact. |
 | 2026-08-26 | implemented | Decoupled protected deploy authority from runner VM lifecycle. Bootstrap now owns a stable UAMI and five-role manifest, the current VM attaches it alongside the system identity, and all seven `fdai-deploy` workflows require explicit client ID login plus tenant, subscription, and token `oid` verification. | `current change`; bootstrap Terraform validation and plan tests; focused identity, workflow, context, and scenario checks. | Push an exact revision with green required CI, then retain zero-unrelated-destroy bootstrap, platform, and scenario plans plus effective-role readback before candidate creation. |
 | 2026-08-21 | implemented | Removed the protected runner's implicit system-pip dependency. The workflow installs the repository-pinned uv release and runs model resolution and production readiness from the frozen Core package environment. | `current change`; failed protected plan run `32434472993`; focused deployment workflow contract, YAML parsing, and dependency command checks. | Rerun the exact Event Bus migration plan and retain its protected plan/apply evidence. |
@@ -284,6 +286,13 @@ Environment-specific ceilings are owned by [Production deployment hardening](pro
   findings before the workflow stops. Terraform remains the execution engine and infrastructure
   source of truth. Bicep and OpenTofu remain compatible fallbacks per
   [tech-stack.md](../architecture/tech-stack.md).
+- The protected `fdaictl` transport supports `dev` and `staging`. Its request identity binds the
+  approved tenant, subscription, region, exact commit, selected services, run, attempt, and
+  plan/apply/resume mode. The workflow independently recomputes those bindings, verifies that the
+  target GitHub Environment requires one reviewer with self-review and administrator bypass
+  disabled, then restores only the exact private plan. Profiles that require an N-of-M quorum and
+  production-only image, alert, or budget inputs remain blocked until a workflow-owned authority
+  can bind and verify them.
 - Same signed image is promoted `dev → staging → prod`; nothing is rebuilt per environment
   ([deployment.md](deployment.md)).
 

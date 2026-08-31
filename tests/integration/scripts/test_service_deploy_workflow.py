@@ -198,7 +198,7 @@ def test_platform_workflow_isolates_monitoring_plan_changes() -> None:
     assert "DEPLOY_MONITORING" in design_mocks_guard
     model_step = _LEGACY_WORKFLOW.split("- name: Resolve and seal model capabilities", maxsplit=1)[
         1
-    ].split("- name: Ensure protected storage containers", maxsplit=1)[0]
+    ].split("- name: Verify protected storage containers", maxsplit=1)[0]
     assert "!inputs.deploy_monitoring" in model_step
     preflight_step = _LEGACY_WORKFLOW.split(
         "- name: Run complete Azure live preflight", maxsplit=1

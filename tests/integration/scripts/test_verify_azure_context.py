@@ -137,7 +137,7 @@ def test_private_bootstrap_callers_verify_before_mutation() -> None:
 
     workflow = (_ROOT / ".github" / "workflows" / "deploy-dev.yml").read_text(encoding="utf-8")
     assert workflow.index("Verify exact Azure context") < workflow.index(
-        "Ensure protected storage containers"
+        "Verify protected storage containers"
     )
 
 

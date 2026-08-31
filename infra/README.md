@@ -6,20 +6,22 @@ Renders the four CSP-neutrality contracts (event bus / runtime / secret / worklo
 identity) into Azure resources. Entry command: `terraform apply` per
 [docs/roadmap/deployment/deploy-and-onboard.md](../docs/roadmap/deployment/deploy-and-onboard.md).
 
-## Turnkey path (`azd`)
+## Direct development path (`azd`)
 
-For a one-command experience, [`azure.yaml`](../azure.yaml) drives this Terraform
+For a public-network development environment, [`azure.yaml`](../azure.yaml) drives this Terraform
 through the Azure Developer CLI. `scripts/deployment/azure/azd-up.sh` (or `make azd-up`) runs a
-non-mutating `azd provision --preview` by default; set `FDAI_AZD_CONFIRM=1` to
-run a real `azd up`. The two-gate design keeps an accidental apply impossible.
+non-mutating `azd provision --preview` by default; set `FDAI_AZD_CONFIRM=1` to run a real `azd up`.
+The two-gate design keeps an accidental apply impossible.
 
-`azure.yaml` also declares a `services.core` block so `azd deploy` / `azd up`
-builds each runtime image from its service-owned
-[`docker/Dockerfile`](../services/core-control-plane/docker/Dockerfile) pattern and deploys it to the
-Container App tagged `azd-service-name: core` (set in
-[`modules/compute/container-apps/main.tf`](modules/compute/container-apps/main.tf)).
-A `services` block only drives `azd deploy`; `azd provision --preview` is
-unaffected.
+This path is not the private subscription-genesis product. A private deployment first needs the
+ops network, state backend, deployment identity, and attested runner described in
+[`bootstrap/`](bootstrap/). The target one-operation experience is the resumable `fdaictl onboard`
+flow in [Subscription Genesis Provisioning](../docs/roadmap/deployment/subscription-genesis-provisioning.md).
+
+`azure.yaml` intentionally has no `services` block. The integrated root no longer owns a Core
+Container App with an `azd-service-name` tag, so claiming `azd deploy` support would fail after
+provisioning. Runtime images deploy through the service-owned protected workflows and Terraform
+roots.
 
 Direct Terraform plans require `core_image` to reference an FDAI image built
 from the repository Dockerfile. The variable rejects the former

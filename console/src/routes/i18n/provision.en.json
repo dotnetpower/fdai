@@ -1,0 +1,40 @@
+{
+  "subtitle": "Verified progress from the active subscription setup run",
+  "viewPurpose": "Replay sanitized setup evidence and follow resource discovery and final verification. This screen cannot start, retry, approve, or alter provisioning.",
+  "done": "Infrastructure deployment completed. Readiness verification continues.",
+  "cancelled": "Subscription setup was cancelled.",
+  "ready": "Subscription setup is verified and ready.",
+  "stages": "Setup stages",
+  "stagesSummary": "{completed} of {total} stages completed",
+  "readinessTitle": "Readiness evidence",
+  "readinessDescription": "Each gate is independently observed. Deployment completion alone cannot mark the run ready.",
+  "verified": "Verified",
+  "pending": "Pending",
+  "inventoryTitle": "Resource discovery",
+  "inventoryEstimate": "Counts are estimates until the active generation and coverage manifest pass independent readback.",
+  "resources": "Resources observed",
+  "pages": "Provider pages",
+  "completeness": "Final completeness",
+  "independentlyVerified": "Independently verified",
+  "awaitingVerification": "Awaiting independent verification",
+  "notMeasured": "Not measured",
+  "progressPair": "{completed} observed / {expected} estimated",
+  "readiness": {
+    "database": "Database",
+    "semantic": "Ontology and catalogs",
+    "models": "Model capabilities",
+    "runtime": "Console and runtime",
+    "inventory": "Resource inventory",
+    "system": "System verification"
+  },
+  "stageStatus": {
+    "pending": "Pending",
+    "active": "In progress",
+    "waiting": "Waiting",
+    "completed": "Completed",
+    "blocked": "Blocked",
+    "failed": "Failed",
+    "cancelled": "Cancelled",
+    "incomplete": "Incomplete"
+  }
+}

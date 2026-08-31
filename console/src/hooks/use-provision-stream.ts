@@ -20,8 +20,45 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { readSseChunk, SSE_INACTIVITY_TIMEOUT_MS } from "./sse-reader";
 
-/** Provisioning phase - mirrors {@link ProvisionPhase}. */
-export type ProvisionPhase = "progress" | "waiting" | "resumed" | "done" | "failed";
+/** Provisioning phase carried by the durable status projection. */
+export type ProvisionPhase =
+  | "snapshot"
+  | "progress"
+  | "waiting"
+  | "resumed"
+  | "done"
+  | "failed";
+
+export type ProvisionStageStatus =
+  | "pending"
+  | "active"
+  | "waiting"
+  | "completed"
+  | "blocked"
+  | "failed"
+  | "cancelled"
+  | "incomplete";
+
+export interface ProvisionStage {
+  readonly id: string;
+  readonly status: ProvisionStageStatus;
+}
+
+export interface ProvisionReadiness {
+  readonly database: boolean;
+  readonly semantic: boolean;
+  readonly models: boolean;
+  readonly runtime: boolean;
+  readonly inventory: boolean;
+  readonly system: boolean;
+}
+
+export interface ProvisionInventoryProgress {
+  readonly resources_observed: number | null;
+  readonly resources_expected: number | null;
+  readonly pages_completed: number | null;
+  readonly pages_expected: number | null;
+}
 
 /** One decoded `provision.*` frame from the SSE wire. */
 export interface ProvisionEvent {
@@ -39,6 +76,23 @@ export interface ProvisionEvent {
   readonly console_url?: string;
   /** ISO-8601 timestamp. */
   readonly ts?: string;
+  readonly run_id?: string;
+  readonly sequence?: number;
+  readonly attempt?: number;
+  readonly state?: string;
+  readonly current_stage?: string;
+  readonly stages_completed?: number;
+  readonly stages_total?: number;
+  readonly checkpoints_completed?: number;
+  readonly checkpoints_total?: number;
+  readonly last_progress_at?: string;
+  readonly reason_code?: string | null;
+  readonly ready?: boolean;
+  readonly readiness?: ProvisionReadiness;
+  readonly stages?: readonly ProvisionStage[];
+  readonly inventory?: ProvisionInventoryProgress;
+  /** Durable SSE replay cursor from the frame `id` field. */
+  readonly stream_id?: number;
 }
 
 /** Status of the underlying EventSource. */
@@ -69,10 +123,35 @@ export interface UseProvisionStreamResult {
 
 const _PHASES: ReadonlySet<string> = new Set([
   "progress",
+  "snapshot",
   "waiting",
   "resumed",
   "done",
   "failed",
+]);
+
+const _STAGE_STATUSES: ReadonlySet<string> = new Set([
+  "pending",
+  "active",
+  "waiting",
+  "completed",
+  "blocked",
+  "failed",
+  "cancelled",
+  "incomplete",
+]);
+
+const _RUN_STATES: ReadonlySet<string> = new Set([
+  "planning",
+  "waiting",
+  "applying",
+  "verifying",
+  "completed",
+  "ready",
+  "blocked",
+  "failed",
+  "cancelled",
+  "incomplete",
 ]);
 
 /** Parse a raw wire payload into a typed {@link ProvisionEvent}, or `null`
@@ -102,6 +181,21 @@ export function decodeProvisionEvent(data: string): ProvisionEvent | null {
     reason?: string;
     console_url?: string;
     ts?: string;
+    run_id?: string;
+    sequence?: number;
+    attempt?: number;
+    state?: string;
+    current_stage?: string;
+    stages_completed?: number;
+    stages_total?: number;
+    checkpoints_completed?: number;
+    checkpoints_total?: number;
+    last_progress_at?: string;
+    reason_code?: string | null;
+    ready?: boolean;
+    readiness?: ProvisionReadiness;
+    stages?: readonly ProvisionStage[];
+    inventory?: ProvisionInventoryProgress;
   } = { type, phase: phase as ProvisionPhase };
   // `fraction` comes off an untrusted wire: only accept a finite value in
   // [0, 1]. A NaN / Infinity / out-of-range number is ignored (the previous
@@ -113,12 +207,216 @@ export function decodeProvisionEvent(data: string): ProvisionEvent | null {
   if (typeof raw.reason === "string") event.reason = raw.reason;
   if (typeof raw.console_url === "string") event.console_url = raw.console_url;
   if (typeof raw.ts === "string") event.ts = raw.ts;
+  if (phase === "snapshot") {
+    const snapshot = decodeProvisionSnapshot(raw);
+    if (snapshot === null) return null;
+    Object.assign(event, snapshot);
+  }
   return event;
 }
 
-export function provisionStreamHeaders(authorization: string | null): Headers {
+function decodeProvisionSnapshot(
+  raw: Readonly<Record<string, unknown>>,
+): Omit<ProvisionEvent, "type" | "phase"> | null {
+  const runId = boundedText(raw.run_id);
+  const state = boundedText(raw.state);
+  const currentStage = boundedText(raw.current_stage);
+  const lastProgressAt = boundedText(raw.last_progress_at);
+  const sequence = nonNegativeInteger(raw.sequence);
+  const attempt = nonNegativeInteger(raw.attempt);
+  const stagesCompleted = nonNegativeInteger(raw.stages_completed);
+  const stagesTotal = positiveInteger(raw.stages_total);
+  if (
+    runId === null ||
+    state === null ||
+    currentStage === null ||
+    lastProgressAt === null ||
+    sequence === null ||
+    sequence < 1 ||
+    attempt === null ||
+    attempt < 1 ||
+    stagesCompleted === null ||
+    stagesTotal === null ||
+    stagesCompleted > stagesTotal ||
+    typeof raw.ready !== "boolean"
+  ) return null;
+  const readiness = decodeReadiness(raw.readiness);
+  const stages = decodeStages(raw.stages, stagesTotal);
+  const completedStageIds =
+    stages === null
+      ? new Set<string>()
+      : new Set(stages.filter((stage) => stage.status === "completed").map((stage) => stage.id));
+  const currentStatus = stages?.find((stage) => stage.id === currentStage)?.status;
+  const expectedCurrentStatus: ProvisionStageStatus | undefined = {
+    planning: "active",
+    applying: "active",
+    verifying: "active",
+    waiting: "waiting",
+    completed: "completed",
+    ready: "completed",
+    blocked: "blocked",
+    failed: "failed",
+    cancelled: "cancelled",
+    incomplete: "incomplete",
+  }[state] as ProvisionStageStatus | undefined;
+  if (
+    readiness === null ||
+    stages === null ||
+    !_RUN_STATES.has(state) ||
+    !stages.some((stage) => stage.id === currentStage) ||
+    currentStatus !== expectedCurrentStatus ||
+    stages.filter((stage) => stage.status === "completed").length !== stagesCompleted ||
+    readiness.database !== completedStageIds.has("database") ||
+    readiness.semantic !== completedStageIds.has("semantic-defaults") ||
+    readiness.models !== completedStageIds.has("model-deployments") ||
+    readiness.runtime !== completedStageIds.has("console") ||
+    readiness.inventory !== completedStageIds.has("initial-inventory") ||
+    (raw.ready && (
+      state !== "ready" ||
+      !Object.values(readiness).every(Boolean) ||
+      stagesCompleted !== stagesTotal
+    )) ||
+    (!raw.ready && (state === "ready" || readiness.system))
+  ) return null;
+  const snapshot: {
+    run_id: string;
+    sequence: number;
+    attempt: number;
+    state: string;
+    current_stage: string;
+    stages_completed: number;
+    stages_total: number;
+    last_progress_at: string;
+    ready: boolean;
+    readiness: ProvisionReadiness;
+    stages: readonly ProvisionStage[];
+    checkpoints_completed?: number;
+    checkpoints_total?: number;
+    reason_code?: string | null;
+    inventory?: ProvisionInventoryProgress;
+  } = {
+    run_id: runId,
+    sequence,
+    attempt,
+    state,
+    current_stage: currentStage,
+    stages_completed: stagesCompleted,
+    stages_total: stagesTotal,
+    last_progress_at: lastProgressAt,
+    ready: raw.ready,
+    readiness,
+    stages,
+  };
+  const checkpointsCompleted = optionalNonNegativeInteger(raw.checkpoints_completed);
+  const checkpointsTotal = optionalNonNegativeInteger(raw.checkpoints_total);
+  if (checkpointsCompleted === false || checkpointsTotal === false) return null;
+  if ((checkpointsCompleted === null) !== (checkpointsTotal === null)) return null;
+  if (
+    typeof checkpointsCompleted === "number" &&
+    typeof checkpointsTotal === "number" &&
+    checkpointsCompleted > checkpointsTotal
+  ) return null;
+  if (typeof checkpointsCompleted === "number") {
+    snapshot.checkpoints_completed = checkpointsCompleted;
+    snapshot.checkpoints_total = checkpointsTotal as number;
+  }
+  if (raw.reason_code === null || typeof raw.reason_code === "string") {
+    snapshot.reason_code = raw.reason_code;
+  } else if (raw.reason_code !== undefined) {
+    return null;
+  }
+  if (raw.inventory !== undefined) {
+    const inventory = decodeInventory(raw.inventory);
+    if (inventory === null) return null;
+    snapshot.inventory = inventory;
+  }
+  return snapshot;
+}
+
+function decodeReadiness(value: unknown): ProvisionReadiness | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+  const keys = ["database", "semantic", "models", "runtime", "inventory", "system"] as const;
+  if (keys.some((key) => typeof raw[key] !== "boolean")) return null;
+  return {
+    database: raw.database as boolean,
+    semantic: raw.semantic as boolean,
+    models: raw.models as boolean,
+    runtime: raw.runtime as boolean,
+    inventory: raw.inventory as boolean,
+    system: raw.system as boolean,
+  };
+}
+
+function decodeStages(value: unknown, expectedTotal: number): readonly ProvisionStage[] | null {
+  if (!Array.isArray(value) || value.length !== expectedTotal || value.length > 100) return null;
+  const stages: ProvisionStage[] = [];
+  const ids = new Set<string>();
+  for (const item of value) {
+    if (typeof item !== "object" || item === null || Array.isArray(item)) return null;
+    const raw = item as Record<string, unknown>;
+    const id = boundedText(raw.id);
+    const status = raw.status;
+    if (id === null || ids.has(id) || typeof status !== "string" || !_STAGE_STATUSES.has(status)) {
+      return null;
+    }
+    ids.add(id);
+    stages.push({ id, status: status as ProvisionStageStatus });
+  }
+  return stages;
+}
+
+function decodeInventory(value: unknown): ProvisionInventoryProgress | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+  const resourcesObserved = nullableNonNegativeInteger(raw.resources_observed);
+  const resourcesExpected = nullableNonNegativeInteger(raw.resources_expected);
+  const pagesCompleted = nullableNonNegativeInteger(raw.pages_completed);
+  const pagesExpected = nullableNonNegativeInteger(raw.pages_expected);
+  if (
+    resourcesObserved === false ||
+    resourcesExpected === false ||
+    pagesCompleted === false ||
+    pagesExpected === false ||
+    (resourcesObserved === null) !== (resourcesExpected === null) ||
+    (pagesCompleted === null) !== (pagesExpected === null)
+  ) return null;
+  return {
+    resources_observed: resourcesObserved,
+    resources_expected: resourcesExpected,
+    pages_completed: pagesCompleted,
+    pages_expected: pagesExpected,
+  };
+}
+
+function boundedText(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 && value.length <= 256 ? value : null;
+}
+
+function nonNegativeInteger(value: unknown): number | null {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : null;
+}
+
+function positiveInteger(value: unknown): number | null {
+  const result = nonNegativeInteger(value);
+  return result !== null && result > 0 ? result : null;
+}
+
+function optionalNonNegativeInteger(value: unknown): number | null | false {
+  return value === undefined ? null : nonNegativeInteger(value) ?? false;
+}
+
+function nullableNonNegativeInteger(value: unknown): number | null | false {
+  return value === null ? null : nonNegativeInteger(value) ?? false;
+}
+
+export function provisionStreamHeaders(
+  authorization: string | null,
+  lastEventId: number | null = null,
+): Headers {
   const headers = new Headers({ accept: "text/event-stream" });
   if (authorization) headers.set("authorization", authorization);
+  if (lastEventId !== null) headers.set("last-event-id", String(lastEventId));
   return headers;
 }
 
@@ -135,6 +433,7 @@ export async function consumeProvisionSse(
   response: Response,
   onEvent: (event: ProvisionEvent) => void,
   inactivityTimeoutMs = SSE_INACTIVITY_TIMEOUT_MS,
+  onCursor?: (sequence: number) => void,
 ): Promise<void> {
   if (!response.ok) throw new Error(`provisioning stream returned HTTP ${response.status}`);
   const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
@@ -147,14 +446,23 @@ export async function consumeProvisionSse(
   let buffer = "";
 
   const consumeBlock = (block: string) => {
-    const data = block
-      .split("\n")
+    const lines = block.split("\n");
+    const idLine = lines.find((line) => line.startsWith("id:"));
+    const rawId = idLine?.slice(3).trim();
+    const streamId = rawId && /^[0-9]+$/.test(rawId) ? Number(rawId) : null;
+    if (streamId !== null && Number.isSafeInteger(streamId)) onCursor?.(streamId);
+    const data = lines
       .filter((line) => line.startsWith("data:"))
       .map((line) => line.slice(5).trimStart())
       .join("\n");
     if (!data) return;
     const event = decodeProvisionEvent(data);
-    if (event) onEvent(event);
+    if (!event) return;
+    onEvent(
+      streamId !== null && Number.isSafeInteger(streamId)
+        ? { ...event, stream_id: streamId }
+        : event,
+    );
   };
 
   try {
@@ -211,6 +519,7 @@ export function useProvisionStream(
     let reconnectTimer: number | null = null;
     let reconnectAttempt = 0;
     let permanentFailure = false;
+    let lastEventId: number | null = null;
 
     const publishStatus = (next: ProvisionConnectionStatus) => {
       setStatus(next);
@@ -239,7 +548,7 @@ export function useProvisionStream(
         if (cancelled || controller !== active) return;
         const response = await fetch(url, {
           method: "GET",
-          headers: provisionStreamHeaders(authorization),
+          headers: provisionStreamHeaders(authorization, lastEventId),
           credentials: "omit",
           signal: active.signal,
         });
@@ -249,12 +558,19 @@ export function useProvisionStream(
         }
         publishStatus("open");
         setLastError(null);
-        await consumeProvisionSse(response, (event) => {
-          if (!cancelled && controller === active) {
-            reconnectAttempt = 0;
-            onEventRef.current(event);
-          }
-        });
+        await consumeProvisionSse(
+          response,
+          (event) => {
+            if (!cancelled && controller === active) {
+              reconnectAttempt = 0;
+              onEventRef.current(event);
+            }
+          },
+          SSE_INACTIVITY_TIMEOUT_MS,
+          (sequence) => {
+            if (lastEventId === null || sequence > lastEventId) lastEventId = sequence;
+          },
+        );
         if (!cancelled && controller === active) {
           setLastError("connection to provisioning stream closed");
           publishStatus("closed");

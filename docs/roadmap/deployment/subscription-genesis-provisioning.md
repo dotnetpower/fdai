@@ -44,12 +44,12 @@ subscription-onboarding product:
 
 | Area | Current evidence | Gap this design closes |
 |------|------------------|------------------------|
-| Operator entry point | `infra/bootstrap/onboard.sh` and the protected deployment workflow | No packaged `fdaictl` entry point composes foundation and application provisioning. |
-| Genesis progress | `genesis-up.sh` expects a removed `fdai.delivery.provisioning` package; the Console can decode simple `provision.*` frames | No authoritative producer, durable replay, stage totals, or resume contract exists. |
-| Database bootstrap | Integrated and service-owned migrations plus an Operator catalog Job exist | Startup ordering, default-state verification, and a complete zero-to-ready receipt are not unified. |
+| Operator entry point | `fdaictl` provides bootstrap reconciliation plus protected application plan, exact apply, status, and verification-only resume | Approved foundation apply, remote-state handoff, and one complete ready receipt remain open. |
+| Genesis progress | `genesis-up.sh` is a fail-closed compatibility shim; the CLI and Console share a bounded status snapshot that separates stage completion from readiness | No authoritative Azure producer or durable Blob-to-Operator mirror exists. |
+| Database bootstrap | Integrated and service-owned migrations plus a fail-closed database/semantic readback contract exist | Pre-runtime marker production and runtime-principal evidence are not unified into a complete zero-to-ready receipt. |
 | Ontology and rules | Catalogs are versioned in the repository and can be materialized as immutable Operator projections | Catalog projection is conditional on the Operator API path and is not a required subscription readiness gate. |
 | Model deployment | The live resolver, capability assessment, Terraform modules, and keyless roles exist | Requested capacity has no explicit minimum, utilization headroom, workload profile, or end-to-end throughput acceptance gate. |
-| Initial resource scan | The continuous inventory Job promotes only a complete generation and records final provider coverage | First scan is not explicitly awaited by onboarding, and progress does not tell the operator how much of the declared scope is complete. |
+| Initial resource scan | The continuous inventory Job promotes only a complete generation; the Console separates estimated scan counters from verified closure | The protected run does not yet publish durable provider progress or retain the governed full-subscription receipt. |
 
 ## Target operator experience
 
@@ -58,14 +58,25 @@ The high-level path uses the canonical command groups and adds durable run ident
 ```bash
 fdaictl provision inspect --profile .fdai/environments/dev.json
 fdaictl provision init --profile .fdai/environments/dev.json
-fdaictl onboard guided --profile .fdai/environments/dev.json --through ready --watch
-fdaictl onboard status --run-id <run-id> --output json
-fdaictl onboard resume-verification --run-id <run-id> --watch
+fdaictl onboard guided --profile .fdai/environments/dev.json \
+  --source-commit <git-sha> --run-id <run-id> \
+  --journal .fdai/runs/<run-id>.jsonl \
+  --repository <owner>/<repository> --output json
+fdaictl deploy status --profile .fdai/environments/dev.json \
+  --repository <owner>/<repository> \
+  --request-id <request-id> --commit-sha <git-sha> --output json
+fdaictl onboard guided --profile .fdai/environments/dev.json \
+  --source-commit <git-sha> --run-id <run-id> \
+  --journal .fdai/runs/<run-id>.jsonl \
+  --repository <owner>/<repository> --plan-id <plan-id> \
+  --plan-digest <plan-digest> --approve-application --output json
+fdaictl onboard status --journal .fdai/runs/<run-id>.jsonl --output json
 ```
 
 - `provision inspect` and `provision init` never mutate Azure.
-- `onboard guided` creates one sealed run and pauses at every required approval checkpoint. It
-  composes low-level `deploy plan`, `deploy apply`, and `deploy status`; it does not replace them.
+- `onboard guided` composes low-level `deploy plan` and `deploy apply`; `deploy status` returns the
+  request-bound workflow state and sanitized plan metadata. Application apply requires
+  `--approve-application`.
 - `status` reads a sanitized projection. It never downloads Terraform state, secret values, DSNs,
   tokens, model request content, or provider payloads.
 - `resume-verification` never retries Terraform apply. A stage without an apply claim can restart;
@@ -73,6 +84,33 @@ fdaictl onboard resume-verification --run-id <run-id> --watch
   approval. It cannot skip a failed postcondition or approve changed context.
 - Human output shows subscription and tenant names for confirmation but redacts identifiers.
   Stable JSON carries digests and opaque references needed for automation.
+
+### Console handoff
+
+Before the Console exists, `fdaictl` and the protected runner are the only provisioning status
+surfaces. Foundation, database, semantic, and model failures therefore remain visible through the
+CLI even when no browser surface can start.
+
+The application stage starts the authenticated Console before the initial inventory stage. After
+the Operator projection and Console health checks pass, the operator can open `/provisioning`:
+
+- The page evolves the existing `provision.*` stream and `/provisioning` route. It does not create a
+  second Genesis route or read Terraform output directly.
+- A one-way importer mirrors sanitized, ordered events from the private Blob ledger into the
+  Operator projection. The Console and Operator API never receive Blob access, Terraform state,
+  provider payloads, or deployment secrets.
+- Earlier stages appear as durable replay. Initial inventory and final system verification can
+  continue as a live tail after the page opens.
+- Run progress, checkpoint progress, database readiness, semantic readiness, model readiness, and
+  inventory progress remain separate values. A generic `done` event, Terraform completion, or an
+  estimated resource count cannot produce `ready`.
+- Inventory totals are labeled estimates until the independent postcondition observer verifies the
+  active generation and coverage manifest. The page reaches 100 percent only from the terminal
+  readiness receipt.
+- Approval waits and blockers are read-only. The page shows the run reference and exact `fdaictl`
+  next action instead of adding a browser-side execution path.
+- After completion, the route remains available as the sanitized run history and links into the
+  relevant database, ontology, model, inventory, and audit evidence views.
 
 ## Desired-state profile
 

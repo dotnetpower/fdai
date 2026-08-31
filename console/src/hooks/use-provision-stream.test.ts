@@ -37,6 +37,7 @@ describe("decodeProvisionEvent", () => {
   test("rejects a non-provision or unknown-phase type", () => {
     expect(decodeProvisionEvent(JSON.stringify({ type: "audit.entry" }))).toBeNull();
     expect(decodeProvisionEvent(JSON.stringify({ type: "provision.bogus" }))).toBeNull();
+    expect(decodeProvisionEvent(JSON.stringify({ type: "provision.ready" }))).toBeNull();
   });
 
   test("ignores out-of-range / non-finite fraction", () => {
@@ -55,6 +56,144 @@ describe("decodeProvisionEvent", () => {
       decodeProvisionEvent(JSON.stringify({ type: "provision.progress", fraction: 0 }))?.fraction,
     ).toBe(0);
   });
+
+  test("decodes a bounded durable status snapshot", () => {
+    const event = decodeProvisionEvent(JSON.stringify({
+      type: "provision.snapshot",
+      run_id: "run.test",
+      sequence: 9,
+      attempt: 1,
+      state: "applying",
+      current_stage: "initial-inventory",
+      stages_completed: 4,
+      stages_total: 5,
+      last_progress_at: "2026-08-31T00:00:00+00:00",
+      reason_code: null,
+      ready: false,
+      readiness: {
+        database: true,
+        semantic: true,
+        models: true,
+        runtime: true,
+        inventory: false,
+        system: false,
+      },
+      stages: [
+        { id: "database", status: "completed" },
+        { id: "semantic-defaults", status: "completed" },
+        { id: "model-deployments", status: "completed" },
+        { id: "console", status: "completed" },
+        { id: "initial-inventory", status: "active" },
+      ],
+      inventory: {
+        resources_observed: 12,
+        resources_expected: 20,
+        pages_completed: 2,
+        pages_expected: 4,
+      },
+    }));
+
+    expect(event?.phase).toBe("snapshot");
+    expect(event?.ready).toBe(false);
+    expect(event?.inventory?.resources_expected).toBe(20);
+  });
+
+  test("rejects inconsistent snapshot totals", () => {
+    expect(decodeProvisionEvent(JSON.stringify({
+      type: "provision.snapshot",
+      run_id: "run.test",
+      sequence: 1,
+      attempt: 1,
+      state: "applying",
+      current_stage: "database",
+      stages_completed: 2,
+      stages_total: 1,
+      last_progress_at: "2026-08-31T00:00:00+00:00",
+      ready: false,
+      readiness: {
+        database: false,
+        semantic: false,
+        models: false,
+        runtime: false,
+        inventory: false,
+        system: false,
+      },
+      stages: [{ id: "database", status: "active" }],
+    }))).toBeNull();
+  });
+
+  test("rejects readiness that is not backed by every gate and stage", () => {
+    expect(decodeProvisionEvent(JSON.stringify({
+      type: "provision.snapshot",
+      run_id: "run.test",
+      sequence: 2,
+      attempt: 1,
+      state: "ready",
+      current_stage: "system-readiness",
+      stages_completed: 1,
+      stages_total: 1,
+      last_progress_at: "2026-08-31T00:00:00+00:00",
+      ready: true,
+      readiness: {
+        database: true,
+        semantic: true,
+        models: true,
+        runtime: true,
+        inventory: true,
+        system: false,
+      },
+      stages: [{ id: "system-readiness", status: "completed" }],
+    }))).toBeNull();
+  });
+
+  test("rejects component readiness without its completed stage", () => {
+    expect(decodeProvisionEvent(JSON.stringify({
+      type: "provision.snapshot",
+      run_id: "run.test",
+      sequence: 2,
+      attempt: 1,
+      state: "applying",
+      current_stage: "database",
+      stages_completed: 0,
+      stages_total: 1,
+      last_progress_at: "2026-08-31T00:00:00+00:00",
+      ready: false,
+      readiness: {
+        database: true,
+        semantic: false,
+        models: false,
+        runtime: false,
+        inventory: false,
+        system: false,
+      },
+      stages: [{ id: "database", status: "active" }],
+    }))).toBeNull();
+  });
+
+  test("rejects a failed run whose current stage still claims completion", () => {
+    expect(decodeProvisionEvent(JSON.stringify({
+      type: "provision.snapshot",
+      run_id: "run.test",
+      sequence: 2,
+      attempt: 1,
+      state: "failed",
+      current_stage: "database",
+      stages_completed: 1,
+      stages_total: 1,
+      last_progress_at: "2026-08-31T00:00:00+00:00",
+      reason_code: "migration-failed",
+      ready: false,
+      readiness: {
+        database: true,
+        semantic: false,
+        models: false,
+        runtime: false,
+        inventory: false,
+        system: false,
+      },
+      stages: [{ id: "database", status: "completed" }],
+    }))).toBeNull();
+  });
 });
 
 describe("fetch SSE boundary", () => {
@@ -62,6 +201,8 @@ describe("fetch SSE boundary", () => {
     const headers = provisionStreamHeaders("Bearer token");
     expect(headers.get("authorization")).toBe("Bearer token");
     expect(headers.get("accept")).toBe("text/event-stream");
+    expect(headers.get("last-event-id")).toBeNull();
+    expect(provisionStreamHeaders(null, 42).get("last-event-id")).toBe("42");
   });
 
   test("decodes provision data frames and ignores hello/keepalive frames", async () => {
@@ -73,6 +214,37 @@ describe("fetch SSE boundary", () => {
     await consumeProvisionSse(response, (event) => events.push(event));
     expect(events).toHaveLength(1);
     expect(events[0]?.fraction).toBe(0.5);
+  });
+
+  test("preserves the durable SSE replay cursor", async () => {
+    const response = new Response(
+      'id: 42\ndata: {"type":"provision.progress","fraction":0.5}\n\n',
+      { status: 200, headers: { "content-type": "text/event-stream" } },
+    );
+    const events: ProvisionEvent[] = [];
+
+    await consumeProvisionSse(response, (event) => events.push(event));
+
+    expect(events[0]?.stream_id).toBe(42);
+  });
+
+  test("advances the replay cursor across invalid semantic frames", async () => {
+    const response = new Response(
+      'id: 42\nevent: invalid\ndata: {"error":"frame_too_large"}\n\n',
+      { status: 200, headers: { "content-type": "text/event-stream" } },
+    );
+    const events: ProvisionEvent[] = [];
+    const cursors: number[] = [];
+
+    await consumeProvisionSse(
+      response,
+      (event) => events.push(event),
+      1_000,
+      (cursor) => cursors.push(cursor),
+    );
+
+    expect(events).toEqual([]);
+    expect(cursors).toEqual([42]);
   });
 
   test("rejects an unauthorized stream response", async () => {

@@ -81,7 +81,7 @@ def test_protected_deploy_resolves_and_seals_model_manifest_before_plan() -> Non
 def test_gateway_targeted_plan_resolves_models_without_blocking_on_completeness() -> None:
     resolver_step = _DEPLOY.split("- name: Resolve and seal model capabilities", maxsplit=1)[
         1
-    ].split("- name: Ensure protected storage containers", maxsplit=1)[0]
+    ].split("- name: Verify protected storage containers", maxsplit=1)[0]
 
     assert "!inputs.deploy_dev_operations_gateway" not in resolver_step
     assert (

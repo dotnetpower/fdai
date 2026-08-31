@@ -1,13 +1,13 @@
 # azd (Azure Developer CLI) configuration for FDAI.
 #
-# Provides the turnkey `azd up` path over the existing Terraform under
+# Provides a direct public-network development `azd up` path over the Terraform under
 # `infra/` (docs/roadmap/deployment/deploy-and-onboard.md). azd drives Terraform as its
 # infrastructure provider; the CSP-neutral seams stay defined in HCL.
 #
-# Scope: `azd provision` runs the Terraform apply of the minimum-set
-# inventory; `azd deploy` / `azd up` builds the app image from the Dockerfile
-# and deploys it to the Container App tagged `azd-service-name: core` in
-# `infra/modules/compute/container-apps/main.tf`.
+# Scope: `azd provision` and `azd up` provision the integrated Terraform root.
+# Runtime images deploy through the service-owned protected workflows because
+# the integrated root no longer owns one `azd-service-name` Container App.
+# Private subscription genesis uses `fdaictl` plus the protected runner.
 #
 # Environment values (subscription id, tenant id, resource group, region) are
 # supplied at run time by the azd environment / env vars, never committed -
@@ -21,15 +21,3 @@ metadata:
 infra:
   provider: terraform
   path: infra
-
-services:
-  # Targets the Container App resource tagged `azd-service-name: core` in
-  # infra/. `azd deploy` builds the Dockerfile image and updates the app;
-  # `azd provision` is unaffected (a service block only drives deploy).
-  core:
-    project: .
-    language: python
-    host: containerapp
-    docker:
-      path: Dockerfile
-

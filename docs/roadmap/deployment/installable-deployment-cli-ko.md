@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 1475b2960b0684e0d43e3daae54c5d06bc582e5f
-translation_revised: 2026-08-30
+translation_source_sha: b25478bf17aa6ad53b5c56e91f674608f120f1fe
+translation_revised: 2026-08-31
 ---
 # 설치형 배포 CLI
 
@@ -510,26 +510,49 @@ fdaictl release rollback \
 
 ## 계획 및 적용 무결성
 
-`fdaictl deploy plan`은 plan-only 작업 흐름을 제출하고 현재 작업 흐름 실행 id와 URL을 반환합니다.
-같은 환경 구성이 `doctor`를 통과해야 하고 GitHub 자격 증명은
-`FDAI_GITHUB_TOKEN`에서만 읽습니다. 전달 본문에는 `apply=false`, 환경, exact 커밋,
-SHA-256 deployment-context 지문을 전달합니다. Console, design mocks, Operator API,
-개발 게이트웨이, document-ingestion 플래그는 지문에 포함되며 계획과 적용에 동일하게
-전달됩니다. 플래그가 달라지면 계획은 무효입니다. 테넌트, 구독, 백엔드, 실행기
-식별자는 전달하지 않습니다. 작업 흐름은 계획 전에 범위가 제한된 요청 id, 맥락 다이제스트,
-exact checked-out 커밋을 검증합니다.
+보호된 작업 흐름은 이 계약의 실행기 측을 구현합니다. 소스 배포판은 `deploy plan`,
+`deploy apply`, `deploy status`를 등록하고, `onboard guided`는 bootstrap 조정 후 같은 전송
+계층을 구성합니다.
+
+`fdaictl deploy plan`은 활성 Azure 대상을 모드 `0600` 프로필과 비교하고 Azure 및 GitHub
+CLI를 확인한 뒤 plan-only 작업 흐름을 제출합니다. 범위가 제한된 요청 id와 맥락 다이제스트를
+반환합니다. `deploy status --request-id <id>`는 프로필, 커밋, 기능 플래그에서 승인된 맥락을
+다시 계산한 뒤 요청에 연결된 실행 이름으로 정확히 하나의 작업 흐름을 찾고, 성공 후에는
+정제된 계획 메타데이터 산출물만 내려받습니다. GitHub CLI는
+공급자가 호스팅하는 인증을 사용하며 자격 증명을 명령 인수로 복사하지 않습니다.
+
+전달 본문에는 `apply=false`, 환경, 정확한 커밋, SHA-256 배포 맥락 지문을 전달합니다.
+Console, Operator API, 문서 수집, 격리된 Executor, 모니터링 플래그는 지문에 포함되며 계획과
+적용에 동일하게 전달됩니다. 플래그가 달라지면 계획은 무효입니다. 테넌트, 구독, 백엔드,
+실행기 식별자는 전달하지 않습니다. 작업 흐름은 계획 전에 범위가 제한된 요청 id, 맥락
+다이제스트, 정확히 체크아웃한 커밋을 검증합니다.
+
+적용 전에 클라이언트는 대상 GitHub 환경에 필수 검토자가 있고 자체 검토와 관리자 우회가 차단되는지
+확인합니다. GitHub 환경 보호는 검토자 집합 중 한 명의 승인만 요구하며 N명 중 M명 정족수를
+구현하지 않습니다. 따라서 `approval_quorum`이 1보다 큰 프로필은 외부 정족수 권한을 통합할
+때까지 이 전송 계층에서 안전하게 차단됩니다.
+
+현재 클라이언트는 `dev`와 `staging`을 지원합니다. 프로덕션 이미지, 경고 대상, 예산 입력이
+클라이언트 맥락 다이제스트에 아직 포함되지 않았으므로 `prod`는 차단합니다. 해당 필드를
+바인딩할 때까지 프로덕션은 별도로 검토된 작업 흐름 인터페이스를 계속 사용합니다.
 
 `--deploy-design-mocks`는 dev 전용의 단독 대상입니다. 다른 배포 feature 플래그와 함께
 사용할 수 없습니다. 실행기는 `module.design_mocks`만 대상으로 하며, design-mocks Static Web
 App 외부의 리소스 변경이 계획에 포함되면 차단합니다.
 
 ```bash
-FDAI_GITHUB_TOKEN=<installation-token> fdaictl deploy plan \
-  --config .fdai/environments/dev.json \
+fdaictl deploy plan \
+  --profile .fdai/environments/dev.json \
   --repository <owner>/<repository> \
-  --bundle-digest <sha256> \
   --commit-sha <git-sha> \
-  --deploy-design-mocks \
+  --run-id <run-id> \
+  --output json
+
+fdaictl deploy status \
+  --profile .fdai/environments/dev.json \
+  --repository <owner>/<repository> \
+  --request-id <request-id> \
+  --commit-sha <git-sha> \
   --output json
 ```
 
@@ -540,8 +563,8 @@ Terraform 계획을 download하거나 출력하지 않습니다. 실행기는 CL
 경로를 변경할 수 없는하게 유지합니다. 메타데이터는 테넌트, 구독, 백엔드, 실행기, 시크릿 값
 없이 계획 다이제스트, 맥락 다이제스트, exact 커밋, 작업 흐름 실행, 1시간 logical 만료를 기록합니다.
 Isolated 실행기 계획은 레지스트리 엔드포인트 또는 변경 가능한 tag 없이 검증된 런타임 출처 개정 번호와
-OCI 다이제스트도 기록합니다. `deploy plan`은 derived 계획 id를 반환하고 `deploy 상태 --plan-id
-<id>`는 해당 선택적 런타임 이미지 근거를 포함한 범위가 제한된 metadata-only 산출물을 읽습니다.
+OCI 다이제스트도 기록합니다. 성공한 `deploy status`는 범위가 제한된 메타데이터 전용
+산출물에서 파생된 계획 id와 다이제스트를 반환합니다.
 각 새 계획 실행은 비공개 블롭을 최대 1001개 검사하고 24시간
 지난 허용 목록에 있는 계획 경로를 최대 1000개 삭제합니다. 두 한계 중 하나에 도달하면 알 수 없음
 경로를 삭제하지 않고 실패 시 차단합니다.
@@ -555,8 +578,9 @@ OCI 다이제스트도 기록합니다. `deploy plan`은 derived 계획 id를 �
 - 호출자가 적용을 명시적으로 요청했고 작업 흐름 승인 정책을 충족함.
 - 실행기 신원과 백엔드 구성이 기록된 계획 맥락과 일치함.
 
-CLI는 `doctor`를 다시 실행하고 범위가 제한된 메타데이터를 조회해 맥락 다이제스트와 logical 만료를
-검증하며 stored 계획 다이제스트만 전달합니다. 적용 작업 흐름은 대상 GitHub 환경을 외부
+CLI는 도구, 인증, 대상 검사를 반복하고 같은 맥락으로 계산한 검토된 계획 id와 다이제스트를
+전달합니다. 적용 작업 흐름은 작업 흐름이 소유한 메타데이터를 독립적으로 다시 읽고 맥락과
+논리적 만료를 검증하며 대상 GitHub 환경을 외부
 승인 및 감사 이력 경계로 사용합니다. `terraform plan`을 건너뛰고 비공개 Blob 저장소의
 exact binary와 메타데이터를 복원해 모든 다이제스트, id, 상태, 시각, 커밋을 검증한 다음
 `terraform apply` 전에 변경할 수 없는 `apply-claim.json`을 생성합니다. 중복 또는 실패한 이전
@@ -576,12 +600,13 @@ built-in 작업 흐름 정의가 coexist하도록 허용합니다. Unique 데이
 않으면서 카탈로그 release 간 시작 멱등성을 유지합니다.
 
 ```bash
-FDAI_GITHUB_TOKEN=<installation-token> fdaictl deploy apply \
-  --config .fdai/environments/dev.json \
+fdaictl deploy apply \
+  --profile .fdai/environments/dev.json \
   --repository <owner>/<repository> \
   --plan-id <plan-id> \
-  --bundle-digest <sha256> \
+  --plan-digest <plan-digest> \
   --commit-sha <git-sha> \
+  --run-id <run-id> \
   --output json
 ```
 
@@ -589,19 +614,14 @@ FDAI_GITHUB_TOKEN=<installation-token> fdaictl deploy apply \
 다이제스트, 만료만 노출합니다. 계획 파일, 상태, 자격 증명 또는 시크릿 값은 노출하지 않습니다.
 Physical 정리가 아직 블롭을 제거하지 않았더라도 적용은 logical 만료를 차단해야 합니다.
 
-계획된 전송 중립 기반은 전용 배포 CLI 배포판에 속하며 사용 중단된
-`fdai.deployment_cli.remote` 모듈은 현재 없습니다. 이 기반의 `PlanRecord`는 opaque
-메타데이터만 포함하고 `RemoteDeploymentService`는 적용 전에 이를 다시 읽습니다. 로컬 가드는
-`ready` 상태, 유효한 보존, 정확한 테넌트/구독/환경/번들/커밋/백엔드/
-실행기 맥락, clear enforced preflight, approved 실행기 가용성을 요구합니다. 이후
-caller-supplied replacement가 아니라 workflow-owned stored 다이제스트를 제출합니다. 구체적인 GitHub
-plan-only 전송 계층은 현재 전달 실행 상세를 반환하고 실행기는 protected binary 계획과
-메타데이터를 기록하며 CLI는 범위가 제한된 run-scoped zip에서 정제된 상태를 조회합니다. Exact-plan
-적용 전송 계층, GitHub 환경 승인 경계, 변경할 수 없는 점유, 감사 증적이 구현되어
-있습니다. 실행기 egress preflight 근거는 변경할 수 없는 계획 메타데이터에 고정되고 post-apply
-검사는 증적 기록 전에 Terraform convergence, 이행 성공, 활성화된 엔드포인트 상태를
-요구합니다. Runner-side Policy, 할당량, 신원, 시크릿, egress 근거는 C4 exact-plan 게이트의
-필수 입력입니다.
+전송 계층은 로컬에 불투명한 메타데이터만 유지합니다. GitHub 계획 경로는 요청에 연결된 전달
+증적을 반환하고 실행기는 보호된 바이너리 계획을 비공개 Blob 저장소에 기록하며 `deploy
+status`는 작업 흐름 호스트를 통해 범위가 제한된 정제 산출물을 조회합니다. 정확한 적용과
+검증 전용 재개는 같은 기능 선택과 맥락 다이제스트를 전달합니다. GitHub 환경 승인 경계,
+변경할 수 없는 점유, 감사 증적은 계속 정본입니다. 실행기 egress preflight 근거는 변경할 수
+없는 계획 메타데이터에 고정되고 post-apply 검사는 증적 기록 전에 Terraform convergence,
+이행 성공, 활성화된 엔드포인트 상태를 요구합니다. 실행기 측 정책, 할당량, 신원, 비밀,
+egress 근거는 C4 exact-plan 게이트의 필수 입력입니다.
 
 ## Private-everything 테넌트
 

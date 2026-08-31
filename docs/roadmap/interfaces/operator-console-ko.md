@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 7380a2da0cf2f4c47c9a4496fa3b5f4c950f8321
+translation_source_sha: ad05f05a5f5bb2d20de01b13af66990573547d9a
 translation_revised: 2026-08-31
 ---
 # FDAI Console 대화
@@ -16,6 +16,13 @@ Settings > Integrations에서는 합성 자리 표시자로 운영 incident-open
 카탈로그 토폴로지는 결정적인 exact-release 좌표를 보존하면서 처음 진입할 때 범위가 제한된 900 ms spring-settle 효과를 한 번 사용합니다. 조작하면 효과가 끝나고 동작 감소 설정에서는 효과를 건너뛰며, 지속적인 simulation은 실행하지 않습니다.
 에이전트 활동은 행이 영속 감사 근거를 기반으로 할 때만 상관관계를 추적 화면에 연결합니다.
 인벤토리 스캔, 온톨로지 변환 결과 및 현재 상태 읽기 상관관계는 감사 추적 링크 없이 식별자로 표시합니다. 일치하는 감사 단계가 없는 수동 조회는 운영 실패가 아니라 중립적인 사용 불가 상태로 표시합니다.
+인증된 `/provisioning` 경로는 하나의 영속 구독 초기 구성 실행을 보여주는 읽기 전용 변환
+결과입니다. 완료된 구성 단계를 재생하고 리소스 검색과 최종 검증을 실시간으로 표시하지만
+배포를 시작, 재시도, 승인 또는 변경하지 않습니다. 데이터베이스, 의미 체계, 모델, 런타임,
+인벤토리, 시스템 준비 상태를 각각 구분합니다. 독립 관찰자가 인벤토리를 완료할 때까지 리소스
+및 페이지 합계를 예상값으로 표시하며, 모든 항목이 일치하는 최종 준비 상태 스냅샷이 있어야
+100%에 도달합니다. 잘못된 프레임에서도 재생 커서를 진행하고, 새 실행은 실행별 순서를
+초기화하며, 취소 또는 실패한 실행은 명시적인 최종 결과로 유지합니다.
 Console shell은 헤더에 간결한 FDAI 브랜드 락업을 유지하고, 외부는 투명하고 내부는 흰색인 정사각형 브라우저 아이콘을 사용하여 밝고 어두운 브라우저 UI에서 마크를 선명하게 유지합니다. 기본 탐색은 콘텐츠 레이아웃에서 56 px 활동 레일만 차지합니다. 그룹 버튼이나 페이지 제목의 이동 경로를 선택하면 하위 탐색기가 오버레이로 열리고, 하위 메뉴를 선택하면 닫히며, 핀을 명시적으로 고정하면 300 px 고정 영역으로 전환됩니다. 오퍼레이터는 활동 레일의 상황에 맞는 메뉴나 접근 가능한 `...` 컨트롤에서 선택적 대메뉴를 표시하거나 숨길 수 있습니다. 전체 현황, 설정, 현재 표시 중인 그룹은 숨길 수 없습니다.
 인증된 active-incident 스트림은 idle Command Deck을 인시던트 선택자와 함께 열 수 있습니다. 이 선택자는 표현 힌트일 뿐이며 서버는 답변 전에 영속 인시던트와 근거를 다시 해석합니다.
 Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관찰할 때 localized 읽기 전용 조사 턴을 한 번 제출합니다. Browser-local 인시던트 원장은 reload 뒤 재생을 억제하며, 인시던트 배지를 누르면 명시적으로 다시 조사할 수 있습니다. 인시던트 질문이 여러 기록과 같은 정도로 일치하면 최종 답변은 plain-text 안내 대신 범위가 제한된 후보 버튼을 포함합니다. 버튼은 해당 후보의 exact 인시던트 대화를 열고 localized 읽기 전용 조사 턴을 즉시 제출합니다. 버튼 click은 운영자의 명시적인 요청입니다. 자동 active-incident 스트림 열림은 managed-resource 액션을 제출하지 않습니다.
@@ -525,6 +532,7 @@ pull 어댑터 추가. 콘솔은 이제:
 | Web chat and 기억 | JSON/SSE chat, principal 범위로 한정된 대화 이력/preferences/기억, AnswerPlan 및 progressive 검증이 제공됩니다. |
 | 관측/발견 | `POST /read-investigations`는 Azure I/O 전에 영속 지연 시간 근거로 direct, streamed, detached 실행을 선택합니다. Direct Command Deck 및 HTTP 읽기는 owner-scoped result-replay 원장을 공유하며 streamed 응답이 닫히면 in-flight 읽기를 취소합니다. Dedicated 읽기 담당 연결이 있을 때만 등록되며 카탈로그 presence만으로 프로바이더 상태나 승격을 주장하지 않습니다. |
 | 예측 및 Dynamic learning | `GET /forecast-learning`은 예측 closure와 게시 상태를 변환 결과하고, `GET /dynamic-assurance`는 영속 scalar/그래프 모델 요약과 trajectory closure 개수를 변환 결과합니다. 두 경로 모두 Reader-only이며 detector/모델 변경, 승격, 승인 또는 실행 컨트롤을 제공하지 않습니다. |
+| 구독 프로비저닝 | `/provisioning`은 영속 단계 근거를 재생하고 예상 인벤토리 진행률을 표시하며 배포 권한 없이 검증된 준비 상태, 실패 또는 취소를 보여 줍니다. |
 
 실제 운영 Azure 완료 근거와 기능 승격은 여전히 권위 있는 레지스트리 및 배포
 검증에서 판단하며 이 문서의 phase 이름으로 추론하지 않습니다.

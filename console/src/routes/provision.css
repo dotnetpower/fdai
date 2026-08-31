@@ -1,0 +1,59 @@
+.provision { display: grid; min-width: 0; gap: 24px; }
+.provision-sub,
+.provision-section-head p,
+.provision-inventory dt,
+.provision-readiness dt { color: var(--fg-muted); }
+.provision-sub,
+.provision-section-head p { margin: 0; }
+.provision-sub { max-width: 76ch; overflow-wrap: anywhere; }
+.provision-sub code { white-space: normal; }
+.provision-meter { height: 8px; overflow: hidden; border-radius: var(--cs-radius-sm); background: var(--cs-shade); }
+.provision-meter-fill { height: 100%; background: var(--cs-steel); transition: width 180ms ease; }
+.provision-meter.is-failed .provision-meter-fill { background: var(--danger); }
+.provision-meter.is-done .provision-meter-fill { background: var(--success); }
+.provision-pct { margin-top: -16px; text-align: right; font-variant-numeric: tabular-nums; }
+.provision-section { display: grid; gap: 16px; padding-top: 24px; border-top: 1px solid var(--border); }
+.provision-section-head { display: flex; align-items: start; justify-content: space-between; gap: 24px; }
+.provision-section-head h2 { margin: 0 0 4px; font-size: var(--cs-type-section-title-size); }
+.provision-section-head code { max-width: 42ch; overflow-wrap: anywhere; }
+.provision-stages { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; margin: 0; padding: 0; list-style: none; }
+.provision-stage { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 42px; border-bottom: 1px solid var(--border); }
+.provision-stage code { overflow-wrap: anywhere; }
+.provision-stage > span:last-child { color: var(--fg-muted); }
+.provision-stage-marker { width: 8px; height: 8px; border: 1px solid var(--fg-muted); border-radius: 50%; }
+.provision-stage--active .provision-stage-marker,
+.provision-stage--waiting .provision-stage-marker { border-color: var(--cs-steel); background: var(--cs-steel); }
+.provision-stage--completed .provision-stage-marker { border-color: var(--success); background: var(--success); }
+.provision-stage--blocked .provision-stage-marker,
+.provision-stage--failed .provision-stage-marker,
+.provision-stage--incomplete .provision-stage-marker { border-color: var(--danger); background: var(--danger); }
+.provision-readiness,
+.provision-inventory { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; border-top: 1px solid var(--border); }
+.provision-readiness > div,
+.provision-inventory > div { display: grid; gap: 8px; padding: 16px 0; border-bottom: 1px solid var(--border); }
+.provision-readiness > div:not(:nth-child(3n + 1)),
+.provision-inventory > div:not(:nth-child(3n + 1)) { padding-left: 20px; border-left: 1px solid var(--border); }
+.provision-readiness dt,
+.provision-readiness dd,
+.provision-inventory dt,
+.provision-inventory dd { margin: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .provision-meter-fill { transition: none; }
+}
+
+@media (max-width: 900px) {
+  .provision-stages { grid-template-columns: 1fr; }
+  .provision-readiness,
+  .provision-inventory { grid-template-columns: 1fr; }
+  .provision-readiness > div:not(:nth-child(3n + 1)),
+  .provision-inventory > div:not(:nth-child(3n + 1)) { padding-left: 0; border-left: 0; }
+}
+
+@media (max-width: 600px) {
+  .provision > .page-header { align-items: flex-start; flex-direction: column; }
+  .provision > .page-header .page-header-actions { max-width: 100%; }
+  .provision-section-head { flex-direction: column; gap: 8px; }
+  .provision-stage { grid-template-columns: 12px minmax(0, 1fr); }
+  .provision-stage > span:last-child { grid-column: 2; }
+}

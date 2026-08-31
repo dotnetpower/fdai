@@ -1,8 +1,8 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: acff488deb6ecb7c7141a2d672109a664eef7520
-translation_revised: 2026-08-30
+translation_source_sha: fe2455caec1b256d2e589df650fe7e98af556bfb
+translation_revised: 2026-08-31
 ---
 # 구독 초기 프로비저닝
 
@@ -47,12 +47,12 @@ inspect -> reconcile current state -> foundation plan/apply -> attest runner
 
 | 영역 | 현재 근거 | 이 설계가 해소하는 미비점 |
 |------|-----------|---------------------------|
-| 운영자 진입점 | `infra/bootstrap/onboard.sh`와 보호된 배포 워크플로 | 기반 및 애플리케이션 프로비저닝을 구성하는 패키지형 `fdaictl` 진입점이 없습니다. |
-| 초기 구성 진행률 | `genesis-up.sh`는 제거된 `fdai.delivery.provisioning` 패키지를 예상하며, Console은 단순한 `provision.*` 프레임을 해석할 수 있습니다. | 정본 생성기, 영속 재생, 단계별 전체 수량, 재개 계약이 없습니다. |
-| 데이터베이스 초기 구성 | 통합 이행 및 서비스 소유 이행과 Operator 카탈로그 Job이 있습니다. | 시작 순서, 기본 상태 검증, 완전한 준비 완료 증적이 통합되어 있지 않습니다. |
+| 운영자 진입점 | `fdaictl`은 bootstrap 조정과 보호된 애플리케이션 계획, 정확한 적용, 상태, 검증 전용 재개를 제공합니다. | 승인된 기반 계층 적용, 원격 상태 이전, 완전한 준비 완료 증적이 남아 있습니다. |
+| 초기 구성 진행률 | `genesis-up.sh`는 안전하게 중단하는 호환성 안내 스크립트이며, CLI와 Console은 단계 완료와 준비 상태를 구분하는 제한된 상태 스냅샷을 공유합니다. | 정본 Azure 생성기와 영속 Blob-to-Operator 복제가 없습니다. |
+| 데이터베이스 초기 구성 | 통합 및 서비스 소유 이행과 안전하게 차단하는 데이터베이스 및 의미 체계 재확인 계약이 있습니다. | 런타임 시작 전 표식 생성과 런타임 주체 근거가 완전한 준비 완료 증적으로 통합되지 않았습니다. |
 | 온톨로지와 규칙 | 카탈로그가 저장소에서 버전 관리되고 변경 불가능한 Operator 변환 결과로 구체화될 수 있습니다. | 카탈로그 변환 결과 생성이 Operator API 경로에 조건부로 연결되며 구독 준비도 필수 게이트가 아닙니다. |
 | 모델 배포 | 실제 해석기, 기능 평가, Terraform 모듈, 키 없는 역할이 있습니다. | 요청 용량에 명시적 최솟값, 사용률 여유, 워크로드 프로필, 종단 간 처리량 승인 게이트가 없습니다. |
-| 최초 리소스 스캔 | 지속 인벤토리 Job은 완전한 세대만 승격하고 최종 공급자 커버리지를 기록합니다. | 온보딩이 첫 스캔을 명시적으로 기다리지 않으며, 선언된 범위 중 얼마나 완료되었는지 진행률로 알리지 않습니다. |
+| 최초 리소스 스캔 | 지속 인벤토리 Job은 완전한 세대만 승격하며 Console은 예상 스캔 수치와 검증된 완료를 구분합니다. | 보호된 실행이 영속 공급자 진행률을 아직 게시하지 않으며 전체 구독 증적을 보존하지 않았습니다. |
 
 ## 목표 운영자 경험
 
@@ -61,14 +61,25 @@ inspect -> reconcile current state -> foundation plan/apply -> attest runner
 ```bash
 fdaictl provision inspect --profile .fdai/environments/dev.json
 fdaictl provision init --profile .fdai/environments/dev.json
-fdaictl onboard guided --profile .fdai/environments/dev.json --through ready --watch
-fdaictl onboard status --run-id <run-id> --output json
-fdaictl onboard resume-verification --run-id <run-id> --watch
+fdaictl onboard guided --profile .fdai/environments/dev.json \
+  --source-commit <git-sha> --run-id <run-id> \
+  --journal .fdai/runs/<run-id>.jsonl \
+  --repository <owner>/<repository> --output json
+fdaictl deploy status --profile .fdai/environments/dev.json \
+  --repository <owner>/<repository> \
+  --request-id <request-id> --commit-sha <git-sha> --output json
+fdaictl onboard guided --profile .fdai/environments/dev.json \
+  --source-commit <git-sha> --run-id <run-id> \
+  --journal .fdai/runs/<run-id>.jsonl \
+  --repository <owner>/<repository> --plan-id <plan-id> \
+  --plan-digest <plan-digest> --approve-application --output json
+fdaictl onboard status --journal .fdai/runs/<run-id>.jsonl --output json
 ```
 
 - `provision inspect`와 `provision init`은 Azure를 변경하지 않습니다.
-- `onboard guided`는 봉인된 실행 하나를 만들고 필수 승인 지점마다 일시 중지합니다. 하위
-  `deploy plan`, `deploy apply`, `deploy status`를 구성하며 대체하지 않습니다.
+- `onboard guided`는 하위 `deploy plan`과 `deploy apply`를 구성합니다. `deploy status`는
+  요청에 연결된 작업 흐름 상태와 정제된 계획 메타데이터를 반환합니다. 애플리케이션 적용에는
+  `--approve-application`이 필요합니다.
 - `status`는 정제된 변환 결과를 읽습니다. Terraform 상태, 비밀 값, DSN, 토큰, 모델 요청
   내용, 공급자 페이로드를 내려받지 않습니다.
 - `resume-verification`은 Terraform 적용을 다시 실행하지 않습니다. 적용 점유가 없는 단계는
@@ -76,6 +87,32 @@ fdaictl onboard resume-verification --run-id <run-id> --watch
   승인이 필요합니다. 실패한 사후 조건을 건너뛰거나 변경된 맥락을 승인할 수 없습니다.
 - 사람용 출력은 확인을 위해 구독과 테넌트 이름을 표시하지만 식별자는 가립니다. 안정적인
   JSON은 자동화에 필요한 다이제스트와 불투명 참조를 전달합니다.
+
+### Console 전환
+
+Console이 준비되기 전에는 `fdaictl`과 보호된 실행기만 프로비저닝 상태를 표시합니다. 따라서
+기반 계층, 데이터베이스, 의미 체계, 모델 단계가 실패해 브라우저 화면을 시작할 수 없는
+경우에도 CLI에서 상태를 확인할 수 있습니다.
+
+애플리케이션 단계는 최초 인벤토리 단계보다 먼저 인증된 Console을 시작합니다. Operator
+변환 결과와 Console 상태 검사가 통과하면 운영자는 `/provisioning`을 열 수 있습니다.
+
+- 이 페이지는 기존 `provision.*` 스트림과 `/provisioning` 경로를 확장합니다. 별도의 초기
+  구성 경로를 만들거나 Terraform 출력을 직접 읽지 않습니다.
+- 단방향 가져오기 작업이 비공개 Blob 원장의 정제되고 순서가 보존된 이벤트를 Operator
+  변환 결과로 복제합니다. Console과 Operator API에는 Blob 액세스, Terraform 상태, 공급자
+  페이로드 또는 배포 비밀을 제공하지 않습니다.
+- 이전 단계는 영속 재생으로 표시합니다. 페이지가 열린 후 최초 인벤토리와 최종 시스템
+  검증은 실시간으로 이어서 표시할 수 있습니다.
+- 실행 진행률, 검사점 진행률, 데이터베이스 준비도, 의미 체계 준비도, 모델 준비도,
+  인벤토리 진행률을 각각 구분합니다. 일반 `done` 이벤트, Terraform 완료 또는 예상 리소스
+  수만으로 `ready`를 만들 수 없습니다.
+- 독립적인 사후 조건 관찰자가 활성 세대와 커버리지 매니페스트를 검증할 때까지 인벤토리
+  합계를 예상값으로 표시합니다. 최종 준비 완료 증적이 있어야 100%에 도달합니다.
+- 승인 대기와 차단 사유는 읽기 전용입니다. 브라우저 실행 경로를 추가하지 않고 실행 참조와
+  정확한 다음 `fdaictl` 작업을 표시합니다.
+- 완료 후에도 이 경로에서 정제된 실행 기록을 볼 수 있으며 관련 데이터베이스, 온톨로지,
+  모델, 인벤토리, 감사 근거 화면으로 이동할 수 있습니다.
 
 ## 목표 상태 프로필
 

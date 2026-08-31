@@ -49,6 +49,8 @@ def test_compiler_emits_finite_ordered_manifest() -> None:
     } <= {entry.entry_id for entry in manifest.entries}
     assert any(entry.approval_class is ApprovalClass.HIGH_IMPACT for entry in manifest.entries)
     assert len({entry.idempotency_key for entry in manifest.entries}) == len(manifest.entries)
+    ids = tuple(entry.entry_id for entry in manifest.entries)
+    assert ids.index("console") < ids.index("initial-inventory")
 
 
 def test_idempotency_keys_change_with_source_revision() -> None:

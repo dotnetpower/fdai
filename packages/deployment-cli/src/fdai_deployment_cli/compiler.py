@@ -10,7 +10,7 @@ from fdai_deployment_cli.contracts import (
     canonical_digest,
 )
 
-_ENTRIES: tuple[tuple[str, ApprovalClass], ...] = (
+_GENESIS_V1_ENTRIES: tuple[tuple[str, ApprovalClass], ...] = (
     ("inspect-context", ApprovalClass.STANDARD),
     ("reconcile-current-state", ApprovalClass.STANDARD),
     ("provider-registrations", ApprovalClass.HIGH_IMPACT),
@@ -49,9 +49,19 @@ _ENTRIES: tuple[tuple[str, ApprovalClass], ...] = (
     ("monitoring", ApprovalClass.STANDARD),
     ("system-readiness", ApprovalClass.STANDARD),
 )
-GENESIS_MANIFEST_VERSION = "genesis.v1"
+
+_ENTRIES: tuple[tuple[str, ApprovalClass], ...] = (
+    *_GENESIS_V1_ENTRIES[:33],
+    ("console", ApprovalClass.STANDARD),
+    ("initial-inventory", ApprovalClass.STANDARD),
+    *_GENESIS_V1_ENTRIES[35:],
+)
+GENESIS_MANIFEST_VERSION = "genesis.v2"
 GENESIS_ENTRY_IDS = tuple(entry_id for entry_id, _approval in _ENTRIES)
-GENESIS_ENTRY_IDS_BY_VERSION = {GENESIS_MANIFEST_VERSION: GENESIS_ENTRY_IDS}
+GENESIS_ENTRY_IDS_BY_VERSION = {
+    "genesis.v1": tuple(entry_id for entry_id, _approval in _GENESIS_V1_ENTRIES),
+    GENESIS_MANIFEST_VERSION: GENESIS_ENTRY_IDS,
+}
 
 
 def compile_manifest(

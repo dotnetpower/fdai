@@ -2,9 +2,9 @@
 #
 # azd-up.sh - guarded turnkey provisioning wrapper over `azd` + Terraform.
 #
-# Purpose: give operators a one-command path to stand up the FDAI minimum-set
-# inventory (docs/roadmap/deployment/deploy-and-onboard.md) while making an accidental
-# apply impossible. The default action is a NON-mutating preview.
+# Purpose: provide a guarded direct development path for subscriptions that
+# permit the operator host to reach every required endpoint. Private
+# subscription genesis uses fdaictl plus the protected runner instead.
 #
 # Behavior:
 #   - Preflight: verify `azd` is installed, an azd environment is selected,

@@ -1,20 +1,22 @@
 ---
 title: Deploy Quickstart
-description: Provision the FDAI minimum-set inventory on Azure - two equivalent paths (azd turnkey or Terraform direct), preview first, apply only when the plan looks right.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 13cee5ed259d9348131ac655f157ccbd366cf15b }]
+description: Provision FDAI on Azure with the protected fdaictl workflow, or preview the infrastructure-only development path with azd.
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 752acb42097c6abf7d336a3e733929fda9b9af09 }]
 ---
 
 # Deploy Quickstart
 
 FDAI is provisioned from infrastructure-as-code under `infra/`. Terraform is the
-execution engine and the source of truth. Two paths stand up the same minimum
-Azure inventory: a turnkey `azd` wrapper, or Terraform on its own. Both preview
-first, so you can review the plan before you run the separate apply step.
+execution engine and the source of truth. We recommend the protected `fdaictl`
+workflow for private `dev` and `staging` environments. The `azd` wrapper is an
+infrastructure-only path for direct public-network development, and direct
+Terraform remains an expert path.
 
 ## Before you start
 
 - An **Azure subscription** you can create resources in, and the **Azure CLI**
-  (`az`). The turnkey path also needs the **Azure Developer CLI** (`azd`).
+  (`az`). The protected path also needs the GitHub CLI (`gh`); the direct
+  development path needs the Azure Developer CLI (`azd`).
 - A completed
   [deployment preflight](../roadmap/deployment/deployment-preflight.md). It
   collects quota, permission, connectivity, and rollback blockers before the
@@ -72,8 +74,9 @@ first, so you can review the plan before you run the separate apply step.
 
 ## Provision the minimum inventory
 
-Preview first, and apply only when the plan matches what you expect. Both paths
-provision the same `infra/` Terraform, so pick whichever fits your workflow.
+Preview first, and apply only when the plan matches what you expect. The protected
+path keeps private plan data on the VNet-connected runner and requires the
+configured GitHub Environment approval before exact apply.
 
 During a protected move to private networking, FDAI accepts a delete only for a
 reviewed retirement or migration that the protected workflow already allows, such
@@ -89,7 +92,38 @@ service states unchanged.
 
 <!-- fdai:tabs -->
 
-#### azd (turnkey)
+#### fdaictl (protected dev and staging)
+
+```bash
+fdaictl deploy plan \
+  --profile .fdai/environments/dev.json \
+  --repository <owner>/<repository> \
+  --commit-sha <git-sha> \
+  --run-id <run-id> \
+  --output json
+
+fdaictl deploy status \
+  --profile .fdai/environments/dev.json \
+  --repository <owner>/<repository> \
+  --request-id <request-id> \
+  --commit-sha <git-sha> \
+  --output json
+
+fdaictl deploy apply \
+  --profile .fdai/environments/dev.json \
+  --repository <owner>/<repository> \
+  --plan-id <plan-id> \
+  --plan-digest <plan-digest> \
+  --commit-sha <git-sha> \
+  --run-id <run-id> \
+  --output json
+```
+
+The apply command fails unless the repository target and region match the profile and the GitHub
+Environment requires one independent reviewer with self-review and administrator bypass disabled.
+Profiles that require more than one approval and all `prod` requests remain blocked.
+
+#### azd (direct development infrastructure)
 
 ```bash
 azd auth login
@@ -98,11 +132,11 @@ export AZURE_SUBSCRIPTION_ID="<expected-subscription-id>"
 export AZURE_TENANT_ID="<expected-tenant-id>"
 # safe preview - runs `azd provision --preview`, applies nothing
 scripts/deployment/azure/azd-up.sh
-# provision for real - second gate prevents an accidental apply
+# provision infrastructure for real - runtime images use protected service workflows
 FDAI_AZD_CONFIRM=1 scripts/deployment/azure/azd-up.sh
 ```
 
-#### terraform (direct)
+#### terraform (direct expert path)
 
 ```bash
 az login

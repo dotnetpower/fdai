@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 from pathlib import Path
 
@@ -15,6 +16,29 @@ validate = _MODULE.validate
 
 _COMMIT = "a" * 40
 _DIGEST = "b" * 64
+_TENANT = "00000000-0000-0000-0000-000000000000"
+_SUBSCRIPTION = "00000000-0000-0000-0000-000000000001"
+_TARGET_BINDING = hashlib.sha256(f"{_TENANT}:{_SUBSCRIPTION}".encode()).hexdigest()
+_CONTEXT = hashlib.sha256(
+    (
+        '{"commit_sha":"' + _COMMIT + '","environment":"dev",'
+        '"schema_version":"fdai.deployment-context.v1","selection":'
+        '{"deploy_console":false,"deploy_document_ingestion":false,'
+        '"deploy_isolated_executor":false,"deploy_monitoring":false,'
+        '"deploy_operator_api":false}}'
+    ).encode()
+).hexdigest()
+
+
+def _bound_request(mode: str) -> str:
+    prefix = _MODULE._request_binding_prefix(
+        target_binding=_TARGET_BINDING,
+        context_digest=_CONTEXT,
+        mode=mode,
+        region="koreacentral",
+    )
+    wire_prefix = "apply" if mode in {"apply", "resume"} else "plan"
+    return f"{wire_prefix}-{prefix}{'abcd' * 5}0001"
 
 
 def _request(**overrides: str) -> dict[str, str]:
@@ -42,6 +66,9 @@ def _request(**overrides: str) -> dict[str, str]:
         "COMMIT_SHA": "",
         "PLAN_ID": "",
         "PLAN_DIGEST": "",
+        "ACTUAL_TARGET_TENANT_ID": _TENANT,
+        "ACTUAL_TARGET_SUBSCRIPTION_ID": _SUBSCRIPTION,
+        "ACTUAL_TARGET_REGION": "koreacentral",
     }
     values.update(overrides)
     return values
@@ -54,8 +81,8 @@ def test_unprotected_plan_request_is_valid() -> None:
 def test_protected_plan_request_is_bound_to_checkout_and_preflight() -> None:
     validate(
         _request(
-            REQUEST_ID="plan-" + "c" * 24,
-            CONTEXT_DIGEST=_DIGEST,
+            REQUEST_ID=_bound_request("plan"),
+            CONTEXT_DIGEST=_CONTEXT,
             COMMIT_SHA=_COMMIT,
             DEPLOY_PREFLIGHT_INPUT_JSON="{}",
         ),
@@ -67,14 +94,70 @@ def test_exact_apply_request_is_bound_to_sealed_plan() -> None:
     validate(
         _request(
             APPLY="true",
-            REQUEST_ID="apply-" + "c" * 24,
-            CONTEXT_DIGEST=_DIGEST,
+            REQUEST_ID=_bound_request("apply"),
+            CONTEXT_DIGEST=_CONTEXT,
             COMMIT_SHA=_COMMIT,
             PLAN_ID="plan-123-1",
             PLAN_DIGEST=_DIGEST,
         ),
         checkout_commit=_COMMIT,
     )
+
+
+def test_protected_request_rejects_repository_target_mismatch() -> None:
+    with pytest.raises(ValueError, match="does not match"):
+        validate(
+            _request(
+                REQUEST_ID=_bound_request("plan"),
+                CONTEXT_DIGEST=_CONTEXT,
+                COMMIT_SHA=_COMMIT,
+                DEPLOY_PREFLIGHT_INPUT_JSON="{}",
+                ACTUAL_TARGET_SUBSCRIPTION_ID="00000000-0000-0000-0000-000000000002",
+            ),
+            checkout_commit=_COMMIT,
+        )
+
+
+def test_protected_request_rejects_repository_region_mismatch() -> None:
+    with pytest.raises(ValueError, match="does not match"):
+        validate(
+            _request(
+                REQUEST_ID=_bound_request("plan"),
+                CONTEXT_DIGEST=_CONTEXT,
+                COMMIT_SHA=_COMMIT,
+                DEPLOY_PREFLIGHT_INPUT_JSON="{}",
+                ACTUAL_TARGET_REGION="westus3",
+            ),
+            checkout_commit=_COMMIT,
+        )
+
+
+def test_protected_request_rejects_selection_outside_the_context() -> None:
+    with pytest.raises(ValueError, match="does not match the selected"):
+        validate(
+            _request(
+                REQUEST_ID=_bound_request("plan"),
+                CONTEXT_DIGEST=_CONTEXT,
+                COMMIT_SHA=_COMMIT,
+                DEPLOY_PREFLIGHT_INPUT_JSON="{}",
+                DEPLOY_CONSOLE="true",
+            ),
+            checkout_commit=_COMMIT,
+        )
+
+
+def test_fdaictl_request_rejects_unbound_production_inputs() -> None:
+    with pytest.raises(ValueError, match="production deployment inputs"):
+        validate(
+            _request(
+                TARGET_ENVIRONMENT="prod",
+                REQUEST_ID=_bound_request("plan"),
+                CONTEXT_DIGEST=_CONTEXT,
+                COMMIT_SHA=_COMMIT,
+                DEPLOY_PREFLIGHT_INPUT_JSON="{}",
+            ),
+            checkout_commit=_COMMIT,
+        )
 
 
 def test_retired_event_bus_request_is_rejected() -> None:

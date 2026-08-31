@@ -1,4 +1,5 @@
 name: deploy-dev
+run-name: deploy-${{ inputs.request_id || format('{0}-{1}', inputs.environment, github.run_number) }}
 # Prerequisites (see infra/bootstrap/README.md):
 #   - `infra/bootstrap` applied: ops VNet + state storage + registered runner
 #     with labels [self-hosted, fdai-deploy] and the stable deploy UAMI holding
@@ -9,25 +10,13 @@ name: deploy-dev
 #       OPS_RESOURCE_GROUP_NAME, OPS_VNET_ID, OPS_VNET_NAME, STATE_STORAGE_ACCOUNT,
 #       DEPLOY_PREFLIGHT_INPUT_JSON (non-secret complete live-probe profile),
 #       ENTRA_CONSOLE_SPA_CLIENT_ID (required when deploy_console=true),
-#       MODEL_RESOLVER_DEPLOYER_OBJECT_ID, OPERATOR_API_AUDIENCE, RBAC_*_GROUP_ID,
-#       OPERATOR_API_WEB_SEARCH_ENABLED, OPERATOR_API_WEB_SEARCH_ALLOWED_DOMAINS_JSON,
-#       OPERATOR_CHANNEL_EDGE_SECRET_IDS_JSON,
-#       INGESTION_CORS_ALLOW_ORIGINS, CLAMAV_IMAGE,
-#       SCHEDULER_TICK_CRON_EXPRESSION, ANALYZER_TICK_CRON_EXPRESSION,
-#       ANALYZER_TARGETS_JSON, TRACE_TOPOLOGIES_JSON,
-#       ANALYZER_WINDOW_SECONDS, ANALYZER_BUDGET_SECONDS,
-#       DEV_OPERATIONS_GATEWAY_PRIVATE_PROBES_JSON (optional server-owned probe map),
-#       OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION, OHL_SCALE_OUT_EVIDENCE_SSH_PUBLIC_KEY,
-#       OHL_SCALE_OUT_EVIDENCE_CAMPAIGN_ID, OHL_SCALE_OUT_EVIDENCE_INITIATOR_PRINCIPAL_ID
-#       (required when the OHL evidence target is enabled),
-#       ENABLE_EMAIL_NOTIFICATIONS, NOTIFICATION_EMAIL_RECIPIENTS_JSON
-#       (required when deploy_document_ingestion=true; prod images use digests)
+#       Feature-specific variables are documented by their workflow inputs and
+#       docs/roadmap/deployment/deploy-and-onboard.md.
 #   - Repo secrets:
 #       POSTGRES_ADMIN_LOGIN, POSTGRES_ADMIN_PASSWORD,
 #       CHATOPS_WEBHOOK_URL, CHATOPS_WEBHOOK_SECRET
 #   - Production workflow inputs:
 #       digest-pinned image, alert email, monthly budget, budget-alert email JSON.
-#
 # Default run is plan-only (shadow). Set the `apply` input to true to enforce.
 on:
   workflow_dispatch:
@@ -301,7 +290,7 @@ jobs:
           version: "0.11.32"
           enable-cache: false
       - name: Install pinned GitHub CLI
-        if: ${{ env.MODEL_BINDING_ONLY == 'true' || inputs.deploy_isolated_executor }}
+        if: ${{ inputs.apply || env.MODEL_BINDING_ONLY == 'true' || inputs.deploy_isolated_executor }}
         working-directory: ${{ github.workspace }}
         run: bash scripts/deployment/azure/install-pinned-github-cli.sh
       - name: Validate deployment request
@@ -312,6 +301,9 @@ jobs:
           TARGET_ENVIRONMENT: ${{ inputs.environment }}
           REQUEST_ID: ${{ inputs.request_id }}
           CONTEXT_DIGEST: ${{ inputs.context_digest }}
+          ACTUAL_TARGET_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          ACTUAL_TARGET_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
+          ACTUAL_TARGET_REGION: ${{ vars.AZURE_REGION }}
           COMMIT_SHA: ${{ inputs.commit_sha }}
           PLAN_ID: ${{ inputs.plan_id }}
           PLAN_DIGEST: ${{ inputs.plan_digest }}
@@ -335,6 +327,14 @@ jobs:
           PROMOTE_RUNTIME_IMAGE: ${{ inputs.promote_runtime_image }}
           RUNTIME_IMAGE_REVISION: ${{ inputs.runtime_image_revision }}
         run: python3 scripts/deployment/azure/validate_deploy_request.py
+      - name: Verify protected environment approval policy
+        if: ${{ inputs.apply }}
+        working-directory: ${{ github.workspace }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/environments/${{ inputs.environment }}" > "$RUNNER_TEMP/environment.json"
+          python3 scripts/deployment/azure/verify-github-environment.py "$RUNNER_TEMP/environment.json" --required-approvals 1
       - name: Bind model-binding Terraform target
         if: ${{ env.MODEL_BINDING_ONLY == 'true' }}
         run: echo 'TF_CLI_ARGS_plan=-target=module.llm_azure_openai[0]' >> "$GITHUB_ENV"
@@ -1248,11 +1248,11 @@ jobs:
             echo "Expires at: \`$expires_at\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Publish sanitized plan metadata
+      - name: Publish sanitized protected plan metadata
         if: ${{ !inputs.apply && inputs.request_id != '' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: deployment-plan-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          name: deployment-plan-metadata-${{ inputs.request_id }}
           path: infra/plan-metadata.json
           if-no-files-found: error
           retention-days: 1

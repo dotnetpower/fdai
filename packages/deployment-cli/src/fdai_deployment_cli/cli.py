@@ -27,6 +27,13 @@ from fdai_deployment_cli.doctor import (
     doctor_json,
     inspect_tools,
 )
+from fdai_deployment_cli.github_actions import (
+    DeploymentSelection,
+    deployment_context_digest,
+    dispatch_apply,
+    dispatch_plan,
+    workflow_status,
+)
 from fdai_deployment_cli.license import LicenseInspectionError, inspect_license
 from fdai_deployment_cli.offline_kit import verify_offline_kit
 from fdai_deployment_cli.offline_kit import materialize_verified_artifacts
@@ -37,6 +44,7 @@ from fdai_deployment_cli.private_output import write_private_output
 from fdai_deployment_cli.simulation import rehearse
 from fdai_deployment_cli.target import compute_target_binding
 from fdai_deployment_cli.state import read_journal
+from fdai_deployment_cli.status_projection import project_status
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -124,6 +132,25 @@ def _parser() -> argparse.ArgumentParser:
     bundle_verify.add_argument("--output", choices=("text", "json"), default="text")
     bundle_verify.set_defaults(handler=_bundle_verify)
 
+    deploy = subcommands.add_parser("deploy")
+    deploy_commands = deploy.add_subparsers(required=True)
+    deploy_plan = deploy_commands.add_parser("plan")
+    _add_deploy_context_arguments(deploy_plan)
+    deploy_plan.add_argument("--run-id", required=True)
+    deploy_plan.set_defaults(handler=_deploy_plan)
+    deploy_apply = deploy_commands.add_parser("apply")
+    _add_deploy_context_arguments(deploy_apply)
+    deploy_apply.add_argument("--run-id", required=True)
+    deploy_apply.add_argument("--plan-id", required=True)
+    deploy_apply.add_argument("--plan-digest", required=True)
+    deploy_apply.add_argument("--resume-verification", action="store_true")
+    deploy_apply.set_defaults(handler=_deploy_apply)
+    deploy_status = deploy_commands.add_parser("status")
+    _add_deploy_context_arguments(deploy_status)
+    deploy_status.add_argument("--request-id", required=True)
+    deploy_status.add_argument("--resume-verification", action="store_true")
+    deploy_status.set_defaults(handler=_deploy_status)
+
     license_command = subcommands.add_parser("license")
     license_commands = license_command.add_subparsers(required=True)
     license_inspect = license_commands.add_parser("inspect")
@@ -143,6 +170,19 @@ def _parser() -> argparse.ArgumentParser:
     guided.add_argument("--journal", type=Path, required=True)
     guided.add_argument("--simulate", action="store_true")
     guided.add_argument("--interrupt-after", default=None)
+    guided.add_argument("--repository")
+    guided.add_argument("--attempt", type=int, default=1)
+    guided.add_argument("--plan-id")
+    guided.add_argument("--plan-digest")
+    guided.add_argument("--approve-application", action="store_true")
+    guided.add_argument("--resume-verification", action="store_true")
+    guided.add_argument("--deploy-console", action=argparse.BooleanOptionalAction, default=True)
+    guided.add_argument(
+        "--deploy-operator-api", action=argparse.BooleanOptionalAction, default=True
+    )
+    guided.add_argument("--deploy-document-ingestion", action="store_true")
+    guided.add_argument("--deploy-isolated-executor", action="store_true")
+    guided.add_argument("--deploy-monitoring", action="store_true")
     guided.add_argument("--output", choices=("text", "json"), default="text")
     guided.set_defaults(handler=_onboard_guided)
     status = onboard_commands.add_parser("status")
@@ -150,6 +190,21 @@ def _parser() -> argparse.ArgumentParser:
     status.add_argument("--output", choices=("text", "json"), default="text")
     status.set_defaults(handler=_onboard_status)
     return parser
+
+
+def _add_deploy_context_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--profile", type=Path, required=True)
+    parser.add_argument("--repository", required=True)
+    parser.add_argument("--commit-sha", required=True)
+    parser.add_argument("--attempt", type=int, default=1)
+    parser.add_argument("--deploy-console", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument(
+        "--deploy-operator-api", action=argparse.BooleanOptionalAction, default=True
+    )
+    parser.add_argument("--deploy-document-ingestion", action="store_true")
+    parser.add_argument("--deploy-isolated-executor", action="store_true")
+    parser.add_argument("--deploy-monitoring", action="store_true")
+    parser.add_argument("--output", choices=("text", "json"), default="text")
 
 
 def _version(args: argparse.Namespace) -> int:
@@ -607,31 +662,178 @@ def _read_public_key(path: Path) -> bytes:
 
 def _onboard_status(args: argparse.Namespace) -> int:
     events = read_journal(args.journal)
-    if not events:
-        raise ValueError("provision journal is empty")
-    latest = events[-1]
-    result = {
-        "schema_version": "fdai.onboard-status.v1",
-        "run_id": latest.run_id,
-        "context_digest": latest.context_digest,
-        "sequence": latest.sequence,
-        "stage": latest.stage,
-        "state": latest.state.value,
-        "event_digest": latest.digest,
-    }
+    result = project_status(events)
     print(
         json.dumps(result, sort_keys=True, separators=(",", ":"))
         if args.output == "json"
-        else f"{latest.state.value}: {latest.stage}"
+        else f"{result['state']}: {result['current_stage']}"
     )
     return 0
 
 
+def _deploy_plan(args: argparse.Namespace) -> int:
+    profile = load_profile(args.profile)
+    _require_github_actions_profile(profile)
+    receipt = dispatch_plan(
+        repository=args.repository,
+        environment=profile.environment,
+        commit_sha=args.commit_sha,
+        target_binding=profile.target_binding,
+        region=profile.region,
+        run_id=args.run_id,
+        selection=_deployment_selection(args),
+        attempt=args.attempt,
+    )
+    _print_mapping(receipt.to_mapping(), output=args.output, text=receipt.request_id)
+    return 0
+
+
+def _deploy_apply(args: argparse.Namespace) -> int:
+    profile = load_profile(args.profile)
+    _require_github_actions_profile(profile)
+    receipt = dispatch_apply(
+        repository=args.repository,
+        environment=profile.environment,
+        commit_sha=args.commit_sha,
+        target_binding=profile.target_binding,
+        region=profile.region,
+        approval_quorum=profile.approval_quorum,
+        run_id=args.run_id,
+        plan_id=args.plan_id,
+        plan_digest=args.plan_digest,
+        resume_verification=args.resume_verification,
+        selection=_deployment_selection(args),
+        attempt=args.attempt,
+    )
+    _print_mapping(receipt.to_mapping(), output=args.output, text=receipt.request_id)
+    return 0
+
+
+def _deploy_status(args: argparse.Namespace) -> int:
+    profile = load_profile(args.profile)
+    _require_github_actions_profile(profile)
+    context_digest = deployment_context_digest(
+        environment=profile.environment,
+        commit_sha=args.commit_sha,
+        selection=_deployment_selection(args),
+    )
+    result = workflow_status(
+        repository=args.repository,
+        request_id_value=args.request_id,
+        expected_commit=args.commit_sha,
+        expected_context_digest=context_digest,
+        target_binding=profile.target_binding,
+        expected_region=profile.region,
+        resume_verification=args.resume_verification,
+    )
+    _print_mapping(
+        result,
+        output=args.output,
+        text=f"{result['status']}: {result['conclusion'] or 'pending'}",
+    )
+    return 0
+
+
+def _deployment_selection(args: argparse.Namespace) -> DeploymentSelection:
+    return DeploymentSelection(
+        deploy_console=args.deploy_console,
+        deploy_operator_api=args.deploy_operator_api,
+        deploy_document_ingestion=args.deploy_document_ingestion,
+        deploy_isolated_executor=args.deploy_isolated_executor,
+        deploy_monitoring=args.deploy_monitoring,
+    )
+
+
+def _require_github_actions_profile(profile: ProvisionProfile) -> None:
+    if profile.transport != "github-actions" or profile.access_method != "github_actions":
+        raise ValueError("protected deploy commands require a github-actions profile")
+    checks = inspect_tools(("az", "gh"))
+    if not all(check.available for check in checks):
+        raise ValueError("protected deploy command prerequisites are unavailable")
+    if not azure_cli_authenticated():
+        raise ValueError("azure_authentication_missing")
+    active_target = azure_active_target_binding()
+    if active_target != profile.target_binding:
+        raise ValueError("active Azure target does not match the provision profile")
+
+
+def _print_mapping(result: Mapping[str, object], *, output: str, text: str) -> None:
+    print(json.dumps(result, sort_keys=True, separators=(",", ":")) if output == "json" else text)
+
+
 def _onboard_guided(args: argparse.Namespace) -> int:
-    if not args.simulate:
-        raise ValueError("live onboarding requires the protected Azure runner")
     profile = load_profile(args.profile)
     manifest = compile_manifest(profile, source_commit=args.source_commit)
+    if not args.simulate:
+        _require_github_actions_profile(profile)
+        if not args.repository:
+            raise ValueError("live onboarding requires --repository")
+        selection = _deployment_selection(args)
+        if args.plan_id is None and args.plan_digest is None:
+            if args.approve_application or args.resume_verification:
+                raise ValueError("application approval and resume require an exact plan")
+            receipt = dispatch_plan(
+                repository=args.repository,
+                environment=profile.environment,
+                commit_sha=args.source_commit,
+                target_binding=profile.target_binding,
+                region=profile.region,
+                run_id=args.run_id,
+                selection=selection,
+                attempt=args.attempt,
+            )
+            result = {
+                "schema_version": "fdai.onboard-guided.v1",
+                "run_id": args.run_id,
+                "manifest_digest": manifest.digest,
+                "state": "waiting",
+                "stage": "application-plan",
+                "request_id": receipt.request_id,
+                "context_digest": receipt.context_digest,
+                "next_action": "review-protected-plan",
+                "mutation_performed": True,
+            }
+            _print_mapping(
+                result,
+                output=args.output,
+                text=f"waiting: review protected plan {receipt.request_id}",
+            )
+            return 0
+        if args.plan_id is None or args.plan_digest is None:
+            raise ValueError("plan id and digest MUST be supplied together")
+        if not args.approve_application and not args.resume_verification:
+            raise ValueError("exact apply requires --approve-application")
+        receipt = dispatch_apply(
+            repository=args.repository,
+            environment=profile.environment,
+            commit_sha=args.source_commit,
+            target_binding=profile.target_binding,
+            region=profile.region,
+            approval_quorum=profile.approval_quorum,
+            run_id=args.run_id,
+            plan_id=args.plan_id,
+            plan_digest=args.plan_digest,
+            resume_verification=args.resume_verification,
+            selection=selection,
+            attempt=args.attempt,
+        )
+        result = {
+            "schema_version": "fdai.onboard-guided.v1",
+            "run_id": args.run_id,
+            "manifest_digest": manifest.digest,
+            "state": "verifying" if args.resume_verification else "applying",
+            "stage": "application-apply",
+            "request_id": receipt.request_id,
+            "context_digest": receipt.context_digest,
+            "next_action": "watch-protected-run",
+            "mutation_performed": True,
+        }
+        _print_mapping(
+            result,
+            output=args.output,
+            text=f"{result['state']}: {receipt.request_id}",
+        )
+        return 0
     events = rehearse(
         manifest,
         run_id=args.run_id,

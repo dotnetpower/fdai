@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -12,15 +13,19 @@ from collections.abc import Mapping
 _SHA40 = re.compile(r"^[0-9a-f]{40}$")
 _SHA64 = re.compile(r"^[0-9a-f]{64}$")
 _PLAN_REQUEST = re.compile(
-    r"^plan-([0-9a-f]{24}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
+    r"^plan-([0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
     r"model-[0-9a-f]{32}-[0-9a-f]{64})$"
 )
 _APPLY_REQUEST = re.compile(
-    r"^apply-([0-9a-f]{24}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
+    r"^apply-([0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
     r"model-[0-9a-f]{64})$"
 )
 _PLAN_ID = re.compile(r"^plan-[1-9][0-9]*-[1-9][0-9]*$")
 _TRUE = "true"
+_GUID = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
 
 
 def _enabled(values: Mapping[str, str], key: str) -> bool:
@@ -51,6 +56,46 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
     monitoring = _enabled(values, "DEPLOY_MONITORING")
     resume = _enabled(values, "RESUME_VERIFICATION")
     request_id = values.get("REQUEST_ID", "")
+    context_digest = values.get("CONTEXT_DIGEST", "")
+    if re.fullmatch(r"(?:plan|apply)-[0-9a-f]{48}", request_id):
+        if values.get("TARGET_ENVIRONMENT") == "prod":
+            raise ValueError("fdaictl production deployment inputs are not implemented")
+        _require_match(
+            context_digest,
+            _SHA64,
+            "context_digest must be a lowercase SHA-256 digest",
+        )
+        actual_target = _target_binding(
+            tenant_id=values.get("ACTUAL_TARGET_TENANT_ID", ""),
+            subscription_id=values.get("ACTUAL_TARGET_SUBSCRIPTION_ID", ""),
+        )
+        request_mode = "resume" if resume else ("apply" if apply else "plan")
+        expected_prefix = _request_binding_prefix(
+            target_binding=actual_target,
+            context_digest=context_digest,
+            mode=request_mode,
+            region=values.get("ACTUAL_TARGET_REGION", ""),
+        )
+        if request_id.split("-", maxsplit=1)[1][:24] != expected_prefix:
+            raise ValueError("repository Azure target does not match the approved profile")
+        unsupported = (
+            "DEPLOY_CORE_MODEL_QUORUM",
+            "DEPLOY_DESIGN_MOCKS",
+            "DEPLOY_OPERATOR_CHANNEL_EDGE",
+            "DEPLOY_DEV_OPERATIONS_GATEWAY",
+            "DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET",
+            "CUTOVER_ISOLATED_EXECUTOR_AUTHORITY",
+            "VERIFY_EXECUTOR_EFFECT",
+            "PROMOTE_RUNTIME_IMAGE",
+            "MODEL_BINDING_ONLY",
+            "VALIDATE_CHATOPS_CHANNELS",
+        )
+        if any(_enabled(values, key) for key in unsupported) or values.get(
+            "RUNTIME_IMAGE_REVISION", ""
+        ):
+            raise ValueError("fdaictl request contains unsupported deployment inputs")
+        if _deployment_context_digest(values) != context_digest:
+            raise ValueError("deployment context does not match the selected workflow inputs")
 
     if validate_chatops and (
         values.get("TARGET_ENVIRONMENT") != "staging"
@@ -220,6 +265,55 @@ def main() -> int:
     except (KeyError, ValueError, json.JSONDecodeError) as exc:
         raise SystemExit(str(exc)) from exc
     return 0
+
+
+def _target_binding(*, tenant_id: str, subscription_id: str) -> str:
+    if _GUID.fullmatch(tenant_id) is None or _GUID.fullmatch(subscription_id) is None:
+        raise ValueError("repository Azure target is invalid")
+    material = f"{tenant_id.lower()}:{subscription_id.lower()}".encode()
+    return hashlib.sha256(material).hexdigest()
+
+
+def _request_binding_prefix(
+    *,
+    target_binding: str,
+    context_digest: str,
+    mode: str,
+    region: str,
+) -> str:
+    material = json.dumps(
+        {
+            "target_binding": target_binding,
+            "context_digest": context_digest,
+            "mode": mode,
+            "region": region.casefold(),
+        },
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    return hashlib.sha256(material).hexdigest()[:24]
+
+
+def _deployment_context_digest(values: Mapping[str, str]) -> str:
+    material = json.dumps(
+        {
+            "schema_version": "fdai.deployment-context.v1",
+            "environment": values.get("TARGET_ENVIRONMENT", ""),
+            "commit_sha": values.get("COMMIT_SHA", ""),
+            "selection": {
+                "deploy_console": _enabled(values, "DEPLOY_CONSOLE"),
+                "deploy_operator_api": _enabled(values, "DEPLOY_OPERATOR_API"),
+                "deploy_document_ingestion": _enabled(values, "DEPLOY_DOCUMENT_INGESTION"),
+                "deploy_isolated_executor": _enabled(values, "DEPLOY_ISOLATED_EXECUTOR"),
+                "deploy_monitoring": _enabled(values, "DEPLOY_MONITORING"),
+            },
+        },
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    return hashlib.sha256(material).hexdigest()
 
 
 if __name__ == "__main__":

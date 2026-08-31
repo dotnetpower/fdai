@@ -508,29 +508,50 @@ fdaictl release rollback \
 
 ## Plan and apply integrity
 
-The protected workflow implements the runner side of this contract. The `fdaictl` calls below are
-the target local client and are not registered in the current source distribution.
+The protected workflow implements the runner side of this contract. The source distribution
+registers `deploy plan`, `deploy apply`, and `deploy status`, and `onboard guided` composes the same
+transport after bootstrap reconciliation.
 
-`fdaictl deploy plan` submits a plan-only workflow and currently returns the workflow run id and
-URL. It requires the same environment config to pass `doctor`, reads the GitHub credential only
-from `FDAI_GITHUB_TOKEN`, and sends `apply=false`, the environment, exact commit, and a SHA-256
-deployment-context fingerprint. Console, design mocks, Operator API, development gateway, and
-document-ingestion flags are included in that fingerprint and sent to both plan and apply. A
-changed flag invalidates the plan. Tenant, subscription, backend, and runner identifiers aren't
-sent in the dispatch body. The workflow validates the bounded request id, context digest, and
-exact checked-out commit before planning.
+`fdaictl deploy plan` checks the active Azure target against the mode-`0600` profile, requires the
+Azure and GitHub CLIs, and submits a plan-only workflow. It returns a bounded request id and context
+digest. `deploy status --request-id <id>` recomputes the approved context from the profile, commit, and
+feature flags, then finds exactly one workflow by its request-bound run name
+and, after success, downloads only the sanitized plan metadata artifact. The GitHub CLI uses its
+provider-hosted authentication; no credential is copied into a command argument.
+
+The dispatch sends `apply=false`, the environment, exact commit, and a SHA-256 deployment-context
+fingerprint. Console, Operator API, document-ingestion, isolated-Executor, and monitoring flags are
+included in that fingerprint and sent identically to plan and apply. A changed flag invalidates the
+plan. Tenant, subscription, backend, and runner identifiers aren't sent in the dispatch body. The
+workflow validates the bounded request id, context digest, and exact checked-out commit before
+planning.
+
+Before apply, the client verifies that the target GitHub Environment has required reviewers and
+blocks self-review and administrator bypass. GitHub Environment protection requires one approval from its reviewer set; it
+does not implement an N-of-M quorum. A profile whose `approval_quorum` is greater than one therefore
+fails closed on this transport until an external quorum authority is integrated.
+
+The current client supports `dev` and `staging`. It rejects `prod` because the production image,
+alert destination, and budget inputs are not yet part of the client context digest. Production
+continues to use the separately reviewed workflow interface until those fields are bound.
 
 `--deploy-design-mocks` is a dev-only, exclusive target. It cannot be combined with another
 deployment feature flag. The runner targets only `module.design_mocks` and rejects a plan that
 contains any resource change outside the design-mocks Static Web App.
 
 ```bash
-FDAI_GITHUB_TOKEN=<installation-token> fdaictl deploy plan \
-  --config .fdai/environments/dev.json \
+fdaictl deploy plan \
+  --profile .fdai/environments/dev.json \
   --repository <owner>/<repository> \
-  --bundle-digest <sha256> \
   --commit-sha <git-sha> \
-  --deploy-design-mocks \
+  --run-id <run-id> \
+  --output json
+
+fdaictl deploy status \
+  --profile .fdai/environments/dev.json \
+  --repository <owner>/<repository> \
+  --request-id <request-id> \
+  --commit-sha <git-sha> \
   --output json
 ```
 
@@ -541,8 +562,8 @@ runner managed identity, public access is off, and `overwrite=false` makes each 
 Metadata records the plan digest, context digest, exact commit, workflow run, and a one-hour logical
 expiry without tenant, subscription, backend, runner, or secret values. An isolated Executor plan
 also records the verified runtime source revision and OCI digest without a registry endpoint or
-mutable tag. `deploy plan` returns the derived plan id, and `deploy status --plan-id <id>` reads the
-bounded metadata-only artifact, including that optional runtime image evidence. Each
+mutable tag. A successful `deploy status` returns the derived plan id and digest from the bounded
+metadata-only artifact. Each
 new plan run scans at most 1001 private blobs and deletes at most 1000 allowlisted plan paths older
 than 24 hours; reaching either bound fails closed without deleting unknown paths.
 
@@ -555,8 +576,9 @@ pass:
 - the caller requested apply explicitly and satisfies the workflow approval policy;
 - the runner identity and backend configuration match the recorded plan context.
 
-The CLI reruns `doctor`, retrieves bounded metadata, verifies the context digest and logical
-expiry, and dispatches the stored plan digest only. The apply workflow uses the target GitHub
+The CLI repeats its tool, authentication, and target checks and dispatches the reviewed plan id and
+digest with the same computed context. The apply workflow independently reloads the workflow-owned
+metadata, verifies context and logical expiry, and uses the target GitHub
 Environment for external approval and audit history. It skips `terraform plan`, restores the exact
 binary and metadata from private Blob storage, verifies all digests, ids, status, timestamps, and
 commit, and then creates an immutable `apply-claim.json` before `terraform apply`. A duplicate or
@@ -578,12 +600,13 @@ workflow name, workflow version, definition hash, and action-catalog digest. Thi
 idempotent across catalog releases without overwriting older definitions.
 
 ```bash
-FDAI_GITHUB_TOKEN=<installation-token> fdaictl deploy apply \
-  --config .fdai/environments/dev.json \
+fdaictl deploy apply \
+  --profile .fdai/environments/dev.json \
   --repository <owner>/<repository> \
   --plan-id <plan-id> \
-  --bundle-digest <sha256> \
+  --plan-digest <plan-digest> \
   --commit-sha <git-sha> \
+  --run-id <run-id> \
   --output json
 ```
 
@@ -591,19 +614,14 @@ The protected workflow store marks each plan expired after one hour. Logs expose
 digest, and expiry. They don't expose the plan file, state, credentials, or secret values. Apply
 must reject logical expiry even if physical cleanup hasn't removed the blob yet.
 
-The planned transport-neutral foundation belongs in the dedicated deployment CLI distribution;
-the retired `fdai.deployment_cli.remote` module is not present. Its `PlanRecord` will contain only
-opaque metadata, and `RemoteDeploymentService` will reload it before apply. The local
-guard requires `ready` status, unexpired retention, exact tenant/subscription/environment/bundle/
-commit/backend/runner context, clear enforced preflight, and an available approved runner. It then
-submits the workflow-owned stored digest, never a caller-supplied replacement. A concrete GitHub
-plan-only transport returns current dispatch run details, the runner writes the protected binary
-plan plus metadata, and the CLI retrieves sanitized status through a bounded run-scoped zip. The
-exact-plan apply transport, GitHub Environment approval boundary, immutable claim, and audit receipt
-are implemented. Runner egress preflight evidence is bound into immutable plan metadata, and
-post-apply checks require Terraform convergence, migration success, and enabled endpoint health
-before the receipt is written. Runner-side Policy, quota, identity, secret, and egress evidence
-are required inputs to the C4 exact-plan gate.
+The transport keeps only opaque metadata locally. The GitHub plan path returns a request-bound
+dispatch receipt, the runner stores the protected binary plan in private Blob storage, and
+`deploy status` retrieves a bounded sanitized artifact through the workflow host. Exact apply and
+verification-only resume send the same feature selection and context digest. The GitHub Environment
+approval boundary, immutable claim, and audit receipt remain authoritative. Runner egress preflight
+evidence is bound into immutable plan metadata, and post-apply checks require Terraform convergence,
+migration success, and enabled endpoint health before the receipt is written. Runner-side policy,
+quota, identity, secret, and egress evidence are required inputs to the C4 exact-plan gate.
 
 ## Private-everything tenants
 

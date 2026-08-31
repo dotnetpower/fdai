@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from fdai_deployment_cli.compiler import GENESIS_MANIFEST_VERSION
 from fdai_deployment_cli.progress import (
     InventoryClosure,
     ProgressSnapshot,
@@ -81,7 +82,7 @@ def test_journal_replays_legacy_v1_events_with_their_manifest_version(
 
     replayed = read_journal(path)
 
-    assert replayed == (legacy,)
+    assert replayed == (replace(legacy, manifest_version="genesis.v1"),)
     assert replayed[0].manifest_version == "genesis.v1"
     assert "manifest_version" not in legacy.to_mapping()
 
@@ -94,7 +95,7 @@ def test_journal_v2_seals_manifest_version() -> None:
     )
 
     assert event.to_mapping()["schema_version"] == "fdai.provision-event.v2"
-    assert event.to_mapping()["manifest_version"] == "genesis.v1"
+    assert event.to_mapping()["manifest_version"] == GENESIS_MANIFEST_VERSION
     assert "evidence_digest" not in event.to_mapping()
 
 

@@ -6,6 +6,7 @@ import pytest
 
 from fdai_deployment_cli.progress import InventoryClosure
 from fdai_deployment_cli.readiness import (
+    DatabaseSemanticReadback,
     REQUIRED_READINESS_EVIDENCE,
     REQUIRED_TERRAFORM_ROOTS,
     GenesisReadinessReceipt,
@@ -37,6 +38,43 @@ def _receipt() -> GenesisReadinessReceipt:
             name: f"{index:064x}"
             for index, name in enumerate(sorted(REQUIRED_READINESS_EVIDENCE), start=1)
         },
+        database_semantic=DatabaseSemanticReadback(
+            expected_legacy_head="20260829_0088",
+            legacy_head="20260829_0088",
+            expected_service_heads={
+                "core-control-plane": "core_head",
+                "document-ingestion-api": "ingestion_head",
+                "document-processing-worker": "worker_head",
+                "isolated-executor": "executor_head",
+                "operator-service": "operator_head",
+            },
+            service_heads={
+                "core-control-plane": "core_head",
+                "document-ingestion-api": "ingestion_head",
+                "document-processing-worker": "worker_head",
+                "isolated-executor": "executor_head",
+                "operator-service": "operator_head",
+            },
+            extensions=("pg_trgm", "plpgsql", "vector"),
+            expected_runtime_role_checks=(
+                "core_runtime_no_ddl",
+                "operator_read_only",
+            ),
+            runtime_role_checks={
+                "core_runtime_no_ddl": True,
+                "operator_read_only": True,
+            },
+            ontology_release_digest="1" * 64,
+            catalog_digest="2" * 64,
+            defaults_digest="3" * 64,
+            role_manifest_digest="4" * 64,
+            expected_ontology_release_digest="1" * 64,
+            expected_catalog_digest="2" * 64,
+            expected_defaults_digest="3" * 64,
+            expected_role_manifest_digest="4" * 64,
+            shadow_only=True,
+            observer_distinct=True,
+        ),
         inventory_closure=_inventory(),
         second_run=NoChangeReadback(
             root_changes={root: (0, 0, 0) for root in REQUIRED_TERRAFORM_ROOTS},
@@ -94,3 +132,25 @@ def test_second_run_requires_the_exact_root_set() -> None:
 
     with pytest.raises(ValueError, match="every Terraform root"):
         NoChangeReadback(root_changes=changes)
+
+
+def test_database_semantic_readback_rejects_missing_or_self_certified_evidence() -> None:
+    readback = _receipt().database_semantic
+    heads = dict(readback.service_heads)
+    heads.pop("operator-service")
+    with pytest.raises(ValueError, match="every service"):
+        replace(readback, service_heads=heads)
+    with pytest.raises(ValueError, match="legacy migration head"):
+        replace(readback, legacy_head="fabricated_head")
+    with pytest.raises(ValueError, match="sealed manifest"):
+        replace(readback, catalog_digest="f" * 64)
+    with pytest.raises(ValueError, match="extensions"):
+        replace(readback, extensions=("plpgsql", "vector"))
+    with pytest.raises(ValueError, match="passing checks"):
+        replace(readback, runtime_role_checks={"runtime_no_ddl": False})
+    with pytest.raises(ValueError, match="passing checks"):
+        replace(readback, runtime_role_checks={"unrelated_check": True})
+    with pytest.raises(ValueError, match="shadow-only"):
+        replace(readback, shadow_only=False)
+    with pytest.raises(ValueError, match="independent"):
+        replace(readback, observer_distinct=False)

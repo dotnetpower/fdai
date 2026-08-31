@@ -24,9 +24,13 @@ import { TERMS, composeGlossary } from "../deck/glossary";
 import type {
   ProvisionConnectionStatus,
   ProvisionEvent,
+  ProvisionInventoryProgress,
+  ProvisionReadiness,
+  ProvisionStage,
 } from "../hooks/use-provision-stream";
 import { useProvisionStream } from "../hooks/use-provision-stream";
-import { t } from "../i18n";
+import { t } from "./i18n/provision";
+import "./provision.css";
 
 interface Props {
   readonly client: OperatorApiClient;
@@ -44,8 +48,22 @@ interface ProvisionState {
   readonly waitingReason: string | null;
   readonly failed: string | null;
   readonly failedReason: string | null;
-  readonly done: boolean;
+  readonly cancelled: boolean;
+  readonly ready: boolean;
   readonly consoleUrl: string | null;
+  readonly runId: string | null;
+  readonly sequence: number;
+  readonly attempt: number | null;
+  readonly runState: string | null;
+  readonly currentStage: string | null;
+  readonly stagesCompleted: number | null;
+  readonly stagesTotal: number | null;
+  readonly checkpointsCompleted: number | null;
+  readonly checkpointsTotal: number | null;
+  readonly lastProgressAt: string | null;
+  readonly readiness: ProvisionReadiness | null;
+  readonly stages: readonly ProvisionStage[];
+  readonly inventory: ProvisionInventoryProgress | null;
   /** Recent nodes that finished, newest first (bounded). */
   readonly recent: readonly string[];
 }
@@ -57,8 +75,22 @@ export const INITIAL: ProvisionState = {
   waitingReason: null,
   failed: null,
   failedReason: null,
-  done: false,
+  cancelled: false,
+  ready: false,
   consoleUrl: null,
+  runId: null,
+  sequence: 0,
+  attempt: null,
+  runState: null,
+  currentStage: null,
+  stagesCompleted: null,
+  stagesTotal: null,
+  checkpointsCompleted: null,
+  checkpointsTotal: null,
+  lastProgressAt: null,
+  readiness: null,
+  stages: [],
+  inventory: null,
   recent: [],
 };
 
@@ -102,9 +134,54 @@ export function safeHttpUrl(url: string | null): string | null {
 }
 
 export function reducer(state: ProvisionState, ev: ProvisionEvent): ProvisionState {
-  if (state.done) return state;
+  if ((state.ready || state.cancelled) && ev.phase !== "snapshot") return state;
   const observedState = state.observed ? state : { ...state, observed: true };
   switch (ev.phase) {
+    case "snapshot":
+      if (
+        ev.sequence === undefined ||
+        ev.run_id === undefined ||
+        ev.ready === undefined ||
+        ev.stages_completed === undefined ||
+        ev.stages_total === undefined ||
+        ev.current_stage === undefined ||
+        ev.state === undefined ||
+        ev.attempt === undefined ||
+        ev.last_progress_at === undefined ||
+        ev.readiness === undefined ||
+        ev.stages === undefined
+      ) return state;
+      if (state.runId === ev.run_id && ev.sequence <= state.sequence) return state;
+      const snapshotBase =
+        state.runId === null || state.runId === ev.run_id
+          ? observedState
+          : { ...INITIAL, observed: true };
+      return {
+        ...snapshotBase,
+        runId: ev.run_id,
+        sequence: ev.sequence,
+        attempt: ev.attempt,
+        runState: ev.state,
+        currentStage: ev.current_stage,
+        stagesCompleted: ev.stages_completed,
+        stagesTotal: ev.stages_total,
+        checkpointsCompleted: ev.checkpoints_completed ?? null,
+        checkpointsTotal: ev.checkpoints_total ?? null,
+        lastProgressAt: ev.last_progress_at,
+        readiness: ev.readiness,
+        stages: ev.stages,
+        inventory: ev.inventory ?? null,
+        ready: ev.ready,
+        waiting: ev.state === "waiting" ? ev.current_stage : null,
+        waitingReason: ev.state === "waiting" ? ev.reason_code ?? null : null,
+        failed: ["blocked", "failed", "incomplete"].includes(ev.state)
+          ? ev.current_stage
+          : null,
+        failedReason: ["blocked", "failed", "incomplete"].includes(ev.state)
+          ? ev.reason_code ?? null
+          : null,
+        cancelled: ev.state === "cancelled",
+      };
     case "progress": {
       // Newest-first, unique: a repeat completion (reconnect replay / retry)
       // must not create a duplicate `key` in the recent list.
@@ -142,14 +219,8 @@ export function reducer(state: ProvisionState, ev: ProvisionEvent): ProvisionSta
     case "done":
       return {
         ...observedState,
-        done: true,
-        fraction: 1,
         waiting: null,
         waitingReason: null,
-        // Every resource is up: an earlier transient failure is resolved, so
-        // do not render "up" and "failed" side by side.
-        failed: null,
-        failedReason: null,
         consoleUrl: ev.console_url ?? state.consoleUrl,
       };
     case "failed":
@@ -223,7 +294,13 @@ export function ProvisionRoute({ client }: Props) {
     onEvent: (event) => dispatch(event),
   });
 
-  const pct = Math.max(0, Math.min(100, Math.round(state.fraction * 1000) / 10));
+  const stageFraction =
+    state.stagesCompleted !== null && state.stagesTotal
+      ? state.stagesCompleted / state.stagesTotal
+      : state.fraction;
+  const pct = state.ready
+    ? 100
+    : Math.max(0, Math.min(99.9, Math.round(stageFraction * 1000) / 10));
   const consoleUrl = safeHttpUrl(state.consoleUrl);
 
   usePublishViewContext(
@@ -232,10 +309,12 @@ export function ProvisionRoute({ client }: Props) {
       routeLabel: t("nav.panel.provision"),
       purpose: t("provision.viewPurpose"),
       glossary: composeGlossary([TERMS.shadowMode]),
-      headline: state.done
-        ? t("provision.done")
+      headline: state.ready
+        ? t("provision.ready")
         : state.failed
         ? t("provision.failed", { resource: state.failed, reason: state.failedReason ?? t("provision.reasonUnavailable") })
+        : state.cancelled
+        ? t("provision.cancelled")
         : t("provision.viewHeadline", { percent: pct.toFixed(1), status: statusLabel(status) }),
       capturedAt: new Date().toISOString(),
       facts: [
@@ -246,7 +325,14 @@ export function ProvisionRoute({ client }: Props) {
         { key: "progress_percent", value: pct, group: "run" },
         { key: "waiting_resource", value: state.waiting, group: "run" },
         { key: "failed_resource", value: state.failed, group: "run" },
-        { key: "done", value: state.done, group: "run" },
+        { key: "cancelled", value: state.cancelled, group: "run" },
+        { key: "ready", value: state.ready, group: "run" },
+        { key: "run_id", value: state.runId, group: "run" },
+        { key: "current_stage", value: state.currentStage, group: "run" },
+        { key: "stages_completed", value: state.stagesCompleted, group: "run" },
+        { key: "stages_total", value: state.stagesTotal, group: "run" },
+        { key: "resources_observed", value: state.inventory?.resources_observed ?? null, group: "inventory" },
+        { key: "resources_expected", value: state.inventory?.resources_expected ?? null, group: "inventory" },
         { key: "recent_resource_count", value: state.recent.length, group: "run" },
         { key: "stream_error", value: lastError, group: "stream" },
       ],
@@ -277,7 +363,7 @@ export function ProvisionRoute({ client }: Props) {
         <>
           <div
             class={`provision-meter${state.failed ? " is-failed" : ""}${
-              state.done ? " is-done" : ""
+              state.ready ? " is-done" : ""
             }`}
             role="progressbar"
             aria-label={t("provision.progressLabel")}
@@ -312,9 +398,13 @@ export function ProvisionRoute({ client }: Props) {
           </p>
         )}
 
-        {state.done && (
+        {state.cancelled && (
+          <p class="provision-line provision-line--cancelled">{t("provision.cancelled")}</p>
+        )}
+
+        {state.ready && (
           <div class="provision-done">
-            <p class="provision-line provision-line--done">{t("provision.done")}</p>
+            <p class="provision-line provision-line--done">{t("provision.ready")}</p>
             {consoleUrl && (
               <a class="provision-enter" href={consoleUrl} rel="noopener noreferrer">
                 {t("provision.enter")}
@@ -323,6 +413,78 @@ export function ProvisionRoute({ client }: Props) {
           </div>
         )}
       </div>
+
+      {state.stages.length > 0 && (
+        <section class="provision-section" aria-labelledby="provision-stages-title">
+          <div class="provision-section-head">
+            <div>
+              <h2 id="provision-stages-title">{t("provision.stages")}</h2>
+              <p>{t("provision.stagesSummary", {
+                completed: state.stagesCompleted ?? 0,
+                total: state.stagesTotal ?? state.stages.length,
+              })}</p>
+            </div>
+            {state.runId ? <code>{state.runId}</code> : null}
+          </div>
+          <ol class="provision-stages">
+            {state.stages.map((stage) => (
+              <li
+                key={stage.id}
+                class={`provision-stage provision-stage--${stage.status}`}
+                aria-current={stage.id === state.currentStage ? "step" : undefined}
+              >
+                <span class="provision-stage-marker" aria-hidden="true" />
+                <code>{stage.id}</code>
+                <span>{t(`provision.stageStatus.${stage.status}`)}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+
+      {state.readiness && (
+        <section class="provision-section" aria-labelledby="provision-readiness-title">
+          <div class="provision-section-head">
+            <div>
+              <h2 id="provision-readiness-title">{t("provision.readinessTitle")}</h2>
+              <p>{t("provision.readinessDescription")}</p>
+            </div>
+          </div>
+          <dl class="provision-readiness">
+            {Object.entries(state.readiness).map(([key, ready]) => (
+              <div key={key}>
+                <dt>{t(`provision.readiness.${key}`)}</dt>
+                <dd><StatusPill kind={ready ? "success" : "neutral"} label={t(ready ? "provision.verified" : "provision.pending")} /></dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )}
+
+      {state.inventory && (
+        <section class="provision-section" aria-labelledby="provision-inventory-title">
+          <div class="provision-section-head">
+            <div>
+              <h2 id="provision-inventory-title">{t("provision.inventoryTitle")}</h2>
+              <p>{t("provision.inventoryEstimate")}</p>
+            </div>
+          </div>
+          <dl class="provision-inventory">
+            <div>
+              <dt>{t("provision.resources")}</dt>
+              <dd>{progressPair(state.inventory.resources_observed, state.inventory.resources_expected)}</dd>
+            </div>
+            <div>
+              <dt>{t("provision.pages")}</dt>
+              <dd>{progressPair(state.inventory.pages_completed, state.inventory.pages_expected)}</dd>
+            </div>
+            <div>
+              <dt>{t("provision.completeness")}</dt>
+              <dd>{state.readiness?.inventory ? t("provision.independentlyVerified") : t("provision.awaitingVerification")}</dd>
+            </div>
+          </dl>
+        </section>
+      )}
 
       {state.recent.length > 0 && (
         <ul class="provision-recent" aria-label={t("provision.recentLabel")}>
@@ -334,7 +496,7 @@ export function ProvisionRoute({ client }: Props) {
         </ul>
       )}
 
-      {status === "idle" && !state.done && (
+      {status === "idle" && !state.ready && (
         <p class="provision-idle">
           {t("provision.idlePrefix")} <code>provision.*</code> {t("provision.idleSuffix")}
         </p>
@@ -343,4 +505,9 @@ export function ProvisionRoute({ client }: Props) {
       {lastError && <p class="provision-error mono" role="alert">{lastError}</p>}
     </div>
   );
+}
+
+function progressPair(completed: number | null, expected: number | null): string {
+  if (completed === null || expected === null) return t("provision.notMeasured");
+  return t("provision.progressPair", { completed, expected });
 }

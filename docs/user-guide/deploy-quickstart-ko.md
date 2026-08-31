@@ -1,22 +1,23 @@
 ---
 title: 배포 빠른 시작
-description: FDAI 최소 Azure 인벤토리를 프로비저닝하는 방법. azd 턴키와 Terraform 직접 실행 두 경로 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
+description: 보호된 fdaictl 작업 흐름으로 Azure에 FDAI를 프로비저닝하거나 azd로 인프라 전용 개발 경로를 미리 봅니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 8ad0391f0fbd782cdd1bbfdd46d59ea4297b642f
-translation_revised: 2026-08-30
+translation_source_sha: 6966dc1f8a99a7c64d0e4b1ebcbc850c89776c20
+translation_revised: 2026-08-31
 ---
 
 # 배포 빠른 시작
 
 FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Terraform이 실행 엔진이자 단일
-기준입니다. 턴키 `azd` 래퍼를 쓰거나 Terraform을 직접 실행하는 두 경로로 동일한 최소 Azure
-인벤토리를 구성할 수 있습니다. 두 경로 모두 먼저 미리보기를 제공하므로, 별도의 적용 단계를
-실행하기 전에 계획을 검토할 수 있습니다.
+기준입니다. 비공개 `dev` 및 `staging` 환경에는 보호된 `fdaictl` 작업 흐름을 사용하는 것이
+좋습니다. `azd` 래퍼는 상용 네트워크 개발을 위한 인프라 전용 경로이며 Terraform 직접
+실행은 전문가용 경로입니다.
 
 ## 시작하기 전에
 
-- 리소스를 만들 수 있는 **Azure 구독**과 **Azure CLI**(`az`)가 필요합니다. 턴키
-  경로에는 **Azure Developer CLI**(`azd`)도 필요합니다.
+- 리소스를 만들 수 있는 **Azure 구독**과 **Azure CLI**(`az`)가 필요합니다. 보호된
+  경로에는 GitHub CLI(`gh`)가 필요하며 직접 개발 경로에는 **Azure Developer CLI**(`azd`)가
+  필요합니다.
 - [배포 사전 점검](../roadmap/deployment/deployment-preflight-ko.md)을 완료해야 합니다.
   이 점검은 컨트롤 루프가 시작되기 전에 쿼터, 권한, 연결, 롤백 차단 요소를 수집합니다.
 - 환경별 값을 `*.tfvars` 파일에 입력합니다. 이 파일은 커밋하지 마세요.
@@ -64,8 +65,8 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
 
 ## 최소 인벤토리 프로비저닝
 
-먼저 미리보기하고, 계획이 예상과 일치할 때만 적용하세요. 두 경로 모두 동일한 `infra/`
-Terraform 구성을 사용하므로 워크플로에 맞는 쪽을 고르면 됩니다.
+먼저 미리보기하고, 계획이 예상과 일치할 때만 적용하세요. 보호된 경로는 비공개 계획 데이터를
+VNet에 연결된 실행기에 유지하며 정확한 적용 전에 구성된 GitHub 환경 승인을 요구합니다.
 
 프라이빗 네트워킹으로 전환하는 보호된 작업에서는 보호된 워크플로가 이미 허용한 검토된
 삭제나 마이그레이션만 받아들입니다. 광범위한 PostgreSQL Azure-services 방화벽 규칙 제거가
@@ -79,7 +80,38 @@ state를 그대로 유지하는지 확인하세요.
 
 <!-- fdai:tabs -->
 
-#### azd (턴키)
+#### fdaictl (보호된 dev 및 staging)
+
+```bash
+fdaictl deploy plan \
+  --profile .fdai/environments/dev.json \
+  --repository <owner>/<repository> \
+  --commit-sha <git-sha> \
+  --run-id <run-id> \
+  --output json
+
+fdaictl deploy status \
+  --profile .fdai/environments/dev.json \
+  --repository <owner>/<repository> \
+  --request-id <request-id> \
+  --commit-sha <git-sha> \
+  --output json
+
+fdaictl deploy apply \
+  --profile .fdai/environments/dev.json \
+  --repository <owner>/<repository> \
+  --plan-id <plan-id> \
+  --plan-digest <plan-digest> \
+  --commit-sha <git-sha> \
+  --run-id <run-id> \
+  --output json
+```
+
+저장소 대상과 지역이 프로필과 일치하고 GitHub 환경이 독립적인 검토자 한 명을 요구하며 자체
+검토와 관리자 우회를 차단해야 적용 명령을 진행할 수 있습니다. 두 명 이상의 승인이 필요한
+프로필과 모든 `prod` 요청은 차단됩니다.
+
+#### azd (직접 개발 인프라)
 
 ```bash
 azd auth login
@@ -88,11 +120,11 @@ export AZURE_SUBSCRIPTION_ID="<expected-subscription-id>"
 export AZURE_TENANT_ID="<expected-tenant-id>"
 # 안전한 미리보기 - `azd provision --preview` 실행, 아무것도 적용하지 않음
 scripts/deployment/azure/azd-up.sh
-# 실제 프로비저닝 - 두 번째 게이트가 실수로 적용하는 일을 막음
+# 실제 인프라 프로비저닝 - 런타임 이미지는 보호된 서비스 작업 흐름 사용
 FDAI_AZD_CONFIRM=1 scripts/deployment/azure/azd-up.sh
 ```
 
-#### terraform (직접)
+#### terraform (전문가용 직접 경로)
 
 ```bash
 az login

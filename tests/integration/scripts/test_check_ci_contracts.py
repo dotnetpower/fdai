@@ -453,6 +453,15 @@ def test_dockerfile_installs_only_runtime_workspace_packages() -> None:
         assert "ENTRYPOINT" in text
 
 
+def test_azd_is_infrastructure_only_without_a_stale_service_target() -> None:
+    root = Path(__file__).resolve().parents[3]
+    azure = (root / "azure.yaml").read_text(encoding="utf-8")
+
+    assert "provider: terraform" in azure
+    assert "\nservices:" not in azure
+    assert "azd-service-name: core" not in azure
+
+
 def test_shipped_runtime_images_pin_the_fixed_sqlite_package() -> None:
     root = Path(__file__).resolve().parents[3]
     dockerfiles = sorted((root / "services").glob("*/docker/Dockerfile"))
