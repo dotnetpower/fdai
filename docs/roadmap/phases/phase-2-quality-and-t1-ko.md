@@ -1,7 +1,7 @@
 ---
 title: "Phase 2 - 지속적 규칙 업데이트, Quality Gate, T1"
 translation_of: phase-2-quality-and-t1.md
-translation_source_sha: 7975900d3dddaf022961beae02a6e1fbcfd0a6eb
+translation_source_sha: 16d8f4f56b03089c23507c4620149eec4bde5d51
 translation_revised: 2026-08-31
 ---
 
@@ -118,7 +118,7 @@ Azure source는 변경할 수 없는 commit에 고정된 `Azure/bicep-types-az` 
 무효화합니다. 관련 없는 프로바이더 구성 요소는 재사용할 수 있습니다. D4 검토 원장은 변경할 수
 없는 이전 및 정렬 후 맥락, 정확한 비교, 회귀 증적 및 서로 다른 검토자의 결과를 보존합니다.
 승인은 catalog pull request 제안만 만들 수 있으며 mapping을 활성화하거나 그래프를 변경할 수
-없습니다.
+없습니다. 활성 제안 포인터는 내용 기반 세대 산출물이 계속 존재할 때만 유효합니다.
 
 결정론적 diff는 정규화한 type identity와 stable/preview API-version 집합을 비교합니다. 제거는
 근거 ledger의 tombstone이며 ontology 또는 rule catalog에서 즉시 삭제되지 않습니다. 중요하고

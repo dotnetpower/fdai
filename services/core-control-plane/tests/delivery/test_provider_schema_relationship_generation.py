@@ -11,7 +11,11 @@ from fdai.delivery.azure.provider_relationship_schema import (
     AzureArmIdReference,
     AzureProviderRelationshipSchemaSnapshot,
 )
-from fdai.delivery.provider_schema import ProviderSchemaSnapshot, ProviderSchemaType
+from fdai.delivery.provider_schema import (
+    ProviderSchemaError,
+    ProviderSchemaSnapshot,
+    ProviderSchemaType,
+)
 from fdai.delivery.provider_schema_relationship_generation import (
     ProviderSchemaRelationshipCandidate,
     RelationshipGenerationDropReason,
@@ -410,6 +414,19 @@ def test_ledger_rollback_keeps_proposal_only_authority(tmp_path: Path) -> None:
         generation_ref="provider-schema-generation:one",
         projection_manifest_digest=MANIFEST_DIGEST,
     )
+
+
+def test_ledger_rejects_an_active_pointer_to_a_missing_generation(tmp_path: Path) -> None:
+    generation = _generation(
+        _schema(),
+        metadata={"azure.function-depends-on-app-service-plan": _metadata()},
+    )
+    ledger = ProviderSchemaRelationshipLedger(tmp_path)
+    ledger.record(generation)
+    (tmp_path / "generations" / f"{generation.generation_digest[7:]}.json").unlink()
+
+    with pytest.raises(ProviderSchemaError, match="active generation is missing"):
+        ledger.read_active()
 
 
 def test_ledger_serializes_concurrent_recorders_with_unique_staging_files(

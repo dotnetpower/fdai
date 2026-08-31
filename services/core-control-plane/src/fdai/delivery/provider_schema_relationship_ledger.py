@@ -73,6 +73,9 @@ class ProviderSchemaRelationshipLedger:
             raise ProviderSchemaError(
                 "provider relationship active pointer digest is invalid"
             ) from exc
+        generation_path = self._root / "generations" / f"{generation_digest[7:]}.json"
+        if not generation_path.is_file():
+            raise ProviderSchemaError("provider relationship active generation is missing")
         if raw.get("graph_mutation_authority") is not False:
             raise ProviderSchemaError("provider relationship active pointer grants graph authority")
         if raw.get("migration_execution_authority") is not False:
