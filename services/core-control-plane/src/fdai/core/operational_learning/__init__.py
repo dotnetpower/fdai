@@ -40,6 +40,11 @@ from .discovery_contracts import (
     DiscoveryVerificationReceipt,
 )
 from .discovery_cycle import DiscoveryCycleScheduler
+from .eligible_outcome import (
+    EligibleOperationalOutcome,
+    PinnedLearningRelease,
+    operational_case_event,
+)
 from .investigation_strategy import (
     InvestigationStrategyCandidate,
     InvestigationStrategyCandidateCompiler,
@@ -62,6 +67,12 @@ from .patterns import (
     OperatingPatternCompiler,
     PatternCase,
     pattern_case_from_operational_case,
+)
+from .promotion_review import (
+    ReviewedReplayAuthority,
+    ReviewedReplayPersistedAuthorityVerifier,
+    ReviewedReplayPromotionEvidence,
+    ReviewedReplayReceiptVerifier,
 )
 from .review import (
     CatalogReviewOutcome,
@@ -109,6 +120,7 @@ __all__ = [
     "DiscoveryVerificationReceipt",
     "DraftActionTypeInput",
     "DraftCatalogArtifact",
+    "EligibleOperationalOutcome",
     "ImmutableCaseRef",
     "InvestigationStrategyCandidate",
     "InvestigationStrategyCandidateCompiler",
@@ -124,8 +136,13 @@ __all__ = [
     "OverrideDiscoverySignalSource",
     "OverrideSignalThresholds",
     "PatternCase",
+    "PinnedLearningRelease",
     "PolicyCheckReceipt",
     "ReplayCheckReceipt",
+    "ReviewedReplayAuthority",
+    "ReviewedReplayPersistedAuthorityVerifier",
+    "ReviewedReplayPromotionEvidence",
+    "ReviewedReplayReceiptVerifier",
     "SchemaCheckReceipt",
     "ShadowCheckReceipt",
     "ShadowDwellDecision",
@@ -137,5 +154,6 @@ __all__ = [
     "evaluate_shadow_dwell",
     "build_cost_case_projection",
     "compile_investigation_strategy_candidate",
+    "operational_case_event",
     "pattern_case_from_operational_case",
 ]

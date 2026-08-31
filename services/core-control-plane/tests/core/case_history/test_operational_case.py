@@ -8,6 +8,7 @@ from fdai.core.case_history import (
     FailureFingerprint,
     OperationalCaseInput,
     OperationalCaseProjection,
+    OperationalEvidenceSourceKind,
     OperationalOutcomeClass,
     OperationalReceiptFact,
     OperationalReceiptType,
@@ -102,6 +103,13 @@ def _case_input(
         outcome_class=outcome_class,
         evidence_refs=("9" * 64, "8" * 64),
         receipts=standard_receipts if receipts is None else receipts,
+        fdai_revision="a" * 40,
+        scenario_set_version="v2026.08",
+        source_kind=OperationalEvidenceSourceKind.LIVE,
+        source_identity_digest="7" * 64,
+        source_synthetic=False,
+        evidence_complete=True,
+        conflict_digests=(),
     )
 
 
@@ -152,6 +160,14 @@ def test_operational_case_projection_preserves_immutable_case_evidence() -> None
         action_type="ops.restart-service",
         outcome_class=OperationalOutcomeClass.ROLLBACK,
         evidence_refs=("audit:2", "audit:1", "audit:2"),
+        fdai_revision="a" * 40,
+        scenario_set_version="v2026.08",
+        event_time_cutoff=T0,
+        source_kind=OperationalEvidenceSourceKind.LIVE,
+        source_identity_digest="7" * 64,
+        source_synthetic=False,
+        evidence_complete=True,
+        conflict_digests=(),
     )
 
     assert projection.failure_fingerprint.digest == _fingerprint().digest
@@ -168,6 +184,14 @@ def test_operational_case_projection_rejects_unsealed_case() -> None:
             action_type="ops.restart-service",
             outcome_class=OperationalOutcomeClass.SUCCESS,
             evidence_refs=("audit:1",),
+            fdai_revision="a" * 40,
+            scenario_set_version="v2026.08",
+            event_time_cutoff=T0,
+            source_kind=OperationalEvidenceSourceKind.LIVE,
+            source_identity_digest="7" * 64,
+            source_synthetic=False,
+            evidence_complete=True,
+            conflict_digests=(),
         )
 
 

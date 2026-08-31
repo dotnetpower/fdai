@@ -18,6 +18,7 @@ _MAX_IDENTIFIER_CHARS = 128
 _MAX_ITEMS = 32
 _MAX_RECEIPTS = 16
 _MAX_WIRE_BYTES = 64 * 1024
+_GIT_REVISION = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 
 
 class OperationalReceiptType(StrEnum):
@@ -34,6 +35,13 @@ class OperationalOutcomeClass(StrEnum):
     ROLLBACK = "rollback"
     RECURRENCE = "recurrence"
     FAILURE = "failure"
+
+
+class OperationalEvidenceSourceKind(StrEnum):
+    """Authority classification for the evidence that produced a case."""
+
+    LIVE = "live"
+    FROZEN_BENCHMARK = "frozen_benchmark"
 
 
 _RECEIPT_FIELDS: dict[OperationalReceiptType, frozenset[str]] = {
@@ -178,6 +186,14 @@ class OperationalCaseProjection:
     action_type: str
     outcome_class: OperationalOutcomeClass
     evidence_refs: tuple[str, ...]
+    fdai_revision: str
+    scenario_set_version: str
+    event_time_cutoff: datetime
+    source_kind: OperationalEvidenceSourceKind
+    source_identity_digest: str
+    source_synthetic: bool
+    evidence_complete: bool
+    conflict_digests: tuple[str, ...]
 
     def __post_init__(self) -> None:
         if not self.case_id:
@@ -186,6 +202,25 @@ class OperationalCaseProjection:
             raise ValueError("operational case revision MUST be positive")
         if not _is_sha256(self.manifest_digest):
             raise ValueError("operational case manifest digest MUST be lowercase SHA-256")
+        if _GIT_REVISION.fullmatch(self.fdai_revision) is None:
+            raise ValueError("operational case FDAI revision MUST be immutable")
+        object.__setattr__(
+            self,
+            "scenario_set_version",
+            _identifier("scenario_set_version", self.scenario_set_version),
+        )
+        if self.event_time_cutoff.tzinfo is None:
+            raise ValueError("operational case cutoff MUST be timezone-aware")
+        if not _is_sha256(self.source_identity_digest):
+            raise ValueError("operational case source identity MUST be lowercase SHA-256")
+        if not isinstance(self.source_synthetic, bool) or not isinstance(
+            self.evidence_complete, bool
+        ):
+            raise ValueError("operational case source flags MUST be boolean")
+        conflicts = tuple(sorted(set(self.conflict_digests)))
+        if any(not _is_sha256(value) for value in conflicts):
+            raise ValueError("operational case conflicts MUST be SHA-256 digests")
+        object.__setattr__(self, "conflict_digests", conflicts)
         object.__setattr__(self, "action_type", _identifier("action_type", self.action_type))
         evidence_refs = tuple(sorted(set(self.evidence_refs)))
         if not evidence_refs or any(not value for value in evidence_refs):
@@ -264,6 +299,13 @@ class OperationalCaseInput:
     outcome_class: OperationalOutcomeClass
     evidence_refs: tuple[str, ...]
     receipts: tuple[OperationalReceiptFact, ...]
+    fdai_revision: str
+    scenario_set_version: str
+    source_kind: OperationalEvidenceSourceKind
+    source_identity_digest: str
+    source_synthetic: bool
+    evidence_complete: bool
+    conflict_digests: tuple[str, ...]
 
     def __post_init__(self) -> None:
         for name, value in (
@@ -275,6 +317,23 @@ class OperationalCaseInput:
                 raise ValueError(f"operational case {name} MUST be lowercase SHA-256")
         if self.kind not in {CaseKind.ACTION, CaseKind.INCIDENT}:
             raise ValueError("operational case kind MUST be action or incident")
+        if _GIT_REVISION.fullmatch(self.fdai_revision) is None:
+            raise ValueError("operational case FDAI revision MUST be immutable")
+        object.__setattr__(
+            self,
+            "scenario_set_version",
+            _identifier("scenario_set_version", self.scenario_set_version),
+        )
+        if not _is_sha256(self.source_identity_digest):
+            raise ValueError("operational case source identity MUST be lowercase SHA-256")
+        if not isinstance(self.source_synthetic, bool) or not isinstance(
+            self.evidence_complete, bool
+        ):
+            raise ValueError("operational case source flags MUST be boolean")
+        conflicts = tuple(sorted(set(self.conflict_digests)))
+        if any(not _is_sha256(value) for value in conflicts):
+            raise ValueError("operational case conflicts MUST be SHA-256 digests")
+        object.__setattr__(self, "conflict_digests", conflicts)
         object.__setattr__(self, "purpose", _identifier("purpose", self.purpose))
         object.__setattr__(
             self,
@@ -360,6 +419,13 @@ class OperationalCaseInput:
             "outcome_class": self.outcome_class.value,
             "evidence_refs": list(self.evidence_refs),
             "receipts": [receipt.to_mapping() for receipt in self.receipts],
+            "fdai_revision": self.fdai_revision,
+            "scenario_set_version": self.scenario_set_version,
+            "source_kind": self.source_kind.value,
+            "source_identity_digest": self.source_identity_digest,
+            "source_synthetic": self.source_synthetic,
+            "evidence_complete": self.evidence_complete,
+            "conflict_digests": list(self.conflict_digests),
         }
         _validate_wire_size(mapping)
         return mapping
@@ -382,6 +448,13 @@ class OperationalCaseInput:
                 "outcome_class",
                 "evidence_refs",
                 "receipts",
+                "fdai_revision",
+                "scenario_set_version",
+                "source_kind",
+                "source_identity_digest",
+                "source_synthetic",
+                "evidence_complete",
+                "conflict_digests",
             },
             "operational case",
         )
@@ -396,8 +469,13 @@ class OperationalCaseInput:
         try:
             kind = CaseKind(_required_string(value, "kind"))
             outcome_class = OperationalOutcomeClass(_required_string(value, "outcome_class"))
+            source_kind = OperationalEvidenceSourceKind(_required_string(value, "source_kind"))
         except ValueError as exc:
             raise ValueError("operational case enum value is unsupported") from exc
+        source_synthetic = value.get("source_synthetic")
+        evidence_complete = value.get("evidence_complete")
+        if not isinstance(source_synthetic, bool) or not isinstance(evidence_complete, bool):
+            raise ValueError("operational case source flags MUST be boolean")
         return cls(
             case_identity_digest=_required_string(value, "case_identity_digest"),
             kind=kind,
@@ -411,6 +489,13 @@ class OperationalCaseInput:
             outcome_class=outcome_class,
             evidence_refs=_string_array(value, "evidence_refs"),
             receipts=tuple(OperationalReceiptFact.from_mapping(receipt) for receipt in receipts),
+            fdai_revision=_required_string(value, "fdai_revision"),
+            scenario_set_version=_required_string(value, "scenario_set_version"),
+            source_kind=source_kind,
+            source_identity_digest=_required_string(value, "source_identity_digest"),
+            source_synthetic=source_synthetic,
+            evidence_complete=evidence_complete,
+            conflict_digests=_string_array(value, "conflict_digests"),
         )
 
 
@@ -434,6 +519,14 @@ class CompiledOperationalCase:
             action_type=self.case_input.action_type,
             outcome_class=self.case_input.outcome_class,
             evidence_refs=self.case_input.evidence_refs,
+            fdai_revision=self.case_input.fdai_revision,
+            scenario_set_version=self.case_input.scenario_set_version,
+            event_time_cutoff=self.case_input.event_time_cutoff,
+            source_kind=self.case_input.source_kind,
+            source_identity_digest=self.case_input.source_identity_digest,
+            source_synthetic=self.case_input.source_synthetic,
+            evidence_complete=self.case_input.evidence_complete,
+            conflict_digests=self.case_input.conflict_digests,
         )
 
 
@@ -444,6 +537,14 @@ def compile_operational_case(case_input: OperationalCaseInput) -> CompiledOperat
         "failure_fingerprint": case_input.failure_fingerprint.digest,
         "outcome_class": case_input.outcome_class.value,
         "resource_type": case_input.failure_fingerprint.resource_type,
+        "fdai_revision": case_input.fdai_revision,
+        "scenario_set_version": case_input.scenario_set_version,
+        "event_time_cutoff": case_input.event_time_cutoff.isoformat(),
+        "source_kind": case_input.source_kind.value,
+        "source_identity_digest": case_input.source_identity_digest,
+        "source_synthetic": case_input.source_synthetic,
+        "evidence_complete": case_input.evidence_complete,
+        "conflict_digests": case_input.conflict_digests,
     }
     projection_bytes = json.dumps(
         projection_payload,

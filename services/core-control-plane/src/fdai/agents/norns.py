@@ -45,7 +45,7 @@ import hashlib
 import json
 from collections import Counter, deque
 from collections.abc import Callable
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fdai_service_contracts.ontology_query import content_digest
@@ -122,6 +122,8 @@ class Norns(Agent):
         semantic_feedback_store: SemanticFeedbackCandidateSink | None = None,
         shadow_dwell_ledger: ShadowDwellLedger | None = None,
         max_pending_candidates: int = _MAX_PENDING_CANDIDATES,
+        operational_case_max_age: timedelta = timedelta(days=90),
+        clock: Callable[[], datetime] | None = None,
     ) -> None:  # Fail fast on misconfiguration: a non-positive threshold or a
         # rate outside [0, 1] would make the learner propose on thin or
         # impossible evidence (e.g. min_outcome_samples=0 fires on a single
@@ -140,6 +142,8 @@ class Norns(Agent):
             raise ValueError("forecast_error_threshold MUST be >= 1")
         if max_pending_candidates < 1:
             raise ValueError("max_pending_candidates MUST be >= 1")
+        if operational_case_max_age <= timedelta(0):
+            raise ValueError("operational_case_max_age MUST be positive")
         super().__init__(spec=_NORNS)
         # Fingerprints are content hashes (one per distinct incident), so the
         # counter is bounded by an LRU cap - a long-lived learner would leak
@@ -210,6 +214,8 @@ class Norns(Agent):
         self._counted_case_revisions: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._case_history_analyzer = case_history_analyzer
         self._operating_pattern_compiler = operating_pattern_compiler or OperatingPatternCompiler()
+        self._operational_case_max_age = operational_case_max_age
+        self._clock = clock or (lambda: datetime.now(UTC))
         self._operating_pattern_ids: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._semantic_feedback = NornsSemanticFeedbackLearning(semantic_feedback_store)
         # Shadow outcomes never feed the rollback-rate learner (a judged-and-logged
@@ -301,7 +307,11 @@ class Norns(Agent):
         ):
             self.record_behavior("operational_case_cohort_invalid_payload")
             return
-        candidate = self._operating_pattern_compiler.compile(cases)
+        candidate = self._operating_pattern_compiler.compile(
+            cases,
+            reviewed_at=self._clock(),
+            max_case_age=self._operational_case_max_age,
+        )
         if candidate is None:
             self.record_behavior("operational_case_cohort_held")
             return

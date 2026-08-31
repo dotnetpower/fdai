@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import UTC, datetime
 from typing import cast
 
 import pytest
-from fdai.core.case_history import OperationalOutcomeClass
+from fdai.core.case_history import OperationalEvidenceSourceKind, OperationalOutcomeClass
 from fdai.core.operational_learning import (
     CatalogCandidateCompiler,
     CatalogCheckReceipts,
@@ -34,6 +35,14 @@ def _candidate() -> dict[str, object]:
             reusable=True,
             negative=False,
             digest_evidence=("d" * 64,),
+            fdai_revision="a" * 40,
+            scenario_set_version="v2026.08",
+            event_time_cutoff=datetime(2026, 8, 1, tzinfo=UTC),
+            source_kind=OperationalEvidenceSourceKind.LIVE,
+            source_identity_digest="1" * 64,
+            source_synthetic=False,
+            evidence_complete=True,
+            conflict_digests=(),
         ),
         PatternCase(
             case_id="case-b",
@@ -46,6 +55,14 @@ def _candidate() -> dict[str, object]:
             reusable=False,
             negative=True,
             digest_evidence=("e" * 64,),
+            fdai_revision="a" * 40,
+            scenario_set_version="v2026.08",
+            event_time_cutoff=datetime(2026, 8, 2, tzinfo=UTC),
+            source_kind=OperationalEvidenceSourceKind.LIVE,
+            source_identity_digest="2" * 64,
+            source_synthetic=False,
+            evidence_complete=True,
+            conflict_digests=(),
         ),
     )
     candidate = OperatingPatternCompiler().compile(cases)

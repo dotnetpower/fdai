@@ -15,7 +15,16 @@ from urllib.parse import unquote
 _MAX_SOURCE_BYTES = 16 * 1024
 _MAX_ARTIFACT_BYTES = 1024 * 1024
 _OPERATIONAL_METADATA_KEYS = frozenset(
-    {"action_type", "failure_fingerprint", "operational_outcome", "resource_type"}
+    {
+        "action_type",
+        "failure_fingerprint",
+        "fdai_revision",
+        "operational_outcome",
+        "resource_type",
+        "scenario_set_version",
+        "source_identity_digest",
+        "source_kind",
+    }
 )
 _FORBIDDEN_KEYS = frozenset(
     re.sub(r"[^a-z0-9]", "", value)

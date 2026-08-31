@@ -8,7 +8,7 @@ from typing import Literal, cast
 from uuid import UUID, uuid4
 
 import pytest
-from fdai.core.case_history import OperationalOutcomeClass
+from fdai.core.case_history import OperationalEvidenceSourceKind, OperationalOutcomeClass
 from fdai.core.detection.forecast_episode import (
     ForecastEpisode,
     ForecastEpisodeState,
@@ -129,6 +129,14 @@ def _cases() -> tuple[PatternCase, PatternCase]:
             reusable=True,
             negative=False,
             digest_evidence=(FINGERPRINT,),
+            fdai_revision="a" * 40,
+            scenario_set_version="v2026.08",
+            event_time_cutoff=NOW,
+            source_kind=OperationalEvidenceSourceKind.LIVE,
+            source_identity_digest="1" * 64,
+            source_synthetic=False,
+            evidence_complete=True,
+            conflict_digests=(),
         ),
         PatternCase(
             case_id="case-two",
@@ -141,6 +149,14 @@ def _cases() -> tuple[PatternCase, PatternCase]:
             reusable=False,
             negative=True,
             digest_evidence=(FINGERPRINT,),
+            fdai_revision="a" * 40,
+            scenario_set_version="v2026.08",
+            event_time_cutoff=NOW,
+            source_kind=OperationalEvidenceSourceKind.LIVE,
+            source_identity_digest="2" * 64,
+            source_synthetic=False,
+            evidence_complete=True,
+            conflict_digests=(),
         ),
     )
 
