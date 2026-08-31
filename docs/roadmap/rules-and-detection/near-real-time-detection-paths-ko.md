@@ -1,7 +1,7 @@
 ---
 title: Near-real-time detection paths
 translation_of: near-real-time-detection-paths.md
-translation_source_sha: 239115f523d6d6f17879d386aa33d91da63db825
+translation_source_sha: 0d61fa38342933132bc6e7ecdced5e8b09dae264
 translation_revised: 2026-08-31
 ---
 
@@ -133,7 +133,8 @@ Cron을 명시적으로 빈 값으로 설정하면 작업이 비활성화됩니�
 `cause_claim_supported`와 `execution_authority`는 모두 `false`로 고정합니다. 인증된 Operator
 API는 Console에 전달하기 전에 멱등성 키와 리소스별로 증적을 그룹화합니다. 따라서 브라우저는
 수명 주기 간선을 추론하지 않고 서버가 작성한 현재 평가와 보존 이력을 표시합니다. 중복 전달은
-억제된 게시 시도로 표시하며 불완전, 충돌 및 누락 근거를 서로 다른 상태로 유지합니다.
+억제된 게시 시도로 표시하며 불완전, 충돌 및 누락 근거를 서로 다른 상태로 유지합니다. 증적
+신원은 변경할 수 없습니다. 다른 수명 주기 근거로 재생하면 이력을 덮어쓰지 않고 실패합니다.
 
 ### 에이전트 소유 AKS 감지 준비도
 

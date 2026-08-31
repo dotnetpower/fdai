@@ -138,7 +138,8 @@ opaque evidence references separate. It fixes both `cause_claim_supported` and
 and resource before the Console receives them, so the browser renders a server-authored current
 assessment and retained history instead of inferring a lifecycle edge. Duplicate deliveries remain
 visible as suppressed publication attempts, and incomplete, conflicting, and missed evidence remain
-distinct states.
+distinct states. A receipt identity is immutable; replay with different lifecycle evidence fails
+instead of rewriting history.
 
 ### Agent-owned AKS detection readiness
 

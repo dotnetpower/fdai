@@ -27,10 +27,12 @@ class StateStoreAnalyzerReceiptStore:
         """Upsert one outcome and trim only older receipt projections."""
         identity = f"{receipt.idempotency_key}\n{receipt.publication.value}"
         digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()
-        await self.state_store.write_state(
-            f"{ANALYZER_RECEIPT_STATE_PREFIX}{digest}",
-            receipt.to_dict(),
-        )
+        key = f"{ANALYZER_RECEIPT_STATE_PREFIX}{digest}"
+        value = receipt.to_dict()
+        if not await self.state_store.write_state_if_absent(key, value):
+            existing = await self.state_store.read_state(key)
+            if existing != value:
+                raise ValueError("analyzer receipt identity collision")
         await self.state_store.delete_states_beyond(
             ANALYZER_RECEIPT_STATE_PREFIX,
             retain_newest=self.retain_newest,

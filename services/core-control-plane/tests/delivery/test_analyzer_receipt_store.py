@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 
+import pytest
 from fdai.delivery.analyzer_receipt_store import (
     ANALYZER_RECEIPT_STATE_PREFIX,
     StateStoreAnalyzerReceiptStore,
@@ -54,3 +56,13 @@ async def test_store_retains_publication_and_duplicate_as_distinct_bounded_recei
     }
     assert records[0]["cause_claim_supported"] is False
     assert records[0]["execution_authority"] is False
+
+
+async def test_store_rejects_rewriting_an_immutable_receipt_identity() -> None:
+    state = InMemoryStateStore()
+    store = StateStoreAnalyzerReceiptStore(state)
+    receipt = _receipt("analyzer:key-1", AnalyzerPublicationStatus.PUBLISHED)
+    await store.record(receipt)
+
+    with pytest.raises(ValueError, match="identity collision"):
+        await store.record(replace(receipt, current_state="terminated"))
