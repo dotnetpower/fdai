@@ -22,8 +22,8 @@ The quality gate refuses duplicate cross-check models, so one model cannot agree
 and satisfy the mixed-model quorum.
 An effective freeze or quiet ChangeWindow with unusable bounds denies maintenance authority
 instead of being skipped.
-A change event stamped ahead of the detector clock reports out-of-band instead of being
-suppressed by the settling window.
+A change event stamped further ahead than the configured clock-skew tolerance reports
+out-of-band instead of being suppressed by the settling window.
 A missed breach is scored only from complete telemetry, so a false-negative outcome never
 publishes a completeness claim its observation did not make.
 Forecast closure attempts every claimed episode before re-raising the first failure, so one

@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 5079372864541e18a8ee706fabe820bce6963813
+translation_source_sha: 49a8b4f96979011179ee5c90b9acaee3b22c9234
 translation_revised: 2026-08-31
 ---
 # 프로젝트 구조
@@ -25,8 +25,8 @@ DR 목표 근거는 nearest-rank p90을 보고합니다. 따라서 표본이 적
 혼합 모델 정족수를 충족할 수 없습니다.
 사용할 수 없는 경계를 가진 유효한 freeze 또는 quiet ChangeWindow는 건너뛰지 않고 유지 보수
 권한을 거부합니다.
-탐지기 시계보다 앞선 시각이 기록된 변경 이벤트는 settling 윈도우로 억제하지 않고
-out-of-band로 보고합니다.
+구성된 시계 오차 허용치보다 더 앞선 시각이 기록된 변경 이벤트는 settling 윈도우로 억제하지
+않고 out-of-band로 보고합니다.
 놓친 임계 위반은 완전한 telemetry에서만 채점합니다. 따라서 false-negative 결과는 관측이
 주장하지 않은 완전성 주장을 게시하지 않습니다.
 예측 종료 처리는 청구한 모든 episode를 시도한 뒤 첫 실패를 다시 발생시킵니다. 따라서 실패한

@@ -781,3 +781,27 @@ async def test_resource_type_flat_payload_shape_still_extracted() -> None:
     # was read + fed into window_for.
     assert decision.outcome is DetectorOutcome.SUPPRESSED
     assert decision.resource_type == "compute.vm"
+
+
+async def test_ordinary_clock_skew_still_suppresses_inside_the_window() -> None:
+    # A signal stamped a moment ahead of the detector clock is ordinary NTP
+    # skew, not detection evasion, so the settling window still applies.
+    detected = FIXED_DETECTED_AT
+    detector, publisher, bus, _ = _detector(now=detected - timedelta(seconds=2))
+    event = _event(
+        actor="unknown-actor",
+        idempotency_key="settling-skew",
+        detected_at=detected,
+    )
+
+    decision = await detector.detect(event)
+
+    assert decision.attribution is ChangeAttribution.SUPPRESSED
+    assert decision.outcome is DetectorOutcome.SUPPRESSED
+    assert publisher.records == ()
+    assert bus._records.get(OUT_OF_BAND_ALERT_TOPIC) is None  # type: ignore[attr-defined]
+
+
+async def test_negative_clock_skew_tolerance_is_rejected() -> None:
+    with pytest.raises(ValueError, match="clock_skew_tolerance"):
+        ChangeSafetyDetectorConfig(clock_skew_tolerance=timedelta(seconds=-1))

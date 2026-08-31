@@ -109,6 +109,11 @@ _ZERO_AGE: Final[timedelta] = timedelta(0)
 """Lower bound of a measurable event age; below it the settling window
 cannot be evaluated."""
 
+DEFAULT_CLOCK_SKEW_TOLERANCE_SECONDS: Final[int] = 5
+"""How far ahead of the detector clock a producer may stamp an event before
+its age stops being measurable. Ordinary NTP skew stays inside the settling
+window; a materially future-dated event does not."""
+
 
 # ---------------------------------------------------------------------------
 # Enums + dataclasses
@@ -159,6 +164,11 @@ class ChangeSafetyDetectorConfig:
     entry falls back to :attr:`default_settling_window`. The upstream
     default is 60s (phase-1 doc); a fork MAY tune per resource type via
     a config file loaded at the composition root.
+
+    ``clock_skew_tolerance`` is how far ahead of the detector clock a signal
+    producer may stamp an event before its age stops being measurable. Inside
+    the tolerance the event is simply very recent and the settling window still
+    applies; beyond it the window cannot suppress the change.
     """
 
     default_settling_window: timedelta = field(
@@ -166,6 +176,13 @@ class ChangeSafetyDetectorConfig:
     )
     settling_windows: Mapping[str, timedelta] = field(default_factory=dict)
     alert_topic: str = OUT_OF_BAND_ALERT_TOPIC
+    clock_skew_tolerance: timedelta = field(
+        default_factory=lambda: timedelta(seconds=DEFAULT_CLOCK_SKEW_TOLERANCE_SECONDS)
+    )
+
+    def __post_init__(self) -> None:
+        if self.clock_skew_tolerance < _ZERO_AGE:
+            raise ValueError("clock_skew_tolerance MUST NOT be negative")
 
     def window_for(self, resource_type: str | None) -> timedelta:
         if resource_type is not None:
@@ -424,10 +441,11 @@ class ChangeSafetyDetector:
         if detected_at.tzinfo is None:
             detected_at = detected_at.replace(tzinfo=UTC)
         age = now - detected_at
-        if age < _ZERO_AGE:
-            # A change stamped ahead of the detector clock has no measurable
-            # age, so the settling window cannot suppress it. Suppression is
-            # the silent outcome, so an unmeasurable age reports out-of-band.
+        if age < -self._config.clock_skew_tolerance:
+            # A change stamped further ahead than the tolerated clock skew has
+            # no measurable age, so the settling window cannot suppress it.
+            # Suppression is the silent outcome, so an unmeasurable age reports
+            # out-of-band.
             return (
                 ChangeAttribution.OUT_OF_BAND,
                 (
