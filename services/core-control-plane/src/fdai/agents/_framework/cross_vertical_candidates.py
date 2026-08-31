@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
@@ -251,6 +252,20 @@ def _parse_candidate(topic: str, payload: dict[str, Any]) -> _Candidate:
     action_type = str(payload.get("action_type") or "")
     if not all((correlation_id, idempotency_key, resource_id, observed_at, action_type)):
         raise ValueError("cross-vertical candidate identities MUST be non-empty")
+    for name, value, maximum in (
+        ("correlation_id", correlation_id, 256),
+        ("idempotency_key", idempotency_key, 512),
+        ("resource_id", resource_id, 512),
+        ("action_type", action_type, 160),
+    ):
+        if len(value) > maximum:
+            raise ValueError(f"cross-vertical candidate {name} exceeds its bound")
+    try:
+        observed = datetime.fromisoformat(observed_at.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("cross-vertical candidate observed_at is invalid") from exc
+    if observed.tzinfo is None or observed.utcoffset() is None:
+        raise ValueError("cross-vertical candidate observed_at MUST include timezone")
 
     evidence = domain_option_evidence(
         [

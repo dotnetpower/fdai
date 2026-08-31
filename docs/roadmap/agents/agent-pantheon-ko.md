@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 4f281e2c3a13d872e74bd35c77c73461f5135ee8
+translation_source_sha: 4f2eec7301248ef7602ed57f1fd486e8da275707
 translation_revised: 2026-08-31
 ---
 # 에이전트 판테온
@@ -85,6 +85,8 @@ Forseti가 중재를 제기한 뒤에는 같은 이벤트에 일반 판단을 �
 리소스와 기준 시점에 대해 소유자가 인증된 버티컬별 후보를 하나씩 결합합니다. Odin은 각
 후보의 `win`, `defer`, `hil` 처리 결과를 포함한 결정을 하나만 게시하고 Saga가 이를
 감사하며, 승리한 판정을 `ActionRun`으로 전환할 수 있는 에이전트는 Thor뿐입니다.
+후보의 상관관계, 멱등성, 리소스 및 ActionType 식별자는 유입 경계에서 제한하며 공유 관측
+기준 시점에는 시간대가 포함되어야 합니다.
 
 ### 3.2 발견 루프 학습기 (Norns)
 
