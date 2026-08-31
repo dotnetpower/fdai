@@ -474,6 +474,20 @@ export interface IncidentCandidate {
 
 export type PresentationTone = "neutral" | "positive" | "attention" | "warning";
 export type PresentationEmphasis = "primary" | "secondary" | "supporting";
+export type PresentationLayout = "stack" | "operational_brief" | "markdown_document";
+export type PresentationAssemblyInputKind =
+  | "incident_projection"
+  | "operator_locale"
+  | "presentation_context"
+  | "verified_semantic_result";
+
+export interface PresentationAssembly {
+  readonly mode: "dynamic";
+  readonly label: string;
+  readonly sectionCount: number;
+  readonly inputKinds: readonly PresentationAssemblyInputKind[];
+  readonly digest: string;
+}
 
 export interface PresentationSummaryItem {
   readonly label: string;
@@ -615,10 +629,11 @@ export type PresentationBlock =
     };
 
 export interface PresentationArtifact {
-  readonly schemaVersion: 1 | 2;
-  readonly layout: "stack";
+  readonly schemaVersion: 1 | 2 | 3;
+  readonly layout: PresentationLayout;
   readonly blocks: readonly PresentationBlock[];
   readonly evidenceRefs: readonly string[];
+  readonly assembly?: PresentationAssembly;
 }
 
 export type ProgressiveAnswer = Answer & {

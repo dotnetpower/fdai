@@ -1,12 +1,15 @@
 import type {
   AnswerVerification,
   PresentationArtifact,
+  PresentationAssembly,
+  PresentationAssemblyInputKind,
   PresentationBlock,
   PresentationChartItem,
   PresentationColumn,
   PresentationEmphasis,
   PresentationTableData,
   PresentationSummaryItem,
+  PresentationLayout,
   PresentationTone,
 } from "./backend-types";
 
@@ -22,6 +25,18 @@ const COLUMN_KEY = /^[a-z][a-z0-9_]{0,63}$/;
 const EMPHASES = new Set<PresentationEmphasis>(["primary", "secondary", "supporting"]);
 const TONES = new Set<PresentationTone>(["neutral", "positive", "attention", "warning"]);
 const COMPARISON_ROLES = new Set(["baseline", "current", "target", "before", "after"]);
+const LAYOUTS = new Set<PresentationLayout>([
+  "stack",
+  "operational_brief",
+  "markdown_document",
+]);
+const ASSEMBLY_INPUT_KINDS: readonly PresentationAssemblyInputKind[] = [
+  "verified_semantic_result",
+  "presentation_context",
+  "incident_projection",
+  "operator_locale",
+];
+const ASSEMBLY_DIGEST = /^sha256:[0-9a-f]{64}$/;
 const RFC3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
 const SLOT_KINDS: Readonly<Record<string, ReadonlySet<PresentationBlock["kind"]>>> = {
   overview: new Set(["summary"]),
@@ -49,15 +64,27 @@ export function parsePresentationArtifact(
   raw: unknown,
   verification: AnswerVerification | undefined,
 ): PresentationArtifact | undefined {
-  if (!verification || !isRecord(raw) || !hasExactKeys(
-    raw,
-    ["schema_version", "layout", "blocks", "evidence_refs"],
-  )) return undefined;
-  if ((raw.schema_version !== 1 && raw.schema_version !== 2) || raw.layout !== "stack" ||
+  if (!verification || !isRecord(raw)) return undefined;
+  const schemaVersion = raw.schema_version;
+  if (
+    (schemaVersion !== 1 && schemaVersion !== 2 && schemaVersion !== 3) ||
+    !hasExactKeys(
+      raw,
+      schemaVersion === 3
+        ? ["schema_version", "layout", "blocks", "evidence_refs", "assembly"]
+        : ["schema_version", "layout", "blocks", "evidence_refs"],
+    ) ||
+    typeof raw.layout !== "string" ||
+    !LAYOUTS.has(raw.layout as PresentationLayout) ||
+    (schemaVersion !== 3 && raw.layout !== "stack") ||
       !Array.isArray(raw.blocks) || raw.blocks.length === 0 || raw.blocks.length > MAX_BLOCKS) {
     return undefined;
   }
-  const schemaVersion = raw.schema_version;
+  const layout = raw.layout as PresentationLayout;
+  const assembly = schemaVersion === 3
+    ? parseAssembly(raw.assembly, raw.blocks.length)
+    : undefined;
+  if (schemaVersion === 3 && !assembly) return undefined;
   const verificationRefs = new Set(verification.evidence_refs);
   const evidenceRefs = parseRefs(raw.evidence_refs, verificationRefs);
   if (!evidenceRefs) return undefined;
@@ -69,7 +96,13 @@ export function parsePresentationArtifact(
     slots.add(block.slotId);
     blocks.push(block);
   }
-  return { schemaVersion, layout: "stack", blocks, evidenceRefs };
+  return {
+    schemaVersion,
+    layout,
+    blocks,
+    evidenceRefs,
+    ...(assembly ? { assembly } : {}),
+  };
 }
 
 /**
@@ -93,6 +126,15 @@ export function presentationArtifactToWire(artifact: PresentationArtifact): Reco
       evidence_refs: [...block.evidenceRefs],
       data: blockDataToWire(block),
     })),
+    ...(artifact.assembly ? {
+      assembly: {
+        mode: artifact.assembly.mode,
+        label: artifact.assembly.label,
+        section_count: artifact.assembly.sectionCount,
+        input_kinds: [...artifact.assembly.inputKinds],
+        digest: artifact.assembly.digest,
+      },
+    } : {}),
   };
 }
 
@@ -123,13 +165,22 @@ export function parsePersistedPresentationArtifact(
     layout: raw.layout,
     blocks,
     evidence_refs: raw.evidenceRefs,
+    ...(raw.assembly && isRecord(raw.assembly) ? {
+      assembly: {
+        mode: raw.assembly.mode,
+        label: raw.assembly.label,
+        section_count: raw.assembly.sectionCount,
+        input_kinds: raw.assembly.inputKinds,
+        digest: raw.assembly.digest,
+      },
+    } : {}),
   }, verification);
 }
 
 function parseBlock(
   raw: unknown,
   artifactRefs: ReadonlySet<string>,
-  schemaVersion: 1 | 2,
+  schemaVersion: 1 | 2 | 3,
 ): PresentationBlock | null {
   if (!isRecord(raw) || !hasExactKeys(
     raw,
@@ -185,23 +236,23 @@ function parseBlock(
     return data ? { ...base, kind: "coverage", data } : null;
   }
   if (raw.kind === "time_series") {
-    const data = schemaVersion === 2 ? parseTimeSeries(raw.data) : null;
+    const data = schemaVersion >= 2 ? parseTimeSeries(raw.data) : null;
     return data ? { ...base, kind: "time_series", data } : null;
   }
   if (raw.kind === "comparison") {
-    const data = schemaVersion === 2 ? parseComparison(raw.data) : null;
+    const data = schemaVersion >= 2 ? parseComparison(raw.data) : null;
     return data ? { ...base, kind: "comparison", data } : null;
   }
   if (raw.kind === "timeline") {
-    const data = schemaVersion === 2 ? parseTimeline(raw.data) : null;
+    const data = schemaVersion >= 2 ? parseTimeline(raw.data) : null;
     return data ? { ...base, kind: "timeline", data } : null;
   }
   if (raw.kind === "scatter") {
-    const data = schemaVersion === 2 ? parseScatter(raw.data) : null;
+    const data = schemaVersion >= 2 ? parseScatter(raw.data) : null;
     return data ? { ...base, kind: "scatter", data } : null;
   }
   if (raw.kind === "heatmap") {
-    const data = schemaVersion === 2 ? parseHeatmap(raw.data) : null;
+    const data = schemaVersion >= 2 ? parseHeatmap(raw.data) : null;
     return data ? { ...base, kind: "heatmap", data } : null;
   }
   if (raw.kind === "evidence") {
@@ -209,6 +260,46 @@ function parseBlock(
     return items ? { ...base, kind: "evidence", data: { items } } : null;
   }
   return null;
+}
+
+function parseAssembly(raw: unknown, blockCount: number): PresentationAssembly | null {
+  if (!isRecord(raw) || !hasExactKeys(
+    raw,
+    ["mode", "label", "section_count", "input_kinds", "digest"],
+  )) return null;
+  const label = text(raw.label, 128);
+  const digest = typeof raw.digest === "string" && ASSEMBLY_DIGEST.test(raw.digest)
+    ? raw.digest
+    : null;
+  if (
+    raw.mode !== "dynamic" ||
+    !label ||
+    raw.section_count !== blockCount ||
+    !Array.isArray(raw.input_kinds) ||
+    raw.input_kinds.length === 0 ||
+    raw.input_kinds.length > ASSEMBLY_INPUT_KINDS.length ||
+    !digest
+  ) return null;
+  const inputKinds: PresentationAssemblyInputKind[] = [];
+  let previousPosition = -1;
+  for (const value of raw.input_kinds) {
+    const position = typeof value === "string"
+      ? ASSEMBLY_INPUT_KINDS.indexOf(value as PresentationAssemblyInputKind)
+      : -1;
+    if (
+      position <= previousPosition ||
+      inputKinds.includes(value as PresentationAssemblyInputKind)
+    ) return null;
+    inputKinds.push(value as PresentationAssemblyInputKind);
+    previousPosition = position;
+  }
+  return {
+    mode: "dynamic",
+    label,
+    sectionCount: blockCount,
+    inputKinds,
+    digest,
+  };
 }
 
 function parseSummaryItems(data: Record<string, unknown>): PresentationSummaryItem[] | null {

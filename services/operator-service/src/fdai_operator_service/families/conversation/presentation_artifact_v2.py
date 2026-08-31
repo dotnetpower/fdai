@@ -11,6 +11,10 @@ from collections.abc import Mapping
 from typing import cast
 
 from fdai_operator_service.families.conversation.contracts import JsonObject
+from fdai_operator_service.families.conversation.presentation_artifact_v3 import (
+    PresentationLayout,
+    assemble_presentation_artifact_v3,
+)
 from fdai_operator_service.families.conversation.presentation_planner import (
     EvidenceShape,
     PresentationIntent,
@@ -145,14 +149,16 @@ def compile_presentation_artifact_v2(
         )
         if blocks is None:
             return None
-        return cast(
-            JsonObject,
-            {
-                "schema_version": 2,
-                "layout": "stack",
-                "evidence_refs": evidence_refs[:_MAX_REFS],
-                "blocks": blocks,
-            },
+        return assemble_presentation_artifact_v3(
+            layout="operational_brief",
+            blocks=blocks,
+            evidence_refs=cast(list[str], evidence_refs[:_MAX_REFS]),
+            locale=locale,
+            input_kinds=(
+                "verified_semantic_result",
+                "presentation_context",
+                "operator_locale",
+            ),
         )
     if output_shape == "target_health_assessment":
         blocks = _health_blocks(
@@ -163,14 +169,16 @@ def compile_presentation_artifact_v2(
         )
         if blocks is None:
             return None
-        return cast(
-            JsonObject,
-            {
-                "schema_version": 2,
-                "layout": "stack",
-                "evidence_refs": evidence_refs[:_MAX_REFS],
-                "blocks": blocks,
-            },
+        return assemble_presentation_artifact_v3(
+            layout="operational_brief",
+            blocks=blocks,
+            evidence_refs=cast(list[str], evidence_refs[:_MAX_REFS]),
+            locale=locale,
+            input_kinds=(
+                "verified_semantic_result",
+                "presentation_context",
+                "operator_locale",
+            ),
         )
     shape = analyze_evidence_shape(
         output,
@@ -221,15 +229,34 @@ def compile_presentation_artifact_v2(
     limitation = _limitation_block(output, shape=shape, locale=locale, evidence_refs=evidence_refs)
     if limitation is not None and block["slot_id"] != "limitations":
         blocks.append(limitation)
-    return cast(
-        JsonObject,
-        {
-            "schema_version": 2,
-            "layout": "stack",
-            "evidence_refs": evidence_refs[:_MAX_REFS],
-            "blocks": blocks,
-        },
+    layout = _layout_for_output_shape(cast(str, output_shape))
+    if layout is None:
+        return cast(
+            JsonObject,
+            {
+                "schema_version": 2,
+                "layout": "stack",
+                "evidence_refs": evidence_refs[:_MAX_REFS],
+                "blocks": blocks,
+            },
+        )
+    return assemble_presentation_artifact_v3(
+        layout=layout,
+        blocks=blocks,
+        evidence_refs=cast(list[str], evidence_refs[:_MAX_REFS]),
+        locale=locale,
+        input_kinds=(
+            "verified_semantic_result",
+            "presentation_context",
+            "operator_locale",
+        ),
     )
+
+
+def _layout_for_output_shape(output_shape: str) -> PresentationLayout | None:
+    if output_shape in {"ontology_manifest", "ontology_relationships"}:
+        return "markdown_document"
+    return None
 
 
 def _target_candidates_overview(

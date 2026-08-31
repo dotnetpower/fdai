@@ -30,6 +30,10 @@ The edge accepts only provider-authenticated requests, replaces vendor identity 
 FDAI principal, and claims the provider message in the Operator-owned inbound ledger. It submits a
 typed semantic request through `SemanticTurnBridge.append()`, waits for the principal-scoped
 terminal projection through `SemanticTurnBridge.open()`, and compiles one presentation artifact.
+A schema-v3 artifact may carry a server-selected operational brief or Markdown document layout plus
+bounded dynamic-assembly metadata. The edge validates the complete SHA-256-bound render surface,
+reduces it to the provider's existing channel-neutral sections, and degrades modified or unsupported
+artifacts to canonical text. Schema v1 and v2 stack artifacts remain replay-compatible.
 A `direct_response` projection compiles validated model-authored text without evidence,
 verification, or artifact claims, so Slack and Teams preserve the same authority-free response as
 the Console instead of substituting a channel template.
@@ -152,7 +156,8 @@ Operator-local PostgreSQL adapters implement:
 
 Database grants keep the edge on those six channel tables only. It receives no audit append, ontology,
 policy, Action, executor, or managed-resource grant. Durable response JSON round-trips artifact
-version, facts, limitations, evidence references, activities, progress, and thread intent exactly.
+version, layout, assembly metadata, facts, limitations, evidence references, activities, progress,
+and thread intent exactly.
 
 ## Runtime lifecycle
 
@@ -235,7 +240,8 @@ focused regression and a new round rechecks the corrected boundary.
 7. Publisher fixed destinations, acknowledgement parsing, edit/thread fallback, and duplicate risk.
 8. Startup all-or-none composition, readiness, shutdown cancellation, task leaks, and dependency failure.
 9. Local/deployed parity, identity roles, public ingress, Key Vault references, probes, and rollback.
-10. Contract/version replay, v1/v2 artifact degradation, canonical fact parity, and no execution authority.
+10. Contract/version replay, v1/v2/v3 artifact degradation, assembly-integrity rejection, canonical
+    fact parity, and no execution authority.
 
 Continue beyond round ten while any verified Medium-or-higher finding remains. Final review records
 Low tradeoffs separately and never promotes unit or synthetic evidence to deployed validation.

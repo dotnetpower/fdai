@@ -49,6 +49,10 @@ test("terminal incident artifact matches the production seven-block contract", (
     "Limitations",
     "Next safe step",
   ]);
+  assert.match(html, /class="deck-presentation" data-layout="operational_brief" data-schema="3"/);
+  assert.match(html, /Dynamically assembled operational brief/);
+  assert.match(html, /verified_semantic_result/);
+  assert.match(html, /incident_projection/);
   assert.doesNotMatch(presentation, /ic-answer-section|ic-chart|Routing evidence/);
   assert.doesNotMatch(html, /aria-label="Preparing answer"/);
 });

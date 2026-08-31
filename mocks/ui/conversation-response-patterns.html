@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Conversation response patterns - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=response-patterns-v1" />
+  <link rel="stylesheet" href="assets/conversation-response-patterns.css?v=response-patterns-v1" />
+  <script src="assets/calm-slate.js?v=response-patterns-v1" defer></script>
+</head>
+<body class="crp-body">
+  <main class="crp-page">
+    <header class="crp-page-header">
+      <div>
+        <div class="cs-eyebrow">Command deck design study</div>
+        <h1>Operational response patterns</h1>
+        <p>Missing conversation patterns for ambiguity, evidence limits, governed recovery, and durable learning. Values are synthetic and no managed-resource action can run from this page.</p>
+      </div>
+      <div class="crp-page-meta" aria-label="Design status">
+        <span class="cs-tag is-steel">Desktop baseline</span>
+        <span class="cs-tag is-sage">Read-oriented</span>
+        <span class="cs-tag">9 additions</span>
+      </div>
+    </header>
+
+    <div class="crp-layout">
+      <nav class="crp-rail" aria-label="Response pattern sections">
+        <h2>Pattern set</h2>
+        <ol>
+          <li><a href="#investigation">Investigation disclosure</a></li>
+          <li><a href="#clarification">Target selection</a></li>
+          <li><a href="#evidence-posture">Evidence posture</a></li>
+          <li><a href="#proposal">Governed proposal</a></li>
+          <li><a href="#verification">Recovery verification</a></li>
+          <li><a href="#cancellation">Cancellation outcome</a></li>
+          <li><a href="#memory">Memory retention</a></li>
+          <li><a href="#structured-brief">Structured brief</a></li>
+          <li><a href="#markdown-document">Markdown document</a></li>
+        </ol>
+      </nav>
+
+      <div class="crp-main">
+        <section class="crp-intro" aria-labelledby="coverage-title">
+          <h2 id="coverage-title">Adoption boundary</h2>
+          <p>FDAI already has prose, lists, tables, charts, code, citations, source details, action drafts, and a run record. This study adds only the response states that were not represented clearly enough.</p>
+          <div class="crp-table-wrap">
+            <table class="crp-coverage">
+              <thead><tr><th scope="col">Observed response form</th><th scope="col">FDAI posture</th><th scope="col">Design decision</th></tr></thead>
+              <tbody>
+                <tr><td>Tables, charts, code, citations, and tool records</td><td><span class="crp-state is-positive">Covered</span></td><td>Keep the existing structured reply and run record.</td></tr>
+                <tr><td>Streaming internal narration and raw tool output</td><td><span class="crp-state">Reduced</span></td><td>Show bounded milestones and collapsed technical detail instead of a verbose thought stream.</td></tr>
+                <tr><td>Ambiguity, partial evidence, safety, recovery, cancellation, memory consent, concise operational briefs, and Markdown documents</td><td><span class="crp-state is-attention">Add</span></td><td>Use the nine patterns below.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="crp-decision" aria-labelledby="decision-title">
+          <header class="crp-pattern-head">
+            <span class="crp-pattern-index" aria-hidden="true">D</span>
+            <div><h2 id="decision-title">How the Console chooses a response pattern</h2><p>Natural language is interpreted once at the semantic boundary. Everything after that uses typed state and verified evidence shape, never browser keyword matching.</p></div>
+          </header>
+          <ol class="crp-decision-flow" aria-label="Response presentation decision flow">
+            <li><span>1</span><strong>Interpret</strong><small>Typed intent, target, scope, time, constraints, and requested format</small></li>
+            <li><span>2</span><strong>Gate</strong><small>Disposition, authority, approval posture, and evidence availability</small></li>
+            <li><span>3</span><strong>Shape</strong><small>Scalar, records, trend, comparison, chronology, correlation, or matrix</small></li>
+            <li><span>4</span><strong>Compose</strong><small>Smallest loss-bounded pattern plus exact-value fallback</small></li>
+            <li><span>5</span><strong>Validate</strong><small>Allowed slots, bounded rows, evidence refs, locale, and channel capability</small></li>
+          </ol>
+          <div class="crp-table-wrap">
+            <table class="crp-table crp-routing-table">
+              <thead><tr><th scope="col">Typed condition</th><th scope="col">Primary pattern</th><th scope="col">What the operator sees</th><th scope="col">Safe fallback</th></tr></thead>
+              <tbody>
+                <tr><td><code>clarification</code> with tied candidates</td><td>Target selection</td><td>Bounded options, distinguishing facts, custom response field</td><td>One direct clarification question</td></tr>
+                <tr><td><code>held</code>, incomplete, conflicting, or unavailable evidence</td><td>Evidence posture</td><td>Verified facts, unavailable evidence, and claims not made</td><td>Warning callout with evidence gap</td></tr>
+                <tr><td><code>action_draft</code></td><td>Governed proposal</td><td>Impact, seven safeguards, approval state, no execution control</td><td>Proposal text with submission disabled</td></tr>
+                <tr><td><code>cancelled</code></td><td>Cancellation outcome</td><td>Live work stopped, paused work cancelled, untouched scope, audit ref</td><td>Compact cancellation receipt</td></tr>
+                <tr><td><code>answered</code> with causal or multi-part operational result</td><td>Structured brief</td><td>Outcome-first sections with scope, evidence, limits, and next step</td><td>Canonical Markdown headings and lists</td></tr>
+                <tr><td><code>answered</code> with verified row shape</td><td>Table, chart, timeline, or matrix</td><td>Shape-appropriate visual with exact values</td><td>Exact table, then canonical text</td></tr>
+                <tr><td><code>direct_response</code></td><td>Compact prose</td><td>Greeting or self-introduction only, with no evidence claims</td><td>Canonical direct-response text</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="crp-decision-note"><strong>Precedence:</strong> safety state first, then evidence posture, then semantic data shape, then explicit format preference, then saved preference, and finally channel reduction. A preference can choose among valid forms but cannot upgrade missing evidence or remove required safety sections.</p>
+        </section>
+
+        <section class="crp-pattern" id="investigation" aria-labelledby="investigation-title">
+          <header class="crp-pattern-head">
+            <span class="crp-pattern-index" aria-hidden="true">1</span>
+            <div><h2 id="investigation-title">Bounded investigation disclosure</h2><p>Expose observable work, duration, authority, and blocked checks without streaming private reasoning or dumping raw output.</p></div>
+          </header>
+          <article class="crp-turn">
+            <header class="crp-turn-head"><span class="crp-agent-mark" aria-hidden="true">Br</span><strong>Bragi</strong><span>Investigation</span><time datetime="2026-08-24T02:14:35Z">02:14 UTC</time></header>
+            <div class="crp-surface">
+              <div class="crp-surface-head">
+                <div><h3>Observed work completed</h3><p>Four bounded events. Managed-resource authority was not requested.</p></div>
+                <span class="crp-state is-positive">Read-only</span>
+              </div>
+              <ol class="crp-activity-list" aria-label="Observed investigation events">
+                <li data-state="complete"><span class="crp-activity-mark" aria-hidden="true">&#10003;</span><span class="crp-activity-copy"><strong>Resolved the target</strong><small>One exact resource matched the typed scope.</small></span><span class="crp-activity-duration">0.4 s</span></li>
+                <li data-state="complete"><span class="crp-activity-mark" aria-hidden="true">&#10003;</span><span class="crp-activity-copy"><strong>Read authoritative state</strong><small>Configuration and health observations were recorded independently.</small></span><span class="crp-activity-duration">1.8 s</span></li>
+                <li data-state="complete"><span class="crp-activity-mark" aria-hidden="true">&#10003;</span><span class="crp-activity-copy"><strong>Compared two evidence branches</strong><small>Heimdall and Forseti agreed on the observed state.</small></span><span class="crp-activity-duration">2.1 s</span></li>
+                <li data-state="blocked"><span class="crp-activity-mark" aria-hidden="true">!</span><span class="crp-activity-copy"><strong>Application log check blocked</strong><small>The current observer identity lacks the required read permission. No fallback was treated as equivalent.</small></span><span class="crp-activity-duration">Blocked</span></li>
+              </ol>
+              <details class="crp-tool">
+                <summary><strong>Diagnostic read</strong><span class="crp-state is-positive">Safe</span><span class="crp-state">Completed</span></summary>
+                <div class="crp-tool-body"><p><code>resource.health.read</code> returned one current observation. Exact identifiers and provider payloads remain in the run record.</p></div>
+              </details>
+              <details class="crp-tool">
+                <summary><strong>Application log read</strong><span class="crp-state">Read-only</span><span class="crp-state is-blocked">Authorization required</span></summary>
+                <div class="crp-tool-body"><p>Needed: log-reader permission on the selected target. The answer must preserve this as unavailable evidence.</p></div>
+              </details>
+            </div>
+          </article>
+        </section>
+
+        <section class="crp-pattern" id="clarification" aria-labelledby="clarification-title">
+          <header class="crp-pattern-head">
+            <span class="crp-pattern-index" aria-hidden="true">2</span>
+            <div><h2 id="clarification-title">Target selection before work</h2><p>When candidates are equally strong, stop before investigation or action and ask for the minimum disambiguating input.</p></div>
+          </header>
+          <article class="crp-turn">
+            <header class="crp-turn-head"><span class="crp-agent-mark" aria-hidden="true">Br</span><strong>Bragi</strong><span>Needs input</span></header>
+            <div class="crp-surface">
+              <div class="crp-surface-head">
+                <div><h3>Select the database to assess</h3><p>Three equally strong matches remain in the requested scope. No action or deeper query has run.</p></div>
+                <span class="crp-state is-attention">No action taken</span>
+              </div>
+              <ol class="crp-choice-list" aria-label="Database choices">
+                <li><button class="crp-choice" type="button"><span class="crp-choice-number">1</span><span><strong>orders-primary</strong><small>PostgreSQL flexible server. Production. Region A.</small></span></button></li>
+                <li><button class="crp-choice" type="button"><span class="crp-choice-number">2</span><span><strong>orders-reporting</strong><small>PostgreSQL flexible server. Production. Region A.</small></span></button></li>
+                <li><button class="crp-choice" type="button"><span class="crp-choice-number">3</span><span><strong>orders-recovery</strong><small>PostgreSQL flexible server. Recovery environment. Region B.</small></span></button></li>
+              </ol>
+              <div class="crp-custom-response">
+                <textarea aria-label="Enter another resource name or full resource ID" placeholder="Enter another resource name or full resource ID"></textarea>
+                <button class="crp-button" type="button" disabled>Continue</button>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <section class="crp-pattern" id="evidence-posture" aria-labelledby="evidence-posture-title">
+          <header class="crp-pattern-head">
+            <span class="crp-pattern-index" aria-hidden="true">3</span>
+            <div><h2 id="evidence-posture-title">Evidence posture before the conclusion</h2><p>Keep observed facts, unavailable evidence, and conclusions that must not be claimed visually distinct.</p></div>
+          </header>
+          <article class="crp-turn">
+            <header class="crp-turn-head"><span class="crp-agent-mark" aria-hidden="true">Br</span><strong>Bragi</strong><span>Evidence-qualified answer</span></header>
+            <div class="crp-surface">
+              <div class="crp-surface-head">
+                <div><h3>Request errors cannot be determined</h3><p>Control-plane activity is current, but request telemetry is missing for the same window.</p></div>
+                <span class="crp-state is-attention">Partially verified</span>
+              </div>
+              <dl class="crp-freshness">
+                <div><dt>Evidence window</dt><dd>02:00-02:30 UTC</dd></div>
+                <div><dt>Fresh through</dt><dd>02:30 UTC</dd></div>
+                <div><dt>Target scope</dt><dd>example-api</dd></div>
+                <div><dt>Confidence</dt><dd>Moderate</dd></div>
+              </dl>
+              <div class="crp-fact-grid">
+                <section class="crp-fact-group" data-state="verified"><h4>Verified facts</h4><ul class="crp-fact-list"><li>No target configuration event was recorded in the window.</li><li>Two declared dependencies also had no recorded control-plane change.</li></ul></section>
+                <section class="crp-fact-group" data-state="unavailable"><h4>Unavailable evidence</h4><ul class="crp-fact-list"><li>Request and retry series returned no usable points.</li><li>Application logs were not authorized for this observer.</li></ul></section>
+                <section class="crp-fact-group" data-state="not-claimed"><h4>Not claimed</h4><ul class="crp-fact-list"><li>Missing telemetry is not treated as zero errors.</li><li>Temporal proximity is not treated as causation.</li></ul></section>
+              </div>
+              <p class="crp-citations">Grounded references: <code>evidence:health-204</code><code>audit:change-118</code>. Missing source: <code>telemetry:requests</code>.</p>
+            </div>
+          </article>
+        </section>
+
+        <section class="crp-pattern" id="proposal" aria-labelledby="proposal-title">
+          <header class="crp-pattern-head">
+            <span class="crp-pattern-index" aria-hidden="true">4</span>
+            <div><h2 id="proposal-title">Governed recovery proposal</h2><p>Show the complete safety case before a typed request can enter the approval pipeline. The Console never executes the change itself.</p></div>
+          </header>
+          <article class="crp-turn">
+            <header class="crp-turn-head"><span class="crp-agent-mark" aria-hidden="true">Fo</span><strong>Forseti</strong><span>Proposed recovery</span></header>
+            <div class="crp-surface">
+              <div class="crp-surface-head">
+                <div><h3>Restart the unhealthy revision after database recovery</h3><p>Proposal only. Current evidence does not authorize execution.</p></div>
+                <span class="crp-state is-attention">Human approval required</span>
+              </div>
+              <dl class="crp-proposal-summary">
+                <div><dt>Target</dt><dd><code>example-api / revision-42</code></dd></div>
+                <div><dt>Expected effect</dt><dd>Recreate one unhealthy replica without deploying a new revision.</dd></div>
+                <div><dt>Impact scope</dt><dd>One revision, one replica, one region.</dd></div>
+              </dl>
+              <div class="crp-safeguards">
+                <ul class="crp-check-list" aria-label="Required safety controls, first group">
+                  <li data-state="ready"><span class="crp-check" aria-hidden="true">&#10003;</span><span><strong>Stop condition</strong><br />Stop if readiness is not restored in 5 minutes.</span><span class="crp-check-state">Ready</span></li>
+                  <li data-state="ready"><span class="crp-check" aria-hidden="true">&#10003;</span><span><strong>Tested rollback</strong><br />Return traffic to the last ready revision.</span><span class="crp-check-state">Ready</span></li>
+                  <li data-state="ready"><span class="crp-check" aria-hidden="true">&#10003;</span><span><strong>Impact limit</strong><br />One logical target and one replica.</span><span class="crp-check-state">Ready</span></li>
+                  <li data-state="ready"><span class="crp-check" aria-hidden="true">&#10003;</span><span><strong>Dry run</strong><br />Target, revision, and current traffic state matched.</span><span class="crp-check-state">Ready</span></li>
+                </ul>
+                <ul class="crp-check-list" aria-label="Required safety controls, second group">
+                  <li data-state="ready"><span class="crp-check" aria-hidden="true">&#10003;</span><span><strong>Logical-target lock</strong><br /><code>lock:example-api:revision-42</code></span><span class="crp-check-state">Ready</span></li>
+                  <li data-state="ready"><span class="crp-check" aria-hidden="true">&#10003;</span><span><strong>Stable retry key</strong><br /><code>idem:recovery-017</code></span><span class="crp-check-state">Ready</span></li>
+                  <li data-state="missing"><span class="crp-check" aria-hidden="true">!</span><span><strong>Two-phase audit</strong><br />Intent is recorded. Completion receipt is not yet possible.</span><span class="crp-check-state">Missing</span></li>
+                </ul>
+              </div>
+              <div class="crp-actions">
+                <button class="crp-button is-primary" type="button" disabled>Submit for human review</button>
+                <button class="crp-button" type="button">Do not proceed</button>
+                <p>The submit control remains unavailable until all seven safeguards are ready. Approval and execution use distinct principals.</p>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <section class="crp-pattern" id="verification" aria-labelledby="verification-title">
+          <header class="crp-pattern-head">
+            <span class="crp-pattern-index" aria-hidden="true">5</span>
+            <div><h2 id="verification-title">Recovery verification as a graded outcome</h2><p>Separate platform recovery from end-user recovery and state exactly what remains unverified.</p></div>
+          </header>
+          <article class="crp-turn">
+            <header class="crp-turn-head"><span class="crp-agent-mark" aria-hidden="true">Sa</span><strong>Saga</strong><span>Effect verification</span></header>
+            <div class="crp-surface">
+              <div class="crp-surface-head">
+                <div><h3>Platform recovered. User-path recovery remains unverified.</h3><p>The expected infrastructure effect was observed independently. There was no live traffic in the observation window.</p></div>
+                <span class="crp-state is-attention">Partial</span>
+              </div>
+              <div class="crp-result-grid">
+                <section class="crp-result-group"><h4>Verified</h4><p>Provisioning succeeded, the replica is ready, and the health endpoint is reachable.</p></section>
+                <section class="crp-result-group"><h4>Not yet verified</h4><p>No requests were observed, so success rate and latency under user traffic cannot be confirmed.</p></section>
+              </div>
+              <div class="crp-actions">
+                <button class="crp-button" type="button">Open evidence window</button>
+                <button class="crp-button" type="button">Prepare synthetic check request</button>
+                <p>An API success or dispatch receipt never counts as operational recovery by itself.</p>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <section class="crp-pattern" id="cancellation" aria-labelledby="cancellation-title">
+          <header class="crp-pattern-head">
+            <span class="crp-pattern-index" aria-hidden="true">6</span>
+            <div><h2 id="cancellation-title">Cancellation with stopped-scope evidence</h2><p>Confirm whether live work actually stopped, distinguish paused work, and preserve the final audit state.</p></div>
+          </header>
+          <article class="crp-turn">
+            <header class="crp-turn-head"><span class="crp-agent-mark" aria-hidden="true">Sa</span><strong>Saga</strong><span>Cancellation receipt</span></header>
+            <div class="crp-surface">
+              <div class="crp-surface-head">
+                <div><h3>No active query was interrupted</h3><p>The only resumable investigation was cancelled so it cannot restart later.</p></div>
+                <span class="crp-state is-positive">Cancellation recorded</span>
+              </div>
+              <div class="crp-table-wrap">
+                <table class="crp-table">
+                  <thead><tr><th scope="col">Work item</th><th scope="col">Before</th><th scope="col">After</th><th scope="col">Stopped scope</th><th scope="col">Audit ref</th></tr></thead>
+                  <tbody><tr><td>Weekly drift review</td><td>Paused</td><td>Canceled</td><td>Future resume only. No live process was terminated.</td><td><code>audit:cancel-042</code></td></tr></tbody>
+                </table>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <section class="crp-pattern" id="memory" aria-labelledby="memory-title">
+          <header class="crp-pattern-head">
+            <span class="crp-pattern-index" aria-hidden="true">7</span>
+            <div><h2 id="memory-title">Durable learning with consent and provenance</h2><p>Preview what would be retained, why it is reusable, where it came from, and who can review it before saving.</p></div>
+          </header>
+          <article class="crp-turn">
+            <header class="crp-turn-head"><span class="crp-agent-mark" aria-hidden="true">Mu</span><strong>Muninn</strong><span>Retention proposal</span></header>
+            <div class="crp-surface">
+              <div class="crp-surface-head">
+                <div><h3>Review the reusable lesson before retention</h3><p>Raw logs, secrets, temporary state, and unverified claims are excluded.</p></div>
+                <span class="crp-state is-attention">Consent required</span>
+              </div>
+              <dl class="crp-memory-preview">
+                <div><dt>Symptom</dt><dd>Readiness failed while a shared database was saturated.</dd></div>
+                <div><dt>Verified cause</dt><dd>Connection checks timed out during sustained database CPU pressure.</dd></div>
+                <div><dt>Reuse condition</dt><dd>Only when the same dependency edge and timeout signature are observed.</dd></div>
+                <div><dt>Provenance</dt><dd><code>incident:example-017</code>, <code>evidence:db-218</code>, observed 02:18 UTC.</dd></div>
+                <div><dt>Retention scope</dt><dd>This FDAI deployment. Operator-readable. No cross-customer sharing.</dd></div>
+                <div><dt>Expiry review</dt><dd>Review after 90 days or when the dependency topology changes.</dd></div>
+              </dl>
+              <div class="crp-actions">
+                <button class="crp-button is-primary" type="button">Review retention request</button>
+                <button class="crp-button" type="button">Discard</button>
+                <p>Retention is a governed request. The Console does not write durable memory directly.</p>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <section class="crp-pattern" id="structured-brief" aria-labelledby="structured-brief-title">
+          <header class="crp-pattern-head">
+            <span class="crp-pattern-index" aria-hidden="true">8</span>
+            <div><h2 id="structured-brief-title">Structured operational brief</h2><p>A system-prompt-like reading structure for complex answers. It presents a clean contract to the operator without revealing internal instructions or private reasoning.</p></div>
+          </header>
+          <article class="crp-turn">
+            <header class="crp-turn-head"><span class="crp-agent-mark" aria-hidden="true">Br</span><strong>Bragi</strong><span>Operational brief</span></header>
+            <div class="crp-surface crp-brief">
+              <header class="crp-brief-head">
+                <div><span class="crp-brief-kicker">Operational assessment</span><h3>Database pressure is blocking application readiness</h3></div>
+                <span class="crp-state is-attention">High confidence</span>
+              </header>
+              <div class="crp-brief-grid">
+                <section class="crp-brief-section is-wide" aria-labelledby="brief-outcome">
+                  <span class="crp-brief-label">Outcome</span>
+                  <h4 id="brief-outcome">Hold rollout. Recover the shared database before restarting the current revision.</h4>
+                  <p>The new image is not isolated as the cause. The last ready revision shows the same dependency failure, so rollback alone is not expected to restore service.</p>
+                </section>
+                <section class="crp-brief-section" aria-labelledby="brief-scope">
+                  <span class="crp-brief-label">Scope</span>
+                  <h4 id="brief-scope">One application and one shared dependency</h4>
+                  <dl><div><dt>Target</dt><dd><code>example-api</code></dd></div><div><dt>Window</dt><dd>02:00-02:30 UTC</dd></div><div><dt>Authority</dt><dd>Read-only assessment</dd></div></dl>
+                </section>
+                <section class="crp-brief-section" aria-labelledby="brief-evidence">
+                  <span class="crp-brief-label">Verified evidence</span>
+                  <h4 id="brief-evidence">Three independent observations agree</h4>
+                  <ul><li>Database CPU remained above the operating threshold.</li><li>Connection checks timed out twice.</li><li>Application compute remained below saturation.</li></ul>
+                </section>
+                <section class="crp-brief-section" aria-labelledby="brief-limits">
+                  <span class="crp-brief-label">Limits</span>
+                  <h4 id="brief-limits">Query-level attribution is unavailable</h4>
+                  <p>Query diagnostics were not enabled in the evidence window. This answer does not name a slow query or assert that the deployment introduced the database load.</p>
+                </section>
+                <section class="crp-brief-section" aria-labelledby="brief-next">
+                  <span class="crp-brief-label">Next safe step</span>
+                  <h4 id="brief-next">Prepare a bounded database recovery proposal</h4>
+                  <ol><li>Freeze additional rollout activity.</li><li>Define impact, stop, rollback, lock, retry key, dry run, and audit controls.</li><li>Submit the typed proposal for human review.</li></ol>
+                </section>
+              </div>
+              <footer class="crp-brief-foot">
+                <span>Evidence 6/6 verified</span>
+                <span>2 limitations preserved</span>
+                <span>No managed-resource change</span>
+                <button class="crp-button" type="button">Show sources</button>
+              </footer>
+            </div>
+          </article>
+        </section>
+
+        <section class="crp-pattern" id="markdown-document" aria-labelledby="markdown-document-title">
+          <header class="crp-pattern-head">
+            <span class="crp-pattern-index" aria-hidden="true">9</span>
+            <div><h2 id="markdown-document-title">Markdown document</h2><p>A rendered Markdown response for long-form contracts, procedures, runbooks, and system-prompt-like operational guidance. The source view is synthetic and never exposes the runtime system prompt.</p></div>
+          </header>
+          <article class="crp-turn">
+            <header class="crp-turn-head"><span class="crp-agent-mark" aria-hidden="true">Br</span><strong>Bragi</strong><span>Markdown document</span></header>
+            <article class="ex-md-document">
+              <div class="ex-md-assembly" role="status"><strong>Dynamically assembled Markdown</strong><span>5 sections</span><span>4 governed inputs</span><code>assembly:7d4c2a1f</code></div>
+              <details class="ex-md-assembly-details"><summary>Show assembly inputs</summary><ul><li>Immutable response contract</li><li>Operator locale layer</li><li>Verified evidence projection</li><li>1 consented user-memory record</li></ul></details>
+              <h2>Application readiness investigation</h2>
+              <blockquote><strong>Status:</strong> Review required<br /><strong>Authority:</strong> Read-only<br /><strong>Evidence window:</strong> 10:15-10:45 UTC</blockquote>
+              <h3>Objective</h3>
+              <p>Determine why <code>example-api</code> is not becoming ready without changing a managed resource.</p>
+              <h3>Verified findings</h3>
+              <ul><li>Database CPU remained above threshold.</li><li>Connection checks timed out twice.</li><li>Application compute remained below saturation.</li></ul>
+              <h3>Limits</h3>
+              <ul><li>Query-level diagnostics were unavailable.</li><li>No individual query or deployment is claimed as the cause.</li></ul>
+              <h3>Response procedure</h3>
+              <ol><li>Freeze additional rollout activity.</li><li>Complete all seven safeguards.</li><li>Submit the typed request for human review.</li></ol>
+              <details class="ex-md-source"><summary>View Markdown source</summary><pre><code># Application readiness investigation
+
+&gt; **Status:** Review required
+&gt; **Authority:** Read-only
+
+## Objective
+Determine why `example-api` is not becoming ready.
+
+## Verified findings
+- Database CPU remained above threshold.
+- Connection checks timed out twice.</code></pre></details>
+            </article>
+          </article>
+        </section>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

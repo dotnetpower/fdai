@@ -1,8 +1,8 @@
 ---
 title: 운영 A3 채널 런타임
 translation_of: production-a3-channel-runtime.md
-translation_source_sha: 6f8a70f3066638a65d7c04865ecb68b53d2615eb
-translation_revised: 2026-08-31
+translation_source_sha: cbfbefe39425f0ae196759e6dba92a98557d9e07
+translation_revised: 2026-09-01
 ---
 # 운영 A3 채널 런타임
 
@@ -32,8 +32,13 @@ Edge는 프로바이더가 인증한 요청만 수락하고 벤더 신원을 구
 Operator가 소유한 inbound ledger에서 프로바이더 메시지를 claim합니다. Edge는
 `SemanticTurnBridge.append()`를 통해 typed semantic request를 제출하고
 `SemanticTurnBridge.open()`을 통해 principal 범위의 terminal projection을 기다린 뒤 하나의
-presentation artifact를 compile합니다. Operator가 소유한 영속 전달은 순수 프로바이더 publisher가
-전송하기 전에 이 artifact를 저장합니다. 시작 과정은 모든 필수 의존성을 해석하고 불확실한 전송을
+presentation artifact를 compile합니다. 스키마 v3 산출물은 서버가 선택한 운영 브리프 또는
+Markdown 문서 배치와 범위가 제한된 동적 조립
+메타데이터를 포함할 수 있습니다. Edge는 SHA-256으로 바인딩된 전체 렌더링 표면을 검증하고
+프로바이더의 기존 채널 중립 섹션으로 축소합니다. 변경되거나 지원하지 않는 산출물은 정본
+텍스트로 대체합니다. 스키마 v1 및 v2 stack 산출물은 재생 호환성을 유지합니다.
+Operator가 소유한 영속 전달은 순수 프로바이더 publisher가 전송하기 전에 이 artifact를 저장합니다.
+시작 과정은 모든 필수 의존성을 해석하고 불확실한 전송을
 조정한 뒤에만 Starlette가 트래픽을 받게 합니다.
 `direct_response` projection은 근거, 검증 또는 artifact 주장 없이 검증된 모델 작성 텍스트를
 compile하므로 Slack과 Teams는 채널 템플릿으로 대체하지 않고 Console과 동일하게 권한 없는
@@ -155,7 +160,8 @@ Operator-local PostgreSQL adapter는 다음을 구현합니다.
 
 Database grant는 edge를 해당 channel table 6개로만 제한합니다. Audit append, ontology, policy,
 Action, executor 또는 managed-resource grant를 받지 않습니다. 영속 response JSON은 artifact version,
-fact, limitation, evidence reference, activity, progress 및 thread intent를 정확히 round-trip합니다.
+배치, 조립 메타데이터, fact, limitation, evidence reference, activity, progress 및 thread intent를
+정확히 round-trip합니다.
 
 ## 런타임 수명 주기
 
@@ -235,7 +241,8 @@ route가 자동 복구 뒤에 남지 않습니다.
 7. Publisher fixed destination, acknowledgement parsing, edit/thread 대체 경로 및 duplicate risk
 8. Startup all-or-none 조립, readiness, 종료 취소, task leak 및 dependency failure
 9. 로컬/배포 parity, identity role, public ingress, Key Vault reference, probe 및 rollback
-10. Contract/version replay, v1/v2 artifact degradation, 정본 fact parity 및 실행 권한 부재
+10. Contract/version replay, v1/v2/v3 artifact degradation, 조립 무결성 거부, 정본 fact parity 및
+    실행 권한 부재
 
 검증된 Medium 이상 finding이 남아 있으면 round 10 이후에도 계속합니다. 최종 검토는 Low tradeoff를
 별도로 기록하고 unit 또는 synthetic 근거를 배포 검증으로 승격하지 않습니다.

@@ -11,6 +11,9 @@ from fdai_operator_service.families.conversation.contracts import JsonObject
 from fdai_operator_service.families.conversation.presentation_artifact_v2 import (
     compile_presentation_artifact_v2,
 )
+from fdai_operator_service.families.conversation.presentation_artifact_v3 import (
+    assemble_presentation_artifact_v3,
+)
 from fdai_operator_service.families.conversation.presentation_rows import (
     ordered_columns as _ordered_columns,
 )
@@ -763,60 +766,63 @@ def semantic_presentation_artifact(
             limitations.append(
                 "기록된 근거 공백이 없습니다." if korean else "No recorded evidence gaps."
             )
-        return cast(
-            JsonObject,
+        blocks = [
             {
-                "schema_version": 1,
-                "layout": "stack",
+                "slot_id": "overview",
+                "kind": "summary",
+                "title": "검증된 인시던트 근거" if korean else "Verified incident evidence",
+                "emphasis": "primary",
+                "collapsed": False,
                 "evidence_refs": bounded_refs,
-                "blocks": [
-                    {
-                        "slot_id": "overview",
-                        "kind": "summary",
-                        "title": "검증된 인시던트 근거" if korean else "Verified incident evidence",
-                        "emphasis": "primary",
-                        "collapsed": False,
-                        "evidence_refs": bounded_refs,
-                        "data": {"items": overview_items},
-                    },
-                    *([timeline_block] if timeline_block is not None else []),
-                    *([root_cause_block] if root_cause_block is not None else []),
-                    *([impact_block] if impact_block is not None else []),
-                    *([citations_block] if citations_block is not None else []),
-                    {
-                        "slot_id": "limitations",
-                        "kind": "callout",
-                        "title": "제한 사항" if korean else "Limitations",
-                        "emphasis": "supporting",
-                        "collapsed": False,
-                        "evidence_refs": bounded_refs,
-                        "data": {
-                            "tone": "neutral" if not gaps and current_contract else "warning",
-                            "lines": list(dict.fromkeys(limitations)),
-                        },
-                    },
-                    {
-                        "slot_id": "findings",
-                        "kind": "list",
-                        "title": "다음 안전 단계" if korean else "Next safe step",
-                        "emphasis": "secondary",
-                        "collapsed": False,
-                        "evidence_refs": bounded_refs,
-                        "data": {
-                            "columns": [
-                                {"key": "action", "label": "조치" if korean else "Action"},
-                                {"key": "authority", "label": "권한" if korean else "Authority"},
-                            ],
-                            "rows": _incident_next_step_rows(
-                                gaps,
-                                korean=korean,
-                                root_cause=root_cause,
-                            ),
-                            "status_key": None,
-                        },
-                    },
-                ],
+                "data": {"items": overview_items},
             },
+            *([timeline_block] if timeline_block is not None else []),
+            *([root_cause_block] if root_cause_block is not None else []),
+            *([impact_block] if impact_block is not None else []),
+            *([citations_block] if citations_block is not None else []),
+            {
+                "slot_id": "limitations",
+                "kind": "callout",
+                "title": "제한 사항" if korean else "Limitations",
+                "emphasis": "supporting",
+                "collapsed": False,
+                "evidence_refs": bounded_refs,
+                "data": {
+                    "tone": "neutral" if not gaps and current_contract else "warning",
+                    "lines": list(dict.fromkeys(limitations)),
+                },
+            },
+            {
+                "slot_id": "findings",
+                "kind": "list",
+                "title": "다음 안전 단계" if korean else "Next safe step",
+                "emphasis": "secondary",
+                "collapsed": False,
+                "evidence_refs": bounded_refs,
+                "data": {
+                    "columns": [
+                        {"key": "action", "label": "조치" if korean else "Action"},
+                        {"key": "authority", "label": "권한" if korean else "Authority"},
+                    ],
+                    "rows": _incident_next_step_rows(
+                        gaps,
+                        korean=korean,
+                        root_cause=root_cause,
+                    ),
+                    "status_key": None,
+                },
+            },
+        ]
+        return assemble_presentation_artifact_v3(
+            layout="operational_brief",
+            blocks=cast(list[JsonObject], blocks),
+            evidence_refs=bounded_refs,
+            locale=locale,
+            input_kinds=(
+                "verified_semantic_result",
+                "incident_projection",
+                "operator_locale",
+            ),
         )
     return cast(
         JsonObject,

@@ -137,7 +137,18 @@ correlation, or idempotency selector continues to require server-owned action li
   the established table, chart, list, or prose renderer.
 
   The server validates the plan, then compiles immutable evidence into a bounded
-  `presentation_artifact` v1. The compiler enforces compatible units and threshold directions for
+  `presentation_artifact`. Schema v1 and v2 artifacts keep the established `stack` layout for
+  replay compatibility. Schema v3 adds server-selected `operational_brief` and
+  `markdown_document` layouts only for verified typed output shapes. Target-health assessment,
+  error/change correlation, and incident evidence use the operational brief.
+  Ontology manifests and relationship documents use the Markdown document layout. Other outputs
+  keep the smallest loss-bounded stack, table, chart, timeline, comparison, correlation, or matrix
+  selected by the deterministic presentation planner.
+  Each v3 artifact carries bounded dynamic-assembly metadata: a localized label, exact section
+  count, allowlisted input categories, and a SHA-256 digest over the complete render-affecting
+  artifact. It never carries raw system prompts or operator-memory content. Console renders this
+  server decision without classifying answer prose, and a malformed or modified artifact falls
+  back to canonical Markdown text. The compiler enforces compatible units and threshold directions for
   charts, keeps partial or truncated coverage visible, and binds every block reference to the
   terminal verification receipt. A partial source never removes completed slots: the answer renders
   every available verified fact and marks only the missing portion as unknown or unavailable.

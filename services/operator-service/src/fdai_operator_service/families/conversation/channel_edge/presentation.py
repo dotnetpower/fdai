@@ -7,9 +7,12 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal
+from typing import Literal, cast
 
 from fdai_operator_service.families.conversation.contracts import JsonObject
+from fdai_operator_service.families.conversation.presentation_artifact_v3 import (
+    verify_presentation_artifact_v3,
+)
 
 MAX_PRESENTATION_FACTS = 256
 MAX_PRESENTATION_TEXT_CHARS = 16_000
@@ -107,7 +110,7 @@ class PresentationEnvelope:
     """Carry canonical facts and mandatory no-authority context."""
 
     canonical_text: str
-    artifact_version: Literal[1, 2] | None
+    artifact_version: Literal[1, 2, 3] | None
     sections: tuple[PresentationSection, ...]
     limitations: tuple[str, ...]
     evidence_refs: tuple[str, ...]
@@ -182,7 +185,7 @@ def normalize_terminal_presentation(
     )
     artifact = terminal.get("presentation_artifact")
     if artifact is None:
-        version: Literal[1, 2] | None = None
+        version: Literal[1, 2, 3] | None = None
         sections: tuple[PresentationSection, ...] = ()
         limitations: tuple[str, ...] = ()
         degraded = False
@@ -258,18 +261,29 @@ def _normalize_artifact(
     raw: object,
     *,
     response_refs: set[str],
-) -> tuple[Literal[1, 2], tuple[PresentationSection, ...], tuple[str, ...]]:
+) -> tuple[Literal[1, 2, 3], tuple[PresentationSection, ...], tuple[str, ...]]:
     artifact = _mapping(raw)
-    if set(artifact) != {"schema_version", "layout", "blocks", "evidence_refs"}:
-        raise ValueError("presentation artifact shape is invalid")
     raw_version = artifact.get("schema_version")
+    expected_keys = (
+        {"schema_version", "layout", "blocks", "evidence_refs", "assembly"}
+        if raw_version == 3
+        else {"schema_version", "layout", "blocks", "evidence_refs"}
+    )
+    if set(artifact) != expected_keys:
+        raise ValueError("presentation artifact shape is invalid")
     if (
         type(raw_version) is not int
-        or raw_version not in {1, 2}
-        or artifact.get("layout") != "stack"
+        or raw_version not in {1, 2, 3}
+        or (
+            artifact.get("layout") != "stack"
+            if raw_version in {1, 2}
+            else artifact.get("layout") not in {"operational_brief", "markdown_document"}
+        )
     ):
         raise ValueError("presentation artifact version is unsupported")
-    version: Literal[1, 2] = 1 if raw_version == 1 else 2
+    if raw_version == 3:
+        verify_presentation_artifact_v3(cast(Mapping[str, object], artifact))
+    version: Literal[1, 2, 3] = cast(Literal[1, 2, 3], raw_version)
     artifact_refs = _refs(artifact.get("evidence_refs"), response_refs)
     blocks = artifact.get("blocks")
     if not isinstance(blocks, list) or not 1 <= len(blocks) <= 8:

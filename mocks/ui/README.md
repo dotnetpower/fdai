@@ -98,6 +98,8 @@ Chat surfaces:
 |------|---------|
 | [deck.html](deck.html) | Command deck (chat) - transcript-first workspace with optional conversation history and current-screen context panels, visible Bragi-to-agent handoffs, grounded citations, observed read-command evidence, and evidence attachments |
 | [deck-sources.html](deck-sources.html) | Same conversation surface zoomed into how Bragi streams retrieval + citations into an in-progress reply |
+| [deck-sources-v2.html](deck-sources-v2.html) | Adaptive response lifecycle with an in-transcript selector for investigation, clarification, evidence posture, governed proposal, effect verification, cancellation, memory retention, structured brief, and rendered Markdown document examples |
+| [conversation-response-patterns.html](conversation-response-patterns.html) | Operational response patterns and deterministic selection order for bounded investigation disclosure, target clarification, evidence limits, governed recovery proposals, graded effect verification, cancellation receipts, consent-based durable learning, structured operational briefs, and rendered Markdown documents |
 
 Presentation wireframes (offline, not part of the console shell):
 

@@ -93,6 +93,51 @@ function timeSeriesArtifact(): Record<string, unknown> {
   };
 }
 
+function adaptiveArtifact(
+  layout: "operational_brief" | "markdown_document",
+): Record<string, unknown> {
+  return {
+    schema_version: 3,
+    layout,
+    evidence_refs: [ref],
+    blocks: [
+      {
+        slot_id: "overview",
+        kind: "summary",
+        title: "Verified outcome",
+        emphasis: "primary",
+        collapsed: false,
+        evidence_refs: [ref],
+        data: {
+          items: [{ label: "Status", value: "Review required", tone: "attention" }],
+        },
+      },
+      {
+        slot_id: "limitations",
+        kind: "callout",
+        title: "Limitations",
+        emphasis: "supporting",
+        collapsed: false,
+        evidence_refs: [ref],
+        data: { tone: "warning", lines: ["Runtime logs are unavailable."] },
+      },
+    ],
+    assembly: {
+      mode: "dynamic",
+      label: layout === "operational_brief"
+        ? "Dynamically assembled operational brief"
+        : "Dynamically assembled Markdown",
+      section_count: 2,
+      input_kinds: [
+        "verified_semantic_result",
+        "presentation_context",
+        "operator_locale",
+      ],
+      digest: `sha256:${"a".repeat(64)}`,
+    },
+  };
+}
+
 function exactTable(): Record<string, unknown> {
   return {
     columns: [{ key: "value", label: "Value" }],
@@ -250,6 +295,49 @@ describe("presentation artifact boundary", () => {
     expect(parsed?.blocks[0]?.kind).toBe("time_series");
     expect(parsed && presentationArtifactToWire(parsed)).toEqual(timeSeriesArtifact());
     expect(parsed && parsePersistedPresentationArtifact(parsed, verification)).toEqual(parsed);
+  });
+
+  it.each(["operational_brief", "markdown_document"] as const)(
+    "accepts and persists the schema-v3 %s layout",
+    (layout) => {
+      const raw = adaptiveArtifact(layout);
+      const parsed = parsePresentationArtifact(raw, verification);
+
+      expect(parsed?.schemaVersion).toBe(3);
+      expect(parsed?.layout).toBe(layout);
+      expect(parsed?.assembly?.inputKinds).toEqual([
+        "verified_semantic_result",
+        "presentation_context",
+        "operator_locale",
+      ]);
+      expect(parsed && presentationArtifactToWire(parsed)).toEqual(raw);
+      expect(parsed && parsePersistedPresentationArtifact(parsed, verification)).toEqual(parsed);
+    },
+  );
+
+  it("rejects malformed schema-v3 assembly metadata and v2 adaptive layouts", () => {
+    const missing = adaptiveArtifact("operational_brief");
+    delete missing.assembly;
+    expect(parsePresentationArtifact(missing, verification)).toBeUndefined();
+
+    const mismatched = adaptiveArtifact("operational_brief");
+    (mismatched.assembly as Record<string, unknown>).section_count = 1;
+    expect(parsePresentationArtifact(mismatched, verification)).toBeUndefined();
+
+    const unordered = adaptiveArtifact("markdown_document");
+    (unordered.assembly as Record<string, unknown>).input_kinds = [
+      "operator_locale",
+      "verified_semantic_result",
+    ];
+    expect(parsePresentationArtifact(unordered, verification)).toBeUndefined();
+
+    const invalidDigest = adaptiveArtifact("markdown_document");
+    (invalidDigest.assembly as Record<string, unknown>).digest = "sha256:not-a-digest";
+    expect(parsePresentationArtifact(invalidDigest, verification)).toBeUndefined();
+
+    const v2 = timeSeriesArtifact();
+    v2.layout = "operational_brief";
+    expect(parsePresentationArtifact(v2, verification)).toBeUndefined();
   });
 
   it("rejects v2-only kinds under the v1 schema", () => {

@@ -86,6 +86,16 @@ def _general_details() -> dict[str, Any]:
 
 
 def _assert_console_accepts(artifact: JsonObject) -> None:
+    schema_version = artifact["schema_version"]
+    if schema_version == 3:
+        assert artifact["layout"] in {"operational_brief", "markdown_document"}
+        assembly = cast(dict[str, Any], artifact["assembly"])
+        assert assembly["section_count"] == len(cast(list[object], artifact["blocks"]))
+        assert isinstance(assembly["digest"], str) and cast(str, assembly["digest"]).startswith(
+            "sha256:"
+        )
+    else:
+        assert artifact["layout"] == "stack"
     blocks = cast(list[dict[str, Any]], artifact["blocks"])
     assert 0 < len(blocks) <= MAX_BLOCKS
     assert 0 < len(cast(list[str], artifact["evidence_refs"])) <= MAX_REFS

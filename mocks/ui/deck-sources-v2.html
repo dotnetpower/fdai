@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
+  <link rel="stylesheet" href="assets/conversation-response-patterns.css?v=response-patterns-v1" />
   <link rel="stylesheet" href="../../ui/calm-slate-primitives.css?v=deck-shared-v2" />
   <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
   <style>
@@ -116,6 +117,50 @@
     .ex-workbench[data-shell="workspace"] .ex-transcript-column { min-width: 0; min-height: 0; }
     .ex-workbench[data-shell="workspace"] .ex-workspace-tools { display: flex; }
     .ex-workbench[data-shell="workspace"] .ex-thread { min-height: 0; overflow-y: auto; padding: 16px 42px 28px; }
+    .ex-transcript-column { width: 100%; max-width: 100%; min-width: 0; grid-template-columns: minmax(0, 1fr); overflow-x: hidden; }
+    .ex-pattern-switcher { width: 100%; max-width: 760px; box-sizing: border-box; margin: 0 auto; padding: 12px 0 8px; border-bottom: 1px solid var(--ex-line); }
+    .ex-pattern-switcher-head { display: flex; align-items: baseline; gap: 9px; padding: 0 4px 8px; }
+    .ex-pattern-switcher-head strong { font-size: 12px; }
+    .ex-pattern-switcher-head span { color: var(--ex-muted); font-size: 10.5px; }
+    .ex-pattern-tabs { display: flex; gap: 5px; padding: 2px 4px 5px; overflow-x: auto; scrollbar-width: thin; }
+    .ex-pattern-tabs button { min-height: 32px; flex: 0 0 auto; padding: 5px 9px; border: 1px solid var(--ex-line); border-radius: 999px; background: var(--cs-card); color: var(--ex-muted); font: 600 11px var(--cs-font); cursor: pointer; }
+    .ex-pattern-tabs button:hover { background: var(--cs-shade); color: var(--ex-ink); }
+    .ex-pattern-tabs button[aria-pressed="true"] { border-color: color-mix(in oklab, var(--ex-blue) 38%, var(--ex-line)); background: color-mix(in oklab, var(--ex-blue) 9%, var(--cs-card)); color: var(--ex-blue); }
+    .ex-pattern-tabs button:focus-visible { outline: 2px solid rgba(53,109,155,.42); outline-offset: 2px; }
+    .ex-pattern-applied { margin-top: 34px; padding-top: 24px; border-top: 1px solid var(--ex-line); }
+    .ex-pattern-applied-label { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; color: var(--ex-muted); font-size: 10.5px; text-transform: uppercase; }
+    .ex-pattern-applied-label::before, .ex-pattern-applied-label::after { height: 1px; flex: 1 1 auto; background: var(--ex-line); content: ""; }
+    .ex-pattern-decision { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+    .ex-pattern-decision span { padding: 3px 7px; border: 1px solid var(--ex-line); border-radius: 4px; background: var(--cs-shade); color: var(--ex-muted); font: 10px "JetBrains Mono", monospace; }
+    .ex-pattern-body { min-width: 0; }
+    .ex-pattern-body .crp-surface { font-family: var(--cs-font); }
+    .ex-pattern-body .crp-surface-head h3, .ex-pattern-body .crp-brief-head h3 { line-height: 1.35; }
+    .ex-md-document { padding: 20px 22px; border: 1px solid var(--ex-line); border-radius: 7px; background: var(--cs-card); }
+    .ex-md-assembly { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: -4px 0 16px; padding: 9px 10px; border: 1px solid color-mix(in oklab, var(--ex-blue) 26%, var(--ex-line)); border-radius: 6px; background: color-mix(in oklab, var(--ex-blue) 6%, var(--cs-card)); color: var(--ex-muted); font-size: 10.5px; }
+    .ex-md-assembly strong { color: var(--ex-blue); font-size: 11px; }
+    .ex-md-assembly code { padding: 0; background: transparent; color: var(--ex-ink); font-size: 10px; }
+    .ex-md-assembly-details { margin: -6px 0 16px; border-bottom: 1px solid var(--ex-line); }
+    .ex-md-assembly-details summary { min-height: 36px; display: flex; align-items: center; color: var(--ex-blue); cursor: pointer; font-size: 11px; font-weight: 650; }
+    .ex-md-assembly-details ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 14px; margin: 0 0 12px; padding-left: 18px; color: var(--ex-muted); }
+    .ex-md-document > :first-child { margin-top: 0; }
+    .ex-md-document h2 { margin: 0; font-size: 20px; line-height: 1.3; }
+    .ex-md-document h3 { margin: 22px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--ex-line); font-size: 15px; }
+    .ex-md-document p, .ex-md-document li, .ex-md-document td, .ex-md-document th { font-size: 13px; line-height: 1.55; }
+    .ex-md-document p { margin: 8px 0; }
+    .ex-md-document blockquote { margin: 14px 0; padding: 9px 12px; border-left: 3px solid var(--ex-blue); background: color-mix(in oklab, var(--ex-blue) 6%, var(--cs-card)); color: var(--ex-muted); }
+    .ex-md-document ul, .ex-md-document ol { margin: 8px 0; padding-left: 22px; }
+    .ex-md-document li + li { margin-top: 5px; }
+    .ex-md-document table { width: 100%; margin: 10px 0; border-collapse: collapse; }
+    .ex-md-document th, .ex-md-document td { padding: 7px 8px; border: 1px solid var(--ex-line); text-align: left; vertical-align: top; }
+    .ex-md-document th { background: var(--cs-shade); font-weight: 650; }
+    .ex-md-document pre { max-width: 100%; margin: 10px 0; padding: 12px; overflow-x: auto; border-radius: 6px; background: var(--ex-terminal); color: #edf2f5; font: 11px/1.55 "JetBrains Mono", monospace; }
+    .ex-md-document pre code { padding: 0; background: transparent; color: inherit; font: inherit; }
+    .ex-md-source { margin-top: 14px; border-top: 1px solid var(--ex-line); }
+    .ex-md-source summary { min-height: 44px; display: flex; align-items: center; gap: 7px; color: var(--ex-blue); cursor: pointer; font-size: 12px; font-weight: 650; }
+    .ex-md-source summary:focus-visible { outline: 2px solid rgba(53,109,155,.42); outline-offset: 2px; }
+    .ex-md-source pre { margin-top: 0; }
+    .ex-pattern-foot { display: flex; align-items: center; gap: 7px; margin-top: 9px; color: var(--ex-muted); font-size: 10.5px; }
+    .ex-pattern-foot::before { width: 14px; height: 14px; display: grid; place-items: center; border-radius: 50%; background: color-mix(in oklab, var(--ex-green) 12%, var(--cs-card)); color: var(--ex-green); content: "\2713"; font-size: 9px; font-weight: 700; }
     .ex-workbench[data-shell="workspace"] .ex-digest { display: block; }
     .ex-workbench[data-shell="workspace"] .ex-composer { grid-row: 4; width: 100%; }
     .ex-workbench[data-shell="workspace"][data-layout="dock"] { width: min(440px, 100%); margin-right: 0; }
@@ -139,7 +184,7 @@
       .ex-conversation-resize { display: none; }
     }
 
-    .ex-thread { min-height: 640px; padding: 22px clamp(16px, 4vw, 42px) 96px; scroll-padding-bottom: 96px; background: #fff; }
+    .ex-thread { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; min-height: 640px; padding: 22px clamp(16px, 4vw, 42px) 96px; scroll-padding-bottom: 96px; background: #fff; }
     .ex-turn { min-width: 0; }
     .ex-turn + .ex-turn { margin-top: 20px; }
     .ex-turn-body { min-width: 0; }
@@ -454,6 +499,10 @@
       .ex-attach { width: 44px; min-height: 44px; }
       .ex-composer-input { min-height: 44px; }
       .ex-send { min-height: 44px; padding-inline: 12px; }
+      .ex-pattern-switcher { padding-inline: 12px; }
+      .ex-pattern-tabs button { min-height: 44px; }
+      .ex-pattern-applied { margin-top: 28px; padding-top: 20px; }
+      .ex-md-assembly-details ul { grid-template-columns: 1fr; }
     }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
@@ -530,6 +579,20 @@
         <button type="button" class="ex-digest-toggle" aria-pressed="false">What I see <span>17</span></button>
         <button type="button" class="ex-jump-latest">&#8595; Jump to latest</button>
       </div>
+      <section class="ex-pattern-switcher" aria-labelledby="ex-pattern-switcher-title">
+        <div class="ex-pattern-switcher-head"><strong id="ex-pattern-switcher-title">Response example</strong><span>Simulates a server-selected typed presentation profile</span></div>
+        <div class="ex-pattern-tabs" role="group" aria-label="Choose an adaptive response example">
+          <button type="button" data-response-pattern="investigation" aria-pressed="false">Investigation</button>
+          <button type="button" data-response-pattern="clarification" aria-pressed="false">Target selection</button>
+          <button type="button" data-response-pattern="evidence" aria-pressed="false">Evidence posture</button>
+          <button type="button" data-response-pattern="proposal" aria-pressed="false">Proposal</button>
+          <button type="button" data-response-pattern="verification" aria-pressed="false">Verification</button>
+          <button type="button" data-response-pattern="cancellation" aria-pressed="false">Cancellation</button>
+          <button type="button" data-response-pattern="memory" aria-pressed="false">Memory</button>
+          <button type="button" data-response-pattern="brief" aria-pressed="true">Structured brief</button>
+          <button type="button" data-response-pattern="markdown" aria-pressed="false">Markdown document</button>
+        </div>
+      </section>
       <div class="ex-thread">
         <article class="ex-turn is-user cs-deck-turn cs-deck-user-turn">
           <div class="ex-turn-body">
@@ -743,6 +806,40 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
             <div class="ex-turn-foot cs-deck-turn-foot"><time class="ex-turn-time cs-deck-turn-time">10:43</time></div>
           </div>
         </article>
+        <section class="ex-pattern-applied" id="ex-pattern-applied" aria-labelledby="ex-pattern-applied-label">
+          <div class="ex-pattern-applied-label" id="ex-pattern-applied-label">Applied response example</div>
+          <article class="ex-turn is-user cs-deck-turn cs-deck-user-turn">
+            <div class="ex-turn-body">
+              <div class="ex-user-bubble cs-deck-user-bubble"><p id="ex-pattern-prompt">Why is the example API revision not becoming ready, and what should we do next?</p></div>
+              <div class="ex-turn-foot cs-deck-turn-foot"><time class="ex-turn-time cs-deck-turn-time">10:47</time></div>
+            </div>
+          </article>
+          <article class="ex-turn is-bragi cs-deck-turn cs-deck-agent-turn">
+            <div class="ex-turn-body">
+              <header class="ex-agent-head cs-deck-turn-head"><span class="ex-agent-name cs-deck-agent-name"><span class="ex-agent-icon cs-deck-agent-icon" aria-hidden="true"></span>Bragi</span><span class="ex-agent-source cs-deck-agent-source" id="ex-pattern-source">verified operational brief</span></header>
+              <div class="ex-pattern-decision" aria-label="Server presentation decision">
+                <span id="ex-pattern-disposition">disposition: answered</span>
+                <span id="ex-pattern-evidence">evidence: complete</span>
+                <span id="ex-pattern-profile">profile: operational_brief</span>
+              </div>
+              <div class="ex-pattern-body cs-deck-answer" id="ex-pattern-body" aria-live="polite">
+                <div class="crp-surface crp-brief">
+                  <header class="crp-brief-head"><div><span class="crp-brief-kicker">Operational assessment</span><h3>Database pressure is blocking application readiness</h3></div><span class="crp-state is-attention">High confidence</span></header>
+                  <div class="crp-brief-grid">
+                    <section class="crp-brief-section is-wide"><span class="crp-brief-label">Outcome</span><h4>Hold rollout. Recover the shared database before restarting the current revision.</h4><p>The last ready revision shows the same dependency failure, so rollback alone is not expected to restore service.</p></section>
+                    <section class="crp-brief-section"><span class="crp-brief-label">Scope</span><h4>One application and one shared dependency</h4><dl><div><dt>Target</dt><dd><code>example-api</code></dd></div><div><dt>Window</dt><dd>10:15-10:45 UTC</dd></div><div><dt>Authority</dt><dd>Read-only assessment</dd></div></dl></section>
+                    <section class="crp-brief-section"><span class="crp-brief-label">Verified evidence</span><h4>Three observations agree</h4><ul><li>Database CPU remained above threshold.</li><li>Connection checks timed out twice.</li><li>Application compute remained below saturation.</li></ul></section>
+                    <section class="crp-brief-section"><span class="crp-brief-label">Limits</span><h4>Query-level attribution is unavailable</h4><p>This answer does not name a slow query or claim that the deployment introduced the database load.</p></section>
+                    <section class="crp-brief-section"><span class="crp-brief-label">Next safe step</span><h4>Prepare a bounded recovery proposal</h4><ol><li>Freeze additional rollout activity.</li><li>Complete all seven safeguards.</li><li>Submit the typed proposal for human review.</li></ol></section>
+                  </div>
+                  <footer class="crp-brief-foot"><span>Evidence 6/6 verified</span><span>2 limitations preserved</span><span>No managed-resource change</span><button class="crp-button" type="button">Show sources</button></footer>
+                </div>
+              </div>
+              <div class="ex-pattern-foot">Presentation validated against typed state and evidence references</div>
+              <div class="ex-turn-foot cs-deck-turn-foot"><time class="ex-turn-time cs-deck-turn-time">10:47</time></div>
+            </div>
+          </article>
+        </section>
       </div>
       </div>
       <aside class="ex-digest cs-deck-digest-panel" aria-label="What the deck sees" hidden>
@@ -869,6 +966,80 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
         { name: "Verification", state: "unverified", label: "Not verified", detail: "The available evidence did not support the requested claim." },
         { name: "Answer", state: "completed", label: "Completed", detail: "A bounded unsupported answer was delivered." }
       ];
+      var RESPONSE_PATTERNS = {
+        investigation: {
+          prompt: "Show what was checked, what was blocked, and what the evidence establishes.",
+          source: "observed investigation / read-only",
+          disposition: "answered",
+          evidence: "partial",
+          profile: "investigation",
+          body: '<div class="crp-surface"><div class="crp-surface-head"><div><h3>Observed work completed</h3><p>Three reads completed and one source was blocked.</p></div><span class="crp-state is-positive">Read-only</span></div><ol class="crp-activity-list"><li data-state="complete"><span class="crp-activity-mark">&#10003;</span><span class="crp-activity-copy"><strong>Resolved the target</strong><small>One exact resource matched the typed scope.</small></span><span class="crp-activity-duration">0.4 s</span></li><li data-state="complete"><span class="crp-activity-mark">&#10003;</span><span class="crp-activity-copy"><strong>Read health and configuration</strong><small>Two independent observations were recorded.</small></span><span class="crp-activity-duration">1.8 s</span></li><li data-state="blocked"><span class="crp-activity-mark">!</span><span class="crp-activity-copy"><strong>Application log read blocked</strong><small>The observer lacks the required permission. No fallback was treated as equivalent.</small></span><span class="crp-activity-duration">Blocked</span></li></ol></div>'
+        },
+        clarification: {
+          prompt: "Which database is causing the application problem?",
+          source: "semantic clarification / no action",
+          disposition: "clarification",
+          evidence: "candidate_set",
+          profile: "target_selection",
+          body: '<div class="crp-surface"><div class="crp-surface-head"><div><h3>Select the database to assess</h3><p>Three equally strong matches remain. No deeper query or action has run.</p></div><span class="crp-state is-attention">Needs input</span></div><ol class="crp-choice-list"><li><button class="crp-choice" type="button"><span class="crp-choice-number">1</span><span><strong>orders-primary</strong><small>Production PostgreSQL, Region A</small></span></button></li><li><button class="crp-choice" type="button"><span class="crp-choice-number">2</span><span><strong>orders-reporting</strong><small>Production PostgreSQL, Region A</small></span></button></li><li><button class="crp-choice" type="button"><span class="crp-choice-number">3</span><span><strong>orders-recovery</strong><small>Recovery PostgreSQL, Region B</small></span></button></li></ol></div>'
+        },
+        evidence: {
+          prompt: "Did request errors increase after the change?",
+          source: "verified control-plane evidence / telemetry gap",
+          disposition: "held",
+          evidence: "partial",
+          profile: "evidence_posture",
+          body: '<div class="crp-surface"><div class="crp-surface-head"><div><h3>Request errors cannot be determined</h3><p>Control-plane activity is current, but request telemetry is missing for the same window.</p></div><span class="crp-state is-attention">Partially verified</span></div><div class="crp-fact-grid"><section class="crp-fact-group" data-state="verified"><h4>Verified facts</h4><ul class="crp-fact-list"><li>No target configuration event was recorded.</li><li>Declared dependencies had no recorded change.</li></ul></section><section class="crp-fact-group" data-state="unavailable"><h4>Unavailable evidence</h4><ul class="crp-fact-list"><li>Request and retry series returned no usable points.</li><li>Application logs were not authorized.</li></ul></section><section class="crp-fact-group" data-state="not-claimed"><h4>Not claimed</h4><ul class="crp-fact-list"><li>Missing telemetry is not zero errors.</li><li>Timing alone is not causation.</li></ul></section></div></div>'
+        },
+        proposal: {
+          prompt: "Propose the safest recovery without executing it.",
+          source: "typed action draft / approval gated",
+          disposition: "action_draft",
+          evidence: "complete",
+          profile: "governed_proposal",
+          body: '<div class="crp-surface"><div class="crp-surface-head"><div><h3>Restart one unhealthy revision after database recovery</h3><p>Proposal only. The Console does not execute this change.</p></div><span class="crp-state is-attention">Human approval required</span></div><ul class="crp-check-list"><li data-state="ready"><span class="crp-check">&#10003;</span><span>Stop condition</span><span class="crp-check-state">Ready</span></li><li data-state="ready"><span class="crp-check">&#10003;</span><span>Tested rollback</span><span class="crp-check-state">Ready</span></li><li data-state="ready"><span class="crp-check">&#10003;</span><span>Impact limit</span><span class="crp-check-state">Ready</span></li><li data-state="ready"><span class="crp-check">&#10003;</span><span>Dry run</span><span class="crp-check-state">Ready</span></li><li data-state="ready"><span class="crp-check">&#10003;</span><span>Logical-target lock</span><span class="crp-check-state">Ready</span></li><li data-state="ready"><span class="crp-check">&#10003;</span><span>Stable retry key</span><span class="crp-check-state">Ready</span></li><li data-state="missing"><span class="crp-check">!</span><span>Two-phase audit completion path</span><span class="crp-check-state">Missing</span></li></ul><div class="crp-actions"><button class="crp-button is-primary" type="button" disabled>Submit for human review</button><button class="crp-button" type="button">Do not proceed</button></div></div>'
+        },
+        verification: {
+          prompt: "Did the recovery actually fix the service?",
+          source: "independent effect observation",
+          disposition: "answered",
+          evidence: "partial",
+          profile: "recovery_verification",
+          body: '<div class="crp-surface"><div class="crp-surface-head"><div><h3>Platform recovered. User-path recovery remains unverified.</h3><p>The expected infrastructure effect was observed independently, but no live traffic entered the window.</p></div><span class="crp-state is-attention">Partial</span></div><div class="crp-result-grid"><section class="crp-result-group"><h4>Verified</h4><p>Provisioning succeeded, the replica is ready, and the health endpoint is reachable.</p></section><section class="crp-result-group"><h4>Not yet verified</h4><p>Success rate and latency under user traffic cannot be confirmed.</p></section></div></div>'
+        },
+        cancellation: {
+          prompt: "Cancel the investigation and tell me exactly what stopped.",
+          source: "cancellation receipt / audited",
+          disposition: "cancelled",
+          evidence: "complete",
+          profile: "cancellation_receipt",
+          body: '<div class="crp-surface"><div class="crp-surface-head"><div><h3>No active query was interrupted</h3><p>The only resumable investigation was cancelled so it cannot restart later.</p></div><span class="crp-state is-positive">Cancellation recorded</span></div><div class="crp-table-wrap"><table class="crp-table"><thead><tr><th>Work item</th><th>Before</th><th>After</th><th>Stopped scope</th></tr></thead><tbody><tr><td>Weekly drift review</td><td>Paused</td><td>Canceled</td><td>Future resume only. No live process was terminated.</td></tr></tbody></table></div></div>'
+        },
+        memory: {
+          prompt: "What reusable lesson should be retained from this incident?",
+          source: "retention proposal / consent required",
+          disposition: "action_draft",
+          evidence: "complete",
+          profile: "memory_retention",
+          body: '<div class="crp-surface"><div class="crp-surface-head"><div><h3>Review the reusable lesson before retention</h3><p>Raw logs, secrets, temporary state, and unverified claims are excluded.</p></div><span class="crp-state is-attention">Consent required</span></div><dl class="crp-memory-preview"><div><dt>Symptom</dt><dd>Readiness failed while a shared database was saturated.</dd></div><div><dt>Verified cause</dt><dd>Connection checks timed out during sustained pressure.</dd></div><div><dt>Reuse condition</dt><dd>Only with the same dependency edge and timeout signature.</dd></div><div><dt>Provenance</dt><dd><code>incident:example-017</code> and <code>evidence:db-218</code></dd></div></dl><div class="crp-actions"><button class="crp-button is-primary" type="button">Review retention request</button><button class="crp-button" type="button">Discard</button></div></div>'
+        },
+        brief: {
+          prompt: "Why is the example API revision not becoming ready, and what should we do next?",
+          source: "verified operational brief",
+          disposition: "answered",
+          evidence: "complete",
+          profile: "operational_brief",
+          body: document.getElementById("ex-pattern-body").innerHTML
+        },
+        markdown: {
+          prompt: "Show the investigation response contract as a clean Markdown document.",
+          source: "verified Markdown presentation",
+          disposition: "answered",
+          evidence: "complete",
+          profile: "markdown_document",
+          body: '<article class="ex-md-document"><div class="ex-md-assembly" role="status"><strong>Dynamically assembled Markdown</strong><span>5 sections</span><span>4 governed inputs</span><code>assembly:7d4c2a1f</code></div><details class="ex-md-assembly-details"><summary>Show assembly inputs</summary><ul><li>Immutable response contract</li><li>Operator locale layer</li><li>Verified evidence projection</li><li>1 consented user-memory record</li></ul></details><h2>Application readiness investigation</h2><blockquote><strong>Status:</strong> Review required<br><strong>Authority:</strong> Read-only<br><strong>Evidence window:</strong> 10:15-10:45 UTC</blockquote><p>This response contract keeps the conclusion, evidence, and safety boundary easy to scan.</p><h3>Objective</h3><p>Determine why <code>example-api</code> is not becoming ready and identify the next safe step without changing a managed resource.</p><h3>Verified findings</h3><ul><li>Database CPU remained above the operating threshold.</li><li>Two connection checks timed out in the same evidence window.</li><li>Application CPU and memory remained below saturation.</li></ul><h3>Limits</h3><ul><li>Query-level diagnostics were unavailable.</li><li>No individual query or deployment is claimed as the cause.</li></ul><h3>Response procedure</h3><ol><li>Freeze additional rollout activity.</li><li>Prepare a recovery proposal with all seven safeguards.</li><li>Submit the typed request for independent human review.</li></ol><h3>Output contract</h3><table><thead><tr><th>Field</th><th>Required value</th></tr></thead><tbody><tr><td>Conclusion</td><td>Evidence-qualified and time-bounded</td></tr><tr><td>Missing evidence</td><td>Explicitly preserved</td></tr><tr><td>Execution</td><td>Not authorized</td></tr></tbody></table><h3>Machine-readable summary</h3><pre><code>disposition: answered&#10;evidence: complete&#10;presentation_profile: markdown_document&#10;assembly_mode: dynamic&#10;assembly_digest: 7d4c2a1f&#10;execution_authority: false</code></pre><details class="ex-md-source"><summary>View Markdown source</summary><pre><code># Application readiness investigation&#10;&#10;&gt; **Status:** Review required  &#10;&gt; **Authority:** Read-only  &#10;&gt; **Evidence window:** 10:15-10:45 UTC&#10;&#10;## Objective&#10;Determine why `example-api` is not becoming ready.&#10;&#10;## Verified findings&#10;- Database CPU remained above the operating threshold.&#10;- Two connection checks timed out.&#10;- Application compute remained below saturation.&#10;&#10;## Limits&#10;- Query-level diagnostics were unavailable.&#10;- No individual query or deployment is claimed as the cause.&#10;&#10;## Response procedure&#10;1. Freeze additional rollout activity.&#10;2. Complete all seven safeguards.&#10;3. Submit the typed request for human review.</code></pre></details></article>'
+        }
+      };
       var streamAnswer = finalAnswer.querySelector(".ex-stream-answer");
       var nextSkeleton = null;
       var runToken = 0;
@@ -880,6 +1051,20 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       var sourceReadinessState = "hidden";
 
       function create(tag, className, text) { var node = document.createElement(tag); if (className) node.className = className; if (text != null) node.textContent = text; return node; }
+      function selectResponsePattern(key, scroll) {
+        var pattern = RESPONSE_PATTERNS[key];
+        if (!pattern) return;
+        Array.prototype.forEach.call(workbench.querySelectorAll("[data-response-pattern]"), function (button) {
+          button.setAttribute("aria-pressed", String(button.dataset.responsePattern === key));
+        });
+        document.getElementById("ex-pattern-prompt").textContent = pattern.prompt;
+        document.getElementById("ex-pattern-source").textContent = pattern.source;
+        document.getElementById("ex-pattern-disposition").textContent = "disposition: " + pattern.disposition;
+        document.getElementById("ex-pattern-evidence").textContent = "evidence: " + pattern.evidence;
+        document.getElementById("ex-pattern-profile").textContent = "profile: " + pattern.profile;
+        document.getElementById("ex-pattern-body").innerHTML = pattern.body;
+        if (scroll) document.getElementById("ex-pattern-applied").scrollIntoView({ block: "start", behavior: "smooth" });
+      }
       function wait(ms, token) { return new Promise(function (resolve) { var timer = setTimeout(function () { resolve(token === runToken); }, ms); waits.push(timer); }); }
       function clearWaits() { waits.forEach(clearTimeout); waits = []; }
       function resetPreparation(totalSources) {
@@ -1479,6 +1664,9 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       document.getElementById("ex-unverified").addEventListener("click", showUnverifiedResult);
       document.getElementById("ex-sources").addEventListener("click", advanceSourceReadiness);
       document.getElementById("ex-workspace").addEventListener("click", function () { setWorkspaceShell(workbench.dataset.shell !== "workspace"); });
+      Array.prototype.forEach.call(workbench.querySelectorAll("[data-response-pattern]"), function (button) {
+        button.addEventListener("click", function () { selectResponsePattern(button.dataset.responsePattern, true); });
+      });
       workbench.querySelector(".ex-conversations-toggle").addEventListener("click", function () { setConversations(workbench.dataset.conversations !== "open"); });
       workbench.querySelector(".ex-digest-toggle").addEventListener("click", function () { setDigest(workbench.dataset.digest !== "open"); });
       workbench.querySelector(".ex-conversations-close").addEventListener("click", function () { setConversations(false); });
