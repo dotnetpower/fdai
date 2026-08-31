@@ -27,6 +27,22 @@ def quality_decision_audit_fields(
         "candidate_action_type": decision.candidate.action_type,
         "candidate_target_resource_ref": decision.candidate.target_resource_ref,
         "aggregate_confidence": decision.aggregate_confidence,
+        "deterministic_evidence": [
+            {
+                "schema_version": evidence.schema_version,
+                "kind": evidence.kind.value,
+                "status": evidence.status.value,
+                "candidate_digest": evidence.candidate_digest,
+                "source_authority": evidence.source_authority,
+                "producer_id": evidence.producer_id,
+                "observed_at": evidence.observed_at.isoformat(),
+                "expires_at": evidence.expires_at.isoformat(),
+                "evidence_refs": list(evidence.evidence_refs),
+                "synthetic": evidence.synthetic,
+                "reason": evidence.reason,
+            }
+            for evidence in decision.deterministic_evidence
+        ],
         "reasons": list(decision.reasons),
         "grounded_rule_ids": list(decision.grounded_rule_ids),
         "model_votes": [

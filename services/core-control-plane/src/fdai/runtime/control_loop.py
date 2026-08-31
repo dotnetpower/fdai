@@ -46,12 +46,15 @@ from fdai.core.hil_resume import (
 from fdai.core.ontology_platform import EffectReconciliationRequestSink, compile_interfaces
 from fdai.core.ontology_platform.operational_functions import operational_function_types
 from fdai.core.quality_gate import (
+    DeterministicEvidenceKind,
+    DeterministicEvidenceVerifier,
     HashedRuleEmbeddingIndex,
     QualityGate,
     QualityGateConfig,
     RagGroundingSource,
     RuleBasedVerifier,
     SelfConsistencySampler,
+    UnavailableDeterministicEvidenceVerifier,
 )
 from fdai.core.quality_gate.self_consistency import SelfConsistencyCascade
 from fdai.core.rca import (
@@ -212,6 +215,19 @@ def _load_parameter_relaxation_policies(
     with policy_file.open("r", encoding="utf-8") as handle:
         raw = yaml.safe_load(handle) or {}
     return parameter_relaxation_policies_from_mapping(raw)
+
+
+def _resolve_t2_deterministic_evidence_verifiers(
+    container: Container,
+) -> dict[DeterministicEvidenceKind, DeterministicEvidenceVerifier]:
+    configured = container.t2_deterministic_evidence_verifiers or tuple(
+        UnavailableDeterministicEvidenceVerifier(
+            kind=kind,
+            reason=f"{kind.value}_evidence_provider_unavailable",
+        )
+        for kind in DeterministicEvidenceKind
+    )
+    return {verifier.kind: verifier for verifier in configured}
 
 
 def _build_control_loop(
@@ -455,6 +471,7 @@ def _build_control_loop(
             embedding_index=HashedRuleEmbeddingIndex(),
         ),
         rubric_evaluator=llm_bindings.rubric_evaluator,
+        deterministic_evidence_verifiers=_resolve_t2_deterministic_evidence_verifiers(container),
         config=QualityGateConfig(
             confidence_threshold=container.config.llm.quality_gate_confidence_threshold,
             require_cross_check_quorum=container.config.llm.quality_gate_quorum,

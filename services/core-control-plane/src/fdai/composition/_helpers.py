@@ -45,6 +45,7 @@ from ..core.ontology_platform import (
 from ..core.operational_context import OperationalEvidenceSource
 from ..core.quality_gate.critic import CriticModel
 from ..core.quality_gate.debate import DebateOrchestrator
+from ..core.quality_gate.deterministic_evidence import DeterministicEvidenceVerifier
 from ..core.quality_gate.gate import CrossCheckModel
 from ..core.quality_gate.judge import JudgeModel
 from ..core.quality_gate.promotion import (
@@ -288,6 +289,7 @@ class Container:
     executed_action_observation_collector: ExecutedActionObservationCollector | None = None
     rubric_promotion_receipt_source: RubricPromotionReceiptSource | None = None
     rubric_promotion_receipt_verifier: RubricPromotionReceiptVerifier | None = None
+    t2_deterministic_evidence_verifiers: tuple[DeterministicEvidenceVerifier, ...] = ()
     operational_promotion_receipt_verifier: OperationalPromotionReceiptVerifier | None = None
     persisted_promotion_authority_verifier: PersistedPromotionAuthorityVerifier | None = None
 
