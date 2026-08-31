@@ -34,23 +34,30 @@ It consumes the telemetry, baseline, and identity/policy unblocking delivered by
   [`rule-catalog/catalog/`](../../../rule-catalog/catalog) - one YAML per rule id, each
   exercising exactly one ActionType via the required `remediates` field:
   `object-storage.public-access.deny`, `object-storage.owner-tag.required`,
-  `compute.vm-scale-set.over-provisioned`, `secret-store.rotation-overdue`,
-  `sql-database.tde-required`. The loader
+  `secret-store.rotation-overdue`, `sql-database.tde-required`. The VMSS cost rule
+  `compute.vm-scale-set.over-provisioned`, its Rego policy, remediation template, and
+  `remediate.right-size` binding are owned by the optional Cost Governance extension. Phase 1 base
+  replay composes that package explicitly when cost behavior is in scope; absence or disablement of
+  the package contributes no cost assets. The loader
   [`services/core-control-plane/src/fdai/rule_catalog/schema/rule.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/rule.py)
   cross-checks every rule's `remediates` / `alternatives` against the ActionType catalog,
   `resource_type` against the CSP-neutral vocabulary, **and** - when a `policies_root` is
   supplied - every `check_logic.reference` that starts with `policies/` against a Rego file
   that exists on disk at load time (fail-closed).
-- **Authored Rego policies** - the five rules above ship with their `check_logic.reference`
+- **Authored Rego policies** - the four base rules above ship with their `check_logic.reference`
   Rego bodies under [`policies/`](../../../policies) (one folder per resource-type family):
   `policies/object_storage/{public_access,owner_tag_required}.rego`,
-  `policies/compute/vmss_over_provisioned.rego`,
   `policies/secret_store/rotation_overdue.rego`,
   `policies/sql_database/tde_required.rego`. Every module exports a
   `default deny := false` + `deny if { ... }` entrypoint and reads
   `input.parameters.<name>` with an authored default so per-assignment
   overrides ([rule-governance.md](../rules-and-detection/rule-governance.md)) flow through
   without editing the rule.
+
+The first design retained the historical VMSS seed in the base list while implementation moved the
+same asset tuple into the extension. Keeping both claims would create duplicate ownership or make
+an optional vertical a hidden Phase 1 prerequisite. The revised design preserves the implemented
+package boundary and requires explicit package composition for cost replay.
 - **Canonical `resource_type` vocabulary** - [`rule-catalog/vocabulary/resource-types.yaml`](../../../rule-catalog/vocabulary/resource-types.yaml)
   enumerates the initial CSP-neutral identifier set covering the three verticals; loader +
   JSON Schema in `services/core-control-plane/src/fdai/rule_catalog/schema/`.
@@ -145,6 +152,21 @@ It consumes the telemetry, baseline, and identity/policy unblocking delivered by
   risk-gate not wired yet). A guard test ensures no scenario is silently
   skipped without an explicit reason.
 
+### Collector review boundary
+
+Phase 1 owns source fetch, content-addressed snapshot retention, parser selection, normalization,
+verification, durable mirroring, and publication of an inert collection-review package. Supported
+parsers are `rule-yaml`, `rego`, `azure-policy-json`, and `kube-bench`. Reserved parser ids such as
+`checkov-yaml` and `gatekeeper-templates` return an explicit unsupported outcome; they never pass
+raw source through as a rule.
+
+Phase 2 owns shadow evaluation, regression, Mimir-governed catalog-as-code review, activation, and
+rollback to the last-good revision. A collection-review package carries provenance and
+`grants_authority=false`; merging or storing it cannot mutate the runtime catalog. The first design
+considered promoting collector output directly in Phase 1. That would combine observation with
+catalog authority and bypass review. The revised design keeps the review artifact inert and makes
+activation a separate Phase 2 transition.
+
 ## Rule Catalog
 
 ### Normalized Schema
@@ -214,6 +236,24 @@ verdict plus the citing rule ids. Three deterministic checks:
 - **Drift detection** - compare observed resource state against the declared IaC/desired state;
   report the drift delta (added/removed/changed attributes).
 
+### Change Safety pre-authority order
+
+For an out-of-band Change Safety finding, the control loop preserves the original T0 finding and
+then applies this exact order: build the typed Action, join current drift and what-if evidence,
+record the joined evidence under the same correlation id, evaluate execution authorization, evaluate
+the unified risk gate, create a dry-run receipt, and dispatch only if every later safeguard permits.
+Independent post-action observation remains a separate terminal stage and cannot be satisfied by the
+what-if record.
+
+The first design considered running drift in parallel with T0 and treating missing evidence as an
+informational record. That could let an unresolved target continue toward authority. The revised
+design keeps finding formation independent but holds the action before authorization and risk when
+the provider is missing or failed or when evidence is stale, conflicting, future-dated, synthetic,
+identity-mismatched, or incomplete. Valid what-if evidence supplies the observed affected count to
+the existing risk gate. The authored ActionType cap is never copied into the Action as if it were a
+measurement. Duplicate events retain the existing ingest idempotency key and replay-stable action
+identity.
+
 On violation the engine emits a **remediation PR** (see below) rather than executing directly;
 audit, rollback, and approval come free from git. In Phase 1 every verdict is **shadow only** -
 no PR is merged and no state is mutated.
@@ -240,8 +280,11 @@ but cannot be merged by the normal flow.
 
 ## Out-of-Band Detection (Change Safety)
 
-- **Signals**: Activity Log, Resource Graph, Change Analysis, Deployment Stacks deny-assignment
-  events, and IaC drift. Correlate across signals rather than trusting a single feed.
+- **Supported signal**: Phase 1 accepts only normalized Azure Activity Log records with
+  `signal_kind=azure.activity_log`. Resource Graph, Change Analysis, Deployment Stacks
+  deny-assignment events, and IaC drift feeds remain unsupported detector inputs until their own
+  authority, completeness, and freshness contracts exist. A declared unsupported kind produces an
+  audited `unsupported_signal` result; it is never silently treated as healthy or out-of-band.
 - **Attribution**: classify each detected change as authorized (originating from a merged
   remediation PR / known pipeline principal) or out-of-band (manual/console), using the actor
   identity and correlation id so pipeline-driven changes are not misflagged.
@@ -250,6 +293,16 @@ but cannot be merged by the normal flow.
   window before a change is declared out-of-band; record the suppression reason.
 - **False negatives**: signal feeds can lag or drop; detection completeness is a measured guard
   (see Exit Criteria), not assumed.
+- **Inventory boundary**: inventory freshness does not suppress deterministic finding formation.
+  It is evaluated after Action construction and before the risk decision. Missing or stale required
+  inventory caps authority at HIL or deny, so silence cannot hide a finding and stale state cannot
+  authorize execution.
+
+The first design named several future signal families without shipped completeness contracts and
+implied inventory-before-verdict ordering. That could turn an unobserved feed into a false absence
+or suppress a valid deterministic finding. The revised design narrows detection to the implemented
+Activity Log contract and moves inventory freshness to the action-authority boundary, where it can
+only preserve or lower autonomy.
 - **Response (shadow)**: an out-of-band change on a policy-violating resource generates a
   *shadow* revert-or-reconcile PR and an alert; it is **judged and logged only**. Auto-revert
   and reconcile-to-IaC execution are gated off until Phase 2 validation.

@@ -10,7 +10,7 @@ Verifies:
 3. Every panel category is one of ``success`` / ``guard`` / ``leading``.
 4. Every panel has an ``id``, ``title``, ``unit``, ``direction``,
    ``target``.
-5. Deferred panels name where they will be sourced from.
+5. Later-phase panels declare explicit unavailable semantics and ownership.
 """
 
 from __future__ import annotations
@@ -85,14 +85,28 @@ def test_audit_log_derivation_panels_reference_real_fields() -> None:
             )
 
 
-def test_deferred_panels_name_a_source() -> None:
-    """A deferred panel MUST cite where its data will come from - no orphans."""
+def test_unavailable_panels_name_owner_phase_and_reason() -> None:
     for panel in _load()["panels"]:
         source = panel["source"]
-        if source["kind"] == "deferred":
-            assert source.get("deferred_to"), (
-                f"panel {panel['id']}: deferred source without deferred_to"
-            )
+        assert source["kind"] != "deferred"
+        if source["kind"] == "unavailable":
+            assert source.get("owner")
+            assert source.get("required_phase") in {"P1", "P2"}
+            assert source.get("reason")
+
+
+def test_phase_0_required_panels_have_implemented_sources() -> None:
+    descriptor = _load()
+    panels = {panel["id"]: panel for panel in descriptor["panels"]}
+    required = descriptor["phase_0_exit_contract"]["required_panel_ids"]
+    assert required
+    for panel_id in required:
+        source = panels[panel_id]["source"]
+        assert source["kind"] == "audit_log_derivation"
+        assert source["producer"] == (
+            "fdai.shared.telemetry.metrics_derivation.derive_dashboard_metrics"
+        )
+        assert source["max_age_seconds"] > 0
 
 
 def test_no_source_kind_is_manual() -> None:
@@ -139,7 +153,7 @@ def test_leading_indicators_cover_tier_shares() -> None:
     "panel_id", ["success.2.auto_resolution_rate", "success.4.human_intervention"]
 )
 def test_wired_success_panels_derive_from_dashboard_metrics(panel_id: str) -> None:
-    """Wired panels (not deferred) MUST reference DashboardMetrics fields."""
+    """Wired panels MUST reference DashboardMetrics fields."""
     panels = {p["id"]: p for p in _load()["panels"]}
     panel = panels[panel_id]
     assert panel["source"]["kind"] == "audit_log_derivation"

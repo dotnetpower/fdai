@@ -582,6 +582,7 @@ _DOC_GOVERNANCE_ACTION_TYPES: frozenset[str] = frozenset(
         "governance.promote-effect-model",
         "governance.retire-rule",
         "governance.grant-exemption",
+        "governance.reapply-rule-assignment",
         "governance.override-ceiling",
     }
 )

@@ -1,0 +1,109 @@
+schema_version: 1.0.0
+name: governance.reapply-rule-assignment
+version: 1.0.0
+operation: update
+interfaces:
+- ControlPlane
+rollback_contract: pr_revert
+irreversible: false
+default_mode: shadow
+promotion_gate:
+  min_shadow_days: 14
+  min_samples: 30
+  min_accuracy: 1.0
+  max_policy_escapes: 0
+preconditions:
+- kind: graph_fresh_within_seconds
+  value: 300
+- kind: no_conflicting_open_action_on_resource
+stop_conditions:
+- kind: provider_api_error_streak
+  count: 1
+- kind: time_box_exceeded_seconds
+  seconds: 300
+blast_radius:
+  computation: static_enum
+  static_bucket: resource_group
+  max_affected_resources: 1
+description: Reapply one reviewed rule assignment after the exact exemption revision expires.
+  The scheduled publisher grants no authority; normal risk, human approval, Thor execution,
+  rollback, target lock, audit, and independent effect verification remain required.
+category: governance
+trigger_kind:
+  kind: operator_request
+execution_path: pr_native
+ceiling_by_tier:
+  t0:
+    max_autonomy: enforce_hil
+    min_role: approver
+  t1:
+    max_autonomy: shadow_only
+    min_role: approver
+  t2:
+    max_autonomy: shadow_only
+    min_role: owner
+argument_schema:
+  type: object
+  additionalProperties: false
+  required:
+  - exemption_id
+  - active_exemption_revision
+  - expired_exemption_revision
+  - assignment_id
+  - assignment_version
+  - rule_id
+  - scope_ref
+  - scope
+  - expires_at
+  properties:
+    exemption_id:
+      type: string
+      pattern: ^[a-z0-9][a-z0-9._-]{1,127}$
+    active_exemption_revision:
+      type: string
+      pattern: ^sha256:[0-9a-f]{64}$
+    expired_exemption_revision:
+      type: string
+      pattern: ^sha256:[0-9a-f]{64}$
+    assignment_id:
+      type: string
+      x-fdai-audit-safe: true
+      minLength: 1
+      maxLength: 256
+    assignment_version:
+      type: string
+      pattern: ^[0-9]+\.[0-9]+\.[0-9]+$
+    rule_id:
+      type: string
+      pattern: ^[a-z0-9][a-z0-9._-]{1,127}$
+    scope_ref:
+      type: string
+      x-fdai-audit-safe: true
+      minLength: 1
+      maxLength: 2048
+    scope:
+      type: object
+      additionalProperties: false
+      required:
+      - subscription_id
+      properties:
+        subscription_id:
+          type: string
+          format: uuid
+        resource_group:
+          type:
+          - string
+          - "null"
+        resource_ref:
+          type:
+          - string
+          - "null"
+    expires_at:
+      type: string
+      format: date-time
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: issue:336
+  content_hash: sha256:06de5b13151a6fad6fa5253cf587188a4e1b0107222fd7bb86807d978df30d4f
+  license: MIT
+  retrieved_at: "2026-08-31T00:00:00Z"

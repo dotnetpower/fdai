@@ -19,6 +19,9 @@ from fdai.core.control_loop._execution import ControlLoopExecutionMixin
 from fdai.core.control_loop._fallback import ControlLoopFallbackMixin
 from fdai.core.control_loop._process import process_event
 from fdai.core.control_loop._rca import ControlLoopRcaMixin
+from fdai.core.control_loop.change_safety_evidence import (
+    ChangeSafetyPreAuthorityEvidenceProvider,
+)
 from fdai.core.control_loop.models import ControlLoopResult
 from fdai.core.event_ingest import EventCorrelator, EventIngest
 from fdai.core.executor import (
@@ -97,6 +100,7 @@ class ControlLoop(
         audit_store: StateStore,
         rules_by_id: Mapping[str, Rule],
         change_safety_detector: ChangeSafetyDetector | None = None,
+        change_safety_evidence_provider: ChangeSafetyPreAuthorityEvidenceProvider | None = None,
         risk_table: RiskTable | None = None,
         action_types_by_name: Mapping[str, OntologyActionType] | None = None,
         risk_gate: RiskGate | None = None,
@@ -184,6 +188,7 @@ class ControlLoop(
         self._audit_store = audit_store
         self._rules_by_id = dict(rules_by_id)
         self._change_safety_detector = change_safety_detector
+        self._change_safety_evidence_provider = change_safety_evidence_provider
         self._risk_table = risk_table
         self._action_types_by_name = (
             dict(action_types_by_name) if action_types_by_name is not None else {}

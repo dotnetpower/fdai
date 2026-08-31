@@ -1,8 +1,8 @@
 ---
 title: Phase 0 - 계측과 언블록
 translation_of: phase-0-instrumentation.md
-translation_source_sha: 8349c44d0c18e1ca05a1e0be848e24e1c3fb7ed9
-translation_revised: 2026-08-24
+translation_source_sha: ae9cf6279c6bf2eabde2e32b1f088b34761592f2
+translation_revised: 2026-08-31
 ---
 
 # 단계 0 - 계측과 언블록
@@ -36,6 +36,22 @@ translation_revised: 2026-08-24
 | 4 | **아이덴티티 매핑** - 프로비저닝된 외부 IdP ↔ Entra ↔ Managed Identity 경로 ([security-and-identity-ko.md#인가-모델authorization-model](../architecture/security-and-identity-ko.md#인가-모델authorization-model)). | 종단 경로가 자동 최소권한 프로브 통과; deny-by-default 검증; 접근 재인증 스케줄. |
 | 5 | **정책 예외 워크플로** - 준수하는 자율 배포를 위한 요청 가능, time-boxed, 감사, 소유자 승인된 예외 경로. | 워크플로가 소유자와 SLA로 문서화; 예행 실행 요청이 감사 하에 부여·만료, 어떤 컨트롤도 우회하지 않음. |
 | 6 | **로컬 개발 프리셋** - `services/core-control-plane/src/fdai/shared/providers/` 의 저장소 / event-bus / 시크릿 / workload-identity 프로바이더 인터페이스, 오프라인 유닛 테스트 + 디버그 용 in-memory 페이크 페어, 리어-레벨 통합 테스트용 **pgvector + Redpanda** Docker Compose (`infra/local/`) 프리셋. [tech-stack-ko.md § 로컬 개발](../architecture/tech-stack-ko.md#로컬-개발) 의 로컬-개발 계약과 [project-structure-ko.md § 주입 가능한-seams](../architecture/project-structure-ko.md#주입-가능한-seams) 의 DI 경계 을 실현. | Docker 없이 `pytest` 가 in-memory 페이크로 green; `scripts/deployment/local/dev-up.sh` 가 `pgvector/pgvector:pg16` + `redpandadata/redpanda` 컨테이너를 건강하게 울림; **동일 계약-테스트 스위트** 가 페이크와 Compose 스택 모두에 대해 통과. |
+
+### KPI 의존성 결정
+
+대시보드는 소스가 연결된 패널과 사용할 수 있는 라이브 값을 구분합니다. Phase 0에서는
+자체 텔레메트리 리듀서가 생성할 수 있는 모든 패널에 리듀서와 최신성 정책을 지정합니다.
+Phase 1 또는 Phase 2 결과가 필요한 메트릭은 명시적인 사용 불가 사유, 책임 소유자, 필요한
+단계와 함께 계속 표시합니다. 사용할 수 없는 패널은 베이스라인, 처리 결과, 가드, 승격,
+성공 주장의 근거가 될 수 없습니다.
+
+첫 설계에서는 이후 단계의 모든 생산자를 Phase 0로 옮기는 방안을 검토했습니다. 이 방안은
+변경 안전성과 품질 게이트의 소유권을 중복시키고 Phase 0에서 측정 대상 동작을 직접 구축하게
+됩니다. 수정된 설계는 생산자를 원래 소유 단계에 유지하고 Phase 0 대시보드 종료 조건을 소스
+연결과 실패 시 안전하게 닫히는 렌더링으로 좁힙니다. 누락되거나 오래되었거나 충돌하거나 생산자가
+일치하지 않거나 미래 시점이거나 합성인 관측은 `0` 또는 성공이 아니라 사용 불가로 표시합니다.
+다른 Phase 0 종료 조건이 통과하면 Phase 1을 시작할 수 있지만, 이후 적용과 승격은 필요한
+라이브 메트릭을 사용할 수 있을 때까지 계속 차단됩니다.
 
 ## 작업 Items
 
@@ -200,8 +216,9 @@ P0에는 enforce-mode 능력이 범위에 없음.
       재실행 시 보고된 신뢰구간 내 같은 수치 산출, 표본 크기와 버전 기록.
 - [ ] **베이스라인이 성공 메트릭 1-4와 모든 가드 메트릭 커버** - 이후 shadow → 강제 적용 승격이
       성공과 가드 참조 모두 가짐.
-- [ ] **KPI 대시보드가 라이브** - 메트릭 1-4, 가드 메트릭, 선행 지표 표시, 각각 원격측정 소스에
-      추적.
+- [ ] **KPI 대시보드 계약이 라이브** - 메트릭 1-4, 가드 메트릭, 선행 지표를 표시합니다.
+      Phase 0 리듀서는 소스에 연결되고 이후 단계 메트릭은 책임 소유자와 명시적인 사용 불가
+      사유를 표시합니다. 사용할 수 없거나 오래된 패널은 메트릭 주장을 뒷받침하지 않습니다.
 - [ ] **아이덴티티 블로커 해결**: 종단 IdP ↔ Entra ↔ Managed Identity 경로 프로비저닝,
       최소권한 프로브 통과, deny-by-default 확인, 재인증 스케줄 - 또는 문서화되고 소유자
       할당된 계획으로 명시적 waive.
@@ -228,8 +245,9 @@ P0에는 enforce-mode 능력이 범위에 없음.
 - **첫날, 병렬로**: 항목 4(아이덴티티, critical 경로) 와 항목 2(시나리오 freeze) 시작, 항목 1
   (원격측정)과 항목 5(정책 워크플로) 준비.
 - **시나리오 freeze 이후**: 항목 3(베이스라인 측정) 실행, 고정된 버전 세트에 대해 측정.
-- **게이트**: 모든 [Exit 기준](#exit-기준) 통과 후에만
-  [phase-1-rule-catalog-t0-ko.md](phase-1-rule-catalog-t0-ko.md) 시작.
+- **게이트**: Phase 0 소스 연결, 베이스라인, 신원, 정책, 로컬 개발 종료 조건이 통과하면
+  Phase 1을 시작할 수 있습니다. 이후 단계의 대시보드 패널은 명시적으로 사용 불가 상태를
+  유지할 수 있지만, 이 상태에서는 해당 메트릭 주장과 그 메트릭이 필요한 승격이 차단됩니다.
 
 ## 의존성
 

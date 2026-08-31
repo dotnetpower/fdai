@@ -124,6 +124,7 @@
     "human_touchpoints_per_100_events": 25.0,
     "shadow_share": 0.6666666666666666,
     "enforce_share": 0.3333333333333333,
+    "shadow_enforce_divergence": 0.3333333333333333,
     "per_tier": {"t0": 6, "t1": 3, "t2": 3}
   }
 }

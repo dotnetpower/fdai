@@ -401,7 +401,10 @@ clean (see the fork model in
   retirement and exemption writers to the existing write-once PR adapter and persists a
   replayable open-to-merge or terminal receipt. The retirement loader projects merged
   retirement artifacts out of the active rule index, while exemptions use the canonical JSON
-  schema. `LiveBlastProbeAdapter` binds deployment-supplied `BlastSignalSource` and
+  schema. The exemption lifecycle coordinator uses the existing `EventBus` seam to publish one
+  exact-revision, exact-assignment `governance.reapply-rule-assignment` proposal. Missing bindings
+  hold, and broker acceptance remains non-terminal evidence. `LiveBlastProbeAdapter` binds
+  deployment-supplied `BlastSignalSource` and
   `ProbeFailureStreakSource` implementations; missing or failed sources lower Axis E and never
   grant authority. Runtime assembly passes retired-rule projections to every downstream rule
   map and binds the durable promotion-attestation store before the HIL/direct route.
@@ -411,6 +414,18 @@ clean (see the fork model in
   `StateStoreExecutedActionObservationStore` accepts only Heimdall-attributed observations whose
   signed context passes the configured verifier on write and replay. Missing evidence remains held.
 - **Azure operational evidence**: `bind_azure_operational_evidence` composes a strict promoted-inventory snapshot reader, current safety evaluator, configured Azure metrics, bounded branch estimator, and effect-model reader. Temporal adapters reject non-finite metric values before evidence hashing. Partial binding fails at container construction.
+- **Dashboard availability projection**: `shared/telemetry/dashboard_status.py` consumes normalized
+  metric observations after provider and domain reducers have produced them. It performs no provider
+  I/O and grants no authority. The Phase 0 descriptor names the expected producer and freshness
+  window for source-bound panels; missing, stale, conflicting, mismatched, future-dated, or synthetic
+  live observations render unavailable with no numeric fallback.
+- **Change Safety pre-authority evidence**: `core/control_loop/change_safety_evidence.py` accepts one
+  injected provider through `Container.change_safety_evidence_provider`; the Activity Log detector
+  is independently injected through `Container.change_safety_detector`. For out-of-band findings,
+  the control loop joins exact drift and what-if records after Action construction and before
+  execution authorization and risk. Missing or invalid evidence holds without suppressing the
+  finding. The provider can only populate the observed blast count; it cannot grant authority or
+  satisfy independent post-action verification.
 
 ### Capability Bundles
 
@@ -460,9 +475,11 @@ non-Azure phase registers a new implementation at the composition root without e
 | Delivery adapter | delivery interface | - | `gitops-pr` / `chatops` | a different PR host / chat channel |
 | Risk scoring & thresholds | risk-gate config | - | generic thresholds | customer risk policy |
 | Model provider | model client (per capability) | - | configured default endpoints | customer-approved models |
+| **Assurance Twin semantic compiler** | `NlQueryCompiler` and `AssuranceTwinDiscoverySink` injected through `Container` | - | explicit `semantic_model_unavailable`; discovery handoff reports unavailable | inject a schema-constrained compiler and inert discovery sink while preserving exact input digest, compiler revision, evidence refs, result limit, read-only verification, and no raw-question or mutation authority |
 | **Real-time outbound stream** | `SseSink` (async publish + async-iterator subscribe over an SSE-shaped payload) | - | `InMemorySseSink` (test/dev); HTTP `text/event-stream` adapter lands with the console read-only surface | replace with a WebSocket adapter for a two-way surface; a webhook-only variant for headless observers. `shared/streaming/SseBroadcaster` relays `EventBus` topics into channels. |
 | **Pipeline stage publisher** | `StagePublisher` (in `shared/providers/stage_publisher.py`) with `emit(StageEvent)` | - | `NullStagePublisher` (discards; keeps stage code side-effect-free by default) | in-process dev / single-replica: `SseSinkStagePublisher` fans out directly onto `SseSink`. Multi-replica prod: `EventBusStagePublisher` writes to a Kafka topic (default `fdai.pipeline.stages`) and the existing `SseBroadcaster` relays that topic to the SSE channel every replica consumes. Pipeline stages (`event_ingest`, `trust_router`, T0/T1/T2, `risk_gate`, `executor`, `audit`) accept the Protocol so wiring is fully backward-compatible - the upstream default emits nothing. |
 | **Console read panel** | `ReadPanel` (in `delivery/operator_api/panels.py`) | - | core routes only (`/audit`, `/kpi`, `/hil-queue`); `ExampleFinOpsPanel` ships as reference but is **not** registered, so the upstream UI stays minimal | fork adds vertical dashboards (FinOps cost, drift board, DR-drill history) via `OperatorApiConfig.extra_panels` (each wrapped as a GET-only route, path validated at build) + a matching entry in the console `panels.tsx` registry |
+| **T2 deterministic verifier evidence** | `DeterministicEvidenceVerifier` implementations injected through `Container.t2_deterministic_evidence_verifiers` | - | runtime binds explicit unavailable `what_if` and `security` verifiers, so T2 cannot become eligible without both authoritative producers | inject both the simulation-engine and security-scanner implementations with versioned candidate-bound records; partial binding, stale/conflicting evidence, and synthetic live evidence remain held |
 | **LLM metering** | `MeteringSink` / `MeteringReader` (in `core/metering/sink.py`); `MeteringEmitter` records measured provider `usage` with an explicit `control_plane` or `operator_chat` scope | - | one shared `InMemoryMeteringSink` in the single-process dev harness. T1, T2, and narrator adapters emit measured tokens; the independent Operator Service retains `GET /kpi/llm-cost`, reads durable `llm_invocation` rows through a SELECT-only role, and caps detail while keeping token-only aggregates exact. Interactive local separately materializes sanitized inventory and Settings projections from prepared authoritative inputs. | configured pricing remains internal to budget controls and isn't projected as provider spend; missing providers remain unavailable rather than synthetic |
 | **Infra module** | `infra/modules/<seam>/` (Terraform sub-module selected by `var.<seam>_kind`) | - | Container Apps + PostgreSQL Flex + Event Hubs Kafka + Key Vault + Log Analytics | pick a different sub-module per [csp-neutrality.md § Approved Alternative Azure Implementations](csp-neutrality.md#approved-alternative-azure-implementations); the module's output contract stays fixed |
 

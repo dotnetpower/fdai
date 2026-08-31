@@ -35,6 +35,7 @@ class DashboardMetrics:
     human_touchpoints_per_100_events: float
     shadow_share: float
     enforce_share: float
+    shadow_enforce_divergence: float
     per_tier: Mapping[str, int]
 
 
@@ -63,6 +64,7 @@ def derive_dashboard_metrics(
             human_touchpoints_per_100_events=0.0,
             shadow_share=0.0,
             enforce_share=0.0,
+            shadow_enforce_divergence=0.0,
             per_tier={},
         )
 
@@ -90,6 +92,8 @@ def derive_dashboard_metrics(
         if decision == "hil" or bool(entry.get("human_touched")):
             human_touched += 1
 
+    shadow_share = modes["shadow"] / total
+    enforce_share = modes["enforce"] / total
     return DashboardMetrics(
         event_count=total,
         auto_resolution_rate=decisions["auto"] / total,
@@ -97,8 +101,9 @@ def derive_dashboard_metrics(
         abstain_rate=decisions["abstain"] / total,
         deny_rate=decisions["deny"] / total,
         human_touchpoints_per_100_events=(human_touched / total) * 100,
-        shadow_share=modes["shadow"] / total,
-        enforce_share=modes["enforce"] / total,
+        shadow_share=shadow_share,
+        enforce_share=enforce_share,
+        shadow_enforce_divergence=abs(shadow_share - enforce_share),
         per_tier=dict(per_tier),
     )
 

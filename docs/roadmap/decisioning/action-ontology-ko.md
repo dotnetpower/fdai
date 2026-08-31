@@ -1,8 +1,8 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: 89e6227555a17ab47041965c80eb698f5aff8253
-translation_revised: 2026-08-30
+translation_source_sha: 71b4d2f733c6b85834f8eac5393677bd9249e8d3
+translation_revised: 2026-08-31
 ---
 
 # 액션 온톨로지
@@ -357,8 +357,8 @@ landing 해야 하는 compliance-heavy 환경에서 `pr_manual` 을 강제 MAY.
 
 ### 3.3 `governance.*`
 
-온톨로지 / 카탈로그 / 예외 / 승격 변경. 현재 온톨로지에 5개 항목이 있으며
-**3개는 실제 운영 dispatcher를 보유합니다**. 나머지 2개는 PR-native writer를 기다리는
+온톨로지 / 카탈로그 / 예외 / 승격 변경. 현재 온톨로지에 6개 항목이 있으며
+**3개는 실제 운영 dispatcher를 보유합니다**. 나머지 3개는 PR-native writer를 기다리거나 사용하는
 catalog-as-code 산출물입니다.
 
 - `governance.promote-action-type` - 하나의 ActionType에 대한 exact 영속
@@ -379,6 +379,10 @@ catalog-as-code 산출물입니다.
   `rule-catalog/exemptions/` 아래 JSON 으로 authored 되어 risk 게이트 가
   `ExemptionRegistry` 를 통해 소비; 런타임 **create-a-new-exemption**
   운영자 흐름 는 동일한 P2 PR-native 쓰기 담당 와 함께 land.
+- `governance.reapply-rule-assignment` - 정확한 예외 개정이 최종 만료 상태에 도달한 뒤 하나의
+  정확한 배정을 다시 적용하도록 제안합니다. 예약 게시자는 권한을 부여하지 않으며 브로커 수락은
+  실행 성공이 아닙니다. T0는 사람 승인을 요구하고 PR-native 경로는 검토된 카탈로그 차이가
+  적용을 복원하기 전에 최종 예외와 배정 개정을 다시 검증해야 합니다.
 - `governance.override-ceiling` - 특정 리소스 / tag 스코프에 대한 계층
   상한 의 operator-측 재정의 (포크 확장).
   **디스패처 shipped**:

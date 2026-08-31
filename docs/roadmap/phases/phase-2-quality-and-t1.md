@@ -81,6 +81,11 @@ Every stage writes an audit entry; a rule change is itself a change and ships as
 - **Promote | rollback**: promotion is an explicit, reviewed catalog-as-code merge; **rollback
   triggers** are a failed regression, a shadow-eval escape, or a post-promote guard breach, and
   revert to the last-good versioned set.
+- **Collector handoff**: Phase 1 collection-review packages are inert inputs to this phase. Mimir
+  owns the reviewed candidate transition; the promotion controller records only shadow promotion
+  or rollback evidence, and a separately authorized catalog-as-code merge changes the active
+  revision. Snapshot storage, review-package merge, and controller output never activate rules by
+  themselves.
 - **New resource types**: detect provider schema changes, identify uncovered resource types, and
   generate **rule stubs that ship shadow-only and HIL-reviewed** - a stub is never auto-enforced.
 
@@ -138,6 +143,13 @@ verifier and policy re-check are the authority, not model text.
 - **Verifier**: a deterministic check, independent of any model, re-validates the candidate
   action against policy-as-code and what-if/dry-run. Only a verifier pass makes an action
   execution-eligible.
+- **Mandatory evidence set**: the runtime-composed path requires both `what_if` evidence from the
+  `simulation_engine` authority and `security` evidence from the `security_scanner` authority.
+  Each versioned record binds the core-owned candidate digest, producer, observation and expiry
+  times, evidence references, conflict status, and synthetic status. Missing, stale, conflicting,
+  future-dated, candidate-mismatched, or synthetic evidence holds before any model cross-check.
+  Explicit failed evidence denies the candidate. A fork must inject both provider-neutral verifiers
+  together; partial binding fails at construction.
 - **Grounding (RAG)**: force citation of the justifying rules/policies and **validate each cited
   item exists in the rule catalog and actually supports the claim** (guards fabricated citations);
   **abstain to HIL** when ungrounded.
@@ -145,6 +157,15 @@ verifier and policy re-check are the authority, not model text.
   **confidence derived from verifier/cross-check signals** (not the model's self-report) must
   clear a configured threshold; below threshold routes to HIL. Outcomes are typed and audited:
   `eligible | abstain | disagree | deny`.
+
+The first design considered extending the rule verifier with optional what-if and security callbacks.
+That shape could silently skip an unbound callback and would let a single component self-attest
+several evidence families. The revised design keeps rule authorization separate, gives each
+deterministic evidence family a fixed authority class, and makes the production runtime bind explicit
+unavailable verifiers until both real producers are injected. Direct QualityGate construction remains
+available for isolated compatibility tests, but the shipped runtime cannot produce an eligible T2
+candidate without both current independent records. Synthetic records can test mechanics only and
+never satisfy live promotion.
 
 ## T1 Lightweight Tier
 

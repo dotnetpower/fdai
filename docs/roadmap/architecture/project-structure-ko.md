@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: f52f32c6efc256f0e7a9778c9e15532c8e64e955
-translation_revised: 2026-08-30
+translation_source_sha: 200ae1a3342d7e500e150e987ece779888f94c08
+translation_revised: 2026-08-31
 ---
 # 프로젝트 구조
 
@@ -390,7 +390,10 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 - **Governed action 및 probe 전달**: `GovernedGovernancePrPublisher`는 retire 및 exemption
   순수 writer를 기존 write-once PR adapter에 연결하고 replay 가능한 open-to-merge 또는
   종단 증적을 저장합니다. Retirement loader는 병합된 retirement artifact를 active rule
-  index에서 projection하고 exemption은 canonical JSON schema를 사용합니다.
+  index에서 projection하고 exemption은 canonical JSON schema를 사용합니다. 예외 수명 주기
+  조정기는 기존 `EventBus` 경계를 사용해 정확한 예외 개정과 배정이 연결된
+  `governance.reapply-rule-assignment` 제안을 게시합니다. 연결이 없으면 보류하며 브로커
+  수락은 최종 증적이 아닙니다.
   `LiveBlastProbeAdapter`는 배포가 제공하는 `BlastSignalSource`와 `ProbeFailureStreakSource`
   구현을 연결하며, 소스가 없거나 실패하면 Axis E를 낮추고 권한을 부여하지 않습니다.
   Runtime 조립은 retired-rule projection을 모든 downstream rule map에 전달하고 HIL/direct
@@ -401,6 +404,18 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
   `StateStoreExecutedActionObservationStore`는 서명된 맥락이 쓰기와 replay에서 구성된 검증기를
   통과한 Heimdall 귀속 관측만 받습니다. 근거가 없으면 held 상태를 유지합니다.
 - **Azure operational 근거**: `bind_azure_operational_evidence`는 strict promoted-inventory 스냅샷 읽기 담당, 현재 안전성 평가기, 구성된 Azure 메트릭, 범위가 제한된 가지 estimator, effect-model 읽기 담당을 조립합니다. Temporal 어댑터는 근거 hashing 전에 non-finite 메트릭 값을 거부합니다. 부분 연결은 컨테이너 construction에서 실패합니다.
+- **대시보드 가용성 변환**: `shared/telemetry/dashboard_status.py`는 프로바이더와 도메인
+  리듀서가 생성한 뒤의 정규화된 메트릭 관측을 사용합니다. 프로바이더 I/O를 수행하지 않으며
+  어떤 권한도 부여하지 않습니다. Phase 0 서술자는 소스가 연결된 패널의 예상 생산자와 최신성
+  구간을 지정합니다. 누락되거나 오래되었거나 충돌하거나 일치하지 않거나 미래 시점이거나 합성인
+  라이브 관측은 숫자 대체값 없이 사용 불가로 표시됩니다.
+- **변경 안전성 권한 전 근거**: `core/control_loop/change_safety_evidence.py`는
+  `Container.change_safety_evidence_provider`를 통해 주입된 프로바이더 하나를 받고 Activity
+  Log 감지기는 `Container.change_safety_detector`를 통해 별도로 주입됩니다. 대역 외
+  발견 사항의 경우 컨트롤 루프는 Action 생성 후 실행 권한 및 risk-gate 전에 정확한 표류 및
+  what-if 레코드를 결합합니다. 근거가 없거나 유효하지 않으면 발견 사항을 억제하지 않고
+  보류합니다. 프로바이더는 관측된 영향 개수만 채울 수 있으며 권한을 부여하거나 독립 작업 후
+  검증을 충족할 수 없습니다.
 
 ### 기능 번들
 
@@ -450,9 +465,11 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 | 전달 어댑터 | 전달 인터페이스 | - | `gitops-pr` / `chatops` | 다른 PR 호스트 / 채팅 채널 |
 | Risk 채점 & thresholds | risk-gate 구성 | - | 범용 임계값 | 고객 리스크 정책 |
 | 모델 프로바이더 | 모델 클라이언트 (기능별) | - | 설정된 기본 엔드포인트 | 고객 승인 모델 |
+| **Assurance Twin 의미 컴파일러** | `Container`를 통해 주입하는 `NlQueryCompiler` 및 `AssuranceTwinDiscoverySink` | - | 명시적인 `semantic_model_unavailable`, 발견 인계는 사용 불가를 보고 | 정확한 입력 다이제스트, 컴파일러 개정, 근거 참조, 결과 한계, 읽기 전용 검증, 원시 질문 및 변경 권한 없음 조건을 보존하는 스키마 제한 컴파일러와 비활성 발견 sink 주입 |
 | **실시간 아웃바운드 스트림** | `SseSink` (비동기 publish + async-iterator 구독, SSE 페이로드) | - | `InMemorySseSink` (테스트/데브); HTTP `text/event-stream` 어댑터는 콘솔 읽기 전용 표면과 함께 랜딩 | 양방향 표면이 필요하면 WebSocket 어댑터로 교체; 헤드리스 관찰기는 웹훅 전용. `shared/streaming/SseBroadcaster` 가 `EventBus` 토픽을 채널로 릴레이. |
 | **파이프라인 스테이지 발행자** | `StagePublisher` (`shared/providers/stage_publisher.py`) 의 `emit(StageEvent)` | - | `NullStagePublisher` (기본 - 스테이지 코드가 관찰 사이드이펙트 없이 실행되도록 유지) | 인프로세스 데브 / 단일 레플리카: `SseSinkStagePublisher` 가 `SseSink` 로 바로 동시 확산. 멀티 레플리카 프로덕션: `EventBusStagePublisher` 가 Kafka 토픽(기본 `fdai.pipeline.stages`) 에 발행하고 기존 `SseBroadcaster` 가 모든 레플리카가 소비하는 SSE 채널로 릴레이. 파이프라인 스테이지 (`event_ingest`, `trust_router`, T0/T1/T2, `risk_gate`, `executor`, `audit`) 가 프로토콜을 받도록 backward-compat - 업스트림 기본은 아무 것도 발행 하지 않음. |
 | **콘솔 읽기 패널** | `ReadPanel` (`delivery/operator_api/panels.py`) | - | 코어 라우트만 (`/audit`, `/kpi`, `/hil-queue`); `ExampleFinOpsPanel` 은 참조용으로 제공되지만 UI 최소화를 위해 **미등록** | 포크가 `OperatorApiConfig.extra_panels` (각각 GET 전용 라우트로 래핑, 빌드 시 경로 검증) + 콘솔 `panels.tsx` 레지스트리 항목으로 버티컬 대시보드(FinOps 비용, 드리프트 보드, DR 드릴 이력) 추가 |
+| **T2 결정론적 검증 근거** | `Container.t2_deterministic_evidence_verifiers`를 통해 주입하는 `DeterministicEvidenceVerifier` 구현 | - | 런타임은 명시적인 사용 불가 `what_if` 및 `security` 검증기를 연결하므로 권위 있는 생산자 두 개 없이는 T2가 적격이 될 수 없습니다. | 시뮬레이션 엔진과 보안 스캐너 구현을 버전 있고 후보에 연결된 레코드와 함께 모두 주입합니다. 부분 연결, 오래되거나 충돌하는 근거, 합성 라이브 근거는 계속 보류합니다. |
 | **LLM 계량(metering)** | `MeteringSink` / `MeteringReader` (`core/metering/sink.py`); `MeteringEmitter`가 명시적인 `control_plane` 또는 `operator_chat` 범위와 함께 프로바이더가 측정한 `usage`를 기록 | - | 단일 프로세스 dev 실행 장치는 하나의 `InMemoryMeteringSink`를 공유합니다. T1, T2, 서술기 어댑터가 측정된 토큰을 발행합니다. 독립적인 Operator 서비스는 `GET /kpi/llm-cost`를 유지하고 SELECT-only 역할로 영속 `llm_invocation` 행을 읽으며 상세를 제한하되 token-only 집계는 정확하게 유지합니다. Interactive 로컬은 준비된 권위 있는 입력에서 정제된 인벤토리와 Settings 변환 결과를 별도로 materialize합니다. | 설정된 가격은 내부 예산 컨트롤에 남고 프로바이더 지출로 변환 결과되지 않으며, 누락된 프로바이더는 synthetic 대신 사용 불가 상태를 유지합니다. |
 | **Infra 모듈** | `infra/modules/<seam>/` (Terraform 서브-모듈, `var.<seam>_kind` 로 선택) | - | Container Apps + PostgreSQL Flex + Event Hubs Kafka + Key Vault + Log Analytics | [csp-neutrality-ko.md § 승인된 대안 Azure 구현](csp-neutrality-ko.md#승인된-대안-azure-구현approved-alternative-azure-implementations) 에 따라 다른 서브-모듈 선택; 모듈의 출력 계약은 고정 유지 |
 

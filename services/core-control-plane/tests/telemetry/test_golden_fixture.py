@@ -44,6 +44,11 @@ def test_golden_fixture_reproduces_every_dashboard_metric() -> None:
     )
     assert isclose(metrics.shadow_share, expected["shadow_share"], abs_tol=1e-9)
     assert isclose(metrics.enforce_share, expected["enforce_share"], abs_tol=1e-9)
+    assert isclose(
+        metrics.shadow_enforce_divergence,
+        expected["shadow_enforce_divergence"],
+        abs_tol=1e-9,
+    )
     assert dict(metrics.per_tier) == expected["per_tier"]
 
 
@@ -100,6 +105,7 @@ def test_empty_audit_batch_returns_zero_metrics() -> None:
     assert metrics.auto_resolution_rate == 0.0
     assert metrics.hil_rate == 0.0
     assert metrics.human_touchpoints_per_100_events == 0.0
+    assert metrics.shadow_enforce_divergence == 0.0
     assert dict(metrics.per_tier) == {}
 
 

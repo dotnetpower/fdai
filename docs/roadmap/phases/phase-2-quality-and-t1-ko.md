@@ -1,8 +1,8 @@
 ---
 title: "Phase 2 - 지속적 규칙 업데이트, Quality Gate, T1"
 translation_of: phase-2-quality-and-t1.md
-translation_source_sha: 3832b86ce12200ebbfa8d25a8ab3acf20c33cb76
-translation_revised: 2026-08-29
+translation_source_sha: ca34bc6abdb4951c6dd57251bc1286cd6d94a357
+translation_revised: 2026-08-31
 ---
 
 # 단계 2 - 지속적 규칙 업데이트, Quality 게이트, T1
@@ -83,6 +83,10 @@ auto-edit 절대 아님) 로 shadow 기본으로 나감.
   승격 블록.
 - **Promote | 롤백**: 승격은 명시적, 리뷰된 catalog-as-code 머지; **롤백 트리거** 는 실패한
   회귀, shadow-eval escape, 또는 사후 승격 가드 위반이며, 마지막-good 버전된 세트로 되돌림.
+- **수집기 인계**: Phase 1 수집 검토 패키지는 이 단계의 비활성 입력입니다. Mimir가 검토된
+  후보 전환을 소유합니다. 승격 컨트롤러는 shadow 승격 또는 롤백 근거만 기록하고, 별도로
+  권한이 부여된 catalog-as-code 병합이 활성 개정을 변경합니다. 스냅샷 저장, 검토 패키지 병합,
+  컨트롤러 출력만으로는 규칙이 활성화되지 않습니다.
 - **새 리소스 타입**: 프로바이더 스키마 변경 감지, 커버되지 않은 리소스 타입 식별, **shadow-only
   및 HIL-리뷰로 출시되는 규칙 stub 생성** - stub은 절대 auto-enforce 아님.
 
@@ -137,11 +141,25 @@ T2 입력은 **신뢰할 수 없는** ([security-and-identity-ko.md](../architec
   N ≥ 3 인 경우 설정된 정족수 요구. 어떤 불일치도 **HIL로 escalate**, 절대 auto-resolve 아님.
 - **검증기**: 어떤 모델과도 독립적인 결정론 검사가 후보 액션을 policy-as-code와 what-if/예행 실행
   에 대해 재검증. 검증기 통과만이 액션을 execution-eligible로 만듦.
+- **필수 근거 집합**: 런타임 조립 경로는 `simulation_engine` 권한의 `what_if` 근거와
+  `security_scanner` 권한의 `security` 근거를 모두 요구합니다. 각 버전 있는 레코드는 Core가
+  소유한 후보 다이제스트, 생산자, 관측 및 만료 시각, 근거 참조, 충돌 상태, 합성 상태를
+  연결합니다. 누락, 만료, 충돌, 미래 시점, 후보 불일치, 합성 근거는 모델 교차 검사 전에
+  보류됩니다. 명시적으로 실패한 근거는 후보를 차단합니다. 포크는 프로바이더 중립 검증기 두
+  개를 함께 주입해야 하며 부분 연결은 조립 시 실패합니다.
 - **Grounding (RAG)**: 정당화 규칙/정책 인용 강제, **각 인용 항목이 규칙 카탈로그에 존재하고
   실제로 주장을 지지하는지 검증**(fabricated 인용 방어); ungrounded 시 **HIL로 abstain**.
 - **임계 게이팅**: 스키마, 정책, what-if, 보안-스캔 검사가 모두 통과해야 하고 검증기/교차 검사
   신호에서 파생된(모델의 self-report 아님) **신뢰도** 가 설정된 임계 통과 필요; 임계 아래는
   HIL로 라우팅. 결과는 타입되고 감사됨: `eligible | abstain | disagree | deny`.
+
+첫 설계에서는 선택적 what-if 및 보안 콜백으로 규칙 검증기를 확장하는 방안을 검토했습니다.
+이 형태는 연결되지 않은 콜백을 조용히 건너뛰거나 한 구성 요소가 여러 근거 계열을 자체 증명하게
+할 수 있습니다. 수정된 설계는 규칙 권한 확인을 분리하고 각 결정론적 근거 계열에 고정 권한
+분류를 부여합니다. 운영 런타임은 실제 생산자 두 개가 모두 주입될 때까지 명시적인 사용 불가
+검증기를 연결합니다. 격리된 호환성 테스트는 QualityGate를 직접 구성할 수 있지만, 출시된
+런타임은 현재 독립 레코드 두 개 없이는 적격 T2 후보를 만들 수 없습니다. 합성 레코드는
+메커니즘만 테스트하며 라이브 승격을 충족하지 않습니다.
 
 ## T1 경량 티어
 

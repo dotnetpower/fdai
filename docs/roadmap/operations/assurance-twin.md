@@ -54,13 +54,15 @@ operator-panel bindings remain incomplete, so no area is claimed as operationall
 | Graph-wide Dynamic trajectories, propagation, invariants, episode closure, and model registry | implemented | [`graph_effect.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_effect.py), [`graph_runtime.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_runtime.py), [`graph_closure.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_closure.py), and focused graph tests | The runtime persists prediction episodes before returning evidence and updates challenger slices only from complete independent observations. |
 | Deep Security Assessment feed, deterministic analyzer, and catalog report | implemented | [`core/security/`](../../../services/core-control-plane/src/fdai/core/security), [`security_assessment.py`](../../../services/core-control-plane/src/fdai/core/reporting/datasources/security_assessment.py), [`test_assessment.py`](../../../services/core-control-plane/tests/core/security/test_assessment.py), and [`test_security_assessment_datasource.py`](../../../services/core-control-plane/tests/core/reporting/test_security_assessment_datasource.py) | This is a separate reporting subsystem, not the Twin-specific posture panel described below. |
 | Production inventory projection and ambient change-review delivery | not-started | [`projection.py`](../../../services/core-control-plane/src/fdai/shared/providers/projection.py) and [`iac_review.py`](../../../services/core-control-plane/src/fdai/shared/providers/iac_review.py) define provider seams | No production inventory adapter, change-event coordinator, or Checks API publisher is bound upstream. |
-| Model-backed question compilation, T1 reuse, ChatOps intake, and abstention feedback | in-progress | [`query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/query.py), [`chat.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/chat.py), and the shared semantic judgment contract | Typed query verification, immutable chat values, and explicit model-unavailable behavior exist. The Twin-specific projection from accepted semantic judgment to `TypedQuery`, message routing, and discovery-loop delivery remain unbound. |
+| Strict semantic compilation and abstention feedback | implemented | [`query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/query.py), [`semantic_query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/semantic_query.py), [`runtime/assurance_twin_query.py`](../../../services/core-control-plane/src/fdai/runtime/assurance_twin_query.py), and focused query/runtime tests (`50 passed`) | Injected compilers must bind the exact input digest, compiler revision, bounded limit, and evidence refs before a read-only plan survives verification. Abstentions emit content-free, no-authority gaps through an injected discovery sink. The runtime default remains explicit model unavailable. |
+| T1 reuse, ChatOps intake, and governed runtime evidence | in-progress | [`chat.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/chat.py) and the shared semantic judgment contract | Message routing, T1 reuse, a concrete model provider, and an authenticated end-to-end receipt remain unvalidated. |
 | Twin-specific operator panel and governed remediation proposal bridge | not-started | The report and review primitives above provide inputs but no dedicated Operator API or console route | The implemented Security Assessment report doesn't satisfy the broader Twin posture panel or action-bridging workflow. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-31 | implemented | Added the strict semantic compiler coordinator and runtime composition seams. Verification requires exact question lineage, compiler revision, evidence citations, and result bounds; invalid plans become explicit ambiguity and publish only content-free no-authority discovery gaps. | `current change`; 50 focused query and runtime composition checks passed. | Bind a governed model compiler and discovery sink, then retain one authenticated runtime receipt. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger and separated tested Twin primitives from unbound delivery surfaces; earlier provenance wasn't reconstructed. | Current change; focused assurance-twin, security-assessment, and reporting tests cited in the scope table. | Bind production evidence and delivery surfaces, then collect governed runtime evidence. |
 | 2026-08-21 | in-progress | Removed the lexical natural-language grammar from the default Twin compiler. Unbound compilation now returns `semantic_model_unavailable`, while the deterministic read-only verifier remains authoritative for every injected compiler. | `current change`; focused Assurance Twin checks passed 45 cases and the semantic-routing guard reports no migrate paths. | Bind a Twin-specific model projection and ChatOps intake before describing natural-language compilation as available. |
 
@@ -68,8 +70,11 @@ operator-panel bindings remain incomplete, so no area is claimed as operationall
 
 - [ ] Bind an authoritative `Inventory` source to the projection and prove freshness, bounded delta
   handling, and deterministic replay in a focused integration test.
-- [ ] Implement model-backed natural-language compilation and ChatOps intake, with tests proving
-  every query is verified read-only and unsupported questions produce grounded review-required results.
+- [x] Implement the provider-neutral semantic compilation and discovery seams, with tests proving
+  every accepted query is bounded, evidence-cited, exact-input-bound, and read-only while unsupported
+  questions remain explicit unavailable or ambiguity outcomes.
+- [ ] Bind a concrete governed model compiler and ChatOps intake, then retain an authenticated
+  runtime receipt.
 - [ ] Wire ambient change events to a production `IacReviewPublisher` and record a governed shadow
   receipt that links the change, finding, rule evidence, and published review.
 - [ ] Route abstained questions and remediation proposals through the discovery and normal risk-gated
@@ -136,6 +141,9 @@ back into prose**. It is never the source of the fact.
 - **Compilation is verified**: the compiled query MUST be well-typed against the
   ontology schema and MUST be read-only; a query that fails the check is rejected,
   not executed. This is the same fail-closed posture as the T2 verifier.
+- **Compilation evidence is exact**: runtime composition requires the compiler revision, exact
+  question digest, bounded result limit, and at least one evidence reference. Invalid or injected
+  output becomes an explicit ambiguity result and can emit only a content-free discovery gap.
 - **Answers route through the tiers**: an exact rule/graph match resolves at
   **T0**; a fuzzy question near a known pattern uses **T1** similarity; only a
   genuinely novel or ambiguous question reaches **T2**, and T2 output clears the
@@ -170,6 +178,13 @@ autonomous rule discovery loop in
 provenance and passes the standard quality gate before it can enter the catalog;
 the twin never mutates the catalog directly. The knowledge surface therefore
 tracks the estate instead of going stale.
+
+The first design considered binding a model directly and using a lexical compiler when that model
+was unavailable. That fallback would invent meaning and let presentation code become semantic
+authority. The revised design exposes provider-neutral compiler and discovery seams, keeps the
+default explicit unavailable, verifies every injected plan deterministically, and sends only a
+question digest and abstention code to discovery. No raw question, decision, or mutation authority
+crosses that handoff.
 
 ## Twin as simulator (what-if over the whole graph)
 

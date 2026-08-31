@@ -364,9 +364,9 @@ reviewable diff.
 
 ### 3.3 `governance.*`
 
-Ontology / catalog / exemption / promotion changes. Five entries are
+Ontology / catalog / exemption / promotion changes. Six entries are
 authored in the ontology today; **three currently have live dispatchers**
-(the other two are catalog-as-code artifacts waiting on a PR-native writer):
+(the other three are catalog-as-code artifacts waiting on or using a PR-native writer):
 
 - `governance.promote-action-type` - apply one exact durable operational-promotion receipt to
   the runtime mode registry for one ActionType. The ActionType remains unchanged in catalog;
@@ -386,6 +386,11 @@ authored in the ontology today; **three currently have live dispatchers**
   authored as JSON under `rule-catalog/exemptions/` and consumed by
   the risk gate via `ExemptionRegistry`; the runtime **create-a-new-
   exemption** operator flow lands with the same P2 PR-native writer.
+- `governance.reapply-rule-assignment` - propose reapplying one exact assignment after an exact
+  exemption revision reaches its terminal expired state. The scheduled publisher grants no
+  authority and broker acceptance is not execution success. T0 requires human approval, and the
+  PR-native path must revalidate the terminal exemption and assignment revisions before a reviewed
+  catalog diff can restore enforcement.
 - `governance.override-ceiling` - operator-side override on the tier
   ceiling for a specific resource / tag scope (fork extension).
   **Dispatcher shipped** in

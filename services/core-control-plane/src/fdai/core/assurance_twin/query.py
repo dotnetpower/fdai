@@ -112,6 +112,10 @@ class TypedQuery:
     predicates: tuple[Predicate, ...]
     kind: QueryKind = QueryKind.FIND
     projection: tuple[str, ...] | None = None
+    limit: int = 100
+    evidence_refs: tuple[str, ...] = ()
+    compiler_revision: str | None = None
+    input_digest: str | None = None
 
     def __post_init__(self) -> None:
         if not self.resource_type:
@@ -122,6 +126,8 @@ class TypedQuery:
             for field_name in self.projection:
                 if not field_name or not isinstance(field_name, str):
                     raise ValueError("TypedQuery.projection entries MUST be non-empty strings")
+        if not 1 <= self.limit <= 200:
+            raise ValueError("TypedQuery.limit MUST be in [1, 200]")
 
 
 @dataclass(frozen=True, slots=True)
@@ -173,14 +179,25 @@ class QueryVerifier:
     posture: fail closed, cite the field, no partial acceptance.
     """
 
-    def __init__(self, resource_types: ResourceTypeRegistry) -> None:
+    def __init__(
+        self,
+        resource_types: ResourceTypeRegistry,
+        *,
+        require_compiler_evidence: bool = False,
+    ) -> None:
         self._known_resource_types: frozenset[str] = frozenset(resource_types.ids())
+        self._require_compiler_evidence = require_compiler_evidence
 
     @property
     def known_resource_types(self) -> frozenset[str]:
         return self._known_resource_types
 
-    def verify(self, query: TypedQuery) -> TypedQuery:
+    def verify(
+        self,
+        query: TypedQuery,
+        *,
+        expected_input_digest: str | None = None,
+    ) -> TypedQuery:
         """Return ``query`` unchanged, or raise :class:`QueryVerificationError`."""
         if query.resource_type not in self._known_resource_types:
             raise QueryVerificationError(
@@ -201,6 +218,27 @@ class QueryVerifier:
                 message="COUNT queries MUST NOT carry a field projection",
                 field="projection",
             )
+        if self._require_compiler_evidence:
+            if not query.compiler_revision or not query.compiler_revision.strip():
+                raise QueryVerificationError(
+                    kind="invalid_projection",
+                    message="compiler output MUST name its revision",
+                    field="compiler_revision",
+                )
+            if not query.evidence_refs or any(
+                not item.strip() or len(item) > 512 for item in query.evidence_refs
+            ):
+                raise QueryVerificationError(
+                    kind="invalid_projection",
+                    message="compiler output MUST cite bounded evidence refs",
+                    field="evidence_refs",
+                )
+            if query.input_digest != expected_input_digest:
+                raise QueryVerificationError(
+                    kind="invalid_projection",
+                    message="compiler output input digest does not match the question",
+                    field="input_digest",
+                )
         return query
 
 
@@ -339,8 +377,8 @@ def execute_query(
         matches.append(QueryRow(ref=ref, properties=selected))
 
     matches.sort(key=lambda row: (row.ref.resource_type, row.ref.ref))
-    rows = tuple(matches)
-    count = len(rows)
+    count = len(matches)
+    rows = tuple(matches[: query.limit])
     if query.kind is QueryKind.COUNT:
         # COUNT strips the row payload to keep the result small; the
         # count is authoritative.

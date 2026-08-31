@@ -361,12 +361,11 @@ def _derive_blast_radius(action_type: OntologyActionType) -> BlastRadius:
         scope = ar.static_bucket or BlastRadiusScope.RESOURCE
         return BlastRadius(scope=scope, count=1)
 
-    # graph_derived - count is bounded by the ActionType cap, real
-    # resolved count comes from the risk-gate at P2. For now, use the
-    # authored cap as the maximum affected count.
+    # graph_derived - the authored cap is not an observed affected count.
+    # Keep it unknown until independent what-if evidence resolves the graph.
     return BlastRadius(
         scope=BlastRadiusScope.RESOURCE,
-        count=ar.max_affected_resources or 1,
+        count=None,
     )
 
 

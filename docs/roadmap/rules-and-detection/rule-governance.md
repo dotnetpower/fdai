@@ -241,8 +241,10 @@ An exemption waives an assignment for a scope, like an Azure Policy exemption:
   resource, **justification**, distinct `requested_by` / `approved_by` UUIDs, `state`, `created_at`,
   and `expires_at`. The loader enforces no self-exemption, explicit UTC timestamps,
   `expires_at > created_at`, and consistent terminal revocation metadata.
-- The current schema doesn't store an assignment reference or waiver/mitigated category. That
-  metadata is follow-up contract work.
+- The exemption artifact remains independent from assignment storage. Scheduled expiry accepts an
+  exact reviewed `ExemptionAssignmentBinding` from deployment composition. A missing or ambiguous
+  binding produces an audited hold; the coordinator never guesses an assignment from a rule id or
+  provider scope.
 - A configured **maximum exemption duration** and **ahead-of-expiry alert lead time**
   (`AppConfig.rule_governance.exemption_max_duration_days` /
   `exemption_alert_lead_days`, cross-validated so the lead time is always shorter than the
@@ -258,13 +260,22 @@ An exemption waives an assignment for a scope, like an Azure Policy exemption:
   (`expire`) or inside the configured alert lead time (`alert_ahead_of_expiry`).
   `fdai.delivery.exemption_lifecycle.ExemptionLifecycleCoordinator` combines that decision with an
   injectable `ExemptionLifecycleNotifier` (contract in `shared/providers/exemption_lifecycle.py`;
-  the shipped default only logs - no network) and the standard append-only audit boundary, using
-  the state store's atomic claim-and-audit primitive so an alert fires **at most once** per
-  exemption across replays or replicas. `scripts/governance/exemption-expire.py` runs both passes
-  offline (`--alert-lead-days`, `--no-alerts`) for the standalone/no-cloud-dependency workflow.
-  Wiring the coordinator into a live scheduled trigger (Container Apps Job / CronJob) and a
-  production notifier (ChatOps/email) remain deployment-configured operational work, same as the
-  standalone expiry script's real deployment shape.
+  the shipped default only logs - no network) and the standard append-only audit boundary. It groups
+  newly due lookahead items into a versioned digest that names each exact exemption revision and
+  requester. Atomic state claims make each item safe across replays or replicas.
+- Expiry never calls a cloud provider. The coordinator binds the active and expected expired
+  exemption revisions to an exact assignment id, version, and scope, then publishes a replay-stable
+  `governance.reapply-rule-assignment` proposal through the provider-neutral `EventBus`. Broker
+  acceptance is recorded as `broker_accepted_not_executed`; it is not execution success. The
+  ActionType starts in shadow mode, requires human approval at T0, and retains the normal Forseti,
+  Var, Thor, Saga, and Vidar boundaries plus target lock, rollback, and independent effect
+  verification. A consumer must revalidate the expected terminal exemption revision before any
+  reapply. Revocation or revision conflict therefore holds instead of mutating.
+- The initial alternative was a discovery-loop signal that directly re-evaluated the scope. That
+  path had no registered mutation contract and could blur observation with authority. The revised
+  design uses the existing typed action pipeline and treats missing binding, unavailable publisher,
+  and unknown broker outcome as audited holds. `scripts/governance/exemption-expire.py` still updates
+  only the reviewed catalog artifact; it never mutates managed resources.
 - Every exemption and its expiry is audited; an exemption never suppresses the audit record of the
   underlying finding - it records *why* it was accepted, not that it did not occur.
 

@@ -1,8 +1,8 @@
 ---
 title: 규칙 거버넌스(Rule Governance)
 translation_of: rule-governance.md
-translation_source_sha: 910ffb2e5d29f2432030c53a8dad0682d7d6b429
-translation_revised: 2026-08-30
+translation_source_sha: 105b6b478f1d8f74469201233aae68c4bf3a2ea5
+translation_revised: 2026-08-31
 ---
 
 # 규칙 거버넌스(Rule 거버넌스)
@@ -238,8 +238,9 @@ Exemption은 Azure Policy exemption처럼 스코프의 할당을 waive:
   **justification**, 서로 다른 `requested_by` / `approved_by` UUID, `state`, `created_at`,
   `expires_at`. 로더는 no self-exemption, 명시적 UTC 시각, `expires_at > created_at` 및
   일관된 terminal revocation 메타데이터를 강제합니다.
-- 현재 스키마는 배정 참조나 waiver/mitigated category를 저장하지 않습니다. 이
-  메타데이터는 후속 계약입니다.
+- 예외 아티팩트는 배정 저장소와 독립적으로 유지됩니다. 예약 만료는 배포 조립에서 검토된
+  정확한 `ExemptionAssignmentBinding`을 받습니다. 연결이 없거나 모호하면 감사된 보류가
+  발생하며, 조정기는 규칙 id나 프로바이더 범위에서 배정을 추측하지 않습니다.
 - 구성된 **exemption 최대 기간** 과 **만료 전 알림 리드 타임**
   (`AppConfig.rule_governance.exemption_max_duration_days` /
   `exemption_alert_lead_days`, 리드 타임이 항상 최대 기간보다 짧도록 상호 검증됨) 이
@@ -254,16 +255,24 @@ Exemption은 Azure Policy exemption처럼 스코프의 할당을 waive:
   만료 메커니즘** 과 **만료 전 알림** 을 위한 순수하고 결정론적인 판단 코어입니다: 모든
   active exemption에 대해 이미 `expires_at` 을 지났는지(`expire`) 또는 구성된 알림
   리드 타임 안에 있는지(`alert_ahead_of_expiry`) 를 판단합니다.
-  `fdai.delivery.exemption_lifecycle.ExemptionLifecycleCoordinator` 는 이 판단을
-  주입 가능한 `ExemptionLifecycleNotifier` (계약은
-  `shared/providers/exemption_lifecycle.py`; 기본 구현은 로그만 남기고 네트워크를
-  사용하지 않음) 와 표준 append-only 감사 경계에 결합하며, state store의 원자적
-  claim-and-audit 기본 연산을 사용해 하나의 exemption당 알림이 재실행/복제본 간에도
-  **최대 한 번만** 발송되도록 합니다. `scripts/governance/exemption-expire.py` 는
-  두 패스(`--alert-lead-days`, `--no-alerts`) 를 오프라인으로 실행해 클라우드
-  의존성 없는 워크플로를 유지합니다. 코디네이터를 실제 예약 트리거(Container Apps
-  Job / CronJob) 및 프로덕션 notifier(ChatOps/email) 에 배선하는 작업은, 독립
-  실행 만료 스크립트의 실제 배포 형태와 마찬가지로 배포 구성 작업으로 남습니다.
+  `fdai.delivery.exemption_lifecycle.ExemptionLifecycleCoordinator`는 이 판단을
+  주입 가능한 `ExemptionLifecycleNotifier`와 표준 추가 전용 감사 경계에 결합합니다.
+  기본 구현은 로그만 남기며 네트워크를 사용하지 않습니다. 새로 알림 대상이 된 항목은
+  각 예외의 정확한 개정과 요청자를 포함하는 버전 있는 다이제스트로 묶입니다. 원자적 상태
+  선점으로 각 항목은 재실행과 복제본 간에 안전합니다.
+- 만료 경로는 클라우드 프로바이더를 직접 호출하지 않습니다. 조정기는 활성 예외 개정과 예상
+  만료 개정을 정확한 배정 id, 버전, 범위에 연결한 뒤 프로바이더 중립 `EventBus`를 통해
+  `governance.reapply-rule-assignment` 제안을 게시합니다. 브로커 수락은
+  `broker_accepted_not_executed`로 기록되며 실행 성공을 뜻하지 않습니다. ActionType은
+  shadow 모드로 시작하고 T0에서 사람 승인을 요구합니다. 기존 Forseti, Var, Thor, Saga,
+  Vidar 경계와 대상 잠금, 롤백, 독립 효과 검증을 그대로 유지합니다. 실제 재적용 전에
+  소비자는 예상 최종 예외 개정을 다시 검증해야 합니다. 따라서 철회나 개정 충돌은 변경이
+  아니라 보류를 만듭니다.
+- 첫 대안은 발견 루프 신호가 범위를 직접 다시 평가하는 방식이었습니다. 이 경로에는 등록된
+  변경 계약이 없고 관측과 권한의 경계를 흐릴 수 있습니다. 수정된 설계는 기존 형식화된 액션
+  파이프라인을 사용하고 연결 누락, 게시자 사용 불가, 알 수 없는 브로커 결과를 감사된 보류로
+  처리합니다. `scripts/governance/exemption-expire.py`는 검토된 카탈로그 아티팩트만
+  갱신하며 관리형 리소스를 직접 변경하지 않습니다.
 - 모든 exemption과 만료는 감사; exemption은 기저 발견 사항의 감사 기록을 절대 억제하지 않음 -
   발생 안 함이 아니라 *왜 수용됐는지* 기록.
 

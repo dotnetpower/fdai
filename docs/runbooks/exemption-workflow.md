@@ -51,19 +51,21 @@ pipeline instead. If the wrong dimension is auto-vs-human approval, tune
 4. **Owner-tier review + merge**. The merge has no side effect on the
    live Azure resources today; enforcement suppression takes effect once
    the catalog pipeline (Phase 2) picks the exemption up.
-5. **Auto-expiry**. A scheduled job (`scripts/governance/exemption-expire.py`, moved
-   to a Container Apps Job after W4.1) flips each artifact to
-   `state=expired` the moment `expires_at` passes, and re-applies the
-   underlying rule assignment. The event is audit-logged.
+5. **Auto-expiry**. The repository job changes only the reviewed artifact to `state=expired`.
+   The runtime coordinator resolves an exact reviewed assignment binding and publishes a
+   `governance.reapply-rule-assignment` proposal with a stable idempotency key. The proposal passes
+   through ordinary risk evaluation, human approval, Thor execution, rollback, audit, and
+   independent effect verification. Missing binding, revision conflict, unavailable delivery, or
+   unknown delivery outcome remains held and safe to retry.
 
 ## Time-boxing
 
 - `expires_at` MUST be strictly after `created_at`.
 - No hard maximum window is codified here; longer windows MUST be
   justified in the PR body.
-- A lookahead notification fires on the default A1 channel 14 days before
-  `expires_at` via the `exemption_expiry_lookahead_weekly` route (W5.4 -
-  depends on the channels adapter; tracked separately).
+- A lookahead digest is eligible on the default A1 channel 14 days before `expires_at`. Each item
+  names the exact exemption revision, rule, expiry instant, and requester mention. Notification
+  delivery grants no authority and never delays expiry.
 
 ## Revocation
 

@@ -16,12 +16,14 @@ from dataclasses import dataclass, field
 from ..agents import T2ConversationSynthesizer
 from ..core.architecture_review import ProductionEvidenceProvider
 from ..core.assurance_twin import (
+    AssuranceTwinDiscoverySink,
     DynamicSimulationRequestProvider,
     EffectModelCausalEvidenceVerifier,
     EffectModelReader,
     GraphDynamicSimulationRequestProvider,
     GraphEffectModelCausalEvidenceVerifier,
     GraphEffectModelReader,
+    NlQueryCompiler,
 )
 from ..core.browser_evidence.service import BrowserEvidenceCaptureService
 from ..core.browser_evidence.surfaces import (
@@ -29,6 +31,9 @@ from ..core.browser_evidence.surfaces import (
     BrowserEvidenceWorkflowStepDispatcher,
 )
 from ..core.capability_catalog import CapabilityRuntime
+from ..core.control_loop.change_safety_evidence import (
+    ChangeSafetyPreAuthorityEvidenceProvider,
+)
 from ..core.conversation.semantic_judgment import SemanticJudgmentBoundary
 from ..core.execution_backend import ExecutionBackendCoordinator
 from ..core.metering.pricing import PricingTable
@@ -45,6 +50,7 @@ from ..core.ontology_platform import (
 from ..core.operational_context import OperationalEvidenceSource
 from ..core.quality_gate.critic import CriticModel
 from ..core.quality_gate.debate import DebateOrchestrator
+from ..core.quality_gate.deterministic_evidence import DeterministicEvidenceVerifier
 from ..core.quality_gate.gate import CrossCheckModel
 from ..core.quality_gate.judge import JudgeModel
 from ..core.quality_gate.promotion import (
@@ -67,6 +73,7 @@ from ..core.risk_gate import (
 from ..core.tiers.t1_lightweight import CurrentReuseVerifier, EmbeddingModel
 from ..core.tiers.t2_reasoning import T2Proposer
 from ..core.trajectory import TrajectoryJoinService
+from ..core.verticals.change_safety import ChangeSafetyDetector
 from ..core.working_context import (
     ContextSelectionPolicyAuthority,
     ContextSelectionShadowRunner,
@@ -245,6 +252,10 @@ class Container:
     inventory: Inventory = field(default_factory=EmptyInventory)
     knowledge_source: KnowledgeSource = field(default_factory=EmptyKnowledgeSource)
     change_feed: ChangeFeed = field(default_factory=EmptyChangeFeed)
+    change_safety_detector: ChangeSafetyDetector | None = None
+    change_safety_evidence_provider: ChangeSafetyPreAuthorityEvidenceProvider | None = None
+    assurance_twin_query_compiler: NlQueryCompiler | None = None
+    assurance_twin_discovery_sink: AssuranceTwinDiscoverySink | None = None
     operational_readiness_posture: PostureAssessmentProvider | None = None
     operational_readiness_report_publisher: ReadinessReportPublisher | None = None
     architecture_review_evidence_provider: ProductionEvidenceProvider | None = None
@@ -288,6 +299,7 @@ class Container:
     executed_action_observation_collector: ExecutedActionObservationCollector | None = None
     rubric_promotion_receipt_source: RubricPromotionReceiptSource | None = None
     rubric_promotion_receipt_verifier: RubricPromotionReceiptVerifier | None = None
+    t2_deterministic_evidence_verifiers: tuple[DeterministicEvidenceVerifier, ...] = ()
     operational_promotion_receipt_verifier: OperationalPromotionReceiptVerifier | None = None
     persisted_promotion_authority_verifier: PersistedPromotionAuthorityVerifier | None = None
 

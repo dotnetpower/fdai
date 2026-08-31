@@ -337,15 +337,18 @@ async def test_non_activity_log_is_a_no_op() -> None:
     assert list(audit.audit_entries) == []
 
 
-async def test_wrong_signal_kind_is_a_no_op() -> None:
+async def test_wrong_signal_kind_is_explicitly_unsupported_and_audited() -> None:
     detector, publisher, _, audit = _detector()
     event = _event(signal_kind="azure.resource_health", idempotency_key="not-al-2")
 
     decision = await detector.detect(event)
 
-    assert decision.outcome is DetectorOutcome.NOT_ACTIVITY_LOG
+    assert decision.outcome is DetectorOutcome.UNSUPPORTED_SIGNAL
+    assert decision.reason == "unsupported_signal_kind:azure.resource_health"
     assert publisher.records == ()
-    assert list(audit.audit_entries) == []
+    entries = list(audit.audit_entries)
+    assert len(entries) == 1
+    assert entries[0]["entry"]["outcome"] == "unsupported_signal"
 
 
 # ---------------------------------------------------------------------------
