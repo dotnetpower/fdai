@@ -2,7 +2,7 @@
 title: FDAI 시작하기
 description: FDAI 5분 오리엔테이션 - 무엇인지, 언제 적합한지, 다음으로 어디를 볼지.
 translation_of: get-started.md
-translation_source_sha: 31d38fad29ba6fae924a607d8e7454c18e51473f
+translation_source_sha: 74d18053b29c8108993feaef12e54d230729882c
 translation_revised: 2026-08-31
 ---
 

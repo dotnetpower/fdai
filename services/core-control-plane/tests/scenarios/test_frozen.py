@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime
 from ipaddress import ip_address
 from pathlib import Path
 from typing import Any, cast
@@ -24,6 +25,7 @@ MANIFEST_SCHEMA_PATH = Path(__file__).resolve().parent / "manifest.schema.json"
 MANIFEST_PATH = Path(__file__).resolve().parent / "manifests" / "v2026.07.json"
 CONFLICT_DIR = Path(__file__).resolve().parent / "cross-objective"
 CONFLICT_SCHEMA_PATH = CONFLICT_DIR / "schema.json"
+ENRICHMENT_DIR = Path(__file__).resolve().parent / "enrichment" / "v2026.07"
 
 # ── Guard patterns ──────────────────────────────────────────────────────────
 # Any GUID whose first four groups are non-zero is a real customer identifier
@@ -116,6 +118,30 @@ def _manifest_conflict_spec_ids() -> list[str]:
         for pack in _load_manifest()["capability_packs"].values()
         for conflict_id in pack["conflict_spec_ids"]
     ]
+
+
+_FAIL_CLOSED_EVIDENCE_CLASSES = ("missing", "stale", "incomplete", "conflicting")
+_DISPATCH_RECEIPT_KEYS = (
+    "pr_ref",
+    "pr_url",
+    "receipt_ref",
+    "execution_outcome",
+    "effect_verified",
+)
+
+
+def _load_effect_evidence() -> list[tuple[Path, dict[str, Any]]]:
+    """Load every frozen independent effect-evidence block from the overlays."""
+
+    found: list[tuple[Path, dict[str, Any]]] = []
+    for path in sorted(ENRICHMENT_DIR.glob("*.json")):
+        overlay = cast(
+            dict[str, Any], _load_json_without_duplicates(path.read_text(encoding="utf-8"))
+        )
+        evidence = overlay.get("effect_evidence")
+        if isinstance(evidence, dict):
+            found.append((path, cast(dict[str, Any], evidence)))
+    return found
 
 
 def _load_json_without_duplicates(text: str) -> object:
@@ -444,6 +470,59 @@ def test_conflict_spec_carries_no_customer_data(path: Path, raw: dict[str, Any])
 def test_conflict_spec_machine_fields_are_ascii(path: Path, raw: dict[str, Any]) -> None:
     invalid = _non_ascii_machine_fields(raw)
     assert not invalid, f"{path.name} contains non-ASCII machine fields: {invalid}"
+
+
+# ---------------------------------------------------------------------------
+# Frozen independent effect evidence
+# ---------------------------------------------------------------------------
+#
+# The `successful_full_loop` dimension may close only from an independent
+# authoritative observation. Its frozen inputs therefore get the same
+# customer-agnosticness guards as the scenarios, plus a completeness guard that
+# keeps every fail-closed evidence class covered and keeps dispatch receipts
+# out of the artifact.
+
+
+@pytest.mark.parametrize(("path", "raw"), _load_effect_evidence())
+def test_effect_evidence_carries_no_customer_data(path: Path, raw: dict[str, Any]) -> None:
+    findings = _customer_data_findings(raw)
+    assert not findings, f"{path.name} effect evidence contains customer data: {findings}"
+    guids = _NONZERO_GUID.findall(json.dumps(raw))
+    assert not guids, f"{path.name} effect evidence contains customer GUIDs: {guids[:3]}"
+    invalid = _non_ascii_machine_fields(raw)
+    assert not invalid, f"{path.name} effect evidence has non-ASCII machine fields: {invalid}"
+
+
+@pytest.mark.parametrize(("path", "raw"), _load_effect_evidence())
+def test_effect_evidence_covers_every_fail_closed_class(path: Path, raw: dict[str, Any]) -> None:
+    """Positive closure needs an in-window observation; every deficiency is pinned."""
+
+    window_start = datetime.fromisoformat(str(raw["predicted_at"]))
+    deadline = datetime.fromisoformat(str(raw["observation_deadline"]))
+    observation = raw["authoritative_observation"]
+    observed_at = datetime.fromisoformat(str(observation["observed_at"]))
+    assert window_start <= observed_at <= deadline, (
+        f"{path.name} authoritative observation falls outside its effect window"
+    )
+    assert raw["acceptable_min"] <= observation["value"] <= raw["acceptable_max"], (
+        f"{path.name} authoritative observation cannot satisfy its own prediction"
+    )
+
+    kinds = [case["kind"] for case in raw["negative_cases"]]
+    assert sorted(kinds) == sorted(_FAIL_CLOSED_EVIDENCE_CLASSES), (
+        f"{path.name} must pin exactly the fail-closed evidence classes"
+    )
+    for case in raw["negative_cases"]:
+        assert case["expected_verification_status"] in {"hold", "mismatch"}
+        assert case["expected_verification_reason"]
+        assert case["expected_response_label"] in {"unscorable", "mismatch"}
+
+    body = json.dumps(raw)
+    for forbidden in _DISPATCH_RECEIPT_KEYS:
+        assert forbidden not in body, (
+            f"{path.name} effect evidence must not carry {forbidden!r}; "
+            "closure may not restate dispatch"
+        )
 
 
 @pytest.mark.parametrize(("path", "raw"), _load_scenarios())

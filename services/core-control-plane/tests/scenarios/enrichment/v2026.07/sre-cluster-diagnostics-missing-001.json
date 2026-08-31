@@ -14,5 +14,66 @@
   "expected_control_loop_outcome": "executed",
   "expected_decision": "auto",
   "expected_citing_rule_id_present": "kubernetes-cluster.diagnostic-settings-required",
+  "effect_evidence": {
+    "note": "Frozen independent effect evidence for the SRE `successful_full_loop` dimension. The prediction is bound to the ActionType the replay builds; the authoritative observation comes from a source that never receives the executor receipt, so closure cannot be satisfied by dispatch success. The negative cases are the fail-closed evidence classes: missing, stale, incomplete, and conflicting.",
+    "prediction_id": "sre-successful-full-loop-v2026-07",
+    "metric": "diagnostic_settings_configured_count",
+    "acceptable_min": 1.0,
+    "acceptable_max": 1.0,
+    "predicted_at": "2026-07-05T08:00:02Z",
+    "observation_deadline": "2026-07-05T08:05:02Z",
+    "authoritative_observation": {
+      "observation_source": "example-diagnostic-settings-readback",
+      "value": 1.0,
+      "observed_at": "2026-07-05T08:01:02Z"
+    },
+    "negative_cases": [
+      {
+        "kind": "missing",
+        "note": "No authoritative observation was produced before closure was attempted.",
+        "observation": null,
+        "expected_verification_status": "hold",
+        "expected_verification_reason": "observation_unavailable",
+        "expected_response_label": "unscorable"
+      },
+      {
+        "kind": "stale",
+        "note": "The only observation arrived after the prediction's observation deadline.",
+        "observation": {
+          "observation_source": "example-diagnostic-settings-readback",
+          "value": 1.0,
+          "observed_at": "2026-07-05T08:06:02Z"
+        },
+        "expected_verification_status": "hold",
+        "expected_verification_reason": "observation_after_deadline",
+        "expected_response_label": "unscorable"
+      },
+      {
+        "kind": "incomplete",
+        "note": "The observation does not cover the predicted metric, so the evidence set is incomplete.",
+        "observation": {
+          "observation_source": "example-diagnostic-settings-readback",
+          "metric": "diagnostic_settings_readback_attempts",
+          "value": 1.0,
+          "observed_at": "2026-07-05T08:01:02Z"
+        },
+        "expected_verification_status": "hold",
+        "expected_verification_reason": "metric_mismatch",
+        "expected_response_label": "unscorable"
+      },
+      {
+        "kind": "conflicting",
+        "note": "The authoritative observation contradicts the prediction it is correlated to.",
+        "observation": {
+          "observation_source": "example-diagnostic-settings-readback",
+          "value": 0.0,
+          "observed_at": "2026-07-05T08:01:02Z"
+        },
+        "expected_verification_status": "mismatch",
+        "expected_verification_reason": "value_outside_acceptable_range",
+        "expected_response_label": "mismatch"
+      }
+    ]
+  },
   "note": "SRE observability precondition: a cluster with no diagnostic settings emits no SLO signal, so a burn-rate alert can never fire and the reliability objective is unmeasurable. Props fire ONLY diagnostic-settings-required; rbac_enabled, private_cluster_enabled, and a non-empty network_policy satisfy the co-resident kubernetes-cluster rules so the citing set stays single-rule."
 }

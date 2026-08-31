@@ -43,6 +43,7 @@ provenance.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-31 | implemented | Made the `ResponseOutcome` projection fail closed on an observation the contract cannot represent. An observation outside the effect window, or one not yet recorded, previously raised a contract validation error inside dispatch, so deficient effect evidence became a dispatch-time error instead of shadow `hold` evidence. The projection now drops such an observation and records `unscorable`, while the shadow effect audit entry keeps the raw value and the contract invariant itself is unchanged. | `current change`; `core/mscp_profile/response_outcome.py`; `tests/core/mscp_profile/test_response_outcome.py`; the stale case of `tests/scenarios/test_v2026_07_replay.py::test_sre_full_loop_fails_closed_on_deficient_effect_evidence`, which fails with the contract validation error when the projection fix is reverted; `uv run pytest -q --no-cov services/core-control-plane/tests/scenarios services/core-control-plane/tests/core/mscp_profile services/core-control-plane/tests/contracts/test_response_outcome.py` passed. | Evidence comes from frozen in-process replays in shadow, so a pinned deployed shadow evidence window is still open. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and separated implemented shadow observation from unimplemented gating. | `current change`; profile source and focused tests listed in the scope table. | Retain a measured readiness window and implement the bounded decision-context and gating work below. |
 | 2026-08-23 | implemented | Recorded the ordering boundary between immutable rule governance and optional post-dispatch MSCP effect observation. | `current change`; focused governance and MSCP composition checks. | The existing measured-readiness and governed-gating work remains unchanged. |
 
@@ -133,8 +134,11 @@ also leaves the primary result unchanged.
 The same observation now writes a strict `ResponseOutcome` as
 `measurement.action_outcome.v1`. The contract stores a target digest rather than the resource
 reference, marks missing or stale evidence `unscorable`, and supplies the independent watermark
-consumed by the scheduled Dynamic challenger-learning pass. This additional record remains shadow
-evidence. It cannot promote an effect model or change execution authority.
+consumed by the scheduled Dynamic challenger-learning pass. The contract also refuses to represent
+an observation that falls outside the effect window or that is not yet recorded, so the projection
+drops such an observation and records `unscorable` rather than raising during dispatch. The shadow
+effect audit entry still keeps the raw observed value, so no evidence is lost. This additional
+record remains shadow evidence. It cannot promote an effect model or change execution authority.
 
 After both durable audit records are written, an optional composition-owned sink republishes the
 strict contract through raw ingress. Audit failure suppresses the relay, so unaudited outcomes

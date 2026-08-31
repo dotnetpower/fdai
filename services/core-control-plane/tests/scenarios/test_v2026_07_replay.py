@@ -76,9 +76,11 @@ from fdai.core.control_loop import (
 from fdai.core.event_ingest import EventIngest
 from fdai.core.executor import (
     ResourceLockManager,
+    ShadowExecutor,
     TemplateRenderer,
 )
 from fdai.core.executor.action_builder import ActionBuilder
+from fdai.core.mscp_profile import ExpectedEffect, ObservedEffect
 from fdai.core.operational_context import OperationalContextMaterializer
 from fdai.core.tiers.t0_deterministic import (
     OpaRegoEvaluator,
@@ -89,7 +91,7 @@ from fdai.core.tiers.t2_reasoning import T2Tier
 from fdai.core.tiers.t2_reasoning.testing import AbstainingT2Proposer
 from fdai.core.trust_router import TrustRouter
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
-from fdai.shared.contracts.models import Mode
+from fdai.shared.contracts.models import Action, Mode
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.contracts.validation import (
     JsonSchemaContractValidator,
@@ -182,6 +184,8 @@ def _make_loop(
     audit: InMemoryStateStore | None = None,
     executor: Any | None = None,
     stage_publisher: Any | None = None,
+    expected_effect_provider: Any | None = None,
+    effect_observer: Any | None = None,
 ) -> tuple[ControlLoop, Any, InMemoryStateStore, Any]:
     rules = shipped_catalog.rules
     action_types = shipped_catalog.action_types
@@ -235,6 +239,8 @@ def _make_loop(
         rules_by_id={r.id: r for r in rules},
         t2_engine=t2_engine,
         stage_publisher=stage_publisher,
+        mscp_expected_effect_provider=expected_effect_provider,
+        mscp_effect_observer=effect_observer,
         **risk_kwargs,
     )
     return loop, publisher, audit, executor
@@ -540,6 +546,306 @@ async def test_sre_partial_publish_failure_closes_the_audit_and_recovers_on_retr
 def _unwrap_audit(record: Any) -> dict[str, Any]:
     inner = record.get("entry") if isinstance(record, dict) else None
     return inner if isinstance(inner, dict) else dict(record)
+
+
+# ---------------------------------------------------------------------------
+# Successful full loop
+# ---------------------------------------------------------------------------
+#
+# The SRE `successful_full_loop` dimension. The positive case replays the
+# frozen `sre.cluster-diagnostics-missing.001` scenario through the real
+# :class:`ControlLoop` and may close as `executed` **only** because an
+# independent authoritative observation matched the pre-dispatch prediction:
+#
+# - the executor is the shipped :class:`ShadowExecutor`, not the
+#   self-attesting test executor the generic replay uses, so the loop never
+#   receives an executor-authored `effect_verified` claim;
+# - the observer is bound through the shipped MSCP seam, receives only the
+#   action and the prediction, and never sees the executor receipt, the
+#   publisher, or the audit store;
+# - the frozen evidence and its `missing` / `stale` / `incomplete` /
+#   `conflicting` negative cases live in the scenario's enrichment overlay.
+#
+# Nothing here widens execution authority: the event stays `shadow`, every
+# execution result and published PR stays `shadow`, and no approval or
+# risk-gate path is bypassed.
+
+_FULL_LOOP_SCENARIO_ID = "sre.cluster-diagnostics-missing.001"
+
+
+def _sre_full_loop_inputs() -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    """Return the frozen scenario, its overlay, and the frozen effect evidence."""
+
+    scenario = json.loads(
+        (SCENARIO_DIR / _scenario_id_to_filename(_FULL_LOOP_SCENARIO_ID)).read_text(
+            encoding="utf-8"
+        )
+    )
+    overlay = _load_enrichment(_FULL_LOOP_SCENARIO_ID)
+    assert overlay is not None, f"{_FULL_LOOP_SCENARIO_ID} lost its enrichment overlay"
+    evidence = overlay.get("effect_evidence")
+    assert isinstance(evidence, dict), (
+        f"{_FULL_LOOP_SCENARIO_ID} lost its frozen effect evidence; "
+        "the successful_full_loop dimension cannot close without it"
+    )
+    return scenario, overlay, evidence
+
+
+def _negative_effect_case(evidence: Mapping[str, Any], kind: str) -> dict[str, Any]:
+    cases = [case for case in evidence["negative_cases"] if case["kind"] == kind]
+    assert len(cases) == 1, f"frozen effect evidence has no unique {kind!r} negative case"
+    return cast(dict[str, Any], cases[0])
+
+
+class _IndependentEffectEvidence:
+    """Serve one frozen prediction and at most one authoritative observation.
+
+    The observer deliberately receives only the action and the prediction. It
+    holds no reference to the executor, the publisher, the audit store, or the
+    execution result, so a verification it produces cannot be a restatement of
+    dispatch success.
+    """
+
+    def __init__(
+        self,
+        evidence: Mapping[str, Any],
+        observation: Mapping[str, Any] | None,
+    ) -> None:
+        self._evidence = evidence
+        self._observation = observation
+        self.calls: list[str] = []
+
+    async def predict(self, action: Action) -> ExpectedEffect:
+        self.calls.append("predict")
+        return ExpectedEffect(
+            prediction_id=str(self._evidence["prediction_id"]),
+            target_ref=action.target_resource_ref,
+            metric=str(self._evidence["metric"]),
+            acceptable_min=float(self._evidence["acceptable_min"]),
+            acceptable_max=float(self._evidence["acceptable_max"]),
+            predicted_at=datetime.fromisoformat(str(self._evidence["predicted_at"])),
+            observation_deadline=datetime.fromisoformat(
+                str(self._evidence["observation_deadline"])
+            ),
+        )
+
+    async def observe(self, action: Action, expected: ExpectedEffect) -> ObservedEffect | None:
+        del action
+        self.calls.append("observe")
+        if self._observation is None:
+            return None
+        return ObservedEffect(
+            prediction_id=str(self._observation.get("prediction_id", expected.prediction_id)),
+            target_ref=str(self._observation.get("target_ref", expected.target_ref)),
+            metric=str(self._observation.get("metric", expected.metric)),
+            value=float(self._observation["value"]),
+            observed_at=datetime.fromisoformat(str(self._observation["observed_at"])),
+        )
+
+
+def _plain_shadow_executor(
+    shipped_catalog: CostGovernanceCatalogComposition,
+    *,
+    publisher: Any,
+    audit: InMemoryStateStore,
+) -> ShadowExecutor:
+    """Build the shipped shadow executor, which never attests its own effect."""
+
+    return ShadowExecutor(
+        publisher=publisher,
+        audit_store=audit,
+        renderer=TemplateRenderer(remediation_root=shipped_catalog.remediation_root),
+        resource_lock=ResourceLockManager(),
+    )
+
+
+def _assert_shadow_boundary_preserved(
+    result: ControlLoopResult,
+    publisher: Any,
+    entries: tuple[dict[str, Any], ...],
+) -> None:
+    """No replay of this dimension may widen execution authority."""
+
+    for execution in result.execution_results:
+        assert execution.mode is Mode.SHADOW
+    for record in publisher.records:
+        assert record.mode is Mode.SHADOW
+        assert "shadow" in record.labels
+    assert {entry["mode"] for entry in entries if "mode" in entry} == {"shadow"}
+    assert all(entry.get("action_mode", "shadow") == "shadow" for entry in entries)
+
+
+@requires_opa
+@pytest.mark.asyncio
+async def test_sre_successful_full_loop_closes_only_on_independent_effect_observation(
+    shipped_catalog: CostGovernanceCatalogComposition,
+) -> None:
+    """SRE `successful_full_loop` evidence for `sre.cluster-diagnostics-missing.001`."""
+
+    scenario, overlay, evidence = _sre_full_loop_inputs()
+    source = _IndependentEffectEvidence(evidence, evidence["authoritative_observation"])
+    publisher = RecordingRemediationPrPublisher()
+    audit = InMemoryStateStore()
+    stages = RecordingStagePublisher()
+    loop, _, _, executor = _make_loop(
+        shipped_catalog,
+        publisher=publisher,
+        audit=audit,
+        executor=_plain_shadow_executor(shipped_catalog, publisher=publisher, audit=audit),
+        stage_publisher=stages,
+        expected_effect_provider=source.predict,
+        effect_observer=source.observe,
+    )
+    assert type(executor) is ShadowExecutor, (
+        "the successful full loop MUST NOT run on a self-attesting executor"
+    )
+
+    result = await loop.process(_merge_enrichment(scenario["event"], overlay))
+
+    assert result.outcome is ControlLoopOutcome.EXECUTED
+    assert result.decision == "auto"
+    assert overlay["expected_citing_rule_id_present"] in result.citing_rule_ids
+    assert source.calls == ["predict", "observe"]
+    assert bool(scenario["expected"]["guard"]["should_execute"]) is bool(publisher.records)
+    assert len(publisher.records) == 1
+
+    (execution,) = result.execution_results
+    assert execution.audit_context["effect_verified"] is True
+    assert execution.audit_context["effect_verification_status"] == "verified"
+
+    entries = tuple(_unwrap_audit(record) for record in audit.audit_entries)
+    _assert_shadow_boundary_preserved(result, publisher, entries)
+
+    terminal = [entry for entry in entries if entry.get("audit_phase") == "terminal"]
+    assert len(terminal) == 1
+    assert terminal[0]["outcome"] == "published"
+    assert overlay["expected_citing_rule_id_present"] in terminal[0]["citing_rule_ids"]
+
+    effect = [
+        entry for entry in entries if entry.get("action_kind") == "effect_verification.shadow"
+    ]
+    assert len(effect) == 1
+    assert effect[0]["verification_status"] == "verified"
+    assert effect[0]["verification_reason"] == "within_acceptable_range"
+    assert effect[0]["prediction_id"] == evidence["prediction_id"]
+    assert effect[0]["observed_value"] == evidence["authoritative_observation"]["value"]
+
+    measurement = [
+        entry for entry in entries if entry.get("action_kind") == "measurement.action_outcome.v1"
+    ]
+    assert len(measurement) == 1
+    assert measurement[0]["label"] == "verified"
+    assert measurement[0]["verification_passed"] is True
+    assert measurement[0]["decision"] == "auto"
+
+    # Terminal audit lineage: dispatch, independent verification, and the
+    # measurement projection all describe the same action of the same event.
+    assert {entry["action_id"] for entry in (*terminal, *effect, *measurement)} == {
+        str(execution.action_id)
+    }
+    assert {entry["event_id"] for entry in (*terminal, *effect, *measurement)} == {
+        scenario["event"]["event_id"]
+    }
+    assert (StageName.EXECUTE, StagePhase.DONE) in tuple(
+        (item.stage, item.phase) for item in stages.events
+    )
+    audit_stage = stages.by_stage(StageName.AUDIT)
+    assert len(audit_stage) == 1
+    assert audit_stage[0].detail["outcome"] == ControlLoopOutcome.EXECUTED.value
+    assert audit_stage[0].detail["decision"] == "auto"
+
+
+@requires_opa
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["missing", "stale", "incomplete", "conflicting"])
+async def test_sre_full_loop_fails_closed_on_deficient_effect_evidence(
+    kind: str,
+    shipped_catalog: CostGovernanceCatalogComposition,
+) -> None:
+    """Deficient effect evidence MUST end unknown instead of reporting success."""
+
+    scenario, overlay, evidence = _sre_full_loop_inputs()
+    case = _negative_effect_case(evidence, kind)
+    source = _IndependentEffectEvidence(evidence, case["observation"])
+    publisher = RecordingRemediationPrPublisher()
+    audit = InMemoryStateStore()
+    loop, _, _, _ = _make_loop(
+        shipped_catalog,
+        publisher=publisher,
+        audit=audit,
+        executor=_plain_shadow_executor(shipped_catalog, publisher=publisher, audit=audit),
+        expected_effect_provider=source.predict,
+        effect_observer=source.observe,
+    )
+
+    result = await loop.process(_merge_enrichment(scenario["event"], overlay))
+
+    assert result.outcome is not ControlLoopOutcome.EXECUTED
+    assert result.outcome is ControlLoopOutcome.ABSTAINED_ACTION_BUILD
+    assert result.decision == "abstain"
+
+    # Dispatch still happened in shadow; it is simply never success.
+    assert len(publisher.records) == 1
+    (execution,) = result.execution_results
+    assert execution.outcome.value == "published"
+    assert execution.audit_context["effect_verified"] is False
+    assert (
+        execution.audit_context["effect_verification_status"]
+        == (case["expected_verification_status"])
+    )
+    assert (
+        execution.audit_context["effect_verification_reason"]
+        == (case["expected_verification_reason"])
+    )
+
+    entries = tuple(_unwrap_audit(record) for record in audit.audit_entries)
+    _assert_shadow_boundary_preserved(result, publisher, entries)
+
+    (effect,) = [
+        entry for entry in entries if entry.get("action_kind") == "effect_verification.shadow"
+    ]
+    assert effect["verification_status"] == case["expected_verification_status"]
+    assert effect["verification_reason"] == case["expected_verification_reason"]
+
+    (measurement,) = [
+        entry for entry in entries if entry.get("action_kind") == "measurement.action_outcome.v1"
+    ]
+    assert measurement["label"] == case["expected_response_label"]
+    assert measurement["verification_passed"] is False
+    assert measurement["decision"] == "abstain"
+    assert not any(entry.get("verification_status") == "verified" for entry in entries)
+
+
+@requires_opa
+@pytest.mark.asyncio
+async def test_sre_full_loop_dispatch_without_observation_is_never_success(
+    shipped_catalog: CostGovernanceCatalogComposition,
+) -> None:
+    """Unbind the observation seam: a published shadow PR alone closes nothing."""
+
+    scenario, overlay, _ = _sre_full_loop_inputs()
+    publisher = RecordingRemediationPrPublisher()
+    audit = InMemoryStateStore()
+    loop, _, _, _ = _make_loop(
+        shipped_catalog,
+        publisher=publisher,
+        audit=audit,
+        executor=_plain_shadow_executor(shipped_catalog, publisher=publisher, audit=audit),
+    )
+
+    result = await loop.process(_merge_enrichment(scenario["event"], overlay))
+
+    assert len(publisher.records) == 1
+    entries = tuple(_unwrap_audit(record) for record in audit.audit_entries)
+    terminal = [entry for entry in entries if entry.get("audit_phase") == "terminal"]
+    assert len(terminal) == 1
+    assert terminal[0]["outcome"] == "published"
+
+    assert result.outcome is ControlLoopOutcome.ABSTAINED_ACTION_BUILD
+    assert result.decision == "abstain"
+    (execution,) = result.execution_results
+    assert "effect_verified" not in execution.audit_context
+    assert not any(entry.get("action_kind") == "effect_verification.shadow" for entry in entries)
 
 
 # ---------------------------------------------------------------------------

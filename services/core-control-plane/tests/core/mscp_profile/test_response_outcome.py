@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from fdai.core.mscp_profile import (
     EffectVerificationReason,
     EffectVerificationResult,
@@ -95,3 +96,56 @@ def test_missing_prediction_builds_unscorable_outcome() -> None:
     assert entry["label"] == "unscorable"
     assert entry["scorable"] is False
     assert "observed_at" not in entry
+
+
+@pytest.mark.parametrize(
+    ("observed_at", "recorded_at", "reason"),
+    [
+        (
+            _NOW + timedelta(minutes=6),
+            _NOW + timedelta(minutes=7),
+            EffectVerificationReason.OBSERVATION_AFTER_DEADLINE,
+        ),
+        (
+            _NOW - timedelta(minutes=1),
+            _NOW + timedelta(minutes=2),
+            EffectVerificationReason.OBSERVATION_BEFORE_PREDICTION,
+        ),
+        (
+            _NOW + timedelta(minutes=2),
+            _NOW + timedelta(minutes=1),
+            EffectVerificationReason.WITHIN_ACCEPTABLE_RANGE,
+        ),
+    ],
+)
+def test_unrepresentable_observation_degrades_to_unscorable_instead_of_raising(
+    observed_at: datetime,
+    recorded_at: datetime,
+    reason: EffectVerificationReason,
+) -> None:
+    """Out-of-window and not-yet-recorded evidence MUST fail closed, not raise."""
+
+    expected = _expected()
+    outcome = build_response_outcome(
+        action=_action(),
+        execution_outcome="published",
+        verification=EffectVerificationResult(EffectVerificationStatus.HOLD, reason),
+        expected=expected,
+        observed=ObservedEffect(
+            prediction_id=expected.prediction_id,
+            target_ref=expected.target_ref,
+            metric=expected.metric,
+            value=0.995,
+            observed_at=observed_at,
+        ),
+        recorded_at=recorded_at,
+        decision="abstain",
+    )
+
+    entry = response_outcome_audit_entry(outcome)
+    assert entry["label"] == "unscorable"
+    assert entry["scorable"] is False
+    assert entry["verification_passed"] is False
+    assert entry["verification_reason"] == reason.value
+    assert "observed_at" not in entry
+    assert "observed_value" not in entry

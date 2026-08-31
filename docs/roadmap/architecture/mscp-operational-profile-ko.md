@@ -1,8 +1,8 @@
 ---
 title: MSCP Operational Profile
 translation_of: mscp-operational-profile.md
-translation_source_sha: dbd492d9949f3275d987376ce7adcb8f53524955
-translation_revised: 2026-08-30
+translation_source_sha: 21e7233e1275626764838017c3181db6e3adb74e
+translation_revised: 2026-08-31
 ---
 # MSCP Operational 프로파일
 
@@ -44,6 +44,7 @@ MSCP 레벨을 구현하거나 전체 MSCP conformance를 충족한다고 주장
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-31 | implemented | 계약이 표현할 수 없는 관측에 대해 `ResponseOutcome` 변환 결과가 실패 시 차단하도록 만들었습니다. 효과 창을 벗어났거나 아직 기록되지 않은 관측은 이전에는 발송 내부에서 계약 검증 오류를 일으켜, 부족한 효과 근거가 shadow `hold` 근거가 아니라 발송 시점 오류가 되었습니다. 이제 변환 결과는 그런 관측을 버리고 `unscorable`로 기록하며, shadow 효과 감사 항목이 원본 값을 보존하고 계약 불변 조건 자체는 그대로입니다. | `current change`; `core/mscp_profile/response_outcome.py`; `tests/core/mscp_profile/test_response_outcome.py`; `tests/scenarios/test_v2026_07_replay.py::test_sre_full_loop_fails_closed_on_deficient_effect_evidence`의 기한 초과 사례는 변환 결과 수정을 되돌리면 계약 검증 오류로 실패합니다; `uv run pytest -q --no-cov services/core-control-plane/tests/scenarios services/core-control-plane/tests/core/mscp_profile services/core-control-plane/tests/contracts/test_response_outcome.py`가 통과했습니다. | 근거는 shadow에서 실행한 프로세스 내 고정 재생에서 나오므로, 배포 환경에 고정된 shadow 근거 관측 구간은 여전히 열려 있습니다. |
 | 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 구현된 shadow 관측과 구현되지 않은 게이팅을 분리했습니다. | `current change`; 구현 범위 표의 프로파일 소스와 집중 테스트입니다. | 측정된 준비 상태 구간을 보존하고 아래의 범위가 제한된 결정 맥락 및 게이팅 작업을 구현합니다. |
 | 2026-08-23 | implemented | 불변 룰 거버넌스와 전달 후 선택적 MSCP 효과 관측 사이의 순서 경계를 기록했습니다. | `current change`; 집중 거버넌스 및 MSCP 조립 검사입니다. | 기존 측정 준비 상태 및 통제된 게이팅 작업은 변경되지 않습니다. |
 
@@ -136,7 +137,10 @@ mismatch는 `hold` 또는 `mismatch` shadow 근거를 생성합니다. 실행기
 같은 관측은 이제 strict `ResponseOutcome`을 `measurement.action_outcome.v1`로 기록합니다.
 계약은 리소스 참조 대신 대상 다이제스트를 저장하고 누락되거나 stale한 근거를
 `unscorable`로 표시하며 scheduled Dynamic challenger-learning 통과가 소비하는 독립 watermark를
-제공합니다. 이 추가 기록은 계속 shadow 근거입니다. 효과 모델을 promote하거나 실행
+제공합니다. 또한 계약은 효과 창을 벗어났거나 아직 기록되지 않은 관측을 표현하지 못하므로,
+변환 결과는 그런 관측을 버리고 발송 도중 오류를 일으키는 대신 `unscorable`로 기록합니다.
+shadow 효과 감사 항목은 관측 원본 값을 그대로 보존하므로 근거가 사라지지 않습니다.
+이 추가 기록은 계속 shadow 근거입니다. 효과 모델을 promote하거나 실행
 권한을 변경할 수 없습니다.
 
 두 영속 감사 기록이 모두 기록된 뒤 선택적 composition-owned 싱크가 strict 계약을 raw

@@ -34,6 +34,11 @@ def build_response_outcome(
 ) -> ResponseOutcome:
     """Build one replay-stable expected-versus-observed response record."""
 
+    observed = _projectable_observation(
+        expected=expected,
+        observed=observed,
+        recorded_at=recorded_at,
+    )
     label = _label(verification.status, observed=observed)
     prediction_id = expected.prediction_id if expected is not None else None
     identity = f"{action.action_id}:{prediction_id or 'unavailable'}"
@@ -81,6 +86,30 @@ def response_outcome_audit_entry(outcome: ResponseOutcome) -> dict[str, object]:
         "scorable": outcome.scorable,
         "verification_passed": outcome.verification_passed,
     }
+
+
+def _projectable_observation(
+    *,
+    expected: ExpectedEffect | None,
+    observed: ObservedEffect | None,
+    recorded_at: datetime,
+) -> ObservedEffect | None:
+    """Drop an observation the response contract cannot represent.
+
+    The contract refuses an observation outside its effect window or recorded
+    before it was observed. Such evidence is already a ``hold``, so projecting
+    it must degrade to an unscorable record rather than raise and turn
+    fail-closed effect evidence into a dispatch-time error. The raw value stays
+    in the shadow effect audit entry.
+    """
+
+    if observed is None or expected is None:
+        return None
+    if not expected.predicted_at <= observed.observed_at <= expected.observation_deadline:
+        return None
+    if observed.observed_at > recorded_at:
+        return None
+    return observed
 
 
 def _label(
