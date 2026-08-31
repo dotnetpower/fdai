@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: fa1df0fe1f40fc0d3fc33f36dd85d97ed9af5ae1
+translation_source_sha: 2ae4b87b8647c1dc0abc763dd0546cef9a8b34b3
 translation_revised: 2026-08-31
 ---
 # 프로젝트 구조
@@ -390,7 +390,10 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 - **Governed action 및 probe 전달**: `GovernedGovernancePrPublisher`는 retire 및 exemption
   순수 writer를 기존 write-once PR adapter에 연결하고 replay 가능한 open-to-merge 또는
   종단 증적을 저장합니다. Retirement loader는 병합된 retirement artifact를 active rule
-  index에서 projection하고 exemption은 canonical JSON schema를 사용합니다.
+  index에서 projection하고 exemption은 canonical JSON schema를 사용합니다. 예외 수명 주기
+  조정기는 기존 `EventBus` 경계를 사용해 정확한 예외 개정과 배정이 연결된
+  `governance.reapply-rule-assignment` 제안을 게시합니다. 연결이 없으면 보류하며 브로커
+  수락은 최종 증적이 아닙니다.
   `LiveBlastProbeAdapter`는 배포가 제공하는 `BlastSignalSource`와 `ProbeFailureStreakSource`
   구현을 연결하며, 소스가 없거나 실패하면 Axis E를 낮추고 권한을 부여하지 않습니다.
   Runtime 조립은 retired-rule projection을 모든 downstream rule map에 전달하고 HIL/direct

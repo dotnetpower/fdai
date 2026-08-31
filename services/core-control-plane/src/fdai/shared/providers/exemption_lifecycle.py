@@ -1,4 +1,4 @@
-"""ExemptionLifecycleNotifier - ahead-of-expiry notification contract.
+"""ExemptionLifecycleNotifier - ahead-of-expiry digest delivery contract.
 
 Realizes the "ahead-of-expiry" notification half of
 ``rule-governance.md § Exemptions``: once
@@ -23,21 +23,19 @@ import logging
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
-    from fdai.rule_catalog.schema.exemption import Exemption
-    from fdai.rule_catalog.schema.exemption_lifecycle import ExemptionLifecycleDecision
+    from fdai.rule_catalog.schema.exemption_lifecycle import ExemptionExpiryDigest
 
 _LOGGER = logging.getLogger("fdai.governance.exemption_lifecycle")
 
 
 @runtime_checkable
 class ExemptionLifecycleNotifier(Protocol):
-    """Deliver one ahead-of-expiry notice for an active exemption."""
+    """Deliver one bounded ahead-of-expiry digest without granting authority."""
 
-    async def notify_ahead_of_expiry(
+    async def notify_expiry_digest(
         self,
         *,
-        exemption: Exemption,
-        decision: ExemptionLifecycleDecision,
+        digest: ExemptionExpiryDigest,
     ) -> None: ...
 
 
@@ -50,19 +48,26 @@ class LoggingExemptionLifecycleNotifier:
     (e.g. a ChatOps adapter) at the composition root.
     """
 
-    async def notify_ahead_of_expiry(
+    async def notify_expiry_digest(
         self,
         *,
-        exemption: Exemption,
-        decision: ExemptionLifecycleDecision,
+        digest: ExemptionExpiryDigest,
     ) -> None:
         _LOGGER.warning(
-            "exemption_ahead_of_expiry",
+            "exemption_expiry_lookahead_digest",
             extra={
-                "exemption_id": exemption.id,
-                "rule_id": exemption.rule_id,
-                "expires_at": decision.expires_at.isoformat(),
-                "at": decision.at.isoformat(),
+                "generated_at": digest.generated_at.isoformat(),
+                "item_count": len(digest.items),
+                "items": [
+                    {
+                        "exemption_id": item.exemption_id,
+                        "exemption_revision": item.exemption_revision,
+                        "rule_id": item.rule_id,
+                        "requested_by": item.requested_by,
+                        "expires_at": item.expires_at.isoformat(),
+                    }
+                    for item in digest.items
+                ],
             },
         )
 

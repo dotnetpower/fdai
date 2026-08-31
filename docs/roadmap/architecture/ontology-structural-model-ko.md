@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 2c0815a66c33d6429cb1d4c85c883cf740d05b62
-translation_revised: 2026-08-30
+translation_source_sha: c6779547af10801f871eeef52f06ff6e7e2a8d99
+translation_revised: 2026-08-31
 ---
 # 온톨로지 구조 모델
 
@@ -339,6 +339,7 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 | 수명 주기 없는 선언과 권한 전달 객체 | implemented | `object-type-lifecycle-classification.yaml`, `CapacityGraduationRecommendation`, `EvidenceConflict`, `ProspectiveLineage`, 엄격한 카탈로그 및 일치 검사 | 수명 주기가 없는 모든 ObjectType에는 검토 가능한 분류가 하나씩 있습니다. 추가된 전달 객체 3개는 고정된 에이전트 소유권을 보존하고 실행 권한을 부여하지 않습니다. |
 | 완전성과 표현 분리 | implemented | 권위 있는 온톨로지 그래프 materializer, 통합 테스트, Console 디코더, LinkType 검사기, 그래프 우선 인스턴스 작업 영역, 이중 언어 제품 카탈로그, 타입 검사, 프로덕션 빌드 | 선언 그래프는 독립적인 제한 계열 4개를 전달하고 범위 내 모든 LinkType의 역할과 특성을 노출합니다. 인스턴스 작업 영역은 그래프 권한을 바꾸지 않고 선택, 범례, Inspector 상태를 표현 계층에 유지합니다. |
 | 거버넌스 아티팩트 분리 | implemented | `rule_catalog/schema/governance_catalog.py`; `rule_catalog/schema/retirement.py`; `delivery/catalog_exemption.py`; 집중 거버넌스 로더 및 registry 테스트 | 배정, exemption 및 rule retirement은 검증된 catalog-as-code 입력입니다. 병합된 retirement은 active rule index에서 projection되며 쿼리, 승인 또는 실행 권한을 부여하지 않습니다. |
+| 거버넌스 만료 액션 연결 | implemented | `rule_catalog/schema/exemption_lifecycle.py`; `rule-catalog/action-types/governance.reapply-rule-assignment.yaml`; 집중 수명 주기 및 ActionType 카탈로그 검사 | 정확한 배정 연결과 예외 개정은 등록된 ActionType 하나를 위한 런타임 근거입니다. 새 LinkType을 만들거나 관계를 추론하거나 변경 권한을 부여하지 않습니다. |
 | 프로바이더 관찰 토폴로지 생산 | implemented | `azure-arg-v1.yaml`, `arm_inventory.py`, `kubernetes_api_inventory.py`, `kubernetes_inventory.py`, 집중 Azure, Kubernetes, 인벤토리 승격, 카탈로그, Ruff 및 strict mypy 검사 | 검토된 매핑 94개가 Azure 포함 및 트래픽 구성, UID 기반 Kubernetes 런타임 토폴로지, 정확한 Node 프로바이더 아이덴티티, Ingress 백엔드 Service 및 EndpointSlice 노출을 포함합니다. 구성되지 않은 Kubernetes 출처는 명시적인 `unavailable` 세대 근거로 보존됩니다. 실제 운영 Kubernetes 근거는 별도 검증 작업으로 남습니다. |
 | 적대적 하드닝 | implemented | 아래의 누적 42회 기록에는 이번 출처, 아이덴티티 연결, 분류 체계, 프로젝션, 호환성 및 표현 관점 14개가 포함됩니다. | 검증된 모든 Critical, High 및 Medium 발견 사항을 해결했습니다. 운영 출처 사용 불가와 검증되지 않은 외부 인바운드는 코드 주장이 아닌 명시적인 근거 공백으로 남습니다. |
 
@@ -346,6 +347,7 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-31 | implemented | 온톨로지 관계나 권한 출처를 추가하지 않고 예외 만료를 정확한 배정 하나와 등록된 ActionType 하나에 연결했습니다. 연결 근거가 없거나 충돌하면 제안을 보류합니다. | `current change`; 예외 수명 주기 스키마, ActionType 선언, 집중 수명 주기 및 카탈로그 검사. | 범위가 제한된 구조 작업은 남아 있지 않으며 배포 근거는 별도로 유지합니다. |
 | 2026-08-28 | implemented | 대화 화면 컨텍스트에서 제외해야 하는 `authorization.role-assignment`가 정확한 화면 선택 신원에 포함되던 문제를 닫았습니다. `ontologyInstanceContextIdentity`는 기존 표시 리소스 가드로 숨겨진 역할 배정을 제거한 뒤 `resourceIds`를 구성하므로 숨겨진 역할 배정만 있는 디렉터리가 비어 있지 않은 선택처럼 보이지 않습니다. | `current change`; `console/src/routes/ontology-instances.model.test.ts` 30개 및 Console typecheck 통과. | 이 표시 범위에 남은 제한된 구현 작업은 없습니다. |
 | 2026-08-28 | implemented | 권위 있는 Operator 선택 발급자에도 같은 제외 규칙을 적용했습니다. 서버가 선택 가능한 리소스 유형만으로 다이제스트와 토큰을 계산하므로 토큰 해석이 Console에서 제외한 역할 배정 ID를 복원하지 않습니다. | `current change`; 집중 Operator 인스턴스 projection 검사 8개, Ruff 및 strict mypy 통과. | 인증된 화면 간 근거를 보존합니다. 실제 서비스는 조회하지 않았습니다. |
 | 2026-08-28 | implemented | `rule-catalog/retirements/*.yaml`만 바뀐 변경이 CI 검토 게이트를 우회하지 않도록 `RULE_RETIREMENT` 거버넌스 변경 클래스를 추가했습니다. 룰 retirement는 quorum-2, 피싱 방지 인증 및 Owner 수준 검토를 요구하며 조회, 승인 또는 실행 권한을 부여하지 않습니다. | `current change`; `rule_catalog/schema/governance_review_authority.py`; `scripts/governance/check-governance-review-authority.py`; 집중 권한 및 CI 게이트 검사 113개 통과. | 룰 retirement 레코드로부터 온톨로지 조회 또는 액션 권한이 생기지 않습니다. |

@@ -401,7 +401,10 @@ clean (see the fork model in
   retirement and exemption writers to the existing write-once PR adapter and persists a
   replayable open-to-merge or terminal receipt. The retirement loader projects merged
   retirement artifacts out of the active rule index, while exemptions use the canonical JSON
-  schema. `LiveBlastProbeAdapter` binds deployment-supplied `BlastSignalSource` and
+  schema. The exemption lifecycle coordinator uses the existing `EventBus` seam to publish one
+  exact-revision, exact-assignment `governance.reapply-rule-assignment` proposal. Missing bindings
+  hold, and broker acceptance remains non-terminal evidence. `LiveBlastProbeAdapter` binds
+  deployment-supplied `BlastSignalSource` and
   `ProbeFailureStreakSource` implementations; missing or failed sources lower Axis E and never
   grant authority. Runtime assembly passes retired-rule projections to every downstream rule
   map and binds the durable promotion-attestation store before the HIL/direct route.

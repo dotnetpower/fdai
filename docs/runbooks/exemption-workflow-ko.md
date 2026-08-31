@@ -1,7 +1,7 @@
 ---
 translation_of: exemption-workflow.md
-translation_source_sha: 0842ba9eee3c7d8c5101c7345be7d7200a9f453a
-translation_revised: 2026-08-11
+translation_source_sha: b4f2234cbc6ef34cbc3cd0a525f81e5b888bdb75
+translation_revised: 2026-08-31
 title: 예외 워크플로
 owner: aw-owners (Owner-tier)
 sla: "PR 오픈으로부터 1 영업일 내 승인 결정"
@@ -49,17 +49,20 @@ Rule이 일반적으로 틀렸다면 대신 rule-catalog 파이프라인을 통�
 4. **Owner-tier 리뷰 + 머지**. 머지는 현재 시점에서 라이브 Azure 리소스에 사이드
    이펙트를 주지 않습니다. 적용 억제는 카탈로그 파이프라인(단계 2)이 예외를
    인식한 시점에 적용됩니다.
-5. **자동 만료**. 스케줄 잡 (`scripts/governance/exemption-expire.py`; W4.1 이후 Container Apps
-   작업)이 `expires_at`이 지나는 순간 각 아티팩트를 `state=expired`로 전환하고 기저
-   룰 배정을 재적용합니다. 이벤트는 감사 로그에 기록됩니다.
+5. **자동 만료**. 저장소 작업은 검토된 아티팩트만 `state=expired`로 변경합니다. 런타임
+   조정기는 검토된 정확한 배정 연결을 확인하고 안정적인 멱등성 키가 있는
+   `governance.reapply-rule-assignment` 제안을 게시합니다. 제안은 일반 위험 평가, 사람 승인,
+   Thor 실행, 롤백, 감사, 독립 효과 검증을 거칩니다. 연결 누락, 개정 충돌, 전달 사용 불가,
+   알 수 없는 전달 결과는 보류 상태로 남고 안전하게 다시 시도할 수 있습니다.
 
 ## 시간 제한
 
 - `expires_at`은 `created_at`보다 **엄격히 이후**여야 합니다.
 - 최대 간격 상한은 여기에 코드화되어 있지 않습니다. 더 긴 창은 PR 본문에서
   정당화되어야 합니다.
-- `expires_at` 14일 전에 `exemption_expiry_lookahead_weekly` 라우트에서 룩어헤드
-  알림이 발송됩니다 (W5.4 - channels 어댑터 의존, 별도 추적).
+- `expires_at` 14일 전에 기본 A1 채널로 미리 보기 다이제스트를 보낼 수 있습니다. 각 항목은
+  정확한 예외 개정, 규칙, 만료 시점, 요청자 멘션을 포함합니다. 알림 전달은 권한을 부여하지
+  않으며 만료를 지연하지 않습니다.
 
 ## 취소
 
