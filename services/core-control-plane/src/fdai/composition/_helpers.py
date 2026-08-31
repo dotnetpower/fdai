@@ -29,6 +29,9 @@ from ..core.browser_evidence.surfaces import (
     BrowserEvidenceWorkflowStepDispatcher,
 )
 from ..core.capability_catalog import CapabilityRuntime
+from ..core.control_loop.change_safety_evidence import (
+    ChangeSafetyPreAuthorityEvidenceProvider,
+)
 from ..core.conversation.semantic_judgment import SemanticJudgmentBoundary
 from ..core.execution_backend import ExecutionBackendCoordinator
 from ..core.metering.pricing import PricingTable
@@ -246,6 +249,7 @@ class Container:
     inventory: Inventory = field(default_factory=EmptyInventory)
     knowledge_source: KnowledgeSource = field(default_factory=EmptyKnowledgeSource)
     change_feed: ChangeFeed = field(default_factory=EmptyChangeFeed)
+    change_safety_evidence_provider: ChangeSafetyPreAuthorityEvidenceProvider | None = None
     operational_readiness_posture: PostureAssessmentProvider | None = None
     operational_readiness_report_publisher: ReadinessReportPublisher | None = None
     architecture_review_evidence_provider: ProductionEvidenceProvider | None = None

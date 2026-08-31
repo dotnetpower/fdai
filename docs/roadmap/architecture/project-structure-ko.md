@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: f9ee673d9467181ec37896f4358e11b67e03bcb4
+translation_source_sha: 27e5fd79c6de5d8f161f5602861150923c5cbf82
 translation_revised: 2026-08-31
 ---
 # 프로젝트 구조
@@ -409,6 +409,12 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
   어떤 권한도 부여하지 않습니다. Phase 0 서술자는 소스가 연결된 패널의 예상 생산자와 최신성
   구간을 지정합니다. 누락되거나 오래되었거나 충돌하거나 일치하지 않거나 미래 시점이거나 합성인
   라이브 관측은 숫자 대체값 없이 사용 불가로 표시됩니다.
+- **변경 안전성 권한 전 근거**: `core/control_loop/change_safety_evidence.py`는
+  `Container.change_safety_evidence_provider`를 통해 주입된 프로바이더 하나를 받습니다. 대역 외
+  발견 사항의 경우 컨트롤 루프는 Action 생성 후 실행 권한 및 risk-gate 전에 정확한 표류 및
+  what-if 레코드를 결합합니다. 근거가 없거나 유효하지 않으면 발견 사항을 억제하지 않고
+  보류합니다. 프로바이더는 관측된 영향 개수만 채울 수 있으며 권한을 부여하거나 독립 작업 후
+  검증을 충족할 수 없습니다.
 
 ### 기능 번들
 

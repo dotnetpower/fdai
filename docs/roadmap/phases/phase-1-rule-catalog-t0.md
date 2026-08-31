@@ -214,6 +214,24 @@ verdict plus the citing rule ids. Three deterministic checks:
 - **Drift detection** - compare observed resource state against the declared IaC/desired state;
   report the drift delta (added/removed/changed attributes).
 
+### Change Safety pre-authority order
+
+For an out-of-band Change Safety finding, the control loop preserves the original T0 finding and
+then applies this exact order: build the typed Action, join current drift and what-if evidence,
+record the joined evidence under the same correlation id, evaluate execution authorization, evaluate
+the unified risk gate, create a dry-run receipt, and dispatch only if every later safeguard permits.
+Independent post-action observation remains a separate terminal stage and cannot be satisfied by the
+what-if record.
+
+The first design considered running drift in parallel with T0 and treating missing evidence as an
+informational record. That could let an unresolved target continue toward authority. The revised
+design keeps finding formation independent but holds the action before authorization and risk when
+the provider is missing or failed or when evidence is stale, conflicting, future-dated, synthetic,
+identity-mismatched, or incomplete. Valid what-if evidence supplies the observed affected count to
+the existing risk gate. The authored ActionType cap is never copied into the Action as if it were a
+measurement. Duplicate events retain the existing ingest idempotency key and replay-stable action
+identity.
+
 On violation the engine emits a **remediation PR** (see below) rather than executing directly;
 audit, rollback, and approval come free from git. In Phase 1 every verdict is **shadow only** -
 no PR is merged and no state is mutated.

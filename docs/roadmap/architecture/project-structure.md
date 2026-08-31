@@ -419,6 +419,12 @@ clean (see the fork model in
   I/O and grants no authority. The Phase 0 descriptor names the expected producer and freshness
   window for source-bound panels; missing, stale, conflicting, mismatched, future-dated, or synthetic
   live observations render unavailable with no numeric fallback.
+- **Change Safety pre-authority evidence**: `core/control_loop/change_safety_evidence.py` accepts one
+  injected provider through `Container.change_safety_evidence_provider`. For out-of-band findings,
+  the control loop joins exact drift and what-if records after Action construction and before
+  execution authorization and risk. Missing or invalid evidence holds without suppressing the
+  finding. The provider can only populate the observed blast count; it cannot grant authority or
+  satisfy independent post-action verification.
 
 ### Capability Bundles
 
