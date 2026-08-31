@@ -14,6 +14,11 @@ _CREATE_TABLE = re.compile(
     r"(?:public\.)?([a-zA-Z_][a-zA-Z0-9_]*)",
     re.IGNORECASE,
 )
+_RENAME_TABLE = re.compile(
+    r"ALTER\s+TABLE\s+(?:public\.)?([a-zA-Z_][a-zA-Z0-9_]*)\s+"
+    r"RENAME\s+TO\s+(?:public\.)?([a-zA-Z_][a-zA-Z0-9_]*)",
+    re.IGNORECASE,
+)
 _DDL_TABLE = re.compile(
     r"(?:CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?|ALTER\s+TABLE|DROP\s+TABLE"
     r"|TRUNCATE(?:\s+TABLE)?|INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+"
@@ -115,6 +120,15 @@ def _created_tables(upgrade: ast.FunctionDef) -> set[str]:
     return tables
 
 
+def _upgrade_renames(upgrade: ast.FunctionDef) -> list[tuple[str, str]]:
+    """Detect ``ALTER TABLE x RENAME TO y`` in SQL literals (upgrade direction)."""
+    renames: list[tuple[str, str]] = []
+    for node in ast.walk(upgrade):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            renames.extend(_RENAME_TABLE.findall(node.value))
+    return renames
+
+
 def _literal_table_argument(call: ast.Call, operation: str, index: int) -> str:
     if len(call.args) > index:
         value = ast.literal_eval(call.args[index])
@@ -195,8 +209,13 @@ def load_legacy_inventory(version_location: Path) -> LegacyInventory:
         if revision in down_revisions:
             raise ValueError(f"duplicate legacy revision: {revision}")
         down_revisions[revision] = down_revision
-        for table_name in sorted(_created_tables(_migration_function(tree, "upgrade"))):
+        upgrade = _migration_function(tree, "upgrade")
+        for table_name in sorted(_created_tables(upgrade)):
             sources[table_name].append(revision)
+        for old_name, new_name in _upgrade_renames(upgrade):
+            if old_name in sources:
+                sources[new_name] = sources.pop(old_name)
+                sources[new_name].append(revision)
 
     missing_parents = {
         parent

@@ -1899,3 +1899,23 @@ def test_service_sql_writers_and_outbox_paths_match_ownership_manifest() -> None
         ("core-control-plane", "entries:saga-owned-control-plane"),
         ("isolated-executor", "entries:executor-pre-effect-terminal"),
     }
+
+
+def test_legacy_inventory_tracks_partition_renames_at_head() -> None:
+    """Regression: Alembic 0089 renames t2_cache_default → t2_cache_legacy_default.
+
+    The legacy inventory must report the effective table name at head so that
+    ownership validation and schema fingerprinting reference a table that
+    actually exists after ``alembic upgrade head``.
+    """
+    inventory = inventory_module.load_legacy_inventory(REPO_ROOT / "alembic" / "versions")
+    assert "t2_cache_legacy_default" in inventory.table_sources, (
+        "renamed partition must appear in table_sources"
+    )
+    assert "t2_cache_default" not in inventory.table_sources, (
+        "pre-rename partition name must not appear in table_sources"
+    )
+    revisions = inventory.table_sources["t2_cache_legacy_default"]
+    assert len(revisions) >= 2, (
+        "renamed table must carry both the original creation and rename revisions"
+    )

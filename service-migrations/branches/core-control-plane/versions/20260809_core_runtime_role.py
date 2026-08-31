@@ -46,7 +46,7 @@ owned_tables = (
     "state_kv",
     "t1_pattern_library",
     "t2_cache",
-    "t2_cache_default",
+    "t2_cache_legacy_default",
 )
 rollback = {
     "strategy": "revoke-and-drop-core-runtime-role",
@@ -110,7 +110,7 @@ def upgrade() -> None:
             state_kv,
             t1_pattern_library,
             t2_cache,
-            t2_cache_default
+            t2_cache_legacy_default
         TO fdai_core;
         GRANT USAGE, SELECT ON SEQUENCE audit_log_seq_seq TO fdai_core;
         """
@@ -154,7 +154,7 @@ def downgrade() -> None:
             state_kv,
             t1_pattern_library,
             t2_cache,
-            t2_cache_default
+            t2_cache_legacy_default
         FROM fdai_core;
         REVOKE ALL PRIVILEGES ON SEQUENCE audit_log_seq_seq FROM fdai_core;
         REVOKE USAGE ON SCHEMA public FROM fdai_core;

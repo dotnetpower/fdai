@@ -181,7 +181,7 @@
       "t2_cache",
       "t2_cache_catalog_state",
       "t2_cache_catalog_transition",
-      "t2_cache_default",
+      "t2_cache_legacy_default",
       "t2_cache_partition_registry",
       "t2_cache_rotation_receipt",
       "vertical_package_activation"
@@ -350,7 +350,7 @@
       "t2_cache",
       "t2_cache_catalog_state",
       "t2_cache_catalog_transition",
-      "t2_cache_default",
+      "t2_cache_legacy_default",
       "t2_cache_partition_registry",
       "t2_cache_rotation_receipt",
       "vertical_package_activation"
