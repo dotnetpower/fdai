@@ -9742,12 +9742,34 @@ def test_manifest_declaration_count_uses_server_owned_plan() -> None:
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
-def test_manifest_count_normalizes_the_validated_declaration_intent() -> None:
+@pytest.mark.parametrize(
+    ("judgment_target", "frame_subject"),
+    (
+        (None, "ActionType"),
+        ("ActionTypes", "LinkType"),
+    ),
+)
+def test_manifest_count_normalizes_the_validated_declaration_intent(
+    judgment_target: str | None,
+    frame_subject: str,
+) -> None:
     class _DeclarationCountJudgmentModel:
-        def judge(self, **_kwargs: Any) -> dict[str, object]:
+        def judge(self, *, utterance: str, **_kwargs: Any) -> dict[str, object]:
+            targets: list[dict[str, object]] = []
+            if judgment_target is not None:
+                source_start = utterance.index(judgment_target)
+                targets.append(
+                    {
+                        "kind": "object_type",
+                        "value": judgment_target,
+                        "canonical_value": "ActionType",
+                        "source_start": source_start,
+                        "source_end": source_start + len(judgment_target),
+                    }
+                )
             return {
                 "primary_intent": "query.ontology_declaration",
-                "targets": [],
+                "targets": targets,
                 "requested_facets": [
                     "count",
                     "visibility",
@@ -9764,7 +9786,7 @@ def test_manifest_count_normalizes_the_validated_declaration_intent() -> None:
     manifest, definition = _fixture(function_types=(ontology_manifest_function_type(),))
     frame = _frame(
         operation="aggregate",
-        subject_constraints=["ActionType"],
+        subject_constraints=[frame_subject],
         measure_concepts=["count", "visibility", "read_only_verification_source", "scope"],
         temporal_scope={"kind": "current"},
         output_shape="aggregation_table",

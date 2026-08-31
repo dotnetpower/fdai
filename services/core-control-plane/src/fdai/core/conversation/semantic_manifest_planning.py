@@ -64,14 +64,12 @@ def _declaration_kind(
     frame: SemanticProblemFrame,
     judgment: SemanticJudgmentProposal,
 ) -> OntologyDeclarationKind | None:
-    candidates = tuple(frame.subject_constraints)
-    if len(candidates) != 1:
-        canonical_targets = {
-            target.canonical_value
-            for target in judgment.targets
-            if target.canonical_value is not None
-        }
-        candidates = tuple(canonical_targets)
+    canonical_targets = {
+        target.canonical_value for target in judgment.targets if target.canonical_value is not None
+    }
+    if len(canonical_targets) > 1:
+        return None
+    candidates = tuple(canonical_targets) if canonical_targets else tuple(frame.subject_constraints)
     if len(candidates) != 1:
         return None
     candidate = candidates[0]
