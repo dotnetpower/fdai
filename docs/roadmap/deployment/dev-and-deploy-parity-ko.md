@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 9807ea1acb228cc9f90c955adc242087f350837d
+translation_source_sha: c27faef8037dfaf3cee218ca07aca9e6517265b0
 translation_revised: 2026-09-01
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -264,57 +264,33 @@ Headless 런타임은 영속 effective 값을 로드합니다. Embedded 로컬 P
 배포 워크로드 신원 및 전송 보안의 차이는 그대로 유지합니다. 준비 상태는 일정 관리, 검색,
 메트릭, 게시 및 출처 지연 상태를 분리합니다.
 
-Standard full-stack launch는 서술기 엔드포인트 조정을 유지합니다. 독립 Operator 서비스는
-`RUNTIME_ENV=dev`에서만 local-only 서술기 어댑터를 연결하고 `LLM_RESOLVED_MODELS_PATH`와 수명이 짧은
-Azure CLI 토큰을 사용하며 Core 가져오기 또는 실행기 권한 없이 Azure OpenAI 서술기를 시도합니다.
-Health는 엔드포인트를 민감정보 제거하고 모델 지식만 쓴 답변은 검증되지 않은으로 유지합니다. 시작 훅은 권한이
-있을 때 현재 공개 IP를 허용 목록할 수 있습니다. Automated 테스트는
-`FDAI_NARRATOR_AUTO_OPEN_AOAI=0`을 설정하며 모델이 미구성, 승인되지 않은 또는 unreachable이면 해당
-턴만 결정론적 answerer로 안전하게 대체 경로합니다.
-Full-stack 준비는 명시적 재정의, 검증된 `.fdai/resolved-models-vision.json`, repository-local `resolved-models.json` 순서로 `LLM_MODE=azure`와 `LLM_RESOLVED_MODELS_PATH`를 만들고 metering을 read-model PostgreSQL에 연결합니다. Vision 산출물은 연결 가능한 T1 임베딩과 연결 가능한 기본/보조 T2 쌍 또는 명시적인 top-level `hil-only` 모드라는 코어 조립 하한도 충족할 때만 사용할 수 있습니다. 호환되지 않는 vision 산출물은 준비가 성공했다고 보고한 뒤 Core 런타임을 중지시키는 대신 정본 산출물로 대체 경로합니다. LLM 비용 패널과 `query_llm_usage` 채팅 기능은 로컬 및 deployed 프로파일에서 이 measured 읽기 담당을 공유합니다. 비용은 명시적
-deployment-to-family 연결만 사용하며 누락된 계열은 unpriced 상태로 둡니다. 대화
-Assurance는 배포와 같은 로컬 대화 및 평가 저장소를 사용하고 결정론적 최종
-검사를 항상 실행합니다. 의미 검토는 서로 다른 resolved 모델 계열이 둘 이상일 때만
-활성화되며 narrator-only 또는 `hil-only` 보조는 단일 모델 대신 inconclusive를 유지합니다.
-산출물이 없으면 모델 및 assurance inference는 사용 불가이며 고정본으로 대체하지 않습니다.
-커밋된 VS Code 작업은 운영자의 명시적 명령이 있을 때만 Pantheon 캠페인을 시작하고, 상태를
-확인하고, 중지하거나 보고합니다. 로컬 Core는 고정 census 진단을 같은 PostgreSQL 및 Operator
-의미 전송 경로에 연결하고, 현재 Git 리비전과 작업 소유 소스 다이제스트를 기록하며, 프로세스
-시작 또는 재시작 중에는 캠페인을 시작하지 않습니다.
-PostgreSQL StateStore가 구성되면 두 프로파일은 ontology-owned failed-answer 귀속을 shadow
-감사 기록이 있는 멱등적 hold-first adequacy 검토로 저장합니다. 영속 상태가 없는
-interactive 로컬은 선택적 검토 싱크를 사용 불가로 유지합니다. 어느 프로파일도 이 intake
-경로에서 재생을 수행하거나 제안을 만들거나 검토를 promote하지 않습니다.
+Standard full-stack launch는 서술기 엔드포인트 조정을 유지합니다. 독립 Operator 서비스는 `RUNTIME_ENV=dev`에서만 local-only 서술기 어댑터를 연결하고 `LLM_RESOLVED_MODELS_PATH`와
+수명이 짧은 Azure CLI 토큰을 사용하며 Core 가져오기 또는 실행기 권한 없이 Azure OpenAI 서술기를 시도합니다. Health는 엔드포인트를 민감정보 제거하고 모델 지식만 쓴 답변은 검증되지 않은으로 유지합니다. 시작 훅은 권한이
+있을 때 현재 공개 IP를 허용 목록할 수 있습니다. Automated 테스트는 `FDAI_NARRATOR_AUTO_OPEN_AOAI=0`을 설정하며 모델이 미구성, 승인되지 않은 또는 unreachable이면 해당 턴만 결정론적 answerer로
+안전하게 대체 경로합니다. Full-stack 준비는 명시적 재정의, 검증된 `.fdai/resolved-models-vision.json`, repository-local `resolved-models.json` 순서로
+`LLM_MODE=azure`와 `LLM_RESOLVED_MODELS_PATH`를 만들고 metering을 read-model PostgreSQL에 연결합니다. Vision 산출물은 연결 가능한 T1 임베딩과 연결 가능한 기본/보조 T2 쌍 또는
+명시적인 top-level `hil-only` 모드라는 코어 조립 하한도 충족할 때만 사용할 수 있습니다. 호환되지 않는 vision 산출물은 준비가 성공했다고 보고한 뒤 Core 런타임을 중지시키는 대신 정본 산출물로 대체 경로합니다. LLM 비용
+패널과 `query_llm_usage` 채팅 기능은 로컬 및 deployed 프로파일에서 이 measured 읽기 담당을 공유합니다. 비용은 명시적 deployment-to-family 연결만 사용하며 누락된 계열은 unpriced 상태로 둡니다.
+대화 Assurance는 배포와 같은 로컬 대화 및 평가 저장소를 사용하고 결정론적 최종 검사를 항상 실행합니다. 의미 검토는 서로 다른 resolved 모델 계열이 둘 이상일 때만 활성화되며 narrator-only 또는 `hil-only` 보조는
+단일 모델 대신 inconclusive를 유지합니다. 산출물이 없으면 모델 및 assurance inference는 사용 불가이며 고정본으로 대체하지 않습니다. 커밋된 VS Code 작업은 운영자의 명시적 명령이 있을 때만 Pantheon 캠페인을
+시작하고, 상태를 확인하고, 중지하거나 보고합니다. 로컬 Core는 고정 census 진단을 같은 PostgreSQL 및 Operator 의미 전송 경로에 연결하고, 현재 Git 리비전과 작업 소유 소스 다이제스트를 기록하며, 프로세스 시작 또는
+재시작 중에는 캠페인을 시작하지 않습니다. PostgreSQL StateStore가 구성되면 두 프로파일은 ontology-owned failed-answer 귀속을 shadow 감사 기록이 있는 멱등적 hold-first adequacy 검토로
+저장합니다. 영속 상태가 없는 interactive 로컬은 선택적 검토 싱크를 사용 불가로 유지합니다. 어느 프로파일도 이 intake 경로에서 재생을 수행하거나 제안을 만들거나 검토를 promote하지 않습니다.
 
-`FDAI_MONITOR_WORKSPACE_ID`가 설정되면 명시적 Command Deck `query_log` 명령은 두 프로파일에서
-같은 범위가 제한된 Azure Monitor Logs 프로바이더를 사용합니다. Interactive 로컬은 현재 Azure CLI
-맥락에서 데이터 평면 토큰을 얻고 배포는 `FDAI_MI_CLIENT_ID`가 선택한 전용 Operator API
-managed 신원을 사용합니다. Workspace는 서버 구성으로 정하며 브라우저가 변경할 수 없습니다.
-Workspace, 신원, 권한 또는 텔레메트리를 사용할 수 없으면 고정본나 모델 대체 경로 없이
-사용 불가로 보류합니다.
-로컬 준비는 applied Terraform의 `log_workspace_customer_id` 출력에서 workspace customer GUID를 읽습니다. 이전 상태 또는 targeted 상태가 해당 출력을 노출하지 않으면 applied 리소스 그룹 안의 workspace만 나열하고 정확히 하나가 있을 때만 대체 경로를 수락합니다. Workspace가 0개이면 프로바이더를 사용 불가로 유지하고 여러 개이면 암시적으로 하나를 선택하지 않고 준비를 중지합니다. 재생성할 때 stale 로컬 workspace id는 제거합니다.
-로컬 런타임 환경 generator는 applied 구독 및 리소스 그룹도 범위가 제한된 Azure
-read-investigation 어댑터에 제공합니다. Terraform이 선택적 개발 operations 게이트웨이 URL과
-Easy Auth 대상을 모두 출력하면 NSG 및 VNet 피어링 질문은 로컬 Azure CLI 신원으로 게이트웨이의
-등록된 읽기 연산만 호출합니다. 쌍이 없으면 래퍼를 비활성화하고 구성된 게이트웨이가
-실패하면 direct ARM 대체 경로 없이 사용 불가를 보고합니다. 게이트웨이는 읽기 담당/실행기 managed
-신원을 분리하며 로컬 Operator API에 실행 신원을 제공하지 않습니다. 변경은 target-scoped
-Blob 임차 기간과 영속 멱등성 점유를 사용하며 업스트림 Terraform은 구성된 실행기
-principal에 development-only 변경 연산을 활성화하고 게이트웨이 URL과 대상은 headless 코어
-Container App에만 전달합니다. 해당 런타임은 `AzureGatewayDirectApiExecutor`를 연결하며 Operator API는
-읽기 전용 게이트웨이 전송 계층을 유지하고 강제 적용 기능을 받지 않습니다. 실행기는 정확한 등록된
-연산, arguments, 멱등성, 감사, stop-condition, 롤백 및 영향 근거에 대해
-server-issued 예행 실행 증적을 먼저 요청해야 합니다. 게이트웨이는 범위가 제한된 reader-identity ARM GET으로
-대상을 확인하고 해당 증적을 비공개 Blob 저장소에 5분 동안 저장한 다음 target-scoped 리소스
-임차 기간을 획득하여 ARM을 호출하기 전에 ETag compare-and-swap으로 한 번만 소비합니다. 호출자가
-주장한 증적, 변경된 페이로드, 만료되거나 재생된 증적은 변경 전에 실패합니다. ARM
-long-running 연산은 `submitted` 상태로 유지되며
-실행기만 원래 멱등성 키를 통해 서버가 소유한 상태 URL을 조회할 수 있습니다.
-Stale pending 점유는 계속 차단된 상태로 남지 않고 범위가 제한된 시간 초과 이후 ETag compare-and-swap으로
-복구됩니다.
-동일한 계획을 반복하면 소비되지 않은 같은 증적을 반환합니다. 소비되거나 만료된 계획은 새
-멱등성 키가 필요합니다. ARM throttling은 최대 3회까지 범위가 제한된 `Retry-After`를 따르며 변경
-`5xx` 응답은 결과가 모호한할 수 있으므로 자동으로 반복하지 않습니다.
+`FDAI_MONITOR_WORKSPACE_ID`가 설정되면 명시적 Command Deck `query_log` 명령은 두 프로파일에서 같은 범위가 제한된 Azure Monitor Logs 프로바이더를 사용합니다. Interactive 로컬은 현재
+Azure CLI 맥락에서 데이터 평면 토큰을 얻고 배포는 `FDAI_MI_CLIENT_ID`가 선택한 전용 Operator API managed 신원을 사용합니다. Workspace는 서버 구성으로 정하며 브라우저가 변경할 수 없습니다.
+Workspace, 신원, 권한 또는 텔레메트리를 사용할 수 없으면 고정본나 모델 대체 경로 없이 사용 불가로 보류합니다. 로컬 준비는 applied Terraform의 `log_workspace_customer_id` 출력에서 workspace
+customer GUID를 읽습니다. 이전 상태 또는 targeted 상태가 해당 출력을 노출하지 않으면 applied 리소스 그룹 안의 workspace만 나열하고 정확히 하나가 있을 때만 대체 경로를 수락합니다. Workspace가 0개이면
+프로바이더를 사용 불가로 유지하고 여러 개이면 암시적으로 하나를 선택하지 않고 준비를 중지합니다. 재생성할 때 stale 로컬 workspace id는 제거합니다. 로컬 런타임 환경 generator는 applied 구독 및 리소스 그룹도 범위가
+제한된 Azure read-investigation 어댑터에 제공합니다. Terraform이 선택적 개발 operations 게이트웨이 URL과 Easy Auth 대상을 모두 출력하면 NSG 및 VNet 피어링 질문은 로컬 Azure CLI 신원으로
+게이트웨이의 등록된 읽기 연산만 호출합니다. 쌍이 없으면 래퍼를 비활성화하고 구성된 게이트웨이가 실패하면 direct ARM 대체 경로 없이 사용 불가를 보고합니다. 게이트웨이는 읽기 담당/실행기 managed 신원을 분리하며 로컬 Operator
+API에 실행 신원을 제공하지 않습니다. 변경은 target-scoped Blob 임차 기간과 영속 멱등성 점유를 사용하며 업스트림 Terraform은 구성된 실행기 principal에 development-only 변경 연산을 활성화하고 게이트웨이
+URL과 대상은 headless 코어 Container App에만 전달합니다. 해당 런타임은 `AzureGatewayDirectApiExecutor`를 연결하며 Operator API는 읽기 전용 게이트웨이 전송 계층을 유지하고 강제 적용 기능을 받지
+않습니다. 실행기는 정확한 등록된 연산, arguments, 멱등성, 감사, stop-condition, 롤백 및 영향 근거에 대해 server-issued 예행 실행 증적을 먼저 요청해야 합니다. 게이트웨이는 범위가 제한된
+reader-identity ARM GET으로 대상을 확인하고 해당 증적을 비공개 Blob 저장소에 5분 동안 저장한 다음 target-scoped 리소스 임차 기간을 획득하여 ARM을 호출하기 전에 ETag compare-and-swap으로 한 번만
+소비합니다. 호출자가 주장한 증적, 변경된 페이로드, 만료되거나 재생된 증적은 변경 전에 실패합니다. ARM long-running 연산은 `submitted` 상태로 유지되며 실행기만 원래 멱등성 키를 통해 서버가 소유한 상태 URL을 조회할 수
+있습니다. Stale pending 점유는 계속 차단된 상태로 남지 않고 범위가 제한된 시간 초과 이후 ETag compare-and-swap으로 복구됩니다. 동일한 계획을 반복하면 소비되지 않은 같은 증적을 반환합니다. 소비되거나 만료된 계획은 새
+멱등성 키가 필요합니다. ARM throttling은 최대 3회까지 범위가 제한된 `Retry-After`를 따르며 변경 `5xx` 응답은 결과가 모호한할 수 있으므로 자동으로 반복하지 않습니다.
 
 동일한 read-investigation 배선이 범위가 제한된 Azure subscription-health 프로바이더를 구성합니다. 기본값은 resource-group 허용 목록이며, interactive 로컬은 권위 있는 인벤토리가 전체 구독을 이미 읽으므로 서버가 소유한 `subscription` 모드와 1,000개 리소스 상한을 선택하고 배포는 적절한 범위의 읽기 담당 신원으로 의도적으로 연결하지 않으면 `resource_groups`를 유지합니다.
 브라우저와 모델 입력은 모드를 변경할 수 없습니다. 로컬 factory는 read-investigation 배선이 있을 때만

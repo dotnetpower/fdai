@@ -242,31 +242,25 @@ The data-source declaration, local authentication, workload evidence, and invent
 contracts are owned by [Console Read Boundary](console-read-boundary.md). This parity document
 retains the remaining local/deployed runtime bindings below.
 
-Runtime policies use the same StateStore record in deployment and when local PostgreSQL is
-configured. Without durable local state, the source manifest reports the settings store as
-unavailable or non-durable instead of claiming persistence. Readers see the sanitized environment,
-durable override, and effective value projection. Owners can update only the allowlist through
-optimistic revision and atomic audit checks. IRP changes apply to the next eligible alert; analyzer,
-inventory, and retention cadence changes apply to the next Job or tick. Logging level and case
-retention/deletion day changes are labeled restart required and are loaded when the headless runtime
-starts. No setting grants the local Operator API an executor identity or changes ActionType and Workflow
-promotion state.
+Runtime policies use the same StateStore record in deployment and when local PostgreSQL is configured. Without durable local state, the
+source manifest reports the settings store as unavailable or non-durable instead of claiming persistence. Readers see the sanitized
+environment, durable override, and effective value projection. Owners can update only the allowlist through optimistic revision and atomic
+audit checks. IRP changes apply to the next eligible alert; analyzer, inventory, and retention cadence changes apply to the next Job or
+tick. Logging level and case retention/deletion day changes are labeled restart required and are loaded when the headless runtime starts. No
+setting grants the local Operator API an executor identity or changes ActionType and Workflow promotion state.
 
 Incident auto-open enablement, minimum severity, repeat threshold, and repeat window are also
 startup-bound. The headless runtime loads durable effective values. An embedded local Pantheon uses
 the same validated environment, defaults, and accepted-versus-held handoff outcome instead of a
 separate fixed severity or window.
 
-Detection readiness uses the same boundary. Deployment reads Muninn StateSnapshots from PostgreSQL,
-while interactive local registers `/detection-readiness` only with local PostgreSQL. The standard
-local analyzer task serially reuses the deployed one-shot CLI, inventory targets, metrics, events,
-shadow posture, typed Pod lifecycle evidence binding, and durable publication ledger. Both venues
-claim the same window key before publication and suppress a repeat only after a broker
-acknowledgement is recorded. They release a claim only when the bus attests that the record was
-provably not sent and otherwise hold it uncertain for reconciliation, so neither venue republishes
-an ambiguous send. They preserve their existing local developer identity versus deployed workload
-identity and transport security. Readiness separates scheduling, discovery, metric, publication,
-and source-delay state.
+Detection readiness uses the same boundary. Deployment reads Muninn StateSnapshots from PostgreSQL, while interactive local registers
+`/detection-readiness` only with local PostgreSQL. The standard local analyzer task serially reuses the deployed one-shot CLI, inventory
+targets, metrics, events, shadow posture, typed Pod lifecycle evidence binding, and durable publication ledger. Both venues claim the same
+window key before publication and suppress a repeat only after a broker acknowledgement is recorded. They release a claim only when the bus
+attests that the record was provably not sent and otherwise hold it uncertain for reconciliation, so neither venue republishes an ambiguous
+send. They preserve their existing local developer identity versus deployed workload identity and transport security. Readiness separates
+scheduling, discovery, metric, publication, and source-delay state.
 
 The standard full-stack launch keeps narrator endpoint reconciliation enabled. Its independent
 Operator Service binds a local-only narrator adapter only for `RUNTIME_ENV=dev`, reads
@@ -348,23 +342,19 @@ It activates only when `FDAI_FORECAST_TARGETS_JSON` is configured. Deployment su
 through the opt-in Container Apps Job; local development can invoke the same mechanical tick CLI
 without creating synthetic metrics or giving the console a write path.
 
-The local runtime environment generator reads transport settings from applied Terraform outputs,
-including semantic logical/physical topics used by deadline-bound durable replay. It compares the Terraform
-executor identity subscription with Azure CLI and stops before lookup or file creation when they differ.
-Both profiles execute the same explicitly typed semantic JSONB claim and projection statements.
-It also derives a non-identifying consumer instance hash from the local user and host so concurrent
-developers never join the same Event Hubs Kafka consumer group. Automation can set
-`FDAI_LOCAL_CONSUMER_INSTANCE` to a lowercase alphanumeric-and-hyphen identifier of at most 20
-characters when it needs a stable explicit name. Generated core, Pantheon, and Operator request groups
-use that instance, while deployed Operator request groups use their runtime hostname. Live and Agent
-observation use different process-local replay rules. The generic Live stage hub remains future-only.
-The Agent hub retains one latest validated `agent.state` event per agent and seeds those values while
-registering each new subscriber under the same lock. This bounded process-local snapshot hydrates a
-refresh without polling, but it is not durable history replay and disappears when the Operator process
-restarts. `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID` must still be distinct for every independently running
-Operator process or replica so each hub consumes the complete `fdai.pipeline.stages` stream. Its default
-preserves single-process compatibility only. The isolated E2E launcher always replaces an inherited
-value with a UUID-scoped group and never joins the group used by the browser-serving Operator.
+The local runtime environment generator reads transport settings from applied Terraform outputs, including semantic logical/physical topics
+used by deadline-bound durable replay. It compares the Terraform executor identity subscription with Azure CLI and stops before lookup or
+file creation when they differ. Both profiles execute the same explicitly typed semantic JSONB claim and projection statements. It also
+derives a non-identifying consumer instance hash from the local user and host so concurrent developers never join the same Event Hubs Kafka
+consumer group. Automation can set `FDAI_LOCAL_CONSUMER_INSTANCE` to a lowercase alphanumeric-and-hyphen identifier of at most 20 characters
+when it needs a stable explicit name. Generated core, Pantheon, and Operator request groups use that instance, while deployed Operator
+request groups use their runtime hostname. Live and Agent observation use different process-local replay rules. The generic Live stage hub
+remains future-only. The Agent hub retains one latest validated `agent.state` event per agent and seeds those values while registering each
+new subscriber under the same lock. This bounded process-local snapshot hydrates a refresh without polling, but it is not durable history
+replay and disappears when the Operator process restarts. `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID` must still be distinct for every independently
+running Operator process or replica so each hub consumes the complete `fdai.pipeline.stages` stream. Its default preserves single-process
+compatibility only. The isolated E2E launcher always replaces an inherited value with a UUID-scoped group and never joins the group used by
+the browser-serving Operator.
 
 Workflow definitions use the deployment enforce allowlist; ActionTypes retain promotion and risk gates.
 Enforce requires Azure event transport and a durable database shared with workflow approval evidence.
@@ -375,50 +365,39 @@ Scenario replay, recording executors, VM-task fakes, synthetic data, and scope f
 The explicit pytest fixture builder binds a synthetic inventory graph and registers no Azure
 inventory warmup or shutdown lifecycle; interactive local composition always keeps the live Azure provider.
 
-When FDAI's Azure PostgreSQL, Event Hubs, runtime, or executor resources are absent, the associated
-surfaces are unavailable or empty with no runtime claim. Repository catalogs and schemas remain
-visible because they are configuration-as-code, not observed runtime evidence.
-Local and deployed Operator API factories load the same validated Best Practice definitions for the
-Rules `Controls` reference view. This parity does not create a runtime claim: without an
-authoritative evidence provider, both factories expose every control and requirement as `Unknown`
-with source `not_connected`.
-Both factories also register the read-only catalog query function in the same ontology release, so
+When FDAI's Azure PostgreSQL, Event Hubs, runtime, or executor resources are absent, the associated surfaces are unavailable or empty with
+no runtime claim. Repository catalogs and schemas remain visible because they are configuration-as-code, not observed runtime evidence.
+Local and deployed Operator API factories load the same validated Best Practice definitions for the Rules `Controls` reference view. This
+parity does not create a runtime claim: without an authoritative evidence provider, both factories expose every control and requirement as
+`Unknown` with source `not_connected`. Both factories also register the read-only catalog query function in the same ontology release, so
 local and deployed Command Deck turns share its typed, bounded, non-mutating evidence contract.
 
-The local API exposes `GET /system/data-sources`. In the standard full stack, the production
-PostgreSQL read-model adapter points to local pgvector. Before accepting traffic, the local Operator API
-runs a bounded `SELECT 1` through that adapter. A failed probe stops startup instead of exposing a
-partially connected console. After the probe succeeds, PostgreSQL-backed entries report
-`available` and `reachable=true`; configured remote and Azure request-time sources remain `unknown`
-until their own evidence contract verifies them.
-`FDAI_DATABASE_URL` and `FDAI_AUTHORITATIVE_OPERATOR_API_BASE_URL` select mutually exclusive source
-profiles. Configuring both stops startup before either provider is constructed so the manifest can
-never describe local PostgreSQL while allowlisted requests are served by the remote API.
-Remote forwarding matches only decoded canonical allowlisted paths; normalized, encoded,
-duplicated-separator, and control-character variants remain local. It discards upstream cache
-directives and emits `Cache-Control: no-store` for every proxied response so authenticated
-operational evidence never enters a browser or shared cache. A remote failure before response
-headers becomes a bounded JSON `503`; a failure after headers closes the response body without
-sending a second ASGI response start.
+The local API exposes `GET /system/data-sources`. In the standard full stack, the production PostgreSQL read-model adapter points to local
+pgvector. Before accepting traffic, the local Operator API runs a bounded `SELECT 1` through that adapter. A failed probe stops startup
+instead of exposing a partially connected console. After the probe succeeds, PostgreSQL-backed entries report `available` and
+`reachable=true`; configured remote and Azure request-time sources remain `unknown` until their own evidence contract verifies them.
+`FDAI_DATABASE_URL` and `FDAI_AUTHORITATIVE_OPERATOR_API_BASE_URL` select mutually exclusive source profiles. Configuring both stops startup
+before either provider is constructed so the manifest can never describe local PostgreSQL while allowlisted requests are served by the
+remote API. Remote forwarding matches only decoded canonical allowlisted paths; normalized, encoded, duplicated-separator, and
+control-character variants remain local. It discards upstream cache directives and emits `Cache-Control: no-store` for every proxied
+response so authenticated operational evidence never enters a browser or shared cache. A remote failure before response headers becomes a
+bounded JSON `503`; a failure after headers closes the response body without sending a second ASGI response start.
 
 Runtime skill inspection follows the same rule. Production reconstructs the enabled catalog from
 signed PostgreSQL trusted-artifact records before accepting traffic. Interactive local exposes the
 same Reader-gated `/skills` contract and narrator verbs with an empty fail-closed snapshot unless a
 durable verified store is explicitly composed; it never invents installed skills or load outcomes.
 
-Agent Activity keeps live runtime frames separate from durable source projections. Local and deployed profiles both load `GET /agents/activity` before applying `/agents/stream`, and neither
-copies scan or read history into the action audit chain. Selecting an observed agent still shows its live state, current work, runtime binding, state timestamp, stream provenance, and incident
-context without inferring an audit event.
-The headless Pantheon publishes health-derived `agent.runtime-state` frames on the same
-`fdai.pipeline.stages` transport that carries control-loop progress. The Operator API distinguishes
-runtime-state frames from stage frames and forwards only agents whose consumers are live and whose
-health probe isn't in error. Interactive local and deployment use this same cross-process path; the
-local profile changes the PostgreSQL binding, not agent activation or stream semantics.
-The browser also retains the newest 100 observed SSE frames for the lifetime of the tab and renders
-them as a separate live journal. Runtime heartbeats prove connectivity but don't count as work;
-collecting, analyzing, deciding, executing, approving, auditing, Incident, and handoff frames do.
-This journal is bounded and non-durable, resets on reload, preserves each frame's recorded source,
-and never substitutes for the append-only audit log.
+Agent Activity keeps live runtime frames separate from durable source projections. Local and deployed profiles both load `GET
+/agents/activity` before applying `/agents/stream`, and neither copies scan or read history into the action audit chain. Selecting an
+observed agent still shows its live state, current work, runtime binding, state timestamp, stream provenance, and incident context without
+inferring an audit event. The headless Pantheon publishes health-derived `agent.runtime-state` frames on the same `fdai.pipeline.stages`
+transport that carries control-loop progress. The Operator API distinguishes runtime-state frames from stage frames and forwards only agents
+whose consumers are live and whose health probe isn't in error. Interactive local and deployment use this same cross-process path; the local
+profile changes the PostgreSQL binding, not agent activation or stream semantics. The browser also retains the newest 100 observed SSE
+frames for the lifetime of the tab and renders them as a separate live journal. Runtime heartbeats prove connectivity but don't count as
+work; collecting, analyzing, deciding, executing, approving, auditing, Incident, and handoff frames do. This journal is bounded and
+non-durable, resets on reload, preserves each frame's recorded source, and never substitutes for the append-only audit log.
 
 Completed conversation review follows the same split. Interactive local transport can publish the
 bounded Bragi `object.turn` envelope, but it does not fabricate a reviewer or durable proposal

@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 8e89bde392e917b40b20949a03d3b0b52aa9eb01
+translation_source_sha: 3f0259f77efa81d4029b9087c956ad9dc39a02a5
 translation_revised: 2026-09-01
 ---
 # FDAI 운영 온톨로지
@@ -57,17 +57,12 @@ equivalent 프로바이더 경로, 그리고 그 근거를 데이터로 추가�
 gate를 통과하지 못합니다.
 <!-- property-semantic-coverage:end -->
 
-로더는 충돌을 확인하기 전에 단위와 프로바이더 신원 경로를 normalize하고 enum 값을 normalize,
-deduplicate 및 순서하며 문자열 사례 접기 뒤에 NFC 정규화를 적용합니다. Decimal 값은
-context-independent canonicalization을 사용하고 입력, coefficient, exponent 및 출력 크기를
-제한하며 범위 검사는 렌더링 전에 exact parsed 값을 비교합니다. YAML numeric 범위 한계는 작성된
-lexeme에서 Pydantic 검증 전에 `Decimal`로 parse되고 다이제스트에서는 정본 decimal 문자열로
-serialize되며 binary floating 지점을 거치지 않고, integral한 finite JSON number는 유효한 정수
-한계입니다. Datetime은 RFC 3339 `T` 구분자, 명시적 표준 시간대, 범위 안의 UTC conversion, 최대
-6자리 fractional digit를 요구하고 앞뒤 whitespace를 거부합니다. Boolean은 정수 또는 number가
-아닙니다. 객체와 array 값은 범위가 제한된 정본 JSON을 사용합니다. 객체 키는 정렬하고 array 순서는
-보존하며 잘못된 root, finite하지 않은 숫자, 과도한 nesting, 지원하지 않는 값 및 64 KiB를 넘는
-정본 출력은 fail closed 합니다.
+로더는 충돌을 확인하기 전에 단위와 프로바이더 신원 경로를 normalize하고 enum 값을 normalize, deduplicate 및 순서하며 문자열 사례 접기 뒤에 NFC 정규화를 적용합니다. Decimal 값은
+context-independent canonicalization을 사용하고 입력, coefficient, exponent 및 출력 크기를 제한하며 범위 검사는 렌더링 전에 exact parsed 값을 비교합니다. YAML numeric 범위 한계는
+작성된 lexeme에서 Pydantic 검증 전에 `Decimal`로 parse되고 다이제스트에서는 정본 decimal 문자열로 serialize되며 binary floating 지점을 거치지 않고, integral한 finite JSON
+number는 유효한 정수 한계입니다. Datetime은 RFC 3339 `T` 구분자, 명시적 표준 시간대, 범위 안의 UTC conversion, 최대 6자리 fractional digit를 요구하고 앞뒤 whitespace를 거부합니다.
+Boolean은 정수 또는 number가 아닙니다. 객체와 array 값은 범위가 제한된 정본 JSON을 사용합니다. 객체 키는 정렬하고 array 순서는 보존하며 잘못된 root, finite하지 않은 숫자, 과도한 nesting, 지원하지 않는 값
+및 64 KiB를 넘는 정본 출력은 fail closed 합니다.
 
 모든 레지스트리는 버전과 출처 이력 묶음을 요구하며 SHA-256은 묶음 자체를 제외한 정본 내용을
 포함하고, 모든 의미는 인증된 출처 신원을 요구하며 최신성에는 finite 긍정 upper 한계가 있습니다.
@@ -85,13 +80,9 @@ serialize되며 binary floating 지점을 거치지 않고, integral한 finite J
 `source_kind` 중 하나입니다. Azure Policy, GitOps 매니페스트, Kubernetes desired 상태도 코어에
 프로바이더 가지를 추가하지 않고 같은 의미 기록을 생성할 수 있습니다.
 
-링크는 기준선에서 검사, 검사에서 근거, 검사에서 발견 사항, 발견 사항에서 리소스로 이어지는
-방향을 보존합니다. `CausalHypothesis`는 표류 발견 사항을 설명하려고 시도할 수 있지만, 이 링크는
-운영자, 배포 또는 프로바이더가 원인임을 입증하지 않습니다. Raw 계획과 값은 통제된
-근거 저장소에 유지합니다. 온톨로지 기록은 범위가 제한된 요약과 다이제스트만 보존하고 민감정보 제거
-메타데이터 및 명시적인 `execution_authority`를 요구합니다. 이 선언은 vocabulary 데이터일 뿐입니다.
-카탈로그 변경은 런타임 projector, scheduled detector, 교정 제안, 승인 또는 실행
-경로를 추가하지 않습니다.
+링크는 기준선에서 검사, 검사에서 근거, 검사에서 발견 사항, 발견 사항에서 리소스로 이어지는 방향을 보존합니다. `CausalHypothesis`는 표류 발견 사항을 설명하려고 시도할 수 있지만, 이 링크는 운영자, 배포 또는 프로바이더가 원인임을
+입증하지 않습니다. Raw 계획과 값은 통제된 근거 저장소에 유지합니다. 온톨로지 기록은 범위가 제한된 요약과 다이제스트만 보존하고 민감정보 제거 메타데이터 및 명시적인 `execution_authority`를 요구합니다. 이 선언은
+vocabulary 데이터일 뿐입니다. 카탈로그 변경은 런타임 projector, scheduled detector, 교정 제안, 승인 또는 실행 경로를 추가하지 않습니다.
 
 ### 진단 지식 변환 결과
 
@@ -101,14 +92,10 @@ SREGym absorption 원장은 검토된 진단 방식 61개를 `DiagnosticMechanis
 요약 및 정본 다이제스트를 보존합니다. 카탈로그 새로 고침은 이전 검증 이력을 덮어쓰지
 않고 새 증적을 추가하며, rejected 방식은 명시적인 부정 knowledge로 유지됩니다.
 
-실제 운영 Kubernetes evaluation은 control-loop judgment 전에 `DiagnosticEvidence`와 hold-only
-`DiagnosticFinding` 객체를 변환 결과합니다. 각 발견 사항은 exact `derive` 함수 release,
-Heimdall 호출자, 정본 입력/출력 다이제스트 및 내용 기반 주소를 가진 호출 신원에
-연결됩니다. 현재 토폴로지는 선택된 kubeconfig API 서버와 certificate 권한에서 파생한
-cluster-scoped 리소스 신원을 사용합니다. 완전한 관측은 현재 관계를
-교체하고, 불완전한 관측은 리소스 객체를 삭제하지 않으면서 지원되지 않는
-관계를 철회하며, 사용 불가 인벤토리는 기존 변환 결과를 유지합니다. 이러한 객체는
-액션, 승인, 승격 또는 실행 권한을 부여하지 않습니다.
+실제 운영 Kubernetes evaluation은 control-loop judgment 전에 `DiagnosticEvidence`와 hold-only `DiagnosticFinding` 객체를 변환 결과합니다. 각 발견 사항은 exact
+`derive` 함수 release, Heimdall 호출자, 정본 입력/출력 다이제스트 및 내용 기반 주소를 가진 호출 신원에 연결됩니다. 현재 토폴로지는 선택된 kubeconfig API 서버와 certificate 권한에서 파생한
+cluster-scoped 리소스 신원을 사용합니다. 완전한 관측은 현재 관계를 교체하고, 불완전한 관측은 리소스 객체를 삭제하지 않으면서 지원되지 않는 관계를 철회하며, 사용 불가 인벤토리는 기존 변환 결과를 유지합니다. 이러한 객체는 액션, 승인,
+승격 또는 실행 권한을 부여하지 않습니다.
 
 ### Pod 텔레메트리 역량 런타임
 
@@ -295,16 +282,10 @@ FDAI가 기록한 시간을 모두 포함합니다.
 - **최신성:** 모든 결정 맥락은 출처별 최신성을 기록합니다. 하나의 fresh 출처가
   오래된 목표, 토폴로지 간선, 비용 관측을 숨길 수 없습니다.
 
-Decision-relevant 상태 사실은 권한이 분리된 `observed`, `derived`, `desired`, `execution`의 네
-레인에서 하나의 변경할 수 없는 메타데이터 형태를 사용합니다. 메타데이터는 권한 등급, 출처 신원과
-개정 번호, effective 시간과 기록된 시간, 근거 기준 시점, 최신성 상한, 완전성,
-synthetic 상태, 충돌, 변경할 수 없는 근거 참조를 pin합니다. Lane-authority 검증은
-프로바이더 관측이 derived 사실로 decode되거나 그 반대가 되는 것을 방지합니다. 인벤토리
-링크도 같은 state-fact 묶음과 독립적인 검증 신원을 포함할 수 있습니다. 메타데이터가
-새 검증된 링크는 신뢰된 검증 메서드와 변경할 수 없는 증적도 포함하며 검증기 신원은
-관측 출처와 달라야 합니다. 메타데이터가 없는 이전 방식 링크는 가산 도입 기간에도
-valid하고 검증을 주장하지 않습니다. 해당 메타데이터가 없다는 사실은 조회 프로파일이 검증된
-링크를 명시적으로 요구할 때만 권한을 낮춥니다.
+Decision-relevant 상태 사실은 권한이 분리된 `observed`, `derived`, `desired`, `execution`의 네 레인에서 하나의 변경할 수 없는 메타데이터 형태를 사용합니다. 메타데이터는 권한 등급, 출처 신원과 개정
+번호, effective 시간과 기록된 시간, 근거 기준 시점, 최신성 상한, 완전성, synthetic 상태, 충돌, 변경할 수 없는 근거 참조를 pin합니다. Lane-authority 검증은 프로바이더 관측이 derived 사실로
+decode되거나 그 반대가 되는 것을 방지합니다. 인벤토리 링크도 같은 state-fact 묶음과 독립적인 검증 신원을 포함할 수 있습니다. 메타데이터가 새 검증된 링크는 신뢰된 검증 메서드와 변경할 수 없는 증적도 포함하며 검증기 신원은 관측
+출처와 달라야 합니다. 메타데이터가 없는 이전 방식 링크는 가산 도입 기간에도 valid하고 검증을 주장하지 않습니다. 해당 메타데이터가 없다는 사실은 조회 프로파일이 검증된 링크를 명시적으로 요구할 때만 권한을 낮춥니다.
 
 재생은 인스턴스 그래프의 임의 과거 상태가 아니라 pin된 카탈로그 release와 보존된 결정 맥락을
 해석합니다. 맥락 신원 재계산은 동등성을 증명하며, 원본 내용을 복원하려면 그 맥락이 보존되어 있어야
@@ -500,26 +481,15 @@ Forseti가 각 결정 기준 시점에 변경할 수 없는 `OperationalContextS
 - 현재 관측과 범위가 제한된 예측;
 - 출처 최신성, 출처 이력, 해결되지 않은 충돌, 카탈로그 버전.
 
-스냅샷은 데이터 표면을 넓히지 않으면서 재생 계보를 보존합니다. 도달 가능한 각 맥락
-객체에 대해 객체 id, 타입, 개정 번호, effective 간격, 허용 목록에 포함된 출처 이력 참조,
-대상 리소스에서 시작하는 하나의 결정론적 최단 타입이 지정된 경로를 기록합니다. 각 출처의
-관측 시간과 허용된 최대 age도 유지합니다. 스냅샷 신원은 이러한 개정 번호, 경로,
-effective 간격, 출처 이력 참조, 최신성 증적, stale-source 결과, 충돌을 포함하므로
-토폴로지, 개정 번호, validity, 출처 이력 또는 최신성이 바뀌면 이전 신원을 재사용할 수
-없습니다. Raw 객체 속성은 권위 있는 프로바이더에 남으며 스냅샷에 복사하지 않습니다.
-스냅샷 시간은 정본 UTC로 normalize합니다. 신원에는 신뢰된 기록된 시간, trusted 시계
-신원, 조회가 검증된 링크를 요구했는지도 포함합니다. Historical 재생은 새 wall 시계를
-sampling하지 않고 보존된 기록된 시간을 제공합니다.
+스냅샷은 데이터 표면을 넓히지 않으면서 재생 계보를 보존합니다. 도달 가능한 각 맥락 객체에 대해 객체 id, 타입, 개정 번호, effective 간격, 허용 목록에 포함된 출처 이력 참조, 대상 리소스에서 시작하는 하나의 결정론적 최단 타입이
+지정된 경로를 기록합니다. 각 출처의 관측 시간과 허용된 최대 age도 유지합니다. 스냅샷 신원은 이러한 개정 번호, 경로, effective 간격, 출처 이력 참조, 최신성 증적, stale-source 결과, 충돌을 포함하므로 토폴로지, 개정
+번호, validity, 출처 이력 또는 최신성이 바뀌면 이전 신원을 재사용할 수 없습니다. Raw 객체 속성은 권위 있는 프로바이더에 남으며 스냅샷에 복사하지 않습니다. 스냅샷 시간은 정본 UTC로 normalize합니다. 신원에는 신뢰된 기록된
+시간, trusted 시계 신원, 조회가 검증된 링크를 요구했는지도 포함합니다. Historical 재생은 새 wall 시계를 sampling하지 않고 보존된 기록된 시간을 제공합니다.
 
-타입이 지정된 링크 관측 메타데이터는 raw 링크 속성을 버리는 규칙의 예외입니다. Materializer는 각
-근거 링크에서 정본 검증 묶음만 보존하고 링크와 경로 신원에 해당 묶음을
-포함합니다. Stale, 불완전한, conflicting, synthetic, after-cutoff 또는 검증되지 않은 링크는 명시적인
-맥락 충돌을 추가하고 스냅샷 상한을 `SHADOW_ONLY`로 낮출 수만 있습니다. Healthy
-메타데이터는 상한을 높이지 않으며, 메타데이터가 없으면 검증을 주장하지 않고 이전 방식 디코딩을
-유지합니다. 다만 조회 프로파일이 검증된 링크를 요구하면 권한을 낮춥니다. 도달 가능한 객체가
-최신성 정책을 선언하면 일치하는 source-freshness 증적이 필요하며, 증적이 없으면 상한을
-`SHADOW_ONLY`로 낮춥니다. 결정 기준 시점 또는 근거 시각이 신뢰된 기록된 시간과 설정된
-clock-skew allowance의 합을 넘는 경우에도 상한을 낮춥니다.
+타입이 지정된 링크 관측 메타데이터는 raw 링크 속성을 버리는 규칙의 예외입니다. Materializer는 각 근거 링크에서 정본 검증 묶음만 보존하고 링크와 경로 신원에 해당 묶음을 포함합니다. Stale, 불완전한, conflicting,
+synthetic, after-cutoff 또는 검증되지 않은 링크는 명시적인 맥락 충돌을 추가하고 스냅샷 상한을 `SHADOW_ONLY`로 낮출 수만 있습니다. Healthy 메타데이터는 상한을 높이지 않으며, 메타데이터가 없으면 검증을 주장하지
+않고 이전 방식 디코딩을 유지합니다. 다만 조회 프로파일이 검증된 링크를 요구하면 권한을 낮춥니다. 도달 가능한 객체가 최신성 정책을 선언하면 일치하는 source-freshness 증적이 필요하며, 증적이 없으면 상한을 `SHADOW_ONLY`로
+낮춥니다. 결정 기준 시점 또는 근거 시각이 신뢰된 기록된 시간과 설정된 clock-skew allowance의 합을 넘는 경우에도 상한을 낮춥니다.
 
 구체화는 `effective_from <= cutoff`이고 `effective_to`가 없거나
 `cutoff < effective_to`인 객체만 포함합니다. 이 half-open 간격 밖의 객체는 재생을 위한
@@ -553,22 +523,13 @@ Admission 전에 각 레인 항목은 근거 참조와 exact 레인 내용을 �
 구성원 근거를 받으므로 증적 참조만 확인하지 않고 출처 inclusion 증명을 검증할 수
 있습니다. 상태 근거에서는 최신성 상한, 완전성, synthetic 상태 및 충돌이 `StateFactMetadata`와 정확히 일치해야 합니다. 의사 결정에 연결된 상태 항목은 정확한 상태 항목을 포함하는 근거 다이제스트와 묶음의 범위, 목적 및 출처 리비전이 일치하는 현재 유효한 공유 승인 결과도 보존합니다. 번들은 보류를 도출할 때 이 필드를 직접 평가합니다.
 
-각 exact 점유는 정본 JSON, 대상, 조건식, 타입이 지정된 effective/근거/기록된 범위 및
-근거 참조, 항목 다이제스트, 출처 개정 번호를 포함하는 인용 연결을 저장합니다. 인용
-매니페스트는 포함된 근거에서만 파생되므로 누락, fabricated 또는 개정 번호 mismatch 인용은
-명시적인 누락된 경로와 보류를 생성합니다. 중복 점유는 거부합니다. Contradiction detection은
-대상, 조건식, effective 간격 및 근거 기준 시점이 같은 점유를 비교하고 정본 타입이 지정된
-값이 다를 때만 충돌을 보고합니다. 기록된 시간은 각 변경할 수 없는 점유 신원에 남지만
-contradiction 그룹을 분리하지 않으며 supersession을 암시하지 않습니다. 기반에는 암시적인
-latest-wins 룰이 없습니다. 향후 supersession 정책에는 명시적으로 검토된된 점유 관계가
-필요합니다. Detector는 산문에서 의미 disagreement를 추론하지 않습니다. 후보 및
-진단 개수와 필드 length에는 한계가 있고 중첩된 순서는 변경할 수 없는 튜플로 copy됩니다.
-`max_bytes`는 매니페스트, omission, 충돌 및 보류 데이터를 포함한 최종 정본 본문에 적용됩니다.
-Stale, 불완전한, conflicting, synthetic, after-cutoff, trusted 기록된 시간 이후, uncited 또는
-잘린 근거는 결과를 `SHADOW_ONLY`로 낮춥니다. Healthy 근거는 호출자의 입력 상한을
-높이지 않습니다. 문서 프롬프트 렌더링은 excerpt를 escaped, delimited JSON 데이터 블록에만
-배치합니다. 이러한 테스트는 safe 기반을 입증하지만 운영 배선은 입증하지 않습니다.
-번들은 읽기 전용 근거이며 승인 또는 액션 권한을 부여하지 않습니다.
+각 exact 점유는 정본 JSON, 대상, 조건식, 타입이 지정된 effective/근거/기록된 범위 및 근거 참조, 항목 다이제스트, 출처 개정 번호를 포함하는 인용 연결을 저장합니다. 인용 매니페스트는 포함된 근거에서만 파생되므로 누락,
+fabricated 또는 개정 번호 mismatch 인용은 명시적인 누락된 경로와 보류를 생성합니다. 중복 점유는 거부합니다. Contradiction detection은 대상, 조건식, effective 간격 및 근거 기준 시점이 같은 점유를
+비교하고 정본 타입이 지정된 값이 다를 때만 충돌을 보고합니다. 기록된 시간은 각 변경할 수 없는 점유 신원에 남지만 contradiction 그룹을 분리하지 않으며 supersession을 암시하지 않습니다. 기반에는 암시적인 latest-wins
+룰이 없습니다. 향후 supersession 정책에는 명시적으로 검토된된 점유 관계가 필요합니다. Detector는 산문에서 의미 disagreement를 추론하지 않습니다. 후보 및 진단 개수와 필드 length에는 한계가 있고 중첩된 순서는 변경할
+수 없는 튜플로 copy됩니다. `max_bytes`는 매니페스트, omission, 충돌 및 보류 데이터를 포함한 최종 정본 본문에 적용됩니다. Stale, 불완전한, conflicting, synthetic, after-cutoff, trusted
+기록된 시간 이후, uncited 또는 잘린 근거는 결과를 `SHADOW_ONLY`로 낮춥니다. Healthy 근거는 호출자의 입력 상한을 높이지 않습니다. 문서 프롬프트 렌더링은 excerpt를 escaped, delimited JSON 데이터
+블록에만 배치합니다. 이러한 테스트는 safe 기반을 입증하지만 운영 배선은 입증하지 않습니다. 번들은 읽기 전용 근거이며 승인 또는 액션 권한을 부여하지 않습니다.
 
 Forseti는 스냅샷에서 `DecisionCase`를 만듭니다. 각 사례는 no-action 기준선, 범위가 제한된 옵션,
 예상 효과, protected 목표, violated 제약, uncertainty, 근거 참조를 포함합니다.
@@ -636,15 +597,10 @@ ActionType, risk, 승인, Thor 실행, Heimdall 검증, Vidar 복구 경계에 �
 
 ### 결과 learning 루프
 
-Huginn은 범위가 제한된 `case_history.operational_case.v1` 이벤트를 정규화합니다. Muninn은 O1
-case-history materializer를 요구하고 strict 입력을 봉인한 뒤 실패 지문별 변경할 수 없는 사례를
-최대 100개 영속하게 보존하여 `operational_case_fingerprint_cohort` 맥락을 publish합니다.
-Norns는 하나의 실패 지문과 ActionType, 최소 하나의 검증된 reusable 성공, 최소 하나의
-실패, 거절, no-op, 롤백 또는 recurrence 컨트롤을 요구한 뒤 기존 합의 및 비율 한도
-경로로 inert 후보를 발행합니다. 모든 후보는 사례 id, 개정 번호, 매니페스트 다이제스트, 리소스
-타입, 지문, 결과별 개수, 다이제스트 근거를 인용합니다. Raw
-`measurement.action_outcome.v1`은 방식 근거가 부족한 텔레메트리로 유지되며 promotable
-집단에 들어갈 수 없습니다.
+Huginn은 범위가 제한된 `case_history.operational_case.v1` 이벤트를 정규화합니다. Muninn은 O1 case-history materializer를 요구하고 strict 입력을 봉인한 뒤 실패 지문별 변경할 수 없는
+사례를 최대 100개 영속하게 보존하여 `operational_case_fingerprint_cohort` 맥락을 publish합니다. Norns는 하나의 실패 지문과 ActionType, 최소 하나의 검증된 reusable 성공, 최소 하나의 실패,
+거절, no-op, 롤백 또는 recurrence 컨트롤을 요구한 뒤 기존 합의 및 비율 한도 경로로 inert 후보를 발행합니다. 모든 후보는 사례 id, 개정 번호, 매니페스트 다이제스트, 리소스 타입, 지문, 결과별 개수, 다이제스트 근거를
+인용합니다. Raw `measurement.action_outcome.v1`은 방식 근거가 부족한 텔레메트리로 유지되며 promotable 집단에 들어갈 수 없습니다.
 
 ## 확장 모델
 

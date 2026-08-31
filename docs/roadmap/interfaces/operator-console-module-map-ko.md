@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 818d291a19c5faf3f42d23715ea220356dbf29f1
+translation_source_sha: 4abd506e4c47631052d74c5372daec012f54b09e
 translation_revised: 2026-09-01
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -13,44 +13,6 @@ translation_revised: 2026-09-01
 [`operator-console-module-inventory.json`](operator-console-module-inventory.json)은 현재 Operator API 패키지 책임, 경로 계열 분류, 후보 대상 및 가져오기 표면 상태를 기록합니다. 이 인벤토리는 file-count 목표가 아닌 설명 기준이지만, executable 완전성 게이트는 현재 모든 모듈 디렉터리와 경로 모듈을 분류된 상태로 유지하도록 요구합니다. 후보 대상은 패키지 힌트입니다. 새 프로세스, 신원, 전송 계층 또는 데이터 소유자의 게이트는 [서비스 승격과 데이터 소유권](../architecture/service-graduation-and-ownership-ko.md)입니다.
 [`test_operator_api_layout.py`](../../../services/operator-service/tests/)는 현재 모든 패키지와 경로 모듈이 분류된 상태인지 확인하고, exact 기본 메서드, 경로, route-name 집합 및 대표 HTTP 묶음을 고정합니다. 의도적인 기본 경로 추가는 같은 변경에서 검토된 기준선을 갱신합니다.
 저장소 카탈로그는 리비전이 있는 Operator 변환 결과로 구체화합니다. `runtime_projection_reader.py`와 `conversation_assurance_reader.py`는 Operator 역할에 부여된 영속 테이블만 읽습니다. 이 읽기 구성요소는 측정된 레코드 또는 명시적인 빈 근거 상태를 반환하며 실행 적격성을 추론하지 않습니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 현재 상태 활동 projection 경계 | 구현됨 | `fdai_operator_service/activity_projection.py`, `test_activity_projection.py`, focused 영속성 및 projection 테스트 (`6 passed`) | 영속 행은 hash된 correlation 참조를 요구하고 실제 운영 프레임과 같은 activity id를 사용하며, 중복 중 가장 최신 항목만 유지하고 `execution_authority=false`를 보존합니다. |
-| 통제된 의미 증적 표현 | 구현됨 | `console/src/deck/backend-normalizers.ts`, `backend-stream.ts`, `transcript-store.ts`, `conversation-trajectory-view.tsx`, Deck 출처 계약 검사, `console-routes.spec.ts`, focused Console 테스트 | Console은 최종 의미 증적을 안전하게 실패하도록 파싱하고 exact 타입 필드를 영속화 및 replay하며 경로, 사용 불가 사유, 보증 다이제스트, 근거 참조 및 실행 권한 없음 상태를 렌더링합니다. 출처 계약 검사는 attachment 순서와 검토 도구 의미를 약화하지 않고 공유 스타일 클래스와 검토된 chart 제목 구성 요소를 허용합니다. 인증된 실행기는 최종 증적을 호출자 요청 UUID에 연결하고 복제한 응답 스트림을 읽으므로 애플리케이션의 소비 동작을 변경하지 않습니다. 인증된 브라우저 근거는 아직 확보하지 않았습니다. |
-| 지속형 질문 공간 및 온톨로지 구조 표현 | 구현됨 | [지속형 질문 공간](continuous-question-space-ko.md), `console/tests/live-e2e/ontology-query-assurance.ts`, `console/src/routes/ontology.types.ts`, `console/src/routes/ontology-links.tsx`, 집중 Console 테스트 | Console 하네스는 고정된 이중 언어 100개 분류와 strict v2 22개 셀 oracle을 소유합니다. 온톨로지 워크벤치는 LinkType 역할, 의미 특성, 독립적인 제한 계열을 안전하게 실패하도록 디코딩하고 읽기 전용으로 표시하며 실행 컨트롤을 노출하지 않습니다. 이 두 표면은 런타임 인프라가 되지 않으면서 정확한 계획 기능, 전송 신원, 답변 턴의 완전한 근거, 권한 없는 실행 0을 검증합니다. |
-| 브라우저 근거 메타데이터 패널 경계 | 구현됨 | `console/src/routes/browser-evidence.tsx`, `console/src/panels.tsx`, focused decoder, panel 및 router 검사(`26 passed`) | 기존 Evidence 탐색 경로는 정확한 payload-free Operator 묶음만 사용합니다. 컨트롤과 수집 또는 구조화된 페이로드를 거부하고 변경 명령을 렌더링하지 않으며 인증된 배포 읽기 근거는 별도 런타임 gate로 유지합니다. |
-| 공유 의미 행 projection | 구현됨 | `families/conversation/presentation_rows.py`, v1 및 v2 표현 모듈, focused Operator 표현 검사(`82 passed`) | 범위가 제한된 순수 projection 하나가 직접 scalar를 유지하고 검증된 중첩 property bag에서 최대 두 단계까지 `name`, `type`, `status`, `location`만 끌어올립니다. 읽기 쉬운 사실이 있으면 기본 표에서 불투명한 `id`와 `object_type` 열을 제외하고, identity만 있는 결과에서는 해당 필드를 계속 표시합니다. 변경하지 않은 exact 행은 기술 세부에 유지합니다. |
-| 의미 스트림 PostgreSQL 취소 | 구현됨 | `postgres_family_store.py`, `test_postgres_family_store_cancellation.py`, focused 의미 bridge 검사(`76 passed`), Ruff 및 strict mypy | AnyIO 스트림 취소는 범위가 제한된 psycopg 쿼리 취소와 연결 종료를 완료한 뒤 전파됩니다. 더 이상 transaction rollback과 경합하지 않으며 HTTP 계약, 데이터베이스 소유권 또는 실행 권한을 변경하지 않습니다. |
-| Workflow Builder 제어 단계 저작 | 구현됨 | `console/src/routes/workflow-builder.{model,editor,session,structure,viz}.ts`, `console/tests/e2e/workflow-builder-control-steps.spec.ts`, 집중 Console 검사 | 유형별 저작, 미리 보기, 탭 복구 및 카탈로그 기반 구조 검사를 별도 모듈로 유지합니다. 다섯 가지 런타임 제어 단계 유형은 복제, 순서 변경, 검증 및 복원 과정에서 유지됩니다. 검증은 서버가 계속 담당하며 저장된 비공개 초안은 shadow 상태로 실행할 수 없습니다. |
-| Process 전환 변환 결과 및 요청 경계 | 구현됨 | `runtime_projection_reader.py`, `process_transition_projection.py`, `process_approval_projection.py`, `process_retry_admission.py`, `family_adapters.py`, `console/src/routes/processes.control.ts`, `console/src/routes/process-control-panel.tsx`, `console/src/routes/processes.transitions.ts`, 집중 Operator 및 Console 검사 | 런타임 읽기는 변경할 수 없는 요청자 근거를 인증된 principal로 필터링하고, 저널을 읽은 뒤 스냅샷 리비전을 다시 검사하며, 고정된 검토 Workflow와 영속 Var 승인 상태를 결합합니다. 워크플로 어댑터는 비활성 제안을 영속화하는 동일한 트랜잭션에서 리비전, 역할, 상태 및 효과 없는 재시도 근거를 미리 검사합니다. 런타임 권한은 변경되지 않습니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-08-31 | 구현됨 | 브라우저 또는 Operator API에 실행 권한을 추가하지 않고 Workflow Builder 모듈 경계를 작업 전용 행에서 손실 없는 `WAIT` 및 `APPROVAL` 저작으로 확장했습니다. | `current change`, 집중 Vitest 검사 72개, 서버 계약 검사 12개, Console 형식 검사와 프로덕션 빌드, 합성 데스크톱, 제한된 데스크톱 및 모바일 Playwright 검사 통과 | #396에서 `DECISION`, `PARALLEL`, `GATE` 구조 저작을 추가한 다음 #397에서 principal 범위 전환을 추가합니다. |
-| 2026-08-31 | 구현됨 | `DECISION`, `PARALLEL`, `GATE`를 위한 순수 구조 검증기와 손실 없는 편집기를 추가했습니다. 검토된 워크플로 카탈로그의 게이트 참조를 재사용하고 별도 결합 계약을 만들지 않으면서 런타임의 고정된 전체 분기 결합 방식을 유지합니다. | `current change`, 집중 Vitest 검사 81개, Console 형식 검사와 프로덕션 빌드, 합성 데스크톱, 제한된 데스크톱 및 모바일 Playwright 검사 통과 | #397에서 principal 범위의 권위 있는 Process 전환을 추가합니다. |
-| 2026-08-31 | 구현됨 | principal 범위의 권위 있는 Process 상태와 보호된 전환 제안 수락을 추가했습니다. Console은 런타임 진행이나 운영 성공을 주장하지 않고 단계 요구 사항과 요청 수락을 표시합니다. | `current change`, 집중 백엔드 및 런타임 검사 67개, 집중 Console 검사 27개, 엄격한 Python 및 TypeScript 검사, 프로덕션 빌드, 합성 세 viewport Playwright 검사 통과 | 인증된 통제 제안 소비 및 Process 진행 증적을 보존해야 합니다. |
-| 2026-08-23 | 구현됨 | SSE 연결 해제가 의미 replay 쿼리를 취소할 때 관측된 PostgreSQL rollback 경합을 제거했습니다. 단일 문장 family 쿼리는 autocommit 모드에서도 PostgreSQL 문장 원자성을 유지하고 session statement timeout을 사용하며, 원래 취소를 다시 발생시키기 전에 범위가 제한된 취소 및 연결 종료 정리만 shield합니다. | `current change`, 정확한 AnyIO 및 `pg_sleep` 재현은 수정 전 실패하고 수정 후 psycopg 경고 없이 통과, focused 의미 bridge 검사 76개 통과, Ruff 및 strict mypy 통과 | 이 취소 결함에 남은 추가 작업은 없습니다. |
-| 2026-08-19 | implemented | 고정된 로캘 50/50 분할을 보존하면서 읽기 전용 보증 하네스에 strict v2 선언, 릴리스/근거, 인벤토리 영향, Rule 상태 셀을 추가했습니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233), [지속형 질문 공간](continuous-question-space-ko.md), 집중 Console 테스트 100개 | seeded 인증 전에 정확한 소스의 인증된 strict-v2 증적을 보존합니다. |
-| 2026-08-20 | 구현됨 | Legacy와 v2 표현에서 읽기 쉬운 의미 행 projection을 통합했습니다. 이전 v2 분석기는 모든 중첩 mapping을 버렸기 때문에 exact 근거에 이름, 타입, 위치가 있어도 검증된 Resource 행이 `id`와 `object_type`만 표시했습니다. | `current change`, [이슈 #241](https://github.com/dotnetpower/fdai/issues/241), focused 표현 및 의미 bridge 검사 94개 통과, Ruff, formatting, strict mypy 통과 | 커밋된 source로 Operator API를 재시작한 뒤 인증된 세 viewport 근거를 보존합니다. |
-| 2026-08-20 | 구현됨 | 인증된 검토에서 표시된 `id`와 `object_type` 열이 운영자용 이름, 타입, 위치 필드를 압축하는 것을 확인한 뒤 기본 검증 행 계층을 교정했습니다. 공유 projection은 읽기 쉬운 사실이 있으면 불투명한 identity 열을 제외하고 identity만 있는 결과에서는 대체 표시로 유지하며, 기술 세부의 exact 행은 변경하지 않습니다. | `current change`, `presentation_rows.py`, focused Operator 표현 검사 82개와 Command Deck 시각 검사 19개, Console typecheck 및 운영 build 통과 | 이 source로 Operator API를 재시작한 뒤 인증된 desktop, constrained-desktop, mobile 근거를 보존합니다. |
-| 2026-08-13 | 구현됨 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 영속/실시간 현재 상태 projection identity를 기록했습니다. | 현재 출처와 `test_activity_projection.py`, 통과한 focused projection 및 영속성 테스트 | 아래의 검토된 이행 계열로 report-only 의존성 debt를 줄입니다. |
-| 2026-08-13 | 진행 중 | Exact 타입 기반 의미 증적 파싱, 스트림 수집, 영속 replay, 표현 및 인증된 근거 실행기를 추가했습니다. | `current change`, 통과한 focused Console 테스트 및 typecheck | 통제된 요청-Console 및 이중 언어 무작위 보증 브라우저 경로를 실행하고 통과한 두 기록을 보존합니다. |
-| 2026-08-13 | 구현됨 | 인증된 최종 증적 수집을 호출자 요청 UUID에 연결하고 애플리케이션의 원본 스트림을 소비하지 않도록 `Response.clone()`에서 SSE 본문을 수집했습니다. | `current change`, `console-routes.spec.ts`, Console typecheck 및 Playwright discovery 통과 | 무작위 보증 전에 인증된 통제 실행기를 수행하고 통과한 기록을 보존합니다. |
-| 2026-08-13 | 구현됨 | 인증된 통제 실행기를 현재 접근 가능한 `Run record` 궤적 요약에 맞춰 중첩된 실행 및 기술 증적 상세를 펼칠 수 있게 했습니다. | `current change`, `console-routes.spec.ts`, Console typecheck 및 exact Playwright discovery 통과 | 무작위 보증 전에 인증된 통제 실행기를 수행하고 통과한 기록을 보존합니다. |
-| 2026-08-15 | 구현됨 | 등록된 브라우저 근거 경로를 payload-free Operator 메타데이터 계약과 엄격한 지역화 검사 상태에 맞췄습니다. | `current change`, `console/src/routes/browser-evidence.tsx`, focused 검사 `26 passed`, Console typecheck, build, catalog parity 및 desktop/mobile fixture 렌더링 통과 | 이행된 Operator 역할에 대한 인증된 배포 읽기 증적 하나를 보존합니다. |
-
-### 남은 작업
-
-- [ ] 각 report-only 역방향 의존성을 검토된 neutral 계약 또는 provider 경계 뒤로 이동하고 해당 방향을 강제하기 전에 일치하는 `.check-operator-api-boundaries.debt` 예산을 줄입니다.
-- [ ] 의미 증적 표현의 준비 상태를 선언하기 전에 인증된 요청-Console 및 이중 언어 무작위 보증 근거를 통과한 상태로 보존합니다.
-
 ## Dependency-direction 게이트
 
 `check-operator-api-boundaries.py`는 애플리케이션 코드를 로드하지 않고 가져오기를 파싱합니다. 정리된
@@ -660,6 +622,7 @@ typed-pipeline 결정을 변경하지 않습니다.
 
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/interfaces/operator-console-module-map.md) |
 | Console framing, 도구, RBAC 및 안전성 | [Operator Console](operator-console-ko.md) |
 | 런타임 모델 및 DI 경계 | [Operator Console 런타임 모델](operator-console-runtime-model-ko.md) |
 | 영속 채널 전달 | [영속 대화 전달](durable-conversation-delivery-ko.md) |

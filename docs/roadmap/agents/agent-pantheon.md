@@ -17,10 +17,8 @@ Consumers of this document:
   overrides) and which are locked (no new agents, no rename).
 ## 1. Design principles
 
-The pantheon is a thin re-framing of the existing FDAI control loop into
-named organizational roles. It does not change the safety envelope in
-[architecture.instructions.md](../../../.github/instructions/architecture.instructions.md);
-it makes the roles legible and auditable.
+The pantheon is a thin re-framing of the existing FDAI control loop into named organizational roles. It does not change the safety envelope
+in [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md); it makes the roles legible and auditable.
 
 - **Deterministic-first, LLM-capable.** Every agent CAN call an LLM through
   its own bindings, but the runtime hot-path routes almost everything at T0
@@ -325,15 +323,11 @@ properties:
     proposals_per_hour: int
 ```
 
-Every `object_type` declaration in the wider ontology MAY carry an
-optional `lifecycle` block whose `owner` names exactly one `Agent`. That
-field is the ontology semantic-write registry: it says who may create and
-close instances of the type in the graph. It is separate from the
-event-bus registry in section 4, where `owns` says who may publish
-`object.<type>`. A type may be in one, both, or neither; a type with no
-`lifecycle` block simply adds no second write authority. See
-[Operating ontology - Agent ownership](../architecture/operating-ontology.md#agent-ownership)
-for the current per-agent list and the rules for reading it.
+Every `object_type` declaration in the wider ontology MAY carry an optional `lifecycle` block whose `owner` names exactly one `Agent`. That
+field is the ontology semantic-write registry: it says who may create and close instances of the type in the graph. It is separate from the
+event-bus registry in section 4, where `owns` says who may publish `object.<type>`. A type may be in one, both, or neither; a type with no
+`lifecycle` block simply adds no second write authority. See [Operating ontology - Agent
+ownership](../architecture/operating-ontology.md#agent-ownership) for the current per-agent list and the rules for reading it.
 
 ## 6. Communication contract
 
@@ -550,13 +544,10 @@ auditor: Saga
 rollback_owner: Vidar
 ```
 
-`PANTHEON_SPECS`, topic ownership, and runtime producer checks enforce these
-roles for every action. ActionType entries cannot redeclare them, and the
-schema rejects unknown role fields. Initiator eligibility is evaluated from
-the ActionType's `trigger_kind` and scenario restrictions together with
-AgentSpec capabilities or server-owned operator ingress. This keeps role
-ownership in one source of truth while the ActionType remains the source of
-truth for operation, safety, and execution-path semantics.
+`PANTHEON_SPECS`, topic ownership, and runtime producer checks enforce these roles for every action. ActionType entries cannot redeclare
+them, and the schema rejects unknown role fields. Initiator eligibility is evaluated from the ActionType's `trigger_kind` and scenario
+restrictions together with AgentSpec capabilities or server-owned operator ingress. This keeps role ownership in one source of truth while
+the ActionType remains the source of truth for operation, safety, and execution-path semantics.
 
 ### 7.2 Lifecycle state machine
 
@@ -631,44 +622,31 @@ distinct approvers, no self-approval. Forseti attaches `quorum_required:
 
 ### 7.6 Handoff as typed delivery
 
-Handoff escalation is not a `governance.*` ActionType. That category is
-reserved for reviewed catalog-as-code changes using `pr_native`. Bragi, the
-single writer of `object.handoff-escalation`, publishes the bounded request;
-Saga consumes it, applies fingerprint deduplication, materializes `object.issue`,
-and appends the audit evidence. A live issue tracker remains an injected
-delivery adapter, so the typed ownership and audit boundary stay the same in
-local and deployed runtimes.
+Handoff escalation is not a `governance.*` ActionType. That category is reserved for reviewed catalog-as-code changes using `pr_native`.
+Bragi, the single writer of `object.handoff-escalation`, publishes the bounded request; Saga consumes it, applies fingerprint deduplication,
+materializes `object.issue`, and appends the audit evidence. A live issue tracker remains an injected delivery adapter, so the typed
+ownership and audit boundary stay the same in local and deployed runtimes.
 
 ### 7.7 Conversational port MUST-NOT-Bypass rule
 
-The conversational port CAN start an action but MUST NOT execute one on
-its own. When an operator says "restart vm-1" or the Korean equivalent to Bragi, Bragi translates
-the intent into an `ActionProposal` whose `initiator_principal` is the
-operator (not Bragi) and hands it to the typed pipeline. Forseti, Var,
-and Thor run their normal steps. Bragi only renders progress back to the
-operator. Any implementation that lets Bragi call an executor directly is
-a defect.
+The conversational port CAN start an action but MUST NOT execute one on its own. When an operator says "restart vm-1" or the Korean
+equivalent to Bragi, Bragi translates the intent into an `ActionProposal` whose `initiator_principal` is the operator (not Bragi) and hands
+it to the typed pipeline. Forseti, Var, and Thor run their normal steps. Bragi only renders progress back to the operator. Any
+implementation that lets Bragi call an executor directly is a defect.
 
-**Implementation.** Bragi holds a `proposal_sink` DI seam wired at the
-composition root to `Huginn.ingest` (the sole writer of `object.event`), so
-Bragi never publishes a mutation topic itself. `Bragi.submit_action_proposal`
-maps a deterministic English or Korean command phrase to an ActionType, builds the proposal with
-`initiator_principal = operator` and `operator_initiated = true`, and submits
-it through a bounded sink call; timeout or failure returns `submitted=false` without error detail. Every command emits a digest-only `object.turn` on that proposal correlation. It returns a `correlation_id` the operator can track and
-renders pipeline progress from `object.verdict` / `object.action-run`, never
-executing. Forseti propagates `initiator_principal` onto the verdict, Thor onto
-the ActionRun, and Var enforces no-self-approval (the initiator can never
-approve their own action). An operator-initiated proposal whose initiator is
-unknown to the RBAC seam fails closed to `deny` with a `SecurityEvent`. When
-the console passes the operator's Entra role, an entry RBAC gate refuses an
-action request below the execute floor (`Contributor`) before it enters the
-pipeline, so a `Reader` cannot submit any action (defense-in-depth with the
-principal-level deny above). As a spoofing defense, Huginn honors the
-operator-proposal fields (`initiator_principal` / `action_type` /
-`operator_initiated`) ONLY for an explicit `event_type == "operator_request"`
-and coerces `operator_initiated` to a strict bool - so a forged or external
-signal on the shared ingress topic cannot spoof an operator action, and Forseti
-treats only a strict `True` as operator-initiated.
+**Implementation.** Bragi holds a `proposal_sink` DI seam wired at the composition root to `Huginn.ingest` (the sole writer of
+`object.event`), so Bragi never publishes a mutation topic itself. `Bragi.submit_action_proposal` maps a deterministic English or Korean
+command phrase to an ActionType, builds the proposal with `initiator_principal = operator` and `operator_initiated = true`, and submits it
+through a bounded sink call; timeout or failure returns `submitted=false` without error detail. Every command emits a digest-only
+`object.turn` on that proposal correlation. It returns a `correlation_id` the operator can track and renders pipeline progress from
+`object.verdict` / `object.action-run`, never executing. Forseti propagates `initiator_principal` onto the verdict, Thor onto the ActionRun,
+and Var enforces no-self-approval (the initiator can never approve their own action). An operator-initiated proposal whose initiator is
+unknown to the RBAC seam fails closed to `deny` with a `SecurityEvent`. When the console passes the operator's Entra role, an entry RBAC
+gate refuses an action request below the execute floor (`Contributor`) before it enters the pipeline, so a `Reader` cannot submit any action
+(defense-in-depth with the principal-level deny above). As a spoofing defense, Huginn honors the operator-proposal fields
+(`initiator_principal` / `action_type` / `operator_initiated`) ONLY for an explicit `event_type == "operator_request"` and coerces
+`operator_initiated` to a strict bool - so a forged or external signal on the shared ingress topic cannot spoof an operator action, and
+Forseti treats only a strict `True` as operator-initiated.
 
 ### 7.8 Fork override boundaries
 

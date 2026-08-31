@@ -134,28 +134,22 @@ no-follow, 65536-byte regular-file boundary. Private keys must be owned by the c
 Connected plans expose only a validated Azure CLI path or target-bound Managed Identity variables
 to Terraform; unrelated environment values remain excluded.
 
-The C1 commands use stable JSON schemas for automation. `provision init` captures only the active
-subscription and tenant identifiers, environment, region, remote-runner boundary, and shadow-mode
-default in a gitignored mode-`0600` file. Human output never prints the account identifiers.
-Profile, plan-input, and journal readers open paths in nonblocking mode before checking for a
-mode-`0600` regular file, so named pipes cannot stall read-only commands.
-Journal appends also use a nonblocking exclusive lock with a five-second monotonic deadline and
-repeat descriptor validation after acquisition, so contention stops the append instead of hanging
-onboarding. Journal directory traversal opens every component relative to a held parent descriptor
-and rejects symlinked ancestors. Provision-event v2 records the manifest version used for READY
-validation, while the v1 decoder preserves replay of journals created before that field existed.
-Resource and page counters can appear after discovery starts and can grow, but cannot disappear,
-decrease, or reduce their expected totals in a later progress snapshot.
+The C1 commands use stable JSON schemas for automation. `provision init` captures only the active subscription and tenant identifiers,
+environment, region, remote-runner boundary, and shadow-mode default in a gitignored mode-`0600` file. Human output never prints the account
+identifiers. Profile, plan-input, and journal readers open paths in nonblocking mode before checking for a mode-`0600` regular file, so
+named pipes cannot stall read-only commands. Journal appends also use a nonblocking exclusive lock with a five-second monotonic deadline and
+repeat descriptor validation after acquisition, so contention stops the append instead of hanging onboarding. Journal directory traversal
+opens every component relative to a held parent descriptor and rejects symlinked ancestors. Provision-event v2 records the manifest version
+used for READY validation, while the v1 decoder preserves replay of journals created before that field existed. Resource and page counters
+can appear after discovery starts and can grow, but cannot disappear, decrease, or reduce their expected totals in a later progress
+snapshot.
 
-`license inspect` is offline in the same sense as bundle and kit verification: the public key ships
-with the distribution, so no network call, revocation lookup, or certificate chain is involved. It
-reports status and non-secret metadata only and never echoes the token, document, or signature. The
-token input is accepted only as a mode-`0600` regular file no larger than 8192 bytes. The reader does
-not follow symlinks and opens the path in nonblocking mode before checking its type, so named pipes
-and device files are blocked without waiting. It preserves the token bytes exactly and rejects
-leading or trailing whitespace; release issuance writes the token without a trailing newline.
-Trust-key inputs use the same no-follow, nonblocking regular-file boundary with a 65536-byte limit.
-The entitlement contract itself lives in
+`license inspect` is offline in the same sense as bundle and kit verification: the public key ships with the distribution, so no network
+call, revocation lookup, or certificate chain is involved. It reports status and non-secret metadata only and never echoes the token,
+document, or signature. The token input is accepted only as a mode-`0600` regular file no larger than 8192 bytes. The reader does not follow
+symlinks and opens the path in nonblocking mode before checking its type, so named pipes and device files are blocked without waiting. It
+preserves the token bytes exactly and rejects leading or trailing whitespace; release issuance writes the token without a trailing newline.
+Trust-key inputs use the same no-follow, nonblocking regular-file boundary with a 65536-byte limit. The entitlement contract itself lives in
 [capability-licensing.md](../fork-and-sequencing/capability-licensing.md).
 
 ## Local security audit
@@ -272,33 +266,25 @@ one is added later, should be audited and should never accept secret values on t
 `PreflightAnalyzer`. It should reuse the shared report and probe contracts rather than implement a
 second set of readiness rules inside the CLI.
 
-The implemented analyzer primitives accept the data represented by a versioned JSON input. The
-target CLI path will expose that input containing the deployment's neutral
-scope, resource types, required egress hosts, and grounded policy facts. It runs only the
-deterministic local probes, performs no network call, and preserves the analyzer's stable ordering
-and shadow-versus-enforce semantics. Pass machine-readable `terraform show -json` output with
-`--terraform-plan`. The input's explicit `terraform_resource_type_map` converts only managed
-resources with a `create` action, including replacements, to CSP-neutral types. Data sources,
-no-op, read, update-only, delete-only, and Terraform built-in metadata such as `terraform_data`
-are ignored. An unmapped created provider resource makes the run incomplete, and resource
-addresses or planned values never enter the report.
+The implemented analyzer primitives accept the data represented by a versioned JSON input. The target CLI path will expose that input
+containing the deployment's neutral scope, resource types, required egress hosts, and grounded policy facts. It runs only the deterministic
+local probes, performs no network call, and preserves the analyzer's stable ordering and shadow-versus-enforce semantics. Pass
+machine-readable `terraform show -json` output with `--terraform-plan`. The input's explicit `terraform_resource_type_map` converts only
+managed resources with a `create` action, including replacements, to CSP-neutral types. Data sources, no-op, read, update-only, delete-only,
+and Terraform built-in metadata such as `terraform_data` are ignored. An unmapped created provider resource makes the run incomplete, and
+resource addresses or planned values never enter the report.
 
-Pass `--environment-config` to add bounded live Azure checks. The CLI reads the validated
-onboarding target, obtains a short-lived ARM token through the local Azure CLI identity, and runs
-Azure Policy, configured Compute quota, and executor RBAC probes through bounded read-only ARM
-and Resource Graph transports. ARM GET requests are limited to 20 seconds and eight pages; the
-role query is a 20-second read-only ARG POST. Neutral resource types are translated to ARM types
-inside the Azure adapter. An unmapped type or failed probe makes the run incomplete, and the CLI
-error doesn't expose the subscription, resource group, principal, role definition, or Azure
-path. An optional `key_vault` block checks required secret references by opening a streamed GET
-and inspecting only the status code; it never reads the response body or secret value. Missing
-references use a SHA-256-derived id, so vault hosts and secret names don't enter the report.
-The report includes a stable `checks` array even when no finding exists. Each entry records only
-the probe category, `clear` or `finding` status, and finding count, so automation can distinguish a
-successful check from a check that was never configured. A live profile can declare
-`required_categories`; missing quota, identity, or secret configuration then fails before any
-network call. Bounded runner TLS reachability supplies the live egress evidence. Static Firewall,
-NSG, and UDR topology analysis remains a separate future adapter.
+Pass `--environment-config` to add bounded live Azure checks. The CLI reads the validated onboarding target, obtains a short-lived ARM token
+through the local Azure CLI identity, and runs Azure Policy, configured Compute quota, and executor RBAC probes through bounded read-only
+ARM and Resource Graph transports. ARM GET requests are limited to 20 seconds and eight pages; the role query is a 20-second read-only ARG
+POST. Neutral resource types are translated to ARM types inside the Azure adapter. An unmapped type or failed probe makes the run
+incomplete, and the CLI error doesn't expose the subscription, resource group, principal, role definition, or Azure path. An optional
+`key_vault` block checks required secret references by opening a streamed GET and inspecting only the status code; it never reads the
+response body or secret value. Missing references use a SHA-256-derived id, so vault hosts and secret names don't enter the report. The
+report includes a stable `checks` array even when no finding exists. Each entry records only the probe category, `clear` or `finding`
+status, and finding count, so automation can distinguish a successful check from a check that was never configured. A live profile can
+declare `required_categories`; missing quota, identity, or secret configuration then fails before any network call. Bounded runner TLS
+reachability supplies the live egress evidence. Static Firewall, NSG, and UDR topology analysis remains a separate future adapter.
 
 ```bash
 terraform -chdir=infra show -json dev.plan > dev.plan.json
@@ -555,17 +541,14 @@ fdaictl deploy status \
   --output json
 ```
 
-The local CLI doesn't download or print the binary Terraform plan because plan files can contain
-sensitive state-derived values. The runner stores CLI-requested plans and sanitized metadata in a
-private `deployment-plans` Blob container beside the remote-state container. Uploads use the
-runner managed identity, public access is off, and `overwrite=false` makes each run path immutable.
-Metadata records the plan digest, context digest, exact commit, workflow run, and a one-hour logical
-expiry without tenant, subscription, backend, runner, or secret values. An isolated Executor plan
-also records the verified runtime source revision and OCI digest without a registry endpoint or
-mutable tag. A successful `deploy status` returns the derived plan id and digest from the bounded
-metadata-only artifact. Each
-new plan run scans at most 1001 private blobs and deletes at most 1000 allowlisted plan paths older
-than 24 hours; reaching either bound fails closed without deleting unknown paths.
+The local CLI doesn't download or print the binary Terraform plan because plan files can contain sensitive state-derived values. The runner
+stores CLI-requested plans and sanitized metadata in a private `deployment-plans` Blob container beside the remote-state container. Uploads
+use the runner managed identity, public access is off, and `overwrite=false` makes each run path immutable. Metadata records the plan
+digest, context digest, exact commit, workflow run, and a one-hour logical expiry without tenant, subscription, backend, runner, or secret
+values. An isolated Executor plan also records the verified runtime source revision and OCI digest without a registry endpoint or mutable
+tag. A successful `deploy status` returns the derived plan id and digest from the bounded metadata-only artifact. Each new plan run scans at
+most 1001 private blobs and deletes at most 1000 allowlisted plan paths older than 24 hours; reaching either bound fails closed without
+deleting unknown paths.
 
 `fdaictl deploy apply --plan-id <id>` applies the exact saved plan only when all of these checks
 pass:

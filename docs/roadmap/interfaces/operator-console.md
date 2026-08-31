@@ -28,11 +28,9 @@ This doc covers the **pull direction** - the operator asks, simulates, approves 
 > Customer-agnostic: every channel id, LLM deployment name, resource id, and group name below is a placeholder. A fork supplies concrete values via config ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 ## 1. Framing - what this is (and what it is not)
 
-The FDAI Console conversation surface does **not** carry judgment authority. FDAI's judgment stays where it already is - the deterministic engine (T0),
-the quality gate (T2 verifier), the risk gate, and the shipped Rego
-policies. The console is the **conversational surface** through which
-an operator inspects that judgment, simulates change, and approves
-what the system has already queued.
+The FDAI Console conversation surface does **not** carry judgment authority. FDAI's judgment stays where it already is - the deterministic
+engine (T0), the quality gate (T2 verifier), the risk gate, and the shipped Rego policies. The console is the **conversational surface**
+through which an operator inspects that judgment, simulates change, and approves what the system has already queued.
 
 Three properties follow directly:
 
@@ -62,8 +60,7 @@ The Operator API never marks a review ready, creates a catalog proposal, or gran
 ### 1.1 Vocabulary added to the shared glossary
 
 The following tokens are added to the shared vocabulary in
-[architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)
-and are used consistently by every referring doc:
+[architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) and are used consistently by every referring doc:
 
 - **operator-console** - the legacy contract token for the conversation capability documented here; the product display name remains FDAI Console.
 - **narrator** - the LLM tier of the operator console (translator role;
@@ -74,10 +71,9 @@ and are used consistently by every referring doc:
 - **console-tool** - one exposed pipeline stage or catalog view the narrator
   may call.
 
-Explanatory questions about T2 execution-eligibility checks or insufficient-evidence handling use
-the canonical glossary before action-context or intent-graph tools. This precedence applies only
-to concept explanations. A question with an exact action, approval, correlation, or idempotency
-selector continues to require server-owned action lifecycle evidence.
+Explanatory questions about T2 execution-eligibility checks or insufficient-evidence handling use the canonical glossary before
+action-context or intent-graph tools. This precedence applies only to concept explanations. A question with an exact action, approval,
+correlation, or idempotency selector continues to require server-owned action lifecycle evidence.
 
 ## 2. Three-layer architecture
 
@@ -370,14 +366,12 @@ Moved to a focused owner document: [operator-console-runtime-model.md](operator-
 See [operator-console-runtime-model.md#6-session-model--memory](operator-console-runtime-model.md#6-session-model--memory).
 ## 7. Safety invariants (chat does not weaken them)
 
-The seven autonomous-action safeguards from
-[coding-conventions.instructions.md § Safety](../../../.github/instructions/coding-conventions.instructions.md#safety)
-apply unchanged. Chat adds three of its own on top.
+The seven autonomous-action safeguards from [coding-conventions.instructions.md §
+Safety](../../../.github/instructions/coding-conventions.instructions.md#safety) apply unchanged. Chat adds three of its own on top.
 
 ### 7.1 The seven existing safeguards
 
-Every write-class tool call (`simulate_change` in enforce mode -
-disallowed today - `approve_hil`, `run_runbook --live`) MUST carry:
+Every write-class tool call (`simulate_change` in enforce mode - disallowed today - `approve_hil`, `run_runbook --live`) MUST carry:
 
 1. **Stop-condition** - inherited from the ActionType without console alteration.
 2. **Rollback path** - inherited from the ActionType's `rollback_contract`.
@@ -420,16 +414,13 @@ disallowed today - `approve_hil`, `run_runbook --live`) MUST carry:
 
 ### 7.3 BreakGlass request receipt
 
-The current `ActivateBreakGlassTool` result contains `activated_at`, `expires_at`, a redacted
-reason, `pager_receipt`, and `audit_id`. Its `max_ttl_seconds` default and ceiling are `14400`; a
-larger adapter setting is rejected. This result is not an authorization grant record, and no
-persistent store currently enforces session-end or expiry revocation. No downstream path may use
-the receipt as elevation evidence.
+The current `ActivateBreakGlassTool` result contains `activated_at`, `expires_at`, a redacted reason, `pager_receipt`, and `audit_id`. Its
+`max_ttl_seconds` default and ceiling are `14400`; a larger adapter setting is rejected. This result is not an authorization grant record,
+and no persistent store currently enforces session-end or expiry revocation. No downstream path may use the receipt as elevation evidence.
 
 ### 7.4 Human approval fall-through when the LLM proposes a write
 
-The narrator MAY, when the operator says "just fix it", emit a
-`tool_call` for `run_runbook(dry_run=false)` or `approve_hil`. On the
+The narrator MAY, when the operator says "just fix it", emit a `tool_call` for `run_runbook(dry_run=false)` or `approve_hil`. On the
 verifier re-check (safeguard 8):
 
 - If verifier passes AND RBAC is satisfied → the tool call proceeds.
@@ -441,36 +432,28 @@ verifier re-check (safeguard 8):
   before dispatch.
 ## 8. Channel integration (push vs pull)
 
-The channel abstraction ([channels-and-notifications.md](channels-and-notifications.md))
-already handles push (system → human). Pull uses **separate adapters and configuration contracts**.
-A deployment can reuse a secret provider or workload identity, but it does not derive inbound
-conversation enablement from the outbound notification matrix. This separation preserves the
-different trust posture and blast radius of send-only and receive-plus-send surfaces.
+The channel abstraction ([channels-and-notifications.md](channels-and-notifications.md)) already handles push (system → human). Pull uses
+**separate adapters and configuration contracts**. A deployment can reuse a secret provider or workload identity, but it does not derive
+inbound conversation enablement from the outbound notification matrix. This separation preserves the different trust posture and blast
+radius of send-only and receive-plus-send surfaces.
 
-The shared pull-direction contract, gateway, Slack signed ingress, Teams authenticated activity
-normalizer, bounded Starlette routes, Slack Web API publisher, and Teams Bot Framework publisher
-are implemented. The Slack route verifies timestamped signatures. The Teams route calls an
-injected bearer authenticator before parsing activity JSON. Reply publishers use only configured
-HTTPS endpoints, injected app/workload credentials, and server-owned conversation resolution.
-`ProductionChannelRuntime` binds the concrete Bot Framework JWT verifier, Teams principal resolver,
-Slack secrets/app credentials, fixed-endpoint publishers, and background gateway lifecycle.
-Missing required credentials or identity bindings fail startup before traffic. Those bindings stay
-in `delivery/`; they do not change the coordinator.
+The shared pull-direction contract, gateway, Slack signed ingress, Teams authenticated activity normalizer, bounded Starlette routes, Slack
+Web API publisher, and Teams Bot Framework publisher are implemented. The Slack route verifies timestamped signatures. The Teams route calls
+an injected bearer authenticator before parsing activity JSON. Reply publishers use only configured HTTPS endpoints, injected app/workload
+credentials, and server-owned conversation resolution. `ProductionChannelRuntime` binds the concrete Bot Framework JWT verifier, Teams
+principal resolver, Slack secrets/app credentials, fixed-endpoint publishers, and background gateway lifecycle. Missing required credentials
+or identity bindings fail startup before traffic. Those bindings stay in `delivery/`; they do not change the coordinator.
 
-`ChannelAccessService` is the sender-access foundation for those principal resolvers. Each channel
-selects `disabled`, `allowlist`, or `pairing`. Unknown senders resolve to no principal and never
-reach the coordinator. Pairing mode issues a bounded, expiring challenge, stores only its SHA-256
-digest, caps pending requests per channel, requires a separately authorized approver, verifies the
-code in constant time, and maps the approved sender to an existing FDAI principal. Disabled and
-allowlist modes never self-enroll a sender. The PostgreSQL store now enforces the pending cap and
-approval transition atomically across replicas. Native challenge delivery replies in the originating
-thread and conditionally removes the pending digest when delivery fails. The code is never stored or
-placed in response metadata.
+`ChannelAccessService` is the sender-access foundation for those principal resolvers. Each channel selects `disabled`, `allowlist`, or
+`pairing`. Unknown senders resolve to no principal and never reach the coordinator. Pairing mode issues a bounded, expiring challenge,
+stores only its SHA-256 digest, caps pending requests per channel, requires a separately authorized approver, verifies the code in constant
+time, and maps the approved sender to an existing FDAI principal. Disabled and allowlist modes never self-enroll a sender. The PostgreSQL
+store now enforces the pending cap and approval transition atomically across replicas. Native challenge delivery replies in the originating
+thread and conditionally removes the pending digest when delivery fails. The code is never stored or placed in response metadata.
 
-`CrossChannelIdentityLinkService` records an explicit relationship only after both channel senders
-are independently paired to the same principal. It rejects same-channel links, self-approval,
-unapproved endpoints, and any attempt to relate two distinct principals. The durable link is
-idempotent and does not merge principal records, roles, sessions, or audit histories.
+`CrossChannelIdentityLinkService` records an explicit relationship only after both channel senders are independently paired to the same
+principal. It rejects same-channel links, self-approval, unapproved endpoints, and any attempt to relate two distinct principals. The
+durable link is idempotent and does not merge principal records, roles, sessions, or audit histories.
 
 | Channel | Push (existing) | Pull (this doc) | Shared config |
 |---------|-----------------|-----------------|---------------|
@@ -613,12 +596,10 @@ Split into focused owner documents:
 ## 14. MCP delivery and managed catalog
 
 FDAI can consume externally hosted MCP tools through the managed outbound catalog under
-`services/core-control-plane/src/fdai/delivery/mcp/`. Servers install disabled. Enable performs a non-invoking `tools/list`
-discovery and verifies every ActionType-to-tool allowlist entry. Catalog mutations use a durable
-revision-CAS snapshot; manifest, health, revision, and the admin audit record commit in one
-PostgreSQL transaction. A periodic monitor records health transitions, and only enabled, healthy
-servers are routable. Endpoint validation rejects credentials, query strings, fragments, and
-non-loopback plaintext HTTP.
+`services/core-control-plane/src/fdai/delivery/mcp/`. Servers install disabled. Enable performs a non-invoking `tools/list` discovery and
+verifies every ActionType-to-tool allowlist entry. Catalog mutations use a durable revision-CAS snapshot; manifest, health, revision, and
+the admin audit record commit in one PostgreSQL transaction. A periodic monitor records health transitions, and only enabled, healthy
+servers are routable. Endpoint validation rejects credentials, query strings, fragments, and non-loopback plaintext HTTP.
 
 This outbound catalog is distinct from publishing FDAI itself as an MCP server. The repository
 currently ships no inbound MCP server process, `list_tools`/`call_tool` wire endpoint, or external

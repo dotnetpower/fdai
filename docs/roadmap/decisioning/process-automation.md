@@ -236,29 +236,23 @@ evidence. The resolver reads that receipt by proposal reference, Process, and st
 not trust caller-supplied status or receipt context. Shadow, unknown, missing, mismatched, or
 unscorable outcomes cannot advance the Process.
 
-`StateStoreAutomationHoldLedger` now writes a target-digested hold before a
-recovery-incomplete Process closes. The headless control loop reads that hold before every ordinary
-Action and the RiskGate returns `deny`; a failed or malformed hold read also denies. Read paths do
-not use this mutation gate. Only a `compensate_*` Action whose workflow lineage matches the Process
-that owns the active hold may re-enter the ordinary safety and authorization pipeline, and the
-RiskGate caps that recovery at human approval. Every compensation outcome still requires independent
-effect evidence. After all receipts verify, the coordinator releases the matching hold with a
-revision compare-and-set before it records `status=compensated`; a release conflict or persistence
-failure closes as `recovery_incomplete`. Released holds can be reissued for a later Process, and an
-older Process cannot release the newer hold.
+`StateStoreAutomationHoldLedger` now writes a target-digested hold before a recovery-incomplete Process closes. The headless control loop
+reads that hold before every ordinary Action and the RiskGate returns `deny`; a failed or malformed hold read also denies. Read paths do not
+use this mutation gate. Only a `compensate_*` Action whose workflow lineage matches the Process that owns the active hold may re-enter the
+ordinary safety and authorization pipeline, and the RiskGate caps that recovery at human approval. Every compensation outcome still requires
+independent effect evidence. After all receipts verify, the coordinator releases the matching hold with a revision compare-and-set before it
+records `status=compensated`; a release conflict or persistence failure closes as `recovery_incomplete`. Released holds can be reissued for
+a later Process, and an older Process cannot release the newer hold.
 
-`ChangeWindowWorkflowGuardEvaluator` resolves `gate_ref: change-window.active` with the exact
-Process target and evaluation time. It delegates other refs to the existing guard evaluator, so
-the architecture-review production gate remains unchanged. Guard resolution is fail-closed: a
-stale evaluation clock, a raising or unavailable evaluator, and a non-boolean result each block
-the step and record a bounded `guard_error`, while a clean policy block keeps `guard_error` null.
-Only the literal boolean `true` can open a workflow gate; other truthy values remain blocked.
-An open gate is a positive decision, so a satisfied gate additionally needs a current shared
-decision-critical evidence admission bound to that exact gate reference and Process lineage. When no
-admission provider is bound, or the admission does not match, the gate stays closed.
-The runtime wraps every production gate evaluator with this admission check, including when no
-ontology store is configured. It evaluates the gate before any approval request, evidence read,
-parallel branch, wait, or decision step can produce a side effect or advance.
+`ChangeWindowWorkflowGuardEvaluator` resolves `gate_ref: change-window.active` with the exact Process target and evaluation time. It
+delegates other refs to the existing guard evaluator, so the architecture-review production gate remains unchanged. Guard resolution is
+fail-closed: a stale evaluation clock, a raising or unavailable evaluator, and a non-boolean result each block the step and record a bounded
+`guard_error`, while a clean policy block keeps `guard_error` null. Only the literal boolean `true` can open a workflow gate; other truthy
+values remain blocked. An open gate is a positive decision, so a satisfied gate additionally needs a current shared decision-critical
+evidence admission bound to that exact gate reference and Process lineage. When no admission provider is bound, or the admission does not
+match, the gate stays closed. The runtime wraps every production gate evaluator with this admission check, including when no ontology store
+is configured. It evaluates the gate before any approval request, evidence read, parallel branch, wait, or decision step can produce a side
+effect or advance.
 
 Accepting a durable step outcome follows the same rule. `StateStoreWorkflowOutcomeLedger` still
 records every observed outcome, but it treats a receipt as a verified success only when a current
@@ -282,26 +276,20 @@ replaces `requester.principal` with the authenticated operator and rejects calle
 `wait.*` keys. Those namespaces are server-owned Process evidence. A public request cannot create
 approval quorum, action success, recovery, or control-step progress.
 
-Every new `process.created` event carries the minimal server-owned envelope needed to resume that
-exact Process. It records the original trigger time and mode, `requester.principal`, and only the
-context keys referenced by workflow parameter templates. Values used by an `x-fdai-redact`
-argument are omitted and mark the envelope incomplete, which blocks resume rather than persisting a
-secret. `POST /workflows/{process_id}/resume` accepts no request body. The route reloads the Process
-snapshot and creation event, verifies the workflow name and version plus the derived Process id,
-and then reuses the original target, correlation, trigger, mode, and safe context. A Contributor can
-resume a shadow Process. An enforce Process still requires Owner and the current workflow enforce
-allowlist. Missing, legacy, malformed, redacted, version-mismatched, or identity-mismatched evidence
-returns a typed conflict and dispatches no step.
+Every new `process.created` event carries the minimal server-owned envelope needed to resume that exact Process. It records the original
+trigger time and mode, `requester.principal`, and only the context keys referenced by workflow parameter templates. Values used by an
+`x-fdai-redact` argument are omitted and mark the envelope incomplete, which blocks resume rather than persisting a secret. `POST
+/workflows/{process_id}/resume` accepts no request body. The route reloads the Process snapshot and creation event, verifies the workflow
+name and version plus the derived Process id, and then reuses the original target, correlation, trigger, mode, and safe context. A
+Contributor can resume a shadow Process. An enforce Process still requires Owner and the current workflow enforce allowlist. Missing,
+legacy, malformed, redacted, version-mismatched, or identity-mismatched evidence returns a typed conflict and dispatches no step.
 
-`POST /workflows/{process_id}/cancel` also accepts no request body and resolves the same durable
-envelope. A Contributor can cancel a shadow Process; an enforce Process requires Owner. The
-command records `process.cancellation-requested` only when the Process is `pending` or `waiting`.
-A `running` Process returns `process_not_at_safe_boundary` because an in-flight dispatcher cannot
-be assumed idle. A waiting action first reconciles its authoritative outcome. The executor blocks
-every new step, and any verified applied steps enter the existing reverse compensation path. A
-waiting approval closes its durable Var state and every HIL slot, so a late approval cannot revive
-the cancelled Process. Cancellation with no applied step closes as `cancelled`; verified recovery
-after an applied step closes as `compensated`.
+`POST /workflows/{process_id}/cancel` also accepts no request body and resolves the same durable envelope. A Contributor can cancel a shadow
+Process; an enforce Process requires Owner. The command records `process.cancellation-requested` only when the Process is `pending` or
+`waiting`. A `running` Process returns `process_not_at_safe_boundary` because an in-flight dispatcher cannot be assumed idle. A waiting
+action first reconciles its authoritative outcome. The executor blocks every new step, and any verified applied steps enter the existing
+reverse compensation path. A waiting approval closes its durable Var state and every HIL slot, so a late approval cannot revive the
+cancelled Process. Cancellation with no applied step closes as `cancelled`; verified recovery after an applied step closes as `compensated`.
 
 Action dispatch and step journal identity include an explicit positive `attempt`, with `1` as the
 compatibility default. `STEP_STARTED`, `ACTION_DISPATCHED`, branch, waiting, completion, failure,
@@ -317,20 +305,16 @@ returns `retry_requires_recovery`. Shadow retry requires Contributor; enforce re
 and the current enforce allowlist. The server-owned attempt limit defaults to 3 and cannot be
 raised by the caller.
 
-Workflow approval state and HIL slot identity bind Process, step, and attempt. Attempt 1 retains
-the legacy key for existing durable records; later attempts use distinct keys. One rejection makes
-the complete quorum attempt terminal and closes every sibling slot, so a late approval cannot race
-the rejection. A bounded retry after `approval_rejected` or `approval_timed_out` creates only fresh
-slots for the new attempt. The terminal workflow CAS remains authoritative if sibling park closure
-is interrupted, so the queue hides stale or expired slots and the next provider read heals their
-physical park state. Cancellation and timeout close the exact attempt, and rejection, cancellation,
-and timeout cannot overwrite one another. The workflow provider owns timeout terminalization; the
-generic HIL expiry worker skips workflow slots. Approval decisions are accepted only before the
-durable deadline. If a late decision changes the revision first, the executor rereads that attempt
-and retries timeout CAS, so quorum completed after the deadline never advances the Process. Quorum
-completed before the deadline remains valid when Process reconciliation resumes later. Callback
-and conversation approval surfaces compare normalized principals for no-self-approval. Approval
-claim CAS retries scale with the immutable slot quorum rather than a fixed contention bound.
+Workflow approval state and HIL slot identity bind Process, step, and attempt. Attempt 1 retains the legacy key for existing durable
+records; later attempts use distinct keys. One rejection makes the complete quorum attempt terminal and closes every sibling slot, so a late
+approval cannot race the rejection. A bounded retry after `approval_rejected` or `approval_timed_out` creates only fresh slots for the new
+attempt. The terminal workflow CAS remains authoritative if sibling park closure is interrupted, so the queue hides stale or expired slots
+and the next provider read heals their physical park state. Cancellation and timeout close the exact attempt, and rejection, cancellation,
+and timeout cannot overwrite one another. The workflow provider owns timeout terminalization; the generic HIL expiry worker skips workflow
+slots. Approval decisions are accepted only before the durable deadline. If a late decision changes the revision first, the executor rereads
+that attempt and retries timeout CAS, so quorum completed after the deadline never advances the Process. Quorum completed before the
+deadline remains valid when Process reconciliation resumes later. Callback and conversation approval surfaces compare normalized principals
+for no-self-approval. Approval claim CAS retries scale with the immutable slot quorum rather than a fixed contention bound.
 
 The workflow approval registry is the **only** owner of a quorum slot decision. A durable decision
 record published on `fdai.hil.decisions` is routed by the parked `decision_route`: a `workflow`
@@ -509,17 +493,12 @@ Additional-step suggestions remain bounded to actions matched from the stated
 goal plus communication follow-ups. The builder doesn't fill suggestion rows
 with unrelated mutations merely to represent every ActionType category.
 
-The engine's pure, stateless pieces are split into sibling modules so each has
-one axis of change and is unit-testable without a DOM: the chip / form-slot
-builders and the option-token grammar
-([`workflow-builder.chat.builders.ts`](../../../console/src/routes/workflow-builder.chat.builders.ts)),
-the inline-markdown tokenizer
-([`workflow-builder.richtext.ts`](../../../console/src/routes/workflow-builder.richtext.ts)),
-and the flow-map derivation
-([`workflow-builder.viz.ts`](../../../console/src/routes/workflow-builder.viz.ts)).
-The operator's own typed text is echoed as plain text (never through the
-markdown parser), and only the newest turn's chips stay interactive so a stale
-suggestion cannot corrupt a later stage.
+The engine's pure, stateless pieces are split into sibling modules so each has one axis of change and is unit-testable without a DOM: the
+chip / form-slot builders and the option-token grammar
+([`workflow-builder.chat.builders.ts`](../../../console/src/routes/workflow-builder.chat.builders.ts)), the inline-markdown tokenizer
+([`workflow-builder.richtext.ts`](../../../console/src/routes/workflow-builder.richtext.ts)), and the flow-map derivation
+([`workflow-builder.viz.ts`](../../../console/src/routes/workflow-builder.viz.ts)). The operator's own typed text is echoed as plain text
+(never through the markdown parser), and only the newest turn's chips stay interactive so a stale suggestion cannot corrupt a later stage.
 
 Three opt-in, Reader-gated Operator API routes back validation and browsing as pure
 projections that write no state (see
@@ -548,15 +527,11 @@ These routes are opt-in through
 rule ids, and schema registry); unset upstream so the console stays minimal,
 wired in the local dev harness so the view renders out of the box.
 
-The console keeps the privileged read-only invariant
-([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)):
-the palette and catalog are GETs through the GET-only `OperatorApiClient`, validation
-is pure, and saving writes only a principal-owned private authoring record. The
-save route never receives the executor identity and cannot publish, bind, enable,
-or run the definition. A valid draft also yields YAML the operator can propose at
-`rule-catalog/workflows/<name>.yaml` through the git-native path. New catalog
-entries remain locked to `shadow`; promotion to enforce stays the separate
-governance PR of [section 6](#6-governance).
+The console keeps the privileged read-only invariant ([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)):
+the palette and catalog are GETs through the GET-only `OperatorApiClient`, validation is pure, and saving writes only a principal-owned
+private authoring record. The save route never receives the executor identity and cannot publish, bind, enable, or run the definition. A
+valid draft also yields YAML the operator can propose at `rule-catalog/workflows/<name>.yaml` through the git-native path. New catalog
+entries remain locked to `shadow`; promotion to enforce stays the separate governance PR of [section 6](#6-governance).
 
 ### 8.2 Dynamic runtime view
 

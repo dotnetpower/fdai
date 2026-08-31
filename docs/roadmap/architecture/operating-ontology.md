@@ -17,13 +17,11 @@ This document defines the typed operational truth infrastructure used by FDAI's 
 >
 ## Catalog semantic projection
 
-The rule catalog now models authored Rego as a first-class `PolicyArtifact`. Every shipped Rule
-uses concrete `SignalType` and canonical `Property` references, and `implemented_by_policy` links
-the Rule to its deterministic policy. `scripts/catalog/sync-rule-semantics.py` parses Rego through
-OPA, verifies package metadata, and blocks drift between policy property reads and Rule metadata.
-The semantic manifest and T0 evaluator now share the exact deny decision path and normalized AST
-semantic digest. Each determined allow or deny evaluation carries the OPA version, source digest,
-canonical input digest, and result digest; policy retrieval alone remains candidate-only.
+The rule catalog now models authored Rego as a first-class `PolicyArtifact`. Every shipped Rule uses concrete `SignalType` and canonical
+`Property` references, and `implemented_by_policy` links the Rule to its deterministic policy. `scripts/catalog/sync-rule-semantics.py`
+parses Rego through OPA, verifies package metadata, and blocks drift between policy property reads and Rule metadata. The semantic manifest
+and T0 evaluator now share the exact deny decision path and normalized AST semantic digest. Each determined allow or deny evaluation carries
+the OPA version, source digest, canonical input digest, and result digest; policy retrieval alone remains candidate-only.
 
 One reviewed configuration baseline SignalType handles unmatched raw event types. This preserves
 deterministic T0 coverage without retaining wildcard ontology links. These catalog declarations
@@ -56,17 +54,14 @@ reference has reviewed meaning and bounded canonical normalization; a new refere
 the gate without updating the registry and floor.
 <!-- property-semantic-coverage:end -->
 
-The loader normalizes units and provider identity paths before rejecting collisions, normalizes,
-deduplicates, and orders enum values, and applies case folding before NFC normalization. Decimal
-values use context-independent canonicalization with bounded input, coefficient, exponent, and
-output sizes, and range checks compare the exact parsed value before rendering. YAML numeric bounds
-are parsed from their authored lexemes into `Decimal` before Pydantic validation, serialized as
-canonical decimal strings for digests, and never pass through binary floating point; a finite JSON
-number with an integral value is a valid integer bound. Datetimes require RFC 3339 `T` separation,
-an explicit timezone, in-range UTC conversion, at most six fractional digits, and no surrounding
-whitespace. Booleans are never integers or numbers. Object and array values use bounded canonical
-JSON: object keys are sorted, array order is preserved, and invalid roots, non-finite numbers,
-excessive nesting, unsupported values, and canonical output over 64 KiB fail closed.
+The loader normalizes units and provider identity paths before rejecting collisions, normalizes, deduplicates, and orders enum values, and
+applies case folding before NFC normalization. Decimal values use context-independent canonicalization with bounded input, coefficient,
+exponent, and output sizes, and range checks compare the exact parsed value before rendering. YAML numeric bounds are parsed from their
+authored lexemes into `Decimal` before Pydantic validation, serialized as canonical decimal strings for digests, and never pass through
+binary floating point; a finite JSON number with an integral value is a valid integer bound. Datetimes require RFC 3339 `T` separation, an
+explicit timezone, in-range UTC conversion, at most six fractional digits, and no surrounding whitespace. Booleans are never integers or
+numbers. Object and array values use bounded canonical JSON: object keys are sorted, array order is preserved, and invalid roots, non-finite
+numbers, excessive nesting, unsupported values, and canonical output over 64 KiB fail closed.
 
 Every registry requires a version and provenance envelope whose SHA-256 covers canonical content
 excluding the envelope itself, every semantic requires authenticated source identity, and freshness
@@ -77,20 +72,16 @@ metadata keeps its legacy fields, omits `normalized_equivalence`, and cannot be 
 
 ### Configuration drift vocabulary
 
-The catalog declares `ConfigurationBaseline`, `ConfigurationDriftEvidence`,
-`ConfigurationDriftCheck`, and `ConfigurationDriftFinding` as provider-neutral data shapes.
-Together they separate reviewed desired configuration, bounded current-state evidence, one
-comparison result, and its resource or field differences. Terraform plan output is one possible
-`source_kind`; Azure Policy, GitOps manifests, and Kubernetes desired state can produce the same
-semantic records without adding provider branches to core.
+The catalog declares `ConfigurationBaseline`, `ConfigurationDriftEvidence`, `ConfigurationDriftCheck`, and `ConfigurationDriftFinding` as
+provider-neutral data shapes. Together they separate reviewed desired configuration, bounded current-state evidence, one comparison result,
+and its resource or field differences. Terraform plan output is one possible `source_kind`; Azure Policy, GitOps manifests, and Kubernetes
+desired state can produce the same semantic records without adding provider branches to core.
 
-The links preserve baseline-to-check, check-to-evidence, check-to-finding, and finding-to-resource
-direction. A `CausalHypothesis` may attempt to explain a drift finding, but the link never proves
-that an operator, deployment, or provider caused it. Raw plans and values remain in governed
-evidence storage. Ontology records retain bounded summaries and digests, require redaction
-metadata, and set `execution_authority` explicitly. These declarations are vocabulary data only:
-no runtime projector, scheduled detector, remediation proposal, approval, or execution path is
-added by the catalog change.
+The links preserve baseline-to-check, check-to-evidence, check-to-finding, and finding-to-resource direction. A `CausalHypothesis` may
+attempt to explain a drift finding, but the link never proves that an operator, deployment, or provider caused it. Raw plans and values
+remain in governed evidence storage. Ontology records retain bounded summaries and digests, require redaction metadata, and set
+`execution_authority` explicitly. These declarations are vocabulary data only: no runtime projector, scheduled detector, remediation
+proposal, approval, or execution path is added by the catalog change.
 
 ### Diagnostic knowledge projection
 
@@ -100,14 +91,12 @@ The SREGym absorption ledger projects 61 reviewed diagnostic mechanisms into
 available evidence summary, and canonical digest. Catalog refreshes append new receipts instead of
 rewriting prior validation history, and rejected mechanisms remain explicit negative knowledge.
 
-Live Kubernetes evaluation projects `DiagnosticEvidence` and hold-only `DiagnosticFinding`
-objects before control-loop judgment. Every finding is bound to an exact `derive` function release,
-Heimdall caller, canonical input and output digests, and content-addressed invocation identity.
-Current topology uses cluster-scoped resource identities derived from the selected kubeconfig API
-server and certificate authority. Complete observations replace current relationships, incomplete
-observations withdraw unsupported relationships without deleting resource objects, and unavailable
-inventory leaves the prior projection untouched. None of these objects grants action, approval,
-promotion, or execution authority.
+Live Kubernetes evaluation projects `DiagnosticEvidence` and hold-only `DiagnosticFinding` objects before control-loop judgment. Every
+finding is bound to an exact `derive` function release, Heimdall caller, canonical input and output digests, and content-addressed
+invocation identity. Current topology uses cluster-scoped resource identities derived from the selected kubeconfig API server and
+certificate authority. Complete observations replace current relationships, incomplete observations withdraw unsupported relationships
+without deleting resource objects, and unavailable inventory leaves the prior projection untouched. None of these objects grants action,
+approval, promotion, or execution authority.
 
 ### Pod telemetry competency runtime
 
@@ -116,13 +105,11 @@ for bounded metric samples. The physical `observation_targets_resource` LinkType
 `Observation -> Resource`; existing `kubernetes_selects` and `kubernetes_exposes_endpoints` links
 cover the Pod, Service, and Endpoints topology. No `TelemetryChain` ObjectType is introduced.
 
-The read-only evaluator consumes one purpose-scoped secured ObjectSet result plus immutable
-`StateFactMetadata` for every relationship and sample. It reports each required segment as
-`verified`, `unverified`, `stale`, or `missing`, along with evidence references and an exact
-completeness fraction. A missing relation is reported as `missing` only when the secured graph
-receipt proves complete coverage. Truncated graphs, cycles, ambiguous paths, synthetic samples,
-partial state, conflicts, stale samples, and wrong-cluster identities remain unverified or missing.
-The result always records `claimed_health: false` and `execution_authority: false`.
+The read-only evaluator consumes one purpose-scoped secured ObjectSet result plus immutable `StateFactMetadata` for every relationship and
+sample. It reports each required segment as `verified`, `unverified`, `stale`, or `missing`, along with evidence references and an exact
+completeness fraction. A missing relation is reported as `missing` only when the secured graph receipt proves complete coverage. Truncated
+graphs, cycles, ambiguous paths, synthetic samples, partial state, conflicts, stale samples, and wrong-cluster identities remain unverified
+or missing. The result always records `claimed_health: false` and `execution_authority: false`.
 
 The source-derived FunctionType is included in the exact runtime release and registered in the
 semantic Function handler. It consumes only a composition-issued secured query result and typed
@@ -131,11 +118,9 @@ or Forecast objects, or feed an authority-bearing decision path.
 
 ## Design at a glance
 
-The operating ontology connects four questions that the current resource-centered graph cannot
-answer as one deterministic path: what the organization operates, what good means, what is
-happening now or may happen next, and whether an intervention produced the intended effect. It is
-the common language for reliability, architecture review, predictive cost governance, and
-operational learning.
+The operating ontology connects four questions that the current resource-centered graph cannot answer as one deterministic path: what the
+organization operates, what good means, what is happening now or may happen next, and whether an intervention produced the intended effect.
+It is the common language for reliability, architecture review, predictive cost governance, and operational learning.
 
 ![Design at a glance. The main stages are BusinessCapability, BusinessService, Workload, Resource, Operational objectives, Signal, Change, DecisionCase, ActionOption, ExpectedEffect, ActionRun, ObservedOutcome.](../../diagrams/generated/fdai-roadmap-architecture-operating-ontology-01.en.svg)
 
@@ -261,13 +246,11 @@ Cardinality, causal direction, temporal ordering, and allowed endpoint combinati
 LinkType declaration. A relation that cannot support a required competency question should not be
 added for visualization alone.
 
-The current LinkType schema has one source and one target type per declaration. The conceptual
-union rows `depends_on`, `governed_by`, `owned_by`, `observes`, `affects`, and `protects`
-therefore compile to explicit physical names such as `workload_runs_on`, `workload_depends_on`,
-`service_has_service_objective`, `service_has_recovery_objective`, `service_has_cost_objective`,
-`service_has_architecture_constraint`, `service_owned_by`, `workload_owned_by`, and
-`objective_owned_by`. Every other row in the table is a declared LinkType under
-`rule-catalog/vocabulary/link-types/`. This keeps endpoint validation deterministic.
+The current LinkType schema has one source and one target type per declaration. The conceptual union rows `depends_on`, `governed_by`,
+`owned_by`, `observes`, `affects`, and `protects` therefore compile to explicit physical names such as `workload_runs_on`,
+`workload_depends_on`, `service_has_service_objective`, `service_has_recovery_objective`, `service_has_cost_objective`,
+`service_has_architecture_constraint`, `service_owned_by`, `workload_owned_by`, and `objective_owned_by`. Every other row in the table is a
+declared LinkType under `rule-catalog/vocabulary/link-types/`. This keeps endpoint validation deterministic.
 
 `predicts_breach_of` and `learned_as` are deliberately absent. Both endpoint ObjectTypes remain
 available as semantic declarations, but neither pair has an authoritative runtime producer. The
@@ -295,16 +278,13 @@ was true or observed and when FDAI recorded it.
 - **Freshness:** Every decision context records freshness per source. One fresh source cannot hide
   a stale objective, topology edge, or cost observation.
 
-Decision-relevant state facts use one immutable metadata shape across four authority-separated
-lanes: `observed`, `derived`, `desired`, and `execution`. The metadata pins authority class, source
-identity and revision, effective and recorded time, evidence cutoff, freshness ceiling,
-completeness, synthetic status, conflicts, and immutable evidence references. Lane-authority
-validation prevents a provider observation from being decoded as a derived fact or the reverse.
-Inventory links can carry the same state-fact envelope plus independent verification identity.
-New verified links also carry a trusted verification method and immutable receipt, and the verifier
-identity must differ from the observation source. Legacy links without metadata remain valid during
-additive adoption and never claim verification. Their absence lowers authority only for a query
-profile that explicitly requires verified links.
+Decision-relevant state facts use one immutable metadata shape across four authority-separated lanes: `observed`, `derived`, `desired`, and
+`execution`. The metadata pins authority class, source identity and revision, effective and recorded time, evidence cutoff, freshness
+ceiling, completeness, synthetic status, conflicts, and immutable evidence references. Lane-authority validation prevents a provider
+observation from being decoded as a derived fact or the reverse. Inventory links can carry the same state-fact envelope plus independent
+verification identity. New verified links also carry a trusted verification method and immutable receipt, and the verifier identity must
+differ from the observation source. Legacy links without metadata remain valid during additive adoption and never claim verification. Their
+absence lowers authority only for a query profile that explicitly requires verified links.
 
 Replay resolves the pinned catalog release and the retained decision context, not an arbitrary past
 state of the instance graph. Recomputing a context identity proves equivalence; reconstructing the
@@ -331,12 +311,10 @@ See [Execution Authorization Ontology](../decisioning/execution-authorization-on
 | Decisions, approvals, actions, rollback | Append-only audit and Process journal | Immutable semantic links. |
 | Cases and patterns | Case history plus reviewed catalogs | Learning projection and governed reuse. |
 
-An ObjectType declaration MAY carry an optional `lifecycle` block. When present it declares exactly
-one owning agent, at least one creation criterion, an optional deduplication strategy, optional
-closure criteria, and at least one authority reference. The declaration schema carries no authority
-class, no freshness policy, no retention period, and no allowed-purpose list, so a reader MUST NOT
-expect those four from an ObjectType. They are declared elsewhere, at the level where they are
-actually enforced:
+An ObjectType declaration MAY carry an optional `lifecycle` block. When present it declares exactly one owning agent, at least one creation
+criterion, an optional deduplication strategy, optional closure criteria, and at least one authority reference. The declaration schema
+carries no authority class, no freshness policy, no retention period, and no allowed-purpose list, so a reader MUST NOT expect those four
+from an ObjectType. They are declared elsewhere, at the level where they are actually enforced:
 
 | Concern | Where it is declared | Scope |
 |---------|----------------------|-------|
@@ -403,20 +381,16 @@ per claim, withholds contested properties, and emits explicit conflict keys with
 winner. The existing projected-state-versus-telemetry shadow path applies the same no-authority
 rule and records conflicts on its derived fact and receipt.
 
-`EvidenceConflict` carries that conflict beyond the read answer. It is a resource-scoped,
-content-addressed object with immutable `active` and `resolved` revisions. Each revision retains two
-distinct source identities, claim and source revisions, cutoffs, evidence references, canonical
-Property semantic references, the exact conflicting fields, and the earliest freshness expiry.
-Expiry does not resolve a conflict. Only a newer exact-slot revision whose two claim digests agree
-can supersede the active revision as `resolved`.
+`EvidenceConflict` carries that conflict beyond the read answer. It is a resource-scoped, content-addressed object with immutable `active`
+and `resolved` revisions. Each revision retains two distinct source identities, claim and source revisions, cutoffs, evidence references,
+canonical Property semantic references, the exact conflicting fields, and the earliest freshness expiry. Expiry does not resolve a conflict.
+Only a newer exact-slot revision whose two claim digests agree can supersede the active revision as `resolved`.
 
-The read-shadow comparison publishes an exact-generation candidate through Huginn ingress.
-Heimdall validates and becomes the sole `object.evidence-conflict` publisher. Muninn appends every
-revision and advances one target-generation current slot with compare-and-set semantics. Before
-normal dispatch and again after human approval, the executor path reads that current projection.
-An active or expired unresolved conflict lowers an ActionType only when its canonical semantic refs
-intersect `required_evidence_semantic_refs`; lookup failure also blocks executor I/O. Another target
-or unrelated semantic is not applicable and cannot raise or lower the existing decision.
+The read-shadow comparison publishes an exact-generation candidate through Huginn ingress. Heimdall validates and becomes the sole
+`object.evidence-conflict` publisher. Muninn appends every revision and advances one target-generation current slot with compare-and-set
+semantics. Before normal dispatch and again after human approval, the executor path reads that current projection. An active or expired
+unresolved conflict lowers an ActionType only when its canonical semantic refs intersect `required_evidence_semantic_refs`; lookup failure
+also blocks executor I/O. Another target or unrelated semantic is not applicable and cannot raise or lower the existing decision.
 
 **Reading an empty conflict tuple.** An empty `StateFactMetadata.conflicts` means only that the
 observations that were compared agreed. It is not proof that the fact was independently
@@ -474,21 +448,17 @@ Three consequences of that table are load-bearing and easy to get wrong.
 - **Ontology, action, and rule definitions are not runtime writes.** Mimir stewards promotion and
   revocation of catalog entries; the definitions themselves remain catalog-as-code in Git.
 
-An ObjectType with no `lifecycle` block has no declared ontology owner, but that does not prevent
-the authority that already applies from writing it. Catalog-as-code governs `ActionType`, `Rule`,
-`SignalType`, `ResourceType`, `Property`, and `PolicyArtifact`; provider or service projections
-govern `Resource`, `Signal`, `Finding`, and `Process`; and the event-bus registry governs bus-carried
-objects. Architecture review uses additive `Approval` and `Decision` `1.1.0` declarations to retain
-the approver, receipt, exact case, context, evidence, graph, catalog, conditions, authority, audit,
-and effective interval. These fields add no ontology owner and always carry
+An ObjectType with no `lifecycle` block has no declared ontology owner, but that does not prevent the authority that already applies from
+writing it. Catalog-as-code governs `ActionType`, `Rule`, `SignalType`, `ResourceType`, `Property`, and `PolicyArtifact`; provider or
+service projections govern `Resource`, `Signal`, `Finding`, and `Process`; and the event-bus registry governs bus-carried objects.
+Architecture review uses additive `Approval` and `Decision` `1.1.0` declarations to retain the approver, receipt, exact case, context,
+evidence, graph, catalog, conditions, authority, audit, and effective interval. These fields add no ontology owner and always carry
 `execution_authority=false`; adding `lifecycle` merely to fill the field is not supported.
 
-The machine-readable
-`rule-catalog/vocabulary/object-type-lifecycle-classification.yaml` registry is the source of truth
-for lifecycle-free types. Catalog loading requires every such ObjectType to appear in exactly one
-category and rejects a classified type after it gains a lifecycle owner. The table below is the
-reader-facing projection of that registry. These are existing authorities, not new ontology
-writers; none requires an agent single-writer merely because it is represented in the graph.
+The machine-readable `rule-catalog/vocabulary/object-type-lifecycle-classification.yaml` registry is the source of truth for lifecycle-free
+types. Catalog loading requires every such ObjectType to appear in exactly one category and rejects a classified type after it gains a
+lifecycle owner. The table below is the reader-facing projection of that registry. These are existing authorities, not new ontology writers;
+none requires an agent single-writer merely because it is represented in the graph.
 
 | Classification | Lifecycle-free ObjectTypes |
 |----------------|---------------------------|
@@ -512,26 +482,21 @@ projection contract, not a new authority. At minimum it includes:
 - current observations and bounded forecasts;
 - source freshness, provenance, unresolved conflicts, and catalog versions.
 
-The snapshot keeps replay lineage without widening the data surface. For every reachable context
-object, it records the object id, type, revision, effective interval, allowlisted provenance refs,
-and one deterministic shortest typed path from the target resource. It also retains each source's
-observation time and accepted maximum age. The snapshot identity covers those revisions, paths,
-effective intervals, provenance refs, freshness receipts, stale-source results, and conflicts, so a
-topology, revision, validity, provenance, or freshness change cannot reuse the prior identity. Raw
-object properties remain in their authoritative provider and are not copied into the snapshot.
-Snapshot time is normalized to canonical UTC. The identity also covers trusted recorded time,
-trusted clock identity, and whether the query required verified links. Historical replay supplies
-the retained recorded time instead of sampling a new wall clock.
+The snapshot keeps replay lineage without widening the data surface. For every reachable context object, it records the object id, type,
+revision, effective interval, allowlisted provenance refs, and one deterministic shortest typed path from the target resource. It also
+retains each source's observation time and accepted maximum age. The snapshot identity covers those revisions, paths, effective intervals,
+provenance refs, freshness receipts, stale-source results, and conflicts, so a topology, revision, validity, provenance, or freshness change
+cannot reuse the prior identity. Raw object properties remain in their authoritative provider and are not copied into the snapshot. Snapshot
+time is normalized to canonical UTC. The identity also covers trusted recorded time, trusted clock identity, and whether the query required
+verified links. Historical replay supplies the retained recorded time instead of sampling a new wall clock.
 
-Typed link observation metadata is the exception to dropping raw link properties: the materializer
-retains only its canonical verification envelope on each evidence link and includes that envelope
-in both link and path identity. A stale, incomplete, conflicting, synthetic, after-cutoff, or
-unverified link adds an explicit context conflict and can only lower the snapshot ceiling to
-`SHADOW_ONLY`. Healthy metadata does not raise a ceiling, and absent metadata preserves legacy
-decoding without claiming verification unless the query profile requires verified links. A
-reachable object that declares a freshness policy requires a matching source-freshness receipt;
-missing receipts lower the ceiling to `SHADOW_ONLY`. A decision cutoff or evidence timestamp beyond
-trusted recorded time plus the configured clock-skew allowance also lowers the ceiling.
+Typed link observation metadata is the exception to dropping raw link properties: the materializer retains only its canonical verification
+envelope on each evidence link and includes that envelope in both link and path identity. A stale, incomplete, conflicting, synthetic,
+after-cutoff, or unverified link adds an explicit context conflict and can only lower the snapshot ceiling to `SHADOW_ONLY`. Healthy
+metadata does not raise a ceiling, and absent metadata preserves legacy decoding without claiming verification unless the query profile
+requires verified links. A reachable object that declares a freshness policy requires a matching source-freshness receipt; missing receipts
+lower the ceiling to `SHADOW_ONLY`. A decision cutoff or evidence timestamp beyond trusted recorded time plus the configured clock-skew
+allowance also lowers the ceiling.
 
 Materialization includes an object only when `effective_from <= cutoff` and either
 `effective_to` is absent or `cutoff < effective_to`. Objects outside that half-open interval are
@@ -565,23 +530,18 @@ under the same receipt. An injected receipt validator receives the receipt, lane
 canonical payload, and lane-specific membership evidence so it can verify the source's inclusion
 proof rather than only the receipt reference. For state evidence, freshness ceiling, completeness, synthetic status, and conflicts must exactly match `StateFactMetadata`. A decision-bound state item also retains a current shared admission whose evidence digest covers the exact state item and whose scope, purpose, and source revision match the bundle. The bundle evaluates those fields directly when deriving holds.
 
-Every exact claim stores canonical JSON, a subject, predicate, typed effective/evidence/recorded
-scope, and citation bindings containing the evidence ref, item digest, and source revision. The
-citation manifest is derived only from included evidence, so an omitted, fabricated, or
-revision-mismatched citation produces an explicit missing path and hold. Duplicate claims are
-rejected. Contradiction detection compares claims with the same subject, predicate, effective
-interval, and evidence cutoff, and reports a conflict only when their canonical typed values
-differ. Recorded time remains in each immutable claim identity but doesn't split a contradiction
-group, and it never implies supersession. The foundation has no implicit latest-wins rule; a future
-supersession policy would require an explicit reviewed claim relationship. The detector doesn't
-infer semantic disagreement from prose. Candidate and diagnostic counts and field lengths are
-bounded, nested sequences are copied to immutable tuples, and `max_bytes` applies to the final
-canonical body including its manifest, omissions, conflicts, and hold data. Stale, incomplete,
-conflicting, synthetic, after-cutoff, after-trusted-recorded-time, uncited, or truncated evidence
-lowers the result to `SHADOW_ONLY`; healthy evidence never raises the caller's input ceiling.
-Document prompt rendering places excerpts only in an escaped, delimited JSON data block. These
-tests establish a safe foundation but don't prove production wiring. The bundle remains read-only
-evidence and never grants approval or action authority.
+Every exact claim stores canonical JSON, a subject, predicate, typed effective/evidence/recorded scope, and citation bindings containing the
+evidence ref, item digest, and source revision. The citation manifest is derived only from included evidence, so an omitted, fabricated, or
+revision-mismatched citation produces an explicit missing path and hold. Duplicate claims are rejected. Contradiction detection compares
+claims with the same subject, predicate, effective interval, and evidence cutoff, and reports a conflict only when their canonical typed
+values differ. Recorded time remains in each immutable claim identity but doesn't split a contradiction group, and it never implies
+supersession. The foundation has no implicit latest-wins rule; a future supersession policy would require an explicit reviewed claim
+relationship. The detector doesn't infer semantic disagreement from prose. Candidate and diagnostic counts and field lengths are bounded,
+nested sequences are copied to immutable tuples, and `max_bytes` applies to the final canonical body including its manifest, omissions,
+conflicts, and hold data. Stale, incomplete, conflicting, synthetic, after-cutoff, after-trusted-recorded-time, uncited, or truncated
+evidence lowers the result to `SHADOW_ONLY`; healthy evidence never raises the caller's input ceiling. Document prompt rendering places
+excerpts only in an escaped, delimited JSON data block. These tests establish a safe foundation but don't prove production wiring. The
+bundle remains read-only evidence and never grants approval or action authority.
 
 Forseti creates a `DecisionCase` from that snapshot. Each case contains the no-action baseline,
 bounded options, expected effects, protected objectives, violated constraints, uncertainty, and
@@ -653,15 +613,12 @@ window.
 
 ### Outcome learning loop
 
-Huginn normalizes the bounded `case_history.operational_case.v1` event. Muninn requires the O1
-case-history materializer, seals the strict input, and durably retains at most 100 immutable cases
-per failure fingerprint before publishing `operational_case_fingerprint_cohort` context. Norns
-requires one failure fingerprint and ActionType, at least one verified reusable success, and at
-least one failure, refusal, no-op, rollback, or recurrence control before it emits an inert
-candidate through its existing consensus and rate limits. Every candidate cites case id, revision,
-manifest digest, resource type, fingerprint, per-outcome counts, and digest evidence. A raw
-`measurement.action_outcome.v1` remains telemetry with insufficient mechanism evidence and cannot
-enter a promotable cohort.
+Huginn normalizes the bounded `case_history.operational_case.v1` event. Muninn requires the O1 case-history materializer, seals the strict
+input, and durably retains at most 100 immutable cases per failure fingerprint before publishing `operational_case_fingerprint_cohort`
+context. Norns requires one failure fingerprint and ActionType, at least one verified reusable success, and at least one failure, refusal,
+no-op, rollback, or recurrence control before it emits an inert candidate through its existing consensus and rate limits. Every candidate
+cites case id, revision, manifest digest, resource type, fingerprint, per-outcome counts, and digest evidence. A raw
+`measurement.action_outcome.v1` remains telemetry with insufficient mechanism evidence and cannot enter a promotable cohort.
 
 ## Extension model
 

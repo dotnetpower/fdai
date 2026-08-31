@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 891ca2468b97ce5cd1d23d24fb015e4f06cfbc69
+translation_source_sha: a6f238861cd8eef8acfe252be87cc55172862d45
 translation_revised: 2026-09-01
 ---
 # FDAI Console 대화
@@ -436,15 +436,10 @@ Narrator는 오퍼레이터가 "그냥 fix 해" 라고 말할 때
 대화 활성화를 하나의 라우팅 구성으로 합치지 않습니다. 분리가 중요한 이유는
 send-only와 receive-plus-send의 trust 자세 및 영향 범위가 다르기 때문입니다.
 
-공유 pull-direction 계약, 게이트웨이, Slack signed 유입, Teams 인증된 활동
-정규화기, 범위가 제한된 Starlette 경로, Slack Web API 발행기, Teams Bot Framework 발행기는
-구현되었습니다. Slack 경로는 timestamped 서명을 검증합니다. Teams 경로는 활동 JSON
-parse 전에 injected bearer authenticator를 호출합니다. 회신 발행기는 구성된 HTTPS
-엔드포인트, injected 앱/워크로드 자격 증명, 서버가 소유한 대화 해석만 사용합니다.
-`ProductionChannelRuntime`은 구체적인 Bot Framework JWT 검증기, Teams principal 해석기,
-Slack 시크릿/앱 자격 증명, fixed 엔드포인트 발행기와 background 게이트웨이 수명 주기를 조립합니다.
-필수 자격 증명 또는 신원 연결이 없으면 트래픽 전 시작에서 실패합니다. 이 연결은
-`delivery/`에 유지되며 조정기를 변경하지 않습니다.
+공유 pull-direction 계약, 게이트웨이, Slack signed 유입, Teams 인증된 활동 정규화기, 범위가 제한된 Starlette 경로, Slack Web API 발행기, Teams Bot Framework 발행기는 구현되었습니다.
+Slack 경로는 timestamped 서명을 검증합니다. Teams 경로는 활동 JSON parse 전에 injected bearer authenticator를 호출합니다. 회신 발행기는 구성된 HTTPS 엔드포인트, injected 앱/워크로드
+자격 증명, 서버가 소유한 대화 해석만 사용합니다. `ProductionChannelRuntime`은 구체적인 Bot Framework JWT 검증기, Teams principal 해석기, Slack 시크릿/앱 자격 증명, fixed 엔드포인트
+발행기와 background 게이트웨이 수명 주기를 조립합니다. 필수 자격 증명 또는 신원 연결이 없으면 트래픽 전 시작에서 실패합니다. 이 연결은 `delivery/`에 유지되며 조정기를 변경하지 않습니다.
 
 `ChannelAccessService`는 해당 principal 해석기의 sender-access foundation입니다. 각 채널은
 `disabled`, `allowlist`, `pairing`을 선택합니다. 알 수 없음 sender는 principal로 해석되지 않고

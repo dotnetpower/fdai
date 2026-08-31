@@ -7,30 +7,21 @@ The system is a **headless control plane + thin console + ChatOps**, not one web
 
 ## Design at a glance
 
-The physical five-service workspace is owned by [Multi-Service Repository Layout](multi-service-repository-layout.md). This document owns dependency direction, structural gates, extension seams, control-loop wiring, configuration, and repository conventions.
-The private composition type module stays below its enforced size ceiling so new bindings remain
-reviewable and move to focused wire modules before the shared container becomes a second root.
-Case-history review requires both failure and matched control evidence before it can propose an
-inert learning candidate.
-A Workflow approval step cannot lower the no-self-approval invariant; the contract rejects a
-disabled value at catalog load.
-DR objective evidence reports a nearest-rank p90, so a small cohort keeps its slowest measured
-run instead of reporting an objective as met.
-A parked HIL record without a recorded action digest fails the integrity gate instead of
-resuming, so removing the digest cannot authorize a tampered payload.
-The quality gate refuses duplicate cross-check models, so one model cannot agree with itself
-and satisfy the mixed-model quorum.
-An effective freeze or quiet ChangeWindow with unusable bounds denies maintenance authority
-instead of being skipped.
-A change event stamped further ahead than the configured clock-skew tolerance reports
-out-of-band instead of being suppressed by the settling window. Tolerated negative age never
-creates suppression when the configured settling window is zero.
-A missed breach is scored only from complete telemetry, so a false-negative outcome never
-publishes a completeness claim its observation did not make.
-Forecast closure attempts every claimed episode before re-raising the first failure, so one
-failing episode cannot hold the whole due queue open.
-T1 contextual reuse reads the event resource type through the same canonical shapes as the
-trust router, so an accepted event is not reported as a changed resource type.
+The physical five-service workspace is owned by [Multi-Service Repository Layout](multi-service-repository-layout.md). This document owns
+dependency direction, structural gates, extension seams, control-loop wiring, configuration, and repository conventions. The private
+composition type module stays below its enforced size ceiling so new bindings remain reviewable and move to focused wire modules before the
+shared container becomes a second root. Case-history review requires both failure and matched control evidence before it can propose an
+inert learning candidate. A Workflow approval step cannot lower the no-self-approval invariant; the contract rejects a disabled value at
+catalog load. DR objective evidence reports a nearest-rank p90, so a small cohort keeps its slowest measured run instead of reporting an
+objective as met. A parked HIL record without a recorded action digest fails the integrity gate instead of resuming, so removing the digest
+cannot authorize a tampered payload. The quality gate refuses duplicate cross-check models, so one model cannot agree with itself and
+satisfy the mixed-model quorum. An effective freeze or quiet ChangeWindow with unusable bounds denies maintenance authority instead of being
+skipped. A change event stamped further ahead than the configured clock-skew tolerance reports out-of-band instead of being suppressed by
+the settling window. Tolerated negative age never creates suppression when the configured settling window is zero. A missed breach is scored
+only from complete telemetry, so a false-negative outcome never publishes a completeness claim its observation did not make. Forecast
+closure attempts every claimed episode before re-raising the first failure, so one failing episode cannot hold the whole due queue open. T1
+contextual reuse reads the event resource type through the same canonical shapes as the trust router, so an accepted event is not reported
+as a changed resource type.
 
 ## Core domain navigation decision
 
@@ -363,14 +354,11 @@ Dependency direction is strict and one-way; a violation is a review blocker.
 
 ## Repository Script Layout
 
-Repository automation is grouped by responsibility under `scripts/`; only the layout README,
-`verify.sh`, and the Python package marker stay as root files. Quality gates, integrity tooling,
-governance checks, catalog utilities, deployment helpers, and general automation each have their
-own directory. See [scripts/README.md](../../../scripts/README.md) for the ownership map and
-placement rules.
-`infra/scenario-lab/` is an opt-in deployment-validation root, not a sixth runtime service. Its
-runner scripts live under `scripts/deployment/scenario-lab/`, and the root `scenario-lab` Python
-extra contains only driver dependencies needed by those bounded validation runs.
+Repository automation is grouped by responsibility under `scripts/`; only the layout README, `verify.sh`, and the Python package marker stay
+as root files. Quality gates, integrity tooling, governance checks, catalog utilities, deployment helpers, and general automation each have
+their own directory. See [scripts/README.md](../../../scripts/README.md) for the ownership map and placement rules. `infra/scenario-lab/` is
+an opt-in deployment-validation root, not a sixth runtime service. Its runner scripts live under `scripts/deployment/scenario-lab/`, and the
+root `scenario-lab` Python extra contains only driver dependencies needed by those bounded validation runs.
 
 ## Structural CI Gates
 
@@ -410,11 +398,9 @@ CI pipeline plus the local pre-push hook. Corresponding docs in
 
 ## Customization via Dependency Injection
 
-This repository is the **main project**. Per-customer customization is supplied by **dependency
-injection**, never by editing `core/` or maintaining a divergent copy of it. The upstream repo
-defines the interfaces and ships generic default implementations; a fork **registers its own
-implementations** at a composition root, so customization is additive and upstream sync stays
-clean (see the fork model in
+This repository is the **main project**. Per-customer customization is supplied by **dependency injection**, never by editing `core/` or
+maintaining a divergent copy of it. The upstream repo defines the interfaces and ships generic default implementations; a fork **registers
+its own implementations** at a composition root, so customization is additive and upstream sync stays clean (see the fork model in
 [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 
 > **Fork maintainers**: start with the procedural walkthrough in
@@ -547,22 +533,17 @@ non-Azure phase registers a new implementation at the composition root without e
 Because every seam is an injected interface, adding a customer or a second cloud is a matter of
 registering an implementation - the strict one-way dependency direction above is preserved.
 
-**Concurrency posture**: I/O-bearing provider Protocols such as `EventBus`, `StateStore`,
-`SecretProvider`, `WorkloadIdentity`, `Inventory`, `MetricProvider`, `LogQueryProvider`, and
-`TraceQueryProvider` are **async by default**. Their concrete implementations block the event
-loop if forced to be sync. The **CPU / startup seams** - `SchemaRegistry`,
-`ContractValidator` / `EventValidator`, `ConfigProvider` - stay **sync**: they run once at
-startup, or are pure CPU boundary validation with no I/O, so an async wrapper would only add
-noise. Tests use `pytest-asyncio` with `asyncio_mode = "auto"` so a plain `async def
-test_...` runs without a per-test marker.
+**Concurrency posture**: I/O-bearing provider Protocols such as `EventBus`, `StateStore`, `SecretProvider`, `WorkloadIdentity`, `Inventory`,
+`MetricProvider`, `LogQueryProvider`, and `TraceQueryProvider` are **async by default**. Their concrete implementations block the event loop
+if forced to be sync. The **CPU / startup seams** - `SchemaRegistry`, `ContractValidator` / `EventValidator`, `ConfigProvider` - stay
+**sync**: they run once at startup, or are pure CPU boundary validation with no I/O, so an async wrapper would only add noise. Tests use
+`pytest-asyncio` with `asyncio_mode = "auto"` so a plain `async def test_...` runs without a per-test marker.
 
-Startup readiness keeps provider-neutral pass budgets, probe timeouts, and derived evidence lifetimes
-in `core/readiness`. Runtime schedules bounded refresh, closes at original expiry, and exposes the
-live ceiling that Thor checks before privileged I/O; no layer can raise deployment authority. The
-coordinator binds the complete reduced report to a shared decision-evidence admission before
-persistence and transition publication. A missing or mismatched admission changes a non-blocked
-report to `DEGRADED` and caps every capability at `SHADOW`, so read-only processing can continue
-without an unverified deployment-authority claim.
+Startup readiness keeps provider-neutral pass budgets, probe timeouts, and derived evidence lifetimes in `core/readiness`. Runtime schedules
+bounded refresh, closes at original expiry, and exposes the live ceiling that Thor checks before privileged I/O; no layer can raise
+deployment authority. The coordinator binds the complete reduced report to a shared decision-evidence admission before persistence and
+transition publication. A missing or mismatched admission changes a non-blocked report to `DEGRADED` and caps every capability at `SHADOW`,
+so read-only processing can continue without an unverified deployment-authority claim.
 
 `StateStore` exposes exactly one removal primitive, `delete_states_beyond(prefix, retain_newest)`.
 It bounds the growth of an append-only evidence projection by dropping the oldest rows past the
@@ -572,14 +553,12 @@ it can never erase an authoritative record or an audit entry.
 
 ## Control-Loop Wiring
 
-Every terminal path-including reject, HIL timeout, abstain, and deny-writes an audit entry. T2
-output reaches the risk-gate only after clearing the quality-gate. Boundary hardening keeps that
-sequence fail-closed: ingest and routing normalize blank resource references before comparison, T1
-rejects malformed reuse evidence, and a T2 proposal cannot bypass grounding authority when a
-provider fails. HIL approval ids and executor idempotency keys are claimed atomically, while
-per-resource locking serializes competing applies before any delivery adapter can mutate state.
-HIL resume resolves catalog rules from the current catalog and accepts a parked server-validated
-operator-request rule only when its rule id, action type, and fixed check reference still match.
+Every terminal path-including reject, HIL timeout, abstain, and deny-writes an audit entry. T2 output reaches the risk-gate only after
+clearing the quality-gate. Boundary hardening keeps that sequence fail-closed: ingest and routing normalize blank resource references before
+comparison, T1 rejects malformed reuse evidence, and a T2 proposal cannot bypass grounding authority when a provider fails. HIL approval ids
+and executor idempotency keys are claimed atomically, while per-resource locking serializes competing applies before any delivery adapter
+can mutate state. HIL resume resolves catalog rules from the current catalog and accepts a parked server-validated operator-request rule
+only when its rule id, action type, and fixed check reference still match.
 
 ![Control-Loop Wiring. The main stages are events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops.](../../diagrams/generated/fdai-roadmap-architecture-project-structure-01.en.svg)
 

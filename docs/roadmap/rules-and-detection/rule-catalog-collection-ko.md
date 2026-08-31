@@ -1,8 +1,8 @@
 ---
 title: 규칙 카탈로그 수집(Rule Catalog Collection)
 translation_of: rule-catalog-collection.md
-translation_source_sha: 720f89b946cd69110984211bad8981162f21f1b5
-translation_revised: 2026-08-31
+translation_source_sha: c64ee9d8cb0775fa4c1c3ebeec4aebc04642257f
+translation_revised: 2026-09-01
 ---
 
 # 규칙 카탈로그 수집(Rule 카탈로그 수집)
@@ -20,12 +20,6 @@ FDAI가 체크리스트, 모범 사례, 정책, 베이스라인을 어떻게 **�
 > 여기 모든 것은 고객-비종속.
 > [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md) 에
 > 따라 합성 자리 표시자만 사용.
-
-> **구현 상태**: 출처 매니페스트/fetch/스냅샷/watcher 코어, 룰/Rego/Azure Policy/kube-bench parsers, strict 룰/ActionType/리소스 vocabulary loaders, collected Azure/kube-bench catalogs, continuous 파이프라인 stages 및 CandidateGuard가 구현되어 있습니다. `BestPractice`에는 strict 스키마, 로더, typed-reference 카탈로그 검증과 고정된 Azure WAF 체크리스트 5개 페이지의 코드화된 권고 59개 전체가 구현되어 있습니다. WARA/APRL 스냅샷은 고정된 출처 파일 83개의 권고 456개 전체를 보존합니다. 이 중 393개는 WARA가 소비하는 활성 권고이고 63개는 비활성 lifecycle 레코드입니다.
->
-> 전용 config-baseline/measurement-baseline 스키마, 로더, 저장소도 구현되어 있으며, configuration 저장소는 이제 결정론적 T0 소비자 `evaluate_configuration_baseline_control_set`가 룰 카탈로그와 대조해 해석하는 검토 완료 기준선을 하나 배포합니다(자세한 내용은 "구성 기준선" 절 참고). measurement 저장소는 설계상 여전히 비어 있습니다. 버전별 MCSB 카탈로그는 v1 컨트롤 86개와 v2 미리보기 컨트롤 81개를 모두 가져오고 모든 소스 문서를 고정하며, 버전별 독립 구현 crosswalk를 검증합니다.
->
-> watcher의 durable snapshot mirror와 review-only pull request 배포도 구현되어 배포 설정에 연결되어 있습니다("남은 작업" 절 참고). 이를 실제 배포에서 활성화하는 것과 아래 나열된 모든 외부 커넥터/파서 또는 compliance/threat crosswalk는 아직 남아 있습니다.
 
 ## 무엇을 수집하는가
 
@@ -602,41 +596,6 @@ Authored Rego는 `rule-catalog/` 아래에 **중첩되지 않음** ; T0와 검�
 
 전체 후보 생성 루프, 검증 요건, 재정의 피드백, 안전 경계, CandidateGuard 동작은
 [자율 규칙 발견](rule-catalog-autonomous-discovery-ko.md)에서 설명합니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 매니페스트, 수집, 스냅샷, watcher 파이프라인 | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/collect/`; `watcher.py`; 집중 `tests/rule_catalog/pipeline/test_collect.py`; `test_watcher.py` | 요청 시 실행과 주기 평가가 결정론적 스냅샷 및 실패 시 차단 수집과 함께 구현되어 있습니다. |
-| 제공 파서 및 수집 Rule 말뭉치 | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/parse/`; `rule-catalog/collected/`; 집중 파서 및 전체 카탈로그 테스트 | Rule YAML, Rego, Azure Policy, kube-bench 경로가 구현됐으며 예약 파서는 명시적으로 실패합니다. |
-| 프레임워크 정의, 모범 사례, WARA/APRL 및 MCSB 카탈로그 | implemented | `framework_catalog.py`; `best_practice_catalog.py`; `mcsb_catalog.py`; `rule-catalog/frameworks/`; `rule-catalog/best-practices/`; `rule-catalog/compliance/mcsb/` | 엄격한 로더, 고정된 CAF/WAF 구조, WAF 컨트롤 59개 전체, 고정된 APRL lifecycle 레코드 456개 전체, 현재 MCSB 카탈로그가 구현되어 있습니다. 카탈로그 존재는 워크로드 준수를 의미하지 않습니다. |
-| 구성 및 측정 기준선 | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/baseline_catalog.py`; `configuration_baseline.schema.json`; `measurement_baseline.schema.json`; `rule-catalog/baselines/`; `rule-catalog/baselines/configuration/kubernetes-cluster.hardening.baseline.yaml`; `services/core-control-plane/tests/rule_catalog/test_baseline_catalog.py` | 스키마, id 네임스페이스, 저장소를 분리했으며 두 로더 모두 차단 기본입니다. configuration 저장소는 이제 `evaluate_configuration_baseline_control_set`가 로드된 룰 카탈로그와 대조해 해석하는 검토 완료 기준선을 하나 제공합니다(`baseline_deep` 참고). measurement 저장소는 설계상 여전히 비어 있습니다(이 저장소는 고객이 측정한 값을 절대 커밋하지 않습니다). |
-| 선언된 reference-only 수집 및 저장소 가드 | implemented | [`collector.py`](../../../services/core-control-plane/src/fdai/rule_catalog/pipeline/collect/collector.py), [`check-reference-only-sources.py`](../../../scripts/quality/repository/check-reference-only-sources.py), 집중 collector 및 checker 테스트 | Non-dry 수집은 reference-only tree를 materialize할 수 없고 Git index 게이트는 선언된 reference-only snapshot 옆에 강제로 추가된 원문을 거부합니다. 임의의 미분류 텍스트는 이 선언 기반 주장 밖에 남습니다. |
-| 운영 발견 일정 및 pull request 전달 | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/watcher_cli.py`; `promotion.py`; `snapshot_mirror.py`; `rule_catalog/pipeline/review.py`; `delivery/azure/rule_catalog_snapshot_store.py`; `delivery/gitops_pr/collection_review.py`; `delivery/rule_catalog_delivery.py`; `rule_collector_job_cli.py`; `infra/modules/compute/container-apps/rule_watcher_job.tf`; [열린 결정](#열림-decisions) | 주기, 자격 증명 참조, durable snapshot mirroring, review-only draft-PR 게시가 구현되어 배포 설정에 연결되어 있으며 기본값은 opt-in/off입니다. 저장소/PR 플래그를 실제 배포에서 활성화하고 외부 GitHub 자격 증명을 프로비저닝하는 작업은 여전히 배포 시점의 외부 작업으로 남아 있습니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했으며, 근거 없는 저장소 전체 라이선스 강제 주장을 바로잡았습니다. | `current change`; 구현 범위 표의 현재 소스, 카탈로그, 집중 테스트. | 누락된 기준선 계약, 제한 콘텐츠 집중 게이트, 운영 전달 연결을 추가합니다. |
-| 2026-08-15 | implemented | 전용 `ConfigurationBaseline` 및 `MeasurementBaseline` 계약, strict 스키마, 차단 기본 디렉터리 로더, 분리된 `rule-catalog/baselines/` 저장소를 추가했습니다. | `current change`; `services/core-control-plane/src/fdai/rule_catalog/schema/baseline_catalog.py`; `rule-catalog/baselines/`; `pytest services/core-control-plane/tests/rule_catalog/test_baseline_catalog.py` (22 passed). | 실제 기준선 내용을 수집하거나 작성하고 저장소를 T0 표류 소비자에 연결합니다. |
-| 2026-08-14 | implemented | 영속 reference-only 수집을 차단하고 합성 fixture를 사용하는 staged snapshot 저장소 게이트를 추가했습니다. | 현재 변경의 `test_collect.py`와 `test_check_reference_only_sources.py`. | 소스 분류를 계속 검토합니다. 게이트는 선언된 manifest를 강제하며 임의 텍스트에서 라이선스를 추론하지 않습니다. |
-| 2026-08-29 | implemented | 검토 완료된 `kubernetes-cluster.hardening.baseline` ConfigurationBaseline을 하나 배포했습니다. 이를 위한 결정론적 T0 소비자인 `evaluate_configuration_baseline_control_set` / `require_resolved_configuration_baseline_control_set`와 `baseline_deep` 전체 카탈로그 검증 단계를 추가했으며, 런타임 `FrozenConfigurationBaseline` drift 스냅샷과는 별개로 유지했습니다. Durable snapshot mirror(`snapshot_mirror.py`, `delivery/azure/rule_catalog_snapshot_store.py`), 기존 `RemediationPrPublisher` / `GitOpsPrAdapter` GitOps 통로를 재사용하는 review-only draft-PR 게시(`rule_catalog/pipeline/review.py`, `delivery/gitops_pr/collection_review.py`), 그리고 이를 `rule_collector_job_cli.py`와 `infra/modules/compute/container-apps/rule_watcher_job.tf` / `infra/main.tf`에 opt-in으로 연결하는 작업도 추가했습니다. | `current change`; `pytest services/core-control-plane/tests/rule_catalog/test_baseline_catalog.py services/core-control-plane/tests/rule_catalog/pipeline/test_snapshot_mirror.py services/core-control-plane/tests/rule_catalog/pipeline/test_review.py services/core-control-plane/tests/delivery/test_gitops_collection_review.py services/core-control-plane/tests/delivery/azure/test_rule_catalog_snapshot_store.py services/core-control-plane/tests/delivery/test_rule_catalog_delivery.py services/core-control-plane/tests/delivery/test_rule_collector_job_cli.py` (60 passed); `infra/`와 `infra/modules/compute/container-apps/`에서 `terraform validate` / `terraform fmt -check`. | Durable-mirror와 review-only PR 단계를 실제 배포에서 활성화하고 외부 GitHub 자격 증명을 프로비저닝합니다. 실제 활성화는 이번 변경에서 실행하지 않은 live network/deploy 작업이므로 보류합니다. |
-| 2026-08-29 | implemented | 하드닝 11-13차에서 저장소 문서를 실제 제공 내용과 맞추고, 재검증 시간이 달라도 검토 ID가 유지되도록 했으며, 공유 저장소 보존 접두사가 구성된 각 컨테이너와 일치하도록 수정했습니다. | `current change`; 집중 수집 테스트 61개, `baseline_deep`, 저장소 계약 테스트 3개 통과. 최종 검토에서 Medium 이상 문제는 남지 않았습니다. | 실제 활성화와 외부 자격 증명은 운영 근거로 남습니다. |
-| 2026-08-29 | implemented | 제공 계약을 기준으로 수집 설계 결정을 닫았습니다. 매니페스트 소유 재배포 분류, 수요 기반 파서, 별도 crosswalk, 소스 버전 기반 CVSS, 중립 데이터베이스 매개 변수, 배정 기반 폐기, 소스별 무결성 기준점, 구현된 발견 임계값과 주기를 선택했습니다. | `current change`; 현재 매니페스트, crosswalk, fetcher, 거버넌스 배정 및 발견 계약. | 새 외부 소스에는 각 라이선스와 매니페스트 승인이 계속 필요합니다. |
-| 2026-08-31 | implemented | 고정된 CAF/WAF 프레임워크 정의를 추가하고 WAF 범위를 2개 핵심 요소에서 코드화된 권고 59개 전체로 확장했습니다. 완전성 게이트는 이제 고정된 매니페스트에서 양방향이며 출처가 일치하는 예상 집합을 도출합니다. | `current change`; 프레임워크/카탈로그 경로와 집중 프레임워크, 준비 상태, `best_practice_deep` 검사. | 평가된 충족 상태에는 여전히 배포 증거가 필요합니다. |
-| 2026-08-31 | implemented | 결정론적 WARA/APRL importer를 추가하고 출처 파일 83개의 권고 456개 전체를 고정했습니다. 활성 GUID와 메타데이터 393개는 WARA 빌드 객체와 정확히 일치하며 비활성 레코드 63개는 lifecycle 이력으로 유지합니다. | `current change`; WARA 프레임워크 카탈로그, importer, loader, 온톨로지 투영 및 집중 검사. | 검토된 FDAI 평가 경로가 승격될 때까지 권고는 참조 전용으로 유지합니다. |
-
-### 남은 작업
-
-- [x] 전용 `ConfigurationBaseline` 및 `MeasurementBaseline` 계약, strict 스키마, 차단 기본 로더, 분리된 `rule-catalog/baselines/configuration/` 및 `rule-catalog/baselines/measurement/` 저장소를 구현했으며 `services/core-control-plane/tests/rule_catalog/test_baseline_catalog.py`가 이를 증명합니다.
-- [x] 제한된 예제를 저장하지 않으면서 금지된 reference-only 원문을 거부하는 검토 가능한 픽스처 기반 집중 저장소 게이트를 추가합니다.
-- [x] 검토된 기준선 내용을 제공 저장소에 반영하고 구성 저장소를 T0 소비자에 연결하며, 적재된 기준선에 대한 집중 평가로 이를 증명합니다: `rule-catalog/baselines/configuration/kubernetes-cluster.hardening.baseline.yaml`; `baseline_catalog.py`의 `evaluate_configuration_baseline_control_set` / `require_resolved_configuration_baseline_control_set`; `baseline_deep` 단계(`configuration_baselines_checked: 1`, `controls_resolved: 4`, finding 0건); `pytest services/core-control-plane/tests/rule_catalog/test_baseline_catalog.py` (28 passed).
-- [x] 배포에서 watcher 주기, 출처 자격 증명, 스냅샷 저장소, 카탈로그 pull request 게시를 연결하고 재현 가능한 갱신 증적 하나를 보존합니다: 주기는 이미 구현되어 있었고(`watcher.py` + `rule_watcher_job.tf` cron), 이번 변경은 자격 증명 참조(`gitops_token_secret_id`, `FDAI_GITOPS_TOKEN` / `_OWNER` / `_REPO`), durable content-addressed snapshot mirror(`snapshot_mirror.py`, `delivery/azure/rule_catalog_snapshot_store.py`, `infra/main.tf`에서 `./modules/storage/case-history`를 두 번째로 인스턴스화), 그리고 재현 가능한 멱등 증적을 남기는 review-only draft-PR 게시(`rule_catalog/pipeline/review.py`, `delivery/gitops_pr/collection_review.py` - 기존 `RemediationPrPublisher`의 원격 멱등성 계약을 재사용)를 추가합니다. 2026-08-29 이력 행에 인용된 테스트와 `infra/`, `infra/modules/compute/container-apps/`에서의 `terraform validate`로 증명됩니다.
-- [ ] Durable-mirror와 review-only PR 단계를 실제 배포에서 활성화합니다: `enable_rule_catalog_snapshot_storage`와 `enable_stewardship_governance`를 `true`로 설정하고, `gitops_token_secret_id` 뒤의 GitHub App/PAT 자격 증명을 프로비저닝하고, `terraform apply`를 실행하고, 실제 배포에서 재현 가능한 배포 증적을 하나 기록해 런타임 증거로 남깁니다. 외부 의존성: 승인된 GitHub App 또는 PAT와 실제 Azure 구독이 필요합니다. 이번 변경에서는 live network/deploy 작업을 실행하지 않았으므로 보류합니다.
-
 ## 열림 Decisions
 
 - [x] 제공되는 각 소스 매니페스트는 검토된 라이선스에 따라 `redistribution`을 선언합니다.
@@ -667,3 +626,9 @@ Authored Rego는 `rule-catalog/` 아래에 **중첩되지 않음** ; T0와 검�
       이를 부여하거나 우회할 수 없습니다.
 - [x] 단계 2는 재정의, 사람 승인, shadow, 감사 결과 신호를 관측합니다. 롤백 상관관계는
       독립적으로 검증된 결과 근거가 있을 때만 단계 3에서 결합합니다.
+
+## 관련 문서
+
+| 알아볼 내용 | 읽을 문서 |
+|-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/rules-and-detection/rule-catalog-collection.md) |

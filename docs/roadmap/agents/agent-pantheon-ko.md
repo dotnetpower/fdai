@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: e1ab5ab5750dc305ef95166e2484ee5d116822ec
+translation_source_sha: 159dd4782e1455144cb6fb6e3d1c3f38a509ad16
 translation_revised: 2026-09-01
 ---
 # 에이전트 판테온
@@ -140,30 +140,16 @@ operations / 인터페이스), `3` = 거버넌스 staff.
 | Freyr | 용량 | 1 | CapacityForecast, SizingRecommendation, CapacityGraduationRecommendation | 용량 예측 및 shadow-only 전환 권고 | no |
 | Loki | Chaos | 1 | ChaosExperiment, ResilienceScore | schedule_experiment | no |
 
-Heimdall은 결정론적 예측 에피소드 평가와 종결의 accountable 소유자이며 비공개 `heimdall_forecast.py` 보조 로직이 해당 계산을 소유합니다. Repeated-event detector는 권위 있는 anomaly를 발행한 뒤 선택적
-`incident_candidate_hook`을 호출할 수 있습니다. 이 훅은 정규화된 리소스,
-이벤트 타입, 상관관계, worst 심각도, 사유 코드, 모든 burst 근거 키를 조립 소유
-`IncidentLifecycleWorkflow`에 전달합니다. Heimdall은 인시던트를 직접 쓰거나 새
-임계값 anomaly를 publish하기 전에 Heimdall은 주입된 범위가 제한된 읽기 전용
-`operational_evidence_hook`을 호출할 수 있습니다. 이 훅은 hold-only Kubernetes 용량
-발견 사항 같은 프로바이더 근거를 첨부할 수 있지만 판단, 승인 또는 실행하지 않습니다. 프로바이더
-실패는 구조화된 사용 불가 근거로 첨부되며 권위 있는 anomaly를 억제하지 않습니다.
-Heimdall은 인시던트를 직접 쓰거나 새
-객체 타입을 publish하지 않습니다. 한 에피소드의 반복 Event는 worst 심각도 anomaly 하나를 형성합니다.
-Global/리소스 상한은 cross-resource 제거를 방지합니다.
-Routine 하트비트, healthy 탐색, within-threshold 관측은 발견 사항이나 인시던트를
-생성하지 않습니다.
-분산 추적 불연속 Event의 경우 Huginn은 범위가 제한된 감지기, 토폴로지, hop, 추적
-조각, 근거 참조, 구간 필드만 정규화된 속성으로 복사합니다. Heimdall은 등록된 연속성
-사유 코드만 수락하고 anomaly에 해당 근거를 보존하며, 일반 반복 사유로 대체하지 않고
-관측된 사유를 인시던트 후보에 사용합니다. 작업처럼 보이는 입력을 포함한 알 수 없는
-필드는 버립니다. 이 근거 인계는 ActionType을 선택하거나 판단, 승인, 실행 권한을
-부여하지 않습니다.
-명시적 `incident_correlation=correlate`, 상관관계와 근거, 활성 auto-open 및 충분한 심각도를
-갖춘 후보만 작업 흐름에 도달하며 나머지는 anomaly로 남습니다. 작업 흐름은 근거를 다시 확인한
-후 `IncidentRegistry`에 audited 기록을 씁니다. 훅 실패는 구간을 유지하고 accepted와 held는 별도로 기록합니다.
-운영 control-plane 조립은 영속 레지스트리를 먼저 rehydrate하고
-pantheon이 활성화된일 때 이 훅을 연결합니다. Operator API는 Heimdall을 impersonate하지
+Heimdall은 결정론적 예측 에피소드 평가와 종결의 accountable 소유자이며 비공개 `heimdall_forecast.py` 보조 로직이 해당 계산을 소유합니다. Repeated-event detector는 권위 있는 anomaly를 발행한
+뒤 선택적 `incident_candidate_hook`을 호출할 수 있습니다. 이 훅은 정규화된 리소스, 이벤트 타입, 상관관계, worst 심각도, 사유 코드, 모든 burst 근거 키를 조립 소유
+`IncidentLifecycleWorkflow`에 전달합니다. Heimdall은 인시던트를 직접 쓰거나 새 임계값 anomaly를 publish하기 전에 Heimdall은 주입된 범위가 제한된 읽기 전용
+`operational_evidence_hook`을 호출할 수 있습니다. 이 훅은 hold-only Kubernetes 용량 발견 사항 같은 프로바이더 근거를 첨부할 수 있지만 판단, 승인 또는 실행하지 않습니다. 프로바이더 실패는 구조화된 사용 불가
+근거로 첨부되며 권위 있는 anomaly를 억제하지 않습니다. Heimdall은 인시던트를 직접 쓰거나 새 객체 타입을 publish하지 않습니다. 한 에피소드의 반복 Event는 worst 심각도 anomaly 하나를 형성합니다. Global/리소스
+상한은 cross-resource 제거를 방지합니다. Routine 하트비트, healthy 탐색, within-threshold 관측은 발견 사항이나 인시던트를 생성하지 않습니다. 분산 추적 불연속 Event의 경우 Huginn은 범위가 제한된
+감지기, 토폴로지, hop, 추적 조각, 근거 참조, 구간 필드만 정규화된 속성으로 복사합니다. Heimdall은 등록된 연속성 사유 코드만 수락하고 anomaly에 해당 근거를 보존하며, 일반 반복 사유로 대체하지 않고 관측된 사유를 인시던트 후보에
+사용합니다. 작업처럼 보이는 입력을 포함한 알 수 없는 필드는 버립니다. 이 근거 인계는 ActionType을 선택하거나 판단, 승인, 실행 권한을 부여하지 않습니다. 명시적 `incident_correlation=correlate`, 상관관계와
+근거, 활성 auto-open 및 충분한 심각도를 갖춘 후보만 작업 흐름에 도달하며 나머지는 anomaly로 남습니다. 작업 흐름은 근거를 다시 확인한 후 `IncidentRegistry`에 audited 기록을 씁니다. 훅 실패는 구간을 유지하고
+accepted와 held는 별도로 기록합니다. 운영 control-plane 조립은 영속 레지스트리를 먼저 rehydrate하고 pantheon이 활성화된일 때 이 훅을 연결합니다. Operator API는 Heimdall을 impersonate하지
 않습니다.
 
 Huginn은 실시간 리소스 발견과 정규화된 `Change` 기록의 논리적 소유자입니다. Azure 리소스 생성,
@@ -643,25 +629,15 @@ Conversational 포트 는 액션 을 시작할 수 있지만 스스로 실행할
 Bragi 는 오퍼레이터에게 진행 상황만 렌더링. Bragi 가 실행기 를 직접
 호출하도록 하는 어떤 구현도 defect.
 
-**구현.** Bragi 는 조립 루트 에서 `Huginn.ingest`(`object.event` 의
-단독 쓰기 담당)에 연결되는 `proposal_sink` DI 경계 을 가지며, Bragi 자신은
-변경 토픽을 절대 publish 하지 않는다. `Bragi.submit_action_proposal` 은
-결정론적 영어 또는 한국어 명령 구문을 ActionType 으로 매핑하고, `initiator_principal = operator`
-와 `operator_initiated = true` 로 제안 을 만들어 범위가 제한된 싱크 호출로 제출한다. 시간 초과 또는 실패는 오류 상세 없이 `submitted=false`를 반환하며 모든 명령은 제안 상관관계에 digest-only `object.turn`을 발행한다.
-오퍼레이터가 추적할 `correlation_id` 를 반환하고 `object.verdict` /
-`object.action-run` 에서 파이프라인 진행을 렌더링 할 뿐, 실행하지 않는다.
-Forseti 는 `initiator_principal` 을 판정 에, Thor 는 ActionRun 에 전파하고,
-Var 는 no-self-approval 을 강제한다(initiator 는 자기 액션 을 승인 불가).
-RBAC 경계 이 모르는 initiator 의 operator-initiated 제안 은 `SecurityEvent`
-와 함께 `deny` 로 실패 시 차단. 콘솔이 오퍼레이터의 Entra 역할 을 전달하면,
-항목 RBAC 게이트가 execute 하한(`Contributor`) 미만의 액션 요청을
-파이프라인 진입 전에 거부한다 - 즉 `Reader` 는 어떤 액션 도 제출할 수
-없다(위의 principal 레벨 거부 와 defense-in-depth). Spoofing 방어로, Huginn 은
-operator-proposal 필드(`initiator_principal` / `action_type` /
-`operator_initiated`)를 명시적 `event_type == "operator_request"` 에 대해서만
-honor 하고 `operator_initiated` 를 strict bool 로 coerce 한다 - 공유 유입
-토픽의 위조/외부 신호가 운영자 액션 을 spoof 할 수 없으며, Forseti 는
-strict `True` 만 operator-initiated 로 취급한다.
+**구현.** Bragi 는 조립 루트 에서 `Huginn.ingest`(`object.event` 의 단독 쓰기 담당)에 연결되는 `proposal_sink` DI 경계 을 가지며, Bragi 자신은 변경 토픽을 절대 publish 하지 않는다.
+`Bragi.submit_action_proposal` 은 결정론적 영어 또는 한국어 명령 구문을 ActionType 으로 매핑하고, `initiator_principal = operator` 와 `operator_initiated = true` 로
+제안 을 만들어 범위가 제한된 싱크 호출로 제출한다. 시간 초과 또는 실패는 오류 상세 없이 `submitted=false`를 반환하며 모든 명령은 제안 상관관계에 digest-only `object.turn`을 발행한다. 오퍼레이터가 추적할
+`correlation_id` 를 반환하고 `object.verdict` / `object.action-run` 에서 파이프라인 진행을 렌더링 할 뿐, 실행하지 않는다. Forseti 는 `initiator_principal` 을 판정 에, Thor
+는 ActionRun 에 전파하고, Var 는 no-self-approval 을 강제한다(initiator 는 자기 액션 을 승인 불가). RBAC 경계 이 모르는 initiator 의 operator-initiated 제안 은
+`SecurityEvent` 와 함께 `deny` 로 실패 시 차단. 콘솔이 오퍼레이터의 Entra 역할 을 전달하면, 항목 RBAC 게이트가 execute 하한(`Contributor`) 미만의 액션 요청을 파이프라인 진입 전에 거부한다 - 즉
+`Reader` 는 어떤 액션 도 제출할 수 없다(위의 principal 레벨 거부 와 defense-in-depth). Spoofing 방어로, Huginn 은 operator-proposal 필드(`initiator_principal` /
+`action_type` / `operator_initiated`)를 명시적 `event_type == "operator_request"` 에 대해서만 honor 하고 `operator_initiated` 를 strict bool 로 coerce 한다
+- 공유 유입 토픽의 위조/외부 신호가 운영자 액션 을 spoof 할 수 없으며, Forseti 는 strict `True` 만 operator-initiated 로 취급한다.
 
 ### 7.8 포크 재정의 경계
 

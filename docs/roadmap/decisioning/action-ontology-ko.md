@@ -1,8 +1,8 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: 71b4d2f733c6b85834f8eac5393677bd9249e8d3
-translation_revised: 2026-08-31
+translation_source_sha: fb1c86117d6d0b59d2a2170a6ae714fc2417d904
+translation_revised: 2026-09-01
 ---
 
 # 액션 온톨로지
@@ -235,13 +235,9 @@ direct-API 및 tool-call 요청과 감사 항목은 같은 목록을 flatten하�
 액션 메타데이터이므로 strict `argument_schema` 검증은 그대로 유지됩니다. 제안 참조는
 전달만 입증하며 프로세스가 진행하려면 독립적인 결과 증적이 필요합니다.
 
-`semantic` 블록은 선택 사항이므로 보존된 v1 YAML과 감사 고정본을 변경 없이 디코딩할 수
-있습니다. 블록이 있으면 완전하고 범위가 제한되어야 합니다. ActionType 내부 참조는
-`OntologyDeclarationRef`를 사용합니다. 이 참조는 선언 종류, 이름, 버전, 선언 다이제스트를
-고정하면서 포함하는 release 다이제스트를 재귀적으로 넣지 않습니다. 이후 순수
-`compile_action_mutation_plan` 함수는 모든 참조가 활성 `OntologyRelease`의 정확한 멤버인지
-확인합니다. 읽기 집합은 `query` 함수, 제출 및 함수 postcondition은 `validate` 함수,
-플래너는 `plan` 함수를 사용해야 합니다.
+`semantic` 블록은 선택 사항이므로 보존된 v1 YAML과 감사 고정본을 변경 없이 디코딩할 수 있습니다. 블록이 있으면 완전하고 범위가 제한되어야 합니다. ActionType 내부 참조는 `OntologyDeclarationRef`를
+사용합니다. 이 참조는 선언 종류, 이름, 버전, 선언 다이제스트를 고정하면서 포함하는 release 다이제스트를 재귀적으로 넣지 않습니다. 이후 순수 `compile_action_mutation_plan` 함수는 모든 참조가 활성
+`OntologyRelease`의 정확한 멤버인지 확인합니다. 읽기 집합은 `query` 함수, 제출 및 함수 postcondition은 `validate` 함수, 플래너는 `plan` 함수를 사용해야 합니다.
 
 컴파일은 변경할 수 없는 제안 전용 `MutationPlan` 버전 2만 반환합니다. Signed `plan` FunctionType은 `planner_ref`로 유지되며 optional `operational_plan_ref`는 planner provenance를 대체하지 않고 별도의 decision lineage를 digest에 결속합니다. 컴파일러는 계획 신원을 만들기 전에 다음을 확인합니다.
 
@@ -264,17 +260,13 @@ direct-API 및 tool-call 요청과 감사 항목은 같은 목록을 flatten하�
 - 계획은 트랜잭션 모드, 잠금 범위, 정렬된 결정론적 대상 잠금 키, 선언된 최대 affected
   객체 수를 결합합니다. Set-cardinality 대상에는 `target_set` 잠금이 필요합니다.
 
-컴파일러는 선택된 ObjectType 또는 컴파일된 InterfaceType 대상과 정확한 대상 개정 번호도
-검증합니다. 기존 버전 2 계획을 받으면 제안을 다시 빌드하고 다이제스트와 내용을 비교한 뒤 같은
-계획을 반환합니다. 보존된 버전 1 `MutationPlan` 페이로드는 버전 2 신원 필드 없이도 계속
-decode되지만 의미 compilation은 항상 버전 2를 생성합니다. 컴파일러는 RiskGate, 에이전트,
-실행기 또는 프로바이더를 호출하지 않으며 효과와 postcondition은 권한을 선언할 수 없습니다.
+컴파일러는 선택된 ObjectType 또는 컴파일된 InterfaceType 대상과 정확한 대상 개정 번호도 검증합니다. 기존 버전 2 계획을 받으면 제안을 다시 빌드하고 다이제스트와
+내용을 비교한 뒤 같은 계획을 반환합니다. 보존된 버전 1 `MutationPlan` 페이로드는 버전 2 신원 필드 없이도 계속 decode되지만 의미 compilation은 항상 버전 2를
+생성합니다. 컴파일러는 RiskGate, 에이전트, 실행기 또는 프로바이더를 호출하지 않으며 효과와 postcondition은 권한을 선언할 수 없습니다.
 
-`required_evidence_semantic_refs`는 액션이 의존하는 canonical Property semantic을 선언합니다.
-카탈로그는 알 수 없는 참조를 거부합니다. 해소되지 않은 `EvidenceConflict`는 정확한 대상의
-ActionType 필수 참조와 충돌 참조가 교차할 때만 해당 ActionType을 낮춥니다. 현재 backfill은 VM
-시작, 할당 해제, 관리형 Python 실행의 전원 상태를 다룹니다. 다른 액션은 일치하는 권위 있는 충돌
-생산자가 생길 때까지 변경하지 않습니다.
+`required_evidence_semantic_refs`는 액션이 의존하는 canonical Property semantic을 선언합니다. 카탈로그는 알 수 없는 참조를 거부합니다. 해소되지 않은
+`EvidenceConflict`는 정확한 대상의 ActionType 필수 참조와 충돌 참조가 교차할 때만 해당 ActionType을 낮춥니다. 현재 backfill은 VM 시작, 할당 해제, 관리형 Python
+실행의 전원 상태를 다룹니다. 다른 액션은 일치하는 권위 있는 충돌 생산자가 생길 때까지 변경하지 않습니다.
 
 ## 3. Category 카탈로그
 
@@ -491,15 +483,9 @@ AND `purpose_binding` (purpose-set 교집합) - 으로 게이트 됨. 읽기 는
 single-gate 연산이고 data-minimization 이 두 번째 축을 필요로 하기 때문
 ([`shared/ontology/acl.py`](../../../services/core-control-plane/src/fdai/shared/ontology/acl.py)).
 
-ActionType **실행** 은 의도적으로 `purpose_binding` 을 carry 하지
-않음; 그 인가는 `ceiling_by_tier.min_role` 에 더해 full 6-축 RiskGate
-상한 (risk 표, 계층 상한, static 영향, 실제 운영 영향, 역할, env),
-정족수, HIL 게이트, shadow-first 승격. 따라서 실행 은 읽기 보다
-더 적은 게 아니라 더 많은 차원으로 게이트 됨 - 비대칭은 누락된 게이트 가
-아니라 의도된 것. Purpose-scoped 실행 (오퍼레이터가 용도 X 에
-한해서만 이 액션 실행 가능) 은 future 범위; `ceiling_by_tier` 에
-`min_purpose` 축과 전달 principal 에 용도 를 추가하는 것이고,
-현재 risk 모델엔 불필요 (비평 #30).
+ActionType **실행** 은 의도적으로 `purpose_binding` 을 carry 하지 않음; 그 인가는 `ceiling_by_tier.min_role` 에 더해 full 6-축 RiskGate 상한 (risk 표, 계층 상한, static
+영향, 실제 운영 영향, 역할, env), 정족수, HIL 게이트, shadow-first 승격. 따라서 실행 은 읽기 보다 더 적은 게 아니라 더 많은 차원으로 게이트 됨 - 비대칭은 누락된 게이트 가 아니라 의도된 것. Purpose-scoped
+실행 (오퍼레이터가 용도 X 에 한해서만 이 액션 실행 가능) 은 future 범위; `ceiling_by_tier` 에 `min_purpose` 축과 전달 principal 에 용도 를 추가하는 것이고, 현재 risk 모델엔 불필요 (비평 #30).
 
 ## 5. 인자 스키마 (`operator_request` 만)
 

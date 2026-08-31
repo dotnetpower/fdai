@@ -348,14 +348,11 @@ Operator-requested runtime actions. Shipped Day 1:
   NSG rule through the development operations gateway. Deletion requires Owner-tier approval;
   recovery is a separately governed state-forward action.
 
-**Vertical mapping.** Each ops ActionType is tagged with the owning
-vertical so the [verticals](../../../services/core-control-plane/src/fdai/core/verticals) can claim
-it and a vertical rule can `remediates:` it: `ops.failover-primary` and
-`ops.restart-service` -> Resilience; `ops.scale-in` / `ops.scale-out` ->
-Cost Governance; `ops.drain-connection` / `ops.rotate-cert` -> Change
-Safety. `ops.flush-cache` and `ops.publish-change-summary` are
-cross-vertical (operator-triggered). The VM and network-rule gateway operations are Azure delivery
-bindings for upstream operator actions; they don't change vertical ownership.
+**Vertical mapping.** Each ops ActionType is tagged with the owning vertical so the
+[verticals](../../../services/core-control-plane/src/fdai/core/verticals) can claim it and a vertical rule can `remediates:` it:
+`ops.failover-primary` and `ops.restart-service` -> Resilience; `ops.scale-in` / `ops.scale-out` -> Cost Governance; `ops.drain-connection`
+/ `ops.rotate-cert` -> Change Safety. `ops.flush-cache` and `ops.publish-change-summary` are cross-vertical (operator-triggered). The VM and
+network-rule gateway operations are Azure delivery bindings for upstream operator actions; they don't change vertical ownership.
 
 Default `execution_path: direct_api` (ops are latency-sensitive; PR
 overhead defeats the purpose). A fork MAY force `pr_manual` for a
@@ -428,24 +425,16 @@ example:
   Immutable files are verified again on the guest with SHA-256 before the
   configured non-root account runs the entrypoint under a bounded timeout.
 
-Default `execution_path: tool_call`. `core/` knows only the Protocol; a
-fork binds a live adapter (a native Python registry, an MCP client, an
-HTTP callout) at the composition root - the registry is the natural
-attach point for an MCP adapter, mapping one MCP server tool onto one
-`tool.*` ActionType. A `tool.*` ActionType is shadow-first with a
-measurable `promotion_gate` and carries the same seven safeguards
-as any mutation ActionType, so a workflow step MAY reference it via
-`action_type_ref` and inherit them. See
-[execution-model.md § 5.6](execution-model.md#56-tool-call-tool_call).
+Default `execution_path: tool_call`. `core/` knows only the Protocol; a fork binds a live adapter (a native Python registry, an MCP client,
+an HTTP callout) at the composition root - the registry is the natural attach point for an MCP adapter, mapping one MCP server tool onto one
+`tool.*` ActionType. A `tool.*` ActionType is shadow-first with a measurable `promotion_gate` and carries the same seven safeguards as any
+mutation ActionType, so a workflow step MAY reference it via `action_type_ref` and inherit them. See [execution-model.md §
+5.6](execution-model.md#56-tool-call-tool_call).
 
-A `tool.*` ActionType SHOULD declare a `ceiling_by_tier`. A tool that is
-reversible, resource-scoped, control-plane, and low-cost matches the
-`auto-low-risk` row of the risk-classification table, so **without a
-ceiling it can be classified `auto` once promoted to enforce** - fine for
-an idempotent report render, wrong for a notification or ticket tool. The
-ceiling caps autonomy at `enforce_hil` regardless of the table; the
-shipped `tool.generate-pdf` sets `t0.max_autonomy: enforce_hil` for this
-reason.
+A `tool.*` ActionType SHOULD declare a `ceiling_by_tier`. A tool that is reversible, resource-scoped, control-plane, and low-cost matches
+the `auto-low-risk` row of the risk-classification table, so **without a ceiling it can be classified `auto` once promoted to enforce** -
+fine for an idempotent report render, wrong for a notification or ticket tool. The ceiling caps autonomy at `enforce_hil` regardless of the
+table; the shipped `tool.generate-pdf` sets `t0.max_autonomy: enforce_hil` for this reason.
 
 ## 4. Trigger surfaces
 
@@ -506,16 +495,11 @@ intersection) - because a read is otherwise a single-gate operation and
 data-minimization needs a second axis
 ([`shared/ontology/acl.py`](../../../services/core-control-plane/src/fdai/shared/ontology/acl.py)).
 
-An ActionType **execution** deliberately does NOT carry a
-`purpose_binding`; its authorization is `ceiling_by_tier.min_role` plus
-the full six-axis RiskGate ceiling (risk table, tier cap, static blast,
-live blast, role, env), the quorum, the HIL gate, and shadow-first
-promotion. Execution is therefore gated by strictly more dimensions than
-a read, not fewer - the asymmetry is intentional, not a missing gate.
-Purpose-scoped execution (an operator may run this action only for
-purpose X) is future scope; it would add a `min_purpose` axis to
-`ceiling_by_tier` and a purpose in the dispatch principal, and is not
-required for the current risk model (critique #30).
+An ActionType **execution** deliberately does NOT carry a `purpose_binding`; its authorization is `ceiling_by_tier.min_role` plus the full
+six-axis RiskGate ceiling (risk table, tier cap, static blast, live blast, role, env), the quorum, the HIL gate, and shadow-first promotion.
+Execution is therefore gated by strictly more dimensions than a read, not fewer - the asymmetry is intentional, not a missing gate.
+Purpose-scoped execution (an operator may run this action only for purpose X) is future scope; it would add a `min_purpose` axis to
+`ceiling_by_tier` and a purpose in the dispatch principal, and is not required for the current risk model (critique #30).
 
 ## 5. Argument schema (operator_request only)
 
