@@ -8,6 +8,7 @@ remains focused on the normative repository layout.
 ### Implementation scope
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Core-owned T2 cache persistence | implemented | Core migration; `delivery/persistence/postgres_t2_cache.py`; service rotation command; focused local PostgreSQL checks | The Core distribution owns the single writer, exact partitions, catalog state, and atomic receipts without adding a service or cross-service implementation import. |
 | Five backend service distributions | implemented | Five `services/*/pyproject.toml` manifests; `config/independent-services.json`; `check-independent-services.py` (`services=5`) | Each backend service owns its source package, tests, image, process identity, and service migration branch. |
 | Core cryptographic runtime dependency | implemented | `services/core-control-plane/pyproject.toml`; `uv.lock`; signed observation tests | Core alone owns the Ed25519 verification dependency. The signing seed remains a deployment secret reference and no cross-service implementation import is introduced. |
 | Shared service-contract SDK | implemented | `packages/service-contracts/pyproject.toml`; `packages/service-contracts/src/fdai_service_contracts/`; independent-service gate | Versioned wire contracts are packaged separately and do not import service implementations. |
@@ -17,6 +18,7 @@ remains focused on the normative repository layout.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-31 | implemented | Added T2 cache TTL, exact catalog partitions, promotion/rollback state, and atomic rotation receipts inside the existing Core distribution. | `current change`; migration, Core persistence adapter and command, 13 focused local PostgreSQL checks, 58 service-migration ownership checks, and the independent-service boundary check. | No service-boundary work remains for this cache lifecycle. |
 | 2026-08-31 | implemented | Added Core-owned Ed25519 observation verification without changing the five-service distribution inventory or introducing a cross-service implementation import. | `current change`; Core manifest and lockfile; focused signed-observation tests; `check-independent-services.py` passed. | No physical package-boundary work remains for this dependency. |
 | 2026-08-24 | implemented | Adopted a focused physical-layout owner after the five-service extraction and separated it from module boundaries, dependency injection, and repository conventions. Earlier decomposition provenance remains in the service-decomposition ledger and was not reconstructed here. | `current change`; five service manifests, shared SDK manifest, root workspace manifest, and `check-independent-services.py` passed with `services=5`, `top_level_source=0`, and `service_forbidden=0`. | No physical package-boundary work remains in this owner. Deployment promotion evidence remains with the service-decomposition and graduation owners. |
 

@@ -1,7 +1,7 @@
 ---
 title: Phase 0 - 계측과 언블록
 translation_of: phase-0-instrumentation.md
-translation_source_sha: 8fbe5250bf1c00190111b7c9ec2c3a84afe509f5
+translation_source_sha: 1285f936fa165ce3b5f4d9887f1ea062ffaaab5d
 translation_revised: 2026-08-31
 ---
 
@@ -116,7 +116,7 @@ Console이 지원 언어 계약에서 제외됩니다.
 | **W1.3** | 구성 스키마 + fail-fast 로더 | W1.1 | `services/core-control-plane/src/fdai/shared/config/schema.json` + Python 로더; env + 파일 프로바이더 | 잘못되거나 누락된 필수 필드가 구조화된 에러로 시작 중단 | S |
 | **W1.4** | OpenTelemetry 배선 | W1.1 | `services/core-control-plane/src/fdai/shared/telemetry/` traces, metrics, logs; `correlation_id` 있는 JSON-구조화 로그; `infra/` 의 수집기 구성 | 합성 이벤트가 하나의 상관관계 id로 종단 추적 (ingest → 계층 → 게이트 → 감사) | M |
 | **W1.5** | PostgreSQL DDL - 인스턴스 + 감사 | W1.2 | `ontology_object_type`, `ontology_link_type`, `ontology_resource`, `ontology_finding`, `ontology_link`, `audit_log`(hash-chain) 마이그레이션 | `flyway`/`alembic` 마이그레이션이 빈 DB에서 클린 실행; DDL이 [llm-strategy-ko.md § 온톨로지 Storage 배치](../architecture/llm-strategy-ko.md#ontology-storage-layout) 와 매칭 | M |
-| **W1.6** | PostgreSQL DDL - 계층 캐시 | W1.5 | `learned_action`, `ontology_embedding` (pgvector), `t2_cache`(`catalog_version` 파티션) 마이그레이션 | pgvector 확장 활성; HNSW 인덱스 빌드; 파티션 로테이션 스크립트 테스트 | S |
+| **W1.6** | PostgreSQL DDL - 계층 캐시 | W1.5 | `learned_action`, `ontology_embedding`(pgvector), TTL, 카탈로그 상태, 레지스트리 및 로테이션 증적을 포함한 명시적 `t2_cache` 파티션 마이그레이션 | pgvector와 HNSW가 계속 활성화되고 로컬 PostgreSQL에서 승격, 만료, 롤백, 중복, 실패, 동시성 및 범위가 제한된 인덱스 적중/누락 검사가 통과 | S |
 | **W1.7** | CI 기준선 파이프라인 | W1.1 | `.github/workflows/`: format, lint, ASCII 식별자/경로 및 punctuation 검사, translation/카탈로그 동등성, 시크릿 검사, 커버리지 게이트, 의존성 감사 | 실패한 검사가 머지 블록; 한국어와 영어 natural-language 텍스트는 모두 허용 | M |
 | **W1.8** | Golden-fixture 메트릭 테스트 | W1.4, W1.5 | `services/core-control-plane/tests/telemetry/` - 기록된 합성-이벤트 추적 + 픽스처가 모든 대시보드 메트릭이 원격측정에서 재현되는지 단언 | CI에서 green; 추적 속성 제거가 특정 메트릭 단언 실패 | M |
 | **W1.9** | KPI 대시보드 | W1.4, W1.5, W1.8 | 성공 1-4, 가드 메트릭, 선행 지표 패널 - 각각 원격측정-소스 주석 | 어떤 패널도 수동으로 채워지지 않음; 소스 이름 변경이 패널 빌드 검사 실패 | M |

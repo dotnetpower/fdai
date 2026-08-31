@@ -94,9 +94,9 @@
     }
   ],
   "legacy_inventory": {
-    "head": "20260829_0088",
-    "revision_count": 90,
-    "table_count": 104
+    "head": "20260831_0089",
+    "revision_count": 91,
+    "table_count": 108
   },
   "table_migrations": {
     "core-control-plane": [
@@ -178,7 +178,11 @@
       "topology_object_revision",
       "topology_revision_batch",
       "t2_cache",
+      "t2_cache_catalog_state",
+      "t2_cache_catalog_transition",
       "t2_cache_default",
+      "t2_cache_partition_registry",
+      "t2_cache_rotation_receipt",
       "vertical_package_activation"
     ],
     "operator-service": [
@@ -342,7 +346,11 @@
       "topology_object_revision",
       "topology_revision_batch",
       "t2_cache",
+      "t2_cache_catalog_state",
+      "t2_cache_catalog_transition",
       "t2_cache_default",
+      "t2_cache_partition_registry",
+      "t2_cache_rotation_receipt",
       "vertical_package_activation"
     ],
     "operator-service": [
