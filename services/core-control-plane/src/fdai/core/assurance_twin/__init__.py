@@ -115,6 +115,14 @@ from fdai.core.assurance_twin.runtime import (
     EffectModelCausalEvidenceVerifier,
     EffectModelReader,
 )
+from fdai.core.assurance_twin.semantic_query import (
+    AssuranceTwinCompilation,
+    AssuranceTwinDiscoverySink,
+    AssuranceTwinQueryGap,
+    AssuranceTwinSemanticQueryCoordinator,
+    DiscoveryHandoffStatus,
+    question_digest,
+)
 from fdai.core.assurance_twin.state_trajectory import (
     DynamicInvariant,
     InvariantOperator,
@@ -138,11 +146,16 @@ from fdai.core.assurance_twin.trajectory_ledger import (
 __all__ = [
     "AbstainCode",
     "AbstainResult",
+    "AssuranceTwinCompilation",
+    "AssuranceTwinDiscoverySink",
+    "AssuranceTwinQueryGap",
+    "AssuranceTwinSemanticQueryCoordinator",
     "BranchPrediction",
     "CausalEvidenceGrade",
     "ChallengerUpdate",
     "CompiledQuery",
     "DeterministicPatternCompiler",
+    "DiscoveryHandoffStatus",
     "DynamicSimulationResult",
     "DynamicRuntimeCoordinator",
     "DynamicRuntimeResult",
@@ -210,6 +223,7 @@ __all__ = [
     "build_posture_assessment_report",
     "close_trajectory_outcome",
     "execute_query",
+    "question_digest",
     "evaluate_dynamic_invariants",
     "publish_review",
     "simulate_effect_branches",

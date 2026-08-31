@@ -16,12 +16,14 @@ from dataclasses import dataclass, field
 from ..agents import T2ConversationSynthesizer
 from ..core.architecture_review import ProductionEvidenceProvider
 from ..core.assurance_twin import (
+    AssuranceTwinDiscoverySink,
     DynamicSimulationRequestProvider,
     EffectModelCausalEvidenceVerifier,
     EffectModelReader,
     GraphDynamicSimulationRequestProvider,
     GraphEffectModelCausalEvidenceVerifier,
     GraphEffectModelReader,
+    NlQueryCompiler,
 )
 from ..core.browser_evidence.service import BrowserEvidenceCaptureService
 from ..core.browser_evidence.surfaces import (
@@ -252,6 +254,8 @@ class Container:
     change_feed: ChangeFeed = field(default_factory=EmptyChangeFeed)
     change_safety_detector: ChangeSafetyDetector | None = None
     change_safety_evidence_provider: ChangeSafetyPreAuthorityEvidenceProvider | None = None
+    assurance_twin_query_compiler: NlQueryCompiler | None = None
+    assurance_twin_discovery_sink: AssuranceTwinDiscoverySink | None = None
     operational_readiness_posture: PostureAssessmentProvider | None = None
     operational_readiness_report_publisher: ReadinessReportPublisher | None = None
     architecture_review_evidence_provider: ProductionEvidenceProvider | None = None

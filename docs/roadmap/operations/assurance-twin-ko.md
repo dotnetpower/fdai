@@ -1,8 +1,8 @@
 ---
 title: 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 translation_of: assurance-twin.md
-translation_source_sha: ef7ceef6489ecb6be26b2e4f45c92de461c6f6b1
-translation_revised: 2026-08-21
+translation_source_sha: 2ea62839e567485fcec7220fd267e82b33e9c76d
+translation_revised: 2026-08-31
 ---
 # 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 
@@ -52,13 +52,15 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
 | 그래프 전역 Dynamic 궤적, 전파, 불변식, 에피소드 종결, 모델 레지스트리 | implemented | [`graph_effect.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_effect.py), [`graph_runtime.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_runtime.py), [`graph_closure.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_closure.py) 및 그래프 집중 테스트 | 런타임은 근거를 반환하기 전에 예측 에피소드를 저장하고 완전한 독립 관측에서만 challenger 구획을 갱신합니다. |
 | 심층 Security Assessment 피드, 결정론적 분석기, 카탈로그 보고서 | implemented | [`core/security/`](../../../services/core-control-plane/src/fdai/core/security), [`security_assessment.py`](../../../services/core-control-plane/src/fdai/core/reporting/datasources/security_assessment.py), [`test_assessment.py`](../../../services/core-control-plane/tests/core/security/test_assessment.py), [`test_security_assessment_datasource.py`](../../../services/core-control-plane/tests/core/reporting/test_security_assessment_datasource.py) | 아래에서 설명하는 Twin 전용 자세 패널과는 별도의 보고 하위 시스템입니다. |
 | 운영 인벤토리 변환 결과와 선제적 변경 검토 전달 | not-started | [`projection.py`](../../../services/core-control-plane/src/fdai/shared/providers/projection.py)와 [`iac_review.py`](../../../services/core-control-plane/src/fdai/shared/providers/iac_review.py)가 프로바이더 시임을 정의합니다. | 업스트림에는 운영 인벤토리 어댑터, 변경 이벤트 조정기, Checks API 발행기가 연결되지 않았습니다. |
-| 모델 기반 질문 컴파일, T1 재사용, ChatOps 입력, 판단 보류 피드백 | in-progress | [`query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/query.py), [`chat.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/chat.py), 공유 의미 판단 계약 | 타입이 있는 질의 검증, 변경할 수 없는 채팅 값, 명시적 model-unavailable 동작이 있습니다. 수락된 의미 판단에서 `TypedQuery`로 가는 Twin 전용 projection, 메시지 라우팅, 발견 루프 전달은 연결되지 않았습니다. |
+| 엄격한 의미 컴파일과 판단 보류 피드백 | implemented | [`query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/query.py), [`semantic_query.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/semantic_query.py), [`runtime/assurance_twin_query.py`](../../../services/core-control-plane/src/fdai/runtime/assurance_twin_query.py), 집중 질의 및 런타임 테스트 50개 | 주입된 컴파일러는 읽기 전용 계획이 검증을 통과하기 전에 정확한 입력 다이제스트, 컴파일러 개정, 제한된 결과 수, 근거 참조를 연결해야 합니다. 판단 보류는 주입된 발견 sink를 통해 내용 없는 무권한 공백만 발행합니다. 런타임 기본값은 명시적인 모델 사용 불가입니다. |
+| T1 재사용, ChatOps 입력, 통제된 런타임 근거 | in-progress | [`chat.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/chat.py), 공유 의미 판단 계약 | 메시지 라우팅, T1 재사용, 구체적인 모델 프로바이더, 인증된 종단 증적은 아직 검증되지 않았습니다. |
 | Twin 전용 운영자 패널과 거버넌스가 적용된 수정 제안 연결 | not-started | 위의 보고 및 검토 기본 기능은 입력을 제공하지만 전용 Operator API 또는 콘솔 경로는 없습니다. | 구현된 Security Assessment 보고서는 더 넓은 Twin 자세 패널이나 액션 연결 작업 흐름을 충족하지 않습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-31 | implemented | 엄격한 의미 컴파일러 조정기와 런타임 조립 경계를 추가했습니다. 검증은 정확한 질문 계보, 컴파일러 개정, 근거 인용, 결과 한계를 요구합니다. 유효하지 않은 계획은 명시적 모호성으로 바뀌고 내용 없는 무권한 발견 공백만 게시합니다. | `current change`; 집중 질의 및 런타임 조립 검사 50개 통과. | 통제된 모델 컴파일러와 발견 sink를 연결한 뒤 인증된 런타임 증적 하나를 보존합니다. |
 | 2026-08-14 | in-progress | 구현 원장을 도입하고 테스트된 Twin 기본 기능과 연결되지 않은 전달 표면을 분리했습니다. 이전 구현 이력은 재구성하지 않았습니다. | 현재 변경과 구현 범위 표에 인용한 어슈어런스 트윈, Security Assessment, 보고 집중 테스트. | 운영 근거와 전달 표면을 연결한 다음 거버넌스가 적용된 런타임 증적을 수집합니다. |
 | 2026-08-21 | in-progress | 기본 Twin 컴파일러에서 lexical 자연어 grammar를 제거했습니다. 바인딩되지 않은 컴파일은 `semantic_model_unavailable`을 반환하며 결정론적 읽기 전용 검증기는 주입된 모든 컴파일러에 계속 authoritative합니다. | `current change`; 집중 Assurance Twin 검사 45개가 통과했고 semantic-routing guard에 migrate 경로가 없습니다. | 자연어 컴파일을 사용할 수 있다고 설명하기 전에 Twin 전용 모델 projection과 ChatOps 입력을 연결합니다. |
 
@@ -66,8 +68,10 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
 
 - [ ] 권위 있는 `Inventory` 출처를 변환 결과에 연결하고 신선도, 범위가 제한된 변경분 처리,
   결정론적 재생을 집중 통합 테스트로 입증합니다.
-- [ ] 모델 기반 자연어 컴파일과 ChatOps 입력을 구현하고 모든 질의가 읽기 전용으로 검증되며
-  지원되지 않는 질문은 근거가 있는 검토 필요 결과를 만드는지 테스트합니다.
+- [x] 프로바이더 중립 의미 컴파일 및 발견 경계를 구현하고, 수락된 모든 질의가 범위 제한,
+  근거 인용, 정확한 입력 연결, 읽기 전용 조건을 충족하며 지원되지 않는 질문은 명시적인
+  사용 불가 또는 모호성 결과를 만드는지 테스트합니다.
+- [ ] 구체적인 통제 모델 컴파일러와 ChatOps 입력을 연결하고 인증된 런타임 증적을 보존합니다.
 - [ ] 선제적 변경 이벤트를 운영 `IacReviewPublisher`에 연결하고 변경, 발견 사항, 규칙 근거,
   게시된 검토를 연결하는 거버넌스 적용 shadow 증적을 기록합니다.
 - [ ] 판단 보류된 질문과 수정 제안을 발견 및 정상 risk-gate 액션 경로로 보내고 Twin이 실행하거나
@@ -129,6 +133,9 @@ Finding: storage-x violates rule:object-storage.private-endpoint.required
 - **컴파일이 검증됨**: 컴파일된 질의는 온톨로지 스키마에 대해 well-typed여야 하고 읽기
   전용이어야 합니다; 검사를 통과하지 못한 질의는 실행되지 않고 거부됩니다. 이는 T2
   검증기와 동일한 실패 시 차단 자세입니다.
+- **컴파일 근거가 정확함**: 런타임 조립은 컴파일러 개정, 정확한 질문 다이제스트, 제한된 결과
+  수, 하나 이상의 근거 참조를 요구합니다. 유효하지 않거나 주입된 출력은 명시적 모호성 결과가
+  되며 내용 없는 발견 공백만 발행할 수 있습니다.
 - **답은 계층을 거침**: 정확한 규칙/그래프 매치는 **T0** 에서 해결되고; 알려진 패턴에
   가까운 모호한 질문은 **T1** 유사도를 쓰며; 진정으로 새롭거나 모호한 질문만 **T2** 에
   도달하고, T2 출력은 표시되기 전에
@@ -158,6 +165,12 @@ remediation-PR 제안**을 붙일 수 있습니다. 그것에 대해 행동하�
 자율 규칙 발견 루프로 후보로 발행됩니다(HIL 패턴과 재정의를 지켜보는 것과 같은 루프).
 후보는 출처 이력을 실으며 카탈로그에 들어가기 전에 표준 quality 게이트를 통과합니다; 트윈은
 카탈로그를 직접 mutate하지 않습니다. 따라서 지식 표면은 stale되는 대신 estate를 추적합니다.
+
+첫 설계에서는 모델을 직접 연결하고 모델을 사용할 수 없을 때 lexical 컴파일러를 사용하는 방안을
+검토했습니다. 이 대체 경로는 의미를 날조하고 표현 코드를 의미 권한으로 만들 수 있습니다.
+수정된 설계는 프로바이더 중립 컴파일러와 발견 경계를 제공하고 기본값을 명시적 사용 불가로
+유지하며 주입된 모든 계획을 결정론적으로 검증합니다. 발견 인계에는 질문 다이제스트와 판단
+보류 코드만 전달합니다. 원시 질문, 결정, 변경 권한은 이 경계를 통과하지 않습니다.
 
 ## 시뮬레이터로서의 트윈 (그래프 전체에 대한 what-if)
 
