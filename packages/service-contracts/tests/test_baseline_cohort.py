@@ -11,9 +11,12 @@ from fdai_service_contracts.baseline_cohort import (
     BaselineTreatmentCohortReceipt,
     CohortArm,
     CohortArtifactOrigin,
+    CohortClaimAssessment,
     CohortClaimRejectionReason,
     CohortClaimRequirement,
     baseline_treatment_cohort_receipt_digest,
+    cohort_arm_fact_digest,
+    cohort_arm_fact_digest_values,
     evaluate_cohort_claim,
     missing_cohort_claim,
 )
@@ -41,7 +44,7 @@ FRESHNESS_SECONDS = 86_400
 
 def _evidence_receipt(
     *,
-    report_digest: str,
+    evidence_digest: str,
     provenance_digest: str,
     synthetic: bool = False,
     source_revision: str = REVISION,
@@ -60,7 +63,7 @@ def _evidence_receipt(
         "method_id": method_id,
         "method_version": "1.0.0",
         "source_revision": source_revision,
-        "evidence_digest": report_digest,
+        "evidence_digest": evidence_digest,
         "provenance_digest": provenance_digest,
         "event_at": NOW - timedelta(hours=2),
         "evidence_cutoff": NOW - timedelta(hours=1),
@@ -98,7 +101,7 @@ def _arm(
     metric_sample_count: int | None = None,
 ) -> dict[str, Any]:
     metric_samples = sample_count if metric_sample_count is None else metric_sample_count
-    return {
+    facts: dict[str, Any] = {
         "arm": arm,
         "scenario_set_version": scenario_set_version,
         "scenario_set_digest": SCENARIO_SET_DIGEST,
@@ -139,9 +142,12 @@ def _arm(
                 "breached": False,
             },
         ),
+    }
+    return {
+        **facts,
         "evidence_receipt": evidence
         or _evidence_receipt(
-            report_digest=report_digest,
+            evidence_digest=cohort_arm_fact_digest_values(**facts),
             provenance_digest=provenance_digest,
             synthetic=synthetic,
             source_revision=fdai_revision,
@@ -198,6 +204,8 @@ def _requirement(**overrides: Any) -> CohortClaimRequirement:
         "freshness_ceiling_seconds": FRESHNESS_SECONDS,
     }
     values: dict[str, Any] = {
+        "policy_id": "sre-cohort-claim",
+        "policy_version": "1.0.0",
         "scenario_set_version": SCENARIO_SET,
         "scenario_set_digest": SCENARIO_SET_DIGEST,
         "fdai_revision": REVISION,
@@ -232,8 +240,52 @@ def test_a_governed_admitted_cohort_is_claim_eligible() -> None:
     assert assessment.claim_eligible is True
     assert assessment.rejection_reasons == ()
     assert assessment.receipt_digest == receipt.receipt_digest
+    assert assessment.artifact_origin is CohortArtifactOrigin.GOVERNED_EXTERNAL
     assert assessment.execution_authority is False
     assert tuple(arm.arm for arm in assessment.arms) == (CohortArm.BASELINE, CohortArm.TREATMENT)
+
+
+def test_the_arm_fact_digest_covers_every_evaluated_fact() -> None:
+    receipt = _receipt()
+    baseline = receipt.baseline
+    original = cohort_arm_fact_digest(baseline)
+
+    assert baseline.evidence_receipt.evidence_digest == original
+    mutations = (
+        {"sample_count": baseline.sample_count + 1},
+        {"synthetic": True},
+        {"metrics_complete": False},
+        {"provenance_complete": False},
+        {"report_digest": "sha256:" + "a" * 64},
+        {"provenance_digest": "sha256:" + "b" * 64},
+        {"scenario_set_digest": "sha256:" + "c" * 64},
+        {"fdai_revision": "git:fedcba9876543210fedcba9876543210fedcba98"},
+        {"scenario_set_version": "v2026.08"},
+        {"arm": CohortArm.TREATMENT},
+        {
+            "metrics": (
+                baseline.metrics[0].model_copy(update={"absolute_value": 0.41}),
+                baseline.metrics[1],
+            )
+        },
+        {
+            "metrics": (
+                baseline.metrics[0].model_copy(update={"upper_bound": 0.61}),
+                baseline.metrics[1],
+            )
+        },
+        {
+            "guards": (
+                baseline.guards[0].model_copy(
+                    update={"observed_basis_points": 5, "breached": True}
+                ),
+                baseline.guards[1],
+            )
+        },
+    )
+    for mutation in mutations:
+        mutated = baseline.model_copy(update=mutation)
+        assert cohort_arm_fact_digest(mutated) != original, mutation
 
 
 def test_a_missing_receipt_fails_closed() -> None:
@@ -242,6 +294,7 @@ def test_a_missing_receipt_fails_closed() -> None:
     assert assessment.claim_eligible is False
     assert assessment.rejection_reasons == (CohortClaimRejectionReason.RECEIPT_MISSING,)
     assert assessment.receipt_digest is None
+    assert assessment.artifact_origin is CohortArtifactOrigin.REPOSITORY
     assert evaluate_cohort_claim(None, _requirement(), evaluated_at=NOW) == assessment
 
 
@@ -266,6 +319,7 @@ def test_a_repository_artifact_cannot_claim_eligibility() -> None:
 
     assert assessment.claim_eligible is False
     assert assessment.rejection_reasons == (CohortClaimRejectionReason.ARTIFACT_UNGOVERNED,)
+    assert assessment.artifact_origin is CohortArtifactOrigin.REPOSITORY
 
 
 @pytest.mark.parametrize(
@@ -317,7 +371,7 @@ def test_a_report_digest_that_the_receipt_does_not_cover_fails_closed() -> None:
         report_digest=TREATMENT_REPORT_DIGEST,
         provenance_digest=TREATMENT_PROVENANCE_DIGEST,
         evidence=_evidence_receipt(
-            report_digest=unrelated,
+            evidence_digest=unrelated,
             provenance_digest=TREATMENT_PROVENANCE_DIGEST,
         ),
     )
@@ -331,7 +385,74 @@ def test_a_report_digest_that_the_receipt_does_not_cover_fails_closed() -> None:
     )
 
     assert assessment.claim_eligible is False
+    assert CohortClaimRejectionReason.ARM_FACT_MISMATCH in assessment.rejection_reasons
+
+
+def test_a_provenance_digest_the_receipt_does_not_cover_fails_closed() -> None:
+    treatment = _arm(
+        CohortArm.TREATMENT,
+        report_digest=TREATMENT_REPORT_DIGEST,
+        provenance_digest=TREATMENT_PROVENANCE_DIGEST,
+    )
+    treatment["evidence_receipt"] = _evidence_receipt(
+        evidence_digest=treatment["evidence_receipt"].evidence_digest,
+        provenance_digest="sha256:" + "d" * 64,
+    )
+    receipt = _receipt(treatment=treatment)
+
+    assessment = evaluate_cohort_claim(
+        receipt,
+        _requirement(),
+        evaluated_at=NOW,
+        admitted_receipt_digests=_admitted(receipt),
+    )
+
+    assert assessment.claim_eligible is False
     assert CohortClaimRejectionReason.REPORT_DIGEST_MISMATCH in assessment.rejection_reasons
+
+
+def test_two_arms_that_reuse_one_report_are_never_eligible() -> None:
+    shared = _arm(
+        CohortArm.TREATMENT,
+        report_digest=BASELINE_REPORT_DIGEST,
+        provenance_digest=BASELINE_PROVENANCE_DIGEST,
+    )
+    receipt = _receipt(treatment=shared)
+
+    assessment = evaluate_cohort_claim(
+        receipt,
+        _requirement(),
+        evaluated_at=NOW,
+        admitted_receipt_digests=_admitted(receipt),
+    )
+
+    assert assessment.claim_eligible is False
+    assert CohortClaimRejectionReason.ARMS_NOT_DISTINCT in assessment.rejection_reasons
+
+
+def test_two_arms_that_reuse_one_evidence_receipt_are_never_eligible() -> None:
+    baseline = _arm(
+        CohortArm.BASELINE,
+        report_digest=BASELINE_REPORT_DIGEST,
+        provenance_digest=BASELINE_PROVENANCE_DIGEST,
+    )
+    treatment = _arm(
+        CohortArm.TREATMENT,
+        report_digest=TREATMENT_REPORT_DIGEST,
+        provenance_digest=TREATMENT_PROVENANCE_DIGEST,
+        evidence=baseline["evidence_receipt"],
+    )
+    receipt = _receipt(baseline=baseline, treatment=treatment)
+
+    assessment = evaluate_cohort_claim(
+        receipt,
+        _requirement(),
+        evaluated_at=NOW,
+        admitted_receipt_digests=_admitted(receipt),
+    )
+
+    assert assessment.claim_eligible is False
+    assert CohortClaimRejectionReason.ARMS_NOT_DISTINCT in assessment.rejection_reasons
 
 
 def test_a_mixed_revision_cohort_fails_closed() -> None:
@@ -403,6 +524,30 @@ def test_a_tampered_cohort_receipt_digest_is_rejected() -> None:
 
     with pytest.raises(ValidationError, match="digest does not match"):
         BaselineTreatmentCohortReceipt.model_validate(payload)
+
+
+def test_the_producer_helper_reproduces_the_evaluated_arm_fact_digest() -> None:
+    arm = _arm(
+        CohortArm.BASELINE,
+        report_digest=BASELINE_REPORT_DIGEST,
+        provenance_digest=BASELINE_PROVENANCE_DIGEST,
+    )
+
+    assert cohort_arm_fact_digest_values(**arm) == cohort_arm_fact_digest(_receipt().baseline)
+
+
+def test_an_eligible_verdict_cannot_cite_a_repository_artifact() -> None:
+    with pytest.raises(ValidationError, match="governed external artifact"):
+        CohortClaimAssessment.model_validate(
+            {
+                "evaluated_at": NOW,
+                "claim_eligible": True,
+                "rejection_reasons": (),
+                "arms": (),
+                "receipt_digest": SCENARIO_SET_DIGEST,
+                "artifact_origin": CohortArtifactOrigin.REPOSITORY,
+            }
+        )
 
 
 def test_an_arm_MUST_carry_ordered_unique_measures() -> None:

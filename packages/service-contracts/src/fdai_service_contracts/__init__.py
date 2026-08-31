@@ -24,6 +24,8 @@ from fdai_service_contracts.baseline_cohort import (
     CohortGuardOutcome,
     CohortMetricEstimate,
     baseline_treatment_cohort_receipt_digest,
+    cohort_arm_fact_digest,
+    cohort_arm_fact_digest_values,
     evaluate_cohort_claim,
     missing_cohort_claim,
 )
@@ -716,6 +718,8 @@ __all__ = [
     "expected_verification_subjects",
     "decision_critical_evidence_receipt_digest",
     "disclose_cost_records",
+    "cohort_arm_fact_digest",
+    "cohort_arm_fact_digest_values",
     "ensure_supported_version",
     "evaluate_cohort_claim",
     "executor_action_payload_digest",

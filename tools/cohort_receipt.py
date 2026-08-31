@@ -1,19 +1,26 @@
 """Repository-safe importer for a governed baseline and treatment cohort claim.
 
-A cohort claim bundle is produced outside this repository by governed
-deployment evidence. This module only parses it, validates it against the
-shipped contracts, and hands it to the deterministic evaluator. It never
-authenticates evidence, never admits it, and never grants authority: a
-bundle without a current independent admission stays ineligible.
+A cohort claim artifact is produced outside this repository by governed
+deployment evidence. This module only parses the retained receipt, validates it
+against the shipped contracts, and hands it to the deterministic evaluator.
+
+Two things it deliberately never reads from the artifact:
+
+- the :class:`CohortClaimRequirement`, which comes from the trusted versioned
+  repository policy, so an artifact cannot weaken what it is measured against,
+  and
+- any :class:`DecisionEvidenceAdmission`, which comes only from an injected
+  trusted admission provider. An importer without a provider therefore always
+  leaves the claim ineligible, no matter what digests the artifact invents.
 """
 
 from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from fdai.core.measurement.baseline_cohort_claim import evaluate_admitted_cohort_claim
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
@@ -24,9 +31,29 @@ from fdai_service_contracts.baseline_cohort import (
     missing_cohort_claim,
 )
 
+#: Keys an artifact MUST NOT carry, because each one would let the artifact
+#: describe its own eligibility instead of being measured by trusted inputs.
+UNTRUSTED_BUNDLE_KEYS: tuple[str, ...] = (
+    "admissions",
+    "admitted_receipt_digests",
+    "claim_eligible",
+    "policy",
+    "requirement",
+    "verification_bundles",
+)
+
 
 class CohortClaimBundleError(ValueError):
-    """Raised when a cohort claim bundle cannot be read as governed evidence."""
+    """Raised when a cohort claim artifact cannot be read as governed evidence."""
+
+
+class CohortAdmissionProvider(Protocol):
+    """Return the trusted admissions currently covering one cohort receipt."""
+
+    def admissions_for(
+        self,
+        receipt: BaselineTreatmentCohortReceipt,
+    ) -> tuple[DecisionEvidenceAdmission, ...]: ...
 
 
 def _require_mapping(raw: Any, name: str) -> Mapping[str, Any]:
@@ -35,77 +62,48 @@ def _require_mapping(raw: Any, name: str) -> Mapping[str, Any]:
     return raw
 
 
-def _admission(raw: Any) -> DecisionEvidenceAdmission:
-    values = _require_mapping(raw, "admission")
-    try:
-        return DecisionEvidenceAdmission(
-            receipt_digest=str(values["receipt_digest"]),
-            verification_bundle_digest=str(values["verification_bundle_digest"]),
-            evidence_digest=str(values["evidence_digest"]),
-            scope_digest=str(values["scope_digest"]),
-            purpose_id=str(values["purpose_id"]),
-            source_revision=str(values["source_revision"]),
-            verified_at=_timestamp(values["verified_at"]),
-            valid_until=_timestamp(values["valid_until"]),
-        )
-    except (KeyError, TypeError, ValueError) as error:
-        raise CohortClaimBundleError(f"invalid cohort claim admission: {error}") from error
-
-
-def _timestamp(raw: Any) -> datetime:
-    value = datetime.fromisoformat(str(raw))
-    if value.tzinfo is None or value.utcoffset() is None:
-        raise ValueError("cohort claim timestamps MUST include a timezone")
-    return value.astimezone(UTC)
-
-
-def load_cohort_claim_bundle(
-    path: Path,
-) -> tuple[
-    BaselineTreatmentCohortReceipt,
-    CohortClaimRequirement,
-    tuple[DecisionEvidenceAdmission, ...],
-]:
-    """Parse one governed bundle into its receipt, requirement, and admissions."""
+def load_cohort_claim_receipt(path: Path) -> BaselineTreatmentCohortReceipt:
+    """Parse one governed artifact into its retained receipt and nothing else."""
 
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         raise CohortClaimBundleError(f"unreadable cohort claim bundle: {error}") from error
     body = _require_mapping(raw, "bundle")
-    try:
-        receipt = BaselineTreatmentCohortReceipt.model_validate(
-            _require_mapping(body.get("receipt"), "receipt")
+    present = sorted(key for key in UNTRUSTED_BUNDLE_KEYS if key in body)
+    if present:
+        raise CohortClaimBundleError(
+            "a cohort claim bundle MUST NOT carry its own trust inputs: " + ", ".join(present)
         )
-        requirement = CohortClaimRequirement.model_validate(
-            _require_mapping(body.get("requirement"), "requirement")
+    try:
+        return BaselineTreatmentCohortReceipt.model_validate(
+            _require_mapping(body.get("receipt"), "receipt")
         )
     except ValueError as error:
         raise CohortClaimBundleError(f"invalid cohort claim bundle: {error}") from error
-    admissions_raw = body.get("admissions", [])
-    if not isinstance(admissions_raw, list):
-        raise CohortClaimBundleError("cohort claim bundle admissions MUST be an array")
-    return receipt, requirement, tuple(_admission(item) for item in admissions_raw)
 
 
 def evaluate_cohort_claim_bundle(
     path: Path | None,
+    requirement: CohortClaimRequirement,
     *,
     evaluated_at: datetime,
+    admission_provider: CohortAdmissionProvider | None = None,
     expected_scenario_set_version: str | None = None,
 ) -> CohortClaimAssessment:
-    """Return the deterministic eligibility of a bundle, or of its absence."""
+    """Return the deterministic eligibility of an artifact, or of its absence."""
 
     if path is None:
         return missing_cohort_claim(evaluated_at=evaluated_at)
-    receipt, requirement, admissions = load_cohort_claim_bundle(path)
+    receipt = load_cohort_claim_receipt(path)
     if (
         expected_scenario_set_version is not None
         and requirement.scenario_set_version != expected_scenario_set_version
     ):
         raise CohortClaimBundleError(
-            "cohort claim bundle does not describe the replayed frozen scenario set"
+            "cohort claim policy does not describe the replayed frozen scenario set"
         )
+    admissions = () if admission_provider is None else admission_provider.admissions_for(receipt)
     return evaluate_admitted_cohort_claim(
         receipt,
         requirement,
@@ -115,7 +113,9 @@ def evaluate_cohort_claim_bundle(
 
 
 __all__ = [
+    "UNTRUSTED_BUNDLE_KEYS",
+    "CohortAdmissionProvider",
     "CohortClaimBundleError",
     "evaluate_cohort_claim_bundle",
-    "load_cohort_claim_bundle",
+    "load_cohort_claim_receipt",
 ]

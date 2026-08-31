@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0.0",
+  "policy_id": "sre-cohort-claim",
+  "policy_version": "1.0.0",
+  "scenario_set_version": "v2026.07",
+  "scenario_set_digest": "sha256:59b1592baf7c58e7fcab3711a65e4b0b19a9023426cb9e237609379fe118e8ba",
+  "minimum_sample_size": 30,
+  "required_metric_ids": [
+    "auto_resolution_rate",
+    "change_lead_time_seconds",
+    "cost_per_unit_usd",
+    "human_touchpoints_per_100_events",
+    "mttr_seconds"
+  ],
+  "required_guard_ids": [
+    "policy_violation_escape_rate",
+    "unauthorized_execution_rate",
+    "unverified_success_claim_rate",
+    "wrong_target_or_stale_revision_execution_rate"
+  ],
+  "evidence": {
+    "allowed_authority_classes": [
+      "deployment_observation"
+    ],
+    "allowed_source_identities": [
+      "principal:sre-cohort-runner"
+    ],
+    "purpose_id": "sre-claim-cohort",
+    "producer_id": "cohort-runner",
+    "producer_version": "1.0.0",
+    "method_id": "frozen-scenario-replay",
+    "method_version": "1.0.0",
+    "minimum_completeness_basis_points": 10000
+  },
+  "freshness_policy": {
+    "policy_id": "sre-cohort-claim-freshness",
+    "policy_version": "1.0.0",
+    "ceiling_seconds": 86400
+  }
+}

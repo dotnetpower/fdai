@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-31T06:42:54.497314+00:00",
+  "generated_at": "2026-08-31T07:21:05.666949+00:00",
   "reference_agent": "reference-agent-stub@1.0.0",
   "scenario_set_version": "v2026.07",
   "scenario_count": 12,
@@ -124,6 +124,22 @@
     "receipt_digest": null,
     "minimum_sample_size": 30,
     "artifact_origin": "repository",
+    "policy_id": "sre-cohort-claim",
+    "policy_version": "1.0.0",
+    "scenario_set_digest": "sha256:59b1592baf7c58e7fcab3711a65e4b0b19a9023426cb9e237609379fe118e8ba",
+    "required_metric_ids": [
+      "auto_resolution_rate",
+      "change_lead_time_seconds",
+      "cost_per_unit_usd",
+      "human_touchpoints_per_100_events",
+      "mttr_seconds"
+    ],
+    "required_guard_ids": [
+      "policy_violation_escape_rate",
+      "unauthorized_execution_rate",
+      "unverified_success_claim_rate",
+      "wrong_target_or_stale_revision_execution_rate"
+    ],
     "external_residual": "governed non-synthetic baseline and treatment cohorts of at least 30 samples each, retained on one pinned revision and the identical frozen scenario set, with a current independent decision-evidence admission"
   },
   "release_gate": {

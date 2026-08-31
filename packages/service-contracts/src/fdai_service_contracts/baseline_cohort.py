@@ -16,7 +16,7 @@ from fdai_service_contracts.decision_evidence import (
     SourceIdentity,
     assess_live_evidence_claim,
 )
-from fdai_service_contracts.executor_models import ContractBase, Digest
+from fdai_service_contracts.executor_models import ContractBase, Digest, SemVer
 from fdai_service_contracts.ontology_query import content_digest
 
 MetricId = Annotated[str, Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_]{0,63}$")]
@@ -77,8 +77,8 @@ class CohortGuardOutcome(ContractBase):
         return self
 
 
-class CohortArmReport(ContractBase):
-    """One arm's retained report, bound to its decision-critical evidence receipt."""
+class _CohortArmFacts(ContractBase):
+    """Every evaluated fact of one arm, without its evidence receipt."""
 
     arm: CohortArm
     scenario_set_version: ScenarioSetVersion
@@ -98,16 +98,49 @@ class CohortArmReport(ContractBase):
         tuple[CohortGuardOutcome, ...],
         Field(min_length=1, max_length=_MAX_MEASURES),
     ]
-    evidence_receipt: DecisionCriticalEvidenceReceipt
 
     @model_validator(mode="after")
-    def _validate_arm(self) -> CohortArmReport:
+    def _validate_arm(self) -> _CohortArmFacts:
         metric_ids = tuple(metric.metric_id for metric in self.metrics)
         guard_ids = tuple(guard.guard_id for guard in self.guards)
         for label, values in (("metric", metric_ids), ("guard", guard_ids)):
             if values != tuple(sorted(values)) or len(values) != len(set(values)):
                 raise ValueError(f"cohort {label} identifiers MUST be unique and ordered")
         return self
+
+
+class CohortArmReport(_CohortArmFacts):
+    """One arm's retained report, bound to its decision-critical evidence receipt."""
+
+    evidence_receipt: DecisionCriticalEvidenceReceipt
+
+
+def cohort_arm_fact_digest(report: CohortArmReport) -> str:
+    """Return the canonical digest of every fact the evaluator reads for one arm.
+
+    The digest covers the arm identity, its frozen scenario set and digest, its
+    pinned revision, its retained sample count, every absolute metric with its
+    confidence interval, every zero-threshold guard outcome, the metric and
+    provenance completeness flags, the synthetic status, and the report and
+    provenance digests. An admission is only accepted for an arm when it was
+    issued against exactly this digest, so an admission cannot be replayed onto
+    a differently valued arm.
+    """
+
+    return content_digest(report.model_dump(mode="json", exclude={"evidence_receipt"}))
+
+
+def cohort_arm_fact_digest_values(**values: object) -> str:
+    """Return the canonical arm fact digest for an arm still being assembled.
+
+    A governed producer needs this digest before it can mint the arm's evidence
+    receipt, because the receipt's ``evidence_digest`` MUST be exactly it.
+    """
+
+    body = dict(values)
+    body.pop("evidence_receipt", None)
+    candidate = _CohortArmFacts.model_validate(body)
+    return content_digest(candidate.model_dump(mode="json"))
 
 
 class _BaselineTreatmentCohortReceiptBody(ContractBase):
@@ -148,8 +181,16 @@ class BaselineTreatmentCohortReceipt(_BaselineTreatmentCohortReceiptBody):
 
 
 class CohortClaimRequirement(ContractBase):
-    """Governed expectation a cohort artifact is evaluated against."""
+    """Governed expectation a cohort artifact is evaluated against.
 
+    This contract is never deserialized from a cohort artifact. It is built
+    only from the trusted versioned repository policy plus an expected revision
+    supplied by the trusted caller, so an evidence bundle cannot weaken the
+    metrics, guards, frozen set, or minimum sample size it is measured against.
+    """
+
+    policy_id: EvidenceId
+    policy_version: SemVer
     scenario_set_version: ScenarioSetVersion
     scenario_set_digest: Digest
     fdai_revision: SourceIdentity
@@ -190,6 +231,8 @@ class CohortClaimRequirement(ContractBase):
 class CohortClaimRejectionReason(StrEnum):
     """Why a retained cohort cannot support a published claim."""
 
+    ARM_FACT_MISMATCH = "arm_fact_mismatch"
+    ARMS_NOT_DISTINCT = "arms_not_distinct"
     ARTIFACT_UNGOVERNED = "artifact_ungoverned"
     CONFIDENCE_INTERVAL_INCOMPLETE = "confidence_interval_incomplete"
     COHORT_UNDERSIZED = "cohort_undersized"
@@ -228,6 +271,7 @@ class CohortClaimAssessment(ContractBase):
     rejection_reasons: tuple[CohortClaimRejectionReason, ...]
     arms: tuple[CohortArmAssessment, ...] = ()
     receipt_digest: Digest | None = None
+    artifact_origin: CohortArtifactOrigin = CohortArtifactOrigin.REPOSITORY
     execution_authority: Literal[False] = False
 
     @field_validator("evaluated_at")
@@ -248,6 +292,11 @@ class CohortClaimAssessment(ContractBase):
             raise ValueError("cohort claim reasons MUST include every arm reason")
         if self.claim_eligible and self.receipt_digest is None:
             raise ValueError("an eligible cohort claim MUST cite its receipt digest")
+        if (
+            self.claim_eligible
+            and self.artifact_origin is not CohortArtifactOrigin.GOVERNED_EXTERNAL
+        ):
+            raise ValueError("an eligible cohort claim MUST cite a governed external artifact")
         return self
 
 
@@ -281,8 +330,8 @@ def _assess_arm(
         reasons.add(CohortClaimRejectionReason.REVISION_MISMATCH)
     if report.evidence_receipt.scope_digest != report.scenario_set_digest:
         reasons.add(CohortClaimRejectionReason.SCENARIO_SET_MISMATCH)
-    if report.evidence_receipt.evidence_digest != report.report_digest:
-        reasons.add(CohortClaimRejectionReason.REPORT_DIGEST_MISMATCH)
+    if report.evidence_receipt.evidence_digest != cohort_arm_fact_digest(report):
+        reasons.add(CohortClaimRejectionReason.ARM_FACT_MISMATCH)
     if report.evidence_receipt.provenance_digest != report.provenance_digest:
         reasons.add(CohortClaimRejectionReason.REPORT_DIGEST_MISMATCH)
     if report.sample_count < requirement.minimum_sample_size:
@@ -330,6 +379,19 @@ def missing_cohort_claim(*, evaluated_at: datetime) -> CohortClaimAssessment:
         evaluated_at=CohortClaimAssessment._normalize_evaluated_at(evaluated_at),
         claim_eligible=False,
         rejection_reasons=(CohortClaimRejectionReason.RECEIPT_MISSING,),
+        artifact_origin=CohortArtifactOrigin.REPOSITORY,
+    )
+
+
+def _arms_share_evidence(receipt: BaselineTreatmentCohortReceipt) -> bool:
+    """Return whether the two arms reuse one report, provenance, or receipt."""
+
+    baseline, treatment = receipt.baseline, receipt.treatment
+    return (
+        baseline.report_digest == treatment.report_digest
+        or baseline.provenance_digest == treatment.provenance_digest
+        or baseline.evidence_receipt.receipt_digest == treatment.evidence_receipt.receipt_digest
+        or baseline.evidence_receipt.evidence_digest == treatment.evidence_receipt.evidence_digest
     )
 
 
@@ -340,7 +402,13 @@ def evaluate_cohort_claim(
     evaluated_at: datetime,
     admitted_receipt_digests: frozenset[str] = frozenset(),
 ) -> CohortClaimAssessment:
-    """Return eligible only for a governed, complete, non-synthetic, admitted cohort."""
+    """Return eligible only for a governed, complete, non-synthetic, admitted cohort.
+
+    ``requirement`` MUST come from the trusted repository policy and
+    ``admitted_receipt_digests`` MUST come from a trusted admission source. A
+    caller that passes neither - which is what the repository importer does on
+    its own - never reaches an eligible verdict.
+    """
 
     normalized_at = CohortClaimAssessment._normalize_evaluated_at(evaluated_at)
     if receipt is None:
@@ -361,6 +429,8 @@ def evaluate_cohort_claim(
         reasons.add(CohortClaimRejectionReason.SCENARIO_SET_MISMATCH)
     if receipt.baseline.fdai_revision != receipt.treatment.fdai_revision:
         reasons.add(CohortClaimRejectionReason.REVISION_MISMATCH)
+    if _arms_share_evidence(receipt):
+        reasons.add(CohortClaimRejectionReason.ARMS_NOT_DISTINCT)
 
     arms = (
         _assess_arm(
@@ -387,6 +457,7 @@ def evaluate_cohort_claim(
         rejection_reasons=ordered,
         arms=arms,
         receipt_digest=receipt.receipt_digest,
+        artifact_origin=receipt.artifact_origin,
     )
 
 
@@ -403,6 +474,8 @@ __all__ = [
     "CohortGuardOutcome",
     "CohortMetricEstimate",
     "baseline_treatment_cohort_receipt_digest",
+    "cohort_arm_fact_digest",
+    "cohort_arm_fact_digest_values",
     "evaluate_cohort_claim",
     "missing_cohort_claim",
 ]
