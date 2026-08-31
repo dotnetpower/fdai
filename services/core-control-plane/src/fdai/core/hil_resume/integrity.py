@@ -46,16 +46,21 @@ def action_payload_hash(action: Mapping[str, Any]) -> str:
 
 
 def parked_action_integrity_matches(parked: Mapping[str, Any]) -> bool:
-    """Accept only an action whose payload still matches its parked digest."""
+    """Accept only an action whose payload still matches its parked digest.
+
+    Every park and escalation records ``action_hash``, so a record that carries
+    no digest cannot be proven untampered. Such a record fails closed: an actor
+    who can edit the parked state would otherwise drop the digest along with the
+    payload it protects and pass this gate.
+    """
     expected = parked.get("action_hash")
     escalation = parked.get("escalation")
     if expected is None and isinstance(escalation, Mapping):
         expected = escalation.get("action_hash")
-    if expected is None:
-        return True
     action = parked.get("action")
     return (
         isinstance(expected, str)
+        and bool(expected)
         and isinstance(action, Mapping)
         and expected == action_payload_hash(action)
     )

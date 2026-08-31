@@ -16,6 +16,8 @@ A Workflow approval step cannot lower the no-self-approval invariant; the contra
 disabled value at catalog load.
 DR objective evidence reports a nearest-rank p90, so a small cohort keeps its slowest measured
 run instead of reporting an objective as met.
+A parked HIL record without a recorded action digest fails the integrity gate instead of
+resuming, so removing the digest cannot authorize a tampered payload.
 
 ## Core domain navigation decision
 
