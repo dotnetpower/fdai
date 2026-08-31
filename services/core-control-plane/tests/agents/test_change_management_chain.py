@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import cast
 
 import pytest
@@ -12,8 +12,10 @@ from fdai.agents.muninn import Muninn
 from fdai.core.impact_analysis import (
     AffectedSet,
     ChangeAssessment,
+    ChangeAssessmentService,
     ChangeGraphEvidenceReceipt,
     GraphEvidenceReleaseState,
+    ImpactAnalyzer,
 )
 from fdai.core.ontology_platform.graph_evidence_refresh import GraphEvidenceFreshness
 from fdai.core.operational_context import (
@@ -22,6 +24,12 @@ from fdai.core.operational_context import (
     OperationalContextSnapshot,
 )
 from fdai.shared.contracts.models import Autonomy
+from fdai.shared.providers.ontology_instance import (
+    OntologyGraphSnapshot,
+    OntologyInstanceStore,
+    OntologyLinkRecord,
+    OntologyObjectRecord,
+)
 from fdai.shared.providers.state_evidence import (
     LinkObservationMetadata,
     StateFactAuthority,
@@ -175,24 +183,28 @@ def _planned_event() -> dict[str, object]:
 
 
 class _OperationalContext:
-    def __init__(self) -> None:
+    def __init__(self, evidence_case: str = "current") -> None:
         self.calls: list[dict[str, object]] = []
+        self.evidence_case = evidence_case
 
     async def materialize(self, **kwargs: object) -> OperationalContextSnapshot:
         self.calls.append(dict(kwargs))
         observed_at = datetime(2026, 8, 4, tzinfo=UTC)
+        evidence_time = (
+            observed_at + timedelta(seconds=1) if self.evidence_case == "future" else observed_at
+        )
         observation = LinkObservationMetadata(
             state_fact=StateFactMetadata(
                 lane=StateFactLane.OBSERVED,
                 authority=StateFactAuthority.PROVIDER,
                 source_identity="inventory-provider",
                 source_revision="inventory-revision-1",
-                effective_at=observed_at,
-                recorded_at=observed_at,
-                evidence_cutoff=observed_at,
+                effective_at=evidence_time,
+                recorded_at=evidence_time,
+                evidence_cutoff=evidence_time,
                 freshness_ceiling_seconds=300,
                 completeness=1.0,
-                synthetic=False,
+                synthetic=self.evidence_case == "synthetic",
                 evidence_refs=("inventory:evidence-1",),
             ),
             verification_method="provider-readback",
@@ -206,7 +218,16 @@ class _OperationalContext:
             target_resource_id="resource-1",
             cutoff=observed_at,
             recorded_at=observed_at,
-            catalog_versions=(("ontology", "sha256:ontology-release-1"),),
+            catalog_versions=(
+                (
+                    "ontology",
+                    (
+                        "sha256:ontology-release-2"
+                        if self.evidence_case == "mixed"
+                        else "sha256:ontology-release-1"
+                    ),
+                ),
+            ),
             service_ids=("service-1",),
             workload_ids=("workload-1",),
             objective_ids=("objective-1",),
@@ -227,9 +248,42 @@ class _OperationalContext:
             ),
             evidence_paths=(),
             temporal_exclusions=(),
-            stale_sources=(),
-            conflicts=(),
-            autonomy_ceiling=Autonomy.ENFORCE_AUTO,
+            stale_sources=(("inventory-provider",) if self.evidence_case == "stale" else ()),
+            conflicts=(
+                ("ownership_conflict",)
+                if self.evidence_case == "conflicting"
+                else (("context_graph_truncated",) if self.evidence_case == "truncated" else ())
+            ),
+            autonomy_ceiling=(
+                Autonomy.ENFORCE_AUTO if self.evidence_case == "current" else Autonomy.SHADOW_ONLY
+            ),
+            graph_source_complete=self.evidence_case != "incomplete",
+            graph_source_generation="inventory-generation-1",
+        )
+
+
+class _ImpactStore:
+    async def traverse(self, **_kwargs: object) -> OntologyGraphSnapshot:
+        return OntologyGraphSnapshot(
+            objects=(
+                OntologyObjectRecord("resource-1", "Resource", {"id": "resource-1"}),
+                OntologyObjectRecord("workload-1", "Workload", {"id": "workload-1"}),
+                OntologyObjectRecord("service-1", "BusinessService", {"id": "service-1"}),
+                OntologyObjectRecord(
+                    "objective-1",
+                    "ServiceObjective",
+                    {"id": "objective-1"},
+                ),
+            ),
+            links=(
+                OntologyLinkRecord("workload_runs_on", "workload-1", "resource-1"),
+                OntologyLinkRecord("implemented_by", "service-1", "workload-1"),
+                OntologyLinkRecord(
+                    "service_has_service_objective",
+                    "service-1",
+                    "objective-1",
+                ),
+            ),
         )
 
 
@@ -251,6 +305,47 @@ async def test_forseti_sources_planned_change_graph_evidence_from_exact_context(
     assert receipt.release_state is GraphEvidenceReleaseState.ALIGNED
     assert receipt.authenticated is True
     assert operational_context.calls[0]["require_verified_links"] is True
+
+
+@pytest.mark.parametrize(
+    ("evidence_case", "expected_reason"),
+    (
+        ("stale", "graph_stale"),
+        ("mixed", "graph_release_mixed"),
+        ("incomplete", "graph_source_incomplete"),
+        ("conflicting", "ownership_conflict"),
+        (
+            "synthetic",
+            "link_evidence_synthetic:workload_runs_on:workload-1:resource-1",
+        ),
+        (
+            "future",
+            "link_evidence_after_cutoff:workload_runs_on:workload-1:resource-1",
+        ),
+        ("truncated", "graph_truncated"),
+    ),
+)
+async def test_forseti_requires_review_for_unsafe_graph_evidence(
+    evidence_case: str,
+    expected_reason: str,
+) -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+    assessor = ChangeAssessmentService(
+        analyzer=ImpactAnalyzer(store=cast(OntologyInstanceStore, _ImpactStore()))
+    )
+    operational_context = _OperationalContext(evidence_case)
+    forseti = Forseti(
+        bus=bus,
+        change_assessor=assessor,
+        operational_context=cast(OperationalContextMaterializer, operational_context),
+    )
+
+    await forseti.on_typed_message("object.event", _planned_event())
+
+    verdict = bus.messages_on("object.verdict")[-1].payload
+    assert verdict["risk_verdict"] == "hil"
+    assert verdict["change_assessment_status"] == "review"
+    assert expected_reason in verdict["change_assessment"]["reasons"]
 
 
 async def test_forseti_lowers_planned_change_to_human_review() -> None:
