@@ -44,25 +44,46 @@ def normalize_ontology_manifest_count_frame(
         or judgment.action_posture != "advise_only"
         or judgment.primary_intent != "query.ontology_declaration"
         or "count" not in judgment.requested_facets
-        or len(judgment.targets) != 1
         or frame.operation is not SemanticOperation.AGGREGATE
         or frame.output_shape != SemanticOutputShape.AGGREGATION_TABLE
         or frame.unresolved_terms
         or proposal.clarification_requirements
     ):
         return proposal, frame
-    canonical_value = judgment.targets[0].canonical_value
-    if not isinstance(canonical_value, str) or not canonical_value.endswith("Type"):
-        return proposal, frame
-    try:
-        declaration_kind = OntologyDeclarationKind(canonical_value.removesuffix("Type").casefold())
-    except ValueError:
+    declaration_kind = _declaration_kind(frame, judgment)
+    if declaration_kind is None:
         return proposal, frame
     updates: dict[str, Any] = {}
     updates["subject_constraints"] = (declaration_kind.value,)
     updates["measure_concepts"] = ("count",)
     normalized = proposal.model_copy(update=updates)
     return normalized, build_semantic_frame(normalized, utterance=utterance, context=context)
+
+
+def _declaration_kind(
+    frame: SemanticProblemFrame,
+    judgment: SemanticJudgmentProposal,
+) -> OntologyDeclarationKind | None:
+    candidates = tuple(frame.subject_constraints)
+    if len(candidates) != 1:
+        canonical_targets = {
+            target.canonical_value
+            for target in judgment.targets
+            if target.canonical_value is not None
+        }
+        candidates = tuple(canonical_targets)
+    if len(candidates) != 1:
+        return None
+    candidate = candidates[0]
+    try:
+        return OntologyDeclarationKind(candidate)
+    except ValueError:
+        if not candidate.endswith("Type"):
+            return None
+    try:
+        return OntologyDeclarationKind(candidate.removesuffix("Type").casefold())
+    except ValueError:
+        return None
 
 
 def compile_ontology_manifest_count_plan(

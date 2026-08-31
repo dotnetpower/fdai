@@ -45,14 +45,15 @@ unchanged by the physical move.
 Semantic conversation planning keeps `semantic_planning.py`, `semantic_planning_cascade.py`, and
 `semantic_planning_frame.py` as compatibility facades. Focused sibling modules own frame checks,
 plan dispatch, anchored-incident and stated-value-filter plan construction, judgment, validation,
-frame construction, facets, evidence-specific investigation normalization, and queries. A validated
-`query.ontology_declaration` count judgment normalizes its canonical `*Type` target to the matching
-declaration kind without inspecting natural-language wording. The resulting declaration-count frame
-uses the focused manifest planner to compile `query.manifest` and `count` without a model-authored
-plan. The Core semantic-turn processor renders complete grouped values as typed declaration counts
-and names the read-only manifest source instead of reporting only the aggregate row count. It binds
-the display type to the verified frame subject, not to a model-authored node id. These modules
-preserve public imports, deterministic gate order, and read-only authority.
+frame construction, facets, evidence-specific investigation normalization, and queries. For a
+validated `query.ontology_declaration` count judgment, an exact declaration-kind or canonical
+`*Type` frame subject is normalized without inspecting natural-language wording. A unique canonical
+target is used only when the frame omits that subject. The resulting declaration-count frame uses
+the focused manifest planner to compile `query.manifest` and `count` without a model-authored plan.
+The Core semantic-turn processor renders complete grouped values as typed declaration counts and
+names the read-only manifest source instead of reporting only the aggregate row count. It binds the
+display type to the verified frame subject, not to a model-authored node id. These modules preserve
+public imports, deterministic gate order, and read-only authority.
 Resource Health state-group derivation lives in `semantic_query_health_values.py`, which keeps the
 public semantic composition facade below the enforced 800-line ceiling without changing registration
 order.

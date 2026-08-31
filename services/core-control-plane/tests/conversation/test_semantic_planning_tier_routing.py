@@ -9744,20 +9744,10 @@ def test_manifest_declaration_count_uses_server_owned_plan() -> None:
 
 def test_manifest_count_normalizes_the_validated_declaration_intent() -> None:
     class _DeclarationCountJudgmentModel:
-        def judge(self, *, utterance: str, **_kwargs: Any) -> dict[str, object]:
-            value = "ActionTypes"
-            source_start = utterance.index(value)
+        def judge(self, **_kwargs: Any) -> dict[str, object]:
             return {
                 "primary_intent": "query.ontology_declaration",
-                "targets": [
-                    {
-                        "kind": "object_type",
-                        "value": value,
-                        "canonical_value": "ActionType",
-                        "source_start": source_start,
-                        "source_end": source_start + len(value),
-                    }
-                ],
+                "targets": [],
                 "requested_facets": [
                     "count",
                     "visibility",
