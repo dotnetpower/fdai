@@ -157,6 +157,9 @@ resource lock before Thor invokes an executor. Restart ambiguity remains `execut
 explicit reconciliation or rollback.
 Resource ObjectSet receipts preserve source generation and completeness independently from query
 truncation, including zero-result reads.
+Relationship traversals pass root_ids without a root_object_types filter so cross-type
+roots (resolved by an upstream entity-resolution node) reach the store; `_filter_graph`
+narrows the result to the target selector type afterward.
 The same projection preserves independently verified `runtime_calls` edges in both directions
 without treating mutual service calls as an orientation conflict.
 

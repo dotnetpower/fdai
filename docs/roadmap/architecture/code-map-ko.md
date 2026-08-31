@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 49239743d6fee47ccbf761646012bf510b9dd1e5
+translation_source_sha: 4134308060baffb94179a79148f24ac6fad9a001
 translation_revised: 2026-09-01
 ---
 # 코드 맵
@@ -129,6 +129,9 @@ ontology projector는 graph 교체와 정확한 세대의 매니페스트 및 �
 Resource
 ObjectSet receipt는 결과가 0개인 read를 포함해 source generation 및 completeness를 query
 truncation과 독립적으로 보존합니다.
+관계 traversal은 root_object_types 필터 없이 root_ids를 전달하여 상위 entity-resolution
+노드가 resolve한 교차 유형 루트가 저장소에 도달하고, `_filter_graph`가 이후 대상 selector
+유형으로 결과를 좁힙니다.
 Principal 범위 운영 근거 읽기는 기존의 범위가 제한된 응답을 통해 증적으로 검증된 Context
 메타데이터를 연결하며 변경 또는 실행 권한을 추가하지 않습니다.
 Detection 변환 결과도 출처에서 파생된 Forecast 및 Pattern 객체만 노출하며 보류된 관계는

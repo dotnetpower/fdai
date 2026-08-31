@@ -13,6 +13,7 @@ from fdai.core.measurement.operational_promotion import (
     OperationalPromotionEvaluator,
     OperationalPromotionRecord,
     PromotionEvidenceCohort,
+    _action_type_digest,
     operational_promotion_evidence_digest,
     operational_promotion_scope_digest,
 )
@@ -79,7 +80,7 @@ def _record(
         "audit_sequence": 1,
         "action_type_name": _ACTION,
         "action_type_version": action.version,
-        "action_type_digest": action.provenance.content_hash.removeprefix("sha256:"),
+        "action_type_digest": _action_type_digest(_action()),
         "fdai_revision": _REVISION,
         "scenario_set_version": _SCENARIO,
         "scenario_case_id": f"scenario-{index:04d}",
@@ -137,7 +138,7 @@ def _passing_batch() -> OperationalPromotionBatch:
             scenario_set_version=_SCENARIO,
             action_type_name=_ACTION,
             action_type_version=action.version,
-            action_type_digest=action.provenance.content_hash.removeprefix("sha256:"),
+            action_type_digest=_action_type_digest(action),
             sealed_at=_SEALED,
             records=records,
         )
@@ -217,7 +218,7 @@ def test_perfect_accuracy_at_minimum_samples_still_needs_confidence() -> None:
         scenario_set_version=_SCENARIO,
         action_type_name=_ACTION,
         action_type_version=action.version,
-        action_type_digest=action.provenance.content_hash.removeprefix("sha256:"),
+        action_type_digest=_action_type_digest(action),
         sealed_at=_SEALED,
         records=records,
     )
@@ -564,7 +565,7 @@ def test_zero_samples_report_unknown_confidence_interval() -> None:
         scenario_set_version=_SCENARIO,
         action_type_name=action.name,
         action_type_version=action.version,
-        action_type_digest=action.provenance.content_hash.removeprefix("sha256:"),
+        action_type_digest=_action_type_digest(action),
         sealed_at=_SEALED,
         records=(),
     )

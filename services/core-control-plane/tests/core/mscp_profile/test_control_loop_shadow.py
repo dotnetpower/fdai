@@ -98,6 +98,19 @@ def _result() -> ExecutionResult:
     )
 
 
+class _TestClock:
+    """Monotonic test clock that advances on each call."""
+
+    def __init__(self, start: datetime, step: timedelta = timedelta(seconds=30)) -> None:
+        self._current = start
+        self._step = step
+
+    def __call__(self) -> datetime:
+        now = self._current
+        self._current = self._current + self._step
+        return now
+
+
 def _loop(
     *,
     executor: Any,
@@ -108,11 +121,14 @@ def _loop(
     workflow_outcome_recorder: Any = None,
     effect_reconciliation_request_sink: Any = None,
 ) -> ControlLoop:
+    clock = _TestClock(_NOW)
+    action_builder = MagicMock()
+    action_builder.clock = clock
     return ControlLoop(
         event_ingest=MagicMock(),
         trust_router=MagicMock(),
         t0_engine=MagicMock(),
-        action_builder=MagicMock(),
+        action_builder=action_builder,
         executor=executor,
         audit_store=audit_store,
         rules_by_id={_rule().id: _rule()},
@@ -121,6 +137,7 @@ def _loop(
         response_outcome_sink=response_outcome_sink,
         workflow_outcome_recorder=workflow_outcome_recorder,
         effect_reconciliation_request_sink=effect_reconciliation_request_sink,
+        clock=clock,
     )
 
 

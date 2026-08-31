@@ -43,7 +43,6 @@ class ObjectSetService:
         if definition.traversal is not None:
             graph = await self._store.traverse(
                 root_ids=definition.root_ids,
-                root_object_types=concrete_types,
                 link_types=definition.traversal.link_types,
                 direction=definition.traversal.direction,
                 max_depth=definition.traversal.max_depth,

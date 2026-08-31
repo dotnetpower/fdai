@@ -51,6 +51,7 @@ from math import isfinite
 from typing import Literal, Protocol
 
 from fdai.core.measurement import OperationalPromotionReceipt
+from fdai.core.measurement.operational_promotion import _action_type_digest
 from fdai.core.risk_gate.preconditions import PreconditionEvaluation
 from fdai.shared.contracts.models import (
     Action,
@@ -212,9 +213,7 @@ class ActionPromotionRegistry:
                 and receipt.decision_evidence_verification_bundle_digest is not None
                 and receipt.action_type_name == action_type.name
                 and receipt.action_type_version == action_type.version
-                and action_type.provenance is not None
-                and receipt.action_type_digest
-                == action_type.provenance.content_hash.removeprefix("sha256:")
+                and receipt.action_type_digest == _action_type_digest(action_type)
                 and receipt.live_observation_days == metrics.shadow_days
                 and receipt.sample_count == metrics.samples
                 and receipt.accuracy == metrics.accuracy
