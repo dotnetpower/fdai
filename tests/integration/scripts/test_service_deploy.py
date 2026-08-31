@@ -199,6 +199,10 @@ def _resource(*, image: str = "old-image") -> dict[str, object]:
                                 "name": "FDAI_INCIDENT_INTERVENTION_REQUEST_TOPIC",
                                 "value": "operator.incident-intervention.requests",
                             },
+                            {
+                                "name": "FDAI_HIL_DECISION_TOPIC",
+                                "value": "operator.hil-decisions",
+                            },
                             {"name": "FDAI_ENTRA_TENANT_ID", "value": "tenant"},
                             {"name": "FDAI_API_AUDIENCE", "value": "audience"},
                             {"name": "FDAI_RBAC_READERS_GROUP_ID", "value": "reader"},

@@ -39,7 +39,7 @@ def test_core_transport_grant_exposes_only_outbox_and_required_sequences() -> No
 def test_background_task_projection_outbox_is_tracked_by_migration_ownership_manifest() -> None:
     ownership = json.loads(OWNERSHIP_PATH.read_text(encoding="utf-8"))
 
-    assert ownership["legacy_inventory"]["table_count"] == 104
+    assert ownership["legacy_inventory"]["table_count"] == 108
     assert "background_task_projection_outbox" in ownership["table_migrations"]["operator-service"]
     assert (
         "background_task_projection_outbox" in ownership["whole_table_writers"]["operator-service"]
