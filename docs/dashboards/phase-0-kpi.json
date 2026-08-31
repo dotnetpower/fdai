@@ -3,7 +3,19 @@
   "id": "phase-0-kpi",
   "title": "Phase 0 - KPI Dashboard",
   "description": "Renders the four success metrics, the guard metrics, and the leading indicators declared in docs/roadmap/architecture/goals-and-metrics.md. Every panel maps to a named telemetry source; no panel is manually populated. Rendering targets (Grafana / Log Analytics / App Insights) consume this descriptor; the shape here is target-neutral.",
-  "version": "1.0.0",
+  "version": "1.1.0",
+  "phase_0_exit_contract": {
+    "required_panel_ids": [
+      "success.2.auto_resolution_rate",
+      "success.4.human_intervention",
+      "leading.tier_coverage_t0",
+      "leading.tier_coverage_t1",
+      "leading.tier_coverage_t2",
+      "leading.shadow_enforce_divergence"
+    ],
+    "unavailable_panel_semantics": "Panels owned by later phases render unavailable and cannot support a baseline, treatment, guard, promotion, or success claim.",
+    "missing_or_stale_semantics": "A required source that is missing, stale, conflicting, producer-mismatched, future-dated, or synthetic in a live view renders unavailable."
+  },
   "panels": [
     {
       "id": "success.1.cost_per_unit",
@@ -13,7 +25,7 @@
       "unit": "usd_per_unit",
       "direction": "lower_is_better",
       "target": {"kind": "large_reduction", "note": "state factor only when measured"},
-      "source": {"kind": "deferred", "deferred_to": "W3.x baseline runner + cost/usage telemetry (W1.4+)"}
+      "source": {"kind": "unavailable", "owner": "measurement", "required_phase": "P1", "reason": "authoritative_cost_attribution_not_bound"}
     },
     {
       "id": "success.2.auto_resolution_rate",
@@ -23,7 +35,7 @@
       "unit": "ratio",
       "direction": "higher_is_better",
       "target": {"kind": "multiple", "baseline_multiplier": 5.0, "cap": 1.0},
-      "source": {"kind": "audit_log_derivation", "field": "auto_resolution_rate"}
+      "source": {"kind": "audit_log_derivation", "field": "auto_resolution_rate", "producer": "fdai.shared.telemetry.metrics_derivation.derive_dashboard_metrics", "max_age_seconds": 3600}
     },
     {
       "id": "success.3a.mttr",
@@ -33,7 +45,7 @@
       "unit": "seconds",
       "direction": "lower_is_better",
       "target": {"kind": "multiple", "baseline_multiplier": 0.2},
-      "source": {"kind": "deferred", "deferred_to": "core/audit + resolve_time telemetry"}
+      "source": {"kind": "unavailable", "owner": "measurement", "required_phase": "P1", "reason": "authoritative_incident_stream_not_bound"}
     },
     {
       "id": "success.3b.change_lead_time",
@@ -43,7 +55,7 @@
       "unit": "seconds",
       "direction": "lower_is_better",
       "target": {"kind": "multiple", "baseline_multiplier": 0.2},
-      "source": {"kind": "deferred", "deferred_to": "delivery/gitops_pr merge telemetry"}
+      "source": {"kind": "unavailable", "owner": "change-safety", "required_phase": "P1", "reason": "authoritative_change_lifecycle_stream_not_bound"}
     },
     {
       "id": "success.4.human_intervention",
@@ -53,7 +65,7 @@
       "unit": "touchpoints_per_100",
       "direction": "lower_is_better",
       "target": {"kind": "multiple", "baseline_multiplier": 0.2},
-      "source": {"kind": "audit_log_derivation", "field": "human_touchpoints_per_100_events"}
+      "source": {"kind": "audit_log_derivation", "field": "human_touchpoints_per_100_events", "producer": "fdai.shared.telemetry.metrics_derivation.derive_dashboard_metrics", "max_age_seconds": 3600}
     },
     {
       "id": "guard.cfr",
@@ -63,7 +75,7 @@
       "unit": "ratio",
       "direction": "lower_is_better",
       "target": {"kind": "no_regression", "reference": "baseline"},
-      "source": {"kind": "deferred", "deferred_to": "core/executor rollback telemetry (P1)"}
+      "source": {"kind": "unavailable", "owner": "change-safety", "required_phase": "P1", "reason": "authoritative_change_outcomes_not_bound"}
     },
     {
       "id": "guard.false_positive_rate",
@@ -73,7 +85,7 @@
       "unit": "ratio",
       "direction": "lower_is_better",
       "target": {"kind": "no_regression", "alert_delta_pp": 1.0},
-      "source": {"kind": "deferred", "deferred_to": "shadow-mode verdicts + post-hoc reconciliation (P2)"}
+      "source": {"kind": "unavailable", "owner": "measurement", "required_phase": "P2", "reason": "authoritative_outcome_reconciliation_not_bound"}
     },
     {
       "id": "guard.false_negative_rate",
@@ -83,7 +95,7 @@
       "unit": "ratio",
       "direction": "lower_is_better",
       "target": {"kind": "no_regression", "alert_delta_pp": 1.0},
-      "source": {"kind": "deferred", "deferred_to": "shadow-mode verdicts + post-hoc reconciliation (P2)"}
+      "source": {"kind": "unavailable", "owner": "measurement", "required_phase": "P2", "reason": "authoritative_outcome_reconciliation_not_bound"}
     },
     {
       "id": "guard.rollback_rate",
@@ -93,7 +105,7 @@
       "unit": "ratio",
       "direction": "lower_is_better",
       "target": {"kind": "no_regression", "reference": "baseline"},
-      "source": {"kind": "deferred", "deferred_to": "core/executor + delivery/gitops_pr revert events (P1)"}
+      "source": {"kind": "unavailable", "owner": "change-safety", "required_phase": "P1", "reason": "authoritative_rollback_outcomes_not_bound"}
     },
     {
       "id": "guard.policy_violation_escapes",
@@ -103,7 +115,7 @@
       "unit": "count",
       "direction": "lower_is_better",
       "target": {"kind": "exact_zero", "note": "any escape is stop-ship"},
-      "source": {"kind": "deferred", "deferred_to": "core/quality_gate verifier veto counters (P2)"}
+      "source": {"kind": "unavailable", "owner": "quality-gate", "required_phase": "P2", "reason": "authoritative_policy_escape_outcomes_not_bound"}
     },
     {
       "id": "leading.tier_coverage_t0",
@@ -113,7 +125,7 @@
       "unit": "ratio",
       "direction": "in_band",
       "target": {"kind": "band", "min": 0.70, "max": 0.80},
-      "source": {"kind": "audit_log_derivation", "field": "per_tier.t0"}
+      "source": {"kind": "audit_log_derivation", "field": "per_tier.t0", "producer": "fdai.shared.telemetry.metrics_derivation.derive_dashboard_metrics", "max_age_seconds": 3600}
     },
     {
       "id": "leading.tier_coverage_t1",
@@ -123,7 +135,7 @@
       "unit": "ratio",
       "direction": "in_band",
       "target": {"kind": "band", "min": 0.15, "max": 0.20},
-      "source": {"kind": "audit_log_derivation", "field": "per_tier.t1"}
+      "source": {"kind": "audit_log_derivation", "field": "per_tier.t1", "producer": "fdai.shared.telemetry.metrics_derivation.derive_dashboard_metrics", "max_age_seconds": 3600}
     },
     {
       "id": "leading.tier_coverage_t2",
@@ -133,7 +145,7 @@
       "unit": "ratio",
       "direction": "in_band",
       "target": {"kind": "band", "min": 0.05, "max": 0.10},
-      "source": {"kind": "audit_log_derivation", "field": "per_tier.t2"}
+      "source": {"kind": "audit_log_derivation", "field": "per_tier.t2", "producer": "fdai.shared.telemetry.metrics_derivation.derive_dashboard_metrics", "max_age_seconds": 3600}
     },
     {
       "id": "leading.mixed_model_disagreement_rate",
@@ -143,7 +155,7 @@
       "unit": "ratio",
       "direction": "watch",
       "target": {"kind": "threshold_alert", "alert_if_above": 0.20},
-      "source": {"kind": "deferred", "deferred_to": "core/quality_gate cross-check counters (P2)"}
+      "source": {"kind": "unavailable", "owner": "quality-gate", "required_phase": "P2", "reason": "authoritative_cross_check_outcomes_not_bound"}
     },
     {
       "id": "leading.verifier_abstain_rate",
@@ -153,7 +165,7 @@
       "unit": "ratio",
       "direction": "watch",
       "target": {"kind": "threshold_alert", "alert_if_above": 0.10},
-      "source": {"kind": "deferred", "deferred_to": "core/quality_gate abstain counters (P2)"}
+      "source": {"kind": "unavailable", "owner": "quality-gate", "required_phase": "P2", "reason": "authoritative_verifier_outcomes_not_bound"}
     },
     {
       "id": "leading.shadow_enforce_divergence",
@@ -163,7 +175,7 @@
       "unit": "ratio",
       "direction": "watch",
       "target": {"kind": "threshold_alert", "alert_if_above": 0.05},
-      "source": {"kind": "audit_log_derivation", "field": "shadow_share"}
+      "source": {"kind": "audit_log_derivation", "field": "shadow_enforce_divergence", "producer": "fdai.shared.telemetry.metrics_derivation.derive_dashboard_metrics", "max_age_seconds": 3600}
     }
   ]
 }

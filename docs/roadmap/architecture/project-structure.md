@@ -411,6 +411,11 @@ clean (see the fork model in
   `StateStoreExecutedActionObservationStore` accepts only Heimdall-attributed observations whose
   signed context passes the configured verifier on write and replay. Missing evidence remains held.
 - **Azure operational evidence**: `bind_azure_operational_evidence` composes a strict promoted-inventory snapshot reader, current safety evaluator, configured Azure metrics, bounded branch estimator, and effect-model reader. Temporal adapters reject non-finite metric values before evidence hashing. Partial binding fails at container construction.
+- **Dashboard availability projection**: `shared/telemetry/dashboard_status.py` consumes normalized
+  metric observations after provider and domain reducers have produced them. It performs no provider
+  I/O and grants no authority. The Phase 0 descriptor names the expected producer and freshness
+  window for source-bound panels; missing, stale, conflicting, mismatched, future-dated, or synthetic
+  live observations render unavailable with no numeric fallback.
 
 ### Capability Bundles
 

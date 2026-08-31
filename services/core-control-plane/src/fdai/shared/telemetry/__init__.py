@@ -11,6 +11,12 @@ from .conversation_progress import (
     LatencyAggregate,
 )
 from .correlation import current_correlation_id, with_correlation
+from .dashboard_status import (
+    MetricObservation,
+    PanelReading,
+    PanelStatus,
+    resolve_dashboard_readings,
+)
 from .logging import JsonFormatter, configure_logging, get_logger, log_extra
 from .metrics import configure_metrics, get_meter, in_memory_reader
 from .metrics_derivation import DashboardMetrics, derive_dashboard_metrics
@@ -31,6 +37,9 @@ __all__ = [
     "DashboardMetrics",
     "JsonFormatter",
     "LatencyAggregate",
+    "MetricObservation",
+    "PanelReading",
+    "PanelStatus",
     "InMemoryRoutingTransitionSink",
     "RoutingTransition",
     "RoutingTransitionEmitter",
@@ -48,5 +57,6 @@ __all__ = [
     "emit_transition_safely",
     "in_memory_reader",
     "log_extra",
+    "resolve_dashboard_readings",
     "with_correlation",
 ]

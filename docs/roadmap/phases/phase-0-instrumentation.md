@@ -34,6 +34,22 @@ Each deliverable is a committed, versioned artifact with an acceptance check. De
 | 5 | **Policy-exemption workflow** - a requestable, time-boxed, audited, owner-approved exemption path for compliant autonomous deploys. | Workflow is documented with an owner and SLA; a dry-run request is granted and expires under audit, bypassing no control. |
 | 6 | **Local dev preset** - storage / event-bus / secret / workload-identity provider interfaces in `services/core-control-plane/src/fdai/shared/providers/`, an in-memory fake pair for offline unit tests + debug, and a Docker Compose (`infra/local/`) preset that stands up **pgvector + Redpanda** for wire-level integration tests. Realizes the local-development contract in [tech-stack.md § Local Development](../architecture/tech-stack.md#local-development) and the DI seams in [project-structure.md § Injectable Seams](../architecture/project-structure.md#injectable-seams). | `pytest` runs green with the in-memory fake and requires no Docker; `scripts/deployment/local/dev-up.sh` brings up healthy `pgvector/pgvector:pg16` + `redpandadata/redpanda` containers; the **same contract-test suite** passes against both the fake and the Compose stack. |
 
+### KPI dependency decision
+
+The dashboard distinguishes a source-bound panel from an available live value. Phase 0 requires
+every panel that its own telemetry reducer can produce to name that reducer and freshness policy.
+Metrics that depend on Phase 1 or Phase 2 outcomes remain visible with an explicit unavailable
+reason, accountable owner, and required phase. An unavailable panel cannot support a baseline,
+treatment, guard, promotion, or success claim.
+
+The first design considered moving every later-phase producer into Phase 0. That would duplicate
+Change Safety and quality-gate ownership and make Phase 0 build the behavior it is meant to measure.
+The revised design keeps those producers in their owning phases and narrows the Phase 0 dashboard
+exit to source binding plus fail-closed rendering. Missing, stale, conflicting, producer-mismatched,
+future-dated, or synthetic observations render unavailable rather than `0` or success. Phase 1 may
+start after the other Phase 0 exits pass, but later enforcement and promotion remain blocked until
+their required live metrics are available.
+
 ## Work Items
 
 Ordering encodes dependencies. Items 1, 2, 5, and 6 may proceed in parallel; item 3 **must not
@@ -208,8 +224,9 @@ All criteria are independently verifiable; a phase gate passes only when every b
       sample size and version recorded.
 - [ ] The **baseline covers success metrics 1-4 and all guard metrics**, so later shadow →
       enforce promotions have both a success and a guard reference.
-- [ ] The **KPI dashboard is live** and shows metrics 1-4, guard metrics, and leading
-      indicators, each traced to a telemetry source.
+- [ ] The **KPI dashboard contract is live** and shows metrics 1-4, guard metrics, and leading
+      indicators. Phase 0 reducers are source-bound; later-phase metrics show their accountable
+      owner and explicit unavailable reason. No unavailable or stale panel supports a metric claim.
 - [ ] The **identity blocker is resolved**: end-to-end IdP ↔ Entra ↔ Managed Identity path
       provisioned, least-privilege probe passing, deny-by-default confirmed, recertification
       scheduled - or explicitly waived with a documented, owner-assigned plan.
@@ -237,8 +254,9 @@ All criteria are independently verifiable; a phase gate passes only when every b
   and stand up item 1 (telemetry) and item 5 (policy workflow).
 - **After the scenario freeze**: run item 3 (baseline measurement) so it measures against a
   fixed, versioned set.
-- **Gate**: only after all [Exit Criteria](#exit-criteria) pass does
-  [phase-1-rule-catalog-t0.md](phase-1-rule-catalog-t0.md) begin.
+- **Gate**: Phase 1 can begin after the Phase 0 source-binding, baseline, identity, policy, and local
+  development exits pass. Later-phase dashboard panels may remain explicitly unavailable, but that
+  state blocks their metric claims and any promotion that requires them.
 
 ## Dependencies
 
