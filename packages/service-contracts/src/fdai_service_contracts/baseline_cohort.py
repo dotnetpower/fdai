@@ -1,4 +1,11 @@
-"""Governed baseline and treatment cohort accounting for claim eligibility."""
+"""Governed baseline and treatment cohort accounting for claim eligibility.
+
+A retained cohort artifact states facts only. Every trust input - the
+evaluated requirement, the import origin, the per-arm admissions, and the
+cohort-level admission over the complete receipt digest - is an evaluator
+parameter supplied by a trusted caller, so no artifact can describe its own
+eligibility.
+"""
 
 from __future__ import annotations
 
@@ -13,7 +20,6 @@ from fdai_service_contracts.decision_evidence import (
     EvidenceId,
     LiveEvidenceClaimAssessment,
     LiveEvidenceClaimRequirement,
-    SourceIdentity,
     assess_live_evidence_claim,
 )
 from fdai_service_contracts.executor_models import ContractBase, Digest, SemVer
@@ -22,6 +28,13 @@ from fdai_service_contracts.ontology_query import content_digest
 MetricId = Annotated[str, Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_]{0,63}$")]
 GuardId = MetricId
 ScenarioSetVersion = Annotated[str, Field(min_length=8, max_length=32, pattern=r"^v\d{4}\.\d{2}$")]
+#: A cohort revision MUST be the same immutable full commit digest operational
+#: promotion already requires, so a movable branch or tag name such as ``main``
+#: can never identify the code a published claim was measured on.
+CommitRevision = Annotated[
+    str,
+    Field(min_length=40, max_length=64, pattern=r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$"),
+]
 BasisPoints = Annotated[int, Field(strict=True, ge=0, le=10_000)]
 SampleCount = Annotated[int, Field(strict=True, ge=0, le=1_000_000)]
 
@@ -38,7 +51,13 @@ class CohortArm(StrEnum):
 
 
 class CohortArtifactOrigin(StrEnum):
-    """Where a cohort artifact came from, which never grants authority itself."""
+    """How a cohort artifact reached the evaluator, as told by its importer.
+
+    This is import context, never artifact content. It is supplied by the
+    trusted importer channel or caller as an evaluator parameter and is
+    deliberately absent from :class:`BaselineTreatmentCohortReceipt`, so no
+    artifact can label itself governed.
+    """
 
     REPOSITORY = "repository"
     GOVERNED_EXTERNAL = "governed_external"
@@ -83,7 +102,7 @@ class _CohortArmFacts(ContractBase):
     arm: CohortArm
     scenario_set_version: ScenarioSetVersion
     scenario_set_digest: Digest
-    fdai_revision: SourceIdentity
+    fdai_revision: CommitRevision
     report_digest: Digest
     provenance_digest: Digest
     sample_count: SampleCount
@@ -148,8 +167,7 @@ class _BaselineTreatmentCohortReceiptBody(ContractBase):
     cohort_id: EvidenceId
     scenario_set_version: ScenarioSetVersion
     scenario_set_digest: Digest
-    fdai_revision: SourceIdentity
-    artifact_origin: CohortArtifactOrigin
+    fdai_revision: CommitRevision
     baseline: CohortArmReport
     treatment: CohortArmReport
     evidence_cutoff: datetime
@@ -164,7 +182,13 @@ class _BaselineTreatmentCohortReceiptBody(ContractBase):
 
 
 class BaselineTreatmentCohortReceipt(_BaselineTreatmentCohortReceiptBody):
-    """Retain both cohort arms without asserting that the claim is eligible."""
+    """Retain both cohort arms without asserting that the claim is eligible.
+
+    The receipt carries no origin, admission, requirement, or verdict. Its
+    ``receipt_digest`` covers every retained cohort fact, so a trusted
+    cohort-level admission issued against that one digest cannot be replayed
+    onto a relabelled or rehashed artifact.
+    """
 
     receipt_digest: Digest
 
@@ -193,7 +217,7 @@ class CohortClaimRequirement(ContractBase):
     policy_version: SemVer
     scenario_set_version: ScenarioSetVersion
     scenario_set_digest: Digest
-    fdai_revision: SourceIdentity
+    fdai_revision: CommitRevision
     minimum_sample_size: Annotated[
         int,
         Field(strict=True, ge=MINIMUM_COHORT_SAMPLE_SIZE, le=1_000_000),
@@ -225,7 +249,15 @@ class CohortClaimRequirement(ContractBase):
                 raise ValueError(f"{label} evidence requirement MUST pin the cohort revision")
             if evidence.scope_digest != self.scenario_set_digest:
                 raise ValueError(f"{label} evidence requirement MUST pin the frozen scenario set")
+        if self.baseline_evidence.purpose_id != self.treatment_evidence.purpose_id:
+            raise ValueError("both cohort evidence requirements MUST pin one claim purpose")
         return self
+
+    @property
+    def claim_purpose_id(self) -> str:
+        """Return the one trusted purpose a cohort-level admission MUST carry."""
+
+        return self.baseline_evidence.purpose_id
 
 
 class CohortClaimRejectionReason(StrEnum):
@@ -234,6 +266,7 @@ class CohortClaimRejectionReason(StrEnum):
     ARM_FACT_MISMATCH = "arm_fact_mismatch"
     ARMS_NOT_DISTINCT = "arms_not_distinct"
     ARTIFACT_UNGOVERNED = "artifact_ungoverned"
+    COHORT_NOT_ADMITTED = "cohort_not_admitted"
     CONFIDENCE_INTERVAL_INCOMPLETE = "confidence_interval_incomplete"
     COHORT_UNDERSIZED = "cohort_undersized"
     EVIDENCE_NOT_ADMITTED = "evidence_not_admitted"
@@ -264,7 +297,11 @@ class CohortArmAssessment(ContractBase):
 
 
 class CohortClaimAssessment(ContractBase):
-    """Deterministic eligibility result for one governed cohort artifact."""
+    """Deterministic eligibility result for one governed cohort artifact.
+
+    ``artifact_origin`` is an evaluation output that echoes the trusted import
+    context back to the reader. It is never read from an artifact.
+    """
 
     evaluated_at: datetime
     claim_eligible: bool
@@ -401,13 +438,22 @@ def evaluate_cohort_claim(
     *,
     evaluated_at: datetime,
     admitted_receipt_digests: frozenset[str] = frozenset(),
+    import_origin: CohortArtifactOrigin = CohortArtifactOrigin.REPOSITORY,
+    admitted_cohort_receipt_digest: str | None = None,
 ) -> CohortClaimAssessment:
     """Return eligible only for a governed, complete, non-synthetic, admitted cohort.
 
-    ``requirement`` MUST come from the trusted repository policy and
-    ``admitted_receipt_digests`` MUST come from a trusted admission source. A
-    caller that passes neither - which is what the repository importer does on
-    its own - never reaches an eligible verdict.
+    Every trust input is a parameter, never artifact content. ``requirement``
+    MUST come from the trusted repository policy, ``import_origin`` from the
+    trusted importer channel or caller, and both ``admitted_receipt_digests``
+    and ``admitted_cohort_receipt_digest`` from a trusted admission source. A
+    caller that passes none - which is what the repository importer does on its
+    own - never reaches an eligible verdict.
+
+    ``admitted_cohort_receipt_digest`` is the cohort-level admission that binds
+    the complete retained receipt, in addition to the per-arm admissions. It
+    MUST equal ``receipt.receipt_digest``, so relabelling or rehashing any part
+    of the artifact leaves the claim ineligible.
     """
 
     normalized_at = CohortClaimAssessment._normalize_evaluated_at(evaluated_at)
@@ -415,8 +461,13 @@ def evaluate_cohort_claim(
         return missing_cohort_claim(evaluated_at=normalized_at)
 
     reasons: set[CohortClaimRejectionReason] = set()
-    if receipt.artifact_origin is not CohortArtifactOrigin.GOVERNED_EXTERNAL:
+    if import_origin is not CohortArtifactOrigin.GOVERNED_EXTERNAL:
         reasons.add(CohortClaimRejectionReason.ARTIFACT_UNGOVERNED)
+    if (
+        admitted_cohort_receipt_digest is None
+        or admitted_cohort_receipt_digest != receipt.receipt_digest
+    ):
+        reasons.add(CohortClaimRejectionReason.COHORT_NOT_ADMITTED)
     if receipt.scenario_set_version != requirement.scenario_set_version or (
         receipt.scenario_set_digest != requirement.scenario_set_digest
     ):
@@ -457,7 +508,7 @@ def evaluate_cohort_claim(
         rejection_reasons=ordered,
         arms=arms,
         receipt_digest=receipt.receipt_digest,
-        artifact_origin=receipt.artifact_origin,
+        artifact_origin=import_origin,
     )
 
 

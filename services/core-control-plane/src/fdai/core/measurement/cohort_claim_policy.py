@@ -4,7 +4,9 @@ The policy is a versioned repository artifact loaded independently of any
 cohort evidence. It pins the required success metrics, every zero-threshold
 guard, the actual content digest of the frozen scenario set, and the minimum
 retained sample size. The only value a caller supplies is the expected pinned
-revision, because that is the one fact the repository cannot know in advance.
+revision, because that is the one fact the repository cannot know in advance,
+and it MUST be an immutable full commit digest rather than a movable branch or
+tag name.
 
 Evidence never contributes to this policy, so a cohort artifact cannot weaken
 the expectation it is measured against.
@@ -14,6 +16,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -30,6 +33,11 @@ COHORT_CLAIM_POLICY_PATH = "config/sre-cohort-claim-policy.json"
 
 #: The only policy schema this loader accepts.
 COHORT_CLAIM_POLICY_SCHEMA_VERSION = "1.0.0"
+
+#: The expected revision MUST be the same immutable full commit digest
+#: operational promotion requires, so a movable branch or tag name such as
+#: `main` can never pin a published cohort claim.
+_COMMIT_REVISION = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 
 #: Success metrics from `docs/roadmap/architecture/goals-and-metrics.md` that a
 #: published cohort claim MUST report as an absolute value with an interval.
@@ -88,6 +96,7 @@ class CohortClaimPolicy:
     def requirement(self, *, expected_revision: str) -> CohortClaimRequirement:
         """Build the evaluated requirement from this policy and one trusted revision."""
 
+        require_commit_revision(expected_revision)
         evidence = {
             "allowed_authority_classes": self.allowed_authority_classes,
             "allowed_source_identities": self.allowed_source_identities,
@@ -121,6 +130,20 @@ class CohortClaimPolicy:
             raise CohortClaimPolicyError(
                 f"cohort claim policy cannot pin the expected revision: {error}"
             ) from error
+
+
+def require_commit_revision(value: str) -> str:
+    """Return one immutable full commit digest, or fail closed.
+
+    A branch or tag name such as `main` moves, so it can never identify the
+    code a published claim was measured on.
+    """
+
+    if not isinstance(value, str) or _COMMIT_REVISION.fullmatch(value) is None:
+        raise CohortClaimPolicyError(
+            "cohort claim revision MUST be an immutable full 40- or 64-hex commit digest"
+        )
+    return value
 
 
 def frozen_scenario_set_digest(root: Path) -> str:
@@ -255,4 +278,5 @@ __all__ = [
     "CohortClaimPolicyError",
     "frozen_scenario_set_digest",
     "load_cohort_claim_policy",
+    "require_commit_revision",
 ]
