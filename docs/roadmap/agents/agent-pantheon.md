@@ -93,6 +93,7 @@ complete, fresh, conflict-free review record for every immutable case. A live re
 synthetic and a duplicate case revision are held before publication. Mimir independently parses
 the same review records and exact release before producing an inert draft. Neither agent can move
 the authoritative promotion registry; only an independently approved exact replay can do that.
+Muninn updates its process-local cohort cache only after the durable cohort write succeeds.
 
 Shadow dwell is the loop's last inert bar. Norns retains shadow-mode audit outcomes as per-target dwell observations - shadow results still never dilute its real rollback-rate learner - and attaches the resulting self-verifying evidence to the candidate it publishes. Mimir re-derives the verdict from that wire evidence and refuses promotion for a candidate with missing, inconsistent, target-mismatched, or under-threshold dwell; the zero policy-escape allowance is not configurable. This grants no authority to either agent: the catalog still changes only through a merged catalog-as-code pull request. See [Autonomous Rule Discovery](../rules-and-detection/rule-catalog-autonomous-discovery.md#shadow-dwell-evidence-upstream-implementation).
 

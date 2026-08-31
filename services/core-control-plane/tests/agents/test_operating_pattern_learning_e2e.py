@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID
 
+import pytest
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents.huginn import Huginn
@@ -138,6 +139,40 @@ def _learning_chain() -> tuple[InMemoryBus, Huginn, Muninn, Norns, Mimir, InMemo
     bus.subscribe("object.context-index", "Norns", norns.on_typed_message)
     bus.subscribe("object.rule-candidate", "Mimir", mimir.on_typed_message)
     return bus, huginn, muninn, norns, mimir, durable
+
+
+async def test_operational_case_does_not_cache_a_failed_durable_write() -> None:
+    class _FailingStore(InMemoryStateStore):
+        async def write_state(self, key: str, value: dict[str, Any]) -> None:
+            del key, value
+            raise RuntimeError("durable write failed")
+
+    case_input = _operational_input("f", OperationalOutcomeClass.SUCCESS)
+    muninn = Muninn(
+        case_history=CaseHistoryMaterializer(
+            metadata=InMemoryCaseHistoryMetadataStore(),
+            artifacts=InMemoryCaseHistoryArtifactStore(),
+        ),
+        durable_state_store=_FailingStore(),
+    )
+
+    with pytest.raises(RuntimeError, match="durable write failed"):
+        await muninn.on_typed_message(
+            "object.event",
+            {
+                "producer_principal": "Huginn",
+                "event_type": "case_history.operational_case.v1",
+                "attributes": case_input.to_mapping(),
+            },
+        )
+
+    assert (
+        muninn.state_store.get(
+            "operational_case_fingerprint_cohorts",
+            case_input.failure_fingerprint.digest,
+        )
+        is None
+    )
 
 
 async def test_full_bus_groups_by_fingerprint_and_emits_balanced_candidate_once() -> None:

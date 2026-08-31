@@ -298,8 +298,8 @@ class Muninn(Agent):
             case,
             recorded_at=sealed.record.sealed_at,
         )
-        self.state_store.put("operational_case_fingerprint_cohorts", fingerprint, cohort)
         await self._durable_state_store.write_state(state_key, cohort)
+        self.state_store.put("operational_case_fingerprint_cohorts", fingerprint, cohort)
         cases = cohort["cases"]
         digest = _cohort_digest(cases) if len(cases) >= 2 else None
         if digest is None or digest == cohort.get("last_emitted_digest") or self.bus is None:
