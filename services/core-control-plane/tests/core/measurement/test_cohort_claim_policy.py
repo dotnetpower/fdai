@@ -15,13 +15,14 @@ from fdai.core.measurement.cohort_claim_policy import (
     CohortClaimPolicyError,
     frozen_scenario_set_digest,
     load_cohort_claim_policy,
+    require_commit_revision,
 )
 from fdai_service_contracts.baseline_cohort import MINIMUM_COHORT_SAMPLE_SIZE
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 POLICY_PATH = REPO_ROOT / COHORT_CLAIM_POLICY_PATH
 SCENARIO_ROOT = REPO_ROOT / "services/core-control-plane/tests/scenarios/v2026.07"
-REVISION = "git:0123456789abcdef0123456789abcdef01234567"
+REVISION = "0123456789abcdef0123456789abcdef01234567"
 
 
 def _body() -> dict[str, Any]:
@@ -62,6 +63,35 @@ def test_the_requirement_takes_its_revision_from_the_trusted_caller() -> None:
     assert requirement.required_metric_ids == tuple(sorted(REQUIRED_SUCCESS_METRIC_IDS))
     assert requirement.required_guard_ids == tuple(sorted(ZERO_THRESHOLD_GUARD_IDS))
     assert requirement.minimum_sample_size >= 30
+
+
+@pytest.mark.parametrize(
+    "movable",
+    [
+        "main",
+        "HEAD",
+        "v2026.07",
+        "refs/heads/main",
+        "git:0123456789abcdef0123456789abcdef01234567",
+        "0123456789abcdef",
+        REVISION.upper(),
+        REVISION + "0",
+    ],
+)
+def test_a_movable_revision_is_never_accepted_as_a_cohort_revision(movable: str) -> None:
+    policy = load_cohort_claim_policy(POLICY_PATH)
+
+    with pytest.raises(CohortClaimPolicyError, match="immutable full 40- or 64-hex"):
+        policy.requirement(expected_revision=movable)
+    with pytest.raises(CohortClaimPolicyError, match="immutable full 40- or 64-hex"):
+        require_commit_revision(movable)
+
+
+def test_a_sha256_length_commit_digest_is_accepted() -> None:
+    policy = load_cohort_claim_policy(POLICY_PATH)
+    sha256_revision = "a" * 64
+
+    assert policy.requirement(expected_revision=sha256_revision).fdai_revision == sha256_revision
 
 
 def test_a_policy_that_pins_another_scenario_set_fails_closed() -> None:
@@ -131,5 +161,5 @@ def test_a_changed_scenario_file_changes_the_digest(tmp_path: Path) -> None:
 def test_an_unpinned_revision_is_refused() -> None:
     policy = load_cohort_claim_policy(POLICY_PATH)
 
-    with pytest.raises(CohortClaimPolicyError, match="cannot pin the expected revision"):
+    with pytest.raises(CohortClaimPolicyError, match="immutable full 40- or 64-hex"):
         policy.requirement(expected_revision="")

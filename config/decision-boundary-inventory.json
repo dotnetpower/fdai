@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
   "description": "Complete inventory of registered positive decision boundaries that must resolve decision-critical evidence through the shared admission contract (FDAI-CONST-002).",
-  "decision_surface_digest": "05fb8c527a561cb7fba2331a2357b9426becb735539afeaf945e68585057f52a",
+  "decision_surface_digest": "68311d535dadac6b14a98d019d8ff2cc50c4dc5b9c41635af2d156db4a097663",
   "shared_admission": {
     "module": "fdai.shared.providers.decision_evidence_verifier",
     "assessor": "assess_decision_evidence_admission",
@@ -63,6 +63,35 @@
               "marker": "_identity_supports_selection",
               "decision": "services/core-control-plane/src/fdai/delivery/analyzer_targets.py::_identity_supports_selection"
             }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "baseline-cohort-claim",
+      "positive_decision": "Report a retained baseline and treatment cohort as claim eligible.",
+      "module": "services/core-control-plane/src/fdai/core/measurement/baseline_cohort_claim.py",
+      "purpose_constant": null,
+      "purpose_id": null,
+      "purpose_note": "The trusted versioned CohortClaimRequirement supplies the arm and cohort purpose identifiers independently of the evidence artifact.",
+      "tests": [
+        "services/core-control-plane/tests/core/measurement/test_baseline_cohort_claim.py"
+      ],
+      "decisions": [
+        {
+          "function": "evaluate_admitted_cohort_claim",
+          "guards": [
+            {
+              "name": "admitted_cohort_receipt_digests",
+              "kind": "returns"
+            },
+            {
+              "name": "admitted_cohort_claim_digest",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": [
+            "evaluate_cohort_claim(None"
           ]
         }
       ]

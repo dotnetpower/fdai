@@ -624,11 +624,12 @@ class ControlLoopExecutionMixin:
         # read it, so a dispatch-time contract error cannot replace a
         # fail-closed hold.
         recorded_at = self._clock()
-        verification, _ = admissible_effect_evidence(
+        verification, observed = admissible_effect_evidence(
             verification=verification,
             expected=expected,
             observed=observed,
             recorded_at=recorded_at,
+            not_before=execution_ended_at,
         )
         entry = build_shadow_effect_audit(
             action=action,

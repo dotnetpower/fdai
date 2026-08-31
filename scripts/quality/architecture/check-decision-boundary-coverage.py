@@ -252,13 +252,18 @@ def _guard_calls(expression: ast.AST | None, guards: Mapping[str, GuardSpec]) ->
         return []
     if isinstance(expression, ast.BoolOp):
         found: list[ast.Call] = []
+        guaranteed = True
         for value in expression.values:
+            if not guaranteed:
+                break
             found.extend(_guard_calls(value, guards))
             if isinstance(value, ast.Constant):
                 if isinstance(expression.op, ast.And) and not bool(value.value):
                     break
                 if isinstance(expression.op, ast.Or) and bool(value.value):
                     break
+            else:
+                guaranteed = False
         return found
     if isinstance(expression, ast.IfExp):
         found = _guard_calls(expression.test, guards)

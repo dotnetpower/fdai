@@ -146,7 +146,8 @@ observed value together with the action lifecycle timeline - creation, dispatch 
 completion, prediction, observation, and recording - so no evidence is lost and the ordering stays
 reviewable. Those lifecycle timestamps come from the control-loop clock seam, which a frozen
 replay binds so that an observation is ordered against the dispatch it describes instead of
-against wall clock. This additional record remains shadow evidence. It cannot promote an effect
+against wall clock. An observation timestamped before dispatch completion is held as
+`observation_before_dispatch`, even when its value matches the prediction. This additional record remains shadow evidence. It cannot promote an effect
 model or change execution authority.
 
 After both durable audit records are written, an optional composition-owned sink republishes the

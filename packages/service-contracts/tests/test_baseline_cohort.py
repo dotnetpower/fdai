@@ -36,7 +36,7 @@ AUTH_DIGEST = "sha256:" + "6" * 64
 POLICY_DIGEST = "sha256:" + "7" * 64
 COMPLETENESS_DIGEST = "sha256:" + "8" * 64
 CONFLICT_DIGEST = "sha256:" + "9" * 64
-REVISION = "git:0123456789abcdef0123456789abcdef01234567"
+REVISION = "0123456789abcdef0123456789abcdef01234567"
 SCENARIO_SET = "v2026.07"
 NOW = datetime(2026, 9, 1, tzinfo=UTC)
 FRESHNESS_SECONDS = 86_400
@@ -157,7 +157,6 @@ def _arm(
 
 def _receipt(
     *,
-    origin: CohortArtifactOrigin = CohortArtifactOrigin.GOVERNED_EXTERNAL,
     baseline: dict[str, Any] | None = None,
     treatment: dict[str, Any] | None = None,
     scenario_set_version: str = SCENARIO_SET,
@@ -169,7 +168,6 @@ def _receipt(
         "scenario_set_version": scenario_set_version,
         "scenario_set_digest": SCENARIO_SET_DIGEST,
         "fdai_revision": fdai_revision,
-        "artifact_origin": origin,
         "baseline": baseline
         or _arm(
             CohortArm.BASELINE,
@@ -235,6 +233,8 @@ def test_a_governed_admitted_cohort_is_claim_eligible() -> None:
         _requirement(),
         evaluated_at=NOW,
         admitted_receipt_digests=_admitted(receipt),
+        import_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
+        admitted_cohort_receipt_digest=receipt.receipt_digest,
     )
 
     assert assessment.claim_eligible is True
@@ -259,7 +259,7 @@ def test_the_arm_fact_digest_covers_every_evaluated_fact() -> None:
         {"report_digest": "sha256:" + "a" * 64},
         {"provenance_digest": "sha256:" + "b" * 64},
         {"scenario_set_digest": "sha256:" + "c" * 64},
-        {"fdai_revision": "git:fedcba9876543210fedcba9876543210fedcba98"},
+        {"fdai_revision": "fedcba9876543210fedcba9876543210fedcba98"},
         {"scenario_set_version": "v2026.08"},
         {"arm": CohortArm.TREATMENT},
         {
@@ -307,19 +307,78 @@ def test_an_unadmitted_cohort_is_never_eligible() -> None:
     assert CohortClaimRejectionReason.EVIDENCE_NOT_ADMITTED in assessment.rejection_reasons
 
 
-def test_a_repository_artifact_cannot_claim_eligibility() -> None:
-    receipt = _receipt(origin=CohortArtifactOrigin.REPOSITORY)
+def test_a_repository_import_origin_cannot_claim_eligibility() -> None:
+    receipt = _receipt()
 
     assessment = evaluate_cohort_claim(
         receipt,
         _requirement(),
         evaluated_at=NOW,
         admitted_receipt_digests=_admitted(receipt),
+        admitted_cohort_receipt_digest=receipt.receipt_digest,
     )
 
     assert assessment.claim_eligible is False
     assert assessment.rejection_reasons == (CohortClaimRejectionReason.ARTIFACT_UNGOVERNED,)
     assert assessment.artifact_origin is CohortArtifactOrigin.REPOSITORY
+
+
+def test_an_artifact_cannot_declare_its_own_origin() -> None:
+    receipt = _receipt()
+    payload = receipt.model_dump(mode="json")
+    payload["artifact_origin"] = CohortArtifactOrigin.GOVERNED_EXTERNAL.value
+
+    assert "artifact_origin" not in receipt.model_dump(mode="json")
+    with pytest.raises(ValidationError, match="[Ee]xtra inputs are not permitted"):
+        BaselineTreatmentCohortReceipt.model_validate(payload)
+
+
+def test_a_relabelled_artifact_loses_its_cohort_admission() -> None:
+    receipt = _receipt()
+    payload = receipt.model_dump(mode="json")
+    del payload["receipt_digest"]
+    payload["cohort_id"] = "sre-v2026.07-cohort-relabelled"
+    payload["receipt_digest"] = baseline_treatment_cohort_receipt_digest(**payload)
+    relabelled = BaselineTreatmentCohortReceipt.model_validate(payload)
+
+    assert relabelled.receipt_digest != receipt.receipt_digest
+    assessment = evaluate_cohort_claim(
+        relabelled,
+        _requirement(),
+        evaluated_at=NOW,
+        admitted_receipt_digests=_admitted(relabelled),
+        import_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
+        admitted_cohort_receipt_digest=receipt.receipt_digest,
+    )
+
+    assert assessment.claim_eligible is False
+    assert assessment.rejection_reasons == (CohortClaimRejectionReason.COHORT_NOT_ADMITTED,)
+
+
+def test_a_cohort_without_a_cohort_level_admission_is_never_eligible() -> None:
+    receipt = _receipt()
+
+    assessment = evaluate_cohort_claim(
+        receipt,
+        _requirement(),
+        evaluated_at=NOW,
+        admitted_receipt_digests=_admitted(receipt),
+        import_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
+    )
+
+    assert assessment.claim_eligible is False
+    assert assessment.rejection_reasons == (CohortClaimRejectionReason.COHORT_NOT_ADMITTED,)
+
+
+@pytest.mark.parametrize(
+    "movable",
+    ["main", "v2026.07", "refs/heads/main", "0123456789abcdef", REVISION.upper(), REVISION + "0"],
+)
+def test_a_movable_revision_is_never_a_cohort_revision(movable: str) -> None:
+    with pytest.raises(ValidationError):
+        _requirement(fdai_revision=movable)
+    with pytest.raises(ValidationError):
+        _receipt(fdai_revision=movable)
 
 
 @pytest.mark.parametrize(
@@ -356,6 +415,8 @@ def test_a_defective_treatment_arm_fails_closed(
         _requirement(),
         evaluated_at=NOW,
         admitted_receipt_digests=_admitted(receipt),
+        import_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
+        admitted_cohort_receipt_digest=receipt.receipt_digest,
     )
 
     assert assessment.claim_eligible is False
@@ -382,6 +443,8 @@ def test_a_report_digest_that_the_receipt_does_not_cover_fails_closed() -> None:
         _requirement(),
         evaluated_at=NOW,
         admitted_receipt_digests=_admitted(receipt),
+        import_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
+        admitted_cohort_receipt_digest=receipt.receipt_digest,
     )
 
     assert assessment.claim_eligible is False
@@ -405,6 +468,8 @@ def test_a_provenance_digest_the_receipt_does_not_cover_fails_closed() -> None:
         _requirement(),
         evaluated_at=NOW,
         admitted_receipt_digests=_admitted(receipt),
+        import_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
+        admitted_cohort_receipt_digest=receipt.receipt_digest,
     )
 
     assert assessment.claim_eligible is False
@@ -424,6 +489,8 @@ def test_two_arms_that_reuse_one_report_are_never_eligible() -> None:
         _requirement(),
         evaluated_at=NOW,
         admitted_receipt_digests=_admitted(receipt),
+        import_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
+        admitted_cohort_receipt_digest=receipt.receipt_digest,
     )
 
     assert assessment.claim_eligible is False
@@ -449,6 +516,8 @@ def test_two_arms_that_reuse_one_evidence_receipt_are_never_eligible() -> None:
         _requirement(),
         evaluated_at=NOW,
         admitted_receipt_digests=_admitted(receipt),
+        import_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
+        admitted_cohort_receipt_digest=receipt.receipt_digest,
     )
 
     assert assessment.claim_eligible is False
@@ -456,7 +525,7 @@ def test_two_arms_that_reuse_one_evidence_receipt_are_never_eligible() -> None:
 
 
 def test_a_mixed_revision_cohort_fails_closed() -> None:
-    other_revision = "git:fedcba9876543210fedcba9876543210fedcba98"
+    other_revision = "fedcba9876543210fedcba9876543210fedcba98"
     treatment = _arm(
         CohortArm.TREATMENT,
         report_digest=TREATMENT_REPORT_DIGEST,
@@ -470,6 +539,8 @@ def test_a_mixed_revision_cohort_fails_closed() -> None:
         _requirement(),
         evaluated_at=NOW,
         admitted_receipt_digests=_admitted(receipt),
+        import_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
+        admitted_cohort_receipt_digest=receipt.receipt_digest,
     )
 
     assert assessment.claim_eligible is False
@@ -484,6 +555,8 @@ def test_a_different_frozen_set_fails_closed() -> None:
         _requirement(scenario_set_version="v2026.08"),
         evaluated_at=NOW,
         admitted_receipt_digests=_admitted(receipt),
+        import_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
+        admitted_cohort_receipt_digest=receipt.receipt_digest,
     )
 
     assert assessment.claim_eligible is False
@@ -498,6 +571,8 @@ def test_stale_evidence_is_rejected_by_the_shared_preflight() -> None:
         _requirement(),
         evaluated_at=NOW + timedelta(days=3),
         admitted_receipt_digests=_admitted(receipt),
+        import_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
+        admitted_cohort_receipt_digest=receipt.receipt_digest,
     )
 
     assert assessment.claim_eligible is False
@@ -514,7 +589,7 @@ def test_the_minimum_sample_size_cannot_be_weakened() -> None:
 
 def test_a_requirement_MUST_pin_the_cohort_revision_and_frozen_set() -> None:
     with pytest.raises(ValidationError, match="MUST pin the cohort revision"):
-        _requirement(fdai_revision="git:1111111111111111111111111111111111111111")
+        _requirement(fdai_revision="1" * 40)
 
 
 def test_a_tampered_cohort_receipt_digest_is_rejected() -> None:

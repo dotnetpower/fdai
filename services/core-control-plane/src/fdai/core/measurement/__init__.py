@@ -41,6 +41,7 @@ The current modules here are:
 from __future__ import annotations
 
 from fdai.core.measurement.baseline_cohort_claim import (
+    admitted_cohort_claim_digest,
     admitted_cohort_receipt_digests,
     evaluate_admitted_cohort_claim,
     provider_cohort_admissions,
@@ -129,6 +130,7 @@ __all__ = [
     "ReadinessFacet",
     "ReadinessFacetSnapshot",
     "ReadinessFacetState",
+    "admitted_cohort_claim_digest",
     "admitted_cohort_receipt_digests",
     "compute_dora",
     "evaluate_admitted_cohort_claim",

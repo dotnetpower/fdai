@@ -12,24 +12,27 @@ from pathlib import Path
 import pytest
 from fdai.core.measurement.cohort_claim_policy import (
     COHORT_CLAIM_POLICY_PATH,
+    CohortClaimPolicyError,
     load_cohort_claim_policy,
 )
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 from fdai_service_contracts.baseline_cohort import (
     BaselineTreatmentCohortReceipt,
+    CohortArtifactOrigin,
     baseline_treatment_cohort_receipt_digest,
     cohort_arm_fact_digest,
     cohort_arm_fact_digest_values,
 )
 from fdai_service_contracts.decision_evidence import decision_critical_evidence_receipt_digest
 from tools.baseline_run import _run
+from tools.baseline_run import main as baseline_main
 from tools.cohort_receipt import UNTRUSTED_BUNDLE_KEYS, CohortClaimBundleError
 from tools.reference_agent import AgentDecision, ReferenceAgent
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 SCENARIOS = REPO_ROOT / "services" / "core-control-plane" / "tests" / "scenarios" / "v2026.07"
-COHORT_REVISION = "git:0123456789abcdef0123456789abcdef01234567"
-_OTHER_REVISION = "git:fedcba9876543210fedcba9876543210fedcba98"
+COHORT_REVISION = "0123456789abcdef0123456789abcdef01234567"
+_OTHER_REVISION = "fedcba9876543210fedcba9876543210fedcba98"
 
 #: One plausible absolute value per required success metric. The numbers are
 #: fixtures for the fail-closed path; the repository retains no real cohort.
@@ -274,7 +277,6 @@ def test_committed_baseline_artifact_matches_a_fresh_run() -> None:
 def _cohort_bundle(
     *,
     scenario_set_version: str = "v2026.07",
-    origin: str = "governed_external",
     synthetic: bool = False,
     revision: str = COHORT_REVISION,
 ) -> dict[str, object]:
@@ -364,7 +366,6 @@ def _cohort_bundle(
         "scenario_set_version": scenario_set_version,
         "scenario_set_digest": scope,
         "fdai_revision": revision,
-        "artifact_origin": origin,
         "baseline": _arm("baseline", "sha256:" + "2" * 64, "sha256:" + "3" * 64),
         "treatment": _arm("treatment", "sha256:" + "4" * 64, "sha256:" + "5" * 64),
         "evidence_cutoff": cutoff,
@@ -378,27 +379,47 @@ class _TrustedAdmissions:
     """Stand-in for the trusted shared admission provider injected by a caller.
 
     It never reads the artifact for admissions; it mints one per arm from the
-    canonical arm-fact digest the evaluator independently recomputes.
+    canonical arm-fact digest the evaluator independently recomputes, plus one
+    cohort-level admission over the complete receipt digest.
     """
 
-    def __init__(self, *, evidence_digest: str | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        evidence_digest: str | None = None,
+        cohort_digest: str | None = None,
+    ) -> None:
         self.evidence_digest = evidence_digest
+        self.cohort_digest = cohort_digest
 
     def admissions_for(
         self, receipt: BaselineTreatmentCohortReceipt
     ) -> tuple[DecisionEvidenceAdmission, ...]:
-        return tuple(
-            DecisionEvidenceAdmission(
-                receipt_digest=arm.evidence_receipt.receipt_digest,
-                verification_bundle_digest="sha256:" + "7" * 64,
-                evidence_digest=self.evidence_digest or cohort_arm_fact_digest(arm),
-                scope_digest=arm.scenario_set_digest,
-                purpose_id=arm.evidence_receipt.purpose_id,
-                source_revision=arm.fdai_revision,
-                verified_at=datetime.now(tz=UTC) - timedelta(minutes=5),
-                valid_until=datetime.now(tz=UTC) + timedelta(hours=1),
-            )
-            for arm in (receipt.baseline, receipt.treatment)
+        cohort = DecisionEvidenceAdmission(
+            receipt_digest=receipt.receipt_digest,
+            verification_bundle_digest="sha256:" + "7" * 64,
+            evidence_digest=self.cohort_digest or receipt.receipt_digest,
+            scope_digest=receipt.scenario_set_digest,
+            purpose_id=receipt.baseline.evidence_receipt.purpose_id,
+            source_revision=receipt.fdai_revision,
+            verified_at=datetime.now(tz=UTC) - timedelta(minutes=5),
+            valid_until=datetime.now(tz=UTC) + timedelta(hours=1),
+        )
+        return (
+            cohort,
+            *(
+                DecisionEvidenceAdmission(
+                    receipt_digest=arm.evidence_receipt.receipt_digest,
+                    verification_bundle_digest="sha256:" + "7" * 64,
+                    evidence_digest=self.evidence_digest or cohort_arm_fact_digest(arm),
+                    scope_digest=arm.scenario_set_digest,
+                    purpose_id=arm.evidence_receipt.purpose_id,
+                    source_revision=arm.fdai_revision,
+                    verified_at=datetime.now(tz=UTC) - timedelta(minutes=5),
+                    valid_until=datetime.now(tz=UTC) + timedelta(hours=1),
+                )
+                for arm in (receipt.baseline, receipt.treatment)
+            ),
         )
 
 
@@ -438,6 +459,7 @@ def test_a_governed_admitted_cohort_receipt_makes_the_claim_eligible(tmp_path: P
         _written(tmp_path, _cohort_bundle()),
         cohort_revision=COHORT_REVISION,
         admission_provider=_TrustedAdmissions(),
+        cohort_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
     )
 
     assert summary["cohort_claim"]["claim_eligible"] is True
@@ -475,6 +497,7 @@ def test_an_invented_admission_digest_cannot_make_the_claim_eligible(
         _written(tmp_path, _cohort_bundle()),
         cohort_revision=COHORT_REVISION,
         admission_provider=_TrustedAdmissions(evidence_digest=invented),
+        cohort_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
     )
 
     assert summary["cohort_claim"]["claim_eligible"] is False
@@ -492,6 +515,7 @@ def test_an_artifact_that_carries_its_own_trust_inputs_is_refused(tmp_path: Path
             _written(tmp_path, bundle),
             cohort_revision=COHORT_REVISION,
             admission_provider=_TrustedAdmissions(),
+            cohort_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
         )
 
 
@@ -499,7 +523,6 @@ def test_an_artifact_that_carries_its_own_trust_inputs_is_refused(tmp_path: Path
     ("overrides", "expected"),
     [
         ({"synthetic": True}, "synthetic"),
-        ({"origin": "repository"}, "artifact_ungoverned"),
         ({"revision": _OTHER_REVISION}, "revision_mismatch"),
     ],
 )
@@ -516,26 +539,90 @@ def test_a_defective_cohort_receipt_fails_closed(
         bundle,
         cohort_revision=COHORT_REVISION,
         admission_provider=_TrustedAdmissions(),
+        cohort_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
     )
 
     assert summary["cohort_claim"]["claim_eligible"] is False
     assert expected in summary["cohort_claim"]["rejection_reasons"]
 
 
-def test_a_repository_artifact_at_a_cli_path_still_publishes_a_repository_origin(
+def test_a_fully_admitted_artifact_at_a_cli_path_still_publishes_a_repository_origin(
     tmp_path: Path,
 ) -> None:
     """The presence of a ``--cohort-receipt`` path never governs an artifact."""
     _, summary = _run(
         SCENARIOS,
         None,
-        _written(tmp_path, _cohort_bundle(origin="repository")),
+        _written(tmp_path, _cohort_bundle()),
         cohort_revision=COHORT_REVISION,
         admission_provider=_TrustedAdmissions(),
     )
 
     assert summary["cohort_claim"]["artifact_origin"] == "repository"
     assert summary["cohort_claim"]["rejection_reasons"] == ["artifact_ungoverned"]
+
+
+def test_an_artifact_that_declares_a_governed_origin_is_refused(tmp_path: Path) -> None:
+    """A bundle cannot label itself governed, inside or outside its receipt."""
+    bundle = _cohort_bundle()
+    receipt = bundle["receipt"]
+    assert isinstance(receipt, dict)
+    receipt["artifact_origin"] = "governed_external"
+
+    with pytest.raises(CohortClaimBundleError, match="MUST NOT carry its own trust inputs"):
+        _run(
+            SCENARIOS,
+            None,
+            _written(tmp_path, bundle),
+            cohort_revision=COHORT_REVISION,
+            admission_provider=_TrustedAdmissions(),
+            cohort_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
+        )
+
+
+def test_an_invented_cohort_admission_digest_cannot_make_the_claim_eligible(
+    tmp_path: Path,
+) -> None:
+    _, summary = _run(
+        SCENARIOS,
+        None,
+        _written(tmp_path, _cohort_bundle()),
+        cohort_revision=COHORT_REVISION,
+        admission_provider=_TrustedAdmissions(cohort_digest="sha256:" + "9" * 64),
+        cohort_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
+    )
+
+    assert summary["cohort_claim"]["claim_eligible"] is False
+    assert summary["cohort_claim"]["rejection_reasons"] == ["cohort_not_admitted"]
+
+
+@pytest.mark.parametrize("movable", ["main", "HEAD", "refs/heads/main", COHORT_REVISION + "0"])
+def test_a_movable_cohort_revision_is_refused(tmp_path: Path, movable: str) -> None:
+    with pytest.raises(CohortClaimPolicyError, match="immutable full 40- or 64-hex"):
+        _run(
+            SCENARIOS,
+            None,
+            _written(tmp_path, _cohort_bundle()),
+            cohort_revision=movable,
+            admission_provider=_TrustedAdmissions(),
+            cohort_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
+        )
+
+
+def test_the_cli_refuses_a_movable_cohort_revision() -> None:
+    with pytest.raises(SystemExit) as exit_info:
+        baseline_main(
+            [
+                "--scenarios",
+                str(SCENARIOS),
+                "--cohort-receipt",
+                str(SCENARIOS / "missing.json"),
+                "--cohort-revision",
+                "main",
+            ]
+        )
+
+    assert exit_info.value.code == 2
 
 
 def test_a_governed_receipt_without_a_caller_revision_is_refused(tmp_path: Path) -> None:
@@ -552,6 +639,7 @@ def test_a_cohort_receipt_for_another_frozen_set_fails_closed(tmp_path: Path) ->
         bundle,
         cohort_revision=COHORT_REVISION,
         admission_provider=_TrustedAdmissions(),
+        cohort_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
     )
 
     assert summary["cohort_claim"]["claim_eligible"] is False

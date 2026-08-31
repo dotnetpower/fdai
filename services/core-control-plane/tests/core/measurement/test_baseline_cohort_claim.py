@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 from fdai.core.measurement.baseline_cohort_claim import (
+    admitted_cohort_claim_digest,
     admitted_cohort_receipt_digests,
     evaluate_admitted_cohort_claim,
     provider_cohort_admissions,
@@ -47,7 +48,7 @@ TREATMENT_REPORT_DIGEST = "sha256:" + "4" * 64
 TREATMENT_PROVENANCE_DIGEST = "sha256:" + "5" * 64
 STATIC_DIGEST = "sha256:" + "6" * 64
 BUNDLE_DIGEST = "sha256:" + "7" * 64
-REVISION = "git:0123456789abcdef0123456789abcdef01234567"
+REVISION = "0123456789abcdef0123456789abcdef01234567"
 PURPOSE = "sre-claim-cohort"
 NOW = datetime(2026, 9, 1, tzinfo=UTC)
 FRESHNESS_SECONDS = 86_400
@@ -137,7 +138,6 @@ def receipt() -> BaselineTreatmentCohortReceipt:
         "scenario_set_version": "v2026.07",
         "scenario_set_digest": SCENARIO_SET_DIGEST,
         "fdai_revision": REVISION,
-        "artifact_origin": CohortArtifactOrigin.GOVERNED_EXTERNAL,
         "baseline": _arm(
             CohortArm.BASELINE,
             BASELINE_REPORT_DIGEST,
@@ -184,6 +184,25 @@ def _requirement() -> CohortClaimRequirement:
     )
 
 
+def _cohort_admission(
+    receipt: BaselineTreatmentCohortReceipt,
+    *,
+    evidence_digest: str | None = None,
+) -> DecisionEvidenceAdmission:
+    """Mint the trusted cohort-level admission over the complete receipt digest."""
+
+    return DecisionEvidenceAdmission(
+        receipt_digest=receipt.receipt_digest,
+        verification_bundle_digest=BUNDLE_DIGEST,
+        evidence_digest=evidence_digest or receipt.receipt_digest,
+        scope_digest=SCENARIO_SET_DIGEST,
+        purpose_id=PURPOSE,
+        source_revision=REVISION,
+        verified_at=NOW - timedelta(minutes=10),
+        valid_until=NOW + timedelta(hours=1),
+    )
+
+
 def _admission(
     arm_receipt: DecisionCriticalEvidenceReceipt,
     *,
@@ -206,6 +225,7 @@ def test_current_admissions_make_the_cohort_claim_eligible(
     receipt: BaselineTreatmentCohortReceipt,
 ) -> None:
     admissions = (
+        _cohort_admission(receipt),
         _admission(receipt.baseline.evidence_receipt),
         _admission(receipt.treatment.evidence_receipt),
     )
@@ -214,6 +234,7 @@ def test_current_admissions_make_the_cohort_claim_eligible(
         receipt,
         _requirement(),
         admissions=admissions,
+        import_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
         evaluated_at=NOW,
     )
 
@@ -227,7 +248,11 @@ def test_one_missing_admission_leaves_the_claim_ineligible(
     assessment = evaluate_admitted_cohort_claim(
         receipt,
         _requirement(),
-        admissions=(_admission(receipt.baseline.evidence_receipt),),
+        admissions=(
+            _cohort_admission(receipt),
+            _admission(receipt.baseline.evidence_receipt),
+        ),
+        import_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
         evaluated_at=NOW,
     )
 
@@ -274,6 +299,7 @@ def test_an_invented_admission_digest_never_makes_the_claim_eligible(
     receipt: BaselineTreatmentCohortReceipt, invented: str
 ) -> None:
     admissions = (
+        _cohort_admission(receipt),
         _admission(receipt.baseline.evidence_receipt, evidence_digest=invented),
         _admission(receipt.treatment.evidence_receipt, evidence_digest=invented),
     )
@@ -282,6 +308,7 @@ def test_an_invented_admission_digest_never_makes_the_claim_eligible(
         receipt,
         _requirement(),
         admissions=admissions,
+        import_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
         evaluated_at=NOW,
     )
 
@@ -315,6 +342,7 @@ class _Provider:
             cohort_arm_fact_digest(arm): arm.evidence_receipt.receipt_digest
             for arm in (receipt.baseline, receipt.treatment)
         }
+        self.receipt_digests[receipt.receipt_digest] = receipt.receipt_digest
         self.requests: list[str] = []
 
     async def admit(
@@ -338,34 +366,41 @@ class _Provider:
         )
 
 
-async def test_an_injected_trusted_provider_can_admit_both_arms(
+async def test_an_injected_trusted_provider_can_admit_the_cohort_and_both_arms(
     receipt: BaselineTreatmentCohortReceipt,
 ) -> None:
     provider = _Provider(receipt)
 
-    admissions = await provider_cohort_admissions(receipt, provider=provider)
+    admissions = await provider_cohort_admissions(receipt, _requirement(), provider=provider)
     assessment = evaluate_admitted_cohort_claim(
         receipt,
         _requirement(),
         admissions=admissions,
+        import_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
         evaluated_at=NOW,
     )
 
     assert provider.requests == [
+        receipt.receipt_digest,
         cohort_arm_fact_digest(receipt.baseline),
         cohort_arm_fact_digest(receipt.treatment),
     ]
+    assert (
+        admitted_cohort_claim_digest(receipt, _requirement(), admissions, evaluated_at=NOW)
+        == receipt.receipt_digest
+    )
     assert assessment.claim_eligible is True
 
 
 async def test_no_injected_provider_leaves_the_claim_ineligible(
     receipt: BaselineTreatmentCohortReceipt,
 ) -> None:
-    admissions = await provider_cohort_admissions(receipt, provider=None)
+    admissions = await provider_cohort_admissions(receipt, _requirement(), provider=None)
     assessment = evaluate_admitted_cohort_claim(
         receipt,
         _requirement(),
         admissions=admissions,
+        import_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
         evaluated_at=NOW,
     )
 
@@ -443,9 +478,10 @@ def _gate(
     )
 
 
-async def test_a_separately_verified_proof_bundle_admits_both_arms(
+async def test_a_separately_verified_proof_bundle_admits_both_arms_but_not_the_cohort(
     receipt: BaselineTreatmentCohortReceipt,
 ) -> None:
+    """The verifier registry covers arm receipts only, never the whole cohort."""
     admissions = await verified_cohort_admissions(
         receipt,
         _requirement(),
@@ -456,6 +492,7 @@ async def test_a_separately_verified_proof_bundle_admits_both_arms(
         receipt,
         _requirement(),
         admissions=admissions,
+        import_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
         evaluated_at=NOW,
     )
 
@@ -464,6 +501,28 @@ async def test_a_separately_verified_proof_bundle_admits_both_arms(
         cohort_arm_fact_digest(receipt.baseline),
         cohort_arm_fact_digest(receipt.treatment),
     }
+    assert assessment.claim_eligible is False
+    assert assessment.rejection_reasons == (CohortClaimRejectionReason.COHORT_NOT_ADMITTED,)
+
+
+async def test_a_verified_bundle_plus_a_trusted_cohort_admission_is_eligible(
+    receipt: BaselineTreatmentCohortReceipt,
+) -> None:
+    arm_admissions = await verified_cohort_admissions(
+        receipt,
+        _requirement(),
+        gate=_gate(receipt),
+        evaluated_at=NOW,
+    )
+
+    assessment = evaluate_admitted_cohort_claim(
+        receipt,
+        _requirement(),
+        admissions=(_cohort_admission(receipt), *arm_admissions),
+        import_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
+        evaluated_at=NOW,
+    )
+
     assert assessment.claim_eligible is True
 
 
@@ -482,6 +541,7 @@ async def test_a_registry_without_a_reviewed_verifier_admits_nothing(
         receipt,
         _requirement(),
         admissions=admissions,
+        import_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
         evaluated_at=NOW,
     )
 
@@ -508,6 +568,80 @@ async def test_a_proof_bundle_for_the_other_arm_admits_nothing(
     )
 
     assert admissions == ()
+
+
+def test_a_cohort_admission_for_another_digest_does_not_count(
+    receipt: BaselineTreatmentCohortReceipt,
+) -> None:
+    invented = _cohort_admission(receipt, evidence_digest="sha256:" + "c" * 64)
+    admissions = (
+        invented,
+        _admission(receipt.baseline.evidence_receipt),
+        _admission(receipt.treatment.evidence_receipt),
+    )
+
+    assessment = evaluate_admitted_cohort_claim(
+        receipt,
+        _requirement(),
+        admissions=admissions,
+        import_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
+        evaluated_at=NOW,
+    )
+
+    assert (
+        admitted_cohort_claim_digest(receipt, _requirement(), admissions, evaluated_at=NOW) is None
+    )
+    assert assessment.claim_eligible is False
+    assert assessment.rejection_reasons == (CohortClaimRejectionReason.COHORT_NOT_ADMITTED,)
+
+
+def test_a_rehashed_artifact_loses_its_cohort_admission(
+    receipt: BaselineTreatmentCohortReceipt,
+) -> None:
+    """A relabelled artifact rehashes, so the cohort admission stops covering it."""
+    payload = receipt.model_dump(mode="json")
+    del payload["receipt_digest"]
+    payload["cohort_id"] = "sre-v2026.07-cohort-relabelled"
+    payload["receipt_digest"] = baseline_treatment_cohort_receipt_digest(**payload)
+    rehashed = BaselineTreatmentCohortReceipt.model_validate(payload)
+    admissions = (
+        _cohort_admission(receipt),
+        _admission(rehashed.baseline.evidence_receipt),
+        _admission(rehashed.treatment.evidence_receipt),
+    )
+
+    assessment = evaluate_admitted_cohort_claim(
+        rehashed,
+        _requirement(),
+        admissions=admissions,
+        import_origin=CohortArtifactOrigin.GOVERNED_EXTERNAL,
+        evaluated_at=NOW,
+    )
+
+    assert rehashed.receipt_digest != receipt.receipt_digest
+    assert assessment.claim_eligible is False
+    assert assessment.rejection_reasons == (CohortClaimRejectionReason.COHORT_NOT_ADMITTED,)
+
+
+def test_a_repository_import_origin_leaves_a_fully_admitted_cohort_ineligible(
+    receipt: BaselineTreatmentCohortReceipt,
+) -> None:
+    admissions = (
+        _cohort_admission(receipt),
+        _admission(receipt.baseline.evidence_receipt),
+        _admission(receipt.treatment.evidence_receipt),
+    )
+
+    assessment = evaluate_admitted_cohort_claim(
+        receipt,
+        _requirement(),
+        admissions=admissions,
+        evaluated_at=NOW,
+    )
+
+    assert assessment.claim_eligible is False
+    assert assessment.rejection_reasons == (CohortClaimRejectionReason.ARTIFACT_UNGOVERNED,)
+    assert assessment.artifact_origin is CohortArtifactOrigin.REPOSITORY
 
 
 def test_a_missing_receipt_fails_closed_without_admissions() -> None:

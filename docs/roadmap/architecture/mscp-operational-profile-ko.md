@@ -1,7 +1,7 @@
 ---
 title: MSCP Operational Profile
 translation_of: mscp-operational-profile.md
-translation_source_sha: 2e3f7f4c06b3a9360a1df25c0e1ccb001fad19b3
+translation_source_sha: 8e3cb54babb31455269ea1dad22fbc530d8f5be9
 translation_revised: 2026-08-31
 ---
 # MSCP Operational 프로파일
@@ -147,6 +147,8 @@ mismatch는 `hold` 또는 `mismatch` shadow 근거를 생성합니다. 실행기
 관측, 기록으로 이어지는 액션 수명 주기 시간선을 보존하므로 근거가 사라지지 않고 순서를
 검토할 수 있습니다. 이 수명 주기 시각은 제어 루프 시계 이음새에서 나오며, 고정 재생은 이
 이음새를 연결해 관측을 벽시계가 아니라 관측이 설명하는 전달 기준으로 정렬합니다.
+전달 완료 전에 기록된 관측은 값이 예측과 일치하더라도
+`observation_before_dispatch` 사유로 보류합니다.
 이 추가 기록은 계속 shadow 근거입니다. 효과 모델을 promote하거나 실행
 권한을 변경할 수 없습니다.
 

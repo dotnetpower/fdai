@@ -1,14 +1,17 @@
 """Admission-bound eligibility for one retained baseline and treatment cohort.
 
-Eligibility needs an admission per arm, and an admission is only ever obtained
-from a trusted source: an injected shared decision-evidence admission provider,
-or a separately supplied complete proof bundle read back through the existing
+Eligibility needs an admission per arm plus one cohort-level admission over the
+complete receipt digest, and an admission is only ever obtained from a trusted
+source: an injected shared decision-evidence admission provider, or a
+separately supplied complete proof bundle read back through the existing
 decision-evidence verifier registry. A cohort artifact never carries its own
-admissions, so an artifact can never admit itself.
+admissions or its own origin, so an artifact can never admit itself.
 
-Every admission is rechecked against the canonical digest of every evaluated
-arm fact, so an admission issued for one arm's values cannot be replayed onto
-an arm whose metrics, guards, sample count, or provenance differ.
+Every arm admission is rechecked against the canonical digest of every
+evaluated arm fact, so an admission issued for one arm's values cannot be
+replayed onto an arm whose metrics, guards, sample count, or provenance differ.
+The cohort admission is rechecked against the receipt digest that covers both
+arms together, so a relabelled or rehashed artifact loses it.
 """
 
 from __future__ import annotations
@@ -19,6 +22,7 @@ from datetime import UTC, datetime
 from fdai_service_contracts.baseline_cohort import (
     BaselineTreatmentCohortReceipt,
     CohortArmReport,
+    CohortArtifactOrigin,
     CohortClaimAssessment,
     CohortClaimRequirement,
     cohort_arm_fact_digest,
@@ -73,16 +77,58 @@ def admitted_cohort_receipt_digests(
     return frozenset(admitted)
 
 
+def admitted_cohort_claim_digest(
+    receipt: BaselineTreatmentCohortReceipt,
+    requirement: CohortClaimRequirement,
+    admissions: Iterable[DecisionEvidenceAdmission],
+    *,
+    evaluated_at: datetime,
+) -> str | None:
+    """Return the cohort receipt digest a trusted cohort-level admission covers.
+
+    The admission MUST bind the complete retained receipt: its receipt and
+    evidence digests are both the cohort ``receipt_digest``, and its scope,
+    purpose, and revision are rechecked against the trusted requirement rather
+    than against anything the artifact declares. Any relabelled or rehashed
+    artifact changes that digest and is left uncovered.
+    """
+
+    normalized_at = _aware_utc(evaluated_at)
+    for admission in admissions:
+        if admission.receipt_digest != receipt.receipt_digest:
+            continue
+        rejections = assess_decision_evidence_admission(
+            admission,
+            expected_evidence_digest=receipt.receipt_digest,
+            expected_scope_digest=requirement.scenario_set_digest,
+            expected_purpose_id=requirement.claim_purpose_id,
+            expected_source_revision=requirement.fdai_revision,
+            evaluated_at=normalized_at,
+        )
+        if not rejections:
+            return receipt.receipt_digest
+    return None
+
+
 async def provider_cohort_admissions(
     receipt: BaselineTreatmentCohortReceipt,
+    requirement: CohortClaimRequirement,
     *,
     provider: DecisionEvidenceAdmissionProvider | None,
 ) -> tuple[DecisionEvidenceAdmission, ...]:
-    """Ask one injected trusted shared admission provider about each arm."""
+    """Ask one injected trusted shared admission provider about the cohort and each arm."""
 
     if provider is None:
         return ()
     admissions: list[DecisionEvidenceAdmission] = []
+    cohort_admission = await provider.admit(
+        evidence_digest=receipt.receipt_digest,
+        scope_digest=requirement.scenario_set_digest,
+        purpose_id=requirement.claim_purpose_id,
+        source_revision=requirement.fdai_revision,
+    )
+    if cohort_admission is not None:
+        admissions.append(cohort_admission)
     for arm in cohort_arm_reports(receipt):
         admission = await provider.admit(
             evidence_digest=cohort_arm_fact_digest(arm),
@@ -107,6 +153,10 @@ async def verified_cohort_admissions(
     The gate resolves a reviewed verifier binding, requires five independent
     proofs over the separately supplied bundle, and only then emits an
     admission. The cohort artifact supplies the receipt, never the proof.
+
+    The registry verifies arm evidence receipts only, so a governed external
+    import still needs its cohort-level admission from the trusted importer
+    channel, as :func:`provider_cohort_admissions` obtains it.
     """
 
     normalized_at = _aware_utc(evaluated_at)
@@ -131,20 +181,23 @@ def evaluate_admitted_cohort_claim(
     requirement: CohortClaimRequirement,
     *,
     admissions: Iterable[DecisionEvidenceAdmission] = (),
+    import_origin: CohortArtifactOrigin = CohortArtifactOrigin.REPOSITORY,
     evaluated_at: datetime,
 ) -> CohortClaimAssessment:
     """Evaluate cohort eligibility only against currently admitted evidence.
 
     ``admissions`` MUST originate from :func:`provider_cohort_admissions` or
-    :func:`verified_cohort_admissions`. Passing none - the state of any caller
-    that only read a repository artifact - keeps the claim ineligible.
+    :func:`verified_cohort_admissions`, and ``import_origin`` from the trusted
+    importer channel or caller. Passing neither - the state of any caller that
+    only read a repository artifact - keeps the claim ineligible.
     """
 
     if receipt is None:
         return evaluate_cohort_claim(None, requirement, evaluated_at=evaluated_at)
+    current = tuple(admissions)
     admitted = admitted_cohort_receipt_digests(
         receipt,
-        admissions,
+        current,
         evaluated_at=evaluated_at,
     )
     return evaluate_cohort_claim(
@@ -152,6 +205,13 @@ def evaluate_admitted_cohort_claim(
         requirement,
         evaluated_at=evaluated_at,
         admitted_receipt_digests=admitted,
+        import_origin=import_origin,
+        admitted_cohort_receipt_digest=admitted_cohort_claim_digest(
+            receipt,
+            requirement,
+            current,
+            evaluated_at=evaluated_at,
+        ),
     )
 
 
@@ -162,6 +222,7 @@ def _aware_utc(value: datetime) -> datetime:
 
 
 __all__ = [
+    "admitted_cohort_claim_digest",
     "admitted_cohort_receipt_digests",
     "cohort_arm_reports",
     "evaluate_admitted_cohort_claim",

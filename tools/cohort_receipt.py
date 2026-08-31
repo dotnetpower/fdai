@@ -4,14 +4,17 @@ A cohort claim artifact is produced outside this repository by governed
 deployment evidence. This module only parses the retained receipt, validates it
 against the shipped contracts, and hands it to the deterministic evaluator.
 
-Two things it deliberately never reads from the artifact:
+Three things it deliberately never reads from the artifact:
 
 - the :class:`CohortClaimRequirement`, which comes from the trusted versioned
   repository policy, so an artifact cannot weaken what it is measured against,
-  and
 - any :class:`DecisionEvidenceAdmission`, which comes only from an injected
-  trusted admission provider. An importer without a provider therefore always
-  leaves the claim ineligible, no matter what digests the artifact invents.
+  trusted admission provider, and
+- the :class:`CohortArtifactOrigin`, which is import context supplied by the
+  trusted caller of this importer.
+
+An importer without a provider and without a governed import origin therefore
+always leaves the claim ineligible, no matter what the artifact declares.
 """
 
 from __future__ import annotations
@@ -26,6 +29,7 @@ from fdai.core.measurement.baseline_cohort_claim import evaluate_admitted_cohort
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 from fdai_service_contracts.baseline_cohort import (
     BaselineTreatmentCohortReceipt,
+    CohortArtifactOrigin,
     CohortClaimAssessment,
     CohortClaimRequirement,
     missing_cohort_claim,
@@ -36,6 +40,7 @@ from fdai_service_contracts.baseline_cohort import (
 UNTRUSTED_BUNDLE_KEYS: tuple[str, ...] = (
     "admissions",
     "admitted_receipt_digests",
+    "artifact_origin",
     "claim_eligible",
     "policy",
     "requirement",
@@ -70,15 +75,17 @@ def load_cohort_claim_receipt(path: Path) -> BaselineTreatmentCohortReceipt:
     except (OSError, json.JSONDecodeError) as error:
         raise CohortClaimBundleError(f"unreadable cohort claim bundle: {error}") from error
     body = _require_mapping(raw, "bundle")
-    present = sorted(key for key in UNTRUSTED_BUNDLE_KEYS if key in body)
+    receipt = _require_mapping(body.get("receipt"), "receipt")
+    present = sorted(
+        {key for key in UNTRUSTED_BUNDLE_KEYS if key in body}
+        | {key for key in UNTRUSTED_BUNDLE_KEYS if key in receipt}
+    )
     if present:
         raise CohortClaimBundleError(
             "a cohort claim bundle MUST NOT carry its own trust inputs: " + ", ".join(present)
         )
     try:
-        return BaselineTreatmentCohortReceipt.model_validate(
-            _require_mapping(body.get("receipt"), "receipt")
-        )
+        return BaselineTreatmentCohortReceipt.model_validate(receipt)
     except ValueError as error:
         raise CohortClaimBundleError(f"invalid cohort claim bundle: {error}") from error
 
@@ -89,9 +96,15 @@ def evaluate_cohort_claim_bundle(
     *,
     evaluated_at: datetime,
     admission_provider: CohortAdmissionProvider | None = None,
+    import_origin: CohortArtifactOrigin = CohortArtifactOrigin.REPOSITORY,
     expected_scenario_set_version: str | None = None,
 ) -> CohortClaimAssessment:
-    """Return the deterministic eligibility of an artifact, or of its absence."""
+    """Return the deterministic eligibility of an artifact, or of its absence.
+
+    ``import_origin`` describes the channel this artifact arrived through and
+    defaults to the fail-closed repository origin. A caller that reads a file
+    from this repository MUST leave it at that default.
+    """
 
     if path is None:
         return missing_cohort_claim(evaluated_at=evaluated_at)
@@ -108,6 +121,7 @@ def evaluate_cohort_claim_bundle(
         receipt,
         requirement,
         admissions=admissions,
+        import_origin=import_origin,
         evaluated_at=evaluated_at,
     )
 

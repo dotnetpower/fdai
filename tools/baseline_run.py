@@ -15,11 +15,12 @@ Usage
         --report docs/baselines/v2026.07.md
 
 A published claim additionally needs ``--cohort-receipt``, a governed artifact
-produced outside this repository, and ``--cohort-revision``, the pinned
-revision the trusted caller expects. The artifact is measured against the
+produced outside this repository, and ``--cohort-revision``, the immutable full
+commit digest the trusted caller expects. The artifact is measured against the
 trusted repository policy in ``config/sre-cohort-claim-policy.json``, never
-against anything the artifact declares about itself. The runner injects no
-admission provider, so a repository-only import always stays ineligible.
+against anything the artifact declares about itself. The CLI injects neither an
+admission provider nor a governed import origin, so a repository-only import
+always stays ineligible.
 
 Success metrics reported (from `goals-and-metrics.md`):
 
@@ -47,10 +48,13 @@ from typing import Any
 from fdai.core.measurement.cohort_claim_policy import (
     COHORT_CLAIM_POLICY_PATH,
     CohortClaimPolicy,
+    CohortClaimPolicyError,
     load_cohort_claim_policy,
+    require_commit_revision,
 )
 from fdai_service_contracts.baseline_cohort import (
     MINIMUM_COHORT_SAMPLE_SIZE,
+    CohortArtifactOrigin,
     CohortClaimAssessment,
     CohortClaimRejectionReason,
     missing_cohort_claim,
@@ -115,6 +119,7 @@ def _run(
     *,
     cohort_revision: str | None = None,
     admission_provider: Any | None = None,
+    cohort_origin: CohortArtifactOrigin = CohortArtifactOrigin.REPOSITORY,
 ) -> tuple[list[ScenarioOutcome], dict[str, Any]]:
     agent = ReferenceAgent()
     scenarios = _load_scenarios(root)
@@ -243,6 +248,7 @@ def _run(
         scenario_set_root=root,
         cohort_revision=cohort_revision,
         admission_provider=admission_provider,
+        cohort_origin=cohort_origin,
     )
     summary["release_gate"] = _release_gate(summary)
     summary["evidence"]["claim_eligible"] = (
@@ -258,13 +264,14 @@ def _cohort_claim(
     scenario_set_root: Path,
     cohort_revision: str | None,
     admission_provider: Any | None = None,
+    cohort_origin: CohortArtifactOrigin = CohortArtifactOrigin.REPOSITORY,
 ) -> dict[str, Any]:
     """Evaluate the governed cohort claim, failing closed when it is absent.
 
-    The requirement comes from the trusted repository policy and the pinned
-    revision from the caller, never from the artifact. The published artifact
-    origin is read back from the validated contract, so the mere presence of a
-    ``--cohort-receipt`` path never upgrades a repository-origin artifact.
+    The requirement comes from the trusted repository policy, the pinned
+    revision from the caller, and the import origin from the trusted caller of
+    this runner, never from the artifact. The mere presence of a
+    ``--cohort-receipt`` path therefore never governs an artifact.
 
     The evaluation timestamp is deliberately not published: this artifact has
     to stay byte-reproducible from the frozen scenario set.
@@ -296,6 +303,7 @@ def _cohort_claim(
         requirement,
         evaluated_at=evaluated_at,
         admission_provider=admission_provider,
+        import_origin=cohort_origin,
         expected_scenario_set_version=scenario_set_version,
     )
     return _cohort_claim_record(policy, assessment)
@@ -805,6 +813,15 @@ def _tier_row(tier: str, metrics: Mapping[str, Any]) -> str:
     )
 
 
+def _commit_revision(value: str) -> str:
+    """Refuse a movable ``--cohort-revision`` before any evidence is read."""
+
+    try:
+        return require_commit_revision(value)
+    except CohortClaimPolicyError as error:
+        raise argparse.ArgumentTypeError(str(error)) from error
+
+
 def main(argv: Iterable[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="baseline-run", description=__doc__)
     parser.add_argument(
@@ -832,9 +849,11 @@ def main(argv: Iterable[str] | None = None) -> int:
     )
     parser.add_argument(
         "--cohort-revision",
+        type=_commit_revision,
         help=(
-            "Pinned fdai revision the trusted caller expects both cohort arms "
-            "to have been measured on. Required with --cohort-receipt."
+            "Immutable full 40- or 64-hex commit digest the trusted caller "
+            "expects both cohort arms to have been measured on. A branch or "
+            "tag name is refused. Required with --cohort-receipt."
         ),
     )
     parser.add_argument("--json", type=Path, help="Write the JSON summary here.")

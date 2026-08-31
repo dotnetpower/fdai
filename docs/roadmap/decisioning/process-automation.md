@@ -252,6 +252,7 @@ Process target and evaluation time. It delegates other refs to the existing guar
 the architecture-review production gate remains unchanged. Guard resolution is fail-closed: a
 stale evaluation clock, a raising or unavailable evaluator, and a non-boolean result each block
 the step and record a bounded `guard_error`, while a clean policy block keeps `guard_error` null.
+Only the literal boolean `true` can open a workflow gate; other truthy values remain blocked.
 An open gate is a positive decision, so a satisfied gate additionally needs a current shared
 decision-critical evidence admission bound to that exact gate reference and Process lineage. When no
 admission provider is bound, or the admission does not match, the gate stays closed.
