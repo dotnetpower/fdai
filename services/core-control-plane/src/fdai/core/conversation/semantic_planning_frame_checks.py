@@ -13,6 +13,7 @@ from fdai_service_contracts.ontology_query import SemanticOperation
 from fdai.rule_catalog.schema.inventory_query_language import InventoryQueryLanguageRegistry
 
 from .semantic_investigation import VerifiedInvestigationIntent
+from .semantic_manifest_planning import normalize_ontology_manifest_count_frame
 from .semantic_planning_frame import (
     build_bound_incident_metric_comparison_frame as _build_bound_incident_metric_comparison_frame,
 )
@@ -324,6 +325,13 @@ def normalize_and_gate_frame(
             manifest_digest=manifest_digest,
             frame=frame,
         )
+    proposal, frame = normalize_ontology_manifest_count_frame(
+        proposal,
+        frame,
+        judgment=judgment,
+        utterance=utterance,
+        context=context,
+    )
     proposal, frame = _resolve_semantic_judgment_bound_read(
         proposal,
         frame,

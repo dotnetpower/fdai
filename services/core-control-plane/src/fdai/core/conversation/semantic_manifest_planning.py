@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from fdai_service_contracts.ontology_query import (
     OntologyQueryPlan,
@@ -10,19 +11,58 @@ from fdai_service_contracts.ontology_query import (
     SemanticOperation,
     SemanticProblemFrame,
 )
+from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
 from fdai.core.ontology_platform.manifest_queries import ONTOLOGY_MANIFEST_FUNCTION_NAME
 from fdai.shared.contracts.models import OntologyDeclarationKind
 
 from .semantic_planning_alignment import verify_frame_plan_alignment
+from .semantic_planning_frame import build_semantic_frame
 from .semantic_planning_models import (
     QueryNodeProposal,
     QueryPlanProposal,
+    SemanticFrameProposal,
     SemanticOutputShape,
 )
 from .semantic_planning_support import _build_plan
 from .session import Principal
+
+
+def normalize_ontology_manifest_count_frame(
+    proposal: SemanticFrameProposal,
+    frame: SemanticProblemFrame,
+    *,
+    judgment: SemanticJudgmentProposal | None,
+    utterance: str,
+    context: tuple[str, ...],
+) -> tuple[SemanticFrameProposal, SemanticProblemFrame]:
+    """Bind a validated declaration-count intent to its manifest declaration kind."""
+
+    if (
+        judgment is None
+        or judgment.action_posture != "advise_only"
+        or judgment.primary_intent != "query.ontology_declaration"
+        or "count" not in judgment.requested_facets
+        or len(judgment.targets) != 1
+        or frame.operation is not SemanticOperation.AGGREGATE
+        or frame.output_shape != SemanticOutputShape.AGGREGATION_TABLE
+        or frame.unresolved_terms
+        or proposal.clarification_requirements
+    ):
+        return proposal, frame
+    canonical_value = judgment.targets[0].canonical_value
+    if not isinstance(canonical_value, str) or not canonical_value.endswith("Type"):
+        return proposal, frame
+    try:
+        declaration_kind = OntologyDeclarationKind(canonical_value.removesuffix("Type").casefold())
+    except ValueError:
+        return proposal, frame
+    updates: dict[str, Any] = {}
+    updates["subject_constraints"] = (declaration_kind.value,)
+    updates["measure_concepts"] = ("count",)
+    normalized = proposal.model_copy(update=updates)
+    return normalized, build_semantic_frame(normalized, utterance=utterance, context=context)
 
 
 def compile_ontology_manifest_count_plan(
@@ -103,6 +143,3 @@ def _has_manifest_function(manifest: QueryManifest) -> bool:
         and descriptor.get("name") == ONTOLOGY_MANIFEST_FUNCTION_NAME
         for descriptor in manifest.descriptors
     )
-
-
-__all__ = ["compile_ontology_manifest_count_plan"]
