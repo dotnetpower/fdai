@@ -326,9 +326,13 @@ class Muninn(Agent):
                 "cases": [record["case"] for record in cases],
             },
         )
-        cohort["last_emitted_digest"] = digest
-        self.state_store.put("operational_case_fingerprint_cohorts", fingerprint, cohort)
-        await self._durable_state_store.write_state(state_key, cohort)
+        emitted_cohort = {**cohort, "last_emitted_digest": digest}
+        await self._durable_state_store.write_state(state_key, emitted_cohort)
+        self.state_store.put(
+            "operational_case_fingerprint_cohorts",
+            fingerprint,
+            emitted_cohort,
+        )
         self.record_behavior("operational_case:published")
 
     async def _materialize_detection_readiness(self, payload: dict[str, Any]) -> None:

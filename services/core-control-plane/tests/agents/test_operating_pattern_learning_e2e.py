@@ -175,6 +175,49 @@ async def test_operational_case_does_not_cache_a_failed_durable_write() -> None:
     )
 
 
+async def test_operational_case_does_not_cache_an_unpersisted_emission_marker() -> None:
+    class _SecondWriteFails(InMemoryStateStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.write_count = 0
+
+        async def write_state(self, key: str, value: dict[str, Any]) -> None:
+            self.write_count += 1
+            if self.write_count == 3:
+                raise RuntimeError("emission marker write failed")
+            await super().write_state(key, value)
+
+    durable = _SecondWriteFails()
+    bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
+    muninn = Muninn(
+        case_history=CaseHistoryMaterializer(
+            metadata=InMemoryCaseHistoryMetadataStore(),
+            artifacts=InMemoryCaseHistoryArtifactStore(),
+        ),
+        durable_state_store=durable,
+    )
+    muninn.bind_bus(bus)
+    first = _operational_input("a", OperationalOutcomeClass.SUCCESS)
+    second = _operational_input("b", OperationalOutcomeClass.SUCCESS)
+    await muninn.on_typed_message(
+        "object.event",
+        {"producer_principal": "Huginn", **_operational_raw("first", first)},
+    )
+
+    with pytest.raises(RuntimeError, match="emission marker write failed"):
+        await muninn.on_typed_message(
+            "object.event",
+            {"producer_principal": "Huginn", **_operational_raw("second", second)},
+        )
+
+    cached = muninn.state_store.get(
+        "operational_case_fingerprint_cohorts",
+        first.failure_fingerprint.digest,
+    )
+    assert cached is not None
+    assert "last_emitted_digest" not in cached
+
+
 async def test_full_bus_groups_by_fingerprint_and_emits_balanced_candidate_once() -> None:
     bus, huginn, muninn, norns, mimir, durable = _learning_chain()
     success_one = _operational_input("a", OperationalOutcomeClass.SUCCESS)
