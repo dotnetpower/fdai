@@ -104,6 +104,11 @@ Run one cycle in this order:
 8. **Continue immediately**: the same explicit campaign starts its next bounded cycle after the
    current cycle ends, subject to the campaign limits.
 
+Before creating a candidate, classify the failed observation as exactly one of
+`code_defect`, `provider_or_evidence_unavailable`, `authorization_or_configuration`,
+`baseline_failure`, or `evaluation_contract_defect`. Only `code_defect` is hardenable. The other
+classes append a terminal held result and the campaign continues with a new question.
+
 ## Multidimensional answer gate
 
 Rubric version `conversation-assurance.v2` assesses every terminal answer with exactly ten named
@@ -235,14 +240,17 @@ One hardening candidate must:
 - Include affected bilingual design documentation.
 - Stay within 12 changed files and 800 changed lines unless an operator explicitly changes the
   local cap.
-- Change only `services/core-control-plane/src/fdai/`,
-  `services/core-control-plane/src/fdai_core_service/`,
-  `services/operator-service/src/fdai_operator_service/`,
-  `services/core-control-plane/tests/`, `services/operator-service/tests/`, and
-  `docs/roadmap/` paths.
-- Pass exact and similar-question live measurement only when those measurements remain available,
-   plus focused tests and focused verification. A provider hold rejects the candidate without
-   relaunching measurements. Whole-repository validation remains a merge/release responsibility.
+- Change only Core conversation and conversation-assurance owners,
+  `services/core-control-plane/src/fdai_core_service/`, Operator conversation owners, their
+  adjacent Core or Operator tests, and directly related `docs/roadmap/` owners.
+- Run validation as separate terminal stages: reproduction test, changed-boundary focused tests,
+  Ruff, mypy, original plus paraphrase live cohort, and a baseline-independent final verdict.
+- Apply a hard deadline to every stage. The edit stage has a separate no-progress deadline. A
+  timeout or exception appends a terminal `hardening_result` and never prevents the campaign from
+  moving to a new question.
+- Treat an unchanged whole-repository or unrelated Console failure as `baseline_blocked`, not as a
+  candidate defect. Whole-repository validation is never a default candidate gate and remains a
+  merge or release responsibility.
 - Pass an AST-delta anti-hardcoding gate. A candidate is rejected when it adds a compiled regular
    expression or compiled-pattern match, a static string collection or mapping, or a question or
    paraphrase literal to the product conversation source. This structural gate supplements, rather
@@ -252,8 +260,10 @@ Use a visible sibling worktree under `fdai-worktrees/auto-hardening`. Hidden `.i
 paths can invalidate path-sensitive repository tests. Link local-only `.venv`, model metadata, and
 Node dependencies into the worktree and exclude those links from git status.
 
-If focused verification exposes an unchanged baseline defect, retain the candidate branch with an
-honest baseline-blocked verdict. Do not fix an unrelated baseline failure inside the chat candidate.
+Retain the branch only when every candidate stage is verified. Remove failed, timed-out,
+provider-held, evaluation-defect, authorization/configuration, and `baseline_blocked` branches.
+Never merge a retained branch automatically. Do not fix an unrelated baseline failure inside the
+chat candidate.
 
 ## Copilot CLI boundary
 

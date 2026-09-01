@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 4c922848ef170747b7a1a431566c74a560123aed
+translation_source_sha: 3216d73060b3162c0bd7e9f0a144744461a45c14
 translation_revised: 2026-09-01
 ---
 # 대화 품질 보증
@@ -36,6 +36,7 @@ translation_revised: 2026-09-01
 | 맥락 및 로케일 호환 경로 | implemented | [`context_locale_scorecard.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/context_locale_scorecard.py), [`test_context_locale_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_context_locale_scorecard.py) | 과거 모듈 경로는 통합 소유자 기여 API만 다시 내보내며 대체된 별도 묶음을 복원하지 않습니다. |
 | Watchdog 런타임 기능 준비 상태 | implemented | [`conversation_assurance_readiness.py`](../../../services/core-control-plane/src/fdai/runtime/conversation_assurance_readiness.py), [`test_conversation_assurance_readiness.py`](../../../services/core-control-plane/tests/runtime/test_conversation_assurance_readiness.py) | 질문 선택은 선언, 결속, 공급자 도달 가능성, 근거 준비 상태 및 권한을 구분합니다. 사용할 수 없는 질문은 점수를 매기지 않은 범위 backlog로 남습니다. 라이브 캠페인 근거를 주장하지 않습니다. |
 | Watchdog 답변 게이트 v2 | implemented | [`conversation_assurance_answer_gate.py`](../../../scripts/automation/conversation_assurance_answer_gate.py), [`test_conversation_assurance_answer_gate.py`](../../../tests/integration/scripts/test_conversation_assurance_answer_gate.py) | 10개 루브릭 구조는 적용 가능한 항목 수를 분모로 사용하며, 6개 답변 루브릭과 선언된 각 객관적 오라클은 별도 필수 게이트를 구성합니다. 객관적으로 결정 가능한 개수는 현재 권위 소스에서 계산한 기대값과 구조화된 답변 값을 비교합니다. 제품 기술 검증과 품질 보증 성공은 별도 필드로 유지하며 v1 원장 행은 변경하지 않습니다. |
+| Watchdog hardening 격리 | implemented | 로컬 watchdog 안전 계약 테스트 및 `conversational-assurance` skill | 후보 생성 전에 실패를 분류하고 코드 결함만 hardening에 진입할 수 있습니다. 단계별 집중 검사가 전체 저장소 후보 게이트를 대체하며 검증된 브랜치만 검토용으로 보존합니다. |
 | 운영자 이의 제기 및 온톨로지 적정성 검토 | implemented | [`test_learning.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_learning.py), [`test_state_store_ontology_adequacy.py`](../../../services/core-control-plane/tests/delivery/persistence/test_state_store_ontology_adequacy.py) | 이의 제기와 재현된 적정성 공백은 실행 권한을 변경하지 않고 범위가 제한된 검토 근거를 만듭니다. |
 | Pantheon 프롬프트 및 turn 진단 | implemented | [`test_pantheon_diagnostics.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_pantheon_diagnostics.py), [`test_prompt_contract_audit.py`](../../../services/core-control-plane/tests/agents/test_prompt_contract_audit.py) | 고정된 30점 변환 결과는 프롬프트 구조와 라우팅된 답변 품질을 분리해 측정합니다. 하드 제로 권한 위반은 집계 점수보다 우선합니다. |
 | 명시적 로컬 Pantheon 캠페인 | implemented | [`test_pantheon_campaign.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_pantheon_campaign.py), [`test_conversation_assurance_qualification.py`](../../../tests/integration/scripts/test_conversation_assurance_qualification.py), [`test_pantheon_conversation_assurance.py`](../../../services/core-control-plane/tests/runtime/test_pantheon_conversation_assurance.py), [`test_conversation_assurance_cli.py`](../../../tests/integration/scripts/test_conversation_assurance_cli.py) | 고정 census 사례는 인증된 Operator 스트림을 통해 들어와 Bragi 소유 턴 하나를 실행하고, 서버 소유 추적을 만들고, 서로 다른 모델 계열의 의미 검토를 사용하며, 상관관계가 연결된 진단을 PostgreSQL에 추가합니다. 비공개 로컬 캠페인 원장은 다이제스트로 연결된 추적을 평가와 분리해 보존하고, 하나의 정리된 리비전에서 정확히 230개 사례를 다룬 경우에만 집계 근거를 생성합니다. 라이브 캠페인 근거는 아직 보존하지 않았습니다. |
@@ -44,6 +45,7 @@ translation_revised: 2026-09-01
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-01 | implemented | 로컬 watchdog 후보 경계를 hardening 전 5가지 실패 분류, 코드 결함 전용 후보 생성, Core 및 Operator 대화 소유 범위, 단계별 기한, 기준선 독립 판정, 최종 시간 초과 처리 및 검토 전용 검증 브랜치로 강화했습니다. | `current change`; 로컬 watchdog 범위, 캠페인, 분류, 기한 및 브랜치 수명 주기 테스트; 집중 watchdog 안전 계약; Ruff. | 별도로 승인된 향후 캠페인을 실행하여 이 흐름의 운영 근거를 수집합니다. 이 변경은 라이브 캠페인을 시작하지 않습니다. |
 | 2026-09-01 | implemented | 정확한 구조화 객관적 오라클 비교, 필수 답변 품질 게이트, 비적용 루브릭 중립 처리, 분리된 제품 검증 및 품질 보증 결과를 포함하는 v2 Watchdog 답변 게이트를 추가했습니다. 기존 v1 평가는 변경할 수 없는 이력으로 유지합니다. | `current change`; [`conversation_assurance_answer_gate.py`](../../../scripts/automation/conversation_assurance_answer_gate.py); 추적되는 테스트와 집중 로컬 Watchdog 테스트; Ruff. | 별도로 승인된 향후 캠페인에서 v2 운영 근거를 수집합니다. 이 변경은 라이브 캠페인을 시작하지 않습니다. |
 | 2026-09-01 | implemented | FunctionType 존재 여부로 질문을 선택하던 방식을 타입 기반 런타임 준비 상태와 정확한 권한 일치 검사로 교체했습니다. 로컬 watchdog은 누락된 공급자, 접근할 수 없는 권한 또는 불완전한 근거를 답변 실패가 아닌 unavailable backlog로 기록합니다. | `current change`; [`conversation_assurance_readiness.py`](../../../services/core-control-plane/src/fdai/runtime/conversation_assurance_readiness.py); [`test_conversation_assurance_readiness.py`](../../../services/core-control-plane/tests/runtime/test_conversation_assurance_readiness.py); 집중 watchdog 및 런타임 준비 상태 테스트. | 해당 질문을 캠페인에 포함하기 전에 리소스 상태, Resource Health, 사용량 측정, DR 및 Chaos 공급자의 근거 probe를 추가해야 합니다. |
 | 2026-08-31 | implemented | 재실행 가능한 라이브 캠페인 근거 축약을 추가했습니다. 명시적 CLI는 콘텐츠 없는 턴 추적을 보존하고 증적 다이제스트로 진단과 연결합니다. 불완전하거나 서로 다른 리비전이 섞인 시리즈를 차단하고, 정확히 230개 사례를 다룬 후에만 고정된 라우팅, T2, 점수 하한 및 하드 제로 지표를 기록합니다. | `current change`; [`conversation_assurance_qualification.py`](../../../scripts/automation/conversation_assurance_qualification.py); 집중 캠페인, 진단, 적격성 및 CLI 테스트; Ruff 및 엄격한 mypy. | 별도로 승인된 라이브 census를 정리된 고정 리비전에서 실행하고 집계 근거를 보존해야 합니다. |
@@ -448,6 +450,24 @@ SRE adapter는 `RcaResult`를 사전 선언된 처리 결과, 원인 다이제�
 기록됩니다. 같은 SRE, DR 또는 Chaos 포커스에 근거가 준비된 다른 질문이 없으면 주기가 끝납니다.
 따라서 런타임에 없던 기능에서 나온 명확화, 미지원 또는 근거 보류 답변을 제품 실패로 계산하지
 않으면서 포커스 격리를 유지합니다.
+
+## Watchdog hardening 격리
+
+hardening 전에 watchdog은 실패한 각 관측을 `code_defect`,
+`provider_or_evidence_unavailable`, `authorization_or_configuration`, `baseline_failure` 또는
+`evaluation_contract_defect`로 분류합니다. `code_defect`만 후보를 생성합니다. 공급자 요청
+제한, 서비스 사용 불가 응답, 시간 초과, 근거 누락, 권한 부여 실패, 잘못된 구성, 평가 계약 결함
+및 변경되지 않은 기준선 실패는 최종 보류 결과로 끝납니다.
+
+후보 소유 범위에는 Core 대화 및 대화 품질 보증, `fdai_core_service`, Operator 대화, 인접한
+Core 또는 Operator 테스트와 직접 관련된 로드맵 문서가 포함됩니다. 검증은 재현 테스트, 변경
+경계 집중 테스트, Ruff와 mypy, 원본 및 바꿔 쓴 질문 라이브 집합을 기한이 있는 별도 단계로
+실행합니다. 수정 단계에는 별도의 무진행 기한도 적용합니다. 전체 저장소와 관련 없는 Console
+실패는 `baseline_blocked`로 기록하며 후보 코드 실패로 바꾸지 않습니다.
+
+시간 초과 또는 예외는 최종 `hardening_result`를 기록하고 캠페인은 다음 신규 질문을 선택합니다.
+한 캠페인에서는 정규화된 지문 하나당 hardening을 한 번만 시작할 수 있습니다. 모든 단계를
+통과한 후보만 사람 검토용 브랜치를 보존하며 watchdog은 이를 자동으로 병합하지 않습니다.
 
 ## 독립 모델 평가
 
