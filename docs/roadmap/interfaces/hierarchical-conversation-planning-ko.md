@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 8261d763f9bf0f7a8191b3813a295c614b6ad525
+translation_source_sha: 8b70c733b40b8373eaf1d95fbaa4e4613c571480
 translation_revised: 2026-09-01
 ---
 
@@ -65,6 +65,7 @@ Compact T1 conversation preflight는 매니페스트 로드와 전체 의미 판
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-01 | implemented | 커밋된 리비전의 제한된 의미 정규화를 VPN 경로 프라이빗 Foundry 엔드포인트에서 검증했습니다. exact-source cohort 10개가 실행 권한 없이 10/10으로 통과했으며, 중지 표식과 기존 보증 원장을 원래 다이제스트로 복원하고 확인했습니다. | 출처 `31002f3db70649ceb6844dc8ea59798ba7aa4d13`, 출처에 고정된 원장 다이제스트 `sha256:ef474b09662296d2e61a6e74569945afd236d038523795545069f8d11546d779`, 정확한 결과 10/10 | 이중 언어 후속 캠페인 20개를 시작하지 않고 제안합니다. 100개 캠페인은 계속 비활성화합니다. |
 | 2026-09-01 | implemented | `ff4e92fc0`의 나머지 조건이 유효한 9/10 cohort에서 정확히 해당 typed 판단이 생성된 뒤 제한된 변경 상관관계 앵커 family에 검토된 `change_activity` 표기를 추가했습니다. 추가 intent, 대상 종류 또는 관련 없는 facet은 허용하지 않습니다. | `current change`, 집중 의미 계획 검사 및 `ff4e92fc0`에 고정된 9/10 canary 근거 | 커밋하고 exact cohort 10개를 다시 실행합니다. 10/10 이후에만 20개를 제안합니다. |
 | 2026-09-01 | implemented | 변동하는 계획 경로 2개에서 스키마 수준 대상과 인스턴스 신원을 구분했습니다. 변경 상관관계는 제한된 주제 집합의 검토된 `object_type` 대상을 바인딩된 인스턴스로 취급하지 않고 유지할 수 있으며 타입이 지정된 `targets`와 `correlation` 별칭을 허용합니다. 리소스 활동은 `ResourceType`으로 정규화된 `resource_type` 대상과 기간을 유지하면서도 정확한 Resource 신원 명확화를 계속 요구할 수 있습니다. 구체 리소스 대상은 두 복구 경로를 계속 우회합니다. | `current change`, 집중 의미 계획 검사 및 `a08547b29`에 고정된 8/10 canary 근거 | 커밋하고 exact cohort 10개를 다시 실행합니다. 10/10 이후에만 20개를 제안합니다. |
 | 2026-09-01 | implemented | 커밋된 9/10 재실행에서 의미가 같은 `query.resource_change_activity`, 복수형 `changes`, `without_causal_inference` 판단이 생성된 뒤 여전히 취약한 변경 상관관계 exact facet tuple을 제한된 typed family로 교체했습니다. 이 보류는 이제 관계 또는 변경 활동 intent, 승인된 변경 기간, 대상 리소스, 서비스 경로, 비인과 family 및 변경 또는 장애 앵커 중 하나만 허용합니다. 대상, 추가 facet, 누락된 필수 family, 바인딩된 장애 및 권한을 포함한 자세는 계속 거부합니다. | `current change`, 집중 의미 계획 검사 및 `02248cac7`에 고정된 9/10 canary 근거 | 커밋하고 exact cohort 10개를 다시 실행합니다. 10/10 이후에만 20개를 제안합니다. |
