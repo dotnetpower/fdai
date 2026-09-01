@@ -3117,22 +3117,49 @@ def test_service_current_health_without_exact_service_requests_clarification() -
     assert frame.temporal_scope == {"kind": "current"}
 
 
-@pytest.mark.parametrize("include_explicit_change_facet", [True, False])
+@pytest.mark.parametrize(
+    ("primary_intent", "facets"),
+    [
+        (
+            "query.ontology_relationships",
+            [
+                "incident",
+                "change",
+                "approved_windows",
+                "target_resources",
+                "service_paths",
+                "without_current_finding",
+            ],
+        ),
+        (
+            "query.ontology_relationships",
+            [
+                "incident",
+                "approved_windows",
+                "target_resources",
+                "service_paths",
+                "without_current_finding",
+            ],
+        ),
+        (
+            "query.resource_change_activity",
+            [
+                "changes",
+                "approved_windows",
+                "target_resources",
+                "service_paths",
+                "without_causal_inference",
+            ],
+        ),
+    ],
+)
 def test_unbound_change_correlation_preserves_compare_windowed_hold(
-    include_explicit_change_facet: bool,
+    primary_intent: str,
+    facets: list[str],
 ) -> None:
-    facets = [
-        "incident",
-        "approved_windows",
-        "target_resources",
-        "service_paths",
-        "without_current_finding",
-    ]
-    if include_explicit_change_facet:
-        facets.append("change")
     judgment = SemanticJudgmentProposal.model_validate(
         {
-            "primary_intent": "query.ontology_relationships",
+            "primary_intent": primary_intent,
             "targets": [],
             "requested_facets": facets,
             "confidence": 0.95,
@@ -3167,17 +3194,19 @@ def test_unbound_change_correlation_preserves_compare_windowed_hold(
 
 
 @pytest.mark.parametrize(
-    ("bound_incident", "extra_facet", "missing_facet"),
+    ("bound_incident", "extra_facet", "missing_facets"),
     [
-        (True, None, None),
-        (False, "configuration_drift", None),
-        (False, None, "service_paths"),
+        (True, None, ()),
+        (False, "configuration_drift", ()),
+        (False, None, ("service_paths",)),
+        (False, None, ("incident", "change")),
+        (False, None, ("without_current_finding",)),
     ],
 )
 def test_change_correlation_hold_requires_unbound_bounded_typed_contract(
     bound_incident: bool,
     extra_facet: str | None,
-    missing_facet: str | None,
+    missing_facets: tuple[str, ...],
 ) -> None:
     facets = [
         "incident",
@@ -3189,7 +3218,7 @@ def test_change_correlation_hold_requires_unbound_bounded_typed_contract(
     ]
     if extra_facet is not None:
         facets.append(extra_facet)
-    if missing_facet is not None:
+    for missing_facet in missing_facets:
         facets.remove(missing_facet)
     judgment = SemanticJudgmentProposal.model_validate(
         {

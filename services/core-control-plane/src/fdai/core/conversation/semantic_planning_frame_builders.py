@@ -14,6 +14,7 @@ from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 from .semantic_planning_frame_core import build_semantic_frame
 from .semantic_planning_frame_facets import (
     _facets_describe_business_capability_mapping,
+    _facets_describe_change_correlation,
     _facets_describe_configuration_drift_evidence,
     _facets_describe_historical_relationship_change,
     _facets_describe_historical_topology,
@@ -47,7 +48,6 @@ _CHANGE_CORRELATION_FACETS = frozenset(
         "without_current_finding",
     }
 )
-_CHANGE_CORRELATION_REQUIRED_FACETS = _CHANGE_CORRELATION_FACETS - {"change"}
 
 
 def build_bound_incident_metric_comparison_frame(
@@ -147,9 +147,10 @@ def build_unbound_change_correlation_frame(
         bound_incident
         or judgment is None
         or judgment.action_posture != "advise_only"
-        or judgment.primary_intent != "query.ontology_relationships"
+        or judgment.primary_intent
+        not in {"query.ontology_relationships", "query.resource_change_activity"}
         or judgment.targets
-        or facets - {"change"} != _CHANGE_CORRELATION_REQUIRED_FACETS
+        or not _facets_describe_change_correlation(set(facets))
     ):
         return None
     proposal = SemanticFrameProposal(
