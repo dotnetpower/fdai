@@ -92,6 +92,7 @@
           "services/operator-service/tests/test_resolved_models_key_vault.py",
           "services/operator-service/tests/test_runtime_projection_reader.py",
           "services/operator-service/tests/test_slack_webhook_diagnostics.py",
+          "services/operator-service/tests/test_presentation_artifact_v3.py",
           "services/operator-service/tests/test_stream_shutdown.py",
           "services/operator-service/tests/test_teams_workflow_diagnostics.py",
           "services/operator-service/tests/test_wara_projection.py"
