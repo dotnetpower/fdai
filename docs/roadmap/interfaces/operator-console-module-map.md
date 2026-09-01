@@ -618,29 +618,11 @@ Thor's identity and keep commands outside the SPA.
 [`tools/chat.py`](../../../tools/chat.py) is the headless JSONL development harness for the core
 coordinator, not a second policy implementation.
 
-## Settings and component presentation boundary
+## Settings, components, and account identity presentation boundary
 
-The Console settings routes and static design mocks share the Calm Slate control tokens and
-presentation primitives. Desktop form controls use a compact 34 px standard height and 28 px
-compact action height. Touch layouts use 44 px targets. Settings keep browser-local preferences,
-account preferences, deployment policy, evidence, and authority boundaries visually distinct
-without changing their persistence or authorization contracts.
-
-## Account identity presentation boundary
-
-`console/src/components/account-menu.tsx` owns the signed-in account presentation in the header.
-It displays the MSAL name and username, reads FDAI roles only from the server-verified
-`GET /iam/self` projection, and links to the existing IAM route. `console/src/auth.ts` owns
-same-tenant account selection by opening the Entra account picker without a login hint. The
-redirect returns through normal token acquisition and IAM authorization before the shell renders.
-The component does not switch directories, grant capabilities, or receive provider credentials.
-
-The static component gallery reads its documented component contracts from
-`mocks/ui/assets/component-registry.json`. Each bounded category view presents the specimen before
-its owner, source, states, usage guidance, responsive behavior, accessibility contract, and product
-references. A missing or invalid registry blocks documented status instead of inferring that a
-specimen is canonical. The gallery remains synthetic presentation evidence and grants no Console,
-Operator API, or executor authority.
+The Console settings routes and static design mocks share Calm Slate control tokens and presentation primitives. Desktop forms use a compact 34 px standard height and 28 px action height, touch layouts use 44 px targets, and Settings keeps browser-local preferences, account preferences, deployment policy, evidence, and authority visually distinct without changing persistence or authorization.
+`console/src/components/account-menu.tsx` owns signed-in account presentation, displays the MSAL name and username, reads FDAI roles only from the server-verified `GET /iam/self` projection, and links to IAM. `console/src/auth.ts` opens the Entra account picker without a login hint for same-tenant selection, then returns through normal token acquisition and IAM authorization. The component does not switch directories, grant capabilities, or receive provider credentials.
+The static component gallery reads contracts from `mocks/ui/assets/component-registry.json` and presents each specimen before its owner, source, states, usage guidance, responsive behavior, accessibility contract, and product references. A missing or invalid registry blocks documented status instead of inferring canonical status. The gallery remains synthetic presentation evidence and grants no Console, Operator API, or executor authority.
 
 ## Boundary invariant
 
