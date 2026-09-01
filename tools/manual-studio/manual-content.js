@@ -175,9 +175,9 @@ function buildDeck(id, eyebrow, topics) {
         lead: item.lead,
         layout: "cover",
         content: `
-          <figure class="cover-photo">
+          <div class="cover-photo">
             <img src="${deckAssets[id]}" alt="">
-          </figure>
+          </div>
           ${sourceLabel(item.source)}`,
       };
     }
@@ -195,7 +195,7 @@ function buildDeck(id, eyebrow, topics) {
   });
 }
 
-const readinessMaturity = buildDeck("readiness-maturity", "READINESS AND MATURITY", [
+const readinessMaturity = buildDeck("readiness-maturity", "준비도와 성숙도", [
   topic("ASSESS", "자동화보다 먼저 운영 준비도를 확인합니다", "전환 리더는 기술 구매가 아니라 의사결정 기반의 준비 상태를 평가합니다.", "대상:결정 유형 하나|기준선:현재 사람 업무|종료 조건:관찰 모드 진입 판단", docs.constitution),
   topic("CURRENT", "현재 운영 목표가 측정 가능한지 확인합니다", "SLO, 복구, 비용, 변경 안전 목표가 없으면 결과를 검증할 수 없습니다.", "목표:단위와 기간|소유자:최종 책임|근거:측정 출처", docs.ontology, "matrix"),
   topic("CURRENT", "반복 사건과 예외를 분리합니다", "반복 가능한 결정은 규칙 후보이고 새롭거나 모호한 사건은 사람 검토 대상입니다.", "반복:동일 입력과 절차|예외:근거 부족 또는 충돌|경계:판단 보류 기준", docs.constitution, "tree"),
@@ -223,7 +223,7 @@ const readinessMaturity = buildDeck("readiness-maturity", "READINESS AND MATURIT
   topic("NEXT", "다음 회의는 격차 소유권을 확정합니다", "결정 유형 하나, 책임자, 기준선, 차단 격차와 재검토 날짜를 남깁니다.", "선택:결정 유형|배정:격차 책임자|예약:재평가 시점", docs.constitution, "responsibility"),
 ]);
 
-const artOfPossible = buildDeck("art-of-possible", "ART OF THE POSSIBLE", [
+const artOfPossible = buildDeck("art-of-possible", "가능성 탐색", [
   topic("ENVISION", "통제된 자율 운영의 미래 장면을 살펴봅니다", "경영진은 무제한 자동화가 아니라 책임과 근거가 유지되는 운영 경험을 탐색합니다.", "장면:반복 판단 자동화|경계:사람 승인 유지|성과:효과로 완료", docs.constitution),
   topic("TARGET", "아침에는 예외와 목표 충돌만 검토합니다", "반복 가능한 다수는 결정론으로 처리하고 경영진은 정책과 예외에 집중합니다.", "자동:검증된 반복 판단|사람:목표 충돌|보류:근거 부족", docs.constitution, "cards"),
   topic("TARGET", "장애 대응 과정은 하나의 추적으로 이어집니다", "Incident, 추적, Process, 승인 링크가 같은 상관관계 ID로 이어지는 운영 장면입니다.", "요청:문제 대응 확인|추적:공통 상관관계 ID|복구:독립 결과 확인", docs.operator, "flow"),
@@ -236,7 +236,7 @@ const artOfPossible = buildDeck("art-of-possible", "ART OF THE POSSIBLE", [
   topic("DECISION", "탐색의 결론은 작은 미래 장면 하나입니다", "가치가 크고 경계가 선명한 운영 장면을 선택해 우선순위 평가로 넘깁니다.", "선택:한 결정 유형|조건:측정과 복구|다음:가치 우선순위화", docs.execution, "tree"),
 ]);
 
-const valuePrioritization = buildDeck("value-prioritization", "VALUE PRIORITIZATION", [
+const valuePrioritization = buildDeck("value-prioritization", "가치 우선순위", [
   topic("FRAME", "사용 사례가 아니라 의사결정 유형 하나를 고릅니다", "포트폴리오 책임자는 반복 빈도, 기대 효과, 근거, 위험이 분명한 판단부터 검토합니다.", "단위:의사결정 유형|범위:한 대상군|완료:독립 효과 검증", docs.constitution),
   topic("CURRENT", "후보를 운영 문제와 연결합니다", "SRE, Change Safety, Resilience, FinOps 범위에서 실제 판단과 무조치 기준선을 함께 적습니다.", "문제:현재 손실|판단:선택 가능한 행동|기준선:아무것도 하지 않을 때", docs.ontology, "cards"),
   topic("CURRENT", "가치 기준선을 같은 구간에서 측정합니다", "처리 시간, 검토 부하, 재발, 비용을 같은 사건 집합과 기간으로 비교합니다.", "속도:의사결정 소요 시간|품질:재작업과 재발|경제성:의사결정당 비용", docs.metrics, "matrix"),
@@ -264,7 +264,7 @@ const valuePrioritization = buildDeck("value-prioritization", "VALUE PRIORITIZAT
   topic("NEXT", "다음 산출물은 선택된 판단의 실행 헌장입니다", "목표, 대상, 기준선, 책임자, 안전 계약, 효과 관측을 한 장에 고정합니다.", "이유:측정할 가치|대상:정확한 범위|책임:운영과 승인", docs.operator, "responsibility"),
 ]);
 
-const targetArchitecture = buildDeck("target-architecture", "TARGET ARCHITECTURE", [
+const targetArchitecture = buildDeck("target-architecture", "목표 아키텍처", [
   topic("TRACE", "현재 구현과 목표 아키텍처를 층별로 추적합니다", "아키텍트는 계약, 런타임, 권한, 데이터, 배포 근거를 같은 그림에서 구분합니다.", "현재:검증된 구성|목표:헌법상 요구|제안:후속 전달", docs.constitution),
   topic("TARGET", "최상위 계약은 FDAI Constitution입니다", "상세 설계와 구현은 안전, 권한, 근거, 효과 검증 원칙을 약화할 수 없습니다.", "목적:안전한 자율 운영|경계:형식화되고 승인된 처리|종료:재현 가능한 결과", docs.constitution, "cards"),
   topic("CURRENT", "Azure가 유일하게 구현된 공급자입니다", "Core 계약은 공급자 중립을 유지하지만 현재 배포 증적은 Azure에 한정됩니다.", "계약:공급자 어댑터|구현:Azure|미구현:Azure 외 공급자", docs.deployment, "matrix"),
@@ -292,7 +292,7 @@ const targetArchitecture = buildDeck("target-architecture", "TARGET ARCHITECTURE
   topic("NEXT", "다음 검토에서 열린 권한 경로를 닫습니다", "Workflow 적용, 격리 실행기 종단 검증, 프로덕션 적용 증적을 각각 독립 통과 기준으로 추적합니다.", "1단계:공통 안전장치|2단계:런타임 환경 동등성|3단계:보호된 프로덕션 증적", docs.security, "timeline"),
 ]);
 
-const ontologyFoundation = buildDeck("ontology-foundation", "ONTOLOGY FOUNDATION", [
+const ontologyFoundation = buildDeck("ontology-foundation", "온톨로지 기반", [
   topic("FOUNDATION", "온톨로지는 형식화된 운영 사실의 읽기 기반입니다", "데이터와 플랫폼 엔지니어는 의미, 관측, 권한, 릴리스 경계를 분리해 신뢰할 수 있는 운영 사실을 제공합니다.", "의미:버전이 있는 선언|현실:권위 있는 투영|권한:그래프 밖에서 결정", docs.ontology),
   topic("BOUNDARY", "그래프는 행위자가 아닙니다", "에이전트가 상태 전이를 책임집니다. 온톨로지 기록은 감지, 판단, 승인, 실행을 대신하지 않습니다.", "에이전트:능동적 책임자|그래프:의미와 관계의 제약|효과:독립 관측으로 확인", docs.ontology, "matrix"),
   topic("CURRENT", "운영 범위의 최소 연결축을 구성합니다", "BusinessService, Workload, Resource 연결이 서비스 영향 분석의 출발점입니다.", "BusinessService:안정된 서비스 ID|Workload:운영 가능한 단위|Resource:관측된 객체", docs.ontology, "flow"),
@@ -335,7 +335,7 @@ const ontologyFoundation = buildDeck("ontology-foundation", "ONTOLOGY FOUNDATION
   topic("NEXT", "플랫폼 팀은 릴리스와 근거 품질 목표를 책임집니다", "새 타입을 늘리기 전에 정확한 릴리스, 투영 최신성, 완전성, 마이그레이션 통과 기준을 운영합니다.", "릴리스:변경되지 않는 요약값|투영:최신성 근거|마이그레이션:호환성 결정", docs.ontologyPlatform, "responsibility"),
 ]);
 
-const responsibleAiSecurity = buildDeck("responsible-ai-security", "RESPONSIBLE AI AND SECURITY", [
+const responsibleAiSecurity = buildDeck("responsible-ai-security", "책임 있는 AI와 보안", [
   topic("INSPECT", "자율성의 보안 경계는 신원과 근거에서 시작합니다", "보안과 책임 있는 AI 리더는 모델 기능보다 권한 분리와 실패 시 차단 조건을 먼저 검토합니다.", "신원:누가 행동할 수 있는가|권한:무엇을 실행할 수 있는가|근거:왜 실행했고 결과는 무엇인가", docs.security),
   topic("CURRENT", "사람 승인과 실행 신원은 다릅니다", "사람은 실행기 신원을 보유하지 않으며 한 주체가 승인과 실행을 겸하지 않습니다.", "사람:인증된 승인자|실행기:비대화형 작업 신원|원칙:자기 승인 금지", docs.security, "responsibility"),
   topic("CURRENT", "Azure 실행자는 관리 ID 경계를 사용합니다", "상위 구현은 사용 대상이 제한된 토큰과 관리 ID 참조를 분리합니다. 작업별 허용 목록과 리소스 역할은 배포별 확장 구현이 제공합니다.", "상위 구현:대상이 제한된 토큰|신원:사용자 할당 관리 ID 참조|배포 책임:허용 목록과 역할", docs.security, "flow"),
@@ -363,7 +363,7 @@ const responsibleAiSecurity = buildDeck("responsible-ai-security", "RESPONSIBLE 
   topic("NEXT", "다음 보안 회의에서 열린 통과 기준의 책임자를 정합니다", "A3-E, 개인정보 보호, 공통 실행 종단 검증, 실운영 훈련을 서로 독립된 승인 항목으로 유지합니다.", "보안:A3-E와 신원 훈련|개인정보:프로덕션 통과 기준|런타임:안전장치 종단 검증", docs.security, "responsibility"),
 ]);
 
-const pilotProduction = buildDeck("pilot-production", "PILOT TO PRODUCTION", [
+const pilotProduction = buildDeck("pilot-production", "파일럿에서 프로덕션까지", [
   topic("PLAYBOOK", "한 의사결정 유형을 관찰 모드에서 적용 모드까지 이동합니다", "배포 책임자는 기능 수가 아니라 측정 가능한 통과 기준과 되돌릴 수 있는 범위를 관리합니다.", "시작:범위가 명확한 실행 헌장|학습:관찰 모드 근거|진전:독립 승격 심사", docs.security),
   topic("PHASE 0", "파일럿 실행 헌장을 한 장으로 고정합니다", "대상, 목표, 기준선, 책임자, 권한 상한, 효과 출처를 시작 전에 합의합니다.", "대상:정확한 리소스 집합|가치:기준 지표|안전:ActionType 계약", docs.operator, "cards"),
   topic("PHASE 0", "사람의 현재 판단을 기준선으로 측정합니다", "같은 사건 집합에서 판단 시간, 결과, 상향 검토, 재작업을 측정합니다.", "속도:판단 소요 시간|품질:올바른 결과|부하:사람 검토율", docs.metrics, "matrix"),
@@ -406,7 +406,7 @@ const pilotProduction = buildDeck("pilot-production", "PILOT TO PRODUCTION", [
   topic("NEXT", "다음 사용 사례는 검증된 경계를 재사용합니다", "새 권한을 넓히기보다 기존 온톨로지, 관측자, 승인 경로 안의 인접 판단을 선택합니다.", "재사용:타입과 매핑|재사용:근거 출처|재사용:안전 운영 절차", docs.ontologyPlatform, "flow"),
 ]);
 
-const aiOperatingModel = buildDeck("ai-operating-model", "AI OPERATING MODEL", [
+const aiOperatingModel = buildDeck("ai-operating-model", "AI 운영 모델", [
   topic("OPERATE", "운영 모델은 책임과 진행 주기를 연결합니다", "리더는 15개 고정 역할, 플랫폼 책임, 거버넌스, FinOps, LLMOps 의사결정을 하나의 체계로 운영합니다.", "책임:최종 책임자 한 명|거버넌스:분리된 권한|진행 주기:측정된 근거", docs.pantheon),
   topic("CURRENT", "15개 에이전트 역할은 고정돼 있습니다", "확장 구현과 배포는 연결 설정을 제공하지만 에이전트를 추가하거나 이름을 바꾸지 않습니다.", "거버넌스 담당:5|제어 처리 담당:7|도메인 전문가:3", docs.pantheon, "cards"),
   topic("CURRENT", "각 객체 타입에는 작성 책임자가 한 명입니다", "여러 구독자가 같은 투영을 읽어도 권위 있는 발행자는 하나입니다.", "책임자:발행자 한 명|소비자:여러 구독자|전송:형식화된 이벤트", docs.pantheon, "matrix"),
@@ -449,7 +449,7 @@ const aiOperatingModel = buildDeck("ai-operating-model", "AI OPERATING MODEL", [
   topic("NEXT", "운영 달력에 네 가지 진행 주기를 예약합니다", "일일 운영, 주간 결과, 월간 승격과 비용, 분기별 권한 훈련의 책임자를 배정합니다.", "매일:예외 검토|매월:승격과 FinOps|분기:신원과 복구", docs.security, "timeline"),
 ]);
 
-const enterpriseScaleRoadmap = buildDeck("enterprise-scale-roadmap", "ENTERPRISE SCALE ROADMAP", [
+const enterpriseScaleRoadmap = buildDeck("enterprise-scale-roadmap", "전사 확장 로드맵", [
   topic("ROADMAP", "전사 확장은 기능 수가 아니라 의존성과 종료 기준으로 진행합니다", "플랫폼과 거버넌스 리더는 한 의사결정 유형의 근거를 공통 기반으로 삼아 확장합니다.", "순서:기반부터 구축|통과 기준:권한보다 근거가 먼저|확장:범위를 넓히기 전 재사용", docs.constitution),
   topic("PRINCIPLE", "확장은 자율성을 자동으로 높이지 않습니다", "조직, 환경, 확장 구현, 사용 설정, 승격 상태는 서로 독립된 축입니다.", "조직:참여 팀 확대|환경:실행 장소 확대|권한:별도 승격 심사", docs.runtimeAxes, "matrix"),
   topic("PRINCIPLE", "Azure 구현 사실과 공급자 목표를 분리합니다", "현재 확장 계획은 Azure 근거를 사용하며 Azure 외 공급자는 계약 확장 가능성일 뿐입니다.", "현재:Azure 어댑터|목표:공급자 중립 계약|미구현:Azure 외 공급자", docs.deployment, "tree"),
@@ -482,7 +482,7 @@ const enterpriseScaleRoadmap = buildDeck("enterprise-scale-roadmap", "ENTERPRISE
   topic("GATE 4", "도메인별 전체 경로를 확인합니다", "한 성공 사례가 아니라 거부, 충돌, 복구, 재생 사례까지 필요합니다.", "성공:기대 결과|경계:거부와 충돌|복원력:복구와 재생", docs.constitution, "tree"),
   topic("WAVE 5", "플랫폼을 프로덕션 구성으로 강화합니다", "사설망, 내구성 있는 PostgreSQL, 모니터링, 예산, 신뢰할 수 있는 이미지를 배포 통과 기준으로 만듭니다.", "네트워크:사설 데이터 서비스|내구성:HA와 백업|운영:경고와 예산", docs.hardening, "cards"),
   topic("WAVE 5", "서비스별 상태 소유권을 유지합니다", "서비스별 백엔드와 상호 격리 근거가 대규모 배포의 영향 범위를 제한합니다.", "상태:서비스별 키|계획:다른 서비스 상태 점검|근거:요약값과 계보", docs.deployment, "evidence"),
-  topic("WAVE 5", "마이그레이션과 초기 구성을 순서대로 실행합니다", "Operator 스키마 마이그레이션 뒤 변경되지 않는 Rule과 Ontology 투영을 작성합니다.", "먼저:스키마 마이그레이션|다음:카탈로그 초기 구성|마지막:준비도와 상태 점검", docs.deployment, "timeline"),
+  topic("WAVE 5", "마이그레이션과 초기 구성을 순서대로 실행합니다", "Operator 스키마 마이그레이션 뒤 변경되지 않는 Rule과 온톨로지 투영을 작성합니다.", "먼저:스키마 마이그레이션|다음:카탈로그 초기 구성|마지막:준비도와 상태 점검", docs.deployment, "timeline"),
   topic("WAVE 5", "rollback 기준선을 보호합니다", "정상인 활성 리비전을 캡처하고 비활성 리비전 하나를 복구용으로 남깁니다.", "캡처:정상 활성 리비전|보존:비활성 리비전 하나|복구:보호된 워크플로", docs.deployment, "evidence"),
   topic("GATE 5", "보호된 적용 근거를 보존합니다", "코드와 계획 변경 제한만으로 프로덕션 검증을 주장하지 않습니다.", "계획:정확한 리비전|적용:무관한 삭제 0|관측:상태와 rollback 경계", docs.hardening, "tree"),
   topic("WAVE 6", "조직별 범위를 정책과 설정으로 나눕니다", "상위 Core를 수정하지 않고 배포가 소유한 매핑과 목표를 공급합니다.", "상위 저장소:안정된 개념|배포:인스턴스와 의도|확장 구현:주입된 구현", docs.ontology, "matrix"),
