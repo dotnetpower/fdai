@@ -3,13 +3,20 @@ import { PageHeader } from "../components/ui";
 import { t } from "../i18n";
 import { SettingsContextSections } from "./settings.context";
 import { useSettingsController } from "./settings.controller";
+import { SettingsSectionHeader } from "./settings.controls";
 import { SettingsDisplaySections } from "./settings.display";
+import { settingsGeneralText } from "./settings-general.i18n";
 
-export { SegmentedControl, SettingRow } from "./settings.controls";
+export {
+  SegmentedControl,
+  SettingRow,
+  SettingsSectionHeader,
+} from "./settings.controls";
 export {
   buildResponseDefaultsPolicy,
   claimSettingsDelete,
   claimSettingsMutation,
+  contextPreferencesAreDirty,
   contextWithSavedPreference,
   defaultTimezone,
   isValidTimezone,
@@ -25,19 +32,26 @@ export function SettingsGeneralRoute({ client }: Props) {
   const controller = useSettingsController(client);
   return (
     <div class="stack settings-route">
-      <PageHeader title={t("route.settingsGeneral")} subtitle={t("settings.subtitle")} />
+      <PageHeader title={t("route.settingsGeneral")} subtitle={settingsGeneralText("subtitle")} />
       <SettingsDisplaySections controller={controller} />
       <SettingsContextSections controller={controller} />
-      <div class="settings-actions">
-        <button
-          type="button"
-          class="secondary"
-          disabled={controller.savingContext}
-          onClick={() => void controller.reset()}
-        >
-          {t("settings.reset")}
-        </button>
-      </div>
+      <section class="settings-section settings-reset-section" aria-labelledby="settings-reset">
+        <SettingsSectionHeader
+          id="settings-reset"
+          title={settingsGeneralText("resetTitle")}
+          description={settingsGeneralText("resetDescription")}
+        />
+        <div class="settings-reset-action">
+          <button
+            type="button"
+            class="secondary"
+            disabled={controller.savingContext}
+            onClick={() => void controller.reset()}
+          >
+            {settingsGeneralText("reset")}
+          </button>
+        </div>
+      </section>
     </div>
   );
 }

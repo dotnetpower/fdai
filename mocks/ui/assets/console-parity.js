@@ -397,20 +397,20 @@
       var span = field[3] || 4;
       var control;
       if (field[1] === "select") {
-        control = '<select id="' + id + '">' + field[2].map(function (option) {
+        control = '<select class="cs-control-select" id="' + id + '">' + field[2].map(function (option) {
           return "<option>" + escapeHtml(option) + "</option>";
         }).join("") + "</select>";
       } else if (field[1] === "checkbox") {
         control = '<label class="cp-checkbox"><input id="' + id + '" type="checkbox" /> ' + escapeHtml(field[2]) + "</label>";
       } else {
-        control = '<input id="' + id + '" type="' + escapeHtml(field[1]) + '"' +
+        control = '<input class="cs-control-input" id="' + id + '" type="' + escapeHtml(field[1]) + '"' +
           (field[2] ? ' placeholder="' + escapeHtml(field[2]) + '"' : "") + " />";
       }
       return '<div class="cp-field" style="--cp-field-span:' + span + '"><label for="' + id + '">' +
         escapeHtml(field[0]) + "</label>" + control + "</div>";
     }).join("");
     return '<form class="cp-form" data-cp-form><p class="cp-form-note">Synthetic controls mirror the Console form and do not submit data.</p>' +
-      fields + '<div class="cp-form-actions"><button class="cs-btn is-primary" type="submit">' +
+      fields + '<div class="cp-form-actions"><button class="cs-control-button is-primary" type="submit">' +
       escapeHtml(section.action) + "</button></div></form>";
   }
 

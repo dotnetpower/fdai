@@ -133,21 +133,29 @@ test("knowledge graph renders every generated ontology node kind", () => {
   assert.match(knowledgeGraph, /nodeStyles\[node\.kind\]\|\|\{fill:"#6e747b"\}/);
 });
 
-test("every settings mock uses the unified responsive workspace", () => {
+test("every settings mock uses the production-aligned route surface", () => {
   settingsMocks.forEach((file) => {
     const html = readFileSync(join(uiRoot, file), "utf8");
-    assert.match(html, /calm-slate\.css\?v=settings-workspace-v1/);
-    assert.match(html, /calm-slate\.js\?v=settings-workspace-v1/);
+    assert.match(html, /calm-slate\.css\?v=settings-route-v5/);
+    assert.match(html, /calm-slate\.js\?v=settings-route-v5/);
+    assert.doesNotMatch(html, /class="cs-btn/);
+    if (/<(?:input|select|textarea)\b/.test(html)) {
+      assert.match(html, /class="[^"]*cs-control-(?:input|select|textarea)/);
+    }
   });
-  assert.match(navigation, /var settingsNavigation = \[/);
-  const settingsNavigationBlock = navigation.slice(
-    navigation.indexOf("var settingsNavigation ="),
-    navigation.indexOf("function createSettingsWorkspace"),
+  assert.match(navigation, /var settingsPages = \[/);
+  const settingsPagesBlock = navigation.slice(
+    navigation.indexOf("var settingsPages ="),
+    navigation.indexOf("function createSettingsSurface"),
   );
-  assert.equal((settingsNavigationBlock.match(/\["settings(?:-[a-z]+)*\.html",/g) || []).length, 7);
-  assert.match(navigation, /function createSettingsWorkspace\(\)/);
-  assert.match(navigation, /Settings never grant executor identity/);
-  assert.match(sharedStyles, /\.cs-settings-workspace \{[\s\S]*grid-template-columns: 216px minmax\(0, 1fr\)/);
-  assert.match(sharedStyles, /@media \(max-width: 980px\) \{[\s\S]*\.cs-settings-navigation ul \{[\s\S]*overflow-x: auto/);
+  assert.equal((settingsPagesBlock.match(/"settings(?:-[a-z]+)*\.html"/g) || []).length, 7);
+  assert.match(navigation, /function createSettingsSurface\(\)/);
+  assert.doesNotMatch(navigation, /function createSettingsWorkspace\(\)/);
+  assert.doesNotMatch(sharedStyles, /\.cs-settings-workspace \{/);
+  assert.match(sharedStyles, /\.cs-settings-surface \.cs-settings-content \{[\s\S]*max-width: 1080px/);
+  assert.match(sharedStyles, /\.cs-settings-content > \.cs-settings-section:first-of-type/);
+  assert.match(sharedStyles, /\.cs-settings-surface \.cs-settings-list \{\s*border-bottom: 0;/);
+  assert.match(sharedStyles, /\.cs-settings-card-grid \{/);
+  assert.match(sharedStyles, /@container \(max-width: 760px\) \{[\s\S]*\.cs-settings-surface \.cp-table td::before/);
   assert.match(sharedStyles, /\.cs-settings-surface \.cs-settings-content :where\([\s\S]*min-height: 44px/);
 });

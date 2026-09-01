@@ -52,6 +52,342 @@
   line-height: var(--cs-type-caption-line-height);
 }
 
+.cs-control-button,
+.cs-control-input,
+.cs-control-select {
+  height: var(--cs-control-height);
+  min-height: var(--cs-control-height);
+  box-sizing: border-box;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-sm);
+  font: var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font);
+}
+
+.cs-control-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 7px var(--cs-control-padding-inline);
+  background: var(--cs-card);
+  color: var(--cs-text);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.cs-control-button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--cs-steel) 38%, var(--cs-hairline));
+  background: color-mix(in srgb, var(--cs-steel) 6%, var(--cs-card));
+}
+
+.cs-control-button.is-primary {
+  border-color: var(--cs-steel);
+  background: var(--cs-steel);
+  color: #fff;
+}
+
+.cs-control-button.is-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--cs-steel) 88%, #000);
+}
+
+.cs-control-button.is-quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--cs-text-soft);
+}
+
+.cs-control-button.is-danger {
+  border-color: color-mix(in srgb, var(--cs-dusty-red) 36%, var(--cs-hairline));
+  background: var(--cs-card);
+  color: var(--cs-dusty-red);
+}
+
+.cs-control-button.is-danger:hover:not(:disabled) {
+  border-color: var(--cs-dusty-red);
+  background: color-mix(in srgb, var(--cs-dusty-red) 8%, var(--cs-card));
+}
+
+.cs-control-button[aria-busy="true"] {
+  cursor: progress;
+}
+
+.cs-control-button.is-compact {
+  height: var(--cs-control-height-compact);
+  min-height: var(--cs-control-height-compact);
+  padding-block: 4px;
+  font-size: var(--cs-type-label-size);
+}
+
+.cs-control-button.is-icon {
+  width: var(--cs-control-height);
+  padding: 0;
+}
+
+.cs-control-button:disabled {
+  cursor: not-allowed;
+  opacity: .58;
+}
+
+.cs-control-button:focus-visible,
+.cs-control-input:focus-visible,
+.cs-control-select:focus-visible,
+.cs-control-textarea:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--cs-steel) 42%, transparent);
+  outline-offset: 2px;
+}
+
+.cs-control-field {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.cs-control-label {
+  color: var(--cs-text);
+  font-size: var(--cs-type-label-size);
+  font-weight: 600;
+  line-height: var(--cs-type-label-line-height);
+}
+
+.cs-control-help,
+.cs-control-error {
+  font-size: var(--cs-type-caption-size);
+  line-height: var(--cs-type-caption-line-height);
+}
+
+.cs-control-help { color: var(--cs-text-soft); }
+.cs-control-error { color: var(--cs-dusty-red); }
+
+.cs-control-input,
+.cs-control-select,
+.cs-control-textarea {
+  width: 100%;
+  min-width: 0;
+  padding-inline: var(--cs-control-padding-inline);
+  background: var(--cs-card);
+  color: var(--cs-text);
+}
+
+.cs-control-select {
+  padding-right: 32px;
+}
+
+.cs-control-textarea {
+  min-height: 96px;
+  box-sizing: border-box;
+  padding: 9px var(--cs-control-padding-inline);
+  resize: vertical;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-card);
+  color: var(--cs-text);
+  font: var(--cs-type-compact-size)/1.55 var(--cs-font-mono);
+}
+
+.cs-control-input[aria-invalid="true"],
+.cs-control-select[aria-invalid="true"],
+.cs-control-textarea[aria-invalid="true"] {
+  border-color: var(--cs-dusty-red);
+}
+
+.cs-control-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--cs-hairline);
+}
+
+.cs-control-action-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.cs-control-action-copy strong {
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+}
+
+.cs-control-action-copy small {
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-caption-size);
+  line-height: var(--cs-type-caption-line-height);
+}
+
+.cs-control-policy-list {
+  display: grid;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-sm);
+  overflow: hidden;
+  background: var(--cs-card);
+}
+
+.cs-control-policy-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 8px 10px 8px var(--cs-control-padding-inline);
+  border-top: 1px solid var(--cs-hairline);
+  background: var(--cs-card);
+}
+
+.cs-control-policy-row:first-child { border-top: 0; }
+
+.cs-control-policy-row code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--cs-type-compact-size);
+}
+
+.cs-control-policy-state {
+  color: var(--cs-sage);
+  font-size: var(--cs-type-label-size);
+  font-weight: 600;
+}
+
+.cs-control-policy-row .cs-control-button {
+  min-height: var(--cs-control-height-compact);
+}
+
+.cs-control-segmented {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(92px, 1fr);
+  gap: 3px;
+  min-width: 260px;
+  height: var(--cs-control-height);
+  min-height: var(--cs-control-height);
+  box-sizing: border-box;
+  padding: 3px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-bg);
+}
+
+.cs-control-segmented > button {
+  min-width: 0;
+  min-height: calc(var(--cs-control-height) - 8px);
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--cs-text-soft);
+  font: var(--cs-type-compact-size) var(--cs-font);
+  cursor: pointer;
+}
+
+.cs-control-segmented > button.is-active,
+.cs-control-segmented > button[aria-pressed="true"] {
+  background: var(--cs-card);
+  color: var(--cs-text);
+  font-weight: 700;
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--cs-text) 12%, transparent);
+}
+
+.cs-control-segmented > button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--cs-steel) 42%, transparent);
+  outline-offset: 2px;
+}
+
+.cs-control-switch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  min-width: 260px;
+  height: var(--cs-control-height);
+  min-height: var(--cs-control-height);
+  cursor: pointer;
+}
+
+.cs-control-switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.cs-control-switch-track {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  flex: 0 0 auto;
+  border: 1px solid var(--cs-hairline);
+  border-radius: 11px;
+  background: var(--cs-bg);
+}
+
+.cs-control-switch-track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--cs-text-soft);
+  transition: transform .12s ease, background .12s ease;
+}
+
+.cs-control-switch input:checked + .cs-control-switch-track {
+  border-color: var(--cs-steel);
+  background: color-mix(in srgb, var(--cs-steel) 14%, var(--cs-card));
+}
+
+.cs-control-switch input:checked + .cs-control-switch-track::after {
+  transform: translateX(16px);
+  background: var(--cs-steel);
+}
+
+.cs-control-switch input:focus-visible + .cs-control-switch-track {
+  outline: 2px solid color-mix(in srgb, var(--cs-steel) 42%, transparent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 520px) {
+  .cs-control-button,
+  .cs-control-input,
+  .cs-control-select {
+    height: var(--cs-control-height-touch);
+    min-height: var(--cs-control-height-touch);
+  }
+
+  .cs-control-action-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cs-control-policy-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .cs-control-policy-state {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .cs-control-policy-row .cs-control-button {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    min-height: var(--cs-control-height-touch);
+  }
+
+  .cs-control-segmented,
+  .cs-control-switch {
+    width: 100%;
+    min-width: 0;
+    height: var(--cs-control-height-touch);
+    min-height: var(--cs-control-height-touch);
+  }
+
+  .cs-control-switch { justify-content: flex-start; }
+}
+
 .cs-deck-surface {
   --cs-deck-reading-width: 780px;
   --cs-deck-user-width: 560px;

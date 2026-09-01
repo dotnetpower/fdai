@@ -64,5 +64,16 @@
   "bindingAssess": "Request assessment",
   "bindingPlanning": "Requesting plan...",
   "bindingPlan": "Request plan",
-  "bindingRequestAccepted": "Request accepted"
+  "bindingRequestAccepted": "Request accepted",
+  "addDomain": "Add an approved host",
+  "domainPlaceholder": "example.org",
+  "add": "Add domain",
+  "removeDomain": "Remove {domain}",
+  "approvedHost": "Approved",
+  "remove": "Remove",
+  "noDomains": "No approved hosts. Add at least one while web search is enabled.",
+  "domainCount": "{count} of {max} hosts",
+  "unsavedChanges": "Unsaved web-search changes",
+  "settingsCurrent": "Web-search settings are up to date",
+  "saveBoundary": "Saving updates the deployment allowlist only. It does not grant execution authority."
 }

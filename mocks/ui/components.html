@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Components - Calm Slate</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=component-gallery-v14" />
+  <link rel="stylesheet" href="assets/calm-slate.css?v=component-gallery-v26" />
 </head>
 <body class="cs-components-page">
   <main class="cs-container cs-page">
@@ -16,19 +16,38 @@
 
     <div class="cs-gallery-toolbar">
       <label class="cs-gallery-search" for="component-search"><span class="cs-sr-only">Find a component</span><input id="component-search" type="search" placeholder="Find a component" autocomplete="off" data-cs-component-search /></label>
-      <output class="cs-gallery-count" for="component-search" aria-live="polite" data-cs-gallery-count>23 sections</output>
-      <span class="cs-gallery-synthetic">Synthetic samples</span>
-      <button class="cs-theme-toggle" type="button" aria-pressed="false" data-cs-theme-toggle>Dark preview</button>
       <nav class="cs-gallery-index" aria-label="Component categories">
-        <a href="#display">Display</a>
-        <a href="#controls">Controls</a>
-        <a href="#navigation">Navigation</a>
-        <a href="#feedback">Feedback</a>
-        <a href="#data-views">Data views</a>
-        <a href="#advanced">Advanced</a>
-        <a href="#typography">Typography</a>
+        <a href="#category-foundations" data-gallery-category="foundations">Foundations</a>
+        <a href="#category-inputs" data-gallery-category="inputs">Inputs</a>
+        <a href="#category-actions" data-gallery-category="actions">Actions</a>
+        <a href="#category-selection" data-gallery-category="selection">Selection</a>
+        <a href="#category-feedback" data-gallery-category="feedback">Feedback</a>
+        <a href="#category-data" data-gallery-category="data">Data display</a>
+        <a href="#category-overlays" data-gallery-category="overlays">Overlays</a>
+        <a href="#category-patterns" data-gallery-category="patterns">Product patterns</a>
       </nav>
     </div>
+    <div class="cs-gallery-scope" data-gallery-scope>
+      <div><strong>Loading component registry</strong><span>Specimens remain hidden until their contracts are available.</span></div>
+      <div class="cs-gallery-tools">
+        <output class="cs-gallery-count" for="component-search" aria-live="polite" data-cs-gallery-count>Loading registry...</output>
+        <span class="cs-gallery-synthetic" data-gallery-registry-status>Registry loading</span>
+        <button class="cs-theme-toggle" type="button" aria-pressed="false" data-cs-theme-toggle>Dark preview</button>
+        <label class="cs-preview-mode">
+          <span class="cs-sr-only">Accessibility preview</span>
+          <select data-gallery-preview>
+            <option value="default">Default</option>
+            <option value="zoom">200% zoom</option>
+            <option value="forced">Forced colors</option>
+            <option value="reduced">Reduced motion</option>
+          </select>
+        </label>
+      </div>
+      <ul aria-label="Gallery quality results" data-gallery-quality></ul>
+      <nav class="cs-gallery-subindex" aria-label="Component subviews" data-gallery-subindex></nav>
+    </div>
+    <div class="cs-gallery-error" role="alert" hidden data-gallery-error></div>
+    <noscript><p class="cs-gallery-error">The component registry requires JavaScript. No specimen status is inferred without it.</p></noscript>
 
     <!-- KPI cards -->
     <section class="cs-section" id="display" aria-labelledby="display-title">
@@ -164,27 +183,64 @@
       <div class="cs-grid cs-grid-2">
         <div class="cs-card">
           <p class="cs-label">Buttons</p>
-          <div class="cs-flex cs-wrap cs-gap-8 cs-mb-16">
-            <button class="cs-btn is-primary" type="button">Primary</button>
-            <button class="cs-btn is-navy" type="button">Navy</button>
-            <button class="cs-btn" type="button">Default</button>
-            <button class="cs-btn is-ghost" type="button">Ghost</button>
-            <button class="cs-btn is-sm" type="button">Small</button>
+          <div class="cs-flex cs-items-center cs-wrap cs-gap-8 cs-mb-16">
+            <button class="cs-control-button is-primary" type="button">Primary</button>
+            <button class="cs-control-button" type="button">Default</button>
+            <button class="cs-control-button is-quiet" type="button">Quiet</button>
+            <button class="cs-control-button" type="button" disabled>Disabled</button>
+            <button class="cs-control-button" type="button" aria-busy="true">Saving...</button>
+            <button class="cs-control-button is-danger" type="button">Delete</button>
+            <button class="cs-control-button is-compact" type="button">Compact</button>
           </div>
           <div class="cs-alert is-info"><span class="cs-alert-icon" aria-hidden="true">i</span><div><p>These are presentation samples. The Operator API remains non-privileged.</p></div></div>
+          <div class="cs-destructive-contract"><strong>Danger action contract</strong><span>Request confirmation before submit. A failed request retains the prior state and exposes recovery.</span></div>
         </div>
         <div class="cs-card">
-          <div class="cs-field">
-            <label class="cs-label" for="f1">Scenario set</label>
-            <select class="cs-select" id="f1"><option>v2026.07</option><option>v2026.06</option></select>
+          <div class="cs-control-field">
+            <label class="cs-control-label" for="f1">Scenario set</label>
+            <select class="cs-control-select" id="f1"><option>v2026.07</option><option>v2026.06</option></select>
+            <span class="cs-control-help">Select one reviewed scenario revision.</span>
           </div>
-          <div class="cs-field">
-            <label class="cs-label" for="f2">Filter rules</label>
-            <input class="cs-input" id="f2" type="text" placeholder="e.g. category:security" />
-            <div class="cs-help">Read-only filter; does not mutate the catalog.</div>
+          <div class="cs-control-field cs-mt-14">
+            <label class="cs-control-label" for="f2">Filter rules</label>
+            <input class="cs-control-input" id="f2" type="text" placeholder="e.g. category:security" />
+            <span class="cs-control-help">Read-only filter; does not mutate the catalog.</span>
+          </div>
+        </div>
+        <div class="cs-card">
+          <div class="cs-control-field">
+            <label class="cs-control-label" for="f3">Operator guidance</label>
+            <textarea class="cs-control-textarea" id="f3">Use the approved recovery runbook.</textarea>
+            <span class="cs-control-help">Multiline values use the same label, help, and focus contract.</span>
+          </div>
+          <div class="cs-control-field cs-mt-14">
+            <label class="cs-control-label" for="f4">Invalid host</label>
+            <input class="cs-control-input" id="f4" aria-invalid="true" aria-describedby="f4-error" value="https://example.org/path" />
+            <span class="cs-control-error" id="f4-error">Enter a host without scheme or path.</span>
+          </div>
+        </div>
+        <div class="cs-card">
+          <p class="cs-control-label">Approved hosts</p>
+          <div class="cs-control-policy-list" role="list">
+            <div class="cs-control-policy-row" role="listitem"><code>learn.microsoft.com</code><span class="cs-control-policy-state">Approved</span><button class="cs-control-button is-quiet is-compact" type="button">Remove</button></div>
+            <div class="cs-control-policy-row" role="listitem"><code>nvd.nist.gov</code><span class="cs-control-policy-state">Approved</span><button class="cs-control-button is-quiet is-compact" type="button">Remove</button></div>
+          </div>
+          <div class="cs-control-action-bar cs-mt-14">
+            <span class="cs-control-action-copy"><strong>Unsaved changes</strong><small>2 approved hosts</small></span>
+            <button class="cs-control-button is-primary" type="button">Save allowlist</button>
           </div>
         </div>
       </div>
+      <section class="cs-content-pressure" aria-labelledby="content-pressure-title">
+        <div><strong id="content-pressure-title">Content pressure</strong><span>Canonical controls must survive localization and opaque identifiers.</span></div>
+        <dl>
+          <div><dt>English</dt><dd>Save deployment-wide web-search settings</dd></div>
+          <div><dt>Korean</dt><dd>배포 전체 웹 검색 환경 설정 저장</dd></div>
+          <div><dt>Identifier</dt><dd><code>database.enable-point-in-time-recovery.for-example-workload</code></dd></div>
+          <div><dt>Timestamp</dt><dd><time datetime="2026-09-01T06:52:56+09:00">2026-09-01T06:52:56+09:00</time></dd></div>
+          <div><dt>Keyboard order</dt><dd>Search, category, theme, accessibility preview, specimen controls</dd></div>
+        </dl>
+      </section>
     </section>
 
     <!-- Tabs & meters -->
@@ -222,16 +278,16 @@
       <div class="cs-grid cs-grid-2">
         <div class="cs-card">
           <p class="cs-label">Segmented button</p>
-          <div class="cs-segmented cs-mb-24" role="group" aria-label="Time window" data-cs-segmented>
+          <div class="cs-control-segmented cs-mb-24" role="group" aria-label="Time window" data-cs-segmented>
             <button type="button" aria-pressed="false">24 hours</button>
             <button type="button" class="is-active" aria-pressed="true">7 days</button>
             <button type="button" aria-pressed="false">30 days</button>
           </div>
           <p class="cs-label">Toggle switches</p>
           <div class="cs-flex cs-wrap cs-gap-12">
-            <label class="cs-switch"><input type="checkbox" checked /><span class="cs-switch-track" aria-hidden="true"></span>Live updates</label>
-            <label class="cs-switch"><input type="checkbox" /><span class="cs-switch-track" aria-hidden="true"></span>Compact rows</label>
-            <label class="cs-switch"><input type="checkbox" disabled /><span class="cs-switch-track" aria-hidden="true"></span>Unavailable</label>
+            <label class="cs-control-switch"><input type="checkbox" checked /><span class="cs-control-switch-track" aria-hidden="true"></span>Live updates</label>
+            <label class="cs-control-switch"><input type="checkbox" /><span class="cs-control-switch-track" aria-hidden="true"></span>Compact rows</label>
+            <label class="cs-control-switch"><input type="checkbox" disabled /><span class="cs-control-switch-track" aria-hidden="true"></span>Unavailable</label>
           </div>
         </div>
         <div class="cs-card">
@@ -257,14 +313,14 @@
       </div>
       <div class="cs-card">
         <div class="cs-form-grid">
-          <div class="cs-field"><label class="cs-label" for="date-start">Start date</label><input class="cs-input" id="date-start" type="date" value="2026-07-01" /></div>
-          <div class="cs-field"><label class="cs-label" for="date-end">End date</label><input class="cs-input" id="date-end" type="date" value="2026-07-23" /></div>
-          <div class="cs-field"><label class="cs-label" for="time-at">Time</label><input class="cs-input" id="time-at" type="time" value="09:30" /></div>
-          <div class="cs-field"><label class="cs-label" for="date-time">Date and time</label><input class="cs-input" id="date-time" type="datetime-local" value="2026-07-23T09:30" /></div>
-          <div class="cs-field is-wide">
-            <label class="cs-label" for="confidence-range">Confidence threshold</label>
+          <div class="cs-control-field"><label class="cs-control-label" for="date-start">Start date</label><input class="cs-control-input" id="date-start" type="date" value="2026-07-01" /></div>
+          <div class="cs-control-field"><label class="cs-control-label" for="date-end">End date</label><input class="cs-control-input" id="date-end" type="date" value="2026-07-23" /></div>
+          <div class="cs-control-field"><label class="cs-control-label" for="time-at">Time</label><input class="cs-control-input" id="time-at" type="time" value="09:30" /></div>
+          <div class="cs-control-field"><label class="cs-control-label" for="date-time">Date and time</label><input class="cs-control-input" id="date-time" type="datetime-local" value="2026-07-23T09:30" /></div>
+          <div class="cs-control-field is-wide">
+            <label class="cs-control-label" for="confidence-range">Confidence threshold</label>
             <div class="cs-range-row"><input class="cs-range" id="confidence-range" type="range" min="0" max="100" value="72" data-cs-range /><output class="cs-range-output" for="confidence-range">72%</output></div>
-            <div class="cs-help">Keyboard arrows adjust the threshold in one-point increments.</div>
+            <div class="cs-control-help">Keyboard arrows adjust the threshold in one-point increments.</div>
           </div>
         </div>
       </div>
@@ -277,10 +333,10 @@
       </div>
       <div class="cs-card">
         <div class="cs-form-grid">
-          <div class="cs-field"><label class="cs-label" for="search-events">Search events</label><input class="cs-input" id="search-events" type="search" placeholder="Rule, resource, or correlation id" /></div>
-          <div class="cs-field"><label class="cs-label" for="readonly-scope">Locked scope</label><input class="cs-input" id="readonly-scope" type="text" value="subscription-wide" disabled /><div class="cs-help">Disabled values are unavailable in the current context.</div></div>
-          <div class="cs-field is-wide cs-autocomplete-demo">
-            <label class="cs-label" for="resource-autocomplete">Resource autocomplete</label>
+          <div class="cs-control-field"><label class="cs-control-label" for="search-events">Search events</label><input class="cs-control-input" id="search-events" type="search" placeholder="Rule, resource, or correlation id" /></div>
+          <div class="cs-control-field"><label class="cs-control-label" for="readonly-scope">Locked scope</label><input class="cs-control-input" id="readonly-scope" type="text" value="subscription-wide" disabled /><div class="cs-control-help">Disabled values are unavailable in the current context.</div></div>
+          <div class="cs-control-field is-wide cs-autocomplete-demo">
+            <label class="cs-control-label" for="resource-autocomplete">Resource autocomplete</label>
             <div class="cs-combobox" data-cs-combobox data-cs-combobox-limit="10">
               <div class="cs-combobox-control"><span aria-hidden="true">/</span><input id="resource-autocomplete" type="search" role="combobox" aria-expanded="true" aria-controls="resource-autocomplete-options" aria-autocomplete="list" value="example" placeholder="Search observed Resources" autocomplete="off" data-cs-combobox-input /></div>
               <div class="cs-combobox-list" id="resource-autocomplete-options" role="listbox" aria-label="Matching Resources" data-cs-combobox-list>
@@ -362,7 +418,7 @@
         <p class="cs-label">Top-edge shimmer</p>
         <h3>Evidence refreshed</h3>
         <p class="cs-muted">Semantic content updates use the same brief top-edge signal as the Live surface.</p>
-        <button class="cs-btn is-sm" type="button" data-cs-shimmer-replay>Replay shimmer</button>
+        <button class="cs-control-button is-compact" type="button" data-cs-shimmer-replay>Replay shimmer</button>
       </div>
       <div class="cs-readonly-banner"><strong>Read-only view</strong><span>This surface explains recorded state and does not execute actions.</span></div>
       <div class="cs-grid cs-grid-2 cs-mb-24">
@@ -370,17 +426,17 @@
         <div class="cs-skeleton" aria-label="Loading evidence" aria-busy="true"><span class="cs-skeleton-line is-title"></span><span class="cs-skeleton-line"></span><span class="cs-skeleton-line is-short"></span></div>
       </div>
       <div class="cs-flex cs-wrap cs-gap-8">
-        <span class="cs-tooltip"><button class="cs-btn" type="button">Hover or focus</button><span class="cs-tooltip-content" role="tooltip">Explains an unfamiliar control without changing state.</span></span>
-        <button class="cs-btn is-navy" type="button" data-cs-dialog-open="component-dialog">Open dialog</button>
+        <span class="cs-tooltip"><button class="cs-control-button" type="button">Hover or focus</button><span class="cs-tooltip-content" role="tooltip">Explains an unfamiliar control without changing state.</span></span>
+        <button class="cs-control-button is-primary" type="button" data-cs-dialog-open="component-dialog">Open dialog</button>
       </div>
       <dialog class="cs-dialog" id="component-dialog">
         <div class="cs-dialog-head"><div><h3>Evidence details</h3><p class="cs-muted cs-mb-0">Modal dialog</p></div><button class="cs-alert-dismiss" type="button" aria-label="Close dialog" data-cs-dialog-close>&times;</button></div>
         <div class="cs-dialog-body"><p>Dialogs keep focused context above the page. Escape and backdrop click both close this sample.</p></div>
-        <div class="cs-dialog-actions"><button class="cs-btn is-primary" type="button" data-cs-dialog-close>Done</button></div>
+        <div class="cs-dialog-actions"><button class="cs-control-button is-primary" type="button" data-cs-dialog-close>Done</button></div>
       </dialog>
       <div class="cs-interaction-matrix" aria-label="Interaction state samples">
-        <div class="cs-interaction-sample"><span>Keyboard focus</span><button class="cs-btn cs-focus-demo" type="button">Focused control</button></div>
-        <div class="cs-interaction-sample"><span>Disabled</span><button class="cs-btn" type="button" disabled>Unavailable control</button></div>
+        <div class="cs-interaction-sample"><span>Keyboard focus</span><button class="cs-control-button cs-focus-demo" type="button">Focused control</button></div>
+        <div class="cs-interaction-sample"><span>Disabled</span><button class="cs-control-button" type="button" disabled>Unavailable control</button></div>
         <div class="cs-interaction-sample"><span>Motion preference</span><div class="cs-motion-demo">Update feedback remains visible with reduced motion.</div></div>
       </div>
     </section>
@@ -390,6 +446,21 @@
         <span class="cs-badge-num" aria-hidden="true">13</span>
         <div class="cs-section-title"><h2 id="data-views-title">Charts &amp; structured summaries</h2><p class="cs-desc">The complete Tremor chart family, plus FDAI comparison, distribution, density, progress, and scatter views with inspectable source data.</p></div>
       </div>
+      <div class="cs-chart-preview-grid" aria-label="Representative chart previews">
+        <article>
+          <header><div><strong>Incident volume</strong><small>7-day verified trend</small></div><span>29</span></header>
+          <svg viewBox="0 0 240 72" role="img" aria-label="Incident volume rises to a Saturday peak and ends at 29 on Sunday"><path d="M8 57 L45 42 L82 48 L120 24 L157 35 L195 10 L232 30" /></svg>
+          <a href="#chart-family">Inspect full line-chart specimen</a>
+        </article>
+        <article>
+          <header><div><strong>Outcome assurance</strong><small>Current versus baseline</small></div><span>85%</span></header>
+          <div class="cs-chart-preview-bars" aria-label="SRE 91 percent, Change 84 percent, Resilience 88 percent, Cost 76 percent"><i style="--value:91%"></i><i style="--value:84%"></i><i style="--value:88%"></i><i style="--value:76%"></i></div>
+          <a href="#chart-family">Inspect full comparison specimen</a>
+        </article>
+      </div>
+      <details class="cs-chart-family" id="chart-family">
+        <summary><span>Open chart family</span><small>4 FDAI operational charts, 10 comparison compositions, and 33 upstream reference variants</small></summary>
+        <div class="cs-chart-family-body">
       <div class="cs-chart-grid">
         <figure class="cs-chart-card js-chartable" aria-label="Incident volume trend. Select to inspect daily values." data-chart-title="Incident volume" data-chart-sub="Seven-day synthetic trend" data-chart-columns='["Day","Incidents"]' data-chart-rows='[["Mon","18"],["Tue","24"],["Wed","21"],["Thu","31"],["Fri","27"],["Sat","36"],["Sun","29"]]' data-chart-num-cols="[1]" data-chart-source="Synthetic preview - 7-day window">
           <figcaption class="cs-chart-head"><div><h3>Incident volume</h3><p>7-day trend</p></div><span class="cs-chart-value"><strong>29</strong><small>8% below peak</small></span></figcaption>
@@ -599,6 +670,8 @@
         <div class="cs-stackbar" aria-label="Decision mix: 76 percent auto, 17 percent approval, 7 percent abstain"><span class="is-auto" style="width:76%"></span><span class="is-hil" style="width:17%"></span><span class="is-abstain" style="width:7%"></span></div>
         <div class="cs-stackbar-legend"><span><i class="dot" style="background:var(--cs-sage)"></i>Auto 76%</span><span><i class="dot" style="background:var(--cs-terracotta)"></i>Approval 17%</span><span><i class="dot" style="background:var(--cs-plum)"></i>Abstain 7%</span></div>
       </div>
+        </div>
+      </details>
     </section>
 
     <section class="cs-section" id="code-highlight" aria-labelledby="code-highlight-title">
@@ -726,7 +799,7 @@
       <div class="cs-select-showcase">
         <div class="cs-select-demo">
           <label class="cs-label" for="native-agent-select">Native select</label>
-          <select class="cs-select" id="native-agent-select"><option>All agents</option><option>Governance</option><option>Pipeline</option><option>Domain</option></select>
+          <select class="cs-control-select" id="native-agent-select"><option>All agents</option><option>Governance</option><option>Pipeline</option><option>Domain</option></select>
           <p class="cs-help">Use native controls for short, stable option sets.</p>
         </div>
         <div class="cs-select-demo">
@@ -767,7 +840,7 @@
         <div class="cs-menu-demo">
           <p class="cs-label">Dropdown menu</p>
           <p>Compact actions for a selected rule or resource.</p>
-          <button class="cs-btn cs-menu-trigger" type="button" aria-haspopup="menu" aria-expanded="false" data-cs-menu-trigger>More actions <span aria-hidden="true">...</span></button>
+          <button class="cs-control-button cs-menu-trigger" type="button" aria-haspopup="menu" aria-expanded="false" data-cs-menu-trigger>More actions <span aria-hidden="true">...</span></button>
           <div class="cs-dropdown" role="menu" aria-label="Example actions" data-cs-menu hidden>
             <button type="button" role="menuitem">Open details <kbd>Enter</kbd></button>
             <button type="button" role="menuitem">Copy correlation id <kbd>C</kbd></button>
@@ -791,7 +864,7 @@
           </div>
         </div>
       </div>
-      <div class="cs-flex cs-gap-8 cs-mt-14"><button class="cs-btn is-navy" type="button" data-cs-drawer-open="component-drawer">Open detail drawer</button></div>
+      <div class="cs-flex cs-gap-8 cs-mt-14"><button class="cs-control-button is-primary" type="button" data-cs-drawer-open="component-drawer">Open detail drawer</button></div>
       <div class="cs-drawer-overlay" id="component-drawer" data-cs-drawer-overlay hidden>
         <aside class="cs-drawer" role="dialog" aria-modal="true" aria-labelledby="component-drawer-title" tabindex="-1" data-cs-drawer>
           <header class="cs-drawer-head"><div><h3 id="component-drawer-title"><code>database.enable-pitr</code></h3><p>Rule detail - read-only evidence</p></div><button class="cs-alert-dismiss" type="button" aria-label="Close detail drawer" data-cs-drawer-close>&times;</button></header>
@@ -800,7 +873,7 @@
             <div class="cs-drawer-section"><h4>Decision facts</h4><dl class="cs-drawer-facts"><div><dt>Tier</dt><dd>T1</dd></div><div><dt>Confidence</dt><dd>0.93</dd></div><div><dt>Execution path</dt><dd>pr_native</dd></div><div><dt>Policy escapes</dt><dd>0</dd></div></dl></div>
             <div class="cs-drawer-section"><h4>Evidence</h4><ol class="cs-feed"><li class="cs-feed-item"><span class="cs-feed-marker is-success">1</span><div class="cs-feed-body"><p>Recovery policy snapshot</p><small>Observed 2 minutes ago</small></div></li><li class="cs-feed-item"><span class="cs-feed-marker is-plum">2</span><div class="cs-feed-body"><p>Prior resolved case</p><small>Similarity 0.93</small></div></li></ol></div>
           </div>
-          <footer class="cs-drawer-foot"><button class="cs-btn" type="button" data-cs-drawer-close>Close</button><button class="cs-btn is-primary" type="button">View audit</button></footer>
+          <footer class="cs-drawer-foot"><button class="cs-control-button" type="button" data-cs-drawer-close>Close</button><button class="cs-control-button is-primary" type="button">View audit</button></footer>
         </aside>
       </div>
     </section>
@@ -824,7 +897,7 @@
       <div class="cs-async-heading"><h3>Async boundary states</h3><p>Keep the final layout stable while data changes state.</p></div>
       <div class="cs-state-grid">
         <div class="cs-state-block" role="status" aria-busy="true"><span class="cs-state-icon" aria-hidden="true">...</span><div class="cs-state-loading-lines" aria-label="Loading audit entries"><span></span><span></span><span></span></div></div>
-        <div class="cs-state-block is-error" role="alert"><span class="cs-state-icon" aria-hidden="true">!</span><div class="cs-state-content"><strong>Audit load failed</strong><p>The last verified snapshot remains visible.</p><button class="cs-btn is-sm" type="button">Retry</button></div></div>
+        <div class="cs-state-block is-error" role="alert"><span class="cs-state-icon" aria-hidden="true">!</span><div class="cs-state-content"><strong>Audit load failed</strong><p>The last verified snapshot remains visible.</p><button class="cs-control-button is-compact" type="button">Retry</button></div></div>
         <div class="cs-state-block is-unavailable" role="status"><span class="cs-state-icon" aria-hidden="true">?</span><div class="cs-state-content"><strong>Source unavailable</strong><p>The provider did not return current evidence.</p></div></div>
         <div class="cs-state-block is-empty"><span class="cs-state-icon" aria-hidden="true">-</span><div class="cs-state-content"><strong>No matching rows</strong><p>Clear filters or widen the time window.</p></div></div>
       </div>
@@ -867,13 +940,13 @@
       </div>
       <div class="cs-page-context-demo">
         <nav class="cs-breadcrumbs" aria-label="Breadcrumb"><a href="rules.html">Governance</a><span aria-hidden="true">/</span><a href="rules.html">Rules</a><span aria-hidden="true">/</span><strong>database.enable-pitr</strong></nav>
-        <header class="cs-context-header"><div><h3><span class="cs-context-domain">Governance</span><span class="cs-context-separator" aria-hidden="true">/</span>Rule detail</h3><p>Review decision facts, evidence, and current observation mode.</p></div><div class="cs-context-actions"><button class="cs-btn" type="button">Copy link</button><button class="cs-btn is-navy" type="button">Open audit</button></div></header>
+        <header class="cs-context-header"><div><h3><span class="cs-context-domain">Governance</span><span class="cs-context-separator" aria-hidden="true">/</span>Rule detail</h3><p>Review decision facts, evidence, and current observation mode.</p></div><div class="cs-context-actions"><button class="cs-control-button" type="button">Copy link</button><button class="cs-control-button is-primary" type="button">Open audit</button></div></header>
       </div>
       <div class="cs-action-layout">
-        <div><label class="cs-input-group-label" for="correlation-input">Input group</label><div class="cs-input-group"><span class="cs-input-addon">corr/</span><input id="correlation-input" type="text" value="example-17" /><button class="cs-btn is-primary" type="button">Find trace</button></div><p class="cs-help">Prefix and action remain attached to the input.</p></div>
-        <div class="cs-action-panel"><div><strong>Review draft filters</strong><small>3 local preferences changed. No operational state is affected.</small></div><div class="cs-action-panel-actions"><button class="cs-btn is-sm" type="button">Reset</button><button class="cs-btn is-primary is-sm" type="button">Save</button></div></div>
+        <div><label class="cs-input-group-label" for="correlation-input">Input group</label><div class="cs-input-group"><span class="cs-input-addon">corr/</span><input id="correlation-input" type="text" value="example-17" /><button class="cs-control-button is-primary" type="button">Find trace</button></div><p class="cs-help">Prefix and action remain attached to the input.</p></div>
+        <div class="cs-action-panel"><div><strong>Review draft filters</strong><small>3 local preferences changed. No operational state is affected.</small></div><div class="cs-action-panel-actions"><button class="cs-control-button is-compact" type="button">Reset</button><button class="cs-control-button is-primary is-compact" type="button">Save</button></div></div>
       </div>
-      <div class="cs-notification-demo"><p><strong>Notifications are for local UI feedback.</strong> Operational alerts remain in the audit and incident surfaces.</p><button class="cs-btn" type="button" data-cs-toast-show>Show notification</button></div>
+      <div class="cs-notification-demo"><p><strong>Notifications are for local UI feedback.</strong> Operational alerts remain in the audit and incident surfaces.</p><button class="cs-control-button" type="button" data-cs-toast-show>Show notification</button></div>
       <div class="cs-toast-region" aria-live="polite" aria-atomic="true"><div class="cs-toast" role="status" data-cs-toast hidden><span class="cs-toast-icon" aria-hidden="true">✓</span><div><strong>Preferences saved</strong><small>The current filter layout is stored for this browser session.</small></div><button class="cs-alert-dismiss" type="button" aria-label="Close notification" data-cs-toast-close>&times;</button></div></div>
     </section>
 
@@ -952,102 +1025,326 @@
   </footer>
   <script src="assets/calm-slate.js?v=shared-primitives-v10"></script>
   <script>
-    (function () {
+    (async function () {
       var index = document.querySelector(".cs-gallery-index");
       if (!index) return;
-      var links = Array.from(index.querySelectorAll("a[href^='#']"));
-      var categorySections = links.map(function (link) { return document.querySelector(link.getAttribute("href")); });
+      var links = Array.from(index.querySelectorAll("[data-gallery-category]"));
       var allSections = Array.from(document.querySelectorAll("main > .cs-section"));
       var search = document.querySelector("[data-cs-component-search]");
       var count = document.querySelector("[data-cs-gallery-count]");
+      var scope = document.querySelector("[data-gallery-scope]");
+      var quality = document.querySelector("[data-gallery-quality]");
+      var subindex = document.querySelector("[data-gallery-subindex]");
+      var registryStatus = document.querySelector("[data-gallery-registry-status]");
+      var errorBox = document.querySelector("[data-gallery-error]");
       var themeToggle = document.querySelector("[data-cs-theme-toggle]");
-      var scheduled = false;
-      var lastPublishedSection = "";
+      var previewMode = document.querySelector("[data-gallery-preview]");
+      var activeCategory = "foundations";
+      var activeView = "";
+      var registry = [];
+      var specs = new Map();
+      var inlinePolicy = null;
+      var documentedCount = 0;
+      var reviewCount = 0;
 
-      allSections.forEach(function (section) {
+      var categoryCopy = {
+        foundations: ["Foundations", "Tokens and semantic roles shared by every FDAI surface."],
+        inputs: ["Inputs", "Text, date, search, select, and validated value entry."],
+        actions: ["Actions", "Bounded commands with explicit hierarchy and save state."],
+        selection: ["Selection", "Single and multiple choice, tabs, switches, and ranges."],
+        feedback: ["Feedback", "Measured, unavailable, pending, failed, and synthetic states."],
+        data: ["Data display", "Tables, charts, code, lists, feeds, and timelines."],
+        overlays: ["Overlays", "Drawers, command menus, notifications, and layered context."],
+        patterns: ["Product patterns", "Compositions that combine primitives for FDAI workflows."]
+      };
+
+      function textElement(name, text) {
+        var element = document.createElement(name);
+        element.textContent = text;
+        return element;
+      }
+
+      function validateSpecimen(section, spec) {
+        var required = ["id", "category", "view", "view_label", "level", "owner", "api", "source", "states", "use_when", "do_not", "responsive", "a11y", "routes"];
+        var issues = required.filter(function (field) {
+          var value = spec[field];
+          return value === undefined || value === null || value === "" || (Array.isArray(value) && value.length === 0);
+        });
+        if (!section.querySelector(":scope > .cs-section-head h2")) issues.push("heading");
+        if (!section.querySelector(":scope > .cs-section-head .cs-desc")) issues.push("description");
+        if (section.querySelector(".cs-btn, .cs-input, .cs-select, .cs-segmented, .cs-switch")) issues.push("legacy alias");
+        if (Array.from(section.querySelectorAll("button")).some(function (button) { return button.type !== "button"; })) issues.push("button type");
+        Array.from(section.querySelectorAll("[style]")).forEach(function (element) {
+          if (!inlinePolicy || !inlinePolicy.scopes.includes(section.id)) {
+            issues.push("inline style outside policy");
+            return;
+          }
+          Array.from(element.style).forEach(function (property) {
+            var allowed = inlinePolicy.allowed_properties.some(function (pattern) {
+              return pattern.endsWith("*") ? property.startsWith(pattern.slice(0, -1)) : property === pattern;
+            });
+            if (!allowed) issues.push("inline property " + property);
+          });
+        });
+        return issues;
+      }
+
+      function appendMetaItem(meta, label, value) {
+        var wrapper = document.createElement("div");
+        wrapper.appendChild(textElement("dt", label));
+        wrapper.appendChild(textElement("dd", value));
+        meta.appendChild(wrapper);
+      }
+
+      function appendGuidanceItem(container, label, value) {
+        var item = document.createElement("section");
+        item.appendChild(textElement("strong", label));
+        item.appendChild(textElement("p", value));
+        container.appendChild(item);
+      }
+
+      function decorateSection(section, spec) {
         var heading = section.querySelector(":scope > .cs-section-head h2");
-        if (!heading) return;
+        var issues = validateSpecimen(section, spec);
+        var status = issues.length === 0 ? "Documented" : "Review required";
+        section.dataset.galleryCategory = spec.category;
+        section.dataset.galleryView = spec.view;
+        section.dataset.galleryLevel = spec.level;
+        section.dataset.galleryApi = spec.api;
+        section.dataset.galleryStatus = status;
+        section.dataset.galleryIssues = issues.join(", ");
+
         var permalink = document.createElement("a");
         permalink.className = "cs-heading-link";
         permalink.href = "#" + section.id;
-        permalink.setAttribute("aria-label", "Link to " + heading.textContent);
+        permalink.setAttribute("aria-label", "Copy section link");
         permalink.textContent = "#";
-        heading.appendChild(permalink);
-      });
+        section.querySelector(":scope > .cs-section-head .cs-section-title").appendChild(permalink);
+
+        var meta = document.createElement("dl");
+        meta.className = "cs-spec-meta";
+        appendMetaItem(meta, "Level", spec.level);
+        appendMetaItem(meta, "Status", status);
+        appendMetaItem(meta, "Canonical API", spec.api);
+        appendMetaItem(meta, "Owner", spec.owner);
+
+        var guidance = document.createElement("div");
+        guidance.className = "cs-spec-guidance";
+        var primary = document.createElement("div");
+        primary.className = "cs-spec-guidance-primary";
+        appendGuidanceItem(primary, "Use when", spec.use_when);
+        appendGuidanceItem(primary, "Do not", spec.do_not);
+        guidance.appendChild(primary);
+
+        var contract = document.createElement("dl");
+        contract.className = "cs-spec-contract";
+        appendMetaItem(contract, "States", spec.states.join(", "));
+        appendMetaItem(contract, "Interaction roles", (spec.interaction_roles || ["not_applicable"]).join(", "));
+        appendMetaItem(contract, "Responsive", spec.responsive);
+        appendMetaItem(contract, "Accessibility", spec.a11y);
+        appendMetaItem(contract, "Source", spec.source);
+        guidance.appendChild(contract);
+
+        var references = document.createElement("nav");
+        references.className = "cs-spec-references";
+        references.setAttribute("aria-label", "Product references");
+        references.appendChild(textElement("strong", "Product references"));
+        spec.routes.forEach(function (route) {
+          var link = document.createElement("a");
+          link.href = route.href;
+          link.textContent = route.label;
+          references.appendChild(link);
+        });
+        guidance.appendChild(references);
+
+        section.appendChild(meta);
+        section.appendChild(guidance);
+        return issues;
+      }
 
       function visibleSections() {
         return allSections.filter(function (section) { return !section.hidden; });
       }
 
-      function topSection() {
-        var visible = visibleSections();
-        var current = visible[0] || allSections[0];
-        visible.forEach(function (section) {
-          if (section.getBoundingClientRect().top <= 108) current = section;
-        });
-        return current;
-      }
-
-      function categoryFor(section) {
-        var sectionIndex = allSections.indexOf(section);
-        var current = categorySections[0];
-        categorySections.forEach(function (candidate) {
-          if (allSections.indexOf(candidate) <= sectionIndex) current = candidate;
-        });
-        return current;
+      function publishState(sectionId) {
+        if (!sectionId || window.parent === window) return;
+        window.parent.postMessage({ type: "fdai:mock-section", section: sectionId }, window.location.origin);
       }
 
       function publishSection(section) {
-        if (!section || section.id === lastPublishedSection || window.parent === window) return;
-        lastPublishedSection = section.id;
-        window.parent.postMessage({ type: "fdai:mock-section", section: section.id }, window.location.origin);
+        if (!section) return;
+        publishState(section.id);
       }
 
-      function syncActiveCategory() {
-        var currentSection = topSection();
-        var current = categoryFor(currentSection);
-        links.forEach(function (link) {
-          if (current && link.getAttribute("href") === "#" + current.id) {
-            link.setAttribute("aria-current", "location");
-          } else {
-            link.removeAttribute("aria-current");
-          }
+      function viewsFor(category) {
+        var seen = new Set();
+        return registry.filter(function (spec) { return spec.category === category; }).filter(function (spec) {
+          if (seen.has(spec.view)) return false;
+          seen.add(spec.view);
+          return true;
         });
-        publishSection(currentSection);
-        scheduled = false;
       }
 
-      function applyFilter(skipSync) {
+      function renderSubindex(category, selectedView) {
+        subindex.replaceChildren();
+        viewsFor(category).forEach(function (spec) {
+          var link = document.createElement("a");
+          link.href = "#view=" + category + ":" + spec.view;
+          link.textContent = spec.view_label;
+          if (spec.view === selectedView) link.setAttribute("aria-current", "page");
+          link.addEventListener("click", function (event) {
+            event.preventDefault();
+            search.value = "";
+            renderCategory(category, spec.view, false);
+            window.scrollTo({ top: 0, behavior: "auto" });
+          });
+          subindex.appendChild(link);
+        });
+      }
+
+      function relativeLuminance(color) {
+        var values = color.match(/\d+(?:\.\d+)?/g);
+        if (!values || values.length < 3) return 0;
+        return values.slice(0, 3).map(Number).map(function (value) {
+          var channel = value / 255;
+          return channel <= .03928 ? channel / 12.92 : Math.pow((channel + .055) / 1.055, 2.4);
+        }).reduce(function (sum, value, index) {
+          return sum + value * [.2126, .7152, .0722][index];
+        }, 0);
+      }
+
+      function contrastRatio() {
+        var styles = getComputedStyle(document.body);
+        var foreground = relativeLuminance(styles.color);
+        var background = relativeLuminance(styles.backgroundColor);
+        var light = Math.max(foreground, background);
+        var dark = Math.min(foreground, background);
+        return ((light + .05) / (dark + .05)).toFixed(1) + ":1 text contrast";
+      }
+
+      function updateQuality(documented, reviewRequired) {
+        quality.replaceChildren();
+        var values = [
+          documented + " documented",
+          reviewRequired + " review gaps",
+          getComputedStyle(document.documentElement).getPropertyValue("--cs-control-height").trim() + " desktop control",
+          getComputedStyle(document.documentElement).getPropertyValue("--cs-control-height-touch").trim() + " touch control",
+          contrastRatio()
+        ];
+        values.forEach(function (value) { quality.appendChild(textElement("li", value)); });
+      }
+
+      function renderCategory(category, view, preserveHash) {
+        activeCategory = categoryCopy[category] ? category : "foundations";
+        var availableViews = viewsFor(activeCategory);
+        activeView = availableViews.some(function (spec) { return spec.view === view; })
+          ? view
+          : availableViews[0].view;
         var query = search.value.trim().toLocaleLowerCase();
         var matches = 0;
         allSections.forEach(function (section) {
           var heading = section.querySelector(":scope > .cs-section-head h2");
           var description = section.querySelector(":scope > .cs-section-head .cs-desc");
-          var searchable = ((heading ? heading.textContent : "") + " " + (description ? description.textContent : "")).toLocaleLowerCase();
-          section.hidden = Boolean(query) && !searchable.includes(query);
+          var searchable = [
+            heading ? heading.textContent : "",
+            description ? description.textContent : "",
+            section.dataset.galleryApi || "",
+            section.dataset.galleryLevel || ""
+          ].join(" ").toLocaleLowerCase();
+          var matchesQuery = !query || searchable.includes(query);
+          var matchesCategory = query || (
+            section.dataset.galleryCategory === activeCategory
+            && section.dataset.galleryView === activeView
+          );
+          section.hidden = !(matchesQuery && matchesCategory);
           if (!section.hidden) matches += 1;
         });
-        count.value = matches + (matches === 1 ? " section" : " sections");
-        if (!skipSync) syncActiveCategory();
+        links.forEach(function (link) {
+          if (link.dataset.galleryCategory === activeCategory && !query) {
+            link.setAttribute("aria-current", "location");
+          } else {
+            link.removeAttribute("aria-current");
+          }
+        });
+        var copy = query
+          ? ["Search results", "Matches across all component categories."]
+          : categoryCopy[activeCategory];
+        scope.querySelector(":scope > div strong").textContent = copy[0];
+        scope.querySelector(":scope > div span").textContent = copy[1];
+        count.value = matches + (matches === 1 ? " component" : " components");
+        document.body.dataset.galleryCategory = query ? "search" : activeCategory;
+        subindex.hidden = Boolean(query);
+        if (!query) renderSubindex(activeCategory, activeView);
+        if (!preserveHash && !query) {
+          history.replaceState(null, "", "#view=" + activeCategory + ":" + activeView);
+          publishSection(visibleSections()[0]);
+        }
+      }
+
+      function encodeSearchState(query) {
+        return Array.from(new TextEncoder().encode(query).slice(0, 48))
+          .map(function (value) { return value.toString(16).padStart(2, "0"); })
+          .join("");
+      }
+
+      function decodeSearchState(value) {
+        if (!/^(?:[0-9a-f]{2})+$/i.test(value)) return value.replace(/-/g, " ");
+        var bytes = value.match(/.{2}/g).map(function (pair) { return parseInt(pair, 16); });
+        return new TextDecoder().decode(new Uint8Array(bytes));
+      }
+
+      function applyFilter() {
+        var query = search.value.trim();
+        renderCategory(activeCategory, activeView, true);
+        if (query) {
+          var state = "search-" + encodeSearchState(query);
+          history.replaceState(null, "", "#" + state);
+          publishState(state);
+        } else {
+          history.replaceState(null, "", "#view=" + activeCategory + ":" + activeView);
+          publishSection(visibleSections()[0]);
+        }
       }
 
       function syncHashTarget() {
         var sectionId = decodeURIComponent(window.location.hash.replace(/^#/, ""));
-        var target = allSections.find(function (section) { return section.id === sectionId && !section.hidden; });
-        if (target) target.scrollIntoView({ block: "start" });
-        syncActiveCategory();
+        if (sectionId.indexOf("search-") === 0) {
+          search.value = decodeSearchState(sectionId.slice(7));
+          renderCategory(activeCategory, activeView, true);
+          return;
+        }
+        if (sectionId.indexOf("search=") === 0) {
+          search.value = sectionId.slice(7);
+          renderCategory(activeCategory, activeView, true);
+          return;
+        }
+        if (sectionId.indexOf("view=") === 0) {
+          var viewParts = sectionId.slice(5).split(":");
+          search.value = "";
+          renderCategory(viewParts[0], viewParts[1], true);
+          return;
+        }
+        if (sectionId.indexOf("category-") === 0) {
+          renderCategory(sectionId.slice(9), "", true);
+          return;
+        }
+        var target = allSections.find(function (section) { return section.id === sectionId; });
+        if (!target) {
+          renderCategory(activeCategory, true);
+          return;
+        }
+        search.value = "";
+        renderCategory(target.dataset.galleryCategory, target.dataset.galleryView, true);
+        target.scrollIntoView({ block: "start" });
+        publishSection(target);
       }
 
-      document.addEventListener("scroll", function () {
-        if (scheduled) return;
-        scheduled = true;
-        requestAnimationFrame(syncActiveCategory);
-      }, { passive: true });
       links.forEach(function (link) {
-        link.addEventListener("click", function () {
-          if (!search.value) return;
+        link.addEventListener("click", function (event) {
+          event.preventDefault();
           search.value = "";
-          applyFilter();
+          renderCategory(link.dataset.galleryCategory, "", false);
+          window.scrollTo({ top: 0, behavior: "auto" });
         });
       });
       search.addEventListener("input", applyFilter);
@@ -1057,10 +1354,44 @@
         else document.body.removeAttribute("data-theme");
         themeToggle.setAttribute("aria-pressed", String(dark));
         themeToggle.textContent = dark ? "Light preview" : "Dark preview";
+        updateQuality(documentedCount, reviewCount);
+      });
+      previewMode.addEventListener("change", function () {
+        document.body.dataset.preview = previewMode.value;
       });
       window.addEventListener("hashchange", syncHashTarget);
-      applyFilter(true);
-      syncHashTarget();
+      allSections.forEach(function (section) { section.hidden = true; });
+      try {
+        var response = await fetch("assets/component-registry.json?v=7");
+        if (!response.ok) throw new Error("Registry request failed with status " + response.status);
+        var payload = await response.json();
+        if (!payload || !Array.isArray(payload.components)) throw new Error("Registry payload is invalid");
+        registry = payload.components;
+        inlinePolicy = payload.inline_style_policy;
+        specs = new Map(registry.map(function (spec) { return [spec.id, spec]; }));
+        var missing = allSections.filter(function (section) { return !specs.has(section.id); });
+        var orphaned = registry.filter(function (spec) { return !document.getElementById(spec.id); });
+        if (missing.length || orphaned.length || registry.length !== allSections.length) {
+          throw new Error("Registry and specimen ids are not complete");
+        }
+        var issues = [];
+        allSections.forEach(function (section) {
+          issues.push.apply(issues, decorateSection(section, specs.get(section.id)));
+        });
+        reviewCount = allSections.filter(function (section) {
+          return section.dataset.galleryStatus === "Review required";
+        }).length;
+        documentedCount = registry.length - reviewCount;
+        registryStatus.textContent = documentedCount + " documented";
+        updateQuality(documentedCount, reviewCount);
+        document.body.classList.add("is-gallery-ready");
+        syncHashTarget();
+      } catch (reason) {
+        errorBox.hidden = false;
+        errorBox.textContent = reason instanceof Error ? reason.message : String(reason);
+        registryStatus.textContent = "Registry unavailable";
+        count.value = "0 documented components";
+      }
     })();
   </script>
 </body>

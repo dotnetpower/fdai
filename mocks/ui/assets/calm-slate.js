@@ -151,46 +151,28 @@
     heading.appendChild(current);
   }
 
-  var settingsNavigation = [
-    ["settings.html", "General", "Display, accessibility, and local preferences"],
-    ["settings-models.html", "Models", "Inventory, routing, and model policy"],
-    ["settings-runtime.html", "Runtime policies", "Budgets, freshness, retention, and logging"],
-    ["settings-memory.html", "Operator memory", "Approved guidance and provenance"],
-    ["settings-iam.html", "Identity and access", "Human roles and governed requests"],
-    ["settings-integrations.html", "Integrations", "Identity and delivery connections"],
-    ["settings-diagnostics.html", "Diagnostics", "Runtime and authentication checks"]
+  var settingsPages = [
+    "settings.html",
+    "settings-models.html",
+    "settings-runtime.html",
+    "settings-memory.html",
+    "settings-iam.html",
+    "settings-integrations.html",
+    "settings-diagnostics.html"
   ];
 
-  function createSettingsWorkspace() {
+  function createSettingsSurface() {
     var currentPage = window.location.pathname.split("/").pop() || "";
-    if (!settingsNavigation.some(function (item) { return item[0] === currentPage; })) return;
+    if (settingsPages.indexOf(currentPage) === -1) return;
     var main = document.querySelector("body > main");
-    if (!main || main.closest(".cs-settings-workspace")) return;
-
-    var workspace = document.createElement("div");
-    workspace.className = "cs-settings-workspace";
-    var aside = document.createElement("aside");
-    aside.className = "cs-settings-navigation";
-    aside.setAttribute("aria-label", "Settings navigation");
-    aside.innerHTML = '<header class="cs-settings-navigation-head"><span>Console</span><h2>Settings</h2>' +
-      '<p>Preferences and governed configuration evidence.</p></header><nav><ul>' +
-      settingsNavigation.map(function (item) {
-        var active = item[0] === currentPage;
-        return '<li><a href="' + item[0] + '"' + (active ? ' aria-current="page"' : "") + '><strong>' +
-          item[1] + "</strong><small>" + item[2] + "</small></a></li>";
-      }).join("") + "</ul></nav>" +
-      '<footer><strong>Authority boundary</strong><span>Settings never grant executor identity.</span></footer>';
-
-    main.parentNode.insertBefore(workspace, main);
-    workspace.appendChild(aside);
-    workspace.appendChild(main);
+    if (!main) return;
     main.classList.add("cs-settings-content");
     document.body.classList.add("cs-settings-surface");
   }
 
   function createNavigation() {
     decoratePageTitle();
-    createSettingsWorkspace();
+    createSettingsSurface();
     if (window.self !== window.top) {
       document.body.classList.add("cs-embedded");
       return;

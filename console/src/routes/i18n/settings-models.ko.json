@@ -64,5 +64,16 @@
   "bindingAssess": "평가 요청",
   "bindingPlanning": "계획 요청 중...",
   "bindingPlan": "계획 요청",
-  "bindingRequestAccepted": "요청이 접수되었습니다"
+  "bindingRequestAccepted": "요청이 접수되었습니다",
+  "addDomain": "승인된 호스트 추가",
+  "domainPlaceholder": "example.org",
+  "add": "도메인 추가",
+  "removeDomain": "{domain} 제거",
+  "approvedHost": "승인됨",
+  "remove": "제거",
+  "noDomains": "승인된 호스트가 없습니다. 웹 검색이 활성화된 동안에는 하나 이상 추가하세요.",
+  "domainCount": "호스트 {count}/{max}개",
+  "unsavedChanges": "저장되지 않은 웹 검색 변경 사항",
+  "settingsCurrent": "웹 검색 설정이 최신 상태입니다",
+  "saveBoundary": "저장하면 배포 allowlist만 업데이트됩니다. 실행 권한은 부여하지 않습니다."
 }

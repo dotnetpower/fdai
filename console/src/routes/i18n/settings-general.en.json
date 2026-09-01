@@ -1,0 +1,23 @@
+{
+  "accountScope": "Your account",
+  "accountScopeHint": "Account preferences are saved only after you confirm the changes.",
+  "appearance": "Appearance",
+  "appearanceDescription": "Browser-local display and accessibility choices apply immediately.",
+  "briefingsTitle": "Proactive briefings",
+  "briefingsDescription": "Control when verified operational summaries appear in the Command Deck.",
+  "browserScope": "This browser",
+  "contextDescription": "Account-scoped narrator preferences and explicit learner consent. Display preferences remain browser-local.",
+  "contextCurrent": "Account preferences are up to date",
+  "contextSaving": "Saving...",
+  "contextTitle": "User context",
+  "contextUnsaved": "Unsaved changes",
+  "memoryDescription": "Only explicitly confirmed facts are stored. Removing one also removes its ontology projection.",
+  "memoryTitle": "Saved memory",
+  "recentBriefings": "Recent briefings",
+  "recentBriefingsDescription": "Review the latest account-scoped briefing results and evidence counts.",
+  "reset": "Reset account and display preferences",
+  "resetDescription": "Remove saved account defaults and restore this browser to the Console defaults.",
+  "resetTitle": "Reset preferences",
+  "saveContext": "Save user context",
+  "subtitle": "Display and accessibility preferences stored in this browser."
+}

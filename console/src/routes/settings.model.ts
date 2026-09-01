@@ -36,6 +36,22 @@ export function contextWithSavedPreference(
   return context === null ? null : { ...context, preference };
 }
 
+export function contextPreferencesAreDirty(input: {
+  readonly preference: UserPreferencePayload | null | undefined;
+  readonly answerDetail: UserPreferencePayload["answer_detail"];
+  readonly answerFormat: UserPreferencePayload["answer_format"];
+  readonly answerPreferencesEnabled: boolean;
+  readonly timezone: string;
+  readonly shareWithLearner: boolean;
+}): boolean {
+  return input.answerDetail !== (input.preference?.answer_detail ?? "standard")
+    || input.answerFormat !== (input.preference?.answer_format ?? "prose")
+    || input.answerPreferencesEnabled
+      !== (input.preference?.answer_preferences_enabled ?? true)
+    || input.timezone !== (input.preference?.timezone ?? defaultTimezone())
+    || input.shareWithLearner !== (input.preference?.share_with_learner ?? false);
+}
+
 export function responseDefaultsPolicyForSave(
   policies: readonly ConversationPolicyPayload[],
 ): ConversationPolicyPayload | null {

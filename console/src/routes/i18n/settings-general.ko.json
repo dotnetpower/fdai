@@ -1,0 +1,23 @@
+{
+  "accountScope": "내 계정",
+  "accountScopeHint": "계정 환경 설정은 변경 사항을 확인한 뒤에만 저장됩니다.",
+  "appearance": "화면 표시",
+  "appearanceDescription": "이 브라우저의 표시 및 접근성 선택 사항은 즉시 적용됩니다.",
+  "briefingsTitle": "사전 briefing",
+  "briefingsDescription": "검증된 운영 요약이 Command Deck에 표시되는 시점을 관리합니다.",
+  "browserScope": "이 브라우저",
+  "contextDescription": "계정 범위 narrator 선호와 명시적 학습 동의를 관리합니다. 표시 선호는 브라우저에만 유지됩니다.",
+  "contextCurrent": "계정 환경 설정이 최신 상태입니다",
+  "contextSaving": "저장 중...",
+  "contextTitle": "사용자 context",
+  "contextUnsaved": "저장되지 않은 변경 사항",
+  "memoryDescription": "명시적으로 확인한 사실만 저장합니다. 제거하면 온톨로지 프로젝션도 함께 제거됩니다.",
+  "memoryTitle": "저장된 메모리",
+  "recentBriefings": "최근 briefing",
+  "recentBriefingsDescription": "최근 계정 범위 브리핑 결과와 근거 수를 검토합니다.",
+  "reset": "계정 및 표시 환경 설정 초기화",
+  "resetDescription": "저장된 계정 기본값을 제거하고 이 브라우저를 콘솔 기본값으로 되돌립니다.",
+  "resetTitle": "환경 설정 초기화",
+  "saveContext": "사용자 context 저장",
+  "subtitle": "이 브라우저에 저장되는 표시 및 접근성 환경 설정입니다."
+}

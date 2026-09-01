@@ -13,12 +13,14 @@ import {
 import { ModelBindingPolicyEditor } from "./settings-model-binding-policy";
 import { modelText } from "./settings-models.i18n";
 import {
+  appendAllowedDomain,
   DEFAULT_WEB_SEARCH_DOMAINS,
   decodeModelSettings,
   draftRevisionIsCurrent,
   modelChoiceKey,
   normalizeAndValidateDomains,
   projectionGenerationIsCurrent,
+  removeAllowedDomain,
   renderT2GovernanceDraft,
   t2PairIsValid,
   type GptModelCatalogEntryView,
@@ -29,6 +31,7 @@ import {
   type NarratorCandidateView,
   type T2ModelChoiceView,
   webSearchControlsDisabled,
+  webSearchSettingsAreDirty,
   webSearchUnavailableMessageKey,
 } from "./settings-models.model";
 
@@ -50,6 +53,7 @@ export function SettingsModelsRoute({ client, auth }: Props) {
   const [allowedDomainsText, setAllowedDomainsText] = useState(
     DEFAULT_WEB_SEARCH_DOMAINS.join("\n"),
   );
+  const [domainDraft, setDomainDraft] = useState("");
   const [savingWebSearch, setSavingWebSearch] = useState(false);
   const [webSearchError, setWebSearchError] = useState<string | null>(null);
   const [t2PrimaryKey, setT2PrimaryKey] = useState("");
@@ -135,6 +139,13 @@ export function SettingsModelsRoute({ client, auth }: Props) {
   const visibleCatalogModels = view === null
     ? []
     : filterCatalogModels(view.modelCatalog.models, catalogQuery);
+  const allowedDomains = normalizeAndValidateDomains(allowedDomainsText, false).domains;
+  const webSearchDirty = view !== null && webSearchSettingsAreDirty({
+    enabled: webSearchEnabled,
+    domains: allowedDomains,
+    savedEnabled: view.webSearch.enabled,
+    savedDomains: view.webSearch.allowedDomains,
+  });
 
   const copyT2Draft = async () => {
     if (!t2PairValid || !navigator.clipboard) return;
@@ -171,6 +182,32 @@ export function SettingsModelsRoute({ client, auth }: Props) {
     } finally {
       if (mounted.current) setSaving(false);
     }
+  };
+
+  const addDomain = () => {
+    if (!domainDraft.trim()) return;
+    const validation = appendAllowedDomain(
+      allowedDomainsText,
+      domainDraft,
+      webSearchEnabled,
+    );
+    if (validation.error !== null) {
+      setWebSearchError(domainValidationMessage(
+        validation.error,
+        validation.invalidDomains,
+      ));
+      return;
+    }
+    webSearchDraftRevision.current += 1;
+    setAllowedDomainsText(validation.domains.join("\n"));
+    setDomainDraft("");
+    setWebSearchError(null);
+  };
+
+  const removeDomain = (domain: string) => {
+    webSearchDraftRevision.current += 1;
+    setAllowedDomainsText(removeAllowedDomain(allowedDomainsText, domain));
+    setWebSearchError(null);
   };
 
   const saveWebSearch = async () => {
@@ -652,32 +689,58 @@ export function SettingsModelsRoute({ client, auth }: Props) {
                 </label>
               </div>
 
-              <label class="settings-domain-editor" for="web-search-allowed-domains">
-                <strong>{t("settings.models.allowedDomains")}</strong>
-                <small>{t("settings.models.allowedDomainsHint")}</small>
-                <textarea
-                  id="web-search-allowed-domains"
-                  rows={8}
-                  value={allowedDomainsText}
-                  disabled={webSearchControlsDisabled(
-                    view.webSearch.canManage,
-                    savingWebSearch,
+              <fieldset
+                class="settings-domain-editor"
+                disabled={webSearchControlsDisabled(
+                  view.webSearch.canManage,
+                  savingWebSearch,
+                )}
+              >
+                <legend>{t("settings.models.allowedDomains")}</legend>
+                <p>{t("settings.models.allowedDomainsHint")}</p>
+                <div class="settings-domain-list cs-control-policy-list" role="list">
+                  {allowedDomains.length > 0 ? allowedDomains.map((domain) => (
+                    <div class="settings-domain-row cs-control-policy-row" role="listitem" key={domain}>
+                      <code>{domain}</code>
+                      <span class="cs-control-policy-state">{modelText("approvedHost")}</span>
+                      <button
+                        type="button"
+                        aria-label={modelText("removeDomain").replace("{domain}", domain)}
+                        onClick={() => removeDomain(domain)}
+                      >
+                        {modelText("remove")}
+                      </button>
+                    </div>
+                  )) : (
+                    <span class="settings-domain-empty">{modelText("noDomains")}</span>
                   )}
-                  onInput={(event) => {
-                    webSearchDraftRevision.current += 1;
-                    setAllowedDomainsText(event.currentTarget.value);
+                </div>
+                <form
+                  class="settings-domain-add"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    addDomain();
                   }}
-                  onBlur={() => {
-                    webSearchDraftRevision.current += 1;
-                    setAllowedDomainsText(
-                      normalizeAndValidateDomains(
-                        allowedDomainsText,
-                        webSearchEnabled,
-                      ).domains.join("\n"),
-                    );
-                  }}
-                />
-              </label>
+                >
+                  <label for="web-search-domain-draft">
+                    {modelText("addDomain")}
+                  </label>
+                  <div>
+                    <input
+                      id="web-search-domain-draft"
+                      value={domainDraft}
+                      placeholder={modelText("domainPlaceholder")}
+                      onInput={(event) => setDomainDraft(event.currentTarget.value)}
+                    />
+                    <button type="submit" disabled={!domainDraft.trim()}>
+                      {modelText("add")}
+                    </button>
+                  </div>
+                  <small>{modelText("domainCount")
+                    .replace("{count}", String(allowedDomains.length))
+                    .replace("{max}", "100")}</small>
+                </form>
+              </fieldset>
 
               <div class="settings-web-search-warning" role="note">
                 {t("settings.models.webSearchBoundaryWarning")}
@@ -730,12 +793,18 @@ export function SettingsModelsRoute({ client, auth }: Props) {
                 </div>
               ) : null}
               <div class="settings-web-search-actions">
+                <span aria-live="polite">
+                  <strong>{webSearchDirty
+                    ? modelText("unsavedChanges")
+                    : modelText("settingsCurrent")}</strong>
+                  <small>{modelText("saveBoundary")}</small>
+                </span>
                 <button
                   type="button"
                   disabled={webSearchControlsDisabled(
                     view.webSearch.canManage,
                     savingWebSearch,
-                  )}
+                  ) || !webSearchDirty}
                   onClick={() => { void saveWebSearch(); }}
                 >
                   {savingWebSearch

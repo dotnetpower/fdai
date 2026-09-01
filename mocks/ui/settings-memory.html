@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Operator memory - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=settings-workspace-v1" />
-  <script src="assets/calm-slate.js?v=settings-workspace-v1" defer></script>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=settings-route-v5" />
+  <script src="assets/calm-slate.js?v=settings-route-v5" defer></script>
 </head>
 <body>
   <main class="cs-container cs-page cs-settings-page">
@@ -23,7 +23,7 @@
       <div class="cs-settings-list">
         <div class="cs-setting-row">
           <div><strong>Scope kind</strong><small>Limit results to one supported boundary.</small></div>
-          <select class="cs-settings-input" aria-label="Scope kind">
+          <select class="cs-settings-input cs-control-select" aria-label="Scope kind">
             <option>All scope kinds</option>
             <option>resource-group</option>
             <option>resource</option>
@@ -31,10 +31,10 @@
         </div>
         <div class="cs-setting-row">
           <div><strong>Scope reference</strong><small>Optional exact scope reference.</small></div>
-          <input class="cs-settings-input" placeholder="Enter a scope reference" aria-label="Scope reference" />
+          <input class="cs-settings-input cs-control-input" placeholder="Enter a scope reference" aria-label="Scope reference" />
         </div>
       </div>
-      <div class="cs-settings-actions"><button class="cs-btn" type="button">Apply filter</button></div>
+      <div class="cs-settings-actions"><button class="cs-control-button" type="button">Apply filter</button></div>
     </section>
 
     <section class="cs-settings-section" aria-labelledby="memory-compactions">
@@ -47,10 +47,10 @@
           <thead><tr><th>Candidate</th><th>Evidence sources</th><th>Review</th><th>State</th></tr></thead>
           <tbody>
             <tr>
-              <td><strong>Deployment window preference</strong><div class="cs-muted">Combine three overlapping guidance records.</div></td>
-              <td><code>change-104</code>, <code>change-117</code></td>
-              <td>Proposed by Mimir<div class="cs-muted">Reviewer unassigned</div></td>
-              <td><span class="cs-status wait">Pending</span></td>
+              <td data-label="Candidate"><strong>Deployment window preference</strong><div class="cs-muted">Combine three overlapping guidance records.</div></td>
+              <td data-label="Evidence sources"><code>change-104</code>, <code>change-117</code></td>
+              <td data-label="Review">Proposed by Mimir<div class="cs-muted">Reviewer unassigned</div></td>
+              <td data-label="State"><span class="cs-status wait">Pending</span></td>
             </tr>
           </tbody>
         </table>
@@ -67,11 +67,11 @@
           <thead><tr><th>Memory</th><th>Scope</th><th>Provenance</th><th>Approval</th><th>State</th></tr></thead>
           <tbody>
             <tr>
-              <td><strong>Prefer maintenance windows</strong><div class="cs-muted">Apply to non-urgent remediation planning.</div></td>
-              <td>resource-group<div class="cs-muted">example-scope</div></td>
-              <td><code>event-218</code><div class="cs-muted">operator note</div></td>
-              <td>Operator<div class="cs-muted">Approved by owner</div></td>
-              <td><span class="cs-status ok">Active</span></td>
+              <td data-label="Memory"><strong>Prefer maintenance windows</strong><div class="cs-muted">Apply to non-urgent remediation planning.</div></td>
+              <td data-label="Scope">resource-group<div class="cs-muted">example-scope</div></td>
+              <td data-label="Provenance"><code>event-218</code><div class="cs-muted">operator note</div></td>
+              <td data-label="Approval">Operator<div class="cs-muted">Approved by owner</div></td>
+              <td data-label="State"><span class="cs-status ok">Active</span></td>
             </tr>
           </tbody>
         </table>

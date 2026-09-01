@@ -53,12 +53,12 @@ export function OperatorMemoryRoute({ client }: { readonly client: OperatorApiCl
   }, [client]);
 
   return (
-    <div class="stack operator-memory-route">
+    <div class="stack settings-route operator-memory-route">
       <PageHeader
         title={t("route.operatorMemory")}
         subtitle={t("settings.operatorMemory.subtitle")}
       />
-      <form class="scheduler-runs-filter" onSubmit={(event) => { event.preventDefault(); void load(); }}>
+      <form class="settings-filter-bar" onSubmit={(event) => { event.preventDefault(); void load(); }}>
         <label>
           <span>{t("settings.operatorMemory.scopeKind")}</span>
           <select value={scopeKind} onChange={(event) => setScopeKind(event.currentTarget.value)}>
@@ -90,7 +90,7 @@ function OperatorMemoryBody({ view }: { readonly view: OperatorMemoryReviewView 
   }, [now, view.items]);
   return (
     <div class="stack">
-      <section class="stack-section">
+      <section class="stack-section settings-section">
         <h3>{t("settings.operatorMemory.compactions")}</h3>
         <DataTable
           columns={compactionColumns()}
@@ -99,7 +99,7 @@ function OperatorMemoryBody({ view }: { readonly view: OperatorMemoryReviewView 
           empty={t("settings.operatorMemory.noCompactions")}
         />
       </section>
-      <section class="stack-section">
+      <section class="stack-section settings-section">
         <h3>{t("settings.operatorMemory.entries")}</h3>
         <DataTable
           columns={columns(now)}

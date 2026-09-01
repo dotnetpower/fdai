@@ -3,6 +3,7 @@ import {
   buildResponseDefaultsPolicy,
   claimSettingsDelete,
   claimSettingsMutation,
+  contextPreferencesAreDirty,
   contextWithSavedPreference,
   isValidTimezone,
   parseBriefingHour,
@@ -72,6 +73,32 @@ describe("General Settings validation", () => {
     } as never;
     const saved = { revision: 4 } as never;
     expect(contextWithSavedPreference(context, saved)?.preference?.revision).toBe(4);
+  });
+
+  it("detects account-scoped preference changes against the loaded revision", () => {
+    const preference = {
+      answer_detail: "standard",
+      answer_format: "prose",
+      answer_preferences_enabled: true,
+      timezone: "Asia/Seoul",
+      share_with_learner: false,
+    } as never;
+    expect(contextPreferencesAreDirty({
+      preference,
+      answerDetail: "standard",
+      answerFormat: "prose",
+      answerPreferencesEnabled: true,
+      timezone: "Asia/Seoul",
+      shareWithLearner: false,
+    })).toBe(false);
+    expect(contextPreferencesAreDirty({
+      preference,
+      answerDetail: "deep",
+      answerFormat: "prose",
+      answerPreferencesEnabled: true,
+      timezone: "Asia/Seoul",
+      shareWithLearner: false,
+    })).toBe(true);
   });
 
   it("accepts valid IANA timezones", () => {

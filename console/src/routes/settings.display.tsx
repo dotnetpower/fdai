@@ -1,7 +1,12 @@
 import { t } from "../i18n";
 import type { ConsolePreferences } from "../preferences";
 import type { SettingsController } from "./settings.controller";
-import { SegmentedControl, SettingRow } from "./settings.controls";
+import {
+  SegmentedControl,
+  SettingRow,
+  SettingsSectionHeader,
+} from "./settings.controls";
+import { settingsGeneralText } from "./settings-general.i18n";
 
 export function SettingsDisplaySections({
   controller,
@@ -12,7 +17,12 @@ export function SettingsDisplaySections({
   return (
     <>
       <section class="settings-section" aria-labelledby="settings-appearance">
-        <h3 id="settings-appearance">{t("settings.appearance")}</h3>
+        <SettingsSectionHeader
+          id="settings-appearance"
+          title={settingsGeneralText("appearance")}
+          description={settingsGeneralText("appearanceDescription")}
+          scope={settingsGeneralText("browserScope")}
+        />
         <div class="settings-list">
           <SettingRow label={t("settings.theme")} hint={t("settings.themeHint")}>
             <SegmentedControl
