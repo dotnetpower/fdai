@@ -447,10 +447,12 @@ def _bounded_text(value: object, maximum: int) -> str | None:
 
 
 def _timestamp(value: object) -> datetime | None:
-    if not isinstance(value, str) or not value.strip():
+    if not isinstance(value, str) or not (stripped := value.strip()):
         return None
-    if value.isascii() and value.isdigit():
-        ticks_since_unix_epoch = int(value) - _DOTNET_UNIX_EPOCH_TICKS
+    if stripped.isascii() and stripped.isdigit():
+        if len(stripped) > 19:
+            return None
+        ticks_since_unix_epoch = int(stripped) - _DOTNET_UNIX_EPOCH_TICKS
         if ticks_since_unix_epoch < 0:
             return None
         try:
@@ -460,7 +462,7 @@ def _timestamp(value: object) -> datetime | None:
         except OverflowError:
             return None
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(stripped.replace("Z", "+00:00"))
     except ValueError:
         return None
     return parsed.astimezone(UTC) if parsed.tzinfo is not None else None
