@@ -97,6 +97,7 @@ from fdai.core.ontology_platform.incident_queries import (
     incident_evidence_function_type,
 )
 from fdai.core.ontology_platform.inventory_impact_queries import inventory_impact_function_type
+from fdai.core.ontology_platform.manifest_queries import ontology_manifest_function_type
 from fdai.core.ontology_platform.property_values import PropertyValueDomain, PropertyValueGroup
 from fdai.core.ontology_platform.query_values import QueryRow, QueryTable
 from fdai.core.ontology_platform.release_diff_queries import ontology_release_diff_function_type
@@ -9707,6 +9708,138 @@ def test_manifest_function_may_feed_declaration_aggregate_output() -> None:
 
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+def test_manifest_declaration_count_uses_server_owned_plan() -> None:
+    manifest, definition = _fixture(function_types=(ontology_manifest_function_type(),))
+    frame = _frame(
+        operation="aggregate",
+        subject_constraints=["action"],
+        measure_concepts=["count"],
+        output_shape="aggregation_table",
+    )
+    t1 = _Model(frame=frame, plan=None)
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=OntologyQueryPlanVerifier(
+            available_kinds=(QueryNodeKind.FUNCTION, QueryNodeKind.AGGREGATE),
+        ),
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="How many action declarations are available?")
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[0].arguments["arguments"]["kinds"] == ["action"]
+    assert outcome.plan.nodes[1].arguments["group_by"] == ["kind"]
+    assert outcome.plan.output_node_ids == ("declaration-count",)
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+@pytest.mark.parametrize(
+    ("judgment_target", "include_domain_target", "frame_subjects"),
+    (
+        (None, False, ("ActionType", "Ontology")),
+        ("ActionTypes", False, ("LinkType",)),
+        ("ActionTypes", True, ("LinkType",)),
+    ),
+)
+def test_manifest_count_normalizes_the_validated_declaration_intent(
+    judgment_target: str | None,
+    include_domain_target: bool,
+    frame_subjects: tuple[str, ...],
+) -> None:
+    class _DeclarationCountJudgmentModel:
+        def judge(self, *, utterance: str, **_kwargs: Any) -> dict[str, object]:
+            targets: list[dict[str, object]] = []
+            if judgment_target is not None:
+                source_start = utterance.index(judgment_target)
+                targets.append(
+                    {
+                        "kind": "object_type",
+                        "value": judgment_target,
+                        "canonical_value": "ActionType",
+                        "source_start": source_start,
+                        "source_end": source_start + len(judgment_target),
+                    }
+                )
+            if include_domain_target:
+                value = "ontology"
+                source_start = utterance.index(value)
+                targets.append(
+                    {
+                        "kind": "question_domain",
+                        "value": value,
+                        "canonical_value": value,
+                        "source_start": source_start,
+                        "source_end": source_start + len(value),
+                    }
+                )
+            return {
+                "primary_intent": "query.ontology_declaration",
+                "targets": targets,
+                "requested_facets": [
+                    "count",
+                    "visibility",
+                    "read_only_verification_source",
+                    "scope",
+                ],
+                "confidence": 0.95,
+                "ambiguous": False,
+                "action_posture": "advise_only",
+                "action_subject": "none",
+                "execution_authority": False,
+            }
+
+    manifest, definition = _fixture(function_types=(ontology_manifest_function_type(),))
+    frame = _frame(
+        operation="aggregate",
+        subject_constraints=list(frame_subjects),
+        measure_concepts=["count", "visibility", "read_only_verification_source", "scope"],
+        temporal_scope={"kind": "current"},
+        output_shape="aggregation_table",
+    )
+    t1 = _Model(frame=frame, plan=None)
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=_DeclarationCountJudgmentModel(),
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        semantic_judgment=judgment,
+        manifests=_ManifestProvider(manifest),
+        verifier=OntologyQueryPlanVerifier(
+            available_kinds=(QueryNodeKind.FUNCTION, QueryNodeKind.AGGREGATE),
+        ),
+        now=lambda: NOW,
+    )
+
+    outcome = _run(
+        service,
+        utterance="How many ActionTypes are currently visible in this ontology scope?",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.subject_constraints == ("action",)
+    assert outcome.frame.measure_concepts == ("count",)
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[0].arguments["arguments"]["kinds"] == ["action"]
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 

@@ -36,6 +36,7 @@ from fdai.core.ontology_platform.incident_queries import (
     INCIDENT_EVIDENCE_MAX_RECORDS,
 )
 from fdai.core.ontology_platform.query_values import QueryTable
+from fdai.shared.contracts.models import OntologyDeclarationKind
 from fdai_service_contracts import (
     MAX_SEMANTIC_EVIDENCE_REFS,
     OperationalEvidenceProjection,
@@ -1156,6 +1157,7 @@ def _project_runtime_result(
         execution,
         operation=frame.operation.value,
         output_shape=frame.output_shape,
+        subject_constraints=tuple(frame.subject_constraints),
         rule_search=rule_search,
         rule_search_node_id=rule_search_node_id,
         incident_evidence=incident_evidence,
@@ -2241,6 +2243,7 @@ def _render_query_answer(
     *,
     operation: str,
     output_shape: str,
+    subject_constraints: tuple[str, ...] = (),
     rule_search: RuleSearchProjection | None = None,
     rule_search_node_id: str | None = None,
     incident_evidence: dict[str, object] | None = None,
@@ -2371,6 +2374,7 @@ def _render_query_answer(
                 request,
                 outputs,
                 output_shape=output_shape,
+                subject_constraints=subject_constraints,
             )
         )
     )
@@ -2870,6 +2874,7 @@ def _render_general_query_answer(
     outputs: list[dict[str, object]],
     *,
     output_shape: str | None = None,
+    subject_constraints: tuple[str, ...] = (),
 ) -> str:
     """Report what was verified without naming the plan that produced it.
 
@@ -2916,6 +2921,14 @@ def _render_general_query_answer(
     )
     if current_state_answer is not None:
         return current_state_answer
+    declaration_count_answer = _render_ontology_declaration_count_answer(
+        outputs,
+        korean=korean,
+        output_shape=output_shape,
+        subject_constraints=subject_constraints,
+    )
+    if declaration_count_answer is not None:
+        return declaration_count_answer
     impact_answer = _render_impact_query_answer(
         outputs,
         korean=korean,
@@ -2981,6 +2994,83 @@ def _render_general_query_answer(
                 if korean
                 else (
                     "Exact rows and receipts are available in technical details. "
+                    "This result grants no execution authority."
+                )
+            ),
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _render_ontology_declaration_count_answer(
+    outputs: list[dict[str, object]],
+    *,
+    korean: bool,
+    output_shape: str | None,
+    subject_constraints: tuple[str, ...],
+) -> str | None:
+    """Render only complete declaration counts from the verified aggregate output."""
+
+    if output_shape != "aggregation_table" or len(outputs) != 1 or len(subject_constraints) != 1:
+        return None
+    try:
+        declaration_kind = OntologyDeclarationKind(subject_constraints[0])
+    except ValueError:
+        return None
+    output = outputs[0]
+    complete = output.get("source_complete") is True and output.get("display_truncated") is not True
+    rows = output.get("rows")
+    row = rows[0] if isinstance(rows, list) and len(rows) == 1 else None
+    values = row.get("values") if isinstance(row, Mapping) else None
+    group = values.get("group") if isinstance(values, Mapping) else None
+    group_kind = group.get("kind") if isinstance(group, Mapping) else None
+    value = values.get("value") if isinstance(values, Mapping) else None
+    valid_count = (
+        isinstance(values, Mapping)
+        and values.get("operation") == "count"
+        and group_kind in {None, declaration_kind.value}
+        and isinstance(value, int)
+        and not isinstance(value, bool)
+        and value >= 0
+    )
+    if not complete or not valid_count:
+        if korean:
+            return (
+                "## 온톨로지 선언 개수를 확인할 수 없음\n\n"
+                "- 활성 온톨로지 release의 선언 매니페스트가 완전하지 않아 정확한 개수를 "
+                "보고하지 않습니다.\n"
+                "- 읽기 전용 출처: `query.manifest`.\n\n"
+                "이 결과는 실행 권한을 부여하지 않습니다."
+            )
+        return (
+            "## Ontology declaration count unavailable\n\n"
+            "- The active ontology release manifest is incomplete, so an exact count is not "
+            "reported.\n"
+            "- Read-only source: `query.manifest`.\n\n"
+            "This result grants no execution authority."
+        )
+    label = f"{declaration_kind.value[:1].upper()}{declaration_kind.value[1:]}Types"
+    heading = "## 검증된 온톨로지 선언 개수" if korean else "## Verified ontology declaration count"
+    lines = [heading, ""]
+    lines.append(f"- {label}: {value}")
+    lines.extend(
+        [
+            (
+                "- 읽기 전용 출처: 활성 온톨로지 release에 대해 역할과 목적으로 범위가 제한된 "
+                "`query.manifest`."
+                if korean
+                else (
+                    "- Read-only source: role- and purpose-scoped `query.manifest` for the active "
+                    "ontology release."
+                )
+            ),
+            "",
+            (
+                "각 값은 매니페스트의 서로 다른 선언 개수입니다. 이 결과는 실행 권한을 부여하지 "
+                "않습니다."
+                if korean
+                else (
+                    "Each value is the distinct declaration count from the manifest. "
                     "This result grants no execution authority."
                 )
             ),

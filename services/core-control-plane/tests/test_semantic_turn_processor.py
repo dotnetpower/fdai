@@ -236,6 +236,59 @@ def test_generic_mixed_outputs_do_not_claim_zero_row_verification() -> None:
     assert "Verified 0 of 0 rows." not in answer
 
 
+@pytest.mark.parametrize(
+    ("locale", "heading", "source"),
+    (
+        ("en", "Verified ontology declaration count", "Read-only source"),
+        ("ko", "검증된 온톨로지 선언 개수", "읽기 전용 출처"),
+    ),
+)
+def test_declaration_count_answer_reports_the_aggregate_value_and_source(
+    locale: str,
+    heading: str,
+    source: str,
+) -> None:
+    request = _request(locale=locale)
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [
+            {
+                "node_id": "model-aggregate",
+                "rows": [
+                    {
+                        "row_id": "aggregate:action",
+                        "values": {
+                            "group": {},
+                            "operation": "count",
+                            "value": 44,
+                        },
+                    }
+                ],
+                "returned_rows": 1,
+                "total_rows": 1,
+                "source_complete": True,
+                "source_truncation_reason": None,
+                "display_truncated": False,
+            }
+        ],
+        output_shape="aggregation_table",
+        subject_constraints=("action",),
+    )
+
+    assert heading in answer
+    assert "- ActionTypes: 44" in answer
+    assert source in answer
+    assert "`query.manifest`" in answer
+    assert "1 of 1 rows" not in answer
+    assert (
+        "실행 권한을 부여하지 않습니다" in answer
+        if locale == "ko"
+        else ("grants no execution authority" in answer)
+    )
+
+
 def test_health_answer_separates_lifecycle_readiness_application_and_gaps() -> None:
     request = _request(locale="en")
     semantic_request = cast(dict[str, object], request["semantic_turn"])
@@ -1325,6 +1378,7 @@ def _runtime_result(
         frame=SimpleNamespace(
             operation=SemanticOperation.SELECT,
             output_shape="resource_list",
+            subject_constraints=(),
         ),
         manifest_digest=MANIFEST_DIGEST,
         direct_response_intent=(
@@ -1563,6 +1617,7 @@ def _rule_search_runtime_result(*, execution_authority: bool = False) -> Runtime
         frame=SimpleNamespace(
             operation=SemanticOperation.SELECT,
             output_shape="resource_list",
+            subject_constraints=(),
         ),
         manifest_digest=MANIFEST_DIGEST,
     )
@@ -1738,6 +1793,7 @@ def _incident_evidence_runtime_result(
         frame=SimpleNamespace(
             operation=SemanticOperation.SELECT,
             output_shape="incident_evidence",
+            subject_constraints=(),
         ),
         manifest_digest=MANIFEST_DIGEST,
     )
@@ -1842,6 +1898,7 @@ def _ontology_relationship_runtime_result(
         frame=SimpleNamespace(
             operation=SemanticOperation.SELECT,
             output_shape="ontology_relationships",
+            subject_constraints=(),
         ),
         manifest_digest=MANIFEST_DIGEST,
     )
@@ -2651,6 +2708,7 @@ async def test_target_candidates_answer_names_verified_choices_in_korean() -> No
         frame=SimpleNamespace(
             operation=SemanticOperation.SELECT,
             output_shape="resource_target_candidates",
+            subject_constraints=(),
         ),
         manifest_digest=result.planning.manifest_digest,
     )
@@ -3224,6 +3282,7 @@ async def test_rule_search_candidates_must_not_exceed_function_limit() -> None:
             frame=SimpleNamespace(
                 operation=SemanticOperation.SELECT,
                 output_shape="resource_list",
+                subject_constraints=(),
             ),
             manifest_digest=MANIFEST_DIGEST,
         ),
