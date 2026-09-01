@@ -3152,6 +3152,17 @@ def test_service_current_health_without_exact_service_requests_clarification() -
                 "without_causal_inference",
             ],
         ),
+        (
+            "query.ontology_relationships",
+            [
+                "incident",
+                "change_activity",
+                "approved_windows",
+                "target_resources",
+                "service_paths",
+                "without_current_finding",
+            ],
+        ),
     ],
 )
 def test_unbound_change_correlation_preserves_compare_windowed_hold(
@@ -3192,6 +3203,61 @@ def test_unbound_change_correlation_preserves_compare_windowed_hold(
         "Workload",
     )
     assert outcome.frame.temporal_scope == {"kind": "windowed"}
+
+
+def test_unbound_change_correlation_accepts_only_reviewed_type_targets() -> None:
+    judgment = SemanticJudgmentProposal.model_validate(
+        {
+            "primary_intent": "query.ontology_relationships",
+            "targets": [
+                {
+                    "kind": "object_type",
+                    "value": "changes",
+                    "canonical_value": "Change",
+                    "source_start": 10,
+                    "source_end": 17,
+                },
+                {
+                    "kind": "object_type",
+                    "value": "incident",
+                    "canonical_value": "Incident",
+                    "source_start": 28,
+                    "source_end": 36,
+                },
+                {
+                    "kind": "object_type",
+                    "value": "resources",
+                    "canonical_value": "Resource",
+                    "source_start": 48,
+                    "source_end": 57,
+                },
+            ],
+            "requested_facets": [
+                "incident",
+                "change",
+                "approved_windows",
+                "targets",
+                "service_paths",
+                "correlation",
+                "without_current_finding",
+            ],
+            "confidence": 0.95,
+            "ambiguous": False,
+            "action_posture": "advise_only",
+            "action_subject": "none",
+        }
+    )
+
+    frame = build_unbound_change_correlation_frame(
+        judgment,
+        bound_incident=False,
+        utterance="Correlate changes for the incident with target resources.",
+        context=(),
+    )
+
+    assert frame is not None
+    assert frame.operation is SemanticOperation.COMPARE
+    assert frame.temporal_scope == {"kind": "windowed"}
 
 
 @pytest.mark.parametrize(
@@ -7840,6 +7906,53 @@ def test_resource_activity_judgment_builds_exact_target_clarification(
     assert frame.output_shape == "target_activity"
     assert proposal.clarification_requirements == (ClarificationRequirement.SUBJECT,)
     assert frame.execution_authority is False
+
+
+def test_resource_activity_judgment_accepts_resource_type_and_duration_targets() -> None:
+    judgment_data = _OperatingSubjectJudgmentModel().judge(
+        utterance="Show the cost objective for a business service."
+    )
+    judgment_data.update(
+        {
+            "primary_intent": "query.resource_change_activity",
+            "requested_facets": [
+                "revision",
+                "restart",
+                "configuration_activity",
+                "container_app",
+                "time_range",
+                "ordering",
+            ],
+            "targets": [
+                {
+                    "kind": "resource_type",
+                    "value": "Container App",
+                    "canonical_value": "ResourceType",
+                    "source_start": 0,
+                    "source_end": 13,
+                },
+                {
+                    "kind": "time_range",
+                    "value": "past 30 minutes",
+                    "canonical_value": "duration.PT30M",
+                    "source_start": 14,
+                    "source_end": 29,
+                },
+            ],
+        }
+    )
+
+    result = build_resource_activity_clarification(
+        SemanticJudgmentProposal.model_validate(judgment_data),
+        utterance="Container App past 30 minutes",
+        context=(),
+    )
+
+    assert result is not None
+    proposal, frame = result
+    assert proposal.clarification_requirements == (ClarificationRequirement.SUBJECT,)
+    assert frame.output_shape == "target_activity"
+    assert frame.temporal_scope == {"kind": "windowed"}
 
 
 @pytest.mark.parametrize(

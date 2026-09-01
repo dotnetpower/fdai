@@ -48,6 +48,9 @@ _CHANGE_CORRELATION_FACETS = frozenset(
         "without_current_finding",
     }
 )
+_CHANGE_CORRELATION_TARGET_TYPES = frozenset(
+    {"BusinessService", "Change", "ChangeWindow", "Incident", "Resource", "Workload"}
+)
 
 
 def build_bound_incident_metric_comparison_frame(
@@ -149,7 +152,11 @@ def build_unbound_change_correlation_frame(
         or judgment.action_posture != "advise_only"
         or judgment.primary_intent
         not in {"query.ontology_relationships", "query.resource_change_activity"}
-        or judgment.targets
+        or any(
+            target.kind != "object_type"
+            or target.canonical_value not in _CHANGE_CORRELATION_TARGET_TYPES | {None}
+            for target in judgment.targets
+        )
         or not _facets_describe_change_correlation(set(facets))
     ):
         return None
@@ -790,7 +797,12 @@ def build_resource_activity_clarification(
         or judgment.action_posture != "advise_only"
         or judgment.primary_intent != "query.resource_change_activity"
         or any(
-            target.canonical_value not in {None, "Resource"}
+            (
+                target.canonical_value not in {None, "Resource"}
+                and not (
+                    target.kind == "resource_type" and target.canonical_value == "ResourceType"
+                )
+            )
             and not (
                 target.kind == "time_range"
                 and target.canonical_value is not None
