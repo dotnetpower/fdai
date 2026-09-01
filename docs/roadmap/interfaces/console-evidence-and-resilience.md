@@ -402,6 +402,11 @@ version, projection revision, release digest, declaration records, semantic-map 
 catalog topology. It never returns deployment instance properties. Runtime objects and state facts
 enter the Console only through a separately authorized Context snapshot that preserves cutoff,
 freshness, completeness, conflicts, truncation, and evidence references.
+The WARA Controls projection follows the same provenance rule for advisory catalog data. Every
+detail view links the exact pinned APRL source and optional Learn page and displays version,
+revision, digest, retrieval time, license, and query digest. The table requests bounded 50-row
+pages, preserves offset in the URL, and keeps recommendation, mapping, evaluation, satisfaction,
+and source identity readable without document or table overflow at the supported viewports.
 Ordinary delegated answers keep Bragi as narrator while displaying the verified specialist as
 response owner. A dedicated target session instead uses that specialist's verified voice until an
 explicit handoff returns narration to Bragi.

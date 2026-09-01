@@ -455,9 +455,15 @@ async def test_postgres_control_catalogs_project_lists_filters_and_details() -> 
         "evidence_complete": False,
         "evidence_refs": [],
         "evidence_digests": [],
+        "source_url": "https://example.test/aprl/recommendations.yaml",
         "source_revision": "catalog-revision",
+        "source_version": "2026-08-24",
+        "retrieved_at": "2026-08-31T00:00:00Z",
         "source_path": "azure-resources/example/recommendations.yaml",
         "source_digest": "sha256:" + "a" * 64,
+        "source_license": "MIT",
+        "learn_more_name": "Reliability guidance",
+        "learn_more_url": "https://learn.microsoft.com/azure/reliability",
         "query_digest": None,
         "workload_tags": [],
         "limitations": ["not_evaluated"],
@@ -477,6 +483,13 @@ async def test_postgres_control_catalogs_project_lists_filters_and_details() -> 
         "wara.list": {
             "_revision": "wara-revision",
             "controls": [wara_control],
+            "inventory": {
+                "active_recommendations": 1,
+                "disabled_recommendations": 0,
+                "resource_types": 1,
+                "automated_recommendations": 0,
+                "manual_recommendations": 1,
+            },
             "evaluation_source": "not_connected",
             "source_revision": "catalog-revision",
             "crosswalk_digest": "sha256:" + "b" * 64,
@@ -560,6 +573,7 @@ async def test_postgres_control_catalogs_project_lists_filters_and_details() -> 
     assert wara_list.payload["filtered_total"] == 1
     assert wara_list.payload["controls"] == [wara_control]
     assert wara_list.payload["evaluation_source"] == "not_connected"
+    assert wara_list.payload["inventory"]["active_recommendations"] == 1
     assert wara_list.payload["facets"]["by_product_group_verified"] == {"true": 1}
     assert wara_list.payload["facets"]["by_automation_available"] == {"false": 1}
     assert wara_detail.payload == wara_control

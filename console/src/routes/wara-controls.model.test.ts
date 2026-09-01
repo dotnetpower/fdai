@@ -20,9 +20,15 @@ const CONTROL = {
   evidence_complete: false,
   evidence_refs: [],
   evidence_digests: [],
+  source_url: "https://example.test/aprl/recommendations.yaml",
   source_revision: "1".repeat(40),
+  source_version: "2026-08-24",
+  retrieved_at: "2026-08-31T00:00:00Z",
   source_path: "azure-resources/example/recommendations.yaml",
   source_digest: `sha256:${"a".repeat(64)}`,
+  source_license: "MIT",
+  learn_more_name: "Reliability guidance",
+  learn_more_url: "https://learn.microsoft.com/azure/reliability",
   query_digest: null,
   workload_tags: [],
   limitations: ["not_evaluated"],
@@ -42,6 +48,13 @@ function response(controls: readonly unknown[] = [CONTROL]): unknown {
       by_satisfaction: { unknown: controls.length },
     },
     controls,
+    inventory: {
+      active_recommendations: controls.length,
+      disabled_recommendations: 0,
+      resource_types: 1,
+      automated_recommendations: 0,
+      manual_recommendations: controls.length,
+    },
     evaluation_source: "not_connected",
     source_revision: "1".repeat(40),
     crosswalk_digest: `sha256:${"b".repeat(64)}`,
@@ -55,6 +68,8 @@ describe("WARA control contract", () => {
     expect(decoded.controls[0]?.mapping_disposition).toBe("manual_evidence");
     expect(decoded.controls[0]?.evaluation_status).toBe("not_evaluated");
     expect(decoded.controls[0]?.satisfaction).toBe("unknown");
+    expect(decoded.controls[0]?.source_url).toContain("/aprl/");
+    expect(decoded.inventory.active_recommendations).toBe(1);
   });
 
   test("rejects any execution authority", () => {
@@ -83,11 +98,12 @@ describe("WARA URL state", () => {
       satisfaction: "unknown",
       q: "zones",
     };
-    const href = waraHref(filters, CONTROL.id);
+    const href = waraHref(filters, CONTROL.id, 50);
     const url = new URL(href, "https://console.example");
     expect(waraStateFromSearch(url.searchParams)).toEqual({
       filters,
       selected: CONTROL.id,
+      offset: 50,
     });
   });
 });

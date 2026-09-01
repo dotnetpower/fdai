@@ -413,6 +413,7 @@
       "routeUnavailable": "이 배포에서는 WARA 컨트롤을 사용할 수 없습니다.",
       "loadFailed": "WARA 컨트롤을 로드하지 못했습니다: {message}",
       "loading": "WARA 컨트롤 로드 중...",
+      "openRow": "{title} 열기",
       "banner": {
         "title": "Shadow 모드의 자문용 안정성 평가입니다.",
         "body": "상태를 구분해서 표시합니다. 권고와 쿼리는 수정 권한을 부여하지 않습니다."
@@ -427,7 +428,8 @@
         "recommendation": "권고",
         "resourceType": "리소스 종류",
         "control": "권고 컨트롤",
-        "impact": "자문 영향도"
+        "impact": "자문 영향도",
+        "state": "평가 상태"
       },
       "filter": {
         "resourceType": "리소스 종류",
@@ -445,7 +447,7 @@
       },
       "result": {
         "empty": "현재 필터와 일치하는 WARA 권고가 없습니다.",
-        "showing": "전체 WARA 수명 주기 레코드 {total}개 중 {filtered}개 표시"
+        "showing": "필터 결과 {filtered}개(전체 {total}개) 중 {start}-{end} 표시"
       },
       "detail": {
         "aria": "WARA 권고 세부 정보",
@@ -458,7 +460,15 @@
         "evaluatedAt": "평가 시각",
         "evidenceComplete": "근거 완전성",
         "evidenceRefs": "근거 참조",
-        "limitations": "제한 사항"
+        "limitations": "제한 사항",
+        "source": "출처 및 출처 이력",
+        "aprlSource": "APRL 출처",
+        "sourceVersion": "출처 버전",
+        "sourceDigest": "출처 다이제스트",
+        "retrievedAt": "가져온 시각",
+        "license": "라이선스",
+        "learnMore": "자세히 알아보기",
+        "queryDigest": "쿼리 다이제스트"
       }
     },
     "severityRisk": {

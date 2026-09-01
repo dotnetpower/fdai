@@ -453,9 +453,17 @@ def _wara_snapshot(
                 "evidence_complete": False,
                 "evidence_refs": [],
                 "evidence_digests": [],
+                "source_url": resolved.source_url,
                 "source_revision": resolved.resolved_ref,
+                "source_version": resolved.source_version,
+                "retrieved_at": resolved.retrieved_at,
                 "source_path": metadata.source_path,
                 "source_digest": metadata.source_digest,
+                "source_license": assessment.source_license,
+                "learn_more_name": metadata.learn_more_name,
+                "learn_more_url": (
+                    str(metadata.learn_more_url) if metadata.learn_more_url is not None else None
+                ),
                 "query_digest": metadata.query_digest,
                 "workload_tags": list(metadata.tags),
                 "limitations": limitations,
@@ -464,6 +472,7 @@ def _wara_snapshot(
         )
     return {
         "controls": sorted(controls, key=lambda item: str(item["id"])),
+        "inventory": assessment.expected_counts.model_dump(mode="json"),
         "evaluation_source": "not_connected",
         "source_revision": assessment.source_revision,
         "crosswalk_digest": assessment.crosswalk_digest,

@@ -14,7 +14,7 @@ import {
 } from "../components/ui";
 import { currentRoute, navigate, replaceRouteState } from "../router";
 import { displayValue, t } from "./i18n/governance";
-import { FacetSelect } from "./rule-catalog-components";
+import { DetailRow, DetailSection, FacetSelect } from "./rule-catalog-components";
 import {
   decodeWaraDetail,
   decodeWaraResponse,
@@ -26,7 +26,7 @@ import {
   type WaraSatisfaction,
 } from "./wara-controls.model";
 
-const PAGE_SIZE = 500;
+const PAGE_SIZE = 50;
 const EMPTY_FILTERS: WaraFilters = {
   resource_type: "",
   recommendation_control: "",
@@ -57,6 +57,7 @@ export function WaraControlsRoute({ client }: { readonly client: OperatorApiClie
   const [filters, setFilters] = useState(initial.filters);
   const [searchInput, setSearchInput] = useState(initial.filters.q);
   const [selected, setSelected] = useState(initial.selected);
+  const [offset, setOffset] = useState(initial.offset);
   const [data, setData] = useState<WaraResponse | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error" | "unavailable">("loading");
   const [message, setMessage] = useState("");
@@ -69,6 +70,7 @@ export function WaraControlsRoute({ client }: { readonly client: OperatorApiClie
       if (searchInput === filters.q) return;
       const next = { ...filters, q: searchInput };
       setFilters(next);
+      setOffset(0);
       replaceRouteState(waraHref(next, selected));
     }, 250);
     return () => window.clearTimeout(debounceRef.current);
@@ -86,7 +88,7 @@ export function WaraControlsRoute({ client }: { readonly client: OperatorApiClie
           await client.panel<unknown>("/wara-controls", {
             ...params,
             limit: String(PAGE_SIZE),
-            offset: "0",
+            offset: String(offset),
           }),
         );
         if (!cancelled) {
@@ -101,7 +103,7 @@ export function WaraControlsRoute({ client }: { readonly client: OperatorApiClie
       }
     })();
     return () => { cancelled = true; };
-  }, [client, filters]);
+  }, [client, filters, offset]);
 
   useEffect(() => {
     const onRouteChange = () => {
@@ -109,6 +111,7 @@ export function WaraControlsRoute({ client }: { readonly client: OperatorApiClie
       setFilters(next.filters);
       setSearchInput(next.filters.q);
       setSelected(next.selected);
+      setOffset(next.offset);
     };
     window.addEventListener("popstate", onRouteChange);
     window.addEventListener("fdai:route-changed", onRouteChange);
@@ -147,6 +150,7 @@ export function WaraControlsRoute({ client }: { readonly client: OperatorApiClie
   }, [selected]);
 
   function updateFilter(patch: Partial<WaraFilters>): void {
+    setOffset(0);
     navigate(waraHref({ ...filters, ...patch }, selected));
   }
 
@@ -168,12 +172,14 @@ export function WaraControlsRoute({ client }: { readonly client: OperatorApiClie
         filters={filters}
         searchInput={searchInput}
         loading={status === "loading" || searchInput !== filters.q}
+        selected={selected}
         onFilter={updateFilter}
         onSearch={setSearchInput}
-        onSelect={(id) => navigate(waraHref(filters, id))}
+        onSelect={(id) => navigate(waraHref(filters, id, offset))}
+        onPage={(nextOffset) => navigate(waraHref(filters, selected, nextOffset))}
       />
       {selected !== null ? (
-        <WaraDrawer detail={detail} onClose={() => navigate(waraHref(filters, null))} />
+        <WaraDrawer detail={detail} onClose={() => navigate(waraHref(filters, null, offset))} />
       ) : null}
     </div>
   );
@@ -184,17 +190,21 @@ function WaraControlsBody({
   filters,
   searchInput,
   loading,
+  selected,
   onFilter,
   onSearch,
   onSelect,
+  onPage,
 }: {
   readonly data: WaraResponse;
   readonly filters: WaraFilters;
   readonly searchInput: string;
   readonly loading: boolean;
+  readonly selected: string | null;
   readonly onFilter: (patch: Partial<WaraFilters>) => void;
   readonly onSearch: (value: string) => void;
   readonly onSelect: (id: string) => void;
+  readonly onPage: (offset: number) => void;
 }) {
   const columns: readonly Column<WaraControl>[] = useMemo(
     () => [
@@ -202,49 +212,41 @@ function WaraControlsBody({
         key: "recommendation",
         header: t("governance.rules.wara.column.recommendation"),
         render: (item) => (
-          <span class="control-table-identity">
+          <span
+            class="control-table-identity"
+            style={{ gridTemplateColumns: "74px minmax(0, 1fr)", minWidth: 0 }}
+          >
             <Tooltip content={item.id} placement="top"><code>{item.id.slice(0, 8)}...</code></Tooltip>
-            <span>{item.title}</span>
+            <span class="muted" style={{ minWidth: 0, overflowWrap: "anywhere" }}>
+              {item.title}
+              <small class="muted" style={{ display: "block", overflowWrap: "anywhere" }}>{item.resource_type}</small>
+            </span>
           </span>
         ),
       },
       {
-        key: "resource",
-        header: t("governance.rules.wara.column.resourceType"),
-        cellClass: "control-column-secondary",
-        headerClass: "control-column-secondary",
-        render: (item) => item.resource_type,
-      },
-      {
-        key: "impact",
-        header: t("governance.rules.wara.column.impact"),
-        cellClass: "control-column-secondary",
-        headerClass: "control-column-secondary",
-        render: (item) => item.impact,
-      },
-      {
-        key: "mapping",
-        header: t("governance.rules.controls.column.mapping"),
-        render: (item) => displayValue("waraMapping", item.mapping_disposition),
-      },
-      {
-        key: "evaluation",
-        header: t("governance.rules.controls.column.evaluation"),
-        render: (item) => displayValue("controlEvaluation", item.evaluation_status),
-      },
-      {
-        key: "satisfaction",
-        header: t("governance.rules.controls.column.satisfaction"),
-        render: (item) => <StatusPill kind={SATISFACTION_PILL[item.satisfaction]} label={displayValue("controlStatus", item.satisfaction)} />,
+        key: "assessment",
+        header: t("governance.rules.wara.column.state"),
+        render: (item) => (
+          <span style={{ display: "grid", gap: 2, minWidth: 0 }}>
+            <span>{displayValue("waraMapping", item.mapping_disposition)}</span>
+            <small class="muted">{displayValue("controlEvaluation", item.evaluation_status)}</small>
+            <StatusPill kind={SATISFACTION_PILL[item.satisfaction]} label={displayValue("controlStatus", item.satisfaction)} />
+          </span>
+        ),
       },
     ],
     [],
   );
   const facets = data.facets;
-  const active = facets["by_lifecycle"]?.["active"] ?? 0;
-  const automated = facets["by_automation_available"]?.["true"] ?? 0;
+  const active = data.inventory.active_recommendations;
+  const automated = data.inventory.automated_recommendations;
   const unknown = facets["by_satisfaction"]?.["unknown"] ?? 0;
   const facet = (name: string) => facets[name] ?? {};
+  const pageStart = data.filtered_total === 0 ? 0 : data.offset + 1;
+  const pageEnd = Math.min(data.offset + data.limit, data.filtered_total);
+  const hasPrevious = data.offset > 0;
+  const hasNext = data.offset + data.limit < data.filtered_total;
   return (
     <div class="stack">
       <div class="governance-readonly-banner control-evidence-banner" data-evidence-state="not-connected">
@@ -252,9 +254,9 @@ function WaraControlsBody({
         <span>{t("governance.rules.wara.banner.body")}</span>
       </div>
       <KpiGrid>
-        <KpiCard href={waraHref(EMPTY_FILTERS, null)} label={t("governance.rules.wara.kpi.total")} value={data.total} />
+        <KpiCard href={waraHref(EMPTY_FILTERS, null)} label={t("governance.rules.wara.kpi.total")} value={data.inventory.active_recommendations + data.inventory.disabled_recommendations} />
         <KpiCard href={waraHref({ ...EMPTY_FILTERS, lifecycle: "active" }, null)} label={t("governance.rules.wara.kpi.active")} value={active} />
-        <KpiCard href={waraHref({ ...EMPTY_FILTERS, automation_available: "true" }, null)} label={t("governance.rules.wara.kpi.automated")} value={automated} />
+        <KpiCard href={waraHref({ ...EMPTY_FILTERS, lifecycle: "active", automation_available: "true" }, null)} label={t("governance.rules.wara.kpi.automated")} value={automated} />
         <KpiCard evidenceState="not-connected" href={waraHref({ ...EMPTY_FILTERS, satisfaction: "unknown" }, null)} label={t("governance.rules.wara.kpi.unknown")} value={unknown} />
       </KpiGrid>
       <section class="stack-section">
@@ -275,7 +277,11 @@ function WaraControlsBody({
           </label>
         </div>
         <div class="table-toolbar">
-          <p class="muted">{t("governance.rules.wara.result.showing", { filtered: data.filtered_total, total: data.total })}{loading ? t("governance.rules.result.updating") : ""}</p>
+          <p class="muted">{t("governance.rules.wara.result.showing", { start: pageStart, end: pageEnd, filtered: data.filtered_total, total: data.total })}{loading ? t("governance.rules.result.updating") : ""}</p>
+          <div class="pager">
+            <button type="button" class="btn" style={{ minHeight: 44 }} disabled={loading || !hasPrevious} onClick={() => onPage(Math.max(0, data.offset - data.limit))}>{t("governance.rules.result.previous")}</button>
+            <button type="button" class="btn" style={{ minHeight: 44 }} disabled={loading || !hasNext} onClick={() => onPage(data.offset + data.limit)}>{t("governance.rules.result.next")}</button>
+          </div>
         </div>
         <div class={loading ? "is-refreshing" : undefined} aria-busy={loading}>
           <DataTable<WaraControl>
@@ -284,6 +290,9 @@ function WaraControlsBody({
             keyOf={(item) => item.id}
             empty={t("governance.rules.wara.result.empty")}
             onRowClick={(item) => onSelect(item.id)}
+            isRowActive={(item) => item.id === selected}
+            rowActionLabel={(item) => t("governance.rules.wara.openRow", { title: item.title })}
+            rowActionControls="wara-control-detail"
           />
         </div>
       </section>
@@ -323,7 +332,7 @@ function WaraDrawer({ detail, onClose }: { readonly detail: DetailState; readonl
 
   return (
     <div class="drawer-overlay" onClick={onClose}>
-      <aside ref={panelRef} tabIndex={-1} class="rule-drawer" role="dialog" aria-modal="true" aria-label={t("governance.rules.wara.detail.aria")} onClick={(event) => event.stopPropagation()} onKeyDown={trapFocus}>
+      <aside id="wara-control-detail" ref={panelRef} tabIndex={-1} class="rule-drawer" role="dialog" aria-modal="true" aria-label={t("governance.rules.wara.detail.aria")} onClick={(event) => event.stopPropagation()} onKeyDown={trapFocus}>
         <header class="rule-drawer-head">
           <h3 class="mono">{detail.status === "ready" ? detail.data.id : t("governance.rules.wara.detail.title")}</h3>
           <button type="button" class="btn" onClick={onClose}>{t("governance.common.close")}</button>
@@ -348,13 +357,30 @@ function WaraDrawer({ detail, onClose }: { readonly detail: DetailState; readonl
                 <dt>{t("governance.rules.wara.column.resourceType")}</dt><dd><code>{detail.data.resource_type}</code></dd>
                 <dt>{t("governance.rules.wara.column.control")}</dt><dd>{detail.data.recommendation_control}</dd>
                 <dt>{t("governance.rules.wara.column.impact")}</dt><dd>{detail.data.impact}</dd>
-                <dt>{t("governance.rules.wara.detail.sourceRevision")}</dt><dd><code>{detail.data.source_revision}</code></dd>
                 <dt>{t("governance.rules.wara.detail.evaluationScope")}</dt><dd><code>{detail.data.evaluation_scope ?? "-"}</code></dd>
                 <dt>{t("governance.rules.wara.detail.evaluatedAt")}</dt><dd><code>{detail.data.evaluated_at ?? "-"}</code></dd>
                 <dt>{t("governance.rules.wara.detail.evidenceComplete")}</dt><dd>{displayValue("boolean", String(detail.data.evidence_complete))}</dd>
                 <dt>{t("governance.rules.wara.detail.evidenceRefs")}</dt><dd>{detail.data.evidence_refs.join(", ") || "-"}</dd>
                 <dt>{t("governance.rules.wara.detail.limitations")}</dt><dd>{detail.data.limitations.join(", ") || "-"}</dd>
               </dl>
+              <DetailSection title={t("governance.rules.wara.detail.source")}>
+                <dl class="detail-grid">
+                  <DetailRow
+                    label={t("governance.rules.wara.detail.aprlSource")}
+                    value={<a href={detail.data.source_url} target="_blank" rel="noreferrer">{detail.data.source_path}</a>}
+                  />
+                  <DetailRow label={t("governance.rules.wara.detail.sourceVersion")} value={detail.data.source_version} mono />
+                  <DetailRow label={t("governance.rules.wara.detail.sourceRevision")} value={detail.data.source_revision} mono />
+                  <DetailRow label={t("governance.rules.wara.detail.sourceDigest")} value={detail.data.source_digest} mono />
+                  <DetailRow label={t("governance.rules.wara.detail.retrievedAt")} value={detail.data.retrieved_at} mono />
+                  <DetailRow label={t("governance.rules.wara.detail.license")} value={detail.data.source_license} />
+                  <DetailRow
+                    label={t("governance.rules.wara.detail.learnMore")}
+                    value={detail.data.learn_more_url === null ? "-" : <a href={detail.data.learn_more_url} target="_blank" rel="noreferrer">{detail.data.learn_more_name}</a>}
+                  />
+                  <DetailRow label={t("governance.rules.wara.detail.queryDigest")} value={detail.data.query_digest ?? "-"} mono />
+                </dl>
+              </DetailSection>
             </div>
           )}
         </div>
