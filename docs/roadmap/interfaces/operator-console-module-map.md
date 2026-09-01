@@ -639,7 +639,8 @@ without changing their persistence or authorization contracts.
 verified FDAI Owner role from tenant administration, presents request, review, protected apply,
 and fresh verification as separate stages, and links operational assignment review to Agent
 oversight. Rolling Console and Operator API upgrades preserve safe role and capability facts while
-marking missing directory metadata as unknown.
+marking missing directory metadata as unknown. IAM response decoders load with the first IAM
+request instead of increasing the initial Console bundle.
 
 `console/src/components/account-menu.tsx` owns the signed-in account presentation in the header.
 It displays the MSAL name and username, reads FDAI roles only from the server-verified

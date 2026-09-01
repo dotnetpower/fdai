@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 50c888095b981257e45ffd10cb0691af86c334e8
+translation_source_sha: 9aea04fd00a92d19aad50e0bbcf8b63a5a4ab0cf
 translation_revised: 2026-09-01
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -633,6 +633,7 @@ Console 설정 경로와 정적 디자인 시안은 Calm Slate 컨트롤 토큰�
 Owner 역할과 테넌트 관리자를 구분하고, 요청, 검토, 보호된 적용, 새 검증을 별도 단계로 표시하며,
 운영 할당 검토를 Agent oversight에 연결합니다. Console과 Operator API의 점진적 업그레이드
 중에는 안전한 역할 및 기능 사실을 유지하고 누락된 디렉터리 메타데이터는 알 수 없음으로 표시합니다.
+IAM 응답 디코더는 초기 Console 번들을 늘리지 않고 첫 IAM 요청과 함께 로드됩니다.
 
 `console/src/components/account-menu.tsx`는 헤더의 로그인 계정 표현을 소유합니다. MSAL 이름과
 사용자 이름을 표시하고 서버가 검증한 `GET /iam/self` 프로젝션에서만 FDAI 역할을 읽으며 기존 IAM
