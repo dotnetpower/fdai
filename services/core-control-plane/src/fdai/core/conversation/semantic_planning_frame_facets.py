@@ -61,8 +61,10 @@ def _facets_describe_change_correlation(facets: set[str]) -> bool:
         "approved_windows",
         "change",
         "changes",
+        "correlation",
         "incident",
         "service_paths",
+        "targets",
         "target_resources",
         "without_causal_inference",
         "without_current_finding",
@@ -70,7 +72,8 @@ def _facets_describe_change_correlation(facets: set[str]) -> bool:
     return bool(
         facets
         and facets <= allowed
-        and {"approved_windows", "service_paths", "target_resources"} <= facets
+        and {"approved_windows", "service_paths"} <= facets
+        and {"targets", "target_resources"}.intersection(facets)
         and {"change", "changes", "incident"}.intersection(facets)
         and {"without_causal_inference", "without_current_finding"}.intersection(facets)
     )
