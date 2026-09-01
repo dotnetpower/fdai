@@ -31,9 +31,61 @@ test("catalog records stable creation metadata for every manual", async () => {
     await access(new URL(manual.coverImage, root));
   }
   assert.equal(catalog.manuals.find((manual) => manual.id === "executive-briefing").status, "complete");
-  assert.ok(catalog.manuals
+  assert.ok(catalog.manuals.every((manual) => manual.status === "complete"));
+});
+
+test("completed manuals provide the catalog slide count and source evidence", async () => {
+  const catalog = JSON.parse(await readFile(new URL("catalog.json", root), "utf8"));
+  const { additionalManualSlides } = await import(new URL("manual-content.js", root));
+  const expectedSlides = {
+    "readiness-maturity": 25,
+    "art-of-possible": 10,
+    "value-prioritization": 25,
+    "target-architecture": 25,
+    "ontology-foundation": 40,
+    "responsible-ai-security": 25,
+    "pilot-production": 40,
+    "ai-operating-model": 40,
+    "enterprise-scale-roadmap": 50,
+  };
+
+  assert.deepEqual(
+    Object.fromEntries(catalog.manuals
+      .filter((manual) => manual.id !== "executive-briefing")
+      .map((manual) => [manual.id, manual.slideCount])),
+    expectedSlides,
+  );
+  for (const [id, expected] of Object.entries(expectedSlides)) {
+    const slides = additionalManualSlides[id];
+    assert.equal(slides.length, expected);
+    assert.equal(new Set(slides.map((slide) => slide.title)).size, expected);
+    assert.ok(slides.every((slide) => slide.content.includes("근거: docs/roadmap/")));
+  }
+});
+
+test("completed manuals retain three verified hardening rounds", async () => {
+  const evidence = JSON.parse(
+    await readFile(new URL("validation-evidence.json", root), "utf8"),
+  );
+  const catalog = JSON.parse(await readFile(new URL("catalog.json", root), "utf8"));
+  const completedIds = catalog.manuals
     .filter((manual) => manual.id !== "executive-briefing")
-    .every((manual) => manual.status === "wip"));
+    .map((manual) => manual.id);
+
+  assert.deepEqual(evidence.viewports, ["1440x900", "993x641", "390x844"]);
+  assert.deepEqual(evidence.manuals.map((manual) => manual.id), completedIds);
+  for (const manual of evidence.manuals) {
+    assert.equal(manual.hardening.length, 3);
+    assert.ok(manual.hardening.every((round) =>
+      round.finding && round.correction && round.rerendered === "passed"));
+    assert.equal(manual.validation.responsiveRoundsPassed, 3);
+    assert.equal(manual.validation.fullscreenRoundsPassed, 3);
+    assert.equal(manual.validation.pdfRoundsPassed, 3);
+    assert.equal(manual.validation.pdfPages, manual.slideCount);
+    assert.equal(manual.validation.aspectRatio, "16:9");
+    assert.equal(manual.validation.clippedTextFindings, 0);
+    assert.ok(manual.references.length >= 2);
+  }
 });
 
 test("selected PPT artwork keeps repository-safe provenance", async () => {

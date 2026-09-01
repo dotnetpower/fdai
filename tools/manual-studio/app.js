@@ -1,3 +1,5 @@
+import { additionalManualSlides } from "./manual-content.js";
+
 const manualSlides = {
   "executive-briefing": [
     {
@@ -261,39 +263,7 @@ const manualSlides = {
         </div>`,
     },
   ],
-  "responsible-ai-security": [
-    {
-      eyebrow: "FDAI / CHANGE SAFETY",
-      title: "모든 변경은 자체 안전 계약을 가집니다",
-      lead: "실행 전에 멈춤, 복구, 영향 범위, 드라이런, 잠금, 재시도, 감사를 확인합니다.",
-      layout: "cover",
-      content: `
-        <figure class="cover-photo">
-          <img src="assets/responsible-ai.jpeg" alt="보호 장비를 착용한 운영자가 태블릿으로 현장을 확인하는 이미지">
-        </figure>`,
-    },
-    {
-      eyebrow: "01 / CONTRACT",
-      title: "실행 가능성은 일곱 조건의 교집합입니다",
-      lead: "하나라도 불충분하면 실행하지 않고 보류하거나 사람에게 에스컬레이션합니다.",
-      layout: "checklist",
-      content: `<ol class="safety-list"><li>Stop condition</li><li>Tested rollback</li><li>Blast-radius limit</li><li>Successful dry-run</li><li>Logical-target lock</li><li>Stable idempotency key</li><li>Two-phase audit</li></ol>`,
-    },
-    {
-      eyebrow: "02 / HUMAN CONTROL",
-      title: "판단, 승인, 실행은 서로 다른 신원입니다",
-      lead: "언어는 권한을 만들지 않으며, 침묵은 승인으로 해석되지 않습니다.",
-      layout: "identity",
-      content: `<div class="identity-flow"><div><small>JUDGE</small><strong>Forseti</strong><span>정책 판단</span></div><i></i><div><small>APPROVE</small><strong>Human + Var</strong><span>현재 승인</span></div><i></i><div><small>EXECUTE</small><strong>Thor</strong><span>제한된 실행</span></div></div>`,
-    },
-    {
-      eyebrow: "03 / VERIFICATION",
-      title: "API 성공은 운영 성공이 아닙니다",
-      lead: "독립적인 관찰이 기대 효과를 확인해야 변경이 완료됩니다.",
-      layout: "takeaway",
-      content: `<blockquote>Dispatch is not success.<br>Observed effect is success.</blockquote>`,
-    },
-  ],
+  ...additionalManualSlides,
 };
 
 const dateFormatter = new Intl.DateTimeFormat("ko-KR", {
