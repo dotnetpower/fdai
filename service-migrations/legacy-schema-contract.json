@@ -4,10 +4,10 @@
     "legacy_revision_count": 91,
     "services": {
         "core-control-plane": {
-            "digest": "sha256:cddd7ac76f7b80e5f34bb80dcd4a8f36f6adb0e5bc02b3e4e421562a1ea8e96f",
-            "table_count": 39,
-            "column_count": 393,
-            "constraint_count": 223,
+            "digest": "sha256:132d0391c3e9d8a0b0d42113535b85cde4afe9bead7be7af5ea8b648c73f2fd0",
+            "table_count": 43,
+            "column_count": 419,
+            "constraint_count": 249,
             "extensions": [
                 "pg_trgm",
                 "plpgsql",

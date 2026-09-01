@@ -1327,7 +1327,7 @@ def test_schema_contract_covers_exactly_five_services() -> None:
     assert all(value.table_count > 0 for value in contract.values())
     assert all(value.column_count >= value.table_count for value in contract.values())
     assert all(value.extensions for value in contract.values())
-    assert contract["core-control-plane"].constraint_count == 223
+    assert contract["core-control-plane"].constraint_count == 249
 
 
 def test_schema_contract_rejects_stale_legacy_revision(tmp_path: Path) -> None:
@@ -1918,4 +1918,39 @@ def test_legacy_inventory_tracks_partition_renames_at_head() -> None:
     revisions = inventory.table_sources["t2_cache_legacy_default"]
     assert len(revisions) >= 2, (
         "renamed table must carry both the original creation and rename revisions"
+    )
+
+
+def test_schema_contract_fingerprint_reflects_t2_cache_rename() -> None:
+    """Regression: contract digest must match the post-rename schema.
+
+    Migration 0089 renames ``t2_cache_default`` to ``t2_cache_legacy_default``
+    and adds four new T2 cache lifecycle tables.  The legacy-schema-contract
+    digest for core-control-plane must be computed against the post-rename
+    table set so that ``bootstrap`` does not fail with a fingerprint mismatch.
+    """
+    inventory = inventory_module.load_legacy_inventory(REPO_ROOT / "alembic" / "versions")
+    ownership = ownership_module.load_ownership_manifest(
+        MIGRATION_ROOT / "ownership.json", inventory
+    )
+    contract = schema_module.load_schema_contract(
+        MIGRATION_ROOT / "legacy-schema-contract.json",
+        expected_legacy_head=inventory.heads[0],
+        expected_legacy_revision_count=len(inventory.down_revisions),
+    )
+
+    core_tables = tuple(
+        sorted(
+            t
+            for t, o in ownership.table_migrators.items()
+            if o == "core-control-plane" and t in inventory.table_sources
+        )
+    )
+
+    assert "t2_cache_legacy_default" in core_tables, (
+        "core-control-plane must own the post-rename partition table"
+    )
+    assert "t2_cache_default" not in core_tables, "pre-rename name must not appear in owned tables"
+    assert contract["core-control-plane"].table_count == len(core_tables), (
+        "contract table_count must match the owned table set derived from inventory"
     )

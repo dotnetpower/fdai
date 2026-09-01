@@ -42,8 +42,9 @@ retired top-level application tree.
 The Core distribution retains the complete `fdai` namespace. Internal module boundaries remain
 unchanged by the physical move.
 
-Service migration inventory tests verify that renamed partitions retain their creation lineage and
-use the effective table name at the current migration head.
+Service migration inventory tests verify that renamed partitions retain their creation lineage,
+use the effective table name at the current migration head, and that the legacy schema contract
+fingerprint reflects the post-rename table set and counts.
 Control-loop end-to-end tests count published actions and unresolved graph-derived blast-radius
 abstentions separately.
 
