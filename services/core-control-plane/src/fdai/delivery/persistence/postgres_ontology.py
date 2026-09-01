@@ -836,10 +836,12 @@ async def _resource_graph_source_coverage(
     cursor = await connection.execute(
         "SELECT active.snapshot_id, status.value AS status_value, "
         "manifest.value AS manifest_value, "
-        "EXISTS (SELECT 1 FROM state_kv AS marker "
-        "WHERE marker.key LIKE 'inventory-relationship-reconciliation:%') "
+        "EXISTS (SELECT 1 FROM jsonb_array_elements_text(snapshot.scopes) "
+        "AS active_scope(scope) JOIN state_kv AS marker ON "
+        "marker.key = 'inventory-relationship-reconciliation:' || active_scope.scope) "
         "AS pending_reconciliation "
         "FROM inventory_active AS active "
+        "JOIN inventory_snapshot AS snapshot ON snapshot.id=active.snapshot_id "
         "LEFT JOIN state_kv AS status ON status.key='inventory-ontology:status' "
         "LEFT JOIN state_kv AS manifest ON manifest.key='inventory-ontology:manifest' "
         "WHERE active.singleton=TRUE"
@@ -870,7 +872,7 @@ def _resolve_inventory_graph_source_coverage(
 
     manifest_generation = manifest.get("generation")
     source_generation = manifest_generation if isinstance(manifest_generation, str) else None
-    if pending_reconciliation or (
+    if (pending_reconciliation and expresses_relationships) or (
         not isinstance(active_generation, str)
         or source_generation is None
         or status.get("status") != "available"

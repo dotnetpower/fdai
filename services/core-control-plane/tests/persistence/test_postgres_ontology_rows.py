@@ -14,6 +14,30 @@ from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.ontology_instance import OntologyInstanceValidationError
 
 
+class _CoverageCursor:
+    async def fetchone(self) -> dict[str, object]:
+        return {
+            "snapshot_id": "generation-2",
+            "status_value": {"status": "available", "generation": "generation-2"},
+            "manifest_value": {
+                "generation": "generation-2",
+                "complete": True,
+                "relationship_complete": True,
+                "dropped_reasons": [],
+            },
+            "pending_reconciliation": False,
+        }
+
+
+class _CoverageConnection:
+    def __init__(self) -> None:
+        self.statement = ""
+
+    async def execute(self, statement: str) -> _CoverageCursor:
+        self.statement = statement
+        return _CoverageCursor()
+
+
 def test_inventory_graph_source_coverage_requires_exact_complete_generation() -> None:
     complete, generation = postgres_ontology._resolve_inventory_graph_source_coverage(
         active_generation="generation-2",
@@ -45,6 +69,42 @@ def test_inventory_graph_source_coverage_rejects_pending_reconciliation() -> Non
 
     assert complete is False
     assert generation == "generation-2"
+
+
+def test_pending_reconciliation_does_not_block_object_only_coverage() -> None:
+    complete, generation = postgres_ontology._resolve_inventory_graph_source_coverage(
+        active_generation="generation-2",
+        status={"status": "available", "generation": "generation-2"},
+        manifest={
+            "generation": "generation-2",
+            "complete": True,
+            "relationship_complete": True,
+            "dropped_reasons": [],
+        },
+        expresses_relationships=False,
+        pending_reconciliation=True,
+    )
+
+    assert complete is True
+    assert generation == "generation-2"
+
+
+async def test_pending_reconciliation_is_scoped_to_the_active_snapshot() -> None:
+    connection = _CoverageConnection()
+
+    complete, generation = await postgres_ontology._resource_graph_source_coverage(
+        connection,  # type: ignore[arg-type]
+        (),
+        requires_resource_coverage=True,
+    )
+
+    assert complete is True
+    assert generation == "generation-2"
+    assert "jsonb_array_elements_text(snapshot.scopes)" in connection.statement
+    assert "marker.key = 'inventory-relationship-reconciliation:' || active_scope.scope" in (
+        connection.statement
+    )
+    assert "marker.key LIKE 'inventory-relationship-reconciliation:%'" not in connection.statement
 
 
 @pytest.mark.parametrize(
