@@ -49,6 +49,7 @@ _HISTORICAL_OUTPUTS = {
     "topology_diff",
 }
 _MACHINE_TOKEN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
+_MAX_ONTOLOGY_PATHS = 16
 
 
 def project_semantic_assurance(
@@ -179,6 +180,11 @@ def _plan_declarations(
         capabilities.add(_OUTPUT_CAPABILITY[output_shape])
     if getattr(result.planning, "investigation_intent", None) is not None:
         capabilities.add("structured_investigation")
+    execution = result.execution
+    if execution is not None:
+        for node_id, node_result in execution.results.items():
+            for relationship in _verified_relationship_rows(result, node_id, node_result.value):
+                link_types.add(cast(str, relationship["link_type"]))
     return (
         tuple(sorted(capabilities)),
         tuple(sorted(object_types)),
@@ -219,25 +225,71 @@ def _ontology_paths(result: RuntimeSemanticTurnResult) -> tuple[SemanticAssuranc
         )
     execution = result.execution
     if execution is not None:
-        for node_result in execution.results.values():
-            value = node_result.value
-            if not isinstance(value, Mapping):
-                continue
-            relationships = value.get("relationships")
-            if not isinstance(relationships, list):
-                continue
-            for relationship in relationships:
-                if not isinstance(relationship, Mapping):
-                    continue
-                source = relationship.get("from_type")
-                link_type = relationship.get("link_type")
-                target = relationship.get("to_type")
-                if all(isinstance(item, str) and item for item in (source, link_type, target)):
-                    _add_path(
-                        paths,
-                        ((cast(str, source), cast(str, link_type), "outgoing", cast(str, target)),),
-                    )
-    return tuple(sorted(paths.values(), key=lambda item: item.path_id))
+        for node_id, node_result in execution.results.items():
+            for relationship in _verified_relationship_rows(result, node_id, node_result.value):
+                _add_path(
+                    paths,
+                    (
+                        (
+                            cast(str, relationship["from_type"]),
+                            cast(str, relationship["link_type"]),
+                            "outgoing",
+                            cast(str, relationship["to_type"]),
+                        ),
+                    ),
+                )
+    return tuple(sorted(paths.values(), key=lambda item: item.path_id)[:_MAX_ONTOLOGY_PATHS])
+
+
+def _verified_relationship_rows(
+    result: RuntimeSemanticTurnResult,
+    node_id: str,
+    value: object,
+) -> tuple[Mapping[str, object], ...]:
+    plan = getattr(result.planning, "plan", None)
+    node = next(
+        (item for item in getattr(plan, "nodes", ()) if getattr(item, "node_id", None) == node_id),
+        None,
+    )
+    arguments = _arguments(node) if node is not None else {}
+    function_arguments = arguments.get("arguments")
+    requested = (
+        function_arguments.get("object_types") if isinstance(function_arguments, Mapping) else None
+    )
+    relationships = value.get("relationships") if isinstance(value, Mapping) else None
+    if (
+        arguments.get("function_name") != "query.ontology_relationships"
+        or not isinstance(requested, list)
+        or not 1 <= len(requested) <= 2
+        or any(not isinstance(item, str) or not item for item in requested)
+        or not isinstance(value, Mapping)
+        or value.get("object_types") != requested
+        or value.get("authority") != "ontology_release"
+        or value.get("ontology_release_digest") != getattr(plan, "ontology_release_digest", None)
+        or value.get("execution_authority") is not False
+        or not isinstance(relationships, list)
+    ):
+        return ()
+    requested_set = set(requested)
+    verified: list[Mapping[str, object]] = []
+    for relationship in relationships:
+        if not isinstance(relationship, Mapping):
+            return ()
+        source = relationship.get("from_type")
+        link_type = relationship.get("link_type")
+        target = relationship.get("to_type")
+        if not all(isinstance(item, str) and item for item in (source, link_type, target)):
+            return ()
+        endpoints = {cast(str, source), cast(str, target)}
+        if (
+            endpoints <= requested_set
+            if len(requested_set) == 2
+            else not endpoints.isdisjoint(requested_set)
+        ):
+            verified.append(relationship)
+        else:
+            return ()
+    return tuple(verified)
 
 
 def _add_path(

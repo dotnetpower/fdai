@@ -211,6 +211,118 @@ def test_project_semantic_assurance_entails_relationship_schema_claims() -> None
     assert observation.limitation_kinds == ()
 
 
+def test_project_semantic_assurance_bounds_only_verified_relationship_paths() -> None:
+    relationships = [
+        {
+            "link_type": f"relationship_{index:02d}",
+            "from_type": "Resource",
+            "to_type": f"RelatedType{index:02d}",
+            "cardinality": "many_to_many",
+            "description": "Reviewed relationship.",
+        }
+        for index in range(18)
+    ]
+    result = _function_result(
+        function_name="query.ontology_relationships",
+        value={
+            "object_types": ["Resource"],
+            "relationships": relationships,
+            "complete": True,
+            "authority": "ontology_release",
+            "ontology_release_digest": _DIGEST,
+            "execution_authority": False,
+        },
+    )
+    result.planning.plan.nodes[0].arguments["arguments"] = {
+        "object_types": ["Resource"],
+        "limit": 100,
+    }
+    result.planning.plan.ontology_release_digest = _DIGEST
+
+    observation = project_semantic_assurance(result, disposition="answered")
+
+    assert observation.link_types == tuple(f"relationship_{index:02d}" for index in range(18))
+    assert len(observation.ontology_paths) == 16
+
+
+def test_schema_ownership_relationships_do_not_claim_current_instance_identity() -> None:
+    result = _function_result(
+        function_name="query.ontology_relationships",
+        value={
+            "object_types": ["Agent", "Resource"],
+            "relationships": [
+                {
+                    "link_type": "owns",
+                    "from_type": "Agent",
+                    "to_type": "Resource",
+                    "cardinality": "many_to_many",
+                    "description": "Reviewed ownership declaration.",
+                }
+            ],
+            "complete": True,
+            "authority": "ontology_release",
+            "ontology_release_digest": _DIGEST,
+            "execution_authority": False,
+        },
+    )
+
+    observation = project_semantic_assurance(result, disposition="held")
+
+    assert "agent.identity" not in observation.fact_kinds
+    assert "resource.identity" not in observation.fact_kinds
+    assert "agent.ownership_scope" not in observation.fact_kinds
+    assert observation.limitation_kinds == (
+        "catalog_relationships_do_not_prove_current_mapping",
+        "ontology_ownership_does_not_grant_execution",
+    )
+
+
+def test_project_semantic_assurance_entails_rule_trace_claims() -> None:
+    result = _function_result(
+        function_name="query.ontology_relationships",
+        value={
+            "object_types": ["Rule", "ActionType", "ResourceType", "SignalType"],
+            "relationships": [
+                {
+                    "link_type": "applies_to",
+                    "from_type": "Rule",
+                    "to_type": "ResourceType",
+                    "cardinality": "many_to_many",
+                    "description": "Reviewed applicability.",
+                },
+                {
+                    "link_type": "remediates",
+                    "from_type": "Rule",
+                    "to_type": "ActionType",
+                    "cardinality": "many_to_many",
+                    "description": "Reviewed remediation.",
+                },
+                {
+                    "link_type": "triggered_by",
+                    "from_type": "Rule",
+                    "to_type": "SignalType",
+                    "cardinality": "many_to_many",
+                    "description": "Reviewed trigger.",
+                },
+            ],
+            "complete": True,
+            "authority": "ontology_release",
+            "ontology_release_digest": _DIGEST,
+            "execution_authority": False,
+        },
+    )
+
+    observation = project_semantic_assurance(result, disposition="answered")
+
+    assert {
+        "action_type.identity",
+        "resource_type.identity",
+        "rule.identity",
+        "signal_type.identity",
+    } <= set(observation.fact_kinds)
+    assert observation.limitation_kinds == ("catalog_relationships_do_not_prove_current_finding",)
+
+
 def test_project_semantic_assurance_entails_evidence_health_claims() -> None:
     result = _function_result(
         function_name="query.ontology_evidence_health",

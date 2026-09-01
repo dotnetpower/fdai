@@ -14,8 +14,8 @@ from fdai.core.ontology_platform import QueryPlanExecution
 def project_ontology_relationships(
     result: RuntimeSemanticTurnResult,
     execution: QueryPlanExecution,
-) -> tuple[bool, dict[str, object] | None, str | None]:
-    """Return one verified relationship output or fail closed on any drift."""
+) -> tuple[bool, dict[str, object] | None, tuple[str, ...] | None]:
+    """Return verified relationship outputs or fail closed on any drift."""
 
     plan = result.planning.plan
     if plan is None:
@@ -34,84 +34,105 @@ def project_ontology_relationships(
             relationship_nodes.append((node, arguments))
     if not relationship_nodes:
         return False, None, None
-    if len(relationship_nodes) != 1:
-        return True, None, None
-    node, node_arguments = relationship_nodes[0]
-    node_id = getattr(node, "node_id", None)
-    query_arguments = node_arguments.get("arguments")
-    node_result = execution.results.get(node_id) if isinstance(node_id, str) else None
-    node_kind = getattr(getattr(node, "kind", None), "value", None)
-    receipts = tuple(
-        receipt for receipt in execution.receipts if receipt.task_id == f"query:{node_id}"
-    )
-    if (
-        not isinstance(node_id, str)
-        or not isinstance(query_arguments, dict)
-        or node_result is None
-        or node_kind != "function"
-        or len(receipts) != 1
-        or receipts[0].goal_id != node_id
-        or receipts[0].intent != "function"
-        or receipts[0].capability != "query.function"
-        or receipts[0].evidence_refs != node_result.evidence_refs
-    ):
-        return True, None, None
-    value = node_result.value
-    requested = query_arguments.get("object_types")
-    limit = query_arguments.get("limit")
-    if (
-        not isinstance(value, dict)
-        or not isinstance(requested, list)
-        or not 1 <= len(requested) <= 2
-        or len(requested) != len(set(requested))
-        or any(not isinstance(item, str) or not item for item in requested)
-        or not isinstance(limit, int)
-        or isinstance(limit, bool)
-        or not 1 <= limit <= 100
-        or value.get("object_types") != requested
-        or value.get("authority") != "ontology_release"
-        or value.get("ontology_release_digest") != plan.ontology_release_digest
-        or value.get("execution_authority") is not False
-        or not isinstance(value.get("complete"), bool)
-    ):
-        return True, None, None
-    relationships = value.get("relationships")
-    if not isinstance(relationships, list) or len(relationships) > limit:
-        return True, None, None
-    requested_set = set(requested)
-    link_names: set[str] = set()
-    for relationship in relationships:
-        if not isinstance(relationship, dict) or set(relationship) != {
-            "link_type",
-            "from_type",
-            "to_type",
-            "cardinality",
-            "description",
-        }:
-            return True, None, None
-        link_type = relationship.get("link_type")
-        from_type = relationship.get("from_type")
-        to_type = relationship.get("to_type")
+    object_types: set[str] = set()
+    relationships_by_key: dict[tuple[str, str, str], dict[str, Any]] = {}
+    complete = True
+    node_ids: list[str] = []
+    for node, node_arguments in relationship_nodes:
+        node_id = getattr(node, "node_id", None)
+        query_arguments = node_arguments.get("arguments")
+        node_result = execution.results.get(node_id) if isinstance(node_id, str) else None
+        node_kind = getattr(getattr(node, "kind", None), "value", None)
+        receipts = tuple(
+            receipt for receipt in execution.receipts if receipt.task_id == f"query:{node_id}"
+        )
         if (
-            not isinstance(link_type, str)
-            or not link_type
-            or link_type in link_names
-            or not isinstance(from_type, str)
-            or not isinstance(to_type, str)
-            or not isinstance(relationship.get("cardinality"), str)
-            or not isinstance(relationship.get("description"), str)
+            not isinstance(node_id, str)
+            or not isinstance(query_arguments, dict)
+            or node_result is None
+            or node_kind != "function"
+            or len(receipts) != 1
+            or receipts[0].goal_id != node_id
+            or receipts[0].intent != "function"
+            or receipts[0].capability != "query.function"
+            or receipts[0].evidence_refs != node_result.evidence_refs
         ):
             return True, None, None
-        endpoints = {from_type, to_type}
-        endpoint_matches = (
-            endpoints <= requested_set
-            if len(requested_set) == 2
-            else not endpoints.isdisjoint(requested_set)
-        )
-        if not endpoint_matches:
+        value = node_result.value
+        requested = query_arguments.get("object_types")
+        limit = query_arguments.get("limit")
+        if (
+            not isinstance(value, dict)
+            or not isinstance(requested, list)
+            or not 1 <= len(requested) <= 2
+            or len(requested) != len(set(requested))
+            or any(not isinstance(item, str) or not item for item in requested)
+            or not isinstance(limit, int)
+            or isinstance(limit, bool)
+            or not 1 <= limit <= 100
+            or value.get("object_types") != requested
+            or value.get("authority") != "ontology_release"
+            or value.get("ontology_release_digest") != plan.ontology_release_digest
+            or value.get("execution_authority") is not False
+            or not isinstance(value.get("complete"), bool)
+        ):
             return True, None, None
-        link_names.add(link_type)
-    return True, value, node_id
+        relationships = value.get("relationships")
+        if not isinstance(relationships, list) or len(relationships) > limit:
+            return True, None, None
+        requested_set = set(requested)
+        node_link_names: set[str] = set()
+        for relationship in relationships:
+            if not isinstance(relationship, dict) or set(relationship) != {
+                "link_type",
+                "from_type",
+                "to_type",
+                "cardinality",
+                "description",
+            }:
+                return True, None, None
+            link_type = relationship.get("link_type")
+            from_type = relationship.get("from_type")
+            to_type = relationship.get("to_type")
+            if (
+                not isinstance(link_type, str)
+                or not link_type
+                or link_type in node_link_names
+                or not isinstance(from_type, str)
+                or not isinstance(to_type, str)
+                or not isinstance(relationship.get("cardinality"), str)
+                or not isinstance(relationship.get("description"), str)
+            ):
+                return True, None, None
+            endpoints = {from_type, to_type}
+            endpoint_matches = (
+                endpoints <= requested_set
+                if len(requested_set) == 2
+                else not endpoints.isdisjoint(requested_set)
+            )
+            if not endpoint_matches:
+                return True, None, None
+            node_link_names.add(link_type)
+            key = (from_type, link_type, to_type)
+            existing = relationships_by_key.get(key)
+            if existing is not None and existing != relationship:
+                return True, None, None
+            relationships_by_key[key] = relationship
+        object_types.update(requested)
+        complete = complete and value["complete"]
+        node_ids.append(node_id)
+    return (
+        True,
+        {
+            "object_types": sorted(object_types),
+            "relationships": [relationships_by_key[key] for key in sorted(relationships_by_key)],
+            "complete": complete,
+            "authority": "ontology_release",
+            "ontology_release_digest": plan.ontology_release_digest,
+            "execution_authority": False,
+        },
+        tuple(node_ids),
+    )
 
 
 def render_ontology_relationship_answer(

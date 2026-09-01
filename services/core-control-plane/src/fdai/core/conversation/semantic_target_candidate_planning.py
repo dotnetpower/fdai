@@ -364,7 +364,9 @@ def normalize_operating_relationship_temporal_scope(
         and {"resource_type", "signal_type"} <= measures
         and any("action_type" in measure for measure in measures)
         and (
-            bool({"explore", "relationships", "trace"}.intersection(measures))
+            bool(
+                {"explore", "relationships", "trace", "trace_relationships"}.intersection(measures)
+            )
             or "controlled_action_type" in measures
         )
     )

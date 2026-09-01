@@ -46,6 +46,7 @@ from .semantic_planning_frame import (
 )
 from .semantic_planning_frame_checks import (
     deterministic_pre_frame_outcome,
+    deterministic_pre_frame_selection,
     normalize_and_gate_frame,
 )
 from .semantic_planning_models import (
@@ -476,17 +477,24 @@ class SemanticPlanningService:
             if pre_frame_outcome is not None:
                 return finish(pre_frame_outcome)
             stage = "frame_proposal"
-            frame_result = self._cascade.propose_frame(
+            frame_result = deterministic_pre_frame_selection(
+                judgment=judgment_proposal,
                 utterance=utterance,
                 context=context,
                 descriptors=descriptors,
-                metric_concepts=self._metric_concepts,
-                principal=principal,
-                purpose=purpose,
-                semantic_judgment=semantic_judgment,
-                bound_investigation_continuation=bound_investigation_continuation,
-                escalation_policy=escalation_policy,
             )
+            if frame_result is None:
+                frame_result = self._cascade.propose_frame(
+                    utterance=utterance,
+                    context=context,
+                    descriptors=descriptors,
+                    metric_concepts=self._metric_concepts,
+                    principal=principal,
+                    purpose=purpose,
+                    semantic_judgment=semantic_judgment,
+                    bound_investigation_continuation=bound_investigation_continuation,
+                    escalation_policy=escalation_policy,
+                )
             if frame_result is None:
                 return finish(
                     _outcome(

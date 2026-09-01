@@ -1902,6 +1902,104 @@ def _ontology_relationship_runtime_result(
     )
 
 
+def _multi_ontology_relationship_runtime_result() -> RuntimeSemanticTurnResult:
+    result = _ontology_relationship_runtime_result()
+    assert result.execution is not None
+    first_node = result.planning.plan.nodes[0]
+    second_node = SimpleNamespace(
+        node_id="relationships-2",
+        kind=SimpleNamespace(value="function"),
+        arguments={
+            "function_name": "query.ontology_relationships",
+            "arguments": {
+                "object_types": ["Rule", "SignalType"],
+                "limit": 100,
+            },
+        },
+    )
+    plan = SimpleNamespace(
+        ontology_release_digest=RELEASE_DIGEST,
+        semantic_catalog_digest=MANIFEST_DIGEST,
+        plan_digest=PLAN_DIGEST,
+        nodes=(first_node, second_node),
+    )
+    second_output = {
+        "object_types": ["Rule", "SignalType"],
+        "relationships": [
+            {
+                "link_type": "triggered_by",
+                "from_type": "Rule",
+                "to_type": "SignalType",
+                "cardinality": "many_to_many",
+                "description": "The signal type that activates a reviewed Rule.",
+            }
+        ],
+        "complete": True,
+        "authority": "ontology_release",
+        "ontology_release_digest": RELEASE_DIGEST,
+        "execution_authority": False,
+    }
+    second_receipt = result.execution.receipts[0].model_copy(
+        update={
+            "task_id": "query:relationships-2",
+            "goal_id": "relationships-2",
+            "evidence_refs": ("ontology-function:relationships-2",),
+        }
+    )
+    execution = QueryPlanExecution(
+        plan_digest=PLAN_DIGEST,
+        status="completed",
+        results=MappingProxyType(
+            {
+                **result.execution.results,
+                "relationships-2": QueryNodeResult(
+                    value=second_output,
+                    evidence_refs=("ontology-function:relationships-2",),
+                ),
+            }
+        ),
+        receipts=(*result.execution.receipts, second_receipt),
+        output_node_ids=("relationships", "relationships-2"),
+    )
+    graph_goal = cast(dict[str, object], result.intent_graph)["goals"][0]
+    evidence_goal = cast(dict[str, object], result.intent_graph_evidence)["goals"][0]
+    return RuntimeSemanticTurnResult(
+        disposition="answered",
+        reason=result.reason,
+        planning=cast(
+            Any,
+            SimpleNamespace(
+                plan=plan,
+                frame=result.planning.frame,
+                manifest_digest=MANIFEST_DIGEST,
+            ),
+        ),
+        execution=execution,
+        intent_graph={
+            **cast(dict[str, object], result.intent_graph),
+            "goals": [
+                graph_goal,
+                {
+                    **graph_goal,
+                    "goal_id": "relationships-2",
+                },
+            ],
+        },
+        intent_graph_evidence={
+            **cast(dict[str, object], result.intent_graph_evidence),
+            "goals": [
+                evidence_goal,
+                {
+                    **evidence_goal,
+                    "task_id": "query:relationships-2",
+                    "goal_id": "relationships-2",
+                    "evidence_refs": ["ontology-function:relationships-2"],
+                },
+            ],
+        },
+    )
+
+
 async def test_malformed_semantic_request_goes_to_dlq() -> None:
     bus = InMemoryEventBus()
     await bus.publish("operator.request", "bad", {"schema_version": "1.2.0"})
@@ -3054,6 +3152,25 @@ async def test_ontology_relationship_answer_rejects_stale_release_output() -> No
     assert semantic["reason_code"] == "semantic_evidence_incomplete"
 
 
+async def test_ontology_relationship_answer_merges_verified_multi_pair_outputs() -> None:
+    encoded = await _processor(_Runtime(_multi_ontology_relationship_runtime_result())).process(
+        _request()
+    )
+
+    projection = _projection(encoded)
+    semantic = projection["semantic_result"]
+    assert semantic["disposition"] == "answered"
+    answer = semantic["answer"]
+    assert "`VmTaskRun` --`executes_task`--> `PythonTask`" in answer
+    assert "`Rule` --`triggered_by`--> `SignalType`" in answer
+    outputs = projection["payload"]["technical_details"]["outputs"]
+    assert len(outputs) == 1
+    assert outputs[0]["evidence_refs"] == [
+        "ontology-function:relationships",
+        "ontology-function:relationships-2",
+    ]
+
+
 async def test_answered_rule_search_projects_exact_candidate_receipt() -> None:
     projection = _projection(
         await _processor(_Runtime(_rule_search_runtime_result())).process(_request())
@@ -3365,6 +3482,23 @@ async def test_execution_hold_preserves_verified_attempts_and_limitations() -> N
     assert "`traffic-load` - `unresolved`" in semantic["answer"]
     assert "다음 안전 단계" in semantic["answer"]
     assert "`execution_authority=false`" in semantic["answer"]
+
+
+async def test_current_relationship_mapping_hold_preserves_typed_reason_and_evidence() -> None:
+    runtime_result = _ontology_relationship_runtime_result()
+    held = replace(
+        runtime_result,
+        disposition="held",
+        reason="semantic_current_relationship_mapping_unavailable",
+    )
+
+    projection = _projection(await _processor(_Runtime(held)).process(_request()))
+
+    semantic = projection["semantic_result"]
+    assert semantic["disposition"] == "held"
+    assert semantic["reason_code"] == "semantic_current_relationship_mapping_unavailable"
+    assert semantic["unavailable_reason"] == "authoritative_evidence_unavailable"
+    assert semantic["evidence_refs"] == ["ontology-function:relationships"]
 
 
 async def test_s3_execution_hold_projects_recovery_continuation() -> None:

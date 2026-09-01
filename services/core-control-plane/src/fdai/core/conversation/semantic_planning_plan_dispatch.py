@@ -55,6 +55,7 @@ from .semantic_planning_value_filters import (
     ground_stated_value_filters,
     verify_stated_value_filter_operands,
 )
+from .semantic_relationship_planning import compile_typed_relationship_plan
 from .semantic_resource_event_planning import compile_resource_event_plan
 from .semantic_resource_health_planning import compile_resource_health_plan
 from .semantic_resource_metric_planning import (
@@ -159,6 +160,18 @@ def dispatch_semantic_plan(
             evaluation_time=evaluation_time,
         )
         plan_source = "bound_incident" if plan is not None else "proposed"
+    if plan is None:
+        plan = compile_typed_relationship_plan(
+            frame=frame,
+            descriptors=descriptors,
+            manifest=manifest,
+            principal=principal,
+            purpose=purpose,
+            evaluation_time=evaluation_time,
+            verifier=verifier,
+        )
+        if plan is not None:
+            plan_source = "server_typed_relationship"
     if plan is None:
         try:
             plan = compile_latency_recovery_plan(
