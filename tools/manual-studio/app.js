@@ -274,8 +274,8 @@ const dateFormatter = new Intl.DateTimeFormat("ko-KR", {
 
 const page = document.body.dataset.page;
 const viewer = document.querySelector("#viewer");
-const fullscreenRoot = document.documentElement;
 const stage = document.querySelector("#slide-stage");
+const fullscreenRoot = stage;
 const viewerTitle = document.querySelector("#viewer-title");
 const progressBar = document.querySelector("#progress-bar");
 const progressLabel = document.querySelector("#progress-label");

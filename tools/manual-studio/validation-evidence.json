@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-01T13:12:34Z",
+  "generatedAt": "2026-09-01T22:00:00Z",
   "viewports": [
     "1440x900",
     "993x641",
@@ -9,7 +9,7 @@
   "method": {
     "browser": "Playwright Chromium 140",
     "responsive": "Every slide was rendered at every viewport and checked for bounds and clipped text.",
-    "fullscreen": "Every manual entered the browser Fullscreen API and the active slide was checked against the fullscreen viewport.",
+    "fullscreen": "Every manual entered the browser Fullscreen API through slide-stage; the library was excluded from the fullscreen tree and the active slide was checked against the fullscreen viewport.",
     "pdf": "Every manual was printed with browser print CSS and checked for page count, 16:9 MediaBox ratio, and clipped text.",
     "accessibility": "Keyboard navigation, browser fullscreen state, 44px mobile targets, reduced motion, visible keyboard focus, accessible visual names, and horizontal overflow were checked in Chromium.",
     "artifacts": "Session-local PNG and PDF files are stored outside the repository under manual-studio-validation/round-1 through round-3."
@@ -20,9 +20,9 @@
       "level": "L200",
       "slideCount": 25,
       "hardening": [
-        {"round": 1, "focus": "사실성", "finding": "A3-E를 미구현 기능처럼 표시해 구현된 스키마와 검증기 상태가 누락됐습니다.", "correction": "구현됨, 런타임 미연결, 관찰 모드 전용 상태를 분리했습니다.", "rerendered": "passed"},
-        {"round": 2, "focus": "서사와 한국어", "finding": "시간 정보 재현이라는 표현이 평가 목적을 충분히 설명하지 못했습니다.", "correction": "시간 정보로 판단을 재현한다는 운영자 관점의 문장으로 고쳤습니다.", "rerendered": "passed"},
-        {"round": 3, "focus": "디자인과 접근성", "finding": "영문 상태값과 작은 화면의 긴 근거 경로가 빠른 판독을 방해했습니다.", "correction": "상태를 한국어로 표시하고 근거 경로를 생략 없이 줄바꿈했습니다.", "rerendered": "passed"}
+        {"round": 1, "focus": "아키텍처 사실성·구현 상태·누락", "finding": "평가 기준을 현재 구현으로 표시했고 격리 실행기 전환, A3-E, 실행 안전장치와 실운영 비교 집단의 최신 상태가 섞여 있었습니다.", "correction": "평가 기준·구현됨·검증됨·진행 중을 분리하고, 다섯 서비스·일곱 안전장치·30개 이상 표본·네 가지 0 기준과 열린 운영 증적을 반영했습니다.", "rerendered": "passed"},
+        {"round": 2, "focus": "경영 서사·한국어·L200 적합성", "finding": "시간 축, 관리 ID, 상시 권한, 결정 유형 같은 표현이 딱딱하거나 부정확했습니다.", "correction": "판단에 사용한 시간 기준, Managed Identity, A3-E 사전 조건부 승인, 의사결정 유형으로 고치고 제안형 준비도 모델임을 명시했습니다.", "rerendered": "passed"},
+        {"round": 3, "focus": "디자인·정보 위계·반응형·접근성", "finding": "반복 카드 중심 구성이 준비도 여정을 약화했고 모바일에서 긴 근거 경로가 본문과 닿았습니다.", "correction": "Executive Briefing형 표지·장 구분·수치·비교·계층 레이아웃을 적용하고 모바일 근거 행 높이와 겹침을 다시 검증했습니다.", "rerendered": "passed"}
       ],
       "validation": {"responsiveRoundsPassed": 3, "fullscreenRoundsPassed": 3, "pdfRoundsPassed": 3, "pdfPages": 25, "aspectRatio": "16:9", "clippedTextFindings": 0},
       "references": ["docs/roadmap/architecture/fdai-constitution.md", "docs/roadmap/decisioning/escalation-and-standing-authority.md", "docs/roadmap/deployment/production-deployment-hardening.md"]
@@ -32,9 +32,9 @@
       "level": "L100",
       "slideCount": 10,
       "hardening": [
-        {"round": 1, "focus": "사실성", "finding": "미래 운영 장면이 현재 기능으로 읽힐 여지가 있었습니다.", "correction": "현재 구현, 목표 장면, 제안된 탐색 범위를 장표별 상태로 분리했습니다.", "rerendered": "passed"},
-        {"round": 2, "focus": "서사와 한국어", "finding": "비용이 목표 뒤에서 경쟁한다는 표현이 추상적이었습니다.", "correction": "신뢰성 목표를 지킨 뒤 비용 선택지를 비교한다는 문장으로 바꿨습니다.", "rerendered": "passed"},
-        {"round": 3, "focus": "디자인과 접근성", "finding": "영문 상태값과 근거 경로 생략이 L100 독자의 이해를 방해했습니다.", "correction": "상태를 쉬운 한국어로 표시하고 전체 근거 경로가 보이게 했습니다.", "rerendered": "passed"}
+        {"round": 1, "focus": "아키텍처 사실성·경계·누락", "finding": "사람이 예외만 본다는 과장, 하나의 ID로 읽히는 추적, ARB 승인이 곧 실행으로 이어지는 인상, 학습과 실행 승격의 혼합이 있었습니다.", "correction": "사람의 정책·승인 책임, 구분된 식별자와 공통 상관관계, ActionType 재진입, 규칙 검토와 실행 승격의 별도 경계를 반영했습니다.", "rerendered": "passed"},
+        {"round": 2, "focus": "경영 서사·한국어·L100 적합성", "finding": "미래 장면, 의도 번역 창구, 비활성 후보 같은 표현이 L100 독자에게 기술적이고 부자연스러웠습니다.", "correction": "책임 있는 운영 모습, 요청을 구조화하는 대화, 바로 실행하지 않는 검토 후보로 풀어 썼습니다.", "rerendered": "passed"},
+        {"round": 3, "focus": "디자인·정보 위계·반응형·접근성", "finding": "열 장 모두 같은 세 칸 패턴에 가까워 미래 경험과 안전 경계의 차이가 약했습니다.", "correction": "상관관계 흐름, 제약 계층, 학습 승격 타임라인, 실행기·관측자 증거 사슬을 서로 다른 Executive Briefing형 레이아웃으로 구성했습니다.", "rerendered": "passed"}
       ],
       "validation": {"responsiveRoundsPassed": 3, "fullscreenRoundsPassed": 3, "pdfRoundsPassed": 3, "pdfPages": 10, "aspectRatio": "16:9", "clippedTextFindings": 0},
       "references": ["docs/roadmap/architecture/fdai-constitution.md", "docs/roadmap/agents/agent-pantheon.md"]
@@ -44,9 +44,9 @@
       "level": "L200",
       "slideCount": 25,
       "hardening": [
-        {"round": 1, "focus": "사실성", "finding": "가치 지표와 근거 준비도의 출처가 역할 문서에 치우쳐 있었습니다.", "correction": "목표와 측정은 goals-and-metrics, 데이터 품질은 data-governance 근거로 바로잡았습니다.", "rerendered": "passed"},
-        {"round": 2, "focus": "서사와 한국어", "finding": "결정 유형이라는 축약이 평가 단위를 모호하게 했습니다.", "correction": "의사결정 유형으로 통일하고 후보, 가치, 위험, 권한을 분리했습니다.", "rerendered": "passed"},
-        {"round": 3, "focus": "디자인과 접근성", "finding": "평가와 결정 상태가 원시 영문값으로 표시됐습니다.", "correction": "평가, 결정, 보류 등 한국어 표시명을 적용하고 근거를 완전하게 노출했습니다.", "rerendered": "passed"}
+        {"round": 1, "focus": "아키텍처 사실성·측정 계약·누락", "finding": "근거 준비도를 가치 가중치로 취급했고 복구 불가능성을 감점으로 표현했으며 업무 단위 비용과 T2 권한 상한이 빠졌습니다.", "correction": "근거와 안전을 적격성 기준으로 올리고 사건·변경·최적화당 비용, 다섯 성공 지표, 네 가지 0 기준, T2 관찰 모드 상한을 추가했습니다.", "rerendered": "passed"},
+        {"round": 2, "focus": "포트폴리오 서사·한국어·L200 적합성", "finding": "HIL 비율, subscription 범위, 실행 가능성 채점, 실행 헌장 같은 표현이 독자의 의사결정 흐름을 끊었습니다.", "correction": "사람 검토 비율, 구독 전체 범위, 제안형 통과 기준으로 고치고 실행 헌장의 목표·반대 범위·실패·보상·완료 조건을 풀어 썼습니다.", "rerendered": "passed"},
+        {"round": 3, "focus": "디자인·정보 위계·반응형·접근성", "finding": "필수 제약과 가치 점수가 같은 카드 무게로 보였고 모바일 근거 행이 긴 비교표와 맞닿았습니다.", "correction": "적격성 흐름, 5열 지표 비교, 권한 책임도, 위험 결정 트리를 분리하고 모바일 근거 행과 본문 겹침을 제거했습니다.", "rerendered": "passed"}
       ],
       "validation": {"responsiveRoundsPassed": 3, "fullscreenRoundsPassed": 3, "pdfRoundsPassed": 3, "pdfPages": 25, "aspectRatio": "16:9", "clippedTextFindings": 0},
       "references": ["docs/roadmap/architecture/goals-and-metrics.md", "docs/roadmap/architecture/data-governance.md", "docs/roadmap/decisioning/execution-model.md"]
@@ -56,9 +56,9 @@
       "level": "L200",
       "slideCount": 25,
       "hardening": [
-        {"round": 1, "focus": "사실성", "finding": "격리 실행기가 이미 단독 효과 권한을 가진 것처럼 보이고 Azure 역할을 상위 구현으로 과장했습니다.", "correction": "기본 관찰 모드와 SD-08 이후 권한 전환, 배포 fork의 역할 책임을 명시했습니다.", "rerendered": "passed"},
-        {"round": 2, "focus": "서사와 한국어", "finding": "구현 provider 같은 혼합 표현이 아키텍처 독해를 방해했습니다.", "correction": "구현된 공급자와 공급자 중립 계약을 구분해 설명했습니다.", "rerendered": "passed"},
-        {"round": 3, "focus": "디자인과 접근성", "finding": "현재, 목표, 경계 상태가 영문 배지에 의존했습니다.", "correction": "색상과 한국어 텍스트를 함께 사용하고 긴 근거 경로를 줄바꿈했습니다.", "rerendered": "passed"}
+        {"round": 1, "focus": "아키텍처 사실성·토폴로지·구현 상태", "finding": "다섯 서비스를 세 묶음으로 줄였고 ObjectSet 과거 조회 제한, 실행 경로별 안전장치 공백, 정확한 프로덕션 적용 증적 상태가 흐렸습니다.", "correction": "다섯 독립 서비스, 현재 시점 중심 ObjectSet, 공통 계약 3경로와 열린 2경로, 구현된 계획 게이트와 진행 중인 적용 증적을 분리했습니다.", "rerendered": "passed"},
+        {"round": 2, "focus": "기술 서사·한국어·L200 적합성", "finding": "형식화된 pub/sub, 동료 격리 영수증, 결정론적 deny, 효과 권한 같은 표현이 부자연스러웠습니다.", "correction": "스키마로 검증된 게시·구독, 서비스 간 상태 격리 증적, 결정론적 차단, 실제 변경 권한으로 고쳤습니다.", "rerendered": "passed"},
+        {"round": 3, "focus": "디자인·정보 위계·반응형·접근성", "finding": "위험 게이트의 여섯 축 계층이 상태 배지와 겹쳤고 배포 장표가 표 위주로 반복됐습니다.", "correction": "균등 높이 계층도, 다섯 서비스 비교, 7·3·2·1 수치 장표, 공급망 타임라인을 적용하고 세 화면에서 블록 겹침을 검사했습니다.", "rerendered": "passed"}
       ],
       "validation": {"responsiveRoundsPassed": 3, "fullscreenRoundsPassed": 3, "pdfRoundsPassed": 3, "pdfPages": 25, "aspectRatio": "16:9", "clippedTextFindings": 0},
       "references": ["docs/roadmap/architecture/fdai-constitution.md", "docs/roadmap/architecture/security-and-identity.md", "docs/roadmap/deployment/deployment.md"]
@@ -68,21 +68,21 @@
       "level": "L300",
       "slideCount": 40,
       "hardening": [
-        {"round": 1, "focus": "사실성", "finding": "식별자, 유효 시간, 관측 범위가 한 가지 그래프 사실로 단순화됐습니다.", "correction": "ObjectRef, 시간 축, 완전성, 출처 계보를 독립된 검증 축으로 분리했습니다.", "rerendered": "passed"},
-        {"round": 2, "focus": "서사와 한국어", "finding": "typed truth라는 영문 표현이 운영 의미를 전달하지 못했습니다.", "correction": "형식화된 운영 사실로 바꾸고 API 식별자는 원문을 유지했습니다.", "rerendered": "passed"},
-        {"round": 3, "focus": "디자인과 접근성", "finding": "L300의 긴 경로와 상태 주석이 축소 화면에서 판독하기 어려웠습니다.", "correction": "근거 경로 줄바꿈과 한국어 상태 표시를 적용해 정보 위계를 정리했습니다.", "rerendered": "passed"}
+        {"round": 1, "focus": "아키텍처 사실성·구현 상태·누락", "finding": "구조 모델의 이전 77개 수치, QueryNodeKind 15개 표기, 행동 지식의 완료 과장, 잘못된 효과 모델 근거를 확인했습니다.", "correction": "현재 80개 멤버십·ResourceType과 17개 QueryNodeKind로 수정하고, 행동 지식은 GAP으로 낮추며 운영 학습 온톨로지와 구현 경로를 근거에 추가했습니다.", "rerendered": "passed"},
+        {"round": 2, "focus": "기술 서사·한국어·L300 적합성", "finding": "목표 비율을 현재로 표시했고 ControlObjective가 설명 없이 등장했으며 의존성 파동, 정체성이 오래 산다는 표현이 부자연스러웠습니다.", "correction": "TARGET·CURRENT·GAP 상태를 재분류하고 ControlObjective 정의를 앞에 배치했으며 실행 가능한 노드 묶음과 안정된 객체 정체성으로 문장을 고쳤습니다.", "rerendered": "passed"},
+        {"round": 3, "focus": "디자인·정보 위계·반응형·접근성", "finding": "Executive Briefing형 5열 장표의 긴 기술 식별자와 조정 종료 상태가 390x844 화면에서 일부 잘렸고 표지 시각 요소의 overflow 판정이 남았습니다.", "correction": "핵심 수치와 설명을 분리하고 긴 식별자를 짧은 한국어 표제로 바꾸며 모바일 글자·여백을 조정했습니다. 표지 overflow와 40장 전체 경계를 다시 측정했습니다.", "rerendered": "passed"}
       ],
       "validation": {"responsiveRoundsPassed": 3, "fullscreenRoundsPassed": 3, "pdfRoundsPassed": 3, "pdfPages": 40, "aspectRatio": "16:9", "clippedTextFindings": 0},
-      "references": ["docs/roadmap/architecture/operating-ontology.md", "docs/roadmap/architecture/operating-ontology-platform.md", "docs/roadmap/architecture/data-governance.md"]
+      "references": ["docs/roadmap/architecture/fdai-constitution.md", "docs/roadmap/architecture/llm-strategy.md", "docs/roadmap/architecture/operating-ontology.md", "docs/roadmap/architecture/operating-ontology-platform.md", "docs/roadmap/architecture/ontology-structural-model.md", "docs/roadmap/architecture/operating-ontology-metamodel.md", "docs/roadmap/architecture/data-governance.md", "docs/roadmap/rules-and-detection/rule-semantic-retrieval.md", "docs/roadmap/interfaces/behavior-knowledge.md", "docs/roadmap/rules-and-detection/document-ontology-distillation.md"]
     },
     {
       "id": "responsible-ai-security",
       "level": "L200",
       "slideCount": 25,
       "hardening": [
-        {"round": 1, "focus": "사실성", "finding": "신원 참조 검증과 배포 환경의 Azure Policy 역할이 같은 구현 범위로 표현됐습니다.", "correction": "상위 구현 경계와 배포 fork의 최소 권한, 허용 목록, 정책 책임을 분리했습니다.", "rerendered": "passed"},
-        {"round": 2, "focus": "서사와 한국어", "finding": "evidence와 receipt를 모두 증거로 번역해 용도가 흐려졌습니다.", "correction": "판단 근거와 실행 증적을 구분해 독자가 감사 흐름을 따라갈 수 있게 했습니다.", "rerendered": "passed"},
-        {"round": 3, "focus": "디자인과 접근성", "finding": "안전 상태가 색과 영문 배지에 과도하게 의존했습니다.", "correction": "한국어 상태 텍스트를 병행하고 접근성 이름에 설계 상태를 포함했습니다.", "rerendered": "passed"}
+        {"round": 1, "focus": "보안 사실성·구현 범위·누락", "finding": "일곱 안전장치를 모든 경로에서 완료로 표시했고 복구 열거값, AccessGrantRequest, 긴급 중지, A3-E와 개인정보 보호 상태가 부정확했습니다.", "correction": "공통 계약 3경로와 열린 2경로를 분리하고 정확한 복구 계약, 비활성 권한 요청, shadow_only 긴급 중지, A3-E·개인정보 진행 상태를 반영했습니다.", "rerendered": "passed"},
+        {"round": 2, "focus": "보안 서사·한국어·L200 적합성", "finding": "데이터와 지시를 불신한다, 계약 값을 선언한다, 상시 권한 같은 표현이 딱딱하고 영어 식별자가 전면에 나왔습니다.", "correction": "모델 입력은 검증 대상 데이터, 실행 전 복구 계약, 실제 실행에 사용할 수 없는 A3-E로 풀어 쓰고 식별자는 설명 뒤에 배치했습니다.", "rerendered": "passed"},
+        {"round": 3, "focus": "디자인·정보 위계·반응형·접근성", "finding": "신원·데이터·실행 통제가 같은 카드 밀도로 이어지고 모바일에서 긴 복구 계약의 근거 행이 본문과 닿았습니다.", "correction": "신원 책임도, 모델 경계 비교, 일곱 통제 패널, 복구 표, 감사 타임라인으로 구분하고 모바일 겹침을 제거했습니다.", "rerendered": "passed"}
       ],
       "validation": {"responsiveRoundsPassed": 3, "fullscreenRoundsPassed": 3, "pdfRoundsPassed": 3, "pdfPages": 25, "aspectRatio": "16:9", "clippedTextFindings": 0},
       "references": ["docs/roadmap/architecture/security-and-identity.md", "docs/roadmap/decisioning/execution-model.md", "docs/roadmap/decisioning/escalation-and-standing-authority.md"]
@@ -92,9 +92,9 @@
       "level": "L300",
       "slideCount": 40,
       "hardening": [
-        {"round": 1, "focus": "사실성", "finding": "Workflow 적용 모드와 점진적 배포가 현재 운영 기능처럼 보였습니다.", "correction": "제안 전용 Operator 경계, 필요한 런타임 증적, 자동 점진적 배포 목표를 분리했습니다.", "rerendered": "passed"},
-        {"round": 2, "focus": "서사와 한국어", "finding": "shadow와 enforce를 일반 독자 설명에서도 반복했습니다.", "correction": "첫 언급 뒤에는 관찰 모드와 적용 모드로 설명했습니다.", "rerendered": "passed"},
-        {"round": 3, "focus": "디자인과 접근성", "finding": "단계와 검증 기준의 영문 배지가 긴 전환 여정을 빠르게 훑기 어렵게 했습니다.", "correction": "단계, 검증 기준, 다음 단계의 한국어 표기를 적용했습니다.", "rerendered": "passed"}
+        {"round": 1, "focus": "운영 사실성·승격 기준·누락", "finding": "IaC를 헌법상 필수로 읽히게 했고 기준선·시나리오·0 기준·복구·프로덕션 게이트를 축약했으며 자동 점진적 배포 상태가 흐렸습니다.", "correction": "IaC를 권장 도입 조건으로 낮추고 5개 지표, 30개 이상 표본, 6개 시나리오, 4개 0 기준, 복구 유형, 구현된 계획 게이트와 미구현 점진 배포를 반영했습니다.", "rerendered": "passed"},
+        {"round": 2, "focus": "실행 서사·한국어·L300 적합성", "finding": "사람의 현재 판단, 여섯 차원, dry-run, rollback, 내구 발신함 표현이 기술 문서 번역처럼 보였습니다.", "correction": "현재 사람 중심 운영, 성공과 실패를 아우르는 시나리오, 가상 실행, 복구, 영속 발신함으로 고쳤습니다.", "rerendered": "passed"},
+        {"round": 3, "focus": "디자인·정보 위계·반응형·접근성", "finding": "40장 단계 여정이 표·흐름 반복으로 평면적이었고 모바일의 긴 운영 근거가 본문과 겹쳤습니다.", "correction": "단계별 장 구분, 0 기준 수치 패널, 6개 시나리오 비교, 승격 책임도, 배포·복구 타임라인을 적용하고 블록 겹침을 검사했습니다.", "rerendered": "passed"}
       ],
       "validation": {"responsiveRoundsPassed": 3, "fullscreenRoundsPassed": 3, "pdfRoundsPassed": 3, "pdfPages": 40, "aspectRatio": "16:9", "clippedTextFindings": 0},
       "references": ["docs/roadmap/deployment/deployment.md", "docs/roadmap/deployment/production-deployment-hardening.md", "docs/roadmap/operations/operator-initiated-sre-and-arb.md"]
@@ -104,9 +104,9 @@
       "level": "L300",
       "slideCount": 40,
       "hardening": [
-        {"round": 1, "focus": "사실성", "finding": "Terraform 상태 분리를 서비스별 PostgreSQL 분리로 잘못 설명했습니다.", "correction": "서비스별 backend key와 하나의 PostgreSQL 서버에서의 최소 권한 grant 구조를 구분했습니다.", "rerendered": "passed"},
-        {"round": 2, "focus": "서사와 한국어", "finding": "cadence, owner, approval 같은 일반 영문이 운영 책임 서사를 끊었습니다.", "correction": "진행 주기, 책임자, 승인으로 바꾸고 필요한 계약 식별자만 영문으로 유지했습니다.", "rerendered": "passed"},
-        {"round": 3, "focus": "디자인과 접근성", "finding": "운영, 측정, 인계 상태가 영문 배지에 머물렀습니다.", "correction": "한국어 표시명과 접근성 이름을 적용하고 근거 경로를 완전하게 표시했습니다.", "rerendered": "passed"}
+        {"round": 1, "focus": "운영 모델 사실성·책임·측정", "finding": "Bragi 역할을 의도 변환으로 축소했고 규칙과 실행 승격을 혼합했으며 고정되지 않은 위원회·검토 주기와 불완전한 KPI를 사실처럼 표시했습니다.", "correction": "Bragi 대화 수명 주기, 규칙·ActionType 승격 분리, 제안형 운영 협의체와 주기, 5개 성공 지표·4개 0 기준·열린 실운영 비교 근거를 반영했습니다.", "rerendered": "passed"},
+        {"round": 2, "focus": "운영 서사·한국어·L300 적합성", "finding": "고정돼 있다, 추가 전용 감사, 지속되는 Process, 진행 주기 같은 표현이 자연스럽지 않았습니다.", "correction": "고정되어 있다, 추가만 가능한 감사 원장, 지속형 프로세스, 운영 주기로 바꾸고 하위 확장 구현과 배포판을 구분했습니다.", "rerendered": "passed"},
+        {"round": 3, "focus": "디자인·정보 위계·반응형·접근성", "finding": "에이전트·위원회·LLMOps·운영 달력이 같은 시각 구조로 이어지고 모바일 단일 소유 표의 근거가 맞닿았습니다.", "correction": "15·5·7·3 수치 패널, 책임 지도, 운영 달력, 지표 대시보드, 열린 항목 결정 트리로 재구성하고 모바일 겹침을 제거했습니다.", "rerendered": "passed"}
       ],
       "validation": {"responsiveRoundsPassed": 3, "fullscreenRoundsPassed": 3, "pdfRoundsPassed": 3, "pdfPages": 40, "aspectRatio": "16:9", "clippedTextFindings": 0},
       "references": ["docs/roadmap/agents/agent-pantheon.md", "docs/roadmap/operations/operator-initiated-sre-and-arb.md", "docs/roadmap/deployment/deployment.md"]
@@ -116,9 +116,9 @@
       "level": "L400",
       "slideCount": 50,
       "hardening": [
-        {"round": 1, "focus": "사실성", "finding": "현재 배포, 목표 점진적 배포, A3-E 미연결 상태가 한 로드맵에서 혼합됐습니다.", "correction": "구현, 목표, 열린 증적을 Wave와 검증 기준별로 분리했습니다.", "rerendered": "passed"},
-        {"round": 2, "focus": "서사와 한국어", "finding": "exit gate와 Wave 용어만으로 단계 종료 판단이 불명확했습니다.", "correction": "종료 기준과 확산 단계로 풀어 쓰고 L400 독자에게 필요한 의존성을 명시했습니다.", "rerendered": "passed"},
-        {"round": 3, "focus": "디자인과 접근성", "finding": "50장 전체에서 단계 번호와 상태 배지의 영문 우선 표기가 탐색 효율을 낮췄습니다.", "correction": "확산 단계와 검증 기준의 일관된 한국어 표시, 줄바꿈 가능한 근거 경로를 적용했습니다.", "rerendered": "passed"}
+        {"round": 1, "focus": "확장 아키텍처 사실성·의존성·종료 기준", "finding": "런타임 축, C1-C5, 의존성 실패, 헌법 시나리오, 비용 단위, A3-E 상태가 축약되거나 잘못 연결됐고 프로덕션 강화가 첫 승격 뒤에 놓였습니다.", "correction": "독립 축 6군, C1-C5, 역할별 실패 차단, 6개 시나리오, 업무별 비용, A3-E 미연결을 반영하고 프로덕션 기반을 첫 승격 앞으로 이동했습니다.", "rerendered": "passed"},
+        {"round": 2, "focus": "로드맵 서사·한국어·L400 적합성", "finding": "미분류 작업, 최소 한 번 전달 재생, 합성 실운영 기록, 다음 분기 같은 표현이 모호하거나 근거 없는 약속처럼 보였습니다.", "correction": "미분류 리소스, 최소 1회 전달의 중복 안전 재생, 합성으로 표시된 기록, 승인된 계획 구간으로 고쳤습니다.", "rerendered": "passed"},
+        {"round": 3, "focus": "디자인·정보 위계·반응형·접근성", "finding": "50장 로드맵의 상태·단계·종료 기준이 같은 표 형식으로 반복됐고 6단 계층도가 상태 배지와 겹쳤습니다.", "correction": "현재 위치·의존성·확산·종료 장 구분과 계층·수치·책임·타임라인 시각화를 적용하고 계층 행 높이와 모바일 근거 배치를 보정했습니다.", "rerendered": "passed"}
       ],
       "validation": {"responsiveRoundsPassed": 3, "fullscreenRoundsPassed": 3, "pdfRoundsPassed": 3, "pdfPages": 50, "aspectRatio": "16:9", "clippedTextFindings": 0},
       "references": ["docs/roadmap/architecture/fdai-constitution.md", "docs/roadmap/deployment/production-deployment-hardening.md", "docs/roadmap/architecture/decisions/0002-independent-runtime-axes.md"]

@@ -593,6 +593,16 @@ svg { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: 
 .viewer-actions svg { width: 15px; height: 15px; }
 .viewer-actions .icon-button { width: 34px; padding: 0; }
 .slide-stage { position: relative; display: grid; place-items: center; min-height: 0; padding: 20px; overflow: hidden; }
+.slide-stage:fullscreen {
+  width: 100vw;
+  height: 100dvh;
+  padding: 0;
+  background: #111820;
+}
+.slide-stage:fullscreen .manual-slide {
+  --slide-width: min(100vw, calc(100dvh * 16 / 9));
+  box-shadow: none;
+}
 .manual-slide {
   --slide-width: min(calc(100vw - 80px), calc((100dvh - 156px) * 16 / 9));
   --slide-height: calc(var(--slide-width) * 9 / 16);
