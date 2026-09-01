@@ -3151,6 +3151,17 @@ def test_service_current_health_without_exact_service_requests_clarification() -
                 "without_causal_inference",
             ],
         ),
+        (
+            "query.ontology_relationships",
+            [
+                "incident",
+                "change_activity",
+                "approved_windows",
+                "target_resources",
+                "service_paths",
+                "without_current_finding",
+            ],
+        ),
     ],
 )
 def test_unbound_change_correlation_preserves_compare_windowed_hold(
