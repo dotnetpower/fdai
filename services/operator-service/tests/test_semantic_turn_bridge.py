@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import json
+import logging
 from collections.abc import AsyncIterator, Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -863,6 +864,25 @@ def _projection(
                 "principal_manifest_digest": digest,
                 "plan_digest": digest,
                 "execution_receipt_digest": digest,
+                "intent_graph": {
+                    "schema_version": 2,
+                    "goals": [
+                        {
+                            "goal_id": "goal-1",
+                            "intent": "function",
+                            "capability": "query.function",
+                            "arguments": {},
+                            "depends_on": [],
+                            "evidence_mode": "operational",
+                            "freshness_required": True,
+                            "confidence": 1.0,
+                            "alternatives": [],
+                        }
+                    ],
+                    "clarification": None,
+                    "confidence": 1.0,
+                    "action_posture": "advise_only",
+                },
                 "intent_graph_evidence": {
                     "schema_version": 2,
                     "status": "completed",
@@ -2106,9 +2126,163 @@ def test_answered_done_preserves_typed_semantic_assurance_observation() -> None:
     assert receipt["execution_authority"] is False
     verification = cast(dict[str, object], done["verification"])
     claims = cast(list[dict[str, object]], verification["claims"])
+    goal = cast(
+        list[dict[str, object]],
+        cast(dict[str, object], semantic["intent_graph_evidence"])["goals"],
+    )[0]
+    assert goal["status"] == "completed"
     assert [claim["text"] for claim in claims] == assurance["claim_kinds"]
     assert all(claim["status"] == "supported" for claim in claims)
     assert all(claim["span"] == {"start": 0, "end": 0} for claim in claims)
+    assert all(claim["evidence_refs"] == ["evidence-1"] for claim in claims)
+    assert all(claim["anchors"] == ["goal-1"] for claim in claims)
+    assert all(set(claim["evidence_refs"]) <= set(goal["evidence_refs"]) for claim in claims)
+
+
+def test_terminal_trajectory_and_claims_require_actual_goal_receipts() -> None:
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    projection = _projection(envelope, disposition="answered", answered_evidence=True)
+    semantic = cast(dict[str, object], projection["semantic_result"])
+    evidence = cast(dict[str, object], semantic["intent_graph_evidence"])
+    evidence["goals"] = []
+    projection["payload"] = {
+        "technical_details": {
+            "schema_version": 1,
+            "kind": "semantic_query_outputs",
+            "outputs": [
+                {
+                    "node_id": "answer",
+                    "rows": [],
+                    "returned_rows": 0,
+                    "total_rows": 0,
+                    "source_complete": True,
+                    "source_truncation_reason": None,
+                    "display_truncated": False,
+                }
+            ],
+        }
+    }
+
+    done = semantic_turn_runtime_module._done_event_data(projection)
+
+    assert "trajectory_detail" not in done
+    verification = cast(dict[str, object], done["verification"])
+    assert verification["claims"] == []
+
+
+def test_provider_failure_preserves_bounded_reason_and_observation_time() -> None:
+    observed_at = "2026-08-11T00:00:01+00:00"
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    projection = _projection(envelope, disposition="held")
+    semantic = cast(dict[str, object], projection["semantic_result"])
+    semantic["intent_graph"] = {
+        "schema_version": 2,
+        "goals": [
+            {
+                "goal_id": "goal-1",
+                "intent": "function",
+                "capability": "query.subscription_health",
+                "arguments": {"scope": "server-owned"},
+                "depends_on": [],
+            }
+        ],
+    }
+    semantic["intent_graph_evidence"] = {
+        "schema_version": 2,
+        "status": "failed",
+        "evidence_mode": "held_for_review",
+        "goals": [
+            {
+                "task_id": "query:subscription-health",
+                "goal_id": "goal-1",
+                "intent": "function",
+                "capability": "query.subscription_health",
+                "status": "failed",
+                "duration_ms": 17,
+                "depends_on": [],
+                "reason": "capability_failed",
+                "started_at": envelope["requested_at"],
+                "completed_at": observed_at,
+            }
+        ],
+    }
+
+    done = semantic_turn_runtime_module._done_event_data(projection)
+
+    trajectory = cast(dict[str, object], done["trajectory_detail"])
+    activity = cast(list[dict[str, object]], trajectory["activities"])[0]
+    execution = cast(dict[str, object], activity["execution"])
+    assert activity["status"] == "failed"
+    assert activity["observed_at"] == observed_at
+    assert activity["source"] == "registered_query_handler"
+    assert execution["status"] == "failed"
+    assert execution["duration_ms"] == 17
+    assert execution["output_status"] == "not_available"
+    assert json.loads(cast(str, execution["output"])) == {
+        "evidence_ref_count": 0,
+        "reason": "capability_failed",
+        "status": "failed",
+    }
+
+
+def test_execution_detail_redacts_query_values_and_raw_provider_output() -> None:
+    sensitive_values = (
+        "https://provider.example.test/subscriptions/tenant-a/resourceGroups/private-rg",
+        "Bearer secret-token",
+        "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/private-rg",
+    )
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    projection = _projection(envelope, disposition="answered", answered_evidence=True)
+    semantic = cast(dict[str, object], projection["semantic_result"])
+    graph = cast(dict[str, object], semantic["intent_graph"])
+    goal = cast(list[dict[str, object]], graph["goals"])[0]
+    goal["arguments"] = {
+        "endpoint": sensitive_values[0],
+        "authorization": sensitive_values[1],
+        "resource_id": sensitive_values[2],
+    }
+    projection["payload"] = {
+        "technical_details": {
+            "schema_version": 1,
+            "kind": "semantic_query_outputs",
+            "outputs": [
+                {
+                    "node_id": "answer",
+                    "rows": [{"row_id": "one", "values": {"raw": sensitive_values[0]}}],
+                    "returned_rows": 1,
+                    "total_rows": 1,
+                    "source_complete": True,
+                    "source_truncation_reason": None,
+                    "display_truncated": False,
+                }
+            ],
+        }
+    }
+
+    done = semantic_turn_runtime_module._done_event_data(projection)
+
+    public_graph = cast(dict[str, object], done["intent_graph"])
+    public_goal = cast(list[dict[str, object]], public_graph["goals"])[0]
+    assert public_goal["arguments"] == {
+        "redacted": True,
+        "keys": ["authorization", "endpoint", "resource_id"],
+    }
+    trajectory = cast(dict[str, object], done["trajectory_detail"])
+    activity = cast(list[dict[str, object]], trajectory["activities"])[0]
+    execution = cast(dict[str, object], activity["execution"])
+    serialized = json.dumps(execution, sort_keys=True)
+    serialized_done = json.dumps(done, sort_keys=True)
+    assert execution["redacted"] is True
+    assert execution["command"] == "query.function"
+    assert execution["output_status"] == "available"
+    assert all(value not in serialized for value in sensitive_values)
+    assert all(value not in serialized_done for value in sensitive_values)
 
 
 def test_verified_causal_goals_project_as_detailed_query_activities() -> None:
@@ -2252,11 +2426,9 @@ def test_verified_causal_goals_project_as_detailed_query_activities() -> None:
     assert activities[1]["label"] == "Activity Log의 변경 및 배포 이력 조회"
     assert activities[3]["label"] == "기준 구간 지연 메트릭 조회"
     assert activities[10]["label"] == "경쟁 원인 가설 평가: dependency latency"
-    first_command = json.loads(cast(dict[str, object], activities[0]["execution"])["command"])
-    assert first_command == {
-        "arguments": {"definition": {"selector": "service-example-api"}},
-        "capability": "query.object_set",
-    }
+    first_command = cast(dict[str, object], activities[0]["execution"])["command"]
+    assert first_command == "query.object_set"
+    assert "service-example-api" not in cast(str, first_command)
     first_target = cast(dict[str, object], activities[0]["execution"])["target"]
     assert first_target == {
         "interface_kind": "internal_query",
@@ -2269,14 +2441,15 @@ def test_verified_causal_goals_project_as_detailed_query_activities() -> None:
     second_target = cast(dict[str, object], activities[1]["execution"])["target"]
     assert cast(dict[str, object], second_target)["source_kind"] == "registered_query_handler"
     activity_output = json.loads(cast(dict[str, object], activities[1]["execution"])["output"])
-    assert activity_output["result"]["rows"][0]["values"]["operation"] == (
-        "microsoft_app_containerapps_write"
-    )
+    assert activity_output == {
+        "evidence_ref_count": 1,
+        "source_complete": True,
+        "status": "completed",
+    }
     hypothesis_output = json.loads(cast(dict[str, object], activities[10]["execution"])["output"])
-    assert hypothesis_output["evidence_refs"] == ["evidence:hypothesis-dependency-latency"]
-    assert hypothesis_output["result"]["summary"] == {
-        "sample_count": 12,
-        "status": "supported",
+    assert hypothesis_output == {
+        "evidence_ref_count": 1,
+        "status": "completed",
     }
     assert all(activity["status"] == "completed" for activity in activities)
 
@@ -2335,6 +2508,7 @@ async def test_answered_replay_emits_observed_lifecycle_before_readable_terminal
     assert [event.event for event in events] == [
         "status",
         "status",
+        "activity",
         "status",
         "activity",
         "verification",
@@ -2354,11 +2528,13 @@ async def test_answered_replay_emits_observed_lifecycle_before_readable_terminal
     ]
     steps = [event for event in events if event.event == "activity"]
     assert [event.data["activity_id"] for event in steps] == [
+        "semantic:goal:answer",
         "semantic:evidence",
         "semantic:verification",
         "semantic:presentation",
     ]
     assert [event.data["status"] for event in steps] == [
+        "completed",
         "completed",
         "completed",
         "completed",
@@ -2411,13 +2587,23 @@ async def test_answered_replay_emits_observed_lifecycle_before_readable_terminal
     detail = cast(dict[str, object], done.data["trajectory_detail"])
     activities = cast(list[dict[str, object]], detail["activities"])
     execution = cast(dict[str, object], activities[0]["execution"])
-    assert json.loads(cast(str, execution["output"])) == projection["payload"]["technical_details"]
+    assert json.loads(cast(str, execution["output"])) == {
+        "evidence_ref_count": 1,
+        "status": "completed",
+    }
     assert execution["redacted"] is True
+    assert execution["command"] == "query.function"
+    assert execution["status"] == "completed"
+    assert execution["duration_ms"] == 1
+    assert execution["output_status"] == "not_available"
+    assert execution["output_truncated"] is False
+    assert activities[0]["evidence_refs"] == ["evidence-1"]
+    assert activities[0]["observed_at"] == stored_turn.envelope["requested_at"]
     assert execution["target"] == {
         "interface_kind": "internal_query",
         "service": "core-control-plane",
         "component": "OntologyQueryPlanExecutor",
-        "operation": "query_plan_execution",
+        "operation": "function",
         "source_kind": "registered_query_handler",
         "transport": "event_bus",
     }
@@ -3008,6 +3194,7 @@ async def test_semantic_bridge_waits_for_delayed_terminal_projection() -> None:
         "completed",
         "completed",
         "completed",
+        "completed",
     ]
 
 
@@ -3088,7 +3275,7 @@ async def test_semantic_replay_cursor_resumes_after_initial_progress() -> None:
     ]
 
 
-async def test_evidence_step_carries_the_verified_query_and_its_row_counts() -> None:
+async def test_receipt_backed_goal_carries_redacted_query_and_row_counts() -> None:
     store = _MemorySemanticStore()
     bridge = SemanticTurnBridge(
         store=store,
@@ -3107,6 +3294,7 @@ async def test_evidence_step_carries_the_verified_query_and_its_row_counts() -> 
         }
     }
     cast(dict[str, object], projection["semantic_result"])["intent_graph"] = {
+        "schema_version": 2,
         "goals": [
             {
                 "goal_id": "goal-1",
@@ -3114,8 +3302,20 @@ async def test_evidence_step_carries_the_verified_query_and_its_row_counts() -> 
                 "capability": "query.object_set",
                 "arguments": arguments,
             }
-        ]
+        ],
     }
+    evidence = cast(
+        dict[str, object],
+        cast(dict[str, object], projection["semantic_result"])["intent_graph_evidence"],
+    )
+    evidence_goal = cast(list[dict[str, object]], evidence["goals"])[0]
+    evidence_goal.update(
+        {
+            "task_id": "query:resources",
+            "intent": "object_set",
+            "capability": "query.object_set",
+        }
+    )
     projection["payload"] = {
         "technical_details": {
             "outputs": [{"node_id": "resources", "returned_rows": 20, "total_rows": 42}]
@@ -3136,11 +3336,11 @@ async def test_evidence_step_carries_the_verified_query_and_its_row_counts() -> 
     executions = {
         cast(str, event.data["activity_id"]): event.data.get("execution") for event in steps
     }
-    evidence = cast(dict[str, object], executions["semantic:evidence"])
-    assert evidence["tool"] == "Ontology query"
-    assert evidence["input_kind"] == "query"
-    assert evidence["redacted"] is True
-    assert evidence["target"] == {
+    goal_execution = cast(dict[str, object], executions["semantic:goal:resources"])
+    assert goal_execution["tool"] == "Ontology query"
+    assert goal_execution["input_kind"] == "query"
+    assert goal_execution["redacted"] is True
+    assert goal_execution["target"] == {
         "interface_kind": "internal_query",
         "service": "core-control-plane",
         "component": "OntologyQueryPlanExecutor",
@@ -3148,13 +3348,16 @@ async def test_evidence_step_carries_the_verified_query_and_its_row_counts() -> 
         "source_kind": "ontology_instance_store",
         "transport": "event_bus",
     }
-    assert evidence["command"] == (
-        '{"definition":{"limit":20,'
-        '"predicates":[{"equals":"resource-group","operator":"equals","property":"type"}],'
-        '"selector":{"kind":"object_type","name":"Resource"}}}'
-    )
-    assert evidence["output"] == ('[{"node_id":"resources","returned_rows":20,"total_rows":42}]')
+    assert goal_execution["command"] == "query.object_set"
+    assert "resource-group" not in json.dumps(goal_execution)
+    assert json.loads(cast(str, goal_execution["output"])) == {
+        "evidence_ref_count": 1,
+        "returned_rows": 20,
+        "status": "completed",
+        "total_rows": 42,
+    }
     # A step that executed nothing MUST NOT report a command.
+    assert executions["semantic:evidence"] is None
     assert executions["semantic:verification"] is None
     assert executions["semantic:presentation"] is None
 
@@ -3450,8 +3653,11 @@ async def test_result_consumer_quarantines_poison_projection_and_continues() -> 
     await bridge.aclose()
 
 
-async def test_result_consumer_quarantines_an_unmatched_projection_and_keeps_draining() -> None:
+async def test_result_consumer_quarantines_an_unmatched_projection_and_keeps_draining(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     """One projection with no durable request must not stall every later projection."""
+    caplog.set_level(logging.INFO, logger=semantic_turn_runtime_module.__name__)
     store = _MemorySemanticStore()
     orphan = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
         _proposal(
@@ -3529,6 +3735,12 @@ async def test_result_consumer_quarantines_an_unmatched_projection_and_keeps_dra
 
     assert len(store.results) == 1
     assert any(topic.endswith(".dlq") for topic, _key, _payload in publisher.events)
+    assert any(
+        record.message == "semantic_projection_conflict_retrying" for record in caplog.records
+    )
+    assert not any(
+        record.message == "semantic_projection_consumer_retrying" for record in caplog.records
+    )
     await bridge.aclose()
 
 

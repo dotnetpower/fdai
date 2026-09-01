@@ -1,7 +1,7 @@
 ---
 title: 운영 A3 채널 런타임
 translation_of: production-a3-channel-runtime.md
-translation_source_sha: cbfbefe39425f0ae196759e6dba92a98557d9e07
+translation_source_sha: e9575f6abb25570972b326a1e777ea1e5e367bec
 translation_revised: 2026-09-01
 ---
 # 운영 A3 채널 런타임
@@ -76,6 +76,7 @@ compile하므로 Slack과 Teams는 채널 템플릿으로 대체하지 않고 Co
 | 2026-08-20 | 구현됨 | 모든 A3 test를 Operator service suite에 귀속하고, shared `ExecutionVenue` 계약을 통해 venue를 선택하며, A3 design route에서 폐기한 Core prototype 경로를 제거해 exact-commit 구조 finding을 닫았습니다. | `current change`, 집중 service-suite, venue-contract, design-route, environment 및 composition 검사 | Runtime 행을 `validated`로 올리기 전에 통제된 로컬 프로바이더 및 보호된 plan/apply/rollback 증적을 보존합니다. |
 | 2026-08-20 | 구현됨 | 별도 edge Container App을 거부하던 보호된 전달 gap을 닫았습니다. Platform plan은 전용 identity와 secret scope를 연결하고, Operator service plan은 명시적 edge enable 또는 disable transition, exact target identity와 image, 새 revision health, route 제거 및 primary revision 복구 전 자동 disabled-state rollback을 봉인합니다. | `current change`, 보호된 service 배포 및 workflow 계약 검사 126 + 28개, workflow YAML 및 rollback shell syntax 통과 | 승인된 credential store를 통해 실제 Slack 또는 Teams 프로바이더 credential과 principal-mapping profile 하나를 제공하고 로컬 provider 및 보호된 plan/apply/rollback 증적을 보존합니다. |
 | 2026-08-20 | 구현됨 | 암묵적 action, plan 대체, 공개 route 잔존, secret 노출, identity 대체 및 복구 순서를 대상으로 보호된 rollout을 다시 검토했습니다. 수락한 finding 하나는 primary health 전에 disable route-removal proof를 실행하도록 교정했습니다. 의심 finding 8개는 분리된 primary/edge resource, exact transition 봉인 및 terminal rollback 검사로 기각했습니다. 검증된 Medium 이상 구현 잔여는 없습니다. | `current change`, 집중 수정 뒤 route-closure 및 자동 rollback 검사 2개 통과, 전체 보호된 배포 검사는 앞서 154개 통과 | Runtime 검증에는 실제 프로바이더 material과 통제된 증적이 계속 필요하며 이는 구현 잔여가 아닙니다. |
+| 2026-09-01 | 구현됨 | Operator 또는 A3 전달 경로가 종단 의미 claim과 읽기 활동을 노출하기 전에 정확히 완료된 Core receipt에 연결하도록 했습니다. 쿼리 인수와 프로바이더 출력 값은 종단 실행 기록에 포함하지 않습니다. 실행 기록에는 범위가 제한된 capability 식별자, 상태, 소요 시간, 출력 가용성, 완전성 및 잘림 상태만 포함합니다. | `current change`, 집중 Core 및 Operator 의미 suite 207개, Conversation Assurance 계약 검사 78개, Ruff 및 formatting 통과 | 기존 프로바이더 및 배포 선행 조건이 준비된 뒤에만 통제된 채널 전달 근거를 보존합니다. |
 
 ### 남은 작업
 

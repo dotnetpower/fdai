@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: a3cfb3074e8e59237989676e0c48aafaa960388b
+translation_source_sha: 8a795e35a994d3854b667bf7047b91a978b3cb34
 translation_revised: 2026-09-01
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -265,6 +265,7 @@ translation_revised: 2026-09-01
 | 2026-08-20 | 구현됨 | 모델이 `Resource.name exists`만 제안한 경우에도 모든 명시적 필터를 보존하도록 했습니다. Core는 frame이 보존한 정확한 이름 조각과 카탈로그가 선언한 리소스 타입 값 그룹을 결합해, 전체 Resource 집합을 실행하는 대신 이름 조각과 리소스 타입 조건식으로 결과를 좁힙니다. 운영자 발화에 없는 subject는 피연산자로 승격하지 않습니다. | `current change`, `semantic_planning_value_filters.py`, `test_semantic_planning.py`, 영어와 한국어를 포함한 focused 의미 계획 파일 27개 사례 통과 | Core를 재시작하고 좁혀진 검증 쿼리, 읽기 쉬운 표, 범위가 제한된 trace 및 가로 overflow가 없음을 보여 주는 인증된 Console 결과를 보존합니다. |
 | 2026-08-27 | 구현됨 | 서버가 소유하는 contextual Resource FunctionType과 정확한 화면/리소스 그룹 바인딩을 추가했습니다. Console은 선택된 resource id 집합을 opaque server-issued token으로 게시하고 Operator는 전용 redaction allowlist를 통해 전달한 뒤 인증된 principal, 일반 소문자 role 범위, purpose, 정확한 release, source generation, completeness 및 id에 결속된 token을 조회합니다. Core의 contextual FunctionType 자체도 capability를 요구하고, 연결되지 않은 specialized plan을 거부하며, object-only read 전에 명시적 조건과 교집합합니다. 클라이언트 위조/recompute id나 재시작 후 사라진 token은 거부하고 불완전한 결과는 전체 Resource 집합으로 대체하지 않습니다. | `current change`, contextual FunctionType, semantic planning, service-contract, Operator envelope 및 Console context focused 검사 통과; 인증된 근거는 아직 열려 있습니다. | 완전한 selection token이 발급된 뒤 인증된 화면/리소스 그룹 및 인시던트 Console receipt를 보존합니다. |
 | 2026-08-27 | 구현됨 | 이제 context 선택에는 인증된 principal, principal 범위, ontology release, source generation, complete 플래그 및 정확한 id를 결속한 서버 발급 digest가 필요합니다. Contextual plan은 모든 명시적 발화 필터와 id를 교집합하고, 불완전한 FunctionType 결과는 semantic turn을 hold하며, 잘린 Console snapshot은 선택 신원을 게시하지 않습니다. | `current change`, 이중 언어 adversarial Core/Operator/Console 검사, typecheck, Ruff 및 pre-commit 통과 | 서버가 complete selection identity를 발급한 뒤 인증된 receipt를 보존합니다. |
+| 2026-09-01 | 구현됨 | `QueryNodeResult`에서 `GoalTaskReceipt`와 `intent_graph_evidence`를 거쳐 Operator `done` payload까지 이어지는 종단 근거 계보 공백을 닫았습니다. 각 투영 claim은 완료된 goal의 evidence reference를 명시하며, 정확히 일치하는 읽기 receipt가 있을 때만 trajectory 또는 execution detail을 생성합니다. 완전한 0행과 불완전한 0행을 구분하고, 프로바이더 실패는 프로바이더 원문 없이 범위가 제한된 사유와 관측 시각을 보존합니다. | `current change`, 집중 Core 및 Operator 의미 suite 207개, Conversation Assurance 계약 검사 78개, Ruff 및 formatting 통과 | 별도로 승인된 통제 캠페인을 실행하기 전에는 구현 검사를 실제 Conversation Assurance 근거로 취급하지 않습니다. |
 ### 남은 작업
 
 - [ ] 보안 쿼리 승인 프로바이더를 신뢰할 수 있는 검증기 레지스트리에 연결하고 긍정적인 의사 결정 핵심 Function 결과를 복원하기 전에 서비스 간 쿼리 경로에서 인증된 `DecisionCriticalEvidenceReceipt`와 독립 묶음 하나를 보존합니다.
