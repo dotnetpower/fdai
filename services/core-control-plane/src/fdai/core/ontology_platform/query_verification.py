@@ -18,6 +18,7 @@ from .models import (
     ObjectPredicateOperator,
     ObjectSelectorKind,
     ObjectSetDefinition,
+    OntologyInstancePathDefinition,
     RelationshipTraversalDefinition,
     TypedPathDefinition,
 )
@@ -32,6 +33,7 @@ _EXACT_VALUE_OPERATORS = {
 
 _TABLE_KINDS = {
     QueryNodeKind.OBJECT_SET,
+    QueryNodeKind.ONTOLOGY_INSTANCE_PATH,
     QueryNodeKind.RELATIONSHIP_TRAVERSAL,
     QueryNodeKind.TYPED_PATH,
     QueryNodeKind.UNION,
@@ -139,6 +141,14 @@ class OntologyQueryPlanVerifier:
             return
         if node.kind is QueryNodeKind.TYPED_PATH:
             self._verify_typed_path(
+                node,
+                arguments=arguments,
+                nodes_by_id=nodes_by_id,
+                descriptors=descriptors,
+            )
+            return
+        if node.kind is QueryNodeKind.ONTOLOGY_INSTANCE_PATH:
+            self._verify_ontology_instance_path(
                 node,
                 arguments=arguments,
                 nodes_by_id=nodes_by_id,
@@ -423,6 +433,73 @@ class OntologyQueryPlanVerifier:
                     "typed path repetition requires a transitive self-composable LinkType"
                 )
             current_type = step.selector.name
+
+    def _verify_ontology_instance_path(
+        self,
+        node: OntologyQueryNode,
+        *,
+        arguments: Mapping[str, Any],
+        nodes_by_id: Mapping[str, OntologyQueryNode],
+        descriptors: Mapping[tuple[str, str], Mapping[str, Any]],
+    ) -> None:
+        definition = OntologyInstancePathDefinition.model_validate(arguments)
+        if ("object", definition.root_selector.name) not in descriptors:
+            raise ValueError("ontology instance path root is absent from the manifest")
+        if len(node.depends_on) != len(definition.steps):
+            raise ValueError("ontology instance path requires one schema dependency per step")
+        current_type = definition.root_selector.name
+        for dependency_id, step in zip(node.depends_on, definition.steps, strict=True):
+            dependency = nodes_by_id[dependency_id]
+            function_arguments = dependency.arguments
+            query_arguments = function_arguments.get("arguments")
+            expected_pair = [current_type, step.selector.name]
+            if (
+                dependency.kind is not QueryNodeKind.FUNCTION
+                or dependency.output_kind != "ontology.relationships"
+                or function_arguments.get("function_name") != "query.ontology_relationships"
+                or not isinstance(query_arguments, Mapping)
+                or query_arguments.get("object_types") != expected_pair
+            ):
+                raise ValueError(
+                    "ontology instance path schema dependency MUST inspect its exact endpoint pair"
+                )
+            self._verify_path_step(
+                current_type=current_type,
+                step=step,
+                descriptors=descriptors,
+                error_prefix="ontology instance path",
+            )
+            current_type = step.selector.name
+
+    @staticmethod
+    def _verify_path_step(
+        *,
+        current_type: str,
+        step: Any,
+        descriptors: Mapping[tuple[str, str], Mapping[str, Any]],
+        error_prefix: str,
+    ) -> None:
+        if step.selector.kind is not ObjectSelectorKind.OBJECT_TYPE:
+            raise ValueError(f"{error_prefix} endpoint MUST select one ObjectType")
+        if ("object", step.selector.name) not in descriptors:
+            raise ValueError(f"{error_prefix} endpoint is absent from the manifest")
+        descriptor = descriptors.get(("link", step.link_type))
+        if descriptor is None:
+            raise ValueError(f"{error_prefix} LinkType is absent from the manifest")
+        expected_source = (
+            descriptor.get("from_type")
+            if step.direction == "outgoing"
+            else descriptor.get("to_type")
+        )
+        expected_target = (
+            descriptor.get("to_type")
+            if step.direction == "outgoing"
+            else descriptor.get("from_type")
+        )
+        if current_type != expected_source:
+            raise ValueError(f"{error_prefix} source endpoint type does not match")
+        if step.selector.name != expected_target:
+            raise ValueError(f"{error_prefix} target endpoint type does not match")
 
     def _verify_function(
         self,

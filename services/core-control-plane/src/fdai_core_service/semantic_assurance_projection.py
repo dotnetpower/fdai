@@ -16,9 +16,16 @@ from fdai_service_contracts import (
     SemanticAssurancePath,
     SemanticAssurancePathStep,
 )
-from fdai_service_contracts.ontology_query import SemanticOperation, content_digest
+from fdai_service_contracts.ontology_query import (
+    EvidenceAuthority,
+    SemanticOperation,
+    content_digest,
+)
 
-from .semantic_assurance_claims import project_function_claims
+from .semantic_assurance_claims import (
+    project_function_claims,
+    project_instance_path_claims,
+)
 
 _FUNCTION_CAPABILITY = {
     "query.incident_evidence": "incident_evidence",
@@ -174,6 +181,24 @@ def _plan_declarations(
                 object_types.update(
                     item for item in raw_object_types if isinstance(item, str) and item
                 )
+        if kind == "ontology_instance_path":
+            root_selector = arguments.get("root_selector")
+            root_type = root_selector.get("name") if isinstance(root_selector, Mapping) else None
+            if isinstance(root_type, str) and root_type:
+                object_types.add(root_type)
+            steps = arguments.get("steps")
+            if isinstance(steps, list):
+                for step in steps:
+                    if not isinstance(step, Mapping):
+                        continue
+                    selector = step.get("selector")
+                    target_type = selector.get("name") if isinstance(selector, Mapping) else None
+                    link_type = step.get("link_type")
+                    if isinstance(target_type, str) and target_type:
+                        object_types.add(target_type)
+                    if isinstance(link_type, str) and link_type:
+                        link_types.add(link_type)
+            capabilities.update(("object_set", "ontology_relationships"))
     frame = getattr(result.planning, "frame", None)
     output_shape = getattr(frame, "output_shape", None)
     if isinstance(output_shape, str) and output_shape in _OUTPUT_CAPABILITY:
@@ -199,7 +224,33 @@ def _ontology_paths(result: RuntimeSemanticTurnResult) -> tuple[SemanticAssuranc
     source_types: dict[str, str] = {}
     for node in getattr(plan, "nodes", ()):
         node_id = getattr(node, "node_id", None)
+        kind = getattr(getattr(node, "kind", None), "value", None)
         arguments = _arguments(node)
+        if kind == "ontology_instance_path":
+            root_selector = arguments.get("root_selector")
+            current_type = root_selector.get("name") if isinstance(root_selector, Mapping) else None
+            raw_steps = arguments.get("steps")
+            steps: list[tuple[str, str, str, str]] = []
+            if isinstance(current_type, str) and isinstance(raw_steps, list):
+                for raw_step in raw_steps:
+                    if not isinstance(raw_step, Mapping):
+                        steps = []
+                        break
+                    selector = raw_step.get("selector")
+                    target_type = selector.get("name") if isinstance(selector, Mapping) else None
+                    link_type = raw_step.get("link_type")
+                    direction = raw_step.get("direction")
+                    if (
+                        not isinstance(target_type, str)
+                        or not isinstance(link_type, str)
+                        or direction not in {"incoming", "outgoing"}
+                    ):
+                        steps = []
+                        break
+                    steps.append((current_type, link_type, cast(str, direction), target_type))
+                    current_type = target_type
+            if steps:
+                _add_path(paths, tuple(steps))
         target_type = _selector_type(arguments)
         if isinstance(node_id, str) and target_type is not None:
             source_types[node_id] = target_type
@@ -328,6 +379,7 @@ def _semantic_output_metadata(
         for node in getattr(plan, "nodes", ())
         if isinstance(node_id := getattr(node, "node_id", None), str)
     }
+    instance_path_proved = False
     for node_id, node_result in execution.results.items():
         value = node_result.value
         node = nodes_by_id.get(node_id)
@@ -338,6 +390,29 @@ def _semantic_output_metadata(
             facts.update(projected.fact_kinds)
             limitations.update(projected.limitation_kinds)
             claims.update(projected.claim_kinds)
+        kind = getattr(getattr(node, "kind", None), "value", None)
+        if (
+            kind == "ontology_instance_path"
+            and getattr(node_result, "authority", None)
+            is EvidenceAuthority.SERVER_ONTOLOGY_INSTANCE_PATH
+            and getattr(node_result, "authority_inputs", ())
+            == (
+                EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+                EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
+            )
+            and any(
+                evidence_ref.startswith("ontology-instance-path:")
+                for evidence_ref in node_result.evidence_refs
+            )
+        ):
+            projected = project_instance_path_claims(value)
+            facts.update(projected.fact_kinds)
+            limitations.update(projected.limitation_kinds)
+            claims.update(projected.claim_kinds)
+            instance_path_proved = bool(projected.fact_kinds)
+    if instance_path_proved:
+        limitations.discard("catalog_relationships_do_not_prove_current_mapping")
+        claims.discard("catalog_relationships_do_not_prove_current_mapping")
     return tuple(sorted(facts)), tuple(sorted(limitations)), tuple(sorted(claims))
 
 
@@ -392,6 +467,8 @@ def _selector_type(arguments: Mapping[str, Any]) -> str | None:
     selector = definition.get("selector") if isinstance(definition, Mapping) else None
     if not isinstance(selector, Mapping):
         selector = arguments.get("selector")
+    if not isinstance(selector, Mapping):
+        selector = arguments.get("root_selector")
     name = selector.get("name") if isinstance(selector, Mapping) else None
     return name if isinstance(name, str) and name else None
 

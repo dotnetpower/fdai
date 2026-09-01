@@ -43,6 +43,7 @@ class QueryNodeKind(StrEnum):
     OBJECT_SET = "object_set"
     RELATIONSHIP_TRAVERSAL = "relationship_traversal"
     TYPED_PATH = "typed_path"
+    ONTOLOGY_INSTANCE_PATH = "ontology_instance_path"
     UNION = "union"
     INTERSECTION = "intersection"
     SUBTRACTION = "subtraction"
@@ -92,6 +93,7 @@ class EvidenceAuthority(StrEnum):
     SERVER_INVENTORY_GRAPH = "server_inventory_graph"
     SERVER_METERING = "server_metering"
     SERVER_ONTOLOGY_MANIFEST = "server_ontology_manifest"
+    SERVER_ONTOLOGY_INSTANCE_PATH = "server_ontology_instance_path"
     SERVER_ONTOLOGY_QUERY = "server_ontology_query"
     SERVER_OPERATIONAL_METRICS = "server_operational_metrics"
     SERVER_SUBSCRIPTION_HEALTH = "server_subscription_health"
@@ -318,6 +320,7 @@ class GoalTaskReceipt(QueryContract):
     blocked_by: tuple[Annotated[str, Field(pattern=_ID_PATTERN)], ...] = ()
     evidence_refs: tuple[Annotated[str, Field(min_length=1, max_length=512)], ...] = ()
     authority: EvidenceAuthority | None = None
+    authority_inputs: tuple[EvidenceAuthority, ...] = ()
     started_at: datetime
     completed_at: datetime
 
@@ -334,6 +337,19 @@ class GoalTaskReceipt(QueryContract):
         ):
             raise ValueError(
                 "task receipt authority requires completed evidence references on the same receipt"
+            )
+        expected_inputs = (
+            EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+            EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
+        )
+        if self.authority is EvidenceAuthority.SERVER_ONTOLOGY_INSTANCE_PATH:
+            if self.authority_inputs != expected_inputs:
+                raise ValueError(
+                    "ontology instance path authority requires exact inventory and manifest inputs"
+                )
+        elif self.authority_inputs:
+            raise ValueError(
+                "non-composite task receipt authority MUST NOT declare authority inputs"
             )
         return self
 

@@ -16,7 +16,10 @@ from fdai_service_contracts.ontology_query import (
 )
 
 from fdai.core.conversation.semantic_judgment import SemanticJudgmentBoundary
-from fdai.core.conversation.semantic_manifest import CatalogQueryManifestProvider
+from fdai.core.conversation.semantic_manifest import (
+    CatalogQueryManifestProvider,
+    semantic_principal_scope_digest,
+)
 from fdai.core.conversation.semantic_planning import SemanticPlanningService
 from fdai.core.conversation.semantic_planning_models import (
     CompleteManifestSelector,
@@ -45,6 +48,7 @@ from fdai.core.ontology_platform import (
     ProjectNodeHandler,
     QueryManifest,
     SecuredObjectSetNodeHandler,
+    SecuredOntologyInstancePathNodeHandler,
     SecuredRelationshipTraversalNodeHandler,
     SecuredTypedPathNodeHandler,
     SetOperationNodeHandler,
@@ -617,6 +621,7 @@ def build_semantic_query_runtime(
         extension_schemas.update(METRIC_ARGUMENT_SCHEMAS)
     available_kinds = (
         QueryNodeKind.OBJECT_SET,
+        QueryNodeKind.ONTOLOGY_INSTANCE_PATH,
         QueryNodeKind.RELATIONSHIP_TRAVERSAL,
         QueryNodeKind.TYPED_PATH,
         QueryNodeKind.FUNCTION,
@@ -674,6 +679,15 @@ def build_semantic_query_runtime(
                     receipt_authority=receipt_authority,
                     decision_evidence=decision_evidence_admission_provider,
                     graph_refresher=graph_refresher,
+                ),
+                QueryNodeKind.ONTOLOGY_INSTANCE_PATH: SecuredOntologyInstancePathNodeHandler(
+                    gateway,
+                    caller_role=role,
+                    purposes=(purpose,),
+                    principal_scope_digest=semantic_principal_scope_digest(
+                        principal=principal,
+                        purpose=purpose,
+                    ),
                 ),
                 QueryNodeKind.RELATIONSHIP_TRAVERSAL: SecuredRelationshipTraversalNodeHandler(
                     gateway,

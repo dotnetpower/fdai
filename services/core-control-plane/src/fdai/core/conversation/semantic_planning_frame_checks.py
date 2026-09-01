@@ -252,19 +252,6 @@ def deterministic_pre_frame_outcome(
             frame=service_frame,
             clarification=service_proposal.clarification,
         )
-    service_agent_ownership = _build_service_agent_ownership_frame(
-        judgment,
-        utterance=utterance,
-        context=context,
-        descriptors=descriptors,
-    )
-    if service_agent_ownership is not None:
-        return _outcome(
-            SemanticPlanningDisposition.UNAVAILABLE,
-            "semantic_service_agent_ownership_composite_authority_unavailable",
-            manifest_digest=manifest_digest,
-            frame=service_agent_ownership,
-        )
     business_capability_mapping = _build_business_capability_mapping_frame(
         judgment,
         utterance=utterance,
@@ -379,11 +366,14 @@ def deterministic_pre_frame_selection(
 ) -> tuple[SemanticFrameProposal, Any, VerifiedInvestigationIntent | None] | None:
     """Build accepted typed relationship frames before model frame proposal."""
 
-    frame = _build_ontology_trace_frame(
-        judgment,
-        utterance=utterance,
-        context=context,
-    )
+    frame = _build_ontology_trace_frame(judgment, utterance=utterance, context=context)
+    if frame is None:
+        frame = _build_service_agent_ownership_frame(
+            judgment,
+            utterance=utterance,
+            context=context,
+            descriptors=descriptors,
+        )
     if frame is None or judgment is None:
         return None
     proposal = SemanticFrameProposal(

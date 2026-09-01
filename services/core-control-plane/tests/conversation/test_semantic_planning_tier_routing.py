@@ -8859,7 +8859,7 @@ def test_service_agent_ownership_requires_complete_exact_typed_structure(
     )
 
 
-def test_service_agent_ownership_holds_before_mixed_authority_execution() -> None:
+def test_service_agent_ownership_builds_composite_instance_path_plan() -> None:
     utterance = "Inspect Agent Resource Workload ownership for BusinessService."
 
     class _OwnershipJudgmentModel:
@@ -8950,8 +8950,8 @@ def test_service_agent_ownership_holds_before_mixed_authority_execution() -> Non
 
     outcome = _run(service, utterance=utterance)
 
-    assert outcome.disposition is SemanticPlanningDisposition.UNAVAILABLE
-    assert outcome.reason == ("semantic_service_agent_ownership_composite_authority_unavailable")
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.reason == "semantic_plan_verified"
     assert outcome.frame is not None
     assert outcome.frame.subject_constraints == (
         "Agent",
@@ -8960,7 +8960,36 @@ def test_service_agent_ownership_holds_before_mixed_authority_execution() -> Non
         "Workload",
     )
     assert outcome.frame.temporal_scope == {"kind": "current"}
-    assert outcome.plan is None
+    assert outcome.plan is not None
+    assert tuple(node.kind for node in outcome.plan.nodes) == (
+        QueryNodeKind.FUNCTION,
+        QueryNodeKind.FUNCTION,
+        QueryNodeKind.FUNCTION,
+        QueryNodeKind.ONTOLOGY_INSTANCE_PATH,
+    )
+    path = outcome.plan.nodes[-1]
+    assert path.depends_on == (
+        "ownership-schema-1",
+        "ownership-schema-2",
+        "ownership-schema-3",
+    )
+    assert path.arguments["root_selector"] == {
+        "kind": "object_type",
+        "name": "BusinessService",
+    }
+    assert [
+        (
+            step["link_type"],
+            step["direction"],
+            step["selector"]["name"],
+        )
+        for step in path.arguments["steps"]
+    ] == [
+        ("implemented_by", "outgoing", "Workload"),
+        ("workload_runs_on", "outgoing", "Resource"),
+        ("owns", "incoming", "Agent"),
+    ]
+    assert outcome.plan.output_node_ids == ("service-agent-paths",)
     assert outcome.execution_authority is False
     assert (model.frame_calls, model.plan_calls) == (0, 0)
 

@@ -26,6 +26,7 @@ from fdai.core.ontology_platform import (
     QueryNodeResult,
     QueryRow,
     QueryTable,
+    SecuredOntologyInstancePathNodeHandler,
     SecuredRelationshipTraversalNodeHandler,
     SecuredTypedPathNodeHandler,
     TopologyDiff,
@@ -34,6 +35,9 @@ from fdai.core.ontology_platform import (
 )
 from fdai.core.ontology_platform.metric_semantics import MetricAggregation
 from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
+from fdai.core.ontology_platform.relationship_queries import (
+    ontology_relationships_function_type,
+)
 from fdai.shared.contracts.models import (
     CeilingRole,
     LinkCardinality,
@@ -49,6 +53,7 @@ from fdai.shared.providers.ontology_instance import (
 )
 from fdai.shared.providers.testing.ontology_instance import InMemoryOntologyInstanceStore
 from fdai_service_contracts.ontology_query import (
+    EvidenceAuthority,
     OntologyQueryNode,
     OntologyQueryPlan,
     QueryNodeKind,
@@ -283,6 +288,64 @@ def test_verifier_accepts_an_ordered_typed_path() -> None:
 
     verified = OntologyQueryPlanVerifier(
         available_kinds=(QueryNodeKind.OBJECT_SET, QueryNodeKind.TYPED_PATH)
+    ).verify(plan, manifest=manifest)
+
+    assert verified is plan
+
+
+def test_verifier_accepts_instance_path_with_exact_schema_dependencies() -> None:
+    service, resource, dependency = _catalog()
+    relationship_function = ontology_relationships_function_type()
+    release = build_ontology_release(
+        object_types=(service, resource),
+        link_types=(dependency,),
+        function_types=(relationship_function,),
+    )
+    manifest = build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest=DIGEST,
+        object_types=(service, resource),
+        link_types=(dependency,),
+        functions=(relationship_function,),
+        bound_function_names=(relationship_function.name,),
+    )
+    schema = _node(
+        "schema",
+        QueryNodeKind.FUNCTION,
+        arguments={
+            "function_name": relationship_function.name,
+            "arguments": {
+                "object_types": ["BusinessService", "Resource"],
+                "limit": 100,
+            },
+            "dependency_arguments": {},
+        },
+        output_kind="ontology.relationships",
+    )
+    path = _node(
+        "instance-path",
+        QueryNodeKind.ONTOLOGY_INSTANCE_PATH,
+        dependencies=("schema",),
+        arguments={
+            "root_selector": {"kind": "object_type", "name": "BusinessService"},
+            "steps": [
+                {
+                    "link_type": dependency.name,
+                    "direction": "outgoing",
+                    "selector": {"kind": "object_type", "name": "Resource"},
+                }
+            ],
+            "as_of": NOW.isoformat(),
+            "purpose": "operations-review",
+            "limit": 50,
+        },
+    )
+    plan = _plan((schema, path), manifest=manifest)
+
+    verified = OntologyQueryPlanVerifier(
+        available_kinds=(QueryNodeKind.FUNCTION, QueryNodeKind.ONTOLOGY_INSTANCE_PATH)
     ).verify(plan, manifest=manifest)
 
     assert verified is plan
@@ -572,6 +635,185 @@ async def test_secured_typed_path_executes_each_link_in_order() -> None:
     assert tuple(row.row_id for row in result.value.rows) == ("resource:vm",)
     assert result.evidence_refs[0] == "entity:a"
     assert len(result.evidence_refs) == 5
+
+
+async def test_secured_instance_path_preserves_multi_root_service_ownership_lineage() -> None:
+    service, resource, _dependency = _catalog()
+    workload = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Workload",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    agent = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Agent",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    links = (
+        OntologyLinkType(
+            schema_version="1.0.0",
+            name="implemented_by",
+            version="1.0.0",
+            from_type="BusinessService",
+            to_type="Workload",
+            cardinality=LinkCardinality.ONE_TO_MANY,
+        ),
+        OntologyLinkType(
+            schema_version="1.0.0",
+            name="workload_runs_on",
+            version="1.0.0",
+            from_type="Workload",
+            to_type="Resource",
+            cardinality=LinkCardinality.MANY_TO_MANY,
+        ),
+        OntologyLinkType(
+            schema_version="1.0.0",
+            name="owns",
+            version="1.0.0",
+            from_type="Agent",
+            to_type="Resource",
+            cardinality=LinkCardinality.MANY_TO_MANY,
+        ),
+    )
+    object_types = (service, workload, resource, agent)
+    release = build_ontology_release(object_types=object_types, link_types=links)
+    store = InMemoryOntologyInstanceStore(
+        object_types=object_types,
+        link_types=links,
+        source_generation="generation-1",
+    )
+    for prefix in ("a", "b"):
+        for record in (
+            OntologyObjectRecord(
+                id=f"service:{prefix}",
+                object_type="BusinessService",
+                properties={"id": f"service:{prefix}", "name": f"Service {prefix}"},
+            ),
+            OntologyObjectRecord(
+                id=f"workload:{prefix}",
+                object_type="Workload",
+                properties={"id": f"workload:{prefix}"},
+            ),
+            OntologyObjectRecord(
+                id=f"resource:{prefix}",
+                object_type="Resource",
+                properties={"id": f"resource:{prefix}"},
+            ),
+            OntologyObjectRecord(
+                id=f"agent:{prefix}",
+                object_type="Agent",
+                properties={"id": f"agent:{prefix}"},
+            ),
+        ):
+            await store.upsert_object(record)
+        await store.upsert_link(
+            OntologyLinkRecord("implemented_by", f"service:{prefix}", f"workload:{prefix}")
+        )
+        await store.upsert_link(
+            OntologyLinkRecord("workload_runs_on", f"workload:{prefix}", f"resource:{prefix}")
+        )
+        await store.upsert_link(OntologyLinkRecord("owns", f"agent:{prefix}", f"resource:{prefix}"))
+    gateway = SecuredObjectSetQueryGateway(
+        service=ObjectSetService(
+            store=store,
+            interfaces=compile_interfaces(
+                interfaces=(),
+                implementations=(),
+                object_types=object_types,
+                release=release,
+            ),
+            object_type_names=frozenset(item.name for item in object_types),
+        ),
+        object_types={item.name: item for item in object_types},
+        ontology_release=release,
+        evaluation_cutoff=lambda: NOW,
+    )
+    handler = SecuredOntologyInstancePathNodeHandler(
+        gateway,
+        caller_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest=DIGEST,
+    )
+    schema_values = (
+        ("BusinessService", "implemented_by", "Workload"),
+        ("Workload", "workload_runs_on", "Resource"),
+        ("Agent", "owns", "Resource"),
+    )
+    dependencies = {
+        f"schema-{index}": QueryNodeResult(
+            value={
+                "object_types": [source, target],
+                "relationships": [
+                    {
+                        "link_type": link_type,
+                        "from_type": source,
+                        "to_type": target,
+                    }
+                ],
+                "complete": True,
+                "authority": "ontology_release",
+                "ontology_release_digest": release.digest,
+                "execution_authority": False,
+            },
+            evidence_refs=(f"schema:{index}",),
+            authority=EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
+        )
+        for index, (source, link_type, target) in enumerate(schema_values, start=1)
+    }
+    node = _node(
+        "service-agent-paths",
+        QueryNodeKind.ONTOLOGY_INSTANCE_PATH,
+        dependencies=("schema-1", "schema-2", "schema-3"),
+        arguments={
+            "root_selector": {"kind": "object_type", "name": "BusinessService"},
+            "steps": [
+                {
+                    "link_type": "implemented_by",
+                    "direction": "outgoing",
+                    "selector": {"kind": "object_type", "name": "Workload"},
+                },
+                {
+                    "link_type": "workload_runs_on",
+                    "direction": "outgoing",
+                    "selector": {"kind": "object_type", "name": "Resource"},
+                },
+                {
+                    "link_type": "owns",
+                    "direction": "incoming",
+                    "selector": {"kind": "object_type", "name": "Agent"},
+                },
+            ],
+            "as_of": NOW.isoformat(),
+            "purpose": "operations-review",
+            "limit": 50,
+        },
+    )
+
+    result = await handler(node, dependencies)
+
+    assert result.authority is EvidenceAuthority.SERVER_ONTOLOGY_INSTANCE_PATH
+    assert result.authority_inputs == (
+        EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+        EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
+    )
+    assert isinstance(result.value, QueryTable)
+    assert [
+        (
+            row.values["root_id"],
+            row.values["step_1_id"],
+            row.values["step_2_id"],
+            row.values["step_3_id"],
+        )
+        for row in result.value.rows
+    ] == [
+        ("service:a", "workload:a", "resource:a", "agent:a"),
+        ("service:b", "workload:b", "resource:b", "agent:b"),
+    ]
+    assert any(ref.startswith("ontology-instance-path:") for ref in result.evidence_refs)
 
 
 async def test_secured_typed_path_does_not_return_an_unreached_same_type_root() -> None:

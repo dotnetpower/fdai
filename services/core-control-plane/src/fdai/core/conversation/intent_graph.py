@@ -136,10 +136,13 @@ def build_intent_graph_evidence(
 def resolve_execution_authority(
     execution: QueryPlanExecution,
 ) -> tuple[EvidenceAuthority | None, Literal["verified", "missing", "conflict"]]:
+    output_task_ids = {f"query:{node_id}" for node_id in execution.output_node_ids}
     evidence_receipts = tuple(
         receipt
         for receipt in execution.receipts
-        if receipt.status is TaskStatus.COMPLETED and receipt.evidence_refs
+        if receipt.task_id in output_task_ids
+        and receipt.status is TaskStatus.COMPLETED
+        and receipt.evidence_refs
     )
     if not evidence_receipts or any(receipt.authority is None for receipt in evidence_receipts):
         return None, "missing"

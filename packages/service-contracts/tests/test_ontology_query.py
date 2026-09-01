@@ -188,6 +188,38 @@ def test_intent_graph_and_task_receipt_preserve_dependencies_and_times() -> None
         )
 
 
+def test_composite_instance_path_authority_requires_exact_read_inputs() -> None:
+    receipt = GoalTaskReceipt(
+        task_id="request-1:service-agent-path",
+        goal_id="service-agent-path",
+        intent="ontology_instance_path",
+        capability="query.ontology_instance_path",
+        evidence_mode=GoalEvidenceMode.OPERATIONAL,
+        status=TaskStatus.COMPLETED,
+        duration_ms=10,
+        evidence_refs=("ontology-instance-path:proof",),
+        authority=EvidenceAuthority.SERVER_ONTOLOGY_INSTANCE_PATH,
+        authority_inputs=(
+            EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+            EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
+        ),
+        started_at=NOW,
+        completed_at=NOW + timedelta(milliseconds=10),
+    )
+
+    assert receipt.authority_inputs == (
+        EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+        EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
+    )
+    with pytest.raises(ValidationError, match="exact inventory and manifest inputs"):
+        GoalTaskReceipt.model_validate(
+            {
+                **receipt.model_dump(),
+                "authority_inputs": [EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST],
+            }
+        )
+
+
 def test_structural_coverage_receipt_requires_accounted_declarations() -> None:
     payload = {
         "schema_version": "1.0.0",

@@ -149,6 +149,7 @@ def secured_query_scope_digest(receipt: SecuredObjectSetQueryReceipt) -> str:
         {
             "caller_role": receipt.caller_role.value,
             "ontology_release": receipt.ontology_release.model_dump(mode="json"),
+            "principal_scope_digest": receipt.principal_scope_digest,
             "purpose": receipt.purpose,
             "source_generation": receipt.source_generation,
         }

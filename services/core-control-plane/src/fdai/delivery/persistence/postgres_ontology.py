@@ -638,68 +638,120 @@ class PostgresOntologyInstanceStore:
             raise ValueError("direction MUST be outgoing, incoming, or both")
         async with await self._connect() as connection:
             await self._set_timeout(connection)
-            roots = await self._load_objects(connection, identifiers=tuple(root_ids))
-            allowed_root_types = set(root_object_types)
-            ordered_root_ids = tuple(
-                dict.fromkeys(
-                    root_id
-                    for root_id in root_ids
-                    if root_id in roots
-                    and (not allowed_root_types or roots[root_id].object_type in allowed_root_types)
-                )
-            )
-            allowed_root_ids = ordered_root_ids[:limit]
-            visited = set(allowed_root_ids)
-            frontier: set[tuple[str, str | None]] = {
-                (root_id, None) for root_id in allowed_root_ids
-            }
-            expanded: set[tuple[str, str | None]] = set()
-            selected_links: dict[tuple[str, str, str], OntologyLinkRecord] = {}
-            truncated = len(ordered_root_ids) > limit
-            for _ in range(max_depth):
-                states = frontier - expanded
-                if not states:
-                    break
-                expanded.update(states)
-                frontier_ids = {object_id for object_id, _ in states}
-                edges = await self._adjacent_links(
-                    connection,
-                    frontier=frontier_ids,
-                    link_types=link_types,
-                    direction=direction,
-                    limit=limit + 1,
-                )
-                next_states: set[tuple[str, str]] = set()
-                for object_id, previous_link_type in sorted(states):
-                    for edge in edges:
-                        next_id = _next_endpoint(edge, object_id=object_id, direction=direction)
-                        if next_id is None:
-                            continue
-                        declaration = self._link_types[edge.link_type]
-                        if not can_repeat_link(previous_link_type, declaration):
-                            continue
-                        selected_links[(edge.from_id, edge.link_type, edge.to_id)] = edge
-                        next_states.add((next_id, edge.link_type))
-                room = limit - len(visited)
-                new_ids = sorted({object_id for object_id, _ in next_states} - visited)
-                allowed_new_ids = set(new_ids[:room])
-                if len(new_ids) > room:
-                    truncated = True
-                visited.update(allowed_new_ids)
-                frontier = {
-                    state
-                    for state in next_states
-                    if state[0] in visited or state[0] in allowed_new_ids
-                }
-                if len(edges) > limit or truncated:
-                    truncated = True
-                    break
-            objects_by_id = await self._load_objects(connection, identifiers=tuple(sorted(visited)))
-            source_complete, source_generation = await _resource_graph_source_coverage(
+            return await self._traverse_snapshot(
                 connection,
-                tuple(objects_by_id.values()),
-                requires_resource_coverage="Resource" in root_object_types,
+                root_ids=root_ids,
+                root_object_types=root_object_types,
+                link_types=link_types,
+                direction=direction,
+                max_depth=max_depth,
+                limit=limit,
             )
+
+    async def traverse_from_type(
+        self,
+        *,
+        root_object_type: str,
+        link_types: Sequence[str] = (),
+        direction: OntologyDirection = "outgoing",
+        max_depth: int = 1,
+        limit: int = 500,
+    ) -> OntologyGraphSnapshot:
+        _validate_limit(limit)
+        if not root_object_type.strip():
+            raise ValueError("root_object_type MUST be non-empty")
+        if not 1 <= max_depth <= 5:
+            raise ValueError("max_depth MUST be in [1, 5]")
+        if direction not in {"outgoing", "incoming", "both"}:
+            raise ValueError("direction MUST be outgoing, incoming, or both")
+        async with await self._connect() as connection:
+            await self._set_timeout(connection)
+            cursor = await connection.execute(
+                "SELECT id FROM ontology_resource WHERE object_type=%s ORDER BY id LIMIT %s",
+                (root_object_type, limit + 1),
+            )
+            selected = tuple(str(row["id"]) for row in await cursor.fetchall())
+            return await self._traverse_snapshot(
+                connection,
+                root_ids=selected[:limit],
+                root_object_types=(root_object_type,),
+                link_types=link_types,
+                direction=direction,
+                max_depth=max_depth,
+                limit=limit,
+                initially_truncated=len(selected) > limit,
+            )
+
+    async def _traverse_snapshot(
+        self,
+        connection: psycopg.AsyncConnection[dict[str, Any]],
+        *,
+        root_ids: Sequence[str],
+        root_object_types: Sequence[str],
+        link_types: Sequence[str],
+        direction: OntologyDirection,
+        max_depth: int,
+        limit: int,
+        initially_truncated: bool = False,
+    ) -> OntologyGraphSnapshot:
+        roots = await self._load_objects(connection, identifiers=tuple(root_ids))
+        allowed_root_types = set(root_object_types)
+        ordered_root_ids = tuple(
+            dict.fromkeys(
+                root_id
+                for root_id in root_ids
+                if root_id in roots
+                and (not allowed_root_types or roots[root_id].object_type in allowed_root_types)
+            )
+        )
+        allowed_root_ids = ordered_root_ids[:limit]
+        visited = set(allowed_root_ids)
+        frontier: set[tuple[str, str | None]] = {(root_id, None) for root_id in allowed_root_ids}
+        expanded: set[tuple[str, str | None]] = set()
+        selected_links: dict[tuple[str, str, str], OntologyLinkRecord] = {}
+        truncated = initially_truncated or len(ordered_root_ids) > limit
+        for _ in range(max_depth):
+            states = frontier - expanded
+            if not states:
+                break
+            expanded.update(states)
+            frontier_ids = {object_id for object_id, _ in states}
+            edges = await self._adjacent_links(
+                connection,
+                frontier=frontier_ids,
+                link_types=link_types,
+                direction=direction,
+                limit=limit + 1,
+            )
+            next_states: set[tuple[str, str]] = set()
+            for object_id, previous_link_type in sorted(states):
+                for edge in edges:
+                    next_id = _next_endpoint(edge, object_id=object_id, direction=direction)
+                    if next_id is None:
+                        continue
+                    declaration = self._link_types[edge.link_type]
+                    if not can_repeat_link(previous_link_type, declaration):
+                        continue
+                    selected_links[(edge.from_id, edge.link_type, edge.to_id)] = edge
+                    next_states.add((next_id, edge.link_type))
+            room = limit - len(visited)
+            new_ids = sorted({object_id for object_id, _ in next_states} - visited)
+            allowed_new_ids = set(new_ids[:room])
+            if len(new_ids) > room:
+                truncated = True
+            visited.update(allowed_new_ids)
+            frontier = {
+                state for state in next_states if state[0] in visited or state[0] in allowed_new_ids
+            }
+            if len(edges) > limit or truncated:
+                truncated = True
+                break
+        objects_by_id = await self._load_objects(connection, identifiers=tuple(sorted(visited)))
+        source_complete, source_generation = await _resource_graph_source_coverage(
+            connection,
+            tuple(objects_by_id.values()),
+            requires_resource_coverage="Resource" in root_object_types,
+        )
         links = tuple(
             sorted(
                 (
