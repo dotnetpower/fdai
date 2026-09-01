@@ -2413,6 +2413,65 @@ def test_reviewed_mapping_projects_container_app_environment_dependency() -> Non
     )
 
 
+def test_open_tag_values_ignore_non_arm_relationship_candidates() -> None:
+    from pathlib import Path
+
+    from fdai.delivery.azure.arg_projection import (
+        arm_id_to_type,
+        build_arm_to_neutral_map,
+        to_neutral_id,
+    )
+    from fdai.delivery.azure.arg_relationships import project_provider_relationships
+    from fdai.rule_catalog.schema.provider_relationship_mapping import (
+        load_provider_relationship_mapping_catalog,
+    )
+
+    catalog = load_provider_relationship_mapping_catalog(
+        Path("rule-catalog/vocabulary/provider-relationship-mappings")
+    )
+    reverse = build_arm_to_neutral_map(_vocab())
+    function_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/Microsoft.Web/sites/function-example"
+    )
+    insights_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/Microsoft.Insights/components/insights-example"
+    )
+    owner = ResourceRecord(
+        resource_id=to_neutral_id(function_id),
+        type="compute.function",
+        provider_ref=function_id,
+    )
+
+    result = project_provider_relationships(
+        {
+            "id": function_id,
+            "type": "Microsoft.Web/sites",
+            "tags": {
+                "environment": "example",
+                "hidden-link:/app-insights-resource-id": insights_id,
+            },
+        },
+        owner=owner,
+        arm_to_neutral=reverse,
+        catalog=catalog,
+        arm_id_to_type=arm_id_to_type,
+        to_neutral_id=to_neutral_id,
+    )
+
+    dependencies = [
+        link
+        for link in result.links
+        if link.mapping_evidence is not None
+        and link.mapping_evidence.mapping_id == "azure.function-depends-on-application-insights"
+    ]
+    assert result.dropped == ()
+    assert [(link.from_id, link.to_id) for link in dependencies] == [
+        (owner.resource_id, to_neutral_id(insights_id))
+    ]
+
+
 def test_reviewed_mapping_reads_user_assigned_identity_map_keys() -> None:
     from pathlib import Path
 
