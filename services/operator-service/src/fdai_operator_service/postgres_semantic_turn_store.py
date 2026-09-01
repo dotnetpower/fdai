@@ -352,26 +352,42 @@ class PostgresSemanticTurnRepository:
         _bounded_component("session_id", session_id)
         rows = await self._fetch_all(
             """
-            SELECT result.value -> 'data' -> 'payload' -> 'investigation_continuation'
+            WITH result_candidates AS MATERIALIZED (
+                SELECT result.key,
+                       result.updated_at,
+                       result.value ->> 'request_id' AS request_id,
+                       result.value -> 'data' -> 'payload' -> 'investigation_continuation'
+                           AS continuation,
+                       result.value -> 'data' -> 'semantic_result' ->> 'session_id'
+                           AS source_session_id,
+                       result.value -> 'data' -> 'semantic_result' ->> 'turn_id'
+                           AS source_turn_id,
+                       (result.value -> 'data' -> 'semantic_result' ->> 'turn_sequence')::integer
+                           AS source_turn_sequence
+                  FROM state_kv AS result
+                 WHERE result.key LIKE %(result_prefix)s
+                   AND result.value ->> 'kind' = 'operator.semantic_result'
+                   AND result.value -> 'data' -> 'semantic_result' ->> 'session_id'
+                       = %(session_id)s
+                   AND result.value -> 'data' -> 'payload' ? 'investigation_continuation'
+            ),
+            principal_requests AS MATERIALIZED (
+                SELECT request.value ->> 'request_id' AS request_id
+                  FROM state_kv AS request
+                 WHERE request.key LIKE %(request_prefix)s
+                   AND request.value ->> 'kind' = 'operator.semantic_turn'
+                   AND COALESCE(request.value ->> 'outbox_namespace', '')
+                       = %(outbox_namespace)s
+                   AND request.value ->> 'principal_id' = %(principal_id)s
+            )
+            SELECT result.continuation
                        AS continuation,
-                   result.value -> 'data' -> 'semantic_result' ->> 'session_id'
-                       AS source_session_id,
-                   result.value -> 'data' -> 'semantic_result' ->> 'turn_id'
-                       AS source_turn_id,
-                   (result.value -> 'data' -> 'semantic_result' ->> 'turn_sequence')::integer
-                       AS source_turn_sequence
-              FROM state_kv AS result
-              JOIN state_kv AS request
-                ON request.value ->> 'request_id' = result.value ->> 'request_id'
-             WHERE result.key LIKE %(result_prefix)s
-               AND result.value ->> 'kind' = 'operator.semantic_result'
-               AND request.key LIKE %(request_prefix)s
-               AND request.value ->> 'kind' = 'operator.semantic_turn'
-               AND COALESCE(request.value ->> 'outbox_namespace', '') = %(outbox_namespace)s
-               AND request.value ->> 'principal_id' = %(principal_id)s
-               AND result.value -> 'data' -> 'semantic_result' ->> 'session_id' = %(session_id)s
-               AND result.value -> 'data' -> 'payload' ? 'investigation_continuation'
-                         ORDER BY result.updated_at DESC, result.key DESC
+                   result.source_session_id,
+                   result.source_turn_id,
+                   result.source_turn_sequence
+              FROM result_candidates AS result
+              JOIN principal_requests AS request USING (request_id)
+             ORDER BY result.updated_at DESC, result.key DESC
              LIMIT 1
             """,
             {

@@ -366,6 +366,11 @@ receipt, and evidence references. The SDK rejects semantic downgrade to N-1 inst
 those fields. Runtime publication and consumption remain service-owned implementations, and the
 Operator bridge supervises distinct terminal-projection and progress topics.
 
+Operator continuation lookup materializes result candidates for the exact session and request
+candidates for the exact outbox namespace and principal before joining them by `request_id`. The
+bounded candidate sets preserve lineage checks without expanding the PostgreSQL join across
+unrelated `state_kv` rows.
+
 Semantic-turn requests also preserve a typed screen or resource-group selection with an opaque
 server-issued token. Operator resolves the token against the authenticated principal, ordinary
 lowercase role scope, purpose, exact release, source generation, completeness, and id set, then

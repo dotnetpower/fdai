@@ -27,6 +27,19 @@ repo_root="$(git rev-parse --show-toplevel)"
 compose_dir="${repo_root}/infra/local"
 cd "${compose_dir}"
 
+reconcile_redpanda_community_config() {
+  if ! docker exec fdai-redpanda \
+    rpk cluster config set partition_autobalancing_mode node_add; then
+    echo "dev-up: failed to disable licensed continuous partition balancing" >&2
+    return 1
+  fi
+  if ! docker exec fdai-redpanda \
+    rpk cluster config set core_balancing_continuous false; then
+    echo "dev-up: failed to disable licensed continuous core balancing" >&2
+    return 1
+  fi
+}
+
 if [[ ! -f .env ]]; then
   cp .env.example .env
   echo "dev-up: seeded infra/local/.env from .env.example"
@@ -34,6 +47,7 @@ fi
 
 echo "dev-up: bringing up postgres + redpanda + clamav..."
 docker compose up -d --wait
+reconcile_redpanda_community_config
 
 echo
 echo "dev-up: OK"

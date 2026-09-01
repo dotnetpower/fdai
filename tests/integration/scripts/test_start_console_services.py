@@ -556,3 +556,45 @@ exit 1
 
     assert result.returncode == 1
     assert "Docker daemon is unavailable" in result.stderr
+
+
+def test_dev_up_disables_licensed_redpanda_balancing(tmp_path: Path) -> None:
+    result = _run_dev_up_with_fake_docker(
+        tmp_path,
+        """#!/usr/bin/env bash
+set -euo pipefail
+case "$*" in
+  "compose version"|"info") exit 0 ;;
+  "compose up -d --wait") printf 'compose-ready\\n' ;;
+  "exec fdai-redpanda rpk cluster config set partition_autobalancing_mode node_add")
+    printf 'partition-balancing-disabled\\n'
+    ;;
+  "exec fdai-redpanda rpk cluster config set core_balancing_continuous false")
+    printf 'core-balancing-disabled\\n'
+    ;;
+  *) printf 'unexpected docker call: %s\\n' "$*" >&2; exit 99 ;;
+esac
+""",
+    )
+
+    assert result.returncode == 0
+    assert "partition-balancing-disabled" in result.stdout
+    assert "core-balancing-disabled" in result.stdout
+    assert "dev-up: OK" in result.stdout
+
+
+def test_dev_up_reports_redpanda_reconciliation_failure(tmp_path: Path) -> None:
+    result = _run_dev_up_with_fake_docker(
+        tmp_path,
+        """#!/usr/bin/env bash
+set -euo pipefail
+case "$*" in
+  "compose version"|"info"|"compose up -d --wait") exit 0 ;;
+  "exec fdai-redpanda rpk cluster config set partition_autobalancing_mode node_add") exit 7 ;;
+  *) printf 'unexpected docker call: %s\\n' "$*" >&2; exit 99 ;;
+esac
+""",
+    )
+
+    assert result.returncode == 1
+    assert result.stderr == "dev-up: failed to disable licensed continuous partition balancing\n"

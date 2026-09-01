@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 9b66c6c0c7b763f8d979dd18eb908df665b8613e
-translation_revised: 2026-09-01
+translation_source_sha: 8d419246b5c4a94337e03986233cb1c96d5548e4
+translation_revised: 2026-09-02
 ---
 # 코드 맵
 
@@ -354,6 +354,11 @@ pin합니다. Answered 결과에는 exact release, 매니페스트, 계획, 실�
 필요합니다. SDK는 해당 필드를 폐기하는 대신 의미 downgrade to N-1을 거부합니다. 런타임
 게시와 consumption은 service-owned 구현으로 유지되며, Operator bridge는 서로 다른 최종
 projection topic과 progress topic을 감독합니다.
+
+Operator continuation 조회는 `request_id`로 결합하기 전에 결과 후보를 정확한 세션으로,
+요청 후보를 정확한 outbox namespace와 principal로 제한하여 materialize합니다. 범위가 제한된
+후보 집합은 lineage 검사를 유지하면서 PostgreSQL 조인이 관련 없는 `state_kv` 행으로 확장되지
+않게 합니다.
 
 Semantic-turn 요청은 opaque server-issued token과 함께 타입이 지정된 화면 또는 리소스 그룹
 선택을 보존합니다. Operator는 Core가 `query.contextual_resources`를 위해 정확한

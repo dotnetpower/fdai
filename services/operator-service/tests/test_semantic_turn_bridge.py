@@ -787,6 +787,8 @@ async def test_postgres_continuation_lookup_is_principal_session_and_sequence_sc
     statement = cast(str, captured["statement"])
     assert "request.value ->> 'principal_id'" in statement
     assert "result.updated_at DESC" in statement
+    assert "result_candidates AS MATERIALIZED" in statement
+    assert "principal_requests AS MATERIALIZED" in statement
 
 
 async def test_postgres_continuation_lookup_rejects_mismatched_result_lineage() -> None:
