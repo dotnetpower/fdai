@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: c5e4f2e18a3d154985a443c75fb54b80ab9b059b
+translation_source_sha: c7deac1287c7260220178597f0e5dad610a37ea8
 translation_revised: 2026-09-01
 ---
 
@@ -560,6 +560,25 @@ Exit criteria: 출처별 검토된 기준선 구간과 최소 샘플 하한을 �
 라벨을 사용하며 경보 fire/복구를 연습합니다. Optimization은 같은 시나리오 집합에서 먼저 shadow로
 실행하고 대상 메트릭이 개선되면서 denial escape, 중복 애플리케이션, 롤백,
 unavailable-source 비율이 악화되지 않을 때만 진행합니다.
+
+## 설정 및 컴포넌트 표현 경계
+
+Console 설정 경로와 정적 디자인 시안은 Calm Slate 컨트롤 토큰과 표현 프리미티브를 공유합니다.
+데스크톱 폼 컨트롤은 34px 표준 높이와 28px 간소 작업 높이를 사용합니다. 터치 레이아웃은 44px
+대상을 사용합니다. 설정 화면은 브라우저 로컬 환경 설정, 계정 환경 설정, 배포 정책, 근거 및 권한
+경계를 시각적으로 구분하지만 영속성 또는 권한 부여 계약은 변경하지 않습니다.
+
+`/settings/iam`은 경로가 소유하는 이중 언어 메시지와 반응형 스타일을 사용합니다. 검증된 FDAI
+Owner 역할과 테넌트 관리자를 구분하고, 요청, 검토, 보호된 적용, 새 검증을 별도 단계로 표시하며,
+운영 할당 검토를 Agent oversight에 연결합니다. Console과 Operator API의 점진적 업그레이드
+중에는 안전한 역할 및 기능 사실을 유지하고 누락된 디렉터리 메타데이터는 알 수 없음으로 표시합니다.
+IAM 응답 디코더는 초기 Console 번들을 늘리지 않고 첫 IAM 요청과 함께 로드됩니다.
+
+정적 컴포넌트 갤러리는 `mocks/ui/assets/component-registry.json`에서 문서화된 컴포넌트 계약을
+읽습니다. 범위가 제한된 각 카테고리 화면은 시안을 먼저 표시한 뒤 소유자, 원본, 상태, 사용 지침,
+반응형 동작, 접근성 계약 및 제품 참조를 제공합니다. 레지스트리가 없거나 잘못되면 시안을 정규
+컴포넌트로 추론하지 않고 문서화 상태를 차단합니다. 갤러리는 합성 표현 근거로 유지되며 Console,
+Operator API 또는 실행기 권한을 부여하지 않습니다.
 
 ## 채택하지 않은 대안
 

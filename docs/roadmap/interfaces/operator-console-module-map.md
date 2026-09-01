@@ -627,35 +627,6 @@ same-tenant account selection by opening the Entra account picker without a logi
 redirect returns through normal token acquisition and IAM authorization before the shell renders.
 The component does not switch directories, grant capabilities, or receive provider credentials.
 
-## Settings and component presentation boundary
-
-The Console settings routes and static design mocks share the Calm Slate control tokens and
-presentation primitives. Desktop form controls use a compact 34 px standard height and 28 px
-compact action height. Touch layouts use 44 px targets. Settings keep browser-local preferences,
-account preferences, deployment policy, evidence, and authority boundaries visually distinct
-without changing their persistence or authorization contracts.
-
-`/settings/iam` uses route-owned bilingual messages and responsive styles. It distinguishes the
-verified FDAI Owner role from tenant administration, presents request, review, protected apply,
-and fresh verification as separate stages, and links operational assignment review to Agent
-oversight. Rolling Console and Operator API upgrades preserve safe role and capability facts while
-marking missing directory metadata as unknown. IAM response decoders load with the first IAM
-request instead of increasing the initial Console bundle.
-
-`console/src/components/account-menu.tsx` owns the signed-in account presentation in the header.
-It displays the MSAL name and username, reads FDAI roles only from the server-verified
-`GET /iam/self` projection, and links to the existing IAM route. `console/src/auth.ts` owns
-same-tenant account selection by opening the Entra account picker without a login hint. The
-redirect returns through normal token acquisition and IAM authorization before the shell renders.
-The component does not switch directories, grant capabilities, or receive provider credentials.
-
-The static component gallery reads its documented component contracts from
-`mocks/ui/assets/component-registry.json`. Each bounded category view presents the specimen before
-its owner, source, states, usage guidance, responsive behavior, accessibility contract, and product
-references. A missing or invalid registry blocks documented status instead of inferring that a
-specimen is canonical. The gallery remains synthetic presentation evidence and grants no Console,
-Operator API, or executor authority.
-
 ## Boundary invariant
 
 `core/conversation/` imports protocols only. Azure SDK, HTTP, Bot Framework, and provider calls live
@@ -666,6 +637,6 @@ under `delivery/`. Conversation presentation never becomes execution authority.
 | To learn about | Read |
 |----------------|------|
 | Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/interfaces/operator-console-module-map.md) |
-| Console framing, tools, RBAC, and safety | [Operator Console](operator-console.md) |
+| Console framing, settings, operations, RBAC, and safety | [Operator Console](operator-console.md) and [Console Operations](console-operations.md) |
 | Runtime model and DI seams | [Operator Console runtime model](operator-console-runtime-model.md) |
 | Durable channel delivery | [Durable conversation delivery](durable-conversation-delivery.md) |

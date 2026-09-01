@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 0d721b6dc5226cd79072ced6e6ecc75f269dea20
+translation_source_sha: 17dd027906587576674c5acb20888dd9a999130e
 translation_revised: 2026-09-01
 ---
 # 콘솔 근거 및 복원력
@@ -402,11 +402,6 @@ Reader-gated `/ontology/graph` 변환 결과는 스키마 버전, 변환 결과 
 제공합니다. 배포 인스턴스 속성은 반환하지 않습니다. 런타임 객체와 상태 사실은 기준 시각,
 freshness, 완전성, 충돌, 잘림 및 근거 참조를 보존하는 별도 권한 확인 컨텍스트 스냅샷을
 통해서만 Console에 들어옵니다.
-WARA 컨트롤 변환 결과는 자문 카탈로그 데이터에 같은 출처 이력 규칙을 적용합니다. 각 상세
-보기는 고정된 APRL 출처와 선택적 Learn 페이지를 정확히 연결하고 버전, 리비전, 다이제스트,
-가져온 시각, 라이선스, 쿼리 다이제스트를 표시합니다. 표는 범위가 제한된 50개 행 페이지를
-요청하고 URL에 오프셋을 보존하며 지원하는 화면 크기에서 문서나 표가 넘치지 않도록 권고,
-매핑, 평가, 충족 상태, 출처 ID를 읽기 쉽게 유지합니다.
 일반 delegated 답변은 Bragi를 서술기로 유지하면서 검증된 specialist를 응답 소유자로
 표시합니다. Dedicated 대상 세션은 명시적 인계가 서술을 Bragi로 돌려보낼 때까지 해당
 specialist의 검증된 voice를 사용합니다.

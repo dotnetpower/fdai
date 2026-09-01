@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 9aea04fd00a92d19aad50e0bbcf8b63a5a4ab0cf
+translation_source_sha: c5c76c8b12aa8696899c37921aa613bfb206fb42
 translation_revised: 2026-09-01
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -622,32 +622,6 @@ typed-pipeline 결정을 변경하지 않습니다.
 돌아옵니다. 이 컴포넌트는 디렉터리를 전환하거나 기능을 부여하거나 프로바이더 자격 증명을 받지
 않습니다.
 
-## 설정 및 컴포넌트 표현 경계
-
-Console 설정 경로와 정적 디자인 시안은 Calm Slate 컨트롤 토큰과 표현 프리미티브를 공유합니다.
-데스크톱 폼 컨트롤은 34px 표준 높이와 28px 간소 작업 높이를 사용합니다. 터치 레이아웃은 44px
-대상을 사용합니다. 설정 화면은 브라우저 로컬 환경 설정, 계정 환경 설정, 배포 정책, 근거 및 권한
-경계를 시각적으로 구분하지만 영속성 또는 권한 부여 계약은 변경하지 않습니다.
-
-`/settings/iam`은 경로가 소유하는 이중 언어 메시지와 반응형 스타일을 사용합니다. 검증된 FDAI
-Owner 역할과 테넌트 관리자를 구분하고, 요청, 검토, 보호된 적용, 새 검증을 별도 단계로 표시하며,
-운영 할당 검토를 Agent oversight에 연결합니다. Console과 Operator API의 점진적 업그레이드
-중에는 안전한 역할 및 기능 사실을 유지하고 누락된 디렉터리 메타데이터는 알 수 없음으로 표시합니다.
-IAM 응답 디코더는 초기 Console 번들을 늘리지 않고 첫 IAM 요청과 함께 로드됩니다.
-
-`console/src/components/account-menu.tsx`는 헤더의 로그인 계정 표현을 소유합니다. MSAL 이름과
-사용자 이름을 표시하고 서버가 검증한 `GET /iam/self` 프로젝션에서만 FDAI 역할을 읽으며 기존 IAM
-경로로 연결합니다. `console/src/auth.ts`는 로그인 힌트 없이 Entra 계정 선택기를 열어 동일 테넌트
-계정 선택을 소유합니다. 리디렉션은 셸을 표시하기 전에 일반 토큰 획득 및 IAM 권한 확인 과정으로
-돌아옵니다. 이 컴포넌트는 디렉터리를 전환하거나 기능을 부여하거나 프로바이더 자격 증명을 받지
-않습니다.
-
-정적 컴포넌트 갤러리는 `mocks/ui/assets/component-registry.json`에서 문서화된 컴포넌트 계약을
-읽습니다. 범위가 제한된 각 카테고리 화면은 서술자보다 시안을 먼저 표시한 뒤 소유자, 원본, 상태,
-사용 지침, 반응형 동작, 접근성 계약 및 제품 참조를 제공합니다. 레지스트리가 없거나 잘못되면
-시안을 정규 컴포넌트로 추론하지 않고 문서화 상태를 차단합니다. 갤러리는 합성 표현 근거로
-유지되며 Console, Operator API 또는 실행기 권한을 부여하지 않습니다.
-
 ## 경계 불변식
 
 `core/conversation/`은 프로토콜만 가져옵니다. Azure SDK, HTTP, Bot Framework 및 프로바이더 호출은
@@ -658,6 +632,6 @@ IAM 응답 디코더는 초기 Console 번들을 늘리지 않고 첫 IAM 요청
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
 | 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/interfaces/operator-console-module-map.md) |
-| Console framing, 도구, RBAC 및 안전성 | [Operator Console](operator-console-ko.md) |
+| Console framing, 설정, 운영, RBAC 및 안전성 | [Operator Console](operator-console-ko.md)과 [Console 운영](console-operations-ko.md) |
 | 런타임 모델 및 DI 경계 | [Operator Console 런타임 모델](operator-console-runtime-model-ko.md) |
 | 영속 채널 전달 | [영속 대화 전달](durable-conversation-delivery-ko.md) |

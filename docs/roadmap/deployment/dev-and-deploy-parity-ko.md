@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: bbb17e2a0056d79dc5641b5679e4ff2a58b8fcc0
+translation_source_sha: aa44c9ff504a1bae37c9e4e19b9f9a07a4e58813
 translation_revised: 2026-09-01
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -10,13 +10,7 @@ translation_revised: 2026-09-01
 - **Full-stack 로컬 truth**: `Console Web: Full Stack`은 배포와 같은 App 역할 검사를 적용하는 브라우저 Entra sign-in을 사용합니다. 서버의 Azure CLI 세션은 Azure 개발 데이터 평면 프로바이더 자격 증명만 제공합니다. 인벤토리, 모델 가용성, 에이전트 활동, 프로세스 상태, 승격 근거, 감사 데이터는 권위 있는 프로바이더에서만 표시합니다. 출처가 없으면 사용 불가 또는 명시적 빈으로 표시하며 생성 예제로 대체하지 않습니다.
 - **Deploy truth**: `terraform apply` 가 CSP-neutral 컨트랙트의 Azure 측 실현체를 생성. **LLM 부분은 배포자-스코프**: 초기화 해석기가 배포자 아이덴티티를 대상 리전 카탈로그와 대조해 **배포자가 만들 권한이 있는 것만** 프로비저닝하고, resolved `{capability → deployment}` 매핑과 해석기 입력 출처 이력을 산출물에 기록합니다.
 모든 프로파일은 **하나의 컨트롤 경로**를 공유하며 composition-root 어댑터와 자격 증명만 다릅니다.
-([project-structure.md § Customization via 의존성 주입](../architecture/project-structure-ko.md#customization-via-dependency-injection)). 검토된 docstring은 기존 경계를 기록하며 별도 런타임을 만들거나 상태 소유권을 변경하거나 고정본을 허용하지 않습니다. 실제 Azure 클라이언트 추가는 fork-side 주입이며 `core/`를 편집하지 않습니다.
-
-Teams Workflows 엔드포인트 구성도 같은 동등성 규칙을 따릅니다. 로컬 Operator Service는 저장된
-URL을 도메인이 분리된 키 자료로 암호화하고 루프백 데이터베이스에는 암호문만 저장합니다. 배포
-환경은 단일 시크릿으로 범위가 제한된 전용 Managed Identity를 통해 버전이 지정된 Key Vault
-시크릿을 씁니다. 두 모드 모두 테스트 전에 저장된 버전을 확인하고 역할로 제한되는 같은 reveal
-응답을 사용합니다.
+([project-structure.md § Customization via 의존성 주입](../architecture/project-structure-ko.md#customization-via-dependency-injection)). 검토된 docstring은 기존 경계를 기록하며 별도 런타임을 만들거나 상태 소유권을 변경하거나 고정본을 허용하지 않습니다. 실제 Azure 클라이언트 추가는 fork-side 주입이며 `core/`를 편집하지 않습니다. Teams 엔드포인트 저장소는 [사용자 RBAC와 Entra ID](../interfaces/user-rbac-and-identity-ko.md#구현-상태)의 로컬 암호문 및 배포 Key Vault 계약을 따릅니다.
 ## 전수조사 - 로컬 동작 vs Azure 필요
 2026-07-21 기준. "자동화 테스트"는 테스트 실행기가 실행하는 pytest 또는 committed mock을
 뜻합니다. "Full-stack 로컬"은 운영자에 브라우저 Entra를 사용하고 서버 측 Azure 어댑터에
