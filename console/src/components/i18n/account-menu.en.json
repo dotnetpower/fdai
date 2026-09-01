@@ -1,0 +1,17 @@
+{
+  "actionFailed": "The account action could not start. Try again.",
+  "azureCli": "Azure CLI session",
+  "dialogLabel": "Account details",
+  "entra": "Microsoft Entra ID",
+  "localEntra": "Local Microsoft Entra ID",
+  "myAccess": "View my access",
+  "noRoles": "No FDAI role",
+  "open": "Open account menu for {username}",
+  "rolesUnavailable": "Verified roles unavailable",
+  "signedInAs": "Signed in as",
+  "signOut": "Sign out",
+  "signingOut": "Signing out...",
+  "switchAccount": "Sign in with a different account",
+  "switchingAccount": "Opening account picker...",
+  "verifiedRoles": "Verified FDAI roles"
+}

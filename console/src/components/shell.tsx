@@ -1,7 +1,9 @@
 import type { ComponentChildren } from "preact";
+import { lazy, Suspense } from "preact/compat";
 import { useEffect, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
+import type { IamSelfStatus } from "../routes/settings-iam.model";
 import { t } from "../i18n";
 import {
   acceptStoredConsolePreference,
@@ -17,17 +19,29 @@ import { AccessGrantAttention } from "./access-grant-attention";
 import { IncidentAttention } from "./incident-attention";
 import { NavigationShell } from "./navigation-shell";
 import { NavigationTitleProvider } from "./navigation-title";
-import { Tooltip } from "./tooltip";
+
+const AccountMenu = lazy(async () => {
+  const module = await import("./account-menu");
+  return { default: module.AccountMenu };
+});
 
 interface ShellProps {
   readonly activePanelId: string;
   readonly auth: AuthContext;
   readonly client: OperatorApiClient;
+  readonly iamSelf?: IamSelfStatus;
   readonly children: ComponentChildren;
   readonly onExitLocalSession?: () => void;
 }
 
-export function Shell({ activePanelId, auth, client, children, onExitLocalSession }: ShellProps) {
+export function Shell({
+  activePanelId,
+  auth,
+  client,
+  iamSelf,
+  children,
+  onExitLocalSession,
+}: ShellProps) {
   const [preferences, setPreferences] = useState<ConsolePreferences>(readConsolePreferences);
   const [navigationExplorerOpen, setNavigationExplorerOpen] = useState(false);
 
@@ -81,23 +95,17 @@ export function Shell({ activePanelId, auth, client, children, onExitLocalSessio
             client={client}
             principalId={auth.account?.homeAccountId ?? null}
           />
-          {auth.localAzureCli && auth.account ? (
-            <>
-              <Tooltip content={auth.account.username}>
-                <span class="principal-identity">{auth.account.username}</span>
-              </Tooltip>
-              <span class="badge">Azure CLI</span>
-            </>
-          ) : auth.devMode && auth.account ? (
-            <>
-              <Tooltip content={auth.account.username}>
-                <span class="principal-identity">{auth.account.username}</span>
-              </Tooltip>
-              <span class="badge">Local Entra</span>
-              <button type="button" onClick={() => { void auth.signOut(); }}>
-                {t("login.signOut")}
-              </button>
-            </>
+          {auth.account ? (
+            <Suspense fallback={(
+              <span class="account-menu-loading" role="status" aria-live="polite">
+                <span class="account-avatar account-avatar-small skeleton-shimmer" aria-hidden="true" />
+                <span class="sr-only">
+                  {t("shared.loadingResource", { resource: auth.account.username })}
+                </span>
+              </span>
+            )}>
+              <AccountMenu auth={auth} iamSelf={iamSelf} />
+            </Suspense>
           ) : auth.devMode ? (
             <>
               <span class="badge">{t("shell.devMode")}</span>
@@ -106,20 +114,6 @@ export function Shell({ activePanelId, auth, client, children, onExitLocalSessio
                   {t("login.exitLocalSession")}
                 </button>
               ) : null}
-            </>
-          ) : auth.account ? (
-            <>
-              <Tooltip content={auth.account.username}>
-                <span class="principal-identity">{auth.account.username}</span>
-              </Tooltip>
-              <button
-                type="button"
-                onClick={() => {
-                  void auth.signOut();
-                }}
-              >
-                {t("login.signOut")}
-              </button>
             </>
           ) : null}
         </div>

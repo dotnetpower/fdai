@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { initAuth } from "./auth";
+import { initAuth, interactiveLoginRequest } from "./auth";
 import type { ConsoleConfig } from "./config";
 
 function config(overrides: Partial<ConsoleConfig> = {}): ConsoleConfig {
@@ -58,6 +58,28 @@ describe("local Azure CLI auth", () => {
       "http://127.0.0.1:8000/local-auth/me",
       expect.objectContaining({ cache: "no-store" }),
     );
+  });
+
+  describe("interactive login request", () => {
+    test("uses the current username for ordinary authentication recovery", () => {
+      expect(interactiveLoginRequest("api://fdai/access", {
+        username: "operator@example.com",
+      })).toEqual({
+        scopes: ["api://fdai/access"],
+        loginHint: "operator@example.com",
+      });
+    });
+
+    test("opens the account picker without retaining the current login hint", () => {
+      expect(interactiveLoginRequest(
+        "api://fdai/access",
+        { username: "operator@example.com" },
+        { selectAccount: true },
+      )).toEqual({
+        scopes: ["api://fdai/access"],
+        prompt: "select_account",
+      });
+    });
   });
 
   test("rejects ambiguous anonymous and CLI modes", async () => {

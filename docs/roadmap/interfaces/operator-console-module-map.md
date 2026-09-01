@@ -618,6 +618,15 @@ Thor's identity and keep commands outside the SPA.
 [`tools/chat.py`](../../../tools/chat.py) is the headless JSONL development harness for the core
 coordinator, not a second policy implementation.
 
+## Account identity presentation boundary
+
+`console/src/components/account-menu.tsx` owns the signed-in account presentation in the header.
+It displays the MSAL name and username, reads FDAI roles only from the server-verified
+`GET /iam/self` projection, and links to the existing IAM route. `console/src/auth.ts` owns
+same-tenant account selection by opening the Entra account picker without a login hint. The
+redirect returns through normal token acquisition and IAM authorization before the shell renders.
+The component does not switch directories, grant capabilities, or receive provider credentials.
+
 ## Boundary invariant
 
 `core/conversation/` imports protocols only. Azure SDK, HTTP, Bot Framework, and provider calls live

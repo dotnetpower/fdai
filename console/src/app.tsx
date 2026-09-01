@@ -313,6 +313,7 @@ export function App() {
         activePanelId={panel.id}
         auth={auth}
         client={client}
+        {...(state.iamSelf ? { iamSelf: state.iamSelf } : {})}
         {...(
           auth.devMode
           && state.config?.localLoginPrompt

@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 4abd506e4c47631052d74c5372daec012f54b09e
+translation_source_sha: 9977ce2a4ed079ccfcf213a38d42200e57f62038
 translation_revised: 2026-09-01
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -612,6 +612,15 @@ typed-pipeline 결정을 변경하지 않습니다.
 
 [`tools/chat.py`](../../../tools/chat.py)는 코어 조정기용 headless JSONL 개발 실행 장치이며 별도
 정책 구현이 아닙니다.
+
+## 계정 신원 표현 경계
+
+`console/src/components/account-menu.tsx`는 헤더의 로그인 계정 표현을 소유합니다. MSAL 이름과
+사용자 이름을 표시하고 서버가 검증한 `GET /iam/self` 프로젝션에서만 FDAI 역할을 읽으며 기존 IAM
+경로로 연결합니다. `console/src/auth.ts`는 로그인 힌트 없이 Entra 계정 선택기를 열어 동일 테넌트
+계정 선택을 소유합니다. 리디렉션은 셸을 표시하기 전에 일반 토큰 획득 및 IAM 권한 확인 과정으로
+돌아옵니다. 이 컴포넌트는 디렉터리를 전환하거나 기능을 부여하거나 프로바이더 자격 증명을 받지
+않습니다.
 
 ## 경계 불변식
 

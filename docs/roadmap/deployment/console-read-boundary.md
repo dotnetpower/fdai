@@ -17,11 +17,13 @@ read-only, without giving the Operator API an executor identity.
 | Catalog-backed reference projections | validated | `test_materialize_authoritative_catalogs.py`; authenticated control, capability, promotion, workflow-app, and ownership loads | Reviewed ActionType, Workflow, control, capability, onboarding, scope, and ownership declarations reach revisioned read projections without creating runtime or action evidence. |
 | WARA shadow assessment projection | implemented | `fdai_operator_service/composition.py`; WARA projection and workflow-family tests | Local and deployed Operator composition reads the same pinned crosswalk, shadow topic, consumer group, and PostgreSQL projection. Provider observation stays unavailable until separately bound and never falls back to synthetic evidence. |
 | Unavailable-surface presentation | validated | Focused Operator and Console checks plus authenticated passes over the affected panels | Unserved routes retain server-owned reasons, and panels do not expose raw transport status or nonexistent configuration symbols. |
+| Account identity and same-tenant account selection | implemented | `console/src/components/account-menu.tsx`; `console/src/auth.ts`; focused Console account tests (`11 passed`), typecheck, and production build | The header panel displays MSAL identity and server-verified roles without adding authority. Interactive sessions can open the Entra account picker without a login hint and re-enter the existing startup authorization boundary. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-01 | implemented | Added an accessible header account panel with verified FDAI roles, IAM navigation, sign-out, and same-tenant Entra account selection. Hardened duplicate actions, initial bundle size, and mobile navigation overlap. | `current change`; `console/src/components/account-menu.tsx`; `console/src/components/account-menu.test.ts`; `console/src/auth.ts`; `console/src/auth.test.ts`; focused Console tests (`11 passed`), typecheck, and production build passed. | Directory switching remains unsupported by the single-tenant issuer contract. |
 | 2026-09-01 | implemented | Bound the read-only WARA inventory and optional assessment projection through the shared local and deployed Operator composition boundary. | `current change`; WARA projection, workflow-family, materializer, and Console model checks from the rebased implementation. | Retain a separately authorized multi-resource live-Azure shadow receipt before claiming runtime validation. |
 | 2026-08-27 | implemented | Connected catalog, audit, Process, delivery, forecast, memory, skill-source, assurance, readiness, and configuration-baseline status projections to the independent Operator Service. The Operator role receives only the table reads required by those projections. | `current change`; focused Operator tests, strict mypy, Ruff, independent-service checks, materializer checks, and an authenticated 53-route browser sweep. | Provisioning progress and live onboarding still depend on their external observation relays. Python task authoring still depends on its governed provider. |
 | 2026-08-18 | implemented | Declared `/kpi/promotion-gates` as an explicitly unavailable read source. The workflow family reads the `promotion-gate.list` projection, but nothing writes it, so the route answered `503` on every Overview and Control assurance load and the console kept requesting it. Declaring the absence lets the client short-circuit and lets the panel state a reason about itself. No gate value is synthesized in either direction. | `current change`; operator suite `406 passed, 1 skipped`; Ruff check and format clean. Measured: the local store holds `rule.list`, `workflow.action-type-list`, and `workflow.catalog` under `operator-projection:workflow:` and zero rows matching `promotion-gate`, and no writer for that key exists in the tree. Mutation-verified by emptying the declared routes, which fails both unavailable-source tests. | Remove the declaration if a promotion-gate producer is introduced. |
@@ -66,6 +68,12 @@ Cost Governance local review remains authenticated. The explicit
 review for a verified principal, but it does not bypass JWT validation, role checks, raw-identity
 suppression, package activation, or action authority. Only the Owner-gated Settings route can change
 the exact-revision enablement preference.
+
+The header account panel uses the MSAL display name and username for presentation and
+`GET /iam/self` for verified FDAI roles. Selecting another account starts the Entra account picker
+without a login hint. The redirect returns through normal startup, which acquires a token and
+rechecks `GET /iam/self` before rendering the operator shell. This flow stays within the configured
+tenant. Directory switching is not supported because the Console and API use one configured issuer.
 
 ## Workload evidence
 

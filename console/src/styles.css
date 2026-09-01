@@ -723,6 +723,8 @@ a:hover {
   padding: 0 16px;
   background: var(--bg-elevated);
   border-bottom: 1px solid var(--border);
+  position: relative;
+  z-index: 100;
 }
 
 .brand-lockup {
@@ -767,6 +769,214 @@ a:hover {
   white-space: nowrap;
 }
 .topbar .principal-identity { max-width: min(180px, 24vw); }
+
+.account-menu {
+  position: relative;
+  min-width: 0;
+}
+
+.account-menu-loading {
+  display: inline-flex;
+  align-items: center;
+  min-width: 40px;
+  min-height: 40px;
+  padding-inline: 6px;
+}
+
+.topbar .principal .account-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: min(260px, 31vw);
+  min-height: 40px;
+  padding: 4px 7px;
+  border-color: transparent;
+  border-radius: 6px;
+}
+
+.topbar .principal .account-menu-trigger:hover,
+.topbar .principal .account-menu-trigger[aria-expanded="true"] {
+  border-color: var(--border);
+  background: var(--bg-subtle);
+}
+
+.account-menu-trigger > svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+
+.account-trigger-copy {
+  display: grid;
+  min-width: 0;
+  text-align: left;
+  line-height: 1.25;
+}
+
+.account-trigger-copy strong,
+.account-trigger-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-trigger-copy strong {
+  color: var(--fg);
+  font-size: var(--cs-type-compact-size);
+  font-weight: 650;
+}
+
+.account-trigger-copy small {
+  color: var(--fg-muted);
+  font-size: var(--cs-type-caption-size);
+}
+
+.account-avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+  border: 1px solid color-mix(in oklab, var(--accent) 22%, var(--border));
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--accent) 9%, var(--bg-subtle));
+  color: var(--accent-strong);
+  font-size: var(--cs-type-panel-title-size);
+  font-weight: 700;
+}
+
+.account-avatar-small {
+  width: 28px;
+  height: 28px;
+  font-size: var(--cs-type-caption-size);
+}
+
+.account-menu-panel {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  width: min(340px, calc(100vw - 24px));
+  max-height: calc(100dvh - var(--header-height) - 12px);
+  overflow-y: auto;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  color: var(--fg);
+  box-shadow: 0 12px 32px rgba(15, 31, 46, 0.18);
+}
+
+.account-menu-heading {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+}
+
+.account-menu-heading > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.account-menu-heading span,
+.account-role-summary > span {
+  color: var(--fg-muted);
+  font-size: var(--cs-type-label-size);
+  font-weight: 650;
+}
+
+.account-menu-heading strong {
+  overflow-wrap: anywhere;
+  font-size: var(--cs-type-panel-title-size);
+}
+
+.account-menu-heading small {
+  overflow-wrap: anywhere;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-compact-size);
+}
+
+.account-role-summary {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 14px 0;
+  border-block: 1px solid var(--border);
+}
+
+.account-role-summary small {
+  color: var(--fg-muted);
+  font-size: var(--cs-type-compact-size);
+}
+
+.account-role-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.account-role-list > span {
+  padding: 3px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-subtle);
+  color: var(--fg);
+  font-size: var(--cs-type-caption-size);
+  font-weight: 650;
+}
+
+.account-menu-actions {
+  display: grid;
+  gap: 2px;
+  margin-top: 10px;
+}
+
+.topbar .principal .account-menu-actions a,
+.topbar .principal .account-menu-actions button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 40px;
+  margin: 0;
+  padding: 8px 9px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+}
+
+.topbar .principal .account-menu-actions a:hover,
+.topbar .principal .account-menu-actions button:hover {
+  background: var(--bg-subtle);
+  color: var(--fg);
+}
+
+.topbar .principal .account-menu-actions button:disabled {
+  cursor: wait;
+  opacity: 0.64;
+}
+
+.account-menu-error {
+  margin: 10px 0 0;
+  color: var(--danger);
+  font-size: var(--cs-type-compact-size);
+  line-height: 1.4;
+}
+
+.account-menu-trigger:focus-visible,
+.account-menu-actions a:focus-visible,
+.account-menu-actions button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 
 .topbar .principal button,
 .topbar .principal .theme-toggle {
@@ -1559,6 +1769,11 @@ body.deck-open { overflow: hidden; }
     font-size: 0.72rem;
   }
   .topbar .principal .badge { display: none; }
+  .account-trigger-copy { display: none; }
+  .topbar .principal .account-menu-trigger {
+    max-width: none;
+    padding-inline: 6px;
+  }
   .navigation-shell,
   .navigation-shell-pinned,
   .navigation-shell:not(.navigation-shell-open) {
@@ -11382,6 +11597,14 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
     min-width: 44px;
     justify-content: center;
     padding-inline: 8px;
+  }
+  .topbar .principal .account-menu-trigger { min-height: 44px; }
+  .account-menu-panel {
+    position: fixed;
+    top: calc(var(--header-height) + 6px);
+    right: 8px;
+    left: 8px;
+    width: auto;
   }
   .topbar-control-label { display: none; }
   .deck-invoke { left: var(--rail-width); }
