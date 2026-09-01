@@ -44,7 +44,10 @@ unchanged by the physical move.
 
 Service migration inventory tests verify that renamed partitions retain their creation lineage,
 use the effective table name at the current migration head, and that the legacy schema contract
-fingerprint reflects the post-rename table set and counts.
+fingerprint reflects the post-rename table set and counts. Cross-service database grants
+(e.g. Operator read access to Core-owned Cost Governance objects) live in downstream
+Operator-owned migrations, not in the Core branch, so that bootstrap ordering never requires a
+role created later in the sequence.
 Control-loop end-to-end tests count published actions and unresolved graph-derived blast-radius
 abstentions separately.
 

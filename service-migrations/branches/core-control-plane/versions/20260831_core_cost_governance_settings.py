@@ -50,9 +50,8 @@ def upgrade() -> None:
         CREATE INDEX cost_governance_analytics_scope_idx
             ON cost_governance_analytics_snapshot(scope_id, observed_at DESC);
         REVOKE ALL PRIVILEGES ON TABLE cost_governance_analytics_snapshot
-            FROM PUBLIC, fdai_core, fdai_operator;
+            FROM PUBLIC, fdai_core;
         GRANT SELECT, INSERT ON TABLE cost_governance_analytics_snapshot TO fdai_core;
-        GRANT SELECT ON TABLE cost_governance_analytics_snapshot TO fdai_operator;
 
         CREATE FUNCTION fdai_set_cost_governance_enabled(
             requested_package_id TEXT,
@@ -218,9 +217,6 @@ def upgrade() -> None:
         REVOKE ALL ON FUNCTION fdai_set_cost_governance_enabled(
             TEXT, TEXT, BOOLEAN, BIGINT, TEXT
         ) FROM PUBLIC;
-        GRANT EXECUTE ON FUNCTION fdai_set_cost_governance_enabled(
-            TEXT, TEXT, BOOLEAN, BIGINT, TEXT
-        ) TO fdai_operator;
         """
     )
 
@@ -230,13 +226,9 @@ def downgrade() -> None:
 
     op.execute(
         """
-        REVOKE EXECUTE ON FUNCTION fdai_set_cost_governance_enabled(
-            TEXT, TEXT, BOOLEAN, BIGINT, TEXT
-        ) FROM fdai_operator;
         DROP FUNCTION fdai_set_cost_governance_enabled(
             TEXT, TEXT, BOOLEAN, BIGINT, TEXT
         );
-        REVOKE SELECT ON TABLE cost_governance_analytics_snapshot FROM fdai_operator;
         REVOKE SELECT, INSERT ON TABLE cost_governance_analytics_snapshot FROM fdai_core;
         DROP TABLE cost_governance_analytics_snapshot;
         """

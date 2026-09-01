@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 526d2ed45acf4e29eb3062dccecc1c8de65bcfd4
+translation_source_sha: 88114d964cd581aabc4e93fe352ec131ea1bf968
 translation_revised: 2026-09-01
 ---
 # 코드 맵
@@ -47,7 +47,10 @@ Core 분포는 전체 `fdai` 이름 공간을 유지합니다. 내부 모듈 경
 
 서비스 마이그레이션 인벤토리 테스트는 이름이 변경된 파티션이 생성 계보를 유지하고 현재
 마이그레이션 헤드의 유효 테이블 이름을 사용하며, 레거시 스키마 계약 핑거프린트가
-이름 변경 후 테이블 집합과 카운트를 반영하는지 검증합니다.
+이름 변경 후 테이블 집합과 카운트를 반영하는지 검증합니다. 서비스 간 데이터베이스 부여
+(예: Operator의 Core 소유 Cost Governance 객체 읽기 접근)는 Core 브랜치가 아닌
+Operator 소유 다운스트림 마이그레이션에 위치하므로, 부트스트랩 순서에서 나중에 생성되는
+역할을 필요로 하지 않습니다.
 컨트롤 루프 엔드투엔드 테스트는 게시된 작업과 확인되지 않은 그래프 기반 영향 범위 판단
 보류를 별도로 계수합니다.
 

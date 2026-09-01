@@ -91,6 +91,17 @@
         "document_version.revision"
       ],
       "provider_rollback": "blocked-until-consumer-baseline"
+    },
+    {
+      "consumer_service": "operator-service",
+      "consumer_revision": "operator_cost_governance_settings_read_20260831",
+      "provider_service": "core-control-plane",
+      "provider_revision": "core_cost_governance_settings_20260831",
+      "schema_prerequisites": [
+        "cost_governance_analytics_snapshot",
+        "fdai_set_cost_governance_enabled"
+      ],
+      "provider_rollback": "blocked-until-operator-cost-settings-grant-rollback"
     }
   ],
   "legacy_inventory": {

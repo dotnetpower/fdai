@@ -1954,3 +1954,36 @@ def test_schema_contract_fingerprint_reflects_t2_cache_rename() -> None:
     assert contract["core-control-plane"].table_count == len(core_tables), (
         "contract table_count must match the owned table set derived from inventory"
     )
+
+
+def test_core_migrations_never_reference_operator_role() -> None:
+    """Regression: Core bootstraps before Operator; fdai_operator does not exist yet.
+
+    Core-owned migrations must not GRANT or REVOKE against fdai_operator.
+    Operator-owned downstream grant migrations handle cross-service privileges
+    after the Operator role is created.
+    """
+    core_versions = MIGRATION_ROOT / "branches" / "core-control-plane" / "versions"
+    for path in sorted(core_versions.glob("*.py")):
+        if path.name.startswith("__"):
+            continue
+        source = path.read_text(encoding="utf-8")
+        assert "fdai_operator" not in source, (
+            f"{path.name} references fdai_operator; "
+            "Core must not depend on the Operator role that is created later in bootstrap order"
+        )
+
+
+def test_operator_cost_governance_settings_grants_exist() -> None:
+    """The downstream Operator grant migration for Cost Governance settings must exist."""
+    path = (
+        MIGRATION_ROOT
+        / "branches"
+        / "operator-service"
+        / "versions"
+        / "20260831_operator_cost_governance_settings_read.py"
+    )
+    source = path.read_text(encoding="utf-8")
+    assert "cost_governance_analytics_snapshot" in source
+    assert "fdai_set_cost_governance_enabled" in source
+    assert 'migration_owner = "operator-service"' in source
