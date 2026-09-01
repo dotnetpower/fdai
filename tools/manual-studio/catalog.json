@@ -1,0 +1,213 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-01T12:09:00Z",
+  "minimumSlidesByLevel": {
+    "L100": 10,
+    "L200": 25,
+    "L300": 40,
+    "L400": 50
+  },
+  "journey": {
+    "id": "fdai-value-to-scale",
+    "title": "FDAI Value-to-Scale Journey",
+    "stages": [
+      {
+        "id": "understand-align",
+        "number": 1,
+        "title": "Discovery & Alignment",
+        "question": "현재 상태, 핵심 과제, 합의할 목표를 명확히 합니다.",
+        "differentiator": false
+      },
+      {
+        "id": "envision-prioritize",
+        "number": 2,
+        "title": "Vision & Value",
+        "question": "만들고자 하는 미래 가치와 시작 우선순위를 정합니다.",
+        "differentiator": false
+      },
+      {
+        "id": "architect-validate",
+        "number": 3,
+        "title": "Architecture & Validation",
+        "question": "목표 가치 실현을 위한 아키텍처와 구현 가능성을 검증합니다.",
+        "differentiator": true
+      },
+      {
+        "id": "activate-realize",
+        "number": 4,
+        "title": "Activation & Outcomes",
+        "question": "운영 환경에 적용하고 측정 가능한 성과를 입증합니다.",
+        "differentiator": false
+      },
+      {
+        "id": "scale-evolve",
+        "number": 5,
+        "title": "Scale & Evolution",
+        "question": "검증된 성과를 전사로 확장하고 지속적으로 발전시킵니다.",
+        "differentiator": false
+      }
+    ]
+  },
+  "manuals": [
+    {
+      "id": "executive-briefing",
+      "stageId": "understand-align",
+      "kind": "core",
+      "level": "L100",
+      "status": "complete",
+      "title": "FDAI Executive Briefing",
+      "eyebrow": "EXECUTIVE BRIEFING",
+      "description": "FDAI의 15개 에이전트, 운영 온톨로지, 소버린 경계, 결정론 우선 판단과 IaC 기반 도입 조건을 설명합니다.",
+      "createdAt": "2026-09-01",
+      "duration": "10분",
+      "slideCount": 10,
+      "coverImage": "assets/executive-briefing.jpeg",
+      "coverLabel": "VALUE TO SCALE",
+      "featured": true
+    },
+    {
+      "id": "readiness-maturity",
+      "stageId": "understand-align",
+      "kind": "deep-dive",
+      "level": "L200",
+      "status": "complete",
+      "title": "AI/Data Readiness & Maturity",
+      "eyebrow": "READINESS & MATURITY",
+      "description": "데이터, 운영 프로세스, 책임 체계의 현재 준비 수준과 우선 보완 영역을 정리합니다.",
+      "createdAt": "2026-09-01",
+      "duration": "35분",
+      "slideCount": 25,
+      "coverImage": "assets/readiness-maturity.jpeg",
+      "coverLabel": "READINESS",
+      "featured": false
+    },
+    {
+      "id": "art-of-possible",
+      "stageId": "envision-prioritize",
+      "kind": "core",
+      "level": "L100",
+      "status": "complete",
+      "title": "Art of the Possible",
+      "eyebrow": "FUTURE EXPERIENCE",
+      "description": "AI 에이전트가 바꿀 수 있는 운영 경험과 새로운 업무 방식을 구체적인 장면으로 탐색합니다.",
+      "createdAt": "2026-09-01",
+      "duration": "15분",
+      "slideCount": 10,
+      "coverImage": "assets/art-possible.jpeg",
+      "coverLabel": "POSSIBILITIES",
+      "featured": false
+    },
+    {
+      "id": "value-prioritization",
+      "stageId": "envision-prioritize",
+      "kind": "deep-dive",
+      "level": "L200",
+      "status": "complete",
+      "title": "Use Case & Value Prioritization",
+      "eyebrow": "VALUE PORTFOLIO",
+      "description": "후보 사용 사례를 가치, 실행 가능성, 위험, 근거 준비도에 따라 우선순위화합니다.",
+      "createdAt": "2026-09-01",
+      "duration": "35분",
+      "slideCount": 25,
+      "coverImage": "assets/value-prioritization.jpeg",
+      "coverLabel": "PRIORITIZE",
+      "featured": false
+    },
+    {
+      "id": "target-architecture",
+      "stageId": "architect-validate",
+      "kind": "core",
+      "level": "L200",
+      "status": "complete",
+      "title": "FDAI Target Architecture",
+      "eyebrow": "TARGET ARCHITECTURE",
+      "description": "운영 이벤트부터 독립 효과 검증까지 이어지는 구현 가능한 목표 아키텍처를 제시합니다.",
+      "createdAt": "2026-09-01",
+      "duration": "40분",
+      "slideCount": 25,
+      "coverImage": "assets/target-architecture.jpeg",
+      "coverLabel": "ARCHITECT",
+      "featured": false
+    },
+    {
+      "id": "ontology-foundation",
+      "stageId": "architect-validate",
+      "kind": "deep-dive",
+      "level": "L300",
+      "status": "complete",
+      "title": "Data & Ontology Foundation",
+      "eyebrow": "FDAI DIFFERENTIATOR",
+      "description": "기업의 데이터, 업무 개념, 관계를 AI가 이해하고 통제할 수 있는 비즈니스 의미 체계로 만듭니다.",
+      "createdAt": "2026-09-01",
+      "duration": "60분",
+      "slideCount": 40,
+      "coverImage": "assets/ontology-foundation.jpeg",
+      "coverLabel": "MEANING",
+      "featured": true
+    },
+    {
+      "id": "responsible-ai-security",
+      "stageId": "architect-validate",
+      "kind": "deep-dive",
+      "level": "L200",
+      "status": "complete",
+      "title": "Responsible AI & Security",
+      "eyebrow": "RESPONSIBLE AI",
+      "description": "신원 분리, 승인, 안전 계약, 감사, 복구를 통해 책임 있는 AI 운영 경계를 정의합니다.",
+      "createdAt": "2026-09-01",
+      "duration": "40분",
+      "slideCount": 25,
+      "coverImage": "assets/responsible-ai.jpeg",
+      "coverLabel": "GUARDRAILS",
+      "featured": false
+    },
+    {
+      "id": "pilot-production",
+      "stageId": "activate-realize",
+      "kind": "core",
+      "level": "L300",
+      "status": "complete",
+      "title": "Pilot-to-Production Playbook",
+      "eyebrow": "VALUE REALIZATION",
+      "description": "관찰 모드 파일럿에서 운영 적용과 측정 가능한 가치 실현까지의 전환 경로를 안내합니다.",
+      "createdAt": "2026-09-01",
+      "duration": "60분",
+      "slideCount": 40,
+      "coverImage": "assets/pilot-production.jpeg",
+      "coverLabel": "ACTIVATE",
+      "featured": false
+    },
+    {
+      "id": "ai-operating-model",
+      "stageId": "scale-evolve",
+      "kind": "core",
+      "level": "L300",
+      "status": "complete",
+      "title": "AI Operating Model",
+      "eyebrow": "OPERATING MODEL",
+      "description": "책임, 거버넌스, FinOps, LLMOps를 연결하는 지속 가능한 AI 운영 모델을 설계합니다.",
+      "createdAt": "2026-09-01",
+      "duration": "60분",
+      "slideCount": 40,
+      "coverImage": "assets/operating-model.jpeg",
+      "coverLabel": "OPERATE",
+      "featured": false
+    },
+    {
+      "id": "enterprise-scale-roadmap",
+      "stageId": "scale-evolve",
+      "kind": "deep-dive",
+      "level": "L400",
+      "status": "complete",
+      "title": "Enterprise Scale Roadmap",
+      "eyebrow": "ENTERPRISE SCALE",
+      "description": "조직, 플랫폼, 데이터, 통제 역량을 확장하는 단계별 전사 로드맵을 구성합니다.",
+      "createdAt": "2026-09-01",
+      "duration": "75분",
+      "slideCount": 50,
+      "coverImage": "assets/scale-roadmap.jpeg",
+      "coverLabel": "EVOLVE",
+      "featured": false
+    }
+  ]
+}

@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="FDAI Console 설명서 UI 시안">
+    <title>FDAI Manual Studio - Console preview</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="manual-decks.css">
+    <link rel="stylesheet" href="executive-deck.css">
+    <link rel="stylesheet" href="executive-story.css">
+  </head>
+  <body data-page="console">
+    <div class="prototype-shell">
+      <header class="topbar">
+        <a class="brand-lockup" href="/" aria-label="FDAI Console 홈">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <strong>FDAI</strong>
+          <span class="brand-separator" aria-hidden="true"></span>
+          <span>Console</span>
+        </a>
+        <div class="principal">
+          <button class="header-icon quiet-placeholder" type="button" aria-label="활성 인시던트">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 3.5 19h17L12 3Zm0 5v5m0 3.5v.5"/></svg>
+          </button>
+          <button class="header-icon quiet-placeholder" type="button" aria-label="액세스 요청">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a5 5 0 1 0 0 10 5 5 0 0 0 0-10Zm-8 18c.7-4 3.3-6 8-6s7.3 2 8 6"/></svg>
+          </button>
+          <button class="header-icon quiet-placeholder" type="button" aria-label="브라우저 알림">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0v5l2 3H4l2-3V9Zm4 11h4"/></svg>
+          </button>
+          <button
+            id="help-trigger"
+            class="header-icon help-trigger"
+            type="button"
+            aria-label="설명서 열기"
+            aria-controls="help-drawer"
+            aria-expanded="false"
+            title="설명서"
+          >?</button>
+          <button class="account-trigger" type="button" aria-label="계정 메뉴 열기">
+            <span class="avatar" aria-hidden="true">AK</span>
+            <span class="account-copy"><strong>Alex Kim</strong><small>alex@example.com</small></span>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="console-layout">
+        <nav class="activity-rail" aria-label="Console 탐색">
+          <button class="rail-button active" type="button" aria-label="개요">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4V4Zm10 0h6v6h-6V4ZM4 14h6v6H4v-6Zm10 0h6v6h-6v-6Z"/></svg>
+          </button>
+          <button class="rail-button" type="button" aria-label="운영">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18V9m6 9V5m6 13v-7m4 7H2"/></svg>
+          </button>
+          <button class="rail-button" type="button" aria-label="에이전트">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3m-6 5H3m18 0h-3M7 18h10v-7a5 5 0 0 0-10 0v7Zm3 0v3m4-3v3"/></svg>
+          </button>
+        </nav>
+
+        <main class="dashboard">
+          <div class="page-heading">
+            <div>
+              <span class="eyebrow">OPERATIONS OVERVIEW</span>
+              <h1>운영 개요</h1>
+              <p>현재 상태, 의사결정, 필요한 운영자 확인을 한 화면에서 살펴봅니다.</p>
+            </div>
+            <span class="prototype-badge">INTERACTIVE PROTOTYPE</span>
+          </div>
+          <section class="summary-grid" aria-label="운영 요약">
+            <article><span>Control posture</span><strong>정상</strong><small>마지막 검증 4분 전</small></article>
+            <article><span>Active incidents</span><strong>2</strong><small>사람 확인 1건</small></article>
+            <article><span>Change safety</span><strong>96%</strong><small>검증된 변경 기준</small></article>
+          </section>
+          <section class="dashboard-panel">
+            <div>
+              <span class="eyebrow">GET ORIENTED</span>
+              <h2>오른쪽 위의 ? 버튼을 선택해 보세요</h2>
+              <p>제품 설명서를 앨범처럼 탐색하고, 선택한 설명서를 HTML 슬라이드로 재생하는 흐름을 확인할 수 있습니다.</p>
+            </div>
+            <div class="mini-flow" aria-label="설명서 탐색 흐름">
+              <span>?</span><i></i><span>Library</span><i></i><span>Slides</span>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <button id="drawer-scrim" class="drawer-scrim" type="button" tabindex="-1" aria-label="설명서 닫기"></button>
+    <aside
+      id="help-drawer"
+      class="help-drawer"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="drawer-title"
+      aria-hidden="true"
+    >
+      <header class="drawer-header">
+        <div>
+          <span class="eyebrow">GUIDE LIBRARY</span>
+          <h2 id="drawer-title">설명서</h2>
+          <p>필요한 내용을 선택하면 슬라이드로 열립니다.</p>
+        </div>
+        <button id="drawer-close" class="icon-button" type="button" aria-label="설명서 닫기">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+        </button>
+      </header>
+      <div class="drawer-toolbar">
+        <span id="drawer-count">설명서 불러오는 중</span>
+        <a href="/library">전체 라이브러리</a>
+      </div>
+      <div id="drawer-library" class="album-grid drawer-albums" aria-live="polite"></div>
+      <footer class="drawer-footer">
+        <span>시안 데이터</span>
+        <span id="catalog-date"></span>
+      </footer>
+    </aside>
+
+    <dialog id="viewer" class="viewer" aria-labelledby="viewer-title">
+      <header class="viewer-toolbar">
+        <div class="viewer-identity">
+          <span class="eyebrow">MANUAL STUDIO</span>
+          <strong id="viewer-title">설명서</strong>
+        </div>
+        <div class="viewer-actions">
+          <button id="print-manual" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V3h10v6M7 18H4V10h16v8h-3m-10-4h10v7H7v-7Z"/></svg>
+            PDF
+          </button>
+          <button id="fullscreen-manual" type="button" aria-label="전체 화면으로 보기" aria-pressed="false" title="전체 화면으로 보기">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M8 21H3v-5m13 5h5v-5"/></svg>
+            <span>전체 화면</span>
+          </button>
+          <button id="viewer-close" class="icon-button" type="button" aria-label="슬라이드 닫기">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+          </button>
+        </div>
+      </header>
+      <div id="slide-stage" class="slide-stage"></div>
+      <footer class="viewer-footer">
+        <button id="previous-slide" type="button" aria-label="이전 슬라이드">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg>
+        </button>
+        <div class="viewer-progress">
+          <div><span id="progress-bar"></span></div>
+          <small id="progress-label">1 / 1</small>
+        </div>
+        <button id="next-slide" type="button" aria-label="다음 슬라이드">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
+        </button>
+      </footer>
+      <div id="slide-announcement" class="sr-only" role="status" aria-live="polite"></div>
+    </dialog>
+    <div id="app-error" class="app-error" role="alert" hidden></div>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

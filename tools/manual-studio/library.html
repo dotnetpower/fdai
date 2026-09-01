@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="FDAI 독립 설명서 라이브러리 UI 시안">
+    <title>FDAI Manual Studio - Library</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="manual-decks.css">
+    <link rel="stylesheet" href="executive-deck.css">
+    <link rel="stylesheet" href="executive-story.css">
+  </head>
+  <body class="coverflow-page" data-page="library">
+    <header class="library-topbar">
+      <a class="brand-lockup" href="/" aria-label="FDAI Manual Studio 홈">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <strong>FDAI</strong>
+        <span class="brand-separator" aria-hidden="true"></span>
+        <span>Manual Studio</span>
+      </a>
+      <span class="prototype-badge">VALUE-TO-SCALE JOURNEY</span>
+    </header>
+    <main class="library-page">
+      <header class="library-hero">
+        <span class="eyebrow">FDAI VALUE-TO-SCALE JOURNEY</span>
+        <h1>AI 전환 여정을 한 장씩 탐색하세요</h1>
+        <p>고객의 현재 이해에서 전사 확산까지, 필요한 대화와 산출물을 5단계 설명서로 연결합니다.</p>
+        <div class="library-meta"><span id="library-count">불러오는 중</span><span id="library-generated"></span></div>
+      </header>
+      <nav id="journey-stages" class="journey-stages" aria-label="Value-to-Scale 단계"></nav>
+      <section class="coverflow-section" aria-labelledby="active-stage-title">
+        <div class="coverflow-stage-copy">
+          <span id="active-stage-number"></span>
+          <div>
+            <span id="active-stage-badge" class="stage-badge" hidden>FDAI DIFFERENTIATOR</span>
+            <h2 id="active-stage-title"></h2>
+            <p id="active-stage-question"></p>
+          </div>
+        </div>
+        <div class="coverflow-shell">
+          <button id="previous-manual" class="coverflow-arrow" type="button" aria-label="이전 설명서">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg>
+          </button>
+          <div id="library-coverflow" class="coverflow" aria-live="polite"></div>
+          <button id="next-manual" class="coverflow-arrow" type="button" aria-label="다음 설명서">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="viewer" class="viewer" aria-labelledby="viewer-title">
+      <header class="viewer-toolbar">
+        <div class="viewer-identity">
+          <span class="eyebrow">MANUAL STUDIO</span>
+          <strong id="viewer-title">설명서</strong>
+        </div>
+        <div class="viewer-actions">
+          <button id="print-manual" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V3h10v6M7 18H4V10h16v8h-3m-10-4h10v7H7v-7Z"/></svg>
+            PDF
+          </button>
+          <button id="fullscreen-manual" type="button" aria-label="전체 화면으로 보기" aria-pressed="false" title="전체 화면으로 보기">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M8 21H3v-5m13 5h5v-5"/></svg>
+            <span>전체 화면</span>
+          </button>
+          <button id="viewer-close" class="icon-button" type="button" aria-label="슬라이드 닫기">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+          </button>
+        </div>
+      </header>
+      <div id="slide-stage" class="slide-stage"></div>
+      <footer class="viewer-footer">
+        <button id="previous-slide" type="button" aria-label="이전 슬라이드">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg>
+        </button>
+        <div class="viewer-progress">
+          <div><span id="progress-bar"></span></div>
+          <small id="progress-label">1 / 1</small>
+        </div>
+        <button id="next-slide" type="button" aria-label="다음 슬라이드">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
+        </button>
+      </footer>
+      <div id="slide-announcement" class="sr-only" role="status" aria-live="polite"></div>
+    </dialog>
+    <div id="app-error" class="app-error" role="alert" hidden></div>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
