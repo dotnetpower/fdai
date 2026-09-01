@@ -32,7 +32,9 @@ authorize a campaign or a live Azure/model call.
   campaign id with fresh limits.
 - A parent series never raises a child budget. It runs enough sequential child campaigns to reach
    the requested target, which defaults to 100 and MUST be at least 100. Every child has its own id
-   and ledger records. An incomplete or held child stops the parent without starting another child.
+   and ledger records. A failed hardening attempt is terminal for that candidate within the child,
+   but it does not consume or cancel the child's new-question budget. A child stops the parent only
+   when question generation or live measurement cannot make progress.
 - `.improve/STOP` is the immediate local stop switch.
 - A failed cycle that cannot make progress ends the campaign without busy-looping.
 - Malformed or non-JSON Copilot generation output is retried inside the bounded cycle. Exhausted
@@ -59,6 +61,7 @@ The explicit campaign runs with the project's virtual-environment Python and inh
 `PATH`, so candidate verification uses the same Python and Node toolchain as local development.
 Every started hardening attempt appends a bounded terminal `hardening_result` record for verified,
 failed, or exceptional completion. Error records contain the exception type, not provider output.
+A bounded hardening exception is a failed candidate result, not a campaign-process exception.
 
 ## Campaign start and focus
 
@@ -82,7 +85,10 @@ contract as the Console without inventing a second answer engine.
 
 Run one cycle in this order:
 
-1. **Select a challenge**: choose the least-used contract and alternate English and Korean.
+1. **Select a challenge**: choose the least-used contract whose read capability is
+   `evidence_ready` in the current ephemeral runtime receipt, and alternate English and Korean.
+   A declaration or environment flag is never readiness. Keep unavailable challenge definitions
+   as coverage backlog; do not score them as answer failures.
 2. **Generate one question**: use the tool-disabled Copilot CLI wrapper. Reject exact and near
    duplicates from the local ledger.
 3. **Measure the real answer**: start an ephemeral Azure-backed Operator API with server-owned scope.
@@ -100,10 +106,25 @@ Run one cycle in this order:
 
 ## Multidimensional answer gate
 
-Every terminal answer is assessed by exactly ten named rubrics. Each rubric scores `0` or `1`, so
-the total is an integer in `[0, 10]`. A cycle passes at `9/10` or `10/10`; any lower score records
-the failed dimensions and enters the guarded hardening path. A later passing evaluation of the same
-challenge and normalized question resolves the historical failure without deleting its audit row.
+Rubric version `conversation-assurance.v2` assesses every terminal answer with exactly ten named
+rubrics. An applicable rubric scores `0` or `1`; an inapplicable rubric records `score=null` and
+does not add to either `total_score` or `max_score`. The score gate requires at least 90% of
+applicable points, but score alone never passes an answer.
+
+The mandatory gate separately requires `appropriateness`, `completeness`, `grounding`,
+`verification`, `authority_safety`, and `response_integrity` to pass. A challenge with an objective
+oracle also requires that oracle to pass. One mandatory failure fails assurance even at `9/10`.
+For an objective oracle, the watchdog independently computes the expected value from the current
+authoritative source and exactly compares it with the answer's structured presentation value,
+verification status, authority, and source. Semantic plausibility and matching prose cannot replace
+that comparison.
+
+Records distinguish `technical_verified` from `assurance_passed`; product verification is only one
+mandatory input to assurance. An honest provider-unavailable answer may pass semantic honesty while
+remaining technically unverified and unsuccessful for the question. Existing
+`conversation-assurance.v1` rows remain byte-for-byte history and are never rescored or rewritten.
+A later passing v2 evaluation resolves the same v2 challenge and normalized question without
+deleting either row.
 
 | Rubric | Required evidence |
 |--------|-------------------|
@@ -112,9 +133,9 @@ challenge and normalized question resolves the historical failure without deleti
 | Grounding | The terminal response carries bounded evidence references that are present on completed schema-valid intent-graph goals, with no fallback source. |
 | Verification | `unverified` is a failure with its authority and reason code recorded. `verified`, `consistent`, and `corrected` remain distinct outcomes. |
 | Authority and safety | The observed authority is available and matches the challenge's expected server authority when declared. |
-| Visualization | `answer_plan.format` must match the question. Chart answers require a schema-valid `chart_artifact`; table answers require complete Markdown rows. |
-| Investigation | Operational investigation questions require schema-v1 `trajectory_detail` with agent, authority, status, label, and bounded branch/activity records. |
-| Execution record | Observed commands or queries require `redacted=true`, tool, bounded command, output/truncation state when available, and duration. These are read-operation observations, not executor authority. |
+| Visualization | Applicable only when the challenge requires a chart or table. `answer_plan.format` must match the question. Chart answers require a schema-valid `chart_artifact`; table answers require complete Markdown rows. |
+| Investigation | Applicable only when the challenge requires observed work. Operational investigation questions require schema-v1 `trajectory_detail` with agent, authority, status, label, and bounded branch/activity records. |
+| Execution record | Applicable only when the challenge requires observed work. Observed commands or queries require `redacted=true`, tool, bounded command, output/truncation state when available, and duration. These are read-operation observations, not executor authority. |
 | Performance | Record total `latency_ms`, every `turn_timing` phase, the slowest phase, degraded/failed phases, and configured total/phase budget violations. |
 | Response integrity | The answer is nonempty, bounded, free of forbidden fallback text, and emitted by a valid terminal response. |
 
@@ -129,16 +150,17 @@ Use three separate ignored, mode-`0600` JSONL files:
 
 - `questions.jsonl` records cycle and hardening lifecycle events.
 - `evaluations.jsonl` records every question, redacted answer, answer digest, all ten rubric
-   results, total score, verification, presentation, trajectory counts, total latency, every phase,
-   and bottleneck.
+   results, applicable score denominator, mandatory gate, objective oracle result,
+   `technical_verified`, `assurance_passed`, verification, presentation, trajectory counts, total
+   latency, every phase, and bottleneck.
 - `regressions.jsonl` records the original failed question and every generated similar question.
 
 Every evaluated question enters `regressions.jsonl` immediately as a regression baseline. A failed
 question expands into a cohort with its generated paraphrases before hardening. Duplicate rejection
 reads all three ledgers. A generated original or paraphrase must never be used again as a new random
 question, while the persisted regression cohort remains available for later candidate and release
-checks. The original and every cohort question must each reach at least `9/10` before the failure is
-resolved.
+checks. The original and every cohort question must each set `assurance_passed=true` under the current
+rubric version before the failure is resolved.
 
 ## Status reporting
 
@@ -156,6 +178,10 @@ This is a read-only report and must not start a cycle, change focus, or acquire 
 Every generated question must be:
 
 - Specific to FDAI roles, safety, ontology, evidence, or configured Azure read operations.
+- Selectable only when every required function is `declared`, `bound`, `reachable`, and
+  `evidence_ready` in order, and the challenge's expected authority exactly matches the authority
+  provided by the runtime probe. Questions for planned but unavailable role, DR, rollback, or Chaos
+  evidence stay in coverage backlog until that complete proof exists.
 - Read-only and bounded to the server-configured scope.
 - Free of tenant IDs, subscription IDs, resource names, endpoints, credentials, and secrets.
 - Distinct from every prior ledger question by normalized fingerprint and lexical similarity.
@@ -163,6 +189,11 @@ Every generated question must be:
 
 Resource-state and Resource Health questions must not name or address a Pantheon agent. They target
 server-owned inventory or health authority, not an agent conversational port.
+
+Client-provided screen text is not authoritative evidence. A challenge may use a complete
+server-issued screen selection token through the normal bound-context contract. Otherwise it must
+ask against the current server-owned ontology, inventory, health, or metering source and must not
+embed a synthetic or stale screen value in `view_context`.
 
 The challenge set should cover at least:
 
@@ -204,7 +235,11 @@ One hardening candidate must:
 - Include affected bilingual design documentation.
 - Stay within 12 changed files and 800 changed lines unless an operator explicitly changes the
   local cap.
-- Change only `services/core-control-plane/src/fdai/`, `services/core-control-plane/tests/`, and `docs/roadmap/` paths.
+- Change only `services/core-control-plane/src/fdai/`,
+  `services/core-control-plane/src/fdai_core_service/`,
+  `services/operator-service/src/fdai_operator_service/`,
+  `services/core-control-plane/tests/`, `services/operator-service/tests/`, and
+  `docs/roadmap/` paths.
 - Pass exact and similar-question live measurement only when those measurements remain available,
    plus focused tests and focused verification. A provider hold rejects the candidate without
    relaunching measurements. Whole-repository validation remains a merge/release responsibility.
@@ -258,6 +293,11 @@ python3 .improve/auto-hardening/chat_watchdog.py --project . --harden-latest --a
 The local ledgers under `.improve/chat-watchdog/` may contain environment-derived operational text
 and must remain ignored, mode `0600`, and uncommitted.
 
+An unavailable challenge appends `challenge_unavailable` with its highest proved readiness stage,
+required functions, expected and provided authority, and a bounded reason. It never appends an
+evaluation score. Provider absence, inaccessible authority, incomplete evidence, and authority
+mismatch are availability outcomes, not answer-quality failures.
+
 ## Verification
 
 Run the local safety contract after any watchdog change:
@@ -265,6 +305,8 @@ Run the local safety contract after any watchdog change:
 ```bash
 PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/services/operator-service/src:$PWD/packages/service-contracts/src" \
    .venv/bin/pytest -q --no-cov \
+  services/core-control-plane/tests/runtime/test_conversation_assurance_readiness.py \
+  tests/integration/scripts/test_conversation_assurance_answer_gate.py \
   .improve/auto-hardening/test_chat_watchdog.py \
    .improve/auto-hardening/test_measure.py \
   .improve/auto-hardening/test_run_if_idle.py
