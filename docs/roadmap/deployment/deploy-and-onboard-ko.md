@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 747696163efabef38daa66978ebbdcc884271c8b
+translation_source_sha: 444bfbdd485d40c577ae679c2afdf061e86ee702
 translation_revised: 2026-09-01
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -119,6 +119,7 @@ realtime 인벤토리 발행기 및 해당 의존성 그래프를 대상합니�
 제외하면서 작업 이미지와 필수 shared 런타임 구성을 수렴 상태로 유지합니다. 대상 집합에는
 활성 Terraform `moved` 블록의 출처 및 대상 주소가 모두 포함됩니다. 작업 흐름 계약
 테스트는 이 주소를 동기화하여 상태 이행 때문에 protected 계획이 무효화되지 않도록 합니다.
+여기에는 baseline-regression 및 pattern-growth 작업의 인덱스 없는 대상 주소가 포함됩니다.
 `for_each` 키 이름 변경에는 명시적인 `moved` 블록을 사용합니다. 따라서 Terraform은 기존 리소스를
 삭제한 후 새로 만들도록 계획하지 않고 현재 리소스를 그대로 보존합니다.
 Targeted 계획에는 해당 `for_each` move의 수집 리소스 주소가 포함됩니다. 따라서

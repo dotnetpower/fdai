@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: 50b1723be0b8eba285796e84e9e35a1a42e61ed5
+translation_source_sha: 0a521bfb2e49ed09db8ad6d7f6d5b80ce3cec9f3
 translation_revised: 2026-09-01
 ---
 # 구독 초기 프로비저닝
@@ -88,6 +88,8 @@ fdaictl onboard status --journal .fdai/runs/<run-id>.jsonl --output json
 정확한 dev 계획에서 비공개 리소스 운영 Function 게이트웨이를 유지하거나 프로비저닝해야 할
 때는 `--deploy-dev-operations-gateway`를 사용합니다. 이 선택은 plan, apply, status가 공유하는
 컨텍스트 다이제스트에 봉인되며 기존 cutover, executor-effect, OHL 보호를 계속 적용받습니다.
+범위가 제한된 게이트웨이 대상 집합에는 주소가 이동된 measurement runner 작업 두 개가 모두
+포함되므로 Terraform이 종속 리소스를 계획하기 전에 상태 주소 마이그레이션을 완료할 수 있습니다.
 
 ```bash
 fdaictl deploy plan \

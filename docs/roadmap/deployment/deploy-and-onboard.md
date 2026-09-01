@@ -114,7 +114,8 @@ realtime inventory publishers, and their dependency graphs. This keeps the Job's
 shared runtime configuration converged while unrelated runtime-resource changes stay outside the plan.
 The target set includes both source and
 destination addresses from active Terraform `moved` blocks, and the workflow contract test keeps
-those addresses synchronized so state migrations cannot invalidate a protected plan. A `for_each`
+those addresses synchronized so state migrations cannot invalidate a protected plan. This includes
+the unindexed destination addresses for the baseline-regression and pattern-growth jobs. A `for_each`
 key rename uses an explicit `moved` block so Terraform preserves the existing resource instead of
 planning a delete and replacement create. A targeted plan includes the collection resource address
 for that `for_each` move so Terraform can evaluate both keyed instances together; it also targets the AI account with its role collection so network and authorization settings converge in one apply.
