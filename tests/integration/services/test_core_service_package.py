@@ -58,6 +58,7 @@ EXPECTED_RUNTIME_MODULES = {
     "control_loop_support.py",
     "conversation_assurance.py",
     "conversation_assurance_lifecycle.py",
+    "conversation_assurance_readiness.py",
     "delivery.py",
     "discovery_activation.py",
     "dynamic_evidence.py",

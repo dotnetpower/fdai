@@ -406,7 +406,7 @@ The package test tree validates SDK behavior. Cross-service N/N-1 and topology c
 |------|----------------|
 | [evaluation-sdk/](../../../evaluation-sdk/) | Dormant independently packaged evaluation contracts and runner, preserved by package-scoped CI. |
 | [benchmarks/](../../../benchmarks/) | Dormant external-harness driver packages and the explicit independent CyberGym shadow runner. |
-| [eval/golden-dataset/](../../../eval/golden-dataset/) | Bilingual cloud-operations semantic questions with locale-neutral ontology traversal and answer oracles. |
+| [eval/golden-dataset/](../../../eval/golden-dataset/) | Bilingual cloud-operations semantic questions with locale-neutral ontology traversal and answer oracles. Generated question-bank artifacts are content-addressed against 10 source files. |
 | [services/core-control-plane/src/fdai/delivery/golden_question_dataset.py](../../../services/core-control-plane/src/fdai/delivery/golden_question_dataset.py) | Bounded loader for the repository golden dataset and deterministic typed-observation adapter. Missing semantic axes fail certification before release evidence. |
 | [extensions/](../../../extensions/) | Optional independently packaged capabilities. |
 | [rule-catalog/](../../../rule-catalog/) | Catalog-as-code data. |

@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: b2cf85e7d3509e0fc5086abf0fba0510bf86317b
+translation_source_sha: 7b42736c264be7c463dc0279d85a228223181d66
 translation_revised: 2026-09-01
 ---
 # 코드 맵
@@ -398,7 +398,7 @@ core 컨트롤 플레인을 import할 수 없으므로 특정 서비스가 아�
 |------|----------------|
 | [evaluation-sdk/](../../../evaluation-sdk/) | 패키지 범위 CI로 보존하는 휴면 독립 evaluation 계약과 실행기입니다. |
 | [benchmarks/](../../../benchmarks/) | 휴면 외부 실행 장치 driver 패키지와 명시적 독립 CyberGym shadow 실행기입니다. |
-| [eval/golden-dataset/](../../../eval/golden-dataset/) | 로캘 중립 온톨로지 탐색 및 답변 oracle을 갖춘 이중 언어 cloud-operations 의미 질문입니다. |
+| [eval/golden-dataset/](../../../eval/golden-dataset/) | 로캘 중립 온톨로지 탐색 및 답변 oracle을 갖춘 이중 언어 cloud-operations 의미 질문입니다. 생성된 question-bank 아티팩트는 10개의 소스 파일에 대해 콘텐츠 주소로 지정됩니다. |
 | [services/core-control-plane/src/fdai/delivery/golden_question_dataset.py](../../../services/core-control-plane/src/fdai/delivery/golden_question_dataset.py) | 저장소 golden dataset의 범위가 제한된 loader와 결정론적 typed-observation adapter입니다. Semantic 축이 누락되면 release evidence 전에 인증에 실패합니다. |
 | [extensions/](../../../extensions/) | 선택적 독립 패키지 기능입니다. |
 | [rule-catalog/](../../../rule-catalog/) | Catalog-as-code 데이터입니다. |

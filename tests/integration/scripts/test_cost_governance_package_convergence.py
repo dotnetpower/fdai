@@ -39,10 +39,10 @@ def test_repository_w0_w1_w2_contracts_converge(checker: ModuleType) -> None:
     assert checker.validate_repository() == {
         "vertical_id": "cost-governance",
         "ontology_release_digest": (
-            "sha256:f422fe77b8c56129b037cec69a98f770c7e455d5cf3f46661051f27a75e4ed71"
+            "sha256:a0348958d704c2f5fa38978b40dd6f7fc14921c95a000e9d8cbb0403a7e47a7a"
         ),
         "semantic_profile_sha256": (
-            "sha256:b44935a987f974e65429448e38fc4f780ce81f0f2d8acda5160ad1dd756701c0"
+            "sha256:51f4777692b07d67936a3ed4104e7a1977aafe1828788feedf59ffbf5a2a397e"
         ),
         "cost_rules": 12,
         "package_assets": 38,

@@ -429,6 +429,20 @@
       "issue": 252
     },
     {
+      "path": "services/core-control-plane/src/fdai/rule_catalog/schema/wara_assessment.py",
+      "disposition": "retain",
+      "owner": "rule-catalog-schema",
+      "reason": "Retains strict schema classification of external ARG queries against the WARA assessment catalog.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py",
+      "disposition": "retain",
+      "owner": "core-service-presentation",
+      "reason": "Retains deterministic semantic-judgment presentation and evidence-rendering in the core turn processor.",
+      "issue": 252
+    },
+    {
       "path": "services/operator-service/src/fdai_operator_service/composition.py",
       "disposition": "retain",
       "owner": "operator-composition",

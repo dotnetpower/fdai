@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "profile_id": "cost-governance.semantic-profile",
   "profile_version": "1.0.0",
-  "ontology_release_digest": "sha256:f422fe77b8c56129b037cec69a98f770c7e455d5cf3f46661051f27a75e4ed71",
+  "ontology_release_digest": "sha256:a0348958d704c2f5fa38978b40dd6f7fc14921c95a000e9d8cbb0403a7e47a7a",
   "declarations": [
     {
       "kind": "action",
@@ -494,5 +494,5 @@
     "execution_authority": false,
     "promotion_authority": false
   },
-  "canonical_sha256": "sha256:b44935a987f974e65429448e38fc4f780ce81f0f2d8acda5160ad1dd756701c0"
+  "canonical_sha256": "sha256:51f4777692b07d67936a3ed4104e7a1977aafe1828788feedf59ffbf5a2a397e"
 }
