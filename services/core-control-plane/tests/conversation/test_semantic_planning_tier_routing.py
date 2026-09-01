@@ -3261,13 +3261,155 @@ def test_unbound_change_correlation_accepts_only_reviewed_type_targets() -> None
 
 
 @pytest.mark.parametrize(
+    "primary_intent",
+    ("query.ontology_relationships", "query.resource_change_activity"),
+)
+@pytest.mark.parametrize(
+    ("facets", "targets"),
+    [
+        (
+            [
+                "incident",
+                "change_records",
+                "approved_windows",
+                "target_resources",
+                "service_paths",
+                "without_current_finding",
+            ],
+            [
+                ("object_type", "conversation", "Conversation"),
+                ("link_type", "approved windows", "change_scheduled_in_window"),
+                ("link_type", "target resources", "change_targets_resource"),
+                ("link_type", "linked", "conversation_belongs_to"),
+                ("link_type", "service paths", "service_has_service_objective"),
+            ],
+        ),
+        (
+            ["incident", "change", "change_scheduled_in_window", "targets", "service_paths"],
+            [
+                ("object_type", "change", "Change"),
+                ("object_type", "incident", "Incident"),
+                ("link_type", "approved windows", "change_scheduled_in_window"),
+                ("link_type", "target resources", "change_targets_resource"),
+                ("link_type", "service paths", "service_has_service_objective"),
+            ],
+        ),
+        (
+            [
+                "incident",
+                "change_activity",
+                "change_windows",
+                "target_resources",
+                "service_paths",
+                "without_current_cause",
+            ],
+            [],
+        ),
+        (
+            [
+                "incident_changes",
+                "approved_windows",
+                "target_resources",
+                "service_paths",
+                "without_current_finding",
+            ],
+            [
+                ("object_type", "conversation", "Conversation"),
+                ("object_type", "incident", "Incident"),
+                ("link_type", "approved windows", "change_scheduled_in_window"),
+                ("link_type", "target resources", "change_targets_resource"),
+                ("link_type", "service paths", "routes_to"),
+            ],
+        ),
+    ],
+)
+def test_unbound_change_correlation_accepts_observed_declaration_targets(
+    primary_intent: str,
+    facets: list[str],
+    targets: list[tuple[str, str, str]],
+) -> None:
+    source_start = 0
+    target_payloads = []
+    for kind, value, canonical_value in targets:
+        target_payloads.append(
+            {
+                "kind": kind,
+                "value": value,
+                "canonical_value": canonical_value,
+                "source_start": source_start,
+                "source_end": source_start + len(value),
+            }
+        )
+        source_start += len(value) + 1
+    judgment = SemanticJudgmentProposal.model_validate(
+        {
+            "primary_intent": primary_intent,
+            "targets": target_payloads,
+            "requested_facets": facets,
+            "confidence": 0.95,
+            "ambiguous": False,
+            "action_posture": "advise_only",
+            "action_subject": "none",
+        }
+    )
+
+    frame = build_unbound_change_correlation_frame(
+        judgment,
+        bound_incident=False,
+        utterance="Correlate incident change records with approved windows and service paths.",
+        context=(),
+    )
+
+    assert frame is not None
+    assert frame.operation is SemanticOperation.COMPARE
+    assert frame.temporal_scope == {"kind": "windowed"}
+
+
+def test_unbound_change_correlation_rejects_concrete_instance_target() -> None:
+    judgment = SemanticJudgmentProposal.model_validate(
+        {
+            "primary_intent": "query.ontology_relationships",
+            "targets": [
+                {
+                    "kind": "resource",
+                    "value": "example-resource",
+                    "canonical_value": "Resource",
+                    "source_start": 0,
+                    "source_end": 16,
+                }
+            ],
+            "requested_facets": [
+                "incident",
+                "change_records",
+                "approved_windows",
+                "target_resources",
+                "service_paths",
+            ],
+            "confidence": 0.95,
+            "ambiguous": False,
+            "action_posture": "advise_only",
+            "action_subject": "none",
+        }
+    )
+
+    assert (
+        build_unbound_change_correlation_frame(
+            judgment,
+            bound_incident=False,
+            utterance="example-resource",
+            context=(),
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize(
     ("bound_incident", "extra_facet", "missing_facets"),
     [
         (True, None, ()),
         (False, "configuration_drift", ()),
         (False, None, ("service_paths",)),
         (False, None, ("incident", "change")),
-        (False, None, ("without_current_finding",)),
     ],
 )
 def test_change_correlation_hold_requires_unbound_bounded_typed_contract(
