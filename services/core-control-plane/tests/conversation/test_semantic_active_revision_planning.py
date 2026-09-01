@@ -36,7 +36,7 @@ from fdai.shared.contracts.models import (
     PropertyType,
 )
 from fdai.shared.ontology.release import build_ontology_release
-from fdai_service_contracts.ontology_query import QueryNodeKind
+from fdai_service_contracts.ontology_query import EvidenceAuthority, QueryNodeKind
 
 NOW = datetime(2026, 8, 21, tzinfo=UTC)
 DIGEST = "sha256:" + ("a" * 64)
@@ -160,7 +160,11 @@ def _runtime(model: _Model, query_calls: list[QueryNodeKind]) -> SemanticConvers
     async def object_set_handler(node, dependencies):  # type: ignore[no-untyped-def]
         query_calls.append(node.kind)
         assert dependencies == {}
-        return QueryNodeResult(value={"rows": []})
+        return QueryNodeResult(
+            value={"rows": []},
+            evidence_refs=(f"test:object-set:{node.node_id}",),
+            authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+        )
 
     return SemanticConversationRuntime(
         planner=planner,

@@ -582,27 +582,9 @@ async def test_receipt_authority_cannot_cover_a_different_evidence_reference() -
     assert done["verification"]["reason_code"] == "semantic_evidence_authority_binding_mismatch"
 
 
-@pytest.mark.parametrize(
-    ("authorities", "expected_authority", "expected_reason"),
-    (
-        ((None,), "unavailable", "semantic_evidence_authority_missing"),
-        (
-            (
-                EvidenceAuthority.SERVER_INVENTORY_GRAPH,
-                EvidenceAuthority.SERVER_SUBSCRIPTION_HEALTH,
-            ),
-            "conflicting",
-            "semantic_evidence_authority_conflict",
-        ),
-    ),
-)
-async def test_missing_or_conflicting_receipt_authority_is_held(
-    authorities: tuple[EvidenceAuthority | None, ...],
-    expected_authority: str,
-    expected_reason: str,
-) -> None:
+async def test_missing_receipt_authority_is_held() -> None:
     processor = SemanticTurnProcessor(
-        runtime=_AnsweredRuntime(authorities),
+        runtime=_AnsweredRuntime((None,)),
         results=_CoreResultStore(),
         now=lambda: NOW,
     )
@@ -612,5 +594,25 @@ async def test_missing_or_conflicting_receipt_authority_is_held(
 
     assert done["status"] == "held"
     assert done["verification"]["status"] == "unverified"
-    assert done["verification"]["authority"] == expected_authority
-    assert done["verification"]["reason_code"] == expected_reason
+    assert done["verification"]["authority"] == "unavailable"
+    assert done["verification"]["reason_code"] == "semantic_evidence_authority_missing"
+
+
+async def test_mixed_receipt_authorities_are_answered() -> None:
+    """Mixed-authority plans (e.g., inventory + health) are valid."""
+    processor = SemanticTurnProcessor(
+        runtime=_AnsweredRuntime(
+            (
+                EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+                EvidenceAuthority.SERVER_SUBSCRIPTION_HEALTH,
+            ),
+        ),
+        results=_CoreResultStore(),
+        now=lambda: NOW,
+    )
+
+    projection = json.loads(await processor.process(_semantic_envelope()))
+    done = semantic_done_event_data(projection)
+
+    assert done["status"] == "answered"
+    assert done["verification"]["status"] == "verified"
