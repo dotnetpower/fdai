@@ -431,25 +431,25 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
             result.data,
             locale=self._request.locale,
         )
-        for index, activity in enumerate(query_activities, start=1):
-            self._append_activity(
-                f"goal:{index}",
-                cast(str, activity["label"]),
-                status=cast(str, activity["status"]),
-                event_id=f"{result.sequence}:goal:{index}",
-                activity_id=cast(str, activity["activity_id"]),
-                kind="ontology_query",
-                detail=cast(str, activity["detail"]),
-                observed_at=cast(str, activity["observed_at"]),
-                execution=cast(JsonObject, activity["execution"]),
-            )
+        if not _cursor_includes(self._cursor, result.sequence, "evidence"):
+            for index, activity in enumerate(query_activities, start=1):
+                self._append_activity(
+                    f"goal:{index}",
+                    cast(str, activity["label"]),
+                    status=cast(str, activity["status"]),
+                    event_id=f"{result.sequence}:goal:{index}",
+                    activity_id=cast(str, activity["activity_id"]),
+                    kind="ontology_query",
+                    detail=cast(str, activity["detail"]),
+                    observed_at=cast(str, activity["observed_at"]),
+                    execution=cast(JsonObject, activity["execution"]),
+                )
         if (
             disposition == "answered"
             and isinstance(checks_completed, int)
             and isinstance(checks_total, int)
         ):
             labels = _terminal_progress(self._request.locale)
-            executed_query = None if query_activities else _verified_query_execution(result.data)
             for event, phase in (
                 ("status", "evidence"),
                 ("verification", "verification"),
@@ -476,7 +476,7 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
                     # Only the evidence step ran a query. Attaching the same
                     # record to a step that executed nothing would report work
                     # the turn never did.
-                    execution=executed_query if phase == "evidence" else None,
+                    execution=None,
                 )
         # The waiting step is observed as finished only once a terminal
         # projection exists. Settling it here keeps the timeline from holding a
@@ -820,6 +820,11 @@ class SemanticTurnBridge:
                         await self._quarantine(quarantine_key)
                     else:
                         conflicts.pop(quarantine_key, None)
+            except SemanticTurnConflictError:
+                _LOGGER.info(
+                    "semantic_projection_conflict_retrying",
+                    extra={"failure_type": "durable_request_absent"},
+                )
             except Exception:  # noqa: BLE001 - preserve offset and resubscribe after backoff
                 _LOGGER.warning("semantic_projection_consumer_retrying", exc_info=True)
             await asyncio.sleep(self._retry_seconds)
@@ -1030,43 +1035,6 @@ def _query_execution_target(capability: str) -> JsonObject:
     }
 
 
-def _verified_query_execution(projection: Mapping[str, object]) -> JsonObject | None:
-    """Project the verified query the turn ran as one readable execution record.
-
-    The query and its row counts already travel in the terminal projection, so
-    nothing here is synthesized. A plan that carries more than one goal is
-    skipped rather than guessed at, because naming one of several goals as
-    *the* executed query would misreport the run.
-    """
-    semantic = projection.get("semantic_result")
-    graph = semantic.get("intent_graph") if isinstance(semantic, Mapping) else None
-    goals = graph.get("goals") if isinstance(graph, Mapping) else None
-    if not isinstance(goals, list) or len(goals) != 1 or not isinstance(goals[0], Mapping):
-        return None
-    arguments = goals[0].get("arguments")
-    capability = goals[0].get("capability")
-    if not isinstance(arguments, Mapping) or not arguments:
-        return None
-    command = json.dumps(arguments, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
-    if len(command) > _MAX_EXECUTION_COMMAND_CHARS:
-        return None
-    record: dict[str, object] = {
-        "tool": "Ontology query",
-        "input_kind": "query",
-        "command": command,
-        "redacted": True,
-        **(
-            {"target": _query_execution_target(capability)}
-            if isinstance(capability, str) and capability.startswith("query.")
-            else {}
-        ),
-    }
-    outputs = _verified_output_counts(projection)
-    if outputs is not None:
-        record["output"] = outputs
-    return cast(JsonObject, record)
-
-
 def _verified_query_activities(
     projection: Mapping[str, object],
     *,
@@ -1127,32 +1095,23 @@ def _verified_query_activities(
             or (reason is not None and not isinstance(reason, str))
         ):
             return ()
+        if not _receipt_represents_read(status, reason):
+            continue
         node_id = task_id.removeprefix("query:")
-        command = json.dumps(
-            {"capability": capability, "arguments": dict(arguments)},
-            ensure_ascii=False,
-            separators=(",", ":"),
-            sort_keys=True,
-        )
+        command = capability
         if len(command) > _MAX_EXECUTION_COMMAND_CHARS:
             return ()
-        receipt_output: dict[str, object] = {
-            "status": status,
-            "duration_ms": duration_ms,
-            "evidence_refs": evidence_refs,
-        }
-        if reason is not None:
-            receipt_output["reason"] = reason
         node_output = outputs.get(node_id)
-        if node_output is not None:
-            receipt_output["result"] = node_output
-        output = json.dumps(
-            receipt_output,
-            ensure_ascii=False,
-            separators=(",", ":"),
-            sort_keys=True,
+        output = _redacted_activity_output(
+            status=status,
+            reason=reason,
+            evidence_count=len(evidence_refs),
+            node_output=node_output,
         )
-        output_truncated = len(output) > _MAX_EXECUTION_OUTPUT_CHARS
+        output_truncated = isinstance(node_output, Mapping) and (
+            node_output.get("display_truncated") is True
+            or node_output.get("source_truncation_reason") is not None
+        )
         activities.append(
             cast(
                 JsonObject,
@@ -1175,7 +1134,11 @@ def _verified_query_activities(
                         "target": _query_execution_target(capability),
                         "command": command,
                         "redacted": True,
-                        **({"output": output} if not output_truncated else {}),
+                        "status": status,
+                        "output_status": (
+                            "available" if node_output is not None else "not_available"
+                        ),
+                        "output": output,
                         "output_truncated": output_truncated,
                         "started_at": started_at,
                         "completed_at": completed_at,
@@ -1195,18 +1158,13 @@ def _progress_query_activity(
     """Project one actual Core node update into the stable query activity shape."""
     status = str(progress.status)
     korean = locale.casefold().startswith("ko")
-    command = json.dumps(
-        {"capability": progress.capability, "arguments": progress.arguments},
-        ensure_ascii=False,
-        separators=(",", ":"),
-        sort_keys=True,
-    )
+    command = progress.capability
     output: str | None = None
     if status != "running":
         output_value: dict[str, object] = {
             "status": status,
             "duration_ms": progress.duration_ms,
-            "evidence_refs": list(progress.evidence_refs),
+            "evidence_ref_count": len(progress.evidence_refs),
         }
         if progress.reason is not None:
             output_value["reason"] = progress.reason
@@ -1243,6 +1201,8 @@ def _progress_query_activity(
                 "target": _query_execution_target(progress.capability),
                 "command": command,
                 "redacted": True,
+                "status": status,
+                "output_status": "not_available",
                 **({"output": output} if output is not None else {}),
                 "output_truncated": False,
                 "started_at": progress.started_at.isoformat(),
@@ -1257,6 +1217,38 @@ def _progress_query_activity(
             },
         },
     )
+
+
+def _redacted_activity_output(
+    *,
+    status: str,
+    reason: object,
+    evidence_count: int,
+    node_output: Mapping[str, object] | None,
+) -> str:
+    """Summarize one receipt without exposing provider input or result values."""
+
+    summary: dict[str, object] = {
+        "status": status,
+        "evidence_ref_count": evidence_count,
+    }
+    if isinstance(reason, str):
+        summary["reason"] = reason
+    if node_output is not None:
+        for field in (
+            "returned_rows",
+            "total_rows",
+            "source_complete",
+            "source_truncation_reason",
+            "display_truncated",
+        ):
+            value = node_output.get(field)
+            if field in node_output and (isinstance(value, bool | int | str) or value is None):
+                summary[field] = value
+    encoded = json.dumps(summary, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
+    if len(encoded) > _MAX_EXECUTION_OUTPUT_CHARS:  # pragma: no cover - fixed fields stay bounded
+        raise ValueError("semantic execution summary exceeds its bound")
+    return encoded
 
 
 def _technical_outputs_by_node(
@@ -1280,6 +1272,10 @@ def _activity_status(status: object) -> str:
     if status == "unavailable" or status == "skipped":
         return "unavailable"
     return "failed"
+
+
+def _receipt_represents_read(status: str, reason: object) -> bool:
+    return status not in {"cancelled", "skipped"} and reason != "capability_unavailable"
 
 
 def _query_goal_label(node_id: str, *, intent: str, korean: bool) -> str:
@@ -1347,30 +1343,6 @@ def _query_goal_detail(
         f"{dependency_count} {dependency_label}"
     )
     return f"{detail} - limitation: {reason}" if reason is not None else detail
-
-
-def _verified_output_counts(projection: Mapping[str, object]) -> str | None:
-    """Return the verified row counts the same projection already reported."""
-    payload = projection.get("payload")
-    details = payload.get("technical_details") if isinstance(payload, Mapping) else None
-    outputs = details.get("outputs") if isinstance(details, Mapping) else None
-    if not isinstance(outputs, list) or not outputs:
-        return None
-    counted = [
-        {
-            "node_id": output["node_id"],
-            "returned_rows": output["returned_rows"],
-            "total_rows": output["total_rows"],
-        }
-        for output in outputs
-        if isinstance(output, Mapping)
-        and isinstance(output.get("node_id"), str)
-        and isinstance(output.get("returned_rows"), int)
-        and isinstance(output.get("total_rows"), int)
-    ]
-    if not counted:
-        return None
-    return json.dumps(counted, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
 
 
 def _verified_answer_chunks(answer: object) -> tuple[str, ...]:

@@ -111,6 +111,9 @@ def test_answer_row_values_lifts_display_fields_without_provider_payloads() -> N
     values = {
         "id": "resource-1",
         "object_type": "Resource",
+        "resource_id": "/subscriptions/private/resourceGroups/example/providers/example/app-one",
+        "source_url": "https://provider.example.test/private",
+        "access_token": "secret-token",
         "properties": {
             "name": "app-one",
             "type": "compute.container-app",
@@ -124,6 +127,9 @@ def test_answer_row_values_lifts_display_fields_without_provider_payloads() -> N
     assert _answer_row_values(values) == {
         "id": "resource-1",
         "object_type": "Resource",
+        "resource_id": "<redacted>",
+        "source_url": "<redacted>",
+        "access_token": "<redacted>",
         "name": "app-one",
         "type": "compute.container-app",
         "location": "example-region",
@@ -2595,12 +2601,47 @@ async def test_answered_projection_keeps_a_complete_small_resource_list() -> Non
     )
 
     output = projection["payload"]["technical_details"]["outputs"][0]
+    assert output["evidence_refs"] == ["inventory:evidence-1"]
     assert output["returned_rows"] == output["total_rows"] == 9
     assert output["display_truncated"] is False
     assert [row["values"]["name"] for row in output["rows"]] == [
         f"app-{index}" for index in range(9)
     ]
     assert all("configuration" not in row["values"] for row in output["rows"])
+
+
+async def test_incomplete_zero_row_projection_does_not_claim_absence() -> None:
+    result = _runtime_result("answered")
+    assert result.execution is not None
+    execution = replace(
+        result.execution,
+        results=MappingProxyType(
+            {
+                "resources": QueryNodeResult(
+                    value=QueryTable(
+                        rows=(),
+                        complete=False,
+                        truncation_reason="source_incomplete",
+                    ),
+                    evidence_refs=("inventory:evidence-1",),
+                )
+            }
+        ),
+    )
+
+    projection = _projection(
+        await _processor(_Runtime(replace(result, execution=execution))).process(_request())
+    )
+
+    semantic = projection["semantic_result"]
+    assert semantic["disposition"] == "answered"
+    assert "incomplete source evidence cannot establish absence" in semantic["answer"]
+    assert "no real resources exist" in semantic["answer"]
+    output = projection["payload"]["technical_details"]["outputs"][0]
+    assert output["returned_rows"] == output["total_rows"] == 0
+    assert output["source_complete"] is False
+    assert output["source_truncation_reason"] == "source_incomplete"
+    assert output["evidence_refs"] == ["inventory:evidence-1"]
 
 
 async def test_target_candidates_answer_names_verified_choices_in_korean() -> None:

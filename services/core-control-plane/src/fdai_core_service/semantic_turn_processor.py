@@ -1752,8 +1752,12 @@ def _render_partial_causal_answer(
         rows: list[dict[str, object]] = [
             {"row_id": row.row_id, "values": row.values} for row in table.rows[:20]
         ]
-        output = _answer_output(node_id=node_id, table=table, rows=rows)
-        output["evidence_refs"] = list(node_result.evidence_refs)
+        output = _answer_output(
+            node_id=node_id,
+            table=table,
+            rows=rows,
+            evidence_refs=node_result.evidence_refs,
+        )
         outputs.append(output)
     if not any(output.get("result_kind") == "causal.join" for output in outputs):
         outputs.extend(_unresolved_hypothesis_outputs(result))
@@ -2257,10 +2261,13 @@ def _render_query_answer(
                 if projected_incident:
                     return None, None
                 outputs.append(
-                    _incident_answer_output(
-                        node_id=node_id,
-                        incident_evidence=incident_evidence,
-                    )
+                    {
+                        **_incident_answer_output(
+                            node_id=node_id,
+                            incident_evidence=incident_evidence,
+                        ),
+                        "evidence_refs": list(result.evidence_refs),
+                    }
                 )
                 projected_incident = True
             elif ontology_relationships is not None and node_id == ontology_relationships_node_id:
@@ -2270,6 +2277,7 @@ def _render_query_answer(
                     {
                         "node_id": node_id,
                         "ontology_relationships": ontology_relationships,
+                        "evidence_refs": list(result.evidence_refs),
                     }
                 )
                 projected_relationships = True
@@ -2280,6 +2288,7 @@ def _render_query_answer(
                     {
                         "node_id": node_id,
                         "rule_search": rule_search.model_dump(mode="json"),
+                        "evidence_refs": list(result.evidence_refs),
                     }
                 )
                 projected_rule_search = True
@@ -2305,12 +2314,24 @@ def _render_query_answer(
             ]
             candidate = [
                 *outputs,
-                _answer_output(node_id=node_id, table=table, rows=candidate_rows),
+                _answer_output(
+                    node_id=node_id,
+                    table=table,
+                    rows=candidate_rows,
+                    evidence_refs=result.evidence_refs,
+                ),
             ]
             if len(_answer_json(candidate).encode("utf-8")) > 48_000:
                 break
             rows = candidate_rows
-        outputs.append(_answer_output(node_id=node_id, table=table, rows=rows))
+        outputs.append(
+            _answer_output(
+                node_id=node_id,
+                table=table,
+                rows=rows,
+                evidence_refs=result.evidence_refs,
+            )
+        )
     if rule_search is not None and not projected_rule_search:
         return None, None
     if incident_evidence is not None and not projected_incident:
@@ -2368,12 +2389,32 @@ _ANSWER_ROW_LIFTED_FIELDS = (
     "status",
     "location",
 )
+_SENSITIVE_ANSWER_FIELDS = frozenset(
+    {
+        "access_token",
+        "authorization",
+        "client_secret",
+        "credential",
+        "password",
+        "resource_id",
+        "subscription_id",
+        "tenant_id",
+        "token",
+    }
+)
+_SENSITIVE_ANSWER_VALUE_MARKERS = (
+    "http://",
+    "https://",
+    "bearer ",
+    "/subscriptions/",
+)
+_REDACTED_ANSWER_VALUE = "<redacted>"
 
 
 def _answer_row_values(values: Mapping[str, object]) -> dict[str, object]:
     """Keep bounded scalar answer fields and exclude nested provider payloads."""
     projected = {
-        field: value
+        field: _redact_answer_scalar(field, value)
         for field, value in values.items()
         if isinstance(field, str) and field and not isinstance(value, Mapping | list)
     }
@@ -2386,9 +2427,23 @@ def _answer_row_values(values: Mapping[str, object]) -> dict[str, object]:
             for field in _ANSWER_ROW_LIFTED_FIELDS:
                 value = item.get(field)
                 if value is not None and not isinstance(value, Mapping | list):
-                    projected.setdefault(field, value)
+                    projected.setdefault(field, _redact_answer_scalar(field, value))
         current = nested
     return projected
+
+
+def _redact_answer_scalar(field: str, value: object) -> object:
+    if not isinstance(value, str):
+        return value
+    folded_field = field.casefold()
+    folded_value = value.casefold()
+    if (
+        folded_field in _SENSITIVE_ANSWER_FIELDS
+        or folded_field.endswith(("_token", "_secret", "_credential"))
+        or any(marker in folded_value for marker in _SENSITIVE_ANSWER_VALUE_MARKERS)
+    ):
+        return _REDACTED_ANSWER_VALUE
+    return value
 
 
 def _incident_answer_output(
@@ -4115,9 +4170,11 @@ def _answer_output(
     node_id: str,
     table: QueryTable,
     rows: list[dict[str, object]],
+    evidence_refs: Sequence[str],
 ) -> dict[str, object]:
     return {
         "node_id": node_id,
+        "evidence_refs": list(evidence_refs),
         "rows": rows,
         "returned_rows": len(rows),
         "total_rows": len(table.rows),

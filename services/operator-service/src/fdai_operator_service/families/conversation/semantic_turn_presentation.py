@@ -43,6 +43,7 @@ _MAX_TABLE_COLUMNS = 6
 _MAX_TABLE_ROWS = 40
 _MAX_CELL_CHARS = 512
 _MAX_SEMANTIC_VERIFICATION_CLAIMS = 64
+_MAX_EXECUTION_OUTPUT_CHARS = 2_048
 _INVESTIGATION_COMPARISON_NODE_IDS = frozenset({"symptom-change", "symptom-comparison"})
 # Categorical fields worth charting once a result is complete, most specific
 # first. A single-value field yields no chart; the table already says it.
@@ -108,6 +109,10 @@ def semantic_done_event_data(
         checks_total=checks_total,
         locale=locale,
     )
+    intent_graph = _redacted_intent_graph(semantic.get("intent_graph"))
+    public_semantic = dict(semantic)
+    if intent_graph is not None:
+        public_semantic["intent_graph"] = intent_graph
     answer_plan = (
         _direct_response_answer_plan(semantic)
         if direct_response
@@ -116,6 +121,7 @@ def semantic_done_event_data(
     conversation_context = semantic_conversation_context(technical_details)
     verification_claims = _semantic_verification_claims(
         semantic_receipt,
+        intent_graph_evidence=semantic.get("intent_graph_evidence"),
         evidence_refs=evidence_refs,
     )
     return cast(
@@ -162,9 +168,9 @@ def semantic_done_event_data(
                     }
                 }
             ),
-            "intent_graph": semantic.get("intent_graph"),
+            "intent_graph": intent_graph,
             "intent_graph_evidence": semantic.get("intent_graph_evidence"),
-            "semantic_result": dict(semantic),
+            "semantic_result": public_semantic,
             **(
                 {"conversation_context": conversation_context}
                 if conversation_context is not None
@@ -180,6 +186,29 @@ def semantic_done_event_data(
             **({"semantic_receipt": semantic_receipt} if semantic_receipt is not None else {}),
         },
     )
+
+
+def _redacted_intent_graph(value: object) -> JsonObject | None:
+    """Retain goal lineage while withholding provider query argument values."""
+
+    if not isinstance(value, Mapping):
+        return None
+    goals = value.get("goals")
+    if not isinstance(goals, list):
+        return None
+    projected_goals: list[JsonObject] = []
+    for goal in goals:
+        if not isinstance(goal, Mapping):
+            return None
+        projected = dict(goal)
+        arguments = goal.get("arguments")
+        if isinstance(arguments, Mapping):
+            projected["arguments"] = {
+                "redacted": True,
+                "keys": sorted(key for key in arguments if isinstance(key, str) and key)[:32],
+            }
+        projected_goals.append(cast(JsonObject, projected))
+    return cast(JsonObject, {**value, "goals": projected_goals})
 
 
 def _receipt_authority(
@@ -266,6 +295,7 @@ def _pantheon_done_event_data(assurance: Mapping[str, object]) -> JsonObject:
 def _semantic_verification_claims(
     semantic_receipt: Mapping[str, object] | None,
     *,
+    intent_graph_evidence: object,
     evidence_refs: list[str],
 ) -> list[JsonObject]:
     if semantic_receipt is None or semantic_receipt.get("schema_version") != "2.0.0":
@@ -278,6 +308,30 @@ def _semantic_verification_claims(
         raise ValueError("stored semantic assurance claim kinds are malformed")
     if len(raw_claims) > _MAX_SEMANTIC_VERIFICATION_CLAIMS:
         raise ValueError("stored semantic assurance exceeds the verification claim bound")
+    if not isinstance(intent_graph_evidence, Mapping):
+        return []
+    goals = intent_graph_evidence.get("goals")
+    if not isinstance(goals, list):
+        return []
+    supporting_goals: list[str] = []
+    supporting_refs: list[str] = []
+    for goal in goals:
+        if not isinstance(goal, Mapping) or goal.get("status") != "completed":
+            continue
+        goal_id = goal.get("goal_id")
+        refs = goal.get("evidence_refs")
+        if (
+            not isinstance(goal_id, str)
+            or not isinstance(refs, list)
+            or any(not isinstance(item, str) or not item for item in refs)
+        ):
+            return []
+        if refs:
+            supporting_goals.append(goal_id)
+            supporting_refs.extend(refs)
+    bounded_refs = list(dict.fromkeys(supporting_refs))
+    if not bounded_refs or bounded_refs != evidence_refs:
+        return []
     return [
         cast(
             JsonObject,
@@ -290,9 +344,9 @@ def _semantic_verification_claims(
                 "raw_value": claim_kind,
                 "normalized_value": claim_kind,
                 "unit": None,
-                "anchors": ["semantic_assurance"],
+                "anchors": supporting_goals,
                 "status": "supported",
-                "evidence_refs": list(evidence_refs),
+                "evidence_refs": bounded_refs,
                 "reason_code": None,
             },
         )
@@ -1386,65 +1440,198 @@ def semantic_technical_trajectory(
     checks_total: int,
     locale: str,
 ) -> JsonObject | None:
-    """Place exact machine output in a bounded, collapsed trajectory activity."""
-    if not isinstance(technical_details, Mapping):
+    """Project only receipt-backed read attempts with content-redacted execution detail."""
+    semantic = projection.get("semantic_result")
+    if not isinstance(semantic, Mapping):
         return None
-    encoded = json.dumps(
-        technical_details,
-        allow_nan=False,
-        ensure_ascii=False,
-        separators=(",", ":"),
-        sort_keys=True,
+    graph = semantic.get("intent_graph")
+    evidence = semantic.get("intent_graph_evidence")
+    graph_goals = graph.get("goals") if isinstance(graph, Mapping) else None
+    evidence_goals = evidence.get("goals") if isinstance(evidence, Mapping) else None
+    if (
+        not isinstance(graph, Mapping)
+        or graph.get("schema_version") != 2
+        or not isinstance(evidence, Mapping)
+        or evidence.get("schema_version") not in {1, 2}
+        or not isinstance(graph_goals, list)
+        or not isinstance(evidence_goals, list)
+        or not graph_goals
+        or len(graph_goals) != len(evidence_goals)
+    ):
+        return None
+    outputs = technical_details.get("outputs") if isinstance(technical_details, Mapping) else None
+    outputs_by_node = (
+        {
+            node_id: output
+            for output in outputs
+            if isinstance(output, Mapping) and isinstance((node_id := output.get("node_id")), str)
+        }
+        if isinstance(outputs, list)
+        else {}
     )
-    if not encoded or len(encoded) > 64 * 1024:
+    activities: list[JsonObject] = []
+    truncated_outputs = 0
+    korean = locale.casefold().startswith("ko")
+    for graph_goal, receipt in zip(graph_goals, evidence_goals, strict=True):
+        if not isinstance(graph_goal, Mapping) or not isinstance(receipt, Mapping):
+            return None
+        goal_id = graph_goal.get("goal_id")
+        intent = graph_goal.get("intent")
+        capability = graph_goal.get("capability")
+        task_id = receipt.get("task_id")
+        status = receipt.get("status")
+        duration_ms = receipt.get("duration_ms")
+        started_at = receipt.get("started_at")
+        completed_at = receipt.get("completed_at")
+        reason = receipt.get("reason")
+        refs = receipt.get("evidence_refs", [])
+        if (
+            not isinstance(goal_id, str)
+            or receipt.get("goal_id") != goal_id
+            or not isinstance(intent, str)
+            or receipt.get("intent") != intent
+            or not isinstance(capability, str)
+            or receipt.get("capability") != capability
+            or not isinstance(task_id, str)
+            or not task_id.startswith("query:")
+            or status
+            not in {"completed", "unavailable", "failed", "cancelled", "timed_out", "skipped"}
+            or not isinstance(duration_ms, int)
+            or isinstance(duration_ms, bool)
+            or duration_ms < 0
+            or not isinstance(started_at, str)
+            or not isinstance(completed_at, str)
+            or not isinstance(refs, list)
+            or any(not isinstance(item, str) or not item for item in refs)
+            or (reason is not None and not isinstance(reason, str))
+        ):
+            return None
+        if not _receipt_represents_read(status, reason):
+            continue
+        node_id = task_id.removeprefix("query:")
+        node_output = outputs_by_node.get(node_id)
+        output_truncated = isinstance(node_output, Mapping) and (
+            node_output.get("display_truncated") is True
+            or node_output.get("source_truncation_reason") is not None
+        )
+        truncated_outputs += int(output_truncated)
+        output = _redacted_execution_output(
+            status=status,
+            reason=reason,
+            evidence_count=len(refs),
+            node_output=node_output,
+        )
+        activities.append(
+            cast(
+                JsonObject,
+                {
+                    "activity_id": f"semantic:goal:{node_id}",
+                    "kind": "read.execution",
+                    "status": _trajectory_status(status),
+                    "label": (
+                        f"읽기 전용 조회: {capability}"
+                        if korean
+                        else f"Read-only query: {capability}"
+                    ),
+                    "detail": (
+                        f"상태 {status}, 근거 참조 {len(refs)}개"
+                        if korean
+                        else f"Status {status}; {len(refs)} evidence references"
+                    ),
+                    "authority": receipt.get("authority") or "read_only",
+                    "source": receipt.get("authority") or "registered_query_handler",
+                    "observed_at": completed_at,
+                    "evidence_refs": refs,
+                    "execution": {
+                        "tool": "Ontology query",
+                        "input_kind": "query",
+                        "command": capability,
+                        "target": _semantic_query_target(capability),
+                        "redacted": True,
+                        "status": status,
+                        "duration_ms": duration_ms,
+                        "started_at": started_at,
+                        "completed_at": completed_at,
+                        "output_status": (
+                            "available" if node_output is not None else "not_available"
+                        ),
+                        "output": output,
+                        "output_truncated": output_truncated,
+                    },
+                },
+            )
+        )
+    if not activities:
         return None
-    recorded_at = projection.get("recorded_at")
     return cast(
         JsonObject,
         {
             "schema_version": 1,
-            "activities": [
-                {
-                    "activity_id": "semantic-query-evidence",
-                    "kind": "query",
-                    "status": "completed",
-                    "label": (
-                        "검증된 의미 쿼리 근거"
-                        if locale.casefold().startswith("ko")
-                        else "Verified semantic query evidence"
-                    ),
-                    "completed": checks_completed,
-                    "total": checks_total,
-                    "authority": "read_only",
-                    **(
-                        {"observed_at": recorded_at}
-                        if isinstance(recorded_at, str) and recorded_at
-                        else {}
-                    ),
-                    "execution": {
-                        "tool": "ontology-query",
-                        "command": "semantic_query_outputs",
-                        "input_kind": "query",
-                        "target": {
-                            "interface_kind": "internal_query",
-                            "service": "core-control-plane",
-                            "component": "OntologyQueryPlanExecutor",
-                            "operation": "query_plan_execution",
-                            "source_kind": "registered_query_handler",
-                            "transport": "event_bus",
-                        },
-                        "redacted": True,
-                        "output": encoded,
-                        "output_truncated": False,
-                    },
-                }
-            ],
+            "activities": activities,
             "branches": [],
             "milestones": [],
             "omitted": {"activities": 0, "branches": 0, "milestones": 0},
-            "truncated_outputs": 0,
+            "checks_completed": checks_completed,
+            "checks_total": checks_total,
+            "truncated_outputs": truncated_outputs,
         },
     )
+
+
+def _redacted_execution_output(
+    *,
+    status: str,
+    reason: object,
+    evidence_count: int,
+    node_output: Mapping[str, object] | None,
+) -> str:
+    summary: dict[str, object] = {
+        "status": status,
+        "evidence_ref_count": evidence_count,
+    }
+    if isinstance(reason, str):
+        summary["reason"] = reason
+    if node_output is not None:
+        for field in (
+            "returned_rows",
+            "total_rows",
+            "source_complete",
+            "source_truncation_reason",
+            "display_truncated",
+        ):
+            value = node_output.get(field)
+            if field in node_output and (isinstance(value, bool | int | str) or value is None):
+                summary[field] = value
+    encoded = json.dumps(summary, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
+    if len(encoded) > _MAX_EXECUTION_OUTPUT_CHARS:  # pragma: no cover - fixed fields stay bounded
+        raise ValueError("semantic execution summary exceeds its bound")
+    return encoded
+
+
+def _semantic_query_target(capability: str) -> JsonObject:
+    return cast(
+        JsonObject,
+        {
+            "interface_kind": "internal_query",
+            "service": "core-control-plane",
+            "component": "OntologyQueryPlanExecutor",
+            "operation": capability.removeprefix("query.").replace(".", "_"),
+            "source_kind": "registered_query_handler",
+            "transport": "event_bus",
+        },
+    )
+
+
+def _trajectory_status(status: str) -> str:
+    if status == "completed":
+        return "completed"
+    if status in {"unavailable", "skipped"}:
+        return "unavailable"
+    return "failed"
+
+
+def _receipt_represents_read(status: str, reason: object) -> bool:
+    return status not in {"cancelled", "skipped"} and reason != "capability_unavailable"
 
 
 def semantic_answer_plan(technical_details: object) -> JsonObject | None:
