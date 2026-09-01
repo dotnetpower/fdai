@@ -290,8 +290,16 @@ def _cohort_bundle(
     policy = load_cohort_claim_policy(REPO_ROOT / COHORT_CLAIM_POLICY_PATH)
     scope = policy.scenario_set_digest
     static = "sha256:" + "6" * 64
-    cutoff = "2026-08-31T00:00:00+00:00"
-    fresh_until = "2026-09-01T00:00:00+00:00"
+    # Compute timestamps dynamically so the fixture never goes stale.
+    # Contract enforces: fresh_until - evidence_cutoff == freshness_ceiling_seconds,
+    # and preflight requires: recorded_at <= now <= fresh_until.
+    _now = datetime.now(tz=UTC)
+    _cutoff = _now - timedelta(hours=1)
+    _fresh_until = _cutoff + timedelta(seconds=policy.freshness_ceiling_seconds)
+    _event_at = _cutoff - timedelta(hours=2)
+    _recorded_at = _cutoff + timedelta(minutes=30)
+    cutoff = _cutoff.isoformat()
+    fresh_until = _fresh_until.isoformat()
 
     def _arm(arm: str, report: str, provenance: str) -> dict[str, object]:
         facts: dict[str, object] = {
@@ -341,9 +349,9 @@ def _cohort_bundle(
             "source_revision": revision,
             "evidence_digest": cohort_arm_fact_digest_values(**facts),
             "provenance_digest": provenance,
-            "event_at": "2026-08-30T22:00:00+00:00",
+            "event_at": _event_at.isoformat(),
             "evidence_cutoff": cutoff,
-            "recorded_at": "2026-08-31T00:30:00+00:00",
+            "recorded_at": _recorded_at.isoformat(),
             "fresh_until": fresh_until,
             "freshness_policy_id": "sre-cohort-claim-freshness",
             "freshness_policy_version": "1.0.0",
