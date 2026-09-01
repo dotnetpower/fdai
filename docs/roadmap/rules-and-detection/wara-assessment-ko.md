@@ -1,7 +1,7 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: 2d06a98cf533cb8cd654f9550f209688eec3b096
+translation_source_sha: a47c47c1dc7606c8304602c7628b42073bad406a
 translation_revised: 2026-09-01
 ---
 # WARA 근거 기반 평가
@@ -156,6 +156,8 @@ Operator API는 읽기 전용 WARA 목록과 선택적인 평가 결과를 제�
 로컬 및 합성 검사는 `implemented` 상태를 증명할 수 있습니다. `validated` 상태에는 대표
 다중 리소스 워크로드에 대한 관리되는 실제 Azure shadow 증적이 필요합니다. 이 별도 작업에는
 명시적 권한, 공급자 ID, 정확한 범위, 네트워크 접근, 감사 보존이 필요합니다.
+로컬과 배포 프로필은 같은 고정 교차워크, 범위가 제한된 읽기 계획, shadow 토픽, Operator
+소비자 그룹 및 PostgreSQL 변환 결과를 사용하며 어떤 프로필도 프로바이더 근거를 대체하지 않습니다.
 
 ## 관련 문서
 

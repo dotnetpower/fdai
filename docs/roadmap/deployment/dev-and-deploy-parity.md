@@ -432,7 +432,6 @@ tier. Missing T1 capacity makes semantic planning unavailable; it never starts w
 | Subsystem | Status | Gap |
 |-----------|--------|-----|
 | Permission-aware Azure observation | Local and deployment use the same registered source catalog, due gate, bounded provider probes, PostgreSQL result state, and Agent Activity contract | Runtime validation remains open until governed local and deployed runs prove the same catalog digest and source outcomes |
-| WARA shadow assessment | Local and deployment use the same pinned crosswalk, bounded read-plan contract, shadow topic, Operator consumer group, and PostgreSQL read projection | The provider observation binding and governed multi-resource live-Azure receipt remain unavailable until separately authorized |
 | OHL independent effect observation | Deployment can bind the VM Scale Set collector to a Key Vault-backed Ed25519 seed and distinct observer, executor, source, and verifier lineages | Local interactive stays unbound; fixture tests may inject deterministic keys, and governed deployed mailbox evidence remains open |
 | Azure Monitor Logs KQL | Production and local adapters share `AzureLogAnalyticsQueryProvider` | Requires server-owned `FDAI_MONITOR_WORKSPACE_ID`; explicit `query_log` fails closed when unavailable |
 | Managed Identity token (`WorkloadIdentity`) | Deployed adapter exists | interactive local publishes to the deployed executor; fixture tests may use a local issuer |

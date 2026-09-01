@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 60810835d0c45ba53e9522383dcc766d56c9271d
+translation_source_sha: 84fcc990b922f4170c2ea6f6a0bfddc431ab725a
 translation_revised: 2026-09-01
 ---
 # FDAI Console 대화
@@ -10,10 +10,7 @@ Push 방향 (시스템 → 사람) 알림은 [channels-and-notifications.md](cha
 Settings > Integrations에서는 합성 자리 표시자로 운영 incident-open 이메일 렌더러를 미리 볼 수 있습니다. Owner는 상용 클라우드 Teams Workflows URL 한 개를 붙여 넣어 범위가 제한된 진단으로 고정된 합성 Adaptive Card 한 건을 전송할 수도 있습니다. URL은 일시적으로만 유지되고 제출 후 지워지며 응답하거나 저장하지 않습니다. 영속 진단 기록에는 SHA-256 다이제스트, 행위자, 요청 id, 프로바이더 상태, 준비 및 완료 단계만 남깁니다. 이 테스트는 배포 환경에서 관리하는 운영 바인딩을 변경하지 않으며 승인 또는 실행 권한을 부여하지 않습니다.
 선택적 Console 변환 결과에서는 타입이 지정된 `404`, `501`, source-gate `503` 응답을 사용 불가 상태로 표시합니다. 인증 실패, 예기치 않은 전송 또는 `500` 응답, 디코더 실패는 확인할 수 있는 오류로 유지합니다.
 컨트롤 보기에서는 카탈로그 존재와 의미 매핑을 범위별 평가, 적용 가능성, 충족 상태와 구분합니다.
-따라서 WAF 체크리스트는 워크로드가 통과했다고 주장하지 않고도 고정된 정의 전체를 표시할 수
-있습니다. 읽기 전용 WARA 보기에서는 활성 및 비활성 수명 주기 레코드, 검토된 매핑 처리 결과,
-적용 가능성, 평가, 충족 상태, 원본 리비전, 범위, 완전성, 제한 사항을 제공합니다. 쿼리
-다이제스트는 메타데이터로 유지되며 브라우저 또는 Operator API 실행으로 전환되지 않습니다.
+따라서 WAF 체크리스트는 워크로드가 통과했다고 주장하지 않고도 고정된 정의 전체를 표시할 수 있습니다.
 카탈로그 토폴로지는 결정적인 exact-release 좌표를 보존하면서 처음 진입할 때 범위가 제한된 900 ms spring-settle 효과를 한 번 사용합니다. 조작하면 효과가 끝나고 동작 감소 설정에서는 효과를 건너뛰며, 지속적인 simulation은 실행하지 않습니다.
 에이전트 활동은 행이 영속 감사 근거를 기반으로 할 때만 상관관계를 추적 화면에 연결합니다.
 인벤토리 스캔, 온톨로지 변환 결과 및 현재 상태 읽기 상관관계는 감사 추적 링크 없이 식별자로 표시합니다. 일치하는 감사 단계가 없는 수동 조회는 운영 실패가 아니라 중립적인 사용 불가 상태로 표시합니다.
@@ -135,18 +132,8 @@ intent-graph 도구보다 정본 glossary를 먼저 사용합니다. 이 우선�
   계획 수립은 정본 텍스트 format을 다시 작성하지 않습니다. 명시적인 format 또는 저장된 선호 설정이
   있으면 산출물을 생략하고 기존 표, chart, 목록 또는 산문 렌더러를 유지합니다.
 
-  서버는 계획을 검증한 뒤 변경할 수 없는 근거를 범위가 제한된 `presentation_artifact`로
-  컴파일합니다. 스키마 v1 및 v2 산출물은 재생 호환성을 위해 기존 `stack` 배치를 유지합니다.
-  스키마 v3은 검증된 타입 출력 형태에만 서버가 선택한 `operational_brief` 및
-  `markdown_document` 배치를 추가합니다. 대상 상태 평가, 오류와 변경의 상관관계, 인시던트
-  근거에는 운영 브리프를 사용합니다. 온톨로지 매니페스트와 관계 문서에는 Markdown
-  문서 배치를 사용합니다. 그 밖의 출력은 결정론적 표현 플래너가 선택한 의미 손실이 없는 가장
-  작은 stack, 표, 차트, 타임라인, 비교, 상관관계 또는 행렬을 유지합니다.
-  각 v3 산출물에는 현지화된 레이블, 정확한 섹션 수, 허용 목록에 있는 입력 범주, 렌더링에
-  영향을 주는 전체 산출물의 SHA-256 다이제스트를 포함하는 범위가 제한된 동적 조립
-  메타데이터가 있습니다. 원본 시스템 프롬프트 또는 운영자 메모리 내용은 포함하지 않습니다.
-  Console은 답변 문장을 분류하지 않고 이 서버 결정을 렌더링합니다. 잘못되거나 변경된 산출물은
-  정본 Markdown 텍스트로 대체합니다. 컴파일러는 차트의 호환되는 단위와 임계값 방향을 강제하고 부분 또는 잘린 커버리지를
+  서버는 변경할 수 없는 근거를 범위가 제한된 `presentation_artifact`로 컴파일합니다. 버전별 배치,
+  무결성 및 대체 규칙은 [Operator Console 점진적 대화](operator-console-progressive-conversations-ko.md)에서 정의합니다. 컴파일러는 차트의 호환되는 단위와 임계값 방향을 강제하고 부분 또는 잘린 커버리지를
   계속 표시하며 각 블록 참조를 최종 검증 증적에 바인딩합니다. 부분 출처가
   completed 자리를 제거하지 않습니다. 답변은 사용할 수 있는 검증된 사실을 모두 렌더링하고 누락된
   부분만 알 수 없음 또는 사용 불가로 표시합니다.
@@ -225,25 +212,7 @@ RBAC 하한, side-effect 등급과 문서화된 실패 표면을 가집니다. W
 | `query_configuration_baseline()` | 서버가 구성한 동결된 구성 기준선, 현재 범위의 관측값, 무결성이 고정된 정확한 DOCX 인용을 읽습니다. 호출자는 범위, 버전, 다이제스트, 문서 또는 변경 연산을 선택할 수 없습니다. 구조화된 topology가 없으면 알 수 없음으로 유지합니다. | 읽기 담당 | `ConfigurationDriftService` + `KnowledgeSource` |
 | `capture_browser_evidence(policy_id, policy_version, source_url, stable_selectors)` | 정확한 서버가 소유한 정책 아래에서 자격 증명이 없는 범위가 제한된 수집을 제출합니다. 변경할 수 없는 산출물 증적을 반환하며 페이지 또는 interaction API를 반환하지 않습니다. | 읽기 담당 | `BrowserEvidenceCaptureService` |
 
-### 3.2 증적에 결속된 답변 권한
-
-Core는 서버가 소유한 함수 레지스트리가 실행 증적을 발행할 때 답변 권한을 할당합니다.
-증적은 권한과 근거 참조를 하나의 변경할 수 없는 목표 결과에 함께 보관합니다. 현재 출처
-등급은 다음과 같이 구분합니다.
-
-- `server_subscription_health`: 구독 Service Health 및 Resource Health 읽기
-- `server_inventory_graph`: 보안이 적용된 인벤토리 및 현재 상태 그래프 읽기
-- `server_metering`: 측정된 LLM 사용량 읽기
-- `server_ontology_manifest`: 정확한 principal 범위 온톨로지 매니페스트 읽기
-
-Operator는 완료된 목표 증적의 근거 참조가 터미널 의미 근거를 정확히 포함할 때만
-`verification.authority`를 도출합니다. 모델, 프롬프트, 클라이언트 컨텍스트, 의미 답변 및
-기술 표현 메타데이터의 권한 텍스트는 무시합니다. 증적 권한이 없으면
-`semantic_evidence_authority_missing`과 함께 `unverified`가 됩니다. 둘 이상의 권한이 있으면
-`semantic_evidence_authority_conflict`와 함께 `unverified`가 되며, 검증된 답변으로 승격하지
-않고 해당 턴을 보류합니다. 가산 방식의 의도 그래프 근거 v2 변환 결과가 이 필드를
-운반합니다. v1 재생은 계속 읽을 수 있지만 검증된 답변 권한을 입증할 수 없습니다.
-
+증적에서 도출한 답변 권한과 타입이 지정된 보류는 [Operator Console 점진적 대화](operator-console-progressive-conversations-ko.md#증적에-결속된-답변-권한)에서 정의합니다.
 일치하는 인벤토리 결과 집합은 40개 기록 제한을 적용하기 전에 정렬합니다. 목록은 기본적으로
 리소스 이름순이며, 상태, 타입 또는 위치 그룹화를 명시하면 해당 그룹화 필드 다음에
 리소스 이름순으로 정렬합니다. 렌더링 행과 영속 ordinal 후속 조치는 같은 순서를 사용합니다.

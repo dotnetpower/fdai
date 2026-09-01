@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: a228aeb8f0c245092a461f245a36b2dd70286e85
-translation_revised: 2026-08-31
+translation_source_sha: 39539b34c4ea16952581396552af1c8ed925b8a5
+translation_revised: 2026-09-01
 ---
 # 오퍼레이터 콘솔 점진적 대화
 
@@ -134,6 +134,25 @@ Full-workspace 웹 채팅은 대화 기록 중심으로 열립니다. 새 빈 �
 검증된 최종 응답을 보존합니다. Core는 성공한 직접 응답을 고정 인사 또는 자기소개 템플릿으로
 대체하지 않습니다.
 
+### 증적에 결속된 답변 권한
+
+Core는 서버가 소유한 함수 레지스트리가 실행 증적을 발행할 때 답변 권한을 할당합니다.
+증적은 권한과 근거 참조를 하나의 변경할 수 없는 목표 결과에 함께 보관합니다. 출처 등급은
+다음과 같이 구분합니다.
+
+- `server_subscription_health`: 구독 Service Health 및 Resource Health 읽기
+- `server_inventory_graph`: 보안이 적용된 인벤토리 및 현재 상태 그래프 읽기
+- `server_metering`: 측정된 LLM 사용량 읽기
+- `server_ontology_manifest`: 정확한 principal 범위 온톨로지 매니페스트 읽기
+
+Operator는 완료된 목표 증적의 참조가 터미널 의미 근거를 정확히 포함할 때만
+`verification.authority`를 도출합니다. 모델, 프롬프트, 클라이언트 컨텍스트, 의미 답변 및 기술
+표현 메타데이터의 권한 텍스트는 무시합니다. 권한이 없으면
+`semantic_evidence_authority_missing`과 함께 `unverified`가 됩니다. 권한이 여러 개면
+`semantic_evidence_authority_conflict`와 함께 `unverified`가 되고 턴을 보류합니다. 의도 그래프
+근거 v2는 권한을 가산 방식으로 전달합니다. v1 재생은 계속 읽을 수 있지만 검증된 권한을
+입증할 수 없습니다.
+
 현재 의미 경로는 조회 실행과 검증을 입증하지만 운영자 대상 표현 전에 멈춥니다. Core는 검증된
 출력을 fenced JSON으로 직렬화하고, Operator는 `done` 이벤트 하나를 재생하며, 최종 payload에
 `answer_plan`, `presentation_artifact`, `trajectory_detail`이 없으므로 Console은 설계대로 해당
@@ -168,6 +187,13 @@ Machine 결과는 계속 권위 있고 재생 가능하지만 primary 사람 답
 Markdown을 읽어 차트를 추론하지 않으며 모델은 컴포넌트 이름이나 필드 역할을 바꿀 수 없습니다.
 플래너는 블록 결정을 반환하고 컴파일러는 변경할 수 없는 근거의 정확한 값을 버전이 있는 산출물에
 복사합니다.
+
+스키마 v1 및 v2 산출물은 재생 호환성을 위해 기존 `stack` 배치를 유지합니다. 스키마 v3은
+검증된 타입 출력에만 서버가 선택한 `operational_brief`와 `markdown_document` 배치를
+추가합니다. 각 v3 산출물은 현지화된 레이블, 정확한 섹션 수, 허용 목록 입력 범주 및 렌더링에
+영향을 주는 전체 내용을 SHA-256 조립 다이제스트에 결속합니다. 원본 시스템 프롬프트 또는
+운영자 메모리 내용은 포함하지 않습니다. Console은 답변 문장을 분류하지 않고 서버 결정을
+렌더링하며 잘못되거나 변경된 산출물은 정본 Markdown으로 대체합니다.
 
 ### 결정 표
 

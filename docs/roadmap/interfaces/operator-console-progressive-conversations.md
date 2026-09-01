@@ -136,6 +136,24 @@ reference, verification badge, presentation artifact, or execution trajectory. W
 Slack preserve that same validated claim-free terminal response. Core does not replace a successful
 direct response with a fixed greeting or self-introduction template.
 
+### Receipt-bound answer authority
+
+Core assigns answer authority when its server-owned function registry issues the execution receipt.
+The receipt keeps the authority and its evidence references together as one immutable goal result.
+The source classes remain distinct:
+
+- `server_subscription_health` for subscription Service Health and Resource Health reads;
+- `server_inventory_graph` for secured inventory and current-state graph reads;
+- `server_metering` for measured LLM usage reads;
+- `server_ontology_manifest` for exact principal-scoped ontology manifest reads.
+
+Operator derives `verification.authority` only from completed goal receipts whose references exactly
+cover the terminal semantic evidence. Model, prompt, client-context, semantic-answer, and technical
+presentation authority text is ignored. Missing authority produces `unverified` with
+`semantic_evidence_authority_missing`. Multiple authorities produce `unverified` with
+`semantic_evidence_authority_conflict`, and the turn remains held. Intent-graph evidence v2 carries
+the authority additively. Version 1 replay remains readable but cannot establish verified authority.
+
 The current semantic path proves query execution and verification but stops before operator-facing
 presentation. Core serializes the verified output into fenced JSON, Operator replays one `done`
 event, and the Console correctly falls back to that canonical text because the terminal payload has
@@ -173,6 +191,13 @@ timestamp order, missing values, truncation, limitations, and evidence reference
 Markdown to infer a chart, and a model can neither name a component nor change a field role. The
 planner returns a block decision; the compiler copies exact values from immutable evidence into the
 versioned artifact.
+
+Schema v1 and v2 artifacts keep the established `stack` layout for replay compatibility. Schema v3
+adds server-selected `operational_brief` and `markdown_document` layouts only for verified typed
+outputs. Each v3 artifact binds its localized label, exact section count, allowlisted input
+categories, and complete render-affecting content to a SHA-256 assembly digest. It never carries raw
+system prompts or operator-memory content. Console renders the server decision without classifying
+answer prose, while malformed or modified artifacts fall back to canonical Markdown.
 
 ### Decision table
 

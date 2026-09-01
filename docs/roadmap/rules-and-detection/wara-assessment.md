@@ -159,6 +159,8 @@ artifacts agree.
 Local and synthetic checks can establish `implemented`. `validated` requires a governed live-Azure
 shadow receipt for a representative multi-resource workload. That separate operation needs explicit
 authorization, provider identity, exact scope, network access, and audit retention.
+Local and deployed profiles use the same pinned crosswalk, bounded read plan, shadow topic, Operator
+consumer group, and PostgreSQL projection; neither profile substitutes provider evidence.
 
 ## Related docs
 

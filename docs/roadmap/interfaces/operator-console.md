@@ -7,11 +7,7 @@ Push-direction notifications (system → human) live in [channels-and-notificati
 Settings > Integrations can preview the production incident-open email renderer with synthetic placeholders. An Owner can also paste one public-cloud Teams Workflows URL to send a fixed synthetic Adaptive Card through a bounded diagnostic. The URL stays transient, is cleared after submission, and is never returned or persisted; the durable diagnostic record keeps only its SHA-256 digest, actor, request id, provider status, and prepared/completed phase. The test does not update the deployment-managed production binding or grant approval or execution authority.
 For optional Console projections, typed `404`, `501`, and source-gate `503` responses render as unavailable. Authentication failures, unexpected transport or `500` responses, and decoder failures remain visible errors.
 The Controls view separates catalog presence and semantic mapping from scope-bound evaluation,
-applicability, and satisfaction. The WAF checklist can therefore show all pinned definitions without
-claiming that a workload passed them. The read-only WARA view exposes active and disabled lifecycle
-records, reviewed mapping dispositions, applicability, evaluation, satisfaction, source revision,
-scope, completeness, and limitations. Query digests remain metadata and never become browser-side
-or Operator API execution.
+applicability, and satisfaction. The WAF checklist can therefore show all pinned definitions.
 Catalog topology preserves its deterministic exact-release coordinates while using one bounded 900 ms spring-settle on initial entry. Interaction ends the effect, reduced-motion preference skips it, and no persistent simulation runs.
 Agent Activity links a correlation to Trace only when the row is backed by durable audit evidence.
 Inventory scan, ontology projection, and current-state read correlations remain visible identifiers without an audit-trace link. A manual lookup with no matching audit steps renders a neutral unavailable state instead of an operational failure.
@@ -136,19 +132,8 @@ correlation, or idempotency selector continues to require server-owned action li
   the canonical text format. An explicit format or saved preference skips the artifact and keeps
   the established table, chart, list, or prose renderer.
 
-  The server validates the plan, then compiles immutable evidence into a bounded
-  `presentation_artifact`. Schema v1 and v2 artifacts keep the established `stack` layout for
-  replay compatibility. Schema v3 adds server-selected `operational_brief` and
-  `markdown_document` layouts only for verified typed output shapes. Target-health assessment,
-  error/change correlation, and incident evidence use the operational brief.
-  Ontology manifests and relationship documents use the Markdown document layout. Other outputs
-  keep the smallest loss-bounded stack, table, chart, timeline, comparison, correlation, or matrix
-  selected by the deterministic presentation planner.
-  Each v3 artifact carries bounded dynamic-assembly metadata: a localized label, exact section
-  count, allowlisted input categories, and a SHA-256 digest over the complete render-affecting
-  artifact. It never carries raw system prompts or operator-memory content. Console renders this
-  server decision without classifying answer prose, and a malformed or modified artifact falls
-  back to canonical Markdown text. The compiler enforces compatible units and threshold directions for
+  The server compiles immutable evidence into a bounded `presentation_artifact`; versioned layouts,
+  integrity, and fallback rules are owned by [Operator Console Progressive Conversations](operator-console-progressive-conversations.md). The compiler enforces compatible units and threshold directions for
   charts, keeps partial or truncated coverage visible, and binds every block reference to the
   terminal verification receipt. A partial source never removes completed slots: the answer renders
   every available verified fact and marks only the missing portion as unknown or unavailable.
@@ -228,25 +213,7 @@ caller-supplied role parameter. Both surfaces return descriptors only and cannot
 | `query_configuration_baseline()` | Read one server-configured frozen configuration baseline, its current scoped observation, and the exact integrity-pinned DOCX citation. The caller cannot select scope, version, digest, document, or a mutation operation. Missing structured topology remains unknown. | Reader | `ConfigurationDriftService` + `KnowledgeSource` |
 | `capture_browser_evidence(policy_id, policy_version, source_url, stable_selectors)` | Submit a credential-free bounded capture under an exact server-owned policy. Returns an immutable artifact receipt; never returns a page or interaction API. | Reader | `BrowserEvidenceCaptureService` |
 
-### 3.2 Receipt-bound answer authority
-
-Core assigns answer authority when its server-owned function registry issues the execution receipt.
-The receipt keeps the authority and its evidence references together as one immutable goal result.
-The current source classes remain distinct:
-
-- `server_subscription_health` for subscription Service Health and Resource Health reads;
-- `server_inventory_graph` for secured inventory and current-state graph reads;
-- `server_metering` for measured LLM usage reads;
-- `server_ontology_manifest` for exact principal-scoped ontology manifest reads.
-
-Operator derives `verification.authority` only from completed goal receipts whose evidence references
-exactly cover the terminal semantic evidence. It ignores authority text from the model, prompt,
-client context, semantic answer, and technical presentation metadata. A missing receipt authority
-produces `unverified` with `semantic_evidence_authority_missing`. More than one authority produces
-`unverified` with `semantic_evidence_authority_conflict`, and the turn remains held instead of being
-promoted to a verified answer. The additive intent-graph evidence v2 projection carries this field;
-v1 replay remains readable but cannot establish verified answer authority.
-
+Receipt-derived answer authority and typed holds are defined in [Operator Console Progressive Conversations](operator-console-progressive-conversations.md#receipt-bound-answer-authority).
 Matched inventory result sets are sorted before the 40-record bound is applied. Lists use resource
 name order by default; an explicit status, type, or location grouping uses that grouping field and
 then resource name. The same order drives rendered rows and durable ordinal follow-ups.
