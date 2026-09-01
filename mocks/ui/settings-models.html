@@ -4,358 +4,175 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Models - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=settings-workspace-v1" />
-  <script src="assets/calm-slate.js?v=settings-workspace-v1" defer></script>
-  <style>
-    .cs-settings-page { max-width: 1120px; }
-    .cs-page-header { position: relative; padding-right: 180px; }
-    .cs-autosave { position: absolute; top: 4px; right: 0; display: inline-flex; align-items: center; gap: 7px; min-height: 30px; padding: 5px 10px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-card); color: var(--cs-text-soft); font-size: 11px; }
-    .cs-autosave::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--cs-sage); transition: background .15s ease; }
-    .cs-autosave.is-saving::before { background: var(--cs-terracotta); }
-    .cs-autosave strong { color: var(--cs-text); font-size: 11px; }
-    .cs-discovery-panel { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(300px, .8fr); gap: 20px; padding: 18px; border: 1px solid var(--cs-hairline); border-radius: 8px; background: var(--cs-card); }
-    .cs-discovery-main { display: grid; gap: 14px; }
-    .cs-discovery-title { display: flex; align-items: flex-start; gap: 11px; }
-    .cs-discovery-title h2 { margin: 0 0 3px; font-size: 16px; }
-    .cs-discovery-title p { margin: 0; color: var(--cs-text-soft); font-size: 12.5px; }
-    .cs-discovery-icon { display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 auto; border-radius: 7px; background: rgba(68,104,142,.12); color: var(--cs-steel); font-size: 18px; }
-    .cs-discovery-controls { display: grid; grid-template-columns: minmax(0, 1fr) 170px; gap: 10px; }
-    .cs-discovery-controls label { display: grid; gap: 5px; color: var(--cs-text-soft); font-size: 11px; font-weight: 600; }
-    .cs-discovery-controls .cs-settings-input { width: 100%; min-height: 36px; }
-    .cs-discovery-side { display: grid; align-content: space-between; gap: 16px; padding-left: 20px; border-left: 1px solid var(--cs-hairline); }
-    .cs-discovery-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; }
-    .cs-discovery-meta div { min-width: 0; }
-    .cs-discovery-meta dt { color: var(--cs-text-soft); font-size: 10px; text-transform: uppercase; }
-    .cs-discovery-meta dd { margin: 2px 0 0; font-size: 12.5px; font-weight: 600; }
-    .cs-discovery-actions { display: flex; align-items: center; justify-content: flex-end; gap: 9px; }
-    .cs-discovery-result { color: var(--cs-text-soft); font-size: 11px; }
-    .cs-discovery-result.is-updated { color: var(--cs-sage); }
-    .cs-model-toolbar { display: grid; grid-template-columns: minmax(190px, 1fr) auto; align-items: center; gap: 9px 12px; margin: 12px 0; }
-    .cs-model-search { position: relative; grid-column: 1 / -1; }
-    .cs-model-search input { width: 100%; min-height: 36px; padding: 7px 10px 7px 32px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-card); color: var(--cs-text); font: 13px var(--cs-font); }
-    .cs-model-search::before { content: ""; position: absolute; left: 11px; top: 10px; width: 9px; height: 9px; border: 1.5px solid var(--cs-text-soft); border-radius: 50%; }
-    .cs-model-search::after { content: ""; position: absolute; left: 20px; top: 20px; width: 5px; height: 1.5px; background: var(--cs-text-soft); transform: rotate(45deg); transform-origin: left center; }
-    .cs-model-search input:focus { outline: 2px solid rgba(68,104,142,.24); border-color: var(--cs-steel); }
-    .cs-model-summary { margin-right: auto; color: var(--cs-text-soft); font-size: 13px; }
-    .cs-model-summary strong { color: var(--cs-text); }
-    .cs-model-providers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-    .cs-model-provider { min-width: 0; padding: 14px; border: 1px solid var(--cs-hairline); border-radius: 8px; background: var(--cs-card); }
-    .cs-model-provider[hidden] { display: none; }
-    .cs-model-provider-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-    .cs-model-provider-head h3 { margin: 0; font-size: 14px; }
-    .cs-model-provider-head > span:last-child { margin-left: auto; color: var(--cs-text-soft); font-size: 11px; }
-    .cs-provider-mark { display: inline-grid; place-items: center; width: 26px; height: 26px; flex: 0 0 auto; border-radius: 6px; background: var(--cs-navy); }
-    .cs-provider-mark img { width: 15px; height: 15px; filter: brightness(0) invert(1); }
-    .cs-provider-mark.is-openai { background: #33403B; }
-    .cs-provider-mark.is-claude { background: #C66B45; }
-    .cs-provider-mark.is-gemini { background: #4169A8; }
-    .cs-provider-mark.is-others { grid-template-columns: repeat(2, 4px); grid-template-rows: repeat(2, 4px); gap: 2px; background: #596979; }
-    .cs-provider-mark.is-others i { width: 4px; height: 4px; border-radius: 1px; background: #FFFFFF; }
-    .cs-model-options { display: flex; flex-wrap: wrap; gap: 7px; }
-    .cs-model-option { display: inline-flex; align-items: center; gap: 9px; min-height: 36px; padding: 6px 6px 6px 10px; border: 1px solid var(--cs-hairline); border-radius: 7px; background: var(--cs-card); color: var(--cs-text-soft); font-size: 12.5px; cursor: pointer; transition: border-color .15s ease, background .15s ease, color .15s ease; }
-    .cs-model-option:hover { border-color: #BFC8D1; color: var(--cs-text); }
-    .cs-model-option:has(input:checked) { border-color: rgba(68,104,142,.38); background: rgba(68,104,142,.07); color: var(--cs-navy); font-weight: 600; }
-    .cs-model-option:has(input:focus-visible) { outline: 2px solid rgba(68,104,142,.38); outline-offset: 2px; }
-    .cs-model-option:has(input:disabled) { border-color: #E8E6E3; background: var(--cs-shade); color: #9B9894; cursor: not-allowed; opacity: .72; }
-    .cs-model-option input { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-    .cs-model-name { white-space: nowrap; }
-    .cs-model-switch { position: relative; width: 34px; height: 20px; flex: 0 0 auto; border-radius: 10px; background: #D9D7D3; box-shadow: inset 0 0 0 1px rgba(62,76,89,.08); transition: background .15s ease, box-shadow .15s ease; }
-    .cs-model-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 1px 3px rgba(46,54,64,.22); transition: transform .15s ease; }
-    .cs-model-option input:checked ~ .cs-model-switch { background: var(--cs-steel); box-shadow: inset 0 0 0 1px rgba(32,59,87,.12); }
-    .cs-model-option input:checked ~ .cs-model-switch::after { transform: translateX(14px); }
-    .cs-model-option input:disabled ~ .cs-model-switch { background: #D8D6D2; box-shadow: none; }
-    .cs-model-actions { display: flex; justify-content: flex-end; gap: 7px; }
-    .cs-model-empty { display: none; padding: 28px; border: 1px dashed var(--cs-hairline); border-radius: 8px; color: var(--cs-text-soft); text-align: center; }
-    .cs-model-empty.is-visible { display: block; }
-    .cs-settings-section { margin-top: 24px; }
-    .cs-settings-section-head { padding-top: 14px; }
-    @media (max-width: 700px) {
-      .cs-page-header { padding-right: 0; }
-      .cs-autosave { position: static; margin-top: 12px; }
-      .cs-discovery-panel, .cs-discovery-controls, .cs-model-toolbar, .cs-model-providers { grid-template-columns: minmax(0, 1fr); }
-      .cs-discovery-side { padding: 16px 0 0; border-top: 1px solid var(--cs-hairline); border-left: 0; }
-      .cs-discovery-actions { justify-content: flex-start; }
-      .cs-model-toolbar { align-items: stretch; }
-      .cs-model-search { grid-column: auto; }
-      .cs-model-actions { justify-content: flex-start; }
-      .cs-model-options { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; }
-      .cs-model-option { width: 100%; }
-    }
-  </style>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=settings-route-v5" />
+  <script src="assets/calm-slate.js?v=settings-route-v5" defer></script>
 </head>
 <body>
   <main class="cs-container cs-page cs-settings-page">
     <div class="cs-page-header cs-mb-24">
       <div class="cs-eyebrow">Runtime intelligence</div>
       <h1>Models</h1>
-      <p class="cs-lead">Resolved model inventory, routing evidence, and governed operator preferences.</p>
-      <div class="cs-autosave" id="autosave-status" role="status"><span>Changes save automatically</span><strong>Saved</strong></div>
+      <p class="cs-lead">Resolved inventory, routing evidence, and governed model preferences.</p>
     </div>
 
-    <section class="cs-discovery-panel" aria-labelledby="models-discovery">
-      <div class="cs-discovery-main">
-        <div class="cs-discovery-title">
-          <span class="cs-discovery-icon" aria-hidden="true">&#8635;</span>
-          <div><h2 id="models-discovery">Model discovery</h2><p>Keep the available-model inventory current as provider catalogs change.</p></div>
+    <section class="cs-settings-section" aria-labelledby="models-automation">
+      <header class="cs-settings-section-head">
+        <h2 id="models-automation">Automation</h2>
+        <p>Current discovery and provisioning evidence from the resolved model artifact.</p>
+      </header>
+      <div class="cs-settings-list">
+        <div class="cs-setting-row">
+          <div><strong>Discovery</strong><small>Provider catalog reconciliation is automatic.</small></div>
+          <span class="cs-status ok">Healthy</span>
         </div>
-        <div class="cs-discovery-controls">
-          <label>Discovery mode
-            <select class="cs-settings-input" id="discovery-mode">
-              <option value="automatic">Automatic</option>
-              <option value="manual">Manual only</option>
-            </select>
-          </label>
-          <label>Automatic interval
-            <select class="cs-settings-input" id="discovery-interval">
-              <option>Every 6 hours</option>
-              <option>Every 12 hours</option>
-              <option>Daily</option>
-            </select>
-          </label>
+        <div class="cs-setting-row">
+          <div><strong>Provisioning</strong><small>12 resolved deployments; 3 require human review.</small></div>
+          <span class="cs-status wait">Review required</span>
         </div>
-      </div>
-      <div class="cs-discovery-side">
-        <dl class="cs-discovery-meta">
-          <div><dt>Catalog source</dt><dd>Provider registry</dd></div>
-          <div><dt>Last discovery</dt><dd id="last-discovery">12 min ago</dd></div>
-          <div><dt>Result</dt><dd>15 models found</dd></div>
-          <div><dt>Provisioning</dt><dd>12 ready, 3 unavailable</dd></div>
-        </dl>
-        <div class="cs-discovery-actions">
-          <span class="cs-discovery-result" id="discovery-result" role="status">Catalog is current</span>
-          <button class="cs-btn is-primary is-sm" id="discover-models" type="button">Discover now</button>
+        <div class="cs-setting-row">
+          <div><strong>Resolved source</strong><small>Sanitized metadata only; endpoints and credentials remain hidden.</small></div>
+          <code>resolved-models.json</code>
         </div>
       </div>
     </section>
 
-    <section class="cs-settings-section" aria-labelledby="models-availability">
+    <section class="cs-settings-section" aria-labelledby="models-binding-policy">
       <header class="cs-settings-section-head">
-        <h2 id="models-availability">Available models</h2>
-        <p>Choose which discovered models this deployment may route to.</p>
+        <h2 id="models-binding-policy">Binding policy</h2>
+        <p>Environment-wide routing mode and capacity remain revisioned, reviewed settings.</p>
       </header>
-      <div class="cs-model-toolbar">
-        <label class="cs-model-search"><input id="model-search" type="search" placeholder="Search models or providers" aria-label="Search models or providers" /></label>
-        <div class="cs-model-summary" aria-live="polite">
-          <strong id="model-enabled-count">8 enabled</strong>
-          <span>of <span id="model-available-count">12</span> available - 3 unavailable</span>
+      <div class="cs-settings-list">
+        <div class="cs-setting-row">
+          <div><strong>T1 narrator</strong><small>Automatic routing among healthy, allowlisted candidates.</small></div>
+          <span class="cs-status ok">Auto</span>
         </div>
-        <div class="cs-model-actions">
-          <button class="cs-btn is-sm" type="button" data-model-action="enable">Enable available</button>
-          <button class="cs-btn is-sm" type="button" data-model-action="disable">Disable all</button>
+        <div class="cs-setting-row">
+          <div><strong>T2 reasoning pair</strong><small>Primary and secondary publishers must remain distinct.</small></div>
+          <span class="cs-status ok">Quorum ready</span>
+        </div>
+        <div class="cs-setting-row">
+          <div><strong>Capacity policy</strong><small>Changes require assessment, protected apply, and independent verification.</small></div>
+          <span class="cs-status idle">Revision 8</span>
         </div>
       </div>
+    </section>
 
-      <div class="cs-model-providers">
-        <section class="cs-model-provider" aria-labelledby="provider-openai">
-          <header class="cs-model-provider-head">
-            <span class="cs-provider-mark is-openai" aria-hidden="true"><img src="https://cdn.jsdelivr.net/npm/simple-icons@15.15.0/icons/openai.svg" alt="" /></span>
-            <h3 id="provider-openai">OpenAI</h3><span>6 models</span>
-          </header>
-          <div class="cs-model-options">
-            <label class="cs-model-option"><input type="checkbox" checked data-model-toggle="gpt-5.2" /><span class="cs-model-name">GPT-5.2</span><span class="cs-model-switch" aria-hidden="true"></span></label>
-            <label class="cs-model-option"><input type="checkbox" checked data-model-toggle="gpt-5.1" /><span class="cs-model-name">GPT-5.1</span><span class="cs-model-switch" aria-hidden="true"></span></label>
-            <label class="cs-model-option"><input type="checkbox" checked data-model-toggle="gpt-4.1-mini" /><span class="cs-model-name">GPT-4.1 mini</span><span class="cs-model-switch" aria-hidden="true"></span></label>
-            <label class="cs-model-option"><input type="checkbox" data-model-toggle="gpt-5.2-codex" /><span class="cs-model-name">GPT-5.2 Codex</span><span class="cs-model-switch" aria-hidden="true"></span></label>
-            <label class="cs-model-option"><input type="checkbox" checked data-model-toggle="o3-mini" /><span class="cs-model-name">o3-mini</span><span class="cs-model-switch" aria-hidden="true"></span></label>
-            <label class="cs-model-option"><input type="checkbox" disabled data-model-toggle="gpt-5.3-preview" /><span class="cs-model-name">GPT-5.3 preview</span><span class="cs-model-switch" aria-hidden="true"></span></label>
-          </div>
-        </section>
-
-        <section class="cs-model-provider" aria-labelledby="provider-claude">
-          <header class="cs-model-provider-head">
-            <span class="cs-provider-mark is-claude" aria-hidden="true"><img src="https://cdn.jsdelivr.net/npm/simple-icons@15.15.0/icons/claude.svg" alt="" /></span>
-            <h3 id="provider-claude">Claude</h3><span>4 models</span>
-          </header>
-          <div class="cs-model-options">
-            <label class="cs-model-option"><input type="checkbox" checked data-model-toggle="claude-opus-4.5" /><span class="cs-model-name">Claude Opus 4.5</span><span class="cs-model-switch" aria-hidden="true"></span></label>
-            <label class="cs-model-option"><input type="checkbox" checked data-model-toggle="claude-sonnet-4" /><span class="cs-model-name">Claude Sonnet 4</span><span class="cs-model-switch" aria-hidden="true"></span></label>
-            <label class="cs-model-option"><input type="checkbox" data-model-toggle="claude-haiku-4.5" /><span class="cs-model-name">Claude Haiku 4.5</span><span class="cs-model-switch" aria-hidden="true"></span></label>
-            <label class="cs-model-option"><input type="checkbox" disabled data-model-toggle="claude-opus-4.6" /><span class="cs-model-name">Claude Opus 4.6</span><span class="cs-model-switch" aria-hidden="true"></span></label>
-          </div>
-        </section>
-
-        <section class="cs-model-provider" aria-labelledby="provider-gemini">
-          <header class="cs-model-provider-head">
-            <span class="cs-provider-mark is-gemini" aria-hidden="true"><img src="https://cdn.jsdelivr.net/npm/simple-icons@15.15.0/icons/googlegemini.svg" alt="" /></span>
-            <h3 id="provider-gemini">Gemini</h3><span>3 models</span>
-          </header>
-          <div class="cs-model-options">
-            <label class="cs-model-option"><input type="checkbox" checked data-model-toggle="gemini-2.5-pro" /><span class="cs-model-name">Gemini 2.5 Pro</span><span class="cs-model-switch" aria-hidden="true"></span></label>
-            <label class="cs-model-option"><input type="checkbox" data-model-toggle="gemini-2.5-flash" /><span class="cs-model-name">Gemini 2.5 Flash</span><span class="cs-model-switch" aria-hidden="true"></span></label>
-            <label class="cs-model-option"><input type="checkbox" disabled data-model-toggle="gemini-3.1-preview" /><span class="cs-model-name">Gemini 3.1 preview</span><span class="cs-model-switch" aria-hidden="true"></span></label>
-          </div>
-        </section>
-
-        <section class="cs-model-provider" aria-labelledby="provider-other">
-          <header class="cs-model-provider-head">
-            <span class="cs-provider-mark is-others" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-            <h3 id="provider-other">Others</h3><span>2 models</span>
-          </header>
-          <div class="cs-model-options">
-            <label class="cs-model-option"><input type="checkbox" checked data-model-toggle="mistral-large" /><span class="cs-model-name">Mistral Large</span><span class="cs-model-switch" aria-hidden="true"></span></label>
-            <label class="cs-model-option"><input type="checkbox" data-model-toggle="cohere-command-r" /><span class="cs-model-name">Command R</span><span class="cs-model-switch" aria-hidden="true"></span></label>
-          </div>
-        </section>
+    <section class="cs-settings-section" aria-labelledby="models-catalog">
+      <header class="cs-settings-section-head">
+        <h2 id="models-catalog">Model catalog</h2>
+        <p>Read-only provider catalog used to prepare governed model-policy drafts.</p>
+      </header>
+      <div class="cs-settings-toolbar">
+        <label>Search catalog<input class="cs-settings-input cs-control-input" type="search" placeholder="Family or version" /></label>
+        <button class="cs-control-button" type="button">Refresh catalog</button>
       </div>
-      <div class="cs-model-empty" id="model-empty">No models match this search.</div>
+      <div class="cs-settings-card-grid">
+        <article class="cs-settings-option-card">
+          <header><div><strong>GPT 5.4</strong><small>Microsoft</small></div><span class="cs-status ok">Current</span></header>
+          <dl><div><dt>SKU</dt><dd>Global standard</dd></div><div><dt>Quota</dt><dd>Available</dd></div></dl>
+          <button class="cs-control-button" type="button">Use in draft</button>
+        </article>
+        <article class="cs-settings-option-card">
+          <header><div><strong>Claude Sonnet 4.6</strong><small>Anthropic</small></div><span class="cs-status ok">Current</span></header>
+          <dl><div><dt>SKU</dt><dd>Provisioned throughput</dd></div><div><dt>Quota</dt><dd>Available</dd></div></dl>
+          <button class="cs-control-button" type="button">Use in draft</button>
+        </article>
+        <article class="cs-settings-option-card">
+          <header><div><strong>Gemini 3.1 Pro</strong><small>Google</small></div><span class="cs-status wait">Preview</span></header>
+          <dl><div><dt>SKU</dt><dd>Unavailable</dd></div><div><dt>Quota</dt><dd>Not measured</dd></div></dl>
+          <button class="cs-control-button" type="button" disabled>Unavailable</button>
+        </article>
+      </div>
     </section>
 
     <section class="cs-settings-section" aria-labelledby="models-t2-policy">
       <header class="cs-settings-section-head">
-        <h2 id="models-t2-policy">T2 model policy</h2>
-        <p>Mixed-model verification remains mandatory.</p>
+        <h2 id="models-t2-policy">T2 model-policy draft</h2>
+        <p>Selection produces a governance artifact only; the Console does not change runtime bindings.</p>
       </header>
       <div class="cs-settings-list">
         <div class="cs-setting-row">
-          <div><strong>Primary reasoner</strong><small>Produces the initial grounded proposal.</small></div>
-          <select class="cs-settings-input" id="primary-reasoner" aria-label="Primary reasoner" data-autosave>
-            <option value="gpt-5.2" data-model-option>gpt-5.2</option>
-            <option value="gpt-5.1" data-model-option>gpt-5.1</option>
-          </select>
+          <div><strong>Primary reasoner</strong><small>Current publisher: Microsoft.</small></div>
+          <select class="cs-settings-input cs-control-select" aria-label="Primary reasoner"><option>gpt-5.4</option></select>
         </div>
         <div class="cs-setting-row">
-          <div><strong>Secondary reasoner</strong><small>Must use a distinct publisher or model family.</small></div>
-          <select class="cs-settings-input" id="secondary-reasoner" aria-label="Secondary reasoner" data-autosave>
-            <option value="claude-opus-4.5" data-model-option>claude-opus-4.5</option>
-            <option value="gpt-5.1" data-model-option>gpt-5.1</option>
-          </select>
+          <div><strong>Secondary reasoner</strong><small>Must use a different publisher.</small></div>
+          <select class="cs-settings-input cs-control-select" aria-label="Secondary reasoner"><option>claude-sonnet-4.6</option></select>
         </div>
         <div class="cs-setting-row">
-          <div><strong>Quorum readiness</strong><small>Selection changes generate a governance PR artifact; they are never applied from the console.</small></div>
-          <span class="cs-status ok" id="model-pair-status" aria-live="polite">Pair valid</span>
+          <div><strong>Mixed-model invariant</strong><small>The artifact remains invalid until publishers are distinct.</small></div>
+          <span class="cs-status ok">Pair valid</span>
         </div>
       </div>
+      <div class="cs-settings-actions"><button class="cs-control-button" type="button">Copy governance draft</button></div>
     </section>
 
-    <section class="cs-settings-section" aria-labelledby="models-preferences">
+    <section class="cs-settings-section" aria-labelledby="models-operator-preferences">
       <header class="cs-settings-section-head">
-        <h2 id="models-preferences">Operator preferences</h2>
-        <p>Personal choices do not alter system governance.</p>
+        <div><h2 id="models-operator-preferences">Operator preferences</h2><span class="cs-settings-scope">Your account</span></div>
+        <p>Personal choices affect T1 narration only and never personalize T2 bindings.</p>
       </header>
       <div class="cs-settings-list">
         <div class="cs-setting-row">
-          <div><strong>Narrator model</strong><small>Used for final presentation when the selected deployment is healthy.</small></div>
-          <select class="cs-settings-input" aria-label="Narrator model" data-autosave>
-            <option value="auto">Auto - fastest healthy</option>
-            <option value="gpt-4.1-mini" data-model-option>gpt-4.1-mini</option>
-            <option value="claude-haiku-4.5" data-model-option>claude-haiku-4.5</option>
-          </select>
+          <div><strong>Narrator model</strong><small>Removed or unhealthy selections safely fall back to Auto.</small></div>
+          <select class="cs-settings-input cs-control-select" aria-label="Narrator model"><option>Auto - fastest healthy</option></select>
         </div>
+      </div>
+      <div class="cs-settings-actions"><button class="cs-control-button is-primary" type="button">Save narrator preference</button></div>
+    </section>
+
+    <section class="cs-settings-section" aria-labelledby="models-web-search">
+      <header class="cs-settings-section-head">
+        <div><h2 id="models-web-search">Web search</h2><span class="cs-settings-scope">Environment</span></div>
+        <p>Owner-managed availability and domain allowlist; enabling never raises autonomy.</p>
+      </header>
+      <div class="cs-settings-list">
         <div class="cs-setting-row">
-          <div><strong>Web search</strong><small>Search remains constrained to the deployment allowlist.</small></div>
-          <label class="cs-settings-toggle">
-            <input type="checkbox" checked data-autosave />
-            <span class="cs-settings-toggle-track" aria-hidden="true"></span>
+          <div><strong>Search availability</strong><small>Uses the resolved function-calling candidate pool.</small></div>
+          <label class="cs-settings-toggle cs-control-switch">
+            <input type="checkbox" checked />
+            <span class="cs-settings-toggle-track cs-control-switch-track" aria-hidden="true"></span>
             <strong>Enabled</strong>
           </label>
         </div>
-        <div class="cs-setting-row">
-          <div><strong>Allowed domains</strong><small>Deployment-wide domain boundary managed by an owner.</small></div>
-          <input class="cs-settings-input" value="learn.microsoft.com" aria-label="Allowed domains" data-autosave />
+      </div>
+      <section class="cs-domain-editor" aria-labelledby="mock-allowed-domains">
+        <div>
+          <strong id="mock-allowed-domains">Allowed domains</strong>
+          <small>Approved public hosts only. Schemes, paths, ports, and wildcards are rejected.</small>
         </div>
+        <div class="cs-domain-list cs-control-policy-list" role="list">
+          <div class="cs-control-policy-row" role="listitem"><code>learn.microsoft.com</code><span class="cs-control-policy-state">Approved</span><button class="cs-control-button is-quiet is-compact" type="button">Remove</button></div>
+          <div class="cs-control-policy-row" role="listitem"><code>nvd.nist.gov</code><span class="cs-control-policy-state">Approved</span><button class="cs-control-button is-quiet is-compact" type="button">Remove</button></div>
+          <div class="cs-control-policy-row" role="listitem"><code>status.azure.com</code><span class="cs-control-policy-state">Approved</span><button class="cs-control-button is-quiet is-compact" type="button">Remove</button></div>
+        </div>
+        <div class="cs-domain-add">
+          <input class="cs-settings-input cs-control-input" aria-label="Add an approved host" placeholder="example.org" />
+          <button class="cs-control-button" type="button">Add domain</button>
+        </div>
+        <div class="cs-domain-meta"><span>Deployment allowlist only - no execution authority</span><span>3 of 100 hosts</span></div>
+      </section>
+      <div class="cs-settings-save-bar cs-control-action-bar">
+        <div class="cs-control-action-copy"><strong>Web-search settings are up to date</strong><small>Changes remain local until explicitly saved.</small></div>
+        <button class="cs-control-button is-primary" type="button" disabled>Save web-search settings</button>
+      </div>
+    </section>
+
+    <section class="cs-settings-section" aria-labelledby="models-inventory">
+      <header class="cs-settings-section-head">
+        <h2 id="models-inventory">Capability and endpoint inventory</h2>
+        <p>Sanitized read-only evidence for capability, route, capacity, and verification state.</p>
+      </header>
+      <div class="cs-table-wrap">
+        <table class="cs-table">
+          <thead><tr><th>Capability</th><th>Provider</th><th>Route</th><th>Capacity</th><th>State</th></tr></thead>
+          <tbody>
+            <tr><td data-label="Capability">T1 narrator</td><td data-label="Provider">Microsoft</td><td data-label="Route">Direct</td><td data-label="Capacity">Standard</td><td data-label="State"><span class="cs-status ok">Verified</span></td></tr>
+            <tr><td data-label="Capability">T2 secondary</td><td data-label="Provider">Anthropic</td><td data-label="Route">Gateway</td><td data-label="Capacity">Provisioned</td><td data-label="State"><span class="cs-status ok">Verified</span></td></tr>
+          </tbody>
+        </table>
       </div>
     </section>
   </main>
-  <script>
-    (function () {
-      "use strict";
-
-      var toggles = Array.prototype.slice.call(document.querySelectorAll("[data-model-toggle]"));
-      var enabledCount = document.getElementById("model-enabled-count");
-      var availableCount = document.getElementById("model-available-count");
-      var pairStatus = document.getElementById("model-pair-status");
-      var primary = document.getElementById("primary-reasoner");
-      var secondary = document.getElementById("secondary-reasoner");
-      var discoveryMode = document.getElementById("discovery-mode");
-      var discoveryInterval = document.getElementById("discovery-interval");
-      var discoverButton = document.getElementById("discover-models");
-      var discoveryResult = document.getElementById("discovery-result");
-      var modelSearch = document.getElementById("model-search");
-      var modelEmpty = document.getElementById("model-empty");
-      var autosaveStatus = document.getElementById("autosave-status");
-      var autosaveTimer = null;
-
-      function autosave() {
-        window.clearTimeout(autosaveTimer);
-        autosaveStatus.classList.add("is-saving");
-        autosaveStatus.querySelector("strong").textContent = "Saving...";
-        autosaveTimer = window.setTimeout(function () {
-          autosaveStatus.classList.remove("is-saving");
-          autosaveStatus.querySelector("strong").textContent = "Saved";
-        }, 350);
-      }
-
-      function updateModelState() {
-        var available = toggles.filter(function (toggle) { return !toggle.disabled; });
-        var enabled = available.filter(function (toggle) { return toggle.checked; });
-        enabledCount.textContent = enabled.length + " enabled";
-        availableCount.textContent = String(available.length);
-
-        document.querySelectorAll("[data-model-option]").forEach(function (option) {
-          var toggle = document.querySelector('[data-model-toggle="' + option.value + '"]');
-          option.disabled = !toggle || toggle.disabled || !toggle.checked;
-        });
-
-        var pairValid = primary.value !== secondary.value &&
-          !primary.selectedOptions[0].disabled && !secondary.selectedOptions[0].disabled;
-        pairStatus.textContent = pairValid ? "Pair valid" : "Pair unavailable";
-        pairStatus.classList.toggle("ok", pairValid);
-        pairStatus.classList.toggle("wait", !pairValid);
-      }
-
-      toggles.forEach(function (toggle) { toggle.addEventListener("change", function () { updateModelState(); autosave(); }); });
-      [primary, secondary].forEach(function (select) { select.addEventListener("change", function () { updateModelState(); autosave(); }); });
-      document.querySelectorAll("[data-model-action]").forEach(function (button) {
-        button.addEventListener("click", function () {
-          var enabled = button.getAttribute("data-model-action") === "enable";
-          toggles.forEach(function (toggle) { if (!toggle.disabled) toggle.checked = enabled; });
-          updateModelState();
-          autosave();
-        });
-      });
-      discoveryMode.addEventListener("change", function () {
-        var automatic = discoveryMode.value === "automatic";
-        discoveryInterval.disabled = !automatic;
-        discoveryResult.textContent = automatic ? "Automatic discovery enabled" : "Manual discovery only";
-        discoveryResult.classList.remove("is-updated");
-        autosave();
-      });
-      discoveryInterval.addEventListener("change", autosave);
-      discoverButton.addEventListener("click", function () {
-        discoverButton.disabled = true;
-        discoverButton.textContent = "Discovering...";
-        discoveryResult.textContent = "Checking provider catalogs";
-        window.setTimeout(function () {
-          discoverButton.disabled = false;
-          discoverButton.textContent = "Discover now";
-          discoveryResult.textContent = "Discovery complete - no new models";
-          discoveryResult.classList.add("is-updated");
-          document.getElementById("last-discovery").textContent = "Just now";
-        }, 600);
-      });
-      modelSearch.addEventListener("input", function () {
-        var query = modelSearch.value.trim().toLowerCase();
-        var visible = 0;
-        document.querySelectorAll(".cs-model-provider").forEach(function (provider) {
-          var providerName = provider.querySelector("h3").textContent.toLowerCase();
-          var providerMatch = providerName.indexOf(query) !== -1;
-          var optionMatches = 0;
-          provider.querySelectorAll(".cs-model-option").forEach(function (option) {
-            var match = !query || providerMatch || option.textContent.toLowerCase().indexOf(query) !== -1;
-            option.hidden = !match;
-            if (match) optionMatches += 1;
-          });
-          provider.hidden = optionMatches === 0;
-          if (optionMatches > 0) visible += 1;
-        });
-        modelEmpty.classList.toggle("is-visible", visible === 0);
-      });
-      document.querySelectorAll("[data-autosave]").forEach(function (control) {
-        if (control === primary || control === secondary) return;
-        control.addEventListener(control.tagName === "INPUT" && control.type === "text" ? "input" : "change", autosave);
-      });
-      updateModelState();
-    })();
-  </script>
 </body>
 </html>

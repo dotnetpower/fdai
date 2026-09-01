@@ -333,7 +333,8 @@
 .cp-field select,
 .cp-field textarea {
   width: 100%;
-  min-height: 42px;
+  min-height: var(--cs-control-height);
+  box-sizing: border-box;
   padding: 8px 10px;
   border: 1px solid var(--cs-hairline);
   border-radius: var(--cs-radius-sm);
@@ -557,7 +558,8 @@
 }
 
 .cp-tab {
-  min-height: 42px;
+  height: var(--cs-control-height);
+  min-height: var(--cs-control-height);
   flex: 0 0 auto;
   padding: 8px 0;
   border: 0;
@@ -720,6 +722,7 @@
   }
 
   .cp-tab {
+    height: var(--cs-control-height-touch);
     min-height: 44px;
   }
 }

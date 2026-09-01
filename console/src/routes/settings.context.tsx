@@ -2,7 +2,12 @@ import { Tooltip } from "../components/tooltip";
 import { t } from "../i18n";
 import type { UserPreferencePayload } from "../user-context-client";
 import type { SettingsController } from "./settings.controller";
-import { SegmentedControl, SettingRow } from "./settings.controls";
+import {
+  SegmentedControl,
+  SettingRow,
+  SettingsSectionHeader,
+} from "./settings.controls";
+import { settingsGeneralText } from "./settings-general.i18n";
 
 export function SettingsContextSections({
   controller,
@@ -27,6 +32,7 @@ export function SettingsContextSections({
     briefingHour,
     setBriefingHour,
     savingContext,
+    contextDirty,
     pendingDeletes,
     openingPolicy,
     latestSourceTurnId,
@@ -40,10 +46,12 @@ export function SettingsContextSections({
   return (
     <>
       <section class="settings-section" aria-labelledby="settings-user-context">
-        <h3 id="settings-user-context">{t("settings.contextTitle")}</h3>
-        <p class="muted small">
-          {t("settings.contextDescription")}
-        </p>
+        <SettingsSectionHeader
+          id="settings-user-context"
+          title={settingsGeneralText("contextTitle")}
+          description={settingsGeneralText("contextDescription")}
+          scope={settingsGeneralText("accountScope")}
+        />
         {contextError ? <p class="error-text">{contextError}</p> : null}
         {contextLoading ? <p class="muted small" role="status">{t("settings.contextLoading")}</p> : null}
         <div class="settings-list">
@@ -113,15 +121,35 @@ export function SettingsContextSections({
             </label>
           </SettingRow>
         </div>
-        <div class="settings-actions">
-          <button type="button" class="btn" disabled={savingContext} onClick={() => void saveContextPreferences()}>
-            {t("settings.saveContext")}
+        <div class="settings-save-bar">
+          <div aria-live="polite">
+            <strong>
+              {savingContext
+                ? settingsGeneralText("contextSaving")
+                : contextDirty
+                  ? settingsGeneralText("contextUnsaved")
+                  : settingsGeneralText("contextCurrent")}
+            </strong>
+            <small>{settingsGeneralText("accountScopeHint")}</small>
+          </div>
+          <button
+            type="button"
+            class="btn primary"
+            disabled={savingContext || contextLoading || !contextDirty}
+            onClick={() => void saveContextPreferences()}
+          >
+            {savingContext ? settingsGeneralText("contextSaving") : settingsGeneralText("saveContext")}
           </button>
         </div>
       </section>
 
       <section class="settings-section" aria-labelledby="settings-briefings">
-        <h3 id="settings-briefings">{t("settings.briefingsTitle")}</h3>
+        <SettingsSectionHeader
+          id="settings-briefings"
+          title={settingsGeneralText("briefingsTitle")}
+          description={settingsGeneralText("briefingsDescription")}
+          scope={settingsGeneralText("accountScope")}
+        />
         <div class="settings-context-list">
           <article>
             <div>
@@ -205,10 +233,12 @@ export function SettingsContextSections({
       </section>
 
       <section class="settings-section" aria-labelledby="settings-saved-memory">
-        <h3 id="settings-saved-memory">{t("settings.memoryTitle")}</h3>
-        <p class="muted small">
-          {t("settings.memoryDescription")}
-        </p>
+        <SettingsSectionHeader
+          id="settings-saved-memory"
+          title={settingsGeneralText("memoryTitle")}
+          description={settingsGeneralText("memoryDescription")}
+          scope={settingsGeneralText("accountScope")}
+        />
         <div class="settings-context-list">
           {(serverContext?.memories ?? []).map((memory) => (
             <article key={memory.memory_id}>
@@ -238,7 +268,12 @@ export function SettingsContextSections({
       </section>
 
       <section class="settings-section" aria-labelledby="settings-briefing-history">
-        <h3 id="settings-briefing-history">{t("settings.recentBriefings")}</h3>
+        <SettingsSectionHeader
+          id="settings-briefing-history"
+          title={settingsGeneralText("recentBriefings")}
+          description={settingsGeneralText("recentBriefingsDescription")}
+          scope={settingsGeneralText("accountScope")}
+        />
         <div class="settings-context-list">
           {(serverContext?.briefing_runs ?? []).slice(0, 10).map((run) => (
             <article key={run.run_id}>

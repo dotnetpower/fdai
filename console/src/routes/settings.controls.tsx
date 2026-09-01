@@ -1,3 +1,20 @@
+export function SettingsSectionHeader({ id, title, description, scope }: {
+  readonly id: string;
+  readonly title: string;
+  readonly description?: string;
+  readonly scope?: string;
+}) {
+  return (
+    <header class="settings-section-head">
+      <div>
+        <h3 id={id}>{title}</h3>
+        {scope ? <span class="settings-scope-label">{scope}</span> : null}
+      </div>
+      {description ? <p>{description}</p> : null}
+    </header>
+  );
+}
+
 export function SettingRow({ label, hint, children }: {
   readonly label: string;
   readonly hint: string;

@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Diagnostics - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=settings-workspace-v1" />
-  <script src="assets/calm-slate.js?v=settings-workspace-v1" defer></script>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=settings-route-v5" />
+  <script src="assets/calm-slate.js?v=settings-route-v5" defer></script>
 </head>
 <body>
   <main class="cs-container cs-page cs-settings-page">
@@ -38,7 +38,45 @@
           <code>operator@example.com</code>
         </div>
       </div>
-      <div class="cs-settings-actions"><button class="cs-btn" type="button">Run checks again</button></div>
+      <div class="cs-settings-actions"><button class="cs-control-button" type="button">Run checks again</button></div>
+    </section>
+
+    <section class="cs-settings-section" aria-labelledby="diagnostics-policy">
+      <header class="cs-settings-section-head">
+        <h2 id="diagnostics-policy">Runtime policy status</h2>
+        <p>Sanitized effective values and override provenance.</p>
+      </header>
+      <div class="cs-settings-list">
+        <div class="cs-setting-row">
+          <div><strong>Runtime settings revision</strong><small>Current durable projection.</small></div>
+          <code>12</code>
+        </div>
+        <div class="cs-setting-row">
+          <div><strong>Override source</strong><small>Environment and durable override remain distinct.</small></div>
+          <span class="cs-status ok">Current</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="cs-settings-section" aria-labelledby="diagnostics-sources">
+      <header class="cs-settings-section-head">
+        <h2 id="diagnostics-sources">Operational data sources</h2>
+        <p>Composition-owned availability; route presence alone never proves evidence health.</p>
+      </header>
+      <div class="cs-settings-list">
+        <div class="cs-setting-row">
+          <div><strong>Inventory</strong><small>Authoritative durable projection.</small></div>
+          <span class="cs-status ok">Available</span>
+        </div>
+        <div class="cs-setting-row">
+          <div><strong>Incidents</strong><small>Authoritative durable projection.</small></div>
+          <span class="cs-status ok">Available</span>
+        </div>
+        <div class="cs-setting-row">
+          <div><strong>Automation</strong><small>No authoritative source is bound.</small></div>
+          <span class="cs-status wait">Unknown</span>
+        </div>
+      </div>
     </section>
   </main>
 </body>

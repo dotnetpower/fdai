@@ -663,6 +663,30 @@ export function normalizeAndValidateDomains(
   return { domains, error: null, invalidDomains: [] };
 }
 
+export function appendAllowedDomain(
+  input: string,
+  candidate: string,
+  enabled: boolean,
+): DomainValidationResult {
+  return normalizeAndValidateDomains([input, candidate].filter(Boolean).join("\n"), enabled);
+}
+
+export function removeAllowedDomain(input: string, domain: string): string {
+  return normalizeAndValidateDomains(input, false).domains
+    .filter((candidate) => candidate !== domain)
+    .join("\n");
+}
+
+export function webSearchSettingsAreDirty(input: {
+  readonly enabled: boolean;
+  readonly domains: readonly string[];
+  readonly savedEnabled: boolean;
+  readonly savedDomains: readonly string[];
+}): boolean {
+  return input.enabled !== input.savedEnabled
+    || input.domains.join("\n") !== input.savedDomains.join("\n");
+}
+
 export function webSearchControlsDisabled(canManage: boolean, saving: boolean): boolean {
   return !canManage || saving;
 }

@@ -41,4 +41,8 @@
   --cs-type-caption-size: 11px;
   --cs-type-caption-line-height: 1.35;
   --cs-font-size: var(--cs-type-body-size);
+  --cs-control-height: 34px;
+  --cs-control-height-compact: 28px;
+  --cs-control-height-touch: 44px;
+  --cs-control-padding-inline: 12px;
 }

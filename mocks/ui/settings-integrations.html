@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Integrations - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=settings-workspace-v1" />
-  <script src="assets/calm-slate.js?v=settings-workspace-v1" defer></script>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=settings-route-v5" />
+  <script src="assets/calm-slate.js?v=settings-route-v5" defer></script>
 </head>
 <body>
   <main class="cs-container cs-page cs-settings-page">
@@ -31,7 +31,7 @@
     <section class="cs-settings-section" aria-labelledby="integrations-delivery">
       <header class="cs-settings-section-head">
         <h2 id="integrations-delivery">Delivery</h2>
-        <p>Live probing is reported under Diagnostics.</p>
+        <p>Configured adapters and current sanitized readiness.</p>
       </header>
       <div class="cs-settings-list">
         <div class="cs-setting-row">
@@ -42,7 +42,39 @@
           <div><strong>Microsoft Teams</strong><small>Approval notifications and governed ChatOps delivery.</small></div>
           <span class="cs-status idle">Not probed</span>
         </div>
+        <div class="cs-setting-row">
+          <div><strong>Slack</strong><small>Optional governed delivery using a transient diagnostic URL.</small></div>
+          <span class="cs-status idle">Not configured</span>
+        </div>
       </div>
+    </section>
+
+    <section class="cs-settings-section" aria-labelledby="integrations-diagnostics">
+      <header class="cs-settings-section-head">
+        <h2 id="integrations-diagnostics">Delivery diagnostics</h2>
+        <p>Synthetic diagnostics never update the production binding or grant authority.</p>
+      </header>
+      <div class="cs-settings-list">
+        <div class="cs-setting-row">
+          <div><strong>Teams Workflows test</strong><small>The URL remains transient and only a content-free result is retained.</small></div>
+          <button class="cs-control-button" type="button">Prepare test</button>
+        </div>
+        <div class="cs-setting-row">
+          <div><strong>Slack webhook test</strong><small>Owner-only diagnostic using a fixed synthetic message.</small></div>
+          <button class="cs-control-button" type="button">Prepare test</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="cs-settings-section" aria-labelledby="integrations-email">
+      <header class="cs-settings-section-head">
+        <h2 id="integrations-email">Incident email template</h2>
+        <p>Preview the production renderer with synthetic placeholders.</p>
+      </header>
+      <article class="cs-settings-card">
+        <div><strong>Incident opened</strong><small>Subject, summary, severity, and evidence links use placeholder values.</small></div>
+        <button class="cs-control-button" type="button">Preview template</button>
+      </article>
     </section>
   </main>
 </body>

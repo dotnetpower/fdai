@@ -9,14 +9,17 @@ import {
 } from "./settings-models.command";
 import {
   DEFAULT_WEB_SEARCH_DOMAINS,
+  appendAllowedDomain,
   decodeModelSettings,
   draftRevisionIsCurrent,
   modelChoiceKey,
   normalizeAndValidateDomains,
   projectionGenerationIsCurrent,
   renderT2GovernanceDraft,
+  removeAllowedDomain,
   t2PairIsValid,
   webSearchControlsDisabled,
+  webSearchSettingsAreDirty,
   webSearchUnavailableMessageKey,
 } from "./settings-models.model";
   it("maps web-search readiness codes to operator messages", () => {
@@ -586,6 +589,37 @@ describe("Settings Models contracts", () => {
   it("requires at least one domain only while enabled", () => {
     expect(normalizeAndValidateDomains("", true).error).toBe("required");
     expect(normalizeAndValidateDomains("", false).error).toBeNull();
+  });
+
+  it("adds and removes normalized allowlist hosts", () => {
+    expect(appendAllowedDomain(
+      "learn.microsoft.com",
+      " NVD.NIST.GOV ",
+      true,
+    )).toEqual({
+      domains: ["learn.microsoft.com", "nvd.nist.gov"],
+      error: null,
+      invalidDomains: [],
+    });
+    expect(removeAllowedDomain(
+      "learn.microsoft.com\nnvd.nist.gov",
+      "learn.microsoft.com",
+    )).toBe("nvd.nist.gov");
+  });
+
+  it("detects deployment-wide web-search draft changes", () => {
+    expect(webSearchSettingsAreDirty({
+      enabled: true,
+      domains: ["learn.microsoft.com"],
+      savedEnabled: true,
+      savedDomains: ["learn.microsoft.com"],
+    })).toBe(false);
+    expect(webSearchSettingsAreDirty({
+      enabled: true,
+      domains: ["learn.microsoft.com", "nvd.nist.gov"],
+      savedEnabled: true,
+      savedDomains: ["learn.microsoft.com"],
+    })).toBe(true);
   });
 
   it("rejects more than 100 unique hosts", () => {

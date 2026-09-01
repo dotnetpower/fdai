@@ -9,6 +9,8 @@ const landing = readFileSync(join(uiRoot, "index.html"), "utf8");
 const masterLanding = readFileSync(join(uiRoot, "..", "..", "index.html"), "utf8");
 const components = readFileSync(join(uiRoot, "components.html"), "utf8");
 const stylesheet = readFileSync(join(uiRoot, "assets", "calm-slate.css"), "utf8");
+const registry = JSON.parse(readFileSync(join(uiRoot, "assets", "component-registry.json"), "utf8"));
+const primitives = readFileSync(join(uiRoot, "..", "..", "ui", "calm-slate-primitives.css"), "utf8");
 const typography = readFileSync(join(uiRoot, "typography.html"), "utf8");
 
 test("typography has direct, kit, and master navigation entries", () => {
@@ -59,34 +61,34 @@ test("typography page renders every shared semantic role", () => {
 test("component gallery exposes a quiet category index", () => {
   assert.match(components, /<body class="cs-components-page">/);
   assert.equal((components.match(/class="cs-gallery-index"/g) || []).length, 1);
-  ["display", "controls", "navigation", "feedback", "data-views", "advanced", "typography"]
-    .forEach((id) => assert.match(components, new RegExp(`id="${id}"`)));
+  ["foundations", "inputs", "actions", "selection", "feedback", "data", "overlays", "patterns"]
+    .forEach((id) => assert.match(components, new RegExp(`data-gallery-category="${id}"`)));
   Object.entries({
-    display: "KPI cards",
-    controls: "Buttons &amp; forms",
-    navigation: "Navigation &amp; filters",
-    feedback: "Feedback &amp; overlays",
-    "data-views": "Charts &amp; structured summaries",
-    advanced: "Select menus &amp; combobox",
-    typography: "Typography &amp; content hierarchy",
-  }).forEach(([id, heading]) => {
-    const start = components.indexOf(`<section class="cs-section" id="${id}"`);
-    const end = components.indexOf("</section>", start);
-    const section = components.slice(start, end);
-    const headingStart = section.indexOf("<h2");
-    const headingTextStart = section.indexOf(">", headingStart) + 1;
-    const headingEnd = section.indexOf("</h2>", headingTextStart);
-    assert.ok(start >= 0);
-    assert.equal(section.slice(headingTextStart, headingEnd), heading);
+    foundations: "Foundations",
+    inputs: "Inputs",
+    actions: "Actions",
+    selection: "Selection",
+    feedback: "Feedback",
+    data: "Data display",
+    overlays: "Overlays",
+    patterns: "Product patterns",
+  }).forEach(([id, label]) => {
+    assert.match(
+      components,
+      new RegExp(`data-gallery-category="${id}">${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}</a>`),
+    );
   });
   assert.match(components, /<span class="cs-badge-num"[^>]*>01<\/span>/);
   assert.match(components, /<span class="cs-badge-num"[^>]*>23<\/span>/);
-  assert.match(stylesheet, /\.cs-components-page \.cs-badge-num \{[^}]*background: transparent/);
+  assert.match(stylesheet, /\.cs-components-page \.cs-badge-num \{[^}]*display: none/);
   assert.match(stylesheet, /\.cs-gallery-toolbar \{[^}]*position: sticky/);
   assert.match(stylesheet, /\.cs-gallery-index a\[aria-current="location"\]/);
   assert.match(components, /data-cs-component-search/);
+  assert.match(components, /data-gallery-subindex/);
   assert.doesNotMatch(components, /href="#"/);
-  assert.match(components, /function syncActiveCategory\(\)/);
+  assert.match(components, /function renderCategory\(category, view, preserveHash\)/);
+  assert.match(components, /className = "cs-spec-meta"/);
+  assert.match(components, /className = "cs-spec-guidance"/);
 });
 
 test("component gallery keeps the remediated interaction and accessibility contracts", () => {
@@ -95,10 +97,14 @@ test("component gallery keeps the remediated interaction and accessibility contr
   assert.ok((components.match(/<button\b[^>]*>/g) || []).every((button) => /\btype="button"/.test(button)));
   assert.ok((components.match(/<th\b[^>]*>/g) || []).every((heading) => /\bscope="col"/.test(heading)));
   assert.match(components, /data-cs-theme-toggle/);
-  assert.match(components, /class="cs-gallery-synthetic">Synthetic samples/);
+  assert.match(components, /data-gallery-registry-status>Registry loading/);
+  assert.match(components, /data-gallery-preview/);
+  assert.match(components, /200% zoom/);
+  assert.match(components, /Forced colors/);
+  assert.match(components, /Reduced motion/);
   assert.match(components, /class="cs-interaction-matrix"/);
   assert.match(components, /type: "fdai:mock-section"/);
-  assert.match(stylesheet, /semantic-type-v2/);
+  assert.match(stylesheet, /semantic-type-v5/);
   assert.match(stylesheet, /small, code, dt, dd, th, time, kbd, svg text/);
   assert.match(stylesheet, /\.cs-components-page \.cs-heading-link \{[^}]*width: 44px;[^}]*height: 44px/);
   assert.equal((components.match(/data-cs-chart-inspect/g) || []).length, 4);
@@ -114,6 +120,85 @@ test("component gallery keeps the remediated interaction and accessibility contr
   assert.match(navigation, /lastTrigger = focusReturn \|\| trigger/);
   assert.match(stylesheet, /\.cs-chart-mark-tip \{[^}]*position: fixed/);
   assert.doesNotMatch(navigation, /querySelectorAll\("\.js-chartable"\)/);
+});
+
+test("component registry completely documents every specimen", () => {
+  const sectionIds = [...components.matchAll(/<section class="cs-section" id="([^"]+)"/g)]
+    .map((match) => match[1])
+    .sort();
+  const registryIds = registry.components.map((component) => component.id).sort();
+  assert.deepEqual(registryIds, sectionIds);
+  assert.equal(new Set(registryIds).size, 23);
+  assert.equal(registry.reviewed_at, "2026-09-01");
+  assert.deepEqual(registry.status_vocabulary, ["Documented", "Review required"]);
+  const classTokens = [...components.matchAll(/class="([^"]+)"/g)]
+    .flatMap((match) => match[1].split(/\s+/));
+  registry.deprecated_aliases.forEach((alias) => assert.ok(!classTokens.includes(alias), alias));
+  assert.deepEqual(Object.keys(registry.interaction_roles).sort(), [
+    "compact_action",
+    "grid_cell",
+    "icon_action",
+    "plot_mark",
+    "segmented_option",
+    "standard_action",
+    "whole_card",
+  ]);
+  assert.deepEqual(registry.inline_style_policy.scopes, ["tabs-meters", "data-views"]);
+  assert.deepEqual(registry.inline_style_policy.allowed_properties, [
+    "--*",
+    "width",
+    "height",
+    "background-*",
+  ]);
+  registry.components.forEach((component) => {
+    [
+      "category",
+      "view",
+      "view_label",
+      "level",
+      "owner",
+      "api",
+      "source",
+      "states",
+      "use_when",
+      "do_not",
+      "responsive",
+      "a11y",
+      "routes",
+    ].forEach((field) => assert.ok(component[field]?.length, `${component.id}.${field}`));
+  });
+  assert.match(components, /fetch\("assets\/component-registry\.json\?v=7"\)/);
+  assert.doesNotMatch(components, /Canonical specimens/);
+  assert.doesNotMatch(components, /function statusFor/);
+  assert.doesNotMatch(components, /function guidanceFor/);
+  assert.match(components, /class="cs-chart-preview-grid"/);
+  assert.match(components, /function contrastRatio\(\)/);
+  assert.match(components, /function encodeSearchState\(query\)/);
+  assert.match(components, /new TextEncoder\(\)/);
+  assert.match(components, /new TextDecoder\(\)/);
+  assert.match(components, /Danger action contract/);
+  assert.match(components, /Keyboard order/);
+});
+
+test("component gallery defines the complete shared form-control family", () => {
+  [
+    "cs-control-button",
+    "cs-control-input",
+    "cs-control-select",
+    "cs-control-textarea",
+    "cs-control-field",
+    "cs-control-help",
+    "cs-control-error",
+    "cs-control-policy-list",
+    "cs-control-policy-row",
+    "cs-control-action-bar",
+  ].forEach((className) => assert.match(components, new RegExp(`class="[^"]*${className}`)));
+  assert.match(primitives, /--cs-control-height/);
+  assert.match(primitives, /\.cs-control-button,/);
+  assert.match(primitives, /\.cs-control-textarea \{/);
+  assert.match(primitives, /\.cs-control-action-bar \{/);
+  assert.match(primitives, /\.cs-control-policy-list \{/);
+  assert.match(primitives, /\.cs-control-policy-row \{/);
 });
 
 test("component gallery exposes a bounded Resource autocomplete specimen", () => {

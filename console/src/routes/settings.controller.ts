@@ -27,6 +27,7 @@ import {
   buildResponseDefaultsPolicy,
   claimSettingsDelete,
   claimSettingsMutation,
+  contextPreferencesAreDirty,
   contextWithSavedPreference,
   defaultTimezone,
   isValidTimezone,
@@ -182,6 +183,14 @@ export function useSettingsController(client: OperatorApiClient) {
   const latestSourceTurnId = serverContext?.conversations.find(
     (conversation) => conversation.latest_operator_turn_id !== null,
   )?.latest_operator_turn_id ?? null;
+  const contextDirty = !contextLoading && contextPreferencesAreDirty({
+    preference: serverContext?.preference,
+    answerDetail,
+    answerFormat,
+    answerPreferencesEnabled,
+    timezone,
+    shareWithLearner,
+  });
 
   const saveContextPreferences = async (): Promise<void> => {
     if (!isValidTimezone(timezone)) {
@@ -356,6 +365,7 @@ export function useSettingsController(client: OperatorApiClient) {
     briefingHour,
     setBriefingHour,
     savingContext,
+    contextDirty,
     pendingDeletes,
     openingPolicy,
     latestSourceTurnId,

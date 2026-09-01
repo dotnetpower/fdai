@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Settings - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=settings-workspace-v1" />
-  <script src="assets/calm-slate.js?v=settings-workspace-v1" defer></script>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=settings-route-v5" />
+  <script src="assets/calm-slate.js?v=settings-route-v5" defer></script>
 </head>
 <body>
   <main class="cs-container cs-page cs-settings-page">
@@ -17,38 +17,46 @@
 
     <section class="cs-settings-section" aria-labelledby="settings-appearance">
       <header class="cs-settings-section-head">
-        <h2 id="settings-appearance">Appearance</h2>
-        <p>Browser-local preferences apply immediately.</p>
+        <div><h2 id="settings-appearance">Appearance</h2><span class="cs-settings-scope">This browser</span></div>
+        <p>Browser-local display and accessibility choices apply immediately.</p>
       </header>
       <div class="cs-settings-list">
         <div class="cs-setting-row">
           <div><strong>Theme</strong><small>Applied across every console view.</small></div>
-          <div class="cs-settings-segmented" role="group" aria-label="Theme">
+          <div class="cs-settings-segmented cs-control-segmented" role="group" aria-label="Theme">
             <button class="is-active" type="button" aria-pressed="true">Light</button>
             <button type="button" aria-pressed="false">Dark</button>
           </div>
         </div>
         <div class="cs-setting-row">
           <div><strong>Language</strong><small>Reloads navigation labels in the selected language.</small></div>
-          <div class="cs-settings-segmented" role="group" aria-label="Language">
+          <div class="cs-settings-segmented cs-control-segmented" role="group" aria-label="Language">
             <button class="is-active" type="button" aria-pressed="true">English</button>
             <button type="button" aria-pressed="false">Korean</button>
           </div>
         </div>
         <div class="cs-setting-row">
           <div><strong>Motion</strong><small>Reduces decorative animation while preserving live updates.</small></div>
-          <label class="cs-settings-toggle">
+          <label class="cs-settings-toggle cs-control-switch">
             <input type="checkbox" />
-            <span class="cs-settings-toggle-track" aria-hidden="true"></span>
+            <span class="cs-settings-toggle-track cs-control-switch-track" aria-hidden="true"></span>
             <strong>System preference</strong>
           </label>
         </div>
         <div class="cs-setting-row">
           <div><strong>Show token usage</strong><small>Shows tokens beside model and latency in Command Deck.</small></div>
-          <label class="cs-settings-toggle">
+          <label class="cs-settings-toggle cs-control-switch">
             <input type="checkbox" checked />
-            <span class="cs-settings-toggle-track" aria-hidden="true"></span>
+            <span class="cs-settings-toggle-track cs-control-switch-track" aria-hidden="true"></span>
             <strong>Enabled</strong>
+          </label>
+        </div>
+        <div class="cs-setting-row">
+          <div><strong>Capture model request and response trace</strong><small>Off by default. Stores a bounded redacted copy for new turns; credentials, identifiers, URLs, images, and hidden reasoning are excluded.</small></div>
+          <label class="cs-settings-toggle cs-control-switch">
+            <input type="checkbox" />
+            <span class="cs-settings-toggle-track cs-control-switch-track" aria-hidden="true"></span>
+            <strong>Disabled</strong>
           </label>
         </div>
       </div>
@@ -56,13 +64,13 @@
 
     <section class="cs-settings-section" aria-labelledby="settings-context">
       <header class="cs-settings-section-head">
-        <h2 id="settings-context">User context</h2>
+        <div><h2 id="settings-context">User context</h2><span class="cs-settings-scope">Your account</span></div>
         <p>Account-scoped answer defaults and explicit learner consent.</p>
       </header>
       <div class="cs-settings-list">
         <div class="cs-setting-row">
           <div><strong>Answer detail</strong><small>Explicit requests in the current turn still win.</small></div>
-          <div class="cs-settings-segmented" role="group" aria-label="Answer detail">
+          <div class="cs-settings-segmented cs-control-segmented" role="group" aria-label="Answer detail">
             <button type="button">Brief</button>
             <button class="is-active" type="button">Standard</button>
             <button type="button">Deep</button>
@@ -70,38 +78,88 @@
         </div>
         <div class="cs-setting-row">
           <div><strong>Answer format</strong><small>Default structure when the current turn does not request one.</small></div>
-          <div class="cs-settings-segmented is-four" role="group" aria-label="Answer format">
+          <div class="cs-settings-segmented cs-control-segmented is-five" role="group" aria-label="Answer format">
             <button class="is-active" type="button">Prose</button>
             <button type="button">Bullets</button>
             <button type="button">Steps</button>
             <button type="button">Table</button>
+            <button type="button">Chart</button>
           </div>
         </div>
         <div class="cs-setting-row">
+          <div><strong>Apply saved answer preferences</strong><small>Disable stored defaults without changing the language or deleting the profile.</small></div>
+          <label class="cs-settings-toggle cs-control-switch">
+            <input type="checkbox" checked />
+            <span class="cs-settings-toggle-track cs-control-switch-track" aria-hidden="true"></span>
+            <strong>Enabled</strong>
+          </label>
+        </div>
+        <div class="cs-setting-row">
           <div><strong>Timezone</strong><small>IANA timezone used by recurring briefings.</small></div>
-          <input class="cs-settings-input" value="Asia/Seoul" aria-label="Timezone" />
+          <input class="cs-settings-input cs-control-input" value="Asia/Seoul" aria-label="Timezone" />
         </div>
         <div class="cs-setting-row">
           <div><strong>Learner access</strong><small>Off by default. Metadata remains available.</small></div>
-          <label class="cs-settings-toggle">
+          <label class="cs-settings-toggle cs-control-switch">
             <input type="checkbox" />
-            <span class="cs-settings-toggle-track" aria-hidden="true"></span>
+            <span class="cs-settings-toggle-track cs-control-switch-track" aria-hidden="true"></span>
             <strong>Metadata only</strong>
           </label>
         </div>
       </div>
-      <div class="cs-settings-actions"><button class="cs-btn is-primary" type="button">Save user context</button></div>
+      <div class="cs-settings-save-bar cs-control-action-bar">
+        <div class="cs-control-action-copy"><strong>Account preferences are up to date</strong><small>Account preferences are saved only after you confirm the changes.</small></div>
+        <button class="cs-control-button is-primary" type="button" disabled>Save user context</button>
+      </div>
     </section>
 
     <section class="cs-settings-section" aria-labelledby="settings-briefings">
       <header class="cs-settings-section-head">
-        <h2 id="settings-briefings">Proactive briefings</h2>
-        <p>Schedule preferences only. Operational actions stay outside the console.</p>
+        <div><h2 id="settings-briefings">Proactive briefings</h2><span class="cs-settings-scope">Your account</span></div>
+        <p>Control when verified operational summaries appear in Command Deck.</p>
       </header>
       <article class="cs-settings-card">
         <div><strong>Brief when Command Deck opens</strong><small>Show high and critical issues once per conversation.</small></div>
-        <button class="cs-btn" type="button" disabled>Enable</button>
+        <button class="cs-control-button" type="button" disabled>Enable</button>
       </article>
+      <div class="cs-settings-briefing-create">
+        <label>Daily hour<input class="cs-settings-input cs-control-input" type="number" min="0" max="23" value="7" /></label>
+        <span>Asia/Seoul</span>
+        <button class="cs-control-button" type="button">Add daily major-issue briefing</button>
+      </div>
+      <article class="cs-settings-card">
+        <div><strong>Daily major issues</strong><small>0 7 * * * - Asia/Seoul - next 2026-09-02T07:00:00+09:00</small></div>
+        <button class="cs-control-button" type="button">Remove</button>
+      </article>
+    </section>
+
+    <section class="cs-settings-section" aria-labelledby="settings-memory">
+      <header class="cs-settings-section-head">
+        <div><h2 id="settings-memory">Saved memory</h2><span class="cs-settings-scope">Your account</span></div>
+        <p>Only explicitly confirmed facts are stored with their source and expiry.</p>
+      </header>
+      <article class="cs-settings-card">
+        <div><strong>Preferred maintenance window</strong><small>Source turn-018 - expires 2026-10-01T00:00:00Z</small></div>
+        <button class="cs-control-button" type="button">Remove</button>
+      </article>
+    </section>
+
+    <section class="cs-settings-section" aria-labelledby="settings-recent-briefings">
+      <header class="cs-settings-section-head">
+        <div><h2 id="settings-recent-briefings">Recent briefings</h2><span class="cs-settings-scope">Your account</span></div>
+        <p>Review the latest account-scoped briefing results and evidence counts.</p>
+      </header>
+      <article class="cs-settings-card">
+        <div><strong>Daily major issues</strong><small>completed - 3 items - 5 evidence refs</small></div>
+      </article>
+    </section>
+
+    <section class="cs-settings-section" aria-labelledby="settings-reset">
+      <header class="cs-settings-section-head">
+        <h2 id="settings-reset">Reset preferences</h2>
+        <p>Remove saved account defaults and restore this browser to the Console defaults.</p>
+      </header>
+      <div class="cs-settings-actions"><button class="cs-control-button" type="button">Reset account and display preferences</button></div>
     </section>
   </main>
 </body>
