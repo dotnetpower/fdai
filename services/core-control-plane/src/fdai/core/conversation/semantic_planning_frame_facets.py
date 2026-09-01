@@ -57,42 +57,27 @@ def _facets_describe_business_capability_mapping(facets: set[str]) -> bool:
 
 
 def _facets_describe_change_correlation(facets: set[str]) -> bool:
-    roles = {_change_correlation_facet_role(facet) for facet in facets}
+    allowed = {
+        "approved_windows",
+        "change",
+        "change_records",
+        "changes",
+        "correlation",
+        "incident",
+        "service_paths",
+        "targets",
+        "target_resources",
+        "without_causal_inference",
+        "without_current_finding",
+    }
     return bool(
         facets
-        and None not in roles
-        and "anchor" in roles
-        and "service_path" in roles
-        and "target" in roles
-        and "window" in roles
+        and facets <= allowed
+        and {"approved_windows", "service_paths"} <= facets
+        and {"targets", "target_resources"}.intersection(facets)
+        and {"change", "change_records", "changes", "incident"}.intersection(facets)
+        and {"without_causal_inference", "without_current_finding"}.intersection(facets)
     )
-
-
-def _change_correlation_facet_role(facet: str) -> str | None:
-    normalized = facet.replace(".", "_").replace("-", "_")
-    parts = tuple(part for part in normalized.split("_") if part)
-    if normalized == "incident" or normalized == "change" or normalized == "changes":
-        return "anchor"
-    if "incident" in parts and ("change" in parts or "changes" in parts):
-        return "anchor"
-    if normalized.startswith("change_"):
-        if "window" in parts or "windows" in parts:
-            return "window"
-        if normalized.endswith("_activity") or normalized.endswith("_records"):
-            return "anchor"
-    if normalized.startswith("approved_") and ("window" in parts or "windows" in parts):
-        return "window"
-    if normalized == "targets" or normalized == "target_resources":
-        return "target"
-    if normalized == "service_path" or normalized == "service_paths":
-        return "service_path"
-    if normalized == "correlation":
-        return "optional"
-    if normalized.startswith("without_") and (
-        "cause" in parts or "causal" in parts or "causation" in parts or "finding" in parts
-    ):
-        return "optional"
-    return None
 
 
 def _facets_describe_service_resource_path(facets: set[str]) -> bool:

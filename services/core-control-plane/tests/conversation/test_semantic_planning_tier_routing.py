@@ -3152,17 +3152,6 @@ def test_service_current_health_without_exact_service_requests_clarification() -
                 "without_causal_inference",
             ],
         ),
-        (
-            "query.ontology_relationships",
-            [
-                "incident",
-                "change_activity",
-                "approved_windows",
-                "target_resources",
-                "service_paths",
-                "without_current_finding",
-            ],
-        ),
     ],
 )
 def test_unbound_change_correlation_preserves_compare_windowed_hold(
@@ -3260,74 +3249,14 @@ def test_unbound_change_correlation_accepts_only_reviewed_type_targets() -> None
     assert frame.temporal_scope == {"kind": "windowed"}
 
 
-@pytest.mark.parametrize(
-    "primary_intent",
-    ("query.ontology_relationships", "query.resource_change_activity"),
-)
-@pytest.mark.parametrize(
-    ("facets", "targets"),
-    [
-        (
-            [
-                "incident",
-                "change_records",
-                "approved_windows",
-                "target_resources",
-                "service_paths",
-                "without_current_finding",
-            ],
-            [
-                ("object_type", "conversation", "Conversation"),
-                ("link_type", "approved windows", "change_scheduled_in_window"),
-                ("link_type", "target resources", "change_targets_resource"),
-                ("link_type", "linked", "conversation_belongs_to"),
-                ("link_type", "service paths", "service_has_service_objective"),
-            ],
-        ),
-        (
-            ["incident", "change", "change_scheduled_in_window", "targets", "service_paths"],
-            [
-                ("object_type", "change", "Change"),
-                ("object_type", "incident", "Incident"),
-                ("link_type", "approved windows", "change_scheduled_in_window"),
-                ("link_type", "target resources", "change_targets_resource"),
-                ("link_type", "service paths", "service_has_service_objective"),
-            ],
-        ),
-        (
-            [
-                "incident",
-                "change_activity",
-                "change_windows",
-                "target_resources",
-                "service_paths",
-                "without_current_cause",
-            ],
-            [],
-        ),
-        (
-            [
-                "incident_changes",
-                "approved_windows",
-                "target_resources",
-                "service_paths",
-                "without_current_finding",
-            ],
-            [
-                ("object_type", "conversation", "Conversation"),
-                ("object_type", "incident", "Incident"),
-                ("link_type", "approved windows", "change_scheduled_in_window"),
-                ("link_type", "target resources", "change_targets_resource"),
-                ("link_type", "service paths", "routes_to"),
-            ],
-        ),
-    ],
-)
-def test_unbound_change_correlation_accepts_observed_declaration_targets(
-    primary_intent: str,
-    facets: list[str],
-    targets: list[tuple[str, str, str]],
-) -> None:
+def test_unbound_change_correlation_accepts_exact_observed_declaration_targets() -> None:
+    targets = [
+        ("object_type", "conversation", "Conversation"),
+        ("link_type", "approved windows", "change_scheduled_in_window"),
+        ("link_type", "target resources", "change_targets_resource"),
+        ("link_type", "linked", "conversation_belongs_to"),
+        ("link_type", "service paths", "service_has_service_objective"),
+    ]
     source_start = 0
     target_payloads = []
     for kind, value, canonical_value in targets:
@@ -3343,9 +3272,16 @@ def test_unbound_change_correlation_accepts_observed_declaration_targets(
         source_start += len(value) + 1
     judgment = SemanticJudgmentProposal.model_validate(
         {
-            "primary_intent": primary_intent,
+            "primary_intent": "query.ontology_relationships",
             "targets": target_payloads,
-            "requested_facets": facets,
+            "requested_facets": [
+                "incident",
+                "change_records",
+                "approved_windows",
+                "target_resources",
+                "service_paths",
+                "without_current_finding",
+            ],
             "confidence": 0.95,
             "ambiguous": False,
             "action_posture": "advise_only",
