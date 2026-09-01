@@ -59,6 +59,7 @@ class DeploymentSelection:
     deploy_isolated_executor: bool = False
     deploy_monitoring: bool = False
     deploy_operator_api: bool = True
+    runtime_image_revision: str = ""
 
     def __post_init__(self) -> None:
         if self.deploy_monitoring and any(
@@ -71,11 +72,18 @@ class DeploymentSelection:
             )
         ):
             raise ValueError("monitoring deployment cannot be combined with application targets")
+        if self.runtime_image_revision:
+            if _COMMIT.fullmatch(self.runtime_image_revision) is None:
+                raise ValueError("runtime_image_revision MUST be a lowercase 40-character git SHA")
+            if not self.deploy_isolated_executor:
+                raise ValueError("runtime_image_revision requires deploy_isolated_executor")
 
-    def to_mapping(self) -> dict[str, bool]:
+    def to_mapping(self) -> dict[str, bool | str]:
         """Return workflow input names in stable order."""
 
-        return {name: bool(getattr(self, name)) for name in _BOOL_INPUTS}
+        result: dict[str, bool | str] = {name: bool(getattr(self, name)) for name in _BOOL_INPUTS}
+        result["runtime_image_revision"] = self.runtime_image_revision
+        return result
 
 
 @dataclass(frozen=True, slots=True)

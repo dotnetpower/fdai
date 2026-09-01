@@ -89,10 +89,11 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
             "MODEL_BINDING_ONLY",
             "VALIDATE_CHATOPS_CHANNELS",
         )
-        if any(_enabled(values, key) for key in unsupported) or values.get(
-            "RUNTIME_IMAGE_REVISION", ""
-        ):
+        if any(_enabled(values, key) for key in unsupported):
             raise ValueError("fdaictl request contains unsupported deployment inputs")
+        image_rev = values.get("RUNTIME_IMAGE_REVISION", "")
+        if image_rev and _SHA40.fullmatch(image_rev) is None:
+            raise ValueError("runtime_image_revision MUST be a lowercase 40-character git SHA")
         if deploy_gateway and values.get("TARGET_ENVIRONMENT") != "dev":
             raise ValueError("deploy_dev_operations_gateway is restricted to the dev environment")
         if _deployment_context_digest(values) != context_digest:
@@ -309,6 +310,7 @@ def _deployment_context_digest(values: Mapping[str, str]) -> str:
                 "deploy_isolated_executor": _enabled(values, "DEPLOY_ISOLATED_EXECUTOR"),
                 "deploy_monitoring": _enabled(values, "DEPLOY_MONITORING"),
                 "deploy_operator_api": _enabled(values, "DEPLOY_OPERATOR_API"),
+                "runtime_image_revision": values.get("RUNTIME_IMAGE_REVISION", ""),
             },
         },
         ensure_ascii=True,

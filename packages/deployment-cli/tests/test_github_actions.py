@@ -723,6 +723,7 @@ def test_request_binding_and_context_digest_match_workflow_validator() -> None:
                 "deploy_isolated_executor": False,
                 "deploy_monitoring": False,
                 "deploy_operator_api": True,
+                "runtime_image_revision": "",
             },
         },
         ensure_ascii=True,
@@ -777,3 +778,62 @@ def test_gateway_selection_round_trip() -> None:
 def test_gateway_selection_rejects_monitoring_combination() -> None:
     with pytest.raises(ValueError, match="monitoring deployment cannot be combined"):
         DeploymentSelection(deploy_dev_operations_gateway=True, deploy_monitoring=True)
+
+
+_IMAGE_REVISION = "24e4df68a50eed8cf355c8278836d40dc399cb54"
+
+
+def test_runtime_image_revision_seals_into_context_and_dispatches() -> None:
+    """runtime_image_revision changes the context digest and dispatches."""
+    runner = RecordingRunner()
+    selection = DeploymentSelection(
+        deploy_console=False,
+        deploy_operator_api=False,
+        deploy_isolated_executor=True,
+        runtime_image_revision=_IMAGE_REVISION,
+    )
+    no_image = DeploymentSelection(
+        deploy_console=False,
+        deploy_operator_api=False,
+        deploy_isolated_executor=True,
+    )
+
+    plan_with = dispatch_plan(
+        repository="example/fdai",
+        environment="dev",
+        commit_sha=_COMMIT,
+        target_binding=_TARGET,
+        region=_REGION,
+        run_id="run.image",
+        selection=selection,
+        run=runner,
+    )
+    plan_without = dispatch_plan(
+        repository="example/fdai",
+        environment="dev",
+        commit_sha=_COMMIT,
+        target_binding=_TARGET,
+        region=_REGION,
+        run_id="run.image",
+        selection=no_image,
+        run=runner,
+    )
+    assert plan_with.context_digest != plan_without.context_digest
+
+    workflow_calls = [call for call in runner.calls if call[:2] == ("workflow", "run")]
+    fields = _fields(workflow_calls[0])
+    assert fields["runtime_image_revision"] == _IMAGE_REVISION
+    assert fields["deploy_isolated_executor"] == "true"
+
+
+def test_runtime_image_revision_requires_executor() -> None:
+    with pytest.raises(ValueError, match="requires deploy_isolated_executor"):
+        DeploymentSelection(runtime_image_revision=_IMAGE_REVISION)
+
+
+def test_runtime_image_revision_rejects_invalid_sha() -> None:
+    with pytest.raises(ValueError, match="lowercase 40-character git SHA"):
+        DeploymentSelection(
+            deploy_isolated_executor=True,
+            runtime_image_revision="NOTASHA",
+        )

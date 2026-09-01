@@ -26,7 +26,7 @@ _CONTEXT = hashlib.sha256(
         '{"deploy_console":false,"deploy_dev_operations_gateway":false,'
         '"deploy_document_ingestion":false,'
         '"deploy_isolated_executor":false,"deploy_monitoring":false,'
-        '"deploy_operator_api":false}}'
+        '"deploy_operator_api":false,"runtime_image_revision":""}}'
     ).encode()
 ).hexdigest()
 
@@ -62,6 +62,7 @@ def _request(**overrides: str) -> dict[str, str]:
         "VALIDATE_CHATOPS_CHANNELS": "false",
         "DEPLOY_DOCUMENT_INGESTION": "false",
         "DEPLOY_MONITORING": "false",
+        "RUNTIME_IMAGE_REVISION": "",
         "REQUEST_ID": "",
         "CONTEXT_DIGEST": "",
         "COMMIT_SHA": "",
@@ -325,7 +326,7 @@ def _gateway_context() -> str:
             '{"deploy_console":false,"deploy_dev_operations_gateway":true,'
             '"deploy_document_ingestion":false,'
             '"deploy_isolated_executor":false,"deploy_monitoring":false,'
-            '"deploy_operator_api":false}}'
+            '"deploy_operator_api":false,"runtime_image_revision":""}}'
         ).encode()
     ).hexdigest()
 
@@ -368,6 +369,111 @@ def test_fdaictl_gateway_rejects_non_dev_environment() -> None:
                 CONTEXT_DIGEST=ctx,
                 COMMIT_SHA=_COMMIT,
                 DEPLOY_DEV_OPERATIONS_GATEWAY="true",
+                DEPLOY_PREFLIGHT_INPUT_JSON="{}",
+            ),
+            checkout_commit=_COMMIT,
+        )
+
+
+# -- Runtime image revision via fdaictl --
+
+_IMAGE_REVISION = "24e4df68a50eed8cf355c8278836d40dc399cb54"
+
+
+def _executor_context(*, image_revision: str = _IMAGE_REVISION) -> str:
+    return hashlib.sha256(
+        (
+            '{"commit_sha":"' + _COMMIT + '","environment":"dev",'
+            '"schema_version":"fdai.deployment-context.v1","selection":'
+            '{"deploy_console":false,"deploy_dev_operations_gateway":false,'
+            '"deploy_document_ingestion":false,'
+            '"deploy_isolated_executor":true,"deploy_monitoring":false,'
+            '"deploy_operator_api":false,"runtime_image_revision":"' + image_revision + '"}}'
+        ).encode()
+    ).hexdigest()
+
+
+def _executor_bound_request(mode: str, ctx: str) -> str:
+    prefix = _MODULE._request_binding_prefix(
+        target_binding=_TARGET_BINDING,
+        context_digest=ctx,
+        mode=mode,
+        region="koreacentral",
+    )
+    wire_prefix = "apply" if mode in {"apply", "resume"} else "plan"
+    return f"{wire_prefix}-{prefix}{'abcd' * 5}0001"
+
+
+def test_fdaictl_runtime_image_revision_plan_apply_parity() -> None:
+    """Plan and apply with runtime_image_revision share the same context digest."""
+    ctx = _executor_context()
+    plan_id = _executor_bound_request("plan", ctx)
+    apply_id = _executor_bound_request("apply", ctx)
+    validate(
+        _request(
+            REQUEST_ID=plan_id,
+            CONTEXT_DIGEST=ctx,
+            COMMIT_SHA=_COMMIT,
+            DEPLOY_ISOLATED_EXECUTOR="true",
+            RUNTIME_IMAGE_REVISION=_IMAGE_REVISION,
+            DEPLOY_PREFLIGHT_INPUT_JSON="{}",
+        ),
+        checkout_commit=_COMMIT,
+    )
+    validate(
+        _request(
+            APPLY="true",
+            REQUEST_ID=apply_id,
+            CONTEXT_DIGEST=ctx,
+            COMMIT_SHA=_COMMIT,
+            PLAN_ID="plan-1-1",
+            PLAN_DIGEST="b" * 64,
+            DEPLOY_ISOLATED_EXECUTOR="true",
+            RUNTIME_IMAGE_REVISION=_IMAGE_REVISION,
+        ),
+        checkout_commit=_COMMIT,
+    )
+
+
+def test_fdaictl_runtime_image_revision_digest_drift() -> None:
+    """Changing the image revision changes the context digest."""
+    ctx_with = _executor_context(image_revision=_IMAGE_REVISION)
+    ctx_without = _executor_context(image_revision="")
+    assert ctx_with != ctx_without
+    with pytest.raises(ValueError, match="does not match the selected"):
+        validate(
+            _request(
+                REQUEST_ID=_executor_bound_request("plan", ctx_without),
+                CONTEXT_DIGEST=ctx_without,
+                COMMIT_SHA=_COMMIT,
+                DEPLOY_ISOLATED_EXECUTOR="true",
+                RUNTIME_IMAGE_REVISION=_IMAGE_REVISION,
+                DEPLOY_PREFLIGHT_INPUT_JSON="{}",
+            ),
+            checkout_commit=_COMMIT,
+        )
+
+
+def test_fdaictl_runtime_image_revision_requires_executor() -> None:
+    """runtime_image_revision without executor is rejected."""
+    with pytest.raises(ValueError, match="requires deploy_isolated_executor"):
+        validate(
+            _request(RUNTIME_IMAGE_REVISION=_IMAGE_REVISION),
+            checkout_commit=_COMMIT,
+        )
+
+
+def test_fdaictl_runtime_image_revision_invalid_sha() -> None:
+    """Non-40-char SHA is rejected by the fdaictl validator."""
+    bad_ctx = _executor_context(image_revision="not-a-sha")
+    with pytest.raises(ValueError, match="lowercase 40-character git SHA"):
+        validate(
+            _request(
+                REQUEST_ID=_executor_bound_request("plan", bad_ctx),
+                CONTEXT_DIGEST=bad_ctx,
+                COMMIT_SHA=_COMMIT,
+                DEPLOY_ISOLATED_EXECUTOR="true",
+                RUNTIME_IMAGE_REVISION="not-a-sha",
                 DEPLOY_PREFLIGHT_INPUT_JSON="{}",
             ),
             checkout_commit=_COMMIT,

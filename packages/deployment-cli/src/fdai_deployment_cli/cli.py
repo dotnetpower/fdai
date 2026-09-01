@@ -186,6 +186,7 @@ def _parser() -> argparse.ArgumentParser:
     guided.add_argument("--deploy-document-ingestion", action="store_true")
     guided.add_argument("--deploy-isolated-executor", action="store_true")
     guided.add_argument("--deploy-monitoring", action="store_true")
+    guided.add_argument("--runtime-image-revision", default="")
     guided.add_argument("--output", choices=("text", "json"), default="text")
     guided.set_defaults(handler=_onboard_guided)
     status = onboard_commands.add_parser("status")
@@ -208,6 +209,7 @@ def _add_deploy_context_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--deploy-document-ingestion", action="store_true")
     parser.add_argument("--deploy-isolated-executor", action="store_true")
     parser.add_argument("--deploy-monitoring", action="store_true")
+    parser.add_argument("--runtime-image-revision", default="")
     parser.add_argument("--output", choices=("text", "json"), default="text")
 
 
@@ -747,6 +749,7 @@ def _deployment_selection(args: argparse.Namespace) -> DeploymentSelection:
         deploy_document_ingestion=args.deploy_document_ingestion,
         deploy_isolated_executor=args.deploy_isolated_executor,
         deploy_monitoring=args.deploy_monitoring,
+        runtime_image_revision=args.runtime_image_revision,
     )
 
 

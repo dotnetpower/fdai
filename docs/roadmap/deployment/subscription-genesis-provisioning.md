@@ -138,7 +138,7 @@ intent, not discovered secrets:
 | Target | cloud, tenant reference, subscription reference, environment, application region, optional model region |
 | Connectivity | existing Azure host or managed VM, transport, VPN expectation, private DNS and management-plane path |
 | Adoption | create-only, explicit adoption allowlist, permitted Terraform import addresses, conflict policy |
-| Services | Core, Operator API, Console, ingestion, isolated Executor, monitoring, and scheduled Job selections |
+| Services | Core, Operator API, Console, ingestion, isolated Executor, dev operations gateway, monitoring, and scheduled Job selections |
 | Database | availability and retention profile, extension set, backup policy, migration deadline |
 | Models | workload profile, capability policy, minimum capacity, target capacity, quota reserve, allowed regions and SKUs |
 | Inventory | subscription or management-group scopes, source order, resource-type scope, page and request budgets |
@@ -146,6 +146,11 @@ intent, not discovered secrets:
 
 The profile never contains a password, access token, client secret, webhook value, private key,
 connection string, Terraform state, or customer data.
+
+When the plan preserves an already-deployed isolated Executor, `--runtime-image-revision` pins the
+verified runtime image source commit. The value is a lowercase 40-character git SHA present in
+both ACR and GHCR. It is sealed into the deployment context digest so plan, apply, and status
+share one consistent selection. The runner retains ancestor, image, and attestation checks.
 
 ## Reconcile before create
 

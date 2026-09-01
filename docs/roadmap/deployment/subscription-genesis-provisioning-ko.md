@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: b410244a20489f952909e7aeba6979ed6b73b4c1
+translation_source_sha: 50b1723be0b8eba285796e84e9e35a1a42e61ed5
 translation_revised: 2026-09-01
 ---
 # 구독 초기 프로비저닝
@@ -140,7 +140,7 @@ Console이 준비되기 전에는 `fdaictl`과 보호된 실행기만 프로비�
 | 대상 | 클라우드, 테넌트 참조, 구독 참조, 환경, 애플리케이션 지역, 선택적 모델 지역 |
 | 연결 | 기존 Azure 호스트 또는 관리형 VM, 전송 방식, VPN 기대 사항, 비공개 DNS 및 관리 플레인 경로 |
 | 도입 | 생성 전용, 명시적 도입 허용 목록, 허용된 Terraform import 주소, 충돌 정책 |
-| 서비스 | Core, Operator API, Console, 수집, 격리된 실행기, 모니터링, 예약 Job 선택 |
+| 서비스 | Core, Operator API, Console, 수집, 격리된 실행기, dev 운영 게이트웨이, 모니터링, 예약 Job 선택 |
 | 데이터베이스 | 가용성 및 보존 프로필, 확장 집합, 백업 정책, 이행 제한 시간 |
 | 모델 | 워크로드 프로필, 기능 정책, 최소 용량, 목표 용량, 할당량 예비분, 허용 지역 및 SKU |
 | 인벤토리 | 구독 또는 관리 그룹 범위, 원본 순서, 리소스 형식 범위, 페이지 및 요청 예산 |
@@ -148,6 +148,11 @@ Console이 준비되기 전에는 `fdaictl`과 보호된 실행기만 프로비�
 
 프로필에는 암호, 액세스 토큰, 클라이언트 비밀, 웹후크 값, 개인 키, 연결 문자열, Terraform
 상태 또는 고객 데이터를 저장하지 않습니다.
+
+이미 배포된 격리된 실행기를 유지하는 계획에서는 `--runtime-image-revision`으로 검증된 런타임
+이미지 소스 커밋을 고정합니다. 값은 ACR과 GHCR 모두에 존재하는 소문자 40자 git SHA입니다.
+배포 맥락 다이제스트에 봉인되어 plan, apply, status 전반에서 일관된 선택을 공유합니다. 실행기의
+ancestor, 이미지, 인증 검사는 그대로 유지됩니다.
 
 ## 생성 전 현재 상태 조정
 
