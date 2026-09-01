@@ -7,6 +7,8 @@ import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 import { currentRoute, navigate, routeHref } from "../router";
+import "./settings-iam.css";
+import { settingsIamText } from "./settings-iam.i18n";
 import { AccessRequestsView } from "./settings-iam-requests";
 import { DirectoryUserSearch } from "./settings-iam-users";
 import { submitIamAccessRequest } from "./settings-iam.command";
@@ -80,6 +82,11 @@ export function SettingsIamRoute({ client, auth }: Props) {
           setRoster(rosterResult.value);
           setRosterAvailable(true);
           setRosterError(null);
+          if (nextOverview.directory.availability === "unknown") {
+            const refreshedOverview = await client.iamOverview();
+            if (generation !== loadGeneration.current) return;
+            setOverview(refreshedOverview);
+          }
         } else {
           setRoster([]);
           setRosterAvailable(false);
@@ -109,12 +116,16 @@ export function SettingsIamRoute({ client, auth }: Props) {
     };
   }, [client]);
 
+  useEffect(() => {
+    if (requestedTab !== null) setTab(requestedTab);
+  }, [requestedTab]);
+
   const username = auth.account?.username ?? null;
   const displayUsername = username ?? t("settings.unavailable");
   const roles = overview?.principal.roles ?? currentTokenRoles(auth);
   const canManage = overview === null
     ? null
-    : overview.principal.capabilities.includes("manage-group-membership");
+    : overview.authority.canManageGroupMembership;
 
   const selectTab = (nextTab: IamTab) => {
     setTab(nextTab);
@@ -337,6 +348,38 @@ function MyAccess({ overview, username, auth }: {
           <span>{t("settings.iam.capabilities")}</span>
           <strong>{overview.principal.capabilities.length}</strong>
         </div>
+        <div>
+          <span>{settingsIamText("managementAccess")}</span>
+          <strong>
+            {overview.authority.canManageGroupMembership
+              ? settingsIamText("managementAccessEnabled")
+              : settingsIamText("managementAccessUnavailable")}
+          </strong>
+        </div>
+      </div>
+
+      <div
+        class={[
+          "settings-iam-authority",
+          overview.authority.canManageGroupMembership ? "is-owner" : "is-limited",
+        ].join(" ")}
+        role="status"
+      >
+        <div>
+          <strong>
+            {overview.authority.isOwner
+              ? settingsIamText("fdaiOwnerConfirmed")
+              : settingsIamText("fdaiOwnerNotAssigned")}
+          </strong>
+          <p>{settingsIamText("tenantAdminDistinction")}</p>
+          {!overview.authority.isOwner ? (
+            <p>{settingsIamText("ownerRecoveryHint")}</p>
+          ) : null}
+        </div>
+        <StatusPill
+          kind={overview.authority.isOwner ? "success" : "neutral"}
+          label={overview.authority.isOwner ? "FDAI Owner" : settingsIamText("notFdaiOwner")}
+        />
       </div>
 
       <div class="settings-access-body">
@@ -368,8 +411,56 @@ function MyAccess({ overview, username, auth }: {
           </div>
         </div>
       </div>
+      <IamWorkflowSummary overview={overview} />
     </section>
   );
+}
+
+function IamWorkflowSummary({ overview }: { readonly overview: IamOverview }) {
+  const directoryKind: PillKind = overview.directory.availability === "available"
+    ? "success"
+    : overview.directory.availability === "unavailable"
+    ? "danger"
+    : "neutral";
+  return (
+    <section class="settings-iam-workflow" aria-labelledby="settings-iam-workflow-title">
+      <div>
+        <span>{settingsIamText("directoryStatus")}</span>
+        <StatusPill
+          kind={directoryKind}
+          label={directoryAvailabilityLabel(overview.directory.availability)}
+        />
+        <small>
+          {overview.directory.observedAt
+            ? settingsIamText("directoryObservedAt", {
+                time: new Date(overview.directory.observedAt).toLocaleString(),
+              })
+            : overview.directory.detail ?? settingsIamText("directoryNotObserved")}
+        </small>
+      </div>
+      <div>
+        <span id="settings-iam-workflow-title">{settingsIamText("accessWorkflow")}</span>
+        <strong>{settingsIamText("proposalOnly")}</strong>
+        <small>{settingsIamText("proposalOnlyHint")}</small>
+      </div>
+      <div>
+        <span>{settingsIamText("providerMutation")}</span>
+        <strong>{settingsIamText("promotionRequired")}</strong>
+        <small>{settingsIamText("promotionRequiredHint")}</small>
+      </div>
+    </section>
+  );
+}
+
+function directoryAvailabilityLabel(
+  availability: IamOverview["directory"]["availability"],
+): string {
+  switch (availability) {
+    case "available": return settingsIamText("directoryAvailabilityAvailable");
+    case "unavailable": return settingsIamText("directoryAvailabilityUnavailable");
+    case "not_configured": return settingsIamText("directoryAvailabilityNotConfigured");
+    case "unknown": return settingsIamText("directoryAvailabilityUnknown");
+  }
 }
 
 export interface IamIdentityPresentation {
@@ -488,7 +579,7 @@ export function nextIamTab(current: IamTab, key: string): IamTab {
 
 function RolesView({ roles }: { readonly roles: readonly IamRoleDefinition[] }) {
   return (
-    <section class="settings-iam-panel" aria-labelledby="settings-iam-roles">
+    <section class="settings-iam-panel settings-roles-panel" aria-labelledby="settings-iam-roles">
       <header class="settings-iam-panel-head">
         <div>
           <h3 id="settings-iam-roles">{t("settings.iam.roles")}</h3>

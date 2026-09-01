@@ -15,6 +15,22 @@ function overview(capabilities: readonly string[]): IamOverview {
     principal: { oid: "oid-1", roles: [], capabilities: [...capabilities] },
     roles: [],
     assignmentBoundary: "identity-provider-group",
+    authority: {
+      source: "server-verified",
+      isOwner: false,
+      canManageGroupMembership: false,
+    },
+    directory: {
+      source: "configured",
+      availability: "unknown",
+      observedAt: null,
+      detail: null,
+    },
+    workflow: {
+      accessRequestAuthority: "proposal_only",
+      assignmentAuthority: "observation_only",
+      providerMutation: "promotion_required",
+    },
   };
 }
 

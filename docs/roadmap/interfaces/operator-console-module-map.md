@@ -635,6 +635,12 @@ compact action height. Touch layouts use 44 px targets. Settings keep browser-lo
 account preferences, deployment policy, evidence, and authority boundaries visually distinct
 without changing their persistence or authorization contracts.
 
+`/settings/iam` uses route-owned bilingual messages and responsive styles. It distinguishes the
+verified FDAI Owner role from tenant administration, presents request, review, protected apply,
+and fresh verification as separate stages, and links operational assignment review to Agent
+oversight. Rolling Console and Operator API upgrades preserve safe role and capability facts while
+marking missing directory metadata as unknown.
+
 `console/src/components/account-menu.tsx` owns the signed-in account presentation in the header.
 It displays the MSAL name and username, reads FDAI roles only from the server-verified
 `GET /iam/self` projection, and links to the existing IAM route. `console/src/auth.ts` owns

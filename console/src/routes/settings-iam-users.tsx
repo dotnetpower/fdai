@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import { DataTable, StatusPill } from "../components/ui";
 import { t } from "../i18n";
+import { routeHref } from "../router";
+import { settingsIamText } from "./settings-iam.i18n";
 import {
   identityForMutationIntent,
   type MutationIntentIdentity,
@@ -54,6 +56,7 @@ export function DirectoryUserSearch({
   const [results, setResults] = useState<readonly HumanIdentityResult[]>([]);
   const [filter, setFilter] = useState<RosterFilter>("all");
   const [searching, setSearching] = useState(false);
+  const [searched, setSearched] = useState(false);
   const [pendingSubject, setPendingSubject] = useState<string | null>(null);
   const [assignmentDraft, setAssignmentDraft] = useState<{
     readonly identity: IdentityRosterItem | HumanIdentityResult;
@@ -78,6 +81,7 @@ export function DirectoryUserSearch({
     searchGeneration.current = generation;
     const submittedQuery = query.trim();
     setSearching(true);
+    setSearched(true);
     setError(null);
     try {
       const next = await client.searchIamUsers(submittedQuery);
@@ -142,9 +146,22 @@ export function DirectoryUserSearch({
         </div>
       </header>
 
+      <div class="settings-access-lifecycle" role="status">
+        <strong>{settingsIamText("roleRequestWorkflowTitle")}</strong>
+        <ol>
+          <li>{settingsIamText("roleRequestWorkflowRequest")}</li>
+          <li>{settingsIamText("roleRequestWorkflowReview")}</li>
+          <li>{settingsIamText("roleRequestWorkflowApply")}</li>
+          <li>{settingsIamText("roleRequestWorkflowVerify")}</li>
+        </ol>
+        <a class="btn secondary" href={routeHref("handover", { segments: ["mapping-reviews"] })}>
+          {settingsIamText("openMappingReviews")}
+        </a>
+      </div>
+
       <div class="settings-user-picker">
         <form class="settings-directory-search-form" onSubmit={search}>
-          <label for="iam-user-search">{t("settings.iam.addByAlias")}</label>
+          <label for="iam-user-search">{settingsIamText("findUser")}</label>
           <div>
             <input
               id="iam-user-search"
@@ -159,6 +176,7 @@ export function DirectoryUserSearch({
                 setQuery(event.currentTarget.value);
                 setResults([]);
                 setSearching(false);
+                setSearched(false);
               }}
             />
             <button type="submit" disabled={searching}>
@@ -176,12 +194,17 @@ export function DirectoryUserSearch({
                   type="person"
                 />
                 <RoleDropdown
-                  label={t("settings.iam.selectRoleAndAdd")}
+                  label={settingsIamText("chooseRole")}
                   disabled={!identity.active || pendingSubject === identity.subjectId}
                   onSelect={(role) => setAssignmentDraft({ identity, role })}
                 />
               </div>
             ))}
+          </div>
+        ) : null}
+        {searched && !searching && results.length === 0 && !error ? (
+          <div class="state-block state-empty" role="status">
+            {t("settings.iam.noDirectoryUsers")}
           </div>
         ) : null}
         {error ? <div class="error" role="alert">{error}</div> : null}
@@ -193,7 +216,7 @@ export function DirectoryUserSearch({
             <strong>
               {assignmentDraft.identity.displayName} - {assignmentDraft.role}
             </strong>
-            <small>{t("settings.iam.roleRequestHint")}</small>
+            <small>{settingsIamText("roleRequestHint")}</small>
           </div>
           <textarea
             minLength={20}

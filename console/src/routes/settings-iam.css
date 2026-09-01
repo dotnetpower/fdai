@@ -1,0 +1,183 @@
+.settings-iam-route .settings-access-strip {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.settings-iam-authority {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-iam-authority p {
+  max-width: 72ch;
+  margin: 4px 0 0;
+  color: var(--fg-muted);
+}
+
+.settings-iam-workflow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--border);
+}
+
+.settings-iam-workflow > div {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  padding: 16px;
+  border-right: 1px solid var(--border);
+}
+
+.settings-iam-workflow > div:last-child {
+  border-right: 0;
+}
+
+.settings-iam-workflow span:first-child {
+  color: var(--fg-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.settings-iam-workflow .status-pill {
+  justify-self: start;
+}
+
+.settings-iam-workflow small {
+  color: var(--fg-muted);
+  line-height: 1.45;
+}
+
+.settings-access-lifecycle {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0;
+  border-block: 1px solid var(--border);
+}
+
+.settings-access-lifecycle ol {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: iam-step;
+}
+
+.settings-access-lifecycle li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px;
+  color: var(--fg-muted);
+  font-size: 0.75rem;
+  line-height: 1.35;
+  counter-increment: iam-step;
+}
+
+.settings-access-lifecycle li::before {
+  content: counter(iam-step);
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--fg);
+  font-weight: 700;
+}
+
+.settings-access-lifecycle-compact {
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: 12px 0;
+  color: var(--fg-muted);
+  font-size: 0.78rem;
+}
+
+@media (max-width: 700px) {
+  .settings-iam-workflow {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-iam-workflow > div {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .settings-iam-workflow > div:last-child {
+    border-bottom: 0;
+  }
+
+  .settings-iam-authority {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .settings-access-lifecycle {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .settings-access-lifecycle ol {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-access-lifecycle .btn {
+    width: 100%;
+  }
+
+  .settings-iam-route .data-table-wrap {
+    overflow: visible;
+  }
+
+  .settings-iam-route .data-table {
+    display: block;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .settings-iam-route .data-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .settings-iam-route .data-table tbody,
+  .settings-iam-route .data-table tr {
+    display: grid;
+    width: 100%;
+  }
+
+  .settings-iam-route .data-table tr {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .settings-iam-route .settings-iam-panel .data-table td {
+    display: grid;
+    grid-template-columns: minmax(96px, 0.35fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+    padding: 7px 0;
+    border: 0;
+  }
+
+  .settings-iam-route .settings-iam-panel .data-table td:nth-child(1),
+  .settings-iam-route .settings-iam-panel .data-table td:nth-child(5) {
+    display: grid;
+  }
+
+  .settings-iam-route .settings-iam-panel .data-table td::before {
+    content: attr(data-label);
+    color: var(--fg-muted);
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+}

@@ -1,7 +1,7 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 0473b8a58104f20ef272a50e8330bd2611f55781
+translation_source_sha: 1f6009a9aa785f608c6aceab4128b6af2d71199b
 translation_revised: 2026-09-01
 ---
 
@@ -38,11 +38,13 @@ Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.
 | 로컬 Browser Entra 세션 복원력 | 구현됨 | `console/src/auth-session.ts`; `console/src/auth.ts`; focused Console 인증 테스트(`10 passed`)와 typecheck | MSAL Browser v4는 loopback origin에서만 암호화된 `localStorage`를 사용하고 배포 origin에서는 `sessionStorage`를 유지합니다. 시작 시, 30분마다, focus, visibility 또는 network 복구 뒤에 하나로 병합된 refresh를 실행합니다. Entra는 여전히 대화형 인증을 요구할 수 있습니다. |
 | 알림 통합 구성 및 진단 | 구현됨 | `teams_workflow_binding.py`; `teams_workflow_diagnostics.py`; `families/iam/{capabilities,settings,manifest}.py`; 집중 바인딩, 진단 및 IAM 기능군 테스트 | Owner는 Teams 엔드포인트를 저장하고 테스트할 수 있습니다. Contributor, Approver 및 Owner는 `no-store` 응답으로 현재 값을 볼 수 있고 Reader와 BreakGlass에는 `visible: false`만 반환합니다. Slack은 일회성 테스트로 유지합니다. 모든 Teams 저장, 테스트 및 reveal 감사 기록에는 URL을 넣지 않습니다. |
 | 사용자별 비용 거버넌스 접근 | 구현됨 | `CostAccessGrant`, `CostDisclosureCeiling`, 비용 거버넌스 Operator 경로 및 집중 테스트 | Reader는 시간 검사와 배포 공개 상한을 적용하기 전에 principal, 목적, scope가 일치하는 최신 grant를 선택합니다. 서버는 직렬화 전에 `hidden`, `aggregate`, `masked` 또는 `detailed` 공개 정책을 적용하며, 권한은 패키지를 활성화하거나 액션을 승격할 수 없습니다. |
+| IAM 관리 진단 및 요청 변환 결과 | implemented | `entra_directory.py`; `families/iam/iam_routes.py`; `postgres_iam.py`; `console/src/routes/settings-iam*`; 집중 Operator, Console 및 Browser 테스트 | Console은 FDAI Owner와 테넌트 관리자를 구분하고, 자격 증명을 사용할 수 있을 때 서버 측 읽기 전용 Graph 디렉터리를 사용하며, 승인이 멤버십을 변경했다고 주장하지 않고 영속 요청 및 검토 제안을 표시합니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-01 | implemented | ID 및 액세스 요청 계약을 복구하고, 명시적인 FDAI Owner 및 디렉터리 진단을 추가하고, 로컬 및 배포 자격 증명에 읽기 전용 Graph 디렉터리를 연결했으며, 오해를 일으키는 사용자 추가 문구를 실제 요청-검토-적용-검증 경계로 교체했습니다. | `current change`; `entra_directory.py`; `postgres_iam.py`; `settings-iam*.tsx`; 집중 Operator, Console, 카탈로그 및 Playwright 검사. | 자동 멤버십 변경을 주장하기 전에 배포된 Graph 읽기 증적을 보존하고 별도로 승격되는 할당-IAM 적용 워크플로를 완료합니다. |
 | 2026-09-01 | 구현됨 | 암호화된 로컬 및 Key Vault 기반 Teams Workflows 엔드포인트 영속화와 Contributor, Approver 및 Owner용 감사된 `view-integration-secrets` 기능을 추가했습니다. Reader와 BreakGlass에는 바인딩 메타데이터를 제공하지 않습니다. | `current change`; `teams_workflow_binding.py`; `teams_workflow_diagnostics.py`; `families/iam/{capabilities,settings,manifest}.py`; 집중 Operator 테스트 53개 통과; Terraform 검증 통과. | Key Vault reveal 경로를 검증됨으로 주장하기 전에 배포 런타임 증적을 보존합니다. |
 | 2026-08-28 | 구현됨 | Slack 진단 경로를 추가한 뒤 경로 팩터리와 일치하도록 고정된 IAM 기능군 매니페스트 순서를 수정해 경로 동등성 검사를 약화하지 않고 Operator API 시작을 복구했습니다. | `current change`; `families/iam/manifest.py`; 집중 IAM 기능군 매니페스트 테스트 통과 | 추가 경로 순서 작업은 남아 있지 않으며 배포된 공급자 증적은 별도로 유지합니다. |
 | 2026-08-29 | 구현됨 | 목적과 범위로 제한되는 사용자별 비용 거버넌스 접근 및 서버 측 비승격 공개 정책을 추가했습니다. | `current change`; 서비스 계약, Operator 경로, 이행, 공개 정책 속성 및 조회 없음 테스트. | 접근 검토와 무단 공개가 없는 실제 캠페인 증적을 보존합니다. |
@@ -524,8 +526,10 @@ Settings 활동 bar 그룹은 콘솔의 클라우드 권한을 넓히지 않고 
 
 ### 11.1 IAM 변환 결과
 
-`GET /iam`은 서버가 검증한 principal, 고정된 다섯 역할 정의 및 유효 기능 합집합을
-반환합니다. `GET /iam/access-requests`는 해당 principal이 볼 수 있는 요청을 반환합니다.
+`GET /iam`은 서버가 검증한 principal, 고정된 다섯 역할 정의, 유효 기능 합집합, 명시적인
+FDAI Owner 권한, 디렉터리 가용성, 요청 및 공급자 변경 경계를 반환합니다. Azure 구독,
+Entra 테넌트 또는 애플리케이션 관리자 역할이 FDAI Owner를 의미하지는 않습니다.
+`GET /iam/access-requests`는 해당 principal이 볼 수 있는 요청을 반환합니다.
 접근 요청 ID는 Owner에게만 표시됩니다. 읽기 담당, 기여자 및 Approver 요청은 `403`을
 받습니다. Users 및 접근 requests 탭은 잠금 아이콘과 함께 계속 표시되며, 탭을 선택하면
 상호 작용을 무시하지 않고 즉시 접근 거부된 표면을 렌더링합니다. 역할이 없는 사용자는
@@ -535,13 +539,15 @@ role-optional `GET /iam/self` 변환 결과를 통해 자신의 요청만 봅니
 Users 탭은 범위가 제한된 두 원본을 결합합니다. 검증된 로그인 principal과 표시 가능한
 액세스 요청에 참조된 사용자를 보여줍니다. Owner는 `GET /iam/directory/users?q=...`를 통해
 구성된 `HumanIdentityDirectory`를 검색하고 계정을 선택해 통제된 액세스 요청을 미리 채울
-수도 있습니다. 브라우저는 프로바이더 자격 증명을 받지 않습니다.
+수도 있습니다. 로컬 실행은 서버의 Azure CLI 자격 증명을 사용하고 배포 실행은 Operator
+Managed Identity를 사용합니다. 두 경로 모두 읽기 전용 Graph 바인딩이며 브라우저는
+프로바이더 자격 증명을 받지 않습니다.
 
-`GET /iam/directory/roster`는 FDAI enterprise 애플리케이션의 실제 운영 App 역할 배정을
-변환 결과합니다. Entra 어댑터는 서비스 principal을 찾고 각 App 역할 id를 역할 값에
-대응하며, 할당된 그룹을 transitive 구성원으로 확장합니다. 직접 사용자 할당과 그룹을
-통한 할당은 고정된 대상 id로 병합됩니다. Users 탭은 People 및 Groups를 필터링하지만 역할
-요청은 활성 상태인 사람에게만 제공됩니다.
+`GET /iam/directory/roster`는 FDAI 엔터프라이즈 애플리케이션의 실제 App Role 할당을
+표시합니다. Entra 어댑터는 서비스 principal을 찾고 각 App Role ID를 역할 값에 매핑하며,
+할당된 그룹의 모든 하위 멤버를 확장합니다. 직접 사용자 할당과 그룹에서 파생된 할당은
+안정적인 대상 ID로 병합됩니다. Users 탭은 People 및 Groups를 필터링하지만 역할 요청은
+활성 상태인 사람에게만 제공됩니다.
 
 `HumanIdentityDirectory`는 cloud-provider-neutral 계약입니다. 각 어댑터는 안정적인
 `provider`, `subject_id`, 사용자 이름, 표시 이름, 사용자 유형 및 활성 상태를 반환합니다.
@@ -555,7 +561,9 @@ API는 통제된 역할 요청을 수락하기 전에 구성된 프로바이더�
 `get_by_subject_id`로 대상, 사용자 이름 및 활성 상태를 확인합니다. 클라이언트가 제공한
 프로바이더 라벨은 ID 백엔드를 선택하지 않습니다.
 
-다섯 번째 Assignments 탭은 Owner 전용입니다. `POST /iam/assignment-cases`는 정확한 활성
+Agent oversight > 매핑 검토가 Owner 전용 할당 작업 영역을 담당합니다. ID 및 액세스는
+다섯 번째 탭을 중복해서 만들지 않고 이 작업 영역으로 연결합니다.
+`POST /iam/assignment-cases`는 정확한 활성
 대상을 다시 검증하고 변경 불가능한 역할, 임무, 목표 및 사유 의도를 기록합니다. 리비전 기반
 제출 및 검토 명령은 CAS를 사용합니다. `GET /iam/assignments`는 관측된 디렉터리 역할, 구성된 담당
 체계 맵, 할당 케이스 및 인수인계 가용성만 조인합니다. 누락된 프로바이더 또는 인수인계 근거는
@@ -568,8 +576,8 @@ API는 통제된 역할 요청을 수락하기 전에 구성된 프로바이더�
 차단합니다. 이 경로는 별도 승격 전까지 관찰 전용입니다.
 
 Interactive 로컬 모드는 synthetic 디렉터리로 대체 경로하지 않습니다. Microsoft Graph
-어댑터는 서버의 Azure CLI 자격 증명을 사용해 FDAI 서비스 principal, 실제 운영 App 역할
-배정 및 transitive 그룹 member를 찾습니다. 따라서 별칭 검색, 역할 명단 및 접근
+어댑터는 서버의 Azure CLI 자격 증명을 사용해 FDAI 서비스 principal, 실제 App Role 할당,
+모든 하위 그룹 멤버를 찾습니다. 따라서 별칭 검색, 역할 명단 및 접근
 요청 대상은 로그인한 테넌트의 실제 데이터를 반영하며 프로바이더 자격 증명은 브라우저
 외부에 유지됩니다. Offline 고정본 신원은 pytest 전용입니다.
 
@@ -585,13 +593,15 @@ Interactive 로컬 모드는 synthetic 디렉터리로 대체 경로하지 않�
 | `target_username` | 검토를 위한 사람이 읽을 수 있는 이름 또는 UPN입니다. 권한 부여는 이 값을 신뢰하지 않습니다. |
 | `operation` | `grant`, `revoke` 또는 `set`입니다. `set`은 행별 역할 dropdown 변경을 표현합니다. |
 | `role` | `Reader`, `Contributor`, `Approver` 또는 `Owner`입니다. 일반 `BreakGlass` 요청은 차단됩니다. |
-| `justification` | 20-2000자입니다. 요청 및 감사 이벤트와 함께 저장됩니다. |
+| `justification` | 20-2000자입니다. 요청 제안과 이후 Core 감사 전환에 저장됩니다. |
 
-API는 검증된 토큰에서 요청자와 기능을 도출합니다. 각 요청과
-`iam.access-requested` hash-chain 항목을 하나의 트랜잭션에 저장합니다. 검토 결정도 같은
-state-and-audit 트랜잭션을 사용합니다. 요청 검토는 안정적인 `request_id`를 직접 조회하므로
-목록 변환 결과가 페이지 나누기된 후에도 오래된 요청을 검토할 수 있습니다. 응답 상태는
-`pending`입니다. 양식 제출은 요청을 승인하거나 Entra 그룹 멤버십을 변경하지 않습니다.
+API는 검증된 토큰에서 요청자와 기능을 도출합니다. 각 요청을 안전하게 다시 시도할 수 있는
+영속 Operator 제안으로 저장하고 완전한 요청 변환 결과를 Console에 반환합니다. 검토 결정은
+별도의 영속 제안이며 자기 검토를 차단하고 원래 의도를 변경하지 않은 채 요청 변환 결과에
+반영됩니다. 요청 검토는 안정적인 `request_id`를 직접 조회하므로 목록에 페이지 나누기가
+적용된 뒤에도 이전 요청을 검토할 수 있습니다. 응답 상태는 `pending`입니다. 양식 제출은
+요청을 승인하거나 Entra 그룹 멤버십을 변경하지 않습니다. Core 게시와 hash-chain 기반
+`iam.access-requested` 및 `iam.access-reviewed` 기록은 별도의 전달 경계로 유지됩니다.
 
 승인은 ChatOps 또는 거버넌스 PR 경로에 유지됩니다. 승인 후 Owner가 테넌트의 ID 관리
 프로세스를 통해 허용 목록에 포함된 `aw-*` 그룹 변경을 반영합니다. 이 분리를 통해 브라우저,

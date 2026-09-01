@@ -3,6 +3,7 @@ import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import { DataTable, StatusPill, type PillKind } from "../components/ui";
 import { t } from "../i18n";
+import { settingsIamText } from "./settings-iam.i18n";
 import { reviewIamAccessRequest } from "./settings-iam.command";
 import type { IamAccessRequest, IdentityRosterItem } from "./settings-iam.model";
 
@@ -46,7 +47,7 @@ export function AccessRequestsView({
 
   const pending = requests.filter((item) => item.status === "pending").length;
   return (
-    <section class="settings-iam-panel" aria-labelledby="settings-iam-requests">
+    <section class="settings-iam-panel settings-requests-panel" aria-labelledby="settings-iam-requests">
       <header class="settings-iam-panel-head">
         <div>
           <h3 id="settings-iam-requests">{t("settings.iam.requests")}</h3>
@@ -60,6 +61,10 @@ export function AccessRequestsView({
           <StatusPill kind="neutral" label={t("settings.iam.totalCount", { count: total })} />
         </div>
       </header>
+      <div class="settings-access-lifecycle settings-access-lifecycle-compact" role="status">
+        <strong>{settingsIamText("requestLifecycleTitle")}</strong>
+        <span>{settingsIamText("requestLifecycleHint")}</span>
+      </div>
       <DataTable
         columns={[
           {

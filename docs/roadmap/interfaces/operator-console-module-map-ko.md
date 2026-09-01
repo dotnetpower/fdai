@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 91b518a3957235f830ba54bbaef7a5c7c5647630
+translation_source_sha: 50c888095b981257e45ffd10cb0691af86c334e8
 translation_revised: 2026-09-01
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -628,6 +628,11 @@ Console 설정 경로와 정적 디자인 시안은 Calm Slate 컨트롤 토큰�
 데스크톱 폼 컨트롤은 34px 표준 높이와 28px 간소 작업 높이를 사용합니다. 터치 레이아웃은 44px
 대상을 사용합니다. 설정 화면은 브라우저 로컬 환경 설정, 계정 환경 설정, 배포 정책, 근거 및 권한
 경계를 시각적으로 구분하지만 영속성 또는 권한 부여 계약은 변경하지 않습니다.
+
+`/settings/iam`은 경로가 소유하는 이중 언어 메시지와 반응형 스타일을 사용합니다. 검증된 FDAI
+Owner 역할과 테넌트 관리자를 구분하고, 요청, 검토, 보호된 적용, 새 검증을 별도 단계로 표시하며,
+운영 할당 검토를 Agent oversight에 연결합니다. Console과 Operator API의 점진적 업그레이드
+중에는 안전한 역할 및 기능 사실을 유지하고 누락된 디렉터리 메타데이터는 알 수 없음으로 표시합니다.
 
 `console/src/components/account-menu.tsx`는 헤더의 로그인 계정 표현을 소유합니다. MSAL 이름과
 사용자 이름을 표시하고 서버가 검증한 `GET /iam/self` 프로젝션에서만 FDAI 역할을 읽으며 기존 IAM

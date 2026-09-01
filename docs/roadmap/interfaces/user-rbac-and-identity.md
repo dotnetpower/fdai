@@ -35,11 +35,13 @@ for the *human* side; the executor-side mapping stays as declared there.
 | Local Browser Entra session resilience | implemented | `console/src/auth-session.ts`; `console/src/auth.ts`; focused Console auth tests (`10 passed`) and typecheck | MSAL Browser v4 uses encrypted `localStorage` only on loopback origins and keeps deployed origins on `sessionStorage`. One coalesced refresh runs at startup, every 30 minutes, and after focus, visibility, or network recovery. Entra can still require interactive authentication. |
 | Notification integration configuration and diagnostics | implemented | `teams_workflow_binding.py`; `teams_workflow_diagnostics.py`; `families/iam/{capabilities,settings,manifest}.py`; focused binding, diagnostic, and IAM-family tests | Owner can save and test the Teams endpoint. Contributor, Approver, and Owner can reveal the current value through a no-store response, while Reader and BreakGlass receive `visible: false`. Slack remains a transient test. Every Teams save, test, and reveal audit record omits the URL. |
 | Per-user Cost Governance access | implemented | `CostAccessGrant`; `CostDisclosureCeiling`; Cost Governance Operator routes and focused tests | The reader selects the latest matching principal, purpose, and scope grant before applying time checks and the deployment disclosure ceiling. The server applies `hidden`, `aggregate`, `masked`, or `detailed` disclosure before serialization; the grant cannot enable the package or promote an action. |
+| IAM administration diagnostics and request projection | implemented | `entra_directory.py`; `families/iam/iam_routes.py`; `postgres_iam.py`; `console/src/routes/settings-iam*`; focused Operator, Console, and Browser tests | The Console distinguishes FDAI Owner from tenant administration, uses a server-side read-only Graph directory when credentials are available, and projects durable request and review proposals without claiming that approval changed membership. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-01 | implemented | Repaired the Identity and access request contract, added explicit FDAI Owner and directory diagnostics, bound a read-only Graph directory for local and deployed credentials, and replaced misleading add-user copy with the actual request-review-apply-verify boundary. | `current change`; `entra_directory.py`; `postgres_iam.py`; `settings-iam*.tsx`; focused Operator, Console, catalog, and Playwright checks. | Retain a deployed Graph-read receipt and complete the separately promoted assignment-to-IAM apply workflow before claiming automatic membership changes. |
 | 2026-09-01 | implemented | Added encrypted local and Key Vault-backed Teams Workflows endpoint persistence, plus an audited `view-integration-secrets` capability for Contributor, Approver, and Owner. Reader and BreakGlass receive no binding metadata. | `current change`; `teams_workflow_binding.py`; `teams_workflow_diagnostics.py`; `families/iam/{capabilities,settings,manifest}.py`; 53 focused Operator tests passed; Terraform validation passed. | Retain a deployed runtime receipt before claiming the Key Vault reveal path is validated. |
 | 2026-08-28 | implemented | Corrected the frozen IAM-family manifest order to match the route factory after the Slack diagnostic route was added, restoring fail-closed Operator API startup without weakening route parity. | `current change`; `families/iam/manifest.py`; focused IAM-family manifest test passed. | No additional route-order work remains; deployed provider receipts remain separate. |
 | 2026-08-29 | implemented | Added purpose- and scope-bound per-user Cost Governance access with server-side non-escalating disclosure. | `current change`; service contract, Operator route, migration, disclosure property, and no-query tests. | Retain an access-review and unauthorized-disclosure-free live campaign receipt. |
@@ -529,25 +531,16 @@ domains instead of leaving the previous domain menu visible.
 
 ### 11.1 IAM projection
 
-`GET /iam` returns the server-verified principal, the five fixed role definitions, and the
-effective capability union. `GET /iam/access-requests` returns requests visible to that
-principal. Access-request identities are Owner-only; Reader, Contributor, and Approver
-requests receive `403`. The Users and Access requests tabs remain visible with a lock icon;
-selecting either tab renders an immediate Access denied surface instead of ignoring the
-interaction. An unassigned user sees only their own request through the role-optional
-`GET /iam/self` projection.
+`GET /iam` returns the server-verified principal, the five fixed role definitions, the effective capability union, explicit FDAI Owner authority, directory availability, and the request and provider-mutation boundaries. Azure subscription, Entra tenant, and application administrator roles don't imply FDAI Owner. `GET /iam/access-requests` returns requests visible to that principal. Access-request identities are Owner-only; Reader, Contributor, and Approver requests receive `403`. The Users and Access requests tabs remain visible with a lock icon; selecting either tab renders an immediate Access denied surface instead of ignoring the interaction. An unassigned user sees only their own request through the role-optional `GET /iam/self` projection.
 For an assigned principal, `GET /iam/self` derives console access directly from verified App Roles and does not depend on the access-request projection. An unassigned principal still requires that projection and gains no access when it is unavailable.
 
-The Users tab combines two bounded sources. It shows the verified signed-in principal and
-users referenced by visible access requests. An Owner can also search the configured
-`HumanIdentityDirectory` through `GET /iam/directory/users?q=...` and select an account to
-prefill a governed access request. The browser never receives provider credentials.
+The Users tab combines two bounded sources. It shows the verified signed-in principal and users referenced by visible access requests. An Owner can also search the configured `HumanIdentityDirectory` through `GET /iam/directory/users?q=...` and select an account to prefill a governed access request. Local execution uses the server's Azure CLI credential and deployed execution uses the Operator managed identity. Both are read-only Graph bindings, and the browser never receives provider credentials.
 
-`GET /iam/directory/roster` projects the FDAI enterprise application's live App Role
-assignments. The Entra adapter discovers the service principal, maps each App Role id to its
-role value, and expands assigned groups through transitive membership. Direct user
-assignments and group-derived assignments are merged by stable subject id. The Users tab can
-filter People and Groups, but role requests are available only for active people.
+`GET /iam/directory/roster` projects the FDAI enterprise application's live App Role assignments.
+The Entra adapter discovers the service principal, maps each App Role id to its role value, and
+expands assigned groups through transitive membership. Direct user assignments and group-derived
+assignments are merged by stable subject id. The Users tab can filter People and Groups, but role
+requests are available only for active people.
 
 `HumanIdentityDirectory` is cloud-provider-neutral. Every adapter returns a stable
 `provider`, `subject_id`, username, display name, user type, and active flag. Microsoft
@@ -560,7 +553,8 @@ Before the API accepts a governed role request, it stamps the configured provide
 `get_by_subject_id` to verify the subject, username, and active state. Client-supplied
 provider labels never select the identity backend.
 
-The fifth Assignments tab is Owner-only. `POST /iam/assignment-cases` revalidates the exact active
+Agent oversight > Mapping reviews owns the Owner-only assignment workspace; Identity and access
+links to it rather than duplicating a fifth tab. `POST /iam/assignment-cases` revalidates the exact active
 subject and records immutable role, duty, goal, and justification intent. Revisioned submit and
 review commands use compare-and-set. `GET /iam/assignments` joins only observed directory roles,
 the configured ownership map, assignment cases, and handover availability. Missing provider or
@@ -573,8 +567,8 @@ bounded apply, verify, and rollback calls. It rejects BreakGlass, dynamic groups
 groups, and arbitrary group ids. The path is observation-only until separately promoted.
 
 Interactive local mode doesn't fall back to a synthetic directory. The Microsoft Graph
-adapter uses the server's Azure CLI credential to discover the FDAI service principal, its
-live App Role assignments, and transitive group members. Alias search, the role roster, and
+adapter uses the server's Azure CLI credential to discover the FDAI service principal, live App
+Role assignments, and transitive group members. Alias search, the role roster, and
 access-request targets therefore reflect the signed-in tenant while provider credentials
 remain outside the browser. Offline fixture identities remain pytest-only.
 
@@ -590,14 +584,16 @@ A Contributor or higher role can submit `POST /iam/access-requests` with these f
 | `target_username` | Human-readable name or UPN for review. Authorization never relies on this value. |
 | `operation` | `grant`, `revoke`, or `set`. `set` expresses the per-row role dropdown change. |
 | `role` | `Reader`, `Contributor`, `Approver`, or `Owner`. Routine `BreakGlass` requests are blocked. |
-| `justification` | 20-2000 characters. Stored with the request and audit event. |
+| `justification` | 20-2000 characters. Stored with the request proposal and later Core audit transition. |
 
-The API derives the requester and capabilities from the validated token. It stores each
-request and its `iam.access-requested` hash-chain entry in one transaction. Review decisions
-use the same state-and-audit transaction. Request review looks up the stable `request_id`
-directly, so older requests remain reviewable after the list projection is paginated. The
-response status is `pending`; submitting the form doesn't approve the request or change
-Entra group membership.
+The API derives the requester and capabilities from the validated token. It stores each request
+as a durable, safe-to-retry Operator proposal and projects the complete request back to the
+Console. Review decisions are separate durable proposals, reject self-review, and overlay the
+request projection without changing the original intent. Request review looks up the stable
+`request_id` directly, so older requests remain reviewable after pagination. The response status
+is `pending`; submitting the form doesn't approve the request or change Entra group membership.
+Core publication and its hash-chained `iam.access-requested` and `iam.access-reviewed` records
+remain a separate delivery boundary.
 
 Approval stays in ChatOps or the governance pull-request path. After approval, an Owner
 applies the allowlisted `aw-*` group change through the tenant's identity-administration

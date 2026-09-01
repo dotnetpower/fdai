@@ -17,6 +17,22 @@ export interface IamOverview {
   readonly principal: IamPrincipal;
   readonly roles: readonly IamRoleDefinition[];
   readonly assignmentBoundary: "identity-provider-group";
+  readonly authority: {
+    readonly source: "server-verified";
+    readonly isOwner: boolean;
+    readonly canManageGroupMembership: boolean;
+  };
+  readonly directory: {
+    readonly source: string;
+    readonly availability: "available" | "unavailable" | "not_configured" | "unknown";
+    readonly observedAt: string | null;
+    readonly detail: string | null;
+  };
+  readonly workflow: {
+    readonly accessRequestAuthority: "proposal_only";
+    readonly assignmentAuthority: "observation_only";
+    readonly providerMutation: "promotion_required";
+  };
 }
 
 export interface IamAccessRequest {
@@ -96,17 +112,85 @@ export function decodeIamOverview(value: unknown): IamOverview {
   if (boundary !== "identity-provider-group") {
     throw new Error("IAM assignment_boundary MUST be identity-provider-group");
   }
+  const principalRoles = stringArray(principal["roles"], "IAM principal.roles").map((role) =>
+    iamRole(role, "IAM principal.roles[]")
+  );
+  const principalCapabilities = stringArray(
+    principal["capabilities"],
+    "IAM principal.capabilities",
+  );
+  const authority = root["access_authority"] === undefined
+    ? null
+    : record(root["access_authority"], "IAM access_authority");
+  const directory = root["directory"] === undefined
+    ? null
+    : record(root["directory"], "IAM directory");
+  const workflow = root["workflow"] === undefined
+    ? null
+    : record(root["workflow"], "IAM workflow");
+  const availability = directory === null
+    ? "unknown"
+    : string(directory["availability"], "IAM directory.availability");
+  if (!["available", "unavailable", "not_configured", "unknown"].includes(availability)) {
+    throw new Error("IAM directory.availability is invalid");
+  }
+  const accessRequestAuthority = workflow === null
+    ? "proposal_only"
+    : string(workflow["access_request_authority"], "IAM workflow.access_request_authority");
+  const assignmentAuthority = workflow === null
+    ? "observation_only"
+    : string(workflow["assignment_authority"], "IAM workflow.assignment_authority");
+  const providerMutation = workflow === null
+    ? "promotion_required"
+    : string(workflow["provider_mutation"], "IAM workflow.provider_mutation");
+  if (
+    accessRequestAuthority !== "proposal_only"
+    || assignmentAuthority !== "observation_only"
+    || providerMutation !== "promotion_required"
+  ) {
+    throw new Error("IAM workflow authority is invalid");
+  }
   return {
     principal: {
       oid: string(principal["oid"], "IAM principal.oid"),
-      roles: stringArray(principal["roles"], "IAM principal.roles").map((role) =>
-        iamRole(role, "IAM principal.roles[]")
-      ),
-      capabilities: stringArray(principal["capabilities"], "IAM principal.capabilities"),
+      roles: principalRoles,
+      capabilities: principalCapabilities,
     },
     roles,
     assignmentBoundary: "identity-provider-group",
+    authority: {
+      source: authority === null ? "server-verified" : serverVerifiedSource(authority["source"]),
+      isOwner: authority === null
+        ? principalRoles.includes("Owner")
+        : boolean(authority["is_owner"], "IAM access_authority.is_owner"),
+      canManageGroupMembership: authority === null
+        ? principalCapabilities.includes("manage-group-membership")
+        : boolean(
+            authority["can_manage_group_membership"],
+            "IAM access_authority.can_manage_group_membership",
+          ),
+    },
+    directory: {
+      source: directory === null ? "legacy-api" : string(directory["source"], "IAM directory.source"),
+      availability: availability as IamOverview["directory"]["availability"],
+      observedAt: directory === null
+        ? null
+        : nullableDateString(directory["observed_at"] ?? null, "IAM directory.observed_at"),
+      detail: directory === null
+        ? null
+        : nullableString(directory["detail"] ?? null, "IAM directory.detail"),
+    },
+    workflow: {
+      accessRequestAuthority: "proposal_only",
+      assignmentAuthority: "observation_only",
+      providerMutation: "promotion_required",
+    },
   };
+}
+
+function serverVerifiedSource(value: unknown): "server-verified" {
+  if (value !== "server-verified") throw new Error("IAM access_authority.source is invalid");
+  return value;
 }
 
 export function decodeIamAccessRequests(value: unknown): readonly IamAccessRequest[] {

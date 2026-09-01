@@ -47,6 +47,22 @@ const overview = {
     },
   ],
   assignment_boundary: "identity-provider-group",
+  access_authority: {
+    source: "server-verified",
+    is_owner: false,
+    can_manage_group_membership: false,
+  },
+  directory: {
+    source: "materialized-projection",
+    availability: "available",
+    observed_at: "2026-07-16T00:00:00+00:00",
+    detail: null,
+  },
+  workflow: {
+    access_request_authority: "proposal_only",
+    assignment_authority: "observation_only",
+    provider_mutation: "promotion_required",
+  },
 };
 
 const accessRequest = {
@@ -143,6 +159,38 @@ describe("IAM settings contracts", () => {
 
     expect(decoded.principal.roles).toEqual(["Contributor"]);
     expect(decoded.principal.capabilities).toContain("author-draft-pr");
+    expect(decoded.authority).toEqual({
+      source: "server-verified",
+      isOwner: false,
+      canManageGroupMembership: false,
+    });
+    expect(decoded.directory.observedAt).toBe("2026-07-16T00:00:00+00:00");
+  });
+
+  test("keeps a rolling upgrade usable with the legacy IAM overview", () => {
+    const {
+      access_authority: _authority,
+      directory: _directory,
+      workflow: _workflow,
+      ...legacy
+    } = overview;
+    const decoded = decodeIamOverview({
+      ...legacy,
+      principal: {
+        ...legacy.principal,
+        roles: ["Owner"],
+        capabilities: ["view-console", "manage-group-membership"],
+      },
+    });
+
+    expect(decoded.authority.isOwner).toBe(true);
+    expect(decoded.authority.canManageGroupMembership).toBe(true);
+    expect(decoded.directory).toMatchObject({
+      source: "legacy-api",
+      availability: "unknown",
+      observedAt: null,
+    });
+    expect(decoded.workflow.providerMutation).toBe("promotion_required");
     expect(decoded.roles[1]).toEqual({
       value: "BreakGlass",
       capabilities: ["view-console", "trigger-kill-switch"],
@@ -233,6 +281,7 @@ describe("IAM settings contracts", () => {
     expect(self.canAccessConsole).toBe(false);
     expect(self.request?.targetSubjectId).toBe("target-1");
     expect(users[0]?.displayName).toBe("Example User");
+    expect(users[0]?.userType).toBe("member");
 
     const roster = decodeIdentityRoster({
       items: [
