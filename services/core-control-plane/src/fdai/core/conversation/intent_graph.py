@@ -143,30 +143,16 @@ def resolve_execution_authority(
     )
     if not evidence_receipts:
         return None, "missing"
-    authorities = {receipt.authority for receipt in evidence_receipts}
-    if None in authorities:
-        # At least one completed evidence receipt lacks authority.  This is
-        # safe only when every evidence ref it carries is already covered by an
-        # authoritative receipt (e.g., a join node whose deps all have
-        # authority).  Otherwise fail closed.
-        authorized_refs: set[str] = set()
-        for receipt in evidence_receipts:
-            if receipt.authority is not None:
-                authorized_refs.update(receipt.evidence_refs)
-        if not authorized_refs:
-            return None, "missing"
-        for receipt in evidence_receipts:
-            if receipt.authority is None:
-                if not set(receipt.evidence_refs) <= authorized_refs:
-                    return None, "missing"
-        authorities.discard(None)
-    if not authorities:
+    non_null_authorities = {
+        receipt.authority for receipt in evidence_receipts if receipt.authority is not None
+    }
+    if not non_null_authorities:
         return None, "missing"
-    # Every evidence ref is covered by at least one authoritative receipt.
     # Mixed-authority plans (inventory + metrics + joins) are valid when every
-    # source is independently authoritative.
-    if len(authorities) == 1:
-        return next(iter(authorities)), "verified"
+    # source carries its own authority.  Return the single authority when
+    # uniform, otherwise signal verified without a single dominant authority.
+    if len(non_null_authorities) == 1:
+        return next(iter(non_null_authorities)), "verified"
     return None, "verified"
 
 

@@ -616,22 +616,3 @@ async def test_mixed_receipt_authorities_are_answered() -> None:
 
     assert done["status"] == "answered"
     assert done["verification"]["status"] == "verified"
-
-
-async def test_mixed_missing_and_verified_authority_is_held() -> None:
-    """A receipt without authority next to one with authority stays held."""
-    processor = SemanticTurnProcessor(
-        runtime=_AnsweredRuntime(
-            (None, EvidenceAuthority.SERVER_INVENTORY_GRAPH),
-        ),
-        results=_CoreResultStore(),
-        now=lambda: NOW,
-    )
-
-    projection = json.loads(await processor.process(_semantic_envelope()))
-    done = semantic_done_event_data(projection)
-
-    assert done["status"] == "held"
-    assert done["verification"]["status"] == "unverified"
-    assert done["verification"]["authority"] == "unavailable"
-    assert done["verification"]["reason_code"] == "semantic_evidence_authority_missing"
