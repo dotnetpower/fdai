@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 75caab969e05c6a3b6bc37c8905c9f36c1a6a547
+translation_source_sha: 13fc270ba6eff4914dd584f8b57315e99671c6cb
 translation_revised: 2026-09-01
 ---
 # 지속형 질문 공간
@@ -74,6 +74,7 @@ Golden 질문, Console 표시 질문 또는 답변 가능한 질문으로 승격
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-01 | implemented | 검토된 `service-current-health` 문구에서 AKS에 배포된 비즈니스 서비스를 명시하도록 수정했습니다. 이전 "AKS Service" 문구는 의미 계약이 `BusinessService` 앵커를 요구하는 상황에서 Kubernetes `Service` 객체를 가리켰기 때문에 올바른 런타임 해석이 oracle 검사에 실패했습니다. 생성된 영어, 한국어 및 질문 은행 산출물은 이제 수정된 원본에서 파생됩니다. | `current change`, Golden 데이터 세트 생성 및 집중 계약 검사 | 독립적인 바인딩되지 않은 변경 상관관계 수정 후 exact-source canary 결과 10개를 보존합니다. |
 | 2026-08-31 | implemented | 타입이 지정된 인과 요청이 구조화된 frame 계획 전에 current-state 판단 빠른 경로를 사용하는 문제를 막았습니다. 이 수정은 스키마로 검증된 `requested_facets` 필드만 사용하며 구문, 정규식, 별칭 또는 공급자별 라우팅을 추가하지 않습니다. | `current change`, 집중 current-state 및 구조화된 조사 계획 검사 88개 통과 | Issue #244에서 커밋된 리비전의 인증된 정확한 대상 인과 답변 또는 타입이 지정된 보류를 하나 보존합니다. |
 | 2026-08-31 | implemented | 누락된 exact-Resource slowness 조사를 부정되지 않고 대상 identifier 밖에 있는 검토된 source span, 검증된 Resource-to-service path, path 범위 dependency-latency 및 traffic-load metric으로 완성했습니다. 입력이 누락되거나 모호하거나 감소, 부정, 겹침, 경쟁 사건 또는 명시적 가설을 포함하면 계속 fail-closed합니다. 질문별 경로, 정규식, 별칭 또는 공급자 identity를 추가하지 않습니다. | `current change`, 집중 구조화된 조사 계획 및 inventory-language 검사 | Issue #244에서 커밋된 리비전의 인증된 정확한 대상 인과 답변 또는 타입이 지정된 보류를 하나 보존합니다. |
 | 2026-08-31 | implemented | 실제 운영 검증에서 어떤 결정론적 precondition이 normalization을 보류했는지 식별할 수 없어 입력 없는 slowness-recovery 진단을 추가했습니다. | `current change`, 진단 테스트는 실패한 precondition 이름과 개수만 기록하며 운영자 text, target, source-span text, model payload 또는 provider data를 남기지 않습니다. | 다음 단일 인증 replay로 남은 실패 precondition을 확인합니다. |

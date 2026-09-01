@@ -7,7 +7,7 @@ This generated catalog brings FDAI's Golden questions, manual browser prompts, C
 ## Catalog summary
 
 - Catalog version: `1.0.0`
-- Source digest: `sha256:e85ab188a6d985343289c015255ae35b3962a302271a80c2f7ec1b48860f5d96`
+- Source digest: `sha256:8b5df985e581e30cf35662c7713a7a9941413e5f3ff88e21687bf70e2a939999`
 - Logical questions: 352
 - Source counts: `candidate` 250, `console` 7, `golden` 35, `manual` 60
 
@@ -104,7 +104,7 @@ This generated catalog brings FDAI's Golden questions, manual browser prompts, C
 | `golden.current-resource-state` | `golden` | `source-defined` | Container App의 현재 프로비저닝, 실행, 리비전 상태를 권위 있는 관측 시각과 함께 알려 주세요 | report a Container App's current provisioning, running, and revision states together with the authoritative observation time | `explicit_target` | - | `reviewed / covered / clarify / contract_only / contract_passed` | `golden` |
 | `golden.operation-resource-activity` | `golden` | `source-defined` | 지난 30분 동안 Container App의 리비전, 다시 시작, 구성 활동을 나열해 주세요 | list revision, restart, and configuration activity for a Container App within the past 30 minutes | `explicit_target` | - | `reviewed / covered / clarify / contract_only / contract_passed` | `golden` |
 | `golden.resource-classification` | `golden` | `source-defined` | Application Gateway, AKS 클러스터, Pod, Container Apps, PostgreSQL, Storage, Key Vault, Event Hubs의 검토된 ResourceType 분류를 확인하고 매핑되지 않은 native 유형은 명시적으로 미분류 상태로 유지해 주세요 | resolve reviewed ResourceType classifications for Application Gateway, AKS clusters, Pods, Container Apps, PostgreSQL, Storage, Key Vault, and Event Hubs while keeping an unmapped native type explicitly unclassified | `none` | - | `reviewed / covered / bound / contract_only / contract_passed` | `golden` |
-| `golden.service-current-health` | `golden` | `source-defined` | AKS Service를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요 | map an AKS Service to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns | `explicit_target` | - | `reviewed / covered / clarify / contract_only / contract_passed` | `golden` |
+| `golden.service-current-health` | `golden` | `source-defined` | AKS에 배포된 비즈니스 서비스를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요 | map a business service deployed on AKS to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns | `explicit_target` | - | `reviewed / covered / clarify / contract_only / contract_passed` | `golden` |
 | `incident.average-recovery-time` | `candidate` | `incident` | 최근 기록된 장애의 평균 복구 시간은 얼마인가요? | What is the average recovery time across recent recorded incidents? | `server_scope` | - | `candidate / unassessed / unassessed / unassessed / not_run` | `catalog` |
 | `incident.cause-classification` | `candidate` | `incident` | 최근 장애의 검토된 주요 원인을 유형별로 분류해 주세요. | Classify the reviewed primary causes of recent incidents by type. | `server_scope` | - | `candidate / unassessed / unassessed / unassessed / not_run` | `catalog` |
 | `incident.currently-open` | `candidate` | `incident` | 현재 권한 범위의 서비스에서 진행 중인 Incident가 있나요? | Is there an incident currently open for an authorized service? | `server_scope` | - | `candidate / unassessed / unassessed / unassessed / not_run` | `catalog` |
@@ -422,13 +422,13 @@ This generated catalog brings FDAI's Golden questions, manual browser prompts, C
 
 | Source file | SHA-256 |
 |-------------|---------|
-| `console/src/i18n/messages.en.json` | `sha256:5287b434bcf586947ee624cd300baeb18e7507c708b401bb73c98705f753a16b` |
-| `console/src/i18n/messages.ko.json` | `sha256:d56703ff62139f5e560a5d0cc6d3cd92cc31d6ccec8c1847847b51ba64738173` |
+| `console/src/i18n/messages.en.json` | `sha256:f32576c1e88322f5ca9435bdd7e25c1e90512488dadcfd99113f68ef8162fced` |
+| `console/src/i18n/messages.ko.json` | `sha256:96aecfdf91d643728fb71a54067dc51a76d1d0010601e46a51501c5c7f189528` |
 | `docs/internals/browser-session-test-prompts-q001-q120.md` | `sha256:771a25718973a16969744e6dc4b32f9914f28815c0c3e3b92936eff5d58dbaea` |
 | `eval/golden-dataset/coverage.json` | `sha256:daaf037ba6f489612e3488030a9764d576f43d4c67e178640ba5e3a10c8fcd77` |
 | `eval/golden-dataset/expectations.json` | `sha256:5617de665fab4aec0bd038a8a1809d9a662f6cb51c8a0221036997807eb6c97c` |
 | `eval/golden-dataset/question-bank/operator-question-expansion.source.yaml` | `sha256:86a17b6905aa73c169e068560e25367fd4af98f63ccaa0064220ede32770cf64` |
 | `eval/golden-dataset/question-bank/question-bank.source.yaml` | `sha256:fa06e3437717c814c55d59f7dca589722a8bfc873f8f70d79438d41e9bb075d3` |
-| `eval/golden-dataset/questions.en.json` | `sha256:cb2e1fbb910dd92d0df32cbfcca5fb601bb238d8030068465a4c2c5ced55d76b` |
-| `eval/golden-dataset/questions.ko.json` | `sha256:f84cc269a2b72031b891a912007e247f3ddfc5fc61e9ccaab45be1f542880912` |
-| `eval/golden-dataset/questions.source.yaml` | `sha256:2b34ebec879b4456731026011d9ddf6dae2d351827531c7e3cd432a88fe94526` |
+| `eval/golden-dataset/questions.en.json` | `sha256:efbc1d9718d9541be530fb258933d6fc05ffe3b805e9c0454ce9ddb2f5dfb44b` |
+| `eval/golden-dataset/questions.ko.json` | `sha256:4ebf27ff6593c2ac9752a72ebaead5762952ef40d63a2dd97e175f440285d110` |
+| `eval/golden-dataset/questions.source.yaml` | `sha256:9ba72aaf5858c29f6bb29deada732f1bd613791c18fb2280ff66b0b311e2ee2e` |

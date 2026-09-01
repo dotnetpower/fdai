@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0.0",
   "dataset_version": "2.0.0",
-  "source_digest": "sha256:2b34ebec879b4456731026011d9ddf6dae2d351827531c7e3cd432a88fe94526",
+  "source_digest": "sha256:9ba72aaf5858c29f6bb29deada732f1bd613791c18fb2280ff66b0b311e2ee2e",
   "locale": "ko",
   "questions": [
     {
@@ -1689,56 +1689,56 @@
       "expectation_id": "service-current-health",
       "runtime_context": "explicit_target_required",
       "variation_kind": "audit_oriented",
-      "question": "감사에 남길 수 있도록 답해 주세요. AKS Service를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요."
+      "question": "감사에 남길 수 있도록 답해 주세요. AKS에 배포된 비즈니스 서비스를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요."
     },
     {
       "case_id": "service-current-health.concise",
       "expectation_id": "service-current-health",
       "runtime_context": "explicit_target_required",
       "variation_kind": "concise",
-      "question": "빠르게 확인하고 싶어요. AKS Service를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요."
+      "question": "빠르게 확인하고 싶어요. AKS에 배포된 비즈니스 서비스를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요."
     },
     {
       "case_id": "service-current-health.contrastive",
       "expectation_id": "service-current-health",
       "runtime_context": "explicit_target_required",
       "variation_kind": "contrastive",
-      "question": "AKS Service를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+      "question": "AKS에 배포된 비즈니스 서비스를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
     },
     {
       "case_id": "service-current-health.direct",
       "expectation_id": "service-current-health",
       "runtime_context": "explicit_target_required",
       "variation_kind": "direct",
-      "question": "AKS Service를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요."
+      "question": "AKS에 배포된 비즈니스 서비스를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요."
     },
     {
       "case_id": "service-current-health.evidence_first",
       "expectation_id": "service-current-health",
       "runtime_context": "explicit_target_required",
       "variation_kind": "evidence_first",
-      "question": "검증된 근거만 사용해 주세요. AKS Service를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요."
+      "question": "검증된 근거만 사용해 주세요. AKS에 배포된 비즈니스 서비스를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요."
     },
     {
       "case_id": "service-current-health.investigative",
       "expectation_id": "service-current-health",
       "runtime_context": "explicit_target_required",
       "variation_kind": "investigative",
-      "question": "서비스 관점에서 조사해 주세요. AKS Service를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요."
+      "question": "서비스 관점에서 조사해 주세요. AKS에 배포된 비즈니스 서비스를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요."
     },
     {
       "case_id": "service-current-health.operator_colloquial",
       "expectation_id": "service-current-health",
       "runtime_context": "explicit_target_required",
       "variation_kind": "operator_colloquial",
-      "question": "지금 운영자가 확인해야 해요. AKS Service를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요."
+      "question": "지금 운영자가 확인해야 해요. AKS에 배포된 비즈니스 서비스를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요."
     },
     {
       "case_id": "service-current-health.uncertainty_aware",
       "expectation_id": "service-current-health",
       "runtime_context": "explicit_target_required",
       "variation_kind": "uncertainty_aware",
-      "question": "AKS Service를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+      "question": "AKS에 배포된 비즈니스 서비스를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
     },
     {
       "case_id": "service-impact.audit_oriented",

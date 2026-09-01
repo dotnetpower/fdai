@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0.0",
   "catalog_version": "1.0.0",
-  "source_digest": "sha256:e85ab188a6d985343289c015255ae35b3962a302271a80c2f7ec1b48860f5d96",
+  "source_digest": "sha256:8b5df985e581e30cf35662c7713a7a9941413e5f3ff88e21687bf70e2a939999",
   "source_files": [
     {
       "path": "console/src/i18n/messages.en.json",
-      "digest": "sha256:5287b434bcf586947ee624cd300baeb18e7507c708b401bb73c98705f753a16b"
+      "digest": "sha256:f32576c1e88322f5ca9435bdd7e25c1e90512488dadcfd99113f68ef8162fced"
     },
     {
       "path": "console/src/i18n/messages.ko.json",
-      "digest": "sha256:d56703ff62139f5e560a5d0cc6d3cd92cc31d6ccec8c1847847b51ba64738173"
+      "digest": "sha256:96aecfdf91d643728fb71a54067dc51a76d1d0010601e46a51501c5c7f189528"
     },
     {
       "path": "docs/internals/browser-session-test-prompts-q001-q120.md",
@@ -33,15 +33,15 @@
     },
     {
       "path": "eval/golden-dataset/questions.en.json",
-      "digest": "sha256:cb2e1fbb910dd92d0df32cbfcca5fb601bb238d8030068465a4c2c5ced55d76b"
+      "digest": "sha256:efbc1d9718d9541be530fb258933d6fc05ffe3b805e9c0454ce9ddb2f5dfb44b"
     },
     {
       "path": "eval/golden-dataset/questions.ko.json",
-      "digest": "sha256:f84cc269a2b72031b891a912007e247f3ddfc5fc61e9ccaab45be1f542880912"
+      "digest": "sha256:4ebf27ff6593c2ac9752a72ebaead5762952ef40d63a2dd97e175f440285d110"
     },
     {
       "path": "eval/golden-dataset/questions.source.yaml",
-      "digest": "sha256:2b34ebec879b4456731026011d9ddf6dae2d351827531c7e3cd432a88fe94526"
+      "digest": "sha256:9ba72aaf5858c29f6bb29deada732f1bd613791c18fb2280ff66b0b311e2ee2e"
     }
   ],
   "summary": {
@@ -10645,76 +10645,76 @@
       "intent": "service-current-health",
       "title": "Service Current Health",
       "wording": {
-        "en": "map an AKS Service to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns",
-        "ko": "AKS Service를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요"
+        "en": "map a business service deployed on AKS to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns",
+        "ko": "AKS에 배포된 비즈니스 서비스를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요"
       },
       "variations": {
         "en": [
           {
             "kind": "audit_oriented",
-            "text": "For an audit-ready view, map an AKS Service to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns."
+            "text": "For an audit-ready view, map a business service deployed on AKS to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns."
           },
           {
             "kind": "concise",
-            "text": "Quick check: map an AKS Service to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns."
+            "text": "Quick check: map a business service deployed on AKS to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns."
           },
           {
             "kind": "contrastive",
-            "text": "Map an AKS Service to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns. Contrast observed facts with unsupported assumptions."
+            "text": "Map a business service deployed on AKS to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns. Contrast observed facts with unsupported assumptions."
           },
           {
             "kind": "direct",
-            "text": "Map an AKS Service to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns."
+            "text": "Map a business service deployed on AKS to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns."
           },
           {
             "kind": "evidence_first",
-            "text": "Using only verified evidence, map an AKS Service to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns."
+            "text": "Using only verified evidence, map a business service deployed on AKS to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns."
           },
           {
             "kind": "investigative",
-            "text": "Investigate this from the service perspective: map an AKS Service to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns."
+            "text": "Investigate this from the service perspective: map a business service deployed on AKS to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns."
           },
           {
             "kind": "operator_colloquial",
-            "text": "Could you map an AKS Service to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns?"
+            "text": "Could you map a business service deployed on AKS to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns?"
           },
           {
             "kind": "uncertainty_aware",
-            "text": "Map an AKS Service to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns. Separate what is verified from what remains unknown."
+            "text": "Map a business service deployed on AKS to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns. Separate what is verified from what remains unknown."
           }
         ],
         "ko": [
           {
             "kind": "audit_oriented",
-            "text": "감사에 남길 수 있도록 답해 주세요. AKS Service를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요."
+            "text": "감사에 남길 수 있도록 답해 주세요. AKS에 배포된 비즈니스 서비스를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요."
           },
           {
             "kind": "concise",
-            "text": "빠르게 확인하고 싶어요. AKS Service를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요."
+            "text": "빠르게 확인하고 싶어요. AKS에 배포된 비즈니스 서비스를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요."
           },
           {
             "kind": "contrastive",
-            "text": "AKS Service를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
+            "text": "AKS에 배포된 비즈니스 서비스를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요. 관측 사실과 근거 없는 추정을 구분해 주세요."
           },
           {
             "kind": "direct",
-            "text": "AKS Service를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요."
+            "text": "AKS에 배포된 비즈니스 서비스를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요."
           },
           {
             "kind": "evidence_first",
-            "text": "검증된 근거만 사용해 주세요. AKS Service를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요."
+            "text": "검증된 근거만 사용해 주세요. AKS에 배포된 비즈니스 서비스를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요."
           },
           {
             "kind": "investigative",
-            "text": "서비스 관점에서 조사해 주세요. AKS Service를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요."
+            "text": "서비스 관점에서 조사해 주세요. AKS에 배포된 비즈니스 서비스를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요."
           },
           {
             "kind": "operator_colloquial",
-            "text": "지금 운영자가 확인해야 해요. AKS Service를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요."
+            "text": "지금 운영자가 확인해야 해요. AKS에 배포된 비즈니스 서비스를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요."
           },
           {
             "kind": "uncertainty_aware",
-            "text": "AKS Service를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
+            "text": "AKS에 배포된 비즈니스 서비스를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
           }
         ]
       },
