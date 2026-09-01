@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 689cc1b01eb5988b4ff3b591d9eb8d21fe5cc14f
+translation_source_sha: 466ec000183862541ad55210c6031b887a20dbb6
 translation_revised: 2026-09-01
 ---
 # 설치형 배포 CLI
@@ -546,6 +546,20 @@ remote-state 컨테이너 옆의 `deployment-plans` Blob 컨테이너에 저장�
 유지합니다. 메타데이터는 테넌트, 구독, 백엔드, 실행기, 시크릿 값 없이 계획 다이제스트, 맥락 다이제스트, exact 커밋, 작업 흐름 실행, 1시간 logical 만료를 기록합니다. Isolated 실행기 계획은 레지스트리 엔드포인트 또는 변경
 가능한 tag 없이 검증된 런타임 출처 개정 번호와 OCI 다이제스트도 기록합니다. 성공한 `deploy status`는 범위가 제한된 메타데이터 전용 산출물에서 파생된 계획 id와 다이제스트를 반환합니다. 각 새 계획 실행은 비공개 블롭을 최대
 1001개 검사하고 24시간 지난 허용 목록에 있는 계획 경로를 최대 1000개 삭제합니다. 두 한계 중 하나에 도달하면 알 수 없음 경로를 삭제하지 않고 실패 시 차단합니다.
+
+`--deploy-dev-operations-gateway`는 dev 전용 feature 플래그입니다. 비공개 리소스 운영 Function
+게이트웨이를 프로비저닝합니다. 이 플래그는 배포 맥락 다이제스트에 봉인되어 plan, apply, status
+전반에서 일관됩니다. 게이트웨이에 의존하는 기존 cutover, executor-effect, OHL 보호를 유지합니다.
+
+```bash
+fdaictl deploy plan \
+  --profile .fdai/environments/dev.json \
+  --repository <owner>/<repository> \
+  --commit-sha <git-sha> \
+  --run-id <run-id> \
+  --deploy-dev-operations-gateway \
+  --output json
+```
 
 `fdaictl deploy apply --plan-id <id>`는 다음 검사를 모두 통과한 경우에만 정확히 저장된 계획을
 적용합니다.

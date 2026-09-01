@@ -82,7 +82,6 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
             "DEPLOY_CORE_MODEL_QUORUM",
             "DEPLOY_DESIGN_MOCKS",
             "DEPLOY_OPERATOR_CHANNEL_EDGE",
-            "DEPLOY_DEV_OPERATIONS_GATEWAY",
             "DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET",
             "CUTOVER_ISOLATED_EXECUTOR_AUTHORITY",
             "VERIFY_EXECUTOR_EFFECT",
@@ -94,6 +93,8 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
             "RUNTIME_IMAGE_REVISION", ""
         ):
             raise ValueError("fdaictl request contains unsupported deployment inputs")
+        if deploy_gateway and values.get("TARGET_ENVIRONMENT") != "dev":
+            raise ValueError("deploy_dev_operations_gateway is restricted to the dev environment")
         if _deployment_context_digest(values) != context_digest:
             raise ValueError("deployment context does not match the selected workflow inputs")
 
@@ -303,10 +304,11 @@ def _deployment_context_digest(values: Mapping[str, str]) -> str:
             "commit_sha": values.get("COMMIT_SHA", ""),
             "selection": {
                 "deploy_console": _enabled(values, "DEPLOY_CONSOLE"),
-                "deploy_operator_api": _enabled(values, "DEPLOY_OPERATOR_API"),
+                "deploy_dev_operations_gateway": _enabled(values, "DEPLOY_DEV_OPERATIONS_GATEWAY"),
                 "deploy_document_ingestion": _enabled(values, "DEPLOY_DOCUMENT_INGESTION"),
                 "deploy_isolated_executor": _enabled(values, "DEPLOY_ISOLATED_EXECUTOR"),
                 "deploy_monitoring": _enabled(values, "DEPLOY_MONITORING"),
+                "deploy_operator_api": _enabled(values, "DEPLOY_OPERATOR_API"),
             },
         },
         ensure_ascii=True,

@@ -550,6 +550,21 @@ tag. A successful `deploy status` returns the derived plan id and digest from th
 most 1001 private blobs and deletes at most 1000 allowlisted plan paths older than 24 hours; reaching either bound fails closed without
 deleting unknown paths.
 
+`--deploy-dev-operations-gateway` is a dev-only feature flag. It provisions the private-resource
+operations Function gateway. The flag is sealed into the deployment context digest and is
+consistent across plan, apply, and status. It preserves the existing cutover, executor-effect,
+and OHL safeguards that depend on the gateway.
+
+```bash
+fdaictl deploy plan \
+  --profile .fdai/environments/dev.json \
+  --repository <owner>/<repository> \
+  --commit-sha <git-sha> \
+  --run-id <run-id> \
+  --deploy-dev-operations-gateway \
+  --output json
+```
+
 `fdaictl deploy apply --plan-id <id>` applies the exact saved plan only when all of these checks
 pass:
 

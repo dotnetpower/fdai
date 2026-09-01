@@ -718,10 +718,11 @@ def test_request_binding_and_context_digest_match_workflow_validator() -> None:
             "commit_sha": _COMMIT,
             "selection": {
                 "deploy_console": True,
-                "deploy_operator_api": True,
+                "deploy_dev_operations_gateway": False,
                 "deploy_document_ingestion": True,
                 "deploy_isolated_executor": False,
                 "deploy_monitoring": False,
+                "deploy_operator_api": True,
             },
         },
         ensure_ascii=True,
@@ -744,3 +745,35 @@ def test_request_binding_and_context_digest_match_workflow_validator() -> None:
     )
     actual_prefix = plan_receipt.request_id.split("-", maxsplit=1)[1][:24]
     assert actual_prefix == server_prefix
+
+
+def test_gateway_selection_round_trip() -> None:
+    """Gateway selection seals into context digest and dispatches."""
+    runner = RecordingRunner()
+    selection = DeploymentSelection(
+        deploy_console=False,
+        deploy_dev_operations_gateway=True,
+        deploy_operator_api=False,
+    )
+
+    plan = dispatch_plan(
+        repository="example/fdai",
+        environment="dev",
+        commit_sha=_COMMIT,
+        target_binding=_TARGET,
+        region=_REGION,
+        run_id="run.gateway",
+        selection=selection,
+        run=runner,
+    )
+    assert plan.context_digest
+    workflow_calls = [call for call in runner.calls if call[:2] == ("workflow", "run")]
+    fields = _fields(workflow_calls[0])
+    assert fields["deploy_dev_operations_gateway"] == "true"
+    assert fields["deploy_console"] == "false"
+    assert fields["deploy_operator_api"] == "false"
+
+
+def test_gateway_selection_rejects_monitoring_combination() -> None:
+    with pytest.raises(ValueError, match="monitoring deployment cannot be combined"):
+        DeploymentSelection(deploy_dev_operations_gateway=True, deploy_monitoring=True)

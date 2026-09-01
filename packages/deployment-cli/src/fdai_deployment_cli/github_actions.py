@@ -24,10 +24,11 @@ _REQUEST_ID = re.compile(r"^(?:plan|apply)-[0-9a-f]{48}$")
 _ENVIRONMENTS = frozenset({"dev", "staging", "prod"})
 _BOOL_INPUTS = (
     "deploy_console",
-    "deploy_operator_api",
+    "deploy_dev_operations_gateway",
     "deploy_document_ingestion",
     "deploy_isolated_executor",
     "deploy_monitoring",
+    "deploy_operator_api",
 )
 _EXPIRES_AT_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 
@@ -53,18 +54,20 @@ class DeploymentSelection:
     """Feature selection sealed into both protected plan and apply requests."""
 
     deploy_console: bool = True
-    deploy_operator_api: bool = True
+    deploy_dev_operations_gateway: bool = False
     deploy_document_ingestion: bool = False
     deploy_isolated_executor: bool = False
     deploy_monitoring: bool = False
+    deploy_operator_api: bool = True
 
     def __post_init__(self) -> None:
         if self.deploy_monitoring and any(
             (
                 self.deploy_console,
-                self.deploy_operator_api,
+                self.deploy_dev_operations_gateway,
                 self.deploy_document_ingestion,
                 self.deploy_isolated_executor,
+                self.deploy_operator_api,
             )
         ):
             raise ValueError("monitoring deployment cannot be combined with application targets")

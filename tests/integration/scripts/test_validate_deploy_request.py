@@ -23,7 +23,8 @@ _CONTEXT = hashlib.sha256(
     (
         '{"commit_sha":"' + _COMMIT + '","environment":"dev",'
         '"schema_version":"fdai.deployment-context.v1","selection":'
-        '{"deploy_console":false,"deploy_document_ingestion":false,'
+        '{"deploy_console":false,"deploy_dev_operations_gateway":false,'
+        '"deploy_document_ingestion":false,'
         '"deploy_isolated_executor":false,"deploy_monitoring":false,'
         '"deploy_operator_api":false}}'
     ).encode()
@@ -311,3 +312,63 @@ def test_ohl_target_requires_complete_dev_gateway_binding() -> None:
 def test_boolean_inputs_are_strict() -> None:
     with pytest.raises(ValueError, match="APPLY must be true or false"):
         validate(_request(APPLY="yes"), checkout_commit=_COMMIT)
+
+
+# -- Gateway selection via fdaictl --
+
+
+def _gateway_context() -> str:
+    return hashlib.sha256(
+        (
+            '{"commit_sha":"' + _COMMIT + '","environment":"dev",'
+            '"schema_version":"fdai.deployment-context.v1","selection":'
+            '{"deploy_console":false,"deploy_dev_operations_gateway":true,'
+            '"deploy_document_ingestion":false,'
+            '"deploy_isolated_executor":false,"deploy_monitoring":false,'
+            '"deploy_operator_api":false}}'
+        ).encode()
+    ).hexdigest()
+
+
+def _gateway_bound_request(mode: str) -> str:
+    ctx = _gateway_context()
+    prefix = _MODULE._request_binding_prefix(
+        target_binding=_TARGET_BINDING,
+        context_digest=ctx,
+        mode=mode,
+        region="koreacentral",
+    )
+    wire_prefix = "apply" if mode in {"apply", "resume"} else "plan"
+    return f"{wire_prefix}-{prefix}{'abcd' * 5}0001"
+
+
+def test_fdaictl_gateway_plan_round_trip() -> None:
+    """Protected plan with gateway selection produces a valid context digest."""
+    ctx = _gateway_context()
+    validate(
+        _request(
+            REQUEST_ID=_gateway_bound_request("plan"),
+            CONTEXT_DIGEST=ctx,
+            COMMIT_SHA=_COMMIT,
+            DEPLOY_DEV_OPERATIONS_GATEWAY="true",
+            DEPLOY_PREFLIGHT_INPUT_JSON="{}",
+        ),
+        checkout_commit=_COMMIT,
+    )
+
+
+def test_fdaictl_gateway_rejects_non_dev_environment() -> None:
+    """Gateway via fdaictl is restricted to dev."""
+    ctx = _gateway_context()
+    with pytest.raises(ValueError, match="restricted to the dev environment"):
+        validate(
+            _request(
+                TARGET_ENVIRONMENT="staging",
+                REQUEST_ID=_gateway_bound_request("plan"),
+                CONTEXT_DIGEST=ctx,
+                COMMIT_SHA=_COMMIT,
+                DEPLOY_DEV_OPERATIONS_GATEWAY="true",
+                DEPLOY_PREFLIGHT_INPUT_JSON="{}",
+            ),
+            checkout_commit=_COMMIT,
+        )
