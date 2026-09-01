@@ -32,6 +32,7 @@ model families, bounded debate, blind replay, automatic promotion, and automatic
 | Qualification owner contributions | implemented | [`quality_observations.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_observations.py), [`test_quality_context_locale_observations.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_context_locale_observations.py) | Deterministic owner adapters for applicable items 1-35 and 41-45 merge into one content-free turn envelope. Non-owned dimensions remain unavailable and cannot become score inputs. |
 | Context and locale owner contributions | implemented | [`quality_context_locale_observations.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_context_locale_observations.py), [`test_quality_context_locale_observations.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_context_locale_observations.py) | Items 41-45 bind every contribution to one case and locale, keep production evidence unavailable until independently supplied, and expose context or screen safety escapes as hard-cap inputs. |
 | Context and locale compatibility path | implemented | [`context_locale_scorecard.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/context_locale_scorecard.py), [`test_context_locale_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_context_locale_scorecard.py) | The historical module path re-exports only the unified owner-contribution API and does not restore the superseded separate envelope. |
+| Watchdog runtime capability readiness | implemented | [`conversation_assurance_readiness.py`](../../../services/core-control-plane/src/fdai/runtime/conversation_assurance_readiness.py), [`test_conversation_assurance_readiness.py`](../../../services/core-control-plane/tests/runtime/test_conversation_assurance_readiness.py) | Challenge selection distinguishes declaration, binding, provider reachability, evidence readiness, and authority. Unavailable challenges remain unscored coverage backlog. No live campaign evidence is claimed. |
 | Operator disputes and ontology adequacy review | implemented | [`test_learning.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_learning.py), [`test_state_store_ontology_adequacy.py`](../../../services/core-control-plane/tests/delivery/persistence/test_state_store_ontology_adequacy.py) | Disputes and reproduced adequacy gaps create bounded review evidence without changing execution authority. |
 | Pantheon prompt and turn diagnostics | implemented | [`test_pantheon_diagnostics.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_pantheon_diagnostics.py), [`test_prompt_contract_audit.py`](../../../services/core-control-plane/tests/agents/test_prompt_contract_audit.py) | The fixed 30-point projections measure prompt structure separately from routed answer quality. Hard-zero authority violations dominate aggregate scores. |
 | Explicit local Pantheon campaigns | implemented | [`test_pantheon_campaign.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_pantheon_campaign.py), [`test_conversation_assurance_qualification.py`](../../../tests/integration/scripts/test_conversation_assurance_qualification.py), [`test_pantheon_conversation_assurance.py`](../../../services/core-control-plane/tests/runtime/test_pantheon_conversation_assurance.py), [`test_conversation_assurance_cli.py`](../../../tests/integration/scripts/test_conversation_assurance_cli.py) | A fixed census case enters through the authenticated Operator stream, runs one Bragi-owned turn, creates a server-owned trace, uses distinct-family semantic reviews, and appends the correlated diagnostic to PostgreSQL. The private local campaign ledger retains digest-bound traces separately from evaluations and emits aggregate evidence only for exact 230-case coverage from one clean revision. No live campaign evidence has been retained. |
@@ -40,6 +41,7 @@ model families, bounded debate, blind replay, automatic promotion, and automatic
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-01 | implemented | Replaced FunctionType-presence challenge selection with typed runtime readiness and exact authority matching. The local watchdog records missing providers, inaccessible authority, or incomplete evidence as unavailable backlog instead of answer failures. | `current change`; [`conversation_assurance_readiness.py`](../../../services/core-control-plane/src/fdai/runtime/conversation_assurance_readiness.py); [`test_conversation_assurance_readiness.py`](../../../services/core-control-plane/tests/runtime/test_conversation_assurance_readiness.py); focused watchdog and runtime readiness tests. | Add evidence probes for resource-state, Resource Health, metering, DR, and Chaos providers before those challenges can enter campaigns. |
 | 2026-08-31 | implemented | Added replayable live-campaign evidence reduction. The explicit CLI now retains content-free turn traces, joins them to diagnostics by receipt digest, rejects incomplete or mixed-revision series, and records the fixed routing, T2, score-floor, and hard-zero metrics only after exact 230-case coverage. | `current change`; [`conversation_assurance_qualification.py`](../../../scripts/automation/conversation_assurance_qualification.py); focused campaign, diagnostic, qualification, and CLI tests; Ruff and strict mypy. | Run the separately authorized live census on a clean pinned revision and retain the resulting aggregate evidence. |
 | 2026-08-30 | implemented | Completed 11 scoped critique rounds and hardened the diagnostic boundary: low-confidence review, rolling transport compatibility, private-file and socket handling, campaign locking, report output, T1 preservation, bounded Console projection, and critical-state presentation. | `current change`; 11 scoped reviews; focused Core, Operator, CLI, Console, security, localization, and integrity checks. | Run the separately authorized live census and retain its pinned measurement evidence before claiming operational validation. |
 | 2026-08-30 | implemented | Added the content-free Pantheon trace fragment, separate 30-point prompt and turn diagnostics, the balanced 230-case English/Korean census, explicit-only bounded campaign controls, private ledgers, authenticated Operator-to-Bragi measurement, durable mixed-family assessment, read-only Console projection, and hardening eligibility guard. | `current change`; Pantheon, Conversation Assurance, Core-Operator transport, CLI, and Console focused tests; Ruff and strict mypy. | Run the separately authorized live census and retain its pinned measurement evidence before claiming operational validation. |
@@ -425,6 +427,36 @@ every semantic criterion reference to belong to that terminal set. Item 14 compa
 verification status and evidence completeness, including explicitly expected unavailable states.
 Item 15 consumes an explicit security-owner injection-escape result; it never infers resistance
 from answer text. An unavailable state does not become a citation or injection pass.
+
+## Watchdog challenge readiness
+
+The local watchdog treats a `FunctionType` as a declaration, not proof that a question can be
+answered. Selection follows the same ephemeral runtime instance that will measure the answer:
+
+1. `operational_function_types()` contributes reviewed static declarations.
+2. `build_semantic_query_runtime()` registers only callbacks whose composition dependencies exist
+   and records the bound function set in the principal-scoped query manifest.
+3. A runtime-owned probe exercises the concrete provider with the current identity and scope. Its
+   private mode-`0600` receipt records only bounded readiness fields.
+4. The readiness reducer compares the challenge's expected authority with the authority actually
+   provided by the successful probe.
+5. The watchdog selects only an evidence-ready challenge for the requested focus.
+
+The readiness contract is monotonic:
+
+| State | Proof required | Selection result |
+|-------|----------------|------------------|
+| `declared` | A reviewed `FunctionType` exists in the active release. | Unavailable backlog |
+| `bound` | The ephemeral composition registered a concrete callback and all required adapters. | Unavailable backlog |
+| `reachable` | The provider responded through the runtime identity and configured scope. | Unavailable backlog |
+| `evidence_ready` | The bounded result is complete, current enough for the challenge, and carries the expected authority. | Selectable |
+
+An environment variable can select a provider or identity mode, but it cannot advance readiness by
+itself. Missing data, provider failure, or inaccessible authority records
+`challenge_unavailable` without an evaluation score and ends the cycle when no other challenge for
+the same SRE, DR, or Chaos focus is evidence-ready. This preserves focus isolation and prevents
+clarification, unsupported, or evidence-held answers from being counted as product failures for a
+capability that the runtime never had.
 
 ## Independent model review
 

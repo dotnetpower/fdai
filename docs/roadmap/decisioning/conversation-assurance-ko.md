@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 75e07c06d26e252af802ef9992580439df1e93e3
-translation_revised: 2026-08-31
+translation_source_sha: 885d2f8b31cba5c20257d2d752014bd18d968bec
+translation_revised: 2026-09-01
 ---
 # 대화 품질 보증
 
@@ -34,6 +34,7 @@ translation_revised: 2026-08-31
 | Qualification 소유자 기여 | implemented | [`quality_observations.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_observations.py), [`test_quality_context_locale_observations.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_context_locale_observations.py) | 적용 가능한 1-35번 및 41-45번 항목의 결정론 소유자 어댑터는 콘텐츠가 없는 하나의 턴 묶음으로 결합됩니다. 소유하지 않은 차원은 unavailable로 남고 점수 입력이 될 수 없습니다. |
 | 맥락 및 로케일 소유자 기여 | implemented | [`quality_context_locale_observations.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_context_locale_observations.py), [`test_quality_context_locale_observations.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_context_locale_observations.py) | 41-45번 항목의 모든 기여는 하나의 사례 및 로케일에 연결됩니다. 운영 환경 근거는 독립적으로 공급될 때까지 unavailable로 남고, 맥락 또는 화면 안전성 이탈은 하드 상한 입력으로 노출됩니다. |
 | 맥락 및 로케일 호환 경로 | implemented | [`context_locale_scorecard.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/context_locale_scorecard.py), [`test_context_locale_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_context_locale_scorecard.py) | 과거 모듈 경로는 통합 소유자 기여 API만 다시 내보내며 대체된 별도 묶음을 복원하지 않습니다. |
+| Watchdog 런타임 기능 준비 상태 | implemented | [`conversation_assurance_readiness.py`](../../../services/core-control-plane/src/fdai/runtime/conversation_assurance_readiness.py), [`test_conversation_assurance_readiness.py`](../../../services/core-control-plane/tests/runtime/test_conversation_assurance_readiness.py) | 질문 선택은 선언, 결속, 공급자 도달 가능성, 근거 준비 상태 및 권한을 구분합니다. 사용할 수 없는 질문은 점수를 매기지 않은 범위 backlog로 남습니다. 라이브 캠페인 근거를 주장하지 않습니다. |
 | 운영자 이의 제기 및 온톨로지 적정성 검토 | implemented | [`test_learning.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_learning.py), [`test_state_store_ontology_adequacy.py`](../../../services/core-control-plane/tests/delivery/persistence/test_state_store_ontology_adequacy.py) | 이의 제기와 재현된 적정성 공백은 실행 권한을 변경하지 않고 범위가 제한된 검토 근거를 만듭니다. |
 | Pantheon 프롬프트 및 turn 진단 | implemented | [`test_pantheon_diagnostics.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_pantheon_diagnostics.py), [`test_prompt_contract_audit.py`](../../../services/core-control-plane/tests/agents/test_prompt_contract_audit.py) | 고정된 30점 변환 결과는 프롬프트 구조와 라우팅된 답변 품질을 분리해 측정합니다. 하드 제로 권한 위반은 집계 점수보다 우선합니다. |
 | 명시적 로컬 Pantheon 캠페인 | implemented | [`test_pantheon_campaign.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_pantheon_campaign.py), [`test_conversation_assurance_qualification.py`](../../../tests/integration/scripts/test_conversation_assurance_qualification.py), [`test_pantheon_conversation_assurance.py`](../../../services/core-control-plane/tests/runtime/test_pantheon_conversation_assurance.py), [`test_conversation_assurance_cli.py`](../../../tests/integration/scripts/test_conversation_assurance_cli.py) | 고정 census 사례는 인증된 Operator 스트림을 통해 들어와 Bragi 소유 턴 하나를 실행하고, 서버 소유 추적을 만들고, 서로 다른 모델 계열의 의미 검토를 사용하며, 상관관계가 연결된 진단을 PostgreSQL에 추가합니다. 비공개 로컬 캠페인 원장은 다이제스트로 연결된 추적을 평가와 분리해 보존하고, 하나의 정리된 리비전에서 정확히 230개 사례를 다룬 경우에만 집계 근거를 생성합니다. 라이브 캠페인 근거는 아직 보존하지 않았습니다. |
@@ -42,6 +43,7 @@ translation_revised: 2026-08-31
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-01 | implemented | FunctionType 존재 여부로 질문을 선택하던 방식을 타입 기반 런타임 준비 상태와 정확한 권한 일치 검사로 교체했습니다. 로컬 watchdog은 누락된 공급자, 접근할 수 없는 권한 또는 불완전한 근거를 답변 실패가 아닌 unavailable backlog로 기록합니다. | `current change`; [`conversation_assurance_readiness.py`](../../../services/core-control-plane/src/fdai/runtime/conversation_assurance_readiness.py); [`test_conversation_assurance_readiness.py`](../../../services/core-control-plane/tests/runtime/test_conversation_assurance_readiness.py); 집중 watchdog 및 런타임 준비 상태 테스트. | 해당 질문을 캠페인에 포함하기 전에 리소스 상태, Resource Health, 사용량 측정, DR 및 Chaos 공급자의 근거 probe를 추가해야 합니다. |
 | 2026-08-31 | implemented | 재실행 가능한 라이브 캠페인 근거 축약을 추가했습니다. 명시적 CLI는 콘텐츠 없는 턴 추적을 보존하고 증적 다이제스트로 진단과 연결합니다. 불완전하거나 서로 다른 리비전이 섞인 시리즈를 차단하고, 정확히 230개 사례를 다룬 후에만 고정된 라우팅, T2, 점수 하한 및 하드 제로 지표를 기록합니다. | `current change`; [`conversation_assurance_qualification.py`](../../../scripts/automation/conversation_assurance_qualification.py); 집중 캠페인, 진단, 적격성 및 CLI 테스트; Ruff 및 엄격한 mypy. | 별도로 승인된 라이브 census를 정리된 고정 리비전에서 실행하고 집계 근거를 보존해야 합니다. |
 | 2026-08-30 | implemented | 범위가 구분된 비평 11회를 완료하고 진단 경계를 하드닝했습니다. 낮은 신뢰도의 검토, 롤링 전송 호환성, 비공개 파일 및 소켓 처리, 캠페인 잠금, 보고서 출력, T1 보존, 범위가 제한된 Console 변환 결과 및 중요 상태 표현을 강화했습니다. | `current change`; 범위가 구분된 검토 11회; 집중 Core, Operator, CLI, Console, 보안, 지역화 및 무결성 검사. | 운영 검증을 주장하기 전에 별도로 승인된 라이브 census를 실행하고 고정된 측정 근거를 보존해야 합니다. |
 | 2026-08-30 | implemented | 콘텐츠 없는 Pantheon 추적 조각, 분리된 30점 프롬프트 및 턴 진단, 균형 잡힌 230개 영어/한국어 census, 명시적으로만 실행되는 제한된 캠페인 제어, 비공개 원장, 인증된 Operator-Bragi 측정, 영속적인 혼합 계열 평가, 읽기 전용 Console 변환 결과 및 하드닝 적격성 가드를 추가했습니다. | `current change`; Pantheon, 대화 품질 보증, Core-Operator 전송, CLI 및 Console 집중 테스트; Ruff 및 엄격한 mypy. | 운영 검증을 주장하기 전에 별도로 승인된 라이브 census를 실행하고 고정된 측정 근거를 보존해야 합니다. |
@@ -416,6 +418,34 @@ SRE adapter는 `RcaResult`를 사전 선언된 처리 결과, 원인 다이제�
 검증 상태와 근거 완전성을 비교합니다. 항목 15는 보안 소유자의 명시적 injection escape 결과를
 사용하며 답변 텍스트에서 저항성을 추론하지 않습니다. unavailable 상태는 인용 또는 injection
 성공으로 바뀌지 않습니다.
+
+## Watchdog 질문 준비 상태
+
+로컬 watchdog은 `FunctionType`을 질문에 답할 수 있다는 증명이 아니라 선언으로 취급합니다.
+질문 선택은 답변을 측정할 동일한 임시 런타임 인스턴스를 따릅니다.
+
+1. `operational_function_types()`가 검토된 정적 선언을 제공합니다.
+2. `build_semantic_query_runtime()`은 조합 의존성이 존재하는 콜백만 등록하고 principal 범위 조회
+   매니페스트에 결속된 함수 집합을 기록합니다.
+3. 런타임 소유 probe는 현재 신원과 범위로 구체적인 공급자를 호출합니다. 모드가 `0600`인 비공개
+   증적에는 범위가 제한된 준비 상태 필드만 기록합니다.
+4. 준비 상태 축약기는 질문의 예상 권한과 성공한 probe가 실제로 제공한 권한을 비교합니다.
+5. watchdog은 요청한 포커스에서 근거가 준비된 질문만 선택합니다.
+
+준비 상태 계약은 다음 순서로만 전진합니다.
+
+| 상태 | 필요한 증명 | 선택 결과 |
+|------|-------------|-----------|
+| `declared` | 활성 릴리스에 검토된 `FunctionType`이 있습니다. | unavailable backlog |
+| `bound` | 임시 조합이 구체적인 콜백과 필요한 어댑터를 모두 등록했습니다. | unavailable backlog |
+| `reachable` | 공급자가 런타임 신원과 구성된 범위를 통해 응답했습니다. | unavailable backlog |
+| `evidence_ready` | 범위가 제한된 결과가 완전하고 질문에 필요한 만큼 최신이며 예상 권한을 포함합니다. | 선택 가능 |
+
+환경 변수는 공급자 또는 신원 모드를 선택할 수 있지만 그 자체로 준비 상태를 높일 수 없습니다.
+데이터 누락, 공급자 실패 또는 접근할 수 없는 권한은 평가 점수 없이 `challenge_unavailable`로
+기록됩니다. 같은 SRE, DR 또는 Chaos 포커스에 근거가 준비된 다른 질문이 없으면 주기가 끝납니다.
+따라서 런타임에 없던 기능에서 나온 명확화, 미지원 또는 근거 보류 답변을 제품 실패로 계산하지
+않으면서 포커스 격리를 유지합니다.
 
 ## 독립 모델 평가
 

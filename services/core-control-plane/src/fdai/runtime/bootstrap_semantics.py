@@ -7,6 +7,7 @@ import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -23,6 +24,7 @@ from fdai.core.ontology_platform.incident_queries import IncidentEvidenceReader
 from fdai.core.ontology_platform.inventory_projection import (
     DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS,
 )
+from fdai.core.ontology_platform.operational_functions import operational_function_types
 from fdai.core.operational_context import OperationalEvidenceReadService
 from fdai.delivery.evidence_conflict import (
     EventBusEvidenceConflictCandidatePublisher,
@@ -52,6 +54,10 @@ from fdai.runtime.bootstrap_lifecycle import (
 from fdai.runtime.configuration import (
     _model_endpoint_resolver,
     _resolve_catalog_root,
+)
+from fdai.runtime.conversation_assurance_readiness import (
+    observe_runtime_readiness,
+    write_runtime_readiness_receipt,
 )
 from fdai.runtime.providers import (
     _build_read_investigation_provider,
@@ -274,6 +280,15 @@ async def build_semantic_runtime(
         ),
         resource_freshness_seconds=_semantic_resource_freshness_seconds(environment),
     )
+    readiness_path = environment.get("FDAI_CHAT_ASSURANCE_READINESS_RECEIPT", "").strip()
+    if readiness_path:
+        readiness = await observe_runtime_readiness(
+            declared_function_names=tuple(item.name for item in operational_function_types(())),
+            semantic_runtime_bound=semantic_composition.runtime is not None,
+            service_health_reader=service_health_reader,
+            resource_health_reader_bound=resource_health_reader is not None,
+        )
+        write_runtime_readiness_receipt(Path(readiness_path), readiness)
     semantic_turn_binding = build_semantic_turn_binding(
         state_store=state_store,
         config=environment,
