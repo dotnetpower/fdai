@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: cf837ad4dfb72c88277ab7007f03c80f20ada3e1
+translation_source_sha: 668c1416557f74fe9ebacb04ecb3472aaf46094c
 translation_revised: 2026-09-01
 ---
 # 대화 품질 보증
@@ -46,7 +46,7 @@ translation_revised: 2026-09-01
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
-| 2026-09-01 | implemented | 정확한 Golden 예상 처리 결과 적용, 여러 주체가 있는 기본 프레임 변환, Rule 상태, 구성 드리프트, 리소스 활동 및 서비스 상태에 대한 일반 타입 기반 의미 복구, 로케일을 보존하는 로컬 canary 요청을 추가했습니다. | `current change`; 의미, Golden, 프롬프트 및 Operator 집중 테스트 575개, watchdog 안전 테스트 135개, Ruff 및 mypy, 새로 실행한 검토 canary의 정확한 통과가 0/10에서 5/10으로 개선되었습니다. | canary를 확대하기 전에 여러 관계가 있는 Rule 및 서비스 담당 체계 계획을 검증된 방식으로 구현하고, 대상 후보의 최종 처리 의미를 맞추며, 남은 관계 근거 공백을 해소합니다. |
+| 2026-09-01 | implemented | 정확한 Golden 예상 처리 결과 적용, 여러 주체가 있는 기본 프레임 변환, Rule 상태, 구성 드리프트, 리소스 활동 및 서비스 상태에 대한 일반 타입 기반 의미 복구, 검증된 Operator 로케일 보존을 추가했습니다. | `current change`; 의미, Golden, 프롬프트 및 Operator 집중 테스트 575개, watchdog 안전 테스트 135개, Ruff 및 mypy, 새로 실행한 검토 canary의 정확한 통과가 0/10에서 5/10으로 개선되었습니다. | canary를 확대하기 전에 여러 관계가 있는 Rule 및 서비스 담당 체계 계획을 검증된 방식으로 구현하고, 대상 후보의 최종 처리 의미를 맞추며, 남은 관계 근거 공백을 해소합니다. |
 | 2026-09-01 | implemented | Watchdog의 결속 추정을 semantic runtime이 등록한 콜백과 권한의 변경할 수 없는 스냅샷으로 대체했습니다. 스키마 전용 함수는 정확한 메모리 내 release를 사용하며, 공급자 함수는 현재 probe가 성공하지 않으면 근거 준비 상태가 될 수 없습니다. | `current change`; semantic 함수 레지스트리, semantic runtime 조합, 런타임 준비 상태 테스트, 집중 watchdog 테스트, Ruff 및 mypy. | 리소스 상태, Resource Health, 계측, DR 및 Chaos 공급자 질문이 캠페인에 들어가기 전에 현재 범위 probe를 추가합니다. |
 | 2026-09-01 | implemented | 로컬 watchdog 후보 경계를 hardening 전 5가지 실패 분류, 코드 결함 전용 후보 생성, Core 및 Operator 대화 소유 범위, 단계별 기한, 기준선 독립 판정, 최종 시간 초과 처리 및 검토 전용 검증 브랜치로 강화했습니다. | `current change`; 로컬 watchdog 범위, 캠페인, 분류, 기한 및 브랜치 수명 주기 테스트; 집중 watchdog 안전 계약; Ruff. | 별도로 승인된 향후 캠페인을 실행하여 이 흐름의 운영 근거를 수집합니다. 이 변경은 라이브 캠페인을 시작하지 않습니다. |
 | 2026-09-01 | implemented | 정확한 구조화 객관적 오라클 비교, 필수 답변 품질 게이트, 비적용 루브릭 중립 처리, 분리된 제품 검증 및 품질 보증 결과를 포함하는 v2 Watchdog 답변 게이트를 추가했습니다. 기존 v1 평가는 변경할 수 없는 이력으로 유지합니다. | `current change`; [`conversation_assurance_answer_gate.py`](../../../scripts/automation/conversation_assurance_answer_gate.py); 추적되는 테스트와 집중 로컬 Watchdog 테스트; Ruff. | 별도로 승인된 향후 캠페인에서 v2 운영 근거를 수집합니다. 이 변경은 라이브 캠페인을 시작하지 않습니다. |
