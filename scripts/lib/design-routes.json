@@ -1437,11 +1437,13 @@
         "services/core-control-plane/src/fdai/runtime/pantheon_conversation_assurance.py",
         "services/core-control-plane/src/fdai/delivery/azure/llm/conversation_assurance.py",
         "services/core-control-plane/src/fdai/delivery/persistence/postgres_conversation_assurance.py",
+        "scripts/automation/conversation_assurance_answer_gate.py",
         "console/src/routes/conversation-assurance*",
         "console/src/routes/i18n/conversation-assurance*",
         "alembic/versions/*conversation_assurance*.py",
         "services/core-control-plane/tests/**/*conversation_assurance*.py",
         "services/core-control-plane/tests/runtime/test_pantheon_conversation_assurance.py",
+        "tests/integration/scripts/test_conversation_assurance_answer_gate.py",
         "docs/roadmap/decisioning/conversation-assurance*.md"
       ],
       "must_read": [
