@@ -10,7 +10,7 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
-from typing import Any, Protocol, TypeAlias
+from typing import Any, Protocol, TypeAlias, runtime_checkable
 
 from fdai_service_contracts import JsonObject, OperatorRole
 from starlette.requests import Request
@@ -126,6 +126,7 @@ class DirectoryIdentity:
     username: str
     display_name: str | None
     active: bool
+    user_type: str = "member"
     principal_type: str = "person"
     roles: tuple[str, ...] = ()
 
@@ -137,8 +138,28 @@ class DirectoryIdentity:
             "username": self.username,
             "display_name": self.display_name,
             "active": self.active,
+            "user_type": self.user_type,
             "principal_type": self.principal_type,
             "roles": list(self.roles),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class DirectoryStatus:
+    """Browser-safe availability and freshness metadata for the identity source."""
+
+    source: str
+    availability: str
+    observed_at: datetime | None = None
+    detail: str | None = None
+
+    def to_dict(self) -> JsonObject:
+        """Return metadata without exposing provider credentials or tenant values."""
+        return {
+            "source": self.source,
+            "availability": self.availability,
+            "observed_at": self.observed_at.isoformat() if self.observed_at else None,
+            "detail": self.detail,
         }
 
 
@@ -152,6 +173,13 @@ class HumanIdentityDirectory(Protocol):
     ) -> Sequence[DirectoryIdentity]: ...
 
     async def get_by_subject_id(self, subject_id: str) -> DirectoryIdentity | None: ...
+
+
+@runtime_checkable
+class HumanIdentityDirectoryStatus(Protocol):
+    """Optional status surface implemented by directories with freshness evidence."""
+
+    async def directory_status(self) -> DirectoryStatus: ...
 
 
 @dataclass(frozen=True, slots=True)

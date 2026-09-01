@@ -40,6 +40,11 @@ from fdai.core.human_assignment.ownership import (
     AssignmentOwnershipError,
     render_assignment_ownership_yaml,
 )
+from fdai.core.human_assignment.ownership_coordination import (
+    AssignmentOwnershipCoordinator,
+    OwnershipProposal,
+    VerifiedOwnershipMerge,
+)
 from fdai.core.human_assignment.production_controls import (
     AssignmentCapabilityStatus,
     AssignmentReconciler,
@@ -68,6 +73,7 @@ __all__ = [
     "AssignmentIntent",
     "AssignmentModelError",
     "AssignmentOwnershipError",
+    "AssignmentOwnershipCoordinator",
     "AssignmentPermissionError",
     "AssignmentServiceError",
     "AssignmentState",
@@ -92,6 +98,8 @@ __all__ = [
     "approval_quorum_satisfied",
     "required_review_quorum",
     "render_assignment_ownership_yaml",
+    "OwnershipProposal",
+    "VerifiedOwnershipMerge",
     "assignment_capability_status",
     "validate_transition",
 ]

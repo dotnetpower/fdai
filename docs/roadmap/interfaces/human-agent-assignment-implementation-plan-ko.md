@@ -1,7 +1,7 @@
 ---
 translation_of: human-agent-assignment-implementation-plan.md
-translation_source_sha: 4823e93e599bf4f2df4ee5273c00f4e09bdb9b0a
-translation_revised: 2026-08-20
+translation_source_sha: c248723a3e69ac472d713857655eb02505a05cba
+translation_revised: 2026-09-01
 ---
 # 사용자-에이전트 할당 구현 계획
 
@@ -21,7 +21,7 @@ translation_revised: 2026-08-20
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 묶음 1-3: 임무, 배정 코어, API, 콘솔 | implemented | `services/core-control-plane/src/fdai/core/stewardship/`; `services/core-control-plane/src/fdai/core/human_assignment/`; `services/operator-service/src/fdai_operator_service/families/iam/assignments.py`; `console/src/routes/settings-iam-assignments.tsx`; 집중 사용자-에이전트 배정 테스트 (43 passed) | 이 묶음은 공급자 변경 없이 관찰 전용 의도와 변환 결과를 구성합니다. |
-| 묶음 4: 소유권 PR 조정 | not-started | `StewardshipGovernanceService` 또는 동등한 배정 인식 게시기가 없습니다. 현재 서명된 웹후크는 케이스 또는 후보 다이제스트 상관관계 없이 병합 근거를 기록합니다. | 이 의존성이 없으므로 배정 워크플로는 소유권 수렴을 입증하거나 IAM 전제 조건을 게시할 수 없습니다. |
+| 묶음 4: 소유권 PR 조정 | in-progress | `ownership_coordination.py`; `test_ownership_coordination.py`; 서명된 담당 체계 웹후크 | 다이제스트 결합 초안 게시, 정확한 PR 및 내용 검증, 소유권 결과 기록, 형식이 지정된 shadow IAM 요청 게시가 구현되었습니다. 운영 조립과 재시작 안전 전달 근거는 남아 있습니다. |
 | 묶음 5: 사용자 접근 공급자 기능 | implemented | `services/core-control-plane/src/fdai/core/human_assignment/access_apply.py`; `services/core-control-plane/src/fdai/delivery/identity/entra_access.py`; `services/core-control-plane/src/fdai/delivery/identity/direct_api.py`; 집중 사용자-에이전트 배정 테스트 (43 passed) | 관찰 전용 허용 목록, 수렴, 롤백 기능이 있지만 묶음 4는 아직 배정 케이스에서 이를 트리거하지 않습니다. |
 | 묶음 6: 무응답 감독자 | implemented | `services/core-control-plane/src/fdai/core/hil_resume/escalation_supervisor.py`; `services/core-control-plane/src/fdai/runtime/bootstrap.py`; 집중 shadow 감독자 테스트 (10 passed) | 주기적 shadow 관찰이 있습니다. 운영 단계 디스패치는 승격되지 않았습니다. |
 | 묶음 7: 인수인계 목표 코어와 명령 | implemented | `services/core-control-plane/src/fdai/core/human_assignment/goals.py`; `services/operator-service/src/fdai_operator_service/families/iam/handover.py`; 집중 사용자-에이전트 배정 테스트 (43 passed) | 영속 초대와 응답 명령이 있습니다. 에이전트의 공백 생산과 현지화된 Bragi 렌더링은 연결되지 않았습니다. |
@@ -32,11 +32,12 @@ translation_revised: 2026-08-20
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-01 | in-progress | 안전하게 다시 시도할 수 있는 shadow 소유권 초안 하나, 정확한 병합 상관관계, 소유권 증적, 형식이 지정된 shadow IAM 요청으로 묶음 4 조정 코어를 구현했습니다. | `current change`; `ownership_coordination.py`; `test_ownership_coordination.py`; 집중 소유권 및 액세스 적용 테스트 통과. | 묶음 4를 implemented로 표시하기 전에 운영 GitOps와 서명된 병합 소비를 연결하고 재시작 및 전달 근거를 보존합니다. |
 | 2026-08-13 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입하고 묶음 4와 묶음 5의 의존성 주장을 바로잡았습니다. | `current change`; 구현 범위 표에 나열된 소스와 집중 검사. | 묶음 4를 구현하고 묶음 8-9를 완료하며 승격 및 운영 근거를 수집합니다. |
 
 ### 남은 작업
 
-- [ ] 멱등이고 다이제스트에 결합된 담당 체계 제안 하나와 해당 배정 케이스만 진행시키는 서명된 일치 병합 증적으로 묶음 4를 구현합니다.
+- [ ] 묶음 4를 운영 GitOps 게시기 및 서명된 병합 기록 소비자와 조립하고, 일치하는 병합만 해당 배정 케이스를 진행시킨다는 재시작 안전 근거를 보존합니다.
 - [ ] 일치하는 증적에서만 형식이 지정된 IAM 적용 요청을 게시하고 소유권, 검토, IAM, 실행기 권한이 이벤트 경계에서 합쳐지지 않음을 입증합니다.
 - [ ] 에이전트 소유 인수인계 공백 생산, 현지화된 Bragi 렌더링, 목표-업로드 바인딩, 후보 전달, ACL 검색, 충돌 검토, 노후화, 삭제 전파를 완료합니다.
 - [ ] 묶음 9의 Azure 권한 검사, 비운영 변경 및 롤백 훈련, shadow 비교, 대시보드, 경고, 재시작 및 장애 복구 근거를 수행하고 보존합니다.
@@ -179,9 +180,10 @@ IAM 영수증 모두 없이 어떤 전환도 케이스를 활성으로 만들 �
 
 ### 묶음 4 - 담당 체계 PR 조정
 
-**상태:** 시작되지 않았습니다. 워커는 검토 전용 인수인계 초안을 저장하고 수집 서비스는
-서명된 병합 근거를 기록할 수 있지만 배정 인식 게시기, 제안 상태,
-후보 다이제스트와 케이스의 상관관계는 조립되지 않았습니다.
+**상태:** 진행 중입니다. 할당 인식 조정기는 안전하게 다시 시도할 수 있는 shadow 초안 하나를
+게시하고 케이스, PR 참조, 후보 다이제스트를 저장합니다. 정확히 병합된 내용을 검증하고 소유권
+결과를 기록한 뒤 형식이 지정된 shadow IAM 요청을 게시합니다. 운영 GitOps 및 서명된 병합
+소비자 조립은 남아 있습니다.
 
 **변경:** 승인된 케이스를 받아 v2 overlay 하나를 렌더링하는 `StewardshipGovernanceService`를
 추가합니다. 제안 상태에 사례 ID, PR 증적, 정본 후보 다이제스트를 저장합니다. 서명된

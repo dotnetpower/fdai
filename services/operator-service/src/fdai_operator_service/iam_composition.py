@@ -12,6 +12,7 @@ from fdai_service_contracts.venue import ExecutionVenue, resolve_execution_venue
 from fdai_operator_service.adapters import OperatorSemanticKafkaBus
 from fdai_operator_service.adapters.azure_cli_token import azure_cli_token
 from fdai_operator_service.auth import OperatorAuthenticator
+from fdai_operator_service.entra_directory import EntraHumanIdentityDirectory, TokenProvider
 from fdai_operator_service.environment import (
     OperatorEnvironment,
     OperatorServiceConfigurationError,
@@ -64,6 +65,7 @@ HIL_SIGNING_SECRET_ENV = "FDAI_CHATOPS_WEBHOOK_SECRET"  # noqa: S105
 TEAMS_WORKFLOW_VAULT_URL_ENV = "FDAI_TEAMS_WORKFLOW_KEY_VAULT_URL"
 TEAMS_WORKFLOW_SECRET_NAME_ENV = "FDAI_TEAMS_WORKFLOW_KEY_VAULT_SECRET_NAME"  # noqa: S105
 TEAMS_WORKFLOW_IDENTITY_CLIENT_ID_ENV = "FDAI_TEAMS_WORKFLOW_BINDING_MI_CLIENT_ID"
+_GRAPH_RESOURCE = "https://graph.microsoft.com"
 
 
 def build_teams_hil_http_client(environment: OperatorEnvironment) -> httpx.AsyncClient | None:
@@ -73,6 +75,42 @@ def build_teams_hil_http_client(environment: OperatorEnvironment) -> httpx.Async
     if not environment.values.get(TEAMS_JWKS_URL_ENV, "").strip():
         return None
     return httpx.AsyncClient(timeout=10.0, follow_redirects=False)
+
+
+def build_iam_directory(
+    environment: OperatorEnvironment,
+    http_client: httpx.AsyncClient | None,
+) -> EntraHumanIdentityDirectory | None:
+    """Bind the same read-only Graph directory contract in local and deployed venues."""
+    venue = resolve_execution_venue(environment.values)
+    if venue is ExecutionVenue.LOCAL:
+
+        async def local_token_provider(_: str) -> str:
+            try:
+                return await azure_cli_token(_GRAPH_RESOURCE)
+            except ConversationBoundaryError as exc:
+                raise RuntimeError("IAM directory Azure CLI credential is unavailable") from exc
+
+        token_provider: TokenProvider = local_token_provider
+    else:
+        client_id = environment.managed_identity_client_id
+        if client_id is None:
+            return None
+
+        async def managed_token_provider(scope: str) -> str:
+            try:
+                async with ManagedIdentityCredential(client_id=client_id) as credential:
+                    token = await credential.get_token(scope)
+            except AzureError as exc:
+                raise RuntimeError("IAM directory managed identity is unavailable") from exc
+            return str(token.token)
+
+        token_provider = managed_token_provider
+    return EntraHumanIdentityDirectory(
+        client=http_client,
+        token_provider=token_provider,
+        application_id=environment.audience,
+    )
 
 
 def build_hil_decision_outbox_bridge(
@@ -191,6 +229,7 @@ def build_postgres_iam_bindings(
 ) -> IamFamilyBindings:
     """Compose the durable IAM family without granting execution authority."""
     iam = PostgresIamAdapters(store)
+    directory = build_iam_directory(environment, teams_http_client) or iam
     hil_secret = environment.values.get(HIL_SIGNING_SECRET_ENV, "").strip() or None
     hil_authority = (
         EntraHilCallbackAuthority(
@@ -226,7 +265,7 @@ def build_postgres_iam_bindings(
         authenticate=authorizer.iam,
         access_grants=iam,
         human_access=iam,
-        directory=iam,
+        directory=directory,
         assignments=iam,
         handover_goals=iam,
         model_settings=iam,

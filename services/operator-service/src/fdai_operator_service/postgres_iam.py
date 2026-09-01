@@ -27,12 +27,14 @@ from fdai_operator_service.families.iam.contracts import (
     AssignmentTransitionCommand,
     ConfigurationReviewCommand,
     DirectoryIdentity,
+    DirectoryStatus,
     HandoverGoalCommand,
     HilApprovalDecision,
     HilDecisionCommand,
     HilDecisionOutboxRequest,
     HilDecisionReceipt,
     HilPendingItem,
+    IamPrincipal,
     JsonMapping,
     KillSwitchCommand,
     ModelBindingDraftCommand,
@@ -69,6 +71,8 @@ _HIL_DECISION_PREFIX = "operator-hil-decision:"
 _HIL_CALLBACK_AUDIT_PREFIX = "operator-hil-callback-audit:"
 _ACCESS_GRANT_PREFIX = "execution-authorization:grant-request:"
 _ACCESS_GRANT_SCAN_LIMIT = 1_000
+_IAM_PROPOSAL_PREFIX = "operator-proposal:iam:"
+_IAM_PROPOSAL_SCAN_LIMIT = 1_000
 _CANONICAL_GRANT_ID = re.compile(r"^[A-Za-z0-9._:-]{1,256}$")
 _SCOPE_REF = re.compile(r"^scope://[\x20-\x7E]{1,504}$")
 _MODEL_BINDING_POLICY_KEY = "operator-model-binding-policy:current"
@@ -138,11 +142,17 @@ class PostgresIamAdapters:
         self,
         query: AccessRequestQuery,
     ) -> tuple[Sequence[JsonMapping], int]:
-        """Read a bounded principal-scoped access-request projection."""
-        payload = await self._projection("access-requests.list")
-        items = _mapping_items(payload)
-        visible = items[query.offset : query.offset + query.limit]
-        return visible, _total(payload, items)
+        """Project durable access proposals and independent review decisions."""
+        items = await self._access_requests()
+        if not _can_manage_group_membership(query.principal):
+            requester = query.principal.oid.casefold()
+            items = [
+                item
+                for item in items
+                if str(item.get("requester_oid") or "").casefold() == requester
+            ]
+        total = len(items)
+        return items[query.offset : query.offset + query.limit], total
 
     async def submit(
         self,
@@ -151,6 +161,8 @@ class PostgresIamAdapters:
         """Persist one IAM, handover, or kill-switch request as an inert proposal."""
         operation = _submit_operation(command)
         stored = await self._proposal(operation, command, _idempotency_key(command))
+        if isinstance(command, AccessRequestCommand):
+            return _access_request_from_proposal(stored.record)
         return {
             "request_id": stored.proposal_id,
             "proposal_id": stored.proposal_id,
@@ -164,22 +176,60 @@ class PostgresIamAdapters:
         command: AccessReviewCommand | AssignmentTransitionCommand,
     ) -> JsonMapping:
         """Persist a review request without changing identity-provider or ownership state."""
+        if isinstance(command, AccessReviewCommand):
+            request = next(
+                (
+                    item
+                    for item in await self._access_requests()
+                    if item.get("request_id") == command.request_id
+                ),
+                None,
+            )
+            if request is None:
+                raise IamNotFoundError("access request does not exist")
+            if (
+                str(request.get("requester_oid") or "").casefold()
+                == command.principal.oid.casefold()
+            ):
+                raise IamPermissionError("requester MUST NOT approve their own request")
+            if request.get("status") != "pending":
+                raise IamConflictError("access request already has a decision")
+        else:
+            assignment = await self.get_case(command.case_id)
+            if assignment.get("state") != "pending_review":
+                raise IamConflictError("assignment case is not pending review")
+            if assignment.get("revision") != command.expected_revision:
+                raise IamConflictError("assignment case revision is stale")
+            intent = assignment.get("intent")
+            if not isinstance(intent, Mapping):
+                raise IamUnavailableError("assignment case intent is malformed")
+            reviewer = command.principal.oid.casefold()
+            subject = intent.get("subject")
+            subject_id = subject.get("subject_id") if isinstance(subject, Mapping) else None
+            if reviewer in {
+                str(intent.get("requester_ref") or "").casefold(),
+                str(subject_id or "").casefold(),
+            }:
+                raise IamPermissionError(
+                    "assignment requester and target MUST NOT review their own case"
+                )
+            if any(
+                str(item.get("reviewer_ref") or "").casefold() == reviewer
+                for item in assignment.get("reviews", [])
+                if isinstance(item, Mapping)
+            ):
+                raise IamConflictError("assignment reviewer already recorded a decision")
         operation = (
             "access-requests.review"
             if isinstance(command, AccessReviewCommand)
             else "assignments.review"
         )
         stored = await self._proposal(operation, command, _idempotency_key(command))
-        request_id = (
-            command.request_id if isinstance(command, AccessReviewCommand) else command.case_id
-        )
-        return {
-            "request_id": request_id,
-            "case_id": request_id,
-            "proposal_id": stored.proposal_id,
-            "status": "pending",
-            "revision": getattr(command, "expected_revision", 0),
-        }
+        if isinstance(command, AccessReviewCommand):
+            if request is None:
+                raise IamUnavailableError("access request review lost its request projection")
+            return _reviewed_access_request(request, stored.record)
+        return await self.get_case(command.case_id)
 
     async def search(self, query: str, *, limit: int) -> Sequence[DirectoryIdentity]:
         """Search only the materialized human-directory projection."""
@@ -210,20 +260,63 @@ class PostgresIamAdapters:
             None,
         )
 
+    async def directory_status(self) -> DirectoryStatus:
+        """Return materialized directory availability without inferred freshness."""
+        await self._projection("directory")
+        return DirectoryStatus(
+            source="materialized-projection",
+            availability="available",
+        )
+
+    async def _access_requests(self) -> list[dict[str, object]]:
+        page = await self._iam_proposal_page()
+        reviews: dict[str, Mapping[str, object]] = {}
+        requests: list[dict[str, object]] = []
+        for record in page.records:
+            operation = record.value.get("operation")
+            if operation == "access-requests.review":
+                payload = record.value.get("payload")
+                if isinstance(payload, Mapping):
+                    request_id = payload.get("request_id")
+                    if isinstance(request_id, str):
+                        reviews[request_id] = record.value
+            elif operation == "access-requests.submit":
+                requests.append(_access_request_from_proposal(record.value))
+        requests.sort(
+            key=lambda item: (str(item.get("requested_at") or ""), str(item["request_id"])),
+            reverse=True,
+        )
+        return [
+            _reviewed_access_request(item, reviews[str(item["request_id"])])
+            if str(item["request_id"]) in reviews
+            else item
+            for item in requests
+        ]
+
+    async def _iam_proposal_page(self) -> StoredStatePage:
+        try:
+            page = await self.store.read_state_page(
+                prefix=_IAM_PROPOSAL_PREFIX,
+                limit=_IAM_PROPOSAL_SCAN_LIMIT,
+            )
+        except PostgresFamilyStoreUnavailable as exc:
+            raise IamUnavailableError(str(exc)) from exc
+        if page.truncated:
+            raise IamUnavailableError("IAM proposal coverage is incomplete")
+        return page
+
     async def list_case_page(
         self,
         query: AssignmentCaseQuery,
     ) -> tuple[Sequence[JsonMapping], int]:
-        """Read bounded assignment cases from the authoritative projection."""
-        payload = await self._projection("assignments.cases")
-        items = _mapping_items(payload)
-        return items[query.offset : query.offset + query.limit], _total(payload, items)
+        """Project bounded assignment cases from durable proposals."""
+        items = await self._assignment_cases()
+        return items[query.offset : query.offset + query.limit], len(items)
 
     async def get_case(self, case_id: str) -> JsonMapping:
-        """Read one exact assignment case from the materialized case projection."""
-        payload = await self._projection("assignments.cases")
+        """Read one exact assignment case from durable proposals."""
         item = next(
-            (entry for entry in _mapping_items(payload) if entry.get("case_id") == case_id),
+            (entry for entry in await self._assignment_cases() if entry.get("case_id") == case_id),
             None,
         )
         if item is None:
@@ -233,21 +326,59 @@ class PostgresIamAdapters:
     async def create_case(self, command: AssignmentCreateCommand) -> JsonMapping:
         """Persist an assignment case intent without applying ownership or IAM effects."""
         stored = await self._proposal("assignments.create", command, command.idempotency_key)
-        return {"case_id": stored.proposal_id, "proposal_id": stored.proposal_id, "revision": 1}
+        return _assignment_case_from_proposal(stored.record)
 
     async def submit_for_review(self, command: AssignmentTransitionCommand) -> JsonMapping:
         """Persist an assignment submission request for independent review."""
-        stored = await self._proposal("assignments.submit", command, _idempotency_key(command))
-        return {
-            "case_id": command.case_id,
-            "proposal_id": stored.proposal_id,
-            "revision": command.expected_revision,
-        }
+        current = await self.get_case(command.case_id)
+        if current.get("state") != "draft":
+            return current
+        if current.get("revision") != command.expected_revision:
+            raise IamConflictError("assignment case revision is stale")
+        await self._proposal("assignments.submit", command, _idempotency_key(command))
+        return await self.get_case(command.case_id)
 
     async def assignment_projection(self, query: AssignmentCaseQuery) -> JsonMapping:
-        """Read the current materialized assignment projection."""
-        del query
-        return await self._projection("assignments.list")
+        """Join durable cases into an explicit observation-only projection."""
+        cases = await self._assignment_cases()
+        page = cases[query.offset : query.offset + query.limit]
+        return {
+            "items": [_assignment_projection_item(item) for item in page],
+            "total": len(cases),
+            "next_cursor": (
+                query.offset + len(page) if query.offset + len(page) < len(cases) else None
+            ),
+            "directory_availability": "available",
+            "case_projection_truncated": False,
+        }
+
+    async def _assignment_cases(self) -> list[dict[str, object]]:
+        page = await self._iam_proposal_page()
+        submissions: dict[str, Mapping[str, object]] = {}
+        reviews: dict[str, list[Mapping[str, object]]] = {}
+        cases: list[dict[str, object]] = []
+        for record in page.records:
+            operation = record.value.get("operation")
+            payload = record.value.get("payload")
+            if not isinstance(payload, Mapping):
+                continue
+            case_id = payload.get("case_id")
+            if operation == "assignments.create":
+                cases.append(_assignment_case_from_proposal(record.value))
+            elif operation == "assignments.submit" and isinstance(case_id, str):
+                submissions[case_id] = record.value
+            elif operation == "assignments.review" and isinstance(case_id, str):
+                reviews.setdefault(case_id, []).append(record.value)
+        projected = [
+            _project_assignment_case(
+                item,
+                submitted=submissions.get(str(item["case_id"])),
+                reviews=reviews.get(str(item["case_id"]), []),
+            )
+            for item in cases
+        ]
+        projected.sort(key=lambda item: str(item["case_id"]), reverse=True)
+        return projected
 
     async def invitation_for_session(
         self,
@@ -581,8 +712,11 @@ class PostgresIamAdapters:
     async def mark_decision_published(self, idempotency_key: str) -> bool:
         """Close the durable outbox record once the broker accepted the decision."""
         try:
-            return await self.store.mark_hil_decision_published(
-                idempotency_key=hil_decision_delivery_key(idempotency_key),
+            return cast(
+                bool,
+                await self.store.mark_hil_decision_published(
+                    idempotency_key=hil_decision_delivery_key(idempotency_key),
+                ),
             )
         except PostgresFamilyStoreUnavailable as exc:
             raise IamUnavailableError("HIL decision outbox store is unavailable") from exc
@@ -643,7 +777,10 @@ class PostgresIamAdapters:
 
     async def _projection(self, operation: str) -> dict[str, object]:
         try:
-            return await self.store.read_projection(family="iam", operation=operation)
+            return cast(
+                dict[str, object],
+                await self.store.read_projection(family="iam", operation=operation),
+            )
         except PostgresFamilyStoreUnavailable as exc:
             raise IamUnavailableError(str(exc)) from exc
 
@@ -669,13 +806,16 @@ class PostgresIamAdapters:
 
     async def _state(self, key: str) -> dict[str, object] | None:
         try:
-            return await self.store.read_state(key)
+            return cast(dict[str, object] | None, await self.store.read_state(key))
         except PostgresFamilyStoreUnavailable as exc:
             raise IamUnavailableError("authoritative IAM state is unavailable") from exc
 
     async def _find_state(self, *, prefix: str, field: str, value: str) -> dict[str, object] | None:
         try:
-            return await self.store.find_state(prefix=prefix, field=field, value=value)
+            return cast(
+                dict[str, object] | None,
+                await self.store.find_state(prefix=prefix, field=field, value=value),
+            )
         except PostgresFamilyStoreUnavailable as exc:
             raise IamUnavailableError("authoritative IAM state is unavailable") from exc
 
@@ -697,6 +837,215 @@ def _submit_operation(command: object) -> str:
     if isinstance(command, HandoverGoalCommand):
         return "handover.submit"
     return "kill-switch.submit"
+
+
+def _access_request_from_proposal(value: Mapping[str, object]) -> dict[str, object]:
+    payload = value.get("payload")
+    if not isinstance(payload, Mapping):
+        raise IamUnavailableError("stored access-request proposal payload is malformed")
+    principal = payload.get("principal")
+    if not isinstance(principal, Mapping):
+        raise IamUnavailableError("stored access-request principal is malformed")
+    proposal_id = value.get("proposal_id")
+    accepted_at = value.get("accepted_at")
+    required = {
+        "idempotency_key": payload.get("idempotency_key"),
+        "identity_provider": payload.get("identity_provider"),
+        "target_subject_id": payload.get("target_subject_id"),
+        "target_username": payload.get("target_username"),
+        "operation": payload.get("operation"),
+        "role": payload.get("role"),
+        "justification": payload.get("justification"),
+    }
+    if (
+        not isinstance(proposal_id, str)
+        or not isinstance(accepted_at, str)
+        or not isinstance(principal.get("oid"), str)
+        or any(not isinstance(item, str) or not item for item in required.values())
+    ):
+        raise IamUnavailableError("stored access-request proposal is malformed")
+    return {
+        "request_id": proposal_id,
+        **required,
+        "requester_oid": principal["oid"],
+        "requested_at": accepted_at,
+        "status": "pending",
+        "reviewed_by": None,
+        "reviewed_at": None,
+        "review_justification": None,
+        "proposal_id": proposal_id,
+        "dispatch_status": value.get("dispatch_status", "pending"),
+    }
+
+
+def _assignment_case_from_proposal(value: Mapping[str, object]) -> dict[str, object]:
+    payload = value.get("payload")
+    proposal_id = value.get("proposal_id")
+    if not isinstance(payload, Mapping) or not isinstance(proposal_id, str):
+        raise IamUnavailableError("stored assignment proposal is malformed")
+    principal = payload.get("principal")
+    subject_provider = payload.get("subject_provider")
+    subject_id = payload.get("subject_id")
+    if not isinstance(principal, Mapping):
+        raise IamUnavailableError("stored assignment identity is malformed")
+    requester = principal.get("oid")
+    requested_role = payload.get("requested_role")
+    idempotency_key = payload.get("idempotency_key")
+    justification = payload.get("justification")
+    duty_bindings = payload.get("duty_bindings")
+    goal_refs = payload.get("goal_refs")
+    if (
+        not all(
+            isinstance(item, str) and item
+            for item in (
+                requester,
+                subject_provider,
+                subject_id,
+                requested_role,
+                idempotency_key,
+                justification,
+            )
+        )
+        or not isinstance(duty_bindings, list)
+        or not isinstance(goal_refs, list)
+    ):
+        raise IamUnavailableError("stored assignment proposal fields are malformed")
+    return {
+        "case_id": proposal_id,
+        "intent": {
+            "idempotency_key": idempotency_key,
+            "subject": {
+                "provider": subject_provider,
+                "subject_id": subject_id,
+            },
+            "requested_role": requested_role,
+            "duty_bindings": duty_bindings,
+            "goal_refs": goal_refs,
+            "requester_ref": requester,
+            "justification": justification,
+        },
+        "state": "draft",
+        "revision": 1,
+        "reviews": [],
+        "effect_receipts": [],
+        "degraded_reason": None,
+        "superseded_by": None,
+    }
+
+
+def _project_assignment_case(
+    assignment: Mapping[str, object],
+    *,
+    submitted: Mapping[str, object] | None,
+    reviews: Sequence[Mapping[str, object]],
+) -> dict[str, object]:
+    projected = dict(assignment)
+    if submitted is None:
+        return projected
+    projected["state"] = "pending_review"
+    projected["revision"] = 2
+    projected_reviews: list[dict[str, object]] = []
+    rejected = False
+    for review in sorted(reviews, key=lambda item: str(item.get("accepted_at") or "")):
+        payload = review.get("payload")
+        principal = payload.get("principal") if isinstance(payload, Mapping) else None
+        reviewer = principal.get("oid") if isinstance(principal, Mapping) else None
+        decision = payload.get("decision") if isinstance(payload, Mapping) else None
+        accepted_at = review.get("accepted_at")
+        if (
+            not isinstance(reviewer, str)
+            or decision not in {"approve", "reject"}
+            or not isinstance(accepted_at, str)
+        ):
+            raise IamUnavailableError("stored assignment review is malformed")
+        projected_reviews.append(
+            {
+                "reviewer_ref": reviewer,
+                "decision": decision,
+                "reviewed_at": accepted_at,
+            }
+        )
+        rejected = rejected or decision == "reject"
+    projected["reviews"] = projected_reviews
+    projected["revision"] = 2 + len(projected_reviews)
+    intent = projected.get("intent")
+    requested_role = intent.get("requested_role") if isinstance(intent, Mapping) else None
+    quorum = 2 if requested_role in {"Approver", "Owner"} else 1
+    approvals = sum(item["decision"] == "approve" for item in projected_reviews)
+    if rejected:
+        projected["state"] = "rejected"
+    elif approvals >= quorum:
+        projected["state"] = "approved"
+    return projected
+
+
+def _assignment_projection_item(assignment: Mapping[str, object]) -> dict[str, object]:
+    intent = assignment.get("intent")
+    if not isinstance(intent, Mapping):
+        raise IamUnavailableError("assignment projection intent is malformed")
+    subject = intent.get("subject")
+    duties = intent.get("duty_bindings")
+    if not isinstance(subject, Mapping) or not isinstance(duties, list):
+        raise IamUnavailableError("assignment projection fields are malformed")
+    return {
+        "subject": {
+            "provider": subject.get("provider"),
+            "subject_id": subject.get("subject_id"),
+            "display_name": None,
+            "username": None,
+            "active": None,
+        },
+        "roles": None,
+        "duties": [
+            {
+                **dict(item),
+                "responsibility": "accountable",
+                "source": "stewardship",
+            }
+            for item in duties
+            if isinstance(item, Mapping)
+        ],
+        "coverage": None,
+        "assignment_case": dict(assignment),
+        "handover": {
+            "goal_refs": intent.get("goal_refs", []),
+            "state": None,
+            "evidence_refs": None,
+            "availability": "not_connected",
+        },
+    }
+
+
+def _reviewed_access_request(
+    request: Mapping[str, object],
+    review: Mapping[str, object],
+) -> dict[str, object]:
+    payload = review.get("payload")
+    if not isinstance(payload, Mapping):
+        raise IamUnavailableError("stored access-review proposal payload is malformed")
+    principal = payload.get("principal")
+    decision = payload.get("decision")
+    accepted_at = review.get("accepted_at")
+    justification = payload.get("justification")
+    if (
+        not isinstance(principal, Mapping)
+        or not isinstance(principal.get("oid"), str)
+        or decision not in {"approve", "reject"}
+        or not isinstance(accepted_at, str)
+        or not isinstance(justification, str)
+    ):
+        raise IamUnavailableError("stored access-review proposal is malformed")
+    return {
+        **request,
+        "status": "approved" if decision == "approve" else "rejected",
+        "reviewed_by": principal["oid"],
+        "reviewed_at": accepted_at,
+        "review_justification": justification,
+    }
+
+
+def _can_manage_group_membership(principal: IamPrincipal) -> bool:
+    return any(role.value == "Owner" for role in principal.roles)
 
 
 def _idempotency_key(command: object) -> str:

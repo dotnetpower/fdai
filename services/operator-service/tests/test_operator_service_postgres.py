@@ -13,9 +13,16 @@ import pytest
 from fdai_operator_service.families.iam.contracts import (
     AccessGrantDecisionCommand,
     AccessGrantSnapshotQuery,
+    AccessRequestCommand,
+    AccessRequestQuery,
+    AccessReviewCommand,
+    AssignmentCaseQuery,
+    AssignmentCreateCommand,
+    AssignmentTransitionCommand,
     HilApprovalDecision,
     HilDecisionCommand,
     HilDecisionReceipt,
+    IamPrincipal,
     ModelBindingDraftCommand,
     ModelBindingRequestCommand,
 )
@@ -76,6 +83,7 @@ from fdai_service_contracts import (
     IncidentAttentionQuery,
     IncidentQuery,
     ModelBindingPolicy,
+    OperatorRole,
 )
 
 _NOW = datetime(2026, 8, 8, tzinfo=UTC)
@@ -94,6 +102,164 @@ class CallbackAuditStore:
 
     async def read_state(self, key: str) -> dict[str, object] | None:
         return self.values.get(key)
+
+
+class AccessProposalStore:
+    def __init__(self) -> None:
+        self.records: dict[str, dict[str, object]] = {}
+
+    async def append_proposal(
+        self,
+        *,
+        family: str,
+        operation: str,
+        principal_id: str | None,
+        idempotency_key: str,
+        payload: Mapping[str, object],
+    ) -> StoredProposal:
+        key = f"{family}:{idempotency_key}"
+        record = {
+            "proposal_id": f"proposal-{len(self.records) + 1}",
+            "accepted_at": (_NOW + timedelta(minutes=len(self.records))).isoformat(),
+            "dispatch_status": "pending",
+            "operation": operation,
+            "principal_id": principal_id,
+            "payload": dict(payload),
+        }
+        existing = self.records.get(key)
+        if existing is not None:
+            if existing["payload"] != record["payload"]:
+                raise PostgresProposalConflict("idempotency key conflict")
+            return StoredProposal(
+                str(existing["proposal_id"]),
+                str(existing["accepted_at"]),
+                True,
+                existing,
+            )
+        self.records[key] = record
+        return StoredProposal(
+            str(record["proposal_id"]),
+            str(record["accepted_at"]),
+            False,
+            record,
+        )
+
+    async def read_state_page(
+        self,
+        *,
+        prefix: str,
+        limit: int,
+        match_field: str | None = None,
+        match_value: str | None = None,
+    ) -> StoredStatePage:
+        del prefix, match_field, match_value
+        if not 1 <= limit <= 1_000:
+            raise ValueError("state page limit MUST be between 1 and 1000")
+        records = tuple(
+            StoredStateRecord(key, value, _NOW)
+            for key, value in reversed(tuple(self.records.items()))
+        )
+        return StoredStatePage(records=records[:limit], truncated=len(records) > limit)
+
+
+def _iam_principal(oid: str) -> IamPrincipal:
+    return IamPrincipal(oid=oid, roles=frozenset({OperatorRole.OWNER}))
+
+
+@pytest.mark.asyncio
+async def test_access_proposals_project_complete_requests_and_block_self_review() -> None:
+    store = AccessProposalStore()
+    adapter = PostgresIamAdapters(store)  # type: ignore[arg-type]
+    submitted = await adapter.submit(
+        AccessRequestCommand(
+            principal=_iam_principal("owner-1"),
+            idempotency_key="access-1",
+            identity_provider="entra",
+            target_subject_id="target-1",
+            target_username="target@example.com",
+            operation="grant",
+            role=OperatorRole.READER,
+            justification="Grant bounded console read access.",
+        )
+    )
+
+    assert submitted["request_id"] == "proposal-1"
+    assert submitted["status"] == "pending"
+    page, total = await adapter.list_request_page(
+        AccessRequestQuery(principal=_iam_principal("owner-2"), limit=50)
+    )
+    assert total == 1
+    assert page[0]["target_subject_id"] == "target-1"
+
+    with pytest.raises(IamPermissionError, match="MUST NOT"):
+        await adapter.review(
+            AccessReviewCommand(
+                principal=_iam_principal("owner-1"),
+                request_id="proposal-1",
+                decision="approve",
+                justification="Independent review is complete.",
+            )
+        )
+
+    reviewed = await adapter.review(
+        AccessReviewCommand(
+            principal=_iam_principal("owner-2"),
+            request_id="proposal-1",
+            decision="approve",
+            justification="Independent review is complete.",
+        )
+    )
+    assert reviewed["status"] == "approved"
+    assert reviewed["reviewed_by"] == "owner-2"
+
+
+@pytest.mark.asyncio
+async def test_assignment_proposals_project_revisioned_independent_review() -> None:
+    store = AccessProposalStore()
+    adapter = PostgresIamAdapters(store)  # type: ignore[arg-type]
+    created = await adapter.create_case(
+        AssignmentCreateCommand(
+            principal=_iam_principal("owner-1"),
+            idempotency_key="case-1",
+            subject_provider="entra",
+            subject_id="target-1",
+            requested_role=OperatorRole.READER,
+            duty_bindings=(
+                {
+                    "agent_name": "Odin",
+                    "duty": "primary",
+                    "scope_ref": "scope:platform",
+                },
+            ),
+            goal_refs=(),
+            justification="Assign bounded operational ownership.",
+        )
+    )
+    submitted = await adapter.submit_for_review(
+        AssignmentTransitionCommand(
+            principal=_iam_principal("owner-1"),
+            case_id=str(created["case_id"]),
+            expected_revision=1,
+        )
+    )
+    assert submitted["state"] == "pending_review"
+    assert submitted["revision"] == 2
+
+    reviewed = await adapter.review(
+        AssignmentTransitionCommand(
+            principal=_iam_principal("owner-2"),
+            case_id=str(created["case_id"]),
+            expected_revision=2,
+            decision="approve",
+        )
+    )
+    assert reviewed["state"] == "approved"
+    assert reviewed["revision"] == 3
+    projection = await adapter.assignment_projection(
+        AssignmentCaseQuery(principal=_iam_principal("owner-2"), limit=50, offset=0)
+    )
+    assert projection["total"] == 1
+    assert projection["items"][0]["assignment_case"]["state"] == "approved"  # type: ignore[index]
 
 
 def _binding_policy(*, revision: int, active_digest: bool = True) -> dict[str, object]:

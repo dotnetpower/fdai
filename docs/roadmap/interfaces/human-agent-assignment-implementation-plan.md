@@ -19,7 +19,7 @@ tests, Azure permissions, rollout controls, and evidence required before IAM wri
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Packages 1-3: duties, assignment core, API, and console | implemented | `services/core-control-plane/src/fdai/core/stewardship/`; `services/core-control-plane/src/fdai/core/human_assignment/`; `services/operator-service/src/fdai_operator_service/families/iam/assignments.py`; `console/src/routes/settings-iam-assignments.tsx`; focused human-assignment tests (43 passed) | These packages establish observation-only intent and projection without provider mutation. |
-| Package 4: ownership PR coordination | not-started | No `StewardshipGovernanceService` or equivalent assignment-aware publisher exists; the current signed webhook records merge evidence without case or candidate-digest correlation. | This missing dependency prevents the assignment workflow from proving ownership convergence or emitting its IAM prerequisite. |
+| Package 4: ownership PR coordination | in-progress | `ownership_coordination.py`; `test_ownership_coordination.py`; signed stewardship webhook | Digest-bound draft publication, exact PR and content verification, ownership effect recording, and typed shadow IAM request publication are implemented. Production composition and restart-safe delivery evidence remain open. |
 | Package 5: human-access provider capability | implemented | `services/core-control-plane/src/fdai/core/human_assignment/access_apply.py`; `services/core-control-plane/src/fdai/delivery/identity/entra_access.py`; `services/core-control-plane/src/fdai/delivery/identity/direct_api.py`; focused human-assignment tests (43 passed) | Observation-only allowlist, convergence, and rollback mechanics exist, but Package 4 doesn't yet trigger them from an assignment case. |
 | Package 6: non-response supervisor | implemented | `services/core-control-plane/src/fdai/core/hil_resume/escalation_supervisor.py`; `services/core-control-plane/src/fdai/runtime/bootstrap.py`; focused shadow-supervisor tests (10 passed) | Periodic shadow observation exists; production rung dispatch isn't promoted. |
 | Package 7: handover goal core and commands | implemented | `services/core-control-plane/src/fdai/core/human_assignment/goals.py`; `services/operator-service/src/fdai_operator_service/families/iam/handover.py`; focused human-assignment tests (43 passed) | Durable invitations and response commands exist. Agent gap production and localized Bragi rendering remain unbound. |
@@ -30,11 +30,12 @@ tests, Azure permissions, rollout controls, and evidence required before IAM wri
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-01 | in-progress | Implemented the Package 4 coordination core: one idempotent shadow ownership draft, exact merge correlation, ownership receipt, and typed shadow IAM request. | `current change`; `ownership_coordination.py`; `test_ownership_coordination.py`; focused ownership and access-apply tests passed. | Bind production GitOps and signed merge consumption, then retain restart and delivery evidence before marking Package 4 implemented. |
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and corrected Package 4 and Package 5 dependency claims. | `current change`; source and focused checks listed in the scope table. | Implement Package 4, finish Packages 8-9, and collect promotion and operational evidence. |
 
 ### Remaining work
 
-- [ ] Implement Package 4 with one idempotent, digest-bound stewardship proposal and a signed matching-merge receipt that advances only its assignment case.
+- [ ] Compose Package 4 with the production GitOps publisher and signed merge record consumer, and retain restart-safe evidence that only the matching merge advances its assignment case.
 - [ ] Publish the typed IAM apply request only from that matching receipt and prove no ownership, review, IAM, or executor authority collapses across the event boundary.
 - [ ] Complete agent-owned handover gap production, localized Bragi rendering, goal-to-upload binding, candidate delivery, ACL retrieval, conflict review, staleness, and deletion propagation.
 - [ ] Run and retain the Package 9 Azure permission probes, non-production mutation and rollback drills, shadow comparisons, dashboards, alerts, and restart and outage recovery evidence.
@@ -180,9 +181,10 @@ observation-only case. The UI clearly states that no Entra membership changed.
 
 ### Package 4 - Ownership PR coordination
 
-**Status:** Not started. The worker persists a review-only handover draft and the ingestion service
-can record signed merge evidence, but no assignment-aware publisher, proposal state, or
-candidate-digest-to-case correlation is composed.
+**Status:** In progress. The assignment-aware coordinator publishes one idempotent shadow draft,
+persists the case, PR ref, and candidate digest, verifies exact merged content, records the
+ownership effect, and publishes a typed shadow IAM request. Production GitOps and signed merge
+consumer composition remain open.
 
 **Changes:** Add a `StewardshipGovernanceService` that accepts an approved case and renders one v2
 overlay. Persist case id, PR receipt, and canonical candidate digest in proposal state. The signed

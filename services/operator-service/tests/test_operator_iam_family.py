@@ -556,6 +556,27 @@ def test_assigned_self_status_does_not_require_access_request_projection() -> No
     }
 
 
+def test_iam_overview_distinguishes_fdai_owner_and_directory_status() -> None:
+    owner = _client(directory=RecordingDirectory()).get(
+        "/iam",
+        headers={"x-test-role": "Owner", "x-test-oid": "owner-1"},
+    )
+    reader = _client().get(
+        "/iam",
+        headers={"x-test-role": "Reader", "x-test-oid": "reader-1"},
+    )
+
+    assert owner.status_code == 200
+    assert owner.json()["access_authority"] == {
+        "source": "server-verified",
+        "is_owner": True,
+        "can_manage_group_membership": True,
+    }
+    assert owner.json()["directory"]["availability"] == "unknown"
+    assert reader.json()["access_authority"]["is_owner"] is False
+    assert reader.json()["directory"]["availability"] == "not_configured"
+
+
 def test_unassigned_self_status_still_requires_access_request_projection() -> None:
     unavailable = _client().get(
         "/iam/self",

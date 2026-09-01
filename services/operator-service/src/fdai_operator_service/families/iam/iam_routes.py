@@ -16,8 +16,10 @@ from fdai_operator_service.families.iam.contracts import (
     AccessRequestQuery,
     AccessReviewCommand,
     AuthorizePrincipal,
+    DirectoryStatus,
     HumanAccessRequestOutbox,
     HumanIdentityDirectory,
+    HumanIdentityDirectoryStatus,
 )
 from fdai_operator_service.families.iam.errors import IamFamilyError
 from fdai_operator_service.families.iam.http import (
@@ -47,6 +49,7 @@ def make_iam_routes(
 
     async def get_iam(request: Request) -> Response:
         principal = await authorize(request)
+        directory_status = await _directory_status(directory)
         return JSONResponse(
             {
                 "principal": {
@@ -65,6 +68,20 @@ def make_iam_routes(
                     for role in OperatorRole
                 ],
                 "assignment_boundary": "identity-provider-group",
+                "access_authority": {
+                    "source": "server-verified",
+                    "is_owner": OperatorRole.OWNER in principal.roles,
+                    "can_manage_group_membership": has_capability(
+                        principal.roles,
+                        IamCapability.MANAGE_GROUP_MEMBERSHIP,
+                    ),
+                },
+                "directory": directory_status.to_dict(),
+                "workflow": {
+                    "access_request_authority": "proposal_only",
+                    "assignment_authority": "observation_only",
+                    "provider_mutation": "promotion_required",
+                },
             }
         )
 
@@ -289,6 +306,33 @@ def _require_manager(roles: frozenset[OperatorRole]) -> Response | None:
     if not has_capability(roles, IamCapability.MANAGE_GROUP_MEMBERSHIP):
         return error_response(403, "manage-group-membership capability is required")
     return None
+
+
+async def _directory_status(
+    directory: HumanIdentityDirectory | None,
+) -> DirectoryStatus:
+    if directory is None:
+        return DirectoryStatus(
+            source="not-configured",
+            availability="not_configured",
+            detail="human identity directory is not configured",
+        )
+    if not isinstance(directory, HumanIdentityDirectoryStatus):
+        return DirectoryStatus(source="configured", availability="unknown")
+    try:
+        return await directory.directory_status()
+    except IamFamilyError as exc:
+        return DirectoryStatus(
+            source="configured",
+            availability="unavailable",
+            detail=str(exc),
+        )
+    except Exception:
+        return DirectoryStatus(
+            source="configured",
+            availability="unavailable",
+            detail="human identity directory status is unavailable",
+        )
 
 
 def _optional_string(value: dict[str, Any], key: str) -> str | None:
