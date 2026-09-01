@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 4de524b3573cccf17a5dca943afd4b2c2098ffba
+translation_source_sha: 91b518a3957235f830ba54bbaef7a5c7c5647630
 translation_revised: 2026-09-01
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -628,6 +628,13 @@ Console 설정 경로와 정적 디자인 시안은 Calm Slate 컨트롤 토큰�
 데스크톱 폼 컨트롤은 34px 표준 높이와 28px 간소 작업 높이를 사용합니다. 터치 레이아웃은 44px
 대상을 사용합니다. 설정 화면은 브라우저 로컬 환경 설정, 계정 환경 설정, 배포 정책, 근거 및 권한
 경계를 시각적으로 구분하지만 영속성 또는 권한 부여 계약은 변경하지 않습니다.
+
+`console/src/components/account-menu.tsx`는 헤더의 로그인 계정 표현을 소유합니다. MSAL 이름과
+사용자 이름을 표시하고 서버가 검증한 `GET /iam/self` 프로젝션에서만 FDAI 역할을 읽으며 기존 IAM
+경로로 연결합니다. `console/src/auth.ts`는 로그인 힌트 없이 Entra 계정 선택기를 열어 동일 테넌트
+계정 선택을 소유합니다. 리디렉션은 셸을 표시하기 전에 일반 토큰 획득 및 IAM 권한 확인 과정으로
+돌아옵니다. 이 컴포넌트는 디렉터리를 전환하거나 기능을 부여하거나 프로바이더 자격 증명을 받지
+않습니다.
 
 정적 컴포넌트 갤러리는 `mocks/ui/assets/component-registry.json`에서 문서화된 컴포넌트 계약을
 읽습니다. 범위가 제한된 각 카테고리 화면은 서술자보다 시안을 먼저 표시한 뒤 소유자, 원본, 상태,
