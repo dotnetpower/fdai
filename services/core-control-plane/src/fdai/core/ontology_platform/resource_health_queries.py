@@ -5,10 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping
-from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
-from typing import Any, Protocol, cast
+from typing import Any, cast
 
 from fdai.core.ontology_platform.functions import (
     ContextualOntologyFunction,
@@ -16,6 +14,14 @@ from fdai.core.ontology_platform.functions import (
 )
 from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryResult
 from fdai.core.ontology_platform.query_values import QueryRow, QueryTable
+from fdai.core.ontology_platform.resource_health_evidence import (
+    ResourceHealthAvailabilityState,
+    ResourceHealthCollection,
+    ResourceHealthCollectionReader,
+    ResourceHealthCoverage,
+    ResourceHealthCoverageStatus,
+    ResourceHealthObservation,
+)
 from fdai.core.ontology_platform.resource_state_queries import (
     RESOURCE_STATE_MEASURE_CONCEPTS,
     verified_resource_state_values,
@@ -32,68 +38,7 @@ from fdai.shared.contracts.models import (
 RESOURCE_HEALTH_FUNCTION_NAME = "query.resource_health_inventory"
 _MAX_CONCEPTS = 16
 _MAX_RESOURCES = 1000
-
-
-@dataclass(frozen=True, slots=True)
-class ResourceHealthObservation:
-    """One normalized Resource Health status bound to a requested logical resource."""
-
-    resource_id: str
-    availability_state: str
-    reason_kind: str
-    observed_at: datetime
-    evidence_ref: str
-
-    def __post_init__(self) -> None:
-        for name, value, maximum in (
-            ("resource_id", self.resource_id, 1024),
-            ("availability_state", self.availability_state, 64),
-            ("reason_kind", self.reason_kind, 64),
-            ("evidence_ref", self.evidence_ref, 256),
-        ):
-            if not value.strip() or len(value) > maximum:
-                raise ValueError(f"Resource Health {name} MUST be bounded and non-empty")
-        if self.observed_at.tzinfo is None:
-            raise ValueError("Resource Health observed_at MUST be timezone-aware")
-
-
-@dataclass(frozen=True, slots=True)
-class ResourceHealthCollection:
-    """Bounded provider result that repeats the exact requested scope for verification."""
-
-    resource_ids: tuple[str, ...]
-    observations: tuple[ResourceHealthObservation, ...]
-    observed_at: datetime
-    complete: bool
-    limitation: str | None
-    attempt_ref: str
-
-    def __post_init__(self) -> None:
-        if not self.resource_ids or len(self.resource_ids) > _MAX_RESOURCES:
-            raise ValueError("Resource Health scope MUST contain between 1 and 1000 resources")
-        if self.resource_ids != tuple(sorted(set(self.resource_ids))):
-            raise ValueError("Resource Health scope MUST be unique and ordered")
-        observed_ids = tuple(item.resource_id for item in self.observations)
-        if len(observed_ids) != len(set(observed_ids)):
-            raise ValueError("Resource Health observations MUST be unique by resource")
-        if not set(observed_ids) <= set(self.resource_ids):
-            raise ValueError("Resource Health observations widened the requested scope")
-        if self.observed_at.tzinfo is None:
-            raise ValueError("Resource Health collection time MUST be timezone-aware")
-        if self.complete == (self.limitation is not None):
-            raise ValueError("Resource Health completeness and limitation are inconsistent")
-        if not self.attempt_ref.strip() or len(self.attempt_ref) > 256:
-            raise ValueError("Resource Health attempt_ref MUST be bounded and non-empty")
-
-
-class ResourceHealthCollectionReader(Protocol):
-    """Read current provider health for an exact server-selected resource set."""
-
-    async def read_current(
-        self,
-        *,
-        resource_ids: tuple[str, ...],
-    ) -> ResourceHealthCollection: ...
+_MAX_OUTPUT_ROWS = 1000
 
 
 def resource_health_function_type() -> OntologyFunctionType:
@@ -189,7 +134,7 @@ def resource_health_inventory_function(
         if collection.resource_ids != resource_ids:
             raise ValueError("Resource Health reader changed the secured resource scope")
         by_id = {item.id: item for item in objects}
-        rows: list[QueryRow] = []
+        inventory_rows: list[dict[str, object]] = []
         state_incomplete = False
         for target in objects:
             state_values = verified_resource_state_values(
@@ -200,50 +145,66 @@ def resource_health_inventory_function(
                 state_incomplete = state_incomplete or bool(requested_states)
                 continue
             if state_values["state_concept"] in requested_states:
-                rows.append(
-                    QueryRow.from_values(
-                        f"resource-health-state-{len(rows) + 1:04d}",
-                        {
-                            **state_values,
-                            "evidence_family": "current_inventory",
-                            "health_concept": None,
-                        },
+                inventory_rows.append(
+                    {
+                        **state_values,
+                        "evidence_family": "current_inventory",
+                        "health_concept": None,
+                        "availability_state": None,
+                        "coverage_state": None,
+                    }
+                )
+        observations = {item.resource_id: item for item in collection.observations}
+        health_rows: list[dict[str, object]] = []
+        for coverage in collection.coverage:
+            target = by_id[coverage.resource_id]
+            observation = observations.get(coverage.resource_id)
+            if coverage.status is not ResourceHealthCoverageStatus.OBSERVED:
+                health_rows.append(
+                    _health_row_values(
+                        target=target,
+                        coverage=coverage,
+                        observation=observation,
+                        health_concept=None,
+                        collection=collection,
                     )
                 )
-        for observation in collection.observations:
-            target = by_id[observation.resource_id]
+                continue
+            if observation is None:
+                raise ValueError("Resource Health observed coverage is missing its observation")
             concept = _most_specific_concept(
-                observation.availability_state,
+                observation.availability_state.value,
                 requested_health=requested_health,
                 groups=normalized_groups,
             )
-            if concept is None:
+            if (
+                concept is None
+                and observation.availability_state is ResourceHealthAvailabilityState.AVAILABLE
+            ):
                 continue
-            rows.append(
-                QueryRow.from_values(
-                    f"resource-health-provider-{len(rows) + 1:04d}",
-                    {
-                        "name": _text(target.properties.get("name")),
-                        "type": _text(target.properties.get("type")),
-                        "observed_state": observation.availability_state,
-                        "state_concept": None,
-                        "health_concept": concept,
-                        "health_kind": observation.reason_kind,
-                        "source_observed_at": observation.observed_at.isoformat(),
-                        "inventory_read_at": secured.receipt.observation_cutoff.isoformat(),
-                        "evidence_family": "resource_health",
-                        "authority": "provider",
-                        "evidence_ref": observation.evidence_ref,
-                        "execution_authority": False,
-                    },
+            health_rows.append(
+                _health_row_values(
+                    target=target,
+                    coverage=coverage,
+                    observation=observation,
+                    health_concept=concept,
+                    collection=collection,
                 )
             )
+        row_values = health_rows + inventory_rows
+        row_limit_reached = len(row_values) > _MAX_OUTPUT_ROWS
+        rows = tuple(
+            QueryRow.from_values(f"resource-health-{index:04d}", values)
+            for index, values in enumerate(row_values[:_MAX_OUTPUT_ROWS], start=1)
+        )
         reasons = [item for item in (collection.limitation,) if item]
         if state_incomplete:
             reasons.append("resource_state_evidence_incomplete")
-        complete = collection.complete and not state_incomplete
+        if row_limit_reached:
+            reasons.append("resource_health_row_limit")
+        complete = collection.complete and not state_incomplete and not row_limit_reached
         return _table(
-            tuple(rows),
+            rows,
             complete=complete,
             reason=None if complete else "+".join(dict.fromkeys(reasons)) or "incomplete",
         )
@@ -276,6 +237,42 @@ def _most_specific_concept(
     return min(matches, key=lambda item: (len(groups[item]), item)) if matches else None
 
 
+def _health_row_values(
+    *,
+    target: Any,
+    coverage: ResourceHealthCoverage,
+    observation: ResourceHealthObservation | None,
+    health_concept: str | None,
+    collection: ResourceHealthCollection,
+) -> dict[str, object]:
+    provider_observed_at = (
+        observation.provider_observed_at.isoformat()
+        if observation is not None and observation.provider_observed_at is not None
+        else None
+    )
+    return {
+        "name": _text(target.properties.get("name")),
+        "type": _text(target.properties.get("type")),
+        "availability_state": (
+            observation.availability_state.value if observation is not None else None
+        ),
+        "coverage_state": coverage.status.value,
+        "state_concept": None,
+        "health_concept": health_concept,
+        "health_kind": observation.reason_kind if observation is not None else None,
+        "provider_observed_at": provider_observed_at,
+        "source_observed_at": provider_observed_at,
+        "collection_started_at": collection.started_at.isoformat(),
+        "collection_completed_at": collection.completed_at.isoformat(),
+        "evidence_family": "resource_health",
+        "authority": "provider",
+        "evidence_ref": (
+            observation.evidence_ref if observation is not None else collection.attempt_ref
+        ),
+        "execution_authority": False,
+    }
+
+
 def _machine_token(value: str) -> str:
     normalized = "_".join(value.casefold().replace("-", " ").split())
     return normalized[:64] or "unknown"
@@ -297,8 +294,11 @@ def _table(
 
 __all__ = [
     "RESOURCE_HEALTH_FUNCTION_NAME",
+    "ResourceHealthAvailabilityState",
     "ResourceHealthCollection",
     "ResourceHealthCollectionReader",
+    "ResourceHealthCoverage",
+    "ResourceHealthCoverageStatus",
     "ResourceHealthObservation",
     "resource_health_function_type",
     "resource_health_inventory_function",

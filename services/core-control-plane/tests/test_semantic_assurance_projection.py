@@ -114,6 +114,72 @@ def test_project_semantic_assurance_entails_current_state_claims_from_typed_outp
     )
 
 
+def test_project_semantic_assurance_preserves_resource_health_unknown_limitation() -> None:
+    result = _function_result(
+        function_name="query.resource_health_inventory",
+        value={
+            "rows": [
+                {
+                    "row_id": "resource-health-0001",
+                    "values": {
+                        "name": "service-a",
+                        "evidence_family": "resource_health",
+                        "coverage_state": "observed",
+                        "availability_state": "unknown",
+                        "provider_observed_at": "2026-08-22T00:00:00+00:00",
+                        "execution_authority": False,
+                    },
+                }
+            ],
+            "complete": True,
+            "truncation_reason": None,
+        },
+    )
+
+    observation = project_semantic_assurance(result, disposition="answered")
+
+    assert observation.fact_kinds == (
+        "evidence.observed_at",
+        "resource.identity",
+        "resource_health.availability_state",
+        "resource_health.coverage",
+    )
+    assert observation.limitation_kinds == ("resource_health.unknown_is_not_healthy",)
+
+
+def test_project_semantic_assurance_blocks_all_clear_for_incomplete_health_coverage() -> None:
+    result = _function_result(
+        function_name="query.resource_health_inventory",
+        value={
+            "rows": [
+                {
+                    "row_id": "resource-health-0001",
+                    "values": {
+                        "name": "service-a",
+                        "evidence_family": "resource_health",
+                        "coverage_state": "scope_unreadable",
+                        "availability_state": None,
+                        "execution_authority": False,
+                    },
+                }
+            ],
+            "complete": False,
+            "truncation_reason": "scope_unreadable",
+        },
+    )
+
+    observation = project_semantic_assurance(result, disposition="answered")
+
+    assert observation.fact_kinds == (
+        "resource.identity",
+        "resource_health.coverage",
+    )
+    assert observation.limitation_kinds == (
+        "incomplete_evidence_cannot_prove_health",
+        "resource_health.scope_unreadable",
+    )
+
+
 def test_project_semantic_assurance_entails_relationship_schema_claims() -> None:
     result = _function_result(
         function_name="query.ontology_relationships",

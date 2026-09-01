@@ -61,6 +61,68 @@ def _project_resource_current_state(value: object) -> SemanticAssuranceClaims:
     )
 
 
+def _project_resource_health(value: object) -> SemanticAssuranceClaims:
+    rows, complete = _table_rows(value)
+    if rows is None:
+        return SemanticAssuranceClaims(
+            limitation_kinds=("resource_health_output_invalid",),
+        )
+    facts = {"resource_health.coverage"}
+    limitations: set[str] = set()
+    allowed_coverage = {
+        "observed",
+        "state_absent",
+        "no_record",
+        "not_modeled",
+        "modeling_unknown",
+        "scope_unreadable",
+        "target_unresolved",
+        "duplicate_record",
+        "response_invalid",
+        "response_truncated",
+    }
+    allowed_availability = {
+        "available",
+        "unavailable",
+        "degraded",
+        "unknown",
+        "state_absent",
+    }
+    for row in rows:
+        if row.get("execution_authority") is not False:
+            return SemanticAssuranceClaims(
+                limitation_kinds=("resource_health_output_invalid",),
+            )
+        if row.get("evidence_family") != "resource_health":
+            continue
+        coverage = row.get("coverage_state")
+        availability = row.get("availability_state")
+        if coverage not in allowed_coverage:
+            return SemanticAssuranceClaims(
+                limitation_kinds=("resource_health_output_invalid",),
+            )
+        if _nonempty_text(row.get("name")):
+            facts.add("resource.identity")
+        if coverage == "observed":
+            if availability not in allowed_availability - {"state_absent"}:
+                return SemanticAssuranceClaims(
+                    limitation_kinds=("resource_health_output_invalid",),
+                )
+            facts.add("resource_health.availability_state")
+            if availability == "unknown":
+                limitations.add("resource_health.unknown_is_not_healthy")
+            if _nonempty_text(row.get("provider_observed_at")):
+                facts.add("evidence.observed_at")
+            continue
+        limitations.add(f"resource_health.{coverage}")
+    if complete is not True:
+        limitations.add("incomplete_evidence_cannot_prove_health")
+    return SemanticAssuranceClaims(
+        fact_kinds=tuple(sorted(facts)),
+        limitation_kinds=tuple(sorted(limitations)),
+    )
+
+
 def _project_ontology_relationships(value: object) -> SemanticAssuranceClaims:
     if not isinstance(value, Mapping):
         return SemanticAssuranceClaims()
@@ -255,6 +317,7 @@ _FUNCTION_CLAIM_REGISTRY: Mapping[str, ClaimProjector] = {
     "query.ontology_evidence_health": _project_ontology_evidence_health,
     "query.ontology_relationships": _project_ontology_relationships,
     "query.resource_current_state": _project_resource_current_state,
+    "query.resource_health_inventory": _project_resource_health,
 }
 
 
