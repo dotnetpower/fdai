@@ -1,8 +1,8 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: eac737bba13534fe2450b49a51757ea32f688d47
-translation_revised: 2026-08-31
+translation_source_sha: c5e4f2e18a3d154985a443c75fb54b80ab9b059b
+translation_revised: 2026-09-01
 ---
 
 # 콘솔 운영
@@ -543,6 +543,8 @@ Authorization-boundary 매트릭스는 각 인벤토리 행에 대해 해당되�
 의존하지 않고 출처, 기한, 사용 불가 사유에 accessible 이름이 있습니다. SSE 새로 고침은 focus를
 옮기지 않고 하나의 polite 상태 announcement를 사용하며 제출 충돌은 actionable 요약에 focus한
 뒤 dismiss하면 originating 컨트롤로 focus를 돌려보냅니다.
+비용 거버넌스 카드는 더 좁은 하위 섹션이나 교차 화면 경로로 연결됩니다. 상단바 컨트롤은
+중복 `title` 속성 없이 `aria-label`을 사용합니다.
 
 Exit criteria: 오퍼레이터가 FDAI Console에서 지원되는 사람 단계를 완료할 수 있으며 모든
 managed-resource 변경은 이후 Thor `ActionRun`으로만 나타납니다. 충돌, 재시도, 보상,

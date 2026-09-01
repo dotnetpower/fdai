@@ -556,6 +556,8 @@ Tasks, filters, details, and recovery are fully keyboard operable. Status and au
 on color alone; source, deadline, and unavailable reason have accessible names. SSE refreshes use
 one polite status announcement without moving focus, while submit conflicts focus the actionable
 summary and return focus to the originating control after dismissal.
+Cost Governance cards link to narrower sections or cross-surface routes. Topbar controls use
+`aria-label` without redundant `title` attributes.
 
 Exit criteria: operators can complete each supported human step in FDAI Console, while every
 managed-resource mutation appears only as a later Thor `ActionRun`. Conflict, retry, compensation,

@@ -619,8 +619,6 @@ deployment gates.
   must retain no-self-approval and separately approve any distinct-approver requirement.
 - **OD-C4 current behavior** - CLI history is bounded process-memory navigation only. A persistent
   history file and retention/redaction contract are neither shipped nor blockers for the current CLI.
-- **OD-C5 current behavior** - Cost Governance card drill-down links navigate to narrower sections
-  or cross-surface routes. Topbar controls use `aria-label` without redundant `title` attributes.
 ## 16. Related docs
 
 - [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) -

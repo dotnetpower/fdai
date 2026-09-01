@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: f7df8c640b48cb004cc60b44f3905f7b572983a4
+translation_source_sha: a6f238861cd8eef8acfe252be87cc55172862d45
 translation_revised: 2026-09-01
 ---
 # FDAI Console 대화
@@ -616,8 +616,6 @@ future 범위입니다.
   향후 설계는 no-self-approval을 유지하고 서로 다른 승인자 요구사항을 별도로 승인해야 합니다.
 - **OD-C4 현재 행동** - CLI 이력은 프로세스 기억에서만 범위가 제한된 탐색을 제공합니다.
   Persistent 이력 파일과 보존/민감정보 제거 계약은 shipped 기능이나 현재 CLI의 blocker가 아닙니다.
-- **OD-C5 현재 행동** - Cost Governance 카드 드릴다운 링크는 하위 섹션이나 cross-surface 경로로
-  이동합니다. 상단바 컨트롤은 중복 `title` 속성 없이 `aria-label`을 사용합니다.
 ## 16. 관련 문서
 
 - [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) -
