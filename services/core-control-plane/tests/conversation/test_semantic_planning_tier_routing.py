@@ -3117,19 +3117,24 @@ def test_service_current_health_without_exact_service_requests_clarification() -
     assert frame.temporal_scope == {"kind": "current"}
 
 
-def test_unbound_change_correlation_preserves_compare_windowed_hold() -> None:
+@pytest.mark.parametrize("include_explicit_change_facet", [True, False])
+def test_unbound_change_correlation_preserves_compare_windowed_hold(
+    include_explicit_change_facet: bool,
+) -> None:
+    facets = [
+        "incident",
+        "approved_windows",
+        "target_resources",
+        "service_paths",
+        "without_current_finding",
+    ]
+    if include_explicit_change_facet:
+        facets.append("change")
     judgment = SemanticJudgmentProposal.model_validate(
         {
             "primary_intent": "query.ontology_relationships",
             "targets": [],
-            "requested_facets": [
-                "incident",
-                "change",
-                "approved_windows",
-                "target_resources",
-                "service_paths",
-                "without_current_finding",
-            ],
+            "requested_facets": facets,
             "confidence": 0.95,
             "ambiguous": False,
             "action_posture": "advise_only",
@@ -3162,12 +3167,17 @@ def test_unbound_change_correlation_preserves_compare_windowed_hold() -> None:
 
 
 @pytest.mark.parametrize(
-    ("bound_incident", "extra_facet"),
-    [(True, None), (False, "configuration_drift")],
+    ("bound_incident", "extra_facet", "missing_facet"),
+    [
+        (True, None, None),
+        (False, "configuration_drift", None),
+        (False, None, "service_paths"),
+    ],
 )
-def test_change_correlation_hold_requires_unbound_exact_typed_contract(
+def test_change_correlation_hold_requires_unbound_bounded_typed_contract(
     bound_incident: bool,
     extra_facet: str | None,
+    missing_facet: str | None,
 ) -> None:
     facets = [
         "incident",
@@ -3179,6 +3189,8 @@ def test_change_correlation_hold_requires_unbound_exact_typed_contract(
     ]
     if extra_facet is not None:
         facets.append(extra_facet)
+    if missing_facet is not None:
+        facets.remove(missing_facet)
     judgment = SemanticJudgmentProposal.model_validate(
         {
             "primary_intent": "query.ontology_relationships",

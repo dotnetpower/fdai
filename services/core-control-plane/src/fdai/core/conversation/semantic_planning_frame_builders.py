@@ -47,6 +47,7 @@ _CHANGE_CORRELATION_FACETS = frozenset(
         "without_current_finding",
     }
 )
+_CHANGE_CORRELATION_REQUIRED_FACETS = _CHANGE_CORRELATION_FACETS - {"change"}
 
 
 def build_bound_incident_metric_comparison_frame(
@@ -137,14 +138,18 @@ def build_unbound_change_correlation_frame(
 ) -> SemanticProblemFrame | None:
     """Preserve the typed comparison contract when its incident binding is absent."""
 
+    facets = (
+        frozenset(facet.replace("-", "_") for facet in judgment.requested_facets)
+        if judgment is not None
+        else frozenset()
+    )
     if (
         bound_incident
         or judgment is None
         or judgment.action_posture != "advise_only"
         or judgment.primary_intent != "query.ontology_relationships"
         or judgment.targets
-        or frozenset(facet.replace("-", "_") for facet in judgment.requested_facets)
-        != _CHANGE_CORRELATION_FACETS
+        or facets - {"change"} != _CHANGE_CORRELATION_REQUIRED_FACETS
     ):
         return None
     proposal = SemanticFrameProposal(
