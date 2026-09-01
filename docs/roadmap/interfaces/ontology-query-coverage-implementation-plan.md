@@ -167,6 +167,7 @@ This plan closes the implementation gap between FDAI's bounded conversation and 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-09-01 | implemented | Replaced the service-to-Agent mixed-authority hold with one explicit composite read authority and a lineage-preserving instance-path node. The node validates exact LinkType declaration dependencies, executes a principal-scoped current graph read in one store snapshot, and projects identity claims only from complete non-redacted concrete paths. | `current change`; focused service-contract, ontology query, planner, executor, provider, persistence, and assurance checks passed 451 cases; Ruff and strict mypy passed. | Run the bounded 10-case canary. Propose a 20-case campaign only if all 10 pass; do not start the 100-case campaign. |
+| 2026-09-01 | implemented | Corrected the complete-empty boundary found by the first canary. A service ownership request with no concrete root-to-Agent path now holds instead of returning an answered result without the required identity facts. | `current change`; focused instance-path and semantic planning checks. The first exploratory EN/KO relationship cohort retained 5/10, including the two expected service-agent empty-path failures. | Rerun the intended 10-case canary cohort. Propose a 20-case campaign only if all 10 pass. |
 | 2026-09-01 | implemented | Aligned semantic judgment with reviewed operating mappings, Rule state and trace, Resource classification, service health, and service ownership. Golden certification now uses the committed expected terminal posture, prevents fresh answer cases from escaping through a safe non-answer, and keeps evidence and authority gates on every disposition. | `current change`; semantic judgment prompt, Golden dataset adapter and certification tests, Operator locale propagation test, focused semantic and Golden checks; the reviewed live canary improved from 0/10 to 5/10 exact contract passes. | Implement verified Rule trace and service ownership execution, align target-candidate terminal semantics, and retain complete relationship evidence before claiming full Golden coverage. |
 | 2026-09-01 | implemented | Registered Framework and FrameworkControl as Identifiable implementations. The interface implementation registry now lists all shipped object types. | `current change`; focused ontology catalog and object-type catalog checks passed. | No query-coverage work follows from this interface registration. |
 | 2026-09-01 | implemented | Replaced terminal `ontology-query` authority flattening with receipt-derived source authority and typed missing/conflict holds. | `current change`; focused Core, Operator, contract, and cross-service authority tests passed. | Retain a governed live receipt in a separately authorized campaign before raising this authority path to validated. |
@@ -362,9 +363,10 @@ unverified derivations, missing principal scope, release drift, generation drift
 identity, incomplete evidence, and path-limit overflow keep the answer held.
 
 An instance path preserves each concrete root-to-target lineage. It does not return a cross-product
-of independently selected endpoints. A complete empty root or hop is an evidence-backed empty result
-with no identity claim. Schema-only LinkType evidence continues to describe possible relationships
-and cannot prove a current service, workload, resource, or owning Agent instance.
+of independently selected endpoints. An empty root or hop cannot answer a request to trace current
+ownership, so the node holds with no identity claim. Schema-only LinkType evidence continues to
+describe possible relationships and cannot prove a current service, workload, resource, or owning
+Agent instance.
 
 ## Work packages
 

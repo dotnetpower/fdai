@@ -816,6 +816,81 @@ async def test_secured_instance_path_preserves_multi_root_service_ownership_line
     assert any(ref.startswith("ontology-instance-path:") for ref in result.evidence_refs)
 
 
+async def test_secured_instance_path_holds_when_no_concrete_path_exists() -> None:
+    service, resource, dependency = _catalog()
+    release = build_ontology_release(
+        object_types=(service, resource),
+        link_types=(dependency,),
+    )
+    store = InMemoryOntologyInstanceStore(
+        object_types=(service, resource),
+        link_types=(dependency,),
+        source_generation="generation-1",
+    )
+    gateway = SecuredObjectSetQueryGateway(
+        service=ObjectSetService(
+            store=store,
+            interfaces=compile_interfaces(
+                interfaces=(),
+                implementations=(),
+                object_types=(service, resource),
+                release=release,
+            ),
+            object_type_names=frozenset({"BusinessService", "Resource"}),
+        ),
+        object_types={"BusinessService": service, "Resource": resource},
+        ontology_release=release,
+        evaluation_cutoff=lambda: NOW,
+    )
+    handler = SecuredOntologyInstancePathNodeHandler(
+        gateway,
+        caller_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest=DIGEST,
+    )
+    node = _node(
+        "instance-path",
+        QueryNodeKind.ONTOLOGY_INSTANCE_PATH,
+        dependencies=("schema",),
+        arguments={
+            "root_selector": {"kind": "object_type", "name": "BusinessService"},
+            "steps": [
+                {
+                    "link_type": dependency.name,
+                    "direction": "outgoing",
+                    "selector": {"kind": "object_type", "name": "Resource"},
+                }
+            ],
+            "as_of": NOW.isoformat(),
+            "purpose": "operations-review",
+            "limit": 50,
+        },
+    )
+    dependencies = {
+        "schema": QueryNodeResult(
+            value={
+                "object_types": ["BusinessService", "Resource"],
+                "relationships": [
+                    {
+                        "link_type": dependency.name,
+                        "from_type": "BusinessService",
+                        "to_type": "Resource",
+                    }
+                ],
+                "complete": True,
+                "authority": "ontology_release",
+                "ontology_release_digest": release.digest,
+                "execution_authority": False,
+            },
+            evidence_refs=("schema:1",),
+            authority=EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
+        )
+    }
+
+    with pytest.raises(QueryNodeHeldError, match="ontology_instance_path_empty"):
+        await handler(node, dependencies)
+
+
 async def test_secured_typed_path_does_not_return_an_unreached_same_type_root() -> None:
     resource = OntologyObjectType(
         schema_version="1.0.0",

@@ -326,6 +326,8 @@ class SecuredOntologyInstancePathNodeHandler:
         )
         _verify_instance_path_graph(secured)
         paths, empty_at_step = _instance_paths(secured.graph, definition=definition)
+        if not paths:
+            raise QueryNodeHeldError("ontology_instance_path_empty")
         rows = tuple(_instance_path_row(path) for path in paths)
         table = QueryTable(rows=rows, complete=True)
         receipt = SecuredOntologyInstancePathReceipt(
