@@ -53,6 +53,7 @@ def resource_target_clarification(
 ) -> str | None:
     """Ask for one exact Resource before a target-scoped first-turn read."""
     if context or frame.output_shape in {
+        SemanticOutputShape.ONTOLOGY_RELATIONSHIPS,
         SemanticOutputShape.RESOURCE_STATE_LIST,
         SemanticOutputShape.RESOURCE_TARGET_CANDIDATES,
     }:

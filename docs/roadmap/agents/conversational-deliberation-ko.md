@@ -1,8 +1,8 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 5439dc4f50b7106f2df055e44a5600efcda70d28
-translation_revised: 2026-08-30
+translation_source_sha: d07dfb60f83a56590c9bab7c7ea42223cb34e0c4
+translation_revised: 2026-09-01
 ---
 # 판테온 대화형 숙의
 
@@ -150,6 +150,9 @@ Charter는 에이전트에게 "allowed 도구를 통해" 답하라고 지시하�
 요청한 사실, 대상, 담화 모드, 액션 자세를 이름으로 지정합니다. 판단은 서버가 공급한 capability
 집합에서 정본 도구 ID만 제안할 수 있습니다. Core는 전달 전에 선택한 에이전트의 정확한 registry
 소유권과 각 ID를 대조합니다.
+온톨로지 읽기에서 의미 판단은 제공된 정확한 ObjectType 및 LinkType 신원, 부정형 답변 항목,
+누락된 인스턴스 신원도 보존합니다. 검토된 관계를 그럴듯한 동의어로 바꾸거나 "현재 발견 사항
+없음" 제약을 반대로 해석하거나 Resource 하위 타입을 정확한 인스턴스 하나로 취급하지 않습니다.
 
 T1 모델은 입력 크기, 시간 초과, strict 출력 스키마로 제한됩니다. 사용할 수 없음, malformed,
 ambiguous, low-confidence 제안은 설정된 T2 binding으로 한 번 재시도할 수 있습니다. 두 계층

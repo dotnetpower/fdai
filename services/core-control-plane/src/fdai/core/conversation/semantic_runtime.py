@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import Any, Literal
 
 from fdai_service_contracts.ontology_query import (
+    EvidenceAuthority,
     IntentGraphEvidence,
     QueryNodeKind,
     project_intent_graph,
@@ -96,6 +98,7 @@ class SemanticConversationRuntime:
         executor: OntologyQueryPlanExecutor | None = None,
         executor_factory: Callable[[Principal], OntologyQueryPlanExecutor] | None = None,
         purpose: str = "operations-review",
+        function_bindings: Mapping[str, EvidenceAuthority] | None = None,
     ) -> None:
         if (executor is None) == (executor_factory is None):
             raise ValueError("semantic runtime requires exactly one executor binding")
@@ -108,6 +111,13 @@ class SemanticConversationRuntime:
             bound_executor = executor
             self._executor_factory = lambda _principal: bound_executor
         self._purpose = purpose
+        self._function_bindings = MappingProxyType(dict(function_bindings or {}))
+
+    @property
+    def function_bindings(self) -> Mapping[str, EvidenceAuthority]:
+        """Return the immutable function-authority bindings for this runtime."""
+
+        return self._function_bindings
 
     async def handle(
         self,
@@ -169,21 +179,22 @@ class SemanticConversationRuntime:
         disposition: Literal["answered", "held", "cancelled"]
         reason = f"semantic_execution_{execution.status}"
         if execution.status == "completed":
-            _authority, authority_status = resolve_execution_authority(execution)
-            if authority_status == "missing":
-                disposition = "held"
-                reason = "semantic_evidence_authority_missing"
-            elif authority_status == "conflict":
-                disposition = "held"
-                reason = "semantic_evidence_authority_conflict"
-            elif _query_output_incomplete(planning, execution):
-                disposition = "held"
-                reason = "semantic_evidence_incomplete"
-            elif _current_relationship_mapping_unavailable(planning, execution):
+            if _current_relationship_mapping_unavailable(planning, execution):
                 disposition = "held"
                 reason = "semantic_current_relationship_mapping_unavailable"
             else:
-                disposition = "answered"
+                _authority, authority_status = resolve_execution_authority(execution)
+                if authority_status == "missing":
+                    disposition = "held"
+                    reason = "semantic_evidence_authority_missing"
+                elif authority_status == "conflict":
+                    disposition = "held"
+                    reason = "semantic_evidence_authority_conflict"
+                elif _query_output_incomplete(planning, execution):
+                    disposition = "held"
+                    reason = "semantic_evidence_incomplete"
+                else:
+                    disposition = "answered"
         elif execution.status == "cancelled":
             disposition = "cancelled"
         else:

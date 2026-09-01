@@ -618,6 +618,14 @@ Thor's identity and keep commands outside the SPA.
 [`tools/chat.py`](../../../tools/chat.py) is the headless JSONL development harness for the core
 coordinator, not a second policy implementation.
 
+## Settings and component presentation boundary
+
+The Console settings routes and static design mocks share the Calm Slate control tokens and
+presentation primitives. Desktop form controls use a compact 34 px standard height and 28 px
+compact action height. Touch layouts use 44 px targets. Settings keep browser-local preferences,
+account preferences, deployment policy, evidence, and authority boundaries visually distinct
+without changing their persistence or authorization contracts.
+
 ## Account identity presentation boundary
 
 `console/src/components/account-menu.tsx` owns the signed-in account presentation in the header.
@@ -626,6 +634,13 @@ It displays the MSAL name and username, reads FDAI roles only from the server-ve
 same-tenant account selection by opening the Entra account picker without a login hint. The
 redirect returns through normal token acquisition and IAM authorization before the shell renders.
 The component does not switch directories, grant capabilities, or receive provider credentials.
+
+The static component gallery reads its documented component contracts from
+`mocks/ui/assets/component-registry.json`. Each bounded category view presents the specimen before
+its owner, source, states, usage guidance, responsive behavior, accessibility contract, and product
+references. A missing or invalid registry blocks documented status instead of inferring that a
+specimen is canonical. The gallery remains synthetic presentation evidence and grants no Console,
+Operator API, or executor authority.
 
 ## Boundary invariant
 

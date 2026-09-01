@@ -6,12 +6,14 @@ import asyncio
 from datetime import UTC, datetime
 
 import pytest
+from fdai.core.conversation.intent_graph import resolve_execution_authority
 from fdai.core.ontology_platform.query_execution import (
     OntologyQueryPlanExecutor,
     QueryNodeProgress,
     QueryNodeResult,
 )
 from fdai_service_contracts.ontology_query import (
+    EvidenceAuthority,
     OntologyQueryNode,
     OntologyQueryPlan,
     QueryNodeKind,
@@ -388,3 +390,63 @@ async def test_executor_types_authorization_and_invalid_handler_results() -> Non
     assert invalid_execution.receipts[0].reason == "capability_failed"
     assert invalid_execution.receipts[0].status is TaskStatus.FAILED
     assert "private provider details" not in str(denied_execution.receipts)
+
+
+async def test_executor_accepts_only_explicit_composite_instance_path_derivation() -> None:
+    async def schema(node, dependencies):  # type: ignore[no-untyped-def]
+        del dependencies
+        return QueryNodeResult(
+            value={"node": node.node_id},
+            evidence_refs=(f"manifest:{node.node_id}",),
+            authority=EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
+        )
+
+    async def path(node, dependencies):  # type: ignore[no-untyped-def]
+        assert node.node_id == "path"
+        assert set(dependencies) == {"schema"}
+        return QueryNodeResult(
+            value={"paths": 1},
+            evidence_refs=("ontology-instance-path:proof",),
+            authority=EvidenceAuthority.SERVER_ONTOLOGY_INSTANCE_PATH,
+            authority_inputs=(
+                EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+                EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
+            ),
+        )
+
+    nodes = (
+        OntologyQueryNode(
+            node_id="schema",
+            kind=QueryNodeKind.FUNCTION,
+            output_kind="ontology.relationships",
+        ),
+        OntologyQueryNode(
+            node_id="path",
+            kind=QueryNodeKind.ONTOLOGY_INSTANCE_PATH,
+            depends_on=("schema",),
+            output_kind="query.table",
+        ),
+    )
+    execution = await OntologyQueryPlanExecutor(
+        handlers={
+            QueryNodeKind.FUNCTION: schema,
+            QueryNodeKind.ONTOLOGY_INSTANCE_PATH: path,
+        },
+        now=lambda: NOW,
+    ).execute(
+        _plan(nodes, ("path",)),
+        expected_release_digest=DIGEST_A,
+        expected_manifest_digest=DIGEST_B,
+        expected_role="Reader",
+        expected_purpose="incident-investigation",
+    )
+
+    authority, status = resolve_execution_authority(execution)
+
+    assert execution.status == "completed"
+    assert authority is EvidenceAuthority.SERVER_ONTOLOGY_INSTANCE_PATH
+    assert status == "verified"
+    assert execution.receipts[-1].authority_inputs == (
+        EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+        EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
+    )

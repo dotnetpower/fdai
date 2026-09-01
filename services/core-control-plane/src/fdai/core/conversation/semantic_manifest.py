@@ -62,13 +62,7 @@ class CatalogQueryManifestProvider:
             role = _ROLE_MAP[principal.role]
         except KeyError as exc:
             raise PermissionError("break-glass principals cannot use semantic planning") from exc
-        scope_digest = content_digest(
-            {
-                "principal_id": principal.id,
-                "role": canonical_ordinary_role(principal.role.value),
-                "purpose": purpose,
-            }
-        )
+        scope_digest = semantic_principal_scope_digest(principal=principal, purpose=purpose)
         return build_query_manifest(
             release=self._release,
             principal_role=role,
@@ -84,4 +78,16 @@ class CatalogQueryManifestProvider:
         )
 
 
-__all__ = ["CatalogQueryManifestProvider"]
+def semantic_principal_scope_digest(*, principal: Principal, purpose: str) -> str:
+    """Return the exact authenticated principal scope shared by planning and execution."""
+
+    return content_digest(
+        {
+            "principal_id": principal.id,
+            "role": canonical_ordinary_role(principal.role.value),
+            "purpose": purpose,
+        }
+    )
+
+
+__all__ = ["CatalogQueryManifestProvider", "semantic_principal_scope_digest"]

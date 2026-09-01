@@ -9,10 +9,12 @@ submits actions, calls providers, or grants execution authority.
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from types import MappingProxyType
 from typing import Annotated, Any, Literal, cast
 
+from fdai_service_contracts.ontology_query import EvidenceAuthority, content_digest
 from pydantic import Field, model_validator
 
 from fdai.shared.contracts.models import (
@@ -41,6 +43,7 @@ from .models import (
     ObjectSetDefinition,
     ObjectSetMaterialization,
     ObjectSetTruncationReason,
+    OntologyInstancePathDefinition,
 )
 from .object_sets import ObjectSetService
 
@@ -130,6 +133,59 @@ class SecuredObjectSetQueryResult(ContractBase):
         return self
 
 
+class SecuredOntologyInstancePathReceipt(ContractBase):
+    """Immutable proof for one exact-release principal-scoped instance path."""
+
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    ontology_release: OntologyReleaseRef
+    principal_scope_digest: Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
+    purpose: str = Field(pattern=r"^[a-z][a-z0-9_-]{0,63}$")
+    caller_role: CeilingRole
+    definition_digest: Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
+    projected_graph_digest: Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
+    result_digest: Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
+    component_authorities: tuple[EvidenceAuthority, ...]
+    source_generation: str | None = None
+    observation_cutoff: datetime
+    path_count: int = Field(ge=0, le=1000)
+    empty_at_step: int | None = Field(default=None, ge=0, le=8)
+    execution_authority: Literal[False] = False
+
+    @model_validator(mode="after")
+    def _composite_contract(self) -> SecuredOntologyInstancePathReceipt:
+        if self.component_authorities != (
+            EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+            EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
+        ):
+            raise ValueError("ontology instance path receipt has invalid component authorities")
+        if self.observation_cutoff.tzinfo is None:
+            raise ValueError("ontology instance path observation cutoff MUST be timezone-aware")
+        if self.path_count and self.empty_at_step is not None:
+            raise ValueError("non-empty ontology instance path cannot have an empty step")
+        if not self.path_count and self.empty_at_step is None:
+            raise ValueError("empty ontology instance path MUST identify its empty step")
+        if self.path_count and self.source_generation is None:
+            raise ValueError("non-empty ontology instance path requires a source generation")
+        return self
+
+    @property
+    def receipt_digest(self) -> str:
+        return content_digest(self.model_dump(mode="json"))
+
+
+@dataclass(frozen=True, slots=True)
+class SecuredOntologyInstancePathGraph:
+    definition: OntologyInstancePathDefinition
+    graph: OntologyGraphSnapshot
+    ontology_release: OntologyReleaseRef
+    principal_scope_digest: str
+    purpose: str
+    caller_role: CeilingRole
+    observation_cutoff: datetime
+    projected_graph_digest: str
+    redactions: ObjectSetRedactionSummary
+
+
 class UnsupportedObjectSetAsOfError(ValueError):
     """A current-state store cannot satisfy the requested historical or future cutoff."""
 
@@ -190,24 +246,105 @@ class SecuredObjectSetQueryGateway:
     ) -> SecuredObjectSetQueryResult:
         """Return a purpose-narrowed ACL projection and no-authority receipt."""
 
-        if definition.purpose not in projection_request.declared_purposes:
+        effective_request, observation_cutoff = self._prepare_current_request(
+            purpose=definition.purpose,
+            as_of=definition.as_of,
+            projection_request=projection_request,
+        )
+        materialization = await self._service.materialize(definition)
+        return await self._secure(
+            materialization,
+            definition=definition,
+            effective_request=effective_request,
+            observation_cutoff=observation_cutoff,
+        )
+
+    async def materialize_instance_path(
+        self,
+        definition: OntologyInstancePathDefinition,
+        *,
+        projection_request: ProjectionRequest,
+    ) -> SecuredOntologyInstancePathGraph:
+        """Return one ACL-projected path graph from a consistent store snapshot."""
+
+        effective_request, observation_cutoff = self._prepare_current_request(
+            purpose=definition.purpose,
+            as_of=definition.as_of,
+            projection_request=projection_request,
+        )
+        source_graph = await self._service.materialize_instance_path(definition)
+        projected_graph = project_graph_snapshot(
+            source_graph,
+            object_types=self._object_types,
+            request=effective_request,
+        )
+        secured_graph = _freeze_graph(_close_links(projected_graph))
+        source_complete = secured_graph.source_complete
+        if self._graph_completeness is not None and any(
+            record.object_type == "Resource" for record in secured_graph.objects
+        ):
+            source_complete = source_complete and await self._graph_completeness()
+        secured_graph = OntologyGraphSnapshot(
+            objects=secured_graph.objects,
+            links=secured_graph.links,
+            truncated=secured_graph.truncated,
+            source_complete=source_complete,
+            source_generation=secured_graph.source_generation,
+        )
+        redactions = _summarize_redactions(
+            secured_graph,
+            object_types=self._object_types,
+            source_graph=source_graph,
+            removed_link_count=len(source_graph.links) - len(secured_graph.links),
+        )
+        return SecuredOntologyInstancePathGraph(
+            definition=definition,
+            graph=secured_graph,
+            ontology_release=self._ontology_release,
+            principal_scope_digest=effective_request.principal_scope_digest or "",
+            purpose=definition.purpose,
+            caller_role=effective_request.caller_role,
+            observation_cutoff=observation_cutoff,
+            projected_graph_digest=_instance_path_graph_digest(definition, secured_graph),
+            redactions=redactions,
+        )
+
+    def _prepare_current_request(
+        self,
+        *,
+        purpose: str,
+        as_of: datetime,
+        projection_request: ProjectionRequest,
+    ) -> tuple[ProjectionRequest, datetime]:
+        if purpose not in projection_request.declared_purposes:
             raise PermissionError("object-set query purpose was not declared by the caller")
         observation_cutoff = self._evaluation_cutoff()
         if observation_cutoff.tzinfo is None:
             raise ValueError("current-state ObjectSet evaluation cutoff MUST be timezone-aware")
         observation_cutoff = observation_cutoff.astimezone(UTC)
-        as_of = definition.as_of.astimezone(UTC)
+        as_of = as_of.astimezone(UTC)
         if abs((as_of - observation_cutoff).total_seconds()) > self._max_as_of_skew_seconds:
             raise UnsupportedObjectSetAsOfError(
                 "current-state ObjectSet as_of is unsupported outside the trusted evaluation "
                 "cutoff skew"
             )
-        effective_request = ProjectionRequest(
-            caller_role=projection_request.caller_role,
-            declared_purposes=frozenset({definition.purpose}),
-            principal_scope_digest=projection_request.principal_scope_digest,
+        return (
+            ProjectionRequest(
+                caller_role=projection_request.caller_role,
+                declared_purposes=frozenset({purpose}),
+                principal_scope_digest=projection_request.principal_scope_digest,
+            ),
+            observation_cutoff,
         )
-        materialization = await self._service.materialize(definition)
+
+    async def _secure(
+        self,
+        materialization: ObjectSetMaterialization,
+        *,
+        definition: ObjectSetDefinition,
+        effective_request: ProjectionRequest,
+        observation_cutoff: datetime,
+    ) -> SecuredObjectSetQueryResult:
         projected_graph = project_graph_snapshot(
             materialization.graph,
             object_types=self._object_types,
@@ -409,6 +546,46 @@ def _projected_result_digest(materialization: ObjectSetMaterialization) -> str:
         payload["source_complete"] = graph.source_complete
         payload["source_generation"] = graph.source_generation
     return ontology_function_digest(payload)
+
+
+def _instance_path_graph_digest(
+    definition: OntologyInstancePathDefinition,
+    graph: OntologyGraphSnapshot,
+) -> str:
+    return content_digest(
+        {
+            "definition": definition.model_dump(mode="json"),
+            "objects": [
+                {
+                    "id": record.id,
+                    "object_type": record.object_type,
+                    "properties": _mutable_json(record.properties),
+                    "revision": record.revision,
+                    "type_ref": (
+                        record.type_ref.model_dump(mode="json")
+                        if record.type_ref is not None
+                        else None
+                    ),
+                }
+                for record in graph.objects
+            ],
+            "links": [
+                {
+                    "link_type": link.link_type,
+                    "from_id": link.from_id,
+                    "to_id": link.to_id,
+                    "properties": _mutable_json(link.properties),
+                    "type_ref": (
+                        link.type_ref.model_dump(mode="json") if link.type_ref is not None else None
+                    ),
+                }
+                for link in graph.links
+            ],
+            "source_complete": graph.source_complete,
+            "source_generation": graph.source_generation,
+            "truncated": graph.truncated,
+        }
+    )
 
 
 def _mutable_json(value: Any) -> Any:

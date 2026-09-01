@@ -270,6 +270,20 @@ def test_golden_questions_cover_sanitized_resource_scenarios() -> None:
                 assert "application gateway" in request.casefold()
 
 
+def test_service_current_health_wording_matches_business_service_anchor() -> None:
+    source = yaml.safe_load((_DATASET_ROOT / "questions.source.yaml").read_text(encoding="utf-8"))
+    service_health = next(
+        question_set
+        for question_set in source["question_sets"]
+        if question_set["expectation_id"] == "service-current-health"
+    )
+
+    assert "business service deployed on AKS" in service_health["request"]["en"]
+    assert "AKS Service" not in service_health["request"]["en"]
+    assert "AKS에 배포된 비즈니스 서비스" in service_health["request"]["ko"]
+    assert "AKS Service" not in service_health["request"]["ko"]
+
+
 def test_golden_wording_is_varied_within_each_locale_and_expectation() -> None:
     for filename in ("questions.en.json", "questions.ko.json"):
         payload = _json(filename)

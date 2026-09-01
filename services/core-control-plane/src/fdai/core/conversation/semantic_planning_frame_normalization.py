@@ -703,6 +703,11 @@ def normalize_network_path_clarification(
 ) -> tuple[SemanticFrameProposal, SemanticProblemFrame]:
     """Preserve a model-proposed network path until exact endpoint identities are supplied."""
 
+    if frozenset(frame.subject_constraints) in {
+        frozenset({"ActionType", "ResourceType", "Rule", "SignalType"}),
+        frozenset({"Agent", "BusinessService", "Resource", "Workload"}),
+    }:
+        return proposal, frame
     facets = {facet.replace("-", "_") for facet in proposal.measure_concepts}
     targetless_topology = frame.output_shape == SemanticOutputShape.TOPOLOGY_GRAPH and (
         bool(stated_value_filters(utterance, descriptors).get(("Resource", "type")))

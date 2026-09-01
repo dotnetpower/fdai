@@ -463,6 +463,18 @@ class OntologyInstanceStore(Protocol):
         """Traverse a bounded subgraph from roots with optional verified root types."""
         ...
 
+    async def traverse_from_type(
+        self,
+        *,
+        root_object_type: str,
+        link_types: Sequence[str] = (),
+        direction: OntologyDirection = "outgoing",
+        max_depth: int = 1,
+        limit: int = 500,
+    ) -> OntologyGraphSnapshot:
+        """Select every bounded root of one type and traverse one consistent snapshot."""
+        ...
+
 
 __all__ = [
     "canonical_json_mapping",

@@ -148,6 +148,10 @@ Selection happens outside the agent and before it answers. One schema-validated 
 names the intended owner, requested facts, targets, discourse mode, and action posture. The
 judgment can propose canonical tool ids only from the server-supplied capability set. Core then
 checks each id against the selected agent's exact registry ownership before dispatch.
+For ontology reads, the judgment also preserves exact supplied ObjectType and LinkType identities,
+negative answer facets, and missing instance identity. It does not replace a reviewed relation with
+a plausible synonym, invert a "no current finding" constraint, or treat a Resource subtype as one
+exact instance.
 
 The T1 model is bounded by input size, timeout, and a strict output schema. An unavailable,
 malformed, ambiguous, or low-confidence proposal can retry once through the configured T2 binding.

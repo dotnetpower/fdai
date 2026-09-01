@@ -8,6 +8,7 @@ import hashlib
 import json
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
+from types import MappingProxyType
 from typing import Annotated, Any
 
 from fdai_service_contracts.ontology_query import EvidenceAuthority
@@ -147,6 +148,17 @@ class OntologyFunctionRegistry:
         """Return only the registry's exact immutable release identity."""
 
         return self._release.ref()
+
+    @property
+    def binding_authorities(self) -> Mapping[str, EvidenceAuthority]:
+        """Return an immutable snapshot of registered callback authorities."""
+
+        return MappingProxyType(
+            {
+                name: authority
+                for name, (_declaration, _function, authority) in sorted(self._functions.items())
+            }
+        )
 
     def declaration(self, name: str) -> OntologyFunctionType:
         """Return the exact declaration used for authorization and schema validation."""

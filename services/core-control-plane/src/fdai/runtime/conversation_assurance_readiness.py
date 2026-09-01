@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -13,6 +14,13 @@ _MANIFEST_FUNCTION = "query.manifest"
 _RESOURCE_HEALTH_FUNCTION = "query.resource_health_inventory"
 _RESOURCE_STATE_FUNCTION = "query.resource_state_inventory"
 _SERVICE_HEALTH_FUNCTION = "query.subscription_service_health"
+_SCHEMA_EVIDENCE_FUNCTIONS = frozenset(
+    {
+        _MANIFEST_FUNCTION,
+        "query.ontology_declaration",
+        "query.ontology_relationships",
+    }
+)
 
 
 class _EvidenceCollection(Protocol):
@@ -151,37 +159,43 @@ class RuntimeReadinessInventory:
 async def observe_runtime_readiness(
     *,
     declared_function_names: tuple[str, ...],
-    semantic_runtime_bound: bool,
+    function_bindings: Mapping[str, str],
     service_health_reader: _ServiceHealthReader | None,
-    resource_health_reader_bound: bool,
 ) -> RuntimeReadinessInventory:
     """Observe bindings and evidence through the providers owned by this runtime."""
 
+    declared = frozenset(declared_function_names)
+    unknown_bindings = sorted(set(function_bindings) - declared)
+    if unknown_bindings:
+        raise ValueError(
+            "runtime readiness bindings are absent from the active release: "
+            + ", ".join(unknown_bindings)
+        )
     capabilities = {
         name: RuntimeCapabilityReadiness(
             function_name=name,
             declared=True,
-            bound=False,
+            bound=name in function_bindings,
             reachable=False,
             evidence_ready=False,
-            unavailable_reason="runtime_binding_unavailable",
+            unavailable_reason=(
+                "current_evidence_probe_unavailable"
+                if name in function_bindings
+                else "runtime_binding_unavailable"
+            ),
         )
         for name in declared_function_names
     }
-    if not semantic_runtime_bound:
-        return RuntimeReadinessInventory(
-            capabilities=tuple(capabilities[name] for name in sorted(capabilities))
-        )
-    if _MANIFEST_FUNCTION in capabilities:
-        capabilities[_MANIFEST_FUNCTION] = RuntimeCapabilityReadiness(
-            function_name=_MANIFEST_FUNCTION,
+    for function_name in _SCHEMA_EVIDENCE_FUNCTIONS & set(function_bindings):
+        capabilities[function_name] = RuntimeCapabilityReadiness(
+            function_name=function_name,
             declared=True,
             bound=True,
             reachable=True,
             evidence_ready=True,
-            provided_authority="server_ontology_manifest",
+            provided_authority=function_bindings[function_name],
         )
-    if _RESOURCE_STATE_FUNCTION in capabilities:
+    if _RESOURCE_STATE_FUNCTION in function_bindings:
         capabilities[_RESOURCE_STATE_FUNCTION] = RuntimeCapabilityReadiness(
             function_name=_RESOURCE_STATE_FUNCTION,
             declared=True,
@@ -190,7 +204,7 @@ async def observe_runtime_readiness(
             evidence_ready=False,
             unavailable_reason="current_evidence_probe_unavailable",
         )
-    if resource_health_reader_bound and _RESOURCE_HEALTH_FUNCTION in capabilities:
+    if _RESOURCE_HEALTH_FUNCTION in function_bindings:
         capabilities[_RESOURCE_HEALTH_FUNCTION] = RuntimeCapabilityReadiness(
             function_name=_RESOURCE_HEALTH_FUNCTION,
             declared=True,
@@ -199,7 +213,7 @@ async def observe_runtime_readiness(
             evidence_ready=False,
             unavailable_reason="evidence_scope_unavailable",
         )
-    if service_health_reader is not None and _SERVICE_HEALTH_FUNCTION in capabilities:
+    if _SERVICE_HEALTH_FUNCTION in function_bindings and service_health_reader is not None:
         try:
             collection = await service_health_reader.read_active()
         except (OSError, RuntimeError):
@@ -218,7 +232,9 @@ async def observe_runtime_readiness(
                 bound=True,
                 reachable=True,
                 evidence_ready=collection.complete,
-                provided_authority=("server_subscription_health" if collection.complete else None),
+                provided_authority=(
+                    function_bindings[_SERVICE_HEALTH_FUNCTION] if collection.complete else None
+                ),
                 unavailable_reason=(
                     None if collection.complete else "authority_or_source_unavailable"
                 ),

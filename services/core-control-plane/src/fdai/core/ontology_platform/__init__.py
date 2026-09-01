@@ -67,6 +67,7 @@ from .models import (
     ObjectSetMaterialization,
     ObjectSetTruncationReason,
     ObjectTraversal,
+    OntologyInstancePathDefinition,
     OntologyInterfaceType,
     RelationshipTraversalDefinition,
     TypedPathDefinition,
@@ -100,6 +101,7 @@ from .query_metric_handlers import (
 from .query_source_handlers import (
     FunctionNodeHandler,
     SecuredObjectSetNodeHandler,
+    SecuredOntologyInstancePathNodeHandler,
     SecuredRelationshipTraversalNodeHandler,
     SecuredTypedPathNodeHandler,
 )
@@ -227,6 +229,7 @@ __all__ = [
     "ObjectSetTruncationReason",
     "ObjectSetService",
     "ObjectTraversal",
+    "OntologyInstancePathDefinition",
     "RelationshipTraversalDefinition",
     "TypedPathDefinition",
     "TypedPathStep",
@@ -289,6 +292,7 @@ __all__ = [
     "SemanticInterpretationCandidate",
     "SemanticOperationClass",
     "SecuredObjectSetNodeHandler",
+    "SecuredOntologyInstancePathNodeHandler",
     "SecuredRelationshipTraversalNodeHandler",
     "SecuredTypedPathNodeHandler",
     "SetOperationNodeHandler",

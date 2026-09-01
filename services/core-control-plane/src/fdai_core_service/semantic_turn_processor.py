@@ -107,6 +107,7 @@ _AUTHORITATIVE_EVIDENCE_UNAVAILABLE_REASONS = {
     "operational_evidence_over_budget",
     "semantic_evidence_authority_conflict",
     "semantic_evidence_authority_missing",
+    "semantic_current_relationship_mapping_unavailable",
 }
 
 
@@ -1522,6 +1523,7 @@ def _project_execution_hold(
             execution.status == "completed"
             and result.reason
             not in {
+                "semantic_current_relationship_mapping_unavailable",
                 "semantic_evidence_authority_conflict",
                 "semantic_evidence_authority_missing",
             }
@@ -1548,6 +1550,7 @@ def _project_execution_hold(
             result.reason
             if result.reason
             in {
+                "semantic_current_relationship_mapping_unavailable",
                 "semantic_evidence_authority_conflict",
                 "semantic_evidence_authority_missing",
             }
@@ -1584,11 +1587,21 @@ def _projected_execution_evidence_matches(
         return False
     graph_goals = graph.get("goals")
     evidence_goals = evidence.get("goals")
+    evidence_status = evidence.get("status")
+    status_is_projectable = evidence_status in {
+        "partial",
+        "unavailable",
+        "failed",
+        "cancelled",
+    } or (
+        result.reason == "semantic_current_relationship_mapping_unavailable"
+        and evidence_status == "completed"
+    )
     if (
         graph.get("schema_version") != 2
         or graph.get("action_posture") != "advise_only"
         or evidence.get("schema_version") not in {1, 2}
-        or evidence.get("status") not in {"partial", "unavailable", "failed", "cancelled"}
+        or not status_is_projectable
         or not isinstance(graph_goals, list)
         or not isinstance(evidence_goals, list)
         or not 1 <= len(graph_goals) <= MAX_INTENT_GRAPH_GOALS
@@ -2249,12 +2262,13 @@ def _render_query_answer(
     incident_evidence: dict[str, object] | None = None,
     incident_node_id: str | None = None,
     ontology_relationships: dict[str, object] | None = None,
-    ontology_relationships_node_id: str | None = None,
+    ontology_relationships_node_id: tuple[str, ...] | None = None,
 ) -> tuple[str | None, dict[str, object] | None]:
     outputs: list[dict[str, object]] = []
     projected_rule_search = False
     projected_incident = False
     projected_relationships = False
+    relationship_node_ids = set(ontology_relationships_node_id or ())
     for node_id in execution.output_node_ids:
         result = execution.results.get(node_id)
         if result is None:
@@ -2273,14 +2287,21 @@ def _render_query_answer(
                     }
                 )
                 projected_incident = True
-            elif ontology_relationships is not None and node_id == ontology_relationships_node_id:
+            elif ontology_relationships is not None and node_id in relationship_node_ids:
                 if projected_relationships:
-                    return None, None
+                    continue
+                relationship_evidence_refs = tuple(
+                    evidence_ref
+                    for relationship_node_id in ontology_relationships_node_id or ()
+                    if (relationship_result := execution.results.get(relationship_node_id))
+                    is not None
+                    for evidence_ref in relationship_result.evidence_refs
+                )
                 outputs.append(
                     {
                         "node_id": node_id,
                         "ontology_relationships": ontology_relationships,
-                        "evidence_refs": list(result.evidence_refs),
+                        "evidence_refs": list(dict.fromkeys(relationship_evidence_refs)),
                     }
                 )
                 projected_relationships = True

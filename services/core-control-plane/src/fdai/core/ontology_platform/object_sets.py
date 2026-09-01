@@ -19,6 +19,7 @@ from .models import (
     ObjectSetDefinition,
     ObjectSetMaterialization,
     ObjectSetTruncationReason,
+    OntologyInstancePathDefinition,
 )
 
 _STORE_QUERY_LIMIT = 1000
@@ -99,6 +100,20 @@ class ObjectSetService:
             concrete_types=concrete_types,
             truncated=graph.truncated,
             truncation_reason=truncation_reason,
+        )
+
+    async def materialize_instance_path(
+        self,
+        definition: OntologyInstancePathDefinition,
+    ) -> OntologyGraphSnapshot:
+        """Read one bounded multi-type path candidate graph in a single store snapshot."""
+
+        return await self._store.traverse_from_type(
+            root_object_type=definition.root_selector.name,
+            link_types=tuple(step.link_type for step in definition.steps),
+            direction="both",
+            max_depth=len(definition.steps),
+            limit=_STORE_QUERY_LIMIT,
         )
 
     def _resolve_types(self, definition: ObjectSetDefinition) -> tuple[str, ...]:

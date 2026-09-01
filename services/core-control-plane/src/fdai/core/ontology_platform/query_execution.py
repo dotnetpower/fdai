@@ -36,6 +36,7 @@ class QueryNodeResult:
     value: object
     evidence_refs: tuple[str, ...] = ()
     authority: EvidenceAuthority | None = None
+    authority_inputs: tuple[EvidenceAuthority, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -422,6 +423,7 @@ class OntologyQueryPlanExecutor:
                 reason=None,
                 evidence_refs=result.evidence_refs,
                 authority=result.authority,
+                authority_inputs=result.authority_inputs,
                 started_at=started_at,
                 started_monotonic=started_monotonic,
             ),
@@ -525,6 +527,7 @@ class OntologyQueryPlanExecutor:
         started_monotonic: float,
         evidence_refs: tuple[str, ...] = (),
         authority: EvidenceAuthority | None = None,
+        authority_inputs: tuple[EvidenceAuthority, ...] = (),
     ) -> GoalTaskReceipt:
         completed_at = self._aware_now()
         duration_ms = max(0, min(86_400_000, round((time.monotonic() - started_monotonic) * 1000)))
@@ -540,6 +543,7 @@ class OntologyQueryPlanExecutor:
             reason=reason,
             evidence_refs=evidence_refs,
             authority=authority,
+            authority_inputs=authority_inputs,
             started_at=started_at,
             completed_at=max(started_at, completed_at),
         )
@@ -560,6 +564,18 @@ def _bind_result_authority(
         for dependency in dependencies.values()
         if dependency.authority is not None
     }
+    if result.authority is EvidenceAuthority.SERVER_ONTOLOGY_INSTANCE_PATH:
+        expected_inputs = (
+            EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+            EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
+        )
+        if result.authority_inputs != expected_inputs or dependency_authorities != {
+            EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST
+        }:
+            raise QueryNodeHeldError("evidence_authority_derivation_invalid")
+        return result
+    if result.authority_inputs:
+        raise QueryNodeHeldError("evidence_authority_derivation_invalid")
     if len(dependency_authorities) > 1:
         raise QueryNodeHeldError("evidence_authority_conflict")
     dependency_authority = next(iter(dependency_authorities), None)

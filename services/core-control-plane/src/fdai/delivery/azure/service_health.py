@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Final
 from uuid import UUID
 
@@ -24,6 +24,8 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _MANAGEMENT_AUDIENCE: Final = "https://management.azure.com/.default"
 _ARG_API_VERSION: Final = "2022-10-01"
+_DOTNET_UNIX_EPOCH_TICKS: Final = 621_355_968_000_000_000
+_DOTNET_TICKS_PER_MICROSECOND: Final = 10
 _EVENT_TYPES = {
     "serviceissue": "service_issue",
     "plannedmaintenance": "planned_maintenance",
@@ -128,9 +130,9 @@ class AzureServiceHealthReader:
         events: list[_Event] = []
         malformed = False
         for row in raw_events[: self._config.max_events]:
-            event = _event(row, observed_at=observed_at)
+            event, scheduled_future = _event(row, observed_at=observed_at)
             if event is None:
-                malformed = True
+                malformed = malformed or not scheduled_future
             else:
                 events.append(event)
         event_limited = len(raw_events) > self._config.max_events
@@ -337,7 +339,7 @@ def _active_impacts_query(aliases: tuple[str, ...], max_impacts: int) -> str:
     )
 
 
-def _event(row: Mapping[str, Any], *, observed_at: datetime) -> _Event | None:
+def _event(row: Mapping[str, Any], *, observed_at: datetime) -> tuple[_Event | None, bool]:
     tracking_id = _bounded_text(row.get("trackingId"), 256)
     event_name = _bounded_text(row.get("eventName"), 256)
     aliases = tuple(
@@ -347,24 +349,29 @@ def _event(row: Mapping[str, Any], *, observed_at: datetime) -> _Event | None:
     status_raw = _bounded_text(row.get("status"), 64)
     impact_start_at = _timestamp(row.get("impactStartTime"))
     if not aliases or event_type_raw is None or status_raw is None or impact_start_at is None:
-        return None
+        return None, False
     event_type = _EVENT_TYPES.get(_alphanumeric(event_type_raw))
     status = _machine_token(status_raw)
-    if event_type is None or status != "active" or impact_start_at > observed_at:
-        return None
+    if event_type is None or status != "active":
+        return None, False
+    if impact_start_at > observed_at:
+        return None, True
     title = _bounded_text(row.get("title"), 512) or event_name
     if title is None:
-        return None
+        return None, False
     level_raw = _bounded_text(row.get("level"), 64)
     material = "|".join((*aliases, event_type, status, impact_start_at.isoformat()))
-    return _Event(
-        aliases=aliases,
-        event_type=event_type,
-        title=title,
-        level=_machine_token(level_raw) if level_raw is not None else None,
-        status=status,
-        impact_start_at=impact_start_at,
-        evidence_ref=f"azure-service-health:{hashlib.sha256(material.encode()).hexdigest()}",
+    return (
+        _Event(
+            aliases=aliases,
+            event_type=event_type,
+            title=title,
+            level=_machine_token(level_raw) if level_raw is not None else None,
+            status=status,
+            impact_start_at=impact_start_at,
+            evidence_ref=f"azure-service-health:{hashlib.sha256(material.encode()).hexdigest()}",
+        ),
+        False,
     )
 
 
@@ -442,6 +449,16 @@ def _bounded_text(value: object, maximum: int) -> str | None:
 def _timestamp(value: object) -> datetime | None:
     if not isinstance(value, str) or not value.strip():
         return None
+    if value.isascii() and value.isdigit():
+        ticks_since_unix_epoch = int(value) - _DOTNET_UNIX_EPOCH_TICKS
+        if ticks_since_unix_epoch < 0:
+            return None
+        try:
+            return datetime(1970, 1, 1, tzinfo=UTC) + timedelta(
+                microseconds=ticks_since_unix_epoch // _DOTNET_TICKS_PER_MICROSECOND
+            )
+        except OverflowError:
+            return None
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:

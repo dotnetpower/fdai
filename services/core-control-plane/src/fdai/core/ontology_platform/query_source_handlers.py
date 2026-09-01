@@ -6,22 +6,33 @@ import json
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, is_dataclass
 
-from fdai_service_contracts.ontology_query import EvidenceAuthority, OntologyQueryNode
+from fdai_service_contracts.ontology_query import (
+    EvidenceAuthority,
+    OntologyQueryNode,
+    content_digest,
+)
 
 from fdai.shared.contracts.models import CeilingRole, OntologyFunctionKind
 from fdai.shared.ontology.acl import ProjectionRequest
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
+from fdai.shared.providers.ontology_instance import OntologyGraphSnapshot, OntologyObjectRecord
 
 from .functions import FunctionInvocationContext, OntologyFunctionRegistry
 from .graph_query_refresh import SecuredGraphEvidenceQueryRefresher
 from .models import (
     ObjectSetDefinition,
     ObjectTraversal,
+    OntologyInstancePathDefinition,
     RelationshipTraversalDefinition,
     TypedPathDefinition,
 )
 from .query_execution import QueryNodeHeldError, QueryNodeResult
-from .query_gateway import SecuredObjectSetQueryGateway, SecuredObjectSetQueryResult
+from .query_gateway import (
+    SecuredObjectSetQueryGateway,
+    SecuredObjectSetQueryResult,
+    SecuredOntologyInstancePathGraph,
+    SecuredOntologyInstancePathReceipt,
+)
 from .query_receipt_authority import SecuredQueryReceiptAuthority, secured_query_scope_digest
 from .query_values import QueryRow, QueryTable
 
@@ -275,6 +286,184 @@ class SecuredTypedPathNodeHandler:
         )
 
 
+class SecuredOntologyInstancePathNodeHandler:
+    """Return concrete multi-root instance paths under one composite read authority."""
+
+    def __init__(
+        self,
+        gateway: SecuredObjectSetQueryGateway,
+        *,
+        caller_role: CeilingRole,
+        purposes: Sequence[str],
+        principal_scope_digest: str,
+    ) -> None:
+        if not principal_scope_digest:
+            raise ValueError("ontology instance path requires a principal scope digest")
+        self._gateway = gateway
+        self._request = ProjectionRequest(
+            caller_role=caller_role,
+            declared_purposes=frozenset(purposes),
+            principal_scope_digest=principal_scope_digest,
+        )
+
+    async def __call__(
+        self,
+        node: OntologyQueryNode,
+        dependencies: Mapping[str, QueryNodeResult],
+    ) -> QueryNodeResult:
+        if set(dependencies) != set(node.depends_on):
+            raise ValueError("ontology instance path dependencies do not match the plan")
+        definition = OntologyInstancePathDefinition.model_validate(node.arguments)
+        secured = await self._gateway.materialize_instance_path(
+            definition,
+            projection_request=self._request,
+        )
+        _verify_instance_path_schema(
+            dependencies,
+            node=node,
+            definition=definition,
+            ontology_release_digest=secured.ontology_release.digest,
+        )
+        _verify_instance_path_graph(secured)
+        paths, empty_at_step = _instance_paths(secured.graph, definition=definition)
+        if not paths:
+            raise QueryNodeHeldError("ontology_instance_path_empty")
+        rows = tuple(_instance_path_row(path) for path in paths)
+        table = QueryTable(rows=rows, complete=True)
+        receipt = SecuredOntologyInstancePathReceipt(
+            ontology_release=secured.ontology_release,
+            principal_scope_digest=secured.principal_scope_digest,
+            purpose=secured.purpose,
+            caller_role=secured.caller_role,
+            definition_digest=content_digest(definition.model_dump(mode="json")),
+            projected_graph_digest=secured.projected_graph_digest,
+            result_digest=table.digest,
+            component_authorities=(
+                EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+                EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
+            ),
+            source_generation=secured.graph.source_generation,
+            observation_cutoff=secured.observation_cutoff,
+            path_count=len(rows),
+            empty_at_step=empty_at_step,
+        )
+        return QueryNodeResult(
+            value=table,
+            evidence_refs=_evidence_refs(dependencies)
+            + (
+                f"ontology-instance-path:{receipt.receipt_digest}",
+                f"ontology-query-table:{table.digest}",
+            ),
+            authority=EvidenceAuthority.SERVER_ONTOLOGY_INSTANCE_PATH,
+            authority_inputs=receipt.component_authorities,
+        )
+
+
+def _verify_instance_path_schema(
+    dependencies: Mapping[str, QueryNodeResult],
+    *,
+    node: OntologyQueryNode,
+    definition: OntologyInstancePathDefinition,
+    ontology_release_digest: str,
+) -> None:
+    current_type = definition.root_selector.name
+    for dependency_id, step in zip(node.depends_on, definition.steps, strict=True):
+        value = dependencies[dependency_id].value
+        expected_source = current_type if step.direction == "outgoing" else step.selector.name
+        expected_target = step.selector.name if step.direction == "outgoing" else current_type
+        relationships = value.get("relationships") if isinstance(value, Mapping) else None
+        if (
+            not isinstance(value, Mapping)
+            or value.get("authority") != "ontology_release"
+            or value.get("ontology_release_digest") != ontology_release_digest
+            or value.get("execution_authority") is not False
+            or value.get("complete") is not True
+            or not isinstance(relationships, list)
+            or not any(
+                isinstance(relationship, Mapping)
+                and relationship.get("link_type") == step.link_type
+                and relationship.get("from_type") == expected_source
+                and relationship.get("to_type") == expected_target
+                for relationship in relationships
+            )
+        ):
+            raise QueryNodeHeldError("ontology_instance_path_schema_unverified")
+        current_type = step.selector.name
+
+
+def _verify_instance_path_graph(secured: SecuredOntologyInstancePathGraph) -> None:
+    if not secured.principal_scope_digest:
+        raise QueryNodeHeldError("ontology_instance_path_scope_missing")
+    if secured.graph.truncated or not secured.graph.source_complete:
+        raise QueryNodeHeldError("ontology_instance_path_incomplete")
+    if (
+        secured.redactions.redacted_identity_count
+        or secured.redactions.removed_link_count
+        or secured.redactions.links_with_redactions
+    ):
+        raise QueryNodeHeldError("ontology_instance_path_identity_redacted")
+
+
+def _instance_paths(
+    graph: OntologyGraphSnapshot,
+    *,
+    definition: OntologyInstancePathDefinition,
+) -> tuple[tuple[tuple[OntologyObjectRecord, ...], ...], int | None]:
+    objects = {record.id: record for record in graph.objects}
+    paths: tuple[tuple[OntologyObjectRecord, ...], ...] = tuple(
+        (record,) for record in graph.objects if record.object_type == definition.root_selector.name
+    )
+    if not paths:
+        return (), 0
+    for index, step in enumerate(definition.steps, start=1):
+        expanded: list[tuple[OntologyObjectRecord, ...]] = []
+        for path in paths:
+            root_id = path[-1].id
+            for link in graph.links:
+                target_id = None
+                if (
+                    link.link_type == step.link_type
+                    and step.direction == "outgoing"
+                    and link.from_id == root_id
+                ):
+                    target_id = link.to_id
+                elif (
+                    link.link_type == step.link_type
+                    and step.direction == "incoming"
+                    and link.to_id == root_id
+                ):
+                    target_id = link.from_id
+                target = objects.get(target_id) if target_id is not None else None
+                if target is None or target.object_type != step.selector.name:
+                    continue
+                expanded.append((*path, target))
+                if len(expanded) > definition.limit:
+                    raise QueryNodeHeldError("ontology_instance_path_limit_exceeded")
+        paths = tuple(expanded)
+        if not paths:
+            return (), index
+    if graph.source_generation is None:
+        raise QueryNodeHeldError("ontology_instance_path_generation_unavailable")
+    return paths, None
+
+
+def _instance_path_row(path: tuple[OntologyObjectRecord, ...]) -> QueryRow:
+    values: dict[str, object] = {
+        "root_id": path[0].id,
+        "root_type": path[0].object_type,
+        "target_id": path[-1].id,
+        "target_type": path[-1].object_type,
+        "execution_authority": False,
+    }
+    for index, record in enumerate(path[1:], start=1):
+        values[f"step_{index}_id"] = record.id
+        values[f"step_{index}_type"] = record.object_type
+    return QueryRow.from_values(
+        content_digest({"path": [record.id for record in path]}),
+        values,
+    )
+
+
 async def _issue_secured_result(
     authority: SecuredQueryReceiptAuthority,
     result: SecuredObjectSetQueryResult,
@@ -482,6 +671,7 @@ def _evidence_refs(dependencies: Mapping[str, QueryNodeResult]) -> tuple[str, ..
 __all__ = [
     "FunctionNodeHandler",
     "SecuredObjectSetNodeHandler",
+    "SecuredOntologyInstancePathNodeHandler",
     "SecuredRelationshipTraversalNodeHandler",
     "SecuredTypedPathNodeHandler",
 ]

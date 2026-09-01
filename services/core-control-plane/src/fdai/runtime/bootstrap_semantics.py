@@ -24,7 +24,6 @@ from fdai.core.ontology_platform.incident_queries import IncidentEvidenceReader
 from fdai.core.ontology_platform.inventory_projection import (
     DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS,
 )
-from fdai.core.ontology_platform.operational_functions import operational_function_types
 from fdai.core.operational_context import OperationalEvidenceReadService
 from fdai.delivery.evidence_conflict import (
     EventBusEvidenceConflictCandidatePublisher,
@@ -75,6 +74,7 @@ from fdai.runtime.rule_generation_documents import (
     RuleGenerationReconciliation,
     build_rule_generation_reconciliation,
 )
+from fdai.shared.contracts.models import OntologyDeclarationKind
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.log_query import NoopLogQueryProvider
 from fdai.shared.providers.state_store import StateStore
@@ -282,11 +282,24 @@ async def build_semantic_runtime(
     )
     readiness_path = environment.get("FDAI_CHAT_ASSURANCE_READINESS_RECEIPT", "").strip()
     if readiness_path:
+        ontology_release = control_loop.ontology_release
         readiness = await observe_runtime_readiness(
-            declared_function_names=tuple(item.name for item in operational_function_types(())),
-            semantic_runtime_bound=semantic_composition.runtime is not None,
+            declared_function_names=tuple(
+                declaration.name
+                for declaration in (
+                    ontology_release.declarations if ontology_release is not None else ()
+                )
+                if declaration.kind is OntologyDeclarationKind.FUNCTION
+            ),
+            function_bindings=(
+                {
+                    name: authority.value
+                    for name, authority in semantic_composition.runtime.function_bindings.items()
+                }
+                if semantic_composition.runtime is not None
+                else {}
+            ),
             service_health_reader=service_health_reader,
-            resource_health_reader_bound=resource_health_reader is not None,
         )
         write_runtime_readiness_receipt(Path(readiness_path), readiness)
     semantic_turn_binding = build_semantic_turn_binding(

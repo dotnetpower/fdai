@@ -62,6 +62,7 @@ def _corpus():
             expected_frame=frame,
             required_capabilities=("object_set",),
             allowed_dispositions=("answered", "held"),
+            expected_disposition="answered",
             required_facts=("resource.status",),
             forbidden_claims=("execution.completed",),
             evidence_posture=QuestionEvidencePosture.FRESH,

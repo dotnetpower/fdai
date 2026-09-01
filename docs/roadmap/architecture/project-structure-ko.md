@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 5bce14ba1ccf0efc68199a7803c18744486b8154
+translation_source_sha: 8c4e10d9a9ebc0f60920dac61119ebc98210a3e4
 translation_revised: 2026-09-01
 ---
 # 프로젝트 구조
@@ -152,9 +152,11 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   명시적 Pantheon 캠페인은 Pantheon 초기화 후 별도의 일회성 런타임 연결을 사용합니다. Core는
   요청된 사례를 서버의 고정 census와 대조해 검증하고, Bragi는 단일 최종 답변을 만들며, 응답 경로
   밖의 서로 다른 모델 계열 검토자는 상관관계가 연결된 30점 진단을 추가합니다. 일반
-  `operations-review` 턴은 기존 의미 런타임을 계속 사용합니다.
-  과거 `context_locale_scorecard.py` 가져오기는 통합 기여 모듈의 호환 전용 재내보내기로
-  유지합니다.
+  `operations-review` 턴은 등록된 함수 권한의 변경할 수 없는 스냅샷을 준비 상태 소비자에게
+  노출하는 기존 의미 런타임을 계속 사용합니다. 스키마로 검증된 판단은 활성 매니페스트와 정본
+  주체 및 항목이 일치하는 일반 타입 프레임만 복구할 수 있습니다. Golden 인증은 정확한 예상
+  최종 처리 결과에 바인딩되고, Operator 묶음은 Core 계획 전에 요청된 로케일을 보존합니다.
+  과거 `context_locale_scorecard.py`는 호환 전용으로 다시 내보냅니다.
   표본을 구문 분석하며 추적 약속값을 완전한 추적 주장으로 변환하지 않습니다. 인접한
   `quality_trace.py` 축약기는 레코드 약속값만 받고 순서가 정확한 세션부터 감사까지의 연결에서
   완전성을 증명합니다. 프로바이더를 읽지 않으며 qualification 권한을 부여하지 않습니다.

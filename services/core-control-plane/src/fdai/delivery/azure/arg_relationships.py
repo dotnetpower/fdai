@@ -35,6 +35,7 @@ ArmIdToType = Callable[[str], str | None]
 ToNeutralId = Callable[[str], str]
 ExternalReferenceResolver = Callable[[str], str | None]
 _OPEN_ENV_VALUE_PATH = "properties.template.containers[].env[].value"
+_OPEN_TAG_VALUE_PATH = "tags{values}"
 _ROLE_ASSIGNMENT_PRINCIPAL_MAPPING_ID = "azure.role-assignment-attached-to-managed-identity"
 _ROLE_ASSIGNMENT_SCOPE_MAPPING_ID = "azure.role-assignment-attached-to-scope"
 
@@ -140,6 +141,11 @@ def project_provider_relationships(
                 provider_reference,
                 arm_id_to_type=arm_id_to_type,
             )
+            if (
+                mapping.source_property_path == _OPEN_TAG_VALUE_PATH
+                and target_provider_type is None
+            ):
+                continue
             if target_provider_type is None or not _provider_type_allowed(
                 target_provider_type,
                 mapping.target_provider_types,

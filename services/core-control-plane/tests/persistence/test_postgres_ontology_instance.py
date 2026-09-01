@@ -9,10 +9,12 @@ import sys
 import uuid
 from pathlib import Path
 
+import psycopg
 import pytest
 from fdai.delivery.persistence import (
     PostgresOntologyInstanceStore,
     PostgresOntologyInstanceStoreConfig,
+    postgres_ontology,
 )
 from fdai.shared.contracts.models import (
     LinkCardinality,
@@ -26,6 +28,7 @@ from fdai.shared.providers.ontology_instance import (
     OntologyLinkRecord,
     OntologyObjectRecord,
 )
+from psycopg.rows import dict_row
 
 pytestmark = pytest.mark.integration
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -156,6 +159,80 @@ async def test_postgres_ontology_round_trip_and_traversal() -> None:
     assert exact_root_limit.truncated is False
     assert [item.id for item in deduplicated_roots.objects] == [check_id]
     assert deduplicated_roots.truncated is False
+
+
+async def test_postgres_inventory_coverage_scopes_reconciliation_markers() -> None:
+    connection = await psycopg.AsyncConnection.connect(
+        _requires_live_db(),
+        autocommit=True,
+        row_factory=dict_row,
+    )
+    try:
+        await connection.execute(
+            "CREATE TEMP TABLE inventory_snapshot (id TEXT PRIMARY KEY, scopes JSONB NOT NULL)"
+        )
+        await connection.execute(
+            "CREATE TEMP TABLE inventory_active "
+            "(singleton BOOLEAN PRIMARY KEY, snapshot_id TEXT NOT NULL)"
+        )
+        await connection.execute(
+            "CREATE TEMP TABLE state_kv (key TEXT PRIMARY KEY, value JSONB NOT NULL)"
+        )
+        await connection.execute(
+            "INSERT INTO inventory_snapshot (id, scopes) "
+            "VALUES ('generation-2', '[\"scope-a\"]'::jsonb)"
+        )
+        await connection.execute(
+            "INSERT INTO inventory_active (singleton, snapshot_id) VALUES (TRUE, 'generation-2')"
+        )
+        for key, value in (
+            (
+                "inventory-ontology:status",
+                '{"status":"available","generation":"generation-2","complete":true}',
+            ),
+            (
+                "inventory-ontology:manifest",
+                '{"generation":"generation-2","complete":true,'
+                '"relationship_complete":true,"dropped_reasons":[]}',
+            ),
+            (
+                "inventory-relationship-reconciliation:scope-b",
+                '{"observed_at":"2026-09-01T00:00:00Z"}',
+            ),
+        ):
+            await connection.execute(
+                "INSERT INTO state_kv (key, value) VALUES (%s, %s::jsonb)",
+                (key, value),
+            )
+
+        unrelated_complete, generation = await postgres_ontology._resource_graph_source_coverage(  # noqa: SLF001
+            connection,
+            (),
+            requires_resource_coverage=True,
+        )
+        await connection.execute(
+            "INSERT INTO state_kv (key, value) "
+            "VALUES ('inventory-relationship-reconciliation:scope-a', "
+            '\'{"observed_at":"2026-09-01T00:00:00Z"}\'::jsonb)'
+        )
+        related_complete, _ = await postgres_ontology._resource_graph_source_coverage(  # noqa: SLF001
+            connection,
+            (),
+            requires_resource_coverage=True,
+        )
+        object_only_complete, _ = await postgres_ontology._resource_graph_source_coverage(  # noqa: SLF001
+            connection,
+            (),
+            requires_resource_coverage=True,
+            expresses_relationships=False,
+        )
+    finally:
+        await connection.close()
+
+    assert unrelated_complete is True
+    assert related_complete is False
+    assert object_only_complete is True
+    assert generation == "generation-2"
 
 
 async def test_postgres_replace_subgraph_removes_prior_owned_records() -> None:

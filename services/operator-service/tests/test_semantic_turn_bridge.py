@@ -119,6 +119,23 @@ def test_semantic_envelope_defaults_to_core_operations_review_purpose() -> None:
     assert semantic_turn["include_model_trace"] is False
 
 
+@pytest.mark.parametrize(("requested", "expected"), [(None, "en"), ("en", "en"), ("ko", "ko")])
+def test_semantic_envelope_preserves_requested_locale(
+    requested: str | None,
+    expected: str,
+) -> None:
+    body: JsonObject = {"prompt": "Show current evidence."}
+    if requested is not None:
+        body["locale"] = requested
+
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal(body=body)
+    )
+
+    semantic_turn = cast(dict[str, object], envelope["semantic_turn"])
+    assert semantic_turn["locale"] == expected
+
+
 def test_semantic_envelope_forwards_model_trace_opt_in() -> None:
     envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
         _proposal(

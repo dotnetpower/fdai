@@ -18,6 +18,12 @@ from .semantic_planning_frame import (
     build_bound_incident_metric_comparison_frame as _build_bound_incident_metric_comparison_frame,
 )
 from .semantic_planning_frame import (
+    build_business_capability_mapping_frame as _build_business_capability_mapping_frame,
+)
+from .semantic_planning_frame import (
+    build_configuration_drift_clarification as _build_configuration_drift_clarification,
+)
+from .semantic_planning_frame import (
     build_historical_topology_clarification as _build_historical_topology_clarification,
 )
 from .semantic_planning_frame import (
@@ -45,10 +51,23 @@ from .semantic_planning_frame import (
     build_resource_classification_frame as _build_resource_classification_frame,
 )
 from .semantic_planning_frame import (
-    build_resource_relationship_clarification as _build_resource_relationship_clarification,
+    build_resource_current_state_clarification as _build_resource_current_state_clarification,
 )
 from .semantic_planning_frame import (
+    build_resource_event_history_clarification as _build_resource_event_history_clarification,
+)
+from .semantic_planning_frame import (
+    build_resource_relationship_clarification as _build_resource_relationship_clarification,
+)
+from .semantic_planning_frame import build_rule_state_frame as _build_rule_state_frame
+from .semantic_planning_frame import (
     build_service_agent_ownership_frame as _build_service_agent_ownership_frame,
+)
+from .semantic_planning_frame import (
+    build_service_current_health_clarification as _build_service_current_health_clarification,
+)
+from .semantic_planning_frame import (
+    build_unbound_change_correlation_frame as _build_unbound_change_correlation_frame,
 )
 from .semantic_planning_frame import (
     is_completed_change_outcome_frame as _is_completed_change_outcome_frame,
@@ -58,9 +77,6 @@ from .semantic_planning_frame import (
 )
 from .semantic_planning_frame import (
     is_incident_triage_frame as _is_incident_triage_frame,
-)
-from .semantic_planning_frame import (
-    is_ontology_trace_frame as _is_ontology_trace_frame,
 )
 from .semantic_planning_frame import (
     is_resource_classification_frame as _is_resource_classification_frame,
@@ -142,6 +158,19 @@ def deterministic_pre_frame_outcome(
             manifest_digest=manifest_digest,
             frame=incident_metric_comparison,
         )
+    change_correlation = _build_unbound_change_correlation_frame(
+        judgment,
+        bound_incident=bound_incident,
+        utterance=utterance,
+        context=context,
+    )
+    if change_correlation is not None:
+        return _outcome(
+            SemanticPlanningDisposition.UNAVAILABLE,
+            "semantic_change_correlation_incident_binding_unavailable",
+            manifest_digest=manifest_digest,
+            frame=change_correlation,
+        )
     network_path_clarification = _build_network_path_clarification(
         judgment,
         utterance=utterance,
@@ -198,30 +227,71 @@ def deterministic_pre_frame_outcome(
             frame=relationship_frame,
             clarification=relationship_proposal.clarification,
         )
-    ontology_trace = _build_ontology_trace_frame(
+    resource_current_state = _build_resource_current_state_clarification(
         judgment,
         utterance=utterance,
         context=context,
     )
-    if ontology_trace is not None:
+    if resource_current_state is not None:
+        current_proposal, current_frame = resource_current_state
         return _outcome(
-            SemanticPlanningDisposition.UNAVAILABLE,
-            "semantic_ontology_trace_unavailable",
+            SemanticPlanningDisposition.CLARIFICATION,
+            "semantic_clarification_required",
             manifest_digest=manifest_digest,
-            frame=ontology_trace,
+            frame=current_frame,
+            clarification=current_proposal.clarification,
         )
-    service_agent_ownership = _build_service_agent_ownership_frame(
+    configuration_drift = _build_configuration_drift_clarification(
         judgment,
         utterance=utterance,
         context=context,
-        descriptors=descriptors,
     )
-    if service_agent_ownership is not None:
+    if configuration_drift is not None:
+        drift_proposal, drift_frame = configuration_drift
         return _outcome(
-            SemanticPlanningDisposition.UNAVAILABLE,
-            "semantic_service_agent_ownership_unavailable",
+            SemanticPlanningDisposition.CLARIFICATION,
+            "semantic_clarification_required",
             manifest_digest=manifest_digest,
-            frame=service_agent_ownership,
+            frame=drift_frame,
+            clarification=drift_proposal.clarification,
+        )
+    service_current_health = _build_service_current_health_clarification(
+        judgment,
+        utterance=utterance,
+        context=context,
+    )
+    if service_current_health is not None:
+        service_proposal, service_frame = service_current_health
+        return _outcome(
+            SemanticPlanningDisposition.CLARIFICATION,
+            "semantic_clarification_required",
+            manifest_digest=manifest_digest,
+            frame=service_frame,
+            clarification=service_proposal.clarification,
+        )
+    business_capability_mapping = _build_business_capability_mapping_frame(
+        judgment,
+        utterance=utterance,
+        context=context,
+    )
+    if business_capability_mapping is not None:
+        return _outcome(
+            SemanticPlanningDisposition.UNSUPPORTED,
+            "semantic_business_capability_mapping_unsupported",
+            manifest_digest=manifest_digest,
+            frame=business_capability_mapping,
+        )
+    rule_state = _build_rule_state_frame(
+        judgment,
+        utterance=utterance,
+        context=context,
+    )
+    if rule_state is not None:
+        return _outcome(
+            SemanticPlanningDisposition.UNSUPPORTED,
+            "semantic_rule_state_unsupported",
+            manifest_digest=manifest_digest,
+            frame=rule_state,
         )
     resource_classification = _build_resource_classification_frame(
         judgment,
@@ -230,8 +300,8 @@ def deterministic_pre_frame_outcome(
     )
     if resource_classification is not None:
         return _outcome(
-            SemanticPlanningDisposition.UNAVAILABLE,
-            "semantic_resource_classification_unavailable",
+            SemanticPlanningDisposition.UNSUPPORTED,
+            "semantic_resource_classification_unsupported",
             manifest_digest=manifest_digest,
             frame=resource_classification,
         )
@@ -263,6 +333,20 @@ def deterministic_pre_frame_outcome(
             frame=activity_frame,
             clarification=activity_proposal.clarification,
         )
+    resource_event_history = _build_resource_event_history_clarification(
+        judgment,
+        utterance=utterance,
+        context=context,
+    )
+    if resource_event_history is not None:
+        event_proposal, event_frame = resource_event_history
+        return _outcome(
+            SemanticPlanningDisposition.CLARIFICATION,
+            "semantic_clarification_required",
+            manifest_digest=manifest_digest,
+            frame=event_frame,
+            clarification=event_proposal.clarification,
+        )
     ontology_release_health = _build_ontology_release_health_frame(
         judgment,
         utterance=utterance,
@@ -288,6 +372,41 @@ def deterministic_pre_frame_outcome(
             frame=operating_objectives,
         )
     return None
+
+
+def deterministic_pre_frame_selection(
+    *,
+    judgment: Any,
+    utterance: str,
+    context: tuple[str, ...],
+    descriptors: tuple[dict[str, Any], ...],
+) -> tuple[SemanticFrameProposal, Any, VerifiedInvestigationIntent | None] | None:
+    """Build accepted typed relationship frames before model frame proposal."""
+
+    frame = _build_ontology_trace_frame(judgment, utterance=utterance, context=context)
+    if frame is None:
+        frame = _build_service_agent_ownership_frame(
+            judgment,
+            utterance=utterance,
+            context=context,
+            descriptors=descriptors,
+        )
+    if frame is None or judgment is None:
+        return None
+    proposal = SemanticFrameProposal(
+        operation=frame.operation,
+        subject_constraints=frame.subject_constraints,
+        measure_concepts=frame.measure_concepts,
+        temporal_scope=frame.temporal_scope,
+        output_shape=SemanticOutputShape(frame.output_shape),
+        evidence_requirements=frame.evidence_requirements,
+        unresolved_terms=frame.unresolved_terms,
+        clarification_requirements=(),
+        clarification=None,
+        investigation=None,
+        confidence=judgment.confidence,
+    )
+    return proposal, frame, None
 
 
 def normalize_and_gate_frame(
@@ -397,13 +516,6 @@ def normalize_and_gate_frame(
         utterance=utterance,
         context=context,
     )
-    if _is_ontology_trace_frame(frame):
-        return _outcome(
-            SemanticPlanningDisposition.UNAVAILABLE,
-            "semantic_ontology_trace_unavailable",
-            manifest_digest=manifest_digest,
-            frame=frame,
-        )
     proposal, frame = _normalize_historical_topology_clarification(
         proposal,
         frame,
@@ -516,5 +628,6 @@ def normalize_and_gate_frame(
 
 __all__ = [
     "deterministic_pre_frame_outcome",
+    "deterministic_pre_frame_selection",
     "normalize_and_gate_frame",
 ]

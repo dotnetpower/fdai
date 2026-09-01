@@ -36,6 +36,46 @@ def project_function_claims(
     return projector(value) if projector is not None else SemanticAssuranceClaims()
 
 
+def project_instance_path_claims(value: object) -> SemanticAssuranceClaims:
+    """Project service ownership claims only from complete concrete instance paths."""
+
+    if not isinstance(value, QueryTable) or not value.complete:
+        return SemanticAssuranceClaims()
+    limitations = ("ontology_ownership_does_not_grant_execution",)
+    if not value.rows:
+        return SemanticAssuranceClaims(limitation_kinds=limitations)
+    for row in value.rows:
+        values = row.values
+        if (
+            values.get("root_type") != "BusinessService"
+            or values.get("step_1_type") != "Workload"
+            or values.get("step_2_type") != "Resource"
+            or values.get("step_3_type") != "Agent"
+            or values.get("target_type") != "Agent"
+            or values.get("execution_authority") is not False
+            or not all(
+                _nonempty_text(values.get(field))
+                for field in (
+                    "root_id",
+                    "step_1_id",
+                    "step_2_id",
+                    "step_3_id",
+                    "target_id",
+                )
+            )
+        ):
+            return SemanticAssuranceClaims()
+    return SemanticAssuranceClaims(
+        fact_kinds=(
+            "agent.identity",
+            "agent.ownership_scope",
+            "relationship.path",
+            "service.identity",
+        ),
+        limitation_kinds=limitations,
+    )
+
+
 def _project_resource_current_state(value: object) -> SemanticAssuranceClaims:
     rows, complete = _table_rows(value)
     if rows is None or len(rows) != 1:
@@ -136,6 +176,7 @@ def _project_ontology_relationships(value: object) -> SemanticAssuranceClaims:
     ):
         return SemanticAssuranceClaims()
     facts: set[str] = set()
+    limitations: set[str] = set()
     for relationship in relationships:
         if not isinstance(relationship, Mapping):
             return SemanticAssuranceClaims()
@@ -150,6 +191,12 @@ def _project_ontology_relationships(value: object) -> SemanticAssuranceClaims:
         ):
             return SemanticAssuranceClaims()
         facts.update(("relationship.direction", "relationship.path"))
+        identity_facts = {
+            "applies_to": ("resource_type.identity", "rule.identity"),
+            "remediates": ("action_type.identity", "rule.identity"),
+            "triggered_by": ("rule.identity", "signal_type.identity"),
+        }
+        facts.update(identity_facts.get(str(link_type), ()))
         if link_type in {"routes_via_route", "connected_via_private_link"}:
             facts.add("relationship.route")
         if link_type == "contains":
@@ -158,9 +205,17 @@ def _project_ontology_relationships(value: object) -> SemanticAssuranceClaims:
             facts.add("relationship.attachment")
         if link_type == "workload_depends_on":
             facts.add("dependency.direction")
+        if link_type in {"applies_to", "remediates", "triggered_by"}:
+            limitations.add("catalog_relationships_do_not_prove_current_finding")
+        if link_type in {"implemented_by", "owns", "workload_runs_on"}:
+            limitations.add("catalog_relationships_do_not_prove_current_mapping")
+        if link_type in {"owns", "service_owned_by", "workload_owned_by"}:
+            limitations.add("ontology_ownership_does_not_grant_execution")
     return SemanticAssuranceClaims(
         fact_kinds=tuple(sorted(facts)),
-        limitation_kinds=("truncated_path_must_be_explicit",) if not complete else (),
+        limitation_kinds=tuple(
+            sorted(limitations | ({"truncated_path_must_be_explicit"} if not complete else set()))
+        ),
     )
 
 
@@ -324,4 +379,5 @@ _FUNCTION_CLAIM_REGISTRY: Mapping[str, ClaimProjector] = {
 __all__ = [
     "SemanticAssuranceClaims",
     "project_function_claims",
+    "project_instance_path_claims",
 ]

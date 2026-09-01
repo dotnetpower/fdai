@@ -123,8 +123,8 @@ question_sets:
       ko: 담당 체계를 실행 권한으로 취급하지 말고 권한 범위의 검토된 비즈니스 서비스에서 워크로드와 리소스를 거쳐 선언된 담당 Agent까지 탐색해 주세요
   - expectation_id: service-current-health
     request:
-      en: map an AKS Service to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns
-      ko: AKS Service를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요
+      en: map a business service deployed on AKS to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns
+      ko: AKS에 배포된 비즈니스 서비스를 워크로드와 Pod 리소스, PostgreSQL 또는 Storage 의존성, 호스팅 리소스에 연결하고 검증된 현재 상태와 알 수 없는 상태를 구분해 주세요
   - expectation_id: service-impact
     request:
       en: trace the verified impact path from a PostgreSQL Flexible Server or storage account to its directly dependent workload and business service

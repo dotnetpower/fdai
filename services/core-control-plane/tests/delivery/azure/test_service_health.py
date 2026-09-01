@@ -15,6 +15,7 @@ from fdai.shared.providers.workload_identity import IdentityToken
 SUBSCRIPTION_ID = "00000000-0000-0000-0000-000000000000"
 OTHER_SUBSCRIPTION_ID = SUBSCRIPTION_ID.replace("0", "1")
 NOW = datetime(2026, 8, 21, 18, 0, tzinfo=UTC)
+DOTNET_EPOCH = datetime(1, 1, 1, tzinfo=UTC)
 
 
 class _Identity:
@@ -33,6 +34,11 @@ def _payload(rows: list[dict[str, object]]) -> dict[str, object]:
         "totalRecords": len(rows),
         "resultTruncated": False,
     }
+
+
+def _dotnet_ticks(value: datetime) -> str:
+    delta = value - DOTNET_EPOCH
+    return str(delta.days * 864_000_000_000 + delta.seconds * 10_000_000 + delta.microseconds * 10)
 
 
 async def test_reader_correlates_active_event_to_exact_subscription_impact() -> None:
@@ -108,6 +114,81 @@ async def test_reader_correlates_active_event_to_exact_subscription_impact() -> 
     assert observation.impacted_resource_count == 1
     assert observation.event_evidence_ref.startswith("azure-service-health:")
     assert observation.impact_evidence_ref is not None
+
+
+async def test_reader_accepts_resource_graph_dotnet_tick_timestamp() -> None:
+    impact_start = NOW - timedelta(minutes=10)
+    responses = iter(
+        (
+            httpx.Response(
+                200,
+                json=_payload(
+                    [
+                        {
+                            "eventName": "event-a",
+                            "trackingId": "tracking-a",
+                            "eventType": "HealthAdvisory",
+                            "status": "Active",
+                            "title": "Health advisory",
+                            "impactStartTime": _dotnet_ticks(impact_start),
+                        }
+                    ]
+                ),
+            ),
+            httpx.Response(200, json=_payload([])),
+        )
+    )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda request: next(responses))
+    ) as client:
+        reader = AzureServiceHealthReader(
+            identity=_Identity(),  # type: ignore[arg-type]
+            http_client=client,
+            config=AzureServiceHealthConfig(subscription_id=SUBSCRIPTION_ID),
+            now=lambda: NOW,
+        )
+        result = await reader.read_active()
+
+    assert result.complete is True
+    assert result.limitation is None
+    assert result.observations[0].impact_start_at == impact_start
+
+
+async def test_reader_excludes_scheduled_future_maintenance_without_losing_completeness() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json=_payload(
+                [
+                    {
+                        "eventName": "event-a",
+                        "trackingId": "tracking-a",
+                        "eventType": "PlannedMaintenance",
+                        "status": "Active",
+                        "title": "Planned maintenance",
+                        "impactStartTime": _dotnet_ticks(NOW + timedelta(days=1)),
+                    }
+                ]
+            ),
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        reader = AzureServiceHealthReader(
+            identity=_Identity(),  # type: ignore[arg-type]
+            http_client=client,
+            config=AzureServiceHealthConfig(subscription_id=SUBSCRIPTION_ID),
+            now=lambda: NOW,
+        )
+        result = await reader.read_active()
+
+    assert len(requests) == 1
+    assert result.complete is True
+    assert result.limitation is None
+    assert result.observations == ()
 
 
 async def test_reader_verified_zero_skips_impact_query() -> None:

@@ -168,6 +168,26 @@ class TypedPathDefinition(ContractBase):
         return self
 
 
+class OntologyInstancePathDefinition(ContractBase):
+    """Bounded current instance path whose schema dependencies are verified separately."""
+
+    root_selector: ObjectSelector
+    steps: Annotated[tuple[TypedPathStep, ...], Field(min_length=1, max_length=8)]
+    as_of: datetime
+    purpose: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_-]{0,63}$")]
+    limit: int = Field(default=100, ge=1, le=1000)
+
+    @model_validator(mode="after")
+    def _bounded_path(self) -> OntologyInstancePathDefinition:
+        if self.root_selector.kind is not ObjectSelectorKind.OBJECT_TYPE:
+            raise ValueError("ontology instance path root MUST select one ObjectType")
+        if self.as_of.tzinfo is None:
+            raise ValueError("ontology instance path as_of MUST be timezone-aware")
+        if any(step.max_hops != 1 for step in self.steps):
+            raise ValueError("ontology instance path steps MUST use one exact hop")
+        return self
+
+
 class ObjectSetDefinition(ContractBase):
     selector: ObjectSelector
     predicates: Annotated[tuple[ObjectPredicate, ...], Field(max_length=_MAX_PREDICATES)] = ()

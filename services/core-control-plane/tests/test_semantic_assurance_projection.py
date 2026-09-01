@@ -12,6 +12,7 @@ from fdai.core.ontology_platform import QueryNodeResult, QueryPlanExecution
 from fdai.core.ontology_platform.query_values import QueryRow, QueryTable
 from fdai_core_service.semantic_assurance_projection import project_semantic_assurance
 from fdai_service_contracts.ontology_query import (
+    EvidenceAuthority,
     GoalEvidenceMode,
     GoalTaskReceipt,
     SemanticOperation,
@@ -209,6 +210,231 @@ def test_project_semantic_assurance_entails_relationship_schema_claims() -> None
         "relationship.route",
     )
     assert observation.limitation_kinds == ()
+
+
+def test_project_semantic_assurance_bounds_only_verified_relationship_paths() -> None:
+    relationships = [
+        {
+            "link_type": f"relationship_{index:02d}",
+            "from_type": "Resource",
+            "to_type": f"RelatedType{index:02d}",
+            "cardinality": "many_to_many",
+            "description": "Reviewed relationship.",
+        }
+        for index in range(18)
+    ]
+    result = _function_result(
+        function_name="query.ontology_relationships",
+        value={
+            "object_types": ["Resource"],
+            "relationships": relationships,
+            "complete": True,
+            "authority": "ontology_release",
+            "ontology_release_digest": _DIGEST,
+            "execution_authority": False,
+        },
+    )
+    result.planning.plan.nodes[0].arguments["arguments"] = {
+        "object_types": ["Resource"],
+        "limit": 100,
+    }
+    result.planning.plan.ontology_release_digest = _DIGEST
+
+    observation = project_semantic_assurance(result, disposition="answered")
+
+    assert observation.link_types == tuple(f"relationship_{index:02d}" for index in range(18))
+    assert len(observation.ontology_paths) == 16
+
+
+def test_schema_ownership_relationships_do_not_claim_current_instance_identity() -> None:
+    result = _function_result(
+        function_name="query.ontology_relationships",
+        value={
+            "object_types": ["Agent", "Resource"],
+            "relationships": [
+                {
+                    "link_type": "owns",
+                    "from_type": "Agent",
+                    "to_type": "Resource",
+                    "cardinality": "many_to_many",
+                    "description": "Reviewed ownership declaration.",
+                }
+            ],
+            "complete": True,
+            "authority": "ontology_release",
+            "ontology_release_digest": _DIGEST,
+            "execution_authority": False,
+        },
+    )
+
+    observation = project_semantic_assurance(result, disposition="held")
+
+    assert "agent.identity" not in observation.fact_kinds
+    assert "resource.identity" not in observation.fact_kinds
+    assert "agent.ownership_scope" not in observation.fact_kinds
+    assert observation.limitation_kinds == (
+        "catalog_relationships_do_not_prove_current_mapping",
+        "ontology_ownership_does_not_grant_execution",
+    )
+
+
+def test_composite_instance_path_entails_current_service_agent_ownership() -> None:
+    path_node = SimpleNamespace(
+        node_id="service-agent-paths",
+        kind=SimpleNamespace(value="ontology_instance_path"),
+        depends_on=("schema-1", "schema-2", "schema-3"),
+        arguments={
+            "root_selector": {"kind": "object_type", "name": "BusinessService"},
+            "steps": [
+                {
+                    "link_type": "implemented_by",
+                    "direction": "outgoing",
+                    "selector": {"kind": "object_type", "name": "Workload"},
+                },
+                {
+                    "link_type": "workload_runs_on",
+                    "direction": "outgoing",
+                    "selector": {"kind": "object_type", "name": "Resource"},
+                },
+                {
+                    "link_type": "owns",
+                    "direction": "incoming",
+                    "selector": {"kind": "object_type", "name": "Agent"},
+                },
+            ],
+        },
+    )
+    frame = SimpleNamespace(
+        operation=SemanticOperation.SELECT,
+        subject_constraints=("Agent", "BusinessService", "Resource", "Workload"),
+        measure_concepts=(),
+        temporal_scope={"kind": "current"},
+        output_shape="ontology_relationships",
+        frame_digest=_DIGEST,
+    )
+    planning = SimpleNamespace(
+        plan=SimpleNamespace(nodes=(path_node,)),
+        frame=frame,
+        investigation_intent=None,
+    )
+    table = QueryTable(
+        rows=(
+            QueryRow.from_values(
+                "path-1",
+                {
+                    "root_id": "service:a",
+                    "root_type": "BusinessService",
+                    "step_1_id": "workload:a",
+                    "step_1_type": "Workload",
+                    "step_2_id": "resource:a",
+                    "step_2_type": "Resource",
+                    "step_3_id": "agent:a",
+                    "step_3_type": "Agent",
+                    "target_id": "agent:a",
+                    "target_type": "Agent",
+                    "execution_authority": False,
+                },
+            ),
+        ),
+        complete=True,
+    )
+    result = QueryNodeResult(
+        value=table,
+        evidence_refs=("ontology-instance-path:proof",),
+        authority=EvidenceAuthority.SERVER_ONTOLOGY_INSTANCE_PATH,
+        authority_inputs=(
+            EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+            EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
+        ),
+    )
+    receipt = GoalTaskReceipt(
+        task_id="query:service-agent-paths",
+        goal_id="service-agent-paths",
+        intent="ontology_instance_path",
+        capability="query.ontology_instance_path",
+        evidence_mode=GoalEvidenceMode.OPERATIONAL,
+        status=TaskStatus.COMPLETED,
+        duration_ms=1,
+        evidence_refs=result.evidence_refs,
+        authority=result.authority,
+        authority_inputs=result.authority_inputs,
+        started_at="2026-08-22T00:00:00Z",
+        completed_at="2026-08-22T00:00:00Z",
+    )
+    runtime_result = RuntimeSemanticTurnResult(
+        disposition="answered",
+        reason="semantic_execution_completed",
+        planning=cast(Any, planning),
+        execution=QueryPlanExecution(
+            plan_digest=_DIGEST,
+            status="completed",
+            results=MappingProxyType({"service-agent-paths": result}),
+            receipts=(receipt,),
+            output_node_ids=("service-agent-paths",),
+        ),
+        intent_graph={},
+        intent_graph_evidence={},
+    )
+
+    observation = project_semantic_assurance(runtime_result, disposition="answered")
+
+    assert observation.fact_kinds == (
+        "agent.identity",
+        "agent.ownership_scope",
+        "relationship.path",
+        "service.identity",
+    )
+    assert observation.limitation_kinds == ("ontology_ownership_does_not_grant_execution",)
+    assert len(observation.ontology_paths) == 1
+    assert len(observation.ontology_paths[0].steps) == 3
+    assert "object_set" in observation.capabilities
+    assert "ontology_relationships" in observation.capabilities
+
+
+def test_project_semantic_assurance_entails_rule_trace_claims() -> None:
+    result = _function_result(
+        function_name="query.ontology_relationships",
+        value={
+            "object_types": ["Rule", "ActionType", "ResourceType", "SignalType"],
+            "relationships": [
+                {
+                    "link_type": "applies_to",
+                    "from_type": "Rule",
+                    "to_type": "ResourceType",
+                    "cardinality": "many_to_many",
+                    "description": "Reviewed applicability.",
+                },
+                {
+                    "link_type": "remediates",
+                    "from_type": "Rule",
+                    "to_type": "ActionType",
+                    "cardinality": "many_to_many",
+                    "description": "Reviewed remediation.",
+                },
+                {
+                    "link_type": "triggered_by",
+                    "from_type": "Rule",
+                    "to_type": "SignalType",
+                    "cardinality": "many_to_many",
+                    "description": "Reviewed trigger.",
+                },
+            ],
+            "complete": True,
+            "authority": "ontology_release",
+            "ontology_release_digest": _DIGEST,
+            "execution_authority": False,
+        },
+    )
+
+    observation = project_semantic_assurance(result, disposition="answered")
+
+    assert {
+        "action_type.identity",
+        "resource_type.identity",
+        "rule.identity",
+        "signal_type.identity",
+    } <= set(observation.fact_kinds)
+    assert observation.limitation_kinds == ("catalog_relationships_do_not_prove_current_finding",)
 
 
 def test_project_semantic_assurance_entails_evidence_health_claims() -> None:

@@ -152,19 +152,32 @@ async def test_runtime_observation_uses_bound_provider_evidence_and_authority() 
     inventory = await observe_runtime_readiness(
         declared_function_names=(
             "query.manifest",
+            "query.ontology_declaration",
+            "query.ontology_relationships",
             "query.resource_health_inventory",
             "query.resource_state_inventory",
             "query.subscription_service_health",
         ),
-        semantic_runtime_bound=True,
+        function_bindings={
+            "query.manifest": "server_ontology_manifest",
+            "query.ontology_declaration": "server_ontology_manifest",
+            "query.ontology_relationships": "server_ontology_manifest",
+            "query.resource_health_inventory": "server_subscription_health",
+            "query.resource_state_inventory": "server_inventory_graph",
+            "query.subscription_service_health": "server_subscription_health",
+        },
         service_health_reader=reader,
-        resource_health_reader_bound=True,
     )
 
     assert reader.calls == 1
     manifest = inventory.capability("query.manifest")
     assert manifest is not None
     assert manifest.provided_authority == "server_ontology_manifest"
+    for function_name in ("query.ontology_declaration", "query.ontology_relationships"):
+        schema_function = inventory.capability(function_name)
+        assert schema_function is not None
+        assert schema_function.evidence_ready
+        assert schema_function.provided_authority == "server_ontology_manifest"
     service_health = inventory.capability("query.subscription_service_health")
     assert service_health is not None
     assert service_health.evidence_ready
@@ -179,9 +192,10 @@ async def test_runtime_observation_uses_bound_provider_evidence_and_authority() 
 async def test_runtime_observation_classifies_provider_authority_failure_as_unavailable() -> None:
     inventory = await observe_runtime_readiness(
         declared_function_names=("query.subscription_service_health",),
-        semantic_runtime_bound=True,
+        function_bindings={
+            "query.subscription_service_health": "server_subscription_health",
+        },
         service_health_reader=_UnauthorizedReader(),
-        resource_health_reader_bound=False,
     )
 
     service_health = inventory.capability("query.subscription_service_health")
@@ -190,6 +204,52 @@ async def test_runtime_observation_classifies_provider_authority_failure_as_unav
     assert not service_health.reachable
     assert not service_health.evidence_ready
     assert service_health.unavailable_reason == "authority_or_source_unavailable"
+
+
+@pytest.mark.asyncio
+async def test_unbound_service_health_reader_is_not_probed() -> None:
+    reader = _Reader(complete=True)
+
+    inventory = await observe_runtime_readiness(
+        declared_function_names=("query.subscription_service_health",),
+        function_bindings={},
+        service_health_reader=reader,
+    )
+
+    service_health = inventory.capability("query.subscription_service_health")
+    assert reader.calls == 0
+    assert service_health is not None
+    assert not service_health.bound
+    assert service_health.unavailable_reason == "runtime_binding_unavailable"
+
+
+@pytest.mark.asyncio
+async def test_unbound_schema_function_is_not_evidence_ready() -> None:
+    inventory = await observe_runtime_readiness(
+        declared_function_names=("query.manifest",),
+        function_bindings={},
+        service_health_reader=None,
+    )
+
+    manifest = inventory.capability("query.manifest")
+    assert manifest is not None
+    assert not manifest.bound
+    assert not manifest.reachable
+    assert not manifest.evidence_ready
+    assert manifest.provided_authority is None
+    assert manifest.unavailable_reason == "runtime_binding_unavailable"
+
+
+@pytest.mark.asyncio
+async def test_runtime_observation_rejects_binding_outside_active_release() -> None:
+    with pytest.raises(ValueError, match="absent from the active release"):
+        await observe_runtime_readiness(
+            declared_function_names=("query.manifest",),
+            function_bindings={
+                "inventory.select_resources": "server_inventory_graph",
+            },
+            service_health_reader=None,
+        )
 
 
 def test_private_receipt_round_trips_without_positive_defaults(tmp_path) -> None:

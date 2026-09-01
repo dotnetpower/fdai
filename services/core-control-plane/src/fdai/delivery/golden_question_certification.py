@@ -120,8 +120,8 @@ def golden_observation_from_semantic_receipt(
     if receipt.get("execution_authority") is not False:
         raise ValueError("golden semantic receipt MUST deny execution authority")
     assurance = SemanticAssuranceObservation.model_validate(receipt.get("assurance_observation"))
-    frame = _golden_frame(assurance)
-    ontology = _golden_ontology(assurance)
+    frame = _golden_frame(case, assurance)
+    ontology = _golden_ontology(case, assurance)
     assessment_digest = content_digest(
         {
             "case_id": case.case_id,
@@ -161,13 +161,19 @@ def golden_observation_from_semantic_receipt(
     )
 
 
-def _golden_frame(observation: SemanticAssuranceObservation) -> GoldenSemanticFrame | None:
+def _golden_frame(
+    case: GoldenQuestionCase,
+    observation: SemanticAssuranceObservation,
+) -> GoldenSemanticFrame | None:
     frame = observation.frame
-    if frame is None or len(frame.subject_types) != 1:
+    expected_subject = case.expected_frame.subject
+    if frame is None or expected_subject not in {
+        subject.casefold() for subject in frame.subject_types
+    }:
         return None
     return GoldenSemanticFrame(
         operation=frame.operation.value,
-        subject=frame.subject_types[0].casefold(),
+        subject=expected_subject,
         measure_concepts=frame.measure_concepts,
         output_shape=frame.output_shape,
         temporal_scope=frame.temporal_scope,
@@ -175,10 +181,17 @@ def _golden_frame(observation: SemanticAssuranceObservation) -> GoldenSemanticFr
 
 
 def _golden_ontology(
+    case: GoldenQuestionCase,
     observation: SemanticAssuranceObservation,
 ) -> GoldenOntologyExpectation | None:
     frame = observation.frame
-    if frame is None or len(frame.subject_types) != 1:
+    expected = case.expected_ontology
+    if (
+        frame is None
+        or expected is None
+        or expected.anchor_type.casefold()
+        not in {subject.casefold() for subject in frame.subject_types}
+    ):
         return None
     paths = tuple(
         GoldenOntologyPath(
@@ -199,10 +212,10 @@ def _golden_ontology(
     target_types = (
         tuple(sorted({step.to_type for path in paths for step in path.steps}))
         if paths
-        else frame.subject_types
+        else (expected.anchor_type,)
     )
     return GoldenOntologyExpectation(
-        anchor_type=frame.subject_types[0],
+        anchor_type=expected.anchor_type,
         target_types=target_types,
         paths=paths,
         min_traversal_depth=min(depths, default=0),

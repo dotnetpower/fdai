@@ -30,6 +30,14 @@ _EXPECTED_FILES = (
     "questions.en.json",
     "questions.ko.json",
 )
+_EXPECTED_DISPOSITIONS = {
+    "action_draft": "action_draft",
+    "answer": "answered",
+    "clarify": "clarification",
+    "hold": "held",
+    "unsupported": "unsupported",
+}
+_NON_EXECUTING_DISPOSITIONS = frozenset({"clarification", "held", "unsupported"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,23 +84,35 @@ def evaluate_golden_case_observation(
 
     if observation.case_id != case.case_id:
         raise ValueError("golden observation binds a different case")
+    expected_non_answer = case.expected_disposition in _NON_EXECUTING_DISPOSITIONS
+    frame_matched = _frame_matches(case.expected_frame, observation.frame)
+    ontology_matched = _ontology_matches(case.expected_ontology, observation.ontology)
+    if expected_non_answer:
+        evidence_posture_matched = (
+            observation.evidence_posture is case.evidence_posture
+            if case.expected_disposition == "held"
+            else observation.evidence_posture is QuestionEvidencePosture.UNAVAILABLE
+        )
+    else:
+        evidence_posture_matched = observation.evidence_posture is case.evidence_posture
     return GoldenCaseCertification(
         case_id=case.case_id,
-        semantic_frame_matched=_frame_matches(case.expected_frame, observation.frame)
-        and _ontology_matches(case.expected_ontology, observation.ontology),
-        capabilities_exact=(
+        semantic_frame_matched=frame_matched and (expected_non_answer or ontology_matched),
+        capabilities_exact=expected_non_answer
+        or (
             set(case.required_capabilities) <= set(observation.capabilities)
             and set(case.required_object_types) <= set(observation.object_types)
             and set(case.required_link_types) <= set(observation.link_types)
             and set(case.required_function_types) <= set(observation.function_types)
         ),
-        disposition_allowed=observation.disposition in case.allowed_dispositions,
-        required_facts_present=(
+        disposition_allowed=observation.disposition == case.expected_disposition,
+        required_facts_present=expected_non_answer
+        or (
             set(case.required_facts) <= set(observation.fact_kinds)
             and set(case.required_limitations) <= set(observation.limitations)
         ),
         forbidden_claims_absent=not set(case.forbidden_claims) & set(observation.claim_kinds),
-        evidence_posture_matched=observation.evidence_posture is case.evidence_posture,
+        evidence_posture_matched=evidence_posture_matched,
         authority_posture_matched=(
             not observation.execution_authority
             and observation.authority_posture is case.authority_posture
@@ -259,6 +279,11 @@ def _build_pair(
     )
     required_capabilities = _string_tuple(semantics, "required_capabilities")
     allowed_dispositions = _string_tuple(semantics, "allowed_dispositions")
+    expected_posture = _required_string(coverage, "expected_posture")
+    try:
+        expected_disposition = _EXPECTED_DISPOSITIONS[expected_posture]
+    except KeyError as error:
+        raise ValueError("golden expected posture is unsupported") from error
     required_facts = _string_tuple(answer_oracle, "required_fact_kinds")
     forbidden_claims = _string_tuple(answer_oracle, "forbidden_claims")
     evidence_posture = QuestionEvidencePosture(_required_string(coverage, "evidence_posture"))
@@ -282,6 +307,7 @@ def _build_pair(
             expected_frame=expected_frame,
             required_capabilities=required_capabilities,
             allowed_dispositions=allowed_dispositions,
+            expected_disposition=expected_disposition,
             required_facts=required_facts,
             forbidden_claims=forbidden_claims,
             evidence_posture=evidence_posture,

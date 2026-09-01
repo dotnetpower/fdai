@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: d24c5529f20ec9cd3e985936b7d3cd303686fed9
+translation_source_sha: 26161433701985cf98ef7e54272258b22187de7c
 translation_revised: 2026-09-01
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -159,6 +159,7 @@ translation_revised: 2026-09-01
 | 타입 기반 Console 보증 실행기 | 구현됨 | `console-routes.spec.ts`, `ontology-query-assurance.ts`, `ontology-query-assurance.spec.ts`, focused Console 검사 | 한 실행기는 게시, Core 처리, exact projection 읽기 및 인증된 증적 렌더링을 검증합니다. Seed 기반 100-turn 실행기는 타입 전용 oracle로 영어 50개와 한국어 50개 prompt를 다룹니다. 보존 artifact가 통과하기 전에는 어느 구현도 실제 운영 근거가 아닙니다. |
 | T1 명확화 및 frame-plan 정렬 | 구현됨 | `semantic_planning_models.py`, `semantic_planning_cascade.py`, `semantic_planning_frame.py`, `semantic_planning_alignment.py`, 집중 플래너 검사 90개 통과 | Frame 제안은 누락된 사용자 맥락을 범위가 제한된 `clarification_requirements`로 분류합니다. 정당한 T1 명확화는 T2 없이 종료됩니다. 집중된 결정론적 helper는 서버 소유 명확화 맥락을 결속하고 승인된 frame 또는 정확한 기능군을 바꾸는 plan을 거부합니다. Server-bound context 요청, 모호하거나 혼합된 대상, 유효하지 않은 스키마, 결정론적 frame-plan 불일치는 T2 없이 안전하게 종료되고 타입이 지정된 T1 unavailable만 interactive runtime의 범위가 제한된 fallback을 사용할 수 있습니다. |
 | 온톨로지 선언 개수 | 구현됨 | `semantic_manifest_planning.py`, `semantic_planning_frame_checks.py`, `semantic_planning_plan_dispatch.py`, `semantic_turn_processor.py`, 집중 판단, 계획 및 이중 언어 표현 회귀 검사 | 검증된 `query.ontology_declaration` 개수 판단에서는 canonical 선언 `*Type` target 하나가 충돌하는 frame subject보다 우선하고 선언이 아닌 영역 target은 선언 선택에서 제외합니다. Canonical 선언 target이 없으면 정확한 선언 종류 또는 canonical `*Type` frame subject를 대체값으로 사용합니다. 집계 frame은 서버 소유 계획으로 `query.manifest`와 선언 종류별 `count`를 컴파일합니다. 완전한 출력은 집계 행 개수가 아니라 각 선언 종류의 개수와 읽기 전용 출처를 표시하고, 표시 종류를 모델이 작성한 노드 ID가 아니라 검증된 frame subject에 결속합니다. 운영 개수, 모호성, 충돌하는 canonical 선언 target, 사용할 수 없는 매니페스트 Function, 불완전한 출력 및 다른 측정값은 기존의 안전한 실패 경로를 유지합니다. |
+| 복합 서비스-담당 Agent 인스턴스 경로 | 구현됨 | `ontology_query.py`, `query_gateway.py`, `query_source_handlers.py`, `semantic_relationship_planning.py`, 집중 계약, 조회, 플래너, 실행기 및 보증 검사 451개 통과 | 일관된 단일 그래프 스냅샷이 실제 서비스, 워크로드, 리소스 및 담당 Agent의 각 경로를 보존합니다. 최종 증적은 정확한 매니페스트와 인벤토리 입력, principal 범위, release, 기준 시점, 출처 세대, 경로 정의 및 결과 다이제스트를 결합합니다. 빈 경로는 신원을 주장하지 않으며 담당 체계는 실행 권한을 부여하지 않습니다. |
 | 컬렉션 범위 Resource 상태 및 근거 기능군 격리 | implemented | `semantic_resource_state_planning.py`, `resource_state_queries.py`, `semantic_planning_value_filters.py`, `inventory-query-language.yaml`, 집중 플래너, FunctionType, 조립, prompt 및 표현 검사 | 서버 소유 FunctionType이 보안이 적용된 Resource 컬렉션을 완전한 observed `StateFactMetadata`로 필터링합니다. 스키마로 검증한 언어 레지스트리는 현재 인벤토리 상태와 구독 상태 평가를 분리하며, 바인딩되지 않은 상태 평가, 메트릭, 이력, 맥락 및 커버리지 기능군은 관련 없는 Resource 행 대신 타입이 지정된 보류를 반환합니다. 인증된 로컬 Console 관측은 구현 주장을 뒷받침하지만 통제된 릴리스 근거는 아닙니다. |
 | 정확한 대상이 없는 Resource 하위 유형 후보 계약 | validated | `semantic_target_candidate_planning.py`, `inventory_query_language.py`, `inventory-query-language.yaml`, 집중 계획 검사 204개 통과, 인증된 한국어 Console 행렬 | Core는 정확한 신원이 하나로 정해지지 않은 단수 하위 유형 요청을 보안이 적용된 유형 필터 ObjectSet 하나로 바꾸고 `execution_authority=false`를 보존합니다. 스키마로 검증한 대상 수 신호는 FunctionType을 선택할 수 없고 컬렉션은 항상 단수보다 우선하며 정확한 신원은 후보 축소를 우회합니다. Current-source SRE 예시 첫 턴 8개는 hard-zero 표현 카운터가 모두 0인 검증된 목록 또는 후보 답변으로 완료됐습니다. 정확한 대상 기능 완성은 열린 상태입니다. |
 | Kubernetes 워크로드 대상 선택 및 평가 | implemented | Kubernetes rollout, Pod 복구, Resource 이벤트 이력 플래너 및 FunctionType, 검토된 메트릭 의미 규칙, 프로바이더 읽기 경로, 집중 검사, 인증된 대상 없는 Console 증적과 정확한 대상 Console 증적 | 검토된 용어는 S12 및 S1 대상을 연결합니다. 정확한 Deployment 및 Pod 계획은 소유권과 동일 UID 재시작 변화량을 검증하고 `source_incomplete`를 보존하며 원인 및 실행 권한을 false로 유지합니다. Descriptor가 광고한 `resource_event.kubernetes` frame은 typed judgment duration이 범위가 제한된 frame lookback과 같을 때만 기존 2-node 계획으로 컴파일됩니다. 출처에 근거한 Resource 이름 하나가 있으면 서버 계획은 전체 Resource 유형으로 넓히지 않고 정확한 조건식을 추가합니다. Function은 정확한 현재 child 하나에 증적에 결속된 UID selector를 사용할 수 있고 identity가 없거나 일치하지 않으면 provider I/O 전에 incomplete로 유지합니다. 명시적인 cluster scope만 삭제된 객체 이력을 조회할 수 있습니다. 답변은 관측 행, 출처 완전성 및 정확한 제한 사항을 보여주고 `source_retention_unverified`이면 행 0개가 과거 부재를 증명하지 않는다고 명시합니다. 인증된 실행은 정확한 Event Function에 도달해 `source_unavailable`을 렌더링했으므로 성공적인 프로바이더 접근과 영속 보존은 열린 상태입니다. |
@@ -175,6 +176,11 @@ translation_revised: 2026-09-01
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-01 | 구현됨 | 서비스와 담당 Agent 간 혼합 권한 보류를 명시적인 복합 읽기 권한 및 계보를 보존하는 인스턴스 경로 노드로 대체했습니다. 이 노드는 정확한 LinkType 선언 의존성을 검증하고 principal 범위의 현재 그래프를 하나의 저장소 스냅샷에서 읽으며, 완전하고 가려지지 않은 실제 경로에서만 신원 주장을 변환합니다. | `current change`, 서비스 계약, 온톨로지 조회, 플래너, 실행기, 프로바이더, 영속성 및 보증 집중 검사 451개 통과, Ruff 및 엄격한 mypy 통과 | 범위가 제한된 canary 10개를 실행합니다. 10개가 모두 통과한 경우에만 20개 캠페인을 제안하고 100개 캠페인은 시작하지 않습니다. |
+| 2026-09-01 | 구현됨 | 첫 canary에서 확인된 완전한 빈 결과 경계를 수정했습니다. 실제 루트에서 Agent로 이어지는 서비스 담당 경로가 없으면 필요한 신원 사실 없이 답변 완료로 반환하지 않고 보류합니다. | `current change`, 집중 인스턴스 경로 및 의미 계획 검사. 첫 탐색용 EN/KO 관계 cohort는 예상된 서비스-Agent 빈 경로 실패 2건을 포함해 5/10으로 보존했습니다. | 의도된 canary cohort 10개를 다시 실행합니다. 10개가 모두 통과한 경우에만 20개 캠페인을 제안합니다. |
+| 2026-09-01 | 구현됨 | 빈 경로 수정 후 의도된 exact-source canary 10개를 실행했습니다. 실제 매핑이 없을 때 소유권 결과를 안전하게 보류하여 `service-agent-authority.direct.en`이 통과했습니다. 전체 cohort는 8/10이었으며 `change-correlation` 처리 결과와 `service-current-health` 프레임 불일치는 이번 소유권 범위 밖에 남아 있습니다. | 출처 `e04ff33323f9eb25366d457ed2cc4b3f930f16d5`, 출처에 고정된 로컬 원장 다이제스트 `sha256:53212597522ce977dee23e7f64f090f56da614249c298e9fa6dc6cf4c389428d`. 기존 중지 표식과 질문, 평가 및 회귀 원장은 실행 전후 다이제스트가 같았습니다. | canary가 10/10이 아니므로 20개 캠페인을 제안하지 않습니다. 100개 캠페인은 계속 비활성화합니다. |
+| 2026-09-01 | 구현됨 | 권한을 넓히지 않고 남은 canary 결함 2건을 해결했습니다. 바인딩되지 않은 변경 상관관계 판단은 이제 정확한 `compare/windowed` 프레임을 유지하고 타입이 지정된 보류를 반환합니다. 검토된 서비스 상태 질문은 별개의 Kubernetes `Service` 객체 대신 AKS에 배포된 비즈니스 서비스를 명시합니다. | 커밋 `a49aa3812`와 `c268e1f79`, 의미 계획 검사 398개, Golden 데이터 세트 및 질문 은행 검사 18개, Golden 캠페인 oracle 검사 10개가 통과했습니다. 이후 exact-source 라이브 시도는 Foundry 계정이 프라이빗 전용 상태가 된 후 구성된 모든 모델 요청이 HTTP 403을 반환했으므로 점수를 매길 수 있는 cohort가 아닙니다. 중지 표식과 기존 원장은 실행 전후 다이제스트가 같았습니다. | VNet 통합 runner에서 같은 exact-source cohort 10개를 실행합니다. 유효한 10/10 결과가 나온 후에만 20개를 제안합니다. 100개 캠페인은 계속 비활성화합니다. |
+| 2026-09-01 | implemented | 검토된 운영 매핑, Rule 상태 및 추적, Resource 분류, 서비스 상태, 서비스 담당 체계에 의미 판단을 맞췄습니다. Golden 인증은 이제 커밋된 예상 최종 처리 결과를 사용하고, 새 근거가 필요한 답변 사례가 안전한 비답변으로 빠져나가는 것을 막으며, 모든 처리 결과에서 근거 및 권한 게이트를 유지합니다. | `current change`; 의미 판단 프롬프트, Golden 데이터 세트 어댑터 및 인증 테스트, Operator 로케일 전달 테스트, 집중 의미 및 Golden 검사, 검토된 라이브 canary의 정확한 계약 통과가 0/10에서 5/10으로 개선되었습니다. | 검증된 Rule 추적 및 서비스 담당 체계 실행을 구현하고, 대상 후보의 최종 처리 의미를 맞추며, 전체 Golden 범위를 주장하기 전에 완전한 관계 근거를 보존합니다. |
 | 2026-09-01 | implemented | Framework와 FrameworkControl을 Identifiable 구현체로 등록했습니다. 인터페이스 구현 레지스트리는 이제 출하된 모든 객체 유형을 나열합니다. | `current change`; 집중 온톨로지 카탈로그 및 객체 유형 카탈로그 검사 통과. | 이 인터페이스 등록으로 추가 쿼리 커버리지 작업은 없습니다. |
 | 2026-09-01 | 구현됨 | 터미널의 `ontology-query` 권한 평탄화를 증적에서 도출한 출처 권한과 타입이 지정된 누락 및 충돌 보류로 대체했습니다. | `current change`; 집중 Core, Operator, 계약 및 서비스 간 권한 테스트 통과 | 별도로 승인된 캠페인에서 관리되는 실제 증적을 보존하기 전까지 이 권한 경로를 검증됨으로 높이지 않습니다. |
 | 2026-09-01 | implemented | 실제 변형 하나가 canonical `ActionType`과 선언 종류가 아닌 `ontology` 질문 영역을 함께 포함한 것을 확인하고 등록된 선언 종류로 변환되는 값만 선언 선택에 사용하도록 필터링했습니다. 영역 맥락을 충돌하는 타입으로 취급하지 않으면서 선언 target의 고유성을 유지합니다. | `current change`, target 없는 경우, 충돌하는 frame 및 추가 영역 target 회귀 검사, 운영 개수 제어, Ruff, strict mypy 및 anti-hardcoding 검사 | 커밋한 뒤 원래 질문과 저장된 유사 질문 3개를 다시 측정합니다. |
@@ -362,6 +368,26 @@ purpose-bound 변경할 수 없는 변환 결과를 사용할 수 있지만 한 
 
 모든 노드는 활성 release, 용도, 역할, 범위, 한도, 의존성 및 예상 증적 형태를
 고정합니다. 계획은 executable 프로바이더 텍스트 또는 변경 핸들러를 포함할 수 없습니다.
+
+### 복합 읽기 전용 인스턴스 경로
+
+현재 관계 답변은 검증된 단일 복합 노드를 통해서만 온톨로지 선언과 런타임 인스턴스를
+결합할 수 있습니다. 이 노드는 정확한 release, 인증된 principal 범위 다이제스트, 단일
+용도, 현재 그래프 기준 시점, 모든 보안 그래프 증적, 경로 정의 및 최종 결과 다이제스트를
+결합합니다. 권한은 `server_ontology_instance_path`이고 `execution_authority=false`로
+고정됩니다.
+
+복합 노드는 `server_ontology_manifest`의 선언 근거와 `server_inventory_graph`의 인스턴스
+근거만 받습니다. 여러 권한을 서로 바꿔 쓸 수 있다고 간주하지 않고 입력을 검증합니다.
+전체 답변 검증은 각 의존성의 권한 검사가 통과한 뒤 최종 출력 노드의 권한을 확인합니다.
+관련 없는 혼합 권한, 검증되지 않은 파생, 누락된 principal 범위, release 불일치, 세대
+불일치, 가려진 경로 신원, 불완전한 근거 및 경로 한도 초과가 있으면 답변을 보류합니다.
+
+인스턴스 경로는 각 루트에서 대상으로 이어지는 실제 계보를 보존합니다. 서로 독립적으로
+선택한 끝점의 곱집합을 반환하지 않습니다. 빈 루트 또는 빈 단계로는 현재 담당 관계를
+추적하라는 요청에 답할 수 없으므로 신원을 주장하지 않고 노드를 보류합니다. 스키마의
+LinkType 근거만으로는 가능한 관계만 설명할 수 있으며 현재 서비스, 워크로드, 리소스 또는
+담당 Agent 인스턴스를 입증할 수 없습니다.
 
 ## 작업 패키지
 

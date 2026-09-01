@@ -25,7 +25,10 @@ def _has_families(facets: set[str], families: tuple[tuple[str, ...], ...]) -> bo
 
 
 def _facets_describe_configuration_drift_evidence(facets: set[str]) -> bool:
-    has_drift = _has_family(facets, ("configuration_drift", "drift_presence"))
+    has_drift = _has_family(
+        facets,
+        ("configuration_drift", "drift_check", "drift_finding", "drift_presence"),
+    )
     support_facets = {
         facet for facet in facets if _has_family({facet}, ("support", "supports", "supporting"))
     }
@@ -39,6 +42,17 @@ def _facets_describe_configuration_drift_evidence(facets: set[str]) -> bool:
         and support_facets
         and refutation_facets
         and support_facets.isdisjoint(refutation_facets)
+    )
+
+
+def _facets_describe_business_capability_mapping(facets: set[str]) -> bool:
+    return _has_families(
+        facets,
+        (
+            ("business_capability", "business_capabilities"),
+            ("service_mapping", "service_mappings"),
+            ("mapping_availability", "unavailable_mapping"),
+        ),
     )
 
 
@@ -74,6 +88,19 @@ def _facets_describe_service_relationship_assessment(facets: set[str]) -> bool:
     return _facets_describe_service_resource_path(facets) and _has_family(
         facets,
         ("health_conclusion", "status_conclusion", "support", "supporting_evidence"),
+    )
+
+
+def _facets_describe_service_current_health(facets: set[str]) -> bool:
+    return _has_families(
+        facets,
+        (
+            ("business_service", "business_services", "service"),
+            ("workload", "workloads"),
+            ("resource", "resources"),
+            ("current_state",),
+            ("unknown_state",),
+        ),
     )
 
 
@@ -179,20 +206,34 @@ def _facets_describe_historical_relationship_change(facets: set[str]) -> bool:
 
 
 def _facets_describe_resource_activity(facets: set[str]) -> bool:
-    detailed_form = _has_families(
+    detailed_types = _has_families(
         facets,
         (
             ("revision",),
             ("restart",),
             ("configuration", "configuration_activity"),
-            ("last_30_minutes", "past_30_minutes", "time_window"),
         ),
+    )
+    detailed_form = detailed_types and _has_family(
+        facets,
+        ("last_30_minutes", "past_30_minutes", "time_range", "time_window"),
     )
     abstract_form = _has_families(
         facets,
         (("resource_change_activity",), ("time_window",), ("resource_kind",), ("activity_types",)),
     )
-    return detailed_form or abstract_form
+    event_form = _has_families(
+        facets,
+        (("resource_event_history",), ("time_range", "time_window"), ("event_type",)),
+    )
+    return detailed_form or abstract_form or event_form
+
+
+def _facets_describe_resource_activity_types(facets: set[str]) -> bool:
+    return _has_families(
+        facets,
+        (("revision",), ("restart",), ("configuration", "configuration_activity")),
+    )
 
 
 def _facets_describe_ontology_release_health(facets: set[str]) -> bool:

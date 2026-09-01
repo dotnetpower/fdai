@@ -35,12 +35,16 @@ class InMemoryOntologyInstanceStore:
         *,
         object_types: Sequence[OntologyObjectType],
         link_types: Sequence[OntologyLinkType],
+        source_complete: bool = True,
+        source_generation: str | None = None,
     ) -> None:
         self._object_types = {item.name: item for item in object_types}
         self._link_types = {item.name: item for item in link_types}
         self._objects: dict[str, OntologyObjectRecord] = {}
         self._links: dict[tuple[str, str, str], OntologyLinkRecord] = {}
         self._release = build_ontology_release(object_types=object_types, link_types=link_types)
+        self._source_complete = source_complete
+        self._source_generation = source_generation
 
     async def create_object_if_absent(
         self,
@@ -205,7 +209,13 @@ class InMemoryOntologyInstanceStore:
             if include_relationships
             else ()
         )
-        return OntologyGraphSnapshot(objects=objects, links=links, truncated=truncated)
+        return OntologyGraphSnapshot(
+            objects=objects,
+            links=links,
+            truncated=truncated,
+            source_complete=self._source_complete,
+            source_generation=self._source_generation,
+        )
 
     async def traverse(
         self,
@@ -281,7 +291,38 @@ class InMemoryOntologyInstanceStore:
             )
         )
         links = tuple(link for link in links if link.from_id in visited and link.to_id in visited)
-        return OntologyGraphSnapshot(objects=objects, links=links, truncated=truncated)
+        return OntologyGraphSnapshot(
+            objects=objects,
+            links=links,
+            truncated=truncated,
+            source_complete=self._source_complete,
+            source_generation=self._source_generation,
+        )
+
+    async def traverse_from_type(
+        self,
+        *,
+        root_object_type: str,
+        link_types: Sequence[str] = (),
+        direction: OntologyDirection = "outgoing",
+        max_depth: int = 1,
+        limit: int = 500,
+    ) -> OntologyGraphSnapshot:
+        """Traverse all roots of one type without yielding between selection and traversal."""
+
+        root_ids = tuple(
+            item.id
+            for item in sorted(self._objects.values(), key=lambda value: value.id)
+            if item.object_type == root_object_type
+        )
+        return await self.traverse(
+            root_ids=root_ids,
+            root_object_types=(root_object_type,),
+            link_types=link_types,
+            direction=direction,
+            max_depth=max_depth,
+            limit=limit,
+        )
 
 
 def _validate_limit(limit: int) -> None:

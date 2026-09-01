@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0.0",
   "dataset_version": "2.0.0",
-  "source_digest": "sha256:2b34ebec879b4456731026011d9ddf6dae2d351827531c7e3cd432a88fe94526",
+  "source_digest": "sha256:9ba72aaf5858c29f6bb29deada732f1bd613791c18fb2280ff66b0b311e2ee2e",
   "locale": "en",
   "questions": [
     {
@@ -1689,56 +1689,56 @@
       "expectation_id": "service-current-health",
       "runtime_context": "explicit_target_required",
       "variation_kind": "audit_oriented",
-      "question": "For an audit-ready view, map an AKS Service to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns."
+      "question": "For an audit-ready view, map a business service deployed on AKS to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns."
     },
     {
       "case_id": "service-current-health.concise",
       "expectation_id": "service-current-health",
       "runtime_context": "explicit_target_required",
       "variation_kind": "concise",
-      "question": "Quick check: map an AKS Service to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns."
+      "question": "Quick check: map a business service deployed on AKS to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns."
     },
     {
       "case_id": "service-current-health.contrastive",
       "expectation_id": "service-current-health",
       "runtime_context": "explicit_target_required",
       "variation_kind": "contrastive",
-      "question": "Map an AKS Service to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns. Contrast observed facts with unsupported assumptions."
+      "question": "Map a business service deployed on AKS to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns. Contrast observed facts with unsupported assumptions."
     },
     {
       "case_id": "service-current-health.direct",
       "expectation_id": "service-current-health",
       "runtime_context": "explicit_target_required",
       "variation_kind": "direct",
-      "question": "Map an AKS Service to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns."
+      "question": "Map a business service deployed on AKS to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns."
     },
     {
       "case_id": "service-current-health.evidence_first",
       "expectation_id": "service-current-health",
       "runtime_context": "explicit_target_required",
       "variation_kind": "evidence_first",
-      "question": "Using only verified evidence, map an AKS Service to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns."
+      "question": "Using only verified evidence, map a business service deployed on AKS to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns."
     },
     {
       "case_id": "service-current-health.investigative",
       "expectation_id": "service-current-health",
       "runtime_context": "explicit_target_required",
       "variation_kind": "investigative",
-      "question": "Investigate this from the service perspective: map an AKS Service to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns."
+      "question": "Investigate this from the service perspective: map a business service deployed on AKS to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns."
     },
     {
       "case_id": "service-current-health.operator_colloquial",
       "expectation_id": "service-current-health",
       "runtime_context": "explicit_target_required",
       "variation_kind": "operator_colloquial",
-      "question": "Could you map an AKS Service to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns?"
+      "question": "Could you map a business service deployed on AKS to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns?"
     },
     {
       "case_id": "service-current-health.uncertainty_aware",
       "expectation_id": "service-current-health",
       "runtime_context": "explicit_target_required",
       "variation_kind": "uncertainty_aware",
-      "question": "Map an AKS Service to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns. Separate what is verified from what remains unknown."
+      "question": "Map a business service deployed on AKS to its workload and Pod resources, PostgreSQL or Storage dependencies, and hosting resources while separating verified current states from unknowns. Separate what is verified from what remains unknown."
     },
     {
       "case_id": "service-impact.audit_oriented",
