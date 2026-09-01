@@ -1,7 +1,7 @@
 ---
 title: 다중 서비스 저장소 레이아웃
 translation_of: multi-service-repository-layout.md
-translation_source_sha: 8c751cec267bcdfc08f7e83063bb0cb2caf57879
+translation_source_sha: c8a459c31c7bc6a3e4d4fee2afa073bfa84784f9
 translation_revised: 2026-08-31
 ---
 # 다중 서비스 저장소 레이아웃
@@ -17,7 +17,7 @@ FDAI는 하나의 개발 저장소에 독립적으로 패키징하고 배포하�
 | 백엔드 서비스 5개 | 각 `services/*` 루트가 자체 `pyproject.toml`, 소스 패키지, 테스트, 이미지, 프로세스 신원 및 서비스 migration branch를 소유합니다. |
 | Core 암호화 검증 | Core manifest가 배포 소유 Ed25519 관측 증적을 검증하는 `cryptography` 의존성을 소유합니다. 다른 서비스는 Core 구현을 가져오지 않으며 signing seed를 받지 않습니다. |
 | 공유 서비스 계약 | `packages/service-contracts/`가 서비스 구현을 가져오지 않는 버전된 wire 형식과 스키마를 소유합니다. |
-| 저장소 루트 | 루트 `pyproject.toml`과 `uv.lock`은 개발 도구와 서비스 간 통합을 조정합니다. 루트 pytest 경로는 배포 CLI를 uv workspace에 추가하지 않고도 테스트에서 독립 설치형 CLI를 가져올 수 있으며, 루트는 FDAI 런타임 배포판을 발행하지 않습니다. |
+| 저장소 루트 | 루트 `pyproject.toml`과 `uv.lock`은 개발 도구와 서비스 간 통합을 조정합니다. 루트 pytest 경로는 배포 CLI를 uv workspace에 추가하지 않고도 테스트에서 독립 설치형 CLI를 가져올 수 있으며, 루트는 FDAI 런타임 배포판을 발행하지 않습니다. `pytest-timeout`은 개별 테스트당 120초 벽시계 상한을 적용하여 단일 테스트가 xdist 샤드를 무기한 차단하지 못하게 합니다. |
 | 서비스 통신 | 서비스는 버전된 계약을 PostgreSQL 소유 변환 결과와 이벤트 버스로 교환합니다. 한 서비스는 다른 서비스의 구현 패키지를 가져오지 않습니다. |
 
 ## 다중 서비스 저장소 레이아웃

@@ -16,7 +16,7 @@ retired top-level application tree.
 - **One shared SDK:** `packages/service-contracts/` contains cross-service contracts without service
   implementation.
 - **Service-owned tests:** Unit and component tests live beside their owning service or package.
-- **Virtual root:** The root `pyproject.toml` has `package = false` and coordinates the uv workspace.
+- **Virtual root:** The root `pyproject.toml` has `package = false` and coordinates the uv workspace. `pytest-timeout` enforces a 120 s per-test ceiling so a hanging test cannot block an xdist shard indefinitely; `faulthandler_timeout` (90 s) dumps all thread stacks before the hard kill to preserve diagnostic evidence.
 - **Integration-only root tests:** `tests/integration/` owns cross-service compatibility, topology,
   and repository checks.
 
