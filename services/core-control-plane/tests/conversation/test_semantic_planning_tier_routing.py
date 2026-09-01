@@ -48,6 +48,7 @@ from fdai.core.conversation.semantic_planning_frame import (
     build_semantic_frame,
     build_service_agent_ownership_frame,
     build_service_current_health_clarification,
+    build_unbound_change_correlation_frame,
     is_completed_change_outcome_frame,
     is_configuration_drift_evidence_frame,
     is_historical_topology_clarification_frame,
@@ -62,6 +63,9 @@ from fdai.core.conversation.semantic_planning_frame import (
     normalize_resource_classification_frame,
     resolve_semantic_judgment_action_draft,
     resolve_semantic_judgment_bound_read,
+)
+from fdai.core.conversation.semantic_planning_frame_checks import (
+    deterministic_pre_frame_outcome,
 )
 from fdai.core.conversation.semantic_planning_models import (
     BoundIncident,
@@ -3111,6 +3115,91 @@ def test_service_current_health_without_exact_service_requests_clarification() -
     assert proposal.clarification_requirements == (ClarificationRequirement.SUBJECT,)
     assert frame.subject_constraints == ("BusinessService", "Resource", "Workload")
     assert frame.temporal_scope == {"kind": "current"}
+
+
+def test_unbound_change_correlation_preserves_compare_windowed_hold() -> None:
+    judgment = SemanticJudgmentProposal.model_validate(
+        {
+            "primary_intent": "query.ontology_relationships",
+            "targets": [],
+            "requested_facets": [
+                "incident",
+                "change",
+                "approved_windows",
+                "target_resources",
+                "service_paths",
+                "without_current_finding",
+            ],
+            "confidence": 0.95,
+            "ambiguous": False,
+            "action_posture": "advise_only",
+            "action_subject": "none",
+        }
+    )
+
+    outcome = deterministic_pre_frame_outcome(
+        judgment=judgment,
+        utterance="Correlate the bound incident changes.",
+        context=(),
+        descriptors=(),
+        manifest_digest=DIGEST,
+        bound_incident=False,
+    )
+
+    assert outcome is not None
+    assert outcome.disposition is SemanticPlanningDisposition.UNAVAILABLE
+    assert outcome.reason == "semantic_change_correlation_incident_binding_unavailable"
+    assert outcome.frame is not None
+    assert outcome.frame.operation is SemanticOperation.COMPARE
+    assert outcome.frame.subject_constraints == (
+        "BusinessService",
+        "Change",
+        "ChangeWindow",
+        "Resource",
+        "Workload",
+    )
+    assert outcome.frame.temporal_scope == {"kind": "windowed"}
+
+
+@pytest.mark.parametrize(
+    ("bound_incident", "extra_facet"),
+    [(True, None), (False, "configuration_drift")],
+)
+def test_change_correlation_hold_requires_unbound_exact_typed_contract(
+    bound_incident: bool,
+    extra_facet: str | None,
+) -> None:
+    facets = [
+        "incident",
+        "change",
+        "approved_windows",
+        "target_resources",
+        "service_paths",
+        "without_current_finding",
+    ]
+    if extra_facet is not None:
+        facets.append(extra_facet)
+    judgment = SemanticJudgmentProposal.model_validate(
+        {
+            "primary_intent": "query.ontology_relationships",
+            "targets": [],
+            "requested_facets": facets,
+            "confidence": 0.95,
+            "ambiguous": False,
+            "action_posture": "advise_only",
+            "action_subject": "none",
+        }
+    )
+
+    assert (
+        build_unbound_change_correlation_frame(
+            judgment,
+            bound_incident=bound_incident,
+            utterance="Correlate the bound incident changes.",
+            context=(),
+        )
+        is None
+    )
 
 
 def test_current_revision_without_ready_cue_does_not_force_state_function() -> None:

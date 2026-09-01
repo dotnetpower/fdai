@@ -37,6 +37,17 @@ from .semantic_planning_models import (
     SemanticOutputShape,
 )
 
+_CHANGE_CORRELATION_FACETS = frozenset(
+    {
+        "approved_windows",
+        "change",
+        "incident",
+        "service_paths",
+        "target_resources",
+        "without_current_finding",
+    }
+)
+
 
 def build_bound_incident_metric_comparison_frame(
     judgment: SemanticJudgmentProposal | None,
@@ -115,6 +126,47 @@ def build_configuration_drift_clarification(
         confidence=judgment.confidence,
     )
     return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
+
+
+def build_unbound_change_correlation_frame(
+    judgment: SemanticJudgmentProposal | None,
+    *,
+    bound_incident: bool,
+    utterance: str,
+    context: tuple[str, ...],
+) -> SemanticProblemFrame | None:
+    """Preserve the typed comparison contract when its incident binding is absent."""
+
+    if (
+        bound_incident
+        or judgment is None
+        or judgment.action_posture != "advise_only"
+        or judgment.primary_intent != "query.ontology_relationships"
+        or judgment.targets
+        or frozenset(facet.replace("-", "_") for facet in judgment.requested_facets)
+        != _CHANGE_CORRELATION_FACETS
+    ):
+        return None
+    proposal = SemanticFrameProposal(
+        operation=SemanticOperation.COMPARE,
+        subject_constraints=(
+            "BusinessService",
+            "Change",
+            "ChangeWindow",
+            "Resource",
+            "Workload",
+        ),
+        measure_concepts=tuple(sorted(_CHANGE_CORRELATION_FACETS)),
+        temporal_scope={"kind": "windowed"},
+        output_shape=SemanticOutputShape.ONTOLOGY_RELATIONSHIPS,
+        evidence_requirements=("bound_incident",),
+        unresolved_terms=(),
+        clarification_requirements=(),
+        clarification=None,
+        investigation=None,
+        confidence=judgment.confidence,
+    )
+    return build_semantic_frame(proposal, utterance=utterance, context=context)
 
 
 def build_rule_state_frame(

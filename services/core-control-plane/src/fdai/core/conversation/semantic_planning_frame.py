@@ -18,6 +18,7 @@ from .semantic_planning_frame_builders import (
     build_rule_state_frame,
     build_service_agent_ownership_frame,
     build_service_current_health_clarification,
+    build_unbound_change_correlation_frame,
 )
 from .semantic_planning_frame_builders import (
     build_ontology_release_health_frame as build_ontology_release_health_frame,
@@ -107,6 +108,7 @@ __all__ = [
     "build_rule_state_frame",
     "build_service_agent_ownership_frame",
     "build_service_current_health_clarification",
+    "build_unbound_change_correlation_frame",
     "build_semantic_frame",
     "canonicalize_semantic_judgment_frame_proposal",
     "is_completed_change_outcome_frame",

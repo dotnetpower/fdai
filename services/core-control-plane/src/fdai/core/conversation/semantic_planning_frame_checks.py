@@ -66,6 +66,9 @@ from .semantic_planning_frame import (
     build_service_current_health_clarification as _build_service_current_health_clarification,
 )
 from .semantic_planning_frame import (
+    build_unbound_change_correlation_frame as _build_unbound_change_correlation_frame,
+)
+from .semantic_planning_frame import (
     is_completed_change_outcome_frame as _is_completed_change_outcome_frame,
 )
 from .semantic_planning_frame import (
@@ -153,6 +156,19 @@ def deterministic_pre_frame_outcome(
             "semantic_incident_metric_comparison_unavailable",
             manifest_digest=manifest_digest,
             frame=incident_metric_comparison,
+        )
+    change_correlation = _build_unbound_change_correlation_frame(
+        judgment,
+        bound_incident=bound_incident,
+        utterance=utterance,
+        context=context,
+    )
+    if change_correlation is not None:
+        return _outcome(
+            SemanticPlanningDisposition.UNAVAILABLE,
+            "semantic_change_correlation_incident_binding_unavailable",
+            manifest_digest=manifest_digest,
+            frame=change_correlation,
         )
     network_path_clarification = _build_network_path_clarification(
         judgment,
