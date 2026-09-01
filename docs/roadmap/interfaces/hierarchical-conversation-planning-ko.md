@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: ec798a5cf1b44b5483a4852a61020d43ba254681
+translation_source_sha: e111e2fd3dc6715e42d37d6cb3aa43d9b9e7ff56
 translation_revised: 2026-09-01
 ---
 
@@ -65,6 +65,8 @@ Compact T1 conversation preflight는 매니페스트 로드와 전체 의미 판
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-01 | implemented | 커밋된 9/10 재실행에서 의미가 같은 `query.resource_change_activity`, 복수형 `changes`, `without_causal_inference` 판단이 생성된 뒤 여전히 취약한 변경 상관관계 exact facet tuple을 제한된 typed family로 교체했습니다. 이 보류는 이제 관계 또는 변경 활동 intent, 승인된 변경 기간, 대상 리소스, 서비스 경로, 비인과 family 및 변경 또는 장애 앵커 중 하나만 허용합니다. 대상, 추가 facet, 누락된 필수 family, 바인딩된 장애 및 권한을 포함한 자세는 계속 거부합니다. | `current change`, 집중 의미 계획 검사 및 `02248cac7`에 고정된 9/10 canary 근거 | 커밋하고 exact cohort 10개를 다시 실행합니다. 10/10 이후에만 20개를 제안합니다. |
+| 2026-09-01 | implemented | VPN 경로 런타임 근거에서 T1이 `incident`, 승인된 변경 기간, 대상 리소스, 서비스 경로, 현재 finding 부재를 유지하면서 중복되는 `change` facet을 생략할 수 있음을 확인한 뒤 바인딩되지 않은 변경 상관관계 facet 경계를 수정했습니다. 결정론적 보류는 이제 해당 필수 집합과 선택적인 명시적 `change`만 허용하며, 추가 facet이나 누락된 필수 facet은 계속 이 경로를 우회합니다. | `current change`, 집중 의미 계획 검사 및 exact-source canary 근거 | 커밋된 수정에서 exact cohort 10개를 다시 실행하고 20개를 제안하기 전에 10/10을 보존합니다. |
 | 2026-09-01 | implemented | 바인딩되지 않은 변경 상관관계 요청에 대해 검토된 `compare/windowed` 프레임을 보존했습니다. 결정론적 경계는 정확한 typed facet 집합만 수락하며 필요한 장애 바인딩이 없으면 보류 결과를 반환합니다. 추가 facet이 있거나 장애가 바인딩된 요청은 일반 계획을 계속하며, 이 보류는 관계 또는 인과 근거를 만들지 않습니다. | `current change`, 집중 의미 계획 검사 | 독립적인 Golden 서비스 상태 문구 수정 후 exact-source canary 근거를 보존합니다. |
 | 2026-08-28 | implemented | 결정론적 social 분류와 페르소나 표현 생성을 분리한 뒤 social 표현을 공통 base와 타입 기반 greeting, thanks, farewell 및 self-introduction pack으로 나눴습니다. 분류기 schema는 사용자 대상 문장을 작성할 수 없습니다. Narrator는 타입 기반 social act, 연속성 flag, 언어, 발화 및 신뢰할 수 있는 Bragi 프로필만 받고 social 전용 temperature를 사용하며 정본 신원 문자열을 보존합니다. Narrator 실패는 안전한 unavailable 결과를 만들며 전체 의미 판단도 fallback social 문장을 게시할 수 없습니다. | `current change`, 집중 계약, prompt, transport, routing 및 processor 검사 608개 통과, Ruff 및 strict mypy 통과, 인증된 한국어 자기소개 변형 3개가 같은 검증된 프로필 사실과 query 없음 계약을 유지하면서 서로 다른 문장 구조를 만들었고 이름이 없는 구어체 요청은 전체 1.7K토큰을 사용했습니다. 집중 조립 검사는 각 social act에 검토된 pack 하나만 적용됨을 입증합니다. | 더 큰 응답 충돌률 corpus와 인증된 pack별 waterfall 근거를 보존합니다. Social 턴은 두 호출에서 전체 약 1.7K-1.9K토큰을 사용하며, 안전한 routing과 자연스러운 표현을 위해 일부 지연을 사용합니다. |
 | 2026-08-28 | implemented | 한국어와 영어 첫 인사, 반복 인사, 자기소개, 직접 호칭, 감사, 작별, 혼합 및 순수 운영 요청, 인용된 사회적 표현, 액션성 동의 및 모호한 후속 질문을 포함한 인증된 13라운드 강화 캠페인을 완료했습니다. 캠페인에서 페르소나 연속성, 명시적 social act, 일반 동의 veto, 결정 대기 명확화, malformed 시도 veto, 범위가 제한된 schema 교정, Unicode 존댓말 검증 및 정확한 `social_act` 변환 결과 메타데이터를 추가했습니다. | `current change`, 집중 계약, preflight, 의미 routing, processor, 조립 및 prompt 검사 605개 통과, Ruff 및 strict mypy 통과, 선언한 모든 캠페인 경로에서 승인되지 않은 실행이 없었습니다. 순수 social 사례는 preflight 호출 1건을 사용했고, 혼합 및 운영 사례는 social로 종료되지 않았으며, 일반 동의를 승인으로 해석하지 않았습니다. | 액션성 동의는 안전하지만 모델 호출 3건과 10.5초가 걸리는 성능 저하가 남아 있습니다. 인용된 social 표현 설명은 현재 일반 명확화를 반환합니다. Routing을 약화하지 않고 두 잔여 항목을 최적화하고 캠페인을 통제된 artifact로 보존합니다. |

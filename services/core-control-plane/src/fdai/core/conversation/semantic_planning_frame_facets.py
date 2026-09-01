@@ -56,6 +56,26 @@ def _facets_describe_business_capability_mapping(facets: set[str]) -> bool:
     )
 
 
+def _facets_describe_change_correlation(facets: set[str]) -> bool:
+    allowed = {
+        "approved_windows",
+        "change",
+        "changes",
+        "incident",
+        "service_paths",
+        "target_resources",
+        "without_causal_inference",
+        "without_current_finding",
+    }
+    return bool(
+        facets
+        and facets <= allowed
+        and {"approved_windows", "service_paths", "target_resources"} <= facets
+        and {"change", "changes", "incident"}.intersection(facets)
+        and {"without_causal_inference", "without_current_finding"}.intersection(facets)
+    )
+
+
 def _facets_describe_service_resource_path(facets: set[str]) -> bool:
     return _has_family(
         facets,
