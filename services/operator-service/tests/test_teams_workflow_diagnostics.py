@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 import httpx
 import pytest
 from fdai_operator_service.families.iam.contracts import TeamsWorkflowTestCommand
+from fdai_operator_service.teams_workflow_binding import LoadedTeamsWorkflowBinding
 from fdai_operator_service.teams_workflow_diagnostics import (
     TeamsWorkflowDiagnosticTester,
     TeamsWorkflowProviderResponse,
@@ -50,6 +51,34 @@ class MemoryStore:
         self.values[key] = dict(value)
 
 
+class MemoryBindingStore:
+    def __init__(self) -> None:
+        self.values: list[str] = []
+
+    async def save_and_verify(
+        self,
+        *,
+        webhook_url: str,
+        request_id: str,
+    ) -> LoadedTeamsWorkflowBinding:
+        self.values.append(webhook_url)
+        return LoadedTeamsWorkflowBinding(
+            webhook_url=webhook_url,
+            version=f"version-{len(self.values)}",
+            endpoint_digest=validate_teams_workflow_url(webhook_url),
+        )
+
+    async def load(self) -> LoadedTeamsWorkflowBinding | None:
+        if not self.values:
+            return None
+        webhook_url = self.values[-1]
+        return LoadedTeamsWorkflowBinding(
+            webhook_url=webhook_url,
+            version=f"version-{len(self.values)}",
+            endpoint_digest=validate_teams_workflow_url(webhook_url),
+        )
+
+
 def _command(request_id: str = "teams-test-1") -> TeamsWorkflowTestCommand:
     return TeamsWorkflowTestCommand(
         actor_id="owner-1",
@@ -84,6 +113,112 @@ async def test_accepts_fixed_card_and_never_persists_url() -> None:
     assert URL not in repr(stored)
     attachment = calls[0][1]["attachments"][0]  # type: ignore[index]
     assert attachment["contentUrl"] is None
+
+
+async def test_saves_and_verifies_before_sending_the_test_card() -> None:
+    store = MemoryStore()
+    bindings = MemoryBindingStore()
+    calls: list[str] = []
+
+    async def post(url: str, _: object) -> TeamsWorkflowProviderResponse:
+        calls.append(url)
+        return TeamsWorkflowProviderResponse(202, "run-1")
+
+    tester = TeamsWorkflowDiagnosticTester(
+        store=store,
+        binding_store=bindings,
+        post=post,
+        clock=lambda: NOW,
+    )
+
+    result = await tester.save_and_test(_command())
+
+    assert result.saved is True
+    assert result.binding_version == "version-1"
+    assert bindings.values == [URL]
+    assert calls == [URL]
+    binding_state = next(
+        value
+        for value in store.values.values()
+        if value["kind"] == "operator.teams-workflow-binding-save"
+    )
+    assert binding_state["outcome"] == "saved"
+    assert URL not in repr(store.values)
+
+
+async def test_save_and_test_requires_injected_secret_storage() -> None:
+    tester = TeamsWorkflowDiagnosticTester(store=MemoryStore(), clock=lambda: NOW)
+
+    with pytest.raises(RuntimeError, match="storage is not configured"):
+        await tester.save_and_test(_command())
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        TeamsWorkflowTestCommand(actor_id="", request_id="save-1", webhook_url=URL),
+        TeamsWorkflowTestCommand(actor_id="owner-1", request_id="invalid request", webhook_url=URL),
+    ],
+)
+async def test_save_and_test_rejects_invalid_audit_identity(
+    command: TeamsWorkflowTestCommand,
+) -> None:
+    bindings = MemoryBindingStore()
+    tester = TeamsWorkflowDiagnosticTester(
+        store=MemoryStore(),
+        binding_store=bindings,
+        clock=lambda: NOW,
+    )
+
+    with pytest.raises(ValueError):
+        await tester.save_and_test(command)
+
+    assert bindings.values == []
+
+
+async def test_saved_request_replay_requires_the_same_actor() -> None:
+    store = MemoryStore()
+    bindings = MemoryBindingStore()
+
+    async def post(_: str, __: object) -> TeamsWorkflowProviderResponse:
+        return TeamsWorkflowProviderResponse(202)
+
+    tester = TeamsWorkflowDiagnosticTester(
+        store=store,
+        binding_store=bindings,
+        post=post,
+        clock=lambda: NOW,
+    )
+    await tester.save_and_test(_command())
+
+    with pytest.raises(TeamsWorkflowTestConflictError, match="another endpoint"):
+        await tester.save_and_test(
+            TeamsWorkflowTestCommand(
+                actor_id="owner-2",
+                request_id="teams-test-1",
+                webhook_url=URL,
+            )
+        )
+
+
+async def test_reveal_returns_the_saved_url_and_audits_only_its_digest() -> None:
+    store = MemoryStore()
+    bindings = MemoryBindingStore()
+    bindings.values.append(URL)
+    tester = TeamsWorkflowDiagnosticTester(
+        store=store,
+        binding_store=bindings,
+        clock=lambda: NOW,
+    )
+
+    revealed = await tester.reveal_binding(actor_id="contributor-1")
+
+    assert revealed is not None
+    assert revealed["webhook_url"] == URL
+    audit = next(iter(store.values.values()))
+    assert audit["kind"] == "operator.teams-workflow-binding-reveal"
+    assert audit["actor_id"] == "contributor-1"
+    assert URL not in repr(audit)
 
 
 async def test_duplicate_completed_request_returns_receipt_without_resend() -> None:

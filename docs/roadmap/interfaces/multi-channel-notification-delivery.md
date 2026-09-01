@@ -230,14 +230,20 @@ stale or oversized requests, and records either `delivered` or `retryable_failed
 completed observation audit phases bracket that state change. The callback secret is
 deployment-owned.
 
-Settings > Integrations provides a separate one-time public-cloud diagnostic for setup. An Owner
+Settings > Integrations provides a bounded public-cloud save-and-test flow for setup. An Owner
 can compare the current FDAI identity with a deployment-provided Microsoft 365 account hint, copy
 that account, and open Power Automate before pasting the signed URL to send one fixed synthetic
 card. Authentication, MFA, consent, and Team/Channel selection remain explicit user actions in the
-Microsoft 365 tenant. The Console clears the URL immediately, the API never returns or persists it,
-and the durable diagnostic record contains only the URL digest and prepared/completed metadata. A
-successful diagnostic validates the pasted URL only; it does not update or prove the
-deployment-managed production binding.
+Microsoft 365 tenant. A deployment uses a dedicated managed identity that can write only the
+versioned Teams endpoint secret. The local profile uses an encrypted Operator-owned loopback record
+and never writes plaintext to PostgreSQL. FDAI reads the exact saved version back, verifies the URL
+digest, and only then sends the test card. Contributor, Approver, and Owner roles can reload the
+current URL through an authenticated no-store response. Reader and BreakGlass roles receive no
+configuration metadata. Every reveal is audited without recording the URL, and the durable save and
+test record contains only the digest, binding version, actor, request id, provider status, and
+prepared/completed metadata. Key Vault retains the previous secret
+version for rollback. The deployment still decides when the notification runtime references the
+saved binding.
 
 ## 6. Boundaries this design does not cross
 

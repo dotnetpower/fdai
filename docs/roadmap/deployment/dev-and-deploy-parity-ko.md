@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: ec9c267c6326d93754c3368de348cf3231f888da
+translation_source_sha: bbb17e2a0056d79dc5641b5679e4ff2a58b8fcc0
 translation_revised: 2026-09-01
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -11,6 +11,12 @@ translation_revised: 2026-09-01
 - **Deploy truth**: `terraform apply` 가 CSP-neutral 컨트랙트의 Azure 측 실현체를 생성. **LLM 부분은 배포자-스코프**: 초기화 해석기가 배포자 아이덴티티를 대상 리전 카탈로그와 대조해 **배포자가 만들 권한이 있는 것만** 프로비저닝하고, resolved `{capability → deployment}` 매핑과 해석기 입력 출처 이력을 산출물에 기록합니다.
 모든 프로파일은 **하나의 컨트롤 경로**를 공유하며 composition-root 어댑터와 자격 증명만 다릅니다.
 ([project-structure.md § Customization via 의존성 주입](../architecture/project-structure-ko.md#customization-via-dependency-injection)). 검토된 docstring은 기존 경계를 기록하며 별도 런타임을 만들거나 상태 소유권을 변경하거나 고정본을 허용하지 않습니다. 실제 Azure 클라이언트 추가는 fork-side 주입이며 `core/`를 편집하지 않습니다.
+
+Teams Workflows 엔드포인트 구성도 같은 동등성 규칙을 따릅니다. 로컬 Operator Service는 저장된
+URL을 도메인이 분리된 키 자료로 암호화하고 루프백 데이터베이스에는 암호문만 저장합니다. 배포
+환경은 단일 시크릿으로 범위가 제한된 전용 Managed Identity를 통해 버전이 지정된 Key Vault
+시크릿을 씁니다. 두 모드 모두 테스트 전에 저장된 버전을 확인하고 역할로 제한되는 같은 reveal
+응답을 사용합니다.
 ## 전수조사 - 로컬 동작 vs Azure 필요
 2026-07-21 기준. "자동화 테스트"는 테스트 실행기가 실행하는 pytest 또는 committed mock을
 뜻합니다. "Full-stack 로컬"은 운영자에 브라우저 Entra를 사용하고 서버 측 Azure 어댑터에

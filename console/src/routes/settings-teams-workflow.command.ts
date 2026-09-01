@@ -1,11 +1,26 @@
 import type { AuthContext } from "../auth";
-import { GovernedCommandError, putGovernedJson } from "../governed-command";
+import { getGovernedJson, GovernedCommandError, putGovernedJson } from "../governed-command";
 import {
+  decodeTeamsWorkflowBindingView,
   decodeTeamsWorkflowTestResult,
+  type TeamsWorkflowBindingView,
   type TeamsWorkflowTestResult,
 } from "./settings-teams-workflow.model";
 
 export { GovernedCommandError as TeamsWorkflowTestCommandError };
+
+export async function loadTeamsWorkflowBinding(
+  auth: AuthContext,
+  operatorApiBaseUrl: string,
+): Promise<TeamsWorkflowBindingView> {
+  return decodeTeamsWorkflowBindingView(
+    await getGovernedJson(
+      auth,
+      operatorApiBaseUrl,
+      "/runtime/integrations/teams-workflow/binding",
+    ),
+  );
+}
 
 export async function testTeamsWorkflowWebhook(
   auth: AuthContext,

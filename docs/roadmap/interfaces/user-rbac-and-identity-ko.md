@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 82d4413dfa4030ba07fc67b28f186c22adee794b
-translation_revised: 2026-08-31
+translation_source_sha: 0473b8a58104f20ef272a50e8330bd2611f55781
+translation_revised: 2026-09-01
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -36,13 +36,14 @@ Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.
 | Break-Glass 활성화 요청 경계 | 구현됨 | `services/operator-service/src/fdai_operator_service/families/iam/break_glass.py`; `capabilities.py`; `services/operator-service/tests/test_operator_break_glass_activation.py` | `POST /system/break-glass/activation`은 BreakGlass 전용 `activate-break-glass` 기능과 비어 있지 않은 인시던트 id 및 사유, 한도 안의 미래 오프셋 인식 만료 시각을 요구합니다. 감사 전용 projection만 기록하며 HIL 승인이나 executor identity를 부여하지 않습니다. 영속 활성화 저장소, TTL 적용, 사인인 알림은 배포 작업으로 남습니다. |
 | 사람 승인 콜백 신원 | 구현됨 | `families/iam/hil_callback.py`, `hil_callback_authority.py`, `hil_decision_outbox.py`, `postgres_iam.py`, 집중 콜백, 영속성, Kafka, 워크플로 및 카나리 테스트 | Teams는 구성된 봇에 발급된 API 대상 OBO 토큰, 정확한 공급자-Entra 매핑, 별도로 구성된 그룹 연결 팀과 채널을 요구합니다. Slack은 브라우저 Entra 재인증과 구성된 워크스페이스 및 사용자-Entra OID 매핑을 요구합니다. 콜백 결정은 서명된 콜백 시각을 사용하고 제안 우선 영속화를 복구하며 영속 Operator 보낼 편지함을 통해 게시됩니다. BreakGlass는 기존 전역 기능에서 계속 사용할 수 있지만 사람 승인 권한은 부여하지 않습니다. |
 | 로컬 Browser Entra 세션 복원력 | 구현됨 | `console/src/auth-session.ts`; `console/src/auth.ts`; focused Console 인증 테스트(`10 passed`)와 typecheck | MSAL Browser v4는 loopback origin에서만 암호화된 `localStorage`를 사용하고 배포 origin에서는 `sessionStorage`를 유지합니다. 시작 시, 30분마다, focus, visibility 또는 network 복구 뒤에 하나로 병합된 refresh를 실행합니다. Entra는 여전히 대화형 인증을 요구할 수 있습니다. |
-| Owner 범위 알림 통합 진단 | 구현됨 | `services/operator-service/src/fdai_operator_service/families/iam/settings.py`; `services/operator-service/src/fdai_operator_service/families/iam/manifest.py`; `services/operator-service/src/fdai_operator_service/{teams_workflow,slack_webhook}_diagnostics.py`; 집중 진단 및 IAM 기능군 테스트 | `POST` 경로는 일회성 Teams Workflows 또는 Slack 웹후크 URL을 받아 고정된 합성 알림 하나를 보내고, 다이제스트와 상태 메타데이터만 영속화하며, 비밀 없는 결과를 반환합니다. 팩터리 순서는 고정된 IAM 경로 매니페스트와 일치하므로 공개 화면 차이가 생기면 시작을 차단합니다. |
+| 알림 통합 구성 및 진단 | 구현됨 | `teams_workflow_binding.py`; `teams_workflow_diagnostics.py`; `families/iam/{capabilities,settings,manifest}.py`; 집중 바인딩, 진단 및 IAM 기능군 테스트 | Owner는 Teams 엔드포인트를 저장하고 테스트할 수 있습니다. Contributor, Approver 및 Owner는 `no-store` 응답으로 현재 값을 볼 수 있고 Reader와 BreakGlass에는 `visible: false`만 반환합니다. Slack은 일회성 테스트로 유지합니다. 모든 Teams 저장, 테스트 및 reveal 감사 기록에는 URL을 넣지 않습니다. |
 | 사용자별 비용 거버넌스 접근 | 구현됨 | `CostAccessGrant`, `CostDisclosureCeiling`, 비용 거버넌스 Operator 경로 및 집중 테스트 | Reader는 시간 검사와 배포 공개 상한을 적용하기 전에 principal, 목적, scope가 일치하는 최신 grant를 선택합니다. 서버는 직렬화 전에 `hidden`, `aggregate`, `masked` 또는 `detailed` 공개 정책을 적용하며, 권한은 패키지를 활성화하거나 액션을 승격할 수 없습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-01 | 구현됨 | 암호화된 로컬 및 Key Vault 기반 Teams Workflows 엔드포인트 영속화와 Contributor, Approver 및 Owner용 감사된 `view-integration-secrets` 기능을 추가했습니다. Reader와 BreakGlass에는 바인딩 메타데이터를 제공하지 않습니다. | `current change`; `teams_workflow_binding.py`; `teams_workflow_diagnostics.py`; `families/iam/{capabilities,settings,manifest}.py`; 집중 Operator 테스트 53개 통과; Terraform 검증 통과. | Key Vault reveal 경로를 검증됨으로 주장하기 전에 배포 런타임 증적을 보존합니다. |
 | 2026-08-28 | 구현됨 | Slack 진단 경로를 추가한 뒤 경로 팩터리와 일치하도록 고정된 IAM 기능군 매니페스트 순서를 수정해 경로 동등성 검사를 약화하지 않고 Operator API 시작을 복구했습니다. | `current change`; `families/iam/manifest.py`; 집중 IAM 기능군 매니페스트 테스트 통과 | 추가 경로 순서 작업은 남아 있지 않으며 배포된 공급자 증적은 별도로 유지합니다. |
 | 2026-08-29 | 구현됨 | 목적과 범위로 제한되는 사용자별 비용 거버넌스 접근 및 서버 측 비승격 공개 정책을 추가했습니다. | `current change`; 서비스 계약, Operator 경로, 이행, 공개 정책 속성 및 조회 없음 테스트. | 접근 검토와 무단 공개가 없는 실제 캠페인 증적을 보존합니다. |
 | 2026-08-28 | 구현됨 | 엄격한 엔드포인트 검증, 안전한 재시도 요청 id, 범위가 제한된 공급자 호출, 비밀 없는 영속 감사 메타데이터를 갖춘 Owner 범위 일회성 Teams Workflows 및 Slack 수신 웹후크 진단을 추가했습니다. | `current change`; `settings.py`; `teams_workflow_diagnostics.py`; `slack_webhook_diagnostics.py`; 집중 진단 테스트. | 운영 검증을 주장하기 전에 배포된 공급자 증적을 별도로 보존합니다. |

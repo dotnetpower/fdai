@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: d5922f9c2738da2ce91baf99fc137237f0b8498a
+translation_source_sha: 47f519f7edf8338cef34fd16456a78307e22c626
 translation_revised: 2026-09-01
 ---
 # 코드 맵
@@ -405,6 +405,7 @@ core 컨트롤 플레인을 import할 수 없으므로 특정 서비스가 아�
 | [rule-catalog/](../../../rule-catalog/) | Catalog-as-code 데이터입니다. |
 | [policies/](../../../policies/) | OPA/Rego policy-as-code입니다. |
 | [콘솔/](../../../console/) | 얇은 운영자 SPA입니다. |
+| [teams_workflow_binding.py](../../../services/operator-service/src/fdai_operator_service/teams_workflow_binding.py) | 로컬의 암호화된 루프백 상태와 배포 환경의 버전이 지정된 단일 Key Vault 시크릿을 사용하는 프로바이더 중립 Teams 엔드포인트 영속화입니다. |
 | [cli/](../../../cli/) | Operator command-line 클라이언트입니다. |
 | [scripts/agent/design_context.py](../../../scripts/agent/design_context.py) | Design 맥락 읽기를 기록하고 dirty 편집 경로를 예약하며, framework 및 constitution 편집의 stale 맥락을 hard-block하고, commit 범위와 파괴적 Git을 보호하며, repository-wide 검증을 명시적인 integration 또는 release 경계로 라우팅합니다. |
 

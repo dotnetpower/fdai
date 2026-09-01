@@ -16,6 +16,7 @@ import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 import { routeHref } from "../router";
 import { SettingRow } from "./settings";
+import { settingsIntegrationsText } from "./settings-integrations.i18n";
 import {
   decodeEmailTemplatePreview,
   type EmailTemplatePreview,
@@ -30,7 +31,10 @@ import {
   newSlackWebhookTestRequestId,
   type SlackWebhookTestResult,
 } from "./settings-slack-webhook.model";
-import { testTeamsWorkflowWebhook } from "./settings-teams-workflow.command";
+import {
+  loadTeamsWorkflowBinding,
+  testTeamsWorkflowWebhook,
+} from "./settings-teams-workflow.command";
 import {
   newTeamsWorkflowTestRequestId,
   type TeamsWorkflowTestResult,
@@ -46,22 +50,24 @@ const TEAMS_WORKFLOW_ACCOUNT_HINT = normalizeTeamsWorkflowAccountHint(
   import.meta.env.VITE_TEAMS_WORKFLOW_ACCOUNT_HINT,
 );
 
+function isEmailStyleUserPrincipalName(value: string): boolean {
+  return (
+    value.length > 0
+    && value.length <= 254
+    && !value.includes(" ")
+    && value.split("@").length === 2
+    && !value.startsWith("@")
+    && !value.endsWith("@")
+  );
+}
+
 export function normalizeTeamsWorkflowAccountHint(value: unknown): string {
   if (value === undefined) return "";
   if (typeof value !== "string") {
     throw new Error("VITE_TEAMS_WORKFLOW_ACCOUNT_HINT must be a string.");
   }
   const normalized = value.trim();
-  if (
-    normalized
-    && (
-      normalized.length > 254
-      || normalized.includes(" ")
-      || normalized.split("@").length !== 2
-      || normalized.startsWith("@")
-      || normalized.endsWith("@")
-    )
-  ) {
+  if (normalized && !isEmailStyleUserPrincipalName(normalized)) {
     throw new Error(
       "VITE_TEAMS_WORKFLOW_ACCOUNT_HINT must be an email-style user principal name.",
     );
@@ -332,13 +338,44 @@ function TeamsWorkflowTestPanel({
   const [accountHint, setAccountHint] = useState(TEAMS_WORKFLOW_ACCOUNT_HINT);
   const [testing, setTesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [bindingError, setBindingError] = useState<string | null>(null);
+  const [bindingVisibility, setBindingVisibility] = useState<
+    "loading" | "hidden" | "visible" | "missing"
+  >("loading");
   const [result, setResult] = useState<TeamsWorkflowTestResult | null>(null);
+  const accountIsValid = !accountHint.trim() || isEmailStyleUserPrincipalName(accountHint.trim());
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const binding = await loadTeamsWorkflowBinding(auth, operatorApiBaseUrl);
+        if (!active) return;
+        if (!binding.visible) {
+          setBindingVisibility("hidden");
+          return;
+        }
+        if (!binding.configured) {
+          setBindingVisibility("missing");
+          return;
+        }
+        setWebhookUrl((current) => current || binding.webhookUrl);
+        setBindingVisibility("visible");
+      } catch (reason) {
+        if (!active) return;
+        setBindingError(reason instanceof Error ? reason.message : String(reason));
+        setBindingVisibility("missing");
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [auth, operatorApiBaseUrl]);
 
   const submit = async (event: SubmitEvent) => {
     event.preventDefault();
     if (!canManage || testing || !webhookUrl.trim()) return;
-    const transientUrl = webhookUrl.trim();
-    setWebhookUrl("");
+    const submittedUrl = webhookUrl.trim();
     setTesting(true);
     setError(null);
     setResult(null);
@@ -347,7 +384,7 @@ function TeamsWorkflowTestPanel({
         await testTeamsWorkflowWebhook(
           auth,
           operatorApiBaseUrl,
-          transientUrl,
+          submittedUrl,
           newTeamsWorkflowTestRequestId(),
         ),
       );
@@ -363,27 +400,29 @@ function TeamsWorkflowTestPanel({
       <div class="settings-webhook-diagnostic-copy">
         <h4>{t("settings.teamsWorkflowTest.heading")}</h4>
         <p>{t("settings.teamsWorkflowTest.description")}</p>
-        <p>{t("settings.teamsWorkflowTest.boundary")}</p>
+        <p>{settingsIntegrationsText("saveBoundary")}</p>
       </div>
       <ol class="settings-teams-workflow-steps">
         <li>
           <span class="settings-teams-workflow-step-index" aria-hidden="true">1</span>
           <div class="settings-teams-workflow-step">
             <strong>{t("settings.teamsWorkflowTest.accountStep")}</strong>
-            <p>{t("settings.teamsWorkflowTest.accountStepHint")}</p>
+            <p>{settingsIntegrationsText("accountStepHint")}</p>
             <div class="settings-teams-workflow-identities">
               <span>
                 <small>{t("settings.teamsWorkflowTest.fdaiAccount")}</small>
                 <code>{auth.account?.username ?? t("settings.teamsWorkflowTest.accountUnavailable")}</code>
               </span>
               <label>
-                <small>{t("settings.teamsWorkflowTest.m365Account")}</small>
+                <small>{settingsIntegrationsText("m365Account")}</small>
                 <span class="settings-teams-workflow-account-control">
                   <input
                     class="form-input"
                     type="email"
                     autocomplete="username"
                     maxlength={254}
+                    aria-invalid={!accountIsValid ? "true" : undefined}
+                    aria-describedby="teams-workflow-account-note"
                     value={canManage ? accountHint : ""}
                     disabled={!canManage}
                     placeholder={canManage
@@ -398,6 +437,13 @@ function TeamsWorkflowTestPanel({
                     />
                   ) : null}
                 </span>
+                {canManage ? (
+                  <small id="teams-workflow-account-note">
+                    {!accountIsValid
+                      ? settingsIntegrationsText("accountInvalid")
+                      : settingsIntegrationsText("accountUsageHint")}
+                  </small>
+                ) : null}
               </label>
             </div>
           </div>
@@ -405,31 +451,206 @@ function TeamsWorkflowTestPanel({
         <li>
           <span class="settings-teams-workflow-step-index" aria-hidden="true">2</span>
           <div class="settings-teams-workflow-step">
-            <strong>{t("settings.teamsWorkflowTest.workflowStep")}</strong>
-            <p>{t("settings.teamsWorkflowTest.workflowStepHint")}</p>
-            {canManage ? (
-              <span class="settings-teams-workflow-open">
+            <strong>
+              {canManage ? (
                 <ExternalLink href={TEAMS_WORKFLOW_SETUP_URL}>
-                  {t("settings.teamsWorkflowTest.openWorkflow")}
+                  {settingsIntegrationsText("workflowStep")}
                 </ExternalLink>
-              </span>
-            ) : null}
+              ) : settingsIntegrationsText("workflowStep")}
+            </strong>
+            <p>{settingsIntegrationsText("workflowStepHint")}</p>
+            <details class="settings-teams-workflow-guide">
+              <summary>{settingsIntegrationsText("guideSummary")}</summary>
+              <div class="settings-teams-workflow-guide-body">
+                <p>{settingsIntegrationsText("guideIntro")}</p>
+                <ol class="settings-teams-workflow-guide-steps">
+                  <li>
+                    <strong>{settingsIntegrationsText("guideVerifyAccountTitle")}</strong>
+                    <p>
+                      {settingsIntegrationsText("guideVerifyAccountBody")}{" "}
+                      <code>
+                        {canManage && accountHint.trim()
+                          ? accountHint.trim()
+                          : t("settings.teamsWorkflowTest.accountUnavailable")}
+                      </code>
+                    </p>
+                  </li>
+                  <li>
+                    <strong>{settingsIntegrationsText("guideCreateTitle")}</strong>
+                    <p>{settingsIntegrationsText("guideCreateBody")}</p>
+                    <figure>
+                      <img
+                        src="/guides/power-automate/create-automated-cloud-flow.png"
+                        width="671"
+                        height="317"
+                        loading="lazy"
+                        decoding="async"
+                        alt={settingsIntegrationsText("guideCreateImageAlt")}
+                      />
+                      <figcaption>
+                        {settingsIntegrationsText("guideCreateImageCaption")}
+                      </figcaption>
+                    </figure>
+                  </li>
+                  <li>
+                    <strong>{settingsIntegrationsText("guideNameFlowTitle")}</strong>
+                    <p>{settingsIntegrationsText("guideNameFlowBody")}</p>
+                    <figure>
+                      <img
+                        src="/guides/power-automate/name-flow-and-skip.png"
+                        width="897"
+                        height="565"
+                        loading="lazy"
+                        decoding="async"
+                        alt={settingsIntegrationsText("guideNameFlowImageAlt")}
+                      />
+                      <figcaption>
+                        {settingsIntegrationsText("guideNameFlowImageCaption")}
+                      </figcaption>
+                    </figure>
+                  </li>
+                  <li>
+                    <strong>{settingsIntegrationsText("guideAddTriggerTitle")}</strong>
+                    <p>{settingsIntegrationsText("guideAddTriggerBody")}</p>
+                    <figure>
+                      <img
+                        src="/guides/power-automate/add-trigger.png"
+                        width="312"
+                        height="114"
+                        loading="lazy"
+                        decoding="async"
+                        alt={settingsIntegrationsText("guideAddTriggerImageAlt")}
+                      />
+                      <figcaption>
+                        {settingsIntegrationsText("guideAddTriggerImageCaption")}
+                      </figcaption>
+                    </figure>
+                  </li>
+                  <li>
+                    <strong>{settingsIntegrationsText("guideSelectTriggerTitle")}</strong>
+                    <p>{settingsIntegrationsText("guideSelectTriggerBody")}</p>
+                    <figure>
+                      <img
+                        src="/guides/power-automate/select-teams-webhook-trigger.png"
+                        width="423"
+                        height="135"
+                        loading="lazy"
+                        decoding="async"
+                        alt={settingsIntegrationsText("guideSelectTriggerImageAlt")}
+                      />
+                      <figcaption>
+                        {settingsIntegrationsText("guideSelectTriggerImageCaption")}
+                      </figcaption>
+                    </figure>
+                  </li>
+                  <li>
+                    <strong>{settingsIntegrationsText("guideConfigureTriggerTitle")}</strong>
+                    <p>{settingsIntegrationsText("guideConfigureTriggerBody")}</p>
+                    <figure>
+                      <img
+                        src="/guides/power-automate/configure-teams-webhook-trigger.png"
+                        width="626"
+                        height="267"
+                        loading="lazy"
+                        decoding="async"
+                        alt={settingsIntegrationsText("guideConfigureTriggerImageAlt")}
+                      />
+                      <figcaption>
+                        {settingsIntegrationsText("guideConfigureTriggerImageCaption")}
+                      </figcaption>
+                    </figure>
+                  </li>
+                  <li>
+                    <strong>{settingsIntegrationsText("guideAddActionTitle")}</strong>
+                    <p>{settingsIntegrationsText("guideAddActionBody")}</p>
+                    <figure>
+                      <img
+                        src="/guides/power-automate/add-teams-action.png"
+                        width="265"
+                        height="147"
+                        loading="lazy"
+                        decoding="async"
+                        alt={settingsIntegrationsText("guideAddActionImageAlt")}
+                      />
+                      <figcaption>
+                        {settingsIntegrationsText("guideAddActionImageCaption")}
+                      </figcaption>
+                    </figure>
+                  </li>
+                  <li>
+                    <strong>{settingsIntegrationsText("guideConfigureActionTitle")}</strong>
+                    <p>{settingsIntegrationsText("guideConfigureActionBody")}</p>
+                    <figure>
+                      <img
+                        src="/guides/power-automate/configure-post-card-action.png"
+                        width="623"
+                        height="572"
+                        loading="lazy"
+                        decoding="async"
+                        alt={settingsIntegrationsText("guideConfigureActionImageAlt")}
+                      />
+                      <figcaption>
+                        {settingsIntegrationsText("guideConfigureActionImageCaption")}
+                      </figcaption>
+                    </figure>
+                  </li>
+                  <li>
+                    <strong>{settingsIntegrationsText("guideFinishTitle")}</strong>
+                    <p>{settingsIntegrationsText("guideFinishBody")}</p>
+                    <figure>
+                      <img
+                        src="/guides/power-automate/save-flow.png"
+                        width="463"
+                        height="92"
+                        loading="lazy"
+                        decoding="async"
+                        alt={settingsIntegrationsText("guideFinishImageAlt")}
+                      />
+                      <figcaption>
+                        {settingsIntegrationsText("guideFinishImageCaption")}
+                      </figcaption>
+                    </figure>
+                  </li>
+                  <li>
+                    <strong>{settingsIntegrationsText("guideCopyUrlTitle")}</strong>
+                    <p>{settingsIntegrationsText("guideCopyUrlBody")}</p>
+                    <figure>
+                      <img
+                        src="/guides/power-automate/confirm-flow-and-copy-http-url.png"
+                        width="672"
+                        height="360"
+                        loading="lazy"
+                        decoding="async"
+                        alt={settingsIntegrationsText("guideCopyUrlImageAlt")}
+                      />
+                      <figcaption>
+                        {settingsIntegrationsText("guideCopyUrlImageCaption")}
+                      </figcaption>
+                    </figure>
+                  </li>
+                </ol>
+                <p class="settings-teams-workflow-guide-note">
+                  {settingsIntegrationsText("guideSecretNote")}
+                </p>
+              </div>
+            </details>
           </div>
         </li>
         <li>
           <span class="settings-teams-workflow-step-index" aria-hidden="true">3</span>
           <div class="settings-teams-workflow-step">
-            <strong>{t("settings.teamsWorkflowTest.testStep")}</strong>
-            <p>{t("settings.teamsWorkflowTest.testStepHint")}</p>
-            <form
-              class="settings-webhook-diagnostic-form"
-              onSubmit={(event) => { void submit(event); }}
-            >
-              <label class="settings-webhook-diagnostic-field">
-                <span>{t("settings.teamsWorkflowTest.urlLabel")}</span>
+            <strong>{settingsIntegrationsText("saveTestStep")}</strong>
+            <p>{settingsIntegrationsText("saveTestStepHint")}</p>
+            {canManage || bindingVisibility === "visible" ? (
+              <form
+                class="settings-webhook-diagnostic-form"
+                onSubmit={(event) => { void submit(event); }}
+              >
+                <label class="settings-webhook-diagnostic-field">
+                <span>{settingsIntegrationsText("saveUrlLabel")}</span>
                 <input
                   class="form-input"
-                  type="password"
+                  type="text"
                   inputMode="url"
                   autocomplete="off"
                   data-1p-ignore
@@ -438,33 +659,50 @@ function TeamsWorkflowTestPanel({
                   spellcheck={false}
                   maxlength={4096}
                   value={webhookUrl}
-                  disabled={!canManage || testing}
+                  readOnly={!canManage}
+                  disabled={testing}
                   placeholder={t("settings.teamsWorkflowTest.urlPlaceholder")}
                   onInput={(event) => setWebhookUrl(event.currentTarget.value)}
                 />
-              </label>
-              <button
-                type="submit"
-                class="btn primary"
-                disabled={!canManage || testing || !webhookUrl.trim()}
-              >
-                {testing
-                  ? t("settings.teamsWorkflowTest.testing")
-                  : t("settings.teamsWorkflowTest.test")}
-              </button>
-            </form>
+                {!canManage ? (
+                  <small>{settingsIntegrationsText("contributorReadOnly")}</small>
+                ) : null}
+                </label>
+                {canManage ? (
+                <button
+                  type="submit"
+                  class="btn primary"
+                  disabled={testing || !webhookUrl.trim()}
+                >
+                  {testing
+                    ? settingsIntegrationsText("savingAndTesting")
+                    : settingsIntegrationsText("saveAndTest")}
+                </button>
+                ) : null}
+              </form>
+            ) : bindingVisibility === "loading" ? (
+              <div class="state-block" role="status">
+                {settingsIntegrationsText("bindingLoading")}
+              </div>
+            ) : bindingVisibility === "hidden" ? (
+              <div class="state-block" role="note">
+                {settingsIntegrationsText("bindingHidden")}
+              </div>
+            ) : (
+              <div class="state-block" role="note">
+                {settingsIntegrationsText("bindingMissing")}
+              </div>
+            )}
+            {bindingError ? <div class="error" role="alert">{bindingError}</div> : null}
           </div>
         </li>
       </ol>
-      {!canManage ? (
-        <div class="state-block" role="note">{t("settings.teamsWorkflowTest.ownerRequired")}</div>
-      ) : null}
       {error ? <div class="error" role="alert">{error}</div> : null}
       {result ? (
         <div class="settings-webhook-diagnostic-result" role="status">
-          <StatusPill kind="success" label={t("settings.teamsWorkflowTest.accepted")} />
+          <StatusPill kind="success" label={settingsIntegrationsText("savedAndAccepted")} />
           <small class="muted">
-            {t("settings.teamsWorkflowTest.acceptedDetail", {
+            {settingsIntegrationsText("savedAndAcceptedDetail", {
               status: result.providerStatus,
               time: new Date(result.testedAt).toLocaleString(),
             })}

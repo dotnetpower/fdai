@@ -5,8 +5,12 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 import httpx
+from azure.core.exceptions import AzureError
+from azure.identity.aio import ManagedIdentityCredential
+from fdai_service_contracts.venue import ExecutionVenue, resolve_execution_venue
 
 from fdai_operator_service.adapters import OperatorSemanticKafkaBus
+from fdai_operator_service.adapters.azure_cli_token import azure_cli_token
 from fdai_operator_service.auth import OperatorAuthenticator
 from fdai_operator_service.environment import (
     OperatorEnvironment,
@@ -23,6 +27,7 @@ from fdai_operator_service.families.conversation.channel_edge.teams_auth import 
     TeamsServiceTokenVerifier,
     TeamsTokenConfig,
 )
+from fdai_operator_service.families.conversation.contracts import ConversationBoundaryError
 from fdai_operator_service.families.iam import HilCallbackConfig, IamFamilyBindings
 from fdai_operator_service.families.iam.hil_callback_authority import (
     TEAMS_APPLICATION_ID_ENV,
@@ -46,9 +51,19 @@ from fdai_operator_service.postgres_family_store import (
 )
 from fdai_operator_service.postgres_iam import PostgresIamAdapters
 from fdai_operator_service.slack_webhook_diagnostics import SlackWebhookDiagnosticTester
+from fdai_operator_service.teams_workflow_binding import (
+    KeyVaultTeamsWorkflowBindingStore,
+    LocalEncryptedTeamsWorkflowBindingStore,
+    TeamsWorkflowBindingConfig,
+    TeamsWorkflowBindingError,
+    TeamsWorkflowBindingStore,
+)
 from fdai_operator_service.teams_workflow_diagnostics import TeamsWorkflowDiagnosticTester
 
 HIL_SIGNING_SECRET_ENV = "FDAI_CHATOPS_WEBHOOK_SECRET"  # noqa: S105
+TEAMS_WORKFLOW_VAULT_URL_ENV = "FDAI_TEAMS_WORKFLOW_KEY_VAULT_URL"
+TEAMS_WORKFLOW_SECRET_NAME_ENV = "FDAI_TEAMS_WORKFLOW_KEY_VAULT_SECRET_NAME"  # noqa: S105
+TEAMS_WORKFLOW_IDENTITY_CLIENT_ID_ENV = "FDAI_TEAMS_WORKFLOW_BINDING_MI_CLIENT_ID"
 
 
 def build_teams_hil_http_client(environment: OperatorEnvironment) -> httpx.AsyncClient | None:
@@ -79,6 +94,65 @@ def build_hil_decision_outbox_bridge(
         registry=PostgresIamAdapters(store),
         publisher=semantic_bus,
         topic=environment.hil_decision_topic,
+    )
+
+
+def build_teams_workflow_binding_store(
+    environment: OperatorEnvironment,
+    store: PostgresFamilyStore,
+) -> TeamsWorkflowBindingStore | None:
+    """Bind the dedicated endpoint secret writer when its full config is present."""
+
+    vault_url = environment.values.get(TEAMS_WORKFLOW_VAULT_URL_ENV, "").strip()
+    secret_name = environment.values.get(TEAMS_WORKFLOW_SECRET_NAME_ENV, "").strip()
+    venue = resolve_execution_venue(environment.values)
+    if not vault_url and not secret_name:
+        if venue is ExecutionVenue.LOCAL and environment.database_url is not None:
+            return LocalEncryptedTeamsWorkflowBindingStore(
+                store=store,
+                key_material=environment.database_url,
+            )
+        return None
+    if not vault_url or not secret_name:
+        raise OperatorServiceConfigurationError(
+            f"{TEAMS_WORKFLOW_VAULT_URL_ENV} and {TEAMS_WORKFLOW_SECRET_NAME_ENV} "
+            "MUST be configured together"
+        )
+    if venue is ExecutionVenue.LOCAL:
+
+        async def local_token_provider(_: str) -> str:
+            try:
+                return await azure_cli_token("https://vault.azure.net")
+            except ConversationBoundaryError as exc:
+                raise TeamsWorkflowBindingError(
+                    "Teams Workflow binding Azure CLI credential is unavailable"
+                ) from exc
+
+        teams_token_provider = local_token_provider
+    else:
+        client_id = environment.values.get(TEAMS_WORKFLOW_IDENTITY_CLIENT_ID_ENV, "").strip()
+        if not client_id:
+            raise OperatorServiceConfigurationError(
+                f"{TEAMS_WORKFLOW_IDENTITY_CLIENT_ID_ENV} is required in deployed mode"
+            )
+
+        async def managed_token_provider(scope: str) -> str:
+            try:
+                async with ManagedIdentityCredential(client_id=client_id) as credential:
+                    token = await credential.get_token(scope)
+            except AzureError as exc:
+                raise TeamsWorkflowBindingError(
+                    "Teams Workflow binding managed identity is unavailable"
+                ) from exc
+            return str(token.token)
+
+        teams_token_provider = managed_token_provider
+    return KeyVaultTeamsWorkflowBindingStore(
+        config=TeamsWorkflowBindingConfig(
+            vault_url=vault_url,
+            secret_name=secret_name,
+        ),
+        token_provider=teams_token_provider,
     )
 
 
@@ -157,7 +231,10 @@ def build_postgres_iam_bindings(
         handover_goals=iam,
         model_settings=iam,
         runtime_settings=iam,
-        teams_workflow_tester=TeamsWorkflowDiagnosticTester(store),
+        teams_workflow_tester=TeamsWorkflowDiagnosticTester(
+            store,
+            binding_store=build_teams_workflow_binding_store(environment, store),
+        ),
         slack_webhook_tester=SlackWebhookDiagnosticTester(store),
         kill_switch=iam,
         configuration_review=iam,
@@ -205,9 +282,13 @@ def _teams_hil_normalizer(
 
 __all__ = [
     "HIL_SIGNING_SECRET_ENV",
+    "TEAMS_WORKFLOW_IDENTITY_CLIENT_ID_ENV",
+    "TEAMS_WORKFLOW_SECRET_NAME_ENV",
+    "TEAMS_WORKFLOW_VAULT_URL_ENV",
     "HilDecisionOutboxBridge",
     "build_hil_decision_outbox_bridge",
     "build_postgres_iam_bindings",
+    "build_teams_workflow_binding_store",
     "build_teams_hil_http_client",
     "build_unavailable_iam_bindings",
 ]

@@ -33,7 +33,9 @@ from fdai_operator_service.slack_webhook_diagnostics import (
     SlackWebhookTestConflictError,
     SlackWebhookTestProviderError,
 )
+from fdai_operator_service.teams_workflow_binding import TeamsWorkflowBindingError
 from fdai_operator_service.teams_workflow_diagnostics import (
+    TeamsWorkflowBindingUnavailableError,
     TeamsWorkflowTestConflictError,
     TeamsWorkflowTestProviderError,
 )
@@ -337,7 +339,7 @@ def make_runtime_settings_routes(
         body = await read_json_object(request, maximum=8 * 1024)
         _require_exact_fields(body, {"request_id", "webhook_url"})
         try:
-            result = await teams_workflow_tester.test(
+            result = await teams_workflow_tester.save_and_test(
                 TeamsWorkflowTestCommand(
                     actor_id=principal.oid,
                     request_id=require_string(body, "request_id"),
@@ -346,6 +348,10 @@ def make_runtime_settings_routes(
             )
         except ValueError as exc:
             return error_response(400, str(exc), kind="invalid_webhook_url")
+        except TeamsWorkflowBindingUnavailableError as exc:
+            return error_response(503, str(exc), kind="binding_unavailable")
+        except TeamsWorkflowBindingError as exc:
+            return error_response(502, str(exc), kind="binding_provider_error")
         except TeamsWorkflowTestConflictError as exc:
             return error_response(409, str(exc), kind="request_conflict")
         except TeamsWorkflowTestProviderError as exc:
@@ -353,10 +359,42 @@ def make_runtime_settings_routes(
         return JSONResponse(
             {
                 "request_id": result.request_id,
+                "saved": result.saved,
+                "binding_version": result.binding_version,
+                "saved_at": result.saved_at.astimezone(UTC).isoformat(),
                 "accepted": result.accepted,
                 "provider_status": result.provider_status,
                 "workflow_run_id": result.workflow_run_id,
                 "tested_at": result.tested_at.astimezone(UTC).isoformat(),
+            }
+        )
+
+    async def get_teams_workflow_binding(request: Request) -> Response:
+        principal = await authorize(request)
+        if not has_capability(
+            principal.roles,
+            IamCapability.VIEW_INTEGRATION_SECRETS,
+        ):
+            return JSONResponse({"visible": False})
+        if teams_workflow_tester is None:
+            return error_response(
+                503,
+                "Teams Workflow binding storage is not configured",
+                kind="binding_unavailable",
+            )
+        try:
+            binding = await teams_workflow_tester.reveal_binding(actor_id=principal.oid)
+        except TeamsWorkflowBindingUnavailableError as exc:
+            return error_response(503, str(exc), kind="binding_unavailable")
+        except TeamsWorkflowBindingError as exc:
+            return error_response(502, str(exc), kind="binding_provider_error")
+        if binding is None:
+            return JSONResponse({"visible": True, "configured": False})
+        return JSONResponse(
+            {
+                "visible": True,
+                "configured": True,
+                **binding,
             }
         )
 
@@ -397,6 +435,12 @@ def make_runtime_settings_routes(
     return (
         Route("/runtime/settings", get_settings, methods=["GET"]),
         Route("/runtime/settings", put_settings, methods=["PUT"]),
+        Route(
+            "/runtime/integrations/teams-workflow/binding",
+            get_teams_workflow_binding,
+            methods=["GET"],
+            name="get_teams_workflow_binding",
+        ),
         Route(
             "/runtime/integrations/teams-workflow/test",
             test_teams_workflow,

@@ -28,8 +28,12 @@ resource "azurerm_container_app" "operator_api" {
   workload_profile_name        = "Consumption"
 
   identity {
-    type         = "UserAssigned"
-    identity_ids = [var.operator_api_identity_id, var.command_api_identity_id]
+    type = "UserAssigned"
+    identity_ids = [
+      var.operator_api_identity_id,
+      var.command_api_identity_id,
+      var.teams_workflow_binding_identity_id,
+    ]
   }
 
   dynamic "registry" {
@@ -246,6 +250,18 @@ resource "azurerm_container_app" "operator_api" {
       env {
         name  = "FDAI_COMMAND_MI_CLIENT_ID"
         value = var.command_api_identity_client_id
+      }
+      env {
+        name  = "FDAI_TEAMS_WORKFLOW_BINDING_MI_CLIENT_ID"
+        value = var.teams_workflow_binding_identity_client_id
+      }
+      env {
+        name  = "FDAI_TEAMS_WORKFLOW_KEY_VAULT_URL"
+        value = var.teams_workflow_binding_vault_url
+      }
+      env {
+        name  = "FDAI_TEAMS_WORKFLOW_KEY_VAULT_SECRET_NAME"
+        value = var.teams_workflow_binding_secret_name
       }
       dynamic "env" {
         for_each = var.resolved_models_path == "" ? [] : [var.resolved_models_path]

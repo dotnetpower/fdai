@@ -438,6 +438,15 @@ module "command_api_identity" {
   tags                = merge(local.tags, { "fdai:component" = "command-transport" })
 }
 
+module "teams_workflow_binding_identity" {
+  count               = var.enable_operator_api ? 1 : 0
+  source              = "./modules/identity/user-assigned-mi"
+  name                = "id-${var.workload}${local.full_suffix}-teams-binding"
+  resource_group_name = module.resource_group.name
+  location            = var.region
+  tags                = merge(local.tags, { "fdai:component" = "teams-workflow-binding" })
+}
+
 module "operator_channel_edge_identity" {
   count               = var.enable_operator_channel_edge ? 1 : 0
   source              = "./modules/identity/user-assigned-mi"
@@ -1826,6 +1835,28 @@ resource "azurerm_key_vault_secret" "state_store_dsn" {
   depends_on = [azurerm_role_assignment.kv_officer_self, module.kv_private_endpoint, azurerm_virtual_network_peering.spoke_to_hub, azurerm_virtual_network_peering.hub_to_spoke]
 }
 
+resource "azurerm_key_vault_secret" "teams_workflow_endpoint" {
+  count        = var.enable_operator_api ? 1 : 0
+  name         = "fdai-teams-workflow-endpoint"
+  value        = "unconfigured"
+  key_vault_id = module.key_vault.id
+  content_type = "teams-workflow-endpoint"
+  tags         = local.tags
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+
+  depends_on = [azurerm_role_assignment.kv_officer_self, module.kv_private_endpoint, azurerm_virtual_network_peering.spoke_to_hub, azurerm_virtual_network_peering.hub_to_spoke]
+}
+
+resource "azurerm_role_assignment" "teams_workflow_binding_secret_officer" {
+  count                = var.enable_operator_api ? 1 : 0
+  scope                = azurerm_key_vault_secret.teams_workflow_endpoint[0].resource_versionless_id
+  role_definition_name = "Key Vault Secrets Officer"
+  principal_id         = module.teams_workflow_binding_identity[0].principal_id
+}
+
 resource "azurerm_key_vault_secret" "ingestion_api_dsn" {
   count        = var.enable_document_ingestion && !var.ingestion_cohost_worker ? 1 : 0
   name         = "fdai-ingestion-api-dsn"
@@ -2578,28 +2609,32 @@ module "operator_api" {
   count  = var.enable_operator_api ? 1 : 0
   source = "./modules/operator-api/container-app"
 
-  name                              = "ca-${var.workload}${local.full_suffix}-operator-api"
-  migrate_job_name                  = "caj-${var.workload}${local.full_suffix}-migrate"
-  catalog_job_name                  = "caj-${var.workload}${local.full_suffix}-catalog"
-  container_app_environment_id      = module.compute.environment_id
-  location                          = var.region
-  resource_group_name               = module.resource_group.name
-  image                             = var.operator_api_image == "" ? var.core_image : var.operator_api_image
-  migration_image                   = var.operator_api_migration_image
-  catalog_image                     = var.core_image
-  operator_api_identity_id          = module.operator_api_identity[0].resource_id
-  operator_api_identity_client_id   = module.operator_api_identity[0].client_id
-  monitor_workspace_customer_id     = module.log_analytics.workspace_customer_id
-  command_api_identity_id           = module.command_api_identity[0].resource_id
-  command_api_identity_client_id    = module.command_api_identity[0].client_id
-  resolved_models_path              = var.resolved_models_json != "" ? var.resolved_models_json : var.operator_api_resolved_models_path
-  resolved_models_sha256            = var.resolved_models_sha256
-  narrator_probe_interval_seconds   = var.operator_api_narrator_probe_interval_seconds
-  web_search_enabled                = var.operator_api_web_search_enabled
-  web_search_allowed_domains        = var.operator_api_web_search_allowed_domains
-  web_search_max_results            = var.operator_api_web_search_max_results
-  web_search_budget_ms              = var.operator_api_web_search_budget_ms
-  web_search_probe_interval_seconds = var.operator_api_web_search_probe_interval_seconds
+  name                                      = "ca-${var.workload}${local.full_suffix}-operator-api"
+  migrate_job_name                          = "caj-${var.workload}${local.full_suffix}-migrate"
+  catalog_job_name                          = "caj-${var.workload}${local.full_suffix}-catalog"
+  container_app_environment_id              = module.compute.environment_id
+  location                                  = var.region
+  resource_group_name                       = module.resource_group.name
+  image                                     = var.operator_api_image == "" ? var.core_image : var.operator_api_image
+  migration_image                           = var.operator_api_migration_image
+  catalog_image                             = var.core_image
+  operator_api_identity_id                  = module.operator_api_identity[0].resource_id
+  operator_api_identity_client_id           = module.operator_api_identity[0].client_id
+  monitor_workspace_customer_id             = module.log_analytics.workspace_customer_id
+  command_api_identity_id                   = module.command_api_identity[0].resource_id
+  command_api_identity_client_id            = module.command_api_identity[0].client_id
+  teams_workflow_binding_identity_id        = module.teams_workflow_binding_identity[0].resource_id
+  teams_workflow_binding_identity_client_id = module.teams_workflow_binding_identity[0].client_id
+  teams_workflow_binding_secret_name        = azurerm_key_vault_secret.teams_workflow_endpoint[0].name
+  teams_workflow_binding_vault_url          = module.key_vault.uri
+  resolved_models_path                      = var.resolved_models_json != "" ? var.resolved_models_json : var.operator_api_resolved_models_path
+  resolved_models_sha256                    = var.resolved_models_sha256
+  narrator_probe_interval_seconds           = var.operator_api_narrator_probe_interval_seconds
+  web_search_enabled                        = var.operator_api_web_search_enabled
+  web_search_allowed_domains                = var.operator_api_web_search_allowed_domains
+  web_search_max_results                    = var.operator_api_web_search_max_results
+  web_search_budget_ms                      = var.operator_api_web_search_budget_ms
+  web_search_probe_interval_seconds         = var.operator_api_web_search_probe_interval_seconds
   web_search_foundry_project_endpoint = (
     local.foundry_web_search_enabled ? module.foundry_web_search[0].project_endpoint : ""
   )
@@ -2657,6 +2692,7 @@ module "operator_api" {
     azurerm_role_assignment.command_api_eventhubs_receiver,
     azurerm_role_assignment.command_api_eventhubs_sender,
     azurerm_role_assignment.operator_api_reader,
+    azurerm_role_assignment.teams_workflow_binding_secret_officer,
     module.llm_azure_openai,
   ]
 }
