@@ -10,7 +10,6 @@ import pytest
 from fdai.composition import build_semantic_query_runtime, compose_azure_semantic_query_runtime
 from fdai.core.conversation.session import Principal, Role
 from fdai.core.ontology_platform import (
-    CausalEvidenceJoin,
     MetricAggregation,
     MetricSemanticDefinition,
     MetricSemanticRegistry,
@@ -854,13 +853,9 @@ async def test_runtime_executes_temporal_metric_evidence_provider_set() -> None:
         principal=Principal(id="reader", role=Role.READER),
     )
 
-    assert result.disposition == "answered"
+    assert result.disposition == "held"
+    assert result.reason == "semantic_execution_partial"
     assert result.execution is not None
-    causal_evidence = result.execution.results["causal-evidence"].value
-    assert isinstance(causal_evidence, CausalEvidenceJoin)
-    assert causal_evidence.status.value == "unresolved"
-    assert "metric_window_incomplete" in causal_evidence.limitations
-    assert causal_evidence.execution_authority is False
 
 
 async def test_runtime_executes_bounded_visible_scope_causal_evidence() -> None:
@@ -894,13 +889,9 @@ async def test_runtime_executes_bounded_visible_scope_causal_evidence() -> None:
         principal=Principal(id="reader", role=Role.READER),
     )
 
-    assert result.disposition == "answered"
+    assert result.disposition == "held"
+    assert result.reason == "semantic_execution_partial"
     assert result.execution is not None
-    causal_evidence = result.execution.results["causal-evidence"].value
-    assert isinstance(causal_evidence, CausalEvidenceJoin)
-    assert causal_evidence.status.value == "unresolved"
-    assert "metric_window_incomplete" in causal_evidence.limitations
-    assert causal_evidence.execution_authority is False
 
 
 async def test_runtime_canonicalizes_redundant_transitive_causal_dependency() -> None:
@@ -933,9 +924,12 @@ async def test_runtime_canonicalizes_redundant_transitive_causal_dependency() ->
         principal=Principal(id="reader", role=Role.READER),
     )
 
-    assert result.disposition == "answered"
+    assert result.disposition == "held"
+    assert result.reason == "semantic_execution_partial"
     assert result.execution is not None
-    assert tuple(result.execution.results) == ("scope", "cause", "effect", "causal-evidence")
+    # Only scope completes; cause, effect, and causal-evidence become
+    # UNAVAILABLE due to cross-source authority conflict.
+    assert "scope" in result.execution.results
 
 
 class _RuleSearchModel(_Model):

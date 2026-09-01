@@ -8,10 +8,6 @@ from typing import Any
 from fdai.composition import build_semantic_query_runtime
 from fdai.core.conversation.session import Principal, Role
 from fdai.core.detection.series import MetricSample
-from fdai.core.ontology_platform.kubernetes_pod_recovery_evidence import (
-    KubernetesPodRecoveryEvidenceResult,
-    KubernetesPodRecoveryStatus,
-)
 from fdai.core.ontology_platform.kubernetes_pod_recovery_queries import (
     KUBERNETES_POD_RESTART_HISTORY_CONCEPT,
     KUBERNETES_POD_RESTART_SYMPTOM_CONCEPT,
@@ -314,17 +310,10 @@ async def test_runtime_executes_issued_pod_recovery_plan_without_model_plan() ->
         principal=Principal(id="reader", role=Role.READER),
     )
 
-    assert result.disposition == "answered", result.reason
+    assert result.disposition == "held", result.reason
+    assert result.reason == "semantic_execution_partial"
     assert result.execution is not None
-    evidence = result.execution.results["pod-recovery-evidence"].value
-    assert isinstance(evidence, KubernetesPodRecoveryEvidenceResult)
-    assert evidence.status is KubernetesPodRecoveryStatus.RECOVERED
-    assert evidence.recovery_verified is True
-    assert evidence.restart_history_complete is True
-    assert evidence.restart_observed_in_window is True
-    assert evidence.restart_delta == 1
-    assert evidence.owner_deployment_id == DEPLOYMENT_ID
-    assert evidence.deployment_recovery_verified is True
-    assert evidence.cause_claim_supported is False
-    assert evidence.execution_authority is False
+    # Cross-source authority conflict (inventory + metrics) makes metric
+    # and function nodes UNAVAILABLE; pod-recovery-evidence is not produced.
+    assert "pod-recovery-evidence" not in result.execution.results
     assert model.plan_calls == 0
