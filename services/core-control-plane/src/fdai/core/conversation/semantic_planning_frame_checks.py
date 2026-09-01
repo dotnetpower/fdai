@@ -17,6 +17,9 @@ from .semantic_planning_frame import (
     build_bound_incident_metric_comparison_frame as _build_bound_incident_metric_comparison_frame,
 )
 from .semantic_planning_frame import (
+    build_configuration_drift_clarification as _build_configuration_drift_clarification,
+)
+from .semantic_planning_frame import (
     build_historical_topology_clarification as _build_historical_topology_clarification,
 )
 from .semantic_planning_frame import (
@@ -46,8 +49,12 @@ from .semantic_planning_frame import (
 from .semantic_planning_frame import (
     build_resource_relationship_clarification as _build_resource_relationship_clarification,
 )
+from .semantic_planning_frame import build_rule_state_frame as _build_rule_state_frame
 from .semantic_planning_frame import (
     build_service_agent_ownership_frame as _build_service_agent_ownership_frame,
+)
+from .semantic_planning_frame import (
+    build_service_current_health_clarification as _build_service_current_health_clarification,
 )
 from .semantic_planning_frame import (
     is_completed_change_outcome_frame as _is_completed_change_outcome_frame,
@@ -196,6 +203,46 @@ def deterministic_pre_frame_outcome(
             manifest_digest=manifest_digest,
             frame=relationship_frame,
             clarification=relationship_proposal.clarification,
+        )
+    configuration_drift = _build_configuration_drift_clarification(
+        judgment,
+        utterance=utterance,
+        context=context,
+    )
+    if configuration_drift is not None:
+        drift_proposal, drift_frame = configuration_drift
+        return _outcome(
+            SemanticPlanningDisposition.CLARIFICATION,
+            "semantic_clarification_required",
+            manifest_digest=manifest_digest,
+            frame=drift_frame,
+            clarification=drift_proposal.clarification,
+        )
+    service_current_health = _build_service_current_health_clarification(
+        judgment,
+        utterance=utterance,
+        context=context,
+    )
+    if service_current_health is not None:
+        service_proposal, service_frame = service_current_health
+        return _outcome(
+            SemanticPlanningDisposition.CLARIFICATION,
+            "semantic_clarification_required",
+            manifest_digest=manifest_digest,
+            frame=service_frame,
+            clarification=service_proposal.clarification,
+        )
+    rule_state = _build_rule_state_frame(
+        judgment,
+        utterance=utterance,
+        context=context,
+    )
+    if rule_state is not None:
+        return _outcome(
+            SemanticPlanningDisposition.UNSUPPORTED,
+            "semantic_rule_state_unsupported",
+            manifest_digest=manifest_digest,
+            frame=rule_state,
         )
     ontology_trace = _build_ontology_trace_frame(
         judgment,

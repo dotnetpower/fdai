@@ -47,7 +47,11 @@ class _PassingTurns:
             "fact_kinds": list(case.required_facts),
             "limitation_kinds": list(case.required_limitations),
             "claim_kinds": [],
-            "evidence_posture": case.evidence_posture.value,
+            "evidence_posture": (
+                "unavailable"
+                if case.expected_disposition in {"clarification", "unsupported"}
+                else case.evidence_posture.value
+            ),
             "authority_posture": case.authority_posture.value,
             "read_performed": True,
             "execution_authority": False,
@@ -57,7 +61,7 @@ class _PassingTurns:
             "schema_version": "2.0.0",
             "projection_id": "00000000-0000-0000-0000-000000000000",
             "request_id": "00000000-0000-0000-0000-000000000000",
-            "disposition": case.allowed_dispositions[0],
+            "disposition": case.expected_disposition,
             "reason_code": "semantic_answer_verified",
             "ontology_release_digest": _DIGEST,
             "principal_manifest_digest": _DIGEST,

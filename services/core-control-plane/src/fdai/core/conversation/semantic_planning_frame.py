@@ -8,10 +8,13 @@ from __future__ import annotations
 # Import all from builders
 from .semantic_planning_frame_builders import (
     build_bound_incident_metric_comparison_frame,
+    build_configuration_drift_clarification,
     build_historical_topology_clarification,
     build_network_path_clarification,
     build_operating_objectives_frame,
+    build_rule_state_frame,
     build_service_agent_ownership_frame,
+    build_service_current_health_clarification,
 )
 from .semantic_planning_frame_builders import (
     build_ontology_release_health_frame as build_ontology_release_health_frame,
@@ -84,6 +87,7 @@ from .semantic_planning_frame_queries import (
 
 __all__ = [
     "build_bound_incident_metric_comparison_frame",
+    "build_configuration_drift_clarification",
     "build_historical_topology_clarification",
     "build_network_path_clarification",
     "build_ontology_release_health_frame",
@@ -94,7 +98,9 @@ __all__ = [
     "build_resource_activity_clarification",
     "build_resource_classification_frame",
     "build_resource_relationship_clarification",
+    "build_rule_state_frame",
     "build_service_agent_ownership_frame",
+    "build_service_current_health_clarification",
     "build_semantic_frame",
     "canonicalize_semantic_judgment_frame_proposal",
     "is_completed_change_outcome_frame",

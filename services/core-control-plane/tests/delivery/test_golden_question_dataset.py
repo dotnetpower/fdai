@@ -27,7 +27,7 @@ def _passing_observation(case):
         link_types=case.required_link_types,
         function_types=case.required_function_types,
         ontology=case.expected_ontology,
-        disposition=case.allowed_dispositions[0],
+        disposition=case.expected_disposition,
         fact_kinds=case.required_facts,
         limitations=case.required_limitations,
         claim_kinds=(),
@@ -64,7 +64,9 @@ def test_typed_observation_matches_ontology_path_semantics_not_local_path_id() -
     case = next(
         item
         for item in load_golden_question_dataset(_DATASET_ROOT).cases
-        if item.expected_ontology is not None and item.expected_ontology.paths
+        if item.expected_disposition == "answered"
+        and item.expected_ontology is not None
+        and item.expected_ontology.paths
     )
     observation = _passing_observation(case)
     ontology = observation.ontology
@@ -96,6 +98,108 @@ def test_typed_observation_matches_ontology_path_semantics_not_local_path_id() -
         ).authority_posture_matched
         is False
     )
+
+
+def test_fresh_answer_case_cannot_pass_by_returning_a_hold() -> None:
+    case = next(
+        item
+        for item in load_golden_question_dataset(_DATASET_ROOT).cases
+        if item.expected_disposition == "answered" and item.evidence_posture.value == "fresh"
+    )
+    held = replace(
+        _passing_observation(case),
+        capabilities=(),
+        object_types=(),
+        link_types=(),
+        function_types=(),
+        ontology=None,
+        disposition="held",
+        fact_kinds=(),
+        limitations=(),
+        evidence_posture=type(case.evidence_posture).UNAVAILABLE,
+    )
+
+    certification = evaluate_golden_case_observation(case, held)
+
+    assert certification.disposition_allowed is False
+    assert certification.passed is False
+
+
+def test_action_draft_keeps_execution_derived_gates() -> None:
+    case = next(
+        item
+        for item in load_golden_question_dataset(_DATASET_ROOT).cases
+        if item.expected_disposition == "action_draft"
+    )
+    incomplete = replace(
+        _passing_observation(case),
+        capabilities=(),
+        object_types=(),
+        link_types=(),
+        function_types=(),
+        ontology=None,
+        fact_kinds=(),
+        limitations=(),
+    )
+
+    certification = evaluate_golden_case_observation(case, incomplete)
+
+    assert certification.capabilities_exact is False
+    assert certification.required_facts_present is False
+    assert certification.passed is False
+
+
+def test_expected_clarification_does_not_require_unperformed_read_facts() -> None:
+    case = next(
+        item
+        for item in load_golden_question_dataset(_DATASET_ROOT).cases
+        if item.expected_disposition == "clarification"
+    )
+    clarification = replace(
+        _passing_observation(case),
+        capabilities=(),
+        object_types=(),
+        link_types=(),
+        function_types=(),
+        ontology=None,
+        disposition="clarification",
+        fact_kinds=(),
+        limitations=(),
+        evidence_posture=type(case.evidence_posture).UNAVAILABLE,
+    )
+
+    certification = evaluate_golden_case_observation(case, clarification)
+
+    assert certification.semantic_frame_matched is True
+    assert certification.capabilities_exact is True
+    assert certification.required_facts_present is True
+    assert certification.evidence_posture_matched is True
+    assert certification.passed is True
+
+
+def test_expected_hold_preserves_exact_evidence_posture() -> None:
+    case = next(
+        item
+        for item in load_golden_question_dataset(_DATASET_ROOT).cases
+        if item.expected_disposition == "held" and item.evidence_posture.value != "unavailable"
+    )
+    held = replace(
+        _passing_observation(case),
+        capabilities=(),
+        object_types=(),
+        link_types=(),
+        function_types=(),
+        ontology=None,
+        disposition="held",
+        fact_kinds=(),
+        limitations=(),
+        evidence_posture=type(case.evidence_posture).UNAVAILABLE,
+    )
+
+    certification = evaluate_golden_case_observation(case, held)
+
+    assert certification.evidence_posture_matched is False
+    assert certification.passed is False
 
 
 def test_loader_rejects_unsupported_artifact_schema(tmp_path: Path) -> None:

@@ -257,7 +257,7 @@ async def test_semantic_judgment_uses_model_authored_direct_response_prompt() ->
     base = registry.get_base("semantic.judgment")
     out = await composer.compose(capability_id="semantic.judgment")
 
-    assert base.version == 5
+    assert base.version == 6
     assert out.system_text == base.body
     assert "author a fresh, concise direct_response.answer" in out.system_text
     assert "Do not reuse canned wording" in out.system_text

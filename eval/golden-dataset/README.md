@@ -82,8 +82,8 @@ Join each localized question's `expectation_id` and `runtime_context` to the mat
 `semantic_pair_id` in `expectations.json` and its coverage row. A regression runner should then
 submit the question through the real semantic-turn boundary and verify all of the following:
 
-1. The turn uses `verified_query_plan`, or returns one of the case's allowed typed non-answer
-   dispositions when required evidence is unavailable.
+1. The terminal disposition exactly matches the coverage row's `expected_posture`. A fresh
+   answer case cannot pass by returning a safe hold, clarification, or unsupported result.
 2. Semantic retrieval resolves every required ObjectType, LinkType, and FunctionType against the
    exact principal-scoped ontology release.
 3. Every executed relationship path follows the declared stored direction or its explicitly
@@ -93,6 +93,12 @@ submit the question through the real semantic-turn boundary and verify all of th
 5. An `explicit_target_required` case returns clarification before operational reads when the
    request supplies no exact target.
 6. The result reports `execution_authority=false` and makes none of the forbidden claims.
+
+For an expected clarification or unsupported result, execution-dependent capabilities, ontology
+paths, and answer facts are not applicable, but the semantic frame, unavailable evidence posture,
+authority boundary, transport, forbidden-claim gate, and hard-zero counters still apply. An
+expected hold keeps the exact stale, incomplete, conflicting, or unavailable evidence posture from
+the coverage row. Answer and action-draft cases retain every existing gate.
 
 The expected facts are fact kinds, not literal values. For example, a case can require
 `resource.status` without claiming that the selected resource is healthy. This keeps the corpus

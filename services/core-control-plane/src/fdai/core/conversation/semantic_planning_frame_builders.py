@@ -13,6 +13,7 @@ from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
 from .semantic_planning_frame_core import build_semantic_frame
 from .semantic_planning_frame_facets import (
+    _facets_describe_configuration_drift_evidence,
     _facets_describe_historical_relationship_change,
     _facets_describe_historical_topology,
     _facets_describe_incident_metric_comparison,
@@ -26,6 +27,7 @@ from .semantic_planning_frame_facets import (
     _facets_describe_resource_classification,
     _facets_describe_resource_relationships,
     _facets_describe_service_agent_ownership,
+    _facets_describe_service_current_health,
 )
 from .semantic_planning_models import (
     ClarificationRequirement,
@@ -71,6 +73,132 @@ def build_bound_incident_metric_comparison_frame(
         confidence=judgment.confidence,
     )
     return build_semantic_frame(proposal, utterance=utterance, context=context)
+
+
+def build_configuration_drift_clarification(
+    judgment: SemanticJudgmentProposal | None,
+    *,
+    utterance: str,
+    context: tuple[str, ...],
+) -> tuple[SemanticFrameProposal, SemanticProblemFrame] | None:
+    """Preserve configuration-drift meaning until one exact Resource is supplied."""
+
+    if (
+        judgment is None
+        or judgment.action_posture != "advise_only"
+        or judgment.primary_intent
+        not in {"query.ontology_relationships", "query.resource_change_activity"}
+        or any(
+            target.canonical_value not in {None, "CausalHypothesis", "Resource"}
+            for target in judgment.targets
+        )
+    ):
+        return None
+    facets = {facet.replace("-", "_") for facet in judgment.requested_facets}
+    if not _facets_describe_configuration_drift_evidence(facets):
+        return None
+    proposal = SemanticFrameProposal(
+        operation=SemanticOperation.VALIDATE,
+        subject_constraints=("Resource",),
+        measure_concepts=tuple(sorted(facets)),
+        temporal_scope={"kind": "current"},
+        output_shape=SemanticOutputShape.EVIDENCE_VALIDATION,
+        evidence_requirements=(),
+        unresolved_terms=("Resource identity",),
+        clarification_requirements=(ClarificationRequirement.SUBJECT,),
+        clarification=(
+            "구성 드리프트를 확인할 정확한 Resource 이름 또는 ID를 알려주세요?"
+            if re.search(r"[가-힣]", utterance) is not None
+            else (
+                "Provide the exact Resource name or ID whose configuration drift should be checked?"
+            )
+        ),
+        investigation=None,
+        confidence=judgment.confidence,
+    )
+    return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
+
+
+def build_rule_state_frame(
+    judgment: SemanticJudgmentProposal | None,
+    *,
+    utterance: str,
+    context: tuple[str, ...],
+) -> SemanticProblemFrame | None:
+    """Build the exact declaration frame for collected-versus-active Rule state."""
+
+    if (
+        judgment is None
+        or judgment.action_posture != "advise_only"
+        or judgment.primary_intent != "query.ontology_declaration"
+        or any(target.canonical_value not in {None, "Rule"} for target in judgment.targets)
+    ):
+        return None
+    facets = {facet.replace("-", "_") for facet in judgment.requested_facets}
+    if "rule_state" not in facets or not {
+        "collected_reference",
+        "not_active_policy",
+        "no_current_violation",
+    }.intersection(facets):
+        return None
+    proposal = SemanticFrameProposal(
+        operation=SemanticOperation.SELECT,
+        subject_constraints=("Rule",),
+        measure_concepts=("rule_state",),
+        temporal_scope={},
+        output_shape=SemanticOutputShape.ONTOLOGY_DECLARATION,
+        evidence_requirements=(),
+        unresolved_terms=(),
+        clarification_requirements=(),
+        clarification=None,
+        investigation=None,
+        confidence=judgment.confidence,
+    )
+    return build_semantic_frame(proposal, utterance=utterance, context=context)
+
+
+def build_service_current_health_clarification(
+    judgment: SemanticJudgmentProposal | None,
+    *,
+    utterance: str,
+    context: tuple[str, ...],
+) -> tuple[SemanticFrameProposal, SemanticProblemFrame] | None:
+    """Preserve service-to-resource health meaning until one service is identified."""
+
+    if (
+        judgment is None
+        or judgment.action_posture != "advise_only"
+        or judgment.primary_intent != "query.ontology_relationships"
+        or any(
+            target.canonical_value not in {None, "BusinessService", "Resource", "Workload"}
+            for target in judgment.targets
+        )
+    ):
+        return None
+    facets = {facet.replace("-", "_") for facet in judgment.requested_facets}
+    if not _facets_describe_service_current_health(facets):
+        return None
+    proposal = SemanticFrameProposal(
+        operation=SemanticOperation.SELECT,
+        subject_constraints=("BusinessService", "Resource", "Workload"),
+        measure_concepts=tuple(sorted(facets)),
+        temporal_scope={"kind": "current"},
+        output_shape=SemanticOutputShape.ONTOLOGY_RELATIONSHIPS,
+        evidence_requirements=(),
+        unresolved_terms=("BusinessService identity",),
+        clarification_requirements=(ClarificationRequirement.SUBJECT,),
+        clarification=(
+            "현재 상태를 확인할 정확한 BusinessService 이름 또는 ID를 알려주세요?"
+            if re.search(r"[가-힣]", utterance) is not None
+            else (
+                "Provide the exact BusinessService name or ID whose current state "
+                "should be checked?"
+            )
+        ),
+        investigation=None,
+        confidence=judgment.confidence,
+    )
+    return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
 
 
 def build_network_path_clarification(
@@ -521,7 +649,15 @@ def build_resource_activity_clarification(
         judgment is None
         or judgment.action_posture != "advise_only"
         or judgment.primary_intent != "query.resource_change_activity"
-        or any(target.canonical_value not in {None, "Resource"} for target in judgment.targets)
+        or any(
+            target.canonical_value not in {None, "Resource"}
+            and not (
+                target.kind == "time_range"
+                and target.canonical_value is not None
+                and target.canonical_value.startswith("duration.")
+            )
+            for target in judgment.targets
+        )
     ):
         return None
     facets = {facet.replace("-", "_") for facet in judgment.requested_facets}

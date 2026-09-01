@@ -30,6 +30,7 @@ from fdai.core.conversation.semantic_planning_cascade import (
 )
 from fdai.core.conversation.semantic_planning_frame import (
     build_bound_incident_metric_comparison_frame,
+    build_configuration_drift_clarification,
     build_historical_topology_clarification,
     build_network_path_clarification,
     build_ontology_release_health_frame,
@@ -40,8 +41,10 @@ from fdai.core.conversation.semantic_planning_frame import (
     build_resource_activity_clarification,
     build_resource_classification_frame,
     build_resource_relationship_clarification,
+    build_rule_state_frame,
     build_semantic_frame,
     build_service_agent_ownership_frame,
+    build_service_current_health_clarification,
     is_completed_change_outcome_frame,
     is_configuration_drift_evidence_frame,
     is_historical_topology_clarification_frame,
@@ -2831,6 +2834,145 @@ def test_current_state_without_exact_target_requests_korean_clarification() -> N
     assert outcome.execution_authority is False
     assert (t1.frame_calls, t1.plan_calls) == (1, 0)
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+def test_resource_activity_clarification_accepts_typed_duration_target() -> None:
+    judgment = SemanticJudgmentProposal.model_validate(
+        {
+            "primary_intent": "query.resource_change_activity",
+            "targets": [
+                {
+                    "kind": "resource_type",
+                    "value": "Container App",
+                    "source_start": 0,
+                    "source_end": 13,
+                },
+                {
+                    "kind": "time_range",
+                    "value": "30 minutes",
+                    "source_start": 14,
+                    "source_end": 24,
+                    "canonical_value": "duration.PT30M",
+                },
+            ],
+            "requested_facets": [
+                "resource_change_activity",
+                "revision",
+                "restart",
+                "configuration",
+                "past_30_minutes",
+            ],
+            "confidence": 0.95,
+            "ambiguous": False,
+            "action_posture": "advise_only",
+            "action_subject": "none",
+        }
+    )
+
+    result = build_resource_activity_clarification(
+        judgment,
+        utterance="Container App 30 minutes",
+        context=(),
+    )
+
+    assert result is not None
+    proposal, frame = result
+    assert proposal.clarification_requirements == (ClarificationRequirement.SUBJECT,)
+    assert frame.output_shape == "target_activity"
+    assert frame.temporal_scope == {"kind": "windowed"}
+
+
+def test_configuration_drift_without_exact_resource_requests_clarification() -> None:
+    judgment = SemanticJudgmentProposal.model_validate(
+        {
+            "primary_intent": "query.ontology_relationships",
+            "targets": [],
+            "requested_facets": [
+                "configuration_drift",
+                "evidence_supports_hypothesis",
+                "evidence_refutes_hypothesis",
+            ],
+            "confidence": 0.95,
+            "ambiguous": False,
+            "action_posture": "advise_only",
+            "action_subject": "none",
+        }
+    )
+
+    result = build_configuration_drift_clarification(
+        judgment,
+        utterance="구성 드리프트 근거를 확인해 주세요.",
+        context=(),
+    )
+
+    assert result is not None
+    proposal, frame = result
+    assert proposal.clarification_requirements == (ClarificationRequirement.SUBJECT,)
+    assert frame.operation is SemanticOperation.VALIDATE
+    assert frame.subject_constraints == ("Resource",)
+
+
+def test_collected_rule_state_builds_exact_declaration_frame() -> None:
+    judgment = SemanticJudgmentProposal.model_validate(
+        {
+            "primary_intent": "query.ontology_declaration",
+            "targets": [],
+            "requested_facets": [
+                "rule_state",
+                "collected_reference",
+                "not_active_policy",
+                "no_current_violation",
+            ],
+            "confidence": 0.95,
+            "ambiguous": False,
+            "action_posture": "advise_only",
+            "action_subject": "none",
+        }
+    )
+
+    frame = build_rule_state_frame(
+        judgment,
+        utterance="Explain the collected Rule state.",
+        context=(),
+    )
+
+    assert frame is not None
+    assert frame.subject_constraints == ("Rule",)
+    assert frame.measure_concepts == ("rule_state",)
+    assert frame.output_shape == "ontology_declaration"
+
+
+def test_service_current_health_without_exact_service_requests_clarification() -> None:
+    judgment = SemanticJudgmentProposal.model_validate(
+        {
+            "primary_intent": "query.ontology_relationships",
+            "targets": [],
+            "requested_facets": [
+                "business_services",
+                "workloads",
+                "resources",
+                "current_state",
+                "unknown_state",
+                "partial_service_graph",
+            ],
+            "confidence": 0.95,
+            "ambiguous": False,
+            "action_posture": "advise_only",
+            "action_subject": "none",
+        }
+    )
+
+    result = build_service_current_health_clarification(
+        judgment,
+        utterance="서비스의 현재 상태와 알 수 없는 상태를 구분해 주세요.",
+        context=(),
+    )
+
+    assert result is not None
+    proposal, frame = result
+    assert proposal.clarification_requirements == (ClarificationRequirement.SUBJECT,)
+    assert frame.subject_constraints == ("BusinessService", "Resource", "Workload")
+    assert frame.temporal_scope == {"kind": "current"}
 
 
 def test_current_revision_without_ready_cue_does_not_force_state_function() -> None:

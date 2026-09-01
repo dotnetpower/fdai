@@ -152,6 +152,7 @@ class GoldenQuestionCase:
     expected_frame: GoldenSemanticFrame
     required_capabilities: tuple[str, ...]
     allowed_dispositions: tuple[str, ...]
+    expected_disposition: str
     required_facts: tuple[str, ...]
     forbidden_claims: tuple[str, ...]
     evidence_posture: QuestionEvidencePosture
@@ -184,6 +185,11 @@ class GoldenQuestionCase:
             or not set(self.allowed_dispositions) <= _ALLOWED_DISPOSITIONS
         ):
             raise ValueError("golden allowed dispositions are invalid")
+        if (
+            self.expected_disposition not in _ALLOWED_DISPOSITIONS
+            or self.expected_disposition not in self.allowed_dispositions
+        ):
+            raise ValueError("golden expected disposition is invalid")
         _require_ordered_identifiers("golden required facts", self.required_facts)
         _require_ordered_identifiers("golden forbidden claims", self.forbidden_claims)
         _require_catalog_names(
@@ -210,6 +216,7 @@ class GoldenQuestionCase:
                 "expected_frame": asdict(self.expected_frame),
                 "required_capabilities": self.required_capabilities,
                 "allowed_dispositions": self.allowed_dispositions,
+                "expected_disposition": self.expected_disposition,
                 "required_facts": self.required_facts,
                 "forbidden_claims": self.forbidden_claims,
                 "required_object_types": self.required_object_types,

@@ -77,6 +77,19 @@ def _facets_describe_service_relationship_assessment(facets: set[str]) -> bool:
     )
 
 
+def _facets_describe_service_current_health(facets: set[str]) -> bool:
+    return _has_families(
+        facets,
+        (
+            ("business_service", "business_services", "service"),
+            ("workload", "workloads"),
+            ("resource", "resources"),
+            ("current_state",),
+            ("unknown_state",),
+        ),
+    )
+
+
 def _facets_describe_incident_triage(facets: set[str]) -> bool:
     return _has_families(
         facets,

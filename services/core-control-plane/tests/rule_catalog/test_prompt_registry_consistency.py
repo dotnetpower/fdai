@@ -137,7 +137,7 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     plan = prompts.get_base("semantic.query.plan")
 
     assert frame.version == 39
-    assert judgment.version == 5
+    assert judgment.version == 6
     assert "query.resource_event_history with resource_event.kubernetes" in judgment.body
     assert "include kubernetes_events and an ordering facet" in judgment.body
     assert "Do not add resource_event.resource_health" in judgment.body
@@ -322,6 +322,11 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "rule_state as its only measure concept" in frame.body
     assert "operation select with ontology_declaration" in frame.body
     assert "Do not reduce either request to ontology_manifest" in frame.body
+    assert "never a plausible synonym" in judgment.body
+    assert "never turn a negated current violation into current_finding" in judgment.body
+    assert "not query.resource_class_closure" in judgment.body
+    assert "Ownership never grants execution authority" in judgment.body
+    assert "A subtype is not an instance identity" in judgment.body
     assert "instead of clarification" in frame.body
     assert "Do not select that function for instance listing" in frame.body
     assert "query.incident_evidence" in frame.body
