@@ -1,8 +1,8 @@
 ---
 title: 다중 채널 알림 전달
 translation_of: multi-channel-notification-delivery.md
-translation_source_sha: 6882334dff0c0b18f28c9fc6cb7cb34667288bc4
-translation_revised: 2026-08-31
+translation_source_sha: 7045c92d1fc81896ed1b56f5c97cccffe8451409
+translation_revised: 2026-09-01
 ---
 # 다중 채널 알림 전달
 
@@ -229,13 +229,19 @@ dispatch:<audit_id>            targets = [teams-ops-primary, slack-ops, email-on
 제한을 넘은 요청을 차단하며, 결과를 `delivered` 또는 `retryable_failed`로 기록합니다. 준비 및
 완료 관찰 감사 단계가 이 상태 변경을 둘러쌉니다. 콜백 시크릿은 배포 환경에서 관리합니다.
 
-Settings > Integrations는 설정을 위한 별도의 일회성 상용 클라우드 진단을 제공합니다. Owner는
+Settings > Integrations는 설정을 위한 범위가 제한된 상용 클라우드 저장 및 테스트 흐름을 제공합니다. Owner는
 현재 FDAI ID와 배포 설정에서 제공한 Microsoft 365 계정 힌트를 비교하고, 해당 계정을 복사한 다음
 Power Automate를 열 수 있습니다. 서명된 URL을 붙여 넣으면 고정된 합성 카드 한 건을 전송합니다.
 Microsoft 365 테넌트의 인증, MFA, 동의, Team 및 Channel 선택은 명시적인 사용자 작업으로
-유지합니다. Console은 URL을 즉시 지우고 API는 URL을 응답하거나 저장하지 않으며, 영속 진단
-기록에는 URL 다이제스트와 준비 및 완료 메타데이터만 남깁니다. 진단 성공은 붙여 넣은 URL만
-검증하며 배포 환경에서 관리하는 운영 바인딩을 업데이트하거나 증명하지 않습니다.
+유지합니다. 배포 환경은 버전이 지정된 Teams 엔드포인트 시크릿 하나만 쓸 수 있는 전용 Managed
+Identity를 사용합니다. 로컬 프로필은 Operator가 소유하는 루프백 레코드를 암호화하여 사용하며
+PostgreSQL에 평문을 쓰지 않습니다. FDAI는 저장된 정확한 버전을 다시 읽고 URL 다이제스트를 확인한
+후에만 테스트 카드를 전송합니다. Contributor, Approver 및 Owner 역할은 인증된 `no-store`
+응답으로 현재 URL을 다시 불러올 수 있습니다. Reader와 BreakGlass 역할에는 구성 메타데이터를
+제공하지 않습니다. 모든 reveal을 URL 없이 감사하며 영속 저장 및 테스트 기록에는 다이제스트,
+바인딩 버전, 행위자, 요청 id, 프로바이더 상태, 준비 및 완료 메타데이터만 남깁니다. Key Vault는
+이전 시크릿 버전을 롤백용으로 유지합니다. 알림 런타임이
+저장된 바인딩을 참조하는 시점은 배포에서 계속 결정합니다.
 
 ## 6. 이 설계가 넘지 않는 경계
 

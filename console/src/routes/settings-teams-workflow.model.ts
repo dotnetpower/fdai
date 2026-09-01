@@ -1,15 +1,63 @@
 export interface TeamsWorkflowTestResult {
   readonly requestId: string;
+  readonly saved: true;
+  readonly bindingVersion: string;
+  readonly savedAt: string;
   readonly accepted: true;
   readonly providerStatus: number;
   readonly workflowRunId: string | null;
   readonly testedAt: string;
 }
 
+export type TeamsWorkflowBindingView =
+  | { readonly visible: false }
+  | { readonly visible: true; readonly configured: false }
+  | {
+      readonly visible: true;
+      readonly configured: true;
+      readonly webhookUrl: string;
+      readonly bindingVersion: string;
+      readonly revealedAt: string;
+    };
+
+export function decodeTeamsWorkflowBindingView(value: unknown): TeamsWorkflowBindingView {
+  const item = record(value, "Teams Workflow binding");
+  if (item["visible"] === false) return { visible: false };
+  if (item["visible"] !== true) {
+    throw new Error("Teams Workflow binding.visible MUST be a boolean");
+  }
+  if (item["configured"] === false) return { visible: true, configured: false };
+  if (item["configured"] !== true) {
+    throw new Error("Teams Workflow binding.configured MUST be a boolean");
+  }
+  const revealedAt = nonEmptyString(
+    item["revealed_at"],
+    "Teams Workflow binding.revealed_at",
+  );
+  if (Number.isNaN(Date.parse(revealedAt))) {
+    throw new Error("Teams Workflow binding.revealed_at MUST be an ISO timestamp");
+  }
+  return {
+    visible: true,
+    configured: true,
+    webhookUrl: nonEmptyString(item["webhook_url"], "Teams Workflow binding.webhook_url"),
+    bindingVersion: nonEmptyString(
+      item["binding_version"],
+      "Teams Workflow binding.binding_version",
+    ),
+    revealedAt,
+  };
+}
+
 export function decodeTeamsWorkflowTestResult(value: unknown): TeamsWorkflowTestResult {
   const item = record(value, "Teams Workflow test result");
   if (item["accepted"] !== true) {
     throw new Error("Teams Workflow test result.accepted MUST be true");
+  }
+  if (item["saved"] !== true) {
+    throw new Error(
+      "Teams Workflow save was not confirmed. Restart or upgrade the Operator API before retrying.",
+    );
   }
   const providerStatus = integer(item["provider_status"], "Teams Workflow test result.provider_status");
   if (providerStatus < 200 || providerStatus > 299) {
@@ -19,8 +67,18 @@ export function decodeTeamsWorkflowTestResult(value: unknown): TeamsWorkflowTest
   if (Number.isNaN(Date.parse(testedAt))) {
     throw new Error("Teams Workflow test result.tested_at MUST be an ISO timestamp");
   }
+  const savedAt = nonEmptyString(item["saved_at"], "Teams Workflow test result.saved_at");
+  if (Number.isNaN(Date.parse(savedAt))) {
+    throw new Error("Teams Workflow test result.saved_at MUST be an ISO timestamp");
+  }
   return {
     requestId: nonEmptyString(item["request_id"], "Teams Workflow test result.request_id"),
+    saved: true,
+    bindingVersion: nonEmptyString(
+      item["binding_version"],
+      "Teams Workflow test result.binding_version",
+    ),
+    savedAt,
     accepted: true,
     providerStatus,
     workflowRunId: nullableString(

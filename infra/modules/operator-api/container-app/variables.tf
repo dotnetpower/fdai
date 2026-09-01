@@ -87,6 +87,26 @@ variable "command_api_identity_client_id" {
   type        = string
 }
 
+variable "teams_workflow_binding_identity_id" {
+  description = "Dedicated Teams Workflows Key Vault secret-writer UAMI resource id."
+  type        = string
+}
+
+variable "teams_workflow_binding_identity_client_id" {
+  description = "Dedicated Teams Workflows Key Vault secret-writer UAMI client id."
+  type        = string
+}
+
+variable "teams_workflow_binding_secret_name" {
+  description = "Key Vault secret name that owns the saved Teams Workflows endpoint."
+  type        = string
+}
+
+variable "teams_workflow_binding_vault_url" {
+  description = "Azure Key Vault HTTPS origin for the Teams Workflows endpoint binding."
+  type        = string
+}
+
 variable "resolved_models_path" {
   description = "Container path to the resolver output used by the Command Deck narrator. Empty disables the narrator routes."
   type        = string

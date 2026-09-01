@@ -324,15 +324,29 @@ class RecordingTeamsWorkflowTester:
     def __init__(self) -> None:
         self.command: TeamsWorkflowTestCommand | None = None
 
-    async def test(self, command: TeamsWorkflowTestCommand) -> TeamsWorkflowTestResult:
+    async def save_and_test(
+        self,
+        command: TeamsWorkflowTestCommand,
+    ) -> TeamsWorkflowTestResult:
         self.command = command
         return TeamsWorkflowTestResult(
             request_id=command.request_id,
+            saved=True,
+            binding_version="version-1",
+            saved_at=NOW,
             accepted=True,
             provider_status=202,
             workflow_run_id="run-1",
             tested_at=NOW,
         )
+
+    async def reveal_binding(self, *, actor_id: str) -> Mapping[str, object]:
+        self.reveal_actor_id = actor_id
+        return {
+            "webhook_url": "https://example.e4.environment.api.powerplatform.com/signed",
+            "binding_version": "version-1",
+            "revealed_at": NOW.isoformat(),
+        }
 
 
 class RecordingSlackWebhookTester:
@@ -485,14 +499,14 @@ def _client(**overrides: object) -> TestClient:
     return TestClient(Starlette(routes=make_iam_family_routes(_bindings(**overrides))))
 
 
-def test_family_owns_exact_34_route_manifest_without_fdai_implementation_imports() -> None:
+def test_family_owns_exact_route_manifest_without_fdai_implementation_imports() -> None:
     routes = make_iam_family_routes(_bindings())
     snapshot = tuple(
         (next(iter((route.methods or set()) - {"HEAD"})), route.path, route.name)
         for route in routes
     )
     assert snapshot == tuple((item.method, item.path, item.name) for item in IAM_FAMILY_MANIFEST)
-    assert len(snapshot) == 34
+    assert len(snapshot) == 35
 
     for path in FAMILY_SOURCE.rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -713,6 +727,9 @@ def test_owner_can_send_one_secret_free_teams_workflow_diagnostic() -> None:
     assert response.status_code == 200
     assert response.json() == {
         "request_id": "teams-test-1",
+        "saved": True,
+        "binding_version": "version-1",
+        "saved_at": NOW.isoformat(),
         "accepted": True,
         "provider_status": 202,
         "workflow_run_id": "run-1",
@@ -737,6 +754,31 @@ def test_teams_workflow_diagnostic_requires_owner_and_injected_audit_store() -> 
 
     assert reader.status_code == 403
     assert unavailable.status_code == 503
+
+
+def test_contributor_can_reveal_saved_teams_binding_but_reader_cannot() -> None:
+    tester = RecordingTeamsWorkflowTester()
+    contributor = _client(teams_workflow_tester=tester).get(
+        "/runtime/integrations/teams-workflow/binding",
+        headers={"x-test-role": "Contributor", "x-test-oid": "contributor-1"},
+    )
+    reader = _client(teams_workflow_tester=tester).get(
+        "/runtime/integrations/teams-workflow/binding",
+        headers={"x-test-role": "Reader", "x-test-oid": "reader-1"},
+    )
+
+    assert contributor.status_code == 200
+    assert contributor.json() == {
+        "visible": True,
+        "configured": True,
+        "webhook_url": "https://example.e4.environment.api.powerplatform.com/signed",
+        "binding_version": "version-1",
+        "revealed_at": NOW.isoformat(),
+    }
+    assert tester.reveal_actor_id == "contributor-1"
+    assert reader.status_code == 200
+    assert reader.json() == {"visible": False}
+    assert "webhook_url" not in reader.text
 
 
 def test_owner_can_send_one_secret_free_slack_webhook_diagnostic() -> None:

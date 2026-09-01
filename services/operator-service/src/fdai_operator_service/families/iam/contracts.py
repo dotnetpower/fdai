@@ -374,6 +374,9 @@ class TeamsWorkflowTestResult:
     """Secret-free result returned after one bounded provider request."""
 
     request_id: str
+    saved: bool
+    binding_version: str
+    saved_at: datetime
     accepted: bool
     provider_status: int
     workflow_run_id: str | None
@@ -381,9 +384,15 @@ class TeamsWorkflowTestResult:
 
 
 class TeamsWorkflowTester(Protocol):
-    """Send and durably audit one synthetic Teams Workflows notification."""
+    """Persist one endpoint, then send and audit one synthetic notification."""
 
-    async def test(self, command: TeamsWorkflowTestCommand) -> TeamsWorkflowTestResult: ...
+    async def save_and_test(self, command: TeamsWorkflowTestCommand) -> TeamsWorkflowTestResult: ...
+
+    async def reveal_binding(
+        self,
+        *,
+        actor_id: str,
+    ) -> JsonMapping | None: ...
 
 
 @dataclass(frozen=True, slots=True)

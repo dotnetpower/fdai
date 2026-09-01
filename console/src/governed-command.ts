@@ -49,6 +49,43 @@ export async function putGovernedJson(
   }
 }
 
+export async function getGovernedJson(
+  auth: AuthContext,
+  operatorApiBaseUrl: string,
+  path: string,
+): Promise<unknown> {
+  const authorization = await auth.getAuthorizationHeader();
+  const headers: Record<string, string> = { accept: "application/json" };
+  if (authorization !== null) headers.authorization = authorization;
+  const controller = new AbortController();
+  const timer = globalThis.setTimeout(() => controller.abort(), 10_000);
+  let response: Response;
+  try {
+    response = await fetch(new URL(path, operatorApiBaseUrl), {
+      method: "GET",
+      headers,
+      credentials: "omit",
+      cache: "no-store",
+      signal: controller.signal,
+    });
+  } catch (reason) {
+    if (reason instanceof DOMException && reason.name === "AbortError") {
+      throw new GovernedCommandError("Request timed out", 0);
+    }
+    throw reason;
+  } finally {
+    globalThis.clearTimeout(timer);
+  }
+  if (!response.ok) {
+    throw new GovernedCommandError(await errorMessage(response), response.status);
+  }
+  try {
+    return await response.json();
+  } catch {
+    throw new GovernedCommandError("Response body was not JSON", response.status);
+  }
+}
+
 async function errorMessage(response: Response): Promise<string> {
   try {
     const payload = await response.json() as {

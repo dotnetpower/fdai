@@ -18,6 +18,7 @@ class IamCapability(StrEnum):
     TRIGGER_KILL_SWITCH = "trigger-kill-switch"
     ACTIVATE_BREAK_GLASS = "activate-break-glass"
     MANAGE_RUNTIME_SETTINGS = "manage-runtime-settings"
+    VIEW_INTEGRATION_SECRETS = "view-integration-secrets"
     MANAGE_MODEL_BINDINGS = "manage-model-bindings"
     MANAGE_GROUP_MEMBERSHIP = "manage-group-membership"
 
@@ -25,13 +26,18 @@ class IamCapability(StrEnum):
 ROLE_CAPABILITIES: Final[dict[OperatorRole, frozenset[IamCapability]]] = {
     OperatorRole.READER: frozenset({IamCapability.VIEW_CONSOLE}),
     OperatorRole.CONTRIBUTOR: frozenset(
-        {IamCapability.VIEW_CONSOLE, IamCapability.AUTHOR_DRAFT_PR}
+        {
+            IamCapability.VIEW_CONSOLE,
+            IamCapability.AUTHOR_DRAFT_PR,
+            IamCapability.VIEW_INTEGRATION_SECRETS,
+        }
     ),
     OperatorRole.APPROVER: frozenset(
         {
             IamCapability.VIEW_CONSOLE,
             IamCapability.AUTHOR_DRAFT_PR,
             IamCapability.APPROVE_RUNTIME_HIL,
+            IamCapability.VIEW_INTEGRATION_SECRETS,
         }
     ),
     OperatorRole.OWNER: frozenset(
@@ -43,6 +49,7 @@ ROLE_CAPABILITIES: Final[dict[OperatorRole, frozenset[IamCapability]]] = {
             IamCapability.MANAGE_RUNTIME_SETTINGS,
             IamCapability.MANAGE_MODEL_BINDINGS,
             IamCapability.MANAGE_GROUP_MEMBERSHIP,
+            IamCapability.VIEW_INTEGRATION_SECRETS,
         }
     ),
     # BreakGlass is a separately managed group, never nested inside Owner, so a
