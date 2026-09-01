@@ -227,6 +227,26 @@ caller-supplied role parameter. Both surfaces return descriptors only and cannot
 | `query_t2_recovery()` | Read sanitized proposer attempt receipts from the server StateStore. Return the retained attempt count, recovery state, route roles, failure class, observation time, and explicit legacy-detail gaps without exposing provider error text. | Reader | `T2RecoveryStateReader` |
 | `query_configuration_baseline()` | Read one server-configured frozen configuration baseline, its current scoped observation, and the exact integrity-pinned DOCX citation. The caller cannot select scope, version, digest, document, or a mutation operation. Missing structured topology remains unknown. | Reader | `ConfigurationDriftService` + `KnowledgeSource` |
 | `capture_browser_evidence(policy_id, policy_version, source_url, stable_selectors)` | Submit a credential-free bounded capture under an exact server-owned policy. Returns an immutable artifact receipt; never returns a page or interaction API. | Reader | `BrowserEvidenceCaptureService` |
+
+### 3.2 Receipt-bound answer authority
+
+Core assigns answer authority when its server-owned function registry issues the execution receipt.
+The receipt keeps the authority and its evidence references together as one immutable goal result.
+The current source classes remain distinct:
+
+- `server_subscription_health` for subscription Service Health and Resource Health reads;
+- `server_inventory_graph` for secured inventory and current-state graph reads;
+- `server_metering` for measured LLM usage reads;
+- `server_ontology_manifest` for exact principal-scoped ontology manifest reads.
+
+Operator derives `verification.authority` only from completed goal receipts whose evidence references
+exactly cover the terminal semantic evidence. It ignores authority text from the model, prompt,
+client context, semantic answer, and technical presentation metadata. A missing receipt authority
+produces `unverified` with `semantic_evidence_authority_missing`. More than one authority produces
+`unverified` with `semantic_evidence_authority_conflict`, and the turn remains held instead of being
+promoted to a verified answer. The additive intent-graph evidence v2 projection carries this field;
+v1 replay remains readable but cannot establish verified answer authority.
+
 Matched inventory result sets are sorted before the 40-record bound is applied. Lists use resource
 name order by default; an explicit status, type, or location grouping uses that grouping field and
 then resource name. The same order drives rendered rows and durable ordinal follow-ups.

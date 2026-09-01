@@ -7,7 +7,11 @@ from dataclasses import replace
 from datetime import datetime
 from typing import Any
 
-from fdai_service_contracts.ontology_query import OntologyQueryNode, QueryNodeKind
+from fdai_service_contracts.ontology_query import (
+    EvidenceAuthority,
+    OntologyQueryNode,
+    QueryNodeKind,
+)
 
 from fdai.core.rca.temporal_causality import TemporalCausalityConfig
 
@@ -119,7 +123,11 @@ class MetricSeriesNodeHandler:
             or result.end != end
         ):
             raise ValueError("metric provider result does not match the verified request")
-        return QueryNodeResult(value=result, evidence_refs=result.evidence_refs)
+        return QueryNodeResult(
+            value=result,
+            evidence_refs=result.evidence_refs,
+            authority=EvidenceAuthority.SERVER_OPERATIONAL_METRICS,
+        )
 
 
 class MetricScopeSeriesNodeHandler:
@@ -170,7 +178,11 @@ class MetricScopeSeriesNodeHandler:
                 evidence_refs=dependency.evidence_refs,
                 missing_reason="no_visible_resource",
             )
-            return QueryNodeResult(value=result, evidence_refs=result.evidence_refs)
+            return QueryNodeResult(
+                value=result,
+                evidence_refs=result.evidence_refs,
+                authority=EvidenceAuthority.SERVER_OPERATIONAL_METRICS,
+            )
         resource_id = resource_ids[0]
         query_labels = None
         if definition.scope_label_selectors:
@@ -189,7 +201,11 @@ class MetricScopeSeriesNodeHandler:
                     evidence_refs=dependency.evidence_refs,
                     missing_reason=reason,
                 )
-                return QueryNodeResult(value=result, evidence_refs=result.evidence_refs)
+                return QueryNodeResult(
+                    value=result,
+                    evidence_refs=result.evidence_refs,
+                    authority=EvidenceAuthority.SERVER_OPERATIONAL_METRICS,
+                )
             row = next(row for row in table.rows if row.values.get("id") == resource_id)
             query_labels = _scope_query_labels(
                 row.values,
@@ -238,7 +254,11 @@ class MetricScopeSeriesNodeHandler:
             )
         elif result.evidence_refs != evidence_refs:
             result = replace(result, evidence_refs=evidence_refs)
-        return QueryNodeResult(value=result, evidence_refs=result.evidence_refs)
+        return QueryNodeResult(
+            value=result,
+            evidence_refs=result.evidence_refs,
+            authority=EvidenceAuthority.SERVER_OPERATIONAL_METRICS,
+        )
 
 
 def _scope_query_labels(

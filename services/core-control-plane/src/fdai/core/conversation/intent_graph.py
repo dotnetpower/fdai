@@ -7,6 +7,7 @@ from typing import Literal
 from fdai_service_contracts.ontology_query import (
     MAX_INTENT_GRAPH_GOALS,
     AnswerEvidenceMode,
+    EvidenceAuthority,
     GoalEvidenceMode,
     GoalTaskReceipt,
     IntentGoal,
@@ -110,9 +111,13 @@ def build_intent_graph_evidence(
         )
     statuses = {receipt.status for receipt in receipts}
     status: Literal["completed", "partial", "unavailable", "failed", "cancelled"]
-    if execution.status == "completed":
+    _authority, authority_status = resolve_execution_authority(execution)
+    if execution.status == "completed" and authority_status == "verified":
         status = "completed"
         mode = AnswerEvidenceMode.OPERATIONAL_GROUNDED
+    elif execution.status == "completed":
+        status = "failed"
+        mode = AnswerEvidenceMode.HELD_FOR_REVIEW
     elif execution.status == "cancelled":
         status = "cancelled"
         mode = AnswerEvidenceMode.HELD_FOR_REVIEW
@@ -128,4 +133,24 @@ def build_intent_graph_evidence(
     return IntentGraphEvidence(status=status, evidence_mode=mode, goals=tuple(receipts))
 
 
-__all__ = ["build_intent_graph", "build_intent_graph_evidence"]
+def resolve_execution_authority(
+    execution: QueryPlanExecution,
+) -> tuple[EvidenceAuthority | None, Literal["verified", "missing", "conflict"]]:
+    evidence_receipts = tuple(
+        receipt
+        for receipt in execution.receipts
+        if receipt.status is TaskStatus.COMPLETED and receipt.evidence_refs
+    )
+    if not evidence_receipts or any(receipt.authority is None for receipt in evidence_receipts):
+        return None, "missing"
+    authorities = {receipt.authority for receipt in evidence_receipts}
+    if len(authorities) != 1:
+        return None, "conflict"
+    return next(iter(authorities)), "verified"
+
+
+__all__ = [
+    "build_intent_graph",
+    "build_intent_graph_evidence",
+    "resolve_execution_authority",
+]

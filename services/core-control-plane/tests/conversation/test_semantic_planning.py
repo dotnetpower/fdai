@@ -79,6 +79,7 @@ from fdai.shared.contracts.models import (
 from fdai.shared.ontology.release import build_ontology_release
 from fdai_service_contracts import context_selection_digest
 from fdai_service_contracts.ontology_query import (
+    EvidenceAuthority,
     GoalEvidenceMode,
     GoalTaskReceipt,
     OntologyQueryNode,
@@ -2752,6 +2753,7 @@ def test_execution_receipts_bind_to_intent_goal_ids() -> None:
         status=TaskStatus.COMPLETED,
         duration_ms=1,
         evidence_refs=("ontology-object-set:sha256:" + ("b" * 64),),
+        authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
         started_at=NOW,
         completed_at=NOW,
     )
@@ -2876,7 +2878,11 @@ async def test_semantic_runtime_executes_verified_plan_and_projects_terminal_gra
     async def object_set_handler(node, dependencies):  # type: ignore[no-untyped-def]
         assert node.kind is QueryNodeKind.OBJECT_SET
         assert dependencies == {}
-        return QueryNodeResult(value={"rows": ["resource-a"]}, evidence_refs=("inventory:1",))
+        return QueryNodeResult(
+            value={"rows": ["resource-a"]},
+            evidence_refs=("inventory:1",),
+            authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+        )
 
     async def observe(progress: QueryNodeProgress) -> None:
         observed.append(progress)
@@ -2902,5 +2908,7 @@ async def test_semantic_runtime_executes_verified_plan_and_projects_terminal_gra
     assert result.intent_graph is not None
     assert result.intent_graph["schema_version"] == 2
     assert result.intent_graph_evidence is not None
+    assert result.intent_graph_evidence["schema_version"] == 2
     assert result.intent_graph_evidence["status"] == "completed"
+    assert result.intent_graph_evidence["goals"][0]["authority"] == "server_inventory_graph"
     assert result.intent_graph_evidence["goals"][0]["evidence_refs"] == ["inventory:1"]

@@ -21,6 +21,7 @@ from fdai_operator_service.families.conversation.presentation_rows import (
     readable_row as _readable_row,
 )
 from fdai_service_contracts import SemanticAssuranceObservation, SemanticDirectResponseIntent
+from fdai_service_contracts.ontology_query import EvidenceAuthority
 from pydantic import ValidationError
 
 _SEMANTIC_ROUTE_BY_DISPOSITION = {
@@ -83,7 +84,8 @@ def semantic_done_event_data(
         or not isinstance(checks_total, int)
     ):
         raise ValueError("stored semantic verification is malformed")
-    verified = disposition == "answered" and not missing_answer
+    authority, authority_reason = _receipt_authority(semantic, evidence_refs)
+    verified = disposition == "answered" and not missing_answer and authority_reason is None
     payload = projection.get("payload")
     technical_details = payload.get("technical_details") if isinstance(payload, Mapping) else None
     model = payload.get("model") if isinstance(payload, Mapping) else None
@@ -123,7 +125,7 @@ def semantic_done_event_data(
             "revision": 0,
             "status": disposition,
             "answer": answer,
-            "source": "semantic-direct-response" if direct_response else "ontology-query",
+            "source": "semantic-direct-response" if direct_response else authority,
             **({"model": model} if isinstance(model, str) and model else {}),
             **(
                 {"latency_ms": latency_ms}
@@ -146,14 +148,14 @@ def semantic_done_event_data(
                 else {
                     "verification": {
                         "status": "verified" if verified else "unverified",
-                        "authority": "ontology-query",
+                        "authority": authority,
                         "checks_completed": checks_completed,
                         "checks_total": checks_total,
                         "evidence_refs": evidence_refs,
                         "reason_code": (
                             "semantic_answer_missing"
                             if missing_answer
-                            else semantic.get("reason_code")
+                            else authority_reason or semantic.get("reason_code")
                         ),
                         "claims": verification_claims,
                         "failed_claim_ids": [],
@@ -178,6 +180,43 @@ def semantic_done_event_data(
             **({"semantic_receipt": semantic_receipt} if semantic_receipt is not None else {}),
         },
     )
+
+
+def _receipt_authority(
+    semantic: Mapping[str, object],
+    semantic_evidence_refs: list[object],
+) -> tuple[str, str | None]:
+    evidence = semantic.get("intent_graph_evidence")
+    goals = evidence.get("goals") if isinstance(evidence, Mapping) else None
+    if not isinstance(goals, list):
+        return "unavailable", "semantic_evidence_authority_missing"
+    authorities: set[EvidenceAuthority] = set()
+    receipt_refs: list[str] = []
+    for goal in goals:
+        if not isinstance(goal, Mapping) or goal.get("status") != "completed":
+            continue
+        refs = goal.get("evidence_refs", [])
+        if not isinstance(refs, list) or any(not isinstance(ref, str) for ref in refs):
+            return "unavailable", "semantic_evidence_authority_missing"
+        if not refs:
+            continue
+        raw_authority = goal.get("authority")
+        if not isinstance(raw_authority, str):
+            return "unavailable", "semantic_evidence_authority_missing"
+        try:
+            authority = EvidenceAuthority(raw_authority)
+        except ValueError:
+            return "unavailable", "semantic_evidence_authority_missing"
+        authorities.add(authority)
+        receipt_refs.extend(refs)
+    expected_refs = tuple(ref for ref in semantic_evidence_refs if isinstance(ref, str))
+    if tuple(dict.fromkeys(receipt_refs)) != expected_refs:
+        return "unavailable", "semantic_evidence_authority_binding_mismatch"
+    if len(authorities) > 1:
+        return "conflicting", "semantic_evidence_authority_conflict"
+    if not authorities:
+        return "unavailable", "semantic_evidence_authority_missing"
+    return next(iter(authorities)).value, None
 
 
 def _pantheon_assurance_payload(

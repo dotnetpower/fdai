@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 46e20b66ef27e82c4950fed70d8b3c2ff38c7761
+translation_source_sha: b2cf85e7d3509e0fc5086abf0fba0510bf86317b
 translation_revised: 2026-09-01
 ---
 # 코드 맵
@@ -70,6 +70,11 @@ context를 사용하고, Cost Governance는 선언이 추가되면 정확한 rel
 Kubernetes Resource Event 변환 결과는 선택적 객체 UID, 클러스터, 기록 시각 및 출처 리비전을
 보존합니다. 따라서 후속 복구 근거는 원시 프로바이더 페이로드 없이 신원과 출처 계보를 유지할 수
 있습니다.
+의미 답변 권한은 Core `OntologyFunctionRegistry` 호출 증적에서 처음 생성됩니다. 쿼리 실행은
+타입이 지정된 권한을 동일한 근거 참조와 함께 `QueryNodeResult`, `GoalTaskReceipt`, 의도 그래프
+근거 v2로 전달합니다. Operator 의미 표현은 이 증적만 읽습니다. 구독 상태, 인벤토리 그래프,
+사용량 측정, 온톨로지 매니페스트 출처를 서로 구분하고 모델 또는 클라이언트 권한 텍스트를
+무시하며, 권한이 없거나 충돌하면 검증하지 않고 보류합니다.
 
 | 영역 | Responsibility | 출처 | 테스트 |
 |------|----------------|--------|------|

@@ -179,7 +179,7 @@ async def observe_runtime_readiness(
             bound=True,
             reachable=True,
             evidence_ready=True,
-            provided_authority="ontology-query",
+            provided_authority="server_ontology_manifest",
         )
     if _RESOURCE_STATE_FUNCTION in capabilities:
         capabilities[_RESOURCE_STATE_FUNCTION] = RuntimeCapabilityReadiness(

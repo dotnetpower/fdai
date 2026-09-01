@@ -69,6 +69,12 @@ and Cost Governance refreshes its exact-release profile and fixture digests afte
 Kubernetes Resource Event projections retain optional object UID, cluster, recorded time, and source
 revision fields so downstream recovery evidence can preserve identity and provenance without raw
 provider payloads.
+Semantic answer authority starts in the Core `OntologyFunctionRegistry` invocation receipt. Query
+execution carries that typed authority with the same evidence references through `QueryNodeResult`,
+`GoalTaskReceipt`, and intent-graph evidence v2. The Operator semantic presentation reads only those
+receipts. It preserves distinct subscription health, inventory graph, metering, and ontology
+manifest sources, ignores model or client authority text, and leaves missing or conflicting
+authority held and unverified.
 
 | Area | Responsibility | Source | Tests |
 |------|----------------|--------|-------|

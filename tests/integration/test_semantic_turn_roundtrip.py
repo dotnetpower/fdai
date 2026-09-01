@@ -24,6 +24,9 @@ from fdai_operator_service.families.conversation.contracts import (
     PrincipalScope,
 )
 from fdai_operator_service.families.conversation.semantic_turn import SemanticTurnEnvelopeBuilder
+from fdai_operator_service.families.conversation.semantic_turn_presentation import (
+    semantic_done_event_data,
+)
 from fdai_operator_service.families.conversation.semantic_turn_runtime import (
     SemanticTurnBridge,
     SemanticTurnOutboxDrainer,
@@ -35,6 +38,7 @@ from fdai_operator_service.postgres_family_store import (
     StoredSemanticTurn,
 )
 from fdai_service_contracts.ontology_query import (
+    EvidenceAuthority,
     GoalEvidenceMode,
     GoalTaskReceipt,
     TaskStatus,
@@ -261,6 +265,14 @@ class _UnusedSource:
 
 
 class _AnsweredRuntime:
+    def __init__(
+        self,
+        authorities: tuple[EvidenceAuthority | None, ...] = (
+            EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+        ),
+    ) -> None:
+        self._authorities = authorities
+
     async def handle(
         self,
         *,
@@ -296,39 +308,47 @@ class _AnsweredRuntime:
             ),
             manifest_digest=MANIFEST_DIGEST,
         )
-        receipt = GoalTaskReceipt(
-            task_id="query:resources",
-            goal_id="goal-1",
-            intent="object_set",
-            capability="query.object_set",
-            evidence_mode=GoalEvidenceMode.OPERATIONAL,
-            status=TaskStatus.COMPLETED,
-            duration_ms=5,
-            evidence_refs=("inventory:evidence-1",),
-            started_at=NOW,
-            completed_at=NOW,
+        receipts = tuple(
+            GoalTaskReceipt(
+                task_id=f"query:resources-{index}",
+                goal_id=f"goal-{index}",
+                intent="object_set",
+                capability="query.object_set",
+                evidence_mode=GoalEvidenceMode.OPERATIONAL,
+                status=TaskStatus.COMPLETED,
+                duration_ms=5,
+                evidence_refs=(f"evidence:{index}",),
+                authority=authority,
+                started_at=NOW,
+                completed_at=NOW,
+            )
+            for index, authority in enumerate(self._authorities, start=1)
         )
         execution = QueryPlanExecution(
             plan_digest=PLAN_DIGEST,
             status="completed",
             results=MappingProxyType(
                 {
-                    "resources": QueryNodeResult(
+                    f"resources-{index}": QueryNodeResult(
                         value=QueryTable(
                             rows=(
                                 QueryRow.from_values(
-                                    "resource-1",
+                                    f"resource-{index}",
                                     {"state": "ready"},
                                 ),
                             ),
                             complete=True,
                         ),
-                        evidence_refs=("inventory:evidence-1",),
+                        evidence_refs=(f"evidence:{index}",),
+                        authority=authority,
                     )
+                    for index, authority in enumerate(self._authorities, start=1)
                 }
             ),
-            receipts=(receipt,),
-            output_node_ids=("resources",),
+            receipts=receipts,
+            output_node_ids=tuple(
+                f"resources-{index}" for index in range(1, len(self._authorities) + 1)
+            ),
         )
         return RuntimeSemanticTurnResult(
             disposition="answered",
@@ -339,7 +359,7 @@ class _AnsweredRuntime:
                 "schema_version": 2,
                 "goals": [
                     {
-                        "goal_id": "goal-1",
+                        "goal_id": f"goal-{index}",
                         "intent": "object_set",
                         "capability": "query.object_set",
                         "arguments": {},
@@ -349,19 +369,28 @@ class _AnsweredRuntime:
                         "confidence": 1.0,
                         "alternatives": [],
                     }
+                    for index in range(1, len(self._authorities) + 1)
                 ],
                 "clarification": None,
                 "confidence": 1.0,
                 "action_posture": "advise_only",
             },
             intent_graph_evidence={
-                "schema_version": 1,
-                "status": "completed",
-                "evidence_mode": "operational_grounded",
+                "schema_version": 2,
+                "status": (
+                    "completed"
+                    if len(set(self._authorities)) == 1 and self._authorities[0] is not None
+                    else "failed"
+                ),
+                "evidence_mode": (
+                    "operational_grounded"
+                    if len(set(self._authorities)) == 1 and self._authorities[0] is not None
+                    else "held_for_review"
+                ),
                 "goals": [
                     {
-                        "task_id": "query:resources",
-                        "goal_id": "goal-1",
+                        "task_id": f"query:resources-{index}",
+                        "goal_id": f"goal-{index}",
                         "intent": "object_set",
                         "capability": "query.object_set",
                         "evidence_mode": "operational",
@@ -370,8 +399,10 @@ class _AnsweredRuntime:
                         "depends_on": [],
                         "started_at": NOW.isoformat(),
                         "completed_at": NOW.isoformat(),
-                        "evidence_refs": ["inventory:evidence-1"],
+                        "evidence_refs": [f"evidence:{index}"],
+                        **({"authority": authority.value} if authority is not None else {}),
                     }
+                    for index, authority in enumerate(self._authorities, start=1)
                 ],
             },
         )
@@ -439,7 +470,9 @@ async def test_semantic_turn_round_trip_preserves_verified_evidence_and_principa
     activities = cast(list[dict[str, object]], trajectory["activities"])
     execution = cast(dict[str, object], activities[0]["execution"])
     assert json.loads(cast(str, execution["output"])) == projection["payload"]["technical_details"]
-    assert semantic_result["evidence_refs"] == ["inventory:evidence-1"]
+    assert semantic_result["evidence_refs"] == ["evidence:1"]
+    verification = cast(dict[str, object], terminal.data["verification"])
+    assert verification["authority"] == "server_inventory_graph"
     assert semantic_result["ontology_release_digest"] == RELEASE_DIGEST
     assert semantic_result["principal_manifest_digest"] == MANIFEST_DIGEST
     assert semantic_result["plan_digest"] == PLAN_DIGEST
@@ -452,3 +485,132 @@ async def test_semantic_turn_round_trip_preserves_verified_evidence_and_principa
                 proposal_id=accepted.proposal_id,
             )
         )
+
+
+def _semantic_envelope() -> Mapping[str, object]:
+    return SemanticTurnEnvelopeBuilder(clock=lambda: NOW).build(
+        ConversationProposal(
+            operation="chat.stream",
+            scope=PrincipalScope("operator-1", frozenset({"Reader"})),
+            idempotency_key="semantic-authority-test",
+            body={
+                "prompt": "Show current operations evidence.",
+                "conversation_id": "conversation-1",
+                "turn_sequence": 3,
+            },
+        )
+    )
+
+
+@pytest.mark.parametrize(
+    "authority",
+    (
+        EvidenceAuthority.SERVER_SUBSCRIPTION_HEALTH,
+        EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+        EvidenceAuthority.SERVER_METERING,
+        EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
+    ),
+)
+async def test_terminal_answer_preserves_server_receipt_authority(
+    authority: EvidenceAuthority,
+) -> None:
+    processor = SemanticTurnProcessor(
+        runtime=_AnsweredRuntime((authority,)),
+        results=_CoreResultStore(),
+        now=lambda: NOW,
+    )
+
+    projection = json.loads(await processor.process(_semantic_envelope()))
+    done = semantic_done_event_data(projection)
+
+    assert done["status"] == "answered"
+    assert done["source"] == authority.value
+    assert done["verification"]["status"] == "verified"
+    assert done["verification"]["authority"] == authority.value
+    goal = projection["semantic_result"]["intent_graph_evidence"]["goals"][0]
+    assert goal["authority"] == authority.value
+    assert goal["evidence_refs"] == projection["semantic_result"]["evidence_refs"]
+
+
+async def test_terminal_answer_ignores_model_proposed_authority() -> None:
+    processor = SemanticTurnProcessor(
+        runtime=_AnsweredRuntime((EvidenceAuthority.SERVER_INVENTORY_GRAPH,)),
+        results=_CoreResultStore(),
+        now=lambda: NOW,
+    )
+    projection = json.loads(await processor.process(_semantic_envelope()))
+    projection["semantic_result"]["authority"] = "server_metering"
+    projection["payload"]["technical_details"]["authority"] = "server_metering"
+
+    done = semantic_done_event_data(projection)
+
+    assert done["verification"]["authority"] == "server_inventory_graph"
+
+
+async def test_v1_receipt_replay_stays_readable_but_unverified() -> None:
+    processor = SemanticTurnProcessor(
+        runtime=_AnsweredRuntime((EvidenceAuthority.SERVER_INVENTORY_GRAPH,)),
+        results=_CoreResultStore(),
+        now=lambda: NOW,
+    )
+    projection = json.loads(await processor.process(_semantic_envelope()))
+    evidence = projection["semantic_result"]["intent_graph_evidence"]
+    evidence["schema_version"] = 1
+    evidence["goals"][0].pop("authority")
+
+    done = semantic_done_event_data(projection)
+
+    assert done["answer"]
+    assert done["verification"]["status"] == "unverified"
+    assert done["verification"]["authority"] == "unavailable"
+    assert done["verification"]["reason_code"] == "semantic_evidence_authority_missing"
+
+
+async def test_receipt_authority_cannot_cover_a_different_evidence_reference() -> None:
+    processor = SemanticTurnProcessor(
+        runtime=_AnsweredRuntime((EvidenceAuthority.SERVER_INVENTORY_GRAPH,)),
+        results=_CoreResultStore(),
+        now=lambda: NOW,
+    )
+    projection = json.loads(await processor.process(_semantic_envelope()))
+    projection["semantic_result"]["evidence_refs"] = ["evidence:other"]
+
+    done = semantic_done_event_data(projection)
+
+    assert done["verification"]["status"] == "unverified"
+    assert done["verification"]["authority"] == "unavailable"
+    assert done["verification"]["reason_code"] == "semantic_evidence_authority_binding_mismatch"
+
+
+@pytest.mark.parametrize(
+    ("authorities", "expected_authority", "expected_reason"),
+    (
+        ((None,), "unavailable", "semantic_evidence_authority_missing"),
+        (
+            (
+                EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+                EvidenceAuthority.SERVER_SUBSCRIPTION_HEALTH,
+            ),
+            "conflicting",
+            "semantic_evidence_authority_conflict",
+        ),
+    ),
+)
+async def test_missing_or_conflicting_receipt_authority_is_held(
+    authorities: tuple[EvidenceAuthority | None, ...],
+    expected_authority: str,
+    expected_reason: str,
+) -> None:
+    processor = SemanticTurnProcessor(
+        runtime=_AnsweredRuntime(authorities),
+        results=_CoreResultStore(),
+        now=lambda: NOW,
+    )
+
+    projection = json.loads(await processor.process(_semantic_envelope()))
+    done = semantic_done_event_data(projection)
+
+    assert done["status"] == "held"
+    assert done["verification"]["status"] == "unverified"
+    assert done["verification"]["authority"] == expected_authority
+    assert done["verification"]["reason_code"] == expected_reason

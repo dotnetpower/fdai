@@ -5,7 +5,11 @@ from __future__ import annotations
 from collections.abc import Mapping
 from datetime import datetime
 
-from fdai_service_contracts.ontology_query import OntologyQueryNode, QueryNodeKind
+from fdai_service_contracts.ontology_query import (
+    EvidenceAuthority,
+    OntologyQueryNode,
+    QueryNodeKind,
+)
 
 from .query_execution import QueryNodeResult
 from .topology_history import (
@@ -54,6 +58,7 @@ class TopologyAtNodeHandler:
         return QueryNodeResult(
             value=result,
             evidence_refs=result.evidence_refs + (f"topology-graph:{result.digest}",),
+            authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
         )
 
 
@@ -77,6 +82,7 @@ class TopologyDiffNodeHandler:
         return QueryNodeResult(
             value=result,
             evidence_refs=result.evidence_refs + (f"topology-diff:{result.digest}",),
+            authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
         )
 
 

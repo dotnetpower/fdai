@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 7e8d282472a078d6b2f0f0bc83275d88fd852919
+translation_source_sha: 60810835d0c45ba53e9522383dcc766d56c9271d
 translation_revised: 2026-09-01
 ---
 # FDAI Console 대화
@@ -224,6 +224,26 @@ RBAC 하한, side-effect 등급과 문서화된 실패 표면을 가집니다. W
 | `query_t2_recovery()` | 서버 StateStore에서 정제된 proposer 시도 증적을 읽습니다. 프로바이더 오류 텍스트를 노출하지 않고 retained 시도 개수, 복구 상태, 경로 역할, 실패 등급, 관측 시간 및 명시적인 legacy-detail 공백을 반환합니다. | 읽기 담당 | `T2RecoveryStateReader` |
 | `query_configuration_baseline()` | 서버가 구성한 동결된 구성 기준선, 현재 범위의 관측값, 무결성이 고정된 정확한 DOCX 인용을 읽습니다. 호출자는 범위, 버전, 다이제스트, 문서 또는 변경 연산을 선택할 수 없습니다. 구조화된 topology가 없으면 알 수 없음으로 유지합니다. | 읽기 담당 | `ConfigurationDriftService` + `KnowledgeSource` |
 | `capture_browser_evidence(policy_id, policy_version, source_url, stable_selectors)` | 정확한 서버가 소유한 정책 아래에서 자격 증명이 없는 범위가 제한된 수집을 제출합니다. 변경할 수 없는 산출물 증적을 반환하며 페이지 또는 interaction API를 반환하지 않습니다. | 읽기 담당 | `BrowserEvidenceCaptureService` |
+
+### 3.2 증적에 결속된 답변 권한
+
+Core는 서버가 소유한 함수 레지스트리가 실행 증적을 발행할 때 답변 권한을 할당합니다.
+증적은 권한과 근거 참조를 하나의 변경할 수 없는 목표 결과에 함께 보관합니다. 현재 출처
+등급은 다음과 같이 구분합니다.
+
+- `server_subscription_health`: 구독 Service Health 및 Resource Health 읽기
+- `server_inventory_graph`: 보안이 적용된 인벤토리 및 현재 상태 그래프 읽기
+- `server_metering`: 측정된 LLM 사용량 읽기
+- `server_ontology_manifest`: 정확한 principal 범위 온톨로지 매니페스트 읽기
+
+Operator는 완료된 목표 증적의 근거 참조가 터미널 의미 근거를 정확히 포함할 때만
+`verification.authority`를 도출합니다. 모델, 프롬프트, 클라이언트 컨텍스트, 의미 답변 및
+기술 표현 메타데이터의 권한 텍스트는 무시합니다. 증적 권한이 없으면
+`semantic_evidence_authority_missing`과 함께 `unverified`가 됩니다. 둘 이상의 권한이 있으면
+`semantic_evidence_authority_conflict`와 함께 `unverified`가 되며, 검증된 답변으로 승격하지
+않고 해당 턴을 보류합니다. 가산 방식의 의도 그래프 근거 v2 변환 결과가 이 필드를
+운반합니다. v1 재생은 계속 읽을 수 있지만 검증된 답변 권한을 입증할 수 없습니다.
+
 일치하는 인벤토리 결과 집합은 40개 기록 제한을 적용하기 전에 정렬합니다. 목록은 기본적으로
 리소스 이름순이며, 상태, 타입 또는 위치 그룹화를 명시하면 해당 그룹화 필드 다음에
 리소스 이름순으로 정렬합니다. 렌더링 행과 영속 ordinal 후속 조치는 같은 순서를 사용합니다.

@@ -40,6 +40,7 @@ from fdai.shared.contracts.models import (
 from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.ontology_instance import OntologyObjectRecord
 from fdai.shared.providers.testing import InMemoryOntologyInstanceStore
+from fdai_service_contracts.ontology_query import EvidenceAuthority
 
 
 async def _fixture():
@@ -193,7 +194,11 @@ async def test_function_invocation_is_authorized_release_pinned_and_replay_stabl
     async def simulate(arguments):
         return {"predicted": arguments["replicas"] + arguments["fdai_seed"] % 2}
 
-    registry.register(declaration, simulate)
+    registry.register(
+        declaration,
+        simulate,
+        authority=EvidenceAuthority.SERVER_METERING,
+    )
     context = FunctionInvocationContext(
         caller_agent="Freyr",
         caller_role=CeilingRole.CONTRIBUTOR,
@@ -211,6 +216,7 @@ async def test_function_invocation_is_authorized_release_pinned_and_replay_stabl
     assert replay_receipt.request_id == first_receipt.request_id
     assert replay_receipt.invocation_id == first_receipt.invocation_id
     assert replay_receipt.seed == first_receipt.seed
+    assert replay_receipt.authority is EvidenceAuthority.SERVER_METERING
     assert replay_receipt.function_ref.catalog_digest == release.digest
     assert registry.release_ref == release.ref()
     with pytest.raises(PermissionError, match="role"):

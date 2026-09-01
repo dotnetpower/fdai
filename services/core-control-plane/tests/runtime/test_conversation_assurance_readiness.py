@@ -162,6 +162,9 @@ async def test_runtime_observation_uses_bound_provider_evidence_and_authority() 
     )
 
     assert reader.calls == 1
+    manifest = inventory.capability("query.manifest")
+    assert manifest is not None
+    assert manifest.provided_authority == "server_ontology_manifest"
     service_health = inventory.capability("query.subscription_service_health")
     assert service_health is not None
     assert service_health.evidence_ready
@@ -199,7 +202,7 @@ def test_private_receipt_round_trips_without_positive_defaults(tmp_path) -> None
                 bound=True,
                 reachable=True,
                 evidence_ready=True,
-                provided_authority="ontology-query",
+                provided_authority="server_ontology_manifest",
             ),
         )
     )

@@ -267,6 +267,7 @@ from fdai_service_contracts.model_binding import (
 from fdai_service_contracts.ontology_query import (
     MAX_INTENT_GRAPH_GOALS,
     AnswerEvidenceMode,
+    EvidenceAuthority,
     GoalEvidenceMode,
     GoalTaskReceipt,
     IntentGoal,
@@ -638,6 +639,7 @@ __all__ = [
     "ReadInvestigationTaskBudget",
     "GoalEvidenceMode",
     "AnswerEvidenceMode",
+    "EvidenceAuthority",
     "GoalTaskReceipt",
     "ResourceLock",
     "RollbackKind",

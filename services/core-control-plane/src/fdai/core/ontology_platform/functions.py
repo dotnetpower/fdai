@@ -10,6 +10,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
+from fdai_service_contracts.ontology_query import EvidenceAuthority
 from jsonschema import Draft202012Validator
 from pydantic import Field, ValidationInfo, field_validator
 
@@ -69,6 +70,7 @@ class FunctionInvocationReceipt(ContractBase):
     started_at: datetime
     completed_at: datetime
     evidence_refs: tuple[str, ...] = ()
+    authority: EvidenceAuthority = EvidenceAuthority.SERVER_ONTOLOGY_QUERY
 
 
 class OntologyFunctionRegistry:
@@ -80,10 +82,19 @@ class OntologyFunctionRegistry:
     """
 
     def __init__(self, *, release: OntologyRelease) -> None:
-        self._functions: dict[str, tuple[OntologyFunctionType, ContextualOntologyFunction]] = {}
+        self._functions: dict[
+            str,
+            tuple[OntologyFunctionType, ContextualOntologyFunction, EvidenceAuthority],
+        ] = {}
         self._release = release
 
-    def register(self, declaration: OntologyFunctionType, function: OntologyFunction) -> None:
+    def register(
+        self,
+        declaration: OntologyFunctionType,
+        function: OntologyFunction,
+        *,
+        authority: EvidenceAuthority = EvidenceAuthority.SERVER_ONTOLOGY_QUERY,
+    ) -> None:
         """Register a backward-compatible callback that accepts arguments only."""
 
         async def adapted(
@@ -92,21 +103,25 @@ class OntologyFunctionRegistry:
         ) -> object:
             return await function(arguments)
 
-        self._register(declaration, adapted)
+        self._register(declaration, adapted, authority=authority)
 
     def register_contextual(
         self,
         declaration: OntologyFunctionType,
         function: ContextualOntologyFunction,
+        *,
+        authority: EvidenceAuthority = EvidenceAuthority.SERVER_ONTOLOGY_QUERY,
     ) -> None:
         """Register a callback that receives the authorized immutable context."""
 
-        self._register(declaration, function)
+        self._register(declaration, function, authority=authority)
 
     def _register(
         self,
         declaration: OntologyFunctionType,
         function: ContextualOntologyFunction,
+        *,
+        authority: EvidenceAuthority,
     ) -> None:
         if declaration.name in self._functions:
             raise ValueError(f"duplicate ontology function {declaration.name!r}")
@@ -125,7 +140,7 @@ class OntologyFunctionRegistry:
         registered = build_ontology_release(function_types=(retained,)).declarations[0]
         if active != registered:
             raise ValueError("ontology function declaration does not match release")
-        self._functions[retained.name] = (retained, function)
+        self._functions[retained.name] = (retained, function, authority)
 
     @property
     def release_ref(self) -> OntologyReleaseRef:
@@ -137,7 +152,7 @@ class OntologyFunctionRegistry:
         """Return the exact declaration used for authorization and schema validation."""
 
         try:
-            declaration, _function = self._functions[name]
+            declaration, _function, _authority = self._functions[name]
         except KeyError as exc:
             raise KeyError(f"unknown ontology function {name!r}") from exc
         return declaration.model_copy(deep=True)
@@ -173,7 +188,7 @@ class OntologyFunctionRegistry:
         with_receipt: bool,
     ) -> tuple[object, FunctionInvocationReceipt | None]:
         try:
-            declaration, function = self._functions[name]
+            declaration, function, authority = self._functions[name]
         except KeyError as exc:
             raise KeyError(f"unknown ontology function {name!r}") from exc
         invocation_context = context or FunctionInvocationContext(caller_agent="unattributed")
@@ -264,6 +279,7 @@ class OntologyFunctionRegistry:
             started_at=started_at,
             completed_at=datetime.now(tz=UTC),
             evidence_refs=invocation_context.evidence_refs,
+            authority=authority,
         )
 
 

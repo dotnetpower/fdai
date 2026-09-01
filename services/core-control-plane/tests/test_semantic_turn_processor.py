@@ -80,6 +80,7 @@ from fdai_service_contracts import (
     rule_search_query_digest,
 )
 from fdai_service_contracts.ontology_query import (
+    EvidenceAuthority,
     GoalEvidenceMode,
     GoalTaskReceipt,
     SemanticOperation,
@@ -1343,6 +1344,7 @@ def _runtime_result(
         status=TaskStatus.COMPLETED,
         duration_ms=5,
         evidence_refs=("inventory:evidence-1",),
+        authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
         started_at=NOW,
         completed_at=NOW,
     )
@@ -1357,6 +1359,7 @@ def _runtime_result(
                         complete=True,
                     ),
                     evidence_refs=("inventory:evidence-1",),
+                    authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
                 )
             }
         ),
@@ -1388,7 +1391,7 @@ def _runtime_result(
             "action_posture": "advise_only",
         },
         intent_graph_evidence={
-            "schema_version": 1,
+            "schema_version": 2,
             "status": "completed",
             "evidence_mode": "operational_grounded",
             "goals": [
@@ -1404,6 +1407,7 @@ def _runtime_result(
                     "started_at": NOW.isoformat(),
                     "completed_at": NOW.isoformat(),
                     "evidence_refs": ["inventory:evidence-1"],
+                    "authority": "server_inventory_graph",
                 }
             ],
         },
@@ -3027,6 +3031,7 @@ async def test_answered_rule_search_projects_exact_candidate_receipt() -> None:
         "duration_ms": 5,
         "evidence_mode": "operational",
         "evidence_refs": ["inventory:evidence-1"],
+        "authority": "server_inventory_graph",
         "goal_id": "resources",
         "intent": "function",
         "reason": None,

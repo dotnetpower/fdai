@@ -6,12 +6,13 @@ import asyncio
 import logging
 import time
 from collections.abc import Awaitable, Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from types import MappingProxyType
 from typing import Literal, Protocol
 
 from fdai_service_contracts.ontology_query import (
+    EvidenceAuthority,
     GoalEvidenceMode,
     GoalTaskReceipt,
     OntologyQueryNode,
@@ -34,6 +35,7 @@ class QueryNodeResult:
 
     value: object
     evidence_refs: tuple[str, ...] = ()
+    authority: EvidenceAuthority | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -327,6 +329,7 @@ class OntologyQueryPlanExecutor:
             )
             if not isinstance(result, QueryNodeResult):
                 raise TypeError("query node handler MUST return QueryNodeResult")
+            result = _bind_result_authority(result, dependencies)
         except QueryNodeHeldError as error:
             return (
                 node,
@@ -418,6 +421,7 @@ class OntologyQueryPlanExecutor:
                 status=TaskStatus.COMPLETED,
                 reason=None,
                 evidence_refs=result.evidence_refs,
+                authority=result.authority,
                 started_at=started_at,
                 started_monotonic=started_monotonic,
             ),
@@ -520,6 +524,7 @@ class OntologyQueryPlanExecutor:
         started_at: datetime,
         started_monotonic: float,
         evidence_refs: tuple[str, ...] = (),
+        authority: EvidenceAuthority | None = None,
     ) -> GoalTaskReceipt:
         completed_at = self._aware_now()
         duration_ms = max(0, min(86_400_000, round((time.monotonic() - started_monotonic) * 1000)))
@@ -534,6 +539,7 @@ class OntologyQueryPlanExecutor:
             depends_on=node.depends_on,
             reason=reason,
             evidence_refs=evidence_refs,
+            authority=authority,
             started_at=started_at,
             completed_at=max(started_at, completed_at),
         )
@@ -543,6 +549,35 @@ class OntologyQueryPlanExecutor:
         if value.tzinfo is None:
             raise ValueError("query executor clock MUST be timezone-aware")
         return value.astimezone(UTC)
+
+
+def _bind_result_authority(
+    result: QueryNodeResult,
+    dependencies: Mapping[str, QueryNodeResult],
+) -> QueryNodeResult:
+    dependency_authorities = {
+        dependency.authority
+        for dependency in dependencies.values()
+        if dependency.authority is not None
+    }
+    if len(dependency_authorities) > 1:
+        raise QueryNodeHeldError("evidence_authority_conflict")
+    dependency_authority = next(iter(dependency_authorities), None)
+    if result.authority is None:
+        return (
+            replace(result, authority=dependency_authority)
+            if dependency_authority is not None
+            else result
+        )
+    if result.authority is EvidenceAuthority.SERVER_ONTOLOGY_QUERY:
+        return (
+            replace(result, authority=dependency_authority)
+            if dependency_authority is not None
+            else result
+        )
+    if dependency_authority is not None and dependency_authority is not result.authority:
+        raise QueryNodeHeldError("evidence_authority_conflict")
+    return result
 
 
 class ObjectSetNodeHandler:
@@ -563,7 +598,11 @@ class ObjectSetNodeHandler:
         evidence_refs = (
             f"ontology-object-set:{node.node_id}:{len(materialization.graph.objects)}",
         )
-        return QueryNodeResult(value=materialization, evidence_refs=evidence_refs)
+        return QueryNodeResult(
+            value=materialization,
+            evidence_refs=evidence_refs,
+            authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+        )
 
 
 class _QueryCancelledError(Exception):

@@ -6,7 +6,7 @@ import json
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, is_dataclass
 
-from fdai_service_contracts.ontology_query import OntologyQueryNode
+from fdai_service_contracts.ontology_query import EvidenceAuthority, OntologyQueryNode
 
 from fdai.shared.contracts.models import CeilingRole, OntologyFunctionKind
 from fdai.shared.ontology.acl import ProjectionRequest
@@ -79,6 +79,7 @@ class SecuredObjectSetNodeHandler:
                 f"ontology-object-set:{secured.receipt.projected_result_digest}",
                 f"ontology-query-table:{table.digest}",
             ),
+            authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
         )
 
 
@@ -155,6 +156,7 @@ class SecuredRelationshipTraversalNodeHandler:
                 f"ontology-object-set-output:{secured.receipt.projected_result_digest}",
                 f"ontology-query-table:{table.digest}",
             ),
+            authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
         )
 
 
@@ -269,6 +271,7 @@ class SecuredTypedPathNodeHandler:
         return QueryNodeResult(
             value=current,
             evidence_refs=tuple(dict.fromkeys(evidence_refs)),
+            authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
         )
 
 
@@ -386,6 +389,7 @@ class FunctionNodeHandler:
             value=value,
             evidence_refs=_evidence_refs(dependencies)
             + (f"ontology-function:{receipt.invocation_id}",),
+            authority=receipt.authority,
         )
 
 

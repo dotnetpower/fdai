@@ -20,7 +20,7 @@ from fdai.core.ontology_platform import OntologyQueryPlanExecutor, QueryPlanExec
 from fdai.core.ontology_platform.query_execution import QueryProgressObserver
 from fdai.core.ontology_platform.query_values import QueryTable
 
-from .intent_graph import build_intent_graph_evidence
+from .intent_graph import build_intent_graph_evidence, resolve_execution_authority
 from .semantic_planning import SemanticPlanningService
 from .semantic_planning_cascade import SemanticPlanningEscalationPolicy
 from .semantic_planning_models import (
@@ -169,7 +169,14 @@ class SemanticConversationRuntime:
         disposition: Literal["answered", "held", "cancelled"]
         reason = f"semantic_execution_{execution.status}"
         if execution.status == "completed":
-            if _query_output_incomplete(planning, execution):
+            _authority, authority_status = resolve_execution_authority(execution)
+            if authority_status == "missing":
+                disposition = "held"
+                reason = "semantic_evidence_authority_missing"
+            elif authority_status == "conflict":
+                disposition = "held"
+                reason = "semantic_evidence_authority_conflict"
+            elif _query_output_incomplete(planning, execution):
                 disposition = "held"
                 reason = "semantic_evidence_incomplete"
             elif _current_relationship_mapping_unavailable(planning, execution):

@@ -6,11 +6,12 @@ import asyncio
 import json
 import logging
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any, Protocol
 from uuid import UUID, uuid5
 
+from fdai.core.conversation.intent_graph import resolve_execution_authority
 from fdai.core.conversation.semantic_investigation import InvestigationEntityRole
 from fdai.core.conversation.semantic_planning_cascade import NO_T2_ESCALATION_POLICY
 from fdai.core.conversation.semantic_planning_models import (
@@ -103,6 +104,8 @@ _AUTHORITATIVE_EVIDENCE_UNAVAILABLE_REASONS = {
     "semantic_knowledge_source_status_unavailable",
     "operational_evidence_unavailable",
     "operational_evidence_over_budget",
+    "semantic_evidence_authority_conflict",
+    "semantic_evidence_authority_missing",
 }
 
 
@@ -1072,6 +1075,20 @@ def _project_runtime_result(
     plan = planning.plan
     frame = planning.frame
     execution = result.execution
+    if execution is not None:
+        _authority, authority_status = resolve_execution_authority(execution)
+        if authority_status != "verified":
+            reason = (
+                "semantic_evidence_authority_conflict"
+                if authority_status == "conflict"
+                else "semantic_evidence_authority_missing"
+            )
+            authority_hold = _project_execution_hold(
+                request,
+                replace(result, disposition="held", reason=reason),
+            )
+            if authority_hold is not None:
+                return authority_hold, model_extensions
     verified_plan_failure = _verified_plan_failure(result, plan, execution)
     if verified_plan_failure is not None or frame is None or plan is None or execution is None:
         return _evidence_incomplete(
@@ -1499,7 +1516,14 @@ def _project_execution_hold(
         or planning.manifest_digest is None
         or planning.manifest_digest != plan.semantic_catalog_digest
         or execution.plan_digest != plan.plan_digest
-        or execution.status == "completed"
+        or (
+            execution.status == "completed"
+            and result.reason
+            not in {
+                "semantic_evidence_authority_conflict",
+                "semantic_evidence_authority_missing",
+            }
+        )
         or not execution.receipts
         or not _projected_execution_evidence_matches(result, execution)
     ):
@@ -1518,7 +1542,15 @@ def _project_execution_hold(
     completed = sum(receipt.status is TaskStatus.COMPLETED for receipt in execution.receipts)
     return ContractSemanticTurnResult(
         disposition=SemanticTurnDisposition.HELD,
-        reason_code="semantic_evidence_held",
+        reason_code=(
+            result.reason
+            if result.reason
+            in {
+                "semantic_evidence_authority_conflict",
+                "semantic_evidence_authority_missing",
+            }
+            else "semantic_evidence_held"
+        ),
         unavailable_reason="authoritative_evidence_unavailable",
         session_id=request.session_id,
         turn_id=request.turn_id,
@@ -1553,7 +1585,7 @@ def _projected_execution_evidence_matches(
     if (
         graph.get("schema_version") != 2
         or graph.get("action_posture") != "advise_only"
-        or evidence.get("schema_version") != 1
+        or evidence.get("schema_version") not in {1, 2}
         or evidence.get("status") not in {"partial", "unavailable", "failed", "cancelled"}
         or not isinstance(graph_goals, list)
         or not isinstance(evidence_goals, list)
@@ -1578,6 +1610,8 @@ def _projected_execution_evidence_matches(
             or evidence_goal.get("task_id") != receipt.task_id
             or evidence_goal.get("status") != receipt.status.value
             or evidence_goal.get("reason") != receipt.reason
+            or evidence_goal.get("authority")
+            != (receipt.authority.value if receipt.authority is not None else None)
             or not isinstance(refs, list)
             or tuple(refs) != receipt.evidence_refs
         ):
@@ -2126,7 +2160,7 @@ def _projected_answer_evidence_is_complete(
     if (
         graph.get("schema_version") != 2
         or graph.get("action_posture") != "advise_only"
-        or evidence.get("schema_version") != 1
+        or evidence.get("schema_version") not in {1, 2}
         or evidence.get("status") != "completed"
         or evidence.get("evidence_mode") != "operational_grounded"
         or not isinstance(graph_goals, list)
@@ -2156,6 +2190,8 @@ def _projected_answer_evidence_is_complete(
             or evidence_goal.get("capability") != graph_goal.get("capability")
             or evidence_goal.get("task_id") != receipt.task_id
             or evidence_goal.get("status") != "completed"
+            or evidence_goal.get("authority")
+            != (receipt.authority.value if receipt.authority is not None else None)
             or not isinstance(evidence_refs, list)
             or any(not isinstance(item, str) for item in evidence_refs)
             or tuple(evidence_refs) != receipt.evidence_refs

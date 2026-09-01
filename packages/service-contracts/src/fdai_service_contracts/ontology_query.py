@@ -86,6 +86,17 @@ class TaskStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
+class EvidenceAuthority(StrEnum):
+    """Server-owned evidence authority carried only by verified read receipts."""
+
+    SERVER_INVENTORY_GRAPH = "server_inventory_graph"
+    SERVER_METERING = "server_metering"
+    SERVER_ONTOLOGY_MANIFEST = "server_ontology_manifest"
+    SERVER_ONTOLOGY_QUERY = "server_ontology_query"
+    SERVER_OPERATIONAL_METRICS = "server_operational_metrics"
+    SERVER_SUBSCRIPTION_HEALTH = "server_subscription_health"
+
+
 def canonical_json(value: Any) -> str:
     """Serialize bounded JSON deterministically for replay and digest checks."""
 
@@ -306,6 +317,7 @@ class GoalTaskReceipt(QueryContract):
     reason: Annotated[str, Field(min_length=1, max_length=128)] | None = None
     blocked_by: tuple[Annotated[str, Field(pattern=_ID_PATTERN)], ...] = ()
     evidence_refs: tuple[Annotated[str, Field(min_length=1, max_length=512)], ...] = ()
+    authority: EvidenceAuthority | None = None
     started_at: datetime
     completed_at: datetime
 
@@ -317,6 +329,12 @@ class GoalTaskReceipt(QueryContract):
             raise ValueError("task completion MUST NOT precede start")
         if self.status is TaskStatus.SKIPPED and not self.blocked_by:
             raise ValueError("skipped task MUST name blocked_by goals")
+        if self.authority is not None and (
+            self.status is not TaskStatus.COMPLETED or not self.evidence_refs
+        ):
+            raise ValueError(
+                "task receipt authority requires completed evidence references on the same receipt"
+            )
         return self
 
 
@@ -405,7 +423,7 @@ def project_intent_graph(graph: IntentGraph) -> dict[str, Any]:
 
 
 def project_intent_graph_evidence(evidence: IntentGraphEvidence) -> dict[str, Any]:
-    """Project internal task receipts to the bounded Console v1 evidence shape."""
+    """Project internal task receipts to the bounded additive Console v2 shape."""
 
     goals: list[dict[str, Any]] = []
     for receipt in evidence.goals:
@@ -433,9 +451,11 @@ def project_intent_graph_evidence(evidence: IntentGraphEvidence) -> dict[str, An
             projected["blocked_by"] = list(receipt.blocked_by)
         if receipt.evidence_refs:
             projected["evidence_refs"] = list(receipt.evidence_refs)
+        if receipt.authority is not None:
+            projected["authority"] = receipt.authority.value
         goals.append(projected)
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "status": evidence.status,
         "evidence_mode": evidence.evidence_mode.value,
         "goals": goals,
@@ -474,6 +494,7 @@ def _validate_console_json(value: Any, *, depth: int, counter: list[int]) -> Non
 __all__ = [
     "MAX_INTENT_GRAPH_GOALS",
     "AnswerEvidenceMode",
+    "EvidenceAuthority",
     "GoalEvidenceMode",
     "GoalTaskReceipt",
     "IntentGoal",

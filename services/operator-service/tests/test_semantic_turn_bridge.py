@@ -863,6 +863,27 @@ def _projection(
                 "principal_manifest_digest": digest,
                 "plan_digest": digest,
                 "execution_receipt_digest": digest,
+                "intent_graph_evidence": {
+                    "schema_version": 2,
+                    "status": "completed",
+                    "evidence_mode": "operational_grounded",
+                    "goals": [
+                        {
+                            "task_id": "query:answer",
+                            "goal_id": "goal-1",
+                            "intent": "function",
+                            "capability": "query.function",
+                            "evidence_mode": "operational",
+                            "status": "completed",
+                            "duration_ms": 1,
+                            "depends_on": [],
+                            "started_at": envelope["requested_at"],
+                            "completed_at": envelope["requested_at"],
+                            "evidence_refs": ["evidence-1"],
+                            "authority": "server_ontology_query",
+                        }
+                    ],
+                },
             }
         )
     request_id = cast(str, envelope["request_id"])

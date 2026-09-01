@@ -9,7 +9,11 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
-from fdai_service_contracts.ontology_query import QueryNodeKind, content_digest
+from fdai_service_contracts.ontology_query import (
+    EvidenceAuthority,
+    QueryNodeKind,
+    content_digest,
+)
 
 from fdai.core.conversation.semantic_judgment import SemanticJudgmentBoundary
 from fdai.core.conversation.semantic_manifest import CatalogQueryManifestProvider
@@ -321,7 +325,11 @@ def build_semantic_query_runtime(
 
     inventory_function = declarations.get("inventory.select_resources")
     if inventory_function is not None:
-        function_registry.register_contextual(inventory_function, select_resources)
+        function_registry.register_contextual(
+            inventory_function,
+            select_resources,
+            authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+        )
         bound_function_names.add(inventory_function.name)
     if catalog_index is not None and catalog_digest is not None:
         catalog_declaration = declarations[CATALOG_SEARCH_RULES_FUNCTION_NAME]
@@ -338,6 +346,7 @@ def build_semantic_query_runtime(
     function_registry.register_contextual(
         contextual_declaration,
         contextual_resource_function(ontology_release),
+        authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
     )
     bound_function_names.add(contextual_declaration.name)
     if incident_evidence_reader is not None:
@@ -354,18 +363,21 @@ def build_semantic_query_runtime(
     function_registry.register_contextual(
         current_state_declaration,
         semantic_resource_current_state_function(ontology_release),
+        authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
     )
     bound_function_names.add(current_state_declaration.name)
     ingress_declaration = declarations[RESOURCE_INGRESS_FUNCTION_NAME]
     function_registry.register_contextual(
         ingress_declaration,
         semantic_resource_ingress_function(ontology_release),
+        authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
     )
     bound_function_names.add(ingress_declaration.name)
     resource_state_declaration = declarations[RESOURCE_STATE_FUNCTION_NAME]
     function_registry.register_contextual(
         resource_state_declaration,
         resource_state_inventory_function(ontology_release),
+        authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
     )
     bound_function_names.add(resource_state_declaration.name)
     if resource_event_reader is not None:
@@ -389,6 +401,7 @@ def build_semantic_query_runtime(
                     inventory_query_language,
                 ),
             ),
+            authority=EvidenceAuthority.SERVER_SUBSCRIPTION_HEALTH,
         )
         bound_function_names.add(resource_health_declaration.name)
     if service_health_reader is not None:
@@ -399,6 +412,7 @@ def build_semantic_query_runtime(
                 ontology_release,
                 reader=service_health_reader,
             ),
+            authority=EvidenceAuthority.SERVER_SUBSCRIPTION_HEALTH,
         )
         bound_function_names.add(service_health_declaration.name)
     if metric_registry is not None and metric_window_provider is not None:
@@ -411,6 +425,7 @@ def build_semantic_query_runtime(
                 provider=metric_window_provider,
                 now=evaluation_cutoff,
             ),
+            authority=EvidenceAuthority.SERVER_OPERATIONAL_METRICS,
         )
         bound_function_names.add(resource_metric_declaration.name)
         resource_metric_series_declaration = declarations[RESOURCE_METRIC_SERIES_FUNCTION_NAME]
@@ -422,6 +437,7 @@ def build_semantic_query_runtime(
                 provider=metric_window_provider,
                 now=evaluation_cutoff,
             ),
+            authority=EvidenceAuthority.SERVER_OPERATIONAL_METRICS,
         )
         bound_function_names.add(resource_metric_series_declaration.name)
     correlation_declaration = declarations[ERROR_ACTIVITY_CORRELATION_FUNCTION_NAME]
@@ -488,6 +504,7 @@ def build_semantic_query_runtime(
             object_types=ontology_catalog.object_types,
             link_types=ontology_catalog.link_types,
         ),
+        authority=EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
     )
     bound_function_names.add(relationship_declaration.name)
     network_declaration = declarations[NETWORK_PATH_FUNCTION_NAME]
@@ -568,6 +585,7 @@ def build_semantic_query_runtime(
             ontology_release,
             manifest_for_context=manifest_for_context,
         ),
+        authority=EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
     )
     bound_function_names.add(manifest_declaration.name)
     declaration_query = declarations[ONTOLOGY_DECLARATION_FUNCTION_NAME]
@@ -581,6 +599,7 @@ def build_semantic_query_runtime(
             interface_types=ontology_catalog.interface_types,
             interface_implementations=ontology_catalog.interface_implementations,
         ),
+        authority=EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
     )
     bound_function_names.add(declaration_query.name)
     if ontology_catalog.resource_classes is not None:

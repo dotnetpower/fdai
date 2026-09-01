@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 6fd8f5328dee25beafb1d7396a13095191ee63f1
-translation_revised: 2026-08-30
+translation_source_sha: a3cfb3074e8e59237989676e0c48aafaa960388b
+translation_revised: 2026-09-01
 ---
 # 온톨로지 조회 커버리지 구현 계획
 
@@ -168,12 +168,14 @@ translation_revised: 2026-08-30
 | 타입 기반 extension 답변 projection | 구현됨 | `semantic_turn_processor.py`, focused Core processor 테스트 | 검증된 `TopologyGraphAt`, `TopologyDiff`, `MetricWindow`, `CausalEvidenceJoin` 출력은 exact digest, 완전성, 개수, 제한 사항 및 `execution_authority=false`가 있는 범위 제한 요약으로 렌더링됩니다. Raw provider payload는 계속 제외하고 evidence reference는 기존 receipt 경로로 전달합니다. |
 | Principal 범위 스키마 인벤토리 | 구현됨 | `core/ontology_platform/manifest_queries.py`, `composition/wire_semantic_query.py`, focused 매니페스트, 핸들러, 조립 및 prompt 검사(`42 passed`) | `query.manifest`는 exact role 및 purpose 필터가 적용된 매니페스트에서 선언 인벤토리 질문에 범위 제한 일반 table과 호출 증적 하나로 답합니다. 임의 관계 또는 인스턴스 조회로 대체하지 않습니다. |
 | 인시던트 의미 근거 | 구현됨 | `core/incident/ontology_projection.py`, `core/ontology_platform/incident_queries.py`, focused Core, Operator 및 Console 검사 | Canonical 인시던트 상태를 ObjectSet으로 조회할 수 있고 T0는 범위가 제한된 영향 근거를 기록하며, `query.incident_evidence`는 서로 다른 canonical 인시던트 신원과 감사 상관관계 신원을 보존하면서 감사 기반 프로파일, 상관 기록, 인용으로 근거를 확인한 기록된 근본 원인 또는 허용 목록의 결정론적 최종 실패, 영향 근거, 인용 및 명시적 공백을 반환합니다. 경로는 읽기 전용이며 실행 권한을 부여하지 않습니다. 인증된 Console 근거는 아직 남아 있습니다. |
+| 증적에 결속된 의미 답변 권한 | 구현됨 | `functions.py`, `query_execution.py`, `intent_graph.py`, `semantic_turn_processor.py`, `semantic_turn_presentation.py`, 집중 Core, Operator 및 서비스 간 테스트 통과 | 서버 함수 레지스트리가 최초 권한 생산자입니다. 쿼리 노드와 목표 증적은 권한을 근거 참조와 함께 보관합니다. 구독 상태, 인벤토리 그래프, 사용량 측정 및 온톨로지 매니페스트 권한을 서로 구분합니다. 권한이 없거나 충돌하면 턴을 보류하며 모델 또는 클라이언트 권한 텍스트로 증적을 재정의할 수 없습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-09-01 | implemented | Framework와 FrameworkControl을 Identifiable 구현체로 등록했습니다. 인터페이스 구현 레지스트리는 이제 출하된 모든 객체 유형을 나열합니다. | `current change`; 집중 온톨로지 카탈로그 및 객체 유형 카탈로그 검사 통과. | 이 인터페이스 등록으로 추가 쿼리 커버리지 작업은 없습니다. |
+| 2026-09-01 | 구현됨 | 터미널의 `ontology-query` 권한 평탄화를 증적에서 도출한 출처 권한과 타입이 지정된 누락 및 충돌 보류로 대체했습니다. | `current change`; 집중 Core, Operator, 계약 및 서비스 간 권한 테스트 통과 | 별도로 승인된 캠페인에서 관리되는 실제 증적을 보존하기 전까지 이 권한 경로를 검증됨으로 높이지 않습니다. |
 | 2026-08-29 | implemented | 보안 ObjectSet 쿼리 소비 경계를 공유 의사 결정 핵심 근거 승인 결과로 마이그레이션했습니다. 정확한 결과 발행은 계속 범위가 제한되며, 이제 해석과 FunctionType 검증은 승인 결과가 없거나 일치하지 않거나 만료되면 차단합니다. 조립 seam은 주입된 프로바이더만 허용하고 합성 또는 기본 긍정 결속을 제공하지 않습니다. | `current change`; 쿼리 권한 및 핸들러 출처, 의미 조립, 집중 권한, Pod 텔레메트리, Pod 복구, rollout, 쿼리 핸들러 및 조립 테스트, Ruff 및 strict mypy. | 프로덕션 프로바이더를 신뢰할 수 있는 증적 검증기 레지스트리에 연결한 다음 인증된 서비스 간 쿼리 묶음을 보존합니다. |
 | 2026-08-27 | implemented | 서버 소유 Event ObjectSet에 출처에 근거한 Resource 이름 하나를 보존하고 일반 검증 행 개수를 이중 언어 Resource Event 답변으로 교체했습니다. 답변은 범위가 제한된 정규화 Event field만 나열하고 출처 완전성, 안정적인 제한 사항 및 `execution_authority=false`를 항상 보고합니다. 보존이 확인되지 않은 행 0개는 과거 부재를 증명하지 않는다고 명시합니다. | `current change`, Event 계획, FunctionType, 읽기 경로, 조립, processor 및 Operator 표현 검사 287개 통과, Ruff, formatter 및 strict mypy 통과. 오래된 Core를 교체한 뒤 인증된 정확한 Deployment 후속 실행이 노드 2/2와 근거 검사 8/8을 완료하고 원인 또는 복구 주장 없이 범위가 제한된 `source_unavailable`을 렌더링했습니다. | 런타임 workload identity의 권위 있는 Kubernetes Event 출처 접근을 복구한 뒤 `source_retention_unverified` 또는 정규화 Event 행을 담은 정확한 child 결과를 보존합니다. 영속 이력은 별도의 열린 작업입니다. |
 | 2026-08-27 | implemented | 구문 경로나 새 plan shape 없이 child-only Kubernetes Event 조회 공백을 닫았습니다. 기존 dependency-issued ObjectSet은 불변 identity-aware reader capability을 통해 inventory UID와 cluster를 전달하고, legacy reader는 호환성을 유지하며, Core는 다른 provider properties를 adapter에 노출하지 않습니다. | `current change`, 집중 FunctionType, 복합, Kubernetes, Azure, immutable identity, legacy compatibility, selector 전달, 위조 identity 검사 27개 통과, Ruff, formatter, strict mypy 통과 | 인증된 정확한 child 근거를 보존합니다. 영속 보존은 여전히 열려 있으므로 행 0개는 불완전한 과거 근거로 유지합니다. |
