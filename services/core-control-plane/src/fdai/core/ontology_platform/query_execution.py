@@ -561,16 +561,7 @@ def _bind_result_authority(
         if dependency.authority is not None
     }
     if len(dependency_authorities) > 1:
-        # Mixed-authority dependencies (e.g., inventory + metrics in a causal
-        # join).  Nodes that declare their own authority keep it; nodes without
-        # explicit authority stay without one because no single authority can be
-        # propagated.
-        if (
-            result.authority is not None
-            and result.authority is not EvidenceAuthority.SERVER_ONTOLOGY_QUERY
-        ):
-            return result
-        return result
+        raise QueryNodeHeldError("evidence_authority_conflict")
     dependency_authority = next(iter(dependency_authorities), None)
     if result.authority is None:
         return (
@@ -584,8 +575,8 @@ def _bind_result_authority(
             if dependency_authority is not None
             else result
         )
-    # Node declares its own authority; keep it even when the sole dependency
-    # authority differs (the node reads from an independent source).
+    if dependency_authority is not None and dependency_authority is not result.authority:
+        raise QueryNodeHeldError("evidence_authority_conflict")
     return result
 
 

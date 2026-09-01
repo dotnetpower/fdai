@@ -141,19 +141,12 @@ def resolve_execution_authority(
         for receipt in execution.receipts
         if receipt.status is TaskStatus.COMPLETED and receipt.evidence_refs
     )
-    if not evidence_receipts:
+    if not evidence_receipts or any(receipt.authority is None for receipt in evidence_receipts):
         return None, "missing"
-    non_null_authorities = {
-        receipt.authority for receipt in evidence_receipts if receipt.authority is not None
-    }
-    if not non_null_authorities:
-        return None, "missing"
-    # Mixed-authority plans (inventory + metrics + joins) are valid when every
-    # source carries its own authority.  Return the single authority when
-    # uniform, otherwise signal verified without a single dominant authority.
-    if len(non_null_authorities) == 1:
-        return next(iter(non_null_authorities)), "verified"
-    return None, "verified"
+    authorities = {receipt.authority for receipt in evidence_receipts}
+    if len(authorities) != 1:
+        return None, "conflict"
+    return next(iter(authorities)), "verified"
 
 
 __all__ = [
