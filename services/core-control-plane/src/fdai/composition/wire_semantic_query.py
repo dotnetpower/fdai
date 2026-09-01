@@ -297,7 +297,6 @@ def build_semantic_query_runtime(
     )
     function_registry = OntologyFunctionRegistry(release=ontology_release)
     declarations = {item.name: item for item in function_types}
-    bound_function_names: set[str] = set()
 
     async def select_resources(
         arguments: Mapping[str, object],
@@ -330,7 +329,6 @@ def build_semantic_query_runtime(
             select_resources,
             authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
         )
-        bound_function_names.add(inventory_function.name)
     if catalog_index is not None and catalog_digest is not None:
         catalog_declaration = declarations[CATALOG_SEARCH_RULES_FUNCTION_NAME]
         function_registry.register_contextual(
@@ -341,14 +339,12 @@ def build_semantic_query_runtime(
                 catalog_digest=catalog_digest,
             ),
         )
-        bound_function_names.add(catalog_declaration.name)
     contextual_declaration = declarations[CONTEXTUAL_RESOURCE_FUNCTION_NAME]
     function_registry.register_contextual(
         contextual_declaration,
         contextual_resource_function(ontology_release),
         authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
     )
-    bound_function_names.add(contextual_declaration.name)
     if incident_evidence_reader is not None:
         incident_declaration = declarations[INCIDENT_EVIDENCE_FUNCTION_NAME]
         function_registry.register_contextual(
@@ -358,28 +354,24 @@ def build_semantic_query_runtime(
                 reader=incident_evidence_reader,
             ),
         )
-        bound_function_names.add(incident_declaration.name)
     current_state_declaration = declarations[RESOURCE_CURRENT_STATE_FUNCTION_NAME]
     function_registry.register_contextual(
         current_state_declaration,
         semantic_resource_current_state_function(ontology_release),
         authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
     )
-    bound_function_names.add(current_state_declaration.name)
     ingress_declaration = declarations[RESOURCE_INGRESS_FUNCTION_NAME]
     function_registry.register_contextual(
         ingress_declaration,
         semantic_resource_ingress_function(ontology_release),
         authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
     )
-    bound_function_names.add(ingress_declaration.name)
     resource_state_declaration = declarations[RESOURCE_STATE_FUNCTION_NAME]
     function_registry.register_contextual(
         resource_state_declaration,
         resource_state_inventory_function(ontology_release),
         authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
     )
-    bound_function_names.add(resource_state_declaration.name)
     if resource_event_reader is not None:
         resource_event_declaration = declarations[RESOURCE_EVENT_FUNCTION_NAME]
         function_registry.register_contextual(
@@ -389,7 +381,6 @@ def build_semantic_query_runtime(
                 reader=resource_event_reader,
             ),
         )
-        bound_function_names.add(resource_event_declaration.name)
     if resource_health_reader is not None and inventory_query_language is not None:
         resource_health_declaration = declarations[RESOURCE_HEALTH_FUNCTION_NAME]
         function_registry.register_contextual(
@@ -403,7 +394,6 @@ def build_semantic_query_runtime(
             ),
             authority=EvidenceAuthority.SERVER_SUBSCRIPTION_HEALTH,
         )
-        bound_function_names.add(resource_health_declaration.name)
     if service_health_reader is not None:
         service_health_declaration = declarations[SERVICE_HEALTH_FUNCTION_NAME]
         function_registry.register_contextual(
@@ -414,7 +404,6 @@ def build_semantic_query_runtime(
             ),
             authority=EvidenceAuthority.SERVER_SUBSCRIPTION_HEALTH,
         )
-        bound_function_names.add(service_health_declaration.name)
     if metric_registry is not None and metric_window_provider is not None:
         resource_metric_declaration = declarations[RESOURCE_METRIC_FUNCTION_NAME]
         function_registry.register_contextual(
@@ -427,7 +416,6 @@ def build_semantic_query_runtime(
             ),
             authority=EvidenceAuthority.SERVER_OPERATIONAL_METRICS,
         )
-        bound_function_names.add(resource_metric_declaration.name)
         resource_metric_series_declaration = declarations[RESOURCE_METRIC_SERIES_FUNCTION_NAME]
         function_registry.register_contextual(
             resource_metric_series_declaration,
@@ -439,43 +427,36 @@ def build_semantic_query_runtime(
             ),
             authority=EvidenceAuthority.SERVER_OPERATIONAL_METRICS,
         )
-        bound_function_names.add(resource_metric_series_declaration.name)
     correlation_declaration = declarations[ERROR_ACTIVITY_CORRELATION_FUNCTION_NAME]
     function_registry.register_contextual(
         correlation_declaration,
         error_activity_correlation_function(ontology_release),
     )
-    bound_function_names.add(correlation_declaration.name)
     latency_recovery_declaration = declarations[LATENCY_RECOVERY_FUNCTION_NAME]
     function_registry.register_contextual(
         latency_recovery_declaration,
         latency_recovery_function(ontology_release),
     )
-    bound_function_names.add(latency_recovery_declaration.name)
     mysql_pressure_declaration = declarations[MYSQL_PRESSURE_FUNCTION_NAME]
     function_registry.register_contextual(
         mysql_pressure_declaration,
         mysql_pressure_function(ontology_release),
     )
-    bound_function_names.add(mysql_pressure_declaration.name)
     mysql_demand_declaration = declarations[MYSQL_DEMAND_BUNDLE_FUNCTION_NAME]
     function_registry.register_contextual(
         mysql_demand_declaration,
         mysql_demand_bundle_function(ontology_release),
     )
-    bound_function_names.add(mysql_demand_declaration.name)
     mysql_saturation_declaration = declarations[MYSQL_SATURATION_BUNDLE_FUNCTION_NAME]
     function_registry.register_contextual(
         mysql_saturation_declaration,
         mysql_saturation_bundle_function(ontology_release),
     )
-    bound_function_names.add(mysql_saturation_declaration.name)
     health_declaration = declarations[TARGET_HEALTH_ASSESSMENT_FUNCTION_NAME]
     function_registry.register_contextual(
         health_declaration,
         target_health_assessment_function(ontology_release),
     )
-    bound_function_names.add(health_declaration.name)
     if read_investigation_provider is not None:
         activity_declaration = declarations[RESOURCE_ACTIVITY_FUNCTION_NAME]
         function_registry.register_contextual(
@@ -485,7 +466,6 @@ def build_semantic_query_runtime(
                 provider=read_investigation_provider,
             ),
         )
-        bound_function_names.add(activity_declaration.name)
     if vm_process_cpu_reader is not None:
         process_declaration = declarations[VM_PROCESS_CPU_FUNCTION_NAME]
         function_registry.register_contextual(
@@ -495,7 +475,6 @@ def build_semantic_query_runtime(
                 reader=vm_process_cpu_reader,
             ),
         )
-        bound_function_names.add(process_declaration.name)
     relationship_declaration = declarations[ONTOLOGY_RELATIONSHIPS_FUNCTION_NAME]
     function_registry.register_contextual(
         relationship_declaration,
@@ -506,7 +485,6 @@ def build_semantic_query_runtime(
         ),
         authority=EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
     )
-    bound_function_names.add(relationship_declaration.name)
     network_declaration = declarations[NETWORK_PATH_FUNCTION_NAME]
     function_registry.register_contextual(
         network_declaration,
@@ -516,7 +494,6 @@ def build_semantic_query_runtime(
             verification_context=receipt_authority.verification_context,
         ),
     )
-    bound_function_names.add(network_declaration.name)
     pod_declaration = declarations[POD_TELEMETRY_FUNCTION_NAME]
     function_registry.register_contextual(
         pod_declaration,
@@ -526,7 +503,6 @@ def build_semantic_query_runtime(
             verification_context=receipt_authority.verification_context,
         ),
     )
-    bound_function_names.add(pod_declaration.name)
     pod_recovery_declaration = declarations[KUBERNETES_POD_RECOVERY_FUNCTION_NAME]
     function_registry.register_contextual(
         pod_recovery_declaration,
@@ -536,7 +512,6 @@ def build_semantic_query_runtime(
             verification_context=receipt_authority.verification_context,
         ),
     )
-    bound_function_names.add(pod_recovery_declaration.name)
     if pod_log_evidence_reader is not None:
         pod_diagnosis_declaration = declarations[KUBERNETES_POD_DIAGNOSIS_FUNCTION_NAME]
         function_registry.register_contextual(
@@ -546,7 +521,6 @@ def build_semantic_query_runtime(
                 log_reader=pod_log_evidence_reader,
             ),
         )
-        bound_function_names.add(pod_diagnosis_declaration.name)
     rollout_declaration = declarations[KUBERNETES_ROLLOUT_FUNCTION_NAME]
     function_registry.register_contextual(
         rollout_declaration,
@@ -556,7 +530,6 @@ def build_semantic_query_runtime(
             verification_context=receipt_authority.verification_context,
         ),
     )
-    bound_function_names.add(rollout_declaration.name)
     manifest_declaration = declarations[ONTOLOGY_MANIFEST_FUNCTION_NAME]
 
     def manifest_for_context(
@@ -573,9 +546,7 @@ def build_semantic_query_runtime(
             interfaces=ontology_catalog.interface_types,
             action_types=ontology_catalog.action_types,
             functions=function_types,
-            bound_function_names=tuple(
-                sorted(bound_function_names | {ONTOLOGY_MANIFEST_FUNCTION_NAME})
-            ),
+            bound_function_names=tuple(function_registry.binding_authorities),
             property_values=property_values,
         )
 
@@ -587,7 +558,6 @@ def build_semantic_query_runtime(
         ),
         authority=EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
     )
-    bound_function_names.add(manifest_declaration.name)
     declaration_query = declarations[ONTOLOGY_DECLARATION_FUNCTION_NAME]
     function_registry.register_contextual(
         declaration_query,
@@ -601,7 +571,6 @@ def build_semantic_query_runtime(
         ),
         authority=EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
     )
-    bound_function_names.add(declaration_query.name)
     if ontology_catalog.resource_classes is not None:
         resource_class_declaration = declarations[RESOURCE_CLASS_CLOSURE_FUNCTION_NAME]
         function_registry.register_contextual(
@@ -611,7 +580,6 @@ def build_semantic_query_runtime(
                 registry=ontology_catalog.resource_classes,
             ),
         )
-        bound_function_names.add(resource_class_declaration.name)
     handlers: dict[QueryNodeKind, QueryNodeHandler] = {
         QueryNodeKind.UNION: SetOperationNodeHandler("union"),
         QueryNodeKind.INTERSECTION: SetOperationNodeHandler("intersection"),
@@ -668,7 +636,7 @@ def build_semantic_query_runtime(
             interfaces=ontology_catalog.interface_types,
             action_types=ontology_catalog.action_types,
             functions=function_types,
-            bound_function_names=tuple(sorted(bound_function_names)),
+            bound_function_names=tuple(function_registry.binding_authorities),
             property_values=property_values,
         ),
         verifier=OntologyQueryPlanVerifier(
@@ -738,6 +706,7 @@ def build_semantic_query_runtime(
         planner=planner,
         executor_factory=executor_for,
         purpose=purpose,
+        function_bindings=function_registry.binding_authorities,
     )
 
 

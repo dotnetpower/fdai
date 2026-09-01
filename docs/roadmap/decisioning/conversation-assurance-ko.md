@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 3216d73060b3162c0bd7e9f0a144744461a45c14
+translation_source_sha: eb0b184e76f11271685b00d2429f076d055e9502
 translation_revised: 2026-09-01
 ---
 # 대화 품질 보증
@@ -34,7 +34,7 @@ translation_revised: 2026-09-01
 | Qualification 소유자 기여 | implemented | [`quality_observations.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_observations.py), [`test_quality_context_locale_observations.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_context_locale_observations.py) | 적용 가능한 1-35번 및 41-45번 항목의 결정론 소유자 어댑터는 콘텐츠가 없는 하나의 턴 묶음으로 결합됩니다. 소유하지 않은 차원은 unavailable로 남고 점수 입력이 될 수 없습니다. |
 | 맥락 및 로케일 소유자 기여 | implemented | [`quality_context_locale_observations.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_context_locale_observations.py), [`test_quality_context_locale_observations.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_context_locale_observations.py) | 41-45번 항목의 모든 기여는 하나의 사례 및 로케일에 연결됩니다. 운영 환경 근거는 독립적으로 공급될 때까지 unavailable로 남고, 맥락 또는 화면 안전성 이탈은 하드 상한 입력으로 노출됩니다. |
 | 맥락 및 로케일 호환 경로 | implemented | [`context_locale_scorecard.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/context_locale_scorecard.py), [`test_context_locale_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_context_locale_scorecard.py) | 과거 모듈 경로는 통합 소유자 기여 API만 다시 내보내며 대체된 별도 묶음을 복원하지 않습니다. |
-| Watchdog 런타임 기능 준비 상태 | implemented | [`conversation_assurance_readiness.py`](../../../services/core-control-plane/src/fdai/runtime/conversation_assurance_readiness.py), [`test_conversation_assurance_readiness.py`](../../../services/core-control-plane/tests/runtime/test_conversation_assurance_readiness.py) | 질문 선택은 선언, 결속, 공급자 도달 가능성, 근거 준비 상태 및 권한을 구분합니다. 사용할 수 없는 질문은 점수를 매기지 않은 범위 backlog로 남습니다. 라이브 캠페인 근거를 주장하지 않습니다. |
+| Watchdog 런타임 기능 준비 상태 | implemented | [`conversation_assurance_readiness.py`](../../../services/core-control-plane/src/fdai/runtime/conversation_assurance_readiness.py), [`test_conversation_assurance_readiness.py`](../../../services/core-control-plane/tests/runtime/test_conversation_assurance_readiness.py) | 질문 선택은 선언, 실제 콜백 결속, 공급자 도달 가능성, 근거 준비 상태 및 권한을 구분합니다. 변경할 수 없는 런타임 결속 스냅샷이 등록된 권한을 제공합니다. 스키마 전용 함수는 정확한 메모리 내 release에서 근거 준비 상태가 되지만, 공급자 함수에는 현재 probe가 계속 필요합니다. 사용할 수 없는 질문은 점수를 매기지 않은 범위 backlog로 남습니다. 라이브 캠페인 근거를 주장하지 않습니다. |
 | Watchdog 답변 게이트 v2 | implemented | [`conversation_assurance_answer_gate.py`](../../../scripts/automation/conversation_assurance_answer_gate.py), [`test_conversation_assurance_answer_gate.py`](../../../tests/integration/scripts/test_conversation_assurance_answer_gate.py) | 10개 루브릭 구조는 적용 가능한 항목 수를 분모로 사용하며, 6개 답변 루브릭과 선언된 각 객관적 오라클은 별도 필수 게이트를 구성합니다. 객관적으로 결정 가능한 개수는 현재 권위 소스에서 계산한 기대값과 구조화된 답변 값을 비교합니다. 제품 기술 검증과 품질 보증 성공은 별도 필드로 유지하며 v1 원장 행은 변경하지 않습니다. |
 | Watchdog hardening 격리 | implemented | 로컬 watchdog 안전 계약 테스트 및 `conversational-assurance` skill | 후보 생성 전에 실패를 분류하고 코드 결함만 hardening에 진입할 수 있습니다. 단계별 집중 검사가 전체 저장소 후보 게이트를 대체하며 검증된 브랜치만 검토용으로 보존합니다. |
 | 운영자 이의 제기 및 온톨로지 적정성 검토 | implemented | [`test_learning.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_learning.py), [`test_state_store_ontology_adequacy.py`](../../../services/core-control-plane/tests/delivery/persistence/test_state_store_ontology_adequacy.py) | 이의 제기와 재현된 적정성 공백은 실행 권한을 변경하지 않고 범위가 제한된 검토 근거를 만듭니다. |
@@ -45,6 +45,7 @@ translation_revised: 2026-09-01
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-01 | implemented | Watchdog의 결속 추정을 semantic runtime이 등록한 콜백과 권한의 변경할 수 없는 스냅샷으로 대체했습니다. 스키마 전용 함수는 정확한 메모리 내 release를 사용하며, 공급자 함수는 현재 probe가 성공하지 않으면 근거 준비 상태가 될 수 없습니다. | `current change`; semantic 함수 레지스트리, semantic runtime 조합, 런타임 준비 상태 테스트, 집중 watchdog 테스트, Ruff 및 mypy. | 리소스 상태, Resource Health, 계측, DR 및 Chaos 공급자 질문이 캠페인에 들어가기 전에 현재 범위 probe를 추가합니다. |
 | 2026-09-01 | implemented | 로컬 watchdog 후보 경계를 hardening 전 5가지 실패 분류, 코드 결함 전용 후보 생성, Core 및 Operator 대화 소유 범위, 단계별 기한, 기준선 독립 판정, 최종 시간 초과 처리 및 검토 전용 검증 브랜치로 강화했습니다. | `current change`; 로컬 watchdog 범위, 캠페인, 분류, 기한 및 브랜치 수명 주기 테스트; 집중 watchdog 안전 계약; Ruff. | 별도로 승인된 향후 캠페인을 실행하여 이 흐름의 운영 근거를 수집합니다. 이 변경은 라이브 캠페인을 시작하지 않습니다. |
 | 2026-09-01 | implemented | 정확한 구조화 객관적 오라클 비교, 필수 답변 품질 게이트, 비적용 루브릭 중립 처리, 분리된 제품 검증 및 품질 보증 결과를 포함하는 v2 Watchdog 답변 게이트를 추가했습니다. 기존 v1 평가는 변경할 수 없는 이력으로 유지합니다. | `current change`; [`conversation_assurance_answer_gate.py`](../../../scripts/automation/conversation_assurance_answer_gate.py); 추적되는 테스트와 집중 로컬 Watchdog 테스트; Ruff. | 별도로 승인된 향후 캠페인에서 v2 운영 근거를 수집합니다. 이 변경은 라이브 캠페인을 시작하지 않습니다. |
 | 2026-09-01 | implemented | FunctionType 존재 여부로 질문을 선택하던 방식을 타입 기반 런타임 준비 상태와 정확한 권한 일치 검사로 교체했습니다. 로컬 watchdog은 누락된 공급자, 접근할 수 없는 권한 또는 불완전한 근거를 답변 실패가 아닌 unavailable backlog로 기록합니다. | `current change`; [`conversation_assurance_readiness.py`](../../../services/core-control-plane/src/fdai/runtime/conversation_assurance_readiness.py); [`test_conversation_assurance_readiness.py`](../../../services/core-control-plane/tests/runtime/test_conversation_assurance_readiness.py); 집중 watchdog 및 런타임 준비 상태 테스트. | 해당 질문을 캠페인에 포함하기 전에 리소스 상태, Resource Health, 사용량 측정, DR 및 Chaos 공급자의 근거 probe를 추가해야 합니다. |
@@ -429,8 +430,9 @@ SRE adapter는 `RcaResult`를 사전 선언된 처리 결과, 원인 다이제�
 질문 선택은 답변을 측정할 동일한 임시 런타임 인스턴스를 따릅니다.
 
 1. `operational_function_types()`가 검토된 정적 선언을 제공합니다.
-2. `build_semantic_query_runtime()`은 조합 의존성이 존재하는 콜백만 등록하고 principal 범위 조회
-   매니페스트에 결속된 함수 집합을 기록합니다.
+2. `build_semantic_query_runtime()`은 조합 의존성이 존재하는 콜백만 등록합니다. 레지스트리는
+   함수와 권한의 변경할 수 없는 스냅샷을 런타임에 노출하고, 동일한 등록 집합이 principal 범위
+   조회 매니페스트에 들어갑니다.
 3. 런타임 소유 probe는 현재 신원과 범위로 구체적인 공급자를 호출합니다. 모드가 `0600`인 비공개
    증적에는 범위가 제한된 준비 상태 필드만 기록합니다.
 4. 준비 상태 축약기는 질문의 예상 권한과 성공한 probe가 실제로 제공한 권한을 비교합니다.

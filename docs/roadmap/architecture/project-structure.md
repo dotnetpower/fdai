@@ -162,9 +162,9 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   Explicit Pantheon campaigns use a separate one-time runtime binding after Pantheon initialization.
   Core validates the requested case against the fixed server census, Bragi produces the single
   terminal answer, and the off-path distinct-family reviewers append the correlated 30-point
-  diagnostic. Ordinary `operations-review` turns continue through the existing semantic runtime.
-  Historical `context_locale_scorecard.py` imports remain a compatibility-only re-export of the
-  unified contribution module.
+  diagnostic. Ordinary `operations-review` turns continue through the existing semantic runtime,
+  which exposes an immutable snapshot of registered function authorities to readiness consumers.
+  Historical `context_locale_scorecard.py` remains a compatibility-only re-export.
   The repository CLI parses content-free samples and never converts a trace commitment into a
   complete-trace claim. The adjacent `quality_trace.py` reducer accepts only record commitments and
   proves completeness from the exact ordered session-to-audit chain; it performs no provider read

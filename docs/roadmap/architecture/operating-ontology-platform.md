@@ -167,6 +167,9 @@ for the immutable promotion or conversation-turn reference.
 The Operator API declares `inventory.select_resources` as a read-only ontology query function.
 Production semantic candidates and the `/ontology/graph` manifest use the same release digest and
 function reference. A candidate from another release is rejected before provider I/O.
+The semantic function registry also exposes an immutable name-to-authority snapshot after
+composition. Query manifests and readiness receipts use that same registered set, while provider
+functions remain below evidence-ready until a current bounded probe succeeds.
 
 ## Semantic interfaces and object sets
 

@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 5aa92fe04b3f8d216f4650eb8ccce7407266075f
-translation_revised: 2026-08-31
+translation_source_sha: 947c4e001a1dbfee8e1ff57fb936a20dcd4aee99
+translation_revised: 2026-09-01
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -167,6 +167,9 @@ Promoted 표면과 운영자 확인은 변경할 수 없는 승격 또는 conver
 Operator API는 `inventory.select_resources`를 읽기 전용 온톨로지 조회 함수로 선언합니다.
 운영 의미 후보와 `/ontology/graph` 매니페스트는 같은 release 다이제스트 및 함수
 참조를 사용합니다. 다른 release의 후보는 프로바이더 I/O 전에 차단됩니다.
+semantic 함수 레지스트리는 조합 후 함수 이름과 권한의 변경할 수 없는 스냅샷도 노출합니다.
+조회 매니페스트와 준비 상태 증적은 동일한 등록 집합을 사용하며, 공급자 함수는 현재 범위가
+제한된 probe가 성공할 때까지 근거 준비 상태보다 낮게 유지됩니다.
 
 ## 의미 인터페이스와 객체 집합
 

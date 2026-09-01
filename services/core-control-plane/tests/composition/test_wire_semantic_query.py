@@ -114,6 +114,7 @@ from fdai.shared.providers.state_evidence import (
     StateFactMetadata,
 )
 from fdai.shared.providers.testing import InMemoryOntologyInstanceStore
+from fdai_service_contracts.ontology_query import EvidenceAuthority
 from tests.decision_evidence import StubDecisionEvidenceAdmissionProvider
 
 NOW = datetime(2026, 8, 11, 12, tzinfo=UTC)
@@ -357,6 +358,25 @@ async def test_runtime_binds_exact_request_role_and_returns_evidence() -> None:
     assert reader_result.intent_graph_evidence is not None
     evidence_refs = reader_result.intent_graph_evidence["goals"][0]["evidence_refs"]
     assert any(item.startswith("ontology-object-set:") for item in evidence_refs)
+
+
+async def test_runtime_exposes_actual_function_binding_authorities() -> None:
+    runtime = await _runtime()
+
+    assert runtime.function_bindings["query.manifest"] is (
+        EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST
+    )
+    assert runtime.function_bindings["query.ontology_declaration"] is (
+        EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST
+    )
+    assert runtime.function_bindings["query.ontology_relationships"] is (
+        EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST
+    )
+    assert runtime.function_bindings["query.resource_current_state"] is (
+        EvidenceAuthority.SERVER_INVENTORY_GRAPH
+    )
+    with pytest.raises(TypeError):
+        runtime.function_bindings["query.manifest"] = EvidenceAuthority.SERVER_ONTOLOGY_QUERY
 
 
 async def test_runtime_verifies_and_executes_relationship_traversal() -> None:
