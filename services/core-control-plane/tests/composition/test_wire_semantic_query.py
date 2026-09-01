@@ -111,6 +111,7 @@ from fdai.shared.providers.state_evidence import (
     StateFactMetadata,
 )
 from fdai.shared.providers.testing import InMemoryOntologyInstanceStore
+from fdai_service_contracts.ontology_query import TaskStatus
 from tests.decision_evidence import StubDecisionEvidenceAdmissionProvider
 
 NOW = datetime(2026, 8, 11, 12, tzinfo=UTC)
@@ -828,7 +829,7 @@ async def test_runtime_rejects_unavailable_temporal_evidence_kinds() -> None:
     assert result.execution is None
 
 
-async def test_runtime_executes_temporal_metric_evidence_provider_set() -> None:
+async def test_temporal_metric_evidence_holds_on_cross_source_authority_conflict() -> None:
     object_type = _object_type()
     runtime = build_semantic_query_runtime(
         model=_TemporalEvidenceModel(_definition()),
@@ -856,9 +857,15 @@ async def test_runtime_executes_temporal_metric_evidence_provider_set() -> None:
     assert result.disposition == "held"
     assert result.reason == "semantic_execution_partial"
     assert result.execution is not None
+    # The evidence_join node combines metrics (SERVER_OPERATIONAL_METRICS)
+    # with topology (SERVER_INVENTORY_GRAPH) -- mixed authority, UNAVAILABLE.
+    receipts_by_task = {r.task_id: r for r in result.execution.receipts}
+    join_receipt = receipts_by_task["query:causal-evidence"]
+    assert join_receipt.status is TaskStatus.UNAVAILABLE
+    assert join_receipt.reason == "evidence_authority_conflict"
 
 
-async def test_runtime_executes_bounded_visible_scope_causal_evidence() -> None:
+async def test_scoped_causal_evidence_holds_on_cross_source_authority_conflict() -> None:
     object_type = _object_type()
     store = InMemoryOntologyInstanceStore(object_types=(object_type,), link_types=())
     for object_id in ("resource-b", "resource-a"):
@@ -892,9 +899,18 @@ async def test_runtime_executes_bounded_visible_scope_causal_evidence() -> None:
     assert result.disposition == "held"
     assert result.reason == "semantic_execution_partial"
     assert result.execution is not None
+    # metric_scope_series nodes depend on object_set (inventory) but produce
+    # metrics authority → conflict → UNAVAILABLE; evidence_join is SKIPPED.
+    receipts_by_task = {r.task_id: r for r in result.execution.receipts}
+    assert receipts_by_task["query:cause"].status is TaskStatus.UNAVAILABLE
+    assert receipts_by_task["query:cause"].reason == "evidence_authority_conflict"
+    assert receipts_by_task["query:effect"].status is TaskStatus.UNAVAILABLE
+    assert receipts_by_task["query:effect"].reason == "evidence_authority_conflict"
+    assert receipts_by_task["query:causal-evidence"].status is TaskStatus.SKIPPED
+    assert receipts_by_task["query:causal-evidence"].reason == "dependency_not_completed"
 
 
-async def test_runtime_canonicalizes_redundant_transitive_causal_dependency() -> None:
+async def test_redundant_transitive_causal_dep_holds_on_cross_source_authority() -> None:
     object_type = _object_type()
     store = InMemoryOntologyInstanceStore(object_types=(object_type,), link_types=())
     await store.upsert_object(
@@ -927,9 +943,14 @@ async def test_runtime_canonicalizes_redundant_transitive_causal_dependency() ->
     assert result.disposition == "held"
     assert result.reason == "semantic_execution_partial"
     assert result.execution is not None
-    # Only scope completes; cause, effect, and causal-evidence become
-    # UNAVAILABLE due to cross-source authority conflict.
-    assert "scope" in result.execution.results
+    receipts_by_task = {r.task_id: r for r in result.execution.receipts}
+    # scope completes (single authority), but metric_scope_series nodes are
+    # UNAVAILABLE and causal-evidence is SKIPPED.
+    assert receipts_by_task["query:scope"].status is TaskStatus.COMPLETED
+    assert receipts_by_task["query:cause"].status is TaskStatus.UNAVAILABLE
+    assert receipts_by_task["query:cause"].reason == "evidence_authority_conflict"
+    assert receipts_by_task["query:effect"].status is TaskStatus.UNAVAILABLE
+    assert receipts_by_task["query:causal-evidence"].status is TaskStatus.SKIPPED
 
 
 class _RuleSearchModel(_Model):

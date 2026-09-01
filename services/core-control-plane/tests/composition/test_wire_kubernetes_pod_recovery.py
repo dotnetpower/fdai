@@ -39,6 +39,7 @@ from fdai.shared.providers.state_evidence import (
     StateFactMetadata,
 )
 from fdai.shared.providers.testing import InMemoryOntologyInstanceStore
+from fdai_service_contracts.ontology_query import TaskStatus
 from tests.decision_evidence import StubDecisionEvidenceAdmissionProvider
 
 NOW = datetime(2026, 8, 25, 18, tzinfo=UTC)
@@ -216,7 +217,7 @@ def _ownership(child_id: str, owner_id: str) -> OntologyLinkRecord:
     )
 
 
-async def test_runtime_executes_issued_pod_recovery_plan_without_model_plan() -> None:
+async def test_issued_pod_recovery_plan_holds_on_cross_source_authority_conflict() -> None:
     utterance = f"{POD_ID} Pod가 갑자기 재시작된 원인과 현재 회복 여부를 조사해줘."
     model = _PodRecoveryModel(utterance)
     resource = OntologyObjectType(
@@ -313,7 +314,14 @@ async def test_runtime_executes_issued_pod_recovery_plan_without_model_plan() ->
     assert result.disposition == "held", result.reason
     assert result.reason == "semantic_execution_partial"
     assert result.execution is not None
-    # Cross-source authority conflict (inventory + metrics) makes metric
-    # and function nodes UNAVAILABLE; pod-recovery-evidence is not produced.
-    assert "pod-recovery-evidence" not in result.execution.results
+    # restart-history (metric_scope_series) depends on pod-recovery-target
+    # (inventory) → cross-source authority conflict → UNAVAILABLE.
+    # pod-recovery-evidence (function) depends on restart-history → SKIPPED.
+    receipts_by_task = {r.task_id: r for r in result.execution.receipts}
+    restart_receipt = receipts_by_task["query:pod-restart-history"]
+    assert restart_receipt.status is TaskStatus.UNAVAILABLE
+    assert restart_receipt.reason == "evidence_authority_conflict"
+    evidence_receipt = receipts_by_task["query:pod-recovery-evidence"]
+    assert evidence_receipt.status is TaskStatus.SKIPPED
+    assert evidence_receipt.reason == "dependency_not_completed"
     assert model.plan_calls == 0
