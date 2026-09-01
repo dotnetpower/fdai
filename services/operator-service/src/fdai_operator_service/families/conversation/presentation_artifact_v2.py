@@ -39,10 +39,10 @@ _RESOURCE_STATE_COLUMNS = (
 _RESOURCE_HEALTH_COLUMNS = (
     "name",
     "type",
-    "observed_state",
-    "health_concept",
-    "health_kind",
-    "source_observed_at",
+    "coverage_state",
+    "availability_state",
+    "provider_observed_at",
+    "collection_completed_at",
 )
 _RESOURCE_METRIC_COLUMNS = (
     "name",

@@ -59,6 +59,8 @@ from fdai.core.ontology_platform.resource_health_assessment_queries import (
 from fdai.core.ontology_platform.resource_health_queries import (
     RESOURCE_HEALTH_FUNCTION_NAME,
     ResourceHealthCollection,
+    ResourceHealthCoverage,
+    ResourceHealthCoverageStatus,
 )
 from fdai.core.ontology_platform.resource_ingress_queries import (
     RESOURCE_INGRESS_FUNCTION_NAME,
@@ -1001,9 +1003,15 @@ class _EmptyResourceHealthReader:
         return ResourceHealthCollection(
             resource_ids=resource_ids,
             observations=(),
-            observed_at=NOW,
-            complete=False,
-            limitation="resource_health_coverage_incomplete",
+            coverage=tuple(
+                ResourceHealthCoverage(
+                    resource_id=resource_id,
+                    status=ResourceHealthCoverageStatus.NO_RECORD,
+                )
+                for resource_id in resource_ids
+            ),
+            started_at=NOW,
+            completed_at=NOW,
             attempt_ref="azure-resource-health-query:empty",
         )
 

@@ -95,7 +95,9 @@ async def test_reader_correlates_active_event_to_exact_subscription_impact() -> 
     impact_query = json.loads(requests[1].content)
     assert event_query["subscriptions"] == [SUBSCRIPTION_ID]
     assert "ServiceHealthResources" in event_query["query"]
-    assert "tostring(properties.Status) =~ 'Active'" in event_query["query"]
+    assert "tostring(properties['Status']) =~ 'Active'" in event_query["query"]
+    assert "properties." not in event_query["query"]
+    assert "properties." not in impact_query["query"]
     assert "tracking-a" in impact_query["query"]
     assert result.complete is True
     assert result.limitation is None

@@ -83,6 +83,7 @@ async def test_history_reader_returns_chronological_health_events() -> None:
     assert len(requests) == 1
     body = json.loads(requests[0].content)
     assert "ago(3600s)" in body["query"]
+    assert "properties." not in body["query"]
     assert result.complete is True
     assert [item.event_kind for item in result.events] == [
         "availability_status",

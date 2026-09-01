@@ -23,7 +23,10 @@ from fdai.core.ontology_platform.query_gateway import (
 )
 from fdai.core.ontology_platform.resource_health_queries import (
     RESOURCE_HEALTH_FUNCTION_NAME,
+    ResourceHealthAvailabilityState,
     ResourceHealthCollection,
+    ResourceHealthCoverage,
+    ResourceHealthCoverageStatus,
     ResourceHealthObservation,
     resource_health_function_type,
     resource_health_inventory_function,
@@ -127,6 +130,25 @@ class _Reader:
         return self.result
 
 
+def _collection(
+    resource_ids: tuple[str, ...],
+    *,
+    observations: tuple[ResourceHealthObservation, ...] = (),
+    coverage_statuses: tuple[ResourceHealthCoverageStatus, ...],
+) -> ResourceHealthCollection:
+    return ResourceHealthCollection(
+        resource_ids=resource_ids,
+        observations=observations,
+        coverage=tuple(
+            ResourceHealthCoverage(resource_id=resource_id, status=status)
+            for resource_id, status in zip(resource_ids, coverage_statuses, strict=True)
+        ),
+        started_at=NOW - timedelta(seconds=2),
+        completed_at=NOW,
+        attempt_ref="azure-resource-health-query:example",
+    )
+
+
 async def _invoke(
     reader: _Reader,
     query_result: SecuredObjectSetQueryResult,
@@ -176,31 +198,48 @@ def test_health_function_declares_no_caller_provider_scope_or_authority() -> Non
     assert declaration.credentials_allowed is False
 
 
+def test_health_collection_requires_coverage_for_the_exact_denominator() -> None:
+    with pytest.raises(ValueError, match="coverage MUST equal"):
+        ResourceHealthCollection(
+            resource_ids=("resource-service-a", "resource-service-b"),
+            observations=(),
+            coverage=(
+                ResourceHealthCoverage(
+                    resource_id="resource-service-a",
+                    status=ResourceHealthCoverageStatus.NO_RECORD,
+                ),
+            ),
+            started_at=NOW,
+            completed_at=NOW,
+            attempt_ref="azure-resource-health-query:incomplete-denominator",
+        )
+
+
 async def test_health_function_preserves_mixed_health_and_inventory_state() -> None:
     objects = (_resource("service-a", "Stopped"), _resource("service-b", "Running"))
     reader = _Reader(
-        ResourceHealthCollection(
-            resource_ids=("resource-service-a", "resource-service-b"),
+        _collection(
+            ("resource-service-a", "resource-service-b"),
             observations=(
                 ResourceHealthObservation(
                     resource_id="resource-service-a",
-                    availability_state="Unavailable",
+                    availability_state=ResourceHealthAvailabilityState.UNAVAILABLE,
                     reason_kind="platform_initiated",
-                    observed_at=NOW - timedelta(minutes=3),
+                    provider_observed_at=NOW - timedelta(minutes=3),
                     evidence_ref="azure-resource-health:service-a",
                 ),
                 ResourceHealthObservation(
                     resource_id="resource-service-b",
-                    availability_state="Available",
+                    availability_state=ResourceHealthAvailabilityState.AVAILABLE,
                     reason_kind="status_only",
-                    observed_at=NOW - timedelta(minutes=3),
+                    provider_observed_at=NOW - timedelta(minutes=3),
                     evidence_ref="azure-resource-health:service-b",
                 ),
             ),
-            observed_at=NOW,
-            complete=True,
-            limitation=None,
-            attempt_ref="azure-resource-health-query:example",
+            coverage_statuses=(
+                ResourceHealthCoverageStatus.OBSERVED,
+                ResourceHealthCoverageStatus.OBSERVED,
+            ),
         )
     )
 
@@ -214,11 +253,18 @@ async def test_health_function_preserves_mixed_health_and_inventory_state() -> N
     rows = result["rows"]
     assert isinstance(rows, list)
     assert [row["values"]["evidence_family"] for row in rows] == [
-        "current_inventory",
         "resource_health",
+        "current_inventory",
     ]
-    assert rows[1]["values"]["health_concept"] == "resource_health.not_ready"
-    assert rows[1]["values"]["health_kind"] == "platform_initiated"
+    assert rows[0]["values"]["health_concept"] == "resource_health.not_ready"
+    assert rows[0]["values"]["health_kind"] == "platform_initiated"
+    assert rows[0]["values"]["availability_state"] == "unavailable"
+    assert rows[0]["values"]["coverage_state"] == "observed"
+    assert rows[0]["values"]["collection_started_at"] == "2026-08-21T13:59:58+00:00"
+    assert rows[0]["values"]["collection_completed_at"] == NOW.isoformat()
+    assert "availability_state" not in rows[1]["values"] or (
+        rows[1]["values"]["availability_state"] is None
+    )
     assert all(row["values"]["execution_authority"] is False for row in rows)
     assert reader.calls == [("resource-service-a", "resource-service-b")]
 
@@ -226,43 +272,143 @@ async def test_health_function_preserves_mixed_health_and_inventory_state() -> N
 async def test_health_function_keeps_matches_but_demotes_partial_provider_coverage() -> None:
     objects = (_resource("service-a", "Running"), _resource("service-b", "Running"))
     reader = _Reader(
-        ResourceHealthCollection(
-            resource_ids=("resource-service-a", "resource-service-b"),
+        _collection(
+            ("resource-service-a", "resource-service-b"),
             observations=(
                 ResourceHealthObservation(
                     resource_id="resource-service-a",
-                    availability_state="Degraded",
+                    availability_state=ResourceHealthAvailabilityState.DEGRADED,
                     reason_kind="platform_initiated",
-                    observed_at=NOW - timedelta(minutes=2),
+                    provider_observed_at=NOW - timedelta(minutes=2),
                     evidence_ref="azure-resource-health:service-a",
                 ),
             ),
-            observed_at=NOW,
-            complete=False,
-            limitation="resource_health_coverage_incomplete",
-            attempt_ref="azure-resource-health-query:partial",
+            coverage_statuses=(
+                ResourceHealthCoverageStatus.OBSERVED,
+                ResourceHealthCoverageStatus.NO_RECORD,
+            ),
         )
     )
 
     result = await _invoke(reader, _query_result(objects))
 
     assert result["complete"] is False
-    assert result["truncation_reason"] == "resource_health_coverage_incomplete"
-    assert len(result["rows"]) == 1
+    assert result["truncation_reason"] == "no_record"
+    assert len(result["rows"]) == 2
+    assert result["rows"][1]["values"]["coverage_state"] == "no_record"
 
 
 async def test_health_function_rejects_provider_scope_widening() -> None:
     objects = (_resource("service-a", "Running"),)
     reader = _Reader(
-        ResourceHealthCollection(
-            resource_ids=("resource-other",),
-            observations=(),
-            observed_at=NOW,
-            complete=True,
-            limitation=None,
-            attempt_ref="azure-resource-health-query:wrong-scope",
+        _collection(
+            ("resource-other",),
+            coverage_statuses=(ResourceHealthCoverageStatus.NO_RECORD,),
         )
     )
 
     with pytest.raises(ValueError, match="changed the secured resource scope"):
         await _invoke(reader, _query_result(objects))
+
+
+async def test_health_function_preserves_unknown_separately_from_provisioning_state() -> None:
+    objects = (_resource("service-a", "Running"),)
+    reader = _Reader(
+        _collection(
+            ("resource-service-a",),
+            observations=(
+                ResourceHealthObservation(
+                    resource_id="resource-service-a",
+                    availability_state=ResourceHealthAvailabilityState.UNKNOWN,
+                    reason_kind="status_only",
+                    provider_observed_at=NOW - timedelta(minutes=1),
+                    evidence_ref="azure-resource-health:service-a",
+                ),
+            ),
+            coverage_statuses=(ResourceHealthCoverageStatus.OBSERVED,),
+        )
+    )
+
+    result = await _invoke(
+        reader,
+        _query_result(objects),
+        state_concepts=("resource_state.running",),
+    )
+
+    rows = result["rows"]
+    assert isinstance(rows, list)
+    assert rows[0]["values"]["availability_state"] == "unknown"
+    assert rows[0]["values"]["coverage_state"] == "observed"
+    assert rows[1]["values"]["observed_state"] == "Running"
+    assert rows[1]["values"]["evidence_family"] == "current_inventory"
+    assert all(row["values"]["execution_authority"] is False for row in rows)
+
+
+async def test_health_function_keeps_non_observation_coverage_reasons_disjoint() -> None:
+    objects = (
+        _resource("service-a", "Running"),
+        _resource("service-b", "Running"),
+        _resource("service-c", "Running"),
+    )
+    resource_ids = tuple(item.id for item in objects)
+    reader = _Reader(
+        _collection(
+            resource_ids,
+            coverage_statuses=(
+                ResourceHealthCoverageStatus.NOT_MODELED,
+                ResourceHealthCoverageStatus.MODELING_UNKNOWN,
+                ResourceHealthCoverageStatus.SCOPE_UNREADABLE,
+            ),
+        )
+    )
+
+    result = await _invoke(reader, _query_result(objects))
+
+    assert result["complete"] is False
+    assert result["truncation_reason"] == "not_modeled+modeling_unknown+scope_unreadable"
+    rows = result["rows"]
+    assert isinstance(rows, list)
+    assert [row["values"]["coverage_state"] for row in rows] == [
+        "not_modeled",
+        "modeling_unknown",
+        "scope_unreadable",
+    ]
+    assert all(row["values"]["availability_state"] is None for row in rows)
+    assert all(row["values"]["execution_authority"] is False for row in rows)
+
+
+async def test_health_function_bounds_combined_health_and_inventory_rows() -> None:
+    objects = tuple(_resource(f"service-{index:03d}", "Running") for index in range(501))
+    resource_ids = tuple(item.id for item in objects)
+    observations = tuple(
+        ResourceHealthObservation(
+            resource_id=resource_id,
+            availability_state=ResourceHealthAvailabilityState.UNKNOWN,
+            reason_kind="status_only",
+            provider_observed_at=NOW - timedelta(minutes=1),
+            evidence_ref=f"azure-resource-health:service-{index:03d}",
+        )
+        for index, resource_id in enumerate(resource_ids)
+    )
+    reader = _Reader(
+        _collection(
+            resource_ids,
+            observations=observations,
+            coverage_statuses=(ResourceHealthCoverageStatus.OBSERVED,) * len(resource_ids),
+        )
+    )
+
+    result = await _invoke(
+        reader,
+        _query_result(objects),
+        state_concepts=("resource_state.running",),
+    )
+
+    assert result["complete"] is False
+    assert result["truncation_reason"] == "resource_health_row_limit"
+    rows = result["rows"]
+    assert isinstance(rows, list)
+    assert len(rows) == 1000
+    assert all(
+        row["values"]["execution_authority"] is False for row in rows if isinstance(row, dict)
+    )

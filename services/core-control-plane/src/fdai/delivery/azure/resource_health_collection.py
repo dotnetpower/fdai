@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-from collections import Counter
+import json
+from collections import defaultdict
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -14,7 +15,10 @@ from uuid import UUID
 import httpx
 
 from fdai.core.ontology_platform.resource_health_queries import (
+    ResourceHealthAvailabilityState,
     ResourceHealthCollection,
+    ResourceHealthCoverage,
+    ResourceHealthCoverageStatus,
     ResourceHealthObservation,
 )
 from fdai.delivery.azure.arg_transport import (
@@ -28,6 +32,7 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 _MANAGEMENT_AUDIENCE: Final = "https://management.azure.com/.default"
 _ARG_API_VERSION: Final = "2022-10-01"
 _BATCH_SIZE = 64
+_DUPLICATE_HEADROOM = 2
 
 
 class ResourceHealthCollectionError(RuntimeError):
@@ -90,8 +95,8 @@ class AzureResourceHealthCollectionReader:
         """Return current Resource Health rows without accepting caller provider scope."""
 
         requested = tuple(sorted(set(resource_ids)))
-        observed_at = self._now()
-        if observed_at.tzinfo is None:
+        started_at = self._now()
+        if started_at.tzinfo is None:
             raise ValueError("Resource Health reader clock MUST be timezone-aware")
         if (
             requested != resource_ids
@@ -99,29 +104,32 @@ class AzureResourceHealthCollectionReader:
             or len(requested) > self._config.max_resources
         ):
             raise ValueError("Resource Health resource_ids MUST be ordered within the server bound")
-        try:
-            arm_by_resource = {
-                resource_id: azure_arm_resource_id(
+        arm_groups: dict[str, list[str]] = defaultdict(list)
+        coverage_by_resource: dict[str, ResourceHealthCoverageStatus] = {}
+        for resource_id in requested:
+            try:
+                arm_id = azure_arm_resource_id(
                     resource_id,
                     subscription_id=self._config.subscription_id,
                 )
-                for resource_id in requested
-            }
-        except ValueError:
-            return self._result(
-                requested,
-                observed_at=observed_at,
-                observations=(),
-                complete=False,
-                limitation="target_identity_unavailable",
-            )
-        resource_by_arm = {
-            arm_id.casefold(): resource_id for resource_id, arm_id in arm_by_resource.items()
-        }
+            except ValueError:
+                coverage_by_resource[resource_id] = ResourceHealthCoverageStatus.TARGET_UNRESOLVED
+                continue
+            arm_groups[arm_id.casefold()].append(resource_id)
+        resource_by_arm: dict[str, str] = {}
+        for arm_id, resource_ids_for_arm in arm_groups.items():
+            if len(resource_ids_for_arm) > 1:
+                for resource_id in resource_ids_for_arm:
+                    coverage_by_resource[resource_id] = (
+                        ResourceHealthCoverageStatus.TARGET_UNRESOLVED
+                    )
+                continue
+            resource_by_arm[arm_id] = resource_ids_for_arm[0]
         batches = tuple(_chunks(tuple(resource_by_arm), _BATCH_SIZE))
         semaphore = asyncio.Semaphore(self._config.max_concurrent_queries)
 
         async def read_batch(batch: tuple[str, ...]) -> tuple[Mapping[str, Any], ...]:
+            query_limit = _query_limit(len(batch))
             async with semaphore:
                 return await fetch_arg_row_pages(
                     identity=self._identity,
@@ -130,11 +138,11 @@ class AzureResourceHealthCollectionReader:
                     endpoint=self._config.endpoint,
                     api_version=_ARG_API_VERSION,
                     subscriptions=(self._config.subscription_id,),
-                    query=_health_query(batch),
+                    query=_health_query(batch, row_limit=query_limit),
                     result_name="semantic-resource-health",
-                    page_size=len(batch) + 1,
+                    page_size=query_limit,
                     max_pages=1,
-                    max_records=len(batch) + 1,
+                    max_records=query_limit,
                     timeout_seconds=self._config.timeout_seconds,
                     error_type=ResourceHealthCollectionError,
                     throttle_gate=self._throttle_gate,
@@ -143,103 +151,121 @@ class AzureResourceHealthCollectionReader:
                     max_total_response_bytes=self._config.max_response_bytes,
                 )
 
-        batch_results = await asyncio.gather(
-            *(read_batch(batch) for batch in batches),
-            return_exceptions=True,
-        )
-        failed_batches = sum(isinstance(result, Exception) for result in batch_results)
-        rows = tuple(row for result in batch_results if isinstance(result, tuple) for row in result)
-        if failed_batches == len(batches):
-            return self._result(
-                requested,
-                observed_at=observed_at,
-                observations=(),
-                complete=False,
-                limitation="source_unavailable",
+        batch_results = (
+            await asyncio.gather(
+                *(read_batch(batch) for batch in batches),
+                return_exceptions=True,
             )
+            if batches
+            else ()
+        )
         observations: list[ResourceHealthObservation] = []
-        observed_resource_ids: list[str] = []
-        malformed = False
-        widened = False
-        for row in rows:
-            target = row.get("targetResourceId")
-            if not isinstance(target, str):
-                malformed = True
+        issues: set[str] = set()
+        for batch, result in zip(batches, batch_results, strict=True):
+            batch_resources = tuple(resource_by_arm[arm_id] for arm_id in batch)
+            if isinstance(result, BaseException):
+                for resource_id in batch_resources:
+                    coverage_by_resource[resource_id] = (
+                        ResourceHealthCoverageStatus.SCOPE_UNREADABLE
+                    )
                 continue
-            resource_id = resource_by_arm.get(target.casefold())
-            if resource_id is None:
-                widened = True
+            query_limit = _query_limit(len(batch))
+            if len(result) >= query_limit:
+                for resource_id in batch_resources:
+                    coverage_by_resource[resource_id] = (
+                        ResourceHealthCoverageStatus.RESPONSE_TRUNCATED
+                    )
                 continue
-            observation = _observation(row, resource_id=resource_id, fallback_time=observed_at)
-            if observation is None:
-                malformed = True
-                continue
-            observations.append(observation)
-            observed_resource_ids.append(resource_id)
-        duplicates = {key for key, count in Counter(observed_resource_ids).items() if count > 1}
-        if duplicates:
-            observations = [item for item in observations if item.resource_id not in duplicates]
-        observed_set = {item.resource_id for item in observations}
-        missing = set(requested) - observed_set
-        limitation = (
-            "provider_scope_mismatch"
-            if widened
-            else "resource_health_conflict"
-            if duplicates
-            else "resource_health_response_invalid"
-            if malformed
-            else "resource_health_coverage_incomplete"
-            if failed_batches
-            else "resource_health_coverage_incomplete"
-            if missing
-            else None
+            rows_by_resource: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
+            batch_set = set(batch)
+            for row in result:
+                target = row.get("targetResourceId")
+                if not isinstance(target, str):
+                    issues.add("response_invalid")
+                    continue
+                folded_target = target.casefold()
+                if folded_target not in batch_set:
+                    issues.add("provider_scope_mismatch")
+                    continue
+                rows_by_resource[resource_by_arm[folded_target]].append(row)
+            for resource_id in batch_resources:
+                resource_rows = rows_by_resource.get(resource_id, [])
+                if not resource_rows:
+                    coverage_by_resource[resource_id] = ResourceHealthCoverageStatus.NO_RECORD
+                    continue
+                if len(resource_rows) > 1:
+                    coverage_by_resource[resource_id] = (
+                        ResourceHealthCoverageStatus.DUPLICATE_RECORD
+                    )
+                    continue
+                observation, status = _observation(
+                    resource_rows[0],
+                    resource_id=resource_id,
+                )
+                coverage_by_resource[resource_id] = status
+                if observation is not None:
+                    observations.append(observation)
+        coverage = tuple(
+            ResourceHealthCoverage(
+                resource_id=resource_id,
+                status=coverage_by_resource.get(
+                    resource_id,
+                    ResourceHealthCoverageStatus.RESPONSE_INVALID,
+                ),
+            )
+            for resource_id in requested
         )
         return self._result(
             requested,
-            observed_at=observed_at,
+            started_at=started_at,
             observations=tuple(sorted(observations, key=lambda item: item.resource_id)),
-            complete=limitation is None,
-            limitation=limitation,
+            coverage=coverage,
+            issues=tuple(sorted(issues)),
         )
 
     def _result(
         self,
         resource_ids: tuple[str, ...],
         *,
-        observed_at: datetime,
+        started_at: datetime,
         observations: tuple[ResourceHealthObservation, ...],
-        complete: bool,
-        limitation: str | None,
+        coverage: tuple[ResourceHealthCoverage, ...],
+        issues: tuple[str, ...],
     ) -> ResourceHealthCollection:
+        completed_at = self._now()
         material = "|".join(
             (
                 *resource_ids,
-                observed_at.isoformat(),
-                "complete" if complete else limitation or "incomplete",
+                started_at.isoformat(),
+                completed_at.isoformat(),
+                *(f"{item.resource_id}:{item.status.value}" for item in coverage),
+                *issues,
             )
         )
         return ResourceHealthCollection(
             resource_ids=resource_ids,
             observations=observations,
-            observed_at=observed_at,
-            complete=complete,
-            limitation=limitation,
+            coverage=coverage,
+            started_at=started_at,
+            completed_at=completed_at,
             attempt_ref=f"azure-resource-health-query:{hashlib.sha256(material.encode()).hexdigest()}",
+            issues=issues,
         )
 
 
-def _health_query(arm_ids: tuple[str, ...]) -> str:
-    values = ", ".join(f"'{_kusto_literal(item)}'" for item in arm_ids)
+def _health_query(arm_ids: tuple[str, ...], *, row_limit: int) -> str:
+    values = json.dumps(arm_ids, separators=(",", ":"))
     return (
+        f"let targetResourceIds = dynamic({values}); "
         "HealthResources "
         "| where type =~ 'microsoft.resourcehealth/availabilitystatuses' "
-        f"| where tostring(properties.targetResourceId) in~ ({values}) "
-        "| project targetResourceId=tostring(properties.targetResourceId), "
-        "availabilityState=tostring(properties.availabilityState), "
-        "reasonType=tostring(properties.reasonType), "
-        "occurredTime=tostring(properties.occurredTime), "
-        "reportedTime=tostring(properties.reportedTime) "
-        f"| take {len(arm_ids) + 1}"
+        "| where tostring(properties['targetResourceId']) in~ (targetResourceIds) "
+        "| project targetResourceId=tostring(properties['targetResourceId']), "
+        "availabilityState=tostring(properties['availabilityState']), "
+        "reasonType=tostring(properties['reasonType']), "
+        "occurredTime=tostring(properties['occurredTime']), "
+        "reportedTime=tostring(properties['reportedTime']) "
+        f"| take {row_limit}"
     )
 
 
@@ -247,29 +273,58 @@ def _chunks(values: tuple[str, ...], size: int) -> tuple[tuple[str, ...], ...]:
     return tuple(values[index : index + size] for index in range(0, len(values), size))
 
 
+def _query_limit(batch_size: int) -> int:
+    return batch_size * _DUPLICATE_HEADROOM + 1
+
+
 def _observation(
     row: Mapping[str, Any],
     *,
     resource_id: str,
-    fallback_time: datetime,
-) -> ResourceHealthObservation | None:
+) -> tuple[ResourceHealthObservation | None, ResourceHealthCoverageStatus]:
     state = row.get("availabilityState")
-    if not isinstance(state, str) or not state.strip():
-        return None
-    observed_at = _timestamp(row.get("reportedTime")) or _timestamp(row.get("occurredTime"))
-    if observed_at is None:
-        observed_at = fallback_time
+    if not isinstance(state, str):
+        return None, ResourceHealthCoverageStatus.RESPONSE_INVALID
+    normalized_state = _machine_token(state, fallback="state_absent")
+    try:
+        availability_state = ResourceHealthAvailabilityState(normalized_state)
+    except ValueError:
+        return None, ResourceHealthCoverageStatus.RESPONSE_INVALID
+    provider_observed_at, invalid_time = _provider_time(row)
+    if invalid_time:
+        return None, ResourceHealthCoverageStatus.RESPONSE_INVALID
     reason = _health_kind(row.get("reasonType"))
-    evidence_material = f"{resource_id}|{state}|{reason}|{observed_at.isoformat()}"
-    return ResourceHealthObservation(
+    evidence_material = (
+        f"{resource_id}|{availability_state.value}|{reason}|"
+        f"{provider_observed_at.isoformat() if provider_observed_at is not None else 'time_absent'}"
+    )
+    observation = ResourceHealthObservation(
         resource_id=resource_id,
-        availability_state=_machine_token(state, fallback="unknown"),
+        availability_state=availability_state,
         reason_kind=reason,
-        observed_at=observed_at,
+        provider_observed_at=provider_observed_at,
         evidence_ref=(
             f"azure-resource-health:{hashlib.sha256(evidence_material.encode()).hexdigest()}"
         ),
     )
+    if availability_state is ResourceHealthAvailabilityState.STATE_ABSENT:
+        return observation, ResourceHealthCoverageStatus.STATE_ABSENT
+    if provider_observed_at is None:
+        return observation, ResourceHealthCoverageStatus.RESPONSE_INVALID
+    return observation, ResourceHealthCoverageStatus.OBSERVED
+
+
+def _provider_time(row: Mapping[str, Any]) -> tuple[datetime | None, bool]:
+    saw_invalid = False
+    for field in ("reportedTime", "occurredTime"):
+        value = row.get(field)
+        if value is None or value == "":
+            continue
+        parsed = _timestamp(value)
+        if parsed is not None:
+            return parsed, False
+        saw_invalid = True
+    return None, saw_invalid
 
 
 def _timestamp(value: object) -> datetime | None:
@@ -301,10 +356,6 @@ def _health_kind(value: object) -> str:
     }:
         return "customer_initiated"
     return normalized
-
-
-def _kusto_literal(value: str) -> str:
-    return value.replace("'", "''")
 
 
 __all__ = [
