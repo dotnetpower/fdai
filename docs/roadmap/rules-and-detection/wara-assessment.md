@@ -138,6 +138,7 @@ verification, automation, mapping, applicability, evaluation, and satisfaction.
 Every row shows scope, evaluation time, source revision, evidence completeness, and limitations.
 Catalog presence and `product_group_verified` are metadata, never a satisfied badge. Optional
 projection absence renders as unavailable; malformed or unexpected responses remain visible errors.
+Truncated identifiers use the shared Tooltip for the full value instead of native title attributes.
 
 ## Review-only source updates
 

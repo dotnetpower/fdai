@@ -503,7 +503,7 @@
 .crp-result-group {
   min-width: 0;
   padding-top: 10px;
-  border-top: 2px solid var(--cs-hairline);
+  border-top: 1px solid var(--cs-hairline);
 }
 
 .crp-fact-group[data-state="verified"] {
@@ -893,7 +893,7 @@
 .ex-md-document blockquote {
   margin: 14px 0;
   padding: 9px 12px;
-  border-left: 3px solid var(--cs-steel);
+  border-left: 1px solid var(--cs-steel);
   background: color-mix(in srgb, var(--cs-steel) 6%, var(--cs-card));
   color: var(--cs-text-soft);
 }

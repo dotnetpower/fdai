@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { Tooltip } from "../components/tooltip";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import {
   DataTable,
@@ -202,7 +203,7 @@ function WaraControlsBody({
         header: t("governance.rules.wara.column.recommendation"),
         render: (item) => (
           <span class="control-table-identity">
-            <code title={item.id}>{item.id.slice(0, 8)}...</code>
+            <Tooltip content={item.id} placement="top"><code>{item.id.slice(0, 8)}...</code></Tooltip>
             <span>{item.title}</span>
           </span>
         ),

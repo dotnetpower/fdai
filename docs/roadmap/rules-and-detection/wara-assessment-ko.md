@@ -1,7 +1,7 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: a47c47c1dc7606c8304602c7628b42073bad406a
+translation_source_sha: 74c59e5af07c7a201f348ececd5dede39326d31e
 translation_revised: 2026-09-01
 ---
 # WARA 근거 기반 평가
@@ -137,6 +137,7 @@ Operator API는 읽기 전용 WARA 목록과 선택적인 평가 결과를 제�
 각 행은 범위, 평가 시각, 출처 리비전, 근거 완전성, 제한 사항을 표시합니다. 카탈로그 존재와
 `product_group_verified`는 메타데이터이며 충족 배지가 아닙니다. 선택적 변환 결과가 없으면
 사용 불가로 표시하고 잘못되었거나 예상하지 못한 응답은 눈에 띄는 오류로 유지합니다.
+잘린 식별자는 네이티브 title 속성 대신 공유 Tooltip을 통해 전체 값을 표시합니다.
 
 ## 검토 전용 원본 갱신
 
