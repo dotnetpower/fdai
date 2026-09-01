@@ -7,6 +7,7 @@ from uuid import UUID
 
 import pytest
 from fdai.core.measurement import OperationalPromotionReceipt
+from fdai.core.measurement.operational_promotion import action_type_digest
 from fdai.delivery.persistence import StateStoreActionPromotionRegistry
 from fdai.delivery.promotion import (
     PROMOTION_ACTION_TYPE,
@@ -46,7 +47,7 @@ def _receipt(action_type) -> OperationalPromotionReceipt:  # type: ignore[no-unt
         scenario_set_version=_SCENARIO,
         action_type_name=action_type.name,
         action_type_version=action_type.version,
-        action_type_digest=action_type.provenance.content_hash.removeprefix("sha256:"),
+        action_type_digest=action_type_digest(action_type),
         evidence_digest=_EVIDENCE,
         observation_days=14.0,
         live_observation_days=14,
@@ -379,7 +380,12 @@ async def test_concurrent_failed_promotion_cannot_expose_unpersisted_enforce() -
     # concurrent attempt for the same ActionType MUST be unable to start its
     # own `record`/`consider_promotion`/`persist` sequence until A's finishes.
     task_b = asyncio.create_task(executor.execute(request))
-    await asyncio.sleep(0)
+    # Yield enough turns for task_b to reach its lock-wait suspension point
+    # under all Python versions (3.12--3.14+). A single sleep(0) is not
+    # guaranteed to give the new task enough turns when it must traverse
+    # multiple await points (_checkout -> _registry_lock -> async with lock).
+    for _ in range(10):
+        await asyncio.sleep(0)
     assert not task_b.done()
     assert executor._locks.snapshot().get(target.name) is True
 
@@ -390,7 +396,7 @@ async def test_concurrent_failed_promotion_cannot_expose_unpersisted_enforce() -
     # Only after A's failure was fully rolled back does B get to run; its
     # own attempt observes the correctly-restored prior state and durably
     # persists its own ENFORCE promotion.
-    result_b = await task_b
+    result_b = await asyncio.wait_for(task_b, timeout=10)
     assert result_b.outcome is DirectApiOutcome.SUCCEEDED
     assert registry.mode_of(target.name) is Mode.ENFORCE
     persisted = await store.read_state(f"action_promotion:{target.name}")
