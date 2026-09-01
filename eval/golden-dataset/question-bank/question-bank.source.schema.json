@@ -1,0 +1,213 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/dotnetpower/fdai/eval/golden-dataset/question-bank/question-bank.source.schema.json",
+  "title": "FDAI question-bank authoring source",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "catalog_version",
+    "sources",
+    "candidate_sources",
+    "golden_category_domains",
+    "manual_domain_ranges",
+    "console_questions",
+    "candidate_defaults",
+    "candidate_groups"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "catalog_version": {"type": "string", "pattern": "^[1-9][0-9]*\\.[0-9]+\\.[0-9]+$"},
+    "sources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "golden_questions",
+        "golden_expectations",
+        "golden_coverage",
+        "golden_english",
+        "golden_korean",
+        "manual_prompts",
+        "console_english",
+        "console_korean"
+      ],
+      "properties": {
+        "golden_questions": {"$ref": "#/$defs/repositoryPath"},
+        "golden_expectations": {"$ref": "#/$defs/repositoryPath"},
+        "golden_coverage": {"$ref": "#/$defs/repositoryPath"},
+        "golden_english": {"$ref": "#/$defs/repositoryPath"},
+        "golden_korean": {"$ref": "#/$defs/repositoryPath"},
+        "manual_prompts": {"$ref": "#/$defs/repositoryPath"},
+        "console_english": {"$ref": "#/$defs/repositoryPath"},
+        "console_korean": {"$ref": "#/$defs/repositoryPath"}
+      }
+    },
+    "candidate_sources": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/repositoryPath"}
+    },
+    "golden_category_domains": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"$ref": "#/$defs/domain"}
+    },
+    "manual_domain_ranges": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["first", "last", "domain"],
+        "properties": {
+          "first": {"type": "integer", "minimum": 1, "maximum": 9999},
+          "last": {"type": "integer", "minimum": 1, "maximum": 9999},
+          "domain": {"$ref": "#/$defs/domain"}
+        }
+      }
+    },
+    "console_questions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "domain", "intent"],
+        "properties": {
+          "key": {"type": "string", "pattern": "^[a-z][a-zA-Z0-9]*$"},
+          "domain": {"$ref": "#/$defs/domain"},
+          "intent": {"$ref": "#/$defs/token"}
+        }
+      }
+    },
+    "candidate_defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["readiness", "safety", "surfaces"],
+      "properties": {
+        "readiness": {"$ref": "#/$defs/readiness"},
+        "safety": {"$ref": "#/$defs/safety"},
+        "surfaces": {"$ref": "#/$defs/surfaces"}
+      }
+    },
+    "candidate_groups": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["domain", "questions"],
+        "properties": {
+          "domain": {"$ref": "#/$defs/domain"},
+          "questions": {
+            "type": "array",
+            "minItems": 1,
+            "items": {"$ref": "#/$defs/candidateQuestion"}
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "repositoryPath": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_./-]+$",
+      "not": {"pattern": "(^|/)\\.\\.(/|$)"}
+    },
+    "token": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,159}$"
+    },
+    "domain": {
+      "enum": [
+        "state_incident_detection",
+        "root_cause_analysis",
+        "change_deployment_impact",
+        "dependency_impact",
+        "capacity_performance_forecast",
+        "reliability_policy_automation",
+        "cost_finops"
+      ]
+    },
+    "readiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "content_review",
+        "semantic_contract",
+        "runtime_binding",
+        "evidence_source",
+        "validation"
+      ],
+      "properties": {
+        "content_review": {"enum": ["candidate", "source_controlled", "reviewed"]},
+        "semantic_contract": {"enum": ["unassessed", "partial", "covered"]},
+        "runtime_binding": {"enum": ["unassessed", "unavailable", "clarify", "bound", "mixed"]},
+        "evidence_source": {"enum": ["unassessed", "contract_only", "retained", "live"]},
+        "validation": {"enum": ["not_run", "contract_passed", "live_passed"]}
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action_posture", "execution_authority"],
+      "properties": {
+        "action_posture": {"enum": ["read_only", "advise_only", "draft_only"]},
+        "execution_authority": {"const": false}
+      }
+    },
+    "surfaces": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"enum": ["catalog", "manual", "golden", "console"]}
+    },
+    "localizedWording": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["en", "ko"],
+      "properties": {
+        "en": {"type": "string", "minLength": 8, "maxLength": 500},
+        "ko": {"type": "string", "minLength": 8, "maxLength": 500}
+      }
+    },
+    "candidateQuestion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "intent",
+        "target_kinds",
+        "temporal_scope",
+        "result_shape",
+        "required_context",
+        "wording"
+      ],
+      "properties": {
+        "id": {"$ref": "#/$defs/token"},
+        "intent": {"$ref": "#/$defs/token"},
+        "target_kinds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9]{0,63}$"}
+        },
+        "temporal_scope": {
+          "enum": ["current", "historical", "comparison", "forecast"]
+        },
+        "result_shape": {
+          "enum": ["assessment", "comparison", "graph", "list", "ranked_list", "timeline"]
+        },
+        "required_context": {
+          "enum": ["none", "incident_binding", "explicit_target", "server_scope"]
+        },
+        "wording": {"$ref": "#/$defs/localizedWording"},
+        "readiness": {"$ref": "#/$defs/readiness"},
+        "safety": {"$ref": "#/$defs/safety"},
+        "surfaces": {"$ref": "#/$defs/surfaces"}
+      }
+    }
+  }
+}

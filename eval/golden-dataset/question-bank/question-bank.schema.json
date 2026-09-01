@@ -1,0 +1,203 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/dotnetpower/fdai/eval/golden-dataset/question-bank/question-bank.schema.json",
+  "title": "FDAI materialized question bank",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "catalog_version",
+    "source_digest",
+    "source_files",
+    "summary",
+    "questions"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "catalog_version": {"type": "string", "pattern": "^[1-9][0-9]*\\.[0-9]+\\.[0-9]+$"},
+    "source_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "source_files": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "digest"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["question_count", "source_counts", "domain_counts"],
+      "properties": {
+        "question_count": {"type": "integer", "minimum": 1},
+        "source_counts": {
+          "type": "object",
+          "additionalProperties": {"type": "integer", "minimum": 1}
+        },
+        "domain_counts": {
+          "type": "object",
+          "additionalProperties": {"type": "integer", "minimum": 1}
+        }
+      }
+    },
+    "questions": {
+      "type": "array",
+      "minItems": 150,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "question_id",
+          "source_kind",
+          "domain",
+          "intent",
+          "title",
+          "wording",
+          "variations",
+          "readiness",
+          "safety",
+          "surfaces",
+          "source_refs",
+          "legacy_ids"
+        ],
+        "properties": {
+          "question_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,159}$"},
+          "source_kind": {"enum": ["candidate", "console", "golden", "manual"]},
+          "domain": {
+            "enum": [
+              "state_incident_detection",
+              "root_cause_analysis",
+              "change_deployment_impact",
+              "dependency_impact",
+              "capacity_performance_forecast",
+              "reliability_policy_automation",
+              "cost_finops"
+            ]
+          },
+          "intent": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,159}$"},
+          "title": {"type": "string", "minLength": 1, "maxLength": 200},
+          "wording": {"$ref": "#/$defs/localizedWording"},
+          "variations": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["en", "ko"],
+            "properties": {
+              "en": {"$ref": "#/$defs/variations"},
+              "ko": {"$ref": "#/$defs/variations"}
+            }
+          },
+          "readiness": {"$ref": "#/$defs/readiness"},
+          "safety": {"$ref": "#/$defs/safety"},
+          "surfaces": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {"enum": ["catalog", "manual", "golden", "console"]}
+          },
+          "source_refs": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {"type": "string", "minLength": 1}
+          },
+          "legacy_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {"type": "string", "minLength": 1}
+          },
+          "expected_posture": {
+            "type": "string",
+            "enum": ["action_draft", "answer", "clarify", "hold", "unsupported"]
+          },
+          "temporal_scope": {
+            "type": "string",
+            "enum": [
+              "current",
+              "historical",
+              "comparison",
+              "forecast",
+              "none",
+              "windowed"
+            ]
+          },
+          "result_shape": {
+            "type": "string",
+            "enum": ["assessment", "comparison", "graph", "list", "ranked_list", "timeline"]
+          },
+          "required_context": {
+            "type": "string",
+            "enum": ["none", "incident_binding", "explicit_target", "server_scope"]
+          },
+          "target_kinds": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9]{0,63}$"}
+          },
+          "category": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,159}$"
+          },
+          "duplicate_of": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,159}$"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "localizedWording": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["en", "ko"],
+      "properties": {
+        "en": {"type": "string", "minLength": 8, "maxLength": 500},
+        "ko": {"type": "string", "minLength": 8, "maxLength": 500}
+      }
+    },
+    "variations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "text"],
+        "properties": {
+          "kind": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$"},
+          "text": {"type": "string", "minLength": 8, "maxLength": 500}
+        }
+      }
+    },
+    "readiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "content_review",
+        "semantic_contract",
+        "runtime_binding",
+        "evidence_source",
+        "validation"
+      ],
+      "properties": {
+        "content_review": {"enum": ["candidate", "source_controlled", "reviewed"]},
+        "semantic_contract": {"enum": ["unassessed", "partial", "covered"]},
+        "runtime_binding": {"enum": ["unassessed", "unavailable", "clarify", "bound", "mixed"]},
+        "evidence_source": {"enum": ["unassessed", "contract_only", "retained", "live"]},
+        "validation": {"enum": ["not_run", "contract_passed", "live_passed"]}
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action_posture", "execution_authority"],
+      "properties": {
+        "action_posture": {"enum": ["read_only", "advise_only", "draft_only"]},
+        "execution_authority": {"const": false}
+      }
+    }
+  }
+}

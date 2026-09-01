@@ -1,0 +1,2233 @@
+schema_version: "1.0.0"
+source_id: operator-question-expansion-2026-09
+
+questions:
+  - id: current-health.azure-resources-in-failure
+    category: current_health
+    domain: state_incident_detection
+    intent: current_health.azure_resources_in_failure
+    target_kinds: [AzureResource]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Within the authorized Azure scope, are any resources currently in a failure state?
+      ko: Azure 권한 범위 내에서 현재 장애 상태인 리소스가 있나요?
+  - id: current-health.abnormal-resources-list
+    category: current_health
+    domain: state_incident_detection
+    intent: current_health.abnormal_resources_list
+    target_kinds: [AzureResource]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: List every authorized resource that is currently in an abnormal state.
+      ko: 현재 비정상 상태인 권한 범위의 리소스를 모두 나열해 주세요.
+  - id: current-health.most-at-risk-service
+    category: current_health
+    domain: state_incident_detection
+    intent: current_health.most_at_risk_service
+    target_kinds: [BusinessService]
+    temporal_scope: current
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Which authorized service is currently in the most at-risk state?
+      ko: 현재 권한 범위의 서비스 중 가장 위험한 상태인 서비스는 무엇인가요?
+  - id: current-health.user-impacting-incident
+    category: current_health
+    domain: state_incident_detection
+    intent: current_health.user_impacting_incident
+    target_kinds: [Incident, BusinessService]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Is there an ongoing incident currently affecting users of an authorized service?
+      ko: 현재 권한 범위의 서비스 사용자에게 영향을 주고 있는 진행 중인 장애가 있나요?
+  - id: current-health.overall-azure-summary
+    category: current_health
+    domain: state_incident_detection
+    intent: current_health.overall_azure_summary
+    target_kinds: [BusinessService, AzureResource]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Summarize the current health of all authorized Azure services in scope.
+      ko: 범위 내 권한 범위의 모든 Azure 서비스의 현재 상태를 요약해 주세요.
+  - id: current-health.aks-cluster-status
+    category: current_health
+    domain: state_incident_detection
+    intent: current_health.aks_cluster_status
+    target_kinds: [KubernetesCluster]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: Is the authorized AKS cluster currently in a healthy state?
+      ko: 권한 범위의 AKS 클러스터가 현재 정상 상태인가요?
+  - id: current-health.all-nodes-normal
+    category: current_health
+    domain: state_incident_detection
+    intent: current_health.all_nodes_normal
+    target_kinds: [KubernetesNode]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: Are all authorized nodes in the cluster currently operating normally?
+      ko: 클러스터 내 권한 범위의 모든 노드가 현재 정상적으로 동작하고 있나요?
+  - id: current-health.crashloopbackoff-pods
+    category: current_health
+    domain: state_incident_detection
+    intent: current_health.crashloopbackoff_pods
+    target_kinds: [KubernetesPod]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Are any authorized pods currently in a CrashLoopBackOff state?
+      ko: 현재 CrashLoopBackOff 상태인 권한 범위의 Pod가 있나요?
+  - id: current-health.latency-objective-breach
+    category: current_health
+    domain: state_incident_detection
+    intent: current_health.latency_objective_breach
+    target_kinds: [BusinessService, ServiceObjective]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Are any authorized services currently exceeding their reviewed response-time service objective?
+      ko: 현재 검토된 응답 시간 서비스 목표를 초과한 권한 범위의 서비스가 있나요?
+  - id: current-health.error-rate-threshold-breach
+    category: current_health
+    domain: state_incident_detection
+    intent: current_health.error_rate_threshold_breach
+    target_kinds: [BusinessService, ServiceObjective]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Are any authorized services currently exceeding their reviewed error-rate threshold?
+      ko: 현재 검토된 오류율 임계치를 초과한 권한 범위의 서비스가 있나요?
+  - id: current-health.recent-degradation-10min
+    category: current_health
+    domain: state_incident_detection
+    intent: current_health.recent_degradation_10min
+    target_kinds: [AzureResource]
+    temporal_scope: historical
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Find authorized resources whose health has degraded over the last 10 minutes, as of the authoritative observation time.
+      ko: 권위 있는 관측 시각 기준으로 최근 10분 동안 상태가 나빠진 권한 범위의 리소스를 찾아 주세요.
+  - id: current-health.cpu-above-90
+    category: current_health
+    domain: state_incident_detection
+    intent: current_health.cpu_above_90
+    target_kinds: [AzureResource]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Are any authorized resources currently at or above 90% CPU utilization?
+      ko: 현재 CPU 사용률이 90% 이상인 권한 범위의 리소스가 있나요?
+  - id: current-health.high-memory-resources
+    category: current_health
+    domain: state_incident_detection
+    intent: current_health.high_memory_resources
+    target_kinds: [AzureResource]
+    temporal_scope: current
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Find authorized resources with currently high memory utilization.
+      ko: 현재 메모리 사용률이 높은 권한 범위의 리소스를 찾아 주세요.
+  - id: current-health.risky-disk-usage
+    category: current_health
+    domain: state_incident_detection
+    intent: current_health.risky_disk_usage
+    target_kinds: [AzureResource]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Are any authorized servers currently at a risky disk usage level?
+      ko: 현재 디스크 사용량이 위험 수준인 권한 범위의 서버가 있나요?
+  - id: current-health.abnormal-network-traffic
+    category: current_health
+    domain: state_incident_detection
+    intent: current_health.abnormal_network_traffic
+    target_kinds: [AzureResource, NetworkResource]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Are any authorized resources currently showing abnormally high network traffic?
+      ko: 현재 네트워크 트래픽이 비정상적으로 높은 권한 범위의 리소스가 있나요?
+  - id: current-health.connection-count-spike
+    category: current_health
+    domain: state_incident_detection
+    intent: current_health.connection_count_spike
+    target_kinds: [BusinessService]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Are any authorized services currently seeing a spike in connection count?
+      ko: 현재 연결 수가 급증한 권한 범위의 서비스가 있나요?
+  - id: current-health.unknown-health-resources
+    category: current_health
+    domain: state_incident_detection
+    intent: current_health.unknown_health_resources
+    target_kinds: [AzureResource]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Are any authorized Azure resources currently reporting an unknown health state due to missing evidence?
+      ko: 현재 권한 범위의 Azure 리소스 중 근거 부족으로 상태를 알 수 없음(Unknown)으로 보고되는 것이 있나요?
+  - id: current-health.highest-failure-likelihood
+    category: current_health
+    domain: state_incident_detection
+    intent: current_health.highest_failure_likelihood
+    target_kinds: [AzureResource]
+    temporal_scope: current
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Based on current reviewed evidence, which authorized resource carries the highest failure likelihood?
+      ko: 현재 검토된 근거를 기준으로 장애 가능성이 가장 높은 권한 범위의 리소스는 무엇인가요?
+  - id: current-health.top-priority-issue
+    category: current_health
+    domain: state_incident_detection
+    intent: current_health.top_priority_issue
+    target_kinds: [Finding, Issue]
+    temporal_scope: current
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Given the current reviewed evidence, which issue should be reviewed first?
+      ko: 현재 검토된 근거를 기준으로 가장 먼저 확인해야 할 문제는 무엇인가요?
+  - id: current-health.overall-stability-assessment
+    category: current_health
+    domain: state_incident_detection
+    intent: current_health.overall_stability_assessment
+    target_kinds: [BusinessService, Environment]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Assess the overall stability of the authorized production environment as of the authoritative observation time.
+      ko: 권위 있는 관측 시각 기준으로 권한 범위의 운영 환경의 전체적인 안정성을 평가해 주세요.
+  - id: incident.today-all-incidents
+    category: incident
+    domain: state_incident_detection
+    intent: incident.today_all_incidents
+    target_kinds: [Incident]
+    temporal_scope: historical
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Show every incident recorded today for authorized services.
+      ko: 오늘 권한 범위의 서비스에서 기록된 모든 장애를 보여 주세요.
+  - id: incident.currently-open
+    category: incident
+    domain: state_incident_detection
+    intent: incident.currently_open
+    target_kinds: [Incident]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Is there an incident currently open for an authorized service?
+      ko: 현재 권한 범위의 서비스에서 진행 중인 Incident가 있나요?
+  - id: incident.today-highest-severity
+    category: incident
+    domain: state_incident_detection
+    intent: incident.today_highest_severity
+    target_kinds: [Incident]
+    temporal_scope: historical
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Which incident recorded today had the highest reviewed severity?
+      ko: 오늘 기록된 장애 중 검토된 심각도가 가장 높았던 장애는 무엇인가요?
+  - id: incident.sev1-last-24h
+    category: incident
+    domain: state_incident_detection
+    intent: incident.sev1_last_24h
+    target_kinds: [Incident]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Was there a Sev1 incident recorded for authorized services in the last 24 hours?
+      ko: 지난 24시간 동안 권한 범위의 서비스에서 기록된 Sev1 장애가 있었나요?
+  - id: incident.last-week-count
+    category: incident
+    domain: state_incident_detection
+    intent: incident.last_week_count
+    target_kinds: [Incident]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: How many incidents were recorded for authorized services last week?
+      ko: 지난주 권한 범위의 서비스에서 기록된 장애 발생 횟수는 몇 건인가요?
+  - id: incident.recurring-type
+    category: incident
+    domain: state_incident_detection
+    intent: incident.recurring_type
+    target_kinds: [Incident, Pattern]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Is the same reviewed incident type recurring across authorized services?
+      ko: 검토된 동일 유형의 장애가 권한 범위의 서비스에서 반복되고 있나요?
+  - id: incident.average-recovery-time
+    category: incident
+    domain: state_incident_detection
+    intent: incident.average_recovery_time
+    target_kinds: [Incident]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: What is the average recovery time across recent recorded incidents?
+      ko: 최근 기록된 장애의 평균 복구 시간은 얼마인가요?
+  - id: incident.longest-duration
+    category: incident
+    domain: state_incident_detection
+    intent: incident.longest_duration
+    target_kinds: [Incident]
+    temporal_scope: historical
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Which recorded incident had the longest duration?
+      ko: 기록된 장애 중 지속 시간이 가장 길었던 장애는 무엇인가요?
+  - id: incident.unresolved-root-cause
+    category: incident
+    domain: state_incident_detection
+    intent: incident.unresolved_root_cause
+    target_kinds: [Incident, CausalHypothesis]
+    temporal_scope: historical
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Which recent incidents still have no confirmed root cause due to insufficient evidence?
+      ko: 최근 장애 중 근거 부족으로 아직 원인이 확인되지 않은 것은 무엇인가요?
+  - id: incident.impacted-services
+    category: incident
+    domain: state_incident_detection
+    intent: incident.impacted_services
+    target_kinds: [Incident, BusinessService]
+    temporal_scope: historical
+    result_shape: list
+    required_context: incident_binding
+    wording:
+      en: For the specified incident, which services fell within its bounded impact scope?
+      ko: 지정된 장애에 대해, 그 영향 범위에 포함된 서비스는 무엇인가요?
+  - id: incident.start-time
+    category: incident
+    domain: state_incident_detection
+    intent: incident.start_time
+    target_kinds: [Incident]
+    temporal_scope: historical
+    result_shape: timeline
+    required_context: incident_binding
+    wording:
+      en: For the specified incident, when did it start according to the authoritative observation time?
+      ko: 지정된 장애에 대해, 권위 있는 관측 시각 기준으로 언제 시작되었나요?
+  - id: incident.user-impact-start-time
+    category: incident
+    domain: state_incident_detection
+    intent: incident.user_impact_start_time
+    target_kinds: [Incident]
+    temporal_scope: historical
+    result_shape: timeline
+    required_context: incident_binding
+    wording:
+      en: For the specified incident, when did the recorded impact to users begin?
+      ko: 지정된 장애에 대해, 기록된 사용자 영향은 언제부터 시작되었나요?
+  - id: incident.resolved-time
+    category: incident
+    domain: state_incident_detection
+    intent: incident.resolved_time
+    target_kinds: [Incident]
+    temporal_scope: historical
+    result_shape: timeline
+    required_context: incident_binding
+    wording:
+      en: For the specified incident, when was it marked resolved according to authoritative evidence?
+      ko: 지정된 장애에 대해, 권위 있는 근거 기준으로 언제 해결로 기록되었나요?
+  - id: incident.mttr-calculation
+    category: incident
+    domain: state_incident_detection
+    intent: incident.mttr_calculation
+    target_kinds: [Incident]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: incident_binding
+    wording:
+      en: Calculate the MTTR for the specified incident from its recorded timeline.
+      ko: 지정된 장애의 기록된 타임라인을 기준으로 MTTR을 계산해 주세요.
+  - id: incident.month-over-month-comparison
+    category: incident
+    domain: state_incident_detection
+    intent: incident.month_over_month_comparison
+    target_kinds: [Incident]
+    temporal_scope: comparison
+    result_shape: comparison
+    required_context: server_scope
+    wording:
+      en: Have recorded incidents for authorized services increased this month compared with last month?
+      ko: 이번 달 권한 범위의 서비스의 기록된 장애가 지난달보다 증가했나요?
+  - id: incident.service-recurrence
+    category: incident
+    domain: state_incident_detection
+    intent: incident.service_recurrence
+    target_kinds: [Incident, BusinessService]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified service, are incidents recurring over the reviewed period?
+      ko: 지정된 서비스에서 검토된 기간 동안 장애가 반복되고 있나요?
+  - id: incident.time-of-day-pattern
+    category: incident
+    domain: state_incident_detection
+    intent: incident.time_of_day_pattern
+    target_kinds: [Incident, Pattern]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Is there a common recorded time-of-day pattern across recent incidents?
+      ko: 최근 장애의 기록된 발생 시간대에 공통 패턴이 있나요?
+  - id: incident.region-concentration
+    category: incident
+    domain: state_incident_detection
+    intent: incident.region_concentration
+    target_kinds: [Incident, AzureResource]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Are recent incidents concentrated in a specific authorized Azure region?
+      ko: 최근 장애가 특정 권한 범위의 Azure Region에 집중되고 있나요?
+  - id: incident.subscription-concentration
+    category: incident
+    domain: state_incident_detection
+    intent: incident.subscription_concentration
+    target_kinds: [Incident, AzureResource]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Are recent incidents concentrated within a specific authorized subscription scope?
+      ko: 최근 장애가 특정 Subscription의 권한 범위에 집중되고 있나요?
+  - id: incident.cause-classification
+    category: incident
+    domain: state_incident_detection
+    intent: incident.cause_classification
+    target_kinds: [Incident, CausalHypothesis]
+    temporal_scope: historical
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Classify the reviewed primary causes of recent incidents by type.
+      ko: 최근 장애의 검토된 주요 원인을 유형별로 분류해 주세요.
+  - id: root-cause.api-service-latency-increase
+    category: root_cause
+    domain: root_cause_analysis
+    intent: root_cause.api_service_latency_increase
+    target_kinds: [ApiService, CausalHypothesis]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified API service, what correlates with its increased response time, without asserting a confirmed cause?
+      ko: 지정된 API 서비스에 대해, 확정된 원인이라고 단정하지 않고 응답 시간 증가와 상관관계가 있는 요인은 무엇인가요?
+  - id: root-cause.api-error-rate-spike
+    category: root_cause
+    domain: root_cause_analysis
+    intent: root_cause.api_error_rate_spike
+    target_kinds: [ApiService, CausalHypothesis]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified API service, find what correlates with the sudden increase in error rate, without asserting causation.
+      ko: 지정된 API 서비스에 대해, 원인으로 단정하지 않고 오류율 급증과 상관관계가 있는 요인을 찾아 주세요.
+  - id: root-cause.cpu-usage-spike
+    category: root_cause
+    domain: root_cause_analysis
+    intent: root_cause.cpu_usage_spike
+    target_kinds: [AzureResource, CausalHypothesis]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified resource, analyze what correlates with the CPU usage spike, without asserting a confirmed cause.
+      ko: 지정된 리소스에 대해, 원인으로 단정하지 않고 CPU 사용량 급증과 상관관계가 있는 요인을 분석해 주세요.
+  - id: root-cause.memory-usage-increase
+    category: root_cause
+    domain: root_cause_analysis
+    intent: root_cause.memory_usage_increase
+    target_kinds: [AzureResource, CausalHypothesis]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified resource, what correlates with the increase in memory usage, without asserting causation?
+      ko: 지정된 리소스에 대해, 원인으로 단정하지 않고 메모리 사용량 증가와 상관관계가 있는 요인은 무엇인가요?
+  - id: root-cause.pod-repeated-restarts
+    category: root_cause
+    domain: root_cause_analysis
+    intent: root_cause.pod_repeated_restarts
+    target_kinds: [KubernetesPod, CausalHypothesis]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified pod, find what correlates with its repeated restarts, without asserting a confirmed cause.
+      ko: 지정된 Pod에 대해, 원인으로 단정하지 않고 반복 재시작과 상관관계가 있는 요인을 찾아 주세요.
+  - id: root-cause.vm-performance-degradation
+    category: root_cause
+    domain: root_cause_analysis
+    intent: root_cause.vm_performance_degradation
+    target_kinds: [VirtualMachine, CausalHypothesis]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified virtual machine, what correlates with its performance degradation, without asserting causation?
+      ko: 지정된 가상 머신에 대해, 원인으로 단정하지 않고 성능 저하와 상관관계가 있는 요인은 무엇인가요?
+  - id: root-cause.db-latency-increase
+    category: root_cause
+    domain: root_cause_analysis
+    intent: root_cause.db_latency_increase
+    target_kinds: [Database, CausalHypothesis]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified database, what correlates with its increased response time, without asserting a confirmed cause?
+      ko: 지정된 데이터베이스에 대해, 원인으로 단정하지 않고 응답 시간 증가와 상관관계가 있는 요인은 무엇인가요?
+  - id: root-cause.network-latency-increase
+    category: root_cause
+    domain: root_cause_analysis
+    intent: root_cause.network_latency_increase
+    target_kinds: [NetworkResource, CausalHypothesis]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified network resource, find what correlates with the increase in latency, without asserting causation.
+      ko: 지정된 네트워크 리소스에 대해, 원인으로 단정하지 않고 지연 증가와 상관관계가 있는 요인을 찾아 주세요.
+  - id: root-cause.incident-root-cause-analysis
+    category: root_cause
+    domain: root_cause_analysis
+    intent: root_cause.incident_root_cause_analysis
+    target_kinds: [Incident, CausalHypothesis]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: incident_binding
+    wording:
+      en: For the specified incident, analyze the reviewed evidence for its most likely root cause.
+      ko: 지정된 장애에 대해, 검토된 근거를 기준으로 가장 가능성 높은 근본 원인을 분석해 주세요.
+  - id: root-cause.preceding-events
+    category: root_cause
+    domain: root_cause_analysis
+    intent: root_cause.preceding_events
+    target_kinds: [Incident, Observation]
+    temporal_scope: historical
+    result_shape: timeline
+    required_context: incident_binding
+    wording:
+      en: For the specified incident, which recorded events occurred immediately before it began?
+      ko: 지정된 장애에 대해, 발생 직전에 기록된 이벤트는 무엇인가요?
+  - id: root-cause.changes-near-incident-start
+    category: root_cause
+    domain: root_cause_analysis
+    intent: root_cause.changes_near_incident_start
+    target_kinds: [Incident, Change]
+    temporal_scope: historical
+    result_shape: list
+    required_context: incident_binding
+    wording:
+      en: For the specified incident, were any authorized resources changed around its recorded start time?
+      ko: 지정된 장애의 기록된 발생 시점 전후로 권한 범위 내에서 변경된 리소스가 있나요?
+  - id: root-cause.deployment-incident-correlation
+    category: root_cause
+    domain: root_cause_analysis
+    intent: root_cause.deployment_incident_correlation
+    target_kinds: [Deployment, Incident, CausalHypothesis]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: incident_binding
+    wording:
+      en: For the specified deployment and incident, does the recorded timing correlate with the incident, without asserting it as the confirmed cause?
+      ko: 확정된 원인이라고 단정하지 않고, 지정된 배포의 기록된 시점이 지정된 장애와 상관관계가 있는지 확인해 주세요.
+  - id: root-cause.config-change-impact
+    category: root_cause
+    domain: root_cause_analysis
+    intent: root_cause.config_change_impact
+    target_kinds: [Change, Incident]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: incident_binding
+    wording:
+      en: Did a recent recorded configuration change correlate with the specified incident, without asserting it as the confirmed cause?
+      ko: 확정된 원인이라고 단정하지 않고, 최근 기록된 설정 변경이 지정된 장애와 상관관계가 있나요?
+  - id: root-cause.cascading-failure-check
+    category: root_cause
+    domain: root_cause_analysis
+    intent: root_cause.cascading_failure_check
+    target_kinds: [AzureResource, Incident]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified resource's failure, does it correlate with a subsequent incident, without asserting it as the confirmed trigger?
+      ko: 확정된 유발 원인으로 단정하지 않고, 지정된 리소스의 장애가 이후 발생한 다른 장애와 상관관계가 있나요?
+  - id: root-cause.common-factor-across-anomalies
+    category: root_cause
+    domain: root_cause_analysis
+    intent: root_cause.common_factor_across_anomalies
+    target_kinds: [Observation, CausalHypothesis]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Across the current set of observed anomalies, is there a common correlating factor, without asserting a confirmed shared cause?
+      ko: 확정된 공통 원인으로 단정하지 않고, 현재 관측된 여러 이상 현상에 공통으로 상관관계가 있는 요인이 있나요?
+  - id: root-cause.cpu-api-latency-correlation
+    category: root_cause
+    domain: root_cause_analysis
+    intent: root_cause.cpu_api_latency_correlation
+    target_kinds: [AzureResource, ApiService]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: Does the increase in CPU usage correlate with the increase in API response time, without asserting causation?
+      ko: 원인으로 단정하지 않고, CPU 사용량 증가와 API 응답 시간 증가가 상관관계가 있나요?
+  - id: root-cause.db-degradation-api-error-correlation
+    category: root_cause
+    domain: root_cause_analysis
+    intent: root_cause.db_degradation_api_error_correlation
+    target_kinds: [Database, ApiService]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: Does database performance degradation correlate with the increase in API errors, without asserting causation?
+      ko: 원인으로 단정하지 않고, 데이터베이스 성능 저하와 API 오류 증가가 상관관계가 있나요?
+  - id: root-cause.network-pod-restart-correlation
+    category: root_cause
+    domain: root_cause_analysis
+    intent: root_cause.network_pod_restart_correlation
+    target_kinds: [NetworkResource, KubernetesPod]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: Is there a correlation between the network issue and pod restarts, without asserting causation?
+      ko: 원인으로 단정하지 않고, 네트워크 문제와 Pod 재시작 사이에 상관관계가 있나요?
+  - id: root-cause.most-likely-cause-by-evidence
+    category: root_cause
+    domain: root_cause_analysis
+    intent: root_cause.most_likely_cause_by_evidence
+    target_kinds: [CausalHypothesis, EvidenceArtifact]
+    temporal_scope: current
+    result_shape: ranked_list
+    required_context: incident_binding
+    wording:
+      en: Based on evidence collected so far, what is the most likely root cause, and how confident is that assessment?
+      ko: 지금까지 수집된 근거를 기준으로 가장 가능성 높은 근본 원인은 무엇이며, 그 평가의 신뢰도는 어느 정도인가요?
+  - id: root-cause.unconfirmed-hypotheses
+    category: root_cause
+    domain: root_cause_analysis
+    intent: root_cause.unconfirmed_hypotheses
+    target_kinds: [CausalHypothesis]
+    temporal_scope: current
+    result_shape: list
+    required_context: incident_binding
+    wording:
+      en: In the current root cause analysis, which hypotheses remain unconfirmed due to insufficient evidence?
+      ko: 현재 근본 원인 분석에서 근거 부족으로 아직 확인되지 않은 가설은 무엇인가요?
+  - id: metrics-observability.cpu-last-1h
+    category: metrics_observability
+    domain: state_incident_detection
+    intent: metrics_observability.cpu_last_1h
+    target_kinds: [AzureResource]
+    temporal_scope: historical
+    result_shape: graph
+    required_context: explicit_target
+    wording:
+      en: Show CPU utilization for the specified authorized resource over the last hour.
+      ko: 지정된 리소스의 지난 1시간 CPU 사용률을 보여 주세요.
+  - id: metrics-observability.memory-trend-24h
+    category: metrics_observability
+    domain: state_incident_detection
+    intent: metrics_observability.memory_trend_24h
+    target_kinds: [AzureResource]
+    temporal_scope: historical
+    result_shape: graph
+    required_context: explicit_target
+    wording:
+      en: Show the memory usage trend for the specified authorized resource over the last 24 hours.
+      ko: 지정된 리소스의 지난 24시간 메모리 사용량 추이를 보여 주세요.
+  - id: metrics-observability.top-error-api
+    category: metrics_observability
+    domain: state_incident_detection
+    intent: metrics_observability.top_error_api
+    target_kinds: [ApiService]
+    temporal_scope: historical
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Which authorized API service has recorded the most errors recently?
+      ko: 최근 권한 범위의 API 서비스 중 오류가 가장 많이 발생한 서비스는 무엇인가요?
+  - id: metrics-observability.top-http-500-service
+    category: metrics_observability
+    domain: state_incident_detection
+    intent: metrics_observability.top_http_500_service
+    target_kinds: [BusinessService, ApiService]
+    temporal_scope: historical
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Which authorized service has recorded the most HTTP 500 errors recently?
+      ko: 최근 권한 범위의 서비스 중 HTTP 500 오류가 가장 많이 발생한 서비스는 무엇인가요?
+  - id: metrics-observability.top-timeout-request
+    category: metrics_observability
+    domain: state_incident_detection
+    intent: metrics_observability.top_timeout_request
+    target_kinds: [ApiService, Observation]
+    temporal_scope: historical
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Which request type has recorded the most timeouts recently, within authorized scope?
+      ko: 권한 범위 내에서 최근 Timeout이 가장 많이 발생한 요청 유형은 무엇인가요?
+  - id: metrics-observability.api-p95-latency
+    category: metrics_observability
+    domain: state_incident_detection
+    intent: metrics_observability.api_p95_latency
+    target_kinds: [ApiService]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: What is the P95 response time for the specified API service, as of the authoritative observation time?
+      ko: 권위 있는 관측 시각 기준으로 지정된 API 서비스의 P95 응답 시간은 얼마인가요?
+  - id: metrics-observability.top-p99-latency-service
+    category: metrics_observability
+    domain: state_incident_detection
+    intent: metrics_observability.top_p99_latency_service
+    target_kinds: [BusinessService, ApiService]
+    temporal_scope: current
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Which authorized service currently has the highest P99 latency?
+      ko: 현재 권한 범위의 서비스 중 P99 지연 시간이 가장 높은 서비스는 무엇인가요?
+  - id: metrics-observability.recurring-log-errors
+    category: metrics_observability
+    domain: state_incident_detection
+    intent: metrics_observability.recurring_log_errors
+    target_kinds: [EvidenceArtifact, Observation]
+    temporal_scope: historical
+    result_shape: list
+    required_context: explicit_target
+    wording:
+      en: For the specified resource, which errors recur repeatedly in recent recorded logs?
+      ko: 지정된 리소스에 대해, 최근 기록된 로그에서 반복적으로 나타나는 오류는 무엇인가요?
+  - id: metrics-observability.error-message-recurrence-rate
+    category: metrics_observability
+    domain: state_incident_detection
+    intent: metrics_observability.error_message_recurrence_rate
+    target_kinds: [Observation]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified error message, how often has it recurred over the reviewed period?
+      ko: 지정된 오류 메시지가 검토된 기간 동안 얼마나 자주 발생했나요?
+  - id: metrics-observability.first-occurrence-time
+    category: metrics_observability
+    domain: state_incident_detection
+    intent: metrics_observability.first_occurrence_time
+    target_kinds: [Observation]
+    temporal_scope: historical
+    result_shape: timeline
+    required_context: explicit_target
+    wording:
+      en: For the specified error, when was its first recorded occurrence?
+      ko: 지정된 오류가 처음 기록된 발생 시점은 언제인가요?
+  - id: metrics-observability.related-traces
+    category: metrics_observability
+    domain: state_incident_detection
+    intent: metrics_observability.related_traces
+    target_kinds: [EvidenceArtifact, Observation]
+    temporal_scope: historical
+    result_shape: list
+    required_context: explicit_target
+    wording:
+      en: For the specified error, find the related recorded traces within authorized evidence scope.
+      ko: 지정된 오류에 대해, 권한 범위의 근거 내에서 관련된 기록된 Trace를 찾아 주세요.
+  - id: metrics-observability.slow-request-common-path
+    category: metrics_observability
+    domain: root_cause_analysis
+    intent: metrics_observability.slow_request_common_path
+    target_kinds: [ApiService, Workload]
+    temporal_scope: historical
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Find the common recorded call path shared by slow requests within authorized scope.
+      ko: 권한 범위 내에서 느린 요청이 공통으로 거치는 기록된 호출 경로를 찾아 주세요.
+  - id: metrics-observability.api-request-call-graph
+    category: metrics_observability
+    domain: dependency_impact
+    intent: metrics_observability.api_request_call_graph
+    target_kinds: [ApiService, Workload]
+    temporal_scope: current
+    result_shape: graph
+    required_context: explicit_target
+    wording:
+      en: For the specified API request, show which authorized services it passes through.
+      ko: 지정된 API 요청에 대해, 권한 범위 내에서 어떤 서비스를 거치는지 보여 주세요.
+  - id: metrics-observability.log-metric-time-correlation
+    category: metrics_observability
+    domain: root_cause_analysis
+    intent: metrics_observability.log_metric_time_correlation
+    target_kinds: [EvidenceArtifact, Observation]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: Is there a temporal correlation between the specified error logs and metrics, without asserting causation?
+      ko: 원인으로 단정하지 않고, 지정된 오류 로그와 메트릭 사이에 시간적인 상관관계가 있나요?
+  - id: metrics-observability.new-error-pattern-24h
+    category: metrics_observability
+    domain: state_incident_detection
+    intent: metrics_observability.new_error_pattern_24h
+    target_kinds: [Pattern, Observation]
+    temporal_scope: historical
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Have any new error patterns emerged for authorized services in the last 24 hours?
+      ko: 지난 24시간 동안 권한 범위의 서비스에서 새롭게 나타난 오류 패턴이 있나요?
+  - id: aks-kubernetes.problem-nodes
+    category: aks_kubernetes
+    domain: state_incident_detection
+    intent: aks_kubernetes.problem_nodes
+    target_kinds: [KubernetesNode]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Are any nodes in the authorized AKS cluster currently showing a problem?
+      ko: 권한 범위의 AKS 클러스터에서 현재 문제가 있는 Node가 있나요?
+  - id: aks-kubernetes.highest-cpu-node
+    category: aks_kubernetes
+    domain: state_incident_detection
+    intent: aks_kubernetes.highest_cpu_node
+    target_kinds: [KubernetesNode]
+    temporal_scope: current
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Find the node with the highest CPU usage in the authorized cluster.
+      ko: 권한 범위의 클러스터에서 CPU 사용률이 가장 높은 Node를 찾아 주세요.
+  - id: aks-kubernetes.lowest-memory-node
+    category: aks_kubernetes
+    domain: state_incident_detection
+    intent: aks_kubernetes.lowest_memory_node
+    target_kinds: [KubernetesNode]
+    temporal_scope: current
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Which node in the authorized cluster has the least available memory?
+      ko: 권한 범위의 클러스터에서 메모리 여유가 가장 부족한 Node는 무엇인가요?
+  - id: aks-kubernetes.pending-pods
+    category: aks_kubernetes
+    domain: state_incident_detection
+    intent: aks_kubernetes.pending_pods
+    target_kinds: [KubernetesPod]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Are any pods in the authorized cluster currently in a Pending state?
+      ko: 권한 범위의 클러스터에서 현재 Pending 상태인 Pod가 있나요?
+  - id: aks-kubernetes.all-crashloopbackoff-pods
+    category: aks_kubernetes
+    domain: state_incident_detection
+    intent: aks_kubernetes.all_crashloopbackoff_pods
+    target_kinds: [KubernetesPod]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Find every pod in the authorized cluster currently in a CrashLoopBackOff state.
+      ko: 권한 범위의 클러스터에서 현재 CrashLoopBackOff 상태인 Pod를 모두 찾아 주세요.
+  - id: aks-kubernetes.most-restarted-pod
+    category: aks_kubernetes
+    domain: state_incident_detection
+    intent: aks_kubernetes.most_restarted_pod
+    target_kinds: [KubernetesPod]
+    temporal_scope: historical
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Which pod in the authorized cluster has recorded the most restarts recently?
+      ko: 권한 범위의 클러스터에서 최근 재시작 횟수가 가장 많이 기록된 Pod는 무엇인가요?
+  - id: aks-kubernetes.replica-maintained
+    category: aks_kubernetes
+    domain: state_incident_detection
+    intent: aks_kubernetes.replica_maintained
+    target_kinds: [Deployment, KubernetesWorkload]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified deployment, is its replica count currently being maintained as reviewed?
+      ko: 지정된 Deployment에 대해, 검토된 기준대로 Replica 수가 현재 정상적으로 유지되고 있나요?
+  - id: aks-kubernetes.replica-mismatch
+    category: aks_kubernetes
+    domain: state_incident_detection
+    intent: aks_kubernetes.replica_mismatch
+    target_kinds: [Deployment, KubernetesWorkload]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Are any authorized deployments currently showing a mismatch between desired and actual replica counts?
+      ko: 권한 범위의 Deployment 중 현재 원하는 Replica 수와 실제 Replica 수가 다른 것이 있나요?
+  - id: aks-kubernetes.oomkilled-pods
+    category: aks_kubernetes
+    domain: state_incident_detection
+    intent: aks_kubernetes.oomkilled_pods
+    target_kinds: [KubernetesPod]
+    temporal_scope: historical
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Find pods in the authorized cluster with a recent recorded OOMKilled event.
+      ko: 권한 범위의 클러스터에서 최근 OOMKilled가 기록된 Pod를 찾아 주세요.
+  - id: aks-kubernetes.pod-eviction-history
+    category: aks_kubernetes
+    domain: state_incident_detection
+    intent: aks_kubernetes.pod_eviction_history
+    target_kinds: [KubernetesPod]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Has a pod eviction event been recorded for the authorized cluster over the reviewed period?
+      ko: 검토된 기간 동안 권한 범위의 클러스터에서 기록된 Pod eviction 이벤트가 있나요?
+  - id: aks-kubernetes.node-pressure-history
+    category: aks_kubernetes
+    domain: state_incident_detection
+    intent: aks_kubernetes.node_pressure_history
+    target_kinds: [KubernetesNode]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Has a node pressure condition been recorded for the authorized cluster over the reviewed period?
+      ko: 검토된 기간 동안 권한 범위의 클러스터에서 기록된 Node pressure 상태가 있나요?
+  - id: aks-kubernetes.pod-node-placement
+    category: aks_kubernetes
+    domain: state_incident_detection
+    intent: aks_kubernetes.pod_node_placement
+    target_kinds: [KubernetesPod, KubernetesNode]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified pod, which node is it currently running on?
+      ko: 지정된 Pod가 현재 어느 Node에서 실행되고 있는지 알려 주세요.
+  - id: aks-kubernetes.pod-node-concentration
+    category: aks_kubernetes
+    domain: state_incident_detection
+    intent: aks_kubernetes.pod_node_concentration
+    target_kinds: [KubernetesPod, KubernetesNode]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified service, are its pods currently concentrated on a specific node?
+      ko: 지정된 서비스의 Pod가 현재 특정 Node에 편중되어 있나요?
+  - id: aks-kubernetes.lowest-resource-namespace
+    category: aks_kubernetes
+    domain: state_incident_detection
+    intent: aks_kubernetes.lowest_resource_namespace
+    target_kinds: [KubernetesWorkload]
+    temporal_scope: current
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Which namespace in the authorized AKS cluster currently has the least available resources?
+      ko: 권한 범위의 AKS 클러스터에서 현재 리소스 여유가 가장 부족한 Namespace는 어디인가요?
+  - id: aks-kubernetes.cpu-request-usage-gap
+    category: aks_kubernetes
+    domain: state_incident_detection
+    intent: aks_kubernetes.cpu_request_usage_gap
+    target_kinds: [KubernetesPod]
+    temporal_scope: current
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Find pods in the authorized cluster with the largest gap between CPU request and actual usage.
+      ko: 권한 범위의 클러스터에서 CPU Request와 실제 사용량의 차이가 큰 Pod를 찾아 주세요.
+  - id: aks-kubernetes.memory-limit-adequacy
+    category: aks_kubernetes
+    domain: state_incident_detection
+    intent: aks_kubernetes.memory_limit_adequacy
+    target_kinds: [KubernetesPod]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Are any pods in the authorized cluster showing a reviewed memory limit setting that appears inadequate?
+      ko: 권한 범위의 클러스터에서 검토된 기준 대비 Memory Limit 설정이 적절하지 않은 Pod가 있나요?
+  - id: aks-kubernetes.hpa-operating-normally
+    category: aks_kubernetes
+    domain: state_incident_detection
+    intent: aks_kubernetes.hpa_operating_normally
+    target_kinds: [KubernetesWorkload]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified workload, is its HPA currently operating as expected?
+      ko: 지정된 워크로드에 대해, HPA가 현재 예상대로 정상적으로 동작하고 있나요?
+  - id: aks-kubernetes.frequent-hpa-scaleout-service
+    category: aks_kubernetes
+    domain: capacity_performance_forecast
+    intent: aks_kubernetes.frequent_hpa_scaleout_service
+    target_kinds: [KubernetesWorkload]
+    temporal_scope: historical
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Which authorized service has recorded frequent HPA scale-out events recently?
+      ko: 최근 권한 범위의 서비스 중 HPA Scale-out이 자주 기록된 서비스는 무엇인가요?
+  - id: aks-kubernetes.cluster-autoscaler-recent-activity
+    category: aks_kubernetes
+    domain: capacity_performance_forecast
+    intent: aks_kubernetes.cluster_autoscaler_recent_activity
+    target_kinds: [KubernetesCluster]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Has the authorized AKS cluster autoscaler triggered recently, according to recorded events?
+      ko: 권한 범위의 AKS 클러스터 Autoscaler가 최근 기록된 이벤트 기준으로 동작했나요?
+  - id: aks-kubernetes.scaleout-needed-advisory
+    category: aks_kubernetes
+    domain: capacity_performance_forecast
+    intent: aks_kubernetes.scaleout_needed_advisory
+    target_kinds: [KubernetesCluster, SizingRecommendation]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Based on reviewed current metrics, does the authorized AKS cluster need a scale-out? This is an advisory recommendation only.
+      ko: 검토된 현재 지표를 기준으로, 권한 범위의 AKS 클러스터에 Scale-out이 필요한 상황인가요? 이는 실행 없이 권고 목적의 답변입니다.
+    safety:
+      action_posture: advise_only
+      execution_authority: false
+  - id: azure-infrastructure-network.problem-vms
+    category: azure_infrastructure_network
+    domain: state_incident_detection
+    intent: azure_infrastructure_network.problem_vms
+    target_kinds: [VirtualMachine]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Find authorized virtual machines currently showing a problem.
+      ko: 권한 범위의 가상 머신 중 현재 문제가 있는 것을 찾아 주세요.
+  - id: azure-infrastructure-network.vm-cpu-memory-comparison
+    category: azure_infrastructure_network
+    domain: state_incident_detection
+    intent: azure_infrastructure_network.vm_cpu_memory_comparison
+    target_kinds: [VirtualMachine]
+    temporal_scope: current
+    result_shape: comparison
+    required_context: server_scope
+    wording:
+      en: Compare CPU and memory usage across the authorized virtual machines.
+      ko: 권한 범위의 가상 머신별로 CPU와 Memory 사용량을 비교해 주세요.
+  - id: azure-infrastructure-network.vm-network-spike-cause
+    category: azure_infrastructure_network
+    domain: root_cause_analysis
+    intent: azure_infrastructure_network.vm_network_spike_cause
+    target_kinds: [VirtualMachine, NetworkResource]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified virtual machine, what correlates with the spike in network traffic, without asserting causation?
+      ko: 지정된 가상 머신에 대해, 원인으로 단정하지 않고 네트워크 트래픽 급증과 상관관계가 있는 요인은 무엇인가요?
+  - id: azure-infrastructure-network.nsg-recent-changes
+    category: azure_infrastructure_network
+    domain: change_deployment_impact
+    intent: azure_infrastructure_network.nsg_recent_changes
+    target_kinds: [NetworkResource, Change]
+    temporal_scope: historical
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Are there any recorded changes to authorized network security group rules in the reviewed period?
+      ko: 검토된 기간 동안 권한 범위의 Network Security Group 규칙에 기록된 변경사항이 있나요?
+  - id: azure-infrastructure-network.nsg-change-access-issue
+    category: azure_infrastructure_network
+    domain: change_deployment_impact
+    intent: azure_infrastructure_network.nsg_change_access_issue
+    target_kinds: [NetworkResource, Change]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Did a recent recorded NSG change correlate with an access issue, without asserting it as the confirmed cause?
+      ko: 확정된 원인으로 단정하지 않고, 최근 기록된 NSG 변경이 접근 문제와 상관관계가 있나요?
+  - id: azure-infrastructure-network.service-latency-increase
+    category: azure_infrastructure_network
+    domain: state_incident_detection
+    intent: azure_infrastructure_network.service_latency_increase
+    target_kinds: [BusinessService, NetworkResource]
+    temporal_scope: historical
+    result_shape: comparison
+    required_context: explicit_target
+    wording:
+      en: For the specified service, has its network latency increased over the reviewed period?
+      ko: 지정된 서비스에 대해, 검토된 기간 동안 네트워크 지연 시간이 증가했나요?
+  - id: azure-infrastructure-network.vnet-abnormal-traffic
+    category: azure_infrastructure_network
+    domain: state_incident_detection
+    intent: azure_infrastructure_network.vnet_abnormal_traffic
+    target_kinds: [NetworkResource]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Is abnormal traffic currently occurring in the authorized virtual network?
+      ko: 권한 범위의 VNet에서 현재 비정상적인 트래픽이 발생하고 있나요?
+  - id: azure-infrastructure-network.subnet-ip-exhaustion-forecast
+    category: azure_infrastructure_network
+    domain: capacity_performance_forecast
+    intent: azure_infrastructure_network.subnet_ip_exhaustion_forecast
+    target_kinds: [NetworkResource, Forecast]
+    temporal_scope: forecast
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified subnet, is there a forecasted risk of IP address exhaustion, based on the current usage trend?
+      ko: 지정된 Subnet에 대해, 현재 사용 추세를 기준으로 IP 주소가 고갈될 예측 위험이 있나요?
+  - id: azure-infrastructure-network.private-endpoint-issue
+    category: azure_infrastructure_network
+    domain: state_incident_detection
+    intent: azure_infrastructure_network.private_endpoint_issue
+    target_kinds: [NetworkResource]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Are any authorized private endpoint connections currently showing a problem?
+      ko: 권한 범위의 Private Endpoint 연결 중 현재 문제가 있는 것이 있나요?
+  - id: azure-infrastructure-network.recent-dns-errors
+    category: azure_infrastructure_network
+    domain: state_incident_detection
+    intent: azure_infrastructure_network.recent_dns_errors
+    target_kinds: [NetworkResource]
+    temporal_scope: historical
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Has a DNS error been recorded for authorized resources over the reviewed period?
+      ko: 검토된 기간 동안 권한 범위의 리소스에서 기록된 DNS 오류가 있나요?
+  - id: azure-infrastructure-network.dns-resolution-issue
+    category: azure_infrastructure_network
+    domain: state_incident_detection
+    intent: azure_infrastructure_network.dns_resolution_issue
+    target_kinds: [BusinessService, NetworkResource]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified service, has a DNS resolution issue been recorded?
+      ko: 지정된 서비스에서 기록된 DNS Resolution 문제가 있나요?
+  - id: azure-infrastructure-network.load-balancer-backend-health
+    category: azure_infrastructure_network
+    domain: state_incident_detection
+    intent: azure_infrastructure_network.load_balancer_backend_health
+    target_kinds: [NetworkResource]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified load balancer, are its backend pool members currently healthy?
+      ko: 지정된 Load Balancer에 대해, 현재 Backend 상태가 정상인가요?
+  - id: azure-infrastructure-network.backend-traffic-concentration
+    category: azure_infrastructure_network
+    domain: state_incident_detection
+    intent: azure_infrastructure_network.backend_traffic_concentration
+    target_kinds: [NetworkResource]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified load balancer, is traffic currently concentrated on one backend member?
+      ko: 지정된 Load Balancer에 대해, 현재 트래픽이 특정 Backend로 집중되고 있나요?
+  - id: azure-infrastructure-network.network-change-impacted-services
+    category: azure_infrastructure_network
+    domain: change_deployment_impact
+    intent: azure_infrastructure_network.network_change_impacted_services
+    target_kinds: [Change, NetworkResource, BusinessService]
+    temporal_scope: historical
+    result_shape: list
+    required_context: explicit_target
+    wording:
+      en: For the specified recent network configuration change, which services fell within its bounded impact scope?
+      ko: 지정된 최근 네트워크 설정 변경에 대해, 그 영향 범위에 포함된 서비스는 무엇인가요?
+  - id: azure-infrastructure-network.network-incident-impact-scope
+    category: azure_infrastructure_network
+    domain: dependency_impact
+    intent: azure_infrastructure_network.network_incident_impact_scope
+    target_kinds: [Incident, NetworkResource, ImpactEnvelope]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: incident_binding
+    wording:
+      en: For the specified current network incident, what is its bounded impact scope?
+      ko: 지정된 현재 네트워크 장애에 대해, 영향 범위는 어디까지인가요?
+  - id: database-storage.slow-response-cause
+    category: database_storage
+    domain: root_cause_analysis
+    intent: database_storage.slow_response_cause
+    target_kinds: [Database, CausalHypothesis]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified database, what correlates with its currently slow response time, without asserting causation?
+      ko: 지정된 데이터베이스에 대해, 원인으로 단정하지 않고 현재 느린 응답 시간과 상관관계가 있는 요인은 무엇인가요?
+  - id: database-storage.cpu-increase-cause
+    category: database_storage
+    domain: root_cause_analysis
+    intent: database_storage.cpu_increase_cause
+    target_kinds: [Database, CausalHypothesis]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified database, find what correlates with the increase in CPU usage, without asserting a confirmed cause.
+      ko: 지정된 데이터베이스에 대해, 원인으로 단정하지 않고 CPU 사용량 증가와 상관관계가 있는 요인을 찾아 주세요.
+  - id: database-storage.connection-count-increasing
+    category: database_storage
+    domain: state_incident_detection
+    intent: database_storage.connection_count_increasing
+    target_kinds: [Database]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified database, is its connection count currently increasing?
+      ko: 지정된 데이터베이스에 대해, 현재 Connection 수가 증가하고 있나요?
+  - id: database-storage.connection-pool-exhaustion
+    category: database_storage
+    domain: state_incident_detection
+    intent: database_storage.connection_pool_exhaustion
+    target_kinds: [BusinessService, Database]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Are any authorized services currently showing an exhausted connection pool?
+      ko: 권한 범위의 서비스 중 현재 Connection Pool이 부족한 서비스가 있나요?
+  - id: database-storage.long-running-queries
+    category: database_storage
+    domain: state_incident_detection
+    intent: database_storage.long_running_queries
+    target_kinds: [Database, Observation]
+    temporal_scope: current
+    result_shape: ranked_list
+    required_context: explicit_target
+    wording:
+      en: For the specified database, find currently long-running queries without exposing raw query text.
+      ko: 지정된 데이터베이스에 대해, 원문 질의는 노출하지 않고 현재 실행 시간이 긴 Query를 찾아 주세요.
+  - id: database-storage.recent-deadlock
+    category: database_storage
+    domain: state_incident_detection
+    intent: database_storage.recent_deadlock
+    target_kinds: [Database]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: Has a database deadlock been recorded for the specified database over the reviewed period?
+      ko: 지정된 데이터베이스에서 검토된 기간 동안 기록된 Deadlock이 있나요?
+  - id: database-storage.remaining-db-storage
+    category: database_storage
+    domain: state_incident_detection
+    intent: database_storage.remaining_db_storage
+    target_kinds: [Database]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified database, how much storage capacity currently remains?
+      ko: 지정된 데이터베이스에 대해, 현재 남아 있는 Storage 용량은 얼마인가요?
+  - id: database-storage.storage-capacity-runway-forecast
+    category: database_storage
+    domain: capacity_performance_forecast
+    intent: database_storage.storage_capacity_runway_forecast
+    target_kinds: [StorageAccount, Forecast]
+    temporal_scope: forecast
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: At the current usage trend, how much longer can the specified storage capacity last before forecasted exhaustion?
+      ko: 현재 사용 추세를 기준으로, 지정된 Storage 용량은 예측상 언제까지 더 사용할 수 있나요?
+  - id: database-storage.storage-request-spike-cause
+    category: database_storage
+    domain: root_cause_analysis
+    intent: database_storage.storage_request_spike_cause
+    target_kinds: [StorageAccount, CausalHypothesis]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified storage account, what correlates with the spike in request volume, without asserting causation?
+      ko: 지정된 Storage Account에 대해, 원인으로 단정하지 않고 요청량 급증과 상관관계가 있는 요인은 무엇인가요?
+  - id: database-storage.blob-access-error-increase
+    category: database_storage
+    domain: state_incident_detection
+    intent: database_storage.blob_access_error_increase
+    target_kinds: [StorageAccount]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified storage account, are blob access errors currently increasing?
+      ko: 지정된 Storage Account에 대해, 현재 Blob 접근 오류가 증가하고 있나요?
+  - id: database-storage.storage-latency-increase
+    category: database_storage
+    domain: state_incident_detection
+    intent: database_storage.storage_latency_increase
+    target_kinds: [StorageAccount]
+    temporal_scope: historical
+    result_shape: comparison
+    required_context: explicit_target
+    wording:
+      en: For the specified storage account, has its latency increased over the reviewed period?
+      ko: 지정된 Storage Account에 대해, 검토된 기간 동안 지연 시간이 증가했나요?
+  - id: database-storage.db-api-latency-correlation
+    category: database_storage
+    domain: root_cause_analysis
+    intent: database_storage.db_api_latency_correlation
+    target_kinds: [Database, ApiService]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: Is there a correlation between the specified database and API response times, without asserting causation?
+      ko: 원인으로 단정하지 않고, 지정된 데이터베이스와 API 응답 시간 사이에 상관관계가 있나요?
+  - id: database-storage.dependent-service-count
+    category: database_storage
+    domain: dependency_impact
+    intent: database_storage.dependent_service_count
+    target_kinds: [Database, BusinessService]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified database, how many authorized services depend on it?
+      ko: 지정된 데이터베이스에 권한 범위의 서비스가 몇 개 의존하고 있나요?
+  - id: database-storage.db-failure-impact
+    category: database_storage
+    domain: dependency_impact
+    intent: database_storage.db_failure_impact
+    target_kinds: [Database, BusinessService, ImpactEnvelope]
+    temporal_scope: current
+    result_shape: list
+    required_context: explicit_target
+    wording:
+      en: If the specified database were to fail, which services would fall within its bounded impact scope?
+      ko: 지정된 데이터베이스에 장애가 발생하면 영향 범위에 포함되는 서비스는 무엇인가요?
+  - id: database-storage.db-bottleneck-assessment
+    category: database_storage
+    domain: root_cause_analysis
+    intent: database_storage.db_bottleneck_assessment
+    target_kinds: [Database, CausalHypothesis]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: Based on reviewed evidence, is the specified database currently the largest bottleneck in the system?
+      ko: 검토된 근거를 기준으로, 지정된 데이터베이스가 현재 시스템에서 가장 큰 Bottleneck인지 판단해 주세요.
+  - id: cost-finops.current-month-cost
+    category: cost_finops
+    domain: cost_finops
+    intent: cost_finops.current_month_cost
+    target_kinds: [CostObservation]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: What is the current month's Azure cost for the authorized scope?
+      ko: 권한 범위에서 이번 달 Azure 비용은 얼마인가요?
+  - id: cost-finops.month-over-month-increase
+    category: cost_finops
+    domain: cost_finops
+    intent: cost_finops.month_over_month_increase
+    target_kinds: [CostObservation]
+    temporal_scope: comparison
+    result_shape: comparison
+    required_context: server_scope
+    wording:
+      en: How much has the authorized Azure cost increased compared with last month?
+      ko: 권한 범위에서 Azure 비용이 지난달보다 얼마나 증가했나요?
+  - id: cost-finops.top-cost-subscription-scope
+    category: cost_finops
+    domain: cost_finops
+    intent: cost_finops.top_cost_subscription_scope
+    target_kinds: [CostObservation]
+    temporal_scope: current
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Which authorized subscription scope currently generates the highest cost?
+      ko: 권한 범위의 Subscription 중 현재 비용이 가장 많이 발생하는 곳은 어디인가요?
+  - id: cost-finops.top-cost-resource-group-scope
+    category: cost_finops
+    domain: cost_finops
+    intent: cost_finops.top_cost_resource_group_scope
+    target_kinds: [CostObservation]
+    temporal_scope: current
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Which authorized resource group scope currently generates the highest cost?
+      ko: 권한 범위의 Resource Group 중 현재 비용이 가장 많이 발생하는 곳은 어디인가요?
+  - id: cost-finops.top-cost-service
+    category: cost_finops
+    domain: cost_finops
+    intent: cost_finops.top_cost_service
+    target_kinds: [CostObservation, BusinessService]
+    temporal_scope: current
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Which authorized service currently generates the highest cost?
+      ko: 권한 범위의 서비스 중 현재 비용이 가장 많이 발생하는 서비스는 무엇인가요?
+  - id: cost-finops.cost-spike-last-30d
+    category: cost_finops
+    domain: cost_finops
+    intent: cost_finops.cost_spike_last_30d
+    target_kinds: [CostAnomaly]
+    temporal_scope: historical
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Find authorized resources with a cost spike over the last 30 days.
+      ko: 지난 30일 동안 비용이 급증한 권한 범위의 리소스를 찾아 주세요.
+  - id: cost-finops.sudden-cost-increase-cause
+    category: cost_finops
+    domain: root_cause_analysis
+    intent: cost_finops.sudden_cost_increase_cause
+    target_kinds: [CostAnomaly, CausalHypothesis]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified cost anomaly, analyze what correlates with the sudden cost increase, without asserting causation.
+      ko: 지정된 비용 이상 현상에 대해, 원인으로 단정하지 않고 급격한 비용 증가와 상관관계가 있는 요인을 분석해 주세요.
+  - id: cost-finops.largest-cost-share-resource
+    category: cost_finops
+    domain: cost_finops
+    intent: cost_finops.largest_cost_share_resource
+    target_kinds: [CostObservation, AzureResource]
+    temporal_scope: current
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Which authorized resource currently accounts for the largest share of Azure cost?
+      ko: 현재 권한 범위의 Azure 비용에서 가장 큰 비중을 차지하는 리소스는 무엇인가요?
+  - id: cost-finops.aks-cost-share
+    category: cost_finops
+    domain: cost_finops
+    intent: cost_finops.aks_cost_share
+    target_kinds: [CostObservation, KubernetesCluster]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: What share of the total authorized cost is attributable to AKS operating cost?
+      ko: 권한 범위의 전체 비용에서 AKS 운영 비용이 차지하는 비중은 얼마인가요?
+  - id: cost-finops.vm-cost-reduction-options
+    category: cost_finops
+    domain: cost_finops
+    intent: cost_finops.vm_cost_reduction_options
+    target_kinds: [VirtualMachine, SizingRecommendation]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Suggest advisory options to reduce cost for the authorized virtual machines, without executing any change.
+      ko: 실행 없이 권한 범위의 가상 머신의 비용을 줄일 수 있는 권고 방안을 찾아 주세요.
+    safety:
+      action_posture: advise_only
+      execution_authority: false
+  - id: cost-finops.over-provisioned-vms
+    category: cost_finops
+    domain: cost_finops
+    intent: cost_finops.over_provisioned_vms
+    target_kinds: [VirtualMachine]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Are any authorized virtual machines currently over-provisioned relative to observed usage?
+      ko: 관측된 사용량 대비 현재 과도하게 프로비저닝된 권한 범위의 가상 머신이 있나요?
+  - id: cost-finops.low-utilization-vms
+    category: cost_finops
+    domain: cost_finops
+    intent: cost_finops.low_utilization_vms
+    target_kinds: [VirtualMachine]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Find authorized virtual machines with low observed utilization.
+      ko: 관측된 사용률이 낮은 권한 범위의 가상 머신을 찾아 주세요.
+  - id: cost-finops.reserved-instance-savings-estimate
+    category: cost_finops
+    domain: cost_finops
+    intent: cost_finops.reserved_instance_savings_estimate
+    target_kinds: [CostObservation, SizingRecommendation]
+    temporal_scope: forecast
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: As an advisory estimate only, how much cost could be saved by applying reserved instance commitments within the authorized scope?
+      ko: 실행 없이 권고 목적의 추정치로, 권한 범위에 Reserved Instance를 적용하면 비용을 얼마나 절감할 수 있나요?
+    safety:
+      action_posture: advise_only
+      execution_authority: false
+  - id: cost-finops.savings-plan-savings-estimate
+    category: cost_finops
+    domain: cost_finops
+    intent: cost_finops.savings_plan_savings_estimate
+    target_kinds: [CostObservation, SizingRecommendation]
+    temporal_scope: forecast
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: As an advisory estimate only, how much cost could be saved by applying a savings plan within the authorized scope?
+      ko: 실행 없이 권고 목적의 추정치로, 권한 범위에 Savings Plan을 적용하면 비용을 얼마나 절감할 수 있나요?
+    safety:
+      action_posture: advise_only
+      execution_authority: false
+  - id: cost-finops.unused-azure-resources
+    category: cost_finops
+    domain: cost_finops
+    intent: cost_finops.unused_azure_resources
+    target_kinds: [AzureResource]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Are any authorized Azure resources currently unused, based on reviewed observation?
+      ko: 검토된 관측 기준으로 현재 사용되지 않는 권한 범위의 Azure 리소스가 있나요?
+  - id: cost-finops.low-utilization-per-cost
+    category: cost_finops
+    domain: cost_finops
+    intent: cost_finops.low_utilization_per_cost
+    target_kinds: [AzureResource, CostObservation]
+    temporal_scope: current
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Find authorized resources with low utilization relative to their cost.
+      ko: 비용 대비 사용률이 낮은 권한 범위의 리소스를 찾아 주세요.
+  - id: cost-finops.unnecessary-dev-resources
+    category: cost_finops
+    domain: cost_finops
+    intent: cost_finops.unnecessary_dev_resources
+    target_kinds: [AzureResource, Environment]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Are any authorized resources in the development environment running without an apparent reviewed need?
+      ko: 권한 범위의 개발 환경에서 검토된 필요 없이 불필요하게 실행 중인 리소스가 있나요?
+  - id: cost-finops.highest-cost-growth-rate-service
+    category: cost_finops
+    domain: cost_finops
+    intent: cost_finops.highest_cost_growth_rate_service
+    target_kinds: [CostObservation, BusinessService]
+    temporal_scope: comparison
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Which authorized service has the highest cost growth rate compared with last month?
+      ko: 지난달 대비 비용 증가율이 가장 높은 권한 범위의 서비스는 무엇인가요?
+  - id: cost-finops.next-month-cost-forecast
+    category: cost_finops
+    domain: cost_finops
+    intent: cost_finops.next_month_cost_forecast
+    target_kinds: [CostObservation, Forecast]
+    temporal_scope: forecast
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Forecast the authorized Azure cost for the coming month, stating the assumptions behind the projection.
+      ko: 예측에 사용된 가정을 명시하여, 향후 한 달간 권한 범위의 Azure 비용을 예측해 주세요.
+  - id: cost-finops.most-effective-optimization
+    category: cost_finops
+    domain: cost_finops
+    intent: cost_finops.most_effective_optimization
+    target_kinds: [CostObservation, SizingRecommendation]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: As an advisory recommendation only, what is the most effective optimization approach for the current authorized cost structure?
+      ko: 실행 없이 권고 목적으로, 현재 권한 범위의 비용 구조에서 가장 효과적인 최적화 방법은 무엇인가요?
+    safety:
+      action_posture: advise_only
+      execution_authority: false
+  - id: capacity-scaling.current-capacity-sufficiency
+    category: capacity_scaling
+    domain: capacity_performance_forecast
+    intent: capacity_scaling.current_capacity_sufficiency
+    target_kinds: [CapacityForecast]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Is the current capacity of the authorized system sufficient relative to reviewed demand?
+      ko: 검토된 수요 대비 현재 권한 범위의 시스템 용량이 충분한가요?
+  - id: capacity-scaling.capacity-exhaustion-forecast
+    category: capacity_scaling
+    domain: capacity_performance_forecast
+    intent: capacity_scaling.capacity_exhaustion_forecast
+    target_kinds: [CapacityForecast, Forecast]
+    temporal_scope: forecast
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Based on the current traffic trend, when is capacity forecasted to become insufficient?
+      ko: 현재 트래픽 추세를 기준으로, 용량은 언제 부족해질 것으로 예측되나요?
+  - id: capacity-scaling.scaleout-timing-forecast
+    category: capacity_scaling
+    domain: capacity_performance_forecast
+    intent: capacity_scaling.scaleout_timing_forecast
+    target_kinds: [CapacityForecast]
+    temporal_scope: forecast
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Based on the CPU usage trend, when is a scale-out forecasted to become necessary?
+      ko: CPU 사용량 추세를 기준으로, Scale-out은 언제 필요할 것으로 예측되나요?
+  - id: capacity-scaling.aks-node-count-adequacy
+    category: capacity_scaling
+    domain: capacity_performance_forecast
+    intent: capacity_scaling.aks_node_count_adequacy
+    target_kinds: [KubernetesCluster, CapacityForecast]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: Is the current authorized AKS node count adequate relative to reviewed demand?
+      ko: 검토된 수요 대비 현재 권한 범위의 AKS Node 수가 적절한가요?
+  - id: capacity-scaling.exhaustion-risk-next-7d
+    category: capacity_scaling
+    domain: capacity_performance_forecast
+    intent: capacity_scaling.exhaustion_risk_next_7d
+    target_kinds: [CapacityForecast, AzureResource]
+    temporal_scope: forecast
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Find authorized resources with a forecasted risk of exhaustion over the next 7 days.
+      ko: 향후 7일 동안 예측상 고갈 위험이 있는 권한 범위의 리소스를 찾아 주세요.
+  - id: capacity-scaling.db-storage-exhaustion-forecast
+    category: capacity_scaling
+    domain: capacity_performance_forecast
+    intent: capacity_scaling.db_storage_exhaustion_forecast
+    target_kinds: [Database, Forecast]
+    temporal_scope: forecast
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified database, when is its storage forecasted to become insufficient?
+      ko: 지정된 데이터베이스에 대해, Storage는 언제 부족해질 것으로 예측되나요?
+  - id: capacity-scaling.ip-pool-exhaustion-forecast
+    category: capacity_scaling
+    domain: capacity_performance_forecast
+    intent: capacity_scaling.ip_pool_exhaustion_forecast
+    target_kinds: [NetworkResource, Forecast]
+    temporal_scope: forecast
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified IP address pool, when is it forecasted to become exhausted?
+      ko: 지정된 IP Address Pool은 언제 고갈될 것으로 예측되나요?
+  - id: capacity-scaling.pod-count-sizing-estimate
+    category: capacity_scaling
+    domain: capacity_performance_forecast
+    intent: capacity_scaling.pod_count_sizing_estimate
+    target_kinds: [SizingRecommendation, KubernetesWorkload]
+    temporal_scope: forecast
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: As an advisory sizing estimate only, based on the current traffic growth rate, how many pods would be needed?
+      ko: 실행 없이 권고 목적의 산정 추정치로, 현재 트래픽 증가율을 기준으로 몇 개의 Pod가 필요할 것으로 예상되나요?
+    safety:
+      action_posture: advise_only
+      execution_authority: false
+  - id: capacity-scaling.hpa-config-appropriateness
+    category: capacity_scaling
+    domain: capacity_performance_forecast
+    intent: capacity_scaling.hpa_config_appropriateness
+    target_kinds: [KubernetesWorkload]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified workload, is its reviewed HPA configuration appropriate for the current traffic pattern?
+      ko: 지정된 워크로드에 대해, 검토된 HPA 설정이 현재 트래픽 패턴에 적절한가요?
+  - id: capacity-scaling.doubled-traffic-bottleneck-forecast
+    category: capacity_scaling
+    domain: capacity_performance_forecast
+    intent: capacity_scaling.doubled_traffic_bottleneck_forecast
+    target_kinds: [CapacityForecast, AzureResource]
+    temporal_scope: forecast
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Under a forecast assumption of doubled traffic, which authorized resource would become the first bottleneck?
+      ko: 트래픽이 2배가 된다는 예측 가정 하에, 어떤 권한 범위의 리소스가 가장 먼저 병목이 될 것으로 예측되나요?
+  - id: capacity-scaling.tripled-traffic-capacity-check
+    category: capacity_scaling
+    domain: capacity_performance_forecast
+    intent: capacity_scaling.tripled_traffic_capacity_check
+    target_kinds: [CapacityForecast]
+    temporal_scope: forecast
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Under a forecast assumption of tripled traffic, can the current authorized system capacity absorb it?
+      ko: 트래픽이 3배 증가한다는 예측 가정 하에, 현재 권한 범위의 시스템 용량이 이를 감당할 수 있나요?
+  - id: capacity-scaling.scaleout-criteria-adjustment-advisory
+    category: capacity_scaling
+    domain: capacity_performance_forecast
+    intent: capacity_scaling.scaleout_criteria_adjustment_advisory
+    target_kinds: [BusinessService, SizingRecommendation]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: As an advisory recommendation only, should the scale-out criteria for the specified service be adjusted?
+      ko: 실행 없이 권고 목적으로, 지정된 서비스의 Scale-out 기준을 조정해야 할까요?
+    safety:
+      action_posture: advise_only
+      execution_authority: false
+  - id: capacity-scaling.over-provisioned-resources
+    category: capacity_scaling
+    domain: capacity_performance_forecast
+    intent: capacity_scaling.over_provisioned_resources
+    target_kinds: [AzureResource, CapacityForecast]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Are any authorized resources currently over-provisioned relative to reviewed demand?
+      ko: 검토된 수요 대비 현재 과도하게 프로비저닝(Over-provisioning)된 권한 범위의 리소스가 있나요?
+  - id: capacity-scaling.under-provisioned-resources
+    category: capacity_scaling
+    domain: capacity_performance_forecast
+    intent: capacity_scaling.under_provisioned_resources
+    target_kinds: [AzureResource, CapacityForecast]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Are any authorized resources currently under-provisioned relative to reviewed demand?
+      ko: 검토된 수요 대비 현재 부족하게 프로비저닝(Under-provisioning)된 권한 범위의 리소스가 있나요?
+  - id: capacity-scaling.optimal-capacity-advisory
+    category: capacity_scaling
+    domain: capacity_performance_forecast
+    intent: capacity_scaling.optimal_capacity_advisory
+    target_kinds: [SizingRecommendation, CapacityForecast]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: As an advisory recommendation only, considering both cost and performance, what capacity level would be optimal?
+      ko: 실행 없이 권고 목적으로, 비용과 성능을 함께 고려하면 최적의 용량은 어느 정도로 권장되나요?
+    safety:
+      action_posture: advise_only
+      execution_authority: false
+  - id: prediction.next-24h-incident-likelihood
+    category: prediction
+    domain: capacity_performance_forecast
+    intent: prediction.next_24h_incident_likelihood
+    target_kinds: [Forecast, BusinessService]
+    temporal_scope: forecast
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Which authorized service has the highest forecasted incident likelihood over the next 24 hours?
+      ko: 향후 24시간 동안 장애 발생 가능성이 가장 높은 것으로 예측되는 권한 범위의 서비스는 무엇인가요?
+  - id: prediction.next-week-cpu-shortage
+    category: prediction
+    domain: capacity_performance_forecast
+    intent: prediction.next_week_cpu_shortage
+    target_kinds: [CapacityForecast, AzureResource]
+    temporal_scope: forecast
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Find authorized resources with a forecasted CPU shortage over the next week.
+      ko: 향후 일주일 동안 CPU 부족이 예측되는 권한 범위의 리소스를 찾아 주세요.
+  - id: prediction.next-month-cost-increase-service
+    category: prediction
+    domain: cost_finops
+    intent: prediction.next_month_cost_increase_service
+    target_kinds: [Forecast, CostObservation]
+    temporal_scope: forecast
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Which authorized service is forecasted to have the largest cost increase over the next month?
+      ko: 향후 한 달 동안 비용이 가장 많이 증가할 것으로 예측되는 권한 범위의 서비스는 무엇인가요?
+  - id: prediction.db-storage-shortage-trend
+    category: prediction
+    domain: capacity_performance_forecast
+    intent: prediction.db_storage_shortage_trend
+    target_kinds: [Database, Forecast]
+    temporal_scope: forecast
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: At the current trend, when is the specified database storage forecasted to become insufficient?
+      ko: 현재 추세를 유지한다면, 지정된 데이터베이스 Storage는 언제 부족해질 것으로 예측되나요?
+  - id: prediction.api-latency-objective-breach-trend
+    category: prediction
+    domain: capacity_performance_forecast
+    intent: prediction.api_latency_objective_breach_trend
+    target_kinds: [ApiService, ServiceObjective, Forecast]
+    temporal_scope: forecast
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: At the current trend, when is the specified API service's latency forecasted to exceed its reviewed service objective?
+      ko: 현재 추세를 유지한다면, 지정된 API 서비스의 지연 시간은 언제 검토된 서비스 목표를 초과할 것으로 예측되나요?
+  - id: prediction.error-trend-incident-threshold
+    category: prediction
+    domain: capacity_performance_forecast
+    intent: prediction.error_trend_incident_threshold
+    target_kinds: [Forecast, Incident]
+    temporal_scope: forecast
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: If the current error growth trend continues, when is it forecasted to reach incident-level severity?
+      ko: 현재 오류 증가 추세가 계속된다면, 언제 장애 수준에 도달할 것으로 예측되나요?
+  - id: prediction.aks-node-shortage-trend
+    category: prediction
+    domain: capacity_performance_forecast
+    intent: prediction.aks_node_shortage_trend
+    target_kinds: [KubernetesCluster, Forecast]
+    temporal_scope: forecast
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: If the current traffic growth rate continues, when is the authorized AKS cluster's node capacity forecasted to become insufficient?
+      ko: 현재 트래픽 증가율이 계속된다면, 권한 범위의 AKS 클러스터의 Node 용량은 언제 부족해질 것으로 예측되나요?
+  - id: prediction.incident-likelihood-priority
+    category: prediction
+    domain: capacity_performance_forecast
+    intent: prediction.incident_likelihood_priority
+    target_kinds: [Forecast, AzureResource]
+    temporal_scope: forecast
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Rank authorized resources by their forecasted incident likelihood.
+      ko: 예측된 장애 발생 가능성을 기준으로 권한 범위의 리소스의 우선순위를 알려 주세요.
+  - id: prediction.highest-risk-metric-next-7d
+    category: prediction
+    domain: capacity_performance_forecast
+    intent: prediction.highest_risk_metric_next_7d
+    target_kinds: [Forecast, Observation]
+    temporal_scope: forecast
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Which operational metric carries the highest forecasted risk over the next 7 days, within authorized scope?
+      ko: 권한 범위 내에서 향후 7일 동안 가장 위험한 것으로 예측되는 운영 지표는 무엇인가요?
+  - id: prediction.sustained-anomaly-service
+    category: prediction
+    domain: state_incident_detection
+    intent: prediction.sustained_anomaly_service
+    target_kinds: [Observation, BusinessService]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Which authorized service currently shows a sustained anomaly signal in its metrics?
+      ko: 현재 메트릭에서 이상 징후가 지속되고 있는 권한 범위의 서비스는 무엇인가요?
+  - id: prediction.next-incident-area-forecast
+    category: prediction
+    domain: capacity_performance_forecast
+    intent: prediction.next_incident_area_forecast
+    target_kinds: [Pattern, Forecast]
+    temporal_scope: forecast
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Based on recent incident patterns, which area has the highest forecasted likelihood of the next incident?
+      ko: 최근 장애 패턴을 기준으로, 다음 장애가 발생할 가능성이 가장 높은 것으로 예측되는 영역은 어디인가요?
+  - id: prediction.first-problem-area-forecast
+    category: prediction
+    domain: capacity_performance_forecast
+    intent: prediction.first_problem_area_forecast
+    target_kinds: [Forecast, AzureResource]
+    temporal_scope: forecast
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Within the current authorized system, which part has the highest forecasted likelihood of becoming a problem first?
+      ko: 현재 권한 범위의 시스템에서 가장 먼저 문제가 될 가능성이 높은 것으로 예측되는 부분은 어디인가요?
+  - id: prediction.budget-overrun-risk
+    category: prediction
+    domain: cost_finops
+    intent: prediction.budget_overrun_risk
+    target_kinds: [Budget, Forecast]
+    temporal_scope: forecast
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: Is there a forecasted risk that this month's authorized cost will exceed the reviewed budget?
+      ko: 검토된 예산 대비, 이번 달 권한 범위의 비용이 초과될 예측 위험이 있나요?
+  - id: prediction.sla-sustainability-forecast
+    category: prediction
+    domain: reliability_policy_automation
+    intent: prediction.sla_sustainability_forecast
+    target_kinds: [ServiceObjective, Forecast]
+    temporal_scope: forecast
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: Based on current trends, is the reviewed service objective forecasted to remain met going forward?
+      ko: 현재 추세를 기준으로, 검토된 서비스 목표를 앞으로도 유지할 수 있을 것으로 예측되나요?
+  - id: prediction.one-month-state-forecast
+    category: prediction
+    domain: capacity_performance_forecast
+    intent: prediction.one_month_state_forecast
+    target_kinds: [Forecast, BusinessService]
+    temporal_scope: forecast
+    result_shape: assessment
+    required_context: server_scope
+    wording:
+      en: If current conditions persist, what state is the authorized system forecasted to be in one month from now?
+      ko: 현재 상태가 유지된다는 가정 하에, 한 달 뒤 권한 범위의 시스템은 어떤 상태가 될 것으로 예측되나요?
+  - id: dependency-impact.api-failure-impact
+    category: dependency_impact
+    domain: dependency_impact
+    intent: dependency_impact.api_failure_impact
+    target_kinds: [ApiService, ImpactEnvelope, BusinessService]
+    temporal_scope: current
+    result_shape: list
+    required_context: explicit_target
+    wording:
+      en: If the specified API service were to fail, which services would fall within its bounded impact scope?
+      ko: 지정된 API 서비스에 장애가 발생하면, 영향 범위에 포함되는 서비스는 무엇인가요?
+  - id: dependency-impact.db-failure-impact
+    duplicate_of: database-storage.db-failure-impact
+    category: dependency_impact
+    domain: dependency_impact
+    intent: dependency_impact.db_failure_impact
+    target_kinds: [Database, ImpactEnvelope, BusinessService]
+    temporal_scope: current
+    result_shape: list
+    required_context: explicit_target
+    wording:
+      en: If the specified database were to fail, which services would fall within its bounded impact scope?
+      ko: 지정된 데이터베이스에 장애가 발생하면, 영향 범위에 포함되는 서비스는 무엇인가요?
+  - id: dependency-impact.pod-failure-impact-scope
+    category: dependency_impact
+    domain: dependency_impact
+    intent: dependency_impact.pod_failure_impact_scope
+    target_kinds: [KubernetesPod, ImpactEnvelope]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified pod's failure, what is its bounded impact scope?
+      ko: 지정된 Pod 장애에 대해, 영향 범위는 어디까지인가요?
+  - id: dependency-impact.region-failure-impact
+    category: dependency_impact
+    domain: dependency_impact
+    intent: dependency_impact.region_failure_impact
+    target_kinds: [AzureResource, ImpactEnvelope, BusinessService]
+    temporal_scope: current
+    result_shape: list
+    required_context: explicit_target
+    wording:
+      en: If the specified authorized Azure region were to fail, which services would fall within its bounded impact scope?
+      ko: 지정된 Azure Region에 장애가 발생하면, 영향 범위에 포함되는 서비스는 무엇인가요?
+  - id: dependency-impact.all-service-dependencies
+    category: dependency_impact
+    domain: dependency_impact
+    intent: dependency_impact.all_service_dependencies
+    target_kinds: [BusinessService, Workload]
+    temporal_scope: current
+    result_shape: graph
+    required_context: explicit_target
+    wording:
+      en: Show every recorded dependency of the specified service.
+      ko: 지정된 서비스의 기록된 의존성을 모두 보여 주세요.
+  - id: dependency-impact.service-azure-resource-dependencies
+    category: dependency_impact
+    domain: dependency_impact
+    intent: dependency_impact.service_azure_resource_dependencies
+    target_kinds: [BusinessService, AzureResource]
+    temporal_scope: current
+    result_shape: list
+    required_context: explicit_target
+    wording:
+      en: Find the authorized Azure resources that the specified service depends on.
+      ko: 지정된 서비스가 의존하는 권한 범위의 Azure 리소스를 찾아 주세요.
+  - id: dependency-impact.resource-dependent-services
+    category: dependency_impact
+    domain: dependency_impact
+    intent: dependency_impact.resource_dependent_services
+    target_kinds: [AzureResource, BusinessService]
+    temporal_scope: current
+    result_shape: list
+    required_context: explicit_target
+    wording:
+      en: Which authorized services depend on the specified resource?
+      ko: 지정된 리소스에 의존하는 권한 범위의 서비스는 무엇인가요?
+  - id: dependency-impact.incident-propagation
+    category: dependency_impact
+    domain: dependency_impact
+    intent: dependency_impact.incident_propagation
+    target_kinds: [Incident, BusinessService]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: incident_binding
+    wording:
+      en: For the specified current incident, is it currently propagating to other authorized services?
+      ko: 지정된 현재 장애가 권한 범위 내 다른 서비스로 전파되고 있나요?
+  - id: dependency-impact.incident-origin-trace
+    category: dependency_impact
+    domain: dependency_impact
+    intent: dependency_impact.incident_origin_trace
+    target_kinds: [Incident, BusinessService]
+    temporal_scope: historical
+    result_shape: timeline
+    required_context: incident_binding
+    wording:
+      en: For the specified incident, trace which service it originated from, based on reviewed evidence.
+      ko: 검토된 근거를 기준으로, 지정된 장애가 어느 서비스에서 시작되었는지 추적해 주세요.
+  - id: dependency-impact.blast-radius-calculation
+    category: dependency_impact
+    domain: dependency_impact
+    intent: dependency_impact.blast_radius_calculation
+    target_kinds: [Incident, ImpactEnvelope]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: incident_binding
+    wording:
+      en: Calculate the bounded blast radius for the specified current incident.
+      ko: 지정된 현재 장애에 대해, 경계가 설정된 Blast Radius를 계산해 주세요.
+  - id: dependency-impact.customer-impact-extent
+    category: dependency_impact
+    domain: dependency_impact
+    intent: dependency_impact.customer_impact_extent
+    target_kinds: [Incident, ImpactEnvelope]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: incident_binding
+    wording:
+      en: For the specified current incident, what is the extent of its reviewed impact on authorized users?
+      ko: 지정된 현재 장애에 대해, 권한 범위의 사용자에게 미치는 검토된 영향의 정도는 어느 정도인가요?
+  - id: dependency-impact.tenant-concentration
+    category: dependency_impact
+    domain: dependency_impact
+    intent: dependency_impact.tenant_concentration
+    target_kinds: [Incident, ImpactEnvelope]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: incident_binding
+    wording:
+      en: Is the specified incident's impact concentrated on a specific authorized tenant scope?
+      ko: 지정된 장애의 영향이 특정 테넌트의 권한 범위에 집중되어 있나요?
+  - id: dependency-impact.resource-group-failure-impact
+    category: dependency_impact
+    domain: dependency_impact
+    intent: dependency_impact.resource_group_failure_impact
+    target_kinds: [AzureResource, ImpactEnvelope]
+    temporal_scope: current
+    result_shape: assessment
+    required_context: explicit_target
+    wording:
+      en: For the specified resource group's failure, what is its bounded impact on the overall authorized system?
+      ko: 지정된 Resource Group 장애가 권한 범위의 전체 시스템에 미치는 경계가 설정된 영향은 무엇인가요?
+  - id: dependency-impact.most-critical-dependency
+    category: dependency_impact
+    domain: dependency_impact
+    intent: dependency_impact.most_critical_dependency
+    target_kinds: [BusinessService, Workload]
+    temporal_scope: current
+    result_shape: ranked_list
+    required_context: server_scope
+    wording:
+      en: Which authorized dependency is currently the most critical, based on reviewed evidence?
+      ko: 검토된 근거를 기준으로 현재 권한 범위에서 가장 핵심적인 의존성은 무엇인가요?
+  - id: dependency-impact.single-point-of-failure
+    category: dependency_impact
+    domain: dependency_impact
+    intent: dependency_impact.single_point_of_failure
+    target_kinds: [BusinessService, Workload]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Find areas within the authorized system where a single point of failure exists.
+      ko: 권한 범위의 시스템 내에서 단일 장애점(SPOF)이 존재하는 영역을 찾아 주세요.
+  - id: change-deployment-release.today-changes
+    category: change_deployment_release
+    domain: change_deployment_impact
+    intent: change_deployment_release.today_changes
+    target_kinds: [Change]
+    temporal_scope: historical
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: What recorded changes occurred today in the authorized Azure environment?
+      ko: 오늘 권한 범위의 Azure 환경에서 기록된 변경사항은 무엇인가요?
+  - id: change-deployment-release.deployed-apps-24h
+    category: change_deployment_release
+    domain: change_deployment_impact
+    intent: change_deployment_release.deployed_apps_24h
+    target_kinds: [Deployment]
+    temporal_scope: historical
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Show which authorized applications were deployed in the last 24 hours.
+      ko: 지난 24시간 동안 배포된 권한 범위의 애플리케이션을 알려 주세요.
+  - id: change-deployment-release.pre-incident-deployment
+    category: change_deployment_release
+    domain: change_deployment_impact
+    intent: change_deployment_release.pre_incident_deployment
+    target_kinds: [Deployment, Incident]
+    temporal_scope: historical
+    result_shape: list
+    required_context: incident_binding
+    wording:
+      en: For the specified incident, was any authorized service deployed immediately before its recorded start?
+      ko: 지정된 장애의 기록된 발생 직전에, 권한 범위 내에서 배포된 서비스가 있나요?
+  - id: change-deployment-release.post-deployment-error-increase
+    category: change_deployment_release
+    domain: change_deployment_impact
+    intent: change_deployment_release.post_deployment_error_increase
+    target_kinds: [Deployment, BusinessService]
+    temporal_scope: comparison
+    result_shape: comparison
+    required_context: explicit_target
+    wording:
+      en: For the specified deployment, has the authorized service's error rate increased since its recorded rollout, without asserting causation?
+      ko: 원인으로 단정하지 않고, 지정된 배포의 기록된 롤아웃 이후 권한 범위의 서비스 오류율이 증가했나요?
+  - id: change-deployment-release.post-deployment-latency-increase
+    category: change_deployment_release
+    domain: change_deployment_impact
+    intent: change_deployment_release.post_deployment_latency_increase
+    target_kinds: [Deployment, BusinessService]
+    temporal_scope: comparison
+    result_shape: comparison
+    required_context: explicit_target
+    wording:
+      en: For the specified deployment, has the authorized service's latency increased since its recorded rollout, without asserting causation?
+      ko: 원인으로 단정하지 않고, 지정된 배포의 기록된 롤아웃 이후 지연 시간이 증가했나요?
+  - id: change-deployment-release.deployment-incident-cause-analysis
+    duplicate_of: root-cause.deployment-incident-correlation
+    category: change_deployment_release
+    domain: root_cause_analysis
+    intent: change_deployment_release.deployment_incident_cause_analysis
+    target_kinds: [Deployment, Incident, CausalHypothesis]
+    temporal_scope: historical
+    result_shape: assessment
+    required_context: incident_binding
+    wording:
+      en: For the specified deployment and incident, does the recorded timing correlate with the incident, without asserting it as the confirmed cause?
+      ko: 확정된 원인으로 단정하지 않고, 지정된 배포의 기록된 시점이 지정된 장애와 상관관계가 있는지 분석해 주세요.
+  - id: change-deployment-release.recent-configuration-changes
+    category: change_deployment_release
+    domain: change_deployment_impact
+    intent: change_deployment_release.recent_configuration_changes
+    target_kinds: [Change, ConfigurationBaseline]
+    temporal_scope: historical
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: Show recent recorded configuration changes within the authorized scope.
+      ko: 권한 범위 내에서 최근 기록된 구성 변경사항을 보여 주세요.
+  - id: change-deployment-release.config-change-timestamp
+    category: change_deployment_release
+    domain: change_deployment_impact
+    intent: change_deployment_release.config_change_timestamp
+    target_kinds: [Change, AzureResource]
+    temporal_scope: historical
+    result_shape: timeline
+    required_context: explicit_target
+    wording:
+      en: For the specified resource, when was its configuration last recorded as changed?
+      ko: 지정된 리소스에 대해, 설정이 마지막으로 기록된 변경 시점은 언제인가요?
+  - id: change-deployment-release.before-after-comparison
+    category: change_deployment_release
+    domain: change_deployment_impact
+    intent: change_deployment_release.before_after_comparison
+    target_kinds: [Change]
+    temporal_scope: comparison
+    result_shape: comparison
+    required_context: explicit_target
+    wording:
+      en: For the specified change, compare the recorded state before and after it was applied.
+      ko: 지정된 변경에 대해, 적용 전과 후의 기록된 상태를 비교해 주세요.
+  - id: change-deployment-release.rollback-candidate-advisory
+    category: change_deployment_release
+    domain: change_deployment_impact
+    intent: change_deployment_release.rollback_candidate_advisory
+    target_kinds: [Change, RecoveryPlan]
+    temporal_scope: current
+    result_shape: list
+    required_context: server_scope
+    wording:
+      en: As an advisory recommendation only, are any current authorized changes candidates for rollback?
+      ko: 실행 없이 권고 목적으로, 현재 권한 범위의 변경사항 중 롤백이 필요한 것이 있나요?
+    safety:
+      action_posture: advise_only
+      execution_authority: false

@@ -27,6 +27,20 @@ Durable semantic execution claims are lease-bound. A waiting duplicate can recov
 instead of remaining blocked behind a failed worker until the request deadline. Store failure keeps
 the turn held rather than raising an untyped transport error.
 
+## Federated question-bank inventory
+
+The repository can join reviewed Golden wording, manual browser prompts, Console starters, and
+operator candidates into one generated review inventory. Each owning source remains authoritative.
+The inventory preserves stable ids, bilingual wording, source digests, explicit duplicate
+relationships, and independent content-review, semantic-contract, runtime-binding, evidence-source,
+and validation states.
+
+Inventory membership is not runtime readiness. A candidate does not become Golden, Console-visible,
+or answerable until its own reviewed semantic expectation, principal-scoped capability binding,
+evidence limitations, forbidden-claim oracle, and required validation exist. Questions about
+recommendations, rollback, scaling, or automation remain advisory or draft-only and always retain
+`execution_authority=false`.
+
 ## Implementation status
 
 ### Implementation scope

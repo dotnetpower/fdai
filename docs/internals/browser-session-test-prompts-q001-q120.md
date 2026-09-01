@@ -3,6 +3,10 @@
 이 문서는 FDAI Console의 새 대화에서 Q001-Q120을 사람이 직접 다시 테스트하기 위한 복붙용
 프롬프트 모음입니다. 각 문항은 기존 seed와 의미를 유지한 변형 두 개를 포함합니다.
 
+> QID와 문구는 [`eval/golden-dataset/question-bank/`](../../eval/golden-dataset/question-bank/)
+> 의 생성된 검토 카탈로그에도 포함됩니다. QID를 바꾸거나 문구를 수정한 뒤에는 질문은행을 다시
+> 생성해 source digest와 bilingual pair를 확인하세요.
+
 ## 테스트 방법
 
 1. FDAI Console에서 **새 대화**를 엽니다.

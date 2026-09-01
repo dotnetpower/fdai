@@ -23,6 +23,7 @@ facts.
 | `questions.schema.json` | Strict JSON Schema for one localized question file. |
 | `semantic-judgment-assurance.json` | Frozen #252 edge overlay, lexical baseline, structured-boundary replay, and acceptance thresholds. |
 | `semantic-judgment-assurance.schema.json` | Strict schema for the #252 edge overlay and metric inputs. |
+| [`question-bank/`](./question-bank/) | Federated bilingual inventory and generated human review catalog spanning Golden, manual, Console, and candidate questions. |
 
 Do not hand-edit `questions.en.json` or `questions.ko.json`. Generate both from the reviewed source:
 
@@ -104,12 +105,22 @@ request to `questions.source.yaml`. The generator creates all eight wording vari
 resource identities and customer data outside the repository. Add a new relationship expectation
 only when its ObjectType and LinkType declarations already exist in the shipped catalog.
 
+For an operator question that does not yet have a complete semantic and answer oracle, add it as a
+candidate in
+[`question-bank.source.yaml`](./question-bank/question-bank.source.yaml). The generated review
+catalog keeps candidate readiness separate from Golden coverage, runtime binding, retained
+evidence, and live validation. See the
+[question-bank workflow](./question-bank/README.md) for the authoring and promotion process.
+
 ## Validation
 
 Run the focused dataset contract test from the repository root:
 
 ```bash
-uv run pytest -q --no-cov tests/integration/evaluation/test_golden_dataset.py -o addopts=''
+uv run pytest -q --no-cov \
+  tests/integration/evaluation/test_question_bank.py \
+  tests/integration/evaluation/test_golden_dataset.py \
+  -o addopts=''
 ```
 
 The test validates all schemas, generated-artifact drift, 280-case bilingual parity, perspective,

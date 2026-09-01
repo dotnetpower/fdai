@@ -1,0 +1,566 @@
+schema_version: "1.0.0"
+catalog_version: "1.0.0"
+
+sources:
+  golden_questions: eval/golden-dataset/questions.source.yaml
+  golden_expectations: eval/golden-dataset/expectations.json
+  golden_coverage: eval/golden-dataset/coverage.json
+  golden_english: eval/golden-dataset/questions.en.json
+  golden_korean: eval/golden-dataset/questions.ko.json
+  manual_prompts: docs/internals/browser-session-test-prompts-q001-q120.md
+  console_english: console/src/i18n/messages.en.json
+  console_korean: console/src/i18n/messages.ko.json
+
+candidate_sources:
+  - eval/golden-dataset/question-bank/operator-question-expansion.source.yaml
+
+golden_category_domains:
+  change_safety: change_deployment_impact
+  current_state: state_incident_detection
+  evidence_quality: reliability_policy_automation
+  incident_diagnosis: root_cause_analysis
+  incident_history: root_cause_analysis
+  network_resilience: dependency_impact
+  operating_intent: reliability_policy_automation
+  ownership: reliability_policy_automation
+  recovery: reliability_policy_automation
+  rule_governance: reliability_policy_automation
+  service_impact: dependency_impact
+  topology: dependency_impact
+
+manual_domain_ranges:
+  - first: 1
+    last: 20
+    domain: state_incident_detection
+  - first: 21
+    last: 36
+    domain: change_deployment_impact
+  - first: 37
+    last: 60
+    domain: capacity_performance_forecast
+  - first: 61
+    last: 80
+    domain: root_cause_analysis
+  - first: 81
+    last: 90
+    domain: dependency_impact
+  - first: 91
+    last: 120
+    domain: reliability_policy_automation
+
+console_questions:
+  - key: routes
+    domain: reliability_policy_automation
+    intent: console.route_discovery
+  - key: failed
+    domain: state_incident_detection
+    intent: console.failed_actions
+  - key: approval
+    domain: reliability_policy_automation
+    intent: console.pending_approval
+  - key: denied
+    domain: reliability_policy_automation
+    intent: console.denied_actions
+  - key: stuck
+    domain: state_incident_detection
+    intent: console.stuck_actions
+  - key: screen
+    domain: state_incident_detection
+    intent: console.current_screen
+  - key: tierMix
+    domain: reliability_policy_automation
+    intent: console.tier_mix
+
+candidate_defaults:
+  readiness:
+    content_review: candidate
+    semantic_contract: unassessed
+    runtime_binding: unassessed
+    evidence_source: unassessed
+    validation: not_run
+  safety:
+    action_posture: read_only
+    execution_authority: false
+  surfaces:
+    - catalog
+
+candidate_groups:
+  - domain: state_incident_detection
+    questions:
+      - id: detection.active-azure-resource-incidents
+        intent: incident.active_resource_detection
+        target_kinds: [AzureResource]
+        temporal_scope: current
+        result_shape: list
+        required_context: server_scope
+        wording:
+          en: In the authorized scope, are any Azure resources affected by a current incident? Include the authoritative observation time and evidence gaps.
+          ko: 권한 범위에서 현재 장애의 영향을 받는 Azure 리소스가 있나요? 권위 있는 관측 시각과 근거 공백을 함께 알려 주세요.
+      - id: detection.high-cpu-vms
+        intent: metric.high_cpu_virtual_machines
+        target_kinds: [VirtualMachine]
+        temporal_scope: current
+        result_shape: ranked_list
+        required_context: server_scope
+        wording:
+          en: Find virtual machines with high current CPU usage in the authorized scope, and distinguish measured values from unavailable telemetry.
+          ko: 권한 범위에서 현재 CPU 사용률이 높은 가상 머신을 찾아 측정값과 사용할 수 없는 텔레메트리를 구분해 주세요.
+      - id: detection.service-error-surge-10m
+        intent: metric.service_error_surge
+        target_kinds: [BusinessService, Workload]
+        temporal_scope: comparison
+        result_shape: ranked_list
+        required_context: server_scope
+        wording:
+          en: Which services had a material error increase during the past 10 minutes compared with their reviewed baseline?
+          ko: 지난 10분 동안 검토된 기준선보다 오류가 유의하게 증가한 서비스를 알려 주세요.
+      - id: detection.slowest-api-current
+        intent: metric.slowest_api
+        target_kinds: [BusinessService, Workload]
+        temporal_scope: current
+        result_shape: ranked_list
+        required_context: server_scope
+        wording:
+          en: Which API currently has the highest verified response latency in the authorized scope? State the comparison window and coverage.
+          ko: 권한 범위에서 현재 검증된 응답 지연 시간이 가장 높은 API는 무엇인가요? 비교 구간과 측정 범위를 함께 알려 주세요.
+      - id: detection.unhealthy-aks-pods
+        intent: kubernetes.unhealthy_pods
+        target_kinds: [KubernetesPod]
+        temporal_scope: current
+        result_shape: list
+        required_context: server_scope
+        wording:
+          en: Are any AKS Pods currently unhealthy? Separate verified unhealthy states from missing or stale Kubernetes evidence.
+          ko: 현재 AKS에서 비정상 상태인 Pod가 있나요? 검증된 비정상 상태와 누락되거나 오래된 Kubernetes 근거를 구분해 주세요.
+      - id: detection.restarted-pods-30m
+        intent: kubernetes.pod_restarts
+        target_kinds: [KubernetesPod]
+        temporal_scope: historical
+        result_shape: list
+        required_context: server_scope
+        wording:
+          en: Find Pods that restarted during the past 30 minutes and include the observed restart count, time, and evidence coverage.
+          ko: 지난 30분 동안 다시 시작된 Pod를 찾아 관측된 재시작 횟수, 시각, 근거 범위를 알려 주세요.
+      - id: detection.service-objective-breaches
+        intent: service_objective.current_breach
+        target_kinds: [BusinessService, ServiceObjective]
+        temporal_scope: current
+        result_shape: list
+        required_context: server_scope
+        wording:
+          en: Which services are currently below a reviewed availability objective? Distinguish measured breaches from missing objective or telemetry evidence.
+          ko: 현재 검토된 가용성 목표보다 낮은 서비스가 있나요? 측정된 위반과 목표 또는 텔레메트리 근거 부족을 구분해 주세요.
+      - id: detection.azure-monitor-anomalies
+        intent: anomaly.azure_monitor_summary
+        target_kinds: [Observation, AzureResource]
+        temporal_scope: current
+        result_shape: ranked_list
+        required_context: server_scope
+        wording:
+          en: Summarize the most significant current anomalies supported by Azure Monitor evidence in the authorized scope.
+          ko: 권한 범위에서 Azure Monitor 근거로 뒷받침되는 현재의 주요 이상 징후를 요약해 주세요.
+      - id: detection.high-severity-incidents-today
+        intent: incident.high_severity_today
+        target_kinds: [Incident]
+        temporal_scope: historical
+        result_shape: list
+        required_context: server_scope
+        wording:
+          en: Were any incidents recorded today at the two highest reviewed severity levels? Include status, impact, and evidence time.
+          ko: 오늘 검토된 심각도 기준의 상위 두 수준으로 기록된 장애가 있나요? 상태, 영향, 근거 시각을 함께 알려 주세요.
+      - id: detection.current-user-impact
+        intent: incident.current_user_impact
+        target_kinds: [Incident, BusinessService]
+        temporal_scope: current
+        result_shape: list
+        required_context: server_scope
+        wording:
+          en: Which active incidents have verified current user impact, and which impact claims remain unknown?
+          ko: 현재 사용자 영향이 검증된 진행 중 장애는 무엇이며, 어떤 영향 주장은 아직 알 수 없나요?
+
+  - domain: root_cause_analysis
+    questions:
+      - id: diagnosis.api-latency-increase
+        intent: causal.api_latency_increase
+        target_kinds: [BusinessService, Workload]
+        temporal_scope: comparison
+        result_shape: assessment
+        required_context: explicit_target
+        wording:
+          en: For an exact API service, what evidence explains the sudden response-latency increase? Rank competing hypotheses and counter-evidence.
+          ko: 정확한 API 서비스를 지정한 뒤 응답 지연 시간이 갑자기 증가한 이유를 근거로 설명해 주세요. 경쟁 가설과 반증을 함께 순위화해 주세요.
+      - id: diagnosis.cpu-increase-1h
+        intent: causal.cpu_increase
+        target_kinds: [AzureResource]
+        temporal_scope: historical
+        result_shape: assessment
+        required_context: explicit_target
+        wording:
+          en: For an exact resource, analyze the CPU increase during the past hour and separate temporal correlation from supported cause.
+          ko: 정확한 리소스를 지정한 뒤 지난 1시간의 CPU 증가를 분석하고 시간적 상관관계와 근거가 있는 원인을 구분해 주세요.
+      - id: diagnosis.change-at-symptom-onset
+        intent: causal.change_at_symptom_onset
+        target_kinds: [Incident, Change]
+        temporal_scope: comparison
+        result_shape: timeline
+        required_context: incident_binding
+        wording:
+          en: Which verified changes occurred when this incident's error symptoms began? Do not treat timing alone as proof of cause.
+          ko: 이 장애의 오류 증상이 시작된 시점에 어떤 검증된 변경이 있었나요? 시간적 선후 관계만으로 원인을 확정하지 마세요.
+      - id: diagnosis.pod-restart-increase
+        intent: causal.pod_restart_increase
+        target_kinds: [KubernetesPod]
+        temporal_scope: comparison
+        result_shape: assessment
+        required_context: explicit_target
+        wording:
+          en: For an exact Pod, what evidence explains the restart increase? Include supporting and refuting observations.
+          ko: 정확한 Pod를 지정한 뒤 재시작 증가를 설명하는 근거를 알려 주세요. 지지 근거와 반증 관측을 함께 포함해 주세요.
+      - id: diagnosis.application-vs-infrastructure-latency
+        intent: causal.application_infrastructure_latency
+        target_kinds: [BusinessService, Workload, AzureResource]
+        temporal_scope: comparison
+        result_shape: comparison
+        required_context: explicit_target
+        wording:
+          en: For an exact service, compare application and infrastructure evidence for the response-latency increase and state what remains unresolved.
+          ko: 정확한 서비스를 지정한 뒤 응답 지연 증가에 대한 애플리케이션 근거와 인프라 근거를 비교하고 미해결 사항을 알려 주세요.
+      - id: diagnosis.aks-node-high-cpu
+        intent: causal.aks_node_high_cpu
+        target_kinds: [KubernetesNode]
+        temporal_scope: current
+        result_shape: assessment
+        required_context: explicit_target
+        wording:
+          en: For an exact AKS node, what verified workload, scheduling, and infrastructure evidence explains its high CPU usage?
+          ko: 정확한 AKS 노드를 지정한 뒤 높은 CPU 사용률을 설명하는 워크로드, 스케줄링, 인프라 근거를 알려 주세요.
+      - id: diagnosis.post-deployment-error-rate
+        intent: causal.post_deployment_error_rate
+        target_kinds: [Deployment, BusinessService]
+        temporal_scope: comparison
+        result_shape: comparison
+        required_context: explicit_target
+        wording:
+          en: For an exact deployment and service, did the verified error rate increase afterward? Report association without claiming unsupported causation.
+          ko: 정확한 배포와 서비스를 지정한 뒤 배포 후 검증된 오류율이 증가했는지 확인해 주세요. 근거 없는 인과관계를 주장하지 말고 연관성을 알려 주세요.
+      - id: diagnosis.database-latency-contribution
+        intent: causal.database_latency_contribution
+        target_kinds: [Database, BusinessService]
+        temporal_scope: comparison
+        result_shape: assessment
+        required_context: explicit_target
+        wording:
+          en: For an exact database and API service, determine whether database degradation is a supported contributor to the response-latency increase.
+          ko: 정확한 데이터베이스와 API 서비스를 지정한 뒤 데이터베이스 성능 저하가 응답 지연 증가의 근거 있는 기여 요인인지 확인해 주세요.
+      - id: diagnosis.common-incident-causes-24h
+        intent: causal.common_incident_causes
+        target_kinds: [Incident, CausalHypothesis]
+        temporal_scope: historical
+        result_shape: ranked_list
+        required_context: server_scope
+        wording:
+          en: Across incidents from the past 24 hours, which supported causal mechanisms recur within complete observation windows?
+          ko: 지난 24시간의 장애 중 완전한 관측 구간에서 반복되는 근거 있는 인과 메커니즘이 있는지 알려 주세요.
+      - id: diagnosis.strongest-supported-root-cause
+        intent: causal.strongest_supported_root_cause
+        target_kinds: [Incident, CausalHypothesis]
+        temporal_scope: current
+        result_shape: ranked_list
+        required_context: incident_binding
+        wording:
+          en: What is the strongest supported root-cause hypothesis for this incident? Include confidence, counter-evidence, and unresolved alternatives.
+          ko: 이 장애에서 근거가 가장 강한 근본 원인 가설은 무엇인가요? 신뢰도, 반증, 미해결 대안을 함께 알려 주세요.
+
+  - domain: change_deployment_impact
+    questions:
+      - id: change.deployments-today
+        intent: change.deployments_today
+        target_kinds: [Deployment]
+        temporal_scope: historical
+        result_shape: list
+        required_context: server_scope
+        wording:
+          en: List deployments recorded today in the authorized scope, including status, target, actor category, and observation time.
+          ko: 권한 범위에서 오늘 기록된 배포를 상태, 대상, 행위자 유형, 관측 시각과 함께 보여 주세요.
+      - id: change.azure-resource-changes-24h
+        intent: change.azure_resources_24h
+        target_kinds: [Change, AzureResource]
+        temporal_scope: historical
+        result_shape: timeline
+        required_context: server_scope
+        wording:
+          en: What verified Azure resource changes occurred during the past 24 hours in the authorized scope?
+          ko: 권한 범위에서 지난 24시간 동안 발생한 검증된 Azure 리소스 변경을 알려 주세요.
+      - id: change.pre-incident-resource-changes
+        intent: change.pre_incident_resources
+        target_kinds: [Incident, Change, AzureResource]
+        temporal_scope: comparison
+        result_shape: timeline
+        required_context: incident_binding
+        wording:
+          en: Which verified resource changes occurred immediately before this incident, and which affected paths connect them to the symptoms?
+          ko: 이 장애 직전에 어떤 검증된 리소스 변경이 있었으며, 해당 변경과 증상을 연결하는 영향 경로가 있는지 알려 주세요.
+      - id: change.failed-aks-deployments
+        intent: deployment.failed_aks
+        target_kinds: [Deployment, KubernetesWorkload]
+        temporal_scope: historical
+        result_shape: list
+        required_context: server_scope
+        wording:
+          en: Find recent failed AKS deployments and include the exact observed failure stage and evidence gaps.
+          ko: 최근 실패한 AKS 배포를 찾아 정확히 관측된 실패 단계와 근거 공백을 알려 주세요.
+      - id: change.deployment-error-rate-impact
+        intent: change.deployment_error_rate_impact
+        target_kinds: [Deployment, BusinessService]
+        temporal_scope: comparison
+        result_shape: assessment
+        required_context: explicit_target
+        wording:
+          en: For an exact deployment and service, assess whether the deployment is associated with the error-rate increase without promoting correlation to causation.
+          ko: 정확한 배포와 서비스를 지정한 뒤 배포가 오류율 증가와 연관되는지 평가하고 상관관계를 인과관계로 승격하지 마세요.
+      - id: change.vm-configuration-history
+        intent: change.vm_configuration_history
+        target_kinds: [VirtualMachine, Change]
+        temporal_scope: historical
+        result_shape: timeline
+        required_context: explicit_target
+        wording:
+          en: For an exact virtual machine, when was its configuration last changed, what changed, and which source observed it?
+          ko: 정확한 가상 머신을 지정한 뒤 구성이 마지막으로 변경된 시각, 변경 내용, 관측한 원본을 알려 주세요.
+      - id: change.infrastructure-diff-week-over-week
+        intent: change.infrastructure_weekly_diff
+        target_kinds: [AzureResource, Change]
+        temporal_scope: comparison
+        result_shape: comparison
+        required_context: server_scope
+        wording:
+          en: Compare retained infrastructure topology with one week ago and report only evidence-backed configuration changes.
+          ko: 보존된 인프라 토폴로지를 1주 전과 비교하고 근거로 뒷받침되는 구성 변경만 알려 주세요.
+      - id: change.network-change-service-impact
+        intent: change.network_service_impact
+        target_kinds: [Change, NetworkResource, BusinessService]
+        temporal_scope: comparison
+        result_shape: graph
+        required_context: server_scope
+        wording:
+          en: Which services have a verified dependency path to recent network changes, and what impact is actually observed?
+          ko: 최근 네트워크 변경과 검증된 의존 경로가 있는 서비스는 무엇이며 실제로 관측된 영향은 무엇인가요?
+      - id: change.possible-impact-scope
+        intent: change.possible_impact_scope
+        target_kinds: [Change, AzureResource, BusinessService]
+        temporal_scope: current
+        result_shape: graph
+        required_context: explicit_target
+        wording:
+          en: For an exact proposed change, show the bounded resources and services it could affect without claiming that impact has occurred.
+          ko: 정확한 변경 제안을 지정한 뒤 영향을 받을 수 있는 리소스와 서비스를 제한된 범위로 보여 주고 영향이 발생했다고 주장하지 마세요.
+      - id: change.deployment-go-no-go
+        intent: deployment.readiness_assessment
+        target_kinds: [Deployment, ServiceObjective, Incident]
+        temporal_scope: current
+        result_shape: assessment
+        required_context: explicit_target
+        wording:
+          en: For an exact deployment, assess whether evidence supports continuing, holding, or rolling back. This is an advisory assessment, not approval or execution.
+          ko: 정확한 배포를 지정한 뒤 근거가 계속 진행, 보류, 롤백 중 무엇을 뒷받침하는지 평가해 주세요. 이 평가는 자문이며 승인이나 실행이 아닙니다.
+        safety:
+          action_posture: advise_only
+          execution_authority: false
+
+  - domain: dependency_impact
+    questions:
+      - id: dependency.api-service-impact
+        intent: impact.api_failure
+        target_kinds: [BusinessService, Workload]
+        temporal_scope: current
+        result_shape: graph
+        required_context: explicit_target
+        wording:
+          en: For an exact API, which services have verified dependency paths that could be affected by its failure?
+          ko: 정확한 API를 지정한 뒤 장애가 발생할 경우 검증된 의존 경로를 통해 영향을 받을 수 있는 서비스를 알려 주세요.
+      - id: dependency.incident-propagation
+        intent: impact.incident_propagation
+        target_kinds: [Incident, BusinessService]
+        temporal_scope: current
+        result_shape: graph
+        required_context: incident_binding
+        wording:
+          en: Is this incident propagating to other services according to time-aligned observations and verified dependency paths?
+          ko: 시간 정렬된 관측과 검증된 의존 경로에 따르면 이 장애가 다른 서비스로 전파되고 있나요?
+      - id: dependency.pod-azure-dependencies
+        intent: dependency.pod_azure_resources
+        target_kinds: [KubernetesPod, AzureResource]
+        temporal_scope: current
+        result_shape: graph
+        required_context: explicit_target
+        wording:
+          en: For an exact Pod, show its verified Azure resource dependencies and mark missing or conflicting path segments.
+          ko: 정확한 Pod를 지정한 뒤 검증된 Azure 리소스 의존성을 보여 주고 누락되거나 충돌하는 경로 구간을 표시해 주세요.
+      - id: dependency.database-applications
+        intent: dependency.database_applications
+        target_kinds: [Database, Workload, BusinessService]
+        temporal_scope: current
+        result_shape: graph
+        required_context: explicit_target
+        wording:
+          en: For an exact database, find all directly dependent applications within the bounded authorized graph.
+          ko: 정확한 데이터베이스를 지정한 뒤 제한된 권한 그래프에서 직접 의존하는 애플리케이션을 모두 찾아 주세요.
+      - id: dependency.storage-account-impact
+        intent: impact.storage_account_failure
+        target_kinds: [StorageAccount, Workload, BusinessService]
+        temporal_scope: current
+        result_shape: graph
+        required_context: explicit_target
+        wording:
+          en: For an exact Storage Account, which workloads and services have verified dependency paths that could be affected by a failure?
+          ko: 정확한 Storage Account를 지정한 뒤 장애 발생 시 검증된 의존 경로를 통해 영향을 받을 수 있는 워크로드와 서비스를 알려 주세요.
+      - id: dependency.incident-impact-scope
+        intent: impact.incident_scope
+        target_kinds: [Incident, AzureResource, BusinessService]
+        temporal_scope: current
+        result_shape: graph
+        required_context: incident_binding
+        wording:
+          en: Calculate the bounded impact scope for this incident using only verified relationships, and report truncation and evidence gaps.
+          ko: 검증된 관계만 사용해 이 장애의 제한된 영향 범위를 계산하고 잘림 여부와 근거 공백을 알려 주세요.
+      - id: dependency.direct-customer-impact
+        intent: impact.direct_customer
+        target_kinds: [Incident, BusinessService, ServiceObjective]
+        temporal_scope: current
+        result_shape: assessment
+        required_context: incident_binding
+        wording:
+          en: Does this incident have verified direct customer impact? Separate measured service-objective effects from inferred exposure.
+          ko: 이 장애가 고객에게 직접 영향을 주고 있다는 검증된 근거가 있나요? 측정된 서비스 목표 영향과 추정된 노출을 구분해 주세요.
+      - id: dependency.incident-propagation-path
+        intent: impact.incident_path
+        target_kinds: [Incident, AzureResource, Workload, BusinessService]
+        temporal_scope: historical
+        result_shape: graph
+        required_context: incident_binding
+        wording:
+          en: Trace where this incident began and how far it propagated using time-consistent observations, while marking unverified segments.
+          ko: 시간 일관성이 있는 관측을 사용해 이 장애가 시작된 위치와 전파된 범위를 추적하고 검증되지 않은 구간을 표시해 주세요.
+
+  - domain: capacity_performance_forecast
+    questions:
+      - id: capacity.shortfall-risk
+        intent: forecast.capacity_shortfall_risk
+        target_kinds: [AzureResource, BusinessService]
+        temporal_scope: forecast
+        result_shape: ranked_list
+        required_context: server_scope
+        wording:
+          en: Based on retained utilization trends, which services have a supported near-term capacity shortfall risk? Include horizon, uncertainty, and missing data.
+          ko: 보존된 사용량 추세를 기준으로 단기간 내 용량 부족 위험이 근거로 뒷받침되는 서비스를 알려 주세요. 예측 기간, 불확실성, 누락 데이터를 포함해 주세요.
+      - id: capacity.vm-cpu-exhaustion-7d
+        intent: forecast.vm_cpu_exhaustion
+        target_kinds: [VirtualMachine]
+        temporal_scope: forecast
+        result_shape: ranked_list
+        required_context: server_scope
+        wording:
+          en: Find virtual machines with evidence-supported CPU capacity risk within seven days, including the forecast method and confidence interval.
+          ko: 7일 이내에 CPU 용량 부족 위험이 근거로 뒷받침되는 가상 머신을 찾아 예측 방법과 신뢰 구간을 알려 주세요.
+      - id: capacity.aks-load-headroom
+        intent: forecast.aks_load_headroom
+        target_kinds: [KubernetesCluster, KubernetesNode]
+        temporal_scope: forecast
+        result_shape: assessment
+        required_context: explicit_target
+        wording:
+          en: For an exact AKS cluster, assess whether current node headroom can sustain the observed traffic trend and state the forecast limits.
+          ko: 정확한 AKS 클러스터를 지정한 뒤 현재 노드 여유 용량이 관측된 트래픽 추세를 감당할 수 있는지 평가하고 예측 한계를 알려 주세요.
+      - id: capacity.scale-out-timing
+        intent: forecast.scale_out_timing
+        target_kinds: [BusinessService, Workload]
+        temporal_scope: forecast
+        result_shape: assessment
+        required_context: explicit_target
+        wording:
+          en: For an exact service, when would scale-out become necessary if the verified traffic trend continues? Include assumptions and uncertainty.
+          ko: 정확한 서비스를 지정한 뒤 검증된 트래픽 추세가 계속될 경우 언제 scale-out이 필요해지는지 가정과 불확실성을 포함해 알려 주세요.
+      - id: capacity.database-exhaustion-horizon
+        intent: forecast.database_capacity_horizon
+        target_kinds: [Database]
+        temporal_scope: forecast
+        result_shape: assessment
+        required_context: explicit_target
+        wording:
+          en: For an exact database, estimate how long current capacity can sustain the retained growth trend and identify unsupported assumptions.
+          ko: 정확한 데이터베이스를 지정한 뒤 현재 용량이 보존된 증가 추세를 얼마나 감당할 수 있는지 추정하고 근거가 부족한 가정을 표시해 주세요.
+      - id: capacity.month-over-month-performance
+        intent: performance.month_over_month
+        target_kinds: [BusinessService, ServiceObjective]
+        temporal_scope: comparison
+        result_shape: comparison
+        required_context: server_scope
+        wording:
+          en: Compared with last month, which measured system performance indicators improved or degraded within equivalent observation windows?
+          ko: 동일한 관측 구간을 기준으로 지난달과 비교해 어떤 시스템 성능 지표가 개선되거나 저하됐는지 알려 주세요.
+      - id: capacity.service-degradation-trend
+        intent: performance.service_degradation_trend
+        target_kinds: [BusinessService]
+        temporal_scope: comparison
+        result_shape: assessment
+        required_context: explicit_target
+        wording:
+          en: For an exact service, determine whether retained evidence supports a performance-degradation trend and distinguish it from short-lived anomalies.
+          ko: 정확한 서비스를 지정한 뒤 보존된 근거가 성능 저하 추세를 뒷받침하는지 확인하고 일시적인 이상 징후와 구분해 주세요.
+
+  - domain: reliability_policy_automation
+    questions:
+      - id: reliability.policy-violations
+        intent: policy.current_violations
+        target_kinds: [AzureResource, Rule]
+        temporal_scope: current
+        result_shape: list
+        required_context: server_scope
+        wording:
+          en: Which Azure resources have current findings from active reviewed policies? Do not treat catalog-only rules as current violations.
+          ko: 활성 상태의 검토된 정책에서 현재 발견된 문제가 있는 Azure 리소스를 알려 주세요. 카탈로그 전용 Rule을 현재 위반으로 취급하지 마세요.
+      - id: reliability.auto-recovery-candidates
+        intent: recovery.automation_candidates
+        target_kinds: [BusinessService, RecoveryPlan, ActionType]
+        temporal_scope: current
+        result_shape: list
+        required_context: server_scope
+        wording:
+          en: Which services have reviewed recovery plans and automation candidates, and which approval or safeguard gaps block eligibility?
+          ko: 검토된 복구 계획과 자동화 후보가 있는 서비스는 무엇이며, 어떤 승인 또는 안전장치 공백이 적격성을 차단하나요?
+      - id: reliability.safe-action-eligibility
+        intent: action.safe_eligibility
+        target_kinds: [Incident, ActionType, RecoveryPlan]
+        temporal_scope: current
+        result_shape: assessment
+        required_context: incident_binding
+        wording:
+          en: Which read-only checks or draft actions are currently eligible for this incident? Explain every unmet safeguard without approving or executing anything.
+          ko: 이 장애에서 현재 적격한 읽기 전용 확인 또는 작업 초안은 무엇인가요? 어떤 것도 승인하거나 실행하지 말고 충족되지 않은 안전장치를 모두 설명해 주세요.
+        safety:
+          action_posture: advise_only
+          execution_authority: false
+      - id: reliability.recovery-recommendations
+        intent: recovery.recommendations
+        target_kinds: [Incident, RecoveryPlan]
+        temporal_scope: current
+        result_shape: ranked_list
+        required_context: incident_binding
+        wording:
+          en: Recommend evidence-backed recovery options for this incident, including risk, rollback, impact scope, approval, and independent verification requirements.
+          ko: 이 장애에 대해 근거가 있는 복구 선택지를 추천하고 위험, 롤백, 영향 범위, 승인, 독립 검증 요구사항을 알려 주세요.
+        safety:
+          action_posture: advise_only
+          execution_authority: false
+      - id: reliability.automatic-recovery-readiness
+        intent: recovery.automatic_readiness
+        target_kinds: [Incident, RecoveryPlan, ActionType]
+        temporal_scope: current
+        result_shape: assessment
+        required_context: incident_binding
+        wording:
+          en: Assess whether automatic recovery is eligible for this incident without executing it. Verify authorization, stop condition, tested rollback, impact limit, dry run, target lock, idempotency key, two-phase audit, and independent effect verification.
+          ko: 실행하지 말고 이 장애의 자동 복구 적격성을 평가해 주세요. 권한, 중지 조건, 검증된 롤백, 영향 범위 제한, dry-run, 논리적 대상 잠금, idempotency key, 2단계 감사, 독립 효과 검증을 확인해 주세요.
+        safety:
+          action_posture: advise_only
+          execution_authority: false
