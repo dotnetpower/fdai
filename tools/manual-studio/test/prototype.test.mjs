@@ -63,6 +63,58 @@ test("completed manuals provide the catalog slide count and source evidence", as
   }
 });
 
+test("ontology foundation connects LLM, RAG, ontology, and current FDAI implementation", async () => {
+  const { additionalManualSlides } = await import(new URL("manual-content.js", root));
+  const slides = additionalManualSlides["ontology-foundation"];
+  const titles = slides.map((slide) => slide.title).join("\n");
+  const content = slides.map((slide) => `${slide.lead}\n${slide.content}`).join("\n");
+
+  assert.equal(slides.length, 40);
+  assert.ok(slides.every((slide) => slide.layout.startsWith("ontology-")));
+  assert.match(titles, /LLM은 다음 토큰의 확률을 계산합니다/);
+  assert.match(titles, /RAG는 생성 전에 외부 근거를 회수합니다/);
+  assert.match(titles, /다섯 운영 렌즈와 다섯 선언 종류는 다릅니다/);
+  assert.match(content, /3,405/);
+  assert.match(content, /80<\/strong><span>검토된 클래스 멤버십/);
+  assert.match(content, /17<\/strong><span>지원하는 QueryNodeKind/);
+  assert.match(content, /current_state_only/);
+  assert.match(content, /384차원<\/strong><span>구현된 메모리 내 의미 검색/);
+  assert.match(content, /OntologyChangeProposal/);
+  assert.doesNotMatch(content, /77:검토된 클래스 멤버십/);
+});
+
+test("non-ontology manuals use briefing layouts and preserve architecture boundaries", async () => {
+  const { additionalManualSlides } = await import(new URL("manual-content.js", root));
+  const briefingIds = [
+    "readiness-maturity",
+    "art-of-possible",
+    "value-prioritization",
+    "target-architecture",
+    "responsible-ai-security",
+    "pilot-production",
+    "ai-operating-model",
+    "enterprise-scale-roadmap",
+  ];
+
+  for (const id of briefingIds) {
+    const slides = additionalManualSlides[id];
+    assert.ok(slides.every((slide) => slide.layout.startsWith("briefing-")));
+    assert.ok(new Set(slides.map((slide) => slide.layout.split(" ")[0])).size >= 8);
+  }
+
+  const contentFor = (id) => additionalManualSlides[id]
+    .map((slide) => `${slide.title}\n${slide.lead}\n${slide.content}`)
+    .join("\n");
+  assert.match(contentFor("readiness-maturity"), /각 기준선과 처리군의 최소 표본/);
+  assert.match(contentFor("value-prioritization"), /근거 준비도는 가중치가 아니라 적격성 기준/);
+  assert.match(contentFor("target-architecture"), /문서 처리 Worker/);
+  assert.match(contentFor("responsible-ai-security"), /snapshot_restore/);
+  assert.match(contentFor("responsible-ai-security"), /프롬프트 주입/);
+  assert.match(contentFor("pilot-production"), /A3-E 적용 여부/);
+  assert.match(contentFor("ai-operating-model"), /고정된 전체 에이전트/);
+  assert.match(contentFor("enterprise-scale-roadmap"), /C5 근거 건전성/);
+});
+
 test("completed manuals retain three verified hardening rounds", async () => {
   const evidence = JSON.parse(
     await readFile(new URL("validation-evidence.json", root), "utf8"),
@@ -173,13 +225,17 @@ test("Cover Flow supports pointer-capture dragging", async () => {
 
 test("viewer fullscreen control tracks browser fullscreen state", async () => {
   const script = await readFile(new URL("app.js", root), "utf8");
+  const css = await readFile(new URL("styles.css", root), "utf8");
   const library = await readFile(new URL("library.html", root), "utf8");
 
   assert.match(library, /id="fullscreen-manual"[^>]+aria-pressed="false"/);
-  assert.match(script, /const fullscreenRoot = document\.documentElement/);
+  assert.match(script, /const fullscreenRoot = stage/);
+  assert.doesNotMatch(script, /const fullscreenRoot = document\.documentElement/);
   assert.match(script, /await fullscreenRoot\.requestFullscreen\(\)/);
   assert.match(script, /document\.addEventListener\("fullscreenchange", syncFullscreenButton\)/);
   assert.match(script, /fullscreenButton\.setAttribute\("aria-pressed", String\(active\)\)/);
   assert.match(script, /전체 화면 종료/);
   assert.match(script, /manual_studio_fullscreen_failed/);
+  assert.match(css, /\.slide-stage:fullscreen \{/);
+  assert.match(css, /\.slide-stage:fullscreen \.manual-slide \{/);
 });
