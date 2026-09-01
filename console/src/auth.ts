@@ -13,6 +13,7 @@ import type {
   AccountInfo,
   Configuration,
   PublicClientApplication,
+  RedirectRequest,
 } from "@azure/msal-browser";
 import {
   installAuthSessionKeeper,
@@ -43,12 +44,16 @@ export interface AuthContext {
   readonly interactiveSignIn?: boolean;
   /** Return the current bearer token or `null` when dev mode. */
   getAuthorizationHeader(): Promise<string | null>;
-  /** Trigger sign-in redirect. No-op in dev mode. */
-  signIn(): Promise<void>;
+  /** Trigger sign-in redirect. No-op in anonymous and CLI-backed dev modes. */
+  signIn(options?: SignInOptions): Promise<void>;
   /** Sign out redirect. No-op in dev mode. */
   signOut(): Promise<void>;
   /** Keep an authenticated browser session warm for this App lifecycle. */
   startSessionKeeper?(): () => void;
+}
+
+export interface SignInOptions {
+  readonly selectAccount?: boolean;
 }
 
 class DevModeAuth implements AuthContext {
@@ -58,7 +63,7 @@ class DevModeAuth implements AuthContext {
   async getAuthorizationHeader(): Promise<string | null> {
     return null;
   }
-  async signIn(): Promise<void> {
+  async signIn(_options?: SignInOptions): Promise<void> {
     /* no-op */
   }
   async signOut(): Promise<void> {
@@ -95,7 +100,7 @@ class LocalAzureCliAuth implements AuthContext {
   async getAuthorizationHeader(): Promise<string | null> {
     return "Bearer " + this.#sessionToken;
   }
-  async signIn(): Promise<void> {
+  async signIn(_options?: SignInOptions): Promise<void> {
     /* no-op */
   }
   async signOut(): Promise<void> {
@@ -178,14 +183,15 @@ class MsalAuth implements AuthContext {
     }
   }
 
-  async signIn(): Promise<void> {
+  async signIn(options: SignInOptions = {}): Promise<void> {
     if (this.#interactiveRequestPending) return;
     this.#interactiveRequestPending = true;
     try {
-      await this.#client.loginRedirect({
-        scopes: [this.#scope],
-        ...(this.#account?.username ? { loginHint: this.#account.username } : {}),
-      });
+      await this.#client.loginRedirect(interactiveLoginRequest(
+        this.#scope,
+        this.#account,
+        options,
+      ));
     } finally {
       this.#interactiveRequestPending = false;
     }
@@ -196,6 +202,23 @@ class MsalAuth implements AuthContext {
       await this.#client.logoutRedirect({ account: this.#account });
     }
   }
+}
+
+export function interactiveLoginRequest(
+  scope: string,
+  account: Pick<AuthAccount, "username"> | null,
+  options: SignInOptions = {},
+): RedirectRequest {
+  if (options.selectAccount) {
+    return {
+      scopes: [scope],
+      prompt: "select_account",
+    };
+  }
+  return {
+    scopes: [scope],
+    ...(account?.username ? { loginHint: account.username } : {}),
+  };
 }
 
 export async function initAuth(config: ConsoleConfig): Promise<AuthContext> {

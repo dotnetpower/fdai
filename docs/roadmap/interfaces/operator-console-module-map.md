@@ -626,6 +626,13 @@ compact action height. Touch layouts use 44 px targets. Settings keep browser-lo
 account preferences, deployment policy, evidence, and authority boundaries visually distinct
 without changing their persistence or authorization contracts.
 
+`console/src/components/account-menu.tsx` owns the signed-in account presentation in the header.
+It displays the MSAL name and username, reads FDAI roles only from the server-verified
+`GET /iam/self` projection, and links to the existing IAM route. `console/src/auth.ts` owns
+same-tenant account selection by opening the Entra account picker without a login hint. The
+redirect returns through normal token acquisition and IAM authorization before the shell renders.
+The component does not switch directories, grant capabilities, or receive provider credentials.
+
 The static component gallery reads its documented component contracts from
 `mocks/ui/assets/component-registry.json`. Each bounded category view presents the specimen before
 its owner, source, states, usage guidance, responsive behavior, accessibility contract, and product

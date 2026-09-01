@@ -1,0 +1,17 @@
+{
+  "actionFailed": "계정 작업을 시작하지 못했습니다. 다시 시도하세요.",
+  "azureCli": "Azure CLI 세션",
+  "dialogLabel": "계정 세부 정보",
+  "entra": "Microsoft Entra ID",
+  "localEntra": "로컬 Microsoft Entra ID",
+  "myAccess": "내 액세스 보기",
+  "noRoles": "FDAI 역할 없음",
+  "open": "{username} 계정 메뉴 열기",
+  "rolesUnavailable": "검증된 역할을 사용할 수 없음",
+  "signedInAs": "로그인 계정",
+  "signOut": "로그아웃",
+  "signingOut": "로그아웃 중...",
+  "switchAccount": "다른 계정으로 로그인",
+  "switchingAccount": "계정 선택기 여는 중...",
+  "verifiedRoles": "검증된 FDAI 역할"
+}
