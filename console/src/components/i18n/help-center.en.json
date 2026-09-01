@@ -1,0 +1,23 @@
+{
+  "allManuals": "Open full library",
+  "close": "Close guides",
+  "coreDeck": "Core deck",
+  "deepDive": "Deep dive",
+  "generated": "Catalog generated {date}",
+  "invalidConfig": "Manual Studio configuration is invalid.",
+  "invalidConfigHint": "Use an HTTPS URL without credentials or URL state. Loopback HTTP is allowed for local development.",
+  "loadFailed": "The guide library could not be loaded.",
+  "loadFailedHint": "Check the Manual Studio address and its allowed Console origin.",
+  "loading": "Loading guides...",
+  "noManuals": "No manuals are published in this catalog.",
+  "notConfigured": "Manual Studio is not configured.",
+  "notConfiguredHint": "Set VITE_MANUAL_STUDIO_URL to the published static site.",
+  "open": "Open guides",
+  "openManual": "Open {title}",
+  "previousManual": "Previous manual",
+  "nextManual": "Next manual",
+  "retry": "Try again",
+  "slides": "{count} slides",
+  "subtitle": "Choose a manual to open its HTML slide presentation.",
+  "title": "Guides"
+}

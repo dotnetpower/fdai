@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: bebe92e727d5aec09397d18976ecad355ebaa02f
+translation_source_sha: c87ec13c52297999f2014042d689d20b92a13095
 translation_revised: 2026-09-01
 ---
 # 코드 맵
@@ -405,7 +405,8 @@ core 컨트롤 플레인을 import할 수 없으므로 특정 서비스가 아�
 | [extensions/](../../../extensions/) | 선택적 독립 패키지 기능입니다. |
 | [rule-catalog/](../../../rule-catalog/) | Catalog-as-code 데이터입니다. |
 | [policies/](../../../policies/) | OPA/Rego policy-as-code입니다. |
-| [콘솔/](../../../console/) | 얇은 운영자 SPA입니다. |
+| [콘솔/](../../../console/) | 지역화된 가이드 서랍과 검증된 Manual Studio 카탈로그 경계를 포함하는 얇은 운영자 SPA입니다. |
+| [tools/manual-studio/](../../../tools/manual-studio/) | 독립 정적 가이드 라이브러리, HTML 슬라이드 뷰어, 저장소에 안전한 미디어 출처 계보 및 집중 프로토타입 검사를 제공합니다. |
 | [teams_workflow_binding.py](../../../services/operator-service/src/fdai_operator_service/teams_workflow_binding.py) | 로컬의 암호화된 루프백 상태와 배포 환경의 버전이 지정된 단일 Key Vault 시크릿을 사용하는 프로바이더 중립 Teams 엔드포인트 영속화입니다. |
 | [cli/](../../../cli/) | Operator command-line 클라이언트입니다. |
 | [scripts/agent/design_context.py](../../../scripts/agent/design_context.py) | Design 맥락 읽기를 기록하고 dirty 편집 경로를 예약하며, framework 및 constitution 편집의 stale 맥락을 hard-block하고, commit 범위와 파괴적 Git을 보호하며, repository-wide 검증을 명시적인 integration 또는 release 경계로 라우팅합니다. |

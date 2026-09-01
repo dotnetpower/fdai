@@ -3,6 +3,7 @@ import type { AuthContext } from "../auth";
 import { panelPath } from "../router";
 import type { IamRole, IamSelfStatus } from "../routes/settings-iam.model";
 import { accountMenuText } from "./account-menu.i18n";
+import { HelpCenter } from "./help-center";
 
 interface AccountMenuProps {
   readonly auth: AuthContext;
@@ -34,7 +35,7 @@ export function accountSessionLabel(auth: AuthContext): string {
   return accountMenuText("entra");
 }
 
-export function AccountMenu({ auth, iamSelf }: AccountMenuProps) {
+function AccountDetailsMenu({ auth, iamSelf }: AccountMenuProps) {
   const account = auth.account;
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<PendingAccountAction | null>(null);
@@ -52,6 +53,7 @@ export function AccountMenu({ auth, iamSelf }: AccountMenuProps) {
         setOpen(false);
         setError(null);
       }
+
     };
     const dismissOnEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
@@ -198,5 +200,14 @@ export function AccountMenu({ auth, iamSelf }: AccountMenuProps) {
         </section>
       ) : null}
     </div>
+  );
+}
+
+export function AccountMenu({ auth, iamSelf }: AccountMenuProps) {
+  return (
+    <>
+      <HelpCenter />
+      <AccountDetailsMenu auth={auth} iamSelf={iamSelf} />
+    </>
   );
 }

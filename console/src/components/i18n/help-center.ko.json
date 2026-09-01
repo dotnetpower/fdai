@@ -1,0 +1,23 @@
+{
+  "allManuals": "전체 라이브러리 열기",
+  "close": "설명서 닫기",
+  "coreDeck": "핵심 설명서",
+  "deepDive": "심층 설명서",
+  "generated": "카탈로그 생성 {date}",
+  "invalidConfig": "Manual Studio 구성이 올바르지 않습니다.",
+  "invalidConfigHint": "자격 증명이나 URL 상태가 없는 HTTPS URL을 사용하세요. 로컬 개발에서는 loopback HTTP를 사용할 수 있습니다.",
+  "loadFailed": "설명서 라이브러리를 불러오지 못했습니다.",
+  "loadFailedHint": "Manual Studio 주소와 Console에 허용된 출처를 확인하세요.",
+  "loading": "설명서 불러오는 중...",
+  "noManuals": "이 카탈로그에 게시된 설명서가 없습니다.",
+  "notConfigured": "Manual Studio가 구성되지 않았습니다.",
+  "notConfiguredHint": "게시된 정적 사이트를 VITE_MANUAL_STUDIO_URL에 설정하세요.",
+  "open": "설명서 열기",
+  "openManual": "{title} 열기",
+  "previousManual": "이전 설명서",
+  "nextManual": "다음 설명서",
+  "retry": "다시 시도",
+  "slides": "슬라이드 {count}장",
+  "subtitle": "설명서를 선택하면 HTML 슬라이드 프레젠테이션으로 열립니다.",
+  "title": "설명서"
+}

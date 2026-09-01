@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FDAI help center fixture</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand-lockup" href="#" aria-label="FDAI Console home">
+        <span class="brand-wordmark">FDAI</span>
+        <span class="brand-separator" aria-hidden="true"></span>
+        <span class="brand-product">Console</span>
+      </a>
+      <div id="help-center-fixture-root" class="principal"></div>
+    </header>
+    <main></main>
+    <script type="module">
+      import { h, render } from "preact";
+      import { AccountMenu } from "/src/components/account-menu.tsx";
+      import { setLocale } from "/src/i18n/index.ts";
+
+      setLocale("en");
+      const auth = {
+        devMode: false,
+        account: {
+          homeAccountId: "example-account",
+          username: "alex@example.com",
+          name: "Alex Kim",
+        },
+        async getAuthorizationHeader() { return null; },
+        async signIn() {},
+        async signOut() {},
+      };
+      render(
+        h(AccountMenu, {
+          auth,
+          iamSelf: undefined,
+        }),
+        document.querySelector("#help-center-fixture-root"),
+      );
+      document.body.dataset.helpCenterFixtureReady = "true";
+    </script>
+  </body>
+</html>

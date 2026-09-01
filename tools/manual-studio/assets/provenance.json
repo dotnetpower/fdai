@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "authorization": "Microsoft official project asset use authorized by the project owner",
+  "processedAt": "2026-09-01",
+  "layoutReference": {
+    "source": "Microsoft_Brand_Template_May2023.potx",
+    "layout": "Title_Photo_1/2 page",
+    "slideSizeInches": {"width": 13.333, "height": 7.5},
+    "logoInches": {"x": 0.639, "y": 0.641, "width": 1.494, "height": 0.32},
+    "titleInches": {"x": 0.623, "y": 3.028, "width": 5.529, "height": 1.346},
+    "contentTitleInches": {"x": 0.643, "y": 0.64, "width": 8.96, "height": 0.337},
+    "contentBodyInches": {"x": 0.641, "y": 1.74, "width": 8.96, "height": 0.794}
+  },
+  "processing": [
+    "Extracted from authorized Microsoft PowerPoint media packages",
+    "Cropped cover artwork to a 1:1 composition",
+    "Re-encoded cover artwork as 1600x1600 JPEG",
+    "Preserved the user-provided Microsoft wordmark as a transparent PNG",
+    "Cropped the user-provided FDAI Console sign-in screenshot to a centered 1:1 composition",
+    "Source metadata removed from published derivatives"
+  ],
+  "sources": [
+    "Forward Deployed Agents L100.pptx",
+    "FY25-AI Expression-PowerPoint Template-V1.pptx",
+    "Microsoft_Brand_Template_May2023.potx",
+    "User-provided Microsoft logo asset",
+    "User-provided FDAI Console sign-in screenshot"
+  ],
+  "assets": [
+    {"path": "executive-briefing.jpeg", "source": "Forward Deployed Agents L100.pptx", "sourceMedia": "ppt/media/image43.jpeg"},
+    {"path": "readiness-maturity.jpeg", "source": "Forward Deployed Agents L100.pptx", "sourceMedia": "ppt/media/image23.jpeg"},
+    {"path": "art-possible.jpeg", "source": "Forward Deployed Agents L100.pptx", "sourceMedia": "ppt/media/image14.jpeg"},
+    {"path": "value-prioritization.jpeg", "source": "Forward Deployed Agents L100.pptx", "sourceMedia": "ppt/media/image17.jpeg"},
+    {"path": "target-architecture.jpeg", "source": "FY25-AI Expression-PowerPoint Template-V1.pptx", "sourceMedia": "ppt/media/image49.png"},
+    {"path": "ontology-foundation.jpeg", "source": "FY25-AI Expression-PowerPoint Template-V1.pptx", "sourceMedia": "ppt/media/image35.png"},
+    {"path": "responsible-ai.jpeg", "source": "Forward Deployed Agents L100.pptx", "sourceMedia": "ppt/media/image18.jpeg"},
+    {"path": "pilot-production.jpeg", "source": "Forward Deployed Agents L100.pptx", "sourceMedia": "ppt/media/image22.jpeg"},
+    {"path": "operating-model.jpeg", "source": "FY25-AI Expression-PowerPoint Template-V1.pptx", "sourceMedia": "ppt/media/image19.png"},
+    {"path": "scale-roadmap.jpeg", "source": "Forward Deployed Agents L100.pptx", "sourceMedia": "ppt/media/image24.jpeg"},
+    {"path": "microsoft-logo.png", "source": "User-provided Microsoft logo asset", "sourceMedia": "Pasted Image.png"},
+    {"path": "fdai-console-sign-in.png", "source": "User-provided FDAI Console sign-in screenshot", "sourceMedia": "Pasted Image.png"}
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@fdai/manual-studio",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Standalone UI prototype for FDAI album-style manuals and HTML slide playback.",
+  "scripts": {
+    "dev": "node server.mjs",
+    "test": "node --test test/*.test.mjs",
+    "check": "node --check app.js && node --check server.mjs && npm test"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
