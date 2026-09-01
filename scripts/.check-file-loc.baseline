@@ -28,3 +28,5 @@
 826 services/core-control-plane/src/fdai/runtime/control_loop.py
 # Pre-existing main-branch delivery-composition debt; growth blocked until tracker #14 extraction.
 921 services/core-control-plane/src/fdai/runtime/delivery.py
+# Pre-existing main-branch semantic-query composition debt (single cohesive wiring module, 3 defs); growth blocked until tracker #14 extraction.
+809 services/core-control-plane/src/fdai/composition/wire_semantic_query.py
