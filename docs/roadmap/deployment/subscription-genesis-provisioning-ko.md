@@ -1,8 +1,8 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: 0e784bd92a6e957af6e7e0357e2077c17e21e5a1
-translation_revised: 2026-08-31
+translation_source_sha: b410244a20489f952909e7aeba6979ed6b73b4c1
+translation_revised: 2026-09-01
 ---
 # 구독 초기 프로비저닝
 
@@ -84,6 +84,20 @@ fdaictl onboard status --journal .fdai/runs/<run-id>.jsonl --output json
   `--approve-application`이 필요합니다.
 - `status`는 정제된 변환 결과를 읽습니다. Terraform 상태, 비밀 값, DSN, 토큰, 모델 요청
   내용, 공급자 페이로드를 내려받지 않습니다.
+
+정확한 dev 계획에서 비공개 리소스 운영 Function 게이트웨이를 유지하거나 프로비저닝해야 할
+때는 `--deploy-dev-operations-gateway`를 사용합니다. 이 선택은 plan, apply, status가 공유하는
+컨텍스트 다이제스트에 봉인되며 기존 cutover, executor-effect, OHL 보호를 계속 적용받습니다.
+
+```bash
+fdaictl deploy plan \
+  --profile .fdai/environments/dev.json \
+  --repository <owner>/<repository> \
+  --commit-sha <git-sha> \
+  --run-id <run-id> \
+  --deploy-dev-operations-gateway \
+  --output json
+```
 - `resume-verification`은 Terraform 적용을 다시 실행하지 않습니다. 적용 점유가 없는 단계는
   다시 시작할 수 있고, 증적이 없는 적용 점유는 검증만 재개하며, 실패한 점유는 새 계획과
   승인이 필요합니다. 실패한 사후 조건을 건너뛰거나 변경된 맥락을 승인할 수 없습니다.

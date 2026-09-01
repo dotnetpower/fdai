@@ -80,6 +80,21 @@ fdaictl onboard status --journal .fdai/runs/<run-id>.jsonl --output json
   requires `--plan-expires-at` (from `deploy status` plan metadata) and `--approve-application`.
 - `status` reads a sanitized projection. It never downloads Terraform state, secret values, DSNs,
   tokens, model request content, or provider payloads.
+
+Use `--deploy-dev-operations-gateway` when the exact dev plan must preserve or provision the
+private-resource operations Function gateway. The selection is sealed into the context digest
+shared by plan, apply, and status, and it remains subject to the existing cutover, executor-effect,
+and OHL safeguards.
+
+```bash
+fdaictl deploy plan \
+  --profile .fdai/environments/dev.json \
+  --repository <owner>/<repository> \
+  --commit-sha <git-sha> \
+  --run-id <run-id> \
+  --deploy-dev-operations-gateway \
+  --output json
+```
 - `resume-verification` never retries Terraform apply. A stage without an apply claim can restart;
   an apply claim without a receipt can resume verification; a failed claim requires a new plan and
   approval. It cannot skip a failed postcondition or approve changed context.
