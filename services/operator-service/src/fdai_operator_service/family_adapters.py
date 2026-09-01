@@ -595,8 +595,13 @@ def _wara_catalog_payload(
     request: WorkflowReadRequest,
 ) -> dict[str, object]:
     controls_value = stored.get("controls")
+    inventory_value = stored.get("inventory")
     evaluation_source = stored.get("evaluation_source")
-    if not isinstance(controls_value, list) or not isinstance(evaluation_source, str):
+    if (
+        not isinstance(controls_value, list)
+        or not isinstance(inventory_value, dict)
+        or not isinstance(evaluation_source, str)
+    ):
         raise HTTPException(status_code=503, detail="authoritative WARA catalog is malformed")
     controls = [item for item in controls_value if isinstance(item, dict)]
     if len(controls) != len(controls_value):
@@ -674,6 +679,7 @@ def _wara_catalog_payload(
             "by_satisfaction": _wara_counts(controls, "satisfaction"),
         },
         "controls": matched[offset : offset + limit],
+        "inventory": dict(inventory_value),
         "evaluation_source": evaluation_source,
         "source_revision": stored.get("source_revision"),
         "crosswalk_digest": stored.get("crosswalk_digest"),

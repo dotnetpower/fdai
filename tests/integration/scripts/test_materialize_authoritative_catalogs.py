@@ -79,6 +79,21 @@ def test_catalog_snapshots_are_deterministic_complete_reference_projections() ->
     )
     assert best_practices["evaluation_source"] == "repository-catalog"
 
+    wara = first[module.WARA_LIST_KEY]
+    assert wara["_revision"].startswith("sha256:")
+    assert len(wara["controls"]) == 456
+    assert wara["inventory"] == {
+        "active_recommendations": 393,
+        "disabled_recommendations": 63,
+        "resource_types": 80,
+        "automated_recommendations": 143,
+        "manual_recommendations": 250,
+    }
+    assert all(control["source_url"].startswith("https://") for control in wara["controls"])
+    assert all(control["source_license"] == "MIT" for control in wara["controls"])
+    assert any(control["learn_more_url"] is not None for control in wara["controls"])
+    assert wara["evaluation_source"] == "not_connected"
+
     mcsb = first[module.MCSB_LIST_KEY]
     assert mcsb["_revision"].startswith("sha256:")
     assert [catalog["benchmark"]["benchmark_version"] for catalog in mcsb["catalogs"]] == [

@@ -55,13 +55,27 @@ export interface WaraControl {
   readonly evidence_complete: boolean;
   readonly evidence_refs: readonly string[];
   readonly evidence_digests: readonly string[];
+  readonly source_url: string;
   readonly source_revision: string;
+  readonly source_version: string;
+  readonly retrieved_at: string;
   readonly source_path: string;
   readonly source_digest: string;
+  readonly source_license: string;
+  readonly learn_more_name: string | null;
+  readonly learn_more_url: string | null;
   readonly query_digest: string | null;
   readonly workload_tags: readonly string[];
   readonly limitations: readonly string[];
   readonly execution_authority: false;
+}
+
+export interface WaraInventory {
+  readonly active_recommendations: number;
+  readonly disabled_recommendations: number;
+  readonly resource_types: number;
+  readonly automated_recommendations: number;
+  readonly manual_recommendations: number;
 }
 
 export interface WaraResponse {
@@ -71,6 +85,7 @@ export interface WaraResponse {
   readonly limit: number;
   readonly facets: Readonly<Record<string, Readonly<Record<string, number>>>>;
   readonly controls: readonly WaraControl[];
+  readonly inventory: WaraInventory;
   readonly evaluation_source: string;
   readonly source_revision: string;
   readonly crosswalk_digest: string;
@@ -117,8 +132,13 @@ function decodeControl(value: unknown, index: number): WaraControl {
   const label = `WARA controls[${index}]`;
   const raw = panelRecord(value, label);
   const executionAuthority = panelBoolean(raw, "execution_authority", label);
+  const learnMoreName = panelNullableString(raw, "learn_more_name", label);
+  const learnMoreUrl = panelNullableString(raw, "learn_more_url", label);
   if (executionAuthority) {
     throw new OperatorApiError(502, `invalid Operator API response: ${label} cannot grant execution authority`);
+  }
+  if ((learnMoreName === null) !== (learnMoreUrl === null)) {
+    throw new OperatorApiError(502, `invalid Operator API response: ${label} learn-more fields MUST be paired`);
   }
   return {
     id: panelNonEmptyString(raw, "id", label),
@@ -159,9 +179,15 @@ function decodeControl(value: unknown, index: number): WaraControl {
     evidence_complete: panelBoolean(raw, "evidence_complete", label),
     evidence_refs: panelStringArray(raw["evidence_refs"], `${label}.evidence_refs`),
     evidence_digests: panelStringArray(raw["evidence_digests"], `${label}.evidence_digests`),
+    source_url: panelNonEmptyString(raw, "source_url", label),
     source_revision: panelNonEmptyString(raw, "source_revision", label),
+    source_version: panelNonEmptyString(raw, "source_version", label),
+    retrieved_at: panelNonEmptyString(raw, "retrieved_at", label),
     source_path: panelNonEmptyString(raw, "source_path", label),
     source_digest: panelNonEmptyString(raw, "source_digest", label),
+    source_license: panelNonEmptyString(raw, "source_license", label),
+    learn_more_name: learnMoreName,
+    learn_more_url: learnMoreUrl,
     query_digest: panelNullableString(raw, "query_digest", label),
     workload_tags: panelStringArray(raw["workload_tags"], `${label}.workload_tags`),
     limitations: panelStringArray(raw["limitations"], `${label}.limitations`),
@@ -182,6 +208,42 @@ export function decodeWaraResponse(value: unknown): WaraResponse {
     throw new OperatorApiError(502, "invalid Operator API response: WARA ids MUST be unique");
   }
   const facets = panelRecord(root["facets"], "WARA controls.facets");
+  const inventory = panelRecord(root["inventory"], "WARA controls.inventory");
+  const decodedInventory: WaraInventory = {
+    active_recommendations: panelNonNegativeInteger(
+      inventory,
+      "active_recommendations",
+      "WARA controls.inventory",
+    ),
+    disabled_recommendations: panelNonNegativeInteger(
+      inventory,
+      "disabled_recommendations",
+      "WARA controls.inventory",
+    ),
+    resource_types: panelNonNegativeInteger(
+      inventory,
+      "resource_types",
+      "WARA controls.inventory",
+    ),
+    automated_recommendations: panelNonNegativeInteger(
+      inventory,
+      "automated_recommendations",
+      "WARA controls.inventory",
+    ),
+    manual_recommendations: panelNonNegativeInteger(
+      inventory,
+      "manual_recommendations",
+      "WARA controls.inventory",
+    ),
+  };
+  if (
+    decodedInventory.active_recommendations + decodedInventory.disabled_recommendations !== total
+    || decodedInventory.automated_recommendations
+      + decodedInventory.manual_recommendations
+      !== decodedInventory.active_recommendations
+  ) {
+    throw new OperatorApiError(502, "invalid Operator API response: WARA inventory does not reconcile");
+  }
   return {
     total,
     filtered_total: filteredTotal,
@@ -194,6 +256,7 @@ export function decodeWaraResponse(value: unknown): WaraResponse {
       ]),
     ),
     controls,
+    inventory: decodedInventory,
     evaluation_source: panelNonEmptyString(root, "evaluation_source", "WARA controls"),
     source_revision: panelNonEmptyString(root, "source_revision", "WARA controls"),
     crosswalk_digest: panelNonEmptyString(root, "crosswalk_digest", "WARA controls"),
@@ -207,7 +270,9 @@ export function decodeWaraDetail(value: unknown): WaraControl {
 export function waraStateFromSearch(search: URLSearchParams): {
   readonly filters: WaraFilters;
   readonly selected: string | null;
+  readonly offset: number;
 } {
+  const rawOffset = Number(search.get("offset"));
   return {
     filters: {
       resource_type: search.get("resource_type") ?? "",
@@ -227,10 +292,15 @@ export function waraStateFromSearch(search: URLSearchParams): {
       "recommendation",
       "WARA URL state",
     ),
+    offset: Number.isInteger(rawOffset) && rawOffset >= 0 ? rawOffset : 0,
   };
 }
 
-export function waraHref(filters: WaraFilters, selected: string | null): string {
+export function waraHref(
+  filters: WaraFilters,
+  selected: string | null,
+  offset = 0,
+): string {
   return routeHref("rules", {
     params: {
       view: "controls",
@@ -239,6 +309,7 @@ export function waraHref(filters: WaraFilters, selected: string | null): string 
         Object.entries(filters).map(([key, value]) => [key, value || null]),
       ),
       recommendation: selected,
+      offset: offset > 0 ? offset : null,
     },
   });
 }

@@ -414,6 +414,7 @@
       "routeUnavailable": "WARA controls are not available in this deployment.",
       "loadFailed": "Failed to load WARA controls: {message}",
       "loading": "Loading WARA controls...",
+      "openRow": "Open {title}",
       "banner": {
         "title": "Advisory reliability assessment in shadow mode.",
         "body": "States remain separate. Recommendations and queries have no remediation authority."
@@ -428,7 +429,8 @@
         "recommendation": "Recommendation",
         "resourceType": "Resource type",
         "control": "Recommendation control",
-        "impact": "Advisory impact"
+        "impact": "Advisory impact",
+        "state": "Assessment state"
       },
       "filter": {
         "resourceType": "Resource type",
@@ -446,7 +448,7 @@
       },
       "result": {
         "empty": "No WARA recommendations match the current filters.",
-        "showing": "Showing {filtered} of {total} WARA lifecycle records"
+        "showing": "Showing {start}-{end} of {filtered} filtered ({total} total)"
       },
       "detail": {
         "aria": "WARA recommendation detail",
@@ -459,7 +461,15 @@
         "evaluatedAt": "Evaluated at",
         "evidenceComplete": "Evidence complete",
         "evidenceRefs": "Evidence references",
-        "limitations": "Limitations"
+        "limitations": "Limitations",
+        "source": "Source and provenance",
+        "aprlSource": "APRL source",
+        "sourceVersion": "Source version",
+        "sourceDigest": "Source digest",
+        "retrievedAt": "Retrieved at",
+        "license": "License",
+        "learnMore": "Learn more",
+        "queryDigest": "Query digest"
       }
     },
     "severityRisk": {

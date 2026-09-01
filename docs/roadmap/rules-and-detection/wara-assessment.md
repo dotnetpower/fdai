@@ -138,6 +138,10 @@ verification, automation, mapping, applicability, evaluation, and satisfaction.
 Every row shows scope, evaluation time, source revision, evidence completeness, and limitations.
 Catalog presence and `product_group_verified` are metadata, never a satisfied badge. Optional
 projection absence renders as unavailable; malformed or unexpected responses remain visible errors.
+The initial catalog projection also exposes the exact pinned APRL source URL, source path, version,
+revision, digest, retrieval time, license, optional Microsoft Learn link, and query digest. The
+Console renders 50 controls per page while preserving all 456 lifecycle records through explicit
+previous and next navigation; it never hides the remaining catalog behind a client-only row limit.
 
 ## Review-only source updates
 
