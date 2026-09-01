@@ -30,6 +30,7 @@ from fdai.core.case_history.testing import (
     InMemoryCaseHistoryMetadataStore,
 )
 from fdai.core.measurement import OperationalPromotionReceipt
+from fdai.core.measurement.operational_promotion import action_type_digest
 from fdai.core.operational_learning import (
     CatalogCandidateCompiler,
     CatalogCheckReceipts,
@@ -279,7 +280,7 @@ def _promotion_receipt(
         scenario_set_version=scenario["scenario_set_version"],
         action_type_name=action_type.name,
         action_type_version=action_type.version,
-        action_type_digest=action_type.provenance.content_hash.removeprefix("sha256:"),
+        action_type_digest=action_type_digest(action_type),
         evidence_digest="8" * 64,
         observation_days=14.0,
         live_observation_days=14,

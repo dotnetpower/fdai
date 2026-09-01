@@ -429,6 +429,7 @@ def test_thor_dispatch_verdict_is_idempotent_per_correlation() -> None:
         "action_type": "ops.restart-service",
         "risk_verdict": "auto",
         "resource_id": "vm-1",
+        "resolved_autonomy_ceiling": "enforce_auto",
     }
     run1 = asyncio.run(thor.dispatch_verdict(verdict))
     run2 = asyncio.run(thor.dispatch_verdict(verdict))
