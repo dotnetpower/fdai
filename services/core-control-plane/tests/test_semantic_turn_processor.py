@@ -51,6 +51,7 @@ from fdai.shared.providers.event_bus import PublishReceipt
 from fdai.shared.providers.ontology_instance import OntologyGraphSnapshot
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+from fdai_core_service.semantic_service_health_answer import render_service_health_answer
 from fdai_core_service.semantic_turn_consumer import (
     StateStoreSemanticTurnResultStore,
     consume_semantic_turns,
@@ -192,7 +193,7 @@ def test_generic_empty_answer_does_not_claim_zero_row_verification(
                 "display_truncated": False,
             }
         ],
-        output_shape="subscription_service_health",
+        output_shape="resource_list",
     )
 
     assert expected_heading in answer
@@ -205,6 +206,26 @@ def test_generic_empty_answer_does_not_claim_zero_row_verification(
     assert "`execution_authority=false`" in answer
 
 
+def test_empty_service_health_output_is_explicitly_invalid() -> None:
+    answer = render_service_health_answer(
+        [
+            {
+                "rows": [],
+                "returned_rows": 0,
+                "total_rows": 0,
+                "source_complete": True,
+                "display_truncated": False,
+            }
+        ],
+        korean=False,
+        output_shape="subscription_service_health",
+        measure_concepts=("service_health.active_event",),
+    )
+
+    assert answer is not None
+    assert answer.startswith("## Service Health evidence unavailable")
+
+
 @pytest.mark.parametrize(
     ("locale", "complete", "event_count", "measure_concepts", "expected_heading"),
     (
@@ -213,28 +234,28 @@ def test_generic_empty_answer_does_not_claim_zero_row_verification(
             True,
             1,
             ("service_health.active_event",),
-            "## Yes - active Azure Service Health events are present",
+            "## Yes - active Azure Service Health service issues are present",
         ),
         (
             "en",
             True,
             0,
             ("service_health.active_event",),
-            "## No - no active Azure Service Health events are present",
+            "## No - no active Azure Service Health service issues are present",
         ),
         (
             "ko",
             False,
             1,
             ("service_health.active_event",),
-            "## 예 - 활성 이벤트가 확인됐지만 전체 범위는 불완전합니다",
+            "## 예 - 활성 장애가 확인됐지만 이벤트 유형 범위는 불완전합니다",
         ),
         (
             "ko",
             False,
             0,
             ("service_health.active_event",),
-            "## 확인 불가 - 현재 활성 이벤트 여부를 결정할 수 없습니다",
+            "## 확인 불가 - 현재 활성 Azure Service Health 장애 여부를 결정할 수 없습니다",
         ),
         (
             "ko",
@@ -282,7 +303,9 @@ def test_service_health_answer_reports_direct_conclusion_and_scope(
                     "level": "warning",
                     "status": "active",
                     "impact_start_at": (NOW - timedelta(minutes=10)).isoformat(),
+                    "observed_at": NOW.isoformat(),
                     "event_evidence_ref": "service-health:evidence-1",
+                    "impacted_resource_ref": "resource:1",
                     "execution_authority": False,
                 },
             }
@@ -312,6 +335,295 @@ def test_service_health_answer_reports_direct_conclusion_and_scope(
     else:
         assert "`source_unavailable`" in answer
     assert "`execution_authority=false`" in answer
+
+
+def test_service_health_answer_does_not_treat_advisories_or_maintenance_as_outages() -> None:
+    request = _request(locale="ko")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+    event_types = ("health_advisory", "planned_maintenance")
+    rows: list[dict[str, object]] = [
+        {
+            "row_id": "service-health-summary",
+            "values": {
+                "record_kind": "summary",
+                "scope_kind": "subscription",
+                "active_event_count": 2,
+                "impacted_resource_count": 0,
+                "count_posture": "exact",
+                "observed_at": NOW.isoformat(),
+                "attempt_ref": "service-health:attempt",
+                "execution_authority": False,
+            },
+        },
+        *[
+            {
+                "row_id": f"service-health-event-{index}",
+                "values": {
+                    "record_kind": "event",
+                    "scope_kind": "subscription",
+                    "event_id": f"service-health-event:{index}",
+                    "event_type": event_type,
+                    "title": event_type,
+                    "level": "informational",
+                    "status": "active",
+                    "impact_start_at": NOW.isoformat(),
+                    "observed_at": NOW.isoformat(),
+                    "event_evidence_ref": f"service-health:evidence-{index}",
+                    "execution_authority": False,
+                },
+            }
+            for index, event_type in enumerate(event_types, start=1)
+        ],
+    ]
+
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [
+            {
+                "node_id": "subscription-service-health",
+                "rows": rows,
+                "returned_rows": len(rows),
+                "total_rows": len(rows),
+                "source_complete": True,
+                "source_truncation_reason": None,
+                "display_truncated": False,
+            }
+        ],
+        output_shape="subscription_service_health",
+        measure_concepts=("service_health.active_event",),
+    )
+
+    assert answer.startswith("## 아니요 - 현재 활성 Azure Service Health 장애가 없습니다")
+    assert "- 활성 장애: 0건" in answer
+    assert "- 활성 상태 권고: 1건" in answer
+    assert "- 활성 예정 유지 관리: 1건" in answer
+
+
+def test_service_health_answer_rejects_an_invalid_observation_timestamp() -> None:
+    request = _request(locale="en")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [
+            {
+                "node_id": "subscription-service-health",
+                "rows": [
+                    {
+                        "row_id": "service-health-summary",
+                        "values": {
+                            "record_kind": "summary",
+                            "scope_kind": "subscription",
+                            "active_event_count": 0,
+                            "impacted_resource_count": 0,
+                            "count_posture": "exact",
+                            "observed_at": "time unavailable",
+                            "attempt_ref": "service-health:attempt",
+                            "execution_authority": False,
+                        },
+                    }
+                ],
+                "returned_rows": 1,
+                "total_rows": 1,
+                "source_complete": True,
+                "source_truncation_reason": None,
+                "display_truncated": False,
+            }
+        ],
+        output_shape="subscription_service_health",
+        measure_concepts=("service_health.active_event",),
+    )
+
+    assert answer.startswith("## Service Health evidence unavailable")
+    assert "No outage status is inferred." in answer
+    assert "## Verified result" not in answer
+
+
+def test_service_health_answer_rejects_inconsistent_complete_count_posture() -> None:
+    request = _request(locale="en")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [
+            {
+                "node_id": "subscription-service-health",
+                "rows": [
+                    {
+                        "row_id": "service-health-summary",
+                        "values": {
+                            "record_kind": "summary",
+                            "scope_kind": "subscription",
+                            "active_event_count": 0,
+                            "impacted_resource_count": 0,
+                            "count_posture": "unknown",
+                            "observed_at": NOW.isoformat(),
+                            "attempt_ref": "service-health:attempt",
+                            "execution_authority": False,
+                        },
+                    }
+                ],
+                "returned_rows": 1,
+                "total_rows": 1,
+                "source_complete": True,
+                "source_truncation_reason": None,
+                "display_truncated": False,
+            }
+        ],
+        output_shape="subscription_service_health",
+        measure_concepts=("service_health.active_event",),
+    )
+
+    assert answer.startswith("## Service Health evidence unavailable")
+    assert "## No -" not in answer
+
+
+def test_service_health_answer_deduplicates_resource_rows_for_one_event() -> None:
+    request = _request(locale="en")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+    event = {
+        "record_kind": "event",
+        "scope_kind": "subscription",
+        "event_id": "service-health-event:shared",
+        "event_type": "service_issue",
+        "title": "Regional connectivity issue",
+        "level": "warning",
+        "status": "active",
+        "impact_start_at": NOW.isoformat(),
+        "observed_at": NOW.isoformat(),
+        "event_evidence_ref": "service-health:evidence-shared",
+        "execution_authority": False,
+    }
+
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [
+            {
+                "node_id": "subscription-service-health",
+                "rows": [
+                    {
+                        "row_id": "service-health-summary",
+                        "values": {
+                            "record_kind": "summary",
+                            "scope_kind": "subscription",
+                            "active_event_count": 1,
+                            "impacted_resource_count": 2,
+                            "count_posture": "exact",
+                            "observed_at": NOW.isoformat(),
+                            "attempt_ref": "service-health:attempt",
+                            "execution_authority": False,
+                        },
+                    },
+                    {
+                        "row_id": "service-health-event-resource-a",
+                        "values": {
+                            **event,
+                            "resource_name": "resource-a",
+                            "impacted_resource_ref": "resource:a",
+                        },
+                    },
+                    {
+                        "row_id": "service-health-event-resource-b",
+                        "values": {
+                            **event,
+                            "resource_name": "resource-b",
+                            "impacted_resource_ref": "resource:b",
+                        },
+                    },
+                ],
+                "returned_rows": 3,
+                "total_rows": 3,
+                "source_complete": True,
+                "source_truncation_reason": None,
+                "display_truncated": False,
+            }
+        ],
+        output_shape="subscription_service_health",
+        measure_concepts=("service_health.active_event",),
+    )
+
+    assert "Unique active events: 1" in answer
+    assert "Active service issues/outages: 1" in answer
+    assert answer.count("Regional connectivity issue") == 1
+
+
+@pytest.mark.parametrize(
+    ("event_type", "impact_start_at", "returned_rows", "total_rows", "measure_concepts"),
+    (
+        (
+            "health_advisory",
+            NOW.isoformat(),
+            2,
+            2,
+            ("service_health.service_issue",),
+        ),
+        (
+            "service_issue",
+            NOW.isoformat(),
+            2,
+            3,
+            ("service_health.active_event",),
+        ),
+        (
+            "service_issue",
+            (NOW + timedelta(minutes=1)).isoformat(),
+            2,
+            2,
+            ("service_health.active_event",),
+        ),
+    ),
+)
+def test_service_health_answer_rejects_inconsistent_filtered_or_temporal_evidence(
+    event_type: str,
+    impact_start_at: str,
+    returned_rows: int,
+    total_rows: int,
+    measure_concepts: tuple[str, ...],
+) -> None:
+    answer = render_service_health_answer(
+        [
+            {
+                "rows": [
+                    {
+                        "values": {
+                            "record_kind": "summary",
+                            "scope_kind": "subscription",
+                            "active_event_count": 1,
+                            "impacted_resource_count": 1,
+                            "count_posture": "exact",
+                            "observed_at": NOW.isoformat(),
+                            "execution_authority": False,
+                        }
+                    },
+                    {
+                        "values": {
+                            "record_kind": "event",
+                            "scope_kind": "subscription",
+                            "event_id": "service-health-event:1",
+                            "event_evidence_ref": "service-health:evidence-1",
+                            "event_type": event_type,
+                            "status": "active",
+                            "impact_start_at": impact_start_at,
+                            "observed_at": NOW.isoformat(),
+                            "execution_authority": False,
+                            "impacted_resource_ref": "resource:1",
+                        }
+                    },
+                ],
+                "returned_rows": returned_rows,
+                "total_rows": total_rows,
+                "source_complete": True,
+                "display_truncated": False,
+            }
+        ],
+        korean=False,
+        output_shape="subscription_service_health",
+        measure_concepts=measure_concepts,
+    )
+
+    assert answer is not None
+    assert answer.startswith("## Service Health evidence unavailable")
+    assert "Yes - active" not in answer
 
 
 def test_service_health_answer_preserves_summary_count_when_display_is_truncated() -> None:
@@ -346,7 +658,9 @@ def test_service_health_answer_preserves_summary_count_when_display_is_truncated
                             "title": "Regional issue",
                             "status": "active",
                             "impact_start_at": NOW.isoformat(),
+                            "observed_at": NOW.isoformat(),
                             "event_evidence_ref": "service-health:evidence-1",
+                            "impacted_resource_ref": "resource:1",
                             "execution_authority": False,
                         },
                     },
@@ -362,8 +676,11 @@ def test_service_health_answer_preserves_summary_count_when_display_is_truncated
         measure_concepts=("service_health.active_event",),
     )
 
-    assert answer.startswith("## Yes - active Azure Service Health events are present")
+    assert answer.startswith(
+        "## Yes - active service issues were observed, but event-type coverage is incomplete"
+    )
     assert "Unique active events: 25" in answer
+    assert "Minimum observed active service issues/outages: 1" in answer
     assert "Displayed events: 1 of 25 unique events" in answer
 
 

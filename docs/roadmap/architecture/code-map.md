@@ -121,6 +121,9 @@ authority held and unverified.
 Mixed resource-condition answers use separate inventory and Resource Health output receipts.
 Service Health uses its own subscription-scoped summary, and the Operator retains each source's
 authority, completeness, and limitation instead of creating a synthetic combined authority.
+An unfiltered Service Health answer derives outage status only from complete `service_issue`
+event rows. Health advisories and planned maintenance remain separate active-event categories, and
+truncated category coverage produces an unknown outage conclusion rather than an affirmative one.
 Inventory promotion also writes verified state changes to the Core-owned append-only operational
 state-transition ledger. The ontology remains the rebuildable current-state projection, while the
 ledger preserves effective time, recorded time, evidence, and positive coverage for replay.
