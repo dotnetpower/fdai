@@ -307,6 +307,24 @@ def test_chatops_validation_requires_staging_operator_surfaces() -> None:
             )
 
 
+def test_catalog_console_refresh_is_exact_and_exclusive() -> None:
+    plan = _request(
+        REQUEST_ID="plan-catalog-" + "c" * 24,
+        CONTEXT_DIGEST=_DIGEST,
+        COMMIT_SHA=_COMMIT,
+        DEPLOY_PREFLIGHT_INPUT_JSON="{}",
+        DEPLOY_CONSOLE="true",
+        ENTRA_CONSOLE_API_SCOPE="api://00000000-0000-0000-0000-000000000003/access",
+        DEPLOY_OPERATOR_API="true",
+        PROMOTE_RUNTIME_IMAGE="true",
+        RUNTIME_IMAGE_REVISION=_COMMIT,
+    )
+    validate(plan, checkout_commit=_COMMIT)
+
+    with pytest.raises(ValueError, match="requires only Console"):
+        validate({**plan, "DEPLOY_MONITORING": "true"}, checkout_commit=_COMMIT)
+
+
 def test_runtime_image_and_effect_requests_keep_authority_prerequisites() -> None:
     with pytest.raises(ValueError, match="requires runtime_image_revision"):
         validate(_request(PROMOTE_RUNTIME_IMAGE="true"), checkout_commit=_COMMIT)

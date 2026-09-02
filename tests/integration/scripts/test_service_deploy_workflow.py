@@ -225,6 +225,15 @@ def test_platform_workflow_isolates_monitoring_plan_changes() -> None:
         assert neutral_type in preflight_step
 
 
+def test_platform_workflow_bounds_catalog_console_refresh() -> None:
+    assert "CATALOG_CONSOLE_ONLY:" in _LEGACY_WORKFLOW
+    assert "-target=module.operator_api[0].azurerm_container_app_job.materialize_catalogs" in (
+        _LEGACY_WORKFLOW
+    )
+    assert "mode=catalog-console" in _LEGACY_WORKFLOW
+    assert "Catalog-console-only" in _PLAN_SCOPE
+
+
 def test_platform_gateway_plan_targets_active_moved_role_collections() -> None:
     target_expression = _LEGACY_WORKFLOW[_LEGACY_WORKFLOW.index("TF_CLI_ARGS_plan:") :]
     target_expression = target_expression[: target_expression.index("\n")]

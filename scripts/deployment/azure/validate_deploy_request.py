@@ -13,11 +13,11 @@ from collections.abc import Mapping
 _SHA40 = re.compile(r"^[0-9a-f]{40}$")
 _SHA64 = re.compile(r"^[0-9a-f]{64}$")
 _PLAN_REQUEST = re.compile(
-    r"^plan-([0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
+    r"^plan-([0-9a-f]{48}|catalog-[0-9a-f]{24}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
     r"model-[0-9a-f]{32}-[0-9a-f]{64})$"
 )
 _APPLY_REQUEST = re.compile(
-    r"^apply-([0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
+    r"^apply-([0-9a-f]{48}|catalog-[0-9a-f]{24}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
     r"model-[0-9a-f]{64})$"
 )
 _PLAN_ID = re.compile(r"^plan-[1-9][0-9]*-[1-9][0-9]*$")
@@ -59,6 +59,8 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
     resume = _enabled(values, "RESUME_VERIFICATION")
     request_id = values.get("REQUEST_ID", "")
     context_digest = values.get("CONTEXT_DIGEST", "")
+    catalog_console_only = request_id.startswith(("plan-catalog-", "apply-catalog-"))
+    runtime_image_revision = values.get("RUNTIME_IMAGE_REVISION", "")
     if deploy_console and _API_SCOPE.fullmatch(values.get("ENTRA_CONSOLE_API_SCOPE", "")) is None:
         raise ValueError(
             "ENTRA_CONSOLE_API_SCOPE must use api://<audience>/<scope> "
@@ -115,7 +117,37 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
             "and deploy_operator_channel_edge"
         )
 
-    runtime_image_revision = values.get("RUNTIME_IMAGE_REVISION", "")
+    if catalog_console_only:
+        required = deploy_console and _enabled(values, "DEPLOY_OPERATOR_API")
+        excluded = any(
+            _enabled(values, key)
+            for key in (
+                "DEPLOY_CORE_MODEL_QUORUM",
+                "DEPLOY_DESIGN_MOCKS",
+                "DEPLOY_DEV_OPERATIONS_GATEWAY",
+                "DEPLOY_DOCUMENT_INGESTION",
+                "DEPLOY_ISOLATED_EXECUTOR",
+                "DEPLOY_MONITORING",
+                "DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET",
+                "MODEL_BINDING_ONLY",
+                "VALIDATE_CHATOPS_CHANNELS",
+            )
+        )
+        if not required or excluded or not runtime_image_revision:
+            raise ValueError(
+                "catalog-console refresh requires only Console, Operator API, "
+                "and an exact runtime image revision"
+            )
+        _require_match(
+            runtime_image_revision,
+            _SHA40,
+            "runtime_image_revision MUST be a lowercase 40-character git SHA",
+        )
+        if promote_image == apply:
+            raise ValueError(
+                "catalog-console refresh requires image promotion only during planning"
+            )
+
     if promote_image and not runtime_image_revision:
         raise ValueError("promote_runtime_image requires runtime_image_revision")
     if cutover and (not deploy_executor or not deploy_gateway):

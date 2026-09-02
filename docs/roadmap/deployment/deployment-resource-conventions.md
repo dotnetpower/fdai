@@ -26,6 +26,9 @@ resources as an incidental planning side effect.
 Application feature inputs describe the desired platform state during a full plan. Monitoring uses
 the bounded `module.monitoring` target only when it is the sole selected feature; when combined with
 application features, it remains enabled and participates in the complete non-destructive plan.
+An exact `catalog-console` refresh instead targets only the existing catalog materialization Job.
+After exact apply, the workflow runs schema migration, writes the selected revision's immutable Rule
+and Ontology projections to PostgreSQL, and publishes and verifies the matching Console artifact.
 
 ## Implementation status
 
