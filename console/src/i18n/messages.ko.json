@@ -1611,6 +1611,7 @@
         "investigation": "인시던트 조사",
         "inventory": "인벤토리 최신성",
         "analysis": "Analyzer 제한",
+        "conversation": "대화 연속성",
         "retention": "Case history 보존",
         "diagnostics": "진단"
       },
@@ -1659,6 +1660,20 @@
           "level": {
             "label": "런타임 로그 수준",
             "hint": "런타임 재시작 후 적용되는 최소 Python log severity입니다."
+          }
+        },
+        "conversation": {
+          "answer_continuity": {
+            "enabled": {
+              "label": "답변 연속성",
+              "hint": "일반적인 사용 불가 응답 대신 근거 상태를 설명하는 유용한 안전 보류를 반환합니다. 이 설정은 작업 권한을 부여하지 않습니다."
+            }
+          },
+          "prompt_ablation": {
+            "profile": {
+              "label": "프롬프트 ablation profile",
+              "hint": "역할, 검증기, RBAC 및 실행 안전장치를 유지하면서 선택적 프롬프트 맥락을 제거하는 검토된 재시작 적용 profile을 선택합니다."
+            }
           }
         }
       }

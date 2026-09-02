@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 
 from ._helpers import Container
 from .wire_azure_observability import attach_azure_observability
+from .wire_azure_prompts import compose_azure_prompt_bundle
 from .wire_distiller import bind_azure_ontology_distiller_from_catalog as _bind_distiller
 from .wire_llm import bind_azure_llm_bindings
 
@@ -139,6 +140,8 @@ class AzureWireOverrides:
     prometheus_base_url: str | None = None
     prometheus_queries: Mapping[str, str] | None = None
     prometheus_audience: str | None = None
+    prompt_ablation_profile: str = "none"
+    answer_continuity_enabled: bool = False
 
     def __post_init__(self) -> None:
         if not self.endpoint:
@@ -149,6 +152,8 @@ class AzureWireOverrides:
                 "OperatorMemoryStore - pass InMemoryOperatorMemoryStore() "
                 "explicitly if you do not want durability"
             )
+        if not isinstance(self.answer_continuity_enabled, bool):
+            raise ValueError("AzureWireOverrides.answer_continuity_enabled MUST be a boolean")
         # A caller that passes queries without a workspace id has almost
         # certainly forgotten the workspace and would silently get a
         # NoopMetricProvider; fail-closed at build time so the misconfig
@@ -225,7 +230,6 @@ async def wire_azure_container(
             f"wire_azure_container requires llm.mode='azure'; got {container.config.llm.mode!r}"
         )
 
-    from ..core.prompts import DefaultPromptComposer, FileSystemPromptRegistry
     from ..core.tools import (
         CompositeToolRegistry,
         DefaultToolExecutor,
@@ -234,23 +238,12 @@ async def wire_azure_container(
         ToolRegistry,
     )
 
-    prompt_registry = FileSystemPromptRegistry(overrides.catalog_root)
-    composer = DefaultPromptComposer(
-        registry=prompt_registry,
+    prompts = await compose_azure_prompt_bundle(
+        catalog_root=overrides.catalog_root,
         operator_memory_store=overrides.operator_memory_store,
+        answer_continuity_enabled=overrides.answer_continuity_enabled,
+        prompt_ablation_profile=overrides.prompt_ablation_profile,
     )
-    composed = await composer.compose(capability_id="t2.reasoner.primary")
-    proposer_composed = await composer.compose(capability_id="t2.proposer")
-    semantic_prompt = (await composer.compose(capability_id="semantic.judgment")).system_text
-    conversation_preflight_prompt = (
-        await composer.compose(capability_id="conversation.preflight")
-    ).system_text
-    from ..core.conversation.conversation_preflight import SOCIAL_NARRATOR_CAPABILITY_IDS
-
-    conversation_social_narrator_prompts = {
-        act.value: (await composer.compose(capability_id=capability_id)).system_text
-        for act, capability_id in SOCIAL_NARRATOR_CAPABILITY_IDS.items()
-    }
 
     file_tool_registry = FileSystemToolRegistry(overrides.catalog_root)
     tool_registry: ToolRegistry = file_tool_registry
@@ -275,70 +268,18 @@ async def wire_azure_container(
         providers=tool_providers,
     )
 
-    # A missing optional role prompt leaves that model binding disabled.
-    critic_system_prompt: str | None = None
-    try:
-        critic_composed = await composer.compose(capability_id="t2.critic")
-    except LookupError:
-        _LOGGER.info("critic_prompt_missing", extra={"capability_id": "t2.critic"})
-    else:
-        critic_system_prompt = critic_composed.system_text
-        _LOGGER.info(
-            "critic_prompt_composed",
-            extra={
-                "capability_id": "t2.critic",
-                "layer_count": len(critic_composed.layer_manifest),
-                "token_estimate": critic_composed.token_estimate,
-            },
-        )
-
-    # Wave 4.5 delta-1: same shape for the Judge. When both critic and
-    # judge prompts compose AND both capabilities resolve, the bind
-    # step auto-constructs the DebateOrchestrator.
-    judge_system_prompt: str | None = None
-    try:
-        judge_composed = await composer.compose(capability_id="t1.judge")
-    except LookupError:
-        _LOGGER.info("judge_prompt_missing", extra={"capability_id": "t1.judge"})
-    else:
-        judge_system_prompt = judge_composed.system_text
-        _LOGGER.info(
-            "judge_prompt_composed",
-            extra={
-                "capability_id": "t1.judge",
-                "layer_count": len(judge_composed.layer_manifest),
-                "token_estimate": judge_composed.token_estimate,
-            },
-        )
-
-    # RCA T2 reasoner prompt (symmetric to Critic / Judge). Missing prompt
-    # is logged and skipped; the bind step then leaves
-    # ``LlmBindings.rca_reasoner = None`` and T2 RCA stays dark.
-    rca_system_prompt: str | None = None
-    try:
-        rca_composed = await composer.compose(capability_id="t2.rca")
-    except LookupError:
-        _LOGGER.info("rca_prompt_missing", extra={"capability_id": "t2.rca"})
-    else:
-        rca_system_prompt = rca_composed.system_text
-        _LOGGER.info(
-            "rca_prompt_composed",
-            extra={
-                "capability_id": "t2.rca",
-                "layer_count": len(rca_composed.layer_manifest),
-                "token_estimate": rca_composed.token_estimate,
-            },
-        )
-
     _LOGGER.info(
         "prompt_composed",
         extra={
             "capability_id": "t2.reasoner.primary",
-            "layer_count": len(composed.layer_manifest),
-            "token_estimate": composed.token_estimate,
-            "layer_ids": [ref.id for ref in composed.layer_manifest],
+            "layer_count": len(prompts.primary.layer_manifest),
+            "token_estimate": prompts.primary.token_estimate,
+            "layer_ids": [ref.id for ref in prompts.primary.layer_manifest],
             "tool_count": len(tool_registry.artifacts()),
             "operator_memory_store": type(overrides.operator_memory_store).__name__,
+            "answer_continuity_enabled": overrides.answer_continuity_enabled,
+            "prompt_ablation_profile": overrides.prompt_ablation_profile,
+            "ablated_layer_ids": [ref.id for ref in prompts.primary.ablated_layers],
         },
     )
 
@@ -364,25 +305,30 @@ async def wire_azure_container(
         identity=identity,
         http_client=http_client,
         endpoint=overrides.endpoint,
-        system_prompt=composed.system_text,
-        proposer_system_prompt=proposer_composed.system_text,
+        system_prompt=prompts.primary.system_text,
+        proposer_system_prompt=prompts.proposer.system_text,
         tool_registry=tool_registry,
         tool_executor=tool_executor,
-        prompt_composer=composer,
+        prompt_composer=prompts.composer,
         scope_resolver=overrides.scope_resolver,
-        critic_system_prompt=critic_system_prompt,
-        judge_system_prompt=judge_system_prompt,
-        rca_system_prompt=rca_system_prompt,
-        semantic_judgment_system_prompt=semantic_prompt,
-        conversation_preflight_system_prompt=conversation_preflight_prompt,
-        conversation_social_narrator_system_prompts=conversation_social_narrator_prompts,
+        critic_system_prompt=prompts.critic,
+        judge_system_prompt=prompts.judge,
+        rca_system_prompt=prompts.rca,
+        semantic_judgment_system_prompt=prompts.semantic_judgment,
+        conversation_preflight_system_prompt=prompts.conversation_preflight,
+        conversation_social_narrator_system_prompts=prompts.social_narrators,
         endpoint_resolver=overrides.model_endpoint_resolver,
         metering_sink=overrides.metering_sink,
         pricing=pricing,
         model_health_sink=overrides.model_health_sink,
     )
     container_with_distiller = await _bind_distiller(
-        container_with_llm, identity, http_client, composer, overrides, pricing
+        container_with_llm,
+        identity,
+        http_client,
+        prompts.composer,
+        overrides,
+        pricing,
     )
 
     return attach_azure_observability(

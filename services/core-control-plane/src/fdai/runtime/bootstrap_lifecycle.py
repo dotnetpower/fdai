@@ -260,6 +260,7 @@ def build_semantic_turn_binding(
     runtime: Any = None,
     unavailable_reason: str | None = None,
     operational_evidence: Any = None,
+    answer_continuity_enabled: bool = False,
 ) -> SemanticTurnConsumerBinding | None:
     """Bind configured transport and its explicit runtime availability state."""
 
@@ -269,6 +270,7 @@ def build_semantic_turn_binding(
         config=config,
         unavailable_reason=unavailable_reason,
         operational_evidence=operational_evidence,
+        answer_continuity_enabled=answer_continuity_enabled,
     )
 
 

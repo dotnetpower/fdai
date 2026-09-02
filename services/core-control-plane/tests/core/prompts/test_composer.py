@@ -21,6 +21,8 @@ from fdai.core.prompts import (
     ComposedPrompt,
     DefaultPromptComposer,
     FileSystemPromptRegistry,
+    PromptAblationProfile,
+    PromptAblationProfileName,
     PromptLayer,
     SkillDisclosureRequest,
     SkillSelectionStatus,
@@ -140,6 +142,84 @@ async def test_compose_appends_packs_in_deterministic_order(tmp_path: Path) -> N
     assert out.system_text == "BASE\n\nALPHA\n\nBRAVO"
     ids = [ref.id for ref in out.layer_manifest]
     assert ids == ["hello", "alpha", "bravo"]
+
+
+@pytest.mark.asyncio
+async def test_compose_can_enable_one_named_shadow_pack_without_enabling_others(
+    tmp_path: Path,
+) -> None:
+    _write_schema(tmp_path)
+    _write_prompt(tmp_path, "base", "hello.v1.yaml", _base("t2.proposer", "BASE"))
+    _write_prompt(
+        tmp_path,
+        "packs",
+        "answer-continuity.v1.yaml",
+        _pack_shadow("t2.proposer", "CONTINUITY", name="answer-continuity"),
+    )
+    _write_prompt(
+        tmp_path,
+        "packs",
+        "unrelated.v1.yaml",
+        _pack_shadow("t2.proposer", "UNRELATED", name="unrelated"),
+    )
+    composer = DefaultPromptComposer(
+        registry=FileSystemPromptRegistry(tmp_path),
+        enabled_shadow_pack_ids=frozenset({"answer-continuity"}),
+    )
+
+    out = await composer.compose(capability_id="t2.proposer")
+
+    assert out.system_text == "BASE\n\nCONTINUITY"
+    assert [ref.id for ref in out.layer_manifest] == ["hello", "answer-continuity"]
+
+
+@pytest.mark.asyncio
+async def test_pack_ablation_is_replay_visible_and_preserves_base(tmp_path: Path) -> None:
+    _write_schema(tmp_path)
+    _write_prompt(tmp_path, "base", "hello.v1.yaml", _base("t2.proposer", "BASE"))
+    _write_prompt(
+        tmp_path,
+        "packs",
+        "answer-continuity.v1.yaml",
+        _pack("t2.proposer", "CONTINUITY", name="answer-continuity"),
+    )
+    composer = DefaultPromptComposer(
+        registry=FileSystemPromptRegistry(tmp_path),
+        ablation_profile=PromptAblationProfile.reviewed("packs"),
+    )
+
+    out = await composer.compose(capability_id="t2.proposer")
+    replay = out.replay_manifest()
+
+    assert out.system_text == "BASE"
+    assert out.ablation_profile is PromptAblationProfileName.PACKS
+    assert [(ref.id, ref.layer, ref.reason) for ref in out.ablated_layers] == [
+        ("answer-continuity", PromptLayer.PACK, "profile_layer")
+    ]
+    assert replay.ablated_layers == out.ablated_layers
+    assert replay.ablation_profile is PromptAblationProfileName.PACKS
+
+
+@pytest.mark.asyncio
+async def test_artifact_ablation_cannot_remove_protected_base(tmp_path: Path) -> None:
+    _write_schema(tmp_path)
+    _write_prompt(tmp_path, "base", "hello.v1.yaml", _base("t2.proposer", "BASE"))
+    composer = DefaultPromptComposer(
+        registry=FileSystemPromptRegistry(tmp_path),
+        ablation_profile=PromptAblationProfile(
+            disabled_artifact_ids=frozenset({"hello"}),
+        ),
+    )
+
+    with pytest.raises(ValueError, match="protected artifact"):
+        await composer.compose(capability_id="t2.proposer")
+
+
+def test_prompt_ablation_rejects_protected_layers_and_unknown_profiles() -> None:
+    with pytest.raises(ValueError, match="protected layers"):
+        PromptAblationProfile(disabled_layers=frozenset({PromptLayer.BASE}))
+    with pytest.raises(ValueError):
+        PromptAblationProfile.reviewed("custom")
 
 
 @pytest.mark.asyncio
@@ -538,6 +618,26 @@ async def test_compose_emits_manifest_for_enforce_tools(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_tool_ablation_records_exclusion_without_changing_executor_policy(
+    tmp_path: Path,
+) -> None:
+    _write_schema(tmp_path)
+    _write_prompt(tmp_path, "base", "hello.v1.yaml", _base("t2.reasoner.primary", "BASE"))
+    composer = DefaultPromptComposer(
+        registry=FileSystemPromptRegistry(tmp_path),
+        tool_registry=_FakeToolRegistry(artifacts=(_fake_tool("rule.query"),)),
+        ablation_profile=PromptAblationProfile.reviewed("tools"),
+    )
+
+    out = await composer.compose(capability_id="t2.reasoner.primary")
+
+    assert "rule.query" not in out.system_text
+    assert [(ref.id, ref.layer) for ref in out.ablated_layers] == [
+        ("tool-manifest", PromptLayer.TOOL)
+    ]
+
+
+@pytest.mark.asyncio
 async def test_compose_shadow_tools_opt_in(tmp_path: Path) -> None:
     _write_schema(tmp_path)
     _write_prompt(tmp_path, "base", "hello.v1.yaml", _base("t2.reasoner.primary", "BASE"))
@@ -629,6 +729,34 @@ async def _memory_store_with(*entries):
     for entry in entries:
         await store.append(entry)
     return store
+
+
+class _FailIfReadMemoryStore:
+    async def list_active_for_scope(self, *, scope_kind, scope_ref):
+        raise AssertionError(f"ablation read operator memory for {scope_kind}:{scope_ref}")
+
+
+@pytest.mark.asyncio
+async def test_operator_memory_ablation_avoids_store_read(tmp_path: Path) -> None:
+    from fdai.core.operator_memory import OperatorScope
+
+    _write_schema(tmp_path)
+    _write_prompt(tmp_path, "base", "hello.v1.yaml", _base("t2.proposer", "BASE"))
+    composer = DefaultPromptComposer(
+        registry=FileSystemPromptRegistry(tmp_path),
+        operator_memory_store=_FailIfReadMemoryStore(),
+        ablation_profile=PromptAblationProfile.reviewed("operator-memory"),
+    )
+
+    out = await composer.compose(
+        capability_id="t2.proposer",
+        scope=OperatorScope(resource_group_ref="rg-1"),
+    )
+
+    assert out.system_text == "BASE"
+    assert [(ref.id, ref.layer) for ref in out.ablated_layers] == [
+        ("operator-memory", PromptLayer.OPERATOR_MEMORY)
+    ]
 
 
 def _mem_entry(
@@ -1224,6 +1352,35 @@ async def test_skill_index_precedes_complete_body_and_contains_metadata_only(
     assert result.skill_records[0].version == "1.2.3"
     assert result.skill_records[0].body_sha256
     assert result.layer_manifest[-1].version == 1
+
+
+@pytest.mark.asyncio
+async def test_partial_skill_ablation_marks_loaded_body_as_not_disclosed(
+    tmp_path: Path,
+) -> None:
+    _write_schema(tmp_path)
+    _write_prompt(tmp_path, "base", "hello.v1.yaml", _base("t2.reasoner.primary", "BASE"))
+    catalog, verifier = _runtime_skill_catalog(
+        ("inventory-evidence", "MUST-NOT-BE-DISCLOSED", None)
+    )
+    composer = DefaultPromptComposer(
+        registry=FileSystemPromptRegistry(tmp_path),
+        skill_catalog=catalog,
+        skill_trust_verifier=verifier,
+        ablation_profile=PromptAblationProfile(
+            disabled_layers=frozenset({PromptLayer.SKILL_BODY}),
+        ),
+    )
+
+    result = await composer.compose(
+        capability_id="t2.reasoner.primary",
+        skill_disclosure=_skill_request(),
+    )
+
+    assert "MUST-NOT-BE-DISCLOSED" not in result.system_text
+    assert result.skill_records[0].status is SkillSelectionStatus.REJECTED
+    assert result.skill_records[0].rejection_reason == "prompt_ablation"
+    assert any(ref.id == "skill:inventory-evidence" for ref in result.ablated_layers)
 
 
 @pytest.mark.asyncio

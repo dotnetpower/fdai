@@ -235,6 +235,39 @@ async def test_discovery_policy_can_be_audited_without_restart() -> None:
     assert len(tuple(store.audit_entries)) == 2
 
 
+async def test_answer_continuity_and_prompt_ablation_are_safe_startup_settings() -> None:
+    service = RuntimeSettingsService(store=InMemoryStateStore(), env={})
+
+    initial = await service.projection(can_manage=True)
+    await service.update(
+        actor_id="owner-1",
+        changes={
+            "conversation.answer_continuity.enabled": True,
+            "conversation.prompt_ablation.profile": "TOOLS",
+        },
+        expected_revision=0,
+    )
+    updated = await service.projection(can_manage=True)
+
+    assert _setting(initial, "conversation.answer_continuity.enabled")["effective_value"] is False
+    assert _setting(initial, "conversation.prompt_ablation.profile")["effective_value"] == "NONE"
+    assert _setting(updated, "conversation.answer_continuity.enabled")["effective_value"] is True
+    assert _setting(updated, "conversation.prompt_ablation.profile")["effective_value"] == "TOOLS"
+    assert _setting(updated, "conversation.answer_continuity.enabled")["restart_required"] is True
+    assert _setting(updated, "conversation.prompt_ablation.profile")["restart_required"] is True
+
+
+async def test_prompt_ablation_rejects_unreviewed_profile() -> None:
+    service = RuntimeSettingsService(store=InMemoryStateStore(), env={})
+
+    with pytest.raises(ValueError, match="MUST be one of"):
+        await service.update(
+            actor_id="owner-1",
+            changes={"conversation.prompt_ablation.profile": "CUSTOM"},
+            expected_revision=0,
+        )
+
+
 @pytest.mark.parametrize(
     ("env", "message"),
     [

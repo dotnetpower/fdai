@@ -27,6 +27,7 @@ the trust routing in
 | Route-specific conversation prompts | implemented | `conversation-preflight.v1.yaml`; `semantic-judgment.v5.yaml`; focused composer and Azure adapter checks | Startup composes a compact T1 preflight separately from full operational semantic judgment. Pure eligible social turns use only the compact prompt and schema. Mixed, contextual, ambiguous, and operational turns continue to the full capability-aware prompt. |
 | Approved external skill-source fetch | implemented | [`skill_source.py`](../../../services/core-control-plane/src/fdai/delivery/github/skill_source.py); [`test_skill_source.py`](../../../services/core-control-plane/tests/delivery/github/test_skill_source.py) | The GitHub delivery adapter resolves immutable commits and returns only bounded exact files. Fetch never grants prompt eligibility; quarantine, publisher verification, approval, and disabled-first installation remain authoritative. |
 | Operator memory, debate, and QualityGate integration | implemented | [`test_prompt_deliberation.py`](../../../services/core-control-plane/tests/agents/test_prompt_deliberation.py), [`test_gate.py`](../../../services/core-control-plane/tests/core/quality_gate/test_gate.py) | Bounded memory and one-round Critic/Judge debate feed the deterministic verifier without granting authority. |
+| Answer continuity and prompt ablation | implemented | `services/core-control-plane/src/fdai/core/prompts/`; `services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py`; `services/operator-service/src/fdai_operator_service/postgres_iam.py`; 312 focused Python checks and 6 Console checks | An audited runtime toggle, protected prompt-layer ablation, replay evidence, useful safe-hold rendering, and revision-fenced Operator persistence are implemented. Governed shadow evidence remains open before runtime validation. |
 | Reviewed web search and core T2 prompt integration | in-progress | [`test_web_search.py`](../../../services/core-control-plane/tests/core/web_search/test_web_search.py), [Wave 5 alpha](#wave-5-alpha---what-shipped) | The safe provider seam and reviewed adapter exist, but snippets are not threaded into the core T2 tool manifest. |
 | Fork-first second-approval channel | in-progress | [`hil_pipeline.py`](../../../services/core-control-plane/src/fdai/core/operator_memory/hil_pipeline.py), [`test_hil_pipeline.py`](../../../services/core-control-plane/tests/core/operator_memory/test_hil_pipeline.py) | The upstream domain step now proves distinct-principal, no-self-approval, a bounded approval window, and replay: a redelivered approval refuses with `already_materialized` instead of planting a second entry, and an unprovable or expired window never materializes. The channel that invokes it stays fork-first and unbuilt, so the pipeline slice remains disabled. |
 
@@ -34,6 +35,7 @@ the trust routing in
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-02 | implemented | Added the answer-continuity and prompt-ablation slice. The implementation separates guaranteed terminal usefulness from factual verification, protects authority-bearing prompt layers from ablation, makes exclusions replay-visible, and applies revision-fenced settings through one startup snapshot. Ten critique and hardening rounds closed four Medium and five Low defects; the final round found nothing above Low. | `current change`; 312 focused Python checks, 6 Console checks, task-scoped Ruff, strict mypy over 18 source files, and documentation gates passed. | Retain governed shadow evidence before claiming runtime validation. |
 | 2026-08-29 | implemented | Hardening round 8 reviewed 23 conversation-preflight lenses and moved social profile bounding inside the safe fallback boundary. Oversized profiles now hold before any narrator call instead of raising through the turn. | `current change`; focused conversation preflight tests. | Retain governed live social-response evidence. |
 | 2026-08-28 | implemented | Split temperature-zero social classification, temperature-0.3 persona narration, and full operational semantic judgment into separate composed prompt capabilities. Social narration now combines one common base with exactly one typed enforce pack for greeting, thanks, farewell, or self-introduction. The classifier and narrator receive no ontology capability catalog, the narrator receives no operational context, and only its schema can carry social prose. | `current change`; focused prompt, adapter, routing, and processor checks passed 608 cases; authenticated self-introduction variants used roughly 1.7K-1.9K total tokens across two calls versus the earlier 5,819-token full social input. Composition checks prove act packs remain mutually exclusive. | Retain authenticated per-pack waterfall evidence and measure collision, appropriateness, and latency on a larger bilingual corpus. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and corrected the former fully-live T2 claim. | `current change`; current source and focused tests listed in the scope table. | Complete core T2 web grounding, second approval, and governed runtime evidence. |
@@ -52,6 +54,9 @@ the trust routing in
   slice.
 - [ ] Retain a governed end-to-end T2 receipt proving the composed prompt, debate, citations, final
   verifier result, and zero execution authority on one pinned catalog revision.
+- [ ] Retain a governed answer-continuity shadow campaign that ablates each eligible prompt layer,
+  records the exact active and excluded layer manifests, keeps unsupported operational claims at
+  zero, and demonstrates a measured usefulness gain over strict held responses.
 
 ## Design at a glance
 
@@ -403,11 +408,64 @@ Promotion gates (initial values, tuned per capability): `adherence >= 0.95`,
 `citation_f1 >= 0.9`, `web.grounding_leak == 0`, `debate.timeout_to_hil_rate
 <= 5%`, `critic.reversal_rate in [1%, 15%]`.
 
+## Answer continuity and prompt ablation
+
+Answer continuity is a configurable presentation policy for accepted conversational turns. It does
+not promise a correct diagnosis. When a verified answer is unavailable, it returns a useful safe
+hold that names the bounded failure, separates confirmed facts from unknowns, lists the exact
+missing evidence, and suggests only registered read or simulation capabilities.
+
+The flow remains `T0 -> T1 -> verification -> bounded T2 -> deterministic verification`. Enabling
+continuity never skips a tier, changes a score, treats a retrieval rank as confidence, or grants
+execution authority. A low-quality T2 result can improve the explanation of the hold, but it cannot
+turn an unsupported claim into an answer.
+
+### Runtime policy
+
+The revisioned runtime settings surface owns two independent controls:
+
+- `conversation.answer_continuity.enabled` enables useful safe-hold rendering after restart. The
+  default is `false`.
+- `conversation.prompt_ablation.profile` selects one reviewed evaluation profile. `none` is the
+  production default. Other profiles can remove task packs, tool manifests, operator memory,
+  runtime skills, or all optional context.
+
+The deployment setting is a ceiling. Request text, model output, an experiment, or a user preference
+cannot enable a profile that the runtime policy did not select. Every update uses the existing
+revision check and append-only settings audit.
+
+### Protected and eligible layers
+
+| Class | Layers | Ablation behavior |
+|-------|--------|-------------------|
+| Protected | base role, Critic, Judge, rubric, role header | Never removable. Startup or composition fails closed if a profile targets one. |
+| Eligible | task pack, tool manifest, operator memory, skill index/body/reference/bundle | Removable only by a reviewed profile. The composer avoids reading an ablated store or catalog and records each excluded layer or artifact. |
+| External authority | tool call-site policy, RBAC, verifier, risk gate, approval, executor | Outside the prompt and never ablatable. Manifest omission is not an authorization control. |
+
+Each `ComposedPrompt` and `PromptReplayManifest` carries an ablation profile plus ordered excluded
+layer references. Canaries are injected only after exclusions, so recognition metrics cannot count a
+removed layer as unread. An ablated tool manifest does not change the executor's deny-by-default
+classification.
+
+### Useful safe hold
+
+With answer continuity enabled, `held` and `unsupported` turns still preserve their canonical
+disposition and reason code. Only the localized answer changes. It includes:
+
+1. the strongest supported status;
+2. the exact bounded reason code;
+3. a statement that no operational change was authorized;
+4. a safe next step that asks for missing scope or points to registered read-only investigation;
+5. a low-confidence notice when semantic or model evidence was incomplete.
+
+No deterministic fact means no hypothesis. The response remains a hold, and the Console continues
+to show `verification.status=unverified`.
+
 ## Safety invariants (extensions)
 
 The eight invariants in
 [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md#safety)
-extend with six more as this design lands:
+extend with ten more as this design lands:
 
 1. Web-search output is NEVER a `cited_rule_id`.
 2. Tool results and web snippets are ALWAYS wrapped in `trusted="false"` XML.
@@ -418,6 +476,12 @@ extend with six more as this design lands:
 5. Judge MUST NOT call tools; judgment and generation are separated.
 6. Web evidence is hash-addressed immutable; replay reads snapshots, never
    re-fetches.
+7. Prompt ablation never removes a base role, Critic, Judge, rubric, role header, deterministic
+   verifier, RBAC check, or tool call-site policy.
+8. Every ablated layer or artifact is present in replay evidence; silent exclusion is not supported.
+9. An ablated optional source is not read and cannot leak into model context through another layer.
+10. Answer continuity preserves the original terminal disposition and never upgrades an unverified
+    response to `answered`.
 
 ## Rollout waves
 

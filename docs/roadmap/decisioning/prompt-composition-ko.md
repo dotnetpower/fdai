@@ -1,8 +1,8 @@
 ---
 title: 진화하는 시스템 프롬프트
 translation_of: prompt-composition.md
-translation_source_sha: c145c18f58da0e770491a4f186d47f45041b6452
-translation_revised: 2026-08-29
+translation_source_sha: 626efb116e452519f653294e33cb190a31a7458a
+translation_revised: 2026-09-02
 ---
 
 # 진화하는 시스템 프롬프트
@@ -31,6 +31,7 @@ trust 라우팅을 확장합니다.
 | 경로별 대화 prompt | implemented | `conversation-preflight.v1.yaml`, `semantic-judgment.v5.yaml`, 집중 composer 및 Azure adapter 검사 | 시작 시 compact T1 preflight와 전체 운영 의미 판단을 별도로 조립합니다. 조건에 맞는 순수 social 턴은 compact prompt와 schema만 사용합니다. 혼합, 맥락 의존, 모호함 및 운영 턴은 기능을 인식하는 전체 prompt로 계속 진행됩니다. |
 | 승인된 외부 skill-source fetch | implemented | [`skill_source.py`](../../../services/core-control-plane/src/fdai/delivery/github/skill_source.py); [`test_skill_source.py`](../../../services/core-control-plane/tests/delivery/github/test_skill_source.py) | GitHub delivery 어댑터는 불변 commit을 해석하고 범위가 제한된 exact 파일만 반환합니다. Fetch는 prompt eligibility를 부여하지 않으며 격리, publisher 검증, 승인, disabled-first installation이 계속 권위 있는 경계입니다. |
 | 운영자 기억, 토론 및 QualityGate 통합 | implemented | [`test_prompt_deliberation.py`](../../../services/core-control-plane/tests/agents/test_prompt_deliberation.py), [`test_gate.py`](../../../services/core-control-plane/tests/core/quality_gate/test_gate.py) | 제한된 기억과 1회 비평자/Judge 토론은 권한을 부여하지 않고 결정론적 검증기에 근거를 제공합니다. |
+| 답변 연속성과 프롬프트 ablation | implemented | `services/core-control-plane/src/fdai/core/prompts/`, `services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py`, `services/operator-service/src/fdai_operator_service/postgres_iam.py`, 집중 Python 검사 312개 및 콘솔 검사 6개 | 감사되는 런타임 토글, 보호된 프롬프트 레이어 ablation, 재실행 근거, 유용한 안전 보류 렌더링 및 리비전으로 보호된 Operator 지속성이 구현되었습니다. 런타임 검증 전까지 통제된 shadow 근거 보존은 열려 있습니다. |
 | 검토된 웹 검색 및 코어 T2 프롬프트 통합 | in-progress | [`test_web_search.py`](../../../services/core-control-plane/tests/core/web_search/test_web_search.py), [Wave 5 alpha](#wave-5-alpha---무엇이-배포되었나) | 안전한 프로바이더 경계와 검토된 어댑터가 있지만 스니펫은 코어 T2 도구 매니페스트에 연결되지 않았습니다. |
 | 포크 우선 두 번째 승인 채널 | in-progress | [`hil_pipeline.py`](../../../services/core-control-plane/src/fdai/core/operator_memory/hil_pipeline.py), [`test_hil_pipeline.py`](../../../services/core-control-plane/tests/core/operator_memory/test_hil_pipeline.py) | 업스트림 도메인 단계가 서로 다른 principal, 자기 승인 방지, 범위가 제한된 승인 창, 재실행을 입증합니다. 재전달된 승인은 두 번째 항목을 만드는 대신 `already_materialized` 로 거부하며, 증명할 수 없거나 만료된 창은 절대 구체화되지 않습니다. 그것을 호출하는 채널은 포크 우선으로 남아 미구현이므로 파이프라인 구획은 비활성 상태입니다. |
 
@@ -38,6 +39,7 @@ trust 라우팅을 확장합니다.
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-02 | implemented | 답변 연속성 및 프롬프트 ablation 구획을 추가했습니다. 구현은 보장되는 종결 응답의 유용성을 사실 검증과 분리하고, 권한에 영향을 주는 프롬프트 레이어를 ablation에서 보호하고, 제외 항목을 재실행 시 볼 수 있게 하며, 리비전으로 보호된 설정을 단일 시작 스냅샷으로 적용합니다. 10회의 비평 및 강화 라운드에서 Medium 결함 4개와 Low 결함 5개를 닫았고 마지막 라운드에는 Low 초과 지적이 없었습니다. | `current change`, 집중 Python 검사 312개, 콘솔 검사 6개, 작업 범위 Ruff, 소스 파일 18개의 strict mypy 및 문서 gate가 통과했습니다. | 런타임 검증을 주장하기 전에 통제된 shadow 근거를 보존합니다. |
 | 2026-08-29 | implemented | 강화 라운드 8에서 대화 사전 검사 관점 23개를 검토하고 social profile 범위 검사를 안전한 대체 경계 안으로 옮겼습니다. 이제 너무 큰 profile은 narrator 호출 전에 보류되며 turn 밖으로 예외를 전파하지 않습니다. | `current change`; 집중 대화 사전 검사 테스트. | 관리되는 실제 social 응답 근거를 보존합니다. |
 | 2026-08-28 | implemented | Temperature 0인 social 분류, temperature 0.3인 페르소나 narration 및 전체 운영 의미 판단을 별도의 조립 prompt 기능으로 분리했습니다. Social narration은 공통 base와 greeting, thanks, farewell 또는 self-introduction용 타입 기반 enforce pack 하나를 조합합니다. 분류기와 narrator는 온톨로지 기능 카탈로그를 받지 않고 narrator는 운영 맥락도 받지 않으며, social 문장은 narrator schema만 전달할 수 있습니다. | `current change`, 집중 prompt, adapter, routing 및 processor 검사 608개 통과, 인증된 자기소개 변형은 이전 전체 social 입력 5,819토큰과 비교해 두 호출에서 전체 약 1.7K-1.9K토큰을 사용했습니다. 조립 검사는 act pack이 서로 섞이지 않음을 입증합니다. | 인증된 pack별 waterfall 근거를 보존하고 더 큰 이중 언어 corpus에서 충돌률, 적절성 및 지연을 측정합니다. |
 | 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입하고 기존의 T2 완전 실제 운영 주장을 바로잡았습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트입니다. | 코어 T2 웹 근거 확인, 두 번째 승인 및 통제된 런타임 근거를 완료해야 합니다. |
@@ -56,6 +58,9 @@ trust 라우팅을 확장합니다.
   활성화합니다.
 - [ ] 하나의 고정 카탈로그 리비전에서 조립된 프롬프트, 토론, 인용, 최종 검증기 결과 및 실행
   권한 0을 증명하는 통제된 종단 간 T2 증적을 보존합니다.
+- [ ] 적합한 각 프롬프트 레이어를 ablation하고, 정확한 활성 및 제외 레이어 매니페스트를
+  기록하고, 근거 없는 운영 주장을 0으로 유지하며, 엄격한 보류 응답보다 측정된 유용성 향상을
+  입증하는 통제된 답변 연속성 shadow 캠페인을 보존합니다.
 
 ## 한눈에 보는 설계
 
@@ -397,10 +402,63 @@ PR review comment on rem PR     --/         v
 `citation_f1 >= 0.9`, `web.grounding_leak == 0`, `토론.timeout_to_hil_rate
 <= 5%`, `비평자.reversal_rate in [1%, 15%]`.
 
+## 답변 연속성과 프롬프트 ablation
+
+답변 연속성은 수락된 대화 턴을 위한 구성 가능한 표현 정책입니다. 올바른 진단을 약속하지
+않습니다. 검증된 답변을 제공할 수 없으면 범위가 제한된 실패 원인을 밝히고, 확인된 사실과
+알 수 없는 부분을 구분하고, 정확히 부족한 근거를 나열하며, 등록된 읽기 또는 시뮬레이션
+기능만 제안하는 유용한 안전 보류 응답을 반환합니다.
+
+흐름은 계속 `T0 -> T1 -> verification -> bounded T2 -> deterministic verification`입니다.
+연속성을 켜도 계층을 건너뛰거나 점수를 변경하거나 검색 순위를 신뢰도로 취급하거나 실행
+권한을 부여하지 않습니다. 품질이 낮은 T2 결과는 보류 설명을 개선할 수 있지만, 근거 없는
+주장을 답변으로 바꿀 수 없습니다.
+
+### 런타임 정책
+
+리비전 기반 런타임 설정 표면은 서로 독립적인 두 control을 소유합니다.
+
+- `conversation.answer_continuity.enabled`는 재시작 후 유용한 안전 보류 렌더링을 켭니다.
+  기본값은 `false`입니다.
+- `conversation.prompt_ablation.profile`은 검토된 평가 profile 하나를 선택합니다. 프로덕션
+  기본값은 `none`입니다. 다른 profile은 task pack, tool manifest, operator memory,
+  runtime skill 또는 모든 선택적 context를 제거할 수 있습니다.
+
+배포 설정은 상한입니다. 요청 텍스트, 모델 출력, 실험 또는 사용자 선호는 런타임 정책이
+선택하지 않은 profile을 켤 수 없습니다. 모든 업데이트는 기존 리비전 검사와 추가 전용
+설정 감사를 사용합니다.
+
+### 보호 및 ablation 가능 레이어
+
+| 분류 | 레이어 | Ablation 동작 |
+|------|--------|---------------|
+| 보호 | base 역할, Critic, Judge, rubric, role header | 제거할 수 없습니다. Profile이 이를 대상으로 지정하면 시작 또는 조립 단계에서 안전하게 차단됩니다. |
+| 적합 | task pack, tool manifest, operator memory, skill index/body/reference/bundle | 검토된 profile만 제거할 수 있습니다. 작성기는 ablation된 저장소나 카탈로그를 읽지 않고 제외된 각 레이어 또는 아티팩트를 기록합니다. |
+| 외부 권한 | tool call-site 정책, RBAC, 검증기, risk gate, 승인, 실행기 | 프롬프트 밖에 있으며 ablation할 수 없습니다. 매니페스트 누락은 권한 제어가 아닙니다. |
+
+각 `ComposedPrompt`와 `PromptReplayManifest`는 ablation profile과 순서가 있는 제외 레이어
+참조를 전달합니다. Canary는 제외 후에만 주입되므로 인식 메트릭이 제거된 레이어를 읽지 않은
+것으로 계산하지 않습니다. Ablation된 도구 매니페스트는 실행기의 기본 차단 분류를 변경하지
+않습니다.
+
+### 유용한 안전 보류
+
+답변 연속성이 켜져 있어도 `held`와 `unsupported` 턴은 원래 처리 결과와 사유 코드를
+유지합니다. 지역화된 답변만 달라지며 다음을 포함합니다.
+
+1. 근거로 지원되는 가장 강한 상태
+2. 범위가 제한된 정확한 사유 코드
+3. 운영 변경이 승인되지 않았다는 설명
+4. 부족한 범위를 요청하거나 등록된 읽기 전용 조사를 안내하는 안전한 다음 단계
+5. 의미 또는 모델 근거가 불완전한 경우 낮은 신뢰도 안내
+
+결정적 사실이 없으면 가설도 만들지 않습니다. 응답은 계속 보류이며 콘솔은
+`verification.status=unverified`를 계속 표시합니다.
+
 ## 안전 불변식 (확장)
 
 [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md#safety)
-의 8개 불변식에 이 설계 랜딩과 함께 6개가 추가됩니다:
+의 8개 불변식에 이 설계 랜딩과 함께 10개가 추가됩니다:
 
 1. 웹 검색 출력은 **절대** `cited_rule_id`가 아님.
 2. 도구 결과와 web 스니펫은 **항상** `trusted="false"` XML로 wrap.
@@ -411,6 +469,14 @@ PR review comment on rem PR     --/         v
 5. Judge는 툴을 호출**해서는 안 됨**. Judgment와 세대는 분리.
 6. Web 근거는 해시 주소 변경할 수 없는이며, 재생은 스냅샷을 읽고 다시 fetch
    하지 않음.
+7. 프롬프트 ablation은 base 역할, Critic, Judge, rubric, role header, 결정적 검증기,
+   RBAC 검사 또는 도구 호출 시점 정책을 제거하지 않습니다.
+8. Ablation된 모든 레이어 또는 아티팩트는 재실행 근거에 남습니다. 조용한 제외는 지원하지
+   않습니다.
+9. Ablation된 선택적 원본은 읽지 않으며 다른 레이어를 통해 모델 context로 유출될 수
+   없습니다.
+10. 답변 연속성은 원래 종결 처리 결과를 유지하며 검증되지 않은 응답을 `answered`로
+    승격하지 않습니다.
 
 ## 롤아웃 waves
 

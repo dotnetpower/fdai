@@ -253,6 +253,30 @@ RUNTIME_SETTING_SPECS: tuple[RuntimeSettingSpec, ...] = (
         options=("DEBUG", "INFO", "WARNING", "ERROR"),
         restart_required=True,
     ),
+    RuntimeSettingSpec(
+        "conversation.answer_continuity.enabled",
+        "FDAI_ANSWER_CONTINUITY_ENABLED",
+        "conversation",
+        "boolean",
+        False,
+        restart_required=True,
+    ),
+    RuntimeSettingSpec(
+        "conversation.prompt_ablation.profile",
+        "FDAI_PROMPT_ABLATION_PROFILE",
+        "conversation",
+        "enum",
+        "NONE",
+        options=(
+            "NONE",
+            "PACKS",
+            "TOOLS",
+            "OPERATOR-MEMORY",
+            "SKILLS",
+            "OPTIONAL-CONTEXT",
+        ),
+        restart_required=True,
+    ),
 )
 
 _SPECS_BY_KEY = {spec.key: spec for spec in RUNTIME_SETTING_SPECS}

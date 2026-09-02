@@ -98,6 +98,16 @@ def _prompt_replay_manifest_fields(manifest: Any) -> dict[str, Any]:
         "canary_tokens": [
             {"layer_id": layer_id, "token": token} for layer_id, token in manifest.canary_tokens
         ],
+        "ablation_profile": manifest.ablation_profile.value,
+        "ablated_layers": [
+            {
+                "id": ref.id,
+                "version": ref.version,
+                "layer": ref.layer.value,
+                "reason": ref.reason,
+            }
+            for ref in manifest.ablated_layers
+        ],
         "layer_manifest": [
             {
                 "id": layer.id,

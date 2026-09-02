@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Mapping
 from typing import Any
 
 from fdai.composition import (
     LlmBindings,
     default_container_from_env,
 )
+from fdai.delivery.runtime_settings import runtime_settings_service_from_env
 from fdai.runtime.bootstrap_bindings import (
     build_runtime_workload_identity as _build_runtime_workload_identity,
 )
@@ -69,9 +71,12 @@ async def _run() -> int:
 
     resources = RuntimeResources()
     identity: Any = None
+    runtime_values: Mapping[str, object] | None = None
 
     try:
         resources.health_server = await open_health_port()
+        if container.config.llm.mode == LlmMode.AZURE or plan.start_consumer:
+            runtime_values = await runtime_settings_service_from_env(os.environ).effective_values()
         identity_requests = plan.identity_requests
         if identity_requests.case_history:
             _case_history_identity_client_id(os.environ)
@@ -82,8 +87,13 @@ async def _run() -> int:
         if container.config.llm.mode == LlmMode.AZURE:
             if resources.http_client is None or identity is None:
                 raise RuntimeError("Azure LLM mode requires HTTP and workload identity bindings")
+            if runtime_values is None:  # pragma: no cover - startup branch invariant
+                raise RuntimeError("Azure LLM mode requires a runtime settings snapshot")
             container = await _finalize_llm_bindings(
-                container, http_client=resources.http_client, identity=identity
+                container,
+                http_client=resources.http_client,
+                identity=identity,
+                runtime_values=runtime_values,
             )
             bindings: LlmBindings = container.require_llm_bindings()
             _LOGGER.info(
@@ -116,6 +126,8 @@ async def _run() -> int:
 
         core_runtime: CoreRuntime | None = None
         if plan.start_consumer:
+            if runtime_values is None:  # pragma: no cover - startup branch invariant
+                raise RuntimeError("Core runtime requires a runtime settings snapshot")
             if identity is None and plan.consumer_requires_workload_identity:
                 if resources.http_client is None:
                     resources.http_client = _new_http_client()
@@ -126,6 +138,7 @@ async def _run() -> int:
                 resources=resources,
                 identity=identity,
                 environment=os.environ,
+                runtime_values_snapshot=runtime_values,
             )
         elif pantheon_start_enabled(os.environ):
             # Pantheon needs the same Kafka bus the consumer builds; without

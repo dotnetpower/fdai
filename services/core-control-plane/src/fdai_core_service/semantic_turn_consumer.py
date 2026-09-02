@@ -169,6 +169,7 @@ def build_semantic_turn_processor(
     runtime: SemanticConversationRuntime | None,
     purpose: str = "operations-review",
     operational_evidence: OperationalEvidenceProjectionReader | None = None,
+    answer_continuity_enabled: bool = False,
 ) -> SemanticTurnProcessor:
     """Bind the durable store and an optional composed semantic runtime.
 
@@ -181,6 +182,7 @@ def build_semantic_turn_processor(
         results=StateStoreSemanticTurnResultStore(state_store),
         purpose=purpose,
         operational_evidence=operational_evidence,
+        answer_continuity_enabled=answer_continuity_enabled,
     )
 
 
@@ -191,6 +193,7 @@ def semantic_turn_binding_from_config(
     config: Mapping[str, str],
     unavailable_reason: str | None = None,
     operational_evidence: OperationalEvidenceProjectionReader | None = None,
+    answer_continuity_enabled: bool = False,
 ) -> SemanticTurnConsumerBinding | None:
     """Build the consumer only when both transport topics are configured.
 
@@ -232,6 +235,7 @@ def semantic_turn_binding_from_config(
             runtime=runtime,
             purpose=purpose,
             operational_evidence=operational_evidence,
+            answer_continuity_enabled=answer_continuity_enabled,
         ),
         available=runtime is not None,
         unavailable_reason=(

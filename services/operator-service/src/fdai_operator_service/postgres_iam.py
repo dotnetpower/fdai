@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, replace
@@ -45,6 +46,7 @@ from fdai_operator_service.families.iam.contracts import (
 )
 from fdai_operator_service.families.iam.errors import (
     IamConflictError,
+    IamFamilyError,
     IamNotFoundError,
     IamPermissionError,
     IamUnavailableError,
@@ -76,6 +78,7 @@ _IAM_PROPOSAL_SCAN_LIMIT = 1_000
 _CANONICAL_GRANT_ID = re.compile(r"^[A-Za-z0-9._:-]{1,256}$")
 _SCOPE_REF = re.compile(r"^scope://[\x20-\x7E]{1,504}$")
 _MODEL_BINDING_POLICY_KEY = "operator-model-binding-policy:current"
+_RUNTIME_SETTINGS_POLICY_KEY = "runtime-settings:policy"
 
 
 @dataclass(frozen=True, slots=True)
@@ -451,8 +454,9 @@ class PostgresIamAdapters:
                     }
                 ),
             }
+        runtime_policy = await self._state(_RUNTIME_SETTINGS_POLICY_KEY)
         return {
-            **payload,
+            **_runtime_settings_projection(payload, runtime_policy),
             "can_manage": can_manage,
         }
 
@@ -562,8 +566,28 @@ class PostgresIamAdapters:
         )
 
     async def update(self, command: RuntimeSettingsCommand) -> None:
-        """Queue a revisioned runtime-settings proposal."""
-        await self._proposal("runtime-settings.update", command, _idempotency_key(command))
+        """Atomically record a proposal and the revision-fenced runtime override."""
+
+        projection = await self._projection("runtime-settings")
+        current = await self._state(_RUNTIME_SETTINGS_POLICY_KEY)
+        try:
+            state = _runtime_settings_state(projection, current, command)
+            await self.store.append_revisioned_proposal(
+                family="iam",
+                operation="runtime-settings.update",
+                principal_id=command.actor_id,
+                idempotency_key=_idempotency_key(command),
+                payload=_command_payload(command),
+                state_key=_RUNTIME_SETTINGS_POLICY_KEY,
+                state_value=state,
+                expected_revision=command.expected_revision,
+            )
+        except PostgresProposalConflict as exc:
+            raise IamConflictError(str(exc)) from exc
+        except PostgresFamilyStoreUnavailable as exc:
+            raise IamUnavailableError(str(exc)) from exc
+        except ValueError as exc:
+            raise IamFamilyError(str(exc)) from exc
 
     async def run(self, command: ConfigurationReviewCommand) -> JsonMapping:
         """Queue a configuration-review evidence campaign request."""
@@ -1060,6 +1084,141 @@ def _idempotency_key(command: object) -> str:
             json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
         ).hexdigest()
     )
+
+
+def _runtime_settings_state(
+    base_projection: Mapping[str, object],
+    current: Mapping[str, object] | None,
+    command: RuntimeSettingsCommand,
+) -> dict[str, object]:
+    projected = _runtime_settings_projection(base_projection, current)
+    if projected.get("revision") != command.expected_revision:
+        raise IamConflictError("runtime settings revision mismatch")
+    raw_settings = projected.get("settings")
+    if not isinstance(raw_settings, list):
+        raise IamUnavailableError("runtime settings projection has no settings")
+    settings = {
+        str(setting.get("key")): setting
+        for setting in raw_settings
+        if isinstance(setting, Mapping) and isinstance(setting.get("key"), str)
+    }
+    raw_overrides = current.get("overrides") if current is not None else None
+    if raw_overrides is not None and not isinstance(raw_overrides, Mapping):
+        raise IamUnavailableError("stored runtime settings overrides are malformed")
+    overrides = dict(raw_overrides) if isinstance(raw_overrides, Mapping) else {}
+    if not command.changes:
+        raise ValueError("runtime settings changes MUST NOT be empty")
+    for key, value in command.changes.items():
+        setting = settings.get(key)
+        if setting is None:
+            raise ValueError(f"unknown runtime setting: {key}")
+        if value is None:
+            overrides.pop(key, None)
+        else:
+            overrides[key] = _validate_runtime_setting_value(setting, value)
+    updated_at = datetime.now(UTC).isoformat()
+    return {
+        "revision": command.expected_revision + 1,
+        "overrides": overrides,
+        "updated_at": updated_at,
+        "updated_by": command.actor_id,
+    }
+
+
+def _runtime_settings_projection(
+    base_projection: Mapping[str, object],
+    state: Mapping[str, object] | None,
+) -> dict[str, object]:
+    projection = dict(base_projection)
+    raw_settings = projection.get("settings")
+    if not isinstance(raw_settings, list):
+        raise IamUnavailableError("runtime settings projection has no settings")
+    if state is None:
+        return projection
+    revision = state.get("revision")
+    overrides = state.get("overrides")
+    updated_at = state.get("updated_at")
+    updated_by = state.get("updated_by")
+    if (
+        not isinstance(revision, int)
+        or isinstance(revision, bool)
+        or revision < 1
+        or not isinstance(overrides, Mapping)
+        or not isinstance(updated_at, str)
+        or not updated_at
+        or not isinstance(updated_by, str)
+        or not updated_by
+    ):
+        raise IamUnavailableError("stored runtime settings are malformed")
+    settings: list[dict[str, object]] = []
+    known_keys: set[str] = set()
+    for raw_setting in raw_settings:
+        if not isinstance(raw_setting, Mapping):
+            raise IamUnavailableError("runtime settings projection contains a malformed setting")
+        setting = dict(raw_setting)
+        key = setting.get("key")
+        if not isinstance(key, str) or not key or key in known_keys:
+            raise IamUnavailableError("runtime settings projection contains an invalid key")
+        known_keys.add(key)
+        environment_value = setting.get("environment_value")
+        if key in overrides:
+            override = _validate_runtime_setting_value(setting, overrides[key])
+            setting["override_value"] = override
+            setting["effective_value"] = override
+        else:
+            setting["override_value"] = None
+            setting["effective_value"] = environment_value
+        settings.append(setting)
+    unknown = set(overrides) - known_keys
+    if unknown:
+        raise IamUnavailableError("stored runtime settings contain an unknown key")
+    projection.update(
+        {
+            "revision": revision,
+            "updated_at": updated_at,
+            "updated_by": updated_by,
+            "settings": settings,
+        }
+    )
+    return projection
+
+
+def _validate_runtime_setting_value(
+    setting: Mapping[str, object],
+    value: object,
+) -> object:
+    key = setting.get("key")
+    value_type = setting.get("value_type")
+    if not isinstance(key, str):
+        raise IamUnavailableError("runtime setting key is malformed")
+    if value_type == "boolean":
+        if not isinstance(value, bool):
+            raise ValueError(f"{key} MUST be a boolean")
+        return value
+    if value_type == "enum":
+        options = setting.get("options")
+        if not isinstance(value, str) or not isinstance(options, list) or value not in options:
+            raise ValueError(f"{key} MUST be one of the projected options")
+        return value
+    if value_type == "integer":
+        if not isinstance(value, int) or isinstance(value, bool):
+            raise ValueError(f"{key} MUST be an integer")
+        number = float(value)
+    elif value_type == "number":
+        if not isinstance(value, int | float) or isinstance(value, bool):
+            raise ValueError(f"{key} MUST be a number")
+        number = float(value)
+    else:
+        raise IamUnavailableError("runtime setting type is malformed")
+    if not math.isfinite(number):
+        raise ValueError(f"{key} MUST be finite")
+    minimum = setting.get("minimum")
+    maximum = setting.get("maximum")
+    if isinstance(minimum, int | float) and number < float(minimum):
+        raise ValueError(f"{key} is below the projected minimum")
+    if isinstance(maximum, int | float) and number > float(maximum):
+        raise ValueError(f"{key} is above the projected maximum")
+    return value
 
 
 def _principal_id(payload: Mapping[str, object]) -> str | None:

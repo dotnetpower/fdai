@@ -155,8 +155,10 @@ async def test_eligible_when_all_gates_pass() -> None:
 @pytest.mark.asyncio
 async def test_prompt_evidence_is_optional_on_votes_and_serialized_when_present() -> None:
     from fdai.core.prompts import (
+        AblatedLayerRef,
         ComposedPrompt,
         LayerRef,
+        PromptAblationProfileName,
         PromptLayer,
         SkillReplayRecord,
         SkillSelectionStatus,
@@ -167,6 +169,15 @@ async def test_prompt_evidence_is_optional_on_votes_and_serialized_when_present(
         system_text="evidence prompt",
         layer_manifest=(LayerRef(id="base", version=1, layer=PromptLayer.BASE, token_estimate=4),),
         token_estimate=4,
+        ablation_profile=PromptAblationProfileName.TOOLS,
+        ablated_layers=(
+            AblatedLayerRef(
+                id="tool-manifest",
+                version=1,
+                layer=PromptLayer.TOOL,
+                reason="profile_layer",
+            ),
+        ),
         skill_records=(
             SkillReplayRecord(
                 operation="load_skill",
@@ -208,6 +219,15 @@ async def test_prompt_evidence_is_optional_on_votes_and_serialized_when_present(
     assert decision.model_votes[1].prompt_replay_manifest is None
     evidence_fields = fields["model_votes"][0]["prompt_replay_manifest"]
     assert evidence_fields["system_text_sha256"] == replay.system_text_sha256
+    assert evidence_fields["ablation_profile"] == "tools"
+    assert evidence_fields["ablated_layers"] == [
+        {
+            "id": "tool-manifest",
+            "version": 1,
+            "layer": "tool",
+            "reason": "profile_layer",
+        }
+    ]
     assert evidence_fields["skill_records"][0]["body_sha256"] == "b" * 64
     assert "prompt_replay_manifest" not in fields["model_votes"][1]
 

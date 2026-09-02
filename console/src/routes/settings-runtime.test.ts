@@ -48,6 +48,34 @@ const payload = {
       available: true,
       unavailable_reason: null,
     },
+    {
+      key: "conversation.answer_continuity.enabled",
+      group: "conversation",
+      value_type: "boolean",
+      environment_value: false,
+      override_value: true,
+      effective_value: true,
+      minimum: null,
+      maximum: null,
+      options: [],
+      restart_required: true,
+      available: true,
+      unavailable_reason: null,
+    },
+    {
+      key: "conversation.prompt_ablation.profile",
+      group: "conversation",
+      value_type: "enum",
+      environment_value: "NONE",
+      override_value: "TOOLS",
+      effective_value: "TOOLS",
+      minimum: null,
+      maximum: null,
+      options: ["NONE", "PACKS", "TOOLS", "OPERATOR-MEMORY", "SKILLS", "OPTIONAL-CONTEXT"],
+      restart_required: true,
+      available: true,
+      unavailable_reason: null,
+    },
   ],
 };
 
@@ -62,6 +90,8 @@ describe("runtime settings model", () => {
     expect(initialRuntimeDraft(view)).toEqual({
       "irp.enabled": true,
       "analyzer.budget_seconds": 60,
+      "conversation.answer_continuity.enabled": true,
+      "conversation.prompt_ablation.profile": "TOOLS",
     });
   });
 

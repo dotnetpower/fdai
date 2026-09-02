@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 8d419246b5c4a94337e03986233cb1c96d5548e4
+translation_source_sha: a4b45bd28fb1b525f36bad311792a11c9e341396
 translation_revised: 2026-09-02
 ---
 # 코드 맵
@@ -53,6 +53,11 @@ Operator 소유 다운스트림 마이그레이션에 위치하므로, 부트스
 역할을 필요로 하지 않습니다.
 컨트롤 루프 엔드투엔드 테스트는 게시된 작업과 확인되지 않은 그래프 기반 영향 범위 판단
 보류를 별도로 계수합니다.
+
+프롬프트 조립은 역할 및 안전 레이어를 `core/prompts/`에 유지하고 Azure 시작 조립을
+`composition/wire_azure_prompts.py`로 분리합니다. 리비전 기반 대화 설정은 Operator
+서비스가 공유 `runtime-settings:policy` 레코드에 기록하며 Core는 시작 시 한 번 읽습니다.
+프롬프트 ablation은 선택적 맥락만 제거하고 모든 제외 항목을 재실행을 위해 기록합니다.
 
 의미 대화 계획은 `semantic_planning.py`, `semantic_planning_cascade.py`,
 `semantic_planning_frame.py`를 호환성 facade로 유지합니다. 집중 sibling 모듈은 공개 import,

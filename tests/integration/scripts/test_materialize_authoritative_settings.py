@@ -153,6 +153,10 @@ def test_runtime_projection_reports_configuration_without_inventing_readiness() 
     assert integrations["chatops"]["configured"] is True
     assert integrations["chatops"]["ready"] is False
     assert integrations["email"]["configured"] is False
+    settings = {item["key"]: item for item in projection["settings"]}
+    assert settings["conversation.answer_continuity.enabled"]["effective_value"] is False
+    assert settings["conversation.prompt_ablation.profile"]["effective_value"] == "NONE"
+    assert all(item["restart_required"] is True for item in settings.values())
 
 
 @pytest.mark.parametrize(
