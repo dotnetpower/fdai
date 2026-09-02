@@ -205,21 +205,42 @@ def test_generic_empty_answer_does_not_claim_zero_row_verification(
 
 
 @pytest.mark.parametrize(
-    ("locale", "complete", "event_count", "expected_heading"),
+    ("locale", "complete", "event_count", "measure_concepts", "expected_heading"),
     (
-        ("en", True, 1, "## Yes - active Azure Service Health events are present"),
-        ("en", True, 0, "## No - no active Azure Service Health events are present"),
+        (
+            "en",
+            True,
+            1,
+            ("service_health.active_event",),
+            "## Yes - active Azure Service Health events are present",
+        ),
+        (
+            "en",
+            True,
+            0,
+            ("service_health.active_event",),
+            "## No - no active Azure Service Health events are present",
+        ),
         (
             "ko",
             False,
             1,
+            ("service_health.active_event",),
             "## 예 - 활성 이벤트가 확인됐지만 전체 범위는 불완전합니다",
         ),
         (
             "ko",
             False,
             0,
+            ("service_health.active_event",),
             "## 확인 불가 - 현재 활성 이벤트 여부를 결정할 수 없습니다",
+        ),
+        (
+            "ko",
+            True,
+            0,
+            ("service_health.service_issue",),
+            "## 아니요 - 현재 활성 Azure Service Health 장애가 없습니다",
         ),
     ),
 )
@@ -227,6 +248,7 @@ def test_service_health_answer_reports_direct_conclusion_and_scope(
     locale: str,
     complete: bool,
     event_count: int,
+    measure_concepts: tuple[str, ...],
     expected_heading: str,
 ) -> None:
     request = _request(locale=locale)
@@ -278,7 +300,7 @@ def test_service_health_answer_reports_direct_conclusion_and_scope(
             }
         ],
         output_shape="subscription_service_health",
-        measure_concepts=("service_health.active_event",),
+        measure_concepts=measure_concepts,
     )
 
     assert answer.startswith(expected_heading)

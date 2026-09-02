@@ -315,6 +315,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     assert 'export FDAI_LOCAL_SERVICE_INPUT_DIGEST="$input_digest"' in service_script
     assert "export FDAI_LOCAL_SERVICE_RESTART_STALE=1" in service_script
     assert "export FDAI_LOCAL_SERVICE_REUSE_EXISTING=1" in service_script
+    assert "digest_inputs+=(rule-catalog)" in service_script
     assert '--only "$service"' in service_script
     assert service_script.index('--only "$service"') < service_script.index(
         'write_task_marker "ready"'

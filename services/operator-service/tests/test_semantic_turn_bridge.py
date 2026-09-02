@@ -2041,6 +2041,30 @@ def test_answered_done_exposes_model_transparency_without_changing_verification(
     assert done["semantic_receipt"]["execution_authority"] is False
 
 
+def test_clarification_preserves_the_server_question_and_typed_reason() -> None:
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    projection = _projection(envelope)
+    semantic = cast(dict[str, object], projection["semantic_result"])
+    semantic.update(
+        {
+            "disposition": "clarification",
+            "reason_code": "semantic_clarification_required",
+            "semantic_route": "semantic_clarification",
+            "answer": "Should I filter by name or list the complete managed scope?",
+        }
+    )
+    semantic.pop("unavailable_reason", None)
+
+    done = semantic_turn_runtime_module._done_event_data(projection)
+
+    assert done["answer"] == semantic["answer"]
+    verification = cast(dict[str, object], done["verification"])
+    assert verification["status"] == "unverified"
+    assert verification["reason_code"] == "semantic_clarification_required"
+
+
 def test_self_introduction_done_uses_identity_answer_plan() -> None:
     envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
         _proposal(body={"prompt": "너에 대해서 소개해봐", "locale": "ko"})
@@ -2152,6 +2176,8 @@ def test_answered_done_preserves_typed_semantic_assurance_observation() -> None:
     assert goal["status"] == "completed"
     assert [claim["text"] for claim in claims] == assurance["claim_kinds"]
     assert all(claim["status"] == "supported" for claim in claims)
+    assert verification["checks_completed"] == len(claims)
+    assert verification["checks_total"] == len(claims)
     assert all(claim["span"] == {"start": 0, "end": 0} for claim in claims)
     assert all(claim["evidence_refs"] == ["evidence-1"] for claim in claims)
     assert all(claim["anchors"] == ["goal-1"] for claim in claims)

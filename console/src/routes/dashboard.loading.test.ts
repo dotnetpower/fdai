@@ -22,7 +22,7 @@ describe("loadDashboardOverview", () => {
     const panelCall = vi.fn();
     const client = {
       dashboardMetrics: vi.fn(async () => KPI),
-      finops: vi.fn(() => pending),
+      costGovernance: vi.fn(() => pending),
       panel<T>(path: string): Promise<T> {
         panelCall(path);
         return pending;
@@ -35,12 +35,12 @@ describe("loadDashboardOverview", () => {
     await vi.waitFor(() => {
       expect(publishBackbone).toHaveBeenCalledWith({
         kpi: KPI,
-        finops: null,
+        cost: null,
         gates: null,
         autonomy: null,
       });
     });
-    expect(client.finops).toHaveBeenCalledOnce();
+    expect(client.costGovernance).toHaveBeenCalledWith("overview");
     expect(panelCall).toHaveBeenCalledOnce();
     expect(client.autonomy).toHaveBeenCalledOnce();
   });
@@ -51,14 +51,14 @@ describe("loadDashboardOverview", () => {
     const publishBackbone = vi.fn();
     const client = {
       dashboardMetrics: vi.fn(async () => KPI),
-      finops: vi.fn(async () => { throw new OperatorApiError(503, "not served here"); }),
+      costGovernance: vi.fn(async () => { throw new OperatorApiError(503, "not served here"); }),
       panel: vi.fn(async () => { throw new OperatorApiError(503, "not served here"); }),
       autonomy: vi.fn(async () => { throw new OperatorApiError(503, "not served here"); }),
     };
 
     await expect(loadDashboardOverview(client, publishBackbone)).resolves.toEqual({
       kpi: KPI,
-      finops: null,
+      cost: null,
       gates: null,
       autonomy: null,
     });
@@ -68,14 +68,14 @@ describe("loadDashboardOverview", () => {
     const publishBackbone = vi.fn();
     const client = {
       dashboardMetrics: vi.fn(async () => KPI),
-      finops: vi.fn(async () => { throw new OperatorApiError(403, "access required"); }),
+      costGovernance: vi.fn(async () => { throw new OperatorApiError(403, "access required"); }),
       panel: vi.fn(async () => { throw new OperatorApiError(503, "unavailable"); }),
       autonomy: vi.fn(async () => { throw new OperatorApiError(404, "not found"); }),
     };
 
     await expect(loadDashboardOverview(client, publishBackbone)).resolves.toEqual({
       kpi: KPI,
-      finops: null,
+      cost: null,
       gates: null,
       autonomy: null,
     });

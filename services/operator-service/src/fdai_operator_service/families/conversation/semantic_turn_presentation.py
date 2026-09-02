@@ -132,6 +132,12 @@ def semantic_done_event_data(
         intent_graph_evidence=semantic.get("intent_graph_evidence"),
         evidence_refs=evidence_refs,
     )
+    verification_checks_total = len(verification_claims) if verification_claims else checks_total
+    verification_checks_completed = (
+        sum(claim.get("status") == "supported" for claim in verification_claims)
+        if verification_claims
+        else checks_completed
+    )
     return cast(
         JsonObject,
         {
@@ -171,13 +177,15 @@ def semantic_done_event_data(
                         ),
                         "status": "verified" if verified else "unverified",
                         "authority": authority,
-                        "checks_completed": checks_completed,
-                        "checks_total": checks_total,
+                        "checks_completed": verification_checks_completed,
+                        "checks_total": verification_checks_total,
                         "evidence_refs": evidence_refs,
                         "reason_code": (
                             "semantic_answer_missing"
                             if missing_answer
                             else authority_reason or semantic.get("reason_code")
+                            if disposition == "answered"
+                            else semantic.get("reason_code")
                         ),
                         "claims": verification_claims,
                         "failed_claim_ids": [],

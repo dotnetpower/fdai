@@ -2936,6 +2936,7 @@ def _render_general_query_answer(
         outputs,
         korean=korean,
         output_shape=output_shape,
+        measure_concepts=measure_concepts,
     )
     if service_health_answer is not None:
         return service_health_answer
@@ -3273,6 +3274,7 @@ def _render_service_health_answer(
     *,
     korean: bool,
     output_shape: str | None,
+    measure_concepts: tuple[str, ...],
 ) -> str | None:
     """Render the configured subscription's active Service Health conclusion."""
 
@@ -3352,23 +3354,37 @@ def _render_service_health_answer(
         conclusion = "yes_partial"
     else:
         conclusion = "unknown"
+    event_type_filtered = bool(set(measure_concepts) - {"service_health.active_event"})
+    event_label = _service_health_event_label(measure_concepts, korean=korean)
     if korean:
-        headings = {
-            "yes": "## 예 - 현재 활성 Azure Service Health 이벤트가 있습니다",
-            "no": "## 아니요 - 현재 활성 Azure Service Health 이벤트가 없습니다",
-            "yes_partial": "## 예 - 활성 이벤트가 확인됐지만 전체 범위는 불완전합니다",
-            "unknown": "## 확인 불가 - 현재 활성 이벤트 여부를 결정할 수 없습니다",
-        }
+        headings = (
+            {
+                "yes": f"## 예 - 현재 활성 {event_label}가 있습니다",
+                "no": f"## 아니요 - 현재 활성 {event_label}가 없습니다",
+                "yes_partial": (
+                    f"## 예 - 활성 {event_label}가 확인됐지만 전체 범위는 불완전합니다"
+                ),
+                "unknown": f"## 확인 불가 - 현재 활성 {event_label} 여부를 결정할 수 없습니다",
+            }
+            if event_type_filtered
+            else {
+                "yes": "## 예 - 현재 활성 Azure Service Health 이벤트가 있습니다",
+                "no": "## 아니요 - 현재 활성 Azure Service Health 이벤트가 없습니다",
+                "yes_partial": "## 예 - 활성 이벤트가 확인됐지만 전체 범위는 불완전합니다",
+                "unknown": "## 확인 불가 - 현재 활성 이벤트 여부를 결정할 수 없습니다",
+            }
+        )
+        count_label = event_label if event_type_filtered else "이벤트"
         lines = [
             headings[conclusion],
             "",
             "- 범위: 서버에 구성된 Azure 구독",
             (
-                f"- 고유 활성 이벤트: {observed_event_count}건"
+                f"- 고유 활성 {count_label}: {observed_event_count}건"
                 if count_posture == "exact"
-                else f"- 확인된 최소 활성 이벤트: {observed_event_count}건"
+                else f"- 확인된 최소 활성 {count_label}: {observed_event_count}건"
                 if count_posture == "minimum"
-                else "- 고유 활성 이벤트: 확인 불가"
+                else f"- 고유 활성 {count_label}: 확인 불가"
             ),
             (
                 f"- 고유 영향 리소스: {impacted_count}개"
@@ -3384,7 +3400,7 @@ def _render_service_health_answer(
             lines.append(f"- 제한 사항: `{limitation_text}`")
         displayed_events = events[:8]
         if events:
-            lines.extend(["", "## 확인된 활성 이벤트", ""])
+            lines.extend(["", f"## 확인된 활성 {count_label}", ""])
             for event in displayed_events:
                 lines.append(
                     "- "
@@ -3401,22 +3417,34 @@ def _render_service_health_answer(
             )
         lines.extend(["", "이 결과는 읽기 전용이며 `execution_authority=false`입니다."])
         return "\n".join(lines)
-    headings = {
-        "yes": "## Yes - active Azure Service Health events are present",
-        "no": "## No - no active Azure Service Health events are present",
-        "yes_partial": "## Yes - active events were observed, but coverage is incomplete",
-        "unknown": "## Unknown - active event status cannot be determined",
-    }
+    headings = (
+        {
+            "yes": f"## Yes - active {event_label} are present",
+            "no": f"## No - no active {event_label} are present",
+            "yes_partial": (
+                f"## Yes - active {event_label} were observed, but coverage is incomplete"
+            ),
+            "unknown": f"## Unknown - active {event_label} status cannot be determined",
+        }
+        if event_type_filtered
+        else {
+            "yes": "## Yes - active Azure Service Health events are present",
+            "no": "## No - no active Azure Service Health events are present",
+            "yes_partial": "## Yes - active events were observed, but coverage is incomplete",
+            "unknown": "## Unknown - active event status cannot be determined",
+        }
+    )
+    count_label = event_label if event_type_filtered else "events"
     lines = [
         headings[conclusion],
         "",
         "- Scope: the server-configured Azure subscription",
         (
-            f"- Unique active events: {observed_event_count}"
+            f"- Unique active {count_label}: {observed_event_count}"
             if count_posture == "exact"
-            else f"- Minimum observed active events: {observed_event_count}"
+            else f"- Minimum observed active {count_label}: {observed_event_count}"
             if count_posture == "minimum"
-            else "- Unique active events: unknown"
+            else f"- Unique active {count_label}: unknown"
         ),
         (
             f"- Unique impacted resources: {impacted_count}"
@@ -3432,7 +3460,7 @@ def _render_service_health_answer(
         lines.append(f"- Limitation: `{limitation_text}`")
     displayed_events = events[:8]
     if events:
-        lines.extend(["", "## Observed active events", ""])
+        lines.extend(["", f"## Observed active {count_label}", ""])
         for event in displayed_events:
             lines.append(
                 "- "
@@ -3449,6 +3477,34 @@ def _render_service_health_answer(
             )
     lines.extend(["", "This result is read-only and has `execution_authority=false`."])
     return "\n".join(lines)
+
+
+def _service_health_event_label(
+    measure_concepts: tuple[str, ...],
+    *,
+    korean: bool,
+) -> str:
+    selected = set(measure_concepts) - {"service_health.active_event"}
+    labels = {
+        "service_health.service_issue": (
+            "Azure Service Health 장애" if korean else "Azure Service Health service issues"
+        ),
+        "service_health.planned_maintenance": (
+            "Azure 예정 유지 관리" if korean else "Azure planned maintenance events"
+        ),
+        "service_health.health_advisory": (
+            "Azure 상태 권고" if korean else "Azure health advisories"
+        ),
+    }
+    if len(selected) == 1 and (concept := next(iter(selected))) in labels:
+        return labels[concept]
+    if selected:
+        return (
+            "요청한 유형의 Azure Service Health 이벤트"
+            if korean
+            else "requested Azure Service Health events"
+        )
+    return "Azure Service Health 이벤트" if korean else "Azure Service Health events"
 
 
 def _render_ontology_declaration_count_answer(

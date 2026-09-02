@@ -27,6 +27,13 @@ from fdai.shared.contracts.models import (
 SERVICE_HEALTH_FUNCTION_NAME = "query.subscription_service_health"
 SERVICE_HEALTH_MEASURE_CONCEPTS = ("service_health.active_event",)
 SERVICE_HEALTH_EVENT_TYPES = frozenset({"service_issue", "planned_maintenance", "health_advisory"})
+SERVICE_HEALTH_EVENT_TYPE_MEASURES = {
+    event_type: f"service_health.{event_type}" for event_type in sorted(SERVICE_HEALTH_EVENT_TYPES)
+}
+SERVICE_HEALTH_ALL_MEASURE_CONCEPTS = (
+    *SERVICE_HEALTH_MEASURE_CONCEPTS,
+    *SERVICE_HEALTH_EVENT_TYPE_MEASURES.values(),
+)
 _MAX_ROWS = 256
 SERVICE_HEALTH_MAX_OBSERVATIONS = _MAX_ROWS - 1
 
@@ -152,20 +159,28 @@ def service_health_function_type() -> OntologyFunctionType:
 
     return OntologyFunctionType(
         name=SERVICE_HEALTH_FUNCTION_NAME,
-        version="1.0.0",
+        version="1.1.0",
         kind=OntologyFunctionKind.QUERY,
         artifact_digest=f"sha256:{hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}",
         publisher="fdai",
         input_schema={
             "type": "object",
             "additionalProperties": False,
-            "properties": {},
+            "properties": {
+                "event_types": {
+                    "type": "array",
+                    "items": {"type": "string", "enum": sorted(SERVICE_HEALTH_EVENT_TYPES)},
+                    "minItems": 1,
+                    "maxItems": len(SERVICE_HEALTH_EVENT_TYPES),
+                    "uniqueItems": True,
+                }
+            },
         },
         output_schema={
             "type": "object",
             "additionalProperties": False,
             "required": ["rows", "complete", "truncation_reason"],
-            "x-fdai-measure-concepts": list(SERVICE_HEALTH_MEASURE_CONCEPTS),
+            "x-fdai-measure-concepts": list(SERVICE_HEALTH_ALL_MEASURE_CONCEPTS),
             "properties": {
                 "rows": {"type": "array", "maxItems": _MAX_ROWS},
                 "complete": {"type": "boolean"},
@@ -203,13 +218,29 @@ def service_health_function(
     ) -> object:
         if invocation_context.purposes != ("operations-review",):
             raise PermissionError("Service Health purpose does not match invocation context")
-        if arguments:
-            raise ValueError("Service Health scope and query arguments are server-owned")
+        if set(arguments) - {"event_types"}:
+            raise ValueError("Service Health accepts only reviewed event type filters")
+        raw_event_types = arguments.get("event_types")
+        if raw_event_types is None:
+            event_types = SERVICE_HEALTH_EVENT_TYPES
+        elif (
+            not isinstance(raw_event_types, list)
+            or not raw_event_types
+            or any(not isinstance(item, str) for item in raw_event_types)
+            or len(raw_event_types) != len(set(raw_event_types))
+            or not set(raw_event_types) <= SERVICE_HEALTH_EVENT_TYPES
+        ):
+            raise ValueError("Service Health event_types are invalid")
+        else:
+            event_types = frozenset(raw_event_types)
         collection = await reader.read_active()
-        unique_events = {item.event_id for item in collection.observations}
+        observations = tuple(
+            item for item in collection.observations if item.event_type in event_types
+        )
+        unique_events = {item.event_id for item in observations}
         impacted_resources = {
             item.impacted_resource_ref
-            for item in collection.observations
+            for item in observations
             if item.impacted_resource_ref is not None
         }
         active_event_count = len(unique_events) if collection.complete or unique_events else None
@@ -257,7 +288,7 @@ def service_health_function(
                     "execution_authority": False,
                 },
             )
-            for index, item in enumerate(collection.observations, start=1)
+            for index, item in enumerate(observations, start=1)
         )
         table = QueryTable(
             rows=(summary, *event_rows),
@@ -271,7 +302,9 @@ def service_health_function(
 
 __all__ = [
     "SERVICE_HEALTH_EVENT_TYPES",
+    "SERVICE_HEALTH_EVENT_TYPE_MEASURES",
     "SERVICE_HEALTH_FUNCTION_NAME",
+    "SERVICE_HEALTH_ALL_MEASURE_CONCEPTS",
     "SERVICE_HEALTH_MEASURE_CONCEPTS",
     "SERVICE_HEALTH_MAX_OBSERVATIONS",
     "ServiceHealthCollection",

@@ -51,6 +51,11 @@ role created later in the sequence.
 Control-loop end-to-end tests count published actions and unresolved graph-derived blast-radius
 abstentions separately.
 
+Semantic resource-health planning now keeps collection health, exact resource identity, explicit
+name-or-tag filtering, and time-bounded evidence requests distinct. The Core query path preserves
+provider completeness and reason codes, while the Operator presentation and Console dashboard keep
+partial or unavailable observations visible instead of substituting generic inventory rows.
+
 Semantic conversation planning keeps `semantic_planning.py`, `semantic_planning_cascade.py`, and
 `semantic_planning_frame.py` as compatibility facades. Focused sibling modules own frame checks,
 plan dispatch, anchored-incident and stated-value-filter plan construction, judgment, validation,

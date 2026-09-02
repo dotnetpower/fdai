@@ -4,20 +4,20 @@ import { withStartupTransportRetry } from "../bootstrap-retry";
 import type {
   AutonomyPayload,
   DashboardKpi,
-  FinOpsPayload,
 } from "../types";
+import type { CostGovernanceProjection } from "../api-cost-governance";
 import type { GatesSummary } from "./dashboard.model";
 
 export interface DashboardOverviewData {
   readonly kpi: DashboardKpi;
-  readonly finops: FinOpsPayload | null;
+  readonly cost: CostGovernanceProjection | null;
   readonly gates: GatesSummary | null;
   readonly autonomy: AutonomyPayload | null;
 }
 
 type DashboardOverviewClient = Pick<
   OperatorApiClient,
-  "dashboardMetrics" | "finops" | "panel" | "autonomy"
+  "dashboardMetrics" | "costGovernance" | "panel" | "autonomy"
 >;
 
 export async function loadDashboardOverview(
@@ -25,17 +25,17 @@ export async function loadDashboardOverview(
   publishBackbone: (data: DashboardOverviewData) => void,
 ): Promise<DashboardOverviewData> {
   const kpi = await withStartupTransportRetry(() => client.dashboardMetrics());
-  publishBackbone({ kpi, finops: null, gates: null, autonomy: null });
+  publishBackbone({ kpi, cost: null, gates: null, autonomy: null });
 
-  const [finops, gates, autonomy] = await Promise.all([
-    optionalOverview(() => client.finops(), [403, 404, 503]),
+  const [cost, gates, autonomy] = await Promise.all([
+    optionalOverview(() => client.costGovernance("overview"), [403, 404, 503]),
     optionalOverview(
       () => client.panel<GatesSummary>("/kpi/promotion-gates"),
       [404, 501, 503],
     ),
     optionalOverview(() => client.autonomy(), [404, 501, 502, 503]),
   ]);
-  return { kpi, finops, gates, autonomy };
+  return { kpi, cost, gates, autonomy };
 }
 
 async function optionalOverview<T>(

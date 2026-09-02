@@ -843,6 +843,7 @@
   "finops": {
     "loadFailed": "FinOps 패널을 불러오지 못했습니다: {message}",
     "costActions": "비용 작업",
+    "costRecommendations": "비용 권장 사항",
     "monthlySavings": "월간 예상 절감액",
     "sampledEvents": "샘플링 이벤트",
     "actionsByKind": "종류별 작업"

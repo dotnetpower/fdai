@@ -40,11 +40,7 @@ def normalize_ontology_manifest_count_frame(
     """Bind a validated declaration-count intent to its manifest declaration kind."""
 
     if (
-        judgment is None
-        or judgment.action_posture != "advise_only"
-        or judgment.primary_intent != "query.ontology_declaration"
-        or "count" not in judgment.requested_facets
-        or frame.operation is not SemanticOperation.AGGREGATE
+        frame.operation is not SemanticOperation.AGGREGATE
         or frame.output_shape != SemanticOutputShape.AGGREGATION_TABLE
         or frame.unresolved_terms
         or proposal.clarification_requirements
@@ -62,11 +58,11 @@ def normalize_ontology_manifest_count_frame(
 
 def _declaration_kind(
     frame: SemanticProblemFrame,
-    judgment: SemanticJudgmentProposal,
+    judgment: SemanticJudgmentProposal | None,
 ) -> OntologyDeclarationKind | None:
     canonical_kinds = {
         declaration_kind
-        for target in judgment.targets
+        for target in (() if judgment is None else judgment.targets)
         if (declaration_kind := _as_declaration_kind(target.canonical_value)) is not None
     }
     if len(canonical_kinds) > 1:
@@ -115,10 +111,10 @@ def compile_ontology_manifest_count_plan(
         or not _has_manifest_function(manifest)
     ):
         return None
-    try:
-        kinds = tuple(OntologyDeclarationKind(value).value for value in frame.subject_constraints)
-    except ValueError:
+    canonical_kinds = tuple(_as_declaration_kind(value) for value in frame.subject_constraints)
+    if any(kind is None for kind in canonical_kinds):
         return None
+    kinds = tuple(kind.value for kind in canonical_kinds if kind is not None)
     if len(kinds) != len(set(kinds)):
         return None
 

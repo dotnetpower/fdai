@@ -95,7 +95,7 @@ else
     scripts/deployment/local/run-console-service.sh
   )
   if [[ "$service" == "core-runtime" ]]; then
-    digest_inputs+=(rule-catalog/prompts)
+    digest_inputs+=(rule-catalog)
   fi
 fi
 input_digest="$(

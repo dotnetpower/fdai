@@ -843,6 +843,7 @@
   "finops": {
     "loadFailed": "Failed to load FinOps panel: {message}",
     "costActions": "Cost actions",
+    "costRecommendations": "Cost recommendations",
     "monthlySavings": "Est. monthly savings",
     "sampledEvents": "Sampled events",
     "actionsByKind": "Actions by kind"

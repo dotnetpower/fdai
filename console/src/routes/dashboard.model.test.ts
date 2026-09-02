@@ -5,7 +5,7 @@ import {
   dashboardEvidenceGaps,
   distributionRows,
   overviewAttentionCount,
-  overviewCostActions,
+  overviewCostEvidence,
   overviewHealth,
   overviewT0Share,
 } from "./dashboard.model";
@@ -47,9 +47,27 @@ const COMPLETE_EVIDENCE = {
 };
 
 describe("overview health", () => {
-  test("distinguishes unavailable cost evidence from a measured zero", () => {
-    expect(overviewCostActions(null)).toBe("n/a");
-    expect(overviewCostActions({ total_actions: 0 })).toBe(0);
+  test("distinguishes unavailable cost evidence from a complete measured zero", () => {
+    expect(overviewCostEvidence(null)).toEqual({
+      monthlySavings: null,
+      recommendationCount: "n/a",
+    });
+    expect(overviewCostEvidence({
+      surface: "overview",
+      complete: true,
+      source_authority: "azure-cost-management",
+      items: [],
+      suppressed_count: 0,
+      analytics: {
+        source_authority: "azure-cost-management",
+        observed_at: "2026-09-02T00:00:00Z",
+        complete: true,
+        trend: [],
+        budgets: [],
+        recommendations: [],
+        limitations: [],
+      },
+    })).toEqual({ monthlySavings: 0, recommendationCount: 0 });
   });
 
   test("distinguishes missing tier evidence from a measured zero share", () => {

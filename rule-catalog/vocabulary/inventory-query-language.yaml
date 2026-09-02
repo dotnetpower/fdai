@@ -1,16 +1,18 @@
 schema_version: "1.1.0"
-version: "1.1.44"
+version: "1.1.49"
 default_scope: subscription
 default_activity_lookback_seconds: 604800
 current_requires_fresh: true
-suffixes: [은, 는, 이, 가, 의, 에, 에서, 엔, 을, 를, 도, 만, 와, 과, 인, 로, 으로, 야, 된, 되고, 거나, 하거나, 들, 별로]
+suffixes: [은, 는, 이, 가, 의, 에, 에서, 엔, 을, 를, 도, 만, 와, 과, 나, 이나, 인, 로, 으로, 야, 된, 되고, 거나, 하거나, 들, 별로]
 signals:
   resource_subject:
     terms: [resource, resources, asset, assets, inventory, azure resource, azure resources, 리소스, 인벤토리, Azure 리소스]
+  resource_name_relation:
+    terms: [related to, associated with, relating to, connected with, 관련, 관련된, 연관, 연관된]
   target_singular:
     terms: [my, this, that, 내, 해당]
   target_collection:
-    terms: [all, every, list, inventory list, 모두, 모든, 전체, 목록]
+    terms: [all, every, list, inventory list, which ones, what is there, what are there, 모두, 모든, 전체, 목록, 뭐가 있어, 뭐가 있나요, 뭐가 있는지, 어떤 게 있어, 어떤 게 있나요, 어떤 게 있는지, 어떤 것이 있어, 어떤 것이 있나요, 어떤 것이 있는지]
   read:
     terms: [how many, count, list, show, which, what, where, find, status, summary, exist, are any, 몇 개, 개수, 목록, 보여줘, 보여, 어떤, 어디, 찾아, 찾아줘, 상태, 있어, 알려줘]
   state_inspection:
@@ -67,6 +69,12 @@ signals:
     terms: [deployment, deployments, deploying, pod, pods, node, nodes, node pool, node pools, workload, workloads, running apps, 배포, 파드, 노드, 노드 풀, 워크로드, 실행 중인 앱]
   platform_health:
     terms: [azure outage, azure incident, platform outage, platform incident, platform issue, platform issues, platform problem, platform problems, platform-initiated impact, platform initiated impact, azure platform impact, changes initiated by the customer, customer-initiated changes, service outage, service incident, affected by an azure outage, affected by a platform outage, Azure 플랫폼 장애, Azure 서비스 장애, Azure 플랫폼 영향, Azure 플랫폼 영향인지, 고객 시작 변경, 고객 시작 변경인지, 플랫폼 장애, 플랫폼 문제, 서비스 장애]
+  service_health_issue:
+    terms: [active outage, service outage, service issue, azure outage, azure incident, platform outage, platform incident, 활성 장애, 서비스 장애, Azure 서비스 장애, Azure 플랫폼 장애, 플랫폼 장애]
+  service_health_maintenance:
+    terms: [planned maintenance, scheduled maintenance, maintenance event, 예정된 유지 관리, 계획된 유지 관리, 유지 관리 이벤트]
+  service_health_advisory:
+    terms: [health advisory, health advisories, service advisory, 상태 권고, 서비스 권고]
   health_history:
     terms: [resource health events, resource status events, health events during the previous day, managed resources health events, managed resources' health events, health event history, resource health history, Resource Health 이벤트, 리소스 상태 이벤트, 리소스 헬스 이벤트, 리소스 상태 변경 이력, 상태 이벤트 이력, 리소스 상태 이력]
   continuation:

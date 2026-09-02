@@ -182,6 +182,13 @@ def test_shipped_inventory_query_language_loads() -> None:
     )
     assert (
         query_target_cardinality(
+            "FDAI 관련 리소스 그룹이 뭐가 있나요?",
+            registry,
+        )
+        is QueryTargetCardinality.COLLECTION
+    )
+    assert (
+        query_target_cardinality(
             "Show the small Container Apps",
             registry,
         )

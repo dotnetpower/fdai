@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
@@ -77,6 +78,75 @@ _DECISION_OUTCOME_LINEAGE_TYPES = (
     "ActionRun",
     "ObservedOutcome",
 )
+
+
+def build_stated_resource_filter_frame(
+    *,
+    semantic_judgment: Mapping[str, Any] | None,
+    utterance: str,
+    context: tuple[str, ...],
+    descriptors: tuple[dict[str, Any], ...],
+) -> tuple[SemanticFrameProposal, SemanticProblemFrame] | None:
+    """Build a filtered collection from one source-grounded judgment facet."""
+
+    if semantic_judgment is None or semantic_judgment.get("action_posture") != "advise_only":
+        return None
+    primary_intent = semantic_judgment.get("primary_intent")
+    if not isinstance(primary_intent, str) or not (
+        primary_intent in {"query.contextual_resources", "query.ontology_relationships"}
+        or primary_intent.startswith("query.resource_")
+    ):
+        return None
+    raw_facets = semantic_judgment.get("requested_facets")
+    if (
+        not isinstance(raw_facets, Sequence)
+        or isinstance(raw_facets, (str, bytes))
+        or any(not isinstance(facet, str) for facet in raw_facets)
+    ):
+        return None
+    filters = stated_value_filters(utterance, descriptors)
+    if not filters.get(("Resource", "type")):
+        return None
+    targets = semantic_judgment.get("targets")
+    target_values = (
+        [
+            target["value"]
+            for target in targets
+            if isinstance(target, Mapping)
+            and isinstance(target.get("kind"), str)
+            and (target["kind"] == "affected_target" or target["kind"].endswith("_filter"))
+            and isinstance(target.get("value"), str)
+            and target.get("canonical_value") is None
+        ]
+        if isinstance(targets, Sequence) and not isinstance(targets, (str, bytes))
+        else []
+    )
+    unique_target_values = tuple(
+        dict.fromkeys(
+            value for value in target_values if utterance.casefold().count(value.casefold()) == 1
+        )
+    )
+    fragment = (
+        unique_target_values[0]
+        if len(unique_target_values) == 1
+        else stated_subject_fragment(utterance, raw_facets, descriptors)
+    )
+    if fragment is None:
+        return None
+    proposal = SemanticFrameProposal(
+        operation=SemanticOperation.SELECT,
+        subject_constraints=("Resource", fragment),
+        measure_concepts=("name", "type"),
+        temporal_scope={},
+        output_shape=SemanticOutputShape.PROPERTY_FILTERED_RESOURCES,
+        evidence_requirements=("authoritative_inventory",),
+        unresolved_terms=(),
+        clarification_requirements=(),
+        clarification=None,
+        investigation=None,
+        confidence=float(semantic_judgment.get("confidence", 0.0)),
+    )
+    return proposal, build_semantic_frame(proposal, utterance=utterance, context=context)
 
 
 def build_resource_target_candidates_fallback(
@@ -220,6 +290,12 @@ def resource_target_candidates_apply_to_utterance(
 ) -> bool:
     """Apply recovery only to a target-scoped or grounded residual subject."""
 
+    if property_filter_has_stated_subject(
+        frame,
+        utterance=utterance,
+        descriptors=descriptors,
+    ):
+        return False
     if _has_non_resource_object_subject(frame.subject_constraints, descriptors):
         return False
     cardinality = query_target_cardinality(utterance, inventory_query_language)
@@ -276,6 +352,12 @@ def resolve_resource_target_candidates(
 ) -> tuple[SemanticFrameProposal, SemanticProblemFrame]:
     """Replace a first-turn exact-target hold with bounded subtype discovery."""
 
+    if property_filter_has_stated_subject(
+        proposal,
+        utterance=utterance,
+        descriptors=descriptors,
+    ):
+        return proposal, frame
     if (
         frame.output_shape == SemanticOutputShape.TARGET_CURRENT_STATE
         and "active_revision" not in frame.measure_concepts
@@ -526,12 +608,57 @@ def normalize_resource_list_temporal_scope(
 
     if (
         proposal.operation is not SemanticOperation.SELECT
-        or proposal.output_shape is not SemanticOutputShape.RESOURCE_LIST
+        or proposal.output_shape
+        not in {
+            SemanticOutputShape.CONTEXTUAL_RESOURCE_LIST,
+            SemanticOutputShape.PROPERTY_FILTERED_RESOURCES,
+            SemanticOutputShape.RESOURCE_LIST,
+        }
         or not proposal.temporal_scope
         or query_signal_matches(utterance, inventory_query_language, "temporal")
     ):
         return proposal
     return proposal.model_copy(update={"temporal_scope": {}})
+
+
+def property_filter_omits_stated_relation(
+    proposal: SemanticFrameProposal,
+    *,
+    utterance: str,
+    inventory_query_language: InventoryQueryLanguageRegistry | None,
+) -> bool:
+    """Reject a filtered-resource frame that drops its stated relation target."""
+
+    return (
+        proposal.output_shape == SemanticOutputShape.PROPERTY_FILTERED_RESOURCES
+        and query_signal_matches(
+            utterance,
+            inventory_query_language,
+            "resource_name_relation",
+        )
+        and len(proposal.subject_constraints) < 2
+    )
+
+
+def property_filter_has_stated_subject(
+    proposal: SemanticFrameProposal | SemanticProblemFrame,
+    *,
+    utterance: str,
+    descriptors: tuple[dict[str, Any], ...],
+) -> bool:
+    """Return whether a property filter retains one exact free-text subject."""
+
+    return (
+        proposal.output_shape == SemanticOutputShape.PROPERTY_FILTERED_RESOURCES
+        and "name" in proposal.measure_concepts
+        and set(proposal.measure_concepts) <= {"name", "type"}
+        and stated_subject_fragment(
+            utterance,
+            proposal.subject_constraints,
+            descriptors,
+        )
+        is not None
+    )
 
 
 def _has_non_resource_object_subject(

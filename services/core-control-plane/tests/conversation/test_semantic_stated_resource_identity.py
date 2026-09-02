@@ -10,8 +10,12 @@ from fdai.core.conversation.semantic_planning_models import (
     SemanticOutputShape,
 )
 from fdai.core.conversation.semantic_target_candidate_planning import (
+    build_stated_resource_filter_frame,
     normalize_resource_list_temporal_scope,
+    property_filter_omits_stated_relation,
+    resolve_resource_target_candidates,
     resolve_stated_resource_identity,
+    resource_target_candidates_apply_to_utterance,
 )
 from fdai.rule_catalog.schema.inventory_query_language import (
     InventoryQueryLanguageRegistry,
@@ -105,25 +109,127 @@ def test_resource_list_drops_model_invented_history_without_a_temporal_signal() 
         operations={},
         time_units={},
     )
-    proposal = _proposal(
-        measure_concepts=(),
-        temporal_scope={"kind": "historical"},
-        output_shape=SemanticOutputShape.RESOURCE_LIST,
-    )
+    for output_shape in (
+        SemanticOutputShape.CONTEXTUAL_RESOURCE_LIST,
+        SemanticOutputShape.PROPERTY_FILTERED_RESOURCES,
+        SemanticOutputShape.RESOURCE_LIST,
+    ):
+        proposal = _proposal(
+            measure_concepts=(),
+            temporal_scope={"kind": "historical"},
+            output_shape=output_shape,
+        )
 
-    normalized = normalize_resource_list_temporal_scope(
-        proposal,
-        utterance="이 구독의 리소스를 모두 보여줘",
+        normalized = normalize_resource_list_temporal_scope(
+            proposal,
+            utterance="이 구독의 리소스를 모두 보여줘",
+            inventory_query_language=registry,
+        )
+        historical = normalize_resource_list_temporal_scope(
+            proposal,
+            utterance="최근 리소스를 모두 보여줘",
+            inventory_query_language=registry,
+        )
+
+        assert normalized.temporal_scope == {}
+        assert historical.temporal_scope == {"kind": "historical"}
+
+
+def test_property_filter_requires_the_stated_relation_target() -> None:
+    registry = InventoryQueryLanguageRegistry(
+        schema_version="1.1.0",
+        version="1.1.0",
+        default_scope="subscription",
+        default_activity_lookback_seconds=604800,
+        current_requires_fresh=True,
+        suffixes=("된",),
+        signals={"resource_name_relation": QueryTerms(terms=("관련", "관련된"))},
+        query_kinds={},
+        groupings={},
+        projections={},
+        scopes={},
+        states={},
+        operations={},
+        time_units={},
+    )
+    incomplete = _proposal(
+        subject_constraints=("Resource",),
+        measure_concepts=("type",),
+        output_shape=SemanticOutputShape.PROPERTY_FILTERED_RESOURCES,
+    )
+    complete = incomplete.model_copy(update={"subject_constraints": ("Resource", "FDAI")})
+
+    assert property_filter_omits_stated_relation(
+        incomplete,
+        utterance="FDAI와 관련된 리소스 그룹",
         inventory_query_language=registry,
     )
-    historical = normalize_resource_list_temporal_scope(
-        proposal,
-        utterance="최근 리소스를 모두 보여줘",
+    assert not property_filter_omits_stated_relation(
+        complete,
+        utterance="FDAI와 관련된 리소스 그룹",
         inventory_query_language=registry,
     )
 
-    assert normalized.temporal_scope == {}
-    assert historical.temporal_scope == {"kind": "historical"}
+
+def test_judgment_facet_builds_one_source_grounded_resource_filter() -> None:
+    descriptors = (
+        {
+            "kind": "object",
+            "name": "Resource",
+            "properties": {
+                "name": {"readable": True},
+                "type": {
+                    "readable": True,
+                    "value_groups": [
+                        {
+                            "id": "resource-group",
+                            "terms": ["resource group", "리소스 그룹"],
+                            "values": ["resource-group"],
+                        }
+                    ],
+                },
+            },
+        },
+    )
+
+    result = build_stated_resource_filter_frame(
+        semantic_judgment={
+            "primary_intent": "query.resource_current_state",
+            "requested_facets": ("resource_groups", "name_filter"),
+            "targets": (
+                {
+                    "kind": "resource_group_name_filter",
+                    "value": "FDAI",
+                    "canonical_value": None,
+                },
+            ),
+            "action_posture": "advise_only",
+            "confidence": 0.95,
+        },
+        utterance="FDAI 관련 리소스 그룹은 뭐가 있나요?",
+        context=(),
+        descriptors=descriptors,
+    )
+
+    assert result is not None
+    proposal, frame = result
+    assert proposal.subject_constraints == ("Resource", "FDAI")
+    assert proposal.measure_concepts == ("name", "type")
+    assert frame.output_shape == SemanticOutputShape.PROPERTY_FILTERED_RESOURCES
+    resolved_proposal, resolved_frame = resolve_resource_target_candidates(
+        proposal,
+        frame,
+        utterance="FDAI 관련 리소스 그룹은 뭐가 있나요?",
+        context=(),
+        descriptors=descriptors,
+    )
+    assert resolved_proposal == proposal
+    assert resolved_frame == frame
+    assert not resource_target_candidates_apply_to_utterance(
+        frame,
+        utterance="FDAI 관련 리소스 그룹은 뭐가 있나요?",
+        descriptors=descriptors,
+    )
 
 
 def test_two_stated_targets_keep_the_hold() -> None:

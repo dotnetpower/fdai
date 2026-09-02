@@ -9,8 +9,8 @@ from fdai.core.ontology_platform.functions import (
     OntologyFunctionRegistry,
 )
 from fdai.core.ontology_platform.service_health_queries import (
+    SERVICE_HEALTH_ALL_MEASURE_CONCEPTS,
     SERVICE_HEALTH_FUNCTION_NAME,
-    SERVICE_HEALTH_MEASURE_CONCEPTS,
     ServiceHealthCollection,
     ServiceHealthObservation,
     service_health_function,
@@ -47,7 +47,10 @@ def _collection(
     )
 
 
-async def _invoke(reader: _Reader) -> dict[str, object]:
+async def _invoke(
+    reader: _Reader,
+    arguments: dict[str, object] | None = None,
+) -> dict[str, object]:
     declaration = service_health_function_type()
     release = build_ontology_release(function_types=(declaration,))
     registry = OntologyFunctionRegistry(release=release)
@@ -57,7 +60,7 @@ async def _invoke(reader: _Reader) -> dict[str, object]:
     )
     result = await registry.invoke(
         SERVICE_HEALTH_FUNCTION_NAME,
-        {},
+        arguments or {},
         context=FunctionInvocationContext(
             caller_agent="Bragi",
             caller_role=CeilingRole.READER,
@@ -68,12 +71,12 @@ async def _invoke(reader: _Reader) -> dict[str, object]:
     return result
 
 
-def test_service_health_function_accepts_no_caller_scope_or_query() -> None:
+def test_service_health_function_accepts_only_reviewed_event_type_filters() -> None:
     declaration = service_health_function_type()
 
-    assert declaration.input_schema["properties"] == {}
+    assert set(declaration.input_schema["properties"]) == {"event_types"}
     assert declaration.output_schema["x-fdai-measure-concepts"] == list(
-        SERVICE_HEALTH_MEASURE_CONCEPTS
+        SERVICE_HEALTH_ALL_MEASURE_CONCEPTS
     )
     assert declaration.required_role is CeilingRole.READER
     assert declaration.network_allowed is False
@@ -143,6 +146,39 @@ async def test_service_health_function_projects_active_event_and_impact() -> Non
         "title": "Regional connectivity issue",
     }
     assert reader.calls == 1
+
+
+async def test_service_health_function_filters_event_types_before_summary() -> None:
+    observations = tuple(
+        ServiceHealthObservation(
+            event_id=f"service-health-event:{event_type}",
+            event_type=event_type,
+            title=event_type,
+            level="warning",
+            status="active",
+            impact_start_at=NOW - timedelta(minutes=10),
+            observed_at=NOW,
+            impacted_resource_count=0,
+            impacted_resource_ref=None,
+            resource_name=None,
+            resource_type=None,
+            resource_group=None,
+            region=None,
+            impact_status=None,
+            event_evidence_ref=f"azure-service-health:{event_type}",
+            impact_evidence_ref=None,
+        )
+        for event_type in sorted(("service_issue", "planned_maintenance", "health_advisory"))
+    )
+    result = await _invoke(
+        _Reader(_collection(observations=observations)),
+        {"event_types": ["service_issue"]},
+    )
+
+    rows = result["rows"]
+    assert isinstance(rows, list)
+    assert rows[0]["values"]["active_event_count"] == 1
+    assert [row["values"]["event_type"] for row in rows[1:]] == ["service_issue"]
 
 
 async def test_service_health_function_distinguishes_zero_from_unavailable() -> None:

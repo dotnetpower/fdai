@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 875973460a421facf4c270c67eea2daaaf3fa742
+translation_source_sha: bc6234152820974e8b5e967c77971654baad1380
 translation_revised: 2026-09-02
 ---
 # 코드 맵
@@ -53,6 +53,11 @@ Operator 소유 다운스트림 마이그레이션에 위치하므로, 부트스
 역할을 필요로 하지 않습니다.
 컨트롤 루프 엔드투엔드 테스트는 게시된 작업과 확인되지 않은 그래프 기반 영향 범위 판단
 보류를 별도로 계수합니다.
+
+의미 기반 리소스 상태 계획은 이제 컬렉션 상태, 정확한 리소스 식별자, 명시적인 이름 또는
+태그 필터, 시간 범위가 있는 근거 요청을 구분합니다. Core 조회 경로는 공급자 완전성과 사유
+코드를 보존하며, Operator 표현 및 콘솔 대시보드는 일반 인벤토리 행으로 대체하지 않고
+부분적이거나 사용할 수 없는 관측을 표시합니다.
 
 의미 대화 계획은 `semantic_planning.py`, `semantic_planning_cascade.py`,
 `semantic_planning_frame.py`를 호환성 facade로 유지합니다. 집중 sibling 모듈은 공개 import,

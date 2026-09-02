@@ -62,9 +62,11 @@ from .semantic_planning_models import (
 )
 from .semantic_resource_metric_planning import normalize_exact_resource_metric_proposal
 from .semantic_resource_state_planning import normalize_resource_state_proposal
+from .semantic_service_health_planning import normalize_service_health_event_types
 from .semantic_target_candidate_planning import (
     build_non_resource_target_clarification,
     build_resource_target_candidates_fallback,
+    build_stated_resource_filter_frame,
     normalize_resource_list_temporal_scope,
     resolve_stated_resource_identity,
     resource_target_candidates_apply_to_proposal,
@@ -184,6 +186,18 @@ class SemanticPlanningCascade:
         ]
         | None
     ):
+        stated_filter = build_stated_resource_filter_frame(
+            semantic_judgment=semantic_judgment,
+            utterance=utterance,
+            context=context,
+            descriptors=descriptors,
+        )
+        if stated_filter is not None:
+            _LOGGER.info(
+                "semantic_planning_candidate_recovered",
+                extra={"stage": "judgment", "recovery": "stated_resource_filter"},
+            )
+            return (*stated_filter, None)
         if (
             semantic_judgment is not None
             and semantic_judgment.get("primary_intent") == "query.resource_current_state"
@@ -314,6 +328,14 @@ class SemanticPlanningCascade:
                     descriptors=descriptors,
                     inventory_query_language=self._inventory_query_language,
                 )
+                service_health = normalize_service_health_event_types(
+                    proposal,
+                    utterance=utterance,
+                    context=context,
+                    inventory_query_language=self._inventory_query_language,
+                )
+                if service_health is not None:
+                    proposal, _service_health_frame = service_health
                 proposal = normalize_resource_list_temporal_scope(
                     proposal,
                     utterance=utterance,

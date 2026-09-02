@@ -18,7 +18,7 @@ import {
   formatShare,
   formatUsd,
   overviewAttentionCount,
-  overviewCostActions,
+  overviewCostEvidence,
   overviewHealth,
   overviewT0Share,
 } from "./dashboard.model";
@@ -81,7 +81,7 @@ export function DashboardRoute({ client }: Props) {
 }
 
 function OverviewBody({ data }: { readonly data: DashboardOverviewData }) {
-  const { kpi, finops, gates, autonomy } = data;
+  const { kpi, cost, gates, autonomy } = data;
   const sampleParams = auditSampleParams(kpi);
 
   const t0Share = overviewT0Share(kpi.by_tier);
@@ -92,7 +92,8 @@ function OverviewBody({ data }: { readonly data: DashboardOverviewData }) {
   // so it fails the health axis just like a pending human approval does.
   const health = overviewHealth(kpi, policyEscapes, autonomy);
   const attentionCount = overviewAttentionCount(kpi, policyEscapes, autonomy);
-  const savings = finops ? finops.estimated_monthly_savings : null;
+  const costEvidence = overviewCostEvidence(cost);
+  const savings = costEvidence.monthlySavings;
 
   usePublishViewContext(
     () => {
@@ -236,7 +237,11 @@ function OverviewBody({ data }: { readonly data: DashboardOverviewData }) {
             value: savings !== null ? formatUsd(savings) : "n/a",
             group: "cost",
           },
-          { key: "cost_actions", value: overviewCostActions(finops), group: "cost" },
+          {
+            key: "cost_recommendations",
+            value: costEvidence.recommendationCount,
+            group: "cost",
+          },
           { key: "policy_escapes", value: policyEscapes ?? "n/a", group: "guards" },
           {
             key: "promotion_ready",
@@ -305,7 +310,7 @@ function OverviewBody({ data }: { readonly data: DashboardOverviewData }) {
         },
       };
     },
-    [kpi, finops, gates, autonomy, health, savings, t0Share],
+    [kpi, cost, gates, autonomy, health, savings, t0Share],
   );
 
   return (

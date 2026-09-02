@@ -1083,6 +1083,36 @@ def test_unstated_frame_subject_never_becomes_a_filter_operand() -> None:
     assert model.plan_calls == 0
 
 
+def test_related_resource_filter_holds_when_model_drops_the_relation_target() -> None:
+    manifest, definition = _typed_fixture(groups=(_RESOURCE_GROUP_GROUP, _VM_GROUP))
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Resource"],
+            measure_concepts=["type"],
+            output_shape="property_filtered_resources",
+        ),
+        plan=_plan(definition),
+    )
+    query_language = _inventory_query_language().model_copy(
+        update={"signals": {"resource_name_relation": QueryTerms(terms=("관련",))}}
+    )
+
+    outcome = _service(
+        model,
+        manifest,
+        inventory_query_language=query_language,
+    ).plan(
+        utterance="FDAI 관련 리소스 그룹이 뭐가 있어?",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.reason == "semantic_clarification_required"
+    assert "이름이나 태그" in (outcome.clarification or "")
+
+
 def test_stated_value_group_with_several_values_narrows_to_a_membership_predicate() -> None:
     manifest, definition = _typed_fixture(
         groups=(
@@ -1967,7 +1997,20 @@ def test_platform_impact_uses_server_scoped_service_health_function() -> None:
         plan=None,
     )
 
-    outcome = _service(model, manifest).plan(
+    query_language = _inventory_query_language().model_copy(
+        update={
+            "suffixes": ("나", "가"),
+            "signals": {
+                "service_health_issue": QueryTerms(terms=("서비스 장애",)),
+                "service_health_maintenance": QueryTerms(terms=("예정된 유지 관리",)),
+            },
+        }
+    )
+    outcome = _service(
+        model,
+        manifest,
+        inventory_query_language=query_language,
+    ).plan(
         utterance="현재 Azure 구독에 활성 서비스 장애나 예정된 유지 관리가 있어?",
         prior_turns=(),
         principal=Principal(id="operator", role=Role.READER),
@@ -1979,7 +2022,7 @@ def test_platform_impact_uses_server_scoped_service_health_function() -> None:
     assert tuple(node.kind for node in outcome.plan.nodes) == (QueryNodeKind.FUNCTION,)
     assert outcome.plan.nodes[0].arguments == {
         "function_name": SERVICE_HEALTH_FUNCTION_NAME,
-        "arguments": {},
+        "arguments": {"event_types": ["planned_maintenance", "service_issue"]},
         "dependency_arguments": {},
     }
     assert model.plan_calls == 0

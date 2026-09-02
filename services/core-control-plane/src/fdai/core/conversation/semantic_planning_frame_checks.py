@@ -130,6 +130,8 @@ from .semantic_planning_support import _clarification, _outcome
 from .semantic_target_candidate_planning import (
     normalize_decision_outcome_relationship,
     normalize_operating_relationship_temporal_scope,
+    property_filter_has_stated_subject,
+    property_filter_omits_stated_relation,
     resolve_resource_target_candidates,
 )
 
@@ -444,6 +446,12 @@ def normalize_and_gate_frame(
             manifest_digest=manifest_digest,
             frame=frame,
         )
+    if property_filter_has_stated_subject(
+        proposal,
+        utterance=utterance,
+        descriptors=descriptors,
+    ):
+        return proposal, frame, investigation_intent
     proposal, frame = normalize_ontology_manifest_count_frame(
         proposal,
         frame,
@@ -537,6 +545,27 @@ def normalize_and_gate_frame(
         context=context,
         descriptors=descriptors,
     )
+    if property_filter_omits_stated_relation(
+        proposal,
+        utterance=utterance,
+        inventory_query_language=inventory_query_language,
+    ):
+        korean = any("가" <= character <= "힣" for character in utterance)
+        return _outcome(
+            SemanticPlanningDisposition.CLARIFICATION,
+            "semantic_clarification_required",
+            manifest_digest=manifest_digest,
+            frame=frame,
+            clarification=(
+                "FDAI가 이름이나 태그에 포함된 리소스 그룹을 찾을까요, "
+                "아니면 FDAI가 관리하는 전체 범위의 리소스 그룹을 볼까요?"
+                if korean
+                else (
+                    "Should I find resource groups whose name or tags contain FDAI, "
+                    "or list every resource group in FDAI's managed scope?"
+                )
+            ),
+        )
     proposal, frame = resolve_resource_target_candidates(
         proposal,
         frame,

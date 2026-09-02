@@ -1,4 +1,5 @@
 import type { AutonomyPayload, DashboardKpi } from "../types";
+import type { CostGovernanceProjection } from "../api-cost-governance";
 import { getLocale } from "../i18n";
 
 export type OverviewHealth = "healthy" | "attention" | "unknown";
@@ -47,10 +48,24 @@ export function formatUsd(value: number): string {
   });
 }
 
-export function overviewCostActions(
-  finops: { readonly total_actions: number } | null,
-): number | "n/a" {
-  return finops?.total_actions ?? "n/a";
+export function overviewCostEvidence(
+  cost: CostGovernanceProjection | null,
+): { readonly monthlySavings: number | null; readonly recommendationCount: number | "n/a" } {
+  const analytics = cost?.analytics;
+  if (cost === null || !cost.complete || analytics === null || analytics === undefined ||
+      !analytics.complete) {
+    return { monthlySavings: null, recommendationCount: "n/a" };
+  }
+  if (analytics.recommendations.some((item) => item.monthly_savings === null)) {
+    return { monthlySavings: null, recommendationCount: analytics.recommendations.length };
+  }
+  return {
+    monthlySavings: analytics.recommendations.reduce(
+      (sum, item) => sum + (item.monthly_savings ?? 0),
+      0,
+    ),
+    recommendationCount: analytics.recommendations.length,
+  };
 }
 
 export function overviewT0Share(byTier: Readonly<Record<string, number>>): string {

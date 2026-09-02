@@ -10551,17 +10551,27 @@ def test_manifest_declaration_count_uses_server_owned_plan() -> None:
 
 
 @pytest.mark.parametrize(
-    ("judgment_target", "include_domain_target", "frame_subjects"),
     (
-        (None, False, ("ActionType", "Ontology")),
-        ("ActionTypes", False, ("LinkType",)),
-        ("ActionTypes", True, ("LinkType",)),
+        "judgment_target",
+        "include_domain_target",
+        "frame_subjects",
+        "primary_intent",
+        "count_facet",
+    ),
+    (
+        (None, False, ("ActionType", "Ontology"), "query.ontology_declaration", "count"),
+        ("ActionTypes", False, ("LinkType",), "query.ontology_declaration", "count"),
+        ("ActionTypes", True, ("LinkType",), "query.ontology_declaration", "count"),
+        (None, False, ("ActionType",), "query.ontology_declaration", "action_type_count"),
+        (None, False, ("ActionType",), "query.ontology_relationships", "actiontype"),
     ),
 )
 def test_manifest_count_normalizes_the_validated_declaration_intent(
     judgment_target: str | None,
     include_domain_target: bool,
     frame_subjects: tuple[str, ...],
+    primary_intent: str,
+    count_facet: str,
 ) -> None:
     class _DeclarationCountJudgmentModel:
         def judge(self, *, utterance: str, **_kwargs: Any) -> dict[str, object]:
@@ -10590,10 +10600,10 @@ def test_manifest_count_normalizes_the_validated_declaration_intent(
                     }
                 )
             return {
-                "primary_intent": "query.ontology_declaration",
+                "primary_intent": primary_intent,
                 "targets": targets,
                 "requested_facets": [
-                    "count",
+                    count_facet,
                     "visibility",
                     "read_only_verification_source",
                     "scope",

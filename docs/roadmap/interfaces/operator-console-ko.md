@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 446dee9e98de3b344661d6d31827fb268fd3b474
+translation_source_sha: 0f8f97b127101aae8a5c5b4897ee119adfdb80d4
 translation_revised: 2026-09-02
 ---
 # FDAI Console 대화
@@ -10,6 +10,9 @@ Push 방향 (시스템 → 사람) 알림은 [channels-and-notifications.md](cha
 Settings > Integrations에서는 합성 자리 표시자로 운영 incident-open 이메일 렌더러를 미리 볼 수 있습니다. Owner는 상용 클라우드 Teams Workflows URL 한 개를 저장하고 범위가 제한된 진단으로 고정된 합성 Adaptive Card 한 건을 전송할 수도 있습니다. 배포 환경은 전용 Key Vault 시크릿과 버전이 지정된 이 시크릿 하나만 쓸 수 있는 Managed Identity를 사용합니다. 로컬 프로필은 비공개 서비스 DSN에서 도메인을 분리하여 파생한 키로 값을 암호화하고 루프백 Operator 데이터베이스에는 암호문만 저장합니다. FDAI는 저장된 정확한 버전을 다시 읽고 다이제스트를 확인한 후 테스트합니다. Contributor, Approver 및 Owner 역할은 새로고침 후 `no-store` 응답으로 현재 URL을 받고 Reader와 BreakGlass 역할은 `visible: false`만 받습니다. reveal에 성공할 때마다 URL 없이 행위자, 다이제스트, 바인딩 버전 및 타임스탬프를 담은 감사 기록을 남깁니다. 시크릿 저장 또는 reveal은 승인이나 실행 권한을 부여하지 않으며 알림 런타임이 이 바인딩을 참조하는 시점은 배포에서 계속 제어합니다.
 선택적 Console 변환 결과에서는 타입이 지정된 `404`, `501`, source-gate `503` 응답을 사용 불가 상태로 표시합니다. 인증 실패, 예기치 않은 전송 또는 `500` 응답, 디코더 실패는 확인할 수 있는 오류로 유지합니다.
 컨트롤 보기에서는 카탈로그 존재와 의미 매핑을 범위별 평가, 적용 가능성, 충족 상태와 구분합니다.
+대시보드는 로딩, 부분 완료 및 사용 불가 상태에서도 범위가 제한된 서비스 상태 답변을
+보존합니다. 일반 인벤토리 데이터로 대체하지 않고 의미 변환 결과의 정확한 리소스 식별자,
+근거 시각 및 공급자 제한을 표시합니다.
 따라서 WAF 체크리스트는 워크로드가 통과했다고 주장하지 않고도 고정된 정의 전체를 표시할 수 있습니다.
 카탈로그 토폴로지는 결정적인 exact-release 좌표를 보존하면서 처음 진입할 때 범위가 제한된 900 ms spring-settle 효과를 한 번 사용합니다. 조작하면 효과가 끝나고 동작 감소 설정에서는 효과를 건너뛰며, 지속적인 simulation은 실행하지 않습니다.
 에이전트 활동은 행이 영속 감사 근거를 기반으로 할 때만 상관관계를 추적 화면에 연결합니다.

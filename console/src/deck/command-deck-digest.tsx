@@ -44,7 +44,7 @@ const FACT_LABELS: Readonly<Record<string, string>> = {
   mttr_seconds: "mttr",
   change_lead_time_seconds: "changeLeadTime",
   monthly_savings: "monthlySavings",
-  cost_actions: "costActions",
+  cost_recommendations: "costRecommendations",
   policy_escapes: "policyEscapes",
   promotion_ready: "promotionReady",
 };
