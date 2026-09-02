@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 371b48adc60e5d6c5db79dc90e3bab9761100444
-translation_revised: 2026-09-02
+translation_source_sha: 8346ca729dd76bcee31076a3aee4aacb12d13016
+translation_revised: 2026-09-03
 ---
 # 지속형 질문 공간
 
@@ -36,6 +36,8 @@ translation_revised: 2026-09-02
 출처로 유지됩니다. 인벤토리는 안정적인 ID, 이중 언어 문구, 원본 다이제스트, 명시적인 중복
 관계와 콘텐츠 검토, 의미 계약, 런타임 연결, 근거 출처, 검증 상태를 서로 독립적으로
 보존합니다.
+Console 시작 질문 카탈로그를 포함해 연결된 원본이 변경되면 기계 판독용 인벤토리와 사람
+검토용 카탈로그를 모두 다시 생성하여 원본 파일 다이제스트를 정확하게 유지합니다.
 
 인벤토리에 포함됐다는 사실만으로 런타임 준비가 완료되지는 않습니다. 후보별로 검토된 의미
 기대값, principal 범위의 기능 연결, 근거 한계, 금지된 주장 oracle, 필수 검증을 갖추기 전에는
@@ -74,6 +76,7 @@ Golden 질문, Console 표시 질문 또는 답변 가능한 질문으로 승격
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-03 | implemented | 검토된 Console 시작 질문 카탈로그 변경 후 통합 질문은행 산출물을 다시 생성하여 질문 식별자나 준비 상태를 바꾸지 않고 정확한 원본 파일 다이제스트를 유지했습니다. | `current change`, 질문은행 생성기 및 집중 생성 산출물 검사 8개 통과 | 이 원본 다이제스트 갱신에 남은 작업은 없습니다. |
 | 2026-09-01 | implemented | 검토된 `service-current-health` 문구에서 AKS에 배포된 비즈니스 서비스를 명시하도록 수정했습니다. 이전 "AKS Service" 문구는 의미 계약이 `BusinessService` 앵커를 요구하는 상황에서 Kubernetes `Service` 객체를 가리켰기 때문에 올바른 런타임 해석이 oracle 검사에 실패했습니다. 생성된 영어, 한국어 및 질문 은행 산출물은 이제 수정된 원본에서 파생됩니다. | `current change`, Golden 데이터 세트 생성 및 집중 계약 검사 | 독립적인 바인딩되지 않은 변경 상관관계 수정 후 exact-source canary 결과 10개를 보존합니다. |
 | 2026-08-31 | implemented | 타입이 지정된 인과 요청이 구조화된 frame 계획 전에 current-state 판단 빠른 경로를 사용하는 문제를 막았습니다. 이 수정은 스키마로 검증된 `requested_facets` 필드만 사용하며 구문, 정규식, 별칭 또는 공급자별 라우팅을 추가하지 않습니다. | `current change`, 집중 current-state 및 구조화된 조사 계획 검사 88개 통과 | Issue #244에서 커밋된 리비전의 인증된 정확한 대상 인과 답변 또는 타입이 지정된 보류를 하나 보존합니다. |
 | 2026-08-31 | implemented | 누락된 exact-Resource slowness 조사를 부정되지 않고 대상 identifier 밖에 있는 검토된 source span, 검증된 Resource-to-service path, path 범위 dependency-latency 및 traffic-load metric으로 완성했습니다. 입력이 누락되거나 모호하거나 감소, 부정, 겹침, 경쟁 사건 또는 명시적 가설을 포함하면 계속 fail-closed합니다. 질문별 경로, 정규식, 별칭 또는 공급자 identity를 추가하지 않습니다. | `current change`, 집중 구조화된 조사 계획 및 inventory-language 검사 | Issue #244에서 커밋된 리비전의 인증된 정확한 대상 인과 답변 또는 타입이 지정된 보류를 하나 보존합니다. |

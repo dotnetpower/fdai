@@ -34,6 +34,8 @@ operator candidates into one generated review inventory. Each owning source rema
 The inventory preserves stable ids, bilingual wording, source digests, explicit duplicate
 relationships, and independent content-review, semantic-contract, runtime-binding, evidence-source,
 and validation states.
+Any change to a joined source, including a Console starter catalog, regenerates both the machine
+inventory and human review catalog so their source-file digests stay exact.
 
 Inventory membership is not runtime readiness. A candidate does not become Golden, Console-visible,
 or answerable until its own reviewed semantic expectation, principal-scoped capability binding,
@@ -71,6 +73,7 @@ recommendations, rollback, scaling, or automation remain advisory or draft-only 
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-03 | implemented | Regenerated the federated question-bank artifacts after the reviewed Console starter catalogs changed, preserving exact source-file digests without changing question identities or readiness. | `current change`; question-bank generator and focused generated-artifact checks passed 8 cases. | No remaining work for this source-digest refresh. |
 | 2026-09-01 | implemented | Corrected the reviewed `service-current-health` wording to name a business service deployed on AKS. The prior "AKS Service" wording named the Kubernetes `Service` object while its semantic contract required a `BusinessService` anchor, which made correct runtime interpretation fail the oracle. Generated English, Korean, and question-bank artifacts now derive from the corrected source. | `current change`; Golden dataset generation and focused contract checks. | Retain an exact-source 10-case canary result after the independent unbound change-correlation correction. |
 | 2026-08-31 | implemented | Prevented a typed causal request from taking the current-state judgment fast path before structured frame planning. The fix uses only the schema-validated `requested_facets` field and adds no phrase, regex, alias, or provider-specific routing. | `current change`; focused current-state and structured-investigation planning checks passed 88 cases. | Retain one authenticated exact-target causal answer or typed hold on the committed revision under Issue #244. |
 | 2026-08-31 | implemented | Completed an omitted exact-Resource slowness investigation from reviewed non-negated source spans outside the target identifier, a verified Resource-to-service path, and path-scoped dependency-latency and traffic-load metrics. Missing, ambiguous, decreasing, negated, overlapping, competing-event, or explicit-hypothesis inputs still fail closed. The fix adds no question-specific route, regex, alias, or provider identity. | `current change`; focused structured-investigation planning and inventory-language checks. | Retain one authenticated exact-target causal answer or typed hold on the committed revision under Issue #244. |

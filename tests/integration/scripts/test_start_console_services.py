@@ -34,7 +34,7 @@ def test_core_runtime_digest_includes_prompt_catalog() -> None:
     script = _RUN_SERVICE_SCRIPT.read_text(encoding="utf-8")
 
     assert 'if [[ "$service" == "core-runtime" ]]' in script
-    assert "digest_inputs+=(rule-catalog/prompts)" in script
+    assert "digest_inputs+=(rule-catalog)" in script
 
 
 def _operator_restart_repo(tmp_path: Path) -> Path:
