@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: 005eb6371a4cfbff21e1048c9a07c4c38f337f35
+translation_source_sha: 12d59707c5d982555cea006b0a230c892c7619f1
 translation_revised: 2026-09-02
 ---
 # 구독 초기 프로비저닝
@@ -53,6 +53,10 @@ inspect -> reconcile current state -> foundation plan/apply -> attest runner
 | 온톨로지와 규칙 | 카탈로그가 저장소에서 버전 관리되고 변경 불가능한 Operator 변환 결과로 구체화될 수 있습니다. | 카탈로그 변환 결과 생성이 Operator API 경로에 조건부로 연결되며 구독 준비도 필수 게이트가 아닙니다. |
 | 모델 배포 | 실제 해석기, 기능 평가, Terraform 모듈, 키 없는 역할이 있습니다. | 요청 용량에 명시적 최솟값, 사용률 여유, 워크로드 프로필, 종단 간 처리량 승인 게이트가 없습니다. |
 | 최초 리소스 스캔 | 지속 인벤토리 Job은 완전한 세대만 승격하며 Console은 예상 스캔 수치와 검증된 완료를 구분합니다. | 보호된 실행이 영속 공급자 진행률을 아직 게시하지 않으며 전체 구독 증적을 보존하지 않았습니다. |
+
+인벤토리 CLI는 정제된 수집 상태 조립을 전용 순수 도우미에 위임한 뒤 기존 상태 저장소
+어댑터를 통해 결과를 영속화합니다. 이 모듈 경계 변경은 출처 권한, 준비 상태 의미 또는 재시도
+동작을 바꾸지 않습니다.
 
 ## 목표 운영자 경험
 

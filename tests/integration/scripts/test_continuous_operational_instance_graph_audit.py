@@ -56,6 +56,7 @@ def test_audit_rejects_an_open_stage_without_the_exact_gap(tmp_path: Path) -> No
     stages = payload["stages"]
     assert isinstance(stages, list)
     graph_first = next(stage for stage in stages if stage["id"] == "graph-first-query")
+    graph_first_index = stages.index(graph_first)
     graph_first["state"] = "in-progress"
     graph_first["missing_binding"] = None
     audit = tmp_path / "audit.json"
@@ -63,4 +64,4 @@ def test_audit_rejects_an_open_stage_without_the_exact_gap(tmp_path: Path) -> No
 
     errors = module.validate(audit_path=audit)
 
-    assert errors == ["stages[8] open work must name its exact missing binding"]
+    assert errors == [f"stages[{graph_first_index}] open work must name its exact missing binding"]

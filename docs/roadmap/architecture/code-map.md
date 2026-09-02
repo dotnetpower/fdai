@@ -75,6 +75,13 @@ public imports, deterministic gate order, and read-only authority.
 Resource Health state-group derivation lives in `semantic_query_health_values.py`, which keeps the
 public semantic composition facade below the enforced 800-line ceiling without changing registration
 order.
+Historical and activity frame construction lives in
+`semantic_planning_temporal_frames.py`; inventory collection-health assembly lives in
+`inventory_collection_health_reporting.py`; and PostgreSQL inventory-source completeness reduction
+lives in `postgres_ontology_source_coverage.py`. The established owner modules keep their import
+surfaces while these cohesive helpers stay below structural size ratchets. Service image builds also
+assert the resolved security-fixed OPA transitive module versions, and each Python distribution pins
+the shared `pypdf` security floor through the frozen workspace lock.
 The semantic-routing baseline records each lexical owner and classifies deterministic model-output
 validation separately from semantic inference. Content-free judgment telemetry exposes profile and
 model-configuration revisions, tier, confidence, latency, outcome, and abstention rate without

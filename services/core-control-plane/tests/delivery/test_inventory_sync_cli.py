@@ -73,7 +73,7 @@ def _ontology_observer_harness(monkeypatch: pytest.MonkeyPatch) -> tuple[Any, ..
         }
     )
     ontology_store = SimpleNamespace(sync_catalog=AsyncMock())
-    history_store = SimpleNamespace(append=AsyncMock())
+    history_store = SimpleNamespace(append=AsyncMock(), read=AsyncMock(return_value=()))
     projector = SimpleNamespace(
         construction_kwargs={},
         apply=AsyncMock(

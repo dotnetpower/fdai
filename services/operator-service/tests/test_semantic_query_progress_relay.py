@@ -64,9 +64,7 @@ def test_progress_relay_keeps_monotonic_actual_query_activity() -> None:
     assert activity["status"] == "running"
     assert activity["completed"] == 0
     assert activity["total"] == 2
-    assert activity["execution"]["command"] == (
-        '{"arguments":{"object_type":"Resource"},"capability":"query.object_set"}'
-    )
+    assert activity["execution"]["command"] == "query.object_set"
 
     relay.discard("request-1")
     assert relay.after("request-1", 0) == ()

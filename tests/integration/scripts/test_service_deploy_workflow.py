@@ -94,6 +94,7 @@ def test_legacy_platform_cannot_recreate_migrated_core() -> None:
 
 def test_operator_migration_image_is_independently_pinned() -> None:
     root = (_ROOT / "infra/main.tf").read_text(encoding="utf-8")
+    normalized_root = " ".join(root.split())
     variables = (_ROOT / "infra/variables.tf").read_text(encoding="utf-8")
     module = (_ROOT / "infra/modules/operator-api/container-app/main.tf").read_text(
         encoding="utf-8"
@@ -101,7 +102,7 @@ def test_operator_migration_image_is_independently_pinned() -> None:
 
     assert 'variable "operator_api_migration_image"' in variables
     assert 'regex("@sha256:[0-9a-f]{64}$", var.operator_api_migration_image)' in variables
-    assert "migration_image                   = var.operator_api_migration_image" in root
+    assert "migration_image = var.operator_api_migration_image" in normalized_root
     assert 'image   = var.migration_image == "" ? var.image : var.migration_image' in module
     assert "TF_VAR_operator_api_migration_image" in _LEGACY_WORKFLOW
 
@@ -350,12 +351,13 @@ def test_platform_workflow_accepts_plans_without_runtime_image_evidence() -> Non
 
 def test_operator_catalog_materialization_runs_after_schema_migration() -> None:
     root = (_ROOT / "infra/main.tf").read_text(encoding="utf-8")
+    normalized_root = " ".join(root.split())
     outputs = (_ROOT / "infra/outputs.tf").read_text(encoding="utf-8")
     variables = (_ROOT / "infra/modules/operator-api/container-app/variables.tf").read_text(
         encoding="utf-8"
     )
 
-    assert "catalog_image                     = var.core_image" in root
+    assert "catalog_image = var.core_image" in normalized_root
     assert 'regex("@sha256:[0-9a-f]{64}$", var.catalog_image)' in variables
     assert 'resource "azurerm_container_app_job" "materialize_catalogs"' in (
         _LEGACY_OPERATOR_MODULE

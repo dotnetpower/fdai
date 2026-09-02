@@ -521,6 +521,7 @@ def test_scheduled_reconciler_opens_only_idempotent_draft_proposals() -> None:
 
 def test_terraform_binds_the_exact_resolved_manifest_to_both_runtimes() -> None:
     root = (_ROOT / "infra" / "main.tf").read_text(encoding="utf-8")
+    normalized_root = " ".join(root.split())
     variables = (_ROOT / "infra" / "variables.tf").read_text(encoding="utf-8")
     operator = (
         _ROOT / "infra" / "modules" / "operator-api" / "container-app" / "main.tf"
@@ -530,8 +531,11 @@ def test_terraform_binds_the_exact_resolved_manifest_to_both_runtimes() -> None:
     assert 'variable "resolved_models_sha256"' in variables
     assert "LLM_RESOLVED_MODELS_PATH   = var.resolved_models_json" in root
     assert "LLM_RESOLVED_MODELS_SHA256 = var.resolved_models_sha256" in root
-    assert "resolved_models_path              = var.resolved_models_json" in root
-    assert "resolved_models_sha256            = var.resolved_models_sha256" in root
+    assert (
+        'resolved_models_path = var.resolved_models_json != "" ? '
+        "var.resolved_models_json : var.operator_api_resolved_models_path"
+    ) in normalized_root
+    assert "resolved_models_sha256 = var.resolved_models_sha256" in normalized_root
     assert 'name  = "LLM_RESOLVED_MODELS_SHA256"' in operator
     assert "TF_VAR_resolved_models_json" in _DEPLOY
     assert "TF_VAR_resolved_models_sha256" in _DEPLOY

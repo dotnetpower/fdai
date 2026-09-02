@@ -23,6 +23,7 @@ const VISIBLE_TITLE_COMPONENTS = new Set([
   "RecordList",
   "RelationshipGroup",
   "RelationshipDirection",
+  "SettingsSectionHeader",
   "TrendChart",
   "TypeSelector",
   "UnavailablePanel",

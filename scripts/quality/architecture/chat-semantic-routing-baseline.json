@@ -338,6 +338,13 @@
       "issue": 252
     },
     {
+      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_relationship_planning.py",
+      "disposition": "retain",
+      "owner": "semantic-conversation",
+      "reason": "Retains exact relationship endpoint checks over typed semantic frames and reviewed ontology declarations.",
+      "issue": 252
+    },
+    {
       "path": "services/core-control-plane/src/fdai/core/conversation/semantic_resource_metric_planning.py",
       "disposition": "retain",
       "owner": "semantic-conversation",

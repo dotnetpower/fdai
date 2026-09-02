@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: f92aff505b521f8ae987a5cc8bd87394a6f2b94b
+translation_source_sha: 875973460a421facf4c270c67eea2daaaf3fa742
 translation_revised: 2026-09-02
 ---
 # 코드 맵
@@ -74,6 +74,12 @@ BusinessService에서 Agent로 이어지는 실제 인스턴스 경로를 보존
 gate 순서 및 읽기 전용 권한을 보존합니다.
 Resource Health 상태 그룹 파생은 `semantic_query_health_values.py`에 있으며 public 의미
 composition facade를 강제된 800줄 제한 아래로 유지하면서 등록 순서는 바꾸지 않습니다.
+이력 및 활동 frame 생성은 `semantic_planning_temporal_frames.py`, 인벤토리 수집 상태 조립은
+`inventory_collection_health_reporting.py`, PostgreSQL 인벤토리 출처 완전성 축약은
+`postgres_ontology_source_coverage.py`가 담당합니다. 기존 소유 모듈은 import 표면을 유지하고,
+서로 응집된 이 도우미는 구조 크기 기준 아래로 유지됩니다. 서비스 이미지 빌드는 보안 수정 버전으로
+해석된 OPA 전이 모듈을 검증하며, 각 Python 배포판은 고정된 workspace 잠금 파일을 통해 공통
+`pypdf` 보안 하한을 고정합니다.
 semantic-routing 기준선은 각 어휘 판단 소유자를 기록하고 결정론적 모델 출력 검증을 의미 추론과
 구분합니다. 내용이 없는 판단 텔레메트리는 발화, 맥락 또는 제안 다이제스트를 보존하지 않으면서
 프로필 및 모델 구성 개정, 계층, 신뢰도, 지연 시간, 결과 및 판단 보류 비율을 제공합니다.

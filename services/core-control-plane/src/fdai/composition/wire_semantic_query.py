@@ -408,10 +408,7 @@ def build_semantic_query_runtime(
         service_health_declaration = declarations[SERVICE_HEALTH_FUNCTION_NAME]
         function_registry.register_contextual(
             service_health_declaration,
-            service_health_function(
-                ontology_release,
-                reader=service_health_reader,
-            ),
+            service_health_function(ontology_release, reader=service_health_reader),
             authority=EvidenceAuthority.SERVER_SUBSCRIPTION_HEALTH,
         )
     if state_transition_reader is not None:

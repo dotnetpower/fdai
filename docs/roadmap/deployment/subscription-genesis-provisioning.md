@@ -51,6 +51,10 @@ subscription-onboarding product:
 | Model deployment | The live resolver, capability assessment, Terraform modules, and keyless roles exist | Requested capacity has no explicit minimum, utilization headroom, workload profile, or end-to-end throughput acceptance gate. |
 | Initial resource scan | The continuous inventory Job promotes only a complete generation; the Console separates estimated scan counters from verified closure | The protected run does not yet publish durable provider progress or retain the governed full-subscription receipt. |
 
+The inventory CLI delegates sanitized collection-health assembly to a focused pure helper before it
+persists the result through the existing state-store adapter. This module boundary does not change
+source authority, readiness semantics, or retry behavior.
+
 ## Target operator experience
 
 The high-level path uses the canonical command groups and adds durable run identity:
