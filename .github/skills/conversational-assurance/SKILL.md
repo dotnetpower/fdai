@@ -61,6 +61,9 @@ question.
 
 The explicit campaign runs with the project's virtual-environment Python and inherited tool
 `PATH`, so candidate verification uses the same Python and Node toolchain as local development.
+The watchdog prepends the active worktree's Core and service-contract source roots before importing
+readiness contracts. It must not resolve those contracts from an older editable install when
+`PYTHONPATH` is absent.
 Every started hardening attempt appends a bounded terminal `hardening_result` record for verified,
 failed, or exceptional completion. Error records contain the exception type, not provider output.
 A bounded hardening exception is a failed candidate result, not a campaign-process exception.
