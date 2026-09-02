@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 618ed78f04e53388428fc0ef66a9507c6f9fdb05
+translation_source_sha: 5c3c5660b5257095c02fec5fbb961eb94d55fef0
 translation_revised: 2026-09-03
 ---
 # 코드 맵
@@ -65,7 +65,8 @@ Operator 소유 다운스트림 마이그레이션에 위치하므로, 부트스
 프롬프트 ablation은 선택적 맥락만 제거하고 모든 제외 항목을 재실행을 위해 기록합니다.
 
 의미 대화 계획은 `semantic_planning.py`, `semantic_planning_cascade.py`,
-`semantic_planning_frame.py`를 호환성 facade로 유지합니다. 집중 sibling 모듈은 공개 import,
+`semantic_planning_frame.py`를 호환성 facade로 유지합니다. `semantic_planning_fallbacks.py`는
+결정론적 명확화와 후보 복구를 소유합니다. 집중 sibling 모듈은 공개 import,
 결정론적 gate 순서 및 읽기 전용 권한을 보존하면서 frame 검사, plan dispatch, 고정된 인시던트와
 명시된 값 필터 plan 생성, 판단, 검증, frame 생성, facet, 근거별 조사 정규화, 타입이 지정된
 다중 pair 관계 계획 및 조회를 소유합니다. 타입이 지정된 Rule 추적은 답변 전에 정확한 Rule 선언과

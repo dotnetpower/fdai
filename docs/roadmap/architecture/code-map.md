@@ -62,7 +62,8 @@ Operator Service to the shared `runtime-settings:policy` record and consumed onc
 startup. Prompt ablation removes only optional context and records every exclusion for replay.
 
 Semantic conversation planning keeps `semantic_planning.py`, `semantic_planning_cascade.py`, and
-`semantic_planning_frame.py` as compatibility facades. Focused sibling modules own frame checks,
+`semantic_planning_frame.py` as compatibility facades. `semantic_planning_fallbacks.py` owns
+deterministic clarification and candidate recovery. Focused sibling modules own frame checks,
 plan dispatch, anchored-incident and stated-value-filter plan construction, judgment, validation,
 frame construction, facets, evidence-specific investigation normalization, typed multi-pair
 relationship planning, and queries while preserving public imports, deterministic gate order, and
