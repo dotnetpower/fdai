@@ -204,6 +204,287 @@ def test_generic_empty_answer_does_not_claim_zero_row_verification(
     assert "`execution_authority=false`" in answer
 
 
+@pytest.mark.parametrize(
+    ("locale", "complete", "event_count", "expected_heading"),
+    (
+        ("en", True, 1, "## Yes - active Azure Service Health events are present"),
+        ("en", True, 0, "## No - no active Azure Service Health events are present"),
+        (
+            "ko",
+            False,
+            1,
+            "## 예 - 활성 이벤트가 확인됐지만 전체 범위는 불완전합니다",
+        ),
+        (
+            "ko",
+            False,
+            0,
+            "## 확인 불가 - 현재 활성 이벤트 여부를 결정할 수 없습니다",
+        ),
+    ),
+)
+def test_service_health_answer_reports_direct_conclusion_and_scope(
+    locale: str,
+    complete: bool,
+    event_count: int,
+    expected_heading: str,
+) -> None:
+    request = _request(locale=locale)
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+    rows: list[dict[str, object]] = [
+        {
+            "row_id": "service-health-summary",
+            "values": {
+                "record_kind": "summary",
+                "scope_kind": "subscription",
+                "active_event_count": (event_count if complete or event_count else None),
+                "impacted_resource_count": (event_count if complete or event_count else None),
+                "count_posture": ("exact" if complete else "minimum" if event_count else "unknown"),
+                "observed_at": NOW.isoformat(),
+                "attempt_ref": "service-health:attempt",
+                "execution_authority": False,
+            },
+        }
+    ]
+    if event_count:
+        rows.append(
+            {
+                "row_id": "service-health-event-0001",
+                "values": {
+                    "record_kind": "event",
+                    "scope_kind": "subscription",
+                    "event_id": "service-health-event:1",
+                    "event_type": "service_issue",
+                    "title": "Regional connectivity issue",
+                    "level": "warning",
+                    "status": "active",
+                    "impact_start_at": (NOW - timedelta(minutes=10)).isoformat(),
+                    "event_evidence_ref": "service-health:evidence-1",
+                    "execution_authority": False,
+                },
+            }
+        )
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [
+            {
+                "node_id": "subscription-service-health",
+                "rows": rows,
+                "returned_rows": len(rows),
+                "total_rows": len(rows),
+                "source_complete": complete,
+                "source_truncation_reason": None if complete else "source_unavailable",
+                "display_truncated": False,
+            }
+        ],
+        output_shape="subscription_service_health",
+        measure_concepts=("service_health.active_event",),
+    )
+
+    assert answer.startswith(expected_heading)
+    assert NOW.isoformat() in answer
+    assert "server-configured Azure subscription" in answer or "서버에 구성된 Azure 구독" in answer
+    if complete:
+        assert "`source_unavailable`" not in answer
+    else:
+        assert "`source_unavailable`" in answer
+    assert "`execution_authority=false`" in answer
+
+
+def test_service_health_answer_preserves_summary_count_when_display_is_truncated() -> None:
+    request = _request(locale="en")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [
+            {
+                "node_id": "subscription-service-health",
+                "rows": [
+                    {
+                        "row_id": "service-health-summary",
+                        "values": {
+                            "record_kind": "summary",
+                            "scope_kind": "subscription",
+                            "active_event_count": 25,
+                            "impacted_resource_count": 4,
+                            "count_posture": "exact",
+                            "observed_at": NOW.isoformat(),
+                            "attempt_ref": "service-health:attempt",
+                            "execution_authority": False,
+                        },
+                    },
+                    {
+                        "row_id": "service-health-event-0001",
+                        "values": {
+                            "record_kind": "event",
+                            "scope_kind": "subscription",
+                            "event_id": "service-health-event:1",
+                            "event_type": "service_issue",
+                            "title": "Regional issue",
+                            "status": "active",
+                            "impact_start_at": NOW.isoformat(),
+                            "event_evidence_ref": "service-health:evidence-1",
+                            "execution_authority": False,
+                        },
+                    },
+                ],
+                "returned_rows": 2,
+                "total_rows": 26,
+                "source_complete": True,
+                "source_truncation_reason": None,
+                "display_truncated": True,
+            }
+        ],
+        output_shape="subscription_service_health",
+        measure_concepts=("service_health.active_event",),
+    )
+
+    assert answer.startswith("## Yes - active Azure Service Health events are present")
+    assert "Unique active events: 25" in answer
+    assert "Displayed events: 1 of 25 unique events" in answer
+
+
+@pytest.mark.parametrize(
+    ("locale", "heading"),
+    (("en", "Resource condition"), ("ko", "리소스 상태")),
+)
+def test_resource_condition_answer_preserves_per_source_empty_and_unresolved(
+    locale: str,
+    heading: str,
+) -> None:
+    request = _request(locale=locale)
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [
+            {
+                "node_id": "resource-condition-power",
+                "rows": [
+                    {
+                        "row_id": "power-1",
+                        "values": {
+                            "name": "worker-a",
+                            "state_concept": "resource_state.stopped",
+                            "execution_authority": False,
+                        },
+                    }
+                ],
+                "returned_rows": 1,
+                "total_rows": 1,
+                "source_complete": True,
+                "source_truncation_reason": None,
+                "display_truncated": False,
+            },
+            {
+                "node_id": "resource-condition-health",
+                "rows": [],
+                "returned_rows": 0,
+                "total_rows": 0,
+                "source_complete": False,
+                "source_truncation_reason": "scope_unreadable",
+                "display_truncated": False,
+            },
+        ],
+        output_shape="resource_condition_sections",
+        measure_concepts=(
+            "resource_health.degraded",
+            "resource_state.deallocated",
+            "resource_state.stopped",
+        ),
+    )
+
+    assert heading in answer
+    assert "`stopped`: `matched`" in answer
+    assert "`deallocated`: `verified_empty`" in answer
+    assert "`degraded`: `unresolved`" in answer
+    assert "`scope_unreadable`" in answer
+    assert "`execution_authority=false`" in answer
+
+
+def test_state_transition_answer_reports_bitemporal_edge_and_incomplete_coverage() -> None:
+    request = _request(locale="en")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [
+            {
+                "node_id": "resource-state-transitions",
+                "rows": [
+                    {
+                        "row_id": "transition-1",
+                        "values": {
+                            "effective_at": NOW.isoformat(),
+                            "from_state": "running",
+                            "to_state": "deallocated",
+                            "state_type": "resource.operational_state",
+                            "lane": "observed",
+                            "authority": "provider",
+                            "complete": True,
+                            "conflicts": [],
+                            "synthetic": False,
+                            "execution_authority": False,
+                        },
+                    }
+                ],
+                "returned_rows": 1,
+                "total_rows": 25,
+                "source_complete": False,
+                "source_truncation_reason": "snapshot_interval_only",
+                "display_truncated": True,
+            }
+        ],
+        output_shape="resource_state_transitions",
+        measure_concepts=("resource_state.deallocated",),
+    )
+
+    assert answer.startswith("## Observed resource state transitions")
+    assert "`running` -> `deallocated`" in answer
+    assert "Displayed transitions: 1 of 25" in answer
+    assert "`snapshot_interval_only`" in answer
+    assert "`execution_authority=false`" in answer
+
+
+def test_state_transition_answer_does_not_promote_untrusted_edge() -> None:
+    request = _request(locale="en")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [
+            {
+                "node_id": "resource-state-transitions",
+                "rows": [
+                    {
+                        "row_id": "transition-1",
+                        "values": {
+                            "effective_at": NOW.isoformat(),
+                            "from_state": "running",
+                            "to_state": "deallocated",
+                            "state_type": "resource.operational_state",
+                            "lane": "derived",
+                            "authority": "deterministic_function",
+                            "complete": False,
+                            "conflicts": ["source_disagreement"],
+                            "synthetic": False,
+                            "execution_authority": False,
+                        },
+                    }
+                ],
+                "returned_rows": 1,
+                "total_rows": 1,
+                "source_complete": True,
+                "source_truncation_reason": None,
+                "display_truncated": False,
+            }
+        ],
+        output_shape="resource_state_transitions",
+        measure_concepts=("resource_state.deallocated",),
+    )
+
+    assert answer.startswith("## Resource state transition evidence unresolved")
+    assert "`running` -> `deallocated`" not in answer
+    assert "Unresolved transition evidence: 1" in answer
+
+
 def test_generic_mixed_outputs_do_not_claim_zero_row_verification() -> None:
     request = _request(locale="en")
     semantic_request = cast(dict[str, object], request["semantic_turn"])
@@ -1379,6 +1660,7 @@ def _runtime_result(
             operation=SemanticOperation.SELECT,
             output_shape="resource_list",
             subject_constraints=(),
+            measure_concepts=(),
         ),
         manifest_digest=MANIFEST_DIGEST,
         direct_response_intent=(
@@ -1618,6 +1900,7 @@ def _rule_search_runtime_result(*, execution_authority: bool = False) -> Runtime
             operation=SemanticOperation.SELECT,
             output_shape="resource_list",
             subject_constraints=(),
+            measure_concepts=(),
         ),
         manifest_digest=MANIFEST_DIGEST,
     )
@@ -1794,6 +2077,7 @@ def _incident_evidence_runtime_result(
             operation=SemanticOperation.SELECT,
             output_shape="incident_evidence",
             subject_constraints=(),
+            measure_concepts=(),
         ),
         manifest_digest=MANIFEST_DIGEST,
     )
@@ -1899,6 +2183,7 @@ def _ontology_relationship_runtime_result(
             operation=SemanticOperation.SELECT,
             output_shape="ontology_relationships",
             subject_constraints=(),
+            measure_concepts=(),
         ),
         manifest_digest=MANIFEST_DIGEST,
     )
@@ -2807,6 +3092,7 @@ async def test_target_candidates_answer_names_verified_choices_in_korean() -> No
             operation=SemanticOperation.SELECT,
             output_shape="resource_target_candidates",
             subject_constraints=(),
+            measure_concepts=(),
         ),
         manifest_digest=result.planning.manifest_digest,
     )
@@ -3401,6 +3687,7 @@ async def test_rule_search_candidates_must_not_exceed_function_limit() -> None:
                 operation=SemanticOperation.SELECT,
                 output_shape="resource_list",
                 subject_constraints=(),
+                measure_concepts=(),
             ),
             manifest_digest=MANIFEST_DIGEST,
         ),
@@ -3534,9 +3821,10 @@ async def test_execution_hold_preserves_verified_attempts_and_limitations() -> N
     assert semantic["checks_completed"] == 0
     assert semantic["checks_total"] == 1
     assert semantic["intent_graph_evidence"]["goals"][0]["reason"] == ("capability_unavailable")
-    assert "`query.object_set` - `unavailable`" in semantic["answer"]
+    assert "현재 authoritative evidence로는 요청한 결론을 결정할 수 없습니다" in semantic["answer"]
     assert "`query.object_set`: `capability_unavailable`" in semantic["answer"]
-    assert "실제로 시도한 읽기 전용 조사" in semantic["answer"]
+    assert "`query.object_set` - `unavailable`" not in semantic["answer"]
+    assert "## 확인 불가" in semantic["answer"]
     assert "## 가설 상태" in semantic["answer"]
     assert "`dependency-latency` - `unresolved`" in semantic["answer"]
     assert "`traffic-load` - `unresolved`" in semantic["answer"]

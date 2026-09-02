@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 13fc270ba6eff4914dd584f8b57315e99671c6cb
-translation_revised: 2026-09-01
+translation_source_sha: 371b48adc60e5d6c5db79dc90e3bab9761100444
+translation_revised: 2026-09-02
 ---
 # 지속형 질문 공간
 
@@ -317,6 +317,19 @@ cron, IANA 표준 시간대, 로캘, 관점, 질문 수, 토큰, 비용, 전체 
 남은 Low 항목은 인벤토리 탐색 edge case 추가 음수 테스트, 캠페인 간 중복 corpus 보존 근거,
 과거 릴리스 차이 회귀 테스트 이름, 추가 URI 스킴, 정상 자격 증명 어휘, 한국어 안전 변형입니다.
 범위, 권한, 변경, 릴리스 자격, 배포 준비 상태를 확장하지 않습니다.
+
+## 리소스 상태 회귀 계약
+
+리소스 상태 과제에는 `query.resource_state_inventory`와
+`query.resource_health_inventory`가 모두 필요합니다. 두 함수가 선언되고 바인딩되고 도달
+가능하며 근거 준비가 완료되고, `server_inventory_graph`와 `server_resource_health`라는
+정확한 권위 집합을 제공할 때만 선택할 수 있습니다. 예상 최종 설명인
+`multiple_authoritative_sources`는 두 원본 증적을 대신하지 않습니다.
+
+범위가 제한된 조회 기간과 검토된 운영 상태가 있으면 상태 이력 질문에서
+`query.resource_state_transitions`를 선택할 수 있습니다. 완전한 빈 결과를 주장하려면 요청한
+모든 리소스와 상태 유형에 대한 양의 커버리지 증명이 필요합니다. 스냅샷만으로 확인한
+커버리지는 불완전 상태를 유지합니다.
 
 ## 관련 문서
 

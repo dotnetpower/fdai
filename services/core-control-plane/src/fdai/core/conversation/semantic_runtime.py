@@ -175,6 +175,7 @@ class SemanticConversationRuntime:
             graph=planning.intent_graph,
             plan=planning.plan,
             execution=execution,
+            frame=planning.frame,
         )
         disposition: Literal["answered", "held", "cancelled"]
         reason = f"semantic_execution_{execution.status}"
@@ -183,7 +184,11 @@ class SemanticConversationRuntime:
                 disposition = "held"
                 reason = "semantic_current_relationship_mapping_unavailable"
             else:
-                _authority, authority_status = resolve_execution_authority(execution)
+                _authority, authority_status = resolve_execution_authority(
+                    execution,
+                    frame=planning.frame,
+                    plan=planning.plan,
+                )
                 if authority_status == "missing":
                     disposition = "held"
                     reason = "semantic_evidence_authority_missing"

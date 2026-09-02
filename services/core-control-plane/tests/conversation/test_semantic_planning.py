@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from types import MappingProxyType, SimpleNamespace
 from typing import Any
 
 import pytest
 from fdai.core.conversation.coordinator import ConversationCoordinator, CoordinatorConfig
-from fdai.core.conversation.intent_graph import build_intent_graph_evidence
+from fdai.core.conversation.intent_graph import (
+    build_intent_graph_evidence,
+    resolve_execution_authority,
+)
 from fdai.core.conversation.semantic_manifest import CatalogQueryManifestProvider
 from fdai.core.conversation.semantic_planning import SemanticPlanningService, _plan_node_summary
 from fdai.core.conversation.semantic_planning_alignment import verify_frame_plan_alignment
@@ -63,6 +67,10 @@ from fdai.core.ontology_platform.service_health_queries import (
     SERVICE_HEALTH_FUNCTION_NAME,
     SERVICE_HEALTH_MEASURE_CONCEPTS,
     service_health_function_type,
+)
+from fdai.core.ontology_platform.state_transitions import (
+    RESOURCE_STATE_TRANSITIONS_FUNCTION_NAME,
+    resource_state_transitions_function_type,
 )
 from fdai.rule_catalog.schema.inventory_query_language import (
     InventoryQueryLanguageRegistry,
@@ -860,6 +868,7 @@ def _typed_fixture(
     include_resource_event: bool = False,
     include_resource_metric: bool = False,
     include_resource_state: bool = False,
+    include_state_transitions: bool = False,
     include_service_health: bool = False,
     include_contextual_resource: bool = False,
 ) -> tuple[Any, ObjectSetDefinition]:
@@ -882,6 +891,7 @@ def _typed_fixture(
             resource_health_function_type() if include_resource_health else None,
             resource_metric_function_type() if include_resource_metric else None,
             resource_state_function_type() if include_resource_state else None,
+            resource_state_transitions_function_type() if include_state_transitions else None,
             service_health_function_type() if include_service_health else None,
         )
         if function is not None
@@ -966,6 +976,10 @@ def _inventory_query_language() -> InventoryQueryLanguageRegistry:
             "running": QueryValues(
                 terms=("running", "실행 중"),
                 values=("running",),
+            ),
+            "stopped": QueryValues(
+                terms=("stopped", "중지된"),
+                values=("stopped", "deallocated"),
             ),
         },
         operations={},
@@ -1758,7 +1772,7 @@ def test_typed_subscription_state_prefers_a_concrete_state_filter() -> None:
         QueryNodeKind.FUNCTION,
     )
     assert outcome.plan.nodes[1].arguments["arguments"] == {
-        "state_concepts": ["resource_state.stopped"]
+        "state_concepts": ["resource_state.deallocated", "resource_state.stopped"]
     }
 
 
@@ -1972,6 +1986,51 @@ def test_platform_impact_uses_server_scoped_service_health_function() -> None:
     assert outcome.execution_authority is False
 
 
+def test_historical_power_state_uses_durable_transition_function() -> None:
+    manifest, _definition = _typed_fixture(
+        groups=(_VM_GROUP,),
+        include_resource_event=True,
+        include_state_transitions=True,
+    )
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Resource", "compute-vm"],
+            measure_concepts=["resource_event.resource_health"],
+            temporal_scope={"lookback_seconds": 3600},
+            output_shape="resource_event_history",
+        ),
+        plan=None,
+    )
+
+    outcome = _service(
+        model,
+        manifest,
+        inventory_query_language=_inventory_query_language(),
+    ).plan(
+        utterance="Show virtual machines that transitioned to stopped in the last hour.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "resource_state_transitions"
+    assert outcome.frame.measure_concepts == (
+        "resource_state.deallocated",
+        "resource_state.stopped",
+    )
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[1].arguments["function_name"] == (
+        RESOURCE_STATE_TRANSITIONS_FUNCTION_NAME
+    )
+    assert outcome.plan.nodes[1].arguments["arguments"]["to_states"] == [
+        "deallocated",
+        "stopped",
+    ]
+    assert outcome.execution_authority is False
+
+
 def test_mixed_inventory_state_and_health_preserves_the_health_family() -> None:
     application_service = PropertyValueGroup(
         id="application-service",
@@ -2005,7 +2064,7 @@ def test_mixed_inventory_state_and_health_preserves_the_health_family() -> None:
 
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert outcome.frame is not None
-    assert outcome.frame.output_shape == "resource_health_list"
+    assert outcome.frame.output_shape == "resource_condition_sections"
     assert outcome.frame.measure_concepts == (
         "resource_health.not_ready",
         "resource_state.deallocated",
@@ -2015,12 +2074,120 @@ def test_mixed_inventory_state_and_health_preserves_the_health_family() -> None:
     assert tuple(node.kind for node in outcome.plan.nodes) == (
         QueryNodeKind.OBJECT_SET,
         QueryNodeKind.FUNCTION,
+        QueryNodeKind.FUNCTION,
     )
-    assert outcome.plan.nodes[1].arguments["function_name"] == RESOURCE_HEALTH_FUNCTION_NAME
+    assert outcome.plan.nodes[1].arguments["function_name"] == RESOURCE_STATE_FUNCTION_NAME
     assert outcome.plan.nodes[1].arguments["arguments"] == {
-        "health_concepts": ["resource_health.not_ready"],
         "state_concepts": ["resource_state.deallocated", "resource_state.stopped"],
     }
+    assert outcome.plan.nodes[2].arguments["function_name"] == RESOURCE_HEALTH_FUNCTION_NAME
+    assert outcome.plan.nodes[2].arguments["arguments"] == {
+        "health_concepts": ["resource_health.not_ready"],
+        "state_concepts": [],
+    }
+    assert outcome.plan.output_node_ids == (
+        "resource-condition-power",
+        "resource-condition-health",
+    )
+    assert outcome.intent_graph is not None
+    authorities = (
+        EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+        EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+        EvidenceAuthority.SERVER_RESOURCE_HEALTH,
+    )
+    receipts = tuple(
+        GoalTaskReceipt(
+            task_id=f"query:{node.node_id}",
+            goal_id=node.node_id,
+            intent=node.kind.value,
+            capability=f"query.{node.kind.value}",
+            evidence_mode=GoalEvidenceMode.OPERATIONAL,
+            status=TaskStatus.COMPLETED,
+            duration_ms=1,
+            evidence_refs=(f"evidence:{index}",),
+            authority=authority,
+            authority_inputs=(
+                (EvidenceAuthority.SERVER_INVENTORY_GRAPH,)
+                if authority is EvidenceAuthority.SERVER_RESOURCE_HEALTH
+                else ()
+            ),
+            started_at=NOW,
+            completed_at=NOW,
+        )
+        for index, (node, authority) in enumerate(
+            zip(outcome.plan.nodes, authorities, strict=True),
+            start=1,
+        )
+    )
+    execution = QueryPlanExecution(
+        plan_digest=outcome.plan.plan_digest,
+        status="completed",
+        results=MappingProxyType(
+            {
+                node.node_id: QueryNodeResult(
+                    value={},
+                    evidence_refs=receipt.evidence_refs,
+                    authority=receipt.authority,
+                )
+                for node, receipt in zip(outcome.plan.nodes, receipts, strict=True)
+            }
+        ),
+        receipts=receipts,
+        output_node_ids=outcome.plan.output_node_ids,
+    )
+    assert resolve_execution_authority(
+        execution,
+        frame=outcome.frame,
+        plan=outcome.plan,
+    ) == (None, "verified")
+    evidence = build_intent_graph_evidence(
+        graph=outcome.intent_graph,
+        plan=outcome.plan,
+        execution=execution,
+        frame=outcome.frame,
+    )
+    assert evidence.status == "completed"
+    assert {goal.authority for goal in evidence.goals if goal.evidence_refs} == set(authorities)
+    same_authority = replace(
+        execution,
+        receipts=tuple(
+            receipt.model_copy(
+                update={
+                    "authority": EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+                    "authority_inputs": (),
+                }
+            )
+            for receipt in execution.receipts
+        ),
+    )
+    assert resolve_execution_authority(
+        same_authority,
+        frame=outcome.frame,
+        plan=outcome.plan,
+    ) == (None, "conflict")
+    swapped = replace(
+        execution,
+        receipts=(
+            execution.receipts[0],
+            execution.receipts[1].model_copy(
+                update={
+                    "authority": EvidenceAuthority.SERVER_RESOURCE_HEALTH,
+                    "authority_inputs": (EvidenceAuthority.SERVER_INVENTORY_GRAPH,),
+                }
+            ),
+            execution.receipts[2].model_copy(
+                update={
+                    "authority": EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+                    "authority_inputs": (),
+                }
+            ),
+        ),
+    )
+    assert resolve_execution_authority(
+        swapped,
+        frame=outcome.frame,
+        plan=outcome.plan,
+    ) == (None, "conflict")
     assert model.plan_calls == 0
     assert outcome.execution_authority is False
 
@@ -2057,7 +2224,7 @@ def test_mixed_inventory_state_and_health_holds_when_health_function_is_unbound(
 
     assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
     assert outcome.frame is not None
-    assert outcome.frame.output_shape == "resource_health_list"
+    assert outcome.frame.output_shape == "resource_condition_sections"
     assert outcome.plan is None
     assert outcome.execution_authority is False
 

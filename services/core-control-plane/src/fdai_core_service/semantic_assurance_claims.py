@@ -163,6 +163,104 @@ def _project_resource_health(value: object) -> SemanticAssuranceClaims:
     )
 
 
+def _project_resource_state(value: object) -> SemanticAssuranceClaims:
+    rows, complete = _table_rows(value)
+    if rows is None:
+        return SemanticAssuranceClaims(
+            limitation_kinds=("resource_state_output_invalid",),
+        )
+    facts = {"resource_state.collection"}
+    for row in rows:
+        if (
+            row.get("execution_authority") is not False
+            or not _nonempty_text(row.get("state_concept"))
+            or not _nonempty_text(row.get("source_observed_at"))
+        ):
+            return SemanticAssuranceClaims(
+                limitation_kinds=("resource_state_output_invalid",),
+            )
+        facts.update(("evidence.observed_at", "resource.runtime_state"))
+        if _nonempty_text(row.get("name")):
+            facts.add("resource.identity")
+    limitations = () if complete is True else ("resource_state.source_incomplete",)
+    return SemanticAssuranceClaims(
+        fact_kinds=tuple(sorted(facts)),
+        limitation_kinds=limitations,
+    )
+
+
+def _project_service_health(value: object) -> SemanticAssuranceClaims:
+    rows, complete = _table_rows(value)
+    if rows is None or not rows:
+        return SemanticAssuranceClaims(
+            limitation_kinds=("service_health_output_invalid",),
+        )
+    summary = rows[0]
+    if (
+        summary.get("record_kind") != "summary"
+        or summary.get("scope_kind") != "subscription"
+        or summary.get("execution_authority") is not False
+        or summary.get("count_posture") not in {"exact", "minimum", "unknown"}
+        or not _nonempty_text(summary.get("observed_at"))
+    ):
+        return SemanticAssuranceClaims(
+            limitation_kinds=("service_health_output_invalid",),
+        )
+    event_ids: set[str] = set()
+    for row in rows[1:]:
+        event_id = row.get("event_id")
+        if (
+            row.get("record_kind") != "event"
+            or row.get("scope_kind") != "subscription"
+            or row.get("execution_authority") is not False
+            or not _nonempty_text(event_id)
+            or not _nonempty_text(row.get("event_evidence_ref"))
+        ):
+            return SemanticAssuranceClaims(
+                limitation_kinds=("service_health_output_invalid",),
+            )
+        event_ids.add(str(event_id))
+    active_event_count = summary.get("active_event_count")
+    impacted_resource_count = summary.get("impacted_resource_count")
+    for count in (active_event_count, impacted_resource_count):
+        if count is not None and (
+            not isinstance(count, int) or isinstance(count, bool) or count < 0
+        ):
+            return SemanticAssuranceClaims(
+                limitation_kinds=("service_health_output_invalid",),
+            )
+    if active_event_count is None:
+        if event_ids or complete is True:
+            return SemanticAssuranceClaims(
+                limitation_kinds=("service_health_output_invalid",),
+            )
+    elif len(event_ids) != active_event_count:
+        return SemanticAssuranceClaims(
+            limitation_kinds=("service_health_output_invalid",),
+        )
+    facts = {
+        "evidence.observed_at",
+        "service_health.configured_subscription_scope",
+    }
+    if active_event_count is not None:
+        facts.add(
+            "service_health.active_event_count"
+            if summary["count_posture"] == "exact"
+            else "service_health.minimum_active_event_count"
+        )
+    if impacted_resource_count is not None:
+        facts.add(
+            "service_health.impacted_resource_count"
+            if summary["count_posture"] == "exact"
+            else "service_health.minimum_impacted_resource_count"
+        )
+    limitations = () if complete is True else ("service_health.source_incomplete",)
+    return SemanticAssuranceClaims(
+        fact_kinds=tuple(sorted(facts)),
+        limitation_kinds=limitations,
+    )
+
+
 def _project_ontology_relationships(value: object) -> SemanticAssuranceClaims:
     if not isinstance(value, Mapping):
         return SemanticAssuranceClaims()
@@ -373,6 +471,8 @@ _FUNCTION_CLAIM_REGISTRY: Mapping[str, ClaimProjector] = {
     "query.ontology_relationships": _project_ontology_relationships,
     "query.resource_current_state": _project_resource_current_state,
     "query.resource_health_inventory": _project_resource_health,
+    "query.resource_state_inventory": _project_resource_state,
+    "query.subscription_service_health": _project_service_health,
 }
 
 

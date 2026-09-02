@@ -156,6 +156,7 @@ def build_teams_workflow_binding_store(
             f"{TEAMS_WORKFLOW_VAULT_URL_ENV} and {TEAMS_WORKFLOW_SECRET_NAME_ENV} "
             "MUST be configured together"
         )
+    teams_token_provider: TokenProvider
     if venue is ExecutionVenue.LOCAL:
 
         async def local_token_provider(_: str) -> str:

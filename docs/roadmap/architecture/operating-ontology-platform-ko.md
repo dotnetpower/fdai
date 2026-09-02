@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 947c4e001a1dbfee8e1ff57fb936a20dcd4aee99
-translation_revised: 2026-09-01
+translation_source_sha: fa730bf1099ddfc3cec8d1b44abf4ae529423357
+translation_revised: 2026-09-02
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -393,6 +393,19 @@ Security는 객체, 속성, 링크, 객체 집합, 액션 발견, 액션 제출,
 호출하지 않습니다. Publication adapter는 명시적인 scope, purpose, role ceiling, release 및 artifact
 digest를 가진 변경 불가능한 내용 기반 주소 산출물을 기록합니다. 기존 byte는 정확히 replay되어야
 하며 선언 제거에는 explicit migration reference가 필요합니다.
+
+## 운영 상태 전이
+
+플랫폼은 보안이 적용된 하나의 Resource 집합에 대해 읽기 전용
+`query.resource_state_transitions` FunctionType을 제공합니다. 이 FunctionType은 현재
+온톨로지 그래프에서 이력을 추론하지 않고 Core 소유 PostgreSQL 전이 원장을 읽습니다.
+인벤토리 범위는 명시적인 `authority_inputs` 증적을 제공하며, 반환되는 상태 전이는 독립적인
+운영 상태 이력 권한을 유지합니다.
+
+구체적으로 관측된 각 상태 변경은 lane, 권한, 유효 시각과 기록 시각, 완전성, 충돌, 합성 상태,
+근거 참조를 보존합니다. 표현 계층은 완전하고 충돌이 없으며 합성이 아닌 관측에 대해서만
+`from_state -> to_state`를 표시할 수 있습니다. 파생되었거나 검증되지 않은 행은 미확정 상태를
+유지하며 관측 상태 주장으로 바뀌지 않습니다.
 
 ## 제공 순서
 

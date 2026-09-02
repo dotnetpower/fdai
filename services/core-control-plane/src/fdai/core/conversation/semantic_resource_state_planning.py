@@ -82,6 +82,15 @@ def normalize_resource_state_proposal(
         }
         and catalog_health_measures
     ):
+        if catalog_state_measures:
+            return proposal.model_copy(
+                update={
+                    "measure_concepts": tuple(
+                        sorted(catalog_state_measures | catalog_health_measures)
+                    ),
+                    "output_shape": SemanticOutputShape.RESOURCE_CONDITION_SECTIONS,
+                }
+            )
         return proposal.model_copy(
             update={
                 "measure_concepts": tuple(sorted(catalog_state_measures | catalog_health_measures)),
@@ -94,6 +103,19 @@ def normalize_resource_state_proposal(
         or stated_measures
         or declared_measures.intersection(proposal.measure_concepts)
     )
+    if (
+        proposal.operation is SemanticOperation.SELECT
+        and proposal.output_shape == SemanticOutputShape.RESOURCE_EVENT_HISTORY
+        and set(proposal.temporal_scope) == {"lookback_seconds"}
+        and state_measures
+        and not catalog_health_measures
+    ):
+        return proposal.model_copy(
+            update={
+                "measure_concepts": tuple(sorted(state_measures)),
+                "output_shape": SemanticOutputShape.RESOURCE_STATE_TRANSITIONS,
+            }
+        )
     if RESOURCE_STATE_OBSERVED_CONCEPT in state_measures and len(state_measures) > 1:
         state_measures = frozenset(
             concept for concept in state_measures if concept != RESOURCE_STATE_OBSERVED_CONCEPT

@@ -318,6 +318,18 @@ cross-campaign duplicate corpus evidence, historical release-diff regression nam
 URI schemes, legitimate credential vocabulary, and Korean safety variants. They do not widen
 scope, authority, mutation, release eligibility, or deployment readiness.
 
+## Resource-condition regression contract
+
+The resource-condition challenge requires both `query.resource_state_inventory` and
+`query.resource_health_inventory`. Selection is allowed only when both functions are declared,
+bound, reachable, evidence-ready, and expose the exact authority set
+`server_inventory_graph` plus `server_resource_health`. The expected terminal descriptor is
+`multiple_authoritative_sources`; it never substitutes for the two source receipts.
+
+State-history questions can select `query.resource_state_transitions` when a bounded lookback and
+reviewed operational state are present. A complete zero result requires positive coverage for every
+requested resource and state family. Snapshot-only coverage stays incomplete.
+
 ## Related docs
 
 | To learn about | Read |

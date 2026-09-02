@@ -1,8 +1,8 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 50f2a3924770283a9a6425b7594a67164fdd36dd
-translation_revised: 2026-08-31
+translation_source_sha: 1b6754d1fabc07aed9337d5cf602c64fa59cc59b
+translation_revised: 2026-09-02
 ---
 
 # Azure 읽기 조사
@@ -607,6 +607,26 @@ Activity Log 및 Resource Health REST 읽기를 추가합니다. 입력이 누�
   immutability 및 영속 회신 인계를 검증합니다.
 - 실제 운영 Azure 검사가 리소스 변경 없이 Activity Log 호출자 귀속, Resource Health 대체 경로,
   승인되지 않은 범위, 모호한 이름 및 정직한 guest-log absence를 검증합니다.
+
+## 여러 원본을 사용하는 리소스 상태
+
+하나의 리소스 상태 질문에 서로 독립적인 두 권위 원본이 필요할 수 있습니다. `stopped`와
+`deallocated` 같은 전원 상태는 현재 인벤토리 그래프에서 확인합니다. 가용성 상태는
+Resource Health에서 확인합니다. FDAI는 보안이 적용된 하나의 Resource 범위와 타입이 지정된
+출력 목표 두 개를 컴파일한 다음, 각 목표의 권위, 근거 참조, 완전성, 제한 사항을 보존합니다.
+최종 응답의 `multiple_authoritative_sources`는 표시용 설명일 뿐 새로운 근거 권위가 아닙니다.
+
+요청한 각 상태는 `matched`, `verified_empty`, `unresolved` 중 하나로 표시합니다. 원본이
+완전하고 일치 항목이 없으면 `verified_empty`입니다. 다른 원본이 성공했더라도 원본을 사용할
+수 없거나 불완전하면 `unresolved`입니다.
+
+## 운영 상태 전이 이력
+
+현재 인벤토리 스냅샷은 Core 소유 PostgreSQL 전이 원장에 변경할 수 없는
+`from_state -> to_state` 레코드를 생성할 수 있습니다. 각 레코드는 유효 시각, 기록 시각,
+원본 개정, 근거 기준 시점, 최신성, 완전성, 충돌, 안정적인 멱등성 키를 보존합니다. 스냅샷
+비교만으로 연속 구간의 커버리지를 증명할 수 없으므로 중간 전이가 없었다고 주장하지 않고
+`snapshot_interval_only`를 기록합니다.
 
 ## 관련 문서
 

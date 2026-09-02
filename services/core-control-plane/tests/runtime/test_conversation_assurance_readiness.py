@@ -88,6 +88,61 @@ def test_only_evidence_ready_matching_authority_is_selectable() -> None:
     assert result.selectable
 
 
+def test_multi_source_capability_requires_the_exact_authority_set() -> None:
+    result = assess_capability_readiness(
+        capability_id="resource-state",
+        enabled=True,
+        required_functions=(
+            "query.resource_state_inventory",
+            "query.resource_health_inventory",
+        ),
+        expected_authority="multiple_authoritative_sources",
+        expected_authorities=("server_inventory_graph", "server_resource_health"),
+        inventory=RuntimeReadinessInventory(
+            capabilities=(
+                RuntimeCapabilityReadiness(
+                    function_name="query.resource_state_inventory",
+                    declared=True,
+                    bound=True,
+                    reachable=True,
+                    evidence_ready=True,
+                    provided_authority="server_inventory_graph",
+                ),
+                RuntimeCapabilityReadiness(
+                    function_name="query.resource_health_inventory",
+                    declared=True,
+                    bound=True,
+                    reachable=True,
+                    evidence_ready=True,
+                    provided_authority="server_resource_health",
+                ),
+            )
+        ),
+    )
+
+    assert result.selectable
+    assert result.provided_authority == "multiple_authoritative_sources"
+    assert result.provided_authorities == (
+        "server_inventory_graph",
+        "server_resource_health",
+    )
+
+
+def test_multi_source_readiness_rejects_stale_terminal_authority_descriptor() -> None:
+    with pytest.raises(ValueError, match="descriptor does not match"):
+        assess_capability_readiness(
+            capability_id="resource-state",
+            enabled=True,
+            required_functions=(
+                "query.resource_state_inventory",
+                "query.resource_health_inventory",
+            ),
+            expected_authority="server_subscription_health",
+            expected_authorities=("server_inventory_graph", "server_resource_health"),
+            inventory=RuntimeReadinessInventory(capabilities=()),
+        )
+
+
 def test_evidence_ready_with_wrong_authority_is_unavailable() -> None:
     result = assess_capability_readiness(
         capability_id="service-outage",
@@ -162,7 +217,7 @@ async def test_runtime_observation_uses_bound_provider_evidence_and_authority() 
             "query.manifest": "server_ontology_manifest",
             "query.ontology_declaration": "server_ontology_manifest",
             "query.ontology_relationships": "server_ontology_manifest",
-            "query.resource_health_inventory": "server_subscription_health",
+            "query.resource_health_inventory": "server_resource_health",
             "query.resource_state_inventory": "server_inventory_graph",
             "query.subscription_service_health": "server_subscription_health",
         },

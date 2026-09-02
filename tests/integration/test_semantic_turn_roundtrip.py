@@ -25,6 +25,7 @@ from fdai_operator_service.families.conversation.contracts import (
 )
 from fdai_operator_service.families.conversation.semantic_turn import SemanticTurnEnvelopeBuilder
 from fdai_operator_service.families.conversation.semantic_turn_presentation import (
+    _receipt_authority,
     semantic_done_event_data,
 )
 from fdai_operator_service.families.conversation.semantic_turn_runtime import (
@@ -305,6 +306,8 @@ class _AnsweredRuntime:
             frame=SimpleNamespace(
                 operation=SimpleNamespace(value="select"),
                 output_shape="resource_list",
+                subject_constraints=(),
+                measure_concepts=(),
             ),
             manifest_digest=MANIFEST_DIGEST,
         )
@@ -469,7 +472,11 @@ async def test_semantic_turn_round_trip_preserves_verified_evidence_and_principa
     trajectory = cast(dict[str, object], terminal.data["trajectory_detail"])
     activities = cast(list[dict[str, object]], trajectory["activities"])
     execution = cast(dict[str, object], activities[0]["execution"])
-    assert json.loads(cast(str, execution["output"])) == projection["payload"]["technical_details"]
+    execution_output = json.loads(cast(str, execution["output"]))
+    assert execution_output["status"] == "completed"
+    assert execution_output["evidence_ref_count"] == 1
+    assert execution_output["source_complete"] is True
+    assert execution_output["returned_rows"] == 1
     assert semantic_result["evidence_refs"] == ["evidence:1"]
     verification = cast(dict[str, object], terminal.data["verification"])
     assert verification["authority"] == "server_inventory_graph"
@@ -545,6 +552,195 @@ async def test_terminal_answer_ignores_model_proposed_authority() -> None:
     done = semantic_done_event_data(projection)
 
     assert done["verification"]["authority"] == "server_inventory_graph"
+
+
+def test_multi_source_condition_answer_preserves_each_receipt_authority() -> None:
+    projection = {
+        "projection_id": "projection-resource-conditions",
+        "request_id": "request-resource-conditions",
+        "semantic_result": {
+            "disposition": "answered",
+            "reason_code": "semantic_answer_verified",
+            "semantic_route": "verified_query_plan",
+            "ontology_release_digest": RELEASE_DIGEST,
+            "principal_manifest_digest": MANIFEST_DIGEST,
+            "plan_digest": PLAN_DIGEST,
+            "execution_receipt_digest": "sha256:" + ("d" * 64),
+            "evidence_refs": ["evidence:inventory", "evidence:health"],
+            "checks_completed": 2,
+            "checks_total": 2,
+            "answer": "Verified per-source resource conditions.",
+            "execution_authority": False,
+            "intent_graph_evidence": {
+                "schema_version": 2,
+                "status": "completed",
+                "evidence_mode": "operational_grounded",
+                "goals": [
+                    {
+                        "task_id": "query:resource-condition-power",
+                        "goal_id": "goal-power",
+                        "intent": "function",
+                        "capability": "query.function",
+                        "evidence_mode": "operational",
+                        "status": "completed",
+                        "duration_ms": 1,
+                        "depends_on": [],
+                        "evidence_refs": ["evidence:inventory"],
+                        "authority": "server_inventory_graph",
+                        "started_at": NOW.isoformat(),
+                        "completed_at": NOW.isoformat(),
+                    },
+                    {
+                        "task_id": "query:resource-condition-health",
+                        "goal_id": "goal-health",
+                        "intent": "function",
+                        "capability": "query.function",
+                        "evidence_mode": "operational",
+                        "status": "completed",
+                        "duration_ms": 1,
+                        "depends_on": [],
+                        "evidence_refs": ["evidence:health"],
+                        "authority": "server_resource_health",
+                        "authority_inputs": ["server_inventory_graph"],
+                        "started_at": NOW.isoformat(),
+                        "completed_at": NOW.isoformat(),
+                    },
+                ],
+                "execution_authority": False,
+            },
+        },
+        "payload": {
+            "technical_details": {
+                "schema_version": 1,
+                "kind": "semantic_query_outputs",
+                "presentation_context": {
+                    "operation": "select",
+                    "output_shape": "resource_condition_sections",
+                    "measure_concepts": [
+                        "resource_health.degraded",
+                        "resource_state.stopped",
+                    ],
+                },
+                "outputs": [
+                    {
+                        "node_id": "resource-condition-power",
+                        "rows": [],
+                        "returned_rows": 0,
+                        "total_rows": 0,
+                        "source_complete": True,
+                        "source_truncation_reason": None,
+                        "display_truncated": False,
+                        "evidence_refs": ["evidence:inventory"],
+                    },
+                    {
+                        "node_id": "resource-condition-health",
+                        "rows": [],
+                        "returned_rows": 0,
+                        "total_rows": 0,
+                        "source_complete": False,
+                        "source_truncation_reason": "scope_unreadable",
+                        "display_truncated": False,
+                        "evidence_refs": ["evidence:health"],
+                    },
+                ],
+            }
+        },
+    }
+
+    done = semantic_done_event_data(projection)
+
+    verification = cast(dict[str, object], done["verification"])
+    assert verification["status"] == "verified"
+    assert verification["authority"] == "multiple_authoritative_sources"
+    sources = cast(list[dict[str, object]], verification["source_verifications"])
+    assert [source["authority"] for source in sources] == [
+        "server_inventory_graph",
+        "server_resource_health",
+    ]
+    assert sources[0]["complete"] is True
+    assert sources[1]["complete"] is False
+    assert sources[1]["limitation"] == "scope_unreadable"
+
+
+@pytest.mark.parametrize(
+    "authority",
+    ("server_resource_health", "server_operational_state_history"),
+)
+def test_scoped_independent_output_ignores_scope_authority_for_terminal_label(
+    authority: str,
+) -> None:
+    semantic = {
+        "intent_graph_evidence": {
+            "goals": [
+                {
+                    "task_id": "query:scope",
+                    "status": "completed",
+                    "evidence_refs": ["evidence:scope"],
+                    "authority": "server_inventory_graph",
+                },
+                {
+                    "task_id": "query:output",
+                    "status": "completed",
+                    "evidence_refs": ["evidence:output"],
+                    "authority": authority,
+                    "authority_inputs": ["server_inventory_graph"],
+                },
+            ]
+        }
+    }
+    technical_details = {
+        "outputs": [
+            {
+                "node_id": "output",
+                "source_complete": True,
+                "source_truncation_reason": None,
+            }
+        ]
+    }
+
+    assert _receipt_authority(
+        semantic,
+        ["evidence:scope", "evidence:output"],
+        technical_details=technical_details,
+    ) == (authority, None)
+
+
+def test_multi_source_authority_requires_exact_output_topology_and_binding() -> None:
+    semantic = {
+        "intent_graph_evidence": {
+            "goals": [
+                {
+                    "task_id": "query:unrelated-power",
+                    "status": "completed",
+                    "evidence_refs": ["evidence:inventory"],
+                    "authority": "server_inventory_graph",
+                },
+                {
+                    "task_id": "query:unrelated-health",
+                    "status": "completed",
+                    "evidence_refs": ["evidence:health"],
+                    "authority": "server_resource_health",
+                    "authority_inputs": ["server_inventory_graph"],
+                },
+            ]
+        }
+    }
+    technical_details = {
+        "presentation_context": {
+            "operation": "select",
+            "output_shape": "resource_condition_sections",
+        },
+        "outputs": [
+            {"node_id": "unrelated-power"},
+            {"node_id": "unrelated-health"},
+        ],
+    }
+
+    assert _receipt_authority(
+        semantic,
+        ["evidence:inventory", "evidence:health"],
+        technical_details=technical_details,
+    ) == ("conflicting", "semantic_evidence_authority_conflict")
 
 
 async def test_v1_receipt_replay_stays_readable_but_unverified() -> None:

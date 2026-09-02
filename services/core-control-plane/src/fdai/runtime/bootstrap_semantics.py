@@ -39,6 +39,10 @@ from fdai.delivery.persistence.postgres_inventory_delta import PostgresInventory
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventorySnapshotStoreConfig,
 )
+from fdai.delivery.persistence.postgres_state_transitions import (
+    PostgresStateTransitionStore,
+    PostgresStateTransitionStoreConfig,
+)
 from fdai.runtime.bootstrap_bindings import (
     RuleGenerationRuntimeBinding,
     build_rule_generation_runtime_binding,
@@ -186,11 +190,17 @@ async def build_semantic_runtime(
                 extra={"reason": str(exc)},
             )
 
+    state_store_dsn = environment.get("FDAI_STATE_STORE_DSN")
     topology_reader, metric_registry, metric_window_provider = semantic_query_providers(
-        state_store_dsn=environment.get("FDAI_STATE_STORE_DSN"),
+        state_store_dsn=state_store_dsn,
         subscription_id=environment.get("AZURE_SUBSCRIPTION_ID"),
         metric_provider=container.metric_provider,
         metric_registry=control_loop.metric_semantics,
+    )
+    state_transition_reader = (
+        PostgresStateTransitionStore(config=PostgresStateTransitionStoreConfig(dsn=state_store_dsn))
+        if state_store_dsn
+        else None
     )
     incident_evidence_reader = (
         state_store if isinstance(state_store, IncidentEvidenceReader) else None
@@ -272,6 +282,7 @@ async def build_semantic_runtime(
         resource_health_reader=resource_health_reader,
         resource_event_reader=resource_event_reader,
         service_health_reader=service_health_reader,
+        state_transition_reader=state_transition_reader,
         vm_process_cpu_reader=vm_process_cpu_reader,
         pod_log_evidence_reader=pod_log_evidence_reader,
         graph_live_refresh_provider=_graph_live_refresh_provider(

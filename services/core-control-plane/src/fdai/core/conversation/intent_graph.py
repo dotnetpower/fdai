@@ -77,6 +77,7 @@ def build_intent_graph_evidence(
     graph: IntentGraph,
     plan: OntologyQueryPlan,
     execution: QueryPlanExecution,
+    frame: SemanticProblemFrame | None = None,
 ) -> IntentGraphEvidence:
     """Bind executor receipts to presentation goals without copying provider bodies."""
 
@@ -111,7 +112,11 @@ def build_intent_graph_evidence(
         )
     statuses = {receipt.status for receipt in receipts}
     status: Literal["completed", "partial", "unavailable", "failed", "cancelled"]
-    _authority, authority_status = resolve_execution_authority(execution)
+    _authority, authority_status = resolve_execution_authority(
+        execution,
+        frame=frame,
+        plan=plan,
+    )
     if execution.status == "completed" and authority_status == "verified":
         status = "completed"
         mode = AnswerEvidenceMode.OPERATIONAL_GROUNDED
@@ -135,6 +140,9 @@ def build_intent_graph_evidence(
 
 def resolve_execution_authority(
     execution: QueryPlanExecution,
+    *,
+    frame: SemanticProblemFrame | None = None,
+    plan: OntologyQueryPlan | None = None,
 ) -> tuple[EvidenceAuthority | None, Literal["verified", "missing", "conflict"]]:
     output_task_ids = {f"query:{node_id}" for node_id in execution.output_node_ids}
     evidence_receipts = tuple(
@@ -146,10 +154,69 @@ def resolve_execution_authority(
     )
     if not evidence_receipts or any(receipt.authority is None for receipt in evidence_receipts):
         return None, "missing"
+    if frame is not None and frame.output_shape == "resource_condition_sections":
+        if _permits_resource_condition_authorities(
+            evidence_receipts,
+            frame=frame,
+            plan=plan,
+        ):
+            return None, "verified"
+        return None, "conflict"
     authorities = {receipt.authority for receipt in evidence_receipts}
     if len(authorities) != 1:
         return None, "conflict"
     return next(iter(authorities)), "verified"
+
+
+def _permits_resource_condition_authorities(
+    evidence_receipts: tuple[GoalTaskReceipt, ...],
+    *,
+    frame: SemanticProblemFrame | None,
+    plan: OntologyQueryPlan | None,
+) -> bool:
+    if (
+        frame is None
+        or plan is None
+        or frame.output_shape != "resource_condition_sections"
+        or len(plan.nodes) != 3
+        or len(plan.output_node_ids) != 2
+    ):
+        return False
+    by_id = {node.node_id: node for node in plan.nodes}
+    output_nodes = tuple(by_id.get(node_id) for node_id in plan.output_node_ids)
+    if any(node is None or node.kind is not QueryNodeKind.FUNCTION for node in output_nodes):
+        return False
+    expected_by_task: dict[str, EvidenceAuthority] = {}
+    for node in output_nodes:
+        if node is None:
+            return False
+        function_name = node.arguments.get("function_name")
+        if not isinstance(function_name, str):
+            return False
+        expected_authority = {
+            "query.resource_health_inventory": EvidenceAuthority.SERVER_RESOURCE_HEALTH,
+            "query.resource_state_inventory": EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+        }.get(function_name)
+        if expected_authority is None:
+            return False
+        expected_by_task[f"query:{node.node_id}"] = expected_authority
+    if set(expected_by_task.values()) != {
+        EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+        EvidenceAuthority.SERVER_RESOURCE_HEALTH,
+    }:
+        return False
+    receipts_by_task = {receipt.task_id: receipt for receipt in evidence_receipts}
+    if set(receipts_by_task) != set(expected_by_task):
+        return False
+    if any(
+        receipts_by_task[task_id].authority is not authority
+        for task_id, authority in expected_by_task.items()
+    ):
+        return False
+    scope_nodes = tuple(node for node in plan.nodes if node.kind is QueryNodeKind.OBJECT_SET)
+    return len(scope_nodes) == 1 and all(
+        node is not None and node.depends_on == (scope_nodes[0].node_id,) for node in output_nodes
+    )
 
 
 __all__ = [

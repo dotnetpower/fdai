@@ -148,6 +148,36 @@ def test_project_semantic_assurance_preserves_resource_health_unknown_limitation
     assert observation.limitation_kinds == ("resource_health.unknown_is_not_healthy",)
 
 
+def test_resource_state_assurance_does_not_claim_missing_identity() -> None:
+    result = _function_result(
+        function_name="query.resource_state_inventory",
+        value={
+            "rows": [
+                {
+                    "row_id": "resource-state-0001",
+                    "values": {
+                        "name": None,
+                        "state_concept": "resource_state.running",
+                        "source_observed_at": "2026-08-22T00:00:00+00:00",
+                        "execution_authority": False,
+                    },
+                }
+            ],
+            "complete": True,
+            "truncation_reason": None,
+        },
+    )
+
+    observation = project_semantic_assurance(result, disposition="answered")
+
+    assert "resource.identity" not in observation.fact_kinds
+    assert observation.fact_kinds == (
+        "evidence.observed_at",
+        "resource.runtime_state",
+        "resource_state.collection",
+    )
+
+
 def test_project_semantic_assurance_blocks_all_clear_for_incomplete_health_coverage() -> None:
     result = _function_result(
         function_name="query.resource_health_inventory",

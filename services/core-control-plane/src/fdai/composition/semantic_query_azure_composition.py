@@ -24,6 +24,7 @@ from fdai.core.ontology_platform.property_values import PropertyValueDomain
 from fdai.core.ontology_platform.resource_event_queries import ResourceEventCollectionReader
 from fdai.core.ontology_platform.resource_health_queries import ResourceHealthCollectionReader
 from fdai.core.ontology_platform.service_health_queries import ServiceHealthReader
+from fdai.core.ontology_platform.state_transitions import StateTransitionStore
 from fdai.core.ontology_platform.vm_process_evidence import VmProcessCpuReader
 from fdai.core.prompts.registry import FileSystemPromptRegistry
 from fdai.delivery.azure.llm.semantic_planning import (
@@ -77,6 +78,7 @@ def compose_azure_semantic_query_runtime(
     resource_health_reader: ResourceHealthCollectionReader | None = None,
     resource_event_reader: ResourceEventCollectionReader | None = None,
     service_health_reader: ServiceHealthReader | None = None,
+    state_transition_reader: StateTransitionStore | None = None,
     vm_process_cpu_reader: VmProcessCpuReader | None = None,
     pod_log_evidence_reader: KubernetesPodLogEvidenceReader | None = None,
     graph_live_refresh_provider: BoundedGraphLiveRefreshProvider | None = None,
@@ -167,6 +169,7 @@ def compose_azure_semantic_query_runtime(
             resource_health_reader=resource_health_reader,
             resource_event_reader=resource_event_reader,
             service_health_reader=service_health_reader,
+            state_transition_reader=state_transition_reader,
             vm_process_cpu_reader=vm_process_cpu_reader,
             pod_log_evidence_reader=pod_log_evidence_reader,
             graph_live_refresh_provider=graph_live_refresh_provider,

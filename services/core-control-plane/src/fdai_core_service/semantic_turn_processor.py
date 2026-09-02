@@ -8,7 +8,7 @@ import logging
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 from uuid import UUID, uuid5
 
 from fdai.core.conversation.intent_graph import resolve_execution_authority
@@ -1078,7 +1078,11 @@ def _project_runtime_result(
     frame = planning.frame
     execution = result.execution
     if execution is not None:
-        _authority, authority_status = resolve_execution_authority(execution)
+        _authority, authority_status = resolve_execution_authority(
+            execution,
+            frame=frame,
+            plan=plan,
+        )
         if authority_status != "verified":
             reason = (
                 "semantic_evidence_authority_conflict"
@@ -1159,6 +1163,7 @@ def _project_runtime_result(
         operation=frame.operation.value,
         output_shape=frame.output_shape,
         subject_constraints=tuple(frame.subject_constraints),
+        measure_concepts=tuple(frame.measure_concepts),
         rule_search=rule_search,
         rule_search_node_id=rule_search_node_id,
         incident_evidence=incident_evidence,
@@ -1640,18 +1645,9 @@ def _render_execution_hold_answer(
     execution: QueryPlanExecution,
 ) -> str:
     korean = request.locale.casefold().startswith("ko")
-    attempts = []
     limitations = []
     for receipt in execution.receipts:
         capability = receipt.capability or receipt.intent
-        attempts.append(
-            f"- `{capability}` - `{receipt.status.value}` - "
-            + (
-                f"근거 참조 {len(receipt.evidence_refs)}개, {receipt.duration_ms} ms"
-                if korean
-                else f"{len(receipt.evidence_refs)} evidence references, {receipt.duration_ms} ms"
-            )
-        )
         if receipt.reason is not None:
             limitations.append(f"`{capability}`: `{receipt.reason}`")
     causal_answer = _render_partial_causal_answer(
@@ -1666,9 +1662,9 @@ def _render_execution_hold_answer(
     if korean:
         return "\n".join(
             [
-                "## 실제로 시도한 읽기 전용 조사",
+                "## 확인 불가",
                 "",
-                *attempts,
+                "현재 authoritative evidence로는 요청한 결론을 결정할 수 없습니다.",
                 "",
                 "## 확인 가능한 범위",
                 "",
@@ -1686,18 +1682,18 @@ def _render_execution_hold_answer(
                 "",
                 "## 다음 안전 단계",
                 "",
-                "위에서 unavailable 또는 failed로 표시된 source를 같은 대상과 시간 범위에서 "
-                "읽기 전용으로 다시 확인하세요. 실행하지 않은 query나 존재하지 않는 evidence는 "
-                "답변에 포함하지 않았습니다.",
+                "권한, provider 가용성, source completeness를 확인한 뒤 같은 대상과 시간 "
+                "범위에서 읽기 전용으로 다시 관측하세요.",
                 "",
                 "`execution_authority=false`",
             ]
         )
     return "\n".join(
         [
-            "## Read-only investigation attempts",
+            "## Unable to determine",
             "",
-            *attempts,
+            "The requested conclusion cannot be determined from the current "
+            "authoritative evidence.",
             "",
             "## Supported scope",
             "",
@@ -1715,9 +1711,8 @@ def _render_execution_hold_answer(
             "",
             "## Next safe step",
             "",
-            "Recheck the sources marked unavailable or failed under the same target and time "
-            "bounds using read-only queries. No unexecuted query or nonexistent evidence is "
-            "included.",
+            "Verify authorization, provider availability, and source completeness, then observe "
+            "the same target and time bounds again through the read-only path.",
             "",
             "`execution_authority=false`",
         ]
@@ -2257,6 +2252,7 @@ def _render_query_answer(
     operation: str,
     output_shape: str,
     subject_constraints: tuple[str, ...] = (),
+    measure_concepts: tuple[str, ...] = (),
     rule_search: RuleSearchProjection | None = None,
     rule_search_node_id: str | None = None,
     incident_evidence: dict[str, object] | None = None,
@@ -2368,6 +2364,7 @@ def _render_query_answer(
         "presentation_context": {
             "operation": operation,
             "output_shape": output_shape,
+            **({"measure_concepts": list(measure_concepts)} if measure_concepts else {}),
             **(
                 {"presentation_semantics": presentation_semantics}
                 if (
@@ -2396,6 +2393,7 @@ def _render_query_answer(
                 outputs,
                 output_shape=output_shape,
                 subject_constraints=subject_constraints,
+                measure_concepts=measure_concepts,
             )
         )
     )
@@ -2896,6 +2894,7 @@ def _render_general_query_answer(
     *,
     output_shape: str | None = None,
     subject_constraints: tuple[str, ...] = (),
+    measure_concepts: tuple[str, ...] = (),
 ) -> str:
     """Report what was verified without naming the plan that produced it.
 
@@ -2918,6 +2917,28 @@ def _render_general_query_answer(
     )
     if resource_event_answer is not None:
         return resource_event_answer
+    state_transition_answer = _render_state_transition_answer(
+        outputs,
+        korean=korean,
+        output_shape=output_shape,
+    )
+    if state_transition_answer is not None:
+        return state_transition_answer
+    resource_condition_answer = _render_resource_condition_answer(
+        outputs,
+        korean=korean,
+        output_shape=output_shape,
+        measure_concepts=measure_concepts,
+    )
+    if resource_condition_answer is not None:
+        return resource_condition_answer
+    service_health_answer = _render_service_health_answer(
+        outputs,
+        korean=korean,
+        output_shape=output_shape,
+    )
+    if service_health_answer is not None:
+        return service_health_answer
     causal_answer = _render_causal_query_answer(outputs, korean=korean)
     if causal_answer is not None:
         return causal_answer
@@ -3020,6 +3041,413 @@ def _render_general_query_answer(
             ),
         ]
     )
+    return "\n".join(lines)
+
+
+def _render_state_transition_answer(
+    outputs: list[dict[str, object]],
+    *,
+    korean: bool,
+    output_shape: str | None,
+) -> str | None:
+    if output_shape != "resource_state_transitions" or len(outputs) != 1:
+        return None
+    output = outputs[0]
+    projected_rows = _condition_rows(output)
+    if projected_rows is None:
+        return None
+    rows: list[Mapping[str, object]] = []
+    unresolved = 0
+    for row in projected_rows:
+        conflicts = row.get("conflicts")
+        trustworthy = (
+            row.get("lane") == "observed"
+            and row.get("authority") in {"provider", "telemetry"}
+            and row.get("complete") is True
+            and row.get("synthetic") is False
+            and isinstance(conflicts, list)
+            and not conflicts
+        )
+        if trustworthy:
+            rows.append(row)
+        else:
+            unresolved += 1
+    complete = output.get("source_complete") is True
+    limitation = output.get("source_truncation_reason")
+    if korean:
+        heading = (
+            "## 관측된 리소스 상태 전이"
+            if rows
+            else "## 상태 전이 근거 미확정"
+            if unresolved
+            else "## 검증된 상태 전이 없음"
+            if complete
+            else "## 상태 전이 확인 불가"
+        )
+        lines = [heading, ""]
+        for row in rows[:20]:
+            lines.append(
+                "- "
+                f"{row.get('effective_at') or '시각 미확인'} - "
+                f"`{row.get('from_state') or 'unknown'}` -> "
+                f"`{row.get('to_state') or 'unknown'}` "
+                f"({row.get('state_type') or '상태 유형 미확인'})"
+            )
+        lines.append(f"- 원본 완전성: `{'complete' if complete else 'incomplete'}`")
+        if unresolved:
+            lines.append(f"- 미확정 상태 전이 근거: {unresolved}건")
+        if output.get("display_truncated") is True:
+            total_rows = output.get("total_rows")
+            lines.append(
+                f"- 표시한 상태 전이: {len(rows)}개 / "
+                f"{total_rows if isinstance(total_rows, int) else '20개 초과'}"
+            )
+        if isinstance(limitation, str) and limitation:
+            lines.append(f"- 제한 사항: `{limitation}`")
+        lines.extend(["", "`execution_authority=false`"])
+        return "\n".join(lines)
+    heading = (
+        "## Observed resource state transitions"
+        if rows
+        else "## Resource state transition evidence unresolved"
+        if unresolved
+        else "## No verified state transitions"
+        if complete
+        else "## Resource state transitions unavailable"
+    )
+    lines = [heading, ""]
+    for row in rows[:20]:
+        lines.append(
+            "- "
+            f"{row.get('effective_at') or 'time unavailable'} - "
+            f"`{row.get('from_state') or 'unknown'}` -> "
+            f"`{row.get('to_state') or 'unknown'}` "
+            f"({row.get('state_type') or 'state type unavailable'})"
+        )
+    lines.append(f"- Source completeness: `{'complete' if complete else 'incomplete'}`")
+    if unresolved:
+        lines.append(f"- Unresolved transition evidence: {unresolved}")
+    if output.get("display_truncated") is True:
+        total_rows = output.get("total_rows")
+        lines.append(
+            f"- Displayed transitions: {len(rows)} of "
+            f"{total_rows if isinstance(total_rows, int) else 'more than 20'}"
+        )
+    if isinstance(limitation, str) and limitation:
+        lines.append(f"- Limitation: `{limitation}`")
+    lines.extend(["", "This result is read-only and has `execution_authority=false`."])
+    return "\n".join(lines)
+
+
+def _render_resource_condition_answer(
+    outputs: list[dict[str, object]],
+    *,
+    korean: bool,
+    output_shape: str | None,
+    measure_concepts: tuple[str, ...],
+) -> str | None:
+    """Render each requested condition under its own evidence family."""
+
+    if output_shape != "resource_condition_sections" or len(outputs) != 2:
+        return None
+    by_node = {
+        output.get("node_id"): output
+        for output in outputs
+        if isinstance(output.get("node_id"), str)
+    }
+    state_output = by_node.get("resource-condition-power")
+    health_output = by_node.get("resource-condition-health")
+    if not isinstance(state_output, Mapping) or not isinstance(health_output, Mapping):
+        return None
+    state_concepts = tuple(item for item in measure_concepts if item.startswith("resource_state."))
+    health_concepts = tuple(
+        item for item in measure_concepts if item.startswith("resource_health.")
+    )
+    if not state_concepts or not health_concepts:
+        return None
+    state_rows = _condition_rows(state_output)
+    health_rows = _condition_rows(health_output)
+    if state_rows is None or health_rows is None:
+        return None
+    sections = (
+        (
+            "inventory power state",
+            "inventory 전원 상태",
+            state_concepts,
+            state_rows,
+            state_output,
+            "state_concept",
+        ),
+        (
+            "Resource Health",
+            "Resource Health",
+            health_concepts,
+            health_rows,
+            health_output,
+            "health_concept",
+        ),
+    )
+    if korean:
+        lines = [
+            "## 리소스 상태 확인 결과",
+            "",
+            "요청한 상태를 서로 다른 두 authoritative source에서 독립적으로 확인했습니다.",
+            "",
+        ]
+    else:
+        lines = [
+            "## Resource condition results",
+            "",
+            "The requested conditions were checked independently against two "
+            "authoritative sources.",
+            "",
+        ]
+    for english_source, korean_source, concepts, rows, output, concept_field in sections:
+        complete = output.get("source_complete") is True
+        display_complete = complete and output.get("display_truncated") is not True
+        limitation = output.get("source_truncation_reason")
+        source = korean_source if korean else english_source
+        lines.extend([f"### {source}", ""])
+        for concept in concepts:
+            matches = tuple(
+                row
+                for row in rows
+                if row.get(concept_field) == concept
+                or (
+                    concept_field == "health_concept"
+                    and isinstance(
+                        (matching_concepts := row.get("matching_health_concepts")),
+                        list,
+                    )
+                    and concept in matching_concepts
+                )
+            )
+            status = (
+                "matched" if matches else "verified_empty" if display_complete else "unresolved"
+            )
+            names = tuple(
+                str(name) for row in matches if isinstance((name := row.get("name")), str) and name
+            )
+            label = concept.rsplit(".", 1)[-1].replace("_", " ")
+            lines.append(
+                f"- `{label}`: `{status}`"
+                + (f" - {', '.join(f'`{name}`' for name in names[:8])}" if names else "")
+            )
+        lines.append(
+            f"- source completeness: `{'complete' if complete else 'incomplete'}`"
+            if not korean
+            else f"- 원본 완전성: `{'complete' if complete else 'incomplete'}`"
+        )
+        if isinstance(limitation, str) and limitation:
+            lines.append(f"- {'제한 사항' if korean else 'limitation'}: `{limitation}`")
+        if output.get("display_truncated") is True:
+            lines.append(
+                "- 표시 범위가 잘려 있어 보이지 않는 일치 항목을 배제할 수 없습니다."
+                if korean
+                else "- Display rows are truncated; unseen matches cannot be excluded."
+            )
+        lines.append("")
+    lines.append(
+        "`execution_authority=false`"
+        if korean
+        else "This result is read-only and has `execution_authority=false`."
+    )
+    return "\n".join(lines)
+
+
+def _condition_rows(output: Mapping[str, object]) -> tuple[Mapping[str, object], ...] | None:
+    rows = output.get("rows")
+    if not isinstance(rows, list):
+        return None
+    projected: list[Mapping[str, object]] = []
+    for row in rows:
+        values = row.get("values") if isinstance(row, Mapping) else None
+        if not isinstance(values, Mapping) or values.get("execution_authority") is not False:
+            return None
+        projected.append(values)
+    return tuple(projected)
+
+
+def _render_service_health_answer(
+    outputs: list[dict[str, object]],
+    *,
+    korean: bool,
+    output_shape: str | None,
+) -> str | None:
+    """Render the configured subscription's active Service Health conclusion."""
+
+    if output_shape != "subscription_service_health" or len(outputs) != 1:
+        return None
+    output = outputs[0]
+    rows = output.get("rows")
+    if not isinstance(rows, list) or not rows:
+        return None
+    summary_row = rows[0]
+    summary = summary_row.get("values") if isinstance(summary_row, Mapping) else None
+    if (
+        not isinstance(summary, Mapping)
+        or summary.get("record_kind") != "summary"
+        or summary.get("scope_kind") != "subscription"
+        or summary.get("execution_authority") is not False
+    ):
+        return None
+    event_count = summary.get("active_event_count")
+    impacted_count = summary.get("impacted_resource_count")
+    count_posture = summary.get("count_posture")
+    observed_at = summary.get("observed_at")
+    if (
+        (
+            event_count is not None
+            and (
+                not isinstance(event_count, int) or isinstance(event_count, bool) or event_count < 0
+            )
+        )
+        or (
+            impacted_count is not None
+            and (
+                not isinstance(impacted_count, int)
+                or isinstance(impacted_count, bool)
+                or impacted_count < 0
+            )
+        )
+        or count_posture not in {"exact", "minimum", "unknown"}
+        or not isinstance(observed_at, str)
+        or not observed_at
+    ):
+        return None
+    events: list[Mapping[str, object]] = []
+    event_ids: set[str] = set()
+    for row in rows[1:]:
+        values = row.get("values") if isinstance(row, Mapping) else None
+        if (
+            not isinstance(values, Mapping)
+            or values.get("record_kind") != "event"
+            or values.get("scope_kind") != "subscription"
+            or values.get("execution_authority") is not False
+            or not isinstance(values.get("event_id"), str)
+            or not isinstance(values.get("event_evidence_ref"), str)
+        ):
+            return None
+        events.append(values)
+        event_ids.add(cast(str, values["event_id"]))
+    complete = output.get("source_complete") is True
+    display_truncated = output.get("display_truncated") is True
+    if event_count is None:
+        if event_ids or complete:
+            return None
+        observed_event_count = 0
+    else:
+        observed_event_count = event_count
+    if (display_truncated and len(event_ids) > observed_event_count) or (
+        not display_truncated and len(event_ids) != observed_event_count
+    ):
+        return None
+    limitation = output.get("source_truncation_reason")
+    limitation_text = limitation if isinstance(limitation, str) and limitation else None
+    if complete and observed_event_count:
+        conclusion = "yes"
+    elif complete:
+        conclusion = "no"
+    elif observed_event_count:
+        conclusion = "yes_partial"
+    else:
+        conclusion = "unknown"
+    if korean:
+        headings = {
+            "yes": "## 예 - 현재 활성 Azure Service Health 이벤트가 있습니다",
+            "no": "## 아니요 - 현재 활성 Azure Service Health 이벤트가 없습니다",
+            "yes_partial": "## 예 - 활성 이벤트가 확인됐지만 전체 범위는 불완전합니다",
+            "unknown": "## 확인 불가 - 현재 활성 이벤트 여부를 결정할 수 없습니다",
+        }
+        lines = [
+            headings[conclusion],
+            "",
+            "- 범위: 서버에 구성된 Azure 구독",
+            (
+                f"- 고유 활성 이벤트: {observed_event_count}건"
+                if count_posture == "exact"
+                else f"- 확인된 최소 활성 이벤트: {observed_event_count}건"
+                if count_posture == "minimum"
+                else "- 고유 활성 이벤트: 확인 불가"
+            ),
+            (
+                f"- 고유 영향 리소스: {impacted_count}개"
+                if impacted_count is not None and count_posture == "exact"
+                else f"- 확인된 최소 영향 리소스: {impacted_count}개"
+                if impacted_count is not None
+                else "- 고유 영향 리소스: 확인 불가"
+            ),
+            f"- 관측 시각: {observed_at}",
+            f"- 원본 완전성: {'complete' if complete else 'incomplete'}",
+        ]
+        if limitation_text is not None:
+            lines.append(f"- 제한 사항: `{limitation_text}`")
+        displayed_events = events[:8]
+        if events:
+            lines.extend(["", "## 확인된 활성 이벤트", ""])
+            for event in displayed_events:
+                lines.append(
+                    "- "
+                    f"{event.get('impact_start_at') or '시작 시각 미확인'} - "
+                    f"{event.get('event_type') or '유형 미확인'} / "
+                    f"{event.get('status') or '상태 미확인'} / "
+                    f"{event.get('level') or '수준 미확인'}: "
+                    f"{event.get('title') or '제목 미확인'}"
+                )
+        if display_truncated or len(events) > len(displayed_events):
+            lines.append(
+                f"- 표시한 이벤트: 고유 이벤트 {observed_event_count}건 중 "
+                f"{len(displayed_events)}건"
+            )
+        lines.extend(["", "이 결과는 읽기 전용이며 `execution_authority=false`입니다."])
+        return "\n".join(lines)
+    headings = {
+        "yes": "## Yes - active Azure Service Health events are present",
+        "no": "## No - no active Azure Service Health events are present",
+        "yes_partial": "## Yes - active events were observed, but coverage is incomplete",
+        "unknown": "## Unknown - active event status cannot be determined",
+    }
+    lines = [
+        headings[conclusion],
+        "",
+        "- Scope: the server-configured Azure subscription",
+        (
+            f"- Unique active events: {observed_event_count}"
+            if count_posture == "exact"
+            else f"- Minimum observed active events: {observed_event_count}"
+            if count_posture == "minimum"
+            else "- Unique active events: unknown"
+        ),
+        (
+            f"- Unique impacted resources: {impacted_count}"
+            if impacted_count is not None and count_posture == "exact"
+            else f"- Minimum observed impacted resources: {impacted_count}"
+            if impacted_count is not None
+            else "- Unique impacted resources: unknown"
+        ),
+        f"- Observed at: {observed_at}",
+        f"- Source completeness: {'complete' if complete else 'incomplete'}",
+    ]
+    if limitation_text is not None:
+        lines.append(f"- Limitation: `{limitation_text}`")
+    displayed_events = events[:8]
+    if events:
+        lines.extend(["", "## Observed active events", ""])
+        for event in displayed_events:
+            lines.append(
+                "- "
+                f"{event.get('impact_start_at') or 'start time unavailable'} - "
+                f"{event.get('event_type') or 'type unavailable'} / "
+                f"{event.get('status') or 'status unavailable'} / "
+                f"{event.get('level') or 'level unavailable'}: "
+                f"{event.get('title') or 'title unavailable'}"
+            )
+        if display_truncated or len(events) > len(displayed_events):
+            lines.append(
+                f"- Displayed events: {len(displayed_events)} of {observed_event_count} "
+                "unique events"
+            )
+    lines.extend(["", "This result is read-only and has `execution_authority=false`."])
     return "\n".join(lines)
 
 

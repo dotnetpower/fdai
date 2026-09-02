@@ -396,6 +396,19 @@ proposals; they never call an executor. The publication adapter writes immutable
 artifacts with explicit scope, purpose, role ceiling, release, and artifact digests. Existing bytes
 must replay exactly, and declaration removals require an explicit migration reference.
 
+## Operational state transitions
+
+The platform exposes `query.resource_state_transitions` as a read-only FunctionType over one secured
+Resource set. The FunctionType reads the Core-owned PostgreSQL transition ledger rather than
+inferring history from the current ontology graph. Inventory scope contributes an explicit
+`authority_inputs` receipt, while the returned transition keeps its independent operational-state
+history authority.
+
+Each concrete observed edge retains its lane, authority, effective and recorded time, completeness,
+conflicts, synthetic status, and evidence references. Presentation can state `from_state ->
+to_state` only for complete, conflict-free, non-synthetic observations. Derived or otherwise
+unverified rows remain unresolved and cannot become an observed-state claim.
+
 ## Delivery sequence
 
 | Slice | Deliverable | Exit criteria |

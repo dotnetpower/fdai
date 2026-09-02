@@ -241,6 +241,40 @@
       "missing_binding": null
     },
     {
+      "id": "state-transition-history",
+      "family": "projection",
+      "state": "implemented",
+      "owner": {
+        "status": "assigned",
+        "path": "services/core-control-plane/src/fdai/delivery/inventory_topology_history.py",
+        "symbol": "InventoryTopologyHistoryPublisher._publish_state_transitions"
+      },
+      "bindings": [
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/persistence/postgres_state_transitions.py",
+          "symbol": "PostgresStateTransitionStore"
+        },
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/inventory_sync_cli.py",
+          "symbol": "_build_ontology_observer"
+        },
+        {
+          "state": "bound",
+          "path": "service-migrations/branches/core-control-plane/versions/20260902_core_operational_state_transitions.py",
+          "symbol": "upgrade"
+        }
+      ],
+      "tests": [
+        "services/core-control-plane/tests/delivery/test_inventory_topology_history.py",
+        "services/core-control-plane/tests/delivery/persistence/test_postgres_state_transitions.py",
+        "services/core-control-plane/tests/core/ontology_platform/test_state_transitions.py",
+        "tests/integration/services/test_service_migration_inventory.py"
+      ],
+      "missing_binding": null
+    },
+    {
       "id": "graph-first-query",
       "family": "query",
       "state": "implemented",

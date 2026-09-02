@@ -612,6 +612,27 @@ raw CLI output, prompts, and unredacted caller payloads.
 - Live Azure checks verify Activity Log caller attribution, Resource Health fallback, unauthorized
   scope, ambiguous names, and honest guest-log absence without mutating a resource.
 
+## Multi-source resource conditions
+
+A resource-condition question can require two independent authorities. Power states such as
+`stopped` and `deallocated` come from the current inventory graph. Availability states come from
+Resource Health. FDAI compiles one secured Resource scope and two typed output goals, then preserves
+each goal's authority, evidence references, completeness, and limitation. The terminal response uses
+`multiple_authoritative_sources` only as a presentation descriptor. It isn't a new evidence
+authority.
+
+Each requested condition is reported as `matched`, `verified_empty`, or `unresolved`. A complete
+source with no match is `verified_empty`. An unavailable or incomplete source is `unresolved`, even
+when the other source completed successfully.
+
+## Operational state-transition history
+
+Current inventory snapshots can produce immutable `from_state -> to_state` records in the
+Core-owned PostgreSQL transition ledger. Each record keeps effective time, recorded time, source
+revision, evidence cutoff, freshness, completeness, conflicts, and a stable idempotency key.
+Snapshot comparison alone cannot prove continuous interval coverage, so it records
+`snapshot_interval_only` rather than claiming that no intermediate transition occurred.
+
 ## Related docs
 
 | To learn about | Read |

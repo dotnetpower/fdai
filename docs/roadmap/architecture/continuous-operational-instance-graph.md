@@ -236,7 +236,7 @@ work, or an open stage that does not name its exact gap.
 | Authorization and PostgreSQL role evidence | implemented | `postgres_role_evidence.py`; `arg_relationships.py`; focused principal-redaction and authorization-scope checks | Database roles remain a separate principal-safe projection with content-addressed references and no Resource or Link shape. Unmodeled role-assignment child scopes retain `authorization_child_scope_unmodeled` and never become inferred edges. |
 | Operator instance exploration | validated | `instance_explorer.py`, `postgres_family_store.py`, Operator realtime-overlay read migration, `ontology-instance-graph*.ts*`, focused Operator and Console checks, and authenticated standard-port evidence | The read-only Console retains the complete depth-8, 200-Resource, 1,600-link bounded response for inspection and context without using Resource Groups as transit hubs. The existing Instances canvas uses a strict left-to-right (`LR`) coordinate contract: every rendered stored source occurrence is left of its target occurrence, including reciprocal links and bounded cycles, without reversing the stored edge. Incoming occurrences stay left of the selected Resource and outgoing occurrences stay right. Semantic columns use a 288 px pitch. Operators can zoom from 10% to 180% with an ordinary wheel, enter native full screen, and drag empty canvas space to pan; node coordinates and node selection remain fixed. `contains` is a solid hierarchy line, `attached_to` is dashed, and reciprocal `peered_with` is dotted. Root-direct containment and at most three ancestor edges restore Resource Group, VNet, and Subnet hierarchy, while Resource Group and Subscription remain visible non-transit context. Exact AKS node-Resource-Group evidence adds a branch-local hierarchy without inventing an AKS-to-VMSS edge. Acyclic same-side nodes use the longest predecessor rank; reciprocal and cyclic edges alone use duplicate occurrences. Only exact reviewed gateway, load-balancer, and AKS outbound mappings can add verified traffic meaning; other relationships retain honest graph-direction labels. The Inspector separates direct incoming, direct outgoing, verified ingress, verified egress, access, containment, and connected path segments with mapping evidence. Azure Activity Log, Resource Health, and the runtime call graph remain explicitly unavailable. |
 | Application-centric provider relationships | in-progress | `azure-arg-v1.yaml`, ARG plus bounded ARM child collection, Kubernetes API pre-promotion enrichment, complete-generation verification, endpoint closure, snapshot classification metadata, focused Core/Operator/Console checks, Terraform service-root checks, and authenticated `5273` evidence | The 84 reviewed mappings cover exact containment, identity, authorization, registry, observability, network, ingress, configured data-service references, Private DNS closure, AKS AgentPools, and Kubernetes runtime topology. Azure nested children use reviewed parent or root extraction. UID-grounded Kubernetes objects and independently verified links join the same generation before atomic promotion when exact TLS, workload-identity, and cluster bindings are configured. The read-only identity acquires a short-lived token at request time; no static Kubernetes token enters Terraform. Existing local Azure evidence remains unchanged and no live Kubernetes receipt is claimed. |
-| Source-to-store implementation audit | implemented | `config/continuous-operational-instance-graph-audit.json`; `check-continuous-operational-instance-graph-audit.py`; focused audit tests (`3 passed`) | OI-01 fixes the exact owner, binding, focused tests, state, and missing binding for 15 stages without claiming runtime validation. |
+| Source-to-store implementation audit | implemented | `config/continuous-operational-instance-graph-audit.json`; `check-continuous-operational-instance-graph-audit.py`; focused audit tests (`3 passed`) | OI-01 fixes the exact owner, binding, focused tests, state, and missing binding for 16 stages without claiming runtime validation. |
 
 ### Implementation history
 
@@ -400,6 +400,22 @@ permit an incomplete graph to prove absence.
 - [ ] Bind a live Kubernetes Pod lifecycle evidence source behind
   `build_pod_lifecycle_evidence_source`. Until then Pod findings exist only for evidence supplied
   through `FDAI_POD_LIFECYCLE_EVIDENCE_JSON`, and deployed Pod analysis remains unavailable.
+
+## Operational state-transition ledger
+
+FDAI stores semantic state changes in a Core-owned append-only PostgreSQL ledger. Event Hubs
+transports observations, OpenTelemetry reports diagnostics, and the ontology remains a rebuildable
+current-state projection. None of those surfaces replaces the transition ledger.
+
+Each atomic batch contains zero or more content-addressed transitions and at least one positive
+coverage record. A transition binds `from_state`, `to_state`, effective time, recorded time,
+evidence cutoff, source identity and revision, producer version, freshness, completeness,
+conflicts, and evidence references. Replayed idempotency keys are no-ops only for identical content.
+
+The inventory promotion path records `resource.operational_state` changes. It deliberately marks
+the interval as `initial_state_only` or `snapshot_interval_only`; complete reconciliation snapshots
+do not prove that an intermediate transition never occurred. A future continuous source can raise
+coverage only with an exact retained watermark and complete interval evidence.
 
 ## Related docs
 

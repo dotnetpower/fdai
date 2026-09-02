@@ -885,6 +885,20 @@ def test_v2_service_health_uses_active_event_timeline() -> None:
         technical_details=_details(
             [
                 {
+                    "record_kind": "summary",
+                    "scope_kind": "subscription",
+                    "active_event_count": 2,
+                    "impacted_resource_count": 1,
+                    "count_posture": "exact",
+                    "observed_at": "2026-08-21T12:00:00+00:00",
+                    "attempt_ref": "service-health:attempt",
+                    "execution_authority": False,
+                },
+                {
+                    "record_kind": "event",
+                    "scope_kind": "subscription",
+                    "event_id": "service-health-event:1",
+                    "event_evidence_ref": "service-health:evidence-1",
                     "impact_start_at": "2026-08-21T10:00:00+00:00",
                     "event_type": "service_issue",
                     "title": "Regional connectivity issue",
@@ -895,6 +909,10 @@ def test_v2_service_health_uses_active_event_timeline() -> None:
                     "execution_authority": False,
                 },
                 {
+                    "record_kind": "event",
+                    "scope_kind": "subscription",
+                    "event_id": "service-health-event:2",
+                    "event_evidence_ref": "service-health:evidence-2",
                     "impact_start_at": "2026-08-21T11:00:00+00:00",
                     "event_type": "planned_maintenance",
                     "title": "Planned maintenance",
@@ -906,16 +924,24 @@ def test_v2_service_health_uses_active_event_timeline() -> None:
                 },
             ],
             output_shape="subscription_service_health",
+            total=26,
         ),
         locale="ko",
     )
 
     assert artifact is not None
-    block = cast(list[dict[str, object]], artifact["blocks"])[0]
+    blocks = cast(list[dict[str, object]], artifact["blocks"])
+    summary = blocks[0]
+    assert (summary["slot_id"], summary["kind"], summary["title"]) == (
+        "overview",
+        "summary",
+        "Service Health 결론",
+    )
+    block = blocks[1]
     assert (block["slot_id"], block["kind"], block["title"]) == (
+        "events",
         "timeline",
-        "timeline",
-        "검증된 타임라인",
+        "활성 이벤트",
     )
     data = cast(dict[str, object], block["data"])
     exact_table = cast(dict[str, object], data["exact_table"])
@@ -927,6 +953,101 @@ def test_v2_service_health_uses_active_event_timeline() -> None:
         "impacted_resource_count",
         "resource_name",
     ]
+    limitations = cast(dict[str, object], blocks[-1]["data"])
+    assert limitations["lines"] == ["display_truncated"]
+
+
+def test_v2_unverified_service_health_omits_definitive_artifact() -> None:
+    artifact = compile_presentation_artifact_v2(
+        semantic={**_SEMANTIC, "disposition": "held"},
+        technical_details=_details(
+            [
+                {
+                    "record_kind": "summary",
+                    "scope_kind": "subscription",
+                    "active_event_count": 0,
+                    "impacted_resource_count": 0,
+                    "count_posture": "exact",
+                    "observed_at": "2026-08-21T12:00:00+00:00",
+                    "attempt_ref": "service-health:attempt",
+                    "execution_authority": False,
+                }
+            ],
+            output_shape="subscription_service_health",
+        ),
+        locale="en",
+    )
+
+    assert artifact is None
+
+
+def test_v2_resource_conditions_keep_source_sections_and_statuses() -> None:
+    artifact = compile_presentation_artifact_v2(
+        semantic=_SEMANTIC,
+        technical_details={
+            "schema_version": 1,
+            "kind": "semantic_query_outputs",
+            "presentation_context": {
+                "operation": "select",
+                "output_shape": "resource_condition_sections",
+                "measure_concepts": [
+                    "resource_health.degraded",
+                    "resource_state.deallocated",
+                    "resource_state.stopped",
+                ],
+            },
+            "outputs": [
+                {
+                    "node_id": "resource-condition-power",
+                    "rows": [
+                        {
+                            "row_id": "power-1",
+                            "values": {
+                                "name": "worker-a",
+                                "state_concept": "resource_state.stopped",
+                                "execution_authority": False,
+                            },
+                        }
+                    ],
+                    "returned_rows": 1,
+                    "total_rows": 1,
+                    "source_complete": True,
+                    "source_truncation_reason": None,
+                    "display_truncated": False,
+                    "evidence_refs": [_REF],
+                },
+                {
+                    "node_id": "resource-condition-health",
+                    "rows": [],
+                    "returned_rows": 0,
+                    "total_rows": 0,
+                    "source_complete": True,
+                    "source_truncation_reason": None,
+                    "display_truncated": True,
+                    "evidence_refs": [_REF],
+                },
+            ],
+        },
+        locale="en",
+    )
+
+    assert artifact is not None
+    blocks = cast(list[dict[str, object]], artifact["blocks"])
+    assert [block["slot_id"] for block in blocks] == [
+        "overview",
+        "power_state",
+        "resource_health",
+        "limitations",
+    ]
+    summary = cast(dict[str, object], blocks[0]["data"])
+    items = cast(list[dict[str, object]], summary["items"])
+    assert {(item["label"], item["value"]) for item in items} == {
+        ("stopped", "matched"),
+        ("deallocated", "verified_empty"),
+        ("degraded", "unresolved"),
+    }
+    limitations = cast(dict[str, object], blocks[-1]["data"])
+    assert limitations["lines"] == ["Resource Health: display_truncated"]
 
 
 def test_v2_zero_resource_rows_render_typed_empty_evidence() -> None:

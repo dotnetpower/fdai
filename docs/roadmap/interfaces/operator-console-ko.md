@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 446dee9e98de3b344661d6d31827fb268fd3b474
-translation_revised: 2026-09-01
+translation_source_sha: 9ac94d07254fa5af4961338b8dec4cd764b933e6
+translation_revised: 2026-09-02
 ---
 # FDAI Console 대화
 사람 오퍼레이터가 CLI, Teams, Slack, 웹 챗을 통해 FDAI에 **역으로 말할 수 있는** 방식입니다. 별도 제품이 아닌 FDAI Console의 **대화형 표면**로서 계층 아키텍처, 도구 카탈로그, LLM tier, 세션 지속성, 도구별 RBAC, 안전 invariant, 롤아웃 상태를 정의합니다.
@@ -617,7 +617,22 @@ future 범위입니다.
   향후 설계는 no-self-approval을 유지하고 서로 다른 승인자 요구사항을 별도로 승인해야 합니다.
 - **OD-C4 현재 행동** - CLI 이력은 프로세스 기억에서만 범위가 제한된 탐색을 제공합니다.
   Persistent 이력 파일과 보존/민감정보 제거 계약은 shipped 기능이나 현재 CLI의 blocker가 아닙니다.
-## 16. 관련 문서
+## 16. 여러 원본을 사용하는 응답 표시
+
+Service Health 응답은 결정론적으로 계산한 `yes`, `no`, `unknown` 결론을 먼저 표시합니다.
+이벤트 타임라인보다 먼저 구성된 구독 범위, 고유 이벤트 수, 고유 영향 리소스 수, 관측 시각,
+완전성, 원본 제한 사항을 보여 줍니다. 이벤트 식별자와 근거 식별자를 구분하므로 하나의
+이벤트가 여러 영향 행으로 확장되어도 한 번만 계산합니다.
+
+혼합 리소스 상태 응답은 상태별 결론과 전원 상태, Resource Health 섹션을 분리해 표시합니다.
+이 응답 형태의 검증 개체는 스키마 버전 2와 정렬된 `source_verifications`를 사용합니다. 각
+항목은 정확한 권위, 근거 참조, 완전성, 제한 사항을 보존합니다. 단일 원본 응답은 기존 전송
+형태를 유지합니다.
+
+판단 보류 응답은 확인할 수 없는 내용, 확인된 범위, 정확한 제한 사항, 다음 안전 읽기 단계를
+먼저 보여 줍니다. 내부 쿼리 실행 과정은 기술 세부 정보에 유지합니다.
+
+## 17. 관련 문서
 
 - [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) -
   trust 라우팅, 검증기 권한.

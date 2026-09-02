@@ -620,7 +620,22 @@ deployment gates.
   must retain no-self-approval and separately approve any distinct-approver requirement.
 - **OD-C4 current behavior** - CLI history is bounded process-memory navigation only. A persistent
   history file and retention/redaction contract are neither shipped nor blockers for the current CLI.
-## 16. Related docs
+## 16. Multi-source answer presentation
+
+Service Health answers lead with a deterministic `yes`, `no`, or `unknown` conclusion. They show
+the configured subscription scope, unique event count, unique impacted-resource count, observation
+time, completeness, and source limitation before the event timeline. Event identity is separate
+from evidence identity, so one event expanded into several impact rows is counted once.
+
+Mixed resource-condition answers display a per-condition conclusion and separate power-state and
+Resource Health sections. The verification object uses schema version 2 for this shape and carries
+ordered `source_verifications`. Each entry retains its exact authority, evidence references,
+completeness, and limitation. Single-source responses keep their existing wire shape.
+
+Held answers lead with what cannot be determined, the supported scope, exact limitations, and the
+next safe read step. Internal query mechanics remain in technical details.
+
+## 17. Related docs
 
 - [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) -
   trust routing, verifier authority.

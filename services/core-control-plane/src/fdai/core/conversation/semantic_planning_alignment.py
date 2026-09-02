@@ -26,9 +26,13 @@ _SPECIALIZED_FUNCTIONS_BY_OUTPUT_SHAPE = {
         {"query.ontology_evidence_health", "query.ontology_release_diff"}
     ),
     "resource_event_history": frozenset({"query.resource_event_history"}),
+    "resource_condition_sections": frozenset(
+        {"query.resource_health_inventory", "query.resource_state_inventory"}
+    ),
     "resource_health_list": frozenset({"query.resource_health_inventory"}),
     "resource_metric_list": frozenset({"query.resource_metric_inventory"}),
     "resource_state_list": frozenset({"query.resource_state_inventory"}),
+    "resource_state_transitions": frozenset({"query.resource_state_transitions"}),
     "subscription_service_health": frozenset({"query.subscription_service_health"}),
     "target_activity": frozenset({"query.resource_activity"}),
     "target_current_state": frozenset({"query.resource_current_state"}),
@@ -55,6 +59,8 @@ _REQUIRED_NODE_KINDS_BY_OUTPUT_SHAPE = {
     "evidence_validation": frozenset({QueryNodeKind.OBJECT_SET}),
     "property_filtered_resources": frozenset({QueryNodeKind.OBJECT_SET}),
     "resource_state_list": frozenset({QueryNodeKind.FUNCTION}),
+    "resource_state_transitions": frozenset({QueryNodeKind.FUNCTION}),
+    "resource_condition_sections": frozenset({QueryNodeKind.FUNCTION}),
     "resource_target_candidates": frozenset({QueryNodeKind.OBJECT_SET}),
     "subscription_service_health": frozenset({QueryNodeKind.FUNCTION}),
     "target_resource_metric_series": frozenset({QueryNodeKind.FUNCTION}),
@@ -134,12 +140,22 @@ def verify_frame_plan_alignment(
     if expected_functions is not None and not expected_functions <= selected_output_functions:
         raise ValueError("semantic plan does not satisfy specialized frame output")
     if any(
-        output_shape != frame.output_shape
-        for function_name, output_shape in _SPECIALIZED_FUNCTION_OUTPUT_SHAPES.items()
-        if function_name in selected_output_functions
+        not _function_matches_output_shape(function_name, frame.output_shape)
+        for function_name in selected_output_functions
+        if function_name in _SPECIALIZED_FUNCTION_OUTPUT_SHAPES
     ):
         raise ValueError("semantic plan selects a function outside the frame output")
     _verify_ontology_declaration_subject(frame, plan, descriptors=descriptors)
+
+
+def _function_matches_output_shape(function_name: str, output_shape: str) -> bool:
+    expected = _SPECIALIZED_FUNCTION_OUTPUT_SHAPES[function_name]
+    if output_shape == expected:
+        return True
+    return output_shape == "resource_condition_sections" and function_name in {
+        "query.resource_health_inventory",
+        "query.resource_state_inventory",
+    }
 
 
 def _verify_current_relationship_mapping(

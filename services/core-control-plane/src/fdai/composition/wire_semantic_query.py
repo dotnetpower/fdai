@@ -176,6 +176,11 @@ from fdai.core.ontology_platform.service_health_queries import (
     ServiceHealthReader,
     service_health_function,
 )
+from fdai.core.ontology_platform.state_transitions import (
+    RESOURCE_STATE_TRANSITIONS_FUNCTION_NAME,
+    StateTransitionStore,
+    resource_state_transitions_function,
+)
 from fdai.core.ontology_platform.vm_process_evidence import (
     VM_PROCESS_CPU_FUNCTION_NAME,
     VmProcessCpuReader,
@@ -246,6 +251,7 @@ def build_semantic_query_runtime(
     resource_health_reader: ResourceHealthCollectionReader | None = None,
     resource_event_reader: ResourceEventCollectionReader | None = None,
     service_health_reader: ServiceHealthReader | None = None,
+    state_transition_reader: StateTransitionStore | None = None,
     vm_process_cpu_reader: VmProcessCpuReader | None = None,
     pod_log_evidence_reader: KubernetesPodLogEvidenceReader | None = None,
     property_values: Sequence[PropertyValueDomain] = (),
@@ -396,7 +402,7 @@ def build_semantic_query_runtime(
                     inventory_query_language,
                 ),
             ),
-            authority=EvidenceAuthority.SERVER_SUBSCRIPTION_HEALTH,
+            authority=EvidenceAuthority.SERVER_RESOURCE_HEALTH,
         )
     if service_health_reader is not None:
         service_health_declaration = declarations[SERVICE_HEALTH_FUNCTION_NAME]
@@ -407,6 +413,16 @@ def build_semantic_query_runtime(
                 reader=service_health_reader,
             ),
             authority=EvidenceAuthority.SERVER_SUBSCRIPTION_HEALTH,
+        )
+    if state_transition_reader is not None:
+        state_transition_declaration = declarations[RESOURCE_STATE_TRANSITIONS_FUNCTION_NAME]
+        function_registry.register_contextual(
+            state_transition_declaration,
+            resource_state_transitions_function(
+                ontology_release,
+                reader=state_transition_reader,
+            ),
+            authority=EvidenceAuthority.SERVER_OPERATIONAL_STATE_HISTORY,
         )
     if metric_registry is not None and metric_window_provider is not None:
         resource_metric_declaration = declarations[RESOURCE_METRIC_FUNCTION_NAME]
@@ -746,6 +762,7 @@ def compose_azure_semantic_query_runtime(
     resource_health_reader: ResourceHealthCollectionReader | None = None,
     resource_event_reader: ResourceEventCollectionReader | None = None,
     service_health_reader: ServiceHealthReader | None = None,
+    state_transition_reader: StateTransitionStore | None = None,
     vm_process_cpu_reader: VmProcessCpuReader | None = None,
     pod_log_evidence_reader: KubernetesPodLogEvidenceReader | None = None,
     graph_live_refresh_provider: BoundedGraphLiveRefreshProvider | None = None,
@@ -778,6 +795,7 @@ def compose_azure_semantic_query_runtime(
         resource_health_reader=resource_health_reader,
         resource_event_reader=resource_event_reader,
         service_health_reader=service_health_reader,
+        state_transition_reader=state_transition_reader,
         vm_process_cpu_reader=vm_process_cpu_reader,
         pod_log_evidence_reader=pod_log_evidence_reader,
         graph_live_refresh_provider=graph_live_refresh_provider,

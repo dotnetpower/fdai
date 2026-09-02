@@ -88,6 +88,9 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
         "operator_background_task_projection",
         "operator_read_investigation_completion",
         "operator_incident_projection",
+        "operational_state_transition",
+        "operational_state_transition_batch",
+        "operational_state_transition_coverage",
         "kubernetes_lifecycle_cursor",
         "kubernetes_lifecycle_observation",
         "operational_archive_manifest",
@@ -1435,6 +1438,11 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         MIGRATION_ROOT / "branches/core-control-plane/versions/20260831_core_t2_cache_lifecycle.py"
     )
     t2_cache_migration = inventory_module.load_revision_metadata(t2_cache_path)
+    state_transition_path = (
+        MIGRATION_ROOT
+        / "branches/core-control-plane/versions/20260902_core_operational_state_transitions.py"
+    )
+    state_transition_migration = inventory_module.load_revision_metadata(state_transition_path)
 
     expected_tables = {
         table for table, owner in ownership.table_migrators.items() if owner == "core-control-plane"
@@ -1456,6 +1464,7 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         | set(cost_governance_settings_migration.owned_tables)
         | set(standing_authority_migration.owned_tables)
         | set(t2_cache_migration.owned_tables)
+        | set(state_transition_migration.owned_tables)
     )
     assert granted_tables == expected_tables
     source = role_path.read_text(encoding="utf-8")

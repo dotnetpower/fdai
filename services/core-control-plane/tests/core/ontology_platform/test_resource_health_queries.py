@@ -269,6 +269,38 @@ async def test_health_function_preserves_mixed_health_and_inventory_state() -> N
     assert reader.calls == [("resource-service-a", "resource-service-b")]
 
 
+async def test_health_function_preserves_every_overlapping_requested_concept() -> None:
+    objects = (_resource("service-a", "Running"),)
+    reader = _Reader(
+        _collection(
+            ("resource-service-a",),
+            observations=(
+                ResourceHealthObservation(
+                    resource_id="resource-service-a",
+                    availability_state=ResourceHealthAvailabilityState.DEGRADED,
+                    reason_kind="platform_initiated",
+                    provider_observed_at=NOW - timedelta(minutes=1),
+                    evidence_ref="azure-resource-health:service-a",
+                ),
+            ),
+            coverage_statuses=(ResourceHealthCoverageStatus.OBSERVED,),
+        )
+    )
+
+    result = await _invoke(
+        reader,
+        _query_result(objects),
+        health_concepts=("resource_health.not_ready", "resource_health.unhealthy"),
+    )
+
+    values = result["rows"][0]["values"]
+    assert values["health_concept"] == "resource_health.not_ready"
+    assert values["matching_health_concepts"] == [
+        "resource_health.not_ready",
+        "resource_health.unhealthy",
+    ]
+
+
 async def test_health_function_keeps_matches_but_demotes_partial_provider_coverage() -> None:
     objects = (_resource("service-a", "Running"), _resource("service-b", "Running"))
     reader = _Reader(

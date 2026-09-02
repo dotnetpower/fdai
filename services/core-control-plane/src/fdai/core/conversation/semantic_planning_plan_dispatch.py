@@ -57,6 +57,7 @@ from .semantic_planning_value_filters import (
     verify_stated_value_filter_operands,
 )
 from .semantic_relationship_planning import compile_typed_relationship_plan
+from .semantic_resource_condition_planning import compile_resource_condition_plan
 from .semantic_resource_event_planning import compile_resource_event_plan
 from .semantic_resource_health_planning import compile_resource_health_plan
 from .semantic_resource_metric_planning import (
@@ -66,6 +67,7 @@ from .semantic_resource_metric_planning import (
 )
 from .semantic_resource_state_planning import compile_resource_state_plan
 from .semantic_service_health_planning import compile_service_health_plan
+from .semantic_state_transition_planning import compile_resource_state_transition_plan
 from .semantic_target_candidate_planning import (
     build_resource_target_candidates_fallback,
     compile_resource_target_candidates_plan,
@@ -282,6 +284,17 @@ def dispatch_semantic_plan(
         if plan is not None:
             plan_source = "server_subscription_service_health"
     if plan is None:
+        plan = compile_resource_state_transition_plan(
+            frame=frame,
+            utterance=utterance,
+            manifest=manifest,
+            verifier=verifier,
+            evaluation_time=evaluation_time,
+            purpose=purpose,
+        )
+        if plan is not None:
+            plan_source = "server_resource_state_transitions"
+    if plan is None:
         plan = compile_resource_event_plan(
             frame=frame,
             utterance=utterance,
@@ -292,6 +305,17 @@ def dispatch_semantic_plan(
         )
         if plan is not None:
             plan_source = "server_resource_event_history"
+    if plan is None:
+        plan = compile_resource_condition_plan(
+            frame=frame,
+            utterance=utterance,
+            manifest=manifest,
+            verifier=verifier,
+            evaluation_time=evaluation_time,
+            purpose=purpose,
+        )
+        if plan is not None:
+            plan_source = "server_resource_condition_sections"
     if plan is None:
         plan = compile_resource_health_plan(
             frame=frame,

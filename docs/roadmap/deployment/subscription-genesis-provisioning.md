@@ -353,6 +353,13 @@ readiness.
 Projection-source metadata can include only sanitized nonnegative coverage counts; malformed counts
 block the projection record instead of becoming readiness evidence.
 
+After a complete promotion, the inventory single writer can append verified
+`resource.operational_state` changes to the Core-owned PostgreSQL transition ledger. The write uses
+the retained `StateFactMetadata` authority, time, freshness, completeness, conflict, and evidence
+fields. Snapshot comparison is recorded as `initial_state_only` or `snapshot_interval_only`; it
+does not satisfy Genesis readiness or claim continuous observation. Transition persistence must
+complete before topology history advances, so a retry cannot silently lose a state edge.
+
 Every emitted batch advances the durable heartbeat. A no-progress deadline fails the attempt,
 retains the previous complete graph, and leaves a resumable cursor or a bounded restart decision.
 The Console shows `observed / expected`, type and scope counts, current stage, elapsed time, last

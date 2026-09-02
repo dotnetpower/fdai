@@ -712,11 +712,8 @@ class PostgresIamAdapters:
     async def mark_decision_published(self, idempotency_key: str) -> bool:
         """Close the durable outbox record once the broker accepted the decision."""
         try:
-            return cast(
-                bool,
-                await self.store.mark_hil_decision_published(
-                    idempotency_key=hil_decision_delivery_key(idempotency_key),
-                ),
+            return await self.store.mark_hil_decision_published(
+                idempotency_key=hil_decision_delivery_key(idempotency_key),
             )
         except PostgresFamilyStoreUnavailable as exc:
             raise IamUnavailableError("HIL decision outbox store is unavailable") from exc
@@ -777,10 +774,7 @@ class PostgresIamAdapters:
 
     async def _projection(self, operation: str) -> dict[str, object]:
         try:
-            return cast(
-                dict[str, object],
-                await self.store.read_projection(family="iam", operation=operation),
-            )
+            return await self.store.read_projection(family="iam", operation=operation)
         except PostgresFamilyStoreUnavailable as exc:
             raise IamUnavailableError(str(exc)) from exc
 
@@ -806,16 +800,13 @@ class PostgresIamAdapters:
 
     async def _state(self, key: str) -> dict[str, object] | None:
         try:
-            return cast(dict[str, object] | None, await self.store.read_state(key))
+            return await self.store.read_state(key)
         except PostgresFamilyStoreUnavailable as exc:
             raise IamUnavailableError("authoritative IAM state is unavailable") from exc
 
     async def _find_state(self, *, prefix: str, field: str, value: str) -> dict[str, object] | None:
         try:
-            return cast(
-                dict[str, object] | None,
-                await self.store.find_state(prefix=prefix, field=field, value=value),
-            )
+            return await self.store.find_state(prefix=prefix, field=field, value=value)
         except PostgresFamilyStoreUnavailable as exc:
             raise IamUnavailableError("authoritative IAM state is unavailable") from exc
 

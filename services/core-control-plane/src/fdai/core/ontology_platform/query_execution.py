@@ -564,14 +564,30 @@ def _bind_result_authority(
         for dependency in dependencies.values()
         if dependency.authority is not None
     }
-    if result.authority is EvidenceAuthority.SERVER_ONTOLOGY_INSTANCE_PATH:
-        expected_inputs = (
-            EvidenceAuthority.SERVER_INVENTORY_GRAPH,
-            EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
-        )
-        if result.authority_inputs != expected_inputs or dependency_authorities != {
-            EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST
-        }:
+    scoped_inputs = {
+        EvidenceAuthority.SERVER_ONTOLOGY_INSTANCE_PATH: (
+            (
+                EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+                EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
+            ),
+            {EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST},
+        ),
+        EvidenceAuthority.SERVER_RESOURCE_HEALTH: (
+            (EvidenceAuthority.SERVER_INVENTORY_GRAPH,),
+            {EvidenceAuthority.SERVER_INVENTORY_GRAPH},
+        ),
+        EvidenceAuthority.SERVER_OPERATIONAL_STATE_HISTORY: (
+            (EvidenceAuthority.SERVER_INVENTORY_GRAPH,),
+            {EvidenceAuthority.SERVER_INVENTORY_GRAPH},
+        ),
+    }
+    scoped_contract = scoped_inputs.get(result.authority) if result.authority is not None else None
+    if scoped_contract is not None:
+        expected_inputs, expected_dependencies = scoped_contract
+        if (
+            result.authority_inputs != expected_inputs
+            or dependency_authorities != expected_dependencies
+        ):
             raise QueryNodeHeldError("evidence_authority_derivation_invalid")
         return result
     if result.authority_inputs:

@@ -141,17 +141,18 @@ class LocalEncryptedTeamsWorkflowBindingStore:
             },
         )
         saved = await self.store.read_state("operator-teams-workflow-binding:active")
+        saved_ciphertext = saved.get("ciphertext") if saved is not None else None
         if (
             saved is None
             or saved.get("version") != version
             or saved.get("endpoint_digest") != digest
-            or not isinstance(saved.get("ciphertext"), str)
+            or not isinstance(saved_ciphertext, str)
         ):
             raise TeamsWorkflowBindingError(
                 "Local Teams Workflow binding verification metadata did not match"
             )
         try:
-            verified = cipher.decrypt(saved["ciphertext"].encode("ascii")).decode("utf-8")
+            verified = cipher.decrypt(saved_ciphertext.encode("ascii")).decode("utf-8")
         except (InvalidToken, UnicodeDecodeError) as exc:
             raise TeamsWorkflowBindingError(
                 "Local Teams Workflow binding verification failed"

@@ -450,3 +450,62 @@ async def test_executor_accepts_only_explicit_composite_instance_path_derivation
         EvidenceAuthority.SERVER_INVENTORY_GRAPH,
         EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
     )
+
+
+@pytest.mark.parametrize(
+    "authority",
+    (
+        EvidenceAuthority.SERVER_RESOURCE_HEALTH,
+        EvidenceAuthority.SERVER_OPERATIONAL_STATE_HISTORY,
+    ),
+)
+async def test_executor_accepts_inventory_scoped_independent_evidence(
+    authority: EvidenceAuthority,
+) -> None:
+    async def scope(node, dependencies):  # type: ignore[no-untyped-def]
+        del dependencies
+        return QueryNodeResult(
+            value={"node": node.node_id},
+            evidence_refs=("inventory:scope",),
+            authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+        )
+
+    async def evidence(node, dependencies):  # type: ignore[no-untyped-def]
+        assert set(dependencies) == {"scope"}
+        return QueryNodeResult(
+            value={"node": node.node_id},
+            evidence_refs=("provider:evidence",),
+            authority=authority,
+            authority_inputs=(EvidenceAuthority.SERVER_INVENTORY_GRAPH,),
+        )
+
+    nodes = (
+        OntologyQueryNode(
+            node_id="scope",
+            kind=QueryNodeKind.OBJECT_SET,
+            output_kind="query.table",
+        ),
+        OntologyQueryNode(
+            node_id="evidence",
+            kind=QueryNodeKind.FUNCTION,
+            depends_on=("scope",),
+            output_kind="query.table",
+        ),
+    )
+    execution = await OntologyQueryPlanExecutor(
+        handlers={
+            QueryNodeKind.OBJECT_SET: scope,
+            QueryNodeKind.FUNCTION: evidence,
+        },
+        now=lambda: NOW,
+    ).execute(
+        _plan(nodes, ("evidence",)),
+        expected_release_digest=DIGEST_A,
+        expected_manifest_digest=DIGEST_B,
+        expected_role="Reader",
+        expected_purpose="incident-investigation",
+    )
+
+    assert execution.status == "completed"
+    assert execution.receipts[-1].authority is authority
+    assert execution.receipts[-1].authority_inputs == (EvidenceAuthority.SERVER_INVENTORY_GRAPH,)

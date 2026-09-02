@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 19895258082a193bb2ae973835d50417fb095e71
-translation_revised: 2026-09-01
+translation_source_sha: 22fb25be6bf2e231ee1b3f176ffc414c2350a519
+translation_revised: 2026-09-02
 ---
 # 지속형 운영 인스턴스 그래프
 
@@ -235,7 +235,7 @@ binding을
 | Authorization 및 PostgreSQL role 근거 | implemented | `postgres_role_evidence.py`, `arg_relationships.py`, 집중 principal redaction 및 authorization scope 검사 | Database role은 content-addressed reference를 사용하는 별도의 principal-safe projection으로 유지되며 Resource 또는 Link 형태를 만들지 않습니다. 모델링되지 않은 role-assignment child scope는 `authorization_child_scope_unmodeled`를 보존하고 추론된 edge가 되지 않습니다. |
 | 운영자 인스턴스 탐색 | validated | `instance_explorer.py`, `postgres_family_store.py`, Operator 실시간 overlay 읽기 migration, `ontology-instance-graph*.ts*`, 집중 Operator 및 Console 검사, 인증된 표준 port 근거 | 읽기 전용 Console은 Resource Group을 transit hub로 사용하지 않고 깊이 8, Resource 200개, link 1,600개로 제한된 전체 응답을 검사와 맥락에 보존합니다. 기존 Instances canvas는 엄격한 왼쪽에서 오른쪽(`LR`) 좌표 계약을 사용합니다. 양방향 link와 범위가 제한된 cycle에서도 저장된 source occurrence를 target occurrence 왼쪽에 배치하며 저장 edge를 뒤집지 않습니다. 들어오는 occurrence는 선택한 Resource 왼쪽, 나가는 occurrence는 오른쪽에 유지합니다. 의미 column은 288px 간격을 사용합니다. 운영자는 일반 마우스 휠로 10%부터 180%까지 확대 또는 축소하고, 기본 전체 화면으로 전환하며, 빈 canvas를 drag해 pan할 수 있습니다. Node 좌표와 node 선택 동작은 고정됩니다. `contains`는 solid hierarchy line, `attached_to`는 dashed line, 양방향 `peered_with`는 dotted line입니다. Root 직접 containment와 최대 3개의 ancestor edge가 Resource Group, VNet, Subnet hierarchy를 복원하고, Resource Group과 Subscription은 표시되지만 transit 맥락으로 사용되지 않습니다. 정확한 AKS node Resource Group 근거는 AKS에서 VMSS로 향하는 edge를 만들지 않고 해당 분기 안의 hierarchy를 추가합니다. 비순환인 같은 방향 node는 가장 긴 predecessor rank를 사용하고 양방향 또는 cycle edge만 occurrence를 복제합니다. 정확히 검토된 gateway, load balancer, AKS outbound mapping만 검증된 traffic 의미를 추가할 수 있고 나머지 관계는 정직한 graph-direction label을 유지합니다. Inspector는 직접 incoming, 직접 outgoing, 검증된 ingress, 검증된 egress, access, containment, 연결 path segment를 mapping 근거와 함께 분리합니다. Azure Activity Log, Resource Health, runtime call graph는 명시적으로 사용할 수 없는 상태를 유지합니다. |
 | 애플리케이션 중심 공급자 관계 | in-progress | `azure-arg-v1.yaml`, ARG와 범위가 제한된 ARM child 수집, Kubernetes API pre-promotion enrichment, 완전 세대 검증, endpoint closure, snapshot 분류 metadata, 집중 Core/Operator/Console 검사, Terraform service-root 검사, 인증된 `5273` 근거 | 검토된 mapping 84개가 정확한 containment, identity, authorization, registry, observability, network, ingress, 구성된 data-service reference, Private DNS closure, AKS AgentPool 및 Kubernetes 런타임 토폴로지를 처리합니다. Azure 중첩 child는 검토된 parent 또는 root 해석을 사용합니다. Exact TLS, workload-identity 및 cluster binding이 구성되면 UID에 근거한 Kubernetes 객체와 독립적으로 검증된 링크가 원자적 승격 전에 같은 세대에 들어갑니다. Read-only identity는 request 시점에 수명이 짧은 token을 취득하며 static Kubernetes token은 Terraform에 들어가지 않습니다. 기존 로컬 Azure 근거는 변경되지 않았으며 실제 운영 Kubernetes 증적을 주장하지 않습니다. |
-| 원본부터 저장소까지 구현 감사 | implemented | `config/continuous-operational-instance-graph-audit.json`, `check-continuous-operational-instance-graph-audit.py`, 집중 감사 테스트(`3 passed`) | OI-01은 runtime validation을 주장하지 않고 15개 단계의 정확한 owner, binding, 집중 테스트, 상태, 누락 binding을 고정합니다. |
+| 원본부터 저장소까지 구현 감사 | implemented | `config/continuous-operational-instance-graph-audit.json`, `check-continuous-operational-instance-graph-audit.py`, 집중 감사 테스트(`3 passed`) | OI-01은 runtime validation을 주장하지 않고 16개 단계의 정확한 owner, binding, 집중 테스트, 상태, 누락 binding을 고정합니다. |
 
 ### 구현 이력
 
@@ -407,6 +407,22 @@ provider-type coverage와 deployed evidence 보존이며 authority를 넓히거�
 - [ ] `build_pod_lifecycle_evidence_source` 뒤에 실제 Kubernetes Pod 수명 주기 근거 원본을
   바인딩합니다. 그전까지 Pod 발견 사항은 `FDAI_POD_LIFECYCLE_EVIDENCE_JSON`으로 제공된 근거에만
   존재하며 배포 환경의 Pod 분석은 계속 사용할 수 없습니다.
+
+## 운영 상태 전이 원장
+
+FDAI는 의미가 부여된 상태 변경을 Core 소유의 추가 전용 PostgreSQL 원장에 저장합니다.
+Event Hubs는 관측을 전달하고 OpenTelemetry는 진단을 보고하며, 온톨로지는 다시 만들 수 있는
+현재 상태 변환 결과로 유지됩니다. 이러한 표면은 상태 전이 원장을 대신하지 않습니다.
+
+각 원자적 배치는 콘텐츠 주소가 지정된 상태 전이 0개 이상과 양의 커버리지 레코드 1개 이상을
+포함합니다. 상태 전이는 `from_state`, `to_state`, 유효 시각, 기록 시각, 근거 기준 시점, 원본
+신원과 개정, 생산자 버전, 최신성, 완전성, 충돌, 근거 참조를 결합합니다. 다시 전달된 멱등성
+키는 콘텐츠가 같을 때만 변경 없는 처리로 끝납니다.
+
+인벤토리 승격 경로는 `resource.operational_state` 변경을 기록합니다. 이 경로는 구간을
+`initial_state_only` 또는 `snapshot_interval_only`로 표시합니다. 완전한 조정 스냅샷도 중간
+상태 전이가 없었다는 사실을 증명하지 못합니다. 향후 지속형 원본은 정확히 보존된 워터마크와
+완전한 구간 근거가 있을 때만 커버리지를 높일 수 있습니다.
 
 ## 관련 문서
 

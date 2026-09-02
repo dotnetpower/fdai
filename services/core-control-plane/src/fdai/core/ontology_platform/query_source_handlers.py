@@ -574,11 +574,16 @@ class FunctionNodeHandler:
             if node.output_kind == "query.table" and isinstance(result, Mapping)
             else result
         )
+        scoped_authority_inputs = {
+            "query.resource_health_inventory": (EvidenceAuthority.SERVER_INVENTORY_GRAPH,),
+            "query.resource_state_transitions": (EvidenceAuthority.SERVER_INVENTORY_GRAPH,),
+        }.get(function_name, ())
         return QueryNodeResult(
             value=value,
             evidence_refs=_evidence_refs(dependencies)
             + (f"ontology-function:{receipt.invocation_id}",),
             authority=receipt.authority,
+            authority_inputs=scoped_authority_inputs,
         )
 
 

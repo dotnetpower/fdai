@@ -12,6 +12,7 @@ from uuid import UUID
 import httpx
 
 from fdai.core.ontology_platform.service_health_queries import (
+    SERVICE_HEALTH_MAX_OBSERVATIONS,
     ServiceHealthCollection,
     ServiceHealthObservation,
 )
@@ -70,6 +71,7 @@ class AzureServiceHealthConfig:
 @dataclass(frozen=True, slots=True)
 class _Event:
     aliases: tuple[str, ...]
+    event_id: str
     event_type: str
     title: str
     level: str | None
@@ -81,6 +83,7 @@ class _Event:
 @dataclass(frozen=True, slots=True)
 class _Impact:
     event_alias: str
+    resource_ref: str
     resource_name: str | None
     resource_type: str | None
     resource_group: str | None
@@ -228,12 +231,15 @@ class AzureServiceHealthReader:
         observations.sort(
             key=lambda item: (
                 item.impact_start_at,
-                item.event_evidence_ref,
+                item.event_id,
                 item.resource_name or "",
+                item.event_evidence_ref,
+                item.impact_evidence_ref or "",
             )
         )
-        output_limited = len(observations) > self._config.max_impacts
-        observations = observations[: self._config.max_impacts]
+        output_limit = min(self._config.max_impacts, SERVICE_HEALTH_MAX_OBSERVATIONS)
+        output_limited = len(observations) > output_limit
+        observations = observations[:output_limit]
         limitation = (
             "provider_scope_mismatch"
             if widened
@@ -364,6 +370,9 @@ def _event(row: Mapping[str, Any], *, observed_at: datetime) -> tuple[_Event | N
     return (
         _Event(
             aliases=aliases,
+            event_id=(
+                f"service-health-event:{hashlib.sha256(chr(31).join(aliases).encode()).hexdigest()}"
+            ),
             event_type=event_type,
             title=title,
             level=_machine_token(level_raw) if level_raw is not None else None,
@@ -377,7 +386,8 @@ def _event(row: Mapping[str, Any], *, observed_at: datetime) -> tuple[_Event | N
 
 def _impact(row: Mapping[str, Any]) -> _Impact | None:
     event_alias = _bounded_text(row.get("eventTrackingId"), 256)
-    if event_alias is None:
+    target_resource_id = _bounded_text(row.get("targetResourceId"), 2048)
+    if event_alias is None or target_resource_id is None:
         return None
     fields = (
         _bounded_text(row.get("resourceName"), 256),
@@ -390,9 +400,18 @@ def _impact(row: Mapping[str, Any]) -> _Impact | None:
         return None
     resource_name, resource_type, resource_group, region, status_raw = fields
     status = _machine_token(status_raw) if status_raw is not None else None
-    material = "|".join((event_alias.casefold(), *(value or "" for value in fields)))
+    material = "|".join(
+        (
+            event_alias.casefold(),
+            target_resource_id.casefold(),
+            *(value or "" for value in fields),
+        )
+    )
     return _Impact(
         event_alias=event_alias.casefold(),
+        resource_ref=(
+            f"resource:sha256:{hashlib.sha256(target_resource_id.casefold().encode()).hexdigest()}"
+        ),
         resource_name=resource_name,
         resource_type=resource_type,
         resource_group=resource_group,
@@ -412,6 +431,7 @@ def _observation(
     impact_count: int | None,
 ) -> ServiceHealthObservation:
     return ServiceHealthObservation(
+        event_id=event.event_id,
         event_type=event.event_type,
         title=event.title,
         level=event.level,
@@ -419,6 +439,7 @@ def _observation(
         impact_start_at=event.impact_start_at,
         observed_at=observed_at,
         impacted_resource_count=impact_count,
+        impacted_resource_ref=None if impact is None else impact.resource_ref,
         resource_name=None if impact is None else impact.resource_name,
         resource_type=None if impact is None else impact.resource_type,
         resource_group=None if impact is None else impact.resource_group,

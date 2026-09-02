@@ -85,6 +85,7 @@ async def test_service_health_function_projects_active_event_and_impact() -> Non
         _collection(
             observations=(
                 ServiceHealthObservation(
+                    event_id="service-health-event:event-a",
                     event_type="service_issue",
                     title="Regional connectivity issue",
                     level="warning",
@@ -92,6 +93,7 @@ async def test_service_health_function_projects_active_event_and_impact() -> Non
                     impact_start_at=NOW - timedelta(minutes=10),
                     observed_at=NOW,
                     impacted_resource_count=1,
+                    impacted_resource_ref="resource:sha256:" + ("a" * 64),
                     resource_name="service-a",
                     resource_type="microsoft.app/containerapps",
                     resource_group="example-rg",
@@ -110,6 +112,17 @@ async def test_service_health_function_projects_active_event_and_impact() -> Non
     rows = result["rows"]
     assert isinstance(rows, list)
     assert rows[0]["values"] == {
+        "active_event_count": 1,
+        "attempt_ref": "azure-service-health:attempt",
+        "count_posture": "exact",
+        "execution_authority": False,
+        "impacted_resource_count": 1,
+        "observed_at": NOW.isoformat(),
+        "record_kind": "summary",
+        "scope_kind": "subscription",
+    }
+    assert rows[1]["values"] == {
+        "event_id": "service-health-event:event-a",
         "event_evidence_ref": "azure-service-health:event-a",
         "event_type": "service_issue",
         "execution_authority": False,
@@ -117,12 +130,14 @@ async def test_service_health_function_projects_active_event_and_impact() -> Non
         "impact_start_at": (NOW - timedelta(minutes=10)).isoformat(),
         "impact_status": "active",
         "impacted_resource_count": 1,
+        "impacted_resource_ref": "resource:sha256:" + ("a" * 64),
         "level": "warning",
         "observed_at": NOW.isoformat(),
         "region": "example-region",
         "resource_group": "example-rg",
         "resource_name": "service-a",
         "resource_type": "microsoft.app/containerapps",
+        "record_kind": "event",
         "scope_kind": "subscription",
         "status": "active",
         "title": "Regional connectivity issue",
@@ -137,9 +152,72 @@ async def test_service_health_function_distinguishes_zero_from_unavailable() -> 
     verified = await _invoke(verified_reader)
     unavailable = await _invoke(unavailable_reader)
 
-    assert verified == {"complete": True, "rows": [], "truncation_reason": None}
+    assert verified == {
+        "complete": True,
+        "rows": [
+            {
+                "row_id": "service-health-summary",
+                "values": {
+                    "active_event_count": 0,
+                    "attempt_ref": "azure-service-health:attempt",
+                    "count_posture": "exact",
+                    "execution_authority": False,
+                    "impacted_resource_count": 0,
+                    "observed_at": NOW.isoformat(),
+                    "record_kind": "summary",
+                    "scope_kind": "subscription",
+                },
+            }
+        ],
+        "truncation_reason": None,
+    }
     assert unavailable == {
         "complete": False,
-        "rows": [],
+        "rows": [
+            {
+                "row_id": "service-health-summary",
+                "values": {
+                    "active_event_count": None,
+                    "attempt_ref": "azure-service-health:attempt",
+                    "count_posture": "unknown",
+                    "execution_authority": False,
+                    "impacted_resource_count": None,
+                    "observed_at": NOW.isoformat(),
+                    "record_kind": "summary",
+                    "scope_kind": "subscription",
+                },
+            }
+        ],
         "truncation_reason": "source_unavailable",
     }
+
+
+async def test_service_health_summary_reserves_one_row_at_the_output_limit() -> None:
+    observations = tuple(
+        ServiceHealthObservation(
+            event_id=f"service-health-event:{index:03d}",
+            event_type="service_issue",
+            title=f"Service issue {index:03d}",
+            level="warning",
+            status="active",
+            impact_start_at=NOW - timedelta(minutes=10) + timedelta(seconds=index),
+            observed_at=NOW,
+            impacted_resource_count=0,
+            impacted_resource_ref=None,
+            resource_name=None,
+            resource_type=None,
+            resource_group=None,
+            region=None,
+            impact_status=None,
+            event_evidence_ref=f"azure-service-health:event-{index:03d}",
+            impact_evidence_ref=None,
+        )
+        for index in range(255)
+    )
+
+    result = await _invoke(_Reader(_collection(observations=observations)))
+
+    assert result["complete"] is True
+    assert len(result["rows"]) == 256
+    assert result["rows"][0]["values"]["active_event_count"] == 255
+    assert result["rows"][0]["values"]["count_posture"] == "exact"

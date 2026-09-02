@@ -85,6 +85,10 @@ from fdai.delivery.persistence.postgres_resource_lock import (
     PostgresAdvisoryResourceLock,
     PostgresAdvisoryResourceLockConfig,
 )
+from fdai.delivery.persistence.postgres_state_transitions import (
+    PostgresStateTransitionStore,
+    PostgresStateTransitionStoreConfig,
+)
 from fdai.delivery.persistence.postgres_topology_history import (
     PostgresTopologyHistoryStore,
     PostgresTopologyHistoryStoreConfig,
@@ -370,11 +374,16 @@ def _build_ontology_observer(
                 )
             ),
         )
+        topology_store = PostgresTopologyHistoryStore(
+            config=PostgresTopologyHistoryStoreConfig(dsn=config.dsn)
+        )
         topology_publisher = InventoryTopologyHistoryPublisher(
-            writer=PostgresTopologyHistoryStore(
-                config=PostgresTopologyHistoryStoreConfig(dsn=config.dsn)
-            ),
+            writer=topology_store,
             ontology_release_digest=ontology_release_digest,
+            history_reader=topology_store,
+            transition_writer=PostgresStateTransitionStore(
+                config=PostgresStateTransitionStoreConfig(dsn=config.dsn)
+            ),
         )
 
     async def _observe(observation: PromotedInventoryObservation) -> None:

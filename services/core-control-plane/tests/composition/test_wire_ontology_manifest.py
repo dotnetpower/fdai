@@ -150,6 +150,12 @@ async def test_runtime_aggregates_principal_manifest_rows() -> None:
 
     assert result.disposition == "answered"
     assert result.execution is not None
-    table = result.execution.results["count"].value
+    assert result.planning.plan is not None
+    output_node_id = result.planning.plan.output_node_ids[0]
+    table = result.execution.results[output_node_id].value
     assert isinstance(table, QueryTable)
-    assert table.rows[0].values == {"group": {}, "operation": "count", "value": 1}
+    assert table.rows[0].values == {
+        "group": {"kind": "object"},
+        "operation": "count",
+        "value": 1,
+    }

@@ -96,6 +96,8 @@ class EvidenceAuthority(StrEnum):
     SERVER_ONTOLOGY_INSTANCE_PATH = "server_ontology_instance_path"
     SERVER_ONTOLOGY_QUERY = "server_ontology_query"
     SERVER_OPERATIONAL_METRICS = "server_operational_metrics"
+    SERVER_OPERATIONAL_STATE_HISTORY = "server_operational_state_history"
+    SERVER_RESOURCE_HEALTH = "server_resource_health"
     SERVER_SUBSCRIPTION_HEALTH = "server_subscription_health"
 
 
@@ -338,15 +340,27 @@ class GoalTaskReceipt(QueryContract):
             raise ValueError(
                 "task receipt authority requires completed evidence references on the same receipt"
             )
+        expected_inputs_by_authority = {
+            EvidenceAuthority.SERVER_ONTOLOGY_INSTANCE_PATH: (
+                EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+                EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
+            ),
+            EvidenceAuthority.SERVER_RESOURCE_HEALTH: (EvidenceAuthority.SERVER_INVENTORY_GRAPH,),
+            EvidenceAuthority.SERVER_OPERATIONAL_STATE_HISTORY: (
+                EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+            ),
+        }
         expected_inputs = (
-            EvidenceAuthority.SERVER_INVENTORY_GRAPH,
-            EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
+            expected_inputs_by_authority.get(self.authority) if self.authority is not None else None
         )
-        if self.authority is EvidenceAuthority.SERVER_ONTOLOGY_INSTANCE_PATH:
+        if expected_inputs is not None:
             if self.authority_inputs != expected_inputs:
-                raise ValueError(
-                    "ontology instance path authority requires exact inventory and manifest inputs"
-                )
+                if self.authority is EvidenceAuthority.SERVER_ONTOLOGY_INSTANCE_PATH:
+                    raise ValueError(
+                        "ontology instance path authority requires exact inventory "
+                        "and manifest inputs"
+                    )
+                raise ValueError("derived evidence authority requires its exact scoped inputs")
         elif self.authority_inputs:
             raise ValueError(
                 "non-composite task receipt authority MUST NOT declare authority inputs"

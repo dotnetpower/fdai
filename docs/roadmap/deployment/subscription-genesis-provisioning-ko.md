@@ -1,8 +1,8 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: 0a521bfb2e49ed09db8ad6d7f6d5b80ce3cec9f3
-translation_revised: 2026-09-01
+translation_source_sha: 005eb6371a4cfbff21e1048c9a07c4c38f337f35
+translation_revised: 2026-09-02
 ---
 # 구독 초기 프로비저닝
 
@@ -354,6 +354,13 @@ ancestor, 이미지, 인증 검사는 그대로 유지됩니다.
 경계는 준비 완료를 차단합니다.
 변환 출처 메타데이터에는 정제된 음이 아닌 커버리지 개수만 포함할 수 있습니다. 잘못된 개수는
 준비 완료 근거가 되지 않고 변환 레코드를 차단합니다.
+
+완전한 승격 후 인벤토리 단일 작성기는 검증된 `resource.operational_state` 변경을 Core 소유
+PostgreSQL 전이 원장에 추가할 수 있습니다. 이 쓰기는 보존된 `StateFactMetadata`의 권한,
+시각, 최신성, 완전성, 충돌, 근거 필드를 사용합니다. 스냅샷 비교는 `initial_state_only` 또는
+`snapshot_interval_only`로 기록하며 Genesis 준비 완료를 충족하거나 지속 관측을 주장하지
+않습니다. 상태 전이 저장은 토폴로지 이력이 진행되기 전에 완료되어야 하므로 재시도에서 상태
+전이가 조용히 유실되지 않습니다.
 
 각 배치가 영속 진행 신호를 갱신합니다. 무진행 제한 시간을 넘기면 시도를 실패로 처리하고
 이전 완전한 그래프를 유지하며 재개 가능한 커서 또는 범위가 제한된 재시작 결정을 남깁니다.

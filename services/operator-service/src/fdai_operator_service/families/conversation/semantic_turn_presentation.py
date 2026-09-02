@@ -85,10 +85,18 @@ def semantic_done_event_data(
         or not isinstance(checks_total, int)
     ):
         raise ValueError("stored semantic verification is malformed")
-    authority, authority_reason = _receipt_authority(semantic, evidence_refs)
-    verified = disposition == "answered" and not missing_answer and authority_reason is None
     payload = projection.get("payload")
     technical_details = payload.get("technical_details") if isinstance(payload, Mapping) else None
+    authority, authority_reason = _receipt_authority(
+        semantic,
+        evidence_refs,
+        technical_details=technical_details,
+    )
+    source_verifications = _source_verifications(
+        semantic,
+        technical_details=technical_details,
+    )
+    verified = disposition == "answered" and not missing_answer and authority_reason is None
     model = payload.get("model") if isinstance(payload, Mapping) else None
     latency_ms = payload.get("latency_ms") if isinstance(payload, Mapping) else None
     usage = payload.get("usage") if isinstance(payload, Mapping) else None
@@ -153,6 +161,14 @@ def semantic_done_event_data(
                 if direct_response
                 else {
                     "verification": {
+                        **(
+                            {
+                                "schema_version": 2,
+                                "source_verifications": source_verifications,
+                            }
+                            if authority == "multiple_authoritative_sources"
+                            else {}
+                        ),
                         "status": "verified" if verified else "unverified",
                         "authority": authority,
                         "checks_completed": checks_completed,
@@ -214,13 +230,17 @@ def _redacted_intent_graph(value: object) -> JsonObject | None:
 def _receipt_authority(
     semantic: Mapping[str, object],
     semantic_evidence_refs: list[object],
+    *,
+    technical_details: object,
 ) -> tuple[str, str | None]:
     evidence = semantic.get("intent_graph_evidence")
     goals = evidence.get("goals") if isinstance(evidence, Mapping) else None
     if not isinstance(goals, list):
         return "unavailable", "semantic_evidence_authority_missing"
     authorities: set[EvidenceAuthority] = set()
+    output_authorities: dict[str, EvidenceAuthority] = {}
     receipt_refs: list[str] = []
+    output_node_ids = _semantic_output_node_ids(technical_details)
     for goal in goals:
         if not isinstance(goal, Mapping) or goal.get("status") != "completed":
             continue
@@ -236,16 +256,121 @@ def _receipt_authority(
             authority = EvidenceAuthority(raw_authority)
         except ValueError:
             return "unavailable", "semantic_evidence_authority_missing"
-        authorities.add(authority)
+        task_id = goal.get("task_id")
+        node_id = task_id.removeprefix("query:") if isinstance(task_id, str) else None
+        if not output_node_ids or node_id in output_node_ids:
+            expected_inputs = {
+                EvidenceAuthority.SERVER_RESOURCE_HEALTH: (
+                    EvidenceAuthority.SERVER_INVENTORY_GRAPH.value,
+                ),
+                EvidenceAuthority.SERVER_OPERATIONAL_STATE_HISTORY: (
+                    EvidenceAuthority.SERVER_INVENTORY_GRAPH.value,
+                ),
+            }.get(authority)
+            authority_inputs = goal.get("authority_inputs", [])
+            if expected_inputs is not None and tuple(authority_inputs) != expected_inputs:
+                return "unavailable", "semantic_evidence_authority_binding_mismatch"
+            authorities.add(authority)
+            if node_id is not None:
+                output_authorities[node_id] = authority
         receipt_refs.extend(refs)
     expected_refs = tuple(ref for ref in semantic_evidence_refs if isinstance(ref, str))
     if tuple(dict.fromkeys(receipt_refs)) != expected_refs:
         return "unavailable", "semantic_evidence_authority_binding_mismatch"
     if len(authorities) > 1:
+        if (
+            _semantic_output_shape(technical_details) == "resource_condition_sections"
+            and output_node_ids
+            == {
+                "resource-condition-power",
+                "resource-condition-health",
+            }
+            and output_authorities
+            == {
+                "resource-condition-power": EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+                "resource-condition-health": EvidenceAuthority.SERVER_RESOURCE_HEALTH,
+            }
+        ):
+            return "multiple_authoritative_sources", None
         return "conflicting", "semantic_evidence_authority_conflict"
     if not authorities:
         return "unavailable", "semantic_evidence_authority_missing"
     return next(iter(authorities)).value, None
+
+
+def _semantic_output_shape(technical_details: object) -> str | None:
+    if not isinstance(technical_details, Mapping):
+        return None
+    context = technical_details.get("presentation_context")
+    value = context.get("output_shape") if isinstance(context, Mapping) else None
+    return value if isinstance(value, str) else None
+
+
+def _semantic_output_node_ids(technical_details: object) -> frozenset[str]:
+    if not isinstance(technical_details, Mapping):
+        return frozenset()
+    outputs = technical_details.get("outputs")
+    if not isinstance(outputs, list):
+        return frozenset()
+    return frozenset(
+        node_id
+        for output in outputs
+        if isinstance(output, Mapping) and isinstance((node_id := output.get("node_id")), str)
+    )
+
+
+def _source_verifications(
+    semantic: Mapping[str, object],
+    *,
+    technical_details: object,
+) -> list[JsonObject]:
+    if not isinstance(technical_details, Mapping):
+        return []
+    outputs = technical_details.get("outputs")
+    if not isinstance(outputs, list):
+        return []
+    outputs_by_node = {
+        node_id: output
+        for output in outputs
+        if isinstance(output, Mapping) and isinstance((node_id := output.get("node_id")), str)
+    }
+    evidence = semantic.get("intent_graph_evidence")
+    goals = evidence.get("goals") if isinstance(evidence, Mapping) else None
+    if not isinstance(goals, list):
+        return []
+    sources: list[JsonObject] = []
+    for goal in goals:
+        if not isinstance(goal, Mapping):
+            continue
+        task_id = goal.get("task_id")
+        node_id = task_id.removeprefix("query:") if isinstance(task_id, str) else None
+        if node_id is None:
+            continue
+        output = outputs_by_node.get(node_id)
+        authority = goal.get("authority")
+        refs = goal.get("evidence_refs")
+        if (
+            output is None
+            or not isinstance(authority, str)
+            or not isinstance(refs, list)
+            or any(not isinstance(item, str) for item in refs)
+        ):
+            continue
+        sources.append(
+            cast(
+                JsonObject,
+                {
+                    "node_id": node_id,
+                    "authority": authority,
+                    "authority_inputs": goal.get("authority_inputs", []),
+                    "status": goal.get("status"),
+                    "complete": output.get("source_complete") is True,
+                    "limitation": output.get("source_truncation_reason"),
+                    "evidence_refs": refs,
+                },
+            )
+        )
+    return sources
 
 
 def _pantheon_assurance_payload(

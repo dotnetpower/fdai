@@ -21,6 +21,7 @@ REQUIRED_STAGES = (
     "realtime-overlay",
     "ontology-projection",
     "topology-history",
+    "state-transition-history",
     "graph-first-query",
     "bounded-live-read",
     "live-evidence-write-through",

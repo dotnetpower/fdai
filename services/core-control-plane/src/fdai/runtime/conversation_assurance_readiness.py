@@ -277,6 +277,8 @@ class CapabilitySelectionReadiness:
     expected_authority: str | None
     provided_authority: str | None
     unavailable_reason: str | None
+    expected_authorities: tuple[str, ...] = ()
+    provided_authorities: tuple[str, ...] = ()
 
 
 def assess_capability_readiness(
@@ -286,9 +288,22 @@ def assess_capability_readiness(
     required_functions: tuple[str, ...],
     expected_authority: str | None,
     inventory: RuntimeReadinessInventory,
+    expected_authorities: tuple[str, ...] = (),
 ) -> CapabilitySelectionReadiness:
     """Require evidence-ready functions and exact authority before selection."""
 
+    if expected_authorities != tuple(sorted(set(expected_authorities))):
+        raise ValueError("expected readiness authorities MUST be unique and ordered")
+    if expected_authorities:
+        derived_descriptor = (
+            expected_authorities[0]
+            if len(expected_authorities) == 1
+            else "multiple_authoritative_sources"
+        )
+        if expected_authority != derived_descriptor:
+            raise ValueError(
+                "expected readiness authority descriptor does not match its authority set"
+            )
     if not enabled:
         return _unavailable(
             capability_id,
@@ -296,6 +311,7 @@ def assess_capability_readiness(
             expected_authority,
             ReadinessStage.UNDECLARED,
             "challenge_not_enabled",
+            expected_authorities=expected_authorities,
         )
     if not required_functions:
         return _unavailable(
@@ -304,6 +320,7 @@ def assess_capability_readiness(
             expected_authority,
             ReadinessStage.UNDECLARED,
             "readiness_contract_missing",
+            expected_authorities=expected_authorities,
         )
     records = tuple(inventory.capability(name) for name in required_functions)
     missing = tuple(
@@ -316,6 +333,7 @@ def assess_capability_readiness(
             expected_authority,
             ReadinessStage.UNDECLARED,
             "function_undeclared",
+            expected_authorities=expected_authorities,
         )
     resolved = tuple(item for item in records if item is not None)
     stage = min((item.stage for item in resolved), key=_STAGE_RANK.__getitem__)
@@ -328,9 +346,17 @@ def assess_capability_readiness(
             stage,
             first_unavailable.unavailable_reason or "evidence_unavailable",
             provided_authority=first_unavailable.provided_authority,
+            expected_authorities=expected_authorities,
         )
     authorities = {item.provided_authority for item in resolved}
-    provided_authority = next(iter(authorities)) if len(authorities) == 1 else None
+    provided_authorities = tuple(sorted(item for item in authorities if item is not None))
+    provided_authority = (
+        next(iter(authorities))
+        if len(authorities) == 1
+        else "multiple_authoritative_sources"
+        if authorities and None not in authorities
+        else None
+    )
     if expected_authority is None:
         return _unavailable(
             capability_id,
@@ -339,8 +365,11 @@ def assess_capability_readiness(
             stage,
             "expected_authority_missing",
             provided_authority=provided_authority,
+            expected_authorities=expected_authorities,
+            provided_authorities=provided_authorities,
         )
-    if authorities != {expected_authority}:
+    expected_set = set(expected_authorities) if expected_authorities else {expected_authority}
+    if authorities != expected_set:
         return _unavailable(
             capability_id,
             required_functions,
@@ -348,6 +377,8 @@ def assess_capability_readiness(
             stage,
             "authority_mismatch",
             provided_authority=provided_authority,
+            expected_authorities=expected_authorities,
+            provided_authorities=provided_authorities,
         )
     return CapabilitySelectionReadiness(
         capability_id=capability_id,
@@ -357,6 +388,8 @@ def assess_capability_readiness(
         expected_authority=expected_authority,
         provided_authority=provided_authority,
         unavailable_reason=None,
+        expected_authorities=expected_authorities,
+        provided_authorities=provided_authorities,
     )
 
 
@@ -368,6 +401,8 @@ def _unavailable(
     reason: str,
     *,
     provided_authority: str | None = None,
+    expected_authorities: tuple[str, ...] = (),
+    provided_authorities: tuple[str, ...] = (),
 ) -> CapabilitySelectionReadiness:
     return CapabilitySelectionReadiness(
         capability_id=capability_id,
@@ -377,6 +412,8 @@ def _unavailable(
         expected_authority=expected_authority,
         provided_authority=provided_authority,
         unavailable_reason=reason,
+        expected_authorities=expected_authorities,
+        provided_authorities=provided_authorities,
     )
 
 

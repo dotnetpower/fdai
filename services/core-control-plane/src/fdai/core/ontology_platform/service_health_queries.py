@@ -28,12 +28,14 @@ SERVICE_HEALTH_FUNCTION_NAME = "query.subscription_service_health"
 SERVICE_HEALTH_MEASURE_CONCEPTS = ("service_health.active_event",)
 SERVICE_HEALTH_EVENT_TYPES = frozenset({"service_issue", "planned_maintenance", "health_advisory"})
 _MAX_ROWS = 256
+SERVICE_HEALTH_MAX_OBSERVATIONS = _MAX_ROWS - 1
 
 
 @dataclass(frozen=True, slots=True)
 class ServiceHealthObservation:
     """One active event projected with at most one impacted-resource record."""
 
+    event_id: str
     event_type: str
     title: str
     level: str | None
@@ -41,6 +43,7 @@ class ServiceHealthObservation:
     impact_start_at: datetime
     observed_at: datetime
     impacted_resource_count: int | None
+    impacted_resource_ref: str | None
     resource_name: str | None
     resource_type: str | None
     resource_group: str | None
@@ -53,6 +56,7 @@ class ServiceHealthObservation:
         if self.event_type not in SERVICE_HEALTH_EVENT_TYPES:
             raise ValueError("Service Health event_type is not reviewed")
         for name, value, maximum in (
+            ("event_id", self.event_id, 256),
             ("title", self.title, 512),
             ("status", self.status, 64),
             ("event_evidence_ref", self.event_evidence_ref, 256),
@@ -61,6 +65,7 @@ class ServiceHealthObservation:
                 raise ValueError(f"Service Health {name} MUST be bounded and non-empty")
         for name, optional_value, maximum in (
             ("resource_name", self.resource_name, 256),
+            ("impacted_resource_ref", self.impacted_resource_ref, 256),
             ("resource_type", self.resource_type, 256),
             ("resource_group", self.resource_group, 256),
             ("region", self.region, 128),
@@ -85,6 +90,7 @@ class ServiceHealthObservation:
             value is not None
             for value in (
                 self.resource_name,
+                self.impacted_resource_ref,
                 self.resource_type,
                 self.resource_group,
                 self.region,
@@ -111,13 +117,15 @@ class ServiceHealthCollection:
     attempt_ref: str
 
     def __post_init__(self) -> None:
-        if len(self.observations) > _MAX_ROWS:
+        if len(self.observations) > SERVICE_HEALTH_MAX_OBSERVATIONS:
             raise ValueError("Service Health collection exceeds its row bound")
         ordering = tuple(
             (
                 item.impact_start_at,
-                item.event_evidence_ref,
+                item.event_id,
                 item.resource_name or "",
+                item.event_evidence_ref,
+                item.impact_evidence_ref or "",
             )
             for item in self.observations
         )
@@ -198,11 +206,39 @@ def service_health_function(
         if arguments:
             raise ValueError("Service Health scope and query arguments are server-owned")
         collection = await reader.read_active()
-        rows = tuple(
+        unique_events = {item.event_id for item in collection.observations}
+        impacted_resources = {
+            item.impacted_resource_ref
+            for item in collection.observations
+            if item.impacted_resource_ref is not None
+        }
+        active_event_count = len(unique_events) if collection.complete or unique_events else None
+        impacted_resource_count = (
+            len(impacted_resources) if collection.complete or impacted_resources else None
+        )
+        count_posture = (
+            "exact" if collection.complete else "minimum" if unique_events else "unknown"
+        )
+        summary = QueryRow.from_values(
+            "service-health-summary",
+            {
+                "record_kind": "summary",
+                "scope_kind": "subscription",
+                "active_event_count": active_event_count,
+                "impacted_resource_count": impacted_resource_count,
+                "count_posture": count_posture,
+                "observed_at": collection.observed_at.isoformat(),
+                "attempt_ref": collection.attempt_ref,
+                "execution_authority": False,
+            },
+        )
+        event_rows = tuple(
             QueryRow.from_values(
-                f"service-health-{index:04d}",
+                f"service-health-event-{index:04d}",
                 {
+                    "record_kind": "event",
                     "scope_kind": "subscription",
+                    "event_id": item.event_id,
                     "event_type": item.event_type,
                     "title": item.title,
                     "level": item.level,
@@ -210,6 +246,7 @@ def service_health_function(
                     "impact_start_at": item.impact_start_at.isoformat(),
                     "observed_at": item.observed_at.isoformat(),
                     "impacted_resource_count": item.impacted_resource_count,
+                    "impacted_resource_ref": item.impacted_resource_ref,
                     "resource_name": item.resource_name,
                     "resource_type": item.resource_type,
                     "resource_group": item.resource_group,
@@ -223,7 +260,7 @@ def service_health_function(
             for index, item in enumerate(collection.observations, start=1)
         )
         table = QueryTable(
-            rows=rows,
+            rows=(summary, *event_rows),
             complete=collection.complete,
             truncation_reason=collection.limitation,
         )
@@ -236,6 +273,7 @@ __all__ = [
     "SERVICE_HEALTH_EVENT_TYPES",
     "SERVICE_HEALTH_FUNCTION_NAME",
     "SERVICE_HEALTH_MEASURE_CONCEPTS",
+    "SERVICE_HEALTH_MAX_OBSERVATIONS",
     "ServiceHealthCollection",
     "ServiceHealthObservation",
     "ServiceHealthReader",

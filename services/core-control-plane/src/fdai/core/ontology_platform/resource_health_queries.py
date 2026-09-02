@@ -150,6 +150,7 @@ def resource_health_inventory_function(
                         **state_values,
                         "evidence_family": "current_inventory",
                         "health_concept": None,
+                        "matching_health_concepts": [],
                         "availability_state": None,
                         "coverage_state": None,
                     }
@@ -166,17 +167,19 @@ def resource_health_inventory_function(
                         coverage=coverage,
                         observation=observation,
                         health_concept=None,
+                        matching_health_concepts=(),
                         collection=collection,
                     )
                 )
                 continue
             if observation is None:
                 raise ValueError("Resource Health observed coverage is missing its observation")
-            concept = _most_specific_concept(
+            matching_concepts = _matching_concepts(
                 observation.availability_state.value,
                 requested_health=requested_health,
                 groups=normalized_groups,
             )
+            concept = matching_concepts[0] if matching_concepts else None
             if (
                 concept is None
                 and observation.availability_state is ResourceHealthAvailabilityState.AVAILABLE
@@ -188,6 +191,7 @@ def resource_health_inventory_function(
                     coverage=coverage,
                     observation=observation,
                     health_concept=concept,
+                    matching_health_concepts=matching_concepts,
                     collection=collection,
                 )
             )
@@ -226,15 +230,15 @@ def _validated_groups(
     return normalized
 
 
-def _most_specific_concept(
+def _matching_concepts(
     state: str,
     *,
     requested_health: tuple[str, ...],
     groups: Mapping[str, frozenset[str]],
-) -> str | None:
+) -> tuple[str, ...]:
     normalized = _machine_token(state)
     matches = [concept for concept in requested_health if normalized in groups[concept]]
-    return min(matches, key=lambda item: (len(groups[item]), item)) if matches else None
+    return tuple(sorted(matches, key=lambda item: (len(groups[item]), item)))
 
 
 def _health_row_values(
@@ -243,6 +247,7 @@ def _health_row_values(
     coverage: ResourceHealthCoverage,
     observation: ResourceHealthObservation | None,
     health_concept: str | None,
+    matching_health_concepts: tuple[str, ...],
     collection: ResourceHealthCollection,
 ) -> dict[str, object]:
     provider_observed_at = (
@@ -259,6 +264,7 @@ def _health_row_values(
         "coverage_state": coverage.status.value,
         "state_concept": None,
         "health_concept": health_concept,
+        "matching_health_concepts": list(matching_health_concepts),
         "health_kind": observation.reason_kind if observation is not None else None,
         "provider_observed_at": provider_observed_at,
         "source_observed_at": provider_observed_at,
