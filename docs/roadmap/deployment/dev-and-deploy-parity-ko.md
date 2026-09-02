@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: be1e6e4b93af4664a29c13eb64f8125a774e0f62
+translation_source_sha: 1d55304a70e4f4524e582b17e1cc6f3ac18d21db
 translation_revised: 2026-09-03
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -68,8 +68,8 @@ Console 패널을 방문하고, 패널 경계가 안정될 때까지 기다리�
 | 격리 실행기 상태 | `http://127.0.0.1:8013` | `Console Web: Isolated Executor` |
 
 `Console Web: Full Stack` compound는 독립 패키지로 구성된 백엔드 서비스 5개와 Console
-SPA를 시작합니다. Azure 게시자는 허용 목록의 Manual Studio 파일을 동일 출처 `/manuals`에
-추가하고 카탈로그와 라이브러리 해시를 검증합니다. 로컬 launch는 담당 서비스 분포만 가져오며 제거된 top-level 패키지, 문서 처리
+SPA를 시작합니다. 보호된 정적 게시자는 인프라를 변경하지 않으며, 허용 목록의 Manual Studio
+파일을 동일 출처 `/manuals`에 추가하고 카탈로그와 라이브러리 해시를 검증합니다. 로컬 launch는 담당 서비스 분포만 가져오며 제거된 top-level 패키지, 문서 처리
 co-host 또는 프로세스 내 Operator API 호환성 경로를 복원하지 않습니다. 로컬 격리 실행기는
 managed-resource identity가 없는 영속 shadow consumer입니다. 이 venue에서 authority cutover를
 설정하면 시작이 실패합니다. Compound는 정적 design mock이나 fixture 애플리케이션을 시작하지

@@ -7,21 +7,13 @@ terraform_dir="${1:-$repo_root/infra}"
 : "${EXPECTED_AZURE_TENANT_ID:?EXPECTED_AZURE_TENANT_ID is required}"
 : "${ENTRA_CONSOLE_SPA_CLIENT_ID:?ENTRA_CONSOLE_SPA_CLIENT_ID is required}"
 : "${ENTRA_CONSOLE_API_SCOPE:?ENTRA_CONSOLE_API_SCOPE is required}"
-: "${DEPLOY_OPERATOR_API:?DEPLOY_OPERATOR_API is required}"
-: "${DEPLOY_DOCUMENT_INGESTION:?DEPLOY_DOCUMENT_INGESTION is required}"
 : "${GITHUB_STEP_SUMMARY:?GITHUB_STEP_SUMMARY is required}"
 
-if [[ "$DEPLOY_OPERATOR_API" != "true" && "$DEPLOY_OPERATOR_API" != "false" ]] ||
-  [[ "$DEPLOY_DOCUMENT_INGESTION" != "true" && "$DEPLOY_DOCUMENT_INGESTION" != "false" ]]; then
-  echo "console deployment feature inputs must be true or false" >&2
-  exit 2
-fi
 if [[ ! "$ENTRA_CONSOLE_API_SCOPE" =~ ^api://[^/]+/[^/]+$ ]]; then
   echo "ENTRA_CONSOLE_API_SCOPE must use api://<audience>/<scope>" >&2
   exit 2
 fi
 
-resource_group="$(terraform -chdir="$terraform_dir" output -raw resource_group_name)"
 hostname="$(terraform -chdir="$terraform_dir" output -raw console_default_hostname)"
 resource_id="$(terraform -chdir="$terraform_dir" output -raw console_static_web_app_id)"
 if [[ -z "$hostname" || -z "$resource_id" ]]; then
@@ -29,21 +21,8 @@ if [[ -z "$hostname" || -z "$resource_id" ]]; then
   exit 1
 fi
 
-operator_api=""
-if [[ "$DEPLOY_OPERATOR_API" == "true" ]]; then
-  operator_api="$(az containerapp show \
-    --name "$(terraform -chdir="$terraform_dir" output -raw operator_api_name)" \
-    --resource-group "$resource_group" \
-    --query properties.configuration.ingress.fqdn -o tsv)"
-fi
-
-ingestion_api=""
-if [[ "$DEPLOY_DOCUMENT_INGESTION" == "true" ]]; then
-  ingestion_api="$(az containerapp show \
-    --name "$(terraform -chdir="$terraform_dir" output -raw ingestion_gateway_name)" \
-    --resource-group "$resource_group" \
-    --query properties.configuration.ingress.fqdn -o tsv)"
-fi
+operator_api="$(terraform -chdir="$terraform_dir" output -raw operator_api_fqdn)"
+ingestion_api="$(terraform -chdir="$terraform_dir" output -raw ingestion_gateway_fqdn)"
 
 deployment_token="$(az rest --method post \
   --url "https://management.azure.com${resource_id}/listSecrets?api-version=2023-12-01" \

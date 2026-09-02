@@ -1,0 +1,114 @@
+name: publish-console
+run-name: publish-console-${{ inputs.environment }}-${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Existing environment whose Console Static Web App will be published."
+        type: choice
+        options: [dev, staging, prod]
+        default: dev
+      commit_sha:
+        description: "Exact CI-verified commit from protected main."
+        type: string
+        required: true
+
+permissions:
+  checks: read
+  contents: read
+
+concurrency:
+  group: publish-console-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main' && inputs.commit_sha == github.sha
+    runs-on: [self-hosted, fdai-deploy]
+    timeout-minutes: 30
+    environment: ${{ inputs.environment }}
+    env:
+      ARM_USE_AZUREAD: "true"
+      ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
+      DEPLOY_RUNNER_CLIENT_ID: ${{ vars.DEPLOY_RUNNER_CLIENT_ID }}
+      DEPLOY_RUNNER_PRINCIPAL_ID: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}
+      EXPECTED_AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ENTRA_CONSOLE_SPA_CLIENT_ID: ${{ vars.ENTRA_CONSOLE_SPA_CLIENT_ID }}
+      ENTRA_CONSOLE_API_SCOPE: ${{ vars.ENTRA_CONSOLE_API_SCOPE }}
+    steps:
+      - name: Prepare self-hosted runner workspace
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          azure_config_dir="$RUNNER_TEMP/azure-cli"
+          mkdir -p "$azure_config_dir"
+          echo "AZURE_CONFIG_DIR=$azure_config_dir" >> "$GITHUB_ENV"
+
+      - name: Checkout exact protected revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 1
+
+      - name: Verify exact protected revision
+        env:
+          TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$TARGET_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "commit_sha must be a lowercase 40-character git SHA." >&2
+            exit 1
+          fi
+          [[ "$(git rev-parse HEAD)" == "$TARGET_COMMIT_SHA" ]] || {
+            echo "checked-out revision does not match commit_sha." >&2
+            exit 1
+          }
+
+      - name: Install pinned GitHub CLI
+        run: bash scripts/deployment/azure/install-pinned-github-cli.sh
+
+      - name: Verify required CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          conclusion="$(
+            gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET_COMMIT_SHA/check-runs?per_page=100" \
+              --jq '[.check_runs[] | select(.name == "required")] | sort_by(.completed_at) | last | .conclusion // ""'
+          )"
+          [[ "$conclusion" == "success" ]] || {
+            echo "the exact commit does not have a successful required CI check." >&2
+            exit 1
+          }
+
+      - name: Verify protected environment approval policy
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/environments/${{ inputs.environment }}" \
+            > "$RUNNER_TEMP/environment.json"
+          python3 scripts/deployment/azure/verify-github-environment.py \
+            "$RUNNER_TEMP/environment.json" --required-approvals 1
+
+      - name: Verify exact Azure context and deploy identity
+        run: >-
+          bash scripts/deployment/azure/login-deploy-identity.sh
+          "$ARM_SUBSCRIPTION_ID" "$EXPECTED_AZURE_TENANT_ID"
+          "$DEPLOY_RUNNER_CLIENT_ID" "$DEPLOY_RUNNER_PRINCIPAL_ID"
+
+      - name: Initialize Terraform remote state
+        working-directory: infra
+        run: |
+          set -euo pipefail
+          cp backend.azurerm.tf.example backend.tf
+          terraform init -input=false \
+            -backend-config="resource_group_name=${{ vars.OPS_RESOURCE_GROUP_NAME }}" \
+            -backend-config="storage_account_name=${{ vars.STATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=tfstate" \
+            -backend-config="key=fdai-${{ inputs.environment }}.tfstate"
+
+      - name: Publish and verify Console static content
+        run: bash scripts/deployment/azure/publish-console.sh infra

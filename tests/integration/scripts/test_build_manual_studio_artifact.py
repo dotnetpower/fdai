@@ -8,6 +8,7 @@ from pathlib import Path
 _ROOT = Path(__file__).resolve().parents[3]
 _MODULE_PATH = _ROOT / "scripts" / "deployment" / "azure" / "build_manual_studio_artifact.py"
 _PUBLISHER_PATH = _ROOT / "scripts" / "deployment" / "azure" / "publish-console.sh"
+_WORKFLOW_PATH = _ROOT / ".github" / "workflows" / "publish-console.yml"
 _SPEC = importlib.util.spec_from_file_location("build_manual_studio_artifact", _MODULE_PATH)
 assert _SPEC is not None and _SPEC.loader is not None
 _MODULE = importlib.util.module_from_spec(_SPEC)
@@ -47,3 +48,19 @@ def test_console_publisher_binds_and_verifies_same_origin_manuals() -> None:
     assert "build_manual_studio_artifact.py" in publisher
     assert '"https://$hostname/manuals/$manual_file"' in publisher
     assert "sha256sum --check --status" in publisher
+    assert "output -raw operator_api_fqdn" in publisher
+    assert "output -raw ingestion_gateway_fqdn" in publisher
+    assert "DEPLOY_OPERATOR_API" not in publisher
+    assert "DEPLOY_DOCUMENT_INGESTION" not in publisher
+
+
+def test_console_static_publish_workflow_requires_exact_green_main_revision() -> None:
+    workflow = _WORKFLOW_PATH.read_text(encoding="utf-8")
+
+    assert "inputs.commit_sha == github.sha" in workflow
+    assert "runs-on: [self-hosted, fdai-deploy]" in workflow
+    assert 'select(.name == "required")' in workflow
+    assert "verify-github-environment.py" in workflow
+    assert "login-deploy-identity.sh" in workflow
+    assert "terraform init -input=false" in workflow
+    assert "publish-console.sh infra" in workflow

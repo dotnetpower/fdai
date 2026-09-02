@@ -64,8 +64,8 @@ Committed VS Code settings keep each local web surface on one predictable port. 
 | Isolated Executor health | `http://127.0.0.1:8013` | `Console Web: Isolated Executor` |
 
 The `Console Web: Full Stack` compound starts the five independently packaged backend services and
-the Console SPA. The Azure publisher adds allowlisted Manual Studio files at same-origin `/manuals`
-and verifies catalog and library hashes. Local launches import only service-owned distributions; they don't restore the
+the Console SPA. The protected static publisher changes no infrastructure; it adds allowlisted
+Manual Studio files at same-origin `/manuals` and verifies catalog and library hashes. Local launches import only service-owned distributions; they don't restore the
 retired top-level package, co-host document processing, or an in-process Operator API compatibility
 path. The local Isolated Executor is a durable shadow consumer with no managed-resource identity;
 an authority-cutover setting in this venue fails startup. The compound doesn't start static design
