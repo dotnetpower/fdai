@@ -1,6 +1,11 @@
 from __future__ import annotations
 
 import pytest
+from scripts.automation.conversation_assurance_question_admission import (
+    admit_generated_question,
+    admit_paraphrase_cohort,
+    persist_admitted_questions,
+)
 from scripts.automation.conversation_assurance_question_contract import (
     CHALLENGE_QUESTION_CONTRACTS,
     TypedQuestionContract,
@@ -158,3 +163,170 @@ def test_regression_challenge_contracts_preserve_scope_and_cardinality() -> None
     assert running_vms.scope_kind == "configured_subscription"
     assert running_vms.target_cardinality == "collection"
     assert running_vms.result_shape == "resource_state_table"
+
+
+def test_question_admission_retries_semantic_drift_before_accepting(
+    subscription_health_contract: TypedQuestionContract,
+) -> None:
+    proposals = (
+        {
+            "question": "Which exact resource has a health incident?",
+            "locale": "en",
+            "challenge_id": "service-outage",
+        },
+        {
+            "question": "Are any service-health outages active in this subscription?",
+            "locale": "en",
+            "challenge_id": "service-outage",
+        },
+    )
+    reviews = iter(
+        (
+            _review_payload(
+                subscription_health_contract,
+                scope_kind="exact_resource",
+                target_cardinality="single",
+            ),
+            _review_payload(subscription_health_contract),
+        )
+    )
+
+    decision = admit_generated_question(
+        challenge_id="service-outage",
+        contract=subscription_health_contract,
+        locale="en",
+        attempts=2,
+        propose=lambda attempt: proposals[attempt],
+        review=lambda _question: next(reviews),
+    )
+
+    assert decision.accepted
+    assert decision.attempts == 2
+    assert decision.rejection_reasons == ("typed_contract_changed",)
+    assert decision.questions == ("Are any service-health outages active in this subscription?",)
+
+
+def test_semantically_rejected_questions_never_reach_evaluation_ledger(
+    subscription_health_contract: TypedQuestionContract,
+) -> None:
+    written: list[str] = []
+
+    decision = admit_generated_question(
+        challenge_id="service-outage",
+        contract=subscription_health_contract,
+        locale="en",
+        attempts=3,
+        propose=lambda attempt: {
+            "question": f"Which exact resource has health incident {attempt}?",
+            "locale": "en",
+            "challenge_id": "service-outage",
+        },
+        review=lambda _question: _review_payload(
+            subscription_health_contract,
+            scope_kind="exact_resource",
+            target_cardinality="single",
+        ),
+    )
+    persisted = persist_admitted_questions(
+        decision,
+        lambda question: written.append(question),
+    )
+
+    assert not decision.accepted
+    assert decision.attempts == 3
+    assert decision.rejection_reasons == ("typed_contract_changed",) * 3
+    assert persisted == ()
+    assert written == []
+
+
+def test_three_question_paraphrase_cohort_preserves_typed_contract(
+    subscription_health_contract: TypedQuestionContract,
+) -> None:
+    paraphrases = [
+        "Are service-health outages currently active in this subscription?",
+        "Does this subscription have an active service-health outage?",
+        "Any current service-health outage across the configured subscription?",
+    ]
+
+    decision = admit_paraphrase_cohort(
+        challenge_id="service-outage",
+        contract=subscription_health_contract,
+        locale="en",
+        original_question="Are any service-health outages active in this subscription?",
+        attempts=1,
+        propose=lambda _attempt: {
+            "challenge_id": "service-outage",
+            "questions": paraphrases,
+        },
+        review=lambda _question: _review_payload(subscription_health_contract),
+    )
+
+    assert decision.accepted
+    assert decision.questions == tuple(paraphrases)
+
+
+def test_paraphrase_cohort_retries_when_one_question_drifts(
+    subscription_health_contract: TypedQuestionContract,
+) -> None:
+    proposals = (
+        {
+            "challenge_id": "service-outage",
+            "questions": [
+                "Are service-health outages currently active in this subscription?",
+                "Which exact resource has a health incident?",
+                "Any current service-health outage across the configured subscription?",
+            ],
+        },
+        {
+            "challenge_id": "service-outage",
+            "questions": [
+                "Are there active service-health outages in this subscription?",
+                "Does the configured subscription have a service-health outage?",
+                "Any service-health outage active across this subscription now?",
+            ],
+        },
+    )
+    reviews = iter(
+        (
+            _review_payload(subscription_health_contract),
+            _review_payload(
+                subscription_health_contract,
+                scope_kind="exact_resource",
+                target_cardinality="single",
+            ),
+            _review_payload(subscription_health_contract),
+            _review_payload(subscription_health_contract),
+            _review_payload(subscription_health_contract),
+        )
+    )
+
+    decision = admit_paraphrase_cohort(
+        challenge_id="service-outage",
+        contract=subscription_health_contract,
+        locale="en",
+        original_question="Are any service-health outages active in this subscription?",
+        attempts=2,
+        propose=lambda attempt: proposals[attempt],
+        review=lambda _question: next(reviews),
+    )
+
+    assert decision.accepted
+    assert decision.attempts == 2
+    assert decision.rejection_reasons == ("typed_contract_changed",)
+    assert decision.questions == tuple(proposals[1]["questions"])
+
+
+@pytest.mark.parametrize("attempts", [0, 4])
+def test_question_admission_enforces_bounded_attempts(
+    subscription_health_contract: TypedQuestionContract,
+    attempts: int,
+) -> None:
+    with pytest.raises(ValueError, match="between 1 and 3"):
+        admit_generated_question(
+            challenge_id="service-outage",
+            contract=subscription_health_contract,
+            locale="en",
+            attempts=attempts,
+            propose=lambda _attempt: {},
+            review=lambda _question: {},
+        )

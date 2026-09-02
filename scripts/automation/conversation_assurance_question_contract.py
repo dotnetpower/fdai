@@ -442,7 +442,8 @@ def _changed_contract_fields(
             "required_facets",
         }:
             if (
-                not isinstance(actual, list)
+                not isinstance(wanted, list)
+                or not isinstance(actual, list)
                 or any(not isinstance(item, str) for item in actual)
                 or set(actual) != set(wanted)
             ):
