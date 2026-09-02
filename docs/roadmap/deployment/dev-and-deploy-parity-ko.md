@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: e026193a9d6c1ce69472ee690c5a9b0c25426ab7
+translation_source_sha: be1e6e4b93af4664a29c13eb64f8125a774e0f62
 translation_revised: 2026-09-03
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -56,27 +56,20 @@ Console 패널을 방문하고, 패널 경계가 안정될 때까지 기다리�
 | 파괴적 migration 검증 | 별도 `pgvector/pgvector:pg16` cluster on `:5433` | 격리된 CI 검증 데이터베이스 |
 | Event 버스 (통합 테스트) | Redpanda on `:19092` (Kafka wire) | Event Hubs Kafka on `:9093` |
 ### 고정 workspace 포트
-커밋된 VS 코드 설정은 각 로컬 web 표면이 항상 같은 포트를 사용하게 합니다. 정적 design mock
-site는 인증된 Console full stack과 분리되어 있습니다.
+커밋된 VS 코드 설정은 각 로컬 web 표면이 항상 같은 포트를 사용하게 합니다. Manual Studio는 로컬 개발에서 `5474`로 독립 실행되며 인증된 Console full stack과 분리되어 있습니다.
 
 | 표면 | 기본 주소 | Workspace 항목 지점 |
 |---------|-------------|-----------------------|
 | Design mock | `http://127.0.0.1:5373` | `Design Mocks: Static Site` launch 또는 `design mocks: serve (5373)` 작업 |
-| Manual Studio | `http://127.0.0.1:5474` | `npm --prefix tools/manual-studio run dev` |
 | Console SPA | `http://127.0.0.1:5273` | `Console Web: Full Stack` (권장) 또는 `Console Web: Frontend` (SPA 전용) |
 | Operator API | `http://127.0.0.1:8010` | `Console Web: Operator API` |
 | 문서 인제스트 API | `http://127.0.0.1:8011` | `Console Web: Document Ingestion API` |
 | 문서 처리 워커 상태 | `http://127.0.0.1:8012` | `Console Web: Document Processing Worker` |
 | 격리 실행기 상태 | `http://127.0.0.1:8013` | `Console Web: Isolated Executor` |
 
-보호된 Azure Console 게시자는 허용 목록에 포함된 Manual Studio 런타임 파일만 동일한
-Static Web App의 `/manuals` 아래에 패키징합니다. Console 빌드를 이 동일 출처 경로에
-바인딩하고, 배포된 카탈로그와 라이브러리 해시를 원본 산출물과 비교합니다. 로컬 개발은
-독립적으로 실행할 수 있는 `5474` 서버를 유지하고, 배포 환경은 별도 출처와 CORS 구성을
-사용하지 않습니다.
-
 `Console Web: Full Stack` compound는 독립 패키지로 구성된 백엔드 서비스 5개와 Console
-SPA를 시작합니다. 각 launch는 담당 서비스 분포만 가져오며 제거된 top-level 패키지, 문서 처리
+SPA를 시작합니다. Azure 게시자는 허용 목록의 Manual Studio 파일을 동일 출처 `/manuals`에
+추가하고 카탈로그와 라이브러리 해시를 검증합니다. 로컬 launch는 담당 서비스 분포만 가져오며 제거된 top-level 패키지, 문서 처리
 co-host 또는 프로세스 내 Operator API 호환성 경로를 복원하지 않습니다. 로컬 격리 실행기는
 managed-resource identity가 없는 영속 shadow consumer입니다. 이 venue에서 authority cutover를
 설정하면 시작이 실패합니다. Compound는 정적 design mock이나 fixture 애플리케이션을 시작하지

@@ -53,26 +53,19 @@ Command Deck, then requires verified or grounded terminal evidence. A governed o
 | Destructive migration validation | Separate `pgvector/pgvector:pg16` cluster on `:5433` | Isolated CI validation database |
 | Event bus (integration tests) | Redpanda on `:19092` (Kafka wire) | Event Hubs Kafka on `:9093` |
 ### Fixed workspace ports
-Committed VS Code settings keep each local web surface on one predictable port. The design mock
-site is static and separate from the authenticated Console full stack.
+Committed VS Code settings keep each local web surface on one predictable port. Manual Studio runs independently on `5474` for local development and stays separate from the authenticated Console full stack.
 | Surface | Default address | Workspace entry point |
 |---------|-----------------|-----------------------|
 | Design mocks | `http://127.0.0.1:5373` | `Design Mocks: Static Site` launch or `design mocks: serve (5373)` task |
-| Manual Studio | `http://127.0.0.1:5474` | `npm --prefix tools/manual-studio run dev` |
 | Console SPA | `http://127.0.0.1:5273` | `Console Web: Full Stack` (recommended) or `Console Web: Frontend` (SPA only) |
 | Operator API | `http://127.0.0.1:8010` | `Console Web: Operator API` |
 | Document Ingestion API | `http://127.0.0.1:8011` | `Console Web: Document Ingestion API` |
 | Document Processing Worker health | `http://127.0.0.1:8012` | `Console Web: Document Processing Worker` |
 | Isolated Executor health | `http://127.0.0.1:8013` | `Console Web: Isolated Executor` |
 
-The protected Azure Console publisher packages only the allowlisted Manual Studio runtime files
-under the same Static Web App at `/manuals`. It binds the Console build to that same-origin path and
-compares the deployed catalog and library hashes with the source artifact. Local development keeps
-the independently runnable `5474` server, while deployment avoids a separate origin and its CORS
-configuration.
-
 The `Console Web: Full Stack` compound starts the five independently packaged backend services and
-the Console SPA. Its launches import only service-owned distributions; they don't restore the
+the Console SPA. The Azure publisher adds allowlisted Manual Studio files at same-origin `/manuals`
+and verifies catalog and library hashes. Local launches import only service-owned distributions; they don't restore the
 retired top-level package, co-host document processing, or an in-process Operator API compatibility
 path. The local Isolated Executor is a durable shadow consumer with no managed-resource identity;
 an authority-cutover setting in this venue fails startup. The compound doesn't start static design
