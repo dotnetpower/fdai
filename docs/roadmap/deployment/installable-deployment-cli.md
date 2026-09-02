@@ -507,10 +507,12 @@ provider-hosted authentication; no credential is copied into a command argument.
 
 The dispatch sends `apply=false`, the environment, exact commit, and a SHA-256 deployment-context
 fingerprint. Console, Operator API, document-ingestion, isolated-Executor, and monitoring flags are
-included in that fingerprint and sent identically to plan and apply. A changed flag invalidates the
-plan. Tenant, subscription, backend, and runner identifiers aren't sent in the dispatch body. The
-workflow validates the bounded request id, context digest, and exact checked-out commit before
-planning.
+included in that fingerprint and sent identically to plan and apply. An optional runtime source
+revision is also sealed into the fingerprint. During planning, the client promotes and verifies that
+exact Core image independently of the isolated Executor; apply restores the resulting digest-pinned
+plan without repeating promotion. A changed input invalidates the plan. Tenant, subscription,
+backend, and runner identifiers aren't sent in the dispatch body. The workflow validates the bounded
+request id, context digest, and exact checked-out commit before planning.
 
 Before apply, the client verifies that the target GitHub Environment has required reviewers and
 blocks self-review and administrator bypass. GitHub Environment protection requires one approval from its reviewer set; it
@@ -545,7 +547,7 @@ The local CLI doesn't download or print the binary Terraform plan because plan f
 stores CLI-requested plans and sanitized metadata in a private `deployment-plans` Blob container beside the remote-state container. Uploads
 use the runner managed identity, public access is off, and `overwrite=false` makes each run path immutable. Metadata records the plan
 digest, context digest, exact commit, workflow run, and a one-hour logical expiry without tenant, subscription, backend, runner, or secret
-values. An isolated Executor plan also records the verified runtime source revision and OCI digest without a registry endpoint or mutable
+values. A plan with a selected runtime revision also records the verified source revision and OCI digest without a registry endpoint or mutable
 tag. A successful `deploy status` returns the derived plan id and digest from the bounded metadata-only artifact. Each new plan run scans at
 most 1001 private blobs and deletes at most 1000 allowlisted plan paths older than 24 hours; reaching either bound fails closed without
 deleting unknown paths.

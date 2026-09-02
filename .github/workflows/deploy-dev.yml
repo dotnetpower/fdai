@@ -9,7 +9,8 @@ run-name: deploy-${{ inputs.request_id || format('{0}-{1}', inputs.environment, 
 #       DEPLOY_RUNNER_CLIENT_ID, DEPLOY_RUNNER_PRINCIPAL_ID,
 #       OPS_RESOURCE_GROUP_NAME, OPS_VNET_ID, OPS_VNET_NAME, STATE_STORAGE_ACCOUNT,
 #       DEPLOY_PREFLIGHT_INPUT_JSON (non-secret complete live-probe profile),
-#       ENTRA_CONSOLE_SPA_CLIENT_ID (required when deploy_console=true),
+#       ENTRA_CONSOLE_SPA_CLIENT_ID, ENTRA_CONSOLE_API_SCOPE
+#       (required when deploy_console=true),
 #       Feature-specific variables are documented by their workflow inputs and
 #       docs/roadmap/deployment/deploy-and-onboard.md.
 #   - Repo secrets:
@@ -83,7 +84,7 @@ on:
         type: boolean
         default: false
       runtime_image_revision:
-        description: "Optional source commit for the verified runtime image; defaults to the checkout commit."
+        description: "Optional exact source commit for the verified Core runtime image."
         type: string
         required: false
       promote_runtime_image:
@@ -290,7 +291,7 @@ jobs:
           version: "0.11.32"
           enable-cache: false
       - name: Install pinned GitHub CLI
-        if: ${{ inputs.apply || env.MODEL_BINDING_ONLY == 'true' || inputs.deploy_isolated_executor }}
+        if: ${{ inputs.apply || env.MODEL_BINDING_ONLY == 'true' || inputs.runtime_image_revision != '' }}
         working-directory: ${{ github.workspace }}
         run: bash scripts/deployment/azure/install-pinned-github-cli.sh
       - name: Validate deployment request
@@ -309,6 +310,7 @@ jobs:
           PLAN_DIGEST: ${{ inputs.plan_digest }}
           CUTOVER_ISOLATED_EXECUTOR_AUTHORITY: ${{ inputs.cutover_isolated_executor_authority }}
           DEPLOY_CONSOLE: ${{ inputs.deploy_console }}
+          ENTRA_CONSOLE_API_SCOPE: ${{ vars.ENTRA_CONSOLE_API_SCOPE }}
           DEPLOY_CORE_MODEL_QUORUM: ${{ env.CORE_MODEL_QUORUM_ONLY }}
           DEPLOY_DESIGN_MOCKS: ${{ inputs.deploy_design_mocks }}
           DEPLOY_DOCUMENT_INGESTION: ${{ inputs.deploy_document_ingestion }}
@@ -572,15 +574,15 @@ jobs:
             echo "ACTIVE_CORE_MODEL_DIGEST=$current"
           } >> "$GITHUB_ENV"
 
-      - name: Bind exact isolated Executor runtime image
-        if: ${{ !inputs.apply && inputs.deploy_isolated_executor }}
+      - name: Bind exact Core runtime image
+        if: ${{ !inputs.apply && inputs.runtime_image_revision != '' }}
         working-directory: ${{ github.workspace }}
         env:
           GH_TOKEN: ${{ github.token }}
           GHCR_TOKEN: ${{ github.token }}
           PROMOTE_RUNTIME_IMAGE: ${{ inputs.promote_runtime_image }}
           RUNTIME_IMAGE_REVISION: ${{ inputs.runtime_image_revision }}
-        run: bash scripts/deployment/azure/bind_isolated_executor_image.sh infra
+        run: bash scripts/deployment/azure/bind_core_runtime_image.sh infra
 
       - name: Adopt existing Azure resources
         if: ${{ !inputs.apply && !inputs.deploy_design_mocks }}
@@ -2277,24 +2279,13 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-      - name: Publish console API endpoints
+      - name: Publish and verify console
         if: ${{ inputs.apply && inputs.deploy_console }}
-        run: |
-          set -euo pipefail
-          rg="$(terraform output -raw resource_group_name)"
-          operator_api=""
-          ingestion=""
-          if [ "${{ inputs.deploy_operator_api }}" = "true" ]; then
-            operator_api="$(az containerapp show \
-              --name "$(terraform output -raw operator_api_name)" --resource-group "$rg" \
-              --query properties.configuration.ingress.fqdn -o tsv)"
-          fi
-          if [ "${{ inputs.deploy_document_ingestion }}" = "true" ]; then
-            ingestion="$(az containerapp show \
-              --name "$(terraform output -raw ingestion_gateway_name)" --resource-group "$rg" \
-              --query properties.configuration.ingress.fqdn -o tsv)"
-          fi
-          {
-            echo "VITE_OPERATOR_API_BASE_URL=${operator_api:+https://$operator_api}"
-            echo "VITE_INGESTION_API_BASE_URL=${ingestion:+https://$ingestion}"
-          } >> "$GITHUB_STEP_SUMMARY"
+        working-directory: ${{ github.workspace }}
+        env:
+          DEPLOY_OPERATOR_API: ${{ inputs.deploy_operator_api }}
+          DEPLOY_DOCUMENT_INGESTION: ${{ inputs.deploy_document_ingestion }}
+          EXPECTED_AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          ENTRA_CONSOLE_SPA_CLIENT_ID: ${{ vars.ENTRA_CONSOLE_SPA_CLIENT_ID }}
+          ENTRA_CONSOLE_API_SCOPE: ${{ vars.ENTRA_CONSOLE_API_SCOPE }}
+        run: bash scripts/deployment/azure/publish-console.sh infra

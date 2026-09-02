@@ -40,10 +40,10 @@ def test_pinned_github_cli_precedes_model_and_runtime_image_checks() -> None:
     installer_block = _WORKFLOW[installer:].split("      - name:", maxsplit=1)[0]
 
     assert "MODEL_BINDING_ONLY == 'true'" in installer_block
-    assert "inputs.deploy_isolated_executor" in installer_block
+    assert "inputs.runtime_image_revision != ''" in installer_block
     assert installer < _WORKFLOW.index("- name: Verify model binding policy active digest")
     assert installer < _WORKFLOW.index("- name: Reverify active Core model fence")
-    assert installer < _WORKFLOW.index("- name: Bind exact isolated Executor runtime image")
+    assert installer < _WORKFLOW.index("- name: Bind exact Core runtime image")
 
 
 def test_deploy_workflow_skips_plan_only_work_during_apply() -> None:
@@ -76,7 +76,8 @@ def test_deploy_workflow_invokes_reviewed_helpers() -> None:
     helpers = (
         "install-pinned-github-cli.sh",
         "validate_deploy_request.py",
-        "bind_isolated_executor_image.sh",
+        "bind_core_runtime_image.sh",
+        "publish-console.sh",
         "build_dev_gateway_artifact.py",
         "run_runner_preflight.py",
         "enforce_plan_scope.py",
@@ -125,7 +126,7 @@ def test_gateway_publish_uses_bounded_cli_one_deploy() -> None:
 
 
 def test_registry_credentials_are_not_process_arguments() -> None:
-    binder = (_ROOT / "scripts/deployment/azure/bind_isolated_executor_image.sh").read_text(
+    binder = (_ROOT / "scripts/deployment/azure/bind_core_runtime_image.sh").read_text(
         encoding="utf-8"
     )
     assert "--password" not in binder

@@ -26,6 +26,7 @@ _GUID = re.compile(
     r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
     r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 )
+_API_SCOPE = re.compile(r"^api://[^/]+/[^/]+$")
 
 
 def _enabled(values: Mapping[str, str], key: str) -> bool:
@@ -44,6 +45,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
     """Reject mixed, stale, or unbound deployment requests."""
     apply = _enabled(values, "APPLY")
     deploy_gateway = _enabled(values, "DEPLOY_DEV_OPERATIONS_GATEWAY")
+    deploy_console = _enabled(values, "DEPLOY_CONSOLE")
     deploy_core_model_quorum = _enabled(values, "DEPLOY_CORE_MODEL_QUORUM")
     deploy_executor = _enabled(values, "DEPLOY_ISOLATED_EXECUTOR")
     deploy_ohl = _enabled(values, "DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET")
@@ -57,6 +59,11 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
     resume = _enabled(values, "RESUME_VERIFICATION")
     request_id = values.get("REQUEST_ID", "")
     context_digest = values.get("CONTEXT_DIGEST", "")
+    if deploy_console and _API_SCOPE.fullmatch(values.get("ENTRA_CONSOLE_API_SCOPE", "")) is None:
+        raise ValueError(
+            "ENTRA_CONSOLE_API_SCOPE must use api://<audience>/<scope> "
+            "when deploy_console is enabled"
+        )
     if re.fullmatch(r"(?:plan|apply)-[0-9a-f]{48}", request_id):
         if values.get("TARGET_ENVIRONMENT") == "prod":
             raise ValueError("fdaictl production deployment inputs are not implemented")
@@ -85,7 +92,6 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
             "DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET",
             "CUTOVER_ISOLATED_EXECUTOR_AUTHORITY",
             "VERIFY_EXECUTOR_EFFECT",
-            "PROMOTE_RUNTIME_IMAGE",
             "MODEL_BINDING_ONLY",
             "VALIDATE_CHATOPS_CHANNELS",
         )
@@ -109,8 +115,9 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
             "and deploy_operator_channel_edge"
         )
 
-    if promote_image and not deploy_executor:
-        raise ValueError("promote_runtime_image requires deploy_isolated_executor")
+    runtime_image_revision = values.get("RUNTIME_IMAGE_REVISION", "")
+    if promote_image and not runtime_image_revision:
+        raise ValueError("promote_runtime_image requires runtime_image_revision")
     if cutover and (not deploy_executor or not deploy_gateway):
         raise ValueError(
             "authority cutover requires deploy_isolated_executor and deploy_dev_operations_gateway"
@@ -138,8 +145,6 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
             "the OHL scale-out evidence target requires campaign, initiator, "
             "exact image-version, and SSH-key repository variables"
         )
-    if values.get("RUNTIME_IMAGE_REVISION", "") and not deploy_executor:
-        raise ValueError("runtime_image_revision requires deploy_isolated_executor")
     if apply and promote_image:
         raise ValueError("runtime image promotion is not allowed during exact apply")
     if promote_image and not request_id:
@@ -185,16 +190,19 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
             raise ValueError(
                 "deploy_design_mocks cannot be combined with another deployment target"
             )
-    if monitoring and any(
-        _enabled(values, key)
-        for key in (
-            "DEPLOY_CONSOLE",
-            "DEPLOY_OPERATOR_API",
-            "DEPLOY_ISOLATED_EXECUTOR",
-            "DEPLOY_DEV_OPERATIONS_GATEWAY",
-            "DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET",
-            "DEPLOY_DOCUMENT_INGESTION",
+    if monitoring and (
+        any(
+            _enabled(values, key)
+            for key in (
+                "DEPLOY_CONSOLE",
+                "DEPLOY_OPERATOR_API",
+                "DEPLOY_ISOLATED_EXECUTOR",
+                "DEPLOY_DEV_OPERATIONS_GATEWAY",
+                "DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET",
+                "DEPLOY_DOCUMENT_INGESTION",
+            )
         )
+        or bool(runtime_image_revision)
     ):
         raise ValueError("deploy_monitoring cannot be combined with another deployment target")
 

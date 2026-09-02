@@ -29,9 +29,8 @@ resource "azurerm_static_web_app" "console" {
   # under the same origin.
   preview_environments_enabled = false
 
-  # Deployment token is retrieved out-of-band by the fork's CI pipeline
-  # (`az staticwebapp secrets list --name ... --query properties.apiKey`)
-  # and injected into the build step that uploads `console/dist/`. This
+  # The protected deployment workflow retrieves the deployment token after
+  # apply and injects it only into the step that uploads `console/dist/`. This
   # module intentionally does NOT bind an app_settings block - every
   # console runtime value (MSAL, API base URL) is a build-time env var
   # (`VITE_*`) baked into the static bundle.

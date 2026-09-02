@@ -69,14 +69,13 @@ class DeploymentSelection:
                 self.deploy_document_ingestion,
                 self.deploy_isolated_executor,
                 self.deploy_operator_api,
+                bool(self.runtime_image_revision),
             )
         ):
             raise ValueError("monitoring deployment cannot be combined with application targets")
         if self.runtime_image_revision:
             if _COMMIT.fullmatch(self.runtime_image_revision) is None:
                 raise ValueError("runtime_image_revision MUST be a lowercase 40-character git SHA")
-            if not self.deploy_isolated_executor:
-                raise ValueError("runtime_image_revision requires deploy_isolated_executor")
 
     def to_mapping(self) -> dict[str, bool | str]:
         """Return workflow input names in stable order."""
@@ -544,6 +543,7 @@ def _dispatch(
     fields: dict[str, str] = {
         "environment": environment,
         "apply": str(apply).lower(),
+        "promote_runtime_image": str(bool(selection.runtime_image_revision) and not apply).lower(),
         "resume_verification": str(resume_verification).lower(),
         "request_id": request_id_value,
         "context_digest": context_digest,

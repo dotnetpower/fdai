@@ -29,7 +29,10 @@ _SERVICE_CONTAINER_APP = (_ROOT / "infra/services/_modules/container-app/main.tf
 )
 _LEGACY_WORKFLOW = (_ROOT / ".github" / "workflows" / "deploy-dev.yml").read_text(encoding="utf-8")
 _PLAN_SCOPE = (_ROOT / "scripts/deployment/azure/enforce_plan_scope.py").read_text(encoding="utf-8")
-_IMAGE_BINDER = (_ROOT / "scripts/deployment/azure/bind_isolated_executor_image.sh").read_text(
+_IMAGE_BINDER = (_ROOT / "scripts/deployment/azure/bind_core_runtime_image.sh").read_text(
+    encoding="utf-8"
+)
+_CONSOLE_PUBLISHER = (_ROOT / "scripts/deployment/azure/publish-console.sh").read_text(
     encoding="utf-8"
 )
 _GH_INSTALLER = (_ROOT / "scripts/deployment/azure/install-pinned-github-cli.sh").read_text(
@@ -371,6 +374,15 @@ def test_operator_catalog_materialization_runs_after_schema_migration() -> None:
     assert _LEGACY_WORKFLOW.index("bootstrap-service-migrations.sh") < _LEGACY_WORKFLOW.index(
         "operator_api_catalog_job_name"
     )
+
+
+def test_console_publish_binds_auth_and_verifies_exact_static_artifact() -> None:
+    assert "scripts/deployment/azure/publish-console.sh infra" in _LEGACY_WORKFLOW
+    assert "ENTRA_CONSOLE_API_SCOPE" in _LEGACY_WORKFLOW
+    assert 'npm --prefix "$repo_root/console" run build' in _CONSOLE_PUBLISHER
+    assert "SWA_CLI_DEPLOYMENT_TOKEN" in _CONSOLE_PUBLISHER
+    assert "sha256sum --check --status" in _CONSOLE_PUBLISHER
+    assert '"https://$hostname/ontology"' in _CONSOLE_PUBLISHER
 
 
 def test_ingestion_migration_image_is_independently_pinned() -> None:

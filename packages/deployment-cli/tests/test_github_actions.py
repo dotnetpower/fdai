@@ -789,13 +789,11 @@ def test_runtime_image_revision_seals_into_context_and_dispatches() -> None:
     selection = DeploymentSelection(
         deploy_console=False,
         deploy_operator_api=False,
-        deploy_isolated_executor=True,
         runtime_image_revision=_IMAGE_REVISION,
     )
     no_image = DeploymentSelection(
         deploy_console=False,
         deploy_operator_api=False,
-        deploy_isolated_executor=True,
     )
 
     plan_with = dispatch_plan(
@@ -823,12 +821,24 @@ def test_runtime_image_revision_seals_into_context_and_dispatches() -> None:
     workflow_calls = [call for call in runner.calls if call[:2] == ("workflow", "run")]
     fields = _fields(workflow_calls[0])
     assert fields["runtime_image_revision"] == _IMAGE_REVISION
-    assert fields["deploy_isolated_executor"] == "true"
+    assert fields["deploy_isolated_executor"] == "false"
+    assert fields["promote_runtime_image"] == "true"
 
 
-def test_runtime_image_revision_requires_executor() -> None:
-    with pytest.raises(ValueError, match="requires deploy_isolated_executor"):
-        DeploymentSelection(runtime_image_revision=_IMAGE_REVISION)
+def test_runtime_image_revision_does_not_require_executor() -> None:
+    selection = DeploymentSelection(runtime_image_revision=_IMAGE_REVISION)
+
+    assert selection.runtime_image_revision == _IMAGE_REVISION
+
+
+def test_runtime_image_revision_cannot_mix_with_monitoring_only() -> None:
+    with pytest.raises(ValueError, match="monitoring deployment cannot be combined"):
+        DeploymentSelection(
+            deploy_console=False,
+            deploy_operator_api=False,
+            deploy_monitoring=True,
+            runtime_image_revision=_IMAGE_REVISION,
+        )
 
 
 def test_runtime_image_revision_rejects_invalid_sha() -> None:

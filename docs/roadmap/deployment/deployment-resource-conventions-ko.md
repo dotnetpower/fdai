@@ -1,8 +1,8 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 2fd3dfb018a978081dd6b28a780daa6915d45094
-translation_revised: 2026-08-28
+translation_source_sha: faeede42e9f4584e3686ac85249cab524ea5cded
+translation_revised: 2026-09-03
 ---
 # 배포 리소스 규약
 
@@ -291,9 +291,10 @@ Migration 이미지는 데이터베이스의 현재 Alembic revision 집합을 �
 
 Operator module은 `caj-<workload>-catalog`를 별도의 수동 Container Apps Job으로 선언합니다.
 이 Job은 검토된 Rule 및 Ontology 카탈로그를 소유하는 digest-pinned Core image를 사용합니다.
-배포 workflow는 `caj-<workload>-migrate`가 성공한 뒤에만 이 Job을 시작합니다. 두 Job은 Operator
-Managed Identity 및 PostgreSQL secret reference를 사용하지만 catalog 구체화는 참조 변환 결과만
-만들며 런타임에서 발견된 문제, 준비 상태 또는 실행 권한을 만들지 않습니다.
+배포 workflow는 명시적으로 선택한 Core 소스 revision을 격리된 Executor와 독립적으로 바인딩한 뒤
+`caj-<workload>-migrate`가 성공한 경우에만 catalog Job을 시작합니다. 두 Job은 Operator Managed
+Identity 및 PostgreSQL secret reference를 사용하지만 catalog 구체화는 참조 변환 결과만 만들며
+런타임에서 발견된 문제, 준비 상태 또는 실행 권한을 만들지 않습니다.
 
 Core 상태 소유권이 `services/core-control-plane/<environment>.tfstate`로 이동한 후 이전 방식
 platform 루트는 공유 Container Apps 환경과 예약된 Job을 유지하지만 Core Container App 리소스는

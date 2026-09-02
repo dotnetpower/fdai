@@ -35,8 +35,9 @@ The `console_default_hostname` root output surfaces the
 `<name>.azurestaticapps.net` origin. After an apply with `deploy_console=true`,
 `deploy-dev.yml` passes that origin to `scripts/deployment/azure/sync-entra-spa-redirect.py`,
 which preserves existing MSAL redirect URIs and adds the deployed origin when
-needed. The `console/dist/` build output is uploaded out-of-band with the SWA
-deployment token (`az staticwebapp secrets list ...`).
+needed. The workflow then builds `console/dist/` with the environment-owned
+API and Entra bindings, uploads it with a short-lived deployment token, and
+verifies the exact entry asset plus a History API route.
 
 ## Read-only invariant
 

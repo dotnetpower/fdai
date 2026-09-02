@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 689cc1b01eb5988b4ff3b591d9eb8d21fe5cc14f
-translation_revised: 2026-09-01
+translation_source_sha: 373d88dffc1c2f4318781a19ad51ecb020b37d42
+translation_revised: 2026-09-03
 ---
 # 설치형 배포 CLI
 
@@ -508,9 +508,11 @@ CLI를 확인한 뒤 plan-only 작업 흐름을 제출합니다. 범위가 제�
 
 전달 본문에는 `apply=false`, 환경, 정확한 커밋, SHA-256 배포 맥락 지문을 전달합니다.
 Console, Operator API, 문서 수집, 격리된 Executor, 모니터링 플래그는 지문에 포함되며 계획과
-적용에 동일하게 전달됩니다. 플래그가 달라지면 계획은 무효입니다. 테넌트, 구독, 백엔드,
-실행기 식별자는 전달하지 않습니다. 작업 흐름은 계획 전에 범위가 제한된 요청 id, 맥락
-다이제스트, 정확히 체크아웃한 커밋을 검증합니다.
+적용에 동일하게 전달됩니다. 선택적인 런타임 소스 revision도 지문에 포함됩니다. 계획 단계에서
+클라이언트는 격리된 Executor와 독립적으로 해당 Core 이미지를 승격하고 검증하며, 적용 단계에서는
+승격을 반복하지 않고 digest-pinned 계획을 복원합니다. 입력이 달라지면 계획은 무효입니다. 테넌트,
+구독, 백엔드, 실행기 식별자는 전달하지 않습니다. 작업 흐름은 계획 전에 범위가 제한된 요청 id,
+맥락 다이제스트, 정확히 체크아웃한 커밋을 검증합니다.
 
 적용 전에 클라이언트는 대상 GitHub 환경에 필수 검토자가 있고 자체 검토와 관리자 우회가 차단되는지
 확인합니다. GitHub 환경 보호는 검토자 집합 중 한 명의 승인만 요구하며 N명 중 M명 정족수를

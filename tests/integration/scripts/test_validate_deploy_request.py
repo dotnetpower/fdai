@@ -80,6 +80,19 @@ def test_unprotected_plan_request_is_valid() -> None:
     validate(_request(), checkout_commit=_COMMIT)
 
 
+def test_console_deployment_requires_an_api_scope() -> None:
+    with pytest.raises(ValueError, match="ENTRA_CONSOLE_API_SCOPE"):
+        validate(_request(DEPLOY_CONSOLE="true"), checkout_commit=_COMMIT)
+
+    validate(
+        _request(
+            DEPLOY_CONSOLE="true",
+            ENTRA_CONSOLE_API_SCOPE="api://00000000-0000-0000-0000-000000000003/access",
+        ),
+        checkout_commit=_COMMIT,
+    )
+
+
 def test_protected_plan_request_is_bound_to_checkout_and_preflight() -> None:
     validate(
         _request(
@@ -143,6 +156,7 @@ def test_protected_request_rejects_selection_outside_the_context() -> None:
                 COMMIT_SHA=_COMMIT,
                 DEPLOY_PREFLIGHT_INPUT_JSON="{}",
                 DEPLOY_CONSOLE="true",
+                ENTRA_CONSOLE_API_SCOPE="api://00000000-0000-0000-0000-000000000003/access",
             ),
             checkout_commit=_COMMIT,
         )
@@ -194,6 +208,7 @@ def test_model_plan_requires_exact_proposal_and_no_other_target() -> None:
                 MODEL_BINDING_ONLY="true",
                 REQUEST_ID=request_id,
                 DEPLOY_CONSOLE="true",
+                ENTRA_CONSOLE_API_SCOPE="api://00000000-0000-0000-0000-000000000003/access",
             ),
             checkout_commit=_COMMIT,
         )
@@ -224,6 +239,14 @@ def test_monitoring_is_exclusive() -> None:
     with pytest.raises(ValueError, match="deploy_monitoring cannot be combined"):
         validate(
             _request(DEPLOY_MONITORING="true", DEPLOY_OPERATOR_API="true"),
+            checkout_commit=_COMMIT,
+        )
+    with pytest.raises(ValueError, match="deploy_monitoring cannot be combined"):
+        validate(
+            _request(
+                DEPLOY_MONITORING="true",
+                RUNTIME_IMAGE_REVISION="a" * 40,
+            ),
             checkout_commit=_COMMIT,
         )
 
@@ -286,7 +309,7 @@ def test_chatops_validation_requires_staging_operator_surfaces() -> None:
 
 
 def test_runtime_image_and_effect_requests_keep_authority_prerequisites() -> None:
-    with pytest.raises(ValueError, match="requires deploy_isolated_executor"):
+    with pytest.raises(ValueError, match="requires runtime_image_revision"):
         validate(_request(PROMOTE_RUNTIME_IMAGE="true"), checkout_commit=_COMMIT)
     with pytest.raises(ValueError, match="requires apply"):
         validate(_request(VERIFY_EXECUTOR_EFFECT="true"), checkout_commit=_COMMIT)
@@ -454,13 +477,12 @@ def test_fdaictl_runtime_image_revision_digest_drift() -> None:
         )
 
 
-def test_fdaictl_runtime_image_revision_requires_executor() -> None:
-    """runtime_image_revision without executor is rejected."""
-    with pytest.raises(ValueError, match="requires deploy_isolated_executor"):
-        validate(
-            _request(RUNTIME_IMAGE_REVISION=_IMAGE_REVISION),
-            checkout_commit=_COMMIT,
-        )
+def test_fdaictl_runtime_image_revision_does_not_require_executor() -> None:
+    """A Core image revision can refresh catalog jobs without deploying Executor."""
+    validate(
+        _request(RUNTIME_IMAGE_REVISION=_IMAGE_REVISION),
+        checkout_commit=_COMMIT,
+    )
 
 
 def test_fdaictl_runtime_image_revision_invalid_sha() -> None:
