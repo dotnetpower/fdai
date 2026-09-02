@@ -479,7 +479,8 @@ jobs:
           if [[ "$SERVICE" == "core-control-plane" ]]; then
             resolved_model_args+=(--model-binding-transition)
             model_endpoints_json="$(
-              terraform -chdir="$TRUSTED_CONTROLS/infra" output -json llm_model_endpoints
+              terraform -chdir="$TRUSTED_CONTROLS/infra" output -json llm_model_endpoints \
+                | jq -c 'with_entries(select(.value | type == "string" and length > 0))'
             )"
             jq -e 'type == "object" and length >= 1 and length <= 16' \
               <<<"$model_endpoints_json" >/dev/null || {

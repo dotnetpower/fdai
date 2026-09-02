@@ -237,6 +237,7 @@ def test_core_service_tolerates_unapplied_optional_observation_output() -> None:
     ].split("- name: Create and guard service plan", maxsplit=1)[0]
 
     assert "output -json ohl_observation_context_binding 2>/dev/null || printf 'null" in materialize
+    assert 'with_entries(select(.value | type == "string" and length > 0))' in materialize
 
 
 def test_console_release_refreshes_and_verifies_postgresql_catalogs_first() -> None:

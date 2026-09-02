@@ -293,6 +293,8 @@ the independent Operator environment; a partial triplet stops before either serv
 Operator and document-ingestion migration Jobs each accept a separate digest-pinned migration
 image. Empty values preserve the corresponding service image for compatibility; protected deploys
 bind reviewed migration digests so schema advancement does not depend on runtime image cadence.
+Core service input materialization removes empty optional platform endpoint outputs before
+validating that every active model binding has an exact provider endpoint.
 
 The Operator App image and its one-off schema migration image are independently digest-pinned.
 The migration image must contain the database's current Alembic revision set; an unset migration

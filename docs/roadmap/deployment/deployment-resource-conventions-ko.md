@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 8cf1367426b93bcd7478e268912313d5c0c173d4
+translation_source_sha: 7e91488eef72a8dbb6db84e423f10826baee2ee0
 translation_revised: 2026-09-03
 ---
 # 배포 리소스 규약
@@ -292,6 +292,8 @@ Azure Event Hub가 되지 않습니다. 상태 이행 또는 보호된 플랜 �
 Operator와 문서 인제스트 migration Job은 각각 별도의 digest-pinned migration image를 받을 수
 있습니다. 빈 값은 호환성을 위해 해당 서비스 image를 유지하며, protected 배포는 검토된 migration
 digest를 bind해 schema 진행이 runtime image 주기에 의존하지 않도록 합니다.
+Core 서비스 입력 구체화는 비어 있는 선택적 platform endpoint 출력을 제거한 뒤 모든 활성 model
+binding에 정확한 provider endpoint가 있는지 검증합니다.
 
 Operator App 이미지와 일회성 schema migration 이미지는 서로 독립적으로 digest pinning됩니다.
 Migration 이미지는 데이터베이스의 현재 Alembic revision 집합을 포함해야 합니다. Migration 이미지가
