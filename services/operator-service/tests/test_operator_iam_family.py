@@ -52,6 +52,7 @@ from fdai_operator_service.families.iam.contracts import (
     TeamsWorkflowTestResult,
     WebSearchSettingsCommand,
 )
+from fdai_operator_service.families.iam.errors import IamConflictError, IamFamilyError
 from fdai_operator_service.families.iam.hil_callback import (
     compute_hmac,
     make_hil_callback_route,
@@ -71,6 +72,7 @@ from fdai_operator_service.families.iam.hil_callback_context import HilCallbackC
 from fdai_operator_service.families.iam.hil_decision_outbox import (
     DurableHilDecisionOutboxPublisher,
 )
+from fdai_operator_service.postgres_family_store import StoredProposal
 from fdai_operator_service.postgres_iam import PostgresIamAdapters
 from fdai_service_contracts import OperatorRole
 from starlette.applications import Starlette
@@ -83,6 +85,105 @@ FAMILY_SOURCE = REPO_ROOT / "services/operator-service/src/fdai_operator_service
 NOW = datetime(2026, 8, 8, 12, 0, tzinfo=UTC)
 
 
+class _RuntimeSettingsStore:
+    def __init__(self) -> None:
+        self.state: dict[str, dict[str, object]] = {}
+        self.proposals: list[dict[str, object]] = []
+        self.runtime_projection = {
+            "revision": 0,
+            "can_manage": False,
+            "updated_at": None,
+            "updated_by": None,
+            "integrations": [],
+            "runtime": {},
+            "settings": [
+                {
+                    "key": "conversation.answer_continuity.enabled",
+                    "group": "conversation",
+                    "value_type": "boolean",
+                    "environment_value": False,
+                    "override_value": None,
+                    "effective_value": False,
+                    "minimum": None,
+                    "maximum": None,
+                    "options": [],
+                    "restart_required": True,
+                    "available": True,
+                    "unavailable_reason": None,
+                },
+                {
+                    "key": "conversation.prompt_ablation.profile",
+                    "group": "conversation",
+                    "value_type": "enum",
+                    "environment_value": "NONE",
+                    "override_value": None,
+                    "effective_value": "NONE",
+                    "minimum": None,
+                    "maximum": None,
+                    "options": ["NONE", "TOOLS"],
+                    "restart_required": True,
+                    "available": True,
+                    "unavailable_reason": None,
+                },
+                {
+                    "key": "analyzer.budget_seconds",
+                    "group": "analysis",
+                    "value_type": "number",
+                    "environment_value": 60.0,
+                    "override_value": None,
+                    "effective_value": 60.0,
+                    "minimum": 1,
+                    "maximum": 3600,
+                    "options": [],
+                    "restart_required": False,
+                    "available": True,
+                    "unavailable_reason": None,
+                },
+            ],
+        }
+
+    async def read_projection(self, *, family: str, operation: str) -> Mapping[str, object]:
+        assert family == "iam"
+        assert operation == "runtime-settings"
+        return deepcopy(self.runtime_projection)
+
+    async def read_state(self, key: str) -> Mapping[str, object] | None:
+        return deepcopy(self.state.get(key))
+
+    async def append_revisioned_proposal(
+        self,
+        *,
+        family: str,
+        operation: str,
+        principal_id: str | None,
+        idempotency_key: str,
+        payload: Mapping[str, object],
+        state_key: str,
+        state_value: Mapping[str, object],
+        expected_revision: int,
+    ) -> StoredProposal:
+        current = self.state.get(state_key)
+        revision = current.get("revision", 0) if current is not None else 0
+        if revision != expected_revision:
+            raise IamConflictError("state revision conflict")
+        self.state[state_key] = dict(state_value)
+        self.proposals.append(
+            {
+                "family": family,
+                "operation": operation,
+                "principal_id": principal_id,
+                "idempotency_key": idempotency_key,
+                "payload": dict(payload),
+            }
+        )
+        return StoredProposal(
+            proposal_id="operator-runtime-settings",
+            accepted_at=NOW.isoformat(),
+            duplicate=False,
+            record={},
+        )
+
+
 async def authorize(request: Request) -> IamPrincipal:
     """Resolve a test principal from a non-production header."""
     raw_role = request.headers.get("x-test-role", OperatorRole.READER.value)
@@ -92,6 +193,99 @@ async def authorize(request: Request) -> IamPrincipal:
         roles=roles,
         username="operator@example.com",
     )
+
+
+async def test_postgres_runtime_settings_toggle_updates_core_policy_and_projection() -> None:
+    store = _RuntimeSettingsStore()
+    adapter = PostgresIamAdapters(store)  # type: ignore[arg-type]
+
+    initial = await adapter.projection(can_manage=True)
+    await adapter.update(
+        RuntimeSettingsCommand(
+            actor_id="owner-1",
+            changes={
+                "conversation.answer_continuity.enabled": True,
+                "conversation.prompt_ablation.profile": "TOOLS",
+            },
+            expected_revision=0,
+        )
+    )
+    updated = await adapter.projection(can_manage=True)
+
+    assert initial["revision"] == 0
+    assert updated["revision"] == 1
+    settings = {item["key"]: item for item in updated["settings"]}
+    assert settings["conversation.answer_continuity.enabled"]["effective_value"] is True
+    assert settings["conversation.prompt_ablation.profile"]["effective_value"] == "TOOLS"
+    assert store.state["runtime-settings:policy"]["overrides"] == {
+        "conversation.answer_continuity.enabled": True,
+        "conversation.prompt_ablation.profile": "TOOLS",
+    }
+    assert store.proposals[0]["operation"] == "runtime-settings.update"
+
+    with pytest.raises(IamConflictError, match="revision mismatch"):
+        await adapter.update(
+            RuntimeSettingsCommand(
+                actor_id="owner-2",
+                changes={"conversation.answer_continuity.enabled": False},
+                expected_revision=0,
+            )
+        )
+
+
+async def test_postgres_runtime_settings_rejects_unreviewed_ablation_profile() -> None:
+    adapter = PostgresIamAdapters(_RuntimeSettingsStore())  # type: ignore[arg-type]
+
+    with pytest.raises(IamFamilyError, match="projected options"):
+        await adapter.update(
+            RuntimeSettingsCommand(
+                actor_id="owner-1",
+                changes={"conversation.prompt_ablation.profile": "CUSTOM"},
+                expected_revision=0,
+            )
+        )
+
+
+def test_runtime_settings_http_reports_invalid_profile_as_bad_request() -> None:
+    store = _RuntimeSettingsStore()
+    client = _client(
+        runtime_settings=PostgresIamAdapters(store),  # type: ignore[arg-type]
+    )
+
+    response = client.put(
+        "/runtime/settings",
+        headers={"x-test-role": "Owner", "x-test-oid": "owner-1"},
+        json={
+            "changes": {"conversation.prompt_ablation.profile": "CUSTOM"},
+            "expected_revision": 0,
+        },
+    )
+
+    assert response.status_code == 400
+    assert "projected options" in response.json()["error"]["message"]
+    assert store.state == {}
+    assert store.proposals == []
+
+
+def test_runtime_settings_http_rejects_non_finite_number() -> None:
+    store = _RuntimeSettingsStore()
+    client = _client(
+        runtime_settings=PostgresIamAdapters(store),  # type: ignore[arg-type]
+    )
+
+    response = client.put(
+        "/runtime/settings",
+        headers={
+            "content-type": "application/json",
+            "x-test-role": "Owner",
+            "x-test-oid": "owner-1",
+        },
+        content=('{"changes":{"analyzer.budget_seconds":NaN},"expected_revision":0}'),
+    )
+
+    assert response.status_code == 400
+    assert "MUST be finite" in response.json()["error"]["message"]
+    assert store.state == {}
 
 
 class RecordingAccessGrants:

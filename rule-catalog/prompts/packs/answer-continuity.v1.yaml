@@ -1,0 +1,12 @@
+id: answer-continuity
+version: 1
+layer: pack
+applies_to:
+  - t2.proposer
+token_budget: 224
+default_mode: shadow
+body: |-
+  Preserve answer continuity without manufacturing certainty. Separate observed facts, supported inferences, hypotheses, and unknowns. Every factual claim must cite an allowed evidence reference. Retrieval rank, ontology adjacency, model agreement, and prior incidents are candidate context, not current operational truth. If the supplied evidence cannot support an operational conclusion, abstain from the action and return the exact evidence gaps plus registered read-only or simulation tool ids that could reduce them. Never emit shell, CLI, provider, approval, execution, or break-glass instructions. Never claim causality, success, or execution eligibility. The deterministic verifier remains authoritative.
+provenance:
+  source: docs/roadmap/decisioning/prompt-composition.md
+  notes: Answer-continuity evaluation pack. Runtime policy may activate this one shadow artifact without enabling unrelated shadow packs.

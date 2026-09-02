@@ -151,6 +151,7 @@ async def build_semantic_runtime(
     http_client: httpx.AsyncClient | None,
     stage_topic: str,
     environment: Mapping[str, str],
+    runtime_values: Mapping[str, object],
 ) -> SemanticRuntime:
     """Bind semantic retrieval and investigation paths from one runtime snapshot."""
 
@@ -318,6 +319,9 @@ async def build_semantic_runtime(
         config=environment,
         runtime=semantic_composition.runtime,
         unavailable_reason=semantic_composition.unavailable_reason,
+        answer_continuity_enabled=(
+            runtime_values["conversation.answer_continuity.enabled"] is True
+        ),
         operational_evidence=(
             SemanticOperationalEvidenceReader(
                 service=operational_evidence_read_service,

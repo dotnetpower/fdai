@@ -65,6 +65,32 @@ def test_runtime_bootstrap_attaches_knowledge_after_llm_finalization() -> None:
     assert "if container.llm_bindings is not None:" in bootstrap[finalize:knowledge]
 
 
+def test_runtime_bootstrap_reuses_one_settings_snapshot_for_llm_and_core() -> None:
+    bootstrap = Path("services/core-control-plane/src/fdai/runtime/bootstrap.py").read_text(
+        encoding="utf-8"
+    )
+
+    llm_call = bootstrap[
+        bootstrap.index("container = await _finalize_llm_bindings(") : bootstrap.index(
+            "bindings: LlmBindings"
+        )
+    ]
+    core_call = bootstrap[
+        bootstrap.index("core_runtime = await build_core_runtime(") : bootstrap.index(
+            "elif pantheon_start_enabled"
+        )
+    ]
+    drift_call = bootstrap[
+        bootstrap.index("container = _attach_runtime_configuration_drift(") : bootstrap.index(
+            "core_runtime: CoreRuntime"
+        )
+    ]
+
+    assert "runtime_values=runtime_values" in llm_call
+    assert "runtime_values_snapshot=runtime_values" in core_call
+    assert "runtime_values_snapshot" not in drift_call
+
+
 def test_direct_model_endpoint_resolver_accepts_only_matching_account_ref() -> None:
     endpoint = "https://oai-example.openai.azure.com/"
     resolve = _direct_model_endpoint_resolver(endpoint)

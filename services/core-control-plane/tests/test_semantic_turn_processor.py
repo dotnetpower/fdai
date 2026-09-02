@@ -1465,12 +1465,14 @@ def _processor(
     *,
     now: Any = lambda: NOW,
     operational_evidence: Any = None,
+    answer_continuity_enabled: bool = False,
 ) -> SemanticTurnProcessor:
     return SemanticTurnProcessor(
         runtime=runtime,
         results=StateStoreSemanticTurnResultStore(InMemoryStateStore()),
         now=now,
         operational_evidence=operational_evidence,
+        answer_continuity_enabled=answer_continuity_enabled,
     )
 
 
@@ -1612,6 +1614,97 @@ async def test_resource_scoped_operational_evidence_failure_holds_api_response()
     assert projection["status"] == "held"
     assert projection["semantic_result"]["reason_code"] == "operational_evidence_unavailable"
     assert "operational_evidence" not in projection["payload"]
+
+
+async def test_answer_continuity_renders_useful_hold_without_upgrading_status() -> None:
+    projection = _projection(
+        await _processor(
+            None,
+            answer_continuity_enabled=True,
+        ).process(_request())
+    )
+
+    semantic = projection["semantic_result"]
+    assert projection["status"] == "held"
+    assert semantic["disposition"] == "held"
+    assert semantic["reason_code"] == "semantic_runtime_unavailable"
+    assert semantic["execution_authority"] is False
+    assert "Confirmed status:" in semantic["answer"]
+    assert "Safe next step:" in semantic["answer"]
+    assert "required FDAI internal component" in semantic["answer"]
+    assert "authoritative evidence is insufficient" not in semantic["answer"]
+    assert "authorizes no change" in semantic["answer"]
+    assert semantic["evidence_refs"] == []
+
+
+async def test_answer_continuity_distinguishes_missing_evidence_from_runtime_failure() -> None:
+    projection = _projection(
+        await _processor(
+            _Runtime(_runtime_result("answered")),
+            operational_evidence=_OperationalEvidenceReader(fail=True),
+            answer_continuity_enabled=True,
+        ).process(_request(bound_context=_resource_bound_context()))
+    )
+
+    semantic = projection["semantic_result"]
+    assert semantic["disposition"] == "held"
+    assert semantic["unavailable_reason"] == "authoritative_evidence_unavailable"
+    assert "authoritative evidence is insufficient" in semantic["answer"]
+    assert "required FDAI internal component" not in semantic["answer"]
+
+
+async def test_answer_continuity_preserves_suppression_of_internal_source_reason_code() -> None:
+    held = _runtime_result("held")
+    held = replace(
+        held,
+        reason="semantic_exact_source_unavailable",
+    )
+    projection = _projection(
+        await _processor(
+            _Runtime(held),
+            answer_continuity_enabled=True,
+        ).process(_request())
+    )
+
+    answer = projection["semantic_result"]["answer"]
+    assert "semantic_exact_source_unavailable" not in answer
+    assert "exact authoritative source is unavailable" in answer
+
+
+async def test_answer_continuity_localizes_unsupported_response_without_claims() -> None:
+    projection = _projection(
+        await _processor(
+            _Runtime(_runtime_result("unsupported")),
+            answer_continuity_enabled=True,
+        ).process(_request(locale="ko"))
+    )
+
+    semantic = projection["semantic_result"]
+    assert semantic["disposition"] == "unsupported"
+    assert semantic["semantic_route"] == "semantic_unsupported"
+    assert semantic["execution_authority"] is False
+    assert "현재 확인된 내용:" in semantic["answer"]
+    assert "다음 안전 단계:" in semantic["answer"]
+    assert "어떤 변경도 승인하지 않습니다" in semantic["answer"]
+
+
+async def test_answer_continuity_disabled_preserves_strict_hold() -> None:
+    projection = _projection(await _processor(None).process(_request()))
+
+    answer = projection["semantic_result"]["answer"]
+    assert answer == (
+        "The request was held because verified evidence is unavailable. "
+        "(semantic_runtime_unavailable)"
+    )
+
+
+def test_answer_continuity_requires_boolean_configuration() -> None:
+    with pytest.raises(ValueError, match="MUST be a boolean"):
+        SemanticTurnProcessor(
+            runtime=None,
+            results=StateStoreSemanticTurnResultStore(InMemoryStateStore()),
+            answer_continuity_enabled=cast(Any, "true"),
+        )
 
 
 async def test_pantheon_assurance_purpose_uses_bound_diagnostic_runtime() -> None:
@@ -4018,6 +4111,24 @@ def test_runtime_binding_is_optional_explicit_and_rejects_partial_transport() ->
     assert binding is not None
     assert binding.available is False
     assert binding.unavailable_reason == "semantic_runtime_unavailable"
+
+
+async def test_runtime_binding_propagates_answer_continuity_policy() -> None:
+    binding = semantic_turn_binding_from_config(
+        state_store=InMemoryStateStore(),
+        runtime=None,
+        config={
+            "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": "operator.request",
+            "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": "operator.projection",
+        },
+        answer_continuity_enabled=True,
+    )
+    assert binding is not None
+
+    projection = _projection(await binding.processor.process(_request()))
+
+    assert projection["status"] == "held"
+    assert "Safe next step:" in projection["semantic_result"]["answer"]
 
 
 def test_incident_profile_facts_surface_every_populated_field() -> None:

@@ -208,15 +208,19 @@ class SemanticTurnProcessor:
         purpose: str = "operations-review",
         pantheon_assurance: PantheonAssuranceRuntime | None = None,
         operational_evidence: OperationalEvidenceProjectionReader | None = None,
+        answer_continuity_enabled: bool = False,
         now: Callable[[], datetime] | None = None,
     ) -> None:
         if not purpose:
             raise ValueError("semantic turn purpose MUST be non-empty")
+        if not isinstance(answer_continuity_enabled, bool):
+            raise ValueError("answer_continuity_enabled MUST be a boolean")
         self._runtime = runtime
         self._results = results
         self._purpose = purpose
         self._pantheon_assurance = pantheon_assurance
         self._operational_evidence = operational_evidence
+        self._answer_continuity_enabled = answer_continuity_enabled
         self._now = now or (lambda: datetime.now(UTC))
 
     def bind_pantheon_assurance(self, runtime: PantheonAssuranceRuntime) -> None:
@@ -402,10 +406,13 @@ class SemanticTurnProcessor:
                         projection = self._projection(
                             envelope,
                             request,
-                            _terminal_result(
+                            self._with_answer_continuity(
                                 request,
-                                "held",
-                                "operational_evidence_over_budget",
+                                _terminal_result(
+                                    request,
+                                    "held",
+                                    "operational_evidence_over_budget",
+                                ),
                             ),
                             extensions=None,
                             request_digest=request_digest,
@@ -532,9 +539,21 @@ class SemanticTurnProcessor:
         deadline = _aware_utc(request.deadline_at, field="semantic deadline_at")
         remaining = (deadline - now).total_seconds()
         if remaining <= 0:
-            return _terminal_result(request, "held", "semantic_deadline_exceeded"), None
+            return (
+                self._with_answer_continuity(
+                    request,
+                    _terminal_result(request, "held", "semantic_deadline_exceeded"),
+                ),
+                None,
+            )
         if self._runtime is None:
-            return _terminal_result(request, "held", "semantic_runtime_unavailable"), None
+            return (
+                self._with_answer_continuity(
+                    request,
+                    _terminal_result(request, "held", "semantic_runtime_unavailable"),
+                ),
+                None,
+            )
 
         runtime_cancelled = asyncio.Event()
         bound_resource_context = _bound_resource_context(request)
@@ -574,19 +593,26 @@ class SemanticTurnProcessor:
                 runtime_cancelled.set()
                 runtime_task.cancel()
                 await asyncio.gather(runtime_task, return_exceptions=True)
-                return _terminal_result(request, "held", "semantic_deadline_exceeded"), None
+                return (
+                    self._with_answer_continuity(
+                        request,
+                        _terminal_result(request, "held", "semantic_deadline_exceeded"),
+                    ),
+                    None,
+                )
             for task in pending:
                 task.cancel()
             if pending:
                 await asyncio.gather(*pending, return_exceptions=True)
             runtime_result = runtime_task.result()
             result, extensions = _project_runtime_result(request, runtime_result)
-            return await self._bind_operational_evidence(
+            result, extensions = await self._bind_operational_evidence(
                 request=request,
                 runtime_result=runtime_result,
                 result=result,
                 extensions=extensions,
             )
+            return self._with_answer_continuity(request, result), extensions
         except asyncio.CancelledError:
             runtime_cancelled.set()
             runtime_task.cancel()
@@ -594,7 +620,13 @@ class SemanticTurnProcessor:
             raise
         except Exception:  # noqa: BLE001 - runtime/provider detail must not cross the wire
             _LOGGER.exception("semantic_turn_runtime_failed")
-            return _terminal_result(request, "held", "semantic_runtime_failed"), None
+            return (
+                self._with_answer_continuity(
+                    request,
+                    _terminal_result(request, "held", "semantic_runtime_failed"),
+                ),
+                None,
+            )
         finally:
             if cancellation_task is not None and not cancellation_task.done():
                 cancellation_task.cancel()
@@ -770,10 +802,13 @@ class SemanticTurnProcessor:
                 f"{envelope['request_id']}\0{evidence_digest}",
             )
         )
-        fallback = _terminal_result(
+        fallback = self._with_answer_continuity(
             request,
-            "held",
-            "semantic_runtime_unavailable",
+            _terminal_result(
+                request,
+                "held",
+                "semantic_runtime_unavailable",
+            ),
         ).model_dump(mode="json", exclude_none=True)
         projection = {
             "schema_version": "1.4.0",
@@ -807,9 +842,40 @@ class SemanticTurnProcessor:
         return self._projection(
             envelope,
             request,
-            _terminal_result(request, disposition, reason_code),
+            self._with_answer_continuity(
+                request,
+                _terminal_result(request, disposition, reason_code),
+            ),
             extensions=None,
             request_digest=request_digest,
+        )
+
+    def _with_answer_continuity(
+        self,
+        request: SemanticTurnRequest,
+        result: ContractSemanticTurnResult,
+    ) -> ContractSemanticTurnResult:
+        if not self._answer_continuity_enabled or result.disposition not in {
+            SemanticTurnDisposition.HELD,
+            SemanticTurnDisposition.UNSUPPORTED,
+        }:
+            return result
+        strict_answer = _terminal_answer(
+            request.locale,
+            result.disposition.value,
+            result.reason_code,
+        )
+        if result.answer != strict_answer:
+            return result
+        return result.model_copy(
+            update={
+                "answer": _continuity_terminal_answer(
+                    request.locale,
+                    result.disposition.value,
+                    result.reason_code,
+                    unavailable_reason=result.unavailable_reason,
+                )
+            }
         )
 
 
@@ -4822,6 +4888,89 @@ def _terminal_answer(locale: str, disposition: str, reason_code: str) -> str:
     }
     selected = korean if locale.casefold().startswith("ko") else messages
     return f"{selected.get(disposition, selected['held'])} ({reason_code})"
+
+
+def _continuity_terminal_answer(
+    locale: str,
+    disposition: str,
+    reason_code: str,
+    *,
+    unavailable_reason: SemanticUnavailableReason | None,
+) -> str:
+    """Render a useful hold without upgrading evidence or action authority."""
+
+    korean = locale.casefold().startswith("ko")
+    limitation = _continuity_limitation(locale, reason_code)
+    if disposition == "unsupported":
+        if korean:
+            return (
+                "현재 확인된 내용: 이 요청을 처리할 검증된 FDAI 기능을 찾지 못했습니다.\n"
+                f"제한 사항: {limitation}\n"
+                "다음 안전 단계: 대상 리소스 또는 서비스, 확인할 시간 범위, 원하는 읽기 결과를 "
+                "구체적으로 지정해 주세요.\n"
+                "정확도 안내: 이 응답은 운영 사실에 대한 추정이 아니며 어떤 변경도 승인하지 "
+                "않습니다."
+            )
+        return (
+            "Confirmed status: no verified FDAI capability matched this request.\n"
+            f"Limitation: {limitation}\n"
+            "Safe next step: specify the target resource or service, the time window to inspect, "
+            "and the read-only result you need.\n"
+            "Accuracy notice: this response makes no operational factual inference and authorizes "
+            "no change."
+        )
+    if unavailable_reason == "semantic_planner_unavailable":
+        if korean:
+            return (
+                "현재 확인된 내용: 필요한 FDAI 내부 구성 요소가 이 턴을 완료하지 못했습니다.\n"
+                f"제한 사항: {limitation}\n"
+                "다음 안전 단계: 잠시 후 같은 범위로 다시 시도하고, 문제가 계속되면 런타임 "
+                "준비 상태와 모델 및 저장소 상태를 확인해 주세요.\n"
+                "정확도 안내: 운영 상태나 원인을 추정하지 않았으며 이 응답은 어떤 변경도 "
+                "승인하지 않습니다."
+            )
+        return (
+            "Confirmed status: a required FDAI internal component could not complete this turn.\n"
+            f"Limitation: {limitation}\n"
+            "Safe next step: retry with the same scope, then inspect runtime readiness plus model "
+            "and store health if the issue continues.\n"
+            "Accuracy notice: FDAI made no inference about operational state or cause, and this "
+            "response authorizes no change."
+        )
+    if korean:
+        return (
+            "현재 확인된 내용: 검증된 답변을 만들 충분한 권위 있는 근거가 없습니다.\n"
+            f"제한 사항: {limitation}\n"
+            "다음 안전 단계: 범위와 시간 구간을 확인한 뒤 등록된 읽기 전용 조사를 통해 "
+            "현재 상태, 변경 이력 및 관련 근거를 수집해 주세요.\n"
+            "정확도 안내: 정확하지 않을 수 있는 답을 사실처럼 제시하지 않았습니다. FDAI는 "
+            "이 경로를 개선 중이며 이 응답은 어떤 변경도 승인하지 않습니다."
+        )
+    return (
+        "Confirmed status: authoritative evidence is insufficient for a verified answer.\n"
+        f"Limitation: {limitation}\n"
+        "Safe next step: confirm the scope and time window, then use registered read-only "
+        "investigations to collect current state, change history, and related evidence.\n"
+        "Accuracy notice: FDAI did not present a potentially inaccurate conclusion as fact. "
+        "This path is being improved, and this response authorizes no change."
+    )
+
+
+def _continuity_limitation(locale: str, reason_code: str) -> str:
+    korean = locale.casefold().startswith("ko")
+    if reason_code == "semantic_exact_source_unavailable":
+        return (
+            "정확한 권위 있는 원본을 사용할 수 없습니다."
+            if korean
+            else "The exact authoritative source is unavailable."
+        )
+    if reason_code == "semantic_knowledge_source_status_unavailable":
+        return (
+            "검증된 지식 원본 상태 기능을 사용할 수 없습니다."
+            if korean
+            else "The verified knowledge-source status capability is unavailable."
+        )
+    return reason_code
 
 
 def _request_digest(

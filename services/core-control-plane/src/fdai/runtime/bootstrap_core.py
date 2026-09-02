@@ -164,6 +164,7 @@ async def build_core_runtime(
     resources: RuntimeResources,
     identity: Any,
     environment: Mapping[str, str],
+    runtime_values_snapshot: Mapping[str, object] | None = None,
 ) -> CoreRuntime:
     """Assemble one active consumer runtime without starting supervised tasks."""
 
@@ -235,7 +236,11 @@ async def build_core_runtime(
         env=environment,
         durable=bool(environment.get("FDAI_STATE_STORE_DSN", "").strip()),
     )
-    runtime_values = await runtime_settings.effective_values()
+    runtime_values = (
+        dict(runtime_values_snapshot)
+        if runtime_values_snapshot is not None
+        else await runtime_settings.effective_values()
+    )
     assignment_worker: AssignmentReconciliationWorker | None = None
     if runtime_settings.durable:
         from fdai.core.human_assignment import AssignmentReconciler
@@ -382,6 +387,7 @@ async def build_core_runtime(
         http_client=resources.http_client,
         stage_topic=plan.stage_topic,
         environment=environment,
+        runtime_values=runtime_values,
     )
     _LOGGER.info(
         "control_loop_ready",

@@ -56,6 +56,11 @@ name-or-tag filtering, and time-bounded evidence requests distinct. The Core que
 provider completeness and reason codes, while the Operator presentation and Console dashboard keep
 partial or unavailable observations visible instead of substituting generic inventory rows.
 
+Prompt composition keeps role and safety layers in `core/prompts/` and moves Azure startup assembly
+into `composition/wire_azure_prompts.py`. Revisioned conversation settings are written by the
+Operator Service to the shared `runtime-settings:policy` record and consumed once by Core at
+startup. Prompt ablation removes only optional context and records every exclusion for replay.
+
 Semantic conversation planning keeps `semantic_planning.py`, `semantic_planning_cascade.py`, and
 `semantic_planning_frame.py` as compatibility facades. Focused sibling modules own frame checks,
 plan dispatch, anchored-incident and stated-value-filter plan construction, judgment, validation,

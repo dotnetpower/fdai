@@ -32,8 +32,11 @@ from fdai.core.prompts.registry import (
     PromptRegistryIssue,
 )
 from fdai.core.prompts.types import (
+    AblatedLayerRef,
     ComposedPrompt,
     LayerRef,
+    PromptAblationProfile,
+    PromptAblationProfileName,
     PromptArtifact,
     PromptLayer,
     PromptMode,
@@ -46,12 +49,15 @@ from fdai.core.prompts.types import (
 )
 
 __all__ = [
+    "AblatedLayerRef",
     "ComposedPrompt",
     "DefaultPromptComposer",
     "FileSystemPromptRegistry",
     "LayerRef",
     "PromptReplayManifest",
     "PromptArtifact",
+    "PromptAblationProfile",
+    "PromptAblationProfileName",
     "PromptComposer",
     "PromptLayer",
     "PromptMode",

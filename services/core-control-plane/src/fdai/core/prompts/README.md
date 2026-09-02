@@ -53,6 +53,10 @@ both optionally so prompt-only tests do not need any registry beyond
   superseded / expired entries are silently filtered. When either the
   store or the scope is missing, the layer is skipped entirely - the
   model never sees an "empty notes" section.
+- **Answer continuity and ablation**: a reviewed runtime profile can remove only
+  optional packs, tool manifests, operator memory, or runtime skill layers.
+  Protected role layers stay active, every exclusion is replay-visible, and a
+  named shadow pack can be activated without enabling unrelated shadow packs.
 
 See [docs/roadmap/decisioning/prompt-composition.md](../../../../../../docs/roadmap/decisioning/prompt-composition.md)
 for how this module fits into the evolving-system-prompt design.

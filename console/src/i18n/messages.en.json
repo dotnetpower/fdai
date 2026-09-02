@@ -1612,6 +1612,7 @@
         "investigation": "Incident investigation",
         "inventory": "Inventory freshness",
         "analysis": "Analyzer bounds",
+        "conversation": "Conversation continuity",
         "retention": "Case history retention",
         "diagnostics": "Diagnostics"
       },
@@ -1660,6 +1661,20 @@
           "level": {
             "label": "Runtime log level",
             "hint": "Minimum Python log severity after the runtime restarts."
+          }
+        },
+        "conversation": {
+          "answer_continuity": {
+            "enabled": {
+              "label": "Answer continuity",
+              "hint": "Return a useful evidence-aware safe hold instead of a generic unavailable response. This setting never grants action authority."
+            }
+          },
+          "prompt_ablation": {
+            "profile": {
+              "label": "Prompt ablation profile",
+              "hint": "Select a reviewed restart-time profile that removes optional prompt context while keeping role, verifier, RBAC, and execution safeguards active."
+            }
           }
         }
       }

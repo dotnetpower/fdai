@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
+from fdai.delivery.runtime_settings import RUNTIME_SETTING_SPECS, RuntimeSettingsService
 
 MODEL_SETTINGS_KEY = "operator-projection:iam:model-settings"
 RUNTIME_SETTINGS_KEY = "operator-projection:iam:runtime-settings"
@@ -134,6 +135,26 @@ def model_settings_projection(
 
 def runtime_settings_projection(environ: Mapping[str, str]) -> dict[str, object]:
     """Build read-only runtime diagnostics from the validated prepared environment."""
+    runtime_settings = RuntimeSettingsService(store=None, env=environ)
+    environment_values = runtime_settings.environment_values()
+    conversation_settings = [
+        {
+            "key": spec.key,
+            "group": spec.group,
+            "value_type": spec.value_type,
+            "environment_value": environment_values[spec.key],
+            "override_value": None,
+            "effective_value": environment_values[spec.key],
+            "minimum": spec.minimum,
+            "maximum": spec.maximum,
+            "options": list(spec.options),
+            "restart_required": spec.restart_required,
+            "available": True,
+            "unavailable_reason": None,
+        }
+        for spec in RUNTIME_SETTING_SPECS
+        if spec.group == "conversation"
+    ]
     state_store = bool(environ.get("FDAI_STATE_STORE_DSN", "").strip())
     primary_transport = bool(
         environ.get("KAFKA_BOOTSTRAP_SERVERS", "").strip()
@@ -153,7 +174,7 @@ def runtime_settings_projection(environ: Mapping[str, str]) -> dict[str, object]
         "can_manage": False,
         "updated_at": None,
         "updated_by": None,
-        "settings": [],
+        "settings": conversation_settings,
         "integrations": integrations,
         "runtime": {
             "environment": runtime_environment,

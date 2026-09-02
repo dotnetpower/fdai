@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: bc6234152820974e8b5e967c77971654baad1380
+translation_source_sha: ddcf7f670dc0860c3cb53e3958a021751ece5640
 translation_revised: 2026-09-02
 ---
 # 코드 맵
@@ -58,6 +58,11 @@ Operator 소유 다운스트림 마이그레이션에 위치하므로, 부트스
 태그 필터, 시간 범위가 있는 근거 요청을 구분합니다. Core 조회 경로는 공급자 완전성과 사유
 코드를 보존하며, Operator 표현 및 콘솔 대시보드는 일반 인벤토리 행으로 대체하지 않고
 부분적이거나 사용할 수 없는 관측을 표시합니다.
+
+프롬프트 조립은 역할 및 안전 레이어를 `core/prompts/`에 유지하고 Azure 시작 조립을
+`composition/wire_azure_prompts.py`로 분리합니다. 리비전 기반 대화 설정은 Operator
+서비스가 공유 `runtime-settings:policy` 레코드에 기록하며 Core는 시작 시 한 번 읽습니다.
+프롬프트 ablation은 선택적 맥락만 제거하고 모든 제외 항목을 재실행을 위해 기록합니다.
 
 의미 대화 계획은 `semantic_planning.py`, `semantic_planning_cascade.py`,
 `semantic_planning_frame.py`를 호환성 facade로 유지합니다. 집중 sibling 모듈은 공개 import,

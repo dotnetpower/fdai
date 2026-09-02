@@ -11,9 +11,11 @@ schema before constructing these dataclasses.
 from __future__ import annotations
 
 import hashlib
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Literal
 
 _MAX_AGENT_CHARS = 128
 _MAX_QUERY_CHARS = 4_096
@@ -25,6 +27,7 @@ _MAX_SELECTED_BUNDLES = 2
 _MAX_INDEX_BUDGET_CHARS = 32 * 1_024
 _MAX_BODY_BUDGET_CHARS = 4 * 64 * 1_024
 _MAX_REFERENCE_BUDGET_BYTES = 256 * 1_024
+_PROMPT_COMPONENT_ID = re.compile(r"^[a-z0-9][a-z0-9.\-:]{0,127}$")
 
 
 class PromptLayer(StrEnum):
@@ -59,6 +62,97 @@ class PromptMode(StrEnum):
 
     SHADOW = "shadow"
     ENFORCE = "enforce"
+
+
+class PromptAblationProfileName(StrEnum):
+    """Reviewed prompt-ablation profiles selectable by runtime policy."""
+
+    NONE = "none"
+    PACKS = "packs"
+    TOOLS = "tools"
+    OPERATOR_MEMORY = "operator-memory"
+    SKILLS = "skills"
+    OPTIONAL_CONTEXT = "optional-context"
+
+
+_ABLATION_ELIGIBLE_LAYERS = frozenset(
+    {
+        PromptLayer.PACK,
+        PromptLayer.TOOL,
+        PromptLayer.OPERATOR_MEMORY,
+        PromptLayer.SKILL_INDEX,
+        PromptLayer.SKILL_BODY,
+        PromptLayer.SKILL_REFERENCE,
+        PromptLayer.SKILL_BUNDLE,
+    }
+)
+_SKILL_LAYERS = frozenset(
+    {
+        PromptLayer.SKILL_INDEX,
+        PromptLayer.SKILL_BODY,
+        PromptLayer.SKILL_REFERENCE,
+        PromptLayer.SKILL_BUNDLE,
+    }
+)
+
+
+@dataclass(frozen=True, slots=True)
+class PromptAblationProfile:
+    """A deployment-selected removal policy for optional prompt context.
+
+    The profile is intentionally subtractive. Protected role and safety layers
+    cannot be named, and the tool executor remains independently deny-by-default.
+    """
+
+    name: PromptAblationProfileName = PromptAblationProfileName.NONE
+    disabled_layers: frozenset[PromptLayer] = frozenset()
+    disabled_artifact_ids: frozenset[str] = frozenset()
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.name, PromptAblationProfileName):
+            raise ValueError("prompt ablation profile name MUST be reviewed")
+        if not isinstance(self.disabled_layers, frozenset):
+            raise ValueError("prompt ablation disabled_layers MUST be a frozenset")
+        protected = self.disabled_layers - _ABLATION_ELIGIBLE_LAYERS
+        if protected:
+            names = ", ".join(sorted(layer.value for layer in protected))
+            raise ValueError(f"prompt ablation cannot disable protected layers: {names}")
+        if not isinstance(self.disabled_artifact_ids, frozenset) or any(
+            not isinstance(artifact_id, str) or _PROMPT_COMPONENT_ID.fullmatch(artifact_id) is None
+            for artifact_id in self.disabled_artifact_ids
+        ):
+            raise ValueError("prompt ablation artifact ids MUST be bounded ASCII identifiers")
+
+    @classmethod
+    def reviewed(cls, name: str | PromptAblationProfileName) -> PromptAblationProfile:
+        """Resolve one closed, reviewed profile name or fail before composition."""
+
+        profile = PromptAblationProfileName(name)
+        layers: frozenset[PromptLayer]
+        if profile is PromptAblationProfileName.NONE:
+            layers = frozenset()
+        elif profile is PromptAblationProfileName.PACKS:
+            layers = frozenset({PromptLayer.PACK})
+        elif profile is PromptAblationProfileName.TOOLS:
+            layers = frozenset({PromptLayer.TOOL})
+        elif profile is PromptAblationProfileName.OPERATOR_MEMORY:
+            layers = frozenset({PromptLayer.OPERATOR_MEMORY})
+        elif profile is PromptAblationProfileName.SKILLS:
+            layers = _SKILL_LAYERS
+        else:
+            layers = _ABLATION_ELIGIBLE_LAYERS
+        return cls(name=profile, disabled_layers=layers)
+
+    def disables(self, layer: PromptLayer, artifact_id: str) -> bool:
+        """Return whether this profile removes one eligible contribution."""
+
+        if layer not in _ABLATION_ELIGIBLE_LAYERS:
+            if artifact_id in self.disabled_artifact_ids:
+                raise ValueError(
+                    f"prompt ablation cannot disable protected artifact {artifact_id!r}"
+                )
+            return False
+        return layer in self.disabled_layers or artifact_id in self.disabled_artifact_ids
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,6 +201,16 @@ class LayerRef:
     version: int
     layer: PromptLayer
     token_estimate: int
+
+
+@dataclass(frozen=True, slots=True)
+class AblatedLayerRef:
+    """One intentionally excluded optional contribution retained for replay."""
+
+    id: str
+    version: int
+    layer: PromptLayer
+    reason: Literal["profile_layer", "profile_artifact"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -255,6 +359,8 @@ class PromptReplayManifest:
     system_text_sha256: str
     layer_manifest: tuple[LayerRef, ...]
     token_estimate: int
+    ablation_profile: PromptAblationProfileName = PromptAblationProfileName.NONE
+    ablated_layers: tuple[AblatedLayerRef, ...] = ()
     canary_tokens: tuple[tuple[str, str], ...] = ()
     skill_records: tuple[SkillReplayRecord, ...] = ()
     skill_bundle_records: tuple[SkillBundleReplayRecord, ...] = ()
@@ -283,6 +389,8 @@ class ComposedPrompt:
     system_text: str
     layer_manifest: tuple[LayerRef, ...]
     token_estimate: int
+    ablation_profile: PromptAblationProfileName = PromptAblationProfileName.NONE
+    ablated_layers: tuple[AblatedLayerRef, ...] = ()
     canary_tokens: Mapping[str, str] = field(default_factory=dict)
     skill_records: tuple[SkillReplayRecord, ...] = ()
     skill_bundle_records: tuple[SkillBundleReplayRecord, ...] = ()
@@ -294,6 +402,8 @@ class ComposedPrompt:
             system_text_sha256=hashlib.sha256(self.system_text.encode()).hexdigest(),
             layer_manifest=self.layer_manifest,
             token_estimate=self.token_estimate,
+            ablation_profile=self.ablation_profile,
+            ablated_layers=self.ablated_layers,
             canary_tokens=tuple(sorted(self.canary_tokens.items())),
             skill_records=self.skill_records,
             skill_bundle_records=self.skill_bundle_records,
@@ -306,10 +416,13 @@ def _validate_budget(name: str, value: int, maximum: int) -> None:
 
 
 __all__ = [
+    "AblatedLayerRef",
     "ComposedPrompt",
     "LayerRef",
     "PromptReplayManifest",
     "PromptArtifact",
+    "PromptAblationProfile",
+    "PromptAblationProfileName",
     "PromptLayer",
     "PromptMode",
     "SkillDisclosureRequest",

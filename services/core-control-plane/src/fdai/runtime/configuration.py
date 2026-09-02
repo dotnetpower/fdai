@@ -205,6 +205,7 @@ async def _finalize_llm_bindings(
     *,
     http_client: httpx.AsyncClient,
     identity: WorkloadIdentity,
+    runtime_values: Mapping[str, object],
 ) -> Container:
     """When mode=azure, attach the real AOAI adapters. Otherwise no-op.
 
@@ -252,6 +253,12 @@ async def _finalize_llm_bindings(
     # the common case) as the primary route for AKS-scoped metrics.
     prometheus_base_url = os.environ.get("FDAI_PROMETHEUS_ENDPOINT", "").strip() or None
     prometheus_audience = os.environ.get("FDAI_PROMETHEUS_AUDIENCE", "").strip() or None
+    answer_continuity_enabled = runtime_values["conversation.answer_continuity.enabled"]
+    prompt_ablation_profile = runtime_values["conversation.prompt_ablation.profile"]
+    if not isinstance(answer_continuity_enabled, bool) or not isinstance(
+        prompt_ablation_profile, str
+    ):
+        raise RuntimeError("conversation runtime settings are invalid")
     return await wire_azure_container(
         container,
         http_client=http_client,
@@ -269,6 +276,8 @@ async def _finalize_llm_bindings(
             monitor_workspace_id=monitor_workspace_id,
             prometheus_base_url=prometheus_base_url,
             prometheus_audience=prometheus_audience,
+            answer_continuity_enabled=answer_continuity_enabled,
+            prompt_ablation_profile=prompt_ablation_profile.casefold(),
         ),
     )
 
