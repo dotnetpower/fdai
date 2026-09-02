@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from fdai.core.conversation.semantic_planning_cascade import (
+    _current_state_clarification_fallback,
+)
 from fdai.core.conversation.semantic_planning_models import (
     ClarificationRequirement,
     SemanticFrameProposal,
@@ -230,6 +233,25 @@ def test_judgment_facet_builds_one_source_grounded_resource_filter() -> None:
         utterance="FDAI 관련 리소스 그룹은 뭐가 있나요?",
         descriptors=descriptors,
     )
+
+
+def test_current_state_fallback_does_not_narrow_a_typed_collection() -> None:
+    result = _current_state_clarification_fallback(
+        semantic_judgment={
+            "primary_intent": "query.resource_current_state",
+            "requested_facets": ("resource_current_state",),
+            "targets": (
+                {"kind": "resource_state", "value": "stopped"},
+                {"kind": "resource_state", "value": "failed"},
+            ),
+        },
+        utterance="상태별로 리소스를 보여주세요.",
+        context=(),
+        descriptors=_DESCRIPTORS,
+        confidence=0.95,
+    )
+
+    assert result is None
 
 
 def test_two_stated_targets_keep_the_hold() -> None:

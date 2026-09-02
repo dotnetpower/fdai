@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import copy
 import logging
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -720,10 +720,26 @@ def _current_state_clarification_fallback(
     descriptors: tuple[dict[str, Any], ...],
     confidence: float,
 ) -> tuple[SemanticFrameProposal, SemanticProblemFrame] | None:
+    requested_facets = (
+        semantic_judgment.get("requested_facets", ()) if semantic_judgment is not None else ()
+    )
+    targets = semantic_judgment.get("targets", ()) if semantic_judgment is not None else ()
+    state_target_count = (
+        sum(
+            isinstance(target, Mapping) and target.get("kind") == "resource_state"
+            for target in targets
+        )
+        if isinstance(targets, Sequence) and not isinstance(targets, (str, bytes))
+        else 0
+    )
     if (
         semantic_judgment is None
         or semantic_judgment.get("primary_intent") != "query.resource_current_state"
-        or "cause" in semantic_judgment.get("requested_facets", ())
+        or not isinstance(requested_facets, Sequence)
+        or isinstance(requested_facets, (str, bytes))
+        or "cause" in requested_facets
+        or bool({"resource_state_inventory", "state_grouping"}.intersection(requested_facets))
+        or state_target_count > 1
     ):
         return None
     proposal = normalize_current_state_proposal(

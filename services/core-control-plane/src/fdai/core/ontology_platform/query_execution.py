@@ -367,7 +367,14 @@ class OntologyQueryPlanExecutor:
                     started_monotonic=started_monotonic,
                 ),
             )
-        except PermissionError:
+        except PermissionError as error:
+            _LOGGER.warning(
+                "ontology_query_node_denied reason=%s",
+                error,
+                extra={
+                    "node_kind": node.kind.value,
+                },
+            )
             return (
                 node,
                 None,

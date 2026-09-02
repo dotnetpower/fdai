@@ -114,6 +114,11 @@ authority, completeness, and limitation instead of creating a synthetic combined
 Inventory promotion also writes verified state changes to the Core-owned append-only operational
 state-transition ledger. The ontology remains the rebuildable current-state projection, while the
 ledger preserves effective time, recorded time, evidence, and positive coverage for replay.
+Collection questions that carry multiple typed resource-state targets bypass exact-target
+clarification and retain their grouped read plan. Dependent FunctionType reads still require an
+admitted secured ObjectSet receipt. Missing decision-evidence admission produces a bounded
+source-unavailable result, and query execution records the non-sensitive denial reason for
+diagnosis without weakening the gate.
 
 | Area | Responsibility | Source | Tests |
 |------|----------------|--------|-------|
