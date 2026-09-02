@@ -36,8 +36,10 @@ The `console_default_hostname` root output surfaces the
 `deploy-dev.yml` passes that origin to `scripts/deployment/azure/sync-entra-spa-redirect.py`,
 which preserves existing MSAL redirect URIs and adds the deployed origin when
 needed. The workflow then builds `console/dist/` with the environment-owned
-API and Entra bindings, uploads it with a short-lived deployment token, and
-verifies the exact entry asset plus a History API route.
+API and Entra bindings, adds the allowlisted Manual Studio artifact under
+`/manuals`, uploads the combined site with a short-lived deployment token, and
+verifies the exact entry asset, manual catalog, manual library, and a History
+API route.
 
 ## Read-only invariant
 

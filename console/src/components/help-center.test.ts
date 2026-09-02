@@ -63,7 +63,7 @@ describe("Manual Studio catalog boundary", () => {
     expect(manualAssetUrl(baseUrl, "assets/platform-overview.jpeg"))
       .toBe("https://manuals.example.com/fdai/assets/platform-overview.jpeg");
     expect(manualOpenUrl(baseUrl, "fdai-overview"))
-      .toBe("https://manuals.example.com/fdai/library?manual=fdai-overview");
+      .toBe("https://manuals.example.com/fdai/library.html?manual=fdai-overview");
   });
 
   test.each([

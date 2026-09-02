@@ -91,7 +91,7 @@ test("opens the independent manual library from the Console header", async ({ pa
       body: "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1600\" height=\"1600\"><rect width=\"1600\" height=\"1600\" fill=\"#0f6cbd\"/></svg>",
     });
   });
-  await page.context().route(`${manualStudioUrl}/library**`, async (route) => {
+  await page.context().route(`${manualStudioUrl}/library.html**`, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "text/html",
@@ -171,6 +171,6 @@ test("opens the independent manual library from the Console header", async ({ pa
   await page.getByRole("button", { name: "Open FDAI 운영 개요" }).click();
   const manualPage = await popupPromise;
   await manualPage.waitForLoadState("networkidle");
-  await expect(manualPage).toHaveURL(/\/library\?manual=executive-briefing$/);
+  await expect(manualPage).toHaveURL(/\/library\.html\?manual=executive-briefing$/);
   await expect(manualPage.getByRole("dialog", { name: "FDAI Executive Briefing" })).toBeVisible();
 });

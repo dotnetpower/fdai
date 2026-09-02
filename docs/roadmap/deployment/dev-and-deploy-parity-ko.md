@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: c2ae811f055a86df03a76b3c9da32db52d64a122
-translation_revised: 2026-09-01
+translation_source_sha: e026193a9d6c1ce69472ee690c5a9b0c25426ab7
+translation_revised: 2026-09-03
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 **목표**: 자동화 테스트는 결정론적이고 secret-free 상태를 유지하며, interactive 로컬 Console은 운영자의 실제 Azure 개발 환경만 표시합니다. Azure 배포에서는 계속 **배포자의 Azure 권한과 리전 카탈로그가 어떤 LLM과 기타 리소스를 프로비저닝할지 결정**합니다. 세 명제가 동시에 참입니다:
@@ -62,11 +62,18 @@ site는 인증된 Console full stack과 분리되어 있습니다.
 | 표면 | 기본 주소 | Workspace 항목 지점 |
 |---------|-------------|-----------------------|
 | Design mock | `http://127.0.0.1:5373` | `Design Mocks: Static Site` launch 또는 `design mocks: serve (5373)` 작업 |
+| Manual Studio | `http://127.0.0.1:5474` | `npm --prefix tools/manual-studio run dev` |
 | Console SPA | `http://127.0.0.1:5273` | `Console Web: Full Stack` (권장) 또는 `Console Web: Frontend` (SPA 전용) |
 | Operator API | `http://127.0.0.1:8010` | `Console Web: Operator API` |
 | 문서 인제스트 API | `http://127.0.0.1:8011` | `Console Web: Document Ingestion API` |
 | 문서 처리 워커 상태 | `http://127.0.0.1:8012` | `Console Web: Document Processing Worker` |
 | 격리 실행기 상태 | `http://127.0.0.1:8013` | `Console Web: Isolated Executor` |
+
+보호된 Azure Console 게시자는 허용 목록에 포함된 Manual Studio 런타임 파일만 동일한
+Static Web App의 `/manuals` 아래에 패키징합니다. Console 빌드를 이 동일 출처 경로에
+바인딩하고, 배포된 카탈로그와 라이브러리 해시를 원본 산출물과 비교합니다. 로컬 개발은
+독립적으로 실행할 수 있는 `5474` 서버를 유지하고, 배포 환경은 별도 출처와 CORS 구성을
+사용하지 않습니다.
 
 `Console Web: Full Stack` compound는 독립 패키지로 구성된 백엔드 서비스 5개와 Console
 SPA를 시작합니다. 각 launch는 담당 서비스 분포만 가져오며 제거된 top-level 패키지, 문서 처리
