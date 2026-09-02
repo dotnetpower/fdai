@@ -23,6 +23,10 @@ The separately approved foundation phase owns creation of the private `tfstate` 
 both containers as prerequisites and stops when either is absent. It never creates foundation
 resources as an incidental planning side effect.
 
+Application feature inputs describe the desired platform state during a full plan. Monitoring uses
+the bounded `module.monitoring` target only when it is the sole selected feature; when combined with
+application features, it remains enabled and participates in the complete non-destructive plan.
+
 ## Implementation status
 
 ### Implementation scope

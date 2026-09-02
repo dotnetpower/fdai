@@ -507,8 +507,8 @@ provider-hosted authentication; no credential is copied into a command argument.
 
 The dispatch sends `apply=false`, the environment, exact commit, and a SHA-256 deployment-context fingerprint.
 Console, Operator API, document-ingestion, isolated-Executor, and monitoring flags are included in that
-fingerprint and sent identically to plan and apply. An optional runtime source revision is also sealed into
-the fingerprint. During planning, the client promotes and verifies that exact Core image independently of
+fingerprint and sent identically to plan and apply. Monitoring uses its bounded module target only when it is
+the sole selection; a complete application selection preserves it as desired state. An optional runtime source revision is also sealed into the fingerprint. During planning, the client promotes and verifies that exact Core image independently of
 the isolated Executor. Apply restores the digest-pinned plan without repeating promotion. A changed input invalidates the plan. Tenant, subscription, backend, and runner identifiers aren't sent in the dispatch body.
 The workflow validates the bounded request id, context digest, and exact checked-out commit before planning.
 

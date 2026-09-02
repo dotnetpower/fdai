@@ -187,10 +187,12 @@ def test_platform_workflow_isolates_monitoring_plan_changes() -> None:
     target_expression = _LEGACY_WORKFLOW[_LEGACY_WORKFLOW.index("TF_CLI_ARGS_plan:") :]
     target_expression = target_expression[: target_expression.index("\n")]
 
-    assert "inputs.deploy_monitoring && '-target=module.monitoring'" in target_expression
+    assert "inputs.deploy_monitoring && !inputs.deploy_console" in target_expression
+    assert "&& '-target=module.monitoring'" in target_expression
     assert target_expression.index("inputs.deploy_monitoring") < target_expression.index(
         "inputs.deploy_dev_operations_gateway"
     )
+    assert "MONITORING_ONLY:" in _LEGACY_WORKFLOW
     assert "Monitoring-only plan contains changes outside module.monitoring:" in _PLAN_SCOPE
     assert '.startswith("module.monitoring[")' in _PLAN_SCOPE
     design_mocks_guard = _LEGACY_WORKFLOW[
@@ -203,7 +205,7 @@ def test_platform_workflow_isolates_monitoring_plan_changes() -> None:
     model_step = _LEGACY_WORKFLOW.split("- name: Resolve and seal model capabilities", maxsplit=1)[
         1
     ].split("- name: Verify protected storage containers", maxsplit=1)[0]
-    assert "!inputs.deploy_monitoring" in model_step
+    assert "env.MONITORING_ONLY != 'true'" in model_step
     preflight_step = _LEGACY_WORKFLOW.split(
         "- name: Run complete Azure live preflight", maxsplit=1
     )[1].split("- name: Cleanup expired protected plans", maxsplit=1)[0]

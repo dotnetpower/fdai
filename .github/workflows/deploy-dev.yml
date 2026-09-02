@@ -169,7 +169,7 @@ jobs:
       TF_VAR_ohl_scale_out_evidence_image_version: ${{ vars.OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION }}
       TF_VAR_ohl_scale_out_evidence_initiator_principal_id: ${{ vars.OHL_SCALE_OUT_EVIDENCE_INITIATOR_PRINCIPAL_ID }}
       TF_VAR_ohl_scale_out_evidence_ssh_public_key: ${{ vars.OHL_SCALE_OUT_EVIDENCE_SSH_PUBLIC_KEY }}
-      TF_CLI_ARGS_plan: ${{ (startsWith(inputs.request_id, 'plan-quorum-') || startsWith(inputs.request_id, 'apply-quorum-')) && '-target=module.llm_azure_openai[0].azurerm_cognitive_deployment.capability[\"t1.judge\"] -target=module.llm_azure_openai[0].azurerm_cognitive_deployment.capability[\"t2.reasoner.primary\"]' || inputs.deploy_design_mocks && '-target=module.design_mocks' || inputs.deploy_monitoring && '-target=module.monitoring' || inputs.deploy_dev_operations_gateway && '-target=terraform_data.isolated_executor_authority_cutover_contract -target=azurerm_function_app_flex_consumption.dev_gateway[0] -target=azurerm_linux_virtual_machine_scale_set.ohl_evidence -target=module.ohl_evidence_identity -target=azurerm_role_assignment.ohl_evidence_acr_pull -target=azurerm_role_assignment.ohl_evidence_eventhubs_sender -target=module.network[0].azurerm_subnet.evidence_target -target=module.compute.azurerm_container_app_job.ohl_evidence_proposal -target=module.compute.azurerm_container_app_job.provider_schema[0] -target=module.compute.azurerm_container_app_job.canary[0] -target=module.compute.azurerm_container_app_job.inventory[0] -target=module.compute.azurerm_container_app_job.analyzer_tick[0] -target=module.operator_api[0] -target=module.ingestion_gateway[0] -target=module.isolated_executor[0] -target=module.measurement_runners.azurerm_container_app_job.baseline_regression -target=module.measurement_runners.azurerm_container_app_job.pattern_growth -target=azurerm_role_assignment.command_api_eventhubs_receiver -target=azurerm_role_assignment.command_api_eventhubs_sender -target=azurerm_role_assignment.executor_eventhubs_data_owner -target=azurerm_role_assignment.inventory_eventhubs_raw_sender -target=azurerm_eventgrid_system_topic_event_subscription.inventory_resource_changes[0] -target=azurerm_role_assignment.operator_api_acr_pull -target=azurerm_role_assignment.operator_api_kv_secrets_user -target=azurerm_role_assignment.operator_api_reader -target=azurerm_role_assignment.read_api_acr_pull -target=azurerm_role_assignment.read_api_kv_secrets_user -target=azurerm_role_assignment.read_api_reader -target=module.operator_api_identity[0].azurerm_user_assigned_identity.primary -target=module.read_api[0].azurerm_container_app.read_api -target=module.read_api[0].azurerm_container_app_job.migrate -target=module.read_api_identity[0].azurerm_user_assigned_identity.primary -target=module.llm_azure_openai[0].azurerm_cognitive_account.primary -target=module.llm_azure_openai[0].azurerm_role_assignment.additional_openai_user -target=azurerm_role_assignment.runtime_startup_probe_eventhubs_owner' || '' }}
+      TF_CLI_ARGS_plan: ${{ (startsWith(inputs.request_id, 'plan-quorum-') || startsWith(inputs.request_id, 'apply-quorum-')) && '-target=module.llm_azure_openai[0].azurerm_cognitive_deployment.capability[\"t1.judge\"] -target=module.llm_azure_openai[0].azurerm_cognitive_deployment.capability[\"t2.reasoner.primary\"]' || inputs.deploy_design_mocks && '-target=module.design_mocks' || (inputs.deploy_monitoring && !inputs.deploy_console && !inputs.deploy_operator_api && !inputs.deploy_isolated_executor && !inputs.deploy_dev_operations_gateway && !inputs.deploy_ohl_scale_out_evidence_target && !inputs.deploy_document_ingestion) && '-target=module.monitoring' || inputs.deploy_dev_operations_gateway && '-target=terraform_data.isolated_executor_authority_cutover_contract -target=azurerm_function_app_flex_consumption.dev_gateway[0] -target=azurerm_linux_virtual_machine_scale_set.ohl_evidence -target=module.ohl_evidence_identity -target=azurerm_role_assignment.ohl_evidence_acr_pull -target=azurerm_role_assignment.ohl_evidence_eventhubs_sender -target=module.network[0].azurerm_subnet.evidence_target -target=module.compute.azurerm_container_app_job.ohl_evidence_proposal -target=module.compute.azurerm_container_app_job.provider_schema[0] -target=module.compute.azurerm_container_app_job.canary[0] -target=module.compute.azurerm_container_app_job.inventory[0] -target=module.compute.azurerm_container_app_job.analyzer_tick[0] -target=module.operator_api[0] -target=module.ingestion_gateway[0] -target=module.isolated_executor[0] -target=module.measurement_runners.azurerm_container_app_job.baseline_regression -target=module.measurement_runners.azurerm_container_app_job.pattern_growth -target=azurerm_role_assignment.command_api_eventhubs_receiver -target=azurerm_role_assignment.command_api_eventhubs_sender -target=azurerm_role_assignment.executor_eventhubs_data_owner -target=azurerm_role_assignment.inventory_eventhubs_raw_sender -target=azurerm_eventgrid_system_topic_event_subscription.inventory_resource_changes[0] -target=azurerm_role_assignment.operator_api_acr_pull -target=azurerm_role_assignment.operator_api_kv_secrets_user -target=azurerm_role_assignment.operator_api_reader -target=azurerm_role_assignment.read_api_acr_pull -target=azurerm_role_assignment.read_api_kv_secrets_user -target=azurerm_role_assignment.read_api_reader -target=module.operator_api_identity[0].azurerm_user_assigned_identity.primary -target=module.read_api[0].azurerm_container_app.read_api -target=module.read_api[0].azurerm_container_app_job.migrate -target=module.read_api_identity[0].azurerm_user_assigned_identity.primary -target=module.llm_azure_openai[0].azurerm_cognitive_account.primary -target=module.llm_azure_openai[0].azurerm_role_assignment.additional_openai_user -target=azurerm_role_assignment.runtime_startup_probe_eventhubs_owner' || '' }}
       TF_VAR_dev_operations_gateway_private_probes_json: "${{ vars.DEV_OPERATIONS_GATEWAY_PRIVATE_PROBES_JSON || '{}' }}"
       TF_VAR_enable_document_ingestion: ${{ inputs.deploy_document_ingestion }}
       TF_VAR_enable_llm: ${{ startsWith(inputs.request_id, 'plan-chatops-') || startsWith(inputs.request_id, 'apply-chatops-') || startsWith(inputs.request_id, 'plan-quorum-') || startsWith(inputs.request_id, 'apply-quorum-') || inputs.deploy_document_ingestion || vars.ENABLE_LLM == 'true' || vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
@@ -178,6 +178,7 @@ jobs:
       MODEL_BINDING_ONLY: ${{ startsWith(inputs.request_id, 'plan-model-') || startsWith(inputs.request_id, 'apply-model-') }}
       CORE_MODEL_QUORUM_ONLY: ${{ startsWith(inputs.request_id, 'plan-quorum-') || startsWith(inputs.request_id, 'apply-quorum-') }}
       VALIDATE_CHATOPS_CHANNELS: ${{ startsWith(inputs.request_id, 'plan-chatops-') || startsWith(inputs.request_id, 'apply-chatops-') }}
+      MONITORING_ONLY: ${{ inputs.deploy_monitoring && !inputs.deploy_console && !inputs.deploy_operator_api && !inputs.deploy_isolated_executor && !inputs.deploy_dev_operations_gateway && !inputs.deploy_ohl_scale_out_evidence_target && !inputs.deploy_document_ingestion }}
       TF_VAR_core_image: ${{ vars.CORE_IMAGE || vars.OPERATOR_API_IMAGE }}
       # Operator API image + Entra/RBAC ids (tenant-specific; via repo Variables,
       # never committed). Empty when deploy_operator_api is false.
@@ -390,7 +391,7 @@ jobs:
           "$ARM_SUBSCRIPTION_ID" "$TF_VAR_tenant_id"
           "$DEPLOY_RUNNER_CLIENT_ID" "$DEPLOY_RUNNER_PRINCIPAL_ID"
       - name: Resolve and seal model capabilities
-        if: ${{ !inputs.apply && !inputs.deploy_monitoring && env.TF_VAR_enable_llm == 'true' }}
+        if: ${{ !inputs.apply && env.MONITORING_ONLY != 'true' && env.TF_VAR_enable_llm == 'true' }}
         working-directory: ${{ github.workspace }}
         env:
           MODEL_COMPLETENESS_FAIL_ON: ${{ (env.VALIDATE_CHATOPS_CHANNELS == 'true' || inputs.deploy_dev_operations_gateway || env.MODEL_BINDING_ONLY == 'true') && 'none' || 'critical' }}
@@ -699,7 +700,7 @@ jobs:
         run:         env -u TF_CLI_ARGS terraform plan -no-color -input=false -lock-timeout=300s -out=dev.plan
 
       - name: Guard migrated runtimes from legacy recreation
-        if: ${{ !inputs.apply && !inputs.deploy_design_mocks && !inputs.deploy_monitoring && env.MODEL_BINDING_ONLY != 'true' }}
+        if: ${{ !inputs.apply && !inputs.deploy_design_mocks && env.MONITORING_ONLY != 'true' && env.MODEL_BINDING_ONLY != 'true' }}
         run: |
           set -euo pipefail
           git -C "$GITHUB_WORKSPACE" fetch --no-tags origin \
@@ -725,7 +726,7 @@ jobs:
             --plan-json "$RUNNER_TEMP/legacy-runtime-plan.json"
 
       - name: Enforce bounded Terraform plan scope
-        if: ${{ !inputs.apply && (env.CORE_MODEL_QUORUM_ONLY == 'true' || inputs.deploy_design_mocks || inputs.deploy_monitoring || env.MODEL_BINDING_ONLY == 'true') }}
+        if: ${{ !inputs.apply && (env.CORE_MODEL_QUORUM_ONLY == 'true' || inputs.deploy_design_mocks || env.MONITORING_ONLY == 'true' || env.MODEL_BINDING_ONLY == 'true') }}
         working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail
@@ -737,9 +738,12 @@ jobs:
           elif [[ "${{ inputs.deploy_design_mocks }}" == "true" ]]; then
             mode=design-mocks
             extra=()
-          else
+          elif [[ "$MONITORING_ONLY" == "true" ]]; then
             mode=monitoring
             extra=()
+          else
+            echo "bounded plan scope mode is unavailable" >&2
+            exit 1
           fi
           python3 scripts/deployment/azure/enforce_plan_scope.py \
             --plan infra/dev.plan --mode "$mode" "${extra[@]}"
@@ -1798,7 +1802,7 @@ jobs:
           echo "Design mocks: https://$hostname" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run schema migrations
-        if: ${{ inputs.apply && !inputs.resume_verification && !inputs.deploy_design_mocks && !inputs.deploy_monitoring && env.MODEL_BINDING_ONLY != 'true' }}
+        if: ${{ inputs.apply && !inputs.resume_verification && !inputs.deploy_design_mocks && env.MONITORING_ONLY != 'true' && env.MODEL_BINDING_ONLY != 'true' }}
         working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail
@@ -1849,7 +1853,7 @@ jobs:
           fi
 
       - name: Publish integrated migration adoption evidence
-        if: ${{ always() && inputs.apply && !inputs.resume_verification && !inputs.deploy_design_mocks && !inputs.deploy_monitoring && env.MODEL_BINDING_ONLY != 'true' }}
+        if: ${{ always() && inputs.apply && !inputs.resume_verification && !inputs.deploy_design_mocks && env.MONITORING_ONLY != 'true' && env.MODEL_BINDING_ONLY != 'true' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: integrated-service-migration-adoption-${{ inputs.environment }}-${{ github.run_id }}-${{ github.run_attempt }}

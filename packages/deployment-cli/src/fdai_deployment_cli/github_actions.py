@@ -62,16 +62,14 @@ class DeploymentSelection:
     runtime_image_revision: str = ""
 
     def __post_init__(self) -> None:
-        if self.deploy_monitoring and any(
-            (
-                self.deploy_console,
-                self.deploy_dev_operations_gateway,
-                self.deploy_document_ingestion,
-                self.deploy_isolated_executor,
-                self.deploy_operator_api,
-                bool(self.runtime_image_revision),
-            )
-        ):
+        application_targets = (
+            self.deploy_console,
+            self.deploy_dev_operations_gateway,
+            self.deploy_document_ingestion,
+            self.deploy_isolated_executor,
+            self.deploy_operator_api,
+        )
+        if self.deploy_monitoring and not any(application_targets) and self.runtime_image_revision:
             raise ValueError("monitoring deployment cannot be combined with application targets")
         if self.runtime_image_revision:
             if _COMMIT.fullmatch(self.runtime_image_revision) is None:

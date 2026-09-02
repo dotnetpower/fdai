@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 659edc72bf17e4278fc9f3a0499191f046e2b8bf
+translation_source_sha: a35b68463f66de5af49e450ebee1c4e2e73493cf
 translation_revised: 2026-09-03
 ---
 # 설치형 배포 CLI
@@ -508,8 +508,9 @@ CLI를 확인한 뒤 plan-only 작업 흐름을 제출합니다. 범위가 제�
 
 전달 본문에는 `apply=false`, 환경, 정확한 커밋, SHA-256 배포 맥락 지문을 전달합니다. Console,
 Operator API, 문서 수집, 격리된 Executor, 모니터링 플래그는 지문에 포함되며 계획과 적용에 동일하게
-전달됩니다. 선택적인 런타임 소스 revision도 지문에 포함됩니다. 계획 단계에서 클라이언트는 격리된
-Executor와 독립적으로 해당 Core 이미지를 승격하고 검증합니다. 적용 단계에서는 승격을 반복하지 않고
+전달됩니다. 모니터링이 유일한 선택일 때만 범위가 제한된 모듈 대상을 사용하며, 전체 애플리케이션을
+선택하면 원하는 상태로 유지합니다. 선택적인 런타임 소스 revision도 지문에 포함됩니다. 계획 단계에서
+클라이언트는 격리된 Executor와 독립적으로 해당 Core 이미지를 승격하고 검증합니다. 적용 단계에서는 승격을 반복하지 않고
 digest-pinned 계획을 복원합니다. 입력이 달라지면 계획은 무효입니다. 테넌트, 구독, 백엔드, 실행기
 식별자는 전달하지 않습니다. 작업 흐름은 계획 전에 범위가 제한된 요청 id, 맥락 다이제스트, 정확히
 체크아웃한 커밋을 검증합니다.

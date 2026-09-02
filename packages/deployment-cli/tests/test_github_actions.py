@@ -775,9 +775,14 @@ def test_gateway_selection_round_trip() -> None:
     assert fields["deploy_operator_api"] == "false"
 
 
-def test_gateway_selection_rejects_monitoring_combination() -> None:
-    with pytest.raises(ValueError, match="monitoring deployment cannot be combined"):
-        DeploymentSelection(deploy_dev_operations_gateway=True, deploy_monitoring=True)
+def test_application_selection_can_preserve_monitoring() -> None:
+    selection = DeploymentSelection(
+        deploy_dev_operations_gateway=True,
+        deploy_monitoring=True,
+    )
+
+    assert selection.deploy_dev_operations_gateway is True
+    assert selection.deploy_monitoring is True
 
 
 _IMAGE_REVISION = "24e4df68a50eed8cf355c8278836d40dc399cb54"

@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: faeede42e9f4584e3686ac85249cab524ea5cded
+translation_source_sha: e007a29a46567199bbf793865cb89a21bcc00fb2
 translation_revised: 2026-09-03
 ---
 # 배포 리소스 규약
@@ -24,6 +24,10 @@ bootstrap-reconcile`은 해당 이름을 검토된 프로필 및 소스 커밋�
 별도로 승인된 기반 단계가 비공개 `tfstate` 및 `deployment-plans` 컨테이너 생성과 원격 상태
 인계를 소유합니다. 애플리케이션 계획 전용 실행은 두 컨테이너를 전제 조건으로 취급하며,
 하나라도 없으면 중지합니다. 계획의 부수 효과로 기반 리소스를 만들지 않습니다.
+
+애플리케이션 기능 입력은 전체 계획에서 원하는 플랫폼 상태를 나타냅니다. 모니터링이 유일하게
+선택된 기능일 때만 범위가 제한된 `module.monitoring` 대상을 사용합니다. 애플리케이션 기능과 함께
+선택하면 모니터링을 활성 상태로 유지하고 전체 비파괴 계획에 포함합니다.
 
 ## 구현 상태
 

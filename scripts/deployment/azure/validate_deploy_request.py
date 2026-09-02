@@ -190,20 +190,18 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
             raise ValueError(
                 "deploy_design_mocks cannot be combined with another deployment target"
             )
-    if monitoring and (
-        any(
-            _enabled(values, key)
-            for key in (
-                "DEPLOY_CONSOLE",
-                "DEPLOY_OPERATOR_API",
-                "DEPLOY_ISOLATED_EXECUTOR",
-                "DEPLOY_DEV_OPERATIONS_GATEWAY",
-                "DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET",
-                "DEPLOY_DOCUMENT_INGESTION",
-            )
+    application_target = any(
+        _enabled(values, key)
+        for key in (
+            "DEPLOY_CONSOLE",
+            "DEPLOY_OPERATOR_API",
+            "DEPLOY_ISOLATED_EXECUTOR",
+            "DEPLOY_DEV_OPERATIONS_GATEWAY",
+            "DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET",
+            "DEPLOY_DOCUMENT_INGESTION",
         )
-        or bool(runtime_image_revision)
-    ):
+    )
+    if monitoring and not application_target and runtime_image_revision:
         raise ValueError("deploy_monitoring cannot be combined with another deployment target")
 
     if model_only:

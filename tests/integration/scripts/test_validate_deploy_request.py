@@ -234,13 +234,12 @@ def test_design_mocks_are_dev_only_and_exclusive() -> None:
         )
 
 
-def test_monitoring_is_exclusive() -> None:
+def test_monitoring_only_rejects_runtime_image_but_full_plan_can_preserve_it() -> None:
     validate(_request(DEPLOY_MONITORING="true"), checkout_commit=_COMMIT)
-    with pytest.raises(ValueError, match="deploy_monitoring cannot be combined"):
-        validate(
-            _request(DEPLOY_MONITORING="true", DEPLOY_OPERATOR_API="true"),
-            checkout_commit=_COMMIT,
-        )
+    validate(
+        _request(DEPLOY_MONITORING="true", DEPLOY_OPERATOR_API="true"),
+        checkout_commit=_COMMIT,
+    )
     with pytest.raises(ValueError, match="deploy_monitoring cannot be combined"):
         validate(
             _request(
