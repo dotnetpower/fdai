@@ -1769,6 +1769,7 @@ class PostgresFamilyStore:
                         INSERT INTO state_kv (key, value)
                         SELECT %s, %s::jsonb
                          WHERE %s = 0
+                            OR EXISTS (SELECT 1 FROM state_kv WHERE key = %s)
                         ON CONFLICT (key)
                         DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
                               WHERE (state_kv.value ->> 'revision')::integer = %s
@@ -1778,6 +1779,7 @@ class PostgresFamilyStore:
                             state_key,
                             json.dumps(dict(state_value), separators=(",", ":"), sort_keys=True),
                             expected_revision,
+                            state_key,
                             expected_revision,
                         ),
                     )

@@ -51,6 +51,7 @@ from fdai.delivery.reconciliation_request_publication import (
     ReconciliationRequestPublishRetryableError,
 )
 from fdai.delivery.reconciliation_runtime import EffectReconciliationWorker
+from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.rule_catalog.schema.catalog_search import (
     catalog_search_schema_digest,
     rule_reference_catalog_digest,
@@ -261,6 +262,7 @@ def build_semantic_turn_binding(
     unavailable_reason: str | None = None,
     operational_evidence: Any = None,
     answer_continuity_enabled: bool = False,
+    runtime_settings: RuntimeSettingsService | None = None,
 ) -> SemanticTurnConsumerBinding | None:
     """Bind configured transport and its explicit runtime availability state."""
 
@@ -271,6 +273,7 @@ def build_semantic_turn_binding(
         unavailable_reason=unavailable_reason,
         operational_evidence=operational_evidence,
         answer_continuity_enabled=answer_continuity_enabled,
+        runtime_settings=runtime_settings,
     )
 
 

@@ -364,6 +364,12 @@ exit 99
     return repo, {"PATH": f"{bin_dir}:/usr/bin:/bin"}
 
 
+def test_authoritative_settings_stage_tracks_runtime_setting_definitions() -> None:
+    script = _PREPARE_SCRIPT.read_text(encoding="utf-8")
+
+    assert "services/core-control-plane/src/fdai/delivery/runtime_settings.py" in script
+
+
 def test_preparation_reuses_each_unchanged_stage_when_stack_is_stopped(tmp_path: Path) -> None:
     repo, environment = _staged_preparation_repo(tmp_path)
 

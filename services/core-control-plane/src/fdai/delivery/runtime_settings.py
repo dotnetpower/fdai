@@ -10,6 +10,8 @@ from datetime import UTC, datetime
 from typing import Any, Literal
 from uuid import uuid4
 
+import psycopg
+
 from fdai.shared.providers.state_store import StateStore
 
 _STATE_KEY = "runtime-settings:policy"
@@ -36,6 +38,7 @@ class RuntimeSettingSpec:
     maximum: float | None = None
     options: tuple[str, ...] = ()
     restart_required: bool = False
+    development_default: object | None = None
 
     def validate(self, value: object) -> object:
         if self.value_type == "boolean":
@@ -260,6 +263,14 @@ RUNTIME_SETTING_SPECS: tuple[RuntimeSettingSpec, ...] = (
         "boolean",
         False,
         restart_required=True,
+    ),
+    RuntimeSettingSpec(
+        "conversation.t2_escalation.aggressive_enabled",
+        "FDAI_CONVERSATION_T2_AGGRESSIVE_ENABLED",
+        "conversation",
+        "boolean",
+        False,
+        development_default=True,
     ),
     RuntimeSettingSpec(
         "conversation.prompt_ablation.profile",
@@ -510,7 +521,12 @@ class RuntimeSettingsService:
     async def _record(self) -> dict[str, Any]:
         if self.store is None:
             return {"revision": 0, "overrides": {}}
-        stored = await self.store.read_state(_STATE_KEY)
+        try:
+            stored = await self.store.read_state(_STATE_KEY)
+        except psycopg.Error as exc:
+            raise RuntimeSettingsUnavailableError(
+                "durable runtime settings are unavailable"
+            ) from exc
         if stored is None:
             return {"revision": 0, "overrides": {}}
         revision = stored.get("revision")
@@ -549,7 +565,13 @@ class RuntimeSettingsService:
     def _environment_value(self, spec: RuntimeSettingSpec) -> object:
         raw = self.env.get(spec.env_name, "").strip()
         if not raw:
-            return spec.default
+            default = (
+                spec.development_default
+                if spec.development_default is not None
+                and self.env.get("RUNTIME_ENV", "").strip().casefold() == "dev"
+                else spec.default
+            )
+            return spec.validate(default)
         if spec.value_type == "boolean":
             normalized = raw.casefold()
             if normalized in {"1", "true", "yes", "on"}:

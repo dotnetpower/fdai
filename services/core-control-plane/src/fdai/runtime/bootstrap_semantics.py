@@ -43,6 +43,7 @@ from fdai.delivery.persistence.postgres_state_transitions import (
     PostgresStateTransitionStore,
     PostgresStateTransitionStoreConfig,
 )
+from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.runtime.bootstrap_bindings import (
     RuleGenerationRuntimeBinding,
     build_rule_generation_runtime_binding,
@@ -152,6 +153,7 @@ async def build_semantic_runtime(
     stage_topic: str,
     environment: Mapping[str, str],
     runtime_values: Mapping[str, object],
+    runtime_settings: RuntimeSettingsService,
 ) -> SemanticRuntime:
     """Bind semantic retrieval and investigation paths from one runtime snapshot."""
 
@@ -322,6 +324,7 @@ async def build_semantic_runtime(
         answer_continuity_enabled=(
             runtime_values["conversation.answer_continuity.enabled"] is True
         ),
+        runtime_settings=runtime_settings,
         operational_evidence=(
             SemanticOperationalEvidenceReader(
                 service=operational_evidence_read_service,

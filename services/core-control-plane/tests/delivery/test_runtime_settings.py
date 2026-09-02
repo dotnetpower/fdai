@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+import psycopg
 import pytest
 from fdai.delivery.runtime_settings import (
     RuntimeSettingsConflictError,
@@ -122,6 +123,18 @@ async def test_invalid_environment_fails_closed() -> None:
 
     with pytest.raises(RuntimeSettingsUnavailableError, match="environment"):
         await service.projection(can_manage=False)
+
+
+async def test_postgres_read_failure_is_normalized_as_runtime_settings_unavailable() -> None:
+    class _FailingStore(InMemoryStateStore):
+        async def read_state(self, key: str) -> dict[str, Any] | None:
+            del key
+            raise psycopg.OperationalError("database unavailable")
+
+    service = RuntimeSettingsService(store=_FailingStore(), env={"RUNTIME_ENV": "dev"})
+
+    with pytest.raises(RuntimeSettingsUnavailableError, match="durable"):
+        await service.effective_values()
 
 
 async def test_in_memory_store_is_not_reported_as_durable() -> None:
@@ -255,6 +268,42 @@ async def test_answer_continuity_and_prompt_ablation_are_safe_startup_settings()
     assert _setting(updated, "conversation.prompt_ablation.profile")["effective_value"] == "TOOLS"
     assert _setting(updated, "conversation.answer_continuity.enabled")["restart_required"] is True
     assert _setting(updated, "conversation.prompt_ablation.profile")["restart_required"] is True
+
+
+async def test_aggressive_t2_defaults_on_only_in_development_and_updates_without_restart() -> None:
+    development = RuntimeSettingsService(
+        store=InMemoryStateStore(),
+        env={"RUNTIME_ENV": "dev"},
+    )
+    production = RuntimeSettingsService(
+        store=InMemoryStateStore(),
+        env={"RUNTIME_ENV": "prod"},
+    )
+
+    development_projection = await development.projection(can_manage=True)
+    production_projection = await production.projection(can_manage=True)
+    development_setting = _setting(
+        development_projection,
+        "conversation.t2_escalation.aggressive_enabled",
+    )
+
+    assert development_setting["effective_value"] is True
+    assert development_setting["restart_required"] is False
+    assert (
+        _setting(production_projection, "conversation.t2_escalation.aggressive_enabled")[
+            "effective_value"
+        ]
+        is False
+    )
+
+    await development.update(
+        actor_id="owner-1",
+        changes={"conversation.t2_escalation.aggressive_enabled": False},
+        expected_revision=0,
+    )
+    assert (await development.effective_values())[
+        "conversation.t2_escalation.aggressive_enabled"
+    ] is False
 
 
 async def test_prompt_ablation_rejects_unreviewed_profile() -> None:

@@ -55,9 +55,11 @@ from .semantic_planning_frame_normalization import (
 )
 from .semantic_planning_models import (
     BoundInvestigationContinuation,
+    ClarificationRequirement,
     QueryPlanProposal,
     SemanticFrameProposal,
     SemanticOutputShape,
+    SemanticPlanningEscalationModel,
     SemanticPlanningModel,
 )
 from .semantic_resource_metric_planning import normalize_exact_resource_metric_proposal
@@ -113,6 +115,7 @@ class SemanticPlanningEscalationTrigger(StrEnum):
     """Typed T1 outcomes that an escalation policy may admit to T2."""
 
     FRAME_UNAVAILABLE = "frame_unavailable"
+    FRAME_CLARIFICATION = "frame_clarification"
     FRAME_SCHEMA_INVALID = "frame_schema_invalid"
     FRAME_BUILD_REJECTED = "frame_build_rejected"
     PLAN_UNAVAILABLE = "plan_unavailable"
@@ -141,7 +144,18 @@ BOUNDED_T2_ESCALATION_POLICY = SemanticPlanningEscalationPolicy(
         }
     )
 )
+AGGRESSIVE_T2_ESCALATION_POLICY = SemanticPlanningEscalationPolicy(
+    allowed_triggers=frozenset(SemanticPlanningEscalationTrigger)
+)
 NO_T2_ESCALATION_POLICY = SemanticPlanningEscalationPolicy(allowed_triggers=frozenset())
+_T2_ELIGIBLE_CLARIFICATIONS = frozenset(
+    {
+        ClarificationRequirement.MEASURE,
+        ClarificationRequirement.RESOURCE_IDENTITY,
+        ClarificationRequirement.SUBJECT,
+    }
+)
+_NON_ESCALATABLE_FRAME_REASONS = frozenset({"semantic clarification requests server-bound context"})
 
 
 class SemanticPlanningCascade:
@@ -186,6 +200,15 @@ class SemanticPlanningCascade:
         ]
         | None
     ):
+        recovery_context: dict[str, str] | None = None
+        t1_clarification: (
+            tuple[
+                SemanticFrameProposal,
+                SemanticProblemFrame,
+                VerifiedInvestigationIntent | None,
+            ]
+            | None
+        ) = None
         stated_filter = build_stated_resource_filter_frame(
             semantic_judgment=semantic_judgment,
             utterance=utterance,
@@ -241,7 +264,8 @@ class SemanticPlanningCascade:
                 )
                 return (*candidate, None)
         for tier, model in self._planning_models():
-            raw = model.propose_frame(
+            raw = _propose_frame(
+                model,
                 utterance=utterance,
                 context=context,
                 descriptors=copy.deepcopy(descriptors),
@@ -249,6 +273,7 @@ class SemanticPlanningCascade:
                 principal_role=principal.role.value,
                 purpose=purpose,
                 semantic_judgment=copy.deepcopy(semantic_judgment),
+                recovery_context=recovery_context if tier == "t2" else None,
             )
             if raw is None:
                 if tier == "t1":
@@ -295,12 +320,21 @@ class SemanticPlanningCascade:
                             },
                         )
                         return (*fallback, None)
-                if self._should_escalate(
+                if _read_only_escalation_allowed(
+                    semantic_judgment,
+                    proposal=None,
+                ) and self._should_escalate(
                     tier=tier,
                     trigger=SemanticPlanningEscalationTrigger.FRAME_UNAVAILABLE,
                     escalation_policy=escalation_policy,
                 ):
+                    recovery_context = _recovery_context(
+                        "frame",
+                        SemanticPlanningEscalationTrigger.FRAME_UNAVAILABLE,
+                    )
                     continue
+                if tier == "t2" and t1_clarification is not None:
+                    return t1_clarification
                 return None
             proposal: SemanticFrameProposal | None = None
             try:
@@ -448,13 +482,23 @@ class SemanticPlanningCascade:
                 )
                 if fallback is not None:
                     return (*fallback, None)
-                if self._should_escalate(
+                if _read_only_escalation_allowed(
+                    semantic_judgment,
+                    proposal=proposal,
+                ) and self._should_escalate(
                     tier=tier,
                     trigger=SemanticPlanningEscalationTrigger.FRAME_SCHEMA_INVALID,
                     escalation_policy=escalation_policy,
                     validation_reason=_safe_frame_rejection_reason(exc),
                 ):
+                    recovery_context = _recovery_context(
+                        "frame",
+                        SemanticPlanningEscalationTrigger.FRAME_SCHEMA_INVALID,
+                        _safe_frame_rejection_reason(exc),
+                    )
                     continue
+                if tier == "t2" and t1_clarification is not None:
+                    return t1_clarification
                 raise ProposalRejectedError("frame_validation", type(exc).__name__) from exc
             try:
                 frame = self._frame_builder(
@@ -475,12 +519,21 @@ class SemanticPlanningCascade:
                 )
                 if fallback is not None:
                     return (*fallback, None)
-                if self._should_escalate(
+                if _read_only_escalation_allowed(
+                    semantic_judgment,
+                    proposal=proposal,
+                ) and self._should_escalate(
                     tier=tier,
                     trigger=SemanticPlanningEscalationTrigger.FRAME_BUILD_REJECTED,
                     escalation_policy=escalation_policy,
                 ):
+                    recovery_context = _recovery_context(
+                        "frame",
+                        SemanticPlanningEscalationTrigger.FRAME_BUILD_REJECTED,
+                    )
                     continue
+                if tier == "t2" and t1_clarification is not None:
+                    return t1_clarification
                 raise ProposalRejectedError("frame_build", type(exc).__name__) from exc
             clarification = _judgment_non_resource_target_clarification(
                 proposal,
@@ -499,13 +552,39 @@ class SemanticPlanningCascade:
                     inventory_query_language=self._inventory_query_language,
                 )
             if clarification is not None:
+                if tier == "t2" and t1_clarification is not None:
+                    return t1_clarification
                 _LOGGER.info(
                     "semantic_planning_candidate_recovered",
                     extra={"stage": "frame", "recovery": "non_resource_target_clarification"},
                 )
                 return (*clarification, None)
+            if (
+                tier == "t1"
+                and proposal.operation is not SemanticOperation.ACTION_DRAFT
+                and proposal.clarification_requirements
+                and set(proposal.clarification_requirements) <= _T2_ELIGIBLE_CLARIFICATIONS
+                and self._should_escalate(
+                    tier=tier,
+                    trigger=SemanticPlanningEscalationTrigger.FRAME_CLARIFICATION,
+                    escalation_policy=escalation_policy,
+                )
+            ):
+                t1_clarification = (proposal, frame, investigation_intent)
+                recovery_context = _recovery_context(
+                    "frame",
+                    SemanticPlanningEscalationTrigger.FRAME_CLARIFICATION,
+                    ",".join(item.value for item in proposal.clarification_requirements),
+                )
+                continue
+            if (
+                tier == "t2"
+                and t1_clarification is not None
+                and proposal.clarification_requirements
+            ):
+                return t1_clarification
             return proposal, frame, investigation_intent
-        return None
+        return t1_clarification
 
     def propose_plan(
         self,
@@ -519,14 +598,17 @@ class SemanticPlanningCascade:
         evaluation_time: datetime,
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
     ) -> OntologyQueryPlan | None:
+        recovery_context: dict[str, str] | None = None
         for tier, model in self._planning_models():
-            raw = model.propose_plan(
+            raw = _propose_plan(
+                model,
                 frame=frame,
                 descriptors=copy.deepcopy(descriptors),
                 metric_concepts=metric_concepts,
                 principal_role=principal.role.value,
                 purpose=purpose,
                 evaluation_time=evaluation_time,
+                recovery_context=recovery_context if tier == "t2" else None,
             )
             if raw is None:
                 if self._should_escalate(
@@ -534,6 +616,10 @@ class SemanticPlanningCascade:
                     trigger=SemanticPlanningEscalationTrigger.PLAN_UNAVAILABLE,
                     escalation_policy=escalation_policy,
                 ):
+                    recovery_context = _recovery_context(
+                        "plan",
+                        SemanticPlanningEscalationTrigger.PLAN_UNAVAILABLE,
+                    )
                     continue
                 return None
             try:
@@ -544,6 +630,10 @@ class SemanticPlanningCascade:
                     trigger=SemanticPlanningEscalationTrigger.PLAN_SCHEMA_INVALID,
                     escalation_policy=escalation_policy,
                 ):
+                    recovery_context = _recovery_context(
+                        "plan",
+                        SemanticPlanningEscalationTrigger.PLAN_SCHEMA_INVALID,
+                    )
                     continue
                 raise ProposalRejectedError("plan_validation", type(exc).__name__) from exc
             try:
@@ -561,6 +651,10 @@ class SemanticPlanningCascade:
                     trigger=SemanticPlanningEscalationTrigger.PLAN_BUILD_REJECTED,
                     escalation_policy=escalation_policy,
                 ):
+                    recovery_context = _recovery_context(
+                        "plan",
+                        SemanticPlanningEscalationTrigger.PLAN_BUILD_REJECTED,
+                    )
                     continue
                 raise ProposalRejectedError("plan_build", type(exc).__name__) from exc
             try:
@@ -572,6 +666,10 @@ class SemanticPlanningCascade:
                     trigger=SemanticPlanningEscalationTrigger.PLAN_VERIFICATION_REJECTED,
                     escalation_policy=escalation_policy,
                 ):
+                    recovery_context = _recovery_context(
+                        "plan",
+                        SemanticPlanningEscalationTrigger.PLAN_VERIFICATION_REJECTED,
+                    )
                     continue
                 raise ProposalRejectedError("plan_verify", type(exc).__name__) from exc
             return plan
@@ -593,6 +691,15 @@ class SemanticPlanningCascade:
         if tier != "t1" or self._escalation_model is None:
             return False
         policy = escalation_policy or self._escalation_policy
+        if (
+            trigger is SemanticPlanningEscalationTrigger.FRAME_SCHEMA_INVALID
+            and validation_reason in _NON_ESCALATABLE_FRAME_REASONS
+        ):
+            _LOGGER.info(
+                "semantic_planning_t2_withheld",
+                extra={"trigger": trigger.value, "validation_reason": validation_reason},
+            )
+            return False
         if not policy.allows(trigger):
             _LOGGER.info(
                 "semantic_planning_t2_withheld",
@@ -604,6 +711,55 @@ class SemanticPlanningCascade:
             extra={"trigger": trigger.value, "validation_reason": validation_reason},
         )
         return True
+
+
+def _propose_frame(
+    model: SemanticPlanningModel,
+    *,
+    recovery_context: Mapping[str, str] | None,
+    **kwargs: Any,
+) -> Mapping[str, Any] | None:
+    if recovery_context is not None and isinstance(model, SemanticPlanningEscalationModel):
+        return model.propose_escalated_frame(
+            **kwargs,
+            recovery_context=recovery_context,
+        )
+    return model.propose_frame(**kwargs)
+
+
+def _propose_plan(
+    model: SemanticPlanningModel,
+    *,
+    recovery_context: Mapping[str, str] | None,
+    **kwargs: Any,
+) -> Mapping[str, Any] | None:
+    if recovery_context is not None and isinstance(model, SemanticPlanningEscalationModel):
+        return model.propose_escalated_plan(
+            **kwargs,
+            recovery_context=recovery_context,
+        )
+    return model.propose_plan(**kwargs)
+
+
+def _recovery_context(
+    stage: str,
+    trigger: SemanticPlanningEscalationTrigger,
+    reason: str | None = None,
+) -> dict[str, str]:
+    context = {"stage": stage, "trigger": trigger.value}
+    if reason:
+        context["reason"] = reason[:256]
+    return context
+
+
+def _read_only_escalation_allowed(
+    semantic_judgment: Mapping[str, Any] | None,
+    *,
+    proposal: SemanticFrameProposal | None,
+) -> bool:
+    if proposal is not None and proposal.operation is SemanticOperation.ACTION_DRAFT:
+        return False
+    return semantic_judgment is None or semantic_judgment.get("action_posture") != "draft_only"
 
 
 def _candidate_frame_fallback(
@@ -763,6 +919,7 @@ def _current_state_clarification_fallback(
 
 
 __all__ = [
+    "AGGRESSIVE_T2_ESCALATION_POLICY",
     "BOUNDED_T2_ESCALATION_POLICY",
     "NO_T2_ESCALATION_POLICY",
     "ProposalRejectedError",

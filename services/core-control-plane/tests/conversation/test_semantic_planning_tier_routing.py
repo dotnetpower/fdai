@@ -24,6 +24,7 @@ from fdai.core.conversation.semantic_judgment import (
 )
 from fdai.core.conversation.semantic_planning import SemanticPlanningService
 from fdai.core.conversation.semantic_planning_cascade import (
+    AGGRESSIVE_T2_ESCALATION_POLICY,
     _judgment_link_subjects,
     _judgment_object_subjects,
     _validate_frame_proposal,
@@ -194,6 +195,7 @@ class _Model:
         self.frame_calls = 0
         self.plan_calls = 0
         self.plan_evaluation_times: list[datetime] = []
+        self.recovery_contexts: list[dict[str, str]] = []
 
     def propose_frame(self, **_kwargs: Any) -> Any:
         self.frame_calls += 1
@@ -203,6 +205,14 @@ class _Model:
         self.plan_calls += 1
         self.plan_evaluation_times.append(kwargs["evaluation_time"])
         return self.plan
+
+    def propose_escalated_frame(self, **kwargs: Any) -> Any:
+        self.recovery_contexts.append(dict(kwargs["recovery_context"]))
+        return self.propose_frame(**kwargs)
+
+    def propose_escalated_plan(self, **kwargs: Any) -> Any:
+        self.recovery_contexts.append(dict(kwargs["recovery_context"]))
+        return self.propose_plan(**kwargs)
 
 
 class _DraftJudgmentModel:
@@ -1612,6 +1622,106 @@ def test_misclassified_evidence_validation_fails_closed_without_t2() -> None:
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
+def test_aggressive_policy_retries_a_rejected_t1_frame_with_compact_context() -> None:
+    manifest, definition = _fixture()
+    t1 = _Model(
+        frame=_frame(operation="validate", output_shape="resource_list"),
+        plan=_plan(definition),
+    )
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+    service = _service(t1, t2, manifest)
+
+    outcome = service.plan(
+        utterance="Show matching resources",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        escalation_policy=AGGRESSIVE_T2_ESCALATION_POLICY,
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (1, 0)
+    assert t2.recovery_contexts == [
+        {
+            "stage": "frame",
+            "trigger": "frame_schema_invalid",
+            "reason": "semantic validate operation requires evidence_validation output",
+        }
+    ]
+
+
+def test_aggressive_policy_retries_typed_resource_clarification_once() -> None:
+    manifest, definition = _fixture()
+    t1 = _Model(
+        frame=_frame(
+            subject_constraints=["Resource"],
+            output_shape="target_current_state",
+            unresolved_terms=["resource_identity"],
+            clarification_requirements=["resource_identity"],
+            clarification="Which exact Resource should I inspect?",
+        ),
+        plan=_plan(definition),
+    )
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+    service = _service(t1, t2, manifest)
+
+    outcome = service.plan(
+        utterance="Why is the database paused?",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        escalation_policy=AGGRESSIVE_T2_ESCALATION_POLICY,
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t2.frame_calls, t2.plan_calls) == (1, 0)
+    assert t2.recovery_contexts == [
+        {
+            "stage": "frame",
+            "trigger": "frame_clarification",
+            "reason": "resource_identity",
+        }
+    ]
+
+
+def test_aggressive_policy_preserves_t1_clarification_when_t2_cannot_resolve_it() -> None:
+    manifest, definition = _fixture()
+    t1 = _Model(
+        frame=_frame(
+            subject_constraints=["Resource"],
+            output_shape="target_current_state",
+            unresolved_terms=["resource_identity"],
+            clarification_requirements=["resource_identity"],
+            clarification="Which exact Resource should I inspect?",
+        ),
+        plan=_plan(definition),
+    )
+    t2 = _Model(
+        frame=_frame(
+            subject_constraints=["Resource"],
+            output_shape="target_current_state",
+            unresolved_terms=["resource_identity"],
+            clarification_requirements=["resource_identity"],
+            clarification="T2 still needs a Resource identity.",
+        ),
+        plan=_plan(definition),
+    )
+    service = _service(t1, t2, manifest)
+
+    outcome = service.plan(
+        utterance="Why is the database paused?",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        escalation_policy=AGGRESSIVE_T2_ESCALATION_POLICY,
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.clarification == "Which exact Resource should I inspect?"
+    assert t2.frame_calls == 1
+
+
 def test_misclassified_causal_frame_fails_closed_without_t2() -> None:
     manifest, definition = _fixture()
     t1 = _Model(
@@ -1858,6 +1968,27 @@ def test_exact_target_impact_builds_service_path_without_t2() -> None:
     assert services.arguments["direction"] == "incoming"
     assert outcome.plan.execution_authority is False
     assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+def test_aggressive_policy_does_not_retry_an_invalid_action_draft_frame() -> None:
+    manifest, definition = _fixture()
+    t1 = _Model(
+        frame=_frame(operation="action_draft", output_shape="resource_list"),
+        plan=_plan(definition),
+    )
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+    service = _service(t1, t2, manifest)
+
+    outcome = service.plan(
+        utterance="Draft a restart change.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        escalation_policy=AGGRESSIVE_T2_ESCALATION_POLICY,
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
@@ -3448,6 +3579,31 @@ def test_t1_server_bound_clarification_fails_closed_without_t2(requirement: str)
     assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
     assert outcome.reason == "semantic_plan_invalid"
     assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+def test_aggressive_policy_does_not_retry_server_bound_clarification() -> None:
+    manifest, definition = _fixture()
+    t1 = _Model(
+        frame=_frame(
+            unresolved_terms=["principal_scope"],
+            clarification_requirements=["principal_scope"],
+            clarification="Which server context should I use?",
+        ),
+        plan=_plan(definition),
+    )
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+    service = _service(t1, t2, manifest)
+
+    outcome = service.plan(
+        utterance="Show matching resources",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        escalation_policy=AGGRESSIVE_T2_ESCALATION_POLICY,
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 

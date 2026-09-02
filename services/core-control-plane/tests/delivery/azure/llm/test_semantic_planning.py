@@ -189,6 +189,80 @@ async def test_adapter_validates_frame_and_plan_and_isolates_injection_text() ->
     ]
 
 
+async def test_escalated_frame_uses_compact_typed_recovery_context() -> None:
+    captured: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(request)
+        return _response(_frame_payload())
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        model = AzureOpenAISemanticPlanningModel(
+            identity=_Identity(),  # type: ignore[arg-type]
+            http_client=client,
+            config=_config(),
+            owner_loop=asyncio.get_running_loop(),
+        )
+        result = await asyncio.to_thread(
+            model.propose_escalated_frame,
+            utterance="Why is the database paused?",
+            context=(),
+            descriptors=({"kind": "object", "name": "Resource"},),
+            principal_role="reader",
+            purpose="operations-review",
+            recovery_context={
+                "stage": "frame",
+                "trigger": "frame_clarification",
+                "reason": "resource_identity",
+                "provider_output": "must not cross",
+            },
+        )
+
+    assert result is not None
+    body: dict[str, Any] = json.loads(captured[0].content)
+    assert "bounded T2 recovery attempt" in body["messages"][0]["content"]
+    payload = json.loads(body["messages"][1]["content"])["untrusted_input"]
+    assert payload["recovery_context"] == {
+        "reason": "resource_identity",
+        "stage": "frame",
+        "trigger": "frame_clarification",
+    }
+
+
+async def test_escalated_frame_returns_unavailable_when_recovery_prompt_exceeds_budget() -> None:
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return _response(_frame_payload())
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        model = AzureOpenAISemanticPlanningModel(
+            identity=_Identity(),  # type: ignore[arg-type]
+            http_client=client,
+            config=AzureOpenAISemanticPlanningModelConfig(
+                candidates=(_target("primary"),),
+                frame_system_prompt="x" * 32_768,
+                plan_system_prompt="bounded",
+                timeout_seconds=2,
+            ),
+            owner_loop=asyncio.get_running_loop(),
+        )
+        result = await asyncio.to_thread(
+            model.propose_escalated_frame,
+            utterance="Why is the database paused?",
+            context=(),
+            descriptors=({"kind": "object", "name": "Resource"},),
+            principal_role="reader",
+            purpose="operations-review",
+            recovery_context={"stage": "frame", "trigger": "frame_clarification"},
+        )
+
+    assert result is None
+    assert calls == 0
+
+
 async def test_adapter_normalizes_non_authoritative_evidence_tokens() -> None:
     payload = _frame_payload()
     payload["evidence_requirements"] = ["Authoritative ontology", "Current evidence"]

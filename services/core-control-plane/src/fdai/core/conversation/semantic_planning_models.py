@@ -6,7 +6,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
-from typing import Annotated, Any, Literal, Protocol
+from typing import Annotated, Any, Literal, Protocol, runtime_checkable
 
 from fdai_service_contracts.ontology_query import (
     IntentGraph,
@@ -289,6 +289,36 @@ class SemanticPlanningModel(Protocol):
     ) -> Mapping[str, Any] | None: ...
 
 
+@runtime_checkable
+class SemanticPlanningEscalationModel(Protocol):
+    """Accept compact server-owned recovery context for a T2 retry."""
+
+    def propose_escalated_frame(
+        self,
+        *,
+        utterance: str,
+        context: tuple[str, ...],
+        descriptors: tuple[dict[str, Any], ...],
+        metric_concepts: tuple[str, ...],
+        principal_role: str,
+        purpose: str,
+        semantic_judgment: Mapping[str, Any] | None,
+        recovery_context: Mapping[str, str],
+    ) -> Mapping[str, Any] | None: ...
+
+    def propose_escalated_plan(
+        self,
+        *,
+        frame: SemanticProblemFrame,
+        descriptors: tuple[dict[str, Any], ...],
+        metric_concepts: tuple[str, ...],
+        principal_role: str,
+        purpose: str,
+        evaluation_time: datetime,
+        recovery_context: Mapping[str, str],
+    ) -> Mapping[str, Any] | None: ...
+
+
 class QueryManifestProvider(Protocol):
     """Return one exact principal-scoped immutable query manifest."""
 
@@ -380,6 +410,7 @@ __all__ = [
     "SemanticFrameProposal",
     "SemanticOutputShape",
     "SemanticPlanningDisposition",
+    "SemanticPlanningEscalationModel",
     "SemanticPlanningModel",
     "SemanticPlanningOutcome",
 ]

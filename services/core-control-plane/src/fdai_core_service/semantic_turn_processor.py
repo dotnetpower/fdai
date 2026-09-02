@@ -13,7 +13,11 @@ from uuid import UUID, uuid5
 
 from fdai.core.conversation.intent_graph import resolve_execution_authority
 from fdai.core.conversation.semantic_investigation import InvestigationEntityRole
-from fdai.core.conversation.semantic_planning_cascade import NO_T2_ESCALATION_POLICY
+from fdai.core.conversation.semantic_planning_cascade import (
+    AGGRESSIVE_T2_ESCALATION_POLICY,
+    NO_T2_ESCALATION_POLICY,
+    SemanticPlanningEscalationPolicy,
+)
 from fdai.core.conversation.semantic_planning_models import (
     BoundIncident,
     BoundInvestigationContinuation,
@@ -142,7 +146,14 @@ class SemanticTurnRuntime(Protocol):
         bound_incident: BoundIncident | None = None,
         bound_resource_context: BoundResourceContext | None = None,
         bound_investigation_continuation: BoundInvestigationContinuation | None = None,
+        escalation_policy: SemanticPlanningEscalationPolicy | None = None,
     ) -> RuntimeSemanticTurnResult: ...
+
+
+class RuntimeSettingsReader(Protocol):
+    """Read the current audited runtime policy for one semantic turn."""
+
+    async def effective_values(self) -> dict[str, object]: ...
 
 
 class PantheonAssuranceRuntime(Protocol):
@@ -209,6 +220,7 @@ class SemanticTurnProcessor:
         pantheon_assurance: PantheonAssuranceRuntime | None = None,
         operational_evidence: OperationalEvidenceProjectionReader | None = None,
         answer_continuity_enabled: bool = False,
+        runtime_settings: RuntimeSettingsReader | None = None,
         now: Callable[[], datetime] | None = None,
     ) -> None:
         if not purpose:
@@ -221,6 +233,7 @@ class SemanticTurnProcessor:
         self._pantheon_assurance = pantheon_assurance
         self._operational_evidence = operational_evidence
         self._answer_continuity_enabled = answer_continuity_enabled
+        self._runtime_settings = runtime_settings
         self._now = now or (lambda: datetime.now(UTC))
 
     def bind_pantheon_assurance(self, runtime: PantheonAssuranceRuntime) -> None:
@@ -557,21 +570,13 @@ class SemanticTurnProcessor:
 
         runtime_cancelled = asyncio.Event()
         bound_resource_context = _bound_resource_context(request)
-        runtime_kwargs: dict[str, Any] = {}
-        if bound_resource_context is not None:
-            runtime_kwargs["bound_resource_context"] = bound_resource_context
-        if request.planning_profile is SemanticPlanningProfile.GOLDEN_CAMPAIGN_NO_T2:
-            runtime_kwargs["escalation_policy"] = NO_T2_ESCALATION_POLICY
         runtime_task = asyncio.create_task(
-            self._runtime.handle(
-                utterance=request.utterance,
-                prior_turns=_prior_turns(request, requested_at=requested_at),
+            self._handle_runtime(
+                request=request,
+                requested_at=requested_at,
                 principal=principal,
-                locale=request.locale,
-                cancelled=runtime_cancelled,
-                bound_incident=_bound_incident(request),
-                bound_investigation_continuation=_bound_investigation_continuation(request),
-                **runtime_kwargs,
+                runtime_cancelled=runtime_cancelled,
+                bound_resource_context=bound_resource_context,
             )
         )
         cancellation_task = asyncio.create_task(cancelled.wait()) if cancelled is not None else None
@@ -631,6 +636,68 @@ class SemanticTurnProcessor:
             if cancellation_task is not None and not cancellation_task.done():
                 cancellation_task.cancel()
                 await asyncio.gather(cancellation_task, return_exceptions=True)
+
+    async def _handle_runtime(
+        self,
+        *,
+        request: SemanticTurnRequest,
+        requested_at: datetime,
+        principal: Principal,
+        runtime_cancelled: asyncio.Event,
+        bound_resource_context: BoundResourceContext | None,
+    ) -> RuntimeSemanticTurnResult:
+        runtime = self._runtime
+        if runtime is None:  # pragma: no cover - guarded by _execute
+            raise RuntimeError("semantic runtime is unavailable")
+        runtime_kwargs: dict[str, Any] = {}
+        if bound_resource_context is not None:
+            runtime_kwargs["bound_resource_context"] = bound_resource_context
+        escalation_policy = await self._escalation_policy(request)
+        if escalation_policy is not None:
+            runtime_kwargs["escalation_policy"] = escalation_policy
+        return await runtime.handle(
+            utterance=request.utterance,
+            prior_turns=_prior_turns(request, requested_at=requested_at),
+            principal=principal,
+            locale=request.locale,
+            cancelled=runtime_cancelled,
+            bound_incident=_bound_incident(request),
+            bound_investigation_continuation=_bound_investigation_continuation(request),
+            **runtime_kwargs,
+        )
+
+    async def _escalation_policy(
+        self,
+        request: SemanticTurnRequest,
+    ) -> SemanticPlanningEscalationPolicy | None:
+        if request.planning_profile is SemanticPlanningProfile.GOLDEN_CAMPAIGN_NO_T2:
+            _LOGGER.info(
+                "semantic_t2_aggressive_policy_evaluated",
+                extra={"enabled": False, "reason": "planning_profile_no_t2"},
+            )
+            return NO_T2_ESCALATION_POLICY
+        if self._runtime_settings is None:
+            return None
+        try:
+            values = await self._runtime_settings.effective_values()
+        except (RuntimeError, ValueError) as exc:
+            _LOGGER.warning(
+                "semantic_t2_aggressive_policy_unavailable",
+                extra={"failure_type": type(exc).__name__},
+            )
+            return None
+        enabled = values.get("conversation.t2_escalation.aggressive_enabled")
+        if not isinstance(enabled, bool):
+            _LOGGER.warning(
+                "semantic_t2_aggressive_policy_unavailable",
+                extra={"failure_type": "InvalidSettingValue"},
+            )
+            return None
+        _LOGGER.info(
+            "semantic_t2_aggressive_policy_evaluated",
+            extra={"enabled": enabled, "reason": "runtime_setting"},
+        )
+        return AGGRESSIVE_T2_ESCALATION_POLICY if enabled else None
 
     async def _bind_operational_evidence(
         self,

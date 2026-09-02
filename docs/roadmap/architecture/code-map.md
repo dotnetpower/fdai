@@ -99,6 +99,15 @@ retaining utterance, context, or proposal digests. The competency fixture pins t
 structural release and Reader manifest as one coupled identity without claiming production
 readiness. ARB evidence fixtures use the authenticated principal context required by runtime reads,
 and Cost Governance refreshes its exact-release profile and fixture digests after additive declarations.
+Interactive semantic turns can read the audited
+`conversation.t2_escalation.aggressive_enabled` runtime setting for each request. Development
+defaults it on while staging and production default it off. Eligible read-only T1 clarification,
+unavailability, and rejected proposal outcomes can receive one same-stage T2 retry with compact
+typed recovery context. Golden campaign, action-draft, server-bound scope, authorization,
+deterministic verification, and execution-authority boundaries remain unchanged. The Operator
+settings store advances existing revisioned state through one atomic proposal transaction, and
+local preparation includes the runtime-setting definition source when deciding whether to refresh
+the Settings projection.
 Kubernetes Resource Event projections retain optional object UID, cluster, recorded time, and source
 revision fields so downstream recovery evidence can preserve identity and provenance without raw
 provider payloads.

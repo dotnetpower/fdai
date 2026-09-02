@@ -112,6 +112,20 @@ class _RuntimeSettingsStore:
                     "unavailable_reason": None,
                 },
                 {
+                    "key": "conversation.t2_escalation.aggressive_enabled",
+                    "group": "conversation",
+                    "value_type": "boolean",
+                    "environment_value": True,
+                    "override_value": None,
+                    "effective_value": True,
+                    "minimum": None,
+                    "maximum": None,
+                    "options": [],
+                    "restart_required": False,
+                    "available": True,
+                    "unavailable_reason": None,
+                },
+                {
                     "key": "conversation.prompt_ablation.profile",
                     "group": "conversation",
                     "value_type": "enum",
@@ -205,6 +219,7 @@ async def test_postgres_runtime_settings_toggle_updates_core_policy_and_projecti
             actor_id="owner-1",
             changes={
                 "conversation.answer_continuity.enabled": True,
+                "conversation.t2_escalation.aggressive_enabled": False,
                 "conversation.prompt_ablation.profile": "TOOLS",
             },
             expected_revision=0,
@@ -216,9 +231,11 @@ async def test_postgres_runtime_settings_toggle_updates_core_policy_and_projecti
     assert updated["revision"] == 1
     settings = {item["key"]: item for item in updated["settings"]}
     assert settings["conversation.answer_continuity.enabled"]["effective_value"] is True
+    assert settings["conversation.t2_escalation.aggressive_enabled"]["effective_value"] is False
     assert settings["conversation.prompt_ablation.profile"]["effective_value"] == "TOOLS"
     assert store.state["runtime-settings:policy"]["overrides"] == {
         "conversation.answer_continuity.enabled": True,
+        "conversation.t2_escalation.aggressive_enabled": False,
         "conversation.prompt_ablation.profile": "TOOLS",
     }
     assert store.proposals[0]["operation"] == "runtime-settings.update"

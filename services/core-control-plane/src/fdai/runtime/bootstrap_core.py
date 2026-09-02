@@ -388,6 +388,7 @@ async def build_core_runtime(
         stage_topic=plan.stage_topic,
         environment=environment,
         runtime_values=runtime_values,
+        runtime_settings=runtime_settings,
     )
     _LOGGER.info(
         "control_loop_ready",

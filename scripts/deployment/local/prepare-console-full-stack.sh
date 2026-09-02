@@ -369,6 +369,7 @@ inventory_inputs=(
 )
 settings_inputs=(
   .fdai/local-runtime.env
+  services/core-control-plane/src/fdai/delivery/runtime_settings.py
   scripts/deployment/local/materialize-authoritative-settings.py
   "$database_identity"
 )

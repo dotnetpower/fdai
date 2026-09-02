@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: c746f73764219ba77fab5febf5a613bbae95d457
+translation_source_sha: 618ed78f04e53388428fc0ef66a9507c6f9fdb05
 translation_revised: 2026-09-03
 ---
 # 코드 맵
@@ -96,6 +96,14 @@ semantic-routing 기준선은 각 어휘 판단 소유자를 기록하고 결정
 competency fixture는 운영 준비 완료를 주장하지 않으면서 현재 구조 release와 Reader 매니페스트를
 하나의 결합된 신원으로 고정합니다. ARB 근거 fixture는 런타임 읽기에 필요한 인증된 principal
 context를 사용하고, Cost Governance는 선언이 추가되면 정확한 release 프로필과 fixture digest를 갱신합니다.
+대화형 의미 턴은 요청마다 감사되는
+`conversation.t2_escalation.aggressive_enabled` 런타임 설정을 읽을 수 있습니다. 개발 환경에서는
+기본적으로 활성화하고 스테이징과 운영 환경에서는 기본적으로 비활성화합니다. 조건에 맞는 읽기 전용
+T1 명확화, 사용 불가 및 수락되지 않은 제안 결과는 간결한 타입 기반 복구 맥락으로 같은 단계의 T2
+재시도를 한 번 받을 수 있습니다. Golden 캠페인, 액션 초안, 서버 결속 범위, 권한 부여, 결정론적
+검증 및 실행 권한 경계는 변경되지 않습니다. Operator 설정 저장소는 기존 리비전 기반 상태를 하나의
+원자적 제안 트랜잭션으로 진행하며, 로컬 준비 과정은 설정 변환 결과를 새로 고칠지 결정할 때 런타임
+설정 정의 소스를 포함합니다.
 Kubernetes Resource Event 변환 결과는 선택적 객체 UID, 클러스터, 기록 시각 및 출처 리비전을
 보존합니다. 따라서 후속 복구 근거는 원시 프로바이더 페이로드 없이 신원과 출처 계보를 유지할 수
 있습니다.

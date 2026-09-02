@@ -1670,6 +1670,12 @@
               "hint": "Return a useful evidence-aware safe hold instead of a generic unavailable response. This setting never grants action authority."
             }
           },
+          "t2_escalation": {
+            "aggressive_enabled": {
+              "label": "Aggressive T2 answer recovery",
+              "hint": "Retry eligible read-only clarifications and rejected plans once with the configured T2 reasoner. Development defaults on; staging and production default off. Changes apply to new questions without a restart."
+            }
+          },
           "prompt_ablation": {
             "profile": {
               "label": "Prompt ablation profile",

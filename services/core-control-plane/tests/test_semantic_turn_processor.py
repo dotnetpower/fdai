@@ -16,6 +16,7 @@ from fdai.core.conversation.conversation_preflight import SocialAct
 from fdai.core.conversation.semantic_investigation import InvestigationEntityRole
 from fdai.core.conversation.semantic_judgment import SemanticJudgmentObservation
 from fdai.core.conversation.semantic_planning_cascade import (
+    AGGRESSIVE_T2_ESCALATION_POLICY,
     NO_T2_ESCALATION_POLICY,
     SemanticPlanningEscalationPolicy,
 )
@@ -1279,6 +1280,29 @@ class _Runtime:
         return self.result
 
 
+class _RuntimeSettings:
+    def __init__(self, enabled: bool) -> None:
+        self.enabled = enabled
+        self.calls = 0
+
+    async def effective_values(self) -> dict[str, object]:
+        self.calls += 1
+        return {"conversation.t2_escalation.aggressive_enabled": self.enabled}
+
+
+class _BlockingRuntimeSettings:
+    def __init__(self) -> None:
+        self.cancelled = False
+
+    async def effective_values(self) -> dict[str, object]:
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            self.cancelled = True
+            raise
+        return {"conversation.t2_escalation.aggressive_enabled": True}
+
+
 class _ContendedRuntime(_Runtime):
     def __init__(self) -> None:
         super().__init__(_runtime_result("answered"))
@@ -1466,6 +1490,7 @@ def _processor(
     now: Any = lambda: NOW,
     operational_evidence: Any = None,
     answer_continuity_enabled: bool = False,
+    runtime_settings: Any = None,
 ) -> SemanticTurnProcessor:
     return SemanticTurnProcessor(
         runtime=runtime,
@@ -1473,6 +1498,7 @@ def _processor(
         now=now,
         operational_evidence=operational_evidence,
         answer_continuity_enabled=answer_continuity_enabled,
+        runtime_settings=runtime_settings,
     )
 
 
@@ -2625,6 +2651,50 @@ async def test_golden_campaign_profile_injects_no_t2_policy_only_for_campaign() 
     )
 
     assert runtime.escalation_policies == [None, NO_T2_ESCALATION_POLICY]
+
+
+async def test_aggressive_t2_setting_is_evaluated_per_interactive_turn() -> None:
+    runtime = _Runtime()
+    settings = _RuntimeSettings(True)
+    processor = _processor(runtime, runtime_settings=settings)
+
+    await processor.process(_request(idempotency_key="aggressive-turn"))
+    settings.enabled = False
+    await processor.process(_request(idempotency_key="bounded-turn"))
+
+    assert settings.calls == 2
+    assert runtime.escalation_policies == [AGGRESSIVE_T2_ESCALATION_POLICY, None]
+
+
+async def test_runtime_settings_lookup_is_bounded_by_the_turn_deadline() -> None:
+    runtime = _Runtime()
+    settings = _BlockingRuntimeSettings()
+
+    projection = _projection(
+        await _processor(runtime, runtime_settings=settings).process(
+            _request(deadline_at=NOW + timedelta(milliseconds=1))
+        )
+    )
+
+    assert projection["status"] == "held"
+    assert projection["semantic_result"]["reason_code"] == "semantic_deadline_exceeded"
+    assert runtime.calls == 0
+    assert settings.cancelled is True
+
+
+async def test_golden_campaign_profile_overrides_aggressive_t2_setting() -> None:
+    runtime = _Runtime()
+    settings = _RuntimeSettings(True)
+
+    await _processor(runtime, runtime_settings=settings).process(
+        _request(
+            idempotency_key="golden-aggressive-turn",
+            planning_profile="golden_campaign_no_t2",
+        )
+    )
+
+    assert settings.calls == 0
+    assert runtime.escalation_policies == [NO_T2_ESCALATION_POLICY]
 
 
 async def test_clarification_projection_preserves_specific_question() -> None:

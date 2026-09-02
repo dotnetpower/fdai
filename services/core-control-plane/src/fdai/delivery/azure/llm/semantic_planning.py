@@ -32,8 +32,17 @@ _MAX_DESCRIPTORS = 512
 _MAX_PROMPT_BYTES = 786_432
 _MAX_RESPONSE_BYTES = 65_536
 _MAX_SYSTEM_PROMPT_CHARS = 32_768
+_MAX_RECOVERY_CONTEXT_CHARS = 1_024
 _MAX_ATTEMPTS_PER_CANDIDATE = 3
 _ProposalT = TypeVar("_ProposalT", bound=BaseModel)
+_RECOVERY_PROMPT = """
+This is one bounded T2 recovery attempt after a typed T1 planning failure.
+Re-evaluate the complete operator utterance against the supplied descriptors. Preserve the
+requested answer family, especially causal intent. Prefer a verified read plan over clarification
+only when the exact target, relationships, and evidence requirements are grounded in supplied
+input. Never invent identity, scope, evidence, or authority. If ambiguity remains, return the
+schema-valid clarification.
+""".strip()
 
 
 @dataclass(frozen=True, slots=True)
@@ -147,6 +156,76 @@ class AzureOpenAISemanticPlanningModel:
             prompt=self._config.plan_system_prompt,
             proposal_type=QueryPlanProposal,
             operation="plan",
+        )
+
+    def propose_escalated_frame(
+        self,
+        *,
+        utterance: str,
+        context: tuple[str, ...],
+        descriptors: tuple[dict[str, Any], ...],
+        principal_role: str,
+        purpose: str,
+        metric_concepts: tuple[str, ...] = (),
+        semantic_judgment: Mapping[str, Any] | None = None,
+        recovery_context: Mapping[str, str],
+    ) -> Mapping[str, Any] | None:
+        """Retry frame planning with compact typed failure context."""
+
+        payload = {
+            "utterance": utterance,
+            "context": context,
+            "descriptors": descriptors,
+            "metric_concepts": metric_concepts,
+            "principal_role": principal_role,
+            "purpose": purpose,
+            "semantic_judgment": semantic_judgment,
+            "recovery_context": _bounded_recovery_context(recovery_context),
+        }
+        if not _bounded_input(payload, context=context, descriptors=descriptors):
+            return None
+        prompt = _recovery_prompt(self._config.frame_system_prompt)
+        if prompt is None:
+            return None
+        return self._complete(
+            payload=payload,
+            prompt=prompt,
+            proposal_type=SemanticFrameProposal,
+            operation="frame_recovery",
+        )
+
+    def propose_escalated_plan(
+        self,
+        *,
+        frame: SemanticProblemFrame,
+        descriptors: tuple[dict[str, Any], ...],
+        metric_concepts: tuple[str, ...],
+        principal_role: str,
+        purpose: str,
+        evaluation_time: datetime,
+        recovery_context: Mapping[str, str],
+    ) -> Mapping[str, Any] | None:
+        """Retry plan construction with compact typed failure context."""
+
+        payload = {
+            "frame": frame.model_dump(mode="json"),
+            "descriptors": descriptors,
+            "metric_concepts": metric_concepts,
+            "principal_role": principal_role,
+            "purpose": purpose,
+            "evaluation_time": evaluation_time.isoformat(),
+            "recovery_context": _bounded_recovery_context(recovery_context),
+        }
+        if not _bounded_input(payload, context=(), descriptors=descriptors):
+            return None
+        prompt = _recovery_prompt(self._config.plan_system_prompt)
+        if prompt is None:
+            return None
+        return self._complete(
+            payload=payload,
+            prompt=prompt,
+            proposal_type=QueryPlanProposal,
+            operation="plan_recovery",
         )
 
     def _complete(
@@ -274,6 +353,29 @@ class AzureOpenAISemanticPlanningModel:
                     extra=failure,
                 )
         return None
+
+
+def _bounded_recovery_context(context: Mapping[str, str]) -> dict[str, str]:
+    normalized = {
+        key: value
+        for key, value in context.items()
+        if key in {"stage", "trigger", "reason"} and isinstance(value, str) and value
+    }
+    encoded = json.dumps(normalized, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
+    if len(encoded) > _MAX_RECOVERY_CONTEXT_CHARS:
+        raise ValueError("semantic planning recovery context is too large")
+    return normalized
+
+
+def _recovery_prompt(base_prompt: str) -> str | None:
+    prompt = f"{base_prompt}\n\n{_RECOVERY_PROMPT}"
+    if len(prompt) > _MAX_SYSTEM_PROMPT_CHARS:
+        _LOGGER.warning(
+            "semantic_planning_recovery_prompt_unavailable",
+            extra={"failure_type": "PromptBudgetExceeded"},
+        )
+        return None
+    return prompt
 
 
 def _bounded_input(

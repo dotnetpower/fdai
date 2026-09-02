@@ -63,6 +63,20 @@ const payload = {
       unavailable_reason: null,
     },
     {
+      key: "conversation.t2_escalation.aggressive_enabled",
+      group: "conversation",
+      value_type: "boolean",
+      environment_value: true,
+      override_value: null,
+      effective_value: true,
+      minimum: null,
+      maximum: null,
+      options: [],
+      restart_required: false,
+      available: true,
+      unavailable_reason: null,
+    },
+    {
       key: "conversation.prompt_ablation.profile",
       group: "conversation",
       value_type: "enum",
@@ -91,6 +105,7 @@ describe("runtime settings model", () => {
       "irp.enabled": true,
       "analyzer.budget_seconds": 60,
       "conversation.answer_continuity.enabled": true,
+      "conversation.t2_escalation.aggressive_enabled": true,
       "conversation.prompt_ablation.profile": "TOOLS",
     });
   });

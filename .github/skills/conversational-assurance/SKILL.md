@@ -40,9 +40,11 @@ authorize a campaign or a live Azure/model call.
 - Malformed or non-JSON Copilot generation output is retried inside the bounded cycle. Exhausted
    retries produce a redacted `cycle_hold` ledger record and a successful cycle exit, so one
    transient generation failure cannot obscure the campaign result.
-- A live question receives one measurement attempt per cycle. An unexpected T2 fallback, provider
-   `429`/`503`, timeout, or deadline expiry records `cycle_hold` and ends that cycle. The session
-   MUST NOT relaunch the cycle, the campaign, or the same question to obtain a different result.
+- A live question receives one measurement attempt per cycle. A T2 retry is expected only when the
+  effective `conversation.t2_escalation.aggressive_enabled` setting admits the recorded typed
+  trigger. An unconfigured retry, more than one retry for a stage, provider `429`/`503`, timeout, or
+  deadline expiry records `cycle_hold` and ends that cycle. The session MUST NOT relaunch the cycle,
+  the campaign, or the same question to obtain a different result.
 
 Before each cycle, skip without generating a question only when any of these conditions is true:
 
@@ -103,6 +105,31 @@ Run one cycle in this order:
    merge to `main` automatically.
 8. **Continue immediately**: the same explicit campaign starts its next bounded cycle after the
    current cycle ends, subject to the campaign limits.
+
+## Aggressive T2 recovery tuning
+
+When the runtime setting enables aggressive T2 recovery, treat it as a bounded answer-recovery
+experiment rather than permission to weaken evidence checks:
+
+1. Record the T1 terminal candidate, typed escalation trigger, T2 outcome, total model calls,
+   latency, verification status, and final answer score.
+2. Accept the recovery only when T2 produces a verifier-approved read plan. If T2 remains ambiguous,
+   the original T1 clarification must remain the terminal answer.
+3. Classify repeated clarification, unavailable, rejected-frame, and rejected-plan outcomes
+   separately. Change the smallest owning prompt fragment or deterministic validator boundary.
+4. Keep recovery context compact: stage, typed trigger, and safe validation reason only. Do not add
+   provider output, hidden reasoning, full logs, or the growing campaign history to the system
+   prompt.
+5. Verify the original question plus at least three semantic paraphrases before retaining a prompt
+   or escalation-policy change. A one-sentence exception is rejected by the anti-hardcoding gate.
+6. Keep `golden_campaign_no_t2` authoritative. The runtime setting cannot enable T2 for a Golden
+   campaign, action draft, scope denial, authorization denial, or execution path.
+
+Example: if T1 asks which Resource was intended even though the question contains a uniquely
+grounded resource identity, retry the frame once with `frame_clarification` context. If T2 binds the
+identity and the verifier accepts the plan, score the answer normally. If it guesses an identity or
+still asks for one, retain the original clarification and harden the shared identity abstraction
+instead of adding the question text to a prompt.
 
 Before creating a candidate, classify the failed observation as exactly one of
 `code_defect`, `provider_or_evidence_unavailable`, `authorization_or_configuration`,

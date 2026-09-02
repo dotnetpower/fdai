@@ -1,8 +1,8 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 8b70c733b40b8373eaf1d95fbaa4e4613c571480
-translation_revised: 2026-09-01
+translation_source_sha: b17b638908b7471033a2a8ce4cfdd4ef3cd52547
+translation_revised: 2026-09-03
 ---
 
 # 계층형 대화 계획
@@ -29,6 +29,21 @@ T1 모델 또는 프로바이더를 사용할 수 없고 활성화된 타입 기
 `golden_campaign_no_t2` 프로필을 선택하므로 프로바이더를 사용할 수 없어도 캠페인 fallback을
 호출하지 않습니다.
 
+Owner는 런타임 정책에서 적극적인 읽기 전용 T2 복구를 활성화할 수 있습니다. 로컬 시연을 위해 개발
+환경에서는 기본적으로 활성화하고, 측정된 보증 근거로 승격하기 전까지 스테이징과 운영 환경에서는
+기본적으로 비활성화합니다. 이 설정은 각 대화형 턴에서 다시 읽으므로 변경할 때 Core를 재시작할 필요가
+없습니다. 활성화하면 T1이 사용할 수 있는 프레임이나 계획을 만들지 못한 경우 Core가 구성된 T2
+플래너에 범위가 제한된 재시도 기회 한 번을 제공합니다. 명확화 중에서는 타입이 지정된 Resource 신원,
+주제 또는 측정값 보류만 해당하며 서버 결속 범위와 목적 보류는 제외합니다. 재시도에는 실패한 단계,
+트리거, 안전한 검증 사유로 구성된 간결한 타입 기반 복구 맥락만 전달합니다. 프로바이더 출력이나 숨겨진
+추론은 전달하지 않습니다. 결정론적 프레임 및 계획 검증기는 계속 필수입니다. T2에도 명확화가 필요하면
+Core는 확신도가 더 낮은 추측 대신 원래 T1 명확화를 반환하고 이후 계획이 실패하면 정직한 사용 불가
+결과로 유지합니다. 액션 초안, 범위와 권한 부여 차단, `golden_campaign_no_t2`, 근거 검증, 실행
+권한은 변경되지 않습니다. 요청 프로필을 런타임
+설정보다 먼저 평가하므로 `golden_campaign_no_t2`가 항상 우선합니다. T2는 더 나은 검증된 읽기
+계획을 제안할 수 있지만 정직한 한계를 피하기 위해 리소스 신원, 관계 또는 근거 항목을 만들어낼 수
+없습니다. 각 턴은 적용된 설정값과 에스컬레이션 트리거를 운영 로그에 기록합니다.
+
 Compact T1 conversation preflight는 매니페스트 로드와 전체 의미 판단 전에 실행됩니다. 이 모델은
 발화, 언어, 범위가 제한된 최근 맥락 및 신뢰할 수 있는 Bragi 프로필만 보고 온톨로지 기능 카탈로그는
 보지 않습니다. 스키마는 `social_act`, 운영 신호 및 맥락 의존성을 독립 축으로 유지합니다.
@@ -50,6 +65,7 @@ Compact T1 conversation preflight는 매니페스트 로드와 전체 의미 판
 |------|------|------|------|
 | Compact conversation preflight 및 social narrator | implemented | `conversation-preflight.v1.yaml`, `conversation-social-narrator.v1.yaml`, act별 enforce pack, [`conversation_preflight.py`](../../../services/core-control-plane/src/fdai/core/conversation/conversation_preflight.py), [`semantic_judgment.py`](../../../services/core-control-plane/src/fdai/delivery/azure/llm/semantic_judgment.py), 집중 routing, 조립, transport 및 prompt 테스트 | Temperature 0인 분류기가 매니페스트 로드 전에 인사, 자기소개, 명시적 감사, 작별, 일반 동의, 운영, 혼합, 운영 맥락 및 사회적 연속성 턴을 분리합니다. 이 schema는 사용자 대상 문장을 전달할 수 없습니다. 조건에 맞는 social route는 공통 temperature 0.3 페르소나 base와 타입 기반 act pack 하나만 조립하며 기능 카탈로그나 운영 맥락을 받지 않습니다. 분류기는 catalog 추정 토큰 531개와 schema 포함 system 문자 3,599자이고, act별 narrator 조립은 추정 토큰 283-314개와 1,721-1,847자입니다. |
 | Semantic frame, 검증된 계획 및 intent graph | implemented | [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py), [`semantic_planning_cascade.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning_cascade.py), [`semantic_runtime.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py), 의미 계획 집중 테스트 | 전체 턴 제안은 범위와 release가 제한되고 검증되며 실행 권한 없이 projection됩니다. T1을 항상 먼저 시도합니다. 기본 타입 기반 정책은 T1을 사용할 수 없을 때만 같은 단계의 T2 재시도를 한 번 허용하고, 유효하지 않은 frame, 스키마, 구성, 결정론적 plan 불일치는 안전하게 종료합니다. |
+| Owner 제어 적극 T2 복구 | implemented | `conversation.t2_escalation.aggressive_enabled`, 런타임 설정 변환 결과, 의미 턴 처리기, 집중 백엔드 검사 640개, Console 모델 테스트, 타입 검사, 운영 빌드 및 인증된 설정 저장 | 개발 환경의 대화형 읽기 턴은 조건에 맞는 T1 명확화, 사용 불가 또는 수락되지 않은 프레임과 계획 제안에 대해 범위가 제한된 T2 복구 한 번을 기본으로 사용합니다. 스테이징과 운영 환경은 승격 근거를 확보할 때까지 기본적으로 비활성화합니다. 이 설정은 재시작 없이 턴마다 평가하고 T2에도 모호함이 남으면 원래 명확화를 보존합니다. Golden 캠페인, 액션, 권한 부여, 근거 검증 및 실행 권한은 확장할 수 없습니다. |
 | 모델 기반 사회적 직접 응답 | implemented | `conversation-preflight.v1.yaml`, `semantic-judgment.v5.yaml`, [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py), [`semantic_turn.py`](../../../packages/service-contracts/src/fdai_service_contracts/semantic_turn.py), [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), 집중 모델 routing, 사용량, 정제 및 stream 테스트 | Compact preflight가 조건에 맞고 맥락에 의존하지 않는 social 턴의 직접 텍스트를 작성합니다. Core는 확신도, 바인딩, 맥락 의존성, 응답 언어, 신뢰할 수 있는 프로필 digest 및 범위가 제한된 텍스트를 검증한 뒤 보존합니다. 혼합, 맥락 의존, 결정 대기, 모호함, 바인딩 및 preflight 실패에는 전체 의미 판단을 사용합니다. 직접 응답은 고정 성공 템플릿 또는 lexical fallback 없이 측정된 모델 사용량과 신원을 유지합니다. |
 | 구조화된 인과 조사 | implemented | `semantic_investigation.py`, `semantic_investigation_planning.py`, 조사 query-node 및 표현 테스트, 집중 조사 검사 | 대상 결속 인과 diagnosis는 정확한 source span, 타입이 지정된 entity 역할, 증상 방향, 시간 단서, 순서가 있는 LinkType side, 경쟁 가설, 근거 기준, 답변 형태를 전달합니다. Core는 이 요소를 검증하고 모델이 작성한 plan 없이 entity 해석, multi-hop 확장, 정렬된 window, topology diff, 증상 비교, 지지/반증 wave를 컴파일합니다. 일반 선언 범위 causal evidence는 기존의 범위가 제한된 plan을 유지합니다. 가설 결과가 두 개 미만으로 표현 계층에 도달하면 거짓 완전 진단을 만들지 않고 대상과 증상 비교를 명시적인 근거 한계와 함께 유지합니다. |
 | 운영 Core semantic runtime 조립 | implemented | [`wire_semantic_query.py`](../../../services/core-control-plane/src/fdai/composition/wire_semantic_query.py), [`semantic_query_model_targets.py`](../../../services/core-control-plane/src/fdai/composition/semantic_query_model_targets.py), [`bootstrap.py`](../../../services/core-control-plane/src/fdai/runtime/bootstrap.py), 의미 질의 조립 집중 테스트 | Azure T1 및 T2 계획 어댑터를 별도로 연결합니다. 전제 조건을 갖추면 principal 범위 매니페스트, 보안 ObjectSet, 읽기 함수 및 범위가 제한된 DAG 실행이 조립됩니다. |
@@ -65,6 +81,7 @@ Compact T1 conversation preflight는 매니페스트 로드와 전체 의미 판
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-03 | implemented | 간결한 타입 기반 복구 맥락과 턴별 설정 평가를 사용하는 개발 환경 기본 활성화 Owner 제어 적극 T2 복구 모드를 추가했습니다. Golden no-T2 프로필, 액션 및 서버 결속 보류, 결정론적 검증, 원래 명확화 반환은 계속 최종 권한을 가집니다. 저장한 토글을 재시작 없이 다음 턴에 적용할 수 있도록 리비전 기반 Operator 설정 갱신과 설정 변환 결과 무효화를 수정했습니다. | `current change`, 집중 Core, Operator 및 로컬 시작 검사 640개 통과, Console 모델 테스트, 타입 검사 및 운영 빌드 통과, 집중 Ruff 및 strict mypy 통과, 인증된 Console 저장에서 리비전 1이 2로 증가했고 실제 질문이 타입 기반 T2 에스컬레이션을 기록했습니다. | 실제 복구에서 구성된 T2 프로바이더가 HTTP 429를 반환했습니다. validated 상태를 선언하거나 스테이징과 운영 환경 기본값을 승격하기 전에 성공한 인증 답변 증적을 보존합니다. |
 | 2026-09-01 | implemented | 커밋된 리비전의 제한된 의미 정규화를 VPN 경로 프라이빗 Foundry 엔드포인트에서 검증했습니다. exact-source cohort 10개가 실행 권한 없이 10/10으로 통과했으며, 중지 표식과 기존 보증 원장을 원래 다이제스트로 복원하고 확인했습니다. | 출처 `31002f3db70649ceb6844dc8ea59798ba7aa4d13`, 출처에 고정된 원장 다이제스트 `sha256:ef474b09662296d2e61a6e74569945afd236d038523795545069f8d11546d779`, 정확한 결과 10/10 | 이중 언어 후속 캠페인 20개를 시작하지 않고 제안합니다. 100개 캠페인은 계속 비활성화합니다. |
 | 2026-09-01 | implemented | `ff4e92fc0`의 나머지 조건이 유효한 9/10 cohort에서 정확히 해당 typed 판단이 생성된 뒤 제한된 변경 상관관계 앵커 family에 검토된 `change_activity` 표기를 추가했습니다. 추가 intent, 대상 종류 또는 관련 없는 facet은 허용하지 않습니다. | `current change`, 집중 의미 계획 검사 및 `ff4e92fc0`에 고정된 9/10 canary 근거 | 커밋하고 exact cohort 10개를 다시 실행합니다. 10/10 이후에만 20개를 제안합니다. |
 | 2026-09-01 | implemented | 변동하는 계획 경로 2개에서 스키마 수준 대상과 인스턴스 신원을 구분했습니다. 변경 상관관계는 제한된 주제 집합의 검토된 `object_type` 대상을 바인딩된 인스턴스로 취급하지 않고 유지할 수 있으며 타입이 지정된 `targets`와 `correlation` 별칭을 허용합니다. 리소스 활동은 `ResourceType`으로 정규화된 `resource_type` 대상과 기간을 유지하면서도 정확한 Resource 신원 명확화를 계속 요구할 수 있습니다. 구체 리소스 대상은 두 복구 경로를 계속 우회합니다. | `current change`, 집중 의미 계획 검사 및 `a08547b29`에 고정된 8/10 canary 근거 | 커밋하고 exact cohort 10개를 다시 실행합니다. 10/10 이후에만 20개를 제안합니다. |
