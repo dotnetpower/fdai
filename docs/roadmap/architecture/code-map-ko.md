@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 75179537cbde209d85bbf0b6ff7b5b50effba2bb
+translation_source_sha: f98835a749eb81500af4bc0cf7c1e18597ce2142
 translation_revised: 2026-09-03
 ---
 # 코드 맵
@@ -119,6 +119,8 @@ Health는 구독 범위 요약을 별도로 사용하며, Operator는 합성된 
 필터링하지 않은 Service Health 답변은 완전한 `service_issue` 이벤트 행에서만 장애 상태를
 파생합니다. 상태 권고와 예정된 유지 관리는 별도의 활성 이벤트 범주로 유지하며, 범주 범위가
 잘렸으면 장애가 있다고 결론 내리지 않고 확인 불가로 표시합니다.
+서버에 구성되거나 서버가 관리 또는 참조하는 구독은 서버 소유 질의 범위에 속하며, 정확한 서버
+Resource 신원이나 리소스 이름 명확화 대상으로 바뀌지 않습니다.
 인벤토리 승격은 검증된 상태 변경을 Core 소유의
 추가 전용 운영 상태 전이 원장에도 기록합니다. 온톨로지는 다시 만들 수 있는 현재 상태 변환
 결과로 유지하고, 원장은 재생에 필요한 유효 시각, 기록 시각, 근거, 양의 커버리지를 보존합니다.

@@ -166,6 +166,9 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "exact supplied query.<LinkType> as primary_intent" in judgment.body
     assert "both supplied endpoint ObjectTypes" in judgment.body
     assert "Do not reinterpret an objective definition as observed cost" in judgment.body
+    assert "uses query.subscription_service_health" in judgment.body
+    assert "server describes the trusted scope owner" in judgment.body
+    assert "server-referenced subscription is the trusted query scope" in frame.body
     assert "without execution" in judgment.body
     assert "operation action_draft and output_shape action_draft" in frame.body
     assert "a recovery proposal uses RecoveryPlan" in frame.body
