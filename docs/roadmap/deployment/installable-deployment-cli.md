@@ -505,14 +505,12 @@ feature flags, then finds exactly one workflow by its request-bound run name
 and, after success, downloads only the sanitized plan metadata artifact. The GitHub CLI uses its
 provider-hosted authentication; no credential is copied into a command argument.
 
-The dispatch sends `apply=false`, the environment, exact commit, and a SHA-256 deployment-context
-fingerprint. Console, Operator API, document-ingestion, isolated-Executor, and monitoring flags are
-included in that fingerprint and sent identically to plan and apply. An optional runtime source
-revision is also sealed into the fingerprint. During planning, the client promotes and verifies that
-exact Core image independently of the isolated Executor; apply restores the resulting digest-pinned
-plan without repeating promotion. A changed input invalidates the plan. Tenant, subscription,
-backend, and runner identifiers aren't sent in the dispatch body. The workflow validates the bounded
-request id, context digest, and exact checked-out commit before planning.
+The dispatch sends `apply=false`, the environment, exact commit, and a SHA-256 deployment-context fingerprint.
+Console, Operator API, document-ingestion, isolated-Executor, and monitoring flags are included in that
+fingerprint and sent identically to plan and apply. An optional runtime source revision is also sealed into
+the fingerprint. During planning, the client promotes and verifies that exact Core image independently of
+the isolated Executor. Apply restores the digest-pinned plan without repeating promotion. A changed input invalidates the plan. Tenant, subscription, backend, and runner identifiers aren't sent in the dispatch body.
+The workflow validates the bounded request id, context digest, and exact checked-out commit before planning.
 
 Before apply, the client verifies that the target GitHub Environment has required reviewers and
 blocks self-review and administrator bypass. GitHub Environment protection requires one approval from its reviewer set; it
