@@ -15,8 +15,10 @@ on:
         required: true
 
 permissions:
+  attestations: read
   checks: read
   contents: read
+  packages: read
 
 concurrency:
   group: publish-console-${{ inputs.environment }}
@@ -143,6 +145,17 @@ jobs:
             -backend-config="storage_account_name=${{ vars.STATE_STORAGE_ACCOUNT }}" \
             -backend-config="container_name=tfstate" \
             -backend-config="key=fdai-${{ inputs.environment }}.tfstate"
+
+      - name: Bind exact Core catalog image
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GHCR_TOKEN: ${{ github.token }}
+          PROMOTE_RUNTIME_IMAGE: "true"
+          RUNTIME_IMAGE_REVISION: ${{ inputs.commit_sha }}
+        run: bash scripts/deployment/azure/bind_core_runtime_image.sh infra
+
+      - name: Refresh and verify authoritative PostgreSQL catalogs
+        run: bash scripts/deployment/azure/refresh-authoritative-catalogs.sh infra
 
       - name: Publish and verify Console static content
         run: bash scripts/deployment/azure/publish-console.sh infra

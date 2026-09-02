@@ -10,9 +10,6 @@ from pathlib import Path
 from typing import Any
 
 _DESIGN_MOCKS = frozenset({"module.design_mocks[0].azurerm_static_web_app.design_mocks"})
-_CATALOG_CONSOLE = frozenset(
-    {"module.operator_api[0].azurerm_container_app_job.materialize_catalogs"}
-)
 _PRIMARY_REASONER = (
     'module.llm_azure_openai[0].azurerm_cognitive_deployment.capability["t2.reasoner.primary"]'
 )
@@ -114,9 +111,6 @@ def enforce(
     if mode == "design-mocks":
         allowed = _DESIGN_MOCKS
         label = "Design-mocks-only"
-    elif mode == "catalog-console":
-        allowed = _CATALOG_CONSOLE
-        label = "Catalog-console-only"
     elif mode == "core-model-quorum":
         if not changed:
             return changed
@@ -189,7 +183,6 @@ def main() -> int:
     parser.add_argument(
         "--mode",
         choices=(
-            "catalog-console",
             "core-model-quorum",
             "design-mocks",
             "monitoring",

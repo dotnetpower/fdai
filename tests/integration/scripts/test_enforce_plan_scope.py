@@ -41,17 +41,6 @@ def test_monitoring_scope_accepts_only_monitoring_module() -> None:
         enforce(_plan("module.compute.container_app"), mode="monitoring")
 
 
-def test_catalog_console_scope_accepts_only_materialization_job() -> None:
-    address = "module.operator_api[0].azurerm_container_app_job.materialize_catalogs"
-
-    assert enforce(_plan(address), mode="catalog-console") == frozenset({address})
-    with pytest.raises(ValueError, match="Catalog-console-only"):
-        enforce(
-            _plan("module.operator_api[0].azurerm_container_app.operator_api"),
-            mode="catalog-console",
-        )
-
-
 def test_model_scope_uses_non_hil_sealed_capabilities() -> None:
     allowed = 'module.llm_azure_openai[0].azurerm_cognitive_deployment.capability["t1.embedding"]'
     resolved = {

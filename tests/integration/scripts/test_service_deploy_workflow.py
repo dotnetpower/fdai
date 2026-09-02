@@ -38,6 +38,12 @@ _CONSOLE_PUBLISHER = (_ROOT / "scripts/deployment/azure/publish-console.sh").rea
 _GH_INSTALLER = (_ROOT / "scripts/deployment/azure/install-pinned-github-cli.sh").read_text(
     encoding="utf-8"
 )
+_CONSOLE_PUBLISH_WORKFLOW = (_ROOT / ".github/workflows/publish-console.yml").read_text(
+    encoding="utf-8"
+)
+_CATALOG_REFRESH = (_ROOT / "scripts/deployment/azure/refresh-authoritative-catalogs.sh").read_text(
+    encoding="utf-8"
+)
 _MODEL_PROPOSAL_HELPER = (
     _ROOT / "scripts/deployment/azure/materialize-model-binding-proposal.sh"
 ).read_text(encoding="utf-8")
@@ -225,13 +231,26 @@ def test_platform_workflow_isolates_monitoring_plan_changes() -> None:
         assert neutral_type in preflight_step
 
 
-def test_platform_workflow_bounds_catalog_console_refresh() -> None:
-    assert "CATALOG_CONSOLE_ONLY:" in _LEGACY_WORKFLOW
-    assert "-target=module.operator_api[0].azurerm_container_app_job.materialize_catalogs" in (
-        _LEGACY_WORKFLOW
+def test_core_service_tolerates_unapplied_optional_observation_output() -> None:
+    materialize = _WORKFLOW.split("- name: Materialize selected service inputs", maxsplit=1)[
+        1
+    ].split("- name: Create and guard service plan", maxsplit=1)[0]
+
+    assert "output -json ohl_observation_context_binding 2>/dev/null || printf 'null" in materialize
+
+
+def test_console_release_refreshes_and_verifies_postgresql_catalogs_first() -> None:
+    bind = _CONSOLE_PUBLISH_WORKFLOW.index("- name: Bind exact Core catalog image")
+    refresh = _CONSOLE_PUBLISH_WORKFLOW.index(
+        "- name: Refresh and verify authoritative PostgreSQL catalogs"
     )
-    assert "mode=catalog-console" in _LEGACY_WORKFLOW
-    assert "Catalog-console-only" in _PLAN_SCOPE
+    publish = _CONSOLE_PUBLISH_WORKFLOW.index("- name: Publish and verify Console static content")
+
+    assert bind < refresh < publish
+    assert "bootstrap-service-migrations.sh" in _CATALOG_REFRESH
+    assert "run_catalog_job" in _CATALOG_REFRESH
+    assert '--image "$previous_image"' in _CATALOG_REFRESH
+    assert "verify-authoritative-catalogs.py" in _CATALOG_REFRESH
 
 
 def test_platform_gateway_plan_targets_active_moved_role_collections() -> None:

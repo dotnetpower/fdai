@@ -511,7 +511,8 @@ jobs:
           observation_context_binding="null"
           if [[ "$SERVICE" == "core-control-plane" ]]; then
             observation_context_binding="$(
-              terraform -chdir="$TRUSTED_CONTROLS/infra" output -json ohl_observation_context_binding
+              terraform -chdir="$TRUSTED_CONTROLS/infra" \
+                output -json ohl_observation_context_binding 2>/dev/null || printf 'null\n'
             )"
             jq -e '
               . == null or (

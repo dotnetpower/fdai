@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 0de6cd5f4da7eef9caf5e120e87b6a322c4e5721
+translation_source_sha: 8cf1367426b93bcd7478e268912313d5c0c173d4
 translation_revised: 2026-09-03
 ---
 # 배포 리소스 규약
@@ -28,9 +28,10 @@ bootstrap-reconcile`은 해당 이름을 검토된 프로필 및 소스 커밋�
 애플리케이션 기능 입력은 전체 계획에서 원하는 플랫폼 상태를 나타냅니다. 모니터링이 유일하게
 선택된 기능일 때만 범위가 제한된 `module.monitoring` 대상을 사용합니다. 애플리케이션 기능과 함께
 선택하면 모니터링을 활성 상태로 유지하고 전체 비파괴 계획에 포함합니다.
-정확한 `catalog-console` 갱신은 기존 카탈로그 구체화 Job만 대상으로 합니다. 정확한 적용 후
-workflow는 schema migration을 실행하고 선택한 revision의 변경할 수 없는 Rule 및 Ontology 변환
-결과를 PostgreSQL에 기록한 뒤 일치하는 Console 산출물을 게시하고 검증합니다.
+보호된 Console release workflow는 CI로 검증된 정확한 Core image를 연결하고 기존 catalog 구체화
+Job을 rollback과 함께 갱신한 뒤 schema migration을 실행합니다. 일치하는 Console 산출물을
+게시하기 전에 선택한 revision의 변경할 수 없는 Rule 및 Ontology 변환 결과를 PostgreSQL
+readback으로 검증합니다.
 
 ## 구현 상태
 
