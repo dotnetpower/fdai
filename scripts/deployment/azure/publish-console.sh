@@ -60,10 +60,13 @@ export VITE_INGESTION_API_BASE_URL="${ingestion_api:+https://$ingestion_api}"
 export VITE_MSAL_CLIENT_ID="$ENTRA_CONSOLE_SPA_CLIENT_ID"
 export VITE_MSAL_TENANT_ID="$EXPECTED_AZURE_TENANT_ID"
 export VITE_MSAL_API_SCOPE="$ENTRA_CONSOLE_API_SCOPE"
+export VITE_MANUAL_STUDIO_URL="https://$hostname/manuals"
 trap 'unset SWA_CLI_DEPLOYMENT_TOKEN deployment_token' EXIT
 
 npm --prefix "$repo_root/console" ci --no-audit --no-fund
 npm --prefix "$repo_root/console" run build
+python3 "$repo_root/scripts/deployment/azure/build_manual_studio_artifact.py" \
+  "$repo_root/console/dist/manuals"
 npx --yes @azure/static-web-apps-cli@2.0.10 deploy \
   "$repo_root/console/dist" --env production
 
@@ -87,12 +90,20 @@ curl --fail --silent --show-error --retry 12 --retry-delay 5 \
   "https://$hostname$entry_asset" --output "$remote_asset"
 echo "$(sha256sum "$repo_root/console/dist${entry_asset}" | cut -d' ' -f1)  $remote_asset" \
   | sha256sum --check --status
+for manual_file in catalog.json library.html; do
+  curl --fail --silent --show-error --retry 12 --retry-delay 5 \
+    --retry-all-errors --retry-max-time 120 --connect-timeout 5 --max-time 20 \
+    "https://$hostname/manuals/$manual_file" --output "$remote_asset"
+  echo "$(sha256sum "$repo_root/console/dist/manuals/$manual_file" | cut -d' ' -f1)  $remote_asset" \
+    | sha256sum --check --status
+done
 curl --fail --silent --show-error --retry 6 --retry-delay 5 \
   --retry-all-errors --retry-max-time 60 --connect-timeout 5 --max-time 20 \
   "https://$hostname/ontology" --output /dev/null
 
 {
   echo "Console: https://$hostname"
+  echo "Manual Studio: https://$hostname/manuals/library.html"
   echo "VITE_OPERATOR_API_BASE_URL=${operator_api:+https://$operator_api}"
   echo "VITE_INGESTION_API_BASE_URL=${ingestion_api:+https://$ingestion_api}"
 } >> "$GITHUB_STEP_SUMMARY"

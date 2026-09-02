@@ -107,7 +107,7 @@ export function manualAssetUrl(baseUrl: string, assetPath: string): string | nul
 }
 
 export function manualOpenUrl(baseUrl: string, manualId?: string): string {
-  const url = new URL("library", `${baseUrl.replace(/\/+$/, "")}/`);
+  const url = new URL("library.html", `${baseUrl.replace(/\/+$/, "")}/`);
   if (manualId !== undefined) url.searchParams.set("manual", manualId);
   return url.toString();
 }

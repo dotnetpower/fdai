@@ -963,9 +963,13 @@ npm run build
 # → console/dist/ (git-ignored)
 ```
 
-The `dist/` output is uploaded by `infra/modules/console/` to Azure Static
-Web Apps. Custom domain, CSP headers, and MSAL app-registration values are
-supplied by the fork; the upstream repo ships schema and empty defaults only.
+The protected Azure publisher uploads the `dist/` output to Azure Static Web
+Apps and adds the allowlisted Manual Studio files under `/manuals`. It builds
+the Console with `VITE_MANUAL_STUDIO_URL` bound to that same-origin path, then
+verifies the deployed Console entry asset, manual catalog, and manual library
+against the local files. Custom domain, CSP headers, and MSAL app-registration
+values are supplied by the fork; the upstream repo ships schema and empty
+defaults only.
 
 ## Fork configuration
 
@@ -983,5 +987,6 @@ CI env):
 | `VITE_LOCAL_LOGIN_PROMPT` | Test-only chooser toggle used with `VITE_DEV_MODE`; not an interactive Azure data mode. |
 | `VITE_LOCAL_AZURE_CLI_AUTH` | `1` to project the current local `az login` user through the local Operator API. Explicit alternative to browser Entra sign-in; never set in production or together with `VITE_DEV_MODE`. |
 | `VITE_CONSOLE_BASE_PATH` | Optional subpath if not served at origin root. |
+| `VITE_MANUAL_STUDIO_URL` | Optional HTTPS origin or path for the published manual catalog. Local development defaults to `http://127.0.0.1:5474`; the protected Azure publisher uses the Console's same-origin `/manuals` path. |
 | `VITE_WORKFLOW_CATALOG_REPO` | Optional `owner/repo` of the catalog repo. When set, a validated workflow draft shows a one-click "Open a PR on GitHub" (new-file link); the console still never commits. |
 | `VITE_WORKFLOW_CATALOG_BRANCH` | Branch the new-file PR link targets (default `main`). |
