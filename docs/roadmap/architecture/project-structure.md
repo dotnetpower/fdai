@@ -54,11 +54,7 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   never import `delivery/`; provider behavior enters through shared Protocols and composition.
   Focused sibling modules may own canonical identity projection and hashing while the established
   owner module re-exports that public surface; the split must preserve serialized bytes and replay
-  semantics. Size ratchets are handled by moving cohesive pure logic into focused siblings while
-  the established owner re-exports compatibility symbols; raising a baseline is not the normal
-  path. Service images pin vulnerable transitive Go modules in their Dockerfile build stage and
-  assert the resolved binary versions. Python security floors remain in each owning distribution
-  and the frozen workspace lock.
+  semantics.
 - **human approval stays split by service authority**: Operator owns Teams/Slack authentication,
   cryptographic verification, callback audit, and the durable decision outbox. Core consumes only
   the typed decision event, routes workflow slots to the registry, and sends action parks to the
