@@ -52,6 +52,8 @@ async def test_verify_compares_every_immutable_projection(
         lambda config: _Store({"immutable": expected["immutable"]}),
     )
 
+    assert module.CATALOG_VERIFY_STATEMENT_TIMEOUT_MS == 300_000
+    assert module.CATALOG_VERIFY_CONNECT_TIMEOUT_S == 60
     assert await module.verify(_ROOT) == 1
 
 

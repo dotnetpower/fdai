@@ -12,6 +12,9 @@ from typing import Any, cast
 
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
 
+CATALOG_VERIFY_STATEMENT_TIMEOUT_MS = 300_000
+CATALOG_VERIFY_CONNECT_TIMEOUT_S = 60
+
 
 def _materializer(repo_root: Path) -> ModuleType:
     path = repo_root / "scripts/deployment/local/materialize-authoritative-catalogs.py"
@@ -34,7 +37,13 @@ async def verify(repo_root: Path) -> int:
         module.ONTOLOGY_EVIDENCE_HEALTH_KEY,
         module.ONTOLOGY_RELEASE_DIFF_KEY,
     }
-    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
+    store = PostgresStateStore(
+        config=PostgresStateStoreConfig(
+            dsn=dsn,
+            statement_timeout_ms=CATALOG_VERIFY_STATEMENT_TIMEOUT_MS,
+            connect_timeout_s=CATALOG_VERIFY_CONNECT_TIMEOUT_S,
+        )
+    )
     verified = 0
     for key, payload in expected.items():
         if key in dynamic_keys:
