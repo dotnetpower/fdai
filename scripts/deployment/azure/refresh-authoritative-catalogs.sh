@@ -13,8 +13,8 @@ catalog_job="$(terraform -chdir="$terraform_dir" output -raw operator_api_catalo
 job_uri="https://management.azure.com/subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/${resource_group}/providers/Microsoft.App/jobs/${catalog_job}?api-version=2024-03-01"
 
 read_job_image() {
-  az rest --method get --uri "$job_uri" --output json \
-    | python3 -c 'import json,sys; p=json.load(sys.stdin); p=p.get("properties", p); print(p["template"]["containers"][0]["image"])'
+  az rest --method get --uri "$job_uri" \
+    --query 'properties.template.containers[0].image' --output tsv
 }
 
 previous_image="$(read_job_image)"

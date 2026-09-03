@@ -148,5 +148,12 @@ jobs:
             -backend-config="container_name=tfstate" \
             -backend-config="key=fdai-${{ inputs.environment }}.tfstate"
 
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: console/package-lock.json
+
       - name: Publish and verify Console static content
         run: bash scripts/deployment/azure/publish-console.sh infra

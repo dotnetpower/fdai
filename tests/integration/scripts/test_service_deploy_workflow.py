@@ -247,6 +247,9 @@ def test_console_release_publishes_static_content_without_catalog_mutation() -> 
     assert "- name: Publish and verify Console static content" in _CONSOLE_PUBLISH_WORKFLOW
     assert "CONSOLE_STATIC_WEB_APP_ID" in _CONSOLE_PUBLISH_WORKFLOW
     assert "CONSOLE_DEFAULT_HOSTNAME" in _CONSOLE_PUBLISH_WORKFLOW
+    assert "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020" in (
+        _CONSOLE_PUBLISH_WORKFLOW
+    )
     assert 'hostname="${hostname:-${CONSOLE_DEFAULT_HOSTNAME:-}}"' in (
         _ROOT / "scripts/deployment/azure/publish-console.sh"
     ).read_text(encoding="utf-8")
@@ -260,7 +263,7 @@ def test_console_release_publishes_static_content_without_catalog_mutation() -> 
     assert '--image "$previous_image"' in _CATALOG_REFRESH
     assert "api-version=2024-03-01" in _CATALOG_REFRESH
     assert 'az rest --method get --uri "$job_uri"' in _CATALOG_REFRESH
-    assert 'p=p.get("properties", p)' in _CATALOG_REFRESH
+    assert "'properties.template.containers[0].image'" in _CATALOG_REFRESH
     assert "verify-authoritative-catalogs.py" in _CATALOG_REFRESH
 
 
