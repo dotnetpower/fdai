@@ -260,14 +260,16 @@ def test_console_release_publishes_static_content_without_catalog_mutation() -> 
     )
     assert "bootstrap-service-migrations.sh" in _CATALOG_REFRESH
     assert "run_catalog_job" in _CATALOG_REFRESH
-    assert 'update_job_image "$previous_image"' in _CATALOG_REFRESH
+    assert '--image "$previous_image"' in _CATALOG_REFRESH
     assert "CATALOG_ROLLBACK_IMAGE" in _CONSOLE_PUBLISH_WORKFLOW or "CATALOG_ROLLBACK_IMAGE" in (
         _ROOT / ".github/workflows/refresh-catalogs.yml"
     ).read_text(encoding="utf-8")
     assert "catalog rollback image must be digest-pinned" in _CATALOG_REFRESH
-    assert 'az rest --method put --uri "$job_uri"' in _CATALOG_REFRESH
-    assert 'containers[0]["image"] = os.environ["IMAGE"]' in _CATALOG_REFRESH
-    assert "az containerapp job update" not in _CATALOG_REFRESH
+    assert "az containerapp job update" in _CATALOG_REFRESH
+    refresh_workflow = (_ROOT / ".github/workflows/refresh-catalogs.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "containerapp --version 1.3.0b4" in refresh_workflow
     assert "verify-authoritative-catalogs.py" in _CATALOG_REFRESH
 
 

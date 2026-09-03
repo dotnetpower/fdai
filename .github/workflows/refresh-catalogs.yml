@@ -111,6 +111,11 @@ jobs:
           "$ARM_SUBSCRIPTION_ID" "$EXPECTED_AZURE_TENANT_ID"
           "$DEPLOY_RUNNER_CLIENT_ID" "$DEPLOY_RUNNER_PRINCIPAL_ID"
 
+      - name: Install pinned Container Apps extension
+        run: >-
+          az extension add --name containerapp --version 1.3.0b4
+          --upgrade --yes --only-show-errors
+
       - name: Initialize Terraform remote state
         working-directory: infra
         run: |
