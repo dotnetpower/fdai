@@ -38,8 +38,8 @@ jobs:
       EXPECTED_AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
       ENTRA_CONSOLE_SPA_CLIENT_ID: ${{ vars.ENTRA_CONSOLE_SPA_CLIENT_ID }}
       ENTRA_CONSOLE_API_SCOPE: ${{ vars.ENTRA_CONSOLE_API_SCOPE }}
-      CONSOLE_DEFAULT_HOSTNAME: ${{ vars.CONSOLE_DEFAULT_HOSTNAME }}
       CONSOLE_STATIC_WEB_APP_ID: ${{ vars.CONSOLE_STATIC_WEB_APP_ID }}
+      CONSOLE_DEFAULT_HOSTNAME: ${{ vars.CONSOLE_DEFAULT_HOSTNAME }}
     steps:
       - name: Verify protected workflow source
         working-directory: ${{ runner.temp }}

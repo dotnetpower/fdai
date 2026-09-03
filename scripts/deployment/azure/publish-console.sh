@@ -17,14 +17,14 @@ fi
 hostname="${CONSOLE_DEFAULT_HOSTNAME:-}"
 resource_id="${CONSOLE_STATIC_WEB_APP_ID:-}"
 if [[ -z "$hostname" || -z "$resource_id" ]]; then
-  hostname="$(terraform -chdir="$terraform_dir" output -raw console_default_hostname)"
-  resource_id="$(terraform -chdir="$terraform_dir" output -raw console_static_web_app_id)"
+  hostname="$(terraform -chdir="$terraform_dir" output -raw console_default_hostname 2>/dev/null)"
+  resource_id="$(terraform -chdir="$terraform_dir" output -raw console_static_web_app_id 2>/dev/null)"
 fi
 if [[ -z "$hostname" || -z "$resource_id" ]]; then
   echo "console Static Web App binding is unavailable from protected variables and Terraform state" >&2
   exit 1
 fi
-if [[ ! "$hostname" =~ ^[A-Za-z0-9.-]+\.azurestaticapps\.net$ ]]; then
+if [[ ! "$hostname" =~ ^[a-z0-9-]+([.][0-9]+)?[.]azurestaticapps[.]net$ ]]; then
   echo "console default hostname is invalid" >&2
   exit 2
 fi
