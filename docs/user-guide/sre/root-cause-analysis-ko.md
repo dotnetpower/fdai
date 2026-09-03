@@ -2,8 +2,8 @@
 title: 근본 원인 분석
 description: FDAI가 티어별로 인용 가능한 근본 원인 가설을 만들고, 근거가 부족하면 판단을 보류하는 방법입니다.
 translation_of: root-cause-analysis.md
-translation_source_sha: e5074489ff166aafa6122d16a76586e8c7e23e97
-translation_revised: 2026-08-11
+translation_source_sha: dfe19bf9342589388a13c562fc5a56b00acf23a2
+translation_revised: 2026-09-03
 ---
 
 # 근본 원인 분석

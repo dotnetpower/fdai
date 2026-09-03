@@ -96,7 +96,7 @@ edges:
   - id: flow-05
     from: proposal
     to: gates
-    kind: decision
+    kind: request
   - id: flow-06
     from: gates
     to: approval

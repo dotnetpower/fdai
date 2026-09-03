@@ -93,7 +93,7 @@ edges:
   - id: flow-05
     from: hypothesis
     to: gate
-    kind: decision
+    kind: request
   - id: flow-06
     from: gate
     to: proposal

@@ -2,8 +2,8 @@
 title: 사이트 신뢰성 엔지니어링
 description: 신호와 인시던트부터 대응, 복구, 학습까지 이어지는 FDAI의 SRE 운영 모델입니다.
 translation_of: README.md
-translation_source_sha: 982a74ca85f5a3c24245eac3035278022b16355c
-translation_revised: 2026-08-11
+translation_source_sha: 9219279e4f098d1c872d7c65e46a1b631eb98c83
+translation_revised: 2026-09-03
 ---
 
 # 사이트 신뢰성 엔지니어링

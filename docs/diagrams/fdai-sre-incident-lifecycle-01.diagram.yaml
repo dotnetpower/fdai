@@ -85,7 +85,7 @@ edges:
   - id: flow-03
     from: candidate
     to: open
-    kind: decision
+    kind: request
   - id: flow-04
     from: open
     to: triaging
@@ -112,8 +112,8 @@ edges:
   - id: flow-09
     from: open
     to: delivery
-    kind: notification
+    kind: event
   - id: flow-10
     from: triaging
     to: delivery
-    kind: notification
+    kind: event

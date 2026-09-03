@@ -122,7 +122,7 @@ nodes:
         ko: 승격은 근거 검토를 따릅니다
   - id: audit
     parent: evidence-record
-    kind: datastore
+    kind: store
     shape: database
     tone: store
     label:
@@ -147,7 +147,7 @@ edges:
   - id: decide-to-recover
     from: decide
     to: recover
-    kind: decision
+    kind: request
   - id: recover-to-learn
     from: recover
     to: learn

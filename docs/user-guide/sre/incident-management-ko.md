@@ -2,8 +2,8 @@
 title: 인시던트 관리
 description: FDAI가 인시던트를 하나의 정식 기록으로 만들고, 소유자를 정하고, 상태를 옮기고, 측정하고, 종료하는 방법입니다.
 translation_of: incident-management.md
-translation_source_sha: d914c4c95f1f92570218d315e71b40f108e8ed5d
-translation_revised: 2026-08-25
+translation_source_sha: 31e41527874c3057e2844c79fa979d7d5910b3b5
+translation_revised: 2026-09-03
 ---
 
 # 인시던트 관리

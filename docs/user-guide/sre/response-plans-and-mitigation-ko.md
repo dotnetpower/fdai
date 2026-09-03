@@ -2,8 +2,8 @@
 title: 대응 계획과 완화
 description: FDAI가 작업 파이프라인을 우회하지 않고 인시던트 대응 계획을 작성, 사전 테스트, 승인, 라우팅하는 방법입니다.
 translation_of: response-plans-and-mitigation.md
-translation_source_sha: 30471bf9fc0d3f50be0360400a75850454ae48f9
-translation_revised: 2026-08-11
+translation_source_sha: f23571262a639975b6ede283c6f5d3b72a5a941e
+translation_revised: 2026-09-03
 ---
 
 # 대응 계획과 완화

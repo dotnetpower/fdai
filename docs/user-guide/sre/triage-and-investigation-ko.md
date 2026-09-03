@@ -2,8 +2,8 @@
 title: 분류와 조사
 description: FDAI가 범위를 정해 여러 리소스의 근거를 모으고, 감사할 수 있는 조사 보고서를 만드는 방법입니다.
 translation_of: triage-and-investigation.md
-translation_source_sha: 1b6218279dc492071ac37c7110ed7467e262709d
-translation_revised: 2026-08-11
+translation_source_sha: e9b45a6c7c1e811dc6e4cfd67b35e1a29d8efbcd
+translation_revised: 2026-09-03
 ---
 
 # 분류와 조사
