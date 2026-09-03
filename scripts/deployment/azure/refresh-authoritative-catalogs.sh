@@ -90,8 +90,10 @@ else
   bound_image="$(az rest --method get \
     --uri "${catalog_job_uri}?api-version=2024-03-01" \
     --query 'properties.template.containers[0].image' -o tsv)"
-  bound_image="${bound_image//$'\r'/}"
-  if [[ "$bound_image" != "$TF_VAR_core_image" ]]; then
+  bound_image="$(tr -d '[:space:]' <<<"$bound_image")"
+  expected_digest="${TF_VAR_core_image##*@}"
+  bound_digest="${bound_image##*@}"
+  if [[ ! "$bound_image" =~ @sha256:[0-9a-f]{64}$ || "$bound_digest" != "$expected_digest" ]]; then
     echo "prebound catalog Job image does not match the verified Core image" >&2
     exit 1
   fi
@@ -107,7 +109,7 @@ else
   prestarted_status="$(az rest --method get \
     --uri "${catalog_job_uri}/executions?api-version=2024-03-01" \
     --query 'sort_by(value, &properties.startTime)[-1].properties.status' -o tsv)"
-  prestarted_status="${prestarted_status//$'\r'/}"
+  prestarted_status="$(tr -d '[:space:]' <<<"$prestarted_status")"
   if [[ "$prestarted_status" != "Succeeded" ]]; then
     echo "prestarted authoritative catalog materialization Job did not succeed" >&2
     exit 1
