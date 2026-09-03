@@ -41,6 +41,9 @@ _GH_INSTALLER = (_ROOT / "scripts/deployment/azure/install-pinned-github-cli.sh"
 _CONSOLE_PUBLISH_WORKFLOW = (_ROOT / ".github/workflows/publish-console.yml").read_text(
     encoding="utf-8"
 )
+_CONSOLE_REQUEST_WORKFLOW = (_ROOT / ".github/workflows/request-console-publish.yml").read_text(
+    encoding="utf-8"
+)
 _CATALOG_REFRESH = (_ROOT / "scripts/deployment/azure/refresh-authoritative-catalogs.sh").read_text(
     encoding="utf-8"
 )
@@ -252,6 +255,14 @@ def test_console_release_refreshes_and_verifies_postgresql_catalogs_first() -> N
     assert "run_catalog_job" in _CATALOG_REFRESH
     assert '--image "$previous_image"' in _CATALOG_REFRESH
     assert "verify-authoritative-catalogs.py" in _CATALOG_REFRESH
+
+
+def test_console_release_request_uses_bot_as_deployment_requester() -> None:
+    assert "actions: write" in _CONSOLE_REQUEST_WORKFLOW
+    assert "Verify protected workflow source" in _CONSOLE_REQUEST_WORKFLOW
+    assert "Verify required CI" in _CONSOLE_REQUEST_WORKFLOW
+    assert "actions/workflows/publish-console.yml/dispatches" in _CONSOLE_REQUEST_WORKFLOW
+    assert '"inputs[commit_sha]=$TARGET_COMMIT_SHA"' in _CONSOLE_REQUEST_WORKFLOW
 
 
 def test_platform_gateway_plan_targets_active_moved_role_collections() -> None:
