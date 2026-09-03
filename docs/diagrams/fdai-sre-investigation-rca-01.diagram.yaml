@@ -1,0 +1,118 @@
+id: fdai-sre-investigation-rca-01
+version: 1
+kind: flowchart
+updated: 2026-09-03
+formats:
+  - svg
+locales:
+  en:
+    title: Investigation and RCA dossier
+    description: How FDAI builds a bounded evidence dossier before a response plan can use RCA.
+    alt: Investigation and RCA dossier. The main stages are Incident scope, Evidence budget, Provider analyzers, Timeline and correlation, RCA hypothesis, Evidence check, Response plan proposal, and Audit trail.
+  ko:
+    title: 조사 및 RCA 문서 묶음
+    description: FDAI가 대응 계획에서 RCA를 사용하기 전에 제한된 근거 문서 묶음을 만드는 방식입니다.
+    alt: 조사 및 RCA 문서 묶음. 주요 단계는 인시던트 범위, 근거 예산, 프로바이더 분석기, 타임라인 및 상관관계, RCA 가설, 근거 확인, 대응 계획 제안, 감사 추적입니다.
+canvas:
+  width: 1500
+  height: 820
+  direction: RIGHT
+groups: []
+nodes:
+  - id: scope
+    kind: process
+    shape: card
+    label:
+      en: Incident scope
+      ko: 인시던트 범위
+  - id: budget
+    kind: process
+    shape: card
+    label:
+      en: Evidence budget
+      ko: 근거 예산
+  - id: analyzers
+    kind: process
+    shape: card
+    label:
+      en: Provider analyzers
+      ko: 프로바이더 분석기
+  - id: timeline
+    kind: process
+    shape: card
+    label:
+      en: Timeline and correlation
+      ko: 타임라인 및 상관관계
+  - id: hypothesis
+    kind: process
+    shape: card
+    label:
+      en: RCA hypothesis
+      ko: RCA 가설
+  - id: gate
+    kind: decision
+    shape: diamond
+    label:
+      en: Evidence check
+      ko: 근거 확인
+  - id: proposal
+    kind: process
+    shape: card
+    label:
+      en: Response plan proposal
+      ko: 대응 계획 제안
+  - id: review
+    kind: process
+    shape: card
+    label:
+      en: Human review
+      ko: 사람 검토
+  - id: audit
+    kind: process
+    shape: card
+    label:
+      en: Audit trail
+      ko: 감사 추적
+edges:
+  - id: flow-01
+    from: scope
+    to: budget
+    kind: request
+  - id: flow-02
+    from: budget
+    to: analyzers
+    kind: read
+  - id: flow-03
+    from: analyzers
+    to: timeline
+    kind: read
+  - id: flow-04
+    from: timeline
+    to: hypothesis
+    kind: request
+  - id: flow-05
+    from: hypothesis
+    to: gate
+    kind: decision
+  - id: flow-06
+    from: gate
+    to: proposal
+    kind: request
+    label:
+      en: grounded
+      ko: 근거 있음
+  - id: flow-07
+    from: gate
+    to: review
+    kind: approval
+    label:
+      en: ambiguous or incomplete
+      ko: 모호하거나 불완전
+  - id: flow-08
+    from: proposal
+    to: audit
+    kind: audit
+  - id: flow-09
+    from: review
+    to: audit
+    kind: audit

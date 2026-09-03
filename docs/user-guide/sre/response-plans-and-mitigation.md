@@ -10,6 +10,8 @@ alert. It declares the trigger, ordered response steps, activation
 requirements, approver role, and notification channels. A plan can propose and
 route a mitigation, but it never executes one directly.
 
+![Governed response path. A draft plan is pretested and activated, then an alert launches investigation, option comparison, proposal routing, trust and safety checks, approval or no action, execution, verification, and audit.](../../diagrams/generated/fdai-sre-response-governance-01.en.svg)
+
 ## Authoring gate
 
 Every plan starts as a draft. Activation checks that stop conditions, rollback,
@@ -46,6 +48,10 @@ any referenced `ActionType`, lower its risk tier, or grant execution authority.
 
 The default approval gate denies. A missing or broken approval binding therefore
 produces no action.
+
+Use this flow when you want repeatable response without hidden authority. The
+plan narrows the options and preserves evidence. The typed action pipeline still
+decides whether the proposed mitigation can run in the current environment.
 
 ## Compare options before you mitigate
 

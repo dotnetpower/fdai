@@ -15,9 +15,7 @@ to an alert.
 FDAI keeps detected issues separate from incidents so routine observations and isolated anomalies
 do not create operational emergencies. The canonical sequence is:
 
-```text
-Observation -> Signal -> Finding -> Incident candidate or proposal -> Incident
-```
+![Incident lifecycle. Raw observations become detected issues, candidates, and an incident that moves through open, triaging, mitigated, resolved, and closed while notifications retry separately from lifecycle truth.](../../diagrams/generated/fdai-sre-incident-lifecycle-01.en.svg)
 
 A `Finding` is one normalized, evidence-backed detected issue. `Findings` is the collection or
 Console page label. The 15 agents can create detected issues within their accountable domains, but
@@ -67,6 +65,14 @@ transitions.
 
 Missing ownership, impact, or recovery evidence is shown as unavailable. The
 console does not infer those values from display text.
+
+Use the record as the handoff boundary between shifts. A new responder should
+be able to answer three questions from it before opening another tool:
+
+- **What is affected?** Scope, members, severity, and owner.
+- **What changed?** Timeline, correlation keys, and recent transitions.
+- **What remains unproven?** Unavailable evidence, missing recovery checks, or
+  follow-up work that prevents closure.
 
 ## Create and assign safely
 

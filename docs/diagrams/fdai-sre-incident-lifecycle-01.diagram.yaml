@@ -1,0 +1,119 @@
+id: fdai-sre-incident-lifecycle-01
+version: 1
+kind: flowchart
+updated: 2026-09-03
+formats:
+  - svg
+locales:
+  en:
+    title: Incident lifecycle
+    description: How FDAI separates detected issues from durable incident state and notification delivery.
+    alt: Incident lifecycle. Raw observations become detected issues, candidates, and an incident that moves through open, triaging, mitigated, resolved, and closed while notifications retry separately from lifecycle truth.
+  ko:
+    title: 인시던트 수명 주기
+    description: FDAI가 발견된 문제, 지속형 인시던트 상태, 알림 전달을 분리하는 방식입니다.
+    alt: 인시던트 수명 주기. 원시 관찰은 발견된 문제, 후보, 인시던트로 이어지고 인시던트는 open, triaging, mitigated, resolved, closed 상태를 거치며 알림 재시도는 수명 주기 진실과 분리됩니다.
+canvas:
+  width: 1500
+  height: 820
+  direction: RIGHT
+groups: []
+nodes:
+  - id: observation
+    kind: process
+    shape: card
+    label:
+      en: Observation or signal
+      ko: 관찰 또는 신호
+  - id: finding
+    kind: process
+    shape: card
+    label:
+      en: Detected issue
+      ko: 발견된 문제
+  - id: candidate
+    kind: process
+    shape: card
+    label:
+      en: Incident candidate
+      ko: 인시던트 후보
+  - id: open
+    kind: process
+    shape: card
+    label:
+      en: open
+      ko: open
+  - id: triaging
+    kind: process
+    shape: card
+    label:
+      en: triaging
+      ko: triaging
+  - id: mitigated
+    kind: process
+    shape: card
+    label:
+      en: mitigated
+      ko: mitigated
+  - id: resolved
+    kind: process
+    shape: card
+    label:
+      en: resolved
+      ko: resolved
+  - id: closed
+    kind: process
+    shape: card
+    label:
+      en: closed
+      ko: closed
+  - id: delivery
+    kind: process
+    shape: card
+    label:
+      en: Durable notification retry
+      ko: 지속형 알림 재시도
+edges:
+  - id: flow-01
+    from: observation
+    to: finding
+    kind: event
+  - id: flow-02
+    from: finding
+    to: candidate
+    kind: request
+  - id: flow-03
+    from: candidate
+    to: open
+    kind: decision
+  - id: flow-04
+    from: open
+    to: triaging
+    kind: request
+  - id: flow-05
+    from: triaging
+    to: mitigated
+    kind: request
+  - id: flow-06
+    from: mitigated
+    to: resolved
+    kind: request
+  - id: flow-07
+    from: resolved
+    to: closed
+    kind: request
+  - id: flow-08
+    from: resolved
+    to: triaging
+    kind: feedback
+    label:
+      en: reopen
+      ko: 다시 열기
+  - id: flow-09
+    from: open
+    to: delivery
+    kind: notification
+  - id: flow-10
+    from: triaging
+    to: delivery
+    kind: notification

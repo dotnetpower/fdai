@@ -16,6 +16,8 @@ translation_revised: 2026-08-11
 이 섹션은 운영자를 위한 지도입니다. FDAI가 구현한 기능, 사람 승인이 필요한 지점,
 배포 환경이나 다운스트림 포크가 제공해야 하는 통합을 설명합니다.
 
+![SRE 운영 루프. 주요 단계는 신호 관찰, 인시던트 상관관계, 근거 조사, 결정 및 라우팅, 복구 및 검증, 학습 및 개선이며, 감사 근거가 루프 전체에 기록됩니다.](../../diagrams/generated/fdai-sre-operating-loop-01.ko.svg)
+
 ## 무엇을 할 수 있나요?
 
 ### 신호 폭풍을 하나의 인시던트로 정리
@@ -68,6 +70,10 @@ signals -> finding -> incident -> investigation -> RCA
         -> response plan -> risk gate -> action or approval
         -> recovery evidence -> postmortem -> improvement candidate
 ```
+
+각 단계에서 FDAI는 근거가 사용 가능했는지, 오래됐는지, 불완전했는지, 사용할 수
+없었는지를 기록합니다. 이 구분 덕분에 운영자는 워크로드가 조용한 상태인지, 컨트롤
+플레인이 판단에 필요한 근거를 충분히 수집하지 못한 상태인지 구분할 수 있습니다.
 
 ## 모든 대응을 제어하는 두 가지 판단
 
