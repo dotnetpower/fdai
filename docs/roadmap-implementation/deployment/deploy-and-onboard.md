@@ -25,6 +25,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-03 | implemented | Made catalog Job image readback wrapper-independent while requiring exactly one named container image. | Failed run `33712083687`; `current change`; focused helper and workflow checks | Re-run the catalog refresh and retain a successful PostgreSQL receipt. |
 | 2026-09-03 | implemented | Installed the pinned GitHub CLI before the catalog refresh workflow's first GitHub API check and bound Console static publication to the exact apply-synchronized repository Variables with a Terraform-state fallback. | `current change`; focused protected workflow and static publisher checks. | Retain successful catalog refresh and Console publication receipts for the pushed revision. |
 | 2026-09-03 | implemented | Added pinned Node 24 setup to the self-hosted static publisher and read the ARM Job image with an exact JMESPath projection. | Failed runs `33711285426` and `33711285243`; `current change`; focused workflow checks | Re-run both releases and retain successful receipts. |
 | 2026-09-03 | implemented | Made legacy empty Terraform outputs fall back to the validated Static Web App binding and accepted flattened ARM REST Job payloads. | Failed runs `33710219597` and `33710214340`; `current change`; focused helper and workflow checks | Re-run both releases and retain successful receipts. |

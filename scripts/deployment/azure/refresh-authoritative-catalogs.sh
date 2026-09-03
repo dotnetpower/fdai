@@ -13,8 +13,26 @@ catalog_job="$(terraform -chdir="$terraform_dir" output -raw operator_api_catalo
 job_uri="https://management.azure.com/subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/${resource_group}/providers/Microsoft.App/jobs/${catalog_job}?api-version=2024-03-01"
 
 read_job_image() {
-  az rest --method get --uri "$job_uri" \
-    --query 'properties.template.containers[0].image' --output tsv
+  az rest --method get --uri "$job_uri" --output json \
+    | python3 -c '
+import json
+import sys
+
+def containers(value):
+    if isinstance(value, dict):
+        if isinstance(value.get("image"), str) and isinstance(value.get("name"), str):
+            yield value["image"]
+        for child in value.values():
+            yield from containers(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from containers(child)
+
+images = list(dict.fromkeys(containers(json.load(sys.stdin))))
+if len(images) != 1:
+    raise SystemExit("catalog Job response must contain exactly one named container image")
+print(images[0])
+'
 }
 
 previous_image="$(read_job_image)"

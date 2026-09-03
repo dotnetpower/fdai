@@ -263,7 +263,7 @@ def test_console_release_publishes_static_content_without_catalog_mutation() -> 
     assert '--image "$previous_image"' in _CATALOG_REFRESH
     assert "api-version=2024-03-01" in _CATALOG_REFRESH
     assert 'az rest --method get --uri "$job_uri"' in _CATALOG_REFRESH
-    assert "'properties.template.containers[0].image'" in _CATALOG_REFRESH
+    assert "exactly one named container image" in _CATALOG_REFRESH
     assert "verify-authoritative-catalogs.py" in _CATALOG_REFRESH
 
 
