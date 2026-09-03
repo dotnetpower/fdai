@@ -14,11 +14,22 @@ if [[ ! "$ENTRA_CONSOLE_API_SCOPE" =~ ^api://[^/]+/[^/]+$ ]]; then
   exit 2
 fi
 
-hostname="$(terraform -chdir="$terraform_dir" output -raw console_default_hostname)"
-resource_id="$(terraform -chdir="$terraform_dir" output -raw console_static_web_app_id)"
+hostname="$(
+  terraform -chdir="$terraform_dir" output -raw console_default_hostname 2>/dev/null \
+    || printf '%s' "${CONSOLE_DEFAULT_HOSTNAME:-}"
+)"
+resource_id="$(
+  terraform -chdir="$terraform_dir" output -raw console_static_web_app_id 2>/dev/null \
+    || printf '%s' "${CONSOLE_STATIC_WEB_APP_ID:-}"
+)"
 if [[ -z "$hostname" || -z "$resource_id" ]]; then
   echo "console Static Web App outputs are unavailable after apply" >&2
   exit 1
+fi
+if [[ ! "$hostname" =~ ^[a-z0-9-]+([.][0-9]+)?[.]azurestaticapps[.]net$ ]] ||
+  [[ ! "$resource_id" =~ ^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft.Web/staticSites/[^/]+$ ]]; then
+  echo "console Static Web App binding is invalid" >&2
+  exit 2
 fi
 
 operator_api="$(terraform -chdir="$terraform_dir" output -raw operator_api_fqdn)"

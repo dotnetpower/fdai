@@ -245,6 +245,8 @@ def test_core_service_tolerates_unapplied_optional_observation_output() -> None:
 
 def test_console_release_publishes_static_content_without_catalog_mutation() -> None:
     assert "- name: Publish and verify Console static content" in _CONSOLE_PUBLISH_WORKFLOW
+    assert "CONSOLE_STATIC_WEB_APP_ID" in _CONSOLE_PUBLISH_WORKFLOW
+    assert "CONSOLE_DEFAULT_HOSTNAME" in _CONSOLE_PUBLISH_WORKFLOW
     assert "- name: Bind exact Core catalog image" not in _CONSOLE_PUBLISH_WORKFLOW
     assert (
         "- name: Refresh and verify authoritative PostgreSQL catalogs"

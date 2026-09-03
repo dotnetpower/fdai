@@ -79,6 +79,9 @@ jobs:
           ref: ${{ inputs.commit_sha }}
           fetch-depth: 1
 
+      - name: Install pinned GitHub CLI
+        run: bash scripts/deployment/azure/install-pinned-github-cli.sh
+
       - name: Verify required CI
         env:
           GH_TOKEN: ${{ github.token }}
@@ -117,9 +120,6 @@ jobs:
             -backend-config="storage_account_name=${{ vars.STATE_STORAGE_ACCOUNT }}" \
             -backend-config="container_name=tfstate" \
             -backend-config="key=fdai-${{ inputs.environment }}.tfstate"
-
-      - name: Install pinned GitHub CLI
-        run: bash scripts/deployment/azure/install-pinned-github-cli.sh
 
       - name: Bind exact Core catalog image
         env:
