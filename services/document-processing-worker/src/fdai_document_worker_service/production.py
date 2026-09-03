@@ -65,7 +65,10 @@ from fdai_document_worker_service.handover import (
     stewardship_input_from_environment,
 )
 from fdai_document_worker_service.processing import DocumentIngestionWorker
-from fdai_document_worker_service.supervisor import IngestionWorkerSupervisor
+from fdai_document_worker_service.supervisor import (
+    DependencyReadinessError,
+    IngestionWorkerSupervisor,
+)
 
 _COMMON_REQUIRED_ENV = (
     "FDAI_DATABASE_URL",
@@ -302,7 +305,7 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
             if not result.live_verified
         )
         if failures:
-            raise ProductionConfigurationError(
+            raise DependencyReadinessError(
                 "ingestion worker adapter readiness failed: " + ", ".join(failures)
             )
 

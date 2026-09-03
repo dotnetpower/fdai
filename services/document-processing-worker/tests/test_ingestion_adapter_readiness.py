@@ -34,8 +34,8 @@ from fdai_document_worker_service.adapters.storage import (
     AzureDataLakeConfig,
     AzureDataLakeObjectStore,
 )
-from fdai_document_worker_service.production import ProductionConfigurationError
 from fdai_document_worker_service.production import build_runtime as build_worker_runtime
+from fdai_document_worker_service.supervisor import DependencyReadinessError
 from fdai_ingestion_api_service.adapters.event_bus import EventHubsKafkaPublisher
 from fdai_ingestion_api_service.adapters.postgres import (
     PostgresApiConfig,
@@ -328,7 +328,7 @@ async def test_clamav_probe_failure_blocks_worker_startup_adapter_gate(
         monkeypatch.setattr(adapter_type, "probe_readiness", probe)
 
     runtime = build_worker_runtime(_WORKER_ENV)
-    with pytest.raises(ProductionConfigurationError, match="clamav:probe_failed"):
+    with pytest.raises(DependencyReadinessError, match="clamav:probe_failed"):
         await runtime.startup_checks[1]()
     await asyncio.gather(*(callback() for callback in runtime.shutdown_callbacks))
 

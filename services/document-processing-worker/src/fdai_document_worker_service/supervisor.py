@@ -33,8 +33,12 @@ class IngestionWorkerRuntime(Protocol):
     def shutdown_callbacks(self) -> tuple[Callable[[], Awaitable[None]], ...]: ...
 
 
+class DependencyReadinessError(RuntimeError):
+    """A live dependency probe failed without proving a configuration defect."""
+
+
 class IngestionWorkerSupervisor:
-    """Fail the process when any required worker loop stops or fails."""
+    """Fail when a required loop stops or dependency evidence becomes stale."""
 
     def __init__(
         self,
@@ -173,11 +177,25 @@ class IngestionWorkerSupervisor:
         return 0
 
     async def _monitor_dependencies(self) -> None:
-        """Refresh required DB and broker evidence or fail the supervised loop."""
+        """Refresh dependency evidence and bound recovery from typed probe failures."""
         while True:
             await asyncio.sleep(self._readiness_interval_seconds)
-            for check in self._runtime.startup_checks:
-                await check()
+            try:
+                for check in self._runtime.startup_checks:
+                    await check()
+            except DependencyReadinessError as exc:
+                last_success = self._last_dependency_success
+                failure_age = self._monotonic() - last_success if last_success is not None else None
+                if failure_age is None or failure_age > self._readiness_freshness_seconds:
+                    raise
+                _LOGGER.warning(
+                    "ingestion_worker_dependency_probe_degraded",
+                    extra={
+                        "dependency_failure_type": type(exc).__name__,
+                        "last_success_age_seconds": max(0.0, failure_age),
+                    },
+                )
+                continue
             self._last_dependency_success = self._monotonic()
 
     async def _report_status(self) -> None:

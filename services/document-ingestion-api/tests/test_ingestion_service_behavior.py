@@ -31,7 +31,10 @@ from fdai_document_worker_service.state_machine import (
     InvalidDocumentTransitionError as InvalidWorkerTransitionError,
 )
 from fdai_document_worker_service.state_machine import transition as worker_transition
-from fdai_document_worker_service.supervisor import IngestionWorkerSupervisor
+from fdai_document_worker_service.supervisor import (
+    DependencyReadinessError,
+    IngestionWorkerSupervisor,
+)
 from fdai_ingestion_api_service.access import ClaimsDocumentAccessProvider
 from fdai_ingestion_api_service.adapters.postgres import (
     PostgresApiConfig,
@@ -2529,6 +2532,100 @@ async def test_worker_readiness_fails_when_dependency_probe_is_lost(
         await supervisor.run(stop=asyncio.Event())
     assert checks == 2
     assert not supervisor.ready
+
+
+@pytest.mark.asyncio
+async def test_worker_readiness_tolerates_transient_dependency_probe_failure(
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    now = 0.0
+    checks = 0
+    sleeps = 0
+
+    async def dependency_check() -> None:
+        nonlocal checks
+        checks += 1
+        if checks == 1:
+            raise DependencyReadinessError("clamav probe timed out")
+
+    class DependencyRuntime(WorkerRuntime):
+        startup_checks = (dependency_check,)
+
+    async def bounded_sleep(delay: float) -> None:
+        nonlocal now, sleeps
+        assert delay == 5.0
+        sleeps += 1
+        if sleeps == 3:
+            raise asyncio.CancelledError
+        now += delay
+
+    monkeypatch.setattr(
+        "fdai_document_worker_service.supervisor.asyncio.sleep",
+        bounded_sleep,
+    )
+    supervisor = IngestionWorkerSupervisor(
+        runtime=DependencyRuntime(),
+        health_port=8000,
+        readiness_interval_seconds=5.0,
+        readiness_freshness_seconds=15.0,
+        monotonic=lambda: now,
+    )
+    supervisor._last_dependency_success = 0.0
+
+    with caplog.at_level(logging.WARNING, logger="fdai.ingestion.worker"):
+        with pytest.raises(asyncio.CancelledError):
+            await supervisor._monitor_dependencies()
+
+    assert checks == 2
+    assert supervisor._last_dependency_success == 10.0
+    records = [
+        record
+        for record in caplog.records
+        if record.message == "ingestion_worker_dependency_probe_degraded"
+    ]
+    assert len(records) == 1
+    assert records[0].dependency_failure_type == "DependencyReadinessError"
+    assert records[0].last_success_age_seconds == 5.0
+
+
+@pytest.mark.asyncio
+async def test_worker_readiness_fails_after_transient_dependency_evidence_expires(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    now = 0.0
+    checks = 0
+
+    async def dependency_check() -> None:
+        nonlocal checks
+        checks += 1
+        raise DependencyReadinessError("clamav probe timed out")
+
+    class DependencyRuntime(WorkerRuntime):
+        startup_checks = (dependency_check,)
+
+    async def advance_clock(delay: float) -> None:
+        nonlocal now
+        assert delay == 5.0
+        now += delay
+
+    monkeypatch.setattr(
+        "fdai_document_worker_service.supervisor.asyncio.sleep",
+        advance_clock,
+    )
+    supervisor = IngestionWorkerSupervisor(
+        runtime=DependencyRuntime(),
+        health_port=8000,
+        readiness_interval_seconds=5.0,
+        readiness_freshness_seconds=6.0,
+        monotonic=lambda: now,
+    )
+    supervisor._last_dependency_success = 0.0
+
+    with pytest.raises(DependencyReadinessError, match="clamav probe timed out"):
+        await supervisor._monitor_dependencies()
+
+    assert checks == 2
 
 
 @pytest.mark.asyncio
