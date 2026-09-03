@@ -20,6 +20,7 @@ from pydantic import ValidationError
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
 from fdai.rule_catalog.schema.inventory_query_language import InventoryQueryLanguageRegistry
 
+from . import semantic_planning_fallbacks as fallbacks
 from .semantic_activity_planning import normalize_activity_proposal
 from .semantic_current_state_planning import normalize_current_state_proposal
 from .semantic_ingress_planning import normalize_ingress_proposal
@@ -41,15 +42,6 @@ from .semantic_planning_cascade_judgment import (
 from .semantic_planning_cascade_validation import (
     _safe_frame_rejection_reason,
     _validate_frame_proposal,
-)
-from .semantic_planning_fallbacks import (
-    candidate_frame_fallback as _candidate_frame_fallback,
-)
-from .semantic_planning_fallbacks import (
-    current_state_clarification_fallback as _current_state_clarification_fallback,
-)
-from .semantic_planning_fallbacks import (
-    judgment_candidate_temporal_scope as _judgment_candidate_temporal_scope,
 )
 from .semantic_planning_frame import canonicalize_semantic_judgment_frame_proposal
 from .semantic_planning_frame_normalization import (
@@ -235,7 +227,7 @@ class SemanticPlanningCascade:
             and semantic_judgment.get("action_posture") == "advise_only"
             and semantic_judgment.get("execution_authority") is False
         ):
-            current_state = _current_state_clarification_fallback(
+            current_state = fallbacks.current_state_clarification_fallback(
                 semantic_judgment=semantic_judgment,
                 utterance=utterance,
                 context=context,
@@ -259,7 +251,7 @@ class SemanticPlanningCascade:
                 descriptors=descriptors,
                 confidence=float(semantic_judgment.get("confidence", 0.0)),
                 inventory_query_language=self._inventory_query_language,
-                temporal_scope=_judgment_candidate_temporal_scope(semantic_judgment),
+                temporal_scope=fallbacks.judgment_candidate_temporal_scope(semantic_judgment),
             )
             if candidate is not None:
                 _LOGGER.info(
@@ -302,7 +294,7 @@ class SemanticPlanningCascade:
                             },
                         )
                         return (*clarification, None)
-                    current_state_clarification = _current_state_clarification_fallback(
+                    current_state_clarification = fallbacks.current_state_clarification_fallback(
                         semantic_judgment=semantic_judgment,
                         utterance=utterance,
                         context=context,
@@ -317,7 +309,9 @@ class SemanticPlanningCascade:
                         descriptors=descriptors,
                         confidence=0.0,
                         inventory_query_language=self._inventory_query_language,
-                        temporal_scope=_judgment_candidate_temporal_scope(semantic_judgment),
+                        temporal_scope=fallbacks.judgment_candidate_temporal_scope(
+                            semantic_judgment
+                        ),
                     )
                     if fallback is not None:
                         _LOGGER.info(
@@ -398,7 +392,7 @@ class SemanticPlanningCascade:
                     semantic_judgment=semantic_judgment,
                 )
                 target_candidate = (
-                    _candidate_frame_fallback(
+                    fallbacks.candidate_frame_fallback(
                         tier=tier,
                         proposal=proposal,
                         semantic_judgment=semantic_judgment,
@@ -479,7 +473,7 @@ class SemanticPlanningCascade:
                     else None
                 )
             except (ValidationError, TypeError, ValueError) as exc:
-                fallback = _candidate_frame_fallback(
+                fallback = fallbacks.candidate_frame_fallback(
                     tier=tier,
                     proposal=proposal,
                     semantic_judgment=semantic_judgment,
@@ -516,7 +510,7 @@ class SemanticPlanningCascade:
                     investigation_intent=investigation_intent,
                 )
             except (TypeError, ValueError) as exc:
-                fallback = _candidate_frame_fallback(
+                fallback = fallbacks.candidate_frame_fallback(
                     tier=tier,
                     proposal=proposal,
                     semantic_judgment=semantic_judgment,

@@ -130,6 +130,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   staging ChatOps validation mode seals that result into plan metadata and revalidates it before
   both plan and apply. SKU-qualified quota lookup prevents another deployment tier from satisfying
   the reviewed secondary profile.
+  Deterministic semantic pre-frame selection keeps function summaries, ontology traces, and service
+  ownership frames as distinct typed candidates before selecting one read-only frame.
 - **qualification reduction is authority-free**:
   `core/conversation_assurance/quality_qualification.py` accepts only premeasured normalized
   observations and reduces them against the installed quality contract. It derives hard caps from

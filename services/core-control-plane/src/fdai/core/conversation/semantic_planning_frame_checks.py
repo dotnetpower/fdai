@@ -397,30 +397,33 @@ def deterministic_pre_frame_selection(
     if summary is not None:
         proposal, frame = summary
         return proposal, frame, None
-    frame = _build_ontology_trace_frame(judgment, utterance=utterance, context=context)
-    if frame is None:
-        frame = _build_service_agent_ownership_frame(
+    trace_frame = _build_ontology_trace_frame(judgment, utterance=utterance, context=context)
+    selected_frame = (
+        trace_frame
+        if trace_frame is not None
+        else _build_service_agent_ownership_frame(
             judgment,
             utterance=utterance,
             context=context,
             descriptors=descriptors,
         )
-    if frame is None or judgment is None:
+    )
+    if selected_frame is None or judgment is None:
         return None
     proposal = SemanticFrameProposal(
-        operation=frame.operation,
-        subject_constraints=frame.subject_constraints,
-        measure_concepts=frame.measure_concepts,
-        temporal_scope=frame.temporal_scope,
-        output_shape=SemanticOutputShape(frame.output_shape),
-        evidence_requirements=frame.evidence_requirements,
-        unresolved_terms=frame.unresolved_terms,
+        operation=selected_frame.operation,
+        subject_constraints=selected_frame.subject_constraints,
+        measure_concepts=selected_frame.measure_concepts,
+        temporal_scope=selected_frame.temporal_scope,
+        output_shape=SemanticOutputShape(selected_frame.output_shape),
+        evidence_requirements=selected_frame.evidence_requirements,
+        unresolved_terms=selected_frame.unresolved_terms,
         clarification_requirements=(),
         clarification=None,
         investigation=None,
         confidence=judgment.confidence,
     )
-    return proposal, frame, None
+    return proposal, selected_frame, None
 
 
 def normalize_and_gate_frame(
