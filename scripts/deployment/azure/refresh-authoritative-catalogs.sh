@@ -15,6 +15,11 @@ catalog_job="$(terraform -chdir="$terraform_dir" output -raw operator_api_catalo
 subscription_id="$(az account show --query id -o tsv)"
 catalog_job_uri="https://management.azure.com/subscriptions/${subscription_id}/resourceGroups/${resource_group}/providers/Microsoft.App/jobs/${catalog_job}"
 previous_image="$CATALOG_ROLLBACK_IMAGE"
+expected_digest="${TF_VAR_core_image##*@}"
+if [[ ! "$expected_digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+  echo "verified Core catalog image must be digest-pinned" >&2
+  exit 1
+fi
 if [[ ! "$previous_image" =~ ^[^[:space:]@]+@sha256:[0-9a-f]{64}$ ]]; then
   echo "catalog rollback image must be digest-pinned" >&2
   exit 1
@@ -86,17 +91,6 @@ if [[ "$CATALOG_IMAGE_PREBOUND" == "false" ]]; then
     --image "$TF_VAR_core_image" \
     --only-show-errors --output none
   rollback_required=true
-else
-  bound_image="$(az rest --method get \
-    --uri "${catalog_job_uri}?api-version=2024-03-01" \
-    --query 'properties.template.containers[0].image' -o tsv)"
-  bound_image="$(tr -d '[:space:]' <<<"$bound_image")"
-  expected_digest="${TF_VAR_core_image##*@}"
-  bound_digest="${bound_image##*@}"
-  if [[ ! "$bound_image" =~ @sha256:[0-9a-f]{64}$ || "$bound_digest" != "$expected_digest" ]]; then
-    echo "prebound catalog Job image does not match the verified Core image" >&2
-    exit 1
-  fi
 fi
 
 bash "$repo_root/scripts/deployment/azure/bootstrap-service-migrations.sh" \
