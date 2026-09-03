@@ -20,6 +20,7 @@ from fdai.core.conversation.question_candidates import (
     QuestionCandidateReview,
     QuestionCandidateReviewer,
     QuestionModelUsage,
+    question_case_contract,
 )
 from fdai.core.conversation.question_universe import GeneratedQuestionCase
 from fdai.delivery.azure.llm.completion_body import completion_body_params
@@ -71,7 +72,7 @@ class AzureOpenAIQuestionModelConfig:
 
 
 class AzureOpenAIQuestionGenerator(QuestionCandidateGenerator):
-    """Generate one strict JSON candidate with no query or tool execution."""
+    """Generate one wording-only JSON candidate with no query or tool execution."""
 
     def __init__(
         self,
@@ -101,20 +102,8 @@ class AzureOpenAIQuestionGenerator(QuestionCandidateGenerator):
         prior_fingerprints: tuple[str, ...],
     ) -> QuestionCandidateGeneration:
         payload = {
-            "case": {
-                "case_id": case.case_id,
-                "perspective": case.perspective.value,
-                "locale": case.locale,
-                "case_class": case.case_class.value,
-                "evidence_posture": case.evidence_posture.value,
-                "required_capabilities": [case.required_capability.value],
-                "allowed_dispositions": [_allowed_disposition(case)],
-                "anchor_kind": case.anchor_kind.value,
-                "action_posture": case.action_posture,
-                "rule_state": case.rule_state.value,
-                "path_depth": case.path_depth,
-                "result_bound": case.result_bound,
-            },
+            "response_schema": {"question": "string"},
+            "case": question_case_contract(case),
             "descriptor": asdict(descriptor),
             "attempt_number": attempt_number,
             "prior_fingerprints": list(prior_fingerprints[-_MAX_PRIOR_QUESTIONS:]),
@@ -165,17 +154,7 @@ class AzureOpenAIQuestionCandidateReviewer(QuestionCandidateReviewer):
             raise ValueError("question embedding similarity MUST be in [0, 1]")
         payload = {
             "candidate": asdict(candidate),
-            "expected_case": {
-                "case_id": expected_case.case_id,
-                "perspective": expected_case.perspective.value,
-                "locale": expected_case.locale,
-                "required_capability": expected_case.required_capability.value,
-                "evidence_posture": expected_case.evidence_posture.value,
-                "anchor_kind": expected_case.anchor_kind.value,
-                "expected_posture": expected_case.expected_posture.value,
-                "action_posture": expected_case.action_posture,
-                "rule_state": expected_case.rule_state.value,
-            },
+            "expected_case": question_case_contract(expected_case),
         }
         result, usage = await _complete_json(
             identity=self._identity,
@@ -327,16 +306,6 @@ def _max_usage(config: AzureOpenAIQuestionModelConfig) -> QuestionModelUsage:
             / 1_000_000
         ),
     )
-
-
-def _allowed_disposition(case: GeneratedQuestionCase) -> str:
-    return {
-        "answer": "answered",
-        "clarify": "clarification",
-        "hold": "held",
-        "unsupported": "unsupported",
-        "action_draft": "action_draft",
-    }[case.expected_posture.value]
 
 
 __all__ = [

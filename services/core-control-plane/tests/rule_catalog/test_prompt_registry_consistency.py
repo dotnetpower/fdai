@@ -99,6 +99,15 @@ def test_prompt_only_capabilities_are_locked_to_the_allowlist() -> None:
     )
 
 
+def test_question_generation_prompt_is_wording_only() -> None:
+    prompts = FileSystemPromptRegistry(_CATALOG)
+    prompt = prompts.get_base("t1.question.generator")
+
+    assert prompt.version == 2
+    assert 'exactly one field: {"question":"..."}' in prompt.body
+    assert "copy those fields exactly" not in prompt.body.casefold()
+
+
 def test_semantic_plan_prompt_pins_the_object_set_verifier_envelope() -> None:
     prompts = FileSystemPromptRegistry(_CATALOG)
     artifacts = [

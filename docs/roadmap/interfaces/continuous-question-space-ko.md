@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 0fafa15cb4da1bf8f445a4acbabc7f7803cdf06d
+translation_source_sha: e49555043eede3349446095f433e411d3f33ab22
 translation_revised: 2026-09-03
 ---
 # 지속형 질문 공간
@@ -64,7 +64,7 @@ Golden 질문, Console 표시 질문 또는 답변 가능한 질문으로 승격
 | 정확한 대상이 없는 하위 유형 질문 커버리지 | validated | `semantic_target_candidate_planning.py`, `inventory-query-language.yaml`, `eval/sre-agent-container-apps.yaml`, 집중 플래너 검사 204개 통과, 인증된 한국어 Console 행렬 | 컬렉션 표현은 하위 유형 컬렉션 경로를 유지합니다. 정확한 신원이 하나로 정해지지 않은 단수 하위 유형 질문은 모델을 사용할 수 없거나 frame이 유효하지 않아도 범위가 제한된 검증 후보와 정확한 대상 선택 다음 단계를 반환합니다. Current-source SRE 예시 8개 행렬은 첫 턴 전체가 검증된 결과로 완료됐으며 context-required, unsupported, held, unverified, 의미 대체 카운터는 모두 0이었습니다. 이 행은 별도의 정확한 대상 후속 기능을 인증하지 않습니다. |
 | 공유 의미 판단 경계 | implemented | `core/conversation/semantic_judgment.py`, `fdai_service_contracts/semantic_judgment.py`, Azure 모델 adapter 및 집중 경계 보증 | 범위가 제한된 context와 capability descriptor가 스키마로 검증된 intent, target, facet, confidence, ambiguity, discourse mode, action posture를 생성합니다. Unbound, unavailable, malformed, ambiguous, low-confidence 결과는 명시적으로 유지되고 exact-source, knowledge-status, reference-context 또는 phrase classifier로 fallback하지 않습니다. Exact capability availability, query verification, policy, authorization, execution은 결정론적으로 유지됩니다. |
 | 2026-08-21 | implemented | Exact-source, knowledge-status, reference-context, investigation-completion phrase classifier를 공유 구조화 의미 판단 경계로 교체했습니다. 결정론적 capability 및 evidence 검증은 유지되고 모델 실패에는 lexical fallback이 없습니다. | `current change`; 의미 경계, 고정 35/280 기반 edge assurance, 저장소 routing guard 집중 검사. | 실제 exact-source 인증은 exact committed revision을 위한 별도 근거로 유지됩니다. |
-| 후보 생성 및 검증 | implemented | `core/conversation/question_candidates.py`; `delivery/azure/llm/question_generation.py`; `scripts/automation/question_space_copilot.py`; 집중 생성기 및 검증기 검사 | 로컬 Copilot은 명시적으로만 실행되고 도구가 비활성화됩니다. 예약 생성은 분리된 `t1.question.generator`와 `t1.question.reviewer` 기능을 사용합니다. 불변 필드, 로캘, 식별자, 포함된 자격 증명, 실행 가능한 텍스트, 프롬프트 주입, 중복, 초안 자세, 독립 동등성은 안전하게 차단됩니다. |
+| 후보 생성 및 검증 | implemented | `core/conversation/question_candidates.py`; `delivery/azure/llm/question_generation.py`; `rule-catalog/prompts/base/question-generation.v2.yaml`; `scripts/automation/question_space_copilot.py`; 집중 생성기 및 검증기 검사 | 로컬 Copilot은 명시적으로만 실행되고 도구가 비활성화됩니다. 예약 생성은 분리된 `t1.question.generator`와 `t1.question.reviewer` 기능을 사용합니다. 생성기는 질문 문구만 반환할 수 있습니다. Core는 독립 검토 전에 서버 소유 사례에서 모든 불변 의미 축을 결속합니다. 로캘, 식별자, 포함된 자격 증명, 실행 가능한 텍스트, 프롬프트 주입, 중복, 초안 자세, 독립 동등성은 계속 안전하게 차단됩니다. |
 | 캠페인 근거 체인 | implemented | `core/conversation/question_campaign*.py`; `delivery/persistence/postgres_question_campaign.py`; Core service migration `core_question_campaign_20260819`; legacy compatibility revision `0086`; 집중 캠페인, 영속성, 마이그레이션 검사 | Core service branch만 캠페인, 시도, 불변 완료, 만료형 사례 claim table을 만들고 권한을 부여합니다. 레코드는 다이제스트, 형식화된 처리 결과, 증적 연결, 사용량, hard-zero 카운터를 보존합니다. Claim은 동시 의미 실행 중복을 막습니다. 어떤 레코드도 질문, 답변, 공급자 페이로드, 엔드포인트, 결합된 리소스 식별자를 복제하지 않습니다. |
 | Golden 및 생성형 릴리스 보증 | implemented | `core/conversation/question_{golden,novelty,adequacy,review_artifact,governance,release_assurance}.py`; `delivery/persistence/postgres_question_assurance.py`; Core 서비스 마이그레이션 `20260820_core_question_assurance`; 집중 검사 296개 | 불변 이중 언어 golden corpus를 생성 캠페인보다 먼저 실행합니다. Exact 및 semantic novelty, 결정론적 적정성 게이트 6개, 독립 모델 계열 검토, 근거 상태 5개, 캠페인 결속 metamorphic group, 다이제스트 전용 실패 검토, 사람이 승인한 corpus 승격, 최종 릴리스 축약은 content-addressed 읽기 전용으로 유지됩니다. Raw 검토 텍스트는 범위가 제한된 로컬 mode-0600 artifact에만 남습니다. |
 | Cloud-operations golden dataset | in-progress | `eval/golden-dataset/`, `delivery/golden_question_dataset.py`, `delivery/golden_question_certification.py`, `console/tests/live-e2e/golden-semantic-campaign*`, 집중 서비스 간 및 Console 검사 | 논리적 expectation 35개가 표현 방식 8개에 걸쳐 영어와 한국어 280쌍을 생성합니다. Loader는 로캘 사례 560개를 구체화합니다. 인증된 Console port는 `golden_campaign_no_t2`를 요청하고 재시도하지 않으며 답변 텍스트를 저장하지 않습니다. 1-3 turn 준비 상태 probe에서 429, timeout, `semantic_planner_unavailable`, 잘못된 타입 기반 관측이 하나도 없어야 전체 실행을 시작합니다. Gate 통과와 560 turn 완료 전에는 실제 캠페인 또는 답변 인증을 주장하지 않습니다. |
@@ -78,6 +78,7 @@ Golden 질문, Console 표시 질문 또는 답변 가능한 질문으로 승격
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-03 | implemented | 예약 질문 생성에서 모델이 작성하던 의미 필드를 제거했습니다. 이제 모델은 문구만 반환하고 Core가 완전한 불변 사례 계약을 결속하여 동일한 계약을 독립 검토기에 제공합니다. | `current change`; 질문 후보, 캠페인 실행기, Azure 생성, 프롬프트 카탈로그 및 추적된 보증 회귀 검사 | 새로운 운영 답변 품질 근거를 주장하기 전에 별도로 명시한 라이브 캠페인을 실행합니다. |
 | 2026-09-03 | implemented | Console에 검토된 적극적 T2 복구 설정 레이블을 추가한 후 통합 질문은행 산출물을 다시 생성했습니다. 안정적인 질문 식별자, 준비 상태 및 실행 권한은 변경되지 않습니다. | `current change`, 질문은행 생성기 및 집중 산출물 검사 | 이 원본 다이제스트 갱신에 남은 작업은 없습니다. |
 | 2026-09-03 | implemented | 검토된 Console 시작 질문 카탈로그 변경 후 통합 질문은행 산출물을 다시 생성하여 질문 식별자나 준비 상태를 바꾸지 않고 정확한 원본 파일 다이제스트를 유지했습니다. | `current change`, 질문은행 생성기 및 집중 생성 산출물 검사 8개 통과 | 이 원본 다이제스트 갱신에 남은 작업은 없습니다. |
 | 2026-09-01 | implemented | 검토된 `service-current-health` 문구에서 AKS에 배포된 비즈니스 서비스를 명시하도록 수정했습니다. 이전 "AKS Service" 문구는 의미 계약이 `BusinessService` 앵커를 요구하는 상황에서 Kubernetes `Service` 객체를 가리켰기 때문에 올바른 런타임 해석이 oracle 검사에 실패했습니다. 생성된 영어, 한국어 및 질문 은행 산출물은 이제 수정된 원본에서 파생됩니다. | `current change`, Golden 데이터 세트 생성 및 집중 계약 검사 | 독립적인 바인딩되지 않은 변경 상관관계 수정 후 exact-source canary 결과 10개를 보존합니다. |
@@ -238,12 +239,13 @@ Anchor 종류는 개념적 범위 차원으로 유지합니다. 의미 턴 전�
 
 후보 검증 순서는 다음과 같습니다.
 
-1. 정확한 스키마와 불변 사례 필드를 요구합니다.
+1. 모델이 작성하는 필드는 `question` 하나만 허용하고 모든 의미 필드는 서버 소유 불변
+   사례에서 결속합니다.
 2. 로캘과 8자에서 400자 제한을 적용합니다.
 3. UUID, 공급자 리소스 id, 엔드포인트, 자격 증명, bearer 형태 토큰을 차단합니다.
 4. 서버 소유 리소스 질문에서 Pantheon 이름을 차단합니다.
 5. 정확한 중복과 토큰 근접 중복을 차단합니다.
-6. 기능, 앵커, Rule 상태, 종료 처리, 초안 자세의 일치를 요구합니다.
+6. 기능, 앵커, Rule 상태, 종료 처리, 초안 자세를 서버 소유 의미 검토 입력으로 보존합니다.
 7. 프롬프트 주입과 실행 가능한 SQL, CLI, shell, 공급자 쿼리 텍스트를 차단합니다.
 8. 신뢰도 `>= 0.85`인 독립 의미 동등성 검토를 연결합니다.
 9. 보존 질문과의 임베딩 유사도가 `>= 0.92`이면 차단합니다.

@@ -107,18 +107,9 @@ class _Generator:
         self.calls += 1
         return QuestionCandidateGeneration(
             payload={
-                "schema_version": "1.0.0",
-                "case_id": case.case_id,
-                "perspective": case.perspective.value,
-                "locale": case.locale,
                 "question": (
                     "What is the current state of the selected resource?" if self.valid else "short"
                 ),
-                "required_capabilities": [case.required_capability.value],
-                "allowed_dispositions": ["answered"],
-                "anchor_kind": case.anchor_kind.value,
-                "action_posture": case.action_posture,
-                "rule_state": case.rule_state.value,
             },
             usage=QuestionModelUsage(
                 model_calls=1,

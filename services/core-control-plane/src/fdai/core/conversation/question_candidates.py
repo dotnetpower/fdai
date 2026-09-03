@@ -8,7 +8,7 @@ import re
 import unicodedata
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
-from typing import Protocol, TypeGuard
+from typing import Protocol
 
 from fdai.core.conversation.question_universe import GeneratedQuestionCase
 
@@ -57,7 +57,7 @@ _EQUIVALENCE_CONFIDENCE = 0.85
 
 @dataclass(frozen=True, slots=True)
 class NaturalLanguageQuestionCandidate:
-    """One model-proposed wording whose immutable case fields are untrusted."""
+    """One model-proposed wording bound to immutable server-owned case fields."""
 
     schema_version: str
     case_id: str
@@ -229,15 +229,16 @@ async def validate_question_candidate(
         raise ValueError("prior question corpus exceeds its bound")
     if not pantheon_names:
         raise ValueError("question candidate policy requires pantheon names")
-    candidate_digest = _digest(payload)
+    provider_payload_digest = _digest(payload)
     candidate, parsed_reason = _parse_candidate(payload, expected_case)
     if candidate is None:
         return _held(
             expected_case,
             reason=parsed_reason,
-            candidate_digest=candidate_digest,
+            candidate_digest=provider_payload_digest,
             generation_profile_digest=generation_profile_digest,
         )
+    candidate_digest = _digest(asdict(candidate))
     reason: str | None = _validate_text(
         candidate,
         expected_case,
@@ -299,54 +300,52 @@ def question_fingerprint(question: str) -> str:
     return f"sha256:{hashlib.sha256(normalized.encode('utf-8')).hexdigest()}"
 
 
+def question_case_contract(case: GeneratedQuestionCase) -> dict[str, object]:
+    """Project the complete server-owned semantics supplied to wording models."""
+
+    return {
+        "schema_version": "1.0.0",
+        "case_id": case.case_id,
+        "declaration_id": case.declaration_id,
+        "locale": case.locale,
+        "case_class": case.case_class.value,
+        "perspective": case.perspective.value,
+        "required_capability": case.required_capability.value,
+        "evidence_posture": case.evidence_posture.value,
+        "anchor_kind": case.anchor_kind.value,
+        "expected_posture": case.expected_posture.value,
+        "action_posture": case.action_posture,
+        "rule_state": case.rule_state.value,
+        "path_depth": case.path_depth,
+        "result_bound": case.result_bound,
+        "entity_state": case.entity_state.value,
+        "temporal_state": case.temporal_state.value,
+        "causal_result": case.causal_result.value,
+        "presentation_shape": case.presentation_shape.value,
+    }
+
+
 def _parse_candidate(
     payload: Mapping[str, object],
     expected_case: GeneratedQuestionCase,
 ) -> tuple[NaturalLanguageQuestionCandidate | None, str]:
-    expected_keys = {
-        "schema_version",
-        "case_id",
-        "perspective",
-        "locale",
-        "question",
-        "required_capabilities",
-        "allowed_dispositions",
-        "anchor_kind",
-        "action_posture",
-        "rule_state",
-    }
-    if set(payload) != expected_keys:
+    if set(payload) != {"question"}:
         return None, "candidate_schema_invalid"
     if not isinstance(payload.get("question"), str):
         return None, "candidate_schema_invalid"
-    capabilities = payload.get("required_capabilities")
-    dispositions = payload.get("allowed_dispositions")
-    if not _string_sequence(capabilities) or not _string_sequence(dispositions):
-        return None, "candidate_schema_invalid"
     candidate = NaturalLanguageQuestionCandidate(
-        schema_version=str(payload["schema_version"]),
-        case_id=str(payload["case_id"]),
-        perspective=str(payload["perspective"]),
-        locale=str(payload["locale"]),
+        schema_version="1.0.0",
+        case_id=expected_case.case_id,
+        perspective=expected_case.perspective.value,
+        locale=expected_case.locale,
         question=str(payload["question"]).strip(),
-        required_capabilities=tuple(capabilities),
-        allowed_dispositions=tuple(dispositions),
-        anchor_kind=str(payload["anchor_kind"]),
-        action_posture=str(payload["action_posture"]),
-        rule_state=str(payload["rule_state"]),
+        required_capabilities=(expected_case.required_capability.value,),
+        allowed_dispositions=(_disposition(expected_case),),
+        anchor_kind=expected_case.anchor_kind.value,
+        action_posture=expected_case.action_posture,
+        rule_state=expected_case.rule_state.value,
     )
-    immutable = (
-        candidate.schema_version == "1.0.0"
-        and candidate.case_id == expected_case.case_id
-        and candidate.perspective == expected_case.perspective.value
-        and candidate.locale == expected_case.locale
-        and candidate.required_capabilities == (expected_case.required_capability.value,)
-        and candidate.allowed_dispositions == (_disposition(expected_case),)
-        and candidate.anchor_kind == expected_case.anchor_kind.value
-        and candidate.action_posture == expected_case.action_posture
-        and candidate.rule_state == expected_case.rule_state.value
-    )
-    return (candidate, "") if immutable else (None, "candidate_case_identity_mismatch")
+    return candidate, ""
 
 
 def _validate_text(
@@ -466,14 +465,6 @@ def _is_draft_wording(question: str, *, locale: str) -> bool:
     return "draft" in normalized or "propose" in normalized or "proposal" in normalized
 
 
-def _string_sequence(value: object) -> TypeGuard[Sequence[str]]:
-    return (
-        isinstance(value, (list, tuple))
-        and bool(value)
-        and all(isinstance(item, str) and item for item in value)
-    )
-
-
 def _tokens(value: str) -> frozenset[str]:
     normalized = unicodedata.normalize("NFC", value.casefold())
     return frozenset(re.findall(r"[a-z0-9가-힣]+", normalized))
@@ -509,6 +500,7 @@ __all__ = [
     "QuestionCandidateValidationReceipt",
     "QuestionCandidateValidationResult",
     "ValidatedQuestion",
+    "question_case_contract",
     "question_fingerprint",
     "validate_question_candidate",
 ]

@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: d2fb3b4a536c796177448a4a587549f9e3ce0f7d
+translation_source_sha: cd4f7046bb477e377d97e073771d3fd0158264e8
 translation_revised: 2026-09-03
 ---
 # 코드 맵
@@ -63,6 +63,10 @@ Operator 소유 다운스트림 마이그레이션에 위치하므로, 부트스
 `composition/wire_azure_prompts.py`로 분리합니다. 리비전 기반 대화 설정은 Operator
 서비스가 공유 `runtime-settings:policy` 레코드에 기록하며 Core는 시작 시 한 번 읽습니다.
 프롬프트 ablation은 선택적 맥락만 제거하고 모든 제외 항목을 재실행을 위해 기록합니다.
+질문 캠페인 문구는 `core/conversation/question_candidates.py`를 서버 소유 의미 경계로
+사용합니다. Azure 및 명시적 Copilot 생성기는 완전한 불변 사례를 받지만 `question` 필드만
+반환할 수 있습니다. Core가 독립 의미 검토 전에 사례를 결속하므로 생성된 문구가 범위, 권한,
+기능, 근거 상태 또는 결과 형태를 대체할 수 없습니다.
 
 의미 대화 계획은 `semantic_planning.py`, `semantic_planning_cascade.py`,
 `semantic_planning_frame.py`를 호환성 facade로 유지합니다. `semantic_planning_fallbacks.py`는

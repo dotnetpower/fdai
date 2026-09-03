@@ -8,6 +8,7 @@ from fdai.core.conversation.question_candidates import (
     NaturalLanguageQuestionCandidate,
     QuestionCandidateReview,
     QuestionModelUsage,
+    question_case_contract,
     validate_question_candidate,
 )
 from fdai.core.conversation.question_perspectives import (
@@ -75,27 +76,8 @@ def _case(**overrides: object) -> GeneratedQuestionCase:
     return GeneratedQuestionCase(**values)  # type: ignore[arg-type]
 
 
-def _payload(case: GeneratedQuestionCase, **overrides: object) -> dict[str, object]:
-    values: dict[str, object] = {
-        "schema_version": "1.0.0",
-        "case_id": case.case_id,
-        "perspective": case.perspective.value,
-        "locale": case.locale,
-        "question": "What is the current state of the selected resource?",
-        "required_capabilities": [case.required_capability.value],
-        "allowed_dispositions": [
-            {
-                QuestionExpectedPosture.ANSWER: "answered",
-                QuestionExpectedPosture.HOLD: "held",
-                QuestionExpectedPosture.ACTION_DRAFT: "action_draft",
-                QuestionExpectedPosture.CLARIFY: "clarification",
-                QuestionExpectedPosture.UNSUPPORTED: "unsupported",
-            }[case.expected_posture]
-        ],
-        "anchor_kind": case.anchor_kind.value,
-        "action_posture": case.action_posture,
-        "rule_state": case.rule_state.value,
-    }
+def _payload(_case: GeneratedQuestionCase, **overrides: object) -> dict[str, object]:
+    values: dict[str, object] = {"question": "What is the current state of the selected resource?"}
     values.update(overrides)
     return values
 
@@ -128,15 +110,41 @@ async def test_valid_candidate_requires_independent_equivalence_receipt() -> Non
     assert result.question.validation_receipt_digest.startswith("sha256:")
 
 
-async def test_immutable_fields_and_extra_fields_fail_closed() -> None:
+async def test_generator_can_propose_only_wording_and_server_binds_case() -> None:
     case = _case()
+    result = await _validate(_payload(case), case)
     tampered = await _validate(_payload(case, perspective="causal"), case)
-    extra = _payload(case)
-    extra["query"] = "SELECT * FROM resources"
-    malformed = await _validate(extra, case)
 
-    assert tampered.receipt.reason == "candidate_case_identity_mismatch"
-    assert malformed.receipt.reason == "candidate_schema_invalid"
+    assert result.question is not None
+    assert result.question.candidate.case_id == case.case_id
+    assert result.question.candidate.perspective == case.perspective.value
+    assert result.question.candidate.required_capabilities == (case.required_capability.value,)
+    assert tampered.receipt.reason == "candidate_schema_invalid"
+
+
+def test_question_case_contract_projects_every_semantic_axis() -> None:
+    contract = question_case_contract(_case())
+
+    assert set(contract) == {
+        "schema_version",
+        "case_id",
+        "declaration_id",
+        "locale",
+        "case_class",
+        "perspective",
+        "required_capability",
+        "evidence_posture",
+        "anchor_kind",
+        "expected_posture",
+        "action_posture",
+        "rule_state",
+        "path_depth",
+        "result_bound",
+        "entity_state",
+        "temporal_state",
+        "causal_result",
+        "presentation_shape",
+    }
 
 
 async def test_locale_identifier_query_and_prompt_injection_are_rejected() -> None:

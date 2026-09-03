@@ -81,16 +81,7 @@ async def test_generator_sends_only_bounded_descriptor_and_case() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         captured.update(json.loads(request.content))
         content = {
-            "schema_version": "1.0.0",
-            "case_id": "q:1",
-            "perspective": "resource",
-            "locale": "en",
             "question": "What is the current state of the selected resource?",
-            "required_capabilities": ["object_set"],
-            "allowed_dispositions": ["answered"],
-            "anchor_kind": "selected_object",
-            "action_posture": "advise_only",
-            "rule_state": "not_applicable",
         }
         return httpx.Response(
             200,
@@ -120,17 +111,29 @@ async def test_generator_sends_only_bounded_descriptor_and_case() -> None:
             prior_fingerprints=(DIGEST,),
         )
 
-    assert result.payload["case_id"] == "q:1"
+    assert result.payload == {"question": "What is the current state of the selected resource?"}
     assert result.usage.prompt_tokens == 10
     assert result.usage.completion_tokens == 5
     assert result.usage.cost_microusd == 20
     serialized = json.dumps(captured)
+    messages = captured["messages"]
+    assert isinstance(messages, list)
+    user_message = messages[1]
+    assert isinstance(user_message, dict)
+    request_payload = user_message["content"]
+    assert isinstance(request_payload, str)
+    assert '"response_schema":{"question":"string"}' in request_payload
+    assert '"entity_state":"not_applicable"' in request_payload
+    assert '"presentation_shape":"default"' in request_payload
     assert "subscription" not in serialized.casefold()
     assert "not-a-real-token" not in serialized
 
 
 async def test_reviewer_joins_independent_similarity_without_hidden_reasoning() -> None:
-    def handler(_request: httpx.Request) -> httpx.Response:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.update(json.loads(request.content))
         content = {
             "equivalent": True,
             "same_locale": True,
@@ -176,6 +179,16 @@ async def test_reviewer_joins_independent_similarity_without_hidden_reasoning() 
     assert review.usage.prompt_tokens == 8
     assert review.usage.completion_tokens == 4
     assert review.usage.cost_microusd == 16
+    messages = captured["messages"]
+    assert isinstance(messages, list)
+    user_message = messages[1]
+    assert isinstance(user_message, dict)
+    request_payload = user_message["content"]
+    assert isinstance(request_payload, str)
+    assert '"entity_state":"not_applicable"' in request_payload
+    assert '"temporal_state":"not_applicable"' in request_payload
+    assert '"causal_result":"not_applicable"' in request_payload
+    assert '"presentation_shape":"default"' in request_payload
 
 
 async def test_provider_failure_does_not_chain_sensitive_exception_content() -> None:

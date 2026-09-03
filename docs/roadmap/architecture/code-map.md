@@ -60,6 +60,10 @@ Prompt composition keeps role and safety layers in `core/prompts/` and moves Azu
 into `composition/wire_azure_prompts.py`. Revisioned conversation settings are written by the
 Operator Service to the shared `runtime-settings:policy` record and consumed once by Core at
 startup. Prompt ablation removes only optional context and records every exclusion for replay.
+Question campaign wording uses `core/conversation/question_candidates.py` as the server-owned
+semantic boundary. Azure and explicit Copilot generators receive the complete immutable case but
+can return only a `question` field. Core binds the case before independent semantic review, so
+generated prose cannot replace scope, authority, capability, evidence posture, or result shape.
 
 Semantic conversation planning keeps `semantic_planning.py`, `semantic_planning_cascade.py`, and
 `semantic_planning_frame.py` as compatibility facades. `semantic_planning_fallbacks.py` owns
