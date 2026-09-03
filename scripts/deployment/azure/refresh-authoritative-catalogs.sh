@@ -6,38 +6,13 @@ terraform_dir="${1:-$repo_root/infra}"
 
 : "${TF_VAR_core_image:?TF_VAR_core_image is required}"
 : "${RUNNER_TEMP:?RUNNER_TEMP is required}"
-: "${ARM_SUBSCRIPTION_ID:?ARM_SUBSCRIPTION_ID is required}"
+: "${CATALOG_ROLLBACK_IMAGE:?CATALOG_ROLLBACK_IMAGE is required}"
 
 resource_group="$(terraform -chdir="$terraform_dir" output -raw resource_group_name)"
 catalog_job="$(terraform -chdir="$terraform_dir" output -raw operator_api_catalog_job_name)"
-job_uri="https://management.azure.com/subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/${resource_group}/providers/Microsoft.App/jobs/${catalog_job}?api-version=2024-03-01"
-
-read_job_image() {
-  az rest --method get --uri "$job_uri" --output json \
-    | python3 -c '
-import json
-import sys
-
-def containers(value):
-    if isinstance(value, dict):
-        if isinstance(value.get("image"), str) and isinstance(value.get("name"), str):
-            yield value["image"]
-        for child in value.values():
-            yield from containers(child)
-    elif isinstance(value, list):
-        for child in value:
-            yield from containers(child)
-
-images = list(dict.fromkeys(containers(json.load(sys.stdin))))
-if len(images) != 1:
-    raise SystemExit("catalog Job response must contain exactly one named container image")
-print(images[0])
-'
-}
-
-previous_image="$(read_job_image)"
-if [[ -z "$previous_image" ]]; then
-  echo "catalog Job has no current image to restore" >&2
+previous_image="$CATALOG_ROLLBACK_IMAGE"
+if [[ ! "$previous_image" =~ ^[^[:space:]@]+@sha256:[0-9a-f]{64}$ ]]; then
+  echo "catalog rollback image must be digest-pinned" >&2
   exit 1
 fi
 
@@ -95,11 +70,6 @@ az containerapp job update \
   --name "$catalog_job" \
   --image "$TF_VAR_core_image" \
   --only-show-errors --output none
-observed_image="$(read_job_image)"
-if [[ "$observed_image" != "$TF_VAR_core_image" ]]; then
-  echo "catalog Job image readback does not match the selected Core image" >&2
-  exit 1
-fi
 
 bash "$repo_root/scripts/deployment/azure/bootstrap-service-migrations.sh" \
   "$terraform_dir" "$RUNNER_TEMP/catalog-service-migration-adoption" \

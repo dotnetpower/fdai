@@ -36,6 +36,7 @@ jobs:
       DEPLOY_RUNNER_CLIENT_ID: ${{ vars.DEPLOY_RUNNER_CLIENT_ID }}
       DEPLOY_RUNNER_PRINCIPAL_ID: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}
       EXPECTED_AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      CATALOG_ROLLBACK_IMAGE: ${{ vars.CATALOG_ROLLBACK_IMAGE }}
     steps:
       - name: Verify protected workflow source
         working-directory: ${{ runner.temp }}
