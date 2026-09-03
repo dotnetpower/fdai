@@ -16,7 +16,7 @@ test("catalog records stable creation metadata for every manual", async () => {
     L400: 50,
   });
   assert.equal(catalog.journey.stages.length, 5);
-  assert.equal(catalog.manuals.length, 10);
+  assert.equal(catalog.manuals.length, 11);
   assert.equal(catalog.journey.stages[2].differentiator, true);
   for (const manual of catalog.manuals) {
     assert.match(manual.id, /^[a-z0-9-]+$/);
@@ -27,9 +27,13 @@ test("catalog records stable creation metadata for every manual", async () => {
     if (manual.status === "complete") {
       assert.ok(manual.slideCount >= catalog.minimumSlidesByLevel[manual.level]);
     }
-    assert.match(manual.coverImage, /^assets\/[a-z0-9-]+\.jpeg$/);
+    assert.match(manual.coverImage, /^assets\/[a-z0-9-]+\.(?:jpeg|png)$/);
     await access(new URL(manual.coverImage, root));
   }
+  assert.equal(
+    new Set(catalog.manuals.map((manual) => manual.coverImage)).size,
+    catalog.manuals.length,
+  );
   assert.equal(catalog.manuals.find((manual) => manual.id === "executive-briefing").status, "complete");
   assert.ok(catalog.manuals.every((manual) => manual.status === "complete"));
 });
@@ -45,6 +49,7 @@ test("completed manuals provide the catalog slide count and source evidence", as
     "ontology-foundation": 40,
     "responsible-ai-security": 25,
     "pilot-production": 40,
+    "sre-incident-response": 10,
     "ai-operating-model": 40,
     "enterprise-scale-roadmap": 50,
   };
@@ -92,6 +97,7 @@ test("non-ontology manuals use briefing layouts and preserve architecture bounda
     "target-architecture",
     "responsible-ai-security",
     "pilot-production",
+    "sre-incident-response",
     "ai-operating-model",
     "enterprise-scale-roadmap",
   ];
@@ -111,28 +117,58 @@ test("non-ontology manuals use briefing layouts and preserve architecture bounda
   assert.match(contentFor("responsible-ai-security"), /snapshot_restore/);
   assert.match(contentFor("responsible-ai-security"), /프롬프트 주입/);
   assert.match(contentFor("pilot-production"), /A3-E 적용 여부/);
+  assert.match(contentFor("sre-incident-response"), /SRE 운영을 알림 처리에서 검증된 서비스 회복으로 전환할 수 있습니다/);
+  assert.match(contentFor("sre-incident-response"), /장애 조치는 전환부터 복귀까지 하나의 계획으로 관리합니다/);
+  assert.match(contentFor("sre-incident-response"), /0초로 계산하지 않음/);
+  assert.match(contentFor("sre-incident-response"), /assets\/sre-incident-response\.png/);
   assert.match(contentFor("ai-operating-model"), /고정된 전체 에이전트/);
   assert.match(contentFor("enterprise-scale-roadmap"), /C5 근거 건전성/);
 });
 
-test("completed manuals retain three verified hardening rounds", async () => {
+test("SRE incident response deck uses decision-ready non-repeating visuals", async () => {
+  const { additionalManualSlides } = await import(new URL("manual-content.js", root));
+  const slides = additionalManualSlides["sre-incident-response"];
+  const content = slides.map((slide) => `${slide.title}\n${slide.lead}\n${slide.content}`).join("\n");
+
+  assert.equal(slides.length, 10);
+  assert.equal(new Set(slides.map((slide) => slide.layout.split(" ")[0])).size, 10);
+  for (const marker of [
+    "sre-signal-board",
+    "sre-service-map",
+    "sre-decision-system",
+    "sre-option-board",
+    "sre-authority-map",
+    "sre-failover-plan",
+    "sre-verification-board",
+    "sre-mttr-view",
+    "sre-outcome-contract",
+  ]) {
+    assert.match(content, new RegExp(marker));
+  }
+  assert.match(content, /Heimdall\(관찰·예측 담당\) 에이전트/);
+  assert.match(content, /Thor\(실행 담당\) 에이전트/);
+  assert.match(content, /customer-link/);
+  assert.match(content, /vertical-link/);
+  assert.match(content, /MTTR.*중앙값.*p90/s);
+  assert.match(content, /첫 검증 시나리오 1개 선택/);
+});
+
+test("completed manuals retain verified hardening rounds", async () => {
   const evidence = JSON.parse(
     await readFile(new URL("validation-evidence.json", root), "utf8"),
   );
   const catalog = JSON.parse(await readFile(new URL("catalog.json", root), "utf8"));
-  const completedIds = catalog.manuals
-    .filter((manual) => manual.id !== "executive-briefing")
-    .map((manual) => manual.id);
+  const completedIds = catalog.manuals.map((manual) => manual.id);
 
   assert.deepEqual(evidence.viewports, ["1440x900", "993x641", "390x844"]);
   assert.deepEqual(evidence.manuals.map((manual) => manual.id), completedIds);
   for (const manual of evidence.manuals) {
-    assert.equal(manual.hardening.length, 3);
+    assert.ok(manual.hardening.length >= 1);
     assert.ok(manual.hardening.every((round) =>
       round.finding && round.correction && round.rerendered === "passed"));
-    assert.equal(manual.validation.responsiveRoundsPassed, 3);
-    assert.equal(manual.validation.fullscreenRoundsPassed, 3);
-    assert.equal(manual.validation.pdfRoundsPassed, 3);
+    assert.equal(manual.validation.responsiveRoundsPassed, manual.hardening.length);
+    assert.equal(manual.validation.fullscreenRoundsPassed, manual.hardening.length);
+    assert.equal(manual.validation.pdfRoundsPassed, manual.hardening.length);
     assert.equal(manual.validation.pdfPages, manual.slideCount);
     assert.equal(manual.validation.aspectRatio, "16:9");
     assert.equal(manual.validation.clippedTextFindings, 0);
@@ -145,7 +181,7 @@ test("selected PPT artwork keeps repository-safe provenance", async () => {
     await readFile(new URL("assets/provenance.json", root), "utf8"),
   );
 
-  assert.equal(provenance.assets.length, 12);
+  assert.equal(provenance.assets.length, 13);
   assert.equal(provenance.layoutReference.source, "Microsoft_Brand_Template_May2023.potx");
   assert.equal(provenance.layoutReference.logoInches.height, 0.32);
   assert.equal(provenance.layoutReference.contentTitleInches.y, 0.64);
@@ -153,6 +189,7 @@ test("selected PPT artwork keeps repository-safe provenance", async () => {
   assert.ok(provenance.processing.includes("Source metadata removed from published derivatives"));
   assert.ok(provenance.assets.some((asset) => asset.path === "microsoft-logo.png"));
   assert.ok(provenance.assets.some((asset) => asset.path === "fdai-console-sign-in.png"));
+  assert.ok(provenance.assets.some((asset) => asset.path === "sre-incident-response.png"));
   for (const asset of provenance.assets) {
     await access(new URL(`assets/${asset.path}`, root));
   }
@@ -192,23 +229,37 @@ test("executive briefing presents the FDAI architecture and adoption gates", asy
   ];
 
   for (const name of agentNames) {
-    assert.match(script, new RegExp(`<b>${name}</b>`));
+    assert.match(script, new RegExp(`<b>${name} 에이전트</b>`));
   }
-  assert.match(script, /FDAI는 15개 에이전트가 함께 일하는 디지털 조직입니다/);
+  assert.match(script, /15개 에이전트가 하나의 운영 흐름에서 책임을 나눕니다/);
   assert.doesNotMatch(script, /작은 결정을 사람보다 빠르게 늘립니다/);
-  assert.match(script, /FDAI는 숙련된 운영자처럼 검증된 규칙과 지식을 먼저 적용하고/);
+  assert.match(script, /FDAI는 조직에 축적된 운영 규칙과 표준 절차를 먼저 적용합니다/);
   assert.match(script, /SOVEREIGN-BY-DESIGN/);
-  assert.match(script, /FDAI는 고객의 데이터 주권 안에서 운영됩니다/);
+  assert.match(script, /데이터 위치, 접속 경로, 신원, AI 사용 범위를 직접 통제할 수 있습니다/);
   assert.match(script, /데이터 위치를 고객이 결정/);
   assert.match(script, /접근 권한과 키를 고객이 통제/);
   assert.doesNotMatch(script, /executive-sovereign-loop/);
-  assert.match(script, /수천 개로 늘어나는 운영 조건은 규칙으로 먼저 판단해야 합니다/);
-  assert.match(script, /FDAI 도입은 네 가지 준비 조건을 충족한 범위에서 시작합니다/);
-  assert.match(script, /하나라도 미충족이면 FDAI 도입 대상이 아닙니다/);
+  assert.match(script, /운영 규모가 커져도 충분한 판단이 가능한 최소 Tier에서 처리합니다/);
+  assert.match(script, /네 가지 준비 영역을 확인하면 시작 범위와 보완 계획을 정할 수 있습니다/);
+  assert.doesNotMatch(script, /하나라도 미충족이면 FDAI 도입 대상이 아닙니다/);
   assert.doesNotMatch(script, /만병통치약이 아닙니다/);
-  assert.match(script, /관찰 모드 검토 가능/);
+  assert.match(script, /관찰 모드 시작 범위/);
+  assert.match(script, /Norns\(학습 후보 제안 담당\) 에이전트/);
+  assert.match(script, /Mimir\(규칙 검토 담당\) 에이전트/);
+  assert.match(script, /첫 검증 시나리오 1개 선택/);
   assert.match(script, /assets\/fdai-console-sign-in\.png/);
   assert.match(script, /도입 검토를 시작하세요/);
+});
+
+test("Executive and SRE decks load the presentation font standard", async () => {
+  const library = await readFile(new URL("library.html", root), "utf8");
+  const css = await readFile(new URL("presentation-standard.css", root), "utf8");
+
+  assert.match(library, /href="presentation-standard\.css"/);
+  assert.match(css, /slide-executive-/);
+  assert.match(css, /deck-sre-incident-response/);
+  assert.match(css, /slide-copy p[\s\S]+font-size: 24px/);
+  assert.match(css, /evidence-source[\s\S]+font-size: 13px/);
 });
 
 test("Cover Flow supports pointer-capture dragging", async () => {

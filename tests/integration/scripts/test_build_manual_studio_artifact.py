@@ -29,6 +29,9 @@ def test_build_artifact_copies_only_publishable_manual_files(tmp_path: Path) -> 
         "library.html",
         "manual-content.js",
         "manual-decks.css",
+        "presentation-standard.css",
+        "sre-incident-response.css",
+        "sre-incident-response.js",
         "styles.css",
     } <= copied_names
     assert "assets/executive-briefing.jpeg" in copied_names

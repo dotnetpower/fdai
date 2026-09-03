@@ -1,3 +1,5 @@
+import { buildSreIncidentResponseDeck } from "./sre-incident-response.js";
+
 const docs = {
   constitution: "docs/roadmap/architecture/fdai-constitution.md",
   security: "docs/roadmap/architecture/security-and-identity.md",
@@ -610,7 +612,7 @@ const pilotProduction = buildDeck("pilot-production", "파일럿에서 프로덕
   topic("GATE 3", "첫 적용의 종료 조건을 엄격히 적용합니다", "안전하게 실행됐고 기대 효과가 확인되며 감사 사슬이 닫혀야 다음 묶음으로 갑니다.", "실행:안전장치 통과|효과:지표가 범위 안|감사:최종 종료", docs.ontology, "tree"),
   topic("PHASE 4", "운영 주기마다 성과와 안전을 함께 봅니다", "비용, 자동 해결, MTTR, 변경 리드 타임, 사람 접점을 같은 비교 집단에서 보고 네 가지 0 기준과 복구·효과 지표를 함께 검토합니다.", "성과:다섯 성공 지표와 신뢰 구간|안전:네 가지 정확한 0 기준|운영:복구, 효과 검증, 사람 검토|근거:고정 시나리오와 정확한 리비전", docs.metrics, "matrix"),
   topic("PHASE 4", "품질 저하는 자동 강등으로 이어집니다", "권한을 유지한 채 수정하지 않고 관찰 모드로 돌아가 원인을 분석합니다.", "감지:통과 기준 저하|강등:즉시 관찰 모드|복구:새 근거 뒤 재승격", docs.security, "timeline"),
-  topic("PHASE 4", "새 규칙은 비활성 후보로 시작합니다", "파일럿 학습이 즉시 카탈로그와 권한을 변경하지 않습니다.", "Norns:후보 제안|Mimir:규칙 검토|등록부:별도 승격", docs.pantheon, "responsibility"),
+  topic("PHASE 4", "새 규칙은 비활성 후보로 시작합니다", "파일럿 학습이 즉시 카탈로그와 권한을 변경하지 않습니다.", "Norns(학습 후보 제안 담당) 에이전트:후보 제안|Mimir(규칙 검토 담당) 에이전트:규칙 검토|등록부:별도 승격", docs.pantheon, "responsibility"),
   topic("PHASE 4", "운영 인수인계에는 책임자와 실행 절차가 필요합니다", "배포 팀이 빠져도 승인, 복구, 경고, 근거 출처를 운영할 수 있어야 합니다.", "서비스 책임자:운영 결과|플랫폼 책임자:런타임|보안 책임자:권한", docs.pantheon, "responsibility"),
   topic("IMPLEMENTED", "Operator 워크플로 시작은 제안 전용입니다", "POST /workflows/run은 중복 실행에 안전하고 리비전에 묶인 관찰 모드 요청만 받으며 mode=enforce를 거부합니다.", "요청자:관찰 모드 제안|Operator:영속 발신함|이벤트 버스:독립 서비스 전달|Core:일반 권한 경로", docs.operator, "flow"),
   topic("IN_PROGRESS", "워크플로 적용 경로의 운영 증적은 남아 있습니다", "Core 단계 실행기에는 통제된 경로가 있지만, 소유자 승인과 모든 안전장치를 거친 로컬·배포 경로가 보존된 런타임 증적으로 입증되지 않았습니다.", "현재:Core 단계 실행기 코드|열림:소유자 승인과 종단 안전장치|열림:로컬·배포 동등성 증적|경계:Operator API는 제안 전용", docs.operator, "evidence"),
@@ -622,6 +624,8 @@ const pilotProduction = buildDeck("pilot-production", "파일럿에서 프로덕
   topic("HANDOVER", "운영 팀은 정확한 리비전의 근거를 받습니다", "코드 링크만 넘기지 않고 배포, 신원, 안전장치, 효과, 복구, DR 근거 묶음을 인수합니다.", "빌드:산출물 출처와 공급망 증명|운영:권한, 경고, 감사, 예산|복구:RPO·RTO, 이전 리비전, failover·failback 훈련|효과:독립 관측과 미해결 충돌", docs.deployment, "evidence"),
   topic("NEXT", "다음 사용 사례는 검증된 경계를 재사용합니다", "새 권한을 넓히기보다 기존 온톨로지, 관측자, 승인 경로 안의 인접 판단을 선택합니다.", "재사용:타입과 매핑|재사용:근거 출처|재사용:안전 운영 절차", docs.ontologyPlatform, "flow"),
 ]);
+
+const sreIncidentResponse = buildSreIncidentResponseDeck({ sourceLabel, statusLabel });
 
 const aiOperatingModel = buildDeck("ai-operating-model", "AI 운영 모델", [
   topic("OPERATE", "운영 모델은 책임과 운영 주기를 연결합니다", "리더는 15개 고정 역할, 플랫폼 책임, 거버넌스, FinOps, LLMOps 의사결정을 하나의 체계로 운영합니다.", "책임:최종 책임자 한 명|거버넌스:분리된 권한|운영 주기:측정된 근거|결과:독립 관측과 감사", docs.pantheon),
@@ -727,6 +731,7 @@ export const additionalManualSlides = {
   "ontology-foundation": ontologyFoundation,
   "responsible-ai-security": responsibleAiSecurity,
   "pilot-production": pilotProduction,
+  "sre-incident-response": sreIncidentResponse,
   "ai-operating-model": aiOperatingModel,
   "enterprise-scale-roadmap": enterpriseScaleRoadmap,
 };

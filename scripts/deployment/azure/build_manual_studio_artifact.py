@@ -15,6 +15,9 @@ _ROOT_FILES = (
     "library.html",
     "manual-content.js",
     "manual-decks.css",
+    "presentation-standard.css",
+    "sre-incident-response.css",
+    "sre-incident-response.js",
     "styles.css",
 )
 _ASSET_SUFFIXES = frozenset({".jpeg", ".json", ".png"})

@@ -1,20 +1,30 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-01T22:00:00Z",
+  "generatedAt": "2026-09-03T01:52:31Z",
   "viewports": [
     "1440x900",
     "993x641",
     "390x844"
   ],
   "method": {
-    "browser": "Playwright Chromium 140",
+    "browser": "Playwright Chromium 145",
     "responsive": "Every slide was rendered at every viewport and checked for bounds and clipped text.",
     "fullscreen": "Every manual entered the browser Fullscreen API through slide-stage; the library was excluded from the fullscreen tree and the active slide was checked against the fullscreen viewport.",
     "pdf": "Every manual was printed with browser print CSS and checked for page count, 16:9 MediaBox ratio, and clipped text.",
     "accessibility": "Keyboard navigation, browser fullscreen state, 44px mobile targets, reduced motion, visible keyboard focus, accessible visual names, and horizontal overflow were checked in Chromium.",
-    "artifacts": "Session-local PNG and PDF files are stored outside the repository under manual-studio-validation/round-1 through round-3."
+    "artifacts": "Session-local PNG and PDF files are stored outside the repository under manual-studio-validation/round-1 through round-4; the presentation-standard evidence is under manual-studio-validation/executive-standard and manual-studio-validation/sre-redesign."
   },
   "manuals": [
+    {
+      "id": "executive-briefing",
+      "level": "L100",
+      "slideCount": 10,
+      "hardening": [
+        {"round": 1, "focus": "PowerPoint 가독성·Microsoft 문체·의미 교정·연결선", "finding": "리드는 17px, 내부 설명은 최소 8px까지 내려갔고, 숙련된 운영자 모방, AI의 예외적 사용, 미충족 시 도입 제외, 안전 계약 같은 표현이 경영 독자의 이해와 도입 대화를 어렵게 했습니다. 단계 연결선에도 7px 이상의 간격이 남아 있었습니다.", "correction": "슬라이드 제목 43px, 리드 24px, 주요 판단 문구 20-24px, 보조 설명 13-17px 역할을 적용하고 Microsoft Learn처럼 문제, 수행 가능 작업, 통제, 다음 행동 순으로 문장을 고쳤습니다. 데이터 주권, AIOps, 에이전트, 준비도, 첫 검증 시나리오 표현을 교정하고 모든 단계 연결선을 노드 경계에 맞췄습니다.", "rerendered": "passed"}
+      ],
+      "validation": {"responsiveRoundsPassed": 1, "fullscreenRoundsPassed": 1, "pdfRoundsPassed": 1, "pdfPages": 10, "aspectRatio": "16:9", "clippedTextFindings": 0},
+      "references": ["docs/roadmap/architecture/fdai-constitution.md", "docs/roadmap/agents/agent-pantheon.md", "docs/roadmap/architecture/security-and-identity.md", "docs/roadmap/architecture/goals-and-metrics.md"]
+    },
     {
       "id": "readiness-maturity",
       "level": "L200",
@@ -98,6 +108,21 @@
       ],
       "validation": {"responsiveRoundsPassed": 3, "fullscreenRoundsPassed": 3, "pdfRoundsPassed": 3, "pdfPages": 40, "aspectRatio": "16:9", "clippedTextFindings": 0},
       "references": ["docs/roadmap/deployment/deployment.md", "docs/roadmap/deployment/production-deployment-hardening.md", "docs/roadmap/operations/operator-initiated-sre-and-arb.md"]
+    },
+    {
+      "id": "sre-incident-response",
+      "level": "L100",
+      "slideCount": 10,
+      "hardening": [
+        {"round": 1, "focus": "SRE 사실성·권한 경계·완료 조건", "finding": "단일 장표 구성이 정상 관측, 발견 항목, 인시던트의 차이와 복구 방식별 경계, 독립 효과 확인을 충분히 설명하지 못했습니다.", "correction": "별도 L100 설명서로 분리하고 감지, 상관관계, 영향 분석, 복구 선택, 실행 안전장치, 독립 효과 확인을 10장 흐름으로 구성했습니다.", "rerendered": "passed"},
+        {"round": 2, "focus": "제품 서사·한국어·MTTR 의미", "finding": "장애 조치와 복구가 같은 동작처럼 보였고 MTTR의 측정 구간과 미해결 건 처리 방식이 한눈에 드러나지 않았습니다.", "correction": "수정, 롤백, 장애 조치, 복원을 구분하고 MTTR을 감지부터 해결까지의 평균·중앙값·p90으로 설명했으며 미해결 건은 0초에서 제외했습니다.", "rerendered": "passed"},
+        {"round": 3, "focus": "앨범 표지·정보 위계·반응형·접근성", "finding": "Activation & Outcomes 선반에 SRE 설명서가 독립된 앨범 아트 책으로 표시되지 않았고 기존 파일럿 설명서와 표지 이미지가 중복되었습니다.", "correction": "판단, 실행, 복구, 감사를 보여 주는 미사용 FDAI 런타임 다이어그램을 전용 표지로 사용하고 10개 서로 다른 설명 구조를 적용한 뒤 세 화면, 전체 화면, PDF를 검증했습니다.", "rerendered": "passed"},
+        {"round": 4, "focus": "계약 수준의 SRE 서사·시각화·중복 제거", "finding": "표지를 제외한 장표가 비슷한 카드와 흐름을 반복했고, 신호 압축, 고객 영향, 복구 선택 근거, 권한 분리, 장애 조치 경계, 효과 차트, MTTR 병목, 도입 산출물을 의사결정 수준으로 보여 주지 못했습니다.", "correction": "상황판, 서비스 그래프, AIOps 판단 체계, 복구 옵션 보드, 에이전트 권한 레인, 장애 조치 아키텍처, 독립 효과 차트, MTTR 구간 분석, 결과 중심 도입 계약으로 9개 본문 장표를 전면 재구성하고 모든 예시 수치에 예시 맥락을 표시했습니다.", "rerendered": "passed"},
+        {"round": 5, "focus": "본문 가독성·연결선 정합성", "finding": "데스크톱 본문과 보조 레이블이 캡션 크기로 보였고, 서비스 그래프는 고정 SVG 좌표와 백분율 노드 배치가 달라 연결선이 노드에 닿지 않았습니다.", "correction": "데스크톱의 주요 본문·레이블·수치를 역할별로 약 15-30% 확대하고, 서비스 그래프를 단일 CSS Grid 좌표계로 바꿔 모든 수평선 끝점을 노드 경계에 맞췄으며 세로 연결 구간을 시각적으로 분리했습니다.", "rerendered": "passed"},
+        {"round": 6, "focus": "Manual Studio 프레젠테이션 표준·Microsoft Learn 문체", "finding": "공통 장표 제목과 리드, 주요 옵션 문구가 새 PowerPoint 대체 기준보다 작았고 일부 제목과 영문 레이블이 시스템 중심으로 읽혔습니다. 장애 조치 장표도 고정 SVG와 절대 배치를 함께 사용했습니다.", "correction": "넓은 화면에서 제목 43px, 리드 24px, 주요 판단 18-24px, 보조 설명 14-16px 역할을 적용했습니다. 무엇을 확인하거나 할 수 있는지 중심으로 제목과 레이블을 고치고, 장애 조치 연결선을 단일 CSS Grid 좌표계로 바꿨습니다.", "rerendered": "passed"}
+      ],
+      "validation": {"responsiveRoundsPassed": 6, "fullscreenRoundsPassed": 6, "pdfRoundsPassed": 6, "pdfPages": 10, "aspectRatio": "16:9", "clippedTextFindings": 0},
+      "references": ["docs/roadmap/rules-and-detection/observability-and-detection.md", "docs/roadmap/operations/operator-initiated-sre-and-arb.md", "docs/roadmap/decisioning/recovery-and-chaos-enforcement.md", "docs/roadmap/architecture/goals-and-metrics.md"]
     },
     {
       "id": "ai-operating-model",

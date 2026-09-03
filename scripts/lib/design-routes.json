@@ -2119,6 +2119,24 @@
       ]
     },
     {
+      "id": "manual-studio",
+      "paths": [
+        "tools/manual-studio/**",
+        "scripts/deployment/azure/build_manual_studio_artifact.py",
+        "tests/integration/scripts/test_build_manual_studio_artifact.py"
+      ],
+      "must_read": [
+        ".github/instructions/app-shape.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        ".github/instructions/language.instructions.md",
+        ".github/skills/manual-studio/SKILL.md"
+      ],
+      "validate": [
+        "npm --prefix tools/manual-studio run check",
+        "uv run pytest -q --no-cov tests/integration/scripts/test_build_manual_studio_artifact.py"
+      ]
+    },
+    {
       "id": "documentation",
       "paths": [
         "README.md",

@@ -17,6 +17,7 @@
     "Re-encoded cover artwork as 1600x1600 JPEG",
     "Preserved the user-provided Microsoft wordmark as a transparent PNG",
     "Cropped the user-provided FDAI Console sign-in screenshot to a centered 1:1 composition",
+    "Copied the repository-generated Korean agent runtime diagram for the SRE incident-response cover",
     "Source metadata removed from published derivatives"
   ],
   "sources": [
@@ -24,7 +25,8 @@
     "FY25-AI Expression-PowerPoint Template-V1.pptx",
     "Microsoft_Brand_Template_May2023.potx",
     "User-provided Microsoft logo asset",
-    "User-provided FDAI Console sign-in screenshot"
+    "User-provided FDAI Console sign-in screenshot",
+    "docs/diagrams/generated/fdai-agent-driven-runtime.ko.png"
   ],
   "assets": [
     {"path": "executive-briefing.jpeg", "source": "Forward Deployed Agents L100.pptx", "sourceMedia": "ppt/media/image43.jpeg"},
@@ -38,6 +40,7 @@
     {"path": "operating-model.jpeg", "source": "FY25-AI Expression-PowerPoint Template-V1.pptx", "sourceMedia": "ppt/media/image19.png"},
     {"path": "scale-roadmap.jpeg", "source": "Forward Deployed Agents L100.pptx", "sourceMedia": "ppt/media/image24.jpeg"},
     {"path": "microsoft-logo.png", "source": "User-provided Microsoft logo asset", "sourceMedia": "Pasted Image.png"},
-    {"path": "fdai-console-sign-in.png", "source": "User-provided FDAI Console sign-in screenshot", "sourceMedia": "Pasted Image.png"}
+    {"path": "fdai-console-sign-in.png", "source": "User-provided FDAI Console sign-in screenshot", "sourceMedia": "Pasted Image.png"},
+    {"path": "sre-incident-response.png", "source": "Repository-generated FDAI diagram", "sourceMedia": "docs/diagrams/generated/fdai-agent-driven-runtime.ko.png"}
   ]
 }

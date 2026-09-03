@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-01T12:09:00Z",
+  "generatedAt": "2026-09-03T01:52:31Z",
   "minimumSlidesByLevel": {
     "L100": 10,
     "L200": 25,
@@ -57,7 +57,7 @@
       "status": "complete",
       "title": "FDAI Executive Briefing",
       "eyebrow": "EXECUTIVE BRIEFING",
-      "description": "FDAI의 15개 에이전트, 운영 온톨로지, 소버린 경계, 결정론 우선 판단과 IaC 기반 도입 조건을 설명합니다.",
+      "description": "FDAI의 운영 모델, 15개 에이전트, 데이터 주권, AIOps 판단, 도입 준비도와 첫 검증 경로를 설명합니다.",
       "createdAt": "2026-09-01",
       "duration": "10분",
       "slideCount": 10,
@@ -175,6 +175,22 @@
       "slideCount": 40,
       "coverImage": "assets/pilot-production.jpeg",
       "coverLabel": "ACTIVATE",
+      "featured": false
+    },
+    {
+      "id": "sre-incident-response",
+      "stageId": "activate-realize",
+      "kind": "core",
+      "level": "L100",
+      "status": "complete",
+      "title": "SRE Incident Response & MTTR",
+      "eyebrow": "SRE OPERATIONS",
+      "description": "장애 감지와 인시던트 연결부터 복구, 장애 조치, 효과 확인, MTTR 개선까지의 SRE 운영 루프를 설명합니다.",
+      "createdAt": "2026-09-03",
+      "duration": "15분",
+      "slideCount": 10,
+      "coverImage": "assets/sre-incident-response.png",
+      "coverLabel": "SRE RESPONSE",
       "featured": false
     },
     {
