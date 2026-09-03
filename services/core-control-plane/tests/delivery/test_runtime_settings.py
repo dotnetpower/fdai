@@ -270,7 +270,7 @@ async def test_answer_continuity_and_prompt_ablation_are_safe_startup_settings()
     assert _setting(updated, "conversation.prompt_ablation.profile")["restart_required"] is True
 
 
-async def test_aggressive_t2_defaults_on_only_in_development_and_updates_without_restart() -> None:
+async def test_aggressive_t2_defaults_off_and_updates_without_restart() -> None:
     development = RuntimeSettingsService(
         store=InMemoryStateStore(),
         env={"RUNTIME_ENV": "dev"},
@@ -287,7 +287,7 @@ async def test_aggressive_t2_defaults_on_only_in_development_and_updates_without
         "conversation.t2_escalation.aggressive_enabled",
     )
 
-    assert development_setting["effective_value"] is True
+    assert development_setting["effective_value"] is False
     assert development_setting["restart_required"] is False
     assert (
         _setting(production_projection, "conversation.t2_escalation.aggressive_enabled")[
@@ -298,12 +298,12 @@ async def test_aggressive_t2_defaults_on_only_in_development_and_updates_without
 
     await development.update(
         actor_id="owner-1",
-        changes={"conversation.t2_escalation.aggressive_enabled": False},
+        changes={"conversation.t2_escalation.aggressive_enabled": True},
         expected_revision=0,
     )
     assert (await development.effective_values())[
         "conversation.t2_escalation.aggressive_enabled"
-    ] is False
+    ] is True
 
 
 async def test_prompt_ablation_rejects_unreviewed_profile() -> None:

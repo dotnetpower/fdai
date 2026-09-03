@@ -1,8 +1,8 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: d07dfb60f83a56590c9bab7c7ea42223cb34e0c4
-translation_revised: 2026-09-01
+translation_source_sha: 6afdc9c87fbdffa29b325bd5b2e532265d8f2257
+translation_revised: 2026-09-03
 ---
 # 판테온 대화형 숙의
 
@@ -153,6 +153,10 @@ Charter는 에이전트에게 "allowed 도구를 통해" 답하라고 지시하�
 온톨로지 읽기에서 의미 판단은 제공된 정확한 ObjectType 및 LinkType 신원, 부정형 답변 항목,
 누락된 인스턴스 신원도 보존합니다. 검토된 관계를 그럴듯한 동의어로 바꾸거나 "현재 발견 사항
 없음" 제약을 반대로 해석하거나 Resource 하위 타입을 정확한 인스턴스 하나로 취급하지 않습니다.
+컬렉션 범위의 현재 상태 질문은 제공된 정확한 Resource 상태, Resource Health 또는 Service Health
+함수 intent를 선택합니다. 두 Resource 상태 계열을 모두 요청한 질문은 정확한 Resource 하나를
+명확히 하도록 요구하지 않고 두 intent를 모두 보존합니다. 그러면 Core는 근거 실행과 답변 검증을
+그대로 유지하면서 수락된 타입 기반 intent를 결정론적으로 검증된 프레임으로 재사용할 수 있습니다.
 
 T1 모델은 입력 크기, 시간 초과, strict 출력 스키마로 제한됩니다. 사용할 수 없음, malformed,
 ambiguous, low-confidence 제안은 설정된 T2 binding으로 한 번 재시도할 수 있습니다. 두 계층
@@ -449,6 +453,7 @@ charter가 같은 participant에 귀속되도록 유지합니다.
 |------|------|------|------|
 | 변경할 수 없는 charter와 상황별 프롬프트 조립 | implemented | `services/core-control-plane/src/fdai/agents/_framework/charters.py`, `services/core-control-plane/src/fdai/agents/_framework/conversation_prompt.py` 및 집중 프롬프트 조립 테스트 | 서버가 소유하는 기준선, 선택 계층, 프롬프트 다이제스트 및 신뢰할 수 없는 맥락 경계가 결정론적이며 집중 검사로 검증됩니다. |
 | 범위가 제한된 T1 숙의와 권한 격리 | implemented | `services/core-control-plane/src/fdai/agents/_framework/deliberation.py`, `services/core-control-plane/src/fdai/agents/_framework/deliberation_evaluation.py`, `services/core-control-plane/src/fdai/agents/bragi.py`, `services/core-control-plane/src/fdai/agents/_framework/runtime.py` 및 `services/core-control-plane/tests/agents/test_prompt_deliberation.py` | 입장과 비평 라운드는 읽기 전용으로 유지되고, 작업 의도를 차단하며, 범위가 제한된 high-signal fact를 평가하고, 표현 전용 결과를 반환합니다. |
+| 함수 기반 컬렉션 판단 | implemented | `semantic-judgment.v7.yaml`, `semantic_operational_summary_planning.py`, 집중 의미 계획 및 프롬프트 레지스트리 검사 | 신뢰도가 높은 컬렉션 범위 Resource 상태, Resource Health, Service Health intent는 principal 범위의 정확한 함수가 바인딩된 경우에만 중복 프레임 모델 호출을 생략할 수 있습니다. |
 | 선택적 T2 계약과 보호된 조립 주입 지점 | implemented | `T2ConversationSynthesizer`, `LlmBindings`, 런타임 부트스트랩 연결 및 집중 숙의와 조립 바인딩 테스트 | T2 요청은 참여자 신원, 프롬프트 출처, 제한된 출력, 예산 예약, 가격 및 계측 필수 조건을 적용합니다. |
 | 프로덕션 호출과 통제된 런타임 검증 | in-progress | `services/core-control-plane/src/fdai/runtime/bootstrap.py`는 선택적 바인딩을 `PantheonRuntime`에 전달하지만, 구체적인 업스트림 종합기, Operator API 경로, 콘솔 경로 또는 통제된 런타임 증적은 없습니다. | 테스트된 코어는 T1과 주입된 T2 구현을 실행할 수 있습니다. 저장소 근거만으로는 배포된 T2 호출, 실제 비용 청구 또는 운영자 대상 호출을 입증할 수 없습니다. |
 
@@ -456,6 +461,7 @@ charter가 같은 participant에 귀속되도록 유지합니다.
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-03 | implemented | 버전이 지정된 판단 프롬프트에 명시적인 함수 기반 컬렉션 의미를 추가하고 결정론적인 타입 기반 프레임 재사용을 구현했습니다. | `current change`, 의미 판단 프롬프트 레지스트리 및 집중 의미 계획 검사 | Console 시작 질문 5개에 대해 인증된 이중 언어 런타임 증적을 보존합니다. |
 | 2026-08-13 | in-progress | 구현 원장을 도입했으며 이전 출처는 재구성하지 않았습니다. 결정론적 테스트를 운영 검증으로 취급하지 않고 테스트된 charter, 프롬프트, T1 및 보호된 T2 주입 지점을 implemented로 분류했습니다. | 현재 변경, 구현 범위 표에 나열한 소스 및 아래 집중 명령(`6 passed in 0.11s`). | 구체적인 계측형 T2 종합기를 바인딩하고 실행하며, 승인된 런타임 경계를 통해 숙의 경로를 호출하고, 통제된 런타임 근거를 기록합니다. |
 | 2026-08-14 | implemented | 선택적 T2 종합을 무조건 호출하던 동작을 범위가 제한된 T1 답변 신호의 결정론적 평가로 교체했습니다. | `current change`, `deliberation_evaluation.py`와 집중 숙의 테스트 36개는 충돌이 없거나 비교할 수 없는 T1 claim이 T2를 한 번도 호출하지 않고 구조적 충돌만 범위가 제한된 호출 한 번을 만든다는 것을 입증합니다. | 에스컬레이션하지 않는 분기와 충돌로 에스컬레이션하는 분기의 통제된 런타임 근거를 보존합니다. |
 

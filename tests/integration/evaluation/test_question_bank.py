@@ -30,10 +30,10 @@ def test_question_bank_generated_artifacts_match_all_sources() -> None:
     assert render_review_catalog(payload) == (_BANK_ROOT / "review-catalog.md").read_text(
         encoding="utf-8"
     )
-    assert payload["summary"]["question_count"] == 352
+    assert payload["summary"]["question_count"] == 350
     assert payload["summary"]["source_counts"] == {
         "candidate": 250,
-        "console": 7,
+        "console": 5,
         "golden": 35,
         "manual": 60,
     }
@@ -62,13 +62,30 @@ def test_question_bank_preserves_existing_question_identities_and_variations() -
 
     console = by_source["console"]
     assert {question["legacy_ids"][0] for question in console} == {
-        "deck.starterSuggestions.approval",
-        "deck.starterSuggestions.denied",
-        "deck.starterSuggestions.failed",
-        "deck.starterSuggestions.routes",
         "deck.starterSuggestions.screen",
-        "deck.starterSuggestions.stuck",
         "deck.starterSuggestions.tierMix",
+        "deck.verticalQuickStarts.changeSafetyPrompt",
+        "deck.verticalQuickStarts.costGovernancePrompt",
+        "deck.verticalQuickStarts.resiliencePrompt",
+    }
+    assert all(
+        question["readiness"]
+        == {
+            "content_review": "reviewed",
+            "semantic_contract": "covered",
+            "runtime_binding": "bound",
+            "evidence_source": "retained",
+            "validation": "contract_passed",
+        }
+        for question in console
+    )
+    by_legacy_id = {question["legacy_ids"][0]: question for question in console}
+    assert {key: value["intent"] for key, value in by_legacy_id.items()} == {
+        "deck.starterSuggestions.screen": "query.subscription_service_health",
+        "deck.starterSuggestions.tierMix": "query.resource_state_inventory",
+        "deck.verticalQuickStarts.changeSafetyPrompt": "query.resource_health_inventory",
+        "deck.verticalQuickStarts.costGovernancePrompt": "query.resource_state_inventory",
+        "deck.verticalQuickStarts.resiliencePrompt": "query.resource_state_inventory",
     }
 
 

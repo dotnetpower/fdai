@@ -31,6 +31,7 @@ from .semantic_investigation import (
     normalize_investigation_target,
     verify_investigation_intent,
 )
+from .semantic_judgment import SemanticJudgmentObservation
 from .semantic_planning_alignment import verify_frame_plan_alignment
 from .semantic_planning_cascade_judgment import (
     _judgment_link_subjects,
@@ -66,6 +67,7 @@ from .semantic_planning_models import (
     SemanticOutputShape,
     SemanticPlanningEscalationModel,
     SemanticPlanningModel,
+    SemanticPlanningModelResponse,
 )
 from .semantic_resource_metric_planning import normalize_exact_resource_metric_proposal
 from .semantic_resource_state_planning import normalize_resource_state_proposal
@@ -196,6 +198,7 @@ class SemanticPlanningCascade:
         semantic_judgment: Mapping[str, Any] | None = None,
         bound_investigation_continuation: BoundInvestigationContinuation | None = None,
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
+        observations: list[SemanticJudgmentObservation] | None = None,
     ) -> (
         tuple[
             SemanticFrameProposal,
@@ -270,6 +273,7 @@ class SemanticPlanningCascade:
         for tier, model in self._planning_models():
             raw = _propose_frame(
                 model,
+                observations=observations,
                 utterance=utterance,
                 context=context,
                 descriptors=copy.deepcopy(descriptors),
@@ -601,11 +605,13 @@ class SemanticPlanningCascade:
         manifest: QueryManifest,
         evaluation_time: datetime,
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
+        observations: list[SemanticJudgmentObservation] | None = None,
     ) -> OntologyQueryPlan | None:
         recovery_context: dict[str, str] | None = None
         for tier, model in self._planning_models():
             raw = _propose_plan(
                 model,
+                observations=observations,
                 frame=frame,
                 descriptors=copy.deepcopy(descriptors),
                 metric_concepts=metric_concepts,
@@ -721,28 +727,45 @@ def _propose_frame(
     model: SemanticPlanningModel,
     *,
     recovery_context: Mapping[str, str] | None,
+    observations: list[SemanticJudgmentObservation] | None,
     **kwargs: Any,
 ) -> Mapping[str, Any] | None:
     if recovery_context is not None and isinstance(model, SemanticPlanningEscalationModel):
-        return model.propose_escalated_frame(
+        response = model.propose_escalated_frame(
             **kwargs,
             recovery_context=recovery_context,
         )
-    return model.propose_frame(**kwargs)
+    else:
+        response = model.propose_frame(**kwargs)
+    return _record_model_response(response, observations)
 
 
 def _propose_plan(
     model: SemanticPlanningModel,
     *,
     recovery_context: Mapping[str, str] | None,
+    observations: list[SemanticJudgmentObservation] | None,
     **kwargs: Any,
 ) -> Mapping[str, Any] | None:
     if recovery_context is not None and isinstance(model, SemanticPlanningEscalationModel):
-        return model.propose_escalated_plan(
+        response = model.propose_escalated_plan(
             **kwargs,
             recovery_context=recovery_context,
         )
-    return model.propose_plan(**kwargs)
+    else:
+        response = model.propose_plan(**kwargs)
+    return _record_model_response(response, observations)
+
+
+def _record_model_response(
+    response: Mapping[str, Any] | None,
+    observations: list[SemanticJudgmentObservation] | None,
+) -> Mapping[str, Any] | None:
+    if isinstance(response, SemanticPlanningModelResponse):
+        if observations is not None:
+            observations.append(response.observation)
+        return response.proposal
+    return response
 
 
 def _recovery_context(

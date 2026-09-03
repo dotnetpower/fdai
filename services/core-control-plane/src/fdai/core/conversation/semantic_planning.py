@@ -268,15 +268,16 @@ class SemanticPlanningService:
         stage = "manifest"
         manifest_digest: str | None = None
         accepted_frame: SemanticProblemFrame | None = None
-        model_observations: tuple[SemanticJudgmentObservation, ...] = ()
+        model_observations: list[SemanticJudgmentObservation] = []
         preflight_social_act = SocialAct.NONE
         preflight_vetoes_direct = False
         unbound_conversation = bound_incident is None and bound_investigation_continuation is None
 
         def finish(outcome: SemanticPlanningOutcome) -> SemanticPlanningOutcome:
             updated = outcome
-            if model_observations and outcome.model_observations != model_observations:
-                updated = replace(updated, model_observations=model_observations)
+            recorded_observations = tuple(model_observations)
+            if recorded_observations and outcome.model_observations != recorded_observations:
+                updated = replace(updated, model_observations=recorded_observations)
             if updated.social_act is not preflight_social_act:
                 updated = replace(updated, social_act=preflight_social_act)
             return updated
@@ -290,7 +291,7 @@ class SemanticPlanningService:
                     locale=locale,
                     direct_response_profile=_DIRECT_RESPONSE_PROFILE,
                 )
-                model_observations = preflight.observations
+                model_observations = list(preflight.observations)
                 preflight_vetoes_direct = preflight.failure_kind == "malformed"
                 preflight_proposal = preflight.proposal
                 if preflight_proposal is not None:
@@ -326,7 +327,7 @@ class SemanticPlanningService:
                             ),
                             direct_response_profile=_DIRECT_RESPONSE_PROFILE,
                         )
-                        model_observations += narrated.observations
+                        model_observations.extend(narrated.observations)
                         response = narrated.draft
                         if response is None:
                             return finish(
@@ -378,7 +379,7 @@ class SemanticPlanningService:
                     locale=locale,
                     direct_response_profile=_DIRECT_RESPONSE_PROFILE,
                 )
-                model_observations += judgment_result.observations
+                model_observations.extend(judgment_result.observations)
                 judgment_posture = (
                     judgment_result.proposal.action_posture
                     if judgment_result.proposal is not None
@@ -482,6 +483,7 @@ class SemanticPlanningService:
                 utterance=utterance,
                 context=context,
                 descriptors=descriptors,
+                inventory_query_language=self._inventory_query_language,
             )
             if frame_result is None:
                 frame_result = self._cascade.propose_frame(
@@ -494,6 +496,7 @@ class SemanticPlanningService:
                     semantic_judgment=semantic_judgment,
                     bound_investigation_continuation=bound_investigation_continuation,
                     escalation_policy=escalation_policy,
+                    observations=model_observations,
                 )
             if frame_result is None:
                 return finish(
@@ -613,6 +616,7 @@ class SemanticPlanningService:
                 now=self._now,
                 cascade=self._cascade,
                 escalation_policy=escalation_policy,
+                model_observations=model_observations,
                 anchored_incident_plan_builder=partial(
                     build_anchored_incident_plan,
                     verifier=self._verifier,

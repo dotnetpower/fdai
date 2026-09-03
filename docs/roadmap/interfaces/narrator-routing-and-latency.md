@@ -49,6 +49,27 @@ validated `FDAI_NARRATOR_PROBE_INTERVAL_SECONDS` interval, which defaults to `30
 `30-3600`. Provider failures wait for the next interval, and shutdown cancels the loop plus its
 coalesced probe task.
 
+## Interactive semantic-planning latency
+
+Interactive questions still cross the schema-validated semantic judgment boundary before Core
+selects a capability. When that boundary returns a high-confidence, unambiguous read intent for a
+bound Resource state, Resource Health, or Service Health function, Core builds the typed frame
+deterministically and skips the second frame-model call. The exact function must exist in the
+principal-scoped manifest, and the normal verifier, evidence execution, and answer checks still run.
+Novel, ambiguous, action-related, or unbound questions keep the general frame-planning path.
+
+Console starter questions expose only this contract-covered function-backed set. They ask for
+current server-owned evidence instead of browser-authored screen summaries, tier estimates, pending
+decisions, or cost opportunities that the semantic runtime cannot yet prove. The question-bank
+inventory records the bilingual wording, typed intent, retained evidence source, and focused
+contract validation for each visible starter.
+
+Aggressive T2 recovery defaults off in every environment. Owners can enable one audited bounded
+recovery experiment, but an interactive request never receives T2 merely because it runs in a
+development process. Model transparency records every completed semantic judgment, frame, and plan
+model call with its measured duration and token usage when available. The end-to-end turn timing
+continues to include deterministic and provider work that is not a model call.
+
 ## Per-user preference and TTFT
 
 The target Settings > Models surface projects the resolved T1/T2 inventory, bootstrap state, and runtime latency

@@ -73,8 +73,10 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["key", "domain", "intent"],
+        "required": ["id", "catalog", "key", "domain", "intent"],
         "properties": {
+          "id": {"$ref": "#/$defs/token"},
+          "catalog": {"enum": ["starterSuggestions", "verticalQuickStarts"]},
           "key": {"type": "string", "pattern": "^[a-z][a-zA-Z0-9]*$"},
           "domain": {"$ref": "#/$defs/domain"},
           "intent": {"$ref": "#/$defs/token"}

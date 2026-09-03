@@ -241,29 +241,33 @@ def _console_questions(
     paths: dict[str, Path],
     refs: dict[str, str],
 ) -> list[dict[str, Any]]:
-    english = _starter_suggestions(_json_object(paths["console_english"]))
-    korean = _starter_suggestions(_json_object(paths["console_korean"]))
+    english = _mapping(_json_object(paths["console_english"])["deck"], "English deck")
+    korean = _mapping(_json_object(paths["console_korean"])["deck"], "Korean deck")
     result: list[dict[str, Any]] = []
     for item in _object_array(source["console_questions"], "console_questions"):
+        question_id = _string(item["id"], "console id")
+        catalog = _string(item["catalog"], "console catalog")
         key = _string(item["key"], "console key")
+        english_catalog = _mapping(english[catalog], f"English {catalog}")
+        korean_catalog = _mapping(korean[catalog], f"Korean {catalog}")
         result.append(
             {
-                "question_id": f"console.starter.{key.lower()}",
+                "question_id": f"console.{question_id}",
                 "source_kind": "console",
                 "domain": item["domain"],
                 "intent": item["intent"],
                 "title": key.replace("_", " ").title(),
                 "wording": {
-                    "en": _string(english[key], f"English starter {key}"),
-                    "ko": _string(korean[key], f"Korean starter {key}"),
+                    "en": _string(english_catalog[key], f"English {catalog} {key}"),
+                    "ko": _string(korean_catalog[key], f"Korean {catalog} {key}"),
                 },
                 "variations": {"en": [], "ko": []},
                 "readiness": {
-                    "content_review": "source_controlled",
-                    "semantic_contract": "unassessed",
-                    "runtime_binding": "mixed",
-                    "evidence_source": "unassessed",
-                    "validation": "not_run",
+                    "content_review": "reviewed",
+                    "semantic_contract": "covered",
+                    "runtime_binding": "bound",
+                    "evidence_source": "retained",
+                    "validation": "contract_passed",
                 },
                 "safety": {
                     "action_posture": "read_only",
@@ -271,14 +275,10 @@ def _console_questions(
                 },
                 "surfaces": ["console"],
                 "source_refs": [refs["console_english"], refs["console_korean"]],
-                "legacy_ids": [f"deck.starterSuggestions.{key}"],
+                "legacy_ids": [f"deck.{catalog}.{key}"],
             }
         )
     return result
-
-
-def _starter_suggestions(payload: dict[str, Any]) -> dict[str, Any]:
-    return _mapping(_mapping(payload["deck"], "deck")["starterSuggestions"], "starterSuggestions")
 
 
 def _candidate_questions(

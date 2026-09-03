@@ -774,12 +774,6 @@ class SemanticTurnProcessor:
         recorded_at = projection_time.replace(
             microsecond=(projection_time.microsecond // 1000) * 1000,
         )
-        projection_id = str(
-            uuid5(
-                _PROJECTION_NAMESPACE,
-                f"{envelope['request_id']}\0{evidence_digest}",
-            )
-        )
         payload: dict[str, object] = {
             "request_kind": "semantic_query",
             "request_digest": request_digest,
@@ -814,7 +808,6 @@ class SemanticTurnProcessor:
                 )
         projection = {
             "schema_version": "1.4.0",
-            "projection_id": projection_id,
             "request_id": envelope["request_id"],
             "correlation_id": envelope["correlation_id"],
             "idempotency_key": envelope["idempotency_key"],
@@ -824,6 +817,7 @@ class SemanticTurnProcessor:
             "evidence_digest": evidence_digest,
             "semantic_result": semantic_result,
         }
+        projection["projection_id"] = _semantic_projection_id(projection)
         if extensions is not None and extensions.operational_evidence is not None:
             encoded_size = len(
                 json.dumps(
@@ -866,12 +860,6 @@ class SemanticTurnProcessor:
         recorded_at = projection_time.replace(
             microsecond=(projection_time.microsecond // 1000) * 1000,
         )
-        projection_id = str(
-            uuid5(
-                _PROJECTION_NAMESPACE,
-                f"{envelope['request_id']}\0{evidence_digest}",
-            )
-        )
         fallback = self._with_answer_continuity(
             request,
             _terminal_result(
@@ -882,7 +870,6 @@ class SemanticTurnProcessor:
         ).model_dump(mode="json", exclude_none=True)
         projection = {
             "schema_version": "1.4.0",
-            "projection_id": projection_id,
             "request_id": envelope["request_id"],
             "correlation_id": envelope["correlation_id"],
             "idempotency_key": envelope["idempotency_key"],
@@ -898,6 +885,7 @@ class SemanticTurnProcessor:
             # consumer safely renders a hold during a consumer-first rollout.
             "semantic_result": fallback,
         }
+        projection["projection_id"] = _semantic_projection_id(projection)
         return OPERATOR_PROJECTION_PRODUCER_V14.encode(projection)
 
     def _held_projection(
@@ -1585,7 +1573,10 @@ def _semantic_model_extensions(
     latency_ms = 0
     for index, observation in enumerate(observations, start=1):
         call = dict(observation.trace_call)
-        call["call_id"] = f"semantic-judgment-{index}"
+        kind = call.get("kind")
+        call["call_id"] = (
+            f"{kind}-{index}" if isinstance(kind, str) and kind else f"semantic-model-{index}"
+        )
         duration = call.get("duration_ms")
         if isinstance(duration, int) and not isinstance(duration, bool) and duration >= 0:
             latency_ms += duration
@@ -4818,6 +4809,15 @@ def _request_digest(
             "semantic_turn": request.model_dump(mode="json"),
         }
     )
+
+
+def _semantic_projection_id(projection: Mapping[str, object]) -> str:
+    """Bind projection identity to the complete immutable event content."""
+    request_id = projection.get("request_id")
+    if not isinstance(request_id, str):
+        raise ValueError("semantic projection request_id MUST be a string")
+    projection_digest = content_digest(projection)
+    return str(uuid5(_PROJECTION_NAMESPACE, f"{request_id}\0{projection_digest}"))
 
 
 async def _release_claim(

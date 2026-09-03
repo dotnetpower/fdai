@@ -14,6 +14,7 @@ from fdai.rule_catalog.schema.inventory_query_language import InventoryQueryLang
 
 from .semantic_investigation import VerifiedInvestigationIntent
 from .semantic_manifest_planning import normalize_ontology_manifest_count_frame
+from .semantic_operational_summary_planning import build_function_backed_summary_frame
 from .semantic_planning_frame import (
     build_bound_incident_metric_comparison_frame as _build_bound_incident_metric_comparison_frame,
 )
@@ -382,9 +383,20 @@ def deterministic_pre_frame_selection(
     utterance: str,
     context: tuple[str, ...],
     descriptors: tuple[dict[str, Any], ...],
+    inventory_query_language: InventoryQueryLanguageRegistry | None = None,
 ) -> tuple[SemanticFrameProposal, Any, VerifiedInvestigationIntent | None] | None:
-    """Build accepted typed relationship frames before model frame proposal."""
+    """Build accepted typed function or relationship frames before model proposal."""
 
+    summary = build_function_backed_summary_frame(
+        judgment,
+        utterance=utterance,
+        context=context,
+        descriptors=descriptors,
+        inventory_query_language=inventory_query_language,
+    )
+    if summary is not None:
+        proposal, frame = summary
+        return proposal, frame, None
     frame = _build_ontology_trace_frame(judgment, utterance=utterance, context=context)
     if frame is None:
         frame = _build_service_agent_ownership_frame(

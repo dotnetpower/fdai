@@ -12,7 +12,10 @@ from typing import Any
 import httpx
 import pytest
 from fdai.core.conversation.semantic_planning import _build_frame
-from fdai.core.conversation.semantic_planning_models import SemanticFrameProposal
+from fdai.core.conversation.semantic_planning_models import (
+    SemanticFrameProposal,
+    SemanticPlanningModelResponse,
+)
 from fdai.core.prompts.registry import FileSystemPromptRegistry
 from fdai.delivery.azure.llm.request_target import ModelRequestTarget
 from fdai.delivery.azure.llm.semantic_planning import (
@@ -148,6 +151,8 @@ async def test_adapter_validates_frame_and_plan_and_isolates_injection_text() ->
             },
         )
         assert frame_raw is not None
+        assert isinstance(frame_raw, SemanticPlanningModelResponse)
+        assert frame_raw.observation.trace_call["kind"] == "semantic-planning-frame"
         frame = _build_frame(
             SemanticFrameProposal.model_validate(frame_raw),
             utterance="Show resources",
@@ -164,6 +169,8 @@ async def test_adapter_validates_frame_and_plan_and_isolates_injection_text() ->
         )
 
     assert plan_raw is not None
+    assert isinstance(plan_raw, SemanticPlanningModelResponse)
+    assert plan_raw.observation.trace_call["kind"] == "semantic-planning-plan"
     assert plan_raw["nodes"][0]["kind"] == "object_set"
     assert [request.url.path for request in captured] == [
         "/openai/deployments/primary/chat/completions",

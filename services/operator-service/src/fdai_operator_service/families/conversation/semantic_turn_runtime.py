@@ -37,7 +37,10 @@ from fdai_operator_service.postgres_family_store import (
     StoredSemanticResult,
     StoredSemanticTurn,
 )
-from fdai_operator_service.postgres_semantic_turn_store import SemanticTurnConflictError
+from fdai_operator_service.postgres_semantic_turn_store import (
+    SemanticTurnConflictError,
+    SemanticTurnRequestAbsentError,
+)
 from fdai_service_contracts import (
     MAX_INTENT_GRAPH_GOALS,
     ContractValidationError,
@@ -800,7 +803,7 @@ class SemanticTurnBridge:
                         await self._consumer.consume(payload)
                     except (ContractValidationError, ValidationError, ValueError):
                         await self._quarantine(quarantine_key)
-                    except SemanticTurnConflictError:
+                    except SemanticTurnRequestAbsentError:
                         # A projection can arrive before its durable request commits, so
                         # retry that race a bounded number of times. Retrying forever
                         # instead stalls every later projection behind one poison record.
@@ -818,9 +821,16 @@ class SemanticTurnBridge:
                             extra={"failure_type": "durable_request_absent"},
                         )
                         await self._quarantine(quarantine_key)
+                    except SemanticTurnConflictError as exc:
+                        conflicts.pop(quarantine_key, None)
+                        _LOGGER.warning(
+                            "semantic_projection_conflict_quarantined",
+                            extra={"failure_type": exc.failure_type},
+                        )
+                        await self._quarantine(quarantine_key)
                     else:
                         conflicts.pop(quarantine_key, None)
-            except SemanticTurnConflictError:
+            except SemanticTurnRequestAbsentError:
                 _LOGGER.info(
                     "semantic_projection_conflict_retrying",
                     extra={"failure_type": "durable_request_absent"},

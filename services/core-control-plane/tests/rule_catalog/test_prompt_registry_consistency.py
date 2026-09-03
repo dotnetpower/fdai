@@ -137,7 +137,7 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     plan = prompts.get_base("semantic.query.plan")
 
     assert frame.version == 39
-    assert judgment.version == 6
+    assert judgment.version == 7
     assert "query.resource_event_history with resource_event.kubernetes" in judgment.body
     assert "include kubernetes_events and an ordering facet" in judgment.body
     assert "Do not add resource_event.resource_health" in judgment.body
@@ -148,6 +148,10 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "Use self_introduction" in judgment.body
     assert "exact tokens identity, role, capabilities, and authority_boundary" in judgment.body
     assert "For greeting, requested_facets and targets MUST be empty" in judgment.body
+    assert "uses query.resource_state_inventory" in judgment.body
+    assert "uses query.resource_health_inventory" in judgment.body
+    assert "use query.resource_state_inventory as primary_intent" in judgment.body
+    assert "This rule does not apply to collection-level" in judgment.body
     assert "A non-execution constraint is not an artifact deliverable" in judgment.body
     assert "independently requests a governed artifact" in judgment.body
     assert "needs a target, comparison side, or time range" in judgment.body

@@ -270,7 +270,6 @@ RUNTIME_SETTING_SPECS: tuple[RuntimeSettingSpec, ...] = (
         "conversation",
         "boolean",
         False,
-        development_default=True,
     ),
     RuntimeSettingSpec(
         "conversation.prompt_ablation.profile",

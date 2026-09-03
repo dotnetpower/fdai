@@ -1,8 +1,8 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: a879de11bddcce8bf130ea7528844666e7e8f11b
-translation_revised: 2026-09-02
+translation_source_sha: 6f287c689be74bb4f56c50c98205fb1a755c72ce
+translation_revised: 2026-09-03
 ---
 # 서술기 라우팅과 지연 시간
 
@@ -49,6 +49,26 @@ Operator Service에는 opaque conversation-image id를 검증되고 범위가 �
 기본값이 `300`이며 `30-3600` 범위로 검증되는 `FDAI_NARRATOR_PROBE_INTERVAL_SECONDS` 간격으로
 후속 주기를 실행합니다. Provider 실패는 다음 간격까지 격리하며 종료 시 loop와 coalescing된 probe
 task를 취소합니다.
+
+## 대화형 의미 계획 지연 시간
+
+대화형 질문은 Core가 기능을 선택하기 전에 스키마로 검증되는 의미 판단 경계를 통과합니다. 이 경계가
+바인딩된 Resource 상태, Resource Health 또는 Service Health 함수에 대해 신뢰도가 높고 모호하지 않은
+읽기 intent를 반환하면 Core는 타입 기반 프레임을 결정론적으로 만들고 두 번째 프레임 모델 호출을
+생략합니다. 정확한 함수가 principal 범위 매니페스트에 있어야 하며, 일반 검증기, 근거 실행, 답변 검사는
+그대로 수행합니다. 새롭거나 모호하거나 작업과 관련됐거나 바인딩되지 않은 질문은 일반 프레임 계획
+경로를 유지합니다.
+
+Console 시작 질문에는 계약으로 검증된 함수 기반 질문만 표시합니다. 의미 런타임이 아직 증명할 수 없는
+브라우저 작성 화면 요약, tier 추정, 대기 중인 결정 또는 비용 기회 대신 서버 소유의 현재 근거를
+요청합니다. 질문 은행은 표시되는 각 시작 질문의 이중 언어 문구, 타입 기반 intent, 보존 근거 출처,
+집중 계약 검증을 기록합니다.
+
+적극적인 T2 복구는 모든 환경에서 기본적으로 비활성화합니다. Owner는 감사되고 범위가 제한된 복구
+실험을 한 번 활성화할 수 있지만, 개발 프로세스에서 실행된다는 이유만으로 대화형 요청이 T2를 사용하지
+않습니다. 모델 투명성은 완료된 모든 의미 판단, 프레임, 계획 모델 호출의 실측 처리 시간과 사용 가능한
+토큰 사용량을 기록합니다. 전체 턴 시간에는 모델 호출이 아닌 결정론적 작업과 provider 작업도 계속
+포함합니다.
 
 ## 사용자별 선호 설정과 TTFT
 

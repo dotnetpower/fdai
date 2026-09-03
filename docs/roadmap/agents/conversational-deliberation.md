@@ -152,6 +152,11 @@ For ontology reads, the judgment also preserves exact supplied ObjectType and Li
 negative answer facets, and missing instance identity. It does not replace a reviewed relation with
 a plausible synonym, invert a "no current finding" constraint, or treat a Resource subtype as one
 exact instance.
+Collection-level current-state questions select the exact supplied Resource state, Resource Health,
+or Service Health function intent. A question that requests both Resource state families preserves
+both intents instead of forcing one exact Resource clarification. Core can then reuse the accepted
+typed intent as a deterministic verified frame while leaving evidence execution and answer
+verification unchanged.
 
 The T1 model is bounded by input size, timeout, and a strict output schema. An unavailable,
 malformed, ambiguous, or low-confidence proposal can retry once through the configured T2 binding.
@@ -454,6 +459,7 @@ to the same participant before a provider receives the request.
 |------|-------|----------|-------|
 | Immutable charters and situational prompt composition | implemented | `services/core-control-plane/src/fdai/agents/_framework/charters.py`, `services/core-control-plane/src/fdai/agents/_framework/conversation_prompt.py`, and the focused prompt composition tests | The server-owned baseline, selected layers, prompt digests, and untrusted-context boundary are deterministic and covered by focused checks. |
 | Bounded T1 deliberation and authority isolation | implemented | `services/core-control-plane/src/fdai/agents/_framework/deliberation.py`, `services/core-control-plane/src/fdai/agents/_framework/deliberation_evaluation.py`, `services/core-control-plane/src/fdai/agents/bragi.py`, `services/core-control-plane/src/fdai/agents/_framework/runtime.py`, and `services/core-control-plane/tests/agents/test_prompt_deliberation.py` | Position and critique rounds remain read-only, reject action intent, evaluate bounded high-signal facts, and return presentation-only outcomes. |
+| Function-backed collection judgment | implemented | `semantic-judgment.v7.yaml`; `semantic_operational_summary_planning.py`; focused semantic planning and prompt registry checks | High-confidence collection-level Resource state, Resource Health, and Service Health intents can skip a redundant frame-model call only when the exact principal-scoped function is bound. |
 | Optional T2 contract and guarded composition seam | implemented | `T2ConversationSynthesizer`, `LlmBindings`, runtime bootstrap wiring, and the focused deliberation and composition binding tests | T2 requests enforce participant identity, prompt provenance, bounded output, budget reservation, pricing, and metering prerequisites. |
 | Production invocation and governed runtime validation | in-progress | `services/core-control-plane/src/fdai/runtime/bootstrap.py` forwards an optional binding to `PantheonRuntime`, but no concrete upstream synthesizer, Operator API route, console route, or governed runtime receipt is present. | The tested core can run T1 and a supplied T2 implementation. Repository evidence does not prove a deployed T2 call, live cost charge, or operator-facing invocation. |
 
@@ -461,6 +467,7 @@ to the same participant before a provider receives the request.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-03 | implemented | Added explicit function-backed collection semantics to the versioned judgment prompt and deterministic typed-frame reuse. | `current change`; semantic judgment prompt registry and focused semantic planning checks. | Retain a bilingual authenticated runtime receipt for the five Console starter questions. |
 | 2026-08-13 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Classified the tested charter, prompt, T1, and guarded T2 seams as implemented without treating deterministic tests as operational validation. | Current change; source listed in the scope table and the focused command below (`6 passed in 0.11s`). | Bind and exercise a concrete metered T2 synthesizer, invoke the discussion path through an approved runtime boundary, and record governed runtime evidence. |
 | 2026-08-14 | implemented | Replaced unconditional optional T2 synthesis with deterministic evaluation of bounded T1 answer signals. | `current change`; `deliberation_evaluation.py` and 36 focused deliberation tests prove conflict-free and uncomparable T1 claims make zero T2 calls while a structured conflict makes one bounded call. | Retain governed runtime evidence for both the no-escalation and conflict-escalation branches. |
 

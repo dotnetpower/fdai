@@ -397,6 +397,15 @@ The shared SDK also owns the no-authority ontology-query records used across the
 boundary: semantic problem frames, bounded query DAGs, intent graphs, task receipts, and structural
 coverage receipts. These records contain no provider client, ontology store, planner model, or
 execution handler.
+
+Interactive conversation planning uses one schema-validated semantic judgment before capability
+selection. When that judgment identifies a high-confidence collection-level Resource state,
+Resource Health, or Service Health function that is present in the principal-scoped manifest, Core
+builds and verifies the frame deterministically instead of issuing a second frame-model request.
+The Operator bridge still persists the request before accepting its projection. A missing request
+can retry as a bounded visibility race, while a permanent projection identity conflict is
+quarantined once without churning the consumer group. Model timing includes completed judgment,
+frame, and plan calls; end-to-end turn timing remains the broader latency authority.
 It also owns the versioned, no-authority operational activity record used to carry bounded inventory
 scan, ontology projection, and current-state read evidence from Core to Operator surfaces. The
 record separates logical agent ownership from the producing process and fixes

@@ -29,6 +29,7 @@ from .semantic_investigation_planning import (
     InvestigationClarificationRequiredError,
     compile_investigation_plan,
 )
+from .semantic_judgment import SemanticJudgmentObservation
 from .semantic_kubernetes_pod_recovery_planning import compile_kubernetes_pod_recovery_plan
 from .semantic_kubernetes_rollout_planning import compile_kubernetes_rollout_plan
 from .semantic_latency_recovery_planning import (
@@ -117,6 +118,7 @@ def dispatch_semantic_plan(
     now: Callable[[], datetime],
     cascade: SemanticPlanningCascade,
     escalation_policy: SemanticPlanningEscalationPolicy | None,
+    model_observations: list[SemanticJudgmentObservation],
     anchored_incident_plan_builder: Callable[..., OntologyQueryPlan | None],
     stated_value_filter_plan_builder: Callable[..., OntologyQueryPlan | None],
 ) -> PlanDispatchResult | SemanticPlanningOutcome:
@@ -512,6 +514,7 @@ def dispatch_semantic_plan(
             manifest=manifest,
             evaluation_time=evaluation_time,
             escalation_policy=escalation_policy,
+            observations=model_observations,
         )
     if plan is None:
         if _is_temporal_comparison(frame):

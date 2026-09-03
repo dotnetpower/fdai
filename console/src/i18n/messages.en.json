@@ -1673,7 +1673,7 @@
           "t2_escalation": {
             "aggressive_enabled": {
               "label": "Aggressive T2 answer recovery",
-              "hint": "Retry eligible read-only clarifications and rejected plans once with the configured T2 reasoner. Development defaults on; staging and production default off. Changes apply to new questions without a restart."
+              "hint": "Retry eligible read-only clarifications and rejected plans once with the configured T2 reasoner. Every environment defaults off. Changes apply to new questions without a restart."
             }
           },
           "prompt_ablation": {
@@ -2302,24 +2302,24 @@
     "suggestedFollowUps": "Suggested follow-ups",
     "reviewAnswer": "Review answer quality",
     "emptyTitle": "Ask about {route}",
-    "intro": "Answers stay grounded in the verified information and operational evidence on this screen.",
+    "intro": "Answers use implemented semantic contracts and server-owned operational evidence.",
     "starterSuggestions": {
       "routes": "What routes are available?",
       "failed": "Why did the failed actions fail?",
       "approval": "What is waiting for approval?",
       "denied": "What was denied and why?",
       "stuck": "Which actions are stuck?",
-      "screen": "What do you see on this screen?",
-      "tierMix": "What is the tier mix right now?"
+      "screen": "Show current service-health advisories for the authorized subscription.",
+      "tierMix": "Show resources that are currently not running."
     },
     "verticalQuickStarts": {
       "label": "Operating domains",
       "resilience": "Resilience",
-      "resiliencePrompt": "Show the current resilience risks and verified recovery gaps.",
+      "resiliencePrompt": "Show resources that are currently not running or not ready.",
       "changeSafety": "Change Safety",
-      "changeSafetyPrompt": "Show pending change-safety decisions and their evidence gaps.",
+      "changeSafetyPrompt": "Show resources that are currently not ready.",
       "costGovernance": "Cost Governance",
-      "costGovernancePrompt": "Show measured cost-governance opportunities that preserve reliability objectives."
+      "costGovernancePrompt": "Show PostgreSQL databases that are currently not running."
     },
     "backend": {
       "probing": "probing",

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -260,6 +260,23 @@ class QueryPlanProposal(_Proposal):
 
     nodes: tuple[QueryNodeProposal, ...] = Field(min_length=1, max_length=8)
     output_node_ids: tuple[str, ...] = Field(min_length=1, max_length=8)
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticPlanningModelResponse(Mapping[str, Any]):
+    """Carry one planning proposal with its bounded model observation."""
+
+    proposal: Mapping[str, Any]
+    observation: SemanticJudgmentObservation
+
+    def __getitem__(self, key: str) -> Any:
+        return self.proposal[key]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self.proposal)
+
+    def __len__(self) -> int:
+        return len(self.proposal)
 
 
 class SemanticPlanningModel(Protocol):

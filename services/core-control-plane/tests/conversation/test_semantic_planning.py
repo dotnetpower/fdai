@@ -14,6 +14,7 @@ from fdai.core.conversation.intent_graph import (
     build_intent_graph_evidence,
     resolve_execution_authority,
 )
+from fdai.core.conversation.semantic_judgment import SemanticJudgmentObservation
 from fdai.core.conversation.semantic_manifest import CatalogQueryManifestProvider
 from fdai.core.conversation.semantic_planning import SemanticPlanningService, _plan_node_summary
 from fdai.core.conversation.semantic_planning_alignment import verify_frame_plan_alignment
@@ -22,6 +23,7 @@ from fdai.core.conversation.semantic_planning_models import (
     SemanticFrameProposal,
     SemanticOutputShape,
     SemanticPlanningDisposition,
+    SemanticPlanningModelResponse,
 )
 from fdai.core.conversation.semantic_resource_state_planning import (
     normalize_resource_state_proposal,
@@ -96,6 +98,7 @@ from fdai_service_contracts.ontology_query import (
     TaskStatus,
     content_digest,
 )
+from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 from pydantic import ValidationError
 
 DIGEST = "sha256:" + ("a" * 64)
@@ -211,6 +214,7 @@ def _service(
     *,
     inventory_query_language: InventoryQueryLanguageRegistry | None = None,
     metric_concepts: tuple[str, ...] = (),
+    semantic_judgment: Any = None,
 ) -> SemanticPlanningService:
     return SemanticPlanningService(
         model=model,
@@ -221,7 +225,31 @@ def _service(
         now=lambda: NOW,
         inventory_query_language=inventory_query_language,
         metric_concepts=metric_concepts,
+        semantic_judgment=semantic_judgment,
     )
+
+
+class _JudgmentBoundary:
+    def __init__(self, proposal: SemanticJudgmentProposal) -> None:
+        self._proposal = proposal
+
+    def preflight(self, **_kwargs: Any) -> Any:
+        return SimpleNamespace(
+            observations=(),
+            failure_kind=None,
+            proposal=None,
+        )
+
+    def judge(self, **_kwargs: Any) -> Any:
+        return SimpleNamespace(
+            accepted=True,
+            observations=(),
+            proposal=self._proposal,
+            receipt=SimpleNamespace(
+                disposition=SimpleNamespace(value="accepted"),
+                tier=SimpleNamespace(value="t1"),
+            ),
+        )
 
 
 def test_whole_turn_model_proposal_becomes_verified_server_owned_plan() -> None:
@@ -245,6 +273,58 @@ def test_whole_turn_model_proposal_becomes_verified_server_owned_plan() -> None:
     assert outcome.intent_graph.goals[0].arguments["definition"]["purpose"] == "operations-review"
     assert model.utterance.startswith("현재")
     assert manifest.descriptors[0]["name"] == "Resource"
+
+
+def test_planning_model_observations_cover_frame_and_plan_calls() -> None:
+    manifest, definition = _fixture()
+
+    class ObservedModel(_Model):
+        def propose_frame(self, **kwargs: Any) -> SemanticPlanningModelResponse:
+            proposal = super().propose_frame(**kwargs)
+            return SemanticPlanningModelResponse(
+                proposal=proposal,
+                observation=SemanticJudgmentObservation(
+                    model="planning-model",
+                    usage=None,
+                    trace_call={
+                        "kind": "semantic-planning-frame",
+                        "duration_ms": 11,
+                        "redacted": True,
+                    },
+                ),
+            )
+
+        def propose_plan(self, **kwargs: Any) -> SemanticPlanningModelResponse:
+            proposal = super().propose_plan(**kwargs)
+            assert proposal is not None
+            return SemanticPlanningModelResponse(
+                proposal=proposal,
+                observation=SemanticJudgmentObservation(
+                    model="planning-model",
+                    usage=None,
+                    trace_call={
+                        "kind": "semantic-planning-plan",
+                        "duration_ms": 13,
+                        "redacted": True,
+                    },
+                ),
+            )
+
+    outcome = _service(
+        ObservedModel(frame=_frame(), plan=_plan(definition)),
+        manifest,
+    ).plan(
+        utterance="Show current resources.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert [item.trace_call["kind"] for item in outcome.model_observations] == [
+        "semantic-planning-frame",
+        "semantic-planning-plan",
+    ]
 
 
 def test_object_set_cutoff_is_rebound_to_trusted_server_time() -> None:
@@ -957,8 +1037,12 @@ def _inventory_query_language() -> InventoryQueryLanguageRegistry:
         default_scope="subscription",
         default_activity_lookback_seconds=604800,
         current_requires_fresh=True,
-        suffixes=(),
-        signals={},
+        suffixes=("를",),
+        signals={
+            "service_health_advisory": QueryTerms(
+                terms=("health advisory", "health advisories", "상태 권고")
+            )
+        },
         query_kinds={},
         groupings={},
         projections={},
@@ -985,6 +1069,134 @@ def _inventory_query_language() -> InventoryQueryLanguageRegistry:
         operations={},
         time_units={},
     )
+
+
+def _summary_judgment(
+    primary_intent: str,
+    *,
+    secondary_intents: tuple[str, ...] = (),
+) -> SemanticJudgmentProposal:
+    return SemanticJudgmentProposal(
+        primary_intent=primary_intent,
+        secondary_intents=secondary_intents,
+        targets=(),
+        requested_facets=(),
+        confidence=0.96,
+        ambiguous=False,
+        alternatives=(),
+        unresolved_terms=(),
+        clarification=None,
+        direct_response=None,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+
+
+@pytest.mark.parametrize(
+    ("utterance", "primary_intent", "secondary_intents", "output_shape"),
+    (
+        (
+            "Show resources that are currently not running.",
+            RESOURCE_STATE_FUNCTION_NAME,
+            (),
+            "resource_state_list",
+        ),
+        (
+            "현재 실행 중이 아닌 리소스를 보여줘.",
+            RESOURCE_STATE_FUNCTION_NAME,
+            (),
+            "resource_state_list",
+        ),
+        (
+            "Show resources that are currently not running or not ready.",
+            RESOURCE_STATE_FUNCTION_NAME,
+            (RESOURCE_HEALTH_FUNCTION_NAME,),
+            "resource_condition_sections",
+        ),
+        (
+            "실행 중이 아니거나 준비되지 않은 리소스를 보여줘.",
+            RESOURCE_STATE_FUNCTION_NAME,
+            (RESOURCE_HEALTH_FUNCTION_NAME,),
+            "resource_condition_sections",
+        ),
+        (
+            "Show resources that are currently not ready.",
+            RESOURCE_HEALTH_FUNCTION_NAME,
+            (),
+            "resource_health_list",
+        ),
+        (
+            "현재 준비되지 않은 리소스를 보여줘.",
+            RESOURCE_HEALTH_FUNCTION_NAME,
+            (),
+            "resource_health_list",
+        ),
+        (
+            "Show PostgreSQL databases that are currently not running.",
+            RESOURCE_STATE_FUNCTION_NAME,
+            (),
+            "resource_state_list",
+        ),
+        (
+            "현재 실행 중이 아닌 PostgreSQL 데이터베이스를 보여줘.",
+            RESOURCE_STATE_FUNCTION_NAME,
+            (),
+            "resource_state_list",
+        ),
+        (
+            "Show current service-health advisories for the authorized subscription.",
+            SERVICE_HEALTH_FUNCTION_NAME,
+            (),
+            "subscription_service_health",
+        ),
+        (
+            "권한이 있는 구독의 현재 서비스 상태 권고를 보여줘.",
+            SERVICE_HEALTH_FUNCTION_NAME,
+            (),
+            "subscription_service_health",
+        ),
+    ),
+)
+def test_function_backed_starter_skips_frame_model(
+    utterance: str,
+    primary_intent: str,
+    secondary_intents: tuple[str, ...],
+    output_shape: str,
+) -> None:
+    manifest, _definition = _typed_fixture(
+        groups=(_POSTGRES_GROUP,),
+        include_resource_health=True,
+        include_resource_state=True,
+        include_service_health=True,
+    )
+    model = _Model(frame=_frame(), plan=None)
+    outcome = _service(
+        model,
+        manifest,
+        inventory_query_language=_inventory_query_language(),
+        semantic_judgment=_JudgmentBoundary(
+            _summary_judgment(
+                primary_intent,
+                secondary_intents=secondary_intents,
+            )
+        ),
+    ).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None and outcome.frame.output_shape == output_shape
+    assert outcome.plan is not None
+    assert outcome.execution_authority is False
+    assert model.frame_calls == 0
+    assert model.plan_calls == 0
+    if output_shape == "subscription_service_health":
+        assert outcome.plan.nodes[0].arguments["arguments"] == {"event_types": ["health_advisory"]}
 
 
 def _state_inspection_query_language() -> InventoryQueryLanguageRegistry:

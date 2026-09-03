@@ -15,12 +15,19 @@ import httpx
 from fdai_service_contracts.ontology_query import SemanticProblemFrame
 from pydantic import BaseModel, ValidationError
 
+from fdai.core.conversation.semantic_judgment import SemanticJudgmentObservation
 from fdai.core.conversation.semantic_planning_models import (
     QueryPlanProposal,
     SemanticFrameProposal,
+    SemanticPlanningModelResponse,
 )
 from fdai.delivery.azure.llm.completion_body import completion_body_params
-from fdai.delivery.azure.llm.model_trace import prepare_model_messages
+from fdai.delivery.azure.llm.model_trace import (
+    bounded_usage,
+    complete_model_trace,
+    prepare_model_messages,
+    start_model_trace,
+)
 from fdai.delivery.azure.llm.request_target import ModelRequestTarget
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -235,7 +242,7 @@ class AzureOpenAISemanticPlanningModel:
         prompt: str,
         proposal_type: type[BaseModel],
         operation: str,
-    ) -> dict[str, Any] | None:
+    ) -> Mapping[str, Any] | None:
         future = asyncio.run_coroutine_threadsafe(
             self._complete_async(
                 payload=payload,
@@ -262,7 +269,7 @@ class AzureOpenAISemanticPlanningModel:
         prompt: str,
         proposal_type: type[BaseModel],
         operation: str,
-    ) -> dict[str, Any] | None:
+    ) -> Mapping[str, Any] | None:
         user_content = json.dumps(
             {"untrusted_input": payload},
             allow_nan=False,
@@ -300,6 +307,7 @@ class AzureOpenAISemanticPlanningModel:
                     if request.model_body_field is not None:
                         body["model"] = request.model_body_field
                     for attempt in range(_MAX_ATTEMPTS_PER_CANDIDATE):
+                        trace_start = start_model_trace(body["messages"])
                         response = await self._http.post(
                             request.url,
                             params=request.params,
@@ -314,7 +322,26 @@ class AzureOpenAISemanticPlanningModel:
                             response.raise_for_status()
                         response.raise_for_status()
                         try:
-                            return _validated_content(response, proposal_type)
+                            proposal, response_content, usage = _validated_content(
+                                response,
+                                proposal_type,
+                            )
+                            trace_call = complete_model_trace(
+                                trace_start,
+                                call_id=f"semantic-planning-{operation}-{index + 1}",
+                                kind=f"semantic-planning-{operation}",
+                                model=target.deployment,
+                                response_content=response_content,
+                                usage=usage,
+                            )
+                            return SemanticPlanningModelResponse(
+                                proposal=proposal,
+                                observation=SemanticJudgmentObservation(
+                                    model=target.deployment,
+                                    usage=bounded_usage(usage),
+                                    trace_call=trace_call,
+                                ),
+                            )
                         except (ValidationError, ValueError) as exc:
                             if attempt + 1 >= _MAX_ATTEMPTS_PER_CANDIDATE:
                                 raise
@@ -398,7 +425,7 @@ def _bounded_input(
 def _validated_content(  # noqa: UP047 - pinned mypy does not parse PEP 695 functions
     response: httpx.Response,
     proposal_type: type[_ProposalT],
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], str, Mapping[str, Any] | None]:
     envelope = response.json()
     choices = envelope.get("choices") if isinstance(envelope, Mapping) else None
     if not isinstance(choices, list) or not choices:
@@ -411,7 +438,8 @@ def _validated_content(  # noqa: UP047 - pinned mypy does not parse PEP 695 func
     if proposal_type is SemanticFrameProposal and isinstance(payload, dict):
         payload = _normalize_frame_tokens(payload)
     proposal = proposal_type.model_validate(payload)
-    return proposal.model_dump(mode="json")
+    usage = envelope.get("usage") if isinstance(envelope.get("usage"), Mapping) else None
+    return proposal.model_dump(mode="json"), content, usage
 
 
 def _normalize_frame_tokens(payload: dict[str, Any]) -> dict[str, Any]:

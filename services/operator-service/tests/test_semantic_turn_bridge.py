@@ -58,6 +58,7 @@ from fdai_operator_service.postgres_family_store import (
 from fdai_operator_service.postgres_semantic_turn_store import (
     PostgresSemanticTurnRepository,
     SemanticTurnConflictError,
+    SemanticTurnRequestAbsentError,
     SemanticTurnStoreError,
     rule_search_projection_key,
 )
@@ -598,7 +599,7 @@ class _MemorySemanticStore:
             None,
         )
         if owner is None:
-            raise SemanticTurnConflictError("semantic result has no matching durable request")
+            raise SemanticTurnRequestAbsentError
         existing = self.results.get(projection_id)
         if existing is not None:
             return StoredSemanticResult(
@@ -3785,6 +3786,109 @@ async def test_result_consumer_quarantines_an_unmatched_projection_and_keeps_dra
     )
     assert not any(
         record.message == "semantic_projection_consumer_retrying" for record in caplog.records
+    )
+    await bridge.aclose()
+
+
+async def test_result_consumer_quarantines_a_permanent_projection_conflict_once(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A stable identity conflict must not churn the Kafka consumer through retry cycles."""
+    caplog.set_level(logging.INFO, logger=semantic_turn_runtime_module.__name__)
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    valid_projection = _projection(envelope)
+    conflicting_projection = {
+        **valid_projection,
+        "projection_id": "00000000-0000-0000-0000-0000000009f2",
+    }
+    consumed = asyncio.Event()
+
+    class ConflictStore(_MemorySemanticStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.conflict_attempts = 0
+
+        async def project_semantic_turn_result(
+            self,
+            *,
+            projection: Mapping[str, object],
+        ) -> StoredSemanticResult:
+            if projection["projection_id"] == conflicting_projection["projection_id"]:
+                self.conflict_attempts += 1
+                raise SemanticTurnConflictError(
+                    "projection id conflicts with a different semantic result",
+                    failure_type="projection_digest_conflict",
+                )
+            return await super().project_semantic_turn_result(projection=projection)
+
+    class ResultSource:
+        def subscribe(
+            self,
+            topic: str,
+            group_id: str,
+        ) -> AsyncIterator[Mapping[str, object]]:
+            del group_id
+
+            if topic != "core.semantic-turn.projections":
+
+                async def idle() -> AsyncIterator[Mapping[str, object]]:
+                    await asyncio.Event().wait()
+                    if False:
+                        yield {}
+
+                return idle()
+
+            async def events() -> AsyncIterator[Mapping[str, object]]:
+                yield conflicting_projection
+                yield valid_projection
+                consumed.set()
+                await asyncio.Event().wait()
+
+            return events()
+
+    class Publisher:
+        def __init__(self) -> None:
+            self.events: list[tuple[str, str, Mapping[str, object]]] = []
+
+        async def publish(
+            self,
+            topic: str,
+            key: str,
+            payload: Mapping[str, object],
+        ) -> object:
+            self.events.append((topic, key, payload))
+            return object()
+
+    store = ConflictStore()
+    await store.append_semantic_turn(
+        principal_id="operator-1",
+        idempotency_key="turn-retry-1",
+        request_digest="digest",
+        envelope=envelope,
+    )
+    publisher = Publisher()
+    bridge = SemanticTurnBridge(
+        store=store,
+        publisher=publisher,
+        result_source=ResultSource(),
+        retry_seconds=0.01,
+    )
+
+    await bridge.start()
+    await asyncio.wait_for(consumed.wait(), timeout=1)
+
+    assert store.conflict_attempts == 1
+    assert len(store.results) == 1
+    assert any(topic.endswith(".dlq") for topic, _key, _payload in publisher.events)
+    assert any(
+        record.message == "semantic_projection_conflict_quarantined"
+        and record.failure_type == "projection_digest_conflict"
+        for record in caplog.records
+    )
+    assert not any(
+        record.message == "semantic_projection_conflict_retrying" for record in caplog.records
     )
     await bridge.aclose()
 

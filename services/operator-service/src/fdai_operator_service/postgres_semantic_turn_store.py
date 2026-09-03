@@ -30,6 +30,20 @@ InsertIfAbsent = Callable[..., Awaitable[tuple[bool, dict[str, object]]]]
 class SemanticTurnConflictError(RuntimeError):
     """A semantic-turn identity is already bound to different durable content."""
 
+    def __init__(self, message: str, *, failure_type: str = "semantic_identity_conflict") -> None:
+        super().__init__(message)
+        self.failure_type = failure_type
+
+
+class SemanticTurnRequestAbsentError(SemanticTurnConflictError):
+    """A projection arrived before its owning durable semantic request was visible."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "semantic result has no matching durable request",
+            failure_type="durable_request_absent",
+        )
+
 
 class SemanticTurnStoreError(RuntimeError):
     """Durable semantic-turn state is unavailable or malformed."""
@@ -132,7 +146,8 @@ class PostgresSemanticTurnRepository:
             or stored.get("request_id") != request_id
         ):
             raise SemanticTurnConflictError(
-                "idempotency key conflicts with a different semantic turn"
+                "idempotency key conflicts with a different semantic turn",
+                failure_type="semantic_turn_idempotency_conflict",
             )
         return _stored_turn(key, stored, duplicate=not inserted)
 
@@ -327,16 +342,18 @@ class PostgresSemanticTurnRepository:
             ),
         )
         if not rows:
-            raise SemanticTurnConflictError("semantic result has no matching durable request")
+            raise SemanticTurnRequestAbsentError
         stored = _json_object(rows[0].get("value"), label=key)
         if stored.get("projection_digest") != projection_digest:
             raise SemanticTurnConflictError(
-                "projection id conflicts with a different semantic result"
+                "projection id conflicts with a different semantic result",
+                failure_type="projection_digest_conflict",
             )
         result = _stored_result(stored, duplicate=rows[0].get("inserted") is not True)
         if result.request_id != request_id or result.projection_id != projection_id:
             raise SemanticTurnConflictError(
-                "semantic result identity conflicts with the durable request"
+                "semantic result identity conflicts with the durable request",
+                failure_type="projection_identity_conflict",
             )
         return result
 
@@ -739,6 +756,7 @@ __all__ = [
     "PostgresSemanticTurnRepository",
     "SemanticTurnClaim",
     "SemanticTurnConflictError",
+    "SemanticTurnRequestAbsentError",
     "SemanticTurnStoreError",
     "StoredSemanticResult",
     "StoredSemanticTurn",

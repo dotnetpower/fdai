@@ -3157,6 +3157,12 @@ async def test_answered_turn_projects_measured_usage_and_opt_in_trace(
         "usage": {"prompt_tokens": 12, "completion_tokens": 3, "total_tokens": 15},
         "redactions": [],
     }
+    planning_trace_call = {
+        **trace_call,
+        "call_id": "planning-adapter-call",
+        "kind": "semantic-planning-frame",
+        "duration_ms": 17,
+    }
     runtime_result = _runtime_result(
         "answered",
         model_observations=(
@@ -3164,6 +3170,11 @@ async def test_answered_turn_projects_measured_usage_and_opt_in_trace(
                 model="semantic-test",
                 usage={"prompt_tokens": 12, "completion_tokens": 3, "total_tokens": 15},
                 trace_call=trace_call,
+            ),
+            SemanticJudgmentObservation(
+                model="semantic-test",
+                usage={"prompt_tokens": 8, "completion_tokens": 2, "total_tokens": 10},
+                trace_call=planning_trace_call,
             ),
         ),
     )
@@ -3176,8 +3187,8 @@ async def test_answered_turn_projects_measured_usage_and_opt_in_trace(
 
     assert projection["status"] == "answered"
     assert projection["payload"]["model"] == "semantic-test"
-    assert projection["payload"]["latency_ms"] == 25
-    assert projection["payload"]["usage"]["total_tokens"] == 15
+    assert projection["payload"]["latency_ms"] == 42
+    assert projection["payload"]["usage"]["total_tokens"] == 25
     timing = projection["payload"]["turn_timing"]
     assert timing["duration_ms"] == sum(phase["duration_ms"] for phase in timing["phases"])
     assert [phase["phase"] for phase in timing["phases"]] == [
@@ -3186,9 +3197,10 @@ async def test_answered_turn_projects_measured_usage_and_opt_in_trace(
         "generation",
     ]
     if include_model_trace:
-        assert projection["payload"]["model_trace"]["calls"][0]["call_id"] == (
-            "semantic-judgment-1"
-        )
+        assert [call["call_id"] for call in projection["payload"]["model_trace"]["calls"]] == [
+            "semantic-judgment-1",
+            "semantic-planning-frame-2",
+        ]
     else:
         assert "model_trace" not in projection["payload"]
     assert projection["semantic_result"]["checks_completed"] == 1
@@ -3323,6 +3335,27 @@ async def test_duplicate_returns_exact_prior_projection_without_reexecution() ->
 
     assert second == first
     assert runtime.calls == 1
+
+
+async def test_recomputed_projection_identity_covers_complete_event_content() -> None:
+    request = _request()
+    first = _projection(
+        await _processor(
+            _Runtime(_runtime_result("answered")),
+            now=lambda: NOW,
+        ).process(request)
+    )
+    second = _projection(
+        await _processor(
+            _Runtime(_runtime_result("answered")),
+            now=lambda: NOW + timedelta(seconds=1),
+        ).process(request)
+    )
+
+    assert first["semantic_result"] == second["semantic_result"]
+    assert first["evidence_digest"] == second["evidence_digest"]
+    assert first["recorded_at"] != second["recorded_at"]
+    assert first["projection_id"] != second["projection_id"]
 
 
 async def test_concurrent_duplicate_executes_runtime_once() -> None:

@@ -1,5 +1,5 @@
 schema_version: "1.0.0"
-catalog_version: "1.0.0"
+catalog_version: "1.1.0"
 
 sources:
   golden_questions: eval/golden-dataset/questions.source.yaml
@@ -49,27 +49,31 @@ manual_domain_ranges:
     domain: reliability_policy_automation
 
 console_questions:
-  - key: routes
-    domain: reliability_policy_automation
-    intent: console.route_discovery
-  - key: failed
+  - id: starter.tiermix
+    catalog: starterSuggestions
+    key: tierMix
     domain: state_incident_detection
-    intent: console.failed_actions
-  - key: approval
-    domain: reliability_policy_automation
-    intent: console.pending_approval
-  - key: denied
-    domain: reliability_policy_automation
-    intent: console.denied_actions
-  - key: stuck
+    intent: query.resource_state_inventory
+  - id: starter.screen
+    catalog: starterSuggestions
+    key: screen
     domain: state_incident_detection
-    intent: console.stuck_actions
-  - key: screen
+    intent: query.subscription_service_health
+  - id: vertical.resilience
+    catalog: verticalQuickStarts
+    key: resiliencePrompt
     domain: state_incident_detection
-    intent: console.current_screen
-  - key: tierMix
-    domain: reliability_policy_automation
-    intent: console.tier_mix
+    intent: query.resource_state_inventory
+  - id: vertical.change-safety
+    catalog: verticalQuickStarts
+    key: changeSafetyPrompt
+    domain: change_deployment_impact
+    intent: query.resource_health_inventory
+  - id: vertical.cost-governance
+    catalog: verticalQuickStarts
+    key: costGovernancePrompt
+    domain: cost_finops
+    intent: query.resource_state_inventory
 
 candidate_defaults:
   readiness:
