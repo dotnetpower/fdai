@@ -107,6 +107,7 @@ from fdai.shared.providers.catalog_search import (
 from fdai.shared.providers.ontology_instance import OntologyLinkRecord, OntologyObjectRecord
 from fdai.shared.providers.state_evidence import (
     LINK_OBSERVATION_METADATA_PROPERTY,
+    STATE_FACT_METADATA_PROPERTY,
     LinkObservationMetadata,
     StateFactAuthority,
     StateFactLane,
@@ -267,6 +268,22 @@ class _ResourceClassClosureModel(_Model):
         }
 
 
+class _ResourceStateCollectionModel(_Model):
+    def propose_frame(self, **_kwargs: Any) -> dict[str, object]:
+        return {
+            "operation": "select",
+            "subject_constraints": ["Resource"],
+            "measure_concepts": ["resource_state.deallocated", "resource_state.stopped"],
+            "temporal_scope": {},
+            "output_shape": "resource_state_list",
+            "evidence_requirements": ["authoritative_inventory"],
+            "unresolved_terms": [],
+            "clarification": None,
+            "investigation": None,
+            "confidence": 0.99,
+        }
+
+
 def _object_type() -> OntologyObjectType:
     return OntologyObjectType(
         schema_version="1.0.0",
@@ -357,6 +374,77 @@ async def test_runtime_binds_exact_request_role_and_returns_evidence() -> None:
     assert reader_result.intent_graph_evidence is not None
     evidence_refs = reader_result.intent_graph_evidence["goals"][0]["evidence_refs"]
     assert any(item.startswith("ontology-object-set:") for item in evidence_refs)
+
+
+async def test_runtime_answers_resource_state_collection_without_decision_admission() -> None:
+    object_type = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Resource",
+        version="1.0.0",
+        key="id",
+        properties={
+            "id": PropertyDecl(type=PropertyType.STRING, required=True),
+            "name": PropertyDecl(type=PropertyType.STRING, required=True),
+            "type": PropertyDecl(type=PropertyType.STRING, required=True),
+            "properties": PropertyDecl(type=PropertyType.OBJECT, required=True),
+        },
+    )
+    store = InMemoryOntologyInstanceStore(object_types=(object_type,), link_types=())
+    observed_at = NOW - timedelta(minutes=1)
+    metadata = StateFactMetadata(
+        lane=StateFactLane.OBSERVED,
+        authority=StateFactAuthority.PROVIDER,
+        source_identity="inventory-provider",
+        source_revision="snapshot-1",
+        effective_at=observed_at,
+        evidence_cutoff=observed_at,
+        recorded_at=observed_at,
+        freshness_ceiling_seconds=3600,
+        completeness=1.0,
+        synthetic=False,
+        evidence_refs=("inventory:state",),
+    )
+    for resource_id, state in (("database-a", "PowerState/stopped"), ("database-b", "Running")):
+        await store.upsert_object(
+            OntologyObjectRecord(
+                id=resource_id,
+                object_type="Resource",
+                properties={
+                    "id": resource_id,
+                    "name": resource_id,
+                    "type": "postgresql-server",
+                    "properties": {
+                        "state": state,
+                        STATE_FACT_METADATA_PROPERTY: metadata.to_mapping(),
+                    },
+                },
+            )
+        )
+    runtime = build_semantic_query_runtime(
+        model=_ResourceStateCollectionModel(_definition()),
+        ontology_release=build_ontology_release(
+            object_types=(object_type,),
+            function_types=operational_function_types(()),
+        ),
+        ontology_catalog=_catalog(object_type),
+        ontology_store=store,
+        now=lambda: NOW,
+    )
+
+    result = await runtime.handle(
+        utterance="Show resources that are currently not running.",
+        prior_turns=(),
+        principal=Principal(id="reader", role=Role.READER),
+    )
+
+    assert result.disposition == "answered"
+    assert result.execution is not None
+    assert result.execution.receipts[-1].status is TaskStatus.COMPLETED
+    table = result.execution.results["resource-state-filter"].value
+    assert isinstance(table, QueryTable)
+    assert table.complete is True
+    assert [row.values["name"] for row in table.rows] == ["database-a"]
+    assert table.rows[0].values["state_concept"] == "resource_state.stopped"
 
 
 async def test_runtime_exposes_actual_function_binding_authorities() -> None:

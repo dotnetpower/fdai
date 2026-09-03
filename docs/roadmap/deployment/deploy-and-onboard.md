@@ -130,8 +130,8 @@ If a later identity or health check fails after the immutable claim, verificatio
 that claim, skips Terraform apply, and reruns convergence and post-apply checks. Console hostname
 recovery uses the exact Static Web App id from Terraform state, never an arbitrary resource search.
 Protected Console publication updates only the combined Console and Manual Studio static artifact.
-Catalog image promotion, schema migration, and PostgreSQL projection refresh use separate
-deployment operations and do not block a static-content release.
+The bot-owned catalog refresh is a separate protected operation that promotes the exact Core image,
+runs schema migrations, and verifies PostgreSQL projections without blocking static publication.
 Health acceptance always requires the core Container App's latest revision to be `Provisioned`
 and `Healthy` before an apply receipt can be recorded. Selected Operator API and ingestion
 revisions must also be healthy, and their shared ingress `/healthz` responses must return the

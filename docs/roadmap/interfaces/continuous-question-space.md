@@ -24,7 +24,8 @@ The universe is the denominator. A model can propose wording only. Core still re
 the semantic plan against the exact release, manifest, role, purpose, bounds, and registered
 handlers before any read.
 Deterministic pre-frame selection keeps function summaries, ontology traces, and service ownership
-frames as distinct typed candidates before selecting one read-only frame.
+frames as distinct typed candidates before selecting one read-only frame. The cascade keeps stable
+compatibility imports for deterministic fallback helpers.
 Durable semantic execution claims are lease-bound. A waiting duplicate can recover an expired claim
 instead of remaining blocked behind a failed worker until the request deadline. Store failure keeps
 the turn held rather than raising an untyped transport error.

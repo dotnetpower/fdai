@@ -52,7 +52,7 @@ coalesced probe task.
 ## Interactive semantic-planning latency
 
 Interactive questions still cross the schema-validated semantic judgment boundary before Core
-selects a capability. When that boundary returns a high-confidence, unambiguous read intent for a
+selects a capability. When that boundary accepts an unambiguous read intent for a
 bound Resource state, Resource Health, or Service Health function, Core builds the typed frame
 deterministically and skips the second frame-model call. The exact function must exist in the
 principal-scoped manifest, and the normal verifier, evidence execution, and answer checks still run.

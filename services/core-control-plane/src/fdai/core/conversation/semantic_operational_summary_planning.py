@@ -18,8 +18,6 @@ from .semantic_planning_models import SemanticFrameProposal, SemanticOutputShape
 from .semantic_resource_state_planning import normalize_resource_state_proposal
 from .semantic_service_health_planning import normalize_service_health_event_types
 
-_MIN_FAST_PATH_CONFIDENCE = 0.85
-
 
 def build_function_backed_summary_frame(
     judgment: SemanticJudgmentProposal | None,
@@ -36,7 +34,6 @@ def build_function_backed_summary_frame(
         or judgment.ambiguous
         or judgment.action_posture != "advise_only"
         or judgment.execution_authority
-        or judgment.confidence < _MIN_FAST_PATH_CONFIDENCE
     ):
         return None
     available_functions = {

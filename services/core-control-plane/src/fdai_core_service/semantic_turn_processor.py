@@ -3106,7 +3106,11 @@ def _render_general_query_answer(
     )
     if impact_answer is not None:
         return impact_answer
-    empty_answer = _render_generic_empty_query_answer(outputs, korean=korean)
+    empty_answer = _render_generic_empty_query_answer(
+        outputs,
+        korean=korean,
+        output_shape=output_shape,
+    )
     if empty_answer is not None:
         return empty_answer
     lines = ["## 검증된 결과" if korean else "## Verified result", ""]
@@ -3477,6 +3481,7 @@ def _render_generic_empty_query_answer(
     outputs: list[dict[str, object]],
     *,
     korean: bool,
+    output_shape: str | None,
 ) -> str | None:
     """Render zero-row tables without presenting an empty result as positive verification."""
 
@@ -3504,15 +3509,33 @@ def _render_generic_empty_query_answer(
         )
     )
     if korean:
-        lines = [
-            "## 일치하는 관측 근거 없음" if complete else "## 근거가 충분하지 않음",
-            "",
-            (
-                "- 검증된 조회 범위에서 일치하는 행이 반환되지 않았습니다."
-                if complete
-                else "- 반환된 행은 없지만 원본 근거가 완전하지 않아 부재를 판단할 수 없습니다."
-            ),
-        ]
+        if output_shape == "resource_state_list":
+            lines = [
+                (
+                    "## 실행 중이 아닌 리소스 없음"
+                    if complete
+                    else "## 확인 범위에서 실행 중이 아닌 리소스 없음"
+                ),
+                "",
+                (
+                    "- 검증된 전체 조회 범위에서 실행 중이 아닌 리소스가 없습니다."
+                    if complete
+                    else (
+                        "- 현재 확인 가능한 범위에서는 실행 중이 아닌 리소스를 찾지 못했습니다. "
+                        "인벤토리 범위가 완전하지 않아 전체에 없다고 단정할 수 없습니다."
+                    )
+                ),
+            ]
+        else:
+            lines = [
+                "## 일치하는 관측 근거 없음" if complete else "## 근거가 충분하지 않음",
+                "",
+                (
+                    "- 검증된 조회 범위에서 일치하는 행이 반환되지 않았습니다."
+                    if complete
+                    else "- 반환된 행은 없지만 원본 근거가 완전하지 않아 부재를 판단할 수 없습니다."
+                ),
+            ]
         if limitations:
             lines.append(f"- 근거 한계: `{', '.join(limitations)}`")
         lines.extend(
@@ -3523,15 +3546,32 @@ def _render_generic_empty_query_answer(
             ]
         )
         return "\n".join(lines)
-    lines = [
-        "## No matching observed evidence" if complete else "## Evidence is insufficient",
-        "",
-        (
-            "- The verified query scope returned no matching rows."
-            if complete
-            else "- No rows were returned, but incomplete source evidence cannot establish absence."
-        ),
-    ]
+    if output_shape == "resource_state_list":
+        lines = [
+            "## No non-running resources" if complete else "## No non-running resources in scope",
+            "",
+            (
+                "- The complete verified scope contains no non-running resources."
+                if complete
+                else (
+                    "- No non-running resources were found in the currently verified scope. "
+                    "The inventory scope is incomplete, so this does not establish global absence."
+                )
+            ),
+        ]
+    else:
+        lines = [
+            "## No matching observed evidence" if complete else "## Evidence is insufficient",
+            "",
+            (
+                "- The verified query scope returned no matching rows."
+                if complete
+                else (
+                    "- No rows were returned, but incomplete source evidence cannot establish "
+                    "absence."
+                )
+            ),
+        ]
     if limitations:
         lines.append(f"- Evidence limitation: `{', '.join(limitations)}`")
     lines.extend(
