@@ -9,6 +9,7 @@ _REQUEST = (_ROOT / ".github/workflows/request-catalog-refresh.yml").read_text(e
 
 def test_catalog_refresh_is_exact_approved_and_postgresql_verified() -> None:
     assert "Verify protected workflow source" in _REFRESH
+    assert "astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990" in _REFRESH
     assert _REFRESH.index("Install pinned GitHub CLI") < _REFRESH.index("Verify required CI")
     assert "Verify required CI" in _REFRESH
     assert "Verify protected environment approval policy" in _REFRESH
