@@ -247,6 +247,9 @@ def test_console_release_publishes_static_content_without_catalog_mutation() -> 
     assert "- name: Publish and verify Console static content" in _CONSOLE_PUBLISH_WORKFLOW
     assert "CONSOLE_STATIC_WEB_APP_ID" in _CONSOLE_PUBLISH_WORKFLOW
     assert "CONSOLE_DEFAULT_HOSTNAME" in _CONSOLE_PUBLISH_WORKFLOW
+    assert 'hostname="${hostname:-${CONSOLE_DEFAULT_HOSTNAME:-}}"' in (
+        _ROOT / "scripts/deployment/azure/publish-console.sh"
+    ).read_text(encoding="utf-8")
     assert "- name: Bind exact Core catalog image" not in _CONSOLE_PUBLISH_WORKFLOW
     assert (
         "- name: Refresh and verify authoritative PostgreSQL catalogs"
@@ -257,7 +260,7 @@ def test_console_release_publishes_static_content_without_catalog_mutation() -> 
     assert '--image "$previous_image"' in _CATALOG_REFRESH
     assert "api-version=2024-03-01" in _CATALOG_REFRESH
     assert 'az rest --method get --uri "$job_uri"' in _CATALOG_REFRESH
-    assert '["properties"]["template"]["containers"][0]["image"]' in _CATALOG_REFRESH
+    assert 'p=p.get("properties", p)' in _CATALOG_REFRESH
     assert "verify-authoritative-catalogs.py" in _CATALOG_REFRESH
 
 
@@ -425,8 +428,8 @@ def test_operator_catalog_materialization_runs_after_schema_migration() -> None:
 def test_console_publish_binds_auth_and_verifies_exact_static_artifact() -> None:
     assert "scripts/deployment/azure/publish-console.sh infra" in _LEGACY_WORKFLOW
     assert "ENTRA_CONSOLE_API_SCOPE" in _LEGACY_WORKFLOW
-    assert 'hostname="${CONSOLE_DEFAULT_HOSTNAME:-}"' in _CONSOLE_PUBLISHER
-    assert 'resource_id="${CONSOLE_STATIC_WEB_APP_ID:-}"' in _CONSOLE_PUBLISHER
+    assert 'hostname="${hostname:-${CONSOLE_DEFAULT_HOSTNAME:-}}"' in _CONSOLE_PUBLISHER
+    assert 'resource_id="${resource_id:-${CONSOLE_STATIC_WEB_APP_ID:-}}"' in _CONSOLE_PUBLISHER
     assert "console Static Web App belongs to a different subscription" in _CONSOLE_PUBLISHER
     assert "console Static Web App hostname does not match its resource id" in _CONSOLE_PUBLISHER
     assert 'npm --prefix "$repo_root/console" run build' in _CONSOLE_PUBLISHER
