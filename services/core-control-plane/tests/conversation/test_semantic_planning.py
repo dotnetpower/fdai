@@ -1081,7 +1081,7 @@ def _summary_judgment(
         secondary_intents=secondary_intents,
         targets=(),
         requested_facets=(),
-        confidence=0.96,
+        confidence=0.76,
         ambiguous=False,
         alternatives=(),
         unresolved_terms=(),
@@ -1197,6 +1197,47 @@ def test_function_backed_starter_skips_frame_model(
     assert model.plan_calls == 0
     if output_shape == "subscription_service_health":
         assert outcome.plan.nodes[0].arguments["arguments"] == {"event_types": ["health_advisory"]}
+
+
+def test_function_backed_starter_checks_the_complete_principal_manifest() -> None:
+    manifest, _definition = _typed_fixture(
+        groups=(),
+        include_resource_state=True,
+    )
+    model = _Model(frame=_frame(), plan=None)
+
+    class ObjectOnlySelector:
+        def select(self, **kwargs: Any) -> tuple[dict[str, Any], ...]:
+            return tuple(
+                descriptor
+                for descriptor in kwargs["manifest"].descriptors
+                if descriptor.get("kind") == "object"
+            )
+
+    service = SemanticPlanningService(
+        model=model,
+        manifests=_ManifestProvider(manifest),
+        verifier=OntologyQueryPlanVerifier(
+            available_kinds=(QueryNodeKind.OBJECT_SET, QueryNodeKind.FUNCTION)
+        ),
+        descriptor_selector=ObjectOnlySelector(),
+        semantic_judgment=_JudgmentBoundary(_summary_judgment(RESOURCE_STATE_FUNCTION_NAME)),
+        inventory_query_language=_inventory_query_language(),
+        now=lambda: NOW,
+    )
+
+    outcome = service.plan(
+        utterance="현재 실행 중이 아닌 리소스를 보여줘.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[-1].arguments["function_name"] == RESOURCE_STATE_FUNCTION_NAME
+    assert model.frame_calls == 0
+    assert model.plan_calls == 0
 
 
 def _state_inspection_query_language() -> InventoryQueryLanguageRegistry:

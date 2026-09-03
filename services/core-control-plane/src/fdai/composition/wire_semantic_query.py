@@ -724,6 +724,7 @@ def build_semantic_query_runtime(
                         purposes=(purpose,),
                     ),
                     receipt_authority=receipt_authority,
+                    allow_presentation_read_dependencies=True,
                 ),
                 **handlers,
             }

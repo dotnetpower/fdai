@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: d2fb3b4a536c796177448a4a587549f9e3ce0f7d
+translation_source_sha: 07957a8e4e5a7cd6bbe105234d644e9f229b6fde
 translation_revised: 2026-09-03
 ---
 # 코드 맵
@@ -387,11 +387,14 @@ Shared SDK는 Core/Operator 경계에서 사용하는 no-authority ontology-quer
 
 대화형 대화 계획은 기능을 선택하기 전에 스키마로 검증된 의미 판단을 한 번 사용합니다. 이 판단이
 principal 범위 매니페스트에 있는 컬렉션 범위 Resource 상태, Resource Health 또는 Service Health
-함수를 높은 신뢰도로 식별하면 Core는 두 번째 프레임 모델 요청을 보내지 않고 프레임을 결정론적으로
+함수를 모호하지 않은 의미로 수락하면 Core는 두 번째 프레임 모델 요청을 보내지 않고 프레임을 결정론적으로
 만들고 검증합니다. Operator bridge는 변환 결과를 수락하기 전에 계속 요청을 영속화합니다. 요청 누락은
 범위가 제한된 가시성 경합으로 재시도할 수 있지만 영구적인 변환 결과 신원 충돌은 consumer group을
 반복해서 재조정하지 않고 한 번 격리합니다. 모델 시간에는 완료된 의미 판단, 프레임, 계획 호출을 모두
 포함하며 전체 턴 시간은 더 넓은 지연 시간 권위로 유지합니다.
+함수 의존성은 결정 권한과 표현 권한을 분리합니다. 결정에 사용하려면 독립적인 근거 승인이 필요하며,
+`Bragi`의 `operations-review` 읽기는 역할, 목적, release, 증적 및 구체화가 일치하는 정확한
+프로세스 발급 ObjectSet만 재사용할 수 있습니다.
 또한 Core에서 Operator 화면으로 범위가 제한된 인벤토리 검사, 온톨로지 변환 및 현재 상태 읽기 근거를
 전달하는 버전이 지정된 no-authority 운영 활동 기록을 소유합니다. 이 기록은 논리적 에이전트 소유권과
 생산 프로세스를 분리하고 `execution_authority=false`를 고정합니다.

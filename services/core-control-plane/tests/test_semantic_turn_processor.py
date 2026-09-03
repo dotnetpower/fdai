@@ -203,6 +203,32 @@ def test_generic_empty_answer_does_not_claim_zero_row_verification(
         assert "`source_incomplete`" in answer
     else:
         assert "근거 한계:" not in answer
+
+
+def test_resource_state_empty_answer_leads_with_the_requested_result() -> None:
+    request = _request(locale="ko")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [
+            {
+                "node_id": "resource-state-filter",
+                "rows": [],
+                "returned_rows": 0,
+                "total_rows": 0,
+                "source_complete": False,
+                "source_truncation_reason": "resource_scope_incomplete",
+                "display_truncated": False,
+            }
+        ],
+        output_shape="resource_state_list",
+    )
+
+    assert answer.startswith("## 확인 범위에서 실행 중이 아닌 리소스 없음")
+    assert "현재 확인 가능한 범위에서는 실행 중이 아닌 리소스를 찾지 못했습니다." in answer
+    assert "전체에 없다고 단정할 수 없습니다." in answer
+    assert "`resource_scope_incomplete`" in answer
     assert "`execution_authority=false`" in answer
 
 

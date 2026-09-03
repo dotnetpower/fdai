@@ -1,7 +1,7 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: 6f287c689be74bb4f56c50c98205fb1a755c72ce
+translation_source_sha: f2984c57711a2536d09adb1e45ae4ec76372a81d
 translation_revised: 2026-09-03
 ---
 # 서술기 라우팅과 지연 시간
@@ -53,8 +53,8 @@ task를 취소합니다.
 ## 대화형 의미 계획 지연 시간
 
 대화형 질문은 Core가 기능을 선택하기 전에 스키마로 검증되는 의미 판단 경계를 통과합니다. 이 경계가
-바인딩된 Resource 상태, Resource Health 또는 Service Health 함수에 대해 신뢰도가 높고 모호하지 않은
-읽기 intent를 반환하면 Core는 타입 기반 프레임을 결정론적으로 만들고 두 번째 프레임 모델 호출을
+바인딩된 Resource 상태, Resource Health 또는 Service Health 함수에 대해 모호하지 않은 읽기
+intent를 반환하면 Core는 타입 기반 프레임을 결정론적으로 만들고 두 번째 프레임 모델 호출을
 생략합니다. 정확한 함수가 principal 범위 매니페스트에 있어야 하며, 일반 검증기, 근거 실행, 답변 검사는
 그대로 수행합니다. 새롭거나 모호하거나 작업과 관련됐거나 바인딩되지 않은 질문은 일반 프레임 계획
 경로를 유지합니다.

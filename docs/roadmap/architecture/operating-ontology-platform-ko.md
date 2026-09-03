@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: fa730bf1099ddfc3cec8d1b44abf4ae529423357
-translation_revised: 2026-09-02
+translation_source_sha: 22b0ed08d14b6fbed25ff021bf620bc82ad67236
+translation_revised: 2026-09-03
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -58,6 +58,12 @@ objective, Rule, 정책 구현 및 필수 근거 signature를 검증합니다. �
 catalog-as-code가 계속 권위 원천이고 인스턴스 그래프는 읽기 모델로 유지됩니다. 선택적 로컬
 프로파일에서 OPA 또는 온톨로지 저장소를 사용할 수 없으면 synthetic 상태로 대체하지 않고 변환 결과를
 사용 불가로 유지합니다. 배포 프로파일은 T0 평가를 위해 계속 OPA를 요구합니다.
+
+발급된 보안 ObjectSet 증적은 서로 다른 두 가지 후속 용도로 사용합니다. 결정, 승격 및 효과 경로는
+현재 상태의 독립적으로 검증된 결정 근거 승인을 계속 요구합니다. 반면 `Bragi`의
+`operations-review` 조회 함수는 역할, 목적, release, 증적 및 구체화 범위가 모두 일치할 때
+프로세스가 발급한 정확한 결과를 읽기 전용 표현에 재사용할 수 있습니다. 이 경로는 실행 또는 승격
+권한을 부여할 수 없으며 다른 에이전트나 목적에서 선택할 수 없습니다.
 
 독립적으로 예약되는 인벤토리 프로세스는 분류 링크를 만들기 전에 매핑된 각 ResourceType 대상을
 현재 인스턴스 그래프에서 확인합니다. 카탈로그를 순차적으로 시작하는 동안 대상이 없으면 안정적인

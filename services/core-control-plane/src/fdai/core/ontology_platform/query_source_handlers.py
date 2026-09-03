@@ -522,10 +522,12 @@ class FunctionNodeHandler:
         *,
         context: FunctionInvocationContext,
         receipt_authority: SecuredQueryReceiptAuthority | None = None,
+        allow_presentation_read_dependencies: bool = False,
     ) -> None:
         self._registry = registry
         self._context = context
         self._receipt_authority = receipt_authority
+        self._allow_presentation_read_dependencies = allow_presentation_read_dependencies
 
     async def __call__(
         self,
@@ -555,7 +557,20 @@ class FunctionNodeHandler:
                 raise ValueError("function dependency argument collides with static argument")
             dependency = dependencies[dependency_id]
             if argument_name.endswith("query_result") and self._receipt_authority is not None:
-                secured = self._receipt_authority.resolve(dependency.evidence_refs)
+                if (
+                    self._allow_presentation_read_dependencies
+                    and declaration.kind is OntologyFunctionKind.QUERY
+                    and self._context.caller_agent == "Bragi"
+                    and self._context.purposes == ("operations-review",)
+                ):
+                    secured = self._receipt_authority.resolve_presentation_read(
+                        dependency.evidence_refs,
+                        invocation_context=self._context,
+                        expected_release=self._registry.release_ref,
+                        expected_purpose="operations-review",
+                    )
+                else:
+                    secured = self._receipt_authority.resolve(dependency.evidence_refs)
                 arguments[argument_name] = secured.model_dump(mode="json")
                 secured_digests.append(secured.receipt.projected_result_digest)
             else:

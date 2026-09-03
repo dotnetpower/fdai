@@ -6,7 +6,10 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 from fdai.core.ontology_platform.functions import FunctionInvocationContext
-from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryResult
+from fdai.core.ontology_platform.query_gateway import (
+    SecuredObjectSetQueryResult,
+    _projected_result_digest,
+)
 from fdai.core.ontology_platform.query_receipt_authority import (
     SecuredQueryReceiptAuthority,
     secured_query_scope_digest,
@@ -175,3 +178,67 @@ def test_unverified_mismatched_or_expired_admission_fails_closed() -> None:
             assert "verified decision evidence" in str(exc)
         else:  # pragma: no cover - explicit fail-closed assertion
             raise AssertionError("unverified query result resolved")
+
+
+def test_presentation_read_accepts_only_exact_bragi_operations_scope() -> None:
+    original = _secured_result(objects=(_resource("resource-a", "network.nic"),), links=())
+    definition = original.materialization.definition.model_copy(
+        update={"purpose": "operations-review"}
+    )
+    materialization = original.materialization.model_copy(update={"definition": definition})
+    result = original.model_copy(
+        update={
+            "materialization": materialization,
+            "receipt": original.receipt.model_copy(
+                update={
+                    "purpose": "operations-review",
+                    "projected_result_digest": _projected_result_digest(materialization),
+                }
+            ),
+        }
+    )
+    digest = result.receipt.projected_result_digest
+    authority = _authority()
+    authority.issue(result)
+
+    resolved = authority.resolve_presentation_read(
+        (f"ontology-object-set:{digest}",),
+        invocation_context=FunctionInvocationContext(
+            caller_agent="Bragi",
+            caller_role=result.receipt.caller_role,
+            purposes=("operations-review",),
+        ),
+        expected_release=result.receipt.ontology_release,
+        expected_purpose="operations-review",
+    )
+
+    assert resolved == result
+    for context, purpose in (
+        (
+            FunctionInvocationContext(
+                caller_agent="Thor",
+                caller_role=result.receipt.caller_role,
+                purposes=("operations-review",),
+            ),
+            "operations-review",
+        ),
+        (
+            FunctionInvocationContext(
+                caller_agent="Bragi",
+                caller_role=result.receipt.caller_role,
+                purposes=("scenario-review",),
+            ),
+            "scenario-review",
+        ),
+    ):
+        try:
+            authority.resolve_presentation_read(
+                (f"ontology-object-set:{digest}",),
+                invocation_context=context,
+                expected_release=result.receipt.ontology_release,
+                expected_purpose=purpose,
+            )
+        except PermissionError as exc:
+            assert "presentation read dependency scope does not match" in str(exc)
+        else:  # pragma: no cover - explicit fail-closed assertion
+            raise AssertionError("mismatched presentation read scope resolved")

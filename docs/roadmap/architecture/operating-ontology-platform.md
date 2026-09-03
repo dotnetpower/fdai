@@ -55,6 +55,13 @@ catalog-as-code remains authoritative, and the instance graph remains a read mod
 ontology store is unavailable in an optional local profile, projection remains unavailable rather
 than substituting synthetic state. Deployed profiles continue to require OPA for T0 evaluation.
 
+An issued secured ObjectSet receipt has two distinct downstream uses. Decision, promotion, and
+effect paths still require a current independently verified decision-evidence admission. A
+`Bragi` `operations-review` query function can instead reuse the exact process-issued result for
+read-only presentation after role, purpose, release, receipt, and materialization scope match. This
+path cannot grant execution or promotion authority and cannot be selected by another agent or
+purpose.
+
 The independently scheduled inventory process checks each mapped ResourceType target against the
 current instance graph before it builds classification links. A target absent during rolling
 catalog startup becomes the stable non-blocking drop `unseeded_resource_type`; the authoritative

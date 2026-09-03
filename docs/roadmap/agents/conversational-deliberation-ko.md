@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 6afdc9c87fbdffa29b325bd5b2e532265d8f2257
+translation_source_sha: eceba07cfa0229a35549f618059f91764a3a8dd4
 translation_revised: 2026-09-03
 ---
 # 판테온 대화형 숙의
@@ -157,6 +157,9 @@ Charter는 에이전트에게 "allowed 도구를 통해" 답하라고 지시하�
 함수 intent를 선택합니다. 두 Resource 상태 계열을 모두 요청한 질문은 정확한 Resource 하나를
 명확히 하도록 요구하지 않고 두 intent를 모두 보존합니다. 그러면 Core는 근거 실행과 답변 검증을
 그대로 유지하면서 수락된 타입 기반 intent를 결정론적으로 검증된 프레임으로 재사용할 수 있습니다.
+정확한 컬렉션 함수가 바인딩되고 제안된 유일한 모호성이 누락된 `resource_identity`이면 의미 판단
+경계가 이 모순된 모호성을 제거합니다. 낮은 신뢰도, 후보 대안 및 다른 모든 미해결 항목은 계속
+명확화 또는 보류 결과로 남습니다.
 
 T1 모델은 입력 크기, 시간 초과, strict 출력 스키마로 제한됩니다. 사용할 수 없음, malformed,
 ambiguous, low-confidence 제안은 설정된 T2 binding으로 한 번 재시도할 수 있습니다. 두 계층
@@ -453,7 +456,7 @@ charter가 같은 participant에 귀속되도록 유지합니다.
 |------|------|------|------|
 | 변경할 수 없는 charter와 상황별 프롬프트 조립 | implemented | `services/core-control-plane/src/fdai/agents/_framework/charters.py`, `services/core-control-plane/src/fdai/agents/_framework/conversation_prompt.py` 및 집중 프롬프트 조립 테스트 | 서버가 소유하는 기준선, 선택 계층, 프롬프트 다이제스트 및 신뢰할 수 없는 맥락 경계가 결정론적이며 집중 검사로 검증됩니다. |
 | 범위가 제한된 T1 숙의와 권한 격리 | implemented | `services/core-control-plane/src/fdai/agents/_framework/deliberation.py`, `services/core-control-plane/src/fdai/agents/_framework/deliberation_evaluation.py`, `services/core-control-plane/src/fdai/agents/bragi.py`, `services/core-control-plane/src/fdai/agents/_framework/runtime.py` 및 `services/core-control-plane/tests/agents/test_prompt_deliberation.py` | 입장과 비평 라운드는 읽기 전용으로 유지되고, 작업 의도를 차단하며, 범위가 제한된 high-signal fact를 평가하고, 표현 전용 결과를 반환합니다. |
-| 함수 기반 컬렉션 판단 | implemented | `semantic-judgment.v7.yaml`, `semantic_operational_summary_planning.py`, 집중 의미 계획 및 프롬프트 레지스트리 검사 | 신뢰도가 높은 컬렉션 범위 Resource 상태, Resource Health, Service Health intent는 principal 범위의 정확한 함수가 바인딩된 경우에만 중복 프레임 모델 호출을 생략할 수 있습니다. |
+| 함수 기반 컬렉션 판단 | implemented | `semantic-judgment.v7.yaml`, `semantic_operational_summary_planning.py`, 집중 의미 계획 및 프롬프트 레지스트리 검사 | 수락되고 모호하지 않은 컬렉션 범위 Resource 상태, Resource Health, Service Health intent는 principal 범위의 정확한 함수가 바인딩된 경우에만 중복 프레임 모델 호출을 생략할 수 있습니다. |
 | 선택적 T2 계약과 보호된 조립 주입 지점 | implemented | `T2ConversationSynthesizer`, `LlmBindings`, 런타임 부트스트랩 연결 및 집중 숙의와 조립 바인딩 테스트 | T2 요청은 참여자 신원, 프롬프트 출처, 제한된 출력, 예산 예약, 가격 및 계측 필수 조건을 적용합니다. |
 | 프로덕션 호출과 통제된 런타임 검증 | in-progress | `services/core-control-plane/src/fdai/runtime/bootstrap.py`는 선택적 바인딩을 `PantheonRuntime`에 전달하지만, 구체적인 업스트림 종합기, Operator API 경로, 콘솔 경로 또는 통제된 런타임 증적은 없습니다. | 테스트된 코어는 T1과 주입된 T2 구현을 실행할 수 있습니다. 저장소 근거만으로는 배포된 T2 호출, 실제 비용 청구 또는 운영자 대상 호출을 입증할 수 없습니다. |
 

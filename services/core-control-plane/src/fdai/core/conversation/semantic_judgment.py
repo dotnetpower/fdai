@@ -86,6 +86,13 @@ class SemanticJudgmentModel(Protocol):
 
 SemanticJudgmentObservation = ConversationModelObservation
 SemanticJudgmentModelResponse = ConversationModelResponse
+_COLLECTION_FUNCTION_INTENTS = frozenset(
+    {
+        "query.resource_health_inventory",
+        "query.resource_state_inventory",
+        "query.subscription_service_health",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -264,6 +271,10 @@ class SemanticJudgmentBoundary:
                         capabilities=bounded_capabilities,
                     )
                     proposal = _normalize_primary_intent_capability(
+                        proposal,
+                        capabilities=bounded_capabilities,
+                    )
+                    proposal = _normalize_collection_identity_ambiguity(
                         proposal,
                         capabilities=bounded_capabilities,
                     )
@@ -685,6 +696,36 @@ def _ground_unique_source_spans(
         )
         changed = True
     return proposal.model_copy(update={"targets": tuple(targets)}) if changed else proposal
+
+
+def _normalize_collection_identity_ambiguity(
+    proposal: SemanticJudgmentProposal,
+    *,
+    capabilities: tuple[dict[str, Any], ...],
+) -> SemanticJudgmentProposal:
+    """Remove only a target ambiguity forbidden by an exact collection function."""
+
+    bound_functions = {
+        capability.get("name")
+        for capability in capabilities
+        if capability.get("kind") == "function_type"
+    }
+    if (
+        proposal.primary_intent not in _COLLECTION_FUNCTION_INTENTS
+        or proposal.primary_intent not in bound_functions
+        or proposal.targets
+        or not proposal.ambiguous
+        or proposal.alternatives
+        or proposal.unresolved_terms != ("resource_identity",)
+    ):
+        return proposal
+    return proposal.model_copy(
+        update={
+            "ambiguous": False,
+            "unresolved_terms": (),
+            "clarification": None,
+        }
+    )
 
 
 def _schema_repair_feedback(

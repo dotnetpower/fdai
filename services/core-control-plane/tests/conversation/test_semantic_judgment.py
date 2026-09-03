@@ -816,6 +816,81 @@ def test_ambiguous_final_proposal_returns_typed_clarification() -> None:
     assert result.receipt.ambiguous is True
 
 
+def test_collection_function_discards_only_redundant_resource_identity_ambiguity() -> None:
+    model = _Model(
+        _proposal(
+            primary_intent="query.resource_state_inventory",
+            targets=[],
+            requested_facets=["current_state", "resource_identity"],
+            confidence=0.82,
+            ambiguous=True,
+            alternatives=[],
+            unresolved_terms=["resource_identity"],
+            clarification="Which exact resource should I inspect?",
+        )
+    )
+
+    result = _boundary(model).judge(
+        utterance="Show resources that are currently not running.",
+        context=(),
+        capabilities=({"kind": "function_type", "name": "query.resource_state_inventory"},),
+        allow_escalation=False,
+    )
+
+    assert result.accepted is True
+    assert result.proposal is not None
+    assert result.proposal.ambiguous is False
+    assert result.proposal.unresolved_terms == ()
+    assert result.proposal.clarification is None
+
+
+@pytest.mark.parametrize(
+    ("confidence", "unresolved_terms", "alternatives", "expected_disposition"),
+    (
+        (0.5, ["resource_identity"], [], SemanticJudgmentDisposition.LOW_CONFIDENCE),
+        (
+            0.82,
+            ["resource_identity", "time_range"],
+            [],
+            SemanticJudgmentDisposition.CLARIFICATION,
+        ),
+        (
+            0.82,
+            ["resource_identity"],
+            ["resource_a"],
+            SemanticJudgmentDisposition.CLARIFICATION,
+        ),
+    ),
+)
+def test_collection_function_preserves_low_confidence_and_material_ambiguity(
+    confidence: float,
+    unresolved_terms: list[str],
+    alternatives: list[str],
+    expected_disposition: SemanticJudgmentDisposition,
+) -> None:
+    model = _Model(
+        _proposal(
+            primary_intent="query.resource_state_inventory",
+            targets=[],
+            requested_facets=["current_state"],
+            confidence=confidence,
+            ambiguous=True,
+            alternatives=alternatives,
+            unresolved_terms=unresolved_terms,
+            clarification="Which scope should I inspect?",
+        )
+    )
+
+    result = _boundary(model).judge(
+        utterance="Show resources that are currently not running.",
+        context=(),
+        capabilities=({"kind": "function_type", "name": "query.resource_state_inventory"},),
+        allow_escalation=False,
+    )
+
+    assert result.receipt.disposition is expected_disposition
+
+
 def test_unbound_or_forged_span_fails_closed() -> None:
     unavailable = _boundary(None).judge(
         utterance="Show api-example budget status",

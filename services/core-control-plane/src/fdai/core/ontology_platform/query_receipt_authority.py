@@ -75,6 +75,42 @@ class SecuredQueryReceiptAuthority:
     def resolve(self, evidence_refs: tuple[str, ...]) -> SecuredObjectSetQueryResult:
         """Return one issued secured result named by a dependency evidence ref."""
 
+        result = self._resolve_issued(evidence_refs)
+        digest = result.receipt.projected_result_digest
+        if not self._admitted(result.receipt, self._decision_evidence.get(digest)):
+            raise PermissionError("function dependency lacks verified decision evidence")
+        return result
+
+    def resolve_presentation_read(
+        self,
+        evidence_refs: tuple[str, ...],
+        *,
+        invocation_context: FunctionInvocationContext,
+        expected_release: OntologyReleaseRef,
+        expected_purpose: str,
+    ) -> SecuredObjectSetQueryResult:
+        """Authenticate one issued result for a no-authority presentation read."""
+
+        result = self._resolve_issued(evidence_refs)
+        receipt = result.receipt
+        if (
+            expected_purpose != "operations-review"
+            or invocation_context.caller_agent != "Bragi"
+            or invocation_context.caller_role != receipt.caller_role
+            or invocation_context.purposes != (expected_purpose,)
+            or receipt.ontology_release != expected_release
+            or receipt.purpose != expected_purpose
+            or result.materialization.definition.purpose != expected_purpose
+        ):
+            raise PermissionError("presentation read dependency scope does not match")
+        return result
+
+    def _resolve_issued(
+        self,
+        evidence_refs: tuple[str, ...],
+    ) -> SecuredObjectSetQueryResult:
+        """Resolve one exact process-issued result without deciding its downstream use."""
+
         output_digests = tuple(
             ref.removeprefix("ontology-object-set-output:")
             for ref in evidence_refs
@@ -89,8 +125,6 @@ class SecuredQueryReceiptAuthority:
         if len(digests) != 1 or digests[0] not in self._results:
             raise PermissionError("function dependency does not identify one issued ObjectSet")
         result = self._results[digests[0]]
-        if not self._admitted(result.receipt, self._decision_evidence.get(digests[0])):
-            raise PermissionError("function dependency lacks verified decision evidence")
         return SecuredObjectSetQueryResult.model_validate(result.model_dump(mode="json"))
 
     def verify(
