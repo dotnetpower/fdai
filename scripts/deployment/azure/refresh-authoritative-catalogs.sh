@@ -109,8 +109,14 @@ else
   prestarted_status="$(az rest --method get \
     --uri "${catalog_job_uri}/executions?api-version=2024-03-01" \
     --query 'sort_by(value, &properties.startTime)[-1].properties.status' -o tsv)"
+  prestarted_image="$(az rest --method get \
+    --uri "${catalog_job_uri}/executions?api-version=2024-03-01" \
+    --query 'sort_by(value, &properties.startTime)[-1].properties.template.containers[0].image' \
+    -o tsv)"
   prestarted_status="$(tr -d '[:space:]' <<<"$prestarted_status")"
-  if [[ "$prestarted_status" != "Succeeded" ]]; then
+  prestarted_image="$(tr -d '[:space:]' <<<"$prestarted_image")"
+  prestarted_digest="${prestarted_image##*@}"
+  if [[ "$prestarted_status" != "Succeeded" || "$prestarted_digest" != "$expected_digest" ]]; then
     echo "prestarted authoritative catalog materialization Job did not succeed" >&2
     exit 1
   fi
