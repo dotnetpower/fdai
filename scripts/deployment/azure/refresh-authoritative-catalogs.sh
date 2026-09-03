@@ -11,7 +11,14 @@ terraform_dir="${1:-$repo_root/infra}"
 : "${CATALOG_JOB_PRESTARTED:=false}"
 
 resource_group="$(terraform -chdir="$terraform_dir" output -raw resource_group_name)"
-catalog_job="$(terraform -chdir="$terraform_dir" output -raw operator_api_catalog_job_name)"
+catalog_job="$(
+  terraform -chdir="$terraform_dir" output -raw operator_api_catalog_job_name 2>/dev/null || true
+)"
+catalog_job="${catalog_job:-${CATALOG_JOB_NAME:-}}"
+if [[ ! "$catalog_job" =~ ^[a-z0-9][a-z0-9-]{0,30}[a-z0-9]$ ]]; then
+  echo "catalog Job name must come from Terraform or the validated repository binding" >&2
+  exit 1
+fi
 previous_image="$CATALOG_ROLLBACK_IMAGE"
 expected_digest="${TF_VAR_core_image##*@}"
 if [[ ! "$expected_digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
