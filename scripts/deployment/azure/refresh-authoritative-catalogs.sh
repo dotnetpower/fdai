@@ -154,7 +154,7 @@ if [[ -z "$catalog_dsn" ]]; then
   exit 1
 fi
 echo "::add-mask::$catalog_dsn"
-FDAI_STATE_STORE_DSN="$catalog_dsn" uv run --frozen --extra dev python \
+FDAI_STATE_STORE_DSN="$catalog_dsn" uv run --frozen --package fdai-core-control-plane python \
   "$repo_root/scripts/deployment/azure/verify-authoritative-catalogs.py"
 unset catalog_dsn
 
