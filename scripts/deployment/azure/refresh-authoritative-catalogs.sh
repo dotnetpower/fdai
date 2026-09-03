@@ -6,14 +6,18 @@ terraform_dir="${1:-$repo_root/infra}"
 
 : "${TF_VAR_core_image:?TF_VAR_core_image is required}"
 : "${RUNNER_TEMP:?RUNNER_TEMP is required}"
+: "${ARM_SUBSCRIPTION_ID:?ARM_SUBSCRIPTION_ID is required}"
 
 resource_group="$(terraform -chdir="$terraform_dir" output -raw resource_group_name)"
 catalog_job="$(terraform -chdir="$terraform_dir" output -raw operator_api_catalog_job_name)"
-previous_image="$(az containerapp job show \
-  --resource-group "$resource_group" \
-  --name "$catalog_job" \
-  --output json \
-  | python3 -c 'import json,sys; p=json.load(sys.stdin); t=p.get("template") or p.get("properties", {}).get("template"); print(t["containers"][0]["image"])')"
+job_uri="https://management.azure.com/subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/${resource_group}/providers/Microsoft.App/jobs/${catalog_job}?api-version=2024-03-01"
+
+read_job_image() {
+  az rest --method get --uri "$job_uri" --output json \
+    | python3 -c 'import json,sys; print(json.load(sys.stdin)["properties"]["template"]["containers"][0]["image"])'
+}
+
+previous_image="$(read_job_image)"
 if [[ -z "$previous_image" ]]; then
   echo "catalog Job has no current image to restore" >&2
   exit 1
@@ -73,11 +77,7 @@ az containerapp job update \
   --name "$catalog_job" \
   --image "$TF_VAR_core_image" \
   --only-show-errors --output none
-observed_image="$(az containerapp job show \
-  --resource-group "$resource_group" \
-  --name "$catalog_job" \
-  --output json \
-  | python3 -c 'import json,sys; p=json.load(sys.stdin); t=p.get("template") or p.get("properties", {}).get("template"); print(t["containers"][0]["image"])')"
+observed_image="$(read_job_image)"
 if [[ "$observed_image" != "$TF_VAR_core_image" ]]; then
   echo "catalog Job image readback does not match the selected Core image" >&2
   exit 1
