@@ -23,6 +23,8 @@ those connections before deleting the dedicated development-access resource grou
 
 The FDAI VNet keeps its current DNS servers. Only the development-access VNet uses the Private DNS
 Resolver inbound address, which Azure VPN Gateway includes in newly generated client profiles.
+The gateway and resolver subnets keep Azure default outbound access disabled. Their managed services
+provide the required network paths without restoring implicit Internet egress during later plans.
 
 > A P2S gateway requires a Standard public IP for the managed VPN service. If tenant policy denies
 > every public IP resource, request a scoped policy exemption for this gateway instead of weakening

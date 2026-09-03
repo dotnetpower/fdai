@@ -104,8 +104,9 @@ def test_dev_access_uses_entra_openvpn_and_private_dns() -> None:
     main = (_DEV_ACCESS / "infra" / "main.tf").read_text(encoding="utf-8")
     outputs = (_DEV_ACCESS / "infra" / "outputs.tf").read_text(encoding="utf-8")
 
-    assert 'name                 = "GatewaySubnet"' in main
+    assert re.search(r'name\s*=\s*"GatewaySubnet"', main)
     assert 'name    = "Microsoft.Network/dnsResolvers"' in main
+    assert main.count("default_outbound_access_enabled = false") == 2
     assert 'vpn_client_protocols = ["OpenVPN"]' in main
     assert 'vpn_auth_types       = ["AAD"]' in main
     assert "aad_tenant" in main

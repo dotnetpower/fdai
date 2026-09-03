@@ -27,18 +27,20 @@ resource "azurerm_virtual_network" "dev_access" {
 
 resource "azurerm_subnet" "gateway" {
   # checkov:skip=CKV2_AZURE_31:Azure VPN Gateway exclusively owns GatewaySubnet; associating an NSG is not a supported gateway design.
-  name                 = "GatewaySubnet"
-  resource_group_name  = azurerm_resource_group.dev_access.name
-  virtual_network_name = azurerm_virtual_network.dev_access.name
-  address_prefixes     = [var.gateway_subnet_prefix]
+  name                            = "GatewaySubnet"
+  resource_group_name             = azurerm_resource_group.dev_access.name
+  virtual_network_name            = azurerm_virtual_network.dev_access.name
+  address_prefixes                = [var.gateway_subnet_prefix]
+  default_outbound_access_enabled = false
 }
 
 resource "azurerm_subnet" "resolver_inbound" {
   # checkov:skip=CKV2_AZURE_31:Private DNS Resolver exclusively owns this delegated inbound-endpoint subnet.
-  name                 = "snet-dns-inbound"
-  resource_group_name  = azurerm_resource_group.dev_access.name
-  virtual_network_name = azurerm_virtual_network.dev_access.name
-  address_prefixes     = [var.resolver_inbound_subnet_prefix]
+  name                            = "snet-dns-inbound"
+  resource_group_name             = azurerm_resource_group.dev_access.name
+  virtual_network_name            = azurerm_virtual_network.dev_access.name
+  address_prefixes                = [var.resolver_inbound_subnet_prefix]
+  default_outbound_access_enabled = false
 
   delegation {
     name = "dns-resolver"
