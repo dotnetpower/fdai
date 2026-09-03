@@ -271,9 +271,8 @@ def test_console_release_publishes_static_content_without_catalog_mutation() -> 
     assert 'expected_digest="${TF_VAR_core_image##*@}"' in _CATALOG_REFRESH
     assert 'prestarted_digest="${prestarted_image##*@}"' in _CATALOG_REFRESH
     assert '"$prestarted_digest" != "$expected_digest"' in _CATALOG_REFRESH
-    assert "catalog_job_uri=" in _CATALOG_REFRESH
     assert "az resource show" not in _CATALOG_REFRESH
-    assert "/executions?api-version=2024-03-01" in _CATALOG_REFRESH
+    assert "az containerapp job execution list" in _CATALOG_REFRESH
     assert 'name  = "PGOPTIONS"' in _LEGACY_OPERATOR_MODULE
     assert 'value = "-c statement_timeout=300000"' in _LEGACY_OPERATOR_MODULE
     assert "CATALOG_IMAGE_PREBOUND" in (_ROOT / ".github/workflows/refresh-catalogs.yml").read_text(

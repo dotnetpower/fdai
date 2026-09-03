@@ -12,8 +12,6 @@ terraform_dir="${1:-$repo_root/infra}"
 
 resource_group="$(terraform -chdir="$terraform_dir" output -raw resource_group_name)"
 catalog_job="$(terraform -chdir="$terraform_dir" output -raw operator_api_catalog_job_name)"
-subscription_id="$(az account show --query id -o tsv)"
-catalog_job_uri="https://management.azure.com/subscriptions/${subscription_id}/resourceGroups/${resource_group}/providers/Microsoft.App/jobs/${catalog_job}"
 previous_image="$CATALOG_ROLLBACK_IMAGE"
 expected_digest="${TF_VAR_core_image##*@}"
 if [[ ! "$expected_digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
@@ -100,12 +98,14 @@ bash "$repo_root/scripts/deployment/azure/bootstrap-service-migrations.sh" \
 if [[ "$CATALOG_JOB_PRESTARTED" == "false" ]]; then
   run_catalog_job
 else
-  prestarted_status="$(az rest --method get \
-    --uri "${catalog_job_uri}/executions?api-version=2024-03-01" \
-    --query 'sort_by(value, &properties.startTime)[-1].properties.status' -o tsv)"
-  prestarted_image="$(az rest --method get \
-    --uri "${catalog_job_uri}/executions?api-version=2024-03-01" \
-    --query 'sort_by(value, &properties.startTime)[-1].properties.template.containers[0].image' \
+  prestarted_status="$(az containerapp job execution list \
+    --resource-group "$resource_group" \
+    --name "$catalog_job" \
+    --query 'sort_by([], &properties.startTime)[-1].properties.status' -o tsv)"
+  prestarted_image="$(az containerapp job execution list \
+    --resource-group "$resource_group" \
+    --name "$catalog_job" \
+    --query 'sort_by([], &properties.startTime)[-1].properties.template.containers[0].image' \
     -o tsv)"
   prestarted_status="$(tr -d '[:space:]' <<<"$prestarted_status")"
   prestarted_image="$(tr -d '[:space:]' <<<"$prestarted_image")"
