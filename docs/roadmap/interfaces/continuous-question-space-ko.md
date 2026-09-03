@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 0fafa15cb4da1bf8f445a4acbabc7f7803cdf06d
+translation_source_sha: 21c292a217dda5febfa3282b32564ec2241df5ce
 translation_revised: 2026-09-03
 ---
 # 지속형 질문 공간
@@ -26,7 +26,8 @@ translation_revised: 2026-09-03
 정확한 릴리스, 매니페스트, 역할, 목적, 제한, 등록된 처리기를 기준으로 의미 계획을 다시
 구성하고 검증합니다.
 결정론적 사전 프레임 선택은 함수 요약, 온톨로지 추적, 서비스 담당 프레임을 서로 다른 타입
-후보로 유지한 뒤 읽기 전용 프레임 하나를 선택합니다.
+후보로 유지한 뒤 읽기 전용 프레임 하나를 선택합니다. Cascade는 결정론적 fallback helper의
+안정적인 호환성 import를 유지합니다.
 영속 의미 실행 claim에는 lease가 적용됩니다. 대기 중인 중복 요청은 만료된 claim을 복구할 수
 있으므로 실패한 worker 때문에 요청 기한까지 차단되지 않습니다. 저장소 실패는 타입이 없는
 전송 오류를 발생시키는 대신 turn을 보류 상태로 유지합니다.

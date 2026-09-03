@@ -74,6 +74,9 @@ from .semantic_target_candidate_planning import (
 from .session import Principal
 
 _LOGGER = logging.getLogger(__name__)
+_candidate_frame_fallback = fallbacks.candidate_frame_fallback
+_current_state_clarification_fallback = fallbacks.current_state_clarification_fallback
+_judgment_candidate_temporal_scope = fallbacks.judgment_candidate_temporal_scope
 
 
 class FrameBuilder(Protocol):
