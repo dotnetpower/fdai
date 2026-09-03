@@ -40,6 +40,7 @@ def test_catalog_snapshots_are_deterministic_complete_reference_projections() ->
     repeated = module.catalog_snapshots(REPO_ROOT)
 
     assert json.dumps(first, sort_keys=True) == json.dumps(repeated, sort_keys=True)
+    assert module.CATALOG_STATEMENT_TIMEOUT_MS == 300_000
 
     rules = first[module.RULE_LIST_KEY]
     assert rules["_revision"].startswith("sha256:")

@@ -86,6 +86,7 @@ STEWARDSHIP_KEY = "operator-projection:operations:stewardship.coverage"
 ACTION_TYPE_LIST_KEY = "operator-projection:workflow:workflow.action-type-list"
 WORKFLOW_CATALOG_KEY = "operator-projection:workflow:workflow.catalog"
 MAX_BODY_BYTES = 512_000
+CATALOG_STATEMENT_TIMEOUT_MS = 300_000
 _SEVERITY_RANK = {"critical": 4, "high": 3, "medium": 2, "low": 1}
 
 
@@ -1172,7 +1173,12 @@ async def materialize(repo_root: Path) -> None:
     dsn = os.environ.get("FDAI_STATE_STORE_DSN", "").strip()
     if not dsn:
         raise RuntimeError("FDAI_STATE_STORE_DSN MUST be configured")
-    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
+    store = PostgresStateStore(
+        config=PostgresStateStoreConfig(
+            dsn=dsn,
+            statement_timeout_ms=CATALOG_STATEMENT_TIMEOUT_MS,
+        )
+    )
     snapshots = catalog_snapshots(repo_root)
     for key, payload in snapshots.items():
         await store.write_state(key, payload)
