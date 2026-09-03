@@ -20,32 +20,89 @@ fi
 
 update_job_image() {
   local image="$1"
-  local body
-  body="$(
-    IMAGE="$image" python3 - <<'PY'
+  local raw_body
+  local update_body
+  raw_body="$(mktemp "$RUNNER_TEMP/catalog-job-current.XXXXXX.json")"
+  update_body="$(mktemp "$RUNNER_TEMP/catalog-job-update.XXXXXX.json")"
+  chmod 0600 "$raw_body" "$update_body"
+  if ! az rest --method get --uri "$job_uri" --output json > "$raw_body"; then
+    rm -f -- "$raw_body" "$update_body"
+    return 1
+  fi
+  if ! IMAGE="$image" python3 - "$raw_body" "$update_body" <<'PY'
 import json
 import os
+import sys
 
-print(json.dumps({
-    "properties": {
-        "template": {
-            "containers": [{
-                "name": "materialize-catalogs",
-                "image": os.environ["IMAGE"],
-                "command": ["python"],
-                "args": ["/app/scripts/deployment/local/materialize-authoritative-catalogs.py"],
-                "env": [{"name": "FDAI_STATE_STORE_DSN", "secretRef": "dsn"}],
-                "resources": {"cpu": 0.5, "memory": "1Gi"},
-            }],
-            "volumes": [],
-        }
+def decoded(value):
+    if isinstance(value, str) and value.lstrip().startswith(("{", "[")):
+        try:
+            return decoded(json.loads(value))
+        except json.JSONDecodeError:
+            return value
+    if isinstance(value, dict):
+        return {key: decoded(child) for key, child in value.items()}
+    if isinstance(value, list):
+        return [decoded(child) for child in value]
+    return value
+
+def resource(value):
+    if isinstance(value, dict):
+        properties = value.get("properties")
+        if isinstance(properties, dict) and isinstance(properties.get("template"), dict):
+            return value
+        if isinstance(value.get("template"), dict) and isinstance(value.get("configuration"), dict):
+            return value
+        for child in value.values():
+            found = resource(child)
+            if found is not None:
+                return found
+    elif isinstance(value, list):
+        for child in value:
+            found = resource(child)
+            if found is not None:
+                return found
+    return None
+
+with open(sys.argv[1], encoding="utf-8") as stream:
+    current = resource(decoded(json.load(stream)))
+if current is None:
+    raise SystemExit("catalog Job ARM response has no mutable resource")
+properties = current.get("properties")
+if not isinstance(properties, dict):
+    properties = {
+        key: current[key]
+        for key in ("environmentId", "workloadProfileName", "configuration", "template")
+        if key in current
     }
-}, separators=(",", ":"), sort_keys=True))
+template = properties.get("template")
+containers = template.get("containers") if isinstance(template, dict) else None
+if not isinstance(containers, list) or len(containers) != 1:
+    raise SystemExit("catalog Job must contain exactly one container")
+containers[0]["image"] = os.environ["IMAGE"]
+for key in ("provisioningState", "outboundIpAddresses", "eventStreamEndpoint"):
+    properties.pop(key, None)
+payload = {
+    "location": current["location"],
+    "properties": properties,
+}
+for key in ("identity", "tags"):
+    if key in current:
+        payload[key] = current[key]
+with open(sys.argv[2], "w", encoding="utf-8") as stream:
+    json.dump(payload, stream, separators=(",", ":"), sort_keys=True)
 PY
-  )"
-  az rest --method patch --uri "$job_uri" \
+  then
+    rm -f -- "$raw_body" "$update_body"
+    return 1
+  fi
+  if ! az rest --method put --uri "$job_uri" \
     --headers Content-Type=application/json \
-    --body "$body" --output none
+    --body "@$update_body" --output none; then
+    rm -f -- "$raw_body" "$update_body"
+    return 1
+  fi
+  rm -f -- "$raw_body" "$update_body"
 }
 
 run_catalog_job() {

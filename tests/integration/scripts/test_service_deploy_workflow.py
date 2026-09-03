@@ -265,7 +265,8 @@ def test_console_release_publishes_static_content_without_catalog_mutation() -> 
         _ROOT / ".github/workflows/refresh-catalogs.yml"
     ).read_text(encoding="utf-8")
     assert "catalog rollback image must be digest-pinned" in _CATALOG_REFRESH
-    assert 'az rest --method patch --uri "$job_uri"' in _CATALOG_REFRESH
+    assert 'az rest --method put --uri "$job_uri"' in _CATALOG_REFRESH
+    assert 'containers[0]["image"] = os.environ["IMAGE"]' in _CATALOG_REFRESH
     assert "az containerapp job update" not in _CATALOG_REFRESH
     assert "verify-authoritative-catalogs.py" in _CATALOG_REFRESH
 
