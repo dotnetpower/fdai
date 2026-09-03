@@ -85,9 +85,11 @@ if [[ "$CATALOG_IMAGE_PREBOUND" == "false" ]]; then
     --only-show-errors --output none
   rollback_required=true
 else
-  bound_image="$(az containerapp job show \
+  bound_image="$(az resource show \
     --resource-group "$resource_group" \
     --name "$catalog_job" \
+    --resource-type Microsoft.App/jobs \
+    --api-version 2024-03-01 \
     --query 'properties.template.containers[0].image' -o tsv)"
   if [[ "$bound_image" != "$TF_VAR_core_image" ]]; then
     echo "prebound catalog Job image does not match the verified Core image" >&2
@@ -102,10 +104,15 @@ bash "$repo_root/scripts/deployment/azure/bootstrap-service-migrations.sh" \
 if [[ "$CATALOG_JOB_PRESTARTED" == "false" ]]; then
   run_catalog_job
 else
-  prestarted_status="$(az containerapp job execution list \
+  catalog_job_id="$(az resource show \
     --resource-group "$resource_group" \
     --name "$catalog_job" \
-    --query 'sort_by([], &properties.startTime)[-1].properties.status' -o tsv)"
+    --resource-type Microsoft.App/jobs \
+    --api-version 2024-03-01 \
+    --query id -o tsv)"
+  prestarted_status="$(az rest --method get \
+    --uri "https://management.azure.com${catalog_job_id}/executions?api-version=2024-03-01" \
+    --query 'sort_by(value, &properties.startTime)[-1].properties.status' -o tsv)"
   if [[ "$prestarted_status" != "Succeeded" ]]; then
     echo "prestarted authoritative catalog materialization Job did not succeed" >&2
     exit 1
