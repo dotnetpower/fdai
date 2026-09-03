@@ -485,6 +485,10 @@ resource "azurerm_container_app_job" "materialize_catalogs" {
         name        = "FDAI_STATE_STORE_DSN"
         secret_name = "dsn"
       }
+      env {
+        name  = "PGOPTIONS"
+        value = "-c statement_timeout=300000"
+      }
     }
   }
 

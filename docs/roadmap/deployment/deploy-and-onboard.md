@@ -409,6 +409,11 @@ later stage with a broken earlier one.
   10-second connection deadline, a 5-minute database lock deadline, a 15-minute server statement
   deadline, and a 20-minute complete migration-stage deadline. The database cancels over-budget
   DDL and releases its locks before the workflow closes the stage, so a stalled migration fails before the service plan is applied.
+- **Authoritative catalogs load after migrations from the exact verified Core image**. The
+  materialization Job applies a five-minute PostgreSQL statement deadline for large immutable
+  projections. A management-plane prebind or prestart is accepted only when readback proves the
+  digest-pinned image and latest successful execution; the VNet runner then compares every expected
+  repository projection with PostgreSQL before reporting success.
 - Post-deploy smoke tests and the synthetic canary are defined in
   [operating-and-verification.md](../operations/operating-and-verification.md).
 

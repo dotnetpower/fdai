@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 9f6e40d06599881d870be8fc601396ca126b6440
+translation_source_sha: 3ac832bb00a23ffdc92c6e7c27479fa9c4fdad34
 translation_revised: 2026-09-03
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -407,6 +407,11 @@ networking과 digest-pinned FDAI 및 ClamAV 이미지를 요구합니다.
   전체 migration 단계 deadline을 사용합니다. Database는 workflow가 단계를 닫기 전에 예산을
   초과한 DDL을 취소하고 lock을 해제하므로 정지한 migration은 service 계획을 적용하기 전에
   실패합니다.
+- **권위 있는 카탈로그는 마이그레이션 후 정확히 검증된 Core 이미지에서 적재합니다**.
+  구체화 Job은 큰 불변 프로젝션을 위해 PostgreSQL 문 제한 시간을 5분으로 설정합니다.
+  관리 평면의 사전 이미지 바인딩이나 사전 실행은 digest 고정 이미지와 최신 실행 성공을
+  readback으로 입증할 때만 허용합니다. 그런 다음 VNet runner는 성공을 보고하기 전에
+  리포지토리의 모든 예상 프로젝션을 PostgreSQL과 비교합니다.
 - Post-deploy smoke 테스트와 합성 카나리는
   [operating-and-verification-ko.md](../operations/operating-and-verification-ko.md)에 정의.
 

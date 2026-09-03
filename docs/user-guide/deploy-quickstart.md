@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision FDAI's minimum Azure inventory with the protected fdaictl workflow, or preview the infrastructure-only development path with azd.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 9f6e40d06599881d870be8fc601396ca126b6440 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 3ac832bb00a23ffdc92c6e7c27479fa9c4fdad34 }]
 ---
 
 # Deploy Quickstart
@@ -54,8 +54,10 @@ Terraform remains an expert path.
   publisher. The publisher uses the exact apply-synchronized Static Web App
   binding, verifies its Azure resource and hostname identity, and uploads the
   combined static artifact independently. Use the separate catalog refresh to
-  run schema migrations and verify the exact Rule and Ontology projections in
-  PostgreSQL.
+  run schema migrations, materialize from the exact verified Core image, and
+  compare every expected Rule and Ontology projection with PostgreSQL. A
+  prebound or prestarted catalog Job is accepted only after image and successful
+  execution readback.
 - To enable the standalone Slack or Teams channel edge, keep provider credentials and principal
   mappings in local-only inputs and Key Vault. Set only the versionless secret-id list in the
   repository variable, then review and apply the platform identity plan before the separate

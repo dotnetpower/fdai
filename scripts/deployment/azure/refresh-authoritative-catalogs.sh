@@ -84,13 +84,33 @@ if [[ "$CATALOG_IMAGE_PREBOUND" == "false" ]]; then
     --image "$TF_VAR_core_image" \
     --only-show-errors --output none
   rollback_required=true
+else
+  bound_image="$(az containerapp job show \
+    --resource-group "$resource_group" \
+    --name "$catalog_job" \
+    --query 'properties.template.containers[0].image' -o tsv)"
+  if [[ "$bound_image" != "$TF_VAR_core_image" ]]; then
+    echo "prebound catalog Job image does not match the verified Core image" >&2
+    exit 1
+  fi
 fi
 
 bash "$repo_root/scripts/deployment/azure/bootstrap-service-migrations.sh" \
   "$terraform_dir" "$RUNNER_TEMP/catalog-service-migration-adoption" \
   "$(git -C "$repo_root" rev-parse HEAD)"
 
-run_catalog_job
+if [[ "$CATALOG_JOB_PRESTARTED" == "false" ]]; then
+  run_catalog_job
+else
+  prestarted_status="$(az containerapp job execution list \
+    --resource-group "$resource_group" \
+    --name "$catalog_job" \
+    --query 'sort_by([], &properties.startTime)[-1].properties.status' -o tsv)"
+  if [[ "$prestarted_status" != "Succeeded" ]]; then
+    echo "prestarted authoritative catalog materialization Job did not succeed" >&2
+    exit 1
+  fi
+fi
 
 vault_uri="$(terraform -chdir="$terraform_dir" output -raw key_vault_uri)"
 vault_name="${vault_uri#https://}"
