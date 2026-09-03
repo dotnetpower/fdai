@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: b17b638908b7471033a2a8ce4cfdd4ef3cd52547
+translation_source_sha: c1ac1a3e65e0b8b4f32751dbd29bf4a19316da1f
 translation_revised: 2026-09-03
 ---
 
@@ -81,6 +81,7 @@ Compact T1 conversation preflight는 매니페스트 로드와 전체 의미 판
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-03 | implemented | 분리된 Service Health 답변 렌더러를 검토된 표현 전용 lexical 경로로 등록했습니다. 검증된 machine field를 읽으며 운영자 문장에서 의도를 추론하지 않습니다. | `current change`, semantic-routing baseline 검사 및 집중 Service Health 표현 테스트 | 이 감사 등록에 남은 작업은 없습니다. |
 | 2026-09-03 | implemented | 간결한 타입 기반 복구 맥락과 턴별 설정 평가를 사용하는 개발 환경 기본 활성화 Owner 제어 적극 T2 복구 모드를 추가했습니다. Golden no-T2 프로필, 액션 및 서버 결속 보류, 결정론적 검증, 원래 명확화 반환은 계속 최종 권한을 가집니다. 저장한 토글을 재시작 없이 다음 턴에 적용할 수 있도록 리비전 기반 Operator 설정 갱신과 설정 변환 결과 무효화를 수정했습니다. | `current change`, 집중 Core, Operator 및 로컬 시작 검사 640개 통과, Console 모델 테스트, 타입 검사 및 운영 빌드 통과, 집중 Ruff 및 strict mypy 통과, 인증된 Console 저장에서 리비전 1이 2로 증가했고 실제 질문이 타입 기반 T2 에스컬레이션을 기록했습니다. | 실제 복구에서 구성된 T2 프로바이더가 HTTP 429를 반환했습니다. validated 상태를 선언하거나 스테이징과 운영 환경 기본값을 승격하기 전에 성공한 인증 답변 증적을 보존합니다. |
 | 2026-09-01 | implemented | 커밋된 리비전의 제한된 의미 정규화를 VPN 경로 프라이빗 Foundry 엔드포인트에서 검증했습니다. exact-source cohort 10개가 실행 권한 없이 10/10으로 통과했으며, 중지 표식과 기존 보증 원장을 원래 다이제스트로 복원하고 확인했습니다. | 출처 `31002f3db70649ceb6844dc8ea59798ba7aa4d13`, 출처에 고정된 원장 다이제스트 `sha256:ef474b09662296d2e61a6e74569945afd236d038523795545069f8d11546d779`, 정확한 결과 10/10 | 이중 언어 후속 캠페인 20개를 시작하지 않고 제안합니다. 100개 캠페인은 계속 비활성화합니다. |
 | 2026-09-01 | implemented | `ff4e92fc0`의 나머지 조건이 유효한 9/10 cohort에서 정확히 해당 typed 판단이 생성된 뒤 제한된 변경 상관관계 앵커 family에 검토된 `change_activity` 표기를 추가했습니다. 추가 intent, 대상 종류 또는 관련 없는 facet은 허용하지 않습니다. | `current change`, 집중 의미 계획 검사 및 `ff4e92fc0`에 고정된 9/10 canary 근거 | 커밋하고 exact cohort 10개를 다시 실행합니다. 10/10 이후에만 20개를 제안합니다. |

@@ -443,6 +443,13 @@
       "issue": 252
     },
     {
+      "path": "services/core-control-plane/src/fdai_core_service/semantic_service_health_answer.py",
+      "disposition": "retain",
+      "owner": "core-service-presentation",
+      "reason": "Retains deterministic rendering from verified Service Health machine fields without classifying operator language.",
+      "issue": 252
+    },
+    {
       "path": "services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py",
       "disposition": "retain",
       "owner": "core-service-presentation",
