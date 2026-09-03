@@ -267,6 +267,7 @@ def test_console_release_publishes_static_content_without_catalog_mutation() -> 
     assert "catalog rollback image must be digest-pinned" in _CATALOG_REFRESH
     assert "az containerapp job update" in _CATALOG_REFRESH
     assert 'if [[ "$CATALOG_IMAGE_PREBOUND" == "false" ]]' in _CATALOG_REFRESH
+    assert 'if [[ "$CATALOG_JOB_PRESTARTED" == "false" ]]' in _CATALOG_REFRESH
     assert "CATALOG_IMAGE_PREBOUND" in (_ROOT / ".github/workflows/refresh-catalogs.yml").read_text(
         encoding="utf-8"
     )
@@ -274,6 +275,7 @@ def test_console_release_publishes_static_content_without_catalog_mutation() -> 
         encoding="utf-8"
     )
     assert "containerapp --version 1.3.0b4" in refresh_workflow
+    assert "CATALOG_JOB_PRESTARTED" in refresh_workflow
     assert "verify-authoritative-catalogs.py" in _CATALOG_REFRESH
 
 

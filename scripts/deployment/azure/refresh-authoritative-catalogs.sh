@@ -8,6 +8,7 @@ terraform_dir="${1:-$repo_root/infra}"
 : "${RUNNER_TEMP:?RUNNER_TEMP is required}"
 : "${CATALOG_ROLLBACK_IMAGE:?CATALOG_ROLLBACK_IMAGE is required}"
 : "${CATALOG_IMAGE_PREBOUND:=false}"
+: "${CATALOG_JOB_PRESTARTED:=false}"
 
 resource_group="$(terraform -chdir="$terraform_dir" output -raw resource_group_name)"
 catalog_job="$(terraform -chdir="$terraform_dir" output -raw operator_api_catalog_job_name)"
@@ -18,6 +19,10 @@ if [[ ! "$previous_image" =~ ^[^[:space:]@]+@sha256:[0-9a-f]{64}$ ]]; then
 fi
 if [[ "$CATALOG_IMAGE_PREBOUND" != "true" && "$CATALOG_IMAGE_PREBOUND" != "false" ]]; then
   echo "CATALOG_IMAGE_PREBOUND must be true or false" >&2
+  exit 2
+fi
+if [[ "$CATALOG_JOB_PRESTARTED" != "true" && "$CATALOG_JOB_PRESTARTED" != "false" ]]; then
+  echo "CATALOG_JOB_PRESTARTED must be true or false" >&2
   exit 2
 fi
 
@@ -65,7 +70,9 @@ rollback() {
       --name "$catalog_job" \
       --image "$previous_image" \
       --only-show-errors --output none
-    run_catalog_job
+    if [[ "$CATALOG_JOB_PRESTARTED" == "false" ]]; then
+      run_catalog_job
+    fi
   fi
 }
 trap rollback ERR

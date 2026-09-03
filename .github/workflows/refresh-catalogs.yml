@@ -38,6 +38,7 @@ jobs:
       EXPECTED_AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
       CATALOG_ROLLBACK_IMAGE: ${{ vars.CATALOG_ROLLBACK_IMAGE }}
       CATALOG_IMAGE_PREBOUND: ${{ vars.CATALOG_IMAGE_PREBOUND || 'false' }}
+      CATALOG_JOB_PRESTARTED: ${{ vars.CATALOG_JOB_PRESTARTED || 'false' }}
     steps:
       - name: Verify protected workflow source
         working-directory: ${{ runner.temp }}
