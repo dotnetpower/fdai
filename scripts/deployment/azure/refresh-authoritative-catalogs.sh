@@ -12,7 +12,8 @@ catalog_job="$(terraform -chdir="$terraform_dir" output -raw operator_api_catalo
 previous_image="$(az containerapp job show \
   --resource-group "$resource_group" \
   --name "$catalog_job" \
-  --query 'properties.template.containers[0].image' -o tsv)"
+  --output json \
+  | python3 -c 'import json,sys; print(json.load(sys.stdin)["properties"]["template"]["containers"][0]["image"])')"
 if [[ -z "$previous_image" ]]; then
   echo "catalog Job has no current image to restore" >&2
   exit 1
@@ -75,7 +76,8 @@ az containerapp job update \
 observed_image="$(az containerapp job show \
   --resource-group "$resource_group" \
   --name "$catalog_job" \
-  --query 'properties.template.containers[0].image' -o tsv)"
+  --output json \
+  | python3 -c 'import json,sys; print(json.load(sys.stdin)["properties"]["template"]["containers"][0]["image"])')"
 if [[ "$observed_image" != "$TF_VAR_core_image" ]]; then
   echo "catalog Job image readback does not match the selected Core image" >&2
   exit 1

@@ -254,6 +254,7 @@ def test_console_release_refreshes_and_verifies_postgresql_catalogs_first() -> N
     assert "bootstrap-service-migrations.sh" in _CATALOG_REFRESH
     assert "run_catalog_job" in _CATALOG_REFRESH
     assert '--image "$previous_image"' in _CATALOG_REFRESH
+    assert '["properties"]["template"]["containers"][0]["image"]' in _CATALOG_REFRESH
     assert "verify-authoritative-catalogs.py" in _CATALOG_REFRESH
 
 
