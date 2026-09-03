@@ -7,14 +7,46 @@ terraform_dir="${1:-$repo_root/infra}"
 : "${TF_VAR_core_image:?TF_VAR_core_image is required}"
 : "${RUNNER_TEMP:?RUNNER_TEMP is required}"
 : "${CATALOG_ROLLBACK_IMAGE:?CATALOG_ROLLBACK_IMAGE is required}"
+: "${ARM_SUBSCRIPTION_ID:?ARM_SUBSCRIPTION_ID is required}"
 
 resource_group="$(terraform -chdir="$terraform_dir" output -raw resource_group_name)"
 catalog_job="$(terraform -chdir="$terraform_dir" output -raw operator_api_catalog_job_name)"
+job_uri="https://management.azure.com/subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/${resource_group}/providers/Microsoft.App/jobs/${catalog_job}?api-version=2024-03-01"
 previous_image="$CATALOG_ROLLBACK_IMAGE"
 if [[ ! "$previous_image" =~ ^[^[:space:]@]+@sha256:[0-9a-f]{64}$ ]]; then
   echo "catalog rollback image must be digest-pinned" >&2
   exit 1
 fi
+
+update_job_image() {
+  local image="$1"
+  local body
+  body="$(
+    IMAGE="$image" python3 - <<'PY'
+import json
+import os
+
+print(json.dumps({
+    "properties": {
+        "template": {
+            "containers": [{
+                "name": "materialize-catalogs",
+                "image": os.environ["IMAGE"],
+                "command": ["python"],
+                "args": ["/app/scripts/deployment/local/materialize-authoritative-catalogs.py"],
+                "env": [{"name": "FDAI_STATE_STORE_DSN", "secretRef": "dsn"}],
+                "resources": {"cpu": 0.5, "memory": "1Gi"},
+            }],
+            "volumes": [],
+        }
+    }
+}, separators=(",", ":"), sort_keys=True))
+PY
+  )"
+  az rest --method patch --uri "$job_uri" \
+    --headers Content-Type=application/json \
+    --body "$body" --output none
+}
 
 run_catalog_job() {
   az containerapp job start \
@@ -55,21 +87,13 @@ rollback_required=true
 rollback() {
   trap - ERR
   if [[ "$rollback_required" == "true" ]]; then
-    az containerapp job update \
-      --resource-group "$resource_group" \
-      --name "$catalog_job" \
-      --image "$previous_image" \
-      --only-show-errors --output none
+    update_job_image "$previous_image"
     run_catalog_job
   fi
 }
 trap rollback ERR
 
-az containerapp job update \
-  --resource-group "$resource_group" \
-  --name "$catalog_job" \
-  --image "$TF_VAR_core_image" \
-  --only-show-errors --output none
+update_job_image "$TF_VAR_core_image"
 
 bash "$repo_root/scripts/deployment/azure/bootstrap-service-migrations.sh" \
   "$terraform_dir" "$RUNNER_TEMP/catalog-service-migration-adoption" \
