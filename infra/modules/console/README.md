@@ -39,9 +39,9 @@ needed. The workflow then builds `console/dist/` with the environment-owned
 API and Entra bindings, adds the allowlisted Manual Studio artifact under
 `/manuals`, uploads the combined site with a short-lived deployment token, and
 verifies the exact entry asset, manual catalog, manual library, and a History
-API route. Before publishing, the same exact-source release updates the existing
-catalog Job with rollback, runs schema migrations, and verifies the immutable
-Rule and Ontology projections through PostgreSQL readback.
+API route. This publication updates static content only. Catalog image promotion,
+schema migration, and PostgreSQL projection refresh remain separate deployment
+operations.
 
 ## Read-only invariant
 

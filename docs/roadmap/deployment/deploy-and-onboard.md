@@ -129,6 +129,9 @@ retries bounded trigger sync, and requires both Function triggers before recordi
 If a later identity or health check fails after the immutable claim, verification resume validates
 that claim, skips Terraform apply, and reruns convergence and post-apply checks. Console hostname
 recovery uses the exact Static Web App id from Terraform state, never an arbitrary resource search.
+Protected Console publication updates only the combined Console and Manual Studio static artifact.
+Catalog image promotion, schema migration, and PostgreSQL projection refresh use separate
+deployment operations and do not block a static-content release.
 Health acceptance always requires the core Container App's latest revision to be `Provisioned`
 and `Healthy` before an apply receipt can be recorded. Selected Operator API and ingestion
 revisions must also be healthy, and their shared ingress `/healthz` responses must return the

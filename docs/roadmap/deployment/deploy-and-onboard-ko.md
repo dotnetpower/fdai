@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 444bfbdd485d40c577ae679c2afdf061e86ee702
-translation_revised: 2026-09-01
+translation_source_sha: 7d2644973e4eca95deb23c9bd528047e8b7a5055
+translation_revised: 2026-09-03
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 진실 원본입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -135,6 +135,9 @@ Container App precondition이 불완전한 지도를 거부합니다. Exact 적�
 변경할 수 없는 점유 뒤 신원 또는 상태 검사가 실패하면 검증 재개가 점유를 검증하고
 Terraform 적용을 건너뛰며 convergence와 post-apply 검사를 다시 수행합니다. Console hostname
 복구는 arbitrary 리소스 검색이 아니라 Terraform 상태의 exact Static Web App id를 사용합니다. 전체 런북:
+보호된 Console 게시는 결합된 Console 및 Manual Studio 정적 아티팩트만 업데이트합니다.
+카탈로그 이미지 승격, 스키마 마이그레이션, PostgreSQL 변환 결과 갱신은 별도 배포 작업을
+사용하며 정적 콘텐츠 릴리스를 차단하지 않습니다.
 Health acceptance는 적용 증적을 기록하기 전에 코어 Container App의 최신 개정 번호가 항상
 `Provisioned`와 `Healthy`인지 확인합니다. 선택된 Operator API 및 인제스트 개정 번호도 healthy여야
 하며 shared 유입 `/healthz` 응답은 고정된 성공 페이로드를 반환해야 합니다. 런타임을

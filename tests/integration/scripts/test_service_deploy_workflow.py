@@ -243,14 +243,13 @@ def test_core_service_tolerates_unapplied_optional_observation_output() -> None:
     assert 'with_entries(select(.value | type == "string" and length > 0))' in materialize
 
 
-def test_console_release_refreshes_and_verifies_postgresql_catalogs_first() -> None:
-    bind = _CONSOLE_PUBLISH_WORKFLOW.index("- name: Bind exact Core catalog image")
-    refresh = _CONSOLE_PUBLISH_WORKFLOW.index(
+def test_console_release_publishes_static_content_without_catalog_mutation() -> None:
+    assert "- name: Publish and verify Console static content" in _CONSOLE_PUBLISH_WORKFLOW
+    assert "- name: Bind exact Core catalog image" not in _CONSOLE_PUBLISH_WORKFLOW
+    assert (
         "- name: Refresh and verify authoritative PostgreSQL catalogs"
+        not in _CONSOLE_PUBLISH_WORKFLOW
     )
-    publish = _CONSOLE_PUBLISH_WORKFLOW.index("- name: Publish and verify Console static content")
-
-    assert bind < refresh < publish
     assert "bootstrap-service-migrations.sh" in _CATALOG_REFRESH
     assert "run_catalog_job" in _CATALOG_REFRESH
     assert '--image "$previous_image"' in _CATALOG_REFRESH

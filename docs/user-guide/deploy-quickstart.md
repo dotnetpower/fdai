@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision FDAI's minimum Azure inventory with the protected fdaictl workflow, or preview the infrastructure-only development path with azd.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 444bfbdd485d40c577ae679c2afdf061e86ee702 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 7d2644973e4eca95deb23c9bd528047e8b7a5055 }]
 ---
 
 # Deploy Quickstart
@@ -50,6 +50,10 @@ Terraform remains an expert path.
   Each service owns its image, Terraform state, migration branch, health
   probes, and workload identity. The Isolated Executor is the only service that
   may receive an action-specific effect role.
+- Publish Console and Manual Studio static content through the protected Console
+  publisher. This release uploads and verifies the combined static artifact
+  without promoting a catalog image, running schema migrations, or refreshing
+  PostgreSQL projections.
 - To enable the standalone Slack or Teams channel edge, keep provider credentials and principal
   mappings in local-only inputs and Key Vault. Set only the versionless secret-id list in the
   repository variable, then review and apply the platform identity plan before the separate
