@@ -270,7 +270,9 @@ def test_console_release_publishes_static_content_without_catalog_mutation() -> 
     assert 'if [[ "$CATALOG_JOB_PRESTARTED" == "false" ]]' in _CATALOG_REFRESH
     assert 'if [[ "$bound_image" != "$TF_VAR_core_image" ]]' in _CATALOG_REFRESH
     assert 'if [[ "$prestarted_status" != "Succeeded" ]]' in _CATALOG_REFRESH
-    assert "az resource show" in _CATALOG_REFRESH
+    assert "catalog_job_uri=" in _CATALOG_REFRESH
+    assert "az resource show" not in _CATALOG_REFRESH
+    assert "${catalog_job_uri}?api-version=2024-03-01" in _CATALOG_REFRESH
     assert "/executions?api-version=2024-03-01" in _CATALOG_REFRESH
     assert 'name  = "PGOPTIONS"' in _LEGACY_OPERATOR_MODULE
     assert 'value = "-c statement_timeout=300000"' in _LEGACY_OPERATOR_MODULE

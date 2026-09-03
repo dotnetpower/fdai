@@ -12,6 +12,8 @@ terraform_dir="${1:-$repo_root/infra}"
 
 resource_group="$(terraform -chdir="$terraform_dir" output -raw resource_group_name)"
 catalog_job="$(terraform -chdir="$terraform_dir" output -raw operator_api_catalog_job_name)"
+subscription_id="$(az account show --query id -o tsv)"
+catalog_job_uri="https://management.azure.com/subscriptions/${subscription_id}/resourceGroups/${resource_group}/providers/Microsoft.App/jobs/${catalog_job}"
 previous_image="$CATALOG_ROLLBACK_IMAGE"
 if [[ ! "$previous_image" =~ ^[^[:space:]@]+@sha256:[0-9a-f]{64}$ ]]; then
   echo "catalog rollback image must be digest-pinned" >&2
@@ -85,12 +87,10 @@ if [[ "$CATALOG_IMAGE_PREBOUND" == "false" ]]; then
     --only-show-errors --output none
   rollback_required=true
 else
-  bound_image="$(az resource show \
-    --resource-group "$resource_group" \
-    --name "$catalog_job" \
-    --resource-type Microsoft.App/jobs \
-    --api-version 2024-03-01 \
+  bound_image="$(az rest --method get \
+    --uri "${catalog_job_uri}?api-version=2024-03-01" \
     --query 'properties.template.containers[0].image' -o tsv)"
+  bound_image="${bound_image//$'\r'/}"
   if [[ "$bound_image" != "$TF_VAR_core_image" ]]; then
     echo "prebound catalog Job image does not match the verified Core image" >&2
     exit 1
@@ -104,15 +104,10 @@ bash "$repo_root/scripts/deployment/azure/bootstrap-service-migrations.sh" \
 if [[ "$CATALOG_JOB_PRESTARTED" == "false" ]]; then
   run_catalog_job
 else
-  catalog_job_id="$(az resource show \
-    --resource-group "$resource_group" \
-    --name "$catalog_job" \
-    --resource-type Microsoft.App/jobs \
-    --api-version 2024-03-01 \
-    --query id -o tsv)"
   prestarted_status="$(az rest --method get \
-    --uri "https://management.azure.com${catalog_job_id}/executions?api-version=2024-03-01" \
+    --uri "${catalog_job_uri}/executions?api-version=2024-03-01" \
     --query 'sort_by(value, &properties.startTime)[-1].properties.status' -o tsv)"
+  prestarted_status="${prestarted_status//$'\r'/}"
   if [[ "$prestarted_status" != "Succeeded" ]]; then
     echo "prestarted authoritative catalog materialization Job did not succeed" >&2
     exit 1
