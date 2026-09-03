@@ -266,6 +266,10 @@ def test_console_release_publishes_static_content_without_catalog_mutation() -> 
     ).read_text(encoding="utf-8")
     assert "catalog rollback image must be digest-pinned" in _CATALOG_REFRESH
     assert "az containerapp job update" in _CATALOG_REFRESH
+    assert 'if [[ "$CATALOG_IMAGE_PREBOUND" == "false" ]]' in _CATALOG_REFRESH
+    assert "CATALOG_IMAGE_PREBOUND" in (_ROOT / ".github/workflows/refresh-catalogs.yml").read_text(
+        encoding="utf-8"
+    )
     refresh_workflow = (_ROOT / ".github/workflows/refresh-catalogs.yml").read_text(
         encoding="utf-8"
     )

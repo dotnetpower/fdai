@@ -7,6 +7,7 @@ terraform_dir="${1:-$repo_root/infra}"
 : "${TF_VAR_core_image:?TF_VAR_core_image is required}"
 : "${RUNNER_TEMP:?RUNNER_TEMP is required}"
 : "${CATALOG_ROLLBACK_IMAGE:?CATALOG_ROLLBACK_IMAGE is required}"
+: "${CATALOG_IMAGE_PREBOUND:=false}"
 
 resource_group="$(terraform -chdir="$terraform_dir" output -raw resource_group_name)"
 catalog_job="$(terraform -chdir="$terraform_dir" output -raw operator_api_catalog_job_name)"
@@ -14,6 +15,10 @@ previous_image="$CATALOG_ROLLBACK_IMAGE"
 if [[ ! "$previous_image" =~ ^[^[:space:]@]+@sha256:[0-9a-f]{64}$ ]]; then
   echo "catalog rollback image must be digest-pinned" >&2
   exit 1
+fi
+if [[ "$CATALOG_IMAGE_PREBOUND" != "true" && "$CATALOG_IMAGE_PREBOUND" != "false" ]]; then
+  echo "CATALOG_IMAGE_PREBOUND must be true or false" >&2
+  exit 2
 fi
 
 run_catalog_job() {
@@ -51,7 +56,7 @@ run_catalog_job() {
   return 1
 }
 
-rollback_required=true
+rollback_required=false
 rollback() {
   trap - ERR
   if [[ "$rollback_required" == "true" ]]; then
@@ -65,11 +70,14 @@ rollback() {
 }
 trap rollback ERR
 
-az containerapp job update \
-  --resource-group "$resource_group" \
-  --name "$catalog_job" \
-  --image "$TF_VAR_core_image" \
-  --only-show-errors --output none
+if [[ "$CATALOG_IMAGE_PREBOUND" == "false" ]]; then
+  az containerapp job update \
+    --resource-group "$resource_group" \
+    --name "$catalog_job" \
+    --image "$TF_VAR_core_image" \
+    --only-show-errors --output none
+  rollback_required=true
+fi
 
 bash "$repo_root/scripts/deployment/azure/bootstrap-service-migrations.sh" \
   "$terraform_dir" "$RUNNER_TEMP/catalog-service-migration-adoption" \
