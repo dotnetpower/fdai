@@ -14,14 +14,10 @@ if [[ ! "$ENTRA_CONSOLE_API_SCOPE" =~ ^api://[^/]+/[^/]+$ ]]; then
   exit 2
 fi
 
-hostname="$(
-  terraform -chdir="$terraform_dir" output -raw console_default_hostname 2>/dev/null \
-    || printf '%s' "${CONSOLE_DEFAULT_HOSTNAME:-}"
-)"
-resource_id="$(
-  terraform -chdir="$terraform_dir" output -raw console_static_web_app_id 2>/dev/null \
-    || printf '%s' "${CONSOLE_STATIC_WEB_APP_ID:-}"
-)"
+hostname="$(terraform -chdir="$terraform_dir" output -raw console_default_hostname 2>/dev/null || true)"
+resource_id="$(terraform -chdir="$terraform_dir" output -raw console_static_web_app_id 2>/dev/null || true)"
+hostname="${hostname:-${CONSOLE_DEFAULT_HOSTNAME:-}}"
+resource_id="${resource_id:-${CONSOLE_STATIC_WEB_APP_ID:-}}"
 if [[ -z "$hostname" || -z "$resource_id" ]]; then
   echo "console Static Web App outputs are unavailable after apply" >&2
   exit 1

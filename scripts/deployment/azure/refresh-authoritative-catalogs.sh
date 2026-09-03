@@ -14,7 +14,7 @@ job_uri="https://management.azure.com/subscriptions/${ARM_SUBSCRIPTION_ID}/resou
 
 read_job_image() {
   az rest --method get --uri "$job_uri" --output json \
-    | python3 -c 'import json,sys; print(json.load(sys.stdin)["properties"]["template"]["containers"][0]["image"])'
+    | python3 -c 'import json,sys; p=json.load(sys.stdin); p=p.get("properties", p); print(p["template"]["containers"][0]["image"])'
 }
 
 previous_image="$(read_job_image)"
