@@ -13,7 +13,7 @@ previous_image="$(az containerapp job show \
   --resource-group "$resource_group" \
   --name "$catalog_job" \
   --output json \
-  | python3 -c 'import json,sys; print(json.load(sys.stdin)["properties"]["template"]["containers"][0]["image"])')"
+  | python3 -c 'import json,sys; p=json.load(sys.stdin); t=p.get("template") or p.get("properties", {}).get("template"); print(t["containers"][0]["image"])')"
 if [[ -z "$previous_image" ]]; then
   echo "catalog Job has no current image to restore" >&2
   exit 1
@@ -77,7 +77,7 @@ observed_image="$(az containerapp job show \
   --resource-group "$resource_group" \
   --name "$catalog_job" \
   --output json \
-  | python3 -c 'import json,sys; print(json.load(sys.stdin)["properties"]["template"]["containers"][0]["image"])')"
+  | python3 -c 'import json,sys; p=json.load(sys.stdin); t=p.get("template") or p.get("properties", {}).get("template"); print(t["containers"][0]["image"])')"
 if [[ "$observed_image" != "$TF_VAR_core_image" ]]; then
   echo "catalog Job image readback does not match the selected Core image" >&2
   exit 1
