@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: eb4d0579bb654fd18ced9a3aeeb2f6f842c5d811
+translation_source_sha: 9f6e40d06599881d870be8fc601396ca126b6440
 translation_revised: 2026-09-03
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -133,9 +133,11 @@ Terraform은 호스트와 배포
 Container App precondition이 불완전한 지도를 거부합니다. Exact 적용이 수렴하면 작업 흐름이 검증된
 출처를 official Flex One Deploy 액션으로 원격 빌드하고 범위가 제한된 트리거 sync 후 두 함수 트리거를 확인합니다.
 변경할 수 없는 점유 뒤 신원 또는 상태 검사가 실패하면 검증 재개가 점유를 검증하고
-Terraform 적용을 건너뛰며 convergence와 post-apply 검사를 다시 수행합니다. Console hostname
-복구는 arbitrary 리소스 검색이 아니라 Terraform 상태의 exact Static Web App id를 사용합니다. 전체 런북:
-보호된 Console 게시는 결합된 Console 및 Manual Studio 정적 아티팩트만 업데이트합니다.
+Terraform 적용을 건너뛰며 convergence와 post-apply 검사를 다시 수행합니다. 보호된 Console
+게시는 정확한 적용에서 저장소 Variable로 동기화한 비밀이 아닌 Static Web App 호스트 이름과
+리소스 id를 사용합니다. 해당 결속이 없을 때만 같은 정확한 Terraform 상태 출력으로
+대체하며 임의 리소스 검색은 수행하지 않습니다. 보호된 Console 게시는 결합된 Console 및
+Manual Studio 정적 아티팩트만 업데이트합니다.
 Bot 소유 catalog 갱신은 정확한 Core image를 승격하고 schema migration과 PostgreSQL 변환 결과
 검증을 실행하는 별도 보호 작업이며 정적 게시를 차단하지 않습니다.
 Health acceptance는 적용 증적을 기록하기 전에 코어 Container App의 최신 개정 번호가 항상

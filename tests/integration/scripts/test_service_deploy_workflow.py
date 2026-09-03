@@ -423,6 +423,10 @@ def test_operator_catalog_materialization_runs_after_schema_migration() -> None:
 def test_console_publish_binds_auth_and_verifies_exact_static_artifact() -> None:
     assert "scripts/deployment/azure/publish-console.sh infra" in _LEGACY_WORKFLOW
     assert "ENTRA_CONSOLE_API_SCOPE" in _LEGACY_WORKFLOW
+    assert 'hostname="${CONSOLE_DEFAULT_HOSTNAME:-}"' in _CONSOLE_PUBLISHER
+    assert 'resource_id="${CONSOLE_STATIC_WEB_APP_ID:-}"' in _CONSOLE_PUBLISHER
+    assert "console Static Web App belongs to a different subscription" in _CONSOLE_PUBLISHER
+    assert "console Static Web App hostname does not match its resource id" in _CONSOLE_PUBLISHER
     assert 'npm --prefix "$repo_root/console" run build' in _CONSOLE_PUBLISHER
     assert "SWA_CLI_DEPLOYMENT_TOKEN" in _CONSOLE_PUBLISHER
     assert "sha256sum --check --status" in _CONSOLE_PUBLISHER

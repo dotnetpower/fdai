@@ -14,11 +14,37 @@ if [[ ! "$ENTRA_CONSOLE_API_SCOPE" =~ ^api://[^/]+/[^/]+$ ]]; then
   exit 2
 fi
 
-hostname="$(terraform -chdir="$terraform_dir" output -raw console_default_hostname)"
-resource_id="$(terraform -chdir="$terraform_dir" output -raw console_static_web_app_id)"
+hostname="${CONSOLE_DEFAULT_HOSTNAME:-}"
+resource_id="${CONSOLE_STATIC_WEB_APP_ID:-}"
 if [[ -z "$hostname" || -z "$resource_id" ]]; then
-  echo "console Static Web App outputs are unavailable after apply" >&2
+  hostname="$(terraform -chdir="$terraform_dir" output -raw console_default_hostname)"
+  resource_id="$(terraform -chdir="$terraform_dir" output -raw console_static_web_app_id)"
+fi
+if [[ -z "$hostname" || -z "$resource_id" ]]; then
+  echo "console Static Web App binding is unavailable from protected variables and Terraform state" >&2
   exit 1
+fi
+if [[ ! "$hostname" =~ ^[A-Za-z0-9.-]+\.azurestaticapps\.net$ ]]; then
+  echo "console default hostname is invalid" >&2
+  exit 2
+fi
+if [[ ! "$resource_id" =~ ^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft\.Web/staticSites/[^/]+$ ]]; then
+  echo "console Static Web App resource id is invalid" >&2
+  exit 2
+fi
+if [[ -n "${ARM_SUBSCRIPTION_ID:-}" ]]; then
+  resource_subscription="$(cut -d/ -f3 <<<"$resource_id")"
+  if [[ "${resource_subscription,,}" != "${ARM_SUBSCRIPTION_ID,,}" ]]; then
+    echo "console Static Web App belongs to a different subscription" >&2
+    exit 2
+  fi
+fi
+observed_hostname="$(az rest --method get \
+  --url "https://management.azure.com${resource_id}?api-version=2023-12-01" \
+  --query properties.defaultHostname -o tsv)"
+if [[ -z "$observed_hostname" || "${observed_hostname,,}" != "${hostname,,}" ]]; then
+  echo "console Static Web App hostname does not match its resource id" >&2
+  exit 2
 fi
 
 operator_api="$(terraform -chdir="$terraform_dir" output -raw operator_api_fqdn)"

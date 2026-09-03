@@ -66,4 +66,6 @@ def test_console_static_publish_workflow_requires_exact_green_main_revision() ->
     assert "verify-github-environment.py" in workflow
     assert "login-deploy-identity.sh" in workflow
     assert "terraform init -input=false" in workflow
+    assert "CONSOLE_DEFAULT_HOSTNAME: ${{ vars.CONSOLE_DEFAULT_HOSTNAME }}" in workflow
+    assert "CONSOLE_STATIC_WEB_APP_ID: ${{ vars.CONSOLE_STATIC_WEB_APP_ID }}" in workflow
     assert "publish-console.sh infra" in workflow

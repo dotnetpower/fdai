@@ -127,9 +127,11 @@ bindings from repository Variables; Container App preconditions reject an incomp
 After exact apply converges, the official Flex One Deploy action remote-builds the verified source,
 retries bounded trigger sync, and requires both Function triggers before recording the apply receipt.
 If a later identity or health check fails after the immutable claim, verification resume validates
-that claim, skips Terraform apply, and reruns convergence and post-apply checks. Console hostname
-recovery uses the exact Static Web App id from Terraform state, never an arbitrary resource search.
-Protected Console publication updates only the combined Console and Manual Studio static artifact.
+that claim, skips Terraform apply, and reruns convergence and post-apply checks. Protected Console
+publication uses the non-secret Static Web App hostname and resource id synchronized to repository
+Variables by the exact apply. It falls back to the same exact Terraform state outputs only when
+those bindings are absent and never performs an arbitrary resource search. Protected Console
+publication updates only the combined Console and Manual Studio static artifact.
 The bot-owned catalog refresh is a separate protected operation that promotes the exact Core image,
 runs schema migrations, and verifies PostgreSQL projections without blocking static publication.
 Health acceptance always requires the core Container App's latest revision to be `Provisioned`

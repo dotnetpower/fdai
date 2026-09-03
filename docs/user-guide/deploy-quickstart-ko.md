@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: 보호된 fdaictl 작업 흐름으로 FDAI의 최소 Azure 인벤토리를 프로비저닝하거나 azd로 인프라 전용 개발 경로를 미리 봅니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 465b7cb3fa93fb3d388336412eba40ce7d49e2d6
+translation_source_sha: 8dcd27beb5234175a36333c6af9706ed917895eb
 translation_revised: 2026-09-03
 ---
 
@@ -43,8 +43,10 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
   이미지, Terraform state, migration branch, 상태 probe, workload identity를 소유합니다.
   Isolated Executor만 작업별 효과 역할을 받을 수 있습니다.
 - 보호된 Console 게시자를 통해 Console 및 Manual Studio 정적 콘텐츠를 게시합니다. 이
-  릴리스는 결합된 정적 아티팩트를 독립적으로 업로드하고 검증합니다. 별도 catalog 갱신을
-  사용해 schema migration을 실행하고 PostgreSQL의 정확한 Rule 및 Ontology 변환 결과를 검증합니다.
+  게시자는 정확한 적용에서 동기화한 Static Web App 결속을 사용하고 Azure 리소스와 호스트
+  이름의 일치를 검증한 뒤 결합된 정적 아티팩트를 독립적으로 업로드합니다. 별도 catalog
+  갱신을 사용해 schema migration을 실행하고 PostgreSQL의 정확한 Rule 및 Ontology 변환
+  결과를 검증합니다.
 - 독립 Slack 또는 Teams channel edge를 활성화하려면 프로바이더 credential과 principal mapping을
   local-only input 및 Key Vault에 보관하세요. Repository variable에는 versionless secret-id 목록만
   설정하고, 별도 Operator service `enable` plan보다 platform identity plan을 먼저 검토하고

@@ -13,6 +13,10 @@ def test_catalog_refresh_is_exact_approved_and_postgresql_verified() -> None:
     assert "Verify protected environment approval policy" in _REFRESH
     assert "Bind exact Core catalog image" in _REFRESH
     assert "refresh-authoritative-catalogs.sh infra" in _REFRESH
+    installer = _REFRESH.index("- name: Install pinned GitHub CLI")
+    assert _REFRESH.count("- name: Install pinned GitHub CLI") == 1
+    assert installer < _REFRESH.index("- name: Verify required CI")
+    assert installer < _REFRESH.index("- name: Verify protected environment approval policy")
 
 
 def test_catalog_refresh_request_is_bot_owned() -> None:
