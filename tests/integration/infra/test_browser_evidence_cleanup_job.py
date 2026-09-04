@@ -38,13 +38,16 @@ def test_browser_evidence_cleanup_job_has_no_executor_identity() -> None:
 
 def test_browser_evidence_cleanup_job_is_wired_through_root_and_outputs() -> None:
     root = (_ROOT / "infra" / "main.tf").read_text(encoding="utf-8")
+    normalized_root = " ".join(root.split())
     module_outputs = (_MODULE / "outputs.tf").read_text(encoding="utf-8")
     root_outputs = (_ROOT / "infra" / "outputs.tf").read_text(encoding="utf-8")
 
     assert '"caj-${var.workload}${local.full_suffix}-browser-gc"' in root
     assert len("caj-fdai-staging-krc-browser-gc") <= 32
-    assert "browser_evidence_cleanup_cron_expression  =" in root
-    assert "browser_evidence_cleanup_limit            =" in root
+    assert (
+        "browser_evidence_cleanup_cron_expression = var.browser_evidence_cleanup_cron_expression"
+    ) in normalized_root
+    assert "browser_evidence_cleanup_limit = var.browser_evidence_cleanup_limit" in normalized_root
     assert 'output "browser_evidence_cleanup_job_id"' in module_outputs
     assert 'output "browser_evidence_cleanup_job_id"' in root_outputs
 

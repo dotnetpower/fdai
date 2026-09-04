@@ -53,7 +53,7 @@ fdai/
 │   │   ├── operational_learning/ # sealed-case classification, fingerprint/action cohort gates, immutable citations, and inert candidate mappings
 │   │   ├── rule_semantic_generation/ # agent-facing build/validation handler Protocols plus exact activation, durable closure, and publication; no execution authority
 │   │   ├── quality_gate/       # mixed-model cross-check, verifier, grounding, and receipt-gated rubric mode; failed fan-out cancels and drains siblings (guards T2)
-│   │   ├── rca/                # root-cause analysis (T0 deterministic + T2 reasoner behind seam; grounding-gated)
+│   │   ├── rca/                # grounded T0/T1/T2 RCA with event-time topology, governed documents, and no action authority
 │   │   ├── risk_gate/          # unified authority: risk score + auto vs HIL vs deny; rejects malformed promotion metrics, enforces the seven safeguards, resolves the Axis-E live probe from a recorded catalog-probe-id reading, and audits the feature vector, catalog version, and remaining ceiling inputs for self-contained replay
 │   │   ├── execution_authorization/ # ontology-driven pre-dispatch capability policy, grant lifecycle, and replay-stable decisions
 │   │   ├── rbac/               # human RBAC for the Operator API (5-role matrix, resolver, enforcer)

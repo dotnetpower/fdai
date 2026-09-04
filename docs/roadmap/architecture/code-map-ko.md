@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: f4c3e4f757c6db91c4bc641364004e1dc0b7e098
+translation_source_sha: ea501adc1f98960ba5d9047c08e13d458c5b372a
 translation_revised: 2026-09-04
 ---
 # 코드 맵
@@ -170,9 +170,14 @@ WARA 평가 서비스는 이제 평가 전에 적합한 모든 exact-bound 읽�
 따라서 관련 없는 이후 관측이 해당 증적을 소급 허용할 수 없습니다.
 일치 행 WARA 평가기가 위반 0건을 충족으로 처리하기 전에 Azure 어댑터는 같은 신원과 제한
 시간을 사용하는 보조 정확한 ID 커버리지 쿼리에서 모든 대상을 관측하도록 요구합니다.
-기본 ControlLoop 조립은 이제 변경할 수 없는 Container에서 선택적 `IncidentMemberSource`와
-검토된 의존성 그래프를 전달합니다. 안전한 미연결 기본값을 바꾸거나 두 번째 인시던트 작성자를
-만들지 않고 결정론적 T1 사슬을 주입할 수 있습니다.
+기본 ControlLoop 조립은 event-time `IncidentRcaContextSource` 하나를 연결합니다. 이벤트의
+인벤토리 세대에서 정확한 프로바이더 신원을 해석하고 bitemporal topology history를 구성하며
+lifecycle Incident 하나를 매칭하고 모든 세대가 일치할 때만 배포 멤버를 허용합니다. 전용 읽기
+신원, sovereign endpoint, split 서비스 hydration 및 전체 timeout은 범위 없는 운영
+상관관계로 대체하지 않고 실패 시 차단합니다.
+자동 Incident T2에도 짝으로 구성되는 관리 문서 바인딩이 있습니다. Core는 별도의 읽기 전용
+DSN과 정확한 컬렉션, 접근 참조, 읽기 그룹 구성을 받고 고정 Forseti 주체 맥락을 만들며, 권한
+있는 문서 근거를 사용할 수 없으면 RCA 판단을 보류합니다.
 
 | 영역 | Responsibility | 출처 | 테스트 |
 |------|----------------|--------|------|

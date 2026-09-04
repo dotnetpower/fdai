@@ -1275,6 +1275,34 @@ def test_plan_guard_allows_exact_core_model_binding_transition(guard: ModuleType
         )
 
 
+def test_plan_guard_allows_exact_hydrated_rca_reader_identity(guard: ModuleType) -> None:
+    service = "core-control-plane"
+    digest = "a" * 64
+    plan = _core_model_binding_plan(guard, digest)
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    identity_ids = change["after"]["identity"][0]["identity_ids"]
+    identity_ids.append(
+        "/subscriptions/example/resourceGroups/example/providers/"
+        "Microsoft.ManagedIdentity/userAssignedIdentities/id-fdai-dev-rca-reader"
+    )
+    environment = change["after"]["template"][0]["container"][0]["env"]
+    environment.append(
+        {
+            "name": "FDAI_RCA_AZURE_READER_CLIENT_ID",
+            "value": "00000000-0000-0000-0000-000000000001",
+        }
+    )
+
+    guard.validate_plan(
+        plan,
+        service=service,
+        environment="dev",
+        image_ref="image",
+        model_binding_transition=True,
+        resolved_models_digest=digest,
+    )
+
+
 def test_plan_guard_rejects_model_binding_digest_mismatch(guard: ModuleType) -> None:
     service = "core-control-plane"
     plan = _core_model_binding_plan(guard, "b" * 64)

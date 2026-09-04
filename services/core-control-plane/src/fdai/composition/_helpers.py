@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 
 from ..agents import T2ConversationSynthesizer
 from ..core import operational_context as _oc
+from ..core import rca as _rca
 from ..core.architecture_review import ProductionEvidenceProvider
 from ..core.assurance_twin import (
     AssuranceTwinDiscoverySink,
@@ -55,14 +56,7 @@ from ..core.quality_gate.promotion import (
     RubricPromotionReceiptVerifier,
 )
 from ..core.quality_gate.rubric import RubricEvaluator
-from ..core.rca import (
-    CausalHypothesisProjection,
-    CausalInterventionReceiptVerifier,
-    IncidentMemberSource,
-    RcaReasoner,
-    TemporalCausalEvidenceProvider,
-    TemporalCausalityConfig,
-)
+from ..core.rca.governed_knowledge_evidence import GovernedKnowledgeBindings
 from ..core.readiness import StartupProbeResult, StartupProbeSpec
 from ..core.risk_gate import (
     OperationalPromotionReceiptVerifier,
@@ -166,7 +160,7 @@ class LlmBindings:
     critic_model: CriticModel | None = None
     judge_model: JudgeModel | None = None
     debate_orchestrator: DebateOrchestrator | None = None
-    rca_reasoner: RcaReasoner | None = None
+    rca_reasoner: _rca.RcaReasoner | None = None
     rubric_evaluator: RubricEvaluator | None = None
     t2_proposer: T2Proposer | None = None
     conversation_t2_synthesizer: T2ConversationSynthesizer | None = None
@@ -280,12 +274,14 @@ class Container:
     execution_access_grant_sink: ExecutionAccessGrantSink | None = None
     execution_authorization_required: bool = False
     current_reuse_verifier: CurrentReuseVerifier | None = None
-    incident_member_source: IncidentMemberSource | None = None
+    governed_knowledge: GovernedKnowledgeBindings | None = None
+    incident_member_source: _rca.IncidentMemberSource | None = None
+    incident_rca_context_source: _rca.IncidentRcaContextSource | None = None
     resource_dependency_graph: Mapping[str, frozenset[str]] = field(default_factory=dict)
-    temporal_causal_evidence_provider: TemporalCausalEvidenceProvider | None = None
-    temporal_causality_config: TemporalCausalityConfig | None = None
-    causal_hypothesis_projection: CausalHypothesisProjection | None = None
-    causal_intervention_receipt_verifier: CausalInterventionReceiptVerifier | None = None
+    temporal_causal_evidence_provider: _rca.TemporalCausalEvidenceProvider | None = None
+    temporal_causality_config: _rca.TemporalCausalityConfig | None = None
+    causal_hypothesis_projection: _rca.CausalHypothesisProjection | None = None
+    causal_intervention_receipt_verifier: _rca.CausalInterventionReceiptVerifier | None = None
     dynamic_simulation_request_provider: DynamicSimulationRequestProvider | None = None
     effect_model_reader: EffectModelReader | None = None
     effect_model_causal_evidence_verifier: EffectModelCausalEvidenceVerifier | None = None

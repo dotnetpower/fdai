@@ -24,6 +24,13 @@ variable "identity" {
     extra_resource_ids = optional(list(string), [])
   })
 }
+variable "rca_reader_identity" {
+  type = object({
+    resource_id = optional(string, "")
+    client_id   = optional(string, "")
+  })
+  default = {}
+}
 variable "event_topics" {
   type = object({
     canary                         = optional(string, "fdai.control.canary")
@@ -105,6 +112,19 @@ variable "observation_context" {
     source_credential_lineage   = optional(string, "")
   })
   default = {}
+}
+
+variable "governed_rca" {
+  type = object({
+    enabled                   = optional(bool, false)
+    document_dsn_secret_id    = optional(string, "")
+    collection_id             = optional(string, "")
+    allowed_access_refs       = optional(list(string), [])
+    actor_groups              = optional(list(string), [])
+    freshness_ceiling_seconds = optional(number, 86400)
+  })
+  default   = {}
+  sensitive = true
 }
 
 variable "configuration_drift" {

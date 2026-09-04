@@ -21,6 +21,7 @@ from fdai.delivery.azure.diagnostic_event_ingest import DiagnosticEventIngestBri
 from fdai.delivery.azure.monitor_events import DiagnosticNormalizerOptions
 from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.delivery.startup_probe import OpaCompileStartupProbe
+from fdai.runtime.blast_probe import bind_live_blast_probe_failure_streak
 from fdai.runtime.bootstrap_bindings import (
     EffectReconciliationRequestRuntimeBinding,
 )
@@ -83,6 +84,7 @@ from fdai.runtime.conversation_assurance import (
     build_runtime_pantheon_conversation_assurance,
 )
 from fdai.runtime.dynamic_evidence import bind_dynamic_evidence_from_env
+from fdai.runtime.governed_rca import bind_governed_rca_from_environment
 from fdai.runtime.human_assignment_reconciliation import AssignmentReconciliationWorker
 from fdai.runtime.observation_evidence import bind_executed_action_observation_from_env
 from fdai.runtime.operating_model import project_operating_model_from_env
@@ -92,6 +94,7 @@ from fdai.runtime.providers import (
     _build_operator_memory_store,
     _build_resource_lock,
 )
+from fdai.runtime.rca_bindings import bind_t1_rca_from_environment
 from fdai.runtime.readiness import StartupReadinessRuntime, build_startup_readiness_runtime
 from fdai.shared.contracts.models import ResponseOutcome
 from fdai.shared.providers.hil_registry import HilWorkflowDecisionRegistry
@@ -285,6 +288,22 @@ async def build_core_runtime(
         container,
         state_store=state_store,
         environ=environment,
+    )
+    container = bind_live_blast_probe_failure_streak(
+        container,
+        state_store=state_store,
+    )
+    container = bind_governed_rca_from_environment(
+        container,
+        environment=environment,
+    )
+    container = await bind_t1_rca_from_environment(
+        container,
+        incident_lookup=incident_runtime.registry.get,
+        incident_candidates=incident_runtime.registry.snapshot,
+        http_client=resources.http_client,
+        identity=identity,
+        environment=environment,
     )
     if container.graph_dynamic_simulation_request_provider is None:
         _LOGGER.info(

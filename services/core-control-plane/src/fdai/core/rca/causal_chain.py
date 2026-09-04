@@ -94,6 +94,7 @@ class CorrelatedEvent:
     is_change: bool
     change_kind: str | None = None
     cause_domain: CauseDomain = CauseDomain.UNKNOWN
+    inventory_generation: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

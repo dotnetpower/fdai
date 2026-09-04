@@ -41,7 +41,15 @@ from fdai.core.ontology_platform.reconciliation_producer import (
     EffectReconciliationRequestSink,
 )
 from fdai.core.operational_planning import PreDispatchKineticSafetyWriter
-from fdai.core.rca import CausalRuntimeCoordinator, IncidentMemberSource, RcaCoordinator
+from fdai.core.rca import (
+    CausalRuntimeCoordinator,
+    IncidentMemberSource,
+    IncidentRcaContextSource,
+    RcaCoordinator,
+)
+from fdai.core.rca.governed_knowledge_evidence import (
+    GovernedKnowledgeEvidenceContextProvider,
+)
 from fdai.core.risk_gate.gate import RiskGate
 from fdai.core.risk_gate.preconditions import (
     AutomationHoldReader,
@@ -118,6 +126,11 @@ class ControlLoop(
         rca_coordinator: RcaCoordinator | None = None,
         event_correlator: EventCorrelator | None = None,
         incident_member_source: IncidentMemberSource | None = None,
+        incident_rca_context_source: IncidentRcaContextSource | None = None,
+        governed_knowledge_context_provider: (
+            GovernedKnowledgeEvidenceContextProvider | None
+        ) = None,
+        rca_catalog_revision: str | None = None,
         causal_runtime_coordinator: CausalRuntimeCoordinator | None = None,
         causal_chain_window: timedelta | None = None,
         rca_side_path_timeout_seconds: float = 5.0,
@@ -183,6 +196,12 @@ class ControlLoop(
             raise ValueError("execution authorization is required but no evaluator is bound")
         if not math.isfinite(rca_side_path_timeout_seconds) or rca_side_path_timeout_seconds <= 0.0:
             raise ValueError("rca_side_path_timeout_seconds MUST be finite and positive")
+        if governed_knowledge_context_provider is not None and (
+            rca_catalog_revision is None
+            or len(rca_catalog_revision) != 71
+            or not rca_catalog_revision.startswith("sha256:")
+        ):
+            raise ValueError("governed knowledge context requires an exact RCA catalog revision")
         self._event_ingest = event_ingest
         self._trust_router = trust_router
         self._t0_engine = t0_engine
@@ -239,6 +258,14 @@ class ControlLoop(
         self._rca_coordinator = rca_coordinator
         self._event_correlator = event_correlator
         self._incident_member_source = incident_member_source
+        self._incident_rca_context_source = incident_rca_context_source
+        self._governed_knowledge_context_provider = governed_knowledge_context_provider
+        self._rca_catalog_revision = rca_catalog_revision
+        self._ontology_release_digest = (
+            action_builder.ontology_release.digest
+            if action_builder.ontology_release is not None
+            else None
+        )
         self._causal_runtime_coordinator = causal_runtime_coordinator
         self._rca_side_path_timeout_seconds = rca_side_path_timeout_seconds
         # ``is None``, not ``or``: timedelta(0) is falsy, so an operator

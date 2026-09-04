@@ -181,9 +181,14 @@ an unrelated later observation cannot retroactively admit them.
 Before a matching-row WARA evaluator can treat zero violations as satisfied, the Azure adapter
 requires a companion exact-id coverage query to observe every target under the same identity and
 deadline.
-Default ControlLoop assembly now carries an optional `IncidentMemberSource` and reviewed dependency
-graph from the immutable Container. This makes the deterministic T1 chain injectable without
-changing its safe unbound default or creating a second incident writer.
+Default ControlLoop assembly now binds one event-time `IncidentRcaContextSource`. It resolves exact
+provider identity from the event's inventory generation, materializes bitemporal topology history,
+matches one lifecycle Incident, and admits deployment members only when all generations agree.
+Dedicated read identity, sovereign endpoint, split-service hydration, and one complete timeout keep
+the path fail closed without unscoped production correlation.
+Automated Incident T2 also has a paired governed-document binding. Core receives a separate
+read-only DSN plus exact collection, access-reference, and reader-group configuration; it creates a
+fixed Forseti principal context and holds the RCA when authorized document evidence is unavailable.
 
 | Area | Responsibility | Source | Tests |
 |------|----------------|--------|-------|

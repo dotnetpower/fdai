@@ -27,7 +27,9 @@ Design boundaries
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol, runtime_checkable
 
 from fdai.core.rca.causal_chain import CorrelatedEvent
@@ -48,6 +50,34 @@ class IncidentMemberSource(Protocol):
         ...
 
 
+@dataclass(frozen=True, slots=True)
+class IncidentRcaContext:
+    """Incident members and their exact-generation dependency graph."""
+
+    members: tuple[CorrelatedEvent, ...]
+    depends_on: Mapping[str, frozenset[str]]
+    inventory_generation: str
+
+    def __post_init__(self) -> None:
+        if not self.inventory_generation.strip():
+            raise ValueError("IncidentRcaContext.inventory_generation MUST be non-empty")
+
+
+@runtime_checkable
+class IncidentRcaContextSource(Protocol):
+    """Load one time-consistent T1 context under an implementation deadline."""
+
+    async def context(
+        self,
+        *,
+        incident_id: str,
+        resource_ref: str,
+        event_type: str,
+        correlation_id: str | None,
+        detected_at: datetime,
+    ) -> IncidentRcaContext | None: ...
+
+
 class NoopIncidentMemberSource:
     """Default source that knows no members (feature-off, no behavior).
 
@@ -60,4 +90,9 @@ class NoopIncidentMemberSource:
         return ()
 
 
-__all__ = ["IncidentMemberSource", "NoopIncidentMemberSource"]
+__all__ = [
+    "IncidentMemberSource",
+    "IncidentRcaContext",
+    "IncidentRcaContextSource",
+    "NoopIncidentMemberSource",
+]

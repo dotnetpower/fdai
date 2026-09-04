@@ -1,7 +1,7 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: 66ba68921f3f142eeaa8fd4309e30d1f284cf7d5
+translation_source_sha: 0bd1a7bfb04c030a727e9d753eec1affb5bd4294
 translation_revised: 2026-09-04
 ---
 # 문서 인제스트와 투입 구역
@@ -610,6 +610,7 @@ rich format이 필요할 때 의존성 주입으로 프로바이더를 교체할
 |------|------|------|------|
 | 계약, 수명 주기, 한도 및 로컬 format 추출 | implemented | `packages/service-contracts/src/fdai_service_contracts/document.py`; `services/core-control-plane/src/fdai/core/document_ingestion/`; 로컬 document 프로바이더; focused ingestion 및 provider 테스트 | 범위가 제한된 업로드 상태, protection 상태, safe text, OOXML, strict PDF, 조각화 및 실패 시 차단 전이에 focused 검사가 있습니다. |
 | 독립 upload API 및 처리 worker | implemented | `services/document-ingestion-api/`; `services/document-processing-worker/`; service-owned 테스트 | 별도 ASGI 및 worker 패키지가 scoped 업로드, 처리, 상태, 저장소, event 및 handover 경계를 구현합니다. |
+| 관리되는 자동 RCA 읽기 연결 | implemented | `delivery/persistence/postgres_governed_document_read.py`, `delivery/governed_rca_context.py`, Core 서비스 Terraform, 집중 관리 RCA 테스트 | Core는 별도 읽기 전용 DSN secret과 정확한 컬렉션, 접근 참조, 읽기 그룹 구성을 받습니다. 검색은 ranking 전에 필터링하고 근거를 허용하기 전에 현재 메타데이터와 그룹 권한을 다시 확인합니다. 이는 배포된 문서 읽기를 검증한 상태가 아닙니다. |
 | PostgreSQL, ADLS, pgvector, Event Hubs, 임베딩 및 ClamAV 연결 | in-progress | 독립 service 어댑터; `infra/modules/storage/adls-gen2/`; `infra/local/docker-compose.yml` | Delivery 구현과 로컬 및 배포 구성이 있지만 이 ledger에는 모든 연결과 실패 경계를 다루는 하나의 관리되는 exact-topology 증적이 없습니다. |
 | 권리 관리, OCR, 미리 보기 및 철회 | in-progress | [구현 경계와 롤아웃](#구현-경계와-롤아웃) | 감지와 경계는 있습니다. Purview/RMS 접근, delegated 권한 확인, OCR 조립, 미리 보기 및 철회 조정은 프로바이더 작업으로 남아 있습니다. |
 | 재개 가능한 업로드, connector 및 측정된 규모 | not-started | [Connector and 규모](#구현-경계와-롤아웃) | Block-resumable 업로드, connector delta sync 및 측정된 용량 대상은 설계 작업으로 남아 있습니다. |
@@ -618,6 +619,7 @@ rich format이 필요할 때 의존성 주입으로 프로바이더를 교체할
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-04 | implemented | 고정 시스템 주체, `incident-review` 목적, 별도 읽기 전용 DSN, 정확한 컬렉션 및 접근 구성, 실패 시 차단하는 startup 짝 검사를 통해 관리되는 문서 RCA 소비자를 자동 Incident T2에 연결했습니다. | `current change`; 집중 관리 맥락, 자동 T2, 권한 확인, strict mypy, Ruff 및 Core 서비스 Terraform 검사가 통과했습니다. | 배포된 읽기 증적과 5-service 운영 증적을 보존합니다. |
 | 2026-09-04 | implemented | 별도의 관리되는 문서 RCA 근거 소비자를 추가했습니다. 컬렉션 범위 검색을 사용하고 현재 메타데이터와 권한을 다시 확인하며, 범위가 지정되지 않은 KnowledgeSource를 열지 않고 개정 번호, 목적, 범위, 기준 시각, 가림 및 인용 근거를 결속합니다. | `current change`; 집중 관리 문서 어댑터, RCA 조정기 및 OperationalEvidenceBundle 검사입니다. | 배포 소유의 관리되는 맥락 프로바이더를 연결하고 5-service 운영 증적을 보존합니다. |
 | 2026-08-14 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 계약, core 수명 주기, service 패키지, 어댑터 및 focused 검사입니다. | Exact-topology, protection 프로바이더, connector 및 규모 근거를 완료해야 합니다. |
 

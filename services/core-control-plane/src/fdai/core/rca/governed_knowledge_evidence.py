@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import UTC
+from datetime import UTC, datetime
 from typing import Protocol
 from uuid import UUID
 
@@ -111,6 +111,20 @@ class GovernedDocumentEvidenceReader(Protocol):
     ) -> OperationalEvidenceReadResult: ...
 
 
+class GovernedKnowledgeEvidenceContextProvider(Protocol):
+    """Build one server-owned governed context for an automated RCA read."""
+
+    async def context_for(
+        self,
+        *,
+        incident_ref: str,
+        resource_ref: str,
+        cutoff: datetime,
+        ontology_release_digest: str,
+        catalog_revision: str,
+    ) -> GovernedKnowledgeEvidenceContext: ...
+
+
 class GovernedKnowledgeEvidenceGatherer:
     """Return opaque governed KNOWLEDGE citations or a fail-closed hold."""
 
@@ -146,6 +160,14 @@ class GovernedKnowledgeEvidenceGatherer:
         except Exception:  # noqa: BLE001 - provider failure cannot disclose or ground evidence
             return _held("provider_unavailable")
         return _citations_from_read(result=result, context=context)
+
+
+@dataclass(frozen=True, slots=True)
+class GovernedKnowledgeBindings:
+    """Paired gatherer and server-owned context provider."""
+
+    gatherer: GovernedKnowledgeEvidenceGatherer
+    context_provider: GovernedKnowledgeEvidenceContextProvider
 
 
 def _citations_from_read(
@@ -276,8 +298,10 @@ __all__: Sequence[str] = (
     "GovernedDocumentAccessContext",
     "GovernedDocumentEvidenceReader",
     "GovernedDocumentRevision",
+    "GovernedKnowledgeEvidenceContextProvider",
     "GovernedKnowledgeEvidenceContext",
     "GovernedKnowledgeEvidenceGatherer",
+    "GovernedKnowledgeBindings",
     "GovernedKnowledgeEvidenceHoldError",
     "GovernedKnowledgeEvidenceResult",
 )

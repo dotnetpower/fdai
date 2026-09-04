@@ -16,8 +16,12 @@ from fdai.core.rca import (
     Citation,
     CitationKind,
     IncidentMemberSource,
+    IncidentRcaContextSource,
     RcaCoordinator,
     RcaResult,
+)
+from fdai.core.rca.governed_knowledge_evidence import (
+    GovernedKnowledgeEvidenceContextProvider,
 )
 from fdai.core.trust_router import RoutingDecision
 from fdai.shared.contracts.models import Event, Mode, Rule
@@ -59,6 +63,10 @@ class ControlLoopRcaMixin:
     _rca_coordinator: RcaCoordinator | None
     _event_correlator: EventCorrelator | None
     _incident_member_source: IncidentMemberSource | None
+    _incident_rca_context_source: IncidentRcaContextSource | None
+    _governed_knowledge_context_provider: GovernedKnowledgeEvidenceContextProvider | None
+    _ontology_release_digest: str | None
+    _rca_catalog_revision: str | None
     _causal_runtime_coordinator: CausalRuntimeCoordinator | None
     _causal_chain_window: timedelta
     _resource_dependency_graph: Mapping[str, Iterable[str]] | None
@@ -137,22 +145,45 @@ class ControlLoopRcaMixin:
         """Append a T1 temporal causal-chain hypothesis to the audit."""
         if (
             self._rca_coordinator is None
-            or self._incident_member_source is None
+            or (self._incident_member_source is None and self._incident_rca_context_source is None)
+            or (self._incident_rca_context_source is None and not self._resource_dependency_graph)
             or incident_id is None
             or not event.resource_ref
         ):
             return
-        try:
-            members = await self._incident_member_source.members(incident_id=incident_id)
+        coordinator = self._rca_coordinator
+        failure_resource_ref = event.resource_ref
+        if coordinator is None or failure_resource_ref is None:
+            return
+
+        async def run_t1() -> None:
+            depends_on = self._resource_dependency_graph
+            if self._incident_rca_context_source is not None:
+                context = await self._incident_rca_context_source.context(
+                    incident_id=incident_id,
+                    resource_ref=failure_resource_ref,
+                    event_type=event.event_type,
+                    correlation_id=event.correlation_id,
+                    detected_at=event.detected_at,
+                )
+                if context is None:
+                    return
+                members = context.members
+                depends_on = context.depends_on
+            else:
+                member_source = self._incident_member_source
+                if member_source is None:
+                    return
+                members = tuple(await member_source.members(incident_id=incident_id))
             if not members:
                 return
-            result = self._rca_coordinator.analyze_t1_causal_chain(
+            result = coordinator.analyze_t1_causal_chain(
                 failure_event_id=str(event.event_id),
                 failure_at=event.detected_at,
-                failure_resource_ref=event.resource_ref,
+                failure_resource_ref=failure_resource_ref,
                 correlated_events=members,
                 window=self._causal_chain_window,
-                depends_on=self._resource_dependency_graph,
+                depends_on=depends_on,
             )
             hypothesis = result.hypothesis
             await self._audit_store.append_audit_entry(
@@ -168,7 +199,9 @@ class ControlLoopRcaMixin:
                     "rca_outcome": result.outcome.value,
                     "rca_reason": result.reason,
                     "rca_tier": hypothesis.tier.value if hypothesis else "t1",
-                    "rca_cause_domain": hypothesis.cause_domain.value if hypothesis else "unknown",
+                    "rca_cause_domain": (
+                        hypothesis.cause_domain.value if hypothesis else "unknown"
+                    ),
                     "rca_cause": hypothesis.cause if hypothesis else None,
                     "rca_confidence": hypothesis.confidence if hypothesis else None,
                     "rca_citations": (
@@ -183,6 +216,12 @@ class ControlLoopRcaMixin:
                     ),
                     "recorded_at": datetime.now(tz=UTC).isoformat(),
                 }
+            )
+
+        try:
+            await asyncio.wait_for(
+                run_t1(),
+                timeout=self._rca_side_path_timeout_seconds,
             )
         except Exception:  # noqa: BLE001 - T1 causal-chain RCA best-effort
             _LOGGER.warning(
@@ -245,6 +284,7 @@ class ControlLoopRcaMixin:
         """Append and return a grounded T2 root-cause hypothesis for a novel case."""
         if self._rca_coordinator is None or not self._rca_coordinator.has_t2:
             return None
+        coordinator = self._rca_coordinator
         resource = event.resource_ref or _extract_resource_id(event, decision)
         candidates = [Citation(kind=CitationKind.EVENT, ref=str(event.event_id))]
         if resource:
@@ -258,12 +298,33 @@ class ControlLoopRcaMixin:
                 and isinstance(value, Mapping)
                 and value.get("status") == "available"
             )
-        try:
+
+        async def run_t2() -> RcaResult | None:
             summary = _incident_summary(event, decision)
-            result = await self._rca_coordinator.analyze_t2(
-                incident_summary=summary,
-                candidate_citations=tuple(candidates),
-            )
+            if self._governed_knowledge_context_provider is not None and incident_id is not None:
+                if self._ontology_release_digest is None or self._rca_catalog_revision is None:
+                    return None
+                scoped_resource = resource or f"event:{event.event_id}"
+                governed_context = await self._governed_knowledge_context_provider.context_for(
+                    incident_ref=f"incident:{incident_id}",
+                    resource_ref=scoped_resource,
+                    cutoff=event.detected_at,
+                    ontology_release_digest=self._ontology_release_digest,
+                    catalog_revision=self._rca_catalog_revision,
+                )
+                result = await coordinator.analyze_t2_from_telemetry(
+                    incident_summary=summary,
+                    resource_ref=scoped_resource,
+                    since=event.detected_at - self._causal_chain_window,
+                    until=event.detected_at,
+                    extra_citations=tuple(candidates),
+                    governed_knowledge_context=governed_context,
+                )
+            else:
+                result = await coordinator.analyze_t2(
+                    incident_summary=summary,
+                    candidate_citations=tuple(candidates),
+                )
             hypothesis = result.hypothesis
             await self._audit_store.append_audit_entry(
                 {
@@ -278,6 +339,9 @@ class ControlLoopRcaMixin:
                     "rca_outcome": result.outcome.value,
                     "rca_reason": result.reason,
                     "rca_tier": hypothesis.tier.value if hypothesis else "t2",
+                    "rca_cause_domain": (
+                        hypothesis.cause_domain.value if hypothesis else "unknown"
+                    ),
                     "rca_cause": hypothesis.cause if hypothesis else None,
                     "rca_confidence": hypothesis.confidence if hypothesis else None,
                     "rca_citations": (
@@ -289,6 +353,12 @@ class ControlLoopRcaMixin:
                 }
             )
             return result
+
+        try:
+            return await asyncio.wait_for(
+                run_t2(),
+                timeout=self._rca_side_path_timeout_seconds,
+            )
         except Exception:  # noqa: BLE001 - T2 RCA best-effort; decision path unaffected
             _LOGGER.warning(
                 "rca_t2_analyze_failed",

@@ -233,6 +233,31 @@ async def test_provider_rejects_unbounded_response_configuration(
 
 
 @pytest.mark.asyncio
+async def test_string_truncation_flag_fails_closed_without_continuation() -> None:
+    _, _, _, plan, _ = _bound_runtime()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        rows = [{"id": plan.resource_ids[0]}] if "_fdai_wara_coverage" in body["query"] else []
+        return httpx.Response(
+            200,
+            json={
+                "data": rows,
+                "count": len(rows),
+                "totalRecords": len(rows),
+                "resultTruncated": "true",
+            },
+        )
+
+    provider, client = _provider(httpx.MockTransport(handler))
+    try:
+        with pytest.raises(WaraObservationError, match="truncated result"):
+            await provider.observe(plan)
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.asyncio
 async def test_matching_rows_fail_and_feed_shadow_runtime() -> None:
     runtime, request, record, plan, _ = _bound_runtime()
 

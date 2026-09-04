@@ -24,6 +24,7 @@ The pipeline sub-tests assert the property invariants documented in
 
 from __future__ import annotations
 
+import asyncio
 import shutil
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -47,13 +48,27 @@ from fdai.core.executor import (
 )
 from fdai.core.executor.action_builder import ActionBuilder
 from fdai.core.notifications.router import NotificationRouter
-from fdai.core.rca import CorrelatedEvent, RcaCoordinator, RcaTier, RootCauseHypothesis
+from fdai.core.rca import (
+    Citation,
+    CitationKind,
+    CorrelatedEvent,
+    RcaCoordinator,
+    RcaTier,
+    RootCauseHypothesis,
+)
+from fdai.core.rca.governed_knowledge_evidence import (
+    GovernedKnowledgeEvidenceResult,
+)
 from fdai.core.tiers.t0_deterministic import (
     OpaRegoEvaluator,
     RuleIndex,
     T0Engine,
 )
 from fdai.core.trust_router import TrustRouter
+from fdai.delivery.governed_rca_context import (
+    GovernedRcaContextConfig,
+    RuntimeGovernedRcaContextProvider,
+)
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.rule_catalog.schema.resource_type import (
     load_resource_type_registry_from_mapping,
@@ -66,6 +81,7 @@ from fdai.shared.contracts.validation import (
     JsonSchemaContractValidator,
     JsonSchemaEventValidator,
 )
+from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.notifications.base import (
     NotificationMessage,
     Severity,
@@ -122,7 +138,10 @@ def _make_loop(
     rca_coordinator: RcaCoordinator | None = None,
     event_correlator: EventCorrelator | None = None,
     incident_member_source: Any = None,
+    incident_rca_context_source: Any = None,
     resource_dependency_graph: Any = None,
+    governed_knowledge_context_provider: Any = None,
+    rca_side_path_timeout_seconds: float = 5.0,
     governance_assignments: tuple[Any, ...] = (),
     governance_overrides: tuple[Any, ...] = (),
 ) -> tuple[ControlLoop, RecordingRemediationPrPublisher, InMemoryStateStore]:
@@ -140,7 +159,14 @@ def _make_loop(
         renderer=TemplateRenderer(remediation_root=REMEDIATION_ROOT),
         resource_lock=ResourceLockManager(),
     )
-    action_builder = ActionBuilder(action_types_by_name={a.name: a for a in action_types})
+    action_builder = ActionBuilder(
+        action_types_by_name={a.name: a for a in action_types},
+        ontology_release=(
+            build_ontology_release(object_types=(), link_types=())
+            if governed_knowledge_context_provider is not None
+            else None
+        ),
+    )
     validator = JsonSchemaEventValidator(
         JsonSchemaContractValidator(PackageResourceSchemaRegistry())
     )
@@ -161,6 +187,12 @@ def _make_loop(
         rca_coordinator=rca_coordinator,
         event_correlator=event_correlator,
         incident_member_source=incident_member_source,
+        incident_rca_context_source=incident_rca_context_source,
+        governed_knowledge_context_provider=governed_knowledge_context_provider,
+        rca_catalog_revision=(
+            f"sha256:{'b' * 64}" if governed_knowledge_context_provider is not None else None
+        ),
+        rca_side_path_timeout_seconds=rca_side_path_timeout_seconds,
         resource_dependency_graph=resource_dependency_graph,
         governance_assignments=governance_assignments,
         governance_overrides=governance_overrides,
@@ -1634,6 +1666,7 @@ async def test_t1_causal_chain_abstains_audits_when_no_change(
         with_opa=False,
         rca_coordinator=RcaCoordinator(),
         incident_member_source=_InMemoryMemberSource(members),
+        resource_dependency_graph={"resource:app": {"resource:app"}},
     )
     await loop._analyze_and_audit_t1_causal_chain(  # noqa: SLF001
         event=_failure_event(), incident_id="inc-1"
@@ -1664,6 +1697,31 @@ async def test_t1_causal_chain_empty_source_is_silent(
 
 
 @pytest.mark.asyncio
+async def test_t1_causal_chain_noop_without_dependency_graph(
+    shipped_catalog: tuple[Any, Any],
+) -> None:
+    loop, _, audit = _make_loop(
+        shipped_catalog,
+        with_opa=False,
+        rca_coordinator=RcaCoordinator(),
+        incident_member_source=_InMemoryMemberSource(
+            (
+                CorrelatedEvent(
+                    event_id="deploy-1",
+                    at=_FAIL_AT - timedelta(minutes=1),
+                    resource_ref="resource:db",
+                    is_change=True,
+                ),
+            )
+        ),
+    )
+    await loop._analyze_and_audit_t1_causal_chain(  # noqa: SLF001
+        event=_failure_event(), incident_id="inc-1"
+    )
+    assert not [e for e in audit.audit_entries if e["entry"].get("action_kind") == "rca.hypothesis"]
+
+
+@pytest.mark.asyncio
 async def test_t1_causal_chain_noop_without_source(shipped_catalog: tuple[Any, Any]) -> None:
     # No member source wired -> the helper is a no-op (backward-compatible).
     loop, _, audit = _make_loop(shipped_catalog, with_opa=False, rca_coordinator=RcaCoordinator())
@@ -1671,6 +1729,36 @@ async def test_t1_causal_chain_noop_without_source(shipped_catalog: tuple[Any, A
         event=_failure_event(), incident_id="inc-1"
     )
     assert not [e for e in audit.audit_entries if e["entry"].get("action_kind") == "rca.hypothesis"]
+
+
+@pytest.mark.asyncio
+async def test_t1_incident_context_lookup_obeys_complete_side_path_timeout(
+    shipped_catalog: tuple[Any, Any],
+) -> None:
+    class _SlowContextSource:
+        async def context(self, **kwargs: Any) -> Any:
+            del kwargs
+            await asyncio.sleep(0.1)
+            raise AssertionError("timeout should cancel the context read")
+
+    loop, _, audit = _make_loop(
+        shipped_catalog,
+        with_opa=False,
+        rca_coordinator=RcaCoordinator(),
+        incident_rca_context_source=_SlowContextSource(),
+        rca_side_path_timeout_seconds=0.01,
+    )
+
+    await loop._analyze_and_audit_t1_causal_chain(  # noqa: SLF001
+        event=_failure_event(),
+        incident_id="inc-1",
+    )
+
+    assert not [
+        entry
+        for entry in audit.audit_entries
+        if entry["entry"].get("action_kind") == "rca.hypothesis"
+    ]
 
 
 @pytest.mark.asyncio
@@ -1746,6 +1834,53 @@ class _StubT2Reasoner:
         )
 
 
+class _KnowledgeT2Reasoner:
+    async def reason(self, *, incident_summary: str, candidate_citations: Any) -> Any:
+        del incident_summary
+        citation = next(
+            (
+                candidate
+                for candidate in candidate_citations
+                if candidate.kind is CitationKind.KNOWLEDGE
+            ),
+            None,
+        )
+        if citation is None:
+            return None
+        return RootCauseHypothesis(
+            tier=RcaTier.T2,
+            cause="governed runbook hypothesis",
+            confidence=0.8,
+            citations=(citation,),
+        )
+
+
+class _SlowT2Reasoner:
+    async def reason(self, *, incident_summary: str, candidate_citations: Any) -> Any:
+        del incident_summary, candidate_citations
+        await asyncio.sleep(0.1)
+        raise AssertionError("timeout should cancel T2 reasoning")
+
+
+class _RecordingGovernedGatherer:
+    def __init__(self) -> None:
+        self.context: Any = None
+
+    async def gather(self, *, query: str, context: Any, limit: int | None = None) -> Any:
+        assert query
+        assert limit is None
+        self.context = context
+        return GovernedKnowledgeEvidenceResult(
+            citations=(
+                Citation(
+                    kind=CitationKind.KNOWLEDGE,
+                    ref="document-evidence:governed",
+                ),
+            ),
+            bundle_id="evidence-bundle:governed",
+        )
+
+
 @pytest.mark.asyncio
 async def test_t2_rca_audited_on_abstain_with_reasoner(
     shipped_catalog: tuple[Any, Any],
@@ -1781,6 +1916,57 @@ async def test_t2_rca_audited_on_abstain_with_reasoner(
 
 
 @pytest.mark.asyncio
+async def test_t2_rca_uses_server_owned_governed_context_for_incident(
+    shipped_catalog: tuple[Any, Any],
+) -> None:
+    gatherer = _RecordingGovernedGatherer()
+    context_provider = RuntimeGovernedRcaContextProvider(
+        config=GovernedRcaContextConfig(
+            collection_id="operations",
+            allowed_access_refs=frozenset({"collection:operations"}),
+            actor_groups=frozenset({"group:responders"}),
+        )
+    )
+    loop, _, audit = _make_loop(
+        shipped_catalog,
+        with_opa=False,
+        rca_coordinator=RcaCoordinator(
+            reasoner=_KnowledgeT2Reasoner(),
+            governed_knowledge_gatherer=gatherer,
+        ),
+        event_correlator=EventCorrelator(),
+        governed_knowledge_context_provider=context_provider,
+    )
+
+    result = await loop.process(
+        _make_event(
+            idempotency_key="t2-governed",
+            resource_type="object-storage",
+            resource_id="r-governed",
+            props={},
+        )
+    )
+
+    assert result.rca_result is not None
+    assert result.rca_result.is_grounded
+    assert gatherer.context is not None
+    assert gatherer.context.authenticated_context.principal_ref == "principal:fdai-rca"
+    assert gatherer.context.read_request.catalog_revision == f"sha256:{'b' * 64}"
+    assert (
+        gatherer.context.read_request.catalog_revision
+        != gatherer.context.read_request.ontology_release_digest
+    )
+    assert any(scope.startswith("incident:") for scope in gatherer.context.read_request.scope)
+    t2_entry = next(
+        entry["entry"]
+        for entry in audit.audit_entries
+        if entry["entry"].get("idempotency_key") == "t2-governed:rca_t2"
+    )
+    assert t2_entry["rca_citations"] == [{"kind": "knowledge", "ref": "document-evidence:governed"}]
+    assert t2_entry["rca_cause_domain"] == "unknown"
+
+
+@pytest.mark.asyncio
 async def test_t2_rca_skipped_without_reasoner(shipped_catalog: tuple[Any, Any]) -> None:
     # RcaCoordinator without a reasoner -> T2 RCA is skipped (no noise).
     loop, _, audit = _make_loop(shipped_catalog, with_opa=False, rca_coordinator=RcaCoordinator())
@@ -1796,6 +1982,35 @@ async def test_t2_rca_skipped_without_reasoner(shipped_catalog: tuple[Any, Any])
         e for e in audit.audit_entries if e["entry"].get("action_kind") == "rca.hypothesis"
     ]
     assert t2_entries == []
+
+
+@pytest.mark.asyncio
+async def test_t2_rca_complete_side_path_obeys_timeout(
+    shipped_catalog: tuple[Any, Any],
+) -> None:
+    loop, _, audit = _make_loop(
+        shipped_catalog,
+        with_opa=False,
+        rca_coordinator=RcaCoordinator(reasoner=_SlowT2Reasoner()),
+        event_correlator=EventCorrelator(),
+        rca_side_path_timeout_seconds=0.01,
+    )
+
+    result = await loop.process(
+        _make_event(
+            idempotency_key="t2-timeout",
+            resource_type="object-storage",
+            resource_id="r-timeout",
+            props={},
+        )
+    )
+
+    assert result.rca_result is None
+    assert not [
+        entry
+        for entry in audit.audit_entries
+        if entry["entry"].get("idempotency_key") == "t2-timeout:rca_t2"
+    ]
 
 
 @pytest.mark.asyncio

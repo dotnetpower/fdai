@@ -252,6 +252,7 @@ class AzureResourceGraphWaraObservationProvider:
             if total_bytes > self._config.maximum_total_response_bytes:
                 raise WaraObservationError("WARA ARG response exceeded the total byte bound")
             payload = _response_object(response, page)
+            result_truncated = _result_is_truncated(payload)
             page_rows = payload.get("data")
             if not isinstance(page_rows, list):
                 raise WaraObservationError(f"WARA ARG payload missing data array on page {page}")
@@ -266,7 +267,7 @@ class AzureResourceGraphWaraObservationProvider:
 
             next_token = payload.get("$skipToken")
             if not isinstance(next_token, str) or not next_token:
-                if payload.get("resultTruncated") is True or _count_is_truncated(payload):
+                if result_truncated or _count_is_truncated(payload):
                     raise WaraObservationError(
                         "WARA ARG returned a truncated result without a continuation token"
                     )
@@ -408,6 +409,21 @@ def _count_is_truncated(payload: Mapping[str, Any]) -> bool:
         and not isinstance(total, bool)
         and count < total
     )
+
+
+def _result_is_truncated(payload: Mapping[str, Any]) -> bool:
+    value = payload.get("resultTruncated")
+    if value is None or value is False:
+        return False
+    if value is True:
+        return True
+    if isinstance(value, str):
+        normalized = value.casefold()
+        if normalized == "false":
+            return False
+        if normalized == "true":
+            return True
+    raise WaraObservationError("WARA ARG resultTruncated flag is invalid")
 
 
 __all__ = [

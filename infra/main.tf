@@ -344,6 +344,15 @@ module "inventory_identity" {
   tags                = local.tags
 }
 
+# Incident RCA reads only Activity Log and uses a dedicated non-executor identity.
+module "rca_reader_identity" {
+  source              = "./modules/identity/user-assigned-mi"
+  name                = "id-${var.workload}${local.full_suffix}-rca-reader"
+  resource_group_name = module.resource_group.name
+  location            = var.region
+  tags                = local.tags
+}
+
 locals {
   measurement_runners_enabled = (
     var.baseline_measurement_enabled ||
@@ -776,6 +785,12 @@ resource "azurerm_role_assignment" "inventory_monitoring_reader" {
   principal_id         = module.inventory_identity.principal_id
 }
 
+resource "azurerm_role_assignment" "rca_monitoring_reader" {
+  scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
+  role_definition_name = "Monitoring Reader"
+  principal_id         = module.rca_reader_identity.principal_id
+}
+
 resource "azurerm_role_assignment" "inventory_log_analytics_reader" {
   scope                = module.log_analytics.workspace_id
   role_definition_name = "Log Analytics Reader"
@@ -817,6 +832,13 @@ resource "azurerm_role_assignment" "dr_drill_acr_pull" {
 
 resource "azurerm_role_assignment" "inventory_eventhubs_sender" {
   scope                = module.event_bus.topic_ids[local.event_topics[0]]
+  role_definition_name = "Azure Event Hubs Data Sender"
+  principal_id         = module.inventory_identity.principal_id
+}
+
+resource "azurerm_role_assignment" "inventory_wara_sender" {
+  count                = var.wara_assessment_cron_expression == "" ? 0 : 1
+  scope                = module.event_bus.topic_ids[local.semantic_turn_physical_topic]
   role_definition_name = "Azure Event Hubs Data Sender"
   principal_id         = module.inventory_identity.principal_id
 }
@@ -2000,6 +2022,7 @@ module "compute" {
   startup_phase_timeout_seconds       = var.startup_phase_timeout_seconds
   inventory_identity_id               = module.inventory_identity.resource_id
   inventory_identity_client_id        = module.inventory_identity.client_id
+  rca_reader_identity_client_id       = module.rca_reader_identity.client_id
   canary_identity_id                  = module.canary_identity.resource_id
   canary_identity_client_id           = module.canary_identity.client_id
   canary_topic                        = local.canary_topic
@@ -2024,6 +2047,7 @@ module "compute" {
   ohl_evidence_initiator_principal_id = var.ohl_scale_out_evidence_initiator_principal_id
   image                               = var.core_image
   extra_identity_ids = concat(
+    [module.rca_reader_identity.resource_id],
     local.core_vertical_identity_ids,
     var.enable_email_notifications ? [module.notification_identity[0].resource_id] : [],
     var.enable_case_history ? [module.case_history_identity[0].resource_id] : [],
@@ -2109,16 +2133,23 @@ module "compute" {
   )
 
   # Persistence DSNs (KV-backed; executor MI reads at runtime).
-  state_store_dsn_secret_id                 = azurerm_key_vault_secret.state_store_dsn.id
-  inventory_dsn_secret_id                   = azurerm_key_vault_secret.state_store_dsn.id
-  inventory_cron_expression                 = var.inventory_cron_expression
-  inventory_kubernetes_api_server           = var.inventory_kubernetes_api_server
-  inventory_kubernetes_cluster_ref          = var.inventory_kubernetes_cluster_ref
-  inventory_kubernetes_ca_pem               = var.inventory_kubernetes_ca_pem
-  inventory_kubernetes_audience             = var.inventory_kubernetes_audience
-  browser_evidence_cleanup_cron_expression  = var.browser_evidence_cleanup_cron_expression
-  browser_evidence_cleanup_limit            = var.browser_evidence_cleanup_limit
-  observation_campaign_cron_expression      = var.observation_campaign_cron_expression
+  state_store_dsn_secret_id                = azurerm_key_vault_secret.state_store_dsn.id
+  inventory_dsn_secret_id                  = azurerm_key_vault_secret.state_store_dsn.id
+  inventory_cron_expression                = var.inventory_cron_expression
+  inventory_kubernetes_api_server          = var.inventory_kubernetes_api_server
+  inventory_kubernetes_cluster_ref         = var.inventory_kubernetes_cluster_ref
+  inventory_kubernetes_ca_pem              = var.inventory_kubernetes_ca_pem
+  inventory_kubernetes_audience            = var.inventory_kubernetes_audience
+  browser_evidence_cleanup_cron_expression = var.browser_evidence_cleanup_cron_expression
+  browser_evidence_cleanup_limit           = var.browser_evidence_cleanup_limit
+  observation_campaign_cron_expression     = var.observation_campaign_cron_expression
+  wara_assessment_cron_expression          = var.wara_assessment_cron_expression
+  wara_assessment_workload_ids             = var.wara_assessment_workload_ids
+  wara_assessment_workload_tags            = var.wara_assessment_workload_tags
+  wara_assessment_inventory_freshness_seconds = (
+    var.wara_assessment_inventory_freshness_seconds
+  )
+  wara_assessment_run_slot_seconds          = var.wara_assessment_run_slot_seconds
   inventory_sources                         = var.inventory_sources
   inventory_freshness_seconds               = var.inventory_freshness_seconds
   inventory_reconciliation_interval_seconds = var.inventory_reconciliation_interval_seconds
@@ -2192,11 +2223,13 @@ module "compute" {
     azurerm_role_assignment.executor_acr_pull,
     azurerm_role_assignment.inventory_reader,
     azurerm_role_assignment.inventory_monitoring_reader,
+    azurerm_role_assignment.rca_monitoring_reader,
     azurerm_role_assignment.inventory_log_analytics_reader,
     azurerm_role_assignment.inventory_cost_reader,
     azurerm_role_assignment.inventory_kv_secrets_user,
     azurerm_role_assignment.inventory_acr_pull,
     azurerm_role_assignment.inventory_eventhubs_sender,
+    azurerm_role_assignment.inventory_wara_sender,
     azurerm_role_assignment.inventory_stage_sender,
     azurerm_role_assignment.scheduler_acr_pull,
     azurerm_role_assignment.scheduler_eventhubs_sender,

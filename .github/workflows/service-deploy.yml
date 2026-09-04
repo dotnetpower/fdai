@@ -510,6 +510,7 @@ jobs:
               | jq -er '[.[] | select(. == "fdai.pantheon.objects")] | if length == 1 then .[0] else error("platform state must contain exactly one canonical Pantheon-object topic") end'
           )"
           observation_context_binding="null"
+          rca_reader_identity_binding="null"
           if [[ "$SERVICE" == "core-control-plane" ]]; then
             observation_context_binding="$(
               terraform -chdir="$TRUSTED_CONTROLS/infra" \
@@ -524,6 +525,19 @@ jobs:
               )
             ' <<<"$observation_context_binding" >/dev/null || {
               echo "Platform state returned an invalid OHL observation-context binding." >&2
+              exit 1
+            }
+            rca_reader_identity_binding="$(
+              terraform -chdir="$TRUSTED_CONTROLS/infra" \
+                output -json rca_reader_identity
+            )"
+            jq -e '
+              type == "object" and
+              keys == ["client_id", "principal_id", "resource_id"] and
+              all(.[]; type == "string" and length > 0) and
+              (.resource_id | ascii_downcase | endswith("-rca-reader"))
+            ' <<<"$rca_reader_identity_binding" >/dev/null || {
+              echo "Platform state returned an invalid RCA reader identity." >&2
               exit 1
             }
           fi
@@ -542,6 +556,10 @@ jobs:
                 --service "${{ inputs.service }}" \
                 --environment "${{ inputs.environment }}" \
                 --binding-json "$observation_context_binding" \
+            | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/hydrate_rca_reader_identity.py" \
+                --service "${{ inputs.service }}" \
+                --environment "${{ inputs.environment }}" \
+                --identity-json "$rca_reader_identity_binding" \
             | MODEL_ENDPOINTS_JSON="$model_endpoints_json" \
               python3 "$TRUSTED_CONTROLS/scripts/deployment/service/materialize_tfvars.py" \
                 --service "${{ inputs.service }}" \

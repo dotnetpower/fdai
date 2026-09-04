@@ -6,6 +6,7 @@ module "core_control_plane" {
   image                      = var.image
   bootstrap                  = var.bootstrap
   identity                   = var.identity
+  rca_reader_identity        = var.rca_reader_identity
   event_topics               = var.event_topics
   teams_approval_destination = var.teams_approval_destination
   database                   = var.database
@@ -17,6 +18,7 @@ module "core_control_plane" {
   startup_readiness   = var.startup_readiness
   llm                 = var.llm
   observation_context = var.observation_context
+  governed_rca        = var.governed_rca
   configuration_drift = var.configuration_drift
   diagnostic_ingest   = var.diagnostic_ingest
   scaling             = var.scaling

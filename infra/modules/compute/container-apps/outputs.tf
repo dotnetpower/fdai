@@ -62,6 +62,11 @@ output "observation_campaign_job_id" {
   value       = try(azurerm_container_app_job.observation_campaign[0].id, null)
 }
 
+output "wara_assessment_job_id" {
+  description = "Scheduled WARA assessment Job resource id, or null when disabled."
+  value       = try(azurerm_container_app_job.wara_assessment[0].id, null)
+}
+
 output "canary_job_name" {
   description = "Synthetic full-loop canary publisher Job name, or empty when disabled."
   value       = try(azurerm_container_app_job.canary[0].name, "")

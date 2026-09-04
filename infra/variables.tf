@@ -659,6 +659,77 @@ variable "observation_campaign_cron_expression" {
   default     = "* * * * *"
 }
 
+variable "wara_assessment_cron_expression" {
+  description = "Cron for the read-only WARA assessment. Empty disables the job."
+  type        = string
+  default     = ""
+}
+
+variable "wara_assessment_workload_ids" {
+  description = "Deployment-owned ontology Workload ids assessed by the scheduled WARA job."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition = (
+      length(var.wara_assessment_workload_ids) <= 1
+      && length(var.wara_assessment_workload_ids) == length(distinct(var.wara_assessment_workload_ids))
+      && alltrue([
+        for value in var.wara_assessment_workload_ids :
+        value == trimspace(value) && value != ""
+      ])
+    )
+    error_message = "wara_assessment_workload_ids must contain at most one non-empty value."
+  }
+}
+
+variable "wara_assessment_workload_tags" {
+  description = "Reviewed WARA workload-class tags keyed by configured Workload id."
+  type        = map(list(string))
+  default     = {}
+
+  validation {
+    condition = (
+      length(var.wara_assessment_workload_tags) <= 1 &&
+      alltrue([
+        for workload_id, tags in var.wara_assessment_workload_tags :
+        workload_id == trimspace(workload_id) &&
+        workload_id != "" &&
+        length(tags) <= 16 &&
+        tags == sort(distinct(tags)) &&
+        alltrue([for value in tags : value == trimspace(value) && value != ""])
+      ])
+    )
+    error_message = "wara_assessment_workload_tags must contain at most one workload key with at most 16 ordered unique non-empty tags."
+  }
+}
+
+variable "wara_assessment_inventory_freshness_seconds" {
+  description = "Maximum promoted inventory age admitted by the WARA job."
+  type        = number
+  default     = 86400
+
+  validation {
+    condition = (
+      var.wara_assessment_inventory_freshness_seconds >= 1
+      && var.wara_assessment_inventory_freshness_seconds <= 604800
+      && floor(var.wara_assessment_inventory_freshness_seconds) == var.wara_assessment_inventory_freshness_seconds
+    )
+    error_message = "wara_assessment_inventory_freshness_seconds must be an integer in [1, 604800]."
+  }
+}
+
+variable "wara_assessment_run_slot_seconds" {
+  description = "Idempotency-correlation slot matching the WARA schedule cadence."
+  type        = number
+  default     = 86400
+
+  validation {
+    condition     = contains([3600, 86400], var.wara_assessment_run_slot_seconds)
+    error_message = "wara_assessment_run_slot_seconds must be 3600 or 86400."
+  }
+}
+
 variable "enable_realtime_inventory_discovery" {
   description = "Enable managed-identity Event Grid delivery of subscription resource writes and deletes to Huginn's raw inventory topic."
   type        = bool

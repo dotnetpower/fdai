@@ -34,6 +34,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
 
 
@@ -201,6 +202,19 @@ class DeploymentHistoryProvider(Protocol):
 
 
 @runtime_checkable
+class CutoffDeploymentHistoryProvider(Protocol):
+    """Optional versioned extension for event-time deployment history reads."""
+
+    async def query_deployments_until(
+        self,
+        *,
+        window: str,
+        resource_ref: str | None,
+        until: datetime,
+    ) -> DeploymentHistoryResult: ...
+
+
+@runtime_checkable
 class IncidentCorrelator(Protocol):
     """Multi-signal correlation over ``event_ingest`` + audit + logs +
     metrics + deployments for one incident id.
@@ -222,6 +236,7 @@ class IncidentCorrelator(Protocol):
 __all__ = [
     "DeploymentHistoryError",
     "DeploymentHistoryProvider",
+    "CutoffDeploymentHistoryProvider",
     "DeploymentHistoryResult",
     "DeploymentRecord",
     "IncidentCorrelation",

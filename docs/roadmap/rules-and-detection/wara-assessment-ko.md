@@ -1,7 +1,7 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: d414400f08396890919967efcdc20a1a0ea426ed
+translation_source_sha: a211da91c4a1d24de6eba54bc01113603d069f71
 translation_revised: 2026-09-04
 ---
 # WARA 근거 기반 평가
@@ -186,6 +186,23 @@ Azure 관리 호스트와 audience만 허용하며, 범위 밖 또는 잘린 행
 수집을 시작할 때 원래 기준 시각을 넘은 호출자 증적은
 `caller_evidence_after_original_cutoff`로 표시합니다. 이후 프로바이더 시각이 해당 증적을 다른
 권고에 소급 적용할 수 없습니다.
+
+### 예약된 배포 바인딩
+
+일회 실행 WARA Job은 배포에서 소유하는 umbrella `Workload` ID 하나와 해당 워크로드의 검토된
+클래스 태그를 받습니다. 실행당 워크로드 하나는 현재 단일 Operator 프로젝션과 일치합니다. 이후
+여러 워크로드를 지원하려면 마지막 쓰기로 대체하지 않는 버전이 지정된 keyed 프로젝션이
+필요합니다. PostgreSQL 범위 판독기는 하나의 repeatable read 안에서 `workload_runs_on` 관계를
+활성 인벤토리 스냅샷과 결합합니다. 현재 유효한 워크로드, 일치하는 온톨로지 릴리스 하나, 최신인
+활성 관측 인벤토리 세대, 완전하게 연결된 `Resource` 객체, 정확한 Azure Resource Manager(ARM)
+ID만 허용합니다. 불완전한 항목이 있으면 전체 실행을 차단합니다.
+
+Container Apps Job은 프로바이더 관측 전에 범위를 확인합니다. 기존의 정확한 평가기 overlay,
+shadow 평가 서비스, PostgreSQL 감사 저장소를 사용하고 논리 WARA 토픽을 이미 프로비전된
+`fdai.pantheon.objects` Event Hub로 multiplex합니다. 읽기 전용 신원은 해당 물리 토픽에만
+Sender 권한을 가집니다. Terraform은 실행 slot과 일치하는 매시간 또는 UTC 자정 일별 일정만
+허용합니다. 업스트림 변수에는 워크로드나 테넌트 값을 넣지 않으며 각 배포가 자체 ID, keyed
+태그, 실행 주기, 최신성 상한을 제공합니다.
 
 ## 검증 및 릴리스 경계
 

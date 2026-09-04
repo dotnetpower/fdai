@@ -39,6 +39,23 @@ variable "identity" {
   })
 }
 
+variable "rca_reader_identity" {
+  description = "Optional read-only Azure identity for Activity Log-backed T1 RCA."
+  type = object({
+    resource_id = optional(string, "")
+    client_id   = optional(string, "")
+  })
+  default = {}
+
+  validation {
+    condition = (
+      (trimspace(var.rca_reader_identity.resource_id) == "") ==
+      (trimspace(var.rca_reader_identity.client_id) == "")
+    )
+    error_message = "rca_reader_identity resource_id and client_id must be configured together."
+  }
+}
+
 variable "event_topics" {
   description = "Event Hub entity names owned by the shared event-bus state."
   type = object({
@@ -270,6 +287,39 @@ variable "observation_context" {
       lower(trimspace(var.observation_context.executor_credential_lineage)) != lower(trimspace(var.observation_context.source_credential_lineage))
     )
     error_message = "Enabled observation_context requires a Key Vault secret id and distinct executor and source credential lineages."
+  }
+}
+
+variable "governed_rca" {
+  description = "Optional principal-scoped governed document evidence for automated Incident RCA."
+  type = object({
+    enabled                   = optional(bool, false)
+    document_dsn_secret_id    = optional(string, "")
+    collection_id             = optional(string, "")
+    allowed_access_refs       = optional(list(string), [])
+    actor_groups              = optional(list(string), [])
+    freshness_ceiling_seconds = optional(number, 86400)
+  })
+  default   = {}
+  sensitive = true
+
+  validation {
+    condition = !var.governed_rca.enabled || (
+      trimspace(var.governed_rca.document_dsn_secret_id) != "" &&
+      trimspace(var.governed_rca.collection_id) != "" &&
+      length(var.governed_rca.allowed_access_refs) >= 1 &&
+      length(var.governed_rca.allowed_access_refs) <= 64 &&
+      var.governed_rca.allowed_access_refs == sort(distinct(var.governed_rca.allowed_access_refs)) &&
+      alltrue([for value in var.governed_rca.allowed_access_refs : trimspace(value) != ""]) &&
+      length(var.governed_rca.actor_groups) >= 1 &&
+      length(var.governed_rca.actor_groups) <= 64 &&
+      var.governed_rca.actor_groups == sort(distinct(var.governed_rca.actor_groups)) &&
+      alltrue([for value in var.governed_rca.actor_groups : trimspace(value) != ""]) &&
+      var.governed_rca.freshness_ceiling_seconds >= 60 &&
+      var.governed_rca.freshness_ceiling_seconds <= 604800 &&
+      floor(var.governed_rca.freshness_ceiling_seconds) == var.governed_rca.freshness_ceiling_seconds
+    )
+    error_message = "Enabled governed_rca requires a read-only DSN secret, collection, 1-64 ordered unique access refs and groups, and a freshness ceiling in [60, 604800]."
   }
 }
 

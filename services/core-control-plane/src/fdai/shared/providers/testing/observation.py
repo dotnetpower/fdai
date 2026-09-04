@@ -9,6 +9,7 @@ injection for abstain-path tests), and captures every call.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import datetime
 from typing import Any
 
 from fdai.shared.providers.observation import (
@@ -123,6 +124,7 @@ class InMemoryDeploymentHistoryProvider(DeploymentHistoryProvider):
         self._records: list[DeploymentRecord] = []
         self._next_error: DeploymentHistoryError | None = None
         self._calls: list[tuple[str, str | None]] = []
+        self._cutoffs: list[datetime | None] = []
 
     def seed(self, record: DeploymentRecord) -> None:
         self._records.append(record)
@@ -134,14 +136,40 @@ class InMemoryDeploymentHistoryProvider(DeploymentHistoryProvider):
     def calls(self) -> tuple[tuple[str, str | None], ...]:
         return tuple(self._calls)
 
+    @property
+    def cutoffs(self) -> tuple[datetime | None, ...]:
+        return tuple(self._cutoffs)
+
     async def query_deployments(
-        self, *, window: str, resource_ref: str | None = None
+        self,
+        *,
+        window: str,
+        resource_ref: str | None = None,
+    ) -> DeploymentHistoryResult:
+        return await self._query(window=window, resource_ref=resource_ref, until=None)
+
+    async def query_deployments_until(
+        self,
+        *,
+        window: str,
+        resource_ref: str | None,
+        until: datetime,
+    ) -> DeploymentHistoryResult:
+        return await self._query(window=window, resource_ref=resource_ref, until=until)
+
+    async def _query(
+        self,
+        *,
+        window: str,
+        resource_ref: str | None,
+        until: datetime | None,
     ) -> DeploymentHistoryResult:
         if self._next_error is not None:
             err = self._next_error
             self._next_error = None
             raise err
         self._calls.append((window, resource_ref))
+        self._cutoffs.append(until)
         if resource_ref is None:
             filtered = tuple(self._records)
         else:

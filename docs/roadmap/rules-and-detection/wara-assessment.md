@@ -189,6 +189,24 @@ unavailability remains `unknown` and is visible in audit evidence. At collection
 receipts beyond the original cutoff are marked `caller_evidence_after_original_cutoff`; later
 provider timing cannot make them admissible for another recommendation.
 
+### Scheduled deployment binding
+
+The one-shot WARA job receives one deployment-owned umbrella `Workload` id and its reviewed
+workload-class tags. One workload per run matches the existing single Operator projection; a future
+multi-workload surface needs a versioned keyed projection instead of last-write replacement. A
+PostgreSQL scope reader joins `workload_runs_on` relationships to the active inventory snapshot
+under one repeatable read. It accepts only a current effective workload, one matching ontology
+release, a fresh active observed inventory generation, complete linked `Resource` objects, and
+exact Azure Resource Manager (ARM) ids. A newer failed collection, pending real-time resource
+overlay, missing provider identity, duplicate identity, or resource bound overflow blocks the pass.
+
+The Container Apps Job resolves the scope before provider observation. It then uses the existing
+exact evaluator overlay, shadow assessment service, PostgreSQL audit store, and the logical WARA
+topic multiplexed over the provisioned `fdai.pantheon.objects` Event Hub. Its read-only identity has
+sender access only to that physical topic. Terraform admits only matching hourly or UTC-midnight
+daily schedules and run slots. The upstream variables contain no workload or tenant values; each
+deployment supplies its own id, keyed tags, cadence, and freshness ceiling.
+
 ## Validation and release boundary
 
 Focused checks cover schema, importer parity, crosswalk accounting, evaluator-overlay identity,

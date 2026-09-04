@@ -16,6 +16,15 @@ output "executor_identity_principal_id" {
   value       = module.identity.principal_id
 }
 
+output "rca_reader_identity" {
+  description = "Dedicated Activity Log reader identity for the split Core service handoff."
+  value = {
+    resource_id  = module.rca_reader_identity.resource_id
+    client_id    = module.rca_reader_identity.client_id
+    principal_id = module.rca_reader_identity.principal_id
+  }
+}
+
 output "isolated_executor_shadow" {
   description = "Shadow-only isolated Executor deployment handles. Null while disabled."
   value = var.enable_isolated_executor ? {

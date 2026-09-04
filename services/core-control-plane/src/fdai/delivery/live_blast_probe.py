@@ -39,21 +39,45 @@ class LiveBlastProbeAdapter(LiveBlastProbe):
 
     async def measure(self, query: ProbeQuery) -> ProbeResult:
         """Return one bounded result, with timeout and streak handling."""
+
+        deadline = asyncio.get_running_loop().time() + query.deadline_seconds
         try:
+            remaining = _remaining(deadline)
             streak = await asyncio.wait_for(
                 self.failure_streak_source.get(query),
-                timeout=query.deadline_seconds,
+                timeout=remaining,
             )
             if isinstance(streak, bool) or not isinstance(streak, int) or streak < 0:
                 raise ValueError("probe failure streak MUST be a non-negative integer")
+        except Exception:
+            return ProbeResult(
+                verdict=ProbeVerdict.OVERLOADED,
+                reason="probe failure streak unavailable",
+                degraded=True,
+            )
+        try:
+            remaining = _remaining(deadline)
             result = await asyncio.wait_for(
                 self.signal_source.read(query),
-                timeout=query.deadline_seconds,
+                timeout=remaining,
             )
             _validate_result(result)
+            if result.degraded:
+                failure_result = await self._failure(
+                    query,
+                    "probe measurement degraded",
+                    timeout=False,
+                    cause=RuntimeError(result.reason),
+                    deadline=deadline,
+                )
+                return result if result.verdict is ProbeVerdict.OVERLOADED else failure_result
         except TimeoutError as exc:
             return await self._failure(
-                query, "probe measurement timed out", timeout=True, cause=exc
+                query,
+                "probe measurement timed out",
+                timeout=True,
+                cause=exc,
+                deadline=deadline,
             )
         except Exception as exc:
             return await self._failure(
@@ -61,21 +85,34 @@ class LiveBlastProbeAdapter(LiveBlastProbe):
                 "probe measurement unavailable",
                 timeout=False,
                 cause=exc,
+                deadline=deadline,
             )
 
         try:
+            remaining = _remaining(deadline)
             await asyncio.wait_for(
                 self.failure_streak_source.record_success(query),
-                timeout=query.deadline_seconds,
+                timeout=remaining,
             )
         except Exception as exc:
             # A successful reading without a durable streak update is not
             # trustworthy for a future dispatch.
-            return await self._failure(
+            failure_result = await self._failure(
                 query,
                 "probe failure streak source unavailable",
                 timeout=False,
                 cause=exc,
+                deadline=deadline,
+            )
+            return (
+                ProbeResult(
+                    verdict=ProbeVerdict.OVERLOADED,
+                    reason=(f"{result.reason}; probe failure streak source unavailable"),
+                    degraded=True,
+                    metrics=result.metrics,
+                )
+                if result.verdict is ProbeVerdict.OVERLOADED
+                else failure_result
             )
         return result
 
@@ -86,11 +123,13 @@ class LiveBlastProbeAdapter(LiveBlastProbe):
         *,
         timeout: bool,
         cause: BaseException,
+        deadline: float,
     ) -> ProbeResult:
         try:
+            remaining = _remaining(deadline)
             streak = await asyncio.wait_for(
                 self.failure_streak_source.record_failure(query),
-                timeout=query.deadline_seconds,
+                timeout=remaining,
             )
         except Exception:
             # The streak source is part of the safety decision. If it cannot
@@ -121,11 +160,20 @@ def _validate_result(result: object) -> None:
         raise TypeError("probe source MUST return ProbeResult")
     if not isinstance(result.verdict, ProbeVerdict):
         raise TypeError("probe source returned an invalid verdict")
+    if type(result.degraded) is not bool:
+        raise TypeError("probe source degraded flag MUST be boolean")
     if any(
         not isinstance(value, (int, float)) or isinstance(value, bool) or not isfinite(value)
         for value in result.metrics.values()
     ):
         raise ValueError("probe source metrics MUST be finite numeric values")
+
+
+def _remaining(deadline: float) -> float:
+    remaining = deadline - asyncio.get_running_loop().time()
+    if remaining <= 0:
+        raise TimeoutError("live blast probe deadline exhausted")
+    return remaining
 
 
 __all__ = ["LiveBlastProbeAdapter"]

@@ -69,6 +69,7 @@ _MODEL_BINDING_ENVIRONMENT = frozenset(
         "LLM_RESOLVED_MODELS_SHA256",
     }
 )
+_RCA_READER_ENVIRONMENT = frozenset({"FDAI_RCA_AZURE_READER_CLIENT_ID"})
 
 
 def _operator_channel_edge_contract(base: ServiceContract) -> ServiceContract:
@@ -271,6 +272,30 @@ def _environment_binding(item: dict[str, Any] | None) -> tuple[Any, Any] | None:
         None if normalized_secret is not None else item.get("value"),
         normalized_secret,
     )
+
+
+def _only_rca_reader_runtime_transition(
+    before: dict[str, Any],
+    after: dict[str, Any],
+    *,
+    address: str,
+    contract: ServiceContract,
+) -> bool:
+    before_runtime = _runtime_contract(before, address=address, contract=contract)
+    after_runtime = _runtime_contract(after, address=address, contract=contract)
+    before_environment = before_runtime.get("env")
+    after_environment = after_runtime.get("env")
+    if not isinstance(before_environment, list) or not isinstance(after_environment, list):
+        return False
+    normalized_after = [
+        item
+        for item in after_environment
+        if not (isinstance(item, dict) and item.get("name") in _RCA_READER_ENVIRONMENT)
+    ]
+    return {
+        **after_runtime,
+        "env": normalized_after,
+    } == before_runtime
 
 
 def _valid_https_origin(value: str) -> bool:
@@ -661,8 +686,26 @@ def _guard_update(
 
     before_identities = _identity_ids(before, address=address)
     after_identities = _identity_ids(after, address=address)
+    allowed_rca_reader = False
     if after_identities > before_identities:
-        violations.append(f"identity expansion at {address}")
+        added = after_identities - before_identities
+        after_container = _primary_container(after, address=address, contract=contract)
+        after_environment = _environment_by_name(
+            after_container,
+            address=address,
+        )
+        rca_reader = _environment_binding(after_environment.get("FDAI_RCA_AZURE_READER_CLIENT_ID"))
+        allowed_rca_reader = (
+            contract.service == "core-control-plane"
+            and len(added) == 1
+            and next(iter(added)).casefold().endswith("-rca-reader")
+            and rca_reader is not None
+            and isinstance(rca_reader[0], str)
+            and bool(rca_reader[0])
+            and rca_reader[1] is None
+        )
+        if not allowed_rca_reader:
+            violations.append(f"identity expansion at {address}")
     elif after_identities != before_identities:
         violations.append(f"workload identity drift at {address}")
 
@@ -680,6 +723,8 @@ def _guard_update(
         additional_host_names: frozenset[str] = frozenset()
         if model_binding_transition:
             additional_host_names |= _MODEL_BINDING_ENVIRONMENT
+        if allowed_rca_reader:
+            additional_host_names |= _RCA_READER_ENVIRONMENT
         violations.extend(
             _guard_database_host_binding(
                 before,
@@ -693,6 +738,8 @@ def _guard_update(
         model_additional_names: frozenset[str] = frozenset()
         if database_host_binding:
             model_additional_names |= frozenset({"POSTGRES_HOST"})
+        if allowed_rca_reader:
+            model_additional_names |= _RCA_READER_ENVIRONMENT
         violations.extend(
             _guard_model_binding_transition(
                 before,
@@ -706,6 +753,15 @@ def _guard_update(
     elif (
         not initial_cutover
         and not database_host_binding
+        and not (
+            allowed_rca_reader
+            and _only_rca_reader_runtime_transition(
+                before,
+                after,
+                address=address,
+                contract=contract,
+            )
+        )
         and _runtime_contract(before, address=address, contract=contract)
         != _runtime_contract(after, address=address, contract=contract)
     ):
@@ -715,7 +771,11 @@ def _guard_update(
     after_resource_ids = _resource_ids(after)
     if initial_cutover and after_resource_ids <= before_resource_ids:
         pass
-    elif before_resource_ids != after_resource_ids:
+    elif before_resource_ids != after_resource_ids and not (
+        allowed_rca_reader
+        and after_resource_ids - before_resource_ids
+        == frozenset(identity.casefold() for identity in added)
+    ):
         violations.append(f"platform or peer resource identity drift at {address}")
     before_tags = before.get("tags")
     after_tags = after.get("tags")
@@ -742,8 +802,10 @@ def _guard_update(
     expected_primary = _primary_container(expected_before, address=address, contract=contract)
     after_primary = _primary_container(after, address=address, contract=contract)
     expected_primary["image"] = _planned_image({"after": after}, address=address, contract=contract)
-    if database_host_binding or model_binding_transition:
+    if database_host_binding or model_binding_transition or allowed_rca_reader:
         expected_primary["env"] = copy.deepcopy(after_primary.get("env"))
+    if allowed_rca_reader:
+        expected_before["identity"] = copy.deepcopy(after.get("identity"))
     before_retention = expected_before.get("max_inactive_revisions")
     after_retention = after.get("max_inactive_revisions")
     if before_retention != after_retention:

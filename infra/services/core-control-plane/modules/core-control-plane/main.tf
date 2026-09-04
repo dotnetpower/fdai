@@ -1,10 +1,14 @@
 module "container_app" {
   source = "../../../_modules/container-app"
 
-  name                 = var.name
-  platform             = var.platform
-  image                = var.image
-  identity_ids         = concat([var.identity.resource_id], var.identity.extra_resource_ids)
+  name     = var.name
+  platform = var.platform
+  image    = var.image
+  identity_ids = concat(
+    [var.identity.resource_id],
+    var.identity.extra_resource_ids,
+    var.rca_reader_identity.resource_id == "" ? [] : [var.rca_reader_identity.resource_id],
+  )
   registry_identity_id = var.identity.resource_id
   command              = ["fdai-core-control-plane"]
   args                 = []
@@ -16,6 +20,10 @@ module "container_app" {
     name                = "ohl-observation-signing-seed"
     identity            = var.identity.resource_id
     key_vault_secret_id = var.observation_context.signing_seed_secret_id
+    }] : [], var.governed_rca.enabled ? [{
+    name                = "governed-rca-document-dsn"
+    identity            = var.identity.resource_id
+    key_vault_secret_id = var.governed_rca.document_dsn_secret_id
   }] : [])
   environment = concat([
     { name = "FDAI_STATE_STORE_DSN", secret_name = "database-dsn" },
@@ -56,6 +64,8 @@ module "container_app" {
     { name = "FDAI_INCIDENT_INTERVENTION_REQUEST_TOPIC", value = var.event_topics.incident_intervention_requests },
     { name = "FDAI_START_CONSUMER", value = "1" },
     { name = "FDAI_HEALTH_PORT", value = tostring(var.health.port) },
+    ], var.rca_reader_identity.client_id == "" ? [] : [
+    { name = "FDAI_RCA_AZURE_READER_CLIENT_ID", value = var.rca_reader_identity.client_id },
     ], var.teams_approval_destination.team_id == "" ? [] : [
     { name = "FDAI_TEAMS_APPROVAL_TEAM_ID", value = var.teams_approval_destination.team_id },
     { name = "FDAI_TEAMS_APPROVAL_CHANNEL_ID", value = var.teams_approval_destination.channel_id },
@@ -68,6 +78,12 @@ module "container_app" {
     { name = "FDAI_OHL_SOURCE_IDENTITY", value = "source:promoted-azure-inventory" },
     { name = "FDAI_OHL_SOURCE_CREDENTIAL_LINEAGE", value = var.observation_context.source_credential_lineage },
     { name = "FDAI_OHL_VERIFIER_IDENTITY", value = "observation-verifier:ohl-ed25519" },
+    ], !var.governed_rca.enabled ? [] : [
+    { name = "FDAI_RCA_DOCUMENT_DSN", secret_name = "governed-rca-document-dsn" },
+    { name = "FDAI_RCA_GOVERNED_COLLECTION_ID", value = var.governed_rca.collection_id },
+    { name = "FDAI_RCA_GOVERNED_ACCESS_REFS_JSON", value = jsonencode(var.governed_rca.allowed_access_refs) },
+    { name = "FDAI_RCA_GOVERNED_ACTOR_GROUPS_JSON", value = jsonencode(var.governed_rca.actor_groups) },
+    { name = "FDAI_RCA_DOCUMENT_FRESHNESS_SECONDS", value = tostring(var.governed_rca.freshness_ceiling_seconds) },
     ], length(var.llm.model_endpoints) == 0 ? [] : [
     { name = "FDAI_MODEL_ENDPOINTS_JSON", value = jsonencode(var.llm.model_endpoints) },
     ], var.llm.resolved_models_digest == "" ? [] : [

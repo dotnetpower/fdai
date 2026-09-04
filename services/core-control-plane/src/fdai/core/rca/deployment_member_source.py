@@ -40,12 +40,14 @@ from fdai.core.rca.causal_chain import CorrelatedEvent
 from fdai.core.rca.contract import CauseDomain
 from fdai.shared.contracts.models import Incident
 from fdai.shared.providers.observation import (
+    CutoffDeploymentHistoryProvider,
     DeploymentHistoryError,
     DeploymentHistoryProvider,
 )
 
 _LOGGER: Final = logging.getLogger(__name__)
 _RES_PREFIX: Final = "res:"
+_CANONICAL_RESOURCE_PREFIX: Final = "resource:"
 _DEFAULT_LOOKBACK: Final = "P1D"
 
 
@@ -86,10 +88,23 @@ class DeploymentHistoryMemberSource:
         incident = self._safe_lookup(incident_id)
         if incident is None:
             return ()
+        return await self.members_for_incident(incident)
+
+    async def members_for_incident(
+        self,
+        incident: Incident,
+        *,
+        cutoff: datetime | None = None,
+    ) -> tuple[CorrelatedEvent, ...]:
+        """Return deployment changes for an already resolved lifecycle Incident."""
+
+        evidence_cutoff = cutoff or incident.opened_at
+        if evidence_cutoff.tzinfo is None:
+            raise ValueError("deployment member cutoff MUST be timezone-aware")
         resource_refs = tuple(
-            key[len(_RES_PREFIX) :]
+            reference
             for key in incident.correlation_keys
-            if key.startswith(_RES_PREFIX) and len(key) > len(_RES_PREFIX)
+            if (reference := _resource_reference_from_correlation_key(key)) is not None
         )
         if not resource_refs:
             return ()
@@ -101,15 +116,29 @@ class DeploymentHistoryMemberSource:
         # representative resource_ref).
         for ref in sorted(set(resource_refs)):
             try:
-                result = await self._deployment_history.query_deployments(
-                    window=self._lookback, resource_ref=ref
-                )
+                if isinstance(
+                    self._deployment_history,
+                    CutoffDeploymentHistoryProvider,
+                ):
+                    result = await self._deployment_history.query_deployments_until(
+                        window=self._lookback,
+                        resource_ref=ref,
+                        until=evidence_cutoff,
+                    )
+                else:
+                    result = await self._deployment_history.query_deployments(
+                        window=self._lookback,
+                        resource_ref=ref,
+                    )
             except DeploymentHistoryError:
                 # Best-effort: a failing leg contributes no changes but
                 # never blocks the control decision.
                 _LOGGER.warning(
                     "deployment_member_source_query_failed",
-                    extra={"incident_id": incident_id, "resource_ref": ref},
+                    extra={
+                        "incident_id": str(incident.incident_id),
+                        "resource_ref": ref,
+                    },
                     exc_info=True,
                 )
                 continue
@@ -124,6 +153,7 @@ class DeploymentHistoryMemberSource:
                     is_change=True,
                     change_kind="deploy",
                     cause_domain=_cause_domain(record.metadata),
+                    inventory_generation=record.metadata.get("inventory_generation"),
                 )
                 seen.setdefault(event.event_id, event)
         return tuple(seen.values())
@@ -165,6 +195,13 @@ def _parse_timestamp(raw: str) -> datetime | None:
     except ValueError:
         return None
     return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
+
+
+def _resource_reference_from_correlation_key(key: str) -> str | None:
+    for prefix in (_RES_PREFIX, _CANONICAL_RESOURCE_PREFIX):
+        if key.startswith(prefix) and len(key) > len(prefix):
+            return key[len(prefix) :]
+    return None
 
 
 def _cause_domain(metadata: Mapping[str, str]) -> CauseDomain:

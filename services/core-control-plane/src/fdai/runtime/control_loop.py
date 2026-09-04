@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import os
 from collections.abc import Awaitable, Callable, Mapping, Sequence
@@ -405,6 +407,11 @@ def _build_control_loop(
     trust_router = TrustRouter(index=index)
     event_ingest = EventIngest(validator=container.event_validator)
     action_types_by_name = {a.name: a for a in action_types}
+    rca_catalog_revision = _rca_catalog_revision(
+        rules=active_rules,
+        action_types=action_types,
+        ontology_release_digest=ontology_release.digest,
+    )
     action_builder = ActionBuilder(
         action_types_by_name=action_types_by_name,
         ontology_release=ontology_release,
@@ -559,6 +566,11 @@ def _build_control_loop(
             trace_provider=container.trace_query_provider,
         ),
         knowledge_gatherer=KnowledgeEvidenceGatherer(source=container.knowledge_source),
+        governed_knowledge_gatherer=(
+            container.governed_knowledge.gatherer
+            if container.governed_knowledge is not None
+            else None
+        ),
     )
 
     # T1 temporal causal-chain RCA remains opt-in. A deployment can bind an
@@ -725,6 +737,13 @@ def _build_control_loop(
         event_correlator=event_correlator,
         rca_coordinator=rca_coordinator,
         incident_member_source=container.incident_member_source,
+        incident_rca_context_source=container.incident_rca_context_source,
+        governed_knowledge_context_provider=(
+            container.governed_knowledge.context_provider
+            if container.governed_knowledge is not None
+            else None
+        ),
+        rca_catalog_revision=rca_catalog_revision,
         resource_dependency_graph=container.resource_dependency_graph or None,
         causal_runtime_coordinator=causal_runtime_coordinator,
         hil_resume_coordinator=hil_resume_coordinator,
@@ -765,6 +784,33 @@ def _build_control_loop(
         mutation_dependency_readiness=mutation_dependency_readiness,
         evidence_conflict_reader=evidence_conflict_projection,
     )
+
+
+def _rca_catalog_revision(
+    *,
+    rules: Sequence[Any],
+    action_types: Sequence[Any],
+    ontology_release_digest: str,
+) -> str:
+    payload = {
+        "action_types": [
+            item.model_dump(mode="json", exclude_none=True)
+            for item in sorted(action_types, key=lambda value: value.name)
+        ],
+        "ontology_release_digest": ontology_release_digest,
+        "rules": [
+            item.model_dump(mode="json", exclude_none=True)
+            for item in sorted(rules, key=lambda value: value.id)
+        ],
+    }
+    encoded = json.dumps(
+        payload,
+        allow_nan=False,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
 def _build_irp_event_handler(

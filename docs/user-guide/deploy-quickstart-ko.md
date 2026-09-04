@@ -2,8 +2,8 @@
 title: 배포 빠른 시작
 description: 보호된 fdaictl 작업 흐름으로 FDAI의 최소 Azure 인벤토리를 프로비저닝하거나 azd로 인프라 전용 개발 경로를 미리 봅니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 417c1cd6e9774ae1abe3ca90a1f3b1744e0f2c2c
-translation_revised: 2026-09-03
+translation_source_sha: e615772e3d72bc0f865b8e12371323f9f98eb7bc
+translation_revised: 2026-09-04
 ---
 
 # 배포 빠른 시작
@@ -80,6 +80,12 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
   스케줄러는 Event Bus 전송, 이미지 가져오기 및 상태 저장소 비밀 접근 권한만 받습니다.
   DB-DR은 원본 읽기와 격리 대상 그룹 안의 PostgreSQL 복원 및 삭제 권한만 받습니다. 완전한
   구성 계획을 검토할 때까지 `dr_drill_dry_run=true`를 유지하세요.
+- WARA를 예약하려면 umbrella Workload ID 하나, 해당 ID를 키로 사용하는 검토된 태그 및 서로
+  일치하는 매시간 또는 UTC 자정 일별 실행 slot을 구성하세요. Job은 인벤토리 읽기 신원을
+  사용하며 기존 Pantheon 물리 토픽에만 전송할 수 있습니다. Core T1 RCA는 platform에서 내보내
+  split 서비스 계획에 hydrate하는 별도 Monitoring Reader 신원을 사용합니다. 관리되는 T2 문서
+  grounding에는 별도 읽기 전용 문서 DSN secret과 정확한 컬렉션, 접근 참조, 읽기 그룹 입력도
+  필요합니다.
 
 ## 최소 인벤토리 프로비저닝
 

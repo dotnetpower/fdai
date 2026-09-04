@@ -17,6 +17,8 @@ existing trust tiers. RCA explains an incident; it never grants approval or exec
 |------|-------|----------|-------|
 | T0, T1, and T2 hypothesis contracts and grounding | implemented | `services/core-control-plane/src/fdai/core/rca/`; focused RCA tests | T0 rule causes, stale-safe T1 reuse, deterministic causal chains, typed cause domains, and grounded T2 parsing are implemented. |
 | Knowledge evidence and provider binding | implemented | `core/rca/knowledge_evidence.py`; `shared/providers/knowledge.py`; `delivery/pgvector/knowledge.py`; `delivery/azure/llm/rca_model.py`; `runtime/bootstrap.py`; focused provider, adapter, and runtime tests | The runtime attaches the configured pgvector source after Azure LLM finalization as well as in telemetry-only mode. Re-ingestion atomically replaces a document's chunks and an empty replacement deletes them, so stale revisions do not remain searchable. Missing bindings never fabricate evidence. |
+| Governed automated Incident RCA context | implemented | `delivery/persistence/postgres_governed_document_read.py`; `delivery/governed_rca_context.py`; `runtime/governed_rca.py`; automated T2 and context tests | A complete deployment binding supplies a separate read-only DSN, collection, access references, and reader groups. Automated Incident T2 uses the fixed Forseti principal and `incident-review` purpose, binds incident, resource, cutoff, ontology, and catalog identity, and holds when authorized document evidence is absent. |
+| Azure deployment history and dependency context | implemented | `delivery/azure/deployment_history.py`; `delivery/persistence/postgres_provider_identity.py`; `runtime/rca_bindings.py`; topology-history, provider, runtime, and control-loop tests | A dedicated Monitoring Reader resolves provider identity from the inventory generation at the event cutoff. Runtime materializes the bitemporal topology at the same cutoff, admits only successful exact-scope mutations with matching generation, supports lifecycle reopen intervals, and bounds context, analysis, and audit in one side-path deadline. |
 | Read-only operator projection | implemented | `services/operator-service/src/fdai_operator_service/rca_projection.py`; focused projection tests | Audit hypotheses, citations, structured causal chains, and linked response plans are projected without action authority. |
 | Governed operational RCA accuracy | in-progress | [Observability and Detection](observability-and-detection.md#implementation-status) | No retained exact-revision cohort proves live cause accuracy, abstention, and downstream outcome closure across the tier mix. |
 
@@ -24,6 +26,9 @@ existing trust tiers. RCA explains an incident; it never grants approval or exec
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-04 | implemented | Hardened T1 into one event-time context over historical inventory identity, append-only topology history, canonical lifecycle Incident matching, dedicated reader RBAC, sovereign endpoint/audience binding, and a complete side-path timeout. Split deployment hydrates and guards the exact platform reader identity. | `current change`; focused RCA provider, member, topology, timeout, hydration, plan-guard, Terraform, Ruff, and strict mypy checks; residual hardening rounds 1-4, 11-12, 15-16, 22-29, and 32-42. | Retain the governed exact-revision operational cohort. |
+| 2026-09-04 | implemented | Bound automated Incident T2 to a server-owned governed document context. A separate read-only PostgreSQL adapter filters by collection and access reference before lexical ranking, rechecks immutable metadata and exact reader groups, and passes an incident-, resource-, purpose-, cutoff-, release-, and principal-bound context into the existing document evidence verifier. Missing documents or access now holds T2 instead of continuing with other citations. | `current change`; focused governed context, automated T2, document evidence, Ruff, strict mypy, and Core service Terraform checks. | Retain the governed operational RCA cohort and deployed document-read receipt. |
+| 2026-09-04 | implemented | Bound T1 RCA to exact Azure Activity Log mutations and a complete current dependency graph. The adapter resolves neutral ids through the server-owned inventory, hashes caller identity, rejects reads, failures, scope escapes, pagination overflow, stale identity, and graph-generation drift, and keeps every result in shadow. | `current change`; focused Azure deployment-history, dependency-generation, member-source, and control-loop tests (`28 passed`), Ruff, and strict mypy. | Retain an exact-revision operational cohort and independently verified outcomes. |
 | 2026-09-04 | implemented | Added an additive cause-domain classification to every RCA hypothesis. T0 defaults reviewed configuration violations to infrastructure, T1 preserves the domain of its root change, T2 can propose only one supported enum value, and old rows remain `unknown`. Audit, reporting, Operator, and Console projections preserve the value without granting action authority. | `current change`; focused Core RCA, Azure adapter, Operator projection, Console decoder, and type checks. | Bind deployment history and current graph evidence that can supply non-default domains, then retain the governed operational cohort. |
 | 2026-08-29 | implemented | Hardening round 6 reviewed 26 KnowledgeSource lenses and rejected non-finite embedding values before pgvector serialization while mapping non-finite similarity to zero in the reference index. Invalid vectors can no longer create non-deterministic retrieval order. | `current change`; focused KnowledgeSource and pgvector tests. | Retain a governed RCA cohort over deployment-owned indexed documents. |
 | 2026-08-28 | implemented | Moved durable KnowledgeSource attachment after model finalization so Azure LLM mode no longer leaves RCA on the default empty source when a knowledge DSN is configured. The same guarded call preserves telemetry-only and local model behavior. Both in-memory and pgvector sources now treat re-ingestion as complete replacement, preserve the prior revision when embedding fails, remove obsolete chunks, and accept an empty replacement as deletion under a per-document transaction lock. | `current change`; `runtime/bootstrap.py`; `shared/providers/knowledge.py`; `delivery/pgvector/knowledge.py`; focused bootstrap and runtime configuration checks passed 42 cases; focused KnowledgeSource and SQL lifecycle checks passed 21 cases with one live-database parity case environment-gated; Ruff and strict mypy passed. | Retain a governed RCA cohort over deployment-owned indexed documents and bind source connectors to the replacement contract. |
@@ -114,26 +119,36 @@ When a caller requests governed document context, an empty gatherer result is al
 coordinator cannot silently continue with telemetry or other citations after the required governed
 evidence path returned neither evidence nor an explicit reason.
 
+Automated Incident T2 now enters that path through a fixed `principal:fdai-rca` Forseti read
+context with purpose `incident-review`. The deployment supplies a separate read-only PostgreSQL
+secret, one collection, exact access-descriptor references, and exact document reader groups.
+Search applies collection and access-reference predicates before deterministic lexical ranking;
+metadata and group authorization are checked again afterward. The request binds the incident,
+resource, evidence cutoff, ontology release, and catalog revision. A partial configuration fails
+startup, while a missing complete configuration leaves governed document evidence unavailable.
+
 ## Deterministic T1 causal chain
 
 `core/rca/causal_chain.py` (`CausalChainAnalyzer`) and `core/rca/t1.py` reconstruct the most probable
 multi-hop chain ending at the failure: `root change -> symptom -> ... -> failure`. The root must be
 a change. A window of symptoms with no antecedent change abstains.
 
-When a resource-dependency graph is supplied, a change on a direct or bounded transitive dependency
-outranks an unrelated one, and unrelated resources cannot link. Without a graph, correlated cross-
-resource links remain possible. `same_resource_only` restricts every hop to the failing resource.
+The reusable analyzer can score unscoped correlated input for isolated analysis, but the production
+ControlLoop requires a non-empty resource-dependency graph. A change on a direct or bounded
+transitive dependency outranks an unrelated one, and unrelated resources cannot link.
+`same_resource_only` restricts every hop to the failing resource.
 Confidence is a weakest-link aggregate weighted by temporal proximity, relationship strength, and
 change kind. It is ambiguity-discounted and bounded to the T1 band (`0.35`-`0.85`). Strict temporal
 precedence makes the event set a DAG, so the same inputs produce the same cited chain.
 
-The `ControlLoop` obtains members through `IncidentMemberSource`, bounds them by
-`causal_chain_window`, and appends one shadow T1 hypothesis per event. The hypothesis retains a
-transport-safe `causal_chain` with root and failure ids, ambiguity, and ordered hop evidence.
-`DeploymentHistoryMemberSource` bridges a `DeploymentHistoryProvider` and incident lookup into
-antecedent change events. Runtime composition now passes an optional `Container.incident_member_source`
-and reviewed `resource_dependency_graph` into the default ControlLoop assembly. Without a source,
-the T1 causal-chain path stays unavailable and does not fall back to unscoped correlation.
+The `ControlLoop` obtains one `IncidentRcaContext` containing members and a dependency graph for the
+current event cutoff. It maps the EventCorrelator id to exactly one lifecycle Incident using exact
+resource, signal, and optional correlation keys, including reopen intervals. The Azure reader uses
+a dedicated Monitoring Reader identity, resolves the provider id from the matching historical
+inventory generation, and retains only successful exact-resource mutations. Append-only topology
+history materializes the complete `depends_on` graph at the same event time and known-at cutoff.
+Generation mismatch, ambiguity, stale scope, incomplete topology, timeout, or audit delay ends the
+side path without unscoped fallback or authority.
 
 ## Read-only operator surface
 

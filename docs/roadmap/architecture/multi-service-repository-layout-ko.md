@@ -1,8 +1,8 @@
 ---
 title: 다중 서비스 저장소 레이아웃
 translation_of: multi-service-repository-layout.md
-translation_source_sha: c8a459c31c7bc6a3e4d4fee2afa073bfa84784f9
-translation_revised: 2026-08-31
+translation_source_sha: 61f7360065eb288ac6f76bbbb1773d4a5b4e759b
+translation_revised: 2026-09-04
 ---
 # 다중 서비스 저장소 레이아웃
 
@@ -55,7 +55,7 @@ fdai/
 │   │   ├── operational_learning/ # sealed-case classification, fingerprint/action cohort gate, immutable citation, inert candidate mapping
 │   │   ├── rule_semantic_generation/ # agent-facing 빌드/검증 handler Protocol, exact 활성화, 영속 종결 및 발행. 실행 권한 없음
 │   │   ├── quality_gate/       # mixed-model 교차 검사, verifier, grounding, 증적 게이트 기반 루브릭 모드; 실패한 fan-out은 sibling을 cancel+drain (T2 방어)
-│   │   ├── rca/                # 루트 원인 분석 (T0 deterministic + seam 뒤의 T2 reasoner; grounding-gated)
+│   │   ├── rca/                # event-time topology와 관리 문서를 사용하는 grounded T0/T1/T2 RCA, 작업 권한 없음
 │   │   ├── risk_gate/          # 통합 authority: 리스크 스코어 + auto vs HIL vs deny; malformed promotion metric 거부 + 7개 안전조건 강제 + 카탈로그 probe id 기반 기록 관측값으로 Axis-E live probe 해석 + 자기완결적 재현을 위한 feature vector, catalog version, 나머지 상한 입력 감사
 │   │   ├── execution_authorization/ # 온톨로지 기반 pre-dispatch capability policy, grant lifecycle, replay-stable decision
 │   │   ├── rbac/               # Operator API 를 위한 사람 RBAC (5개 롤 매트릭스, resolver, enforcer)

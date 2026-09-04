@@ -18,7 +18,11 @@ from fdai.shared.contracts.models import (
     IncidentSeverity,
     IncidentState,
 )
-from fdai.shared.providers.observation import DeploymentHistoryError, DeploymentRecord
+from fdai.shared.providers.observation import (
+    DeploymentHistoryError,
+    DeploymentHistoryResult,
+    DeploymentRecord,
+)
 from fdai.shared.providers.testing.observation import InMemoryDeploymentHistoryProvider
 
 _INCIDENT_ID = "00000000-0000-0000-0000-000000000001"
@@ -86,6 +90,7 @@ async def test_maps_deployments_to_change_events() -> None:
     assert {m.event_id for m in members} == {"corr-1", "corr-2"}
     # The provider was queried with the configured lookback window.
     assert provider.calls[0] == ("P1D", "app")
+    assert provider.cutoffs[0] == datetime(2026, 7, 7, 12, 0, 0, tzinfo=UTC)
 
 
 @pytest.mark.asyncio
@@ -95,6 +100,46 @@ async def test_custom_lookback_is_used() -> None:
     source = _source(_incident(correlation_keys=("res:app",)), provider, lookback="P7D")
     await source.members(incident_id=_INCIDENT_ID)
     assert provider.calls[0] == ("P7D", "app")
+
+
+@pytest.mark.asyncio
+async def test_legacy_provider_without_cutoff_extension_remains_compatible() -> None:
+    class _LegacyProvider:
+        async def query_deployments(
+            self,
+            *,
+            window: str,
+            resource_ref: str | None = None,
+        ) -> DeploymentHistoryResult:
+            assert window == "P1D"
+            assert resource_ref == "app"
+            return DeploymentHistoryResult(records=(_record(),), window=window)
+
+    source = DeploymentHistoryMemberSource(
+        lookup=lambda _iid: _incident(correlation_keys=("res:app",)),
+        deployment_history=_LegacyProvider(),
+    )
+
+    members = await source.members(incident_id=_INCIDENT_ID)
+
+    assert len(members) == 1
+
+
+@pytest.mark.asyncio
+async def test_canonical_lifecycle_resource_key_resolves_deployment_history() -> None:
+    provider = InMemoryDeploymentHistoryProvider()
+    provider.seed(_record(resource_refs=("resource:app",)))
+    incident = _incident(
+        correlation_keys=(
+            "resource:resource:app",
+            "signal:error.rate.spike",
+        )
+    )
+
+    members = await _source(incident, provider).members_for_incident(incident)
+
+    assert len(members) == 1
+    assert provider.calls == (("P1D", "resource:app"),)
 
 
 @pytest.mark.asyncio

@@ -14,6 +14,37 @@ resource "azurerm_container_app_environment" "primary" {
     name                  = "Consumption"
     workload_profile_type = "Consumption"
   }
+
+  lifecycle {
+    precondition {
+      condition = (
+        (trimspace(var.wara_assessment_cron_expression) == "") ==
+        (length(var.wara_assessment_workload_ids) == 0)
+      )
+      error_message = "WARA schedule and workload ids must be configured or disabled together."
+    }
+    precondition {
+      condition = (
+        var.wara_assessment_cron_expression == "" ||
+        (
+          var.wara_assessment_run_slot_seconds == 3600 &&
+          trimspace(var.wara_assessment_cron_expression) == "0 * * * *"
+        ) ||
+        (
+          var.wara_assessment_run_slot_seconds == 86400 &&
+          trimspace(var.wara_assessment_cron_expression) == "0 0 * * *"
+        )
+      )
+      error_message = "WARA supports hourly '0 * * * *' with a 3600-second slot or daily '0 0 * * *' with an 86400-second slot."
+    }
+    precondition {
+      condition = (
+        var.wara_assessment_cron_expression == "" ||
+        toset(keys(var.wara_assessment_workload_tags)) == toset(var.wara_assessment_workload_ids)
+      )
+      error_message = "WARA workload tag keys must exactly match workload ids; use an empty list for an untagged workload."
+    }
+  }
 }
 
 # ---------------------------------------------------------------------------
@@ -36,12 +67,14 @@ locals {
     observation  = length("${var.core_app_name}-observation") <= 32 ? "${var.core_app_name}-observation" : "${local.core_job_name_prefix}-observation"
     ohl_evidence = length("${var.core_app_name}-ohl-evidence") <= 32 ? "${var.core_app_name}-ohl-evidence" : "${local.core_job_name_prefix}-ohl-evidence"
     scheduler    = length("${var.core_app_name}-scheduler") <= 32 ? "${var.core_app_name}-scheduler" : "${local.core_job_name_prefix}-scheduler"
+    wara         = length("${var.core_app_name}-wara") <= 32 ? "${var.core_app_name}-wara" : "${local.core_job_name_prefix}-wara"
   }
   core_config_env = {
     AZURE_TENANT_ID                    = var.azure_tenant_id
     AZURE_SUBSCRIPTION_ID              = var.azure_subscription_id
     AZURE_RESOURCE_GROUP               = var.azure_resource_group
     AZURE_REGION                       = var.azure_region
+    FDAI_RCA_AZURE_READER_CLIENT_ID    = var.rca_reader_identity_client_id
     KAFKA_BOOTSTRAP_SERVERS            = var.kafka_bootstrap_servers
     KAFKA_TOPIC_EVENTS                 = var.kafka_topic_events
     POSTGRES_HOST                      = var.postgres_host

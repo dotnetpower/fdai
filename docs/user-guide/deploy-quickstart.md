@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision FDAI's minimum Azure inventory with the protected fdaictl workflow, or preview the infrastructure-only development path with azd.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 3ac832bb00a23ffdc92c6e7c27479fa9c4fdad34 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: dbc006d22566c0ea580a011bb4610d933ffe16b2 }]
 ---
 
 # Deploy Quickstart
@@ -91,6 +91,12 @@ Terraform remains an expert path.
   scheduler receives only Event Bus send, image-pull, and state-secret access. DB-DR receives source
   read and PostgreSQL restore/delete only inside its isolated target group. Keep
   `dr_drill_dry_run=true` until the complete configuration plan is reviewed.
+- To schedule WARA, configure one umbrella Workload id, its keyed reviewed tags, and either the
+  matching hourly or UTC-midnight daily run slot. The Job uses the inventory read identity and can
+  send only to the existing Pantheon physical topic. Core T1 RCA uses a different Monitoring Reader
+  identity exported by the platform and hydrated into the split service plan. Governed T2 document
+  grounding additionally requires a separate read-only document DSN secret and exact collection,
+  access-reference, and reader-group inputs.
 
 ## Provision the minimum inventory
 
