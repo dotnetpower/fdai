@@ -2,8 +2,8 @@
 title: 인시던트 관리
 description: FDAI가 인시던트를 하나의 정식 기록으로 만들고, 소유자를 정하고, 상태를 옮기고, 측정하고, 종료하는 방법입니다.
 translation_of: incident-management.md
-translation_source_sha: d914c4c95f1f92570218d315e71b40f108e8ed5d
-translation_revised: 2026-08-25
+translation_source_sha: 31e41527874c3057e2844c79fa979d7d5910b3b5
+translation_revised: 2026-09-03
 ---
 
 # 인시던트 관리
@@ -17,9 +17,7 @@ translation_revised: 2026-08-25
 FDAI는 일상적인 관측과 개별 이상 징후가 운영 비상 상황을 만들지 않도록 탐지된 문제와
 인시던트를 분리합니다. 정본 순서는 다음과 같습니다.
 
-```text
-Observation -> Signal -> Finding -> Incident candidate or proposal -> Incident
-```
+![인시던트 수명 주기. 원시 관찰은 발견된 문제, 후보, 인시던트로 이어지고 인시던트는 open, triaging, mitigated, resolved, closed 상태를 거치며 알림 재시도는 수명 주기 진실과 분리됩니다.](../../diagrams/generated/fdai-sre-incident-lifecycle-01.ko.svg)
 
 `Finding`은 근거를 갖춘 정규화된 탐지 문제 하나입니다. `Findings`는 컬렉션이나 Console 페이지
 레이블입니다. 15개 에이전트는 각자 책임지는 영역에서 탐지된 문제를 생성할 수 있지만,
@@ -66,6 +64,14 @@ open -> triaging -> mitigated -> resolved -> closed
 
 소유권, 영향 범위, 복구 근거가 없으면 값을 지어내지 않고 확인 불가로 표시합니다. 콘솔도
 화면에 보이는 문구만 보고 그 값을 짐작하지 않습니다.
+
+이 기록을 근무 교대의 인수인계 경계로 사용하세요. 새 대응자는 다른 도구를 열기 전에
+기록만으로 세 가지 질문에 답할 수 있어야 합니다.
+
+- **무엇이 영향을 받았나요?** 범위, 구성원, 심각도, 소유자입니다.
+- **무엇이 바뀌었나요?** 타임라인, 상관관계 키, 최근 상태 전환입니다.
+- **아직 증명되지 않은 것은 무엇인가요?** 사용할 수 없는 근거, 빠진 복구 확인,
+  종료를 막는 후속 작업입니다.
 
 ## 안전하게 만들고 배정하기
 

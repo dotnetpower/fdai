@@ -2,8 +2,8 @@
 title: 분류와 조사
 description: FDAI가 범위를 정해 여러 리소스의 근거를 모으고, 감사할 수 있는 조사 보고서를 만드는 방법입니다.
 translation_of: triage-and-investigation.md
-translation_source_sha: 1b6218279dc492071ac37c7110ed7467e262709d
-translation_revised: 2026-08-11
+translation_source_sha: e9b45a6c7c1e811dc6e4cfd67b35e1a29d8efbcd
+translation_revised: 2026-09-03
 ---
 
 # 분류와 조사
@@ -19,6 +19,8 @@ translation_revised: 2026-08-11
 
 보고서는 읽기 전용입니다. 수정 방법을 짚어 주는 권고안이라도 제안일 뿐이며, 타입이 정의된
 작업 파이프라인을 다시 거쳐야 합니다.
+
+![조사 및 RCA 문서 묶음. 주요 단계는 인시던트 범위, 근거 예산, 프로바이더 분석기, 타임라인 및 상관관계, RCA 가설, 근거 확인, 대응 계획 제안, 감사 추적입니다.](../../diagrams/generated/fdai-sre-investigation-rca-01.ko.svg)
 
 ## 조사 실행 방식 고르기
 
@@ -81,6 +83,10 @@ translation_revised: 2026-08-11
 | 근본 원인 가설 | 인용된 근거가 어떤 원인을 뒷받침하나요? |
 | 권고안 | 다음으로 무엇을 확인하고, 시뮬레이션하고, 제안해야 하나요? |
 | 예산 결과 | 근거 수집이 정해진 시간 안에 끝났나요? |
+
+결론보다 공백을 먼저 확인하세요. 보고서가 프로바이더 사용 불가, 오래된 조회, 예산
+초과를 표시한다면, 그 근거에 의존하는 주장은 새 조사가 최신 근거를 제공할 때까지
+증명되지 않은 것으로 다루는 것이 좋습니다.
 
 ## 실패했을 때의 동작
 

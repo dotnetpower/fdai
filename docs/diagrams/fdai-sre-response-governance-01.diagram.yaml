@@ -1,0 +1,121 @@
+id: fdai-sre-response-governance-01
+version: 1
+kind: flowchart
+updated: 2026-09-03
+formats:
+  - svg
+locales:
+  en:
+    title: Governed response path
+    description: How an incident response plan proposes mitigation without bypassing trust, risk, approval, or execution checks.
+    alt: Governed response path. A draft plan is pretested and activated, then an alert launches investigation, option comparison, proposal routing, trust and safety checks, approval or no action, execution, verification, and audit.
+  ko:
+    title: 관리되는 대응 경로
+    description: 인시던트 대응 계획이 신뢰, 위험, 승인, 실행 검사를 우회하지 않고 완화를 제안하는 방식입니다.
+    alt: 관리되는 대응 경로. 초안 계획은 사전 테스트와 활성화를 거치고, 알림은 조사, 옵션 비교, 제안 라우팅, 신뢰 및 안전성 검토, 승인 또는 미실행, 실행, 검증, 감사로 이어집니다.
+canvas:
+  width: 1500
+  height: 820
+  direction: RIGHT
+groups: []
+nodes:
+  - id: draft
+    kind: process
+    shape: card
+    label:
+      en: Draft response plan
+      ko: 대응 계획 초안
+  - id: pretest
+    kind: process
+    shape: card
+    label:
+      en: Historical pretest
+      ko: 과거 사례 사전 테스트
+  - id: alert
+    kind: process
+    shape: card
+    label:
+      en: Alert or incident
+      ko: 알림 또는 인시던트
+  - id: compare
+    kind: process
+    shape: card
+    label:
+      en: Compare options
+      ko: 옵션 비교
+  - id: proposal
+    kind: process
+    shape: card
+    label:
+      en: Typed action proposal
+      ko: 형식화된 작업 제안
+  - id: gates
+    kind: decision
+    shape: diamond
+    label:
+      en: Trust and safety checks
+      ko: 신뢰 및 안전성 검토
+  - id: approval
+    kind: process
+    shape: card
+    label:
+      en: Human approval if required
+      ko: 필요한 경우 사람 승인
+  - id: execute
+    kind: process
+    shape: card
+    label:
+      en: Execute or no-op
+      ko: 실행 또는 미실행
+  - id: verify
+    kind: process
+    shape: card
+    label:
+      en: Verify and audit
+      ko: 검증 및 감사
+edges:
+  - id: flow-01
+    from: draft
+    to: pretest
+    kind: request
+  - id: flow-02
+    from: pretest
+    to: alert
+    kind: event
+    label:
+      en: activated
+      ko: 활성화
+  - id: flow-03
+    from: alert
+    to: compare
+    kind: request
+  - id: flow-04
+    from: compare
+    to: proposal
+    kind: request
+  - id: flow-05
+    from: proposal
+    to: gates
+    kind: request
+  - id: flow-06
+    from: gates
+    to: approval
+    kind: approval
+    label:
+      en: approval required
+      ko: 승인 필요
+  - id: flow-07
+    from: gates
+    to: execute
+    kind: request
+    label:
+      en: auto or deny
+      ko: 자동 실행 또는 거부
+  - id: flow-08
+    from: approval
+    to: execute
+    kind: request
+  - id: flow-09
+    from: execute
+    to: verify
+    kind: audit

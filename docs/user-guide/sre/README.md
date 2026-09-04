@@ -15,6 +15,8 @@ This section is the operator-facing map. It explains what FDAI implements,
 where human approval remains required, and which integrations must be supplied
 by a deployment or downstream fork.
 
+![SRE operating loop. The main stages are Observe signals, Correlate incident, Investigate evidence, Decide and route, Recover and verify, Learn and improve, with audit evidence recorded across the loop.](../../diagrams/generated/fdai-sre-operating-loop-01.en.svg)
+
 ## What can you achieve?
 
 ### Turn signal storms into incidents
@@ -71,6 +73,11 @@ signals -> finding -> incident -> investigation -> RCA
         -> response plan -> risk gate -> action or approval
         -> recovery evidence -> postmortem -> improvement candidate
 ```
+
+At each step, FDAI records whether the evidence was available, stale,
+incomplete, or unavailable. That distinction lets an operator tell the
+difference between a quiet workload and a control plane that could not collect
+enough evidence to decide.
 
 ## Two decisions govern every response
 

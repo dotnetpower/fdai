@@ -19,6 +19,8 @@ root-cause hypothesis, and prioritized recommendations.
 The report is read-only. A recommendation naming a fix is still only a
 proposal and must re-enter the typed action pipeline.
 
+![Investigation and RCA dossier. The main stages are Incident scope, Evidence budget, Provider analyzers, Timeline and correlation, RCA hypothesis, Evidence check, Response plan proposal, and Audit trail.](../../diagrams/generated/fdai-sre-investigation-rca-01.en.svg)
+
 ## Pick how the investigation runs
 
 A short lookup and a wide sweep across a subscription shouldn't feel the same. Investigations run in
@@ -83,6 +85,10 @@ or an autonomy decision unless a separate policy says so.
 | RCA hypothesis | What cause is supported by cited evidence? |
 | Recommendations | What should be inspected, simulated, or proposed next? |
 | Budget result | Did evidence gathering finish within its declared limit? |
+
+Start with gaps before conclusions. If the report says a provider was
+unavailable, a query was stale, or the budget expired, treat any dependent
+claim as unproven until a new investigation supplies fresh evidence.
 
 ## Failure behavior
 

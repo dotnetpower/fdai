@@ -1080,7 +1080,9 @@
     "audience": "operator",
     "publication_state": "navigated",
     "derived_sources": [],
-    "diagram_ids": []
+    "diagram_ids": [
+      "fdai-sre-operating-loop-01"
+    ]
   },
   {
     "route": "/ko/sre/capacity-and-performance/",
@@ -1124,7 +1126,9 @@
     "audience": "operator",
     "publication_state": "navigated",
     "derived_sources": [],
-    "diagram_ids": []
+    "diagram_ids": [
+      "fdai-sre-incident-lifecycle-01"
+    ]
   },
   {
     "route": "/ko/sre/measuring-sre-outcomes/",
@@ -1179,7 +1183,9 @@
     "audience": "operator",
     "publication_state": "navigated",
     "derived_sources": [],
-    "diagram_ids": []
+    "diagram_ids": [
+      "fdai-sre-response-governance-01"
+    ]
   },
   {
     "route": "/ko/sre/root-cause-analysis/",
@@ -1190,7 +1196,9 @@
     "audience": "operator",
     "publication_state": "navigated",
     "derived_sources": [],
-    "diagram_ids": []
+    "diagram_ids": [
+      "fdai-sre-investigation-rca-01"
+    ]
   },
   {
     "route": "/ko/sre/scenario-validation-inventory/",
@@ -1223,7 +1231,9 @@
     "audience": "operator",
     "publication_state": "navigated",
     "derived_sources": [],
-    "diagram_ids": []
+    "diagram_ids": [
+      "fdai-sre-investigation-rca-01"
+    ]
   },
   {
     "route": "/reference/roadmap/",
@@ -1605,7 +1615,9 @@
     "audience": "operator",
     "publication_state": "navigated",
     "derived_sources": [],
-    "diagram_ids": []
+    "diagram_ids": [
+      "fdai-sre-operating-loop-01"
+    ]
   },
   {
     "route": "/sre/capacity-and-performance/",
@@ -1649,7 +1661,9 @@
     "audience": "operator",
     "publication_state": "navigated",
     "derived_sources": [],
-    "diagram_ids": []
+    "diagram_ids": [
+      "fdai-sre-incident-lifecycle-01"
+    ]
   },
   {
     "route": "/sre/measuring-sre-outcomes/",
@@ -1704,7 +1718,9 @@
     "audience": "operator",
     "publication_state": "navigated",
     "derived_sources": [],
-    "diagram_ids": []
+    "diagram_ids": [
+      "fdai-sre-response-governance-01"
+    ]
   },
   {
     "route": "/sre/root-cause-analysis/",
@@ -1715,7 +1731,9 @@
     "audience": "operator",
     "publication_state": "navigated",
     "derived_sources": [],
-    "diagram_ids": []
+    "diagram_ids": [
+      "fdai-sre-investigation-rca-01"
+    ]
   },
   {
     "route": "/sre/scenario-validation-inventory/",
@@ -1748,6 +1766,8 @@
     "audience": "operator",
     "publication_state": "navigated",
     "derived_sources": [],
-    "diagram_ids": []
+    "diagram_ids": [
+      "fdai-sre-investigation-rca-01"
+    ]
   }
 ]

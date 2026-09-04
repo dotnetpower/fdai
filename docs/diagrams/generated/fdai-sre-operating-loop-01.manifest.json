@@ -1,0 +1,263 @@
+{
+  "id": "fdai-sre-operating-loop-01",
+  "kind": "conceptual-flow",
+  "version": 1,
+  "updated": "2026-09-03",
+  "locales": {
+    "en": {
+      "title": "SRE operating loop",
+      "description": "How FDAI turns SRE signals into incidents, governed response, verified recovery, and learning.",
+      "alt": "SRE operating loop. The main stages are Observe signals, Correlate incident, Investigate evidence, Decide and route, Recover and verify, Learn and improve, with audit evidence recorded across the loop."
+    },
+    "ko": {
+      "title": "SRE 운영 루프",
+      "description": "FDAI가 SRE 신호를 인시던트, 관리되는 대응, 검증된 복구, 학습으로 전환하는 흐름입니다.",
+      "alt": "SRE 운영 루프. 주요 단계는 신호 관찰, 인시던트 상관관계, 근거 조사, 결정 및 라우팅, 복구 및 검증, 학습 및 개선이며, 감사 근거가 루프 전체에 기록됩니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-sre-operating-loop-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-sre-operating-loop-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "observe",
+      "kind": "process",
+      "shape": "card",
+      "tone": "input",
+      "badge": 1,
+      "label": {
+        "en": "Observe signals",
+        "ko": "신호 관찰"
+      },
+      "description": {
+        "en": "Observe signals",
+        "ko": "신호 관찰"
+      },
+      "content": [
+        {
+          "en": "Events, metrics, logs, traces",
+          "ko": "이벤트, 메트릭, 로그, 추적"
+        },
+        {
+          "en": "Provider status stays explicit",
+          "ko": "프로바이더 상태를 명시합니다"
+        }
+      ]
+    },
+    {
+      "id": "correlate",
+      "kind": "process",
+      "shape": "card",
+      "tone": "model",
+      "badge": 2,
+      "label": {
+        "en": "Correlate incident",
+        "ko": "인시던트 상관관계"
+      },
+      "description": {
+        "en": "Correlate incident",
+        "ko": "인시던트 상관관계"
+      },
+      "content": [
+        {
+          "en": "Stable resource and change keys",
+          "ko": "안정적인 리소스 및 변경 키"
+        },
+        {
+          "en": "One timeline for related signals",
+          "ko": "관련 신호를 하나의 타임라인으로 묶습니다"
+        }
+      ]
+    },
+    {
+      "id": "investigate",
+      "kind": "process",
+      "shape": "card",
+      "tone": "store",
+      "badge": 3,
+      "label": {
+        "en": "Investigate evidence",
+        "ko": "근거 조사"
+      },
+      "description": {
+        "en": "Investigate evidence",
+        "ko": "근거 조사"
+      },
+      "content": [
+        {
+          "en": "Bounded resource and time scope",
+          "ko": "제한된 리소스 및 시간 범위"
+        },
+        {
+          "en": "RCA keeps correlation separate from cause",
+          "ko": "RCA는 상관관계와 원인을 구분합니다"
+        }
+      ]
+    },
+    {
+      "id": "decide",
+      "kind": "decision",
+      "shape": "diamond",
+      "tone": "decision",
+      "badge": 4,
+      "label": {
+        "en": "Decide and route",
+        "ko": "결정 및 라우팅"
+      },
+      "description": {
+        "en": "Decide and route",
+        "ko": "결정 및 라우팅"
+      },
+      "content": [
+        {
+          "en": "Trust tier selects the candidate",
+          "ko": "신뢰 티어가 후보를 선택합니다"
+        },
+        {
+          "en": "Safety check limits authority",
+          "ko": "안전성 검토가 권한을 제한합니다"
+        }
+      ]
+    },
+    {
+      "id": "recover",
+      "kind": "process",
+      "shape": "card",
+      "tone": "execution",
+      "badge": 5,
+      "label": {
+        "en": "Recover and verify",
+        "ko": "복구 및 검증"
+      },
+      "description": {
+        "en": "Recover and verify",
+        "ko": "복구 및 검증"
+      },
+      "content": [
+        {
+          "en": "Apply, no-op, stop, or roll back",
+          "ko": "적용, 미실행, 중지 또는 롤백"
+        },
+        {
+          "en": "Independent observation confirms effect",
+          "ko": "독립 관찰로 효과를 확인합니다"
+        }
+      ]
+    },
+    {
+      "id": "learn",
+      "kind": "process",
+      "shape": "card",
+      "tone": "feedback",
+      "badge": 6,
+      "label": {
+        "en": "Learn and improve",
+        "ko": "학습 및 개선"
+      },
+      "description": {
+        "en": "Learn and improve",
+        "ko": "학습 및 개선"
+      },
+      "content": [
+        {
+          "en": "Postmortem and rule candidates",
+          "ko": "포스트모템 및 룰 후보"
+        },
+        {
+          "en": "Promotion stays evidence-gated",
+          "ko": "승격은 근거 검토를 따릅니다"
+        }
+      ]
+    },
+    {
+      "id": "audit",
+      "kind": "store",
+      "shape": "database",
+      "tone": "store",
+      "label": {
+        "en": "Audit, citations, decisions, and outcomes",
+        "ko": "감사, 인용, 결정, 결과"
+      },
+      "description": {
+        "en": "Audit, citations, decisions, and outcomes",
+        "ko": "감사, 인용, 결정, 결과"
+      },
+      "content": [
+        {
+          "en": "Every terminal result is replayable",
+          "ko": "모든 최종 결과를 재현할 수 있습니다"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "observe-to-correlate",
+      "from": "observe",
+      "to": "correlate",
+      "kind": "event",
+      "label": null
+    },
+    {
+      "id": "correlate-to-investigate",
+      "from": "correlate",
+      "to": "investigate",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "investigate-to-decide",
+      "from": "investigate",
+      "to": "decide",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "decide-to-recover",
+      "from": "decide",
+      "to": "recover",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "recover-to-learn",
+      "from": "recover",
+      "to": "learn",
+      "kind": "audit",
+      "label": null
+    },
+    {
+      "id": "learn-to-observe",
+      "from": "learn",
+      "to": "observe",
+      "kind": "feedback",
+      "label": null
+    },
+    {
+      "id": "observe-audit",
+      "from": "observe",
+      "to": "audit",
+      "kind": "audit",
+      "label": null
+    },
+    {
+      "id": "decide-audit",
+      "from": "decide",
+      "to": "audit",
+      "kind": "audit",
+      "label": null
+    },
+    {
+      "id": "recover-audit",
+      "from": "recover",
+      "to": "audit",
+      "kind": "audit",
+      "label": null
+    }
+  ]
+}

@@ -9,6 +9,8 @@ Root-cause analysis (RCA) explains why an incident may have happened. FDAI
 stores RCA as a hypothesis with citations, confidence, tier, and evidence check
 state. It is evidence for a decision, never permission to execute a change.
 
+![Investigation and RCA dossier. The main stages are Incident scope, Evidence budget, Provider analyzers, Timeline and correlation, RCA hypothesis, Evidence check, Response plan proposal, and Audit trail.](../../diagrams/generated/fdai-sre-investigation-rca-01.en.svg)
+
 ## RCA by trust tier
 
 | Tier | Role | Typical evidence |
@@ -32,6 +34,10 @@ Every citation must come from the evidence set supplied to the reasoner. A
 malformed response, fabricated citation, unsupported claim, or confidence below
 the configured threshold becomes an held for review hypothesis and routes to human
 review.
+
+The safest reading is "supported so far," not "true forever." FDAI keeps the
+claim tied to the evidence version that produced it, then writes a new revision
+when refuting evidence or stronger confirmation arrives.
 
 Telemetry and operator documents are untrusted inputs. Model text cannot
 override policy, what-if results, or the deterministic verifier.
