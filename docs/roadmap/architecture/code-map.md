@@ -181,11 +181,17 @@ an unrelated later observation cannot retroactively admit them.
 Before a matching-row WARA evaluator can treat zero violations as satisfied, the Azure adapter
 requires a companion exact-id coverage query to observe every target under the same identity and
 deadline.
+Immutable WARA request, evidence, status, control, and result contracts live in
+`core/wara/models.py`. `core/wara/runtime.py` retains deterministic evaluation, observation
+collection, audit, and publication while re-exporting the established public contracts.
 Default ControlLoop assembly now binds one event-time `IncidentRcaContextSource`. It resolves exact
 provider identity from the event's inventory generation, materializes bitemporal topology history,
 matches one lifecycle Incident, and admits deployment members only when all generations agree.
 Dedicated read identity, sovereign endpoint, split-service hydration, and one complete timeout keep
 the path fail closed without unscoped production correlation.
+`runtime/control_loop_auxiliary.py` owns deterministic RCA catalog identity and IRP handler assembly.
+`runtime/control_loop.py` retains authoritative loop composition and re-exports the existing private
+bootstrap hook.
 Automated Incident T2 also has a paired governed-document binding. Core receives a separate
 read-only DSN plus exact collection, access-reference, and reader-group configuration; it creates a
 fixed Forseti principal context and holds the RCA when authorized document evidence is unavailable.

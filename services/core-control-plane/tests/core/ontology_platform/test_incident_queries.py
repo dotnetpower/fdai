@@ -210,6 +210,7 @@ async def test_incident_evidence_returns_recorded_grounded_rca() -> None:
     assert result["root_cause"] == {
         "tier": "t0",
         "outcome": "grounded",
+        "cause_domain": "unknown",
         "cause": "A required owner tag was absent.",
         "confidence": 0.95,
         "reason": "Matched the deterministic owner-tag rule.",

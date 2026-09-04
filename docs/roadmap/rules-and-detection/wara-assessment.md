@@ -213,6 +213,9 @@ Focused checks cover schema, importer parity, crosswalk accounting, evaluator-ov
 query safety, exact scope and endpoint enforcement, manual evidence, runtime failure cases, replay,
 ontology invariants, Operator API decoding, Console localization, and deterministic update diffs.
 Full-catalog validation proves the pinned inputs and derived artifacts agree.
+Immutable request, evidence, status, control, and result contracts remain in `core/wara/models.py`.
+The runtime module owns evaluation, observation collection, audit, and publication and re-exports
+those contracts so existing imports remain compatible.
 
 Local and synthetic checks can establish `implemented`. `validated` requires a governed live-Azure
 shadow receipt for a representative multi-resource workload. That separate operation needs explicit

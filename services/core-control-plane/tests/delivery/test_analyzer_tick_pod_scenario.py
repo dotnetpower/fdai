@@ -284,6 +284,10 @@ def scenario_bus(
 ) -> Iterator[_ScenarioBus]:
     """Run the real CLI composition against a local broker and ledger."""
 
+    global _CUTOFF, _WINDOW_START
+    _CUTOFF = datetime.now(tz=UTC)
+    _WINDOW_START = _CUTOFF - timedelta(minutes=30)
+
     bus = _ScenarioBus()
     store = ConditionalStore()
     environment = {

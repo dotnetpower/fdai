@@ -114,6 +114,13 @@
       "issue": 252
     },
     {
+      "path": "console/src/routes/agent-oversight-views.tsx",
+      "disposition": "retain",
+      "owner": "console-agent-oversight",
+      "reason": "Retains presentation-only filtering over validated ownership status, capability, and search fields without deciding conversational intent.",
+      "issue": 252
+    },
+    {
       "path": "console/src/routes/dashboard.model.ts",
       "disposition": "retain",
       "owner": "console-dashboard",

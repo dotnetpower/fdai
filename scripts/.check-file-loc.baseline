@@ -24,8 +24,6 @@
 912 services/core-control-plane/src/fdai/delivery/persistence/postgres_ontology.py
 # Pre-existing main-branch promotion debt; growth blocked until tracker #14 extraction.
 880 services/core-control-plane/src/fdai/delivery/promotion.py
-# Pre-existing main-branch runtime control-loop debt; growth blocked until tracker #14 extraction.
-826 services/core-control-plane/src/fdai/runtime/control_loop.py
 # Pre-existing main-branch delivery-composition debt; growth blocked until tracker #14 extraction.
 921 services/core-control-plane/src/fdai/runtime/delivery.py
 # Pre-existing main-branch semantic-query composition debt (single cohesive wiring module, 3 defs); growth blocked until tracker #14 extraction.
