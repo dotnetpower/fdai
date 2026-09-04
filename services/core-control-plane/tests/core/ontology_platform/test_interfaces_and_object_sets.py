@@ -251,6 +251,55 @@ async def test_object_set_materializes_interface_query_with_hard_limit() -> None
     assert result.truncation_reason == "result_limit"
 
 
+async def test_object_set_without_traversal_does_not_claim_relationship_completeness() -> None:
+    workload = _object_type("Workload")
+    store = InMemoryOntologyInstanceStore(object_types=(workload,), link_types=())
+    await store.upsert_object(
+        OntologyObjectRecord(
+            id="workload-a",
+            object_type="Workload",
+            properties={"id": "workload-a", "status": "ready", "owner_ref": "team-a"},
+        )
+    )
+    calls: list[bool] = []
+    original_query = store.query_objects
+
+    async def recording_query(
+        *,
+        object_types,
+        object_ids=(),
+        property_equals=None,
+        limit,
+        include_relationships=True,
+    ):
+        calls.append(include_relationships)
+        return await original_query(
+            object_types=object_types,
+            object_ids=object_ids,
+            property_equals=property_equals,
+            limit=limit,
+            include_relationships=include_relationships,
+        )
+
+    store.query_objects = recording_query  # type: ignore[method-assign]
+    result = await ObjectSetService(
+        store=store,
+        interfaces=compile_interfaces(interfaces=(), implementations=(), object_types=(workload,)),
+        object_type_names=frozenset({"Workload"}),
+    ).materialize(
+        ObjectSetDefinition(
+            selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Workload"),
+            predicates=(ObjectPredicate(property="status", equals="ready"),),
+            as_of=datetime(2026, 8, 1, tzinfo=UTC),
+            purpose="operations-review",
+        )
+    )
+
+    assert calls == [False]
+    assert [item.id for item in result.graph.objects] == ["workload-a"]
+    assert result.graph.links == ()
+
+
 async def test_exact_id_predicates_use_bounded_lookups_and_preserve_intersections() -> None:
     workload = _object_type("Workload")
     store = InMemoryOntologyInstanceStore(object_types=(workload,), link_types=())

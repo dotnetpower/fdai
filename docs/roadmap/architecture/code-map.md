@@ -76,6 +76,8 @@ receipts before answering. Service-to-Agent ownership uses one exact-release, pr
 composite read receipt and preserves each concrete BusinessService-to-Agent instance path without
 granting execution permission. A missing concrete path remains held instead of becoming an answered
 identity claim.
+Non-traversal ObjectSets are object-only snapshots; relationship completeness applies only to
+explicit traversal.
 For a
 validated `query.ontology_declaration` count judgment, a unique canonical declaration `*Type` target
 takes precedence over a conflicting frame subject. Non-declaration domain targets do not participate

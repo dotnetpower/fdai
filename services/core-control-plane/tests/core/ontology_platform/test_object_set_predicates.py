@@ -47,6 +47,7 @@ class _RecordingStore(InMemoryOntologyInstanceStore):
         object_types: Sequence[str] = (),
         property_equals: Mapping[str, Any] | None = None,
         limit: int = 100,
+        include_relationships: bool = True,
     ) -> OntologyGraphSnapshot:
         self.last_property_equals = property_equals
         self.last_limit = limit
@@ -54,6 +55,7 @@ class _RecordingStore(InMemoryOntologyInstanceStore):
             object_types=object_types,
             property_equals=property_equals,
             limit=limit,
+            include_relationships=include_relationships,
         )
         if self.force_truncated:
             return OntologyGraphSnapshot(
