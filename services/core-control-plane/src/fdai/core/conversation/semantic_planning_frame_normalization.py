@@ -20,7 +20,6 @@ from .semantic_planning_frame_facets import (
     _facets_describe_configuration_drift_evidence,
     _facets_describe_historical_topology,
     _facets_describe_incident_triage,
-    _facets_describe_network_path,
     _facets_describe_operating_objectives,
     _facets_describe_resource_classification,
     _facets_describe_resource_evidence_health,
@@ -47,7 +46,6 @@ from .semantic_planning_models import (
     SemanticFrameProposal,
     SemanticOutputShape,
 )
-from .semantic_planning_value_filters import stated_value_filters
 from .semantic_target_identity import exact_target_from_constraints
 
 _ACTION_DRAFT_TEMPORAL_SCOPE = {
@@ -64,6 +62,19 @@ normalize_missing_mysql_pressure_investigation = _mysql_pressure_investigation
 normalize_missing_resource_slowness_investigation = _resource_slowness_investigation
 normalize_missing_vm_cpu_investigation = _normalize_missing_vm_cpu_investigation
 normalize_network_application_latency_investigation = _network_latency_investigation
+
+
+def _resolved_proposal(proposal: SemanticFrameProposal, **updates: object) -> SemanticFrameProposal:
+    return proposal.model_copy(
+        update={
+            "evidence_requirements": (),
+            "unresolved_terms": (),
+            "clarification_requirements": (),
+            "clarification": None,
+            "investigation": None,
+            **updates,
+        }
+    )
 
 
 def build_document_draft_frame(
@@ -166,19 +177,13 @@ def resolve_semantic_judgment_action_draft(
         and trace_axes
         and trace_posture
     ):
-        resolved = proposal.model_copy(
-            update={
-                "operation": SemanticOperation.SELECT,
-                "subject_constraints": ("ActionType", "ResourceType", "Rule", "SignalType"),
-                "measure_concepts": tuple(sorted(judgment_facets)),
-                "temporal_scope": {},
-                "output_shape": SemanticOutputShape.ONTOLOGY_RELATIONSHIPS,
-                "evidence_requirements": (),
-                "unresolved_terms": (),
-                "clarification_requirements": (),
-                "clarification": None,
-                "investigation": None,
-            }
+        resolved = _resolved_proposal(
+            proposal,
+            operation=SemanticOperation.SELECT,
+            subject_constraints=("ActionType", "ResourceType", "Rule", "SignalType"),
+            measure_concepts=tuple(sorted(judgment_facets)),
+            temporal_scope={},
+            output_shape=SemanticOutputShape.ONTOLOGY_RELATIONSHIPS,
         )
         return resolved, build_semantic_frame(resolved, utterance=utterance, context=context)
     if judgment is None or judgment.action_posture != "draft_only":
@@ -194,19 +199,13 @@ def resolve_semantic_judgment_action_draft(
     subject_constraints = (
         proposal.subject_constraints if preserve_frame_subject else (judgment.action_subject,)
     )
-    resolved = proposal.model_copy(
-        update={
-            "operation": SemanticOperation.ACTION_DRAFT,
-            "subject_constraints": subject_constraints,
-            "measure_concepts": (),
-            "temporal_scope": {},
-            "output_shape": SemanticOutputShape.ACTION_DRAFT,
-            "evidence_requirements": (),
-            "unresolved_terms": (),
-            "clarification_requirements": (),
-            "clarification": None,
-            "investigation": None,
-        }
+    resolved = _resolved_proposal(
+        proposal,
+        operation=SemanticOperation.ACTION_DRAFT,
+        subject_constraints=subject_constraints,
+        measure_concepts=(),
+        temporal_scope={},
+        output_shape=SemanticOutputShape.ACTION_DRAFT,
     )
     return resolved, build_semantic_frame(resolved, utterance=utterance, context=context)
 
@@ -285,21 +284,15 @@ def canonicalize_semantic_judgment_frame_proposal(
         and not proposal.unresolved_terms
         and not proposal.clarification_requirements
     )
-    return proposal.model_copy(
-        update={
-            "operation": SemanticOperation.ACTION_DRAFT,
-            "subject_constraints": (
-                proposal.subject_constraints if preserve_subject else (action_subject,)
-            ),
-            "measure_concepts": (),
-            "temporal_scope": _ACTION_DRAFT_TEMPORAL_SCOPE[action_subject],
-            "output_shape": SemanticOutputShape.ACTION_DRAFT,
-            "evidence_requirements": (),
-            "unresolved_terms": (),
-            "clarification_requirements": (),
-            "clarification": None,
-            "investigation": None,
-        }
+    return _resolved_proposal(
+        proposal,
+        operation=SemanticOperation.ACTION_DRAFT,
+        subject_constraints=(
+            proposal.subject_constraints if preserve_subject else (action_subject,)
+        ),
+        measure_concepts=(),
+        temporal_scope=_ACTION_DRAFT_TEMPORAL_SCOPE[action_subject],
+        output_shape=SemanticOutputShape.ACTION_DRAFT,
     )
 
 
@@ -471,19 +464,13 @@ def resolve_semantic_judgment_bound_read(
         and _facets_describe_resource_evidence_health(facets)
     )
     if resource_evidence_health:
-        resolved = proposal.model_copy(
-            update={
-                "operation": SemanticOperation.VALIDATE,
-                "subject_constraints": ("Resource",),
-                "measure_concepts": tuple(sorted(facets)),
-                "temporal_scope": {"kind": "current"},
-                "output_shape": SemanticOutputShape.EVIDENCE_VALIDATION,
-                "evidence_requirements": (),
-                "unresolved_terms": (),
-                "clarification_requirements": (),
-                "clarification": None,
-                "investigation": None,
-            }
+        resolved = _resolved_proposal(
+            proposal,
+            operation=SemanticOperation.VALIDATE,
+            subject_constraints=("Resource",),
+            measure_concepts=tuple(sorted(facets)),
+            temporal_scope={"kind": "current"},
+            output_shape=SemanticOutputShape.EVIDENCE_VALIDATION,
         )
         return resolved, build_semantic_frame(resolved, utterance=utterance, context=context)
     service_relationship_evidence = (
@@ -497,19 +484,13 @@ def resolve_semantic_judgment_bound_read(
         )
     )
     if service_relationship_evidence:
-        resolved = proposal.model_copy(
-            update={
-                "operation": SemanticOperation.VALIDATE,
-                "subject_constraints": ("BusinessService", "Workload", "Resource"),
-                "measure_concepts": tuple(sorted(facets)),
-                "temporal_scope": {"kind": "current"},
-                "output_shape": SemanticOutputShape.EVIDENCE_VALIDATION,
-                "evidence_requirements": (),
-                "unresolved_terms": (),
-                "clarification_requirements": (),
-                "clarification": None,
-                "investigation": None,
-            }
+        resolved = _resolved_proposal(
+            proposal,
+            operation=SemanticOperation.VALIDATE,
+            subject_constraints=("BusinessService", "Workload", "Resource"),
+            measure_concepts=tuple(sorted(facets)),
+            temporal_scope={"kind": "current"},
+            output_shape=SemanticOutputShape.EVIDENCE_VALIDATION,
         )
         return resolved, build_semantic_frame(resolved, utterance=utterance, context=context)
     if (
@@ -517,19 +498,13 @@ def resolve_semantic_judgment_bound_read(
         and judgment.primary_intent in {"query.incident_evidence", "query.target_health_assessment"}
         and _facets_describe_incident_triage(facets)
     ):
-        resolved = proposal.model_copy(
-            update={
-                "operation": SemanticOperation.VALIDATE,
-                "subject_constraints": ("Incident",),
-                "measure_concepts": tuple(sorted(facets)),
-                "temporal_scope": {"kind": "current"},
-                "output_shape": SemanticOutputShape.INCIDENT_EVIDENCE,
-                "evidence_requirements": (),
-                "unresolved_terms": (),
-                "clarification_requirements": (),
-                "clarification": None,
-                "investigation": None,
-            }
+        resolved = _resolved_proposal(
+            proposal,
+            operation=SemanticOperation.VALIDATE,
+            subject_constraints=("Incident",),
+            measure_concepts=tuple(sorted(facets)),
+            temporal_scope={"kind": "current"},
+            output_shape=SemanticOutputShape.INCIDENT_EVIDENCE,
         )
         return resolved, build_semantic_frame(resolved, utterance=utterance, context=context)
     if not bound_incident:
@@ -604,16 +579,7 @@ def resolve_semantic_judgment_bound_read(
         }
     if update is None:
         return proposal, frame
-    resolved = proposal.model_copy(
-        update={
-            **update,
-            "evidence_requirements": (),
-            "unresolved_terms": (),
-            "clarification_requirements": (),
-            "clarification": None,
-            "investigation": None,
-        }
-    )
+    resolved = _resolved_proposal(proposal, **update)
     return resolved, build_semantic_frame(resolved, utterance=utterance, context=context)
 
 
@@ -649,18 +615,12 @@ def normalize_resource_classification_frame(
         or not _facets_describe_resource_classification(facets)
     ):
         return proposal, frame
-    resolved = proposal.model_copy(
-        update={
-            "subject_constraints": ("Resource",),
-            "measure_concepts": tuple(sorted(facets)),
-            "temporal_scope": {"kind": "current"},
-            "output_shape": SemanticOutputShape.ONTOLOGY_RELATIONSHIPS,
-            "evidence_requirements": (),
-            "unresolved_terms": (),
-            "clarification_requirements": (),
-            "clarification": None,
-            "investigation": None,
-        }
+    resolved = _resolved_proposal(
+        proposal,
+        subject_constraints=("Resource",),
+        measure_concepts=tuple(sorted(facets)),
+        temporal_scope={"kind": "current"},
+        output_shape=SemanticOutputShape.ONTOLOGY_RELATIONSHIPS,
     )
     return resolved, build_semantic_frame(resolved, utterance=utterance, context=context)
 
@@ -707,17 +667,11 @@ def normalize_ontology_trace_frame(
         or set(proposal.subject_constraints) != {"ActionType", "ResourceType", "Rule", "SignalType"}
     ):
         return proposal, frame
-    resolved = proposal.model_copy(
-        update={
-            "subject_constraints": ("ActionType", "ResourceType", "Rule", "SignalType"),
-            "measure_concepts": tuple(sorted(facets)),
-            "temporal_scope": {},
-            "evidence_requirements": (),
-            "unresolved_terms": (),
-            "clarification_requirements": (),
-            "clarification": None,
-            "investigation": None,
-        }
+    resolved = _resolved_proposal(
+        proposal,
+        subject_constraints=("ActionType", "ResourceType", "Rule", "SignalType"),
+        measure_concepts=tuple(sorted(facets)),
+        temporal_scope={},
     )
     return resolved, build_semantic_frame(resolved, utterance=utterance, context=context)
 
@@ -738,21 +692,15 @@ def normalize_operating_objectives_frame(
         or not _facets_describe_operating_objectives(facets)
     ):
         return proposal, frame
-    resolved = proposal.model_copy(
-        update={
-            "subject_constraints": (
-                "BusinessService",
-                "RecoveryObjective",
-                "ServiceObjective",
-            ),
-            "measure_concepts": tuple(sorted(facets)),
-            "temporal_scope": {"kind": "current"},
-            "evidence_requirements": (),
-            "unresolved_terms": (),
-            "clarification_requirements": (),
-            "clarification": None,
-            "investigation": None,
-        }
+    resolved = _resolved_proposal(
+        proposal,
+        subject_constraints=(
+            "BusinessService",
+            "RecoveryObjective",
+            "ServiceObjective",
+        ),
+        measure_concepts=tuple(sorted(facets)),
+        temporal_scope={"kind": "current"},
     )
     return resolved, build_semantic_frame(resolved, utterance=utterance, context=context)
 
@@ -785,101 +733,18 @@ def normalize_historical_topology_clarification(
     ):
         return proposal, frame
     korean = re.search(r"[가-힣]", utterance) is not None
-    resolved = proposal.model_copy(
-        update={
-            "subject_constraints": ("Resource",),
-            "measure_concepts": tuple(sorted(facets)),
-            "temporal_scope": {"kind": "historical"},
-            "output_shape": SemanticOutputShape.TEMPORAL_COMPARISON,
-            "evidence_requirements": (),
-            "unresolved_terms": ("Resource identity",),
-            "clarification_requirements": (ClarificationRequirement.SUBJECT,),
-            "clarification": (
-                "비교할 정확한 Resource 이름 또는 ID를 알려주세요?"
-                if korean
-                else "Provide the exact Resource name or ID to compare?"
-            ),
-            "investigation": None,
-        }
-    )
-    return resolved, build_semantic_frame(resolved, utterance=utterance, context=context)
-
-
-def normalize_network_path_clarification(
-    proposal: SemanticFrameProposal,
-    frame: SemanticProblemFrame,
-    *,
-    utterance: str,
-    context: tuple[str, ...],
-    descriptors: tuple[dict[str, Any], ...],
-) -> tuple[SemanticFrameProposal, SemanticProblemFrame]:
-    """Preserve a model-proposed network path until exact endpoint identities are supplied."""
-
-    if frozenset(frame.subject_constraints) in {
-        frozenset({"ActionType", "ResourceType", "Rule", "SignalType"}),
-        frozenset({"Agent", "BusinessService", "Resource", "Workload"}),
-    }:
-        return proposal, frame
-    facets = {facet.replace("-", "_") for facet in proposal.measure_concepts}
-    targetless_topology = frame.output_shape == SemanticOutputShape.TOPOLOGY_GRAPH and (
-        bool(stated_value_filters(utterance, descriptors).get(("Resource", "type")))
-        or ("Resource" in frame.subject_constraints and len(frame.subject_constraints) > 1)
-    )
-    declared_object_types = {
-        name
-        for descriptor in descriptors
-        if descriptor.get("kind") == "object"
-        if isinstance((name := descriptor.get("name")), str)
-    }
-    frame_object_types = declared_object_types.intersection(frame.subject_constraints)
-    multi_object_topology = (
-        frame.output_shape
-        in {
-            SemanticOutputShape.ONTOLOGY_RELATIONSHIPS,
-            SemanticOutputShape.TOPOLOGY_GRAPH,
-        }
-        and "Resource" in frame_object_types
-        and len(frame_object_types) > 1
-    )
-    if (
-        frame.operation is not SemanticOperation.SELECT
-        or frame.output_shape
-        not in {
-            SemanticOutputShape.ONTOLOGY_RELATIONSHIPS,
-            SemanticOutputShape.TOPOLOGY_GRAPH,
-        }
-        or not (
-            targetless_topology or multi_object_topology or _facets_describe_network_path(facets)
-        )
-        or exact_target_from_constraints(
-            frame.subject_constraints,
-            utterance=utterance,
-            descriptors=descriptors,
-        )
-        is not None
-    ):
-        return proposal, frame
-    korean = re.search(r"[가-힣]", utterance) is not None
-    resolved_facets = {
-        *facets,
-        *(("topology_graph",) if targetless_topology or multi_object_topology else ()),
-    }
-    resolved = proposal.model_copy(
-        update={
-            "operation": SemanticOperation.SELECT,
-            "subject_constraints": ("Resource",),
-            "measure_concepts": tuple(sorted(resolved_facets)),
-            "temporal_scope": {"kind": "current"},
-            "output_shape": SemanticOutputShape.ONTOLOGY_RELATIONSHIPS,
-            "evidence_requirements": (),
-            "unresolved_terms": ("Resource identity",),
-            "clarification_requirements": (ClarificationRequirement.SUBJECT,),
-            "clarification": (
-                "추적할 정확한 시작 및 대상 Resource 이름 또는 ID를 알려주세요?"
-                if korean
-                else "Provide the exact source and target Resource names or IDs to trace?"
-            ),
-            "investigation": None,
-        }
+    resolved = _resolved_proposal(
+        proposal,
+        subject_constraints=("Resource",),
+        measure_concepts=tuple(sorted(facets)),
+        temporal_scope={"kind": "historical"},
+        output_shape=SemanticOutputShape.TEMPORAL_COMPARISON,
+        unresolved_terms=("Resource identity",),
+        clarification_requirements=(ClarificationRequirement.SUBJECT,),
+        clarification=(
+            "비교할 정확한 Resource 이름 또는 ID를 알려주세요?"
+            if korean
+            else "Provide the exact Resource name or ID to compare?"
+        ),
     )
     return resolved, build_semantic_frame(resolved, utterance=utterance, context=context)

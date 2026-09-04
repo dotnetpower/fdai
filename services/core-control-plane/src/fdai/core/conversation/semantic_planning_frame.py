@@ -56,7 +56,6 @@ from .semantic_planning_frame_normalization import (
     normalize_action_draft_temporal_scope,
     normalize_historical_topology_clarification,
     normalize_named_resource_group_membership,
-    normalize_network_path_clarification,
     normalize_operating_objectives_frame,
     resolve_bound_incident_action_subject,
     resolve_default_action_draft_subject,
@@ -91,6 +90,7 @@ from .semantic_planning_frame_queries import (
 from .semantic_planning_frame_queries import (
     is_resource_classification_frame as is_resource_classification_frame,
 )
+from .semantic_planning_topology_normalization import normalize_network_path_clarification
 
 __all__ = [
     "build_bound_incident_metric_comparison_frame",

@@ -1,9 +1,4 @@
-"""Shared model-backed boundary for natural-language semantic judgment.
-
-The boundary validates one T1 proposal, retries a configured T2 binding after
-unavailable, malformed, ambiguous, or low-confidence output, and returns one
-content-free terminal receipt. It never grants execution authority.
-"""
+"""Run bounded model-backed semantic judgment without execution authority."""
 
 from __future__ import annotations
 
@@ -427,11 +422,7 @@ class SemanticJudgmentBoundary:
         receipt = SemanticJudgmentReceipt.model_validate(
             {**body, "receipt_digest": content_digest(body)}
         )
-        return SemanticJudgmentResult(
-            proposal=proposal,
-            receipt=receipt,
-            observations=observations,
-        )
+        return SemanticJudgmentResult(proposal, receipt, observations)
 
 
 def _bounded_context(context: Sequence[str]) -> tuple[str, ...]:

@@ -26,7 +26,7 @@ from fdai.core.conversation.semantic_planning_models import (
     SemanticPlanningModel,
 )
 from fdai.core.conversation.semantic_runtime import SemanticConversationRuntime
-from fdai.core.conversation.session import Principal, Role
+from fdai.core.conversation.session import Principal
 from fdai.core.ontology_platform import (
     METRIC_ARGUMENT_SCHEMAS,
     TOPOLOGY_ARGUMENT_SCHEMAS,
@@ -213,12 +213,6 @@ from .semantic_query_health_values import (
 
 _FRAME_CAPABILITY = "semantic.query.frame"
 _PLAN_CAPABILITY = "semantic.query.plan"
-_ROLE_MAP = {
-    Role.READER: CeilingRole.READER,
-    Role.CONTRIBUTOR: CeilingRole.CONTRIBUTOR,
-    Role.APPROVER: CeilingRole.APPROVER,
-    Role.OWNER: CeilingRole.OWNER,
-}
 
 
 @dataclass(frozen=True, slots=True)
@@ -685,8 +679,8 @@ def build_semantic_query_runtime(
 
     def executor_for(principal: Principal) -> OntologyQueryPlanExecutor:
         try:
-            role = _ROLE_MAP[principal.role]
-        except KeyError as exc:
+            role = CeilingRole(principal.role)
+        except ValueError as exc:
             raise PermissionError("break-glass principals cannot execute semantic queries") from exc
         return OntologyQueryPlanExecutor(
             handlers={

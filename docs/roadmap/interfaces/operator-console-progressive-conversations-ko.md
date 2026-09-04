@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 559ca67d65c20a92c2da192e1d8ceb5abdaa751a
-translation_revised: 2026-09-04
+translation_source_sha: 1629b5bce59dcb6b816033616e32970373fd3fca
+translation_revised: 2026-09-05
 ---
 # 오퍼레이터 콘솔 점진적 대화
 
@@ -12,6 +12,8 @@ translation_revised: 2026-09-04
 Command Deck은 활성 패널의 경로 범위 `ViewSnapshot`을 받습니다. 등록된 모든 패널은 로딩, 오류,
 화면 전환 상태에서 대체 정보로 화면 식별자와 목적을 제공합니다. 검증된 표시 근거가 있는 경로는
 이 대체 정보를 범위가 제한된 사실과 레코드로 교체할 수 있습니다.
+각 특화 스냅샷은 목적과 함께 공통 카탈로그에서 구성한 용어집을 선언하므로 브라우저가 용어를
+추론하지 않아도 경로 맥락을 자체 설명할 수 있습니다.
 
 ## 구현 상태
 
@@ -31,7 +33,7 @@ Command Deck은 활성 패널의 경로 범위 `ViewSnapshot`을 받습니다. �
 | 타입 기반 근거 보류 표현 | 구현됨 | [`backend-stream.ts`](../../../console/src/deck/backend-stream.ts), [`grounded-reply.tsx`](../../../console/src/deck/grounded-reply.tsx), 집중 스트림 및 Console 검사, Core 부분 인과 표현 검사 | `semantic_evidence_held`와 `semantic_evidence_incomplete`는 온톨로지 조회 검증에 비어 있지 않은 완료 근거가 있고 같은 요청의 보류 증적이 일치하는 사유, 계획, 실행, 권한 없음 digest와 `authoritative_evidence_unavailable`을 보고할 때만 범위가 제한된 정본 최종 답변을 보존합니다. 검증 사유가 증적 검증 전에 타입 기반 보류 주장을 식별하므로 누락되거나 다른 요청에 속하거나 불일치하는 증적은 거부를 우회할 수 없습니다. 정본 최종 본문이 없거나 공백뿐이면 대기 중인 token을 내보내기 전에 거부하고, 단조 증가하는 미검증 revision과 token pump generation 무효화로 이미 표시된 초안과 로컬 burst token을 철회한 뒤 지역화 대체 문구를 표시합니다. |
 | 의미 모델 투명성 | 구현됨 | `semantic_planning.py`, `semantic_planning_cascade.py`, Azure 의미 계획 어댑터, `semantic_turn_processor.py`, `semantic_turn_presentation.py`, 집중 Core 및 Operator 검사 | 완료된 모든 의미 판단, 프레임, 계획 모델 호출은 표현을 위해 범위가 제한된 실측 모델, 처리 시간 및 토큰 metadata를 보존합니다. 요청과 응답 본문은 요청에서 명시적으로 활성화한 경우에만 projection하며 결정론적으로 민감정보를 제거하고 범위를 제한합니다. 이 정보는 계획 근거나 실행 권한이 되지 않습니다. |
 | 실시간 의미 조회 진행 상황 | 구현됨 | `SemanticQueryProgress`, `query_execution.py`, Core semantic consumer, Operator semantic bridge, 집중 progress 검사 25개 통과 | Core는 검증된 실제 조회 노드의 시작 및 최종 관측만 별도 best-effort topic으로 발행합니다. Operator는 실제 내부 조회를 렌더링하고 권위 있는 최종 receipt가 도착하면 일시적인 진행 상태를 폐기합니다. 진행 정보는 범위가 제한되고 읽기 전용이며 `execution_authority=false`로 고정됩니다. 인증된 Command Deck 증적은 열린 상태입니다. |
-| 현재 화면 컨텍스트 게시 | 구현됨 | [`context.tsx`](../../../console/src/deck/context.tsx), [`app.tsx`](../../../console/src/app.tsx), 집중 Console 컨텍스트 및 경로 검사 58개 통과, 데스크톱 브라우저 검사 | 등록된 모든 패널은 로딩, 사용 불가, 오류, 경로 전환 상태에서 자신을 식별합니다. 특화 게시기는 이전 경로의 스냅샷을 넘기지 않고 대체 정보를 범위가 제한된 표시 사실로 교체할 수 있습니다. |
+| 현재 화면 컨텍스트 게시 | 구현됨 | [`context.tsx`](../../../console/src/deck/context.tsx), [`app.tsx`](../../../console/src/app.tsx), [`view-contract.test.ts`](../../../console/src/routes/view-contract.test.ts), 집중 Console 컨텍스트 및 경로 검사, 데스크톱 브라우저 검사 | 등록된 모든 패널은 로딩, 사용 불가, 오류, 경로 전환 상태에서 자신을 식별합니다. 특화 게시기는 이전 경로의 스냅샷을 넘기지 않고 대체 정보를 범위가 제한된 표시 사실과 공통 카탈로그 용어집으로 교체할 수 있습니다. |
 | 검증된 의미 답변 표현 | 검증됨 | [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), [`semantic_turn_presentation.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_presentation.py), [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`semantic-answer-presentation.spec.ts`](../../../console/tests/live-e2e/semantic-answer-presentation.spec.ts), `.fdai/live-validation/semantic-answer-presentation-244d003ef77bd37dc0041f0b6a29634cdbaacb91-post-validation/` | 범위가 제한된 인증 Web/한국어 경로는 명시적 workspace patch digest와 함께 중앙 검증된 source revision `244d003ef`에서 검증됐습니다. 최초 턴과 재생성 턴은 관찰된 5단계, 동일한 인시던트 및 기술 출력 digest, 읽기 전용 근거 수집, primary JSON 미노출, `execution_authority=false`를 유지했습니다. 이 상태는 Teams, Slack, 4단계 온톨로지 실행기 또는 이중 언어 100-case 집단을 주장하지 않습니다. |
 | 결정론적 교차 채널 표현 계획 | 구현됨 | `semantic_presentation_semantics.py`, `semantic_turn_processor.py`, `presentation_rows.py`, `presentation_planner.py`, `presentation_artifact_v2.py`, `presentation.py`, Console artifact 및 module registry, 집중 semantic presentation 검사 137개, Console deck 검사 693개, chart browser 검사 4개 통과 | Core는 검증된 종단 행에서 renderer-neutral semantics를 파생합니다. Operator는 시각화 10개 중 하나를 선택하기 전에 shape별 역할과 행 불변식을 다시 검증합니다. Web과 channel artifact 경계는 동일한 bounded schema를 적용합니다. Legacy와 v2 경로는 읽기 쉬운 행과 exact 기술 값을 보존합니다. 모델은 차트 컴포넌트를 선택할 수 없습니다. |
 
@@ -39,6 +41,7 @@ Command Deck은 활성 패널의 경로 범위 `ViewSnapshot`을 받습니다. �
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-05 | 구현됨 | 공통 카탈로그 용어집과 카탈로그 기반 경로 레이블을 게시하여 지식 개요 및 커넥터 스냅샷이 자체 설명 화면 계약을 다시 충족하도록 수정했습니다. | `current change`, `console/src/routes/knowledge-sources.tsx`, 집중 Console 카탈로그 및 화면 계약 검사 47개 통과, 분리된 Console 타입 검사 및 운영 빌드 통과 | 이 범위가 제한된 계약 수정에 남은 구현 작업은 없습니다. |
 | 2026-09-03 | 구현됨 | 평가되지 않은 시작 예시를 이중 언어 함수 기반 질문 5개로 교체하고, 신뢰도가 높은 타입 기반 프레임 재사용을 추가하고, 적극적인 T2 복구를 기본적으로 비활성화하고, 완료된 프레임 및 계획 호출을 모델 지연 시간 근거에 포함했습니다. | `current change`, 집중 의미 계획, Azure 어댑터, 런타임 설정, Console 시작 화면, 질문 은행 검사 | 시작 질문 집합 또는 지연 시간 개선을 `검증됨`으로 올리기 전에 인증된 이중 언어 런타임 증적을 새로 보존합니다. |
 | 2026-08-31 | 구현됨 | 완료된 측정, 이름이 표시된 미해결 가설, 정확한 공백, `execution_authority=false`가 표시되도록 Console에서 타입 기반 부분 근거 보류 답변을 보존했습니다. 보존에는 정본 최종 본문, 비어 있지 않은 근거, 같은 요청의 일치하는 검증 및 의미 증적이 필요합니다. 증적이 없거나 잘못됐거나 최종 답변이 없거나 공백뿐이면 활성 token pump generation을 무효화하고 내보내기 전에 대기 및 누적 초안을 지운 뒤 단조 증가하는 철회 revision을 보냅니다. | `current change`, 집중 grounded-reply 및 스트림 검사 52개와 Console typecheck 통과 | 정확한 커밋 리비전에서 인증된 데스크톱 및 모바일 타입 기반 보류 증적 하나를 보존합니다. |
 | 2026-08-29 | implemented | 강화 라운드 10에서 Console 근거 및 스트림 관점 25개를 검토하고 label에서 파생한 검색 단계 key를 고정된 의미 id로 교체했습니다. SSE 진행 label은 활성 행을 다시 마운트하거나 애니메이션 및 포커스 상태를 초기화하지 않고 갱신됩니다. | `current change`; 집중 retrieval-trace 테스트 및 Console typecheck. | 실제 진행 스트림의 관리되는 시각적 근거를 보존합니다. |

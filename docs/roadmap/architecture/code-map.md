@@ -107,6 +107,9 @@ public imports, deterministic gate order, and read-only authority.
 Resource Health state-group derivation lives in `semantic_query_health_values.py`, which keeps the
 public semantic composition facade below the enforced 800-line ceiling without changing registration
 order.
+Topology endpoint clarification normalization lives in
+`semantic_planning_topology_normalization.py`; the compatibility facade preserves public imports,
+deterministic gate order, and read-only authority.
 Historical and activity frame construction lives in
 `semantic_planning_temporal_frames.py`; inventory collection-health assembly lives in
 `inventory_collection_health_reporting.py`; and PostgreSQL inventory-source completeness reduction

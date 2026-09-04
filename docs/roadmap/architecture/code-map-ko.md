@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 07b885532778cfcdef690a18494c32adb7776cf9
+translation_source_sha: 17cc8adf81619dd17fef1f663592105b911beb8b
 translation_revised: 2026-09-05
 ---
 # 코드 맵
@@ -105,6 +105,8 @@ Core 패키지는 Kafka consumer가 사용하는 Snappy codec을 고정합니다
 gate 순서 및 읽기 전용 권한을 보존합니다.
 Resource Health 상태 그룹 파생은 `semantic_query_health_values.py`에 있으며 public 의미
 composition facade를 강제된 800줄 제한 아래로 유지하면서 등록 순서는 바꾸지 않습니다.
+토폴로지 엔드포인트 명확화 정규화는 `semantic_planning_topology_normalization.py`에 있으며
+호환성 파사드는 공개 import, 결정론적 gate 순서 및 읽기 전용 권한을 보존합니다.
 이력 및 활동 frame 생성은 `semantic_planning_temporal_frames.py`, 인벤토리 수집 상태 조립은
 `inventory_collection_health_reporting.py`, PostgreSQL 인벤토리 출처 완전성 축약은
 `postgres_ontology_source_coverage.py`가 담당합니다. 기존 소유 모듈은 import 표면을 유지하고,
