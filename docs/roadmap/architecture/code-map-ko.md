@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: dab4aa7b4773772d5910fddfe78729e6b48f70c9
+translation_source_sha: b76976e06bb8032ff91cc3853c3b66c52a5ab5aa
 translation_revised: 2026-09-04
 ---
 # 코드 맵
@@ -77,8 +77,9 @@ Operator 소유 다운스트림 마이그레이션에 위치하므로, 부트스
 필요한 모든 LinkType 증적을 결속합니다. 서비스와 담당 Agent 간 관계는 정확한 release 및
 principal 범위에 고정된 단일 복합 읽기 증적을 사용합니다. 실행 권한을 부여하지 않으면서 각
 BusinessService에서 Agent로 이어지는 실제 인스턴스 경로를 보존합니다. 실제 경로가 없으면
-신원 주장을 답변 완료로 만들지 않고 보류합니다. 탐색이 없는 ObjectSet은 객체 전용
-스냅샷이며 관계 완전성은 명시적 탐색에만 적용됩니다.
+신원 주장을 답변 완료로 만들지 않고 보류합니다. 리소스 상태 컬렉션 계획은 객체 전용
+ObjectSet을 명시적으로 요청합니다. 다른 ObjectSet은 기본적으로 관계를 포함하며 기존 재실행
+다이제스트가 바뀌지 않도록 기본값은 이전 직렬화 정의에서 생략됩니다.
 의미 판단은 엄격한 구조화 출력을 사용하며 첫 번째 턴의 운영 조회는 소셜 사전 검사를
 생략하되 직접 소셜 응답 후보와 이전 턴이 있는 요청은 계속 독립적으로 확인합니다.
 검증된 `query.ontology_declaration` 개수 판단에서는 고유한 canonical 선언 `*Type` target이

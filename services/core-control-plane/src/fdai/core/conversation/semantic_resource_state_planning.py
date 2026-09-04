@@ -312,6 +312,7 @@ def resource_collection_definition(
         as_of=as_of,
         purpose=purpose,
         limit=1000,
+        include_relationships=False,
     )
 
 

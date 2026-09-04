@@ -12,6 +12,7 @@ from fdai.core.ontology_platform import (
     ObjectSelectorKind,
     ObjectSetDefinition,
     ObjectSetService,
+    ObjectTraversal,
     OntologyInterfaceType,
     RelationshipTraversalDefinition,
     compile_interfaces,
@@ -292,12 +293,42 @@ async def test_object_set_without_traversal_does_not_claim_relationship_complete
             predicates=(ObjectPredicate(property="status", equals="ready"),),
             as_of=datetime(2026, 8, 1, tzinfo=UTC),
             purpose="operations-review",
+            include_relationships=False,
         )
     )
 
     assert calls == [False]
     assert [item.id for item in result.graph.objects] == ["workload-a"]
     assert result.graph.links == ()
+
+
+def test_object_set_relationship_mode_preserves_legacy_serialization() -> None:
+    common = {
+        "selector": ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Workload"),
+        "as_of": datetime(2026, 8, 1, tzinfo=UTC),
+        "purpose": "operations-review",
+    }
+
+    assert "include_relationships" not in ObjectSetDefinition(**common).model_dump(mode="json")
+    assert (
+        ObjectSetDefinition(
+            **common,
+            include_relationships=False,
+        ).model_dump(mode="json")["include_relationships"]
+        is False
+    )
+
+
+def test_object_set_traversal_requires_relationships() -> None:
+    with pytest.raises(ValueError, match="traversal requires relationship inclusion"):
+        ObjectSetDefinition(
+            selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Workload"),
+            traversal=ObjectTraversal(link_types=("depends_on",)),
+            root_ids=("workload-a",),
+            as_of=datetime(2026, 8, 1, tzinfo=UTC),
+            purpose="operations-review",
+            include_relationships=False,
+        )
 
 
 async def test_exact_id_predicates_use_bounded_lookups_and_preserve_intersections() -> None:

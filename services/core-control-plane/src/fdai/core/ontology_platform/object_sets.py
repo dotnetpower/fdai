@@ -77,7 +77,7 @@ class ObjectSetService:
                     object_types=concrete_types,
                     property_equals=filters,
                     limit=_STORE_QUERY_LIMIT if has_memory_predicates else definition.limit,
-                    include_relationships=False,
+                    include_relationships=definition.include_relationships,
                 )
                 if graph.truncated:
                     source_truncation_reason = (

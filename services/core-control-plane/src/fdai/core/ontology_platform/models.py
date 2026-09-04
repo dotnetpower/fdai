@@ -200,6 +200,10 @@ class ObjectSetDefinition(ContractBase):
     purpose: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_-]{0,63}$")]
     limit: int = Field(default=100, ge=1, le=1000)
     freshness_seconds: int | None = Field(default=None, ge=1, le=86_400)
+    include_relationships: bool = Field(
+        default=True,
+        exclude_if=lambda value: value is True,
+    )
 
     @model_validator(mode="after")
     def _traversal_requires_roots(self) -> ObjectSetDefinition:
@@ -207,6 +211,8 @@ class ObjectSetDefinition(ContractBase):
             raise ValueError("object-set traversal requires root_ids")
         if self.traversal is None and self.root_ids:
             raise ValueError("object-set root_ids require traversal")
+        if self.traversal is not None and not self.include_relationships:
+            raise ValueError("object-set traversal requires relationship inclusion")
         if self.as_of.tzinfo is None:
             raise ValueError("object-set as_of MUST be timezone-aware")
         return self
