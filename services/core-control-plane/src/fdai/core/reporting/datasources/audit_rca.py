@@ -156,6 +156,7 @@ def _hypotheses(rows: Sequence[RcaAuditRow]) -> DataSet:
     columns = (
         "tier",
         "outcome",
+        "cause_domain",
         "cause",
         "confidence",
         "reason",
@@ -169,6 +170,7 @@ def _hypotheses(rows: Sequence[RcaAuditRow]) -> DataSet:
             {
                 "tier": _entry(row).get("rca_tier"),
                 "outcome": _entry(row).get("rca_outcome"),
+                "cause_domain": _entry(row).get("rca_cause_domain") or "unknown",
                 "cause": _entry(row).get("rca_cause"),
                 "confidence": _entry(row).get("rca_confidence"),
                 "reason": _entry(row).get("rca_reason"),

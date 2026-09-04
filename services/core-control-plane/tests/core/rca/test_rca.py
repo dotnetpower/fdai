@@ -12,6 +12,7 @@ from collections.abc import Sequence
 
 import pytest
 from fdai.core.rca import (
+    CauseDomain,
     Citation,
     CitationKind,
     RcaOutcome,
@@ -98,6 +99,7 @@ def test_t0_root_cause_is_grounded_on_the_rule() -> None:
     assert h.citations[0].kind is CitationKind.RULE
     assert h.citations[0].ref == _RULE_ID
     assert h.remediation_ref == "remediate.tag-add"
+    assert h.cause_domain is CauseDomain.INFRASTRUCTURE
     assert _RULE_ID in h.cause
     assert "object-storage" in h.cause
     # Evidence carries the check-logic reference and the triggering event.

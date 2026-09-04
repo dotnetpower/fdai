@@ -283,6 +283,7 @@ function HypothesisCard({ hypothesis, correlationId }: { readonly hypothesis: Rc
           kind={hypothesis.grounded ? "success" : "hil"}
           label={hypothesis.grounded ? t("rca.grounded") : t("rca.abstained")}
         />
+        <StatusPill kind="neutral" label={t(`rca.causeDomain.${hypothesis.cause_domain}`)} />
         <StatusPill kind={hypothesis.mode} label={hypothesis.mode} />
       </div>
       <KpiGrid>

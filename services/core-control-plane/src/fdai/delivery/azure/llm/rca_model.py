@@ -147,7 +147,9 @@ def _build_user_prompt(incident_summary: str, candidate_citations: Sequence[Cita
             "citation_refs": [c.ref for c in candidate_citations],
             "instructions": (
                 "Identify the most likely root cause. Respond with a JSON object "
-                '{"cause": string, "confidence": number in [0,1], "citations": '
+                '{"cause": string, "cause_domain": one of infrastructure, application, '
+                "shared_dependency, external_provider, mixed, unknown, "
+                '"confidence": number in [0,1], "citations": '
                 "[ref, ...]}. Cite ONLY refs listed in citation_refs; do not "
                 "invent references."
             ),

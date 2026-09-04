@@ -106,6 +106,7 @@ async def test_render_projects_only_recorded_audit_evidence() -> None:
                 {
                     "rca_tier": "t1",
                     "rca_outcome": "grounded",
+                    "rca_cause_domain": "shared_dependency",
                     "rca_cause": "Recorded cause",
                     "rca_confidence": 0.8,
                     "rca_citations": [{"kind": "event", "ref": "event-1"}],
@@ -122,7 +123,9 @@ async def test_render_projects_only_recorded_audit_evidence() -> None:
     citations = next(item for item in widgets if item["id"] == "grounded-citations")
     limitations = next(item for item in widgets if item["id"] == "limitations")
     assert report["variables"] == {"correlation_id": "corr-1"}
-    assert cast(dict[str, object], hypotheses["data"])["total_rows"] == 1
+    hypothesis_data = cast(dict[str, object], hypotheses["data"])
+    assert hypothesis_data["total_rows"] == 1
+    assert hypothesis_data["rows"][0]["cause_domain"] == "shared_dependency"  # type: ignore[index]
     assert cast(dict[str, object], citations["data"])["total_rows"] == 1
     assert cast(dict[str, object], limitations["data"])["total_rows"] == 0
     assert audit.queries == [AuditQuery(limit=500, correlation_id="corr-1")]

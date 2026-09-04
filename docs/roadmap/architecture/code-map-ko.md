@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: b76976e06bb8032ff91cc3853c3b66c52a5ab5aa
+translation_source_sha: ad237fc05125d41bb40cb1aaff054731a8daa869
 translation_revised: 2026-09-04
 ---
 # 코드 맵
@@ -137,6 +137,10 @@ Resource 신원이나 리소스 이름 명확화 대상으로 바뀌지 않습�
 그룹화된 읽기 계획을 유지합니다. 종속 FunctionType 읽기에는 승인된 보안 ObjectSet 증적이
 계속 필요합니다. 결정 근거 승인이 없으면 범위가 제한된 원본 사용 불가 결과를 반환하며, 쿼리
 실행은 이 검사를 약화하지 않고 진단에 필요한 비민감 거부 이유를 기록합니다.
+RCA 가설은 이제 T0, T1, T2 전체에서 하위 호환 가능한 원인 영역을 전달합니다. T0 구성 위반은
+기본적으로 인프라를 사용하고, T1은 루트 변경 영역을 보존하며, T2 parser는 검토된 영역 enum만
+수락합니다. 감사 및 읽기 변환 결과는 이전 레코드 또는 지원되지 않는 값을 `unknown`으로
+표시합니다. 이 분류는 근거 전용이며 작업을 승인할 수 없습니다.
 
 | 영역 | Responsibility | 출처 | 테스트 |
 |------|----------------|--------|------|

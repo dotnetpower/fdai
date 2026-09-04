@@ -19,6 +19,7 @@ from fdai.core.rca.causal_chain import (
     chain_to_hypothesis,
 )
 from fdai.core.rca.contract import (
+    CauseDomain,
     Citation,
     CitationKind,
     RcaCausalChain,
@@ -122,6 +123,7 @@ __all__ = [
     "CandidateRejection",
     "CandidateRejectionReason",
     "ChallengerComparisonOutcome",
+    "CauseDomain",
     "Citation",
     "CitationKind",
     "CorrelatedEvent",

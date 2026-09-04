@@ -1,8 +1,8 @@
 ---
 title: 근본원인 분석
 translation_of: root-cause-analysis.md
-translation_source_sha: 0006996057e81eb75ee050121d229dceffb42660
-translation_revised: 2026-08-29
+translation_source_sha: 5d45b51041130c8bbf63da01f3e52e04d12a9dd6
+translation_revised: 2026-09-04
 ---
 # 근본원인 분석
 
@@ -18,7 +18,7 @@ translation_revised: 2026-08-29
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| T0, T1, T2 가설 계약 및 grounding | implemented | `services/core-control-plane/src/fdai/core/rca/`, 집중 RCA 테스트 | T0 규칙 원인, stale-safe T1 재사용, 결정론적 인과사슬 및 grounded T2 parsing을 구현했습니다. |
+| T0, T1, T2 가설 계약 및 grounding | implemented | `services/core-control-plane/src/fdai/core/rca/`, 집중 RCA 테스트 | T0 규칙 원인, stale-safe T1 재사용, 결정론적 인과사슬, 형식화된 원인 영역 및 grounded T2 parsing을 구현했습니다. |
 | Knowledge 근거 및 프로바이더 연결 | implemented | `core/rca/knowledge_evidence.py`, `shared/providers/knowledge.py`, `delivery/pgvector/knowledge.py`, `delivery/azure/llm/rca_model.py`, `runtime/bootstrap.py`, 집중 프로바이더, 어댑터 및 런타임 테스트 | 런타임은 Azure LLM 초기화 이후와 원격 측정 전용 모드 모두에서 구성된 pgvector 소스를 연결합니다. 다시 수집하면 문서 조각을 원자적으로 교체하고 빈 교체는 삭제하므로 오래된 개정이 검색 결과에 남지 않습니다. 연결이 없을 때는 근거를 만들어 내지 않습니다. |
 | 읽기 전용 운영자 프로젝션 | implemented | `services/operator-service/src/fdai_operator_service/rca_projection.py`, 집중 프로젝션 테스트 | 작업 권한 없이 감사 가설, 인용, 구조화된 인과사슬 및 연결된 대응 계획을 프로젝션합니다. |
 | 통제된 운영 RCA 정확도 | in-progress | [관측성과 감지](observability-and-detection-ko.md#구현-상태) | 티어 혼합 전체에서 실제 원인 정확도, 판단 보류 및 downstream 결과 종결을 입증하는 exact-revision cohort가 없습니다. |
@@ -27,6 +27,7 @@ translation_revised: 2026-08-29
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-04 | implemented | 모든 RCA 가설에 하위 호환 가능한 원인 영역 분류를 추가했습니다. T0는 검토된 구성 위반을 기본적으로 인프라로 분류하고, T1은 루트 변경의 영역을 보존하며, T2는 지원되는 enum 값 하나만 제안할 수 있습니다. 이전 레코드는 `unknown`으로 유지됩니다. 감사, 보고, Operator 및 Console 프로젝션은 작업 권한을 부여하지 않고 값을 보존합니다. | `current change`; 집중 Core RCA, Azure 어댑터, Operator 프로젝션, Console decoder 및 타입 검사입니다. | 기본값이 아닌 영역을 제공할 수 있도록 배포 이력과 현재 그래프 근거를 연결한 후 통제된 운영 cohort를 보존합니다. |
 | 2026-08-29 | implemented | 강화 라운드 6에서 KnowledgeSource 관점 26개를 검토하고 pgvector 직렬화 전에 유한하지 않은 임베딩 값을 차단했으며, 참조 인덱스에서는 유한하지 않은 유사도를 0으로 처리했습니다. 잘못된 벡터가 비결정적 검색 순서를 만들 수 없습니다. | `current change`; 집중 KnowledgeSource 및 pgvector 테스트. | 배포가 소유하는 색인 문서를 대상으로 관리되는 RCA cohort를 보존합니다. |
 | 2026-08-28 | implemented | 모델 초기화 이후에 영속 KnowledgeSource를 연결하도록 순서를 바꿨습니다. 이제 Knowledge DSN이 구성된 Azure LLM 모드에서 RCA가 기본 빈 소스에 남지 않습니다. 동일한 조건부 호출은 원격 측정 전용 모드와 로컬 모델 동작을 유지합니다. 메모리 및 pgvector 소스는 다시 수집을 완전한 교체로 처리하고, 임베딩에 실패하면 이전 개정을 보존하며, 오래된 조각을 제거하고, 문서별 트랜잭션 잠금 아래에서 빈 교체를 삭제로 처리합니다. | `current change`; `runtime/bootstrap.py`; `shared/providers/knowledge.py`; `delivery/pgvector/knowledge.py`; 집중 부트스트랩 및 런타임 구성 검사 42건 통과; 집중 KnowledgeSource 및 SQL 수명 주기 검사 21건 통과, 실시간 데이터베이스 동등성 검사 1건은 환경 조건으로 제외; Ruff 및 strict mypy 통과. | 배포가 소유하는 색인 문서를 대상으로 관리되는 RCA cohort를 보존하고 소스 연결기를 교체 계약에 연결합니다. |
 | 2026-08-21 | in-progress | 런타임 동작이나 권한을 변경하지 않고 기존 RCA 티어, grounding, 인과사슬, knowledge 및 프로젝션 계약을 집중 소유 문서로 옮겼습니다. | `current change`; 문서 크기, 번역, 경로 및 링크 검사입니다. | 권위 있는 원인 및 결과 검토가 있는 통제된 운영 cohort를 보존합니다. |
@@ -55,6 +56,18 @@ RCA를 암묵적 부작용이 아니라 티어의 일급 출력으로 만듭니�
 - 근거를 가질 수 없는 RCA는 사람 검토로 보냅니다.
 - [상관된 인시던트](observability-and-detection-ko.md#1-이벤트-상관관계event-상관관계)가 RCA
   입력이므로 분석은 중복 폭풍이 아니라 인시던트 하나를 다룹니다.
+
+## 원인 영역
+
+모든 가설은 `infrastructure`, `application`, `shared_dependency`, `external_provider`, `mixed`,
+`unknown` 중 하나의 형식화된 운영 영역을 가집니다. 이 필드는 인용된 가설을 분류합니다.
+최종 인시던트 판정이 아니며 작업 권한을 부여하지 않습니다.
+
+T0 구성 규칙 원인은 기본적으로 `infrastructure`를 사용하며, 더 강한 검토 근거가 있는 호출자는
+더 구체적인 영역을 제공할 수 있습니다. T1은 루트 변경 이벤트의 영역을 사용하고 해결된 사례를
+재사용할 때도 이를 보존합니다. T2는 선언된 enum 값만 반환할 수 있습니다. 값이 없으면
+`unknown`을 유지하고 지원되지 않는 값은 parser가 검토 대상으로 보류합니다. 이 필드가 없는
+기존 감사 레코드는 `unknown`으로 프로젝션됩니다.
 
 ## 업스트림 구현
 

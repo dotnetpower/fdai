@@ -144,6 +144,10 @@ clarification and retain their grouped read plan. Dependent FunctionType reads s
 admitted secured ObjectSet receipt. Missing decision-evidence admission produces a bounded
 source-unavailable result, and query execution records the non-sensitive denial reason for
 diagnosis without weakening the gate.
+RCA hypotheses now carry an additive cause domain through T0, T1, and T2. T0 configuration
+violations default to infrastructure, T1 preserves the root change domain, and the T2 parser accepts
+only the reviewed domain enum. Audit and read projections map historical or unsupported values to
+`unknown`; the classification remains evidence-only and cannot authorize an action.
 
 | Area | Responsibility | Source | Tests |
 |------|----------------|--------|-------|

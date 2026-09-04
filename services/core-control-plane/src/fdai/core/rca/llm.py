@@ -28,7 +28,7 @@ import logging
 from collections.abc import Sequence
 from typing import Any, Protocol, runtime_checkable
 
-from fdai.core.rca.contract import Citation, RcaTier, RootCauseHypothesis
+from fdai.core.rca.contract import CauseDomain, Citation, RcaTier, RootCauseHypothesis
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,7 +38,8 @@ class RcaModel(Protocol):
     """LLM seam for T2 root-cause proposal.
 
     Returns a JSON string with the shape
-    ``{"cause": str, "confidence": number in [0,1], "citations": [ref, ...]}``.
+    ``{"cause": str, "cause_domain": str, "confidence": number in [0,1],
+    "citations": [ref, ...]}``.
     Implementations MUST cite only refs drawn from
     ``candidate_citations``; the parser refuses any other ref.
     """
@@ -75,6 +76,10 @@ def parse_rca_response(
     cause = data.get("cause")
     if not isinstance(cause, str) or not cause.strip():
         return None
+    try:
+        cause_domain = CauseDomain(data.get("cause_domain", CauseDomain.UNKNOWN.value))
+    except ValueError:
+        return None
 
     confidence = data.get("confidence")
     if isinstance(confidence, bool) or not isinstance(confidence, (int, float)):
@@ -106,6 +111,7 @@ def parse_rca_response(
         cause=cause.strip(),
         confidence=float(confidence),
         citations=tuple(grounded),
+        cause_domain=cause_domain,
     )
 
 

@@ -104,6 +104,7 @@ class ControlLoopRcaMixin:
                     "rca_outcome": result.outcome.value,
                     "rca_reason": result.reason,
                     "rca_tier": hypothesis.tier.value if hypothesis else None,
+                    "rca_cause_domain": hypothesis.cause_domain.value if hypothesis else "unknown",
                     "rca_cause": hypothesis.cause if hypothesis else None,
                     "rca_confidence": hypothesis.confidence if hypothesis else None,
                     "rca_citations": (
@@ -167,6 +168,7 @@ class ControlLoopRcaMixin:
                     "rca_outcome": result.outcome.value,
                     "rca_reason": result.reason,
                     "rca_tier": hypothesis.tier.value if hypothesis else "t1",
+                    "rca_cause_domain": hypothesis.cause_domain.value if hypothesis else "unknown",
                     "rca_cause": hypothesis.cause if hypothesis else None,
                     "rca_confidence": hypothesis.confidence if hypothesis else None,
                     "rca_citations": (

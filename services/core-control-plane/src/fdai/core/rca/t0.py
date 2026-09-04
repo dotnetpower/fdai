@@ -10,6 +10,7 @@ deterministic (the same rule + resource always yields the same cause).
 from __future__ import annotations
 
 from fdai.core.rca.contract import (
+    CauseDomain,
     Citation,
     CitationKind,
     RcaTier,
@@ -23,6 +24,7 @@ def t0_root_cause(
     rule: Rule,
     resource_type: str,
     event_id: str | None = None,
+    cause_domain: CauseDomain = CauseDomain.INFRASTRUCTURE,
 ) -> RootCauseHypothesis:
     """Build a deterministic T0 root-cause hypothesis from a matched rule.
 
@@ -46,6 +48,7 @@ def t0_root_cause(
         cause=cause,
         confidence=1.0,
         citations=citations,
+        cause_domain=cause_domain,
         evidence_refs=evidence,
         remediation_ref=rule.remediates,
     )

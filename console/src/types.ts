@@ -105,6 +105,13 @@ export interface IncidentPage {
 
 export type RcaTier = "t0" | "t1" | "t2" | "unknown";
 export type RcaOutcome = "grounded" | "abstained" | "unknown";
+export type RcaCauseDomain =
+  | "infrastructure"
+  | "application"
+  | "shared_dependency"
+  | "external_provider"
+  | "mixed"
+  | "unknown";
 
 export interface RcaCitation {
   readonly kind: string;
@@ -134,6 +141,7 @@ export interface RcaHypothesis {
   readonly tier: RcaTier;
   readonly outcome: RcaOutcome;
   readonly grounded: boolean;
+  readonly cause_domain: RcaCauseDomain;
   readonly cause: string | null;
   readonly confidence: number | null;
   readonly reason: string | null;

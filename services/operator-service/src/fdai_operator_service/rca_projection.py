@@ -7,6 +7,17 @@ from typing import Any, cast
 
 from fdai_service_contracts import JsonObject
 
+_CAUSE_DOMAINS = frozenset(
+    {
+        "infrastructure",
+        "application",
+        "shared_dependency",
+        "external_provider",
+        "mixed",
+        "unknown",
+    }
+)
+
 
 def rca_view(correlation_id: str, items: Sequence[JsonObject]) -> JsonObject | None:
     """Project correlated audit evidence into the frozen RCA view envelope."""
@@ -45,6 +56,7 @@ def _hypothesis(item: JsonObject) -> JsonObject:
             "tier": _nonempty(entry.get("rca_tier")) or "unknown",
             "outcome": outcome,
             "grounded": outcome == "grounded",
+            "cause_domain": _cause_domain(entry.get("rca_cause_domain")),
             "cause": _nonempty(entry.get("rca_cause")),
             "confidence": _number(entry.get("rca_confidence")),
             "reason": _nonempty(entry.get("rca_reason")),
@@ -163,6 +175,11 @@ def _mappings(value: object) -> list[dict[str, Any]]:
 
 def _nonempty(value: object) -> str | None:
     return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def _cause_domain(value: object) -> str:
+    domain = _nonempty(value)
+    return domain if domain in _CAUSE_DOMAINS else "unknown"
 
 
 def _integer(value: object) -> int | None:

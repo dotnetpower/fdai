@@ -211,6 +211,7 @@ export function decodeRcaView(value: unknown): RcaView {
         tier: apiRcaTier(item["tier"]),
         outcome: apiRcaOutcome(item["outcome"]),
         grounded: apiBoolean(item, "grounded", "RCA hypothesis"),
+        cause_domain: apiRcaCauseDomain(item["cause_domain"]),
         cause: apiNullableString(item, "cause", "RCA hypothesis"),
         confidence: apiNullableRatio(item, "confidence", "RCA hypothesis"),
         reason: apiNullableString(item, "reason", "RCA hypothesis"),
@@ -255,6 +256,19 @@ export function decodeRcaView(value: unknown): RcaView {
     response:
       decodedResponse,
   };
+}
+
+function apiRcaCauseDomain(value: unknown): RcaView["hypotheses"][number]["cause_domain"] {
+  if (value === undefined) return "unknown";
+  if (
+    value === "infrastructure"
+    || value === "application"
+    || value === "shared_dependency"
+    || value === "external_provider"
+    || value === "mixed"
+    || value === "unknown"
+  ) return value;
+  throw contractError("RCA hypothesis.cause_domain MUST be a supported cause domain");
 }
 
 function decodeRcaCausalChain(value: unknown): RcaView["hypotheses"][number]["causal_chain"] {

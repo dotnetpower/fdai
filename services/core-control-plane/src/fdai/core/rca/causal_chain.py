@@ -41,6 +41,7 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 
 from fdai.core.rca.contract import (
+    CauseDomain,
     Citation,
     CitationKind,
     RcaCausalChain,
@@ -92,6 +93,7 @@ class CorrelatedEvent:
     resource_ref: str
     is_change: bool
     change_kind: str | None = None
+    cause_domain: CauseDomain = CauseDomain.UNKNOWN
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,6 +125,7 @@ class CausalChain:
     hops: tuple[CausalHop, ...]
     confidence: float
     ambiguity: int
+    cause_domain: CauseDomain = CauseDomain.UNKNOWN
 
     @property
     def event_ids(self) -> tuple[str, ...]:
@@ -289,6 +292,7 @@ class CausalChainAnalyzer:
             hops=best.hops,
             confidence=confidence,
             ambiguity=ambiguity,
+            cause_domain=pool[best.root_event_id].cause_domain,
         )
 
     # -- traversal ---------------------------------------------------------
@@ -588,6 +592,7 @@ def chain_to_hypothesis(
         cause=cause,
         confidence=chain.confidence,
         citations=citations,
+        cause_domain=chain.cause_domain,
         evidence_refs=chain.event_ids,
         remediation_ref=None,
         causal_chain=causal_chain,

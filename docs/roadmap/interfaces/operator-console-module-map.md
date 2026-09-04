@@ -575,10 +575,11 @@ modules consumes the proposal, changes Process state, approves, or executes.
   does not own HTTP, SSE sequencing, authentication, cancellation, history, or durable state.
 - `projections/conversation/stream_metrics.py` owns queue-accepted aggregate progress reduction.
   It does not own frame sequencing, queue admission, cancellation, transport, or durable state.
-- `projections/conversation/` owns incident-dossier and RCA rendering, bounded execution-output
-  projection, provider-receipt projection, tool-progress reduction, current-screen T0 rendering,
-  redacted model traces, trajectory-detail replay, and resource-follow-up response projection.
-  These moved internal helpers have no compatibility shims.
+- `projections/conversation/` owns incident-dossier and RCA rendering, including the additive typed
+  cause domain that old or unsupported audit values project as `unknown`. It also owns bounded
+  execution-output projection, provider-receipt projection, tool-progress reduction, current-screen
+  T0 rendering, redacted model traces, trajectory-detail replay, and resource-follow-up response
+  projection. These moved internal helpers have no compatibility shims and no action authority.
 - `routes/chat_stream_request.py` owns authorization, Content-Length and raw-body bounds, JSON-object
   parsing, application-error to HTTP mapping, and the SSE preparation adapter.
 - `application/conversation/turn_execution/` owns one-shot JSON request preparation, planning,

@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING
 
 from fdai.core.rca.causal_chain import CorrelatedEvent
 from fdai.core.rca.contract import (
+    CauseDomain,
     Citation,
     RcaOutcome,
     RcaResult,
@@ -96,9 +97,15 @@ class RcaCoordinator:
         rule: Rule,
         resource_type: str,
         event_id: str | None = None,
+        cause_domain: CauseDomain = CauseDomain.INFRASTRUCTURE,
     ) -> RcaResult:
         """Deterministic direct-cause analysis from a matched rule."""
-        hypothesis = t0_root_cause(rule=rule, resource_type=resource_type, event_id=event_id)
+        hypothesis = t0_root_cause(
+            rule=rule,
+            resource_type=resource_type,
+            event_id=event_id,
+            cause_domain=cause_domain,
+        )
         return enforce_grounding(hypothesis, min_confidence=self._min_confidence)
 
     def analyze_t1(
@@ -134,6 +141,7 @@ class RcaCoordinator:
             cause=prior_hypothesis.cause,
             confidence=prior_hypothesis.confidence * reuse_confidence_factor,
             citations=prior_hypothesis.citations,
+            cause_domain=prior_hypothesis.cause_domain,
             evidence_refs=prior_hypothesis.evidence_refs,
             remediation_ref=prior_hypothesis.remediation_ref,
         )

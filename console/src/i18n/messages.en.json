@@ -1095,6 +1095,14 @@
     "tierColumn": "Tier",
     "outcomeColumn": "Evidence check",
     "confidence": "Confidence",
+    "causeDomain": {
+      "infrastructure": "Infrastructure",
+      "application": "Application",
+      "shared_dependency": "Shared dependency",
+      "external_provider": "External provider",
+      "mixed": "Mixed",
+      "unknown": "Unknown layer"
+    },
     "cause": "Hypothesis",
     "reason": "Reason",
     "citations": "Evidence citations",

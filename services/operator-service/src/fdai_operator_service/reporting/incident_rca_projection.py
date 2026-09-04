@@ -200,6 +200,7 @@ def _projection_rows(
             {
                 "tier": entry.get("rca_tier"),
                 "outcome": entry.get("rca_outcome"),
+                "cause_domain": entry.get("rca_cause_domain") or "unknown",
                 "cause": entry.get("rca_cause"),
                 "confidence": entry.get("rca_confidence"),
                 "reason": entry.get("rca_reason"),

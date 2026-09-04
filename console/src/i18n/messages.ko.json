@@ -1095,6 +1095,14 @@
     "tierColumn": "티어",
     "outcomeColumn": "근거 확인",
     "confidence": "신뢰도",
+    "causeDomain": {
+      "infrastructure": "인프라",
+      "application": "애플리케이션",
+      "shared_dependency": "공유 의존성",
+      "external_provider": "외부 공급자",
+      "mixed": "혼합",
+      "unknown": "영역 확인 불가"
+    },
     "cause": "가설",
     "reason": "이유",
     "citations": "근거 인용",

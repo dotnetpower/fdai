@@ -31,6 +31,17 @@ class RcaTier(StrEnum):
     """Reasoning cause: a grounded hypothesis for a novel/ambiguous case."""
 
 
+class CauseDomain(StrEnum):
+    """Operational layer where a root-cause hypothesis places the cause."""
+
+    INFRASTRUCTURE = "infrastructure"
+    APPLICATION = "application"
+    SHARED_DEPENDENCY = "shared_dependency"
+    EXTERNAL_PROVIDER = "external_provider"
+    MIXED = "mixed"
+    UNKNOWN = "unknown"
+
+
 class CitationKind(StrEnum):
     """The kind of evidence a citation points at."""
 
@@ -124,6 +135,7 @@ class RootCauseHypothesis:
     cause: str
     confidence: float
     citations: tuple[Citation, ...]
+    cause_domain: CauseDomain = CauseDomain.UNKNOWN
     evidence_refs: tuple[str, ...] = ()
     remediation_ref: str | None = None
     causal_chain: RcaCausalChain | None = None
@@ -161,6 +173,7 @@ class RcaResult:
 __all__ = [
     "Citation",
     "CitationKind",
+    "CauseDomain",
     "RcaCausalChain",
     "RcaCausalHop",
     "RcaOutcome",

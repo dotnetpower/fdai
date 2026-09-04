@@ -32,6 +32,7 @@ describe("RCA availability", () => {
       tier: "t0",
       outcome: "grounded",
       grounded: true,
+      cause_domain: "infrastructure",
       cause: "Configuration changed before the failure.",
       confidence: 1,
       reason: null,

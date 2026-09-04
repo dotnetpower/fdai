@@ -1,8 +1,8 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: fbc33afad334e2f24294a74fb16543d9be8e0167
-translation_revised: 2026-09-02
+translation_source_sha: 717d714050eb47c55d445acd3a76196b7f0978b4
+translation_revised: 2026-09-04
 ---
 # Operator Console 모듈 지도 and Boundaries
 
@@ -570,10 +570,12 @@ Process 전환, 승인 및 재시도 변환 모듈은 정확한 Process 리비�
 - `projections/conversation/stream_metrics.py`는 큐에 수락된 집계 진행 상황 reduction을
   소유합니다. 프레임 순서, 큐 admission, 취소, 전송 계층 또는 영속 상태는
   소유하지 않습니다.
-- `projections/conversation/`은 incident-dossier와 RCA 렌더링, 범위가 제한된 execution-output
-  변환 결과, provider-receipt 변환 결과, tool-progress reduction, current-screen T0 렌더링,
-  민감정보가 제거된 모델 추적, trajectory-detail 재생 및 resource-follow-up 응답 변환 결과를 소유합니다.
-  이동된 내부 보조 로직에는 호환성 심이 없습니다.
+- `projections/conversation/`은 incident-dossier와 RCA 렌더링을 소유합니다. 여기에는 이전 또는
+  지원되지 않는 감사 값을 `unknown`으로 표시하는 하위 호환 가능한 형식화된 원인 영역이
+  포함됩니다. 또한 범위가 제한된 execution-output 변환 결과, provider-receipt 변환 결과,
+  tool-progress reduction, current-screen T0 렌더링, 민감정보가 제거된 모델 추적,
+  trajectory-detail 재생 및 resource-follow-up 응답 변환 결과를 소유합니다. 이동된 내부 보조
+  로직에는 호환성 심과 작업 권한이 없습니다.
 - `routes/chat_stream_request.py`는 권한 확인, Content-Length와 raw-body 한계, JSON-object
   파싱, 애플리케이션 오류의 HTTP 대응 및 SSE preparation 어댑터를 소유합니다.
 - `application/conversation/turn_execution/`은 타입이 지정된 의존성과 결과를 통해 one-shot JSON

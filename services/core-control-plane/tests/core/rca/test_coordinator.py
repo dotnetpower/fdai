@@ -12,6 +12,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from fdai.core.rca import (
+    CauseDomain,
     Citation,
     CitationKind,
     CorrelatedEvent,
@@ -98,6 +99,7 @@ def test_analyze_t0_is_grounded() -> None:
     assert result.hypothesis is not None
     assert result.hypothesis.tier is RcaTier.T0
     assert result.hypothesis.remediation_ref == "remediate.tag-add"
+    assert result.hypothesis.cause_domain is CauseDomain.INFRASTRUCTURE
 
 
 def test_analyze_t0_passes_high_confidence_floor() -> None:
@@ -144,6 +146,7 @@ def test_analyze_t1_causal_chain_grounds_multi_hop() -> None:
     assert result.hypothesis is not None
     assert result.hypothesis.tier is RcaTier.T1
     assert result.hypothesis.evidence_refs == ("cfg", "dbslow", "fail")
+    assert result.hypothesis.cause_domain is CauseDomain.UNKNOWN
 
 
 def test_analyze_t1_causal_chain_abstains_on_pure_symptoms() -> None:
@@ -256,6 +259,7 @@ def _prior(confidence: float = 0.9) -> RootCauseHypothesis:
         cause="prior resolved incident cause",
         confidence=confidence,
         citations=(Citation(kind=CitationKind.RULE, ref=_RULE_ID),),
+        cause_domain=CauseDomain.SHARED_DEPENDENCY,
         remediation_ref="remediate.tag-add",
     )
 
@@ -274,6 +278,7 @@ def test_analyze_t1_reuses_prior_cause_when_it_still_applies() -> None:
     assert result.hypothesis.confidence == pytest.approx(0.72)
     assert result.hypothesis.cause == "prior resolved incident cause"
     assert result.hypothesis.remediation_ref == "remediate.tag-add"
+    assert result.hypothesis.cause_domain is CauseDomain.SHARED_DEPENDENCY
 
 
 def test_analyze_t1_stale_cause_abstains() -> None:

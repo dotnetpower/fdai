@@ -255,6 +255,7 @@ describe("Operator API response decoders", () => {
           tier: "t0",
           outcome: "grounded",
           grounded: true,
+          cause_domain: "infrastructure",
           cause: "public access open",
           confidence: 0.9,
           reason: "matched control",
@@ -290,6 +291,7 @@ describe("Operator API response decoders", () => {
     };
     const view = decodeRcaView(grounded);
     expect(view.hypotheses[0]?.grounded).toBe(true);
+    expect(view.hypotheses[0]?.cause_domain).toBe("infrastructure");
     expect(view.hypotheses[0]?.causal_chain?.hops[0]?.lead_seconds).toBe(75);
     expect(view.response?.verdict).toBe("auto");
     expect(() =>

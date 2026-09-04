@@ -62,6 +62,7 @@ TABLE_SPECS: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
         (
             "tier",
             "outcome",
+            "cause_domain",
             "cause",
             "confidence",
             "reason",

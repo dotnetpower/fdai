@@ -32,11 +32,12 @@ Design
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from typing import Final
 
 from fdai.core.rca.causal_chain import CorrelatedEvent
+from fdai.core.rca.contract import CauseDomain
 from fdai.shared.contracts.models import Incident
 from fdai.shared.providers.observation import (
     DeploymentHistoryError,
@@ -122,6 +123,7 @@ class DeploymentHistoryMemberSource:
                     resource_ref=record.resource_refs[0] if record.resource_refs else ref,
                     is_change=True,
                     change_kind="deploy",
+                    cause_domain=_cause_domain(record.metadata),
                 )
                 seen.setdefault(event.event_id, event)
         return tuple(seen.values())
@@ -163,6 +165,15 @@ def _parse_timestamp(raw: str) -> datetime | None:
     except ValueError:
         return None
     return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
+
+
+def _cause_domain(metadata: Mapping[str, str]) -> CauseDomain:
+    """Read an optional provider-neutral cause domain without guessing."""
+
+    try:
+        return CauseDomain(metadata.get("cause_domain", CauseDomain.UNKNOWN.value))
+    except ValueError:
+        return CauseDomain.UNKNOWN
 
 
 __all__ = ["DeploymentHistoryMemberSource"]

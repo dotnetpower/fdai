@@ -11,6 +11,7 @@ import json
 
 import pytest
 from fdai.core.rca import (
+    CauseDomain,
     Citation,
     CitationKind,
     LlmRcaReasoner,
@@ -30,6 +31,7 @@ _CANDIDATES = (
 def _answer(**fields: object) -> str:
     base: dict[str, object] = {
         "cause": "runaway writer saturated the volume",
+        "cause_domain": "application",
         "confidence": 0.85,
         "citations": ["object-storage.owner-tag.required"],
     }
@@ -62,6 +64,7 @@ def test_parse_valid_answer() -> None:
     assert h.tier is RcaTier.T2
     assert h.cause == "runaway writer saturated the volume"
     assert h.confidence == pytest.approx(0.85)
+    assert h.cause_domain is CauseDomain.APPLICATION
     assert len(h.citations) == 1
     assert h.citations[0].ref == "object-storage.owner-tag.required"
 
@@ -129,6 +132,32 @@ def test_parse_tier_override() -> None:
     h = parse_rca_response(_answer(), candidate_citations=_CANDIDATES, tier=RcaTier.T1)
     assert h is not None
     assert h.tier is RcaTier.T1
+
+
+def test_parse_missing_domain_is_backward_compatible() -> None:
+    h = parse_rca_response(
+        _answer(cause_domain=None),
+        candidate_citations=_CANDIDATES,
+    )
+    assert h is None
+
+
+def test_parse_absent_domain_defaults_to_unknown() -> None:
+    answer = json.loads(_answer())
+    del answer["cause_domain"]
+    h = parse_rca_response(json.dumps(answer), candidate_citations=_CANDIDATES)
+    assert h is not None
+    assert h.cause_domain is CauseDomain.UNKNOWN
+
+
+def test_parse_invalid_domain_abstains() -> None:
+    assert (
+        parse_rca_response(
+            _answer(cause_domain="database"),
+            candidate_citations=_CANDIDATES,
+        )
+        is None
+    )
 
 
 # ---------------------------------------------------------------------------
