@@ -18057,6 +18057,52 @@ body.aa-log-fullscreen-fallback { overflow: hidden; }
   font-weight: 700;
 }
 .agent-oversight-raw-findings[open] > summary { margin-bottom: 10px; }
+@media (max-width: 760px) {
+  .current-ownership-workspace .agent-oversight-ownership-table {
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .current-ownership-workspace .agent-oversight-ownership-table .cs-table,
+  .current-ownership-workspace .agent-oversight-ownership-table tbody {
+    display: grid;
+    min-width: 0;
+    gap: 12px;
+  }
+  .current-ownership-workspace .agent-oversight-ownership-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .current-ownership-workspace .agent-oversight-ownership-table tr {
+    display: grid;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--cs-radius-sm);
+    background: var(--bg-elevated);
+  }
+  .current-ownership-workspace .agent-oversight-ownership-table td {
+    display: grid;
+    grid-template-columns: minmax(112px, .42fr) minmax(0, 1fr);
+    min-width: 0;
+    gap: 10px;
+    padding: 11px 12px;
+    border: 0;
+    border-top: 1px solid var(--border);
+  }
+  .current-ownership-workspace .agent-oversight-ownership-table td:first-child {
+    border-top: 0;
+  }
+  .current-ownership-workspace .agent-oversight-ownership-table td::before {
+    content: attr(data-label);
+    color: var(--fg-muted);
+    font-size: var(--cs-type-label-size);
+    font-weight: 700;
+  }
+}
 .settings-iam-panel {
   width: 100%;
   min-width: 0;

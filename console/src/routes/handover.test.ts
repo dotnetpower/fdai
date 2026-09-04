@@ -172,6 +172,17 @@ describe("Handover projection contract", () => {
     expect(source).toContain("[client, refreshRevision]");
   });
 
+  test("keeps mobile ownership records labeled without a wide table", () => {
+    const viewSource = readFileSync(new URL("./agent-oversight-views.tsx", import.meta.url), "utf8");
+    const styles = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+    expect(viewSource).toContain('data-label={ownershipText("primaryOwner")}');
+    expect(viewSource).toContain('data-label={ownershipText("scopeAndChanges")}');
+    expect(styles).toContain(
+      ".current-ownership-workspace .agent-oversight-ownership-table .cs-table",
+    );
+    expect(styles).toContain("content: attr(data-label);");
+  });
+
   test("accepts only the five Agent oversight views", () => {
     expect(oversightViewFromSegment(undefined)).toBe("overview");
     expect(oversightViewFromSegment("human-dependencies")).toBe("human-dependencies");

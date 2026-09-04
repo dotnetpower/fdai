@@ -412,23 +412,23 @@ function CurrentOwnershipRow({ agent }: { readonly agent: CurrentOwnershipAgentD
   );
   return (
     <tr>
-      <td>
+      <td data-label={t("handover.agent")}>
         <a href={routeHref("agents", { params: { agent: agent.name } })}>{agent.name}</a>
         <small class="ownership-agent-layer">
           {ownershipText(`agentLayer.${PANTHEON.find((item) => item.name === agent.name)?.layer ?? "domain"}`)}
         </small>
       </td>
-      <td>{agent.autonomous
+      <td data-label={ownershipText("primaryOwner")}>{agent.autonomous
         ? <span class="ownership-autonomous-reason">{agent.accept_autonomous_reason ?? t("handover.noReason")}</span>
         : primary.length > 0
           ? <span class="ownership-subject-list">{primary.map((subject) => <OwnershipIdentity subject={subject} key={`${subject.kind}:${subject.subject_id}:primary`} />)}</span>
           : <span class="ownership-gap">{ownershipText("primaryMissing")}</span>}</td>
-      <td>{agent.autonomous
+      <td data-label={ownershipText("backupOwners")}>{agent.autonomous
         ? "-"
         : backup.length > 0
           ? <span class="ownership-subject-list">{backup.map((subject) => <OwnershipIdentity subject={subject} key={`${subject.kind}:${subject.subject_id}:${subject.duty}`} />)}</span>
           : <span class="ownership-gap">{ownershipText("backupMissing")}</span>}</td>
-      <td>
+      <td data-label={ownershipText("scopeAndChanges")}>
         <div class="ownership-scope">
           <span>{agent.scope.scope_ref ?? ownershipText("agentDomainScope")}</span>
           <small>{ownershipText("effectiveDatesNotRecorded")}</small>
@@ -446,7 +446,7 @@ function CurrentOwnershipRow({ agent }: { readonly agent: CurrentOwnershipAgentD
           </details>
         ) : null}
       </td>
-      <td>
+      <td data-label={t("handover.mode")}>
         <StatusPill
           kind={agentStatusPillKind(agent.coverage.status)}
           label={ownershipText(`agentStatus.${agent.coverage.status}`)}
