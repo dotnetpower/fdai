@@ -326,6 +326,7 @@ async def test_runtime_gate_retrieves_and_attests_production_evidence(
         manifest_path=manifest,
         repo_root=_ROOT,
         evidence_provider=provider,
+        clock=lambda: _EVALUATED_AT,
     )
 
     assert (

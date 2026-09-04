@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -105,7 +105,7 @@ class ProductionEvidenceProvider(Protocol):
 
 
 class ArchitectureReviewProductionGateEvaluator:
-    """Evaluate the ARB production gate from the current manifest."""
+    """Evaluate the ARB production gate with provider evidence at a bounded time."""
 
     def __init__(
         self,
@@ -113,10 +113,12 @@ class ArchitectureReviewProductionGateEvaluator:
         manifest_path: Path,
         repo_root: Path,
         evidence_provider: ProductionEvidenceProvider | None = None,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._manifest_path = manifest_path
         self._repo_root = repo_root
         self._evidence_provider = evidence_provider
+        self._clock = clock or (lambda: datetime.now(tz=UTC))
 
     async def evaluate(self, *, rule_id: str, step_id: str, process_id: str) -> bool:
         del step_id, process_id
@@ -132,7 +134,7 @@ class ArchitectureReviewProductionGateEvaluator:
             return False
         if self._evidence_provider is None:
             return False
-        evaluated_at = datetime.now(tz=UTC)
+        evaluated_at = self._clock()
         attestations: dict[str, ProductionEvidenceAttestation] = {}
         try:
             for binding in _production_evidence_bindings(raw):
