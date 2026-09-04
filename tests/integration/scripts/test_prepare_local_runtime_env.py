@@ -163,6 +163,7 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "FDAI_KUBERNETES_AUTH_MODE=azure-cli\n"
         "FDAI_KUBERNETES_CA_PATH=/tmp/example-ca.pem\n"
         "FDAI_KUBERNETES_CLUSTER_REF=/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-example/providers/Microsoft.ContainerService/managedClusters/aks-example\n"
+        "FDAI_TEAMS_NOTIFICATION_ACTIVATION=0\n"
         "FDAI_TEAMS_OPS_ENDPOINT=https://flow.example.com/trigger/local\n"
         "FDAI_SLACK_OPS_WEBHOOK_URL=https://hooks.slack.example/services/local\n",
         encoding="utf-8",
@@ -237,6 +238,7 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
             "FDAI_AZ_BIN": str(az),
             "FDAI_LOCAL_CONSUMER_INSTANCE": "developer-a",
             "FDAI_LOCAL_KUBERNETES_LIFECYCLE": ("1" if local_kubernetes_lifecycle else "0"),
+            "FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION": "1",
         },
         capture_output=True,
         text=True,
@@ -296,6 +298,7 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "AUTONOMY_MODE_DEFAULT=shadow",
         "FDAI_START_CONSUMER=1",
         "FDAI_START_PANTHEON=1",
+        "FDAI_TEAMS_NOTIFICATION_ACTIVATION=1",
         "FDAI_STARTUP_KAFKA_PROBE_TOPIC=fdai.change.events.dlq",
         "FDAI_STARTUP_KAFKA_SETTLE_SECONDS=20",
         "FDAI_STARTUP_PROBE_TIMEOUT_SECONDS=90",
@@ -313,6 +316,42 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
     if local_vision_state in {"invalid", "core-incompatible"}:
         assert "ignored invalid local vision model artifact" in completed.stderr
     assert stat.S_IMODE(output.stat().st_mode) == 0o600
+
+
+def test_full_stack_task_explicitly_activates_saved_teams_notifications() -> None:
+    content = "\n".join(
+        line
+        for line in (_REPO_ROOT / ".vscode/tasks.json").read_text(encoding="utf-8").splitlines()
+        if not line.lstrip().startswith("//")
+    )
+    tasks = json.loads(content)["tasks"]
+    prepare = next(task for task in tasks if task.get("label") == "console: prepare full stack")
+
+    assert prepare["options"]["env"]["FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION"] == "1"
+
+
+def test_rejects_invalid_local_teams_notification_activation_before_provider_access(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    (repo / "console").mkdir(parents=True)
+    (repo / "console/.env.local").write_text("VITE_MSAL_CLIENT_ID=client\n", encoding="utf-8")
+
+    completed = subprocess.run(  # noqa: S603 - test-controlled environment
+        [_BASH, str(_SCRIPT), str(repo / ".fdai/local-runtime.env")],
+        env={
+            **os.environ,
+            "FDAI_REPO_ROOT": str(repo),
+            "FDAI_TERRAFORM_BIN": "/provider-access-must-not-run",
+            "FDAI_AZ_BIN": "/provider-access-must-not-run",
+            "FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION": "invalid",
+        },
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION MUST be 0 or 1" in completed.stderr
 
 
 def test_rejects_partial_local_kubernetes_lifecycle_binding_before_provider_access(

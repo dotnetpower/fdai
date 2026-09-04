@@ -118,6 +118,11 @@
       "label": "console: prepare full stack",
       "type": "shell",
       "command": "bash scripts/deployment/local/prepare-console-full-stack.sh",
+      "options": {
+        "env": {
+          "FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION": "1"
+        }
+      },
       "problemMatcher": [],
       "presentation": {
         "reveal": "silent",
