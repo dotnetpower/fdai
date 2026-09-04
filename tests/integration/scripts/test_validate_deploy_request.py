@@ -26,7 +26,8 @@ _CONTEXT = hashlib.sha256(
         '{"deploy_console":false,"deploy_dev_operations_gateway":false,'
         '"deploy_document_ingestion":false,'
         '"deploy_isolated_executor":false,"deploy_monitoring":false,'
-        '"deploy_operator_api":false,"runtime_image_revision":""}}'
+        '"deploy_operator_api":false,"deploy_rca_reader_identity":false,'
+        '"runtime_image_revision":""}}'
     ).encode()
 ).hexdigest()
 
@@ -62,6 +63,7 @@ def _request(**overrides: str) -> dict[str, str]:
         "VALIDATE_CHATOPS_CHANNELS": "false",
         "DEPLOY_DOCUMENT_INGESTION": "false",
         "DEPLOY_MONITORING": "false",
+        "RCA_READER_IDENTITY_ONLY": "false",
         "RUNTIME_IMAGE_REVISION": "",
         "REQUEST_ID": "",
         "CONTEXT_DIGEST": "",
@@ -250,6 +252,39 @@ def test_monitoring_only_rejects_runtime_image_but_full_plan_can_preserve_it() -
         )
 
 
+def test_rca_reader_identity_is_exclusive() -> None:
+    validate(_request(RCA_READER_IDENTITY_ONLY="true"), checkout_commit=_COMMIT)
+
+    for mixed in (
+        {"DEPLOY_OPERATOR_API": "true"},
+        {"DEPLOY_MONITORING": "true"},
+        {"RUNTIME_IMAGE_REVISION": "a" * 40},
+    ):
+        with pytest.raises(ValueError, match="cannot be combined"):
+            validate(
+                _request(RCA_READER_IDENTITY_ONLY="true", **mixed),
+                checkout_commit=_COMMIT,
+            )
+
+
+def test_rca_reader_identity_protected_context_round_trip() -> None:
+    values = _request(RCA_READER_IDENTITY_ONLY="true", COMMIT_SHA=_COMMIT)
+    context = _MODULE._deployment_context_digest(values)
+    prefix = _MODULE._request_binding_prefix(
+        target_binding=_TARGET_BINDING,
+        context_digest=context,
+        mode="plan",
+        region="koreacentral",
+    )
+    values.update(
+        REQUEST_ID=f"plan-rca-{prefix}{'abcd' * 5}0001",
+        CONTEXT_DIGEST=context,
+        DEPLOY_PREFLIGHT_INPUT_JSON="{}",
+    )
+
+    validate(values, checkout_commit=_COMMIT)
+
+
 def test_core_model_quorum_is_dev_only_protected_and_exclusive() -> None:
     protected = {
         "DEPLOY_CORE_MODEL_QUORUM": "true",
@@ -348,7 +383,8 @@ def _gateway_context() -> str:
             '{"deploy_console":false,"deploy_dev_operations_gateway":true,'
             '"deploy_document_ingestion":false,'
             '"deploy_isolated_executor":false,"deploy_monitoring":false,'
-            '"deploy_operator_api":false,"runtime_image_revision":""}}'
+            '"deploy_operator_api":false,"deploy_rca_reader_identity":false,'
+            '"runtime_image_revision":""}}'
         ).encode()
     ).hexdigest()
 
@@ -410,7 +446,8 @@ def _executor_context(*, image_revision: str = _IMAGE_REVISION) -> str:
             '{"deploy_console":false,"deploy_dev_operations_gateway":false,'
             '"deploy_document_ingestion":false,'
             '"deploy_isolated_executor":true,"deploy_monitoring":false,'
-            '"deploy_operator_api":false,"runtime_image_revision":"' + image_revision + '"}}'
+            '"deploy_operator_api":false,"deploy_rca_reader_identity":false,'
+            '"runtime_image_revision":"' + image_revision + '"}}'
         ).encode()
     ).hexdigest()
 

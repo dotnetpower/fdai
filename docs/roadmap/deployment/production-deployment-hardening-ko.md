@@ -1,8 +1,8 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 42bcefb834061063f0547b7112e03224e98f1de1
-translation_revised: 2026-08-30
+translation_source_sha: 875fb9be5f782b3681e01f14bb85f3eecad76bc5
+translation_revised: 2026-09-04
 ---
 # 운영 배포 강화
 
@@ -22,12 +22,14 @@ translation_revised: 2026-08-30
 | 운영 계획 gate 및 환경 knob | implemented | `infra/production-gates.tf`, `infra/envs/{staging,prod}.tfvars.example`, Terraform 구성 테스트 | 서명된 이미지, 비공개 네트워크, 내구성, 모니터링 또는 비용 입력이 없으면 운영 계획을 차단합니다. 표준 프로파일은 전역 이름을 사용하는 리소스를 영구 삭제하고 관리 잠금을 비활성화합니다. |
 | 자격 증명 없는 인프라 및 drift gate | implemented | `.github/workflows/infra-lint.yml`, `.github/workflows/infra-drift.yml`, 안정적인 배포 신원 도우미, 실행기 상태 스크립트, CI 계약 테스트 | 보호된 workflow는 bootstrap이 소유한 UAMI 하나를 선택하고 token `oid`를 검증합니다. Drift 검사는 모든 상태 root를 다루며 상태 누락, 예상하지 않은 실행기 저장소 또는 로컬이 아닌 배치를 거부합니다. |
 | Baseline 없는 Terraform 보안 검사 | implemented | `.github/workflows/infra-lint.yml`, 인라인 Checkov 및 Trivy 예외, 집중 인프라 테스트 | Checkov와 Trivy에 Low를 초과하는 활성 점검 결과가 없습니다. 의도적 예외는 하나의 리소스에 연결되고 보완 제어 또는 관리형 서비스 제약을 인용합니다. 새로 발견된 문제는 소스에서 수정하거나 범위가 좁고 검토된 예외를 기록할 때까지 CI를 차단합니다. |
+| 범위가 제한된 split-service 선행 조건 bootstrap | implemented | `deploy-dev.yml`, `enforce_plan_scope.py`, deployment CLI 및 workflow 계약 테스트 | 요청에 결속된 `plan-rca-*` 또는 `apply-rca-*` 모드는 split Core 서비스가 platform 출력을 사용하기 전에 전용 Activity Log RCA reader identity와 Monitoring Reader 역할만 생성할 수 있습니다. |
 | exact-revision 보호 운영 적용 근거 | in-progress | [배포와 온보딩](deploy-and-onboard-ko.md#구현-상태) | 코드와 계획 gate는 있지만 이 소유 문서는 모든 제어를 함께 입증하는 현재 운영 적용을 하나로 보존하지 않습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-04 | implemented | 실제 계획에서 split Core 서비스가 누락된 platform 출력을 올바르게 차단하고 일반 platform 계획에 관련 없는 destructive drift가 있음을 확인한 뒤, RCA reader identity만 위한 exact-context bounded bootstrap을 추가했습니다. 기존 요청 필드를 사용하므로 workflow는 GitHub의 25개 입력 한도를 유지합니다. | `current change`, deployment CLI, 요청 검증, 계획 범위 및 workflow 집중 검사 105개 통과, Ruff 및 strict mypy 통과 | 보호된 계획과 exact apply를 실행한 뒤 split Core 서비스 계획에서 결과 출력을 사용합니다. |
 | 2026-08-26 | implemented | 해석되지 않는 Functions 배포 액션을 인증된 Azure CLI `config-zip` 경로로 교체했습니다. 개발 operations gateway는 원격 빌드를 유지하고 관리 ID 실행기의 게시 작업을 900초로 제한합니다. | `current change`, 집중 배포 workflow 검사 93개 통과, CI 계약 통과 | 정확히 커밋된 workflow에서 보호된 gateway 게시 증적 하나를 보존합니다. |
 | 2026-08-26 | implemented | 예약된 인프라 drift에 읽기 전용 실행기 저장소 상태 검사를 추가하고 임시 실행기 프로파일의 구성된 할당 해제와 수동 할당 해제를 모두 차단했습니다. | `current change`; 실행기 상태 스크립트, drift workflow, 수명 주기 도우미 및 집중 계약 검사 14개. | 실제 실행기의 blue/green 교체를 완료하고 성공한 예약 상태 검사 증적 하나를 보존합니다. |
 | 2026-08-21 | in-progress | 인프라 동작을 변경하지 않고 기존 운영 강화 제어를 집중 소유 문서로 옮겼습니다. | `current change`; 문서 크기, 번역, 경로 및 링크 검사입니다. | 모든 필수 제어를 다루는 exact-revision 보호 운영 계획 및 적용 증적 하나를 보존합니다. |
@@ -47,6 +49,20 @@ translation_revised: 2026-08-30
 - [ ] 필수 CI가 green이면 관련 없는 destroy가 0인 UAMI 역할 이행 계획과 검토된 VM 크기,
   로컬 임시 배치, 관리형 OS 디스크 부재 및 정확한 배포 principal을 보고하는 예약 실행기 상태
   증적 하나를 보존합니다.
+- [ ] 관련 없는 delete 또는 replacement를 허용하지 않고 범위가 제한된 RCA reader identity 계획,
+  exact apply, platform 출력 및 split Core 소비 증적을 보존합니다.
+
+## 범위가 제한된 split-service 선행 조건 bootstrap
+
+Split Core 서비스는 platform Terraform 출력에서만 RCA reader identity를 읽습니다. Azure 리소스
+이름을 추론하거나 표시 이름으로 조회하지 않습니다. 출력이 아직 없으면 서비스 계획은 입력을
+구체화하기 전에 중단합니다.
+
+일반 application 선택을 모두 비활성화하고 deployment CLI의 `--deploy-rca-reader-identity` 선택을
+사용합니다. CLI는 이를 `plan-rca-*` 또는 `apply-rca-*` 요청으로 결속합니다. Workflow는
+`module.rca_reader_identity`와 `azurerm_role_assignment.rca_monitoring_reader`만 대상으로 하며,
+계획 범위 검증기는 다른 변경 주소를 모두 차단합니다. 일반 destructive-plan guard도 계속
+적용됩니다.
 
 ## 배포자 신원
 

@@ -13,11 +13,11 @@ from collections.abc import Mapping
 _SHA40 = re.compile(r"^[0-9a-f]{40}$")
 _SHA64 = re.compile(r"^[0-9a-f]{64}$")
 _PLAN_REQUEST = re.compile(
-    r"^plan-([0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
+    r"^plan-([0-9a-f]{48}|rca-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
     r"model-[0-9a-f]{32}-[0-9a-f]{64})$"
 )
 _APPLY_REQUEST = re.compile(
-    r"^apply-([0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
+    r"^apply-([0-9a-f]{48}|rca-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
     r"model-[0-9a-f]{64})$"
 )
 _PLAN_ID = re.compile(r"^plan-[1-9][0-9]*-[1-9][0-9]*$")
@@ -56,6 +56,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
     validate_chatops = _enabled(values, "VALIDATE_CHATOPS_CHANNELS")
     design_mocks = _enabled(values, "DEPLOY_DESIGN_MOCKS")
     monitoring = _enabled(values, "DEPLOY_MONITORING")
+    rca_reader_identity = _enabled(values, "RCA_READER_IDENTITY_ONLY")
     resume = _enabled(values, "RESUME_VERIFICATION")
     request_id = values.get("REQUEST_ID", "")
     context_digest = values.get("CONTEXT_DIGEST", "")
@@ -65,7 +66,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
             "ENTRA_CONSOLE_API_SCOPE must use api://<audience>/<scope> "
             "when deploy_console is enabled"
         )
-    if re.fullmatch(r"(?:plan|apply)-[0-9a-f]{48}", request_id):
+    if re.fullmatch(r"(?:plan|apply)-(?:rca-)?[0-9a-f]{48}", request_id):
         if values.get("TARGET_ENVIRONMENT") == "prod":
             raise ValueError("fdaictl production deployment inputs are not implemented")
         _require_match(
@@ -84,7 +85,9 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
             mode=request_mode,
             region=values.get("ACTUAL_TARGET_REGION", ""),
         )
-        if request_id.split("-", maxsplit=1)[1][:24] != expected_prefix:
+        request_suffix = request_id.removeprefix("plan-").removeprefix("apply-")
+        request_suffix = request_suffix.removeprefix("rca-")
+        if request_suffix[:24] != expected_prefix:
             raise ValueError("repository Azure target does not match the approved profile")
         unsupported = (
             "DEPLOY_CORE_MODEL_QUORUM",
@@ -204,6 +207,20 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
     if monitoring and not application_target and runtime_image_revision:
         raise ValueError("deploy_monitoring cannot be combined with another deployment target")
 
+    if rca_reader_identity:
+        mixed = targets
+        if (
+            any(_enabled(values, key) for key in mixed)
+            or design_mocks
+            or model_only
+            or deploy_core_model_quorum
+            or validate_chatops
+            or runtime_image_revision
+        ):
+            raise ValueError(
+                "deploy_rca_reader_identity cannot be combined with another deployment target"
+            )
+
     if model_only:
         if not request_id:
             raise ValueError("model-binding deployment requires a protected request")
@@ -316,6 +333,7 @@ def _deployment_context_digest(values: Mapping[str, str]) -> str:
                 "deploy_isolated_executor": _enabled(values, "DEPLOY_ISOLATED_EXECUTOR"),
                 "deploy_monitoring": _enabled(values, "DEPLOY_MONITORING"),
                 "deploy_operator_api": _enabled(values, "DEPLOY_OPERATOR_API"),
+                "deploy_rca_reader_identity": _enabled(values, "RCA_READER_IDENTITY_ONLY"),
                 "runtime_image_revision": values.get("RUNTIME_IMAGE_REVISION", ""),
             },
         },

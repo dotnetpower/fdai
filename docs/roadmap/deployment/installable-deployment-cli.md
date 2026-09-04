@@ -506,11 +506,11 @@ and, after success, downloads only the sanitized plan metadata artifact. The Git
 provider-hosted authentication; no credential is copied into a command argument.
 
 The dispatch sends `apply=false`, the environment, exact commit, and a SHA-256 deployment-context fingerprint.
-Console, Operator API, document-ingestion, isolated-Executor, and monitoring flags are included in that
-fingerprint and sent identically to plan and apply. Monitoring uses its bounded module target only when it is
-the sole selection; a complete application selection preserves it as desired state. An optional runtime source revision is also sealed into the fingerprint. During planning, the client promotes and verifies that exact Core image independently of
-the isolated Executor. Apply restores the digest-pinned plan without repeating promotion. A changed input invalidates the plan. Tenant, subscription, backend, and runner identifiers aren't sent in the dispatch body.
-The workflow validates the bounded request id, context digest, and exact checked-out commit before planning.
+Console, Operator API, document-ingestion, isolated-Executor, monitoring, and the exclusive RCA-reader
+bootstrap selection are sealed identically into plan and apply. The RCA selection uses a `plan-rca-*` or
+`apply-rca-*` request and permits only the dedicated identity and Monitoring Reader role. An optional runtime
+source revision is also sealed into the fingerprint; planning promotes and verifies that Core image, while
+apply restores the digest-pinned plan. Any changed input invalidates the plan before Terraform runs.
 
 Before apply, the client verifies that the target GitHub Environment has required reviewers and
 blocks self-review and administrator bypass. GitHub Environment protection requires one approval from its reviewer set; it

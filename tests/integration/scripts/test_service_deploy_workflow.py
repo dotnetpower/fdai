@@ -146,6 +146,18 @@ def test_platform_workflow_exposes_opt_in_monitoring_for_every_environment() -> 
     assert "TF_VAR_enable_monitoring: ${{ inputs.deploy_monitoring }}" in _LEGACY_WORKFLOW
 
 
+def test_platform_workflow_exposes_bounded_rca_reader_identity_bootstrap() -> None:
+    target_expression = _LEGACY_WORKFLOW[_LEGACY_WORKFLOW.index("TF_CLI_ARGS_plan:") :]
+    target_expression = target_expression[: target_expression.index("\n")]
+
+    assert "startsWith(inputs.request_id, 'plan-rca-')" in target_expression
+    assert "-target=module.rca_reader_identity" in target_expression
+    assert "-target=azurerm_role_assignment.rca_monitoring_reader" in target_expression
+    assert "RCA_READER_IDENTITY_ONLY:" in _LEGACY_WORKFLOW
+    assert "mode=rca-reader-identity" in _LEGACY_WORKFLOW
+    assert "RCA-reader-identity plan contains changes outside its bounded scope:" in _PLAN_SCOPE
+
+
 def test_platform_workflow_stays_within_dispatch_input_limit() -> None:
     inputs = _LEGACY_WORKFLOW.split("workflow_dispatch:\n    inputs:\n", maxsplit=1)[1].split(
         "\npermissions:", maxsplit=1
