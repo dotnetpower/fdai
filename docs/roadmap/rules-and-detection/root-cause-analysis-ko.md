@@ -1,7 +1,7 @@
 ---
 title: 근본원인 분석
 translation_of: root-cause-analysis.md
-translation_source_sha: 9464302b8fb09be15990948e5f4398f3b6342004
+translation_source_sha: b56bb3a004eaa985f9338deb4608a55e03bb6b3d
 translation_revised: 2026-09-04
 ---
 # 근본원인 분석
@@ -109,7 +109,9 @@ Knowledge 수집은 `doc_id`별 완전한 교체 의미 체계를 사용합니�
 적용합니다. 이후 `GovernedKnowledgeEvidenceGatherer`가 주체, 목적, 범위, 기준 시각, 문서 개정
 번호, 접근 맥락, 가림 상태 및 인용 매니페스트를 검증한 뒤 불투명한
 `CitationKind.KNOWLEDGE` 참조를 제공합니다. 관리되는 맥락이 없거나 수락되지 않으면 RCA 결과를
-보류하며 범위가 없는 `KnowledgeSource`로 대체하지 않습니다.
+보류하며 범위가 없는 `KnowledgeSource`로 대체하지 않습니다. 수집기는 문서 근거 참조 집합과
+문서 lane의 인용 매니페스트가 정확히 일치하는지도 확인합니다. 추가되거나 중복되거나 누락된
+항목이 있으면 결과를 보류합니다.
 
 ## 결정론적 T1 인과사슬
 

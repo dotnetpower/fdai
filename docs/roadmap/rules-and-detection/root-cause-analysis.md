@@ -107,7 +107,9 @@ document access provider and collection-scoped search before it creates a docume
 `OperationalEvidenceBundle`. `GovernedKnowledgeEvidenceGatherer` then verifies the principal,
 purpose, scope, cutoff, document revision, access context, redaction state, and citation manifest
 before it emits opaque `CitationKind.KNOWLEDGE` refs. A missing or rejected governed context holds
-the RCA result and never falls back to the unscoped `KnowledgeSource`.
+the RCA result and never falls back to the unscoped `KnowledgeSource`. The gatherer also requires
+the document evidence-ref set to equal the document-lane citation manifest exactly; extra,
+duplicate, or missing entries hold the result.
 
 ## Deterministic T1 causal chain
 

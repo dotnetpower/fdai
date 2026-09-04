@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from typing import cast
 from uuid import UUID
 
@@ -25,6 +26,7 @@ from fdai.core.rca import (
 from fdai.core.rca.governed_document_evidence import GovernedDocumentEvidenceReadAdapter
 from fdai.core.rca.governed_knowledge_evidence import (
     GovernedDocumentAccessContext,
+    GovernedDocumentEvidenceReader,
     GovernedDocumentRevision,
     GovernedKnowledgeEvidenceContext,
     GovernedKnowledgeEvidenceGatherer,
@@ -296,6 +298,61 @@ async def test_missing_document_evidence_holds_without_citations() -> None:
     assert result.hold_reasons == ("document_evidence_missing",)
 
 
+async def test_extra_document_manifest_entry_holds_without_citations() -> None:
+    adapter = _adapter(
+        search=_Search((_hit(),)),
+        metadata=_Metadata(_version()),
+        access=_Access(),
+    )
+    valid = await adapter.read(query="latency", context=_context(), limit=5)
+    entry = valid.bundle.citation_manifest[0]
+    forged_bundle = SimpleNamespace(
+        **{
+            field: getattr(valid.bundle, field)
+            for field in (
+                "bundle_id",
+                "digest",
+                "purpose",
+                "scope",
+                "cutoff",
+                "ontology_release_digest",
+                "catalog_revision",
+                "claims",
+                "ontology",
+                "state",
+                "catalog",
+                "documents",
+                "hold_required",
+                "hold_reasons",
+            )
+        },
+        citation_manifest=(
+            entry,
+            SimpleNamespace(
+                evidence_ref="document:extra",
+                lane=entry.lane,
+                item_digest=entry.item_digest,
+                source_revision=entry.source_revision,
+                redaction_summary=entry.redaction_summary,
+            ),
+        ),
+    )
+    forged_result = SimpleNamespace(
+        bundle=forged_bundle,
+        principal_ref=valid.principal_ref,
+        execution_authority=False,
+        mutation_authority=False,
+    )
+    gatherer = GovernedKnowledgeEvidenceGatherer(
+        reader=cast(GovernedDocumentEvidenceReader, _StaticReader(forged_result)),
+    )
+
+    result = await gatherer.gather(query="latency", context=_context())
+
+    assert result.citations == ()
+    assert result.hold_reasons == ("citation_manifest_mismatch",)
+
+
 async def test_adapter_holds_when_document_was_deleted_after_search() -> None:
     adapter = _adapter(
         search=_Search((_hit(),)),
@@ -355,6 +412,14 @@ class _CitingReasoner:
             confidence=0.9,
             citations=knowledge,
         )
+
+
+class _StaticReader:
+    def __init__(self, result: object) -> None:
+        self._result = result
+
+    async def read(self, **_kwargs: object) -> object:
+        return self._result
 
 
 class _UnscopedSource:

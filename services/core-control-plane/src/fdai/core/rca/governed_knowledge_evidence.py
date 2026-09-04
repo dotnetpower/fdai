@@ -179,11 +179,18 @@ def _citations_from_read(
     if not bundle.documents:
         return _held("document_evidence_missing", bundle.bundle_id)
 
-    manifest = {
-        entry.evidence_ref: entry
-        for entry in bundle.citation_manifest
-        if entry.lane is EvidenceLane.DOCUMENT
-    }
+    manifest_entries = tuple(
+        entry for entry in bundle.citation_manifest if entry.lane is EvidenceLane.DOCUMENT
+    )
+    document_refs = tuple(document.evidence_ref for document in bundle.documents)
+    manifest_refs = tuple(entry.evidence_ref for entry in manifest_entries)
+    if (
+        len(manifest_entries) != len(bundle.documents)
+        or len(set(manifest_refs)) != len(manifest_refs)
+        or set(manifest_refs) != set(document_refs)
+    ):
+        return _held("citation_manifest_mismatch", bundle.bundle_id)
+    manifest = {entry.evidence_ref: entry for entry in manifest_entries}
     citations: list[Citation] = []
     seen: set[str] = set()
     expected_access = governed_access_binding(context)
