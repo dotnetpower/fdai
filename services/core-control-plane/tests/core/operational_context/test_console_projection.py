@@ -293,6 +293,18 @@ def test_rejects_context_identity_missing_from_secured_result() -> None:
         )
 
 
+def test_rejects_context_identity_with_wrong_object_type() -> None:
+    snapshot = replace(_snapshot(), ownership_ids=("workload-example",))
+    secured = _secured_result()
+
+    with pytest.raises(ValueError, match="ownership identity.*ObjectType"):
+        project_context_snapshot(
+            snapshot=snapshot,
+            secured_result=secured,
+            authenticated_context=_authenticated_context(secured),
+        )
+
+
 @pytest.mark.parametrize(
     ("secured_result", "message"),
     (
@@ -344,7 +356,7 @@ def test_rejects_object_type_revision_and_temporal_path_forgery() -> None:
         }
     )
     context = _authenticated_context(forged)
-    with pytest.raises(ValueError, match="object type or revision"):
+    with pytest.raises(ValueError, match="ObjectType|object type or revision"):
         project_context_snapshot(
             snapshot=_snapshot(),
             secured_result=forged,

@@ -46,6 +46,7 @@ class _Receipt(Protocol):
 
 class _Object(Protocol):
     id: str
+    object_type: str
 
 
 class _Link(Protocol):
@@ -129,6 +130,7 @@ def project_context_snapshot(
     required_ids.update(context_ids)
     if not required_ids <= set(object_by_id):
         raise ValueError("secured Context result does not provide complete object coverage")
+    _verify_context_identity_types(snapshot, object_by_id)
     target = object_by_id[snapshot.target_resource_id]
     if target.object_type != "Resource":
         raise ValueError("secured Context target object type does not match Resource")
@@ -222,6 +224,29 @@ def project_context_snapshot(
         "mutation_authority": False,
         "execution_authority": False,
     }
+
+
+def _verify_context_identity_types(
+    snapshot: OperationalContextSnapshot,
+    object_by_id: Mapping[str, _Object],
+) -> None:
+    expected_types = (
+        (snapshot.service_ids, frozenset({"BusinessService"}), "service"),
+        (snapshot.workload_ids, frozenset({"Workload"}), "workload"),
+        (
+            snapshot.objective_ids,
+            frozenset({"ServiceObjective", "RecoveryObjective", "CostObjective"}),
+            "objective",
+        ),
+        (snapshot.constraint_ids, frozenset({"ArchitectureConstraint"}), "constraint"),
+        (snapshot.ownership_ids, frozenset({"Ownership"}), "ownership"),
+        (snapshot.dependency_ids, frozenset({"Resource", "Workload"}), "dependency"),
+    )
+    for identities, allowed_types, label in expected_types:
+        if any(object_by_id[identity].object_type not in allowed_types for identity in identities):
+            raise ValueError(
+                f"secured Context {label} identity does not match its expected ObjectType"
+            )
 
 
 def _path_projection(path: OperationalContextEvidencePath) -> dict[str, object]:

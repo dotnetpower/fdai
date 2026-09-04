@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: ab1cd6444d3352623d249b6a7428b1a80dca8ca4
+translation_source_sha: 574cb930a213273a3229bccb9b6fcae6d3ec7fe2
 translation_revised: 2026-09-04
 ---
 # 코드 맵
@@ -144,6 +144,9 @@ RCA 가설은 이제 T0, T1, T2 전체에서 하위 호환 가능한 원인 영�
 보안이 적용된 운영 맥락 표현은 서비스, 워크로드, 목표, 제약, 담당 체계, 의존성 및 종류별
 커버리지 메타데이터를 제공하기 전에 명명된 모든 의미 신원이 증적에 결속된 ObjectSet에 있는지
 확인합니다. 이 변경은 Console을 그래프 원본으로 만들지 않고 변환 결과 공백을 닫습니다.
+검증된 각 Context 신원 목록은 기대 ObjectType 집합도 적용합니다. 따라서 증적에 결속되어
+있더라도 타입이 혼동된 객체를 담당 체계, 서비스, 워크로드, 목표, 제약 또는 의존성 근거로
+표시할 수 없습니다.
 관리되는 RCA 문서 근거는 기존 `OperationalEvidenceBundle` 계약 위에서 별도의 어댑터와
 수집기를 사용합니다. 컬렉션 범위 검색 이후 현재 문서 권한과 개정 번호를 다시 확인하고 불투명한
 인용만 제공하며, 관리되는 근거를 사용할 수 없을 때 범위가 지정되지 않은 KnowledgeSource로

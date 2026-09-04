@@ -152,6 +152,9 @@ Secured operational-context presentation now requires every named semantic ident
 in the receipt-bound ObjectSet before it exposes service, workload, objective, constraint,
 ownership, dependency, and per-kind coverage metadata. This closes a projection gap without making
 the Console a graph source.
+Each verified Context identity list also enforces its expected ObjectType set, preventing a
+receipt-bound but type-confused object from being presented as ownership, service, workload,
+objective, constraint, or dependency evidence.
 Governed RCA document evidence uses a separate adapter and gatherer over the existing
 OperationalEvidenceBundle contract. It rechecks current document authorization and revision after
 collection-scoped search, emits only opaque citations, and cannot fall back to the unscoped

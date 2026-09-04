@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: befe872b9f26b7baff7664217f1c70c164de840f
+translation_source_sha: f13d9e253871df8fa273ce1f18f30cd8be4b4ebc
 translation_revised: 2026-09-04
 ---
 # FDAI 운영 온톨로지
@@ -489,7 +489,9 @@ Forseti가 각 결정 기준 시점에 변경할 수 없는 `OperationalContextS
 보안이 적용된 Console 변환 결과는 스냅샷이 명명한 모든 서비스, 워크로드, 목표, 제약,
 담당 체계 및 의존성 신원이 증적에 결속된 ObjectSet에 존재하는지 확인합니다. 확인 후에만
 범위가 제한된 신원 목록과 종류별 커버리지 수량을 제공합니다. 맥락 신원이 누락되면 부분적인
-담당 체계 또는 의존성 화면을 완전한 것으로 표시하지 않고 변환 결과를 차단합니다.
+담당 체계 또는 의존성 화면을 완전한 것으로 표시하지 않고 변환 결과를 차단합니다. 각 목록에는
+정확한 ObjectType 계약도 있습니다. 예를 들어 담당 체계 ID는 `Ownership`으로 해석되어야 하고
+의존성 ID는 `Resource` 또는 `Workload`로만 해석될 수 있습니다.
 
 타입이 지정된 링크 관측 메타데이터는 raw 링크 속성을 버리는 규칙의 예외입니다. Materializer는 각 근거 링크에서 정본 검증 묶음만 보존하고 링크와 경로 신원에 해당 묶음을 포함합니다. Stale, 불완전한, conflicting,
 synthetic, after-cutoff 또는 검증되지 않은 링크는 명시적인 맥락 충돌을 추가하고 스냅샷 상한을 `SHADOW_ONLY`로 낮출 수만 있습니다. Healthy 메타데이터는 상한을 높이지 않으며, 메타데이터가 없으면 검증을 주장하지
