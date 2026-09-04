@@ -43,6 +43,12 @@ operator messages or tool arguments, and only terminal governed versions can bec
 
 ### Before the operator selects a file
 
+The Console exposes governed document intake under Knowledge > Documents and preserves `/documents`
+as its stable route. Knowledge > Overview links document upload with repository-source setup without
+mixing provider credentials into the upload surface. GitHub, GitLab, and Azure DevOps remain
+setup-required until their server-owned connector contracts can report configuration,
+synchronization, and indexing evidence.
+
 The surface shows these facts before upload:
 
 - **Destination collection:** the workspace or collection that will own the document.
@@ -604,35 +610,6 @@ Fork decisions that require approved evidence:
 - whether protected content permits ephemeral extraction or governed derivatives;
 - per-format resource budgets, service targets, quotas, and cost limits;
 - whether archives, legacy formats, audio/video, and source download are enabled.
-
-## Implementation status
-
-### Implementation scope
-
-| Area | State | Evidence | Notes |
-|------|-------|----------|-------|
-| Contracts, lifecycle, bounds, and local format extraction | implemented | `packages/service-contracts/src/fdai_service_contracts/document.py`; `services/core-control-plane/src/fdai/core/document_ingestion/`; local document providers; focused ingestion and provider tests | Bounded upload state, protection states, safe text, OOXML, strict PDF, chunking, and fail-closed transitions have focused coverage. |
-| Independent upload API and processing worker | implemented | `services/document-ingestion-api/`; `services/document-processing-worker/`; service-owned tests | Separate ASGI and worker packages implement scoped upload, processing, health, storage, event, and handover boundaries. |
-| Governed automated RCA read binding | implemented | `delivery/persistence/postgres_governed_document_read.py`; `delivery/governed_rca_context.py`; Core service Terraform; focused governed RCA tests | Core accepts a separate read-only DSN secret and exact collection, access-reference, and reader-group configuration. Search filters before ranking and rechecks current metadata and group authorization before evidence admission. This does not validate a deployed document read. |
-| PostgreSQL, ADLS, pgvector, Event Hubs, embeddings, and ClamAV bindings | in-progress | Independent service adapters; `infra/modules/storage/adls-gen2/`; `infra/local/docker-compose.yml` | Delivery implementations and local/deployed configuration exist, but this ledger does not have one governed exact-topology receipt covering every binding and failure boundary. |
-| Rights management, OCR, preview, and revocation | in-progress | [Implementation boundaries and rollout](#implementation-boundaries-and-rollout) | Detection and seams exist. Purview/RMS access, delegated authorization, OCR composition, preview, and revocation reconciliation remain provider work. |
-| Resumable upload, connectors, and measured scale | not-started | [Connector and scale](#implementation-boundaries-and-rollout) | Block-resumable upload, connector delta sync, and measured capacity targets remain design work. |
-
-### Implementation history
-
-| Date | State | Change | Evidence | Remaining |
-|------|-------|--------|----------|-----------|
-| 2026-09-04 | implemented | Bound the governed-document RCA consumer to automated Incident T2 through a fixed system principal, incident-review purpose, separate read-only DSN, exact collection/access configuration, and fail-closed startup pairing. | `current change`; focused governed context, automated T2, authorization, strict mypy, Ruff, and Core service Terraform checks. | Retain the deployed read receipt and the five-service operational receipt. |
-| 2026-09-04 | implemented | Added the separate governed-document RCA evidence consumer. It uses collection-scoped search, rechecks current metadata and authorization, and binds revision, purpose, scope, cutoff, redaction, and citation evidence without opening the unscoped KnowledgeSource. | `current change`; focused governed-document adapter, RCA coordinator, and OperationalEvidenceBundle checks. | Bind the deployment-owned governed context provider and retain the five-service operational receipt. |
-| 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. | `current change`; current contracts, core lifecycle, service packages, adapters, and focused checks listed in the scope table. | Close exact-topology, protection-provider, connector, and scale evidence. |
-
-### Remaining work
-
-- [ ] Retain one governed five-service local and deployed receipt for upload, scan, protection inspection, extraction, indexing, citation, deletion, restart, and failure recovery using the exact service identities and contracts.
-- [ ] Implement and focused-test the selected Purview/RMS, delegated authorization, OCR, preview, and revocation-reconciliation providers without removing source protection.
-- [ ] Implement block-resumable upload and connector delta synchronization with bounded idempotency, deletion propagation, backpressure, and restart tests.
-- [ ] Record p50/p95 stage latency, queue delay, throughput, storage growth, and failure-rate baselines on a reviewed corpus before declaring capacity targets or wider format support.
-
 ## Next steps
 
 | To learn about | Read |
@@ -643,3 +620,9 @@ Fork decisions that require approved evidence:
 | Human roles and Entra authorization | [User RBAC and Entra Identity](user-rbac-and-identity.md) |
 | Console authority boundaries | [Operator Console](operator-console.md) |
 | Storage and security threat model | [Security and Identity](../architecture/security-and-identity.md) |
+
+## Related docs
+
+| To learn about | Read |
+|----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/interfaces/document-ingestion.md) |

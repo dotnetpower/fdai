@@ -1,7 +1,7 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: 0bd1a7bfb04c030a727e9d753eec1affb5bd4294
+translation_source_sha: 15edfffd2f462989a5aad75386c3c986fa7e270d
 translation_revised: 2026-09-04
 ---
 # 문서 인제스트와 투입 구역
@@ -44,6 +44,12 @@ translation_revised: 2026-09-04
 채널 어댑터는 검사이나 분류를 건너뛸 수 없습니다. 첨부 내용을 운영자 메시지 또는 도구 인자에 추가하지 않으며 최종 통제된 버전만 `doc:` 출처가 됩니다.
 
 ### 운영자가 파일을 선택하기 전
+
+Console은 지식 > 문서에서 거버넌스가 적용된 문서 인제스트를 제공하고 `/documents`를
+안정적인 경로로 유지합니다. 지식 > 개요에서는 공급자 자격 증명을 업로드 화면에 섞지
+않으면서 문서 업로드와 리포지토리 원본 설정을 연결합니다. GitHub, GitLab 및 Azure
+DevOps는 서버가 소유하는 커넥터 계약에서 구성, 동기화 및 인덱싱 근거를 제공할 때까지
+설정 필요 상태로 유지합니다.
 
 업로드 전에 다음 정보를 표시합니다.
 
@@ -601,35 +607,6 @@ rich format이 필요할 때 의존성 주입으로 프로바이더를 교체할
 - Protected 내용에 일시적인 추출 또는 통제된 derivative를 허용할지 여부
 - Format별 리소스 예산, 서비스 대상, 할당량, 비용 한도
 - 보관, 이전 방식 format, audio/video, 출처 download 활성화 여부
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 계약, 수명 주기, 한도 및 로컬 format 추출 | implemented | `packages/service-contracts/src/fdai_service_contracts/document.py`; `services/core-control-plane/src/fdai/core/document_ingestion/`; 로컬 document 프로바이더; focused ingestion 및 provider 테스트 | 범위가 제한된 업로드 상태, protection 상태, safe text, OOXML, strict PDF, 조각화 및 실패 시 차단 전이에 focused 검사가 있습니다. |
-| 독립 upload API 및 처리 worker | implemented | `services/document-ingestion-api/`; `services/document-processing-worker/`; service-owned 테스트 | 별도 ASGI 및 worker 패키지가 scoped 업로드, 처리, 상태, 저장소, event 및 handover 경계를 구현합니다. |
-| 관리되는 자동 RCA 읽기 연결 | implemented | `delivery/persistence/postgres_governed_document_read.py`, `delivery/governed_rca_context.py`, Core 서비스 Terraform, 집중 관리 RCA 테스트 | Core는 별도 읽기 전용 DSN secret과 정확한 컬렉션, 접근 참조, 읽기 그룹 구성을 받습니다. 검색은 ranking 전에 필터링하고 근거를 허용하기 전에 현재 메타데이터와 그룹 권한을 다시 확인합니다. 이는 배포된 문서 읽기를 검증한 상태가 아닙니다. |
-| PostgreSQL, ADLS, pgvector, Event Hubs, 임베딩 및 ClamAV 연결 | in-progress | 독립 service 어댑터; `infra/modules/storage/adls-gen2/`; `infra/local/docker-compose.yml` | Delivery 구현과 로컬 및 배포 구성이 있지만 이 ledger에는 모든 연결과 실패 경계를 다루는 하나의 관리되는 exact-topology 증적이 없습니다. |
-| 권리 관리, OCR, 미리 보기 및 철회 | in-progress | [구현 경계와 롤아웃](#구현-경계와-롤아웃) | 감지와 경계는 있습니다. Purview/RMS 접근, delegated 권한 확인, OCR 조립, 미리 보기 및 철회 조정은 프로바이더 작업으로 남아 있습니다. |
-| 재개 가능한 업로드, connector 및 측정된 규모 | not-started | [Connector and 규모](#구현-경계와-롤아웃) | Block-resumable 업로드, connector delta sync 및 측정된 용량 대상은 설계 작업으로 남아 있습니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-09-04 | implemented | 고정 시스템 주체, `incident-review` 목적, 별도 읽기 전용 DSN, 정확한 컬렉션 및 접근 구성, 실패 시 차단하는 startup 짝 검사를 통해 관리되는 문서 RCA 소비자를 자동 Incident T2에 연결했습니다. | `current change`; 집중 관리 맥락, 자동 T2, 권한 확인, strict mypy, Ruff 및 Core 서비스 Terraform 검사가 통과했습니다. | 배포된 읽기 증적과 5-service 운영 증적을 보존합니다. |
-| 2026-09-04 | implemented | 별도의 관리되는 문서 RCA 근거 소비자를 추가했습니다. 컬렉션 범위 검색을 사용하고 현재 메타데이터와 권한을 다시 확인하며, 범위가 지정되지 않은 KnowledgeSource를 열지 않고 개정 번호, 목적, 범위, 기준 시각, 가림 및 인용 근거를 결속합니다. | `current change`; 집중 관리 문서 어댑터, RCA 조정기 및 OperationalEvidenceBundle 검사입니다. | 배포 소유의 관리되는 맥락 프로바이더를 연결하고 5-service 운영 증적을 보존합니다. |
-| 2026-08-14 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 계약, core 수명 주기, service 패키지, 어댑터 및 focused 검사입니다. | Exact-topology, protection 프로바이더, connector 및 규모 근거를 완료해야 합니다. |
-
-### 남은 작업
-
-- [ ] 정확한 service 신원과 계약을 사용해 업로드, 검사, protection 점검, 추출, 인덱싱, 인용, 삭제, 재시작 및 실패 복구를 다루는 관리되는 5-service 로컬 및 배포 증적을 각각 하나씩 보존합니다.
-- [ ] 출처 protection을 제거하지 않으면서 선택한 Purview/RMS, delegated 권한 확인, OCR, 미리 보기 및 철회 조정 프로바이더를 구현하고 focused 테스트를 추가합니다.
-- [ ] 범위가 제한된 멱등성, 삭제 전파, backpressure 및 재시작 테스트가 있는 block-resumable 업로드와 connector delta 동기화를 구현합니다.
-- [ ] 용량 대상이나 더 넓은 format 지원을 선언하기 전에 검토된 corpus에서 p50/p95 단계 지연 시간, 큐 delay, 처리량, 저장소 증가 및 실패율 기준선을 기록합니다.
-
 ## 다음 단계
 
 | 알아볼 내용 | 참고 자료 |
@@ -640,3 +617,9 @@ rich format이 필요할 때 의존성 주입으로 프로바이더를 교체할
 | Human 역할과 Entra 권한 확인 | [User RBAC and Entra 신원](user-rbac-and-identity-ko.md) |
 | Console 권한 경계 | [Operator Console](operator-console-ko.md) |
 | Storage와 security threat 모델 | [Security and 신원](../architecture/security-and-identity-ko.md) |
+
+## 관련 문서
+
+| 알아볼 내용 | 읽을 문서 |
+|-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/interfaces/document-ingestion.md) |
