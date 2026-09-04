@@ -561,17 +561,9 @@ def _build_control_loop(
         knowledge_gatherer=KnowledgeEvidenceGatherer(source=container.knowledge_source),
     )
 
-    # T1 temporal causal-chain RCA (observability-and-detection.md 4, path
-    # b) needs the incident's antecedent changes, which upstream cannot
-    # supply without wiring an estate-change source. It is therefore left
-    # dark here: the loop keeps ``incident_member_source=None`` so only T0
-    # (and, when bound, T2) RCA runs. A fork enables the multi-hop "root
-    # change -> ... -> failure" chain by wiring the reference
-    # ``DeploymentHistoryMemberSource`` (bridging a real
-    # ``DeploymentHistoryProvider`` such as the Azure Resource Graph
-    # adapter + ``IncidentRegistry.get`` lookup into ``CorrelatedEvent``s),
-    # plus a ``causal_chain_window`` and optional
-    # ``resource_dependency_graph``, into the ``ControlLoop`` here.
+    # T1 temporal causal-chain RCA remains opt-in. A deployment can bind an
+    # IncidentMemberSource plus a reviewed resource-dependency graph through
+    # the immutable Container; absent either source, the side path abstains.
 
     # HIL approval round-trip (Notify-on-decision step B). Opt-in: only
     # when a HIL channel is configured (``FDAI_CHATOPS_WEBHOOK_URL``)
@@ -732,6 +724,8 @@ def _build_control_loop(
         tool_executor=tool_executor,
         event_correlator=event_correlator,
         rca_coordinator=rca_coordinator,
+        incident_member_source=container.incident_member_source,
+        resource_dependency_graph=container.resource_dependency_graph or None,
         causal_runtime_coordinator=causal_runtime_coordinator,
         hil_resume_coordinator=hil_resume_coordinator,
         workflow_coordinator=_build_workflow_coordinator(

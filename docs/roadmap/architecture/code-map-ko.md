@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 522866cfbd216336f6e274cba2211192671e0fa9
+translation_source_sha: ad219dcf6a1fa61247f7e985577bff3e7bd09723
 translation_revised: 2026-09-04
 ---
 # 코드 맵
@@ -162,6 +162,9 @@ Azure delivery 어댑터는 승인된 관리 토큰 대상과 정확한 ARM 리�
 WARA 평가 서비스는 이제 평가 전에 적합한 모든 exact-bound 읽기를 실행하는 선택적 관측
 실행기를 조립할 수 있습니다. 수동 증적을 보존하고 프로바이더 사용 불가를 충족 결과가 아니라
 범위가 제한된 감사 근거로 기록합니다.
+기본 ControlLoop 조립은 이제 변경할 수 없는 Container에서 선택적 `IncidentMemberSource`와
+검토된 의존성 그래프를 전달합니다. 안전한 미연결 기본값을 바꾸거나 두 번째 인시던트 작성자를
+만들지 않고 결정론적 T1 사슬을 주입할 수 있습니다.
 
 | 영역 | Responsibility | 출처 | 테스트 |
 |------|----------------|--------|------|

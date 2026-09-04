@@ -131,7 +131,9 @@ The `ControlLoop` obtains members through `IncidentMemberSource`, bounds them by
 `causal_chain_window`, and appends one shadow T1 hypothesis per event. The hypothesis retains a
 transport-safe `causal_chain` with root and failure ids, ambiguity, and ordered hop evidence.
 `DeploymentHistoryMemberSource` bridges a `DeploymentHistoryProvider` and incident lookup into
-antecedent change events. Without a source, the T1 causal-chain path stays unavailable.
+antecedent change events. Runtime composition now passes an optional `Container.incident_member_source`
+and reviewed `resource_dependency_graph` into the default ControlLoop assembly. Without a source,
+the T1 causal-chain path stays unavailable and does not fall back to unscoped correlation.
 
 ## Read-only operator surface
 

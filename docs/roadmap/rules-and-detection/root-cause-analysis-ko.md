@@ -1,7 +1,7 @@
 ---
 title: 근본원인 분석
 translation_of: root-cause-analysis.md
-translation_source_sha: efca910c91c1ac29d47826bfc5e1948266ff333f
+translation_source_sha: 4709d3ad09370a50bf2f04b5d0ee88dbbf0d69a8
 translation_revised: 2026-09-04
 ---
 # 근본원인 분석
@@ -132,8 +132,10 @@ resource 연결을 허용합니다. `same_resource_only`는 모든 hop을 실패
 `ControlLoop`은 `IncidentMemberSource`에서 멤버를 가져오고 `causal_chain_window`로 제한한 뒤
 이벤트마다 shadow T1 가설 하나를 추가합니다. 가설은 root와 failure id, 모호성, 순서가 지정된
 hop 근거가 있는 transport-safe `causal_chain`을 유지합니다. `DeploymentHistoryMemberSource`는
-`DeploymentHistoryProvider`와 인시던트 조회를 선행 변경 이벤트로 연결합니다. 출처가 없으면 T1
-인과사슬 경로를 사용할 수 없습니다.
+`DeploymentHistoryProvider`와 인시던트 조회를 선행 변경 이벤트로 연결합니다. 런타임 조립은
+이제 선택적 `Container.incident_member_source`와 검토된 `resource_dependency_graph`를 기본
+ControlLoop 조립에 전달합니다. 출처가 없으면 T1 인과사슬 경로를 사용할 수 없으며 범위가 없는
+상관관계로 대체하지 않습니다.
 
 ## 읽기 전용 운영자 화면
 

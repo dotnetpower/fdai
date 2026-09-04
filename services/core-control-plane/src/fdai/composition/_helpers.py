@@ -7,10 +7,11 @@ Keeping them private prevents circular imports through the package facade.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 
 from ..agents import T2ConversationSynthesizer
+from ..core import operational_context as _oc
 from ..core.architecture_review import ProductionEvidenceProvider
 from ..core.assurance_twin import (
     AssuranceTwinDiscoverySink,
@@ -44,10 +45,6 @@ from ..core.ontology_platform import (
     ObservationContextVerifier,
     ReconciliationArtifactResolver,
 )
-from ..core.operational_context import (
-    OperationalEvidencePrincipalContextProvider,
-    OperationalEvidenceSource,
-)
 from ..core.quality_gate.critic import CriticModel
 from ..core.quality_gate.debate import DebateOrchestrator
 from ..core.quality_gate.deterministic_evidence import DeterministicEvidenceVerifier
@@ -61,6 +58,7 @@ from ..core.quality_gate.rubric import RubricEvaluator
 from ..core.rca import (
     CausalHypothesisProjection,
     CausalInterventionReceiptVerifier,
+    IncidentMemberSource,
     RcaReasoner,
     TemporalCausalEvidenceProvider,
     TemporalCausalityConfig,
@@ -114,6 +112,9 @@ from ..shared.providers.readiness import (
 from ..shared.providers.startup_probe import StartupProbe
 from ..shared.providers.trace_query import NoopTraceQueryProvider, TraceQueryProvider
 from ..shared.providers.trajectory import TrajectoryDatasetStore
+
+_OperationalEvidenceSource = _oc.OperationalEvidenceSource
+_EvidencePrincipalContextProvider = _oc.OperationalEvidencePrincipalContextProvider
 
 
 class LlmBindingsUnavailableError(RuntimeError):
@@ -273,14 +274,14 @@ class Container:
     browser_evidence_capture_service: BrowserEvidenceCaptureService | None = None
     browser_evidence_console_tool: BrowserEvidenceConsoleTool | None = None
     browser_evidence_workflow_dispatcher: BrowserEvidenceWorkflowStepDispatcher | None = None
-    operational_evidence_source: OperationalEvidenceSource | None = None
-    operational_evidence_principal_contexts: OperationalEvidencePrincipalContextProvider | None = (
-        None
-    )
+    operational_evidence_source: _OperationalEvidenceSource | None = None
+    operational_evidence_principal_contexts: _EvidencePrincipalContextProvider | None = None
     execution_authorization_evaluator: ExecutionAuthorizationEvaluator | None = None
     execution_access_grant_sink: ExecutionAccessGrantSink | None = None
     execution_authorization_required: bool = False
     current_reuse_verifier: CurrentReuseVerifier | None = None
+    incident_member_source: IncidentMemberSource | None = None
+    resource_dependency_graph: Mapping[str, frozenset[str]] = field(default_factory=dict)
     temporal_causal_evidence_provider: TemporalCausalEvidenceProvider | None = None
     temporal_causality_config: TemporalCausalityConfig | None = None
     causal_hypothesis_projection: CausalHypothesisProjection | None = None

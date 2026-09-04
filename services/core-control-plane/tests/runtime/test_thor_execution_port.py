@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from inspect import signature
 from unittest.mock import MagicMock
 
@@ -15,6 +16,7 @@ from fdai.core.executor import (
     ShadowExecutor,
     ToolCallShadowExecutor,
 )
+from fdai.core.rca import IncidentMemberSource
 from fdai.delivery.catalog_exemption import CatalogExemptionRegistry
 from fdai.delivery.kinetic_safety import ExistingProposalKineticSafetyWriter
 from fdai.runtime.bootstrap_lifecycle import build_mutation_dependency_readiness
@@ -113,3 +115,31 @@ def test_core_and_hil_share_port_instances_and_readiness(app_config: AppConfig) 
     assert loop._risk_gate is not None
     assert isinstance(loop._risk_gate._exemptions, CatalogExemptionRegistry)
     assert "governance.promote-effect-model" in loop._risk_gate._config.hil_authority_action_types
+
+
+def test_runtime_wires_opt_in_t1_incident_context(app_config: AppConfig) -> None:
+    member_source = MagicMock(spec=IncidentMemberSource)
+    dependencies = {"resource:app": frozenset({"resource:database"})}
+    container = replace(
+        default_container(app_config),
+        incident_member_source=member_source,
+        resource_dependency_graph=dependencies,
+    )
+    port = InProcessThorExecutionPort(
+        pr_native=MagicMock(spec=ShadowExecutor),
+        direct_api=MagicMock(spec=DirectApiShadowExecutor),
+        tool_call=MagicMock(spec=ToolCallShadowExecutor),
+    )
+
+    loop = _build_control_loop(
+        container,
+        http_client=None,
+        thor_execution_port=port,
+        mutation_dependency_readiness=MutationDependencyReadiness(
+            saga_audit_durable=True,
+            vidar_recovery_contracts=frozenset({"state_forward_only"}),
+        ),
+    )
+
+    assert loop._incident_member_source is member_source
+    assert loop._resource_dependency_graph == dependencies
