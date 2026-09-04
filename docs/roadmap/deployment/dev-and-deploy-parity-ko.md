@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 0eb66796b45c08428b3a4fba2926b578ad055ee2
+translation_source_sha: b283d49d2147c322c01c2e08e07c532a71ec28af
 translation_revised: 2026-09-04
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -282,7 +282,11 @@ Standard full-stack launch는 서술기 엔드포인트 조정을 유지합니�
 Azure CLI 맥락에서 데이터 평면 토큰을 얻고 배포는 `FDAI_MI_CLIENT_ID`가 선택한 전용 Operator API managed 신원을 사용합니다. Workspace는 서버 구성으로 정하며 브라우저가 변경할 수 없습니다.
 Workspace, 신원, 권한 또는 텔레메트리를 사용할 수 없으면 고정본나 모델 대체 경로 없이 사용 불가로 보류합니다. 로컬 준비는 applied Terraform의 `log_workspace_customer_id` 출력에서 workspace
 customer GUID를 읽습니다. 이전 상태 또는 targeted 상태가 해당 출력을 노출하지 않으면 applied 리소스 그룹 안의 workspace만 나열하고 정확히 하나가 있을 때만 대체 경로를 수락합니다. Workspace가 0개이면
-프로바이더를 사용 불가로 유지하고 여러 개이면 암시적으로 하나를 선택하지 않고 준비를 중지합니다. 재생성할 때 stale 로컬 workspace id는 제거합니다. 로컬 런타임 환경 generator는 applied 구독 및 리소스 그룹도 범위가
+프로바이더를 사용 불가로 유지하고 여러 개이면 암시적으로 하나를 선택하지 않고 준비를 중지합니다. 재생성할 때 stale 로컬 workspace id는 제거합니다.
+원격 Kubernetes 수명 주기 수집은 명시적으로 로컬 실시간 데이터를 사용하도록 설정해야 합니다. 런타임 환경 생성기는 기본적으로 상속된 `FDAI_KUBERNETES_*` 바인딩을 제거합니다.
+API 서버, 대상, 인증 모드, CA 경로 및 클러스터 리소스 바인딩이 모두 `console/.env.local`에 있을 때만 준비 프로세스에서 `FDAI_LOCAL_KUBERNETES_LIFECYCLE=1`을 설정하세요.
+바인딩이 일부만 있으면 준비가 중지됩니다. 이 설정이 없으면 중지된 클러스터에서 사설 DNS 레코드가 제거되더라도 반복해서 연결을 시도하지 않고 수명 주기 범위를 사용 불가로 유지합니다.
+로컬 런타임 환경 generator는 applied 구독 및 리소스 그룹도 범위가
 제한된 Azure read-investigation 어댑터에 제공합니다. Terraform이 선택적 개발 operations 게이트웨이 URL과 Easy Auth 대상을 모두 출력하면 NSG 및 VNet 피어링 질문은 로컬 Azure CLI 신원으로
 게이트웨이의 등록된 읽기 연산만 호출합니다. 쌍이 없으면 래퍼를 비활성화하고 구성된 게이트웨이가 실패하면 direct ARM 대체 경로 없이 사용 불가를 보고합니다. 게이트웨이는 읽기 담당/실행기 managed 신원을 분리하며 로컬 Operator
 API에 실행 신원을 제공하지 않습니다. 변경은 target-scoped Blob 임차 기간과 영속 멱등성 점유를 사용하며 업스트림 Terraform은 구성된 실행기 principal에 development-only 변경 연산을 활성화하고 게이트웨이

@@ -71,12 +71,14 @@ _EXECUTOR_RESOURCE_ID = (
     ],
 )
 @pytest.mark.parametrize("semantic_outputs_present", [True, False])
+@pytest.mark.parametrize("local_kubernetes_lifecycle", [False, True])
 def test_prepares_deployed_transport_without_copying_stale_transport(
     tmp_path: Path,
     web_search_candidates: list[dict[str, str]],
     expected_web_search_enabled: str,
     local_vision_state: str,
     semantic_outputs_present: bool,
+    local_kubernetes_lifecycle: bool,
 ) -> None:
     repo = tmp_path / "repo"
     (repo / "console").mkdir(parents=True)
@@ -156,6 +158,11 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE=stale-audience\n"
         "FDAI_WEB_SEARCH_ENABLED=1\n"
         "FDAI_DIRECT_API_FAKE=1\n"
+        "FDAI_KUBERNETES_API_SERVER=https://aks.example.com:443\n"
+        "FDAI_KUBERNETES_AUDIENCE=example-audience\n"
+        "FDAI_KUBERNETES_AUTH_MODE=azure-cli\n"
+        "FDAI_KUBERNETES_CA_PATH=/tmp/example-ca.pem\n"
+        "FDAI_KUBERNETES_CLUSTER_REF=/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-example/providers/Microsoft.ContainerService/managedClusters/aks-example\n"
         "FDAI_TEAMS_OPS_ENDPOINT=https://flow.example.com/trigger/local\n"
         "FDAI_SLACK_OPS_WEBHOOK_URL=https://hooks.slack.example/services/local\n",
         encoding="utf-8",
@@ -229,6 +236,7 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
             "FDAI_TERRAFORM_BIN": str(terraform),
             "FDAI_AZ_BIN": str(az),
             "FDAI_LOCAL_CONSUMER_INSTANCE": "developer-a",
+            "FDAI_LOCAL_KUBERNETES_LIFECYCLE": ("1" if local_kubernetes_lifecycle else "0"),
         },
         capture_output=True,
         text=True,
@@ -240,10 +248,23 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         else "resolved-models.json"
     )
     values = output.read_text(encoding="utf-8").splitlines()
-    assert values == [
+    expected_prefix = [
         "VITE_MSAL_CLIENT_ID=client",
         "FDAI_TEAMS_OPS_ENDPOINT=https://flow.example.com/trigger/local",
         "FDAI_SLACK_OPS_WEBHOOK_URL=https://hooks.slack.example/services/local",
+    ]
+    if local_kubernetes_lifecycle:
+        expected_prefix.extend(
+            [
+                "FDAI_KUBERNETES_API_SERVER=https://aks.example.com:443",
+                "FDAI_KUBERNETES_AUDIENCE=example-audience",
+                "FDAI_KUBERNETES_AUTH_MODE=azure-cli",
+                "FDAI_KUBERNETES_CA_PATH=/tmp/example-ca.pem",
+                "FDAI_KUBERNETES_CLUSTER_REF=/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-example/providers/Microsoft.ContainerService/managedClusters/aks-example",
+            ]
+        )
+    assert values == [
+        *expected_prefix,
         "AZURE_TENANT_ID=00000000-0000-0000-0000-000000000002",
         "AZURE_SUBSCRIPTION_ID=00000000-0000-0000-0000-000000000001",
         "AZURE_RESOURCE_GROUP=rg-example",
@@ -292,6 +313,39 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
     if local_vision_state in {"invalid", "core-incompatible"}:
         assert "ignored invalid local vision model artifact" in completed.stderr
     assert stat.S_IMODE(output.stat().st_mode) == 0o600
+
+
+def test_rejects_partial_local_kubernetes_lifecycle_binding_before_provider_access(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    (repo / "console").mkdir(parents=True)
+    (repo / "console/.env.local").write_text(
+        "FDAI_KUBERNETES_API_SERVER=https://aks.example.com:443\n",
+        encoding="utf-8",
+    )
+    output = repo / ".fdai/local-runtime.env"
+
+    completed = subprocess.run(  # noqa: S603 - test-controlled environment
+        [_BASH, str(_SCRIPT), str(output)],
+        check=False,
+        cwd=_REPO_ROOT,
+        env={
+            **os.environ,
+            "FDAI_REPO_ROOT": str(repo),
+            "FDAI_TERRAFORM_BIN": "/provider-access-must-not-run",
+            "FDAI_AZ_BIN": "/provider-access-must-not-run",
+            "FDAI_LOCAL_CONSUMER_INSTANCE": "developer-kubernetes",
+            "FDAI_LOCAL_KUBERNETES_LIFECYCLE": "1",
+        },
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "requires one non-empty FDAI_KUBERNETES_AUDIENCE binding" in completed.stderr
+    assert "provider-access-must-not-run" not in completed.stderr
+    assert not output.exists()
 
 
 def test_detects_single_log_workspace_when_terraform_state_omits_customer_id(
