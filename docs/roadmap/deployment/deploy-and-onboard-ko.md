@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: de5cddb335f10136be2e407773c1809ce6a9fc54
+translation_source_sha: c015fa4e7ccd80f5ba9532b43867304c8f372310
 translation_revised: 2026-09-04
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -95,7 +95,8 @@ residue가 exact-commit clean을 막지 않게 합니다. 해당 단계는 Azure
 저장소 작업 흐름은 검토된 원격 액션만 허용하고 exact 노드 24-compatible release 참조로
 pin하며 컨테이너 supply-chain 액션은 변경할 수 없는 커밋 SHA를 사용합니다. CI 계약은 알 수 없음
 액션과 mismatched 참조를 차단합니다. Terraform 고정본 테스트는 선언된 `>= 1.9` 하한에서 허용되는
-구문만 사용합니다. 추가 배포 도구가 필요한 workflow는 runner 임시 저장소에만 설치하고 exact release와 SHA-256 digest를 pin한 뒤 사용 전에 검증합니다. Exact CI 버전이 파싱과 계획 assertion을 검증합니다. 업그레이드는 액션 런타임 메타데이터를 검증하고 실행기는 버전 2.327.1 이상을 유지합니다. 비공개 networking이 활성화된이면 PostgreSQL 공개 접근과 broad Azure-services firewall을
+구문만 사용합니다. 보호된 배포 workflow는 검토 가능한 2,300줄 예산을 유지합니다. 반복되는 요청
+검증과 계획 범위 로직은 inline shell 블록 대신 검토된 helper에 둡니다. 추가 배포 도구가 필요한 workflow는 runner 임시 저장소에만 설치하고 exact release와 SHA-256 digest를 pin한 뒤 사용 전에 검증합니다. Exact CI 버전이 파싱과 계획 assertion을 검증합니다. 업그레이드는 액션 런타임 메타데이터를 검증하고 실행기는 버전 2.327.1 이상을 유지합니다. 비공개 networking이 활성화된이면 PostgreSQL 공개 접근과 broad Azure-services firewall을
 비활성화합니다. Dev는 approved 비공개 엔드포인트를 사용하고 운영은 delegated-subnet 모드를 계속 선택할 수 있습니다.
 Protected 요청은 `commit_sha`를 명시적으로 체크아웃하고 `git rev-parse HEAD`와 비교합니다.
 따라서 전달과 실행 사이에 release 커밋이 `main`을 이동해도 계획 또는 적용 코드가
