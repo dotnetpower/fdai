@@ -42,6 +42,8 @@ _ALLOWED_ARG_HOSTS = frozenset(
     }
 )
 _ALLOWED_AUDIENCES = frozenset(f"https://{host}/.default" for host in _ALLOWED_ARG_HOSTS)
+_MAX_PAGE_BYTES = 4 * 1024 * 1024
+_MAX_TOTAL_BYTES = 16 * 1024 * 1024
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,6 +76,7 @@ class AzureResourceGraphWaraObservationProvider:
         if (
             endpoint.scheme != "https"
             or endpoint.hostname not in _ALLOWED_ARG_HOSTS
+            or endpoint.port not in {None, 443}
             or endpoint.path not in {"", "/"}
             or endpoint.query
             or endpoint.fragment
@@ -89,8 +92,12 @@ class AzureResourceGraphWaraObservationProvider:
             raise ValueError("WARA ARG maximum_pages MUST be between 1 and 16")
         if resolved_config.maximum_response_bytes < 1:
             raise ValueError("WARA ARG maximum_response_bytes MUST be positive")
+        if resolved_config.maximum_response_bytes > _MAX_PAGE_BYTES:
+            raise ValueError("WARA ARG maximum_response_bytes exceeds the safety ceiling")
         if resolved_config.maximum_total_response_bytes < resolved_config.maximum_response_bytes:
             raise ValueError("WARA ARG maximum_total_response_bytes MUST cover one response")
+        if resolved_config.maximum_total_response_bytes > _MAX_TOTAL_BYTES:
+            raise ValueError("WARA ARG maximum_total_response_bytes exceeds the safety ceiling")
         if queries.source_revision != evaluator_bindings.source_revision:
             raise ValueError("WARA query and evaluator binding source revisions differ")
         query_by_key = {(query.aprl_guid, query.body_digest): query for query in queries.queries}

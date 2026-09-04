@@ -144,6 +144,7 @@ async def test_zero_rows_are_satisfied_with_exact_scoped_query() -> None:
         AzureResourceGraphWaraConfig(endpoint="https://example.com"),
         AzureResourceGraphWaraConfig(endpoint="https://management.azure.com/tenant"),
         AzureResourceGraphWaraConfig(endpoint="https://user@management.azure.com"),
+        AzureResourceGraphWaraConfig(endpoint="https://management.azure.com:444"),
         AzureResourceGraphWaraConfig(audience="https://example.com/.default"),
         AzureResourceGraphWaraConfig(api_version="latest"),
     ),
@@ -171,6 +172,49 @@ async def test_provider_rejects_unapproved_token_targets(
     client = httpx.AsyncClient()
     try:
         with pytest.raises(ValueError, match="approved Azure|dated Azure"):
+            AzureResourceGraphWaraObservationProvider(
+                identity=StaticWorkloadIdentity(audience=AUDIENCE),
+                http_client=client,
+                queries=queries,
+                evaluator_bindings=bindings,
+                config=config,
+            )
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.parametrize(
+    "config",
+    (
+        AzureResourceGraphWaraConfig(maximum_response_bytes=(4 * 1024 * 1024) + 1),
+        AzureResourceGraphWaraConfig(
+            maximum_response_bytes=1,
+            maximum_total_response_bytes=(16 * 1024 * 1024) + 1,
+        ),
+    ),
+)
+async def test_provider_rejects_unbounded_response_configuration(
+    config: AzureResourceGraphWaraConfig,
+) -> None:
+    framework = load_framework_catalog(
+        ROOT / "rule-catalog/collected/wara-aprl",
+        best_practices=(),
+        objective_refs=frozenset(),
+    )[0]
+    catalog, queries = load_wara_assessment_catalog(
+        ASSESSMENT_ROOT / "crosswalk.json",
+        ASSESSMENT_ROOT / "queries.json",
+        framework=framework,
+        framework_path=ROOT / "rule-catalog/collected/wara-aprl/azure-wara.json",
+    )
+    bindings = load_wara_evaluator_bindings(
+        ASSESSMENT_ROOT / "evaluator-bindings.json",
+        catalog=catalog,
+        queries=queries,
+    )
+    client = httpx.AsyncClient()
+    try:
+        with pytest.raises(ValueError, match="safety ceiling"):
             AzureResourceGraphWaraObservationProvider(
                 identity=StaticWorkloadIdentity(audience=AUDIENCE),
                 http_client=client,

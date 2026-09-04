@@ -1,7 +1,7 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: f0b75eda9145dae465239c0e0e68e62bd38ee2d0
+translation_source_sha: 7ede5bf2a199ff30e6966e29cd85c25b5c0aac88
 translation_revised: 2026-09-04
 ---
 
@@ -38,6 +38,7 @@ translation_revised: 2026-09-04
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-04 | implemented | 강화 라운드 3에서 남은 WARA 전송 한계 공백을 수정했습니다. 표준 HTTPS 관리 포트만 허용하며 배포 구성이 더 낮출 수 있는 고정된 페이지당 4 MiB 및 관측당 16 MiB 응답 상한을 적용합니다. | `current change`; 집중 endpoint 및 응답 한계 회귀 검사입니다. | 이후 예약 출처 등록에서도 이 상한을 보존합니다. |
 | 2026-09-04 | implemented | 강화 라운드 2에서 WARA 읽기 계획 제한 시간이 각 ARG 페이지마다 다시 시작되지 않고 페이지가 매겨진 전체 관측에 적용되도록 수정했습니다. | `current change`; 지연된 다중 페이지 집중 회귀 검사입니다. | 예약 평가 작업자를 추가할 때도 동일한 전체 제한 시간 계약을 보존합니다. |
 | 2026-09-04 | implemented | 검토된 WARA 평가기 3개를 위한 정확한 범위의 Azure Resource Graph 읽기 경로를 추가했습니다. 이 경로는 일반 캠페인 검색 밖에 유지되며 등록된 출처 범위, 쿼리 템플릿 또는 작업 권한을 넓힐 수 없습니다. | `current change`; 집중 WARA overlay, 런타임, endpoint, 범위, pagination 및 결정론적 증적 검사입니다. | 별도로 검토된 출처 등록을 통해서만 예약 평가에 추가하고 권한이 부여된 실제 shadow 증적을 보존합니다. |
 | 2026-08-25 | implemented | 캠페인 Event Bus 조립을 전체 Core 구성 검증에서 분리했습니다. 장기 실행 작업자가 이전 환경 프로바이더를 메모리에 유지한 채 다음 반복에서 갱신된 체크아웃의 최신 JSON Schema를 읽으면, 관련 없는 웹 검색 필드가 더 이상 일치하지 않아 종료될 수 있었습니다. 이제 작업자는 필수 Kafka 부트스트랩 연결과 선택적 배달 못 한 메시지 접미사만 읽습니다. | `current change`, `delivery/observation_campaign_cli.py`, `test_observation_campaign_cli.py`, 혼합 구성 집중 회귀 테스트 통과 | 반복 작업자가 이 개정 번호를 로드하도록 로컬 스택을 다시 시작합니다. 배포 개정 번호 캠페인 근거는 계속 열려 있습니다. |
