@@ -183,7 +183,9 @@ matching receipts into runtime evidence, and records one bounded `observed` or `
 attempt per eligible recommendation. `WaraAssessmentService` evaluates and publishes only after
 that collection phase. The enriched request advances its evaluation and recorded cutoffs to include
 the latest admitted observation, so a freshly collected receipt cannot be rejected as future
-evidence. Provider unavailability remains `unknown` and is visible in audit evidence.
+evidence. Only receipts returned by the provider during that collection can advance the cutoffs;
+caller-supplied evidence remains subject to the original independent cutoff. Provider
+unavailability remains `unknown` and is visible in audit evidence.
 
 ## Validation and release boundary
 

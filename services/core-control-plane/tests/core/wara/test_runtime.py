@@ -452,3 +452,44 @@ async def test_service_records_provider_unavailability_without_claiming_satisfac
     assert control.satisfaction is WaraSatisfactionStatus.UNKNOWN
     assert audit_entry["observation_attempts"][0]["status"] == "unavailable"
     assert audit_entry["observation_attempts"][0]["reason"] == ("provider_observation_unavailable")
+
+
+async def test_caller_evidence_cannot_advance_its_own_admission_cutoff() -> None:
+    runtime, catalog, bindings, record = _runtime_and_bound_record()
+    request = replace(
+        _request(record),
+        crosswalk_digest=catalog.crosswalk_digest,
+        evaluator_bindings_digest=bindings.overlay_digest,
+    )
+    plan = runtime.build_read_plan(record, request)
+    future = WaraEvidenceReceipt(
+        recommendation_id=record.aprl_guid,
+        evidence_ref="evidence:future-caller",
+        evidence_kind="provider_observation",
+        producer=plan.evaluator_ref,
+        scope_digest=request.scope_digest,
+        source_revision=request.framework_revision,
+        inventory_generation=request.inventory_generation,
+        observed_at=AT + timedelta(days=1),
+        recorded_at=AT + timedelta(days=1),
+        evidence_digest="sha256:" + "e" * 64,
+        freshness_ceiling_seconds=plan.evidence_freshness_ceiling_seconds,
+        complete=True,
+        truncated=False,
+        conflicting=False,
+        synthetic=False,
+        provider_error=None,
+        outcome=WaraSatisfactionStatus.SATISFIED,
+    )
+    runner = WaraAssessmentObservationRunner(
+        runtime=runtime,
+        provider=_ObservationProvider(unavailable=True),
+    )
+
+    collection = await runner.collect(replace(request, evidence=(future,)))
+    result = runtime.assess(collection.request)
+    control = next(item for item in result.controls if item.recommendation_id == record.aprl_guid)
+
+    assert collection.request.evaluated_at == AT
+    assert collection.request.recorded_at == AT
+    assert control.satisfaction is WaraSatisfactionStatus.UNKNOWN

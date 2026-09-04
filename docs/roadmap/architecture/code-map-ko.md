@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 193463b90d46f83e0be98477715b55df5b4cc506
+translation_source_sha: 61488c9f8469007587d4ef6c1a49ed455b6c1a96
 translation_revised: 2026-09-04
 ---
 # 코드 맵
@@ -164,6 +164,8 @@ WARA 평가 서비스는 이제 평가 전에 적합한 모든 exact-bound 읽�
 범위가 제한된 감사 근거로 기록합니다.
 수집 후 실행기는 요청의 평가 및 기록 기준 시각을 최신 수집 증적까지 전진시킵니다. 따라서
 유효한 최신 관측이 미래 근거로 잘못 분류되지 않습니다.
+해당 실행에서 프로바이더로부터 수집한 근거만 기준 시각 전진에 참여합니다. 호출자가 제공한
+근거에는 요청의 독립적인 원래 기준 시각을 계속 적용합니다.
 일치 행 WARA 평가기가 위반 0건을 충족으로 처리하기 전에 Azure 어댑터는 같은 신원과 제한
 시간을 사용하는 보조 정확한 ID 커버리지 쿼리에서 모든 대상을 관측하도록 요구합니다.
 기본 ControlLoop 조립은 이제 변경할 수 없는 Container에서 선택적 `IncidentMemberSource`와

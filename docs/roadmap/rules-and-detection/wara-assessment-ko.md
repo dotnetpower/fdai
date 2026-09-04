@@ -1,7 +1,7 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: ffe4d2c4516fff7fcb54ca19534f0b120b728169
+translation_source_sha: fb9f0d2bbc46c2bf7e9346b40d8b6b3c9bc27438
 translation_revised: 2026-09-04
 ---
 # WARA 근거 기반 평가
@@ -181,7 +181,8 @@ Azure 관리 호스트와 audience만 허용하며, 범위 밖 또는 잘린 행
 `WaraAssessmentService`는 이 수집 단계가 끝난 뒤에만 평가하고 게시합니다. 프로바이더를 사용할
 수 없으면 `unknown`을 유지하고 감사 근거에 표시합니다. 보강된 요청은 최신 수락 관측을
 포함하도록 평가 및 기록 기준 시각을 전진시키므로 새로 수집한 증적이 미래 근거로 잘못
-차단되지 않습니다.
+차단되지 않습니다. 해당 수집 중 프로바이더가 반환한 증적만 기준 시각을 전진시킬 수 있습니다.
+호출자가 제공한 근거에는 원래의 독립적인 기준 시각을 계속 적용합니다.
 
 ## 검증 및 릴리스 경계
 

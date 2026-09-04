@@ -444,6 +444,7 @@ class WaraAssessmentObservationRunner:
         if len(evidence) != len(request.evidence):
             raise ValueError("WARA request evidence contains duplicate references")
         attempts: list[WaraObservationAttempt] = []
+        collected_evidence: list[WaraEvidenceReceipt] = []
         for record in self._runtime.recommendations:
             try:
                 plan = self._runtime.build_read_plan(record, request)
@@ -466,24 +467,27 @@ class WaraAssessmentObservationRunner:
             if existing is not None and existing != item:
                 raise ValueError("WARA collected evidence conflicts with an existing receipt")
             evidence[key] = item
+            collected_evidence.append(item)
             attempts.append(
                 WaraObservationAttempt(
                     recommendation_id=record.aprl_guid,
                     status="observed",
                 )
             )
+        latest_observed_at = max(
+            (request.evaluated_at, *(item.observed_at for item in collected_evidence))
+        )
+        latest_recorded_at = max(
+            (
+                request.recorded_at,
+                latest_observed_at,
+                *(item.recorded_at for item in collected_evidence),
+            )
+        )
         enriched = replace(
             request,
-            evaluated_at=max(
-                (request.evaluated_at, *(item.observed_at for item in evidence.values()))
-            ),
-            recorded_at=max(
-                (
-                    request.recorded_at,
-                    *(item.recorded_at for item in evidence.values()),
-                    *(item.observed_at for item in evidence.values()),
-                )
-            ),
+            evaluated_at=latest_observed_at,
+            recorded_at=latest_recorded_at,
             evidence=tuple(
                 evidence[key] for key in sorted(evidence, key=lambda item: (item[0], item[1]))
             ),

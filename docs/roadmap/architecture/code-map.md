@@ -174,6 +174,8 @@ eligible exact-bound read before evaluation, preserves manual receipts, and reco
 unavailability as bounded audit evidence instead of a satisfaction result.
 After collection, the runner advances the request evaluation and recorded cutoffs to the latest
 collected receipt, preventing a valid fresh observation from being classified as future evidence.
+Only evidence collected from the provider in that run participates in cutoff advancement;
+caller-supplied evidence remains gated by the request's independent original cutoff.
 Before a matching-row WARA evaluator can treat zero violations as satisfied, the Azure adapter
 requires a companion exact-id coverage query to observe every target under the same identity and
 deadline.
