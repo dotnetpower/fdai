@@ -422,7 +422,98 @@ export function decodeStewardship(value: unknown): StewardshipResponse {
   ) {
     throw panelContractError("stewardship.identity_health MUST match its completed check evidence");
   }
+  validateCurrentOwnership(decoded);
   return decoded;
+}
+
+function validateCurrentOwnership(decoded: StewardshipResponse): void {
+  const ownership = decoded.current_ownership;
+  if (ownership === null) return;
+  const mapNames = decoded.map.agents.map((agent) => agent.name);
+  const ownershipNames = ownership.agents.map((agent) => agent.name);
+  if (
+    ownershipNames.length !== mapNames.length ||
+    ownershipNames.some((name, index) => name !== mapNames[index])
+  ) {
+    throw panelContractError("current ownership agents MUST match the stewardship map order");
+  }
+  if (
+    ownership.maintainers.length !== decoded.map.maintainers.length ||
+    ownership.maintainers.some(
+      (maintainer, index) => maintainer.subject_id !== decoded.map.maintainers[index],
+    )
+  ) {
+    throw panelContractError("current ownership maintainers MUST match the stewardship map");
+  }
+  for (const [agentIndex, ownershipAgent] of ownership.agents.entries()) {
+    const mapAgent = decoded.map.agents[agentIndex]!;
+    let accountableIndex = 0;
+    const expectedSubjects = mapAgent.stewards.map((subject) => {
+      const duty = subject.duty ?? (
+        decoded.map.version === 1 && subject.responsibility === "accountable"
+          ? accountableIndex === 0 ? "primary" : "backup"
+          : null
+      );
+      if (subject.responsibility === "accountable") accountableIndex += 1;
+      return {
+        kind: subject.kind,
+        subject_id: subject.id,
+        responsibility: subject.responsibility,
+        duty,
+      };
+    });
+    if (
+      ownershipAgent.autonomous !== mapAgent.autonomous ||
+      ownershipAgent.subjects.length !== expectedSubjects.length ||
+      ownershipAgent.subjects.some((subject, index) => {
+        const expected = expectedSubjects[index];
+        return expected === undefined ||
+          subject.kind !== expected.kind ||
+          subject.subject_id !== expected.subject_id ||
+          subject.responsibility !== expected.responsibility ||
+          subject.duty !== expected.duty;
+      })
+    ) {
+      throw panelContractError("current ownership subjects MUST match the stewardship map");
+    }
+    const primary = new Set(
+      ownershipAgent.subjects
+        .filter((subject) => subject.responsibility === "accountable" && subject.duty === "primary")
+        .map((subject) => `${subject.kind}:${subject.subject_id}`),
+    );
+    const backup = new Set(
+      ownershipAgent.subjects
+        .filter((subject) =>
+          subject.responsibility === "accountable" &&
+          (subject.duty === "backup" || subject.duty === "escalation"))
+        .map((subject) => `${subject.kind}:${subject.subject_id}`)
+        .filter((subject) => !primary.has(subject)),
+    );
+    if (
+      ownershipAgent.coverage.primary_count !== primary.size ||
+      ownershipAgent.coverage.backup_or_escalation_count !== backup.size
+    ) {
+      throw panelContractError("current ownership coverage MUST match distinct exact subjects");
+    }
+  }
+  const readyAgents = ownership.agents.filter((agent) => agent.coverage.status === "ready").length;
+  const gapAgents = ownership.agents.filter(
+    (agent) => agent.coverage.status !== "ready" && agent.coverage.status !== "autonomous",
+  ).length;
+  const autonomousAgents = ownership.agents.filter((agent) => agent.autonomous).length;
+  const pendingProposals = ownership.agents.reduce(
+    (total, agent) => total + agent.proposals.length,
+    0,
+  );
+  if (
+    ownership.summary.agent_count !== ownership.agents.length ||
+    ownership.summary.ready_agents !== readyAgents ||
+    ownership.summary.coverage_gap_agents !== gapAgents ||
+    ownership.summary.autonomous_agents !== autonomousAgents ||
+    ownership.summary.pending_proposals !== pendingProposals
+  ) {
+    throw panelContractError("current ownership summary MUST match its agent records");
+  }
 }
 
 function decodeCurrentOwnership(value: unknown): CurrentOwnershipDto {

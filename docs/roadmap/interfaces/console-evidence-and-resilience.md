@@ -58,6 +58,9 @@ If assignment evidence is unavailable, the Current owners view keeps the reviewe
 and marks only pending-change evidence unavailable.
 A bounded assignment page is labeled partial whenever its total, cursor, or source truncation flag
 shows that more cases exist.
+The browser cross-checks Current owners agent order, maintainers, exact subjects, distinct
+primary and backup counts, and summary totals against the validated stewardship map. Drift fails
+the panel instead of selecting one version.
 Overview renders identity-source freshness only from `identity_health`. The Operator API supplies
 `checked_at` only from an unexpired last-success heartbeat whose revision matches the stale-finding
 snapshot. A completed `clean` or `warn` check requires that timestamp and a finding count that

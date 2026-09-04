@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 748a01bd9bf51599f4bddcf4ecbaf01c5db76f40
+translation_source_sha: 32d0ade2893ac989e82a96e356b6bce411fa0bda
 translation_revised: 2026-09-04
 ---
 # 콘솔 근거 및 복원력
@@ -68,6 +68,9 @@ desktop 한 행에 6개씩 배치하며 attention priority와 최신 관찰 순�
 사용할 수 없는 상태로 표시합니다.
 범위가 제한된 할당 페이지는 전체 개수, 커서 또는 원본 절단 플래그에서 추가 케이스가 있음을
 보여 주면 일부 결과로 표시합니다.
+브라우저는 현재 담당자의 에이전트 순서, 유지관리자, 정확한 주체, 서로 다른 주 담당 및 백업 수,
+요약 합계를 검증된 담당 체계와 대조합니다. 불일치하면 한 버전을 선택하지 않고 패널을
+실패시킵니다.
 개요는 `identity_health`에서만 ID 출처 최신성을 표시합니다. Operator API는 stale-finding
 스냅샷과 개정 번호가 일치하고 만료되지 않은 last-success 하트비트에서만 `checked_at`을 제공합니다.
 완료된 `clean` 또는 `warn` 확인은 이 시각과 병합된 `stale_oid` 커버리지에 맞는 발견 사항 개수가

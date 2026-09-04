@@ -103,7 +103,7 @@ function currentOwnershipPayload() {
         },
         subjects: [{
           kind: "user",
-          subject_id: `${name}-primary`,
+          subject_id: `${name}-steward`,
           responsibility: "accountable",
           duty: "primary",
           display_name: `${name} Primary`,
@@ -213,6 +213,20 @@ describe("Handover projection contract", () => {
     expect(decoded.current_ownership?.maintainers[0]?.display_name).toBe("Example Maintainer");
     expect(decoded.current_ownership?.agents).toHaveLength(15);
     expect(decoded.current_ownership?.agents[0]?.proposals[0]?.scope_ref).toBe("scope:platform");
+  });
+
+  test("rejects joined ownership drift from the validated map", () => {
+    const nameDrift = currentOwnershipPayload();
+    nameDrift.current_ownership.agents[0]!.name = "Thor";
+    expect(() => decodeStewardship(nameDrift)).toThrow(/agents MUST match/);
+
+    const subjectDrift = currentOwnershipPayload();
+    subjectDrift.current_ownership.agents[0]!.subjects[0]!.subject_id = "different";
+    expect(() => decodeStewardship(subjectDrift)).toThrow(/subjects MUST match/);
+
+    const summaryDrift = currentOwnershipPayload();
+    summaryDrift.current_ownership.summary.ready_agents = 14;
+    expect(() => decodeStewardship(summaryDrift)).toThrow(/summary MUST match/);
   });
 
   test("rejects duplicate agent names and maintainer count drift", () => {
