@@ -1,7 +1,7 @@
 ---
 title: 근본원인 분석
 translation_of: root-cause-analysis.md
-translation_source_sha: b56bb3a004eaa985f9338deb4608a55e03bb6b3d
+translation_source_sha: efca910c91c1ac29d47826bfc5e1948266ff333f
 translation_revised: 2026-09-04
 ---
 # 근본원인 분석
@@ -112,6 +112,9 @@ Knowledge 수집은 `doc_id`별 완전한 교체 의미 체계를 사용합니�
 보류하며 범위가 없는 `KnowledgeSource`로 대체하지 않습니다. 수집기는 문서 근거 참조 집합과
 문서 lane의 인용 매니페스트가 정확히 일치하는지도 확인합니다. 추가되거나 중복되거나 누락된
 항목이 있으면 결과를 보류합니다.
+호출자가 관리되는 문서 맥락을 요청한 경우 빈 수집 결과도 보류로 처리합니다. 필수 관리 근거
+경로가 근거와 명시적 사유를 모두 반환하지 않았는데 조정기가 원격 측정 또는 다른 인용만으로
+계속 진행할 수 없습니다.
 
 ## 결정론적 T1 인과사슬
 

@@ -372,6 +372,8 @@ class RcaCoordinator:
             if result.hold_required:
                 reason = result.hold_reasons[0]
                 return (), _governed_knowledge_hold(reason)
+            if not result.citations:
+                return (), _governed_knowledge_hold("document_evidence_missing")
             return result.citations, None
         if self._knowledge_gatherer is not None:
             return await self._knowledge_gatherer.gather(query=query), None

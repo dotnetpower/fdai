@@ -159,6 +159,9 @@ KnowledgeSource when governed evidence is unavailable.
 The governed gatherer independently requires exact set equality between document excerpts and the
 document-lane citation manifest, so an extra, duplicate, or missing manifest entry cannot become an
 RCA citation.
+When governed context is explicitly requested, a gatherer that returns neither citations nor a
+hold is normalized to `document_evidence_missing`; unrelated telemetry cannot silently satisfy the
+missing governed-evidence requirement.
 WARA assessment now layers an exact evaluator-binding catalog over the immutable generated
 crosswalk. The Azure delivery adapter accepts only approved management token targets and exact ARM
 resource scopes, and carries the overlay digest through read-plan, observation, evidence, result,

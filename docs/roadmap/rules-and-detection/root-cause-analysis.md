@@ -110,6 +110,9 @@ before it emits opaque `CitationKind.KNOWLEDGE` refs. A missing or rejected gove
 the RCA result and never falls back to the unscoped `KnowledgeSource`. The gatherer also requires
 the document evidence-ref set to equal the document-lane citation manifest exactly; extra,
 duplicate, or missing entries hold the result.
+When a caller requests governed document context, an empty gatherer result is also a hold. The
+coordinator cannot silently continue with telemetry or other citations after the required governed
+evidence path returned neither evidence nor an explicit reason.
 
 ## Deterministic T1 causal chain
 

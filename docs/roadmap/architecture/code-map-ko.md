@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 31504f3400b1e4ca9e9232d0c1becf40ac0a94b2
+translation_source_sha: ab1cd6444d3352623d249b6a7428b1a80dca8ca4
 translation_revised: 2026-09-04
 ---
 # 코드 맵
@@ -150,6 +150,9 @@ RCA 가설은 이제 T0, T1, T2 전체에서 하위 호환 가능한 원인 영�
 대체할 수 없습니다.
 관리되는 수집기는 문서 발췌와 문서 lane 인용 매니페스트 사이의 정확한 집합 일치도 독립적으로
 요구합니다. 따라서 추가되거나 중복되거나 누락된 매니페스트 항목은 RCA 인용이 될 수 없습니다.
+관리되는 맥락을 명시적으로 요청했는데 수집기가 인용과 보류를 모두 반환하지 않으면
+`document_evidence_missing`으로 정규화합니다. 관련 없는 원격 측정이 누락된 관리 근거 요구
+사항을 조용히 충족할 수 없습니다.
 WARA 평가는 변경할 수 없는 생성 교차워크 위에 정확한 평가기 바인딩 카탈로그를 추가합니다.
 Azure delivery 어댑터는 승인된 관리 토큰 대상과 정확한 ARM 리소스 범위만 허용하며 overlay
 다이제스트를 읽기 계획, 관측, 근거, 결과 및 재생 신원 전체에 전달합니다.

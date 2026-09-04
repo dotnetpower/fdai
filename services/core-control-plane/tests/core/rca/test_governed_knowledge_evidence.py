@@ -31,6 +31,7 @@ from fdai.core.rca.governed_knowledge_evidence import (
     GovernedKnowledgeEvidenceContext,
     GovernedKnowledgeEvidenceGatherer,
     GovernedKnowledgeEvidenceHoldError,
+    GovernedKnowledgeEvidenceResult,
 )
 from fdai.shared.contracts import (
     AccessDescriptor,
@@ -510,3 +511,30 @@ async def test_missing_governed_binding_holds_without_unscoped_fallback() -> Non
 
     assert result.reason == "governed_knowledge_evidence_held:gatherer_unavailable"
     assert unscoped.called is False
+
+
+class _EmptyGovernedGatherer:
+    async def gather(self, **_kwargs: object) -> GovernedKnowledgeEvidenceResult:
+        return GovernedKnowledgeEvidenceResult()
+
+
+async def test_empty_custom_governed_result_holds_instead_of_using_other_evidence() -> None:
+    coordinator = RcaCoordinator(
+        reasoner=_CitingReasoner(),
+        governed_knowledge_gatherer=cast(
+            GovernedKnowledgeEvidenceGatherer,
+            _EmptyGovernedGatherer(),
+        ),
+    )
+
+    result = await coordinator.analyze_t2_from_telemetry(
+        incident_summary="dependency saturation",
+        resource_ref="resource:example",
+        since=NOW,
+        until=NOW,
+        extra_citations=(Citation(CitationKind.EVENT, "event:example"),),
+        governed_knowledge_context=_context(),
+    )
+
+    assert result.reason == "governed_knowledge_evidence_held:document_evidence_missing"
+    assert result.hypothesis is None
