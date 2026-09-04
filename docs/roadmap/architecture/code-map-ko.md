@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: fa7696d91dae64130e4d2626fe2cc3158c3e0f8a
+translation_source_sha: 745ef36fa3c98feaabb4eb489bfc4d8d306eb8d7
 translation_revised: 2026-09-04
 ---
 # 코드 맵
@@ -410,7 +410,7 @@ shadow 테스트가 두 경계를 고정합니다.
 | FDAI Console 백그라운드 작업 점검 | 엄격한 소유자 범위 작업/진행 상황 decoder, 이중 언어 목록 및 선택 상세 표현, 생성, 취소, 재시도 또는 실행 컨트롤이 없는 명시적 새로 고침 | [경로](../../../console/src/routes/background-tasks.tsx), [decoder](../../../console/src/routes/background-tasks.model.ts), [decoder 테스트](../../../console/src/routes/background-tasks.model.test.ts) |
 | FDAI Console Process 컨트롤 | 엄격한 principal 범위 Process 및 전환 디코더, 현지화된 현재 단계 요구 사항, 리비전 결속 재개/취소/재시도 요청, 명시적인 성공 아님 수락 | [컨트롤 디코더](../../../console/src/routes/processes.control.ts), [컨트롤 패널](../../../console/src/routes/process-control-panel.tsx), [요청 클라이언트](../../../console/src/routes/processes.transitions.ts), [브라우저 계약](../../../console/tests/e2e/workflow-process-transitions.spec.ts) |
 | FDAI Console 온톨로지 워크벤치 | Exact 선언 경로, 엄격한 변환 결과 decoder, 근거/종속 항목/release 구역, localized 검증 상태 및 실행 control이 없는 스냅샷 결속 영향/map 표현 | [ObjectType 워크벤치](../../../console/src/routes/ontology-object-type-detail.tsx), [영향 경로](../../../console/src/routes/blast-radius.tsx), [영향 decoder](../../../console/src/routes/blast-radius.model.ts), [온톨로지 계약](../../../console/src/routes/ontology.types.ts) |
-| FDAI Console 지역화 카탈로그 | 공유 셸, 인시던트, 알림 및 채널 설정 레이블은 기본 이중 언어 카탈로그에 둡니다. 선택적 Cost Governance 레이블은 패키지별 경로 카탈로그에 유지하므로 공유 레이블 변경으로 패키지를 활성화하거나 구성할 수 없습니다. | [기본 영어 카탈로그](../../../console/src/i18n/messages.en.json), [기본 한국어 카탈로그](../../../console/src/i18n/messages.ko.json), [Cost Governance 경로 카탈로그](../../../console/src/routes/i18n/) |
+| FDAI Console 지역화 카탈로그 | 공유 셸, 인시던트 및 알림 레이블은 기본 이중 언어 카탈로그에 둡니다. 경로별 Teams 통합 및 선택적 Cost Governance 레이블은 지연 로드되는 경로 카탈로그에 유지하므로 전문 지침이 진입 번들 예산을 사용하거나 패키지를 활성화하지 않습니다. 기본 카탈로그를 변경하면 question bank 다이제스트를 다시 생성합니다. | [기본 영어 카탈로그](../../../console/src/i18n/messages.en.json), [기본 한국어 카탈로그](../../../console/src/i18n/messages.ko.json), [경로 카탈로그](../../../console/src/routes/i18n/) |
 | 네트워크 토폴로지 시각화 | 공유 네트워크 어휘, 작성된 정적 다이어그램 계약, 관측 전용 Console 포커스 및 경로 표현, 실행 권한이 없는 정제된 내보내기 | [공유 어휘](../../../packages/network-topology-contracts/), [다이어그램 컴파일러](../../../tools/architecture-diagrams/), [Console 아키텍처 컴포넌트](../../../console/src/components/), [소유 설계](../interfaces/network-topology-visualization-ko.md) |
 | 문서 인제스트 API | 업로드 intake, API 소유 전이 및 서비스 어댑터 | [패키지](../../../services/document-ingestion-api/src/fdai_ingestion_api_service/) |
 | 문서 처리 워커 | 영속 문서 처리와 워커 소유 어댑터 | [패키지](../../../services/document-processing-worker/src/fdai_document_worker_service/) |

@@ -147,16 +147,16 @@ export function SettingsIntegrationsRoute({ client, auth }: Props) {
             <div class="stack">
               <IntegrationGroup
                 headingId="settings-a1-approvals"
-                title={t("settings.groupApprovals")}
-                description={t("settings.groupApprovalsHint")}
+                title={settingsIntegrationsText("groupApprovals")}
+                description={settingsIntegrationsText("groupApprovalsHint")}
                 integrations={runtime.integrations.filter((integration) =>
                   APPROVAL_INTEGRATION_KEYS.has(integration.key)
                 )}
               />
               <IntegrationGroup
                 headingId="settings-a2-a4-notifications"
-                title={t("settings.groupNotifications")}
-                description={t("settings.groupNotificationsHint")}
+                title={settingsIntegrationsText("groupNotifications")}
+                description={settingsIntegrationsText("groupNotificationsHint")}
                 integrations={runtime.integrations.filter((integration) =>
                   NOTIFICATION_INTEGRATION_KEYS.has(integration.key)
                 )}
@@ -174,16 +174,16 @@ export function SettingsIntegrationsRoute({ client, auth }: Props) {
               </IntegrationGroup>
               <IntegrationGroup
                 headingId="settings-a3-conversations"
-                title={t("settings.groupConversations")}
-                description={t("settings.groupConversationsHint")}
+                title={settingsIntegrationsText("groupConversations")}
+                description={settingsIntegrationsText("groupConversationsHint")}
                 integrations={runtime.integrations.filter((integration) =>
                   CONVERSATION_INTEGRATION_KEYS.has(integration.key)
                 )}
               />
               <IntegrationGroup
                 headingId="settings-other-integrations"
-                title={t("settings.groupOther")}
-                description={t("settings.groupOtherHint")}
+                title={settingsIntegrationsText("groupOther")}
+                description={settingsIntegrationsText("groupOtherHint")}
                 integrations={runtime.integrations.filter(
                   (integration) =>
                     !APPROVAL_INTEGRATION_KEYS.has(integration.key)
@@ -940,7 +940,7 @@ function IntegrationRow({ integration }: { readonly integration: RuntimeIntegrat
   // Rendering both as "Not configured" would invite an operator to fix the
   // wrong surface, so an unobserved row stays explicitly unknown.
   const status = !integration.observed
-    ? t("settings.statusNotObserved")
+    ? settingsIntegrationsText("statusNotObserved")
     : integration.ready
       ? t("settings.statusReady")
       : integration.configured
@@ -955,8 +955,8 @@ function IntegrationRow({ integration }: { readonly integration: RuntimeIntegrat
         : "neutral";
   return (
     <SettingRow
-      label={t(`settings.integrations.${integration.key}.label`)}
-      hint={t(`settings.integrations.${integration.key}.hint`)}
+      label={integrationLabel(integration.key)}
+      hint={integrationHint(integration.key)}
     >
       <span class="settings-integration-status">
         <StatusPill kind={kind} label={status} />
@@ -966,14 +966,42 @@ function IntegrationRow({ integration }: { readonly integration: RuntimeIntegrat
           })}
         </small>
         <small class="muted">
-          {t("settings.integrationSource", {
-            source: t(`settings.integrationSources.${integration.source}`),
+          {settingsIntegrationsText("integrationSource", {
+            source: integrationSource(integration.source),
           })}
         </small>
         {integration.reason ? <small class="muted">{integration.reason}</small> : null}
       </span>
     </SettingRow>
   );
+}
+
+function integrationLabel(key: string): string {
+  switch (key) {
+    case "teams-a1-approval-send": return settingsIntegrationsText("teamsA1SendLabel");
+    case "teams-a1-approval-callback": return settingsIntegrationsText("teamsA1CallbackLabel");
+    case "teams-a2-operational-alert": return settingsIntegrationsText("teamsA2Label");
+    case "teams-a4-digest": return settingsIntegrationsText("teamsA4Label");
+    case "teams-a3-conversation": return settingsIntegrationsText("teamsA3Label");
+    default: return t(`settings.integrations.${key}.label`);
+  }
+}
+
+function integrationHint(key: string): string {
+  switch (key) {
+    case "teams-a1-approval-send": return settingsIntegrationsText("teamsA1SendHint");
+    case "teams-a1-approval-callback": return settingsIntegrationsText("teamsA1CallbackHint");
+    case "teams-a2-operational-alert": return settingsIntegrationsText("teamsA2Hint");
+    case "teams-a4-digest": return settingsIntegrationsText("teamsA4Hint");
+    case "teams-a3-conversation": return settingsIntegrationsText("teamsA3Hint");
+    default: return t(`settings.integrations.${key}.hint`);
+  }
+}
+
+function integrationSource(source: RuntimeIntegrationView["source"]): string {
+  if (source === "core-control-plane") return settingsIntegrationsText("sourceCore");
+  if (source === "operator-service") return settingsIntegrationsText("sourceOperator");
+  return settingsIntegrationsText("sourceUnspecified");
 }
 
 function RuntimeDiagnosticRows({ view }: { readonly view: RuntimeSettingsView }) {

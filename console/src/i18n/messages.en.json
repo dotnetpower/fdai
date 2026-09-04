@@ -2060,26 +2060,6 @@
       "enforce": "Enforcement"
     },
     "integrations": {
-      "teams-a1-approval-send": {
-        "label": "Teams A1 approval delivery",
-        "hint": "Core Bot delivery of approval cards to the configured group-connected team and channel. Teams Workflows webhooks can never carry A1 approvals."
-      },
-      "teams-a1-approval-callback": {
-        "label": "Teams A1 approval callback",
-        "hint": "Operator verification of a returned approval decision. Partial configuration leaves approvals unavailable rather than degraded."
-      },
-      "teams-a2-operational-alert": {
-        "label": "Teams A2 operational alerts",
-        "hint": "Teams Workflows binding activated for outbound operational alerts. Saving or testing a URL does not activate delivery."
-      },
-      "teams-a4-digest": {
-        "label": "Teams A4 digests",
-        "hint": "Teams Workflows binding activated for scheduled digests. Digest rooms never receive A2 paging traffic."
-      },
-      "teams-a3-conversation": {
-        "label": "Teams A3 conversations",
-        "hint": "Operator-owned conversation channel edge. It shares Teams credentials with approvals but keeps a separate blast radius."
-      },
       "email": {
         "label": "Email notifications",
         "hint": "Managed-identity email delivery, sender, and recipient configuration status."
@@ -2372,22 +2352,7 @@
         "owner": "Approver capabilities plus group membership, kill-switch, and infrastructure administration.",
         "breakGlass": "Isolated emergency access and kill-switch capabilities; never a normal elevation path."
       }
-    },
-    "statusNotObserved": "Not observed here",
-    "integrationSource": "Owner runtime: {source}",
-    "integrationSources": {
-      "core-control-plane": "Control plane",
-      "operator-service": "Operator API",
-      "unspecified": "Unspecified"
-    },
-    "groupApprovals": "A1 human approvals",
-    "groupApprovalsHint": "Authenticated, action-bound approval delivery and callback. A notification webhook can never satisfy this path.",
-    "groupNotifications": "A2 alerts and A4 digests",
-    "groupNotificationsHint": "Outbound-only delivery. Saving or testing an endpoint does not activate runtime delivery; a deployment activates a binding explicitly.",
-    "groupConversations": "A3 conversations",
-    "groupConversationsHint": "Bidirectional chat commands owned by the Operator conversation channel edge.",
-    "groupOther": "Other governed integrations",
-    "groupOtherHint": "Change delivery, ticketing, and access review configuration observed by this runtime."
+    }
   },
   "accessRequired": {
     "eyebrow": "Access required",

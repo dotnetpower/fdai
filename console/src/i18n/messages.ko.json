@@ -2060,26 +2060,6 @@
       "enforce": "적용"
     },
     "integrations": {
-      "teams-a1-approval-send": {
-        "label": "Teams A1 승인 전송",
-        "hint": "구성된 그룹 연결 팀과 채널로 승인 카드를 보내는 Core Bot 전송입니다. Teams Workflows webhook은 A1 승인을 전달할 수 없습니다."
-      },
-      "teams-a1-approval-callback": {
-        "label": "Teams A1 승인 콜백",
-        "hint": "반환된 승인 결정을 Operator가 검증합니다. 일부만 구성된 상태는 성능 저하가 아니라 승인 사용 불가입니다."
-      },
-      "teams-a2-operational-alert": {
-        "label": "Teams A2 운영 알림",
-        "hint": "아웃바운드 운영 알림용으로 활성화된 Teams Workflows 바인딩입니다. URL 저장이나 테스트는 전달을 활성화하지 않습니다."
-      },
-      "teams-a4-digest": {
-        "label": "Teams A4 다이제스트",
-        "hint": "예약된 다이제스트용으로 활성화된 Teams Workflows 바인딩입니다. 다이제스트 채널은 A2 호출 트래픽을 받지 않습니다."
-      },
-      "teams-a3-conversation": {
-        "label": "Teams A3 대화",
-        "hint": "Operator가 소유한 대화 채널 edge입니다. Teams 자격 증명을 공유하지만 blast radius는 분리됩니다."
-      },
       "email": {
         "label": "Email 알림",
         "hint": "Managed identity email 전달, sender 및 recipient 구성 상태입니다."
@@ -2372,22 +2352,7 @@
         "owner": "Approver 기능과 그룹 멤버십, kill-switch 및 인프라 관리 기능을 제공합니다.",
         "breakGlass": "격리된 긴급 액세스 및 kill-switch 기능입니다. 일반 승격 경로로 사용하지 않습니다."
       }
-    },
-    "statusNotObserved": "여기서 관찰되지 않음",
-    "integrationSource": "소유 런타임: {source}",
-    "integrationSources": {
-      "core-control-plane": "컨트롤 플레인",
-      "operator-service": "Operator API",
-      "unspecified": "미지정"
-    },
-    "groupApprovals": "A1 사람 승인",
-    "groupApprovalsHint": "인증되고 작업에 결합된 승인 전송과 콜백입니다. 알림 webhook은 이 경로를 충족할 수 없습니다.",
-    "groupNotifications": "A2 알림 및 A4 다이제스트",
-    "groupNotificationsHint": "아웃바운드 전용 전달입니다. endpoint 저장이나 테스트는 런타임 전달을 활성화하지 않으며, 배포가 바인딩을 명시적으로 활성화합니다.",
-    "groupConversations": "A3 대화",
-    "groupConversationsHint": "Operator 대화 채널 edge가 소유하는 양방향 채팅 명령입니다.",
-    "groupOther": "기타 거버넌스 통합",
-    "groupOtherHint": "이 런타임이 관찰한 변경 전달, 티켓, 접근 검토 구성입니다."
+    }
   },
   "accessRequired": {
     "eyebrow": "액세스 필요",

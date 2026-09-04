@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 2a785ff582c0c3af59dc5a1b784cf2ecb3dab9e8
+translation_source_sha: 88bf9c0cfbf01f8f635a10300fdecc5475a2d8c7
 translation_revised: 2026-09-04
 ---
 # FDAI Console 대화
@@ -443,6 +443,8 @@ send-only와 receive-plus-send의 trust 자세 및 영향 범위가 다르기 �
 Settings > Integrations도 같은 분리를 따릅니다. Teams A1 발송과 callback 준비 상태, A2 운영
 알림, A4 다이제스트 및 A3 대화를 출처가 표시된 행으로 보고합니다. 저장된 Workflows 엔드포인트는
 메타데이터만 표시하며 런타임 활성화나 프로바이더 상태를 의미하지 않습니다.
+이 경로는 통합 전용 레이블을 지연 로드되는 이중 언어 카탈로그에 유지하므로 운영자 지침을
+추가해도 공유 진입 번들 예산을 사용하지 않습니다.
 
 공유 pull-direction 계약, 게이트웨이, Slack signed 유입, Teams 인증된 활동 정규화기, 범위가 제한된 Starlette 경로, Slack Web API 발행기, Teams Bot Framework 발행기는 구현되었습니다.
 Slack 경로는 timestamped 서명을 검증합니다. Teams 경로는 활동 JSON parse 전에 injected bearer authenticator를 호출합니다. 회신 발행기는 구성된 HTTPS 엔드포인트, injected 앱/워크로드

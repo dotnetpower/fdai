@@ -444,6 +444,8 @@ radius of send-only and receive-plus-send surfaces.
 Settings > Integrations follows the same separation. It reports Teams A1 send and callback
 readiness, A2 operational alerts, A4 digests, and A3 conversations as source-attributed rows; a
 saved Workflows endpoint is metadata only and never implies runtime activation or provider health.
+The route keeps these integration-specific labels in its lazy bilingual catalog so adding operator
+guidance does not consume the shared entry-bundle budget.
 
 The shared pull-direction contract, gateway, Slack signed ingress, Teams authenticated activity normalizer, bounded Starlette routes, Slack
 Web API publisher, and Teams Bot Framework publisher are implemented. The Slack route verifies timestamped signatures. The Teams route calls
