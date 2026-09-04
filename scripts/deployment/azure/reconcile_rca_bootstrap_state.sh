@@ -10,15 +10,20 @@ state_has() {
 }
 
 for resource in baseline_regression pattern_growth; do
-  old="module.measurement_runners.azurerm_container_app_job.${resource}[0]"
   new="module.measurement_runners[0].azurerm_container_app_job.${resource}[0]"
-  if state_has "$old"; then
-    ! state_has "$new" || {
-      echo "both legacy and current measurement state addresses exist" >&2
-      exit 1
-    }
-    terraform state mv "$old" "$new"
-    state_list="${state_list//$old/$new}"
+  legacy=()
+  for candidate in \
+    "module.measurement_runners[0].azurerm_container_app_job.${resource}" \
+    "module.measurement_runners.azurerm_container_app_job.${resource}[0]"; do
+    state_has "$candidate" && legacy+=("$candidate")
+  done
+  if (( ${#legacy[@]} > 1 )) || { (( ${#legacy[@]} == 1 )) && state_has "$new"; }; then
+    echo "legacy and current measurement state addresses conflict" >&2
+    exit 1
+  fi
+  if (( ${#legacy[@]} == 1 )); then
+    terraform state mv "${legacy[0]}" "$new"
+    state_list="${state_list//${legacy[0]}/$new}"
   fi
 done
 

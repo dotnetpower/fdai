@@ -7,7 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "scripts/deployment/azure/reconcile_rca_bootstrap_state.sh"
-OLD = "module.measurement_runners.azurerm_container_app_job.baseline_regression[0]"
+OLD = "module.measurement_runners[0].azurerm_container_app_job.baseline_regression"
 NEW = "module.measurement_runners[0].azurerm_container_app_job.baseline_regression[0]"
 
 
@@ -66,4 +66,4 @@ def test_rejects_coexisting_legacy_and_current_addresses(tmp_path: Path) -> None
     result = _run(tmp_path, f"{OLD}\n{NEW}\n")
 
     assert result.returncode == 1
-    assert "both legacy and current measurement state addresses exist" in result.stderr
+    assert "legacy and current measurement state addresses conflict" in result.stderr
