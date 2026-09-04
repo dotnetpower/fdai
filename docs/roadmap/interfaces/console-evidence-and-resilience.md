@@ -38,10 +38,10 @@ autonomy, risk, impact, or SLA remains `Not observed` and is never inferred in t
 The Agents workspace uses three compact views: `Fleet`, `Org`, and `Activity`. Fleet combines live
 runtime state with the fixed registry ownership and safety flags inside per-agent Details
 disclosures. Org renders the keyboard-accessible reporting chart and selected incident evidence.
-The stable `/pantheon` path remains a compatibility route for Org, so existing links continue to
-resolve without keeping a second Pantheon directory in navigation. Agent oversight is a Governance
-panel at `/agent-oversight` because operational ownership and its governed proposal workflow are
-governance concerns. The previous `/handover` path remains a compatibility alias.
+The stable `/pantheon` path remains a compatibility route for Org, so existing links continue to resolve without keeping a second Pantheon directory in navigation.
+Agent oversight is a Governance panel at `/agent-oversight` because operational ownership and its governed proposal workflow are governance concerns.
+The previous `/handover` path remains a compatibility alias. [Human-Agent Assignment and Knowledge Transfer](human-agent-assignment-and-knowledge-handover.md#current-owners-read-model-and-console)
+owns the joined Current owners contract.
 Its five views are Overview, Human dependencies, Knowledge handover, Approval routes, and Mapping
 reviews. Overview and Human dependencies use the strict `GET /stewardship` projection. Mapping
 reviews reuses the owner-gated `GET /iam/assignments` projection and derives its capability and
@@ -50,27 +50,6 @@ routes remains explicitly unavailable until its own authoritative projection is 
 browser does not infer a route from ownership data. A missing stewardship source blocks only
 Overview and Human dependencies; it does not hide the independent Knowledge handover, Approval
 routes, or Mapping reviews views.
-The additive Current owners record is joined by the Operator service from the reviewed declaration,
-bounded identity-directory hints, and Owner-visible assignment cases. The browser validates and
-renders that record but never joins those sources, treats a display name as authority, or hides a
-missing binding, schema migration, identity check, or backup-coverage gap.
-The aggregate route assembly applies this decorator to `/stewardship` for every production or
-development composition, while unrelated operation projections pass through unchanged.
-If assignment evidence is unavailable, the Current owners view keeps the reviewed ownership map
-and marks only pending-change evidence unavailable.
-A bounded assignment page is labeled partial whenever its total, cursor, or source truncation flag
-shows that more cases exist.
-The browser cross-checks Current owners agent order, maintainers, exact subjects, distinct
-primary and backup counts, and summary totals against the validated stewardship map. Drift fails
-the panel instead of selecting one version.
-Current owners exposes an explicit refresh. It retains the last ready projection while the new read
-is in flight and replaces it only with the next terminal ready, unavailable, or error state. The
-mobile refresh control retains the shared 44 px touch target.
-At container-constrained desktop and mobile widths, Current owners changes the wide comparison
-table into labeled per-agent records. The responsive presentation preserves every field and does
-not change scope or evidence.
-Current owners localizes assignment lifecycle states and keeps the full source digest in disclosed
-technical details instead of presenting machine values as primary operator copy.
 Overview renders identity-source freshness only from `identity_health`. The Operator API supplies
 `checked_at` only from an unexpired last-success heartbeat whose revision matches the stale-finding
 snapshot. A completed `clean` or `warn` check requires that timestamp and a finding count that

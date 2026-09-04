@@ -138,6 +138,11 @@ reference, verification badge, presentation artifact, or execution trajectory. W
 Slack preserve that same validated claim-free terminal response. Core does not replace a successful
 direct response with a fixed greeting or self-introduction template.
 
+When a structured artifact includes content beyond its overview, the Console renders the canonical
+verified natural-language answer first and the table, chart, timeline, or other component below it.
+The client does not regenerate or reinterpret the summary. Verification, scope, truncation, and
+limitation statements therefore remain identical to the canonical answer used by other channels.
+
 ### Receipt-bound answer authority
 
 Core assigns answer authority when its server-owned function registry issues the execution receipt.

@@ -61,6 +61,30 @@ assignment case. The case coordinates two effects:
 
 ![Design at a glance. The main stages are Owner searches Entra, Assignment case, Validate identity, role, coverage, and separation, Independent human review, Ownership draft PR, Reviewed merge, Allowlisted IAM group mutation, Convergence check, Bounded handover invitation, Governed documents and answers, Chunk, index, ontology candidates, and audit.](../../diagrams/generated/fdai-roadmap-interfaces-human-agent-assignment-and-knowledge-handover-01.en.svg)
 
+## Current owners read model and Console
+
+The additive Current owners record is joined by the Operator service from the reviewed declaration,
+bounded identity-directory hints, and Owner-visible assignment cases. The browser validates and
+renders that record but never joins those sources, treats a display name as authority, or hides a
+missing binding, schema migration, identity check, or backup-coverage gap.
+The aggregate route assembly applies this decorator to `/stewardship` for every production or
+development composition, while unrelated operation projections pass through unchanged.
+If assignment evidence is unavailable, the Current owners view keeps the reviewed ownership map
+and marks only pending-change evidence unavailable.
+A bounded assignment page is labeled partial whenever its total, cursor, or source truncation flag
+shows that more cases exist.
+The browser cross-checks Current owners agent order, maintainers, exact subjects, distinct
+primary and backup counts, and summary totals against the validated stewardship map. Drift fails
+the panel instead of selecting one version.
+Current owners exposes an explicit refresh. It retains the last ready projection while the new read
+is in flight and replaces it only with the next terminal ready, unavailable, or error state. The
+mobile refresh control retains the shared 44 px touch target.
+At container-constrained desktop and mobile widths, Current owners changes the wide comparison
+table into labeled per-agent records. The responsive presentation preserves every field and does
+not change scope or evidence.
+Current owners localizes assignment lifecycle states and keeps the full source digest in disclosed
+technical details instead of presenting machine values as primary operator copy.
+
 ## Decisions and boundaries
 
 - **One workflow, separate authorities:** `AssignmentCase` coordinates RBAC and ownership but

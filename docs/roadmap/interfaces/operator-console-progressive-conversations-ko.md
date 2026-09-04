@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: a3434e3dbdbdabd9bc9fe1d00b52ace0c0b1b08f
-translation_revised: 2026-09-03
+translation_source_sha: 559ca67d65c20a92c2da192e1d8ceb5abdaa751a
+translation_revised: 2026-09-04
 ---
 # 오퍼레이터 콘솔 점진적 대화
 
@@ -135,6 +135,11 @@ Full-workspace 웹 채팅은 대화 기록 중심으로 열립니다. 새 빈 �
 표현 산출물 또는 실행 궤적은 포함하지 않습니다. Web, Teams 및 Slack은 운영 주장이 없는 동일한
 검증된 최종 응답을 보존합니다. Core는 성공한 직접 응답을 고정 인사 또는 자기소개 템플릿으로
 대체하지 않습니다.
+
+구조화된 산출물에 개요 이외의 콘텐츠가 있으면 Console은 정본 검증 자연어 답변을 먼저 표시하고
+그 아래에 표, 차트, 타임라인 또는 다른 컴포넌트를 표시합니다. 클라이언트는 요약을 다시 만들거나
+재해석하지 않습니다. 따라서 검증, 범위, 잘림 및 한계 설명은 다른 채널에서 사용하는 정본 답변과
+동일하게 유지됩니다.
 
 ### 증적에 결속된 답변 권한
 
