@@ -263,6 +263,19 @@ class PostgresIamAdapters:
             None,
         )
 
+    async def get_steward_subject_by_id(
+        self,
+        subject_id: str,
+        *,
+        kind: str,
+    ) -> DirectoryIdentity | None:
+        """Resolve an exact materialized stewardship user or group."""
+        identity = await self.get_by_subject_id(subject_id)
+        if identity is None:
+            return None
+        expected_type = "group" if kind == "group" else "person"
+        return identity if identity.principal_type == expected_type else None
+
     async def directory_status(self) -> DirectoryStatus:
         """Return materialized directory availability without inferred freshness."""
         await self._projection("directory")

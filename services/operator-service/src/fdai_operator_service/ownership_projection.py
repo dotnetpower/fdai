@@ -29,6 +29,7 @@ from fdai_operator_service.families.iam.contracts import (
     HumanIdentityDirectory,
     HumanIdentityDirectoryStatus,
     IamPrincipal,
+    StewardshipIdentityDirectory,
 )
 from fdai_operator_service.families.operations.contracts import (
     ProjectionQuery,
@@ -160,7 +161,15 @@ async def _resolve_subjects(
             return ref, "placeholder"
         try:
             async with semaphore:
-                identity = await directory.get_by_subject_id(subject_id)
+                if kind == "group":
+                    if not isinstance(directory, StewardshipIdentityDirectory):
+                        return ref, "unavailable"
+                    identity = await directory.get_steward_subject_by_id(
+                        subject_id,
+                        kind=kind,
+                    )
+                else:
+                    identity = await directory.get_by_subject_id(subject_id)
         except Exception:  # noqa: BLE001 - provider details must not cross the API boundary.
             return ref, "unavailable"
         if identity is None:

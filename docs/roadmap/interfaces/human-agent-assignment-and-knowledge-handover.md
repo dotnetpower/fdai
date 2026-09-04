@@ -42,6 +42,7 @@ approval, conversation, and document ingestion while keeping each authority inde
 - [ ] Retain one governed deployment receipt where the Current owners projection reports schema v2, no placeholder subjects, and verified primary plus distinct backup or escalation coverage for every non-autonomous agent.
 - [ ] Publish one typed IAM apply request only after the matching ownership receipt, then prove allowlisted convergence and ownership-aware rollback without granting the ingestion or Operator services Graph write authority.
 - [ ] Complete goal-to-upload binding, ACL-filtered retrieval, agent-owned gap and candidate events, localized Bragi rendering, conflict review, staleness, and deletion propagation.
+- [ ] Add an explicitly typed group or schedule subject to `AssignmentCase` before the assignment API accepts either subject type; stewardship group display remains a separate read-only capability.
 - [ ] Retain separate promotion evidence for IAM mutation, non-response rung dispatch, and proactive handover; any exhausted approval must remain an audited no-op.
 - [ ] Exercise add, reject, timeout, escalation, revoke, rollback, restart, provider outage, and disaster-recovery drills before marking the workflow `validated`.
 

@@ -1,6 +1,6 @@
 ---
 translation_of: agent-stewardship-and-handover.md
-translation_source_sha: 3055d374c22fdda1054c8671d46d6b16740140bd
+translation_source_sha: 491694e9eddae8b5d6d56eb77575e457ccd0c91a
 translation_revised: 2026-09-04
 title: 에이전트 스튜어드십과 인수인계
 ---
@@ -245,6 +245,9 @@ notifications 매트릭스는 **channel-id**로 라우팅하지만 담당자는 
 `GroupMembershipProvider`(포크에서는 Graph 기반, 테스트에서는 static)를 통해 그룹 멤버로 확장한다.
 확장은 최선 노력다: 프로바이더가 사용 불가면 그룹을 하나의 불투명한 `accountable` 단위로 취급해
 도메인 채널로 라우팅하고 경고를 남긴다. 제어 루프는 Graph에서 절대 블록되지 않는다.
+Operator 서비스는 별도 `StewardshipIdentityDirectory` 읽기 포트를 사용해 정확한 그룹을
+표시합니다. 이 읽기 전용 화면에서 그룹을 확인할 수 있다는 이유만으로 사용자 할당의 정확한
+사용자 조회가 그룹을 수락하지 않습니다.
 
 ## 7. 검증 게이트 (검증 표면)
 

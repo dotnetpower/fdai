@@ -257,6 +257,9 @@ resolver expands it to the group's members through an injected
 best-effort: if the provider is unavailable, the group is treated as one opaque
 `accountable` unit routed on the domain channel, and a warning is logged. The
 control loop never blocks on Graph.
+The Operator service uses a separate `StewardshipIdentityDirectory` read port to display an exact
+group. The human-assignment exact-user lookup does not accept a group merely because this
+read-only view can resolve one.
 
 ## 7. Validation gates (the verification surface)
 

@@ -249,10 +249,23 @@ class EntraHumanIdentityDirectory:
                 params={"$select": "id,displayName,userPrincipalName,mail,userType,accountEnabled"},
             )
         except httpx.HTTPStatusError as exc:
-            if exc.response.status_code != 404:
-                raise
-        else:
-            return _user(payload)
+            if exc.response.status_code == 404:
+                return None
+            raise
+        return _user(payload)
+
+    async def get_steward_subject_by_id(
+        self,
+        subject_id: str,
+        *,
+        kind: str,
+    ) -> DirectoryIdentity | None:
+        """Resolve a stewardship user or group without widening assignment identity."""
+        if kind == "user":
+            return await self.get_by_subject_id(subject_id)
+        if kind != "group":
+            raise ValueError("steward subject kind MUST be user or group")
+        normalized = _component(subject_id, "subject id")
         try:
             group = await self._get_json(
                 f"/groups/{normalized}",

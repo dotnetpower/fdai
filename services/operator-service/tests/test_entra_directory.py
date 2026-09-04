@@ -161,10 +161,12 @@ async def test_exact_subject_lookup_resolves_users_and_groups() -> None:
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         directory = EntraHumanIdentityDirectory(client=client, token_provider=_token)
         user = await directory.get_by_subject_id("user-1")
-        group = await directory.get_by_subject_id("group-1")
+        group_as_user = await directory.get_by_subject_id("group-1")
+        group = await directory.get_steward_subject_by_id("group-1", kind="group")
 
     assert user is not None
     assert user.principal_type == "person"
+    assert group_as_user is None
     assert group is not None
     assert group.principal_type == "group"
     assert group.display_name == "Example Operations"

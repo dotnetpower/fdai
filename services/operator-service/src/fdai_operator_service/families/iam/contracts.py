@@ -182,6 +182,18 @@ class HumanIdentityDirectoryStatus(Protocol):
     async def directory_status(self) -> DirectoryStatus: ...
 
 
+@runtime_checkable
+class StewardshipIdentityDirectory(Protocol):
+    """Resolve exact user or group subjects for the read-only ownership projection."""
+
+    async def get_steward_subject_by_id(
+        self,
+        subject_id: str,
+        *,
+        kind: str,
+    ) -> DirectoryIdentity | None: ...
+
+
 @dataclass(frozen=True, slots=True)
 class AccessRequestQuery:
     """Bounded principal-scoped access request page query."""

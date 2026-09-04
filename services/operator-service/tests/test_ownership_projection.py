@@ -89,6 +89,25 @@ class _Directory:
             observed_at=datetime(2026, 9, 4, tzinfo=UTC),
         )
 
+    async def get_steward_subject_by_id(
+        self,
+        subject_id: str,
+        *,
+        kind: str,
+    ) -> DirectoryIdentity | None:
+        if kind == "user":
+            return await self.get_by_subject_id(subject_id)
+        self.lookups.append(subject_id)
+        return DirectoryIdentity(
+            provider="entra",
+            subject_id=subject_id,
+            username=f"Group {subject_id}",
+            display_name=f"Group {subject_id}",
+            active=True,
+            user_type="group",
+            principal_type="group",
+        )
+
 
 class _Assignments:
     def __init__(self) -> None:
@@ -251,6 +270,20 @@ async def test_mismatched_directory_subject_is_never_presented_as_resolved() -> 
     assert subject["display_name"] is None
     assert subject["resolution"] == "kind_mismatch"
     assert ownership["deployment_readiness"] == "review_required"
+
+
+async def test_group_stewards_use_the_separate_ownership_lookup() -> None:
+    payload = _payload()
+    payload["map"]["agents"][0]["stewards"][1].update(  # type: ignore[index]
+        {"kind": "group", "id": "group-1"},
+    )
+    reader = OwnershipProjectionReader(_Fallback(payload), _Directory(), None)
+
+    result = await reader.read(_query())
+
+    backup = result["current_ownership"]["agents"][0]["subjects"][1]
+    assert backup["display_name"] == "Group group-1"
+    assert backup["principal_type"] == "group"
 
 
 async def test_schema_v1_is_readable_but_requires_migration() -> None:
