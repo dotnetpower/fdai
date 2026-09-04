@@ -1,7 +1,7 @@
 ---
 title: 근본원인 분석
 translation_of: root-cause-analysis.md
-translation_source_sha: 5d45b51041130c8bbf63da01f3e52e04d12a9dd6
+translation_source_sha: 9464302b8fb09be15990948e5f4398f3b6342004
 translation_revised: 2026-09-04
 ---
 # 근본원인 분석
@@ -103,6 +103,13 @@ opaque `knowledge:<source_ref>#<chunk_id>` handle을 사용합니다. Reasoner�
 Knowledge 수집은 `doc_id`별 완전한 교체 의미 체계를 사용합니다. 새 개정은 같은 트랜잭션에서
 오래된 조각을 제거하고, 빈 교체는 해당 문서의 모든 조각을 삭제합니다. 메모리 구현과 pgvector
 구현이 같은 동작을 사용하므로 연결기 삭제 및 개정 전파 후에 오래된 텍스트가 검색되지 않습니다.
+
+관리되는 업로드 문서는 별도 경로를 사용합니다. `GovernedDocumentEvidenceReadAdapter`는 문서
+전용 `OperationalEvidenceBundle`을 만들기 전에 문서 접근 프로바이더와 컬렉션 범위 검색을
+적용합니다. 이후 `GovernedKnowledgeEvidenceGatherer`가 주체, 목적, 범위, 기준 시각, 문서 개정
+번호, 접근 맥락, 가림 상태 및 인용 매니페스트를 검증한 뒤 불투명한
+`CitationKind.KNOWLEDGE` 참조를 제공합니다. 관리되는 맥락이 없거나 수락되지 않으면 RCA 결과를
+보류하며 범위가 없는 `KnowledgeSource`로 대체하지 않습니다.
 
 ## 결정론적 T1 인과사슬
 

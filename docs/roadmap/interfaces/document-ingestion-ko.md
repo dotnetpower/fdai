@@ -1,8 +1,8 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: 1b284969802a200f27ba4df2bf25c8b4a6d7913f
-translation_revised: 2026-08-29
+translation_source_sha: 66ba68921f3f142eeaa8fd4309e30d1f284cf7d5
+translation_revised: 2026-09-04
 ---
 # 문서 인제스트와 투입 구역
 
@@ -402,6 +402,10 @@ Knowledge 인덱싱과 수동 정제는 이 묶음을 소비합니다. 온톨로
 동점은 안정적인 조각 ID로 결정합니다. 반환되는 `score`는 `0.0`부터 `1.0`까지로 정규화된
 결합 점수이며 원시 코사인 유사도가 아닙니다. 통제된 조각에는 표시를 추가하며 범위가 지정되지
 않은 자유 형식 Knowledge 출처 조회 경로에서는 제외합니다.
+RCA는 별도의 관리되는 문서 어댑터를 통해서만 해당 조각을 사용할 수 있습니다. 이 어댑터는
+컬렉션 및 문서 권한을 다시 확인하고 현재 문서 개정 번호, 목적, 범위, 기준 시각, 가림 상태 및
+인용 매니페스트를 `OperationalEvidenceBundle`에 결속합니다. 수락되지 않으면 분석을 보류하며
+범위가 지정되지 않은 인덱스로 대체하지 않습니다.
 
 ## 보안과 content-safety 파이프라인
 
@@ -614,6 +618,7 @@ rich format이 필요할 때 의존성 주입으로 프로바이더를 교체할
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-04 | implemented | 별도의 관리되는 문서 RCA 근거 소비자를 추가했습니다. 컬렉션 범위 검색을 사용하고 현재 메타데이터와 권한을 다시 확인하며, 범위가 지정되지 않은 KnowledgeSource를 열지 않고 개정 번호, 목적, 범위, 기준 시각, 가림 및 인용 근거를 결속합니다. | `current change`; 집중 관리 문서 어댑터, RCA 조정기 및 OperationalEvidenceBundle 검사입니다. | 배포 소유의 관리되는 맥락 프로바이더를 연결하고 5-service 운영 증적을 보존합니다. |
 | 2026-08-14 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 계약, core 수명 주기, service 패키지, 어댑터 및 focused 검사입니다. | Exact-topology, protection 프로바이더, connector 및 규모 근거를 완료해야 합니다. |
 
 ### 남은 작업

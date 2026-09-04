@@ -46,6 +46,10 @@ from fdai.shared.contracts.models import Rule
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from fdai.core.chaos.symptom_index import SymptomIndex
+    from fdai.core.rca.governed_knowledge_evidence import (
+        GovernedKnowledgeEvidenceContext,
+        GovernedKnowledgeEvidenceGatherer,
+    )
 
 
 class RcaCoordinator:
@@ -59,6 +63,7 @@ class RcaCoordinator:
         evidence_gatherer: TelemetryEvidenceGatherer | None = None,
         symptom_index: SymptomIndex | None = None,
         knowledge_gatherer: KnowledgeEvidenceGatherer | None = None,
+        governed_knowledge_gatherer: GovernedKnowledgeEvidenceGatherer | None = None,
     ) -> None:
         if not 0.0 <= min_confidence <= 1.0:
             raise ValueError("min_confidence MUST be in [0, 1]")
@@ -75,6 +80,9 @@ class RcaCoordinator:
         # operator documents (runbooks, resource plans) grounded on the
         # incident summary. None => backward-compatible (no knowledge leg).
         self._knowledge_gatherer = knowledge_gatherer
+        # Governed documents use a separate principal-scoped evidence path.
+        # Supplying its context never falls back to the unscoped source above.
+        self._governed_knowledge_gatherer = governed_knowledge_gatherer
 
     @property
     def has_t2(self) -> bool:
@@ -90,6 +98,12 @@ class RcaCoordinator:
     def has_knowledge(self) -> bool:
         """True iff a free-form knowledge evidence gatherer is bound."""
         return self._knowledge_gatherer is not None
+
+    @property
+    def has_governed_knowledge(self) -> bool:
+        """True iff a principal-scoped governed knowledge gatherer is bound."""
+
+        return self._governed_knowledge_gatherer is not None
 
     def analyze_t0(
         self,
@@ -237,6 +251,7 @@ class RcaCoordinator:
         since: datetime,
         until: datetime,
         extra_citations: Sequence[Citation] = (),
+        governed_knowledge_context: GovernedKnowledgeEvidenceContext | None = None,
     ) -> RcaResult:
         """Gather telemetry evidence, then run T2 analysis grounded on it.
 
@@ -256,8 +271,13 @@ class RcaCoordinator:
                     resource_ref=resource_ref, since=since, until=until
                 )
             )
-        if self._knowledge_gatherer is not None:
-            candidates.extend(await self._knowledge_gatherer.gather(query=incident_summary))
+        knowledge_citations, hold = await self._knowledge_candidates(
+            query=incident_summary,
+            governed_context=governed_knowledge_context,
+        )
+        if hold is not None:
+            return hold
+        candidates.extend(knowledge_citations)
         return await self.analyze_t2(
             incident_summary=incident_summary,
             candidate_citations=tuple(candidates),
@@ -275,6 +295,7 @@ class RcaCoordinator:
         until: datetime | None = None,
         extra_citations: Sequence[Citation] = (),
         max_scenario_candidates: int = 8,
+        governed_knowledge_context: GovernedKnowledgeEvidenceContext | None = None,
     ) -> RcaResult:
         """T2 analysis grounded on catalog scenarios + optional telemetry.
 
@@ -323,12 +344,46 @@ class RcaCoordinator:
                     resource_ref=resource_ref, since=since, until=until
                 )
             )
-        if self._knowledge_gatherer is not None:
-            candidates.extend(await self._knowledge_gatherer.gather(query=incident_summary))
+        knowledge_citations, hold = await self._knowledge_candidates(
+            query=incident_summary,
+            governed_context=governed_knowledge_context,
+        )
+        if hold is not None:
+            return hold
+        candidates.extend(knowledge_citations)
         return await self.analyze_t2(
             incident_summary=incident_summary,
             candidate_citations=tuple(candidates),
         )
+
+    async def _knowledge_candidates(
+        self,
+        *,
+        query: str,
+        governed_context: GovernedKnowledgeEvidenceContext | None,
+    ) -> tuple[tuple[Citation, ...], RcaResult | None]:
+        if governed_context is not None:
+            if self._governed_knowledge_gatherer is None:
+                return (), _governed_knowledge_hold("gatherer_unavailable")
+            result = await self._governed_knowledge_gatherer.gather(
+                query=query,
+                context=governed_context,
+            )
+            if result.hold_required:
+                reason = result.hold_reasons[0]
+                return (), _governed_knowledge_hold(reason)
+            return result.citations, None
+        if self._knowledge_gatherer is not None:
+            return await self._knowledge_gatherer.gather(query=query), None
+        return (), None
+
+
+def _governed_knowledge_hold(reason: str) -> RcaResult:
+    return RcaResult(
+        outcome=RcaOutcome.ABSTAINED,
+        hypothesis=None,
+        reason=f"governed_knowledge_evidence_held:{reason}",
+    )
 
 
 __all__ = ["RcaCoordinator"]

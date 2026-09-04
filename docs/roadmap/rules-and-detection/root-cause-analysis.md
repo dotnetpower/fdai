@@ -102,6 +102,13 @@ obsolete chunks in the same transaction, and an empty replacement deletes every 
 document. The in-memory and pgvector implementations share this behavior so connector deletion and
 revision propagation do not leave stale text searchable.
 
+Governed uploaded documents use a separate path. `GovernedDocumentEvidenceReadAdapter` applies the
+document access provider and collection-scoped search before it creates a document-only
+`OperationalEvidenceBundle`. `GovernedKnowledgeEvidenceGatherer` then verifies the principal,
+purpose, scope, cutoff, document revision, access context, redaction state, and citation manifest
+before it emits opaque `CitationKind.KNOWLEDGE` refs. A missing or rejected governed context holds
+the RCA result and never falls back to the unscoped `KnowledgeSource`.
+
 ## Deterministic T1 causal chain
 
 `core/rca/causal_chain.py` (`CausalChainAnalyzer`) and `core/rca/t1.py` reconstruct the most probable

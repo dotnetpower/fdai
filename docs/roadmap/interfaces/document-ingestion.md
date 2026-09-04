@@ -398,6 +398,10 @@ semantic and lexical candidate sets from the same authorized relation, combines 
 reciprocal-rank fusion, and uses the stable chunk id to break every tie. The returned `score` is the
 normalized fusion score in the range `0.0` through `1.0`; it is not a raw cosine similarity.
 Governed chunks are marked and excluded from the unscoped free-form Knowledge Source query path.
+RCA can consume those chunks only through the separate governed-document adapter, which reruns
+collection and document authorization and binds the current document revision, purpose, scope,
+cutoff, redaction, and citation manifest into an OperationalEvidenceBundle. Rejection holds the
+analysis and never falls back to the unscoped index.
 
 ## Security and content-safety pipeline
 
@@ -617,6 +621,7 @@ Fork decisions that require approved evidence:
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-04 | implemented | Added the separate governed-document RCA evidence consumer. It uses collection-scoped search, rechecks current metadata and authorization, and binds revision, purpose, scope, cutoff, redaction, and citation evidence without opening the unscoped KnowledgeSource. | `current change`; focused governed-document adapter, RCA coordinator, and OperationalEvidenceBundle checks. | Bind the deployment-owned governed context provider and retain the five-service operational receipt. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. | `current change`; current contracts, core lifecycle, service packages, adapters, and focused checks listed in the scope table. | Close exact-topology, protection-provider, connector, and scale evidence. |
 
 ### Remaining work
