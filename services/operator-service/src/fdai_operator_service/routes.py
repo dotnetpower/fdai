@@ -76,6 +76,7 @@ from fdai_operator_service.families.workflow import (
     WorkflowReadStore,
     build_workflow_family_routes,
 )
+from fdai_operator_service.ownership_projection import OwnershipProjectionReader
 from fdai_operator_service.projections import ProjectionUnavailableError
 from fdai_operator_service.redaction import redact_projection
 from fdai_operator_service.streaming import LiveStreamHub, make_live_stream_route
@@ -459,7 +460,11 @@ def build_operator_app(
         ),
         *build_operations_routes(
             authenticator=authenticator,
-            projection_reader=route_families.operations_projection_reader,
+            projection_reader=OwnershipProjectionReader(
+                fallback=route_families.operations_projection_reader,
+                directory=route_families.iam.directory,
+                assignments=route_families.iam.assignments,
+            ),
             proposal_writer=route_families.operations_proposal_writer,
             replay_reader=route_families.operations_replay_reader,
             webhook_verifier=route_families.operations_webhook_verifier,

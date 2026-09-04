@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: a5e9a268ed19c13060c097820df7ab63613435e1
-translation_revised: 2026-08-31
+translation_source_sha: 9568d157cd32aa072923640bf5d7c9c7eb38145b
+translation_revised: 2026-09-04
 ---
 
 # 온톨로지 기반 FinOps 패키지 아키텍처
@@ -189,6 +189,8 @@ Core는 `fdai_cost_governance`를 가져오지 않습니다. 설치된 배포판
 호스트 연결부로 유지됩니다. 이 연결부에 Azure Monitor 수집이나 백그라운드 작업 변환 결과 같은
 독립 기능을 추가해도 비용 거버넌스 동작으로 등록되지는 않습니다. 비용 거버넌스는 검토된 패키지 매니페스트, 정확한 번들,
 프로바이더 요구 사항 및 배포 gate를 통해서만 활성화됩니다.
+통합 Operator 라우트 조립은 담당 체계 읽기에 담당자 ID 근거를 보강할 수 있습니다. 모든 비용
+거버넌스 작업은 이 데코레이터를 변경 없이 통과합니다.
 Operator 의미 스트림의 대체 경로도 호스트 연결부로 유지됩니다. 원시 PostgreSQL 어댑터 앞에서
 `ConversationAssuranceReader`를 보존하며 비용 거버넌스 가용성, 활성화 또는 패키지 소유권은
 변경하지 않습니다.

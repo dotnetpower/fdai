@@ -54,6 +54,8 @@ The additive Current owners record is joined by the Operator service from the re
 bounded identity-directory hints, and Owner-visible assignment cases. The browser validates and
 renders that record but never joins those sources, treats a display name as authority, or hides a
 missing binding, schema migration, identity check, or backup-coverage gap.
+The aggregate route assembly applies this decorator to `/stewardship` for every production or
+development composition, while unrelated operation projections pass through unchanged.
 If assignment evidence is unavailable, the Current owners view keeps the reviewed ownership map
 and marks only pending-change evidence unavailable.
 A bounded assignment page is labeled partial whenever its total, cursor, or source truncation flag

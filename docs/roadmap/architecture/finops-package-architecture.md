@@ -190,6 +190,8 @@ The shared service-contract export, Operator composition root, and Console messa
 multi-capability host seams. Adding an independent capability such as Azure Monitor ingestion or
 background-task projection does not register Cost Governance behavior. Cost Governance activates only from
 its reviewed package manifest, exact bundle, provider requirements, and deployment gate.
+The aggregate Operator route assembly may decorate the stewardship read with ownership identity
+evidence. Every Cost Governance operation passes through that decorator unchanged.
 The Operator semantic stream fallback also remains a host seam: it preserves
 `ConversationAssuranceReader` before the raw PostgreSQL adapter without changing Cost Governance
 availability, enablement, or package ownership.

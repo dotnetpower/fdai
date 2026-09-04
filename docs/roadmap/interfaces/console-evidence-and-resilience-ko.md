@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 6d6de7dc0c6b68e5b0054bcace0bb6d9eb3c2bba
+translation_source_sha: 799d360ade44010ca7944fde92384eb90fd4a7b5
 translation_revised: 2026-09-04
 ---
 # 콘솔 근거 및 복원력
@@ -64,6 +64,8 @@ desktop 한 행에 6개씩 배치하며 attention priority와 최신 관찰 순�
 식별 정보, Owner에게 보이는 할당 케이스를 결합해 만듭니다. 브라우저는 이 레코드를 검증하고
 표시하지만 원본을 직접 결합하거나 표시 이름을 권한으로 취급하지 않습니다. 또한 누락된 연결,
 스키마 이행, ID 검사, 백업 범위 공백을 숨기지 않습니다.
+통합 라우트 조립은 운영 및 개발 구성의 `/stewardship`에 이 데코레이터를 적용하며, 관련 없는
+운영 변환 결과는 변경 없이 통과시킵니다.
 할당 근거를 사용할 수 없으면 현재 담당자 화면은 검토된 담당 체계를 유지하고 변경 대기 근거만
 사용할 수 없는 상태로 표시합니다.
 범위가 제한된 할당 페이지는 전체 개수, 커서 또는 원본 절단 플래그에서 추가 케이스가 있음을
