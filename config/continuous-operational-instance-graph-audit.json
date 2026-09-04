@@ -471,7 +471,7 @@
     {
       "id": "archive-lifecycle",
       "family": "archive",
-      "state": "implemented",
+      "state": "in-progress",
       "owner": {
         "status": "assigned",
         "path": "services/core-control-plane/src/fdai/core/ontology_platform/archive_manifest.py",
@@ -484,7 +484,7 @@
           "symbol": "evaluate_restore_sample"
         },
         {
-          "state": "bound",
+          "state": "partial",
           "path": "services/core-control-plane/src/fdai/delivery/operational_archive_purge.py",
           "symbol": "OperationalArchivePurgeCoordinator"
         },
@@ -505,7 +505,7 @@
         "tests/integration/test_operational_instance_retention.py",
         "tests/integration/services/test_service_migration_inventory.py"
       ],
-      "missing_binding": null
+      "missing_binding": "A production archive partition writer, principal-scoped reader, concrete ArchiveSourcePurger, and scheduled runtime binding are not implemented."
     }
   ]
 }

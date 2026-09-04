@@ -147,6 +147,110 @@ promote the global snapshot or replace the global ontology projection.
 | Rollup | Typed hourly, daily, or policy-selected aggregates with source coverage and completeness | Used for long-range trends when exact events are not required. |
 | Archive | Immutable compressed partitions plus content-addressed manifests, provenance, retention class, and restore metadata | Read only through an explicit historical retrieval path. |
 
+### Bounded observation history
+
+The durable target is an append-only normalized observation journal, not indefinite retention of
+provider payloads. A journal record carries one bounded fact or change hint and pins its source
+schema and ontology release. The current runtime does not yet provide this general resource journal.
+
+Each record distinguishes these meanings:
+
+- **Change hint:** A provider reports that a resource changed, but does not provide complete
+  properties. The record uses an explicit property mask and cannot replace unobserved values.
+- **Full observation:** An authoritative read returns the complete reviewed property set for one
+  resource or relationship at its source revision.
+- **Partial observation:** A bounded read returns only named properties. Projection merges only the
+  declared mask and keeps the remaining values qualified by their earlier evidence.
+- **Tombstone candidate:** A delete signal makes the exact target unavailable for action but does
+  not prove scope-wide absence until an exact read or complete reconciliation confirms it.
+- **Confirmed tombstone:** Re-observation or complete reconciliation confirms deletion and records
+  the resource incarnation, effective time, source revision, and evidence reference.
+
+The journal keeps provider event time, effective time, observation time, ingestion time, recorded
+time, and evidence cutoff distinct. It also keeps source identity, source event id, cursor or
+revision, scope, completeness, conflicts, property mask, content digest, and retention class.
+Operation status such as a successful write remains change metadata and never becomes resource
+operational state.
+
+A resource id can be reused after deletion. Projection therefore assigns a resource incarnation
+from an immutable provider identity, generation, or independently verified lifecycle boundary.
+Object and relationship observations refer to the incarnation. Name matching, event order alone,
+or an inferred recreation cannot join two lifecycles.
+
+### Retention policy and partition lifecycle
+
+A deployment-owned retention policy registry assigns each fact family its purpose, hot and warm
+retention, archive class, hold behavior, deletion method, and review date. Repository defaults
+define safe bounds only. They do not impose one tenant retention period.
+
+| Fact family | Hot or warm treatment | Long-term treatment |
+|-------------|-----------------------|---------------------|
+| Change hints and superseded partial observations | Short exact replay window | Purge after a verified checkpoint and archive policy allow it. |
+| Full object and relationship observations | Detailed replay window | Checkpoint, archive, or retain according to the registered purpose. |
+| Confirmed tombstones and incarnation boundaries | Retain beyond ordinary deltas | Preserve enough lineage to prevent identity reuse and false absence. |
+| State transitions and coverage | Retain by semantic and incident requirements | Typed rollup or archive without claiming unseen intermediate transitions. |
+| Audit, approval, execution, and rollback evidence | Separate governed schedule | Never inherit inventory retention implicitly. |
+| Manifests, coverage indexes, hold events, and purge receipts | Minimal durable metadata | Outlive the source partitions they describe. |
+
+PostgreSQL journal and history tables use time-and-scope range partitions. A partition advances
+through `open`, `sealed`, `checkpointed`, `archived`, `verified`, `purge_eligible`, and `purged`.
+`held` and `correction_pending` block forward progress. Row deletion is not the normal lifecycle;
+the purger detaches and drops an exact partition only after every gate passes.
+
+A checkpoint is purge authority only when it binds:
+
+- the first and last included journal watermark;
+- scope, resource type, object, relationship, and property coverage;
+- source, schema, ontology release, and projection digests;
+- missing, quarantined, conflicted, and tombstoned record counts;
+- the resulting current-graph digest and projection watermark.
+
+The journal high watermark and projection high watermark appear on every current graph receipt.
+When the journal is ahead, an unresolved partial observation exists, or a tombstone awaits
+confirmation, the graph reports incomplete evidence. Neither a snapshot nor an archive manifest
+can hide that gap.
+
+Late observations are appended to a correction partition. They never rewrite an immutable
+partition. The correction invalidates affected checkpoints, rollups, and archive coverage until a
+new content-addressed correction manifest and replay receipt close the interval. Older events can
+improve history but cannot move current state backward.
+
+An active incident, investigation, approval, execution, rollback, legal hold, or replay lease pins
+every referenced partition. Evidence references resolve back to partitions so retention cannot
+remove an active case dependency. A release event is append-only and separately authorized.
+
+### Capacity and failure behavior
+
+Archive failure stops purge, but it cannot be allowed to fill PostgreSQL silently. Each deployment
+sets warning, critical, and hard storage budgets plus maximum purge backlog and projection lag.
+Crossing a threshold progressively:
+
+1. reports storage pressure and projected exhaustion time;
+2. increases archive and checkpoint priority;
+3. reduces nonessential enrichment and reconciliation frequency within freshness limits;
+4. applies source-specific admission budgets while preserving critical observations;
+5. holds completeness-dependent queries and mutations when evidence can no longer be retained.
+
+The system never deletes unverified data, samples required audit evidence, or reports a complete
+graph to reduce pressure. Recovery requires a successful archive verification, restore sample,
+partition purge, and fresh projection receipt.
+
+### Operational closure gates
+
+Bounded history is operationally complete only when one pinned deployment revision proves all of
+these outcomes:
+
+| Gate | Required evidence |
+|------|-------------------|
+| Deterministic replay | Duplicate, reordered, late, partial, delete, recreate, and restart cases produce the same current digest. |
+| Bounded growth | Steady-state storage, WAL, index growth, and purge backlog remain within configured budgets at the measured change rate. |
+| Safe compaction | No partition is purged before checkpoint coverage, archive verification, restore sampling, reference pinning, and hold evaluation pass. |
+| Historical continuity | Warm history replays directly; older history restores through a principal-scoped archive path with explicit gaps. |
+| Failure isolation | Archive, database, provider, and scheduler failures degrade freshness or completeness without losing accepted observations. |
+| Schema evolution | N and N-1 readers replay retained observations and preserve original and transformed digests. |
+| Disaster recovery | Database restore and archive-index rebuild recover the same coverage and projection watermarks. |
+| Security and privacy | Redaction, encryption, key rotation, access review, residency, deletion, and legal-hold evidence match the deployment policy. |
+
 ### Rollup rules
 
 Rollups are semantic-policy driven. A gauge, counter, categorical state, relationship change, and
@@ -220,7 +324,7 @@ work, or an open stage that does not name its exact gap.
 | Adaptive scheduling | implemented | Validated source policies and a pure reducer consume freshness, lag, demand, provider pressure, `Retry-After`, remaining budget, concurrency, circuit-open state, and recovery probes. PostgreSQL supplies durable due state, and the principal-safe health projection exposes the next bounded action. |
 | Retention and holds | implemented | The archive purge coordinator blocks deletion until exact verification, restore sampling, and retention or legal-hold evaluation pass. Append-only PostgreSQL receipts preserve blocked, pending, failed, successful, and retry outcomes. |
 | Typed rollup | implemented | Fact-specific policies separately aggregate gauges, counters, categorical state, relationship changes, and evidence health while preserving source and generation lineage, bitemporal ranges, missing intervals, observed zero, conflicts, completeness, and mergeable count and sum. Percentiles remain unavailable. |
-| Archive lifecycle | implemented | Content-addressed manifests pin source partitions, schema versions, ontology releases, counts, and coverage. Verification, restore sampling, archive coverage receipts, holds, and safe-to-retry purge receipts are append-only through the Core service migration. |
+| Archive lifecycle | in-progress | Content-addressed manifests and append-only verification, restore, coverage, hold, and purge receipts are implemented. A production partition writer, principal-scoped reader, concrete source purger, and scheduled runtime binding remain open. |
 
 ## Implementation status
 
@@ -235,7 +339,9 @@ work, or an open stage that does not name its exact gap.
 | Immutable Pod replacement correlation | in-progress | `kubernetes_pod_replacement_evidence.py`, `core/investigation/kubernetes_pod.py`, `delivery/pod_evidence_binding.py`; validated lifecycle retention; focused replacement reducer and CLI analyzer-path tests | The deterministic reducer admits exactly one candidate through cluster, namespace, and root-controller UIDs, and recovery requires the fresh Deployment UID to match that root controller. The production `KubernetesPodLifecycleAnalyzer` is bound in `default_analyzers` through the analyzer CLI composition root, and it derives evidence completeness and recovery closure only from the canonical replacement and recovery reducers, carried in a typed finding assessment instead of free-form metadata. A bounded scenario drives the real CLI entry point, distinguishes a same-UID container restart from a distinct-UID Pod replacement, and joins detection latency, evidence completeness, broker publication, and recovery closure in one finding receipt. Pod lifecycle evidence reaches that analyzer only through the `FDAI_POD_LIFECYCLE_EVIDENCE_JSON` composition seam; no live Kubernetes lifecycle collector is bound, so an unbound or malformed binding leaves Pod targets unsupported instead of assumed. Durable lifecycle ingestion supplies the required UID and termination evidence without name correlation or execution authority. Retained receipts are reduced into a Pod lifecycle projection that the authenticated Operator API `/detection-readiness` family and its existing Console route report as four separate answers: current state, failure history, recovery, and evidence gaps. A projection that outlives its own freshness budget withdraws its current state and recovery instead of restating them, a missing, malformed, conflicting, cause-claiming, authority-claiming, or unverified-recovery row makes the section unavailable with a named reason rather than a shortened history, and the surface carries no execution control. An authenticated live delete/recreate scenario remains open under [issue #291](https://github.com/dotnetpower/fdai/issues/291), outside issue #295. |
 | Bitemporal topology history | implemented | `core/ontology_platform/topology_history.py`; PostgreSQL topology history adapter and focused tests | Current production retention, rollup, archive, and restore evidence remains open. |
 | Adaptive continuous scheduling | implemented | `inventory_source_policy.py`, `inventory_scheduler.py`, PostgreSQL reconciliation state, collection health, analyzer tick CLI and local VS Code task, durable publication ledger, and focused collection checks | Source policy and deterministic scheduling are implemented. The deployed Container Apps Job and local background task run the same one-shot analyzer logic and use the same PostgreSQL-backed claim before publication. A completed broker receipt suppresses a repeated same-window finding across process restarts. Active claims fail the tick and stale unsent claims are reclaimable after a bounded lease. The runner records send intent durably before it calls the broker, so a claim is released only when the bus attests that the record was provably not sent; every other publish failure keeps the claim uncertain and requires reconciliation before a retry. An expired send lease and a broker acknowledgement whose receipt could not be recorded both stay uncertain instead of being republished. A claim-store read or write failure fails that finding closed without publishing it. Readiness separates scheduling, target discovery, metric access, event publication, and configured Log Analytics and Prometheus delay floors. Deployed operational measurement remains separate validation evidence. |
-| Typed rollup and archive lifecycle | implemented | `semantic_rollup*.py`, `archive_*.py`, `inventory_rollup.py`, PostgreSQL archive adapter, Core service migration, and focused integration checks | Rollup and archive contracts are implemented and locally verified. No Azure archive store or deployed purge was invoked. |
+| Typed rollup | implemented | `semantic_rollup*.py`, `inventory_rollup.py`, and focused integration checks | Fact-specific aggregation and coverage contracts are implemented and locally verified. |
+| Durable normalized observation history | not-started | [Bounded observation history](#bounded-observation-history) | The current realtime overlay is latest-per-key and the topology store retains complete baselines. A general append-only resource and relationship journal, retention registry, partition lifecycle, correction path, and incarnation boundary are not implemented. |
+| Operational archive and bounded-history purge | in-progress | `archive_*.py`, PostgreSQL archive adapter, Core service migration, and focused integration checks | Contracts and local certification exist. No production archive partition writer or reader, concrete source purger, scheduled lifecycle, or deployed bounded-growth receipt exists. |
 | Graph-first conditional live enrichment | implemented | `graph_evidence_refresh.py`, `graph_query_refresh.py`, `inventory_live_evidence.py`, runtime semantic composition, partial-overlay persistence, and focused tests | Exact-target current-state composition connects graph-first evaluation, one bounded live read, canonical write-through, re-query, and fail-closed hold end to end without action authority. A freshness-constrained Resource result is complete only when every returned Resource carries complete state-fact metadata. |
 | Operational instance semantic correctness | implemented | `operational_instance_competency.py`; focused bilingual action-draft routing checks; typed no-authority receipts | Representative typed competency and OI-11 bilingual positive and negative classification checks pass without answer-text or keyword routing. Full-corpus and scheduled validation are owned by [Continuous Semantic Assurance](../interfaces/continuous-semantic-assurance.md). |
 | Runtime-call evidence binding | implemented | `runtime_calls.yaml`; `runtime_call_projection.py`; `runtime_call_telemetry.py`; `delivery/azure/runtime_call_telemetry.py`; `runtime_call_inventory.py`; `inventory_projection.py`; inventory single-writer and focused endpoint checks | The authenticated producer binds exact envelope identity to independent credential lineage. The Azure query requires both runtime tables and retains unavailable, redacted, and malformed row coverage. Any partial candidate makes the batch incomplete. The reviewed `runtime_calls` LinkType is registered in the projection contract, so verified endpoint direction and Resource cardinality survive current and historical projection. Authenticated runtime evidence remains open. |
@@ -248,6 +354,7 @@ work, or an open stage that does not name its exact gap.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-05 | in-progress | Expanded the bounded-history design after a source-to-store review and corrected archive lifecycle from component completion to an open operational binding. The revised contract now covers normalized observations, property masks, resource incarnations, relationship history, partition states, verified checkpoints, late corrections, active-case pins, storage pressure, schema evolution, and disaster recovery. | `current change`; this design owner and `config/continuous-operational-instance-graph-audit.json`; continuous-graph audit, roadmap tracking, translation, punctuation, and document-size checks. | Implement and validate OI-13 through OI-16 below. No runtime behavior changed in this transition. |
 | 2026-08-31 | implemented | Completed issue #295's deterministic analyzer parity boundary. Analyzer event IDs and window keys are stable, a token-owned PostgreSQL claim suppresses only findings with a completed broker receipt, active claims fail closed, stale claims are reclaimable, and failed sends release their claim. A bounded analyzer-path scenario distinguishes same-UID restart from distinct-UID replacement and emits one receipt joining detection latency, evidence completeness, publication, and recovery closure. | `current change`; analyzer runner, CLI, PostgreSQL publication ledger, Pod replacement analyzer-path scenario, and focused checks (`85 passed`); Ruff passed. | No deployed runtime or Azure receipt was created. Protected deployed certification remains external to issue #295. |
 | 2026-08-31 | implemented | Completed issue #291's reporting surface. Analyzer receipts now carry the target, kind, occurrence, and recovery status they were missing, a Core reducer turns retained receipts into a bounded Pod lifecycle projection, and the authenticated Operator API `/detection-readiness` family plus its existing Console route report current state, failure history, recovery, and evidence gaps as four separate answers on the same endpoint. Detection states no cause and holds no execution authority. Missing, stale, incomplete, and conflicting evidence fail closed: a projection older than its freshness budget withdraws its current state and recovery and reports a stale gap while keeping its history, and one defective row makes the section unavailable with a named reason instead of silently shortening the retained history. | `current change`; 122 focused Python tests across the reducer, recorder, Operator projection, runtime reader, and analyzer tick passed, including an 8-test cross-service end-to-end proof pinned at one revision that drives the real analyzer, ledger, recorder, and Operator reader for same-UID restart, distinct-UID replacement, missed and expired evidence, duplicate suppression, uncertain-then-reconciled delivery, and independently verified recovery, and pins the Console contract as a fixture. Console checks passed at 2,204 unit tests, strict typecheck, and production build; the configured strict mypy gate added no error over its 7-error baseline. Browser evidence at 1440x900, 993x641, and 390x844 showed the four separated answers, zero horizontal overflow, a 44 px keyboard-reachable disclosure, and no cause or authority claim. | Detection still reads Pod lifecycle evidence only through the `FDAI_POD_LIFECYCLE_EVIDENCE_JSON` composition seam, so an authenticated live delete/recreate scenario and the typed resumable ingestion in issue #292 remain open. |
 | 2026-08-31 | implemented | Corrected both issue #295 review findings. An ambiguous broker failure no longer releases the publication claim: the runner records send intent durably before publishing, releases only on a bus attestation that the record was provably not sent, and otherwise holds the claim uncertain until reconciliation, so an acknowledged publish whose receipt was not recorded is never republished after lease expiry. The typed Kubernetes Pod lifecycle analyzer and its independent recovery evidence are bound in production analyzer composition, and receipts derive evidence completeness and recovery closure from the canonical replacement and recovery reducers instead of free-form metadata. | `current change`; `shared/providers/event_bus.py` publish contract, `delivery/azure/event_bus.py`, `delivery/analyzer_tick.py`, `delivery/persistence/postgres_analyzer_publication.py`, `core/investigation/kubernetes_pod.py`, `delivery/pod_evidence_binding.py`, CLI-driven Pod scenario, and focused checks. | No reconciler implementation ships, so an uncertain claim stays awaiting reconciliation until an operator binds one. No live Kubernetes Pod lifecycle collector exists and no deployed runtime receipt was created. |
@@ -331,9 +438,12 @@ work, or an open stage that does not name its exact gap.
 | 11 | Operator, Console, and localization parity | Medium, resolved | Strict decoding accepts current, stale, and unavailable states, validates evidence-kind/verification consistency, and English/Korean catalogs expose the same labels. |
 | 12 | Concurrency, crash recovery, and single writer | High, resolved | A process-local lock plus PostgreSQL session advisory lock covers graph and commit-marker writes; failure injection proves manifest-before-status retry recovery. |
 
-No verified Critical, High, or Medium finding remains after these fixes. Residual Low work is
-additional provider-type coverage and deployed evidence retention; it does not widen authority or
-permit an incomplete graph to prove absence.
+A 2026-09-05 source-to-store review found open High-severity retention and current-state gaps that
+the earlier critique did not cover: sparse change hints can be treated as complete overlay
+properties, pending overlay work is not bound to the ontology projection watermark, and production
+archive I/O and purge are not wired. The bounded-history design above and OI-13 through OI-16 now
+own their closure. Until those exits pass, realtime ontology freshness and bounded historical
+retention remain in progress.
 
 ### Remaining work
 
@@ -364,6 +474,21 @@ permit an incomplete graph to prove absence.
   [Continuous Semantic Assurance](../interfaces/continuous-semantic-assurance.md) and are not an
   OI-11 exit criterion.
 - [ ] `OI-12` runs wording regression and [deployed Azure certification](https://github.com/dotnetpower/fdai/issues/262) after OI-11; it measures freshness, API pressure, lag, storage growth, rollup coverage, archive restore, and provider failure behavior.
+- [ ] `OI-13` persists a versioned normalized object and relationship observation journal with
+  explicit full, partial, change-hint, and tombstone semantics. Exit requires focused duplicate,
+  reorder, sparse-property, operation-status, restart, and current-projection digest checks.
+- [ ] `OI-14` binds journal and projection watermarks, resource incarnation identity, relationship
+  coverage, late correction partitions, and active-case or legal-hold pins. Exit requires every
+  pending observation to lower graph completeness and every accepted correction to invalidate and
+  then deterministically close its affected coverage.
+- [ ] `OI-15` binds a deployment retention policy registry, time-and-scope partitions, verified
+  checkpoints, a production archive writer and principal-scoped reader, a concrete source purger,
+  scheduled lifecycle coordination, and storage-pressure degradation. Exit requires failed archive
+  and restore gates to preserve source partitions and block completeness-dependent work.
+- [ ] `OI-16` retains one pinned-revision operational receipt proving bounded steady-state storage,
+  exact warm replay, archive restore, safe partition purge, N/N-1 schema replay, database recovery,
+  hold enforcement, and zero false-complete results under duplicate, late, delete, recreate,
+  provider-failure, database-restart, and archive-outage scenarios.
 - [x] Provide the standard local profile with `analyzer: run continuously (local)`. It reuses the deployed one-shot analyzer CLI, local runtime environment, inventory target discovery, metric mappings, idempotency keys, event contract, and shadow posture without duplicating analyzer logic.
 - [x] Suppress repeated same-window analyzer publications through a restart-durable completed broker receipt, and retain a deterministic same-UID restart and distinct-UID replacement receipt that joins detection latency, evidence completeness, publication, and recovery closure.
 - [x] Report Pod failure and recovery through the authenticated Operator API `/detection-readiness` family and its existing Console route, keeping current state, failure history, recovery, and evidence gaps separable, failing closed or unavailable on missing, stale, incomplete, or conflicting evidence, and claiming neither a cause nor execution authority. One pinned-revision end-to-end proof drives the real analyzer, ledger, recorder, Operator reader, and Console model path.
