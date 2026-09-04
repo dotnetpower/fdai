@@ -41,6 +41,17 @@ _STEWARDSHIP_OPERATION: Final = "stewardship.coverage"
 _PLACEHOLDER_SUBJECT: Final = "00000000-0000-0000-0000-000000000000"
 _MAX_SUBJECTS: Final = 64
 _ASSIGNMENT_LIMIT: Final = 100
+_PENDING_ASSIGNMENT_STATES: Final = frozenset(
+    {
+        "draft",
+        "pending_review",
+        "approved",
+        "ownership_pr_open",
+        "ownership_merged",
+        "iam_applying",
+        "degraded",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -413,6 +424,9 @@ def _assignment_proposals(
         case = item.get("case")
         if not isinstance(case, Mapping):
             continue
+        state = _required_string(case.get("state"), "assignment case state")
+        if state not in _PENDING_ASSIGNMENT_STATES:
+            continue
         intent = case.get("intent")
         if not isinstance(intent, Mapping):
             continue
@@ -432,7 +446,7 @@ def _assignment_proposals(
             proposals.setdefault(agent_name, []).append(
                 {
                     "case_id": _required_string(case.get("case_id"), "assignment case id"),
-                    "state": _required_string(case.get("state"), "assignment case state"),
+                    "state": state,
                     "revision": _integer(case.get("revision"), "assignment case revision"),
                     "subject": projected_subject,
                     "requested_role": _required_string(

@@ -244,6 +244,27 @@ async def test_assignment_failure_does_not_hide_current_ownership() -> None:
     }
 
 
+async def test_terminal_assignment_cases_are_not_reported_as_pending_changes() -> None:
+    assignments = _Assignments()
+    original = await assignments.assignment_projection(object())
+    item = original["items"][0]
+
+    class TerminalAssignments(_Assignments):
+        async def assignment_projection(self, query: object) -> Mapping[str, object]:
+            del query
+            rejected = {**item, "case": {**item["case"], "case_id": "case-2", "state": "rejected"}}
+            active = {**item, "case": {**item["case"], "case_id": "case-3", "state": "active"}}
+            return {**original, "items": [item, rejected, active], "total": 3}
+
+    reader = OwnershipProjectionReader(_Fallback(_payload()), _Directory(), TerminalAssignments())
+
+    result = await reader.read(_query())
+
+    ownership = result["current_ownership"]
+    assert ownership["summary"]["pending_proposals"] == 1
+    assert ownership["agents"][0]["proposals"][0]["case_id"] == "case-1"
+
+
 async def test_placeholders_block_readiness_without_directory_lookup() -> None:
     directory = _Directory()
     reader = OwnershipProjectionReader(
