@@ -215,3 +215,20 @@ def test_adaptive_gate_maps_durable_failure_pressure(
 
     assert decision.action is CollectionScheduleAction.WAIT
     assert decision.reason_codes == (expected_reason,)
+
+
+def test_adaptive_gate_collects_stale_snapshot_without_failure_timestamp() -> None:
+    decision = adaptive_reconciliation_decision(
+        policy=_adaptive_policy(),
+        age_seconds=601,
+        in_progress=False,
+        failure_streak=0,
+        failure_age_seconds=None,
+        failure_code=None,
+        abandoned_attempt=False,
+        change_demand=True,
+    )
+
+    assert decision.action is CollectionScheduleAction.COLLECT
+    assert decision.due_in_seconds == 0
+    assert decision.reason_codes == ("change_demand", "maximum_staleness")

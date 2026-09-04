@@ -78,6 +78,9 @@ When backlog or event lag grows, the scheduler consumes available budget more fr
 graph is current and churn is low, it increases the interval within the maximum staleness objective.
 HTTP `429` and provider throttling reduce concurrency and honor `Retry-After`. Persistent
 unavailability opens the circuit and schedules a bounded probe instead of retrying continuously.
+When no newer failed attempt exists, the scheduler uses the active snapshot completion age as the
+last-attempt age. Change demand or maximum staleness therefore cannot be deferred indefinitely
+because a failure timestamp is absent.
 
 Configuration supplies deployment values. Repository defaults and tests define safe bounds, not a
 claim that one interval fits every tenant or provider API.

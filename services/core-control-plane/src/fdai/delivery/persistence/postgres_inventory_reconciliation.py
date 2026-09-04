@@ -253,7 +253,9 @@ def adaptive_reconciliation_decision(
         policy,
         CollectionScheduleState(
             evidence_age_seconds=age_seconds,
-            last_attempt_age_seconds=failure_age_seconds,
+            last_attempt_age_seconds=(
+                failure_age_seconds if failure_age_seconds is not None else age_seconds
+            ),
             change_demand=change_demand,
             failure_streak=failure_streak,
             provider_pressure=pressure,

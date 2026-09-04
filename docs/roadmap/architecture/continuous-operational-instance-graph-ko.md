@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 22fb25be6bf2e231ee1b3f176ffc414c2350a519
-translation_revised: 2026-09-02
+translation_source_sha: faff05cffc53cdff85086ea83bfec1799373f19a
+translation_revised: 2026-09-04
 ---
 # 지속형 운영 인스턴스 그래프
 
@@ -81,6 +81,9 @@ backlog 또는 이벤트 지연이 증가하면 scheduler는 사용할 수 있�
 그래프가 최신이고 변경량이 낮으면 최대 노후 목표 안에서 간격을 늘립니다. HTTP `429`와 공급자
 throttling은 동시성을 줄이고 `Retry-After`를 따릅니다. 지속적인 사용 불가는 circuit을 열고
 계속 재시도하는 대신 범위가 제한된 probe를 예약합니다.
+더 최신의 실패 시도가 없으면 스케줄러는 활성 스냅샷 완료 후 경과 시간을 마지막 시도 후
+경과 시간으로 사용합니다. 따라서 실패 타임스탬프가 없다는 이유만으로 변경 수요 또는 최대
+노후 상태가 계속 연기되지 않습니다.
 
 구성은 배포 값을 제공합니다. 저장소 기본값과 테스트는 안전한 범위를 정의하며, 하나의 간격이
 모든 tenant 또는 공급자 API에 적합하다고 주장하지 않습니다.
