@@ -425,12 +425,14 @@ def _wara_snapshot(
         limitations = (
             ["disabled_catalog_history"]
             if metadata.state == "Disabled"
-            else ["not_evaluated"]
-            if mapping is not None and mapping.query_review is None
+            else ["manual_evidence_required"]
+            if mapping is not None and mapping.manual_evidence is not None
             else sorted(mapping.query_review.blocked_reasons)
             if mapping is not None and mapping.query_review is not None
             else ["crosswalk_missing"]
         )
+        manual_evidence = mapping.manual_evidence if mapping is not None else None
+        query_review = mapping.query_review if mapping is not None else None
         controls.append(
             {
                 "id": control.id,
@@ -467,6 +469,19 @@ def _wara_snapshot(
                     str(metadata.learn_more_url) if metadata.learn_more_url is not None else None
                 ),
                 "query_digest": metadata.query_digest,
+                "evaluator_ref": query_review.evaluator_ref if query_review is not None else None,
+                "manual_evidence": (
+                    {
+                        "kind": manual_evidence.kind,
+                        "authoritative_producer": manual_evidence.authoritative_producer,
+                        "scope_contract": manual_evidence.scope_contract,
+                        "freshness_ceiling_seconds": (manual_evidence.freshness_ceiling_seconds),
+                        "accountable_owner_slot": manual_evidence.accountable_owner_slot,
+                        "blocked_reason": manual_evidence.blocked_reason,
+                    }
+                    if manual_evidence is not None
+                    else None
+                ),
                 "workload_tags": list(metadata.tags),
                 "limitations": limitations,
                 "execution_authority": False,

@@ -379,8 +379,21 @@ function WaraDrawer({ detail, onClose }: { readonly detail: DetailState; readonl
                     value={detail.data.learn_more_url === null ? "-" : <a href={detail.data.learn_more_url} target="_blank" rel="noreferrer">{detail.data.learn_more_name}</a>}
                   />
                   <DetailRow label={t("governance.rules.wara.detail.queryDigest")} value={detail.data.query_digest ?? "-"} mono />
+                  <DetailRow label={t("governance.rules.wara.detail.evaluator")} value={detail.data.evaluator_ref ?? "-"} mono />
                 </dl>
               </DetailSection>
+              {detail.data.manual_evidence !== null ? (
+                <DetailSection title={t("governance.rules.wara.detail.manualEvidence")}>
+                  <dl class="detail-grid">
+                    <DetailRow label={t("governance.rules.wara.detail.evidenceKind")} value={detail.data.manual_evidence.kind} mono />
+                    <DetailRow label={t("governance.rules.wara.detail.evidenceProducer")} value={detail.data.manual_evidence.authoritative_producer} mono />
+                    <DetailRow label={t("governance.rules.wara.detail.evidenceScope")} value={detail.data.manual_evidence.scope_contract} mono />
+                    <DetailRow label={t("governance.rules.wara.detail.evidenceFreshness")} value={`${detail.data.manual_evidence.freshness_ceiling_seconds}s`} mono />
+                    <DetailRow label={t("governance.rules.wara.detail.evidenceOwner")} value={detail.data.manual_evidence.accountable_owner_slot} mono />
+                    <DetailRow label={t("governance.rules.wara.detail.blockedReason")} value={detail.data.manual_evidence.blocked_reason ?? "-"} mono />
+                  </dl>
+                </DetailSection>
+              ) : null}
             </div>
           )}
         </div>

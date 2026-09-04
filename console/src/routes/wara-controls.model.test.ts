@@ -30,8 +30,17 @@ const CONTROL = {
   learn_more_name: "Reliability guidance",
   learn_more_url: "https://learn.microsoft.com/azure/reliability",
   query_digest: null,
+  evaluator_ref: null,
+  manual_evidence: {
+    kind: "expert_assessment",
+    authoritative_producer: "workload-evidence-owner",
+    scope_contract: "exact-workload-and-resource-scope",
+    freshness_ceiling_seconds: 2_592_000,
+    accountable_owner_slot: "workload-reliability-owner",
+    blocked_reason: null,
+  },
   workload_tags: [],
-  limitations: ["not_evaluated"],
+  limitations: ["manual_evidence_required"],
   execution_authority: false,
 } as const;
 
@@ -69,6 +78,7 @@ describe("WARA control contract", () => {
     expect(decoded.controls[0]?.evaluation_status).toBe("not_evaluated");
     expect(decoded.controls[0]?.satisfaction).toBe("unknown");
     expect(decoded.controls[0]?.source_url).toContain("/aprl/");
+    expect(decoded.controls[0]?.manual_evidence?.kind).toBe("expert_assessment");
     expect(decoded.inventory.active_recommendations).toBe(1);
   });
 
@@ -80,6 +90,13 @@ describe("WARA control contract", () => {
 
   test("rejects duplicate recommendation ids", () => {
     expect(() => decodeWaraResponse(response([CONTROL, CONTROL]))).toThrow(/ids MUST be unique/);
+  });
+
+  test("rejects malformed manual evidence", () => {
+    expect(() => decodeWaraResponse(response([{
+      ...CONTROL,
+      manual_evidence: { ...CONTROL.manual_evidence, freshness_ceiling_seconds: -1 },
+    }]))).toThrow(/freshness_ceiling_seconds MUST be a non-negative integer/);
   });
 });
 

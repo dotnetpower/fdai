@@ -95,6 +95,12 @@ or unassigned owner never produces a satisfied result.
 Every one of the 250 records with `automation_available: false` carries a typed manual evidence
 requirement or an explicit blocked reason regardless of its crosswalk disposition.
 
+The initial Operator catalog projection preserves that requirement as structured read-only data.
+The Console detail view shows the evidence kind, authoritative producer, exact scope contract,
+freshness ceiling, accountable owner slot, and blocked reason. It does not provide a receipt-writing
+control. Until a separately authorized producer supplies admissible evidence, the recommendation
+remains `not_evaluated` with `manual_evidence_required`.
+
 ## Shadow assessment contract
 
 An assessment request pins the framework revision, crosswalk digest, ontology release, inventory
@@ -140,9 +146,10 @@ Catalog presence and `product_group_verified` are metadata, never a satisfied ba
 projection absence renders as unavailable; malformed or unexpected responses remain visible errors.
 Truncated identifiers use the shared Tooltip for the full value instead of native title attributes.
 The initial catalog projection also exposes the exact pinned APRL source URL, source path, version,
-revision, digest, retrieval time, license, optional Microsoft Learn link, and query digest. The
-Console renders 50 controls per page while preserving all 456 lifecycle records through explicit
-previous and next navigation; it never hides the remaining catalog behind a client-only row limit.
+revision, digest, retrieval time, license, optional Microsoft Learn link, query digest, exact
+evaluator reference, and structured manual-evidence requirement. The Console renders 50 controls
+per page while preserving all 456 lifecycle records through explicit previous and next navigation;
+it never hides the remaining catalog behind a client-only row limit.
 
 ## Review-only source updates
 

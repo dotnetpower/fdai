@@ -469,7 +469,15 @@
         "retrievedAt": "Retrieved at",
         "license": "License",
         "learnMore": "Learn more",
-        "queryDigest": "Query digest"
+        "queryDigest": "Query digest",
+        "evaluator": "Exact evaluator",
+        "manualEvidence": "Required manual evidence",
+        "evidenceKind": "Evidence kind",
+        "evidenceProducer": "Authoritative producer",
+        "evidenceScope": "Scope contract",
+        "evidenceFreshness": "Freshness ceiling",
+        "evidenceOwner": "Accountable owner",
+        "blockedReason": "Blocked reason"
       }
     },
     "severityRisk": {

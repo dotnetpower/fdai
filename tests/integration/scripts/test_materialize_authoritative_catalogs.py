@@ -94,6 +94,17 @@ def test_catalog_snapshots_are_deterministic_complete_reference_projections() ->
     assert all(control["source_url"].startswith("https://") for control in wara["controls"])
     assert all(control["source_license"] == "MIT" for control in wara["controls"])
     assert any(control["learn_more_url"] is not None for control in wara["controls"])
+    assert sum(control["manual_evidence"] is not None for control in wara["controls"]) == 250
+    assert all(
+        control["evaluator_ref"] is None
+        for control in wara["controls"]
+        if control["automation_available"]
+    )
+    assert all(
+        "manual_evidence_required" in control["limitations"]
+        for control in wara["controls"]
+        if control["manual_evidence"] is not None
+    )
     assert wara["evaluation_source"] == "not_connected"
 
     mcsb = first[module.MCSB_LIST_KEY]

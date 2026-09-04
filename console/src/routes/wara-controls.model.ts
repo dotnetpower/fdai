@@ -36,6 +36,15 @@ export type WaraApplicability = (typeof WARA_APPLICABILITY)[number];
 export type WaraEvaluation = (typeof WARA_EVALUATIONS)[number];
 export type WaraSatisfaction = (typeof WARA_SATISFACTION)[number];
 
+export interface WaraManualEvidence {
+  readonly kind: string;
+  readonly authoritative_producer: string;
+  readonly scope_contract: string;
+  readonly freshness_ceiling_seconds: number;
+  readonly accountable_owner_slot: string;
+  readonly blocked_reason: string | null;
+}
+
 export interface WaraControl {
   readonly id: string;
   readonly title: string;
@@ -65,6 +74,8 @@ export interface WaraControl {
   readonly learn_more_name: string | null;
   readonly learn_more_url: string | null;
   readonly query_digest: string | null;
+  readonly evaluator_ref: string | null;
+  readonly manual_evidence: WaraManualEvidence | null;
   readonly workload_tags: readonly string[];
   readonly limitations: readonly string[];
   readonly execution_authority: false;
@@ -134,6 +145,40 @@ function decodeControl(value: unknown, index: number): WaraControl {
   const executionAuthority = panelBoolean(raw, "execution_authority", label);
   const learnMoreName = panelNullableString(raw, "learn_more_name", label);
   const learnMoreUrl = panelNullableString(raw, "learn_more_url", label);
+  const manualEvidenceValue = raw["manual_evidence"];
+  const manualEvidence = manualEvidenceValue === null || manualEvidenceValue === undefined
+    ? null
+    : (() => {
+        const requirement = panelRecord(manualEvidenceValue, `${label}.manual_evidence`);
+        return {
+          kind: panelNonEmptyString(requirement, "kind", `${label}.manual_evidence`),
+          authoritative_producer: panelNonEmptyString(
+            requirement,
+            "authoritative_producer",
+            `${label}.manual_evidence`,
+          ),
+          scope_contract: panelNonEmptyString(
+            requirement,
+            "scope_contract",
+            `${label}.manual_evidence`,
+          ),
+          freshness_ceiling_seconds: panelNonNegativeInteger(
+            requirement,
+            "freshness_ceiling_seconds",
+            `${label}.manual_evidence`,
+          ),
+          accountable_owner_slot: panelNonEmptyString(
+            requirement,
+            "accountable_owner_slot",
+            `${label}.manual_evidence`,
+          ),
+          blocked_reason: panelNullableString(
+            requirement,
+            "blocked_reason",
+            `${label}.manual_evidence`,
+          ),
+        };
+      })();
   if (executionAuthority) {
     throw new OperatorApiError(502, `invalid Operator API response: ${label} cannot grant execution authority`);
   }
@@ -189,6 +234,10 @@ function decodeControl(value: unknown, index: number): WaraControl {
     learn_more_name: learnMoreName,
     learn_more_url: learnMoreUrl,
     query_digest: panelNullableString(raw, "query_digest", label),
+    evaluator_ref: raw["evaluator_ref"] === undefined
+      ? null
+      : panelNullableString(raw, "evaluator_ref", label),
+    manual_evidence: manualEvidence,
     workload_tags: panelStringArray(raw["workload_tags"], `${label}.workload_tags`),
     limitations: panelStringArray(raw["limitations"], `${label}.limitations`),
     execution_authority: false,

@@ -468,7 +468,15 @@
         "retrievedAt": "가져온 시각",
         "license": "라이선스",
         "learnMore": "자세히 알아보기",
-        "queryDigest": "쿼리 다이제스트"
+        "queryDigest": "쿼리 다이제스트",
+        "evaluator": "정확한 평가기",
+        "manualEvidence": "필수 수동 근거",
+        "evidenceKind": "근거 종류",
+        "evidenceProducer": "권위 있는 생성자",
+        "evidenceScope": "범위 계약",
+        "evidenceFreshness": "최신성 상한",
+        "evidenceOwner": "책임 담당자",
+        "blockedReason": "차단 사유"
       }
     },
     "severityRisk": {

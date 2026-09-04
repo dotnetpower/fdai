@@ -465,8 +465,17 @@ async def test_postgres_control_catalogs_project_lists_filters_and_details() -> 
         "learn_more_name": "Reliability guidance",
         "learn_more_url": "https://learn.microsoft.com/azure/reliability",
         "query_digest": None,
+        "evaluator_ref": None,
+        "manual_evidence": {
+            "kind": "expert_assessment",
+            "authoritative_producer": "workload-evidence-owner",
+            "scope_contract": "exact-workload-and-resource-scope",
+            "freshness_ceiling_seconds": 2_592_000,
+            "accountable_owner_slot": "workload-reliability-owner",
+            "blocked_reason": None,
+        },
         "workload_tags": [],
-        "limitations": ["not_evaluated"],
+        "limitations": ["manual_evidence_required"],
         "execution_authority": False,
     }
     projections = {
