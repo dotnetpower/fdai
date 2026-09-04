@@ -57,9 +57,9 @@ service plan stops before materializing its inputs.
 
 Use the deployment CLI's `--deploy-rca-reader-identity` selection with every ordinary application
 selection disabled. The CLI seals this as a `plan-rca-*` or `apply-rca-*` request. The workflow
-targets the identity and role plus any Terraform-required moved-state addresses. The plan-scope
-verifier still permits changed addresses only for `module.rca_reader_identity` and
-`azurerm_role_assignment.rca_monitoring_reader`. The ordinary destructive-plan guard also applies.
+first reconciles the two known legacy measurement Job state addresses without changing Azure
+resources, then targets the identity and role. It records before and after state digests and fails
+if legacy and current addresses coexist. The plan-scope and destructive-plan guards still apply.
 
 ## Deployer identity
 
