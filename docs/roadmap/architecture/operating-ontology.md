@@ -490,13 +490,6 @@ cannot reuse the prior identity. Raw object properties remain in their authorita
 time is normalized to canonical UTC. The identity also covers trusted recorded time, trusted clock identity, and whether the query required
 verified links. Historical replay supplies the retained recorded time instead of sampling a new wall clock.
 
-The secured Console projection verifies that every service, workload, objective, constraint,
-ownership, and dependency identity named by the snapshot exists in the receipt-bound ObjectSet.
-Only then does it expose those bounded identity lists and per-kind coverage counts. A missing
-context identity blocks the projection rather than presenting a partial ownership or dependency
-view as complete. Each list also has an exact ObjectType contract: for example, ownership ids must
-resolve to `Ownership`, while dependency ids may resolve only to `Resource` or `Workload`.
-
 Typed link observation metadata is the exception to dropping raw link properties: the materializer retains only its canonical verification
 envelope on each evidence link and includes that envelope in both link and path identity. A stale, incomplete, conflicting, synthetic,
 after-cutoff, or unverified link adds an explicit context conflict and can only lower the snapshot ceiling to `SHADOW_ONLY`. Healthy

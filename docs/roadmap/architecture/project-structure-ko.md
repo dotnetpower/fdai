@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 88e5c7c8a539a04863407b3f294729bbee7d80d5
+translation_source_sha: b459c0363ceade8c0a6fb7727931f4e67b932c72
 translation_revised: 2026-09-04
 ---
 # 프로젝트 구조
@@ -483,7 +483,6 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 | 메트릭 인제스트 | `MetricProvider` | **CSP-중립성 계약** - [메트릭](csp-neutrality-ko.md#6-metric-query-계약---csp-neutral-sample-iterator) | `NoopMetricProvider` 또는 Azure Monitor Logs 연결 | CloudWatch, Prometheus, Datadog 또는 다른 정규화된 메트릭 어댑터 |
 | 로그 인제스트 | `LogQueryProvider` | **CSP-중립성 계약** - [로그](csp-neutrality-ko.md#7-log-query-계약---structured-log-records) | `NoopLogQueryProvider`; 설정 시 Azure 어댑터가 KQL 연결 | Loki, Elasticsearch, CloudWatch Logs 또는 다른 구조화된 로그 어댑터 |
 | 추적 인제스트 | `TraceQueryProvider` | **CSP-중립성 계약** - [추적](csp-neutrality-ko.md#8-trace-query-계약---distributed-trace-spans) | `NoopTraceQueryProvider`; 설정 시 Azure 어댑터가 Application Insights 연결 | Tempo, Jaeger, Honeycomb 또는 다른 구간 어댑터 |
-| **T1 인시던트 멤버** | `IncidentMemberSource` 및 `Container.resource_dependency_graph` | 읽기 전용 RCA 맥락이며 두 입력 모두 작업 권한을 부여하지 않음 | 연결되지 않으므로 T1 인과사슬 분석을 사용할 수 없음 | 불투명한 리소스 ID가 인시던트 근거와 일치하는 `DeploymentHistoryMemberSource` 및 검토된 그래프를 주입 |
 | Cloud 프로바이더 | 프로바이더 클라이언트 | (위 여덟 경계를 사용) | 참조/범용 Azure 어댑터 | 특정 CSP 어댑터 |
 | **스키마 출처** | `SchemaRegistry` (원시 JSON 스키마 로더) | - | `PackageResourceSchemaRegistry` (패키지 내장 스키마) | 원격 schema-registry 어댑터; 내용 해시 로 핀된 스냅샷 |
 | **경계 검증** | `ContractValidator` / `EventValidator` (실패 시 차단 입력 검사) | - | `JsonSchemaContractValidator` + `JsonSchemaEventValidator` (draft-2020-12) | 포크가 `core/` 편집 없이 도메인 특이 체크(예: 소스 허용 목록) 추가 가능 |
