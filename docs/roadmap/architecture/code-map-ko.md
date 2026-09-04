@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 55192fdd7b52fe3997d23798294f474f3708573d
+translation_source_sha: 72bd4603fc1b2a2d77de70c6c43c1e7c8a958e0e
 translation_revised: 2026-09-04
 ---
 # 코드 맵
@@ -85,6 +85,8 @@ ObjectSet을 명시적으로 요청합니다. 다른 ObjectSet은 기본적으�
 검증된 `Document` 판단과 이름이 정확한 리소스 그룹 구성원 조회는 결정론적 builder를 통해
 잔여 frame 모델을 우회합니다. 문서 경로는 초안 전용이며 인증된 principal의 직전 검증 결과에
 원본을 바인딩합니다.
+Core 패키지는 Kafka consumer가 사용하는 Snappy codec을 고정합니다. 따라서 압축된 EventBus
+레코드가 readiness를 통과한 뒤 필수 runtime task를 종료하지 않습니다.
 의미 판단은 엄격한 구조화 출력을 사용하며 첫 번째 턴의 운영 조회는 소셜 사전 검사를
 생략하되 직접 소셜 응답 후보와 이전 턴이 있는 요청은 계속 독립적으로 확인합니다.
 검증된 `query.ontology_declaration` 개수 판단에서는 고유한 canonical 선언 `*Type` target이

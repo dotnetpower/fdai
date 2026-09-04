@@ -81,6 +81,8 @@ identity claim.
 Validated `Document` judgments and exact named resource-group membership bypass the residual frame
 model through deterministic builders. The document path remains draft-only and binds its source to
 the authenticated principal's preceding verified result.
+The Core package pins the Snappy codec used by Kafka consumers so compressed EventBus records do
+not pass readiness and then terminate a required runtime task.
 Resource-state collection plans explicitly request object-only ObjectSets. Other ObjectSets retain
 relationship inclusion by default, and the default remains absent from legacy serialized
 definitions so replay digests do not change.
