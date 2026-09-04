@@ -175,6 +175,12 @@ or truncated rows, applies `timeout_seconds` to the complete paginated observati
 deterministic evidence digest. Zero matching rows mean satisfied; one or more matching rows mean
 failed. Both remain shadow observations without execution authority.
 
+`WaraAssessmentObservationRunner` walks only recommendations that can produce an exact admitted
+read plan. It preserves caller-supplied manual receipts, collects provider observations, converts
+matching receipts into runtime evidence, and records one bounded `observed` or `unavailable`
+attempt per eligible recommendation. `WaraAssessmentService` evaluates and publishes only after
+that collection phase. Provider unavailability remains `unknown` and is visible in audit evidence.
+
 ## Validation and release boundary
 
 Focused checks cover schema, importer parity, crosswalk accounting, evaluator-overlay identity,

@@ -169,6 +169,9 @@ WARA assessment now layers an exact evaluator-binding catalog over the immutable
 crosswalk. The Azure delivery adapter accepts only approved management token targets and exact ARM
 resource scopes, and carries the overlay digest through read-plan, observation, evidence, result,
 and replay identities.
+The WARA assessment service can now compose an optional observation runner that executes every
+eligible exact-bound read before evaluation, preserves manual receipts, and records provider
+unavailability as bounded audit evidence instead of a satisfaction result.
 
 | Area | Responsibility | Source | Tests |
 |------|----------------|--------|-------|

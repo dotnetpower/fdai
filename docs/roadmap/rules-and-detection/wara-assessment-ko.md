@@ -1,7 +1,7 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: 629a8779c887cadf58d0a7895daf15388f4b016d
+translation_source_sha: cc20c6a60c91924cb826456e985eb13cd1b69729
 translation_revised: 2026-09-04
 ---
 # WARA 근거 기반 평가
@@ -172,6 +172,12 @@ Azure 관리 호스트와 audience만 허용하며, 범위 밖 또는 잘린 행
 다이제스트를 기록합니다. `timeout_seconds`는 각 페이지가 아니라 페이지가 매겨진 전체 관측에
 적용됩니다. 일치하는 행이 0개이면 충족이고 하나 이상이면 실패입니다. 두 결과 모두 실행
 권한이 없는 shadow 관측입니다.
+
+`WaraAssessmentObservationRunner`는 정확하고 허용된 읽기 계획을 만들 수 있는 권고만 순회합니다.
+호출자가 제공한 수동 증적을 보존하고 프로바이더 관측을 수집하며, 일치하는 증적을 런타임 근거로
+변환하고 적합한 권고마다 범위가 제한된 `observed` 또는 `unavailable` attempt 하나를 기록합니다.
+`WaraAssessmentService`는 이 수집 단계가 끝난 뒤에만 평가하고 게시합니다. 프로바이더를 사용할
+수 없으면 `unknown`을 유지하고 감사 근거에 표시합니다.
 
 ## 검증 및 릴리스 경계
 

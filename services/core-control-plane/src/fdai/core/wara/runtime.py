@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Any
@@ -24,7 +24,12 @@ from fdai.rule_catalog.schema.wara_evaluator_binding import (
 )
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.state_store import StateStore
-from fdai.shared.providers.wara_assessment import WaraObservationReceipt, WaraReadPlan
+from fdai.shared.providers.wara_assessment import (
+    WaraAssessmentObservationProvider,
+    WaraObservationError,
+    WaraObservationReceipt,
+    WaraReadPlan,
+)
 
 
 class WaraApplicabilityStatus(StrEnum):
@@ -241,6 +246,12 @@ class WaraAssessmentRuntime:
         self._catalog = catalog
         self._evaluator_bindings = evaluator_bindings
 
+    @property
+    def recommendations(self) -> tuple[WaraRecommendationCrosswalk, ...]:
+        """Return the immutable generated recommendation set."""
+
+        return self._catalog.recommendations
+
     def assess(self, request: WaraAssessmentRequest) -> WaraAssessmentResult:
         if request.framework_revision != self._catalog.source_revision:
             raise ValueError("WARA assessment framework revision mismatch")
@@ -397,17 +408,100 @@ class WaraAssessmentRuntime:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class WaraObservationAttempt:
+    """One bounded observation attempt included in the assessment audit."""
+
+    recommendation_id: str
+    status: str
+    reason: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class WaraObservationCollection:
+    """Request enriched with provider evidence and bounded attempt outcomes."""
+
+    request: WaraAssessmentRequest
+    attempts: tuple[WaraObservationAttempt, ...]
+
+
+class WaraAssessmentObservationRunner:
+    """Collect every exact-bound provider observation before shadow assessment."""
+
+    def __init__(
+        self,
+        *,
+        runtime: WaraAssessmentRuntime,
+        provider: WaraAssessmentObservationProvider,
+    ) -> None:
+        self._runtime = runtime
+        self._provider = provider
+
+    async def collect(self, request: WaraAssessmentRequest) -> WaraObservationCollection:
+        """Return exact evidence while preserving manual and caller-supplied receipts."""
+
+        evidence = {(item.recommendation_id, item.evidence_ref): item for item in request.evidence}
+        if len(evidence) != len(request.evidence):
+            raise ValueError("WARA request evidence contains duplicate references")
+        attempts: list[WaraObservationAttempt] = []
+        for record in self._runtime.recommendations:
+            try:
+                plan = self._runtime.build_read_plan(record, request)
+            except ValueError:
+                continue
+            try:
+                receipt = await self._provider.observe(plan)
+            except WaraObservationError:
+                attempts.append(
+                    WaraObservationAttempt(
+                        recommendation_id=record.aprl_guid,
+                        status="unavailable",
+                        reason="provider_observation_unavailable",
+                    )
+                )
+                continue
+            item = wara_observation_to_evidence(plan, receipt, request)
+            key = (item.recommendation_id, item.evidence_ref)
+            existing = evidence.get(key)
+            if existing is not None and existing != item:
+                raise ValueError("WARA collected evidence conflicts with an existing receipt")
+            evidence[key] = item
+            attempts.append(
+                WaraObservationAttempt(
+                    recommendation_id=record.aprl_guid,
+                    status="observed",
+                )
+            )
+        enriched = replace(
+            request,
+            evidence=tuple(
+                evidence[key] for key in sorted(evidence, key=lambda item: (item[0], item[1]))
+            ),
+        )
+        return WaraObservationCollection(request=enriched, attempts=tuple(attempts))
+
+
 class WaraAssessmentService:
     """Persist audit evidence and publish one shadow result through event ingress."""
 
     def __init__(
-        self, runtime: WaraAssessmentRuntime, state_store: StateStore, event_bus: EventBus
+        self,
+        runtime: WaraAssessmentRuntime,
+        state_store: StateStore,
+        event_bus: EventBus,
+        observation_runner: WaraAssessmentObservationRunner | None = None,
     ):
         self._runtime = runtime
         self._state_store = state_store
         self._event_bus = event_bus
+        self._observation_runner = observation_runner
 
     async def assess(self, request: WaraAssessmentRequest) -> WaraAssessmentResult:
+        attempts: tuple[WaraObservationAttempt, ...] = ()
+        if self._observation_runner is not None:
+            collection = await self._observation_runner.collect(request)
+            request = collection.request
+            attempts = collection.attempts
         result = self._runtime.assess(request)
         payload = result.to_dict()
         await self._state_store.append_audit_entry(
@@ -417,6 +511,14 @@ class WaraAssessmentService:
                 "result_digest": result.result_digest,
                 "scope_digest": result.scope_digest,
                 "execution_authority": False,
+                "observation_attempts": [
+                    {
+                        "recommendation_id": item.recommendation_id,
+                        "status": item.status,
+                        "reason": item.reason,
+                    }
+                    for item in attempts
+                ],
                 "recorded_at": result.recorded_at.isoformat(),
             }
         )
@@ -687,9 +789,12 @@ __all__ = [
     "WaraAssessmentRequest",
     "WaraAssessmentResult",
     "WaraAssessmentRuntime",
+    "WaraAssessmentObservationRunner",
     "WaraAssessmentService",
     "WaraControlResult",
     "WaraEvaluationStatus",
+    "WaraObservationAttempt",
+    "WaraObservationCollection",
     "WaraEvidenceReceipt",
     "WaraSatisfactionStatus",
     "WaraScopedResource",

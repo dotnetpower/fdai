@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from fdai.core.wara import (
+    WaraAssessmentObservationRunner,
     WaraAssessmentRequest,
     WaraAssessmentRuntime,
     WaraAssessmentService,
@@ -29,6 +30,11 @@ from fdai.rule_catalog.schema.wara_assessment import (
 from fdai.rule_catalog.schema.wara_evaluator_binding import load_wara_evaluator_bindings
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+from fdai.shared.providers.wara_assessment import (
+    WaraObservationError,
+    WaraObservationReceipt,
+    WaraReadPlan,
+)
 
 ROOT = Path(__file__).resolve().parents[5]
 CATALOG_ROOT = ROOT / "rule-catalog"
@@ -353,3 +359,88 @@ async def test_service_publishes_shadow_finding_and_audit_only() -> None:
     assert len(audit) == 1
     assert audit[0]["entry"]["type"] == "wara_shadow_assessment"
     assert "remediation" not in events[0].payload
+
+
+class _ObservationProvider:
+    def __init__(self, *, unavailable: bool = False) -> None:
+        self.unavailable = unavailable
+        self.plans: list[WaraReadPlan] = []
+
+    async def observe(self, plan: WaraReadPlan) -> WaraObservationReceipt:
+        self.plans.append(plan)
+        if self.unavailable:
+            raise WaraObservationError("provider unavailable")
+        return WaraObservationReceipt(
+            recommendation_id=plan.recommendation_id,
+            query_digest=plan.query_digest,
+            evaluator_ref=plan.evaluator_ref,
+            evaluator_bindings_digest=plan.evaluator_bindings_digest,
+            workload_id=plan.workload_id,
+            resource_ids=plan.resource_ids,
+            inventory_generation=plan.inventory_generation,
+            observed_at=AT,
+            recorded_at=AT,
+            evidence_digest="sha256:" + "d" * 64,
+            complete=True,
+            truncated=False,
+            conflicting=False,
+            synthetic=False,
+            satisfied=True,
+        )
+
+
+async def test_service_collects_exact_observations_before_assessment() -> None:
+    runtime, catalog, bindings, record = _runtime_and_bound_record()
+    request = replace(
+        _request(record),
+        crosswalk_digest=catalog.crosswalk_digest,
+        evaluator_bindings_digest=bindings.overlay_digest,
+    )
+    state_store = InMemoryStateStore()
+    event_bus = InMemoryEventBus()
+    provider = _ObservationProvider()
+    runner = WaraAssessmentObservationRunner(runtime=runtime, provider=provider)
+
+    result = await WaraAssessmentService(
+        runtime,
+        state_store,
+        event_bus,
+        observation_runner=runner,
+    ).assess(request)
+    control = next(item for item in result.controls if item.recommendation_id == record.aprl_guid)
+    audit_entry = state_store.audit_entries[0]["entry"]
+
+    assert control.satisfaction is WaraSatisfactionStatus.SATISFIED
+    assert len(provider.plans) == 1
+    assert audit_entry["observation_attempts"] == [
+        {
+            "recommendation_id": record.aprl_guid,
+            "status": "observed",
+            "reason": None,
+        }
+    ]
+
+
+async def test_service_records_provider_unavailability_without_claiming_satisfaction() -> None:
+    runtime, catalog, bindings, record = _runtime_and_bound_record()
+    request = replace(
+        _request(record),
+        crosswalk_digest=catalog.crosswalk_digest,
+        evaluator_bindings_digest=bindings.overlay_digest,
+    )
+    state_store = InMemoryStateStore()
+    provider = _ObservationProvider(unavailable=True)
+    runner = WaraAssessmentObservationRunner(runtime=runtime, provider=provider)
+
+    result = await WaraAssessmentService(
+        runtime,
+        state_store,
+        InMemoryEventBus(),
+        observation_runner=runner,
+    ).assess(request)
+    control = next(item for item in result.controls if item.recommendation_id == record.aprl_guid)
+    audit_entry = state_store.audit_entries[0]["entry"]
+
+    assert control.satisfaction is WaraSatisfactionStatus.UNKNOWN
+    assert audit_entry["observation_attempts"][0]["status"] == "unavailable"
+    assert audit_entry["observation_attempts"][0]["reason"] == ("provider_observation_unavailable")

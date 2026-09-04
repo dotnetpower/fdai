@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 574cb930a213273a3229bccb9b6fcae6d3ec7fe2
+translation_source_sha: 522866cfbd216336f6e274cba2211192671e0fa9
 translation_revised: 2026-09-04
 ---
 # 코드 맵
@@ -159,6 +159,9 @@ RCA 가설은 이제 T0, T1, T2 전체에서 하위 호환 가능한 원인 영�
 WARA 평가는 변경할 수 없는 생성 교차워크 위에 정확한 평가기 바인딩 카탈로그를 추가합니다.
 Azure delivery 어댑터는 승인된 관리 토큰 대상과 정확한 ARM 리소스 범위만 허용하며 overlay
 다이제스트를 읽기 계획, 관측, 근거, 결과 및 재생 신원 전체에 전달합니다.
+WARA 평가 서비스는 이제 평가 전에 적합한 모든 exact-bound 읽기를 실행하는 선택적 관측
+실행기를 조립할 수 있습니다. 수동 증적을 보존하고 프로바이더 사용 불가를 충족 결과가 아니라
+범위가 제한된 감사 근거로 기록합니다.
 
 | 영역 | Responsibility | 출처 | 테스트 |
 |------|----------------|--------|------|
