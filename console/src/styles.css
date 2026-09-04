@@ -19182,6 +19182,7 @@ body.aa-log-fullscreen-fallback { overflow: hidden; }
 }
 
 @media (max-width: 640px) {
+  .ownership-refresh,
   .agent-oversight-workspace .settings-tabs button,
   .agent-oversight-workspace button.primary,
   .agent-oversight-workspace button.secondary,

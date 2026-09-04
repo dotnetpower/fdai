@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: ec2655b5abac18621fadd541c05443c75ceea2bb
+translation_source_sha: 6d6de7dc0c6b68e5b0054bcace0bb6d9eb3c2bba
 translation_revised: 2026-09-04
 ---
 # 콘솔 근거 및 복원력
@@ -73,6 +73,7 @@ desktop 한 행에 6개씩 배치하며 attention priority와 최신 관찰 순�
 실패시킵니다.
 현재 담당자 화면은 명시적 새로 고침을 제공합니다. 새 읽기가 진행되는 동안 마지막 준비 완료
 변환 결과를 유지하고, 다음 준비 완료, 사용 불가 또는 오류 종단 상태가 도착하면 교체합니다.
+모바일 새로 고침 컨트롤은 공통 44px 터치 크기를 유지합니다.
 컨테이너 너비가 제한된 데스크톱과 모바일에서 현재 담당자 화면은 넓은 비교 표를 레이블이 있는
 에이전트별 레코드로 바꿉니다. 반응형 표시는 모든 필드를 유지하며 적용 범위나 근거를 변경하지
 않습니다.
