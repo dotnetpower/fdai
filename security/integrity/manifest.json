@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1324,
+  "file_count": 1325,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "184bbde89444c6896480ccf1b591dd5b69f2fe84513e37f8923dd1e9f61451ec",
     ".github/instructions/agent-stewardship.instructions.md": "e2e2224db17159323f910252e0f9f6efb44c0f1d7e0d217d5159745c15c9ff46",
@@ -1223,6 +1223,7 @@
     "services/core-control-plane/src/fdai/shared/providers/idempotency.py": "66b21a614515dc2b0578779bf361bd07e812d8a99d44baf7bd392f2388740e1a",
     "services/core-control-plane/src/fdai/shared/providers/incident_platform.py": "048ccf4b187dc02aa7309a82c9d0465791696c0089b55233009379c0b6ae1920",
     "services/core-control-plane/src/fdai/shared/providers/inventory.py": "1e9d8f46ffc0db408a71663c345a0e3e5e929a8491250483e3b7135699e9fec5",
+    "services/core-control-plane/src/fdai/shared/providers/inventory_observation.py": "a888a7d860ea1bfc0fdeb87db0327bb627891d85e5f59dd6842388833cb7d0ec",
     "services/core-control-plane/src/fdai/shared/providers/inventory_snapshot.py": "d076bfc6c9d1492d80aa7880e5d4694cfabea80c26f62dfef978624457c23df0",
     "services/core-control-plane/src/fdai/shared/providers/knowledge.py": "a8660bd5b361eb6c8e3370332d97f1d6f8a33cd2993f0a80ecdd5da17ce32c02",
     "services/core-control-plane/src/fdai/shared/providers/local/__init__.py": "3ee90db23ead7a100cd433cbb0f402f986bda3e780d7e9fd7a009b109350a9cc",

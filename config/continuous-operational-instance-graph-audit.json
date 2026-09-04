@@ -114,10 +114,24 @@
           "state": "bound",
           "path": "services/core-control-plane/src/fdai/runtime/bootstrap_pantheon.py",
           "symbol": "initialize_pantheon"
+        },
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/persistence/postgres_inventory_observation.py",
+          "symbol": "PostgresInventoryObservationJournal"
+        },
+        {
+          "state": "bound",
+          "path": "service-migrations/branches/core-control-plane/versions/20260905_core_inventory_observation_journal.py",
+          "symbol": "upgrade"
         }
       ],
       "tests": [
-        "services/core-control-plane/tests/persistence/test_inventory_delta_validation.py"
+        "services/core-control-plane/tests/persistence/test_inventory_delta_validation.py",
+        "services/core-control-plane/tests/persistence/test_postgres_inventory_observation.py",
+        "services/core-control-plane/tests/shared/providers/test_inventory_observation.py",
+        "tests/integration/services/test_inventory_observation_migration.py",
+        "tests/integration/services/test_service_migration_inventory.py"
       ],
       "missing_binding": null
     },
@@ -199,11 +213,17 @@
           "state": "bound",
           "path": "services/core-control-plane/src/fdai/delivery/inventory_sync_cli.py",
           "symbol": "_build_ontology_observer"
+        },
+        {
+          "state": "bound",
+          "path": "services/core-control-plane/src/fdai/delivery/persistence/postgres_ontology_source_coverage.py",
+          "symbol": "resource_graph_source_coverage"
         }
       ],
       "tests": [
         "services/core-control-plane/tests/runtime/test_inventory_ontology.py",
-        "services/core-control-plane/tests/core/ontology_platform/test_inventory_projection.py"
+        "services/core-control-plane/tests/core/ontology_platform/test_inventory_projection.py",
+        "services/core-control-plane/tests/persistence/test_postgres_ontology_rows.py"
       ],
       "missing_binding": null
     },

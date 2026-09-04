@@ -1,8 +1,8 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: d7e2ca6a715ff9f8934e0affc576d4235f60f33f
-translation_revised: 2026-09-04
+translation_source_sha: 1dc0cfaad552d9d9cd357ab135dd627253ef2795
+translation_revised: 2026-09-05
 ---
 # 구독 초기 프로비저닝
 
@@ -367,6 +367,13 @@ PostgreSQL 전이 원장에 추가할 수 있습니다. 이 쓰기는 보존된 
 `snapshot_interval_only`로 기록하며 Genesis 준비 완료를 충족하거나 지속 관측을 주장하지
 않습니다. 상태 전이 저장은 토폴로지 이력이 진행되기 전에 완료되어야 하므로 재시도에서 상태
 전이가 조용히 유실되지 않습니다.
+
+Inventory Job이 시작되기 전에 Core 서비스 migration head에 정규화된 inventory 관측 원장이
+포함되어야 합니다. Job은 온톨로지 변환 결과를 만들기 전에 승격된 전체 snapshot을 이 원장에
+이중 기록하고, 그래프 commit이 성공한 후에만 온톨로지 watermark를 전진시킵니다. 원장 지연이나
+확인되지 않은 tombstone이 있으면 inventory 원본 완전성은 false로 유지되므로 Genesis 준비
+상태가 온톨로지에 반영되지 않은 sparse 이벤트를 숨길 수 없습니다. 이 선행 조건은 후속 수명
+인스턴스, correction partition, 보존 또는 archive 작업을 완료하지 않습니다.
 
 각 배치가 영속 진행 신호를 갱신합니다. 무진행 제한 시간을 넘기면 시도를 실패로 처리하고
 이전 완전한 그래프를 유지하며 재개 가능한 커서 또는 범위가 제한된 재시작 결정을 남깁니다.

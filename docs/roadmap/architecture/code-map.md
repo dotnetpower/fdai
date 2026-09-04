@@ -57,6 +57,11 @@ Semantic resource-health planning now keeps collection health, exact resource id
 name-or-tag filtering, and time-bounded evidence requests distinct. The Core query path preserves
 provider completeness and reason codes, while the Operator presentation and Console dashboard keep
 partial or unavailable observations visible instead of substituting generic inventory rows.
+Inventory change ingestion now uses the typed `inventory_observation.py` contract and dual-writes
+the Core-owned append-only PostgreSQL observation journal while the existing overlay remains the
+current read path. Journal replay applies explicit property masks, keeps operation status separate
+from resource state, and exposes journal and ontology projection watermarks to source-completeness
+checks.
 
 Prompt composition keeps role and safety layers in `core/prompts/` and moves Azure startup assembly
 into `composition/wire_azure_prompts.py`. Revisioned conversation settings are written by the

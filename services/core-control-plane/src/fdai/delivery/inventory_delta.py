@@ -151,7 +151,12 @@ def _resource_event(*, scope: str, resource: ResourceRecord, links: Sequence[Lin
             "resource": resource_payload,
             "inventory_change": {
                 "kind": "upsert",
+                "observation_kind": "full",
+                "properties_complete": True,
+                "property_mask": sorted(resource.props),
+                "scope_ref": scope,
                 "resource": resource_payload,
+                "links_complete": False,
                 "links": link_payloads,
             },
         },

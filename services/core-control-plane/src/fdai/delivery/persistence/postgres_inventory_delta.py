@@ -13,10 +13,22 @@ from typing import Any
 import psycopg
 from psycopg.rows import dict_row
 
+from fdai.delivery.persistence.postgres_inventory_observation import (
+    PostgresInventoryObservationJournal,
+)
+from fdai.delivery.persistence.postgres_inventory_observation_ingress import (
+    inventory_observation_kind,
+    inventory_property_mask,
+    normalized_inventory_observations,
+    optional_change_text,
+    replay_inventory_resource_projection,
+    validate_inventory_observation_semantics,
+)
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
     _PROMOTION_LOCK,
     PostgresInventorySnapshotStoreConfig,
 )
+from fdai.shared.providers.inventory_observation import InventoryObservationKind
 
 _CHANGE_KINDS = frozenset({"upsert", "delete"})
 _LINK_TYPES = frozenset({"contains", "attached_to", "depends_on", "peered_with", "routes_to"})
@@ -109,6 +121,7 @@ class PostgresInventoryDeltaProjector:
         max_future_skew_seconds: int = _DEFAULT_MAX_FUTURE_SKEW_SECONDS,
         max_links: int = _DEFAULT_MAX_LINKS,
         max_reconciled_links: int = _DEFAULT_MAX_RECONCILED_LINKS,
+        observation_journal: PostgresInventoryObservationJournal | None = None,
     ) -> None:
         if max_future_skew_seconds < 0:
             raise ValueError("max_future_skew_seconds MUST be non-negative")
@@ -121,6 +134,9 @@ class PostgresInventoryDeltaProjector:
         self._max_future_skew_seconds = max_future_skew_seconds
         self._max_links = max_links
         self._max_reconciled_links = max_reconciled_links
+        self._observation_journal = observation_journal or PostgresInventoryObservationJournal(
+            config=config
+        )
 
     async def __call__(self, payload: Mapping[str, Any]) -> InventoryDeltaApplyResult:
         event_type = payload.get("event_type")
@@ -163,6 +179,23 @@ class PostgresInventoryDeltaProjector:
         )
         links_complete = _optional_bool(change, "links_complete", default=False)
         properties_complete = _optional_bool(change, "properties_complete", default=True)
+        observation_kind = inventory_observation_kind(
+            change,
+            change_kind=change_kind,
+            properties_complete=properties_complete,
+        )
+        property_mask = inventory_property_mask(
+            change,
+            properties=props,
+            observation_kind=observation_kind,
+        )
+        tombstone_confirmed = _optional_bool(
+            change,
+            "tombstone_confirmed",
+            default="observation_kind" not in change and change_kind == "delete",
+        )
+        operation = optional_change_text(change, "operation")
+        operation_status = optional_change_text(change, "operation_status")
         if len(links) > self._max_links:
             raise ValueError(f"inventory_change.links exceeds cap ({self._max_links})")
         _reject_duplicate_link_keys(links)
@@ -172,9 +205,18 @@ class PostgresInventoryDeltaProjector:
         if links_complete and any(kind != "upsert" for kind in link_kinds):
             raise ValueError("complete inventory links can carry only link upserts")
         if not properties_complete and (change_kind != "upsert" or links_complete or links):
-            raise ValueError(
-                "partial inventory properties require an upsert without relationship changes"
-            )
+            if observation_kind is not InventoryObservationKind.TOMBSTONE:
+                raise ValueError(
+                    "partial inventory properties require an upsert without relationship changes"
+                )
+        validate_inventory_observation_semantics(
+            observation_kind=observation_kind,
+            change_kind=change_kind,
+            properties_complete=properties_complete,
+            property_mask=property_mask,
+            properties=props,
+            tombstone_confirmed=tombstone_confirmed,
+        )
         if any(not _link_owned_by(resource_id, link) for link in links):
             raise ValueError("inventory change relationships MUST be owned by the changed resource")
         covered_resource_types = _covered_resource_types(resource_type, links)
@@ -204,6 +246,39 @@ class PostgresInventoryDeltaProjector:
                         links=0,
                         outcome=InventoryDeltaApplyOutcome.SNAPSHOT_COVERED,
                     )
+                observations = normalized_inventory_observations(
+                    payload=payload,
+                    change=change,
+                    resource=resource,
+                    links=links,
+                    link_kinds=link_kinds,
+                    observation_kind=observation_kind,
+                    property_mask=property_mask,
+                    properties_complete=properties_complete,
+                    links_complete=links_complete,
+                    tombstone_confirmed=tombstone_confirmed,
+                    operation=operation,
+                    operation_status=operation_status,
+                    observed_at=observed_at,
+                    recorded_at=now.astimezone(UTC),
+                )
+                journal_result = await self._observation_journal.append_change(
+                    connection,
+                    observations,
+                )
+                if (
+                    observation_kind is InventoryObservationKind.TOMBSTONE
+                    and not tombstone_confirmed
+                ):
+                    await self._observation_journal.mark_overlay_projected(
+                        connection,
+                        watermark=journal_result.high_watermark,
+                    )
+                    return InventoryDeltaApplyResult(
+                        resources=0,
+                        links=0,
+                        outcome=InventoryDeltaApplyOutcome.APPLIED,
+                    )
                 await _acquire_resource_locks(
                     connection,
                     (resource_id,) if reconcile_graph else _lock_resource_ids(resource_id, links),
@@ -214,14 +289,25 @@ class PostgresInventoryDeltaProjector:
                     resource_id=resource_id,
                     resource_type=resource_type,
                 )
-                if not properties_complete:
-                    resource_props_json, provider_ref = await _merge_partial_resource_properties(
-                        connection,
-                        snapshot_id=str(coverage["id"]),
-                        resource_id=resource_id,
-                        incoming=props,
-                        provider_ref=provider_ref,
-                    )
+                replay = await replay_inventory_resource_projection(
+                    connection,
+                    journal=self._observation_journal,
+                    snapshot_id=str(coverage["id"]),
+                    snapshot_started_at=coverage["started_at"],
+                    resource_id=resource_id,
+                    resource_type=resource_type,
+                )
+                if (
+                    not replay.present
+                    and observation_kind is not InventoryObservationKind.TOMBSTONE
+                ):
+                    raise ValueError("sparse inventory properties require an existing resource")
+                resource_props_json = replay.properties_json
+                provider_ref = replay.provider_ref
+                projected_change_kind = "upsert" if replay.present else "delete"
+                projected_observed_at = replay.observed_at or observed_at
+                projected_event_id = replay.source_event_id or event_id
+                projected_idempotency_key = replay.idempotency_key or idempotency_key
                 resource_cursor = await connection.execute(
                     "INSERT INTO inventory_realtime_resource "
                     "(resource_id, change_kind, resource_type, props, provider_ref, "
@@ -237,19 +323,28 @@ class PostgresInventoryDeltaProjector:
                     "AND ((inventory_realtime_resource.change_kind <> 'delete' "
                     "AND EXCLUDED.change_kind = 'delete') OR "
                     "(inventory_realtime_resource.change_kind = EXCLUDED.change_kind "
-                    "AND inventory_realtime_resource.event_id < EXCLUDED.event_id)))",
+                    "AND inventory_realtime_resource.event_id < EXCLUDED.event_id) OR "
+                    "(inventory_realtime_resource.change_kind = EXCLUDED.change_kind "
+                    "AND inventory_realtime_resource.event_id = EXCLUDED.event_id "
+                    "AND (inventory_realtime_resource.props IS DISTINCT FROM EXCLUDED.props "
+                    "OR inventory_realtime_resource.provider_ref "
+                    "IS DISTINCT FROM EXCLUDED.provider_ref))))",
                     (
                         resource_id,
-                        change_kind,
+                        projected_change_kind,
                         resource_type,
                         resource_props_json,
                         provider_ref,
-                        observed_at,
-                        event_id,
-                        idempotency_key,
+                        projected_observed_at,
+                        projected_event_id,
+                        projected_idempotency_key,
                     ),
                 )
                 if resource_cursor.rowcount <= 0:
+                    await self._observation_journal.mark_overlay_projected(
+                        connection,
+                        watermark=journal_result.high_watermark,
+                    )
                     _log_ignored_delta(event_id, InventoryDeltaApplyOutcome.ORDERING_REJECTED)
                     return InventoryDeltaApplyResult(
                         resources=0,
@@ -304,6 +399,10 @@ class PostgresInventoryDeltaProjector:
                         )
                     )
                 applied_links = await self._upsert_link_rows(connection, link_rows)
+                await self._observation_journal.mark_overlay_projected(
+                    connection,
+                    watermark=journal_result.high_watermark,
+                )
         return InventoryDeltaApplyResult(
             resources=max(0, resource_cursor.rowcount),
             links=applied_links,

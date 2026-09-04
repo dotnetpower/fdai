@@ -10,9 +10,7 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 from fdai.delivery.azure.arg_projection import (
     arm_id_to_type,
     build_arm_to_neutral_map,
-    extract_rg_contains_links,
     to_neutral_id,
-    truncate_props,
 )
 from fdai.rule_catalog.schema.resource_type import ResourceTypeRegistry
 from fdai.shared.contracts.models import Event, IncidentCorrelation, Mode
@@ -25,7 +23,6 @@ _CHANGE_KIND: Final[dict[str, str]] = {
     _WRITE_EVENT: "upsert",
     _DELETE_EVENT: "delete",
 }
-_MAX_PROPS_BYTES: Final[int] = 16 * 1024
 
 
 def normalize_resource_change_events(
@@ -98,22 +95,13 @@ def _normalize_one(
 
     observed_at = _parse_timestamp(record.get("eventTime"))
     resource_id = to_neutral_id(provider_ref)
-    props = truncate_props(
-        {
-            "operation": data.get("operationName"),
-            "status": data.get("status"),
-            "resourceProvider": data.get("resourceProvider"),
-        },
-        max_bytes=_MAX_PROPS_BYTES,
-    )
     resource = ResourceRecord(
         resource_id=resource_id,
         type=resource_type,
-        props=props,
+        props={},
         provider_ref=provider_ref,
         last_seen=observed_at.isoformat(),
     )
-    links = extract_rg_contains_links((resource,))
     raw_event_id = str(record.get("id") or "").strip()
     if not raw_event_id:
         raise ValueError("id MUST be a non-empty string")
@@ -121,6 +109,14 @@ def _normalize_one(
     idempotency_key = f"azure-resource-change:{raw_event_id}"
     inventory_change = {
         "kind": change_kind,
+        "observation_kind": "change_hint" if change_kind == "upsert" else "tombstone",
+        "properties_complete": False,
+        "property_mask": [],
+        "tombstone_confirmed": False,
+        "operation": data.get("operationName"),
+        "operation_status": data.get("status"),
+        "operation_provider": data.get("resourceProvider"),
+        "scope_ref": _subscription_scope(provider_ref),
         "resource": {
             "resource_id": resource.resource_id,
             "type": resource.type,
@@ -128,18 +124,8 @@ def _normalize_one(
             "provider_ref": resource.provider_ref,
             "last_seen": resource.last_seen,
         },
-        "links": [
-            {
-                "change_kind": change_kind,
-                "from_id": link.from_id,
-                "from_type": link.from_type,
-                "link_type": link.link_type,
-                "to_id": link.to_id,
-                "to_type": link.to_type,
-                "props": dict(link.link_props),
-            }
-            for link in links
-        ],
+        "links": [],
+        "links_complete": False,
     }
     return Event(
         schema_version="1.0.0",
@@ -167,6 +153,14 @@ def _resource_arm_type(provider_ref: str) -> str | None:
     lowered = provider_ref.lower().rstrip("/")
     if "/resourcegroups/" in lowered and "/providers/" not in lowered:
         return "Microsoft.Resources/resourceGroups"
+    return None
+
+
+def _subscription_scope(provider_ref: str) -> str | None:
+    parts = provider_ref.strip("/").split("/")
+    for index, part in enumerate(parts[:-1]):
+        if part.lower() == "subscriptions" and parts[index + 1]:
+            return parts[index + 1]
     return None
 
 

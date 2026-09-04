@@ -109,6 +109,19 @@ def _ontology_observer_harness(monkeypatch: pytest.MonkeyPatch) -> tuple[Any, ..
         "fdai.delivery.inventory_sync_cli.InventoryOntologyProjector",
         lambda **kwargs: projector.construction_kwargs.update(kwargs) or projector,
     )
+    observation_journal = SimpleNamespace(
+        append_promoted_snapshot=AsyncMock(
+            return_value=SimpleNamespace(
+                journal_high_watermark=7,
+                projection_high_watermark=7,
+            )
+        ),
+        mark_ontology_projected=AsyncMock(),
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli.PostgresInventoryObservationJournal",
+        lambda **_: observation_journal,
+    )
     activity_publisher = SimpleNamespace(publish=AsyncMock())
     observer = _build_ontology_observer(
         config,

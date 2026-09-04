@@ -103,7 +103,10 @@ class InventoryLiveEvidenceWriter:
                 "idempotency_key": idempotency_key,
                 "inventory_change": {
                     "kind": "upsert",
+                    "observation_kind": "partial",
                     "properties_complete": False,
+                    "property_mask": ["live_evidence"],
+                    "scope_ref": resource.scope_ref,
                     "resource": {
                         "resource_id": resource.resource_ref,
                         "type": resource.resource_type,

@@ -61,6 +61,14 @@ class _RecordingProjectionLock:
             self.active -= 1
 
 
+class _RecordingObservationJournal:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, int]] = []
+
+    async def mark_ontology_projected(self, *, generation: str, watermark: int) -> None:
+        self.calls.append((generation, watermark))
+
+
 class _FailStatusOnceStore(InMemoryStateStore):
     def __init__(self) -> None:
         super().__init__()
@@ -176,6 +184,32 @@ def _projector(
         resource_type_mappings=resource_type_mappings,
         allow_non_atomic_store=not hasattr(store, "replace_subgraph_with_state"),
     )
+
+
+async def test_projection_advances_journal_watermark_only_after_graph_commit() -> None:
+    status = InMemoryStateStore()
+    store = _AtomicOntologyStore(status)
+    journal = _RecordingObservationJournal()
+    projector = InventoryOntologyProjector(
+        store=store,
+        status_store=status,
+        ontology_release_digest=ONTOLOGY_RELEASE_DIGEST,
+        observation_journal=journal,
+    )
+
+    result = await projector.apply(
+        _observation(generation="snapshot-watermark", resource_ids=("vm-1",)),
+        journal_high_watermark=7,
+        projection_high_watermark=6,
+    )
+
+    assert journal.calls == [("snapshot-watermark", 6)]
+    assert result.journal_high_watermark == 7
+    assert result.projection_high_watermark == 6
+    manifest = await status.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY)
+    assert manifest is not None
+    assert manifest["journal_high_watermark"] == 7
+    assert manifest["projection_high_watermark"] == 6
 
 
 def _observation(

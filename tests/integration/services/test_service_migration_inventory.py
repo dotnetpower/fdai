@@ -88,6 +88,8 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
         "operator_background_task_projection",
         "operator_read_investigation_completion",
         "operator_incident_projection",
+        "inventory_observation_journal",
+        "inventory_observation_pending_tombstone",
         "operational_state_transition",
         "operational_state_transition_batch",
         "operational_state_transition_coverage",
@@ -1443,6 +1445,13 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         / "branches/core-control-plane/versions/20260902_core_operational_state_transitions.py"
     )
     state_transition_migration = inventory_module.load_revision_metadata(state_transition_path)
+    observation_journal_path = (
+        MIGRATION_ROOT
+        / "branches/core-control-plane/versions/20260905_core_inventory_observation_journal.py"
+    )
+    observation_journal_migration = inventory_module.load_revision_metadata(
+        observation_journal_path
+    )
 
     expected_tables = {
         table for table, owner in ownership.table_migrators.items() if owner == "core-control-plane"
@@ -1465,12 +1474,26 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         | set(standing_authority_migration.owned_tables)
         | set(t2_cache_migration.owned_tables)
         | set(state_transition_migration.owned_tables)
+        | set(observation_journal_migration.owned_tables)
     )
     assert granted_tables == expected_tables
     source = role_path.read_text(encoding="utf-8")
     assert "CREATE ROLE fdai_core" in source
     assert "ON ALL TABLES" not in source
     assert "ALTER DEFAULT PRIVILEGES" not in source
+
+    assert observation_journal_migration.rollback == {
+        "strategy": "drop-rebuildable-inventory-observation-journal",
+        "restores": "core_operational_state_transitions_20260902",
+        "requires": "inventory-observation-writers-stopped",
+    }
+    observation_source = observation_journal_path.read_text(encoding="utf-8")
+    assert (
+        'down_revision: str | Sequence[str] | None = "core_operational_state_transitions_20260902"'
+    ) in observation_source
+    assert "inventory observation journal is append-only" in observation_source
+    assert "operation_status TEXT" in observation_source
+    assert "projection_mode TEXT NOT NULL DEFAULT 'shadow'" in observation_source
 
 
 def test_adoption_evidence_schema_matches_canonical_legacy_inventory() -> None:

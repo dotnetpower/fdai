@@ -366,6 +366,13 @@ fields. Snapshot comparison is recorded as `initial_state_only` or `snapshot_int
 does not satisfy Genesis readiness or claim continuous observation. Transition persistence must
 complete before topology history advances, so a retry cannot silently lose a state edge.
 
+The Core service migration head must include the normalized inventory observation journal before
+the inventory Job starts. The Job dual-writes the promoted full snapshot to that journal before
+ontology projection and advances the ontology watermark only after the graph commit succeeds.
+Journal lag or an unconfirmed tombstone keeps inventory source completeness false, so Genesis
+readiness cannot hide a sparse event that the ontology has not projected. This prerequisite does
+not complete the later incarnation, correction-partition, retention, or archive work.
+
 Every emitted batch advances the durable heartbeat. A no-progress deadline fails the attempt,
 retains the previous complete graph, and leaves a resumable cursor or a bounded restart decision.
 The Console shows `observed / expected`, type and scope counts, current stage, elapsed time, last

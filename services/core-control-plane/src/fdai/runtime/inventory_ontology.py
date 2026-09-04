@@ -28,6 +28,9 @@ from fdai.core.ontology_platform.inventory_projection import (
     build_inventory_ontology_projection,
 )
 from fdai.delivery.inventory_sync import PromotedInventoryObservation
+from fdai.shared.providers.inventory_observation import (
+    InventoryObservationProjectionJournal,
+)
 from fdai.shared.providers.ontology_instance import (
     OntologyInstanceStore,
     OntologyInstanceValidationError,
@@ -66,6 +69,8 @@ class InventoryOntologyProjectionResult:
     complete: bool
     relationship_complete: bool
     dropped_reasons: tuple[str, ...]
+    journal_high_watermark: int | None = None
+    projection_high_watermark: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,6 +96,7 @@ class InventoryOntologyProjector:
         resource_type_mappings: Mapping[str, str] | None = None,
         freshness_ceiling_seconds: int = DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS,
         projection_lock: ResourceLock | None = None,
+        observation_journal: InventoryObservationProjectionJournal | None = None,
         allow_non_atomic_store: bool = False,
     ) -> None:
         if _DIGEST_PATTERN.fullmatch(ontology_release_digest) is None:
@@ -103,24 +109,47 @@ class InventoryOntologyProjector:
         self._resource_type_mappings = resource_type_mappings
         self._freshness_ceiling_seconds = freshness_ceiling_seconds
         self._projection_lock = projection_lock
+        self._observation_journal = observation_journal
         self._allow_non_atomic_store = allow_non_atomic_store
         self._local_lock = asyncio.Lock()
 
     async def apply(
         self,
         observation: PromotedInventoryObservation,
+        *,
+        journal_high_watermark: int | None = None,
+        projection_high_watermark: int | None = None,
     ) -> InventoryOntologyProjectionResult:
         """Serialize and atomically replace the owned subgraph for one generation."""
 
+        if (journal_high_watermark is None) != (projection_high_watermark is None):
+            raise ValueError("inventory ontology journal watermarks MUST be supplied together")
+        if (
+            journal_high_watermark is not None
+            and projection_high_watermark is not None
+            and projection_high_watermark > journal_high_watermark
+        ):
+            raise ValueError("inventory ontology projection watermark exceeds journal")
         async with self._local_lock:
             if self._projection_lock is None:
-                return await self._apply_locked(observation)
+                return await self._apply_locked(
+                    observation,
+                    journal_high_watermark=journal_high_watermark,
+                    projection_high_watermark=projection_high_watermark,
+                )
             async with self._projection_lock.acquire(_PROJECTION_LOCK_ID):
-                return await self._apply_locked(observation)
+                return await self._apply_locked(
+                    observation,
+                    journal_high_watermark=journal_high_watermark,
+                    projection_high_watermark=projection_high_watermark,
+                )
 
     async def _apply_locked(
         self,
         observation: PromotedInventoryObservation,
+        *,
+        journal_high_watermark: int | None,
+        projection_high_watermark: int | None,
     ) -> InventoryOntologyProjectionResult:
         """Build and commit one generation while the projection lock is held.
 
@@ -143,6 +172,8 @@ class InventoryOntologyProjector:
                 projection,
                 ontology_release_digest=self._ontology_release_digest,
                 status=InventoryOntologyProjectionStatus.UNAVAILABLE,
+                journal_high_watermark=journal_high_watermark,
+                projection_high_watermark=projection_high_watermark,
             )
             atomic_status = getattr(self._store, "write_state_if_active_generation", None)
             if callable(atomic_status):
@@ -168,6 +199,8 @@ class InventoryOntologyProjector:
                 complete=False,
                 relationship_complete=projection.relationship_complete,
                 dropped_reasons=projection.dropped_reasons,
+                journal_high_watermark=journal_high_watermark,
+                projection_high_watermark=projection_high_watermark,
             )
         previous = await self._read_manifest()
         object_content, link_content = _projection_content(projection)
@@ -183,6 +216,8 @@ class InventoryOntologyProjector:
             ),
             object_content=object_content,
             link_content=link_content,
+            journal_high_watermark=journal_high_watermark,
+            projection_high_watermark=projection_high_watermark,
         )
         current_content_digest = _manifest_content_digest(
             generation=projection.generation,
@@ -195,6 +230,8 @@ class InventoryOntologyProjector:
             ),
             object_content=object_content,
             link_content=link_content,
+            journal_high_watermark=journal_high_watermark,
+            projection_high_watermark=projection_high_watermark,
         )
         if previous.generation == projection.generation and (
             (
@@ -215,12 +252,16 @@ class InventoryOntologyProjector:
             projection,
             ontology_release_digest=self._ontology_release_digest,
             manifest_digest=current_manifest_digest,
+            journal_high_watermark=journal_high_watermark,
+            projection_high_watermark=projection_high_watermark,
         )
         status_state = _status_state(
             projection,
             ontology_release_digest=self._ontology_release_digest,
             manifest_digest=current_manifest_digest,
             status=InventoryOntologyProjectionStatus.AVAILABLE,
+            journal_high_watermark=journal_high_watermark,
+            projection_high_watermark=projection_high_watermark,
         )
         atomic_replace = getattr(self._store, "replace_subgraph_with_state", None)
         if callable(atomic_replace):
@@ -254,6 +295,13 @@ class InventoryOntologyProjector:
                 INVENTORY_ONTOLOGY_STATUS_KEY,
                 status_state,
             )
+        if projection_high_watermark is not None:
+            if self._observation_journal is None:
+                raise RuntimeError("inventory ontology journal watermark has no durable writer")
+            await self._observation_journal.mark_ontology_projected(
+                generation=projection.generation,
+                watermark=projection_high_watermark,
+            )
         _LOG.info(
             "inventory_ontology_projected",
             extra={
@@ -272,6 +320,8 @@ class InventoryOntologyProjector:
             complete=projection.complete,
             relationship_complete=projection.relationship_complete,
             dropped_reasons=projection.dropped_reasons,
+            journal_high_watermark=journal_high_watermark,
+            projection_high_watermark=projection_high_watermark,
         )
 
     async def _seeded_resource_types(
@@ -418,6 +468,8 @@ class InventoryOntologyProjector:
             link_keys=link_keys,
             object_content=object_content,
             link_content=link_content,
+            journal_high_watermark=_manifest_watermark(raw, "journal_high_watermark"),
+            projection_high_watermark=_manifest_watermark(raw, "projection_high_watermark"),
         )
         if raw.get("manifest_digest") != expected_digest:
             raise ValueError("inventory ontology manifest digest does not match its contents")
@@ -430,6 +482,8 @@ class InventoryOntologyProjector:
             link_keys=link_keys,
             object_content=object_content,
             link_content=link_content,
+            journal_high_watermark=_manifest_watermark(raw, "journal_high_watermark"),
+            projection_high_watermark=_manifest_watermark(raw, "projection_high_watermark"),
         )
         return _OwnedIdentities(
             object_ids,
@@ -506,9 +560,11 @@ def _manifest_state(
     *,
     ontology_release_digest: str,
     manifest_digest: str,
+    journal_high_watermark: int | None = None,
+    projection_high_watermark: int | None = None,
 ) -> dict[str, object]:
     object_content, link_content = _projection_content(projection)
-    return {
+    state: dict[str, object] = {
         "schema_version": _MANIFEST_SCHEMA_VERSION,
         "generation": projection.generation,
         "ontology_release_digest": ontology_release_digest,
@@ -523,6 +579,10 @@ def _manifest_state(
         "object_content": list(object_content),
         "link_content": list(link_content),
     }
+    if journal_high_watermark is not None:
+        state["journal_high_watermark"] = journal_high_watermark
+        state["projection_high_watermark"] = projection_high_watermark
+    return state
 
 
 def _status_state(
@@ -531,8 +591,10 @@ def _status_state(
     ontology_release_digest: str,
     manifest_digest: str,
     status: InventoryOntologyProjectionStatus,
+    journal_high_watermark: int | None = None,
+    projection_high_watermark: int | None = None,
 ) -> dict[str, object]:
-    return {
+    state: dict[str, object] = {
         "schema_version": _MANIFEST_SCHEMA_VERSION,
         "generation": projection.generation,
         "ontology_release_digest": ontology_release_digest,
@@ -542,6 +604,10 @@ def _status_state(
         "relationship_complete": projection.relationship_complete,
         "dropped_reasons": list(projection.dropped_reasons),
     }
+    if journal_high_watermark is not None:
+        state["journal_high_watermark"] = journal_high_watermark
+        state["projection_high_watermark"] = projection_high_watermark
+    return state
 
 
 def _projection_status_state(
@@ -549,6 +615,8 @@ def _projection_status_state(
     *,
     ontology_release_digest: str,
     status: InventoryOntologyProjectionStatus,
+    journal_high_watermark: int | None = None,
+    projection_high_watermark: int | None = None,
 ) -> dict[str, object]:
     object_content, link_content = _projection_content(projection)
     digest = _manifest_digest(
@@ -563,12 +631,16 @@ def _projection_status_state(
         ),
         object_content=object_content,
         link_content=link_content,
+        journal_high_watermark=journal_high_watermark,
+        projection_high_watermark=projection_high_watermark,
     )
     return _status_state(
         projection,
         ontology_release_digest=ontology_release_digest,
         manifest_digest=digest,
         status=status,
+        journal_high_watermark=journal_high_watermark,
+        projection_high_watermark=projection_high_watermark,
     )
 
 
@@ -583,6 +655,8 @@ def _manifest_digest(
     link_keys: tuple[tuple[str, str, str], ...],
     object_content: Sequence[Mapping[str, object]],
     link_content: Sequence[Mapping[str, object]],
+    journal_high_watermark: int | None = None,
+    projection_high_watermark: int | None = None,
 ) -> str:
     """Hash the shared manifest payload used by status and reader reload checks."""
 
@@ -598,6 +672,9 @@ def _manifest_digest(
         "object_content": list(object_content),
         "link_content": list(link_content),
     }
+    if journal_high_watermark is not None:
+        payload["journal_high_watermark"] = journal_high_watermark
+        payload["projection_high_watermark"] = projection_high_watermark
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode(
         "utf-8"
     )
@@ -614,6 +691,8 @@ def _manifest_content_digest(
     link_keys: tuple[tuple[str, str, str], ...],
     object_content: Sequence[Mapping[str, object]],
     link_content: Sequence[Mapping[str, object]],
+    journal_high_watermark: int | None = None,
+    projection_high_watermark: int | None = None,
 ) -> str:
     """Hash release-independent observed content for safe release transitions."""
 
@@ -627,10 +706,22 @@ def _manifest_content_digest(
         "object_content": list(object_content),
         "link_content": list(link_content),
     }
+    if journal_high_watermark is not None:
+        payload["journal_high_watermark"] = journal_high_watermark
+        payload["projection_high_watermark"] = projection_high_watermark
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode(
         "utf-8"
     )
     return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
+def _manifest_watermark(value: Mapping[str, object], key: str) -> int | None:
+    if key not in value:
+        return None
+    watermark = value.get(key)
+    if not isinstance(watermark, int) or isinstance(watermark, bool) or watermark < 0:
+        raise ValueError(f"inventory ontology manifest {key} is invalid")
+    return watermark
 
 
 __all__ = [

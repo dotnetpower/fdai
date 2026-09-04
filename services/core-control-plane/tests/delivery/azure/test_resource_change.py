@@ -7,8 +7,12 @@ from pathlib import Path
 
 import pytest
 import yaml
+from fdai.core.ontology_platform.inventory_projection import (
+    build_inventory_ontology_projection,
+)
 from fdai.delivery.azure.resource_change import normalize_resource_change_events
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
+from fdai.shared.providers.inventory import ResourceRecord
 
 _ROOT = Path(__file__).resolve().parents[5]
 _VOCABULARY = _ROOT / "rule-catalog" / "vocabulary" / "resource-types.yaml"
@@ -46,7 +50,7 @@ def _event(event_type: str) -> dict[str, object]:
         ("Microsoft.Resources.ResourceDeleteSuccess", "delete"),
     ],
 )
-def test_normalizes_resource_changes_with_contains_link(
+def test_normalizes_resource_changes_as_sparse_hints(
     event_type: str,
     change_kind: str,
 ) -> None:
@@ -60,8 +64,26 @@ def test_normalizes_resource_changes_with_contains_link(
     assert change["kind"] == change_kind
     assert change["resource"]["type"] == "object-storage"
     assert change["resource"]["resource_id"] == event.resource_ref
-    assert change["links"][0]["link_type"] == "contains"
+    assert change["properties_complete"] is False
+    assert change["property_mask"] == []
+    assert change["links"] == []
+    assert change["observation_kind"] == ("change_hint" if change_kind == "upsert" else "tombstone")
+    assert change["operation_status"] == "Succeeded"
+    assert "status" not in change["resource"]["props"]
     assert event.payload["signal_kind"] == "azure.activity_log"
+    if change_kind == "upsert":
+        projection = build_inventory_ontology_projection(
+            generation="event-grid-hint",
+            resources=(
+                ResourceRecord(
+                    resource_id=change["resource"]["resource_id"],
+                    type=change["resource"]["type"],
+                    props=change["resource"]["props"],
+                    last_seen=change["resource"]["last_seen"],
+                ),
+            ),
+        )
+        assert "state" not in projection.objects[0].properties["properties"]
 
 
 def test_unsupported_event_type_is_ignored() -> None:

@@ -67,6 +67,9 @@ from fdai.delivery.persistence import (
     PostgresStateStore,
     PostgresStateStoreConfig,
 )
+from fdai.delivery.persistence.postgres_inventory_observation import (
+    PostgresInventoryObservationJournal,
+)
 from fdai.delivery.persistence.postgres_inventory_reconciliation import (
     InventoryReconciliationHealthState,
     PostgresInventoryReconciliationGate,
@@ -344,6 +347,9 @@ def _build_ontology_observer(
     publisher: EventBusOperationalActivityPublisher,
     evidence_counts: dict[str, int],
 ) -> InventoryPromotionObserver:
+    observation_journal = PostgresInventoryObservationJournal(
+        config=PostgresInventorySnapshotStoreConfig(dsn=config.dsn)
+    )
     projector: InventoryOntologyProjector | None = None
     ontology_store: PostgresOntologyInstanceStore | None = None
     topology_publisher: InventoryTopologyHistoryPublisher | None = None
@@ -372,6 +378,7 @@ def _build_ontology_observer(
                     lock_timeout_ms=30_000,
                 )
             ),
+            observation_journal=observation_journal,
         )
         topology_store = PostgresTopologyHistoryStore(
             config=PostgresTopologyHistoryStoreConfig(dsn=config.dsn)
@@ -389,6 +396,7 @@ def _build_ontology_observer(
         evidence_counts[observation.generation] = len(observation.resources) + len(
             observation.links
         )
+        journal_append = await observation_journal.append_promoted_snapshot(observation)
         if projector is None or ontology_store is None or topology_publisher is None:
             return
         failures: list[tuple[str, Exception]] = []
@@ -400,7 +408,11 @@ def _build_ontology_observer(
         result = None
         try:
             await ontology_store.sync_catalog()
-            result = await projector.apply(observation)
+            result = await projector.apply(
+                observation,
+                journal_high_watermark=journal_append.journal_high_watermark,
+                projection_high_watermark=journal_append.projection_high_watermark,
+            )
         except Exception as exc:  # noqa: BLE001 - independent derived read model
             failures.append(("projection_failed", exc))
         if failures:

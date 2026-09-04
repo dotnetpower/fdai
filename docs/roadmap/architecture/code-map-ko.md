@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 17cc8adf81619dd17fef1f663592105b911beb8b
+translation_source_sha: bd3b3c5a2b23554b683824bf46a443f49e8b318e
 translation_revised: 2026-09-05
 ---
 # 코드 맵
@@ -60,6 +60,10 @@ Operator 소유 다운스트림 마이그레이션에 위치하므로, 부트스
 태그 필터, 시간 범위가 있는 근거 요청을 구분합니다. Core 조회 경로는 공급자 완전성과 사유
 코드를 보존하며, Operator 표현 및 콘솔 대시보드는 일반 인벤토리 행으로 대체하지 않고
 부분적이거나 사용할 수 없는 관측을 표시합니다.
+Inventory 변경 수집은 이제 타입이 지정된 `inventory_observation.py` 계약을 사용하고, 기존
+overlay를 현재 조회 경로로 유지하면서 Core 소유의 추가 전용 PostgreSQL 관측 원장에 이중
+기록합니다. 원장 replay는 명시적인 속성 마스크를 적용하고 작업 상태를 리소스 상태와 분리하며,
+원본 완전성 검사에 원장 및 온톨로지 변환 결과 watermark를 제공합니다.
 
 프롬프트 조립은 역할 및 안전 레이어를 `core/prompts/`에 유지하고 Azure 시작 조립을
 `composition/wire_azure_prompts.py`로 분리합니다. 리비전 기반 대화 설정은 Operator
