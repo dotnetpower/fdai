@@ -1,8 +1,8 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: 12d59707c5d982555cea006b0a230c892c7619f1
-translation_revised: 2026-09-02
+translation_source_sha: d7e2ca6a715ff9f8934e0affc576d4235f60f33f
+translation_revised: 2026-09-04
 ---
 # 구독 초기 프로비저닝
 
@@ -55,8 +55,10 @@ inspect -> reconcile current state -> foundation plan/apply -> attest runner
 | 최초 리소스 스캔 | 지속 인벤토리 Job은 완전한 세대만 승격하며 Console은 예상 스캔 수치와 검증된 완료를 구분합니다. | 보호된 실행이 영속 공급자 진행률을 아직 게시하지 않으며 전체 구독 증적을 보존하지 않았습니다. |
 
 인벤토리 CLI는 정제된 수집 상태 조립을 전용 순수 도우미에 위임한 뒤 기존 상태 저장소
-어댑터를 통해 결과를 영속화합니다. 이 모듈 경계 변경은 출처 권한, 준비 상태 의미 또는 재시도
-동작을 바꾸지 않습니다.
+어댑터를 통해 결과를 영속화합니다. 모든 인벤토리 원본을 사용할 수 없으면 일회성 예약 실행은
+계속 실패하므로 초기 구성 조정기가 실패를 관측할 수 있습니다. 로컬 장기 실행 프로필은 같은
+실패를 명시적으로 기록하고 구성된 루프 간격 후에만 다시 시도합니다. 두 모드 모두 출처 권한이나
+준비 상태 의미를 바꾸지 않습니다.
 
 ## 목표 운영자 경험
 

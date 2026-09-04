@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: faff05cffc53cdff85086ea83bfec1799373f19a
+translation_source_sha: c8a169a58f009f7f216105f0d9b43838116ae399
 translation_revised: 2026-09-04
 ---
 # 지속형 운영 인스턴스 그래프
@@ -84,6 +84,9 @@ throttling은 동시성을 줄이고 `Retry-After`를 따릅니다. 지속적인
 더 최신의 실패 시도가 없으면 스케줄러는 활성 스냅샷 완료 후 경과 시간을 마지막 시도 후
 경과 시간으로 사용합니다. 따라서 실패 타임스탬프가 없다는 이유만으로 변경 수요 또는 최대
 노후 상태가 계속 연기되지 않습니다.
+로컬 장기 실행 루프는 모든 원본이 실패한 상황을 명시적으로 기록하고 구성된 루프 간격 후에
+다시 시도합니다. 일회성 예약 작업은 계속 실패하므로 조정기가 실패한 시도를 관측하고 통제할
+수 있습니다.
 
 구성은 배포 값을 제공합니다. 저장소 기본값과 테스트는 안전한 범위를 정의하며, 하나의 간격이
 모든 tenant 또는 공급자 API에 적합하다고 주장하지 않습니다.

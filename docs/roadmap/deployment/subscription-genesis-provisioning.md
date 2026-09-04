@@ -52,8 +52,10 @@ subscription-onboarding product:
 | Initial resource scan | The continuous inventory Job promotes only a complete generation; the Console separates estimated scan counters from verified closure | The protected run does not yet publish durable provider progress or retain the governed full-subscription receipt. |
 
 The inventory CLI delegates sanitized collection-health assembly to a focused pure helper before it
-persists the result through the existing state-store adapter. This module boundary does not change
-source authority, readiness semantics, or retry behavior.
+persists the result through the existing state-store adapter. A one-shot scheduled run still fails
+when every inventory source is exhausted so the genesis orchestrator can observe the failure. The
+local long-running profile records that exact failure and retries only after its configured loop
+interval. Neither mode changes source authority or readiness semantics.
 
 ## Target operator experience
 

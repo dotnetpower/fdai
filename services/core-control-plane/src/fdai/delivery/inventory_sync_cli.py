@@ -125,6 +125,7 @@ from fdai.shared.providers.inventory_snapshot import (
     InventoryCoverageManifest,
     InventoryObservationKind,
     InventorySource,
+    InventorySourcesExhaustedError,
 )
 from fdai.shared.providers.resource_lock import ResourceLock
 from fdai.shared.providers.workload_identity import WorkloadIdentity
@@ -644,13 +645,20 @@ def _recovery_delta_lock(config: InventoryJobConfig) -> ResourceLock:
     )
 
 
-async def _run_due_once() -> InventoryJobConfig:
-    """Run one tick and return the single settings snapshot it used."""
+async def _load_job_config() -> InventoryJobConfig:
+    """Resolve one authoritative settings snapshot for an inventory tick."""
 
     from fdai.delivery.runtime_settings import runtime_settings_service_from_env
 
     runtime_values = await runtime_settings_service_from_env(os.environ).effective_values()
-    config = InventoryJobConfig.from_env(runtime_values=runtime_values)
+    return InventoryJobConfig.from_env(runtime_values=runtime_values)
+
+
+async def _run_due_once(config: InventoryJobConfig | None = None) -> InventoryJobConfig:
+    """Run one tick and return the single settings snapshot it used."""
+
+    if config is None:
+        config = await _load_job_config()
     await _collect_kubernetes_lifecycle(config)
     snapshot_config = PostgresInventorySnapshotStoreConfig(
         dsn=config.dsn,
@@ -808,7 +816,19 @@ async def _main(argv: list[str]) -> None:
     if argv and not loop:
         raise ValueError("inventory reconciliation accepts only --loop")
     while True:
-        config = await _run_due_once()
+        config = await _load_job_config()
+        try:
+            await _run_due_once(config)
+        except InventorySourcesExhaustedError as exc:
+            if not loop:
+                raise
+            _LOGGER.warning(
+                "inventory_reconciliation_loop_tick_failed",
+                extra={
+                    "failure_codes": tuple(failure.code.value for failure in exc.failures),
+                },
+            )
+            print("inventory reconciliation failed; retry scheduled", flush=True)
         if not loop:
             return
         await asyncio.sleep(config.loop_seconds)

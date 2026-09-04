@@ -81,6 +81,9 @@ unavailability opens the circuit and schedules a bounded probe instead of retryi
 When no newer failed attempt exists, the scheduler uses the active snapshot completion age as the
 last-attempt age. Change demand or maximum staleness therefore cannot be deferred indefinitely
 because a failure timestamp is absent.
+The local long-running loop records exact all-source exhaustion and retries after the configured
+loop interval. A one-shot scheduled job still fails so its orchestrator can observe and govern the
+failed attempt.
 
 Configuration supplies deployment values. Repository defaults and tests define safe bounds, not a
 claim that one interval fits every tenant or provider API.

@@ -34,6 +34,7 @@ from fdai.delivery.inventory_sync_cli import (
     _drain_change_stream,
     _forward_recovery_deltas,
     _load_relationship_mapping_catalog,
+    _main,
     _publish_collection_health,
     _resolve_resource_types,
     _run_due_once,
@@ -52,6 +53,7 @@ from fdai.rule_catalog.schema.resource_type import (
 )
 from fdai.runtime.inventory_ontology import InventoryOntologyProjectionStatus
 from fdai.shared.providers.inventory import ResourceRecord
+from fdai.shared.providers.inventory_snapshot import InventorySourcesExhaustedError
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.workload_identity import StaticWorkloadIdentity
 
@@ -543,6 +545,62 @@ async def test_not_due_tick_flushes_service_readiness_status(
         "inventory reconciliation not due; change records published 0",
         flush=True,
     )
+
+
+async def test_loop_retries_after_all_inventory_sources_fail(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "sub-1",
+        }
+    )
+    attempts = 0
+
+    class StopLoopError(RuntimeError):
+        pass
+
+    async def run_tick(_config: InventoryJobConfig) -> InventoryJobConfig:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise InventorySourcesExhaustedError(())
+        raise StopLoopError
+
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli._load_job_config",
+        AsyncMock(return_value=config),
+    )
+    monkeypatch.setattr("fdai.delivery.inventory_sync_cli._run_due_once", run_tick)
+    monkeypatch.setattr("fdai.delivery.inventory_sync_cli.asyncio.sleep", AsyncMock())
+
+    with pytest.raises(StopLoopError):
+        await _main(["--loop"])
+
+    assert attempts == 2
+
+
+async def test_one_shot_propagates_all_inventory_sources_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "sub-1",
+        }
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli._load_job_config",
+        AsyncMock(return_value=config),
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli._run_due_once",
+        AsyncMock(side_effect=InventorySourcesExhaustedError(())),
+    )
+
+    with pytest.raises(InventorySourcesExhaustedError):
+        await _main([])
 
 
 async def test_collection_health_persists_only_sanitized_aggregate_state(
