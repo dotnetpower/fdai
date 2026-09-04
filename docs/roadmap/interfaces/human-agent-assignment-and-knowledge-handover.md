@@ -84,6 +84,9 @@ table into labeled per-agent records. The responsive presentation preserves ever
 not change scope or evidence.
 Current owners localizes assignment lifecycle states and keeps the full source digest in disclosed
 technical details instead of presenting machine values as primary operator copy.
+The shared Console catalog retains the Current owners headings and coverage labels used before the
+joined record is available. The assignment editor distinguishes an unobserved roster from a
+filtered empty result and applies the standard primary and secondary button roles.
 
 ## Decisions and boundaries
 

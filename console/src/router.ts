@@ -202,6 +202,14 @@ export function shouldResetScroll(currentPathname: string, nextPathname: string)
   return normalizePathname(currentPathname) !== normalizePathname(nextPathname);
 }
 
+interface ConsoleScrollRoot {
+  querySelector(selector: string): { scrollTo(options: ScrollToOptions): void } | null;
+}
+
+export function resetConsoleScroll(root: ConsoleScrollRoot): void {
+  root.querySelector(".shell-body > main")?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+}
+
 export function navigate(href: string, replace = false): void {
   if (typeof window === "undefined") return;
   const url = new URL(href, window.location.origin);
@@ -209,7 +217,10 @@ export function navigate(href: string, replace = false): void {
   const method = replace ? "replaceState" : "pushState";
   window.history[method](null, "", `${url.pathname}${url.search}`);
   window.dispatchEvent(new Event(ROUTE_EVENT));
-  if (resetScroll) window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  if (resetScroll) {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    resetConsoleScroll(document);
+  }
 }
 
 /** Replace the current clean URL without notifying the route boundary.

@@ -96,7 +96,7 @@
     "architecture": "Architecture",
     "ontology": "Ontology",
     "pantheon": "Pantheon",
-    "handover": "Agent oversight",
+    "handover": "Agent oversight & work handover",
     "promotionGates": "Promotion gates",
     "contextSelectionComparisons": "Context policy comparisons",
     "browserEvidence": "Browser evidence",
@@ -191,7 +191,7 @@
       "architecture": "Architecture",
       "ontology": "Ontology",
       "pantheon": "Org",
-      "handover": "Agent oversight",
+      "handover": "Agent oversight & handover",
       "blastRadius": "Impact scope",
       "promotionGates": "Promotion gates",
       "contextSelectionComparisons": "Context policy comparisons",
@@ -246,7 +246,7 @@
       "architecture": "Deployed resources, boundaries, and dependencies",
       "ontology": "Resource + link graph (classDiagram)",
       "pantheon": "Reporting lines and live state for the fixed 15-agent fleet",
-      "handover": "Operational ownership, coverage, knowledge transfer, and assignment reviews",
+      "handover": "Current owners, governed ownership proposals, and user work handover",
       "blastRadius": "Simulate reachable subgraph before a change",
       "promotionGates": "Per-ActionType readiness to move from observation to enforcement (shadow → enforce)",
       "contextSelectionComparisons": "Baseline and shadow context-selection evidence",
@@ -503,15 +503,17 @@
     "organizationChartLabel": "Pantheon organization chart"
   },
   "handover": {
-    "subtitle": "Oversee operational ownership and coverage for all 15 agents. Submit governed ownership proposals for Owner review; no runtime change is applied here.",
-    "viewsLabel": "Agent oversight views",
+    "subtitle": "Review agent ownership and human dependencies, create observation-only user work handover cases, and submit governed ownership proposals. No runtime change is applied here.",
+    "viewsLabel": "Agent oversight and handover views",
     "invalidView": "This Agent oversight view does not exist.",
     "noFindings": "No ownership coverage issues were detected.",
     "approvalRoutesUnavailable": "Approval-route evidence is not connected to this projection. No route or authority is inferred in the browser.",
     "mappingReviewsLoading": "Loading mapping reviews...",
     "sourceHealth": "Source health",
+    "sourceHealthHint": "Identity verification is independent from the declared ownership map.",
     "identityHealth": "Identity verification",
     "checkedAt": "Last checked",
+    "notObserved": "Not observed",
     "identityHealthStatus": {
       "not_configured": "Not configured",
       "pending": "Check pending",
@@ -538,20 +540,78 @@
     "proposeTitle": "Propose a change",
     "proposeLead": "editing the handover map is a governance draft PR (Owner-gated). Edit",
     "proposeTail": "and open a PR; the console never writes it directly. On merge, the affected agents' owners and the maintainer are notified and the change is recorded in the audit log.",
-    "mapTitle": "Handover map",
+    "maintainersTitle": "Platform maintainers",
+    "maintainersHint": "Exact escalation subjects accountable for the FDAI platform.",
+    "mapTitle": "Current ownership map",
+    "mapHint": "Resolved owners, backup coverage, scope, and pending changes for each fixed agent.",
     "agent": "Agent",
-    "owners": "Owners",
-    "backupCoverage": "Backup coverage",
+    "owners": "Exact subjects",
+    "accountableSubjects": "Accountable subjects",
     "mode": "Mode",
     "noReason": "no reason",
     "mapped": "mapped",
+    "identityReview": "identity review",
+    "identityPending": "verification pending",
+    "identityUnverified": "identity unverified",
     "findingsTitle": "Coverage findings",
+    "findingsHint": "Repeated findings are grouped by validated code. Expand the source records for exact messages.",
+    "findingCount": "{count} findings",
+    "affectedAgents": "Affected agents: {agents}",
+    "mapWideFinding": "Applies to the ownership map",
+    "rawFindings": "View {count} source findings",
     "severity": "Severity",
+    "severityValue": {
+      "warn": "Warning",
+      "info": "Information"
+    },
     "code": "Code",
-    "message": "Message",
+    "message": "Source message",
+    "subjectKind": {
+      "user": "User",
+      "group": "Group"
+    },
+    "responsibility": {
+      "accountable": "Accountable",
+      "informed": "Informed"
+    },
+    "duty": {
+      "primary": "Primary",
+      "backup": "Backup",
+      "escalation": "Escalation"
+    },
+    "finding": {
+      "maintainer_single": {
+        "title": "Single platform maintainer",
+        "description": "Add a second maintainer to preserve succession coverage."
+      },
+      "autonomous_no_steward": {
+        "title": "Explicit autonomous ownership",
+        "description": "Escalation for these agents falls back to a platform maintainer."
+      },
+      "duty_derived": {
+        "title": "Duties derived from version 1 order",
+        "description": "Migrate to stewardship version 2 to declare primary and backup duties explicitly."
+      },
+      "backup_missing": {
+        "title": "Backup or escalation owner missing",
+        "description": "Add a distinct accountable backup or escalation subject."
+      },
+      "bus_factor_one": {
+        "title": "Single accountable subject",
+        "description": "Add another accountable subject where losing one owner would disrupt operations."
+      },
+      "over_assigned": {
+        "title": "Subject assignment threshold exceeded",
+        "description": "Redistribute ownership from subjects responsible for more agents than the configured limit."
+      },
+      "stale_oid": {
+        "title": "Inactive identity",
+        "description": "Replace the inactive exact subject and restore verified escalation coverage."
+      }
+    },
     "editor": {
-      "title": "Register ownership",
-      "description": "Add final owners or notification contacts. Submission creates a draft governance PR; current ownership stays unchanged until merge.",
+      "title": "Propose an ownership change",
+      "description": "Add accountable owners or notification contacts. Submission creates a draft governance PR; current ownership stays unchanged until merge.",
       "ownerReview": "Owner review required",
       "permissionRequired": "Contributor, Approver, or Owner access is required to submit an ownership proposal.",
       "permissionResolving": "Checking your ownership-proposal access...",
@@ -1949,8 +2009,8 @@
       "effectiveCapabilities": "Effective capabilities",
       "users": "Users",
       "requests": "Access requests",
-      "assignments": "Assignments",
-      "assignmentsHint": "Joined directory role, operational ownership, assignment case, and handover evidence.",
+      "assignments": "Work handover assignments",
+      "assignmentsHint": "Joined directory roles, operational ownership, assignment cases, and handover evidence.",
       "assignmentsLoading": "Loading assignment evidence...",
       "assignmentsOwnerOnly": "Only an Owner can inspect or create human-agent assignment cases.",
       "observationTitle": "Observation only",
@@ -2004,10 +2064,11 @@
       "notConnected": "Not connected",
       "assignmentTableCaption": "Observed human roles, duties, coverage, cases, and handover state",
       "noAssignments": "No assignments match these filters.",
+      "noAssignmentsObserved": "No work handover assignments have been observed yet. Use the form below to create an observation-only case.",
       "assignmentProjectionTruncated": "The roster is incomplete because the case projection reached its safety limit.",
       "assignmentCreatedNotSubmitted": "The case was created but not submitted. Refresh and retry from the current revision. {error}",
-      "assignmentEditor": "Create assignment case",
-      "assignmentEditorHint": "Select one exact active identity, then compose role, duties, goals, and justification.",
+      "assignmentEditor": "Create work handover case",
+      "assignmentEditorHint": "Select one exact active identity, then define the requested role, agent duties, handover goals, and business justification.",
       "identity": "Identity",
       "requestedRole": "Requested FDAI role",
       "handoverGoals": "Handover goal references",

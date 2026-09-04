@@ -1,6 +1,6 @@
 ---
 translation_of: human-agent-assignment-and-knowledge-handover.md
-translation_source_sha: 8190fca6ce790744db7289769adfe98b821e8ae0
+translation_source_sha: 0f3e41e52a18da8e56100aa6224e796b584e64e0
 translation_revised: 2026-09-04
 ---
 # 사용자-에이전트 할당 및 지식 이전
@@ -86,6 +86,9 @@ ID, FDAI App 역할, 접근 요청을 담당합니다. `Governance > Agent overs
 않습니다.
 현재 담당자 화면은 할당 수명 주기 상태를 현지화하고, 기계 값을 주요 운영 문구로 표시하지 않도록
 전체 원본 다이제스트를 펼칠 수 있는 기술 세부 정보에 둡니다.
+공유 Console 카탈로그는 통합 레코드를 사용할 수 있기 전에 표시되는 현재 담당자 제목과 담당 범위
+레이블을 유지합니다. 할당 편집기는 관찰되지 않은 명단과 필터 결과가 비어 있는 상태를 구분하고
+표준 기본 및 보조 버튼 역할을 적용합니다.
 
 ## 결정과 경계
 

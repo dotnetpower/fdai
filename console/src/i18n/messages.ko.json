@@ -96,7 +96,7 @@
     "architecture": "아키텍처",
     "ontology": "온톨로지",
     "pantheon": "판테온",
-    "handover": "에이전트 감독",
+    "handover": "에이전트 감독 및 업무 인수인계",
     "promotionGates": "승급 게이트",
     "contextSelectionComparisons": "컨텍스트 정책 비교",
     "browserEvidence": "브라우저 근거",
@@ -191,7 +191,7 @@
       "architecture": "아키텍처",
       "ontology": "온톨로지",
       "pantheon": "조직",
-      "handover": "에이전트 감독",
+      "handover": "에이전트 감독 및 인수인계",
       "blastRadius": "영향 범위",
       "promotionGates": "승급 게이트",
       "contextSelectionComparisons": "컨텍스트 정책 비교",
@@ -246,7 +246,7 @@
       "architecture": "배포된 리소스, 경계 및 종속성",
       "ontology": "리소스 + 링크 그래프 (classDiagram)",
       "pantheon": "고정된 15개 에이전트의 보고 체계와 실시간 상태",
-      "handover": "운영 담당 체계, 커버리지, 지식 인수인계 및 할당 검토",
+      "handover": "현재 담당자, 통제된 담당 체계 제안 및 사용자 업무 인수인계",
       "blastRadius": "변경 전에 도달 가능한 하위 그래프 시뮬레이션",
       "promotionGates": "ActionType별 관찰 모드에서 실행 모드로의 승격 준비도",
       "contextSelectionComparisons": "기준 정책과 shadow 컨텍스트 선택 근거 비교",
@@ -503,15 +503,17 @@
     "organizationChartLabel": "판테온 조직도"
   },
   "handover": {
-    "subtitle": "15개 에이전트의 운영 담당 체계와 커버리지를 감독하고 Owner 검토용 변경을 제안합니다. 이 화면에서 런타임 변경을 직접 적용하지 않습니다.",
-    "viewsLabel": "에이전트 감독 보기",
+    "subtitle": "에이전트 담당 체계와 사람 의존성을 검토하고, 관찰 전용 사용자 업무 인수인계 케이스 또는 통제된 담당 체계 변경을 제안합니다. 이 화면에서 런타임 변경을 직접 적용하지 않습니다.",
+    "viewsLabel": "에이전트 감독 및 업무 인수인계 보기",
     "invalidView": "해당 에이전트 감독 보기가 없습니다.",
     "noFindings": "발견된 담당 체계 커버리지 문제가 없습니다.",
     "approvalRoutesUnavailable": "이 프로젝션에는 승인 경로 근거가 연결되지 않았습니다. 브라우저에서 경로나 권한을 추론하지 않습니다.",
     "mappingReviewsLoading": "매핑 검토를 불러오는 중...",
     "sourceHealth": "소스 상태",
+    "sourceHealthHint": "ID 검증 상태는 선언된 담당 체계와 별도로 확인합니다.",
     "identityHealth": "ID 검증",
     "checkedAt": "마지막 확인",
+    "notObserved": "관측되지 않음",
     "identityHealthStatus": {
       "not_configured": "구성되지 않음",
       "pending": "확인 대기 중",
@@ -538,19 +540,77 @@
     "proposeTitle": "변경 제안",
     "proposeLead": "인수인계 맵 편집은 Owner 게이트를 거치는 거버넌스 초안 PR입니다. 다음 파일을 편집하세요:",
     "proposeTail": "그런 다음 PR을 여세요. 콘솔은 이 파일을 직접 쓰지 않습니다. 병합되면 영향받는 에이전트 담당자와 유지관리자에게 알리고 감사 로그에 변경을 기록합니다.",
-    "mapTitle": "인수인계 맵",
+    "maintainersTitle": "플랫폼 유지관리자",
+    "maintainersHint": "FDAI 플랫폼의 최종 에스컬레이션을 담당하는 정확한 주체입니다.",
+    "mapTitle": "현재 담당 체계",
+    "mapHint": "고정된 각 에이전트의 확인된 담당자, 백업 범위, 적용 범위 및 변경 대기 항목입니다.",
     "agent": "에이전트",
-    "owners": "담당자",
-    "backupCoverage": "백업 범위",
+    "owners": "정확한 담당 주체",
+    "accountableSubjects": "책임 주체 수",
     "mode": "모드",
     "noReason": "사유 없음",
     "mapped": "담당 지정",
+    "identityReview": "ID 검토 필요",
+    "identityPending": "검증 대기",
+    "identityUnverified": "ID 미검증",
     "findingsTitle": "담당 범위 발견 사항",
+    "findingsHint": "반복 항목을 검증된 코드별로 묶었습니다. 정확한 원본 메시지는 펼쳐서 확인할 수 있습니다.",
+    "findingCount": "발견 사항 {count}건",
+    "affectedAgents": "영향받는 에이전트: {agents}",
+    "mapWideFinding": "담당 체계 전체에 적용",
+    "rawFindings": "원본 발견 사항 {count}건 보기",
     "severity": "심각도",
+    "severityValue": {
+      "warn": "경고",
+      "info": "정보"
+    },
     "code": "코드",
-    "message": "메시지",
+    "message": "원본 메시지",
+    "subjectKind": {
+      "user": "사용자",
+      "group": "그룹"
+    },
+    "responsibility": {
+      "accountable": "최종 책임",
+      "informed": "알림 대상"
+    },
+    "duty": {
+      "primary": "주 담당",
+      "backup": "백업",
+      "escalation": "에스컬레이션"
+    },
+    "finding": {
+      "maintainer_single": {
+        "title": "플랫폼 유지관리자 1명",
+        "description": "안전한 승계를 위해 두 번째 유지관리자를 추가하세요."
+      },
+      "autonomous_no_steward": {
+        "title": "명시적 자율 운영",
+        "description": "이 에이전트의 에스컬레이션은 플랫폼 유지관리자에게 전달됩니다."
+      },
+      "duty_derived": {
+        "title": "버전 1 순서에서 담당 유형 파생",
+        "description": "주 담당과 백업을 명시하려면 담당 체계 버전 2로 이행하세요."
+      },
+      "backup_missing": {
+        "title": "백업 또는 에스컬레이션 담당자 없음",
+        "description": "서로 다른 책임 주체를 백업 또는 에스컬레이션 담당자로 추가하세요."
+      },
+      "bus_factor_one": {
+        "title": "책임 주체 1명",
+        "description": "한 담당자의 부재가 운영을 중단시킬 수 있는 영역에는 책임 주체를 추가하세요."
+      },
+      "over_assigned": {
+        "title": "담당 주체의 할당 한도 초과",
+        "description": "설정된 한도보다 많은 에이전트를 맡은 주체의 담당 범위를 분산하세요."
+      },
+      "stale_oid": {
+        "title": "비활성 ID",
+        "description": "비활성 주체를 교체하고 검증된 에스컬레이션 담당 범위를 복구하세요."
+      }
+    },
     "editor": {
-      "title": "담당자 등록",
+      "title": "담당 체계 변경 제안",
       "description": "최종 책임자 또는 알림 대상을 추가합니다. 제출하면 거버넌스 초안 PR이 생성되며, 병합 전까지 현재 담당 체계는 바뀌지 않습니다.",
       "ownerReview": "Owner 검토 필요",
       "permissionRequired": "담당 체계 변경을 제안하려면 Contributor, Approver 또는 Owner 권한이 필요합니다.",
@@ -1949,8 +2009,8 @@
       "effectiveCapabilities": "유효 기능",
       "users": "사용자",
       "requests": "액세스 요청",
-      "assignments": "할당",
-      "assignmentsHint": "디렉터리 역할, 운영 담당 체계, 할당 케이스 및 인수인계 근거를 함께 표시합니다.",
+      "assignments": "업무 인수인계 현황",
+      "assignmentsHint": "디렉터리 역할, 운영 담당 체계, 인수인계 케이스 및 근거를 함께 표시합니다.",
       "assignmentsLoading": "할당 근거를 불러오는 중...",
       "assignmentsOwnerOnly": "사용자-agent 할당 케이스를 조회하거나 만들려면 Owner 역할이 필요합니다.",
       "observationTitle": "관찰 전용",
@@ -1993,21 +2053,22 @@
         "degraded": "저하됨",
         "superseded": "대체됨"
       },
-      "caseRevision": "케이스 revision",
+      "caseRevision": "케이스 개정 번호",
       "evidence": "근거",
       "viewEvidence": "근거 보기",
       "evidenceDetails": "할당 근거",
       "reviewEvidence": "독립 검토",
-      "effectEvidence": "Effect receipt",
+      "effectEvidence": "변경 결과 증적",
       "handoverEvidence": "인수인계 근거",
       "notObserved": "관측되지 않음",
       "notConnected": "연결되지 않음",
-      "assignmentTableCaption": "관측된 사용자 역할, duty, 담당 범위, 케이스 및 인수인계 상태",
+      "assignmentTableCaption": "관측된 사용자 역할, 담당 업무, 담당 범위, 케이스 및 인수인계 상태",
       "noAssignments": "필터와 일치하는 할당이 없습니다.",
+      "noAssignmentsObserved": "관측된 업무 인수인계가 아직 없습니다. 아래 양식에서 관찰 전용 케이스를 만들 수 있습니다.",
       "assignmentProjectionTruncated": "케이스 프로젝션이 안전 한도에 도달하여 담당 목록이 완전하지 않습니다.",
       "assignmentCreatedNotSubmitted": "케이스는 생성되었지만 제출되지 않았습니다. 새로 고친 후 현재 리비전에서 다시 시도하세요. {error}",
-      "assignmentEditor": "할당 케이스 만들기",
-      "assignmentEditorHint": "정확한 활성 ID 하나를 선택한 후 역할, duty, 목표 및 사유를 구성하세요.",
+      "assignmentEditor": "업무 인수인계 케이스 만들기",
+      "assignmentEditorHint": "정확히 일치하는 활성 ID 하나를 선택한 후 요청 역할, 에이전트 담당 업무, 인수인계 목표 및 업무 사유를 구성하세요.",
       "identity": "ID",
       "requestedRole": "요청 FDAI 역할",
       "handoverGoals": "인수인계 목표 참조",

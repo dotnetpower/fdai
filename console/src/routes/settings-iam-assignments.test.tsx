@@ -51,6 +51,8 @@ describe("IAM assignment contracts", () => {
     expect(source).toContain('role="alert"');
     expect(source).toContain("<fieldset>");
     expect(source).toContain('aria-label={t("settings.iam.assignmentFilters")}');
+    expect(source).toContain('<button type="button" class="secondary" disabled={busy || query.trim().length < 2}');
+    expect(source).toContain('<button type="submit" class="primary" disabled={busy || issues.length > 0}');
   });
 
   test("normalizes principal ids before exposing independent review", () => {

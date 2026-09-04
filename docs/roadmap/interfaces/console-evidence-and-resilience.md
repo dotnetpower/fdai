@@ -42,6 +42,8 @@ The stable `/pantheon` path remains a compatibility route for Org, so existing l
 Agent oversight is a Governance panel at `/agent-oversight` because operational ownership and its governed proposal workflow are governance concerns.
 The previous `/handover` path remains a compatibility alias. [Human-Agent Assignment and Knowledge Transfer](human-agent-assignment-and-knowledge-handover.md#current-owners-read-model-and-console)
 owns the joined Current owners contract.
+Clean route navigation resets both the window and the shell-owned primary content scroller, so a
+long Current owners or work-handover page never opens the next route at a stale vertical position.
 Its five views are Overview, Human dependencies, Knowledge handover, Approval routes, and Mapping
 reviews. Overview and Human dependencies use the strict `GET /stewardship` projection. Mapping
 reviews reuses the owner-gated `GET /iam/assignments` projection and derives its capability and

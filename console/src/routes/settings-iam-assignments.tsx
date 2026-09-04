@@ -94,7 +94,11 @@ export function SettingsIamAssignments({ client, auth, canManage, principalOid }
         <AssignmentFilterBar filters={filters} onChange={setFilters} />
         {error ? <div class="error" role="alert">{error}</div> : null}
         {items.length === 0 ? (
-          <div class="state-block state-empty">{t("settings.iam.noAssignments")}</div>
+          <div class="state-block state-empty">
+            {t((page?.total ?? 0) === 0
+              ? "settings.iam.noAssignmentsObserved"
+              : "settings.iam.noAssignments")}
+          </div>
         ) : <DataTable
           columns={[
             {
@@ -257,7 +261,7 @@ function AssignmentEditor({ client, auth, onCreated }: {
           <legend>{t("settings.iam.identity")}</legend>
           <div class="assignment-inline-search">
             <input type="search" required minLength={2} maxLength={128} value={query} placeholder={t("settings.iam.assignmentSearch")} onInput={(event) => setQuery(event.currentTarget.value)} />
-            <button type="button" disabled={busy || query.trim().length < 2} onClick={() => { void search(); }}>{t("settings.iam.search")}</button>
+            <button type="button" class="secondary" disabled={busy || query.trim().length < 2} onClick={() => { void search(); }}>{t("settings.iam.search")}</button>
           </div>
           <div class="assignment-identity-results">
             {results.map((identity) => (
@@ -280,7 +284,7 @@ function AssignmentEditor({ client, auth, onCreated }: {
           {issues.length === 0 ? <span>{t("settings.iam.validationReady")}</span> : <ul>{issues.map((issue) => <li key={issue}>{t(`settings.iam.validation.${issue}`)}</li>)}</ul>}
         </div>
         {error ? <div class="error" role="alert">{error}</div> : null}
-        <button type="submit" disabled={busy || issues.length > 0}>{busy ? t("settings.iam.submitting") : t("settings.iam.createAssignmentCase")}</button>
+        <button type="submit" class="primary" disabled={busy || issues.length > 0}>{busy ? t("settings.iam.submitting") : t("settings.iam.createAssignmentCase")}</button>
       </form>
     </section>
   );
@@ -302,7 +306,7 @@ function AssignmentEvidence({ item, auth, client, principalOid, onClose, onChang
     catch (reason) { setError(message(reason)); }
     finally { setBusy(false); }
   };
-  return <section class="settings-iam-panel assignment-evidence" aria-labelledby="assignment-evidence-heading"><header class="settings-iam-panel-head"><div><h3 id="assignment-evidence-heading">{t("settings.iam.evidenceDetails")}</h3><p>{item.subject.displayName ?? item.subject.subjectId}</p></div><button type="button" class="secondary" onClick={onClose}>{t("settings.iam.close")}</button></header><dl><dt>{t("settings.iam.caseState")}</dt><dd>{assignmentCase ? assignmentStateLabel(assignmentCase) : t("settings.iam.notObserved")}</dd><dt>{t("settings.iam.caseRevision")}</dt><dd>{assignmentCase?.revision ?? t("settings.iam.notObserved")}</dd><dt>{t("settings.iam.reviewEvidence")}</dt><dd>{assignmentCase?.reviews.length ?? 0}</dd><dt>{t("settings.iam.effectEvidence")}</dt><dd>{assignmentCase?.effectReceipts.map((receipt) => `${receipt.kind}: ${receipt.receiptRef}`).join(", ") || t("settings.iam.notObserved")}</dd><dt>{t("settings.iam.handoverEvidence")}</dt><dd>{item.handover.availability === "not_connected" ? t("settings.iam.notConnected") : item.handover.state}</dd></dl>{error ? <div class="error" role="alert">{error}</div> : null}{assignmentCase?.state === "pending_review" && canReviewAssignmentCase(assignmentCase.requesterRef, principalOid) ? <div class="assignment-review-actions"><button type="button" disabled={busy} onClick={() => { void decide("approve"); }}>{t("settings.iam.approve")}</button><button type="button" class="secondary" disabled={busy} onClick={() => { void decide("reject"); }}>{t("settings.iam.reject")}</button></div> : null}</section>;
+  return <section class="settings-iam-panel assignment-evidence" aria-labelledby="assignment-evidence-heading"><header class="settings-iam-panel-head"><div><h3 id="assignment-evidence-heading">{t("settings.iam.evidenceDetails")}</h3><p>{item.subject.displayName ?? item.subject.subjectId}</p></div><button type="button" class="secondary" onClick={onClose}>{t("settings.iam.close")}</button></header><dl><dt>{t("settings.iam.caseState")}</dt><dd>{assignmentCase ? assignmentStateLabel(assignmentCase) : t("settings.iam.notObserved")}</dd><dt>{t("settings.iam.caseRevision")}</dt><dd>{assignmentCase?.revision ?? t("settings.iam.notObserved")}</dd><dt>{t("settings.iam.reviewEvidence")}</dt><dd>{assignmentCase?.reviews.length ?? 0}</dd><dt>{t("settings.iam.effectEvidence")}</dt><dd>{assignmentCase?.effectReceipts.map((receipt) => `${receipt.kind}: ${receipt.receiptRef}`).join(", ") || t("settings.iam.notObserved")}</dd><dt>{t("settings.iam.handoverEvidence")}</dt><dd>{item.handover.availability === "not_connected" ? t("settings.iam.notConnected") : item.handover.state}</dd></dl>{error ? <div class="error" role="alert">{error}</div> : null}{assignmentCase?.state === "pending_review" && canReviewAssignmentCase(assignmentCase.requesterRef, principalOid) ? <div class="assignment-review-actions"><button type="button" class="primary" disabled={busy} onClick={() => { void decide("approve"); }}>{t("settings.iam.approve")}</button><button type="button" class="secondary" disabled={busy} onClick={() => { void decide("reject"); }}>{t("settings.iam.reject")}</button></div> : null}</section>;
 }
 
 function CoveragePill({ item }: { readonly item: AssignmentProjectionItem }) { const kind = item.coverage === null ? "neutral" : item.coverage.some((entry) => entry.primaryCount < 1 || entry.backupOrEscalationCount < 1) ? "warning" : "success"; const label = item.coverage === null ? t("settings.iam.notObserved") : kind === "warning" ? t("settings.iam.coverageGap") : t("settings.iam.covered"); return <StatusPill kind={kind} label={label} />; }

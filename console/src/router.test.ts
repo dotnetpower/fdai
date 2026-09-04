@@ -1,8 +1,9 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import {
   legacyHashHref,
   panelPath,
   parseConsoleRoute,
+  resetConsoleScroll,
   registeredPanelRoutes,
   routeHref,
   shouldResetScroll,
@@ -168,5 +169,13 @@ describe("clean console routes", () => {
     expect(shouldResetScroll("/agents", "/agent-activity")).toBe(true);
     expect(shouldResetScroll("/agent-activity", "/agent-activity/")).toBe(false);
     expect(shouldResetScroll("/agent-activity", "/agent-activity")).toBe(false);
+  });
+
+  test("resets the shell-owned primary content scroller", () => {
+    const scrollTo = vi.fn();
+    resetConsoleScroll({
+      querySelector: (selector) => selector === ".shell-body > main" ? { scrollTo } : null,
+    });
+    expect(scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: "auto" });
   });
 });

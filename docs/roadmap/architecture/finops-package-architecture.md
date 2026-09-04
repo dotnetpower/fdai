@@ -192,6 +192,8 @@ background-task projection does not register Cost Governance behavior. Cost Gove
 its reviewed package manifest, exact bundle, provider requirements, and deployment gate.
 The aggregate Operator route assembly may decorate the stewardship read with ownership identity
 evidence. Every Cost Governance operation passes through that decorator unchanged.
+Ownership-only catalog labels and shell scroll recovery do not change Cost Governance routes,
+activation, disclosure, or package authority.
 The Operator semantic stream fallback also remains a host seam: it preserves
 `ConversationAssuranceReader` before the raw PostgreSQL adapter without changing Cost Governance
 availability, enablement, or package ownership.
