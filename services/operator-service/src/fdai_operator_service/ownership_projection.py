@@ -223,19 +223,28 @@ def _project_agent(
 ) -> Mapping[str, object]:
     name = _required_string(agent.get("name"), "agent name")
     autonomous = _boolean(agent.get("autonomous"), "agent autonomous")
-    subjects = [
-        _project_subject(
-            kind=_required_string(steward.get("kind"), "steward kind"),
-            subject_id=_required_string(steward.get("id"), "steward id"),
-            responsibility=_required_string(
-                steward.get("responsibility"),
-                "steward responsibility",
-            ),
-            duty=_derived_duty(steward, version=version, index=index),
-            resolved=resolved,
+    subjects: list[Mapping[str, object]] = []
+    accountable_index = 0
+    for steward in _mapping_sequence(agent.get("stewards"), "agent stewards"):
+        responsibility = _required_string(
+            steward.get("responsibility"),
+            "steward responsibility",
         )
-        for index, steward in enumerate(_mapping_sequence(agent.get("stewards"), "agent stewards"))
-    ]
+        subjects.append(
+            _project_subject(
+                kind=_required_string(steward.get("kind"), "steward kind"),
+                subject_id=_required_string(steward.get("id"), "steward id"),
+                responsibility=responsibility,
+                duty=_derived_duty(
+                    steward,
+                    version=version,
+                    accountable_index=accountable_index,
+                ),
+                resolved=resolved,
+            )
+        )
+        if responsibility == "accountable":
+            accountable_index += 1
     primary_subjects = {
         (str(subject["kind"]), str(subject["subject_id"]))
         for subject in subjects
@@ -317,14 +326,14 @@ def _derived_duty(
     steward: Mapping[str, object],
     *,
     version: int,
-    index: int,
+    accountable_index: int,
 ) -> str | None:
     explicit = _optional_string(steward.get("duty"))
     if explicit is not None or version != 1:
         return explicit
     if steward.get("responsibility") != "accountable":
         return None
-    return "primary" if index == 0 else "backup"
+    return "primary" if accountable_index == 0 else "backup"
 
 
 def _agent_readiness(

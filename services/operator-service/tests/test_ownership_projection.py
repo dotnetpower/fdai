@@ -243,6 +243,25 @@ async def test_schema_v1_is_readable_but_requires_migration() -> None:
     ]
 
 
+async def test_schema_v1_derives_duties_from_accountable_order_only() -> None:
+    payload = _payload(version=1)
+    payload["map"]["agents"][0]["stewards"].insert(  # type: ignore[index]
+        0,
+        {
+            "kind": "user",
+            "id": "informed-1",
+            "responsibility": "informed",
+            "duty": None,
+        },
+    )
+    reader = OwnershipProjectionReader(_Fallback(payload), _Directory(), None)
+
+    result = await reader.read(_query())
+
+    subjects = result["current_ownership"]["agents"][0]["subjects"]
+    assert [item["duty"] for item in subjects] == [None, "primary", "backup"]
+
+
 async def test_same_subject_cannot_satisfy_primary_and_backup_coverage() -> None:
     payload = _payload()
     payload["map"]["agents"][0]["stewards"][1]["id"] = "subject-1"  # type: ignore[index]
