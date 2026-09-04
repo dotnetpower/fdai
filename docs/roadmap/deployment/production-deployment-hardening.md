@@ -57,9 +57,9 @@ service plan stops before materializing its inputs.
 
 Use the deployment CLI's `--deploy-rca-reader-identity` selection with every ordinary application
 selection disabled. The CLI seals this as a `plan-rca-*` or `apply-rca-*` request. The workflow
-targets only `module.rca_reader_identity` and `azurerm_role_assignment.rca_monitoring_reader`, and
-the plan-scope verifier rejects every other changed address. The ordinary destructive-plan guard
-still applies.
+targets the identity and role plus any Terraform-required moved-state addresses. The plan-scope
+verifier still permits changed addresses only for `module.rca_reader_identity` and
+`azurerm_role_assignment.rca_monitoring_reader`. The ordinary destructive-plan guard also applies.
 
 ## Deployer identity
 

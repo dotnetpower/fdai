@@ -153,6 +153,12 @@ def test_platform_workflow_exposes_bounded_rca_reader_identity_bootstrap() -> No
     assert "startsWith(inputs.request_id, 'plan-rca-')" in target_expression
     assert "-target=module.rca_reader_identity" in target_expression
     assert "-target=azurerm_role_assignment.rca_monitoring_reader" in target_expression
+    assert "-target=module.measurement_runners.azurerm_container_app_job.baseline_regression" in (
+        target_expression
+    )
+    assert "-target=module.measurement_runners.azurerm_container_app_job.pattern_growth" in (
+        target_expression
+    )
     assert "RCA_READER_IDENTITY_ONLY:" in _LEGACY_WORKFLOW
     assert "mode=rca-reader-identity" in _LEGACY_WORKFLOW
     assert "RCA-reader-identity plan contains changes outside its bounded scope:" in _PLAN_SCOPE

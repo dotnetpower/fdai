@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 875fb9be5f782b3681e01f14bb85f3eecad76bc5
+translation_source_sha: c5abc4261ac7c44cf79721e9206a64db2faf09c7
 translation_revised: 2026-09-04
 ---
 # 운영 배포 강화
@@ -60,9 +60,9 @@ Split Core 서비스는 platform Terraform 출력에서만 RCA reader identity�
 
 일반 application 선택을 모두 비활성화하고 deployment CLI의 `--deploy-rca-reader-identity` 선택을
 사용합니다. CLI는 이를 `plan-rca-*` 또는 `apply-rca-*` 요청으로 결속합니다. Workflow는
-`module.rca_reader_identity`와 `azurerm_role_assignment.rca_monitoring_reader`만 대상으로 하며,
-계획 범위 검증기는 다른 변경 주소를 모두 차단합니다. 일반 destructive-plan guard도 계속
-적용됩니다.
+identity와 역할 및 Terraform이 요구하는 moved-state 주소를 대상으로 합니다. 계획 범위 검증기는
+`module.rca_reader_identity`와 `azurerm_role_assignment.rca_monitoring_reader`만 변경 주소로
+허용합니다. 일반 destructive-plan guard도 계속 적용됩니다.
 
 ## 배포자 신원
 
