@@ -362,8 +362,14 @@ async def test_service_publishes_shadow_finding_and_audit_only() -> None:
 
 
 class _ObservationProvider:
-    def __init__(self, *, unavailable: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        unavailable: bool = False,
+        observed_at: datetime = AT,
+    ) -> None:
         self.unavailable = unavailable
+        self.observed_at = observed_at
         self.plans: list[WaraReadPlan] = []
 
     async def observe(self, plan: WaraReadPlan) -> WaraObservationReceipt:
@@ -378,8 +384,8 @@ class _ObservationProvider:
             workload_id=plan.workload_id,
             resource_ids=plan.resource_ids,
             inventory_generation=plan.inventory_generation,
-            observed_at=AT,
-            recorded_at=AT,
+            observed_at=self.observed_at,
+            recorded_at=self.observed_at,
             evidence_digest="sha256:" + "d" * 64,
             complete=True,
             truncated=False,
@@ -398,7 +404,7 @@ async def test_service_collects_exact_observations_before_assessment() -> None:
     )
     state_store = InMemoryStateStore()
     event_bus = InMemoryEventBus()
-    provider = _ObservationProvider()
+    provider = _ObservationProvider(observed_at=AT + timedelta(milliseconds=1))
     runner = WaraAssessmentObservationRunner(runtime=runtime, provider=provider)
 
     result = await WaraAssessmentService(
@@ -411,6 +417,8 @@ async def test_service_collects_exact_observations_before_assessment() -> None:
     audit_entry = state_store.audit_entries[0]["entry"]
 
     assert control.satisfaction is WaraSatisfactionStatus.SATISFIED
+    assert result.evaluated_at == AT + timedelta(milliseconds=1)
+    assert result.recorded_at == AT + timedelta(milliseconds=1)
     assert len(provider.plans) == 1
     assert audit_entry["observation_attempts"] == [
         {

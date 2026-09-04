@@ -172,6 +172,8 @@ and replay identities.
 The WARA assessment service can now compose an optional observation runner that executes every
 eligible exact-bound read before evaluation, preserves manual receipts, and records provider
 unavailability as bounded audit evidence instead of a satisfaction result.
+After collection, the runner advances the request evaluation and recorded cutoffs to the latest
+collected receipt, preventing a valid fresh observation from being classified as future evidence.
 Default ControlLoop assembly now carries an optional `IncidentMemberSource` and reviewed dependency
 graph from the immutable Container. This makes the deterministic T1 chain injectable without
 changing its safe unbound default or creating a second incident writer.

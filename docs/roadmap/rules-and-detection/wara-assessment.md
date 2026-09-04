@@ -179,7 +179,9 @@ failed. Both remain shadow observations without execution authority.
 read plan. It preserves caller-supplied manual receipts, collects provider observations, converts
 matching receipts into runtime evidence, and records one bounded `observed` or `unavailable`
 attempt per eligible recommendation. `WaraAssessmentService` evaluates and publishes only after
-that collection phase. Provider unavailability remains `unknown` and is visible in audit evidence.
+that collection phase. The enriched request advances its evaluation and recorded cutoffs to include
+the latest admitted observation, so a freshly collected receipt cannot be rejected as future
+evidence. Provider unavailability remains `unknown` and is visible in audit evidence.
 
 ## Validation and release boundary
 

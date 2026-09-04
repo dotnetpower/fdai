@@ -1,7 +1,7 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: cc20c6a60c91924cb826456e985eb13cd1b69729
+translation_source_sha: d1130565fe07812e81bf672b3e69a9e39ee999b5
 translation_revised: 2026-09-04
 ---
 # WARA 근거 기반 평가
@@ -177,7 +177,9 @@ Azure 관리 호스트와 audience만 허용하며, 범위 밖 또는 잘린 행
 호출자가 제공한 수동 증적을 보존하고 프로바이더 관측을 수집하며, 일치하는 증적을 런타임 근거로
 변환하고 적합한 권고마다 범위가 제한된 `observed` 또는 `unavailable` attempt 하나를 기록합니다.
 `WaraAssessmentService`는 이 수집 단계가 끝난 뒤에만 평가하고 게시합니다. 프로바이더를 사용할
-수 없으면 `unknown`을 유지하고 감사 근거에 표시합니다.
+수 없으면 `unknown`을 유지하고 감사 근거에 표시합니다. 보강된 요청은 최신 수락 관측을
+포함하도록 평가 및 기록 기준 시각을 전진시키므로 새로 수집한 증적이 미래 근거로 잘못
+차단되지 않습니다.
 
 ## 검증 및 릴리스 경계
 

@@ -474,6 +474,16 @@ class WaraAssessmentObservationRunner:
             )
         enriched = replace(
             request,
+            evaluated_at=max(
+                (request.evaluated_at, *(item.observed_at for item in evidence.values()))
+            ),
+            recorded_at=max(
+                (
+                    request.recorded_at,
+                    *(item.recorded_at for item in evidence.values()),
+                    *(item.observed_at for item in evidence.values()),
+                )
+            ),
             evidence=tuple(
                 evidence[key] for key in sorted(evidence, key=lambda item: (item[0], item[1]))
             ),
