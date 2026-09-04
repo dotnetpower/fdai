@@ -56,6 +56,7 @@ EXPECTED_DEPENDENCIES = {
         "psycopg",
         "pydantic",
         "pypdf",
+        "python-snappy",
         "pyyaml",
         "sqlalchemy",
     },

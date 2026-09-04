@@ -72,6 +72,7 @@
           "services/operator-service/tests/test_azure_cli_token.py",
           "services/operator-service/tests/test_background_task_projection.py",
           "services/operator-service/tests/test_browser_evidence_projection.py",
+          "services/operator-service/tests/test_conversation_document_export.py",
           "services/operator-service/tests/test_detection_lifecycle_projection.py",
           "services/operator-service/tests/test_entra_directory.py",
           "services/operator-service/tests/test_hil_teams_callback.py",

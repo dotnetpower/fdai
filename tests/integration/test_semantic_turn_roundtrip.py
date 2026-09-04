@@ -109,8 +109,9 @@ class _OperatorStore:
         idempotency_key: str,
         request_digest: str,
         envelope: Mapping[str, object],
+        source_request_id: str | None = None,
     ) -> StoredSemanticTurn:
-        del request_digest
+        del request_digest, source_request_id
         request_id = cast(str, envelope["request_id"])
         self.turn = StoredSemanticTurn(
             key=f"outbox:{hashlib.sha256(idempotency_key.encode()).hexdigest()}",

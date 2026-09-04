@@ -87,6 +87,7 @@ EXPECTED_RUNTIME_MODULES = {
     "resource_event_providers.py",
     "rule_generation_documents.py",
     "rule_profile.py",
+    "semantic_model_identity.py",
     "t2_recovery.py",
     "t2_route_registry.py",
     "venue.py",

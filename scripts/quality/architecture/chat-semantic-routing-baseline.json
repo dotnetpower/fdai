@@ -338,6 +338,13 @@
       "issue": 252
     },
     {
+      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_planning_plan_dispatch.py",
+      "disposition": "retain",
+      "owner": "semantic-conversation",
+      "reason": "Retains deterministic dispatch from validated semantic frames to typed read-only plan builders.",
+      "issue": 252
+    },
+    {
       "path": "services/core-control-plane/src/fdai/core/conversation/semantic_planning_value_filters.py",
       "disposition": "retain",
       "owner": "semantic-conversation",

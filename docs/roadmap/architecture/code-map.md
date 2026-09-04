@@ -66,6 +66,8 @@ Question campaign wording uses `core/conversation/question_candidates.py` as the
 semantic boundary. Azure and explicit Copilot generators receive the complete immutable case but
 can return only a `question` field. Core binds the case before independent semantic review, so
 generated prose cannot replace scope, authority, capability, evidence posture, or result shape.
+Generated question-bank artifacts record the current Console catalog digests, so a reviewed
+presentation-contract change regenerates the JSON bank and review catalog together.
 The generated question bank binds both Console message catalogs by digest and is regenerated
 whenever those reviewed source catalogs change.
 

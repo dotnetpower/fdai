@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: feea28426ace36a11df3578523e588819234042e
+translation_source_sha: 07b885532778cfcdef690a18494c32adb7776cf9
 translation_revised: 2026-09-05
 ---
 # 코드 맵
@@ -69,6 +69,8 @@ Operator 소유 다운스트림 마이그레이션에 위치하므로, 부트스
 사용합니다. Azure 및 명시적 Copilot 생성기는 완전한 불변 사례를 받지만 `question` 필드만
 반환할 수 있습니다. Core가 독립 의미 검토 전에 사례를 결속하므로 생성된 문구가 범위, 권한,
 기능, 근거 상태 또는 결과 형태를 대체할 수 없습니다.
+생성된 질문 bank 산출물은 현재 Console catalog digest를 기록합니다. 따라서 검토된 표현 계약이
+변경되면 JSON bank와 review catalog를 함께 다시 생성합니다.
 생성된 question bank는 두 Console 메시지 카탈로그를 다이제스트로 결속하며, 검토된 원본
 카탈로그가 변경될 때마다 다시 생성합니다.
 
