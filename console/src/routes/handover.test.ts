@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 import {
   adjacentOversightView,
@@ -164,6 +165,13 @@ function currentOwnershipPayload() {
 }
 
 describe("Handover projection contract", () => {
+  test("exposes explicit stale-data recovery without discarding ready data", () => {
+    const source = readFileSync(new URL("./handover.tsx", import.meta.url), "utf8");
+    expect(source).toContain('class="ownership-refresh"');
+    expect(source).toContain('current.status === "ready" ? current : { status: "loading" }');
+    expect(source).toContain("[client, refreshRevision]");
+  });
+
   test("accepts only the five Agent oversight views", () => {
     expect(oversightViewFromSegment(undefined)).toBe("overview");
     expect(oversightViewFromSegment("human-dependencies")).toBe("human-dependencies");

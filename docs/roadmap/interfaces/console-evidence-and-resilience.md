@@ -61,6 +61,8 @@ shows that more cases exist.
 The browser cross-checks Current owners agent order, maintainers, exact subjects, distinct
 primary and backup counts, and summary totals against the validated stewardship map. Drift fails
 the panel instead of selecting one version.
+Current owners exposes an explicit refresh. It retains the last ready projection while the new read
+is in flight and replaces it only with the next terminal ready, unavailable, or error state.
 Overview renders identity-source freshness only from `identity_health`. The Operator API supplies
 `checked_at` only from an unexpired last-success heartbeat whose revision matches the stale-finding
 snapshot. A completed `clean` or `warn` check requires that timestamp and a finding count that

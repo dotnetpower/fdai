@@ -17842,6 +17842,27 @@ body.aa-log-fullscreen-fallback { overflow: hidden; }
 .agent-oversight-section-head p { color: var(--fg-muted); font-size: 0.78rem; }
 .agent-oversight-source-grid dd { margin: 0; overflow-wrap: anywhere; }
 .current-ownership-workspace { gap: 22px; }
+.ownership-refresh {
+  min-height: var(--cs-control-height);
+  padding: 7px 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--cs-radius-sm);
+  background: var(--bg-elevated);
+  color: var(--fg);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--cs-type-compact-size);
+  font-weight: 700;
+}
+.ownership-refresh:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  color: var(--accent-strong);
+}
+.ownership-refresh:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 38%, transparent);
+  outline-offset: 2px;
+}
+.ownership-refresh:disabled { color: var(--fg-muted); cursor: wait; }
 .ownership-readiness {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(280px, .75fr);

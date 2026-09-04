@@ -9,6 +9,7 @@ import {
 import { t } from "../i18n";
 import { AgentOversightBody } from "./agent-oversight-views";
 import { PANTHEON } from "./agents.model";
+import { ownershipText } from "./ownership-copy";
 import { panelArray, panelBoolean, panelContractError, panelNonEmptyString, panelNonNegativeInteger, panelNullableString, panelRecord, panelString, panelStringArray } from "./panel-decode";
 
 /**
@@ -185,10 +186,13 @@ interface Props {
 
 export function HandoverRoute({ client, auth }: Props) {
   const [state, setState] = useState<AsyncState<StewardshipResponse>>({ status: "loading" });
+  const [refreshRevision, setRefreshRevision] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    setState({ status: "loading" });
+    setState((current) => current.status === "ready" ? current : { status: "loading" });
+    setRefreshing(true);
     (async () => {
       try {
         const data = decodeStewardship(await client.panel<unknown>("/stewardship"));
@@ -207,18 +211,30 @@ export function HandoverRoute({ client, auth }: Props) {
             setState({ status: "error", message });
           }
         }
+      } finally {
+        if (!cancelled) setRefreshing(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [client]);
+  }, [client, refreshRevision]);
 
   return (
     <div class="stack">
       <PageHeader
         title={t("route.handover")}
         subtitle={t("handover.subtitle")}
+        actions={(
+          <button
+            type="button"
+            class="ownership-refresh"
+            disabled={refreshing}
+            onClick={() => setRefreshRevision((revision) => revision + 1)}
+          >
+            {ownershipText(refreshing ? "refreshing" : "refresh")}
+          </button>
+        )}
       />
       <AgentOversightBody stewardshipState={state} client={client} auth={auth} />
     </div>

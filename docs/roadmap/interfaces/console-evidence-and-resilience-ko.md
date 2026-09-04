@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 32d0ade2893ac989e82a96e356b6bce411fa0bda
+translation_source_sha: 5d71794a0c06ded590039be2d46ac1225315cce0
 translation_revised: 2026-09-04
 ---
 # 콘솔 근거 및 복원력
@@ -71,6 +71,8 @@ desktop 한 행에 6개씩 배치하며 attention priority와 최신 관찰 순�
 브라우저는 현재 담당자의 에이전트 순서, 유지관리자, 정확한 주체, 서로 다른 주 담당 및 백업 수,
 요약 합계를 검증된 담당 체계와 대조합니다. 불일치하면 한 버전을 선택하지 않고 패널을
 실패시킵니다.
+현재 담당자 화면은 명시적 새로 고침을 제공합니다. 새 읽기가 진행되는 동안 마지막 준비 완료
+변환 결과를 유지하고, 다음 준비 완료, 사용 불가 또는 오류 종단 상태가 도착하면 교체합니다.
 개요는 `identity_health`에서만 ID 출처 최신성을 표시합니다. Operator API는 stale-finding
 스냅샷과 개정 번호가 일치하고 만료되지 않은 last-success 하트비트에서만 `checked_at`을 제공합니다.
 완료된 `clean` 또는 `warn` 확인은 이 시각과 병합된 `stale_oid` 커버리지에 맞는 발견 사항 개수가
