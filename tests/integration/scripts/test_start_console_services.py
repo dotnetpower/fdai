@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import os
 import shutil
 import stat
@@ -317,6 +318,9 @@ def _staged_preparation_repo(
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text("prepared\n", encoding="utf-8")
     digest = "c" * 64
+    runtime_environment_digest = hashlib.sha256(
+        f"{digest}\nkubernetes=0\nteams-notifications=0\n".encode()
+    ).hexdigest()
     marker_dir = repo / ".fdai/console-preparation"
     marker_dir.mkdir(parents=True)
     stages = (
@@ -331,7 +335,8 @@ def _staged_preparation_repo(
     )
     for stage in stages:
         if stage != stale_stage:
-            (marker_dir / f"{stage}.sha256").write_text(f"{digest}\n", encoding="utf-8")
+            stage_digest = runtime_environment_digest if stage == "runtime-environment" else digest
+            (marker_dir / f"{stage}.sha256").write_text(f"{stage_digest}\n", encoding="utf-8")
     _write_executable(
         repo / ".venv/bin/python",
         f"""#!/usr/bin/env bash

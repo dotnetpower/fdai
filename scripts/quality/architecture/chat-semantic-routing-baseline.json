@@ -128,6 +128,13 @@
       "issue": 252
     },
     {
+      "path": "console/src/routes/document-ingestion.tsx",
+      "disposition": "retain",
+      "owner": "console-document-ingestion",
+      "reason": "Retains upload extension, terminal state, and typed failure-code validation without interpreting conversational intent.",
+      "issue": 252
+    },
+    {
       "path": "console/src/routes/live.model.ts",
       "disposition": "retain",
       "owner": "console-live",
@@ -293,6 +300,13 @@
       "disposition": "retain",
       "owner": "semantic-conversation",
       "reason": "Retains machine-token normalization and schema validation after model-backed semantic judgment.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/core/conversation/semantic_planning_action_draft.py",
+      "disposition": "retain",
+      "owner": "semantic-conversation",
+      "reason": "Retains exact subject and facet validation over an accepted typed semantic judgment without inferring meaning from utterance text.",
       "issue": 252
     },
     {
