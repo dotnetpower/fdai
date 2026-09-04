@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: b6ec677dec2a662fb7a74ef0e4a67c02c05149e9
+translation_source_sha: 5452f4caa1a9c1744dfd75619511bd90258e98a8
 translation_revised: 2026-09-04
 ---
 # 설치형 배포 CLI
@@ -503,8 +503,9 @@ fdaictl release rollback \
 CLI를 확인한 뒤 plan-only 작업 흐름을 제출합니다. 범위가 제한된 요청 id와 맥락 다이제스트를
 반환합니다. `deploy status --request-id <id>`는 프로필, 커밋, 기능 플래그에서 승인된 맥락을
 다시 계산한 뒤 요청에 연결된 실행 이름으로 정확히 하나의 작업 흐름을 찾고, 성공 후에는
-정제된 계획 메타데이터 산출물만 내려받습니다. GitHub CLI는
-공급자가 호스팅하는 인증을 사용하며 자격 증명을 명령 인수로 복사하지 않습니다.
+정제된 계획 메타데이터 산출물만 내려받습니다. Status는 포함된 대상과 맥락 binding을 확인하기
+전에 검토된 요청 모드 prefix만 제거합니다. GitHub CLI는 공급자가 호스팅하는 인증을 사용하며
+자격 증명을 명령 인수로 복사하지 않습니다.
 
 전달 본문에는 `apply=false`, 환경, 정확한 커밋, SHA-256 배포 맥락 지문을 전달합니다. Console,
 Operator API, 문서 수집, 격리된 Executor, 모니터링 및 exclusive RCA-reader bootstrap 선택을

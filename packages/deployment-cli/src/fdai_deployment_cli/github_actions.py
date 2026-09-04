@@ -350,7 +350,7 @@ def workflow_status(
         mode=request_mode,
         region=expected_region,
     )
-    if request_id_value.split("-", maxsplit=1)[1][:24] != expected_binding:
+    if _request_binding_from_id(request_id_value) != expected_binding:
         raise ValueError("request_id does not match the approved deployment context")
     runner = run or run_github_cli
     result = runner(
@@ -420,6 +420,15 @@ def workflow_status(
                 plan_meta["expired"] = True  # Fail-closed on unparseable expiry.
         projected["plan"] = plan_meta
     return projected
+
+
+def _request_binding_from_id(request_id_value: str) -> str:
+    """Return the target/context binding embedded in one validated request id."""
+
+    for prefix in ("plan-rca-", "apply-rca-", "plan-", "apply-"):
+        if request_id_value.startswith(prefix):
+            return request_id_value.removeprefix(prefix)[:24]
+    raise ValueError("request_id is invalid")
 
 
 def run_github_cli(

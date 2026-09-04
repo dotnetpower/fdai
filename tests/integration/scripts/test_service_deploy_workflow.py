@@ -156,9 +156,8 @@ def test_platform_workflow_exposes_bounded_rca_reader_identity_bootstrap() -> No
     assert "RCA_READER_IDENTITY_ONLY:" in _LEGACY_WORKFLOW
     assert "mode=rca-reader-identity" in _LEGACY_WORKFLOW
     assert "RCA-reader-identity plan contains changes outside its bounded scope:" in _PLAN_SCOPE
-    assert "Reconcile RCA bootstrap prerequisite state addresses" in _LEGACY_WORKFLOW
-    assert 'terraform state mv "$old" "$new"' in _LEGACY_WORKFLOW
-    assert "both legacy and current measurement state addresses exist" in _LEGACY_WORKFLOW
+    assert "reconcile_rca_bootstrap_state.sh" in _LEGACY_WORKFLOW
+    assert 'if [[ "$RCA_READER_IDENTITY_ONLY" == "true" ]]' in _LEGACY_WORKFLOW
 
 
 def test_platform_workflow_stays_within_dispatch_input_limit() -> None:

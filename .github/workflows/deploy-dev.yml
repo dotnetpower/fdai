@@ -667,6 +667,9 @@ jobs:
             id="$(az eventhubs eventhub show --resource-group "$rg" --namespace-name "$namespace" --name "$topic" --query id -o tsv 2>/dev/null || true)"
             import_if_missing "module.event_bus.azurerm_eventhub.auxiliary[\"$topic\"]" "$id"
           done
+          if [[ "$RCA_READER_IDENTITY_ONLY" == "true" ]]; then
+            bash ../scripts/deployment/azure/reconcile_rca_bootstrap_state.sh
+          fi
 
       - name: Terraform format check
         if: ${{ !inputs.apply }}
@@ -675,32 +678,6 @@ jobs:
       - name: Terraform validate
         if: ${{ !inputs.apply }}
         run: terraform validate
-
-      - name: Reconcile RCA bootstrap prerequisite state addresses
-        if: ${{ !inputs.apply && env.RCA_READER_IDENTITY_ONLY == 'true' }}
-        run: |
-          set -euo pipefail
-          before_digest="$(terraform state pull | sha256sum | cut -d' ' -f1)"
-          state_list="$(terraform state list)"
-          for resource in baseline_regression pattern_growth; do
-            old="module.measurement_runners.azurerm_container_app_job.${resource}[0]"
-            new="module.measurement_runners[0].azurerm_container_app_job.${resource}[0]"
-            if grep -Fxq "$old" <<< "$state_list"; then
-              ! grep -Fxq "$new" <<< "$state_list" || {
-                echo "both legacy and current measurement state addresses exist" >&2
-                exit 1
-              }
-              terraform state mv "$old" "$new"
-              state_list="${state_list//$old/$new}"
-            fi
-          done
-          after_digest="$(terraform state pull | sha256sum | cut -d' ' -f1)"
-          {
-            echo "RCA bootstrap prerequisite state reconciliation completed."
-            echo "Before digest: \`sha256:${before_digest}\`"
-            echo "After digest: \`sha256:${after_digest}\`"
-          } >> "$GITHUB_STEP_SUMMARY"
-
       - name: Build development operations gateway source artifact
         if: ${{ !inputs.apply && inputs.deploy_dev_operations_gateway }}
         run: >-
