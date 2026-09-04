@@ -68,13 +68,21 @@ class OwnershipProjectionReader:
     ) -> Mapping[str, object] | None:
         if self.assignments is None or OperatorRole.OWNER not in query.roles:
             return None
-        return await self.assignments.assignment_projection(
-            AssignmentCaseQuery(
-                principal=IamPrincipal(oid=query.principal_id, roles=query.roles),
-                limit=_ASSIGNMENT_LIMIT,
-                offset=0,
+        try:
+            return await self.assignments.assignment_projection(
+                AssignmentCaseQuery(
+                    principal=IamPrincipal(oid=query.principal_id, roles=query.roles),
+                    limit=_ASSIGNMENT_LIMIT,
+                    offset=0,
+                )
             )
-        )
+        except Exception:  # noqa: BLE001 - durable source details are not caller-safe.
+            return {
+                "_availability": "unavailable",
+                "items": [],
+                "total": 0,
+                "case_projection_truncated": False,
+            }
 
 
 async def build_current_ownership_projection(
@@ -375,6 +383,8 @@ def _assignment_proposals(
 ) -> tuple[dict[str, list[Mapping[str, object]]], Mapping[str, object]]:
     if payload is None:
         return {}, {"availability": "restricted_or_not_configured", "total": None}
+    if payload.get("_availability") == "unavailable":
+        return {}, {"availability": "unavailable", "total": None, "truncated": False}
     items = _mapping_sequence(payload.get("items"), "assignment projection items")
     proposals: dict[str, list[Mapping[str, object]]] = {}
     for item in items:

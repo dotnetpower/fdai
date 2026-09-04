@@ -349,7 +349,8 @@ form:
   from the reviewed declaration, bounded directory identity hints, and Owner-visible assignment
   cases. Missing bindings, schema migration, directory availability, identity review, and coverage
   gaps remain distinct states. The browser never joins those sources or treats display names as
-  authority.
+  authority. An unavailable assignment-case source removes only pending-change evidence and never
+  hides the reviewed current map.
 - **Projection validation** - the browser accepts only supported integer schema versions,
   non-negative integer counts, and positive timeout and assignment limits. It recomputes aggregate
   counts from the fixed Pantheon map, requires the maintainer floor and non-empty exact subject

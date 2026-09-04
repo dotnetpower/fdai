@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 9fa6ad23881d2d91016e858fb8cc35a0e76075f1
+translation_source_sha: c09a556d6de1aedee13a583d63dc78bdaa5f0d7c
 translation_revised: 2026-09-04
 ---
 # 콘솔 근거 및 복원력
@@ -64,6 +64,8 @@ desktop 한 행에 6개씩 배치하며 attention priority와 최신 관찰 순�
 식별 정보, Owner에게 보이는 할당 케이스를 결합해 만듭니다. 브라우저는 이 레코드를 검증하고
 표시하지만 원본을 직접 결합하거나 표시 이름을 권한으로 취급하지 않습니다. 또한 누락된 연결,
 스키마 이행, ID 검사, 백업 범위 공백을 숨기지 않습니다.
+할당 근거를 사용할 수 없으면 현재 담당자 화면은 검토된 담당 체계를 유지하고 변경 대기 근거만
+사용할 수 없는 상태로 표시합니다.
 개요는 `identity_health`에서만 ID 출처 최신성을 표시합니다. Operator API는 stale-finding
 스냅샷과 개정 번호가 일치하고 만료되지 않은 last-success 하트비트에서만 `checked_at`을 제공합니다.
 완료된 `clean` 또는 `warn` 확인은 이 시각과 병합된 `stale_oid` 커버리지에 맞는 발견 사항 개수가

@@ -125,6 +125,12 @@ class _Assignments:
         }
 
 
+class _UnavailableAssignments(_Assignments):
+    async def assignment_projection(self, query: object) -> Mapping[str, object]:
+        del query
+        raise RuntimeError("private database detail")
+
+
 def _query(*, owner: bool = True, operation: str = "stewardship.coverage") -> ProjectionQuery:
     return ProjectionQuery(
         operation=operation,
@@ -187,6 +193,24 @@ async def test_reader_does_not_expose_owner_assignment_cases_to_readers() -> Non
     }
     assert ownership["summary"]["pending_proposals"] == 0
     assert assignments.calls == 0
+
+
+async def test_assignment_failure_does_not_hide_current_ownership() -> None:
+    reader = OwnershipProjectionReader(
+        _Fallback(_payload()),
+        _Directory(),
+        _UnavailableAssignments(),
+    )
+
+    result = await reader.read(_query())
+
+    ownership = result["current_ownership"]
+    assert ownership["deployment_readiness"] == "ready"
+    assert ownership["assignment_projection"] == {
+        "availability": "unavailable",
+        "total": None,
+        "truncated": False,
+    }
 
 
 async def test_placeholders_block_readiness_without_directory_lookup() -> None:

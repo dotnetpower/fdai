@@ -163,7 +163,7 @@ export interface CurrentOwnershipDto {
     readonly detail: string | null;
   };
   readonly assignment_projection: {
-    readonly availability: "available" | "restricted_or_not_configured";
+    readonly availability: "available" | "restricted_or_not_configured" | "unavailable";
     readonly total: number | null;
     readonly truncated: boolean;
   };
@@ -459,6 +459,7 @@ function decodeCurrentOwnership(value: unknown): CurrentOwnershipDto {
       availability: ownershipLiteral(assignment, "availability", [
         "available",
         "restricted_or_not_configured",
+        "unavailable",
       ]),
       total: assignment["total"] === null
         ? null
