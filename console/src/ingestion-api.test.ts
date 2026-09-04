@@ -16,6 +16,41 @@ function client(authorizationHeader = "Bearer test-token"): IngestionApiClient {
 describe("IngestionApiClient upload authorization", () => {
   afterEach(() => vi.unstubAllGlobals());
 
+  test("leaves collection reader groups to the server policy", async () => {
+    const fetch = vi.fn().mockResolvedValue(Response.json({
+      session: {
+        upload_id: "upload-1",
+        document_id: "document-1",
+        version_id: "version-1",
+        source_name: "guide.txt",
+        state: "created",
+        collection_id: "shared-knowledge",
+      },
+      upload: {
+        target: "/ingestion/uploads/upload-1/content",
+        expires_at: "2026-09-04T10:00:00Z",
+        completed_parts: [],
+      },
+    }));
+    vi.stubGlobal("fetch", fetch);
+
+    await client().createUpload({
+      source_name: "guide.txt",
+      collection_id: "shared-knowledge",
+      media_type_hint: "text/plain",
+      expected_size: 7,
+      expected_sha256: "a".repeat(64),
+      storage_mode: "managed_copy",
+      purposes: ["knowledge_base"],
+      access_descriptor_ref: "collection:shared-knowledge",
+      retention_policy_version: "v1",
+    });
+
+    const body = JSON.parse(String(fetch.mock.calls[0]![1].body)) as Record<string, unknown>;
+    expect(body).not.toHaveProperty("reader_groups");
+    expect(body.access_descriptor_ref).toBe("collection:shared-knowledge");
+  });
+
   test("does not forward the API bearer token to a cross-origin upload target", async () => {
     const fetch = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
     vi.stubGlobal("fetch", fetch);

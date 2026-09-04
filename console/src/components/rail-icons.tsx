@@ -10,6 +10,7 @@
  *  - Operations : lightning bolt (live work)
  *  - Agents     : collaborating principals
  *  - Governance : shield check (control)
+ *  - Knowledge  : open book (governed sources)
  *  - Evidence   : clock rewind (audit and reconstruction)
  *  - Labs       : flask (development-only experiments)
  */
@@ -136,6 +137,12 @@ export function groupIcon(group: PanelGroup): JSX.Element {
       return <IconAgents />;
     case "governance":
       return <IconGovernance />;
+    case "knowledge":
+      return (
+        <svg {...iconProps}>
+          <path d="M5 3H19V21H5ZM8 8H16M8 12H16" />
+        </svg>
+      );
     case "evidence":
       return <IconEvidence />;
     case "labs":

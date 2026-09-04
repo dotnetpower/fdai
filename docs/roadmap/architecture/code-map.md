@@ -545,7 +545,7 @@ The package test tree validates SDK behavior. Cross-service N/N-1 and topology c
 | [extensions/](../../../extensions/) | Optional independently packaged capabilities. |
 | [rule-catalog/](../../../rule-catalog/) | Catalog-as-code data. |
 | [policies/](../../../policies/) | OPA/Rego policy-as-code. |
-| [console/](../../../console/) | Thin operator SPA, including the localized Guides drawer and its validated Manual Studio catalog boundary. |
+| [console/](../../../console/) | Thin operator SPA, including the Knowledge source and governed document-upload routes, localized Guides drawer, and validated Manual Studio catalog boundary. |
 | [tools/manual-studio/](../../../tools/manual-studio/) | Independent static guide library, HTML slide viewer, repository-safe media provenance, and focused prototype checks. |
 | [teams_workflow_binding.py](../../../services/operator-service/src/fdai_operator_service/teams_workflow_binding.py) | Provider-neutral Teams endpoint persistence: encrypted loopback state locally and one versioned Key Vault secret in deployment. |
 | [cli/](../../../cli/) | Operator command-line client. |

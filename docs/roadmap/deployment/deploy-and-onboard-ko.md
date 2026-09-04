@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: dbc006d22566c0ea580a011bb4610d933ffe16b2
+translation_source_sha: de5cddb335f10136be2e407773c1809ce6a9fc54
 translation_revised: 2026-09-04
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -319,7 +319,8 @@ Event Hubs Kafka를 계속 요구합니다.
 - **Topic-scoped Event Hubs 역할** - 실행기는 이름 공간이 아니라 현재 프로비저닝된 각 허브
   개체에 데이터 Owner를 받습니다. 인벤토리와 canary는 각자의 토픽에만 전송할 수 있습니다.
   Operator API 명령 신원은 제안, HIL 결정, pantheon 객체 메시지를 전송하고
-  단계 토픽을 수신합니다. 문서 인제스트는 `fdai.pipeline.stages`로 제한됩니다.
+  단계 토픽을 수신합니다. 문서 인제스트 API와 워커 신원은 `fdai.pantheon.objects`로만
+  전송할 수 있으며, 워커는 통제된 단계 명령을 위해 같은 토픽을 수신할 수도 있습니다.
 - **Static Web Apps (Free 계층, 명시적 선택)** - `enable_console=true`일 때 읽기 전용 콘솔을 호스팅합니다.
 - **Design-mocks Static Web App (Free 계층, 명시적 선택)** - `enable_design_mocks=true`일 때 격리된
   정적 디자인 검토 아티팩트를 호스팅합니다. 아티팩트 빌더는 `index.html`, `mocks/`,

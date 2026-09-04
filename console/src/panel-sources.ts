@@ -56,6 +56,10 @@ const PANEL_SOURCE_ROUTES: Readonly<Record<string, readonly string[]>> = {
 
 const SEPARATE_CLIENT_PANELS = new Set(["documents"]);
 const SOURCE_INDEPENDENT_PANELS = new Set([
+  "knowledge",
+  "github",
+  "gitlab",
+  "azure-devops",
   "labs",
 ]);
 

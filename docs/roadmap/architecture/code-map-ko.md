@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: ea501adc1f98960ba5d9047c08e13d458c5b372a
+translation_source_sha: 83676359071df60acb5ee102c955cba45bde3fd3
 translation_revised: 2026-09-04
 ---
 # 코드 맵
@@ -525,7 +525,7 @@ core 컨트롤 플레인을 import할 수 없으므로 특정 서비스가 아�
 | [extensions/](../../../extensions/) | 선택적 독립 패키지 기능입니다. |
 | [rule-catalog/](../../../rule-catalog/) | Catalog-as-code 데이터입니다. |
 | [policies/](../../../policies/) | OPA/Rego policy-as-code입니다. |
-| [콘솔/](../../../console/) | 지역화된 가이드 서랍과 검증된 Manual Studio 카탈로그 경계를 포함하는 얇은 운영자 SPA입니다. |
+| [콘솔/](../../../console/) | 지식 원본 및 거버넌스 적용 문서 업로드 경로, 지역화된 가이드 서랍, 검증된 Manual Studio 카탈로그 경계를 포함하는 얇은 운영자 SPA입니다. |
 | [tools/manual-studio/](../../../tools/manual-studio/) | 독립 정적 가이드 라이브러리, HTML 슬라이드 뷰어, 저장소에 안전한 미디어 출처 계보 및 집중 프로토타입 검사를 제공합니다. |
 | [teams_workflow_binding.py](../../../services/operator-service/src/fdai_operator_service/teams_workflow_binding.py) | 로컬의 암호화된 루프백 상태와 배포 환경의 버전이 지정된 단일 Key Vault 시크릿을 사용하는 프로바이더 중립 Teams 엔드포인트 영속화입니다. |
 | [cli/](../../../cli/) | Operator command-line 클라이언트입니다. |

@@ -318,10 +318,13 @@ it reports a missing source only when neither the source nor target can complete
 
 The public console sends bytes to the authenticated ingestion gateway. The gateway validates the
 declared size, streams the request to private ADLS without buffering the whole file, seals SHA-256
-and size metadata, and publishes `document.received` to the shared `fdai.pipeline.stages` topic. A durable Kafka
-consumer group runs the worker at least once; uncommitted failures are retried after restart.
-ClamAV runs as a replica-local sidecar, and only a clean document reaches extraction, pgvector
-indexing, and the atomic quarantine-to-governed rename.
+and size metadata, and publishes a logical `object.event` on the shared
+`fdai.pantheon.objects` transport. A durable Kafka consumer group runs the worker at least once;
+uncommitted failures are retried after restart. The worker publishes inspection lifecycle events
+through the same logical event boundary so Heimdall, Forseti, Saga, and Muninn can complete the
+safety and indexing chain. `fdai.pipeline.stages` remains operational activity only. ClamAV runs as
+a replica-local sidecar, and only a clean document reaches extraction, pgvector indexing, and the
+atomic quarantine-to-governed rename.
 
 ### Production process roles
 

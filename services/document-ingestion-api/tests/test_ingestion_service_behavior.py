@@ -14,7 +14,11 @@ import pytest
 from fdai_document_worker_service.adapters.activity import (
     PostgresDocumentActivitySink as WorkerDocumentActivitySink,
 )
-from fdai_document_worker_service.consumer import DocumentIngestionEventConsumer
+from fdai_document_worker_service.consumer import (
+    DocumentIngestionEventConsumer,
+    _domain_contract_payload,
+    _is_document_deletion_candidate,
+)
 from fdai_document_worker_service.effects import (
     WorkerEffect,
     WorkerEffectKind,
@@ -61,6 +65,7 @@ from fdai_service_contracts import (
     DocumentPurpose,
     DocumentState,
     DocumentVersion,
+    DocumentWorkerAuditEvent,
     DocumentWorkerClaim,
     DocumentWorkerClaimConflictError,
     DocumentWorkerClaimStatus,
@@ -1212,7 +1217,7 @@ class FixedApiOutboxSink(ApiDocumentActivitySink):
 
 
 @pytest.mark.asyncio
-async def test_worker_outbox_uses_configured_transport_for_valid_and_poison_rows() -> None:
+async def test_worker_outbox_routes_domain_events_to_their_logical_topic() -> None:
     event_bus = RecordingEventBus()
     poison_id = uuid4()
     valid = DocumentLifecycleEvent(
@@ -1242,7 +1247,7 @@ async def test_worker_outbox_uses_configured_transport_for_valid_and_poison_rows
     )
 
     assert await sink.drain() == 1
-    assert event_bus.published == [("fdai.events", valid.key, valid.payload)]
+    assert event_bus.published == [("object.event", valid.key, valid.payload)]
     assert event_bus.dead_letters == [
         (
             "fdai.events",
@@ -1382,6 +1387,57 @@ async def test_audit_consumer_dlqs_malformed_document_candidate_and_ignores_unre
             "invalid_document_worker_audit_event",
         )
     ]
+
+
+def test_worker_accepts_bus_metadata_without_weakening_domain_validation() -> None:
+    upload_id = uuid4()
+    payload = {
+        "schema_version": "1.0.0",
+        "envelope_schema_version": 1,
+        "producer_principal": "Saga",
+        "kind": "document_ingestion",
+        "audited_topic": "object.verdict",
+        "stage": "received",
+        "decision": "admit",
+        "upload_id": str(upload_id),
+    }
+
+    command = DocumentWorkerAuditEvent.model_validate(_domain_contract_payload(payload))
+
+    assert command.upload_id == upload_id
+    invalid = _domain_contract_payload(payload | {"unexpected": True})
+    with pytest.raises(ValueError):
+        DocumentWorkerAuditEvent.model_validate(invalid)
+
+
+def test_deletion_consumer_ignores_non_deletion_document_events() -> None:
+    assert not _is_document_deletion_candidate(
+        {
+            "producer_principal": "Huginn",
+            "kind": "document_ingestion",
+            "action": "document.received",
+        }
+    )
+    assert _is_document_deletion_candidate({"action": "document.deletion_requested"})
+    assert _is_document_deletion_candidate({"deletion_request": {}})
+
+
+@pytest.mark.asyncio
+async def test_worker_lifecycle_record_preserves_upload_identity_for_agent_gates() -> None:
+    _, session, version = await _effect_fixture(
+        state=DocumentState.PROTECTION_CHECK,
+        storage_mode=SourceStorageMode.MANAGED_COPY,
+        object_key="quarantine/upload-identity",
+    )
+
+    payload = DocumentIngestionWorker._payload(
+        session,
+        version,
+        "document.inspected",
+        "ingestion-worker",
+    )
+
+    assert payload["upload_id"] == str(session.upload_id)
 
 
 @pytest.mark.asyncio

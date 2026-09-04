@@ -1,7 +1,7 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: 15edfffd2f462989a5aad75386c3c986fa7e270d
+translation_source_sha: 675820a170fabd9df15c8e20221c2659e65e34af
 translation_revised: 2026-09-04
 ---
 # 문서 인제스트와 투입 구역
@@ -322,10 +322,13 @@ StorageV2 계정을 사용합니다. HNS 계정에는 Blob versioning을 사용�
 
 공개 콘솔은 인증된 인제스트 게이트웨이로 바이트를 전송합니다. 게이트웨이는 선언된 크기를
 검증하고 요청 전체를 기억에 버퍼하지 않은 채 비공개 ADLS로 스트림하며 SHA-256과 크기
-메타데이터를 봉인한 후 shared `fdai.pipeline.stages` 토픽에 `document.received`를 publish합니다. 영속 Kafka
-소비자 그룹이 워커를 at-least-once로 실행하며 커밋되지 않은 실패는 재시작 후
-재시도합니다. ClamAV는 replica-local sidecar로 실행되고 clean 문서만 추출, pgvector
-인덱싱, quarantine-to-governed atomic 이름 변경에 도달합니다.
+메타데이터를 봉인한 후 shared `fdai.pantheon.objects` 전송 경계에 논리
+`object.event`를 게시합니다. 영속 Kafka 소비자 그룹이 워커를 최소 한 번 실행하며 커밋되지
+않은 실패는 재시작 후 재시도합니다. 워커는 같은 논리 이벤트 경계를 통해 검사 수명 주기
+이벤트를 게시하므로 Heimdall, Forseti, Saga 및 Muninn이 안전 및 인덱싱 체인을 완료할 수
+있습니다. `fdai.pipeline.stages`는 운영 활동에만 사용합니다. ClamAV는 복제본 로컬
+사이드카로 실행되고 깨끗한 문서만 추출, pgvector 인덱싱, 격리 구역에서 통제된 영역으로의
+원자적 이름 변경에 도달합니다.
 
 ### 운영 프로세스 역할
 

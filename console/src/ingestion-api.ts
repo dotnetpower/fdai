@@ -59,7 +59,6 @@ export interface CreateUploadInput {
   readonly purposes: readonly string[];
   readonly access_descriptor_ref: string;
   readonly retention_policy_version: string;
-  readonly reader_groups: readonly string[];
 }
 
 export class IngestionApiError extends Error {

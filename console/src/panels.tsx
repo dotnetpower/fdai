@@ -2,7 +2,7 @@
  * Console panel registry - the frontend half of the fork extension seam.
  *
  * The upstream console ships a deliberately minimal UI grouped by
- * operator domain (Overview / Operations / Agents / Governance / Evidence), plus
+ * operator domain (Overview / Operations / Agents / Governance / Knowledge / Evidence), plus
  * standalone global utilities pinned to the bottom of the rail. A fork
  * that wants a vertical-specific surface (a FinOps cost dashboard,
  * a drift board, a DR-drill history) does NOT edit `app.tsx` or
@@ -20,7 +20,8 @@
  *  - `operations` - Live operations and operator attention
  *  - `agents`     - Agent organization and runtime activity
  *  - `governance` - Rules, ontology, scope, and safety controls
- *  - `evidence`   - Audit, RCA, traces, reports, and governed sources
+ *  - `knowledge`  - Governed documents and external knowledge sources
+ *  - `evidence`   - Audit, RCA, traces, and reports
  */
 
 import type { ComponentType } from "preact";
@@ -50,7 +51,7 @@ const OntologyRoute = lazy(async () => ({ default: (await import("./routes/ontol
 const HandoverRoute = lazy(async () => ({ default: (await import("./routes/handover")).HandoverRoute }));
 const RuleCatalogRoute = lazy(async () => ({ default: (await import("./routes/rule-catalog")).RuleCatalogRoute }));
 const WorkflowBuilderRoute = lazy(async () => ({ default: (await import("./routes/workflow-builder")).WorkflowBuilderRoute }));
-const DocumentIngestionRoute = lazy(async () => ({ default: (await import("./routes/document-ingestion")).DocumentIngestionRoute }));
+const KnowledgeDomainRoute = lazy(() => import("./routes/knowledge-domain"));
 const BlastRadiusRoute = lazy(async () => ({ default: (await import("./routes/blast-radius")).BlastRadiusRoute }));
 const PromotionGatesRoute = lazy(async () => ({ default: (await import("./routes/promotion-gates")).PromotionGatesRoute }));
 const ContextSelectionComparisonsRoute = lazy(async () => ({ default: (await import("./routes/context-selection-comparisons")).ContextSelectionComparisonsRoute }));
@@ -87,11 +88,11 @@ export interface PanelProps {
   readonly auth: AuthContext;
 }
 
-/** The five stable production navigation domains plus dev-only Labs.
+/** The six stable production navigation domains plus dev-only Labs.
  * Fork panels MUST pick one; the Explorer groups by this key. Adding a
  * new group is a design decision (docs update required); do not extend
  * this union in a fork without upstreaming the change. */
-export type PanelGroup = "overview" | "operations" | "agents" | "governance" | "evidence" | "labs" | "settings";
+export type PanelGroup = "overview" | "operations" | "agents" | "governance" | "knowledge" | "evidence" | "labs" | "settings";
 
 /** Optional visual placement for panels that are global utilities rather
  * than members of an Explorer domain. Grouped placement is the
@@ -113,6 +114,11 @@ export const PANEL_GROUPS: readonly PanelGroupMeta[] = [
   { id: "operations", label: t("nav.group.operations"), hint: t("nav.groupHint.operations") },
   { id: "agents", label: t("nav.group.agents"), hint: t("nav.groupHint.agents") },
   { id: "governance", label: t("nav.group.governance"), hint: t("nav.groupHint.governance") },
+  {
+    id: "knowledge",
+    label: t("deck.sourceReadiness.source.knowledge"),
+    hint: t("nav.panel.documents"),
+  },
   { id: "evidence", label: t("nav.group.evidence"), hint: t("nav.groupHint.evidence") },
   {
     id: "labs",
@@ -155,6 +161,10 @@ const DASHBOARD_PANEL: ConsolePanel = {
   group: "overview",
   component: DashboardRoute,
 };
+
+function knowledgeSourcePanel(id: string, label: string): ConsolePanel {
+  return { id, label, group: "knowledge", component: KnowledgeDomainRoute };
+}
 
 /** The panels the upstream console always ships, grouped by intent. */
 export const CORE_PANELS: readonly ConsolePanel[] = [
@@ -321,7 +331,7 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     group: "evidence",
     component: RcaRoute,
   },
-  // Governance and evidence sources
+  // Governance
   {
     id: "architecture",
     label: t("nav.panel.architecture"),
@@ -385,13 +395,17 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     group: "governance",
     component: SkillsRoute,
   },
+  knowledgeSourcePanel("knowledge", t("nav.group.overview")),
   {
     id: "documents",
     label: t("nav.panel.documents"),
     subtitle: t("nav.panelSub.documents"),
-    group: "evidence",
-    component: DocumentIngestionRoute,
+    group: "knowledge",
+    component: KnowledgeDomainRoute,
   },
+  knowledgeSourcePanel("github", "GitHub"),
+  knowledgeSourcePanel("gitlab", "GitLab"),
+  knowledgeSourcePanel("azure-devops", "Azure DevOps"),
   // Governance controls
   {
     id: "blast-radius",

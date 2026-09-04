@@ -16,10 +16,10 @@ const source = readFileSync(fileURLToPath(new URL("./navigation-shell.tsx", impo
 describe("navigation shell groups", () => {
   test("shows Labs only in development mode", () => {
     expect(visibleNavigationGroups(false).map((group) => group.id)).toEqual([
-      "overview", "operations", "agents", "governance", "evidence", "settings",
+      "overview", "operations", "agents", "governance", "knowledge", "evidence", "settings",
     ]);
     expect(visibleNavigationGroups(true).map((group) => group.id)).toEqual([
-      "overview", "operations", "agents", "governance", "evidence", "labs", "settings",
+      "overview", "operations", "agents", "governance", "knowledge", "evidence", "labs", "settings",
     ]);
   });
 
@@ -32,7 +32,7 @@ describe("navigation shell groups", () => {
     const groups = visibleNavigationGroups(true);
     expect(displayedNavigationGroups(groups, ["operations", "overview", "settings"]).map(
       (group) => group.id,
-    )).toEqual(["overview", "agents", "governance", "evidence", "labs", "settings"]);
+    )).toEqual(["overview", "agents", "governance", "knowledge", "evidence", "labs", "settings"]);
     expect(canHideNavigationGroup("operations", "operations", [])).toBe(false);
     expect(canHideNavigationGroup("operations", "overview", [])).toBe(true);
     expect(canHideNavigationGroup("operations", "operations", ["operations"])).toBe(true);

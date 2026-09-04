@@ -11,6 +11,7 @@ import {
 } from "../ingestion-api";
 import { t } from "../i18n";
 import { buildDocumentViewSnapshot } from "./document-ingestion.view";
+import { knowledgeText } from "./knowledge-sources.i18n";
 
 interface Props { readonly client: OperatorApiClient }
 
@@ -145,7 +146,6 @@ export function DocumentIngestionRoute({ client }: Props) {
             purposes: [batch.purpose],
             access_descriptor_ref: `collection:${batch.collection}`,
             retention_policy_version: batch.capabilities.policy_versions[0] ?? "default",
-            reader_groups: [],
           });
           if (!mounted.current) {
             await api.cancel(created.session.upload_id).catch(() => undefined);
@@ -185,6 +185,33 @@ export function DocumentIngestionRoute({ client }: Props) {
       uploadBatchLock.current = false;
       if (mounted.current) setUploading(false);
     }
+  };
+
+  const checkUploadStatus = async (row: UploadRow) => {
+    if (!row.uploadId || uploading) return;
+    setUploading(true);
+    updateRow(row.key, { state: "processing", error: undefined });
+    try {
+      const completed = await waitForTerminal(api, row.uploadId, () => mounted.current);
+      if (!mounted.current) return;
+      updateRow(row.key, completed.state === "ready" || completed.state === "ready_with_warnings"
+        ? { state: "ready", error: undefined }
+        : { state: "failed", error: completed.state });
+    } catch (error) {
+      updateRow(row.key, {
+        state: "failed",
+        error: error instanceof Error ? error.message : t("documents.uploadFailed"),
+      });
+    } finally {
+      if (mounted.current) setUploading(false);
+    }
+  };
+
+  const retryUpload = (row: UploadRow) => {
+    if (uploading || !capabilities || row.file.size > capabilities.max_file_size) return;
+    setRows((current) => current.map((candidate) => candidate.key === row.key
+      ? { key: candidate.key, file: candidate.file, state: "queued" }
+      : candidate));
   };
 
   const readyCount = rows.filter((row) => row.state === "queued").length;
@@ -240,7 +267,7 @@ export function DocumentIngestionRoute({ client }: Props) {
         <div class="document-drop-icon" aria-hidden="true">⇧</div>
         <h3 id="document-drop-title">{t("documents.dropTitle")}</h3>
         <p>{t("documents.dropHint")}</p>
-        <button type="button" class="secondary" onClick={() => inputRef.current?.click()} disabled={!capabilities || uploading}>
+        <button type="button" class="cs-control-button document-file-picker" onClick={() => inputRef.current?.click()} disabled={!capabilities || uploading}>
           {t("documents.chooseFiles")}
         </button>
         <small>{t("documents.limits", { formats, size: maxSize, count: capabilities?.max_batch_count ?? "-" })}</small>
@@ -251,7 +278,7 @@ export function DocumentIngestionRoute({ client }: Props) {
         <section class="document-upload-list" aria-labelledby="document-files-title">
           <div class="document-upload-list-head">
             <h3 id="document-files-title">{t("documents.files")}</h3>
-            <button type="button" onClick={() => void uploadAll()} disabled={!consent || readyCount === 0 || uploading}>
+            <button type="button" class="cs-control-button is-primary" onClick={() => void uploadAll()} disabled={!consent || readyCount === 0 || uploading}>
               {t("documents.uploadFiles")}
             </button>
           </div>
@@ -260,6 +287,16 @@ export function DocumentIngestionRoute({ client }: Props) {
               <div><strong>{row.file.name}</strong><small>{formatBytes(row.file.size)}</small></div>
               <span class={`status status-${row.state}`}>{t(`documents.state.${row.state}`)}</span>
               {row.error ? <small class="document-upload-error">{row.error}</small> : null}
+              {row.state === "failed" && row.uploadId ? (
+                <button type="button" class="cs-control-button is-compact" disabled={uploading} onClick={() => void checkUploadStatus(row)}>
+                  {knowledgeText("checkStatus")}
+                </button>
+              ) : null}
+              {row.state === "failed" && !row.uploadId && capabilities && row.file.size <= capabilities.max_file_size ? (
+                <button type="button" class="cs-control-button is-compact" disabled={uploading} onClick={() => retryUpload(row)}>
+                  {knowledgeText("retry")}
+                </button>
+              ) : null}
               {row.draft ? (
                 <details class="document-handover-draft">
                   <summary>{t("documents.handoverDraft", { outcome: row.draft.draft.outcome })}</summary>

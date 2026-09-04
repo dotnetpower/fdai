@@ -67,7 +67,10 @@ class PostgresDocumentActivitySink:
                 await self._mark_published(row["event_id"])
                 continue
             try:
-                await self._event_bus.publish(self._event_topic, event.key, event.payload)
+                target_topic = (
+                    event.topic if event.topic.startswith("object.") else self._event_topic
+                )
+                await self._event_bus.publish(target_topic, event.key, event.payload)
             except Exception as exc:  # noqa: BLE001 - durable row remains for retry
                 _LOGGER.warning(
                     "document_worker_outbox_publish_failed",
