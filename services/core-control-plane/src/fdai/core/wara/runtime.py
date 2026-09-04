@@ -440,7 +440,13 @@ class WaraAssessmentObservationRunner:
     async def collect(self, request: WaraAssessmentRequest) -> WaraObservationCollection:
         """Return exact evidence while preserving manual and caller-supplied receipts."""
 
-        evidence = {(item.recommendation_id, item.evidence_ref): item for item in request.evidence}
+        evidence = {
+            (item.recommendation_id, item.evidence_ref): _bind_caller_evidence_cutoff(
+                item,
+                request,
+            )
+            for item in request.evidence
+        }
         if len(evidence) != len(request.evidence):
             raise ValueError("WARA request evidence contains duplicate references")
         attempts: list[WaraObservationAttempt] = []
@@ -493,6 +499,20 @@ class WaraAssessmentObservationRunner:
             ),
         )
         return WaraObservationCollection(request=enriched, attempts=tuple(attempts))
+
+
+def _bind_caller_evidence_cutoff(
+    item: WaraEvidenceReceipt,
+    request: WaraAssessmentRequest,
+) -> WaraEvidenceReceipt:
+    """Keep caller evidence inadmissible when it exceeds the original request cutoff."""
+
+    if item.observed_at <= request.evaluated_at and item.recorded_at <= request.recorded_at:
+        return item
+    return replace(
+        item,
+        provider_error=item.provider_error or "caller_evidence_after_original_cutoff",
+    )
 
 
 class WaraAssessmentService:

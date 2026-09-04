@@ -1,7 +1,7 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: fb9f0d2bbc46c2bf7e9346b40d8b6b3c9bc27438
+translation_source_sha: d414400f08396890919967efcdc20a1a0ea426ed
 translation_revised: 2026-09-04
 ---
 # WARA 근거 기반 평가
@@ -183,6 +183,9 @@ Azure 관리 호스트와 audience만 허용하며, 범위 밖 또는 잘린 행
 포함하도록 평가 및 기록 기준 시각을 전진시키므로 새로 수집한 증적이 미래 근거로 잘못
 차단되지 않습니다. 해당 수집 중 프로바이더가 반환한 증적만 기준 시각을 전진시킬 수 있습니다.
 호출자가 제공한 근거에는 원래의 독립적인 기준 시각을 계속 적용합니다.
+수집을 시작할 때 원래 기준 시각을 넘은 호출자 증적은
+`caller_evidence_after_original_cutoff`로 표시합니다. 이후 프로바이더 시각이 해당 증적을 다른
+권고에 소급 적용할 수 없습니다.
 
 ## 검증 및 릴리스 경계
 

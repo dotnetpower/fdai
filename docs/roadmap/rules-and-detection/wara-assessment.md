@@ -185,7 +185,9 @@ that collection phase. The enriched request advances its evaluation and recorded
 the latest admitted observation, so a freshly collected receipt cannot be rejected as future
 evidence. Only receipts returned by the provider during that collection can advance the cutoffs;
 caller-supplied evidence remains subject to the original independent cutoff. Provider
-unavailability remains `unknown` and is visible in audit evidence.
+unavailability remains `unknown` and is visible in audit evidence. At collection start, caller
+receipts beyond the original cutoff are marked `caller_evidence_after_original_cutoff`; later
+provider timing cannot make them admissible for another recommendation.
 
 ## Validation and release boundary
 

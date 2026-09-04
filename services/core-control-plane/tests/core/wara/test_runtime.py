@@ -367,9 +367,11 @@ class _ObservationProvider:
         *,
         unavailable: bool = False,
         observed_at: datetime = AT,
+        satisfied: bool = True,
     ) -> None:
         self.unavailable = unavailable
         self.observed_at = observed_at
+        self.satisfied = satisfied
         self.plans: list[WaraReadPlan] = []
 
     async def observe(self, plan: WaraReadPlan) -> WaraObservationReceipt:
@@ -391,7 +393,7 @@ class _ObservationProvider:
             truncated=False,
             conflicting=False,
             synthetic=False,
-            satisfied=True,
+            satisfied=self.satisfied,
         )
 
 
@@ -479,17 +481,26 @@ async def test_caller_evidence_cannot_advance_its_own_admission_cutoff() -> None
         conflicting=False,
         synthetic=False,
         provider_error=None,
-        outcome=WaraSatisfactionStatus.SATISFIED,
+        outcome=WaraSatisfactionStatus.FAILED,
     )
     runner = WaraAssessmentObservationRunner(
         runtime=runtime,
-        provider=_ObservationProvider(unavailable=True),
+        provider=_ObservationProvider(
+            observed_at=AT + timedelta(seconds=2),
+            satisfied=True,
+        ),
     )
 
     collection = await runner.collect(replace(request, evidence=(future,)))
     result = runtime.assess(collection.request)
     control = next(item for item in result.controls if item.recommendation_id == record.aprl_guid)
 
-    assert collection.request.evaluated_at == AT
-    assert collection.request.recorded_at == AT
-    assert control.satisfaction is WaraSatisfactionStatus.UNKNOWN
+    caller_evidence = next(
+        item
+        for item in collection.request.evidence
+        if item.evidence_ref == "evidence:future-caller"
+    )
+    assert collection.request.evaluated_at == AT + timedelta(seconds=2)
+    assert collection.request.recorded_at == AT + timedelta(seconds=2)
+    assert caller_evidence.provider_error == "caller_evidence_after_original_cutoff"
+    assert control.satisfaction is WaraSatisfactionStatus.SATISFIED

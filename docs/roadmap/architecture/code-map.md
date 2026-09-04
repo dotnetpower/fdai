@@ -176,6 +176,8 @@ After collection, the runner advances the request evaluation and recorded cutoff
 collected receipt, preventing a valid fresh observation from being classified as future evidence.
 Only evidence collected from the provider in that run participates in cutoff advancement;
 caller-supplied evidence remains gated by the request's independent original cutoff.
+Caller receipts beyond that original cutoff are marked inadmissible before provider collection, so
+an unrelated later observation cannot retroactively admit them.
 Before a matching-row WARA evaluator can treat zero violations as satisfied, the Azure adapter
 requires a companion exact-id coverage query to observe every target under the same identity and
 deadline.
