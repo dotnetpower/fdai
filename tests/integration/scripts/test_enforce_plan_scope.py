@@ -41,6 +41,19 @@ def test_monitoring_scope_accepts_only_monitoring_module() -> None:
         enforce(_plan("module.compute.container_app"), mode="monitoring")
 
 
+def test_rca_reader_identity_scope_accepts_only_identity_and_role() -> None:
+    identity = "module.rca_reader_identity.azurerm_user_assigned_identity.primary"
+    role = "azurerm_role_assignment.rca_monitoring_reader"
+
+    assert enforce(_plan(identity, role), mode="rca-reader-identity") == frozenset({identity, role})
+    assert enforce({"resource_changes": []}, mode="rca-reader-identity") == frozenset()
+    with pytest.raises(ValueError, match="outside its bounded scope"):
+        enforce(
+            _plan(identity, role, "module.compute.container_app"),
+            mode="rca-reader-identity",
+        )
+
+
 def test_model_scope_uses_non_hil_sealed_capabilities() -> None:
     allowed = 'module.llm_azure_openai[0].azurerm_cognitive_deployment.capability["t1.embedding"]'
     resolved = {

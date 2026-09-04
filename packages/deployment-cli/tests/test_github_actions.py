@@ -723,6 +723,7 @@ def test_request_binding_and_context_digest_match_workflow_validator() -> None:
                 "deploy_isolated_executor": False,
                 "deploy_monitoring": False,
                 "deploy_operator_api": True,
+                "deploy_rca_reader_identity": False,
                 "runtime_image_revision": "",
             },
         },
@@ -783,6 +784,32 @@ def test_application_selection_can_preserve_monitoring() -> None:
 
     assert selection.deploy_dev_operations_gateway is True
     assert selection.deploy_monitoring is True
+
+
+def test_rca_reader_identity_selection_is_exclusive_and_dispatched() -> None:
+    runner = RecordingRunner()
+    selection = DeploymentSelection(
+        deploy_console=False,
+        deploy_operator_api=False,
+        deploy_rca_reader_identity=True,
+    )
+
+    plan = dispatch_plan(
+        repository="example/fdai",
+        environment="dev",
+        commit_sha=_COMMIT,
+        target_binding=_TARGET,
+        region=_REGION,
+        run_id="run.rca-reader",
+        selection=selection,
+        run=runner,
+    )
+    fields = _fields(next(call for call in runner.calls if call[:2] == ("workflow", "run")))
+    assert plan.request_id.startswith("plan-rca-")
+    assert "deploy_rca_reader_identity" not in fields
+
+    with pytest.raises(ValueError, match="cannot be combined"):
+        DeploymentSelection(deploy_rca_reader_identity=True)
 
 
 _IMAGE_REVISION = "24e4df68a50eed8cf355c8278836d40dc399cb54"

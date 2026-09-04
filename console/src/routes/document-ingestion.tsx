@@ -11,7 +11,7 @@ import {
 } from "../ingestion-api";
 import { t } from "../i18n";
 import { buildDocumentViewSnapshot } from "./document-ingestion.view";
-import { knowledgeText } from "./knowledge-sources.i18n";
+import { knowledgeText, type KnowledgeMessageKey } from "./knowledge-sources.i18n";
 
 interface Props { readonly client: OperatorApiClient }
 
@@ -23,9 +23,32 @@ interface UploadRow {
   readonly uploadId?: string;
   readonly draft?: HandoverDraftResult;
   readonly error?: string | undefined;
+  readonly notice?: string | undefined;
 }
 
 interface UploadBatchLock { current: boolean }
+
+const FORMAT_EXTENSIONS: Readonly<Record<string, readonly string[]>> = {
+  text: [".txt", ".md", ".rst", ".json", ".yaml", ".yml", ".xml", ".csv", ".tf", ".rego"],
+  pdf: [".pdf"],
+  docx: [".docx"],
+  pptx: [".pptx"],
+  xlsx: [".xlsx"],
+  png: [".png"],
+  jpeg: [".jpg", ".jpeg"],
+  tiff: [".tif", ".tiff"],
+};
+const LEGACY_OFFICE_EXTENSIONS = new Set([".doc", ".ppt", ".xls"]);
+const FORMAT_LABEL_KEYS: Readonly<Record<string, KnowledgeMessageKey>> = {
+  text: "formatText",
+  pdf: "formatPdf",
+  docx: "formatDocx",
+  pptx: "formatPptx",
+  xlsx: "formatXlsx",
+  png: "formatPng",
+  jpeg: "formatJpeg",
+  tiff: "formatTiff",
+};
 
 export function claimUploadBatch(lock: UploadBatchLock): boolean {
   if (lock.current) return false;
@@ -45,12 +68,40 @@ export function documentFilesForUpload(
   capabilities: IngestionCapabilities | null,
 ): readonly UploadRow[] {
   if (capabilities === null) return [];
-  return files.slice(0, capabilities.max_batch_count).map((file, index) => ({
-    key: `${file.name}:${file.size}:${file.lastModified}:${index}`,
-    file,
-    state: file.size > capabilities.max_file_size ? "failed" : "queued",
-    ...(file.size > capabilities.max_file_size ? { error: t("documents.fileTooLarge") } : {}),
-  }));
+  const supportedExtensions = new Set(
+    capabilities.supported_formats.flatMap((format) => FORMAT_EXTENSIONS[format] ?? []),
+  );
+  return files.slice(0, capabilities.max_batch_count).map((file, index) => {
+    const extension = fileExtension(file.name);
+    const error = file.size > capabilities.max_file_size
+      ? t("documents.fileTooLarge")
+      : LEGACY_OFFICE_EXTENSIONS.has(extension)
+        ? knowledgeText("legacyOfficeFormat")
+        : !supportedExtensions.has(extension)
+          ? knowledgeText("unsupportedFileFormat")
+          : undefined;
+    return {
+      key: `${file.name}:${file.size}:${file.lastModified}:${index}`,
+      file,
+      state: error ? "failed" as const : "queued" as const,
+      ...(error ? { error } : {}),
+    };
+  });
+}
+
+export function documentAccept(capabilities: IngestionCapabilities | null): string | undefined {
+  if (capabilities === null) return undefined;
+  const extensions = capabilities.supported_formats.flatMap(
+    (format) => FORMAT_EXTENSIONS[format] ?? [],
+  );
+  return extensions.length > 0 ? [...new Set(extensions)].join(",") : undefined;
+}
+
+export function documentFormatLabels(formats: readonly string[]): string {
+  return formats.map((format) => {
+    const key = FORMAT_LABEL_KEYS[format];
+    return key === undefined ? format : knowledgeText(key);
+  }).join(", ");
 }
 
 export function DocumentIngestionRoute({ client }: Props) {
@@ -166,14 +217,20 @@ export function DocumentIngestionRoute({ client }: Props) {
             () => mounted.current,
           );
           if (completed.state !== "ready" && completed.state !== "ready_with_warnings") {
-            updateRow(row.key, { state: "failed", error: completed.state });
+            updateRow(row.key, { state: "failed", error: uploadTerminalError(completed) });
             continue;
           }
           const draft = batch.purpose === "handover_bootstrap"
             ? await api.handoverDraft(created.session.upload_id)
             : undefined;
           if (!mounted.current) return;
-          updateRow(row.key, { state: "ready", ...(draft ? { draft } : {}) });
+          updateRow(row.key, {
+            state: "ready",
+            ...(completed.state === "ready_with_warnings"
+              ? { notice: knowledgeText("readyWithWarnings") }
+              : {}),
+            ...(draft ? { draft } : {}),
+          });
         } catch (error) {
           updateRow(row.key, {
             state: "failed",
@@ -195,8 +252,14 @@ export function DocumentIngestionRoute({ client }: Props) {
       const completed = await waitForTerminal(api, row.uploadId, () => mounted.current);
       if (!mounted.current) return;
       updateRow(row.key, completed.state === "ready" || completed.state === "ready_with_warnings"
-        ? { state: "ready", error: undefined }
-        : { state: "failed", error: completed.state });
+        ? {
+            state: "ready",
+            error: undefined,
+            ...(completed.state === "ready_with_warnings"
+              ? { notice: knowledgeText("readyWithWarnings") }
+              : {}),
+          }
+        : { state: "failed", error: uploadTerminalError(completed) });
     } catch (error) {
       updateRow(row.key, {
         state: "failed",
@@ -215,7 +278,9 @@ export function DocumentIngestionRoute({ client }: Props) {
   };
 
   const readyCount = rows.filter((row) => row.state === "queued").length;
-  const formats = capabilities?.supported_formats.join(", ") ?? t("documents.loadingCapabilities");
+  const formats = capabilities
+    ? documentFormatLabels(capabilities.supported_formats)
+    : t("documents.loadingCapabilities");
   const maxSize = capabilities ? formatBytes(capabilities.max_file_size) : "-";
 
   return (
@@ -263,7 +328,15 @@ export function DocumentIngestionRoute({ client }: Props) {
         }}
         onDrop={(event) => { event.preventDefault(); setDragging(false); addFiles(event.dataTransfer?.files ?? []); }}
       >
-        <input ref={inputRef} type="file" multiple hidden disabled={uploading} onChange={(event) => addFiles(event.currentTarget.files ?? [])} />
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          hidden
+          accept={documentAccept(capabilities)}
+          disabled={uploading}
+          onChange={(event) => addFiles(event.currentTarget.files ?? [])}
+        />
         <div class="document-drop-icon" aria-hidden="true">⇧</div>
         <h3 id="document-drop-title">{t("documents.dropTitle")}</h3>
         <p>{t("documents.dropHint")}</p>
@@ -271,6 +344,9 @@ export function DocumentIngestionRoute({ client }: Props) {
           {t("documents.chooseFiles")}
         </button>
         <small>{t("documents.limits", { formats, size: maxSize, count: capabilities?.max_batch_count ?? "-" })}</small>
+        {capabilities?.ocr_available === false ? (
+          <small class="document-upload-note">{knowledgeText("ocrUnavailableHint")}</small>
+        ) : null}
         {capabilityError ? <div class="alert error" role="alert">{capabilityError}</div> : null}
       </section>
 
@@ -287,6 +363,7 @@ export function DocumentIngestionRoute({ client }: Props) {
               <div><strong>{row.file.name}</strong><small>{formatBytes(row.file.size)}</small></div>
               <span class={`status status-${row.state}`}>{t(`documents.state.${row.state}`)}</span>
               {row.error ? <small class="document-upload-error">{row.error}</small> : null}
+              {row.notice ? <small class="document-upload-notice">{row.notice}</small> : null}
               {row.state === "failed" && row.uploadId ? (
                 <button type="button" class="cs-control-button is-compact" disabled={uploading} onClick={() => void checkUploadStatus(row)}>
                   {knowledgeText("checkStatus")}
@@ -361,4 +438,29 @@ function formatBytes(value: number): string {
   if (value < 1024) return `${value} B`;
   if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KiB`;
   return `${(value / (1024 * 1024)).toFixed(1)} MiB`;
+}
+
+function fileExtension(name: string): string {
+  const index = name.lastIndexOf(".");
+  return index >= 0 ? name.slice(index).toLowerCase() : "";
+}
+
+function uploadTerminalError(session: import("../ingestion-api").UploadSession): string {
+  const code = session.failure_code ?? "";
+  if (code === "format_signature_mismatch") return knowledgeText("formatSignatureMismatch");
+  if (code === "malformed_ooxml_package" || code === "extraction_malformed_package") {
+    return knowledgeText("malformedPackage");
+  }
+  if (code === "extraction_ocr_unavailable") return knowledgeText("ocrUnavailable");
+  if (code === "extraction_no_extractable_content") {
+    return knowledgeText("noExtractableContent");
+  }
+  if (
+    code.includes("encrypted")
+    || code.includes("password")
+    || code.includes("rights_managed")
+  ) {
+    return knowledgeText("encryptedDocument");
+  }
+  return code || session.state;
 }

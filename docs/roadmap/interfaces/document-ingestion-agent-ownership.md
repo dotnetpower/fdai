@@ -9,8 +9,9 @@ agent-driven control loop used for every other event.
 
 ## Design at a glance
 
-An upload is an `Event`. Each pipeline stage emits or consumes a typed object on
-`fdai.pipeline.stages`; no worker or gateway side effect can substitute for an owning agent decision.
+An upload is an `Event`. Authority-bearing stages emit or consume typed logical objects multiplexed
+over `fdai.pantheon.objects`; `fdai.pipeline.stages` carries operational activity only. No worker or
+gateway side effect can substitute for an owning agent decision.
 
 ![Design at a glance. The main stages are Upload event, Huginn - ingress, Heimdall - safety signals, Forseti - admissibility, abandon or deny, Var - human approval, Muninn - retrieval index, Saga - audit seal, Mimir / Norns - catalog growth, Bragi - progress + citation.](../../diagrams/generated/fdai-roadmap-interfaces-document-ingestion-agent-ownership-01.en.svg)
 
@@ -90,9 +91,9 @@ It does not add worker authority to `UploadSession` and does not replace the Sag
 Production schedules the upload API and worker as separate Container Apps. This split changes
 process lifetime, scaling, managed identity, and database grants only. The API never subscribes to
 worker consumer groups, the worker exposes no upload ingress, and neither process gains judgment,
-approval, audit, memory, or executor authority from its deployment role. Topic-scoped RBAC lets the
-worker receive Saga and Muninn objects from `fdai.pantheon.objects` and send stage facts to
-`fdai.pipeline.stages`; the API identity has no worker receive grant in split mode.
+approval, audit, memory, or executor authority from its deployment role. Topic-scoped RBAC lets the worker receive Saga and Muninn objects and send mechanical lifecycle
+facts through logical channels on `fdai.pantheon.objects`; the API identity has no worker receive
+grant in split mode. Operational progress remains separate on `fdai.pipeline.stages`.
 Each process also receives its attached user-assigned identity client id through
 `FDAI_MI_CLIENT_ID`. Storage, Event Hubs, model, optional OCR, and stewardship adapters select that
 exact identity and do not fall back to an ambient or system-assigned principal.

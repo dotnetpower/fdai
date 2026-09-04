@@ -58,13 +58,14 @@ test("uploads a document without overriding collection reader policy", async ({ 
         contentType: "application/json",
         headers,
         body: JSON.stringify({
-          supported_formats: ["text"],
+          supported_formats: ["text", "pdf", "docx", "pptx", "xlsx", "png", "jpeg", "tiff"],
           storage_modes: ["managed_copy"],
           max_file_size: 1024,
           max_batch_count: 1,
           archives_enabled: false,
           policy_versions: ["v1"],
           direct_upload: true,
+          ocr_available: true,
         }),
       });
       return;
@@ -114,7 +115,10 @@ test("uploads a document without overriding collection reader policy", async ({ 
       status: 200,
       contentType: "application/json",
       headers,
-      body: JSON.stringify(uploadSession(statusChecks === 1 ? "held" : "ready")),
+      body: JSON.stringify(uploadSession(
+        statusChecks === 1 ? "held" : "ready",
+        statusChecks === 1 ? "office_password_encrypted" : null,
+      )),
     });
   });
 
@@ -123,6 +127,10 @@ test("uploads a document without overriding collection reader policy", async ({ 
   await expect(filePicker).toBeVisible();
   await expect(filePicker).toHaveCSS("display", "flex");
   await expect(filePicker).toHaveCSS("cursor", "pointer");
+  await expect(page.locator('input[type="file"]')).toHaveAttribute(
+    "accept",
+    ".txt,.md,.rst,.json,.yaml,.yml,.xml,.csv,.tf,.rego,.pdf,.docx,.pptx,.xlsx,.png,.jpg,.jpeg,.tif,.tiff",
+  );
   await page.locator('input[type="file"]').setInputFiles({
     name: "guide.txt",
     mimeType: "text/plain",
@@ -133,7 +141,7 @@ test("uploads a document without overriding collection reader policy", async ({ 
   await expect(page.getByText("temporary upload request failure")).toBeVisible();
   await page.getByRole("button", { name: "Retry" }).click();
   await page.getByRole("button", { name: "Upload files" }).click();
-  await expect(page.getByText("held", { exact: true })).toBeVisible();
+  await expect(page.getByText(/encrypted or protected document/)).toBeVisible();
   await page.getByRole("button", { name: "Check status" }).click();
 
   await expect(page.locator(".status-ready")).toHaveText("Ready");
@@ -147,7 +155,7 @@ test("uploads a document without overriding collection reader policy", async ({ 
   });
 });
 
-function uploadSession(state: string) {
+function uploadSession(state: string, failureCode: string | null = null) {
   return {
     upload_id: "upload-1",
     document_id: "document-1",
@@ -155,5 +163,6 @@ function uploadSession(state: string) {
     source_name: "guide.txt",
     state,
     collection_id: "shared-knowledge",
+    failure_code: failureCode,
   };
 }

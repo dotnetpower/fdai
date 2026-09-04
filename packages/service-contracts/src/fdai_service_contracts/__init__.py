@@ -154,6 +154,13 @@ from fdai_service_contracts.document import (
     StructuralUnit,
     UploadSession,
 )
+from fdai_service_contracts.document_formats import (
+    DOCUMENT_FORMAT_SPECS,
+    DocumentFormatSpec,
+    classify_document_intake,
+    supported_document_extensions,
+    supported_document_format_ids,
+)
 from fdai_service_contracts.document_providers import (
     DirectUploadStore,
     DocumentAccessDeniedError,
@@ -516,6 +523,7 @@ __all__ = [
     "DocumentLifecycleEvent",
     "DocumentExtractionUnavailableError",
     "DocumentExtractor",
+    "DocumentFormatSpec",
     "DocumentIndex",
     "DocumentIngestionError",
     "DocumentLifecycleConflictError",
@@ -535,6 +543,7 @@ __all__ = [
     "DocumentWorkerClaimStatus",
     "DocumentWorkerIndexCommand",
     "DocumentWorkerStage",
+    "DOCUMENT_FORMAT_SPECS",
     "DiscoveryBackend",
     "DiscoveryCoverageStatus",
     "DiscoveryCoverageReceipt",
@@ -615,6 +624,7 @@ __all__ = [
     "OperatorReadModel",
     "OperatorRole",
     "canonical_ordinary_role",
+    "classify_document_intake",
     "OperatorTokenVerifier",
     "OperationalCoverageCount",
     "OperationalCoverageDisposition",
@@ -700,6 +710,8 @@ __all__ = [
     "StateStore",
     "StopConditionKind",
     "StructuralUnit",
+    "supported_document_extensions",
+    "supported_document_format_ids",
     "StructuralCoverageReceipt",
     "TaskStatus",
     "QueryNodeKind",

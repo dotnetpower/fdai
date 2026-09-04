@@ -586,6 +586,7 @@ a:hover {
 .document-drop-zone p { margin: 0; }
 .document-drop-zone p,
 .document-drop-zone small { color: var(--fg-muted); }
+.document-upload-note { max-width: 72ch; line-height: 1.45; }
 .document-drop-icon {
   width: 48px;
   height: 48px;
@@ -617,7 +618,9 @@ a:hover {
 .document-upload-row .status-received { color: var(--success, #217a4b); }
 .document-upload-row .status-failed,
 .document-upload-error { color: var(--danger, #b3261e) !important; }
-.document-upload-error { overflow-wrap: anywhere; }
+.document-upload-error,
+.document-upload-notice { overflow-wrap: anywhere; }
+.document-upload-notice { color: var(--warning, #8a5a00) !important; }
 
 @media (max-width: 760px) {
   .document-upload-list-head { align-items: flex-start; flex-direction: column; }

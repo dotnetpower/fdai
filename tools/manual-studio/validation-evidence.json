@@ -1,18 +1,19 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-03T01:52:31Z",
+  "generatedAt": "2026-09-04T04:38:49Z",
   "viewports": [
     "1440x900",
     "993x641",
     "390x844"
   ],
   "method": {
-    "browser": "Playwright Chromium 145",
-    "responsive": "Every slide was rendered at every viewport and checked for bounds and clipped text.",
-    "fullscreen": "Every manual entered the browser Fullscreen API through slide-stage; the library was excluded from the fullscreen tree and the active slide was checked against the fullscreen viewport.",
-    "pdf": "Every manual was printed with browser print CSS and checked for page count, 16:9 MediaBox ratio, and clipped text.",
+    "browser": "VS Code Electron Chrome 148 for interactive geometry and Chrome for Testing 145 for PDF output.",
+    "fixedCanvas": "All 300 slides used one 1536x864 layout signature at 1440x900, 993x641, and 390x844. The viewer changed only the uniform stage scale.",
+    "responsive": "Every slide was rendered at every viewport and checked for canvas bounds, stage bounds, layout-signature stability, and horizontal document overflow.",
+    "fullscreen": "Every manual entered the browser Fullscreen API through slide-stage; all 300 slides retained the 1536x864 canvas and fit the 1440x900 fullscreen stage.",
+    "pdf": "Every manual was printed with browser print CSS. All 300 pages matched the catalog count and used a 16:9 MediaBox.",
     "accessibility": "Keyboard navigation, browser fullscreen state, 44px mobile targets, reduced motion, visible keyboard focus, accessible visual names, and horizontal overflow were checked in Chromium.",
-    "artifacts": "Session-local PNG and PDF files are stored outside the repository under manual-studio-validation/round-1 through round-4; the presentation-standard evidence is under manual-studio-validation/executive-standard and manual-studio-validation/sre-redesign."
+    "artifacts": "Session-local PNG and PDF files are stored outside the repository. Fixed-canvas PDFs are under manual-studio-fixed-canvas; earlier presentation evidence remains under manual-studio-validation."
   },
   "manuals": [
     {

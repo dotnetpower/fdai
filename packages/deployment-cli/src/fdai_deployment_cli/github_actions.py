@@ -20,7 +20,7 @@ _REPOSITORY = re.compile(r"^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}$")
 _COMMIT = re.compile(r"^[0-9a-f]{40}$")
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _PLAN_ID = re.compile(r"^plan-[1-9][0-9]*-[1-9][0-9]*$")
-_REQUEST_ID = re.compile(r"^(?:plan|apply)-[0-9a-f]{48}$")
+_REQUEST_ID = re.compile(r"^(?:plan|apply)-(?:rca-)?[0-9a-f]{48}$")
 _ENVIRONMENTS = frozenset({"dev", "staging", "prod"})
 _BOOL_INPUTS = (
     "deploy_console",
@@ -59,6 +59,7 @@ class DeploymentSelection:
     deploy_isolated_executor: bool = False
     deploy_monitoring: bool = False
     deploy_operator_api: bool = True
+    deploy_rca_reader_identity: bool = False
     runtime_image_revision: str = ""
 
     def __post_init__(self) -> None:
@@ -74,11 +75,18 @@ class DeploymentSelection:
         if self.runtime_image_revision:
             if _COMMIT.fullmatch(self.runtime_image_revision) is None:
                 raise ValueError("runtime_image_revision MUST be a lowercase 40-character git SHA")
+        if self.deploy_rca_reader_identity and (
+            any(application_targets) or self.deploy_monitoring or self.runtime_image_revision
+        ):
+            raise ValueError(
+                "deploy_rca_reader_identity cannot be combined with another deployment target"
+            )
 
     def to_mapping(self) -> dict[str, bool | str]:
         """Return workflow input names in stable order."""
 
         result: dict[str, bool | str] = {name: bool(getattr(self, name)) for name in _BOOL_INPUTS}
+        result["deploy_rca_reader_identity"] = self.deploy_rca_reader_identity
         result["runtime_image_revision"] = self.runtime_image_revision
         return result
 
@@ -215,6 +223,8 @@ def dispatch_plan(
         region=region,
         attempt=attempt,
     )
+    if selection.deploy_rca_reader_identity:
+        bounded_request_id = bounded_request_id.replace("plan-", "plan-rca-", 1)
     _dispatch(
         repository=repository,
         environment=environment,
@@ -286,6 +296,8 @@ def dispatch_apply(
         region=region,
         attempt=attempt,
     )
+    if selection.deploy_rca_reader_identity:
+        bounded_request_id = bounded_request_id.replace("apply-", "apply-rca-", 1)
     _dispatch(
         repository=repository,
         environment=environment,
@@ -546,7 +558,11 @@ def _dispatch(
         "request_id": request_id_value,
         "context_digest": context_digest,
         "commit_sha": commit_sha,
-        **{key: str(value).lower() for key, value in selection.to_mapping().items()},
+        **{
+            key: str(value).lower()
+            for key, value in selection.to_mapping().items()
+            if key != "deploy_rca_reader_identity"
+        },
     }
     if apply:
         if plan_id is None or plan_digest is None:

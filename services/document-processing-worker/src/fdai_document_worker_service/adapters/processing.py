@@ -31,21 +31,24 @@ from fdai_service_contracts import (
     ProtectionState,
     ProviderUnavailableError,
     StructuralUnit,
+    classify_document_intake,
     configured_readiness,
     live_readiness,
     live_unavailable_readiness,
     unavailable_readiness,
 )
 
-from fdai_document_worker_service.adapters.ooxml import OoxmlParserBudget, extract_ooxml
-from fdai_document_worker_service.adapters.pdf_isolation import extract_pdf_pages_isolated
-
-_TEXT_EXTENSIONS = frozenset(
-    {".txt", ".md", ".rst", ".json", ".yaml", ".yml", ".xml", ".csv", ".tf", ".rego"}
+from fdai_document_worker_service.adapters.ooxml import (
+    OoxmlEmbeddedImage,
+    OoxmlParserBudget,
+    extract_ooxml,
+    extract_ooxml_embedded_images,
 )
-_OOXML_EXTENSIONS = frozenset({".docx", ".pptx", ".xlsx"})
+from fdai_document_worker_service.adapters.pdf_isolation import inspect_pdf_pages_isolated
+
 _PDF_ENCRYPT = re.compile(rb"/Encrypt\b")
 _COGNITIVE_SCOPE = "https://cognitiveservices.azure.com/.default"
+_OCR_IMAGE_MEDIA_TYPES = frozenset({"image/png", "image/jpeg", "image/tiff"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -157,8 +160,10 @@ class SignatureProtectionInspector:
         self, *, source_name: str, media_type_hint: str, chunks: AsyncIterator[bytes]
     ) -> ProtectionInspection:
         content = await _read_bounded(chunks, self._max_input_bytes)
-        suffix = Path(source_name).suffix.lower()
+        expected = classify_document_intake(source_name, media_type_hint)
         if content.startswith(b"%PDF-"):
+            if expected.family != "pdf":
+                return _format_mismatch()
             encrypted = _PDF_ENCRYPT.search(content) is not None
             return ProtectionInspection(
                 ProtectionState.PASSWORD_ENCRYPTED if encrypted else ProtectionState.NONE,
@@ -174,40 +179,52 @@ class SignatureProtectionInspector:
                 reason_code="office_password_encrypted",
             )
         if content.startswith(b"PK\x03\x04"):
+            if expected.family != "ooxml":
+                return _format_mismatch()
             try:
                 with zipfile.ZipFile(io.BytesIO(content)) as archive:
                     infos = archive.infolist()
                     names = {item.filename.lower() for item in infos}
                     if any(item.flag_bits & 0x1 for item in infos):
-                        raise RuntimeError("encrypted")
-                    if "[content_types].xml" in names and suffix in _OOXML_EXTENSIONS:
                         return ProtectionInspection(
-                            ProtectionState.NONE,
-                            "ooxml",
-                            _ooxml_media_type(suffix),
+                            ProtectionState.PASSWORD_ENCRYPTED,
+                            "encrypted-container",
+                            "application/zip",
+                            reason_code="encrypted_container",
                         )
-            except (zipfile.BadZipFile, RuntimeError):
+                    package_format = _ooxml_package_format(names)
+                    if "[content_types].xml" not in names or package_format is None:
+                        return ProtectionInspection(
+                            ProtectionState.UNKNOWN,
+                            "malformed-ooxml",
+                            "application/zip",
+                            reason_code="malformed_ooxml_package",
+                        )
+                    if package_format != expected.format_id:
+                        return _format_mismatch()
+                    return ProtectionInspection(
+                        ProtectionState.NONE,
+                        "ooxml",
+                        expected.media_types[0],
+                    )
+            except zipfile.BadZipFile:
                 return ProtectionInspection(
-                    ProtectionState.PASSWORD_ENCRYPTED,
-                    "encrypted-container",
+                    ProtectionState.UNKNOWN,
+                    "malformed-ooxml",
                     "application/zip",
-                    reason_code="encrypted_container",
+                    reason_code="malformed_ooxml_package",
                 )
-            return ProtectionInspection(
-                ProtectionState.UNSUPPORTED_PROTECTION,
-                "zip",
-                "application/zip",
-                reason_code="archives_disabled",
-            )
         image_type = _image_media_type(content)
         if image_type:
+            if expected.family != "image" or image_type not in expected.media_types:
+                return _format_mismatch()
             return ProtectionInspection(ProtectionState.NONE, "image", image_type)
-        if suffix in _TEXT_EXTENSIONS or _looks_like_text(content):
+        if expected.family == "text" and _looks_like_text(content):
             content.decode("utf-8-sig")
             return ProtectionInspection(
                 ProtectionState.NONE,
                 "text",
-                media_type_hint or "text/plain",
+                expected.media_types[0],
             )
         return ProtectionInspection(
             ProtectionState.UNKNOWN,
@@ -240,26 +257,50 @@ class BoundedDocumentExtractor:
         observed = version.observed_format or "unknown"
         extractor_name = "service-bounded"
         extractor_version = "1.0.0"
+        warnings: list[str] = []
         if observed == "text":
             units = _text_units(content.decode("utf-8-sig"))
         elif observed == "ooxml":
             units = extract_ooxml(content, budget=self._ooxml_budget)
+            embedded = extract_ooxml_embedded_images(content, budget=self._ooxml_budget)
+            embedded_units, embedded_warnings = await self._extract_embedded_images(
+                version,
+                embedded,
+            )
+            units += embedded_units
+            warnings.extend(embedded_warnings)
         elif observed == "pdf":
-            pdf_pages = await asyncio.to_thread(_pdf_units, content)
+            pdf_pages, image_pages = await asyncio.to_thread(_pdf_inspection, content)
             native_units = tuple(unit for unit in pdf_pages if unit is not None)
-            if pdf_pages and len(native_units) == len(pdf_pages):
+            requires_ocr = len(native_units) != len(pdf_pages) or any(image_pages)
+            if not requires_ocr:
                 units = native_units
                 extractor_name = "pypdf"
                 extractor_version = pypdf.__version__
             else:
-                ocr_units = _normalize_pdf_ocr_units(
-                    await self._image_ocr.extract(version=version, content=content)
-                )
-                units = _merge_pdf_units(pdf_pages, ocr_units) if pdf_pages else ocr_units
+                try:
+                    ocr_units = _normalize_pdf_ocr_units(
+                        await self._ocr_required(version=version, content=content)
+                    )
+                except DocumentExtractionUnavailableError:
+                    if len(native_units) != len(pdf_pages):
+                        raise
+                    units = native_units
+                    warnings.append("pdf_image_ocr_unavailable")
+                else:
+                    units = _merge_pdf_units(pdf_pages, ocr_units) if pdf_pages else ocr_units
         elif observed == "image":
-            units = await self._image_ocr.extract(version=version, content=content)
+            units = await self._ocr_required(version=version, content=content)
         else:
             raise DocumentExtractionUnavailableError(ExtractionUnavailableReason.UNSUPPORTED_FORMAT)
+        if not units and any(
+            warning.startswith("embedded_image_ocr_unavailable:") for warning in warnings
+        ):
+            raise DocumentExtractionUnavailableError(ExtractionUnavailableReason.OCR_UNAVAILABLE)
+        if not units:
+            raise DocumentExtractionUnavailableError(
+                ExtractionUnavailableReason.NO_EXTRACTABLE_CONTENT
+            )
         if sum(len(unit.text) for unit in units) > self._max_characters:
             raise DocumentExtractionUnavailableError(ExtractionUnavailableReason.TEXT_BUDGET)
         return DocumentEnvelope(
@@ -276,7 +317,70 @@ class BoundedDocumentExtractor:
             units=units,
             extractor_name=extractor_name,
             extractor_version=extractor_version,
+            warnings=tuple(warnings),
         )
+
+    async def _ocr_required(
+        self,
+        *,
+        version: DocumentVersion,
+        content: bytes,
+    ) -> tuple[StructuralUnit, ...]:
+        try:
+            units = await self._image_ocr.extract(version=version, content=content)
+        except (ProviderUnavailableError, RuntimeError) as exc:
+            raise DocumentExtractionUnavailableError(
+                ExtractionUnavailableReason.OCR_UNAVAILABLE
+            ) from exc
+        if not units:
+            raise DocumentExtractionUnavailableError(
+                ExtractionUnavailableReason.NO_EXTRACTABLE_CONTENT
+            )
+        return units
+
+    async def _extract_embedded_images(
+        self,
+        version: DocumentVersion,
+        images: Sequence[OoxmlEmbeddedImage],
+    ) -> tuple[tuple[StructuralUnit, ...], tuple[str, ...]]:
+        units: list[StructuralUnit] = []
+        unsupported = 0
+        unavailable = 0
+        no_text = 0
+        for image_number, image in enumerate(images, start=1):
+            media_type = _image_media_type(image.content)
+            if media_type not in _OCR_IMAGE_MEDIA_TYPES:
+                unsupported += 1
+                continue
+            image_version = version.model_copy(
+                update={
+                    "source_name": Path(image.part_name).name,
+                    "media_type": media_type,
+                    "observed_format": "image",
+                }
+            )
+            try:
+                extracted = await self._image_ocr.extract(
+                    version=image_version,
+                    content=image.content,
+                )
+            except (ProviderUnavailableError, RuntimeError):
+                unavailable += 1
+                continue
+            if not extracted:
+                no_text += 1
+                continue
+            units.extend(_embedded_image_units(extracted, image_number=image_number))
+        warnings = tuple(
+            warning
+            for count, warning in (
+                (unsupported, f"embedded_images_unsupported:{unsupported}"),
+                (unavailable, f"embedded_image_ocr_unavailable:{unavailable}"),
+                (no_text, f"embedded_images_without_text:{no_text}"),
+            )
+            if count
+        )
+        return tuple(units), warnings
 
 
 @dataclass(frozen=True, slots=True)
@@ -547,19 +651,23 @@ def _text_units(text: str) -> tuple[StructuralUnit, ...]:
     )
 
 
-def _pdf_units(content: bytes) -> tuple[StructuralUnit | None, ...]:
-    """Preserve every source page so blank pages remain eligible for OCR."""
-    return tuple(
+def _pdf_inspection(
+    content: bytes,
+) -> tuple[tuple[StructuralUnit | None, ...], tuple[bool, ...]]:
+    """Preserve page text and image-presence facts from the isolated parser."""
+    pages = inspect_pdf_pages_isolated(content)
+    units = tuple(
         StructuralUnit(
             unit_id=f"page-{index}",
             kind="page",
             locator=f"pdf/page:{index}/block:1",
-            text=page,
+            text=page.text,
         )
-        if page is not None
+        if page.text is not None
         else None
-        for index, page in enumerate(extract_pdf_pages_isolated(content), start=1)
+        for index, page in enumerate(pages, start=1)
     )
+    return units, tuple(page.has_images for page in pages)
 
 
 def _normalize_pdf_ocr_units(units: Sequence[StructuralUnit]) -> tuple[StructuralUnit, ...]:
@@ -597,7 +705,7 @@ def _merge_pdf_units(
     pdf_pages: Sequence[StructuralUnit | None],
     ocr_units: Sequence[StructuralUnit],
 ) -> tuple[StructuralUnit, ...]:
-    """Use one extraction path per page and reject incomplete OCR fallback."""
+    """Merge page OCR without duplicating exact native page text."""
     ocr_by_page: dict[int, list[StructuralUnit]] = {}
     for unit in ocr_units:
         page_number, _ = _pdf_ocr_position(unit.locator)
@@ -609,11 +717,19 @@ def _merge_pdf_units(
     for page_number, native_unit in enumerate(pdf_pages, start=1):
         if native_unit is not None:
             merged.append(native_unit)
-            continue
-        page_ocr = ocr_by_page.get(page_number)
-        if not page_ocr:
-            raise ValueError(f"PDF OCR returned no cited text for page {page_number}")
-        merged.extend(page_ocr)
+            native_text = " ".join(native_unit.text.split()).casefold()
+            merged.extend(
+                unit
+                for unit in ocr_by_page.get(page_number, ())
+                if (ocr_text := " ".join(unit.text.split()).casefold())
+                and ocr_text not in native_text
+                and native_text not in ocr_text
+            )
+        else:
+            page_ocr = ocr_by_page.get(page_number)
+            if not page_ocr:
+                raise ValueError(f"PDF OCR returned no cited text for page {page_number}")
+            merged.extend(page_ocr)
     return tuple(merged)
 
 
@@ -679,15 +795,51 @@ def _image_media_type(content: bytes) -> str | None:
         return "image/gif"
     if len(content) >= 12 and content.startswith(b"RIFF") and content[8:12] == b"WEBP":
         return "image/webp"
+    if content.startswith((b"II*\x00", b"MM\x00*")):
+        return "image/tiff"
     return None
 
 
-def _ooxml_media_type(suffix: str) -> str:
-    return {
-        ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    }[suffix]
+def _ooxml_package_format(names: set[str]) -> str | None:
+    if "word/document.xml" in names:
+        return "docx"
+    if "ppt/presentation.xml" in names or any(
+        name.startswith("ppt/slides/slide") and name.endswith(".xml") for name in names
+    ):
+        return "pptx"
+    if "xl/workbook.xml" in names:
+        return "xlsx"
+    return None
+
+
+def _format_mismatch() -> ProtectionInspection:
+    return ProtectionInspection(
+        ProtectionState.UNKNOWN,
+        "format-signature-mismatch",
+        "application/octet-stream",
+        reason_code="format_signature_mismatch",
+    )
+
+
+def _embedded_image_units(
+    units: Sequence[StructuralUnit],
+    *,
+    image_number: int,
+) -> tuple[StructuralUnit, ...]:
+    normalized: list[StructuralUnit] = []
+    for line_number, unit in enumerate(units, start=1):
+        text = " ".join(unit.text.split())
+        if not text:
+            continue
+        normalized.append(
+            StructuralUnit(
+                unit_id=f"embedded-image-{image_number}-line-{line_number}",
+                kind="page",
+                locator=f"ooxml/embedded-image:{image_number}/ocr:{line_number}",
+                text=text,
+            )
+        )
+    return tuple(normalized)
 
 
 def _chunks(text: str, max_chars: int, overlap: int) -> tuple[str, ...]:

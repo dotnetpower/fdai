@@ -90,6 +90,34 @@ polls status while the view is open; durable activity/history can be queried by 
 Cancellation stops new work, invalidates the session, and
 schedules partial artifacts for deletion.
 
+### Supported format policy
+
+The capability endpoint and upload boundary use one shared allowlist. The filename extension and
+browser media type select an eligible parser only; the worker still verifies the actual byte
+signature before extraction.
+
+| Source | Intake | Processing |
+|--------|--------|------------|
+| UTF-8 text, Markdown, RST, JSON, YAML, XML, CSV, Terraform, Rego | Accepted | Decoded as bounded text with paragraph locators |
+| PDF | Accepted | Native text is parsed in an isolated process; blank or scanned pages use OCR |
+| DOCX | Accepted | Paragraphs, headings, tables, and embedded raster images are extracted |
+| PPTX | Accepted | Slide shapes, paragraphs, tables, notes, and embedded raster images are extracted |
+| XLSX | Accepted | Sheet labels, cells, shared strings, and embedded raster images are extracted; formulas are never executed |
+| PNG, JPEG, TIFF | Accepted when OCR is configured | OCR is required; no image bytes enter the index or audit |
+| DOC, PPT, XLS and other OLE binaries | Not accepted | Use the source application to save a modern OOXML or PDF version first |
+| ZIP and other generic archives | Not accepted | Archive expansion is not an upload format |
+
+Embedded images use bounded package-member extraction and the configured OCR provider. If a modern
+Office document has usable native text but an embedded image cannot be OCR-processed, the document
+finishes as `ready_with_warnings`. An image-only document, scanned PDF, or image-only Office package
+cannot become ready without cited OCR text. Empty extraction is a typed failure rather than a
+searchable zero-content document.
+
+Malformed packages, extension/signature mismatches, encrypted files, unsupported image encodings,
+and parser-budget violations produce distinct sanitized failure codes. FDAI never attempts a
+best-effort legacy conversion, executes a formula or macro, follows an external relationship, or
+silently treats a binary file as text.
+
 ### After processing
 
 A ready document displays:

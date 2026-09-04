@@ -18,6 +18,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-04 | implemented | Corrected the worker lifecycle route so mechanical inspection facts and Saga/Muninn commands use typed logical channels on the pantheon transport while operational progress stays separate. | `current change`; worker event-boundary tests, Event Hubs role assertions, contract-pin suite, and the document format matrix. | Retain exact deployed identity, transport, restart, and authority-ceiling evidence. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. | `current change`; agent-chain, core ingestion, service package, and contract evidence listed in the scope table. | Retain exact deployed identity, transport, restart, and authority-ceiling evidence. |
 
 ### Remaining work

@@ -10,7 +10,9 @@ ownership (`stewardship`). It complements the handover-map schema and ownership 
 > The console's ownership projection remains read-only. Its guided form submits a handover document
 > to the ingestion boundary; ownership changes are still generated as draft pull requests, reviewed
 > through the Git host, and observed after merge through a signed webhook. Stewardship grants no
-> RBAC capability and never receives Thor's executor identity.
+> RBAC capability and never receives Thor's executor identity. Production ingestion reuses the
+> shared document-format capability vocabulary for upload discovery; this changes neither the
+> ownership lifecycle nor its authority boundaries.
 
 ## Design at a glance
 

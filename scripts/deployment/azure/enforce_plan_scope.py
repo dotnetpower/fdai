@@ -23,6 +23,12 @@ _CORE_MODEL_QUORUM = frozenset(
         ),
     }
 )
+_RCA_READER_IDENTITY = frozenset(
+    {
+        "module.rca_reader_identity.azurerm_user_assigned_identity.primary",
+        "azurerm_role_assignment.rca_monitoring_reader",
+    }
+)
 
 
 def changed_addresses(plan: dict[str, Any]) -> frozenset[str]:
@@ -152,6 +158,14 @@ def enforce(
                 + ", ".join(unexpected)
             )
         return changed
+    elif mode == "rca-reader-identity":
+        unexpected = sorted(changed.difference(_RCA_READER_IDENTITY))
+        if unexpected:
+            raise ValueError(
+                "RCA-reader-identity plan contains changes outside its bounded scope: "
+                + ", ".join(unexpected)
+            )
+        return changed
     elif mode == "model-binding":
         if resolved_models is None:
             raise ValueError("model-binding mode requires resolved models")
@@ -187,6 +201,7 @@ def main() -> int:
             "design-mocks",
             "monitoring",
             "model-binding",
+            "rca-reader-identity",
         ),
         required=True,
     )

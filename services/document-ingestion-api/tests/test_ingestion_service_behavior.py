@@ -1731,6 +1731,57 @@ async def test_failed_upload_grant_does_not_publish_upload_created() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("source_name", "media_type", "message"),
+    [
+        ("legacy.xls", "application/vnd.ms-excel", "legacy Office format"),
+        ("archive.zip", "application/zip", "unsupported document format"),
+        ("report.pdf", "image/png", "does not match"),
+        ("scan.png", "image/png", "document format png is unavailable"),
+    ],
+)
+async def test_upload_intake_rejects_unavailable_format_hints(
+    source_name: str,
+    media_type: str,
+    message: str,
+) -> None:
+    metadata = MemoryMetadata()
+    service = DocumentIngestionService(
+        access=ClaimsDocumentAccessProvider(),
+        metadata=metadata,
+        objects=FailingGrantObjects(),
+        capabilities=IngestionCapabilities(
+            supported_formats=("text", "pdf", "docx", "pptx", "xlsx"),
+            storage_modes=(SourceStorageMode.MANAGED_COPY,),
+            max_file_size=1024,
+            max_batch_count=1,
+            archives_enabled=False,
+            policy_versions=("test",),
+        ),
+    )
+
+    with pytest.raises(ValueError, match=message):
+        await service.create_upload(
+            actor_id="operator",
+            actor_groups=frozenset({"role:Contributor"}),
+            request=CreateUploadRequest(
+                source_name=source_name,
+                collection_id="shared",
+                media_type_hint=media_type,
+                expected_size=5,
+                expected_sha256=hashlib.sha256(b"hello").hexdigest(),
+                storage_mode=SourceStorageMode.MANAGED_COPY,
+                purposes=(DocumentPurpose.KNOWLEDGE_BASE,),
+                access_descriptor_ref="collection:shared",
+                reader_groups=(),
+                retention_policy_version="test",
+            ),
+        )
+
+    assert metadata.uploads == {}
+
+
+@pytest.mark.asyncio
 async def test_api_deletion_enqueues_worker_request_without_deleting_artifacts() -> None:
     metadata = MemoryMetadata()
     objects = MemoryObjects()

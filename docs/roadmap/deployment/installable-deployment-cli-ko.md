@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: a35b68463f66de5af49e450ebee1c4e2e73493cf
-translation_revised: 2026-09-03
+translation_source_sha: b6ec677dec2a662fb7a74ef0e4a67c02c05149e9
+translation_revised: 2026-09-04
 ---
 # 설치형 배포 CLI
 
@@ -507,13 +507,11 @@ CLI를 확인한 뒤 plan-only 작업 흐름을 제출합니다. 범위가 제�
 공급자가 호스팅하는 인증을 사용하며 자격 증명을 명령 인수로 복사하지 않습니다.
 
 전달 본문에는 `apply=false`, 환경, 정확한 커밋, SHA-256 배포 맥락 지문을 전달합니다. Console,
-Operator API, 문서 수집, 격리된 Executor, 모니터링 플래그는 지문에 포함되며 계획과 적용에 동일하게
-전달됩니다. 모니터링이 유일한 선택일 때만 범위가 제한된 모듈 대상을 사용하며, 전체 애플리케이션을
-선택하면 원하는 상태로 유지합니다. 선택적인 런타임 소스 revision도 지문에 포함됩니다. 계획 단계에서
-클라이언트는 격리된 Executor와 독립적으로 해당 Core 이미지를 승격하고 검증합니다. 적용 단계에서는 승격을 반복하지 않고
-digest-pinned 계획을 복원합니다. 입력이 달라지면 계획은 무효입니다. 테넌트, 구독, 백엔드, 실행기
-식별자는 전달하지 않습니다. 작업 흐름은 계획 전에 범위가 제한된 요청 id, 맥락 다이제스트, 정확히
-체크아웃한 커밋을 검증합니다.
+Operator API, 문서 수집, 격리된 Executor, 모니터링 및 exclusive RCA-reader bootstrap 선택을
+계획과 적용에 동일하게 봉인합니다. RCA 선택은 `plan-rca-*` 또는 `apply-rca-*` 요청을 사용하며
+전용 identity와 Monitoring Reader 역할만 허용합니다. 선택적인 런타임 소스 revision도 지문에
+포함됩니다. 계획은 Core 이미지를 승격하고 검증하며 적용은 digest-pinned 계획을 복원합니다.
+입력이 바뀌면 Terraform 실행 전에 계획이 무효화됩니다.
 
 적용 전에 클라이언트는 대상 GitHub 환경에 필수 검토자가 있고 자체 검토와 관리자 우회가 차단되는지
 확인합니다. GitHub 환경 보호는 검토자 집합 중 한 명의 승인만 요구하며 N명 중 M명 정족수를

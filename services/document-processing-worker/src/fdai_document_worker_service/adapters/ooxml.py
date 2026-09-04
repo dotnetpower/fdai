@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import posixpath
 import re
+import stat
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -37,6 +38,8 @@ class OoxmlParserBudget:
     max_xml_nodes: int = 1_000_000
     max_text_characters: int = 4_000_000
     max_units: int = 100_000
+    max_media_members: int = 512
+    max_media_member_bytes: int = 16 * 1024 * 1024
 
     def __post_init__(self) -> None:
         values = (
@@ -48,6 +51,8 @@ class OoxmlParserBudget:
             self.max_xml_nodes,
             self.max_text_characters,
             self.max_units,
+            self.max_media_members,
+            self.max_media_member_bytes,
         )
         if any(value < 1 for value in values) or self.max_compression_ratio <= 0:
             raise ValueError("OOXML parser budgets MUST be positive")
@@ -88,7 +93,9 @@ def extract_ooxml(content: bytes, *, budget: OoxmlParserBudget) -> tuple[Structu
                         ),
                         budget=budget,
                     )
-    except zipfile.BadZipFile as exc:
+    except DocumentExtractionUnavailableError:
+        raise
+    except (ElementTree.ParseError, KeyError, IndexError, ValueError, zipfile.BadZipFile) as exc:
         raise DocumentExtractionUnavailableError(
             ExtractionUnavailableReason.MALFORMED_PACKAGE
         ) from exc
@@ -97,6 +104,86 @@ def extract_ooxml(content: bytes, *, budget: OoxmlParserBudget) -> tuple[Structu
     if sum(len(unit.text) for unit in units) > budget.max_text_characters:
         raise DocumentExtractionUnavailableError(ExtractionUnavailableReason.TEXT_BUDGET)
     return units
+
+
+@dataclass(frozen=True, slots=True)
+class OoxmlEmbeddedImage:
+    """One bounded embedded media member retained only for OCR."""
+
+    part_name: str
+    content: bytes
+
+
+def extract_ooxml_embedded_images(
+    content: bytes,
+    *,
+    budget: OoxmlParserBudget,
+) -> tuple[OoxmlEmbeddedImage, ...]:
+    """Read bounded raster candidates without resolving external relationships."""
+    if len(content) > budget.max_input_bytes:
+        raise DocumentExtractionUnavailableError(ExtractionUnavailableReason.INPUT_BUDGET)
+    try:
+        with zipfile.ZipFile(io.BytesIO(content)) as archive:
+            infos = _validated_members(archive, budget)
+            names = {item.filename for item in infos}
+            referenced = _referenced_media_parts(archive, names, budget)
+            media = tuple(
+                item for item in infos if item.filename in referenced and not item.is_dir()
+            )
+            if len(media) > budget.max_media_members:
+                raise DocumentExtractionUnavailableError(
+                    ExtractionUnavailableReason.PACKAGE_MEMBER_BUDGET
+                )
+            images: list[OoxmlEmbeddedImage] = []
+            for item in sorted(media, key=lambda candidate: candidate.filename.casefold()):
+                if item.file_size > budget.max_media_member_bytes:
+                    raise DocumentExtractionUnavailableError(
+                        ExtractionUnavailableReason.PACKAGE_EXPANSION_BUDGET
+                    )
+                with archive.open(item) as member:
+                    payload = member.read(budget.max_media_member_bytes + 1)
+                if len(payload) > budget.max_media_member_bytes:
+                    raise DocumentExtractionUnavailableError(
+                        ExtractionUnavailableReason.PACKAGE_EXPANSION_BUDGET
+                    )
+                images.append(OoxmlEmbeddedImage(item.filename, payload))
+            return tuple(images)
+    except DocumentExtractionUnavailableError:
+        raise
+    except (ElementTree.ParseError, KeyError, ValueError, zipfile.BadZipFile) as exc:
+        raise DocumentExtractionUnavailableError(
+            ExtractionUnavailableReason.MALFORMED_PACKAGE
+        ) from exc
+
+
+def _referenced_media_parts(
+    archive: zipfile.ZipFile,
+    names: set[str],
+    budget: OoxmlParserBudget,
+) -> frozenset[str]:
+    referenced: set[str] = set()
+    for relationship_name in sorted(
+        name for name in names if "/_rels/" in name and name.endswith(".rels")
+    ):
+        root = _xml_member_root(archive, relationship_name, budget)
+        source_dir, _, _file_name = relationship_name.partition("/_rels/")
+        for relationship in root:
+            if _local_name(relationship.tag) != "Relationship":
+                continue
+            attributes = {_local_name(key): value for key, value in relationship.attrib.items()}
+            if attributes.get("TargetMode", "").casefold() == "external":
+                continue
+            if not attributes.get("Type", "").casefold().endswith("/image"):
+                continue
+            target = attributes.get("Target", "")
+            resolved = posixpath.normpath(posixpath.join(source_dir, target))
+            if resolved.startswith("../") or resolved.startswith("/"):
+                raise DocumentExtractionUnavailableError(ExtractionUnavailableReason.UNSAFE_PACKAGE)
+            if resolved in names and resolved.casefold().startswith(
+                ("word/media/", "ppt/media/", "xl/media/")
+            ):
+                referenced.add(resolved)
+    return frozenset(referenced)
 
 
 def _validated_members(
@@ -116,7 +203,13 @@ def _validated_members(
         )
     for item in infos:
         path = Path(item.filename)
-        if path.is_absolute() or ".." in path.parts or item.flag_bits & 0x1:
+        unix_mode = item.external_attr >> 16
+        if (
+            path.is_absolute()
+            or ".." in path.parts
+            or item.flag_bits & 0x1
+            or stat.S_ISLNK(unix_mode)
+        ):
             raise DocumentExtractionUnavailableError(ExtractionUnavailableReason.UNSAFE_PACKAGE)
     return infos
 
@@ -351,13 +444,19 @@ def _xlsx_cell_text(cell: ElementTree.Element, shared_strings: tuple[str, ...]) 
     cell_type = cell.attrib.get("t", "")
     if cell_type == "inlineStr":
         return _element_text(cell)
+    formula = next(
+        (item.text or "" for item in cell if _local_name(item.tag) == "f"),
+        "",
+    ).strip()
     value = next((item.text or "" for item in cell if _local_name(item.tag) == "v"), "").strip()
-    if cell_type != "s":
-        return value
-    try:
-        return shared_strings[int(value)]
-    except (ValueError, IndexError) as exc:
-        raise ValueError("XLSX shared string reference is invalid") from exc
+    if cell_type == "s":
+        try:
+            value = shared_strings[int(value)]
+        except (ValueError, IndexError) as exc:
+            raise ValueError("XLSX shared string reference is invalid") from exc
+    if formula:
+        return f"={formula}" + (f" [cached: {value}]" if value else "")
+    return value
 
 
 def _pptx_note_names(

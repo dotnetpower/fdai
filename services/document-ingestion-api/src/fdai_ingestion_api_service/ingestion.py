@@ -25,6 +25,7 @@ from fdai_service_contracts import (
     StreamingUploadStore,
     UploadGrant,
     UploadSession,
+    classify_document_intake,
 )
 
 from fdai_ingestion_api_service.state_machine import transition
@@ -118,6 +119,9 @@ class DocumentIngestionService:
                 raise ValueError("a replacement cannot move a document between collections")
         if request.expected_size > self._capabilities.max_file_size:
             raise ValueError("expected_size exceeds the advertised file-size limit")
+        source_format = classify_document_intake(request.source_name, request.media_type_hint)
+        if source_format.format_id not in self._capabilities.supported_formats:
+            raise ValueError(f"document format {source_format.format_id} is unavailable")
         if request.storage_mode not in self._capabilities.storage_modes:
             raise ValueError("requested storage mode is unavailable")
         if not request.purposes:

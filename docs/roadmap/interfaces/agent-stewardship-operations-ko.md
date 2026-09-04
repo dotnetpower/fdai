@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-operations.md
-translation_source_sha: 489a71e6c077da0dd99a06d8255ba66ee77b1289
-translation_revised: 2026-08-21
+translation_source_sha: 54780df82271ca772fc58084f9f326c88b684698
+translation_revised: 2026-09-05
 title: 에이전트 운영 책임 수명 주기
 ---
 # 에이전트 운영 책임 수명 주기
@@ -13,7 +13,9 @@ Handover-map 스키마와 소유권 개념은
 > Console의 소유권 변환 결과는 읽기 전용을 유지합니다. Guided form은 인계 문서를
 > 인제스트 경계에 제출합니다. 소유권 변경은 계속 초안 pull 요청으로 생성하고 Git
 > host에서 검토하며, 병합 후 signed webhook으로 관찰합니다. 담당 체계는 RBAC 기능을
-> 부여하지 않으며 Thor의 실행기 신원을 받지 않습니다.
+> 부여하지 않으며 Thor의 실행기 신원을 받지 않습니다. 운영 수집은 업로드 검색에 공유
+> 문서 형식 기능 용어 체계를 재사용하며, 이 변경은 담당 수명 주기나 권한 경계를 바꾸지
+> 않습니다.
 
 ## 설계 개요
 
