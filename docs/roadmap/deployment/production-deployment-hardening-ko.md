@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 31c834fc14381d4ef62594424b27692dff67ecb2
+translation_source_sha: e15e68da16ef5dee9f1a2c48dd19bfb484ca60c3
 translation_revised: 2026-09-04
 ---
 # 운영 배포 강화
@@ -60,7 +60,7 @@ Split Core 서비스는 platform Terraform 출력에서만 RCA reader identity�
 
 일반 application 선택을 모두 비활성화하고 deployment CLI의 `--deploy-rca-reader-identity` 선택을
 사용합니다. CLI는 이를 `plan-rca-*` 또는 `apply-rca-*` 요청으로 결속합니다. Workflow는
-`reconcile_rca_bootstrap_state.sh`로 Azure 리소스를 변경하지 않고 두 가지 legacy count 형태의
+`reconcile_rca_bootstrap_state.sh`로 Azure 리소스를 변경하지 않고 모든 legacy count 형태의
 measurement Job state 주소 두 개를 조정한 뒤 identity와 역할만 대상으로 합니다. State digest를
 기록하고 주소가 모호하거나 현재 주소와 함께 있으면 실패합니다. 두 plan guard도 계속 적용됩니다.
 

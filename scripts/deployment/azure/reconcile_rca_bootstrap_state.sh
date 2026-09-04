@@ -14,6 +14,7 @@ for resource in baseline_regression pattern_growth; do
   legacy=()
   for candidate in \
     "module.measurement_runners[0].azurerm_container_app_job.${resource}" \
+    "module.measurement_runners.azurerm_container_app_job.${resource}" \
     "module.measurement_runners.azurerm_container_app_job.${resource}[0]"; do
     state_has "$candidate" && legacy+=("$candidate")
   done

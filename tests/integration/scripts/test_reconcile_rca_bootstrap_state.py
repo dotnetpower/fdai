@@ -5,6 +5,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "scripts/deployment/azure/reconcile_rca_bootstrap_state.sh"
 OLD = "module.measurement_runners[0].azurerm_container_app_job.baseline_regression"
@@ -54,11 +56,19 @@ esac
     )
 
 
-def test_reconciles_only_present_legacy_addresses(tmp_path: Path) -> None:
-    result = _run(tmp_path, f"{OLD}\nunrelated.resource\n")
+@pytest.mark.parametrize(
+    "old",
+    (
+        OLD,
+        "module.measurement_runners.azurerm_container_app_job.baseline_regression",
+        "module.measurement_runners.azurerm_container_app_job.baseline_regression[0]",
+    ),
+)
+def test_reconciles_only_present_legacy_addresses(tmp_path: Path, old: str) -> None:
+    result = _run(tmp_path, f"{old}\nunrelated.resource\n")
 
     assert result.returncode == 0
-    assert (tmp_path / "moves").read_text(encoding="utf-8") == f"{OLD} -> {NEW}\n"
+    assert (tmp_path / "moves").read_text(encoding="utf-8") == f"{old} -> {NEW}\n"
     assert "Before digest: `sha256:" in (tmp_path / "summary").read_text(encoding="utf-8")
 
 
