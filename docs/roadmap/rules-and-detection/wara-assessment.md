@@ -171,8 +171,9 @@ source, crosswalk, query, safety, resource-type, or blocker drift before the bin
 The first overlay binds three read-only queries whose reviewed semantics are "matching rows are
 failures." The Azure Resource Graph adapter adds the exact resource-id allowlist and row bound to
 the pinned query, accepts only approved Azure management hosts and audiences, rejects out-of-scope
-or truncated rows, and records a deterministic evidence digest. Zero matching rows mean satisfied;
-one or more matching rows mean failed. Both remain shadow observations without execution authority.
+or truncated rows, applies `timeout_seconds` to the complete paginated observation, and records a
+deterministic evidence digest. Zero matching rows mean satisfied; one or more matching rows mean
+failed. Both remain shadow observations without execution authority.
 
 ## Validation and release boundary
 

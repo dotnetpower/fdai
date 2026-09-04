@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -204,6 +205,31 @@ async def test_matching_rows_fail_and_feed_shadow_runtime() -> None:
     assert control.satisfaction is WaraSatisfactionStatus.FAILED
     assert "missing_exact_evaluator" not in control.limitations
     assert result.execution_authority is False
+
+
+async def test_pagination_cannot_multiply_the_read_plan_deadline() -> None:
+    _, _, _, plan, _ = _bound_runtime()
+    bounded_plan = replace(plan, timeout_seconds=1)
+    calls = 0
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        await asyncio.sleep(0.55)
+        return httpx.Response(
+            200,
+            json={
+                "data": [],
+                **({"$skipToken": "next-page"} if calls == 1 else {}),
+            },
+        )
+
+    provider, client = _provider(httpx.MockTransport(handler))
+    try:
+        with pytest.raises(WaraObservationError, match="read-plan deadline"):
+            await provider.observe(bounded_plan)
+    finally:
+        await client.aclose()
 
 
 @pytest.mark.asyncio

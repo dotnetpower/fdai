@@ -1,7 +1,7 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: f98472e5fa0100eaf19cbcbf74aecdeed2f3635b
+translation_source_sha: f0b75eda9145dae465239c0e0e68e62bd38ee2d0
 translation_revised: 2026-09-04
 ---
 
@@ -27,7 +27,7 @@ translation_revised: 2026-09-04
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 기존 Azure 읽기 어댑터 | implemented | `delivery/azure/activity_log.py`, `delivery/azure/inventory.py`, `delivery/azure/log_query.py`, `delivery/azure/observation_campaign.py`, `core/read_investigation/` | 출처별 수집 및 분석 경로는 의미 있는 근거를 계속 소유합니다. 캠페인 커버리지는 전체 의미 payload 대신 집계 스냅샷 개수, ARG 개수 및 대상이 필요 없는 Log Analytics 메트릭을 읽습니다. |
-| 정확한 WARA 평가 읽기 | implemented | `delivery/azure/wara_observation.py`; 정확한 평가기 overlay; 집중 어댑터 테스트 | 이 어댑터는 일반 캠페인 쿼리가 아니라 별도의 shadow 평가 출처입니다. 정확한 검토 쿼리, ARM 리소스 범위, Azure 관리 토큰 대상 및 범위가 제한된 결정론적 증적만 허용합니다. 캠페인 출처로 자동 등록되지 않으며 수정 권한을 부여하지 않습니다. |
+| 정확한 WARA 평가 읽기 | implemented | `delivery/azure/wara_observation.py`; 정확한 평가기 overlay; 집중 어댑터 테스트 | 이 어댑터는 일반 캠페인 쿼리가 아니라 별도의 shadow 평가 출처입니다. 정확한 검토 쿼리, ARM 리소스 범위, Azure 관리 토큰 대상, 전체 관측 제한 시간 및 범위가 제한된 결정론적 증적만 허용합니다. 캠페인 출처로 자동 등록되지 않으며 수정 권한을 부여하지 않습니다. |
 | 캠페인 계약 및 출처 레지스트리 | implemented | `config/observation-sources.yaml`, `fdai_service_contracts/operational_activity.py`, `delivery/observation_source_catalog.py`, 집중 계약 및 카탈로그 테스트 | 엄격한 의미 digest 카탈로그가 10개 도메인을 모두 다루고 알 수 없는 필드, 잘못된 소유자, 제한 없는 한도 및 원시 활동 사유 문구를 거부합니다. |
 | 영속 캠페인 실행기 | implemented | `delivery/observation_campaign.py`, 집중 수명 주기 테스트 | 원자적 lease, 개정 번호를 확인하는 종료 기록, 충돌 복구, 현재 상태 커서, 부분 격리, 동시성 4 및 개인정보가 제한된 활동 요약을 실행할 수 있습니다. |
 | 로컬 및 배포 예약 동등성 | implemented | `delivery/observation_campaign_cli.py`, `delivery/inventory_sync_cli.py`, `.vscode/tasks.json`, `infra/modules/compute/container-apps/observation_campaign_job.tf`, 집중 CLI 및 workspace 테스트 | 두 실행 위치 모두 매분 캠페인 실행 조건을 확인합니다. 유효한 기존 배포 Job 이름은 유지하며 환경 이름 때문에 길이 제한을 넘을 때만 축약된 `caj-<workload>-<env>-observation` 형식을 사용합니다. |
@@ -38,6 +38,7 @@ translation_revised: 2026-09-04
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-04 | implemented | 강화 라운드 2에서 WARA 읽기 계획 제한 시간이 각 ARG 페이지마다 다시 시작되지 않고 페이지가 매겨진 전체 관측에 적용되도록 수정했습니다. | `current change`; 지연된 다중 페이지 집중 회귀 검사입니다. | 예약 평가 작업자를 추가할 때도 동일한 전체 제한 시간 계약을 보존합니다. |
 | 2026-09-04 | implemented | 검토된 WARA 평가기 3개를 위한 정확한 범위의 Azure Resource Graph 읽기 경로를 추가했습니다. 이 경로는 일반 캠페인 검색 밖에 유지되며 등록된 출처 범위, 쿼리 템플릿 또는 작업 권한을 넓힐 수 없습니다. | `current change`; 집중 WARA overlay, 런타임, endpoint, 범위, pagination 및 결정론적 증적 검사입니다. | 별도로 검토된 출처 등록을 통해서만 예약 평가에 추가하고 권한이 부여된 실제 shadow 증적을 보존합니다. |
 | 2026-08-25 | implemented | 캠페인 Event Bus 조립을 전체 Core 구성 검증에서 분리했습니다. 장기 실행 작업자가 이전 환경 프로바이더를 메모리에 유지한 채 다음 반복에서 갱신된 체크아웃의 최신 JSON Schema를 읽으면, 관련 없는 웹 검색 필드가 더 이상 일치하지 않아 종료될 수 있었습니다. 이제 작업자는 필수 Kafka 부트스트랩 연결과 선택적 배달 못 한 메시지 접미사만 읽습니다. | `current change`, `delivery/observation_campaign_cli.py`, `test_observation_campaign_cli.py`, 혼합 구성 집중 회귀 테스트 통과 | 반복 작업자가 이 개정 번호를 로드하도록 로컬 스택을 다시 시작합니다. 배포 개정 번호 캠페인 근거는 계속 열려 있습니다. |
 | 2026-08-28 | implemented | 유효한 관측 Job 이름을 유지하고 Azure 32자 제한을 넘을 때만 환경 범위 축약 형식을 추가했습니다. | 실패한 staging plan-only 실행 `33111410162`; `current change`; 집중 명명 검사 및 Terraform 검증. | 수정된 이름으로 배포 캠페인 실행 1개를 보존합니다. |

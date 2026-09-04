@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from collections.abc import Callable, Mapping
@@ -124,11 +125,17 @@ class AzureResourceGraphWaraObservationProvider:
             resource_ids=plan.resource_ids,
             maximum_rows=plan.maximum_rows,
         )
-        rows = await self._fetch_rows(
-            plan=plan,
-            subscriptions=subscriptions,
-            query=scoped_query,
-        )
+        try:
+            async with asyncio.timeout(plan.timeout_seconds):
+                rows = await self._fetch_rows(
+                    plan=plan,
+                    subscriptions=subscriptions,
+                    query=scoped_query,
+                )
+        except TimeoutError as exc:
+            raise WaraObservationError(
+                "WARA ARG observation exceeded the read-plan deadline"
+            ) from exc
         normalized_rows = _validate_and_normalize_rows(
             rows,
             resource_ids=plan.resource_ids,
