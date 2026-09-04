@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 38e3f84d5b027280783c1025e1adf69537730211
-translation_revised: 2026-09-04
+translation_source_sha: 795ee6d85041306c081576cfcac1c87940c1e1c7
+translation_revised: 2026-09-05
 ---
 # 프로세스 자동화(프로세스 자동화)
 
@@ -356,8 +356,6 @@ HIL 로 라우팅되는 워크플로 스텝은 "누가 승인하고, 어떻게 �
 답이 필요하다. 프로세스 자동화는 새 승인 표면을 추가하지 않는다;
 [`WorkflowApprovalPlanner`](../../../services/core-control-plane/src/fdai/core/workflow/approval.py) 를 통해
 워크플로를 기존 HIL 기계장치에 연결한다.
-운영 알림 게시 증적은 별도의 A2/A4 논리 토픽을 사용하며 이미 수락된 전달만 확인할 수 있습니다.
-승인 슬롯을 완료하거나 Process를 진행시킬 수 없습니다.
 
 `Workflow` 가 주어지면 플래너는 결정론적, 읽기 전용 `ApprovalPlan` 을 만든다 -
 스텝마다 하나의 `StepApproval`:

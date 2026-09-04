@@ -90,33 +90,9 @@ polls status while the view is open; durable activity/history can be queried by 
 Cancellation stops new work, invalidates the session, and
 schedules partial artifacts for deletion.
 
-### Supported format policy
-
-The capability endpoint and upload boundary use one shared allowlist. The filename extension and
-browser media type select an eligible parser only; the worker still verifies the actual byte
-signature before extraction.
-
-| Source | Intake | Processing |
-|--------|--------|------------|
-| UTF-8 text, Markdown, RST, JSON, YAML, XML, CSV, Terraform, Rego | Accepted | Decoded as bounded text with paragraph locators |
-| PDF | Accepted | Native text is parsed in an isolated process; blank or scanned pages use OCR |
-| DOCX | Accepted | Paragraphs, headings, tables, and embedded raster images are extracted |
-| PPTX | Accepted | Slide shapes, paragraphs, tables, notes, and embedded raster images are extracted |
-| XLSX | Accepted | Sheet labels, cells, shared strings, and embedded raster images are extracted; formulas are never executed |
-| PNG, JPEG, TIFF | Accepted when OCR is configured | OCR is required; no image bytes enter the index or audit |
-| DOC, PPT, XLS and other OLE binaries | Not accepted | Use the source application to save a modern OOXML or PDF version first |
-| ZIP and other generic archives | Not accepted | Archive expansion is not an upload format |
-
-Embedded images use bounded package-member extraction and the configured OCR provider. If a modern
-Office document has usable native text but an embedded image cannot be OCR-processed, the document
-finishes as `ready_with_warnings`. An image-only document, scanned PDF, or image-only Office package
-cannot become ready without cited OCR text. Empty extraction is a typed failure rather than a
-searchable zero-content document.
-
-Malformed packages, extension/signature mismatches, encrypted files, unsupported image encodings,
-and parser-budget violations produce distinct sanitized failure codes. FDAI never attempts a
-best-effort legacy conversion, executes a formula or macro, follows an external relationship, or
-silently treats a binary file as text.
+Format eligibility, parser selection, OCR requirements, and typed failures are owned by
+[Governed document format policy](document-ingestion-format-policy.md). Client hints select only an
+eligible parser; server-side signature and content verification remain authoritative.
 
 ### After processing
 
@@ -344,15 +320,11 @@ Before quarantine promotion, the ADLS adapter creates each governed HNS parent d
 idempotently. If a rename response is lost, retry treats an existing governed target as success;
 it reports a missing source only when neither the source nor target can complete the promotion.
 
-The public console sends bytes to the authenticated ingestion gateway. The gateway validates the
-declared size, streams the request to private ADLS without buffering the whole file, seals SHA-256
-and size metadata, and publishes a logical `object.event` on the shared
-`fdai.pantheon.objects` transport. A durable Kafka consumer group runs the worker at least once;
-uncommitted failures are retried after restart. The worker publishes inspection lifecycle events
-through the same logical event boundary so Heimdall, Forseti, Saga, and Muninn can complete the
-safety and indexing chain. `fdai.pipeline.stages` remains operational activity only. ClamAV runs as
-a replica-local sidecar, and only a clean document reaches extraction, pgvector indexing, and the
-atomic quarantine-to-governed rename.
+The public console streams bytes through the authenticated gateway to private ADLS, which seals
+SHA-256 and size metadata and publishes logical `object.event` records on `fdai.pantheon.objects`.
+The durable worker retries uncommitted failures and publishes inspection lifecycle events on that
+boundary; `fdai.pipeline.stages` remains operational activity only. ClamAV gates extraction,
+pgvector indexing, and the atomic quarantine-to-governed rename.
 
 ### Production process roles
 

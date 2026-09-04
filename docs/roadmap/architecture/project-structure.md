@@ -55,11 +55,6 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   Focused sibling modules may own canonical identity projection and hashing while the established
   owner module re-exports that public surface; the split must preserve serialized bytes and replay
   semantics.
-- **governed document formats use one cross-service vocabulary**:
-  `fdai_service_contracts.document_formats` owns stable format ids, extensions, and media-type
-  hints. Ingestion composition advertises those ids and includes image sources only when OCR is
-  configured. The API and worker still verify signatures and content; filename and media-type
-  hints never establish trust.
 - **human approval stays split by service authority**: Operator owns Teams/Slack authentication,
   cryptographic verification, callback audit, and the durable decision outbox. Core consumes only
   the typed decision event, routes workflow slots to the registry, and sends action parks to the
@@ -605,9 +600,6 @@ only when its rule id, action type, and fixed check reference still match.
   reviewed image composition supplies package code and resources. Core never imports an optional
   package, and package activation remains independent from user access and action promotion.
 - Service wire contracts live in `packages/service-contracts/src/fdai_service_contracts/`.
-  Cross-service notification delivery uses the same boundary: the package owns the encrypted local
-  binding record shape and the versioned publication-receipt schema, while Operator and Core retain
-  separate storage, ingress, broker, and state-transition implementations.
   Each versioned JSON Schema under `schemas/<contract-id>/<version>.json` is immutable, so a new
   field ships as a new additive version that older consumers keep ignoring. A repository-owned,
   checksum-pinned generator projects every compatibility-manifest N/N-1 schema into Python types

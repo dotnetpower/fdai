@@ -357,8 +357,6 @@ A workflow step that routes to HIL needs a concrete answer to "who approves,
 and how are they reached". Process automation does not add a new approval
 surface; it bridges a workflow to the existing HIL machinery through the
 [`WorkflowApprovalPlanner`](../../../services/core-control-plane/src/fdai/core/workflow/approval.py).
-Operational notification publication receipts use a separate A2/A4 logical topic and can only
-confirm an already accepted delivery; they never complete an approval slot or advance a Process.
 
 Given a `Workflow`, the planner produces a deterministic, read-only
 `ApprovalPlan` - one `StepApproval` per step:
