@@ -131,6 +131,18 @@ class _UnavailableAssignments(_Assignments):
         raise RuntimeError("private database detail")
 
 
+class _MismatchedDirectory(_Directory):
+    async def get_by_subject_id(self, subject_id: str) -> DirectoryIdentity | None:
+        self.lookups.append(subject_id)
+        return DirectoryIdentity(
+            provider="entra",
+            subject_id=f"different-{subject_id}",
+            username="wrong@example.com",
+            display_name="Wrong Identity",
+            active=True,
+        )
+
+
 def _query(*, owner: bool = True, operation: str = "stewardship.coverage") -> ProjectionQuery:
     return ProjectionQuery(
         operation=operation,
@@ -227,6 +239,18 @@ async def test_placeholders_block_readiness_without_directory_lookup() -> None:
     assert ownership["deployment_readiness"] == "bindings_required"
     assert ownership["agents"][0]["coverage"]["status"] == "bindings_required"
     assert "00000000-0000-0000-0000-000000000000" not in directory.lookups
+
+
+async def test_mismatched_directory_subject_is_never_presented_as_resolved() -> None:
+    reader = OwnershipProjectionReader(_Fallback(_payload()), _MismatchedDirectory(), None)
+
+    result = await reader.read(_query())
+
+    ownership = result["current_ownership"]
+    subject = ownership["agents"][0]["subjects"][0]
+    assert subject["display_name"] is None
+    assert subject["resolution"] == "kind_mismatch"
+    assert ownership["deployment_readiness"] == "review_required"
 
 
 async def test_schema_v1_is_readable_but_requires_migration() -> None:

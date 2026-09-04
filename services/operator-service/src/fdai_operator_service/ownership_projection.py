@@ -165,6 +165,8 @@ async def _resolve_subjects(
             return ref, "unavailable"
         if identity is None:
             return ref, "not_found"
+        if identity.subject_id != subject_id:
+            return ref, "kind_mismatch"
         if kind == "group" and identity.principal_type != "group":
             return ref, "kind_mismatch"
         if kind == "user" and identity.principal_type == "group":
