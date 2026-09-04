@@ -64,6 +64,8 @@ Question campaign wording uses `core/conversation/question_candidates.py` as the
 semantic boundary. Azure and explicit Copilot generators receive the complete immutable case but
 can return only a `question` field. Core binds the case before independent semantic review, so
 generated prose cannot replace scope, authority, capability, evidence posture, or result shape.
+The generated question bank binds both Console message catalogs by digest and is regenerated
+whenever those reviewed source catalogs change.
 
 Semantic conversation planning keeps `semantic_planning.py`, `semantic_planning_cascade.py`, and
 `semantic_planning_frame.py` as compatibility facades. `semantic_planning_fallbacks.py` owns
@@ -191,7 +193,7 @@ Dedicated read identity, sovereign endpoint, split-service hydration, and one co
 the path fail closed without unscoped production correlation.
 `runtime/control_loop_auxiliary.py` owns deterministic RCA catalog identity and IRP handler assembly.
 `runtime/control_loop.py` retains authoritative loop composition and re-exports the existing private
-bootstrap hook.
+bootstrap hook through an explicit `__all__` entry for package-wide strict type checking.
 Automated Incident T2 also has a paired governed-document binding. Core receives a separate
 read-only DSN plus exact collection, access-reference, and reader-group configuration; it creates a
 fixed Forseti principal context and holds the RCA when authorized document evidence is unavailable.

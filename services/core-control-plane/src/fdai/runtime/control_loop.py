@@ -150,9 +150,11 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 from fdai.shared.resilience import StateStoreKillSwitch
 
 from .control_loop_auxiliary import (
-    build_irp_event_handler as _build_irp_event_handler,  # noqa: F401
+    build_irp_event_handler as _build_irp_event_handler,
 )
 from .control_loop_auxiliary import rca_catalog_revision as _rca_catalog_revision
+
+__all__ = ["_build_irp_event_handler"]
 
 _LOGGER = logging.getLogger("fdai.startup")
 _TEMPORAL_CAUSAL_METHOD_VERSION = "temporal-causality-v1"

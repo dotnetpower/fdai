@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 78d5fe9eaeb9f8b587d8b8279a29f8875932b6ec
+translation_source_sha: ed632985fb61331ac99a444acfade4e0315b7ad7
 translation_revised: 2026-09-04
 ---
 # 코드 맵
@@ -67,6 +67,8 @@ Operator 소유 다운스트림 마이그레이션에 위치하므로, 부트스
 사용합니다. Azure 및 명시적 Copilot 생성기는 완전한 불변 사례를 받지만 `question` 필드만
 반환할 수 있습니다. Core가 독립 의미 검토 전에 사례를 결속하므로 생성된 문구가 범위, 권한,
 기능, 근거 상태 또는 결과 형태를 대체할 수 없습니다.
+생성된 question bank는 두 Console 메시지 카탈로그를 다이제스트로 결속하며, 검토된 원본
+카탈로그가 변경될 때마다 다시 생성합니다.
 
 의미 대화 계획은 `semantic_planning.py`, `semantic_planning_cascade.py`,
 `semantic_planning_frame.py`를 호환성 facade로 유지합니다. `semantic_planning_fallbacks.py`는
@@ -180,7 +182,8 @@ lifecycle Incident 하나를 매칭하고 모든 세대가 일치할 때만 배�
 상관관계로 대체하지 않고 실패 시 차단합니다.
 `runtime/control_loop_auxiliary.py`는 결정론적 RCA 카탈로그 신원과 IRP handler 조립을 소유합니다.
 `runtime/control_loop.py`는 권위 있는 루프 조립을 유지하고 기존 private bootstrap hook을 다시
-내보냅니다.
+내보냅니다. Package-wide strict type 검사에서도 이 경계를 인식하도록 명시적인 `__all__`
+항목을 사용합니다.
 자동 Incident T2에도 짝으로 구성되는 관리 문서 바인딩이 있습니다. Core는 별도의 읽기 전용
 DSN과 정확한 컬렉션, 접근 참조, 읽기 그룹 구성을 받고 고정 Forseti 주체 맥락을 만들며, 권한
 있는 문서 근거를 사용할 수 없으면 RCA 판단을 보류합니다.

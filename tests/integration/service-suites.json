@@ -84,6 +84,7 @@
           "services/operator-service/tests/test_narrator_periodic_scheduler.py",
           "services/operator-service/tests/test_narrator_preferences.py",
           "services/operator-service/tests/test_operator_user_context_projection.py",
+          "services/operator-service/tests/test_ownership_projection.py",
           "services/operator-service/tests/test_pantheon_assurance_presentation.py",
           "services/operator-service/tests/test_pdf_report_encoder.py",
           "services/operator-service/tests/test_postgres_dsn.py",
