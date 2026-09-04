@@ -419,6 +419,7 @@ def _assignment_proposals(
     if payload.get("_availability") == "unavailable":
         return {}, {"availability": "unavailable", "total": None, "truncated": False}
     items = _mapping_sequence(payload.get("items"), "assignment projection items")
+    total = _integer(payload.get("total"), "assignment projection total")
     proposals: dict[str, list[Mapping[str, object]]] = {}
     for item in items:
         case = item.get("case")
@@ -468,8 +469,12 @@ def _assignment_proposals(
             )
     return proposals, {
         "availability": "available",
-        "total": _integer(payload.get("total"), "assignment projection total"),
-        "truncated": bool(payload.get("case_projection_truncated", False)),
+        "total": total,
+        "truncated": (
+            bool(payload.get("case_projection_truncated", False))
+            or payload.get("next_cursor") is not None
+            or total > len(items)
+        ),
     }
 
 

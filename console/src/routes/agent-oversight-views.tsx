@@ -284,7 +284,9 @@ function HumanDependencies({ data }: { readonly data: StewardshipResponse }) {
           <dt>{ownershipText("observedAt")}</dt>
           <dd>{ownership.directory.observed_at ?? t("handover.notObserved")}</dd>
           <dt>{ownershipText("assignmentSource")}</dt>
-          <dd>{ownershipText(`assignmentAvailability.${ownership.assignment_projection.availability}`)}</dd>
+          <dd>{ownershipText(ownership.assignment_projection.truncated
+            ? "assignmentAvailability.truncated"
+            : `assignmentAvailability.${ownership.assignment_projection.availability}`)}</dd>
           <dt>{ownershipText("sourceRevision")}</dt>
           <dd><code>{ownership.source_revision ?? t("handover.notObserved")}</code></dd>
         </dl>

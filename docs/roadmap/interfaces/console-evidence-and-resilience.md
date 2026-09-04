@@ -56,6 +56,8 @@ renders that record but never joins those sources, treats a display name as auth
 missing binding, schema migration, identity check, or backup-coverage gap.
 If assignment evidence is unavailable, the Current owners view keeps the reviewed ownership map
 and marks only pending-change evidence unavailable.
+A bounded assignment page is labeled partial whenever its total, cursor, or source truncation flag
+shows that more cases exist.
 Overview renders identity-source freshness only from `identity_health`. The Operator API supplies
 `checked_at` only from an unexpired last-success heartbeat whose revision matches the stale-finding
 snapshot. A completed `clean` or `warn` check requires that timestamp and a finding count that

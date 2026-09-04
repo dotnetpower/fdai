@@ -265,6 +265,27 @@ async def test_terminal_assignment_cases_are_not_reported_as_pending_changes() -
     assert ownership["agents"][0]["proposals"][0]["case_id"] == "case-1"
 
 
+async def test_bounded_assignment_page_reports_incomplete_change_evidence() -> None:
+    class TruncatedAssignments(_Assignments):
+        async def assignment_projection(self, query: object) -> Mapping[str, object]:
+            payload = await super().assignment_projection(query)
+            return {**payload, "total": 101, "next_cursor": 100}
+
+    reader = OwnershipProjectionReader(
+        _Fallback(_payload()),
+        _Directory(),
+        TruncatedAssignments(),
+    )
+
+    result = await reader.read(_query())
+
+    assert result["current_ownership"]["assignment_projection"] == {
+        "availability": "available",
+        "total": 101,
+        "truncated": True,
+    }
+
+
 async def test_placeholders_block_readiness_without_directory_lookup() -> None:
     directory = _Directory()
     reader = OwnershipProjectionReader(
