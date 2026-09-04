@@ -57,9 +57,9 @@ service plan stops before materializing its inputs.
 
 Use the deployment CLI's `--deploy-rca-reader-identity` selection with every ordinary application
 selection disabled. The CLI seals this as a `plan-rca-*` or `apply-rca-*` request. The workflow
-first reconciles the two known legacy measurement Job state addresses without changing Azure
-resources, then targets the identity and role. It records before and after state digests and fails
-if legacy and current addresses coexist. The plan-scope and destructive-plan guards still apply.
+uses `reconcile_rca_bootstrap_state.sh` to reconcile the two known legacy measurement Job state
+addresses without changing Azure resources, then targets the identity and role. It records state
+digests and fails if legacy and current addresses coexist. Both plan guards still apply.
 
 ## Deployer identity
 
