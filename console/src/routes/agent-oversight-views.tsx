@@ -43,6 +43,18 @@ const VIEWS: readonly AgentOversightView[] = [
   "knowledge-handover",
   "approval-routes",
 ];
+const ASSIGNMENT_PROPOSAL_STATES = new Set([
+  "draft",
+  "pending_review",
+  "approved",
+  "ownership_pr_open",
+  "ownership_merged",
+  "iam_applying",
+  "active",
+  "rejected",
+  "degraded",
+  "superseded",
+]);
 
 export function oversightViewFromSegment(segment: string | undefined): AgentOversightView | null {
   if (segment === undefined || segment === "") return "overview";
@@ -288,7 +300,12 @@ function HumanDependencies({ data }: { readonly data: StewardshipResponse }) {
             ? "assignmentAvailability.truncated"
             : `assignmentAvailability.${ownership.assignment_projection.availability}`)}</dd>
           <dt>{ownershipText("sourceRevision")}</dt>
-          <dd><code>{ownership.source_revision ?? t("handover.notObserved")}</code></dd>
+          <dd>{ownership.source_revision ? (
+            <details class="ownership-source-revision">
+              <summary>{ownershipText("viewSourceRevision")}</summary>
+              <code>{ownership.source_revision}</code>
+            </details>
+          ) : t("handover.notObserved")}</dd>
         </dl>
       </section>
       <KpiGrid>
@@ -440,7 +457,10 @@ function CurrentOwnershipRow({ agent }: { readonly agent: CurrentOwnershipAgentD
               <li key={`${proposal.case_id}:${proposal.duty}:${proposal.scope_ref}`}>
                 <OwnershipIdentity subject={proposal.subject} compact />
                 <span>{t(`handover.duty.${proposal.duty}`)} - <code>{proposal.scope_ref}</code></span>
-                <small>{ownershipText("proposalState", { state: proposal.state, revision: proposal.revision })}</small>
+                <small>{ownershipText("proposalState", {
+                  state: assignmentProposalStateLabel(proposal.state),
+                  revision: proposal.revision,
+                })}</small>
               </li>
             ))}</ul>
           </details>
@@ -486,6 +506,12 @@ function OwnershipIdentity({
       </details>
     </span>
   );
+}
+
+function assignmentProposalStateLabel(state: string): string {
+  return ASSIGNMENT_PROPOSAL_STATES.has(state)
+    ? t(`settings.iam.assignmentState.${state}`)
+    : t("settings.iam.notObserved");
 }
 
 function CoverageFindings({ data }: { readonly data: StewardshipResponse }) {

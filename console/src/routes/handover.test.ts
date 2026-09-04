@@ -177,6 +177,8 @@ describe("Handover projection contract", () => {
     const styles = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
     expect(viewSource).toContain('data-label={ownershipText("primaryOwner")}');
     expect(viewSource).toContain('data-label={ownershipText("scopeAndChanges")}');
+    expect(viewSource).toContain("assignmentProposalStateLabel(proposal.state)");
+    expect(viewSource).toContain('class="ownership-source-revision"');
     expect(styles).toContain(
       ".current-ownership-workspace .agent-oversight-ownership-table .cs-table",
     );

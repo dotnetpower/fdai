@@ -17896,6 +17896,14 @@ body.aa-log-fullscreen-fallback { overflow: hidden; }
 .ownership-readiness dt { color: var(--fg-muted); font-size: var(--cs-type-label-size); }
 .ownership-readiness dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
 .ownership-readiness code { white-space: normal; overflow-wrap: anywhere; }
+.ownership-source-revision > summary {
+  width: fit-content;
+  color: var(--cs-steel);
+  cursor: pointer;
+  font-size: var(--cs-type-compact-size);
+  font-weight: 700;
+}
+.ownership-source-revision code { display: block; margin-top: 5px; }
 .agent-oversight-maintainers,
 .agent-oversight-section-head {
   display: flex;
