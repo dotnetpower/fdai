@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from fdai.delivery.integration_readiness import integration_projection
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
 from fdai.delivery.runtime_settings import RUNTIME_SETTING_SPECS, RuntimeSettingsService
 
@@ -160,12 +161,10 @@ def runtime_settings_projection(environ: Mapping[str, str]) -> dict[str, object]
         environ.get("KAFKA_BOOTSTRAP_SERVERS", "").strip()
         or environ.get("FDAI_KAFKA_BOOTSTRAP_SERVERS", "").strip()
     )
-    integrations = [
-        _integration("chatops", _configured(environ, "FDAI_CHATOPS_"), ready=False),
-        _integration("email", _configured(environ, "FDAI_NOTIFICATION_EMAIL_"), ready=False),
-        _integration("gitops", _configured(environ, "FDAI_GITHUB_APP_"), ready=False),
-        _integration("jira", _configured(environ, "FDAI_JIRA_"), ready=False),
-    ]
+    # Reuse the one shared readiness implementation so the local projection can
+    # never drift from the deployed one, and so notification bindings are
+    # represented locally instead of being silently dropped.
+    integrations = integration_projection(environ)
     runtime_environment = environ.get("RUNTIME_ENV", "").strip().lower()
     if runtime_environment not in {"dev", "staging", "prod"}:
         runtime_environment = "unspecified"
@@ -182,12 +181,16 @@ def runtime_settings_projection(environ: Mapping[str, str]) -> dict[str, object]
             "autonomy_default": environ.get("AUTONOMY_MODE_DEFAULT", "shadow") or "shadow",
             "pantheon_enabled": _enabled(environ.get("FDAI_START_PANTHEON"), default=True),
             "workflow_observation_enabled": _enabled(
-                environ.get("FDAI_WORKFLOW_OBSERVATION_ENABLED"), default=False
+                environ.get("FDAI_WORKFLOW_SHADOW"), default=True
             ),
             "primary_transport_configured": primary_transport,
             "auxiliary_transport_configured": False,
-            "case_history_configured": bool(
-                environ.get("FDAI_CASE_HISTORY_DATABASE_URL", "").strip()
+            "case_history_configured": all(
+                environ.get(key, "").strip()
+                for key in (
+                    "FDAI_CASE_HISTORY_CONTAINER_URL",
+                    "FDAI_CASE_HISTORY_MI_CLIENT_ID",
+                )
             ),
         },
     }
@@ -265,26 +268,6 @@ def _active_t2_choice(
         return None
     choices = _t2_choices((item,))
     return choices[0] if choices else None
-
-
-def _integration(key: str, configured: bool, *, ready: bool) -> dict[str, object]:
-    return {
-        "key": key,
-        "configured": configured,
-        "ready": ready,
-        "mode": "enabled" if configured else "disabled",
-        "reason": (
-            None
-            if ready
-            else "readiness probe not part of local materialization"
-            if configured
-            else "not configured in prepared environment"
-        ),
-    }
-
-
-def _configured(environ: Mapping[str, str], prefix: str) -> bool:
-    return any(key.startswith(prefix) and value.strip() for key, value in environ.items())
 
 
 def _mapping(value: object) -> Mapping[str, Any]:

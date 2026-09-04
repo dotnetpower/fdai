@@ -61,6 +61,15 @@ resource "azurerm_container_app" "operator_api" {
     }
   }
 
+  dynamic "secret" {
+    for_each = nonsensitive(var.notification_receipt_secret_id) == "" ? toset([]) : toset(["1"])
+    content {
+      name                = "notification-receipt-secret"
+      identity            = var.operator_api_identity_id
+      key_vault_secret_id = var.notification_receipt_secret_id
+    }
+  }
+
   ingress {
     external_enabled = true
     target_port      = 8000
@@ -104,6 +113,17 @@ resource "azurerm_container_app" "operator_api" {
           name        = "FDAI_CHATOPS_WEBHOOK_SECRET"
           secret_name = "chatops-webhook-secret"
         }
+      }
+      dynamic "env" {
+        for_each = nonsensitive(var.notification_receipt_secret_id) == "" ? toset([]) : toset(["1"])
+        content {
+          name        = "FDAI_NOTIFICATION_RECEIPT_SECRET"
+          secret_name = "notification-receipt-secret"
+        }
+      }
+      env {
+        name  = "FDAI_NOTIFICATION_RECEIPT_TOPIC"
+        value = var.notification_receipt_topic
       }
       env {
         name  = "FDAI_ENTRA_TENANT_ID"

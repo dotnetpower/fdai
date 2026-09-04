@@ -144,15 +144,26 @@ def test_runtime_projection_reports_configuration_without_inventing_readiness() 
             "FDAI_CHATOPS_WEBHOOK_SECRET": "configured-outside-source-control",
             "FDAI_START_PANTHEON": "1",
             "AUTONOMY_MODE_DEFAULT": "shadow",
+            "FDAI_CASE_HISTORY_CONTAINER_URL": "https://example.invalid/cases",
+            "FDAI_CASE_HISTORY_MI_CLIENT_ID": "case-history-reader",
         }
     )
 
     assert projection["runtime"]["state_store_durable"] is True
     assert projection["runtime"]["pantheon_enabled"] is True
+    assert projection["runtime"]["workflow_observation_enabled"] is True
+    assert projection["runtime"]["case_history_configured"] is True
     integrations = {item["key"]: item for item in projection["integrations"]}
-    assert integrations["chatops"]["configured"] is True
-    assert integrations["chatops"]["ready"] is False
+    # The local projection reuses the one shared readiness implementation, so it
+    # reports the same source-attributed rows the deployed control plane reports.
+    assert integrations["teams-a1-approval-callback"]["configured"] is True
+    assert integrations["teams-a1-approval-callback"]["ready"] is False
+    assert integrations["teams-a1-approval-callback"]["source"] == "operator-service"
+    assert integrations["teams-a1-approval-send"]["configured"] is False
+    assert integrations["teams-a2-operational-alert"]["ready"] is False
+    assert integrations["notification-bindings"]["configured"] is False
     assert integrations["email"]["configured"] is False
+    assert "chatops" not in integrations
     settings = {item["key"]: item for item in projection["settings"]}
     assert settings["conversation.answer_continuity.enabled"]["effective_value"] is False
     assert settings["conversation.t2_escalation.aggressive_enabled"]["restart_required"] is False
@@ -162,6 +173,15 @@ def test_runtime_projection_reports_configuration_without_inventing_readiness() 
         for key, item in settings.items()
         if key != "conversation.t2_escalation.aggressive_enabled"
     )
+
+
+def test_runtime_projection_honors_disabled_workflow_observation() -> None:
+    module = _module()
+
+    projection = module.runtime_settings_projection({"FDAI_WORKFLOW_SHADOW": "false"})
+
+    assert projection["runtime"]["workflow_observation_enabled"] is False
+    assert projection["runtime"]["case_history_configured"] is False
 
 
 @pytest.mark.parametrize(

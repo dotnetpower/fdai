@@ -7,7 +7,24 @@ const payload = {
   updated_at: "2026-07-24T00:00:00Z",
   updated_by: "owner-1",
   integrations: [
-    { key: "chatops", configured: true, ready: true, mode: "enabled", reason: null },
+    {
+      key: "teams-a1-approval-send",
+      source: "core-control-plane",
+      observed: true,
+      configured: true,
+      ready: true,
+      mode: "enabled",
+      reason: null,
+    },
+    {
+      key: "teams-a1-approval-callback",
+      source: "operator-service",
+      observed: false,
+      configured: false,
+      ready: false,
+      mode: "disabled",
+      reason: "prerequisites are owned by another runtime and were not observed",
+    },
   ],
   runtime: {
     environment: "prod",
@@ -100,6 +117,11 @@ describe("runtime settings model", () => {
     expect(view.revision).toBe(2);
     expect(view.settings[0]?.overrideValue).toBe(true);
     expect(view.integrations[0]?.ready).toBe(true);
+    expect(view.integrations[0]?.source).toBe("core-control-plane");
+    // An unobserved row is distinct from an unconfigured one so an operator
+    // acts on the runtime that actually owns the prerequisites.
+    expect(view.integrations[1]?.observed).toBe(false);
+    expect(view.integrations[1]?.source).toBe("operator-service");
     expect(view.runtime.autonomyDefault).toBe("shadow");
     expect(initialRuntimeDraft(view)).toEqual({
       "irp.enabled": true,
@@ -108,6 +130,25 @@ describe("runtime settings model", () => {
       "conversation.t2_escalation.aggressive_enabled": true,
       "conversation.prompt_ablation.profile": "TOOLS",
     });
+  });
+
+  test("defaults source and observed for a legacy integration row", () => {
+    const view = decodeRuntimeSettings({
+      ...payload,
+      integrations: [
+        { key: "gitops", configured: true, ready: true, mode: "enabled", reason: null },
+      ],
+    });
+
+    expect(view.integrations[0]?.source).toBe("unspecified");
+    expect(view.integrations[0]?.observed).toBe(true);
+  });
+
+  test("rejects an unknown integration source", () => {
+    expect(() => decodeRuntimeSettings({
+      ...payload,
+      integrations: [{ ...payload.integrations[0], source: "somewhere-else" }],
+    })).toThrow(/source is invalid/);
   });
 
   test("rejects duplicate keys", () => {

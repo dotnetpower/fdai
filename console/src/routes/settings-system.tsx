@@ -1,3 +1,4 @@
+import type preact from "preact";
 import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -37,8 +38,26 @@ import {
 } from "./settings-teams-workflow.command";
 import {
   newTeamsWorkflowTestRequestId,
+  type TeamsWorkflowSavedBinding,
   type TeamsWorkflowTestResult,
 } from "./settings-teams-workflow.model";
+
+/**
+ * A1 approvals, A2/A4 notifications, and A3 conversations use separate
+ * transports and separate trust. Grouping them here keeps an operator from
+ * reading a healthy notification binding as a working approval path.
+ */
+const APPROVAL_INTEGRATION_KEYS: ReadonlySet<string> = new Set([
+  "teams-a1-approval-send",
+  "teams-a1-approval-callback",
+]);
+const NOTIFICATION_INTEGRATION_KEYS: ReadonlySet<string> = new Set([
+  "teams-a2-operational-alert",
+  "teams-a4-digest",
+  "notification-bindings",
+  "email",
+]);
+const CONVERSATION_INTEGRATION_KEYS: ReadonlySet<string> = new Set(["teams-a3-conversation"]);
 
 interface Props {
   readonly client: OperatorApiClient;
@@ -125,19 +144,52 @@ export function SettingsIntegrationsRoute({ client, auth }: Props) {
           resourceLabel={t("settings.integrationStatusResource")}
         >
           {(runtime) => (
-            <div class="settings-list">
-              {runtime.integrations.map((integration) => (
-                <IntegrationRow key={integration.key} integration={integration} />
-              ))}
-              <TeamsWorkflowTestPanel
-                auth={auth}
-                operatorApiBaseUrl={client.operatorApiBaseUrl}
-                canManage={runtime.canManage}
+            <div class="stack">
+              <IntegrationGroup
+                headingId="settings-a1-approvals"
+                title={t("settings.groupApprovals")}
+                description={t("settings.groupApprovalsHint")}
+                integrations={runtime.integrations.filter((integration) =>
+                  APPROVAL_INTEGRATION_KEYS.has(integration.key)
+                )}
               />
-              <SlackWebhookTestPanel
-                auth={auth}
-                operatorApiBaseUrl={client.operatorApiBaseUrl}
-                canManage={runtime.canManage}
+              <IntegrationGroup
+                headingId="settings-a2-a4-notifications"
+                title={t("settings.groupNotifications")}
+                description={t("settings.groupNotificationsHint")}
+                integrations={runtime.integrations.filter((integration) =>
+                  NOTIFICATION_INTEGRATION_KEYS.has(integration.key)
+                )}
+              >
+                <TeamsWorkflowTestPanel
+                  auth={auth}
+                  operatorApiBaseUrl={client.operatorApiBaseUrl}
+                  canManage={runtime.canManage}
+                />
+                <SlackWebhookTestPanel
+                  auth={auth}
+                  operatorApiBaseUrl={client.operatorApiBaseUrl}
+                  canManage={runtime.canManage}
+                />
+              </IntegrationGroup>
+              <IntegrationGroup
+                headingId="settings-a3-conversations"
+                title={t("settings.groupConversations")}
+                description={t("settings.groupConversationsHint")}
+                integrations={runtime.integrations.filter((integration) =>
+                  CONVERSATION_INTEGRATION_KEYS.has(integration.key)
+                )}
+              />
+              <IntegrationGroup
+                headingId="settings-other-integrations"
+                title={t("settings.groupOther")}
+                description={t("settings.groupOtherHint")}
+                integrations={runtime.integrations.filter(
+                  (integration) =>
+                    !APPROVAL_INTEGRATION_KEYS.has(integration.key)
+                    && !NOTIFICATION_INTEGRATION_KEYS.has(integration.key)
+                    && !CONVERSATION_INTEGRATION_KEYS.has(integration.key)
+                )}
               />
             </div>
           )}
@@ -342,6 +394,7 @@ function TeamsWorkflowTestPanel({
   const [bindingVisibility, setBindingVisibility] = useState<
     "loading" | "hidden" | "visible" | "missing"
   >("loading");
+  const [bindingSaved, setBindingSaved] = useState<TeamsWorkflowSavedBinding | null>(null);
   const [result, setResult] = useState<TeamsWorkflowTestResult | null>(null);
   const accountIsValid = !accountHint.trim() || isEmailStyleUserPrincipalName(accountHint.trim());
 
@@ -359,7 +412,14 @@ function TeamsWorkflowTestPanel({
           setBindingVisibility("missing");
           return;
         }
-        setWebhookUrl((current) => current || binding.webhookUrl);
+        // The saved URL is password-equivalent and is never returned, so the
+        // field stays empty and an Owner replaces the binding by submitting a
+        // new URL.
+        setBindingSaved({
+          bindingVersion: binding.bindingVersion,
+          savedAt: binding.savedAt,
+          observedAt: binding.observedAt,
+        });
         setBindingVisibility("visible");
       } catch (reason) {
         if (!active) return;
@@ -376,18 +436,24 @@ function TeamsWorkflowTestPanel({
     event.preventDefault();
     if (!canManage || testing || !webhookUrl.trim()) return;
     const submittedUrl = webhookUrl.trim();
+    setWebhookUrl("");
     setTesting(true);
     setError(null);
     setResult(null);
     try {
-      setResult(
-        await testTeamsWorkflowWebhook(
-          auth,
-          operatorApiBaseUrl,
-          submittedUrl,
-          newTeamsWorkflowTestRequestId(),
-        ),
+      const saved = await testTeamsWorkflowWebhook(
+        auth,
+        operatorApiBaseUrl,
+        submittedUrl,
+        newTeamsWorkflowTestRequestId(),
       );
+      setResult(saved);
+      setBindingSaved({
+        bindingVersion: saved.bindingVersion,
+        savedAt: saved.savedAt,
+        observedAt: saved.testedAt,
+      });
+      setBindingVisibility("visible");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
@@ -667,6 +733,7 @@ function TeamsWorkflowTestPanel({
                 {!canManage ? (
                   <small>{settingsIntegrationsText("contributorReadOnly")}</small>
                 ) : null}
+                <small>{settingsIntegrationsText("bindingNeverReturned")}</small>
                 </label>
                 {canManage ? (
                 <button
@@ -693,6 +760,21 @@ function TeamsWorkflowTestPanel({
                 {settingsIntegrationsText("bindingMissing")}
               </div>
             )}
+            {bindingSaved ? (
+              <p class="settings-teams-workflow-binding-state">
+                <StatusPill kind="success" label={settingsIntegrationsText("bindingSavedPill")} />
+                <small class="muted">
+                  {bindingSaved.savedAt
+                    ? settingsIntegrationsText("bindingSavedDetail", {
+                        version: bindingSaved.bindingVersion,
+                        time: new Date(bindingSaved.savedAt).toLocaleString(),
+                      })
+                    : settingsIntegrationsText("bindingSavedVersionOnly", {
+                        version: bindingSaved.bindingVersion,
+                      })}
+                </small>
+              </p>
+            ) : null}
             {bindingError ? <div class="error" role="alert">{bindingError}</div> : null}
           </div>
         </li>
@@ -825,27 +907,70 @@ function EmailTemplatePreviewPanel({ template }: { readonly template: EmailTempl
   );
 }
 
+function IntegrationGroup({
+  headingId,
+  title,
+  description,
+  integrations,
+  children,
+}: {
+  readonly headingId: string;
+  readonly title: string;
+  readonly description: string;
+  readonly integrations: readonly RuntimeIntegrationView[];
+  readonly children?: preact.ComponentChildren;
+}) {
+  if (integrations.length === 0 && children === undefined) return null;
+  return (
+    <section class="settings-integration-group" aria-labelledby={headingId}>
+      <h4 id={headingId}>{title}</h4>
+      <p class="muted">{description}</p>
+      <div class="settings-list">
+        {integrations.map((integration) => (
+          <IntegrationRow key={integration.key} integration={integration} />
+        ))}
+        {children}
+      </div>
+    </section>
+  );
+}
+
 function IntegrationRow({ integration }: { readonly integration: RuntimeIntegrationView }) {
-  const status = integration.ready
-    ? t("settings.statusReady")
-    : integration.configured
-      ? t("settings.statusIncomplete")
-      : t("settings.statusNotConfigured");
+  // A row this runtime cannot observe is not the same as an unconfigured row.
+  // Rendering both as "Not configured" would invite an operator to fix the
+  // wrong surface, so an unobserved row stays explicitly unknown.
+  const status = !integration.observed
+    ? t("settings.statusNotObserved")
+    : integration.ready
+      ? t("settings.statusReady")
+      : integration.configured
+        ? t("settings.statusIncomplete")
+        : t("settings.statusNotConfigured");
+  const kind = !integration.observed
+    ? "neutral"
+    : integration.ready
+      ? "success"
+      : integration.configured
+        ? "warning"
+        : "neutral";
   return (
     <SettingRow
       label={t(`settings.integrations.${integration.key}.label`)}
       hint={t(`settings.integrations.${integration.key}.hint`)}
     >
       <span class="settings-integration-status">
-        <StatusPill
-          kind={integration.ready ? "success" : integration.configured ? "warning" : "neutral"}
-          label={status}
-        />
+        <StatusPill kind={kind} label={status} />
         <small class="muted">
           {t("settings.integrationMode", {
             mode: t(`settings.integrationModes.${integration.mode}`),
           })}
         </small>
+        <small class="muted">
+          {t("settings.integrationSource", {
+            source: t(`settings.integrationSources.${integration.source}`),
+          })}
+        </small>
+        {integration.reason ? <small class="muted">{integration.reason}</small> : null}
       </span>
     </SettingRow>
   );

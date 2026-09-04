@@ -53,6 +53,7 @@ class OperatorSemanticKafkaConfig:
     wara_assessment_topic: str = WARA_ASSESSMENT_TOPIC
     event_topic: str | None = None
     hil_decision_topic: str | None = None
+    notification_receipt_topic: str | None = None
     client_id: str = "fdai-operator-service"
     auto_offset_reset: str = "earliest"
     dlq_suffix: str = ".dlq"
@@ -139,6 +140,22 @@ class OperatorSemanticKafkaConfig:
             }
         ):
             raise ValueError("HIL decision topic MUST be distinct and valid")
+        if self.notification_receipt_topic is not None and (
+            _TOPIC_PATTERN.fullmatch(self.notification_receipt_topic) is None
+            or self.notification_receipt_topic
+            in {
+                self.request_topic,
+                self.projection_topic,
+                self.progress_topic,
+                self.read_investigation_topic,
+                self.read_investigation_completion_topic,
+                self.background_task_projection_topic,
+                self.event_topic,
+                self.wara_assessment_topic,
+                self.hil_decision_topic,
+            }
+        ):
+            raise ValueError("notification receipt topic MUST be distinct and valid")
         if self.auto_offset_reset not in {"earliest", "latest"}:
             raise ValueError("auto_offset_reset MUST be earliest or latest")
         if not self.dlq_suffix:
@@ -219,6 +236,8 @@ class OperatorSemanticKafkaBus:
             allowed.add(self._config.event_topic)
         if self._config.hil_decision_topic is not None:
             allowed.add(self._config.hil_decision_topic)
+        if self._config.notification_receipt_topic is not None:
+            allowed.add(self._config.notification_receipt_topic)
         if topic not in allowed:
             raise ValueError("semantic Kafka publish topic is not configured")
         producer = await self._get_producer()

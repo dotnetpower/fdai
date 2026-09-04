@@ -8,11 +8,16 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Any
 
+from fdai_service_contracts.notification_receipt import (
+    NOTIFICATION_DELIVERY_RECEIPT_TOPIC,
+)
+
 from fdai.agents import PantheonRuntime, ShadowDivergenceLedger
 from fdai.composition import Container
 from fdai.composition.readiness import OperationalReadinessEventHandler
 from fdai.core.control_loop import ControlLoop
 from fdai.delivery.agent_activity import AgentRuntimeStatePublisher
+from fdai.delivery.notifications import NotificationDeliveryReceiptApplier
 from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.runtime.bootstrap_bindings import (
     EffectReconciliationRequestRuntimeBinding,
@@ -54,6 +59,7 @@ class RuntimeTaskConfiguration:
     rule_generation_reconciliation: RuleGenerationReconciliation | None
     case_history_retention_publisher: CaseHistoryRetentionTickPublisher | None
     incident_notification_replay_worker: IncidentNotificationReplayWorker
+    notification_receipt_applier: NotificationDeliveryReceiptApplier
     environment: Mapping[str, str]
     read_investigation_binding: Any = None
     operational_readiness_handler: OperationalReadinessEventHandler | None = None
@@ -74,6 +80,7 @@ class RuntimeTaskHooks:
     consume_resource_changes: Any
     consume_canaries: Any
     consume_hil_decisions: Any
+    consume_notification_receipts: Any
     consume_operational_readiness: Any
     build_irp_event_handler: Any
     load_resource_types: Any
@@ -226,6 +233,22 @@ async def run_runtime_tasks(
         ),
         name="incident-notification-replay",
     )
+    notification_receipt_topic = _notification_receipt_topic(config.environment)
+    notification_receipt_task: asyncio.Task[None] | None = None
+    if notification_receipt_topic:
+        notification_receipt_applier = config.notification_receipt_applier
+        notification_receipt_task = asyncio.create_task(
+            config.readiness.run_when_ready(
+                config.stop,
+                lambda: hooks.consume_notification_receipts(
+                    bus=config.bus,
+                    topic=notification_receipt_topic,
+                    applier=notification_receipt_applier,
+                    stop=config.stop,
+                ),
+            ),
+            name="notification-receipt-consumer",
+        )
     if config.control_loop._hil_resume_coordinator is not None:
         from fdai.delivery.chatops.hil_decision import DEFAULT_HIL_DECISION_TOPIC
 
@@ -410,6 +433,7 @@ async def run_runtime_tasks(
             read_investigation_task,
             operational_readiness_task,
             diagnostic_event_ingest_task,
+            notification_receipt_task,
             effect_reconciliation_request_task,
             discovery_activation_task,
             continuous_operating_model_task,
@@ -426,6 +450,16 @@ async def run_runtime_tasks(
             incident_notification_replay_task,
         ),
     )
+
+
+def _notification_receipt_topic(environment: Mapping[str, str]) -> str:
+    topic = environment.get(
+        "FDAI_NOTIFICATION_RECEIPT_TOPIC",
+        NOTIFICATION_DELIVERY_RECEIPT_TOPIC,
+    ).strip()
+    if topic != NOTIFICATION_DELIVERY_RECEIPT_TOPIC:
+        raise RuntimeError("FDAI_NOTIFICATION_RECEIPT_TOPIC MUST use the canonical logical topic")
+    return topic
 
 
 __all__ = [

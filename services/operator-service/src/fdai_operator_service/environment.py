@@ -12,6 +12,9 @@ from fdai_service_contracts import (
     BACKGROUND_TASK_PROJECTION_TOPIC,
     OperatorRole,
 )
+from fdai_service_contracts.notification_receipt import (
+    NOTIFICATION_DELIVERY_RECEIPT_TOPIC,
+)
 
 HOST_ENV = "FDAI_OPERATOR_SERVICE_HOST"
 PORT_ENV = "FDAI_OPERATOR_SERVICE_PORT"
@@ -32,6 +35,8 @@ DEV_MODE_ENV = "FDAI_OPERATOR_API_DEV_MODE"
 NARRATOR_PROBE_INTERVAL_ENV = "FDAI_NARRATOR_PROBE_INTERVAL_SECONDS"
 KAFKA_BOOTSTRAP_SERVERS_ENV = "FDAI_KAFKA_BOOTSTRAP_SERVERS"
 HIL_DECISION_TOPIC_ENV = "FDAI_HIL_DECISION_TOPIC"
+NOTIFICATION_RECEIPT_TOPIC_ENV = "FDAI_NOTIFICATION_RECEIPT_TOPIC"
+NOTIFICATION_RECEIPT_SECRET_ENV = "FDAI_NOTIFICATION_RECEIPT_SECRET"  # noqa: S105
 STAGE_TOPIC_ENV = "FDAI_STAGE_TOPIC"
 LIVE_STAGE_CONSUMER_GROUP_ENV = "FDAI_LIVE_STAGE_CONSUMER_GROUP_ID"
 SEMANTIC_REQUEST_TOPIC_ENV = "FDAI_SEMANTIC_TURN_REQUEST_TOPIC"
@@ -56,6 +61,7 @@ DEFAULT_SEMANTIC_CONSUMER_GROUP = "operator-semantic-turn-v1"
 DEFAULT_SEMANTIC_KAFKA_CLIENT_ID = "fdai-operator-service"
 DEFAULT_STAGE_TOPIC = "fdai.pipeline.stages"
 DEFAULT_HIL_DECISION_TOPIC = "fdai.hil.decisions"
+DEFAULT_NOTIFICATION_RECEIPT_TOPIC = NOTIFICATION_DELIVERY_RECEIPT_TOPIC
 DEFAULT_LIVE_STAGE_CONSUMER_GROUP = "fdai-operator-live-stage-v1"
 DEFAULT_READ_INVESTIGATION_COMPLETION_TOPIC = "core.read-investigation.completions"
 DEFAULT_READ_INVESTIGATION_COMPLETION_CONSUMER_GROUP = "operator-read-investigation-completion-v1"
@@ -103,6 +109,7 @@ class OperatorEnvironment:
     narrator_probe_interval_seconds: int
     kafka_bootstrap_servers: str | None
     hil_decision_topic: str | None
+    notification_receipt_topic: str | None
     stage_topic: str
     live_stage_consumer_group_id: str
     semantic_request_topic: str | None
@@ -212,6 +219,23 @@ class OperatorEnvironment:
             if kafka_bootstrap_servers is not None
             else None
         )
+        explicit_notification_receipt_topic = values.get(NOTIFICATION_RECEIPT_TOPIC_ENV, "").strip()
+        if explicit_notification_receipt_topic and kafka_bootstrap_servers is None:
+            raise OperatorServiceConfigurationError(
+                f"{NOTIFICATION_RECEIPT_TOPIC_ENV} requires {KAFKA_BOOTSTRAP_SERVERS_ENV}"
+            )
+        notification_receipt_topic = (
+            explicit_notification_receipt_topic or DEFAULT_NOTIFICATION_RECEIPT_TOPIC
+            if kafka_bootstrap_servers is not None
+            else None
+        )
+        if values.get(NOTIFICATION_RECEIPT_SECRET_ENV, "").strip() and (
+            database_url is None or notification_receipt_topic is None
+        ):
+            raise OperatorServiceConfigurationError(
+                f"{NOTIFICATION_RECEIPT_SECRET_ENV} requires PostgreSQL and a configured "
+                f"{KAFKA_BOOTSTRAP_SERVERS_ENV} receipt transport"
+            )
         stage_topic = values.get(STAGE_TOPIC_ENV, "").strip() or DEFAULT_STAGE_TOPIC
         live_stage_consumer_group_id = (
             values.get(LIVE_STAGE_CONSUMER_GROUP_ENV, "").strip()
@@ -385,6 +409,7 @@ class OperatorEnvironment:
             narrator_probe_interval_seconds=narrator_probe_interval_seconds,
             kafka_bootstrap_servers=kafka_bootstrap_servers,
             hil_decision_topic=hil_decision_topic,
+            notification_receipt_topic=notification_receipt_topic,
             stage_topic=stage_topic,
             live_stage_consumer_group_id=live_stage_consumer_group_id,
             semantic_request_topic=semantic_request_topic,

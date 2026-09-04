@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: ed632985fb61331ac99a444acfade4e0315b7ad7
+translation_source_sha: fa7696d91dae64130e4d2626fe2cc3158c3e0f8a
 translation_revised: 2026-09-04
 ---
 # 코드 맵
@@ -504,6 +504,10 @@ SDK는 두 semantic channel이 하나의 physical Event Hub를 공유할 때 사
 identity, logical topic 및 offset group을 유지하며 상대 서비스 구현을 가져오지 않습니다. 같은 계약은
 targeted Terraform 상태가 새 output을 아직 materialize하지 않았을 때 사용하는 canonical physical-topic
 기본값도 제공합니다.
+
+SDK는 `notification-delivery-receipt` wire 스키마와 canonical 논리 토픽도 소유합니다.
+Operator는 기존 multiplex 물리 토픽을 통해 관찰을 인증하고 게시하며, Core만 이미 수락된 전달에
+관찰을 적용합니다. 이 계약은 알림 대상이나 실행 권한을 부여하지 않습니다.
 
 SDK는 WARA shadow 평가 토픽과 Operator 소비자 그룹 ID도 소유합니다. Core는 권한이 없는 평가
 결과를 이 토픽으로 발행하고 독립 Operator 서비스는 활성 컨트롤 전체가 정확히 포함됐는지 검증한

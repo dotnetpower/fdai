@@ -1,8 +1,8 @@
 ---
 title: 다중 채널 알림 전달
 translation_of: multi-channel-notification-delivery.md
-translation_source_sha: 7045c92d1fc81896ed1b56f5c97cccffe8451409
-translation_revised: 2026-09-01
+translation_source_sha: f6b827091ad5d1086cf347c7e4c14f1f2e373cde
+translation_revised: 2026-09-04
 ---
 # 다중 채널 알림 전달
 
@@ -224,29 +224,61 @@ dispatch:<audit_id>            targets = [teams-ops-primary, slack-ops, email-on
 확정하려면 워크플로가 전달 id와 게시 결과를 담아 인증된 FDAI 접수 엔드포인트를 호출해야 합니다. 이
 콜백에는 메시지 본문과 웹훅 URL을 담지 않습니다.
 
-접수 처리기는 `audit_id`, `channel_id`, `publication_result`, 선택적 프로바이더 메시지 id만
-받습니다. `X-FDAI-Timestamp`와 HMAC-SHA256 `X-FDAI-Signature`를 검증하고, 오래되거나 크기
-제한을 넘은 요청을 차단하며, 결과를 `delivered` 또는 `retryable_failed`로 기록합니다. 준비 및
-완료 관찰 감사 단계가 이 상태 변경을 둘러쌉니다. 콜백 시크릿은 배포 환경에서 관리합니다.
+접수 경로는 서비스 경계를 넘으므로 소유권에 따라 분리합니다.
 
-Settings > Integrations는 설정을 위한 범위가 제한된 상용 클라우드 저장 및 테스트 흐름을 제공합니다. Owner는
-현재 FDAI ID와 배포 설정에서 제공한 Microsoft 365 계정 힌트를 비교하고, 해당 계정을 복사한 다음
-Power Automate를 열 수 있습니다. 서명된 URL을 붙여 넣으면 고정된 합성 카드 한 건을 전송합니다.
-Microsoft 365 테넌트의 인증, MFA, 동의, Team 및 Channel 선택은 명시적인 사용자 작업으로
-유지합니다. 배포 환경은 버전이 지정된 Teams 엔드포인트 시크릿 하나만 쓸 수 있는 전용 Managed
-Identity를 사용합니다. 로컬 프로필은 Operator가 소유하는 루프백 레코드를 암호화하여 사용하며
-PostgreSQL에 평문을 쓰지 않습니다. FDAI는 저장된 정확한 버전을 다시 읽고 URL 다이제스트를 확인한
-후에만 테스트 카드를 전송합니다. Contributor, Approver 및 Owner 역할은 인증된 `no-store`
-응답으로 현재 URL을 다시 불러올 수 있습니다. Reader와 BreakGlass 역할에는 구성 메타데이터를
-제공하지 않습니다. 모든 reveal을 URL 없이 감사하며 영속 저장 및 테스트 기록에는 다이제스트,
-바인딩 버전, 행위자, 요청 id, 프로바이더 상태, 준비 및 완료 메타데이터만 남깁니다. Key Vault는
-이전 시크릿 버전을 롤백용으로 유지합니다. 알림 런타임이
-저장된 바인딩을 참조하는 시점은 배포에서 계속 결정합니다.
+| 단계 | 소유자 | 책임 |
+|------|--------|------|
+| 공개 ingress | Operator Service | `X-FDAI-Timestamp`와 HMAC-SHA256 `X-FDAI-Signature` 검증, 본문 크기 제한, 중복 제거, 시도 기록 |
+| 브로커 전달 | Operator Service | 스키마 검증을 통과한 `notification-delivery-receipt` envelope 한 건 게시 |
+| 전달 상태 전이 | Core 컨트롤 플레인 | `delivered` 또는 `retryable_failed` 적용과 관찰 감사 기록 |
+
+`POST /runtime/integrations/notifications/delivery-receipt`는 `audit_id`, `channel_id`,
+`publication_result`, 선택적 프로바이더 메시지 id만 받습니다. 서명이 없거나 오래되었거나 크기
+제한을 넘었거나 추가 필드를 담은 본문을 거부하고, 전달을 단언하지 않은 채 `202`로 응답합니다.
+보고를 수락한 것은 그 보고의 효과가 아니기 때문입니다. 콜백 시크릿은 배포 환경이 소유하며 Console에
+전달되지 않습니다.
+
+Envelope는 기존 기본 물리 토픽에 multiplex되는 논리 토픽
+`fdai.notifications.delivery-receipts`로 이동하며, 양쪽 모두 패키지에 포함된
+`notification-delivery-receipt` 스키마로 검증합니다. 전달 상태를 쓰는 주체는 Core뿐입니다. Core는
+`accepted` 하위 항목을 `delivered`로 승격하고, 보고된 실패를 `retryable_failed`로 되돌리며,
+준비 및 완료 `notification.delivery.observed` 감사 단계로 변경을 둘러쌉니다. 전달이 `accepted`가
+아닌 관찰은 이전 라우팅 결정을 덮어쓰지 않고 거부하여 dead-letter로 보냅니다.
+
+**저장은 진단이며 활성화가 아닙니다**
+
+Settings > Integrations는 설정을 위한 범위가 제한된 상용 클라우드 저장 및 테스트 흐름을
+제공합니다. Owner는 현재 FDAI ID와 배포 설정에서 제공한 Microsoft 365 계정 힌트를 비교하고, 해당
+계정을 복사한 다음 Power Automate를 열 수 있습니다. 서명된 URL을 붙여 넣으면 고정된 합성 카드 한
+건을 전송합니다. Microsoft 365 테넌트의 인증, MFA, 동의, Team 및 Channel 선택은 명시적인 사용자
+작업으로 유지합니다. 배포 환경은 버전이 지정된 Teams 엔드포인트 시크릿 하나만 쓸 수 있는 전용
+Managed Identity를 사용합니다. 로컬 프로필은 Operator가 소유하는 루프백 레코드를 암호화하여
+사용하며 PostgreSQL에 평문을 쓰지 않습니다. FDAI는 저장된 정확한 버전을 다시 읽고 URL
+다이제스트를 확인한 후에만 테스트 카드를 전송합니다. Key Vault는 이전 시크릿 버전을 롤백용으로
+유지합니다.
+
+**저장과 테스트에 성공한 endpoint만으로는 아무것도 전달하지 않습니다.** 진단은 endpoint가
+존재하고 카드를 수락한다는 사실만 증명합니다. 런타임 전달은 배포가 바인딩을 활성화할 때 시작하며,
+런타임은 endpoint가 아직 초기 placeholder인 활성화된 바인딩을 거부합니다.
+
+| 모드 | 활성화 입력 | Endpoint 출처 |
+|------|-------------|---------------|
+| 배포 | `enable_teams_notification_delivery`와 `teams_notification_binding` 객체 | 읽기 전용 권한으로 컨트롤 플레인에 주입하는 Key Vault 시크릿 참조 |
+| 로컬 | `FDAI_TEAMS_NOTIFICATION_ACTIVATION` | 동일한 암호화된 Operator 소유 레코드를 전달 측 저장소로 읽음. 평문 파일이나 환경 변수 복제 없음 |
+
+**저장된 URL은 암호에 준하며 절대 반환하지 않습니다.** 바인딩 조회는 메타데이터만 응답합니다.
+`visible`, `configured`, `binding_version`, 관찰 시각, 그리고 해당 버전을 증명하는 영속 Operator
+저장 기록이 있을 때의 `saved_at`입니다. Contributor, Approver, Owner 역할은 바인딩이 존재한다는
+사실만 확인할 수 있고 값을 다시 읽을 수 없으며 Console은 입력값을 미리 채우지 않습니다. Owner는 새
+URL을 제출하여 바인딩을 교체합니다. 영속 저장 및 테스트 기록에는 다이제스트, 바인딩 버전, 행위자,
+요청 id, 프로바이더 상태, 준비 및 완료 메타데이터만 남습니다.
 
 ## 6. 이 설계가 넘지 않는 경계
 
 - A1 승인은 인증된 Teams 경로를 유지합니다. 워크플로 웹훅은 승인자를 검증할 수 없으므로 승인 결정을
-  전달하지 않습니다.
+  전달하지 않습니다. 바인딩 파싱이 이를 강제합니다. 종류와 무관하게 알림 바인딩은
+  `a2_operational_alert` 또는 `a4_digest`만 선언할 수 있으며 `a1_hil_approval`이나
+  `a3_chat_command`를 주장하는 바인딩은 로드에 실패합니다.
 - A3 대화는 [운영 A3 채널 런타임](production-a3-channel-runtime-ko.md)이 설명하는 Operator 소유
   채널 edge를 유지합니다.
 - Fan-out은 전달 범위만 바꿉니다. 자율성을 높이거나 편집 규칙을 완화하거나 낮은 신뢰 채널이 더 높은
@@ -263,6 +295,8 @@ PostgreSQL에 평문을 쓰지 않습니다. FDAI는 저장된 정확한 버전�
 | 5 | 두 인증 모드를 지원하는 Teams Workflows 어댑터 | 스키마, 크기, 조절, 헤더 테스트 |
 | 6 | Composition root에서 여러 바인딩 동시 연결 | 두 Teams 채널과 메일이 하나의 알림을 수신 |
 | 7 | 전달 콜백과 `delivered` 승격 | 독립 관찰이 감사에 기록됨 |
+| 8 | 인증된 Operator ingress와 스키마 검증 Core consumer | 서명된 콜백이 브로커를 거쳐 `accepted` 하위 항목을 `delivered`로 수렴 |
+| 9 | 명시적 배포 및 로컬 활성화 | 활성화된 바인딩은 전달하고 저장만 되었거나 placeholder인 바인딩은 전달하지 않음 |
 
 ## 관련 문서
 

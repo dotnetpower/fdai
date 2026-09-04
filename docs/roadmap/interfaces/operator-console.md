@@ -441,6 +441,10 @@ The channel abstraction ([channels-and-notifications.md](channels-and-notificati
 inbound conversation enablement from the outbound notification matrix. This separation preserves the different trust posture and blast
 radius of send-only and receive-plus-send surfaces.
 
+Settings > Integrations follows the same separation. It reports Teams A1 send and callback
+readiness, A2 operational alerts, A4 digests, and A3 conversations as source-attributed rows; a
+saved Workflows endpoint is metadata only and never implies runtime activation or provider health.
+
 The shared pull-direction contract, gateway, Slack signed ingress, Teams authenticated activity normalizer, bounded Starlette routes, Slack
 Web API publisher, and Teams Bot Framework publisher are implemented. The Slack route verifies timestamped signatures. The Teams route calls
 an injected bearer authenticator before parsing activity JSON. Reply publishers use only configured HTTPS endpoints, injected app/workload

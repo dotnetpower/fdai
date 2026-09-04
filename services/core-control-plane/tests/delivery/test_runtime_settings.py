@@ -346,7 +346,9 @@ async def test_projection_sanitizes_integration_and_runtime_status() -> None:
             "RUNTIME_ENV": "prod",
             "AUTONOMY_MODE_DEFAULT": "shadow",
             "FDAI_WORKFLOW_SHADOW": "1",
-            "FDAI_CHATOPS_WEBHOOK_URL": "configured",
+            "FDAI_TEAMS_APPROVAL_ACTIVITY_URL": "https://smba.example.com/activities",
+            "FDAI_TEAMS_APPROVAL_TEAM_ID": "team-1",
+            "FDAI_TEAMS_APPROVAL_CHANNEL_ID": "channel-1",
             "FDAI_EMAIL_ENDPOINT": "configured",
             "FDAI_EMAIL_SENDER_ADDRESS": "configured",
             "FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON": '["ops@example.com"]',
@@ -360,13 +362,23 @@ async def test_projection_sanitizes_integration_and_runtime_status() -> None:
     projection = await service.projection(can_manage=False)
     integrations = {item["key"]: item for item in projection["integrations"]}
 
-    assert integrations["chatops"] == {
-        "key": "chatops",
+    assert integrations["teams-a1-approval-send"] == {
+        "key": "teams-a1-approval-send",
+        "source": "core-control-plane",
+        "observed": True,
         "configured": True,
         "ready": True,
         "mode": "enabled",
         "reason": None,
     }
+    # Operator-owned approval callback inputs are not visible to this runtime,
+    # so the row stays explicitly unobserved instead of claiming "not configured".
+    assert integrations["teams-a1-approval-callback"]["observed"] is False
+    assert integrations["teams-a1-approval-callback"]["ready"] is False
+    assert integrations["teams-a3-conversation"]["observed"] is False
+    assert integrations["teams-a2-operational-alert"]["ready"] is False
+    assert integrations["teams-a4-digest"]["ready"] is False
+    assert "chatops" not in integrations
     assert integrations["email"]["ready"] is True
     assert integrations["jira"]["configured"] is True
     assert integrations["jira"]["ready"] is False

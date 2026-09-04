@@ -14,6 +14,16 @@ from fdai.shared.providers.notifications import TrustTier
 from .teams import TeamsWorkflowAuthMode
 
 _ENV_NAME = re.compile(r"^[A-Z][A-Z0-9_]*$")
+NOTIFICATION_TRUST_TIERS: frozenset[TrustTier] = frozenset(
+    {TrustTier.A2_OPERATIONAL_ALERT, TrustTier.A4_DIGEST}
+)
+"""Tiers an outbound-only `NotificationChannel` binding may declare.
+
+A1 approvals need a verified approver and an action-bound callback, and A3
+conversations need a bidirectional adapter. Neither can be satisfied by a
+send-only webhook or mailbox, so a binding that claims them is a configuration
+defect rather than a widened audience.
+"""
 
 
 class NotificationBindingKind(StrEnum):
@@ -189,6 +199,12 @@ def _trust_tiers(channel_id: str, raw: object) -> frozenset[TrustTier]:
             raise ValueError(
                 f"notification binding {channel_id!r} has unknown trust tier {item!r}"
             ) from exc
+    refused = sorted(tier.value for tier in parsed - NOTIFICATION_TRUST_TIERS)
+    if refused:
+        raise ValueError(
+            f"notification binding {channel_id!r} MUST NOT declare trust tiers {refused!r}; "
+            "send-only notification bindings carry a2_operational_alert or a4_digest only"
+        )
     return frozenset(parsed)
 
 
@@ -230,6 +246,7 @@ def _env_name(value: object, channel_id: str, field: str) -> str:
 
 
 __all__ = [
+    "NOTIFICATION_TRUST_TIERS",
     "NotificationBindingKind",
     "NotificationBindingSpec",
     "default_notification_bindings_from_env",

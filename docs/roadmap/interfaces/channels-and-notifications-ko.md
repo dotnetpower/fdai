@@ -1,8 +1,8 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 2b61215f643f6a802b0f4395ce7c08b9e4115ce0
-translation_revised: 2026-09-01
+translation_source_sha: 7762dbb47833672f4cf55aecaf91c6714cdf186d
+translation_revised: 2026-09-04
 ---
 
 # 채널과 알림(Channels and Notifications)
@@ -545,6 +545,27 @@ matrix:
 | **범용 웹훅** | HMAC-SHA256 서명, 단조 타임스탬프, 단발 nonce. Receiver 실패는 절대 블록 안 함; 코어가 어댑터 정책대로 재시도 후 이동. |
 | **PagerDuty / Opsgenie** | Dedup 키 = observability 상관 id 이므로 버스트가 접힘. 런북 URL은 모든 알림에 필수. |
 | **SMS** | 페이로드는 `<severity> <audit_id> <short-url-to-runbook>`로 제한. 시크릿 없음, 고객 이름 없음, 자유 텍스트 없음. 주로 break-glass 도달성. |
+
+### 7.1 Teams 준비 상태는 카테고리별로 보고합니다
+
+Teams에는 소유자가 다른 네 가지 계약이 있습니다. A1 계약은 발송과 callback 소유자가
+분리되므로 Settings > Integrations는 하나의 집계된 "ChatOps" 상태 대신 다섯 개의 독립된 행을
+보고합니다. 준비 상태는 *한 런타임에서 관찰한 구성 완전성*을 의미하며 프로바이더 상태 주장이
+아닙니다.
+
+| 행 | 소유 런타임 | 준비 조건 |
+|----|-------------|-----------|
+| `teams-a1-approval-send` | Core 컨트롤 플레인 | Bot 액티비티 endpoint와 그룹 연결 팀 및 채널이 모두 존재 |
+| `teams-a1-approval-callback` | Operator Service | Bot 애플리케이션, 테넌트, JWKS, 허용 service URL, 주체 매핑, 콜백 시크릿, HIL 결정 토픽, 영속 outbox가 모두 존재하고 구조가 유효 |
+| `teams-a2-operational-alert` | Core 컨트롤 플레인 | `a2_operational_alert`를 선언한 Teams Workflows 바인딩이 활성화되고 endpoint가 초기 placeholder가 아님 |
+| `teams-a4-digest` | Core 컨트롤 플레인 | `a4_digest`에 대해 동일 |
+| `teams-a3-conversation` | Operator Service | 대화 채널 edge가 Teams를 활성화하고 신원 입력이 존재 |
+
+일부만 구성된 상태는 성능 저하가 아니라 **불완전**입니다. 절반만 구성된 승인 경로는 조용히
+축소되는 대신 승인을 사용할 수 없게 둡니다. 각 행은 소유 런타임과 `observed` 플래그도 함께
+전달합니다. 한 프로세스가 만든 projection은 다른 프로세스의 입력을 볼 수 없기 때문입니다. 관찰되지
+않은 행은 "구성되지 않음"이라고 주장하지 않고 "여기서 관찰되지 않음"으로 보고하여 운영자가 실제로
+전제 조건을 소유한 런타임을 수정하도록 합니다.
 
 ## 8. 대체 경로와 비상 정지 상호작용
 

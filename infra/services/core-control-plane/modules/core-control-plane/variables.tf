@@ -46,7 +46,18 @@ variable "event_topics" {
     semantic_physical              = optional(string, "fdai.pantheon.objects")
     read_investigation_requests    = optional(string, "operator.read-investigation.requests")
     incident_intervention_requests = optional(string, "operator.incident-intervention.requests")
+    notification_receipts          = optional(string, "fdai.notifications.delivery-receipts")
   })
+}
+
+variable "teams_notification_binding" {
+  type = object({
+    enabled            = optional(bool, false)
+    channel_id         = optional(string, "teams-ops")
+    trust_tiers        = optional(list(string), ["a2_operational_alert"])
+    endpoint_secret_id = optional(string, "")
+  })
+  default = {}
 }
 
 variable "teams_approval_destination" {

@@ -428,11 +428,13 @@ class TeamsWorkflowTester(Protocol):
 
     async def save_and_test(self, command: TeamsWorkflowTestCommand) -> TeamsWorkflowTestResult: ...
 
-    async def reveal_binding(
+    async def describe_binding(
         self,
         *,
         actor_id: str,
-    ) -> JsonMapping | None: ...
+    ) -> JsonMapping | None:
+        """Return secret-free saved-binding metadata; never the endpoint value."""
+        ...
 
 
 @dataclass(frozen=True, slots=True)

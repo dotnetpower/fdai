@@ -79,6 +79,13 @@ class MemoryBindingStore:
         )
 
 
+def _accepting_post() -> object:
+    async def post(_: str, __: object) -> TeamsWorkflowProviderResponse:
+        return TeamsWorkflowProviderResponse(202)
+
+    return post
+
+
 def _command(request_id: str = "teams-test-1") -> TeamsWorkflowTestCommand:
     return TeamsWorkflowTestCommand(
         actor_id="owner-1",
@@ -201,7 +208,7 @@ async def test_saved_request_replay_requires_the_same_actor() -> None:
         )
 
 
-async def test_reveal_returns_the_saved_url_and_audits_only_its_digest() -> None:
+async def test_describe_returns_metadata_only_and_never_the_saved_url() -> None:
     store = MemoryStore()
     bindings = MemoryBindingStore()
     bindings.values.append(URL)
@@ -211,14 +218,49 @@ async def test_reveal_returns_the_saved_url_and_audits_only_its_digest() -> None
         clock=lambda: NOW,
     )
 
-    revealed = await tester.reveal_binding(actor_id="contributor-1")
+    described = await tester.describe_binding(actor_id="contributor-1")
 
-    assert revealed is not None
-    assert revealed["webhook_url"] == URL
-    audit = next(iter(store.values.values()))
-    assert audit["kind"] == "operator.teams-workflow-binding-reveal"
-    assert audit["actor_id"] == "contributor-1"
-    assert URL not in repr(audit)
+    assert described is not None
+    assert "webhook_url" not in described
+    assert URL not in repr(described)
+    assert described["binding_version"] == "version-1"
+    assert described["observed_at"] == NOW.isoformat()
+    # No save record exists for this version, so no saved_at is claimed.
+    assert "saved_at" not in described
+
+
+async def test_describe_reports_saved_at_only_for_the_recorded_version() -> None:
+    store = MemoryStore()
+    bindings = MemoryBindingStore()
+    tester = TeamsWorkflowDiagnosticTester(
+        store=store,
+        binding_store=bindings,
+        post=_accepting_post(),
+        clock=lambda: NOW,
+    )
+    await tester.save_and_test(
+        TeamsWorkflowTestCommand(
+            actor_id="owner-1",
+            request_id="teams-test-1",
+            webhook_url=URL,
+        )
+    )
+
+    described = await tester.describe_binding(actor_id="owner-1")
+
+    assert described is not None
+    assert described["saved_at"] == NOW.isoformat()
+    assert URL not in repr(store.values)
+
+
+async def test_missing_binding_describes_as_absent() -> None:
+    tester = TeamsWorkflowDiagnosticTester(
+        store=MemoryStore(),
+        binding_store=MemoryBindingStore(),
+        clock=lambda: NOW,
+    )
+
+    assert await tester.describe_binding(actor_id="owner-1") is None
 
 
 async def test_duplicate_completed_request_returns_receipt_without_resend() -> None:

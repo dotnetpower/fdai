@@ -551,12 +551,12 @@ class RecordingTeamsWorkflowTester:
             tested_at=NOW,
         )
 
-    async def reveal_binding(self, *, actor_id: str) -> Mapping[str, object]:
+    async def describe_binding(self, *, actor_id: str) -> Mapping[str, object]:
         self.reveal_actor_id = actor_id
         return {
-            "webhook_url": "https://example.e4.environment.api.powerplatform.com/signed",
             "binding_version": "version-1",
-            "revealed_at": NOW.isoformat(),
+            "observed_at": NOW.isoformat(),
+            "saved_at": NOW.isoformat(),
         }
 
 
@@ -717,7 +717,7 @@ def test_family_owns_exact_route_manifest_without_fdai_implementation_imports() 
         for route in routes
     )
     assert snapshot == tuple((item.method, item.path, item.name) for item in IAM_FAMILY_MANIFEST)
-    assert len(snapshot) == 35
+    assert len(snapshot) == 36
 
     for path in FAMILY_SOURCE.rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -988,7 +988,7 @@ def test_teams_workflow_diagnostic_requires_owner_and_injected_audit_store() -> 
     assert unavailable.status_code == 503
 
 
-def test_contributor_can_reveal_saved_teams_binding_but_reader_cannot() -> None:
+def test_contributor_sees_binding_metadata_without_the_url_and_reader_sees_nothing() -> None:
     tester = RecordingTeamsWorkflowTester()
     contributor = _client(teams_workflow_tester=tester).get(
         "/runtime/integrations/teams-workflow/binding",
@@ -1000,13 +1000,15 @@ def test_contributor_can_reveal_saved_teams_binding_but_reader_cannot() -> None:
     )
 
     assert contributor.status_code == 200
+    # The saved endpoint is password-equivalent: metadata is returned, the URL never is.
     assert contributor.json() == {
         "visible": True,
         "configured": True,
-        "webhook_url": "https://example.e4.environment.api.powerplatform.com/signed",
         "binding_version": "version-1",
-        "revealed_at": NOW.isoformat(),
+        "observed_at": NOW.isoformat(),
+        "saved_at": NOW.isoformat(),
     }
+    assert "webhook_url" not in contributor.text
     assert tester.reveal_actor_id == "contributor-1"
     assert reader.status_code == 200
     assert reader.json() == {"visible": False}

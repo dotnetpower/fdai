@@ -64,6 +64,11 @@ IAM_FAMILY_MANIFEST = (
     IamRouteManifestEntry("POST", "/configuration-baselines/review/resume", "resume_review"),
     IamRouteManifestEntry("POST", "/hil/{approval_id}/decision", "handler"),
     IamRouteManifestEntry("POST", "/hil/teams-activity", "handler"),
+    IamRouteManifestEntry(
+        "POST",
+        "/runtime/integrations/notifications/delivery-receipt",
+        "post_notification_delivery_receipt",
+    ),
 )
 
 

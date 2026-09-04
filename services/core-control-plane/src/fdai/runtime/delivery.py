@@ -7,20 +7,25 @@ import logging
 import os
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import httpx
 
 from fdai.core.executor.direct_api import DirectApiShadowExecutor
 from fdai.core.executor.tool_call import ToolCallShadowExecutor, ToolReceiptObserver
 from fdai.core.notifications.matrix import NotificationMatrix, load_matrix_from_yaml
-from fdai.core.notifications.router import ChannelBinding, ChannelRegistry
+from fdai.core.notifications.router import ChannelRegistry
 from fdai.delivery.direct_api_router import RoutedDirectApiExecutor
 from fdai.runtime.configuration import _resolve_catalog_root
 from fdai.runtime.human_access import build_human_access_direct_api
+from fdai.runtime.notification_registry import (
+    _build_notification_registry as _build_notification_registry,
+)
+from fdai.runtime.notification_registry import (
+    build_notification_delivery_store as build_notification_delivery_store,
+)
 from fdai.shared.providers.direct_api import DirectApiExecutor
 from fdai.shared.providers.idempotency import IdempotencyStore
-from fdai.shared.providers.notifications import NotificationChannel
 from fdai.shared.providers.resource_lock import ResourceLock
 from fdai.shared.providers.testing.direct_api import RecordingDirectApiExecutor
 from fdai.shared.providers.testing.remediation_pr import RecordingRemediationPrPublisher
@@ -579,265 +584,6 @@ def _build_tool_executor(
     )
 
 
-def _build_notification_registry(http_client: httpx.AsyncClient | None) -> Any:
-    """Bind configured send-only notification adapters."""
-    bindings_raw = os.environ.get("FDAI_NOTIFICATION_BINDINGS_JSON", "").strip()
-    if bindings_raw:
-        if http_client is None:
-            raise RuntimeError(
-                "FDAI_NOTIFICATION_BINDINGS_JSON is set but no HTTP client is available"
-            )
-        return _build_named_notification_registry(bindings_raw, http_client)
-
-    registry = ChannelRegistry()
-    from fdai.delivery.notifications import default_notification_bindings_from_env
-
-    implicit_bindings_raw = default_notification_bindings_from_env(os.environ)
-    if implicit_bindings_raw:
-        if http_client is None:
-            raise RuntimeError(
-                "a Teams or Slack notification webhook URL is set but no HTTP client is available"
-            )
-        _LOGGER.info("notification_bindings_defaulted")
-        registry = _build_named_notification_registry(implicit_bindings_raw, http_client)
-
-    endpoint = os.environ.get("FDAI_EMAIL_ENDPOINT", "").strip()
-    if not endpoint:
-        return registry
-    if http_client is None:
-        raise RuntimeError(
-            "FDAI_EMAIL_ENDPOINT is set but no HTTP client is available. "
-            "The composition root MUST create an httpx.AsyncClient before "
-            "building notification channels."
-        )
-
-    sender_address = os.environ.get("FDAI_EMAIL_SENDER_ADDRESS", "").strip()
-    recipients_raw = os.environ.get("FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON", "").strip()
-    identity_client_id = os.environ.get("FDAI_NOTIFICATION_MI_CLIENT_ID", "").strip()
-    if not sender_address or not recipients_raw or not identity_client_id:
-        raise RuntimeError(
-            "FDAI_EMAIL_ENDPOINT requires FDAI_EMAIL_SENDER_ADDRESS, "
-            "FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON, and FDAI_NOTIFICATION_MI_CLIENT_ID"
-        )
-    try:
-        recipients_value = json.loads(recipients_raw)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError("FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON is not valid JSON") from exc
-    if (
-        not isinstance(recipients_value, list)
-        or not recipients_value
-        or not all(isinstance(address, str) and address.strip() for address in recipients_value)
-    ):
-        raise RuntimeError("FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON MUST be a non-empty string array")
-    recipients = tuple(dict.fromkeys(address.strip() for address in recipients_value))
-
-    from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
-    from fdai.delivery.notifications import (
-        AzureCommunicationEmailChannel,
-        AzureCommunicationEmailConfig,
-    )
-
-    identity = ManagedIdentityWorkloadIdentity.from_env(
-        http_client=http_client,
-        client_id_env="FDAI_NOTIFICATION_MI_CLIENT_ID",
-    )
-
-    async def token_provider() -> str:
-        return (await identity.get_token(_ACS_SCOPE)).token
-
-    channels: dict[str, NotificationChannel] = {}
-    for channel_id in ("email-oncall", "email-governance"):
-        channel = AzureCommunicationEmailChannel(
-            config=AzureCommunicationEmailConfig(
-                channel_id=channel_id,
-                endpoint=endpoint,
-                sender_address=sender_address,
-                recipient_addresses=recipients,
-            ),
-            http_client=http_client,
-            token_provider=token_provider,
-        )
-        channels[channel_id] = cast(NotificationChannel, channel)
-    _LOGGER.info(
-        "notification_email_backend",
-        extra={"backend": "acs-email", "channel_count": len(channels)},
-    )
-    bindings = {
-        channel_id: ChannelBinding(
-            channel_id=channel_id,
-            trust_tiers=channel.trust_tiers,
-        )
-        for channel_id, channel in channels.items()
-    }
-    return ChannelRegistry(
-        channels={**registry.channels, **channels},
-        bindings={**registry.bindings, **bindings},
-    )
-
-
-def _build_named_notification_registry(
-    raw: str,
-    http_client: httpx.AsyncClient,
-) -> ChannelRegistry:
-    from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
-    from fdai.delivery.notifications import (
-        AzureCommunicationEmailChannel,
-        AzureCommunicationEmailConfig,
-        NotificationBindingKind,
-        SlackWebhookChannel,
-        SlackWebhookConfig,
-        TeamsWebhookChannel,
-        TeamsWebhookConfig,
-        TeamsWorkflowAuthMode,
-        parse_notification_bindings,
-    )
-
-    try:
-        specs = parse_notification_bindings(raw)
-    except ValueError as exc:
-        raise RuntimeError(str(exc)) from exc
-
-    identities: dict[str, ManagedIdentityWorkloadIdentity] = {}
-
-    def identity_for(env_name: str) -> ManagedIdentityWorkloadIdentity:
-        identity = identities.get(env_name)
-        if identity is None:
-            identity = ManagedIdentityWorkloadIdentity.from_env(
-                http_client=http_client,
-                client_id_env=env_name,
-            )
-            identities[env_name] = identity
-        return identity
-
-    channels: dict[str, NotificationChannel] = {}
-    bindings: dict[str, ChannelBinding] = {}
-    for spec in specs:
-        bindings[spec.channel_id] = ChannelBinding(
-            channel_id=spec.channel_id,
-            enabled=spec.enabled,
-            configured=not spec.enabled,
-            trust_tiers=spec.trust_tiers,
-        )
-        if not spec.enabled:
-            continue
-        if spec.endpoint_env is None:
-            raise RuntimeError(
-                f"enabled notification binding {spec.channel_id!r} has no endpoint reference"
-            )
-        endpoint = _required_notification_env(spec.channel_id, spec.endpoint_env)
-        if spec.kind is NotificationBindingKind.TEAMS_WORKFLOW:
-            auth_mode = spec.auth_mode
-            if auth_mode is None:
-                raise RuntimeError(f"enabled Teams binding {spec.channel_id!r} has no auth mode")
-            token_provider = None
-            if auth_mode is TeamsWorkflowAuthMode.WORKLOAD_IDENTITY:
-                identity = identity_for(spec.identity_client_id_env)
-
-                async def teams_token_provider(
-                    selected: ManagedIdentityWorkloadIdentity = identity,
-                ) -> str:
-                    return (await selected.get_token(_TEAMS_WORKFLOW_SCOPE)).token
-
-                token_provider = teams_token_provider
-            channel: NotificationChannel = cast(
-                NotificationChannel,
-                TeamsWebhookChannel(
-                    config=TeamsWebhookConfig(
-                        channel_id=spec.channel_id,
-                        webhook_url=endpoint,
-                        trust_tiers=spec.trust_tiers,
-                        auth_mode=auth_mode,
-                    ),
-                    http_client=http_client,
-                    token_provider=token_provider,
-                ),
-            )
-        elif spec.kind is NotificationBindingKind.SLACK_WEBHOOK:
-            channel = cast(
-                NotificationChannel,
-                SlackWebhookChannel(
-                    config=SlackWebhookConfig(
-                        channel_id=spec.channel_id,
-                        webhook_url=endpoint,
-                        trust_tiers=spec.trust_tiers,
-                    ),
-                    http_client=http_client,
-                ),
-            )
-        else:
-            if spec.sender_address_env is None or spec.recipient_addresses_env is None:
-                raise RuntimeError(f"enabled email binding {spec.channel_id!r} is incomplete")
-            sender = _required_notification_env(spec.channel_id, spec.sender_address_env)
-            recipients = _notification_recipients(
-                spec.channel_id,
-                _required_notification_env(spec.channel_id, spec.recipient_addresses_env),
-            )
-            identity = identity_for(spec.identity_client_id_env)
-
-            async def email_token_provider(
-                selected: ManagedIdentityWorkloadIdentity = identity,
-            ) -> str:
-                return (await selected.get_token(_ACS_SCOPE)).token
-
-            channel = cast(
-                NotificationChannel,
-                AzureCommunicationEmailChannel(
-                    config=AzureCommunicationEmailConfig(
-                        channel_id=spec.channel_id,
-                        endpoint=endpoint,
-                        sender_address=sender,
-                        recipient_addresses=recipients,
-                        trust_tiers=spec.trust_tiers,
-                    ),
-                    http_client=http_client,
-                    token_provider=email_token_provider,
-                ),
-            )
-        channels[spec.channel_id] = channel
-        bindings[spec.channel_id] = ChannelBinding(
-            channel_id=spec.channel_id,
-            enabled=True,
-            configured=True,
-            trust_tiers=spec.trust_tiers,
-        )
-
-    _LOGGER.info(
-        "notification_bindings",
-        extra={
-            "binding_count": len(bindings),
-            "enabled_count": len(channels),
-        },
-    )
-    return ChannelRegistry(channels=channels, bindings=bindings)
-
-
-def _required_notification_env(channel_id: str, env_name: str) -> str:
-    value = os.environ.get(env_name, "").strip()
-    if not value:
-        raise RuntimeError(
-            f"enabled notification binding {channel_id!r} requires environment variable {env_name}"
-        )
-    return value
-
-
-def _notification_recipients(channel_id: str, raw: str) -> tuple[str, ...]:
-    try:
-        value = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(
-            f"notification binding {channel_id!r} recipient environment value is invalid JSON"
-        ) from exc
-    if (
-        not isinstance(value, list)
-        or not value
-        or not all(isinstance(item, str) and item.strip() for item in value)
-    ):
-        raise RuntimeError(
-            f"notification binding {channel_id!r} recipients MUST be a non-empty string array"
-        )
-    return tuple(dict.fromkeys(item.strip() for item in value))
-
-
 def _validate_incident_notification_route(
     matrix: NotificationMatrix,
     registry: ChannelRegistry,
@@ -872,14 +618,20 @@ def _build_incident_notifier(
     audit_store: Any,
     *,
     http_client: httpx.AsyncClient | None = None,
+    notification_delivery_store: Any = None,
+    endpoint_overrides: Mapping[str, str] | None = None,
 ) -> Any:
-    """Compose durable A2 incident delivery for the control-plane process."""
+    """Compose durable A2 incident delivery for the control-plane process.
+
+    ``notification_delivery_store`` MUST be the same per-channel store the
+    publication-receipt consumer applies observations to; otherwise a receipt
+    could never find the delivery it confirms.
+    """
     from fdai.core.incident import (
         DurableIncidentLifecycleNotifier,
         InMemoryIncidentNotificationDeliveryStore,
         RoutedIncidentLifecycleNotifier,
     )
-    from fdai.core.notifications import InMemoryNotificationDeliveryStore
     from fdai.core.notifications.router import NotificationRouter
     from fdai.delivery.notifications import StateStoreHilEscalationSink
 
@@ -887,23 +639,20 @@ def _build_incident_notifier(
     if dsn:
         from fdai.delivery.persistence import (
             PostgresIncidentNotificationDeliveryStore,
-            PostgresNotificationDeliveryStore,
             PostgresStateStoreConfig,
         )
 
         incident_delivery_store: Any = PostgresIncidentNotificationDeliveryStore(
             config=PostgresStateStoreConfig(dsn=dsn)
         )
-        notification_delivery_store: Any = PostgresNotificationDeliveryStore(
-            config=PostgresStateStoreConfig(dsn=dsn)
-        )
     else:
         incident_delivery_store = InMemoryIncidentNotificationDeliveryStore()
-        notification_delivery_store = InMemoryNotificationDeliveryStore()
+    if notification_delivery_store is None:
+        notification_delivery_store = build_notification_delivery_store()
     matrix = load_matrix_from_yaml(
         _resolve_catalog_root().parent / "config" / "notifications-matrix.yaml"
     )
-    registry = _build_notification_registry(http_client)
+    registry = _build_notification_registry(http_client, endpoint_overrides)
     _validate_incident_notification_route(matrix, registry)
     router = NotificationRouter(
         matrix=matrix,

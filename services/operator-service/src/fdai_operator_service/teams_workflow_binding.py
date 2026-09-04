@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import base64
 import hashlib
 import re
 from collections.abc import Awaitable, Callable, Mapping
@@ -13,8 +12,13 @@ from urllib.parse import quote, urlsplit
 
 import httpx
 from cryptography.fernet import Fernet, InvalidToken
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+from fdai_service_contracts.notification_binding import (
+    LOCAL_TEAMS_BINDING_STATE_KEY,
+    LocalTeamsBindingRecordError,
+    decode_local_binding_record,
+    encode_local_binding_record,
+    local_binding_cipher,
+)
 
 KEY_VAULT_SCOPE = "https://vault.azure.net/.default"
 _API_VERSION = "7.4"
@@ -132,15 +136,14 @@ class LocalEncryptedTeamsWorkflowBindingStore:
         digest = hashlib.sha256(webhook_url.encode("utf-8")).hexdigest()
         ciphertext = cipher.encrypt(webhook_url.encode("utf-8")).decode("ascii")
         await self.store.write_state(
-            "operator-teams-workflow-binding:active",
-            {
-                "kind": "operator.local-encrypted-teams-workflow-binding",
-                "version": version,
-                "endpoint_digest": digest,
-                "ciphertext": ciphertext,
-            },
+            LOCAL_TEAMS_BINDING_STATE_KEY,
+            encode_local_binding_record(
+                version=version,
+                endpoint_digest=digest,
+                ciphertext=ciphertext,
+            ),
         )
-        saved = await self.store.read_state("operator-teams-workflow-binding:active")
+        saved = await self.store.read_state(LOCAL_TEAMS_BINDING_STATE_KEY)
         saved_ciphertext = saved.get("ciphertext") if saved is not None else None
         if (
             saved is None
@@ -168,45 +171,25 @@ class LocalEncryptedTeamsWorkflowBindingStore:
         )
 
     async def load(self) -> LoadedTeamsWorkflowBinding | None:
-        saved = await self.store.read_state("operator-teams-workflow-binding:active")
-        if saved is None:
-            return None
-        version = saved.get("version")
-        digest = saved.get("endpoint_digest")
-        ciphertext = saved.get("ciphertext")
-        if (
-            saved.get("kind") != "operator.local-encrypted-teams-workflow-binding"
-            or not isinstance(version, str)
-            or not isinstance(digest, str)
-            or not isinstance(ciphertext, str)
-        ):
-            raise TeamsWorkflowBindingError("Local Teams Workflow binding is malformed")
+        saved = await self.store.read_state(LOCAL_TEAMS_BINDING_STATE_KEY)
         try:
-            webhook_url = self._cipher().decrypt(ciphertext.encode("ascii")).decode("utf-8")
-        except (InvalidToken, UnicodeDecodeError) as exc:
-            raise TeamsWorkflowBindingError(
-                "Local Teams Workflow binding decryption failed"
-            ) from exc
-        if hashlib.sha256(webhook_url.encode("utf-8")).hexdigest() != digest:
-            raise TeamsWorkflowBindingError("Local Teams Workflow binding digest mismatch")
+            decoded = decode_local_binding_record(saved, key_material=self.key_material)
+        except LocalTeamsBindingRecordError as exc:
+            raise TeamsWorkflowBindingError(str(exc)) from exc
+        if decoded is None:
+            return None
+        webhook_url, version = decoded
         return LoadedTeamsWorkflowBinding(
             webhook_url=webhook_url,
             version=version,
-            endpoint_digest=digest,
+            endpoint_digest=hashlib.sha256(webhook_url.encode("utf-8")).hexdigest(),
         )
 
     def _cipher(self) -> Fernet:
-        if not self.key_material:
-            raise TeamsWorkflowBindingError(
-                "Local Teams Workflow binding key material is unavailable"
-            )
-        derived = HKDF(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=None,
-            info=b"fdai/operator/teams-workflow-binding/v1",
-        ).derive(self.key_material.encode("utf-8"))
-        return Fernet(base64.urlsafe_b64encode(derived))
+        try:
+            return local_binding_cipher(self.key_material)
+        except LocalTeamsBindingRecordError as exc:
+            raise TeamsWorkflowBindingError(str(exc)) from exc
 
 
 @dataclass(frozen=True, slots=True)

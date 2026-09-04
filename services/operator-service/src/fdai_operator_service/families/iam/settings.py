@@ -383,7 +383,7 @@ def make_runtime_settings_routes(
                 kind="binding_unavailable",
             )
         try:
-            binding = await teams_workflow_tester.reveal_binding(actor_id=principal.oid)
+            binding = await teams_workflow_tester.describe_binding(actor_id=principal.oid)
         except TeamsWorkflowBindingUnavailableError as exc:
             return error_response(503, str(exc), kind="binding_unavailable")
         except TeamsWorkflowBindingError as exc:

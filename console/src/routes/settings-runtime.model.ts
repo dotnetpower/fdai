@@ -28,6 +28,10 @@ export interface RuntimeSettingsView {
 
 export interface RuntimeIntegrationView {
   readonly key: string;
+  /** Runtime that owns this integration's prerequisites. */
+  readonly source: "core-control-plane" | "operator-service" | "unspecified";
+  /** False when the projecting runtime could not observe the prerequisites at all. */
+  readonly observed: boolean;
   readonly configured: boolean;
   readonly ready: boolean;
   readonly mode: "disabled" | "enabled" | "shadow" | "enforce";
@@ -138,8 +142,23 @@ function decodeIntegration(value: unknown, index: number): RuntimeIntegrationVie
   if (mode !== "disabled" && mode !== "enabled" && mode !== "shadow" && mode !== "enforce") {
     throw new Error(`${path}.mode is invalid`);
   }
+  const source = item["source"];
+  if (
+    source !== undefined
+    && source !== "core-control-plane"
+    && source !== "operator-service"
+    && source !== "unspecified"
+  ) {
+    throw new Error(`${path}.source is invalid`);
+  }
+  const observed = item["observed"];
+  if (observed !== undefined && typeof observed !== "boolean") {
+    throw new Error(`${path}.observed MUST be a boolean`);
+  }
   return {
     key: nonEmptyString(item["key"], `${path}.key`),
+    source: source ?? "unspecified",
+    observed: observed ?? true,
     configured: boolean(item["configured"], `${path}.configured`),
     ready: boolean(item["ready"], `${path}.ready`),
     mode,

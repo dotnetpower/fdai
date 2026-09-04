@@ -77,6 +77,19 @@ variable "chatops_webhook_secret_id" {
   default     = ""
 }
 
+variable "notification_receipt_secret_id" {
+  description = "Key Vault secret id containing the notification delivery receipt HMAC secret. Empty leaves the receipt ingress fail-closed."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "notification_receipt_topic" {
+  description = "Auxiliary topic the Operator publishes authenticated publication observations to."
+  type        = string
+  default     = "fdai.notifications.delivery-receipts"
+}
+
 variable "command_api_identity_id" {
   description = "Dedicated command-transport UAMI resource id with Event Hubs send/receive only."
   type        = string

@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: b459c0363ceade8c0a6fb7727931f4e67b932c72
+translation_source_sha: a36267f689cc4da5aebdcf2f1764a6d1830bb33f
 translation_revised: 2026-09-04
 ---
 # 프로젝트 구조
@@ -592,6 +592,9 @@ HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서
   composition이 패키지 코드와 리소스를 제공합니다. Core는 선택적 패키지를 import하지 않으며
   패키지 활성화는 사용자 접근 및 액션 승격과 독립적으로 유지됩니다.
 - 서비스 wire 계약은 `packages/service-contracts/src/fdai_service_contracts/`에 있습니다.
+  서비스 간 알림 전달도 같은 경계를 사용합니다. 패키지는 암호화된 로컬 바인딩 레코드 형식과
+  버전이 지정된 게시 증적 스키마를 소유하고, Operator와 Core는 저장소, ingress, 브로커 및 상태
+  전이 구현을 각각 소유합니다.
   `schemas/<contract-id>/<version>.json` 아래의 버전별 JSON 스키마는 불변이므로 새 필드는
   새 추가적 버전으로 배포되며 이전 소비자는 그것을 계속 무시합니다. 저장소가 소유하고
   체크섬으로 고정한 생성기는 호환성 매니페스트의 모든 N/N-1 스키마를 백엔드 서비스 5개용

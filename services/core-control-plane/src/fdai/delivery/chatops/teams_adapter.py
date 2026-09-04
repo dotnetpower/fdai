@@ -1,12 +1,17 @@
 """Teams implementation of :class:`HilChannel` - Adaptive Card + HMAC auth.
 
 Realizes the ChatOps A1 (approval) contract for Microsoft Teams. The
-adapter dispatches a v1.5 Adaptive Card via an Incoming Webhook (P1
-default) and MAY be upgraded to a Bot Framework REST call
-(``POST /v3/conversations/{conv}/activities``) when the caller supplies
-a :class:`WorkloadIdentity`. The Operator callback owns SSO OBO identity
-and decision recording; :meth:`TeamsHilAdapter.poll` remains
+adapter dispatches a v1.5 Adaptive Card to the Bot Framework activity
+endpoint (``POST /v3/conversations/{conv}/activities``) using an injected
+:class:`WorkloadIdentity`. The Operator callback owns SSO OBO identity and
+decision recording; :meth:`TeamsHilAdapter.poll` remains
 :data:`HilDecision.PENDING` because callback delivery is asynchronous.
+
+An outbound-only Teams Workflows webhook is **not** an A1 transport: it
+cannot deliver an ``Action.Execute`` callback or return an authenticated
+approver, so the composition root refuses to build this adapter without a
+configured activity endpoint. The retired shared-secret webhook mode is kept
+only as a fork seam for a non-Teams A1-capable transport.
 
 Design boundaries
 -----------------
@@ -22,8 +27,8 @@ Design boundaries
   it a client backed by :class:`httpx.MockTransport`. Production wires
   a long-lived shared client at the composition root.
 
-Wire contract (P1 - Incoming Webhook)
--------------------------------------
+Wire contract
+-------------
 
 +---------------------------------+----------------------------------------------+
 | Operation                       | HTTP wire                                    |
@@ -128,9 +133,9 @@ class TeamsHilAdapterConfig:
     """
 
     webhook_url: str
-    """Target endpoint. For Incoming Webhook mode this is the channel
-    webhook URL; for Bot Framework mode this is a Bot Framework
-    ``conversations/{id}/activities`` URL."""
+    """Target endpoint. For Teams this is the Bot Framework
+    ``conversations/{id}/activities`` URL. A fork MAY point it at another
+    A1-capable transport that returns an authenticated approver."""
 
     webhook_secret: str | None = None
     """Shared secret used to compute the ``X-FDAI-Signature``
@@ -179,7 +184,7 @@ class TeamsHilAdapter(HilChannel):
             raise ValueError("webhook_url MUST NOT be empty")
         if not config.webhook_url.startswith("https://"):
             # Refuse non-TLS and ambiguous schemes (`http://`, `file://`, etc.)
-            # up front: a Teams / Slack Incoming Webhook is always HTTPS,
+            # up front: an A1 activity endpoint is always HTTPS,
             # and a misconfigured `http://` variant would leak the HMAC
             # signature over the wire. Fail-closed at construction rather
             # than at first send.
@@ -191,7 +196,7 @@ class TeamsHilAdapter(HilChannel):
         if identity is not None and config.webhook_secret is not None:
             raise ValueError(
                 "webhook_secret and WorkloadIdentity are mutually exclusive; "
-                "pick either Incoming Webhook (secret) or Bot Framework (identity)"
+                "pick either a shared-secret fork transport or Bot Framework identity"
             )
         if not config.approval_audience:
             raise ValueError("approval_audience MUST be configured for Teams HIL")
@@ -246,7 +251,7 @@ class TeamsHilAdapter(HilChannel):
         )
 
     async def poll(self, receipt: HilApprovalReceipt) -> HilResponse:
-        # P1 posture - Incoming Webhook / Bot Framework send-only. The
+        # P1 posture - Bot Framework send-only. The
         # webhook callback trigger that surfaces user clicks is a
         # future upgrade. Until then, poll is a no-op that surfaces
         # PENDING so the caller falls back to the persisted HIL queue.
@@ -475,7 +480,7 @@ def _render_adaptive_card(
         "actions": [approve_action, reject_action],
     }
 
-    # Teams Incoming Webhooks expect the card wrapped in an
+    # The Teams activity endpoint expects the card wrapped in an
     # ``attachments`` array with a MessageCard-style envelope.
     return {
         "type": "message",
@@ -531,7 +536,7 @@ def _extract_channel_ref(*, response: httpx.Response, approval_id: str) -> str:
     """Read a channel-side correlation id from the response.
 
     Bot Framework returns the message id in the response body's ``id``
-    field; Incoming Webhooks return an empty 200 body. We fall back to
+    field; a bodiless transport returns an empty 200 body. We fall back to
     a generated ``teams:<uuid>`` when the response is opaque so the
     receipt still carries a unique correlation string.
     """

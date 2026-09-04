@@ -222,6 +222,9 @@ shadow receipt for a representative multi-resource workload. That separate opera
 authorization, provider identity, exact scope, network access, and audit retention.
 Local and deployed profiles use the same pinned crosswalk, bounded read plan, shadow topic, Operator
 consumer group, and PostgreSQL projection; neither profile substitutes provider evidence.
+The shared Operator Kafka adapter may also publish notification-receipt logical records on the same
+physical transport. Topic filtering keeps those records outside the WARA consumer and grants no
+assessment authority.
 
 ## Related docs
 

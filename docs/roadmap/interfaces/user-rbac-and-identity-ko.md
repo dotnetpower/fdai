@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 1f6009a9aa785f608c6aceab4128b6af2d71199b
-translation_revised: 2026-09-01
+translation_source_sha: a5a8d8b2fdea59f6e60fd1cb3e0bf6fd44fe95d8
+translation_revised: 2026-09-04
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -36,7 +36,7 @@ Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.
 | Break-Glass 활성화 요청 경계 | 구현됨 | `services/operator-service/src/fdai_operator_service/families/iam/break_glass.py`; `capabilities.py`; `services/operator-service/tests/test_operator_break_glass_activation.py` | `POST /system/break-glass/activation`은 BreakGlass 전용 `activate-break-glass` 기능과 비어 있지 않은 인시던트 id 및 사유, 한도 안의 미래 오프셋 인식 만료 시각을 요구합니다. 감사 전용 projection만 기록하며 HIL 승인이나 executor identity를 부여하지 않습니다. 영속 활성화 저장소, TTL 적용, 사인인 알림은 배포 작업으로 남습니다. |
 | 사람 승인 콜백 신원 | 구현됨 | `families/iam/hil_callback.py`, `hil_callback_authority.py`, `hil_decision_outbox.py`, `postgres_iam.py`, 집중 콜백, 영속성, Kafka, 워크플로 및 카나리 테스트 | Teams는 구성된 봇에 발급된 API 대상 OBO 토큰, 정확한 공급자-Entra 매핑, 별도로 구성된 그룹 연결 팀과 채널을 요구합니다. Slack은 브라우저 Entra 재인증과 구성된 워크스페이스 및 사용자-Entra OID 매핑을 요구합니다. 콜백 결정은 서명된 콜백 시각을 사용하고 제안 우선 영속화를 복구하며 영속 Operator 보낼 편지함을 통해 게시됩니다. BreakGlass는 기존 전역 기능에서 계속 사용할 수 있지만 사람 승인 권한은 부여하지 않습니다. |
 | 로컬 Browser Entra 세션 복원력 | 구현됨 | `console/src/auth-session.ts`; `console/src/auth.ts`; focused Console 인증 테스트(`10 passed`)와 typecheck | MSAL Browser v4는 loopback origin에서만 암호화된 `localStorage`를 사용하고 배포 origin에서는 `sessionStorage`를 유지합니다. 시작 시, 30분마다, focus, visibility 또는 network 복구 뒤에 하나로 병합된 refresh를 실행합니다. Entra는 여전히 대화형 인증을 요구할 수 있습니다. |
-| 알림 통합 구성 및 진단 | 구현됨 | `teams_workflow_binding.py`; `teams_workflow_diagnostics.py`; `families/iam/{capabilities,settings,manifest}.py`; 집중 바인딩, 진단 및 IAM 기능군 테스트 | Owner는 Teams 엔드포인트를 저장하고 테스트할 수 있습니다. Contributor, Approver 및 Owner는 `no-store` 응답으로 현재 값을 볼 수 있고 Reader와 BreakGlass에는 `visible: false`만 반환합니다. Slack은 일회성 테스트로 유지합니다. 모든 Teams 저장, 테스트 및 reveal 감사 기록에는 URL을 넣지 않습니다. |
+| 알림 통합 구성 및 진단 | 구현됨 | `teams_workflow_binding.py`; `teams_workflow_diagnostics.py`; `families/iam/{capabilities,settings,manifest}.py`; 집중 바인딩, 진단 및 IAM 기능군 테스트 | Owner는 Teams 엔드포인트를 저장하고 테스트할 수 있습니다. Contributor, Approver 및 Owner는 `no-store` 응답으로 시크릿이 없는 바인딩 버전과 시각 메타데이터만 받으며 엔드포인트 값은 브라우저로 반환되지 않습니다. Reader와 BreakGlass에는 `visible: false`만 반환합니다. Slack은 일회성 테스트로 유지합니다. 모든 Teams 저장, 테스트 및 메타데이터 조회 감사 기록에는 URL을 넣지 않습니다. |
 | 사용자별 비용 거버넌스 접근 | 구현됨 | `CostAccessGrant`, `CostDisclosureCeiling`, 비용 거버넌스 Operator 경로 및 집중 테스트 | Reader는 시간 검사와 배포 공개 상한을 적용하기 전에 principal, 목적, scope가 일치하는 최신 grant를 선택합니다. 서버는 직렬화 전에 `hidden`, `aggregate`, `masked` 또는 `detailed` 공개 정책을 적용하며, 권한은 패키지를 활성화하거나 액션을 승격할 수 없습니다. |
 | IAM 관리 진단 및 요청 변환 결과 | implemented | `entra_directory.py`; `families/iam/iam_routes.py`; `postgres_iam.py`; `console/src/routes/settings-iam*`; 집중 Operator, Console 및 Browser 테스트 | Console은 FDAI Owner와 테넌트 관리자를 구분하고, 자격 증명을 사용할 수 있을 때 서버 측 읽기 전용 Graph 디렉터리를 사용하며, 승인이 멤버십을 변경했다고 주장하지 않고 영속 요청 및 검토 제안을 표시합니다. |
 

@@ -100,6 +100,16 @@ output "event_bus_auxiliary_topics" {
   value       = keys(module.event_bus.auxiliary_topic_ids)
 }
 
+output "notification_receipt_secret_id" {
+  description = "Versionless Key Vault secret id used by the Operator notification receipt ingress. Empty when receipt ingress is disabled."
+  value = (
+    var.notification_receipt_secret != ""
+    ? azurerm_key_vault_secret.notification_receipt_secret[0].resource_versionless_id
+    : ""
+  )
+  sensitive = true
+}
+
 output "event_bus_operational_topics" {
   description = "Provisioned canary, canary DLQ, and raw inventory topic names."
   value       = keys(module.event_bus_auxiliary.all_topic_ids)

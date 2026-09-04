@@ -224,11 +224,28 @@ Until the workflow reports back, a `2xx` closes the child at `accepted` only. Co
 `delivered` requires the workflow to call an authenticated FDAI receipt endpoint with the delivery
 id and its publication result. That callback carries no message body and no webhook URL.
 
-The receipt handler accepts only `audit_id`, `channel_id`, `publication_result`, and an optional
-provider message id. It verifies `X-FDAI-Timestamp` plus an HMAC-SHA256 `X-FDAI-Signature`, rejects
-stale or oversized requests, and records either `delivered` or `retryable_failed`. Prepared and
-completed observation audit phases bracket that state change. The callback secret is
-deployment-owned.
+The receipt path crosses a service boundary, so it is split by ownership:
+
+| Stage | Owner | Responsibility |
+|-------|-------|----------------|
+| Public ingress | Operator Service | Verify `X-FDAI-Timestamp` plus HMAC-SHA256 `X-FDAI-Signature`, bound the body, deduplicate, and record the attempt |
+| Broker handoff | Operator Service | Publish one schema-validated `notification-delivery-receipt` envelope |
+| Delivery transition | Core control plane | Apply `delivered` or `retryable_failed` and append the observation audit |
+
+`POST /runtime/integrations/notifications/delivery-receipt` accepts only `audit_id`, `channel_id`,
+`publication_result`, and an optional provider message id. It rejects unsigned, stale, oversized,
+or extra-field bodies, and answers `202` without asserting delivery: acceptance of a report is not
+the report's effect. The callback secret is deployment-owned and never reaches the Console.
+
+The envelope travels on the logical topic `fdai.notifications.delivery-receipts`, multiplexed over
+the existing primary physical topic, and is validated against the packaged
+`notification-delivery-receipt` schema on both sides. Core is the only writer of delivery state: it
+promotes an `accepted` child to `delivered`, returns a reported failure to
+`retryable_failed`, and brackets the change with prepared and completed
+`notification.delivery.observed` audit phases. An observation whose delivery is not `accepted` is
+refused and dead-lettered rather than rewriting a prior routing decision.
+
+**Saving is a diagnostic, not an activation**
 
 Settings > Integrations provides a bounded public-cloud save-and-test flow for setup. An Owner
 can compare the current FDAI identity with a deployment-provided Microsoft 365 account hint, copy
@@ -237,18 +254,33 @@ card. Authentication, MFA, consent, and Team/Channel selection remain explicit u
 Microsoft 365 tenant. A deployment uses a dedicated managed identity that can write only the
 versioned Teams endpoint secret. The local profile uses an encrypted Operator-owned loopback record
 and never writes plaintext to PostgreSQL. FDAI reads the exact saved version back, verifies the URL
-digest, and only then sends the test card. Contributor, Approver, and Owner roles can reload the
-current URL through an authenticated no-store response. Reader and BreakGlass roles receive no
-configuration metadata. Every reveal is audited without recording the URL, and the durable save and
-test record contains only the digest, binding version, actor, request id, provider status, and
-prepared/completed metadata. Key Vault retains the previous secret
-version for rollback. The deployment still decides when the notification runtime references the
-saved binding.
+digest, and only then sends the test card. Key Vault retains the previous secret version for
+rollback.
+
+**A saved and successfully tested endpoint delivers nothing on its own.** The diagnostic proves the
+endpoint exists and accepts a card. Runtime delivery starts only when a deployment activates a
+binding, and the runtime refuses an activated binding whose endpoint is still the seeded
+placeholder.
+
+| Mode | Activation input | Endpoint source |
+|------|------------------|-----------------|
+| Deployed | `enable_teams_notification_delivery` plus the `teams_notification_binding` object | Key Vault secret reference injected into the control plane with read-only authority |
+| Local | `FDAI_TEAMS_NOTIFICATION_ACTIVATION` | The same encrypted Operator-owned record, read through the delivery-side store; no plaintext file or environment copy |
+
+**The saved URL is password-equivalent and is never returned.** The binding read answers with
+metadata only - `visible`, `configured`, `binding_version`, the observation time, and a `saved_at`
+value when a durable Operator save record proves that exact version. Contributor, Approver, and
+Owner roles see that a binding exists; nobody can read it back, and the Console never prefills the
+input. An Owner replaces a binding by submitting a new URL. The durable save and test record
+contains only the digest, binding version, actor, request id, provider status, and
+prepared/completed metadata.
 
 ## 6. Boundaries this design does not cross
 
 - A1 approvals keep the authenticated Teams path. A workflow webhook cannot verify an approver, so
-  it never carries an approval decision.
+  it never carries an approval decision. Binding parsing enforces this: a notification binding of
+  any kind may declare only `a2_operational_alert` or `a4_digest`, and a binding that claims
+  `a1_hil_approval` or `a3_chat_command` fails to load.
 - A3 conversations keep the Operator-owned channel edge described in
   [Production A3 channel runtime](production-a3-channel-runtime.md).
 - Fan-out changes delivery breadth only. It never raises autonomy, relaxes redaction, or lets a
@@ -265,6 +297,8 @@ saved binding.
 | 5 | Teams Workflows adapter with both authentication modes | Schema, size, throttle, and header tests |
 | 6 | Multiple concurrent bindings wired at the composition root | Two Teams rooms plus mail receive one notice |
 | 7 | Delivery callback and `delivered` promotion | Independent observation recorded in audit |
+| 8 | Authenticated Operator ingress plus schema-validated Core consumer | Signed callback converges an `accepted` child to `delivered` through the broker |
+| 9 | Explicit deployed and local activation | An activated binding delivers; a saved-only or placeholder binding does not |
 
 ## Related docs
 

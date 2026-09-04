@@ -524,6 +524,11 @@ codecs, identities, logical topics, and offset groups; neither imports the other
 The same contract exports the canonical physical-topic default used when targeted Terraform state
 has not yet materialized newly declared outputs.
 
+The SDK also owns the `notification-delivery-receipt` wire schema and canonical logical topic.
+Operator authenticates and publishes the observation over the existing multiplexed physical topic;
+Core alone applies it to an already accepted delivery. This contract grants no notification target
+or execution authority.
+
 The SDK also owns the WARA shadow-assessment topic and Operator consumer-group identifiers. Core
 publishes no-authority assessment results through that topic, and the independent Operator service
 validates exact active-control coverage before replacing its read projection. The shared contract

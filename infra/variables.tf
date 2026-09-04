@@ -935,6 +935,19 @@ variable "chatops_webhook_secret" {
   sensitive   = true
 }
 
+variable "notification_receipt_secret" {
+  description = "HMAC secret a publishing automation signs notification delivery receipts with. Empty disables the receipt ingress."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "enable_teams_notification_delivery" {
+  description = "Explicitly activate A2/A4 Teams Workflows delivery in the control plane. Saving or testing an endpoint never activates it."
+  type        = bool
+  default     = false
+}
+
 variable "enable_stewardship_governance" {
   description = "Enable automatic handover draft PR creation and signed GitHub merge audit on the ingestion gateway."
   type        = bool

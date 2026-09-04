@@ -20,6 +20,7 @@ are untrusted), and translates non-2xx into
 """
 
 from .bindings import (
+    NOTIFICATION_TRUST_TIERS,
     NotificationBindingKind,
     NotificationBindingSpec,
     default_notification_bindings_from_env,
@@ -29,9 +30,8 @@ from .email import AzureCommunicationEmailChannel, AzureCommunicationEmailConfig
 from .hil_sink import StateStoreHilEscalationSink
 from .pagerduty import PagerDutyEventsV2Channel, PagerDutyEventsV2Config
 from .receipt import (
-    TeamsWorkflowReceiptConfig,
-    TeamsWorkflowReceiptHandler,
-    compute_receipt_signature,
+    NotificationDeliveryReceiptApplier,
+    NotificationReceiptRejectedError,
 )
 from .slack import SlackWebhookChannel, SlackWebhookConfig
 from .sms import AzureCommunicationSmsChannel, AzureCommunicationSmsConfig
@@ -39,6 +39,7 @@ from .teams import TeamsWebhookChannel, TeamsWebhookConfig, TeamsWorkflowAuthMod
 from .webhook import GenericWebhookChannel, GenericWebhookConfig
 
 __all__ = [
+    "NOTIFICATION_TRUST_TIERS",
     "AzureCommunicationEmailChannel",
     "AzureCommunicationEmailConfig",
     "AzureCommunicationSmsChannel",
@@ -47,6 +48,8 @@ __all__ = [
     "GenericWebhookConfig",
     "NotificationBindingKind",
     "NotificationBindingSpec",
+    "NotificationDeliveryReceiptApplier",
+    "NotificationReceiptRejectedError",
     "PagerDutyEventsV2Channel",
     "PagerDutyEventsV2Config",
     "SlackWebhookChannel",
@@ -55,9 +58,6 @@ __all__ = [
     "TeamsWebhookChannel",
     "TeamsWebhookConfig",
     "TeamsWorkflowAuthMode",
-    "TeamsWorkflowReceiptConfig",
-    "TeamsWorkflowReceiptHandler",
-    "compute_receipt_signature",
     "default_notification_bindings_from_env",
     "parse_notification_bindings",
 ]

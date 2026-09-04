@@ -194,7 +194,14 @@ variable "event_topics" {
     incident_intervention_requests = optional(string, "operator.incident-intervention.requests")
     read_investigation_completions = optional(string, "core.read-investigation.completions")
     hil_decisions                  = optional(string, "fdai.hil.decisions")
+    notification_receipts          = optional(string, "fdai.notifications.delivery-receipts")
   })
+}
+variable "notification_receipt_secret_id" {
+  description = "Platform-owned Key Vault secret id for authenticated notification delivery receipts. Empty leaves the receipt ingress fail-closed."
+  type        = string
+  sensitive   = true
+  default     = ""
 }
 variable "database" {
   description = "Role-scoped Operator database secret reference."

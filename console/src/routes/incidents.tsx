@@ -29,6 +29,7 @@ import {
 import {
   incidentAgentStatus,
   incidentOperationalOverview,
+  type IncidentNotificationEvidence,
   type IncidentOperationalOverview,
 } from "./incidents.overview";
 import { incidentTimelinePresentation } from "./incidents.timeline";
@@ -964,6 +965,7 @@ function IncidentCurrentState({
       {overview.approvalDeliveryUnavailable && overview.phase !== "approval_delivery_unavailable" ? (
         <p class="incident-current-attention">{t("incidents.overview.concurrentApprovalDelivery")}</p>
       ) : null}
+      <NotificationDeliveryEvidence evidence={overview.notificationEvidence} />
       <dl class="incident-current-facts">
         <div><dt>{t("incidents.overview.alertStatus")}</dt><dd>{localized("status", incident.status)}</dd></div>
         <div><dt>{t("incidents.overview.agentStatus")}</dt><dd>{t(`incidents.overview.agentState.${agentStatus}`)}</dd></div>
@@ -1128,6 +1130,63 @@ function statusPill(status: IncidentSummary["status"]): PillKind {
   if (status === "resolved") return "success";
   if (status === "in_progress") return "info";
   return "hil";
+}
+
+/**
+ * Recorded A2 delivery evidence only. Every value comes from the notification
+ * route audit entry or an authenticated publication observation, so an empty
+ * section means the audit recorded nothing rather than that delivery succeeded.
+ */
+function NotificationDeliveryEvidence(
+  { evidence }: { readonly evidence: IncidentNotificationEvidence },
+) {
+  if (
+    evidence.targetChannelIds.length === 0
+    && evidence.excludedChannels.length === 0
+    && evidence.deliveries.length === 0
+  ) return null;
+  return (
+    <section
+      class="incident-notification-evidence"
+      aria-label={t("incidents.overview.notificationEvidenceTitle")}
+    >
+      <h4>{t("incidents.overview.notificationEvidenceTitle")}</h4>
+      <dl>
+        {evidence.targetChannelIds.length > 0 ? (
+          <div>
+            <dt>{t("incidents.overview.notificationTargets")}</dt>
+            <dd>{evidence.targetChannelIds.join(", ")}</dd>
+          </div>
+        ) : null}
+        {evidence.deliveries.length > 0 ? (
+          <div>
+            <dt>{t("incidents.overview.notificationDeliveries")}</dt>
+            <dd>
+              {evidence.deliveries
+                .map((item) => `${item.channelId}: ${item.state}`)
+                .join(", ")}
+            </dd>
+          </div>
+        ) : null}
+        {evidence.excludedChannels.length > 0 ? (
+          <div>
+            <dt>{t("incidents.overview.notificationExclusions")}</dt>
+            <dd>
+              {evidence.excludedChannels
+                .map((item) => `${item.channelId}: ${item.reason}`)
+                .join(", ")}
+            </dd>
+          </div>
+        ) : null}
+        {evidence.observedDeliveredChannelIds.length > 0 ? (
+          <div>
+            <dt>{t("incidents.overview.notificationObserved")}</dt>
+            <dd>{evidence.observedDeliveredChannelIds.join(", ")}</dd>
+          </div>
+        ) : null}
+      </dl>
+    </section>
+  );
 }
 
 function severityPill(severity: string): PillKind {

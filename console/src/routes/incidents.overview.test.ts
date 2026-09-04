@@ -84,6 +84,12 @@ describe("incident operational overview", () => {
     expect(overview).toEqual({
       phase: "notification_failed",
       notificationDeliveryFailed: true,
+      notificationEvidence: {
+        targetChannelIds: [],
+        excludedChannels: [],
+        deliveries: [],
+        observedDeliveredChannelIds: [],
+      },
       approvalDeliveryUnavailable: false,
       userInputRequired: false,
       decisionRecorded: false,
@@ -94,6 +100,152 @@ describe("incident operational overview", () => {
       activityCount: 4,
       blockingReason: null,
     });
+  });
+
+  it("surfaces only recorded A2 target, exclusion, and per-channel delivery evidence", () => {
+    const overview = incidentOperationalOverview(incident(), [
+      audit("notification.route", 1, {
+        outcome: "partially_delivered",
+        trust_tier: "a2_operational_alert",
+        target_channel_ids: ["teams-ops", "email-oncall"],
+        excluded_channels: { "slack-ops": "channel_disabled" },
+        deliveries: [
+          { channel_id: "teams-ops", state: "accepted" },
+          { channel_id: "email-oncall", state: "delivered" },
+        ],
+      }),
+    ]);
+
+    expect(overview.notificationEvidence).toEqual({
+      targetChannelIds: ["teams-ops", "email-oncall"],
+      excludedChannels: [{ channelId: "slack-ops", reason: "channel_disabled" }],
+      deliveries: [
+        { channelId: "teams-ops", state: "accepted" },
+        { channelId: "email-oncall", state: "delivered" },
+      ],
+      observedDeliveredChannelIds: [],
+    });
+  });
+
+  it("ignores an A4 digest route failure when deciding incident attention", () => {
+    const overview = incidentOperationalOverview(incident(), [
+      audit("notification.route", 1, {
+        outcome: "failed",
+        trust_tier: "a4_digest",
+      }),
+    ]);
+
+    expect(overview.notificationDeliveryFailed).toBe(false);
+    expect(overview.phase).toBe("monitoring");
+  });
+
+  it("keeps attention while an accepted channel has no independent observation", () => {
+    const overview = incidentOperationalOverview(incident(), [
+      audit("notification.route", 1, {
+        audit_id: "incident-alert-1",
+        outcome: "failed",
+        trust_tier: "a2_operational_alert",
+        target_channel_ids: ["teams-ops"],
+        deliveries: [{ channel_id: "teams-ops", state: "accepted" }],
+      }),
+      audit("notification.delivery.observed", 2, {
+        audit_id: "incident-alert-1",
+        phase: "prepared",
+        channel_id: "teams-ops",
+        publication_result: "published",
+      }),
+    ]);
+
+    // A prepared phase and a provider 2xx are not authoritative evidence.
+    expect(overview.notificationDeliveryFailed).toBe(true);
+    expect(overview.notificationEvidence.observedDeliveredChannelIds).toEqual([]);
+  });
+
+  it("clears attention only when the observation records a delivered transition", () => {
+    const history = [
+      audit("notification.route", 1, {
+        audit_id: "incident-alert-1",
+        outcome: "failed",
+        trust_tier: "a2_operational_alert",
+        target_channel_ids: ["teams-ops"],
+        deliveries: [{ channel_id: "teams-ops", state: "accepted" }],
+      }),
+      audit("notification.delivery.observed", 2, {
+        audit_id: "incident-alert-1",
+        phase: "completed",
+        channel_id: "teams-ops",
+        publication_result: "failed",
+        delivery_state: "retryable_failed",
+      }),
+    ];
+
+    expect(incidentOperationalOverview(incident(), history).notificationDeliveryFailed).toBe(true);
+
+    const recovered = incidentOperationalOverview(incident(), [
+      ...history,
+      audit("notification.delivery.observed", 3, {
+        audit_id: "incident-alert-1",
+        phase: "completed",
+        channel_id: "teams-ops",
+        publication_result: "published",
+        delivery_state: "delivered",
+      }),
+    ]);
+
+    expect(recovered.notificationDeliveryFailed).toBe(false);
+    expect(recovered.phase).toBe("monitoring");
+    expect(recovered.notificationEvidence.observedDeliveredChannelIds).toEqual(["teams-ops"]);
+  });
+
+  it("does not clear attention when only one of several open channels recovers", () => {
+    const overview = incidentOperationalOverview(incident(), [
+      audit("notification.route", 1, {
+        audit_id: "incident-alert-1",
+        outcome: "failed",
+        trust_tier: "a2_operational_alert",
+        target_channel_ids: ["teams-ops", "email-oncall"],
+        deliveries: [
+          { channel_id: "teams-ops", state: "accepted" },
+          { channel_id: "email-oncall", state: "retryable_failed" },
+        ],
+      }),
+      audit("notification.delivery.observed", 2, {
+        audit_id: "incident-alert-1",
+        phase: "completed",
+        channel_id: "teams-ops",
+        publication_result: "published",
+        delivery_state: "delivered",
+      }),
+    ]);
+
+    expect(overview.notificationDeliveryFailed).toBe(true);
+  });
+
+  it("does not use an earlier route observation to clear a newer failure", () => {
+    const overview = incidentOperationalOverview(incident(), [
+      audit("notification.route", 1, {
+        audit_id: "incident-alert-1",
+        outcome: "failed",
+        trust_tier: "a2_operational_alert",
+        deliveries: [{ channel_id: "teams-ops", state: "accepted" }],
+      }),
+      audit("notification.delivery.observed", 2, {
+        audit_id: "incident-alert-1",
+        phase: "completed",
+        channel_id: "teams-ops",
+        publication_result: "published",
+        delivery_state: "delivered",
+      }),
+      audit("notification.route", 3, {
+        audit_id: "incident-alert-2",
+        outcome: "failed",
+        trust_tier: "a2_operational_alert",
+        deliveries: [{ channel_id: "teams-ops", state: "accepted" }],
+      }),
+    ]);
+
+    expect(overview.notificationDeliveryFailed).toBe(true);
+    expect(overview.notificationEvidence.observedDeliveredChannelIds).toEqual([]);
   });
 
   it("enables RCA views only after an RCA record exists", () => {

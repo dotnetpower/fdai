@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -22,7 +23,10 @@ from fdai.core.incident import (
     link_ticket_receipt,
     open_detected_incident_candidate,
 )
+from fdai.delivery.notifications import NotificationDeliveryReceiptApplier
+from fdai.delivery.notifications.local_binding import resolve_local_notification_endpoints
 from fdai.runtime.delivery import _build_incident_notifier
+from fdai.runtime.notification_registry import build_notification_delivery_store
 from fdai.shared.providers.ontology_instance import OntologyInstanceStore
 from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.tool import ToolCallReceipt, ToolCallRequest
@@ -101,6 +105,9 @@ class IncidentRuntime:
     notification_replay_worker: IncidentNotificationReplayWorker
     open_incident_candidate: OpenIncidentCandidate
     observe_tool_receipt: ObserveToolReceipt
+    notification_receipt_applier: NotificationDeliveryReceiptApplier
+    """Applies authenticated publication observations to the same delivery store
+    the A2 router dispatched through, so `accepted` can converge to `delivered`."""
 
     async def bind_projection(self, store: OntologyInstanceStore) -> None:
         """Project rehydrated incidents before accepting later mutations."""
@@ -127,7 +134,18 @@ async def build_incident_runtime(
     registry = IncidentRegistry(state_store=state_store)
     entries = await state_store.read_incident_transitions()
     registry.rehydrate(entries)
-    notifier = notifier_builder(state_store, http_client=http_client)
+    notification_delivery_store = build_notification_delivery_store()
+    endpoint_overrides = await resolve_local_notification_endpoints(
+        environment=os.environ,
+        state_store=state_store,
+        key_material=os.environ.get("FDAI_STATE_STORE_DSN", "").strip() or None,
+    )
+    notifier = notifier_builder(
+        state_store,
+        http_client=http_client,
+        notification_delivery_store=notification_delivery_store,
+        endpoint_overrides=endpoint_overrides,
+    )
     notification_replay_worker = IncidentNotificationReplayWorker(
         notifier=notifier,
         entries=entries,
@@ -169,6 +187,10 @@ async def build_incident_runtime(
         notification_replay_worker=notification_replay_worker,
         open_incident_candidate=open_incident_candidate,
         observe_tool_receipt=observe_tool_receipt,
+        notification_receipt_applier=NotificationDeliveryReceiptApplier(
+            delivery_store=notification_delivery_store,
+            audit_store=state_store,
+        ),
     )
 
 

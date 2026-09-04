@@ -1043,10 +1043,19 @@
     "subtitle": "Authorized prior turns with source and lineage",
     "query": "Query",
     "mode": "Match",
-    "modes": { "terms": "All terms", "phrase": "Exact phrase", "prefix": "Word prefix" },
+    "modes": {
+      "terms": "All terms",
+      "phrase": "Exact phrase",
+      "prefix": "Word prefix"
+    },
     "channel": "Channel",
     "role": "Role",
-    "roles": { "operator": "Operator", "assistant": "Assistant", "tool": "Tool", "system": "System" },
+    "roles": {
+      "operator": "Operator",
+      "assistant": "Assistant",
+      "tool": "Tool",
+      "system": "System"
+    },
     "session": "Session",
     "incident": "Incident",
     "after": "After",
@@ -1110,39 +1119,39 @@
     "eventId": "Event id",
     "correlation": "Correlation",
     "causation": "Causation",
-    "attempt": "Attempt"
-    ,"planningEyebrow": "Operational planning"
-    ,"planningTitle": "Planning Room"
-    ,"planningBody": "Read-only specialist proposals, constraints, simulations, and selection evidence. Execution remains in the governed pipeline."
-    ,"planningPhases": "Planning phases"
-    ,"planningPlan": "Plan"
-    ,"planningSelection": "Selection"
-    ,"planningHeld": "Held for review"
-    ,"planningReview": "Human approval"
-    ,"planningRequired": "Required"
-    ,"planningNotRequired": "Not required by planning"
-    ,"planningMargin": "Margin"
-    ,"planningCandidates": "Planning candidates"
-    ,"planningCandidate": "Candidate"
-    ,"planningAgents": "Agents"
-    ,"planningAction": "ActionType"
-    ,"planningStatus": "Status"
-    ,"planningEffects": "Expected effects"
-    ,"planningEvidence": "Receipts"
-    ,"planningPending": "Planning phases are recorded, but no terminal plan projection is available yet."
-    ,"investigationEyebrow": "Adaptive causal investigation"
-    ,"investigationTitle": "Investigation Room"
-    ,"investigationBody": "Read-only competing hypotheses, verified observations, and bounded session evidence. Selection never grants execution authority."
-    ,"investigationRunning": "running"
-    ,"investigationIncident": "Incident"
-    ,"investigationRounds": "Rounds"
-    ,"investigationQueries": "Verified queries"
-    ,"investigationCost": "Cost units"
-    ,"investigationRound": "Round {round}"
-    ,"investigationHypotheses": "{count} active hypotheses"
-    ,"investigationNoSelection": "No observation selected"
-    ,"investigationSeparation": "Separated hypothesis pairs: {separated} of {total}"
-    ,"investigationShadow": "Shadow comparison"
+    "attempt": "Attempt",
+    "planningEyebrow": "Operational planning",
+    "planningTitle": "Planning Room",
+    "planningBody": "Read-only specialist proposals, constraints, simulations, and selection evidence. Execution remains in the governed pipeline.",
+    "planningPhases": "Planning phases",
+    "planningPlan": "Plan",
+    "planningSelection": "Selection",
+    "planningHeld": "Held for review",
+    "planningReview": "Human approval",
+    "planningRequired": "Required",
+    "planningNotRequired": "Not required by planning",
+    "planningMargin": "Margin",
+    "planningCandidates": "Planning candidates",
+    "planningCandidate": "Candidate",
+    "planningAgents": "Agents",
+    "planningAction": "ActionType",
+    "planningStatus": "Status",
+    "planningEffects": "Expected effects",
+    "planningEvidence": "Receipts",
+    "planningPending": "Planning phases are recorded, but no terminal plan projection is available yet.",
+    "investigationEyebrow": "Adaptive causal investigation",
+    "investigationTitle": "Investigation Room",
+    "investigationBody": "Read-only competing hypotheses, verified observations, and bounded session evidence. Selection never grants execution authority.",
+    "investigationRunning": "running",
+    "investigationIncident": "Incident",
+    "investigationRounds": "Rounds",
+    "investigationQueries": "Verified queries",
+    "investigationCost": "Cost units",
+    "investigationRound": "Round {round}",
+    "investigationHypotheses": "{count} active hypotheses",
+    "investigationNoSelection": "No observation selected",
+    "investigationSeparation": "Separated hypothesis pairs: {separated} of {total}",
+    "investigationShadow": "Shadow comparison"
   },
   "rca": {
     "subtitle": "Root-cause analysis for one incident, projected read-only from the append-only audit log. An RCA result is an evidence-backed hypothesis, never an authoritative final decision; execution eligibility stays with the safety check (risk gate) and verifier.",
@@ -1208,14 +1217,29 @@
     "notServed": "The effective-scope view is not served by this deployment.",
     "viewPurpose": "Effective monitoring scope (what FDAI observes) and automated-action scope (what an autonomous action may touch) by subscription and resource group, plus the hard RG-scoped executor identity boundary. Read-only; scope changes ship as policy-as-code PRs.",
     "viewHeadline": "{monitoring} monitoring, {action} action scope entries",
-    "axis": {"monitoring": "Monitoring scope", "action": "Automated-action scope"},
+    "axis": {
+      "monitoring": "Monitoring scope",
+      "action": "Automated-action scope"
+    },
     "axisHint": {
       "monitoring": "Which subscriptions and resource groups FDAI observes.",
       "action": "Which subscriptions and resource groups an autonomous (non-approval) action may touch."
     },
-    "column": {"state": "State", "level": "Level", "subscription": "Subscription", "resourceGroup": "Resource group", "axis": "Axis"},
-    "state": {"included": "Included", "excluded": "Excluded"},
-    "level": {"subscription": "Subscription", "resource_group": "Resource group"},
+    "column": {
+      "state": "State",
+      "level": "Level",
+      "subscription": "Subscription",
+      "resourceGroup": "Resource group",
+      "axis": "Axis"
+    },
+    "state": {
+      "included": "Included",
+      "excluded": "Excluded"
+    },
+    "level": {
+      "subscription": "Subscription",
+      "resource_group": "Resource group"
+    },
     "allRgs": "All resource groups",
     "emptyAxis": "No scope entries for this axis.",
     "executor": "Executor identity boundary",
@@ -1251,14 +1275,33 @@
       "title": "Intervene in this incident",
       "close": "Close intervention dialog",
       "actionLabel": "Request type",
-      "action": {"operator_guidance": "Add operator guidance", "close_as_development": "Close as development activity", "create_development_exception": "Create an intake exception", "revoke_development_exception": "Revoke an intake exception"},
-      "help": {"operator_guidance": "Record human context for the accountable agents without changing lifecycle state.", "close_as_development": "Request a legal, audited lifecycle closure. Delivered actions are not cancelled.", "create_development_exception": "Suppress future Incident creation only for this exact target and duration. Findings and audit continue.", "revoke_development_exception": "Restore Incident intake for this exact target. Previously closed Incidents remain closed."},
+      "action": {
+        "operator_guidance": "Add operator guidance",
+        "close_as_development": "Close as development activity",
+        "create_development_exception": "Create an intake exception",
+        "revoke_development_exception": "Revoke an intake exception"
+      },
+      "help": {
+        "operator_guidance": "Record human context for the accountable agents without changing lifecycle state.",
+        "close_as_development": "Request a legal, audited lifecycle closure. Delivered actions are not cancelled.",
+        "create_development_exception": "Suppress future Incident creation only for this exact target and duration. Findings and audit continue.",
+        "revoke_development_exception": "Restore Incident intake for this exact target. Previously closed Incidents remain closed."
+      },
       "durationLabel": "Duration",
-      "duration": {"one_day": "One day", "one_week": "One week", "one_month": "One month", "until_revoked": "Until revoked (Owner only)"},
+      "duration": {
+        "one_day": "One day",
+        "one_week": "One week",
+        "one_month": "One month",
+        "until_revoked": "Until revoked (Owner only)"
+      },
       "exceptionId": "Exception id",
       "comment": "Operator context and justification",
       "commentCount": "{count} of 500 characters",
-      "validation": {"comment": "Enter operator context or a justification.", "commentLength": "The comment must be 500 characters or fewer.", "exceptionId": "Enter the exact exception UUID to revoke."},
+      "validation": {
+        "comment": "Enter operator context or a justification.",
+        "commentLength": "The comment must be 500 characters or fewer.",
+        "exceptionId": "Enter the exact exception UUID to revoke."
+      },
       "reviewBody": "Review the current Incident binding before submitting. A changed state or target will be rejected.",
       "expectedState": "Expected state",
       "authorityNotice": "This request grants no execution authority. Core validates role, state, exact target, idempotency, and lifecycle legality.",
@@ -1271,14 +1314,65 @@
       "submitting": "Submitting...",
       "done": "Done"
     },
-    "filter": {"active": "Active", "resolved": "Resolved", "all": "All", "searchLabel": "Search incidents", "searchPlaceholder": "Subject, rule, resource, or correlation", "search": "Search", "anyVertical": "Any vertical", "anySeverity": "Any severity", "clearScope": "Clear filters"},
-    "column": {"title": "Incident", "severity": "Severity", "status": "Status", "disposition": "Disposition", "vertical": "Vertical", "updated": "Updated"},
-    "status": {"open": "Open", "in_progress": "In progress", "resolved": "Resolved"},
-    "disposition": {"pending": "Pending", "awaiting_hil": "Awaiting approval", "action_delivered": "Action delivered", "no_action": "No action", "failed": "Failed", "rolled_back": "Rolled back", "resolved": "Resolved", "unknown": "Unknown"},
-    "verdict": {"auto": "Automatic response approved", "hil": "Human approval required", "deny": "Response denied", "abstain": "Held for review", "unknown": "No decision recorded"},
-    "modeMeaning": {"shadow": "Observation mode - no changes applied", "enforce": "Enforcement mode - changes may be applied"},
-    "severity": {"critical": "Critical", "high": "High", "medium": "Medium", "low": "Low", "info": "Info", "unknown": "Unknown"},
-    "vertical": {"resilience": "Resilience", "change_safety": "Change Safety", "cost_governance": "Cost Governance", "unknown": "Unknown"},
+    "filter": {
+      "active": "Active",
+      "resolved": "Resolved",
+      "all": "All",
+      "searchLabel": "Search incidents",
+      "searchPlaceholder": "Subject, rule, resource, or correlation",
+      "search": "Search",
+      "anyVertical": "Any vertical",
+      "anySeverity": "Any severity",
+      "clearScope": "Clear filters"
+    },
+    "column": {
+      "title": "Incident",
+      "severity": "Severity",
+      "status": "Status",
+      "disposition": "Disposition",
+      "vertical": "Vertical",
+      "updated": "Updated"
+    },
+    "status": {
+      "open": "Open",
+      "in_progress": "In progress",
+      "resolved": "Resolved"
+    },
+    "disposition": {
+      "pending": "Pending",
+      "awaiting_hil": "Awaiting approval",
+      "action_delivered": "Action delivered",
+      "no_action": "No action",
+      "failed": "Failed",
+      "rolled_back": "Rolled back",
+      "resolved": "Resolved",
+      "unknown": "Unknown"
+    },
+    "verdict": {
+      "auto": "Automatic response approved",
+      "hil": "Human approval required",
+      "deny": "Response denied",
+      "abstain": "Held for review",
+      "unknown": "No decision recorded"
+    },
+    "modeMeaning": {
+      "shadow": "Observation mode - no changes applied",
+      "enforce": "Enforcement mode - changes may be applied"
+    },
+    "severity": {
+      "critical": "Critical",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low",
+      "info": "Info",
+      "unknown": "Unknown"
+    },
+    "vertical": {
+      "resilience": "Resilience",
+      "change_safety": "Change Safety",
+      "cost_governance": "Cost Governance",
+      "unknown": "Unknown"
+    },
     "empty": "No incidents match this filter.",
     "roster": "Incident roster",
     "summary": {
@@ -1291,8 +1385,17 @@
       "loadedScope": "Current loaded roster",
       "boundedScope": "Bounded server cohort"
     },
-    "stage": {"investigate": "Investigate", "approval": "Approval", "respond": "Respond", "verify": "Verify", "aria": "{label}, step {step} of 4"},
-    "handoff": {"title": "Agent response handoff", "count": "{count} accountable contributors"},
+    "stage": {
+      "investigate": "Investigate",
+      "approval": "Approval",
+      "respond": "Respond",
+      "verify": "Verify",
+      "aria": "{label}, step {step} of 4"
+    },
+    "handoff": {
+      "title": "Agent response handoff",
+      "count": "{count} accountable contributors"
+    },
     "titleUnavailable": "Title unavailable",
     "titleSource": "Title source",
     "source": {
@@ -1317,7 +1420,13 @@
       "title": "Investigation milestones",
       "count": "{count} recorded",
       "empty": "No investigation milestones are recorded.",
-      "status": {"initial": "Initial", "progress": "Progress", "issue": "Issue", "success": "Success", "resolved": "Resolved"},
+      "status": {
+        "initial": "Initial",
+        "progress": "Progress",
+        "issue": "Issue",
+        "success": "Success",
+        "resolved": "Resolved"
+      },
       "evidence": "Evidence",
       "moreEvidence": "Additional evidence references are available in Audit.",
       "gaps": "Unavailable evidence",
@@ -1343,7 +1452,13 @@
       "truncatedExcluded": "Bounded at 500 incidents; {excluded} matched incidents not measured",
       "noDrilldown": "No matching incidents in this bounded cohort.",
       "drilldownTruncated": "Showing {shown} of {total} incidents.",
-      "cohort": {"agent_mitigated": "Agent mitigated", "agent_assisted": "Agent assisted", "human_mitigated": "Human mitigated", "pending": "Pending", "integrity_excluded": "Excluded: outcome not independently verified"}
+      "cohort": {
+        "agent_mitigated": "Agent mitigated",
+        "agent_assisted": "Agent assisted",
+        "human_mitigated": "Human mitigated",
+        "pending": "Pending",
+        "integrity_excluded": "Excluded: outcome not independently verified"
+      }
     },
     "loadedCount": "{count} loaded",
     "detail": "Incident detail",
@@ -1362,7 +1477,10 @@
     "statusSource": "Status source",
     "additionalEvidence": "Additional evidence",
     "ownerLabel": "Responsible {kind}",
-    "ownerKind": {"agent": "agent", "service": "service"},
+    "ownerKind": {
+      "agent": "agent",
+      "service": "service"
+    },
     "owner": {
       "notificationDelivery": "Notification delivery",
       "notificationRouter": "Notification router",
@@ -1435,8 +1553,24 @@
     "report": "Open incident RCA dossier",
     "overview": {
       "label": "Current situation",
-      "headline": {"resolved": "Resolved", "notification_failed": "Open - alert delivery failed", "approval_delivery_unavailable": "Open - approval delivery unavailable", "approval_required": "Waiting for human approval", "response_failed": "Open - response failed", "response_in_progress": "Response in progress", "monitoring": "Open - monitoring related signals"},
-      "badge": {"resolved": "Resolved", "notification_failed": "Attention required", "approval_delivery_unavailable": "Approval delivery unavailable", "approval_required": "Approval required", "response_failed": "Response failed", "response_in_progress": "In progress", "monitoring": "Monitoring"},
+      "headline": {
+        "resolved": "Resolved",
+        "notification_failed": "Open - alert delivery failed",
+        "approval_delivery_unavailable": "Open - approval delivery unavailable",
+        "approval_required": "Waiting for human approval",
+        "response_failed": "Open - response failed",
+        "response_in_progress": "Response in progress",
+        "monitoring": "Open - monitoring related signals"
+      },
+      "badge": {
+        "resolved": "Resolved",
+        "notification_failed": "Attention required",
+        "approval_delivery_unavailable": "Approval delivery unavailable",
+        "approval_required": "Approval required",
+        "response_failed": "Response failed",
+        "response_in_progress": "In progress",
+        "monitoring": "Monitoring"
+      },
       "body": {
         "resolved": "The incident lifecycle is resolved. Review the activity history for the recorded outcome and recovery evidence.",
         "notification_failed": "FDAI is still collecting related signals, but no configured operational-alert channel accepted the notification. No remediation decision or action has been recorded.",
@@ -1453,7 +1587,13 @@
       "userInput": "User input",
       "required": "Required",
       "notRequired": "Not required",
-      "agentState": {"completed": "Completed", "blocked": "Blocked", "pending_user_input": "Pending user input", "in_progress": "In progress", "monitoring": "Monitoring"},
+      "agentState": {
+        "completed": "Completed",
+        "blocked": "Blocked",
+        "pending_user_input": "Pending user input",
+        "in_progress": "In progress",
+        "monitoring": "Monitoring"
+      },
       "routingTitle": "Response routing",
       "severity": "Severity",
       "accountableAgents": "Accountable agents",
@@ -1476,7 +1616,12 @@
         "response_failed": "Inspect the failure record and rollback evidence before retrying or choosing a different response.",
         "response_in_progress": "Monitor the latest activity until verification completes or the response is held for review.",
         "monitoring": "Review the technical activity and related signals. Wait for an evidence-backed decision before applying changes."
-      }
+      },
+      "notificationEvidenceTitle": "Recorded A2 delivery evidence",
+      "notificationTargets": "Target channels",
+      "notificationDeliveries": "Per-channel state",
+      "notificationExclusions": "Excluded channels",
+      "notificationObserved": "Independently observed as delivered"
     },
     "evidence": {
       "title": "Available evidence",
@@ -1814,11 +1959,11 @@
       "ready": "Ready",
       "currentSearchModel": "Current search model",
       "unavailableReason": "Unavailable reason",
-        "webSearchToolBlocked": "Managed web search is blocked by the Azure subscription policy.",
-        "webSearchUnauthorized": "The search model identity is not authorized to use managed web search.",
-        "webSearchRateLimited": "Managed web search is temporarily rate limited.",
-        "webSearchNotConfigured": "No verified web-search model capability is configured.",
-        "webSearchProviderUnavailable": "The managed web-search provider did not pass its readiness check.",
+      "webSearchToolBlocked": "Managed web search is blocked by the Azure subscription policy.",
+      "webSearchUnauthorized": "The search model identity is not authorized to use managed web search.",
+      "webSearchRateLimited": "Managed web search is temporarily rate limited.",
+      "webSearchNotConfigured": "No verified web-search model capability is configured.",
+      "webSearchProviderUnavailable": "The managed web-search provider did not pass its readiness check.",
       "saveWebSearch": "Save web search settings",
       "savingWebSearch": "Saving web search settings...",
       "domainRequired": "At least one allowed domain is required while web search is enabled.",
@@ -1915,9 +2060,25 @@
       "enforce": "Enforcement"
     },
     "integrations": {
-      "chatops": {
-        "label": "ChatOps approvals",
-        "hint": "Webhook delivery and optional signed approval callbacks. Values and secrets are never exposed."
+      "teams-a1-approval-send": {
+        "label": "Teams A1 approval delivery",
+        "hint": "Core Bot delivery of approval cards to the configured group-connected team and channel. Teams Workflows webhooks can never carry A1 approvals."
+      },
+      "teams-a1-approval-callback": {
+        "label": "Teams A1 approval callback",
+        "hint": "Operator verification of a returned approval decision. Partial configuration leaves approvals unavailable rather than degraded."
+      },
+      "teams-a2-operational-alert": {
+        "label": "Teams A2 operational alerts",
+        "hint": "Teams Workflows binding activated for outbound operational alerts. Saving or testing a URL does not activate delivery."
+      },
+      "teams-a4-digest": {
+        "label": "Teams A4 digests",
+        "hint": "Teams Workflows binding activated for scheduled digests. Digest rooms never receive A2 paging traffic."
+      },
+      "teams-a3-conversation": {
+        "label": "Teams A3 conversations",
+        "hint": "Operator-owned conversation channel edge. It shares Teams credentials with approvals but keeps a separate blast radius."
       },
       "email": {
         "label": "Email notifications",
@@ -1934,6 +2095,10 @@
       "jira": {
         "label": "Jira incident tickets",
         "hint": "Durable ticket-tool configuration and its current observation or enforcement ceiling."
+      },
+      "human-access": {
+        "label": "Human access review",
+        "hint": "Directory-backed access review configuration. Observation only; it never grants authority."
       }
     },
     "integrationEvidence": "Integration evidence",
@@ -2207,7 +2372,22 @@
         "owner": "Approver capabilities plus group membership, kill-switch, and infrastructure administration.",
         "breakGlass": "Isolated emergency access and kill-switch capabilities; never a normal elevation path."
       }
-    }
+    },
+    "statusNotObserved": "Not observed here",
+    "integrationSource": "Owner runtime: {source}",
+    "integrationSources": {
+      "core-control-plane": "Control plane",
+      "operator-service": "Operator API",
+      "unspecified": "Unspecified"
+    },
+    "groupApprovals": "A1 human approvals",
+    "groupApprovalsHint": "Authenticated, action-bound approval delivery and callback. A notification webhook can never satisfy this path.",
+    "groupNotifications": "A2 alerts and A4 digests",
+    "groupNotificationsHint": "Outbound-only delivery. Saving or testing an endpoint does not activate runtime delivery; a deployment activates a binding explicitly.",
+    "groupConversations": "A3 conversations",
+    "groupConversationsHint": "Bidirectional chat commands owned by the Operator conversation channel edge.",
+    "groupOther": "Other governed integrations",
+    "groupOtherHint": "Change delivery, ticketing, and access review configuration observed by this runtime."
   },
   "accessRequired": {
     "eyebrow": "Access required",
@@ -2265,9 +2445,33 @@
       "prompt": "Report what the evidence for this incident establishes, which evidence is missing, and the next safe read-only step."
     },
     "answerPlan": {
-      "intent": {"definition": "Definition", "why": "Why", "procedure": "Procedure", "comparison": "Comparison", "diagnosis": "Diagnosis", "status": "Status", "list": "List", "summary": "Summary", "proposal": "Proposal", "open_question": "Open question", "greeting": "Greeting"},
-      "detail": {"brief": "Brief", "standard": "Standard", "deep": "Deep"},
-      "format": {"prose": "Prose", "bullets": "Bullets", "numbered_steps": "Numbered steps", "table": "Table", "chart": "Chart", "checklist": "Checklist", "mixed": "Mixed"},
+      "intent": {
+        "definition": "Definition",
+        "why": "Why",
+        "procedure": "Procedure",
+        "comparison": "Comparison",
+        "diagnosis": "Diagnosis",
+        "status": "Status",
+        "list": "List",
+        "summary": "Summary",
+        "proposal": "Proposal",
+        "open_question": "Open question",
+        "greeting": "Greeting"
+      },
+      "detail": {
+        "brief": "Brief",
+        "standard": "Standard",
+        "deep": "Deep"
+      },
+      "format": {
+        "prose": "Prose",
+        "bullets": "Bullets",
+        "numbered_steps": "Numbered steps",
+        "table": "Table",
+        "chart": "Chart",
+        "checklist": "Checklist",
+        "mixed": "Mixed"
+      },
       "preferenceApplied": "Saved preference"
     },
     "answerPlanning": {

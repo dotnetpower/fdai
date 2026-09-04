@@ -262,6 +262,35 @@ async def test_hil_decision_topic_publishes_directly_with_broker_ack(
     }
 
 
+async def test_notification_receipt_topic_is_multiplexed_on_the_physical_topic(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(kafka_module, "AIOKafkaProducer", Producer)
+    bus = OperatorSemanticKafkaBus(
+        config=OperatorSemanticKafkaConfig(
+            bootstrap_servers="example.servicebus.windows.net:9093",
+            physical_topic="fdai.pantheon.objects",
+            notification_receipt_topic="fdai.notifications.delivery-receipts",
+        ),
+        credential=Credential(),  # type: ignore[arg-type]
+    )
+
+    await bus.publish(
+        "fdai.notifications.delivery-receipts",
+        "audit-1",
+        {"schema_version": "1.0.0", "audit_id": "audit-1"},
+    )
+
+    producer = Producer.latest
+    assert producer is not None
+    assert producer.sent[0][0] == "fdai.pantheon.objects"
+    assert json.loads(producer.sent[0][2]) == {
+        LOGICAL_TOPIC_FIELD: "fdai.notifications.delivery-receipts",
+        "audit_id": "audit-1",
+        "schema_version": "1.0.0",
+    }
+
+
 async def test_projection_dlq_and_subscription_require_configured_background_task_topic(  # type: ignore[no-untyped-def]
     monkeypatch,
 ) -> None:

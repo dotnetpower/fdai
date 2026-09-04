@@ -12,6 +12,7 @@ variable "event_topics" {
     incident_intervention_requests = optional(string, "operator.incident-intervention.requests")
     read_investigation_completions = optional(string, "core.read-investigation.completions")
     hil_decisions                  = optional(string, "fdai.hil.decisions")
+    notification_receipts          = optional(string, "fdai.notifications.delivery-receipts")
   })
 }
 variable "database" {
@@ -24,6 +25,11 @@ variable "runtime_env" { type = string }
 variable "auth" { type = object({ tenant_id = string, api_audience = string }) }
 variable "rbac" { type = object({ readers_group_id = string, contributors_group_id = string, approvers_group_id = string, owners_group_id = string, break_glass_group_id = string }) }
 variable "cors_allow_origins" { type = string }
+variable "notification_receipt_secret_id" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
 variable "scaling" { type = object({ min_replicas = number, max_replicas = number, cpu = number, memory = string }) }
 variable "channel_edge" {
   type = object({

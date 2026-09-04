@@ -10,9 +10,24 @@ export type IncidentOperationalPhase =
   | "response_in_progress"
   | "monitoring";
 
+/** One channel's recorded delivery state from the latest A2 route audit. */
+export interface IncidentChannelDelivery {
+  readonly channelId: string;
+  readonly state: string;
+}
+
+/** Recorded A2 delivery evidence, never inferred from provider status alone. */
+export interface IncidentNotificationEvidence {
+  readonly targetChannelIds: readonly string[];
+  readonly excludedChannels: readonly { readonly channelId: string; readonly reason: string }[];
+  readonly deliveries: readonly IncidentChannelDelivery[];
+  readonly observedDeliveredChannelIds: readonly string[];
+}
+
 export interface IncidentOperationalOverview {
   readonly phase: IncidentOperationalPhase;
   readonly notificationDeliveryFailed: boolean;
+  readonly notificationEvidence: IncidentNotificationEvidence;
   readonly approvalDeliveryUnavailable: boolean;
   readonly userInputRequired: boolean;
   readonly decisionRecorded: boolean;
@@ -92,18 +107,44 @@ export function incidentOperationalOverview(
   history: readonly AuditItem[],
 ): IncidentOperationalOverview {
   const actionKinds = history.map((item) => item.action_kind.toLowerCase());
-  const latestNotification = [...history]
+  // Incident attention is an A2 operational-alert concern only. An A4 digest
+  // route or an A1 approval transport failure has its own surface, so they
+  // never turn an incident red here.
+  const notificationHistory = [...history]
     .filter((item) => {
       const kind = item.action_kind.toLowerCase();
-      return kind === "notification.escalation"
-        || kind === "notification.route";
+      if (kind === "notification.escalation") return true;
+      if (kind !== "notification.route") return false;
+      const tier = stringEntry(item, "trust_tier");
+      return tier === "" || tier === "a2_operational_alert";
     })
-    .sort((left, right) => right.seq - left.seq)[0];
+    .sort((left, right) => right.seq - left.seq);
+  const latestNotification = notificationHistory[0];
   const latestNotificationKind = latestNotification?.action_kind.toLowerCase() ?? "";
   const latestNotificationOutcome = stringEntry(latestNotification, "outcome");
-  const notificationFailed = latestNotificationKind === "notification.escalation"
+  const latestRoute = notificationHistory.find(
+    (item) => item.action_kind.toLowerCase() === "notification.route",
+  );
+  const latestRouteAuditId = exactStringEntry(latestRoute, "audit_id");
+  const observedDeliveredChannelIds = observedDeliveredChannels(
+    history,
+    latestRouteAuditId,
+    latestRoute?.seq ?? Number.MAX_SAFE_INTEGER,
+  );
+  const deliveries = channelDeliveries(latestRoute);
+  const failedChannelIds = deliveries
+    .filter((item) => !TERMINAL_DELIVERED_STATES.has(item.state))
+    .map((item) => item.channelId);
+  // A provider 2xx only proves acceptance. Attention clears when the route
+  // itself recorded delivered, or when an independent publication observation
+  // recorded `published` for every channel that was still open.
+  const recoveredByObservation = failedChannelIds.length > 0
+    && failedChannelIds.every((channelId) => observedDeliveredChannelIds.includes(channelId));
+  const notificationFailed = (
+    latestNotificationKind === "notification.escalation"
     || (latestNotificationKind === "notification.route"
-      && ["route_unresolved", "unresolved", "failed"].includes(latestNotificationOutcome));
+      && ["route_unresolved", "unresolved", "failed"].includes(latestNotificationOutcome))
+  ) && !recoveredByObservation;
   const latestApprovalDelivery = [...history]
     .filter((item) => {
       const kind = item.action_kind.toLowerCase();
@@ -150,6 +191,12 @@ export function incidentOperationalOverview(
   return {
     phase,
     notificationDeliveryFailed: notificationFailed,
+    notificationEvidence: {
+      targetChannelIds: stringArrayEntry(latestRoute, "target_channel_ids"),
+      excludedChannels: excludedChannels(latestRoute),
+      deliveries,
+      observedDeliveredChannelIds,
+    },
     approvalDeliveryUnavailable,
     userInputRequired: approvalRequired || approvalDeliveryUnavailable,
     decisionRecorded: incident.verdict !== "unknown",
@@ -160,6 +207,65 @@ export function incidentOperationalOverview(
     activityCount: history.length,
     blockingReason: blockingReason(history),
   };
+}
+
+const TERMINAL_DELIVERED_STATES = new Set(["delivered"]);
+
+/** Channel ids an authenticated publication observation confirmed for the latest route. */
+function observedDeliveredChannels(
+  history: readonly AuditItem[],
+  routeAuditId: string,
+  routeSeq: number,
+): readonly string[] {
+  if (!routeAuditId) return [];
+  const observed = new Map<string, boolean>();
+  for (const item of [...history].sort((left, right) => left.seq - right.seq)) {
+    if (item.action_kind.toLowerCase() !== "notification.delivery.observed") continue;
+    if (item.seq <= routeSeq || exactStringEntry(item, "audit_id") !== routeAuditId) continue;
+    if (stringEntry(item, "phase") !== "completed") continue;
+    const channelId = item.entry["channel_id"];
+    if (typeof channelId !== "string" || !channelId.trim()) continue;
+    observed.set(
+      channelId,
+      stringEntry(item, "publication_result") === "published"
+        && stringEntry(item, "delivery_state") === "delivered",
+    );
+  }
+  return [...observed.entries()]
+    .filter(([, delivered]) => delivered)
+    .map(([channelId]) => channelId);
+}
+
+function channelDeliveries(item: AuditItem | undefined): readonly IncidentChannelDelivery[] {
+  const raw = item?.entry["deliveries"];
+  if (!Array.isArray(raw)) return [];
+  const deliveries: IncidentChannelDelivery[] = [];
+  for (const value of raw) {
+    if (typeof value !== "object" || value === null) continue;
+    const record = value as Record<string, unknown>;
+    const channelId = record["channel_id"];
+    const state = record["state"];
+    if (typeof channelId !== "string" || !channelId.trim()) continue;
+    if (typeof state !== "string" || !state.trim()) continue;
+    deliveries.push({ channelId, state: state.toLowerCase() });
+  }
+  return deliveries;
+}
+
+function excludedChannels(
+  item: AuditItem | undefined,
+): readonly { readonly channelId: string; readonly reason: string }[] {
+  const raw = item?.entry["excluded_channels"];
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return [];
+  return Object.entries(raw as Record<string, unknown>)
+    .filter(([channelId, reason]) => channelId.trim() && typeof reason === "string")
+    .map(([channelId, reason]) => ({ channelId, reason: String(reason) }));
+}
+
+function stringArrayEntry(item: AuditItem | undefined, key: string): readonly string[] {
+  const raw = item?.entry[key];
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((value): value is string => typeof value === "string" && value.trim() !== "");
 }
 
 /** The newest recorded reason a governed response abstained, denied, or failed. */
@@ -185,4 +291,9 @@ function isBlocking(item: AuditItem): boolean {
 function stringEntry(item: AuditItem | undefined, key: string): string {
   const value = item?.entry[key];
   return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function exactStringEntry(item: AuditItem | undefined, key: string): string {
+  const value = item?.entry[key];
+  return typeof value === "string" ? value.trim() : "";
 }

@@ -1,3 +1,17 @@
+locals {
+  teams_notification_enabled      = var.teams_notification_binding.enabled
+  teams_notification_endpoint_env = "FDAI_TEAMS_NOTIFICATION_ENDPOINT"
+  teams_notification_bindings_json = jsonencode({
+    (var.teams_notification_binding.channel_id) = {
+      kind         = "teams_workflow"
+      enabled      = true
+      trust_tiers  = var.teams_notification_binding.trust_tiers
+      auth_mode    = "anyone"
+      endpoint_env = "FDAI_TEAMS_NOTIFICATION_ENDPOINT"
+    }
+  })
+}
+
 module "container_app" {
   source = "../../../_modules/container-app"
 
@@ -24,6 +38,10 @@ module "container_app" {
     name                = "governed-rca-document-dsn"
     identity            = var.identity.resource_id
     key_vault_secret_id = var.governed_rca.document_dsn_secret_id
+    }] : [], local.teams_notification_enabled ? [{
+    name                = "teams-notification-endpoint"
+    identity            = var.identity.resource_id
+    key_vault_secret_id = var.teams_notification_binding.endpoint_secret_id
   }] : [])
   environment = concat([
     { name = "FDAI_STATE_STORE_DSN", secret_name = "database-dsn" },
@@ -56,6 +74,7 @@ module "container_app" {
     { name = "FDAI_EXECUTOR_COMMAND_TOPIC", value = var.event_topics.executor_command },
     { name = "FDAI_EXECUTOR_RECEIPT_TOPIC", value = var.event_topics.executor_receipt },
     { name = "FDAI_HIL_DECISION_TOPIC", value = var.event_topics.hil_decisions },
+    { name = "FDAI_NOTIFICATION_RECEIPT_TOPIC", value = var.event_topics.notification_receipts },
     { name = "FDAI_STAGE_TOPIC", value = var.event_topics.pipeline_stages },
     { name = "FDAI_SEMANTIC_TURN_REQUEST_TOPIC", value = var.event_topics.semantic_requests },
     { name = "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC", value = var.event_topics.semantic_projections },
@@ -66,6 +85,12 @@ module "container_app" {
     { name = "FDAI_HEALTH_PORT", value = tostring(var.health.port) },
     ], var.rca_reader_identity.client_id == "" ? [] : [
     { name = "FDAI_RCA_AZURE_READER_CLIENT_ID", value = var.rca_reader_identity.client_id },
+    ], !local.teams_notification_enabled ? [] : [
+    # A2/A4 delivery activates only through this explicit binding. Saving or
+    # testing an endpoint in the Console never reaches this input, and the
+    # runtime refuses the seeded placeholder value.
+    { name = "FDAI_NOTIFICATION_BINDINGS_JSON", value = local.teams_notification_bindings_json },
+    { name = local.teams_notification_endpoint_env, secret_name = "teams-notification-endpoint" },
     ], var.teams_approval_destination.team_id == "" ? [] : [
     { name = "FDAI_TEAMS_APPROVAL_TEAM_ID", value = var.teams_approval_destination.team_id },
     { name = "FDAI_TEAMS_APPROVAL_CHANNEL_ID", value = var.teams_approval_destination.channel_id },

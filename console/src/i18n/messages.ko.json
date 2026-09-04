@@ -1043,10 +1043,19 @@
     "subtitle": "출처와 계보가 있는 접근 가능한 이전 turn",
     "query": "검색어",
     "mode": "일치 방식",
-    "modes": { "terms": "모든 단어", "phrase": "정확한 구문", "prefix": "단어 접두사" },
+    "modes": {
+      "terms": "모든 단어",
+      "phrase": "정확한 구문",
+      "prefix": "단어 접두사"
+    },
     "channel": "채널",
     "role": "역할",
-    "roles": { "operator": "오퍼레이터", "assistant": "어시스턴트", "tool": "도구", "system": "시스템" },
+    "roles": {
+      "operator": "오퍼레이터",
+      "assistant": "어시스턴트",
+      "tool": "도구",
+      "system": "시스템"
+    },
     "session": "세션",
     "incident": "인시던트",
     "after": "이후",
@@ -1110,39 +1119,39 @@
     "eventId": "이벤트 ID",
     "correlation": "상관관계",
     "causation": "인과관계",
-    "attempt": "시도"
-    ,"planningEyebrow": "운영 계획"
-    ,"planningTitle": "계획 룸"
-    ,"planningBody": "전문 에이전트 제안, 제약 조건, 시뮬레이션, 선택 근거를 읽기 전용으로 표시합니다. 실행은 통제된 파이프라인에 유지됩니다."
-    ,"planningPhases": "계획 단계"
-    ,"planningPlan": "계획"
-    ,"planningSelection": "선택"
-    ,"planningHeld": "검토를 위해 보류"
-    ,"planningReview": "사람 승인"
-    ,"planningRequired": "필요"
-    ,"planningNotRequired": "계획 단계에서 불필요"
-    ,"planningMargin": "차이"
-    ,"planningCandidates": "계획 후보"
-    ,"planningCandidate": "후보"
-    ,"planningAgents": "에이전트"
-    ,"planningAction": "ActionType"
-    ,"planningStatus": "상태"
-    ,"planningEffects": "예상 효과"
-    ,"planningEvidence": "영수증"
-    ,"planningPending": "계획 단계가 기록되었지만 종단 계획 투영은 아직 없습니다."
-    ,"investigationEyebrow": "적응형 인과 조사"
-    ,"investigationTitle": "조사 공간"
-    ,"investigationBody": "경쟁 가설, 검증된 관측, 범위가 제한된 세션 근거를 읽기 전용으로 표시합니다. 선택 결과는 실행 권한을 부여하지 않습니다."
-    ,"investigationRunning": "실행 중"
-    ,"investigationIncident": "인시던트"
-    ,"investigationRounds": "반복"
-    ,"investigationQueries": "검증된 조회"
-    ,"investigationCost": "비용 단위"
-    ,"investigationRound": "{round}번째 반복"
-    ,"investigationHypotheses": "활성 가설 {count}개"
-    ,"investigationNoSelection": "선택된 관측 없음"
-    ,"investigationSeparation": "구분된 가설 쌍: {total}개 중 {separated}개"
-    ,"investigationShadow": "shadow 비교"
+    "attempt": "시도",
+    "planningEyebrow": "운영 계획",
+    "planningTitle": "계획 룸",
+    "planningBody": "전문 에이전트 제안, 제약 조건, 시뮬레이션, 선택 근거를 읽기 전용으로 표시합니다. 실행은 통제된 파이프라인에 유지됩니다.",
+    "planningPhases": "계획 단계",
+    "planningPlan": "계획",
+    "planningSelection": "선택",
+    "planningHeld": "검토를 위해 보류",
+    "planningReview": "사람 승인",
+    "planningRequired": "필요",
+    "planningNotRequired": "계획 단계에서 불필요",
+    "planningMargin": "차이",
+    "planningCandidates": "계획 후보",
+    "planningCandidate": "후보",
+    "planningAgents": "에이전트",
+    "planningAction": "ActionType",
+    "planningStatus": "상태",
+    "planningEffects": "예상 효과",
+    "planningEvidence": "영수증",
+    "planningPending": "계획 단계가 기록되었지만 종단 계획 투영은 아직 없습니다.",
+    "investigationEyebrow": "적응형 인과 조사",
+    "investigationTitle": "조사 공간",
+    "investigationBody": "경쟁 가설, 검증된 관측, 범위가 제한된 세션 근거를 읽기 전용으로 표시합니다. 선택 결과는 실행 권한을 부여하지 않습니다.",
+    "investigationRunning": "실행 중",
+    "investigationIncident": "인시던트",
+    "investigationRounds": "반복",
+    "investigationQueries": "검증된 조회",
+    "investigationCost": "비용 단위",
+    "investigationRound": "{round}번째 반복",
+    "investigationHypotheses": "활성 가설 {count}개",
+    "investigationNoSelection": "선택된 관측 없음",
+    "investigationSeparation": "구분된 가설 쌍: {total}개 중 {separated}개",
+    "investigationShadow": "shadow 비교"
   },
   "rca": {
     "subtitle": "추가 전용 감사 로그에서 읽기 전용으로 투영한 단일 인시던트의 근본 원인 분석입니다. RCA 결과는 근거를 갖춘 가설이며 권위 있는 최종 판정이 아닙니다. 실행 자격은 여전히 안전성 검토(리스크 게이트)와 검증기에 있습니다.",
@@ -1208,14 +1217,29 @@
     "notServed": "이 배포에서는 유효 범위 뷰를 제공하지 않습니다.",
     "viewPurpose": "구독 및 리소스 그룹 단위의 유효 모니터링 범위(FDAI가 관찰하는 것)와 자동 작업 범위(자율 작업이 건드릴 수 있는 것), 그리고 RG 범위 executor 신원 경계입니다. 읽기 전용이며 범위 변경은 policy-as-code PR로 제출됩니다.",
     "viewHeadline": "모니터링 {monitoring}개, 작업 {action}개 범위 항목",
-    "axis": {"monitoring": "모니터링 범위", "action": "자동 작업 범위"},
+    "axis": {
+      "monitoring": "모니터링 범위",
+      "action": "자동 작업 범위"
+    },
     "axisHint": {
       "monitoring": "FDAI가 관찰하는 구독과 리소스 그룹.",
       "action": "자율(비승인) 작업이 건드릴 수 있는 구독과 리소스 그룹."
     },
-    "column": {"state": "상태", "level": "레벨", "subscription": "구독", "resourceGroup": "리소스 그룹", "axis": "축"},
-    "state": {"included": "포함", "excluded": "제외"},
-    "level": {"subscription": "구독", "resource_group": "리소스 그룹"},
+    "column": {
+      "state": "상태",
+      "level": "레벨",
+      "subscription": "구독",
+      "resourceGroup": "리소스 그룹",
+      "axis": "축"
+    },
+    "state": {
+      "included": "포함",
+      "excluded": "제외"
+    },
+    "level": {
+      "subscription": "구독",
+      "resource_group": "리소스 그룹"
+    },
     "allRgs": "모든 리소스 그룹",
     "emptyAxis": "이 축에 대한 범위 항목이 없습니다.",
     "executor": "Executor 신원 경계",
@@ -1251,14 +1275,33 @@
       "title": "이 인시던트에 개입",
       "close": "개입 대화 상자 닫기",
       "actionLabel": "요청 유형",
-      "action": {"operator_guidance": "운영자 지침 추가", "close_as_development": "개발 활동으로 종료", "create_development_exception": "접수 예외 만들기", "revoke_development_exception": "접수 예외 철회"},
-      "help": {"operator_guidance": "수명 주기 상태를 바꾸지 않고 담당 에이전트가 읽을 사람의 맥락을 기록합니다.", "close_as_development": "합법적인 감사 대상 수명 주기 종료를 요청합니다. 이미 전달된 작업은 취소하지 않습니다.", "create_development_exception": "이 정확한 대상과 기간에 대해서만 향후 인시던트 생성을 억제합니다. 발견 사항과 감사는 계속됩니다.", "revoke_development_exception": "이 정확한 대상의 인시던트 접수를 복원합니다. 이전에 종료된 인시던트는 그대로 유지됩니다."},
+      "action": {
+        "operator_guidance": "운영자 지침 추가",
+        "close_as_development": "개발 활동으로 종료",
+        "create_development_exception": "접수 예외 만들기",
+        "revoke_development_exception": "접수 예외 철회"
+      },
+      "help": {
+        "operator_guidance": "수명 주기 상태를 바꾸지 않고 담당 에이전트가 읽을 사람의 맥락을 기록합니다.",
+        "close_as_development": "합법적인 감사 대상 수명 주기 종료를 요청합니다. 이미 전달된 작업은 취소하지 않습니다.",
+        "create_development_exception": "이 정확한 대상과 기간에 대해서만 향후 인시던트 생성을 억제합니다. 발견 사항과 감사는 계속됩니다.",
+        "revoke_development_exception": "이 정확한 대상의 인시던트 접수를 복원합니다. 이전에 종료된 인시던트는 그대로 유지됩니다."
+      },
       "durationLabel": "기간",
-      "duration": {"one_day": "하루", "one_week": "한 주", "one_month": "한 달", "until_revoked": "철회할 때까지(Owner 전용)"},
+      "duration": {
+        "one_day": "하루",
+        "one_week": "한 주",
+        "one_month": "한 달",
+        "until_revoked": "철회할 때까지(Owner 전용)"
+      },
       "exceptionId": "예외 ID",
       "comment": "운영자 맥락 및 근거",
       "commentCount": "500자 중 {count}자",
-      "validation": {"comment": "운영자 맥락 또는 근거를 입력하세요.", "commentLength": "의견은 500자 이하여야 합니다.", "exceptionId": "철회할 정확한 예외 UUID를 입력하세요."},
+      "validation": {
+        "comment": "운영자 맥락 또는 근거를 입력하세요.",
+        "commentLength": "의견은 500자 이하여야 합니다.",
+        "exceptionId": "철회할 정확한 예외 UUID를 입력하세요."
+      },
       "reviewBody": "제출 전에 현재 인시던트 바인딩을 검토하세요. 상태 또는 대상이 바뀌면 요청이 거부됩니다.",
       "expectedState": "예상 상태",
       "authorityNotice": "이 요청은 실행 권한을 부여하지 않습니다. Core가 역할, 상태, 정확한 대상, 멱등성 및 수명 주기 적법성을 검증합니다.",
@@ -1271,14 +1314,65 @@
       "submitting": "제출 중...",
       "done": "완료"
     },
-    "filter": {"active": "활성", "resolved": "해결됨", "all": "전체", "searchLabel": "인시던트 검색", "searchPlaceholder": "대상, 룰, 리소스 또는 상관관계", "search": "검색", "anyVertical": "버티컬 전체", "anySeverity": "심각도 전체", "clearScope": "필터 해제"},
-    "column": {"title": "인시던트", "severity": "심각도", "status": "상태", "disposition": "처분", "vertical": "영역", "updated": "업데이트"},
-    "status": {"open": "열림", "in_progress": "진행 중", "resolved": "해결됨"},
-    "disposition": {"pending": "대기 중", "awaiting_hil": "승인 대기", "action_delivered": "작업 전달됨", "no_action": "작업 없음", "failed": "실패", "rolled_back": "롤백됨", "resolved": "해결됨", "unknown": "알 수 없음"},
-    "verdict": {"auto": "자동 대응 승인됨", "hil": "사람 승인 필요", "deny": "대응 거부됨", "abstain": "검토 대기", "unknown": "기록된 결정 없음"},
-    "modeMeaning": {"shadow": "관찰 모드 - 변경 사항 없음", "enforce": "적용 모드 - 변경 가능"},
-    "severity": {"critical": "심각", "high": "높음", "medium": "중간", "low": "낮음", "info": "정보", "unknown": "알 수 없음"},
-    "vertical": {"resilience": "복원력", "change_safety": "변경 안전", "cost_governance": "비용 거버넌스", "unknown": "알 수 없음"},
+    "filter": {
+      "active": "활성",
+      "resolved": "해결됨",
+      "all": "전체",
+      "searchLabel": "인시던트 검색",
+      "searchPlaceholder": "대상, 룰, 리소스 또는 상관관계",
+      "search": "검색",
+      "anyVertical": "버티컬 전체",
+      "anySeverity": "심각도 전체",
+      "clearScope": "필터 해제"
+    },
+    "column": {
+      "title": "인시던트",
+      "severity": "심각도",
+      "status": "상태",
+      "disposition": "처분",
+      "vertical": "영역",
+      "updated": "업데이트"
+    },
+    "status": {
+      "open": "열림",
+      "in_progress": "진행 중",
+      "resolved": "해결됨"
+    },
+    "disposition": {
+      "pending": "대기 중",
+      "awaiting_hil": "승인 대기",
+      "action_delivered": "작업 전달됨",
+      "no_action": "작업 없음",
+      "failed": "실패",
+      "rolled_back": "롤백됨",
+      "resolved": "해결됨",
+      "unknown": "알 수 없음"
+    },
+    "verdict": {
+      "auto": "자동 대응 승인됨",
+      "hil": "사람 승인 필요",
+      "deny": "대응 거부됨",
+      "abstain": "검토 대기",
+      "unknown": "기록된 결정 없음"
+    },
+    "modeMeaning": {
+      "shadow": "관찰 모드 - 변경 사항 없음",
+      "enforce": "적용 모드 - 변경 가능"
+    },
+    "severity": {
+      "critical": "심각",
+      "high": "높음",
+      "medium": "중간",
+      "low": "낮음",
+      "info": "정보",
+      "unknown": "알 수 없음"
+    },
+    "vertical": {
+      "resilience": "복원력",
+      "change_safety": "변경 안전",
+      "cost_governance": "비용 거버넌스",
+      "unknown": "알 수 없음"
+    },
     "empty": "이 필터에 해당하는 인시던트가 없습니다.",
     "roster": "인시던트 목록",
     "summary": {
@@ -1291,8 +1385,17 @@
       "loadedScope": "현재 불러온 목록",
       "boundedScope": "범위가 제한된 서버 cohort"
     },
-    "stage": {"investigate": "조사", "approval": "승인", "respond": "대응", "verify": "검증", "aria": "{label}, 4단계 중 {step}단계"},
-    "handoff": {"title": "에이전트 대응 인수인계", "count": "책임 기여자 {count}명"},
+    "stage": {
+      "investigate": "조사",
+      "approval": "승인",
+      "respond": "대응",
+      "verify": "검증",
+      "aria": "{label}, 4단계 중 {step}단계"
+    },
+    "handoff": {
+      "title": "에이전트 대응 인수인계",
+      "count": "책임 기여자 {count}명"
+    },
     "titleUnavailable": "제목을 확인할 수 없음",
     "titleSource": "제목 출처",
     "source": {
@@ -1317,7 +1420,13 @@
       "title": "조사 milestone",
       "count": "{count}개 기록됨",
       "empty": "기록된 조사 milestone이 없습니다.",
-      "status": {"initial": "시작", "progress": "진행", "issue": "문제", "success": "성공", "resolved": "해결됨"},
+      "status": {
+        "initial": "시작",
+        "progress": "진행",
+        "issue": "문제",
+        "success": "성공",
+        "resolved": "해결됨"
+      },
       "evidence": "근거",
       "moreEvidence": "추가 근거 참조는 감사에서 확인할 수 있습니다.",
       "gaps": "사용할 수 없는 근거",
@@ -1343,7 +1452,13 @@
       "truncatedExcluded": "인시던트 500건으로 제한됨. 일치한 인시던트 {excluded}건은 측정하지 않았습니다",
       "noDrilldown": "이 제한된 cohort에 일치하는 인시던트가 없습니다.",
       "drilldownTruncated": "인시던트 {total}건 중 {shown}건을 표시합니다.",
-      "cohort": {"agent_mitigated": "에이전트가 완화", "agent_assisted": "에이전트가 지원", "human_mitigated": "사람이 완화", "pending": "대기 중", "integrity_excluded": "제외됨: 결과가 독립적으로 검증되지 않음"}
+      "cohort": {
+        "agent_mitigated": "에이전트가 완화",
+        "agent_assisted": "에이전트가 지원",
+        "human_mitigated": "사람이 완화",
+        "pending": "대기 중",
+        "integrity_excluded": "제외됨: 결과가 독립적으로 검증되지 않음"
+      }
     },
     "loadedCount": "{count}개 불러옴",
     "detail": "인시던트 상세",
@@ -1362,7 +1477,10 @@
     "statusSource": "상태 소스",
     "additionalEvidence": "추가 근거",
     "ownerLabel": "담당 {kind}",
-    "ownerKind": {"agent": "에이전트", "service": "서비스"},
+    "ownerKind": {
+      "agent": "에이전트",
+      "service": "서비스"
+    },
     "owner": {
       "notificationDelivery": "알림 전달 서비스",
       "notificationRouter": "알림 라우터",
@@ -1435,8 +1553,24 @@
     "report": "인시던트 RCA 상세 보고서 열기",
     "overview": {
       "label": "현재 상황",
-      "headline": {"resolved": "해결됨", "notification_failed": "열림 - 알림 전달 실패", "approval_delivery_unavailable": "열림 - 승인 요청 전달 불가", "approval_required": "사람 승인 대기 중", "response_failed": "열림 - 대응 실패", "response_in_progress": "대응 진행 중", "monitoring": "열림 - 관련 신호 모니터링 중"},
-      "badge": {"resolved": "해결됨", "notification_failed": "확인 필요", "approval_delivery_unavailable": "승인 요청 전달 불가", "approval_required": "승인 필요", "response_failed": "대응 실패", "response_in_progress": "진행 중", "monitoring": "모니터링"},
+      "headline": {
+        "resolved": "해결됨",
+        "notification_failed": "열림 - 알림 전달 실패",
+        "approval_delivery_unavailable": "열림 - 승인 요청 전달 불가",
+        "approval_required": "사람 승인 대기 중",
+        "response_failed": "열림 - 대응 실패",
+        "response_in_progress": "대응 진행 중",
+        "monitoring": "열림 - 관련 신호 모니터링 중"
+      },
+      "badge": {
+        "resolved": "해결됨",
+        "notification_failed": "확인 필요",
+        "approval_delivery_unavailable": "승인 요청 전달 불가",
+        "approval_required": "승인 필요",
+        "response_failed": "대응 실패",
+        "response_in_progress": "진행 중",
+        "monitoring": "모니터링"
+      },
       "body": {
         "resolved": "인시던트 수명 주기가 해결 상태입니다. 활동 이력에서 기록된 결과와 복구 근거를 확인하세요.",
         "notification_failed": "FDAI는 관련 신호를 계속 수집하고 있지만 구성된 운영 알림 채널이 알림을 수락하지 않았습니다. 기록된 수정 결정이나 작업은 없습니다.",
@@ -1453,7 +1587,13 @@
       "userInput": "사용자 입력",
       "required": "필요",
       "notRequired": "필요하지 않음",
-      "agentState": {"completed": "완료", "blocked": "차단됨", "pending_user_input": "사용자 입력 대기", "in_progress": "진행 중", "monitoring": "모니터링"},
+      "agentState": {
+        "completed": "완료",
+        "blocked": "차단됨",
+        "pending_user_input": "사용자 입력 대기",
+        "in_progress": "진행 중",
+        "monitoring": "모니터링"
+      },
       "routingTitle": "대응 라우팅",
       "severity": "심각도",
       "accountableAgents": "책임 에이전트",
@@ -1476,7 +1616,12 @@
         "response_failed": "재시도하거나 다른 대응을 선택하기 전에 실패 기록과 롤백 근거를 확인하세요.",
         "response_in_progress": "검증이 완료되거나 대응이 검토 대기로 전환될 때까지 최신 활동을 모니터링하세요.",
         "monitoring": "기술 활동과 관련 신호를 확인하세요. 근거가 있는 결정이 나오기 전에는 변경을 적용하지 마세요."
-      }
+      },
+      "notificationEvidenceTitle": "기록된 A2 전달 증거",
+      "notificationTargets": "대상 채널",
+      "notificationDeliveries": "채널별 상태",
+      "notificationExclusions": "제외된 채널",
+      "notificationObserved": "독립적으로 전달 확인됨"
     },
     "evidence": {
       "title": "사용 가능한 근거",
@@ -1814,11 +1959,11 @@
       "ready": "준비됨",
       "currentSearchModel": "현재 검색 모델",
       "unavailableReason": "사용할 수 없는 이유",
-        "webSearchToolBlocked": "Azure 구독 정책에서 관리형 웹 검색을 차단했습니다.",
-        "webSearchUnauthorized": "검색 모델 ID에 관리형 웹 검색 사용 권한이 없습니다.",
-        "webSearchRateLimited": "관리형 웹 검색에 일시적인 요청 제한이 적용되었습니다.",
-        "webSearchNotConfigured": "검증된 웹 검색 모델 capability가 구성되지 않았습니다.",
-        "webSearchProviderUnavailable": "관리형 웹 검색 provider가 readiness 검사를 통과하지 못했습니다.",
+      "webSearchToolBlocked": "Azure 구독 정책에서 관리형 웹 검색을 차단했습니다.",
+      "webSearchUnauthorized": "검색 모델 ID에 관리형 웹 검색 사용 권한이 없습니다.",
+      "webSearchRateLimited": "관리형 웹 검색에 일시적인 요청 제한이 적용되었습니다.",
+      "webSearchNotConfigured": "검증된 웹 검색 모델 capability가 구성되지 않았습니다.",
+      "webSearchProviderUnavailable": "관리형 웹 검색 provider가 readiness 검사를 통과하지 못했습니다.",
       "saveWebSearch": "웹 검색 설정 저장",
       "savingWebSearch": "웹 검색 설정 저장 중...",
       "domainRequired": "웹 검색이 활성화된 동안에는 허용 도메인이 하나 이상 필요합니다.",
@@ -1915,9 +2060,25 @@
       "enforce": "적용"
     },
     "integrations": {
-      "chatops": {
-        "label": "ChatOps 승인",
-        "hint": "Webhook 전달과 선택적 signed approval callback 상태입니다. 값과 secret은 노출하지 않습니다."
+      "teams-a1-approval-send": {
+        "label": "Teams A1 승인 전송",
+        "hint": "구성된 그룹 연결 팀과 채널로 승인 카드를 보내는 Core Bot 전송입니다. Teams Workflows webhook은 A1 승인을 전달할 수 없습니다."
+      },
+      "teams-a1-approval-callback": {
+        "label": "Teams A1 승인 콜백",
+        "hint": "반환된 승인 결정을 Operator가 검증합니다. 일부만 구성된 상태는 성능 저하가 아니라 승인 사용 불가입니다."
+      },
+      "teams-a2-operational-alert": {
+        "label": "Teams A2 운영 알림",
+        "hint": "아웃바운드 운영 알림용으로 활성화된 Teams Workflows 바인딩입니다. URL 저장이나 테스트는 전달을 활성화하지 않습니다."
+      },
+      "teams-a4-digest": {
+        "label": "Teams A4 다이제스트",
+        "hint": "예약된 다이제스트용으로 활성화된 Teams Workflows 바인딩입니다. 다이제스트 채널은 A2 호출 트래픽을 받지 않습니다."
+      },
+      "teams-a3-conversation": {
+        "label": "Teams A3 대화",
+        "hint": "Operator가 소유한 대화 채널 edge입니다. Teams 자격 증명을 공유하지만 blast radius는 분리됩니다."
       },
       "email": {
         "label": "Email 알림",
@@ -1934,6 +2095,10 @@
       "jira": {
         "label": "Jira 인시던트 티켓",
         "hint": "Durable ticket tool 구성과 현재 observation 또는 enforcement ceiling입니다."
+      },
+      "human-access": {
+        "label": "사람 접근 검토",
+        "hint": "디렉터리 기반 접근 검토 구성입니다. 관찰 전용이며 권한을 부여하지 않습니다."
       }
     },
     "integrationEvidence": "통합 근거",
@@ -2207,7 +2372,22 @@
         "owner": "Approver 기능과 그룹 멤버십, kill-switch 및 인프라 관리 기능을 제공합니다.",
         "breakGlass": "격리된 긴급 액세스 및 kill-switch 기능입니다. 일반 승격 경로로 사용하지 않습니다."
       }
-    }
+    },
+    "statusNotObserved": "여기서 관찰되지 않음",
+    "integrationSource": "소유 런타임: {source}",
+    "integrationSources": {
+      "core-control-plane": "컨트롤 플레인",
+      "operator-service": "Operator API",
+      "unspecified": "미지정"
+    },
+    "groupApprovals": "A1 사람 승인",
+    "groupApprovalsHint": "인증되고 작업에 결합된 승인 전송과 콜백입니다. 알림 webhook은 이 경로를 충족할 수 없습니다.",
+    "groupNotifications": "A2 알림 및 A4 다이제스트",
+    "groupNotificationsHint": "아웃바운드 전용 전달입니다. endpoint 저장이나 테스트는 런타임 전달을 활성화하지 않으며, 배포가 바인딩을 명시적으로 활성화합니다.",
+    "groupConversations": "A3 대화",
+    "groupConversationsHint": "Operator 대화 채널 edge가 소유하는 양방향 채팅 명령입니다.",
+    "groupOther": "기타 거버넌스 통합",
+    "groupOtherHint": "이 런타임이 관찰한 변경 전달, 티켓, 접근 검토 구성입니다."
   },
   "accessRequired": {
     "eyebrow": "액세스 필요",
@@ -2265,9 +2445,33 @@
       "prompt": "이 인시던트의 근거로 확인되는 사실, 빠진 근거, 다음 안전한 읽기 전용 조치를 보고해줘."
     },
     "answerPlan": {
-      "intent": {"definition": "정의", "why": "이유", "procedure": "절차", "comparison": "비교", "diagnosis": "진단", "status": "상태", "list": "목록", "summary": "요약", "proposal": "제안", "open_question": "열린 질문", "greeting": "인사"},
-      "detail": {"brief": "간단히", "standard": "표준", "deep": "상세"},
-      "format": {"prose": "문장", "bullets": "항목", "numbered_steps": "번호 단계", "table": "표", "chart": "차트", "checklist": "체크리스트", "mixed": "혼합"},
+      "intent": {
+        "definition": "정의",
+        "why": "이유",
+        "procedure": "절차",
+        "comparison": "비교",
+        "diagnosis": "진단",
+        "status": "상태",
+        "list": "목록",
+        "summary": "요약",
+        "proposal": "제안",
+        "open_question": "열린 질문",
+        "greeting": "인사"
+      },
+      "detail": {
+        "brief": "간단히",
+        "standard": "표준",
+        "deep": "상세"
+      },
+      "format": {
+        "prose": "문장",
+        "bullets": "항목",
+        "numbered_steps": "번호 단계",
+        "table": "표",
+        "chart": "차트",
+        "checklist": "체크리스트",
+        "mixed": "혼합"
+      },
       "preferenceApplied": "저장된 선호"
     },
     "answerPlanning": {

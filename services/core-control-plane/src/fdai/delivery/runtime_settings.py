@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import math
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -12,6 +11,7 @@ from uuid import uuid4
 
 import psycopg
 
+from fdai.delivery.integration_readiness import integration_projection
 from fdai.shared.providers.state_store import StateStore
 
 _STATE_KEY = "runtime-settings:policy"
@@ -340,83 +340,12 @@ class RuntimeSettingsService:
         }
 
     def _integration_projection(self, effective: Mapping[str, object]) -> list[dict[str, object]]:
-        human_access = self._required_configuration(
-            "human-access",
-            (
-                "FDAI_HUMAN_ACCESS_MI_CLIENT_ID",
-                "FDAI_HUMAN_ACCESS_ROLE_GROUPS_JSON",
-                "FDAI_STATE_STORE_DSN",
-            ),
-            mode="shadow",
-        )
-        if human_access["ready"] and not _valid_human_access_role_groups(
-            self.env.get("FDAI_HUMAN_ACCESS_ROLE_GROUPS_JSON", "")
-        ):
-            human_access = _invalid_configuration("human-access")
-        human_access.update(
-            {
-                "available": human_access["ready"],
-                "enabled": effective["human_access.enabled"],
-                "authority_mode": "shadow",
-            }
-        )
-        email = self._required_configuration(
-            "email",
-            (
-                "FDAI_EMAIL_ENDPOINT",
-                "FDAI_EMAIL_SENDER_ADDRESS",
-                "FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON",
-                "FDAI_NOTIFICATION_MI_CLIENT_ID",
-            ),
-        )
-        if email["ready"] and not _valid_json_string_array(
-            self.env.get("FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON", "")
-        ):
-            email = _invalid_configuration("email")
-        notification_bindings = _notification_bindings_projection(self.env)
-        gitops = self._required_configuration(
-            "gitops",
-            ("FDAI_GITOPS_TOKEN", "FDAI_GITOPS_OWNER", "FDAI_GITOPS_REPO"),
-        )
-        jira = self._required_configuration(
-            "jira",
-            (
-                "FDAI_JIRA_BASE_URL",
-                "FDAI_JIRA_ACCOUNT_EMAIL",
-                "FDAI_JIRA_API_TOKEN_SECRET",
-                "FDAI_JIRA_TOOL_MAP_JSON",
-                "FDAI_STATE_STORE_DSN",
-            ),
-            mode="enforce" if self.env.get("FDAI_JIRA_ENFORCE", "").strip() == "1" else "shadow",
-        )
-        if jira["ready"] and not _valid_json_string_map(
-            self.env.get("FDAI_JIRA_TOOL_MAP_JSON", "")
-        ):
-            jira = _invalid_configuration("jira")
-        chatops_keys = (
-            "FDAI_CHATOPS_WEBHOOK_URL",
-            "FDAI_CHATOPS_WEBHOOK_SECRET",
-            "FDAI_CHATOPS_APPROVE_CALLBACK_URL",
-            "FDAI_CHATOPS_REJECT_CALLBACK_URL",
-        )
-        chatops_values = tuple(bool(self.env.get(key, "").strip()) for key in chatops_keys)
-        callback_values = chatops_values[1:]
-        chatops_configured = any(chatops_values)
-        chatops_ready = chatops_values[0] and (not any(callback_values) or all(callback_values))
-        chatops = {
-            "key": "chatops",
-            "configured": chatops_configured,
-            "ready": chatops_ready,
-            "mode": "enabled" if chatops_ready else "disabled",
-            "reason": (
-                None
-                if chatops_ready
-                else "configuration is incomplete"
-                if chatops_configured
-                else "not configured"
-            ),
-        }
-        return [chatops, notification_bindings, email, gitops, jira, human_access]
+        """Project source-attributed integration rows for this runtime only."""
+        rows = integration_projection(self.env)
+        for row in rows:
+            if row["key"] == "human-access":
+                row["enabled"] = effective["human_access.enabled"]
+        return rows
 
     def _runtime_projection(self) -> dict[str, object]:
         runtime_env = self.env.get("RUNTIME_ENV", "").strip().lower()
@@ -446,26 +375,6 @@ class RuntimeSettingsService:
                     "FDAI_CASE_HISTORY_CONTAINER_URL",
                     "FDAI_CASE_HISTORY_MI_CLIENT_ID",
                 )
-            ),
-        }
-
-    def _required_configuration(
-        self,
-        key: str,
-        required: tuple[str, ...],
-        *,
-        mode: str = "enabled",
-    ) -> dict[str, object]:
-        present = tuple(bool(self.env.get(name, "").strip()) for name in required)
-        configured = any(present)
-        ready = all(present)
-        return {
-            "key": key,
-            "configured": configured,
-            "ready": ready,
-            "mode": mode if ready else "disabled",
-            "reason": (
-                None if ready else "configuration is incomplete" if configured else "not configured"
             ),
         }
 
@@ -625,114 +534,6 @@ def _optional_stored_string(record: Mapping[str, Any], key: str) -> str | None:
     if not isinstance(value, str) or not value:
         raise RuntimeSettingsUnavailableError("stored runtime settings are invalid")
     return value
-
-
-def _valid_json_string_array(raw: str) -> bool:
-    try:
-        value = json.loads(raw)
-    except json.JSONDecodeError:
-        return False
-    return (
-        isinstance(value, list)
-        and bool(value)
-        and all(isinstance(item, str) and bool(item) for item in value)
-    )
-
-
-def _valid_json_string_map(raw: str) -> bool:
-    try:
-        value = json.loads(raw)
-    except json.JSONDecodeError:
-        return False
-    return (
-        isinstance(value, dict)
-        and bool(value)
-        and all(
-            isinstance(key, str) and bool(key) and isinstance(item, str) and bool(item)
-            for key, item in value.items()
-        )
-    )
-
-
-def _notification_bindings_projection(env: Mapping[str, str]) -> dict[str, object]:
-    from fdai.delivery.notifications import default_notification_bindings_from_env
-
-    raw = env.get(
-        "FDAI_NOTIFICATION_BINDINGS_JSON", ""
-    ).strip() or default_notification_bindings_from_env(env)
-    if not raw:
-        return {
-            "key": "notification-bindings",
-            "configured": False,
-            "ready": False,
-            "mode": "disabled",
-            "reason": "not configured",
-            "binding_count": 0,
-            "enabled_count": 0,
-        }
-    try:
-        from fdai.delivery.notifications import (
-            NotificationBindingKind,
-            TeamsWorkflowAuthMode,
-            parse_notification_bindings,
-        )
-
-        specs = parse_notification_bindings(raw)
-        enabled = tuple(spec for spec in specs if spec.enabled)
-        for spec in enabled:
-            required_env_names = [spec.endpoint_env]
-            if spec.kind is NotificationBindingKind.ACS_EMAIL:
-                required_env_names.extend((spec.sender_address_env, spec.recipient_addresses_env))
-            if (
-                spec.kind is NotificationBindingKind.ACS_EMAIL
-                or spec.auth_mode is TeamsWorkflowAuthMode.WORKLOAD_IDENTITY
-            ):
-                required_env_names.append(spec.identity_client_id_env)
-            if any(name is None or not env.get(name, "").strip() for name in required_env_names):
-                raise ValueError("enabled notification binding environment is incomplete")
-            if (
-                spec.kind is NotificationBindingKind.ACS_EMAIL
-                and spec.recipient_addresses_env is not None
-                and not _valid_json_string_array(env[spec.recipient_addresses_env])
-            ):
-                raise ValueError("notification binding recipients are invalid")
-    except ValueError:
-        projection = _invalid_configuration("notification-bindings")
-        projection.update({"binding_count": 0, "enabled_count": 0})
-        return projection
-    return {
-        "key": "notification-bindings",
-        "configured": True,
-        "ready": True,
-        "mode": "enabled",
-        "reason": None,
-        "binding_count": len(specs),
-        "enabled_count": len(enabled),
-    }
-
-
-def _invalid_configuration(key: str) -> dict[str, object]:
-    return {
-        "key": key,
-        "configured": True,
-        "ready": False,
-        "mode": "disabled",
-        "reason": "configuration is invalid",
-    }
-
-
-def _valid_human_access_role_groups(raw: str) -> bool:
-    try:
-        value = json.loads(raw)
-    except json.JSONDecodeError:
-        return False
-    expected = {"Reader", "Contributor", "Approver", "Owner"}
-    if not isinstance(value, dict) or set(value) != expected:
-        return False
-    group_ids = tuple(value.values())
-    return all(isinstance(item, str) and bool(item.strip()) for item in group_ids) and len(
-        set(group_ids)
-    ) == len(group_ids)
 
 
 __all__ = [

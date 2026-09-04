@@ -1,7 +1,7 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: 42ff1016db622db104a18821ad5aa3698136989c
+translation_source_sha: 82b6b569a48ef3c06d249b57fbbfe6b3b31ccd68
 translation_revised: 2026-09-04
 ---
 # WARA 근거 기반 평가
@@ -219,6 +219,8 @@ Sender 권한을 가집니다. Terraform은 실행 slot과 일치하는 매시�
 명시적 권한, 공급자 ID, 정확한 범위, 네트워크 접근, 감사 보존이 필요합니다.
 로컬과 배포 프로필은 같은 고정 교차워크, 범위가 제한된 읽기 계획, shadow 토픽, Operator
 소비자 그룹 및 PostgreSQL 변환 결과를 사용하며 어떤 프로필도 프로바이더 근거를 대체하지 않습니다.
+공유 Operator Kafka 어댑터는 같은 물리 전송 계층에 알림 증적 논리 레코드도 게시할 수 있습니다.
+토픽 필터링은 해당 레코드를 WARA 소비자에서 분리하며 평가 권한을 부여하지 않습니다.
 
 ## 관련 문서
 

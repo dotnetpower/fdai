@@ -12,6 +12,10 @@ module "container_app" {
     name                = "database-dsn"
     identity            = var.identity.runtime_resource_id
     key_vault_secret_id = var.database.dsn_secret_id
+    }], var.notification_receipt_secret_id == "" ? [] : [{
+    name                = "notification-receipt-secret"
+    identity            = var.identity.runtime_resource_id
+    key_vault_secret_id = var.notification_receipt_secret_id
     }], var.hil_callback.enabled ? concat([{
       name                = "hil-callback-signing-secret"
       identity            = var.identity.runtime_resource_id
@@ -44,6 +48,7 @@ module "container_app" {
     { name = "FDAI_READ_INVESTIGATION_COMPLETION_TOPIC", value = var.event_topics.read_investigation_completions },
     { name = "FDAI_READ_INVESTIGATION_COMPLETION_CONSUMER_GROUP_ID", value = "operator-read-investigation-completion-v1" },
     { name = "FDAI_HIL_DECISION_TOPIC", value = var.event_topics.hil_decisions },
+    { name = "FDAI_NOTIFICATION_RECEIPT_TOPIC", value = var.event_topics.notification_receipts },
     { name = "FDAI_ENTRA_TENANT_ID", value = var.auth.tenant_id },
     { name = "FDAI_API_AUDIENCE", value = var.auth.api_audience },
     { name = "FDAI_RBAC_READERS_GROUP_ID", value = var.rbac.readers_group_id },
@@ -53,6 +58,8 @@ module "container_app" {
     { name = "FDAI_RBAC_BREAK_GLASS_GROUP_ID", value = var.rbac.break_glass_group_id },
     { name = "FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS", value = var.cors_allow_origins },
     { name = "FDAI_OPERATOR_SERVICE_PORT", value = tostring(var.health.port) },
+    ], var.notification_receipt_secret_id == "" ? [] : [
+    { name = "FDAI_NOTIFICATION_RECEIPT_SECRET", secret_name = "notification-receipt-secret" },
     ], var.hil_callback.enabled ? concat([
       { name = "FDAI_CHATOPS_WEBHOOK_SECRET", secret_name = "hil-callback-signing-secret" },
       ], var.hil_callback.teams_application_id != "" ? [

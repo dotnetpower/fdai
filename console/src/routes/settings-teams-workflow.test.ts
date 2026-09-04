@@ -10,20 +10,60 @@ describe("Teams Workflow binding view", () => {
     expect(decodeTeamsWorkflowBindingView({ visible: false })).toEqual({ visible: false });
   });
 
-  test("decodes a Contributor-visible saved URL", () => {
+  test("decodes secret-free saved-binding metadata", () => {
     expect(decodeTeamsWorkflowBindingView({
       visible: true,
       configured: true,
-      webhook_url: "https://example.environment.api.powerplatform.com/signed",
       binding_version: "version-1",
-      revealed_at: "2026-09-01T04:00:00Z",
+      observed_at: "2026-09-01T04:00:00Z",
+      saved_at: "2026-09-01T03:00:00Z",
     })).toEqual({
       visible: true,
       configured: true,
-      webhookUrl: "https://example.environment.api.powerplatform.com/signed",
       bindingVersion: "version-1",
-      revealedAt: "2026-09-01T04:00:00Z",
+      observedAt: "2026-09-01T04:00:00Z",
+      savedAt: "2026-09-01T03:00:00Z",
     });
+  });
+
+  test("treats a missing save record as unknown rather than fabricating a time", () => {
+    expect(decodeTeamsWorkflowBindingView({
+      visible: true,
+      configured: true,
+      binding_version: "version-1",
+      observed_at: "2026-09-01T04:00:00Z",
+    })).toEqual({
+      visible: true,
+      configured: true,
+      bindingVersion: "version-1",
+      observedAt: "2026-09-01T04:00:00Z",
+      savedAt: null,
+    });
+  });
+
+  test("refuses a response that returns the saved endpoint value", () => {
+    expect(() => decodeTeamsWorkflowBindingView({
+      visible: true,
+      configured: true,
+      binding_version: "version-1",
+      observed_at: "2026-09-01T04:00:00Z",
+      webhook_url: "https://example.environment.api.powerplatform.com/signed",
+    })).toThrow("MUST NOT return the saved endpoint value");
+  });
+
+  test("reports an unconfigured binding without metadata", () => {
+    expect(decodeTeamsWorkflowBindingView({ visible: true, configured: false })).toEqual({
+      visible: true,
+      configured: false,
+    });
+  });
+
+  test.each([
+    { visible: true, configured: true, binding_version: "", observed_at: "2026-09-01T04:00:00Z" },
+    { visible: true, configured: true, binding_version: "v", observed_at: "not-a-time" },
+    { visible: true, configured: true, binding_version: "v" },
+  ])("rejects malformed binding metadata %#", (value) => {
+    expect(() => decodeTeamsWorkflowBindingView(value)).toThrow();
   });
 });
 

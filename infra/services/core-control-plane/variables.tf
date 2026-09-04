@@ -72,7 +72,34 @@ variable "event_topics" {
     semantic_physical              = optional(string, "fdai.pantheon.objects")
     read_investigation_requests    = optional(string, "operator.read-investigation.requests")
     incident_intervention_requests = optional(string, "operator.incident-intervention.requests")
+    notification_receipts          = optional(string, "fdai.notifications.delivery-receipts")
   })
+}
+
+variable "teams_notification_binding" {
+  description = "Explicit A2/A4 Teams Workflows activation. Saving an endpoint never activates delivery; this input does."
+  type = object({
+    enabled            = optional(bool, false)
+    channel_id         = optional(string, "teams-ops")
+    trust_tiers        = optional(list(string), ["a2_operational_alert"])
+    endpoint_secret_id = optional(string, "")
+  })
+  default = {}
+  validation {
+    condition = !var.teams_notification_binding.enabled || (
+      trimspace(var.teams_notification_binding.channel_id) != "" &&
+      trimspace(var.teams_notification_binding.endpoint_secret_id) != "" &&
+      length(var.teams_notification_binding.trust_tiers) > 0
+    )
+    error_message = "An activated Teams notification binding requires a channel id, an endpoint secret id, and at least one trust tier."
+  }
+  validation {
+    condition = length(setsubtract(
+      toset(var.teams_notification_binding.trust_tiers),
+      toset(["a2_operational_alert", "a4_digest"]),
+    )) == 0
+    error_message = "A Teams Workflows notification binding may only carry a2_operational_alert or a4_digest; A1 approvals require the authenticated Bot path."
+  }
 }
 
 variable "teams_approval_destination" {

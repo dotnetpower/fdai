@@ -628,6 +628,7 @@ def _build_semantic_bus(environment: OperatorEnvironment) -> OperatorSemanticKaf
             background_task_projection_topic=environment.background_task_projection_topic,
             event_topic=environment.values.get("KAFKA_TOPIC_EVENTS", "").strip() or None,
             hil_decision_topic=environment.hil_decision_topic,
+            notification_receipt_topic=environment.notification_receipt_topic,
             physical_topic=environment.semantic_physical_topic,
             client_id=environment.semantic_kafka_client_id,
         ),

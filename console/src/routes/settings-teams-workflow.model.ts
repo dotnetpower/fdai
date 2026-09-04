@@ -9,16 +9,30 @@ export interface TeamsWorkflowTestResult {
   readonly testedAt: string;
 }
 
+/**
+ * Secret-free saved-binding metadata.
+ *
+ * The saved Teams Workflows URL is password-equivalent. The Operator API never
+ * returns it, so the Console never receives, prefills, stores, or renders it.
+ * An Owner replaces a saved binding by submitting a new URL.
+ */
 export type TeamsWorkflowBindingView =
   | { readonly visible: false }
   | { readonly visible: true; readonly configured: false }
   | {
       readonly visible: true;
       readonly configured: true;
-      readonly webhookUrl: string;
       readonly bindingVersion: string;
-      readonly revealedAt: string;
+      readonly observedAt: string;
+      readonly savedAt: string | null;
     };
+
+/** Secret-free saved-binding facts the setup panel renders. */
+export interface TeamsWorkflowSavedBinding {
+  readonly bindingVersion: string;
+  readonly savedAt: string | null;
+  readonly observedAt: string;
+}
 
 export function decodeTeamsWorkflowBindingView(value: unknown): TeamsWorkflowBindingView {
   const item = record(value, "Teams Workflow binding");
@@ -30,22 +44,21 @@ export function decodeTeamsWorkflowBindingView(value: unknown): TeamsWorkflowBin
   if (item["configured"] !== true) {
     throw new Error("Teams Workflow binding.configured MUST be a boolean");
   }
-  const revealedAt = nonEmptyString(
-    item["revealed_at"],
-    "Teams Workflow binding.revealed_at",
-  );
-  if (Number.isNaN(Date.parse(revealedAt))) {
-    throw new Error("Teams Workflow binding.revealed_at MUST be an ISO timestamp");
+  if ("webhook_url" in item) {
+    throw new Error("Teams Workflow binding MUST NOT return the saved endpoint value");
   }
   return {
     visible: true,
     configured: true,
-    webhookUrl: nonEmptyString(item["webhook_url"], "Teams Workflow binding.webhook_url"),
     bindingVersion: nonEmptyString(
       item["binding_version"],
       "Teams Workflow binding.binding_version",
     ),
-    revealedAt,
+    observedAt: isoTimestamp(item["observed_at"], "Teams Workflow binding.observed_at"),
+    savedAt:
+      item["saved_at"] === undefined || item["saved_at"] === null
+        ? null
+        : isoTimestamp(item["saved_at"], "Teams Workflow binding.saved_at"),
   };
 }
 
@@ -110,6 +123,14 @@ function nonEmptyString(value: unknown, path: string): string {
 function nullableString(value: unknown, path: string): string | null {
   if (value === null) return null;
   return nonEmptyString(value, path);
+}
+
+function isoTimestamp(value: unknown, path: string): string {
+  const text = nonEmptyString(value, path);
+  if (Number.isNaN(Date.parse(text))) {
+    throw new Error(`${path} MUST be an ISO timestamp`);
+  }
+  return text;
 }
 
 function integer(value: unknown, path: string): number {

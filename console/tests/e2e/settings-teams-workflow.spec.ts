@@ -7,11 +7,49 @@ const runtimeSettings = {
   updated_by: null,
   integrations: [
     {
+      key: "teams-a1-approval-send",
+      source: "core-control-plane",
+      observed: true,
+      configured: false,
+      ready: false,
+      mode: "disabled",
+      reason: "not configured",
+    },
+    {
+      key: "teams-a1-approval-callback",
+      source: "operator-service",
+      observed: false,
+      configured: false,
+      ready: false,
+      mode: "disabled",
+      reason: "prerequisites are owned by another runtime and were not observed",
+    },
+    {
+      key: "teams-a2-operational-alert",
+      source: "core-control-plane",
+      observed: true,
+      configured: true,
+      ready: false,
+      mode: "disabled",
+      reason: "a binding exists but is not activated for delivery",
+    },
+    {
+      key: "teams-a3-conversation",
+      source: "operator-service",
+      observed: false,
+      configured: false,
+      ready: false,
+      mode: "disabled",
+      reason: "prerequisites are owned by another runtime and were not observed",
+    },
+    {
       key: "notification-bindings",
+      source: "core-control-plane",
+      observed: true,
       configured: true,
       ready: true,
       mode: "enabled",
-      reason: "configured",
+      reason: null,
     },
   ],
   runtime: {
@@ -58,6 +96,20 @@ async function installFixture(page: Page): Promise<{
       });
       return;
     }
+    if (path === "/runtime/integrations/teams-workflow/binding") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          visible: true,
+          configured: true,
+          binding_version: "version-1",
+          observed_at: "2026-09-04T07:00:00Z",
+          saved_at: "2026-09-04T06:00:00Z",
+        }),
+      });
+      return;
+    }
     if (path === "/runtime/integrations/teams-workflow/test") {
       teamsBody = route.request().postDataJSON();
       await route.fulfill({
@@ -65,6 +117,9 @@ async function installFixture(page: Page): Promise<{
         contentType: "application/json",
         body: JSON.stringify({
           request_id: "teams-workflow-test-00000000-0000-0000-0000-000000000000",
+          saved: true,
+          binding_version: "version-2",
+          saved_at: "2026-08-27T11:59:59Z",
           accepted: true,
           provider_status: 202,
           workflow_run_id: "run-1",
@@ -111,42 +166,41 @@ async function installFixture(page: Page): Promise<{
   };
 }
 
-test("sends transient Teams and Slack tests without retaining either URL", async ({ page }) => {
+test("separates approval, notification, and conversation readiness without leaking the saved URL", async ({ page }) => {
   if (process.env["FDAI_SETTINGS_VIEWPORT"] === "constrained") {
     await page.setViewportSize({ width: 993, height: 641 });
   }
   const fixture = await installFixture(page);
   await page.goto("/settings/integrations");
 
-  await expect(page.getByText("Ready", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "A1 human approvals" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "A2 alerts and A4 digests" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "A3 conversations" })).toBeVisible();
+  await expect(page.getByText("Teams A1 approval delivery")).toBeVisible();
+  await expect(page.getByText("Teams A2 operational alerts")).toBeVisible();
+  await expect(page.getByText("Teams A3 conversations")).toBeVisible();
+  await expect(page.getByText("Not observed here").first()).toBeVisible();
+
   await expect(page.getByRole("heading", { name: "Connect and test Teams Workflows" })).toBeVisible();
-  await expect(page.getByText("Current FDAI account")).toBeVisible();
-  const accountInput = page.getByLabel("Microsoft 365 workflow account");
-  await accountInput.fill("workflow-owner@example.onmicrosoft.com");
-  await expect(
-    page.getByRole("button", { name: "Copy Microsoft 365 account" }),
-  ).toBeEnabled();
-  await expect(page.getByRole("link", { name: /Open Power Automate/ })).toHaveAttribute(
-    "href",
-    "https://make.powerautomate.com/",
-  );
+  await expect(page.getByText("Binding saved")).toBeVisible();
 
-  const teamsInput = page.getByLabel("One-time webhook URL");
-  await expect(teamsInput).toHaveAttribute("type", "password");
-  await expect(teamsInput).toHaveAttribute("autocomplete", "off");
-  await teamsInput.fill(webhookUrl);
-  await page.getByRole("button", { name: "Send test card" }).click();
-
+  const teamsInput = page.getByLabel("Teams Workflows HTTP URL");
   await expect(teamsInput).toHaveValue("");
+  await expect(teamsInput).toHaveAttribute("autocomplete", "off");
+  await expect(page.getByText(/FDAI never returns the saved URL/)).toBeVisible();
+  await teamsInput.fill(webhookUrl);
+  await page.getByRole("button", { name: "Save and send test" }).click();
+
+  await expect(page.getByText("Saved and test accepted")).toBeVisible();
   expect(fixture.teamsBody()).toMatchObject({ webhook_url: webhookUrl });
+  expect(await page.content()).not.toContain("sig=abcdefghijklmnopqrstuvwxyz012345");
 
   const slackInput = page.getByLabel("One-time Slack webhook URL");
   await expect(slackInput).toHaveAttribute("type", "password");
-  await expect(slackInput).toHaveAttribute("autocomplete", "off");
   await slackInput.fill(slackWebhookUrl);
   await page.getByRole("button", { name: "Send Slack test" }).click();
 
-  await expect(page.getByText("Accepted", { exact: true })).toHaveCount(2);
+  await expect(page.getByText("Accepted", { exact: true })).toBeVisible();
   await expect(slackInput).toHaveValue("");
   expect(fixture.slackBody()).toMatchObject({ webhook_url: slackWebhookUrl });
 

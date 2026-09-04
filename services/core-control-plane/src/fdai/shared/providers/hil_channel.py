@@ -18,7 +18,7 @@ Design boundaries
   :mod:`fdai.shared.providers.testing.hil_channel` never leaks
   through ``core/``.
 - Every operation is ``async`` because a real adapter makes an HTTP
-  round trip (Teams Incoming Webhook or Bot Framework REST).
+  round trip (Bot Framework REST for Teams).
 - The Protocol is state-free: the caller owns a
   :class:`HilApprovalReceipt` and hands it back on :meth:`HilChannel.poll`.
 
@@ -30,9 +30,11 @@ delivers the Adaptive Card and returns a receipt; the caller polls
 :meth:`poll` until a decision surfaces or the request TTL elapses. A
 webhook trigger (Azure Functions HTTP callback) is deferred to a later
 phase; the Protocol accommodates either by treating ``poll`` as the
-sole way ``core/`` observes a decision. Adapters without a native
-back-channel (a pure Incoming Webhook) surface :data:`HilDecision.PENDING`
-on every poll - the caller then falls back to its persisted HIL queue.
+sole way ``core/`` observes a decision. An adapter without a native
+back-channel surfaces :data:`HilDecision.PENDING` on every poll - the
+caller then falls back to its persisted HIL queue. An outbound-only
+notification webhook, including a Teams Workflows trigger, is never an
+A1 adapter because it cannot return an authenticated approver.
 
 Security invariants
 -------------------
@@ -188,7 +190,7 @@ class HilResponse:
     """Adapter-visible principal id (Entra OID for Teams SSO, Slack
     userId, ...). Not a substitute for identity re-verification - the
     upstream API MUST re-authenticate. ``None`` is legal when the
-    adapter cannot expose an id (e.g. Incoming Webhook has no
+    adapter cannot expose an id (an outbound-only transport has no
     per-user identity)."""
 
     received_at: datetime | None = None
@@ -230,7 +232,7 @@ class HilChannel(Protocol):
     The two operations map onto both P1 target substrates:
 
     +---------------+-------------------------------------------+---------------------------------+
-    | Op            | Teams (Incoming Webhook / Bot Framework)  | InMemory fake                   |
+    | Op            | Teams (Bot Framework activity endpoint)   | InMemory fake                   |
     +===============+===========================================+=================================+
     | ``send``      | POST Adaptive Card to the channel URL     | append to an in-process queue   |
     | ``poll``      | (P1) always :data:`HilDecision.PENDING`   | return the pre-programmed value |

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/service-contracts/notification-delivery-receipt/1.0.0",
+  "title": "NotificationDeliveryReceiptEnvelope",
+  "description": "Authenticated Operator-to-Core publication observation for one dispatched notification channel delivery. It grants no execution authority and can only move an already accepted delivery to delivered or retryable_failed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "receipt_id",
+    "audit_id",
+    "channel_id",
+    "publication_result",
+    "observed_at"
+  ],
+  "properties": {
+    "schema_version": {"type": "string", "pattern": "^1\\.\\d+\\.\\d+$"},
+    "receipt_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "audit_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "channel_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "publication_result": {"type": "string", "enum": ["published", "failed"]},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "provider_message_id": {"type": "string", "minLength": 1, "maxLength": 256}
+  }
+}

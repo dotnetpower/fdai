@@ -600,6 +600,9 @@ only when its rule id, action type, and fixed check reference still match.
   reviewed image composition supplies package code and resources. Core never imports an optional
   package, and package activation remains independent from user access and action promotion.
 - Service wire contracts live in `packages/service-contracts/src/fdai_service_contracts/`.
+  Cross-service notification delivery uses the same boundary: the package owns the encrypted local
+  binding record shape and the versioned publication-receipt schema, while Operator and Core retain
+  separate storage, ingress, broker, and state-transition implementations.
   Each versioned JSON Schema under `schemas/<contract-id>/<version>.json` is immutable, so a new
   field ships as a new additive version that older consumers keep ignoring. A repository-owned,
   checksum-pinned generator projects every compatibility-manifest N/N-1 schema into Python types

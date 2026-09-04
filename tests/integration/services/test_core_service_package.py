@@ -73,6 +73,7 @@ EXPECTED_RUNTIME_MODULES = {
     "inventory_ontology.py",
     "isolated_executor_client.py",
     "metric_semantic_catalog.py",
+    "notification_registry.py",
     "observation_evidence.py",
     "operating_model.py",
     "operational_catalog_review.py",

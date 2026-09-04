@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-import secrets
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -33,6 +32,7 @@ _WORKFLOW_PATH = re.compile(
 _REQUEST_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 _SIGNATURE = re.compile(r"^[A-Za-z0-9_-]{20,256}$")
 _MAX_URL_LENGTH = 4096
+_ACTIVE_BINDING_METADATA_KEY = "operator-teams-workflow-binding-metadata:active"
 _TIMEOUT_SECONDS = 10.0
 
 
@@ -144,6 +144,15 @@ class TeamsWorkflowDiagnosticTester:
                 "completed_at": saved_at.isoformat(),
             },
         )
+        await self.store.write_state(
+            _ACTIVE_BINDING_METADATA_KEY,
+            {
+                "kind": "operator.teams-workflow-binding-metadata",
+                "binding_version": saved.version,
+                "saved_at": saved_at.isoformat(),
+                "actor_id": command.actor_id,
+            },
+        )
         tested = await self.test(
             TeamsWorkflowTestCommand(
                 actor_id=command.actor_id,
@@ -162,40 +171,38 @@ class TeamsWorkflowDiagnosticTester:
             tested_at=tested.tested_at,
         )
 
-    async def reveal_binding(
+    async def describe_binding(
         self,
         *,
         actor_id: str,
     ) -> Mapping[str, object] | None:
+        """Return secret-free saved-binding metadata for an authorized reader.
+
+        The saved Teams Workflows URL is a password-equivalent secret. It is
+        never returned, never prefilled, and never logged; an Owner replaces it
+        by submitting a new URL. ``saved_at`` is present only when the durable
+        Operator record proves this exact binding version was saved here.
+        """
         if not actor_id.strip():
-            raise ValueError("Teams Workflow reveal actor_id MUST be non-empty")
+            raise ValueError("Teams Workflow binding actor_id MUST be non-empty")
         if self.binding_store is None:
             raise TeamsWorkflowBindingUnavailableError(
                 "Teams Workflow binding storage is not configured"
             )
-        revealed = await self.binding_store.load()
-        if revealed is None:
+        saved = await self.binding_store.load()
+        if saved is None:
             return None
-        revealed_at = self.clock().astimezone(UTC)
-        request_id = f"teams-workflow-reveal-{secrets.token_hex(16)}"
-        await self.store.write_state(
-            _reveal_key(request_id),
-            {
-                "kind": "operator.teams-workflow-binding-reveal",
-                "request_id": request_id,
-                "actor_id": actor_id,
-                "endpoint_digest": revealed.endpoint_digest,
-                "binding_version": revealed.version,
-                "phase": "completed",
-                "outcome": "revealed",
-                "completed_at": revealed_at.isoformat(),
-            },
-        )
-        return {
-            "webhook_url": revealed.webhook_url,
-            "binding_version": revealed.version,
-            "revealed_at": revealed_at.isoformat(),
+        observed_at = self.clock().astimezone(UTC)
+        metadata: dict[str, object] = {
+            "binding_version": saved.version,
+            "observed_at": observed_at.isoformat(),
         }
+        record = await self.store.read_state(_ACTIVE_BINDING_METADATA_KEY)
+        if record is not None and record.get("binding_version") == saved.version:
+            saved_at = record.get("saved_at")
+            if isinstance(saved_at, str):
+                metadata["saved_at"] = saved_at
+        return metadata
 
     async def _existing_saved_result(
         self,
@@ -419,11 +426,6 @@ def _test_key(request_id: str) -> str:
 def _binding_key(request_id: str) -> str:
     digest = hashlib.sha256(request_id.encode("utf-8")).hexdigest()
     return f"operator-teams-workflow-binding:{digest}"
-
-
-def _reveal_key(request_id: str) -> str:
-    digest = hashlib.sha256(request_id.encode("utf-8")).hexdigest()
-    return f"operator-teams-workflow-binding-reveal:{digest}"
 
 
 def _existing_result(

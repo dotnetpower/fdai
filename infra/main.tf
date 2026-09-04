@@ -115,7 +115,10 @@ locals {
     "fdai.finops.events",
     "fdai.pantheon.objects",
   ]
-  event_auxiliary_topics = ["fdai.hil.decisions", "fdai.pipeline.stages"]
+  event_auxiliary_topics = [
+    "fdai.hil.decisions",
+    "fdai.pipeline.stages",
+  ]
 }
 
 # -----------------------------------------------------------------------
@@ -1879,6 +1882,27 @@ resource "azurerm_role_assignment" "teams_workflow_binding_secret_officer" {
   principal_id         = module.teams_workflow_binding_identity[0].principal_id
 }
 
+# The control plane may only read the saved endpoint, and only when a
+# deployment activated A2/A4 Teams delivery. Reading is not activation: the
+# runtime still refuses the seeded placeholder value.
+resource "azurerm_role_assignment" "core_teams_notification_secret_reader" {
+  count                = var.enable_operator_api && var.enable_teams_notification_delivery ? 1 : 0
+  scope                = azurerm_key_vault_secret.teams_workflow_endpoint[0].resource_versionless_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.identity.principal_id
+}
+
+resource "azurerm_key_vault_secret" "notification_receipt_secret" {
+  count        = var.enable_operator_api && var.notification_receipt_secret != "" ? 1 : 0
+  name         = "fdai-notification-receipt-secret"
+  value        = var.notification_receipt_secret
+  key_vault_id = module.key_vault.id
+  content_type = "notification-receipt-hmac-secret"
+  tags         = local.tags
+
+  depends_on = [azurerm_role_assignment.kv_officer_self, module.kv_private_endpoint, azurerm_virtual_network_peering.spoke_to_hub, azurerm_virtual_network_peering.hub_to_spoke]
+}
+
 resource "azurerm_key_vault_secret" "ingestion_api_dsn" {
   count        = var.enable_document_ingestion && !var.ingestion_cohost_worker ? 1 : 0
   name         = "fdai-ingestion-api-dsn"
@@ -2682,6 +2706,12 @@ module "operator_api" {
   chatops_webhook_secret_id = (
     var.enable_chatops_hil ? azurerm_key_vault_secret.chatops_webhook_secret[0].id : ""
   )
+  notification_receipt_secret_id = (
+    var.notification_receipt_secret != ""
+    ? azurerm_key_vault_secret.notification_receipt_secret[0].id
+    : ""
+  )
+  notification_receipt_topic         = "fdai.notifications.delivery-receipts"
   entra_tenant_id                    = var.tenant_id
   api_audience                       = var.operator_api_audience
   rbac_readers_group_id              = var.rbac_readers_group_id

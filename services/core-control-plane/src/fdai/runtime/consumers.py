@@ -8,10 +8,23 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
 
+from fdai_service_contracts.notification_receipt import (
+    NOTIFICATION_DELIVERY_RECEIPT_CONSUMER_GROUP,
+    NOTIFICATION_DELIVERY_RECEIPT_SCHEMA,
+    NOTIFICATION_DELIVERY_RECEIPT_SCHEMA_VERSION,
+    decode_notification_delivery_receipt,
+)
+from fdai_service_contracts.schema import (
+    ContractValidator,
+    JsonSchemaContractValidator,
+    PackageResourceSchemaRegistry,
+)
+
 from fdai.agents import ShadowDivergenceLedger
 from fdai.composition.readiness import OperationalReadinessEventHandler
 from fdai.core.control_loop import ControlLoop, ControlLoopOutcome, ControlLoopResult
 from fdai.core.hil_resume import HilResumeCoordinator
+from fdai.delivery.notifications import NotificationDeliveryReceiptApplier
 from fdai.rule_catalog.schema.resource_type import ResourceTypeRegistry
 from fdai.shared.providers.event_bus import EventBus, subscription
 from fdai.shared.providers.hil_registry import HilWorkflowDecisionRegistry
@@ -188,6 +201,58 @@ async def _consume(
                     "decision": result.decision,
                     "resource_type": result.resource_type,
                     "citing_rule_ids": list(result.citing_rule_ids),
+                },
+            )
+
+
+async def _consume_notification_receipts(
+    *,
+    bus: EventBus,
+    topic: str,
+    applier: NotificationDeliveryReceiptApplier,
+    stop: asyncio.Event,
+    validator: ContractValidator | None = None,
+) -> None:
+    """Apply authenticated publication observations to durable delivery state.
+
+    The Operator Service already verified the provider signature, freshness, and
+    bounded body before publishing. This consumer still validates the envelope
+    against ``notification-delivery-receipt`` because a broker payload is
+    untrusted input, and it dead-letters anything that does not match an
+    accepted delivery instead of rewriting a prior routing decision.
+    """
+    contract = validator or JsonSchemaContractValidator(PackageResourceSchemaRegistry())
+    async with subscription(bus, topic, NOTIFICATION_DELIVERY_RECEIPT_CONSUMER_GROUP) as stream:
+        async for envelope in stream:
+            if stop.is_set():
+                return
+            try:
+                contract.validate(
+                    NOTIFICATION_DELIVERY_RECEIPT_SCHEMA,
+                    envelope.payload,
+                    version=NOTIFICATION_DELIVERY_RECEIPT_SCHEMA_VERSION,
+                )
+                receipt = decode_notification_delivery_receipt(envelope.payload)
+                record = await applier.apply(receipt)
+            except Exception as exc:  # noqa: BLE001 - broker boundary isolation
+                reason = f"notification_receipt_consume_error:{type(exc).__name__}"
+                _LOOP_LOGGER.warning(
+                    "notification_receipt_consume_error",
+                    extra={"key": envelope.key, "offset": envelope.offset, "reason": reason},
+                )
+                await bus.dead_letter(
+                    envelope.topic,
+                    envelope.key,
+                    envelope.payload,
+                    reason,
+                )
+                continue
+            _LOOP_LOGGER.info(
+                "notification_delivery_observed",
+                extra={
+                    "channel_id": record.channel_id,
+                    "delivery_state": record.state.value,
+                    "publication_result": receipt.publication_result,
                 },
             )
 

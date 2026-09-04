@@ -7,6 +7,14 @@ from collections.abc import Mapping
 import httpx
 from azure.core.exceptions import AzureError
 from azure.identity.aio import ManagedIdentityCredential
+from fdai_service_contracts.notification_binding import local_binding_key_material
+from fdai_service_contracts.notification_receipt import (
+    NOTIFICATION_DELIVERY_RECEIPT_TOPIC,
+)
+from fdai_service_contracts.schema import (
+    JsonSchemaContractValidator,
+    PackageResourceSchemaRegistry,
+)
 from fdai_service_contracts.venue import ExecutionVenue, resolve_execution_venue
 
 from fdai_operator_service.adapters import OperatorSemanticKafkaBus
@@ -14,6 +22,7 @@ from fdai_operator_service.adapters.azure_cli_token import azure_cli_token
 from fdai_operator_service.auth import OperatorAuthenticator
 from fdai_operator_service.entra_directory import EntraHumanIdentityDirectory, TokenProvider
 from fdai_operator_service.environment import (
+    NOTIFICATION_RECEIPT_SECRET_ENV,
     OperatorEnvironment,
     OperatorServiceConfigurationError,
 )
@@ -46,6 +55,10 @@ from fdai_operator_service.families.iam.hil_teams_callback import (
     TeamsHilCallbackNormalizer,
 )
 from fdai_operator_service.family_authorization import OperatorFamilyAuthorizer
+from fdai_operator_service.notification_receipt_ingress import (
+    NotificationReceiptIngress,
+    NotificationReceiptIngressConfig,
+)
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
     UnavailablePostgresFamilyStore,
@@ -148,7 +161,7 @@ def build_teams_workflow_binding_store(
         if venue is ExecutionVenue.LOCAL and environment.database_url is not None:
             return LocalEncryptedTeamsWorkflowBindingStore(
                 store=store,
-                key_material=environment.database_url,
+                key_material=local_binding_key_material(environment.database_url),
             )
         return None
     if not vault_url or not secret_name:
@@ -285,7 +298,43 @@ def build_postgres_iam_bindings(
         hil_audit=iam if hil_secret is not None else None,
         hil_context=iam if hil_secret is not None else None,
         hil_teams_normalizer=hil_teams_normalizer,
+        notification_receipt_ingress=build_notification_receipt_ingress(
+            environment=environment,
+            store=store,
+            semantic_bus=semantic_bus,
+        ),
         role_group_ids=dict(role_group_ids),
+    )
+
+
+def build_notification_receipt_ingress(
+    *,
+    environment: OperatorEnvironment,
+    store: PostgresFamilyStore,
+    semantic_bus: OperatorSemanticKafkaBus | None,
+) -> NotificationReceiptIngress | None:
+    """Bind the publication-receipt ingress only when its full transport exists.
+
+    A missing secret or broker leaves the route bound but fail-closed, so a
+    provider callback is refused instead of silently dropped.
+    """
+    secret = environment.values.get(NOTIFICATION_RECEIPT_SECRET_ENV, "").strip()
+    topic = environment.notification_receipt_topic
+    if not secret or semantic_bus is None or topic is None:
+        return None
+    if topic != NOTIFICATION_DELIVERY_RECEIPT_TOPIC:
+        raise OperatorServiceConfigurationError(
+            "FDAI_NOTIFICATION_RECEIPT_TOPIC MUST use the canonical logical topic"
+        )
+    if environment.semantic_physical_topic is None:
+        raise OperatorServiceConfigurationError(
+            "notification receipt ingress requires FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC"
+        )
+    return NotificationReceiptIngress(
+        config=NotificationReceiptIngressConfig(secret=secret, topic=topic),
+        store=store,
+        publisher=semantic_bus,
+        validator=JsonSchemaContractValidator(PackageResourceSchemaRegistry()),
     )
 
 

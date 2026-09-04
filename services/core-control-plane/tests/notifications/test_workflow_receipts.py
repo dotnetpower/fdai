@@ -1,8 +1,7 @@
-"""Authenticated Teams Workflows publication receipt verification."""
+"""Applying authenticated notification publication observations."""
 
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime
 
 import httpx
@@ -16,18 +15,17 @@ from fdai.core.notifications import (
     load_matrix_from_mapping,
 )
 from fdai.delivery.notifications import (
+    NotificationDeliveryReceiptApplier,
+    NotificationReceiptRejectedError,
     TeamsWebhookChannel,
     TeamsWebhookConfig,
-    TeamsWorkflowReceiptConfig,
-    TeamsWorkflowReceiptHandler,
-    compute_receipt_signature,
 )
 from fdai.shared.providers.notifications import NotificationMessage, TrustTier
 from fdai.shared.providers.testing.notifications import FakeHilEscalationSink
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+from fdai_service_contracts.notification_receipt import NotificationDeliveryReceipt
 
 NOW = datetime(2026, 8, 27, 8, 0, tzinfo=UTC)
-SECRET = "test-receipt-secret"
 
 
 async def _accepted_store() -> InMemoryNotificationDeliveryStore:
@@ -57,99 +55,104 @@ async def _accepted_store() -> InMemoryNotificationDeliveryStore:
     return store
 
 
-def _signed_body(result: str = "published") -> tuple[bytes, dict[str, str]]:
-    body = json.dumps(
-        {
-            "audit_id": "audit-1",
-            "channel_id": "teams-ops",
-            "publication_result": result,
-            "provider_message_id": "workflow-run-1",
-        },
-        separators=(",", ":"),
-    ).encode()
-    timestamp = NOW.isoformat()
-    signature = compute_receipt_signature(
-        secret=SECRET,
-        timestamp=timestamp,
-        body=body,
+def _receipt(result: str = "published") -> NotificationDeliveryReceipt:
+    return NotificationDeliveryReceipt(
+        audit_id="audit-1",
+        channel_id="teams-ops",
+        publication_result=result,
+        observed_at=NOW,
+        provider_message_id="workflow-run-1",
     )
-    return body, {
-        "X-FDAI-Timestamp": timestamp,
-        "X-FDAI-Signature": f"sha256={signature}",
-    }
 
 
-async def test_authenticated_publication_receipt_confirms_delivery_and_audits() -> None:
+async def test_published_observation_confirms_delivery_and_audits_both_phases() -> None:
     store = await _accepted_store()
     audit = InMemoryStateStore()
-    handler = TeamsWorkflowReceiptHandler(
-        config=TeamsWorkflowReceiptConfig(secret=SECRET),
+    applier = NotificationDeliveryReceiptApplier(
         delivery_store=store,
         audit_store=audit,
         clock=lambda: NOW,
     )
-    body, headers = _signed_body()
 
-    record = await handler.handle(headers=headers, body=body)
+    record = await applier.apply(_receipt())
 
     assert record.state is ChannelDeliveryState.DELIVERED
     entries = list(audit.audit_entries)
-    assert len(entries) == 2
     assert [item["entry"]["phase"] for item in entries] == ["prepared", "completed"]
     assert all(item["entry"]["action_kind"] == "notification.delivery.observed" for item in entries)
+    assert entries[0]["entry"]["intended_delivery_state"] == "delivered"
+    assert entries[1]["entry"]["delivery_state"] == "delivered"
     assert all("body" not in item["entry"] for item in entries)
+    assert all("webhook_url" not in item["entry"] for item in entries)
 
 
 async def test_failed_publication_becomes_retryable() -> None:
     store = await _accepted_store()
-    handler = TeamsWorkflowReceiptHandler(
-        config=TeamsWorkflowReceiptConfig(secret=SECRET),
+    applier = NotificationDeliveryReceiptApplier(
         delivery_store=store,
         audit_store=InMemoryStateStore(),
         clock=lambda: NOW,
     )
-    body, headers = _signed_body("failed")
 
-    record = await handler.handle(headers=headers, body=body)
+    record = await applier.apply(_receipt("failed"))
 
     assert record.state is ChannelDeliveryState.RETRYABLE_FAILED
 
 
-async def test_invalid_signature_and_message_field_are_rejected() -> None:
+async def test_repeated_identical_observation_is_idempotent() -> None:
     store = await _accepted_store()
-    handler = TeamsWorkflowReceiptHandler(
-        config=TeamsWorkflowReceiptConfig(secret=SECRET),
+    applier = NotificationDeliveryReceiptApplier(
         delivery_store=store,
         audit_store=InMemoryStateStore(),
         clock=lambda: NOW,
     )
-    body, headers = _signed_body()
-    headers["X-FDAI-Signature"] = "sha256=bad"
-    with pytest.raises(PermissionError, match="mismatch"):
-        await handler.handle(headers=headers, body=body)
 
-    forbidden = json.dumps(
-        {
-            "audit_id": "audit-1",
-            "channel_id": "teams-ops",
-            "publication_result": "published",
-            "message": "must not be returned",
-        }
-    ).encode()
-    timestamp = NOW.isoformat()
-    signature = compute_receipt_signature(
-        secret=SECRET,
-        timestamp=timestamp,
-        body=forbidden,
+    first = await applier.apply(_receipt())
+    second = await applier.apply(_receipt())
+
+    assert first.state is ChannelDeliveryState.DELIVERED
+    assert second.state is ChannelDeliveryState.DELIVERED
+
+
+async def test_observation_for_a_non_accepted_delivery_is_rejected_and_audited() -> None:
+    store = InMemoryNotificationDeliveryStore()
+    await store.create_plan(
+        audit_id="audit-1",
+        target_channel_ids=("teams-ops",),
+        excluded_channels={},
+        now=NOW,
     )
-    with pytest.raises(ValueError, match="unsupported fields"):
-        await handler.handle(
-            headers={
-                "X-FDAI-Timestamp": timestamp,
-                "X-FDAI-Signature": f"sha256={signature}",
-            },
-            body=forbidden,
-        )
+    audit = InMemoryStateStore()
+    applier = NotificationDeliveryReceiptApplier(
+        delivery_store=store,
+        audit_store=audit,
+        clock=lambda: NOW,
+    )
+
+    with pytest.raises(NotificationReceiptRejectedError):
+        await applier.apply(_receipt())
+
+    completed = list(audit.audit_entries)[-1]["entry"]
+    assert completed["phase"] == "completed"
+    assert completed["delivery_state"] == "unchanged"
+    assert completed["rejection_reason"] == "delivery_is_not_accepted"
+
+
+async def test_observation_for_a_missing_plan_is_rejected_and_audited() -> None:
+    audit = InMemoryStateStore()
+    applier = NotificationDeliveryReceiptApplier(
+        delivery_store=InMemoryNotificationDeliveryStore(),
+        audit_store=audit,
+        clock=lambda: NOW,
+    )
+
+    with pytest.raises(NotificationReceiptRejectedError):
+        await applier.apply(_receipt())
+
+    entries = [item["entry"] for item in audit.audit_entries]
+    assert [item["phase"] for item in entries] == ["prepared", "completed"]
+    assert entries[-1]["delivery_state"] == "unchanged"
+    assert entries[-1]["rejection_reason"] == "delivery_is_not_accepted"
 
 
 async def test_workflow_acceptance_converges_without_duplicate_send() -> None:
@@ -206,14 +209,12 @@ async def test_workflow_acceptance_converges_without_duplicate_send() -> None:
         assert accepted.outcome is RouteOutcome.FAILED_ALL
         assert accepted.terminal is False
 
-        handler = TeamsWorkflowReceiptHandler(
-            config=TeamsWorkflowReceiptConfig(secret=SECRET),
+        applier = NotificationDeliveryReceiptApplier(
             delivery_store=delivery_store,
             audit_store=audit,
             clock=lambda: NOW,
         )
-        body, headers = _signed_body()
-        await handler.handle(headers=headers, body=body)
+        await applier.apply(_receipt())
         delivered = await router.dispatch(message)
 
     assert delivered.outcome is RouteOutcome.DELIVERED_ALL

@@ -222,3 +222,88 @@ def test_url_only_webhooks_coexist_with_legacy_email(
         "email-oncall",
         "email-governance",
     }
+
+
+def test_notification_bindings_cannot_claim_a1_or_a3_trust_tiers() -> None:
+    for kind, extra in (
+        ("teams_workflow", {"auth_mode": "anyone"}),
+        ("slack_webhook", {}),
+        ("acs_email", {}),
+    ):
+        raw = json.dumps(
+            {
+                "binding-1": {
+                    "kind": kind,
+                    "enabled": False,
+                    "trust_tiers": ["a1_hil_approval"],
+                    **extra,
+                }
+            }
+        )
+        with pytest.raises(ValueError, match="a1_hil_approval"):
+            parse_notification_bindings(raw)
+
+    conversational = json.dumps(
+        {
+            "binding-1": {
+                "kind": "teams_workflow",
+                "enabled": False,
+                "trust_tiers": ["a2_operational_alert", "a3_chat_command"],
+                "auth_mode": "anyone",
+            }
+        }
+    )
+    with pytest.raises(ValueError, match="a3_chat_command"):
+        parse_notification_bindings(conversational)
+
+
+def test_an_activated_binding_refuses_the_unconfigured_endpoint_placeholder(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_default_notification_env(monkeypatch)
+    monkeypatch.setenv(
+        "FDAI_NOTIFICATION_BINDINGS_JSON",
+        json.dumps(
+            {
+                "teams-ops": {
+                    "kind": "teams_workflow",
+                    "enabled": True,
+                    "trust_tiers": ["a2_operational_alert"],
+                    "auth_mode": "anyone",
+                    "endpoint_env": "FDAI_TEAMS_NOTIFICATION_ENDPOINT",
+                }
+            }
+        ),
+    )
+    monkeypatch.setenv("FDAI_TEAMS_NOTIFICATION_ENDPOINT", "unconfigured")
+
+    with pytest.raises(RuntimeError, match="placeholder"):
+        _build_notification_registry(httpx.AsyncClient())
+
+
+def test_an_endpoint_override_activates_a_binding_without_an_environment_value(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_default_notification_env(monkeypatch)
+    monkeypatch.setenv(
+        "FDAI_NOTIFICATION_BINDINGS_JSON",
+        json.dumps(
+            {
+                "teams-ops": {
+                    "kind": "teams_workflow",
+                    "enabled": True,
+                    "trust_tiers": ["a2_operational_alert"],
+                    "auth_mode": "anyone",
+                    "endpoint_env": "FDAI_TEAMS_OPS_ENDPOINT",
+                }
+            }
+        ),
+    )
+    monkeypatch.delenv("FDAI_TEAMS_OPS_ENDPOINT", raising=False)
+
+    registry = _build_notification_registry(
+        httpx.AsyncClient(),
+        {"FDAI_TEAMS_OPS_ENDPOINT": "https://flow.example.com/trigger"},
+    )
+
+    assert set(registry.channels) == {"teams-ops"}

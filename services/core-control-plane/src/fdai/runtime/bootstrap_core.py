@@ -19,6 +19,7 @@ from fdai.core.chaos.symptom_index import build_from_promoted
 from fdai.core.control_loop import ControlLoop
 from fdai.delivery.azure.diagnostic_event_ingest import DiagnosticEventIngestBridge
 from fdai.delivery.azure.monitor_events import DiagnosticNormalizerOptions
+from fdai.delivery.notifications import NotificationDeliveryReceiptApplier
 from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.delivery.startup_probe import OpaCompileStartupProbe
 from fdai.runtime.blast_probe import bind_live_blast_probe_failure_streak
@@ -121,6 +122,7 @@ class CoreRuntime:
     operational_readiness_handler: OperationalReadinessEventHandler | None
     continuous_operating_model_worker: Any
     incident_notification_replay_worker: IncidentNotificationReplayWorker
+    notification_receipt_applier: NotificationDeliveryReceiptApplier
     environment: Mapping[str, str]
     diagnostic_event_ingest_bridge: DiagnosticEventIngestBridge | None = None
     hil_workflow_registry: HilWorkflowDecisionRegistry | None = None
@@ -155,6 +157,7 @@ class CoreRuntime:
             read_investigation_binding=self.semantic.read_investigation_binding,
             operational_readiness_handler=self.operational_readiness_handler,
             incident_notification_replay_worker=self.incident_notification_replay_worker,
+            notification_receipt_applier=self.notification_receipt_applier,
             diagnostic_event_ingest_bridge=self.diagnostic_event_ingest_bridge,
             hil_workflow_registry=self.hil_workflow_registry,
         )
@@ -523,6 +526,7 @@ async def build_core_runtime(
         operational_readiness_handler=operational_readiness_handler,
         continuous_operating_model_worker=continuous_operating_model_worker,
         incident_notification_replay_worker=incident_runtime.notification_replay_worker,
+        notification_receipt_applier=incident_runtime.notification_receipt_applier,
         environment=environment,
         diagnostic_event_ingest_bridge=diagnostic_event_ingest_bridge,
         hil_workflow_registry=_build_hil_workflow_registry(state_store),

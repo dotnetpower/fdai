@@ -61,10 +61,14 @@ from fdai_operator_service.families.iam.hil_teams_callback import (
 )
 from fdai_operator_service.families.iam.iam_routes import make_iam_routes
 from fdai_operator_service.families.iam.manifest import IAM_FAMILY_MANIFEST
+from fdai_operator_service.families.iam.notification_receipt import (
+    make_notification_receipt_route,
+)
 from fdai_operator_service.families.iam.settings import (
     make_model_settings_routes,
     make_runtime_settings_routes,
 )
+from fdai_operator_service.notification_receipt_ingress import NotificationReceiptIngress
 from fdai_operator_service.redaction import redact_projection
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -96,6 +100,7 @@ class IamFamilyBindings:
     hil_audit: HilCallbackAuditWriter | None = None
     hil_context: HilCallbackContextReader | None = None
     hil_teams_normalizer: TeamsHilCallbackNormalizer | None = None
+    notification_receipt_ingress: NotificationReceiptIngress | None = None
     identity_provider: str = "entra"
     role_group_ids: dict[str, str] | None = None
 
@@ -163,6 +168,7 @@ def make_iam_family_routes(bindings: IamFamilyBindings) -> tuple[Route, ...]:
             context_reader=bindings.hil_context,
             normalizer=bindings.hil_teams_normalizer,
         ),
+        make_notification_receipt_route(ingress=bindings.notification_receipt_ingress),
     )
     snapshot = tuple(
         (next(iter((route.methods or set()) - {"HEAD"})), route.path, route.name)

@@ -9,6 +9,7 @@ module "core_control_plane" {
   rca_reader_identity        = var.rca_reader_identity
   event_topics               = var.event_topics
   teams_approval_destination = var.teams_approval_destination
+  teams_notification_binding = var.teams_notification_binding
   database                   = var.database
   # The runtime opens its health port before startup readiness runs, so liveness
   # answers immediately and no startup probe is needed to cover a slow boot.
