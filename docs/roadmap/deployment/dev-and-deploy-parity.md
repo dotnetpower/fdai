@@ -108,11 +108,9 @@ migration, backend-environment, projection, inventory, or Entra stages run. The 
 its JWT audience from the browser API scope, requires matching browser and Azure tenants, disables
 raw-group fallback with unmatchable local slots, and connects through `SET ROLE fdai_operator`. Run
 the preparation task first for a standalone Core Runtime or Operator API debug launch.
-The preparation sequence registers `http://localhost:5273` as the canonical Entra SPA redirect and
-keeps `http://127.0.0.1:5273` as a compatibility redirect. The launcher always opens the canonical
-origin because browser OAuth cache, conversation history, response preferences, and screen context
-are isolated by origin. The frontend still listens only on IPv4 loopback. The helper preserves
-redirects, permits loopback HTTP only, and stops when the active tenant or registration permission is wrong. Local Event Hubs token refreshes stay pinned to prepared
+The preparation sequence registers `http://localhost:5273` as the canonical Entra SPA redirect and keeps `http://127.0.0.1:5273` as a compatibility redirect.
+The launcher always opens the canonical origin because browser OAuth cache, conversation history, response preferences, and screen context are origin-isolated; the frontend still listens only on IPv4 loopback.
+The helper preserves redirects, permits loopback HTTP only, and stops when the active tenant or registration permission is wrong. Local Event Hubs token refreshes stay pinned to prepared
 `AZURE_TENANT_ID` and `AZURE_SUBSCRIPTION_ID`; default-account changes cannot replace their issuer.
 When a resolved-model artifact is present, the same preparation step validates its narrator
 endpoint as an HTTPS origin and writes `FDAI_LLM_ENDPOINT` with `LLM_RESOLVED_MODELS_PATH` into the
@@ -293,18 +291,12 @@ identity selected by `FDAI_MI_CLIENT_ID`. The workspace is server-configured and
 by the browser. If the workspace, identity, permission, or telemetry is unavailable, the query
 holds as unavailable without a fixture or model fallback.
 Local preparation reads the workspace customer GUID from the applied Terraform `log_workspace_customer_id` output. If an older or targeted state does not expose that output, it lists workspaces only inside the applied resource group and accepts the fallback only when exactly one workspace exists. Zero workspaces leave the provider unavailable, and multiple workspaces stop preparation instead of choosing one implicitly. Regeneration removes any stale local workspace id.
-Remote Kubernetes lifecycle collection is an explicit local live-data opt-in. The runtime
-environment generator removes inherited `FDAI_KUBERNETES_*` bindings by default. Set
-`FDAI_LOCAL_KUBERNETES_LIFECYCLE=1` in the preparation process only when the API server, audience,
-authentication mode, CA path, and cluster resource binding are all present in `console/.env.local`.
-A partial binding stops preparation. An absent opt-in leaves lifecycle coverage unavailable instead
-of repeatedly probing a stopped cluster whose private DNS record no longer exists.
-The local runtime environment generator also supplies the applied subscription and resource group
-to the bounded Azure read-investigation adapter. When Terraform emits both the optional development
-operations gateway URL and its Easy Auth audience, NSG and VNet peering questions use the local
-Azure CLI identity to call only the gateway's registered read operations. A missing pair disables
-the wrapper, while a configured gateway failure reports unavailable without a direct-ARM fallback.
-The gateway uses separate reader and executor managed identities and does not give the local read
+Remote Kubernetes lifecycle collection is an explicit local live-data opt-in; the runtime environment generator removes inherited `FDAI_KUBERNETES_*` bindings by default.
+Set `FDAI_LOCAL_KUBERNETES_LIFECYCLE=1` during preparation only when the API server, audience, authentication mode, CA path, and cluster resource binding are all present in `console/.env.local`.
+A partial binding stops preparation. Without the opt-in, lifecycle coverage stays unavailable instead of repeatedly probing a stopped cluster whose private DNS record no longer exists.
+The local runtime environment generator also supplies the applied subscription and resource group to the bounded Azure read-investigation adapter. When Terraform emits both the optional development
+operations gateway URL and its Easy Auth audience, NSG and VNet peering questions use the local Azure CLI identity to call only the gateway's registered read operations. A missing pair disables
+the wrapper, while a configured gateway failure reports unavailable without a direct-ARM fallback. The gateway uses separate reader and executor managed identities and does not give the local read
 API an execution identity. Upstream Terraform enables the development-only mutation operations for
 the configured executor principal and passes the gateway URL and audience only to the headless core
 Container App. That runtime binds `AzureGatewayDirectApiExecutor`; the Operator API keeps its read-only
