@@ -236,17 +236,19 @@ def _project_agent(
         )
         for index, steward in enumerate(_mapping_sequence(agent.get("stewards"), "agent stewards"))
     ]
-    primary_count = sum(
-        1
+    primary_subjects = {
+        (str(subject["kind"]), str(subject["subject_id"]))
         for subject in subjects
         if subject["responsibility"] == "accountable" and subject["duty"] == "primary"
-    )
-    backup_count = sum(
-        1
+    }
+    backup_subjects = {
+        (str(subject["kind"]), str(subject["subject_id"]))
         for subject in subjects
         if subject["responsibility"] == "accountable"
         and subject["duty"] in {"backup", "escalation"}
-    )
+    }
+    primary_count = len(primary_subjects)
+    backup_count = len(backup_subjects - primary_subjects)
     status = _agent_readiness(
         version=version,
         autonomous=autonomous,

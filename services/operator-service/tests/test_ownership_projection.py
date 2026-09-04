@@ -243,6 +243,22 @@ async def test_schema_v1_is_readable_but_requires_migration() -> None:
     ]
 
 
+async def test_same_subject_cannot_satisfy_primary_and_backup_coverage() -> None:
+    payload = _payload()
+    payload["map"]["agents"][0]["stewards"][1]["id"] = "subject-1"  # type: ignore[index]
+    reader = OwnershipProjectionReader(_Fallback(payload), _Directory(), None)
+
+    result = await reader.read(_query())
+
+    agent = result["current_ownership"]["agents"][0]
+    assert agent["coverage"] == {
+        "primary_count": 1,
+        "backup_or_escalation_count": 0,
+        "status": "coverage_gap",
+    }
+    assert result["current_ownership"]["deployment_readiness"] == "review_required"
+
+
 async def test_non_stewardship_reads_are_delegated_unchanged() -> None:
     payload = {"value": "unchanged"}
     reader = OwnershipProjectionReader(_Fallback(payload), _Directory(), _Assignments())
