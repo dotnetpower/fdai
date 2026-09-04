@@ -1,8 +1,8 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: 33da45fa57f586a79251416b948cdb6449fe8d0b
-translation_revised: 2026-08-23
+translation_source_sha: 0f1d5ce4229cc087258f59eb30e0e58912f32c3e
+translation_revised: 2026-09-04
 ---
 
 # CSP-중립성 계약
@@ -26,6 +26,7 @@ translation_revised: 2026-08-23
 | 이벤트 버스, 런타임, 시크릿 및 워크로드 신원 계약 | implemented | `shared/providers/`; `delivery/azure/`; `infra/modules/event-bus/`; `infra/modules/compute/`; `infra/modules/secret-store/`; 집중 어댑터 및 인프라 테스트 | Azure는 프로바이더 중립 계약 뒤에서 Event Hubs의 Kafka, OCI Container Apps, native 시크릿 참조 및 워크로드 신원을 사용합니다. |
 | 인벤토리 수집, 완전 세대 관계 및 범위가 제한된 그래프 변환 결과 | implemented | `shared/providers/inventory.py`; `delivery/azure/generation_relationships.py`; `delivery/inventory_sync.py`; `delivery/inventory_live_evidence.py`; `core/ontology_platform/graph_evidence_refresh.py`; 집중 인벤토리, 관계, 새로 고침 및 변환 결과 테스트 | 지속 수집, 정확한 관계 근거와 명시적 누락 사유, 원자적 승격, 그래프 우선 새로 고침 결정, 안전한 실제 근거 반영 및 범위가 제한된 읽기 변환 결과를 구현했습니다. 일반 의미 쿼리 조립은 아직 새로 고침 선택과 실제 근거 반영을 종단 간 연결하지 않습니다. 배포 완전성은 별도의 검증 근거입니다. |
 | 메트릭, 로그 및 추적 조회 계약 | implemented | `shared/providers/metric.py`; `log_query.py`; `trace_query.py`; `delivery/azure/metric_logs.py`; `delivery/azure/log_query.py`; `delivery/azure/telemetry_query.py` | Azure Monitor 및 Log Analytics 어댑터가 있으며 구성이 없으면 의도적으로 no-op 바인딩을 유지합니다. |
+| WARA 범위 제한 평가 읽기 | implemented | `shared/providers/wara_assessment.py`; `delivery/azure/wara_observation.py`; 정확한 평가기 overlay 및 집중 어댑터 테스트 | Azure Resource Graph 읽기는 정확한 검토 쿼리, 평가기, ARM 리소스 범위, 프로바이더 종류, 페이지/행/바이트 상한, 승인된 관리 원본 및 결정론적인 권한 없는 증적에 고정됩니다. |
 | 8개 계약 전체의 통제된 운영 근거 | in-progress | [배포 및 온보딩 구현 상태](../deployment/deploy-and-onboard-ko.md#구현-상태); `delivery/azure/` 아래의 관측 캠페인 어댑터 | 독립 서비스 배포는 검증됐지만 이 소유 문서는 모든 인벤토리와 텔레메트리 계약을 함께 입증하는 최신 통제 캠페인을 하나로 보존하지 않습니다. |
 | 비-Azure 프로바이더 구현 | deferred | [구현 Focus](../../../.github/copilot-instructions.md#implementation-focus-must) | 이식성을 위해 계약 형태를 유지합니다. AWS, GCP 또는 다른 프로바이더 어댑터는 승인된 구현 범위에 없습니다. |
 
@@ -33,6 +34,7 @@ translation_revised: 2026-08-23
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-04 | implemented | 프로바이더 중립 관측 계약 뒤에 정확한 WARA 평가 읽기를 위한 Azure 어댑터를 추가했습니다. 수정 권한을 추가하지 않고 승인된 토큰 대상, 정확한 리소스 범위, 쿼리 및 평가기 다이제스트, 범위가 제한된 결정론적 증적을 결속합니다. | `current change`; 집중 WARA overlay, 런타임, Azure 어댑터, Ruff 및 strict mypy 검사입니다. | 운영 검증을 주장하기 전에 별도 권한이 있는 실제 Azure shadow 증적을 보존합니다. |
 | 2026-08-19 | implemented | 예약된 프로바이더 신원을 위한 scheduled 인벤토리 reconciliation CLI를 composition binding과 일치시켰습니다. CLI는 이미 프로바이더 범위 coverage를 연결했지만 범위가 제한된 unmapped-resource callback을 누락했으므로, 조립된 adapter와 달리 ARG source가 identity-complete 1.1 fence를 만들 수 없었습니다. 이제 ARG는 두 callback을 모두 binding하고 ARM fallback은 둘 다 binding하지 않습니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Source별 wiring 회귀와 전체 인벤토리 작업 구성 파일의 focused case 18개, 작업 범위 Ruff 및 strict mypy가 통과했습니다. | 이 revision에서 새로운 전체 reconciliation을 승격하고 1.1 coverage 증적, snapshot-ontology identity parity 및 빈 realtime overlay를 확인합니다. |
 | 2026-08-19 | validated | 운영 범위 coverage를 인증된 읽기 전용 인벤토리 그래프 경로에 연결했습니다. 범위가 제한된 응답의 각 Resource는 `service_ref`를 포함합니다. 검토된 mapping이 없거나 충돌하면 `unknown_service`가 되며, 입력이 잘리거나 대응되지 않은 결과가 하나라도 있으면 명시적 gap과 함께 응답을 강등합니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Focused consumer 검사 4개와 strict mypy가 통과했습니다. 읽기 전용 loopback 응답은 Resource 213/213개를 표시하고 `operating_scope_unmapped`를 유지했습니다. | 배포가 검토한 서비스 mapping을 제공합니다. 경로와 완전성 증적은 구현됐습니다. |
 | 2026-08-19 | implemented | 검토된 중립 vocabulary 밖의 프로바이더 타입에 대해 신원 수준 종결을 추가했습니다. Azure 어댑터는 별도의 범위 제한 ARG 조회로 해당 행을 읽고, 검토된 단일 `unclassified-resource` 타입으로 구체화하며, 프로바이더 타입별 신원 count가 최종 fence의 coverage 집계와 정확히 일치할 때만 세대를 수락합니다. 예약 타입에는 프로바이더 mapping이나 query terms가 없으며 타입별 Rule 또는 Action 지원을 부여하지 않습니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). 프로바이더, 동기화, ARG, Azure 인벤토리, 조립, CLI, 온톨로지, 카탈로그 및 값 도메인 focused 검사 259개가 통과했고 작업 범위 Ruff와 strict mypy도 통과했습니다. | 새로운 전체 재조정을 승격하고 identity-complete coverage, 스냅샷-온톨로지 parity 및 실시간 overlay 정리를 확인한 뒤 이 행을 `validated`로 변경합니다. |

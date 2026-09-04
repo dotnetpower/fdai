@@ -26,11 +26,13 @@ from fdai.rule_catalog.schema.wara_assessment import (
     WaraDisposition,
     load_wara_assessment_catalog,
 )
+from fdai.rule_catalog.schema.wara_evaluator_binding import load_wara_evaluator_bindings
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 ROOT = Path(__file__).resolve().parents[5]
 CATALOG_ROOT = ROOT / "rule-catalog"
+EVALUATOR_BINDINGS = CATALOG_ROOT / "collected/wara-aprl/assessment/evaluator-bindings.json"
 AT = datetime(2026, 9, 1, 0, 0, tzinfo=UTC)
 
 
@@ -54,6 +56,32 @@ def _runtime_and_record():
         and not item.workload_tags
     )
     return WaraAssessmentRuntime(catalog), catalog, record
+
+
+def _runtime_and_bound_record():
+    framework = load_framework_catalog(
+        CATALOG_ROOT / "collected/wara-aprl",
+        best_practices=(),
+        objective_refs=frozenset(),
+    )[0]
+    catalog, queries = load_wara_assessment_catalog(
+        CATALOG_ROOT / "collected/wara-aprl/assessment/crosswalk.json",
+        CATALOG_ROOT / "collected/wara-aprl/assessment/queries.json",
+        framework=framework,
+        framework_path=CATALOG_ROOT / "collected/wara-aprl/azure-wara.json",
+    )
+    bindings = load_wara_evaluator_bindings(
+        EVALUATOR_BINDINGS,
+        catalog=catalog,
+        queries=queries,
+    )
+    record = next(
+        item
+        for item in catalog.recommendations
+        if item.query_review is not None
+        and bindings.resolve(item.aprl_guid, item.query_review.body_digest) is not None
+    )
+    return WaraAssessmentRuntime(catalog, bindings), catalog, bindings, record
 
 
 def _request(record):
@@ -166,40 +194,28 @@ def test_missing_resource_never_becomes_not_applicable() -> None:
 
 
 def test_safe_external_query_normalizes_to_exact_bounded_read_plan() -> None:
-    runtime, catalog, _ = _runtime_and_record()
-    del runtime
-    record = next(
-        item
-        for item in catalog.recommendations
-        if item.query_review is not None
-        and item.query_review.safety_classification.value == "read_only_bounded"
-        and item.applicability.disposition is ResourceTypeDisposition.CANONICAL
-        and not item.workload_tags
-    )
+    runtime, catalog, bindings, record = _runtime_and_bound_record()
     request = replace(_request(record), crosswalk_digest=catalog.crosswalk_digest)
 
     with pytest.raises(ValueError, match="no admitted"):
         build_wara_read_plan(record, request)
+    with pytest.raises(ValueError, match="evaluator bindings digest mismatch"):
+        runtime.assess(request)
 
-    review = record.query_review.model_copy(
-        update={
-            "evaluator_ref": "evaluator:reviewed",
-            "blocked_reasons": (),
-        }
+    pinned_request = replace(
+        request,
+        evaluator_bindings_digest=bindings.overlay_digest,
     )
-    admitted = record.model_copy(
-        update={
-            "disposition": WaraDisposition.NEW_RULE_CANDIDATE,
-            "query_review": review,
-        }
-    )
-    plan = build_wara_read_plan(admitted, request)
+    plan = runtime.build_read_plan(record, pinned_request)
 
     assert plan.resource_ids == ("resource:representative",)
     assert plan.maximum_rows == 500
     assert plan.timeout_seconds == 30
     assert plan.evidence_freshness_ceiling_seconds == 86_400
     assert plan.query_digest == record.query_review.body_digest
+    assert plan.evaluator_bindings_digest == bindings.overlay_digest
+    assert record.query_review.evaluator_ref is None
+    assert record.query_review.blocked_reasons == ("missing_exact_evaluator",)
 
 
 def test_unknown_applicability_cannot_become_satisfied() -> None:
@@ -267,35 +283,21 @@ def test_result_digest_binds_admitted_evidence_content() -> None:
 
 
 def test_automated_evidence_uses_catalog_freshness_ceiling() -> None:
-    _, catalog, _ = _runtime_and_record()
-    original = next(
-        item
-        for item in catalog.recommendations
-        if item.query_review is not None
-        and item.query_review.safety_classification.value == "read_only_bounded"
-        and item.applicability.disposition is ResourceTypeDisposition.CANONICAL
-        and not item.workload_tags
+    runtime, catalog, bindings, admitted_record = _runtime_and_bound_record()
+    review = admitted_record.query_review
+    assert review is not None
+    binding = bindings.resolve(admitted_record.aprl_guid, review.body_digest)
+    assert binding is not None
+    base = replace(
+        _request(admitted_record),
+        crosswalk_digest=catalog.crosswalk_digest,
+        evaluator_bindings_digest=bindings.overlay_digest,
     )
-    review = original.query_review.model_copy(
-        update={"evaluator_ref": "evaluator:reviewed", "blocked_reasons": ()}
-    )
-    admitted_record = original.model_copy(
-        update={
-            "disposition": WaraDisposition.NEW_RULE_CANDIDATE,
-            "query_review": review,
-        }
-    )
-    records = tuple(
-        admitted_record if item.aprl_guid == original.aprl_guid else item
-        for item in catalog.recommendations
-    )
-    runtime = WaraAssessmentRuntime(catalog.model_copy(update={"recommendations": records}))
-    base = replace(_request(admitted_record), crosswalk_digest=catalog.crosswalk_digest)
     evidence = WaraEvidenceReceipt(
         recommendation_id=admitted_record.aprl_guid,
         evidence_ref="evidence:provider-1",
         evidence_kind="provider_observation",
-        producer="evaluator:reviewed",
+        producer=binding.evaluator_ref,
         scope_digest=base.scope_digest,
         source_revision=base.framework_revision,
         inventory_generation=base.inventory_generation,

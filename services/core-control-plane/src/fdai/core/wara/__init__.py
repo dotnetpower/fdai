@@ -9,6 +9,7 @@ from .runtime import (
     WaraScopedResource,
     build_wara_read_plan,
     replay_wara_assessment,
+    wara_observation_to_evidence,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "WaraScopedResource",
     "build_wara_read_plan",
     "replay_wara_assessment",
+    "wara_observation_to_evidence",
 ]

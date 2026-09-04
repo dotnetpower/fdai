@@ -55,6 +55,10 @@ from fdai.rule_catalog.schema.wara_assessment import (
     WaraAssessmentCatalog,
     load_wara_assessment_catalog,
 )
+from fdai.rule_catalog.schema.wara_evaluator_binding import (
+    WaraEvaluatorBindingCatalog,
+    load_wara_evaluator_bindings,
+)
 from fdai.rule_catalog.schema.workflow import load_workflow_catalog
 from fdai.shared.contracts.models import (
     BestPractice,
@@ -136,11 +140,16 @@ def catalog_snapshots(repo_root: Path) -> dict[str, dict[str, object]]:
         additional_roots=(catalog_root / "collected/wara-aprl",),
     )
     wara_framework = next(item for item in frameworks if item.id == "azure-wara")
-    wara_assessment, _ = load_wara_assessment_catalog(
+    wara_assessment, wara_queries = load_wara_assessment_catalog(
         catalog_root / "collected/wara-aprl/assessment/crosswalk.json",
         catalog_root / "collected/wara-aprl/assessment/queries.json",
         framework=wara_framework,
         framework_path=catalog_root / "collected/wara-aprl/azure-wara.json",
+    )
+    wara_evaluators = load_wara_evaluator_bindings(
+        catalog_root / "collected/wara-aprl/assessment/evaluator-bindings.json",
+        catalog=wara_assessment,
+        queries=wara_queries,
     )
     mcsb_catalogs = load_mcsb_catalogs(
         catalog_root / "compliance/mcsb",
@@ -191,7 +200,9 @@ def catalog_snapshots(repo_root: Path) -> dict[str, dict[str, object]]:
             )
         ),
         BEST_PRACTICE_LIST_KEY: _revisioned(_best_practice_snapshot(best_practices)),
-        WARA_LIST_KEY: _revisioned(_wara_snapshot(wara_framework, wara_assessment)),
+        WARA_LIST_KEY: _revisioned(
+            _wara_snapshot(wara_framework, wara_assessment, wara_evaluators)
+        ),
         MCSB_LIST_KEY: _revisioned(_mcsb_snapshot(mcsb_catalogs)),
         PROMOTION_GATE_LIST_KEY: _revisioned(_promotion_gate_snapshot(ontology.action_types)),
         CAPABILITY_LIST_KEY: _revisioned(_capability_snapshot()),
@@ -413,6 +424,7 @@ def _mcsb_snapshot(catalogs: Sequence[McsbCatalog]) -> dict[str, object]:
 def _wara_snapshot(
     framework: Any,
     assessment: WaraAssessmentCatalog,
+    evaluator_bindings: WaraEvaluatorBindingCatalog,
 ) -> dict[str, object]:
     crosswalk = {item.aprl_guid: item for item in assessment.recommendations}
     controls: list[dict[str, object]] = []
@@ -422,17 +434,24 @@ def _wara_snapshot(
         if metadata is None:
             continue
         mapping = crosswalk.get(control.id)
+        query_review = mapping.query_review if mapping is not None else None
+        evaluator_binding = (
+            evaluator_bindings.resolve(control.id, query_review.body_digest)
+            if query_review is not None
+            else None
+        )
         limitations = (
             ["disabled_catalog_history"]
             if metadata.state == "Disabled"
             else ["manual_evidence_required"]
             if mapping is not None and mapping.manual_evidence is not None
-            else sorted(mapping.query_review.blocked_reasons)
-            if mapping is not None and mapping.query_review is not None
+            else ["not_evaluated"]
+            if evaluator_binding is not None
+            else sorted(query_review.blocked_reasons)
+            if query_review is not None
             else ["crosswalk_missing"]
         )
         manual_evidence = mapping.manual_evidence if mapping is not None else None
-        query_review = mapping.query_review if mapping is not None else None
         controls.append(
             {
                 "id": control.id,
@@ -469,7 +488,13 @@ def _wara_snapshot(
                     str(metadata.learn_more_url) if metadata.learn_more_url is not None else None
                 ),
                 "query_digest": metadata.query_digest,
-                "evaluator_ref": query_review.evaluator_ref if query_review is not None else None,
+                "evaluator_ref": (
+                    evaluator_binding.evaluator_ref
+                    if evaluator_binding is not None
+                    else query_review.evaluator_ref
+                    if query_review is not None
+                    else None
+                ),
                 "manual_evidence": (
                     {
                         "kind": manual_evidence.kind,

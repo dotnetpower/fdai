@@ -18,9 +18,13 @@ from fdai.rule_catalog.schema.wara_assessment import (
     WaraRecommendationCrosswalk,
     canonical_digest,
 )
+from fdai.rule_catalog.schema.wara_evaluator_binding import (
+    WaraEvaluatorBinding,
+    WaraEvaluatorBindingCatalog,
+)
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.state_store import StateStore
-from fdai.shared.providers.wara_assessment import WaraReadPlan
+from fdai.shared.providers.wara_assessment import WaraObservationReceipt, WaraReadPlan
 
 
 class WaraApplicabilityStatus(StrEnum):
@@ -104,6 +108,7 @@ class WaraAssessmentRequest:
     resources: tuple[WaraScopedResource, ...]
     evaluated_at: datetime
     recorded_at: datetime
+    evaluator_bindings_digest: str | None = None
     evidence: tuple[WaraEvidenceReceipt, ...] = ()
 
     def __post_init__(self) -> None:
@@ -128,6 +133,11 @@ class WaraAssessmentRequest:
             raise ValueError("WARA assessment timestamps MUST be timezone-aware")
         if self.recorded_at < self.evaluated_at:
             raise ValueError("WARA assessment recorded_at MUST follow evaluated_at")
+        if (
+            self.evaluator_bindings_digest is not None
+            and re.fullmatch(r"sha256:[a-f0-9]{64}", self.evaluator_bindings_digest) is None
+        ):
+            raise ValueError("WARA evaluator bindings digest MUST be lowercase SHA-256")
 
     @property
     def scope_digest(self) -> str:
@@ -181,6 +191,7 @@ class WaraAssessmentResult:
     execution_authority: bool
     framework_revision: str
     crosswalk_digest: str
+    evaluator_bindings_digest: str | None
     ontology_release: str
     inventory_generation: str
     workload_id: str
@@ -207,6 +218,8 @@ class WaraAssessmentResult:
             "controls": [item.to_dict() for item in self.controls],
             "aggregate_counts": dict(sorted(self.aggregate_counts.items())),
         }
+        if self.evaluator_bindings_digest is not None:
+            value["evaluator_bindings_digest"] = self.evaluator_bindings_digest
         if include_digest:
             value["result_digest"] = self.result_digest
         return value
@@ -215,14 +228,31 @@ class WaraAssessmentResult:
 class WaraAssessmentRuntime:
     """Evaluate the conservative crosswalk without I/O or execution authority."""
 
-    def __init__(self, catalog: WaraAssessmentCatalog) -> None:
+    def __init__(
+        self,
+        catalog: WaraAssessmentCatalog,
+        evaluator_bindings: WaraEvaluatorBindingCatalog | None = None,
+    ) -> None:
+        if evaluator_bindings is not None and (
+            evaluator_bindings.source_revision != catalog.source_revision
+            or evaluator_bindings.crosswalk_digest != catalog.crosswalk_digest
+        ):
+            raise ValueError("WARA evaluator bindings do not match the assessment catalog")
         self._catalog = catalog
+        self._evaluator_bindings = evaluator_bindings
 
     def assess(self, request: WaraAssessmentRequest) -> WaraAssessmentResult:
         if request.framework_revision != self._catalog.source_revision:
             raise ValueError("WARA assessment framework revision mismatch")
         if request.crosswalk_digest != self._catalog.crosswalk_digest:
             raise ValueError("WARA assessment crosswalk digest mismatch")
+        expected_bindings_digest = (
+            self._evaluator_bindings.overlay_digest
+            if self._evaluator_bindings is not None
+            else None
+        )
+        if request.evaluator_bindings_digest != expected_bindings_digest:
+            raise ValueError("WARA assessment evaluator bindings digest mismatch")
         evidence_by_id = _index_evidence(request.evidence)
         controls = tuple(
             self._evaluate_control(record, request, evidence_by_id.get(record.aprl_guid, ()))
@@ -261,8 +291,11 @@ class WaraAssessmentRuntime:
             "controls": [item.to_dict() for item in controls],
             "aggregate_counts": dict(sorted(counts.items())),
         }
+        if request.evaluator_bindings_digest is not None:
+            digest_material["evaluator_bindings_digest"] = request.evaluator_bindings_digest
         return WaraAssessmentResult(
             **material,
+            evaluator_bindings_digest=request.evaluator_bindings_digest,
             result_digest=canonical_digest(digest_material),
         )
 
@@ -274,6 +307,8 @@ class WaraAssessmentRuntime:
     ) -> WaraControlResult:
         limitations: list[str] = []
         mapping = record.applicability
+        binding = _binding_for(record, self._evaluator_bindings)
+        evaluator_ref, blocked_reasons = _resolved_query_evaluator(record, binding)
         matching = tuple(
             resource
             for resource in request.resources
@@ -284,16 +319,17 @@ class WaraAssessmentRuntime:
             limitations.append("unsupported_resource_type")
         if not matching:
             limitations.append("scope_not_observed")
-        if record.disposition is WaraDisposition.AMBIGUOUS_OR_BLOCKED:
+        query_admitted = _query_is_admitted(record, binding, evaluator_ref, blocked_reasons)
+        if record.disposition is WaraDisposition.AMBIGUOUS_OR_BLOCKED and not query_admitted:
             limitations.append("crosswalk_blocked")
             if record.query_review is not None:
-                limitations.extend(record.query_review.blocked_reasons)
+                limitations.extend(blocked_reasons)
         applicability = (
             WaraApplicabilityStatus.APPLICABLE
             if matching and mapping.disposition is ResourceTypeDisposition.CANONICAL
             else WaraApplicabilityStatus.UNKNOWN
         )
-        if record.disposition is WaraDisposition.AMBIGUOUS_OR_BLOCKED:
+        if record.disposition is WaraDisposition.AMBIGUOUS_OR_BLOCKED and not query_admitted:
             return _control_result(
                 record,
                 applicability,
@@ -313,7 +349,9 @@ class WaraAssessmentRuntime:
                 limitations,
             )
         admitted = tuple(
-            receipt for receipt in evidence if _receipt_admitted(receipt, request, record)
+            receipt
+            for receipt in evidence
+            if _receipt_admitted(receipt, request, record, evaluator_ref=evaluator_ref)
         )
         if not admitted:
             limitations.append("evidence_unavailable_or_inadmissible")
@@ -325,6 +363,7 @@ class WaraAssessmentRuntime:
                 evidence,
                 limitations,
             )
+
         outcomes = {item.outcome for item in admitted}
         if outcomes == {WaraSatisfactionStatus.NOT_APPLICABLE}:
             applicability = WaraApplicabilityStatus.NOT_APPLICABLE
@@ -342,6 +381,19 @@ class WaraAssessmentRuntime:
             satisfaction,
             admitted,
             limitations,
+        )
+
+    def build_read_plan(
+        self,
+        record: WaraRecommendationCrosswalk,
+        request: WaraAssessmentRequest,
+    ) -> WaraReadPlan:
+        """Build one plan using this runtime's pinned evaluator overlay."""
+
+        return build_wara_read_plan(
+            record,
+            request,
+            evaluator_bindings=self._evaluator_bindings,
         )
 
 
@@ -392,17 +444,25 @@ def replay_wara_assessment(
 def build_wara_read_plan(
     record: WaraRecommendationCrosswalk,
     request: WaraAssessmentRequest,
+    *,
+    evaluator_bindings: WaraEvaluatorBindingCatalog | None = None,
 ) -> WaraReadPlan:
     """Normalize one reviewed external query into an exact bounded read plan."""
 
     review = record.query_review
+    binding = _binding_for(record, evaluator_bindings)
+    evaluator_ref, blocked_reasons = _resolved_query_evaluator(record, binding)
+    expected_bindings_digest = (
+        evaluator_bindings.overlay_digest if evaluator_bindings is not None else None
+    )
+    if request.evaluator_bindings_digest != expected_bindings_digest:
+        raise ValueError("WARA read plan evaluator bindings digest mismatch")
     if (
         review is None
         or review.safety_classification is not QuerySafetyClassification.READ_ONLY_BOUNDED
-        or review.evaluator_ref is None
-        or review.blocked_reasons
-        or record.disposition
-        not in {WaraDisposition.EXISTING_RULE, WaraDisposition.NEW_RULE_CANDIDATE}
+        or evaluator_ref is None
+        or blocked_reasons
+        or not _query_is_admitted(record, binding, evaluator_ref, blocked_reasons)
     ):
         raise ValueError("WARA recommendation has no admitted read-only query")
     matching = tuple(
@@ -419,6 +479,18 @@ def build_wara_read_plan(
     return WaraReadPlan(
         recommendation_id=record.aprl_guid,
         query_digest=review.body_digest,
+        evaluator_ref=evaluator_ref,
+        evaluator_bindings_digest=(
+            evaluator_bindings.overlay_digest
+            if evaluator_bindings is not None
+            else canonical_digest(
+                {
+                    "aprl_guid": record.aprl_guid,
+                    "evaluator_ref": evaluator_ref,
+                    "query_digest": review.body_digest,
+                }
+            )
+        ),
         workload_id=request.workload_id,
         resource_ids=matching,
         provider_resource_types=(record.applicability.normalized_provider_type,),
@@ -427,6 +499,93 @@ def build_wara_read_plan(
         timeout_seconds=review.timeout_seconds,
         evidence_freshness_ceiling_seconds=(review.evidence_freshness_ceiling_seconds),
     )
+
+
+def wara_observation_to_evidence(
+    plan: WaraReadPlan,
+    receipt: WaraObservationReceipt,
+    request: WaraAssessmentRequest,
+) -> WaraEvidenceReceipt:
+    """Convert one exact provider receipt into runtime-admissible evidence."""
+
+    if (
+        receipt.recommendation_id != plan.recommendation_id
+        or receipt.query_digest != plan.query_digest
+        or receipt.evaluator_ref != plan.evaluator_ref
+        or receipt.evaluator_bindings_digest != plan.evaluator_bindings_digest
+        or receipt.workload_id != plan.workload_id
+        or receipt.resource_ids != plan.resource_ids
+        or receipt.inventory_generation != plan.inventory_generation
+    ):
+        raise ValueError("WARA observation receipt does not match the read plan")
+    if receipt.satisfied is None:
+        raise ValueError("WARA observation receipt has no deterministic evaluator outcome")
+    return WaraEvidenceReceipt(
+        recommendation_id=receipt.recommendation_id,
+        evidence_ref=f"wara-observation:{receipt.evidence_digest.removeprefix('sha256:')}",
+        evidence_kind="provider_observation",
+        producer=receipt.evaluator_ref,
+        scope_digest=request.scope_digest,
+        source_revision=request.framework_revision,
+        inventory_generation=receipt.inventory_generation,
+        observed_at=receipt.observed_at,
+        recorded_at=receipt.recorded_at,
+        evidence_digest=receipt.evidence_digest,
+        freshness_ceiling_seconds=plan.evidence_freshness_ceiling_seconds,
+        complete=receipt.complete,
+        truncated=receipt.truncated,
+        conflicting=receipt.conflicting,
+        synthetic=receipt.synthetic,
+        provider_error=None,
+        outcome=(
+            WaraSatisfactionStatus.SATISFIED if receipt.satisfied else WaraSatisfactionStatus.FAILED
+        ),
+    )
+
+
+def _binding_for(
+    record: WaraRecommendationCrosswalk,
+    evaluator_bindings: WaraEvaluatorBindingCatalog | None,
+) -> WaraEvaluatorBinding | None:
+    review = record.query_review
+    if evaluator_bindings is None or review is None:
+        return None
+    return evaluator_bindings.resolve(record.aprl_guid, review.body_digest)
+
+
+def _resolved_query_evaluator(
+    record: WaraRecommendationCrosswalk,
+    binding: WaraEvaluatorBinding | None,
+) -> tuple[str | None, tuple[str, ...]]:
+    review = record.query_review
+    if review is None:
+        return None, ()
+    evaluator_ref = review.evaluator_ref
+    blocked_reasons = set(review.blocked_reasons)
+    if binding is not None:
+        evaluator_ref = binding.evaluator_ref
+        blocked_reasons.discard("missing_exact_evaluator")
+    return evaluator_ref, tuple(sorted(blocked_reasons))
+
+
+def _query_is_admitted(
+    record: WaraRecommendationCrosswalk,
+    binding: WaraEvaluatorBinding | None,
+    evaluator_ref: str | None,
+    blocked_reasons: tuple[str, ...],
+) -> bool:
+    review = record.query_review
+    if (
+        review is None
+        or review.safety_classification is not QuerySafetyClassification.READ_ONLY_BOUNDED
+        or evaluator_ref is None
+        or blocked_reasons
+    ):
+        return False
+    return record.disposition in {
+        WaraDisposition.EXISTING_RULE,
+        WaraDisposition.NEW_RULE_CANDIDATE,
+    } or (binding is not None and record.disposition is WaraDisposition.AMBIGUOUS_OR_BLOCKED)
 
 
 def _index_evidence(
@@ -450,6 +609,8 @@ def _receipt_admitted(
     receipt: WaraEvidenceReceipt,
     request: WaraAssessmentRequest,
     record: WaraRecommendationCrosswalk,
+    *,
+    evaluator_ref: str | None,
 ) -> bool:
     if (
         receipt.recommendation_id != record.aprl_guid
@@ -476,11 +637,11 @@ def _receipt_admitted(
         freshness_ceiling_seconds = requirement.freshness_ceiling_seconds
     else:
         review = record.query_review
-        if review is None or review.evaluator_ref is None:
+        if review is None or evaluator_ref is None:
             return False
         if (
             receipt.evidence_kind != "provider_observation"
-            or receipt.producer != review.evaluator_ref
+            or receipt.producer != evaluator_ref
             or receipt.freshness_ceiling_seconds != review.evidence_freshness_ceiling_seconds
         ):
             return False
@@ -534,4 +695,5 @@ __all__ = [
     "WaraScopedResource",
     "build_wara_read_plan",
     "replay_wara_assessment",
+    "wara_observation_to_evidence",
 ]

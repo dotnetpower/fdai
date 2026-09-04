@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0.0",
+  "source_revision": "1f421a90c157bc8894b3a47b05ba08b8650a0bd5",
+  "crosswalk_digest": "sha256:f35d85799f01eefa91882094725509b11594f19c32df2660037775eacdc5a661",
+  "bindings": [
+    {
+      "aprl_guid": "03f4a7d8-c5b4-7842-8e6e-14997a34842b",
+      "query_digest": "sha256:25ed0dbc4c75cdaa5c3ababa58090820e4cfe43aec9064a99694a4840924a8e2",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact"
+    },
+    {
+      "aprl_guid": "10f02bc6-e2e7-004d-a2c2-f9bf9f16b915",
+      "query_digest": "sha256:38b6075025ab516214a87e0e5fcdc5024b2971cd1e221c899e6fc9ef7caf4642",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact"
+    },
+    {
+      "aprl_guid": "122d11d7-b91f-8747-a562-f56b79bcfbdc",
+      "query_digest": "sha256:db9c334a03dce541b06868813b4b222a9d7d36af214f16ffc735bb4abcd3e012",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact"
+    }
+  ],
+  "overlay_digest": "sha256:060e5d393a3597786d0e084b7598e8f419021995f94a97f3b30b2b5a993fc75c"
+}

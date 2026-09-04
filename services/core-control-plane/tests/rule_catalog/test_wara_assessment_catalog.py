@@ -12,11 +12,16 @@ from fdai.rule_catalog.schema.wara_assessment import (
     classify_wara_query,
     load_wara_assessment_catalog,
 )
+from fdai.rule_catalog.schema.wara_evaluator_binding import (
+    WaraEvaluatorSemantics,
+    load_wara_evaluator_bindings,
+)
 
 ROOT = Path(__file__).resolve().parents[4]
 CATALOG = ROOT / "rule-catalog"
 CROSSWALK = CATALOG / "collected/wara-aprl/assessment/crosswalk.json"
 QUERIES = CATALOG / "collected/wara-aprl/assessment/queries.json"
+EVALUATOR_BINDINGS = CATALOG / "collected/wara-aprl/assessment/evaluator-bindings.json"
 
 
 def _load():
@@ -53,6 +58,52 @@ def test_crosswalk_exactly_accounts_for_pinned_wara_inventory() -> None:
     )
     assert len(catalog.umbrella_relations) == 13
     assert all(not item.semantic_equivalence for item in catalog.umbrella_relations)
+
+
+def test_exact_evaluator_overlay_is_pinned_to_generated_catalog() -> None:
+    catalog, queries = _load()
+    overlay = load_wara_evaluator_bindings(
+        EVALUATOR_BINDINGS,
+        catalog=catalog,
+        queries=queries,
+    )
+
+    assert len(overlay.bindings) == 3
+    assert all(
+        binding.semantics is WaraEvaluatorSemantics.MATCHING_ROWS_FAILED
+        for binding in overlay.bindings
+    )
+    records = {record.aprl_guid: record for record in catalog.recommendations}
+    for binding in overlay.bindings:
+        review = records[binding.aprl_guid].query_review
+        assert review is not None
+        assert review.body_digest == binding.query_digest
+        assert review.blocked_reasons == ("missing_exact_evaluator",)
+
+
+def test_exact_evaluator_overlay_digest_drift_fails_closed(tmp_path: Path) -> None:
+    catalog, queries = _load()
+    raw = json.loads(EVALUATOR_BINDINGS.read_text(encoding="utf-8"))
+    raw["bindings"][0]["query_digest"] = "sha256:" + "0" * 64
+    tampered = tmp_path / "evaluator-bindings.json"
+    tampered.write_text(json.dumps(raw), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="overlay digest mismatch"):
+        load_wara_evaluator_bindings(tampered, catalog=catalog, queries=queries)
+
+
+def test_exact_evaluator_overlay_query_drift_fails_closed(tmp_path: Path) -> None:
+    catalog, queries = _load()
+    raw = json.loads(EVALUATOR_BINDINGS.read_text(encoding="utf-8"))
+    raw["bindings"][0]["query_digest"] = "sha256:" + "0" * 64
+    raw["overlay_digest"] = canonical_digest(
+        {key: value for key, value in raw.items() if key != "overlay_digest"}
+    )
+    tampered = tmp_path / "evaluator-bindings.json"
+    tampered.write_text(json.dumps(raw), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="query digest mismatch"):
+        load_wara_evaluator_bindings(tampered, catalog=catalog, queries=queries)
 
 
 def test_resource_types_are_reviewed_without_broadening_ambiguous_identity() -> None:

@@ -161,12 +161,25 @@ The output is an inert review package. It cannot change active mappings, evaluat
 assessment authority. Collection or validation failure preserves the last valid generation and
 records an explicit failure.
 
+## Exact evaluator overlay and Azure observation
+
+The generated source crosswalk stays immutable. A separate content-addressed evaluator overlay
+binds a reviewed APRL GUID and exact query digest to one deterministic evaluator. The loader rejects
+source, crosswalk, query, safety, resource-type, or blocker drift before the binding can remove
+`missing_exact_evaluator`.
+
+The first overlay binds three read-only queries whose reviewed semantics are "matching rows are
+failures." The Azure Resource Graph adapter adds the exact resource-id allowlist and row bound to
+the pinned query, accepts only approved Azure management hosts and audiences, rejects out-of-scope
+or truncated rows, and records a deterministic evidence digest. Zero matching rows mean satisfied;
+one or more matching rows mean failed. Both remain shadow observations without execution authority.
+
 ## Validation and release boundary
 
-Focused checks cover schema, importer parity, crosswalk accounting, query safety, manual evidence,
-runtime failure cases, replay, ontology invariants, Operator API decoding, Console localization,
-and deterministic update diffs. Full-catalog validation proves the pinned inputs and derived
-artifacts agree.
+Focused checks cover schema, importer parity, crosswalk accounting, evaluator-overlay identity,
+query safety, exact scope and endpoint enforcement, manual evidence, runtime failure cases, replay,
+ontology invariants, Operator API decoding, Console localization, and deterministic update diffs.
+Full-catalog validation proves the pinned inputs and derived artifacts agree.
 
 Local and synthetic checks can establish `implemented`. `validated` requires a governed live-Azure
 shadow receipt for a representative multi-resource workload. That separate operation needs explicit

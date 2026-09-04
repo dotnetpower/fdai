@@ -156,6 +156,10 @@ Governed RCA document evidence uses a separate adapter and gatherer over the exi
 OperationalEvidenceBundle contract. It rechecks current document authorization and revision after
 collection-scoped search, emits only opaque citations, and cannot fall back to the unscoped
 KnowledgeSource when governed evidence is unavailable.
+WARA assessment now layers an exact evaluator-binding catalog over the immutable generated
+crosswalk. The Azure delivery adapter accepts only approved management token targets and exact ARM
+resource scopes, and carries the overlay digest through read-plan, observation, evidence, result,
+and replay identities.
 
 | Area | Responsibility | Source | Tests |
 |------|----------------|--------|-------|
