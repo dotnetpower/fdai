@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: f83b5314ff816b22b857e1d7873a5b94dbaa9889
+translation_source_sha: 57cacb1e26b45e703ac27dd4c8e2d3dc9da81a02
 translation_revised: 2026-09-04
 ---
 # 콘솔 근거 및 복원력
@@ -49,12 +49,10 @@ desktop 한 행에 6개씩 배치하며 attention priority와 최신 관찰 순�
 에이전트 작업 영역은 `Fleet`, `조직` 및 `활동`의 세 가지 간결한 화면을 사용합니다. Fleet은
 실시간 런타임 상태와 고정 레지스트리 소유권 및 안전성 플래그를 에이전트별 상세 공개에 함께
 표시합니다. 조직 화면은 keyboard-accessible 보고 체계와 선택된 인시던트 근거를 렌더링합니다.
-기존 링크가 계속 동작하도록 고정된 `/pantheon` 경로는 조직 compatibility 경로로 유지하고,
-탐색에는 별도의 Pantheon 디렉터리를 두지 않습니다. 에이전트 감독은 운영 담당 체계와 통제된 제안 작업 흐름을 다루는 거버넌스 패널이며 `/agent-oversight`를 사용합니다.
-이전 `/handover` 경로는 compatibility 별칭으로 유지합니다. [사용자-에이전트 할당 및 지식 이전](human-agent-assignment-and-knowledge-handover-ko.md#현재-담당자-읽기-모델-및-console)이
-통합 현재 담당자 계약을 소유합니다.
-정상 경로 탐색은 창과 셸이 소유한 기본 콘텐츠 스크롤을 모두 초기화합니다. 따라서 긴 현재 담당자
-또는 업무 인수인계 화면에서 다음 경로를 열 때 이전 세로 위치가 남지 않습니다.
+고정된 `/pantheon` 경로는 조직 compatibility 경로로 유지하고, 에이전트 감독은 `/agent-oversight`의 Governance 패널로 유지합니다.
+이전 `/handover` 경로는 compatibility 별칭입니다. [사용자-에이전트 할당 및 지식 이전](human-agent-assignment-and-knowledge-handover-ko.md#현재-담당자-읽기-모델-및-console)이 통합 현재 담당자 계약을 소유합니다.
+정상 경로 탐색은 창과 셸이 소유한 기본 콘텐츠 스크롤을 모두 초기화하므로 긴 현재 담당자 또는 업무
+인수인계 화면에서 다음 경로를 열 때 이전 세로 위치가 남지 않습니다.
 다섯 화면은 개요, 사람 의존성, 지식 인수인계, 승인 경로, 매핑 검토입니다. 개요와 사람 의존성은
 엄격한 `GET /stewardship` 프로젝션을 사용합니다. 매핑 검토는 Owner 게이트가 적용된
 `GET /iam/assignments` 프로젝션을 재사용하며 기능과 principal은 `GET /iam`에서만 가져옵니다.

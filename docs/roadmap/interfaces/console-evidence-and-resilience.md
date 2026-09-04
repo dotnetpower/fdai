@@ -38,12 +38,10 @@ autonomy, risk, impact, or SLA remains `Not observed` and is never inferred in t
 The Agents workspace uses three compact views: `Fleet`, `Org`, and `Activity`. Fleet combines live
 runtime state with the fixed registry ownership and safety flags inside per-agent Details
 disclosures. Org renders the keyboard-accessible reporting chart and selected incident evidence.
-The stable `/pantheon` path remains a compatibility route for Org, so existing links continue to resolve without keeping a second Pantheon directory in navigation.
-Agent oversight is a Governance panel at `/agent-oversight` because operational ownership and its governed proposal workflow are governance concerns.
-The previous `/handover` path remains a compatibility alias. [Human-Agent Assignment and Knowledge Transfer](human-agent-assignment-and-knowledge-handover.md#current-owners-read-model-and-console)
-owns the joined Current owners contract.
-Clean route navigation resets both the window and the shell-owned primary content scroller, so a
-long Current owners or work-handover page never opens the next route at a stale vertical position.
+The stable `/pantheon` path remains a compatibility route for Org, and Agent oversight remains the Governance panel at `/agent-oversight`.
+The previous `/handover` path remains a compatibility alias. [Human-Agent Assignment and Knowledge Transfer](human-agent-assignment-and-knowledge-handover.md#current-owners-read-model-and-console) owns the joined Current owners contract.
+Clean route navigation resets both the window and the shell-owned primary content scroller, so a long
+Current owners or work-handover page never opens the next route at a stale vertical position.
 Its five views are Overview, Human dependencies, Knowledge handover, Approval routes, and Mapping
 reviews. Overview and Human dependencies use the strict `GET /stewardship` projection. Mapping
 reviews reuses the owner-gated `GET /iam/assignments` projection and derives its capability and
